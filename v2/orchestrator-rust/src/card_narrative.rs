@@ -36,6 +36,8 @@ mod custody;
 mod dream;
 #[path = "card_narrative/expression.rs"]
 mod expression;
+#[path = "card_narrative/framing.rs"]
+mod framing;
 #[path = "card_narrative/grounding.rs"]
 mod grounding;
 use grounding::{dialogue_tag, first_person, grounded, invents_item};
@@ -81,8 +83,17 @@ const PER_HOUR: RateLimit = RateLimit {
     max_hits: 1200,
     window: Duration::from_secs(3600),
 };
-/// Model requests in flight across all clients.
-const TOTAL_CONCURRENCY: usize = 2;
+/// Model requests in flight across all clients. Scenes wait on the provider,
+/// not the CPU, and the hourly budgets above bound spend, so four slots on
+/// the one Fly machine cost no more than two did while turning fewer
+/// simultaneous players away (#2016).
+const TOTAL_CONCURRENCY: usize = 4;
+/// Reflections keep their own two slots: they never delay a line.
+const REFLECTION_CONCURRENCY: usize = 2;
+/// A full server or this client's own unfinished scene clears in seconds, so
+/// the client may retry once its short Retry-After passes. The minute and
+/// hour limits keep the long one.
+const BUSY_RETRY_AFTER: &str = "1";
 /// Model requests in flight per client. A client's play waits on its own
 /// story text, so one is enough, and it leaves the remaining capacity for
 /// other players.
@@ -312,7 +323,7 @@ fn router_with_models<S: Clone + Send + Sync + 'static>(
             background: Arc::new(reflections::Queue::new(
                 settings
                     .as_ref()
-                    .map_or(1, |s| s.parallel.clamp(1, TOTAL_CONCURRENCY)),
+                    .map_or(1, |s| s.parallel.clamp(1, REFLECTION_CONCURRENCY)),
             )),
             settings: Arc::new(settings),
         })
@@ -713,9 +724,15 @@ fn valid_outcome(outcome: &TurnOutcome) -> bool {
 // Restate the resolved action and each trip for every voice, including places.
 // The model can then keep a character's style while following the player's play.
 fn error(status: StatusCode, message: &str) -> Response {
+    refusal(status, message, "10")
+}
+fn busy(message: &str) -> Response {
+    refusal(StatusCode::TOO_MANY_REQUESTS, message, BUSY_RETRY_AFTER)
+}
+fn refusal(status: StatusCode, message: &str, retry_after: &str) -> Response {
     (
         status,
-        [("cache-control", "no-store"), ("retry-after", "10")],
+        [("cache-control", "no-store"), ("retry-after", retry_after)],
         Json(json!({"error": message})),
     )
         .into_response()
@@ -795,10 +812,7 @@ async fn generate(
     // another client waits, nor spend the server's time on text matching.
     let client = peer.ip();
     let Some(_client_slot) = state.in_flight.try_enter(client, PER_CLIENT_CONCURRENCY) else {
-        return error(
-            StatusCode::TOO_MANY_REQUESTS,
-            "Your last story is still being written.",
-        );
+        return busy("Your last story is still being written.");
     };
     {
         let Ok(mut limits) = state.limits.lock() else {
@@ -836,7 +850,7 @@ async fn generate(
         );
     };
     let Ok(_permit) = state.capacity.clone().try_acquire_owned() else {
-        return error(StatusCode::TOO_MANY_REQUESTS, "The story service is busy.");
+        return busy("The story service is busy.");
     };
     // Only an admitted scene replaces this client's queued reflections: a
     // refused request must not cancel work, and other clients keep theirs.
@@ -1938,6 +1952,8 @@ fn recent_own_lines(context: &Context, entity: &Entity) -> Vec<String> {
     lines.split_off(start)
 }
 
+const RETRY: &str = "My next words are fresh and describe this moment.";
+
 /// A rejected reply gets fresh wording grounded in the scene.
 fn attempt_transcript(context: &Context, entity: &Entity, part: Part, attempt: u8) -> String {
     let prompt = transcript(context, entity, part);
@@ -1951,7 +1967,7 @@ fn attempt_transcript(context: &Context, entity: &Entity, part: Part, attempt: u
     let current = prompt
         .split_once("Current scene:\n")
         .map_or(prompt.as_str(), |(_, scene)| scene);
-    format!("My next words are fresh and describe this moment.\n\nCurrent scene:\n{current}")
+    format!("{RETRY}\n\nCurrent scene:\n{current}")
 }
 
 /// The transcript tag the reply continues from.
@@ -2104,6 +2120,8 @@ async fn speak(
         voice_metrics::Budget::measure(&system, context, entity, part),
     )
     .labelled(context);
+    // Why the last attempt was refused, so the retry can be told.
+    let refused = Mutex::new(None::<&'static str>);
     let spoken = voice_attempts(
         settings,
         deadline,
@@ -2114,8 +2132,17 @@ async fn speak(
             } else {
                 &own
             };
-            let (system, user) = messages(context, entity, part, attempt);
-            let check = &check;
+            let fix = refused
+                .lock()
+                .ok()
+                .and_then(|r| *r)
+                .and_then(framing::correction);
+            let (mut system, user) = messages(context, entity, part, attempt);
+            // A retry ends with the short correction for the last block.
+            if let Some(fix) = fix {
+                system = [system.as_str(), fix].join("\n\n").trim().to_string();
+            }
+            let (check, refused) = (&check, &refused);
             let call = &call;
             call.attempt();
             async move {
@@ -2157,14 +2184,30 @@ async fn speak(
                 // (owner, 2026-11-02): the fact stays for another Talk and
                 // never costs an attempt. The rules' own check decides
                 // whether a published line taught it.
-                let told = check.clean(&completion.text, finished);
+                let told = check.verdict(&completion.text, finished, true);
                 let untold = matches!(told, Err("knowledge_fact"));
                 told.or_else(|reason| match reason {
-                    "knowledge_fact" => check.untold(&completion.text, finished),
+                    "knowledge_fact" => check.verdict(&completion.text, finished, false),
                     _ => Err(reason),
                 })
-                .map(|text| (text, completion.resolved_model_id.clone(), untold))
+                .map(|(text, flags)| {
+                    if !flags.is_empty() {
+                        tracing::info!(
+                            feature = "card_voice",
+                            entity = id,
+                            attempt = attempt + 1,
+                            outcome = "flagged",
+                            reasons = %flags.join(","),
+                            excerpt = %excerpt(&text),
+                            "card voice flagged"
+                        );
+                    }
+                    (text, completion.resolved_model_id.clone(), untold)
+                })
                 .map_err(|reason| {
+                    if let Ok(mut last) = refused.lock() {
+                        *last = Some(reason);
+                    }
                     call.reject(reason);
                     tracing::info!(
                         feature = "card_voice",
@@ -2235,69 +2278,6 @@ fn excerpt(text: &str) -> String {
     short
 }
 
-/// Phrases that belong to an assistant, not to anyone at this table. The
-/// second group was collected from forty small models answering the real
-/// transcript on 2026-10-23: a model that analyses the scene instead of
-/// speaking in it opens with these.
-const ASSISTANT_SPEAK: &[&str] = &[
-    "as an ai",
-    "language model",
-    "i'm here to help",
-    "i am here to help",
-    "how can i assist",
-    "certainly!",
-    "i cannot",
-    "i can't help",
-    "prompt",
-    "the user",
-    "roleplay",
-    "role-play",
-    "in character",
-    "it seems",
-    "it appears",
-    "it looks like you",
-    "here is the",
-    "here's the",
-    "here is a",
-    "here's a",
-    "let's break",
-    "let's analy",
-    "let's build on",
-    "let's flesh",
-    "let's solidif",
-    "let's navigate",
-    "let's dive",
-    "let's continue",
-    "let's play this out",
-    "okay, let",
-    "okay, this",
-    "continue the",
-    "continue this",
-    "scenario",
-    "narrative",
-    "continuation",
-    "breakdown",
-    "text-based",
-    "choose-your-own",
-    "short story",
-    "what do you do?",
-    "to do next",
-    "or something else?",
-    "dialogue scene",
-    "i'd be delighted",
-    "i'll do my best",
-    "i can help",
-    "i can provide",
-    "i'll provide",
-    "this scene",
-    "the scene",
-    "your character",
-    "your objective",
-    "in this setting",
-    "sure thing",
-    "of course!",
-];
-
 /// What a reply is checked against before it is published.
 struct Check<'a> {
     expression: expression::Mode,
@@ -2307,10 +2287,9 @@ struct Check<'a> {
     limit: usize,
     sentences: usize,
     known: BTreeSet<String>,
-    /// The transcript's own lines (scene, awareness, recent talk), minus the
-    /// entity's authored lines and cue. A reply that repeats a run of them,
-    /// or one of their labels ("I remember:", "Holding:"), is a read-back of
-    /// the brief, not speech.
+    /// The prompt's instructions (`framing::instructions`). A reply that
+    /// repeats a run of them, or one of the transcript's labels ("I
+    /// remember:", "Holding:"), is a read-back of the brief, not speech.
     brief: Vec<String>,
     labels: Vec<String>,
     /// The speaker's last three lines, from memory; never in the prompt.
@@ -2335,9 +2314,9 @@ impl<'a> Check<'a> {
             .filter(|line| !line.is_empty() && !line.starts_with(&format!("{own}:")))
             .map(str::to_string)
             .collect();
-        // A conversation turn's facts, scene and talk are background the
-        // speaker may say in its own words (#2016). Only the scaffold's
-        // labels and its instructions about the reply are a read-back.
+        // Facts, scene, memories and talk are background the speaker may
+        // say in its own words (#2016). Only the scaffold's labels and its
+        // instructions about the reply are a read-back.
         let chatting = conversation::applies(context, entity, part);
         let labels = prompt
             .iter()
@@ -2361,11 +2340,7 @@ impl<'a> Check<'a> {
             limit,
             sentences,
             known: known(context),
-            brief: if chatting {
-                conversation::meta(entity)
-            } else {
-                prompt
-            },
+            brief: framing::instructions(entity),
             labels,
             recent: recent_own_lines(context, entity),
             answered: if chatting {
@@ -2393,19 +2368,42 @@ impl<'a> Check<'a> {
     /// Reduce a plain reply to the words themselves, then reject it when it
     /// breaks shape, speaks as an assistant, names someone the scene does not
     /// know, copies an example, or repeats the play or a recent line.
+    /// Tests read each detector strictly: the first flag is an error here.
+    #[cfg(test)]
     fn clean(&self, raw: &str, finished: bool) -> Result<String, &'static str> {
-        self.checked(raw, finished, true)
+        self.strict(raw, finished, true)
     }
 
     /// The same checks without the fact. A reply that passes them may still
     /// be spoken, but it teaches nothing: the game counts a fact only when
     /// its own check finds the sentence in the published line.
+    #[cfg(test)]
     fn untold(&self, raw: &str, finished: bool) -> Result<String, &'static str> {
-        self.checked(raw, finished, false)
+        self.strict(raw, finished, false)
     }
 
-    fn checked(&self, raw: &str, finished: bool, tell: bool) -> Result<String, &'static str> {
+    #[cfg(test)]
+    fn strict(&self, raw: &str, finished: bool, tell: bool) -> Result<String, &'static str> {
+        let (text, flags) = self.verdict(raw, finished, tell)?;
+        flags.first().map_or(Ok(text), |flag| Err(*flag))
+    }
+
+    /// Flag by default (owner, 2026-11-03): system talk, leaks, broken
+    /// shape and false world claims block a reply. Style reasons publish
+    /// it as written and come back beside the text for the log, unretried.
+    fn verdict(
+        &self,
+        raw: &str,
+        finished: bool,
+        tell: bool,
+    ) -> Result<(String, Vec<&'static str>), &'static str> {
         let own = name(&self.entity.id);
+        let mut flags = Vec::new();
+        let mut flag = |on: bool, reason: &'static str| {
+            if on && !flags.contains(&reason) {
+                flags.push(reason);
+            }
+        };
         // Checked raw, then again once markup and spacing are cleaned away.
         if instruction::instructs(raw) {
             return Err("instruction");
@@ -2421,19 +2419,12 @@ impl<'a> Check<'a> {
             if !custody::consistent(&text, self.context, &self.entity.id) {
                 return Err("custody");
             }
-            if self.entity.previous.as_deref() == Some(text.as_str()) {
-                return Err("repeat");
-            }
-            for (id, profile) in profiles().as_object().expect("profiles") {
-                if profile["name"]
-                    .as_str()
-                    .is_some_and(|name| mentions(&text, name))
-                    && !self.known.contains(id)
-                {
-                    return Err("unknown entity");
-                }
-            }
-            return Ok(text);
+            flag(
+                self.entity.previous.as_deref() == Some(text.as_str()),
+                "repeat",
+            );
+            flag(self.names_unknown(&text), "unknown entity");
+            return Ok((text, flags));
         }
         let mut lines = raw.trim().lines().map(str::trim).filter(|l| !l.is_empty());
         let line = lines.next().ok_or("empty")?;
@@ -2530,17 +2521,15 @@ impl<'a> Check<'a> {
         // A finished, single-line imperative can stand without punctuation.
         // A continuation mark or a cut line needs a fresh complete reply.
         let continuation = text.ends_with([',', ':', ';', '-', '–', '—', '‐', '‑']);
-        if kept.is_empty()
-            && finished
-            && !cut_line
-            && !continuation
-            && text.split_whitespace().count() >= 2
-        {
+        if kept.is_empty() && finished && !continuation && bounded(text, self.limit) {
+            // Unpunctuated, one word, or a cut line: published, flagged.
+            flag(cut_line || text.split_whitespace().count() < 2, "shape");
             kept = text.trim_matches(quotes).to_string();
         }
-        if kind(&self.entity.id, "location") && !atmosphere::consistent(&kept, &self.entity.id) {
-            return Err("atmosphere");
-        }
+        flag(
+            kind(&self.entity.id, "location") && !atmosphere::consistent(&kept, &self.entity.id),
+            "atmosphere",
+        );
         if !bounded(&kept, self.limit) {
             return Err("shape");
         }
@@ -2560,15 +2549,10 @@ impl<'a> Check<'a> {
             return Err("story_outcome");
         }
         let lower = kept.to_lowercase();
-        if ASSISTANT_SPEAK.iter().any(|phrase| lower.contains(phrase)) {
+        if framing::assistant(&kept) {
             return Err("assistant");
         }
-        for (id, profile) in profiles().as_object().expect("profiles") {
-            let named = profile["name"].as_str().is_some_and(|n| mentions(&kept, n));
-            if named && !self.known.contains(id) {
-                return Err("unknown entity");
-            }
-        }
+        flag(self.names_unknown(&kept), "unknown entity");
         let normal = |s: &str| {
             s.chars()
                 .filter(|c| c.is_alphanumeric() || c.is_whitespace())
@@ -2588,12 +2572,14 @@ impl<'a> Check<'a> {
         };
         let key = words(&kept).concat();
         let sharing = freely_spoken != kept;
-        let repeats = key.is_empty()
-            || self
-                .context
-                .action
-                .as_deref()
-                .is_some_and(|a| words(a).concat() == key)
+        if key.is_empty() {
+            return Err("empty");
+        }
+        let repeats = self
+            .context
+            .action
+            .as_deref()
+            .is_some_and(|a| words(a).concat() == key)
             || self
                 .entity
                 .previous
@@ -2612,32 +2598,42 @@ impl<'a> Check<'a> {
             line.len() >= 4 && spoken.windows(line.len()).any(|run| run == line)
         };
         let repeats = repeats || self.answered.iter().any(restates);
-        let run = |line: &String| {
+        let runs = |line: &String, n: usize| {
             let line = words(line);
             spoken
-                .windows(6)
-                .any(|run| line.windows(6).any(|other| other == run))
+                .windows(n)
+                .any(|run| line.windows(n).any(|other| other == run))
         };
-        if (repeats && !sharing) || self.others.iter().any(run) {
-            return Err("repeat");
+        let run = |line: &String| runs(line, 6);
+        // A long verbatim run of the instructions is a prompt leak.
+        if self.brief.iter().any(|line| runs(line, 10)) {
+            return Err("echoed brief");
         }
+        flag(
+            (repeats && !sharing) || self.others.iter().any(&run),
+            "repeat",
+        );
+        let avatar = kind(&self.entity.id, "avatar");
         // A character speaks as "I"; a line that names its speaker in the
         // third person ("Vale's eyes flick to Pip") is narration.
-        if kind(&self.entity.id, "avatar") && mentions(&freely_spoken, &own) {
-            return Err("self-narration");
-        }
+        flag(
+            avatar && framing::narrates_self(&freely_spoken, &own),
+            "self-narration",
+        );
         // The stage shows the play; a line that narrates the speaker's own
         // deed ("I give the Lamp to Pip.") is a stage direction.
-        if kind(&self.entity.id, "avatar") && stage_action(&kept) {
-            return Err("stage action");
-        }
+        flag(avatar && stage_action(&kept), "stage action");
         // A line wrapped in its own dialogue tag (`hit you back," I say,
         // keeping my hand…`) leaves a stray quote or tags its speaker.
-        let marks = kept.matches(['"', '\u{201c}', '\u{201d}']).count();
-        if kind(&self.entity.id, "avatar") && (marks % 2 == 1 || dialogue_tag(&kept)) {
-            return Err("narration tag");
+        // A quote left open by our own sentence trim (`"Keep it lit," my
+        // mother told me`) is dropped; one the reply left open is not.
+        let marks = |s: &str| s.matches(['"', '\u{201c}', '\u{201d}']).count() % 2 == 1;
+        let tagged = dialogue_tag(&kept) || (marks(&kept) && marks(line));
+        flag(avatar && tagged, "narration tag");
+        if marks(&kept) && !tagged {
+            kept.retain(|c| !matches!(c, '"' | '\u{201c}' | '\u{201d}'));
         }
-        if self
+        let echoes = self
             .labels
             .iter()
             .any(|label| conversation::reads_label(&lower, label))
@@ -2645,22 +2641,26 @@ impl<'a> Check<'a> {
                 .iter()
                 .any(|phrase| lower.contains(phrase))
             || self.brief.iter().any(run)
-            || self.recital.iter().any(restates)
-        {
-            return Err("echoed brief");
-        }
+            || self.recital.iter().any(restates);
+        flag(echoes, "echoed brief");
         // Inner life is the avatar's own first person, about things the
         // scene knows: no narrator ("Myrto is a practical sort") and no
         // invented item ("my compass is ready") (#1850).
-        if self.part != Part::Line && kind(&self.entity.id, "avatar") {
-            if !first_person(&kept) {
-                return Err("third person");
-            }
-            if invents_item(&kept, &self.known) {
-                return Err("unknown item");
-            }
-        }
-        Ok(kept)
+        let inner = self.part != Part::Line && avatar;
+        flag(inner && !first_person(&kept), "third person");
+        flag(inner && invents_item(&kept, &self.known), "unknown item");
+        Ok((kept, flags))
+    }
+
+    /// Whether a text names someone or something the scene does not know.
+    fn names_unknown(&self, text: &str) -> bool {
+        profiles()
+            .as_object()
+            .expect("profiles")
+            .iter()
+            .any(|(id, p)| {
+                p["name"].as_str().is_some_and(|n| mentions(text, n)) && !self.known.contains(id)
+            })
     }
 }
 
@@ -3007,13 +3007,10 @@ pub(crate) mod tests {
         ] {
             assert_eq!(clean(raw), Err(reason), "{raw}");
         }
-        // Memories stay out of a line's brief (#1537), so a read-back of one
-        // is caught where the brief carries it: reflection.
+        // Memories stay out of a line's brief (#1537); a reflection may
+        // retell one (#2016), but not read back its label.
         let thought = Check::new(&c, pip, Part::Thought);
-        for raw in [
-            "I remember: the lamp moved.",
-            "Yes, the keeper polished the brass bell twice.",
-        ] {
+        for raw in ["I remember: the lamp moved."] {
             assert_eq!(thought.clean(raw, true), Err("echoed brief"), "{raw}");
         }
         // Inner life is first person about known things (#1850).
@@ -3517,10 +3514,11 @@ pub(crate) mod tests {
         assert!(bard.iter().all(
             |r| r["temperature"].as_f64().unwrap() > 0.0 && r.get("response_format").is_none()
         ));
+        // The retry is told why the first reply was refused (#2016).
         assert!(bard[1]["messages"][0]["content"]
             .as_str()
             .unwrap()
-            .ends_with("My next words are fresh."));
+            .ends_with("My next words are fresh.\n\nI stay in this moment and speak as myself."));
         assert!(bard
             .iter()
             .all(|request| prompt_of(request).contains(POEM_FACT)));
@@ -3833,9 +3831,58 @@ pub(crate) mod tests {
             .collect();
         assert!(prompts.iter().all(|prompt| prompt.contains(POEM_FACT)));
         assert_eq!(
-            format!("{}\n\nMy next words are fresh.", prompts[0]),
+            format!(
+                "{}\n\nMy next words are fresh.\n\n{}",
+                prompts[0],
+                framing::correction("assistant").unwrap()
+            ),
             prompts[1]
         );
+        server.abort();
+    }
+
+    /// While a voice's own route is open, the configured escalation model is
+    /// its fallback: the scene still speaks, and the open route sees no call.
+    #[tokio::test]
+    async fn an_open_route_speaks_on_the_escalation_model() {
+        let seen = Arc::new(Mutex::new(Vec::<Value>::new()));
+        let provider = plain_provider(seen.clone(), |_, stem| {
+            if stem.starts_with("Vale") {
+                "The lamp is warm tonight.".into()
+            } else {
+                "Hold on, I hear something.".into()
+            }
+        });
+        let (address, server) = serve(provider).await;
+        let config = tiered_config(address, &[("escalation-model", false)]);
+        for _ in 0..3 {
+            config
+                .readiness
+                .record_transport_failure("chat/completions", "test-entity-model");
+        }
+        let settings = VoiceSettings {
+            escalation_model: Some("escalation-model".into()),
+            ..VoiceSettings::hosted()
+        };
+        let ids = ["vale".to_string(), "moth".to_string()];
+        let result = complete_selected(
+            &config,
+            &context(),
+            &BTreeMap::new(),
+            &settings,
+            &ids,
+            false,
+            None,
+        )
+        .await
+        .unwrap();
+        assert_eq!(result["entries"][0]["text"], "The lamp is warm tonight.");
+        assert_eq!(result["entries"][1]["text"], "Hold on, I hear something.");
+        let requests = seen.lock().unwrap();
+        assert!(!requests.is_empty());
+        assert!(requests
+            .iter()
+            .all(|body| body["model"] == "escalation-model"));
         server.abort();
     }
 
@@ -4845,24 +4892,35 @@ pub(crate) mod tests {
             .await
             .unwrap();
         assert_eq!(second.status(), StatusCode::TOO_MANY_REQUESTS);
+        assert_eq!(second.headers()["retry-after"], BUSY_RETRY_AFTER);
         assert_eq!(
             error_text(second).await,
             "Your last story is still being written."
         );
-        // The second shared slot is still open for a different client.
-        let other = app
-            .clone()
-            .oneshot(request_from(&context(), "198.51.100.7:5000"))
-            .await
-            .unwrap();
-        assert_eq!(other.status(), StatusCode::OK);
-        let third = app
+        // The other shared slots are still open for different clients.
+        let mut others = Vec::new();
+        for client in [
+            "198.51.100.7:5000",
+            "198.51.100.8:5000",
+            "198.51.100.9:5000",
+        ] {
+            let other = app
+                .clone()
+                .oneshot(request_from(&context(), client))
+                .await
+                .unwrap();
+            assert_eq!(other.status(), StatusCode::OK);
+            others.push(other);
+        }
+        assert_eq!(others.len() + 1, TOTAL_CONCURRENCY);
+        let full = app
             .clone()
             .oneshot(request_from(&context(), "192.0.2.9:5000"))
             .await
             .unwrap();
-        assert_eq!(third.status(), StatusCode::TOO_MANY_REQUESTS);
-        assert_eq!(error_text(third).await, "The story service is busy.");
+        assert_eq!(full.status(), StatusCode::TOO_MANY_REQUESTS);
+        assert_eq!(full.headers()["retry-after"], BUSY_RETRY_AFTER);
+        assert_eq!(error_text(full).await, "The story service is busy.");
 
         // Closing the held stream releases that client's slot.
         drop(held);
@@ -4880,7 +4938,7 @@ pub(crate) mod tests {
             tokio::time::sleep(Duration::from_millis(20)).await;
         }
         assert!(released);
-        drop(other);
+        drop(others);
         server.abort();
     }
 
@@ -4971,7 +5029,7 @@ pub(crate) mod tests {
             .filter_map(|request| request["messages"][0]["content"].as_str())
             .collect();
         assert!(!vale[0].contains("My next words are fresh"));
-        assert!(vale[1].ends_with("My next words are fresh."));
+        assert!(vale[1].ends_with("My next words are fresh.\n\nOnly what is true here now."));
         assert!(vale[1].contains("unlit"));
         server.abort();
     }

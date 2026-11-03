@@ -1107,12 +1107,14 @@ const narrator = createNarrator({
     storyStatus = pending ? "pending" : "ready";
     if (!pending) {
       lineHeard(true);
+      // A good reply can still leave one speaker "…": each counts (#2016).
+      silent.forEach(() => count("voice.speaker_silent"));
       rememberWords(null);
       silence = { turn: world.turn, lines: silentLines(world, silent) };
     }
     loadTurnLines({ pending });
   },
-  status: (value) => {
+  status: (value, error) => {
     // Words that failed are this scene's silence: each speaker due shows
     // "…", like a line that came, and play goes on. There is no failed state.
     storyStatus = value === "failed" ? "ready" : value;
@@ -1122,6 +1124,7 @@ const narrator = createNarrator({
     if (value === "pending") rememberWords(world.revision, true);
     if (value === "pending" && !exchange.active) exchange.begin();
     if (value === "failed") {
+      if (error?.code === "mismatch") count("voice.mismatch");
       lineHeard(null);
       rememberWords(world.revision);
       showFailedSilence();

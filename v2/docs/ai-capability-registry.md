@@ -153,10 +153,15 @@ OpenRouter starts in a probing state. A background scheduler immediately calls
 the bounded current-key `/key` endpoint, then repeats after five minutes while
 ready or after one minute while degraded. HTTP 401 and 402 open an account-wide
 circuit after the first failed call; only a later successful key probe closes
-that circuit. HTTP 429, 5xx, and transport/timeouts instead cool down only the
-exact endpoint-and-model route, respecting a bounded `Retry-After`. A final 400
-or 404 after the documented request-shape fallbacks marks only that exact route
-incompatible.
+that circuit. HTTP 429 instead cools down only the exact endpoint-and-model
+route, respecting a bounded `Retry-After`. A 5xx or a transport failure or
+timeout opens that route only when it repeats: the third fault within sixty
+seconds opens it for ten seconds. The route is then half-open for a minute:
+calls pass, the first fault reopens it at once, and the first success closes
+it. One slow or failed call therefore never blocks a model for every other
+caller ([#2016](https://github.com/cenetex/cosyworld/issues/2016)). A final
+400 or 404 after the documented request-shape fallbacks marks only that exact
+route incompatible.
 
 Readiness is revalidated both when offers are composed and when Chat or a model
 interaction is submitted. Probing, account blocks, and route cooldowns withhold
