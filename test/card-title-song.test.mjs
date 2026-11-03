@@ -117,3 +117,100 @@ test("settings default to music on at 30%", () => {
     volume: 1,
   });
 });
+
+// A document and window that can hide, show and take a tap.
+function page() {
+  const doc = new EventTarget();
+  doc.hidden = false;
+  doc.defaultView = new EventTarget();
+  const set = (hidden) => {
+    doc.hidden = hidden;
+    doc.dispatchEvent(new Event("visibilitychange"));
+  };
+  return { doc, hide: () => set(true), show: () => set(false) };
+}
+
+test("a phone's tab switch pauses the song in place and fades it back in", async () => {
+  const { audio, ramps, context } = fakes();
+  context.state = "running";
+  context.resume = vi.fn(async () => (context.state = "running"));
+  const { doc, hide, show } = page();
+  const song = createTitleSong({
+    storage: storage({ enabled: true, volume: 0.5 }),
+    makeAudio: () => audio,
+    makeContext: () => context,
+    doc,
+  });
+  song.start();
+  audio.currentTime = 42;
+  hide();
+  expect(audio.pause).toHaveBeenCalledOnce();
+  expect(ramps.at(-1)).toEqual([0, 0]);
+  // iOS reports "interrupted" while the app is away.
+  context.state = "interrupted";
+  show();
+  await vi.advanceTimersByTimeAsync(0);
+  expect(context.resume).toHaveBeenCalledOnce();
+  expect(audio.play).toHaveBeenCalledTimes(2);
+  expect(audio.currentTime).toBe(42);
+  expect(ramps.at(-1)).toEqual([0.5 * TITLE_SONG.level, 0.4]);
+  // pageshow after visibilitychange does not play it twice.
+  doc.defaultView.dispatchEvent(new Event("pageshow"));
+  expect(audio.play).toHaveBeenCalledTimes(2);
+});
+
+test("a refused wake waits for the next tap, and never plays a stopped song", async () => {
+  const { audio, context } = fakes();
+  const { doc, hide, show } = page();
+  const song = createTitleSong({
+    storage: null,
+    makeAudio: () => audio,
+    makeContext: () => context,
+    doc,
+  });
+  song.start();
+  hide();
+  context.state = "interrupted";
+  context.resume = vi.fn(() => Promise.reject(new Error("NotAllowedError")));
+  audio.play.mockImplementationOnce(() => Promise.reject(new Error("nope")));
+  show();
+  await vi.advanceTimersByTimeAsync(0);
+  expect(audio.paused).toBe(true);
+  context.resume = vi.fn(async () => (context.state = "running"));
+  doc.dispatchEvent(new Event("pointerdown"));
+  await vi.advanceTimersByTimeAsync(0);
+  expect(context.resume).toHaveBeenCalledOnce();
+  expect(audio.paused).toBe(false);
+  expect(audio.play).toHaveBeenCalledTimes(3);
+  // Taps after it runs again leave it alone.
+  doc.dispatchEvent(new Event("pointerdown"));
+  expect(audio.play).toHaveBeenCalledTimes(3);
+  // Once the intro ends, returning to the tab stays silent.
+  song.stop(0);
+  await vi.advanceTimersByTimeAsync(0);
+  hide();
+  show();
+  expect(audio.play).toHaveBeenCalledTimes(3);
+});
+
+test("the song stays paused on return when music was switched off or it was not playing", () => {
+  let saved = { enabled: true, volume: 0.3 };
+  const { audio, context } = fakes();
+  const { doc, hide, show } = page();
+  const song = createTitleSong({
+    storage: { getItem: () => JSON.stringify(saved) },
+    makeAudio: () => audio,
+    makeContext: () => context,
+    doc,
+  });
+  song.start();
+  hide();
+  saved = { enabled: false, volume: 0.3 };
+  show();
+  expect(audio.play).toHaveBeenCalledOnce();
+  // Paused before the tab hid: nothing to resume.
+  saved = { enabled: true, volume: 0.3 };
+  hide();
+  show();
+  expect(audio.play).toHaveBeenCalledOnce();
+});

@@ -1077,7 +1077,22 @@ Music loading starts when playback is ready: after the first accepted play
 (in the attic opening, the pond reveal), with music enabled and the page visible. A place triggers a song when music
 is idle. Each song follows the player through travel until it ends. The current
 place chooses the next song. A quiet place lets the player hear the landscape.
-Mute and hidden tabs pause the same song for a later resume. River Camp chooses
+Mute and hidden tabs pause the same song for a later resume.
+
+Switching tabs or apps on a phone keeps the song's place. A hidden tab pauses
+the room song (after a one-second fade) or the title song (at once) in place.
+Phones also put Web Audio to sleep: Chrome reports `suspended`, iOS Safari
+`interrupted`, which plays the song silently. On `visibilitychange` or
+`pageshow` the player wakes its context (`audio-wake.mjs`) and fades back in
+from the same moment over 0.4 seconds. It resumes only what was playing, with
+music still on; the title song stays quiet once the intro has ended. iOS can
+refuse to wake audio without a gesture, so the next tap or key does it, with
+the same fade and no error. A call or Siri that interrupts audio in view is
+woken the same way. The hum and the bell wake their contexts too.
+`test/card-music.test.mjs` and `test/card-title-song.test.mjs` cover the
+return.
+
+River Camp chooses
 one of four supplied acid jazz songs during the day. An active camp song keeps
 playing through dusk and night. Run `node v2/scripts/smoke-card-music-network.mjs`
 for the throttled request and first-sound checks. `test/card-music.test.mjs`

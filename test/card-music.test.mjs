@@ -289,6 +289,46 @@ describe("songs that follow the player", () => {
     expect(audio.paused).toBe(true);
   });
 
+  it("wakes an interrupted phone context and fades back in from the same place", async () => {
+    const { audio, music, context, begin, level } = player();
+    await begin("station");
+    audio.currentTime = 35;
+    music.setHidden(true);
+    await advance(1000);
+    expect(audio.paused).toBe(true);
+    // iOS Safari reports "interrupted" after the app switch.
+    context.state = "interrupted";
+    context.resume.mockImplementation(async () => (context.state = "running"));
+    music.setHidden(false);
+    await advance(0);
+    expect(context.resume).toHaveBeenCalled();
+    expect(audio.paused).toBe(false);
+    expect(audio.currentTime).toBe(35);
+    expect(audio.play).toHaveBeenCalledTimes(2);
+    expect(audio.load).toHaveBeenCalledOnce();
+    await advance(200);
+    expect(level()).toBeCloseTo(0.15);
+    await advance(200);
+    expect(level()).toBeCloseTo(0.3);
+    // A refused wake retries on the next gesture, without a second play.
+    music.setHidden(true);
+    await advance(1000);
+    context.state = "interrupted";
+    context.resume.mockImplementation(() => Promise.reject(new Error("no")));
+    audio.play.mockImplementationOnce(() => Promise.reject(new Error("no")));
+    music.setHidden(false);
+    await advance(500);
+    expect(audio.paused).toBe(true);
+    context.resume.mockImplementation(async () => (context.state = "running"));
+    music.unlock();
+    await advance(500);
+    expect(context.state).toBe("running");
+    expect(audio.paused).toBe(false);
+    expect(audio.currentTime).toBe(35);
+    music.unlock();
+    expect(audio.play).toHaveBeenCalledTimes(4);
+  });
+
   it("keeps the volume through travel and eases the volume control", async () => {
     const { music, level, begin } = player();
     await begin();

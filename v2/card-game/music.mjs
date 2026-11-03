@@ -2,6 +2,11 @@ import { packPlaces } from "./pack-registry.mjs";
 import { mediaUrl } from "./media.mjs";
 import { reflectionOpen } from "./world.mjs";
 import streams from "./music-streams.json" with { type: "json" };
+import {
+  RETURN_FADE_SECONDS,
+  contextAsleep,
+  wakeContext,
+} from "./audio-wake.mjs";
 
 export const roomTracks = {
   "willows-camp": [
@@ -101,6 +106,8 @@ export function openingRevealed(world, actor) {
 
 // A room starts a song when music is idle. The song follows every journey
 // until its end. The audio clock keeps volume and pause fades smooth.
+// A hidden tab fades the song out and pauses it in place; the return wakes
+// the audio context (phones put it to sleep) and fades back in from there.
 export function createRoomMusic({
   audio,
   changed = () => {},
@@ -119,6 +126,7 @@ export function createRoomMusic({
     started = false,
     enabled = true,
     hidden = false,
+    returning = false,
     pending = false,
     generation = 0,
     failures = 0,
@@ -168,6 +176,11 @@ export function createRoomMusic({
         nextGain.gain.value = 0;
         nextGain.connect(nextContext.destination);
         nextContext.createMediaElementSource(audio).connect(nextGain);
+        // A call or Siri can interrupt iOS audio while the page stays in view.
+        nextContext.addEventListener?.("statechange", () => {
+          if (!hidden && contextAsleep(nextContext) && wanted())
+            void wakeContext(nextContext);
+        });
         context = nextContext;
         gain = nextGain;
         audio.volume = 1;
@@ -175,7 +188,12 @@ export function createRoomMusic({
         // The media-element fade remains available.
       }
     }
-    if (context?.state === "suspended") void context.resume().catch(() => {});
+    void wakeContext(context);
+  }
+  // The first fade in after the tab returns is short, not the full second.
+  function fadeIn() {
+    fadeTo(volume, returning ? RETURN_FADE_SECONDS : fadeSeconds);
+    returning = false;
   }
   const trackRoom = () => sourceRoom || room;
   function track() {
@@ -270,7 +288,7 @@ export function createRoomMusic({
         () => {
           if (attempt !== generation) return;
           pending = false;
-          fadeTo(volume, fadeSeconds);
+          fadeIn();
           report();
         },
         () => {
@@ -289,10 +307,12 @@ export function createRoomMusic({
     transitionTimer = null;
     generation++;
     pending = false;
-    if (!wanted()) afterFade(pause);
-    else if (loadedFile !== track()?.file || restartOnVisit) afterFade(load);
+    if (!wanted()) {
+      returning = false;
+      afterFade(pause);
+    } else if (loadedFile !== track()?.file || restartOnVisit) afterFade(load);
     else if (audio.paused) start();
-    else if (!ending) fadeTo(volume, fadeSeconds);
+    else if (!ending) fadeIn();
   }
   function advance() {
     const id = trackRoom();
@@ -395,6 +415,10 @@ export function createRoomMusic({
     setHidden(value) {
       if (hidden === Boolean(value)) return;
       hidden = Boolean(value);
+      if (!hidden) {
+        returning = true;
+        void wakeContext(context);
+      }
       sync();
     },
   };
