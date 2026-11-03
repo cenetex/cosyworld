@@ -36,6 +36,8 @@ import {
 import { resetAvatar } from "./avatar-reset.mjs";
 import { arrive, hideAvatar, seekHidden } from "./hidden-avatar.mjs";
 import { homecoming } from "./homecoming.mjs";
+import { dialogueCast } from "./scene-cast.mjs";
+import { speechOccasions } from "./speech-occasions.mjs";
 
 function ids(value, fallback = []) {
   const result = value === undefined ? fallback : value;
@@ -255,6 +257,13 @@ export function dispatchShared(request) {
     );
     if (!result.ok)
       return { ok: false, world: stored(world), error: result.error };
+    // The voices this play named, fixed now: an enter or expire before its
+    // speech must not change who may answer (a defeat's host, for one).
+    result.state.speechVoices = {
+      ...result.state.speechVoices,
+      [actor]: speechOccasions(result.state, dialogueCast(result.state))
+        .speakers,
+    };
     return response(result.state, {
       events: result.state.log.filter((entry) => entry.seq > before),
       ...view(result.state, actor),
@@ -263,6 +272,8 @@ export function dispatchShared(request) {
   if (request.op === "speech") {
     // An occasion voices up to three speakers and the place (speech.json).
     // Any of them may speak alone: a threat's target, or only the place.
+    // From rules 93 each voice the play named, and the room, speaks at most
+    // once, and no other voice speaks.
     if (
       !Array.isArray(request.lines) ||
       request.lines.length < 1 ||
@@ -271,6 +282,19 @@ export function dispatchShared(request) {
       throw new Error("An exchange needs one to four lines.");
     const room = request.room || world.actors[actor].place;
     if (!places[room]) throw new Error("Choose a real room.");
+    // The voices the play named as it committed, and the room, which may
+    // always caption it. A world upgraded since that play asks again.
+    const voices = [
+      ...(world.speechVoices?.[actor] ??
+        speechOccasions(world, dialogueCast(world)).speakers),
+      room,
+    ];
+    const voice = (l) => l?.actorId ?? l?.entityId;
+    if (
+      request.lines.some((l) => !voices.includes(voice(l))) ||
+      new Set(request.lines.map(voice)).size !== request.lines.length
+    )
+      throw new Error("Each voice the play named speaks once.");
     if (
       (request.entries || []).some(
         (e) => !request.lines.some((l) => (l.actorId || l.entityId) === e.id),

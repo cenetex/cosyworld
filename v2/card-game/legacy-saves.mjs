@@ -1,4 +1,4 @@
-import { newMemories, upgradeSightings } from "./memory.mjs";
+import { newMemories, profiles, upgradeSightings } from "./memory.mjs";
 import { migrateLife } from "./life.mjs";
 import { upgradeRecitals } from "./pack-recital.mjs";
 import {
@@ -161,9 +161,15 @@ export function upgradeSave(s, { installPacks, laneText = () => null }) {
 // A loaded save follows the current content. A retired crossing closes even
 // where the save had found it, every authored thing is present, and a thing
 // the content no longer defines leaves the world: whatever it held stays
-// with whoever, or wherever, held it.
+// with whoever, or wherever, held it. A place or dock added after the save
+// was written starts with an empty memory (rules 93). A resident's record is
+// checked as saved: a new resident joins through its pack's save upgrade.
 export function reconcileContent(s) {
   if (!s?.items || typeof s.items !== "object") return;
+  const fresh = newMemories();
+  if (s.memories && typeof s.memories === "object")
+    for (const [id, memory] of Object.entries(fresh))
+      if (profiles[id].kind === "location") s.memories[id] ??= memory;
   for (const pack of packDefinitions)
     for (const c of pack.crossings)
       if (c.retired && s.crossings?.[c.id])
@@ -172,7 +178,6 @@ export function reconcileContent(s) {
   for (const pack of packDefinitions)
     for (const [id, item] of Object.entries(pack.items || {}))
       authored[id] ??= { holder: item.holder, history: [] };
-  const fresh = newMemories();
   for (const [id, item] of Object.entries(authored))
     if (!Object.hasOwn(s.items, id)) {
       s.items[id] = item;

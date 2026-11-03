@@ -236,6 +236,7 @@ const files = [
   "between-us.mjs",
   "signed-words.mjs",
   "speech-knowledge.mjs",
+  "speech-occasions.mjs",
   "expression.mjs",
   "emoji-symbols.json",
   "dialogue.mjs",
