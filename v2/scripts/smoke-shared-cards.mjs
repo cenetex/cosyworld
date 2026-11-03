@@ -9,6 +9,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { createServer } from "node:http";
 import { spawn } from "node:child_process";
+import { DatabaseSync } from "node:sqlite";
 import { chromium } from "playwright";
 import {
   createWorld,
@@ -30,13 +31,23 @@ const providerTiming = new Map();
 let holdReplies = false;
 let failReplies = false;
 const waitingReplies = [];
+// The avatar voicing a conversation turn, from its system message's first
+// line ("I am Vale, the Lamplighter."). Null for other prompt shapes, which
+// have no "Here: " scene line.
+function speakerOf(input) {
+  const system = input.messages?.find((message) => message.role === "system");
+  if (!/^Here: /mu.test(system?.content ?? "")) return null;
+  return (
+    system.content.match(/^I am (?:the |a |an )?([^,.\n]+)/iu)?.[1] ?? null
+  );
+}
 const provider = createServer(async (req, res) => {
   let body = "";
   for await (const chunk of req) body += chunk;
   const input = JSON.parse(body || "{}");
   requests.push(input);
   const timing = {
-    speaker: input.messages.at(-1).content.trim().split("\n").at(-1),
+    speaker: speakerOf(input),
     started: Date.now(),
     held: holdReplies,
   };
@@ -56,17 +67,20 @@ const provider = createServer(async (req, res) => {
     );
     return;
   }
-  const transcript = input.messages.at(-1).content;
-  assert.equal(typeof transcript, "string");
-  assert.match(transcript, /Current scene:/u);
-  assert.match(transcript.trim(), /:$/u);
+  // Since #2057 an avatar's line is a conversation turn: the system message
+  // holds the scene ("Here: ..."), and the last message is only the line it
+  // answers or "X is here.". Other parts keep "Current scene:" and a cue.
+  const prompt = input.messages.map((message) => message.content).join("\n");
+  assert.equal(typeof input.messages.at(-1).content, "string");
+  assert.match(prompt, /Current scene:|^Here: /mu);
+  if (!speakerOf(input))
+    assert.match(input.messages.at(-1).content.trim(), /:$/u);
   timing.replied = Date.now();
-  // A recorded fact the speaker owes (for example, telling a resident what
-  // it wants) must be voiced in its own words; the validator checks it.
-  const fact = input.messages
-    .map((message) => message.content)
-    .join("\n")
-    .match(/using these words: (.+?) I may add one short sentence/su)?.[1];
+  // A recorded fact the speaker may mention (for example, telling a resident
+  // what it wants) is voiced in its own words; the validator checks it.
+  const fact = prompt.match(
+    /If it fits the conversation, I mention: (.+?)\s*$/mu,
+  )?.[1];
   const content = `${fact ? `${fact} ` : ""}I pause for ${requests.length} quiet breaths.`;
   replies.set(input, content);
   res.writeHead(200, { "Content-Type": "application/json" });
@@ -324,9 +338,7 @@ async function expectSharedReveal(page, requestStart, speaker = "Vale") {
   await until(() => {
     const human = requests
       .slice(requestStart)
-      .find((request) =>
-        request.messages.at(-1).content.trim().endsWith(`\n${speaker}:`),
-      );
+      .find((request) => speakerOf(request) === speaker);
     expected = replies.get(human);
     return typeof expected === "string";
   }, "the selected human receives its plain fixture reply");
@@ -493,6 +505,19 @@ try {
     "share keeps the current game",
   );
   worldId = new URL(vale.url()).searchParams.get("world");
+  // A new passkey has found only Vale (#1936), and sharing made the table. This smoke seats the whole
+  // cast, so every passkey here counts every avatar as found, as the
+  // grandfather pass does for passkeys in an existing store.
+  const store = new DatabaseSync(join(dir, "events.sqlite"));
+  store.exec("PRAGMA busy_timeout = 5000");
+  store.exec(
+    "INSERT OR IGNORE INTO card_unlocks(user, actor) SELECT u.id, a.n FROM auth_users u, (WITH RECURSIVE r(n) AS (SELECT 0 UNION ALL SELECT n + 1 FROM r WHERE n < 7) SELECT n FROM r) a",
+  );
+  assert.equal(
+    store.prepare("SELECT count(*) AS n FROM card_unlocks").get().n,
+    pages.length * 8,
+  );
+  store.close();
   const shared = await snapshot(vale);
   assert.equal(shared.actor, "vale");
   assert.equal(shared.world.turn, seed.turn);
@@ -544,7 +569,9 @@ try {
   const requestStart = requests.length;
   await selectCard(vale, "moth");
   await vale.getByRole("button", { name: "Talk", exact: true }).click();
-  await expectSharedReveal(vale, requestStart);
+  // Since #2057 a Talk's target answers the actor's line in the same play,
+  // so the newest beat that types in is Pip's answer.
+  await expectSharedReveal(vale, requestStart, "Pip");
   await vale.screenshot({
     path: join(output, "shared-dialogue-reveal.png"),
     fullPage: true,
@@ -579,13 +606,20 @@ try {
   await perform(vale, "snuff", undefined, "lamp");
   for (let i = 1; i < 8; i++) {
     // A friend's link opens ☰ on the person's own table with this world as
-    // a slot; tapping the avatar's grey seat there twice moves it there
-    // (#1877, #1891).
+    // a slot; each tap of its "+" offers the next avatar that may go there,
+    // and Bring moves the offered one there (#1877, #1891, 2eb54805e).
     await pages[i].goto(`${origin}/?world=${worldId}`);
     const slot = pages[i].locator(`.world-slot[data-slot="${worldId}"]`);
-    const seat = slot.locator(`[data-avatar="${names[i]}"] .slot-target`);
-    await seat.click();
-    await seat.click();
+    const offered = pages[i].locator(".dialogue > .action-panel");
+    await until(async () => {
+      const shown = (await offered.count())
+        ? await offered.first().getAttribute("data-avatar")
+        : null;
+      if (shown === names[i]) return true;
+      await slot.locator(".seat-open").click({ timeout: 2000 });
+      return false;
+    }, `"+" offers ${names[i]}`);
+    await pages[i].locator("#avatar-bring").click();
     await until(
       async () => (await snapshot(pages[i])).actor === names[i],
       "avatar claim finishes",
@@ -613,16 +647,18 @@ try {
       "the player's own avatar leads the avatar groups",
     );
   };
+  // Rue's carriage door opens at the station, its one authored door
+  // (#1994); the route board must be near it.
   await perform(rue, "take", undefined, "routes");
-  assert(await actionFor(rue, "move", "pond"));
-  assert(!(await actionFor(rue, "move", "station")));
-  const earlierCarriageExit = await actionFor(rue, "move", "pond");
+  assert(await actionFor(rue, "move", "station"));
+  assert(!(await actionFor(rue, "move", "pond")));
+  const earlierCarriageExit = await actionFor(rue, "move", "station");
   await perform(rue, "drop", "train", "routes");
   await rue.reload();
   await rue
     .locator('#hand [data-card="routes"]')
     .waitFor({ state: "attached" });
-  assert(!(await actionFor(rue, "move", "pond")));
+  assert(!(await actionFor(rue, "move", "station")));
   assert.equal(
     (
       await api(rue, {
@@ -634,8 +670,8 @@ try {
     409,
   );
   await perform(rue, "take", undefined, "routes");
-  await perform(rue, "move", "pond");
-  assert.equal((await snapshot(rue)).world.actors.rue.place, "pond");
+  await perform(rue, "move", "station");
+  assert.equal((await snapshot(rue)).world.actors.rue.place, "station");
   await ownAvatarFirst(rue);
   await rue.reload();
   await rue.locator('#hand [data-card="rue"]').waitFor();
@@ -1125,6 +1161,7 @@ try {
     "Shared original world: progressed save, eight passkeys, original pond/station/attic, NPCs, packs, quests (wants), room capacity, shared speech, item handoff, nudge, restart, desktop and phone passed.",
   );
 } catch (error) {
+  console.error(error);
   console.error(
     "Held provider timing",
     JSON.stringify(
