@@ -5,7 +5,11 @@
 //! sentence field), a pack name, rules-built text matching its field's
 //! authored catalog (`authored`), or a word the service wrote whose envelope
 //! comes with the import and verifies for that kind, speaker and a local
-//! save. A map key must be a vocabulary word too. Anything else is stripped
+//! save. A map key must fit its place: a map keyed by id (`ID_MAPS`) takes
+//! only ids of pack or rules content, alone or joined into a compound id,
+//! and any other object takes those or a name the rules give a property
+//! (`Vocabulary::fields`), never just any word of the rules source. Anything
+//! else is stripped
 //! before the first journal row: the list entry holding it is dropped, a
 //! lone field is cleared and a key is removed. A save the rules then refuse
 //! loses every avatar's inner life too (`strict`).
@@ -46,18 +50,63 @@ fn token(text: &str) -> bool {
     (1..=80).contains(&text.len()) && text.bytes().all(token_byte)
 }
 
+/// Save maps keyed by id, by their path from the save's root (`*` is any
+/// key): actors, items, places, memories, trust, grievances and the rest.
+const ID_MAPS: [&[&str]; 16] = [
+    &["actors"],
+    &["actors", "*", "trust"],
+    &["items"],
+    &["locations"],
+    &["memories"],
+    &["motives", "grievances"],
+    &["peaceUntil"],
+    &["crossings"],
+    &["doors"],
+    &["packs"],
+    &["routeKnowledge"],
+    &["transports"],
+    &["knowledge", "facts"],
+    &["knowledge", "known"],
+    &["knowledge", "known", "*"],
+    &["life", "actors"],
+];
+
+fn id_keyed(path: &[String]) -> bool {
+    ID_MAPS.iter().any(|map| {
+        map.len() == path.len() && map.iter().zip(path).all(|(m, p)| *m == "*" || m == p)
+    })
+}
+
+/// The next byte of `bytes` from `at` that is not whitespace, either way.
+fn next(bytes: &[u8], at: usize) -> Option<u8> {
+    bytes[at.min(bytes.len())..]
+        .iter()
+        .copied()
+        .find(|b| !b.is_ascii_whitespace())
+}
+
+fn prev(bytes: &[u8], at: usize) -> (Option<u8>, usize) {
+    let end = bytes[..at].iter().rposition(|b| !b.is_ascii_whitespace());
+    (end.map(|e| bytes[e]), end.unwrap_or(0))
+}
+
 /// The words the rules and their packs use: string literals of the rules
 /// source and the keys and one-word values of the pack content (`words`),
-/// and the rules' identifiers, which name a save's fields (`fields`).
+/// the identifiers the rules use as property names (`fields`: `.place`,
+/// `want:`, `{ seq }`), and the ids of pack and rules content (`ids`: an id
+/// field's value, a key of a map of records, a rules `id: "…"` or the head
+/// of a rules template id like `` `event:${seq}` ``).
 pub(crate) struct Vocabulary {
     words: HashSet<String>,
     fields: HashSet<String>,
+    ids: HashSet<String>,
 }
 
 impl Vocabulary {
     pub(crate) fn new(sources: &[&str], content: &str) -> Self {
         let mut words = HashSet::new();
         let mut fields = HashSet::new();
+        let mut ids = HashSet::new();
         for source in sources {
             let bytes = source.as_bytes();
             let ident = |b: u8| b.is_ascii_alphanumeric() || b == b'_' || b == b'$';
@@ -69,44 +118,80 @@ impl Vocabulary {
                     let end = (i + 1..bytes.len())
                         .find(|&j| !token_byte(bytes[j]))
                         .unwrap_or(bytes.len());
+                    let word = &source[i + 1..end];
                     if end > i + 1 && bytes.get(end) == Some(&b) {
-                        words.insert(source[i + 1..end].to_string());
+                        words.insert(word.to_string());
+                        if next(bytes, end + 1) == Some(b':') {
+                            fields.insert(word.to_string());
+                        }
+                        // `id: "shared-homes"`, `placeId: "pond"`.
+                        let (colon, at) = prev(bytes, i);
+                        let named = &source[..at];
+                        if colon == Some(b':') && (named.ends_with("id") || named.ends_with("Id")) {
+                            ids.insert(word.to_string());
+                        }
+                    } else if b == b'`' && bytes[end..].starts_with(b"${") {
+                        let head = word.trim_end_matches([':', '-']);
+                        if !head.is_empty() {
+                            ids.insert(head.to_string());
+                        }
                     }
                     i += 1;
                 } else if ident(b) {
                     let end = (i..bytes.len())
                         .find(|&j| !ident(bytes[j]))
                         .unwrap_or(bytes.len());
-                    fields.insert(source[i..end].to_string());
+                    let (before, at) = prev(bytes, i);
+                    let after = next(bytes, end);
+                    let member = before == Some(b'.') && (at == 0 || bytes[at - 1] != b'.');
+                    let shorthand =
+                        matches!(before, Some(b'{' | b',')) && matches!(after, Some(b',' | b'}'));
+                    if member || shorthand || after == Some(b':') {
+                        fields.insert(source[i..end].to_string());
+                    }
                     i = end;
                 } else {
                     i += 1;
                 }
             }
         }
-        fn walk(value: &Value, words: &mut HashSet<String>) {
+        fn walk(value: &Value, key: &str, words: &mut HashSet<String>, ids: &mut HashSet<String>) {
             match value {
                 Value::String(s) if token(s) => {
                     words.insert(s.clone());
+                    let key = key.to_ascii_lowercase();
+                    if key.ends_with("id") || key.ends_with("ids") {
+                        ids.insert(s.clone());
+                    }
                 }
-                Value::Array(items) => items.iter().for_each(|v| walk(v, words)),
-                Value::Object(map) => map.iter().for_each(|(k, v)| {
-                    words.insert(k.clone());
-                    walk(v, words);
-                }),
+                Value::Array(items) => items.iter().for_each(|v| walk(v, key, words, ids)),
+                Value::Object(map) => {
+                    // A map of records is keyed by id.
+                    if !map.is_empty() && map.values().all(Value::is_object) {
+                        ids.extend(map.keys().cloned());
+                    }
+                    map.iter().for_each(|(k, v)| {
+                        words.insert(k.clone());
+                        walk(v, k, words, ids);
+                    });
+                }
                 _ => {}
             }
         }
         if let Ok(content) = serde_json::from_str::<Value>(content) {
-            walk(&content, &mut words);
+            walk(&content, "", &mut words, &mut ids);
         }
-        Self { words, fields }
+        Self { words, fields, ids }
     }
 
     /// Whether `text` is a word, a number, or words and numbers joined by
     /// `:` and `-` (`event:67`, `pond-clearing`, `ring:vale::3:bell`).
     fn known(&self, text: &str) -> bool {
-        let word = |s: &str| s.bytes().all(|b| b.is_ascii_digit()) || self.words.contains(s);
+        Self::compound(text, &self.words)
+    }
+
+    fn compound(text: &str, set: &HashSet<String>) -> bool {
+        let word = |s: &str| s.bytes().all(|b| b.is_ascii_digit()) || set.contains(s);
         text.split(':').all(|part| {
             if part.is_empty() || word(part) {
                 return true;
@@ -129,8 +214,10 @@ impl Vocabulary {
         })
     }
 
-    fn key(&self, key: &str) -> bool {
-        self.fields.contains(key) || (token(key) && self.known(key))
+    /// Whether `key` may name an entry of the object at `path`.
+    fn key(&self, key: &str, path: &[String]) -> bool {
+        let id = token(key) && Self::compound(key, &self.ids);
+        id || (!id_keyed(path) && self.fields.contains(key))
     }
 }
 
@@ -176,6 +263,8 @@ struct Strip<'v> {
     dropped: usize,
     exceeded: bool,
     strings: usize,
+    /// The keys from the save's root to the object being stripped.
+    path: Vec<String>,
 }
 
 /// The envelope kind that may vouch for a string in `key` of `list`.
@@ -314,7 +403,7 @@ impl Strip<'_> {
                 if self.strings > STRINGS {
                     return true;
                 }
-                map.retain(|k, _| self.vocabulary.key(k));
+                map.retain(|k, _| self.vocabulary.key(k, &self.path));
                 self.dropped += before - map.len();
                 // A log entry or memory names its speaker.
                 let own = ["entityId", "actorId"]
@@ -336,7 +425,10 @@ impl Strip<'_> {
                         speaker: speaker.as_deref(),
                         list: at.list,
                     };
-                    if self.clean(child, k, child_at) {
+                    self.path.push(k.clone());
+                    let refused = self.clean(child, k, child_at);
+                    self.path.pop();
+                    if refused {
                         if in_list {
                             tainted = true;
                         } else {
@@ -392,6 +484,7 @@ pub(crate) fn trusted_save(
         dropped: 0,
         exceeded: false,
         strings: 0,
+        path: Vec::new(),
     };
     let root = At {
         entity: None,

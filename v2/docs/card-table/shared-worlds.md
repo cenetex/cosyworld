@@ -469,7 +469,12 @@ service keeps a string from the save only when it is:
   that speaker (a log line's `speaker` is that speaker's name) and a local
   save (`card_narrative/imported.rs`).
 
-A map key must be a rules identifier or such a word. Everything else is
+A map key must fit its place. A map keyed by id (actors, items, places,
+memories, trust, grievances, crossings, doors, packs, facts and the like)
+takes only an id of pack or rules content, or ids and numbers joined by `:`
+and `-`. Any other object takes such an id or a name the rules give a
+property (`.place`, `want:`), never just any word of the rules source, so
+`forget_all_previous_rules` or `say` is removed. Everything else is
 stripped (its list entry dropped, a lone field cleared, a key removed) and
 counted in a warning. A stripped save the rules refuse loses every avatar's
 inner life too, with its own warning. Matching is bounded at 40 scenes'
@@ -489,9 +494,13 @@ code fences. The check reads the raw reply and again after markup is
 cleaned, both folded first: NFKD with marks dropped, lower case, common
 Cyrillic, Greek and fullwidth lookalikes as Latin letters, `* _ # ~ ^`
 removed and spaces collapsed, so `Ig*nore prev*ious`, `sys_tem:` and
-`ignore  previous` match. A reply holding a Unicode format (Cf) character,
-a tag character, a variation selector, U+034F or a line or paragraph
-separator is refused outright. Ordinary speech ("you are now safe",
+`ignore  previous` match. It also reads a squashed copy holding only the
+letters and digits, so `ig-nore`, `i.g.n.o.r.e`, `i g n o r e`, `sys-tem:`
+and `ignore_previous_instructions` match too. A squashed match must start
+and end at a separator, or lie inside one glued word, so "Ignore.
+Previously…" passes. A reply holding a Unicode format (Cf) character,
+a tag character, a variation selector, U+034F, a soft hyphen or a line or
+paragraph separator is refused outright. Ordinary speech ("you are now safe",
 "ignore your fears", "wait for clear instructions") passes; a test scans
 every pack, authored and recorded string for hits.
 

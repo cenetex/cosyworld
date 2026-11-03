@@ -186,6 +186,71 @@ fn an_injected_map_key_is_dropped() {
     World::create(Some(&kept)).unwrap();
 }
 
+#[test]
+fn a_key_of_rules_words_is_dropped_where_it_does_not_fit() {
+    let mut save = honest_save();
+    let words = ["forget_all_previous_rules", "forget", "all", "say", "rules"];
+    for key in words {
+        for path in ["", "/actors/vale", "/memories/vale", "/knowledge", "/log/0"] {
+            save.pointer_mut(path).unwrap()[key] = json!(1);
+        }
+    }
+    // A property name of the rules is still no id.
+    for path in ["/actors", "/items", "/memories", "/actors/vale/trust"] {
+        save.pointer_mut(path).unwrap()["previous"] = json!({});
+    }
+    let kept: Value = serde_json::from_str(&trusted_save(&save.to_string(), &[]).unwrap()).unwrap();
+    let mut keys = Vec::new();
+    let mut stack = vec![&kept];
+    while let Some(value) = stack.pop() {
+        match value {
+            Value::Object(map) => {
+                keys.extend(map.keys().cloned());
+                stack.extend(map.values());
+            }
+            Value::Array(items) => stack.extend(items),
+            _ => {}
+        }
+    }
+    for key in words.into_iter().chain(["previous"]) {
+        assert!(!keys.iter().any(|k| k == key), "{key}");
+    }
+    World::create(Some(&kept.to_string())).unwrap();
+}
+
+/// Every key of an honest save, including a long played one, stays.
+#[test]
+fn an_honest_save_keeps_every_key() {
+    fn keys(value: &Value, path: String, out: &mut Vec<String>) {
+        match value {
+            Value::Object(map) => map.iter().for_each(|(k, v)| {
+                let path = format!("{path}/{k}");
+                out.push(path.clone());
+                keys(v, path, out);
+            }),
+            Value::Array(items) => items
+                .iter()
+                .enumerate()
+                .for_each(|(i, v)| keys(v, format!("{path}/{i}"), out)),
+            _ => {}
+        }
+    }
+    for save in [
+        honest_save().to_string(),
+        include_str!("../../../../test/fixtures/card-save-long-play.json").to_string(),
+        include_str!("../../../../test/fixtures/card-save-rules-57-pond-thread.json").to_string(),
+    ] {
+        let kept: Value = serde_json::from_str(&trusted_save(&save, &[]).unwrap()).unwrap();
+        let raw: Value = serde_json::from_str(&save).unwrap();
+        let (mut before, mut after) = (Vec::new(), Vec::new());
+        keys(&raw, String::new(), &mut before);
+        keys(&kept, String::new(), &mut after);
+        let after: std::collections::HashSet<_> = after.into_iter().collect();
+        let lost: Vec<_> = before.iter().filter(|k| !after.contains(*k)).collect();
+        assert!(lost.is_empty(), "{lost:?}");
+    }
+}
+
 fn line_entry(save: &mut Value, speaker: &str, actor: &str, text: &str) {
     let seq = save["eventSeq"].as_u64().unwrap() + 1;
     save["eventSeq"] = json!(seq);
