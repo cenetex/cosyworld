@@ -278,31 +278,31 @@ const UNSAVED_NOTICE =
   "This browser could not save the world. Keep this tab open to keep playing.";
 if (storageBlocked) notice(UNSAVED_NOTICE);
 const SEEN_KEY = `${SAVE_KEY}.seen`;
-// Keep the revision whose words are still needed, and whether they failed or
-// were still on the way: a reload asks again for words it interrupted and
-// offers Retry for words that failed. A completed reply clears the marker.
-const WORDS_FAILED_KEY = `${SAVE_KEY}.words-failed`;
-function rememberWordsFailed(revision, pending = false) {
+// Keep the revision whose words were still on the way, or that fell silent:
+// a reload asks again only for words it interrupted. Words that failed stay
+// "…" and are never asked again (#1642). A completed reply clears the marker.
+const WORDS_MARKER_KEY = `${SAVE_KEY}.words-failed`;
+function rememberWords(revision, pending = false) {
   if (sharedSession) return;
   try {
-    if (revision === null) localStorage.removeItem(WORDS_FAILED_KEY);
+    if (revision === null) localStorage.removeItem(WORDS_MARKER_KEY);
     else
       localStorage.setItem(
-        WORDS_FAILED_KEY,
+        WORDS_MARKER_KEY,
         `${revision}${pending ? ":pending" : ""}`,
       );
   } catch {
-    /* Retry still works in this tab. */
+    /* This tab still plays; a reload shows the caption alone. */
   }
 }
-// "failed", "pending" or null for the current revision.
-function wordsFailedOnLoad() {
+// "silent", "pending" or null for the current revision.
+function wordsOnLoad() {
   try {
     const [revision, pending] = (
-      localStorage.getItem(WORDS_FAILED_KEY) || ""
+      localStorage.getItem(WORDS_MARKER_KEY) || ""
     ).split(":");
     if (revision !== String(world.revision)) return null;
-    return pending ? "pending" : "failed";
+    return pending ? "pending" : "silent";
   } catch {
     return null;
   }
@@ -432,7 +432,6 @@ let shownCaptions = { key: null, count: 0 };
 // Whether a shared room line has shown since this page opened.
 let sharedLineSeen = false;
 let storyStatus = "ready",
-  storyRetrying = false,
   renderedCast = "",
   renderedHand = "",
   renderedHandRevision = null,
@@ -1109,66 +1108,64 @@ const narrator = createNarrator({
     storyStatus = pending ? "pending" : "ready";
     if (!pending) {
       lineHeard(true);
-      rememberWordsFailed(null);
+      rememberWords(null);
       silence = { turn: world.turn, lines: silentLines(world, silent) };
     }
-    const lines = shownWorld().log.filter(
-      (entry) =>
-        entry.generated &&
-        entry.kind === "dialogue" &&
-        entry.turn === world.turn &&
-        entry.locationId === world.actors[currentActor(world)].place,
-    );
-    const voiced = lines.filter((entry) => !entry.silent);
-    if (localRuntime() && voiced.length) {
-      const line =
-        voiced.find((entry) => entry.seq !== exchange.current?.seq) ||
-        voiced[0];
-      characterSpeech.prefetch(line.actorId, line.text);
-    }
-    exchange.load(lines, { pending });
-    render();
+    loadTurnLines({ pending });
   },
   status: (value) => {
-    storyStatus = value;
+    // Words that failed are this scene's silence: each speaker due shows
+    // "…", like a line that came, and play goes on. There is no failed state.
+    storyStatus = value === "failed" ? "ready" : value;
     // Words that came, or failed, free a play waiting behind them.
     if (value !== "pending" && playQueue.pending)
       queueMicrotask(() => playQueue.flush());
-    if (value === "pending") rememberWordsFailed(world.revision, true);
+    if (value === "pending") rememberWords(world.revision, true);
     if (value === "pending" && !exchange.active) exchange.begin();
-    if (value === "retry") {
+    if (value === "failed") {
       lineHeard(null);
-      rememberWordsFailed(world.revision);
-      exchange.cancel();
-      showOpeningSilence();
+      rememberWords(world.revision);
+      showFailedSilence();
+      return;
     }
     renderScene();
   },
 });
-$("story-retry").onclick = async () => {
-  if (storyRetrying) return;
-  const room = world.actors[currentActor(world)].place;
-  const retryKey = sharedSession
-    ? sharedSpeechState(sharedSession.state, room).retryKey
-    : null;
-  if (sharedSession && !retryKey) return;
-  const retryRevision = world.revision;
-  const retryTrip = trip;
-  storyRetrying = true;
-  notice("");
-  renderScene();
-  try {
-    if (sharedSession)
-      await sharedSession.command({ op: "retry", key: retryKey });
-    else await narrator.retry();
-  } catch {
-    if (world.revision === retryRevision && trip === retryTrip)
-      storyStatus = "retry";
-  } finally {
-    storyRetrying = false;
-    renderScene();
+// This turn's lines at the player's place, spoken and "…", into the exchange.
+function loadTurnLines({ pending = false } = {}) {
+  const lines = shownWorld().log.filter(
+    (entry) =>
+      entry.generated &&
+      entry.kind === "dialogue" &&
+      entry.turn === world.turn &&
+      entry.locationId === world.actors[currentActor(world)].place,
+  );
+  const voiced = lines.filter((entry) => !entry.silent);
+  if (localRuntime() && voiced.length) {
+    const line =
+      voiced.find((entry) => entry.seq !== exchange.current?.seq) || voiced[0];
+    characterSpeech.prefetch(line.actorId, line.text);
   }
-};
+  exchange.load(lines, { pending });
+  render();
+}
+// A request that failed: every avatar due to speak here says "…". A line
+// arrives whole or not at all, so no beat mixes a failure with words.
+function showFailedSilence() {
+  const place = world.actors[currentActor(world)].place;
+  const quiet = sceneSpeakers.filter(
+    (id) => people[id] && world.actors[id]?.place === place,
+  );
+  silence = {
+    turn: world.turn,
+    lines: silentLines(
+      world,
+      quiet.length || !openingWordsDue() ? quiet : [currentActor(world)],
+    ),
+  };
+  if (!exchange.active) exchange.begin();
+  loadTurnLines();
+}
 // The row keeps a held item after a play, so its slots can change under a
 // finger. A second tap on a slot redrawn by that play must not become a new
 // play. Choosing a card ends the pause.
@@ -1802,7 +1799,6 @@ function presentPhase() {
     revealing: !reveal.complete || exchange.hasNext || inscribing.size > 0,
     inFlight,
     lingering: lingeringWords(inFlight),
-    failed: storyStatus === "retry",
     raised: !rowCollapsed,
     chosen: selected.length > 0 || questOpen,
     rested: restedChoice !== null,
@@ -1947,20 +1943,9 @@ function renderActions() {
     blocked.title = reason;
     row.append(blocked);
   }
-  // A choice over words that failed keeps the failure and its Retry in
-  // front: the play beside them also asks again.
   const note = document.querySelector(".action-beat-note");
-  const failed = !rested && storyStatus === "retry";
-  note.textContent = failed ? $("story-error").textContent.trim() : "";
-  note.hidden = !failed;
-  if (failed) {
-    const retry = node("button", "Retry", "card-action");
-    retry.type = "button";
-    retry.dataset.retryWords = "true";
-    retry.disabled = $("story-retry").disabled;
-    retry.onclick = () => $("story-retry").click();
-    row.append(retry);
-  }
+  note.textContent = "";
+  note.hidden = true;
   delete $("action-beat").dataset.avatar;
   syncActionBeat();
   $("play-readout").textContent = selected.length
@@ -2848,19 +2833,9 @@ function renderScene() {
     url: (source) => imageUrl(source),
   });
   renderStandingResolve($("cast"), world, scene.locationId);
-  let sharedSpeech = sharedSession
+  const sharedSpeech = sharedSession
     ? sharedSpeechState(sharedSession.state, scene.locationId)
     : null;
-  // A committed play the player stopped waiting for stays saved and shows
-  // its caption with no line, never an error.
-  if (
-    sharedSpeech?.status === "retry" &&
-    stoppedSharedPlay &&
-    sharedSession.state.history?.find(
-      (entry) => entry.room === scene.locationId,
-    )?.play === stoppedSharedPlay
-  )
-    sharedSpeech = { status: "ready", retryKey: null };
   if (sharedSpeech) storyStatus = sharedSpeech.status;
   const waitingSpeaker =
     sharedSpeech?.status === "pending"
@@ -2900,7 +2875,6 @@ function renderScene() {
         entry.locationId === scene.locationId,
     );
   const hiddenAction = (entry) => moreToRead && entry.turn > shownTurn;
-  const wordsFailed = storyStatus === "retry";
   const waiting = sharedSession
     ? sharedSpeech.status === "pending" &&
       !(
@@ -2996,7 +2970,6 @@ function renderScene() {
   $("speaker").textContent = front
     ? line?.speaker || (front.speakerId ? nameOf(front.speakerId) : "")
     : "";
-  const canRetryWords = !sharedSession || Boolean(sharedSpeech.retryKey);
   const ownFront = behindLive ? null : front?.own || null;
   if (!ownFront?.cancel) disarmThinking(false);
   // The Thinking chip belongs to the Thinking card, never to a line.
@@ -3012,12 +2985,6 @@ function renderScene() {
       : "Thinking about this scene",
   );
   $("speech-row").setAttribute("aria-busy", String(!$("story-status").hidden));
-  const retryWords = $("story-retry");
-  retryWords.hidden = !wordsFailed || behindLive || Boolean(ownFront);
-  $("story-error").hidden = retryWords.hidden;
-  retryWords.disabled = storyRetrying || !canRetryWords;
-  retryWords.title = canRetryWords ? "Retry dialogue" : "Waiting for dialogue";
-  retryWords.setAttribute("aria-label", retryWords.title);
   const portraitId = front?.speakerId || null;
   const portraitBox = $("speaker-portrait");
   // Key on the resolved art too, so a scarf given or taken repaints it.
@@ -3062,7 +3029,7 @@ function renderScene() {
     );
   }
   captions.hidden = !front?.actions.length;
-  const showFront = Boolean(front) || wordsFailed;
+  const showFront = Boolean(front);
   document.querySelector(".dialogue").dataset.behind = String(Boolean(behind));
   $("speech-row").hidden = !showFront;
   syncDialogueShown();
@@ -3500,7 +3467,7 @@ $("speech-row").addEventListener(
       return finishInscribing();
     }
     if (reveal.complete || $("dialogue-text").hidden) return;
-    if (event.target.closest("#story-retry, #voice-retry")) return;
+    if (event.target.closest("#voice-retry")) return;
     event.stopPropagation();
     advanceFront();
   },
@@ -4133,7 +4100,7 @@ $("confirm-reset").onclick = () => {
   reveal.cancel();
   speechSounds.stop();
   world = freshWorld();
-  rememberWordsFailed(null);
+  rememberWords(null);
   loadSeen(true);
   completedSpeech.clear();
   reviewing = false;
@@ -4203,7 +4170,7 @@ function openingWordsDue() {
   );
 }
 // No line is scripted for a waking avatar (#1600): when the model gives no
-// first words, the silent beat "…" shows, and Retry or a reload asks again.
+// first words, the silent beat "…" shows, and stays "…" after a reload.
 function showOpeningSilence() {
   if (!openingWordsDue()) return;
   silence = {
@@ -4230,10 +4197,10 @@ function resumeScene({ otherTab = false } = {}) {
     render();
     return;
   }
-  const words = wordsFailedOnLoad();
-  if (openingWordsDue() && !otherTab && words !== "failed") {
+  const words = wordsOnLoad();
+  if (openingWordsDue() && !otherTab && words !== "silent") {
     // A new game asks the dialogue model for Vale's first line, and a reload
-    // that interrupted it asks again. A reload after it failed offers Retry.
+    // that interrupted it asks again. Words that failed stay "…".
     lineSeq = null;
     storyStatus = "pending";
     exchange.begin();
@@ -4241,25 +4208,25 @@ function resumeScene({ otherTab = false } = {}) {
     narrator.changed();
     return;
   }
-  if (!saveBlocked && !hasCurrentWords() && words) {
-    // This turn's words were on the way before the reload: ask again. If
-    // they had failed, or another tab is asking, offer Retry.
+  if (!saveBlocked && !hasCurrentWords() && words === "pending" && !otherTab) {
+    // This turn's words were on the way before the reload: ask again,
+    // quietly, under the Thinking card. Another tab that is asking keeps
+    // its request; this one shows the caption alone.
     const played = world.log.findLast(
       (entry) =>
         entry.turn === world.turn &&
         entry.kind === "action" &&
         entry.actorId === currentActor(world),
     );
-    narrator.resume(
+    lineSeq = null;
+    render();
+    narrator.changed(
       played ? { item: played.itemId, target: played.targetId } : null,
     );
-    lineSeq = null;
-    if (words === "pending" && !otherTab) {
-      render();
-      narrator.retry();
-      return;
-    }
-    storyStatus = "retry";
+    return;
+  }
+  if (words === "silent" && openingWordsDue()) {
+    // Vale's first words failed before the reload: he stays "…".
     render();
     showOpeningSilence();
     return;
@@ -4322,10 +4289,9 @@ function trackSharedPlay(value) {
   return false;
 }
 // The player's own play before its scene: queued here, or waiting or
-// retrying at the shared table. Only a queued or waiting play can be
-// withdrawn; a retrying one is committed, so cancelling only stops waiting
+// resuming at the shared table. Only a queued or waiting play can be
+// withdrawn; a resuming one is committed, so cancelling only stops waiting
 // for its line.
-let stoppedSharedPlay = null;
 function ownPlayInFlight() {
   const queued = playQueue.pending;
   if (queued && queued.action.kind !== "focus")
@@ -4351,10 +4317,7 @@ function ownPlayInFlight() {
   if (entry?.status === "retry")
     return {
       committed: true,
-      cancel: () => {
-        stoppedSharedPlay = entry.id;
-        void withdrawSharedPlay(entry.id);
-      },
+      cancel: () => void withdrawSharedPlay(entry.id),
     };
   // Sent but not yet at the table: nothing to withdraw yet.
   if (sharedSending || ["sending", "accepted"].includes(sharedPlay?.state))
@@ -4365,7 +4328,7 @@ function stopWaiting() {
   narrator.invalidate();
   exchange.cancel();
   storyStatus = "ready";
-  rememberWordsFailed(null);
+  rememberWords(null);
 }
 // The Thinking card cancels in two taps: the first asks, the second
 // cancels. A pause, Escape or a tap elsewhere puts it back.

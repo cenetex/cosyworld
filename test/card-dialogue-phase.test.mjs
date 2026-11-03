@@ -16,10 +16,6 @@ it("decides what the dialogue box shows", () => {
     [{ ...choosing, revealing: true }, "revealing"],
     [{ ...choosing, inFlight: true }, "thinking"],
     [{ revealing: true, inFlight: true }, "revealing"],
-    // A later play also asks again for words that failed.
-    [{ failed: true }, "failed"],
-    [{ ...choosing, failed: true }, "choosing"],
-    [{ failed: true, inFlight: true }, "thinking"],
     // Words past the grace for a committed play stop holding the hand: the
     // Thinking card stays, and a choice comes forward (a typing line still
     // keeps its card).
@@ -29,12 +25,16 @@ it("decides what the dialogue box shows", () => {
       { ...choosing, inFlight: true, lingering: true, revealing: true },
       "revealing",
     ],
-    [{ inFlight: true, lingering: true, failed: true }, "failed"],
     [{ reviewing: true }, "reviewing"],
-    [{ reviewing: true, failed: true }, "failed"],
     [{ ...choosing, reviewing: true }, "choosing"],
   ])
     expect(phase(state), JSON.stringify(state)).toBe(expected);
+});
+
+it("has no failed phase: words that fail are a silent line", () => {
+  // An old caller's flag changes nothing; play is never held for words.
+  expect(phase({ ...choosing, failed: true })).toBe("choosing");
+  expect(phase({ failed: true })).toBe("idle");
 });
 
 it("gives slow words only a short grace", () => {

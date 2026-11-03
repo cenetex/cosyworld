@@ -78,10 +78,22 @@ export function worldLogo({ href, storage, fresh = false }) {
   return LOGOS[index];
 }
 
+// The toolbar shows the same logo the title showed. A wide artwork whose
+// whole frame is unreadable at toolbar height names its lettering instead
+// (`toolbar`: a supplied file, or a `crop` of the artwork the image build
+// writes); it keeps the logo's name.
+export function toolbarLogo(logo) {
+  const art = logo?.toolbar;
+  if (!art?.src) return logo;
+  const { src, width, height } = art;
+  return { name: logo.name, src, width, height };
+}
+
 // The toolbar wordmark becomes the world's logo, a plain image named by its
-// alt text.
-export function showToolbarLogo(logo, root = document) {
+// alt text; `data-logo` names the title logo it shows.
+export function showToolbarLogo(chosen, root = document) {
   const mark = root.querySelector(".brand strong");
+  const logo = toolbarLogo(chosen);
   if (!mark || !logo) return;
   let image = mark.querySelector("img.brand-logo");
   if (!image) {
@@ -94,5 +106,5 @@ export function showToolbarLogo(logo, root = document) {
   image.width = logo.width;
   image.height = logo.height;
   image.src = imageUrl(logo.src, "card");
-  mark.dataset.logo = logo.src;
+  mark.dataset.logo = chosen.src;
 }

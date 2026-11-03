@@ -9,7 +9,7 @@ import {
   legalActions,
 } from "../card-game/world.mjs";
 import { enableMotives } from "../card-game/motives.mjs";
-import { selectCard } from "./card-browser-helpers.mjs";
+import { selectCard, wordsFellSilent } from "./card-browser-helpers.mjs";
 
 const singer = "greek-rhapsode";
 const want = (kind, target, since = 0) => ({
@@ -145,7 +145,7 @@ try {
       await selectCard(page, singer);
       await page.locator('#card-actions [data-action="talk"]').click();
       await reachTurn(4);
-      assert.equal(await page.locator("#story-retry").isVisible(), false);
+      assert.equal(await wordsFellSilent(page, key), false);
       const poem = requests.at(-1).entities.find((e) => e.id === singer)?.poem;
       assert.equal(poem.stanzas.length, 1);
       // Couplet text is lore, never dialogue context.

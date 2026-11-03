@@ -36,6 +36,15 @@ const state = (page) =>
       ].map((c) => c.dataset.card),
     };
   });
+// Words that fail are a silent "…" line (#2008's note and Retry are gone).
+async function noFailureUi(page) {
+  assert.equal(await page.locator("#story-retry, #story-error").count(), 0);
+  assert.equal(await page.locator("[data-retry-words]").count(), 0);
+  assert.doesNotMatch(
+    await page.locator("body").innerText(),
+    /didn.t arrive|\bRetry\b/u,
+  );
+}
 async function until(page, test, label, tries = 160) {
   let last;
   for (let i = 0; i < tries; i++) {
@@ -177,14 +186,21 @@ async function local(width) {
   mode = "hold";
   await t.page.locator("#card-actions .card-primary").click();
   await until(t.page, (s) => s.thinking && !s.panel, "Thinking at once", 16);
-  // A choice over words that failed keeps the failure and its Retry.
+  // Words that fail are "…" on the speaker's beat, and a choice comes
+  // forward with no failure note and no Retry.
   mode = "fail";
   await held.shift()();
-  await t.page.waitForSelector("#story-retry:not([hidden])");
+  await until(
+    t.page,
+    (s) => s.front === "silent" && !s.thinking,
+    "… after a failure",
+  );
+  assert.equal(await t.page.locator("#dialogue-text").innerText(), "…");
+  await noFailureUi(t.page);
   await t.choose("pond");
   const failed = await until(t.page, (s) => s.panel, "a choice after failure");
-  assert.match(failed.note, /Dialogue didn.t arrive/);
-  assert(await t.page.locator("#card-actions [data-retry-words]").isVisible());
+  assert.equal(failed.note, "");
+  await noFailureUi(t.page);
   assert.deepEqual(t.page.errors, []);
   await t.page.close();
 }
@@ -318,7 +334,7 @@ async function reloads(width) {
   await t.page.reload();
   await until(t.page, (s) => s.thinking, "Thinking again after reload");
   while (asked === before) await t.page.waitForTimeout(50);
-  assert.equal(await t.page.locator("#story-error").isVisible(), false);
+  await noFailureUi(t.page);
   await t.shot("reload-thinking");
   // D8: a reload mid-line shows the line whole.
   await held.at(-1)();
@@ -327,7 +343,7 @@ async function reloads(width) {
   const whole = await until(t.page, (s) => s.front === "speech", "line");
   assert.equal(whole.typing, false, "a line begun before reload shows whole");
   await t.shot("reload-whole-line");
-  // A reply too long to accept fails visibly after its retry.
+  // A reply too long to accept is "…" after its one quiet retry.
   length = 504;
   await t.readAll().catch(() => {});
   await t.page.keyboard.press("Escape");
@@ -336,7 +352,8 @@ async function reloads(width) {
   await held.shift()();
   while (!held.length) await t.page.waitForTimeout(50);
   await held.shift()();
-  await t.page.locator("#story-error").waitFor({ timeout: 4000 });
+  await until(t.page, (s) => s.front === "silent", "… for a long reply");
+  await noFailureUi(t.page);
   assert.deepEqual(t.page.errors, []);
   await t.page.close();
 }

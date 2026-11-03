@@ -291,8 +291,8 @@ try {
       await page.close();
     }
   }
-  // When the model gives no opening line, Vale is silent ("…") and Retry
-  // still asks the model for his words.
+  // When the model gives no opening line, Vale is silent ("…"); nothing
+  // asks again and no Retry shows.
   const page = await browser.newPage({
     viewport: { width: 1440, height: 900 },
   });
@@ -350,20 +350,25 @@ try {
       () => document.querySelector("#dialogue-text").textContent.trim() === "…",
     );
     assert.ok(requests.length >= 1);
-    assert.ok(await page.locator("#story-retry").isVisible());
-    let lines = await valeLines();
-    assert.equal(lines.length, 0, "The silent beat is never saved");
-    failing = false;
-    await page.locator("#story-retry").click();
-    await page.waitForFunction(() =>
-      /Hello\?/.test(document.querySelector("#dialogue-text").textContent),
+    // The "…" is the whole failure: no note, no Retry, and nothing asks again.
+    assert.equal(await page.locator("#story-retry, #story-error").count(), 0);
+    assert.doesNotMatch(
+      await page.locator("body").innerText(),
+      /didn.t arrive|\bRetry\b/u,
     );
-    lines = await valeLines();
-    assert.equal(lines.length, 1, "The model line follows the silence");
-    assert.equal(lines[0].text, "Dust and a dark mirror. Hello?");
-    assert.equal(lines[0].fallback, undefined);
+    const lines = await valeLines();
+    assert.equal(lines.length, 0, "The silent beat is never saved");
+    const asked = requests.length;
+    failing = false;
+    await page.waitForTimeout(1500);
+    assert.equal(requests.length, asked, "a failed first line is not re-asked");
+    assert.equal(
+      await page.locator("#dialogue-text").textContent(),
+      "…",
+      "the silent beat stays",
+    );
     assert.deepEqual(errors, []);
-    console.log(`Opening silence and retry passed in ${type}.`);
+    console.log(`Opening silence without retry passed in ${type}.`);
   } finally {
     await page.close();
   }

@@ -588,35 +588,6 @@ pub(super) fn run(
                 )
                 .map_err(sql_error)?;
             }
-            "retry" => {
-                let record: Option<(String,String,i32)> = c.query_row(
-                    "SELECT room,narrative,retries FROM card_full_plays WHERE id=? AND world=? AND user=? AND actor=? AND status='failed'",
-                    params![b.key,id,u,a], |r|Ok((r.get(0)?,r.get(1)?,r.get(2)?))).optional().map_err(sql_error)?;
-                let (room, text, retries) =
-                    record.ok_or("Choose your latest interrupted exchange.")?;
-                let context: Value = serde_json::from_str(&text).map_err(sql_error)?;
-                if retries >= 2 {
-                    return Err(
-                        "The story service needs a little more time. Your play is saved.".into(),
-                    );
-                }
-                if w.present[a] != 1
-                    || w.room(a)? != room
-                    || context["turn"] != w.game["turn"]
-                    || !context["context"].is_object()
-                {
-                    return Err("The scene has moved on. Play a card for a fresh exchange.".into());
-                }
-                let pending:i32=c.query_row("SELECT count(*) FROM card_full_plays WHERE world=? AND actor=? AND status IN ('waiting','retry','working','playing')",params![id,a],|r|r.get(0)).map_err(sql_error)?;
-                if pending > 0 {
-                    return Err("Your play is already at the table.".into());
-                }
-                c.execute(
-                    "UPDATE card_full_plays SET status='retry',retries=retries+1 WHERE id=?",
-                    [&b.key],
-                )
-                .map_err(sql_error)?;
-            }
             "cancel" => {
                 c.execute("UPDATE card_full_plays SET status='cancelled' WHERE world=? AND user=? AND id=? AND status IN ('waiting','retry')",params![id,u,b.key]).map_err(sql_error)?;
             }
@@ -783,19 +754,14 @@ fn kick(state: AppState, id: String) {
         }
     });
 }
-/// Journals the words, or fails the play at once when the rules refuse
-/// them, so its seat and the world never wait out the working lease.
+/// Journals the words. Words the rules refuse end like words that never
+/// came: the play's voices show "…" and its seat frees at once.
 pub(super) fn publish(state: &AppState, id: &str, work: Work, lines: Result<Value>) -> Result<()> {
     let refused = lines.is_ok().then(|| work.clone());
     match (finish_work(state, id, work, lines), refused) {
         (Err(error), Some(work)) => {
             tracing::warn!(%error, "shared card words refused by the rules");
-            finish_work(
-                state,
-                id,
-                work,
-                Err("The play is saved. Its words need another moment.".into()),
-            )
+            finish_work(state, id, work, Err(error))
         }
         (result, _) => result,
     }
@@ -871,7 +837,17 @@ fn finish_work_attempt(
         }
         let time = now();
         let mut scene = work.context.clone();
-        let ok = lines.is_ok();
+        // A scene without lines follows its play's last event, so its "…"
+        // takes that place in the room's speech.
+        if let Some(seq) = work.context["events"].as_array().and_then(|events| {
+            events
+                .iter()
+                .filter_map(|e| e["seq"].as_f64())
+                .reduce(f64::max)
+        }) {
+            scene["after"] = json!(seq);
+        }
+        let failed = lines.is_err();
         match lines {
             // A silent play, or one whose only voices stayed quiet, commits
             // no speech op: the journal matches a play whose words never came.
@@ -899,7 +875,18 @@ fn finish_work_attempt(
                     scene["silent"] = json!(silent);
                 }
             }
-            Err(error) => scene["error"] = json!(error),
+            // Words that failed are silence, not an error: every voice due
+            // shows "…", nothing is journaled, and no retry is kept. The
+            // journal matches a play whose words never came (rules unchanged).
+            Err(error) => {
+                tracing::warn!(%error, play = %work.id, "shared card words fell silent");
+                scene["lines"] = json!([]);
+                let voices = super::full_speech::voices(&work.context, work.actor);
+                if !voices.is_empty() {
+                    scene["silent"] = json!(voices);
+                }
+                scene["failed"] = json!(true);
+            }
         }
         for key in ["context", "profiles", "events"] {
             scene
@@ -908,7 +895,8 @@ fn finish_work_attempt(
                 .remove(key);
         }
         scene["starts_at"] = json!(time);
-        let duration = if ok {
+        // Failed words hold nothing: the seat and the world free at once.
+        let duration = if !failed {
             scene["lines"]
                 .as_array()
                 .ok_or("The scene needs attention.")?
@@ -920,13 +908,14 @@ fn finish_work_attempt(
                 .sum::<i64>()
                 + 3500 * scene["silent"].as_array().map_or(0, Vec::len) as i64
         } else {
-            2000
+            0
         };
         scene["until_at"] = json!(time + duration);
         tx.execute(
             "UPDATE card_full_plays SET status=?,until_at=?,result=? WHERE id=?",
             params![
-                if ok { "playing" } else { "failed" },
+                // Failed words free the seat now; a reading scene holds it.
+                if failed { "done" } else { "playing" },
                 time + duration,
                 scene.to_string(),
                 work.id

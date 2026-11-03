@@ -1183,70 +1183,89 @@ try {
     const action = await actionFor(vale, "talk");
     assert(action, "Vale has someone at the pond to talk with");
     const command = { op: "play", key: crypto.randomUUID(), action };
+    const seq = journalOps(0).at(-1).seq;
     assert.equal((await api(vale, command)).status, 200);
+    // Words that fail complete the play as silence: the seat frees at once,
+    // nothing is journaled for them, and Vale's beat shows "…" alone.
     await until(
-      async () => (await snapshot(vale)).history[0]?.error,
-      "shared speech failure is saved",
+      async () => {
+        const view = await snapshot(vale);
+        const scene = view.history.find((entry) => entry.play === command.key);
+        return scene?.failed && !scene.lines.length && !view.queue.length;
+      },
+      "shared speech failure completes silently",
       60,
       1000,
     );
-    const retry = vale.getByRole("button", {
-      name: "Retry dialogue",
-      exact: true,
-    });
-    await retry.waitFor({ state: "visible" });
-    assert.equal(await vale.locator("#story-status").isVisible(), false);
-    assert.equal(await retry.innerText(), "Retry");
-    assert.equal(await vale.locator("#story-error").isVisible(), true);
-    const bounds = await retry.boundingBox();
-    assert(bounds.width >= 32 && bounds.height <= 32);
-    assert.doesNotMatch(
-      await vale.locator("#play-status").innerText(),
-      /play is saved|503/i,
+    const failedView = await snapshot(vale);
+    const failedScene = failedView.history.find(
+      (entry) => entry.play === command.key,
     );
-    const before = (await snapshot(vale)).world;
-    const seq = journalOps(0).at(-1).seq;
+    assert.equal(failedScene.error ?? null, null);
+    assert.equal(failedView.notice ?? null, null);
+    assert.equal(typeof failedScene.after, "number");
+    assert(failedScene.silent.includes("vale"), "the Talk voiced Vale");
+    assert(
+      !journalOps(seq).some((row) => row.op === "speech"),
+      "no speech is journaled for words that failed",
+    );
+    await until(
+      async () =>
+        (await vale.locator("#dialogue-text").textContent())?.trim() === "…",
+      "Vale's beat shows …",
+    );
+    assert.equal(await vale.locator("#story-status").isVisible(), false);
+    assert.equal(await vale.locator("#story-retry, #story-error").count(), 0);
+    assert.doesNotMatch(
+      await vale.locator("body").innerText(),
+      /didn.t arrive|\bRetry\b|play is saved|503/iu,
+    );
+    const before = failedView.world;
+    const settled = journalOps(0).at(-1).seq;
     failReplies = false;
-    const [retried] = await Promise.all([
-      vale.waitForResponse(
-        (response) =>
-          response.request().method() === "POST" &&
-          response.request().postDataJSON()?.op === "retry",
-      ),
-      retry.click(),
-    ]);
-    assert.equal(retried.status(), 200, await retried.text());
+    // The next play is taken at once and speaks: one play, one speech, and
+    // perhaps the speaker's private reflection (shared-worlds.md).
+    const next = {
+      op: "play",
+      key: crypto.randomUUID(),
+      action: await actionFor(vale, "talk"),
+    };
+    assert(next.action, "Vale can talk again");
+    assert.equal((await api(vale, next)).status, 200);
     await until(
       async () => {
         const { history, queue } = await snapshot(vale);
-        return !history[0]?.error && !queue.length;
+        return (
+          history.find((entry) => entry.play === next.key)?.lines?.length &&
+          !queue.length
+        );
       },
-      "shared retry finishes",
+      "the next shared play speaks",
       60,
       1000,
     );
-    // The retry commits one speech; the speaker's private reflection may
-    // follow as its own record (shared-worlds.md).
     let after, ops;
     await until(
       async () => {
         after = (await snapshot(vale)).world;
-        ops = journalOps(seq).map((row) => row.op);
+        ops = journalOps(settled).map((row) => row.op);
         return after.revision === before.revision + ops.length;
       },
-      "the retry's records settle",
+      "the next play's records settle",
       30,
       1000,
     );
-    assert.equal(after.turn, before.turn);
-    assert.equal(ops[0], "speech", "one shared speech commit");
-    assert.deepEqual(
-      new Set(ops.slice(1)),
-      new Set(ops.length > 1 ? ["reflect"] : []),
+    assert.equal(
+      ops.filter((op) => op === "speech").length,
+      1,
+      "one shared speech commit",
     );
-    assert.deepEqual(after.items, before.items);
-    assert.deepEqual(after.actors, before.actors);
-    await until(async () => !(await retry.isVisible()), "retry icon clears");
+    assert.deepEqual(
+      new Set(ops.filter((op) => op !== "speech" && op !== "reflect")),
+      new Set(["play"]),
+    );
+    assert(after.turn > before.turn, "the next play ran");
+    assert.equal(await vale.locator("#story-retry, #story-error").count(), 0);
   }
   assert.deepEqual(errors, []);
   for (const player of [0, 1]) {

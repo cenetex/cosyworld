@@ -1043,11 +1043,18 @@ fn full_world_npc_turn_and_speech_survive_worker_restart() {
     assert_eq!(full_store::world(&c, &id, now()).unwrap().game, before.game);
     assert!(full::take_work(&app, &id).unwrap().is_none());
     let view = full_store::snapshot(&c, &id, "user0", now()).unwrap();
-    assert!(view["history"][0]["error"].is_string());
-    assert!(view["history"][0].get("context").is_none());
+    // Words cut off with the worker are "…", never an error or a retry.
+    let scene = &view["history"][0];
+    assert!(scene["error"].is_null(), "{scene}");
+    assert_eq!(scene["failed"], true);
+    assert_eq!(scene["lines"], json!([]));
+    assert!(scene["after"].is_number(), "{scene}");
+    assert!(scene.get("context").is_none());
+    assert_eq!(view["queue"], json!([]));
+    assert!(view["notice"].is_null());
 }
 #[tokio::test]
-async fn server_dialogue_keeps_a_legacy_browser_scene_through_retry_and_replay() {
+async fn server_dialogue_keeps_a_legacy_browser_scene_through_replay() {
     use crate::routes::card_game::narrative::browser;
     use axum::{
         body::Body,
@@ -1083,16 +1090,6 @@ async fn server_dialogue_keeps_a_legacy_browser_scene_through_retry_and_replay()
         .await
         .unwrap();
     assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
-    full::finish_work(&state, &id, work, Err("Connect OpenRouter again.".into())).unwrap();
-    let mut retry = body("retry", None);
-    retry.key = b.key;
-    full::run(&c, &id, "user0", &retry, now()).unwrap();
-    let work = full::take_work(&state, &id).unwrap().unwrap();
-    assert_eq!(work.context["browser_chat"], false);
-    assert_eq!(
-        full_store::snapshot(&c, &id, "user0", now()).unwrap()["queue"][0]["attempt"],
-        1
-    );
     let (payload, ids) = full_speech::prepared(0, &work.context).unwrap();
     let prepared = browser::prepare(&payload["scene"], Some(&ids), None).unwrap();
     assert!(prepared["calls"]
@@ -1339,71 +1336,74 @@ fn full_world_shared_speech_is_journaled_with_matching_log_sequences() {
 }
 
 #[test]
-fn shared_speech_retry_reuses_committed_play_without_another_turn() {
+fn failed_shared_words_finish_the_play_as_silence_and_free_the_seat() {
     let (path, mut c, id) = fixture();
     claim(&mut c, &id, 0);
     let w = full_store::world(&c, &id, now()).unwrap();
     let mut b = body("play", None);
-    b.key = "speech-retry-000001".into();
-    b.action = w.project(0).unwrap()["actions"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .find(|a| a["kind"] == "wait")
-        .unwrap()
-        .clone();
-    let tx = c
-        .transaction_with_behavior(TransactionBehavior::Immediate)
-        .unwrap();
-    full::run(&tx, &id, "user0", &b, now()).unwrap();
-    tx.commit().unwrap();
+    b.key = "speech-silent-000001".into();
+    b.action = home_action(&w, 0, "wait");
+    full::run(&c, &id, "user0", &b, now()).unwrap();
     let app = crate::test_app_state(crate::RuntimeWorld::seeded(), Some(path));
     let work = full::take_work(&app, &id).unwrap().unwrap();
-    let stale_attempt = work.clone();
-    full::finish_work(
+    let committed = full_store::world(&c, &id, now()).unwrap();
+    let journal = |c: &rusqlite::Connection| -> i64 {
+        c.query_row(
+            "SELECT count(*) FROM card_full_log WHERE world=?",
+            [&id],
+            |r| r.get(0),
+        )
+        .unwrap()
+    };
+    let journaled = journal(&c);
+    full::publish(
         &app,
         &id,
         work,
         Err("The story service is warming up.".into()),
     )
     .unwrap();
-    let committed = full_store::world(&c, &id, now()).unwrap();
-    let mut retry = body("retry", None);
-    retry.key = b.key;
-    let tx = c
-        .transaction_with_behavior(TransactionBehavior::Immediate)
-        .unwrap();
-    full::run(&tx, &id, "user0", &retry, now()).unwrap();
-    tx.commit().unwrap();
-    let work = full::take_work(&app, &id).unwrap().unwrap();
-    full::finish_work(
-        &app,
-        &id,
-        stale_attempt,
-        Err("An earlier attempt finished late.".into()),
-    )
-    .unwrap();
-    let status: String = c
+    let (status, result): (String, String) = c
         .query_row(
-            "SELECT status FROM card_full_plays WHERE id=?",
-            [&retry.key],
-            |r| r.get(0),
+            "SELECT status,result FROM card_full_plays WHERE id=?",
+            [&b.key],
+            |r| Ok((r.get(0)?, r.get(1)?)),
         )
         .unwrap();
-    assert_eq!(status, "working");
+    // The play completes: no failed state, no error and no retry lease.
+    assert_eq!(status, "done");
+    let scene: Value = serde_json::from_str(&result).unwrap();
+    assert!(scene["error"].is_null(), "{scene}");
+    assert_eq!(scene["failed"], true);
+    assert_eq!(scene["lines"], json!([]));
+    assert!(scene["after"].is_number(), "{scene}");
+    assert_eq!(scene["until_at"], scene["starts_at"]);
+    // Nothing is journaled for words that never came, as before: the rules
+    // and replay are unchanged.
+    assert_eq!(journal(&c), journaled);
     assert_eq!(
         full_store::world(&c, &id, now()).unwrap().game,
         committed.game
     );
-    let lines = json!([{"speaker":"Vale","actorId":"vale","entityId":"vale","text":"The quiet suits me."},{"speaker":"Empty station","actorId":null,"entityId":work.room,"text":"A moth circles the glass."}]);
-    full::finish_work(&app, &id, work, Ok(lines)).unwrap();
-    let after = full_store::world(&c, &id, now()).unwrap();
-    assert_eq!(after.game["turn"], committed.game["turn"]);
-    assert_eq!(after.game["items"], committed.game["items"]);
-    let count: i32 = c
-        .query_row("SELECT count(*) FROM card_full_scenes", [], |r| r.get(0))
-        .unwrap();
-    assert_eq!(count, 1);
+    // The seat frees at once: the next play is taken without waiting.
+    let view = full_store::snapshot(&c, &id, "user0", now() + 1).unwrap();
+    assert_eq!(view["queue"], json!([]));
+    assert!(view["notice"].is_null());
+    // There is no retry op.
+    let mut retry = body("retry", None);
+    retry.key = b.key;
+    assert!(full::run(&c, &id, "user0", &retry, now()).is_err());
+    let w = full_store::world(&c, &id, now()).unwrap();
+    let mut next = body("play", None);
+    next.key = "speech-silent-000002".into();
+    next.action = home_action(&w, 0, "wait");
+    full::run(&c, &id, "user0", &next, now() + 1).unwrap();
+    assert_eq!(full::take_work(&app, &id).unwrap().unwrap().id, next.key);
+    c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
+    assert_eq!(
+        full_store::world(&c, &id, now()).unwrap().game["turn"],
+        w.game["turn"].as_u64().unwrap() + 1
+    );
 }
 
 #[test]
@@ -3083,7 +3083,7 @@ fn a_refused_save_names_where_the_rules_refused_it() {
 }
 
 #[test]
-fn refused_words_fail_the_play_at_once_instead_of_holding_the_seat() {
+fn refused_words_finish_the_play_as_silence_instead_of_holding_the_seat() {
     let (path, mut c, id) = fixture();
     claim(&mut c, &id, 0);
     let w = full_store::world(&c, &id, now()).unwrap();
@@ -3105,13 +3105,12 @@ fn refused_words_fail_the_play_at_once_instead_of_holding_the_seat() {
             |r| Ok((r.get(0)?, r.get(1)?)),
         )
         .unwrap();
-    assert_eq!(status, "failed");
+    assert_eq!(status, "done");
     let scene: Value = serde_json::from_str(&result).unwrap();
-    assert_eq!(
-        scene["error"],
-        "The play is saved. Its words need another moment."
-    );
-    // The committed play stays; the seat is free for Retry or a new play.
+    assert!(scene["error"].is_null(), "{scene}");
+    assert_eq!(scene["failed"], true);
+    assert_eq!(scene["lines"], json!([]));
+    // The committed play stays; the seat is free for the next play.
     assert_eq!(
         full_store::world(&c, &id, now()).unwrap().game,
         committed.game

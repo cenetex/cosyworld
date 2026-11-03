@@ -7,7 +7,7 @@ import { profiles } from "../card-game/memory.mjs";
 import { packDefinition } from "../card-game/pack-registry.mjs";
 import { openDoorAction, openSeas } from "../../test/helpers/open-door.mjs";
 import { ajaxCamp } from "../../test/helpers/greek-ajax.mjs";
-import { selectCard } from "./card-browser-helpers.mjs";
+import { selectCard, wordsFellSilent } from "./card-browser-helpers.mjs";
 import { needsVoyage, nextVoyagePlay } from "../../test/helpers/voyage.mjs";
 
 const output = new URL("../../output/greek-travel/", import.meta.url);
@@ -171,7 +171,7 @@ try {
         for (let n = 0; n < 300; n++) {
           if (await page.locator("#dialogue-advance").isVisible())
             await page.locator("#dialogue-advance").click();
-          assert.equal(await page.locator("#story-retry").isVisible(), false);
+          assert.equal(await wordsFellSilent(page, key), false);
           if (
             (await page.locator("#hand").getAttribute("data-cooling")) ===
             "false"
