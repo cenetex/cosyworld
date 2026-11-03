@@ -3796,6 +3796,51 @@ pub(crate) mod tests {
         server.abort();
     }
 
+    /// While a voice's own route is open, the configured escalation model is
+    /// its fallback: the scene still speaks, and the open route sees no call.
+    #[tokio::test]
+    async fn an_open_route_speaks_on_the_escalation_model() {
+        let seen = Arc::new(Mutex::new(Vec::<Value>::new()));
+        let provider = plain_provider(seen.clone(), |_, stem| {
+            if stem.starts_with("Vale") {
+                "The lamp is warm tonight.".into()
+            } else {
+                "Hold on, I hear something.".into()
+            }
+        });
+        let (address, server) = serve(provider).await;
+        let config = tiered_config(address, &[("escalation-model", false)]);
+        for _ in 0..3 {
+            config
+                .readiness
+                .record_transport_failure("chat/completions", "test-entity-model");
+        }
+        let settings = VoiceSettings {
+            escalation_model: Some("escalation-model".into()),
+            ..VoiceSettings::hosted()
+        };
+        let ids = ["vale".to_string(), "moth".to_string()];
+        let result = complete_selected(
+            &config,
+            &context(),
+            &BTreeMap::new(),
+            &settings,
+            &ids,
+            false,
+            None,
+        )
+        .await
+        .unwrap();
+        assert_eq!(result["entries"][0]["text"], "The lamp is warm tonight.");
+        assert_eq!(result["entries"][1]["text"], "Hold on, I hear something.");
+        let requests = seen.lock().unwrap();
+        assert!(!requests.is_empty());
+        assert!(requests
+            .iter()
+            .all(|body| body["model"] == "escalation-model"));
+        server.abort();
+    }
+
     pub(crate) fn plain_provider(
         seen: Arc<Mutex<Vec<Value>>>,
         reply: impl Fn(&Value, &str) -> String + Clone + Send + Sync + 'static,
