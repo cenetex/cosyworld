@@ -1,6 +1,12 @@
 import { packPlaces } from "./pack-registry.mjs";
 import { mediaUrl } from "./media.mjs";
+import { reflectionOpen } from "./world.mjs";
 import streams from "./music-streams.json" with { type: "json" };
+import {
+  RETURN_FADE_SECONDS,
+  contextAsleep,
+  wakeContext,
+} from "./audio-wake.mjs";
 
 export const roomTracks = {
   "willows-camp": [
@@ -81,8 +87,27 @@ export const roomTracks = {
   ),
 };
 
+// In the Vale attic opening, music first plays when the lamp goes out and
+// the mirror shows the Black pond. A world or avatar without that opening,
+// or one that has left the attic, plays music as soon as it has started.
+export function openingRevealed(world, actor) {
+  const opening = world?.opening;
+  if (!opening || opening.crossed || actor !== "vale") return true;
+  if (world.actors?.vale?.place !== "attic") return true;
+  return (
+    reflectionOpen(world, "attic") ||
+    (world.log || []).some(
+      (entry) =>
+        entry?.locationId === "attic" &&
+        entry.text?.startsWith("The attic mirror opens"),
+    )
+  );
+}
+
 // A room starts a song when music is idle. The song follows every journey
 // until its end. The audio clock keeps volume and pause fades smooth.
+// A hidden tab fades the song out and pauses it in place; the return wakes
+// the audio context (phones put it to sleep) and fades back in from there.
 export function createRoomMusic({
   audio,
   changed = () => {},
@@ -101,6 +126,7 @@ export function createRoomMusic({
     started = false,
     enabled = true,
     hidden = false,
+    returning = false,
     pending = false,
     generation = 0,
     failures = 0,
@@ -150,6 +176,11 @@ export function createRoomMusic({
         nextGain.gain.value = 0;
         nextGain.connect(nextContext.destination);
         nextContext.createMediaElementSource(audio).connect(nextGain);
+        // A call or Siri can interrupt iOS audio while the page stays in view.
+        nextContext.addEventListener?.("statechange", () => {
+          if (!hidden && contextAsleep(nextContext) && wanted())
+            void wakeContext(nextContext);
+        });
         context = nextContext;
         gain = nextGain;
         audio.volume = 1;
@@ -157,7 +188,12 @@ export function createRoomMusic({
         // The media-element fade remains available.
       }
     }
-    if (context?.state === "suspended") void context.resume().catch(() => {});
+    void wakeContext(context);
+  }
+  // The first fade in after the tab returns is short, not the full second.
+  function fadeIn() {
+    fadeTo(volume, returning ? RETURN_FADE_SECONDS : fadeSeconds);
+    returning = false;
   }
   const trackRoom = () => sourceRoom || room;
   function track() {
@@ -252,7 +288,7 @@ export function createRoomMusic({
         () => {
           if (attempt !== generation) return;
           pending = false;
-          fadeTo(volume, fadeSeconds);
+          fadeIn();
           report();
         },
         () => {
@@ -271,10 +307,12 @@ export function createRoomMusic({
     transitionTimer = null;
     generation++;
     pending = false;
-    if (!wanted()) afterFade(pause);
-    else if (loadedFile !== track()?.file || restartOnVisit) afterFade(load);
+    if (!wanted()) {
+      returning = false;
+      afterFade(pause);
+    } else if (loadedFile !== track()?.file || restartOnVisit) afterFade(load);
     else if (audio.paused) start();
-    else if (!ending) fadeTo(volume, fadeSeconds);
+    else if (!ending) fadeIn();
   }
   function advance() {
     const id = trackRoom();
@@ -317,7 +355,11 @@ export function createRoomMusic({
   });
   return {
     setStarted(value) {
-      if (started === Boolean(value)) return;
+      if (started === Boolean(value)) {
+        // The waiting status follows plays made before music starts.
+        if (!started) report();
+        return;
+      }
       started = Boolean(value);
       if (!started) {
         sourceRoom = null;
@@ -373,6 +415,10 @@ export function createRoomMusic({
     setHidden(value) {
       if (hidden === Boolean(value)) return;
       hidden = Boolean(value);
+      if (!hidden) {
+        returning = true;
+        void wakeContext(context);
+      }
       sync();
     },
   };

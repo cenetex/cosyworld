@@ -157,6 +157,13 @@ try {
         subtree: true,
         childList: true,
       });
+      // The caption's width at each beat.
+      const caption = document.querySelector("#combat-caption");
+      window.captionWidths = [];
+      new MutationObserver(() => {
+        if (!caption.hidden)
+          window.captionWidths.push(caption.getBoundingClientRect().width);
+      }).observe(caption, { childList: true, attributeFilter: ["hidden"] });
       // Who stands in the front row at each step of the exchange.
       window.battleRows = [];
       new MutationObserver(() => {
@@ -217,11 +224,28 @@ try {
     // The telegraph and the rules line appear on stage before the new place.
     await page.locator("#combat-caption:not([hidden])").waitFor();
     await page.waitForTimeout(400);
+    // The locked hand tucks straight down out of the fighters' way, keeping
+    // its layout, and the caption reads below the top bar.
+    const tucked = await handRect();
     assert.deepEqual(
-      await handRect(),
-      raisedHand,
-      "The strikes leave the raised hand exactly where it was",
+      [tucked[0], tucked[2], tucked[3]],
+      [raisedHand[0], raisedHand[2], raisedHand[3]],
+      "The strikes keep the raised hand's layout",
     );
+    assert.ok(
+      tucked[1] >= height - 60,
+      `The hand tucks down during the beats ${tucked} from ${raisedHand}`,
+    );
+    if (width > 640)
+      assert.ok(
+        await page.evaluate(
+          () =>
+            document.querySelector("#combat-caption").getBoundingClientRect()
+              .top >=
+            document.querySelector(".topbar").getBoundingClientRect().bottom,
+        ),
+        "The caption reads below the top bar",
+      );
     // From the first combat frame the two fighters face each other.
     assert.deepEqual(
       await page.evaluate(
@@ -249,6 +273,19 @@ try {
       [true, true],
       "The fighters face each other before the first strike",
     );
+    // The exchange stands apart at every width, including three-way phone
+    // battles, where the ordinary scene pins foreground figures to one spot.
+    await page.waitForTimeout(400); // the fighters step onto their marks
+    const apart = await page.evaluate((opponent) => {
+      const at = (who) => {
+        const box = document
+          .querySelector(`#cast [data-avatar="${who}"]`)
+          .getBoundingClientRect();
+        return box.left + box.width / 2;
+      };
+      return Math.abs(at("vale") - at(opponent)) / innerWidth;
+    }, opponent);
+    assert.ok(apart > 0.3, `The two fighters stand apart (${apart})`);
     report.telegraph = await page.locator("#combat-caption").textContent();
     assert.match(
       await page
@@ -261,6 +298,46 @@ try {
         document.querySelector("#combat-caption").textContent,
       ),
     );
+    // Those behind the exchange face it, and on phones the exchange shares
+    // one scale whatever each painting's framing.
+    const rowsNow = await page.evaluate(() => {
+      const box = (el) => el.getBoundingClientRect();
+      const centre = (el) => box(el).left + box(el).width / 2;
+      const front = [
+        ...document.querySelectorAll('#cast [data-battle-row="front"]'),
+      ];
+      const middle =
+        front.reduce((sum, el) => sum + centre(el), 0) / front.length;
+      return {
+        heights: front.map((el) => box(el).height),
+        away: [...document.querySelectorAll('#cast [data-battle-row="back"]')]
+          .filter((el) => Math.abs(centre(el) - middle) > 5)
+          .filter(
+            (el) => (el.dataset.facing === "right") !== middle > centre(el),
+          )
+          .map((el) => el.dataset.avatar),
+      };
+    });
+    assert.deepEqual(rowsNow.away, [], "The back row faces the exchange");
+    if (width <= 700 && rowsNow.heights.length > 1)
+      assert.ok(
+        Math.max(...rowsNow.heights) - Math.min(...rowsNow.heights) < 2,
+        `The exchange shares one scale ${rowsNow.heights}`,
+      );
+    // The trail runs toward the target and stays on screen.
+    const trail = await page.evaluate(() => {
+      const el = document.querySelector(
+        '#cast .combat-effect[data-effect^="swipe"], #cast .combat-effect[data-effect^="jab"]',
+      );
+      if (!el) return null;
+      const box = el.getBoundingClientRect();
+      return { left: box.left, right: box.right };
+    });
+    if (motion !== "reduce" && trail)
+      assert.ok(
+        trail.left >= -1 && trail.right <= width + 1,
+        `The strike trail stays on screen ${JSON.stringify(trail)}`,
+      );
     // A hit lands: no target circle, a slim resolve bar under each fighter.
     await page.screenshot({
       path: new URL(`hit-${opponent}-${width}-${motion}.png`, output).pathname,
@@ -288,6 +365,13 @@ try {
       .locator('#cast [data-avatar="vale"] .combat-word')
       .last()
       .textContent();
+    // The scene fades toward black before the defeat card opens.
+    await page.locator("#travel.fainting").waitFor();
+    await page.waitForTimeout(motion === "reduce" ? 0 : 500);
+    await page.screenshot({
+      path: new URL(`faint-${opponent}-${width}-${motion}.png`, output)
+        .pathname,
+    });
     await page.locator("#defeat-dialog[open]").waitFor();
     // The striker and Vale step forward together; Pip waits behind.
     const rows = await page.evaluate(() => window.battleRows);
@@ -349,9 +433,19 @@ try {
       new RegExp(`${nameOf(opponent)} drove you off`, "u"),
     );
     // The player decides when to move on; the place has not changed yet.
+    // Being driven off fades the scene to black under the card.
     await page.waitForTimeout(600);
     assert.equal(await page.locator("#defeat-dialog[open]").count(), 1);
     assert.equal(await page.locator("#travel.travelling").count(), 0);
+    assert.deepEqual(
+      await page.$eval("#travel", (veil) => [
+        veil.classList.contains("fainting"),
+        getComputedStyle(veil).opacity,
+        getComputedStyle(veil).backgroundColor,
+      ]),
+      [true, "1", "rgb(0, 0, 0)"],
+      "The scene has faded to black",
+    );
     await page.screenshot({
       path: new URL(`defeat-${opponent}-${width}-${motion}.png`, output)
         .pathname,
@@ -382,6 +476,7 @@ try {
     await page.waitForFunction(
       () => !document.querySelector("#travel.travelling"),
     );
+    assert.equal(await page.locator("#travel.fainting").count(), 0);
     // Each fighter's step and the defeat join Memory as beats.
     await page.evaluate(() =>
       document.querySelector("#history-button").click(),
@@ -399,6 +494,15 @@ try {
       1,
       "The hand unlocks once the new place is drawn",
     );
+    await page.waitForTimeout(400);
+    assert.match(
+      await page.$eval(
+        ".play-dock",
+        (dock) => getComputedStyle(dock).translate,
+      ),
+      /^(none|0px)$/u,
+      "The hand rises back once the beats end",
+    );
     assert.equal(
       await page.locator('.dialogue[data-dropped="false"]').count(),
       1,
@@ -407,6 +511,12 @@ try {
     assert.equal(
       await page.locator("#combat-caption:not([hidden])").count(),
       0,
+    );
+    // Its box kept one width through every beat, whatever the words.
+    const widths = await page.evaluate(() => window.captionWidths);
+    assert.ok(
+      widths.length >= 2 && Math.max(...widths) - Math.min(...widths) < 1,
+      `The caption keeps its width ${widths}`,
     );
     // One voice answers the defeat.
     await page.waitForFunction(() => Boolean(window.document.body));

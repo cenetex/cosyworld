@@ -47,6 +47,8 @@ import {
   giftDecision,
   socialTravel,
   recordReaction,
+  repairAnswer,
+  closeRepaired,
   validMotives,
   tastes,
 } from "./motives.mjs";
@@ -57,6 +59,7 @@ import {
   reserveKnowledge,
   reserveLaneKnowledge,
   acceptKnowledgeSpeech,
+  witnessRepair,
   validKnowledge,
 } from "./knowledge.mjs";
 import {
@@ -71,9 +74,11 @@ import {
   travels,
   resting,
   settleWants,
+  meetsItemWant,
   refuseWant,
   reviseStalledWants,
   fillWants,
+  renewWant,
   validWant,
   WANT_KINDS,
   CONNECT_TARGET,
@@ -952,13 +957,20 @@ export function laneTalkFacts(s, actor) {
     : [`I know of no ship lane from ${nameOf(near)}.`];
 }
 // A gated lane is told with its condition; telling it never opens it. A
-// named thing is told by name; a world's things as "something from there".
+// named thing is told by name; a world's things as "something from there",
+// or by the world's short name when it is one of several choices.
+const worldName = (pack) =>
+  packDefinitions.find((p) => p.id === pack)?.name.split(":")[0] ?? "there";
+const needOf = (c, choice = false) =>
+  c.kind === "any"
+    ? [...new Set(c.conditions.map((r) => needOf(r, true)))].join(" or ")
+    : c.item
+      ? nameOf(c.item)
+      : choice && c.pack
+        ? `something from ${worldName(c.pack)}`
+        : "something from there";
 const laneNeed = (gate) =>
-  [
-    ...new Set(
-      gate.map((c) => (c.item ? nameOf(c.item) : "something from there")),
-    ),
-  ].join(" and ");
+  [...new Set(gate.map((c) => needOf(c)))].join(" and ");
 export const laneFact = (from, to) => {
   const gate = laneConditions(from, to);
   return {
@@ -1292,16 +1304,36 @@ export function legalActions(s, actor = currentActor(s)) {
   )
     return [];
   const here = s.actors[actor].place;
+  // Sleep is a Wait that lasts until something changes. A sleeper may sleep
+  // on or choose any other play, which wakes it first.
+  const asleep = Boolean(s.actors[actor].sleeping),
+    sleep = {
+      ...offer("wait", actor, null, null, `${nameOf(actor)} sleeps.`, []),
+      key: `sleep:${actor}::`,
+      label: "Sleep",
+      sleep: true,
+    };
   const out = [
+    ...(asleep ? [sleep] : []),
     offer("wait", actor, null, null, `${nameOf(actor)} waits one turn.`, []),
   ];
-  // A sleeper's only play is to wait until the light changes.
-  if (s.actors[actor].sleepUntil !== undefined) return out;
   const conflict = standoffFor(s, actor);
   if (conflict)
     out.push(
       offer("guard", actor, null, null, `${nameOf(actor)} braces.`, [actor]),
     );
+  // A player's Wait after a Wait may become Sleep, never aboard, mid-fight,
+  // or beside a lamp about to burn its last oil.
+  else if (
+    !asleep &&
+    !transportPlace(here) &&
+    !lampGuttering(s, here) &&
+    (actor === currentActor(s) || controlledByHuman(s, actor)) &&
+    s.log.findLast(
+      (e) => e.kind === "action" && e.actorId === actor && !e.generated,
+    )?.verb === "wait"
+  )
+    out.push(sleep);
   for (const to of packPeople[actor]?.journey ? [] : exits(s, here, actor)) {
     if (departureWaits(s, actor, to)) continue;
     // A course card aboard a docked ship sets the voyage for everyone aboard.
@@ -1442,7 +1474,7 @@ export function legalActions(s, actor = currentActor(s)) {
           actor,
           null,
           other,
-          `${nameOf(actor)} asks ${nameOf(other)} what they want.`,
+          `${nameOf(actor)} has a conversation with ${nameOf(other)}.`,
           [other],
         ),
       );
@@ -1731,25 +1763,129 @@ function trustGiver(s, recipient, item, giver) {
   );
 }
 // Wait is the only rest. Any Wait at a sanctuary, by a player or a resident,
-// clears every loss. A player's is a long rest: it sleeps until the light
-// next changes. A Wait anywhere else leaves losses as they are. Nobody rests
-// in the middle of a standoff.
-function rest(s, actor, here) {
-  const a = s.actors[actor],
-    losses = s.defeats?.[actor] || 0;
-  if (a.sleepUntil !== undefined) {
-    if (s.turn < a.sleepUntil) return null;
-    delete a.sleepUntil;
-    if (losses) delete s.defeats[actor];
-    wake(s, actor, wantAPI(s));
-    return "long";
+// clears every loss. A Wait anywhere else leaves losses as they are. Sleep, a
+// player's Wait after a Wait, lasts until something changes (wakeSleepers).
+// Nobody rests in the middle of a standoff.
+function rest(s, actor, here, sleep = false) {
+  if (standoffFor(s, actor)) return;
+  if (sanctuaries.includes(here) && s.defeats?.[actor]) delete s.defeats[actor];
+  if (sleep && !s.actors[actor].sleeping)
+    s.actors[actor].sleeping = {
+      since: s.turn,
+      place: here,
+      present: bodiesAt(s, here),
+    };
+}
+// Who is physically in a place: being discovered or met is not arriving.
+const bodiesAt = (s, place) =>
+  actorIds
+    .filter(
+      (id) =>
+        s.actors[id].place === place &&
+        (!controlledByHuman(s, id) || humanPresent(s, id)),
+    )
+    .sort();
+const witnessesAt = (s, place) =>
+  knownActors(s)
+    .filter((id) => entityActive(s, id) && bodiesAt(s, place).includes(id))
+    .sort();
+// A lit lamp here about to burn its last oil: Sleep would sleep through it.
+const lampGuttering = (s, place) =>
+  s.items.lamp.lit && s.items.lamp.fuel <= 1 && itemPlace(s, "lamp") === place;
+const WAKE_REASONS = [
+  "chose",
+  "moved",
+  "lamp",
+  "dry",
+  "arrival",
+  "departure",
+  "crossing",
+  "threat",
+  "dock",
+  "dawn",
+  "dusk",
+  "rested",
+];
+const SLEEP_TURNS = 24;
+// Sleep always ends by the next light change, so no sleep is longer than one
+// light period. A long rest needs half of one: two cannot both begin and end
+// within one light period, so a sanctuary dreams at most once per period.
+export const LONG_SLEEP_TURNS = DAYLIGHT_TURNS / 2;
+// A sleeper wakes in the place it now stands. A sleep of LONG_SLEEP_TURNS or
+// more in the sanctuary where it fell asleep is a long rest; a shorter one
+// there is a short rest that only clears losses.
+function wakeUp(s, id, woke, text) {
+  const z = s.actors[id].sleeping,
+    here = s.actors[id].place;
+  delete s.actors[id].sleeping;
+  const sanctuary = here === z.place && sanctuaries.includes(here),
+    long = sanctuary && s.turn - z.since >= LONG_SLEEP_TURNS;
+  if (sanctuary && s.defeats?.[id]) delete s.defeats[id];
+  renewWant(s, id, wantAPI(s));
+  if (long) wake(s, id, wantAPI(s));
+  addLog(s, "World", text, {
+    kind: "action",
+    actorId: id,
+    verb: "wait",
+    locationId: here,
+    witnesses: witnessesAt(s, here),
+    woke,
+    ...(long ? { rest: "long" } : {}),
+  });
+}
+// After the lamp burns each round, every sleeper wakes at the first change
+// where it sleeps. `before` is the world as the round began.
+function wakeSleepers(s, before, voyages) {
+  for (const id of actorIds) {
+    const z = s.actors[id].sleeping;
+    if (!z) continue;
+    // A traveller arriving or leaving is named before a resident.
+    const first = (list) =>
+      list.find((x) => controlledByHuman(s, x)) ?? list[0];
+    const who = nameOf(id),
+      here = s.actors[id].place,
+      now = bodiesAt(s, z.place).filter((x) => x !== id),
+      came = first(now.filter((x) => !z.present.includes(x))),
+      left = first(z.present.filter((x) => x !== id && !now.includes(x))),
+      dock = voyages.find((v) => v.kind === "arrive" && v.dock === z.place),
+      dry =
+        before.items.lamp.lit &&
+        !s.items.lamp.lit &&
+        s.items.lamp.fuel === 0 &&
+        itemPlace(s, "lamp") === z.place,
+      was = exits(before, z.place, id),
+      ways = exits(s, z.place, id);
+    const light = s.turn > z.since && s.turn % DAYLIGHT_TURNS === 0,
+      dusk = Math.floor(s.turn / DAYLIGHT_TURNS) % 2;
+    const [, woke, text] =
+      [
+        [here !== z.place, "moved", `wakes in ${nameOf(here)}`],
+        [lampGuttering(s, z.place), "lamp", "wakes as the lamp gutters"],
+        [dry, "dry", "wakes as the lamp runs dry"],
+        [came, "arrival", `wakes as ${came && nameOf(came)} arrives`],
+        [left, "departure", `wakes as ${left && nameOf(left)} leaves`],
+        [
+          ways.some((to) => !was.includes(to)),
+          "crossing",
+          "wakes as a way opens here",
+        ],
+        [
+          was.some((to) => !ways.includes(to)),
+          "crossing",
+          "wakes as a way here closes",
+        ],
+        [standoffFor(s, id), "threat", "wakes to a threat"],
+        [
+          dock,
+          "dock",
+          `wakes as ${dock && nameOf(transports[dock.id].place)} docks`,
+        ],
+        [light && dusk, "dusk", "wakes at dusk"],
+        [light, "dawn", "wakes at dawn"],
+        [s.turn - z.since >= SLEEP_TURNS, "rested", "wakes, rested"],
+      ].find(([hit]) => hit) ?? [];
+    if (woke) wakeUp(s, id, woke, `${who} ${text}.`);
   }
-  if (standoffFor(s, actor)) return null;
-  if (sanctuaries.includes(here) && losses) delete s.defeats[actor];
-  if (actor !== currentActor(s)) return null;
-  if (sanctuaries.includes(here))
-    a.sleepUntil = (Math.floor(s.turn / DAYLIGHT_TURNS) + 1) * DAYLIGHT_TURNS;
-  return null;
 }
 // A battle ends after one full round without a Strike: every combatant has
 // played since the last Strike and none of those plays was one. A Strike
@@ -1804,11 +1940,12 @@ function performPlay(s, a, round = null, settle = []) {
     return;
   }
   if (a.kind === "wait") {
-    const rested = rest(s, a.actor, here);
+    const asleep = Boolean(s.actors[a.actor].sleeping);
+    rest(s, a.actor, here, a.sleep);
     const learningStart = beginLearning(s, a);
-    if (a.actor === currentActor(s)) calm(s, here, a.actor);
-    // Observing here may notice one of the place's signs.
-    const sign = packWaitChoice(s, a.actor);
+    if (a.actor === currentActor(s)) calm(s, here);
+    // Observing here, awake, may notice one of the place's signs.
+    const sign = !asleep && !a.sleep && packWaitChoice(s, a.actor);
     const text = sign
       ? choiceText(applyPackChoice(s, sign, { mode: "wait" }), a.actor)
       : a.text;
@@ -1819,7 +1956,7 @@ function performPlay(s, a, round = null, settle = []) {
         actorId: a.actor,
         verb: "wait",
         witnesses,
-        ...(rested ? { rest: rested } : {}),
+        ...(a.sleep ? { sleep: true } : {}),
       });
       if (learningStart) recordLearning(s, a, learningStart, s.log.at(-1));
     }
@@ -2046,7 +2183,6 @@ function performPlay(s, a, round = null, settle = []) {
       ? arriveRecitals(s, packDefinitions, a.actor)
       : [];
   meetCast(s);
-  recordReaction(s, a, witnesses, requestAccepted);
   recordLifeAction(
     s,
     a,
@@ -2073,6 +2209,27 @@ function performPlay(s, a, round = null, settle = []) {
       : {}),
     ...(a.kind === "attack" ? { locationId: here, ...combat } : {}),
   });
+  // A gift in person to an aggrieved recipient is a repair all present see.
+  const answer = repairAnswer(
+    s,
+    a,
+    requestAccepted,
+    witnesses,
+    a.kind === "give" &&
+      requestAccepted &&
+      meetsItemWant(s, a.target, a.item, { ...a, accepted: true }),
+  );
+  recordReaction(s, a, witnesses, requestAccepted, s.log.at(-1));
+  const repair =
+    answer &&
+    witnessRepair(
+      s,
+      s.log.at(-1),
+      answer,
+      `${who} makes amends to ${nameOf(a.target)}.`,
+      witnesses,
+    );
+  if (repair) closeRepaired(s, repair);
   if (a.kind === "talk") talkKnowledge(s, a, s.log.at(-1));
   // A human's first Talk with the world's hidden avatar unlocks it (#1936).
   const met = meetHidden(s, a, controlledByHuman(s, a.actor));
@@ -2504,6 +2661,9 @@ export function play(
   const round = beginRound(s, sensesFor(s));
   next.turn += 1;
   next.revision += 1;
+  // Any play but sleeping on wakes a sleeper first.
+  if (next.actors[actor].sleeping && !exact.sleep)
+    wakeUp(next, actor, "chose", `${nameOf(actor)} wakes.`);
   const reflectionSource = next.actors[actor].place;
   const wasOpen = reflectionOpen(next, reflectionSource);
   const active = knownActors(next);
@@ -2602,9 +2762,11 @@ export function play(
     if (next.actors[id].place !== from)
       arriveRoamingRecitals(next, packDefinitions, id);
   }
-  if (exact.kind === "wait")
+  // Sleeping at a dock calls no ship: only the Wait before it does.
+  if (exact.kind === "wait" && !exact.sleep)
     waitForTransport(next, next.actors[actor].place, actor);
-  for (const voyage of sailTransports(next)) {
+  const voyages = sailTransports(next);
+  for (const voyage of voyages) {
     const ship = transports[voyage.id].place;
     addLog(
       next,
@@ -2615,6 +2777,7 @@ export function play(
       { locationId: ship },
     );
   }
+  wakeSleepers(next, s, voyages);
   reviseStalledWants(
     next,
     wantActors(next, [...residents, ...roamingActors]).filter(
@@ -2635,16 +2798,20 @@ export function play(
     else next.sharedMigration.inventoryAllowances[id] = count;
   }
   validateWorld(next);
-  // Alone, the world runs on around a sleeper until the light changes.
+  // Alone, the world runs on around a sleeper until something wakes it.
+  // It stops at the first refused play, and the sleep cap bounds it.
   let slept = next;
-  if (s.actors[actor].sleepUntil === undefined && !sharedEnabled(next))
-    while (slept.actors[actor].sleepUntil !== undefined)
-      slept = play(
+  if (!s.actors[actor].sleeping && !sharedEnabled(next))
+    for (let i = 0; i < SLEEP_TURNS && slept.actors[actor].sleeping; i++) {
+      const on = play(
         slept,
-        legalActions(slept, actor)[0],
+        legalActions(slept, actor).find((a) => a.sleep),
         slept.revision,
         actor,
-      ).state;
+      );
+      if (!on.ok) break;
+      slept = on.state;
+    }
   return { ok: true, state: slept };
 }
 export function validateWorld(s) {
@@ -2899,10 +3066,18 @@ export function validateWorld(s) {
       !Number.isSafeInteger(a.lastTalk) ||
       a.lastTalk > s.turn ||
       (a.sanctuary !== undefined && !sanctuaries.includes(a.sanctuary)) ||
-      (a.sleepUntil !== undefined &&
-        (!Number.isSafeInteger(a.sleepUntil) ||
-          a.sleepUntil < 0 ||
-          a.sleepUntil > s.turn + DAYLIGHT_TURNS))
+      (a.sleeping !== undefined &&
+        (!a.sleeping ||
+          Object.keys(a.sleeping).sort().join() !== "place,present,since" ||
+          !Number.isSafeInteger(a.sleeping.since) ||
+          a.sleeping.since < 0 ||
+          a.sleeping.since > s.turn ||
+          s.turn - a.sleeping.since >= SLEEP_TURNS ||
+          !Object.hasOwn(places, a.sleeping.place) ||
+          !Array.isArray(a.sleeping.present) ||
+          a.sleeping.present.some(
+            (x, i, all) => !actorIds.includes(x) || (i && all[i - 1] >= x),
+          )))
     )
       fail();
     if (
@@ -3080,7 +3255,12 @@ export function validateWorld(s) {
     if (e.destinationId != null && !Object.hasOwn(places, e.destinationId))
       fail();
     if (e.accepted !== undefined && typeof e.accepted !== "boolean") fail();
-    if (e.rest !== undefined && (e.rest !== "long" || e.verb !== "wait"))
+    if (
+      (e.rest !== undefined && (e.rest !== "long" || e.verb !== "wait")) ||
+      (e.sleep !== undefined && (e.sleep !== true || e.verb !== "wait")) ||
+      (e.woke !== undefined &&
+        (!WAKE_REASONS.includes(e.woke) || e.verb !== "wait"))
+    )
       fail();
     if (
       e.reason !== undefined &&

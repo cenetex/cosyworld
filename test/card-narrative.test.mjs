@@ -198,13 +198,10 @@ describe("entity memories and model text", () => {
         .find((e) => e.id === "lamp")
         .memories.some((e) => e.text.includes("Vale takes")),
     ).toBe(true);
+    // Met with nothing beneath, Vale is content until she sleeps.
     const vale = context.entities.find((e) => e.id === "vale");
-    const want = world.actors.vale.want;
-    expect(vale.desire).toEqual({
-      items: want.kind === "item" ? [want.target] : [],
-      location: want.kind === "place" ? want.target : null,
-      avatars: want.kind === "person" ? [want.target] : [],
-    });
+    expect(world.actors.vale).toMatchObject({ want: null, content: true });
+    expect(vale.desire).toEqual({ items: [], location: null, avatars: [] });
     expect(context.entities.every((e) => e.facts.length <= 16)).toBe(true);
     context.scenery = true;
     const next = applyGeneratedText(world, context, response(context));
@@ -226,7 +223,7 @@ describe("entity memories and model text", () => {
     world = act(world, "talk", null, "keeper");
     const context = narrativeContext(world, { target: "keeper" });
     expect(context.speakers).toEqual(["vale", "keeper"]);
-    expect(context.action).toBe("Vale asks The keeper what they want.");
+    expect(context.action).toBe("Vale has a conversation with The keeper.");
     const next = applyGeneratedText(world, context, response(context));
     expect(next.log.slice(-2).map((entry) => entry.actorId)).toEqual([
       "vale",
@@ -529,21 +526,14 @@ describe("entity memories and model text", () => {
     await vi.advanceTimersByTimeAsync(750);
     expect(request).toHaveBeenCalledTimes(1);
     expect(status).toHaveBeenLastCalledWith(
-      "retry",
+      "failed",
       expect.objectContaining({ message: "Story request timed out." }),
     );
     expect(world).toEqual(before);
     expect(vi.getTimerCount()).toBe(0);
-
-    expect(narrator.retry()).toBe(true);
-    await vi.advanceTimersByTimeAsync(0);
-    expect(request).toHaveBeenCalledTimes(2);
-    expect(request.mock.calls.map(([context]) => context.turn)).toEqual([1, 1]);
-    expect(world.actors).toEqual(before.actors);
-    expect(world.items).toEqual(before.items);
-    expect(world.revision).toBe(before.revision);
-    expect(status).toHaveBeenLastCalledWith("ready");
-    expect(vi.getTimerCount()).toBe(0);
+    // Nothing asks again: the scene's speakers stay "…".
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(request).toHaveBeenCalledTimes(1);
   });
 
   it("releases the hand when a request is rejected by its input or access rules", async () => {
@@ -563,7 +553,7 @@ describe("entity memories and model text", () => {
     narrator.changed();
     await vi.advanceTimersByTimeAsync(0);
     expect(status).toHaveBeenLastCalledWith(
-      "retry",
+      "failed",
       expect.objectContaining({ message: "rejected" }),
     );
     expect(request).toHaveBeenCalledTimes(1);
@@ -608,8 +598,10 @@ describe("entity memories and model text", () => {
     narrator.changed();
     await vi.advanceTimersByTimeAsync(5_000);
     expect(request).toHaveBeenCalledTimes(1);
-    expect(status).toHaveBeenLastCalledWith("retry", busy);
-    expect(narrator.retry()).toBe(true);
+    expect(status).toHaveBeenLastCalledWith("failed", busy);
+    // The next play's words wait out the Retry-After.
+    world = act(world, "wait");
+    narrator.changed();
     await vi.advanceTimersByTimeAsync(4_000);
     expect(request).toHaveBeenCalledTimes(1);
     expect(status).toHaveBeenLastCalledWith("pending");
@@ -658,7 +650,7 @@ describe("entity memories and model text", () => {
     expect(requests[0].signal.aborted).toBe(false);
     await vi.advanceTimersByTimeAsync(14_250);
     expect(status).toHaveBeenLastCalledWith(
-      "retry",
+      "failed",
       expect.objectContaining({ message: "Story request timed out." }),
     );
     expect(apply).not.toHaveBeenCalled();
@@ -680,69 +672,32 @@ describe("entity memories and model text", () => {
     expect(vi.getTimerCount()).toBe(0);
   });
 
-  it("retries failed dialogue without a world turn, keeps its scene and rejects duplicate retries", async () => {
+  it("ends failed dialogue as silence without a world turn or another request", async () => {
     vi.useFakeTimers();
     let world = act(createWorld(), "take", "lamp");
     const before = structuredClone(world);
     const status = vi.fn();
-    const request = vi
-      .fn()
-      .mockRejectedValueOnce(new Error("offline"))
-      .mockRejectedValueOnce(new Error("offline"))
-      .mockImplementationOnce(async (context) => response(context));
+    const apply = vi.fn();
+    const request = vi.fn().mockRejectedValue(new Error("offline"));
     const narrator = createNarrator({
       getWorld: () => world,
-      apply: (next) => {
-        world = next;
-      },
+      apply,
       status,
       request,
     });
     narrator.changed({ kind: "take", item: "lamp" });
     await vi.advanceTimersByTimeAsync(750);
-    expect(status).toHaveBeenLastCalledWith("retry", expect.any(Error));
+    // One automatic attempt after a short pause, then "…": never "retry".
+    expect(request).toHaveBeenCalledTimes(2);
+    expect(status).toHaveBeenLastCalledWith("failed", expect.any(Error));
+    expect(status).not.toHaveBeenCalledWith("retry", expect.anything());
+    expect(apply).not.toHaveBeenCalled();
     expect(world).toEqual(before);
-    expect(narrator.retry()).toBe(true);
-    expect(narrator.retry()).toBe(false);
-    await vi.advanceTimersByTimeAsync(0);
-    expect(request).toHaveBeenCalledTimes(3);
-    expect(
-      request.mock.calls.map(([context]) => [context.turn, context.occasion]),
-    ).toEqual([
-      [1, "want_met"],
-      [1, "want_met"],
-      [1, "want_met"],
-    ]);
-    expect(world.actors).toEqual(before.actors);
-    expect(world.items).toEqual(before.items);
-    expect(world.turn).toBe(before.turn);
-    expect(world.revision).toBe(before.revision);
-    expect(status).toHaveBeenLastCalledWith("ready");
-    expect(narrator.retry()).toBe(false);
+    expect(narrator.retry).toBeUndefined();
+    expect(narrator.resume).toBeUndefined();
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(request).toHaveBeenCalledTimes(2);
     expect(vi.getTimerCount()).toBe(0);
-  });
-
-  it("does not retry a failure after the saved world changes", async () => {
-    vi.useFakeTimers();
-    let world = createWorld();
-    const request = vi
-      .fn()
-      .mockRejectedValue(
-        Object.assign(new Error("offline"), { retryable: false }),
-      );
-    const narrator = createNarrator({
-      getWorld: () => world,
-      apply: vi.fn(),
-      status: vi.fn(),
-      request,
-    });
-    narrator.changed();
-    await vi.advanceTimersByTimeAsync(0);
-    world = act(world, "wait");
-    expect(narrator.retry()).toBe(false);
-    narrator.invalidate();
-    expect(narrator.retry()).toBe(false);
-    expect(request).toHaveBeenCalledTimes(1);
   });
 
   it("cancels a retry pause when a saved world is replaced", async () => {
@@ -824,7 +779,15 @@ describe("witnessed departures and conversation continuity", () => {
       expect(seen.has(kind), kind).toBe(true);
   });
   it("lets Vale speak on waking from a long rest in the attic", () => {
-    const world = act(atticOpening(), "wait");
+    // A lit lamp would wake her within a short rest; this one is out.
+    const start = atticOpening();
+    start.items.lamp.lit = false;
+    const waited = act(start, "wait");
+    // Sleep is the Wait offered after a Wait.
+    const world = play(
+      waited,
+      legalActions(waited).find((a) => a.sleep),
+    ).state;
     const context = narrativeContext(world);
     expect(context.occasion).toBe("long_rest");
     expect(context.speakers).toEqual(["vale"]);

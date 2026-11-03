@@ -9,6 +9,7 @@ import { profiles } from "../card-game/memory.mjs";
 import { openingFixture } from "../../test/helpers/greek-opening.mjs";
 import {
   OPEN_DOOR_PLACES,
+  cityGateSteps,
   openDoorAction,
   openDoorSteps,
 } from "../../test/helpers/open-door.mjs";
@@ -16,13 +17,17 @@ import {
   clearSelection,
   selectCard,
   smokeWidths,
+  wordsFellSilent,
 } from "./card-browser-helpers.mjs";
 
 export async function checkOpenDoor(browser, origin) {
   const output = new URL("../../output/open-door/", import.meta.url);
   await mkdir(output, { recursive: true });
   for (const width of smokeWidths([1440, 390])) {
+    // Marathon and the full return are rumours in new worlds (rules 94); an
+    // old full-scope world keeps all five stories, so the walk plays there.
     const fixture = openingFixture("exposure").closed;
+    fixture.packs["greek-drama"].scope = "full";
     const page = await browser.newPage({
       viewport: { width, height: width === 390 ? 844 : 900 },
       reducedMotion: "reduce",
@@ -78,10 +83,8 @@ export async function checkOpenDoor(browser, origin) {
         for (let turn = 0; turn < 250; turn++) {
           if (await page.locator("#dialogue-advance").isVisible())
             await page.locator("#dialogue-advance").click();
-          if (await page.locator("#story-retry").isVisible())
-            throw new Error(
-              `Story retry at ${width}px: ${await page.locator("#story-retry").textContent()}`,
-            );
+          if (await wordsFellSilent(page, key))
+            throw new Error(`Story fell silent at ${width}px.`);
           if (
             (await page.locator("#hand").getAttribute("data-cooling")) ===
             "false"
@@ -171,7 +174,11 @@ export async function checkOpenDoor(browser, origin) {
       );
       await step({ kind: "drop", item: "lamp", target: "greek-courtyard" });
       // Every story step is an ordinary play: a meeting, a Wait or a gift.
-      for (const action of openDoorSteps()) {
+      // The decree opens the City Gate first: the land route to Eleusis.
+      for (const action of [
+        ...cityGateSteps(),
+        ...openDoorSteps({ rumours: true }),
+      ]) {
         const prior = (await state()).packs["greek-drama"].receipts;
         await step(action);
         const now = await state();

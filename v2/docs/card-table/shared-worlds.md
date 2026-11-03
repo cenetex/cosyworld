@@ -34,8 +34,13 @@ from the hand. The server checks room space again when a play reaches its turn.
 
 The existing Play buttons add an action to the room queue. A room holds four
 pending plays, including the current play. Each person has one pending play.
-Waiting plays can be withdrawn with **Cancel play**. The play's button reads
-as what the avatar is doing while it is sent and playing. A refusal names the
+A sent play is one **Thinking…** card until its scene starts; two taps on
+it withdraw a waiting play. A resuming play is committed, so cancelling only
+stops waiting for its line. Words that fail never hold the seat: the play
+finishes at once as a silent scene, each due avatar shows "…", and nothing is
+journaled for the words ([words that fail](dialogue-beats.md#words-that-fail)).
+There is no Retry command. Once the room plays it, the reply types into the
+full-size front card. A refusal names the
 server's reason on the action beat's status line. Nudge asks a present human for attention. People
 can sit quietly while the scene runs. Presence has a 60-second reconnect grace;
 the avatar claim remains saved.
@@ -61,6 +66,14 @@ and shelters. Each view, place card, and dialogue request uses these conditions.
 The browser and server use the authored rules in `world.mjs` and its rule modules.
 `human-cast.mjs` adds the new homes through the existing pack registry.
 `shared-world.mjs` exposes the save, join, view, play, and speech operations.
+From rules 92 a speech operation carries one to four lines, any of which may
+speak alone, as the rules' speech occasions name them; when the rules refuse
+a play's words, the server fails that play at once instead of holding its
+seat for the working lease
+([design](../../../docs/design/occasion-voices-in-shared-speech.md)).
+From rules 93 the rules accept only the voices the committed play named and
+the room, each once, and a place added to a pack joins every saved world with an empty
+memory ([design](../../../docs/design/rules-93-content-slots-and-speech-voices.md)).
 
 The server runs a checked-in bundle of those modules in QuickJS, a C interpreter.
 Rust supplies JSON and handles authentication, storage, queues, and provider IO.
@@ -160,6 +173,12 @@ someone plays in its room. There is no server tick, so in a world where
 nobody is playing, nothing acts. A claim can carry the avatar's level and
 experience from its last seat (`progress` on the journaled `claim`).
 
+### Open question: whose conduct
+
+Other players need to tell whether an away avatar's conduct came from its
+holder's choice or from its autonomous resident behaviour. This is a
+presentation question for the UI lock-down, not a rules change.
+
 ## One avatar per passkey per world
 
 A person's passkey binds them to the avatar they take in a shared world
@@ -254,7 +273,9 @@ seed and recorded operations.
 Shared-world writes take turns in the server process before they open a SQLite
 write transaction, so concurrent views, plays and narration do not race each
 other on SQLite's busy timeout and fail with "database is locked". The journal
-is unchanged: one record per accepted play, in order.
+keeps one record per accepted play, in order. A play's speech and, from rules
+v88, its private reflections are later records of their own (see
+[Learning and private reflection](#learning-and-private-reflection)).
 
 Rule version 3 introduced the home-item floor start. Version 4 added Greek
 story cards and saved bard visits. Versions 5–8 added collected and shared quests,
@@ -338,6 +359,24 @@ completion receipts, and installs each avatar's starter quest. Places, items,
 pack choices and their receipts, ships, conversation and route knowledge carry
 over.
 
+## Sleep on the shared clock
+
+Since rules 89 ([#2028](https://github.com/cenetex/cosyworld/issues/2028)),
+Wait is one turn and a seat's Wait right after a Wait is offered as Sleep
+(`wait` with `sleep: true`). Sleep is per seat. A sleeper may sleep on or
+choose any of its normal plays, which wakes it first (`woke: "chose"`), so no
+seat is stranded asleep. Every accepted play, by any seat, checks every
+sleeper on the shared clock after the lamp burns. Another seat arriving or
+leaving, a way opening or closing, a standoff, a ship docking, dawn or dusk,
+or the lamp at its last oil or running dry wakes it, with a journaled wake
+event carrying `woke` and, after a Sleep of 12 turns or more at a sanctuary,
+`rest: "long"`. That event is the long rest the `reflect` op checks for. When
+another seat's play woke it, the sleeper's own next play is its waking scene,
+so its dream comes with that play's reflection.
+Journals before rules 89 replay on their own bundles; loading such a world
+drops a pending `sleepUntil`, so its sleeper is awake
+([rest and sanctuary](rest-and-sanctuary.md#sleep)).
+
 ## Shared words
 
 The server records the action before requesting speech. Each play receives a shared
@@ -365,13 +404,123 @@ bust view as more people enter. Smaller figures sit higher behind them.
 Repeated plays by one person keep the others in order. Changes move smoothly.
 Reviewing older words keeps the figures and belongings in their current places.
 Waiting plays show no chips or circles (owner, 2026-11-01). A player's own
-waiting play stays in the action beat, whose **Cancel play** withdraws it;
-other players' plays stay private until they resolve.
+waiting play is their Thinking card, which withdraws it in two taps; other
+players' plays stay private until they resolve.
 
 The approved OpenRouter request contains fictional profiles, scene facts,
 visible people and belongings, and the completed play. Passkey and account data
 stay with the account service. Provider errors leave the completed action saved
 and show a scene error. Per-person and shared play budgets bound usage.
+
+## Untrusted input
+
+A browser is untrusted, so nothing it sends reaches a model prompt on its
+word. Shared plays carry only ids (`op`, `avatar`, `target`, and an `action`
+the rules check), and the server builds each shared scene from its own
+journal. Local play sends `/card-game/text` and `/card-game/reflections` a
+scene the browser built, so the service checks every field
+(`card_narrative/untrusted.rs`):
+
+- **Ids and enums** (places, people, items, verbs, occasions) must name
+  content in the mounted packs. A wrong one is refused with 400.
+- **Rules-built sentences** (the action, events, facts, event memories and
+  disclosed facts) reach a prompt only when they are made of their field's
+  authored text: a string or template from the code that builds that field,
+  or a pack string it reads, with names in its name slots
+  (`card_narrative/authored.rs`, catalog rebuilt by
+  `node v2/scripts/build-card-authored-text.mjs`). Voice directions, links
+  and code identifiers are never authored text. Any other sentence is left
+  out of the prompt and counted in a warning. Matching is bounded: a scene
+  that quotes more than 24 KiB of such text, or needs more matching work
+  than an honest one, is refused with 400. The client's rate limit runs
+  first, and the matching runs off the async workers. If the catalog is
+  older than the served modules, startup logs it and `/meta` reports
+  `card_game.card_text.catalog_stale: true`.
+- **Words the service wrote** (heard lines, earlier words, remembered lines,
+  personas, thoughts and dreams) come back with the Ed25519 envelope the
+  service signed them with ([signed envelopes](../../../docs/design/signed-envelopes.md)).
+  An unsigned, edited or moved one is refused with 400. One signed by an
+  unlisted key, or for a later turn or revision than the scene, is left out. Older saves' words carry none, so the browser
+  leaves them out (`signed-words.mjs`).
+  The "Recent talk here" lines and the line a speaker answers (its user
+  message) come only from these verified heard lines. A Talk target's
+  answer to this turn's actor line uses the line the service just wrote and
+  checked, so it never leaves the server unsigned. "Between us" lines
+  (`entities[].between[].said`) are signed lines too, and their envelope's
+  turn must be the line's; its facts are matched as facts
+  ([Talk is a conversation](../../../docs/design/talk-conversation.md#between-us)).
+  Who heard a line
+  (`witnesses`) is not signed: a client can change who heard a line, not its
+  words.
+- **Unknown fields** are refused (serde `deny_unknown_fields`), and every
+  string keeps its length limit inside the 64 KiB body limit.
+
+A local save shared into a new world (`Create.save`) is untrusted too: its
+text would become journal state that other members' hosted prompts read.
+Before the first journal row, and after the passkey may found a world, the
+service keeps a string from the save only when it is:
+
+- outside a sentence field, a word the current rules or packs use (a string
+  literal of the rules bundle, or a key or one-word value of the pack
+  content), or such words and numbers joined by `:` and `-` (`event:67`);
+- a name from the packs (a log `speaker` must be one, `World` or an id);
+- a rules-built sentence matching its field's authored catalog (a grievance
+  `reason` as the fact `Remembered grievance: …`, item `history` as the
+  event after `Turn N:`);
+- a line, thought, persona or dream whose signed envelope comes with the
+  import (`signed`, from `signed-words.mjs`) and verifies for that kind,
+  that speaker (a log line's `speaker` is that speaker's name) and a local
+  save (`card_narrative/imported.rs`).
+
+A map key must fit its place. A map keyed by id (actors, items, places,
+memories, trust, grievances, crossings, doors, packs, facts and the like)
+takes only an id of pack or rules content, or ids and numbers joined by `:`
+and `-`. Any other object takes such an id or a name the rules give a
+property (`.place`, `want:`), never just any word of the rules source, so
+`forget_all_previous_rules` or `say` is removed. Everything else is
+stripped (its list entry dropped, a lone field cleared, a key removed) and
+counted in a warning. A stripped save the rules refuse loses every avatar's
+inner life too, with its own warning. Matching is bounded at 40 scenes'
+work (text past it is stripped, with a warning), 100,000 strings and 800
+envelopes, looked up by content hash. A save with nothing to strip runs the
+rules once.
+
+The browser keeps one envelope per word, its last 800. Words older than that
+are stripped on share. Envelopes are not bound to one save and do not
+expire, so a word signed for one local save can be replayed into another
+save, but only as the same kind of word by the same speaker.
+
+Every voice reply, hosted or not, is refused when it addresses a model
+(`card_narrative/instruction.rs`): "ignore previous instructions", a role
+label such as "System:" opening a line or sentence, chat-template tokens or
+code fences. The check reads the raw reply and again after markup is
+cleaned, both folded first: NFKD with marks dropped, lower case, common
+Cyrillic, Greek and fullwidth lookalikes as Latin letters, `* _ # ~ ^`
+removed and spaces collapsed, so `Ig*nore prev*ious`, `sys_tem:` and
+`ignore  previous` match. It also reads a squashed copy holding only the
+letters and digits, so `ig-nore`, `i.g.n.o.r.e`, `i g n o r e`, `sys-tem:`
+and `ignore_previous_instructions` match too. A squashed match must start
+and end at a separator, or lie inside one glued word, so "Ignore.
+Previously…" passes. A reply holding a Unicode format (Cf) character,
+a tag character, a variation selector, U+034F, a soft hyphen or a line or
+paragraph separator is refused outright. Ordinary speech ("you are now safe",
+"ignore your fears", "wait for clear instructions") passes; a test scans
+every pack, authored and recorded string for hits.
+
+Browser-funded shared speech, where the player's own OpenRouter key writes
+the line (`/browser-chat`), is client text. Before it is journaled it passes
+a hosted line's checks (`browser::complete_shared`): the shared scene's
+checks, one line per voice the play requested (never another player's
+avatar, never a thought), at most 2 KiB per answer, and the reply validator
+(shape and length, grounding, custody, names, assistant and instruction
+talk, repeats). A Talk target is checked after hearing the actor's accepted
+line. The client's `finish` is not trusted: every line must end as a
+sentence. As on the hosted path, a refused reply from any voice but the
+actor stays silent; a refused or missing actor line, or an empty answer
+list, ends the play as silence ("…") and journals nothing. An accepted
+line is journaled with the model mark `player-funded`, never a hosted
+model's id (shared journal rows carry no envelope yet). Shared plays do not take this path today: `take_work` sets
+`browser_chat` false.
 
 ## Entrances and future journeys
 
@@ -384,7 +533,7 @@ and show a scene error. Per-person and shared play budgets bound usage.
 | Tavi   | Wind path                       | Wind hill                      |
 | Rue    | Carriage door                   | Between-hours carriage         |
 | Cass   | Game-tile bridge                | Games pavilion                 |
-| Sage    | Open seam                       | Sail loft                      |
+| Sage   | Open seam                       | Sail loft                      |
 
 Rue's carriage opens beside the pond while her route board is present there.
 Carrying the board inside the carriage opens the way back to the pond. The
@@ -430,9 +579,51 @@ after its journal has replayed; the upgrade preserves items and played time.
 
 Shared rules version 13 saves each avatar's checked lessons and private
 reflections. A lesson links an expected answer, the observed answer, and a
-revised approach to one completed request. The server checks reflection evidence
-against that avatar's witnessed events before it records speech and reflection
-in the same journal command. A reload or journal-only rebuild restores both.
+revised approach to one completed request. The rules check reflection evidence
+against that avatar's witnessed events before the journal keeps it. A reload or
+journal-only rebuild restores it.
+
+Through rules v87, the server generated reflections with the scene's lines and
+recorded them in the same `speech` command (`entries`). Those journals replay
+unchanged with their released bundles. From rules v88 a reflection can no
+longer delay or fail its line
+([#2016](https://github.com/cenetex/cosyworld/issues/2016)):
+
+- The `speech` command carries the lines, `entries: []` and its `play` key. It
+  is journaled and shown as soon as the lines pass validation.
+- Afterwards, outside the scene's capacity, the server asks for the due
+  thought, persona and dream of each avatar that spoke
+  (`card_shared/full_reflect.rs`). They have their own capacity of two and
+  wait at most 20 seconds for it. Each seat counts its scenes; a reflection
+  is dropped once its own seat's count moves, even while it waits, so only
+  the same seat's next scene cancels it and another player's never does. The
+  world's next play does not wait for them.
+- They are journaled as one later command:
+  `{"op":"reflect","actor","play","turn","resting","rest","entries":[{"id","reflection"}]}`.
+  `turn` is the speech's turn, `resting` and `rest` the scene's resting
+  avatar and rest kind, and each reflection's `evidence` lists its source
+  events. The rules (`applyLaterReflections` in `reflections.mjs`) refuse a
+  turn after the world's, a resting avatar other than the op's actor or one
+  with no Wait (or long rest) in the log on that turn, evidence the avatar did
+  not witness by then, or a reflection no longer due. Only the resting avatar
+  can be due a thought, and a long rest wakes only that avatar. A thought older than the avatar's newest one is
+  never due. Saved thoughts, dreams and revisions carry the speech's turn.
+- The server writes at most one `reflect` per play, only after that play's
+  `speech` record, and only for rules that take it (read from the live world
+  when it commits). A retry finds the earlier
+  record and stops.
+- A reflection that fails, is cancelled, or is refused is simply absent. The
+  world is valid without it. The op changes only the avatar's private memory
+  and the world revision, never a rules outcome. The C session guard checks it
+  as text, like speech: no claim, presence or room changes.
+
+Shared clients receive the saved reflection through their next view sync,
+like any other change to their own avatar's memory.
+
+A server build from before rules v88 cannot replay a `reflect` record. Rolling
+back past v88 is accepted for this change, but a world that journaled one then
+fails to load on the older build; see
+[release operations](../../../docs/release.md#upgrade-and-recovery).
 
 Player views include their own thoughts, persona, dreams, reflection evidence
 and lessons. Other avatars supply public card text. This privacy check also
@@ -568,8 +759,8 @@ in order. The prompt gives the fact in that voice ("I take the Lamp.") when the
 teller is its actor. A line that passes every other check but misses the fact
 is still spoken after the last attempt; it teaches nothing, so the fact stays
 queued for a later Talk instead of silencing the teller. Publication records
-the listener, teller and original Talk event, then checks quest progress. A retry
-uses that saved exchange. The speech command carries its disclosure through the
+the listener, teller and original Talk event, then checks quest progress. Words
+that fail publish nothing, so the fact stays untold until a later Talk. The speech command carries its disclosure through the
 world journal, so checkpoint recovery and journal replay produce the same facts.
 
 Versions 2 through 17 retain their released interpreters. Loading an earlier

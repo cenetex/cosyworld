@@ -26,6 +26,14 @@ describe("combat art on the current stage", () => {
         expect(portraitFraming(result)).toBe("wide");
         // A standing guard remains in the same wardrobe when another beat starts.
         expect(combatPortrait(id, "guard", result, "right")).toBe(result);
+        expect(
+          combatPortrait(
+            id,
+            "guard",
+            `./assets/shared/characters/${id}-sleeping${scarf}.webp`,
+            "right",
+          ),
+        ).toBe(result);
       }
   });
   it("keeps residents inside the phone and never mirrors the Keeper's clock", () => {
@@ -129,5 +137,40 @@ describe("combat art for the wider cast", () => {
       "./assets/combat/hoppycat-arc-hit.webp",
     );
     expect(combatPortrait("oak", "hit", null, "left")).toBe(null);
+  });
+});
+
+describe("combat painting fit (#2043)", () => {
+  it("drops and scales padded paintings onto the plain portrait's feet", async () => {
+    const { default: fit } = await import(
+      "../v2/card-game/assets/combat/pose-fit.json",
+      { with: { type: "json" } }
+    );
+    const { publicAssets } = await import("../v2/card-game/public-assets.mjs");
+    expect(publicAssets.map((a) => a.file)).toContain(
+      "assets/combat/pose-fit.json",
+    );
+    for (const [file, { drop, scale }] of Object.entries(fit)) {
+      expect(variants.images[file]?.stage, file).toBeTruthy();
+      expect(Math.abs(drop)).toBeLessThan(0.3);
+      expect(scale).toBeGreaterThan(0.6);
+      expect(scale).toBeLessThan(1.5);
+    }
+    // The floating strike paintings drop to the floor.
+    for (const stem of [
+      "greek-adrastus",
+      "whiskerwind",
+      "greek-shipmaster",
+      "hoppycat-staticwashere",
+      "badger",
+      "skull",
+    ])
+      expect(fit[`assets/combat/${stem}-attack.webp`].drop).toBeGreaterThan(
+        0.03,
+      );
+    // Badger's standing art no longer outgrows his seated portrait, and
+    // Skull's paintings no longer shrink.
+    expect(fit["assets/combat/badger-hit.webp"].scale).toBeLessThan(0.8);
+    expect(fit["assets/combat/skull-hit.webp"].scale).toBeGreaterThan(1.2);
   });
 });

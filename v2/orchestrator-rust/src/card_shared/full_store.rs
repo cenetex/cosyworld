@@ -286,15 +286,34 @@ pub(super) fn expire(c: &Connection, id: &str, w: &mut World, now: i64) -> Resul
         .map_err(sql_error)?
         .collect::<std::result::Result<Vec<_>, _>>()
         .map_err(sql_error)?;
+    // Words cut off with their worker are silence like any failed words:
+    // the play's voices show "…" and nothing waits or retries.
     for (play, room, text) in interrupted {
         let mut scene: Value = serde_json::from_str(&text).map_err(sql_error)?;
+        let voices = scene["actor"]
+            .as_str()
+            .and_then(|actor| actor_index(actor).ok())
+            .map(|actor| super::full_speech::voices(&scene, actor))
+            .unwrap_or_default();
+        if let Some(seq) = scene["events"].as_array().and_then(|events| {
+            events
+                .iter()
+                .filter_map(|e| e["seq"].as_f64())
+                .reduce(f64::max)
+        }) {
+            scene["after"] = json!(seq);
+        }
         for key in ["context", "profiles", "events"] {
             scene
                 .as_object_mut()
                 .ok_or("The scene needs attention.")?
                 .remove(key);
         }
-        scene["error"] = json!("The play is saved. Speech was interrupted.");
+        scene["lines"] = json!([]);
+        if !voices.is_empty() {
+            scene["silent"] = json!(voices);
+        }
+        scene["failed"] = json!(true);
         scene["starts_at"] = json!(now);
         scene["until_at"] = json!(now);
         c.execute(
@@ -303,7 +322,7 @@ pub(super) fn expire(c: &Connection, id: &str, w: &mut World, now: i64) -> Resul
         )
         .map_err(sql_error)?;
         c.execute(
-            "UPDATE card_full_plays SET status='failed',result=? WHERE id=?",
+            "UPDATE card_full_plays SET status='done',result=? WHERE id=?",
             params![scene.to_string(), play],
         )
         .map_err(sql_error)?;

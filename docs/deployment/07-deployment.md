@@ -186,7 +186,7 @@ queries, and the cross-app ingestion check.
 ## Credits
 
 Credits belong to a passkey account. A speech pack is 100 credits; a spoken
-line costs 1 and a scene video 100
+line costs 1
 ([#1924](https://github.com/cenetex/cosyworld/issues/1924)). The append-only
 `credit_events` table in the event store holds every grant, spend and refund;
 an account's balance is their sum. `GET /card-game/credits` shows the
@@ -197,39 +197,15 @@ A shared world has a credit pool in the same ledger. `POST
 row that moves credits from the account to the world, once per request id;
 there is no withdrawal. A pool is its commits less its spends plus refunds. A
 player of the world (seated or bound) who sends `world` with
-`/card-game/speech` or `/card-game/video` spends the pool; a voiced line is
+`/card-game/speech` spends the pool; a voiced line is
 spent once per world and its clip is kept in `credit_world_clips` (newest 256
 per world), and a failed call is refunded to the pool.
 
-Video reservations in `credit_video_requests` retain their terminal provider
-receipts. A terminal failure and its refund commit together, and a later poll
-cannot overwrite that result. Unique older receipts are adopted from
-`credit_video_jobs`. When several older jobs share a payer/request, an unresolved
-receipt needs review before refunds or downloads. Records and status stay available.
-Downloads require a durable completed receipt, so a failed/refunded job cannot
-deliver bytes if the provider later serves content.
-Status and content reads check membership in the resolved job's world, including
-older requests whose URLs omitted the world query parameter.
-
-With the event store and AI settings available, a server worker resumes known
-pending videos every 30 seconds: at most 16 per batch and four status requests
-in flight. Terminal refunds therefore survive browser closure and server
-restart. An unclaimed reservation expires and refunds after five minutes;
-a submission interrupted for two minutes becomes `submission_unknown` without
-refund or resubmission. A late confirmed receipt can still recover that job.
-Unknown acceptance needs receipt reconciliation; it is never permission to
-start another paid provider job for the same request.
-
-Video callback hints are opt-in: set `COSYWORLD_VIDEO_CALLBACK_ORIGIN` to this
-store owner's canonical HTTPS origin and `COSYWORLD_VIDEO_WEBHOOK_SECRET` to
-the same signing secret (at least 32 bytes) configured in [OpenRouter workspace
-settings](https://openrouter.ai/docs/guides/overview/multimodal/video-generation#webhooks).
-Restart after changes. Partial/invalid settings block new videos before charging;
-both unset preserve polling. A private 256-bit token and callback URL persist
-with each new reservation. Permit POSTs to `/internal/video/callback/{token}`;
-do not log these URLs. The inbox checks raw-body HMAC and a five-minute timestamp
-window, then saves the job hint before acknowledgment. Hints alone cannot refund.
-Missing callbacks and old unknown receipts need review; there is no exactly-once guarantee.
+Scene videos were retired ([#2064](https://github.com/cenetex/cosyworld/issues/2064)).
+`/card-game/video*` and `/internal/video/callback/*` are gone and no worker
+polls the video provider. Older `video` spends and refunds stay in
+`credit_events` and still count toward balances; `credit_video_requests`,
+`credit_video_jobs` and `credit_video_callbacks` stay in the store, unused.
 
 Until payments exist, an operator hands out packs. Each grant is a ledger row
 with its note and an `operator granted credits` log line; a repeated

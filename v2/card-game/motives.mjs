@@ -5,6 +5,7 @@ import {
   packPeople,
   packThings,
 } from "./pack-registry.mjs";
+import { grievanceActive } from "./knowledge.mjs";
 import forest from "./forest.json" with { type: "json" };
 // Personal interests are derived from the shared world. Grievances retain the
 // witnessed incident, so a reload and a later visit preserve the same opinion.
@@ -44,10 +45,14 @@ export function owner(s, item) {
   const holder = s.items[item].holder;
   return items.includes(holder) ? s.items[holder].holder : holder;
 }
+// Dormant and repaired grievances keep their strength but stay off mind:
+// out of prompts and out of hostile choices.
+export const activeGrievances = (s, actor) =>
+  (s.motives?.grievances[actor] || []).filter((g) => grievanceActive(s, g));
 export function resentment(s, actor, other) {
   return Math.min(
     3,
-    (s.motives?.grievances[actor] || [])
+    activeGrievances(s, actor)
       .filter((g) => g.other === other)
       .reduce((n, g) => n + g.weight, 0),
   );
@@ -58,7 +63,9 @@ export function resentment(s, actor, other) {
 const factHolds = (s, actor, f) => {
   if (f.holds) return owner(s, f.holds) === actor;
   const v = Number(s.items[f.item]?.[f.field] || 0);
-  return (f.min === undefined || v >= f.min) && (f.max === undefined || v <= f.max);
+  return (
+    (f.min === undefined || v >= f.min) && (f.max === undefined || v <= f.max)
+  );
 };
 const valueRules = (actor, item) => [
   ...(forest.things[item]?.valueRules || []),
@@ -126,20 +133,65 @@ const grievanceRules = [
     .filter(([, p]) => p.grievances)
     .map(([id, p]) => [id, p.grievances]),
 ];
-export function recordReaction(s, a, witnesses, accepted) {
+// A grievance names the play it was taken from by its event fact id. A
+// repeat wakes a dormant or repaired grievance and adds to its strength.
+export function recordReaction(s, a, witnesses, accepted, entry) {
   if (!hasMotives(s)) return;
+  const incident = `event:${entry.seq}`;
+  // The avatar a strike landed on: a guard who stepped in, or the target.
+  const struck = entry.targetId ?? a.target;
+  // What the incident took or damaged: a threat's stake or what the struck
+  // avatar dropped (its own loss, not the one it guarded), or the light
+  // spoiled. A gift of it answers the incident.
+  const involved = (kind, id) =>
+    kind === "threat"
+      ? ((id === struck ? entry.droppedItemIds?.[0] : null) ?? a.item)
+      : kind === "light"
+        ? s.items[a.target]
+          ? a.target
+          : a.item
+        : null;
   const add = (id, reason, kind) => {
     if (id === a.actor || !witnesses.includes(id)) return;
     const list = s.motives.grievances[id];
     const prior = list.find((g) => g.other === a.actor && g.kind === kind);
+    const item = involved(kind, id);
+    const fresh = {
+      incident,
+      lastTouched: s.turn,
+      repaired: false,
+      ...(item ? { item } : {}),
+    };
     if (prior) {
-      prior.weight = Math.min(3, prior.weight + 1);
-      prior.turn = s.turn;
+      // A repeat names only what it touched; an older item no longer counts.
+      if (!item) delete prior.item;
+      Object.assign(prior, fresh, {
+        weight: Math.min(3, prior.weight + 1),
+        turn: s.turn,
+      });
       list.splice(list.indexOf(prior), 1);
       list.push(prior);
-    } else list.push({ other: a.actor, kind, reason, turn: s.turn, weight: 1 });
+    } else
+      list.push({
+        other: a.actor,
+        kind,
+        reason,
+        turn: s.turn,
+        weight: 1,
+        ...fresh,
+      });
     s.motives.grievances[id] = list.slice(-6);
   };
+  // News between the pair, seen by both, keeps an active grievance on mind.
+  // Only a new incident (below) wakes a dormant or repaired one: friendly
+  // contact never brings an old grudge back.
+  if (touchVerbs.includes(a.kind) && witnesses.includes(a.target))
+    for (const [holder, other] of [
+      [a.actor, a.target],
+      [a.target, a.actor],
+    ])
+      for (const g of s.motives.grievances[holder] || [])
+        if (g.other === other && grievanceActive(s, g)) g.lastTouched = s.turn;
   // Grievances a resident takes from a witnessed play are profile data.
   for (const [id, rules] of grievanceRules)
     for (const rule of rules)
@@ -147,12 +199,20 @@ export function recordReaction(s, a, witnesses, accepted) {
         add(id, rule.reason.replace("{actor}", names[a.actor]), rule.kind);
   if (a.kind === "threaten" || a.kind === "attack")
     add(a.target, `${names[a.actor]} picked a fight.`, "threat");
+  // A guard beaten in the target's place lost what it dropped.
+  if (
+    a.kind === "attack" &&
+    struck !== a.target &&
+    entry.droppedItemIds?.length
+  )
+    add(struck, `${names[a.actor]} picked a fight.`, "threat");
   if (
     a.kind === "ask" &&
     !accepted &&
     s.log.some(
       (e) =>
         e.verb === "ask" &&
+        e.seq < entry.seq &&
         e.actorId === a.actor &&
         e.targetId === a.target &&
         e.itemId === a.item &&
@@ -164,17 +224,42 @@ export function recordReaction(s, a, witnesses, accepted) {
       `${names[a.actor]} kept asking for the same belongings.`,
       "pestering",
     );
-  if (a.kind === "give" && accepted)
-    s.motives.grievances[a.target] = s.motives.grievances[a.target]
-      .map((g) => (g.other === a.actor ? { ...g, weight: g.weight - 1 } : g))
-      .filter((g) => g.weight > 0);
+}
+const touchVerbs = ["give", "trade", "attack", "threaten", "accompany"];
+// An accepted gift handed to a recipient present and aggrieved with its giver
+// repairs only when it answers an open incident: it returns what the incident
+// took or damaged, or it is the recipient's current want. Any other gift is
+// an ordinary gift. `wanted` says whether the gift meets an item quest in the
+// recipient's stack, lit-ness and all, read before the gift settles it.
+export function repairAnswer(s, a, accepted, witnesses, wanted = false) {
+  if (a.kind !== "give" || !accepted || !witnesses.includes(a.target))
+    return null;
+  const g = (s.motives?.grievances[a.target] || [])
+    .filter(
+      (g) =>
+        g.other === a.actor &&
+        !g.repaired &&
+        g.incident &&
+        (wanted || g.item === a.item),
+    )
+    .at(-1);
+  return g ? { recipient: a.target, incident: g.incident } : null;
+}
+// A repair closes the recipient's own grievance for that incident and no
+// one else's: witnesses and hearers learn of it, and their grudges keep to
+// the dormancy clock. Closed is dormant, not deleted.
+export function closeRepaired(s, fact) {
+  const { recipient, incident } = fact.source.answers;
+  for (const g of s.motives?.grievances[recipient] || [])
+    if (g.other === fact.source.actorId && g.incident === incident)
+      g.repaired = true;
 }
 // Tastes steer valuations only; a liking stated in the prompt became the
 // avatar's whole voice (#1665), so speech hears what happened instead.
 export function motiveFacts(s, actor, limit = 6) {
   return [
     ...(lifeOf(s, actor) ? [lifeFacts(s, actor).join(" ").slice(0, 240)] : []),
-    ...(s.motives?.grievances[actor] || [])
+    ...activeGrievances(s, actor)
       .slice(-limit)
       .reverse()
       .map((g) => `Remembered grievance: ${g.reason}`),
@@ -205,7 +290,18 @@ export function validMotives(s) {
             g.turn <= s.turn &&
             Number.isInteger(g.weight) &&
             g.weight >= 1 &&
-            g.weight <= 3,
+            g.weight <= 3 &&
+            // Saves from before #2020 lack the incident and its touch.
+            (g.incident === undefined ||
+              (/^event:[1-9]\d*$/u.test(g.incident) &&
+                Number(g.incident.slice(6)) <= (s.eventSeq ?? Infinity))) &&
+            (g.lastTouched === undefined ||
+              (Number.isSafeInteger(g.lastTouched) &&
+                g.lastTouched >= g.turn &&
+                g.lastTouched <= s.turn)) &&
+            (g.repaired === undefined || typeof g.repaired === "boolean") &&
+            (g.item === undefined ||
+              (typeof g.item === "string" && g.item.length <= 80)),
         ),
     )
   );

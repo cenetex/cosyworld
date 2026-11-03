@@ -23,12 +23,15 @@ export const WANT_KINDS = ["item", "place", "person", "connect"];
 // verbs when that play by the avatar resolves (Give only when accepted). A
 // step names its other cards: `to` a person, `at` a place. The last step,
 // rest, is a long rest at the sanctuary the avatar last slept in.
+// No step is violent: a person step is Talk (the person want itself) or
+// meet. Threaten and attack steps saved by rules 89 and earlier stay valid
+// and are met as before, but none is drawn.
 export const STEP_VERBS = {
   item: ["find", "give", "bring"],
-  person: ["meet", "threaten", "attack"],
+  person: ["meet"],
   place: ["rest"],
 };
-const HOSTILE_LEVEL = 20; // Threaten and Attack join steps from Rare
+const SAVED_STEP_VERBS = ["threaten", "attack"];
 
 // A connect want introduces people: its one target is the connected humans.
 export const CONNECT_TARGET = "humans";
@@ -73,12 +76,18 @@ export const travels = (id, s = null) =>
 export const levelFor = (xp) => Math.floor((1 + Math.sqrt(1 + 8 * xp)) / 2);
 export const levelOf = (s, id) =>
   s.actors[id]?.level ?? levelFor(s.actors[id]?.xp || 0);
-// The quest for level n has F(n) steps: 1, 1, 2, 3, 5, 8 ... and then the
-// rest that raises the level.
-export const questSteps = (level) => {
-  let [a, b] = [1, 1];
-  for (let i = 1; i < level; i++) [a, b] = [b, a + b];
-  return a;
+// The quest for level n has one step per five levels, ceil(n / 5): one
+// through level 5, ten at Legendary (50), twenty at Mythic (100), and then
+// the rest that raises the level. The table is in docs/design/level-curve.md.
+export const QUEST_STEP_LEVELS = 5;
+export const questSteps = (level) => Math.ceil(level / QUEST_STEP_LEVELS);
+// A player's next level quest comes with the experience its earlier level
+// quests give (each step and rest is one), plus the one quest met before
+// the first. Residents level on experience alone, on `levelFor`.
+export const questXp = (level) => {
+  let xp = level > 1 ? 1 : 0;
+  for (let k = 2; k < level; k++) xp += questSteps(k) + 1;
+  return xp;
 };
 // A pack resident may start at an authored level, with the experience that
 // level takes, so its later level-ups stay on the same curve. Player and
@@ -94,8 +103,14 @@ export const questsOf = (s, id) => {
   const a = s.actors[id];
   return a?.want ? [a.want, ...(a.under || [])] : [];
 };
+// A met want with nothing beneath leaves its avatar content: no want until
+// it next rests (a player's Sleep, a resident's day). Any quest it takes on
+// ends that.
+export const contentOf = (s, id) =>
+  Boolean(s.actors[id]?.content && !s.actors[id].want);
 function setQuests(a, list) {
   a.want = list[0] ?? null;
+  if (a.want) delete a.content;
   if (list.length > 1) a.under = list.slice(1);
   else delete a.under;
 }
@@ -177,11 +192,7 @@ export function drawStep(s, actor, api, kind, target, level, roll) {
         ? ["give", "bring", "find"]
         : ["", "find"]
       : kind === "person"
-        ? [
-            "",
-            "meet",
-            ...(level >= HOSTILE_LEVEL ? ["threaten", "attack"] : []),
-          ]
+        ? ["", "meet"]
         : [""];
   const verb = verbs[Math.floor(roll / 7) % verbs.length];
   // A step already true where the avatar stands is no step at all.
@@ -208,7 +219,7 @@ export function drawStep(s, actor, api, kind, target, level, roll) {
 export function offerLevelQuest(s, actor, api) {
   const a = s.actors[actor];
   a.level ??= levelFor(a.xp);
-  if (questsOf(s, actor).some((w) => w.quest) || levelFor(a.xp) <= a.level)
+  if (questsOf(s, actor).some((w) => w.quest) || a.xp < questXp(a.level + 1))
     return null;
   const level = a.level + 1;
   return pushQuest(
@@ -239,16 +250,18 @@ export function wake(s, actor, api) {
   if (rest >= 0) return commitMet(s, actor, api, [], rest);
   return offerLevelQuest(s, actor, api);
 }
-// A player may drop any quest in its stack. Dropping a level quest costs
-// half the avatar's experience and keeps its level; an ordinary quest costs
-// nothing. Its target stays out of mind a while, and the quest beneath comes
+// A player may drop any quest in its stack. Dropping a level quest halves
+// the experience gained toward the next level: the avatar keeps its level
+// and never falls below the experience that earned it. An ordinary quest
+// costs nothing. Its target stays out of mind a while, and the quest beneath comes
 // to the top; dropping the last one draws another at once.
 export function dropQuest(s, actor, api, index = 0) {
   const a = s.actors[actor],
     list = questsOf(s, actor),
     want = list[index];
   if (!want) return;
-  if (want.quest) a.xp = Math.floor(a.xp / 2);
+  if (want.quest)
+    a.xp = Math.max(questXp(a.level ?? levelFor(a.xp)), Math.floor(a.xp / 2));
   a.gaveUp = { target: want.target, turn: s.turn };
   list.splice(index, 1);
   setQuests(a, list);
@@ -452,6 +465,15 @@ function questMet(s, actor, want, talk, action) {
         (talk.actor === want.target && talk.target === actor)),
   );
 }
+// Whether holding this item now meets an item quest in the actor's stack,
+// as settleWants would judge it: a gift answers a want only if it meets one.
+export const meetsItemWant = (s, actor, item, action = null) =>
+  questsOf(s, actor).some(
+    (w) =>
+      w.kind === "item" &&
+      w.target === item &&
+      questMet(s, actor, w, null, action),
+  );
 // An item want may name the item's light: then it is met only in the
 // actor's own hands, lit (or dark) and uncovered, as a moth wants a flame.
 export function holdsAsWanted(s, actor, want) {
@@ -535,8 +557,10 @@ function commitMet(s, id, api, met, index = 0) {
     list.splice(index, 1);
   }
   setQuests(a, list);
-  // The next quest is drawn only when the stack is empty.
-  if (!a.want) setQuests(a, [nextWant(s, id, api, want)].filter(Boolean));
+  // An ordinary want met with nothing beneath is enough for now. A finished
+  // level quest still draws the next at once.
+  if (!a.want && !quest) a.content = true;
+  else if (!a.want) setQuests(a, [nextWant(s, id, api, want)].filter(Boolean));
   return met;
 }
 
@@ -597,6 +621,7 @@ export function awaitsFirstQuest(s, id, api) {
 }
 export function fillWants(s, api, now = false) {
   for (const [id, a] of Object.entries(s.actors)) {
+    if (a.want) delete a.content;
     const first = awaitsFirstQuest(s, id, api);
     if (first === "waiting") {
       // An authored starter waits; a level or story quest stays.
@@ -604,13 +629,23 @@ export function fillWants(s, api, now = false) {
       if (!a.xp && kept.length < questsOf(s, id).length) setQuests(a, kept);
       continue;
     }
+    // A content player waits for its Sleep; a resident, which never sleeps,
+    // rests a day.
     if (
       !a.want &&
       entityActive(s, id) &&
+      !(a.content && api.player(id)) &&
       (now || first === "ready" || s.turn - (a.metTurn ?? 0) >= CONTENT_TURNS)
     )
-      a.want = nextWant(s, id, api);
+      setQuests(a, [nextWant(s, id, api)].filter(Boolean));
   }
+}
+// Waking from any Sleep ends contentment: the next want is drawn as ever.
+export function renewWant(s, id, api) {
+  const a = s.actors[id];
+  if (!a?.content) return;
+  delete a.content;
+  if (!a.want) setQuests(a, [nextWant(s, id, api)].filter(Boolean));
 }
 
 const STEP_CARDS = { give: ["to"], bring: ["to", "at"] };
@@ -622,7 +657,10 @@ function validStep(s, w) {
     : STEP_CARDS[verb] || (verb === "meet" && cards.at ? ["at"] : []);
   return (
     (Boolean(w.quest) || home) &&
-    (STEP_VERBS[w.kind] || []).includes(verb) &&
+    [
+      ...(STEP_VERBS[w.kind] || []),
+      ...(w.kind === "person" ? SAVED_STEP_VERBS : []),
+    ].includes(verb) &&
     Object.keys(cards).length === named.length &&
     named.every((key) => typeof cards[key] === "string") &&
     (!cards.to || (Object.hasOwn(s.actors, cards.to) && cards.to !== w.target))
@@ -650,6 +688,7 @@ export function validWant(s, id) {
         a.level <= levelFor(most))) &&
     a.xp <= most &&
     (a.metTurn === undefined || whole(a.metTurn)) &&
+    (a.content === undefined || a.content === true) &&
     (a.gaveUp === undefined ||
       (a.gaveUp &&
         Object.keys(a.gaveUp).length === 2 &&

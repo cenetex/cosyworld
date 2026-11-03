@@ -104,11 +104,11 @@ mod tests {
         // His name joins the cue, but his persona waits past waking (#1665).
         assert_eq!(system(&c, vale, Part::Line), "");
         assert!(!system(&c, vale, Part::Thought).is_empty());
-        // Outside the opening, the full scene frame is unchanged.
+        // Outside the opening, the full conversation frame.
         let mut c = waking(&["station"]);
         c.waking = false;
         let full = super::super::transcript(&c, entity(&c, "vale"), Part::Line);
-        assert!(full.contains("Current scene:"));
+        assert!(full.starts_with("Here: "));
     }
 
     /// Client/server agreement: a new local world, which only Vale plays

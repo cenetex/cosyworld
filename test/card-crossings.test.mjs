@@ -189,7 +189,7 @@ test("narration is given the same current crossing facts as the cards", () => {
     const local = context.entities.find((e) => e.id === s.actors.vale.place);
     assert(local);
     const facts = local.facts.join(" ");
-    if (s.actors.vale.place === "pond") assert.match(facts, /ship waits/);
+    if (s.actors.vale.place === "pond") assert.match(facts, /Charybdis waits/);
     else if (clearingReturnOpen(s))
       assert.match(facts, /opens onto Black pond/);
     else assert.match(facts, /Moss lies between the roots/);

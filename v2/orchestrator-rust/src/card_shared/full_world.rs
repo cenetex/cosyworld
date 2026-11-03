@@ -199,6 +199,13 @@ impl World {
                 engine::EIGHTY_FOURTH_VERSION,
                 engine::EIGHTY_FIFTH_VERSION,
                 engine::EIGHTY_SIXTH_VERSION,
+                engine::EIGHTY_SEVENTH_VERSION,
+                engine::EIGHTY_EIGHTH_VERSION,
+                engine::EIGHTY_NINTH_VERSION,
+                engine::NINETIETH_VERSION,
+                engine::NINETY_FIRST_VERSION,
+                engine::NINETY_SECOND_VERSION,
+                engine::NINETY_THIRD_VERSION,
                 engine::VERSION,
             ];
             let allowed = versions
@@ -318,6 +325,13 @@ impl World {
             engine::EIGHTY_FOURTH_VERSION,
             engine::EIGHTY_FIFTH_VERSION,
             engine::EIGHTY_SIXTH_VERSION,
+            engine::EIGHTY_SEVENTH_VERSION,
+            engine::EIGHTY_EIGHTH_VERSION,
+            engine::EIGHTY_NINTH_VERSION,
+            engine::NINETIETH_VERSION,
+            engine::NINETY_FIRST_VERSION,
+            engine::NINETY_SECOND_VERSION,
+            engine::NINETY_THIRD_VERSION,
         ]
         .contains(&self.version.as_str())
         {
@@ -390,6 +404,19 @@ impl World {
                 let result = engine::reduce_pack(&self.version, self.pack.as_deref(), request)?;
                 next.game = result["world"].clone();
                 // Committed text can finish after its speaker disconnects.
+                self.guard(&next, 12, a)?;
+                *self = next;
+                return Ok(result);
+            }
+            // Reflections journaled after their speech (#2016). Like speech,
+            // they move no one and may land after the speaker leaves.
+            "reflect" => {
+                let mut request = self.request("reflect", a);
+                for key in ["turn", "resting", "rest", "entries"] {
+                    request[key] = command[key].clone();
+                }
+                let result = engine::reduce_pack(&self.version, self.pack.as_deref(), request)?;
+                next.game = result["world"].clone();
                 self.guard(&next, 12, a)?;
                 *self = next;
                 return Ok(result);

@@ -1,0 +1,111 @@
+{
+  "version": 1,
+  "layout_sha256": "5d641043cc1d9e7c988e4a3bcfca01d3c6131e1b005aeae4e70bf9a1f71550a0",
+  "canvas": {
+    "width": 1672,
+    "height": 940
+  },
+  "background": {
+    "file": "assets/pond.png",
+    "sha256": "aa4b9600d32dc3cd043aa91eed47aa2a6f16fd422849a0563f05cb3b42478e75",
+    "commit": "41368bd229b84a490b72522d4d5e2766ead6511d"
+  },
+  "coordinate_space": "Original painting pixels; layer order is back to front.",
+  "encoding": {
+    "quality": 88,
+    "alphaQuality": 100,
+    "effort": 6
+  },
+  "waterline_y": 319,
+  "layers": [
+    {
+      "id": "pond-ship-reflection",
+      "file": "assets/greek-drama/ship-layers/pond-ship-reflection.webp",
+      "crop": {
+        "left": 697,
+        "top": 296,
+        "width": 429,
+        "height": 306
+      },
+      "attachment": "water",
+      "pivot": {
+        "canvas": {
+          "x": 920,
+          "y": 319
+        },
+        "crop": {
+          "x": 223,
+          "y": 23
+        }
+      },
+      "sha256": "f6c5934ca515b395130712d47c2f1c81ae0dcfe16bbf97836c561dbc453066c3",
+      "bytes": 56272,
+      "decoded_rgba_bytes": 525096,
+      "alpha_preserved_inside_crop": true,
+      "discarded_padding_alpha_max": 1
+    },
+    {
+      "id": "pond-ship-contact",
+      "file": "assets/greek-drama/ship-layers/pond-ship-contact.webp",
+      "crop": {
+        "left": 568,
+        "top": 171,
+        "width": 612,
+        "height": 366
+      },
+      "attachment": "water",
+      "pivot": {
+        "canvas": {
+          "x": 920,
+          "y": 319
+        },
+        "crop": {
+          "x": 352,
+          "y": 148
+        }
+      },
+      "sha256": "80b1a8d0ce4e15c6cafd7b176b05e80cc094ca6f388a496167ed7349d53f83fc",
+      "bytes": 26946,
+      "decoded_rgba_bytes": 895968,
+      "alpha_preserved_inside_crop": true,
+      "discarded_padding_alpha_max": 1
+    },
+    {
+      "id": "pond-ship-body",
+      "file": "assets/greek-drama/ship-layers/pond-ship-body.webp",
+      "crop": {
+        "left": 689,
+        "top": 0,
+        "width": 461,
+        "height": 329
+      },
+      "attachment": "rigid ship",
+      "pivot": {
+        "canvas": {
+          "x": 920,
+          "y": 319
+        },
+        "crop": {
+          "x": 231,
+          "y": 319
+        }
+      },
+      "sha256": "388196aed8e1ffa12e210872f6ed737541a5f4eb4fc981ae0bcb5310bd15a098",
+      "bytes": 49898,
+      "decoded_rgba_bytes": 606676,
+      "alpha_preserved_inside_crop": true,
+      "discarded_padding_alpha_max": 1
+    }
+  ],
+  "still": {
+    "file": "assets/greek-drama/ship-layers/pond-ship-still.webp",
+    "sha256": "0a73d004d7bc4e409ed340787496e7e59ddeddf671fbc228a4770ec20b02a233",
+    "bytes": 105008
+  },
+  "memory": {
+    "full_canvas_rgba_bytes": 6286720,
+    "three_full_canvas_layers_rgba_bytes": 18860160,
+    "cropped_layers_rgba_bytes": 2027740,
+    "note": "Raw RGBA estimates only. Use either the still or the moving layers; do not retain both. Current game uses its existing static overlay."
+  }
+}

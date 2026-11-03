@@ -43,6 +43,13 @@ preserves age, anatomy, clothing, attached accessories, palette and painted
 style. Held props are removed for the combat poses; worn identity details such
 as Teucer's quiver, RATi's scarf and Glim's mechanical equipment remain.
 
+[The pose fit](pose-fit.json) records, for each painting whose transparent
+padding differs from its plain portrait, the drop (a fraction of the figure
+height) and the scale that put its feet on the plain portrait's floor line and
+keep the figure's size. One scale per identity keeps the poses' own height
+differences. `node v2/scripts/build-combat-pose-fit.mjs` measures it from the
+alpha bounds.
+
 [The roster](cast-roster.json) records exact reference paths, actor aliases and
 native directions. [Prompts and revision history](cast-art-prompts.json) and
 [provenance and encoding evidence](cast-provenance.json) record canonical

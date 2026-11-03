@@ -1,0 +1,72 @@
+{
+  "logos": [
+    {
+      "src": "assets/title/lonely-forest-1.webp",
+      "name": "Lonely Forest",
+      "width": 1312,
+      "height": 512,
+      "background": "dark"
+    },
+    {
+      "src": "assets/title/lonely-forest-2.webp",
+      "name": "Lonely Forest, with Pip and the lantern",
+      "width": 2000,
+      "height": 800,
+      "background": "dark"
+    },
+    {
+      "src": "assets/title/lonely-forest-hearth-and-oak.webp",
+      "name": "Lonely Forest — Hearth and Oak",
+      "width": 1672,
+      "height": 941,
+      "background": "dark",
+      "toolbar": {
+        "src": "assets/title/toolbar/lonely-forest-hearth-and-oak.webp",
+        "width": 424,
+        "height": 160,
+        "crop": {
+          "left": 44,
+          "top": 164,
+          "width": 1596,
+          "height": 602
+        }
+      }
+    },
+    {
+      "src": "assets/title/lonely-forest-listening-wood.webp",
+      "name": "Lonely Forest — The Listening Wood",
+      "width": 1672,
+      "height": 941,
+      "background": "dark",
+      "toolbar": {
+        "src": "assets/title/toolbar/lonely-forest-listening-wood.webp",
+        "width": 388,
+        "height": 160,
+        "crop": {
+          "left": 40,
+          "top": 125,
+          "width": 1602,
+          "height": 660
+        }
+      }
+    },
+    {
+      "src": "assets/title/lonely-forest-black-pond.webp",
+      "name": "Lonely Forest — The Black Pond",
+      "width": 1672,
+      "height": 941,
+      "background": "dark",
+      "toolbar": {
+        "src": "assets/title/toolbar/lonely-forest-black-pond.webp",
+        "width": 476,
+        "height": 160,
+        "crop": {
+          "left": 68,
+          "top": 180,
+          "width": 1554,
+          "height": 522
+        }
+      }
+    }
+  ]
+}

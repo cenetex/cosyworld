@@ -1,3 +1,5 @@
+import { contextAsleep, wakeContext } from "./audio-wake.mjs";
+
 // The Willows hum: a low drone made in the browser, heard only on the island.
 // Two sines a few hertz apart beat slowly; a quiet harmonic above 200 Hz lets
 // phone speakers carry it; a slow LFO makes it breathe. It follows the music
@@ -91,7 +93,7 @@ export function createHum({
       gain.linearRampToValueAtTime(level, hushedUntil + 2.5);
     } else gain.linearRampToValueAtTime(level, now + seconds);
     if (level > 0) {
-      if (context.state === "suspended") context.resume?.().catch?.(() => {});
+      if (contextAsleep(context)) void wakeContext(context);
     } else
       sleepTimer = setTimeout(
         () => target() === 0 && context.suspend?.().catch?.(() => {}),
@@ -124,7 +126,7 @@ export function createHum({
     },
     // Browsers allow audio only after a gesture.
     unlock() {
-      if (unlocked && context?.state !== "suspended") return;
+      if (unlocked && !contextAsleep(context)) return;
       unlocked = true;
       apply();
     },

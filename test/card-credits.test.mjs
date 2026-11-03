@@ -17,7 +17,7 @@ describe("passkey credits in the browser", () => {
     let balance = 1;
     const fetcher = vi.fn(async (path) =>
       path === "/card-game/credits"
-        ? json({ signed_in: true, balance, prices: { tts: 1, video: 100 } })
+        ? json({ signed_in: true, balance, prices: { tts: 1 } })
         : new Response(new Uint8Array([255, 251]), {
             headers: { "Content-Type": "audio/mpeg" },
           }),
@@ -55,9 +55,9 @@ describe("passkey credits in the browser", () => {
       creditsText({
         signed_in: true,
         balance: 7,
-        prices: { tts: 1, video: 100 },
+        prices: { tts: 1 },
       }),
-    ).toBe("Credits: 7. A spoken line costs 1; a scene video costs 100.");
+    ).toBe("Credits: 7. A spoken line costs 1.");
   });
 
   it("spends a shared world's pool and commits credits to it", async () => {
@@ -69,7 +69,7 @@ describe("passkey credits in the browser", () => {
         return json({
           signed_in: true,
           balance: 500,
-          prices: { tts: 1, video: 100 },
+          prices: { tts: 1 },
         });
       if (path.startsWith("/card-game/credits/pool"))
         return json({
@@ -104,7 +104,7 @@ describe("passkey credits in the browser", () => {
     const commit = calls.find(([path]) => path.endsWith("commit"))[1];
     expect(commit).toMatchObject({ world: "w1", credits: 100 });
     expect(commit.request_id).toMatch(/^commit-/u);
-    expect(credits.affords("video")).toBe(true);
+    expect(credits.affords("tts")).toBe(true);
     expect(poolText(credits.state.pool)).toBe(
       "This world's pool: 100 credits. From Moss 100.",
     );

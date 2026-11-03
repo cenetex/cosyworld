@@ -1,8 +1,11 @@
 # Earth Beside the Ships
 
-This chapter follows the completed Open Door stories and a return to Dione.
-Myrto offers a lasting invitation at the Wine-Dark Harbor. Accepting opens
-the Trojan camp landing as a stop for the shared Greek ship.
+Troy is a rumour in this release (rules 94): no way leads there, and the
+invitation needs Marathon's tale, which is a rumour too. Old full-scope
+worlds keep the chapter. There it follows the completed Open Door stories
+and a return to Dione. Myrto offers a lasting invitation at the Wine-Dark
+Harbor. Accepting opens the Trojan camp landing, which the Northern Road
+joins to the harbor; no ship calls there.
 
 The camp is a named Trojan account beginning after Ajax's death. The Theban
 opening keeps its own time. Every camp scene and the return to Dione name
@@ -28,7 +31,7 @@ when Ajax has received earth. The vigil and the support given to it are
 separate recorded actions.
 
 The camp, household tent, grave and landing have direct local paths.
-They belong to one camp. The ship serves the journey between its shores.
+They belong to one camp. The Northern Road serves the journey home.
 
 ## Return to Dione
 
@@ -61,5 +64,5 @@ decree, funeral cloth and shovel art as separate local objects.
 
 Greek pack revision 7 adds these people, objects and place memories.
 Earlier positions, possessions, poem receipts and access remain valid.
-New ship access follows the invitation. Older full-access visitors can
+New access follows the invitation. Older full-access visitors can
 still use their existing paths through the camp.

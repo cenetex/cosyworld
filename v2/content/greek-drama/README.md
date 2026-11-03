@@ -2,10 +2,12 @@
 
 A Greek drama card-world pack reached from Black Pond. **Before the Burial**
 opens at seven painted places around Thebes. Dione's next invitation opens
-**The Open Door**, five places around Athens. Travelers keep their identities,
+**The Open Door** around Athens. Travelers keep their identities,
 belongings, memories and decisions across both local and shared games.
-The completed Athenian stories open **Earth Beside the Ships**, Ajax's
-household and burial account near Troy.
+Marathon, Troy and the Far Shores are **rumours** (rules 94, the breadth
+freeze): no way leads there in a world of this release, so Marathon's tale,
+Dione's full Open Door account and **Earth Beside the Ships**, Ajax's
+household and burial account near Troy, wait in old full-scope worlds only.
 
 ## Before the Burial
 
@@ -41,8 +43,11 @@ condition and an `item_near` condition at the gate. The first time they hold,
 the world records the gate in `openedRoutes`. The gate's open paintings
 require `gate_open` for that route, and `test/card-theban-gate.test.mjs`
 checks it, so the painting and the passage cannot disagree. While the gate is closed no
-travel card leads out. The gate only blocks the way out: anyone already on the
-battlefield can always walk back in. If the guard later gives the decree
+travel card leads out. The gate guards the city both ways (rules 94): the
+`greek-battlefield` → `greek-gate` route is `live` and `requires`
+`gate_open` for the way out, so the battlefield has no plain exits. A
+traveler who comes over Cithaeron reaches the battlefield on foot, but enters
+Thebes only once the gate has opened. If the guard later gives the decree
 away or leaves his post, the gate stays open. A petition needs the decree in hand and
 returns it to the palace, so a petitioner carries it back to the guard
 afterwards. The battlefield is a Theban place just outside the walls, so by
@@ -60,12 +65,20 @@ Permission earns a verse while the burial remains open. A later rite adds
 another verse and opens a return to Dione. The [exact copy list](OPENING-POEM.md)
 records all three card lines and every branch of the song.
 
+### Open question: weight of the burial routes
+
+The burial routes (defy, the witnessed exception, report) each preserve what
+occurred as a different Theban account. They still need later weight, so that
+the route a player committed to keeps mattering after Dione takes the account.
+Otherwise they read as an inventory lock accepting its key.
+
 ## The Open Door
 
 When Dione receives the account of burial, permission or warning, she opens
 the road to Athens. That records a lasting opening
-for the Athenian Agora, Piraeus Quays, Colonus Grove, Eleusinian Sanctuary
-and Marathon Altar. One shared traveler can open the roads for everyone.
+for the Athenian Agora, Colonus Grove and the Eleusinian Sanctuary, reached
+through the City Gate; the Long Walls from Piraeus Quays open with the
+herald's truce. One shared traveler can open the roads for everyone. Marathon Altar is a rumour in this release.
 
 The main journey follows the mothers in Euripides' _Suppliant Women_.
 Carry their petition to Theseus, choose the civic response, hear its report,
@@ -78,7 +91,8 @@ Six short story cards follow these scenes. Twenty couplets distinguish
 present deeds, heard reports and chosen tellings. Homecoming adds sixteen
 couplets for early reports, Myrine’s arrival and her written answer. A
 traveler can bring each completed local story to Dione, then return for
-the rest. The full account remains available when all five stories are ready.
+the rest. The full account needs all five stories, Marathon's among them, so
+it waits in old full-scope worlds.
 
 Myrine, an original household representative, agrees at Eleusis to walk
 to Piraeus. One Accompany play takes her along the shore path. She receives her
@@ -89,42 +103,97 @@ route, choices, source endings and original alternatives.
 
 ## Earth Beside the Ships
 
-After the four local endings and a return to Dione, Myrto offers a lasting
-ship invitation to the Trojan camp. This named account begins after Ajax's
-death. Carry his shield to Tecmessa for Eurysaces, hear Teucer's plea and
-bring its paper to Odysseus. Choose a public rite, a household rite or a
-witnessed appeal. Prepare the grave with the actual tools and cloth.
+A rumour in this release (rules 94). In an old full-scope world, after the
+five local endings and a return to Dione, Myrto offers a lasting invitation
+to the Trojan camp; the Northern Road walks there from the Wine-Dark Harbor.
+This named account begins after Ajax's death. Carry his shield to Tecmessa
+for Eurysaces, hear Teucer's plea and bring its paper to Odysseus. Choose a
+public rite, a household rite or a witnessed appeal. Prepare the grave with
+the actual tools and cloth.
 
 The appeal closes after the witnessed support and burial. Teucer then
 signs the account. A traveler who has heard his words can carry the paper
 to Dione. Three story beats and a return card follow the journey. Four
 earned couplets grow from eight possible verses. Read the [chapter and
-source guide](AJAX.md) for the choices, objects and saved account.
+source guide](AJAX.md) for the choices, objects and saved account. In a
+world of this release the invitation needs Marathon's tale, so it is never
+offered.
 
-The camp's landing, household and grave have direct local paths. Places inside
-a town link directly. Between towns there is exactly one road or a sea lane:
-the Road to Delphi joins the Agora and Delphi, the Oeta Road joins Delphi and
-Trachis, the Royal Road joins Troy and Susa, the Black Sea Road joins Thrace and
-Tauris, and the Colonists' Road joins Corinth and Sicily. Troy is reached by
-ship at the Trojan landing. The Greek ship serves Piraeus, the Wine-Dark
-Harbor, Black Pond and the invited Trojan landing. Athens is three districts
-joined by two gate roads; see [The Open Door](OPEN-DOOR.md).
+## Roads, the Charybdis and the rumours
+
+Places inside a town link directly. Between towns there is exactly one road
+or a sea lane: the Road to Delphi joins the Agora and Delphi, and the Oeta
+Road joins Delphi and Trachis.
+
+The Greek ship (`greek-ship`, its id unchanged) is **the Charybdis**, on the
+Black Pond route. Its lanes are in `v2/worlds/greek-drama/card-bridge.json`:
+
+- Black Pond and the Wine-Dark Harbor, both ways, with no cargo. The ship
+  always comes home this way.
+- Out from the harbor to Piraeus Quays and from Piraeus to the Hoppy Cat
+  jetty only while the Travel Provisions (`greek-provisions`, first at the
+  harbor) or a Hoppy Cat thing are aboard: one `any` condition of an
+  `item_present` and a `pack_item_present`. The Willows mist beside the rail
+  needs the same cargo aboard. Voyages do not use the cargo up.
+- Every way back toward Black Pond, jetty to Piraeus and Piraeus to the
+  harbor, is free.
+- The cargo rule binds only a voyage with riders. Called away empty, the
+  ship comes back to a traveler waiting at any dock without cargo.
+
+Piraeus is Thebes's sea exit. It lies outside every section, so the
+provisions carry a traveler there before Dione's invitation; the Long Walls
+inland wait for the herald's truce, so until then Piraeus is a quay with the
+ship home. The Hoppy Cat jetty beyond it is reachable as early, with cargo.
+
+The ship is the quick way to a port, never a trap (#2049). From every dock
+the Charybdis sails to, a traveler reaches home on foot or by a free leg,
+even with the City Gate shut and every gate key out of reach.
+`test/card-ship-port-roads.test.mjs` checks that by search over every walk,
+carry and hand-over and every free lane, wherever someone else has called
+the empty ship. The land route is the real geography: the Long Walls to the
+Agora, the Sacred Way to Eleusis, the Cithaeron road to the battlefield,
+then the City Gate into Thebes, which opens only once the guard has held
+the decree there. The Coast Road, Piraeus to the Wine-Dark Harbor, retired.
+The Long Walls open from both ends only with the herald's truce, so a sea
+arrival waits at Piraeus until then and Attica is entered through the City
+Gate. After the exposure the gate may never open; then nobody reaches
+Attica by land or sea, and nobody is stranded there.
+
+Marathon, the Trojan landing, the Greek camp and its household and grave,
+and the Northern Road leave the release. The Lemnian Cave, the Thracian
+Shore, the Taurian Temple and the Sicilian Cave, which only the ship
+reached, retire into Piraeus. Their boarding shores retire, and their
+residents, things and story choices stay authored for old full-scope worlds,
+where Marathon and Troy still stand by Eleusis and the Northern Road. The
+Northern Road runs from the Trojan landing to the Wine-Dark Harbor, outside
+the City Gate.
+
+The revision 18 save upgrade (`upgradeGreekLandRouteSave`) moves anyone or
+anything on the Coast Road to Piraeus and forgets the retired gates and
+known steps. It brings visitors and things from Marathon back to Piraeus,
+and from Troy back to the harbor; a ship at, or bound for, a port it no
+longer sails to comes in to Piraeus with its riders. In a world of this
+release the rumours' residents and things go home unmet, and their story
+steps are forgotten, with whatever followed from them (Marathon's tale, the
+full return and Ajax's account). Athens is three districts joined by two
+gate roads; see [The Open Door](OPEN-DOOR.md).
 
 A pack retires a place with `retired: true` and one exit, the place that took
 it in. No exit or route leads to it. A save upgrade moves anyone and anything
 there, and a ship berthed or bound there, to that place. Athens Harbor joined
-Piraeus; the Juror's House, the Divine Heights, the Hoopoe's Thicket and the
-Underworld Landing retired.
+Piraeus; the Juror's House, the Divine Heights, the Hoopoe's Thicket, the
+Underworld Landing and the Far Shores retired.
 
 ## Sources and runtime
 
-`card-world.json` is canonical author data: 67 places including the ship,
+`card-world.json` is canonical author data: 69 places including the ship,
 33 residents, 26 objects, 149 typed choices and 44 work records. Nine works
 have developed scenes; 35 retain situated hooks for later releases.
 
 `release` lists the content in this release. `sections` groups places behind
-lasting story events. New saves begin with seven shore places and the ship.
-Dione's invitation adds five shore places. Earlier full-scope worlds keep
+lasting story events. New saves begin with seven shore places, the ship and,
+by sea, Piraeus Quays. Dione's invitation adds three Attic places and their
+roads. Earlier full-scope worlds keep
 their travel access and their chosen Helen and Atreid accounts.
 
 Greek pack revision 3 added eight residents and nine objects. Revision 4
@@ -170,27 +239,14 @@ or uncover the lamp break a partial signal and never complete one. Pack
 revision 10 shortened the signal from two cycles to one; an older save keeps a
 single saved cover and starts any longer partial signal again.
 
-Completing the signal summons a shared ship. Its saved discovery keeps the
-boarding shores open through lamp changes, reloads and later voyages.
-The ship sails authored lanes on two seas. On the west sea: Black Pond only
-to the Wine-Dark Harbor, and the Wine-Dark Harbor to Piraeus. Round the cape,
-Piraeus to Marathon Bay. On the east sea (Greek revision 16), Marathon Bay to
-the Trojan camp landing, the Lemnian Cave and the Sicilian Cave; the Lemnian
-Cave on to the Thracian Shore and Proteus's tomb in Egypt; the Thracian Shore
-on to the Taurian Temple. The Far Shores are one-place stops: their roads,
-the Court at Susa and the Scythian Crag retire. Every lane out of the
-Wine-Dark Harbor, Piraeus or Marathon opens only while the Travel Provisions
-are aboard, and every way back is always open. Boarding the ship is a dock's
-one link to the sea. The lane between the
-Wine-Dark Harbor to Piraeus opens only while the Travel Provisions
-(`greek-provisions`, first at the harbour) are aboard; the way home from
-Piraeus is always open. Giving Theseus the mothers' petition brings the
+Completing the signal summons the Charybdis. Its saved discovery keeps the
+boarding shores open through lamp changes, reloads and later voyages. It
+sails the Black Pond route described above. Boarding the ship is a dock's
+one link to the sea. Giving Theseus the mothers' petition brings the
 herald's truce (`greek-olive-branch`, the Open Door's Agora outcome) into the
-Agora. While it is in the Agora, the Long Walls open from the Agora to Piraeus.
+Agora. While it is in the Agora, the Long Walls open from both ends.
 Its card uses `assets/greek-drama/olive-branch.webp`, the wool-bound branch
 painting documented in [the Argos art handoff](../../card-game/assets/greek-drama/argos-alternates-README.md).
-Piraeus Quays lies outside the Open Door section, so that lane reaches it in
-any save; its roads inland and its stories still wait for Dione's invitation.
 Boarding keeps the ship at its harbour. The first course
 card played aboard sets the voyage for everyone, and the ship spends one world
 round at sea. On arrival the only Disembark card is that port. The ship stays

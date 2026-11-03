@@ -1,0 +1,744 @@
+{
+  "created": "2026-11-02",
+  "generator": "OpenAI built-in image generation",
+  "brief": "Ten main characters asleep: eight shared travelers with their own neutral and earned-scarf wardrobe, plus Pip and the keeper. Eighteen complete transparent sleeping portraits preserve approved identities and painterly style.",
+  "source_commit": "41368bd229b84a490b72522d4d5e2766ead6511d",
+  "art_direction_feedback": [
+    "Peaceful sleep, fully closed eyes and relaxed posture; no injury or defeat.",
+    "Keep stable actor IDs and names from the current catalog: Iris/nell, Cass/orin and Sage/ada.",
+    "Keep Sage in her approved hand-powered chair and preserve transparent wheel-spoke gaps.",
+    "Preserve wardrobe independently of sleeping; scarf variants use the approved scarf colours and buttons.",
+    "Empty hands, no held quest item, floor, painted shadow, scenery or extra prop. Existing identity equipment such as Sage's chair and the keeper's dial remain.",
+    "Keep original 1024x1536 portrait canvases and genuine alpha. Record technical registration separately from image generation."
+  ],
+  "assets": [
+    {
+      "id": "vale-sleeping",
+      "actor_id": "vale",
+      "display_name": "Vale",
+      "file": "../shared/characters/vale-sleeping.webp",
+      "wardrobe": "base",
+      "native_facing": "right",
+      "generation_id": "exec-e7f3fdcc-1eac-40a0-88df-5c1d1c0025d9",
+      "references": [
+        {
+          "role": "edit target",
+          "repository_path": "v2/card-game/assets/shared/characters/vale.png",
+          "commit": "41368bd229b84a490b72522d4d5e2766ead6511d",
+          "url": "https://github.com/cenetex/cosyworld/blob/41368bd229b84a490b72522d4d5e2766ead6511d/v2/card-game/assets/shared/characters/vale.png",
+          "sha256": "7e6dfd1bd18f9c6e7d548aeb27637284887b555373e2ad00109fdc233366d512"
+        }
+      ],
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "transparent_background": true,
+      "prompt": "Use case: identity-preserve.\nAsset type: CosyWorld character sprite, sleeping pose, genuine transparent RGBA background, portrait canvas 1024 x 1536.\nInput image 1 is the approved Vale character and is the identity, costume, palette, and painterly rendering reference. Edit this character into a peaceful sleeping pose.\nSubject: exactly the same young adult traveller Vale, with short tousled black hair, the same face, skin and adult proportions, long charcoal-black coat with brass fastenings, ivory open-collar shirt, dark trousers, leather belt and worn buckled black boots.\nPose: seated comfortably on an implied flat floor, knees gently drawn up, forearms loosely crossed over the knees, cheek resting naturally on one forearm. Eyes fully closed, brow relaxed, soft peaceful expression. Turned three-quarter toward the viewer's right. Clearly asleep in safety, not hurt, sad, collapsed, or defeated. Natural hands and anatomy. Both boots and the whole coat are visible.\nComposition: keep the original adult head and body scale rather than enlarging the head; the compact seated figure occupies roughly the lower 60% of the 1024x1536 canvas, with its lowest boot/coat at about 96% height and clear transparent margin on every edge. Empty upper area is transparent. No crop.\nStyle: match exactly the source's warm painterly storybook finish, ink-like edge detail and softly textured cloth. Soft light on the figure only.\nConstraints: preserve Vale's identity and all costume details; no scarf for this neutral variant; no lantern, no held objects, no bed, furniture, floor, cast shadow, scenery, glow halo or background. No text, lettering, sleep symbols, Zs, watermark or border. Actual alpha transparency outside the solid opaque character, including gaps between limbs; preserve soft antialiased painted edges.\n"
+    },
+    {
+      "id": "vale-sleeping-scarf",
+      "actor_id": "vale",
+      "display_name": "Vale",
+      "file": "../shared/characters/vale-sleeping-scarf.webp",
+      "wardrobe": "scarf",
+      "native_facing": "right",
+      "generation_id": "exec-58d72e8f-6a16-4097-9b2f-9e73335cb2b4",
+      "references": [
+        {
+          "role": "edit target",
+          "asset_id": "vale-sleeping",
+          "generation_id": "exec-e7f3fdcc-1eac-40a0-88df-5c1d1c0025d9",
+          "original_png_file": "exec-e7f3fdcc-1eac-40a0-88df-5c1d1c0025d9.png",
+          "original_png_sha256": "79619f0c52c4d7873ba00cca9fe0877fab748cf9170ed61e8cb5e80579733649",
+          "original_png_bytes": 1629906,
+          "dimensions": [
+            1024,
+            1536
+          ]
+        },
+        {
+          "role": "scarf design reference",
+          "repository_path": "v2/card-game/assets/shared/characters/vale-scarf.png",
+          "commit": "41368bd229b84a490b72522d4d5e2766ead6511d",
+          "url": "https://github.com/cenetex/cosyworld/blob/41368bd229b84a490b72522d4d5e2766ead6511d/v2/card-game/assets/shared/characters/vale-scarf.png",
+          "sha256": "db446b75fa43c60658acfdd0704ecdb3187b89c031874eb6ae9d2ba4fdb97f0c"
+        }
+      ],
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "transparent_background": true,
+      "prompt": "Use case: identity-preserve.\nAsset type: CosyWorld sleeping character sprite with earned scarf, true transparent RGBA, 1024x1536.\nInput image 1 is the EDIT TARGET: the approved sleeping Vale sprite. Input image 2 is a SCARF DESIGN REFERENCE ONLY: standing Vale with the approved ivory-white knitted scarf and dark round button.\nMake exactly one change to image 1: add that same ivory-white knitted scarf with its dark round button, wrapped comfortably at Vale's neck and with the fringed ends resting naturally over the front of the coat, adjusted only to fit the existing sleeping pose.\nPreserve image 1's exact seated pose, cheek resting on forearm, fully closed eyes, peaceful expression, face and hair identity, hands, boots, all clothing, body proportions, silhouette outside the small scarf area, position, scale, transparent margins, light, linework and painterly texture. Do not re-pose the character from the standing reference. Do not enlarge or recenter the body.\nNo new objects, no lantern, no furniture, no floor, no cast shadow, no background or halo, no text, symbols, Zs or watermark. Keep true alpha transparency outside the figure and preserve the same antialiased edge quality.\n",
+      "generation_history": [
+        {
+          "role": "Accepted neutral sleeping pose reused as the wardrobe edit target.",
+          "asset_id": "vale-sleeping",
+          "generation_id": "exec-e7f3fdcc-1eac-40a0-88df-5c1d1c0025d9",
+          "original_png_file": "exec-e7f3fdcc-1eac-40a0-88df-5c1d1c0025d9.png",
+          "original_png_sha256": "79619f0c52c4d7873ba00cca9fe0877fab748cf9170ed61e8cb5e80579733649",
+          "original_png_bytes": 1629906,
+          "dimensions": [
+            1024,
+            1536
+          ],
+          "transparent_background": true,
+          "prompt": "Use case: identity-preserve.\nAsset type: CosyWorld character sprite, sleeping pose, genuine transparent RGBA background, portrait canvas 1024 x 1536.\nInput image 1 is the approved Vale character and is the identity, costume, palette, and painterly rendering reference. Edit this character into a peaceful sleeping pose.\nSubject: exactly the same young adult traveller Vale, with short tousled black hair, the same face, skin and adult proportions, long charcoal-black coat with brass fastenings, ivory open-collar shirt, dark trousers, leather belt and worn buckled black boots.\nPose: seated comfortably on an implied flat floor, knees gently drawn up, forearms loosely crossed over the knees, cheek resting naturally on one forearm. Eyes fully closed, brow relaxed, soft peaceful expression. Turned three-quarter toward the viewer's right. Clearly asleep in safety, not hurt, sad, collapsed, or defeated. Natural hands and anatomy. Both boots and the whole coat are visible.\nComposition: keep the original adult head and body scale rather than enlarging the head; the compact seated figure occupies roughly the lower 60% of the 1024x1536 canvas, with its lowest boot/coat at about 96% height and clear transparent margin on every edge. Empty upper area is transparent. No crop.\nStyle: match exactly the source's warm painterly storybook finish, ink-like edge detail and softly textured cloth. Soft light on the figure only.\nConstraints: preserve Vale's identity and all costume details; no scarf for this neutral variant; no lantern, no held objects, no bed, furniture, floor, cast shadow, scenery, glow halo or background. No text, lettering, sleep symbols, Zs, watermark or border. Actual alpha transparency outside the solid opaque character, including gaps between limbs; preserve soft antialiased painted edges.\n",
+          "references": [
+            {
+              "role": "edit target",
+              "repository_path": "v2/card-game/assets/shared/characters/vale.png",
+              "commit": "41368bd229b84a490b72522d4d5e2766ead6511d",
+              "url": "https://github.com/cenetex/cosyworld/blob/41368bd229b84a490b72522d4d5e2766ead6511d/v2/card-game/assets/shared/characters/vale.png",
+              "sha256": "7e6dfd1bd18f9c6e7d548aeb27637284887b555373e2ad00109fdc233366d512"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "mara-sleeping",
+      "actor_id": "mara",
+      "display_name": "Mara",
+      "file": "../shared/characters/mara-sleeping.webp",
+      "wardrobe": "base",
+      "native_facing": "right",
+      "generation_id": "exec-5ce1951b-d849-4cad-a3b1-e88ae87418b2",
+      "references": [
+        {
+          "role": "edit target",
+          "repository_path": "v2/card-game/assets/shared/characters/mara.png",
+          "commit": "41368bd229b84a490b72522d4d5e2766ead6511d",
+          "url": "https://github.com/cenetex/cosyworld/blob/41368bd229b84a490b72522d4d5e2766ead6511d/v2/card-game/assets/shared/characters/mara.png",
+          "sha256": "c182c00f2ab3d455e3228af72c67df061789ae8d050e187cc44d9e4bf67b76b1"
+        }
+      ],
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "transparent_background": true,
+      "prompt": "Use case: identity-preserve.\nAsset type: CosyWorld character sprite, sleeping pose, genuine transparent RGBA background, 1024 x 1536 portrait canvas.\nInput image 1 is the approved Mara character: edit target and sole identity, costume, palette and painterly-style reference.\nShow exactly this same adult Mara peacefully asleep, seated comfortably on an implied flat floor with legs bent gently to one side, arms folded loosely across her lap and head tilted naturally toward one shoulder. Eyes fully closed, a relaxed soft smile. Native three-quarter facing toward the viewer's right. Clearly safe and resting, never hurt, defeated, weeping or slumped in pain.\nPreserve her face, complexion, curly dark hair with red ribbon, gold hoop earrings, red cropped coat with brass fastenings and gold edges, ivory blouse and bell cuffs, red sash, red trousers and worn buckled dark boots. Natural adult proportions, hands and anatomy.\nKeep the original head/body scale; do not enlarge her head to fill the portrait. Compact seated figure roughly in the lower 60% of the canvas, lowest boot or coat near 96% height, clear transparent margins on all sides and generous transparent space above. Full figure uncropped.\nMatch the source's textured painterly storybook finish and warm light on the figure. No scarf in this neutral variant. True alpha outside the solid character, including gaps.\nNo lantern, held objects, props, furniture, floor, cast shadow, scenery, background, glow halo, text, symbols, Zs, watermark or border.\n"
+    },
+    {
+      "id": "mara-sleeping-scarf",
+      "actor_id": "mara",
+      "display_name": "Mara",
+      "file": "../shared/characters/mara-sleeping-scarf.webp",
+      "wardrobe": "scarf",
+      "native_facing": "right",
+      "generation_id": "exec-7681b17f-d392-486c-8697-b95a02d1399a",
+      "references": [
+        {
+          "role": "edit target",
+          "asset_id": "mara-sleeping",
+          "generation_id": "exec-5ce1951b-d849-4cad-a3b1-e88ae87418b2",
+          "original_png_file": "exec-5ce1951b-d849-4cad-a3b1-e88ae87418b2.png",
+          "original_png_sha256": "f749b3aba3b7ab6f66da96ff57115229b34c0ba39e79284459fd7dac49185997",
+          "original_png_bytes": 1794652,
+          "dimensions": [
+            1024,
+            1536
+          ]
+        },
+        {
+          "role": "scarf design reference",
+          "repository_path": "v2/card-game/assets/shared/characters/mara-scarf.png",
+          "commit": "41368bd229b84a490b72522d4d5e2766ead6511d",
+          "url": "https://github.com/cenetex/cosyworld/blob/41368bd229b84a490b72522d4d5e2766ead6511d/v2/card-game/assets/shared/characters/mara-scarf.png",
+          "sha256": "68242c050db52986c8563f894943ae5391ec31489065d9375d37035e65bb3f7f"
+        }
+      ],
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "transparent_background": true,
+      "prompt": "Use case: identity-preserve.\nAsset type: CosyWorld transparent sleeping sprite, 1024x1536.\nInput image 1 is the EDIT TARGET: sleeping Mara. Input image 2 is ONLY the wardrobe reference for the approved muted moss-green knitted scarf, red round button and fringed ends.\nAdd that same green scarf with red button around Mara's neck in image 1, with its fringed ends resting on the front of her red coat in the existing pose. This is a tightly localized scarf addition.\nKeep every other pixel placement from image 1: identical canvas, character position and scale, seated pose with legs folded to the side, hands resting in lap, head tilted to shoulder, closed eyes, face, curly hair with ribbon and gold earrings, costume, boots, lighting and painterly texture. The hair begins around y460 and the boots reach y1505 on the 1024x1536 canvas; keep those coordinates. Do not recenter, move upward, rescale, change pose, or use the standing pose from image 2.\nGenuine alpha transparency; no backdrop, halo, floor, shadow, props, lantern, furniture, text, Zs, symbols, watermark or border.\n",
+      "generation_history": [
+        {
+          "role": "Accepted neutral sleeping pose reused as the wardrobe edit target.",
+          "asset_id": "mara-sleeping",
+          "generation_id": "exec-5ce1951b-d849-4cad-a3b1-e88ae87418b2",
+          "original_png_file": "exec-5ce1951b-d849-4cad-a3b1-e88ae87418b2.png",
+          "original_png_sha256": "f749b3aba3b7ab6f66da96ff57115229b34c0ba39e79284459fd7dac49185997",
+          "original_png_bytes": 1794652,
+          "dimensions": [
+            1024,
+            1536
+          ],
+          "transparent_background": true,
+          "prompt": "Use case: identity-preserve.\nAsset type: CosyWorld character sprite, sleeping pose, genuine transparent RGBA background, 1024 x 1536 portrait canvas.\nInput image 1 is the approved Mara character: edit target and sole identity, costume, palette and painterly-style reference.\nShow exactly this same adult Mara peacefully asleep, seated comfortably on an implied flat floor with legs bent gently to one side, arms folded loosely across her lap and head tilted naturally toward one shoulder. Eyes fully closed, a relaxed soft smile. Native three-quarter facing toward the viewer's right. Clearly safe and resting, never hurt, defeated, weeping or slumped in pain.\nPreserve her face, complexion, curly dark hair with red ribbon, gold hoop earrings, red cropped coat with brass fastenings and gold edges, ivory blouse and bell cuffs, red sash, red trousers and worn buckled dark boots. Natural adult proportions, hands and anatomy.\nKeep the original head/body scale; do not enlarge her head to fill the portrait. Compact seated figure roughly in the lower 60% of the canvas, lowest boot or coat near 96% height, clear transparent margins on all sides and generous transparent space above. Full figure uncropped.\nMatch the source's textured painterly storybook finish and warm light on the figure. No scarf in this neutral variant. True alpha outside the solid character, including gaps.\nNo lantern, held objects, props, furniture, floor, cast shadow, scenery, background, glow halo, text, symbols, Zs, watermark or border.\n",
+          "references": [
+            {
+              "role": "edit target",
+              "repository_path": "v2/card-game/assets/shared/characters/mara.png",
+              "commit": "41368bd229b84a490b72522d4d5e2766ead6511d",
+              "url": "https://github.com/cenetex/cosyworld/blob/41368bd229b84a490b72522d4d5e2766ead6511d/v2/card-game/assets/shared/characters/mara.png",
+              "sha256": "c182c00f2ab3d455e3228af72c67df061789ae8d050e187cc44d9e4bf67b76b1"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ash-sleeping",
+      "actor_id": "ash",
+      "display_name": "Ash",
+      "file": "../shared/characters/ash-sleeping.webp",
+      "wardrobe": "base",
+      "native_facing": "right",
+      "generation_id": "exec-0a61a454-52e4-4f31-a4b0-aaa8ffa10ff1",
+      "references": [
+        {
+          "role": "edit target",
+          "repository_path": "v2/card-game/assets/shared/characters/ash.png",
+          "commit": "41368bd229b84a490b72522d4d5e2766ead6511d",
+          "url": "https://github.com/cenetex/cosyworld/blob/41368bd229b84a490b72522d4d5e2766ead6511d/v2/card-game/assets/shared/characters/ash.png",
+          "sha256": "2592261ccbf329574da95ca83d88fedeb787a38d01335276c3d66d368fa8d285"
+        }
+      ],
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "transparent_background": true,
+      "prompt": "Use case: identity-preserve.\nAsset type: CosyWorld character sprite, sleeping pose, genuine transparent RGBA background, 1024x1536 portrait canvas.\nInput image 1 is the approved Ash character: edit target and exact identity, costume, palette and painterly-style reference.\nShow the same sturdy mature Ash peacefully asleep. Preserve his warm brown skin, salt-and-pepper curly hair, silver-black beard, strong adult build, orange knitted sweater with rolled sleeves, worn golden-orange overalls with patched knees, brass buckles, dark utility belt and sturdy laced dark boots.\nPose: seated comfortably on an implied flat floor with knees loosely bent, forearms resting together across them and head gently resting on his arms. Both eyes fully closed, loose brow and the smallest contented smile, an unmistakably safe sleeping posture. Native three-quarter facing toward the viewer's right. Keep both full boots visible and plausible adult anatomy.\nComposition: original adult head and body scale, no large cute head. Whole compact seated figure occupies roughly the lower 60% of a 1024x1536 canvas; lowest boot/cloth near 96% height, transparent space above, transparent margin all around. Preserve the same painterly storybook texture, hand-painted highlights and edge detail.\nNo scarf for this neutral variant. No held objects, diving float, lantern, props, furniture, floor, cast shadow, scenery, background, glow halo, text, lettering, symbols, Zs, watermark or border. Not injured, defeated or distressed. Genuine alpha transparency outside the solid character and in gaps between limbs, with soft antialiased painted edges.\n"
+    },
+    {
+      "id": "ash-sleeping-scarf",
+      "actor_id": "ash",
+      "display_name": "Ash",
+      "file": "../shared/characters/ash-sleeping-scarf.webp",
+      "wardrobe": "scarf",
+      "native_facing": "right",
+      "generation_id": "exec-5fa0c153-15e4-4363-b17c-ccc1a3e37a6e",
+      "references": [
+        {
+          "role": "edit target",
+          "asset_id": "ash-sleeping",
+          "generation_id": "exec-0a61a454-52e4-4f31-a4b0-aaa8ffa10ff1",
+          "original_png_file": "exec-0a61a454-52e4-4f31-a4b0-aaa8ffa10ff1.png",
+          "original_png_sha256": "489653baebba6b250dd9ede3f60b83a990c85a1c776d5d7772ecc91c49d7aa55",
+          "original_png_bytes": 1912312,
+          "dimensions": [
+            1024,
+            1536
+          ]
+        },
+        {
+          "role": "scarf design reference",
+          "repository_path": "v2/card-game/assets/shared/characters/ash-scarf.png",
+          "commit": "41368bd229b84a490b72522d4d5e2766ead6511d",
+          "url": "https://github.com/cenetex/cosyworld/blob/41368bd229b84a490b72522d4d5e2766ead6511d/v2/card-game/assets/shared/characters/ash-scarf.png",
+          "sha256": "a39874896719827006f457eb6b2622a04e08f1a906394bea0c4f39abab6785bb"
+        }
+      ],
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "transparent_background": true,
+      "prompt": "Use case: identity-preserve.\nAsset type: CosyWorld transparent sleeping sprite, 1024x1536.\nInput image 1 is the EDIT TARGET: accepted sleeping Ash. Input image 2 is ONLY a wardrobe design reference for his approved muted blue knitted scarf, orange round button and fringed ends.\nAdd that same blue scarf with orange button around Ash's neck in image 1. Let the ends fall naturally onto his overalls, partly occluded by the forearms exactly as they already lie. Keep the scarf itself consistent with reference 2.\nThis is a localized scarf addition. Preserve image 1's exact canvas, body position, scale, sleepy pose, closed eyes, head resting on forearms, face, hair, beard, skin, clothing, hands, boots, lighting, paint and edge detail. Head top around y500, lowest boot around y1480 on the1024x1536 canvas: keep those positions. Do not move the figure upward, rescale, recenter or alter the pose; the standing pose from reference 2 must not be copied.\nKeep genuine alpha transparency outside the solid figure. No props, furniture, background, floor, cast shadow, halo, text, Zs, symbols, lantern, watermark or border.\n",
+      "generation_history": [
+        {
+          "role": "Accepted neutral sleeping pose reused as the wardrobe edit target.",
+          "asset_id": "ash-sleeping",
+          "generation_id": "exec-0a61a454-52e4-4f31-a4b0-aaa8ffa10ff1",
+          "original_png_file": "exec-0a61a454-52e4-4f31-a4b0-aaa8ffa10ff1.png",
+          "original_png_sha256": "489653baebba6b250dd9ede3f60b83a990c85a1c776d5d7772ecc91c49d7aa55",
+          "original_png_bytes": 1912312,
+          "dimensions": [
+            1024,
+            1536
+          ],
+          "transparent_background": true,
+          "prompt": "Use case: identity-preserve.\nAsset type: CosyWorld character sprite, sleeping pose, genuine transparent RGBA background, 1024x1536 portrait canvas.\nInput image 1 is the approved Ash character: edit target and exact identity, costume, palette and painterly-style reference.\nShow the same sturdy mature Ash peacefully asleep. Preserve his warm brown skin, salt-and-pepper curly hair, silver-black beard, strong adult build, orange knitted sweater with rolled sleeves, worn golden-orange overalls with patched knees, brass buckles, dark utility belt and sturdy laced dark boots.\nPose: seated comfortably on an implied flat floor with knees loosely bent, forearms resting together across them and head gently resting on his arms. Both eyes fully closed, loose brow and the smallest contented smile, an unmistakably safe sleeping posture. Native three-quarter facing toward the viewer's right. Keep both full boots visible and plausible adult anatomy.\nComposition: original adult head and body scale, no large cute head. Whole compact seated figure occupies roughly the lower 60% of a 1024x1536 canvas; lowest boot/cloth near 96% height, transparent space above, transparent margin all around. Preserve the same painterly storybook texture, hand-painted highlights and edge detail.\nNo scarf for this neutral variant. No held objects, diving float, lantern, props, furniture, floor, cast shadow, scenery, background, glow halo, text, lettering, symbols, Zs, watermark or border. Not injured, defeated or distressed. Genuine alpha transparency outside the solid character and in gaps between limbs, with soft antialiased painted edges.\n",
+          "references": [
+            {
+              "role": "edit target",
+              "repository_path": "v2/card-game/assets/shared/characters/ash.png",
+              "commit": "41368bd229b84a490b72522d4d5e2766ead6511d",
+              "url": "https://github.com/cenetex/cosyworld/blob/41368bd229b84a490b72522d4d5e2766ead6511d/v2/card-game/assets/shared/characters/ash.png",
+              "sha256": "2592261ccbf329574da95ca83d88fedeb787a38d01335276c3d66d368fa8d285"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "nell-sleeping",
+      "actor_id": "nell",
+      "display_name": "Iris",
+      "file": "../shared/characters/nell-sleeping.webp",
+      "wardrobe": "base",
+      "native_facing": "right",
+      "generation_id": "exec-22b1e4f7-1cbf-4a0f-a7c9-ac388baa40a0",
+      "references": [
+        {
+          "role": "edit target",
+          "repository_path": "v2/card-game/assets/shared/characters/nell.png",
+          "commit": "41368bd229b84a490b72522d4d5e2766ead6511d",
+          "url": "https://github.com/cenetex/cosyworld/blob/41368bd229b84a490b72522d4d5e2766ead6511d/v2/card-game/assets/shared/characters/nell.png",
+          "sha256": "705a095b4f379338192290d4e6003d065b7d87c04b88b47706ff1f744471043f"
+        }
+      ],
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "transparent_background": true,
+      "prompt": "Use case: identity-preserve.\nAsset type: CosyWorld sleeping character sprite, genuine transparent RGBA background, portrait canvas1024x1536.\nInput image1 is the approved Iris character (stable filename nell.png), the EDIT TARGET and identity/costume/style reference.\nMake the same mature woman Iris peacefully asleep in a comfortable compact seated pose on an implied flat floor. Legs bent gently to one side beneath her skirts, hands resting loosely together in her lap, head softly tilted toward her shoulder. Both eyes completely closed and a relaxed content expression. Native three-quarter orientation toward the viewer's right.\nPreserve her same face and age, silver hair in the long braid, broad woven straw hat, ivory rolled-sleeve shirt, golden-yellow gardener's apron, brown belt and pouch, patched oatmeal skirt, gardening gloves and brown lace-up ankle boots. Do not add tools or plants; costume attachments already present may remain.\nKeep natural adult anatomy and original head/body scale. The seated figure occupies roughly the lower60% of the canvas, with top of hat around y500, lowest boot/hem around y1475, all of her uncropped and transparent margin on every edge. Preserve the original painterly storybook rendering, cloth weave, warm light and fine edge detail.\nNo scarf for this neutral variant. No watering can, lantern, extra props, furniture, floor, shadow, scenery, backdrop, halo, text, symbols, Zs, watermark or border. Clearly sleeping safely, not injured or defeated. True transparent alpha outside the solid character and in gaps; clean softly antialiased edges.\n"
+    },
+    {
+      "id": "nell-sleeping-scarf",
+      "actor_id": "nell",
+      "display_name": "Iris",
+      "file": "../shared/characters/nell-sleeping-scarf.webp",
+      "wardrobe": "scarf",
+      "native_facing": "right",
+      "generation_id": "exec-6818657f-8d74-4d84-8019-3116152a67af",
+      "references": [
+        {
+          "role": "edit target",
+          "asset_id": "nell-sleeping",
+          "generation_id": "exec-22b1e4f7-1cbf-4a0f-a7c9-ac388baa40a0",
+          "original_png_file": "exec-22b1e4f7-1cbf-4a0f-a7c9-ac388baa40a0.png",
+          "original_png_sha256": "cc27a9449b210bb9db7b376c668807f7c98bf67717e4fe76108512a5e214157a",
+          "original_png_bytes": 2123332,
+          "dimensions": [
+            1024,
+            1536
+          ]
+        },
+        {
+          "role": "scarf design reference",
+          "repository_path": "v2/card-game/assets/shared/characters/nell-scarf.png",
+          "commit": "41368bd229b84a490b72522d4d5e2766ead6511d",
+          "url": "https://github.com/cenetex/cosyworld/blob/41368bd229b84a490b72522d4d5e2766ead6511d/v2/card-game/assets/shared/characters/nell-scarf.png",
+          "sha256": "c869f75b71093df0878c902f2ae68b065d58c32f35962c25616888ba5f61b3d3"
+        }
+      ],
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "transparent_background": true,
+      "prompt": "Use case: identity-preserve.\nAsset type: CosyWorld sleeping sprite, transparent RGBA,1024x1536.\nInput image1 is the EDIT TARGET: sleeping Iris. Input image2 is ONLY the approved wardrobe reference for Iris's lavender-violet knitted scarf with yellow round button and fringed ends.\nMake exactly one localized change to image1: add the same lavender-violet scarf with its yellow button wrapped comfortably around her neck, fringed ends resting naturally on the yellow apron, respecting her existing braid, arms and sleeping posture.\nPreserve all other image1 content: identical face/age, fully closed eyes, peaceful smile, head tilt, straw hat, silver braid, gloved hands in lap, side-folded legs, clothing, boots, shape, scale and canvas placement, warm paint texture and linework. Hat top around y410 and lowest hem around y1515; keep these coordinates on the1024x1536 canvas. Do not recenter, move, rescale, re-pose or copy the standing reference's pose.\nGenuine alpha transparency outside the solid figure. No watering can, extra props, furniture, floor, cast shadow, scenery, backdrop, halo, lantern, text, Zs, symbols, watermark or border.\n",
+      "generation_history": [
+        {
+          "role": "Accepted neutral sleeping pose reused as the wardrobe edit target.",
+          "asset_id": "nell-sleeping",
+          "generation_id": "exec-22b1e4f7-1cbf-4a0f-a7c9-ac388baa40a0",
+          "original_png_file": "exec-22b1e4f7-1cbf-4a0f-a7c9-ac388baa40a0.png",
+          "original_png_sha256": "cc27a9449b210bb9db7b376c668807f7c98bf67717e4fe76108512a5e214157a",
+          "original_png_bytes": 2123332,
+          "dimensions": [
+            1024,
+            1536
+          ],
+          "transparent_background": true,
+          "prompt": "Use case: identity-preserve.\nAsset type: CosyWorld sleeping character sprite, genuine transparent RGBA background, portrait canvas1024x1536.\nInput image1 is the approved Iris character (stable filename nell.png), the EDIT TARGET and identity/costume/style reference.\nMake the same mature woman Iris peacefully asleep in a comfortable compact seated pose on an implied flat floor. Legs bent gently to one side beneath her skirts, hands resting loosely together in her lap, head softly tilted toward her shoulder. Both eyes completely closed and a relaxed content expression. Native three-quarter orientation toward the viewer's right.\nPreserve her same face and age, silver hair in the long braid, broad woven straw hat, ivory rolled-sleeve shirt, golden-yellow gardener's apron, brown belt and pouch, patched oatmeal skirt, gardening gloves and brown lace-up ankle boots. Do not add tools or plants; costume attachments already present may remain.\nKeep natural adult anatomy and original head/body scale. The seated figure occupies roughly the lower60% of the canvas, with top of hat around y500, lowest boot/hem around y1475, all of her uncropped and transparent margin on every edge. Preserve the original painterly storybook rendering, cloth weave, warm light and fine edge detail.\nNo scarf for this neutral variant. No watering can, lantern, extra props, furniture, floor, shadow, scenery, backdrop, halo, text, symbols, Zs, watermark or border. Clearly sleeping safely, not injured or defeated. True transparent alpha outside the solid character and in gaps; clean softly antialiased edges.\n",
+          "references": [
+            {
+              "role": "edit target",
+              "repository_path": "v2/card-game/assets/shared/characters/nell.png",
+              "commit": "41368bd229b84a490b72522d4d5e2766ead6511d",
+              "url": "https://github.com/cenetex/cosyworld/blob/41368bd229b84a490b72522d4d5e2766ead6511d/v2/card-game/assets/shared/characters/nell.png",
+              "sha256": "705a095b4f379338192290d4e6003d065b7d87c04b88b47706ff1f744471043f"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "tavi-sleeping",
+      "actor_id": "tavi",
+      "display_name": "Tavi",
+      "file": "../shared/characters/tavi-sleeping.webp",
+      "wardrobe": "base",
+      "native_facing": "right",
+      "generation_id": "exec-7770724b-0d4f-4859-8b20-fa1affd51ac5",
+      "references": [
+        {
+          "role": "Approved identity, clothing and painterly style edit target.",
+          "repository_path": "v2/card-game/assets/shared/characters/tavi.png",
+          "commit": "41368bd229b84a490b72522d4d5e2766ead6511d",
+          "url": "https://github.com/cenetex/cosyworld/blob/41368bd229b84a490b72522d4d5e2766ead6511d/v2/card-game/assets/shared/characters/tavi.png",
+          "sha256": "6798af3ad543eab76109801ec0ad1ef953566f2975e43667882ec033d39f8a3a"
+        }
+      ],
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "transparent_background": true,
+      "prompt": "Use case: identity-preserve. Asset type: CosyWorld sleeping character pose, complete 1024x1536 RGBA cutout. Image 1 is the exact approved Tavi identity/outfit/style reference and edit target. Change only the pose and expression into peaceful natural sleep. Preserve Tavi's young face, warm medium-brown skin, dense short dark curls, lean build, moss-green patched short jacket, dark green hooded shoulder cape, cream shirt, charcoal patched knee-length shorts, pale socks, leather satchel and worn lace-up boots. No new red scarf in this neutral version. Tavi is comfortably sitting on the unseen ground with knees bent and loosely folded, relaxed hands resting together over one knee, head softly tipped onto the forearms, eyes fully closed and a tiny contented smile. Slight three-quarter orientation toward image right, face still identifiable, no tension or injury. Keep realistic original head-to-body proportions. Full complete figure and both boots visible with generous margins, lower edge at about94% of canvas height; compact seated silhouette occupies the lower two-thirds of the portrait canvas. Ground itself must not be painted. Match the reference's tactile hand-painted storybook pigments, worn cloth details, delicate dark contours and soft warm highlights, with opaque skin and clothes. Genuine alpha0 transparency around the whole figure and in gaps. Do not copy any dark background glow from the reference. No scenery, background, floor, ground shadow, bed, stool, chair, pillow, extra prop, held item, weapon, text, Z letters, speech bubble, symbols, border or watermark. One sleeping Tavi only."
+    },
+    {
+      "id": "tavi-sleeping-scarf",
+      "actor_id": "tavi",
+      "display_name": "Tavi",
+      "file": "../shared/characters/tavi-sleeping-scarf.webp",
+      "wardrobe": "scarf",
+      "native_facing": "right",
+      "generation_id": "exec-3aad6056-7c13-4ee5-9669-761bb9c99e02",
+      "references": [
+        {
+          "role": "Identity-preserving sleeping-pose edit target.",
+          "asset_id": "tavi-sleeping",
+          "generation_id": "exec-7770724b-0d4f-4859-8b20-fa1affd51ac5",
+          "original_png_file": "exec-7770724b-0d4f-4859-8b20-fa1affd51ac5.png",
+          "original_png_sha256": "0ef529ab1fbb3523b97da3ef1d6891a5609f97f7089f451fa581c3d24f062c24",
+          "original_png_bytes": 2199062,
+          "dimensions": [
+            1024,
+            1536
+          ]
+        },
+        {
+          "role": "Supporting wardrobe reference only; preserve the sleeping edit target pose.",
+          "repository_path": "v2/card-game/assets/shared/characters/tavi-scarf.png",
+          "commit": "41368bd229b84a490b72522d4d5e2766ead6511d",
+          "url": "https://github.com/cenetex/cosyworld/blob/41368bd229b84a490b72522d4d5e2766ead6511d/v2/card-game/assets/shared/characters/tavi-scarf.png",
+          "sha256": "69895904f5358ef3e66daabd53152ddacf7cf2c8d814f1120333f3ee7d944fb9"
+        }
+      ],
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "transparent_background": true,
+      "prompt": "Use case: identity-preserve. Asset type: CosyWorld sleeping character pose, 1024x1536 transparent RGBA. Image 1 is the EDIT TARGET: approved seated sleeping Tavi. Image 2 is only a supporting WARDROBE REFERENCE, the approved red scarf/cape version of Tavi; do not copy its standing pose. Keep image1's exact sleeping pose, head angle, closed eyes, face, hair, body size and proportions, hands, legs, boots, canvas placement, lighting, paint detail, satchel and all clothing unchanged. Change ONLY Tavi's dark-green hooded shoulder scarf/cape into the matching warm dark red scarf/cape from image2, including its small round green button at the shoulder. Keep its same resting folds and exact outer silhouette from image1; the reference's flying cape must NOT return. Tavi remains visibly and peacefully asleep. This is a wardrobe edit, not a redraw. Preserve genuine transparency everywhere outside the figure and in gaps. Solid skin and cloth opaque; no background or glow, floor, ground shadow, furniture, extra props, text, Z symbols, speech bubble, border or watermark.",
+      "generation_history": [
+        {
+          "role": "Accepted neutral sleeping pose reused as the wardrobe edit target.",
+          "asset_id": "tavi-sleeping",
+          "generation_id": "exec-7770724b-0d4f-4859-8b20-fa1affd51ac5",
+          "original_png_file": "exec-7770724b-0d4f-4859-8b20-fa1affd51ac5.png",
+          "original_png_sha256": "0ef529ab1fbb3523b97da3ef1d6891a5609f97f7089f451fa581c3d24f062c24",
+          "original_png_bytes": 2199062,
+          "dimensions": [
+            1024,
+            1536
+          ],
+          "transparent_background": true,
+          "prompt": "Use case: identity-preserve. Asset type: CosyWorld sleeping character pose, complete 1024x1536 RGBA cutout. Image 1 is the exact approved Tavi identity/outfit/style reference and edit target. Change only the pose and expression into peaceful natural sleep. Preserve Tavi's young face, warm medium-brown skin, dense short dark curls, lean build, moss-green patched short jacket, dark green hooded shoulder cape, cream shirt, charcoal patched knee-length shorts, pale socks, leather satchel and worn lace-up boots. No new red scarf in this neutral version. Tavi is comfortably sitting on the unseen ground with knees bent and loosely folded, relaxed hands resting together over one knee, head softly tipped onto the forearms, eyes fully closed and a tiny contented smile. Slight three-quarter orientation toward image right, face still identifiable, no tension or injury. Keep realistic original head-to-body proportions. Full complete figure and both boots visible with generous margins, lower edge at about94% of canvas height; compact seated silhouette occupies the lower two-thirds of the portrait canvas. Ground itself must not be painted. Match the reference's tactile hand-painted storybook pigments, worn cloth details, delicate dark contours and soft warm highlights, with opaque skin and clothes. Genuine alpha0 transparency around the whole figure and in gaps. Do not copy any dark background glow from the reference. No scenery, background, floor, ground shadow, bed, stool, chair, pillow, extra prop, held item, weapon, text, Z letters, speech bubble, symbols, border or watermark. One sleeping Tavi only.",
+          "references": [
+            {
+              "role": "Approved identity, clothing and painterly style edit target.",
+              "repository_path": "v2/card-game/assets/shared/characters/tavi.png",
+              "commit": "41368bd229b84a490b72522d4d5e2766ead6511d",
+              "url": "https://github.com/cenetex/cosyworld/blob/41368bd229b84a490b72522d4d5e2766ead6511d/v2/card-game/assets/shared/characters/tavi.png",
+              "sha256": "6798af3ad543eab76109801ec0ad1ef953566f2975e43667882ec033d39f8a3a"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "rue-sleeping",
+      "actor_id": "rue",
+      "display_name": "Rue",
+      "file": "../shared/characters/rue-sleeping.webp",
+      "wardrobe": "base",
+      "native_facing": "right",
+      "generation_id": "exec-3286470e-f882-42eb-aea3-cffe819731d9",
+      "references": [
+        {
+          "role": "Approved identity, clothing and painterly style edit target.",
+          "repository_path": "v2/card-game/assets/shared/characters/rue.png",
+          "commit": "41368bd229b84a490b72522d4d5e2766ead6511d",
+          "url": "https://github.com/cenetex/cosyworld/blob/41368bd229b84a490b72522d4d5e2766ead6511d/v2/card-game/assets/shared/characters/rue.png",
+          "sha256": "e8655322dc5f4d5f13da698fb5f0664837f176b67ff9a954e09d9f6b2a52b633"
+        }
+      ],
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "transparent_background": true,
+      "prompt": "Use case: identity-preserve. Asset type: CosyWorld sleeping character pose, complete 1024x1536 RGBA cutout. Image1 is the exact approved Rue identity/outfit/style reference and edit target. Change only pose/expression into natural peaceful sleep. Preserve Rue's adult face and dark brown skin, very short tightly curled black hair, strong brows, fitted cobalt-blue long conductor coat with brass double-breasted buttons, epaulettes and belt, cream shirt collar, blue trousers, tall worn black riding boots and blue conductor cap attached at the hip. NO orange scarf in this neutral version. Rue is comfortably sitting on the unseen ground with her knees gently folded to the side and boots in front, hands loosely folded in her lap, shoulders relaxed, head tipped slightly toward image right and chin softly lowered, eyes entirely closed with a restful small smile. Slight three-quarter body orientation toward image right. Her back naturally balances over her hips; she is not leaning on imaginary furniture. Full complete figure with both boots; preserve natural original head-to-body proportions. Use generous margins, bottom of boots at about94% canvasheight; compact seated silhouette fills the lower two-thirds. Match the tactile hand-painted storybook pigments, textured worn cloth, fine contours and warm soft highlights of the reference. All skin/clothes opaque, genuine alpha0 background and transparent gaps. No dark glow or backdrop from the reference. No floor, ground, shadow, bench, chair, bed, pillow, held prop, extra object, text, Z letters, sleep symbols, border or watermark. One peaceful sleeping Rue, visibly asleep and unharmed."
+    },
+    {
+      "id": "rue-sleeping-scarf",
+      "actor_id": "rue",
+      "display_name": "Rue",
+      "file": "../shared/characters/rue-sleeping-scarf.webp",
+      "wardrobe": "scarf",
+      "native_facing": "right",
+      "generation_id": "exec-be12b3fc-796a-43fa-9563-9c54e37df8c0",
+      "references": [
+        {
+          "role": "Identity-preserving sleeping-pose edit target.",
+          "asset_id": "rue-sleeping",
+          "generation_id": "exec-3286470e-f882-42eb-aea3-cffe819731d9",
+          "original_png_file": "exec-3286470e-f882-42eb-aea3-cffe819731d9.png",
+          "original_png_sha256": "702e280b0f835452cdeff15f58267b42b2dfc89d5dedfc19ccc44db3441e148d",
+          "original_png_bytes": 1955408,
+          "dimensions": [
+            1024,
+            1536
+          ]
+        },
+        {
+          "role": "Supporting wardrobe reference only; preserve the sleeping edit target pose.",
+          "repository_path": "v2/card-game/assets/shared/characters/rue-scarf.png",
+          "commit": "41368bd229b84a490b72522d4d5e2766ead6511d",
+          "url": "https://github.com/cenetex/cosyworld/blob/41368bd229b84a490b72522d4d5e2766ead6511d/v2/card-game/assets/shared/characters/rue-scarf.png",
+          "sha256": "c8e3593650e08f71678427169ea95aaec69ffd17ee00a3661c896a2e1cf05796"
+        }
+      ],
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "transparent_background": true,
+      "prompt": "Use case: identity-preserve. Asset type: CosyWorld sleeping Rue scarf variant, complete1024x1536 transparent RGBA. Image1 is the EDIT TARGET: Rue's approved seated sleeping cutout. Image2 is only the WARDROBE REFERENCE for her orange knitted scarf with its small round blue button. Keep image1's precise pose, closed eyes, relaxed smile, face, hair, body proportions, hands, boots, cap, entire silhouette, canvas placement, cloth details, colours and lighting. Add ONLY that same orange knitted fringed scarf around Rue's neck, held by its little blue button, hanging naturally across her blue coat. Scarf size and material match image2, but it conforms to the seated sleeping body. Do not copy the standing pose. Preserve genuine alpha transparency outside the complete figure and all gaps, opaque skin and clothing, clean painted edges. Do not paint background, glow, floor, shadow, scenery, furniture, extra props, text, Zs, speech bubbles, watermark or border. Change nothing else; Rue remains peacefully asleep.",
+      "generation_history": [
+        {
+          "role": "Accepted neutral sleeping pose reused as the wardrobe edit target.",
+          "asset_id": "rue-sleeping",
+          "generation_id": "exec-3286470e-f882-42eb-aea3-cffe819731d9",
+          "original_png_file": "exec-3286470e-f882-42eb-aea3-cffe819731d9.png",
+          "original_png_sha256": "702e280b0f835452cdeff15f58267b42b2dfc89d5dedfc19ccc44db3441e148d",
+          "original_png_bytes": 1955408,
+          "dimensions": [
+            1024,
+            1536
+          ],
+          "transparent_background": true,
+          "prompt": "Use case: identity-preserve. Asset type: CosyWorld sleeping character pose, complete 1024x1536 RGBA cutout. Image1 is the exact approved Rue identity/outfit/style reference and edit target. Change only pose/expression into natural peaceful sleep. Preserve Rue's adult face and dark brown skin, very short tightly curled black hair, strong brows, fitted cobalt-blue long conductor coat with brass double-breasted buttons, epaulettes and belt, cream shirt collar, blue trousers, tall worn black riding boots and blue conductor cap attached at the hip. NO orange scarf in this neutral version. Rue is comfortably sitting on the unseen ground with her knees gently folded to the side and boots in front, hands loosely folded in her lap, shoulders relaxed, head tipped slightly toward image right and chin softly lowered, eyes entirely closed with a restful small smile. Slight three-quarter body orientation toward image right. Her back naturally balances over her hips; she is not leaning on imaginary furniture. Full complete figure with both boots; preserve natural original head-to-body proportions. Use generous margins, bottom of boots at about94% canvasheight; compact seated silhouette fills the lower two-thirds. Match the tactile hand-painted storybook pigments, textured worn cloth, fine contours and warm soft highlights of the reference. All skin/clothes opaque, genuine alpha0 background and transparent gaps. No dark glow or backdrop from the reference. No floor, ground, shadow, bench, chair, bed, pillow, held prop, extra object, text, Z letters, sleep symbols, border or watermark. One peaceful sleeping Rue, visibly asleep and unharmed.",
+          "references": [
+            {
+              "role": "Approved identity, clothing and painterly style edit target.",
+              "repository_path": "v2/card-game/assets/shared/characters/rue.png",
+              "commit": "41368bd229b84a490b72522d4d5e2766ead6511d",
+              "url": "https://github.com/cenetex/cosyworld/blob/41368bd229b84a490b72522d4d5e2766ead6511d/v2/card-game/assets/shared/characters/rue.png",
+              "sha256": "e8655322dc5f4d5f13da698fb5f0664837f176b67ff9a954e09d9f6b2a52b633"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "orin-sleeping",
+      "actor_id": "orin",
+      "display_name": "Cass",
+      "file": "../shared/characters/orin-sleeping.webp",
+      "wardrobe": "base",
+      "native_facing": "right",
+      "generation_id": "exec-9e3651fa-58e4-4603-82c8-4f4aa1d7dc4f",
+      "references": [
+        {
+          "role": "Approved identity, clothing and painterly style edit target.",
+          "repository_path": "v2/card-game/assets/shared/characters/orin.png",
+          "commit": "41368bd229b84a490b72522d4d5e2766ead6511d",
+          "url": "https://github.com/cenetex/cosyworld/blob/41368bd229b84a490b72522d4d5e2766ead6511d/v2/card-game/assets/shared/characters/orin.png",
+          "sha256": "909bd6f9b2a7e4e58b637a765e8059fc0474eb07e8767d45b1623c9dccccfba4"
+        }
+      ],
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "transparent_background": true,
+      "prompt": "Use case: identity-preserve. Asset type: CosyWorld sleeping character pose, full 1024x1536 transparent RGBA cutout. Image1 is the approved Cass identity and clothing edit target (stable file name orin). Change only pose and expression into peaceful natural sleep. Preserve the same slim adult man, long expressive freckled face, warm pale skin, auburn loosely tied-back hair with wisps, fine round spectacles, cream rolled-sleeve shirt, long indigo-blue sleeveless waistcoat with brass buttons and worn patched surfaces, dark grey patched trousers, brown lace-up ankle boots and belt watch chain. No amber scarf in this neutral version. Cass sits comfortably on the unseen ground with knees loosely folded and both boots visible, relaxed hands folded across his lap, head gently bowed toward image right, eyes completely closed behind the same round spectacles and a faint contented smile. Keep the spectacles naturally on his face. Relaxed shoulders and balanced spine, not collapsed or injured. Three-quarter orientation facing image right. Keep natural original adult head-to-body proportions; full figure in the lower two-thirds of portrait canvas, bottom boots at94%height, generous clear outer margins. Preserve the original hand-painted storybook texture, fine contour drawing, warm highlights and soft deep shadows. Actual alpha0 background/gaps, opaque painted body and garments; do not copy the dark glow behind reference. No painted surface, floor, ground shadow, furniture, bed, pillow, extra prop, gameboard, held item, writing, Zs, symbols, watermark or border. One sleeping Cass only."
+    },
+    {
+      "id": "orin-sleeping-scarf",
+      "actor_id": "orin",
+      "display_name": "Cass",
+      "file": "../shared/characters/orin-sleeping-scarf.webp",
+      "wardrobe": "scarf",
+      "native_facing": "right",
+      "generation_id": "exec-6c5c4f92-87ac-402b-98d4-39e8098b5781",
+      "references": [
+        {
+          "role": "Identity-preserving sleeping-pose edit target.",
+          "asset_id": "orin-sleeping",
+          "generation_id": "exec-9e3651fa-58e4-4603-82c8-4f4aa1d7dc4f",
+          "original_png_file": "exec-9e3651fa-58e4-4603-82c8-4f4aa1d7dc4f.png",
+          "original_png_sha256": "da51a65253032c4f0acecc051e2e9f5e03dab0a149e76fdf23b4891845d2a1ed",
+          "original_png_bytes": 2316048,
+          "dimensions": [
+            1024,
+            1536
+          ]
+        },
+        {
+          "role": "Supporting wardrobe reference only; preserve the sleeping edit target pose.",
+          "repository_path": "v2/card-game/assets/shared/characters/orin-scarf.png",
+          "commit": "41368bd229b84a490b72522d4d5e2766ead6511d",
+          "url": "https://github.com/cenetex/cosyworld/blob/41368bd229b84a490b72522d4d5e2766ead6511d/v2/card-game/assets/shared/characters/orin-scarf.png",
+          "sha256": "3812b42acdb754238d18ff453c9f8f5c9ba4513b272d726ca1af342fe4b49530"
+        }
+      ],
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "transparent_background": true,
+      "prompt": "Use case: identity-preserve. Asset type: CosyWorld sleeping Cass scarf variant, 1024x1536 transparent RGBA cutout. Image1 is the EDIT TARGET: the accepted seated sleeping Cass (stable id orin). Image2 is only his approved WARDROBE REFERENCE. Preserve image1's exact pose, face, closed eyes, spectacles, auburn ponytail, adult proportions, hands, legs, boots, waistcoat, canvas placement, edges and painterly lighting. Add ONLY the ochre-amber knitted scarf from image2, with matching fringe and the little round indigo-blue button, wrapped naturally around his neck and lying across his chest. Do not copy the reference's standing pose. Preserve all other clothing and the same peaceful asleep expression unchanged. Actual alpha transparency outside the entirefigure and gaps; opaque skin/clothes. No dark background, glow, floor, shadow, furniture, gameboard or extra prop, text, Zs, symbols, border or watermark. This is a small wardrobe edit to the sleeping image, not a redesign.",
+      "generation_history": [
+        {
+          "role": "Accepted neutral sleeping pose reused as the wardrobe edit target.",
+          "asset_id": "orin-sleeping",
+          "generation_id": "exec-9e3651fa-58e4-4603-82c8-4f4aa1d7dc4f",
+          "original_png_file": "exec-9e3651fa-58e4-4603-82c8-4f4aa1d7dc4f.png",
+          "original_png_sha256": "da51a65253032c4f0acecc051e2e9f5e03dab0a149e76fdf23b4891845d2a1ed",
+          "original_png_bytes": 2316048,
+          "dimensions": [
+            1024,
+            1536
+          ],
+          "transparent_background": true,
+          "prompt": "Use case: identity-preserve. Asset type: CosyWorld sleeping character pose, full 1024x1536 transparent RGBA cutout. Image1 is the approved Cass identity and clothing edit target (stable file name orin). Change only pose and expression into peaceful natural sleep. Preserve the same slim adult man, long expressive freckled face, warm pale skin, auburn loosely tied-back hair with wisps, fine round spectacles, cream rolled-sleeve shirt, long indigo-blue sleeveless waistcoat with brass buttons and worn patched surfaces, dark grey patched trousers, brown lace-up ankle boots and belt watch chain. No amber scarf in this neutral version. Cass sits comfortably on the unseen ground with knees loosely folded and both boots visible, relaxed hands folded across his lap, head gently bowed toward image right, eyes completely closed behind the same round spectacles and a faint contented smile. Keep the spectacles naturally on his face. Relaxed shoulders and balanced spine, not collapsed or injured. Three-quarter orientation facing image right. Keep natural original adult head-to-body proportions; full figure in the lower two-thirds of portrait canvas, bottom boots at94%height, generous clear outer margins. Preserve the original hand-painted storybook texture, fine contour drawing, warm highlights and soft deep shadows. Actual alpha0 background/gaps, opaque painted body and garments; do not copy the dark glow behind reference. No painted surface, floor, ground shadow, furniture, bed, pillow, extra prop, gameboard, held item, writing, Zs, symbols, watermark or border. One sleeping Cass only.",
+          "references": [
+            {
+              "role": "Approved identity, clothing and painterly style edit target.",
+              "repository_path": "v2/card-game/assets/shared/characters/orin.png",
+              "commit": "41368bd229b84a490b72522d4d5e2766ead6511d",
+              "url": "https://github.com/cenetex/cosyworld/blob/41368bd229b84a490b72522d4d5e2766ead6511d/v2/card-game/assets/shared/characters/orin.png",
+              "sha256": "909bd6f9b2a7e4e58b637a765e8059fc0474eb07e8767d45b1623c9dccccfba4"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ada-sleeping",
+      "actor_id": "ada",
+      "display_name": "Sage",
+      "file": "../shared/characters/ada-sleeping.webp",
+      "wardrobe": "base",
+      "native_facing": "right",
+      "generation_id": "exec-fbb3941a-15c4-4856-be14-9112fa6b3f94",
+      "references": [
+        {
+          "role": "Approved identity, clothing and painterly style edit target.",
+          "repository_path": "v2/card-game/assets/shared/characters/ada.png",
+          "commit": "41368bd229b84a490b72522d4d5e2766ead6511d",
+          "url": "https://github.com/cenetex/cosyworld/blob/41368bd229b84a490b72522d4d5e2766ead6511d/v2/card-game/assets/shared/characters/ada.png",
+          "sha256": "4f3a53f874cd2d715b8edd7c704bb1fc1a54d182829ea03d2c6dfc5c83058512"
+        }
+      ],
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "transparent_background": true,
+      "prompt": "Use case: identity-preserve. Asset type: CosyWorld Sage sleeping pose, full1024x1536 transparent RGBA cutout. Image1 is the exact approved identity, outfit and hand-powered chair EDIT TARGET (stable filename ada). Make Sage peacefully asleep IN HER SAME CHAIR. Preserve her adult face, warm freckled pale skin, short tousled white bob, purple neckerchief, lavender rolled-sleeve blouse, dark violet high-waisted trousers with brass buttons and brown suspenders, pale socks and worn black lace-up boots. Preserve the exact brass-and-dark-wood manual chair design: large spoked rear wheels with hand rims, small front castors, leather seat/back, armrests and single foot platform. Both feet remain on that platform; all chair wheels and mechanisms stay complete and fully visible. Change only her expression and relaxed resting body pose: eyes closed, softly contented mouth, head gently tipped down toward image right, shoulders settled, both empty hands loosely resting together on her lap. No raised pointing hand. She remains comfortably supported by the chair back; no collapse, injury or medical distress. Keep the chair's existing three-quarter orientation toward image right and original proportions; no different chair, no bed. Preserve overall camera/canvas placement and substantial transparent margins, whole chair with bottom wheels around92%canvasheight. Match original detailed painterly cloth, worn metal and brush texture, warm soft lighting and fine contours. Genuine transparent background and transparency between every wheel spoke and structural gap. Opaque body, fabric, seat and solid frame; do not copy any background glow. No floor, cast ground shadow, backdrop, scenery, extra furniture, blanket, pillow, held prop, scissors, text, Z symbols, border or watermark. The purple neckerchief is part of this neutral outfit; do not add the yellow scarf yet."
+    },
+    {
+      "id": "ada-sleeping-scarf",
+      "actor_id": "ada",
+      "display_name": "Sage",
+      "file": "../shared/characters/ada-sleeping-scarf.webp",
+      "wardrobe": "scarf",
+      "native_facing": "right",
+      "generation_id": "exec-d3843039-448c-42f1-9dde-b054052ab289",
+      "references": [
+        {
+          "role": "Identity-preserving sleeping-pose edit target.",
+          "asset_id": "ada-sleeping",
+          "generation_id": "exec-fbb3941a-15c4-4856-be14-9112fa6b3f94",
+          "original_png_file": "exec-fbb3941a-15c4-4856-be14-9112fa6b3f94.png",
+          "original_png_sha256": "d1365b7215bf8d6cefb63c4495070a53fd29da1b0c62ec49dcc063dd6b032a18",
+          "original_png_bytes": 2478300,
+          "dimensions": [
+            1024,
+            1536
+          ]
+        },
+        {
+          "role": "Supporting wardrobe reference only; preserve the sleeping edit target pose.",
+          "repository_path": "v2/card-game/assets/shared/characters/ada-scarf.png",
+          "commit": "41368bd229b84a490b72522d4d5e2766ead6511d",
+          "url": "https://github.com/cenetex/cosyworld/blob/41368bd229b84a490b72522d4d5e2766ead6511d/v2/card-game/assets/shared/characters/ada-scarf.png",
+          "sha256": "401bf9cc37ba4bb8ebcfaae2fa45b9e3126e197d1a6e482da7bf006b63b98c8f"
+        }
+      ],
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "transparent_background": true,
+      "prompt": "Use case: identity-preserve. Asset type: CosyWorld sleeping Sage scarf variant,1024x1536 RGBA. Image1 is the EDIT TARGET: accepted sleeping Sage in her hand-powered chair. Image2 is only the approved WARDROBE REFERENCE (stable filename ada-scarf). Change ONLY the purple neckerchief in image1 into the same soft pale yellow/primrose scarf from image2 with its small round violet four-hole button. Match its fabric, cut and gentle drape around her neck, adapted to the sleeping head angle. Do not add a second scarf. Preserve EVERYTHING ELSE from image1: exact chair construction and wheel positions, transparency between every spoke, pose, closed eyes, smile, face, hair, hands, purple clothes, boots, perspective, scale, framing, lighting and painterly details. Sage remains peacefully asleep with hands resting in lap and feet on the footrest. This is a small wardrobe edit, not a redraw. Genuine transparent background, no dark glow, no floor, ground shadow, scenery, extra prop/furniture, held object, text, Zs, symbols, border or watermark. Opaque skin, clothes and solid chair parts; transparent spaces around and through chair.",
+      "generation_history": [
+        {
+          "role": "Accepted neutral sleeping pose reused as the wardrobe edit target.",
+          "asset_id": "ada-sleeping",
+          "generation_id": "exec-fbb3941a-15c4-4856-be14-9112fa6b3f94",
+          "original_png_file": "exec-fbb3941a-15c4-4856-be14-9112fa6b3f94.png",
+          "original_png_sha256": "d1365b7215bf8d6cefb63c4495070a53fd29da1b0c62ec49dcc063dd6b032a18",
+          "original_png_bytes": 2478300,
+          "dimensions": [
+            1024,
+            1536
+          ],
+          "transparent_background": true,
+          "prompt": "Use case: identity-preserve. Asset type: CosyWorld Sage sleeping pose, full1024x1536 transparent RGBA cutout. Image1 is the exact approved identity, outfit and hand-powered chair EDIT TARGET (stable filename ada). Make Sage peacefully asleep IN HER SAME CHAIR. Preserve her adult face, warm freckled pale skin, short tousled white bob, purple neckerchief, lavender rolled-sleeve blouse, dark violet high-waisted trousers with brass buttons and brown suspenders, pale socks and worn black lace-up boots. Preserve the exact brass-and-dark-wood manual chair design: large spoked rear wheels with hand rims, small front castors, leather seat/back, armrests and single foot platform. Both feet remain on that platform; all chair wheels and mechanisms stay complete and fully visible. Change only her expression and relaxed resting body pose: eyes closed, softly contented mouth, head gently tipped down toward image right, shoulders settled, both empty hands loosely resting together on her lap. No raised pointing hand. She remains comfortably supported by the chair back; no collapse, injury or medical distress. Keep the chair's existing three-quarter orientation toward image right and original proportions; no different chair, no bed. Preserve overall camera/canvas placement and substantial transparent margins, whole chair with bottom wheels around92%canvasheight. Match original detailed painterly cloth, worn metal and brush texture, warm soft lighting and fine contours. Genuine transparent background and transparency between every wheel spoke and structural gap. Opaque body, fabric, seat and solid frame; do not copy any background glow. No floor, cast ground shadow, backdrop, scenery, extra furniture, blanket, pillow, held prop, scissors, text, Z symbols, border or watermark. The purple neckerchief is part of this neutral outfit; do not add the yellow scarf yet.",
+          "references": [
+            {
+              "role": "Approved identity, clothing and painterly style edit target.",
+              "repository_path": "v2/card-game/assets/shared/characters/ada.png",
+              "commit": "41368bd229b84a490b72522d4d5e2766ead6511d",
+              "url": "https://github.com/cenetex/cosyworld/blob/41368bd229b84a490b72522d4d5e2766ead6511d/v2/card-game/assets/shared/characters/ada.png",
+              "sha256": "4f3a53f874cd2d715b8edd7c704bb1fc1a54d182829ea03d2c6dfc5c83058512"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "moth-sleeping",
+      "actor_id": "moth",
+      "display_name": "Pip",
+      "file": "moth-sleeping.webp",
+      "wardrobe": "base",
+      "native_facing": "left",
+      "generation_id": "exec-bb279fef-f6da-4556-b5ba-c6f78cae9e46",
+      "references": [
+        {
+          "role": "edit target",
+          "repository_path": "v2/card-game/assets/moth.png",
+          "commit": "41368bd229b84a490b72522d4d5e2766ead6511d",
+          "url": "https://github.com/cenetex/cosyworld/blob/41368bd229b84a490b72522d4d5e2766ead6511d/v2/card-game/assets/moth.png",
+          "sha256": "89a55a9fe6a3541c8c63bbf55673d04e1bdf18c6b1b186707846c1a12713dcd5"
+        }
+      ],
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "transparent_background": true,
+      "prompt": "Use case: identity-preserve.\nAsset type: CosyWorld character sprite, sleeping pose, genuine transparent RGBA background, portrait1024x1536.\nInput image1 is the approved Pip moth character (moth.png). Edit this exact character into a compact peaceful sleeping pose, preserving identity, costume and painterly style.\nPip is the same furry ivory moth with softly feathered antennae, delicate hands, patterned grey-brown-and-gold moth wings, borrowed ochre-gold waistcoat with little brass buttons and pocketwatch, ivory shirt, dark blue patterned cravat, brown cross-body satchel, charcoal trousers and narrow brown boots. Preserve those details and his body proportions.\nPose: seated comfortably on an implied flat floor, knees tucked gently in, hands relaxed together in his lap, head softly lowered and tilted in sleep. Both eyes fully closed with soft relaxed eyelids, contented gentle mouth. The two feathered antennae relax into graceful arcs. Wings fold loosely around his sides like a natural soft cloak, showing their characteristic eye-like markings. Native three-quarter facing toward the viewer's left. Safe and cosy, never hurt, collapsed or defeated.\nEntire seated figure including both antenna tips, wings and boots is visible and uncropped. Keep the original head/body scale; compact figure roughly in the lower65% of a1024x1536 canvas, lowest boot/wing near96%height, transparent margin on every edge and open transparent area above. Match the reference's warm hand-painted storybook finish, textured feathers and fabrics and fine outlined edges.\nTrue alpha transparency outside the solid character and in open gaps. No held quest objects, lamp, lantern, new props, furniture, floor, cast shadow, scenery, background, halo, text, Zs, symbols, watermark or border.\n"
+    },
+    {
+      "id": "keeper-sleeping",
+      "actor_id": "keeper",
+      "display_name": "The keeper",
+      "file": "keeper-sleeping.webp",
+      "wardrobe": "base",
+      "native_facing": "left",
+      "generation_id": "exec-b4adbfec-2cf4-4858-969d-a43b867f52aa",
+      "references": [
+        {
+          "role": "Approved identity, clothing and painterly style edit target.",
+          "repository_path": "v2/card-game/assets/keeper.png",
+          "commit": "41368bd229b84a490b72522d4d5e2766ead6511d",
+          "url": "https://github.com/cenetex/cosyworld/blob/41368bd229b84a490b72522d4d5e2766ead6511d/v2/card-game/assets/keeper.png",
+          "sha256": "5ef1a982a8bd921edb86ff8c3b7aec9ae11025bdad395561a2e7b2e6a3b92f88"
+        }
+      ],
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "transparent_background": true,
+      "prompt": "Use case: identity-preserve. Asset type: CosyWorld sleeping keeper pose, complete1024x1536 transparent RGBA cutout. Image1 is the exact keeper identity/outfit/edit target. Preserve this same slender clock-headed station keeper: round antique brass clock head with cream dial, correctly oriented existing Roman numeral ring and ornate hands, small subtle facial features in the dial, winding hardware on image RIGHT of the clock housing, plum-purple conductor cap, long plum coat with brass buttons and shoulder details, dark pinstripe waistcoat and trousers, cream collar and black tie, watch chain, black gloves and buckled worn black shoes. The clock dial MUST NOT be mirrored; keep XII at top, III at right, VI at bottom, IX at left and the established design. Change only pose and sleeping expression: the keeper is comfortably sitting on the unseen ground, legs loosely bent before him, both boots visible, long coat draped around hips, gloved hands loosely resting together in his lap, no raised shushing finger. His clock head tips gently down and toward image LEFT, the tiny eyes within the dial are peacefully closed and the mouth is relaxed. The clock remains intact, not stopped/broken/cracked; no injury, distress or defeat. Native three-quarter facing LEFT. Keep same slender proportions and painterly texture with warm brass highlights. Entire complete silhouette in the lower three-quarters of canvas, boots near94%height, generous clear margins. Actual alpha0 transparency around figure and in gaps, solid opaque clock/cloth/gloves. No backdrop or glow from reference, no floor/ground/shadow, furniture, bench, bed, cushion, extra prop, lantern, text outside the existing clock numerals, Zs, sleep symbols, border or watermark. One peaceful sleeping keeper."
+    }
+  ]
+}

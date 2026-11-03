@@ -6,8 +6,8 @@ import {
   cardPlay,
   playLabel,
   TOO_MANY_ITEMS,
-  playProgress,
   playText,
+  restPlays,
 } from "../v2/card-game/cards.mjs";
 import {
   createWorld,
@@ -89,16 +89,12 @@ describe("named card actions", () => {
     expect(primary(world, ["lamp", "station"]).kind).toBe("snuff");
     expect(primary(world, ["bell", "station"]).kind).toBe("ring");
   });
-  it("shows the wait verb as Wait and an unresolved play as progress", () => {
+  it("shows the wait verb as Wait", () => {
     const world = createWorld();
     const { action, hint } = cardPlay(world, ["vale"]);
     expect(action.kind).toBe("wait");
     expect(playLabel(action)).toBe("Wait");
     expect(hint).toBe("Vale waits one turn.");
-    expect(playProgress(action)).toBe("waiting");
-    expect(playProgress({ kind: "attack" })).toBe("striking");
-    expect(playProgress({ kind: "move", item: "lamp" })).toBe("carrying");
-    expect(playProgress({ kind: "pack-choice" })).toBe("acting");
   });
 
   it("names the combat verbs Strike, Brace and Guard over the rules kinds", () => {
@@ -107,7 +103,6 @@ describe("named card actions", () => {
     const guard = { kind: "intercept", actor: "moth", target: "vale" };
     expect(playLabel(strike)).toBe("Strike");
     expect(playLabel(brace)).toBe("Brace");
-    expect(playProgress(strike)).toBe("striking");
     expect(playText(strike)).toBe("Vale strikes the keeper.");
     expect(playText(brace)).toBe("Pip braces.");
     expect(playText(guard)).toBe("Pip guards Vale.");
@@ -195,5 +190,109 @@ describe("named card actions", () => {
     expect(
       moved.slice(moved.indexOf("moth"), moved.indexOf("moth") + 3),
     ).toEqual(["moth", "lamp", "cloth"]);
+  });
+});
+
+describe("Sleep after a Wait (#2028)", () => {
+  const waited = () => {
+    const world = createWorld();
+    const wait = legalActions(world).find((a) => a.kind === "wait");
+    return play(world, wait, world.revision).state;
+  };
+  const labels = (world, again) =>
+    restPlays(world, cardActions(world, ["vale"]).actions, again).map(
+      playLabel,
+    );
+  it("offers Sleep only for the same cards chosen again", () => {
+    const world = waited();
+    expect(legalActions(world).some((a) => a.sleep)).toBe(true);
+    expect(labels(world, true)).toEqual(["Sleep"]);
+    expect(labels(world, false)).toEqual(["Wait"]);
+    expect(labels(createWorld(), true)).toEqual(["Wait"]);
+  });
+  it("lets a sleeper sleep on or wake by waiting", () => {
+    const world = waited();
+    world.actors.vale.sleeping = {
+      since: world.turn,
+      place: "attic",
+      present: [],
+    };
+    expect(labels(world, false)).toEqual(["Sleep", "Wait"]);
+  });
+});
+
+describe("Wait gives way; a wait at sea is Sail (#2027)", () => {
+  const shown = (world, cards, again = false) =>
+    restPlays(world, cardActions(world, cards).actions, again, cards);
+  it("drops the plain Wait beside another play but never Sleep", () => {
+    const world = createWorld();
+    world.actors.vale.place = "clearing";
+    for (const cards of [["clearing"], ["vale", "clearing"]])
+      expect(shown(world, cards).map(playLabel)).toEqual([
+        "Ring the Steam Clock",
+      ]);
+    expect(cardPlay(world, ["clearing"]).hint).not.toMatch(/waits/u);
+    // Vale's own card still waits, so time can always pass.
+    expect(shown(world, ["vale"]).map(playLabel)).toEqual(["Wait"]);
+    const waited = play(
+      world,
+      legalActions(world).find((a) => a.kind === "wait"),
+    ).state;
+    expect(shown(waited, ["clearing"], true).map(playLabel)).toEqual([
+      "Sleep",
+      "Ring the Steam Clock",
+    ]);
+    waited.actors.vale.sleeping = {
+      since: waited.turn,
+      place: "clearing",
+      present: [],
+    };
+    expect(shown(waited, ["clearing"]).map(playLabel)).toEqual([
+      "Sleep",
+      "Ring the Steam Clock",
+    ]);
+  });
+  it("names the Wait aboard a ship at sea Sail and carries the voyage on", () => {
+    let world = createWorld();
+    world.crossings["pond-greek-harbor"].discovered = true;
+    world.actors.vale.place = "greek-harbor";
+    const step = (pick) =>
+      (world = play(world, legalActions(world).find(pick)).state);
+    step((a) => a.kind === "move" && a.target === "greek-ship");
+    // Docked, a wait goes nowhere yet, so it stays Wait for every selection.
+    for (const cards of [["vale"], ["greek-ship"], ["vale", "greek-ship"]]) {
+      expect(shown(world, cards).map(playLabel)).toEqual(["Wait"]);
+      expect(playText(shown(world, cards)[0])).toBe("Vale waits one turn.");
+    }
+    step((a) => a.target === "pond" && a.kind !== "wait");
+    expect(world.transports["greek-ship"].phase).toBe("sea");
+    const [sail] = shown(world, ["greek-ship"]);
+    expect(playLabel(sail)).toBe("Sail");
+    expect(playText(sail)).toBe("Vale sails on.");
+    expect(sail.kind).toBe("wait");
+    // Sail is choosing the ship: the ship's card, alone or with Vale's.
+    for (const cards of [["greek-ship"], ["vale", "greek-ship"]]) {
+      const [play] = shown(world, cards);
+      expect([playLabel(play), playText(play), play.kind]).toEqual([
+        "Sail",
+        "Vale sails on.",
+        "wait",
+      ]);
+      expect(playLabel(cardPlay(world, cards).action)).toBe("Sail");
+    }
+    // Vale alone waits, the same rules wait, and Sleep stays off aboard.
+    const [wait] = shown(world, ["vale"]);
+    expect([playLabel(wait), playText(wait), wait.kind]).toEqual([
+      "Wait",
+      "Vale waits one turn.",
+      "wait",
+    ]);
+    expect(wait.key).toBe(sail.key);
+    expect(playLabel(cardPlay(world, ["vale"]).action)).toBe("Wait");
+    expect(shown(world, ["vale"], true).map(playLabel)).toEqual(["Wait"]);
+    expect(play(world, sail).state.transports["greek-ship"]).toMatchObject({
+      phase: "arrived",
+      dock: "pond",
+    });
   });
 });

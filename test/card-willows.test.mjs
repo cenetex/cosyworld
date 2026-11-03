@@ -65,7 +65,10 @@ const take = (world, item) =>
 // Wait out the saved world clock until night and mist beside the ship's rail.
 // The jump skips the rounds between, so the ship counts its idle rounds from
 // here (a resident aboard would otherwise sail it off on the next round).
-function mist(world) {
+// The mist opens only with cargo aboard the Charybdis (rules 94): the Travel
+// Provisions ride along.
+function mist(world, cargo = true) {
+  if (cargo) world.items["greek-provisions"].holder = "greek-ship";
   while (!darkMist(world)) world.turn += 1;
   world.revision = Math.max(world.revision, world.turn);
   world.transports["greek-ship"].since = world.turn;
@@ -269,6 +272,11 @@ describe("The Willows", () => {
     expect(locationWeather(mistyDay, "greek-ship").condition).toBe("mist");
     expect(isNight(mistyDay)).toBe(false);
     expect(deck(mistyDay)).not.toContain("willows-landing");
+    // The dark mist alone opens nothing: the Willows is a Charybdis leg
+    // beyond the free one, so it needs the Travel Provisions or something
+    // from Hoppy Cat aboard.
+    const empty = mist(at(0), false);
+    expect(deck(empty)).not.toContain("willows-landing");
     const night = mist(at(0));
     expect(night.turn).toBe(24);
     expect(deck(night)).toContain("willows-landing");

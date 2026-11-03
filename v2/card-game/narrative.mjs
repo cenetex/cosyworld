@@ -43,7 +43,8 @@ import { knownActors, wantOf } from "./want.mjs";
 import { forgetUnfound, groundedInner } from "./speech-knowledge.mjs";
 import { hasTemperament, variantOf, signalEcho } from "./pack-rules.mjs";
 import { reflectionDue } from "./reflections.mjs";
-import speech from "./speech.json" with { type: "json" };
+import { betweenUs } from "./between-us.mjs";
+import { playedEntry, speechOccasions } from "./speech-occasions.mjs";
 
 // A refusal reaches the brief as its committed code; the refuser's line
 // says why in its own words.
@@ -54,32 +55,7 @@ function refusalFact(played) {
       : played.verb === "accompany"
         ? `invitation to ${nameOf(played.destinationId)}`
         : `offer of ${nameOf(played.itemId)}`;
-  return `${nameOf(played.targetId)} refused ${nameOf(played.actorId)}'s ${asked} (refusal: ${played.reason || "wants-something-else"}). Nothing changed. Say why in your own words.`;
-}
-
-// The player's play this turn. A topic's story choice commits at the Talk
-// that reserves it and logs just after it (#1581); the Talk is still the
-// play, so the fact it reserved leads the scene's disclosures.
-function playedEntry(world) {
-  const own = world.log.filter(
-    (entry) =>
-      entry.turn === world.turn &&
-      !entry.generated &&
-      entry.kind === "action" &&
-      entry.actorId === currentActor(world),
-  );
-  return own.findLast(
-    (entry) =>
-      !(
-        entry.verb === "choose" &&
-        own.some(
-          (talk) =>
-            talk.seq < entry.seq &&
-            talk.verb === "talk" &&
-            talk.targetId === entry.targetId,
-        )
-      ),
-  );
+  return `${nameOf(played.targetId)} refused ${nameOf(played.actorId)}'s ${asked} (refusal: ${played.reason || "wants-something-else"}). Nothing changed.`;
 }
 
 // Capture the resolved turn separately from wishes and remembered speech.
@@ -181,8 +157,9 @@ export function turnOutcome(world) {
 }
 
 // An avatar does not retell its own earlier deed ("I threatened the Keeper
-// over the Bell") unless this Talk tells it (#1850).
-function pastDeedsAside(world, id, telling) {
+// over the Bell") unless this Talk tells it (#1850). A fact "Between us"
+// retells in the speaker's own words is not said twice either.
+function pastDeedsAside(world, id, telling, retold = []) {
   const known = world.knowledge?.known?.[id];
   if (!known) return world;
   const keep = Object.fromEntries(
@@ -190,9 +167,10 @@ function pastDeedsAside(world, id, telling) {
       const source = world.knowledge.facts[factId]?.source;
       return (
         telling.includes(factId) ||
-        source?.kind !== "event" ||
-        source.actorId !== id ||
-        source.turn >= world.turn
+        (!retold.includes(factId) &&
+          (source?.kind !== "event" ||
+            source.actorId !== id ||
+            source.turn >= world.turn))
       );
     }),
   );
@@ -211,137 +189,6 @@ function groundedLife(world, id) {
   return { ...life, persona: null };
 }
 
-// The occasions on which a play speaks, in the order they are checked.
-// speech.json names who speaks on each; every other play is silent and its
-// action caption carries the beat.
-export const SPEECH_OCCASIONS = [
-  "opening",
-  "defeat",
-  "talk",
-  "refused",
-  "threatened",
-  "battle_wait",
-  "companion",
-  "first_meeting",
-  "want_met",
-  "long_rest",
-  "thought_due",
-  "signal_echo",
-  "new_place",
-];
-
-// The actor's first arrival at this place, read from committed travel.
-function firstArrival(world, location) {
-  const actor = currentActor(world);
-  const arrived = (entry) =>
-    !entry.generated &&
-    entry.locationId === location &&
-    entry.fromLocationId &&
-    entry.fromLocationId !== location &&
-    (entry.actorId === actor ||
-      (entry.verb === "accompany" &&
-        entry.accepted &&
-        entry.targetId === actor));
-  return (
-    world.log.some((entry) => entry.turn === world.turn && arrived(entry)) &&
-    !world.log.some((entry) => entry.turn < world.turn && arrived(entry)) &&
-    (world.actors[actor].visited?.at(-1) ?? location) === location
-  );
-}
-
-// Which occasions this committed play meets, and who speaks for them.
-export function speechOccasions(world, cast) {
-  const actor = currentActor(world);
-  const played = playedEntry(world);
-  const verb = played?.verb;
-  const awake = (id) => !hasTemperament(id) || world.actors[id]?.awake;
-  const near = (id) =>
-    Boolean(id) && id !== actor && cast.audience.includes(id) && awake(id);
-  const thisTurn = world.log.filter(
-    (entry) => entry.turn === world.turn && !entry.generated,
-  );
-  const talked = verb === "talk" || verb === "ask";
-  // The first resident who sought the player out with Talk is answered too.
-  const hailed = talked
-    ? null
-    : thisTurn.find(
-        (e) => e.verb === "talk" && e.targetId === actor && near(e.actorId),
-      )?.actorId;
-  const target = near(played?.targetId) ? played.targetId : hailed || null;
-  const waited = cast.resting === actor;
-  // A battle open now, or one this play closed: closing sets three turns
-  // of peace for each fighter.
-  const conflict = standoffFor(world, actor);
-  const closedNow = (id) => world.peaceUntil?.[id] === world.turn + 3;
-  const fighters = conflict
-    ? fightersOf(conflict)
-    : closedNow(actor)
-      ? Object.keys(world.actors).filter(closedNow)
-      : [];
-  const roles = {
-    actor: [actor],
-    target: [target],
-    host: cast.defeat ? [cast.speakers[0]] : [],
-    opponent: fighters.filter(near),
-    newcomer: cast.present.filter(
-      (id) => near(id) && world.opening?.met[id] === world.turn,
-    ),
-    met: [actor, target].filter((id) =>
-      thisTurn.some((e) => e.verb === "want_met" && e.actorId === id),
-    ),
-    place: [],
-  };
-  const thought = () =>
-    reflectionDue(
-      {
-        rest: cast.rest,
-        resting: actor,
-        turn: world.turn,
-        entities: [
-          { id: actor, memories: speechMemories(world.memories[actor]) },
-        ],
-      },
-      actor,
-      world.memories[actor]?.innerLife,
-    ).thought;
-  const meets = {
-    opening: world.turn === 0,
-    defeat: Boolean(cast.defeat),
-    talk: talked || Boolean(hailed),
-    refused: REFUSED_VERBS.includes(verb) && played.accepted === false,
-    threatened: verb === "threaten" && Boolean(target),
-    battle_wait: waited && fighters.length > 0,
-    companion: verb === "accompany" && played.accepted === true,
-    first_meeting: roles.newcomer.length > 0,
-    want_met: roles.met.length > 0,
-    long_rest: waited && cast.rest === "long",
-    thought_due: waited && thought(),
-    signal_echo: Boolean(
-      played && signalEcho(world, cast.location, turnOutcome(world).card),
-    ),
-    new_place: firstArrival(world, cast.location),
-  };
-  // A defeat has exactly one voice.
-  const occasions = meets.defeat
-    ? ["defeat"]
-    : SPEECH_OCCASIONS.filter((name) => meets[name]);
-  const named = occasions.flatMap((name) => speech[name] || []);
-  const voices = [
-    ...new Set(named.flatMap((role) => roles[role] || [])),
-  ].filter(
-    (id) => id && cast.ids.includes(id) && profiles[id]?.kind === "avatar",
-  );
-  return {
-    occasion: occasions[0] || null,
-    // The player's avatar speaks first, so a waiting avatar can reflect.
-    speakers: [
-      ...voices.filter((id) => id === actor),
-      ...voices.filter((id) => id !== actor),
-    ].slice(0, 3),
-    scenery: named.includes("place"),
-  };
-}
-
 export function narrativeContext(world, action = null) {
   const cast = dialogueCast(world, action);
   const {
@@ -355,13 +202,15 @@ export function narrativeContext(world, action = null) {
     ids,
   } = cast;
   // Talk and Ask speak; any other play speaks only on a rules occasion.
-  const { occasion, speakers, scenery } = speechOccasions(world, cast);
+  const { occasion, speakers, scenery } = speechOccasions(world, cast, (w, c) =>
+    signalEcho(w, c.location, turnOutcome(w).card),
+  );
   const resting =
     cast.resting && speakers[0] === cast.resting ? cast.resting : null;
   const rest = resting ? cast.rest : null;
   const defeated =
     cast.defeat &&
-    `${nameOf(currentActor(world))} was beaten by ${nameOf(cast.defeat)} and came to at ${nameOf(location)}. Say one line.`;
+    `${nameOf(currentActor(world))} was beaten by ${nameOf(cast.defeat)} and came to at ${nameOf(location)}.`;
   const disclosures = knowledgeDisclosures(
     world,
     speakers,
@@ -400,7 +249,8 @@ export function narrativeContext(world, action = null) {
       : null;
   const mindsNoise = (id) => /noise|ringing/i.test(tastes[id]?.sore || "");
   // Authored sounds such as the clock's echo stay in the scene/history, but
-  // the speech API's conversation contains only registered avatar voices.
+  // the speech API's conversation contains only registered avatar voices:
+  // the recent talk at this place, which each speaker reads as a group chat.
   const conversation = beforeFirstLight
     ? []
     : world.log
@@ -412,7 +262,7 @@ export function narrativeContext(world, action = null) {
             entry.locationId === location &&
             entry.turn < world.turn,
         )
-        .slice(-4)
+        .slice(-6)
         .map(({ actorId, text, cast, witnesses }) => ({
           actorId,
           text,
@@ -462,11 +312,14 @@ export function narrativeContext(world, action = null) {
         quest.since === world.turn
           ? `In a dream, the quest for level ${quest.quest.level}: ${wantText(quest)}.`
           : null;
+      const between = beforeFirstLight
+        ? { entries: [], retold: [] }
+        : betweenUs(world, id, speakers, nameOf);
       const facts = [
         ...(dreamt ? [dreamt] : []),
         ...(want ? [want] : []),
         ...knowledgeFacts(
-          pastDeedsAside(world, id, told(id)),
+          pastDeedsAside(world, id, told(id), between.retold),
           id,
           nameOf,
           told(id),
@@ -540,8 +393,8 @@ export function narrativeContext(world, action = null) {
         else if (movement && speakers.includes(id))
           facts.push(
             movement.leaving
-              ? `Leaving ${nameOf(movement.from)} for ${nameOf(movement.to)} now. Say goodbye to ${nameOf(currentActor(world))} and name your destination and reason as you leave.`
-              : `Just arrived from ${nameOf(movement.from)}. Greet the people here and explain what brought you.`,
+              ? `Leaving ${nameOf(movement.from)} for ${nameOf(movement.to)} now.`
+              : `Just arrived from ${nameOf(movement.from)}.`,
           );
         const conflict = standoffFor(world, id);
         if (conflict)
@@ -574,7 +427,7 @@ export function narrativeContext(world, action = null) {
         }
         if (world.opening?.met[id] === world.turn && id !== currentActor(world))
           facts.push(
-            `This is your first meeting with ${nameOf(currentActor(world))}. You were already here when ${nameOf(currentActor(world))} arrived. Greet this newcomer in your own voice.`,
+            `This is your first meeting with ${nameOf(currentActor(world))}. You were already here when ${nameOf(currentActor(world))} arrived.`,
           );
         const helpers = Object.entries(world.actors[id].trust)
           .filter(([, n]) => n > 0)
@@ -651,6 +504,7 @@ export function narrativeContext(world, action = null) {
               hope: null,
             }
           : {}),
+        ...(between.entries.length ? { between: between.entries } : {}),
       };
     }),
   });
@@ -1042,7 +896,6 @@ export function createNarrator({
 }) {
   let ticket = 0,
     pending = null,
-    failed = null,
     running = false,
     // A 429's Retry-After: no request leaves before this time.
     holdUntil = 0,
@@ -1158,7 +1011,6 @@ export function createNarrator({
         }
         controller = new AbortController();
         status("pending");
-        const revision = getWorld().revision;
         try {
           if (Date.now() < holdUntil)
             await retryPause(controller.signal, holdUntil - Date.now());
@@ -1167,10 +1019,11 @@ export function createNarrator({
           started(context);
           await write(context, version, controller.signal);
         } catch (error) {
+          // Words that never came leave the scene's speakers silent: the
+          // table shows "…" and play goes on. Nothing asks again.
           if (version === ticket) {
             preview(null);
-            if (revision === getWorld().revision) failed = { action, revision };
-            status("retry", error);
+            status("failed", error);
           }
         }
       }
@@ -1185,7 +1038,6 @@ export function createNarrator({
     if (asking?.revision === revision && asking.action === action) return;
     asking = { revision, action };
     reflectionController?.abort();
-    failed = null;
     pending = { action, version: ++ticket };
     preview(null);
     controller?.abort();
@@ -1193,21 +1045,11 @@ export function createNarrator({
   }
   return {
     changed,
-    retry() {
-      if (!failed || failed.revision !== getWorld().revision) return false;
-      changed(failed.action);
-      return true;
-    },
-    // A reloaded page restores a failed turn, so Retry can ask again.
-    resume(action = null) {
-      failed = { action, revision: getWorld().revision };
-    },
     invalidate() {
       reflectionController?.abort();
       asking = null;
       ticket += 1;
       pending = null;
-      failed = null;
       controller?.abort();
       preview(null);
       status("ready");
@@ -1217,6 +1059,7 @@ export function createNarrator({
 
 // Rules halves kept under their earlier names for browser callers.
 export { speechMemories } from "./scene-cast.mjs";
+export { SPEECH_OCCASIONS, speechOccasions } from "./speech-occasions.mjs";
 export {
   THOUGHT_GAP,
   DREAM_GAP,

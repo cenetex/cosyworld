@@ -1,4 +1,5 @@
 import musicStreams from "./music-streams.json" with { type: "json" };
+import titleLogos from "./title-logos.json" with { type: "json" };
 import { roomTracks } from "./music.mjs";
 import { packMediaFiles } from "./pack-registry.mjs";
 import imageVariants from "./image-variants.json" with { type: "json" };
@@ -6,6 +7,7 @@ import voiceCast from "./voices.json" with { type: "json" };
 import { daylightAssets } from "./daylight.mjs";
 import { rarityPortraitAssets } from "./rarity-portraits.mjs";
 import { castCombatAssets } from "./cast-combat-art.mjs";
+import { sleepPortraitAssets } from "./sleep-portraits.mjs";
 
 // The local server, release smoke, and Rust asset generator use this list.
 const files = [
@@ -34,12 +36,20 @@ const files = [
   "boardyai.mjs",
   "boardyai.json",
   "assets/card-back.webp",
-  // The first-arrival title (title-intro.mjs).
-  "assets/title/lonely-forest-1.webp",
-  "assets/title/lonely-forest-2.webp",
+  // The new-world title (title-intro.mjs).
+  ...titleLogos.logos.flatMap(({ src, toolbar }) =>
+    toolbar ? [src, toolbar.src] : [src],
+  ),
+  "assets/music/title-attic-lamp.mp3",
   // Rest card paintings for issue #1849; the rest-card feature follows.
   "assets/rest/short-rest.webp",
   "assets/rest/long-rest.webp",
+  "sleep-portraits.mjs",
+  ...sleepPortraitAssets,
+  ...["body", "reflection", "contact", "still"].map(
+    (part) => `assets/greek-drama/ship-layers/pond-ship-${part}.webp`,
+  ),
+  "assets/greek-drama/ship-layers/recipe.json",
   // Standoff effect art for issue #1920; runtime overlays follow.
   ...[
     "hit-1",
@@ -66,6 +76,7 @@ const files = [
   ),
   "cast-combat-art.mjs",
   "assets/combat/cast-roster.json",
+  "assets/combat/pose-fit.json",
   ...castCombatAssets,
   "level-tiers.mjs",
   "rarity.mjs",
@@ -174,14 +185,21 @@ const files = [
   "assets/shared/places/loft.png",
   "assets/shared/items/shears.png",
   "index.html",
+  // The Privacy page (#2052), served at /privacy.
+  "privacy.html",
+  "privacy.css",
+  "privacy.mjs",
+  "metrics.mjs",
   "style.css",
   "entry.mjs",
   "title-intro.mjs",
+  "title-logo.mjs",
+  "title-logos.json",
+  "acknowledgement.json",
+  "title-song.mjs",
+  "audio-wake.mjs",
   "local-service.mjs",
   "local-saves.mjs",
-  "scene-video.mjs",
-  "scene-video-context.mjs",
-  "scene-video.css",
   "combat.css",
   "beats.mjs",
   "combat-beats.mjs",
@@ -205,6 +223,7 @@ const files = [
   "weather-shader.mjs",
   "weather.css",
   "portrait-facing.mjs",
+  "presentation.mjs",
   "cards.mjs",
   "motives.mjs",
   "life.mjs",
@@ -217,7 +236,10 @@ const files = [
   "adaptive-learning.mjs",
   "reflections.mjs",
   "narrative.mjs",
+  "between-us.mjs",
+  "signed-words.mjs",
   "speech-knowledge.mjs",
+  "speech-occasions.mjs",
   "expression.mjs",
   "emoji-symbols.json",
   "dialogue.mjs",

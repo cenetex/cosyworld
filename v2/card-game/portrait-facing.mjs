@@ -3,8 +3,10 @@
 // Keep this module in the presentation layer so saved rule bundles stay stable.
 import { rarityForms, rarityPortraitAssets } from "./rarity-portraits.mjs";
 import { castCombatFacings } from "./cast-combat-art.mjs";
+import { sleepPortraitAssets } from "./sleep-portraits.mjs";
 const groups = {
   right: [
+    ...sleepPortraitAssets.filter((file) => file.includes("/shared/")),
     ...castCombatFacings("right"),
     ...rarityPortraitAssets.filter((file) => file.startsWith("assets/combat/")),
     "assets/boardyai/boardyai.png",
@@ -25,6 +27,8 @@ const groups = {
     ),
   ],
   left: [
+    "assets/sleep/moth-sleeping.webp",
+    "assets/sleep/keeper-sleeping.webp",
     ...castCombatFacings("left"),
     ...Object.values(rarityForms)
       .filter((form) => form.facing === "left")
@@ -108,12 +112,16 @@ export const portraitFacings = Object.freeze(
 export const nativePortraitFacing = (cutout) =>
   portraitFacings[cutout.replace(/^\.\//, "")] || null;
 export function flipStagePortrait(cutout, facing) {
+  // The sleeping keeper's clock keeps its painted face in either stage slot.
+  if (cutout.replace(/^\.\//, "") === "assets/sleep/keeper-sleeping.webp")
+    return false;
   const native = nativePortraitFacing(cutout);
   return Boolean(native && native !== "front" && native !== facing);
 }
 
 // Broad silhouettes keep their whole face and arms inside a narrow scene.
 const widePortraits = new Set([
+  ...sleepPortraitAssets,
   "assets/lonely-forest/skull.png",
   "assets/lonely-forest/whiskerwind.png",
   "assets/moth.png",

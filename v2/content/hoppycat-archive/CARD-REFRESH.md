@@ -43,7 +43,7 @@ level 100. Their cards, scene cutouts and combat poses follow the same saved
 progress. See [rarity portraits](RARITY-PORTRAITS.md) for the art and transition
 contract.
 
-- **February Third:** keep a correction, plant a memory seed, choose a facet,
+- **February Third:** keep a correction, plant a memory seed, find the last facet,
   trace a reflection, hear Nix's pause, tie the thread, and fit the clapper.
 - **The shared evening:** share the cup, paint a playbill, credit the performers,
   and stage a new forest play.

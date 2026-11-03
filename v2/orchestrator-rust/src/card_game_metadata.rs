@@ -21,6 +21,14 @@ struct CardGameMetadata {
     shared_rules_version: &'static str,
     assets_sha256: &'static str,
     catalogs: Catalogs,
+    card_text: CardText,
+}
+
+#[derive(Debug, Serialize)]
+struct CardText {
+    /// The authored-text catalog no longer matches the served scene modules
+    /// and packs (see `narrative::catalog_stale`).
+    catalog_stale: bool,
 }
 
 #[derive(Debug, Serialize)]
@@ -59,6 +67,9 @@ impl GameMetadata {
                     character_profiles: "/card-game/entity-profiles.json",
                     mounted_packs: "/card-game/packs.json",
                 },
+                card_text: CardText {
+                    catalog_stale: super::narrative::catalog_stale(),
+                },
             },
             metadata_scopes: MetadataScopes {
                 worldpack: "classic-compatibility",
@@ -96,6 +107,7 @@ mod tests {
                 "classic-compatibility"
             );
             assert_eq!(meta["metadata_scopes"]["world"], "classic-compatibility");
+            assert_eq!(meta["card_game"]["card_text"]["catalog_stale"], false);
             let router = super::super::router::<()>();
             let entry = meta["card_game"]["entry_url"].as_str().unwrap();
             let response = router

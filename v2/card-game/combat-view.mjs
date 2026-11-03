@@ -21,6 +21,7 @@ import {
 } from "./combat-beats.mjs";
 
 const SPEED_KEY = "cosyworld.combat-speed";
+const FAINT_MS = 1400;
 
 export function combatSpeed() {
   try {
@@ -133,6 +134,7 @@ export function createCombatView({
   reducedMotion,
   revealLine,
   dialog,
+  veil,
 }) {
   let animations = [],
     added = [],
@@ -140,6 +142,8 @@ export function createCombatView({
     cut = null,
     portraitRun = 0;
   const reduced = () => reducedMotion.matches;
+  // Phones draw the battle on their own marks (combat.css).
+  const phone = () => globalThis.matchMedia?.("(max-width: 700px)").matches;
   // Painted stage residents keep their sprite; their beats use the caption.
   const fighter = (id) =>
     id ? stage.querySelector(`#cast [data-avatar="${CSS.escape(id)}"]`) : null;
@@ -158,7 +162,29 @@ export function createCombatView({
     added.push(el);
     return el;
   };
+  // The caption keeps one width (combat.css) and crossfades its words from
+  // beat to beat, so the box never jumps or re-centres.
+  let ghost = null;
   const setCaption = (text) => {
+    if (caption.textContent === text) return;
+    ghost?.remove();
+    if (text && !caption.hidden && !reduced()) {
+      const old = (ghost = caption.cloneNode(true));
+      old.removeAttribute("id");
+      old.removeAttribute("role");
+      old.removeAttribute("aria-live");
+      old.setAttribute("aria-hidden", "true");
+      caption.after(old);
+      const gone = () => old.remove();
+      animate(old, [{ opacity: 1 }, { opacity: 0 }], {
+        duration: 160,
+        fill: "forwards",
+      })?.finished.then(gone, gone);
+      const ink = getComputedStyle(caption).color;
+      animate(caption, [{ color: "transparent" }, { color: ink }], {
+        duration: 160,
+      });
+    }
     caption.textContent = text;
     caption.hidden = !text;
   };
@@ -186,6 +212,9 @@ export function createCombatView({
   const floatWord = (id, text, tone) => {
     const el = fighter(id);
     if (!el) return;
+    // A new word replaces the fighter's last one ("Yields", then "Beaten").
+    for (const old of el.querySelectorAll(":scope > .combat-word"))
+      old.remove();
     const word = add(el, document.createElement("span"));
     word.className = "combat-word";
     word.dataset.tone = tone;
@@ -273,8 +302,26 @@ export function createCombatView({
       if (shift && reduced())
         animate(el, [{ opacity: 0 }, { opacity: 1 }], { duration: 200 });
     });
+    // Phones redraw the exchange on their own marks (combat.css): the front
+    // pair at the two sides, a guard between them, and everyone else spread
+    // behind the middle, so no two fighters share a spot. A lone bracer
+    // keeps its side of the line-up.
+    const byX = (list) => [...list].sort((a, b) => x(a) - x(b));
+    const spread = (list, from, step) =>
+      byX(list).forEach((el, i, row) =>
+        el.style.setProperty(
+          "--battle-x",
+          `${from + (i - (row.length - 1) / 2) * step}%`,
+        ),
+      );
+    if (front.length > 1) {
+      spread(front, 50, 48 / (front.length - 1));
+      spread(rest, 50, 14);
+    } else spread(els, 50, 48 / (els.length - 1));
     stage.querySelector("#cast").dataset.battle = "true";
-    const at = (el) => parseFloat(el.style.getPropertyValue("--stage-x"));
+    // Facing reads the marks the figures are drawn at.
+    const mark = phone() ? "--battle-x" : "--stage-x";
+    const at = (el) => parseFloat(el.style.getPropertyValue(mark));
     const aim = fighter(beat.coveredId || beat.targetId);
     for (const el of front) {
       const other = el === fighter(beat.actorId) ? aim : fighter(beat.actorId);
@@ -285,11 +332,25 @@ export function createCombatView({
           at(other) > at(el) ? "right" : "left",
         );
     }
+    // Those waiting turn toward the fight: the middle of the exchange, or
+    // the one it aims at when they stand right at that middle.
+    const middle = front.reduce((sum, el) => sum + at(el), 0) / front.length;
+    for (const el of rest) {
+      const toward =
+        Math.abs(middle - at(el)) > 1 ? middle : at(aim || front[0]);
+      portraits.face(
+        el.dataset.avatar,
+        front[0].dataset.avatar,
+        toward > at(el) ? "right" : "left",
+      );
+    }
   };
   // The redrawn scene keeps the last exchange in front (scene.mjs).
   const releaseExchange = () => {
-    for (const el of stage.querySelectorAll("[data-battle-row]"))
+    for (const el of stage.querySelectorAll("[data-battle-row]")) {
       delete el.dataset.battleRow;
+      el.style.removeProperty("--battle-x");
+    }
     slots = null;
     delete stage.querySelector("#cast")?.dataset.battle;
   };
@@ -305,17 +366,21 @@ export function createCombatView({
       stage.querySelector("#cast"),
       stage.querySelector("#floor-items"),
     ].filter(Boolean);
-    cut = { dim, scene };
+    // Phones already step from the close-up into a wider two-shot, so a
+    // push-in would fight that move and crowd the fighters off the edges.
+    const zoom = !phone();
+    cut = { dim, scene, zoom };
     if (reduced()) {
       dim.style.opacity = "1";
       return;
     }
-    for (const el of scene)
-      animate(el, [{ scale: 1 }, { scale: 1.08 }], {
-        duration: 260,
-        easing: "ease-out",
-        fill: "forwards",
-      });
+    if (zoom)
+      for (const el of scene)
+        animate(el, [{ scale: 1 }, { scale: 1.08 }], {
+          duration: 260,
+          easing: "ease-out",
+          fill: "forwards",
+        });
     animate(dim, [{ opacity: 0 }, { opacity: 1 }], {
       duration: 260,
       fill: "forwards",
@@ -323,10 +388,10 @@ export function createCombatView({
   };
   const releaseCut = async () => {
     if (!cut) return;
-    const { dim, scene } = cut;
+    const { dim, scene, zoom } = cut;
     cut = null;
     if (!reduced()) {
-      const back = [...scene, dim].map((el) =>
+      const back = [...(zoom ? scene : []), dim].map((el) =>
         el.animate(
           el === dim
             ? [{ opacity: 1 }, { opacity: 0 }]
@@ -398,9 +463,12 @@ export function createCombatView({
       target.classList.add("combat-outline");
       return;
     }
+    // Centres, as strike() measures them: the target recoils away from its
+    // attacker even when their frames differ in width.
+    const centre = (box) => box.x + box.width / 2;
     const attacker = fighter(beat.actorId)?.getBoundingClientRect();
     const t = target.getBoundingClientRect();
-    const away = attacker ? Math.sign(t.x - attacker.x) || 1 : 1;
+    const away = attacker ? Math.sign(centre(t) - centre(attacker)) || 1 : 1;
     // Hit-stop: the target holds still for a moment, then recoils and
     // shakes with a decaying amplitude, and the scene shakes by the recorded
     // damage. One brightness flash, never red.
@@ -521,6 +589,15 @@ export function createCombatView({
     finishAnimations();
     runner.finishBeat();
   };
+  // Being driven off is losing consciousness: the scene fades slowly to
+  // black (faster at 2x; reduced motion cuts) under the defeat card. It stays
+  // dark until the travel veil takes over (app.mjs removes `fainting`).
+  const faint = async () => {
+    if (!veil) return;
+    veil.style.setProperty("--faint-ms", `${Math.round(FAINT_MS / speed)}ms`);
+    veil.classList.add("fainting");
+    await Promise.allSettled(veil.getAnimations().map((a) => a.finished));
+  };
   let defeatDone = null;
   const continueButton = dialog.querySelector("[data-combat-continue]");
   const closeDefeat = () => {
@@ -557,7 +634,7 @@ export function createCombatView({
     },
     finishBeat,
     // Wait for the player on a defeat card. Resolves on Continue.
-    defeat(beat) {
+    async defeat(beat) {
       const summary = defeatSummary(beat);
       dialog.querySelector("[data-combat-title]").textContent = summary.title;
       const list = dialog.querySelector("[data-combat-changes]");
@@ -569,6 +646,10 @@ export function createCombatView({
         }),
       );
       announce.textContent = `${summary.title}. ${summary.changes.join(" ")}`;
+      const mine = portraitRun;
+      await faint();
+      // A cleanup during the fade (a cancelled scene) shows no card.
+      if (mine !== portraitRun) return;
       return new Promise((resolve) => {
         defeatDone = resolve;
         dialog.showModal();

@@ -14,6 +14,22 @@ const QUIET_VERBS = new Set(["talk"]);
 const DAMAGE = /loses (\d+) resolve/u;
 const YIELDED = /after yielding to/u;
 const STANDOFF_ENDS = /(standoff|battle) ends/u;
+// The rules word a wake in the present ("Vale wakes as Pip arrives."); its
+// caption is past, like every other.
+const WAKE_PAST = {
+  wakes: "woke",
+  arrives: "arrived",
+  leaves: "left",
+  docks: "docked",
+  gutters: "guttered",
+  runs: "ran",
+  opens: "opened",
+  closes: "closed",
+};
+const WAKE_VERBS = new RegExp(
+  `\\b(${Object.keys(WAKE_PAST).join("|")})\\b`,
+  "gu",
+);
 
 // A name inside a sentence: "the keeper", not "The keeper", and one article:
 // "took the Burial Decree". The sentence itself is capitalised by sentence().
@@ -159,12 +175,17 @@ export function actionCaption(entry, { viewer, here, arrival = null }) {
           : `${a} squared up to ${t}.`,
       );
     case "wait":
-      // A sign noticed while waiting reads as its own words.
+      // A wake gives its reason ("Vale woke as the lamp guttered."); a sign
+      // noticed while waiting reads as its own words.
       return caption(
         "⌛",
-        / waits one turn/u.test(entry.text || "")
-          ? `${a} waited a turn.`
-          : entry.text,
+        entry.woke
+          ? entry.text.replace(WAKE_VERBS, (verb) => WAKE_PAST[verb])
+          : entry.sleep
+            ? `${a} slept.`
+            : / waits one turn/u.test(entry.text || "")
+              ? `${a} waited a turn.`
+              : entry.text,
       );
     case "guard":
       return caption("⚔", `${a} braced.`);
@@ -286,6 +307,7 @@ export function groupBeats(
     if (!firstBeat.has(owner)) firstBeat.set(owner, beat);
     beats.push(beat);
   }
+  beats.sort((a, b) => a.anchor - b.anchor);
   for (const entry of entries) {
     if (
       held.has(entry.seq) ||
@@ -301,6 +323,17 @@ export function groupBeats(
     const world = caption.kind === "standoff";
     const own = defeat ? `d:${entry.seq}` : world ? `w:${entry.seq}` : null;
     const owner = own ?? `${entry.turn}|${entry.actorId}`;
+    // Any other effect is inscribed onto the card current when it
+    // happened; it makes a card of its own only when there is none yet.
+    // Fights keep a beat per step.
+    const current =
+      !own &&
+      caption.icon !== "⚔" &&
+      beats.findLast((beat) => beat.anchor < entry.seq);
+    if (current) {
+      current.actions.push({ ...caption, inscribed: true });
+      continue;
+    }
     let beat = firstBeat.get(owner);
     if (!beat) {
       beat = {
@@ -313,7 +346,8 @@ export function groupBeats(
         anchor: entry.seq,
       };
       firstBeat.set(owner, beat);
-      beats.push(beat);
+      const at = beats.findIndex((other) => other.anchor > beat.anchor);
+      beats.splice(at < 0 ? beats.length : at, 0, beat);
     }
     beat.actions.push(caption);
   }
@@ -367,10 +401,11 @@ export function withPending(beats, { speakerId, turn }) {
   };
 }
 
-// One line for a beat seen behind the front card: speech, then first action.
+// One line for a beat seen behind the front card: speech, then its latest
+// action, the one most recently inscribed.
 export function beatSummary(beat) {
   const speech = beat.line ? (beat.silent ? "…" : beat.line.text) : "";
-  const first = beat.actions[0];
+  const first = beat.actions.at(-1);
   return {
     speaker: beat.line?.speaker || fullName(beat.speakerId),
     speech,

@@ -9,16 +9,19 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { createServer } from "node:http";
 import { spawn } from "node:child_process";
+import { DatabaseSync } from "node:sqlite";
 import { chromium } from "playwright";
 import {
   createWorld,
   encodeSave,
+  exits,
   legalActions,
   play,
 } from "../card-game/world.mjs";
 import { enableMotives } from "../card-game/motives.mjs";
 import { humanAvatars } from "../card-game/human-cast.mjs";
 import { currentScene } from "../card-game/scene.mjs";
+import { packFixtures, transports } from "../card-game/pack-registry.mjs";
 
 const dir = await mkdtemp(join(tmpdir(), "shared-full-world-smoke-"));
 const output = resolve("output/shared-cards");
@@ -30,13 +33,23 @@ const providerTiming = new Map();
 let holdReplies = false;
 let failReplies = false;
 const waitingReplies = [];
+// The avatar voicing a conversation turn, from its system message's first
+// line ("I am Vale, the Lamplighter."). Null for other prompt shapes, which
+// have no "Here: " scene line.
+function speakerOf(input) {
+  const system = input.messages?.find((message) => message.role === "system");
+  if (!/^Here: /mu.test(system?.content ?? "")) return null;
+  return (
+    system.content.match(/^I am (?:the |a |an )?([^,.\n]+)/iu)?.[1] ?? null
+  );
+}
 const provider = createServer(async (req, res) => {
   let body = "";
   for await (const chunk of req) body += chunk;
   const input = JSON.parse(body || "{}");
   requests.push(input);
   const timing = {
-    speaker: input.messages.at(-1).content.trim().split("\n").at(-1),
+    speaker: speakerOf(input),
     started: Date.now(),
     held: holdReplies,
   };
@@ -56,18 +69,25 @@ const provider = createServer(async (req, res) => {
     );
     return;
   }
-  const transcript = input.messages.at(-1).content;
-  assert.equal(typeof transcript, "string");
-  assert.match(transcript, /Current scene:/u);
-  assert.match(transcript.trim(), /:$/u);
+  // Since #2057 an avatar's line is a conversation turn: the system message
+  // holds the scene ("Here: ..."), and the last message is only the line it
+  // answers or "X is here.". Other parts keep "Current scene:" and a cue.
+  const prompt = input.messages.map((message) => message.content).join("\n");
+  assert.equal(typeof input.messages.at(-1).content, "string");
+  assert.match(prompt, /Current scene:|^Here: /mu);
+  if (!speakerOf(input))
+    assert.match(input.messages.at(-1).content.trim(), /:$/u);
   timing.replied = Date.now();
-  // A recorded fact the speaker owes (for example, telling a resident what
-  // it wants) must be voiced in its own words; the validator checks it.
-  const fact = input.messages
-    .map((message) => message.content)
-    .join("\n")
-    .match(/using these words: (.+?) I may add one short sentence/su)?.[1];
-  const content = `${fact ? `${fact} ` : ""}I pause for ${requests.length} quiet breaths.`;
+  // A recorded fact the speaker may mention (for example, telling a resident
+  // what it wants) is voiced in its own words; the validator checks it.
+  const fact = prompt.match(
+    /If it fits the conversation, I mention: (.+?)\s*$/mu,
+  )?.[1];
+  // A place's caption is impersonal: the validator refuses "I" there.
+  const caption = /^An atmospheric caption/u.test(input.messages[0].content);
+  const content = caption
+    ? `The air holds still for ${requests.length} quiet breaths.`
+    : `${fact ? `${fact} ` : ""}I pause for ${requests.length} quiet breaths.`;
   replies.set(input, content);
   res.writeHead(200, { "Content-Type": "application/json" });
   res.end(
@@ -147,13 +167,16 @@ function serverDiagnostics() {
   return [warnings, processLog.slice(-3000)].filter(Boolean).join("\n");
 }
 async function until(test, label, rounds = 200, interval = 250) {
+  let last = "";
   for (let n = 0; n < rounds; n++) {
     try {
       if (await test()) return;
-    } catch {}
+    } catch (error) {
+      last = error.message;
+    }
     await delay(interval);
   }
-  throw new Error(`Timed out: ${label}\n${serverDiagnostics()}`);
+  throw new Error(`Timed out: ${label}\n${last}\n${serverDiagnostics()}`);
 }
 const ready = () =>
   until(async () => (await fetch(origin + "/health")).ok, "server starts");
@@ -211,6 +234,46 @@ async function expectStage(page, recent) {
   }
 }
 const names = ["vale", "mara", "ash", "nell", "tavi", "rue", "orin", "ada"];
+const avatarOf = (id) => humanAvatars.find((a) => a.id === id);
+const ships = new Set(Object.values(transports).map((t) => t.place));
+// Each avatar's walk from home in this world's rules: alone, holding its own
+// belonging, ringing any fixture it passes (the clearing's Steam Clock opens
+// its crossing to the pond), and never boarding a ship. Returns place -> path.
+function walkingRoutes(world, id) {
+  const s = structuredClone(world);
+  s.controlledActors = s.presentActors = s.heldActors = [id];
+  s.items[avatarOf(id).item.id].holder = id;
+  for (const [fixture, { packId }] of Object.entries(packFixtures))
+    if (s.packs[packId]) (s.packs[packId].sounds ??= {})[fixture] = s.turn + 3;
+  const start = id === "vale" ? world.actors.vale.place : avatarOf(id).home.id;
+  const routes = new Map([[start, [start]]]);
+  for (const [place, path] of routes) {
+    s.actors[id].place = place;
+    for (const to of exits(s, place, id))
+      if (!ships.has(to) && !routes.has(to)) routes.set(to, [...path, to]);
+  }
+  return routes;
+}
+// Since #1994 each home's door is the world's seeded pick, so the visitors
+// meet where the most avatars can walk, then by the fewest steps in all.
+function meetingPlan(world) {
+  const routes = Object.fromEntries(
+    names.map((id) => [id, walkingRoutes(world, id)]),
+  );
+  const [best] = [...new Set(names.flatMap((id) => [...routes[id].keys()]))]
+    .map((place) => {
+      const who = names.filter((id) => routes[id].has(place));
+      const steps = who.reduce((n, id) => n + routes[id].get(place).length, 0);
+      return { place, who, steps };
+    })
+    .sort(
+      (a, b) =>
+        b.who.length - a.who.length ||
+        a.steps - b.steps ||
+        a.place.localeCompare(b.place),
+    );
+  return { ...best, routes };
+}
 let seed = enableMotives(createWorld({ opening: true }));
 // The opening starts lit (#1653): douse the lamp to open the mirror, cross to
 // the pond, then relight it there so the progressed save carries a lit lamp.
@@ -324,9 +387,7 @@ async function expectSharedReveal(page, requestStart, speaker = "Vale") {
   await until(() => {
     const human = requests
       .slice(requestStart)
-      .find((request) =>
-        request.messages.at(-1).content.trim().endsWith(`\n${speaker}:`),
-      );
+      .find((request) => speakerOf(request) === speaker);
     expected = replies.get(human);
     return typeof expected === "string";
   }, "the selected human receives its plain fixture reply");
@@ -481,7 +542,7 @@ try {
       (await import("/card-game/shared-auth.mjs")).passkey(true),
     );
   }
-  const [vale, mara, ash, nell, tavi, rue] = pages;
+  const [vale, mara, , , , rue] = pages;
   await vale.reload();
   await vale.locator("#toolbar-menu-button").click();
   await vale.locator("#shared-worlds-button").click();
@@ -493,6 +554,19 @@ try {
     "share keeps the current game",
   );
   worldId = new URL(vale.url()).searchParams.get("world");
+  // A new passkey has found only Vale (#1936), and sharing made the table. This smoke seats the whole
+  // cast, so every passkey here counts every avatar as found, as the
+  // grandfather pass does for passkeys in an existing store.
+  const store = new DatabaseSync(join(dir, "events.sqlite"));
+  store.exec("PRAGMA busy_timeout = 5000");
+  store.exec(
+    "INSERT OR IGNORE INTO card_unlocks(user, actor) SELECT u.id, a.n FROM auth_users u, (WITH RECURSIVE r(n) AS (SELECT 0 UNION ALL SELECT n + 1 FROM r WHERE n < 7) SELECT n FROM r) a",
+  );
+  assert.equal(
+    store.prepare("SELECT count(*) AS n FROM card_unlocks").get().n,
+    pages.length * 8,
+  );
+  store.close();
   const shared = await snapshot(vale);
   assert.equal(shared.actor, "vale");
   assert.equal(shared.world.turn, seed.turn);
@@ -544,7 +618,9 @@ try {
   const requestStart = requests.length;
   await selectCard(vale, "moth");
   await vale.getByRole("button", { name: "Talk", exact: true }).click();
-  await expectSharedReveal(vale, requestStart);
+  // Since #2057 a Talk's target answers the actor's line in the same play,
+  // so the newest beat that types in is Pip's answer.
+  await expectSharedReveal(vale, requestStart, "Pip");
   await vale.screenshot({
     path: join(output, "shared-dialogue-reveal.png"),
     fullPage: true,
@@ -579,13 +655,20 @@ try {
   await perform(vale, "snuff", undefined, "lamp");
   for (let i = 1; i < 8; i++) {
     // A friend's link opens ☰ on the person's own table with this world as
-    // a slot; tapping the avatar's grey seat there twice moves it there
-    // (#1877, #1891).
+    // a slot; each tap of its "+" offers the next avatar that may go there,
+    // and Bring moves the offered one there (#1877, #1891, 2eb54805e).
     await pages[i].goto(`${origin}/?world=${worldId}`);
     const slot = pages[i].locator(`.world-slot[data-slot="${worldId}"]`);
-    const seat = slot.locator(`[data-avatar="${names[i]}"] .slot-target`);
-    await seat.click();
-    await seat.click();
+    const offered = pages[i].locator(".dialogue > .action-panel");
+    await until(async () => {
+      const shown = (await offered.count())
+        ? await offered.first().getAttribute("data-avatar")
+        : null;
+      if (shown === names[i]) return true;
+      await slot.locator(".seat-open").click({ timeout: 2000 });
+      return false;
+    }, `"+" offers ${names[i]}`);
+    await pages[i].locator("#avatar-bring").click();
     await until(
       async () => (await snapshot(pages[i])).actor === names[i],
       "avatar claim finishes",
@@ -593,12 +676,12 @@ try {
     await pages[i].locator("#shared-lobby").waitFor({ state: "hidden" });
     await pages[i].locator("#stage").waitFor({ state: "visible" });
     const home = await snapshot(pages[i]);
-    const avatar = humanAvatars.find((a) => a.id === names[i]);
+    const avatar = avatarOf(names[i]);
     assert.equal(home.actor, names[i]);
     assert.equal(home.world.items[avatar.item.id].holder, avatar.home.id);
     assert(
-      !home.exits.includes(avatar.home.connection || "pond"),
-      "new avatars start with a closed home path",
+      !home.exits.includes(home.world.doors[avatar.home.id]),
+      "new avatars start with a closed home door",
     );
   }
   assert.equal((await snapshot(vale)).claimed.filter(Boolean).length, 8);
@@ -613,16 +696,18 @@ try {
       "the player's own avatar leads the avatar groups",
     );
   };
+  // Rue's carriage door opens at the station, its one authored door
+  // (#1994); the route board must be near it.
   await perform(rue, "take", undefined, "routes");
-  assert(await actionFor(rue, "move", "pond"));
-  assert(!(await actionFor(rue, "move", "station")));
-  const earlierCarriageExit = await actionFor(rue, "move", "pond");
+  assert(await actionFor(rue, "move", "station"));
+  assert(!(await actionFor(rue, "move", "pond")));
+  const earlierCarriageExit = await actionFor(rue, "move", "station");
   await perform(rue, "drop", "train", "routes");
   await rue.reload();
   await rue
     .locator('#hand [data-card="routes"]')
     .waitFor({ state: "attached" });
-  assert(!(await actionFor(rue, "move", "pond")));
+  assert(!(await actionFor(rue, "move", "station")));
   assert.equal(
     (
       await api(rue, {
@@ -634,16 +719,18 @@ try {
     409,
   );
   await perform(rue, "take", undefined, "routes");
-  await perform(rue, "move", "pond");
-  assert.equal((await snapshot(rue)).world.actors.rue.place, "pond");
+  await perform(rue, "move", "station");
+  assert.equal((await snapshot(rue)).world.actors.rue.place, "station");
   await ownAvatarFirst(rue);
   await rue.reload();
   await rue.locator('#hand [data-card="rue"]').waitFor();
   assert(await actionFor(rue, "move", "train"));
   await perform(rue, "move", "train");
 
+  // The theatre's one door opens at the clearing (#1994).
+  const door = (await snapshot(mara)).world.doors.theatre;
   await mara.locator('#hand [data-card="mask"]').waitFor({ state: "attached" });
-  assert.equal(await mara.locator('#hand [data-card="pond"]').count(), 0);
+  assert.equal(await mara.locator(`#hand [data-card="${door}"]`).count(), 0);
   await until(
     () =>
       mara.locator("#cast > .portrait").evaluateAll(
@@ -671,9 +758,11 @@ try {
     "pickup commits",
   );
   await idle(mara);
-  // The pond joins the location stack face down (#1780).
-  await mara.locator('#hand [data-card="pond"]').waitFor({ state: "attached" });
-  const earlierTravel = await actionFor(mara, "move", "pond");
+  // The door's place joins the location stack face down (#1780).
+  await mara
+    .locator(`#hand [data-card="${door}"]`)
+    .waitFor({ state: "attached" });
+  const earlierTravel = await actionFor(mara, "move", door);
   await selectCard(mara, "mask");
   await selectCard(mara, "theatre");
   await mara.getByRole("button", { name: "Put down", exact: true }).click();
@@ -683,8 +772,8 @@ try {
   );
   await idle(mara);
   await until(
-    async () => !(await mara.locator('#hand [data-card="pond"]').count()),
-    "put down closes pond card",
+    async () => !(await mara.locator(`#hand [data-card="${door}"]`).count()),
+    "put down closes the door's card",
   );
   assert.equal(
     (
@@ -698,7 +787,7 @@ try {
   );
   await mara.reload();
   await mara.locator('#hand [data-card="mask"]').waitFor({ state: "attached" });
-  assert.equal(await mara.locator('#hand [data-card="pond"]').count(), 0);
+  assert.equal(await mara.locator(`#hand [data-card="${door}"]`).count(), 0);
   await mara.setViewportSize({ width: 1440, height: 900 });
   await mara.screenshot({
     path: join(output, "item-floor-desktop.png"),
@@ -706,7 +795,32 @@ try {
   });
   await mara.setViewportSize({ width: 390, height: 844 });
   await perform(mara, "take", undefined, "mask");
-  await perform(mara, "move", "pond");
+  const plan = meetingPlan((await snapshot(vale)).world);
+  const meet = plan.place;
+  // Vale and Mara read the meeting; two more visitors fill the room, and a
+  // fifth who could walk there finds it full.
+  assert(plan.who.includes("vale") && plan.who.includes("mara"));
+  assert(plan.who.length >= 5, `five can meet: ${JSON.stringify(plan)}`);
+  const [ashId, nellId, taviId] = plan.who.filter(
+    (id) => id !== "vale" && id !== "mara",
+  );
+  const [ash, nell, tavi] = [ashId, nellId, taviId].map(
+    (id) => pages[names.indexOf(id)],
+  );
+  console.log(`The visitors meet at ${meet}: ${plan.who.join(", ")}.`);
+  // Walk an avatar's route to the meeting, ringing a fixture where a crossing
+  // waits on sound; `short` stops that many steps early.
+  async function walk(id, short = 0) {
+    const page = pages[names.indexOf(id)];
+    const path = plan.routes[id].get(meet);
+    const here = (await snapshot(page)).world.actors[id].place;
+    for (const to of path.slice(path.indexOf(here) + 1, path.length - short)) {
+      if (!(await actionFor(page, "move", to))) await perform(page, "ring");
+      await perform(page, "move", to);
+    }
+  }
+  await walk("vale");
+  await walk("mara");
   await ownAvatarFirst(mara);
   // Anyone at the pond may light the lamp Vale carries. On a slow run the
   // keeper can arrive and light it first, so light it only while it is dark.
@@ -723,21 +837,33 @@ try {
     "attic",
     "a friend uses the existing mirror route",
   );
-  await perform(mara, "move", "pond");
-  for (const page of [ash, nell, tavi]) {
-    const avatar = humanAvatars.find(
-      (a) => a.id === names[pages.indexOf(page)],
-    );
-    await perform(page, "take", undefined, avatar.item.id);
-    if (page !== tavi) await perform(page, "move", "pond");
+  await perform(mara, "move", meet);
+  for (const id of [ashId, nellId, taviId]) {
+    const page = pages[names.indexOf(id)];
+    const item = avatarOf(id).item.id;
+    if ((await snapshot(page)).world.items[item].holder !== id)
+      await perform(page, "take", undefined, item);
+    await walk(id, id === taviId ? 1 : 0);
   }
+  // The last step is open but for the four humans in the room.
+  const roomy = async () => {
+    const world = (await snapshot(tavi)).world;
+    const present = world.presentActors.filter((id) => id !== nellId);
+    return exits(
+      { ...world, presentActors: present },
+      world.actors[taviId].place,
+      taviId,
+    ).includes(meet);
+  };
+  if (!(await roomy())) await perform(tavi, "ring");
+  assert(await roomy(), "only the room's four humans close the last step");
   assert(
-    !(await actionFor(tavi, "move", "pond")),
+    !(await actionFor(tavi, "move", meet)),
     "full room hides the route while NPCs still fit",
   );
   await until(
-    async () => !(await tavi.locator('#hand [data-card="pond"]').count()),
-    "full pond card disappears",
+    async () => !(await tavi.locator(`#hand [data-card="${meet}"]`).count()),
+    "full meeting card disappears",
   );
   assert(
     (await snapshot(vale)).world.actors.moth,
@@ -789,7 +915,7 @@ try {
   // Vale's Wait is committed before its speech, so Vale holds the front of
   // the stage while the later Waits are still queued.
   for (const page of [vale, mara]) {
-    await expectStage(page, ["vale", "nell", "ash", "mara"]);
+    await expectStage(page, ["vale", nellId, ashId, "mara"]);
     // Waiting plays have no chips (owner, 2026-11-01).
     assert.equal(
       await page.locator("#shared-queue, .shared-play-avatar").count(),
@@ -812,7 +938,7 @@ try {
     });
     if (page === mara) {
       await page.setViewportSize({ width: 390, height: 640 });
-      await expectStage(page, ["vale", "nell", "ash", "mara"]);
+      await expectStage(page, ["vale", nellId, ashId, "mara"]);
       await page.waitForFunction(() => {
         const dialogueTop = document
           .querySelector(".dialogue")
@@ -842,27 +968,16 @@ try {
     200,
     "repeated play key is idempotent",
   );
-  // A portrait can first return a reader to the live exchange. Use its
-  // labelled withdraw action once Ash has caught up with the room.
-  const ashReturnLive = ash.getByRole("button", {
-    name: /^Return to live dialogue/,
-  });
-  if (await ashReturnLive.count()) await ashReturnLive.click();
-  const cancelled = ash.waitForResponse((response) => {
-    const request = response.request();
-    return (
-      request.method() === "POST" &&
-      request.url().endsWith("/command") &&
-      request.postDataJSON()?.op === "cancel"
-    );
-  });
-  await ash
-    .getByRole("button", { name: /^Ash is thinking… · Withdraw your play$/ })
-    .click();
-  assert.equal((await cancelled).status(), 200);
+  // A waiting player withdraws its play. While Vale's play is being voiced,
+  // the room's Thinking card is Vale's (app.mjs withPending), so the visitor
+  // sends the cancel its own Thinking card would send.
+  assert.equal(
+    (await api(ash, { op: "cancel", key: queued[2].key })).status,
+    200,
+  );
   await until(
     async () => (await snapshot(vale)).queue.length === 3,
-    "a waiting player withdraws through their profile circle",
+    "a waiting player withdraws its play",
   );
   await Promise.all(
     [vale, mara].map((page) =>
@@ -882,7 +997,9 @@ try {
       );
   }
   // Keep one reader in a menu while every queued scene reaches the browser.
-  // Closing it must reveal Vale, Mara and Iris in order, with partial letters.
+  // Closing it must reveal Vale, Mara and the third visitor in order, with
+  // partial letters.
+  const speakers = ["Vale", "Mara", avatarOf(nellId).name];
   await mara.locator("#toolbar-menu-button").click();
   await mara.locator("#menu-button").click();
   holdReplies = false;
@@ -892,7 +1009,7 @@ try {
   // Check after playback ends: a busy driver still proves each line animated in order.
   for (const page of [vale, mara]) {
     const expected = await Promise.all(
-      ["Vale", "Mara", "Iris"].map((speaker) =>
+      speakers.map((speaker) =>
         expectSharedReveal(page, queueRequestStart, speaker),
       ),
     );
@@ -913,12 +1030,12 @@ try {
     );
     assert.deepEqual(
       order,
-      ["Vale", "Mara", "Iris"],
+      speakers,
       "shared readers see every queued speaker in order",
     );
   }
   for (const page of [vale, mara]) {
-    await expectStage(page, ["nell", "mara", "vale", "ash"]);
+    await expectStage(page, [nellId, "mara", "vale", ashId]);
     await page.screenshot({
       path: join(
         output,
@@ -972,7 +1089,7 @@ try {
     await mara.locator("#backdrop").getAttribute("src"),
     stationBackdrop,
   );
-  await perform(tavi, "move", "pond");
+  await walk(taviId);
   const saved = await snapshot(vale);
   await stop();
   start();
@@ -1046,52 +1163,109 @@ try {
       fullPage: true,
     });
   }
+  // The journal's ops after a sequence number, read and closed at once.
+  const journalOps = (after) => {
+    const db = new DatabaseSync(join(dir, "events.sqlite"), { readOnly: true });
+    try {
+      return db
+        .prepare(
+          "SELECT seq, json_extract(command, '$.op') AS op FROM card_full_log WHERE seq > ? ORDER BY seq",
+        )
+        .all(after);
+    } finally {
+      db.close();
+    }
+  };
   for (const width of [1440, 390]) {
     await vale.setViewportSize({ width, height: 900 });
     failReplies = true;
-    const command = {
-      op: "play",
-      key: crypto.randomUUID(),
-      action: await actionFor(vale, "wait"),
-    };
+    // A Talk always voices Vale; a Wait may pass in silence.
+    const action = await actionFor(vale, "talk");
+    assert(action, "Vale has someone at the pond to talk with");
+    const command = { op: "play", key: crypto.randomUUID(), action };
+    const seq = journalOps(0).at(-1).seq;
     assert.equal((await api(vale, command)).status, 200);
+    // Words that fail complete the play as silence: the seat frees at once,
+    // nothing is journaled for them, and Vale's beat shows "…" alone.
     await until(
-      async () => (await snapshot(vale)).history[0]?.error,
-      "shared speech failure is saved",
+      async () => {
+        const view = await snapshot(vale);
+        const scene = view.history.find((entry) => entry.play === command.key);
+        return scene?.failed && !scene.lines.length && !view.queue.length;
+      },
+      "shared speech failure completes silently",
+      60,
+      1000,
     );
-    const retry = vale.getByRole("button", {
-      name: "Retry dialogue",
-      exact: true,
-    });
-    await retry.waitFor({ state: "visible" });
-    assert.equal(await vale.locator("#story-status").isVisible(), false);
-    assert.equal(await retry.innerText(), "Retry");
-    assert.equal(await vale.locator("#story-error").isVisible(), true);
-    const bounds = await retry.boundingBox();
-    assert(bounds.width >= 32 && bounds.height <= 32);
-    assert.doesNotMatch(
-      await vale.locator("#play-status").innerText(),
-      /play is saved|503/i,
+    const failedView = await snapshot(vale);
+    const failedScene = failedView.history.find(
+      (entry) => entry.play === command.key,
     );
-    const before = (await snapshot(vale)).world;
-    failReplies = false;
-    await retry.click();
+    assert.equal(failedScene.error ?? null, null);
+    assert.equal(failedView.notice ?? null, null);
+    assert.equal(typeof failedScene.after, "number");
+    assert(failedScene.silent.includes("vale"), "the Talk voiced Vale");
+    assert(
+      !journalOps(seq).some((row) => row.op === "speech"),
+      "no speech is journaled for words that failed",
+    );
     await until(
       async () =>
-        !(await snapshot(vale)).history[0]?.error &&
-        !(await snapshot(vale)).queue.length,
-      "shared retry finishes",
+        (await vale.locator("#dialogue-text").textContent())?.trim() === "…",
+      "Vale's beat shows …",
     );
-    const after = (await snapshot(vale)).world;
-    assert.equal(after.turn, before.turn);
+    assert.equal(await vale.locator("#story-status").isVisible(), false);
+    assert.equal(await vale.locator("#story-retry, #story-error").count(), 0);
+    assert.doesNotMatch(
+      await vale.locator("body").innerText(),
+      /didn.t arrive|\bRetry\b|play is saved|503/iu,
+    );
+    const before = failedView.world;
+    const settled = journalOps(0).at(-1).seq;
+    failReplies = false;
+    // The next play is taken at once and speaks: one play, one speech, and
+    // perhaps the speaker's private reflection (shared-worlds.md).
+    const next = {
+      op: "play",
+      key: crypto.randomUUID(),
+      action: await actionFor(vale, "talk"),
+    };
+    assert(next.action, "Vale can talk again");
+    assert.equal((await api(vale, next)).status, 200);
+    await until(
+      async () => {
+        const { history, queue } = await snapshot(vale);
+        return (
+          history.find((entry) => entry.play === next.key)?.lines?.length &&
+          !queue.length
+        );
+      },
+      "the next shared play speaks",
+      60,
+      1000,
+    );
+    let after, ops;
+    await until(
+      async () => {
+        after = (await snapshot(vale)).world;
+        ops = journalOps(settled).map((row) => row.op);
+        return after.revision === before.revision + ops.length;
+      },
+      "the next play's records settle",
+      30,
+      1000,
+    );
     assert.equal(
-      after.revision,
-      before.revision + 1,
+      ops.filter((op) => op === "speech").length,
+      1,
       "one shared speech commit",
     );
-    assert.deepEqual(after.items, before.items);
-    assert.deepEqual(after.actors, before.actors);
-    await until(async () => !(await retry.isVisible()), "retry icon clears");
+    assert.deepEqual(
+      new Set(ops.filter((op) => op !== "speech" && op !== "reflect")),
+      new Set(["play"]),
+    );
+    assert(after.turn > before.turn, "the next play ran");
+    assert.equal(await vale.locator("#story-retry, #story-error").count(), 0);
   }
   assert.deepEqual(errors, []);
   for (const player of [0, 1]) {
@@ -1125,6 +1299,7 @@ try {
     "Shared original world: progressed save, eight passkeys, original pond/station/attic, NPCs, packs, quests (wants), room capacity, shared speech, item handoff, nudge, restart, desktop and phone passed.",
   );
 } catch (error) {
+  console.error(error);
   console.error(
     "Held provider timing",
     JSON.stringify(

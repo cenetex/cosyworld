@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#14151d" />
+    <title>Privacy · Lonely Forest</title>
+    <link rel="stylesheet" href="/card-game/privacy.css" />
+  </head>
+  <body>
+    <main>
+      <section id="summary" aria-labelledby="privacy-title">
+        <p><a href="/">Back to the table</a></p>
+        <h1 id="privacy-title">Privacy</h1>
+        <ul class="short">
+          <li>
+            <b>Who:</b> Cenetex Inc. (Ontario, Canada) runs it. The RATi Open
+            Software Foundation designed it.
+          </li>
+          <li>
+            <b>Passkey:</b> your device keeps the key. We keep its public half
+            and an account number.
+          </li>
+          <li>
+            <b>Signed in:</b> we keep your avatars, shared worlds and their play
+            history, and credits.
+          </li>
+          <li>
+            <b>AI:</b> AI providers, through OpenRouter, voice the characters
+            from the game's own state. Nothing you type is sent, because there
+            is no typing.
+          </li>
+          <li>
+            <b>Play counts:</b> anonymous daily totals. Turn them off in
+            Settings. We honour Global Privacy Control.
+          </li>
+          <li>
+            <b>Where:</b> servers in California, logs with AWS in the USA, AI
+            providers worldwide.
+          </li>
+          <li>
+            <b>Contact:</b> for questions or to delete your data, write to
+            <span class="email">privacy@cenetex.com</span>
+            (<a href="mailto:privacy@cenetex.com">email us</a>).
+          </li>
+          <li>
+            <b>Without us:</b> download it and run it yourself from
+            <a href="/download">lonelyforest.com/download</a>.
+          </li>
+        </ul>
+        <p class="more">Open a topic below for the details.</p>
+      </section>
+
+      <details id="operator">
+        <summary>Who runs this, and which law applies</summary>
+        <p>
+          Designed by the RATi Open Software Foundation, in British Columbia,
+          Canada. Operated as a service by Cenetex Inc. All revenue goes to the
+          Foundation; Cenetex does not earn money from Lonely Forest. Cenetex
+          Inc. is responsible for the service and the data this page describes,
+          under the law of Ontario, Canada, including Canada's federal privacy
+          law (PIPEDA).
+        </p>
+      </details>
+
+      <details>
+        <summary>Playing without signing in</summary>
+        <p>
+          Your game is saved in your browser only. Character lines are asked for
+          through our server, which asks an AI model. The request holds facts
+          from the game, such as places, characters and what just happened. It
+          holds no text from you and no account.
+        </p>
+      </details>
+
+      <details>
+        <summary>Passkeys and your account</summary>
+        <p>
+          We collect your passkey so you can log in and keep your avatars on our
+          shared servers, which use our shared AI on our domain. Your device
+          keeps the private key, and there is no password. We store the
+          passkey's public half, a random account number, a generated name, and
+          when the passkey was made and last used. A sign-in stays valid for 30
+          days.
+        </p>
+      </details>
+
+      <details>
+        <summary>Shared worlds</summary>
+        <p>
+          Each shared world keeps an ordered record of every play and every
+          spoken line, and which account holds which avatar. Other players see
+          avatar names, never your account or passkey. A closed world keeps its
+          record so it can be replayed.
+        </p>
+      </details>
+
+      <details>
+        <summary>Credits and payments</summary>
+        <p>
+          Credits pay for spoken voices. Credit history is kept as a permanent
+          ledger, and spoken voice clips are stored with their world. Credits
+          can't be bought yet. When they can, a payment processor will take your
+          card details itself; we will send it only your account number and the
+          number of credits.
+        </p>
+      </details>
+
+      <details>
+        <summary>AI providers</summary>
+        <p>
+          Character dialogue and voices are made by AI providers. We reach them
+          through OpenRouter, which routes each request to a model maker such as
+          OpenAI, Google, Anthropic, xAI or Mistral. Some routes promise not to
+          keep requests; others follow the provider's own policy. Requests are
+          built from the game's own state. Nothing you type is sent, because the
+          game has no typing.
+        </p>
+      </details>
+
+      <details id="play-counts">
+        <summary>Play counts</summary>
+        <p>
+          We count plays without knowing who you are, to see how the table
+          plays. The game counts things like how many times each kind of card is
+          played, Talk included; Sleep and Wait; quests chosen, dropped and met;
+          journeys and defeats; lines skipped or finished early; looks back at
+          earlier lines; how long Thinking takes before a line, and when a line
+          fails; whether the opening title was skipped or woken; and errors, by
+          a short code. It sends only daily totals, about once a minute and when
+          you leave.
+        </p>
+        <p>
+          The counts carry no account, world, device or IP address, no dialogue
+          and no other text. We keep only each day's totals, for 400 days.
+          Server logs never hold the counts. The counts never change your game:
+          nothing is rewarded or chosen from them.
+        </p>
+        <p>
+          To stop them, turn off "Share anonymous play counts" in Settings. If
+          your browser sends Global Privacy Control, nothing is counted. The
+          desktop app counts nothing unless you turn it on.
+        </p>
+      </details>
+
+      <details>
+        <summary>Logs</summary>
+        <p>
+          Server logs hold errors and timing. They may include a short piece of
+          an AI-written line that the game refused. They are kept for 30 days in
+          Amazon Web Services in the United States. Our host, Fly.io, sees your
+          IP address to deliver the site. We use it in memory to limit request
+          rates and don't store it.
+        </p>
+      </details>
+
+      <details id="transfers">
+        <summary>Where data is processed</summary>
+        <p>
+          Our servers run on Fly.io in California, USA. Logs are kept with
+          Amazon Web Services in the USA. AI requests go through OpenRouter to
+          AI providers around the world, which may process them in other
+          countries. Cenetex Inc. is based in Ontario, Canada.
+        </p>
+      </details>
+
+      <details id="download">
+        <summary>Play on your own computer</summary>
+        <p>
+          If you want to play the game without sharing your passkey data with
+          us, download, modify, and play the game yourself for free from
+          <a href="/download">lonelyforest.com/download</a>.
+        </p>
+      </details>
+
+      <details id="deleting">
+        <summary>Deleting your data</summary>
+        <p>
+          To clear a game you play without signing in, clear this site's data in
+          your browser. There is no button to delete an account yet. To ask us
+          to delete yours, write to
+          <a href="mailto:privacy@cenetex.com">privacy@cenetex.com</a>. The
+          credit ledger is permanent, and shared worlds keep their play record
+          so they can be replayed.
+        </p>
+      </details>
+
+      <details>
+        <summary>Children</summary>
+        <p>Lonely Forest is for players aged 13 and older.</p>
+      </details>
+
+      <p class="updated">
+        Last updated 2 November 2026. The date changes when this page does.
+      </p>
+    </main>
+  </body>
+</html>

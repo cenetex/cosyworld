@@ -78,6 +78,8 @@ function probe(records, start = setup) {
   w.revision = w.turn;
   // Travellers far away may have acted already; their events stay counted.
   w.eventSeq = Math.max(w.eventSeq, records.length + 2);
+  // The grudge stays on mind across the measured turns.
+  for (const g of w.motives.grievances.keeper) g.lastTouched = w.turn;
   w.memories.vale.learning = structuredClone(records).map((t, i) => ({
     ...t,
     seq: i + 2,

@@ -481,12 +481,30 @@ main {
 .speech-line:hover {
   background: transparent;
 }
+/* One reveal writes dialogue and inscribed effects (dialogue.mjs): every
+   letter is in place from the start, and its ink fades in over 60 ms on its
+   turn, so two or three letters are soft at once. A tap fades the rest in
+   together. The caret has its own colour and never fades. */
 .speech-letter {
   visibility: hidden;
   position: relative;
+  color: transparent;
+  transition: color 60ms linear;
 }
 .speech-letter.revealed {
   visibility: visible;
+  color: inherit;
+}
+[data-reveal="finish"] .speech-letter {
+  transition: color 150ms ease;
+}
+[data-reveal="instant"] .speech-letter {
+  transition: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .speech-letter {
+    transition: none;
+  }
 }
 .speech-letter.cursor::after {
   content: "";
@@ -524,6 +542,13 @@ main {
 #story-status[hidden] {
   display: none;
 }
+/* The first tap on the Thinking card asks before it cancels. */
+#story-status[data-armed="true"] {
+  color: var(--gold);
+}
+#story-status[data-armed="true"] .thinking-orbit {
+  display: none;
+}
 .thinking-orbit {
   width: 15px;
   height: 15px;
@@ -541,27 +566,6 @@ main {
   .thinking-orbit {
     animation: none;
   }
-}
-#story-error {
-  color: var(--muted);
-  font-size: 14px;
-}
-body .dialogue-heading #story-retry {
-  width: auto;
-  height: 28px;
-  min-width: 28px;
-  min-height: 28px;
-  padding: 0 4px;
-  border: 0;
-  border-radius: 4px;
-  background: transparent;
-  color: var(--muted);
-  font-size: 14px;
-  line-height: 1;
-}
-body .dialogue-heading #story-retry:hover,
-body .dialogue-heading #story-retry:focus-visible {
-  color: var(--ink);
 }
 @keyframes speech-blink {
   50% {
@@ -807,6 +811,15 @@ h2 {
 .travel.travelling {
   opacity: 1;
 }
+/* Driven off: the scene slowly fades to black under the defeat card. */
+.travel.fainting {
+  opacity: 1;
+  background: #000;
+  transition-duration: var(--faint-ms, 1.4s);
+}
+.travel.fainting:not(.travelling) > * {
+  visibility: hidden;
+}
 
 @media (prefers-reduced-motion: reduce) {
   * {
@@ -888,8 +901,8 @@ main {
   border: 0;
   pointer-events: none;
 }
-/* A play's strikes and journeys leave the locked hand where it is: only the
-   player lowers it. The dialogue above a raised hand fades out of the
+/* A play's journeys leave the locked hand where it is (strikes tuck it
+   down, combat.css): only the player lowers it. The dialogue above a raised hand fades out of the
    fighters' way; beside a resting hand it sinks to a strip. Reduced motion
    fades it out and back in place. */
 body .dialogue {
@@ -1045,7 +1058,7 @@ body .card {
 body .card[data-selected="true"] {
   outline-color: #fffaf0;
 }
-body .card:focus-visible {
+:is(body, :where(.title-intro)) .card:focus-visible {
   outline: 3px solid var(--focus);
   outline-offset: 3px;
 }
@@ -1081,8 +1094,7 @@ body .card:focus-visible {
   #hand:not([aria-busy="true"]) > .card-frame:has(> .card:hover) ~ .card-frame {
     translate: 12px 0;
   }
-  #hand:not([aria-busy="true"])
-    > .card-frame:has(~ .card-frame > .card:hover) {
+  #hand:not([aria-busy="true"]) > .card-frame:has(~ .card-frame > .card:hover) {
     translate: -12px 0;
   }
 }
@@ -1091,7 +1103,7 @@ body .card:focus-visible {
     filter: brightness(1.12);
   }
 }
-body .card {
+:is(body, :where(.title-intro)) .card {
   position: relative;
   width: 100%;
   height: 100%;
@@ -1108,7 +1120,7 @@ body .card {
 body .card:hover {
   background: #181b22;
 }
-body .card .art {
+:is(body, :where(.title-intro)) .card .art {
   position: absolute;
   inset: 0;
   display: block;
@@ -1116,7 +1128,7 @@ body .card .art {
   border-radius: inherit;
   background: radial-gradient(ellipse at 50% 66%, #70543c6e, #141b2499);
 }
-body .card .art img {
+:is(body, :where(.title-intro)) .card .art img {
   position: absolute;
   inset: 0;
   width: 100%;
@@ -1130,7 +1142,7 @@ body .card.item .art img {
   object-fit: contain;
   filter: drop-shadow(0 8px 10px #0009);
 }
-body .card.avatar .art img {
+:is(body, :where(.title-intro)) .card.avatar .art img {
   --shown: calc(var(--figure-height, 1) * 0.78);
   inset: auto;
   top: calc(6% - 100% * var(--figure-top, 0) / var(--shown));
@@ -1140,7 +1152,7 @@ body .card.avatar .art img {
   translate: calc(-100% * var(--head-x, 0.5)) 0;
   object-fit: fill;
 }
-body .card .name {
+:is(body, :where(.title-intro)) .card .name {
   position: absolute;
   inset: auto 0 calc(var(--card-height) * 0.25);
   z-index: 1;
@@ -1160,7 +1172,8 @@ body .card .name {
 .hand > .card-frame:has(~ .card-frame:not([hidden])) .card .name {
   padding-right: calc(var(--fan-overlap) + 8px);
 }
-.hand > .card-frame:has(~ .card-frame:not([hidden])):is(:hover, :focus-within)
+.hand
+  > .card-frame:has(~ .card-frame:not([hidden])):is(:hover, :focus-within)
   .card
   .name,
 .hand > .card-frame:has(> .card[data-selected="true"]) .card .name {
@@ -1214,7 +1227,9 @@ body .card-frame[hidden] {
   inset: 0;
   border: 1px solid #a48d6380;
   border-radius: 13px;
-  background: var(--card-back) center / cover no-repeat, #2a2118;
+  background:
+    var(--card-back) center / cover no-repeat,
+    #2a2118;
   box-shadow: 0 4px 12px #0007;
   pointer-events: none;
 }
@@ -1273,12 +1288,16 @@ body .card.want-card[data-near="true"] {
   pointer-events: none;
 }
 .quest-verb {
-  font: 600 calc(var(--card-height) * 0.042) / 1 system-ui, sans-serif;
+  font:
+    600 calc(var(--card-height) * 0.042) / 1 system-ui,
+    sans-serif;
   letter-spacing: 0.14em;
   text-transform: uppercase;
 }
 .quest-level {
-  font: calc(var(--card-height) * 0.064) / 1 Georgia, serif;
+  font:
+    calc(var(--card-height) * 0.064) / 1 Georgia,
+    serif;
   letter-spacing: 0.08em;
   text-shadow: 0 0 6px var(--tier-color);
 }
@@ -1334,10 +1353,19 @@ body .card.want-card[data-near="true"] {
   translate: -50% 0;
   rotate: -8deg;
   border-radius: 50%;
-  background: radial-gradient(circle at 40% 35%, #fff8, var(--tier-color) 55%, #5b4c22);
-  box-shadow: 0 0 16px var(--tier-color), 0 3px 8px #000a;
+  background: radial-gradient(
+    circle at 40% 35%,
+    #fff8,
+    var(--tier-color) 55%,
+    #5b4c22
+  );
+  box-shadow:
+    0 0 16px var(--tier-color),
+    0 3px 8px #000a;
   color: #1a1408;
-  font: calc(var(--card-height) * 0.085) / 1 Georgia, serif;
+  font:
+    calc(var(--card-height) * 0.085) / 1 Georgia,
+    serif;
   pointer-events: none;
 }
 body .card.want-card[data-met="true"] {
@@ -1350,8 +1378,12 @@ body .card.want-card[data-met="true"] {
   z-index: 200;
   translate: -50% 0;
   color: var(--tier-color);
-  font: 600 18px/1 Georgia, serif;
-  text-shadow: 0 0 8px var(--tier-color), 0 2px 3px #000;
+  font:
+    600 18px/1 Georgia,
+    serif;
+  text-shadow:
+    0 0 8px var(--tier-color),
+    0 2px 3px #000;
   pointer-events: none;
 }
 @media (prefers-reduced-motion: reduce) {
@@ -1449,11 +1481,6 @@ body .card.want-card[data-met="true"] {
   white-space: normal;
 }
 #card-actions button:hover {
-  background: #3c3325;
-}
-#card-actions button[data-queued="true"],
-#card-actions button[data-sent] {
-  border-color: var(--gold);
   background: #3c3325;
 }
 body .card.drag-over {
@@ -1678,6 +1705,35 @@ body[data-hand-expanded="true"] .hand {
 .play-dock[data-selected="true"] .card .name,
 body[data-hand-expanded="true"] .card .name {
   bottom: 0;
+}
+/* A resting hand, or one tucked down for a fight, shows only its cards' art:
+   the names and their shade fade in as the hand rises, a card is chosen, or
+   one is pointed at or focused. The buttons keep their aria-label names. */
+.hand .card .name {
+  transition: opacity 120ms ease-out;
+}
+body[data-hand-expanded="false"]
+  .play-dock:not([data-selected="true"])
+  .hand
+  .card:not(:focus-visible)
+  .name,
+.stage[data-combat="true"] ~ .play-dock .hand .card .name {
+  opacity: 0;
+}
+@media (hover: hover) and (pointer: fine) {
+  body[data-hand-expanded="false"]
+    .stage:not([data-combat="true"])
+    ~ .play-dock:not([data-selected="true"])
+    .hand
+    .card:hover
+    .name {
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hand .card .name {
+    transition: none;
+  }
 }
 /* A resting hand shares the bottom edge with the dialogue on wide screens. */
 @media (min-width: 1100px) and (min-aspect-ratio: 3/2) {
@@ -2034,6 +2090,7 @@ body .beat-live {
 }
 .beat-stack .speech-line {
   cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
 }
 /* An action with no speech is one line, as a play folds into the stream:
    the figure, then the caption, which names who acted. */
@@ -2054,11 +2111,6 @@ body .beat-live {
 }
 #speech-row[data-beat="action"] .dialogue-heading {
   min-height: 0;
-}
-#speech-row[data-beat="action"]:has(#story-error:not([hidden])) {
-  grid-template-areas: "portrait line" "heading heading";
-  grid-template-columns: 28px minmax(0, 1fr);
-  grid-template-rows: auto auto;
 }
 .beat-stack .beat-front[data-beat="silent"] #dialogue-text {
   color: var(--muted);
@@ -2222,7 +2274,7 @@ body .beat-live {
     font-size: 12px;
     line-height: 1.3;
   }
-  .beat-stack .beat-caption + .beat-caption {
+  .beat-stack .beat-caption:not(:last-child) {
     display: none;
   }
   .dialogue:has(#live-line:not([hidden])) .beat-behind {
@@ -2353,7 +2405,11 @@ body .beat-live {
 .beat-stack[data-action="true"]:not([data-dropped="true"]) > #beat-behind,
 .beat-stack[data-action="true"]
   > #speech-row
-  :is(.speech-hint, .line-controls, .beat-caption + .beat-caption) {
+  :is(.speech-hint, .line-controls, .beat-caption:not(:last-child)) {
+  display: none;
+}
+/* A card shows its latest three effects; Memory keeps them all. */
+.beat-stack .beat-caption:nth-last-child(n + 4) {
   display: none;
 }
 .beat-stack[data-action="true"] > #speech-row * {
@@ -2545,8 +2601,7 @@ body .beat-live {
 .beat-action #card-actions button:is(:hover, :focus-visible) {
   background: #dfc38d1f;
 }
-.beat-action #card-actions button:active,
-.beat-action #card-actions button:is([data-queued="true"], [data-sent]) {
+.beat-action #card-actions button:active {
   background: #dfc38d33;
   color: var(--gold);
 }
@@ -2737,7 +2792,11 @@ main > .dialogue {
     bottom: calc(var(--card-height) * (1 - var(--resting-show)));
     padding-top: 24px;
   }
-  body[data-dialogue-over="true"] .play-dock[data-selected="true"] .hand .card .name,
+  body[data-dialogue-over="true"]
+    .play-dock[data-selected="true"]
+    .hand
+    .card
+    .name,
   body[data-dialogue-over="true"][data-hand-expanded="true"] .hand .card .name {
     bottom: calc(var(--card-height) * var(--raised-tuck));
   }
@@ -2747,11 +2806,12 @@ main > .dialogue {
     --dialogue-height: 96px;
   }
 }
-#credits a {
+#credits a,
+#privacy-link {
   color: #e5cb92;
   font-size: 14px;
 }
-/* First-arrival Lonely Forest title (title-intro.mjs). */
+/* The new-world Lonely Forest title (title-intro.mjs). */
 .title-intro {
   position: fixed;
   inset: 0;
@@ -2760,15 +2820,251 @@ main > .dialogue {
   place-items: center;
   background: #000;
   cursor: pointer;
+  outline: none;
 }
-.title-intro img {
+.title-intro > img {
   width: min(76vw, 1400px);
   max-height: 80dvh;
   object-fit: contain;
   opacity: 0;
 }
 @media (max-width: 640px) {
-  .title-intro img {
+  .title-intro > img {
     width: calc(100vw - 32px);
   }
+}
+.title-intro[data-phase="wake"] {
+  cursor: default;
+}
+/* The land acknowledgement comes first, as real text that scrolls in place. */
+.title-ack {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  width: min(34em, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
+  color: #fff4dc;
+  font:
+    1.1rem/1.65 Georgia,
+    serif;
+}
+/* It writes in with the dialogue's reveal (.speech-letter), its letters in
+   place from the start and readable to screen readers throughout; the cue
+   waits until the words are whole. */
+.title-ack .speech-letter {
+  visibility: visible;
+}
+.title-ack[data-stream] .title-continue {
+  opacity: 0;
+}
+.title-ack[data-written] .title-continue {
+  animation: beat-fade 600ms ease 300ms backwards;
+}
+/* A film's opening card: generous leading. */
+.title-ack-text {
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0 4px;
+}
+.title-ack p {
+  margin: 0 0 0.9em;
+}
+/* A short phone (375x667) fits the whole poem without scrolling. */
+@media (max-height: 720px) {
+  .title-ack {
+    font-size: 1rem;
+    line-height: 1.5;
+  }
+  .title-ack p {
+    margin-bottom: 0.7em;
+  }
+}
+/* Each line as written; a line too long for a phone wraps under a hanging
+   indent, so it still reads as one line of the poem. */
+.title-ack-line {
+  display: block;
+  padding-left: 1.2em;
+  text-indent: -1.2em;
+}
+/* The words it pauses on take a gentle tint of their rarity tier's colour
+   (level-tiers.mjs), climbing as the poem goes, with a soft, low glow. It
+   rises as the word is written and fades back slowly as the reveal moves
+   on, like a lamp passing; the last word keeps it. Every tint stays far
+   above AA contrast on the black. Reduced motion shows only the last word's
+   tint, still. */
+.title-ack-glow {
+  transition:
+    color var(--glow-fade, 1200ms) ease-out,
+    text-shadow var(--glow-fade, 1200ms) ease-out;
+}
+.title-ack-glow[data-lit] {
+  color: color-mix(in srgb, var(--tier-color) 55%, #fff4dc);
+  text-shadow: 0 0 6px color-mix(in srgb, var(--tier-color) 40%, transparent);
+  transition-duration: var(--glow-in, 350ms);
+  transition-timing-function: ease;
+}
+@media (prefers-reduced-motion: reduce) {
+  .title-ack-glow,
+  .title-ack-glow[data-lit] {
+    transition: none;
+    text-shadow: none;
+  }
+}
+.title-intro a {
+  color: inherit;
+  text-decoration-color: rgba(255, 244, 220, 0.5);
+}
+.title-ack-text:focus-visible,
+.title-intro a:focus-visible {
+  outline: 2px solid #fff4dc;
+  outline-offset: 3px;
+}
+/* The logo lifts; Wake enters the world, with Privacy beside it. */
+.title-reveal {
+  position: absolute;
+  top: 55%;
+  left: 50%;
+  translate: -50% 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  opacity: 0;
+}
+/* One face-down card, sized as in the hand; its reveal enters the world. */
+.title-card {
+  --card-height: clamp(200px, 30dvh, 280px);
+  position: relative;
+  width: calc(var(--card-height) * 2 / 3);
+  height: var(--card-height);
+}
+.title-card .card {
+  cursor: pointer;
+}
+/* As in the hand: a pointer over the face-down card lifts it (brightens it
+   under reduced motion), and only the keyboard shows its focus ring. */
+@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+  .title-card .card {
+    transition: translate 180ms ease-out;
+  }
+  .title-card .card[data-unrevealed="true"]:hover {
+    translate: 0 -8px;
+  }
+}
+@media (hover: hover) and (prefers-reduced-motion: reduce) {
+  .title-card .card[data-unrevealed="true"]:hover {
+    filter: brightness(1.12);
+  }
+}
+.title-intro[data-pointer] .title-card .card:focus-visible {
+  outline-color: transparent;
+}
+/* The hand shows a card's top three quarters, so its name and shade sit a
+   quarter up; this card shows whole, so they sit on its floor. */
+.title-card .card .name {
+  bottom: 0;
+}
+.title-privacy {
+  padding: 6px 8px;
+  color: #fff4dc;
+  font:
+    0.85rem Georgia,
+    serif;
+  opacity: 0.7;
+}
+.title-continue {
+  padding: 4px 8px;
+  border: 0;
+  background: none;
+  color: #fff4dc;
+  font:
+    italic 0.85rem Georgia,
+    serif;
+  letter-spacing: 0.04em;
+  opacity: 0.6;
+  cursor: pointer;
+}
+@media (max-width: 640px) {
+  .title-reveal {
+    top: 52%;
+  }
+}
+.title-continue:hover {
+  opacity: 0.85;
+}
+.title-continue:focus:not(:focus-visible) {
+  outline: none;
+}
+.title-continue:focus-visible {
+  outline: 2px solid #fff4dc;
+  outline-offset: 3px;
+}
+/* Left alone, the face-down card breathes a faint warm light, slowly, then a
+   quiet line under it says how to turn it (REVEAL_HINT in title-intro.mjs).
+   Reduced motion holds the glow still and shows the line at once. */
+.title-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 13px;
+  box-shadow: 0 0 24px 5px color-mix(in srgb, var(--gold) 50%, transparent);
+  opacity: 0;
+  pointer-events: none;
+}
+.title-reveal[data-idle] .title-card::before {
+  animation:
+    title-glow-in 2s ease-out forwards,
+    title-glow 3.6s ease-in-out 2s infinite alternate;
+}
+@keyframes title-glow-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 0.7;
+  }
+}
+@keyframes title-glow {
+  from {
+    opacity: 0.7;
+  }
+  to {
+    opacity: 0.35;
+  }
+}
+.title-hint {
+  margin: 0;
+  padding: 4px 8px;
+  color: #fff4dc;
+  font:
+    italic 0.85rem Georgia,
+    serif;
+  letter-spacing: 0.04em;
+  opacity: 0;
+  pointer-events: none;
+}
+.title-reveal[data-idle="hint"] .title-hint {
+  opacity: 0.6;
+  pointer-events: auto;
+  animation: beat-fade 1.2s ease backwards;
+}
+@media (prefers-reduced-motion: reduce) {
+  .title-reveal[data-idle] .title-card::before {
+    animation: none;
+    opacity: 0.55;
+  }
+  .title-reveal[data-idle="hint"] .title-hint {
+    animation: none;
+  }
+}
+/* Leaving goes to black, then the black slowly opens on the scene. */
+.title-dark {
+  position: absolute;
+  inset: 0;
+  background: #000;
+}
+.title-intro[data-phase="out"] {
+  pointer-events: none;
 }

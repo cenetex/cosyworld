@@ -125,6 +125,31 @@ jobs:
       - run: npm ci --prefer-offline --no-audit --no-fund
       - run: npm test
 
+  # cargo fmt reads source only, so this job builds nothing and needs no
+  # Cargo cache. It uses the same stable toolchain as ci.yml and deploy.yml
+  # so its formatting matches the .dev train's Rust gate.
+  rustfmt:
+    name: Rust formatting
+    runs-on: ${{ vars.FAST_CHECK_RUNNER || 'ubuntu-latest' }}
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 1
+          sparse-checkout: |
+            v2/orchestrator-rust
+            v2/ai-model-rust
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - name: Check Rust formatting
+        run: |
+          cargo fmt --version
+          if ! cargo fmt --manifest-path v2/orchestrator-rust/Cargo.toml --check; then
+            echo "::error title=Rust formatting::Run 'cargo fmt' in v2/orchestrator-rust and commit the result (the diff above shows the changes)."
+            exit 1
+          fi
+
   smoke:
     name: Browser smoke (${{ matrix.smoke }})
     needs: plan
@@ -179,7 +204,7 @@ jobs:
   fast:
     name: fast
     if: ${{ always() }}
-    needs: [plan, lint, unit, smoke]
+    needs: [plan, lint, unit, rustfmt, smoke]
     runs-on: ${{ vars.FAST_CHECK_RUNNER || 'ubuntu-latest' }}
     steps:
       - name: Verify all fast-check jobs passed

@@ -339,9 +339,17 @@ describe("deploy workflow", () => {
   it("returns .dev to the newer main commit a tag deploy replaced", () => {
     const restore = job("restore-dev", "lonelyforest-image");
     expect(restore).toContain("needs: [primary-fly]");
-    expect(restore).toContain(
-      "if: startsWith(github.ref, 'refs/tags/') && needs.primary-fly.result == 'success'",
+    // dev-deploy is always skipped on a tag, and the implicit success()
+    // then skipped this job on v1.2.116 and v1.2.117.
+    expect(restore).toMatch(
+      /if: >-\n\s+!cancelled\(\) &&\n\s+startsWith\(github\.ref, 'refs\/tags\/'\) &&\n\s+needs\.primary-fly\.result == 'success'\n/,
     );
+    // A partial rerun drops primary-fly's outputs; a superseded tag skipped
+    // its rollout step, so it restores nothing.
+    expect(restore).toContain(
+      '[ "$DEPLOYED" = "true" ] || scripts/rolled-out-in-run.sh "Deploy primary to Fly" "Deploy primary Fly app"',
+    );
+    expect(restore).toContain("if: steps.rolled.outputs.deployed == 'true'");
     expect(restore).toContain("node scripts/last-dev-rollout.mjs");
     // Only a commit ahead of the tag is restored, from its own image.
     expect(restore).toContain("compare/${GITHUB_SHA}...${sha}");
@@ -708,6 +716,30 @@ describe("deploy workflow", () => {
     expect(workflow).not.toContain("\n  aws:");
     expect(job("github-release")).toContain(
       "needs: [production-gate, primary-fly, lonelyforest-fly]",
+    );
+  });
+
+  it("releases a tag both apps rolled out, across partial reruns", () => {
+    const release = job("github-release");
+    // Without !cancelled() the skipped dev-deploy upstream skipped the
+    // release on v1.2.116 and v1.2.117.
+    expect(release).toMatch(
+      /if: >-\n\s+!cancelled\(\) &&\n\s+startsWith\(github\.ref, 'refs\/tags\/'\) &&\n\s+needs\.primary-fly\.result == 'success' &&\n\s+needs\.lonelyforest-fly\.result == 'success'\n/,
+    );
+    expect(release).toContain(
+      'scripts/rolled-out-in-run.sh "Deploy primary to Fly" "Deploy primary Fly app"',
+    );
+    expect(release).toContain(
+      'scripts/rolled-out-in-run.sh "Deploy Lonely Forest to Fly" "Deploy Lonely Forest"',
+    );
+    expect(release).toContain("actions: read");
+    expect(release).toContain("if: steps.shipped.outputs.shipped == 'true'");
+    // The step names the script looks up must match the rollout steps.
+    expect(job("primary-fly", "restore-dev")).toContain(
+      "- name: Deploy primary Fly app\n        id: deploy",
+    );
+    expect(job("lonelyforest-fly", "deploy-outcome")).toContain(
+      "- name: Deploy Lonely Forest\n        id: deploy",
     );
   });
 

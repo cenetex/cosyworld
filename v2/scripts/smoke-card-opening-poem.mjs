@@ -9,7 +9,7 @@ import { packDefinition } from "../card-game/pack-registry.mjs";
 import { profiles } from "../card-game/memory.mjs";
 import { narrativeContext } from "../card-game/narrative.mjs";
 import { openingFixture } from "../../test/helpers/greek-opening.mjs";
-import { selectCard } from "./card-browser-helpers.mjs";
+import { selectCard, wordsFellSilent } from "./card-browser-helpers.mjs";
 
 export async function checkOpeningPoem(browser, origin) {
   const output = new URL("../../output/opening-poem/", import.meta.url);
@@ -157,7 +157,7 @@ export async function checkOpeningPoem(browser, origin) {
           await page.locator('#card-actions [data-action="talk"]').click();
           await settle();
           assert.equal(
-            await page.locator("#story-retry").isVisible(),
+            await wordsFellSilent(page, key),
             false,
             "The bard response is accepted",
           );

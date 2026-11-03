@@ -9,7 +9,8 @@ back through the stack, or they open Memory.
 A beat is one character's moment in the scene:
 
 - their spoken line for that turn, or "…" when their voice did not come;
-- their own committed actions that turn, as short italic captions with an icon.
+- the effects that happened while it was the current card, as short italic
+  captions with an icon, inscribed onto it.
 
 Each caption is one plain sentence, worded from the committed event's fields
 with no AI: sentence case, closing punctuation, short enough for one phone
@@ -26,7 +27,7 @@ blow", a yield is "gave way", and the defeat is "was beaten and sent home".
 | Icon   | Captions                                                                            |
 | ------ | ----------------------------------------------------------------------------------- |
 | ➜      | arrivals, departures, travelling with someone, the viewer's own arrival or boarding |
-| ⌛     | a wait: "Vale waited a turn."                                                       |
+| ⌛     | a wait, a sleep and its wake: "Vale waited a turn.", "Vale woke at dawn."           |
 | ⚔     | threaten, brace, strike and how the blow landed, a standoff ending                  |
 | ↳      | a defeat on the loser's beat: "Vale was beaten and sent home.", "You came to at …"  |
 | ⇄      | give, trade and ask, including refusals                                             |
@@ -38,14 +39,20 @@ Each glyph is the caption's data key. The table draws it as a line-art SVG in
 the toolbar's style (`beatIcons` in `app.mjs`): a hand for take, a smoking
 candle for snuff, a bell for ring, a drop over a lamp for refuelling.
 
-An action with no speech is a beat with only the portrait and its caption,
-drawn as one line: a small round figure, then the caption, which names who
-acted. Most plays are like this: only Talk, Ask and the rules' speech
-occasions speak (see the card guide), so a silent play, a Wait included,
-still leaves its line in the stream. The viewer's own journey opens the new
-visit with one ("Vale boarded the Greek ship.", "Vale arrived from the
-Agora."); Talk is the speech itself and leaves none.
-A character's actions join their first spoken beat of that turn.
+A play's effect never makes a card of its own: it is inscribed onto the card
+current when it happened, under its line, writing in letter by letter with
+the dialogue's reveal at a quicker beat, 300 to 900 ms a caption (instant
+with reduced motion; a tap finishes it). Most plays are like this: only Talk,
+Ask and the rules' speech occasions speak (see the card guide), so a silent
+play, a Wait included, writes its caption onto the line in front, and the
+Thinking card or reply follows as a new card. A new card comes only with a
+new line, so "● live" counts lines, never inscriptions. Only an effect with no
+card before it in the visit, such as the viewer's own arrival ("Vale boarded
+the Greek ship.", "Vale arrived from the Agora."), stands as a card: the
+portrait and the caption, which names who acted. Talk is the speech itself
+and leaves none. Fights keep a beat for each step (see below).
+An inscription counts as revealing: the action beat waits until it is done.
+A card shows its latest three effects; Memory keeps them all.
 
 Only events at the player's current place, during the current visit, become
 beats: what the player's avatar could witness. Beats are read from committed
@@ -53,11 +60,10 @@ journal events and published speech. They add nothing to saves or the shared
 journal, so local and shared play group the same events the same way.
 `v2/card-game/beats.mjs` owns the grouping; `test/card-beats.test.js` checks it.
 
-Speech beats follow speaking order. An action-only beat sits at its first
-action, which is before that turn's speech, so a departure peeks behind the
-reply that followed it. While a reply is being written, the front card is the
-waiting speaker with Thinking and their committed actions; their action-only
-beat folds into it.
+Speech beats follow speaking order. An effect is written onto the card
+before the reply that followed it, so a departure stays on the card it
+interrupted. While a reply is being written, the front card is the waiting
+speaker with Thinking; the play's effect is on the card behind it.
 
 ## The depth stack
 
@@ -67,12 +73,12 @@ Beats are cards in depth, not rows in a scroll:
 - Exactly one earlier beat is a card behind it in depth: the same card,
   scaled to about 94%, dimmer and raised so one line of its top edge peeks
   out above the front card, which casts a soft shadow on it. That line is the
-  speaker, the speech and its first action, truncated.
+  speaker, the speech and its latest effect, truncated.
 - The front card puts the name on top at every size: portrait and name share
   the header row, the speech runs the full width below, and the action
   captions sit under the speech. The card grows to show the whole line, up to
   about seven lines (fewer on a short phone screen), with no scrollbar. On a
-  phone only the first action shows, as one truncated line.
+  phone only the latest effect shows, as one truncated line.
 - On phones and tablets, and on wide screens while the hand is raised, the
   stack sits in a fixed box over the hand's foot.
   The card behind peeks out inside the box, one dimmed line as on wide
@@ -85,6 +91,13 @@ Beats are cards in depth, not rows in a scroll:
   forward, or to finish the line at once while it is still being written.
 - One "● live" control appears only when the player is behind live. It counts
   the newer beats: "● live · 3". There are no previous and next arrows.
+- A new line never pulls a player who stepped back forward: it raises the
+  live count, and the exchange waits to write it until they return. Only the
+  player's own play or a journey returns them to live.
+- The stack holds the whole current visit, as far as the log window reaches
+  (the latest 100 rule events and 100 lines), so the last exchange stays a
+  few steps back after the next play. A journey starts a new visit; earlier
+  visits are in Memory.
 - Desktop also steps with ↑ and ↓ and the wheel over the stack. Phones swipe:
   down brings the earlier card forward, up steps toward live.
 - Steps fade and settle in about 300 ms, eased out, with 2D transform and
@@ -103,13 +116,13 @@ Beats are cards in depth, not rows in a scroll:
 
 ## The action beat
 
-A ready or pending play is a beat too: the action beat, in front of the
+A ready play is a beat too: the action beat, in front of the
 stack. It is one row, vertically centred: on the left who acts and what it
 acts on, drawn as the quest card pairs them (borderless cut-out figures with
 a drop shadow, a little over each other, facing; an item or place a small
 borderless picture); in the middle what the play will do ("Vale takes the
 Burial Decree.", up to two lines) and the status line; on the right its
-buttons (the play, Cancel play, Nudge or Look). Its border takes the level
+buttons (the play, Nudge or Look). Its border takes the level
 tier colour (`level-tiers.mjs`) of the rarest card in the play: actor,
 target, item or place. A play of Common cards keeps the plain border. The buttons are flush
 segments of the box itself, not boxes inside it: full height, split from
@@ -119,18 +132,28 @@ the keyboard. Where the row is too narrow the buttons wrap into a strip
 along the foot under the same divider; the fixed box over the hand on a
 phone keeps them on the right and wraps their words instead. ☰ borrows the
 same beat for a chosen avatar ([avatar menu](avatar-menu.md)). The spoken beat settles behind it as one dimmed line: the card behind. With
-a card chosen the player still steps through the stack: tap that line, use
-↑ and ↓ (from the hand too), the wheel or a swipe anywhere on the stack, and
-"● live" returns. The line crossfades as it steps.
+a card chosen the player still steps through the stack: use ↑ and ↓ (from
+the hand too), the wheel or a swipe anywhere on the stack, and "● live"
+returns. The line crossfades as it steps. A tap on the dimmed line
+moves the lines on; it never steps back. Nothing steps back in time without
+the player's input. The action beat shows only while choosing
+([what is in front](#what-is-in-front)).
 
 When a play commits, its box folds into the stream: it eases down onto the
 front card, the beat the play became (its caption line, or the Thinking card
 when a reply is coming), and fades as that card arrives, in the stack's
 300 ms. The earlier beat recedes behind. Reduced motion crossfades. The
 folded line is a beat read from the committed event, so Memory shows it too.
-A cancelled play's box just leaves and the spoken beat returns. After a
-play the beat rests until the player chooses a card or taps the raised
-hand. Choosing a quest in the open fan takes no
+A chosen play's box leaves at once. Until its scene starts (after any scene
+being read), the play is one Thinking card: the speaker's portrait,
+"Thinking…" and no button. The first tap reads "Tap again to cancel" and the
+second cancels; three seconds, Escape or a tap elsewhere puts it back. A play
+still waiting is withdrawn and its button returns. A committed one (a shared
+play resuming on the server, or a local play awaiting its words) stays saved:
+its caption shows with no line, never "undone". Once a
+play commits (a local play, or a shared play the room is playing) the beat
+leaves and its reply types into the full-size front card. After a play the
+beat rests until the player chooses a card or taps the raised hand. Choosing a quest in the open fan takes no
 turn, so it does not rest the beat: the chosen top quest still offers Drop
 quest. A shared play the server refused or did not
 confirm brings the beat back with its button, so the player can try again.
@@ -139,6 +162,61 @@ The hand never moves for it.
 Combat keeps its stage animations. Each fighter's step also becomes a beat as
 it lands, for example "⚔ Pip struck Vale. Vale stumbled.", and the defeat lands on
 the loser's beat.
+
+## What is in front
+
+One phase decides what the dialogue box shows (`phase()` in
+`v2/card-game/presentation.mjs`, #2017). In order of precedence:
+
+| Phase     | When                                                                          | In front                                   |
+| --------- | ----------------------------------------------------------------------------- | ------------------------------------------ |
+| revealing | the live line is being written, or the exchange has more                      | the line, in its full-size card            |
+| thinking  | a play is queued, or committed less than 5 s ago, and its words have not come | the Thinking card                          |
+| choosing  | the hand is raised with a choice, and none of the above                       | the action beat, the spoken beat behind it |
+| reviewing | the player stepped back behind live                                           | the earlier beat, with ● live              |
+| idle      | otherwise                                                                     | the latest beat                            |
+
+The action beat shows only while choosing. Cards chosen during a line wait
+for it: the line keeps its full card, and the play comes forward once the
+exchange is read. A shared refusal waits for the line too. A tap anywhere
+on a card that is being written, portrait and name included, finishes it.
+A reload shows a line already begun in full, and a play whose words were
+still on the way asks again, quietly, with its Thinking card. Words that
+failed are not asked again. Clicking off the cards, like Escape, clears the choice: the action beat
+fades and the full dialogue card comes back.
+
+Every play in flight is one Thinking card with the speaker's portrait: queued
+here, sent or waiting at a shared table, or committed with its words still on
+the way. A play chosen in an exchange's last reading pause skips the pause,
+so its Thinking card comes at once. Cards chosen meanwhile wait behind it.
+The Thinking chip shows only on that card, never on a line. Dialogue never
+holds play for long: five seconds after a play commits, its slow words stop
+holding the hand. The Thinking card stays, a choice comes forward over it,
+and the late line types in when it arrives. A play made from that choice
+never drops the late line: it waits behind it with its own Thinking card,
+locally as at a shared seat, and runs once the line has typed into its beat
+or fallen silent, so the next scene is asked after it and the lines keep
+their order.
+
+## Words that fail
+
+There is no failure state, note or Retry. Words that do not come (a provider
+error, a timeout, a reply the validator or the shared rules refuse, a worker
+lost mid-scene) are silence: each avatar due to speak shows "…" on its own
+beat, like a quiet JRPG line, and play goes on at once. The "…" is never
+voiced or saved, and nothing asks again for it. A line either arrives whole
+or is "…": a beat never carries both. The browser makes one quiet automatic
+attempt for a temporary error inside the scene's budget before it falls
+silent; a 429 is not retried. The metrics still count each outcome as
+`voice.failed` or `voice.silent`, with no UI.
+
+In shared play the server finishes a play whose words failed as a silent
+scene: no speech op is journaled (exactly as for words that never came, so
+replay and the rules are unchanged), the scene record has no lines, lists
+the due avatars under `silent`, marks `failed: true` and names the play's
+last event in `after`, and the seat frees at once. The table renders that
+record, and any older failed record, as "…" (`withSilence` in
+`v2/card-game/shared.mjs`).
 
 ## Memory
 

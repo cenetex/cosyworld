@@ -1,6 +1,7 @@
 {
-  "about": "Browser smokes for the fast check (.github/workflows/fast-check.yml), chosen by changed paths in scripts/select-fast-smokes.mjs. A changed smoke script runs first, then the rules below in order, up to max. Each smoke serves the static card game; smokes in needsRust start the Rust server and run only in the full suite (ci.yml).",
+  "about": "Browser smokes for the fast check (.github/workflows/fast-check.yml), chosen by changed paths in scripts/select-fast-smokes.mjs. Smokes in always run on every change, before the rest. A changed smoke script runs next, then the rules below in order, up to max more. Each smoke serves the static card game; smokes in needsRust start the Rust server and run only in the full suite (ci.yml).",
   "max": 3,
+  "always": ["smoke-card-boot"],
   "default": ["smoke-card-beat-stack", "smoke-card-actions"],
   "needsRust": [
     "smoke-shared-cards",
@@ -29,7 +30,7 @@
       "smokes": ["smoke-card-music"]
     },
     {
-      "paths": "^v2/card-game/(credits|scene-video)",
+      "paths": "^v2/card-game/credits",
       "smokes": ["smoke-card-credits"]
     },
     {
@@ -41,16 +42,28 @@
       "smokes": ["smoke-card-title-intro"]
     },
     {
+      "paths": "^v2/card-game/title-logo|^v2/card-game/assets/title/",
+      "smokes": ["smoke-card-toolbar-logo"]
+    },
+    {
       "paths": "^v2/card-game/toolbar",
-      "smokes": ["smoke-card-toolbar"]
+      "smokes": ["smoke-card-toolbar", "smoke-card-world-menu"]
     },
     {
       "paths": "^v2/card-game/(avatar-menu|avatar-world|unlock-view)",
       "smokes": [
+        "smoke-card-world-menu",
         "smoke-card-world-slots",
-        "smoke-card-find-hidden",
-        "smoke-card-toolbar"
+        "smoke-card-find-hidden"
       ]
+    },
+    {
+      "paths": "^v2/card-game/(privacy|shared-auth)",
+      "smokes": ["smoke-card-privacy"]
+    },
+    {
+      "paths": "^v2/card-game/metrics",
+      "smokes": ["smoke-card-play-counts"]
     }
   ]
 }

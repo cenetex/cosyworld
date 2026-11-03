@@ -1,6 +1,20 @@
 import { test } from "vitest";
 import assert from "node:assert/strict";
-import { titleIntroWanted } from "../v2/card-game/title-intro.mjs";
+import {
+  STANZA_MS,
+  acknowledgementDelays,
+  acknowledgementGlows,
+  acknowledgementHeld,
+  acknowledgementPauses,
+  titleIntroWanted,
+} from "../v2/card-game/title-intro.mjs";
+import { tiers } from "../v2/card-game/level-tiers.mjs";
+import {
+  REVEAL_FADE_MS,
+  letterDelay,
+  splitLetters,
+} from "../v2/card-game/dialogue.mjs";
+import acknowledgement from "../v2/card-game/acknowledgement.json" with { type: "json" };
 
 const storage = (entries = {}) => ({
   getItem: (key) => (key in entries ? entries[key] : null),
@@ -14,16 +28,16 @@ const wanted = (overrides = {}) =>
     ...overrides,
   });
 
-test("the title greets only a first arrival at the Lonely Forest root", () => {
+test("the title opens a new local world, not a resumed one", () => {
   assert.equal(wanted(), true);
-  for (const key of [
-    "cosyworld.reflected-shore.v1",
-    "cosyworld.playing",
-    "cosyworld.title-intro",
-  ])
+  // A browser that saw it before still sees it for a new world.
+  assert.equal(
+    wanted({ storage: storage({ "cosyworld.title-intro": "seen" }) }),
+    true,
+  );
+  for (const key of ["cosyworld.reflected-shore.v1", "cosyworld.playing"])
     assert.equal(wanted({ storage: storage({ [key]: "x" }) }), false, key);
   for (const href of [
-    "https://lonelyforest.com/?world=w1",
     "https://lonelyforest.com/?table=t",
     "https://lonelyforest.com/?pack=greek-drama",
     "https://hoppy.lonelyforest.com/",
@@ -32,7 +46,18 @@ test("the title greets only a first arrival at the Lonely Forest root", () => {
   assert.equal(wanted({ local: true }), false);
 });
 
-test("blocked storage shows it; automated browsers need ?intro=1", () => {
+test("a shared world shows it once, after this browser made or joined it", () => {
+  const href = "https://lonelyforest.com/?world=w1";
+  assert.equal(wanted({ href }), false);
+  const due = storage({ "cosyworld.title-intro": "w1" });
+  assert.equal(wanted({ href, storage: due }), true);
+  assert.equal(
+    wanted({ href: "https://lonelyforest.com/?world=w2", storage: due }),
+    false,
+  );
+});
+
+test("blocked storage shows it; automated browsers need intro=1", () => {
   const blocked = {
     getItem() {
       throw new Error("blocked");
@@ -40,9 +65,142 @@ test("blocked storage shows it; automated browsers need ?intro=1", () => {
   };
   assert.equal(wanted({ storage: blocked }), true);
   assert.equal(wanted({ storage: null }), true);
+  assert.equal(
+    wanted({ storage: blocked, href: "https://lonelyforest.com/?world=w1" }),
+    false,
+  );
   assert.equal(wanted({ webdriver: true }), false);
   assert.equal(
     wanted({ webdriver: true, href: "https://lonelyforest.com/?intro=1" }),
     true,
   );
+});
+
+test("the acknowledgement is the owner's six stanzas, line by line, and nothing else", () => {
+  assert.deepEqual(acknowledgement.stanzas, [
+    [
+      "Before our forest, there was land.",
+      "Before our story, there were peoples:",
+      "who named the waters,",
+      "who sang the seasons,",
+      "who cared for these lands —",
+      "and who care for them still.",
+    ],
+    [
+      "We honour the keepers",
+      "of the lands beneath our homes",
+      "and beneath the machines we built.",
+    ],
+    [
+      "We honour, too, the voices, old and living,",
+      "whose stories taught those machines — and us —",
+      "to tell our own.",
+    ],
+    ["Nothing here began with us."],
+    [
+      "Behold this intricately carved wooden box,",
+      "its surface rippling with stories",
+      "older than you, or I.",
+    ],
+    ["Open the box. The path is yours."],
+  ]);
+  assert.doesNotMatch(JSON.stringify(acknowledgement.stanzas), /\[hold\]/);
+  assert.equal(acknowledgement.credit, undefined);
+  assert.doesNotMatch(
+    JSON.stringify(acknowledgement),
+    /Cenetex|RATi|Foundation|rati\.foundation/u,
+  );
+});
+
+test("the acknowledgement writes at the dialogue's beat, breathing after its weighty words", () => {
+  const delays = acknowledgementDelays(acknowledgement);
+  const words = acknowledgement.stanzas.flat().join("");
+  const letters = splitLetters(words);
+  assert.equal(delays.length, letters.length);
+  const after = (phrase) =>
+    delays[
+      splitLetters(words.slice(0, words.indexOf(phrase) + phrase.length))
+        .length - 1
+    ];
+  assert.equal(after("there was land."), 320);
+  assert.equal(after("were peoples:"), 320);
+  assert.equal(after("the keepers"), 300);
+  assert.equal(after("Nothing"), 300);
+  // One long silence before "Behold", with no word shown for it.
+  const silence = after("began with us.");
+  assert.ok(silence >= 1500 && silence <= 2000, String(silence));
+  // Other stanzas hold the same breath; nothing else rests past a word
+  // hold, and between rests every letter keeps the dialogue's own beat.
+  const ends = new Set();
+  let at = -1;
+  for (const lines of acknowledgement.stanzas.slice(0, -1))
+    ends.add((at += splitLetters(lines.join("")).length));
+  delays.forEach((ms, i) => {
+    if (ends.has(i)) assert.ok(ms === STANZA_MS || ms === silence);
+    else
+      assert.ok(
+        ms === letterDelay(letters[i]) || (ms >= 300 && ms <= 350),
+        `${i}: ${ms}`,
+      );
+  });
+  assert.ok(STANZA_MS >= 600 && STANZA_MS <= 700);
+  const total = delays.slice(0, -1).reduce((sum, ms) => sum + ms, 28);
+  assert.ok(total > 19_000 && total < 22_000, `${total} ms`);
+  // A letter fades in over less than three beats: at most three are soft.
+  assert.ok(Math.ceil(REVEAL_FADE_MS / 28) <= 3);
+  // Every pause finds its word, in the order the poem reads.
+  const pauses = acknowledgementPauses(acknowledgement);
+  assert.deepEqual(
+    pauses.map(({ word }) => word),
+    acknowledgement.pauses.map(({ word }) => word),
+  );
+  pauses
+    .slice(1)
+    .forEach((p, i) =>
+      assert.ok(p.line > pauses[i].line || p.start > pauses[i].start),
+    );
+});
+
+test("its held words glow in rarity tiers that climb, a lamp passing", () => {
+  const pauses = acknowledgementHeld(acknowledgement);
+  assert.deepEqual(
+    pauses.map(({ word }) => word),
+    [
+      "land",
+      "peoples",
+      "still",
+      "keepers",
+      "living",
+      "Nothing",
+      "box",
+      "yours",
+    ],
+  );
+  const rank = (id) => tiers.find((tier) => tier.id === id).rank;
+  const ranks = pauses.map(({ tier }) => rank(tier));
+  ranks.slice(1).forEach((r, i) => assert.ok(r >= ranks[i], "tiers climb"));
+  assert.equal(ranks[0], 0);
+  assert.equal(ranks.at(-1), tiers.at(-1).rank);
+  // Each word glows from its last letter, then gives it back; at most two
+  // glow at once, and once whole only "yours" stays.
+  const lit = acknowledgementGlows(acknowledgement);
+  const total = splitLetters(acknowledgement.stanzas.flat().join("")).length;
+  pauses.forEach(({ written }, i) => {
+    assert.equal(lit(written - 1, false)[i], false);
+    assert.equal(lit(written, false)[i], true);
+  });
+  let most = 0;
+  for (let shown = 1; shown < total; shown++)
+    most = Math.max(most, lit(shown, false).filter(Boolean).length);
+  assert.equal(most, 2);
+  assert.ok(!lit(pauses[1].written + 80, false)[0], "land fades");
+  assert.deepEqual(
+    lit(total, true),
+    pauses.map(({ word }) => word === "yours"),
+  );
+  // A tap that shows the rest early goes straight to the end, no burst.
+  assert.deepEqual(lit(40, true), lit(total, true));
+  const { glowInMs, glowHoldMs, glowFadeMs } = acknowledgement;
+  assert.ok(glowInMs >= 300 && glowInMs <= 400);
+  assert.ok(glowHoldMs >= 1000 && glowFadeMs >= 800);
 });

@@ -1,4 +1,9 @@
-import { entityActive, packPlaces, packDefinitions } from "./pack-registry.mjs";
+import {
+  entityActive,
+  packPlaces,
+  packDefinitions,
+  transports,
+} from "./pack-registry.mjs";
 import {
   currentActor,
   places,
@@ -118,7 +123,10 @@ function carryFull(world, id) {
 export function cardPlay(world, selected) {
   const cards = [...new Set(selected)];
   const available = availableCards(world);
-  const result = (action, hint) => ({ action, hint: playText(action) || hint });
+  const result = (found, hint) => {
+    const action = shownPlay(world, found, cards);
+    return { action, hint: playText(action) || hint };
+  };
   if (!cards.length || cards.some((id) => !available.includes(id)))
     return result(null, "Choose a card from this hand.");
   if (cards.length > 2) return result(null, "Play one card or a pair.");
@@ -131,6 +139,9 @@ export function cardPlay(world, selected) {
         (target === undefined || a.target === target),
     );
   const here = world.actors[currentActor(world)].place;
+  // Staying here plays what the place offers (ringing its clock) before
+  // Wait; cardActions keeps the Wait only for Sleep (#2027).
+  const stay = () => cardChoices(world, here)[0] || find("wait");
   const use = (id) =>
     id === "lamp"
       ? find(world.items.lamp.lit ? "snuff" : "light", id)
@@ -142,7 +153,7 @@ export function cardPlay(world, selected) {
     if (places[id])
       return result(
         id === here
-          ? find("wait")
+          ? stay()
           : find("move", null, id) || find("course", null, id),
         `Travel to ${nameOf(id)}.`,
       );
@@ -214,7 +225,7 @@ export function cardPlay(world, selected) {
     return result(
       avatar === currentActor(world)
         ? location === here
-          ? find("wait")
+          ? stay()
           : find("move", null, location)
         : actions.find(
             (a) =>
@@ -303,11 +314,49 @@ export function cardActions(world, selected) {
       hint = actions.length ? "" : primary.hint;
     }
   }
+  // A stay offers the place's plays; its Wait stays for restPlays.
+  const here = world.actors[currentActor(world)].place,
+    wait = legalActions(world).find((a) => a.kind === "wait" && !a.sleep);
+  if (
+    wait &&
+    cards.includes(here) &&
+    cards.every((id) => id === here || id === currentActor(world))
+  )
+    actions.unshift(wait);
   return {
     actions: [
       ...new Map(actions.map((action) => [action.key, action])).values(),
     ],
     hint,
+  };
+}
+
+// Aboard a transport under way (course set or at sea), a Wait is the voyage:
+// each round passed carries it on (sailTransports in pack-transport.mjs). The
+// pack names that Wait (waitVerb, waitSentence) when the selection holds the
+// transport's own card: choosing the ship lets it carry us. The avatar alone
+// keeps Wait, and so does a docked ship, where a wait moves nothing. The rules
+// keep their wait and journal either way.
+function underWay(world, actor) {
+  const here = world.actors[actor]?.place;
+  return Object.entries(transports).find(
+    ([id, t]) =>
+      t.place === here &&
+      t.waitVerb &&
+      ["course", "sea"].includes(world.transports?.[id]?.phase),
+  )?.[1];
+}
+function shownPlay(world, action, cards = []) {
+  const t =
+    action?.kind === "wait" &&
+    !action.sleep &&
+    cards.includes(world.actors[action.actor]?.place) &&
+    underWay(world, action.actor);
+  if (!t) return action;
+  return {
+    ...action,
+    label: t.waitVerb,
+    shown: t.waitSentence.replace("{actor}", () => nameOf(action.actor)),
   };
 }
 
@@ -319,7 +368,7 @@ export function playText(action) {
   if (action?.kind === "attack") return `${who} strikes ${other}.`;
   if (action?.kind === "guard") return `${who} braces.`;
   if (action?.kind === "intercept") return `${who} guards ${other}.`;
-  return action?.text;
+  return action?.shown || action?.text;
 }
 
 export function playLabel(action) {
@@ -358,32 +407,24 @@ export function playLabel(action) {
   }[action?.kind];
 }
 
-// A play that has not resolved yet reads as what its actor is doing now: a
-// rules caption from the action kind, never authored dialogue.
-const progress = {
-  accompany: "inviting",
-  threaten: "threatening",
-  guard: "bracing",
-  intercept: "guarding",
-  attack: "striking",
-  take: "taking",
-  drop: "putting down",
-  focus: "choosing a quest",
-  give: "giving",
-  ask: "asking",
-  trade: "trading",
-  light: "lighting",
-  snuff: "putting out",
-  ring: "ringing",
-  cover: "covering",
-  move: "travelling",
-  talk: "talking",
-  wait: "waiting",
-};
-export function playProgress(action) {
-  return action?.kind === "move" && action.item
-    ? "carrying"
-    : progress[action?.kind] || "acting";
+// Sleep is the Wait played again with the same cards still chosen (#2028);
+// otherwise the plain Wait. A sleeper may sleep on or wake by waiting.
+// `cards` is the selection, which names a Wait aboard (shownPlay).
+export function restPlays(world, actions, again, cards = []) {
+  const legal = legalActions(world),
+    sleep = legal.find((a) => a.sleep),
+    wait = legal.find((a) => a.kind === "wait" && !a.sleep);
+  const rested =
+    !sleep || !wait || !actions.some((a) => a.kind === "wait")
+      ? actions
+      : world.actors[currentActor(world)].sleeping
+        ? [sleep, wait, ...actions.filter((a) => a.kind !== "wait")]
+        : actions.map((a) => (a.kind === "wait" ? (again ? sleep : wait) : a));
+  // The plain Wait gives way to any other play; Sleep never does (#2027).
+  const busy = rested.some((a) => a.kind !== "wait");
+  return rested
+    .filter((a) => !busy || a.kind !== "wait" || a.sleep)
+    .map((a) => shownPlay(world, a, cards));
 }
 
 export function cardObservation(world, id) {

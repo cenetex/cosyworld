@@ -123,12 +123,14 @@ export const laneConditions = (from, to) =>
   Object.values(transports)
     .map((t) => laneGate(t, from, to))
     .find(Boolean) ?? null;
-const openLanes = (s, t, dock, actor = null) =>
+// A gated lane's cargo rule binds a voyage with riders. An empty ship
+// answering a call sails any lane between active docks (`empty`).
+const openLanes = (s, t, dock, actor = null, empty = false) =>
   lanesFrom(t, dock).filter((to) => {
     if (!entityActive(s, to)) return false;
     const gate = laneGate(t, dock, to);
     return gate
-      ? conditionsMet(s, t.packId, gate)
+      ? empty || conditionsMet(s, t.packId, gate)
       : knowsLane(s, actor, dock, to);
   });
 // A ship's berth is reachable while some active port shares an open lane
@@ -151,14 +153,14 @@ export function berthOpen(s, place) {
 }
 
 // Shortest open lane path between two docks, or null.
-export function lanePath(s, id, from, to, actor = null) {
+export function lanePath(s, id, from, to, actor = null, empty = false) {
   const t = transports[id];
   const queue = [[from]],
     seen = new Set([from]);
   for (let i = 0; i < queue.length; i++) {
     const path = queue[i];
     if (path.at(-1) === to) return path;
-    for (const next of openLanes(s, t, path.at(-1), actor)) {
+    for (const next of openLanes(s, t, path.at(-1), actor, empty)) {
       if (seen.has(next)) continue;
       seen.add(next);
       queue.push([...path, next]);
@@ -322,6 +324,8 @@ export function waitForTransport(s, place, actor) {
 // A traveller waiting to board brings the empty ship one lane closer. The
 // ship moves at most one lane in a world round, however many people wait.
 // A resident's call never takes the ship away from a human at its dock.
+// With nobody aboard there is no voyage, so no cargo rule: called away from
+// a port it can only reach with cargo, the ship still comes back.
 export function callTransport(s, place, resident = false) {
   for (const [id, t] of Object.entries(transports)) {
     if (!t.docks.includes(place)) continue;
@@ -338,7 +342,7 @@ export function callTransport(s, place, resident = false) {
       passengers(s, id).length
     )
       continue;
-    const path = lanePath(s, id, state.dock, place);
+    const path = lanePath(s, id, state.dock, place, null, true);
     if (path) Object.assign(state, { dock: path[1], since: s.turn });
   }
 }

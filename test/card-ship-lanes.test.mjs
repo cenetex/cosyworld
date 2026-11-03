@@ -11,10 +11,11 @@ import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import { narrativeContext } from "../v2/card-game/narrative.mjs";
 import {
   knowsLane,
+  learnLane,
   summonTransport,
 } from "../v2/card-game/pack-transport.mjs";
 import { knowsFact } from "../v2/card-game/knowledge.mjs";
-import { openSeas } from "./helpers/open-door.mjs";
+import { openDoorStart, openSeas } from "./helpers/open-door.mjs";
 
 const players = ["vale", "mara"];
 const reload = (s) => decodeSave(encodeSave(s));
@@ -72,9 +73,9 @@ describe("knowing a lane is personal", () => {
     expect(knowsLane(s, "vale", "pond", "greek-harbor")).toBe(true);
     expect(knowsLane(s, "vale", "greek-harbor", "pond")).toBe(true);
     expect(knowsLane(s, "mara", "greek-harbor", "greek-piraeus")).toBe(false);
-    expect(knowsLane(s, "greek-antigone", "greek-harbor", "greek-piraeus")).toBe(
-      true,
-    );
+    expect(
+      knowsLane(s, "greek-antigone", "greek-harbor", "greek-piraeus"),
+    ).toBe(true);
     for (const [from, to] of [
       ["greek-harbor", "greek-piraeus"],
       ["greek-marathon", "greek-ajax-landing"],
@@ -85,8 +86,10 @@ describe("knowing a lane is personal", () => {
   // Every lane past the Wine-Dark Harbor now opens with a thing aboard or a
   // story dock, so knowing one changes what Myrto tells, not the course cards.
   it("everyone who sails a lane learns it, both ways", () => {
-    let s = dispatchShared({ op: "create", save: encodeSave(openSeas()) })
-      .world;
+    let s = dispatchShared({
+      op: "create",
+      save: encodeSave(openSeas()),
+    }).world;
     for (const id of players) s.actors[id].place = "greek-piraeus";
     // The roaming Bard may be aboard, bound for Marathon Bay; set him ashore.
     if (s.actors["greek-rhapsode"].place === "greek-ship") {
@@ -97,7 +100,9 @@ describe("knowing a lane is personal", () => {
     s = reload(s);
     s = act(s, "vale", "move", "greek-ship");
     s = act(s, "mara", "move", "greek-ship");
-    // The ship always sails home from Piraeus, for both, known or not.
+    // Vale has sailed home from Piraeus before; Mara has not. The ship
+    // always sails home from Piraeus, for both, known or not.
+    learnLane(s, "vale", "greek-piraeus", "greek-harbor");
     expect(courses(s, "vale")).toContain("greek-harbor");
     expect(knowsLane(s, "mara", "greek-piraeus", "greek-harbor")).toBe(false);
     s = act(s, "vale", "course", "greek-harbor");
@@ -107,10 +112,10 @@ describe("knowing a lane is personal", () => {
   });
 
   it("the Travel Provisions aboard open the Wine-Dark Harbor to Piraeus lane for everyone on deck", () => {
-    const fresh = (dock) => {
+    const fresh = (dock, local = createWorld()) => {
       const s = dispatchShared({
         op: "create",
-        save: encodeSave(createWorld()),
+        save: encodeSave(local),
       }).world;
       for (const id of players) s.actors[id].place = dock;
       summonTransport(s, "greek-ship", dock);
@@ -123,9 +128,15 @@ describe("knowing a lane is personal", () => {
     expect(courses(s, "vale")).toEqual(["greek-harbor"]);
     s = act(fresh("greek-harbor"), "vale", "move", "greek-ship");
     expect(courses(s, "vale")).toEqual(["pond"]);
-    // Mara carries the provisions aboard. Neither has heard the lane; the
-    // thing aboard opens it for both.
+    // Piraeus is Thebes's sea exit: before Dione's invitation the
+    // provisions aboard already sail there (rules 94).
     s = fresh("greek-harbor");
+    s.items["greek-provisions"].holder = "greek-ship";
+    s = act(reload(s), "vale", "move", "greek-ship");
+    expect(courses(s, "vale")).toEqual(["greek-piraeus", "pond"]);
+    // After it, Mara carries the provisions aboard. Neither has heard the
+    // lane; the thing aboard opens it for both.
+    s = fresh("greek-harbor", openDoorStart());
     s.items["greek-provisions"].holder = "mara";
     s = act(reload(s), "vale", "move", "greek-ship");
     expect(courses(s, "vale")).toEqual(["pond"]);
@@ -138,11 +149,16 @@ describe("knowing a lane is personal", () => {
     s = act(s, "vale", "move", "greek-piraeus");
     expect(s.actors.vale.place).toBe("greek-piraeus");
     expect(knowsLane(s, "vale", "greek-harbor", "greek-piraeus")).toBe(true);
-    // The quay lies outside the Open Door; its road inland stays closed.
+    // The quay opens with the Open Door; the Long Walls inland wait for the
+    // herald's truce.
     expect(ask(s, "vale").exits).not.toContain("greek-road-athens-piraeus");
     // The lane home from Piraeus stays open, even with the provisions
-    // left on the quay.
-    expect(courses(s, "mara")).toEqual(["greek-harbor"]);
+    // left on the quay; with them aboard the ship also sails on to the
+    // Hoppy Cat jetty. It no longer rounds the cape to Marathon.
+    expect(courses(s, "mara")).toEqual([
+      "greek-harbor",
+      "hoppycat-signal-jetty",
+    ]);
     s.items["greek-provisions"].holder = "greek-piraeus";
     s = reload(s);
     expect(courses(s, "mara")).toEqual(["greek-harbor"]);
@@ -168,7 +184,7 @@ describe("knowing a lane is personal", () => {
     expect(disclosure.factId).toMatch(/^lane:greek-harbor>/);
     // A gated lane is told with the thing that opens it.
     expect(disclosure.text).toBe(
-      "Ships for Piraeus Quays leave from The Wine-Dark Harbor only with Travel Provisions aboard.",
+      "Ships for Piraeus Quays leave from The Wine-Dark Harbor only with Travel Provisions or something from Hoppy Cat aboard.",
     );
     // Talk context names the lanes Myrto knows from here.
     const myrto = context.entities.find((e) => e.id === "greek-shipmaster");
@@ -189,9 +205,9 @@ describe("knowing a lane is personal", () => {
       text: "The sea is wide tonight.",
     });
     world.eventSeq += 1;
-    expect(publishKnowledgeSpeech(world, world.log.at(-1), [disclosure])).toEqual(
-      [],
-    );
+    expect(
+      publishKnowledgeSpeech(world, world.log.at(-1), [disclosure]),
+    ).toEqual([]);
     world.log.at(-1).text = `Listen. ${disclosure.text} Go well.`;
     expect(
       publishKnowledgeSpeech(world, world.log.at(-1), [disclosure]),

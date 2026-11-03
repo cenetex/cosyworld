@@ -24,12 +24,22 @@ mod full_world;
 mod homecoming_tests;
 #[cfg(test)]
 mod hoppycat_tests;
+#[cfg(test)]
+mod import_tests;
 mod kernel;
 mod narrator;
+/// The shared narrator's dialogue context, for the story service's parity
+/// tests.
+#[cfg(test)]
+pub(crate) fn narrator_context(request: &Value) -> Result<Value> {
+    narrator::context(request)
+}
 #[cfg(test)]
 mod opening_tests;
 #[cfg(test)]
 mod quest_core_tests;
+#[cfg(test)]
+mod road_upgrade_tests;
 #[cfg(test)]
 mod saved_items;
 #[cfg(test)]
@@ -37,7 +47,11 @@ mod sea_steps;
 #[cfg(test)]
 mod section_tests;
 #[cfg(test)]
+mod sleep_tests;
+#[cfg(test)]
 mod speech;
+#[cfg(test)]
+mod speech_tests;
 mod store;
 mod sync;
 #[cfg(test)]

@@ -174,7 +174,7 @@ try {
       await revealCard(page, "greek-ship");
       assert.equal(
         await card("greek-ship").locator(".name").innerText(),
-        "Greek ship",
+        "The Charybdis",
       );
       // From the pond the ship's card shows where it goes: the deck, not
       // the Black Pond painting of it (the stage keeps the docked ship).

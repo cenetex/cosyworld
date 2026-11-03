@@ -1,5 +1,11 @@
 /* Standoff beats: poses, telegraphs, resolve pips, outcome words, the
    defeat card. Motion runs through element.animate in combat-view.mjs. */
+/* A painting's measured fit (combat-portraits.mjs) about the figure's foot. */
+.portrait-body > img {
+  transform-origin: 50% 100%;
+  translate: 0 var(--pose-drop, 0);
+  scale: var(--pose-scale, 1);
+}
 .portrait[data-combat-art] .portrait-held-item {
   visibility: hidden;
 }
@@ -35,14 +41,16 @@
   transform-origin: 50% 62%;
 }
 
+/* The caption reads under the top bar, never over the place name. It keeps
+   one width at each breakpoint, so a new beat never resizes or re-centres
+   it; the words crossfade (combat-view.mjs) over a ghost of the last ones. */
 .combat-caption {
   position: absolute;
   z-index: 5;
-  top: 14px;
+  top: 64px;
   left: 50%;
   translate: -50% 0;
-  width: max-content;
-  max-width: calc(100% - 32px);
+  width: min(26em, calc(100% - 32px));
   margin: 0;
   padding: 7px 14px;
   border: 1px solid #a38b64;
@@ -55,11 +63,17 @@
   text-align: center;
 }
 
+.combat-caption[aria-hidden] {
+  pointer-events: none;
+  border-color: transparent;
+  background: none;
+}
+
 .combat-telegraph {
   position: absolute;
   z-index: 4;
   left: 50%;
-  top: -6%;
+  top: -1%;
   width: clamp(26px, 18%, 42px);
   aspect-ratio: 1;
   translate: -50% 0;
@@ -198,14 +212,40 @@
   font-size: 16px;
 }
 
+/* Phones keep the caption below the toolbar's logo and menu button, at
+   most three short lines; the beat's full text reads in the story. */
 @media (max-width: 640px) {
   .combat-caption {
-    top: 8px;
-    font-size: 14px;
+    top: 60px;
+    width: min(24em, calc(100% - 32px));
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+    line-clamp: 3;
+    overflow: hidden;
+    padding: 5px 12px;
+    font-size: 13px;
+    line-height: 1.35;
   }
   .combat-word {
     font-size: 14px;
   }
+}
+
+/* While the beats play, the locked hand tucks down to a strip of card tops,
+   so it covers neither the fighters' feet nor the impact; it rises back to
+   where the player left it as the beats end. */
+.stage[data-combat="true"] ~ .play-dock {
+  translate: 0 calc(100% - 44px);
+}
+.play-dock {
+  transition: translate 280ms ease-in-out;
+}
+/* The beat card steps out of the fight too: its strip would cover the
+   fighters' feet and still read the beat from before the fight. The caption
+   carries the fight, and the card returns with the speech that follows. */
+body .stage[data-combat="true"] ~ .dialogue.beat-stack[data-dropped="true"] {
+  opacity: 0;
 }
 
 /* In battle the current exchange steps to the front slots and the other
@@ -226,8 +266,40 @@
 #cast[data-battle] .portrait[data-battle-row="back"] .portrait-body {
   filter: brightness(0.7) saturate(0.8);
 }
-@media (prefers-reduced-motion: reduce) {
+/* Phones pin the ordinary three-person scene's foreground figures to one
+   side (style.css), which would stack both fighters of an exchange. In
+   battle each combatant stands on its own mark from combat-view.mjs: the
+   exchange at the two sides, facing each other, the rest behind the middle. */
+@media (max-width: 700px) {
+  #cast[data-battle] .portrait[data-battle-row] {
+    left: var(--battle-x, var(--stage-x));
+  }
+  /* The exchange shares one scale whatever each painting's framing, so a
+     strike painting swapping in never resizes its fighter. Each stays on
+     screen: a mark keeps about half the widest painting from either edge.
+     The margin is the same for every fighter, so the exchange keeps the
+     middle that combat-view.mjs turns those waiting toward. */
+  #cast[data-battle] .portrait[data-battle-row="front"] {
+    height: min(calc(var(--stage-size) * 0.8), 88vw);
+    left: clamp(32vw, var(--battle-x), calc(100% - 32vw));
+  }
+  /* Stepping from the scene's close-up into the two-shot is one slow
+     camera move: no push-in zoom against it (combat-view.mjs). */
   .stage[data-combat="true"] #cast[data-battle] .portrait {
+    transition:
+      left 0.6s ease-in-out,
+      bottom 0.6s ease-in-out,
+      height 0.6s ease-in-out;
+  }
+  /* Those waiting stand further back, smaller, between the two sides. */
+  #cast[data-battle] .portrait[data-battle-row="back"] {
+    height: calc(var(--stage-size) * 0.5);
+    bottom: calc(var(--stage-floor) + 7%);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .stage[data-combat="true"] #cast[data-battle] .portrait,
+  .play-dock {
     transition: none;
   }
   .combat-aim .portrait-body > img,
@@ -250,4 +322,14 @@
 .combat-effect[data-effect^="swipe"],
 .combat-effect[data-effect^="jab"] {
   width: clamp(120px, 130%, 360px);
+}
+/* A swipe starts at the attacker and travels toward the target, so a fighter
+   at the stage edge keeps its trail on screen. */
+.combat-effect[data-effect^="swipe-right"],
+.combat-effect[data-effect^="jab-right"] {
+  translate: -25% -50%;
+}
+.combat-effect[data-effect^="swipe-left"],
+.combat-effect[data-effect^="jab-left"] {
+  translate: -75% -50%;
 }

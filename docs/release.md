@@ -34,7 +34,9 @@ Owner controls:
   minutes late, so keep the interval at 15 minutes or more.
 
 CI follows the same budget. The fast check (`fast-check.yml`, about five
-minutes) runs on each pull request and each main push. The full suite
+minutes) runs on each pull request and each main push, including the boot
+smoke and `cargo fmt --check` for the Rust orchestrator; clippy and the Rust
+tests stay on the .dev train's Rust gate. The full suite
 (`ci.yml`) runs only by hand; run it on a train's commit, not per pull
 request, when a release needs it.
 
@@ -51,6 +53,15 @@ the tag rollout would leave `.dev` on that older commit, so the
 `Return .dev to the main commit it ran` job then rolls `.dev` back to the
 last train's commit, from that commit's existing `deploy-<sha>` image, and
 runs the same readiness and card-game smokes. It deploys nothing new.
+
+`Create GitHub release` and the `.dev` return run on a tag even though
+`Deploy main to .dev` is always skipped there (an implicit `success()` skipped
+both on 1.2.116 and 1.2.117). Each decides whether the tag rolled out from
+the rollout job's `deployed` output or, when `gh run rerun --failed` dropped
+it, from `scripts/rolled-out-in-run.sh`, which looks for a successful rollout
+step in any attempt of the run. A superseded rollout skips that step, so it
+gets neither. If a release is still missing after a tag's rollouts, create
+it with `gh release create vX.Y.Z --generate-notes --verify-tag`.
 
 The train job:
 
@@ -218,6 +229,24 @@ fly secrets set --app cosyworld COSYWORLD_DEV_TEST_PASSKEY='<printed JSON>'
 gh secret set COSYWORLD_DEV_TEST_PASSKEY_SECRET --repo cenetex/cosyworld \
   < ~/.config/cosyworld/dev-test-passkey.json
 ```
+
+### Signing key
+
+The story service signs the dialogue lines, thoughts, personas and dreams it
+writes, and checks them when a browser sends them back
+([signed envelopes](design/signed-envelopes.md#keys)). No secret is needed:
+on first start each app makes its key and keeps it in the `signing_keys`
+table of its event database on `/data`. Each app runs one machine with one
+volume, so that is the only copy, and the Fly volume snapshots that back up
+the journal back up the key too. `/.well-known/cosyworld-signing-keys.json`
+shows the current `kid`.
+
+- **Rotate:** deploy once with `COSYWORLD_SIGNING_KEY_ROTATE=<new kid>` (for
+  example staged with `fly secrets set --stage … -a <app>`). Old keys keep
+  verifying.
+- **Override:** `COSYWORLD_SIGNING_KEY=<kid>:<seed>` signs instead of the
+  stored key. Use it only for recovery onto a fresh volume or for an app that
+  runs several machines with separate volumes.
 
 ### Setting Fly secrets
 
@@ -419,6 +448,11 @@ Owner controls:
 ## Upgrade and recovery
 
 Keep the existing SQLite and generated-asset volumes attached during an upgrade.
+The event database also holds the dialogue signing keys (`signing_keys`).
+Restoring a volume snapshot restores them, so remembered words signed before
+the snapshot still verify. A recovery onto a fresh volume makes a new key, and
+words signed by the old one drop out of context; to keep them, restore the
+database or set the old key as `COSYWORLD_SIGNING_KEY`.
 The runtime restores the latest accepted checkpoint, replays the retained journal
 suffix, and refuses incompatible world-pack or generated-descendant state rather
 than silently replacing it. A normal release must report zero checkpoint
@@ -430,6 +464,12 @@ input documented in [`deployment/07-deployment.md`](deployment/07-deployment.md)
 and verify the resulting bundle hash and journal cursor before cutting the next
 tag. Prefer a forward fix over rolling an active persistent world back across a
 schema or world-pack boundary.
+
+Shared rules v88 added the `reflect` journal op
+([shared worlds](../v2/docs/card-table/shared-worlds.md#learning-and-private-reflection)).
+A build from before v88 cannot replay it, so a rollback past v88 leaves any
+world that journaled a reflection unable to load until a v88 build returns.
+This rollback limit is accepted. Roll forward instead.
 
 ## Lonely Forest operations
 

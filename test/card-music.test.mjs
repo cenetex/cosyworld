@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createRoomMusic } from "../v2/card-game/music.mjs";
+import { createRoomMusic, openingRevealed } from "../v2/card-game/music.mjs";
+import { createWorld, legalActions, play } from "../v2/card-game/world.mjs";
 
 beforeEach(() => {
   vi.useFakeTimers();
@@ -288,6 +289,46 @@ describe("songs that follow the player", () => {
     expect(audio.paused).toBe(true);
   });
 
+  it("wakes an interrupted phone context and fades back in from the same place", async () => {
+    const { audio, music, context, begin, level } = player();
+    await begin("station");
+    audio.currentTime = 35;
+    music.setHidden(true);
+    await advance(1000);
+    expect(audio.paused).toBe(true);
+    // iOS Safari reports "interrupted" after the app switch.
+    context.state = "interrupted";
+    context.resume.mockImplementation(async () => (context.state = "running"));
+    music.setHidden(false);
+    await advance(0);
+    expect(context.resume).toHaveBeenCalled();
+    expect(audio.paused).toBe(false);
+    expect(audio.currentTime).toBe(35);
+    expect(audio.play).toHaveBeenCalledTimes(2);
+    expect(audio.load).toHaveBeenCalledOnce();
+    await advance(200);
+    expect(level()).toBeCloseTo(0.15);
+    await advance(200);
+    expect(level()).toBeCloseTo(0.3);
+    // A refused wake retries on the next gesture, without a second play.
+    music.setHidden(true);
+    await advance(1000);
+    context.state = "interrupted";
+    context.resume.mockImplementation(() => Promise.reject(new Error("no")));
+    audio.play.mockImplementationOnce(() => Promise.reject(new Error("no")));
+    music.setHidden(false);
+    await advance(500);
+    expect(audio.paused).toBe(true);
+    context.resume.mockImplementation(async () => (context.state = "running"));
+    music.unlock();
+    await advance(500);
+    expect(context.state).toBe("running");
+    expect(audio.paused).toBe(false);
+    expect(audio.currentTime).toBe(35);
+    music.unlock();
+    expect(audio.play).toHaveBeenCalledTimes(4);
+  });
+
   it("keeps the volume through travel and eases the volume control", async () => {
     const { music, level, begin } = player();
     await begin();
@@ -394,5 +435,35 @@ describe("songs that follow the player", () => {
     await advance(500);
     expect(level()).toBe(0);
     expect(pauseLevels.every((value) => value === 0)).toBe(true);
+  });
+});
+
+describe("opening music", () => {
+  const act = (world, kind) => {
+    const action = legalActions(world).find(
+      (a) => a.kind === kind && (kind === "wait" || a.item === "lamp"),
+    );
+    const result = play(world, action, world.revision);
+    expect(result.ok).toBe(true);
+    return result.state;
+  };
+  it("waits in the attic until the mirror first shows the pond", () => {
+    let world = createWorld({ opening: true, seed: 7 });
+    expect(openingRevealed(world, "vale")).toBe(false);
+    world = act(world, "wait");
+    expect(world.turn).toBe(1);
+    expect(openingRevealed(world, "vale")).toBe(false);
+    world = act(world, "snuff");
+    expect(openingRevealed(world, "vale")).toBe(true);
+    // Relighting closes the mirror; the reveal has still happened.
+    world = act(world, "light");
+    expect(openingRevealed(world, "vale")).toBe(true);
+  });
+  it("plays as before without the attic opening", () => {
+    expect(openingRevealed(createWorld({ seed: 7 }), "vale")).toBe(true);
+    const world = createWorld({ opening: true, seed: 7 });
+    expect(openingRevealed(world, "pip")).toBe(true);
+    world.actors.vale.place = "cottage";
+    expect(openingRevealed(world, "vale")).toBe(true);
   });
 });

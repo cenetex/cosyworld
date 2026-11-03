@@ -1,6 +1,6 @@
 {
   "name": "cosyworld",
-  "version": "1.2.115",
+  "version": "1.2.119",
   "description": "A persistent card world with local and shared play",
   "type": "module",
   "private": true,
@@ -85,6 +85,8 @@
     "desktop:build": "python3 v2/desktop/build.py",
     "v2:card:images:build": "node v2/scripts/build-card-images.mjs",
     "v2:card:images:check": "node v2/scripts/build-card-images.mjs --check",
+    "v2:card:ship-art:build": "node v2/scripts/build-ship-artpack.mjs",
+    "v2:card:ship-art:check": "node v2/scripts/build-ship-artpack.mjs --check",
     "v2:card:music:build": "node v2/scripts/build-card-music.mjs",
     "v2:card:music:check": "node v2/scripts/build-card-music.mjs --check",
     "v2:card:travel:smoke": "node v2/scripts/smoke-card-greek-travel.mjs"

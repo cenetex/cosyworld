@@ -39,6 +39,19 @@ try {
     // page then plays a fresh world instead.
     for (const a of Object.values(fixture.actors))
       if (a.place === "greek-ship") a.place = "greek-harbor";
+    // Residents never call the ship away from a human at its dock, so it
+    // leaves the harbor only when a resident boards. Seed the Bard there,
+    // bound for the shore.
+    if (place === "greek-harbor")
+      Object.assign(fixture.actors["greek-rhapsode"], {
+        place,
+        want: {
+          kind: "place",
+          target: "pond",
+          since: fixture.turn,
+          refusals: 0,
+        },
+      });
     summonTransport(fixture, "greek-ship", away);
     assert.equal(fixture.transports["greek-ship"].dock, away);
     decodeSave(encodeSave(fixture));
@@ -204,9 +217,8 @@ try {
       hit: true,
     });
     assert.equal(await frame.count(), 1);
-    // Wait until the ship sails without the player; it fades out. Residents
-    // never call it away from a human, so at the harbor it leaves only when
-    // the Bard wanders aboard (about 19 rounds with the doused opening).
+    // Wait until the ship sails without the player; it fades out. At the
+    // harbor it leaves once the seeded Bard boards.
     for (let n = 0; n < 32 && (await ship()).dock === place; n++)
       fade = await wait();
     assert.notEqual((await ship()).dock, place, "the ship sails on");

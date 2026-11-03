@@ -3,7 +3,7 @@
 // scene. Dialogue wording lives in narrative.mjs, outside the shared engine.
 // See docs/design/pack-content-outside-the-engine.md.
 import { profiles, validInnerLife } from "./memory.mjs";
-import { dialogueCast, speechMemories } from "./scene-cast.mjs";
+import { dialogueCast, restingWake, speechMemories } from "./scene-cast.mjs";
 
 // The part of a dialogue context that reflections read.
 export function reflectionContext(world, action = null) {
@@ -133,7 +133,13 @@ function reflectionSources(world, context, id) {
     .sort((a, b) => a.seq - b.seq);
 }
 
-export function saveReflection(world, context, entry, fallbackModel) {
+export function saveReflection(
+  world,
+  context,
+  entry,
+  fallbackModel,
+  turn = world.turn,
+) {
   const memory = world.memories[entry.id];
   const previous = memory.innerLife || {
     persona: null,
@@ -144,7 +150,7 @@ export function saveReflection(world, context, entry, fallbackModel) {
   memory.reflections = [
     ...(memory.reflections || []),
     {
-      turn: world.turn,
+      turn,
       previousPersona: previous.persona,
       persona: r.persona,
       thought: r.thought,
@@ -159,14 +165,84 @@ export function saveReflection(world, context, entry, fallbackModel) {
   ].slice(-4);
   memory.innerLife = {
     persona: r.persona,
-    thoughts: [
-      ...previous.thoughts,
-      { turn: world.turn, text: r.thought },
-    ].slice(-4),
+    thoughts: [...previous.thoughts, { turn, text: r.thought }].slice(-4),
     dreams: r.dream
-      ? [...previous.dreams, { turn: world.turn, text: r.dream }].slice(-4)
+      ? [...previous.dreams, { turn, text: r.dream }].slice(-4)
       : previous.dreams,
   };
+}
+
+// A shared world journals reflections in their own `reflect` op after the
+// speech they follow, so they never delay its line (#2016). The op names the
+// speech's turn and evidence; the check and the saved moments use that turn.
+// Each avatar's thoughts move forward: an older reflection arriving after a
+// newer one is no longer due. The op journals the scene's resting avatar and
+// rest kind; only the op's own actor can be resting, and only by a Wait the
+// log still holds for that turn, so a long rest wakes that one avatar.
+const restedAt = (world, actor, turn, rest) =>
+  world.log.some(
+    (e) =>
+      e.verb === "wait" &&
+      e.actorId === actor &&
+      e.turn === turn &&
+      (rest !== "long" || e.rest === "long"),
+  ) ||
+  (rest === "long" && restingWake(world.log, actor, turn)?.rest === "long");
+export function applyLaterReflections(world, request) {
+  const { turn, entries } = request;
+  const resting = request.resting ?? null;
+  const rest = request.rest ?? null;
+  if (
+    !Number.isInteger(turn) ||
+    turn < 1 ||
+    turn > world.turn ||
+    (rest !== null && rest !== "long") ||
+    (rest === "long" && resting === null) ||
+    (resting !== null &&
+      (resting !== request.actor || !restedAt(world, resting, turn, rest))) ||
+    !Array.isArray(entries) ||
+    !entries.length ||
+    entries.length > 2 ||
+    new Set(entries.map((e) => e?.id)).size !== entries.length
+  )
+    throw new Error("Use the saved scene's character reflections.");
+  for (const entry of entries) {
+    const memory = world.memories[entry.id];
+    const saved = memory ? [...memory.events, ...(memory.landmarks || [])] : [];
+    const evidence = entry.reflection?.evidence;
+    const sources = Array.isArray(evidence)
+      ? evidence.map((seq) =>
+          saved.find((m) => m.seq === seq && m.turn <= turn),
+        )
+      : [];
+    if (!entry.reflection || !sources.length || sources.some((m) => !m))
+      throw new Error("Use a reflection grounded in the saved scene.");
+    const context = {
+      turn,
+      resting,
+      ...(rest ? { rest } : {}),
+      entities: [
+        {
+          id: entry.id,
+          memories: sources.map(({ seq, turn, text }) => ({
+            kind: "event",
+            seq,
+            turn,
+            text,
+          })),
+        },
+      ],
+    };
+    if (!validReflection(entry, world, context))
+      throw new Error("Use a reflection grounded in the saved scene.");
+    saveReflection(
+      world,
+      context,
+      entry,
+      entry.model || "card-voices-v1",
+      turn,
+    );
+  }
 }
 
 // Shared publication checks against the saved world before committing its text.

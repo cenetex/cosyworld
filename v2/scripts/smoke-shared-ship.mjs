@@ -151,11 +151,11 @@ try {
         );
         assert.equal(world.actors[actor].place, target);
       }
-      // The port card aboard sets the course; the deck card waits a round.
+      // The port card aboard sets the course; the deck card sails a round (Sail).
       async function sail(page, port) {
         await playCard(page, port, "Set course");
         assert.equal(world.transports["greek-ship"].phase, "sea");
-        await playCard(page, "greek-ship", "Wait");
+        await playCard(page, "greek-ship", "Sail");
         assert.equal(world.transports["greek-ship"].phase, "arrived");
         assert.equal(world.transports["greek-ship"].dock, port);
       }
@@ -189,7 +189,7 @@ try {
       await vale.screenshot({
         path: new URL(`at-sea-${width}.png`, output).pathname,
       });
-      await playCard(vale, "greek-ship", "Wait");
+      await playCard(vale, "greek-ship", "Sail");
       await move(vale, "vale", "greek-harbor");
       assert.equal(world.transports["greek-ship"].dock, "greek-harbor");
       await mara

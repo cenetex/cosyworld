@@ -322,7 +322,7 @@
       "schemaVersion": 1,
       "id": "greek-drama",
       "packId": "cosyworld.greek-drama",
-      "revision": 17,
+      "revision": 18,
       "name": "The Wine-Dark Sea",
       "description": "A branching Greek drama world. A shared ship visits the Wine-Dark Harbor, Athens Harbor and Piraeus. One road joins Athens and Piraeus, and short paths lead to the Attic places where welcome becomes a growing poem.",
       "tone": "Concrete Greek domestic and civic life: bread, work, desire, grief, argument, irreverence, and hospitality. Dialogue expresses committed actions. A tragic ending is never required.",
@@ -367,7 +367,8 @@
           "text": "Worn steps climb from the stone landing toward the town.",
           "exits": [
             "greek-road-thebes",
-            "greek-argolid-road"
+            "greek-argolid-road",
+            "greek-road-north"
           ],
           "backdrop": "assets/greek-drama/harbor-open-berth.webp",
           "persona": "Worn steps climb from the stone landing toward the town."
@@ -447,9 +448,7 @@
         "greek-battlefield": {
           "name": "The Exposed Battlefield",
           "text": "Broken spear shafts lie in the dust. A strip of earth outside the city is set apart for the fallen brother.",
-          "exits": [
-            "greek-gate"
-          ],
+          "exits": [],
           "backdrop": "assets/greek-drama/burial-ground-dusk.webp",
           "persona": "Broken spear shafts lie in the dust. A strip of earth outside the city is set apart for the fallen brother."
         },
@@ -518,9 +517,7 @@
         "greek-piraeus": {
           "name": "Piraeus Quays",
           "text": "Folded cloth, a grain basket and a low bench stand beside the mooring ropes. A host waits for the names of returning families. The Long Walls run inland to Athens.",
-          "exits": [
-            "greek-road-athens-piraeus"
-          ],
+          "exits": [],
           "backdrop": "assets/greek-drama/piraeus-open-berth.webp",
           "persona": "These quays hold the practical work of welcome. A reserved berth records a promise and supplies at this quay. The host speaks about the actual list, cloth and basket and the traveler’s chosen terms."
         },
@@ -604,7 +601,7 @@
         },
         "greek-colonus": {
           "name": "Colonus Grove",
-          "text": "A cup and a small pot of honey stand at the grove’s edge. A keeper rests beside a smooth stone. Country paths lead to Eleusis, the farm and the Marathon altar.",
+          "text": "A cup and a small pot of honey stand at the grove’s edge. A keeper rests beside a smooth stone. Country paths lead to Eleusis and the farm. Travelers speak of an altar at Marathon beyond the hills.",
           "exits": [
             "greek-eleusis",
             "greek-marathon",
@@ -900,14 +897,20 @@
         "greek-lemnos": {
           "name": "The Lemnian Cave",
           "text": "A rough bed lies inside the cave. Footprints lead toward a bow wrapped against the salt air.",
-          "exits": [],
+          "exits": [
+            "greek-piraeus"
+          ],
+          "retired": true,
           "backdrop": "assets/greek-drama/lemnian-cave-day.webp",
           "persona": "A rough bed lies inside the cave. Footprints lead toward a bow wrapped against the salt air."
         },
         "greek-thrace": {
           "name": "The Thracian Shore",
           "text": "A fleet waits beyond the breakers. Captive households search among the new arrivals.",
-          "exits": [],
+          "exits": [
+            "greek-piraeus"
+          ],
+          "retired": true,
           "backdrop": "assets/greek-drama/thracian-shore-day.webp",
           "persona": "A fleet waits beyond the breakers. Captive households search among the new arrivals."
         },
@@ -928,14 +931,20 @@
         "greek-tauris": {
           "name": "The Taurian Temple",
           "text": "A walled temple overlooks the landing place. An attendant counts the people brought ashore.",
-          "exits": [],
+          "exits": [
+            "greek-piraeus"
+          ],
+          "retired": true,
           "backdrop": "assets/greek-drama/tauris-shore-scene.webp",
           "persona": "A walled temple overlooks the landing place. An attendant counts the people brought ashore."
         },
         "greek-sicily": {
           "name": "The Sicilian Cave",
           "text": "Sheep crowd a stone enclosure beside the cave. Wine jars stand beyond the shepherds' reach.",
-          "exits": [],
+          "exits": [
+            "greek-piraeus"
+          ],
+          "retired": true,
           "backdrop": "assets/greek-drama/book-three-lemnos-day.webp",
           "persona": "Sheep crowd a stone enclosure beside the cave. Wine jars stand beyond the shepherds' reach."
         },
@@ -953,7 +962,7 @@
           "name": "The Scythian Crag",
           "text": "Iron bonds fix a figure to the rock. A narrow ledge allows visitors to approach.",
           "exits": [
-            "greek-tauris"
+            "greek-piraeus"
           ],
           "backdrop": "assets/greek-drama/grove.svg",
           "persona": "Iron bonds fix a figure to the rock. A narrow ledge allows visitors to approach.",
@@ -990,9 +999,9 @@
           "retired": true
         },
         "greek-ship": {
-          "name": "Greek ship",
+          "name": "The Charybdis",
           "text": "Water passes beneath the hull. The shipmaster watches the shores. Open ports wait beyond the rail.",
-          "persona": "A shared ship. On the west sea it serves Black Pond, the Wine-Dark Harbor and Piraeus Quays; around the cape it reaches Marathon Bay. On the east sea it sails from Marathon to the Trojan camp landing and the Far Shores. The first passenger ashore chooses the arrival port for everyone aboard. New passengers can board there for the next voyage.",
+          "persona": "A named ship, the Charybdis, on the Black Pond route. It sails between Black Pond and the Wine-Dark Harbor with no cargo and always comes home that way. Beyond the harbor it sails out to Piraeus Quays and on to the Hoppy Cat jetty only with the Travel Provisions or something from Hoppy Cat aboard; every way back toward Black Pond is free. Marathon Bay, the Trojan shore and the Far Shores are only rumours on the quays: no ship sails there now. The first passenger ashore chooses the arrival port for everyone aboard. New passengers can board there for the next voyage.",
           "exits": [],
           "backdrop": "assets/greek-drama/ship-deck.webp",
           "art": "assets/greek-drama/ship-card.webp",
@@ -1088,7 +1097,7 @@
         "greek-road-athens-piraeus": {
           "name": "The Long Walls",
           "text": "A road runs between two long walls from the city to its port. One end leads to Piraeus Quays; the other leads to Athenian Agora. A stone bench rests beside the verge.",
-          "persona": "A shared road between Piraeus Quays and Athenian Agora. The left end always leads to Piraeus Quays. The right end always leads to Athenian Agora. From the Agora the walls open only while the Suppliant’s Olive Branch is in the Agora. Travelers can meet, talk, rest and carry their belongings here.",
+          "persona": "A shared road between Piraeus Quays and Athenian Agora. The left end always leads to Piraeus Quays. The right end always leads to Athenian Agora. The walls open from either end once the herald has registered the mothers’ plea with the Suppliant’s Olive Branch in the Agora. Travelers can meet, talk, rest and carry their belongings here.",
           "exits": [
             "greek-piraeus",
             "greek-athens"
@@ -1247,6 +1256,35 @@
           "backdrop": "assets/greek-drama/colonists-road.svg",
           "retired": true
         },
+        "greek-road-coast": {
+          "name": "The Coast Road",
+          "text": "A long coast road winds west over the cliffs above the gulf. One end leads to Piraeus Quays; the other leads to The Wine-Dark Harbor. The ship makes the same passage sooner.",
+          "persona": "A shared road between Piraeus Quays and The Wine-Dark Harbor. The left end always leads to Piraeus Quays. The right end always leads to The Wine-Dark Harbor. From Piraeus the road is always open. From the harbor it opens only once the herald’s truce rests in the Agora, as the Long Walls do; until then the ship with the Travel Provisions is the way to Piraeus. Travelers can meet, talk, rest and carry their belongings here.",
+          "exits": [
+            "greek-piraeus",
+            "greek-harbor"
+          ],
+          "road": [
+            "greek-piraeus",
+            "greek-harbor"
+          ],
+          "backdrop": "assets/greek-drama/black-sea-road.svg",
+          "retired": true
+        },
+        "greek-road-north": {
+          "name": "The Northern Road",
+          "text": "A long road runs north through Thessaly and Thrace and crosses the strait to Troy. One end leads to The Trojan Camp Landing; the other comes down to The Wine-Dark Harbor. The ship makes the same passage sooner.",
+          "persona": "A shared road between The Trojan Camp Landing and The Wine-Dark Harbor. The left end always leads to The Trojan Camp Landing. The right end always leads to The Wine-Dark Harbor, outside the city; it never passes the City Gate. The road is open both ways. The ship is the quicker way. Travelers can meet, talk, rest and carry their belongings here.",
+          "exits": [
+            "greek-ajax-landing",
+            "greek-harbor"
+          ],
+          "road": [
+            "greek-ajax-landing",
+            "greek-harbor"
+          ],
+          "backdrop": "assets/greek-drama/royal-road.svg"
+        },
         "greek-ajax-landing": {
           "stage": {
             "focus": {
@@ -1258,7 +1296,8 @@
           "text": "A wooden landing meets the ships below the tents. The Greek ship calls here for the named Trojan burial account.",
           "persona": "This is a named Trojan account, beginning after Ajax’s death. Its deeds belong to that telling. The Theban opening keeps its own time. A wooden landing meets the ships below the tents. The Greek ship calls here for the named Trojan burial account.",
           "exits": [
-            "greek-greek-camp"
+            "greek-greek-camp",
+            "greek-road-north"
           ],
           "backdrop": "assets/greek-drama/ajax-camp-day.webp",
           "requires": [
@@ -2345,7 +2384,7 @@
         },
         "greek-shelter-blanket": {
           "name": "The Shelter Blanket",
-          "text": "A thick clean blanket is folded beside the cargo baskets. The altar keeper at Marathon has asked for it.",
+          "text": "A thick clean blanket is folded beside the cargo baskets. Sailors say an altar keeper at Marathon once asked for it.",
           "holder": "greek-piraeus",
           "art": "assets/greek-drama/shelter-blanket.png",
           "persona": "Describe this object, its actual holder and its recorded use. Separate a remembered tale from the traveler’s present deeds.",
@@ -2528,6 +2567,18 @@
               "kind": "item_near",
               "item": "greek-decree",
               "place": "greek-gate"
+            }
+          ]
+        },
+        {
+          "from": "greek-battlefield",
+          "to": "greek-gate",
+          "live": true,
+          "requires": [
+            {
+              "kind": "gate_open",
+              "from": "greek-gate",
+              "to": "greek-battlefield"
             }
           ]
         },
@@ -2717,6 +2768,22 @@
         },
         {
           "from": "greek-athens",
+          "to": "greek-road-athens-piraeus",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "greek-open-door-plea-registered",
+              "value": true
+            },
+            {
+              "kind": "item_near",
+              "item": "greek-olive-branch",
+              "place": "greek-athens"
+            }
+          ]
+        },
+        {
+          "from": "greek-piraeus",
           "to": "greek-road-athens-piraeus",
           "requires": [
             {
@@ -4003,8 +4070,8 @@
           "subject": "greek-quay-host",
           "at": "greek-piraeus",
           "label": "Ask what the returning households need",
-          "text": "Thaleia shows Vale the resting place at the quay. She has cloth for Eleusis, a basket for the homeward meal and a blanket for Marathon. She asks for the mothers’ own list before assigning the berth.",
-          "textTemplate": "Thaleia shows {actor} the resting place at the quay. She has cloth for Eleusis, a basket for the homeward meal and a blanket for Marathon. She asks for the mothers’ own list before assigning the berth.",
+          "text": "Thaleia shows Vale the resting place at the quay. She has cloth for Eleusis, a basket for the homeward meal and a blanket the sailors say was meant for Marathon. She asks for the mothers’ own list before assigning the berth.",
+          "textTemplate": "Thaleia shows {actor} the resting place at the quay. She has cloth for Eleusis, a basket for the homeward meal and a blanket the sailors say was meant for Marathon. She asks for the mothers’ own list before assigning the berth.",
           "requires": [
             {
               "kind": "flag",
@@ -6747,10 +6814,10 @@
           "greek-piraeus",
           "greek-colonus",
           "greek-eleusis",
-          "greek-marathon",
           "greek-road-thebes",
           "greek-road-athens-harbor",
           "greek-road-athens-piraeus",
+          "greek-road-coast",
           "greek-road-athens-colonus",
           "greek-road-athens-eleusis",
           "greek-road-athens-marathon",
@@ -6758,10 +6825,6 @@
           "greek-road-colonus-eleusis",
           "greek-road-colonus-marathon",
           "greek-athens-harbor",
-          "greek-greek-camp",
-          "greek-ajax-landing",
-          "greek-ajax-household",
-          "greek-ajax-grave",
           "greek-cithaeron"
         ],
         "avatars": [
@@ -6780,12 +6843,8 @@
           "greek-theseus",
           "greek-quay-host",
           "greek-colonus-keeper",
-          "greek-marathon-keeper",
           "greek-market-neighbor",
-          "greek-household-witness",
-          "greek-ajax-tecmessa",
-          "greek-ajax-teucer",
-          "greek-ajax-odysseus"
+          "greek-household-witness"
         ],
         "items": [
           "greek-water-jar",
@@ -6805,16 +6864,11 @@
           "greek-grove-honey",
           "greek-shelter-blanket",
           "greek-refuge-tablet",
-          "greek-ajax-shield",
-          "greek-ajax-plea",
-          "greek-ajax-cloth",
-          "greek-ajax-tools",
           "greek-olive-branch",
           "greek-burial-account",
           "greek-creon-writ",
           "greek-guard-tablet",
-          "greek-pyre-account",
-          "greek-marathon-record"
+          "greek-pyre-account"
         ],
         "choices": [
           "greek-return-water-jar",
@@ -6844,41 +6898,13 @@
           "greek-open-door-colonus-daughters",
           "greek-open-door-colonus-farewell",
           "greek-open-door-colonus-custom",
-          "greek-open-door-marathon-enter",
-          "greek-open-door-marathon-blanket",
-          "greek-open-door-marathon-daughter",
-          "greek-open-door-marathon-battle",
-          "greek-open-door-marathon-captive",
           "greek-open-door-return-dione",
           "greek-homecoming-report-agora-truce",
           "greek-homecoming-report-eleusis-pledge",
           "greek-homecoming-report-piraeus-family",
           "greek-homecoming-report-colonus-custom",
-          "greek-homecoming-report-marathon-alcmene",
           "greek-homecoming-agree-journey",
-          "greek-homecoming-receive-family",
-          "greek-ajax-invitation",
-          "greek-ajax-learn-shield-teucer",
-          "greek-ajax-learn-shield-odysseus",
-          "greek-ajax-learn-shield-tecmessa",
-          "greek-ajax-deliver-shield",
-          "greek-ajax-hear-plea",
-          "greek-ajax-deliver-plea",
-          "greek-ajax-choose-public",
-          "greek-ajax-choose-household",
-          "greek-ajax-choose-appeal",
-          "greek-ajax-witness-appeal",
-          "greek-ajax-prepare-grave",
-          "greek-ajax-lay-cloth",
-          "greek-ajax-bury-public",
-          "greek-ajax-record-public",
-          "greek-ajax-return-public",
-          "greek-ajax-bury-household",
-          "greek-ajax-record-household",
-          "greek-ajax-return-household",
-          "greek-ajax-bury-appeal",
-          "greek-ajax-record-appeal",
-          "greek-ajax-return-appeal"
+          "greek-homecoming-receive-family"
         ]
       },
       "recital": {
@@ -7166,7 +7192,8 @@
             "greek-greek-camp",
             "greek-ajax-landing",
             "greek-ajax-household",
-            "greek-ajax-grave"
+            "greek-ajax-grave",
+            "greek-road-north"
           ],
           "requires": [
             {
@@ -7544,7 +7571,7 @@
       ],
       "bridge": {
         "id": "shore-greek-drama",
-        "description": "A shared ship sails authored lanes: from Black Pond only to the Wine-Dark Harbor, from there to Piraeus Quays, around the cape to Marathon Bay, and on the east sea to the Trojan camp landing and the Far Shores. The lamp signal calls it to the pond."
+        "description": "The Charybdis sails the Black Pond route. It sails from Black Pond to the Wine-Dark Harbor and back with no cargo. It goes on to Piraeus Quays and the Hoppy Cat jetty only with the Travel Provisions or something from Hoppy Cat aboard, and every way back toward Black Pond is free. The lamp signal calls it to the pond."
       },
       "crossings": [
         {
@@ -7591,9 +7618,9 @@
           },
           "requires": [],
           "scenery": {
-            "open": "A ship waits on the black water.",
+            "open": "The Charybdis waits on the black water.",
             "overlay": "assets/greek-drama/pond-ship-overlay.png",
-            "cardName": "Greek ship",
+            "cardName": "The Charybdis",
             "cardArt": "assets/greek-drama/ship-card.webp"
           },
           "transport": "greek-ship"
@@ -7608,9 +7635,9 @@
           "transport": "greek-ship",
           "travelLabel": "Board",
           "scenery": {
-            "open": "The ship waits against the stone landing.",
+            "open": "The Charybdis waits against the stone landing.",
             "backdrop": "assets/greek-drama/harbor-ship-at-berth.webp",
-            "cardName": "Greek ship",
+            "cardName": "The Charybdis",
             "cardArt": "assets/greek-drama/ship-card.webp"
           }
         },
@@ -7641,8 +7668,8 @@
           "transport": "greek-ship",
           "travelLabel": "Board",
           "scenery": {
-            "open": "The Greek ship waits beside the quay.",
-            "cardName": "Greek ship",
+            "open": "The Charybdis waits beside the quay.",
+            "cardName": "The Charybdis",
             "cardArt": "assets/greek-drama/ship-card.webp",
             "backdrop": "assets/greek-drama/open-door-piraeus.webp"
           }
@@ -7660,7 +7687,6 @@
               "value": true
             }
           ],
-          "transport": "greek-ship",
           "travelLabel": "Board",
           "scenery": {
             "open": "The Greek ship waits at the camp landing.",
@@ -7672,7 +7698,8 @@
               "x": 80,
               "y": 50
             }
-          }
+          },
+          "retired": true
         },
         {
           "id": "hoppycat-signal-jetty-ship",
@@ -7684,9 +7711,9 @@
           "transport": "greek-ship",
           "travelLabel": "Board",
           "scenery": {
-            "open": "The Greek ship waits at the end of the jetty.",
-            "closed": "The shared ship is sailing elsewhere. The jetty points out over open water.",
-            "cardName": "Greek ship",
+            "open": "The Charybdis waits at the end of the jetty.",
+            "closed": "The Charybdis is sailing elsewhere. The jetty points out over open water.",
+            "cardName": "The Charybdis",
             "cardArt": "assets/greek-drama/ship-card.webp",
             "backdrop": "assets/greek-drama/hoppycat-signal-jetty-ship-at-berth.webp",
             "focus": {
@@ -7702,14 +7729,14 @@
           "travelers": "any",
           "travel": "aboard the ship",
           "requires": [],
-          "transport": "greek-ship",
           "travelLabel": "Board",
           "scenery": {
             "open": "The Greek ship waits offshore.",
             "closed": "The shared ship is sailing elsewhere. The shore waits beside open water.",
             "cardName": "Greek ship",
             "cardArt": "assets/greek-drama/ship-card.webp"
-          }
+          },
+          "retired": true
         },
         {
           "id": "greek-lemnos-ship",
@@ -7718,14 +7745,14 @@
           "travelers": "any",
           "travel": "aboard the ship",
           "requires": [],
-          "transport": "greek-ship",
           "travelLabel": "Board",
           "scenery": {
             "open": "The Greek ship waits offshore.",
             "closed": "The shared ship is sailing elsewhere. The shore waits beside open water.",
             "cardName": "Greek ship",
             "cardArt": "assets/greek-drama/ship-card.webp"
-          }
+          },
+          "retired": true
         },
         {
           "id": "greek-thrace-ship",
@@ -7734,14 +7761,14 @@
           "travelers": "any",
           "travel": "aboard the ship",
           "requires": [],
-          "transport": "greek-ship",
           "travelLabel": "Board",
           "scenery": {
             "open": "The Greek ship waits offshore.",
             "closed": "The shared ship is sailing elsewhere. The shore waits beside open water.",
             "cardName": "Greek ship",
             "cardArt": "assets/greek-drama/ship-card.webp"
-          }
+          },
+          "retired": true
         },
         {
           "id": "greek-egypt-tomb-ship",
@@ -7750,14 +7777,14 @@
           "travelers": "any",
           "travel": "aboard the ship",
           "requires": [],
-          "transport": "greek-ship",
           "travelLabel": "Board",
           "scenery": {
             "open": "The Greek ship waits offshore.",
             "closed": "The shared ship is sailing elsewhere. The shore waits beside open water.",
             "cardName": "Greek ship",
             "cardArt": "assets/greek-drama/ship-card.webp"
-          }
+          },
+          "retired": true
         },
         {
           "id": "greek-tauris-ship",
@@ -7766,14 +7793,14 @@
           "travelers": "any",
           "travel": "aboard the ship",
           "requires": [],
-          "transport": "greek-ship",
           "travelLabel": "Board",
           "scenery": {
             "open": "The Greek ship waits offshore.",
             "closed": "The shared ship is sailing elsewhere. The shore waits beside open water.",
             "cardName": "Greek ship",
             "cardArt": "assets/greek-drama/ship-card.webp"
-          }
+          },
+          "retired": true
         },
         {
           "id": "greek-sicily-ship",
@@ -7782,14 +7809,14 @@
           "travelers": "any",
           "travel": "aboard the ship",
           "requires": [],
-          "transport": "greek-ship",
           "travelLabel": "Board",
           "scenery": {
             "open": "The Greek ship waits offshore.",
             "closed": "The shared ship is sailing elsewhere. The shore waits beside open water.",
             "cardName": "Greek ship",
             "cardArt": "assets/greek-drama/ship-card.webp"
-          }
+          },
+          "retired": true
         }
       ],
       "transports": {
@@ -7799,14 +7826,7 @@
             "pond",
             "greek-harbor",
             "greek-piraeus",
-            "greek-ajax-landing",
-            "hoppycat-signal-jetty",
-            "greek-marathon",
-            "greek-lemnos",
-            "greek-thrace",
-            "greek-egypt-tomb",
-            "greek-tauris",
-            "greek-sicily"
+            "hoppycat-signal-jetty"
           ],
           "lanes": [
             {
@@ -7819,9 +7839,19 @@
               "oneWay": true,
               "opensWith": [
                 {
-                  "kind": "item_present",
-                  "item": "greek-provisions",
-                  "place": "greek-ship"
+                  "kind": "any",
+                  "conditions": [
+                    {
+                      "kind": "item_present",
+                      "item": "greek-provisions",
+                      "place": "greek-ship"
+                    },
+                    {
+                      "kind": "pack_item_present",
+                      "pack": "hoppycat-archive",
+                      "place": "greek-ship"
+                    }
+                  ]
                 }
               ]
             },
@@ -7832,98 +7862,36 @@
             },
             {
               "from": "greek-piraeus",
-              "to": "greek-marathon",
+              "to": "hoppycat-signal-jetty",
               "oneWay": true,
               "opensWith": [
                 {
-                  "kind": "item_present",
-                  "item": "greek-provisions",
-                  "place": "greek-ship"
+                  "kind": "any",
+                  "conditions": [
+                    {
+                      "kind": "item_present",
+                      "item": "greek-provisions",
+                      "place": "greek-ship"
+                    },
+                    {
+                      "kind": "pack_item_present",
+                      "pack": "hoppycat-archive",
+                      "place": "greek-ship"
+                    }
+                  ]
                 }
               ]
             },
             {
-              "from": "greek-marathon",
+              "from": "hoppycat-signal-jetty",
               "to": "greek-piraeus",
               "oneWay": true
-            },
-            {
-              "from": "greek-marathon",
-              "to": "greek-ajax-landing",
-              "oneWay": true,
-              "opensWith": [
-                {
-                  "kind": "item_present",
-                  "item": "greek-provisions",
-                  "place": "greek-ship"
-                }
-              ]
-            },
-            {
-              "from": "greek-ajax-landing",
-              "to": "greek-marathon",
-              "oneWay": true
-            },
-            {
-              "from": "greek-marathon",
-              "to": "greek-lemnos",
-              "oneWay": true,
-              "opensWith": [
-                {
-                  "kind": "item_present",
-                  "item": "greek-provisions",
-                  "place": "greek-ship"
-                }
-              ]
-            },
-            {
-              "from": "greek-lemnos",
-              "to": "greek-marathon",
-              "oneWay": true
-            },
-            {
-              "from": "greek-marathon",
-              "to": "greek-sicily",
-              "oneWay": true,
-              "opensWith": [
-                {
-                  "kind": "item_present",
-                  "item": "greek-provisions",
-                  "place": "greek-ship"
-                }
-              ]
-            },
-            {
-              "from": "greek-sicily",
-              "to": "greek-marathon",
-              "oneWay": true
-            },
-            {
-              "from": "greek-lemnos",
-              "to": "greek-thrace"
-            },
-            {
-              "from": "greek-lemnos",
-              "to": "greek-egypt-tomb"
-            },
-            {
-              "from": "greek-thrace",
-              "to": "greek-tauris"
-            },
-            {
-              "from": "greek-piraeus",
-              "to": "hoppycat-signal-jetty",
-              "opensWith": [
-                {
-                  "kind": "pack_item_present",
-                  "pack": "hoppycat-archive",
-                  "place": "greek-ship"
-                }
-              ]
             }
           ],
           "at": "greek-harbor",
-          "shipmaster": "greek-shipmaster"
+          "shipmaster": "greek-shipmaster",
+          "waitVerb": "Sail",
+          "waitSentence": "{actor} sails on."
         }
       }
     },
@@ -7962,8 +7930,8 @@
         },
         "hoppycat-red-thread-belfry": {
           "name": "Red-Thread Belfry",
-          "text": "A bell marked February Third hangs above a wheel of red thread. Nix tends the bell and its clapper socket. Marks on the wheel stand for a record, a memory, a chosen facet, and a route home.",
-          "persona": "A bell marked February Third hangs above a wheel of red thread. Nix tends the bell and its clapper socket. Marks on the wheel stand for a record, a memory, a chosen facet, and a route home. Describe this as a playful living place. Use the current story facts for progress.",
+          "text": "A bell marked February Third hangs above a wheel of red thread. Nix tends the bell and its clapper socket. Marks on the wheel stand for a record, a memory, a last facet, and a route home.",
+          "persona": "A bell marked February Third hangs above a wheel of red thread. Nix tends the bell and its clapper socket. Marks on the wheel stand for a record, a memory, a last facet, and a route home. Describe this as a playful living place. Use the current story facts for progress.",
           "exits": [
             "hoppycat-signal-jetty"
           ],
@@ -7972,8 +7940,8 @@
         },
         "hoppycat-prism-foundry": {
           "name": "Prism Foundry",
-          "text": "Cool furnaces cast coloured light through unfinished glass. Lumen offers each guest a final facet to choose. Phase Two has drawn several plans around the prism.",
-          "persona": "Cool furnaces cast coloured light through unfinished glass. Lumen offers each guest a final facet to choose. Phase Two has drawn several plans around the prism. Describe this as a playful living place. Use the current story facts for progress.",
+          "text": "Cool furnaces cast coloured light through unfinished glass. Lumen keeps the last facet of the prism unfinished. Phase Two has drawn several plans around the prism.",
+          "persona": "Cool furnaces cast coloured light through unfinished glass. Lumen keeps the last facet of the prism unfinished. Phase Two has drawn several plans around the prism. Describe this as a playful living place. Use the current story facts for progress.",
           "exits": [
             "hoppycat-halfway-tea-garden"
           ],
@@ -8325,8 +8293,8 @@
         "hoppycat-unfinished-prism": {
           "name": "Unfinished Prism",
           "startLevel": 10,
-          "text": "A many-sided glass beginning whose final facet must be chosen by the person whose light passes through it.",
-          "persona": "A many-sided glass beginning whose final facet must be chosen by the person whose light passes through it.",
+          "text": "A many-sided glass beginning whose last facet is still unfinished.",
+          "persona": "A many-sided glass beginning whose last facet is still unfinished.",
           "holder": "hoppycat-prism-foundry",
           "art": "assets/hoppycat-archive/hoppycat-unfinished-prism-cutout.png"
         },
@@ -8610,7 +8578,7 @@
           "id": "hoppycat-facet",
           "at": "hoppycat-prism-foundry",
           "subject": "hoppycat-lumen-facet",
-          "label": "Choose your own final facet",
+          "label": "Bring the Unfinished Prism to Lumen",
           "text": "Vale brought Lumen the Unfinished Prism.",
           "requires": [
             {
@@ -9678,7 +9646,7 @@
       },
       "bridge": {
         "id": "greek-ship-willows",
-        "description": "On a misty night, while the Greek ship lies at Black Pond or sails between ports, river mist beside its rail opens onto a small Danube island and keeps a path back. Once the Swede's kit is all back at his camp, the mended canoe also runs between the landing and Black Pond, for anyone."
+        "description": "On a misty night, while the Charybdis lies at Black Pond or sails between ports with the Travel Provisions or something from Hoppy Cat aboard, river mist beside its rail opens onto a small Danube island and keeps a path back. Once the Swede's kit is all back at his camp, the mended canoe also runs between the landing and Black Pond, for anyone."
       },
       "values": {
         "willows-swede": {
@@ -9717,6 +9685,21 @@
                   "kind": "ship_at",
                   "transport": "greek-ship",
                   "dock": "@sea"
+                }
+              ]
+            },
+            {
+              "kind": "any",
+              "conditions": [
+                {
+                  "kind": "item_present",
+                  "item": "greek-provisions",
+                  "place": "greek-ship"
+                },
+                {
+                  "kind": "pack_item_present",
+                  "pack": "hoppycat-archive",
+                  "place": "greek-ship"
                 }
               ]
             }

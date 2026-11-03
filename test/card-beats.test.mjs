@@ -70,7 +70,7 @@ describe("beat grouping", () => {
     ]);
   });
 
-  it("makes an action with no speech its own beat, before that turn's words", () => {
+  it("inscribes an effect on the card current when it happened", () => {
     seq = 0;
     const log = [
       did("moth", "move", { locationId: "clearing" }),
@@ -78,12 +78,31 @@ describe("beat grouping", () => {
       said("vale", "Mine now."),
     ];
     const beats = sceneBeats(worldOf(log));
+    // Only the first effect, with no card before it, makes a card.
     expect(beats.map((b) => b.key)).toEqual(["a:1:moth", "s:3"]);
     expect(beats[0].line).toBeNull();
-    expect(beatSummary(beats[0]).text).toBe("➜ Pip left for Forest Clearing.");
-    expect(beatSummary(beats[1]).text).toBe(
-      "“Mine now.” ✋ Vale took the Lamp.",
+    expect(beats[0].actions.map((a) => [a.text, Boolean(a.inscribed)])).toEqual(
+      [
+        ["Pip left for Forest Clearing.", false],
+        ["Vale took the Lamp.", true],
+      ],
     );
+    expect(beatSummary(beats[1]).text).toBe("“Mine now.”");
+  });
+
+  it("never repeats an effect on a card of its own (owner, #2017)", () => {
+    seq = 0;
+    const log = [
+      did("vale", "wait", { text: "Vale waits one turn." }),
+      said("vale", "I wait beneath the attic's dim light."),
+      did("vale", "wait", { text: "Vale waits one turn.", turn: 2 }),
+    ];
+    const beats = sceneBeats(worldOf(log));
+    // A silent Wait writes onto the line's card; no caption-only card.
+    expect(beats.map((b) => b.key)).toEqual(["s:2"]);
+    const seqs = beats.flatMap((b) => b.actions.map((a) => a.seq));
+    expect(seqs).toEqual([1, 3]);
+    expect(new Set(seqs).size).toBe(seqs.length);
   });
 
   it("gives the end of a standoff to the place, not the last actor", () => {
@@ -145,8 +164,9 @@ describe("beat grouping", () => {
     expect(beats.map((b) => b.key)).toEqual(["a:1:vale", "s:8"]);
     expect(beats[0].actions.map((a) => a.text)).toEqual([
       "Vale arrived from Mirror attic.",
+      "Pip lit the Lamp.",
     ]);
-    expect(beats[1].actions.map((a) => a.text)).toEqual(["Pip lit the Lamp."]);
+    expect(beats[1].actions).toEqual([]);
     // Memory keeps every visit, newest first.
     const visits = memoryVisits(worldOf(log));
     expect(visits.map((v) => v.placeId)).toEqual(["pond", "attic", "pond"]);
@@ -220,6 +240,25 @@ describe("beat grouping", () => {
     expect(board.text).toBe("Vale boarded Black pond.");
   });
 
+  it("words a Sleep and its wake reason in the past", () => {
+    const say = (fields) =>
+      actionCaption(
+        { seq: 2, turn: 1, actorId: "vale", verb: "wait", ...fields },
+        { viewer: "vale", here: "attic" },
+      )?.text;
+    expect(say({ sleep: true, text: "Vale sleeps." })).toBe("Vale slept.");
+    expect(say({ woke: "lamp", text: "Vale wakes as the lamp gutters." })).toBe(
+      "Vale woke as the lamp guttered.",
+    );
+    expect(say({ woke: "arrival", text: "Vale wakes as Pip arrives." })).toBe(
+      "Vale woke as Pip arrived.",
+    );
+    expect(say({ woke: "dry", text: "Vale wakes as the lamp runs dry." })).toBe(
+      "Vale woke as the lamp ran dry.",
+    );
+    expect(say({ woke: "chose", text: "Vale wakes." })).toBe("Vale woke.");
+  });
+
   it("words every caption as a short sentence from the event fields", () => {
     const say = (entry, viewer = "moth") =>
       actionCaption({ seq: 2, turn: 1, ...entry }, { viewer, here: "pond" })
@@ -278,7 +317,7 @@ describe("beat grouping", () => {
     );
   });
 
-  it("folds the waiting speaker's actions into the Thinking card", () => {
+  it("inscribes the waiting speaker's actions, not the Thinking card", () => {
     seq = 0;
     const log = [
       did("vale", "give", { targetId: "moth", itemId: "lamp", accepted: true }),
@@ -289,7 +328,8 @@ describe("beat grouping", () => {
       turn: 1,
     });
     expect(beats.map((b) => b.speakerId)).toEqual(["vale"]);
-    expect(pending.actions.map((a) => a.text)).toEqual(["Pip lit the Lamp."]);
+    expect(beats[0].actions.at(-1).text).toBe("Pip lit the Lamp.");
+    expect(pending.actions).toEqual([]);
   });
 
   it("hides speech the exchange has not reached", () => {

@@ -1,7 +1,7 @@
 //! Shared narration consumes the original card scene facts. It can describe
 //! committed actions and write resident replies, while game outcomes stay in C.
 use super::{full_world::actor_id, store::Result};
-use crate::ai_gateway::ModelCapability;
+use crate::ai_gateway::{AiConfig, ModelCapability};
 use serde_json::{json, Value};
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -99,6 +99,16 @@ pub(super) fn parse(
     }
     Ok(json!(lines))
 }
+/// The avatars a play's words were due from, the acting avatar included.
+/// When those words fail, every one of them shows "…" (`silent`).
+pub(super) fn voices(work: &Value, actor: usize) -> Vec<String> {
+    let Ok((_, ids)) = prepared(actor, work) else {
+        return Vec::new();
+    };
+    ids.into_iter()
+        .filter(|id| work["profiles"][id]["kind"] == "avatar")
+        .collect()
+}
 /// Requested avatars with no published line. The scene record keeps them so
 /// the table can show "…"; the journal speech op stays as it was.
 pub(super) fn silent(work: &Value, actor: usize, lines: &Value) -> Vec<String> {
@@ -114,12 +124,8 @@ pub(super) fn silent(work: &Value, actor: usize, lines: &Value) -> Vec<String> {
         })
         .collect()
 }
-pub(super) async fn generate(state: &crate::AppState, actor: usize, work: &Value) -> Result<Value> {
-    let (payload, ids) = prepared(actor, work)?;
-    // A silent play voices no one: it finishes with no lines and no model call.
-    if ids.is_empty() {
-        return Ok(json!([]));
-    }
+/// The story service's settings for shared voices and reflections.
+pub(super) fn story(state: &crate::AppState) -> Result<(AiConfig, BTreeMap<String, String>)> {
     let mut config = state
         .ai_config
         .as_ref()
@@ -141,6 +147,15 @@ pub(super) async fn generate(state: &crate::AppState, actor: usize, work: &Value
         .ok()
         .or(config.reasoning_effort);
     let models: BTreeMap<String, String> = serde_json::from_value(models).unwrap_or_default();
+    Ok((config, models))
+}
+pub(super) async fn generate(state: &crate::AppState, actor: usize, work: &Value) -> Result<Value> {
+    let (payload, ids) = prepared(actor, work)?;
+    // A silent play voices no one: it finishes with no lines and no model call.
+    if ids.is_empty() {
+        return Ok(json!([]));
+    }
+    let (config, models) = story(state)?;
     let value = crate::routes::card_game::narrative::shared_lines(
         &config,
         &payload["scene"],

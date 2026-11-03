@@ -1,3 +1,5 @@
+import { signInNotice } from "./privacy.mjs";
+
 const decode = (value) =>
   Uint8Array.from(atob(value.replaceAll("-", "+").replaceAll("_", "/")), (c) =>
     c.charCodeAt(0),
@@ -138,7 +140,7 @@ export async function membersLock() {
   link.href = "https://lonelyforest.com";
   link.textContent = "Play at lonelyforest.com";
   elsewhere.append(link);
-  lock.append(heading, text, signIn, status, elsewhere);
+  lock.append(heading, text, signInNotice(), signIn, status, elsewhere);
   document.body.append(lock);
   document.body.inert = false;
   lock.showModal();

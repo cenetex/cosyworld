@@ -92,9 +92,12 @@ try {
       await requests
         .at(-1)
         .route.fulfill({ status: 503, json: { error: "fixture" } });
+    // Words that failed are "…" on the speaker's beat; there is no Retry,
+    // and the next play is available at once.
     await page.waitForFunction(
-      () => !document.querySelector("#story-retry").hidden,
+      () => document.querySelector("#dialogue-text").textContent.trim() === "…",
     );
+    assert.equal(await page.locator("#story-retry, #story-error").count(), 0);
     const failed = await snapshot();
     reports.at(-1).failed = failed;
     assert.deepEqual(failed.cast, failed.hand);
@@ -102,9 +105,10 @@ try {
       (key) => JSON.parse(localStorage.getItem(key)),
       key,
     );
-    const requestedRetry = page.waitForRequest("**/card-game/text");
-    await page.locator("#story-retry").click();
-    await requestedRetry;
+    const requestedNext = page.waitForRequest("**/card-game/text");
+    await selectCard(page, "vale");
+    await page.locator('#card-actions [data-action="wait"]').click();
+    await requestedNext;
     await page.waitForTimeout(100);
     const retrying = await snapshot();
     {
@@ -139,9 +143,7 @@ try {
       (key) => JSON.parse(localStorage.getItem(key)),
       key,
     );
-    assert.equal(recovered.turn, saved.turn);
-    assert.deepEqual(recovered.actors, saved.actors);
-    assert.deepEqual(recovered.items, saved.items);
+    assert(recovered.turn > saved.turn, "the next play ran at once");
     assert.deepEqual((await snapshot()).cast, (await snapshot()).hand);
     for (
       let step = 0;
@@ -153,18 +155,19 @@ try {
         await page.locator("#dialogue-advance").click();
       await page.waitForTimeout(50);
     }
-    // A Talk asks for words; a silent move made before they arrive
-    // supersedes them and sends no request of its own.
+    // A Talk asks for words. Its Thinking card holds the panel back; two
+    // taps stop waiting, the play stays saved, and a silent move made then
+    // sends no request of its own and never shows the late words.
     const talkRequest = page.waitForRequest("**/card-game/text");
     await selectCard(page, "moth");
     await page.locator('#card-actions [data-action="talk"]').click();
     await talkRequest;
     const replaced = requests.at(-1);
     const asked = requests.length;
-    await page.waitForFunction(
-      () => document.querySelector("#hand").dataset.cooling === "false",
-    );
     await selectCard(page, "station");
+    assert.equal(await page.locator("#card-actions button").count(), 0);
+    await page.locator("#speech-row").click();
+    await page.locator("#speech-row").click();
     await page.locator('#card-actions [data-action="move"]').click();
     await page.waitForFunction(
       (title) => document.querySelector("#place-title").textContent === title,

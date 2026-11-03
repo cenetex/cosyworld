@@ -46,4 +46,9 @@
 #
 # 226 -> 221: collapsing the per-version and per-checkpoint replay copies
 # removed five warnings in the deleted test bodies.
-221
+#
+# 222 -> 220 (CI stable 1.99.1): the Talk voicing helpers `exchange` and
+# `voice_lines` returned `Result<(), Response>`, tripping
+# `result_large_err` twice; they now return a unit `SceneClosed` that
+# converts into the 503 response at the caller.
+220

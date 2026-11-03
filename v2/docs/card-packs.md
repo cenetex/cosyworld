@@ -50,8 +50,11 @@ schema still accepts them so older pack files load.
 
 `{ "kind": "item_present", "item": "cloth", "place": "attic" }` checks an
 item's physical place. It follows custody through covered items and their
-carrier. Hub and pack items can use this crossing condition. An item on the
-floor and an item held by someone in that room satisfy the same condition.
+carrier. Hub and pack items can use this crossing condition, and a pack may
+name a thing of another mounted pack (rules 94): the Willows mist beside the
+Charybdis's rail names the Greek `greek-provisions` aboard `greek-ship`. An
+item on the floor and an item held by someone in that room satisfy the same
+condition.
 
 `{ "kind": "tag_held", "tag": "scarf", "place": "attic" }` holds while someone
 in the place carries an active pack thing whose `tags` list names that tag,
@@ -141,6 +144,31 @@ bump and a deliberate migration; never drop saved state to make it load.
 `legacy-saves.mjs` holds migrations that name pack ids, including the
 schema 6 `steamClock` record and the Greek ship in pack revision 2.
 
+From rules 93 a saved world gains a slot for each new place, dock, item,
+crossing, route, lane, topic or transport as it loads. The server repacks
+every shared world onto the current content when it loads it, so a change a
+saved world cannot take makes every shared world unloadable. A new resident
+is one: **do not add a resident to a pack that is already mounted.** Put it
+in a new pack, which installs fresh, or bump the pack's `revision` and add a
+save upgrade to `legacy-saves.mjs` that adds that resident's actor, trust and
+memories (as `upgradeGreekHomecomingSave` did), shipped in a rules release.
+Removing a place or a gated route is another: saves keep each opened gate
+(`openedRoutes`) and each known step (`routeKnowledge`), and validation
+refuses one the content no longer authors. Retire the place with
+`retired: true` instead of deleting it, and add a pack revision upgrade that
+calls `foldRetiredRoads` and drops gates that no longer latch (as
+`upgradeGreekLandRouteSave` did for the Coast Road in rules 94).
+Withdrawing a region from the release (a rumour, as Marathon and Troy became
+in rules 94) is a third: the pack check needs its choices out of the
+release list too, and a world of the release refuses withheld residents or
+things that moved and receipts of withheld choices. The upgrade brings
+visitors back, sends the region's own people and things home unmet, and
+`reconcilePackProgress` forgets the withheld steps and what followed from
+them; old full-scope worlds keep the region.
+`test/card-content-repack.test.mjs` loads a world saved on main's content
+under the branch's rules and content, so the fast check fails such a change
+before it merges.
+
 ## Rules the engine keeps
 
 - No engine module names a pack, place, resident, fixture or crossing id.
@@ -152,6 +180,12 @@ schema 6 `steamClock` record and the Greek ship in pack revision 2.
 - Packs and their state stay in the browser save like the rest of the card
   table. Anything shared or server-persisted still goes through the kernel
   and journal first.
+
+## Content review standard
+
+When a scene says the player chose, reconciled, understood or became
+something, the rules must preserve that difference. If the rules keep only
+that a deed happened, word the scene as the deed, not as a choice.
 
 ## Adding a spoke
 
@@ -339,10 +373,19 @@ Signal Jetty is Hoppy Cat's, with one lane from Piraeus Quays.
 
 Course cards show only lanes the person knows. A lane can instead list
 `opensWith` conditions: such a gated lane is open, both ways, only while they
-hold, for everyone aboard, and knowing it opens nothing. The Piraeus–Signal
-Jetty lane opens with `pack_item_present` while a Hoppy Cat thing is aboard.
-Myrto knows every lane; through Talk she tells a gated lane together with its
-condition. A retired crossing closes in every loaded save, including one that
+hold, for everyone aboard, and knowing it opens nothing. Cargo is checked
+aboard, never used up. The Greek ship is the Charybdis, on the Black Pond
+route (rules 94): Black Pond and the Wine-Dark Harbor both ways with no
+cargo; harbor to Piraeus and Piraeus to the Signal Jetty one way, each with
+one `any` of `item_present` (the Travel Provisions) and `pack_item_present`
+(a Hoppy Cat thing) aboard; and a free one-way lane back for each. The
+conditions bind only a voyage with riders: an empty ship called to a dock
+sails any lane between active docks. A ship route should give every dock a
+free lane toward home, so a traveler ashore there is never stranded:
+`test/card-ship-port-roads.test.mjs` searches every walk, carry and free lane
+from every dock the empty ship can be called to. Myrto knows every lane; through
+Talk she tells a gated lane together with its condition, an `any` as its
+choices ("Travel Provisions or something from Hoppy Cat"). A retired crossing closes in every loaded save, including one that
 had already found it (shared rules 63), and anyone who had been in Hoppy Cat
 learns the jetty lane as knowledge. In a new game every Hoppy Cat thing starts inside Hoppy Cat, so the
 jetty waits for things scattered into other worlds.
@@ -357,6 +400,17 @@ in. Anyone still aboard can stay for the next course. A ship left docked with
 passengers and no course for three world rounds sails its first lane. An empty
 ship stays where it was left; a traveller waiting to board at a port brings it
 one lane closer each round. The same saved ship serves every actor.
+
+A transport may name the Wait played aboard while it is under way (course set
+or at sea), when each round passed carries the voyage on: `waitVerb` is the
+button label and `waitSentence` the beat sentence, with `{actor}` once for the
+person. The Greek ship uses `"Sail"` and `"{actor} sails on."`. The two come
+together; the verb is a capitalised word of up to 24 letters, and the sentence
+is plain text of up to 80 characters with no markup. A docked ship keeps Wait,
+because a wait there moves nothing, and a transport without the pair keeps
+Wait throughout. Only the table's words change: the rules action and journal
+stay `wait`. Older rules bundles reject these keys, so the field ships with a
+rules version.
 Every place uses the same stage layout, and no CSS is written for a single
 place. An optional place `stage` object holds the per-place differences as
 data. All of its values are whole percentages of the painting:

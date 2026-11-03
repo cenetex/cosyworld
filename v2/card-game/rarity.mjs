@@ -1,6 +1,6 @@
 import { levelOf } from "./want.mjs";
 import { things } from "./world.mjs";
-import { levelTier, tiers } from "./level-tiers.mjs";
+import { levelTier } from "./level-tiers.mjs";
 
 // An item keeps the level its pack or the hub authors (startLevel, as for
 // avatars); items do not gain levels yet (#1583). Everyone else shows the
@@ -11,9 +11,6 @@ export const cardLevel = (world, id) =>
 
 export { levelTier };
 export const rarityColor = (level) => levelTier(level).color;
-// A quest's tier by its F(n) step count: 1, 2-3, 5, 8, then 13 and more.
-export const stepTier = (steps) =>
-  tiers[steps >= 13 ? 4 : steps >= 8 ? 3 : steps >= 5 ? 2 : steps >= 2 ? 1 : 0];
 
 const numerals = [
   [1000, "M"],

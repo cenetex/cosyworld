@@ -39,9 +39,12 @@ Changed to tiers (relative strength between two actors), via `outranks`:
 
 Kept on levels (progression and gating, not a contest):
 
-- Experience to level (`levelFor`) and the level quest (`want.mjs`).
-- Quest steps: Threaten and Attack join drawn steps from quest level 20
-  (`HOSTILE_LEVEL`), which is the Rare threshold written as a level.
+- Experience to level (`levelFor`, residents) and the level quest
+  (`questSteps`, `questXp` in `want.mjs`; see [level curve](level-curve.md)).
+- Quest steps are never violent from rules 90: Threaten and Attack steps,
+  once drawn from quest level 20 (`HOSTILE_LEVEL`), are gone. Since rules 90
+  a player reaches Rare in about 68 level-quest steps and rests, and
+  Legendary in about 323, so tier strikes now matter for players.
 - `startLevel` and saved `level` validation; rarity portraits by level.
 
 ## Replay

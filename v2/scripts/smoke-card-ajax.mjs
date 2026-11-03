@@ -14,6 +14,7 @@ import {
   selectCard,
   smokeWidths,
   topicForChoice,
+  wordsFellSilent,
 } from "./card-browser-helpers.mjs";
 
 function steps(route) {
@@ -24,7 +25,8 @@ function steps(route) {
     move("greek-road-thebes"),
     move("greek-harbor"),
     choose("invitation"),
-    move("greek-ship"),
+    // The Northern Road walks to Troy: the Charybdis never calls there.
+    move("greek-road-north"),
     move("greek-ajax-landing"),
     move("greek-greek-camp"),
     choose("learn-shield-teucer"),
@@ -49,7 +51,7 @@ function steps(route) {
     take("plea"),
     choose(`record-${route}`),
     move("greek-ajax-landing"),
-    move("greek-ship"),
+    move("greek-road-north"),
     move("greek-harbor"),
     move("greek-road-thebes"),
     move("greek-courtyard"),
@@ -122,7 +124,7 @@ export async function checkAjax(browser, origin) {
             if (await page.locator("#dialogue-advance").isVisible())
               await page.locator("#dialogue-advance").click();
             assert.equal(
-              await page.locator("#story-retry").isVisible(),
+              await wordsFellSilent(page, key),
               false,
               "The story completes",
             );

@@ -1,6 +1,14 @@
+import {
+  nameTitleWaker,
+  onTitleWake,
+  playNewWorldIntro,
+  titleMusicHold,
+} from "./title-intro.mjs";
+import { count, lineCounter, playCounter, startMetrics } from "./metrics.mjs";
 import { imageUrl } from "./images.mjs";
 import { cardLevel, levelTier, romanLevel } from "./rarity.mjs";
-import { arriveCard, finishReveal, revealCard } from "./card-reveal.mjs";
+import { arriveCard, finishCardReveal, revealCard } from "./card-reveal.mjs";
+import { phase, THINKING_GRACE_MS } from "./presentation.mjs";
 import { glowCard, levelUpCard, transformPortrait } from "./card-level-up.mjs";
 import { crossedPortraitTier } from "./rarity-portraits.mjs";
 import {
@@ -21,7 +29,6 @@ import {
   newRunSeed,
 } from "./pack-landing.mjs";
 import { flipStagePortrait, portraitFraming } from "./portrait-facing.mjs";
-import { installSceneVideo } from "./scene-video.mjs";
 import { locationWeather } from "./weather.mjs";
 import { DAYLIGHT_TURNS, isNight, locationDaylight } from "./daylight.mjs";
 import { renderWeather } from "./weather-view.mjs";
@@ -67,6 +74,7 @@ import { enableMotives } from "./motives.mjs";
 import { seatActors } from "./human-cast.mjs";
 import { PLAYING_KEY, SAVE_BASE } from "./avatar-world.mjs";
 import { createNarrator, requestNarrative, silentLines } from "./narrative.mjs";
+import { signedRequest } from "./signed-words.mjs";
 import { rememberLocalUpgrades, wearLocalUpgrades } from "./scarves.mjs";
 import {
   forgetCovered,
@@ -74,7 +82,7 @@ import {
   markWaking,
 } from "./speech-knowledge.mjs";
 import { packMedia } from "./pack-registry.mjs";
-import { createRoomMusic } from "./music.mjs";
+import { createRoomMusic, openingRevealed } from "./music.mjs";
 import { createHum } from "./hum.mjs";
 import { createSfx } from "./sfx.mjs";
 import { createCharacterSpeech } from "./character-speech.mjs";
@@ -88,6 +96,8 @@ import {
 import { createLocalBackups, installBackupControls } from "./local-saves.mjs";
 import {
   createTextReveal,
+  createRevealPainter,
+  letterSpans,
   createSpeechSounds,
   createExchange,
   createPlayQueue,
@@ -120,7 +130,7 @@ import {
   sceneStaging,
   selectedHandItem,
   portrait,
-  backdrop,
+  placeCardArt,
   locationOverlay,
   locationVariant,
   stageOf,
@@ -132,8 +142,8 @@ import {
   cardType,
   cardPlay,
   playLabel,
-  playProgress,
   playText,
+  restPlays,
   cardActions,
   cardObservation,
   TOO_MANY_ITEMS,
@@ -169,12 +179,9 @@ let world = sharedSession
   selectionRevision = 0,
   dragging = [],
   // The hand rests folded until a card is touched. Only a click outside
-  // the card area or Escape folds it again; a play, changing the selection
-  // and deselecting never do. A held item stays raised.
-  rowCollapsed = true,
-  // A click off the hand folds it with its selection and chosen play intact;
-  // the next tap on the hand only raises it again.
-  foldedChoice = false;
+  // the card area or Escape folds it again, and clears the choice; a play,
+  // changing the selection and deselecting never do.
+  rowCollapsed = true;
 // Name the save slot: table saves are keyed off the URL param, so a player
 // landing through a different link silently lands in a different slot.
 {
@@ -184,7 +191,6 @@ let world = sharedSession
     slotLabel.textContent = `Saving as table "${tableName}". Without the ?table= parameter this menu shows a different saved game.`;
   }
 }
-let videoScene = null;
 // Beat captions keep their glyph as data; the table draws each one as line
 // art in the toolbar's style so no glyph falls back to a colour emoji.
 const beatIcons = {
@@ -213,6 +219,17 @@ function node(tag, text, className) {
   if (className) el.className = className;
   return el;
 }
+// The action beat's state is declared before notice(), which can run at boot
+// (a refused save, blocked storage) before the rest of the table exists.
+let borrowedBeat = null;
+// A play that commits rests the action beat, so the reply comes to the
+// front, until the player chooses or raises the hand again.
+let restedChoice = null;
+// What the dialogue box shows now (presentation.mjs).
+let shownPhase = null;
+// Since when only committed plays' words have kept the Thinking card.
+let thinkingSince = null;
+let thinkingGrace = null;
 // Nothing floats over the stage. A failure the player must see (a refused
 // play, an unsaved world, a lost connection, a nudge) reads on the action
 // beat's status line; a pending play reads on its own button.
@@ -263,23 +280,33 @@ const UNSAVED_NOTICE =
   "This browser could not save the world. Keep this tab open to keep playing.";
 if (storageBlocked) notice(UNSAVED_NOTICE);
 const SEEN_KEY = `${SAVE_KEY}.seen`;
-// Keep the revision whose words are still needed. A reload interrupts a
-// pending request too; a completed reply clears its Retry marker.
-const WORDS_FAILED_KEY = `${SAVE_KEY}.words-failed`;
-function rememberWordsFailed(revision) {
+// Keep the revision whose words were still on the way, or that fell silent:
+// a reload asks again only for words it interrupted. Words that failed stay
+// "…" and are never asked again (#1642). A completed reply clears the marker.
+const WORDS_MARKER_KEY = `${SAVE_KEY}.words-failed`;
+function rememberWords(revision, pending = false) {
   if (sharedSession) return;
   try {
-    if (revision === null) localStorage.removeItem(WORDS_FAILED_KEY);
-    else localStorage.setItem(WORDS_FAILED_KEY, String(revision));
+    if (revision === null) localStorage.removeItem(WORDS_MARKER_KEY);
+    else
+      localStorage.setItem(
+        WORDS_MARKER_KEY,
+        `${revision}${pending ? ":pending" : ""}`,
+      );
   } catch {
-    /* Retry still works in this tab. */
+    /* This tab still plays; a reload shows the caption alone. */
   }
 }
-function wordsFailedOnLoad() {
+// "silent", "pending" or null for the current revision.
+function wordsOnLoad() {
   try {
-    return localStorage.getItem(WORDS_FAILED_KEY) === String(world.revision);
+    const [revision, pending] = (
+      localStorage.getItem(WORDS_MARKER_KEY) || ""
+    ).split(":");
+    if (revision !== String(world.revision)) return null;
+    return pending ? "pending" : "silent";
   } catch {
-    return false;
+    return null;
   }
 }
 let encountered = new Set(),
@@ -319,7 +346,7 @@ const cardArt = (id) =>
 // A place card shows that place as you would find it there: the same
 // painting the action beat shows, so a destination card shows where you are
 // going (the ship's deck from its berth), lit for the hour and weather.
-const placeArt = (id) => backdrop(id, world);
+const placeArt = (id) => placeCardArt(world, id);
 const cardIsCovered = (id) => !encountered.has(id) || coveredCards.has(id);
 // The screen names a card only once its player has uncovered it (#1575),
 // and the world's hidden avatar only once this avatar has met it (#1936).
@@ -386,6 +413,7 @@ function save() {
     rememberLocalUpgrades(world);
     void localBackups?.queue(encoded);
   } catch {
+    count("error.storage");
     notice(UNSAVED_NOTICE);
   }
 }
@@ -400,8 +428,12 @@ if (localBackups) {
     void localBackups.flush();
   });
 }
+// Effect captions being written onto a card (inscribe()), with their pens.
+const inscribing = new Map();
+let shownCaptions = { key: null, count: 0 };
+// Whether a shared room line has shown since this page opened.
+let sharedLineSeen = false;
 let storyStatus = "ready",
-  storyRetrying = false,
   renderedCast = "",
   renderedHand = "",
   renderedHandRevision = null,
@@ -410,7 +442,7 @@ let storyStatus = "ready",
   speechKey = null,
   speechGlyphs = [],
   shownLetters = 0,
-  glyphBottoms = [],
+  glyphLines = [],
   speechHeight = 0,
   speechScrollTarget = 0,
   speechComplete = null,
@@ -504,15 +536,16 @@ function ownSharedEntry() {
     (entry) => entry.actor === currentActor(world),
   );
 }
-// The button of a chosen, unresolved play reads as what the avatar is
-// doing: "Waiting…".
-function progressLabel(action) {
-  const verb = playProgress(action);
-  return `${verb[0].toUpperCase()}${verb.slice(1)}…`;
-}
+// A local play's words still coming for the play before. The rules have
+// run, so a choice comes forward after the grace, but a next play waits
+// behind those words: the late line types into its own beat first, as the
+// shared table's seat makes it do, and the next scene is asked after it.
+const localWordsPending = () =>
+  !sharedSession && storyStatus === "pending" && !openingWordsDue();
 const playQueue = createPlayQueue({
-  ready: () =>
+  ready: (action) =>
     !cardsCooling &&
+    (action.kind === "focus" || !localWordsPending()) &&
     reveal.complete &&
     (!sharedSession ||
       (!sharedSending &&
@@ -526,6 +559,7 @@ const playQueue = createPlayQueue({
     // Choosing a quest takes no turn and brings no reply, so its beat stays
     // awake: the chosen quest's Drop quest is still offered.
     if (action.kind !== "focus") restedChoice = choiceKey();
+    count(playCounter(action));
     if (sharedSession) void submitSharedPlay(action);
     else performAction(action, revision);
   },
@@ -572,10 +606,10 @@ const exchange = createExchange({
     const speakerId = line.entityId || line.actorId;
     if (speakerId && !shownSpeakers.includes(speakerId))
       shownSpeakers.push(speakerId);
-    reviewing = false;
-    reviewBeat = null;
     lineSeq = line.seq;
-    // The stack brings the new beat in front as it renders.
+    // The stack brings the new beat in front as it renders. A player who
+    // stepped back stays there: the line raises the live count and types
+    // when they return (#2017).
     renderScene();
   },
   settled: () => {
@@ -635,6 +669,20 @@ function syncLayering() {
 }
 wideLayout.addEventListener("change", syncLayering);
 const speechSounds = createSpeechSounds();
+// Since when this play's Thinking card has waited for words (#2016): its
+// outcome is counted once, as a latency bucket, silence or a failure.
+let thinkingStartedAt = null;
+function lineHeard(spoken) {
+  if (thinkingStartedAt === null) return;
+  count(
+    spoken === null
+      ? "voice.failed"
+      : spoken
+        ? lineCounter(performance.now() - thinkingStartedAt)
+        : "voice.silent",
+  );
+  thinkingStartedAt = null;
+}
 let completedSpokenLine = null;
 function finishSpokenLine() {
   const line = completedSpokenLine;
@@ -645,6 +693,8 @@ function finishSpokenLine() {
     !characterSpeech.busy
   )
     exchange.revealed(line.seq, line.text, line.instant);
+  // A chosen play waits for no reading pause.
+  if (playQueue.pending) exchange.advance();
 }
 const characterSpeech = createCharacterSpeech({
   changed: ({ state, message }) => {
@@ -668,7 +718,7 @@ const characterSpeech = createCharacterSpeech({
     });
   },
 });
-// Hosted voices and scene videos spend the passkey's credits (#1924).
+// Hosted voices spend the passkey's credits (#1924).
 $("credits").hidden = Boolean(localRuntime());
 let creditsSeen;
 playerCredits().subscribe((credits) => {
@@ -694,9 +744,10 @@ speechSounds.setEnabled(soundEnabled);
 characterSpeech.setEnabled(soundEnabled);
 function measureSpeech() {
   const text = $("dialogue-text");
-  glyphBottoms = speechGlyphs.map(
-    (glyph) => glyph.offsetTop + glyph.offsetHeight,
-  );
+  glyphLines = speechGlyphs.map((glyph) => [
+    glyph.offsetTop,
+    glyph.offsetTop + glyph.offsetHeight,
+  ]);
   speechHeight = text.clientHeight;
   speechScrollTarget = text.scrollTop;
 }
@@ -720,6 +771,7 @@ function updateSpeechControls(complete) {
       : ""
     : "Tap to reveal";
 }
+const speechPainter = createRevealPainter($("dialogue-text"), { rest: true });
 const reveal = createTextReveal({
   reduced: () => reducedMotion.matches,
   sound: (...args) => {
@@ -748,31 +800,29 @@ const reveal = createTextReveal({
           value.text,
           sharedVoiceReference(sharedSession?.state, shownSceneLine),
         );
-      speechGlyphs = value.letters.map((letter) =>
-        node("span", letter, "speech-letter"),
-      );
+      speechGlyphs = letterSpans(value.text);
       text.replaceChildren(...speechGlyphs);
+      speechPainter.start(speechGlyphs);
       measureSpeech();
       $("speech-announcement").textContent = "";
     }
-    speechGlyphs[Math.max(0, shownLetters - 1)]?.classList.remove("cursor");
-    for (let i = shownLetters; i < value.shown; i++)
-      speechGlyphs[i].classList.add("revealed");
+    speechPainter.paint(value);
     shownLetters = value.shown;
-    const cursor = speechGlyphs[Math.max(0, shownLetters - 1)];
-    cursor?.classList.add("cursor");
     if (speechComplete !== value.complete) {
       speechComplete = value.complete;
       updateSpeechControls(value.complete);
+      // A read line lets a play in flight show its Thinking card.
+      queueMicrotask(() =>
+        value.complete && ownPlayInFlight() ? renderScene() : syncPhase(),
+      );
     }
-    // Layout is measured once per line or resize, then reused for each letter.
-    const bottom = glyphBottoms[Math.max(0, shownLetters - 1)] || 0;
+    // Layout is measured once per line or resize, then reused for each
+    // letter. A line that outgrows the box turns a page: the new line starts
+    // at the top, and the words being read never slide.
+    const [top, bottom] = glyphLines[Math.max(0, shownLetters - 1)] || [0, 0];
     if (!value.complete && bottom > speechScrollTarget + speechHeight) {
-      speechScrollTarget = bottom - speechHeight;
-      text.scrollTo({
-        top: speechScrollTarget,
-        behavior: reducedMotion.matches ? "instant" : "smooth",
-      });
+      speechScrollTarget = top;
+      text.scrollTop = top;
     }
     // Only the newest beat is announced, never one stepped back to.
     if (value.complete && !reviewing && announcedBeat !== value.key) {
@@ -867,10 +917,50 @@ updateSoundButton();
 $("voice-retry").onclick = () => characterSpeech.retry();
 let musicEnabled = true,
   musicVolume = 0.3;
-function musicHasStarted() {
+function musicPlayed() {
   return sharedSession
     ? sharedSession.state.music_started === true
     : world.turn > 0;
+}
+// The opening attic stays silent until the lamp goes out and its mirror
+// first shows the Black pond. This world's id is remembered at that moment,
+// so the music keeps playing after a reload even if the lamp is lit again.
+const MUSIC_REVEAL_KEY = "cosyworld.music-revealed";
+const musicWorldId = () =>
+  sharedSession
+    ? `shared:${sharedWorldId}:${sharedSession.state.actor}`
+    : `local:${SAVE_KEY}:${world.run?.seed ?? ""}`;
+let revealedWorld = null;
+try {
+  revealedWorld = localStorage.getItem(MUSIC_REVEAL_KEY);
+} catch {}
+function musicRevealed() {
+  if (revealedWorld === musicWorldId()) return true;
+  if (!openingRevealed(world, currentActor(world))) return false;
+  revealedWorld = musicWorldId();
+  try {
+    localStorage.setItem(MUSIC_REVEAL_KEY, revealedWorld);
+  } catch {}
+  return true;
+}
+// No room music under the new-world title or while its song fades: the
+// title's own gesture would otherwise start it beneath the song. Then the
+// rules above apply.
+let titleHolding = false;
+function holdMusicForTitle() {
+  const hold = titleMusicHold();
+  if (!hold) return;
+  titleHolding = true;
+  hold.then(() => {
+    if (titleMusicHold()) return;
+    titleHolding = false;
+    music.setStarted(musicHasStarted());
+    hum.setStarted(musicHasStarted());
+  });
+}
+holdMusicForTitle();
+function musicHasStarted() {
+  return !titleHolding && musicPlayed() && musicRevealed();
 }
 try {
   const saved = JSON.parse(localStorage.getItem("cosyworld.room-music"));
@@ -886,7 +976,9 @@ const music = createRoomMusic({
     $("music-status").textContent = !enabled
       ? "Music paused"
       : !started
-        ? "Play your first card to start music."
+        ? musicPlayed()
+          ? "Music waits for the dark."
+          : "Play your first card to start music."
         : failed
           ? "Music is taking a moment. Switch it off and on to retry."
           : playing
@@ -976,15 +1068,22 @@ const narrator = createNarrator({
     const unseen = forgetUnfound(world, context, cardIsCovered);
     return markWaking(world, forgetCovered(world, unseen, covered), covered);
   },
-  request: localRuntime()
-    ? (context, signal, progress) =>
-        requestNarrative(context, signal, progress, "/card-game/text", true)
-    : undefined,
+  // Remembered words go back with the envelopes the service signed them with.
+  request: signedRequest(
+    localRuntime()
+      ? (context, signal, progress) =>
+          requestNarrative(context, signal, progress, "/card-game/text", true)
+      : requestNarrative,
+  ),
   // Thoughts, persona and dreams come after the line, so they never delay it.
-  reflect: (context, signal) =>
+  reflect: signedRequest((context, signal) =>
     requestNarrative(context, signal, () => {}, "/card-game/reflections"),
+  ),
   // A silent play ends its exchange at once; the beat is its caption.
-  silent: () => exchange.cancel(),
+  silent: () => {
+    lineHeard(false);
+    exchange.cancel();
+  },
   started: (context) => {
     if (localRuntime()) characterSpeech.clear();
     // A speaker who left this turn speaks at the destination, not here.
@@ -1006,62 +1105,65 @@ const narrator = createNarrator({
     }
     storyStatus = pending ? "pending" : "ready";
     if (!pending) {
-      rememberWordsFailed(null);
+      lineHeard(true);
+      rememberWords(null);
       silence = { turn: world.turn, lines: silentLines(world, silent) };
     }
-    const lines = shownWorld().log.filter(
-      (entry) =>
-        entry.generated &&
-        entry.kind === "dialogue" &&
-        entry.turn === world.turn &&
-        entry.locationId === world.actors[currentActor(world)].place,
-    );
-    const voiced = lines.filter((entry) => !entry.silent);
-    if (localRuntime() && voiced.length) {
-      const line =
-        voiced.find((entry) => entry.seq !== exchange.current?.seq) ||
-        voiced[0];
-      characterSpeech.prefetch(line.actorId, line.text);
-    }
-    exchange.load(lines, { pending });
-    render();
+    loadTurnLines({ pending });
   },
   status: (value) => {
-    storyStatus = value;
-    if (value === "pending") rememberWordsFailed(world.revision);
+    // Words that failed are this scene's silence: each speaker due shows
+    // "…", like a line that came, and play goes on. There is no failed state.
+    storyStatus = value === "failed" ? "ready" : value;
+    // Words that came, or failed, free a play waiting behind them.
+    if (value !== "pending" && playQueue.pending)
+      queueMicrotask(() => playQueue.flush());
+    if (value === "pending") rememberWords(world.revision, true);
     if (value === "pending" && !exchange.active) exchange.begin();
-    if (value === "retry") {
-      rememberWordsFailed(world.revision);
-      exchange.cancel();
-      showOpeningSilence();
+    if (value === "failed") {
+      lineHeard(null);
+      rememberWords(world.revision);
+      showFailedSilence();
+      return;
     }
     renderScene();
   },
 });
-$("story-retry").onclick = async () => {
-  if (storyRetrying) return;
-  const room = world.actors[currentActor(world)].place;
-  const retryKey = sharedSession
-    ? sharedSpeechState(sharedSession.state, room).retryKey
-    : null;
-  if (sharedSession && !retryKey) return;
-  const retryRevision = world.revision;
-  const retryTrip = trip;
-  storyRetrying = true;
-  notice("");
-  renderScene();
-  try {
-    if (sharedSession)
-      await sharedSession.command({ op: "retry", key: retryKey });
-    else await narrator.retry();
-  } catch {
-    if (world.revision === retryRevision && trip === retryTrip)
-      storyStatus = "retry";
-  } finally {
-    storyRetrying = false;
-    renderScene();
+// This turn's lines at the player's place, spoken and "…", into the exchange.
+function loadTurnLines({ pending = false } = {}) {
+  const lines = shownWorld().log.filter(
+    (entry) =>
+      entry.generated &&
+      entry.kind === "dialogue" &&
+      entry.turn === world.turn &&
+      entry.locationId === world.actors[currentActor(world)].place,
+  );
+  const voiced = lines.filter((entry) => !entry.silent);
+  if (localRuntime() && voiced.length) {
+    const line =
+      voiced.find((entry) => entry.seq !== exchange.current?.seq) || voiced[0];
+    characterSpeech.prefetch(line.actorId, line.text);
   }
-};
+  exchange.load(lines, { pending });
+  render();
+}
+// A request that failed: every avatar due to speak here says "…". A line
+// arrives whole or not at all, so no beat mixes a failure with words.
+function showFailedSilence() {
+  const place = world.actors[currentActor(world)].place;
+  const quiet = sceneSpeakers.filter(
+    (id) => people[id] && world.actors[id]?.place === place,
+  );
+  silence = {
+    turn: world.turn,
+    lines: silentLines(
+      world,
+      quiet.length || !openingWordsDue() ? quiet : [currentActor(world)],
+    ),
+  };
+  if (!exchange.active) exchange.begin();
+  loadTurnLines();
+}
 // The row keeps a held item after a play, so its slots can change under a
 // finger. A second tap on a slot redrawn by that play must not become a new
 // play. Choosing a card ends the pause.
@@ -1120,6 +1222,15 @@ function stackPlaces(cards) {
   hand.splice(at || hand.length, 0, ...cards.filter(stackedPlace));
   return hand;
 }
+// The cards of the player's last committed Wait and the table's revision
+// after it: the same cards chosen again offer Sleep.
+let lastWait = null;
+function rememberWait(action, key) {
+  lastWait =
+    action.kind === "wait" && !action.sleep
+      ? { key, revision: world.revision }
+      : null;
+}
 function selectCards(cards) {
   for (const id of selected)
     if (people[id] && !cards.includes(id)) expandedHolders.delete(id);
@@ -1134,28 +1245,31 @@ function selectCards(cards) {
     )
       expandedHolders.delete(id);
   selected = cards;
+  // Choosing other cards after a Wait brings back the plain Wait.
+  if (lastWait && cards.join("+") !== lastWait.key) lastWait = null;
+}
+// Uncovering a card names it, remembers it, and lets a held first line
+// begin once the avatar and its place are both known. The new-world title's
+// turn has already shown the avatar's face, so it uncovers that card without
+// a second flip.
+function uncover(id, { flip = true } = {}) {
+  if (!cardIsCovered(id)) return;
+  encountered.add(id);
+  coveredCards.delete(id);
+  rememberCards();
+  render();
+  const shown = $("hand").querySelector(`.card[data-card="${id}"]`);
+  if (shown && flip) void revealCard(shown);
+  $("discovery-announcement").textContent = `New card: ${nameOf(id)}.`;
+  if (openingHeld && openingWordsDue() && selfKnown()) resumeScene();
+  if (sharedSession) syncSharedLine();
 }
 function choose(id) {
-  if (finishReveal(id) || selectionBlocked()) return;
+  if (finishCardReveal(id) || selectionBlocked()) return;
   if (cardIsCovered(id)) {
-    encountered.add(id);
-    coveredCards.delete(id);
-    rememberCards();
-    render();
-    const shown = $("hand").querySelector(`.card[data-card="${id}"]`);
-    if (shown) void revealCard(shown);
-    $("discovery-announcement").textContent = `New card: ${nameOf(id)}.`;
-    if (openingHeld && openingWordsDue() && selfKnown()) resumeScene();
-    if (sharedSession) syncSharedLine();
+    uncover(id);
     return;
   }
-  if (rowCollapsed && foldedChoice && selected.length) {
-    foldedChoice = false;
-    rowCollapsed = false;
-    render();
-    return;
-  }
-  foldedChoice = false;
   playQueue.clear();
   lastPlayAt = -Infinity;
   fresh.delete(id);
@@ -1214,18 +1328,21 @@ function commitAction(action, revision, renderedAt = -Infinity) {
     return;
   // The drone falls silent just before a discovery is revealed.
   if (action.choiceId) hum.hush();
-  if (playQueue.pending?.action.key === action.key) {
-    // Shared plays cancel through their own visible control.
-    if (!sharedSession) playQueue.clear();
-  } else {
-    // A play leaves the hand where it is: raised stays raised.
-    playQueue.submit(action, revision);
-  }
+  // The same play chosen again keeps it; its Thinking card cancels it.
+  if (playQueue.pending?.action.key === action.key) return;
+  // A play leaves the hand where it is: raised stays raised. Its beat rests
+  // at once; the Thinking card stands for it until its scene.
+  if (action.kind !== "focus") restedChoice = choiceKey();
+  // A new play earns its own grace before the hand returns.
+  thinkingSince = null;
+  playQueue.submit(action, revision);
+  if (playQueue.pending) exchange.advance();
 }
 function performAction(action, revision) {
   if (saveBlocked || sharedSession) return;
   const result = play(world, action, revision);
   if (!result.ok) {
+    count("error.rules_reject");
     notice(result.error);
     render();
     return;
@@ -1243,6 +1360,7 @@ function performAction(action, revision) {
   narrator.invalidate();
   exchange.cancel();
   storyStatus = "pending";
+  thinkingStartedAt = performance.now();
   const from = world.actors[currentActor(world)].place;
   const heldBefore = heldSelection();
   const beats = combatBeats(world, result.state, {
@@ -1250,6 +1368,7 @@ function performAction(action, revision) {
     place: from,
   });
   world = result.state;
+  rememberWait(action, selected.join("+"));
   music.setRoom(
     world.actors[currentActor(world)].place,
     locationDaylight(world, world.actors[currentActor(world)].place)?.phase ||
@@ -1325,6 +1444,7 @@ function combatStage() {
     caption: $("combat-caption"),
     announce: $("combat-announcement"),
     dialog: $("defeat-dialog"),
+    veil: $("travel"),
     reducedMotion,
     revealLine: (seq) => {
       if (combatHeld.delete(seq)) renderLog();
@@ -1334,12 +1454,15 @@ function combatStage() {
 function endCombat() {
   combatRun++;
   combatView?.cleanup();
+  $("travel").classList.remove("fainting");
   combatHeld.clear();
   const release = combatRelease;
   combatRelease = null;
   release?.();
 }
 async function presentCombat(beats, land) {
+  if (beats.some((beat) => beat.kind === "defeat" && beat.viewerLost))
+    count("defeat");
   const mine = ++combatRun;
   const view = combatStage();
   for (const beat of beats) combatHeld.add(beat.seq);
@@ -1364,6 +1487,8 @@ async function presentCombat(beats, land) {
   covering = false;
   renderLog();
   land(release);
+  // The travel veil (already down) takes over from a defeat's black.
+  $("travel").classList.remove("fainting");
 }
 
 // Moving between places dips the scene to dark with the destination's name,
@@ -1402,6 +1527,7 @@ function cancelTravel() {
 }
 // Cards met at the new place are unveiled once the veil has fully lifted.
 async function travel(place, arrive, landed, kicker = "Travelling to") {
+  count("travel");
   const veil = $("travel");
   $("travel-kicker").textContent = kicker;
   $("travel-name").textContent = nameOf(place);
@@ -1584,8 +1710,8 @@ function showBeatCards(ids) {
 // beat: { avatar, cards: [{ src, level, color, lit }], name, info, note,
 // buttons: [{ label, id, run }] }. The name and its info line read in the
 // middle, then the note; the buttons sit on the right, and a beat may have
-// none. It replaces the play's beat until cleared.
-let borrowedBeat = null;
+// none. It replaces the play's beat until cleared. `borrowedBeat` is
+// declared before notice(), which a refused save calls during boot.
 function showActionBeat(beat) {
   borrowedBeat = beat;
   renderActions();
@@ -1641,22 +1767,59 @@ function showBorrowedBeat(row, heading) {
   );
   syncActionBeat();
 }
-// A play that commits rests the action beat, so the reply comes to the
-// front, until the player chooses or raises the hand again.
-let restedChoice = null;
 const choiceKey = () => `${selected.join("+")}:${rowCollapsed}`;
+function lingeringWords(inFlight) {
+  // A play still queued, sending or waiting at the table can be withdrawn;
+  // its Thinking card stands until the rules take it.
+  const committed =
+    inFlight &&
+    !playQueue.pending &&
+    !sharedSending &&
+    !["sending", "accepted"].includes(sharedPlay?.state) &&
+    ownSharedEntry()?.status !== "waiting";
+  if (!committed) {
+    thinkingSince = null;
+    clearTimeout(thinkingGrace);
+    return false;
+  }
+  if (thinkingSince === null) {
+    thinkingSince = performance.now();
+    clearTimeout(thinkingGrace);
+    thinkingGrace = setTimeout(syncPhase, THINKING_GRACE_MS);
+  }
+  return performance.now() - thinkingSince >= THINKING_GRACE_MS;
+}
+function presentPhase() {
+  if (restedChoice !== choiceKey()) restedChoice = null;
+  const inFlight = Boolean(stackView.pending) || Boolean(ownPlayInFlight());
+  return phase({
+    reviewing: reviewing && stackView.frontIndex < stackView.liveIndex,
+    revealing: !reveal.complete || exchange.hasNext || inscribing.size > 0,
+    inFlight,
+    lingering: lingeringWords(inFlight),
+    raised: !rowCollapsed,
+    chosen: selected.length > 0 || questOpen,
+    rested: restedChoice !== null,
+  });
+}
+function syncPhase() {
+  if (presentPhase() !== shownPhase) renderActions();
+}
 function renderActions() {
   const row = $("card-actions");
-  if (restedChoice !== choiceKey()) restedChoice = null;
-  const rested = restedChoice !== null;
-  const { actions: ready, hint } = cardActions(world, selected);
-  const actions = ready.filter(
-    (action) =>
-      !rested ||
-      playQueue.pending?.action.key === action.key ||
-      (["sending", "sent", "playing"].includes(sharedPlay?.state) &&
-        sharedPlay.actionKey === action.key),
+  shownPhase = presentPhase();
+  const rested = shownPhase !== "choosing";
+  const { actions: offered, hint } = cardActions(world, selected);
+  const ready = restPlays(
+    world,
+    offered,
+    lastWait?.key === selected.join("+") &&
+      lastWait.revision === world.revision,
+    selected,
   );
+  // A chosen play leaves the beat: the Thinking card stands for it, and its
+  // reply types into the full-size front card.
+  const actions = rested ? [] : ready;
   const selectionName = selected.map(nameOf).join(" + ");
   $("selection-name").textContent = selected.length
     ? selectionName
@@ -1707,24 +1870,15 @@ function renderActions() {
     );
   row.replaceChildren(
     ...actions.map((action, index) => {
-      const sent =
-        sharedSession &&
-        ["sending", "sent", "playing"].includes(sharedPlay?.state) &&
-        sharedPlay.actionKey === action.key;
-      const queued = playQueue.pending?.action.key === action.key;
       const button = node(
         "button",
-        queued || sent ? progressLabel(action) : playLabel(action),
+        playLabel(action),
         index === 0 ? "card-primary" : "card-action",
       );
       button.type = "button";
       button.dataset.action = action.kind;
-      button.dataset.queued = String(queued);
-      if (sent && !queued) button.dataset.sent = sharedPlay.state;
-      button.title =
-        queued && !sharedSession ? "Cancel this play" : playText(action);
+      button.title = playText(action);
       button.disabled = selectionBlocked();
-      button.setAttribute("aria-pressed", String(queued));
       if (action.choiceId) {
         button.dataset.choice = action.choiceId;
         button.dataset.pack = action.packId;
@@ -1734,22 +1888,6 @@ function renderActions() {
       return button;
     }),
   );
-  const withdrawable = ownSharedEntry();
-  if (
-    sharedSession &&
-    (playQueue.pending ||
-      (withdrawable && ["waiting", "retry"].includes(withdrawable.status)))
-  ) {
-    const cancel = node("button", "Cancel play", "card-action");
-    cancel.type = "button";
-    cancel.dataset.cancelPlay = "true";
-    cancel.title = "Withdraw your play";
-    cancel.onclick = () =>
-      playQueue.pending
-        ? playQueue.clear()
-        : withdrawSharedPlay(withdrawable.id);
-    row.append(cancel);
-  }
   if (nudgeTarget) {
     const nudge = node("button", "Nudge", "card-action");
     nudge.type = "button";
@@ -1804,7 +1942,9 @@ function renderActions() {
     blocked.title = reason;
     row.append(blocked);
   }
-  document.querySelector(".action-beat-note").hidden = true;
+  const note = document.querySelector(".action-beat-note");
+  note.textContent = "";
+  note.hidden = true;
   delete $("action-beat").dataset.avatar;
   syncActionBeat();
   $("play-readout").textContent = selected.length
@@ -2183,12 +2323,6 @@ function pickQuest(quest) {
 }
 function toggleQuest() {
   if (selectionBlocked()) return;
-  if (rowCollapsed && foldedChoice && selected.length) {
-    foldedChoice = false;
-    rowCollapsed = false;
-    render();
-    return;
-  }
   playQueue.clear();
   questOpen = !questOpen;
   if (!questOpen) questPick = 0;
@@ -2262,6 +2396,7 @@ function clearQuest(button, quest) {
     { duration: 1100, easing: "ease-out" },
   );
   rise.finished.catch(() => {}).then(() => gain.remove());
+  count("quest.met");
   sealedQuests = sealedQuests.filter((q) => q !== quest);
   if (!sealedQuests.length) questOpen = false;
   render();
@@ -2478,7 +2613,6 @@ function renderScene() {
   // Reviewing a line changes the words while present people keep their places.
   const resolvedBeat = exchange.preparing || scene.line?.turn !== world.turn;
   scene.slots = sceneCast(world);
-  videoScene = scene;
   $("stage").dataset.presentedRevision = String(world.revision);
   shownSceneLine = scene.line;
   const img = $("backdrop");
@@ -2583,6 +2717,7 @@ function renderScene() {
   }
   staging.actors.forEach((actor, index) => {
     const { id } = actor;
+    const sleeping = actor.pose === "sleep";
     const figure = $("cast").children[index];
     if (
       figure.dataset.removing ||
@@ -2627,11 +2762,13 @@ function renderScene() {
     renderHeldItem(
       figure,
       actor,
-      (id === currentActor(world) && handItem) || litCarried(id),
+      sleeping
+        ? null
+        : (id === currentActor(world) && handItem) || litCarried(id),
     );
     figure.classList.toggle(
       "active",
-      scene.activeSpeaker === id && !resolvedBeat,
+      !sleeping && scene.activeSpeaker === id && !resolvedBeat,
     );
     const left = actor.presence === "departed";
     const wasLeft = figure.classList.contains("departed");
@@ -2737,7 +2874,6 @@ function renderScene() {
         entry.locationId === scene.locationId,
     );
   const hiddenAction = (entry) => moreToRead && entry.turn > shownTurn;
-  const wordsFailed = storyStatus === "retry";
   const waiting = sharedSession
     ? sharedSpeech.status === "pending" &&
       !(
@@ -2750,28 +2886,36 @@ function renderScene() {
           awaitingNext ||
           (storyStatus === "pending" && !exchange.current),
       );
-  const stack = withPending(
-    sceneBeats(view, {
-      viewer,
-      shared,
-      held: combatHeld,
-      hiddenSpeech,
-      hiddenAction,
-    }),
-    { speakerId: waiting ? waitingSpeaker || "" : null, turn: world.turn },
-  );
+  const scened = sceneBeats(view, {
+    viewer,
+    shared,
+    held: combatHeld,
+    hiddenSpeech,
+    hiddenAction,
+  });
+  // Every play in flight is one Thinking card, once the lines before it
+  // are read: a line being written stays in front.
+  const last = scened.findLast((beat) => beat.line)?.line;
+  const lineFirst = sharedSession
+    ? moreToRead ||
+      (last?.seq === lineSeq &&
+        !completedSpeech.has(lineKey(last, scene.locationId)))
+    : Boolean(exchange.current) && (!exchange.read || exchange.hasNext);
+  const own = ownPlayInFlight();
+  const stack = withPending(scened, {
+    // A committed local play waits through its own exchange.
+    speakerId:
+      waiting || (own && !lineFirst && (sharedSession || !own.committed))
+        ? waitingSpeaker || viewer
+        : null,
+    turn: world.turn,
+  });
   const beats = stack.beats;
-  const pendingCard =
-    stack.pending ||
-    (waiting
-      ? {
-          key: `p:${world.turn}:`,
-          speakerId: null,
-          line: null,
-          actions: [],
-          pending: true,
-        }
-      : null);
+  const pendingCard = stack.pending && {
+    ...stack.pending,
+    // Its two taps cancel the player's own play.
+    own: stack.pending.speakerId === viewer || !sharedSession ? own : null,
+  };
   const liveIndex = pendingCard ? beats.length : beats.length - 1;
   let frontIndex = -1;
   if (reviewing) {
@@ -2825,19 +2969,21 @@ function renderScene() {
   $("speaker").textContent = front
     ? line?.speaker || (front.speakerId ? nameOf(front.speakerId) : "")
     : "";
-  const canRetryWords = !sharedSession || Boolean(sharedSpeech.retryKey);
-  $("story-status").hidden =
-    behindLive ||
-    wordsFailed ||
-    (storyStatus === "ready" && !exchange.preparing);
-  $("story-status").setAttribute("aria-label", "Thinking about this scene");
+  const ownFront = behindLive ? null : front?.own || null;
+  if (!ownFront?.cancel) disarmThinking(false);
+  // The Thinking chip belongs to the Thinking card, never to a line.
+  $("story-status").hidden = !front?.pending || behindLive;
+  $("story-status").lastElementChild.textContent = thinkingArmed
+    ? "Tap again to cancel"
+    : "Thinking…";
+  $("story-status").dataset.armed = String(thinkingArmed);
+  $("story-status").setAttribute(
+    "aria-label",
+    thinkingArmed
+      ? "Tap again to cancel this play"
+      : "Thinking about this scene",
+  );
   $("speech-row").setAttribute("aria-busy", String(!$("story-status").hidden));
-  const retryWords = $("story-retry");
-  retryWords.hidden = !wordsFailed || behindLive;
-  $("story-error").hidden = retryWords.hidden;
-  retryWords.disabled = storyRetrying || !canRetryWords;
-  retryWords.title = canRetryWords ? "Retry dialogue" : "Waiting for dialogue";
-  retryWords.setAttribute("aria-label", retryWords.title);
   const portraitId = front?.speakerId || null;
   const portraitBox = $("speaker-portrait");
   // Key on the resolved art too, so a scarf given or taken repaints it.
@@ -2863,19 +3009,26 @@ function renderScene() {
   frontCaptions = (front?.actions || []).map((action) => action.text);
   const captions = $("beat-captions");
   const captionKey = JSON.stringify(front?.actions || []);
+  // Effects added to the same card are inscribed onto it, even when a
+  // Thinking card stood in front for a moment.
+  const kept =
+    shownCaptions.key === front?.key ? shownCaptions.count : Infinity;
+  if (front && !front.pending)
+    shownCaptions = { key: front.key, count: front.actions.length };
   if (captions.dataset.key !== captionKey) {
     captions.dataset.key = captionKey;
     captions.replaceChildren(
-      ...(front?.actions || []).map((action) => {
+      ...(front?.actions || []).map((action, index) => {
         const item = node("span", undefined, "beat-caption");
         item.dataset.kind = action.kind;
         item.append(beatIcon(action.icon), node("span", action.text));
+        if (index >= kept) inscribe(item, action.text);
         return item;
       }),
     );
   }
   captions.hidden = !front?.actions.length;
-  const showFront = Boolean(front) || wordsFailed;
+  const showFront = Boolean(front);
   document.querySelector(".dialogue").dataset.behind = String(Boolean(behind));
   $("speech-row").hidden = !showFront;
   syncDialogueShown();
@@ -2887,11 +3040,13 @@ function renderScene() {
       ? "pending"
       : "action";
   $("dialogue-text").hidden = !text;
-  $("dialogue-advance").hidden = !text && !front?.actions.length;
+  // The Thinking card of a play that can be cancelled takes taps.
+  $("dialogue-advance").hidden =
+    !text && !front?.actions.length && !ownFront?.cancel;
   $("speech-hint").hidden = true;
   if (text) {
     const speaker = line.entityId || line.actorId || scene.locationId;
-    const key = JSON.stringify([line.seq, speaker, text]);
+    const key = lineKey(line, scene.locationId);
     // A local line from an earlier turn that is still the latest beat was
     // already read; it stays whole instead of being written again.
     reveal.show(key, text, speaker, {
@@ -2938,9 +3093,12 @@ function renderScene() {
         behind.speakerId,
       );
       const words = behindButton.querySelector(".beat-behind-text");
-      const first = behind.actions[0];
+      const first = behind.actions.at(-1);
       const caption = node("span", undefined, "beat-behind-caption");
       if (first) caption.append(beatIcon(first.icon), first.text);
+      if (first && behindButton.dataset.beatKey === behind.key)
+        inscribe(caption, first.text);
+      behindButton.dataset.beatKey = behind.key;
       words.replaceChildren(
         node("strong", summary.speaker),
         ...(summary.speech
@@ -2952,7 +3110,7 @@ function renderScene() {
     }
     behindButton.setAttribute(
       "aria-label",
-      `Step back to ${summary.speaker}: ${summary.speech || behind.actions[0]?.text || ""}`,
+      `Step back to ${summary.speaker}: ${summary.speech || behind.actions.at(-1)?.text || ""}`,
     );
   }
   // One live control, only while behind live, counting the newer beats.
@@ -2970,7 +3128,42 @@ function renderScene() {
   liveButton.onclick = returnToLive;
   if (sharedSession) renderRoomStatus(sharedSession);
   animateStack(direction, ghost);
+  syncPhase();
 }
+// An effect is written onto a card with the dialogue's reveal, at a quicker
+// beat: a caption takes 300 to 900 ms. It counts as revealing until it is
+// done; a tap finishes it. Reduced motion shows it at once.
+function inscribe(item, text) {
+  if (reducedMotion.matches) return;
+  const words = node("span"),
+    glyphs = letterSpans(text);
+  words.append(...glyphs);
+  item.lastChild.replaceWith(words);
+  const beat = Math.min(900, Math.max(300, text.length * 20)) / glyphs.length;
+  const painter = createRevealPainter(words, { caret: false });
+  const pen = createTextReveal({
+    delay: () => beat,
+    frame(value) {
+      painter.paint(value);
+      if (!value.complete || !inscribing.has(item)) return;
+      item.classList.remove("inscribe");
+      inscribing.delete(item);
+      syncPhase();
+    },
+  });
+  item.classList.add("inscribe");
+  inscribing.set(item, pen);
+  painter.start(glyphs);
+  pen.show(text, text, null);
+  queueMicrotask(syncPhase);
+}
+function finishInscribing(only) {
+  for (const item of only ? [only] : [...inscribing.keys()])
+    inscribing.get(item)?.finish();
+}
+// A line's reveal key, so a line read once stays whole.
+const lineKey = (line, place) =>
+  JSON.stringify([line.seq, line.entityId || line.actorId || place, line.text]);
 // The art for a beat's speaker: a person, a place, or an item.
 // Dropping the address lets the browser free the decoded picture now rather
 // than whenever the node is collected.
@@ -3111,7 +3304,7 @@ function syncActionBeat() {
     show =
       Boolean(borrowedBeat) ||
       $("card-actions").children.length > 0 ||
-      !$("play-status").hidden;
+      (!$("play-status").hidden && shownPhase !== "revealing");
   if (panel.hidden !== show) return;
   // A notice before the first render (storage refused) only shows the beat.
   const drawn = Boolean(document.body.dataset.handExpanded);
@@ -3215,6 +3408,7 @@ function animateStack(direction, ghost) {
 function stepBack() {
   const beat = stackView.beats[stackView.frontIndex - 1];
   if (!beat) return false;
+  count("scrollback.open");
   reviewing = true;
   reviewBeat = beat.key;
   if (beat.line) lineSeq = beat.line.seq;
@@ -3238,12 +3432,14 @@ function stepForward() {
 // exchange on to its next speaker.
 function advanceFront() {
   if (!$("dialogue-text").hidden && !reveal.complete) {
+    count("line.finish_early");
     reveal.finish();
     speechSounds.stop();
     return;
   }
   if (stepForward()) return;
   if (exchange.current) {
+    count("line.skip");
     characterSpeech.stop();
     syncSpeechPlayback();
     finishSpokenLine();
@@ -3251,21 +3447,40 @@ function advanceFront() {
   }
 }
 $("dialogue-advance").onclick = advanceFront;
-$("beat-behind").onclick = () => {
-  stepBack();
-};
-// Behind the action beat the spoken beat is the card behind: a tap on its
-// line steps back in time once the exchange is read; until then it moves
-// the lines on.
 $("speech-row").addEventListener(
   "click",
   (event) => {
-    const stack = $("speech-row").parentElement;
-    if (stack.dataset.action !== "true" || !reveal.complete) return;
-    if (exchange.current && !reviewing) return;
-    if (event.target.closest("#story-retry, #voice-retry")) return;
+    const { pending, frontIndex, liveIndex } = stackView;
+    if (!pending?.own || frontIndex !== liveIndex) return;
     event.stopPropagation();
-    if (!stepBack()) advanceFront();
+    tapThinking();
+  },
+  true,
+);
+document.addEventListener(
+  "pointerdown",
+  (event) => {
+    if (thinkingArmed && !event.target.closest?.("#speech-row"))
+      disarmThinking();
+  },
+  true,
+);
+$("beat-behind").onclick = () => {
+  if (inscribing.size) finishInscribing();
+  else stepBack();
+};
+// A tap anywhere on a typing card, portrait and name included, finishes it.
+$("speech-row").addEventListener(
+  "click",
+  (event) => {
+    if (inscribing.size) {
+      event.stopPropagation();
+      return finishInscribing();
+    }
+    if (reveal.complete || $("dialogue-text").hidden) return;
+    if (event.target.closest("#voice-retry")) return;
+    event.stopPropagation();
+    advanceFront();
   },
   true,
 );
@@ -3318,7 +3533,9 @@ document.addEventListener("keydown", (event) => {
   stackBox.addEventListener(
     "wheel",
     (event) => {
+      // A sideways scroll of the hand never steps the stack.
       if (Math.abs(event.deltaY) < 4) return;
+      if (Math.abs(event.deltaX) >= Math.abs(event.deltaY)) return;
       const words = $("dialogue-text");
       const scrolls =
         words.contains(event.target) &&
@@ -3796,6 +4013,10 @@ for (const zone of [$("stage"), document.querySelector(".dialogue")]) {
   });
 }
 document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && thinkingArmed) {
+    disarmThinking();
+    return;
+  }
   if (
     e.key === "Escape" &&
     !document.querySelector("dialog[open], .world-menu:popover-open") &&
@@ -3805,14 +4026,13 @@ document.addEventListener("keydown", (e) => {
     selected = [];
     questOpen = false;
     expandedHolders.clear();
-    foldedChoice = false;
     rowCollapsed = true;
     render();
   }
 });
-// A click outside the cards and the dialogue folds the row and keeps the
-// selection and any chosen play; the next tap on the hand raises it as it
-// was. Escape clears. A tap on the dialogue steps its beat and leaves the
+// A click outside the cards and the dialogue folds the row and clears the
+// choice, as Escape does: the action panel fades and the full dialogue card
+// is back. A tap on the dialogue steps its beat and leaves the
 // hand be, as do the toolbar, dialogs and buttons. Nothing else moves it.
 document.addEventListener("click", (e) => {
   const path = e.composedPath(),
@@ -3825,7 +4045,6 @@ document.addEventListener("click", (e) => {
     // hand opens from a card. A play leaves the row as it is, so its own
     // button must not reopen it.
     if (selected.length && within(".play-dock") && !within("#card-actions")) {
-      foldedChoice = false;
       rowCollapsed = false;
       render();
     }
@@ -3844,19 +4063,21 @@ document.addEventListener("click", (e) => {
   foldHand();
 });
 function foldHand() {
-  foldedChoice = selected.length > 0;
+  selected = [];
   questOpen = false;
   rowCollapsed = true;
   expandedHolders.clear();
   render();
 }
 $("history-button").onclick = () => {
+  count("scrollback.open");
   renderLog(true);
   $("history-dialog").showModal();
   pauseSpeech();
   // The newest visit is first; the past is further down.
   $("messages").scrollTop = 0;
 };
+startMetrics($("metrics-toggle"));
 $("menu-button").onclick = () => {
   $("menu-dialog").showModal();
   pauseSpeech();
@@ -3890,7 +4111,7 @@ $("confirm-reset").onclick = () => {
   reveal.cancel();
   speechSounds.stop();
   world = freshWorld();
-  rememberWordsFailed(null);
+  rememberWords(null);
   loadSeen(true);
   completedSpeech.clear();
   reviewing = false;
@@ -3906,6 +4127,9 @@ $("confirm-reset").onclick = () => {
   notice("");
   save();
   $("reset-dialog").close();
+  playNewWorldIntro();
+  holdMusicForTitle();
+  nameTitleWaker(nameOf(currentActor(world)), currentActor(world));
   resumeScene();
 };
 window.addEventListener("storage", (event) => {
@@ -3957,7 +4181,7 @@ function openingWordsDue() {
   );
 }
 // No line is scripted for a waking avatar (#1600): when the model gives no
-// first words, the silent beat "…" shows, and Retry or a reload asks again.
+// first words, the silent beat "…" shows, and stays "…" after a reload.
 function showOpeningSilence() {
   if (!openingWordsDue()) return;
   silence = {
@@ -3984,9 +4208,10 @@ function resumeScene({ otherTab = false } = {}) {
     render();
     return;
   }
-  if (openingWordsDue() && !otherTab && !wordsFailedOnLoad()) {
-    // A new game asks the dialogue model for Vale's first line. A reload
-    // after it failed offers Retry instead of asking again.
+  const words = wordsOnLoad();
+  if (openingWordsDue() && !otherTab && words !== "silent") {
+    // A new game asks the dialogue model for Vale's first line, and a reload
+    // that interrupted it asks again. Words that failed stay "…".
     lineSeq = null;
     storyStatus = "pending";
     exchange.begin();
@@ -3994,25 +4219,33 @@ function resumeScene({ otherTab = false } = {}) {
     narrator.changed();
     return;
   }
-  if (!saveBlocked && !hasCurrentWords() && wordsFailedOnLoad()) {
-    // This turn's words failed before the reload: offer Retry again.
+  if (!saveBlocked && !hasCurrentWords() && words === "pending" && !otherTab) {
+    // This turn's words were on the way before the reload: ask again,
+    // quietly, under the Thinking card. Another tab that is asking keeps
+    // its request; this one shows the caption alone.
     const played = world.log.findLast(
       (entry) =>
         entry.turn === world.turn &&
         entry.kind === "action" &&
         entry.actorId === currentActor(world),
     );
-    narrator.resume(
+    lineSeq = null;
+    render();
+    narrator.changed(
       played ? { item: played.itemId, target: played.targetId } : null,
     );
-    lineSeq = null;
-    storyStatus = "retry";
+    return;
+  }
+  if (words === "silent" && openingWordsDue()) {
+    // Vale's first words failed before the reload: he stays "…".
     render();
     showOpeningSilence();
     return;
   }
   if (!saveBlocked && hasCurrentWords()) {
     const line = currentScene(world).line;
+    // A line read, or begun, before the reload shows whole.
+    if (line) completedSpeech.add(lineKey(line, line.locationId));
     lineSeq = null;
     exchange.begin();
     render();
@@ -4024,13 +4257,19 @@ function resumeScene({ otherTab = false } = {}) {
 const refusalText = ({ label }, reason) => `Not played: ${label}. ${reason}`;
 function showSharedPlay(state, reason = "") {
   if (!sharedPlay) return;
-  const play = sharedPlay;
+  const play = sharedPlay,
+    was = play.state;
   sharedPlay.state = state;
   if (state === "played" || state === "rejected") sharedPlay = null;
   if (state === "sending") sharedRefusal = null;
   // A play the server did not take wakes its rested beat, so the player
   // can play it again from the beat.
   if (["rejected", "uncertain"].includes(state)) restedChoice = null;
+  if (
+    ["playing", "played"].includes(state) &&
+    !["playing", "played"].includes(was)
+  )
+    rememberWait(play.action, play.choice);
   const shown = $("play-status").dataset.playStatus;
   if (state === "rejected") {
     sharedRefusal = { reason, text: refusalText(play, reason) };
@@ -4059,6 +4298,72 @@ function trackSharedPlay(value) {
     return true;
   } else showSharedPlay("played");
   return false;
+}
+// The player's own play before its scene: queued here, or waiting or
+// resuming at the shared table. Only a queued or waiting play can be
+// withdrawn; a resuming one is committed, so cancelling only stops waiting
+// for its line.
+function ownPlayInFlight() {
+  const queued = playQueue.pending;
+  if (queued && queued.action.kind !== "focus")
+    return {
+      cancel: () => {
+        playQueue.clear();
+        restedChoice = null;
+      },
+    };
+  // A committed local play stays saved: cancel only stops waiting for words.
+  if (!sharedSession)
+    return storyStatus === "pending" && !openingWordsDue()
+      ? { committed: true, cancel: stopWaiting }
+      : null;
+  const entry = ownSharedEntry();
+  if (entry?.status === "waiting")
+    return {
+      cancel: () => {
+        restedChoice = null;
+        void withdrawSharedPlay(entry.id);
+      },
+    };
+  if (entry?.status === "retry")
+    return {
+      committed: true,
+      cancel: () => void withdrawSharedPlay(entry.id),
+    };
+  // Sent but not yet at the table: nothing to withdraw yet.
+  if (sharedSending || ["sending", "accepted"].includes(sharedPlay?.state))
+    return { cancel: null };
+  return null;
+}
+function stopWaiting() {
+  narrator.invalidate();
+  exchange.cancel();
+  storyStatus = "ready";
+  rememberWords(null);
+}
+// The Thinking card cancels in two taps: the first asks, the second
+// cancels. A pause, Escape or a tap elsewhere puts it back.
+const THINKING_CONFIRM_MS = 3000;
+let thinkingArmed = false,
+  thinkingTimer = null;
+function disarmThinking(rerender = true) {
+  clearTimeout(thinkingTimer);
+  if (!thinkingArmed) return;
+  thinkingArmed = false;
+  if (rerender) renderScene();
+}
+function tapThinking() {
+  const own = stackView.pending?.own;
+  if (!own?.cancel) return;
+  if (!thinkingArmed) {
+    thinkingArmed = true;
+    thinkingTimer = setTimeout(disarmThinking, THINKING_CONFIRM_MS);
+    renderScene();
+    return;
+  }
+  disarmThinking(false);
+  own.cancel();
+  render();
 }
 function withdrawSharedPlay(key) {
   if (sharedPlay?.key === key) sharedPlay = null;
@@ -4098,8 +4403,9 @@ async function submitSharedPlay(action) {
   sharedSending = true;
   sharedPlay = {
     key: crypto.randomUUID(),
-    actionKey: current.key,
-    label: playLabel(current),
+    action: current,
+    choice: selected.join("+"),
+    label: playLabel(action),
     notice: sharedSession.state.notice || "",
   };
   showSharedPlay("sending");
@@ -4116,6 +4422,7 @@ async function submitSharedPlay(action) {
       trackSharedPlay(sharedSession.state);
     }
   } catch (error) {
+    count(error.cause ? "error.network" : "error.rules_reject");
     if (error.cause) showSharedPlay("uncertain", error.message);
     else showSharedPlay("rejected", error.message);
   } finally {
@@ -4163,6 +4470,9 @@ function syncSharedLine() {
   if (!entry || (lineSeq !== null && entry.seq < lineSeq)) return;
   const key = `${room}:${entry.seq}`;
   if (key === sharedLineKey) return;
+  // The room's line when this page opens began before it: it shows whole.
+  if (!sharedLineSeen) completedSpeech.add(lineKey(entry, room));
+  sharedLineSeen = true;
   sharedLineKey = key;
   lineSeq = entry.seq;
   storyStatus = "ready";
@@ -4304,10 +4614,6 @@ if (localRuntime()) {
     if (button) button.hidden = true;
   }
 }
-installSceneVideo({
-  getWorld: () => world,
-  getScene: () => videoScene || currentScene(world),
-});
 if (sharedSession) {
   world = sharedWorld(sharedSession.state);
   sharedSession.subscribe(adoptShared, (message, recoveredFrom) => {
@@ -4321,4 +4627,8 @@ if (sharedSession) {
   adoptShared(sharedSession.state);
   setInterval(syncSharedLine, 200);
 }
+// The title's Wake button names the avatar this world opens with.
+nameTitleWaker(nameOf(currentActor(world)), currentActor(world));
 resumeScene();
+// The title's turn (or Escape past it) is this avatar's reveal.
+onTitleWake(() => uncover(currentActor(world), { flip: false }));

@@ -1,6 +1,6 @@
 /* Signal's palette follows level tiers; a selected person's or thing's exact
    level appears as one faint numeral at its top. */
-body .card-frame .card[data-tier] {
+:is(body, :where(.title-intro)) .card-frame .card[data-tier] {
   border-color: var(--tier-color);
 }
 body .card[data-tier].new {
@@ -47,10 +47,10 @@ body .card[data-tier].new {
   pointer-events: none;
   display: none;
 }
-body .card[data-unrevealed="true"] > :not(.card-back) {
+:is(body, :where(.title-intro)) .card[data-unrevealed="true"] > :not(.card-back) {
   visibility: hidden;
 }
-body .card[data-unrevealed="true"] .card-back {
+:is(body, :where(.title-intro)) .card[data-unrevealed="true"] .card-back {
   display: block;
 }
 /* The lid of a card opening on its first tap; see card-reveal.mjs. */
