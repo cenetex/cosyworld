@@ -452,9 +452,38 @@ scene the browser built, so the service checks every field
 - **Unknown fields** are refused (serde `deny_unknown_fields`), and every
   string keeps its length limit inside the 64 KiB body limit.
 
-Two paths still accept player-side text and are not covered here: importing
-a whole local save into a new shared world (#2067), and browser-funded shared
-speech, where the player's own OpenRouter key writes the line (#2068).
+A local save shared into a new world (`Create.save`) is untrusted too: its
+text would become journal state that other members' hosted prompts read.
+Before the first journal row, and after the passkey may found a world, the
+service keeps a string from the save only when it is:
+
+- outside a sentence field, a word the current rules or packs use (a string
+  literal of the rules bundle, or a key or one-word value of the pack
+  content), or such words and numbers joined by `:` and `-` (`event:67`);
+- a name from the packs (a log `speaker` must be one, `World` or an id);
+- a rules-built sentence matching its field's authored catalog (a grievance
+  `reason` as the fact `Remembered grievance: …`, item `history` as the
+  event after `Turn N:`);
+- a line, thought, persona or dream whose signed envelope comes with the
+  import (`signed`, from `signed-words.mjs`) and verifies for that kind,
+  that speaker (a log line's `speaker` is that speaker's name) and a local
+  save (`card_narrative/imported.rs`).
+
+A map key must be a rules identifier or such a word. Everything else is
+stripped (its list entry dropped, a lone field cleared, a key removed) and
+counted in a warning. A stripped save the rules refuse loses every avatar's
+inner life too, with its own warning. Matching is bounded at 40 scenes'
+work (text past it is stripped, with a warning), 100,000 strings and 800
+envelopes, looked up by content hash. A save with nothing to strip runs the
+rules once.
+
+The browser keeps one envelope per word, its last 800. Words older than that
+are stripped on share. Envelopes are not bound to one save and do not
+expire, so a word signed for one local save can be replayed into another
+save, but only as the same kind of word by the same speaker.
+
+Browser-funded shared speech, where the player's own OpenRouter key writes
+the line, is still open (#2068).
 
 ## Entrances and future journeys
 

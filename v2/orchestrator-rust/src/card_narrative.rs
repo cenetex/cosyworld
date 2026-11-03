@@ -39,6 +39,8 @@ mod expression;
 #[path = "card_narrative/grounding.rs"]
 mod grounding;
 use grounding::{dialogue_tag, first_person, grounded, invents_item};
+#[path = "card_narrative/imported.rs"]
+pub(crate) mod imported;
 #[path = "card_narrative/knowledge.rs"]
 mod knowledge;
 #[path = "card_narrative/observations.rs"]

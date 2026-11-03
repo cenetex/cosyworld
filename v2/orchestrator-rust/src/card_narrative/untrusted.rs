@@ -16,7 +16,7 @@ use crate::routes::signed_envelope::{content_hash, keys, Claims, Verdict};
 /// Local play has no server-side world id; shared journal rows would carry it.
 const LOCAL_WORLD: &str = "local";
 /// The build family that signs local words.
-const ISSUER: &str = "cosyworld-orchestrator/";
+pub(super) const ISSUER: &str = "cosyworld-orchestrator/";
 /// Clock skew allowed between machines that share a key.
 const SKEW_SECS: u64 = 300;
 
