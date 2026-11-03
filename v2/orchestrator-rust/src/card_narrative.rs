@@ -36,6 +36,8 @@ mod custody;
 mod dream;
 #[path = "card_narrative/expression.rs"]
 mod expression;
+#[path = "card_narrative/framing.rs"]
+mod framing;
 #[path = "card_narrative/grounding.rs"]
 mod grounding;
 use grounding::{dialogue_tag, first_person, grounded, invents_item};
@@ -2247,69 +2249,6 @@ fn excerpt(text: &str) -> String {
     short
 }
 
-/// Phrases that belong to an assistant, not to anyone at this table. The
-/// second group was collected from forty small models answering the real
-/// transcript on 2026-10-23: a model that analyses the scene instead of
-/// speaking in it opens with these.
-const ASSISTANT_SPEAK: &[&str] = &[
-    "as an ai",
-    "language model",
-    "i'm here to help",
-    "i am here to help",
-    "how can i assist",
-    "certainly!",
-    "i cannot",
-    "i can't help",
-    "prompt",
-    "the user",
-    "roleplay",
-    "role-play",
-    "in character",
-    "it seems",
-    "it appears",
-    "it looks like you",
-    "here is the",
-    "here's the",
-    "here is a",
-    "here's a",
-    "let's break",
-    "let's analy",
-    "let's build on",
-    "let's flesh",
-    "let's solidif",
-    "let's navigate",
-    "let's dive",
-    "let's continue",
-    "let's play this out",
-    "okay, let",
-    "okay, this",
-    "continue the",
-    "continue this",
-    "scenario",
-    "narrative",
-    "continuation",
-    "breakdown",
-    "text-based",
-    "choose-your-own",
-    "short story",
-    "what do you do?",
-    "to do next",
-    "or something else?",
-    "dialogue scene",
-    "i'd be delighted",
-    "i'll do my best",
-    "i can help",
-    "i can provide",
-    "i'll provide",
-    "this scene",
-    "the scene",
-    "your character",
-    "your objective",
-    "in this setting",
-    "sure thing",
-    "of course!",
-];
-
 /// What a reply is checked against before it is published.
 struct Check<'a> {
     expression: expression::Mode,
@@ -2572,7 +2511,7 @@ impl<'a> Check<'a> {
             return Err("story_outcome");
         }
         let lower = kept.to_lowercase();
-        if ASSISTANT_SPEAK.iter().any(|phrase| lower.contains(phrase)) {
+        if framing::assistant(&kept) {
             return Err("assistant");
         }
         for (id, profile) in profiles().as_object().expect("profiles") {
@@ -2635,7 +2574,7 @@ impl<'a> Check<'a> {
         }
         // A character speaks as "I"; a line that names its speaker in the
         // third person ("Vale's eyes flick to Pip") is narration.
-        if kind(&self.entity.id, "avatar") && mentions(&freely_spoken, &own) {
+        if kind(&self.entity.id, "avatar") && framing::narrates_self(&freely_spoken, &own) {
             return Err("self-narration");
         }
         // The stage shows the play; a line that narrates the speaker's own
@@ -2645,9 +2584,15 @@ impl<'a> Check<'a> {
         }
         // A line wrapped in its own dialogue tag (`hit you back," I say,
         // keeping my hand…`) leaves a stray quote or tags its speaker.
-        let marks = kept.matches(['"', '\u{201c}', '\u{201d}']).count();
-        if kind(&self.entity.id, "avatar") && (marks % 2 == 1 || dialogue_tag(&kept)) {
+        // A quote left open by our own sentence trim (`"Keep it lit," my
+        // mother told me`) is dropped; one the reply left open is not.
+        let marks = |s: &str| s.matches(['"', '\u{201c}', '\u{201d}']).count() % 2 == 1;
+        if kind(&self.entity.id, "avatar") && (dialogue_tag(&kept) || (marks(&kept) && marks(line)))
+        {
             return Err("narration tag");
+        }
+        if marks(&kept) {
+            kept.retain(|c| !matches!(c, '"' | '\u{201c}' | '\u{201d}'));
         }
         if self
             .labels

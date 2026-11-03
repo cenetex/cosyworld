@@ -211,6 +211,19 @@ silent. A busy 429 with a short `Retry-After` is asked again at most twice
 inside the five-second Thinking grace; a longer limit is not retried. The metrics still count each outcome as
 `voice.failed` or `voice.silent`, with no UI.
 
+The server's check (`Check` in `card_narrative.rs`, with `framing.rs`)
+refuses meta-talk and narration, not plain speech
+([#2016](https://github.com/cenetex/cosyworld/issues/2016)). Assistant
+framing is a whole phrase about the chat itself ("as an AI", "the user",
+"continue the story"), a sentence that hands over work ("Here is Pip's
+line.") or one that notices the player writing ("It seems like you're
+creating…"). "It seems so.", "I cannot leave the lamp." and "Of course! Take
+it." are speech. A line that names its own speaker is narration unless it
+introduces them ("I'm Vale", "call me Vale", "Vale here"). A narration tag
+is a speaker and a speech verb after a closing quote (`," I say`); a
+quotation inside speech keeps its words. The corpus in `framing.rs` lists
+lines that must pass and lines that must fail.
+
 In shared play the server finishes a play whose words failed as a silent
 scene: no speech op is journaled (exactly as for words that never came, so
 replay and the rules are unchanged), the scene record has no lines, lists
