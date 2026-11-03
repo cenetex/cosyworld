@@ -40,18 +40,22 @@ function act(world, actor, kind, target) {
   expect(result.ok, result.error).toBe(true);
   return reload(result.world);
 }
-// After the plea: the provisions lie ashore at the harbor, the ship lies
+// After the plea: the provisions lie ashore at the harbor (or are used up),
+// the ship lies
 // there empty, Mara waits at Piraeus and `rider` is aboard.
 function stuck(rider) {
   const s = dispatchShared({
     op: "create",
     save: encodeSave(openSeas()),
   }).world;
-  s.items["greek-provisions"].holder = HOME;
+  // Used up, the provisions are out of play already.
+  if (!s.usedUp?.includes("greek-provisions"))
+    s.items["greek-provisions"].holder = HOME;
   for (const a of Object.values(s.actors)) if (a.place === SHIP) a.place = HOME;
   s.actors.vale.place = "greek-courtyard";
   s.actors.mara.place = "greek-piraeus";
   s.actors[rider].place = SHIP;
+  if (rider === BARD) delete s.actors[BARD].under;
   if (rider === BARD)
     s.actors[BARD].want = {
       kind: "place",
