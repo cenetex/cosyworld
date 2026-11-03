@@ -78,6 +78,11 @@ export function nameTitleWaker(name) {
   if (wakeButton) wakeButton.textContent = wakeLabel(wakeName);
 }
 
+// No room music plays under the title, nor until its song has faded out:
+// app.mjs waits for this promise (null when no title is up).
+let musicHold = null;
+export const titleMusicHold = () => musicHold;
+
 // The overlay sits outside the inert body and over the table, which boots
 // and asks for Vale's opening line underneath it. The logo waits, silent, for
 // the first tap or key: that gesture starts the title song (title-song.mjs),
@@ -107,12 +112,13 @@ export function playTitleIntro({
 
   let woken = false,
     leaving = false,
+    songDone = Promise.resolve(),
     leave;
   const left = new Promise((resolve) => (leave = resolve));
   const finish = () => {
     if (leaving) return;
     leaving = true;
-    song.stop(1);
+    songDone = song.stop(1);
     leave();
   };
   const button = document.createElement("button");
@@ -181,7 +187,7 @@ export function playTitleIntro({
   });
   image.src = imageUrl(source);
 
-  return (async () => {
+  const shown = (async () => {
     const [ok] = await Promise.all([step(loaded), step(wait(BLACK_MS))]);
     if (ok && !leaving) {
       if (!woken) layer.dataset.phase = "title";
@@ -212,4 +218,10 @@ export function playTitleIntro({
     layer.remove();
     if (wakeButton === button) wakeButton = null;
   })();
+  const hold = shown.then(() => songDone);
+  musicHold = hold;
+  hold.then(() => {
+    if (musicHold === hold) musicHold = null;
+  });
+  return shown;
 }
