@@ -1,4 +1,5 @@
 import musicStreams from "./music-streams.json" with { type: "json" };
+import titleLogos from "./title-logos.json" with { type: "json" };
 import { roomTracks } from "./music.mjs";
 import { packMediaFiles } from "./pack-registry.mjs";
 import imageVariants from "./image-variants.json" with { type: "json" };
@@ -36,8 +37,7 @@ const files = [
   "boardyai.json",
   "assets/card-back.webp",
   // The new-world title (title-intro.mjs).
-  "assets/title/lonely-forest-1.webp",
-  "assets/title/lonely-forest-2.webp",
+  ...titleLogos.logos.map(({ src }) => src),
   "assets/music/title-attic-lamp.mp3",
   // Rest card paintings for issue #1849; the rest-card feature follows.
   "assets/rest/short-rest.webp",
@@ -127,6 +127,7 @@ const files = [
   "assets/shared/places/pond.png",
   "assets/shared/places/attic-dark.webp",
   "assets/shared/places/attic-stairs.webp",
+  "assets/shared/places/station.png",
   "assets/attic/attic-lit.webp",
   "assets/attic/attic-lit-cottage.webp",
   "assets/shared/places/attic-lit-cottage.webp",
