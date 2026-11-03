@@ -2114,6 +2114,21 @@ async fn speak(
             check.sentences = if atmosphere::narrator(id) { 3 } else { 1 };
         }
     }
+    // Registry labels only, so the counters stay bounded.
+    let route_of = |selected: &crate::ai_gateway::PinnedModelSelection| {
+        let candidate = selected.candidate();
+        (
+            candidate.requested_model_id().to_string(),
+            candidate.provider().to_string(),
+        )
+    };
+    let own_route = route_of(&selected);
+    let escalation_route = escalation.as_ref().and_then(|config| {
+        config
+            .pin_model(ModelCapability::WorldContent)
+            .ok()
+            .map(|selected| route_of(&selected))
+    });
     let call = voice_metrics::Call::new(
         id,
         part,
@@ -2144,7 +2159,11 @@ async fn speak(
             }
             let (check, refused) = (&check, &refused);
             let call = &call;
-            call.attempt();
+            let (model, provider) = match &escalation_route {
+                Some(route) if escalated => route,
+                _ => &own_route,
+            };
+            call.attempt(model, provider);
             async move {
                 let request = ChatCompletionRequest {
                     feature: "card_voice",
@@ -2168,7 +2187,7 @@ async fn speak(
                     request_chat_completion(config, request)
                         .await
                         .map_err(|error| {
-                            call.reject("provider");
+                            call.reject_provider(error.code());
                             tracing::info!(
                                 feature = "card_voice",
                                 entity = id,

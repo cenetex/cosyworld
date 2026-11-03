@@ -5,7 +5,7 @@
 //! validator's own static labels, so the counters stay bounded.
 use super::{Context, Entity, Part};
 use serde_json::{json, Map, Value};
-use std::{collections::BTreeMap, sync::Mutex};
+use std::{collections::BTreeMap, sync::Mutex, time::Instant};
 
 /// Where a prompt line comes from.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -120,7 +120,7 @@ pub(super) enum Outcome {
 }
 
 impl Outcome {
-    fn label(self) -> &'static str {
+    pub(super) fn label(self) -> &'static str {
         match self {
             Outcome::Spoken => "spoken",
             Outcome::Untold => "untold",
@@ -195,6 +195,28 @@ struct Tally {
     spoken: u64,
 }
 
+/// Calls by outcome under one registry model or provider.
+#[derive(Debug, Default, serde::Serialize)]
+struct Mix {
+    calls: u64,
+    attempts: u64,
+    spoken: u64,
+    untold: u64,
+    silent: u64,
+    cancelled: u64,
+}
+
+/// The tally for a registry label. The registry is small; past 24 labels the
+/// rest share "other", so the map stays bounded whatever the config holds.
+fn mix<'m>(map: &'m mut BTreeMap<String, Mix>, key: &str) -> &'m mut Mix {
+    let key = if map.len() < 24 || map.contains_key(key) {
+        key
+    } else {
+        "other"
+    };
+    map.entry(key.to_string()).or_default()
+}
+
 /// Aggregate counters since this process started.
 #[derive(Debug, Default)]
 pub(super) struct Totals {
@@ -206,6 +228,10 @@ pub(super) struct Totals {
     max_tokens: u64,
     plays: BTreeMap<&'static str, Tally>,
     occasions: BTreeMap<&'static str, Tally>,
+    models: BTreeMap<String, Mix>,
+    providers: BTreeMap<String, Mix>,
+    provider_failures: BTreeMap<&'static str, u64>,
+    flagged: BTreeMap<&'static str, u64>,
 }
 
 impl Totals {
@@ -219,6 +245,41 @@ impl Totals {
             max_tokens: 0,
             plays: BTreeMap::new(),
             occasions: BTreeMap::new(),
+            models: BTreeMap::new(),
+            providers: BTreeMap::new(),
+            provider_failures: BTreeMap::new(),
+            flagged: BTreeMap::new(),
+        }
+    }
+
+    /// Count a call under the model and provider it last tried, and each
+    /// gateway failure code it met.
+    fn record_route(
+        &mut self,
+        (model, provider): (&str, &str),
+        attempts: u8,
+        outcome: Outcome,
+        failures: &[&'static str],
+        flags: &[&'static str],
+    ) {
+        for tally in [
+            mix(&mut self.models, model),
+            mix(&mut self.providers, provider),
+        ] {
+            tally.calls += 1;
+            tally.attempts += u64::from(attempts);
+            *match outcome {
+                Outcome::Spoken => &mut tally.spoken,
+                Outcome::Untold => &mut tally.untold,
+                Outcome::Silent => &mut tally.silent,
+                Outcome::Cancelled => &mut tally.cancelled,
+            } += 1;
+        }
+        for code in failures {
+            *self.provider_failures.entry(code).or_default() += 1;
+        }
+        for reason in flags {
+            *self.flagged.entry(reason).or_default() += 1;
         }
     }
 
@@ -267,6 +328,10 @@ impl Totals {
             "rejections": self.rejections,
             "by_play": self.plays,
             "by_occasion": self.occasions,
+            "by_model": self.models,
+            "by_provider": self.providers,
+            "provider_failures": self.provider_failures,
+            "flagged": self.flagged,
             "prompt_tokens": {
                 "approximate": true,
                 "mean": total / calls,
@@ -290,7 +355,11 @@ pub(crate) fn snapshot() -> Value {
 struct State {
     attempts: u8,
     reasons: Vec<&'static str>,
+    failures: Vec<&'static str>,
+    flags: Vec<&'static str>,
     outcome: Option<Outcome>,
+    model: String,
+    provider: String,
 }
 
 /// The play kind and speech occasion a call answers.
@@ -329,6 +398,7 @@ pub(super) struct Call<'a> {
     part: Part,
     budget: Budget,
     labels: Labels,
+    started: Instant,
     state: Mutex<State>,
 }
 
@@ -339,10 +409,15 @@ impl<'a> Call<'a> {
             part,
             budget,
             labels: Labels::default(),
+            started: Instant::now(),
             state: Mutex::new(State {
                 attempts: 0,
                 reasons: Vec::new(),
+                failures: Vec::new(),
+                flags: Vec::new(),
                 outcome: None,
+                model: "none".into(),
+                provider: "none".into(),
             }),
         }
     }
@@ -359,8 +434,38 @@ impl<'a> Call<'a> {
         }
     }
 
-    pub(super) fn attempt(&self) {
-        self.with(|state| state.attempts = state.attempts.saturating_add(1));
+    /// One more attempt, on this registry model and provider.
+    pub(super) fn attempt(&self, model: &str, provider: &str) {
+        self.with(|state| {
+            state.attempts = state.attempts.saturating_add(1);
+            if state.model != model || state.provider != provider {
+                state.model = model.into();
+                state.provider = provider.into();
+            }
+        });
+    }
+
+    /// A published line the validator flagged rather than blocked. The line
+    /// still counts as spoken; `reason` is the validator's static label.
+    /// `reject` records the blocked reasons.
+    // Called once the validator publishes flagged lines (#2016).
+    #[allow(dead_code)]
+    pub(super) fn flag(&self, reason: &'static str) {
+        self.with(|state| {
+            if state.flags.len() < 8 {
+                state.flags.push(reason);
+            }
+        });
+    }
+
+    /// The gateway failed this attempt; `code` is its static failure code.
+    pub(super) fn reject_provider(&self, code: &'static str) {
+        self.reject("provider");
+        self.with(|state| {
+            if state.failures.len() < 8 {
+                state.failures.push(code);
+            }
+        });
     }
 
     /// Keep each attempt's reason; attempts are few, so this stays small.
@@ -377,20 +482,30 @@ impl<'a> Call<'a> {
     }
 }
 
+/// Each attempt's reason. An attempt with no reason and no reply ran out of
+/// its own time, except the one still running when the call was dropped: the
+/// scene deadline or a closed viewer cancelled that one. A published line
+/// (spoken or untold) explains its own attempt.
+fn explained(mut reasons: Vec<&'static str>, attempts: u8, outcome: Outcome) -> Vec<&'static str> {
+    let answered = usize::from(matches!(outcome, Outcome::Spoken | Outcome::Untold));
+    let unexplained = usize::from(attempts).saturating_sub(reasons.len() + answered);
+    for n in 1..=unexplained {
+        let last = n == unexplained && outcome == Outcome::Cancelled;
+        if reasons.len() < 8 {
+            reasons.push(if last { "cancelled" } else { "timeout" });
+        }
+    }
+    reasons
+}
+
 impl Drop for Call<'_> {
     fn drop(&mut self) {
         let Ok(state) = self.state.lock() else {
             return;
         };
         let outcome = state.outcome.unwrap_or(Outcome::Cancelled);
-        // An attempt with no reason and no reply ran out of time.
-        let mut reasons = state.reasons.clone();
-        let explained = reasons.len() + usize::from(outcome == Outcome::Spoken);
-        for _ in explained..usize::from(state.attempts) {
-            if reasons.len() < 8 {
-                reasons.push("timeout");
-            }
-        }
+        let reasons = explained(state.reasons.clone(), state.attempts, outcome);
+        let ms = self.started.elapsed().as_millis() as u64;
         let b = &self.budget;
         tracing::info!(
             feature = "card_voice",
@@ -401,6 +516,11 @@ impl Drop for Call<'_> {
             attempts = state.attempts,
             outcome = outcome.label(),
             reasons = %reasons.join(","),
+            model = %state.model,
+            provider = %state.provider,
+            failures = %state.failures.join(","),
+            flags = %state.flags.join(","),
+            ms,
             tokens = b.total(),
             system = b.get(Section::System),
             now = b.get(Section::Now),
@@ -414,6 +534,13 @@ impl Drop for Call<'_> {
         );
         if let Ok(mut totals) = TOTALS.lock() {
             totals.record(self.labels, &self.budget, state.attempts, outcome, &reasons);
+            totals.record_route(
+                (&state.model, &state.provider),
+                state.attempts,
+                outcome,
+                &state.failures,
+                &state.flags,
+            );
         }
     }
 }
@@ -461,6 +588,40 @@ mod tests {
             json!({"calls": 1, "spoken": 0})
         );
         assert!(!value.to_string().contains("Vale"));
+    }
+
+    #[test]
+    fn untold_lines_and_cancels_are_not_timeouts() {
+        assert!(explained(vec![], 1, Outcome::Untold).is_empty());
+        assert_eq!(explained(vec!["repeat"], 2, Outcome::Untold), ["repeat"]);
+        assert_eq!(explained(vec![], 1, Outcome::Cancelled), ["cancelled"]);
+        assert_eq!(
+            explained(vec![], 2, Outcome::Cancelled),
+            ["timeout", "cancelled"]
+        );
+        assert_eq!(
+            explained(vec!["shape"], 2, Outcome::Silent),
+            ["shape", "timeout"]
+        );
+        let mut totals = Totals::new();
+        let route = ("openai/gpt-6-luna", "openrouter");
+        totals.record_route(route, 2, Outcome::Silent, &["inference_timeout"], &[]);
+        totals.record_route(route, 1, Outcome::Spoken, &[], &["echoed brief"]);
+        let value = totals.snapshot();
+        assert_eq!(value["by_model"]["openai/gpt-6-luna"]["calls"], 2);
+        assert_eq!(value["by_model"]["openai/gpt-6-luna"]["silent"], 1);
+        assert_eq!(value["by_provider"]["openrouter"]["attempts"], 3);
+        assert_eq!(value["provider_failures"]["inference_timeout"], 1);
+        // A flagged line is spoken, and its flag is counted apart.
+        assert_eq!(value["by_model"]["openai/gpt-6-luna"]["spoken"], 1);
+        assert_eq!(value["flagged"]["echoed brief"], 1);
+        assert!(value["rejections"].as_object().unwrap().is_empty());
+        let mut many = BTreeMap::new();
+        for n in 0..30 {
+            mix(&mut many, &format!("model-{n}")).calls += 1;
+        }
+        assert_eq!(many.len(), 25);
+        assert_eq!(many["other"].calls, 6);
     }
 
     #[test]
