@@ -207,7 +207,8 @@ beat, like a quiet JRPG line, and play goes on at once. The "…" is never
 voiced or saved, and nothing asks again for it. A line either arrives whole
 or is "…": a beat never carries both. The browser makes one quiet automatic
 attempt for a temporary error inside the scene's budget before it falls
-silent; a 429 is not retried. The metrics still count each outcome as
+silent. A busy 429 with a short `Retry-After` is asked again at most twice
+inside the five-second Thinking grace; a longer limit is not retried. The metrics still count each outcome as
 `voice.failed` or `voice.silent`, with no UI.
 
 In shared play the server finishes a play whose words failed as a silent
