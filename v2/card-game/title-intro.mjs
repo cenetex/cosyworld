@@ -82,6 +82,21 @@ export function nameTitleWaker(name, id = "") {
   wakeId = id;
 }
 
+// The title's card is the avatar's own card: turning it, or Escape past it,
+// uncovers that card in the hand, so the table never asks to reveal it twice.
+// The table boots under the title and may register after the title leaves,
+// so a wake that came first is kept for it.
+let woken = false,
+  onWake = null;
+export function onTitleWake(callback) {
+  onWake = callback;
+  if (woken) wake();
+}
+function wake() {
+  woken = !onWake;
+  onWake?.();
+}
+
 // No room music plays under the title, nor until its song has faded out:
 // app.mjs waits for this promise (null when no title is up).
 let musicHold = null;
@@ -200,6 +215,7 @@ export function playTitleIntro({
   try {
     storage.removeItem(INTRO_KEY);
   } catch {}
+  woken = false;
   const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
   const layer = element("div", "title-intro");
   layer.dataset.phase = "black";
@@ -232,6 +248,7 @@ export function playTitleIntro({
     if (leaving) return;
     leaving = true;
     songDone = song.stop(fadeSeconds);
+    wake();
     leave();
   };
   const fade = (node, duration, delay = 0) =>

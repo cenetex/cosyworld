@@ -417,7 +417,8 @@ a play, the redrawn row ignores taps, so a double tap cannot reach the new slot.
 
 New cards arrive in their normal stacks with a carved wooden-box cover. A new
 game's opening cards, such as Vale, the lamp and the attic, start covered too, as
-do a new visitor's first cards in a shared world; a table this browser already
+do a new visitor's first cards in a shared world (after the new-world title,
+the avatar's own card is already face up); a table this browser already
 knows keeps the cards its player has uncovered. The first tap uncovers a card
 without selecting it or spending a turn; subsequent taps select it normally.
 A place widens from the upright cover to its wider card as the lid lifts;
@@ -742,6 +743,14 @@ quarter up where the hand clips its cards. The face holds for
 0.8 seconds, then the title fades to the table while the song rings on and
 fades out over three seconds. Escape skips straight in at any step and fades
 the song over one.
+The title's card is the avatar's own card: as the title leaves, by its turn or
+by Escape, that card is uncovered in the hand (`onTitleWake`), face up with no
+second flip and announced as a new card. Skipping counts as the reveal. The
+first line still waits for the place card (see the hand above), and the
+uncovered set is saved, so a reload neither covers the avatar again nor asks
+for its first line twice. A joining avatar in a shared world is uncovered the
+same way; with no title (a reload, other sites, the local app), the avatar's
+card waits for its own tap as before.
 Reduced motion crossfades each step, moves the logo up at once and swaps the
 face in without the flip. If the logo does not load within 2.5 seconds, the
 card shows without it.

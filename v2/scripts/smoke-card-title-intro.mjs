@@ -44,8 +44,10 @@ async function open(context) {
   page.setDefaultTimeout(15000);
   const errors = [];
   page.on("pageerror", (error) => errors.push(error.message));
+  page.wakings = 0;
   await page.route("**/card-game/text", (route) => {
     const input = route.request().postDataJSON();
+    if (input.waking) page.wakings++;
     return route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -165,6 +167,14 @@ const whole = (state) =>
   state.cue === "0.6";
 const gone = (page, timeout) =>
   page.waitForSelector(".title-intro", { state: "detached", timeout });
+// The title's card is the avatar's: once the title leaves, by its turn or by
+// Escape, Vale's hand card is face up with no second flip.
+async function valeShown(page) {
+  await page.waitForSelector(
+    '#hand .card[data-card="vale"][data-unrevealed="false"]',
+  );
+  assert.equal(await page.locator("#hand .reveal-lid").count(), 0);
+}
 try {
   for (const [width, height] of [
     [1440, 900],
@@ -299,8 +309,7 @@ try {
         "0px -8px",
       );
       await page.locator(traveller).click();
-    }
-    else await page.keyboard.press("Enter");
+    } else await page.keyboard.press("Enter");
     await revealed(page, "Vale");
     await page.waitForTimeout(desktop ? 300 : 100);
     await shot(page, `face-${width}`);
@@ -340,12 +349,35 @@ try {
       /attic-lit/,
     );
     await shot(page, `game-${width}`);
+    // Vale is face up already; his first line waits only for the attic.
+    await valeShown(page);
+    assert.equal(
+      await page.getAttribute(
+        '#hand .card[data-card="attic"]',
+        "data-unrevealed",
+      ),
+      "true",
+    );
+    assert.equal(page.wakings, 0);
+    await page.locator('#hand .card[data-card="attic"]').click();
+    await page.waitForFunction(() =>
+      document.querySelector(
+        '#hand .card[data-card="attic"][data-unrevealed="false"]',
+      ),
+    );
+    for (let i = 0; i < 50 && page.wakings < 1; i++)
+      await page.waitForTimeout(100);
+    await page.waitForTimeout(500);
+    assert.equal(page.wakings, 1, "Vale's first line is asked for once");
 
     // A reload, and a later visit, go straight to the table in silence.
     await page.reload();
     await page.waitForSelector("#hand .card");
     await page.waitForTimeout(600);
     assert.equal(await page.locator(".title-intro").count(), 0);
+    // The reveal and the first line are not repeated.
+    await valeShown(page);
+    assert.equal(page.wakings, 1);
     await page.mouse.click(width / 2, 10);
     assert.equal(await titlePlays(page), 0);
     const later = await open(fresh);
@@ -364,9 +396,11 @@ try {
     await later.waitForSelector('.title-intro[data-phase="title"]');
     assert.equal(await titlePlays(later), 1);
     await heard(later);
-    // Escape skips straight in and fades the song.
+    // Escape skips straight in and fades the song; skipping counts as the
+    // reveal, so Vale is face up.
     await later.keyboard.press("Escape");
     await gone(later, 1500);
+    await valeShown(later);
     await later.waitForTimeout(1200);
     assert.equal(await later.evaluate(() => window.__titleSong.paused), true);
     await later.reload();
@@ -387,6 +421,9 @@ try {
     await gone(skipper, 1500);
     await skipper.waitForSelector("#hand .card");
     assert.equal(await titlePlays(skipper), 0);
+    await valeShown(skipper);
+    await skipper.reload();
+    await valeShown(skipper);
     await skipContext.close();
   }
 

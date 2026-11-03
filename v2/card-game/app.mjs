@@ -1,5 +1,6 @@
 import {
   nameTitleWaker,
+  onTitleWake,
   playNewWorldIntro,
   titleMusicHold,
 } from "./title-intro.mjs";
@@ -1252,18 +1253,26 @@ function selectCards(cards) {
   // Choosing other cards after a Wait brings back the plain Wait.
   if (lastWait && cards.join("+") !== lastWait.key) lastWait = null;
 }
+// Uncovering a card names it, remembers it, and lets a held first line
+// begin once the avatar and its place are both known. The new-world title's
+// turn has already shown the avatar's face, so it uncovers that card without
+// a second flip.
+function uncover(id, { flip = true } = {}) {
+  if (!cardIsCovered(id)) return;
+  encountered.add(id);
+  coveredCards.delete(id);
+  rememberCards();
+  render();
+  const shown = $("hand").querySelector(`.card[data-card="${id}"]`);
+  if (shown && flip) void revealCard(shown);
+  $("discovery-announcement").textContent = `New card: ${nameOf(id)}.`;
+  if (openingHeld && openingWordsDue() && selfKnown()) resumeScene();
+  if (sharedSession) syncSharedLine();
+}
 function choose(id) {
   if (finishCardReveal(id) || selectionBlocked()) return;
   if (cardIsCovered(id)) {
-    encountered.add(id);
-    coveredCards.delete(id);
-    rememberCards();
-    render();
-    const shown = $("hand").querySelector(`.card[data-card="${id}"]`);
-    if (shown) void revealCard(shown);
-    $("discovery-announcement").textContent = `New card: ${nameOf(id)}.`;
-    if (openingHeld && openingWordsDue() && selfKnown()) resumeScene();
-    if (sharedSession) syncSharedLine();
+    uncover(id);
     return;
   }
   playQueue.clear();
@@ -4647,3 +4656,5 @@ if (sharedSession) {
 // The title's Wake button names the avatar this world opens with.
 nameTitleWaker(nameOf(currentActor(world)), currentActor(world));
 resumeScene();
+// The title's turn (or Escape past it) is this avatar's reveal.
+onTitleWake(() => uncover(currentActor(world), { flip: false }));
