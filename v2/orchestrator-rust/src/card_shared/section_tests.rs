@@ -153,6 +153,9 @@ fn earlier_greek_worlds_upgrade_once_with_original_history_and_new_entities() {
                         // Greek revision 15: the Pyre Account and the
                         // Marathon Record.
                         + 2
+                        // The Thebes provisions loop: the Dried Figs, the
+                        // Wine Skin and the Libation Wine.
+                        + 3
                         + if version == engine::ELEVENTH_VERSION {
                             9
                         } else {
@@ -183,6 +186,11 @@ fn earlier_greek_worlds_upgrade_once_with_original_history_and_new_entities() {
                     "greek-harbor"
                 );
                 assert!(!piraeus(&voyage));
+                // Myrto has packed a load (rules 95): the provisions are in
+                // play again, aboard.
+                if let Some(used) = voyage.game["usedUp"].as_array_mut() {
+                    used.retain(|id| id != "greek-provisions");
+                }
                 voyage.game["items"]["greek-provisions"]["holder"] = json!("greek-ship");
                 assert!(piraeus(&voyage));
                 assert!(!upgraded.project(1).unwrap()["exits"]

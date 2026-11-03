@@ -19,25 +19,12 @@ fn greek_ports_and_roads_upgrade_from_each_released_version() {
 #[test]
 fn greek_ports_roads_and_waiting_replay_after_the_version_eighteen_upgrade() {
     let (path, c, id, mut w) = upgraded_ports(engine::EIGHTEENTH_VERSION);
-    // Black Pond sails only to the Wine-Dark Harbor. Vale loads the Travel
-    // Provisions, which open the lane to Piraeus, sails there and home with
-    // them. The Long Walls open from either end only with the herald's
+    // Black Pond sails only to the Wine-Dark Harbor. Vale carries a load of
+    // Travel Provisions from before rules 95, so it stays in play. It opens
+    // the lane to Piraeus, and the voyage there uses it up; the way home is
+    // free. The Long Walls open from either end only with the herald's
     // truce, so she waits at the quays beside the ship.
-    let take = w.project(0).unwrap()["actions"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .find(|a| a["kind"] == "take" && a["item"] == "greek-provisions")
-        .expect("Vale can take the provisions at the harbor")
-        .clone();
-    full_store::commit(
-        &c,
-        &id,
-        &mut w,
-        json!({"op":"play","actor":"vale","action":take}),
-        now(),
-    )
-    .unwrap();
+    assert_eq!(w.game["items"]["greek-provisions"]["holder"], "vale");
     for target in [
         "greek-ship",
         "greek-piraeus",
@@ -169,6 +156,8 @@ fn upgraded_ports(version: &str) -> (std::path::PathBuf, rusqlite::Connection, S
         old.game["actors"][actor]["place"] = json!("greek-harbor");
     }
     old.game["crossings"]["pond-greek-harbor"]["discovered"] = json!(true);
+    // Vale took the Travel Provisions, so they stay in play (rules 95).
+    old.game["items"]["greek-provisions"]["holder"] = json!("vale");
     full_store::seed(&c, &id, &old, "released-ports-fixture", now()).unwrap();
     let w = full_store::world(&c, &id, now()).unwrap();
     assert_eq!(w.version, engine::VERSION);
