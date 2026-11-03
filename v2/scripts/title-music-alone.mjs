@@ -117,6 +117,11 @@ export async function checkTitleMusicAlone(browser, origin, shot) {
     await shot(page, `${actor}-face-${width}`);
     assert.ok(await roomPaused(), `${actor}: none while the card turns`);
     await page.waitForSelector(".title-intro", { state: "detached" });
+    // The title's turn was the joining avatar's reveal: no second flip.
+    await page.waitForSelector(
+      `#hand .card[data-card="${actor}"][data-unrevealed="false"]`,
+    );
+    assert.equal(await page.locator("#hand .reveal-lid").count(), 0);
     if (started)
       await page.waitForFunction(
         () => !document.getElementById("room-music").paused,
