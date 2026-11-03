@@ -42,9 +42,13 @@ are in [card packs](../../v2/docs/card-packs.md#things-used-up-and-coming-back-r
   cargo lane from that dock is shut, puts in at its home port, its authored
   `at`, and everyone aboard, resident or player, goes ashore there. Things
   aboard stay aboard. A resident put ashore sets that pursuit aside, as a
-  stalled want is. The empty ship then answers the next call. It replaces the
-  idle sail only at such a dock, so it is as deterministic as the idle rule.
-  A save from before rules 95 with a ship already stuck sends it home on load.
+  stalled want is. The empty ship then answers the next call, and a lamp
+  summon made while it was occupied is answered at once. It replaces the
+  idle sail only at such a dock, and not where the idle sail's first lane
+  leads home anyway (the voyage is then sailed and learned), so it is as
+  deterministic as the idle rule. A standoff aboard holds the ship. A save
+  from before rules 95 with a ship already stuck sends it home on load, and
+  its residents set that pursuit aside there too.
 - **Regrowth.** `home` plus `regrow: dawn | dusk | rest`. Rest is any long
   rest ending this round. A thing regrows only while its home is active and
   its own `requires` hold; otherwise it waits.

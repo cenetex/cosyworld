@@ -364,7 +364,7 @@ anything. From rules 95 a used-up item is out of play: its id is listed in
 the save's `usedUp`, and it waits unseen, with no history, at its authored
 `holder`. Using an item up clears every grievance's link to it, its keepsake
 attachments and a standoff's stake, so a regrown loaf cannot answer an old
-theft. Item conditions (`item_present`, `item_at`, `item_near`) ignore it.
+theft. Item conditions (`item_present`, `item_at`, `item_near`, `holding`) ignore it.
 
 Item fields:
 

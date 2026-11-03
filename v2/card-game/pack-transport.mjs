@@ -390,13 +390,17 @@ export function moveTransport(s, from, to) {
 // A ship out of cargo with nobody able to sail on goes home (rules 95). It
 // is stuck when it lies at a dock with someone aboard, idle for IDLE_ROUNDS
 // (nobody set a course), and every cargo lane from that dock is shut. Its
-// home port is the dock it starts at (`at`).
+// home port is the dock it starts at (`at`). Where the idle sail would reach
+// home anyway, the ship sails it, so the voyage is still sailed and learned;
+// and a standoff aboard holds the ship until it ends.
 export function stuckShip(s, id) {
   const t = transports[id],
     state = read(s, id);
   if (!state || !["docked", "arrived"].includes(state.phase)) return false;
   if (!passengers(s, id).length || s.turn - state.since < IDLE_ROUNDS)
     return false;
+  if ((s.standoffs || []).some((c) => c?.location === t.place)) return false;
+  if (openLanes(s, t, state.dock)[0] === t.at) return false;
   const gated = lanesFrom(t, state.dock).filter(
     (to) => laneGate(t, state.dock, to) && entityActive(s, to),
   );
@@ -409,7 +413,8 @@ export function stuckShip(s, id) {
   );
 }
 // The stuck ship puts in at its home port and everyone aboard goes ashore
-// there; things aboard stay aboard. Empty, it answers the next call.
+// there; things aboard stay aboard. Empty, it answers the next call, and a
+// lamp summon made while it was occupied is answered at once.
 export function sendShipHome(s, id) {
   const t = transports[id],
     state = own(s, id),
@@ -422,8 +427,8 @@ export function sendShipHome(s, id) {
     destination: null,
     riders: [],
     since: s.turn,
-    recall: null,
   });
+  if (state.recall) settleEmpty(state, s.turn);
   return { id, kind: "home", from, dock: t.at, ashore };
 }
 
