@@ -86,19 +86,38 @@ try {
     assert.match(await lock.textContent(), /^Signing in keeps your avatars/u);
     await page.screenshot({ path: `${output}/sign-in-${width}x${height}.png` });
 
-    // The Privacy page renders on its own, without the table.
+    // The Privacy page renders on its own, without the table. Its short
+    // layer fits one screen; each topic opens from a keyboard summary.
     await page.goto(`${origin}/privacy`);
     await page.getByRole("heading", { name: "Privacy", level: 1 }).waitFor();
-    for (const heading of [
+    const summary = page.locator("#summary");
+    for (const phrase of [
+      "Cenetex Inc.",
+      "public half",
+      "OpenRouter",
+      "Global Privacy Control",
+      "California",
+      "privacy@cenetex.com",
+      "lonelyforest.com/download",
+    ])
+      assert.ok(
+        (await summary.innerText()).includes(phrase),
+        `${phrase} in the short layer at ${width}px`,
+      );
+    const bottom = await summary.evaluate(
+      (el) => el.getBoundingClientRect().bottom,
+    );
+    assert.ok(bottom <= height, `short layer fits ${height}px: ${bottom}`);
+    for (const topic of [
       "Passkeys and your account",
       "AI providers",
       "Play counts",
       "Where data is processed",
       "Play on your own computer",
       "Deleting your data",
-      "Contact",
+      "Children",
     ])
-      await page.getByRole("heading", { name: heading }).waitFor();
+      await page.locator("summary", { hasText: topic }).waitFor();
     assert.doesNotMatch(
       await page.locator("main").innerText(),
       /owner to fill/u,
@@ -108,8 +127,17 @@ try {
         width,
       `no sideways scroll at ${width}px`,
     );
+    await page.screenshot({ path: `${output}/privacy-${width}x${height}.png` });
+    const counts = page.locator("#play-counts");
+    await counts.locator("summary").focus();
+    await page.keyboard.press("Enter");
+    assert.ok(
+      await counts.evaluate((el) => el.open),
+      `Enter opens at ${width}px`,
+    );
+    await counts.scrollIntoViewIfNeeded();
     await page.screenshot({
-      path: `${output}/privacy-${width}x${height}.png`,
+      path: `${output}/privacy-open-${width}x${height}.png`,
       fullPage: true,
     });
     assert.deepEqual(errors, [], `page errors at ${width}px`);
