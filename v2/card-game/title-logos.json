@@ -5,7 +5,12 @@
       "name": "Lonely Forest",
       "width": 1312,
       "height": 512,
-      "background": "dark"
+      "background": "dark",
+      "toolbar": {
+        "src": "assets/title/transparent/lonely-forest-1-toolbar.webp",
+        "width": 320,
+        "height": 125
+      }
     },
     {
       "src": "assets/title/lonely-forest-2.webp",
