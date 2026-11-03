@@ -19,6 +19,16 @@
     "offset": 20603,
     "sourceHash": "58e26e429a4cb6cc57d287655da201782a75a56baed426f784473d3367adc53d"
   },
+  "assets/music/battle-attic-lamp.mp3": {
+    "file": "assets/music-stream/battle-attic-lamp.mp3",
+    "offset": 80,
+    "sourceHash": "24cc1aa264262c6c796caebaf278b3f89e2738c6fb50c840d9671b4beb9b945e"
+  },
+  "assets/music/battle-loss-moonstone.mp3": {
+    "file": "assets/music-stream/battle-loss-moonstone.mp3",
+    "offset": 75,
+    "sourceHash": "dcbcd0457fcaed65a12d0dbfa6fc95fb560dd8a0b5b344cf12d75c760ce89830"
+  },
   "assets/music/drift-jam.mp3": {
     "file": "assets/music-stream/drift-jam.mp3",
     "offset": 13956,

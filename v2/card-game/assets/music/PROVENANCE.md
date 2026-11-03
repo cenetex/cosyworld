@@ -101,3 +101,21 @@ and Suno comment were dropped; only a display title tag is kept.
 | File                 | Supplied filename                                                            | Suno source                                                                                                | Duration | Size    | Source SHA-256                                                     | MP3 SHA-256                                                        |
 | -------------------- | ---------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- | -------- | ------- | ------------------------------------------------------------------ | ------------------------------------------------------------------ |
 | title-attic-lamp.mp3 | 7f5a8bdc-The_Attic_Keeps_Its_Lamp_x_Moonst\_\_x_Moonstone_Sanctum_Mashup.m4a | [The Attic Keeps Its Lamp × Moonstone Sanctum](https://suno.com/song/5703a6c1-1e41-4976-945a-f0137d76c273) | 4:13     | 5.25 MB | `d024d36121f1eb17a8185fb3970965cb958bce2849d07f7ca65efd3a36c53512` | `e3bd0cce79a0830e376a79453caa1213ae8cc1fee597e590567af6b8017cb0bc` |
+
+## Battle and the loss screen — November 3, 2026
+
+The project owner made these two songs in their Suno account and supplied
+them on 2026-11-03 as the battle music and the battle loss screen's music
+(`music-cues.mjs`). Both loop while their moment lasts.
+
+The supplied M4A containers hold Opus audio, so FFmpeg 9.0.2 made MP3 copies
+with `libmp3lame -q:a 2` at 48 kHz stereo. Each song ends in a fade to
+silence, so its last second was mixed over its first second for a seamless
+loop; nothing else was cut. A fixed gain then brought each to -16.0 LUFS
+integrated, matching the other songs. The lyrics, subtitle track and Suno
+comment were dropped; only a display title tag is kept.
+
+| File                      | Supplied filename                     | Suno source                                                                            | Duration | Gain    | Source SHA-256                                                     | MP3 SHA-256                                                        |
+| ------------------------- | ------------------------------------- | -------------------------------------------------------------------------------------- | -------- | ------- | ------------------------------------------------------------------ | ------------------------------------------------------------------ |
+| battle-attic-lamp.mp3     | 3aa3c71f-The_Attic_Keeps_Its_Lamp.m4a | [The Attic Keeps Its Lamp](https://suno.com/song/69f97354-201a-4d76-af26-dee772e9bab1) | 1:18     | -1.0 dB | `d1a9a23ab164dc243c666c3fe48dbfa84ef957a82f3933289d63cfc9d6375a85` | `24cc1aa264262c6c796caebaf278b3f89e2738c6fb50c840d9671b4beb9b945e` |
+| battle-loss-moonstone.mp3 | f72d57eb-Moonstone_Sanctuary.m4a      | [Moonstone Sanctuary](https://suno.com/song/2131fbe4-2f24-4093-8876-139b33de21f8)      | 2:59     | +0.9 dB | `298e341a88f7a2f3fcc4c3be3780517b01facbcb36be515a1a1bee0de9e938be` | `dcbcd0457fcaed65a12d0dbfa6fc95fb560dd8a0b5b344cf12d75c760ce89830` |

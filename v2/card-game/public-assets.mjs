@@ -1,6 +1,7 @@
 import musicStreams from "./music-streams.json" with { type: "json" };
 import titleLogos from "./title-logos.json" with { type: "json" };
 import { roomTracks } from "./music.mjs";
+import { CUE_TRACKS } from "./music-cues.mjs";
 import { packMediaFiles } from "./pack-registry.mjs";
 import imageVariants from "./image-variants.json" with { type: "json" };
 import voiceCast from "./voices.json" with { type: "json" };
@@ -265,6 +266,8 @@ const files = [
   "speech.json",
   "packs.json",
   "music.mjs",
+  "music-cues.mjs",
+  ...Object.values(CUE_TRACKS).map(({ file }) => `assets/music/${file}`),
   "hum.mjs",
   "sfx.mjs",
   "entity-profiles.json",

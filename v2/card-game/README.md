@@ -1135,6 +1135,19 @@ woken the same way. The hum and the bell wake their contexts too.
 `test/card-music.test.mjs` and `test/card-title-song.test.mjs` cover the
 return.
 
+A cue (`music.cue(name)`, `music-cues.mjs`) takes over from the room song,
+which fades out over a second, pauses in place and returns from there on
+`music.cue(null)`. Cue songs loop seamlessly, follow the music switch, volume,
+hidden tab and opening wait, and never restart while their cue holds.
+`"battle"` (_The Attic Keeps Its Lamp_, 1:18, in over 1 second, out over 1.5)
+plays while the player's room holds an open standoff, from the threat to a
+round without a Strike, the item's release or a defeat that leaves one
+fighter, and while a fight's beats play (`battleMusicDue`). When the player is
+driven off, `"battle-loss"` (_Moonstone Sanctuary_, 2:59) crossfades in over
+1.5 seconds under the fade to black, holds while the defeat card waits, and
+fades into the next room song on Continue. `test/card-music-cues.test.mjs`
+covers the transitions.
+
 River Camp chooses
 one of four supplied acid jazz songs during the day. An active camp song keeps
 playing through dusk and night. Run `node v2/scripts/smoke-card-music-network.mjs`
