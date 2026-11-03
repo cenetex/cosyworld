@@ -326,6 +326,9 @@ pub(super) fn expire(c: &Connection, id: &str, w: &mut World, now: i64) -> Resul
             params![scene.to_string(), play],
         )
         .map_err(sql_error)?;
+        // Late words for this play are dropped; its voices show "…".
+        tracing::warn!(feature = "card_voice", %play, voices = voices.len(), "shared card words lease expired");
+        crate::routes::card_game::narrative::voice_scenes::shared("expired", voices.len());
     }
     c.execute("UPDATE card_full_plays SET status='done' WHERE world=? AND status='playing' AND until_at<=?",params![id,now]).map_err(sql_error)?;
     Ok(())

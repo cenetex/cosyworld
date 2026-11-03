@@ -8,7 +8,7 @@ use super::{
     store::{sql_error, Result},
     user, valid_id,
 };
-use crate::routes::card_game::narrative::imported;
+use crate::routes::card_game::narrative::{imported, voice_scenes};
 use crate::AppState;
 use axum::{
     extract::{DefaultBodyLimit, Path, State},
@@ -761,6 +761,7 @@ pub(super) fn publish(state: &AppState, id: &str, work: Work, lines: Result<Valu
     match (finish_work(state, id, work, lines), refused) {
         (Err(error), Some(work)) => {
             tracing::warn!(%error, "shared card words refused by the rules");
+            voice_scenes::shared("refused", 0);
             finish_work(state, id, work, Err(error))
         }
         (result, _) => result,
@@ -928,6 +929,16 @@ fn finish_work_attempt(
     )
     .map_err(sql_error)?;
         tx.commit().map_err(sql_error)?;
+        // Counted once committed: a busy retry runs this again.
+        let silent = scene["silent"].as_array().map_or(0, Vec::len);
+        let spoke = scene["lines"].as_array().is_some_and(|l| !l.is_empty());
+        match (failed, spoke, silent) {
+            (true, ..) => voice_scenes::shared("failed", silent),
+            (false, _, 1..) => voice_scenes::shared("partial", silent),
+            (false, true, 0) => voice_scenes::shared("spoken", 0),
+            // A play that voiced no one is not a scene of words.
+            (false, false, 0) => {}
+        }
         Ok(())
     })())
 }

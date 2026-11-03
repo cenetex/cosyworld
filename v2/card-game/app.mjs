@@ -147,6 +147,7 @@ import {
   cardActions,
   cardObservation,
   TOO_MANY_ITEMS,
+  sealedReason,
 } from "./cards.mjs";
 // A person's want reaches the player through Talk context (want-talk.mjs).
 // The hand holds people, items and places, and the player's quest cards.
@@ -1106,12 +1107,14 @@ const narrator = createNarrator({
     storyStatus = pending ? "pending" : "ready";
     if (!pending) {
       lineHeard(true);
+      // A good reply can still leave one speaker "…": each counts (#2016).
+      silent.forEach(() => count("voice.speaker_silent"));
       rememberWords(null);
       silence = { turn: world.turn, lines: silentLines(world, silent) };
     }
     loadTurnLines({ pending });
   },
-  status: (value) => {
+  status: (value, error) => {
     // Words that failed are this scene's silence: each speaker due shows
     // "…", like a line that came, and play goes on. There is no failed state.
     storyStatus = value === "failed" ? "ready" : value;
@@ -1121,6 +1124,7 @@ const narrator = createNarrator({
     if (value === "pending") rememberWords(world.revision, true);
     if (value === "pending" && !exchange.active) exchange.begin();
     if (value === "failed") {
+      if (error?.code === "mismatch") count("voice.mismatch");
       lineHeard(null);
       rememberWords(world.revision);
       showFailedSilence();
@@ -1929,6 +1933,21 @@ function renderActions() {
     look.onclick = () => showItemView(viewed);
     row.append(look);
   }
+  // A sealed card says why its way is shut in the context button once its
+  // quest is taken; until then Seek the way carries the reason.
+  const sealed =
+    !rested &&
+    selected.length === 1 &&
+    !actions.some((a) => a.kind === "gate") &&
+    sealedReason(world, selected[0]);
+  if (sealed) {
+    const why = node("button", sealed, "card-action");
+    why.type = "button";
+    why.disabled = true;
+    why.dataset.blocked = "gate";
+    why.title = sealed;
+    row.append(why);
+  }
   // A Take refused for space says why in the context button (#2018). It
   // plays nothing; the cards stay as they are.
   const crowded =
@@ -2046,6 +2065,9 @@ function card(id) {
   if (type === "avatar") frameFigure(img);
   graphic.append(img);
   if (type === "location") {
+    // A sealed card is the far side of a shut gate; its reason is in the
+    // context button, never on the card.
+    if (sealedReason(world, id)) el.dataset.sealed = "true";
     graphic.dataset.timeOfDay = locationDaylight(world, id)?.phase || "day";
     renderWeather(graphic, locationWeather(world, id));
     el.dataset.locationVariant = locationVariant(world, id);

@@ -4,6 +4,7 @@ import { sectionAllows } from "./pack-sections.mjs";
 import { specialsAllow, validSpecials } from "./pack-specials.mjs";
 import { journeyNextPlace, validJourneyPlaces } from "./pack-journeys.mjs";
 import { pushQuest } from "./want.mjs";
+import { usedUp, useUp, bringBack } from "./item-use.mjs";
 // The compiled world packs mounted on the card table, indexed for the engine.
 // Packs supply data only; pack-rules.mjs applies the general rules they name.
 import compiled from "./packs.json" with { type: "json" };
@@ -331,7 +332,8 @@ export function entityActive(world, id) {
   return entityEnabled(world, id);
 }
 export function entityEnabled(world, id, saved = false) {
-  if (localRoads.has(id) || retiredPlaces.has(id)) return false;
+  if (localRoads.has(id) || retiredPlaces.has(id) || usedUp(world, id))
+    return false;
   const e = packEntity(id);
   if (!e) return true;
   const pack = packDefinition(e.packId),
@@ -444,7 +446,8 @@ function choiceFeasible(world, pack, choice, actor, mode = null) {
   const state = packState(world, pack.id);
   if (
     !state ||
-    owns(state.receipts, choice.id) ||
+    // A repeating give fires again once its output is used up (rules 95).
+    (owns(state.receipts, choice.id) && !choice.repeats) ||
     (choice.on ?? null) !== mode ||
     (choice.for !== undefined && choice.for !== actor) ||
     (pack.release &&
@@ -470,7 +473,9 @@ function choiceFeasible(world, pack, choice, actor, mode = null) {
       ? !owns(state.choices, e.key)
       : e.kind === "place_item"
         ? world.items[e.item]?.holder === actor && e.place === choice.at
-        : true,
+        : e.kind === "drop_item"
+          ? usedUp(world, e.item)
+          : true,
   );
 }
 export function packChoices(world, actor = "vale") {
@@ -531,6 +536,19 @@ export function applyMeetingChoices(world, actor, placeIds) {
     }
   return applied;
 }
+// The things a choice needs its actor to hold, slot by slot: one item, or
+// the alternatives of an `any` (rules 95).
+export const heldSlots = (requires = []) =>
+  requires
+    .map((r) =>
+      r.kind === "any"
+        ? r.conditions.filter((c) => c.kind === "holding" && c.role === "actor")
+        : r.kind === "holding" && r.role === "actor"
+          ? [r]
+          : [],
+    )
+    .filter((slot) => slot.length)
+    .map((slot) => slot.map((r) => r.item));
 // Choices marked "on": "give" are the effect of giving their subject the
 // item the choice needs the actor to hold. They are never offered as cards.
 export function packGiveChoice(world, action) {
@@ -539,17 +557,22 @@ export function packGiveChoice(world, action) {
       if (
         c.on === "give" &&
         c.subject === action.target &&
-        c.requires.some(
-          (r) =>
-            r.kind === "holding" &&
-            r.role === "actor" &&
-            r.item === action.item,
-        ) &&
+        heldSlots(c.requires).some((slot) => slot.includes(action.item)) &&
         choiceFeasible(world, pack, c, action.actor, "give")
       )
         return { packId: pack.id, choiceId: c.id, actor: action.actor };
   return null;
 }
+// The repeating give through which a resident makes a thing (rules 95).
+export const makerChoice = (subject, item) =>
+  packDefinitions
+    .flatMap((pack) => pack.choices || [])
+    .find(
+      (c) =>
+        c.repeats &&
+        c.subject === subject &&
+        c.effects.some((e) => e.kind === "drop_item" && e.item === item),
+    ) ?? null;
 // Choices marked "on": "hold" commit once their item's holder is the
 // traveler the choice is for, by any route: a take, a gift, a trade, or an
 // item already held before the choice existed. Each runs after a play, so a
@@ -653,10 +676,21 @@ export function applyPackChoice(
     world.items[id].history = world.items[id].history.slice(-12);
   };
   for (const e of choice.effects) {
-    // A retired item leaves play. It waits, unseen, at its authored holder.
+    // A retired item is used up: it leaves play and waits, unseen, at its
+    // authored holder until it regrows or a choice drops it again.
+    // An alternative a set slot did not use stays where it is.
     if (e.kind === "retire_item") {
-      world.items[e.item].holder = pack.items[e.item].holder;
-      world.items[e.item].history = [];
+      const root = rootOf(world, e.item);
+      if (
+        root === action.actor ||
+        (world.actors[root]?.place ?? root) === choice.at
+      )
+        useUp(world, e.item, pack.items[e.item].holder);
+    }
+    // The subject sets a used-up thing down at the choice's place.
+    if (e.kind === "drop_item") {
+      bringBack(world, e.item, choice.at);
+      note(e.item);
     }
     if (e.kind === "give_item") {
       world.items[e.item].holder = action.actor;

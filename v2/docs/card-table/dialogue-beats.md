@@ -209,7 +209,11 @@ or is "…": a beat never carries both. The browser makes one quiet automatic
 attempt for a temporary error inside the scene's budget before it falls
 silent. A busy 429 with a short `Retry-After` is asked again at most twice
 inside the five-second Thinking grace; a longer limit is not retried. The metrics still count each outcome as
-`voice.failed` or `voice.silent`, with no UI.
+`voice.failed` or `voice.silent`, with no UI. A reply the scene outgrew while
+it was written (its revision moved, so the table drops it) also counts
+`voice.mismatch`, and each speaker left "…" by an otherwise good reply counts
+`voice.speaker_silent`. The server's `card voice scene` log and `/meta`
+`card_voice.scenes` count the rest per speaker, shared plays included.
 
 The server's check (`Check` in `card_narrative.rs`, with `framing.rs`)
 refuses meta-talk and narration, not plain speech
