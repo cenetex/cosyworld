@@ -1074,7 +1074,7 @@ async fn exchange(
     (actor, target): (&str, &str),
     on_delta: Option<&(dyn Fn(&str) -> bool + Send + Sync)>,
     lines: &mut BTreeMap<String, (String, String)>,
-) -> Result<(), Response> {
+) -> Result<(), SceneClosed> {
     let reserve = conversation::reply_reserve(settings.scene_timeout);
     voice_lines(
         config,
@@ -1119,7 +1119,7 @@ async fn voice_lines(
     ids: &[String],
     on_delta: Option<&(dyn Fn(&str) -> bool + Send + Sync)>,
     lines: &mut BTreeMap<String, (String, String)>,
-) -> Result<(), Response> {
+) -> Result<(), SceneClosed> {
     // Each job owns its id: a borrowed one makes the scene future too
     // general for `tokio::spawn`.
     #[allow(clippy::unnecessary_to_owned)]
@@ -1148,10 +1148,7 @@ async fn voice_lines(
             if context.speakers.contains(&id) {
                 if let Some(emit) = on_delta {
                     if !emit(&format!("{}\n", json!({"id": id, "text": text}))) {
-                        return Err(error(
-                            StatusCode::SERVICE_UNAVAILABLE,
-                            "The scene has closed.",
-                        ));
+                        return Err(SceneClosed);
                     }
                 }
             }
@@ -1162,8 +1159,18 @@ async fn voice_lines(
     .await;
     drop(results);
     match collected {
-        Ok(Err(response)) => Err(response),
+        Ok(Err(closed)) => Err(closed),
         _ => Ok(()),
+    }
+}
+
+/// The viewer left mid-scene, so no further line can be streamed. Kept apart
+/// from `Response` so the voicing helpers return a small error.
+struct SceneClosed;
+
+impl From<SceneClosed> for Response {
+    fn from(_: SceneClosed) -> Self {
+        error(StatusCode::SERVICE_UNAVAILABLE, "The scene has closed.")
     }
 }
 
