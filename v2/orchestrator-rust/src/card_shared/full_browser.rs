@@ -1,4 +1,6 @@
 //! A signed-in player supplies speech for their own queued browser-funded play.
+//! Shared plays take this path only when `browser_chat` is set, which
+//! `take_work` never does today; its words still pass the hosted checks.
 use super::*;
 use crate::routes::card_game::narrative::browser::{self as voices, Answer};
 
@@ -33,10 +35,17 @@ pub(super) async fn chat(
         if context["browser_chat"] != true { return Err("Choose a browser chat play.".into()); }
         let (payload, ids) = super::super::full_speech::prepared(actor, &context)?;
         if let Some(answers) = body.answers {
-            let checked = voices::complete(&payload["scene"], Some(&ids), answers)?;
-            let lines = super::super::full_speech::parse(&checked.to_string(), "stop", &context, actor, &ids)?;
-            finish_work(&state, &id, Work { id:body.key, room, actor, context, attempt }, Ok(lines))?;
-            Ok(json!({"ok":true}))
+            // Client text: validated as a hosted line before the journal
+            // sees it (#2068). A refused answer fails the play at once.
+            let work = Work { id: body.key, room, actor, context, attempt };
+            let lines = voices::complete_shared(&payload["scene"], actor_id(actor), &ids, answers)
+                .and_then(|checked| super::super::full_speech::parse(&checked.to_string(), "stop", &work.context, actor, &ids));
+            let refused = lines.as_ref().err().cloned();
+            publish(&state, &id, work, lines.map_err(|_| "The play is saved. Its words need another moment.".into()))?;
+            match refused {
+                Some(error) => Err(error),
+                None => Ok(json!({"ok":true})),
+            }
         } else if body.failure {
             finish_work(&state, &id, Work { id:body.key, room, actor, context, attempt }, Err("Connect OpenRouter in Settings, then retry this saved play.".into()))?;
             Ok(json!({"ok":true}))

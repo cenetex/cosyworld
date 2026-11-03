@@ -482,8 +482,21 @@ are stripped on share. Envelopes are not bound to one save and do not
 expire, so a word signed for one local save can be replayed into another
 save, but only as the same kind of word by the same speaker.
 
+Every voice reply, hosted or not, is refused when it addresses a model
+("ignore previous instructions", "system:", code fences) or holds
+zero-width, bidirectional or soft-hyphen characters.
+
 Browser-funded shared speech, where the player's own OpenRouter key writes
-the line, is still open (#2068).
+the line (`/browser-chat`), is client text. Before it is journaled it passes
+a hosted line's checks (`browser::complete_shared`): the shared scene's
+checks, one line per voice the play requested (never another player's
+avatar, never a thought), at most 2 KiB per answer, and the reply validator
+(shape and length, grounding, custody, names, assistant and instruction
+talk, repeats). A Talk target is checked after hearing the actor's accepted
+line. A refused answer fails the play at once and journals nothing; an
+accepted one is journaled as a hosted line is (shared journal rows carry no
+envelope yet). Shared plays do not take this path today: `take_work` sets
+`browser_chat` false.
 
 ## Entrances and future journeys
 

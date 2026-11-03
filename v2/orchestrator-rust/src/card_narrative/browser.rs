@@ -128,6 +128,7 @@ pub(crate) fn prepare(
     }
     Ok(json!({"calls":calls}))
 }
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn complete(
     scene: &Value,
     ids: Option<&[String]>,
@@ -233,3 +234,96 @@ pub(crate) fn complete(
         json!({"revision":context.revision,"entries":entries,"omitted":omitted,"model":"card-voices-v1"}),
     )
 }
+
+/// A player-funded shared line is client text (#2068). Before it is
+/// journaled it passes what a hosted line passes: the shared scene's checks
+/// (`shared_scene`), one reply per requested voice, the reply validator
+/// (`Check`: shape, length, grounding, custody, names, assistant and
+/// instruction talk, repeats), and a Talk target heard after the actor's
+/// accepted line, as `exchange` does. Anything else is refused.
+pub(crate) fn complete_shared(
+    scene: &Value,
+    actor: &str,
+    ids: &[String],
+    answers: Vec<Answer>,
+) -> Result<Value, String> {
+    let refused = || "Your character's words need another try.".to_string();
+    let (context, settings) = shared_scene(scene, actor, ids)?;
+    if answers.len() > ids.len()
+        || answers.iter().any(|a| {
+            a.part != "line"
+                || a.text.len() > SHARED_ANSWER_BYTES
+                || a.finish.len() > 32
+                || !ids.contains(&a.id)
+        })
+    {
+        return Err(refused());
+    }
+    let models = models()?;
+    let reply = conversation::reply_target(&context, ids);
+    let mut order: Vec<&String> = ids.iter().collect();
+    // The Talk target answers the actor's line, so it is checked after it.
+    if let Some((_, target)) = &reply {
+        order.sort_by_key(|id| *id == target);
+    }
+    let mut entries: Vec<Entry> = Vec::new();
+    for id in order {
+        let mut matched = answers.iter().filter(|a| &a.id == id);
+        let Some(answer) = matched.next() else {
+            continue;
+        };
+        if matched.next().is_some() {
+            return Err(refused());
+        }
+        let heard = match &reply {
+            Some((speaker, target)) if target == id => {
+                let Some(line) = entries.iter().find(|e| &e.id == speaker) else {
+                    continue;
+                };
+                Some(conversation::with_line(&context, speaker, &line.text).ok_or_else(refused)?)
+            }
+            _ => None,
+        };
+        let context = heard.as_ref().unwrap_or(&context);
+        let mut check = Check::new(context, entity(context, id), Part::Line);
+        check.limit = settings.line_limit;
+        if kind(id, "location") {
+            check.limit = check.limit.min(180);
+            check.sentences = if atmosphere::narrator(id) { 3 } else { 1 };
+        }
+        let finished = matches!(answer.finish.as_str(), "stop" | "end_turn");
+        let text = check
+            .clean(&answer.text, finished)
+            .or_else(|reason| match reason {
+                "knowledge_fact" => check.untold(&answer.text, finished),
+                _ => Err(reason),
+            });
+        match text {
+            Ok(text) => entries.push(Entry {
+                id: id.clone(),
+                text,
+                model: Some(model(&models, id)),
+                reflection: None,
+            }),
+            Err(reason) => {
+                tracing::info!(feature = "card_voice", entity = %id, reason, "player-funded line refused");
+                return Err(refused());
+            }
+        }
+    }
+    // The acting avatar, when voiced, must speak, as on the hosted path.
+    if ids.iter().any(|id| id == actor) && !entries.iter().any(|e| e.id == actor) {
+        return Err(refused());
+    }
+    let mut ordered = Vec::new();
+    for id in ids {
+        if let Some(at) = entries.iter().position(|e| &e.id == id) {
+            ordered.push(entries.remove(at));
+        }
+    }
+    Ok(json!({"revision":context.revision,"entries":ordered,"model":"card-voices-v1"}))
+}
+
+/// A hosted line is at most 96 tokens; a player's answer gets room for
+/// stray formatting, not for an essay to search.
+const SHARED_ANSWER_BYTES: usize = 2048;
