@@ -332,6 +332,7 @@ impl Totals {
             "by_provider": self.providers,
             "provider_failures": self.provider_failures,
             "flagged": self.flagged,
+            "scenes": super::voice_scenes::snapshot(),
             "prompt_tokens": {
                 "approximate": true,
                 "mean": total / calls,
@@ -541,6 +542,18 @@ impl Drop for Call<'_> {
                 &state.failures,
                 &state.flags,
             );
+        }
+        if self.part == Part::Line {
+            super::voice_scenes::heard(super::voice_scenes::Voice {
+                entity: self.entity.to_string(),
+                outcome,
+                model: state.model.clone(),
+                provider: state.provider.clone(),
+                attempts: state.attempts,
+                ms,
+                reasons,
+                flags: state.flags.clone(),
+            });
         }
     }
 }

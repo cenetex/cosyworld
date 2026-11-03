@@ -1052,6 +1052,8 @@ fn full_world_npc_turn_and_speech_survive_worker_restart() {
     assert!(scene.get("context").is_none());
     assert_eq!(view["queue"], json!([]));
     assert!(view["notice"].is_null());
+    let counts = crate::routes::card_game::narrative::voice_metrics::snapshot();
+    assert!(counts["scenes"]["shared_plays"]["expired"].as_u64() >= Some(1));
 }
 #[tokio::test]
 async fn server_dialogue_keeps_a_legacy_browser_scene_through_replay() {
@@ -1372,6 +1374,8 @@ fn failed_shared_words_finish_the_play_as_silence_and_free_the_seat() {
         .unwrap();
     // The play completes: no failed state, no error and no retry lease.
     assert_eq!(status, "done");
+    let counts = crate::routes::card_game::narrative::voice_metrics::snapshot();
+    assert!(counts["scenes"]["shared_plays"]["failed"].as_u64() >= Some(1));
     let scene: Value = serde_json::from_str(&result).unwrap();
     assert!(scene["error"].is_null(), "{scene}");
     assert_eq!(scene["failed"], true);
