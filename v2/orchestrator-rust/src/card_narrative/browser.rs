@@ -240,7 +240,12 @@ pub(crate) fn complete(
 /// (`shared_scene`), one reply per requested voice, the reply validator
 /// (`Check`: shape, length, grounding, custody, names, assistant and
 /// instruction talk, repeats), and a Talk target heard after the actor's
-/// accepted line, as `exchange` does. Anything else is refused.
+/// accepted line, as `exchange` does. As on the hosted path, a refused
+/// reply from anyone but the actor leaves that voice silent, and a refused
+/// or missing actor line, or no answers at all, sends the play back for a
+/// retry. The client's `finish` is not trusted: every line must end as a
+/// sentence. Accepted lines are journaled under `PLAYER_FUNDED`, never a
+/// hosted model's id.
 pub(crate) fn complete_shared(
     scene: &Value,
     actor: &str,
@@ -249,7 +254,8 @@ pub(crate) fn complete_shared(
 ) -> Result<Value, String> {
     let refused = || "Your character's words need another try.".to_string();
     let (context, settings) = shared_scene(scene, actor, ids)?;
-    if answers.len() > ids.len()
+    if answers.is_empty()
+        || answers.len() > ids.len()
         || answers.iter().any(|a| {
             a.part != "line"
                 || a.text.len() > SHARED_ANSWER_BYTES
@@ -259,7 +265,6 @@ pub(crate) fn complete_shared(
     {
         return Err(refused());
     }
-    let models = models()?;
     let reply = conversation::reply_target(&context, ids);
     let mut order: Vec<&String> = ids.iter().collect();
     // The Talk target answers the actor's line, so it is checked after it.
@@ -291,23 +296,24 @@ pub(crate) fn complete_shared(
             check.limit = check.limit.min(180);
             check.sentences = if atmosphere::narrator(id) { 3 } else { 1 };
         }
-        let finished = matches!(answer.finish.as_str(), "stop" | "end_turn");
         let text = check
-            .clean(&answer.text, finished)
+            .clean(&answer.text, false)
             .or_else(|reason| match reason {
-                "knowledge_fact" => check.untold(&answer.text, finished),
+                "knowledge_fact" => check.untold(&answer.text, false),
                 _ => Err(reason),
             });
         match text {
             Ok(text) => entries.push(Entry {
                 id: id.clone(),
                 text,
-                model: Some(model(&models, id)),
+                model: Some(PLAYER_FUNDED.into()),
                 reflection: None,
             }),
             Err(reason) => {
                 tracing::info!(feature = "card_voice", entity = %id, reason, "player-funded line refused");
-                return Err(refused());
+                if id == actor {
+                    return Err(refused());
+                }
             }
         }
     }
@@ -321,8 +327,12 @@ pub(crate) fn complete_shared(
             ordered.push(entries.remove(at));
         }
     }
-    Ok(json!({"revision":context.revision,"entries":ordered,"model":"card-voices-v1"}))
+    Ok(json!({"revision":context.revision,"entries":ordered,"model":PLAYER_FUNDED}))
 }
+
+/// The journal's model mark for a line a player's own key wrote: prompts
+/// and readers can tell it from a hosted model's words.
+pub(crate) const PLAYER_FUNDED: &str = "player-funded";
 
 /// A hosted line is at most 96 tokens; a player's answer gets room for
 /// stray formatting, not for an essay to search.

@@ -1132,11 +1132,22 @@ async fn server_dialogue_keeps_a_legacy_browser_scene_through_retry_and_replay()
     let lines = full_speech::parse(&checked.to_string(), "stop", &work.context, 0, &ids).unwrap();
     full::finish_work(&state, &id, work, Ok(lines)).unwrap();
     let expected = full_store::world(&c, &id, now()).unwrap();
+    // The journal marks the line as the player's, not a hosted model's.
     assert!(expected.game["log"]
         .as_array()
         .unwrap()
         .iter()
         .any(|e| e["text"] == "I hear you."));
+    let journal: Vec<String> = c
+        .prepare("SELECT command FROM card_full_log WHERE world=?")
+        .unwrap()
+        .query_map([&id], |r| r.get(0))
+        .unwrap()
+        .collect::<std::result::Result<_, _>>()
+        .unwrap();
+    assert!(journal
+        .iter()
+        .any(|row| row.contains("I hear you.") && row.contains(browser::PLAYER_FUNDED)));
     c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
     assert_eq!(full_store::world(&c, &id, now()).unwrap(), expected);
 }
