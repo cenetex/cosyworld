@@ -197,6 +197,7 @@ const files = [
   "title-logos.json",
   "acknowledgement.json",
   "title-song.mjs",
+  "audio-wake.mjs",
   "local-service.mjs",
   "local-saves.mjs",
   "combat.css",

@@ -1,9 +1,19 @@
 import { test } from "vitest";
 import assert from "node:assert/strict";
 import {
-  streamSchedule,
+  STANZA_MS,
+  acknowledgementDelays,
+  acknowledgementGlows,
+  acknowledgementHeld,
+  acknowledgementPauses,
   titleIntroWanted,
 } from "../v2/card-game/title-intro.mjs";
+import { tiers } from "../v2/card-game/level-tiers.mjs";
+import {
+  REVEAL_FADE_MS,
+  letterDelay,
+  splitLetters,
+} from "../v2/card-game/dialogue.mjs";
 import acknowledgement from "../v2/card-game/acknowledgement.json" with { type: "json" };
 
 const storage = (entries = {}) => ({
@@ -66,16 +76,35 @@ test("blocked storage shows it; automated browsers need intro=1", () => {
   );
 });
 
-test("the acknowledgement is the owner's five paragraphs and nothing else", () => {
-  const { paragraphs } = acknowledgement;
-  assert.equal(paragraphs.length, 5);
-  assert.match(paragraphs[0].text, /^Before our forest, there was land\./);
-  assert.match(paragraphs[0].text, /cared for it—and who care for it still\.$/);
-  assert.equal(paragraphs[2].text, "Nothing here began with us.");
-  assert.match(paragraphs[3].text, /a forest folded inside\.$/);
-  assert.equal(paragraphs.at(-1).text, "The lid is open. The path is yours.");
-  for (const { text, links = {} } of paragraphs)
-    for (const phrase of Object.keys(links)) assert.ok(text.includes(phrase));
+test("the acknowledgement is the owner's six stanzas, line by line, and nothing else", () => {
+  assert.deepEqual(acknowledgement.stanzas, [
+    [
+      "Before our forest, there was land.",
+      "Before our story, there were peoples:",
+      "who named the waters,",
+      "who sang the seasons,",
+      "who cared for these lands —",
+      "and who care for them still.",
+    ],
+    [
+      "We honour the keepers",
+      "of the lands beneath our homes",
+      "and beneath the machines we built.",
+    ],
+    [
+      "We honour, too, the voices, old and living,",
+      "whose stories taught those machines — and us —",
+      "to tell our own.",
+    ],
+    ["Nothing here began with us."],
+    [
+      "Behold this intricately carved wooden box,",
+      "its surface rippling with stories",
+      "older than you, or I.",
+    ],
+    ["Open the box. The path is yours."],
+  ]);
+  assert.doesNotMatch(JSON.stringify(acknowledgement.stanzas), /\[hold\]/);
   assert.equal(acknowledgement.credit, undefined);
   assert.doesNotMatch(
     JSON.stringify(acknowledgement),
@@ -83,23 +112,95 @@ test("the acknowledgement is the owner's five paragraphs and nothing else", () =
   );
 });
 
-test("the acknowledgement breathes after its weighty words, in about 10 s", () => {
-  const { schedule, end } = streamSchedule(acknowledgement);
-  const letters = schedule.flat();
-  const words = letters.map(({ letter }) => letter).join("");
-  const gap = (phrase) => {
-    const i = words.indexOf(phrase) + phrase.length - 1;
-    return letters[i + 1].at - letters[i].at;
-  };
-  const plain = streamSchedule({ ...acknowledgement, pauses: [] });
-  assert.ok(gap("there was land.") > 300);
-  assert.ok(gap("were peoples") > 300);
-  assert.ok(gap("Nothing") > 300);
-  // A pause after punctuation takes the larger breath, not both.
-  assert.equal(gap("there was land."), 9 + 420);
-  assert.ok(end > plain.end && end <= 10_000, `${end} ms`);
-  for (const { word } of acknowledgement.pauses)
-    assert.ok(
-      acknowledgement.paragraphs.some(({ text }) => text.includes(word)),
+test("the acknowledgement writes at the dialogue's beat, breathing after its weighty words", () => {
+  const delays = acknowledgementDelays(acknowledgement);
+  const words = acknowledgement.stanzas.flat().join("");
+  const letters = splitLetters(words);
+  assert.equal(delays.length, letters.length);
+  const after = (phrase) =>
+    delays[
+      splitLetters(words.slice(0, words.indexOf(phrase) + phrase.length))
+        .length - 1
+    ];
+  assert.equal(after("there was land."), 320);
+  assert.equal(after("were peoples:"), 320);
+  assert.equal(after("the keepers"), 300);
+  assert.equal(after("Nothing"), 300);
+  // One long silence before "Behold", with no word shown for it.
+  const silence = after("began with us.");
+  assert.ok(silence >= 1500 && silence <= 2000, String(silence));
+  // Other stanzas hold the same breath; nothing else rests past a word
+  // hold, and between rests every letter keeps the dialogue's own beat.
+  const ends = new Set();
+  let at = -1;
+  for (const lines of acknowledgement.stanzas.slice(0, -1))
+    ends.add((at += splitLetters(lines.join("")).length));
+  delays.forEach((ms, i) => {
+    if (ends.has(i)) assert.ok(ms === STANZA_MS || ms === silence);
+    else
+      assert.ok(
+        ms === letterDelay(letters[i]) || (ms >= 300 && ms <= 350),
+        `${i}: ${ms}`,
+      );
+  });
+  assert.ok(STANZA_MS >= 600 && STANZA_MS <= 700);
+  const total = delays.slice(0, -1).reduce((sum, ms) => sum + ms, 28);
+  assert.ok(total > 19_000 && total < 22_000, `${total} ms`);
+  // A letter fades in over less than three beats: at most three are soft.
+  assert.ok(Math.ceil(REVEAL_FADE_MS / 28) <= 3);
+  // Every pause finds its word, in the order the poem reads.
+  const pauses = acknowledgementPauses(acknowledgement);
+  assert.deepEqual(
+    pauses.map(({ word }) => word),
+    acknowledgement.pauses.map(({ word }) => word),
+  );
+  pauses
+    .slice(1)
+    .forEach((p, i) =>
+      assert.ok(p.line > pauses[i].line || p.start > pauses[i].start),
     );
+});
+
+test("its held words glow in rarity tiers that climb, a lamp passing", () => {
+  const pauses = acknowledgementHeld(acknowledgement);
+  assert.deepEqual(
+    pauses.map(({ word }) => word),
+    [
+      "land",
+      "peoples",
+      "still",
+      "keepers",
+      "living",
+      "Nothing",
+      "box",
+      "yours",
+    ],
+  );
+  const rank = (id) => tiers.find((tier) => tier.id === id).rank;
+  const ranks = pauses.map(({ tier }) => rank(tier));
+  ranks.slice(1).forEach((r, i) => assert.ok(r >= ranks[i], "tiers climb"));
+  assert.equal(ranks[0], 0);
+  assert.equal(ranks.at(-1), tiers.at(-1).rank);
+  // Each word glows from its last letter, then gives it back; at most two
+  // glow at once, and once whole only "yours" stays.
+  const lit = acknowledgementGlows(acknowledgement);
+  const total = splitLetters(acknowledgement.stanzas.flat().join("")).length;
+  pauses.forEach(({ written }, i) => {
+    assert.equal(lit(written - 1, false)[i], false);
+    assert.equal(lit(written, false)[i], true);
+  });
+  let most = 0;
+  for (let shown = 1; shown < total; shown++)
+    most = Math.max(most, lit(shown, false).filter(Boolean).length);
+  assert.equal(most, 2);
+  assert.ok(!lit(pauses[1].written + 80, false)[0], "land fades");
+  assert.deepEqual(
+    lit(total, true),
+    pauses.map(({ word }) => word === "yours"),
+  );
+  // A tap that shows the rest early goes straight to the end, no burst.
+  assert.deepEqual(lit(40, true), lit(total, true));
+  const { glowInMs, glowHoldMs, glowFadeMs } = acknowledgement;
+  assert.ok(glowInMs >= 300 && glowInMs <= 400);
+  assert.ok(glowHoldMs >= 1000 && glowFadeMs >= 800);
 });

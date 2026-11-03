@@ -31,6 +31,7 @@ export function validatePackDefinition(pack) {
     pack,
     compiled.hub,
     compiled.packs.flatMap((p) => Object.keys(p.places)),
+    compiled.packs.flatMap((p) => Object.keys(p.items || {})),
   );
   if (problems.length)
     throw new Error(
@@ -46,6 +47,7 @@ const problems =
           pack,
           compiled.hub,
           compiled.packs.flatMap((p) => Object.keys(p.places)),
+          compiled.packs.flatMap((p) => Object.keys(p.items || {})),
         ),
       )
     : ["packs.json needs schemaVersion 1 and a pack list"];
@@ -385,6 +387,8 @@ export function latchRoutes(world) {
   }
   return world;
 }
+// A saved gate the content still authors as a latching route.
+export const latchingRoute = (key) => latchKeys.has(key);
 export const validOpenedRoutes = (list) =>
   list === undefined ||
   (Array.isArray(list) &&

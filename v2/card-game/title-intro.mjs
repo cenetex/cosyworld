@@ -4,9 +4,17 @@ import { PLAYING_KEY, SAVE_BASE } from "./avatar-world.mjs";
 import { imageUrl } from "./images.mjs";
 import { count } from "./metrics.mjs";
 import { revealCard } from "./card-reveal.mjs";
+import { tiers } from "./level-tiers.mjs";
 import { LOGOS, logoSite, showToolbarLogo, worldLogo } from "./title-logo.mjs";
 import { createTitleSong } from "./title-song.mjs";
-import { splitLetters } from "./dialogue.mjs";
+import {
+  REVEAL_FADE_MS,
+  createRevealPainter,
+  createTextReveal,
+  letterDelay,
+  letterSpans,
+  splitLetters,
+} from "./dialogue.mjs";
 
 // The Lonely Forest title opens every new world: black, the land
 // acknowledgement (acknowledgement.json), the world's logo (title-logo.mjs)
@@ -17,6 +25,24 @@ export const INTRO_KEY = "cosyworld.title-intro";
 export const TITLES = LOGOS.map((logo) => logo.src);
 const BLACK_MS = 350,
   LOAD_LIMIT_MS = 2500;
+// Left alone, the face-down card glows faintly (style.css) after idleGlowMs,
+// then "tap to reveal" shows under it at hintMs. A tap, a key or a pointer
+// over the card starts the wait again.
+export const REVEAL_HINT = { idleGlowMs: 3000, hintMs: 6000 };
+// Leaving: the turned face holds, the song fades as the title goes to black,
+// black holds a breath, then slowly opens on the world's scene. Escape is the
+// short way; reduced motion cuts to black and crossfades quickly.
+export const WAKE_FADE = {
+  turn: {
+    holdMs: 700,
+    songSeconds: 1.8,
+    blackMs: 900,
+    darkMs: 300,
+    sceneMs: 2500,
+  },
+  skip: { songSeconds: 1, blackMs: 250, darkMs: 100, sceneMs: 800 },
+  reduced: { blackMs: 0, darkMs: 300, sceneMs: 300 },
+};
 
 // Only on Lonely Forest: no other site's landing, not the local CosyWorld
 // app, no table or pack link. Automated browsers need `intro=1`.
@@ -109,97 +135,113 @@ const element = (tag, className, text) => {
   return node;
 };
 const link = (text, href) => {
-  const anchor = element("a", "", typeof text === "string" ? text : "");
-  if (typeof text !== "string") anchor.append(text);
+  const anchor = element("a", "", text);
   anchor.href = href;
   anchor.target = "_blank";
   anchor.rel = "noopener";
   return anchor;
 };
-// The acknowledgement arrives like streamed text: each letter fades in over
-// `fade` ms, `letter` ms after the one before, with a breath after
-// punctuation and between paragraphs, and a longer one before a short line
-// so it lands. Some words hold a longer breath of their own (`pauses` in
-// acknowledgement.json: the word, which time it appears, counting from 1,
-// and the ms to hold after it and any punctuation touching it; the larger of
-// that and the punctuation's or paragraph's breath wins). The whole is about 10 seconds;
-// the cue follows. Every letter is in place from the start (transparent), so
-// nothing reflows, and CSS runs the clock: no timer per letter.
-export const STREAM = {
-  letter: 9,
-  stop: 130,
-  pause: 50,
-  paragraph: 500,
-  short: 350,
-  fade: 180,
-};
-const SHORT_LINE = 40;
-const breath = (letter) =>
-  /[.!?…]/u.test(letter)
-    ? STREAM.stop
-    : /[,;:—]/u.test(letter)
-      ? STREAM.pause
-      : 0;
+// The acknowledgement writes in like dialogue, with the same reveal
+// (dialogue.mjs): one steady letter beat, the same rests after punctuation,
+// a longer breath between stanzas, and a breath after its weighty words
+// (`pauses` in acknowledgement.json: the word, which time it appears,
+// counting from 1, and the ms to hold after it and any punctuation touching
+// it, a spaced dash too; the larger breath wins; one long silence falls
+// before "Behold"). Each line is set as
+// written, wrapping under a hanging indent on a narrow screen. About 21
+// seconds; a tap shows the rest, and the cue follows.
+export const STANZA_MS = 650;
 const escape = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-// Each paragraph's letters with the ms each starts at, and when the last
-// one has faded in.
-export function streamSchedule({ paragraphs, pauses = [] }) {
-  // Where each word pause lands: [paragraph, character offset it ends at].
-  const holds = paragraphs.map(() => new Map());
-  for (const { word, occurrence = 1, ms } of pauses) {
+// Where each pause falls: its line, the word's span in it, the offset its
+// breath follows, and how many letters of the whole run are written once
+// the word is.
+export function acknowledgementPauses({ stanzas, pauses = [] }) {
+  const lines = stanzas.flat();
+  const before = lines.map(
+    (_, line) => splitLetters(lines.slice(0, line).join("")).length,
+  );
+  return pauses.flatMap(({ word, occurrence = 1, pauseMs, tier, stays }) => {
     const pattern = new RegExp(
-      `(?<![\\p{L}\\p{N}])${escape(word)}(?![\\p{L}\\p{N}])[.,;:!?…—]*`,
+      `(?<![\\p{L}\\p{N}])${escape(word)}(?![\\p{L}\\p{N}])(?:[.,;:!?…—]|\\s—)*`,
       "gu",
     );
     let seen = 0;
-    paragraphs.some(({ text }, p) => {
-      for (const match of text.matchAll(pattern))
-        if (++seen === occurrence) {
-          holds[p].set(match.index + match[0].length, ms);
-          return true;
-        }
-      return false;
-    });
-  }
-  // A hold at a paragraph's end shares the break before the next one.
-  let clock = 0,
-    held = 0;
-  const schedule = paragraphs.map(({ text }, p) => {
-    if (p)
-      clock += Math.max(
-        held,
-        STREAM.paragraph + (text.length < SHORT_LINE ? STREAM.short : 0),
-      );
-    const letters = splitLetters(text);
+    for (const [line, text] of lines.entries())
+      for (const { index, 0: match } of text.matchAll(pattern))
+        if (++seen === occurrence)
+          return [
+            {
+              word,
+              tier,
+              pauseMs,
+              stays: !!stays,
+              line,
+              start: index,
+              end: index + word.length,
+              hold: index + match.length,
+              written:
+                before[line] +
+                splitLetters(text.slice(0, index + word.length)).length,
+            },
+          ];
+    return [];
+  });
+}
+// The ms after each letter of the lines, read as one run.
+export function acknowledgementDelays(acknowledgement) {
+  const lines = acknowledgement.stanzas.flat();
+  const holds = lines.map(() => new Map());
+  for (const { line, hold, pauseMs } of acknowledgementPauses(acknowledgement))
+    holds[line].set(hold, pauseMs);
+  const stanzaEnds = new Set();
+  let last = -1;
+  for (const stanza of acknowledgement.stanzas.slice(0, -1))
+    stanzaEnds.add((last += stanza.length));
+  return lines.flatMap((text, line) => {
     let offset = 0;
+    const letters = splitLetters(text);
     return letters.map((letter, i) => {
-      const at = clock;
       offset += letter.length;
-      const hold = holds[p].get(offset) ?? 0;
-      const end = i === letters.length - 1;
-      held = end ? hold : 0;
-      clock += STREAM.letter + (end ? 0 : Math.max(hold, breath(letter)));
-      return { letter, at };
+      const end = i === letters.length - 1 && stanzaEnds.has(line);
+      return Math.max(
+        letterDelay(letter),
+        holds[line].get(offset) ?? 0,
+        end ? STANZA_MS : 0,
+      );
     });
   });
-  clock += held;
-  return { schedule, end: Math.round(clock + STREAM.fade) };
 }
-// Real text from acknowledgement.json, set like a film's opening card.
+// The held words: the pauses with a rarity tier (the rest are silences).
+export const acknowledgementHeld = (acknowledgement) =>
+  acknowledgementPauses(acknowledgement).filter(({ tier }) => tier);
+// Which held words glow once `shown` letters are written: each from its
+// last letter for `glowHoldMs` of the reveal's own clock (so a hidden tab
+// holds it too), then it fades. Once whole, only the words that stay glow,
+// and a tap that shows the rest goes straight there.
+export function acknowledgementGlows(acknowledgement) {
+  const at = [0];
+  for (const ms of acknowledgementDelays(acknowledgement))
+    at.push(at.at(-1) + ms);
+  const pauses = acknowledgementHeld(acknowledgement);
+  return (shown, done) =>
+    pauses.map(({ written, stays }) =>
+      done
+        ? stays
+        : shown >= written &&
+          (stays ||
+            at[shown - 1] - at[written - 1] < acknowledgement.glowHoldMs),
+    );
+}
+// Real text from acknowledgement.json, set like a film's opening card. Each
+// paused word takes on its rarity tier's colour as its last letter writes,
+// and gives it back as the reveal moves on.
 function acknowledgementPanel() {
-  const { schedule, end: streamMs } = streamSchedule(acknowledgement);
-  let letters = [];
+  const glyphs = [];
+  // A spaced dash keeps to the word before it, never alone on a row.
   const streamed = (words) => {
     const part = document.createDocumentFragment();
-    for (const letter of splitLetters(words)) {
-      const { at } = letters.shift() ?? { at: 0 };
-      if (/^\s+$/u.test(letter)) part.append(letter);
-      else {
-        const span = element("span", "title-ack-ch", letter);
-        span.style.animationDelay = `${Math.round(at)}ms`;
-        part.append(span);
-      }
-    }
+    part.append(...letterSpans(words.replace(/ (?=—)/gu, "\u00a0")));
+    glyphs.push(...part.children);
     return part;
   };
   const panel = element("section", "title-ack");
@@ -207,19 +249,38 @@ function acknowledgementPanel() {
   text.tabIndex = 0;
   text.setAttribute("role", "region");
   text.setAttribute("aria-label", acknowledgement.title);
-  acknowledgement.paragraphs.forEach(({ text: words, links = {}, note }, i) => {
-    letters = [...schedule[i]];
-    const paragraph = element("p", note ? "title-ack-note" : "");
-    const phrases = Object.keys(links);
-    const split = phrases.length
-      ? new RegExp(`(${phrases.map(escape).join("|")})`)
-      : null;
-    for (const part of split ? words.split(split) : [words])
-      paragraph.append(
-        links[part] ? link(streamed(part), links[part]) : streamed(part),
-      );
+  const pauses = acknowledgementHeld(acknowledgement);
+  const glowing = acknowledgementGlows(acknowledgement);
+  const glows = [],
+    lighting = new Map();
+  text.style.setProperty("--glow-in", `${acknowledgement.glowInMs}ms`);
+  text.style.setProperty("--glow-fade", `${acknowledgement.glowFadeMs}ms`);
+  let at = 0;
+  for (const stanza of acknowledgement.stanzas) {
+    const paragraph = element("p");
+    for (const words of stanza) {
+      const row = element("span", "title-ack-line");
+      let from = 0;
+      for (const pause of pauses
+        .filter(({ line }) => line === at)
+        .sort((a, b) => a.start - b.start)) {
+        const { start, end, tier } = pause;
+        row.append(streamed(words.slice(from, start)));
+        const glow = element("span", "title-ack-glow");
+        const { color } = tiers.find(({ id }) => id === tier) || tiers[0];
+        glow.dataset.tier = tier;
+        glow.style.setProperty("--tier-color", color);
+        glow.append(streamed(words.slice(start, end)));
+        glows[pauses.indexOf(pause)] = glow;
+        row.append(glow);
+        from = end;
+      }
+      row.append(streamed(words.slice(from)));
+      paragraph.append(row);
+      at++;
+    }
     text.append(paragraph);
-  });
+  }
   // A quiet line, still a real button for focus and Enter or Space.
   const tap = matchMedia("(pointer: coarse)").matches;
   const next = element(
@@ -229,8 +290,41 @@ function acknowledgementPanel() {
   );
   next.type = "button";
   panel.append(text, next);
-  panel.style.setProperty("--stream-end", `${streamMs}ms`);
-  return { panel, next, streamMs };
+  const delays = acknowledgementDelays(acknowledgement);
+  const painter = createRevealPainter(text);
+  const reveal = createTextReveal({
+    delay: (letter, i) => delays[i],
+    frame: (value) => {
+      painter.paint(value);
+      // A word lights once its last letter's ink is whole: its letters
+      // take their colour from it, and a change mid-ink would slow theirs.
+      const lit = glowing(value.shown, value.complete);
+      glows.forEach((glow, i) => {
+        const pending = lighting.get(glow);
+        if (!lit[i] || value.instant) {
+          clearTimeout(pending);
+          lighting.delete(glow);
+          if (lit[i]) glow.dataset.lit = "";
+          else delete glow.dataset.lit;
+        } else if (!pending && !("lit" in glow.dataset))
+          lighting.set(
+            glow,
+            setTimeout(() => (glow.dataset.lit = ""), REVEAL_FADE_MS + 40),
+          );
+      });
+      if (!value.complete || !("stream" in panel.dataset)) return;
+      delete panel.dataset.stream;
+      panel.dataset.written = "";
+    },
+  });
+  // Visible by default: the cue waits only while the words write in.
+  const write = (instant) => {
+    if (!instant) panel.dataset.stream = "";
+    painter.start(glyphs);
+    const words = acknowledgement.stanzas.flat().join("");
+    reveal.show("acknowledgement", words, null, { instant });
+  };
+  return { panel, next, reveal, write };
 }
 
 const SCROLL_KEYS = [
@@ -265,12 +359,11 @@ export function playTitleIntro({
   layer.setAttribute("role", "dialog");
   layer.setAttribute("aria-modal", "true");
   layer.setAttribute("aria-label", logo.name);
-  const { panel, next, streamMs } = acknowledgementPanel();
-  // The first gesture during the stream shows it whole (and starts the
-  // song, as browsers ask); the next one continues.
-  let streamUntil = 0;
-  const streaming = () =>
-    "stream" in panel.dataset && performance.now() < streamUntil;
+  const { panel, next, reveal: words, write } = acknowledgementPanel();
+  // The first gesture while it writes shows it whole (and starts the song,
+  // as browsers ask); the next one continues. A hidden tab holds the pen.
+  const hidden = () => words.pause(document.hidden);
+  document.addEventListener("visibilitychange", hidden);
   const image = element("img");
   image.alt = "";
   image.decoding = "async";
@@ -282,14 +375,19 @@ export function playTitleIntro({
   let phase = "black",
     leaving = false,
     songDone = Promise.resolve(),
+    fades = WAKE_FADE.turn,
     leave;
   const left = new Promise((resolve) => (leave = resolve));
   const race = (promise) => Promise.race([promise, left]);
-  // Waking lets the song ring on as the table shows; Escape fades it fast.
-  const finish = (fadeSeconds = 3) => {
+  // The song fades as the title goes to black; Escape takes the short way.
+  const finish = (way = "turn") => {
     if (leaving) return;
     leaving = true;
-    songDone = song.stop(fadeSeconds);
+    idle(false);
+    words.cancel();
+    document.removeEventListener("visibilitychange", hidden);
+    fades = { ...WAKE_FADE[way], ...(reduced && WAKE_FADE.reduced) };
+    songDone = song.stop(fades.songSeconds);
     wake();
     leave();
   };
@@ -312,9 +410,25 @@ export function playTitleIntro({
   card.append(back);
   const frame = element("div", "card-frame title-card");
   frame.append(card);
+  // The way to turn it, under the card (never on it). The card's own name
+  // says it to screen readers, so this line is hidden from them.
+  const tap = matchMedia("(pointer: coarse)").matches;
+  const hint = element("p", "title-hint", `${tap ? "tap" : "click"} to reveal`);
+  hint.setAttribute("aria-hidden", "true");
   const row = element("div", "title-reveal");
-  row.append(frame, link("Privacy", "/privacy"));
+  row.append(frame, hint, link("Privacy", "/privacy"));
   row.lastChild.className = "title-privacy";
+  let idleTimers = [];
+  const idle = (again = true) => {
+    idleTimers.forEach(clearTimeout);
+    delete row.dataset.idle;
+    if (!again || phase !== "card" || leaving) return;
+    const { idleGlowMs, hintMs } = REVEAL_HINT;
+    idleTimers = [
+      setTimeout(() => (row.dataset.idle = "glow"), idleGlowMs),
+      setTimeout(() => (row.dataset.idle = "hint"), hintMs),
+    ];
+  };
 
   const loaded = new Promise((resolve) => {
     image.onload = () => resolve(true);
@@ -328,6 +442,7 @@ export function playTitleIntro({
   const turn = async () => {
     if (phase !== "card" || leaving) return;
     phase = layer.dataset.phase = "revealed";
+    idle(false);
     count("intro.wake");
     const face =
       wakeId &&
@@ -348,10 +463,12 @@ export function playTitleIntro({
     card.dataset.unrevealed = "false";
     card.setAttribute("aria-label", wakeName || "Your traveller");
     if (!reduced) await race(revealCard(card));
-    await race(wait(800));
+    await race(wait(WAKE_FADE.turn.holdMs));
     finish();
   };
   card.addEventListener("click", turn);
+  hint.addEventListener("click", turn);
+  card.addEventListener("pointermove", () => idle());
   // The logo lifts over the card, with the Privacy page under it.
   const showWake = () => {
     if (phase !== "title" || leaving) return;
@@ -368,6 +485,7 @@ export function playTitleIntro({
     layer.append(row);
     fade(row, reduced ? 250 : 600, reduced ? 0 : 300);
     card.focus({ preventScroll: true });
+    idle();
   };
   // The acknowledgement's gesture: the logo and the song.
   const showTitle = async () => {
@@ -407,9 +525,9 @@ export function playTitleIntro({
     showWake();
   };
   const advance = () => {
-    if (phase === "ack" && streaming()) {
+    if (phase === "ack" && !words.complete) {
       song.start();
-      delete panel.dataset.stream;
+      words.finish();
       return;
     }
     return phase === "ack" ? showTitle() : showWake();
@@ -419,7 +537,10 @@ export function playTitleIntro({
     if (!event.target.closest?.("a, button")) advance();
   });
   // A pointer hides the card's focus ring; the keyboard brings it back.
-  layer.addEventListener("pointerdown", () => (layer.dataset.pointer = "true"));
+  layer.addEventListener("pointerdown", (event) => {
+    layer.dataset.pointer = "true";
+    if (event.target !== hint) idle();
+  });
   // Keep focus on the step's button rather than the tapped title.
   layer.addEventListener("mousedown", (event) => {
     if (!event.target.closest?.("a, button, .title-ack-text"))
@@ -429,10 +550,11 @@ export function playTitleIntro({
     if (["Shift", "Control", "Alt", "Meta"].includes(event.key)) return;
     event.stopPropagation();
     delete layer.dataset.pointer;
+    idle();
     if (event.key === "Escape") {
       event.preventDefault();
       if (!leaving) count("intro.skip");
-      finish(1);
+      finish("skip");
       return;
     }
     // Tab moves between the step's links and button; Enter and Space press
@@ -463,22 +585,25 @@ export function playTitleIntro({
     );
     if (!leaving) {
       phase = layer.dataset.phase = "ack";
-      // Visible by default; the stream is a CSS enhancement (style.css).
-      if (!reduced) {
-        panel.dataset.stream = "";
-        streamUntil = performance.now() + streamMs + 600;
-      }
       layer.append(panel);
+      write(reduced);
       // No ring until the keyboard moves; Tab shows it.
       next.focus({ preventScroll: true, focusVisible: false });
     }
     await left;
-    layer.dataset.phase = "out";
     window.removeEventListener("keydown", onKey, true);
+    // To black, a breath of it, then the scene slowly comes up.
+    const { blackMs, darkMs, sceneMs } = fades;
+    phase = layer.dataset.phase = "dark";
+    const dark = element("div", "title-dark");
+    layer.append(dark);
+    await fade(dark, blackMs).finished.catch(() => {});
+    await wait(darkMs);
+    layer.dataset.phase = "out";
     await layer
       .animate([{ opacity: 1 }, { opacity: 0 }], {
-        duration: reduced ? 250 : 900,
-        easing: "ease",
+        duration: sceneMs,
+        easing: "ease-out",
         fill: "both",
       })
       .finished.catch(() => {});

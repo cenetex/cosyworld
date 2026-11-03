@@ -184,6 +184,9 @@ fn upgraded_willows(version: &str) -> (std::path::PathBuf, rusqlite::Connection,
     assert!(old.game["packs"].get("willows").is_none());
     old.game["crossings"]["pond-greek-harbor"]["discovered"] = json!(true);
     old.game["transports"]["greek-ship"]["dock"] = json!("pond");
+    // The Willows is a Charybdis leg beyond the free one (rules 94): the
+    // Travel Provisions ride on deck.
+    old.game["items"]["greek-provisions"]["holder"] = json!("greek-ship");
     // Begin just before the first misty night at the pond (turn 120).
     old.game["turn"] = json!(117);
     old.game["revision"] = json!(117);

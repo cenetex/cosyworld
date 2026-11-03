@@ -338,17 +338,18 @@ describe("rest and sanctuary", () => {
     });
     // A ship docks where it sleeps.
     s = seat(["vale"]);
-    s.actors.vale.place = "greek-piraeus";
+    s.actors.vale.place = "greek-harbor";
     s = sleep(s);
     Object.assign(s.transports["greek-ship"], {
       phase: "sea",
-      destination: "greek-piraeus",
+      dock: "pond",
+      destination: "greek-harbor",
       since: s.turn,
     });
     s = wait(s);
     expect(woke(s, "vale")).toMatchObject({
       woke: "dock",
-      text: "Vale wakes as Greek ship docks.",
+      text: "Vale wakes as The Charybdis docks.",
     });
     expect(validateWorld(s)).toBe(s);
   });

@@ -79,7 +79,7 @@ const placeDescriptions = {
   "greek-lemnos": "at the Lemnian Cave",
   "greek-thrace": "on the Thracian shore",
   "greek-troy-beach": "on the Homecoming Beach",
-  "greek-ship": "aboard the Greek ship",
+  "greek-ship": "aboard the Charybdis",
   "willows-landing": "on the Danube island",
   "willows-camp": "on the Danube island",
 };

@@ -91,7 +91,7 @@ describe("day and night in Greece", () => {
     ["greek-colonus", "open-door-colonus", "in Colonus Grove"],
     ["greek-eleusis", "open-door-eleusis", "at the Eleusinian Sanctuary"],
     ["greek-marathon", "open-door-marathon", "at Marathon Altar"],
-    ["greek-ship", "ship-deck", "aboard the Greek ship"],
+    ["greek-ship", "ship-deck", "aboard the Charybdis"],
   ])(
     "gives %s its own night painting and place facts",
     (place, file, where) => {

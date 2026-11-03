@@ -1,4 +1,10 @@
 // A complete line gets its own clock, independent of network chunk timing.
+// The same reveal writes dialogue and the effects inscribed on beat cards
+// (app.mjs): one letter at a time on one steady beat, with a short rest after
+// punctuation. Each letter fades in over REVEAL_FADE_MS (style.css
+// `.speech-letter`), so two or three are soft at once.
+export const REVEAL_FADE_MS = 60,
+  REVEAL_FINISH_MS = 150;
 const segmenter = new Intl.Segmenter(undefined, { granularity: "grapheme" });
 export function splitLetters(text) {
   return Array.from(segmenter.segment(text), ({ segment }) => segment);
@@ -12,6 +18,8 @@ export function createTextReveal({
   frame,
   sound = () => {},
   reduced = () => false,
+  // The ms after each letter (and its index) before the next.
+  delay = letterDelay,
   now = () => performance.now(),
   requestFrame = globalThis.requestAnimationFrame?.bind(globalThis),
   cancelFrame = globalThis.cancelAnimationFrame?.bind(globalThis),
@@ -51,8 +59,10 @@ export function createTextReveal({
       sound(current.speaker, letter, current.shown);
     emit();
     // Keep the cadence through small frame delays. A slow frame reveals one
-    // letter, so returning from a busy frame keeps the words readable.
-    due = Math.max(due + letterDelay(letter), time);
+    // letter, and the clock never catches up faster than twice the beat, so
+    // returning from a busy frame keeps a steady beat rather than a burst.
+    const pause = delay(letter, current.shown - 1);
+    due = Math.max(due + pause, time + pause / 2);
     queue();
   }
   return {
@@ -92,6 +102,63 @@ export function createTextReveal({
     },
     get complete() {
       return !current || current.shown === current.letters.length;
+    },
+  };
+}
+
+// One span per letter, laid out whole from the start and hidden until its
+// turn, so nothing reflows as it writes.
+export function letterSpans(text) {
+  return splitLetters(text).map((letter) => {
+    const span = document.createElement("span");
+    span.className = "speech-letter";
+    span.textContent = letter;
+    return span;
+  });
+}
+
+// Paints a reveal's frames onto its letter spans, wherever they sit (inside
+// links too). The newest letter carries the caret; a tap fades the rest in
+// together; a line already read shows at once. Once whole, the spans fold
+// back into plain text, and `rest` keeps the last letter with its caret.
+export function createRevealPainter(root, { caret = true, rest = false } = {}) {
+  let glyphs = [],
+    shown = 0,
+    painted = false,
+    timer = null;
+  const fold = () => {
+    timer = null;
+    const kept = rest ? glyphs.at(-1) : null;
+    for (const glyph of glyphs)
+      if (glyph !== kept) glyph.replaceWith(glyph.textContent);
+    root.normalize();
+    glyphs = [];
+  };
+  return {
+    start(spans) {
+      clearTimeout(timer);
+      timer = null;
+      glyphs = spans;
+      shown = 0;
+      painted = false;
+      delete root.dataset.reveal;
+    },
+    paint({ shown: next, complete }) {
+      if (!glyphs.length) return;
+      glyphs[shown - 1]?.classList.remove("cursor");
+      if (next - shown > 1)
+        root.dataset.reveal = painted ? "finish" : "instant";
+      for (let i = shown; i < next; i++) glyphs[i].classList.add("revealed");
+      shown = next;
+      painted = true;
+      root.dataset.revealing = String(!complete);
+      if (caret && (rest || !complete))
+        glyphs[shown - 1]?.classList.add("cursor");
+      if (!complete || timer) return;
+      const fade = { instant: 0, finish: REVEAL_FINISH_MS }[
+        root.dataset.reveal
+      ];
+      timer = setTimeout(fold, (fade ?? REVEAL_FADE_MS) + 40);
     },
   };
 }

@@ -41,12 +41,12 @@ const openingPlaces = [
   "greek-road-thebes",
   "greek-ship",
 ];
+// Marathon, Troy and the Far Shores are rumours in new worlds (rules 94).
 const openDoorPlaces = [
   "greek-athens",
   "greek-piraeus",
   "greek-colonus",
   "greek-eleusis",
-  "greek-marathon",
 ];
 const sectionPlaces = pack.sections.flatMap((section) => section.places);
 const ajaxPlaces = pack.sections.find(
@@ -54,9 +54,9 @@ const ajaxPlaces = pack.sections.find(
 ).places;
 // Retired roads keep their IDs in the release for saved history only.
 const retired = (id) => pack.places[id]?.retired === true;
+const rumours = ["greek-marathon", ...ajaxPlaces];
 const openDoorReleasedPlaces = pack.release.places.filter(
-  (id) =>
-    !retired(id) && !["greek-road-athens-harbor", ...ajaxPlaces].includes(id),
+  (id) => !retired(id) && id !== "greek-road-athens-harbor",
 );
 const openDoorItems = [
   "greek-burial-petition",
@@ -113,7 +113,8 @@ describe("the Theban release and its ship", () => {
     s.crossings["pond-greek-harbor"].discovered = true;
     expect(reachable(s)).toEqual([...openingPlaces].sort());
     expect(reachable(s)).toHaveLength(9);
-    expect(pack.release.places).toHaveLength(30);
+    expect(pack.release.places).toHaveLength(24);
+    for (const id of rumours) expect(pack.release.places).not.toContain(id);
     expect(
       pack.release.places
         .filter((id) => !retired(id) && id !== "greek-road-athens-harbor")
@@ -121,12 +122,13 @@ describe("the Theban release and its ship", () => {
     ).toEqual(
       [
         ...openingPlaces,
-        // Piraeus Quays lies outside every section; a ship with the Travel
-        // Provisions aboard reaches it, and so does the Coast Road.
+        // Piraeus Quays is Thebes's sea exit, outside every section.
         "greek-piraeus",
-        "greek-road-coast",
         ...sectionPlaces.filter(
-          (id) => !retired(id) && id !== "greek-road-athens-harbor",
+          (id) =>
+            !retired(id) &&
+            id !== "greek-road-athens-harbor" &&
+            !rumours.includes(id),
         ),
       ].sort(),
     );
@@ -147,21 +149,29 @@ describe("the Theban release and its ship", () => {
     s = act(s, "give", { item: "greek-guard-tablet", target: "greek-baker" });
     // The tablet on Dione's table opens the Cithaeron road from the
     // battlefield to the countryside. The Sacred Way waits for the mothers'
-    // petition; the ship with the Travel Provisions reaches the city. The
-    // Coast Road from the harbor waits for the herald's truce (#2049).
+    // petition; the ship with the Travel Provisions reaches Piraeus, whose
+    // Long Walls wait for the herald's truce (rules 94).
     expect(reachable(s)).toContain("greek-eleusis");
     expect(reachable(s)).not.toContain("greek-athens");
-    expect(reachable(s)).not.toContain("greek-road-coast");
     s.items["greek-provisions"].holder = "greek-ship";
-    expect(reachable(s)).toEqual([...openDoorReleasedPlaces].sort());
-    expect(reachable(s)).toHaveLength(18);
+    const city = [
+      "greek-athens",
+      "greek-road-athens-eleusis",
+      "greek-road-athens-piraeus",
+    ];
+    const sailed = openDoorReleasedPlaces.filter((id) => !city.includes(id));
+    expect(reachable(s)).toEqual(sailed.sort());
+    expect(reachable(s)).toHaveLength(13);
     s = decodeSave(encodeSave(s));
-    expect(reachable(s)).toEqual([...openDoorReleasedPlaces].sort());
+    expect(reachable(s)).toEqual(sailed.sort());
     for (const start of openDoorPlaces) {
       const trip = structuredClone(s);
       trip.transports["greek-ship"].dock = "greek-piraeus";
       // Vale sailed in, so she knows the lane home from Piraeus.
       learnLane(trip, "vale", "greek-harbor", "greek-piraeus");
+      // The land route home enters Thebes by the City Gate, open once the
+      // guard has held the decree there.
+      trip.openedRoutes = ["greek-gate>greek-battlefield"];
       // The Long Walls lead home from the city once the plea's olive branch
       // is in the Agora; the mothers' petition there keeps the Sacred Way
       // open from Eleusis.
@@ -202,6 +212,8 @@ describe("the Theban release and its ship", () => {
   it("keeps a route from every opening place back to the pond after the signal", () => {
     const s = createWorld();
     s.crossings["pond-greek-harbor"].discovered = true;
+    // The battlefield is reached only through the opened City Gate.
+    s.openedRoutes = ["greek-gate>greek-battlefield"];
     for (const start of openingPlaces.filter((id) => id !== "greek-ship")) {
       const seen = new Set([start]);
       for (const id of seen)
@@ -281,7 +293,7 @@ describe("the Theban release and its ship", () => {
     s = act(s, "take", { item: "cloth" });
     expect(locationOverlay(s, "pond")).toMatch(/pond-ship-overlay\.png$/);
     expect(travelCard(s, "greek-ship")).toMatchObject({
-      name: "Greek ship",
+      name: "The Charybdis",
       art: expect.stringMatching(/\/ship-deck[^/]*\.webp$/),
     });
     s = act(s, "move", { target: "greek-ship" });
@@ -305,20 +317,20 @@ describe("the Theban release and its ship", () => {
     changed.actors["greek-helen-egypt"].place = "greek-harbor";
     expect(() => encodeSave(changed)).toThrow();
   });
-  it("keeps seven opening paintings and adds five section paintings", () => {
+  it("keeps seven opening paintings and adds four Attic paintings", () => {
     const openingImages = openingPlaces
       .filter((id) => id !== "greek-ship" && id !== "greek-road-thebes")
       .map(backdrop);
     const sectionImages = openDoorPlaces.map(backdrop);
     expect(new Set(openingImages).size).toBe(7);
-    expect(new Set(sectionImages).size).toBe(5);
+    expect(new Set(sectionImages).size).toBe(4);
     expect(
       sectionImages.every((image) =>
         /\/(open-door-|athens-grand-agora|piraeus-open-berth)/.test(image),
       ),
     ).toBe(true);
     const images = [...openingImages, ...sectionImages];
-    expect(new Set(images).size).toBe(12);
+    expect(new Set(images).size).toBe(11);
     expect(images.every((p) => p.endsWith(".webp"))).toBe(true);
     for (const image of images) {
       const bytes = readFileSync(

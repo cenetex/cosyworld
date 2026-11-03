@@ -3,7 +3,7 @@
 // Agora when the plea is registered, opens no lane.
 import { describe, expect, it } from "vitest";
 import { entityActive } from "../v2/card-game/pack-registry.mjs";
-import { transportExits } from "../v2/card-game/pack-transport.mjs";
+import { learnLane, transportExits } from "../v2/card-game/pack-transport.mjs";
 import {
   openDoorStart,
   openDoorSteps,
@@ -33,7 +33,9 @@ describe("lanes that open with a thing aboard", () => {
     s.items["greek-provisions"].holder = "greek-harbor";
     // Ashore in Vale's hands, the truce opens nothing at sea.
     expect(courses(s, "greek-harbor")).not.toContain("greek-piraeus");
-    // The provisions aboard open Piraeus; the way home is always open.
+    // The provisions aboard open Piraeus; the way home is always open to a
+    // traveler who has sailed it.
+    learnLane(s, "vale", "greek-piraeus", "greek-harbor");
     expect(courses(s, "greek-piraeus")).toContain("greek-harbor");
     s.items["greek-provisions"].holder = "greek-ship";
     expect(courses(s, "greek-harbor")).toContain("greek-piraeus");

@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "greek-ship-willows",
   "pack": "willows",
-  "description": "On a misty night, while the Greek ship lies at Black Pond or sails between ports, river mist beside its rail opens onto a small Danube island and keeps a path back. Once the Swede's kit is all back at his camp, the mended canoe also runs between the landing and Black Pond, for anyone.",
+  "description": "On a misty night, while the Charybdis lies at Black Pond or sails between ports with the Travel Provisions or something from Hoppy Cat aboard, river mist beside its rail opens onto a small Danube island and keeps a path back. Once the Swede's kit is all back at his camp, the mended canoe also runs between the landing and Black Pond, for anyone.",
   "values": {
     "willows-swede": {
       "lamp": 5,
@@ -26,6 +26,21 @@
           "conditions": [
             { "kind": "ship_at", "transport": "greek-ship", "dock": "pond" },
             { "kind": "ship_at", "transport": "greek-ship", "dock": "@sea" }
+          ]
+        },
+        {
+          "kind": "any",
+          "conditions": [
+            {
+              "kind": "item_present",
+              "item": "greek-provisions",
+              "place": "greek-ship"
+            },
+            {
+              "kind": "pack_item_present",
+              "pack": "hoppycat-archive",
+              "place": "greek-ship"
+            }
           ]
         }
       ],

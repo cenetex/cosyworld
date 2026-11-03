@@ -31,6 +31,10 @@ const reload = (world) => decodeSave(encodeSave(world));
 const pack = packDefinition("greek-drama");
 
 const story = (id) => /^greek-(open-door|homecoming)-/.test(id);
+// Marathon's tale and the full return need Marathon, a rumour in new worlds
+// (rules 94); old full-scope worlds keep both.
+const fullJourney = () =>
+  openDoorJourney(openDoorSteps({ rumours: true }), { rumours: true });
 const OUTCOMES = [
   "greek-olive-branch",
   "greek-pyre-account",
@@ -40,8 +44,18 @@ const OUTCOMES = [
 ];
 
 describe("the Open Door", () => {
-  it("carries the five stories home with ordinary plays", () => {
-    const { world, before } = openDoorJourney();
+  it("carries the four stories home in a new world", () => {
+    const { world } = openDoorJourney();
+    for (const id of ["eleusis", "piraeus", "colonus"])
+      expect(state(world).flags[`greek-open-door-${id}-done`]).toBe(true);
+    expect(entityActive(world, "greek-marathon")).toBe(false);
+    expect(state(world).flags["greek-open-door-returned"]).toBeUndefined();
+    for (const item of OUTCOMES.slice(0, 4))
+      expect(world.items[item].holder).toBe("greek-courtyard");
+  });
+
+  it("carries the five stories home with ordinary plays in a full-scope world", () => {
+    const { world, before } = fullJourney();
     expect(world.actors.vale.place).toBe("greek-courtyard");
     for (const id of ["eleusis", "piraeus", "colonus", "marathon"])
       expect(state(world).flags[`greek-open-door-${id}-done`]).toBe(true);
@@ -85,7 +99,7 @@ describe("the Open Door", () => {
   });
 
   it("requires the actual things at each deed", () => {
-    const { before } = openDoorJourney();
+    const { before } = fullJourney();
     // Waiting does a deed only beside its things.
     for (const [id, item] of [
       ["set-provisions", "greek-provision-basket"],
@@ -115,7 +129,7 @@ describe("the Open Door", () => {
   });
 
   it("keeps remembered generations in their named tales", () => {
-    const { world } = openDoorJourney();
+    const { world } = fullJourney();
     // Meetings commit their tale; its words are the choice's own caption.
     const line = (id) =>
       state(world).receipts[`greek-open-door-${id}`] &&
@@ -173,23 +187,30 @@ describe("the Open Door", () => {
     ).toBe("mara");
   });
   it.each(["burial", "concession", "exposure"])(
-    "opens five places when Dione receives the %s outcome",
+    "opens four places when Dione receives the %s outcome",
     (branch) => {
       const fixture = openingFixture(branch);
       const before =
         branch === "concession"
           ? fixture.permission
           : fixture.choice || fixture.buried;
-      // Piraeus Quays lies outside the Open Door: a ship with provisions
-      // aboard reaches it. Its stories still wait for Dione's road.
+      // Piraeus Quays is Thebes's sea exit: the Charybdis calls there with
+      // cargo before Dione's invitation. Marathon is a rumour (rules 94).
       expect(accessible(before)).toEqual(["greek-piraeus"]);
       let world = fixture.closed;
       expect(accessible(world)).toEqual(OPEN_DOOR_PLACES);
       expect(state(world).choices["greek-theban-response"]).toBe(branch);
       expect(legalActions(world).some((a) => a.kind === "choose")).toBe(false);
-      world = openDoorWalk(reload(world), "harbor", "athens");
-      // The Long Walls stay shut until the herald's truce is in the Agora;
-      // the Sacred Way leads out to the countryside.
+      world = openDoorWalk(reload(world), "harbor", "piraeus");
+      // The Long Walls stay shut from both ends until the herald's truce is
+      // in the Agora: a sea arrival stays at the quays. From the Agora the
+      // Sacred Way leads out to the countryside.
+      expect(world.actors.vale.place).toBe("greek-piraeus");
+      expect(
+        exits(world, "greek-piraeus", "vale").filter(
+          (to) => to !== "greek-ship",
+        ),
+      ).toEqual([]);
       expect(exits(world, "greek-athens", "vale")).toEqual([
         "greek-road-athens-eleusis",
       ]);
@@ -203,7 +224,7 @@ describe("the Open Door", () => {
     },
   );
 
-  it("keeps the five roads open through a return to the Theban table", () => {
+  it("keeps the four roads open through a return to the Theban table", () => {
     // Through the plea: the petition rests in the Agora, which keeps the
     // Sacred Way open, and so does the herald's truce for the Long Walls.
     let world = openDoorStart();
@@ -216,7 +237,6 @@ describe("the Open Door", () => {
     world = openDoorWalk(
       world,
       "colonus",
-      "marathon",
       "eleusis",
       "athens",
       "piraeus",

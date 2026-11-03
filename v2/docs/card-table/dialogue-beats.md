@@ -40,7 +40,8 @@ the toolbar's style (`beatIcons` in `app.mjs`): a hand for take, a smoking
 candle for snuff, a bell for ring, a drop over a lamp for refuelling.
 
 A play's effect never makes a card of its own: it is inscribed onto the card
-current when it happened, under its line, writing in from the left (instant
+current when it happened, under its line, writing in letter by letter with
+the dialogue's reveal at a quicker beat, 300 to 900 ms a caption (instant
 with reduced motion; a tap finishes it). Most plays are like this: only Talk,
 Ask and the rules' speech occasions speak (see the card guide), so a silent
 play, a Wait included, writes its caption onto the line in front, and the

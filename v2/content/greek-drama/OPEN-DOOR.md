@@ -1,27 +1,36 @@
 # The Open Door
 
 Dione's table opens the stories of five places: the Athenian Agora, Piraeus
-Quays, Colonus Grove, Eleusinian Sanctuary and Marathon Altar. Piraeus Quays
-lies outside the section: a ship with the Travel Provisions aboard reaches it
-from the Wine-Dark Harbor in any save, but its roads inland and Thaleia's
-work wait for the invitation. The Coast Road always leads from Piraeus back
-to the Wine-Dark Harbor, so a traveler whose ship sails away can walk home
-(#2049). From the harbor it opens only with the herald's truce in the Agora,
-like the Long Walls, so it never reaches the city before the petition. Athens has three districts of at most four
-places each: the countryside (Eleusis, Colonus, Marathon and the Attic Farm,
-with Acharnae Market within it), the city (the Agora, Assembly Hill, the
-Acropolis and the Thinkery, with the House of Demos and the Women's Festival
-within) and the harbour (Piraeus, which took in Athens Harbor). Places in a
-district link directly. Two gate roads join the districts. The Sacred Way
-leads from Eleusis into the city once the mothers' petition is at Eleusis
-or in the Agora. The Long Walls lead from the Agora to Piraeus once the
-herald's truce is in the Agora. A gate stays open once opened, for everyone
-in that world, even after its thing moves away. It blocks only the way out:
-the way back is always open. These
-routes share Dione’s lasting invitation. Waiting at a port lets the empty ship complete its circuit.
+Quays, Colonus Grove, Eleusinian Sanctuary and Marathon Altar. Marathon is a
+rumour in this release (Greek revision 18, rules 94): no way leads to it, so
+its tale and the full account below play only in old full-scope worlds.
+Piraeus Quays is Thebes's sea exit. It lies outside the section, so the
+Charybdis calls there before the invitation whenever the Travel Provisions
+or a Hoppy Cat thing are aboard, and sails home to the harbor free. Called
+away empty, the ship answers a wait at Piraeus without cargo. The Long
+Walls open from either end only once the mothers' plea is registered with
+the herald's truce in the Agora, so until then a sea arrival stays at the
+quays, beside the ship home, and the Open Door is walked from Thebes: the
+City Gate to the battlefield, the Cithaeron road to Eleusis and the Sacred
+Way to the Agora (#2049). The gate guards the city both ways and opens
+only once the guard has held the decree at the gate; after the exposure
+the traveler brings it to him. The Coast Road from
+Piraeus to the Wine-Dark Harbor retired. Athens has three districts of at
+most four places each: the countryside (Eleusis, Colonus, Marathon and the
+Attic Farm, with Acharnae Market within it), the city (the Agora, Assembly
+Hill, the Acropolis and the Thinkery, with the House of Demos and the
+Women's Festival within) and the harbour (Piraeus, which took in Athens
+Harbor). Places in a district link directly. Two gate roads join the
+districts. The Sacred Way leads from Eleusis into the city once the mothers'
+petition is at Eleusis or in the Agora; the way back is always open. The
+Long Walls open from both ends once the herald's truce is in the Agora. A
+gate stays open once opened, for everyone in that world, even after its
+thing moves away. These routes share
+Dione’s lasting invitation. Waiting at a port lets the empty ship complete
+its circuit.
 
-The opening invitation follows the public account of any of the four
-Theban responses: burial, permission, refusal or warning. Accepting the
+The opening invitation follows the public account of any of the three
+Theban responses: burial, permission or warning. Accepting the
 invitation records `greek-open-door-open`. The choice and its reason remain
 part of the saved history. The region remains open for later visits.
 
@@ -100,6 +109,8 @@ closing scenes. The MIT web page ends during the earlier action.
 
 ## A separate generation at Marathon
 
+A rumour in this release (rules 94); old full-scope worlds keep it.
+
 The keeper names Euripides' _Children of Heracles_, after Heracles's death,
 under Demophon, son of Theseus. This frame keeps the rulers and the children
 in their own generation.
@@ -135,7 +146,8 @@ Each story ends with an outcome item: the herald's truce, the Funeral
 Account, Myrine's signed return list, the refuge tablet and the Marathon
 Record. Giving one to Dione is that story's report; it stays on her table and
 earns its couplet. With all five on her table, the next play there shares the
-full Open Door account. Its couplet is:
+full Open Door account; it needs the Marathon Record, so it waits in old
+full-scope worlds. Its couplet is:
 
 > I brought those names beside her bread.  
 > We made room for the words they carried.

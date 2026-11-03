@@ -1,5 +1,10 @@
 import { mediaUrl } from "./media.mjs";
 import streams from "./music-streams.json" with { type: "json" };
+import {
+  RETURN_FADE_SECONDS,
+  contextAsleep,
+  wakeContext,
+} from "./audio-wake.mjs";
 
 // The new-world title's song (title-intro.mjs). It starts on the player's
 // first tap or key on the title, so the browser allows it, and fades out when
@@ -9,7 +14,9 @@ import streams from "./music-streams.json" with { type: "json" };
 // second against clicks) rather than over the 2-second fade that left it
 // inaudible, and it sits `level` above the saved volume: it is mastered about
 // 3 LU under the room songs (-18.3 against attic-1's -15.6 LUFS) and opens
-// quieter still.
+// quieter still. A hidden tab pauses it in place; if it was playing, it fades
+// back in from there when the tab returns, or on the next tap or key when the
+// phone refuses to wake it without one.
 export const TITLE_SONG = {
   file: "title-attic-lamp.mp3",
   title: "The Attic Keeps Its Lamp × Moonstone Sanctum",
@@ -72,11 +79,77 @@ export function createTitleSong({
     };
     step();
   }
-  const onVisibility = () => {
-    if (!audio || stopped) return;
-    if (doc.hidden) audio.pause();
-    else if (!audio.ended) Promise.resolve(audio.play?.()).catch(() => {});
+  let hidden = false,
+    resumeOnShow = false,
+    retryArmed = false;
+  const gestures = ["pointerdown", "keydown"];
+  const retry = () => {
+    disarm();
+    resume();
   };
+  function arm() {
+    if (retryArmed || !doc) return;
+    retryArmed = true;
+    for (const type of gestures)
+      doc.addEventListener?.(type, retry, { capture: true });
+  }
+  function disarm() {
+    if (!retryArmed) return;
+    retryArmed = false;
+    for (const type of gestures)
+      doc.removeEventListener?.(type, retry, { capture: true });
+  }
+  // Pick up where the song was, unless the intro or the music switch ended it.
+  function resume() {
+    if (!audio || stopped || hidden || !resumeOnShow) return;
+    if (audio.ended || !titleSongSettings(storage).enabled) {
+      resumeOnShow = false;
+      return;
+    }
+    // Until both the element and the context run, a tap or key retries.
+    arm();
+    let played;
+    try {
+      played = Promise.resolve(audio.paused ? audio.play() : undefined);
+    } catch (error) {
+      played = Promise.reject(error);
+    }
+    try {
+      ramp(target, RETURN_FADE_SECONDS);
+    } catch {}
+    Promise.all([played, wakeContext(context)]).then(
+      ([, awake]) => {
+        if (awake && !audio.paused && !stopped) {
+          resumeOnShow = false;
+          disarm();
+        }
+      },
+      () => {},
+    );
+  }
+  function setHidden(value) {
+    if (!audio || stopped || hidden === value) return;
+    hidden = value;
+    if (!hidden) return resume();
+    // Pause in place, silent, so the return fades in from the same moment.
+    if (!audio.paused && !audio.ended) resumeOnShow = true;
+    disarm();
+    try {
+      ramp(0, 0);
+      audio.pause();
+    } catch {}
+  }
+  const onVisibility = () => setHidden(Boolean(doc.hidden));
+  const onPageHide = () => setHidden(true);
+  // A call or Siri can interrupt iOS audio while the page stays in view.
+  const onContextState = () => {
+    if (stopped || hidden || !audio) return;
+    if (contextAsleep(context) && !audio.paused) {
+      resumeOnShow = true;
+      resume();
+    }
+  };
+  const view = () => doc?.defaultView;
 
   return {
     // Call from inside the first tap or key on the title.
@@ -97,15 +170,18 @@ export function createTitleSong({
           gain.connect(context.destination);
           context.createMediaElementSource(audio).connect(gain);
           audio.volume = 1;
-          if (context.state === "suspended")
-            void context.resume?.().catch(() => {});
+          void wakeContext(context);
+          context.addEventListener?.("statechange", onContextState);
         } catch {
           context = gain = null;
           audio.volume = 0;
         }
         Promise.resolve(audio.play()).catch(() => {});
         ramp(target, fadeInSeconds);
+        hidden = Boolean(doc?.hidden);
         doc?.addEventListener?.("visibilitychange", onVisibility);
+        view()?.addEventListener?.("pagehide", onPageHide);
+        view()?.addEventListener?.("pageshow", onVisibility);
         return true;
       } catch {
         audio = null;
@@ -119,7 +195,12 @@ export function createTitleSong({
         return Promise.resolve();
       }
       stopped = true;
+      resumeOnShow = false;
+      disarm();
       doc?.removeEventListener?.("visibilitychange", onVisibility);
+      view()?.removeEventListener?.("pagehide", onPageHide);
+      view()?.removeEventListener?.("pageshow", onVisibility);
+      context?.removeEventListener?.("statechange", onContextState);
       try {
         ramp(0, seconds);
       } catch {}
