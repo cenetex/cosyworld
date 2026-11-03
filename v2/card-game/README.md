@@ -37,7 +37,9 @@ A decoded, imported or saved-again world is checked in full.
 The passkey panel and the members-only sign-in say what a passkey keeps and
 link the Privacy page (`privacy.html` at `/privacy`, also in Settings;
 [#2052](https://github.com/cenetex/cosyworld/issues/2052)). `privacy.mjs` holds
-the notice and operator details. `/download` redirects to the source on GitHub.
+the notice and operator details. The Privacy page is layered: eight short
+lines that fit one phone screen, then each topic's full text in a closed
+`<details>` section. `/download` redirects to the source on GitHub.
 
 Play counts are anonymous daily totals. `POST /card-game/metrics` takes
 `{"day": <UTC day number>, "counters": {"play.talk": 2}}`, where every name
