@@ -75,6 +75,8 @@ try {
         (mode === "stall-once" && requests.length === stalledRequest)
       )
         return;
+      // Late words: they come after the grace that frees the next choice.
+      if (mode === "slow") await new Promise((r) => setTimeout(r, 8000));
       if (mode === "stall-once")
         assert(
           abandoned.includes(input.revision),
@@ -285,6 +287,36 @@ try {
     assert.deepEqual((await state()).items, committed.items);
     assert.equal(await failure.isVisible(), false);
     assert.equal(await retry.isVisible(), false);
+    // Slow words keep the Thinking card but not the hand: after a short
+    // grace the next choice is offered, and the late line still types in.
+    mode = "slow";
+    await pond.click();
+    await page.locator("#card-actions .card-primary").click();
+    const slow = await state();
+    const started = Date.now();
+    await page.waitForFunction(
+      () => document.querySelector("#hand").dataset.cooling === "false",
+    );
+    if (!(await page.locator("#card-actions .card-primary").isVisible()))
+      await pond.click();
+    await page
+      .locator("#card-actions .card-primary")
+      .waitFor({ state: "visible", timeout: 7000 });
+    assert(Date.now() - started < 7500, "the next choice waits only a grace");
+    assert.doesNotMatch(
+      await page.textContent("#dialogue-text"),
+      new RegExp(`speaks on turn ${slow.turn}`),
+    );
+    await page.waitForFunction(
+      (turn) =>
+        document
+          .querySelector("#dialogue-text")
+          .textContent.includes(`speaks on turn ${turn}`),
+      slow.turn,
+      { timeout: 12_000 },
+    );
+    assert.equal(await failure.isVisible(), false);
+    mode = "ready";
     await page.locator("#toolbar-menu-button").click();
     await page.locator("#world-menu").waitFor({ state: "visible" });
     await page.keyboard.press("Escape");

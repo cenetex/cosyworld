@@ -3046,3 +3046,33 @@ fn a_refused_save_names_where_the_rules_refused_it() {
         "{error}"
     );
 }
+
+#[test]
+fn refused_words_fail_the_play_at_once_instead_of_holding_the_seat() {
+    let (path, mut c, id) = fixture();
+    claim(&mut c, &id, 0);
+    let w = full_store::world(&c, &id, now()).unwrap();
+    let mut b = body("play", None);
+    b.key = "refused-words-000001".into();
+    b.action = home_action(&w, 0, "wait");
+    full::run(&c, &id, "user0", &b, now()).unwrap();
+    let app = crate::test_app_state(crate::RuntimeWorld::seeded(), Some(path));
+    let work = full::take_work(&app, &id).unwrap().unwrap();
+    let committed = full_store::world(&c, &id, now()).unwrap();
+    // A speaker who is not in the room: the rules refuse the speech op.
+    let lines = json!([{"speaker":"Nobody","actorId":null,"entityId":"no-such-room","text":"Hello."}]);
+    full::publish(&app, &id, work, Ok(lines)).unwrap();
+    let (status, result): (String, String) = c
+        .query_row(
+            "SELECT status,result FROM card_full_plays WHERE id=?",
+            [&b.key],
+            |r| Ok((r.get(0)?, r.get(1)?)),
+        )
+        .unwrap();
+    assert_eq!(status, "failed");
+    let scene: Value = serde_json::from_str(&result).unwrap();
+    assert_eq!(scene["error"], "The play is saved. Its words need another moment.");
+    // The committed play stays; the seat is free for Retry or a new play.
+    assert_eq!(full_store::world(&c, &id, now()).unwrap().game, committed.game);
+    assert!(full::take_work(&app, &id).unwrap().is_none());
+}

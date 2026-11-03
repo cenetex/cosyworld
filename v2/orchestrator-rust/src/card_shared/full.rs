@@ -741,7 +741,7 @@ fn kick(state: AppState, id: String) {
                 .ok()
                 .cloned()
                 .map(|lines| (work.clone(), lines));
-            match tokio::task::spawn_blocking(move || finish_work(&s, &wid, work, lines)).await {
+            match tokio::task::spawn_blocking(move || publish(&s, &wid, work, lines)).await {
                 // The line is journaled and shown; its reflections follow.
                 Ok(Ok(())) => {
                     if let Some((work, lines)) = after {
@@ -755,6 +755,23 @@ fn kick(state: AppState, id: String) {
             }
         }
     });
+}
+/// Journals the words, or fails the play at once when the rules refuse
+/// them, so its seat and the world never wait out the working lease.
+pub(super) fn publish(state: &AppState, id: &str, work: Work, lines: Result<Value>) -> Result<()> {
+    let refused = lines.is_ok().then(|| work.clone());
+    match (finish_work(state, id, work, lines), refused) {
+        (Err(error), Some(work)) => {
+            tracing::warn!(%error, "shared card words refused by the rules");
+            finish_work(
+                state,
+                id,
+                work,
+                Err("The play is saved. Its words need another moment.".into()),
+            )
+        }
+        (result, _) => result,
+    }
 }
 pub(super) fn finish_work(
     state: &AppState,
