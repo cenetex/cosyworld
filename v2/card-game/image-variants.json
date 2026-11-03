@@ -4868,6 +4868,24 @@
       "phone": "assets/title/toolbar/lonely-forest-listening-wood.webp",
       "phoneHash": "e4be0ba420521e1dd137f6474fa56dbcfc7033d543cb0c034f294b0fe15e3e61"
     },
+    "assets/title/toolbar/lonely-forest-teal-bell-and-lantern.webp": {
+      "sourceHash": "62d81c37bbfe9e37dfa95137b3ff2f542258436279711cf63d9584059ba6c498",
+      "stage": "assets/title/toolbar/lonely-forest-teal-bell-and-lantern.webp",
+      "stageHash": "62d81c37bbfe9e37dfa95137b3ff2f542258436279711cf63d9584059ba6c498",
+      "card": "assets/title/toolbar/lonely-forest-teal-bell-and-lantern.webp",
+      "cardHash": "62d81c37bbfe9e37dfa95137b3ff2f542258436279711cf63d9584059ba6c498",
+      "phone": "assets/title/toolbar/lonely-forest-teal-bell-and-lantern.webp",
+      "phoneHash": "62d81c37bbfe9e37dfa95137b3ff2f542258436279711cf63d9584059ba6c498"
+    },
+    "assets/title/toolbar/lonely-forest-teal-lantern-left.webp": {
+      "sourceHash": "dbe14fc93bc1b6fc9c5b976ab38c2063da91f27f7c99698874bb62bc695d7f86",
+      "stage": "assets/title/toolbar/lonely-forest-teal-lantern-left.webp",
+      "stageHash": "dbe14fc93bc1b6fc9c5b976ab38c2063da91f27f7c99698874bb62bc695d7f86",
+      "card": "assets/title/toolbar/lonely-forest-teal-lantern-left.webp",
+      "cardHash": "dbe14fc93bc1b6fc9c5b976ab38c2063da91f27f7c99698874bb62bc695d7f86",
+      "phone": "assets/title/toolbar/lonely-forest-teal-lantern-left.webp",
+      "phoneHash": "dbe14fc93bc1b6fc9c5b976ab38c2063da91f27f7c99698874bb62bc695d7f86"
+    },
     "assets/vale.png": {
       "sourceHash": "f6a79cda52b36495592c5dcf3f53e4e611cdcd4b9d6573b399270b42b7991079",
       "stage": "assets/optimized/stage/png/vale.webp",
@@ -5293,8 +5311,6 @@
     }
   },
   "crops": {
-    "assets/title/toolbar/lonely-forest-hearth-and-oak.webp": "d4806b8b1bc5fb880549060206cda0dc843a68b792157bc8f8aaaab5a4437c6f",
-    "assets/title/toolbar/lonely-forest-listening-wood.webp": "308c5882f08c9403c08251c50d9eb9436e580294100ed644eb68c13359fd02b8",
     "assets/title/toolbar/lonely-forest-black-pond.webp": "8dbae0ee36df2ce6690609514a60731722d82544942bb5ef657fabe92d879729"
   }
 }

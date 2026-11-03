@@ -17,7 +17,13 @@ right. `teal-revisions.provenance.json` records the generation IDs and hashes.
 
 ![Bell and lantern](lonely-forest-teal-bell-and-lantern.webp)
 
-## Integration boundary
+## In the game
+
+`title-logos.json` names the lantern-and-moth file as the toolbar lettering
+of Hearth and Oak, and the bell-and-lantern file as that of The Listening
+Wood. The Black Pond keeps its crop. Saved logo indices are unchanged.
+
+## Original integration boundary
 
 This is an image handoff for the toolbar-logo work. The title catalogue,
 public asset list, generated manifests and runtime are deliberately unchanged.

@@ -2,6 +2,7 @@ import { test } from "vitest";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { createHash } from "node:crypto";
+import sharp from "sharp";
 import {
   LOGOS,
   chooseLogo,
@@ -130,26 +131,41 @@ test("the toolbar shows the logo the title chose, for every logo", () => {
   }
 });
 
-test("wide artworks show their own lettering, never another logo", () => {
+test("wide artworks show their own lettering, never another logo", async () => {
   for (const logo of LOGOS.slice(0, 2)) assert.equal(toolbarLogo(logo), logo);
   for (const src of alternatives) {
     const logo = LOGOS.find((entry) => entry.src === src);
     const { toolbar } = logo;
-    assert.ok(toolbar?.crop, src);
+    assert.ok(toolbar?.src, src);
     assert.ok(!LOGOS.some((other) => other.src === toolbar.src), src);
     assert.ok(
       publicAssets.some(({ file }) => file === toolbar.src),
       src,
     );
-    assert.ok(variants.crops[toolbar.src], `Build the crop of ${src}`);
-    const { crop } = toolbar;
-    assert.ok(crop.left + crop.width <= logo.width, src);
-    assert.ok(crop.top + crop.height <= logo.height, src);
-    // The crop keeps the artwork's proportions and reads at toolbar height.
     const ratio = toolbar.width / toolbar.height;
-    assert.ok(Math.abs(ratio - crop.width / crop.height) < 0.02, src);
     assert.ok(ratio >= 2 && ratio <= 3.2, src);
-    assert.ok(toolbar.height >= 120, src);
+    // Sharp at 2x the 46 px toolbar height.
+    assert.ok(toolbar.height >= 92, src);
+    const { crop } = toolbar;
+    if (crop) {
+      assert.ok(variants.crops[toolbar.src], `Build the crop of ${src}`);
+      assert.ok(crop.left + crop.width <= logo.width, src);
+      assert.ok(crop.top + crop.height <= logo.height, src);
+      // The crop keeps the artwork's proportions.
+      assert.ok(Math.abs(ratio - crop.width / crop.height) < 0.02, src);
+    } else {
+      // A supplied lettering file is published as is, at its stated size.
+      assert.ok(!variants.crops[toolbar.src], src);
+      const record = variants.images[toolbar.src];
+      assert.ok(record, `Build the variants of ${toolbar.src}`);
+      assert.equal(record.card, toolbar.src, src);
+      const { width, height } = await sharp(
+        readFileSync(
+          new URL(`../v2/card-game/${toolbar.src}`, import.meta.url),
+        ),
+      ).metadata();
+      assert.deepEqual([width, height], [toolbar.width, toolbar.height], src);
+    }
     assert.deepEqual(toolbarLogo(logo), {
       name: logo.name,
       src: toolbar.src,
