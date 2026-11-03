@@ -96,6 +96,8 @@ import {
 import { createLocalBackups, installBackupControls } from "./local-saves.mjs";
 import {
   createTextReveal,
+  createRevealPainter,
+  letterSpans,
   createSpeechSounds,
   createExchange,
   createPlayQueue,
@@ -426,8 +428,8 @@ if (localBackups) {
     void localBackups.flush();
   });
 }
-// Effect captions being written onto a card (inscribe()).
-const inscribing = new Set();
+// Effect captions being written onto a card (inscribe()), with their pens.
+const inscribing = new Map();
 let shownCaptions = { key: null, count: 0 };
 // Whether a shared room line has shown since this page opened.
 let sharedLineSeen = false;
@@ -440,7 +442,7 @@ let storyStatus = "ready",
   speechKey = null,
   speechGlyphs = [],
   shownLetters = 0,
-  glyphBottoms = [],
+  glyphLines = [],
   speechHeight = 0,
   speechScrollTarget = 0,
   speechComplete = null,
@@ -742,9 +744,10 @@ speechSounds.setEnabled(soundEnabled);
 characterSpeech.setEnabled(soundEnabled);
 function measureSpeech() {
   const text = $("dialogue-text");
-  glyphBottoms = speechGlyphs.map(
-    (glyph) => glyph.offsetTop + glyph.offsetHeight,
-  );
+  glyphLines = speechGlyphs.map((glyph) => [
+    glyph.offsetTop,
+    glyph.offsetTop + glyph.offsetHeight,
+  ]);
   speechHeight = text.clientHeight;
   speechScrollTarget = text.scrollTop;
 }
@@ -768,6 +771,7 @@ function updateSpeechControls(complete) {
       : ""
     : "Tap to reveal";
 }
+const speechPainter = createRevealPainter($("dialogue-text"), { rest: true });
 const reveal = createTextReveal({
   reduced: () => reducedMotion.matches,
   sound: (...args) => {
@@ -796,19 +800,14 @@ const reveal = createTextReveal({
           value.text,
           sharedVoiceReference(sharedSession?.state, shownSceneLine),
         );
-      speechGlyphs = value.letters.map((letter) =>
-        node("span", letter, "speech-letter"),
-      );
+      speechGlyphs = letterSpans(value.text);
       text.replaceChildren(...speechGlyphs);
+      speechPainter.start(speechGlyphs);
       measureSpeech();
       $("speech-announcement").textContent = "";
     }
-    speechGlyphs[Math.max(0, shownLetters - 1)]?.classList.remove("cursor");
-    for (let i = shownLetters; i < value.shown; i++)
-      speechGlyphs[i].classList.add("revealed");
+    speechPainter.paint(value);
     shownLetters = value.shown;
-    const cursor = speechGlyphs[Math.max(0, shownLetters - 1)];
-    cursor?.classList.add("cursor");
     if (speechComplete !== value.complete) {
       speechComplete = value.complete;
       updateSpeechControls(value.complete);
@@ -817,14 +816,13 @@ const reveal = createTextReveal({
         value.complete && ownPlayInFlight() ? renderScene() : syncPhase(),
       );
     }
-    // Layout is measured once per line or resize, then reused for each letter.
-    const bottom = glyphBottoms[Math.max(0, shownLetters - 1)] || 0;
+    // Layout is measured once per line or resize, then reused for each
+    // letter. A line that outgrows the box turns a page: the new line starts
+    // at the top, and the words being read never slide.
+    const [top, bottom] = glyphLines[Math.max(0, shownLetters - 1)] || [0, 0];
     if (!value.complete && bottom > speechScrollTarget + speechHeight) {
-      speechScrollTarget = bottom - speechHeight;
-      text.scrollTo({
-        top: speechScrollTarget,
-        behavior: reducedMotion.matches ? "instant" : "smooth",
-      });
+      speechScrollTarget = top;
+      text.scrollTop = top;
     }
     // Only the newest beat is announced, never one stepped back to.
     if (value.complete && !reviewing && announcedBeat !== value.key) {
@@ -3131,24 +3129,36 @@ function renderScene() {
   animateStack(direction, ghost);
   syncPhase();
 }
-// An effect written onto a card counts as revealing until it is done; a
-// tap finishes it.
+// An effect is written onto a card with the dialogue's reveal, at a quicker
+// beat: a caption takes 300 to 900 ms. It counts as revealing until it is
+// done; a tap finishes it. Reduced motion shows it at once.
 function inscribe(item, text) {
   if (reducedMotion.matches) return;
-  const ms = Math.min(900, Math.max(300, text.length * 20));
-  item.style.setProperty("--inscribe-ms", `${ms}ms`);
+  const words = node("span"),
+    glyphs = letterSpans(text);
+  words.append(...glyphs);
+  item.lastChild.replaceWith(words);
+  const beat = Math.min(900, Math.max(300, text.length * 20)) / glyphs.length;
+  const painter = createRevealPainter(words, { caret: false });
+  const pen = createTextReveal({
+    delay: () => beat,
+    frame(value) {
+      painter.paint(value);
+      if (!value.complete || !inscribing.has(item)) return;
+      item.classList.remove("inscribe");
+      inscribing.delete(item);
+      syncPhase();
+    },
+  });
   item.classList.add("inscribe");
-  inscribing.add(item);
-  // A clock, not animationend: a caption hidden on a phone never animates.
-  setTimeout(() => inscribing.has(item) && finishInscribing(item), ms);
+  inscribing.set(item, pen);
+  painter.start(glyphs);
+  pen.show(text, text, null);
   queueMicrotask(syncPhase);
 }
 function finishInscribing(only) {
-  for (const item of only ? [only] : [...inscribing]) {
-    item.classList.remove("inscribe");
-    inscribing.delete(item);
-  }
-  syncPhase();
+  for (const item of only ? [only] : [...inscribing.keys()])
+    inscribing.get(item)?.finish();
 }
 // A line's reveal key, so a line read once stays whole.
 const lineKey = (line, place) =>
