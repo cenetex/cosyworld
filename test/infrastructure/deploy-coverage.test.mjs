@@ -93,7 +93,7 @@ describe("exactly one actor owns the release lever", () => {
       expect(wait).toBeLessThan(deployWorkflow.indexOf("Create rollback backup", wait));
     }
     expect(deployWorkflow).toContain(
-      "needs.primary-fly.result == 'success' && needs.primary-fly.outputs.deployed == 'true'",
+      'scripts/rolled-out-in-run.sh "Deploy primary to Fly" "Deploy primary Fly app"',
     );
   });
 

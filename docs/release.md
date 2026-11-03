@@ -52,6 +52,15 @@ the tag rollout would leave `.dev` on that older commit, so the
 last train's commit, from that commit's existing `deploy-<sha>` image, and
 runs the same readiness and card-game smokes. It deploys nothing new.
 
+`Create GitHub release` and the `.dev` return run on a tag even though
+`Deploy main to .dev` is always skipped there (an implicit `success()` skipped
+both on 1.2.116 and 1.2.117). Each decides whether the tag rolled out from
+the rollout job's `deployed` output or, when `gh run rerun --failed` dropped
+it, from `scripts/rolled-out-in-run.sh`, which looks for a successful rollout
+step in any attempt of the run. A superseded rollout skips that step, so it
+gets neither. If a release is still missing after a tag's rollouts, create
+it with `gh release create vX.Y.Z --generate-notes --verify-tag`.
+
 The train job:
 
 1. Compares main's head with the commit the primary app last rolled out,
