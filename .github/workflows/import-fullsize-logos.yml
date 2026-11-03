@@ -1,0 +1,72 @@
+name: Import native transparent logos
+
+on:
+  push:
+    branches: [codex/fullsize-transparent-logos]
+    paths: [.github/workflows/import-fullsize-logos.yml]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: import-fullsize-transparent-logos
+  cancel-in-progress: false
+
+jobs:
+  import:
+    if: github.repository == 'cenetex/cosyworld' && github.ref == 'refs/heads/codex/fullsize-transparent-logos'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          sparse-checkout: v2/card-game/assets/title/transparent
+          fetch-depth: 1
+      - name: Download only the four hash-pinned PNG masters
+        run: |
+          python3 - <<'PY'
+          import hashlib, json, pathlib, struct, urllib.request
+          from urllib.parse import urlparse
+          root = pathlib.Path('v2/card-game/assets/title/transparent')
+          records = json.loads((root / 'fullsize-sources.json').read_text())['artworks']
+          comment_url = 'https://api.github.com/repos/cenetex/cosyworld/issues/comments/6618142277'
+          request = urllib.request.Request(comment_url, headers={'Accept': 'application/vnd.github+json', 'User-Agent': 'cosyworld-logo-import'})
+          with urllib.request.urlopen(request, timeout=30) as response:
+              urls = json.loads(json.load(response)['body'])['urls']
+          assert len(records) == 4 and set(urls) == {r['file'] for r in records}
+          hosts = {'oaisdmntprwestus2.blob.core.windows.net', 'oaisdmntprwestcentralus.blob.core.windows.net', 'oaisdmntprwestus.blob.core.windows.net'}
+          for record in records:
+              name = record['file']
+              assert pathlib.PurePosixPath(name).name == name and name.endswith('.png')
+              url = urls[name]
+              parts = urlparse(url)
+              assert parts.scheme == 'https' and parts.hostname in hosts
+              try:
+                  with urllib.request.urlopen(url, timeout=60) as response:
+                      data = response.read(record['bytes'] + 1)
+              except Exception as exc:
+                  raise SystemExit(f'Transfer failed for {name}: {type(exc).__name__}; refresh the temporary source link.') from None
+              assert len(data) == record['bytes'], f'Wrong byte count: {name}'
+              assert hashlib.sha256(data).hexdigest() == record['sha256'], f'Wrong hash: {name}'
+              assert data[:8] == b'\x89PNG\r\n\x1a\n' and data[12:16] == b'IHDR'
+              assert struct.unpack('>II', data[16:24]) == (record['width'], record['height'])
+              assert data[25] == 6, f'PNG is not RGBA: {name}'
+              target = root / name
+              if target.exists():
+                  assert target.read_bytes() == data, f'Refusing to overwrite different artwork: {name}'
+              else:
+                  target.write_bytes(data)
+              print(f'{name}: {record["width"]}x{record["height"]}, {len(data)} bytes, SHA-256 verified')
+          PY
+      - name: Commit native images without touching runtime code
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -f -- v2/card-game/assets/title/transparent/lonely-forest-1.png v2/card-game/assets/title/transparent/lonely-forest-2.png v2/card-game/assets/title/transparent/lonely-forest-teal-lantern-left.png v2/card-game/assets/title/transparent/lonely-forest-teal-bell-and-lantern.png
+          git diff --cached --check
+          if git diff --cached --quiet; then
+            echo 'All four native PNGs already match.'
+            exit 0
+          fi
+          git commit -m 'Add four full-resolution transparent logo PNG masters'
+          git push origin HEAD:refs/heads/codex/fullsize-transparent-logos
