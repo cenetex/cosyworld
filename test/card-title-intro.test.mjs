@@ -66,12 +66,11 @@ test("blocked storage shows it; automated browsers need intro=1", () => {
 test("the acknowledgement is the owner's five paragraphs and the credit", () => {
   const { paragraphs } = acknowledgement;
   assert.equal(paragraphs.length, 5);
-  assert.match(paragraphs[0].text, /^Before this forest, there was land\./);
+  assert.match(paragraphs[0].text, /^Before our forest, there was land\./);
+  assert.match(paragraphs[0].text, /cared for it—and who care for it still\.$/);
+  assert.equal(paragraphs[2].text, "Nothing here began with us.");
   assert.match(paragraphs[3].text, /a forest folded inside\.$/);
-  assert.equal(
-    paragraphs.at(-1).text,
-    "We leave the lid open. Whoever you are, wherever you have come from, there is a path here for you.",
-  );
+  assert.equal(paragraphs.at(-1).text, "The lid is open. The path is yours.");
   for (const { text, links = {} } of paragraphs)
     for (const phrase of Object.keys(links)) assert.ok(text.includes(phrase));
   assert.equal(

@@ -2817,7 +2817,25 @@ main > .dialogue {
   max-height: calc(100dvh - 32px);
   color: #fff4dc;
   font: 1.1rem/1.65 Georgia, serif;
-  opacity: 0;
+}
+/* It streams in letter by letter (title-intro.mjs sets each letter's delay):
+   opacity only, every letter already in place. The credit and the cue come
+   after. Without the animation everything simply shows. */
+@keyframes title-ack-in {
+  from {
+    opacity: 0;
+  }
+}
+.title-ack[data-stream] .title-ack-ch {
+  animation: title-ack-in 180ms ease-out backwards;
+}
+.title-ack[data-stream] :is(.title-credit, .title-continue) {
+  animation: title-ack-in 600ms ease-out var(--stream-end) backwards;
+}
+@media (prefers-reduced-motion: reduce) {
+  .title-ack[data-stream] :is(.title-ack-ch, .title-credit, .title-continue) {
+    animation: none;
+  }
 }
 /* A film's opening card: a narrow measure, generous leading. */
 .title-ack-text {
