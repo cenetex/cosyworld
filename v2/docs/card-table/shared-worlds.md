@@ -63,6 +63,11 @@ and shelters. Each view, place card, and dialogue request uses these conditions.
 The browser and server use the authored rules in `world.mjs` and its rule modules.
 `human-cast.mjs` adds the new homes through the existing pack registry.
 `shared-world.mjs` exposes the save, join, view, play, and speech operations.
+From rules 92 a speech operation carries one to four lines, any of which may
+speak alone, as the rules' speech occasions name them; when the rules refuse
+a play's words, the server fails that play at once instead of holding its
+seat for the working lease
+([design](../../../docs/design/occasion-voices-in-shared-speech.md)).
 
 The server runs a checked-in bundle of those modules in QuickJS, a C interpreter.
 Rust supplies JSON and handles authentication, storage, queues, and provider IO.

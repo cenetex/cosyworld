@@ -167,14 +167,14 @@ the loser's beat.
 One phase decides what the dialogue box shows (`phase()` in
 `v2/card-game/presentation.mjs`, #2017). In order of precedence:
 
-| Phase     | When                                                      | In front                                   |
-| --------- | --------------------------------------------------------- | ------------------------------------------ |
-| revealing | the live line is being written, or the exchange has more  | the line, in its full-size card            |
-| thinking  | a play is queued or committed and its words have not come | the Thinking card                          |
-| choosing  | the hand is raised with a choice, and none of the above   | the action beat, the spoken beat behind it |
-| failed    | the scene's words did not arrive                          | the beat with Retry                        |
-| reviewing | the player stepped back behind live                       | the earlier beat, with ● live              |
-| idle      | otherwise                                                 | the latest beat                            |
+| Phase     | When                                                                          | In front                                   |
+| --------- | ----------------------------------------------------------------------------- | ------------------------------------------ |
+| revealing | the live line is being written, or the exchange has more                      | the line, in its full-size card            |
+| thinking  | a play is queued, or committed less than 5 s ago, and its words have not come | the Thinking card                          |
+| choosing  | the hand is raised with a choice, and none of the above                       | the action beat, the spoken beat behind it |
+| failed    | the scene's words did not arrive                                              | the beat with Retry                        |
+| reviewing | the player stepped back behind live                                           | the earlier beat, with ● live              |
+| idle      | otherwise                                                                     | the latest beat                            |
 
 The action beat shows only while choosing. Cards chosen during a line wait
 for it: the line keeps its full card, and the play comes forward once the
@@ -189,7 +189,11 @@ Every play in flight is one Thinking card with the speaker's portrait: queued
 here, sent or waiting at a shared table, or committed with its words still on
 the way. A play chosen in an exchange's last reading pause skips the pause,
 so its Thinking card comes at once. Cards chosen meanwhile wait behind it.
-The Thinking chip shows only on that card, never on a line. A choice over
+The Thinking chip shows only on that card, never on a line. Dialogue never
+holds play for long: five seconds after a play commits, its slow words stop
+holding the hand. The Thinking card stays, a choice comes forward over it,
+and the late line types in when it arrives (#2008's failure and Retry follow
+if it never does). A choice over
 words that did not arrive is offered with the failure and its Retry in the
 action beat, since the new play also asks again.
 

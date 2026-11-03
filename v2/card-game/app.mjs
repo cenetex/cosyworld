@@ -2,7 +2,7 @@ import { nameTitleWaker, playNewWorldIntro } from "./title-intro.mjs";
 import { imageUrl } from "./images.mjs";
 import { cardLevel, levelTier, romanLevel } from "./rarity.mjs";
 import { arriveCard, finishCardReveal, revealCard } from "./card-reveal.mjs";
-import { phase } from "./presentation.mjs";
+import { phase, THINKING_GRACE_MS } from "./presentation.mjs";
 import { glowCard, levelUpCard, transformPortrait } from "./card-level-up.mjs";
 import { crossedPortraitTier } from "./rarity-portraits.mjs";
 import {
@@ -219,6 +219,9 @@ let borrowedBeat = null;
 let restedChoice = null;
 // What the dialogue box shows now (presentation.mjs).
 let shownPhase = null;
+// Since when only committed plays' words have kept the Thinking card.
+let thinkingSince = null;
+let thinkingGrace = null;
 // Nothing floats over the stage. A failure the player must see (a refused
 // play, an unsaved world, a lost connection, a nudge) reads on the action
 // beat's status line; a pending play reads on its own button.
@@ -1274,6 +1277,8 @@ function commitAction(action, revision, renderedAt = -Infinity) {
   // A play leaves the hand where it is: raised stays raised. Its beat rests
   // at once; the Thinking card stands for it until its scene.
   if (action.kind !== "focus") restedChoice = choiceKey();
+  // A new play earns its own grace before the hand returns.
+  thinkingSince = null;
   playQueue.submit(action, revision);
   if (playQueue.pending) exchange.advance();
 }
@@ -1702,12 +1707,35 @@ function showBorrowedBeat(row, heading) {
   syncActionBeat();
 }
 const choiceKey = () => `${selected.join("+")}:${rowCollapsed}`;
+function lingeringWords(inFlight) {
+  // A play still queued, sending or waiting at the table can be withdrawn;
+  // its Thinking card stands until the rules take it.
+  const committed =
+    inFlight &&
+    !playQueue.pending &&
+    !sharedSending &&
+    !["sending", "accepted"].includes(sharedPlay?.state) &&
+    ownSharedEntry()?.status !== "waiting";
+  if (!committed) {
+    thinkingSince = null;
+    clearTimeout(thinkingGrace);
+    return false;
+  }
+  if (thinkingSince === null) {
+    thinkingSince = performance.now();
+    clearTimeout(thinkingGrace);
+    thinkingGrace = setTimeout(syncPhase, THINKING_GRACE_MS);
+  }
+  return performance.now() - thinkingSince >= THINKING_GRACE_MS;
+}
 function presentPhase() {
   if (restedChoice !== choiceKey()) restedChoice = null;
+  const inFlight = Boolean(stackView.pending) || Boolean(ownPlayInFlight());
   return phase({
     reviewing: reviewing && stackView.frontIndex < stackView.liveIndex,
     revealing: !reveal.complete || exchange.hasNext || inscribing.size > 0,
-    inFlight: Boolean(stackView.pending) || Boolean(ownPlayInFlight()),
+    inFlight,
+    lingering: lingeringWords(inFlight),
     failed: storyStatus === "retry",
     raised: !rowCollapsed,
     chosen: selected.length > 0 || questOpen,

@@ -2,17 +2,23 @@
 // (v2/docs/card-table/dialogue-beats.md#what-is-in-front). The action panel
 // shows only while choosing, so it never covers a line being written or a
 // Thinking card.
+//
+// A committed play's words that keep the Thinking card past this grace
+// stop holding the hand: the rules already ran, and dialogue never gates
+// play. The card stays and the late line types in when it comes.
+export const THINKING_GRACE_MS = 5000;
 export function phase({
   reviewing = false,
   revealing = false,
   inFlight = false,
+  lingering = false,
   failed = false,
   raised = false,
   chosen = false,
   rested = false,
 } = {}) {
   if (revealing) return "revealing";
-  if (inFlight) return "thinking";
+  if (inFlight && !lingering) return "thinking";
   // A later play also asks again for words that failed, so a choice comes
   // forward over a failed scene.
   if (raised && chosen && !rested) return "choosing";

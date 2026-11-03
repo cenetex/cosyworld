@@ -114,12 +114,13 @@ describe("occasional location atmosphere", () => {
     expect(decodeSave(encodeSave(result.world)).log.at(-1)).toEqual(
       result.lines[0],
     );
-    expect(() =>
+    // A new place's occasion voices the place alone (speech.json).
+    expect(
       dispatchShared({
         ...request,
         lines: [{ ...line, actorId: null, entityId: room }],
-      }),
-    ).toThrow();
+      }).lines[0],
+    ).toMatchObject({ entityId: room, kind: "narration" });
     expect(() => dispatchShared({ ...request, lines: [] })).toThrow();
   });
 });
