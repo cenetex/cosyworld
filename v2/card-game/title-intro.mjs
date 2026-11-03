@@ -177,10 +177,11 @@ export function playTitleIntro({
     leave;
   const left = new Promise((resolve) => (leave = resolve));
   const race = (promise) => Promise.race([promise, left]);
-  const finish = () => {
+  // Waking lets the song ring on as the table shows; Escape fades it fast.
+  const finish = (fadeSeconds = 3) => {
     if (leaving) return;
     leaving = true;
-    songDone = song.stop(1);
+    songDone = song.stop(fadeSeconds);
     leave();
   };
   const fade = (node, duration, delay = 0) =>
@@ -306,7 +307,7 @@ export function playTitleIntro({
     if (event.key === "Escape") {
       event.preventDefault();
       if (!leaving) count("intro.skip");
-      finish();
+      finish(1);
       return;
     }
     // Tab moves between the step's links and button; Enter and Space press

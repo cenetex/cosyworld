@@ -44,7 +44,7 @@ function fakes() {
   return { audio, ramps, context };
 }
 
-test("the first tap starts the song with a fade-in at the saved volume", () => {
+test("the first tap starts the song at once, level-matched to the saved volume", () => {
   const { audio, ramps, context } = fakes();
   const song = createTitleSong({
     storage: storage({ enabled: true, volume: 0.5 }),
@@ -56,7 +56,8 @@ test("the first tap starts the song with a fade-in at the saved volume", () => {
   expect(audio.play).toHaveBeenCalledOnce();
   expect(audio.loop).toBe(false);
   expect(audio.src).toContain(TITLE_SONG.file);
-  expect(ramps).toEqual([[0.5, 2]]);
+  // A quarter-second fade: the title lasts seconds (owner: no intro music).
+  expect(ramps).toEqual([[0.5 * TITLE_SONG.level, 0.25]]);
   // A second tap does not restart it.
   expect(song.start()).toBe(false);
   expect(audio.play).toHaveBeenCalledOnce();
@@ -102,10 +103,10 @@ test("a refused play or missing Web Audio never throws", () => {
   });
   expect(song.start()).toBe(true);
   // The element's own volume fades instead.
-  vi.advanceTimersByTime(1000);
+  vi.advanceTimersByTime(100);
   expect(audio.volume).toBeGreaterThan(0.1);
-  vi.advanceTimersByTime(1500);
-  expect(audio.volume).toBeCloseTo(0.3);
+  vi.advanceTimersByTime(200);
+  expect(audio.volume).toBeCloseTo(0.3 * TITLE_SONG.level);
   expect(() => song.stop()).not.toThrow();
 });
 
