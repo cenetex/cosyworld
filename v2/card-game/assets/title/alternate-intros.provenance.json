@@ -1,0 +1,45 @@
+{
+  "source": "Three artworks generated from the owner's hand-lettered Lonely Forest sketch in this conversation, then requested for the game by the owner.",
+  "encoding": {
+    "tool": "Pillow 12.3.0",
+    "libwebp": "1.6.0",
+    "format": "WebP",
+    "quality": 88,
+    "method": 6,
+    "resized": false,
+    "cropped": false,
+    "opaque": true
+  },
+  "artworks": [
+    {
+      "title": "Hearth and Oak",
+      "file": "lonely-forest-hearth-and-oak.webp",
+      "source": "lonely_forest_hearth_and_oak.png",
+      "width": 1672,
+      "height": 941,
+      "bytes": 205302,
+      "source_sha256": "cee5984c30499fe8c4888a1b803466427f818543beae33a34433b4cc41a4053e",
+      "sha256": "a56e20e605af9c4925bb73e96a02598fe9a37d358b3274b4c79ef771fb84d980"
+    },
+    {
+      "title": "The Listening Wood",
+      "file": "lonely-forest-listening-wood.webp",
+      "source": "lonely_forest_the_listening_wood.png",
+      "width": 1672,
+      "height": 941,
+      "bytes": 227222,
+      "source_sha256": "935b3f74f607cac24d4eb8a768ec78ab979da2922760ede42d23d0f289bbe879",
+      "sha256": "e14d492ff338fe766169fc0442cbf15352aadaab6a50cbc88e2e6b94e105cc43"
+    },
+    {
+      "title": "The Black Pond",
+      "file": "lonely-forest-black-pond.webp",
+      "source": "lonely_forest_on_the_black_pond.png",
+      "width": 1672,
+      "height": 941,
+      "bytes": 170744,
+      "source_sha256": "017506a5ed6ce51c732d215dc2655f08ed0cd1e8bd3562307300b7df915d4fa6",
+      "sha256": "02886521d54c97435fc132abe8253d124db7bbcf5bacf165ba3c2ee923385cbf"
+    }
+  ]
+}
