@@ -143,7 +143,7 @@ async function heard(page) {
 const titlePhase = (page) =>
   page.waitForSelector('.title-intro[data-phase="ack"] .title-ack-text');
 // How much of the acknowledgement shows: letters fully in, letters still
-// dark, and whether the credit and the cue are at their resting opacity.
+// dark, and whether the cue is at its resting opacity.
 const streamState = (page) =>
   page.$eval(".title-ack", (panel) => {
     const letters = [...panel.querySelectorAll(".title-ack-ch")].map((ch) =>
@@ -155,16 +155,12 @@ const streamState = (page) =>
       letters: letters.length,
       shown: letters.filter((o) => o === 1).length,
       dark: letters.filter((o) => o === 0).length,
-      credit: at(".title-credit"),
       cue: at(".title-continue"),
       words: panel.querySelector(".title-ack-text").textContent,
     };
   });
 const whole = (state) =>
-  state.letters > 300 &&
-  state.shown === state.letters &&
-  state.credit === "0.65" &&
-  state.cue === "0.6";
+  state.letters > 300 && state.shown === state.letters && state.cue === "0.6";
 const gone = (page, timeout) =>
   page.waitForSelector(".title-intro", { state: "detached", timeout });
 // The title's card is the avatar's: once the title leaves, by its turn or by
@@ -197,16 +193,31 @@ try {
     const title = await page.locator(".title-intro").getAttribute("data-title");
     assert.ok(TITLES.includes(title), title);
     // The acknowledgement streams in letter by letter. A second in, the
-    // first words show, most letters are still dark, and the credit and
-    // cue wait; the full text is in the page for screen readers throughout.
+    // first words show, most letters are still dark, and the cue
+    // waits; the full text is in the page for screen readers throughout.
     await page.waitForTimeout(1000);
     const early = await streamState(page);
     assert.ok(
       early.shown > 20 && early.dark > early.letters / 2,
       JSON.stringify({ ...early, words: "" }),
     );
-    assert.equal(early.credit, "0");
+    assert.equal(early.cue, "0");
     assert.match(early.words, /The lid is open\. The path is yours\./);
+    // It breathes after its weighty words: the next letter after "land."
+    // and after "peoples" waits well past the 9 ms letter beat.
+    const gaps = await page.$eval(".title-ack-text", (text) => {
+      const letters = [...text.querySelectorAll(".title-ack-ch")];
+      const words = letters.map((ch) => ch.textContent).join("");
+      const after = (phrase) => {
+        const i = words.indexOf(phrase) + phrase.length - 1;
+        return (
+          parseFloat(letters[i + 1].style.animationDelay) -
+          parseFloat(letters[i].style.animationDelay)
+        );
+      };
+      return { land: after("wasland."), peoples: after("werepeoples") };
+    });
+    assert.ok(gaps.land >= 300 && gaps.peoples >= 300, JSON.stringify(gaps));
     await page.waitForSelector("#hand .card");
     assert.equal(await titlePlays(page), 0, "silent before the first tap");
     // The first tap (desktop) or key (phone) shows it whole and starts the
@@ -226,14 +237,15 @@ try {
       words: text.innerText,
       size: parseFloat(getComputedStyle(text).fontSize),
       bottom: text.closest(".title-ack").getBoundingClientRect().bottom,
-      faint: [...text.querySelectorAll("p:not(.title-credit)")].filter(
+      faint: [...text.querySelectorAll("p")].filter(
         (line) => getComputedStyle(line).opacity !== "1",
       ).length,
     }));
     assert.match(ack.words, /^Before our forest, there was land\./);
     assert.match(ack.words, /a carved wooden box, with a forest folded inside/);
     assert.match(ack.words, /The lid is open\. The path is yours\./);
-    assert.match(ack.words, /All revenue goes to the Foundation/);
+    assert.doesNotMatch(ack.words, /Cenetex|RATi|Foundation/u);
+    assert.equal(await page.locator(".title-ack a").count(), 0);
     assert.ok(ack.size >= 17 && ack.bottom <= height, JSON.stringify(ack));
     assert.equal(ack.faint, 0, "every line shown once loaded");
     // The way on is a quiet line of text, still a focused button.
@@ -433,9 +445,9 @@ try {
   await muted.goto(`${origin}/?intro=1`);
   await titlePhase(muted);
   await muted.waitForSelector("#hand .card");
-  // Left alone, the stream ends by 8.5 seconds with the credit and the cue,
+  // Left alone, the stream ends by 10.5 seconds with the cue,
   // and one key then goes on.
-  await muted.waitForTimeout(8500);
+  await muted.waitForTimeout(10500);
   assert.ok(whole(await streamState(muted)), "the stream ends on its own");
   await muted.keyboard.press("Space");
   await cardShown(muted);

@@ -1,5 +1,5 @@
 {
-  "about": "The land acknowledgement on the new-world title (title-intro.mjs), set like a film's opening card. The title names the panel for screen readers; it is not shown.",
+  "about": "The land acknowledgement on the new-world title (title-intro.mjs), set like a film's opening card. The title names the panel for screen readers; it is not shown. Pauses hold a breath after a word: which time it appears (from 1) and the ms, replacing any shorter punctuation or paragraph breath after it.",
   "title": "Before this forest",
   "paragraphs": [
     {
@@ -18,5 +18,51 @@
       "text": "The lid is open. The path is yours."
     }
   ],
-  "credit": "Designed by the RATi Open Software Foundation · Operated as a service by Cenetex Inc. · All revenue goes to the Foundation"
+  "pauses": [
+    {
+      "word": "land",
+      "occurrence": 1,
+      "ms": 420
+    },
+    {
+      "word": "peoples",
+      "occurrence": 1,
+      "ms": 350
+    },
+    {
+      "word": "still",
+      "occurrence": 1,
+      "ms": 420
+    },
+    {
+      "word": "keepers",
+      "occurrence": 1,
+      "ms": 350
+    },
+    {
+      "word": "machines",
+      "occurrence": 2,
+      "ms": 350
+    },
+    {
+      "word": "Nothing",
+      "occurrence": 1,
+      "ms": 420
+    },
+    {
+      "word": "box",
+      "occurrence": 1,
+      "ms": 350
+    },
+    {
+      "word": "open",
+      "occurrence": 1,
+      "ms": 380
+    },
+    {
+      "word": "yours",
+      "occurrence": 1,
+      "ms": 400
+    }
+  ]
 }
