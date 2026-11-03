@@ -203,7 +203,7 @@ async function local(width) {
   await held.shift()();
   await until(
     t.page,
-    (s) => s.front === "silent" && !s.thinking,
+    (s) => s.front === "silent" && !s.thinking && !s.typing,
     "… after a failure",
   );
   assert.equal(await t.page.locator("#dialogue-text").innerText(), "…");
