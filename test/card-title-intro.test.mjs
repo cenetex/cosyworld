@@ -80,27 +80,27 @@ test("the acknowledgement is the owner's six stanzas, line by line, and nothing 
   assert.deepEqual(acknowledgement.stanzas, [
     [
       "Before our forest, there was land.",
-      "Before our story, there were peoples:",
+      "Before our story, there were peoples",
       "who named the waters,",
       "who sang the seasons,",
-      "who cared for these lands —",
+      "who cared for these lands—",
       "and who care for them still.",
     ],
     [
       "We honour the keepers",
       "of the lands beneath our homes",
-      "and beneath the machines we built.",
+      "and beneath the machines we use.",
     ],
     [
-      "We honour, too, the voices, old and living,",
-      "whose stories taught those machines — and us —",
-      "to tell our own.",
+      "We honour, too, the voices old and living",
+      "whose stories shaped us",
+      "and echo through our machines.",
     ],
     ["Nothing here began with us."],
     [
-      "Behold this intricately carved wooden box,",
+      "Before you sits a carved wooden box,",
       "its surface rippling with stories",
-      "older than you, or I.",
+      "older than either of us.",
     ],
     ["Open the box. The path is yours."],
   ]);
@@ -123,10 +123,10 @@ test("the acknowledgement writes at the dialogue's beat, breathing after its wei
         .length - 1
     ];
   assert.equal(after("there was land."), 320);
-  assert.equal(after("were peoples:"), 320);
+  assert.equal(after("were peoples"), 320);
   assert.equal(after("the keepers"), 300);
   assert.equal(after("Nothing"), 300);
-  // One long silence before "Behold", with no word shown for it.
+  // One long silence before "Before you sits", with no word shown for it.
   const silence = after("began with us.");
   assert.ok(silence >= 1500 && silence <= 2000, String(silence));
   // Other stanzas hold the same breath; nothing else rests past a word

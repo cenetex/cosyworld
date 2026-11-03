@@ -730,10 +730,10 @@ fading in over 60 ms, the same rests after punctuation, and 650 ms between
 stanzas (`STANZA_MS`). Eight held words keep a breath of their own
 (300–350 ms after "land", "peoples", "still", "keepers", "living", "Nothing",
 "box" and "yours"), and one long silence (1.8 s) falls after "Nothing here
-began with us." before "Behold": `pauses` in `acknowledgement.json` names each
-word, which time it appears, its `pauseMs` and, for a held word, its card
-rarity `tier` (`level-tiers.mjs`); the larger of that and any punctuation or
-stanza breath wins. About 21 seconds in all. The tiers climb as the poem goes,
+began with us." before "Before you sits": `pauses` in `acknowledgement.json`
+names each word, which time it appears, its `pauseMs` and, for a held word,
+its card rarity `tier` (`level-tiers.mjs`); the larger of that and any punctuation or
+stanza breath wins. About 20 seconds in all. The tiers climb as the poem goes,
 from Common ("land", "peoples") to Mythic ("yours"). Each held word, once
 written, takes a gentle tint of its tier's colour with a soft 6 px glow that
 rises over `glowInMs`, holds for `glowHoldMs` of the reveal, then fades back
