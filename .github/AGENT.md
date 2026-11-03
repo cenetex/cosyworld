@@ -74,7 +74,9 @@ Then run every row that matches the change:
 ### Fast check
 
 `fast-check.yml` runs on every pull request and every push to main, in about
-five minutes (eight at most). It runs the change budget, version alignment,
+five minutes. Each checkout borrows the tree's Git objects from an Actions
+cache; a job that misses it fetches the whole tree from Git, so jobs allow 15
+minutes. It runs the change budget, version alignment,
 the engine-gate warning, eslint, a prettier warning on changed files,
 `docs:check`, `npm test`, `cargo fmt --check` for the Rust orchestrator (no
 build; run `cargo fmt` in `v2/orchestrator-rust` when it fails), the boot smoke (`smoke-card-boot`, a cold start and
