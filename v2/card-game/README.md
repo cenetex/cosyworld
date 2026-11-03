@@ -731,7 +731,7 @@ card shows without it.
 
 The song is _The Attic Keeps Its Lamp × Moonstone Sanctum_
 (`assets/music/title-attic-lamp.mp3`, `title-song.mjs`). It follows the saved
-music switch and volume: with music off the title and Wake work in silence.
+music switch and volume: with music off the title and its card work in silence.
 It downloads only after that first gesture. No room music plays while the
 title is up or its song is fading (`titleMusicHold`): the title's own gesture
 used to start an avatar's room music under the song. Then room music keeps its
