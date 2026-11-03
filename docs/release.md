@@ -219,6 +219,24 @@ gh secret set COSYWORLD_DEV_TEST_PASSKEY_SECRET --repo cenetex/cosyworld \
   < ~/.config/cosyworld/dev-test-passkey.json
 ```
 
+### Signing key
+
+The story service signs the dialogue lines, thoughts, personas and dreams it
+writes, and checks them when a browser sends them back
+([signed envelopes](design/signed-envelopes.md#keys)). No secret is needed:
+on first start each app makes its key and keeps it in the `signing_keys`
+table of its event database on `/data`. Each app runs one machine with one
+volume, so that is the only copy, and the Fly volume snapshots that back up
+the journal back up the key too. `/.well-known/cosyworld-signing-keys.json`
+shows the current `kid`.
+
+- **Rotate:** deploy once with `COSYWORLD_SIGNING_KEY_ROTATE=<new kid>` (for
+  example staged with `fly secrets set --stage … -a <app>`). Old keys keep
+  verifying.
+- **Override:** `COSYWORLD_SIGNING_KEY=<kid>:<seed>` signs instead of the
+  stored key. Use it only for recovery onto a fresh volume or for an app that
+  runs several machines with separate volumes.
+
 ### Setting Fly secrets
 
 `fly secrets set` makes a release at once. If it starts while a Deploy run
@@ -419,6 +437,11 @@ Owner controls:
 ## Upgrade and recovery
 
 Keep the existing SQLite and generated-asset volumes attached during an upgrade.
+The event database also holds the dialogue signing keys (`signing_keys`).
+Restoring a volume snapshot restores them, so remembered words signed before
+the snapshot still verify. A recovery onto a fresh volume makes a new key, and
+words signed by the old one drop out of context; to keep them, restore the
+database or set the old key as `COSYWORLD_SIGNING_KEY`.
 The runtime restores the latest accepted checkpoint, replays the retained journal
 suffix, and refuses incompatible world-pack or generated-descendant state rather
 than silently replacing it. A normal release must report zero checkpoint

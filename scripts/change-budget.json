@@ -22,6 +22,7 @@
         "v2/orchestrator-rust/src/card_shared/engine-v*.js",
         "v2/orchestrator-rust/src/card_shared/narrator.js",
         "v2/orchestrator-rust/src/card_shared/content.json",
+        "v2/orchestrator-rust/src/card_narrative/authored-text.json",
         "**/__snapshots__/**"
       ]
     },

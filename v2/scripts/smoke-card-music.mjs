@@ -1,4 +1,5 @@
 import { checkSharedMusicOpenings } from "./shared-music-openings.mjs";
+import { checkMusicReveal } from "./music-reveal-check.mjs";
 import {
   clearSelection,
   selectCard,
@@ -73,7 +74,7 @@ try {
   await page.waitForTimeout(500);
   assert(await page.locator("#room-music").evaluate((audio) => audio.paused));
   await page.locator('[data-close="menu-dialog"]').click();
-  // Dousing the lit lamp starts the attic music and reveals the pond path.
+  // Dousing the lit lamp reveals the pond path and starts the first music.
   await playCard("lamp");
   await page.waitForFunction(() =>
     document.querySelector('#hand [data-card="pond"]'),
@@ -398,6 +399,7 @@ try {
   await page.waitForTimeout(1200);
   assert(await page.locator("#room-music").evaluate((audio) => audio.paused));
   assert.deepEqual(errors, []);
+  await checkMusicReveal(browser, `http://127.0.0.1:${server.address().port}`);
   await checkSharedMusicOpenings(
     browser,
     `http://127.0.0.1:${server.address().port}`,

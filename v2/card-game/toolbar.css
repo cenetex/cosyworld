@@ -3,9 +3,6 @@ body.local-app #owned-worlds-button,
 body.local-app #shared-worlds-button {
   display: none;
 }
-body.local-app #scene-video-button {
-  cursor: default;
-}
 .topbar .top-actions {
   width: auto;
   gap: 2px;
@@ -147,11 +144,8 @@ body.local-app #scene-video-button {
   }
 }
 @media (max-width: 700px) {
-  .topbar .brand {
-    display: none;
-  }
   .topbar {
-    justify-content: flex-end;
+    justify-content: space-between;
     padding: 6px 10px;
   }
   .topbar .top-actions {
@@ -293,4 +287,23 @@ body.local-app #scene-video-button {
   justify-content: center;
   gap: 2px;
   font-size: 12px;
+}
+/* The world's Lonely Forest logo in place of the COSYWORLD wordmark
+   (title-logo.mjs): its own aspect ratio, capped to the toolbar height. */
+.brand .brand-logo {
+  display: block;
+  height: 40px;
+  width: auto;
+  max-width: min(150px, 34vw);
+  object-fit: contain;
+  border-radius: 6px;
+}
+.topbar .brand:has(.brand-logo) {
+  display: flex;
+  align-items: center;
+}
+@media (max-width: 700px) {
+  .brand .brand-logo {
+    height: 34px;
+  }
 }

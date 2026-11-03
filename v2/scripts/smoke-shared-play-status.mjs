@@ -311,7 +311,7 @@ async function check(width) {
     history[0].error = "The story service needs a little more time.";
     await thinkingIs("");
     await page.waitForTimeout(600);
-    assert.equal(await page.locator("#dialogue-text").innerText(), "");
+    // The committed play's effect is inscribed on the card in front.
     assert.match(await page.locator("#beat-captions").innerText(), /waited/);
     assert(await page.locator("#story-error").isHidden());
     assert(await page.locator("#story-retry").isHidden());

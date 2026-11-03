@@ -13,13 +13,6 @@ export async function setupLocalService({ fetcher = globalThis.fetch } = {}) {
   if (value.schema !== 1) throw new Error("The local app needs an update.");
   runtime = value;
   document.body.classList.add("local-app");
-  const brand = document.getElementById("scene-video-button");
-  if (brand) {
-    brand.disabled = true;
-    brand.title = "CosyWorld";
-    brand.setAttribute("aria-label", "CosyWorld");
-    brand.querySelector("svg")?.remove();
-  }
   const status = document.getElementById("local-model-status");
   if (status)
     status.textContent = `Dialogue: ${value.dialogueModel}. Voices: Chatterbox ${value.voiceModel}.`;

@@ -29,7 +29,7 @@
       "smokes": ["smoke-card-music"]
     },
     {
-      "paths": "^v2/card-game/(credits|scene-video)",
+      "paths": "^v2/card-game/credits",
       "smokes": ["smoke-card-credits"]
     },
     {
@@ -51,6 +51,10 @@
         "smoke-card-find-hidden",
         "smoke-card-toolbar"
       ]
+    },
+    {
+      "paths": "^v2/card-game/(privacy|shared-auth)",
+      "smokes": ["smoke-card-privacy"]
     }
   ]
 }

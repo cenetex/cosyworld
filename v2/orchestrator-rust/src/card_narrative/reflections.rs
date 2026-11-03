@@ -43,9 +43,27 @@ pub(super) async fn generate(
     let Ok(settings) = state.settings.as_ref() else {
         return StatusCode::SERVICE_UNAVAILABLE.into_response();
     };
-    if !same_origin(&headers) || !valid(&context) {
+    if !(same_origin(&headers) && valid(&context)) {
         return StatusCode::BAD_REQUEST.into_response();
     }
+    // One request at a time per client, and a per-client screening limit,
+    // before the scene's text is checked: checking it is real work.
+    let client = peer.ip();
+    let Some(slot) = state.background.in_flight.try_enter(client, 1) else {
+        return StatusCode::TOO_MANY_REQUESTS.into_response();
+    };
+    if !state.limits.lock().is_ok_and(|mut limits| {
+        limits.allow(
+            format!("card-reflect-screen:{client}"),
+            PER_MINUTE,
+            Instant::now(),
+        )
+    }) {
+        return StatusCode::TOO_MANY_REQUESTS.into_response();
+    }
+    let Some(context) = super::screened(context).await else {
+        return StatusCode::BAD_REQUEST.into_response();
+    };
     let (Some(config), Ok(models)) = (state.ai.as_ref(), state.character_models.as_ref()) else {
         return StatusCode::SERVICE_UNAVAILABLE.into_response();
     };
@@ -58,10 +76,6 @@ pub(super) async fn generate(
         return Json(json!({"type":"complete","revision":context.revision,"reflections":[]}))
             .into_response();
     }
-    let client = peer.ip();
-    let Some(slot) = state.background.in_flight.try_enter(client, 1) else {
-        return StatusCode::TOO_MANY_REQUESTS.into_response();
-    };
     let Ok(mut limits) = state.limits.lock() else {
         return StatusCode::SERVICE_UNAVAILABLE.into_response();
     };
@@ -81,7 +95,8 @@ pub(super) async fn generate(
         tokio::select! {
             _ = sender.closed() => {},
             _ = cancelled => {},
-            value = complete(&config, &context, &models, &settings) => {
+            mut value = complete(&config, &context, &models, &settings) => {
+                super::untrusted::sign_reflections(&mut value, &context);
                 let _ = sender.send(Event::default().data(value.to_string())).await;
             }
         }
@@ -179,6 +194,7 @@ mod tests {
         let (address, server) = super::super::tests::serve(provider).await;
         let mut c = super::super::tests::context();
         c.entities[0].memories.push(Memory {
+            signed: None,
             seq: Some(1),
             turn: 1,
             kind: "event".into(),

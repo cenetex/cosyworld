@@ -7,6 +7,7 @@ import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { narrativeContractCases } from "../../test/fixtures/card-narrative-contexts.mjs";
 import { createNarrator, voicesNobody } from "../card-game/narrative.mjs";
+import { withSignatures } from "../card-game/signed-words.mjs";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
 const binary =
@@ -103,7 +104,15 @@ try {
   assert.ok(silent.length > 0, "Silent fixture coverage is required");
   // 503 with this exact body proves a real browser request passed Rust's JSON
   // extraction and semantic validation, then stopped before any model call.
-  for (const { name, context } of voiced) await send(name, context, 503);
+  // The browser sends remembered words only with the service's signature;
+  // with none kept yet, they stay out of the request.
+  for (const { name, context } of voiced)
+    await send(name, withSignatures(context), 503);
+  const remembered = voiced.find(({ context }) =>
+    context.entities.some((entity) => entity.previous),
+  );
+  if (remembered)
+    await send("unsigned remembered words", remembered.context, 400);
   // Silent plays finish locally; sending one directly must still be rejected.
   for (const { name, context, world } of silent) {
     let current = world,
@@ -127,11 +136,11 @@ try {
       narrator.invalidate();
     }
     assert.equal(
-      JSON.parse(await send(name, context, 400)).error,
+      JSON.parse(await send(name, withSignatures(context), 400)).error,
       "Use the current scene and its saved memories.",
     );
   }
-  const context = voiced[0].context;
+  const context = withSignatures(voiced[0].context);
   await send(
     "null conversation actor",
     { ...context, conversation: [{ actorId: null, text: "bong" }] },

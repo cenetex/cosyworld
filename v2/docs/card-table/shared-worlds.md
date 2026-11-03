@@ -401,6 +401,43 @@ visible people and belongings, and the completed play. Passkey and account data
 stay with the account service. Provider errors leave the completed action saved
 and show a scene error. Per-person and shared play budgets bound usage.
 
+## Untrusted input
+
+A browser is untrusted, so nothing it sends reaches a model prompt on its
+word. Shared plays carry only ids (`op`, `avatar`, `target`, and an `action`
+the rules check), and the server builds each shared scene from its own
+journal. Local play sends `/card-game/text` and `/card-game/reflections` a
+scene the browser built, so the service checks every field
+(`card_narrative/untrusted.rs`):
+
+- **Ids and enums** (places, people, items, verbs, occasions) must name
+  content in the mounted packs. A wrong one is refused with 400.
+- **Rules-built sentences** (the action, events, facts, event memories and
+  disclosed facts) reach a prompt only when they are made of their field's
+  authored text: a string or template from the code that builds that field,
+  or a pack string it reads, with names in its name slots
+  (`card_narrative/authored.rs`, catalog rebuilt by
+  `node v2/scripts/build-card-authored-text.mjs`). Voice directions, links
+  and code identifiers are never authored text. Any other sentence is left
+  out of the prompt and counted in a warning. Matching is bounded: a scene
+  that quotes more than 24 KiB of such text, or needs more matching work
+  than an honest one, is refused with 400. The client's rate limit runs
+  first, and the matching runs off the async workers. If the catalog is
+  older than the served modules, startup logs it and `/meta` reports
+  `card_game.card_text.catalog_stale: true`.
+- **Words the service wrote** (heard lines, earlier words, remembered lines,
+  personas, thoughts and dreams) come back with the Ed25519 envelope the
+  service signed them with ([signed envelopes](../../../docs/design/signed-envelopes.md)).
+  An unsigned, edited or moved one is refused with 400. One signed by an
+  unlisted key, or for a later turn or revision than the scene, is left out. Older saves' words carry none, so the browser
+  leaves them out (`signed-words.mjs`).
+- **Unknown fields** are refused (serde `deny_unknown_fields`), and every
+  string keeps its length limit inside the 64 KiB body limit.
+
+Two paths still accept player-side text and are not covered here: importing
+a whole local save into a new shared world (#2067), and browser-funded shared
+speech, where the player's own OpenRouter key writes the line (#2068).
+
 ## Entrances and future journeys
 
 | Person | Entrance                        | Home                           |
@@ -412,7 +449,7 @@ and show a scene error. Per-person and shared play budgets bound usage.
 | Tavi   | Wind path                       | Wind hill                      |
 | Rue    | Carriage door                   | Between-hours carriage         |
 | Cass   | Game-tile bridge                | Games pavilion                 |
-| Sage    | Open seam                       | Sail loft                      |
+| Sage   | Open seam                       | Sail loft                      |
 
 Rue's carriage opens beside the pond while her route board is present there.
 Carrying the board inside the carriage opens the way back to the pond. The

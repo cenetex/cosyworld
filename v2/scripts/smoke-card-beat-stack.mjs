@@ -237,6 +237,18 @@ try {
       await page.waitForFunction(
         () => document.querySelector("#hand").dataset.cooling === "false",
       );
+      // A silent play inscribes its effect onto the front card, under the
+      // speech, and makes no card of its own.
+      await page.locator('#hand [data-card="vale"]').click();
+      await page.locator('#hand [data-card="lamp"]').click();
+      await page.locator('#card-actions [data-action="light"]').click();
+      await page.keyboard.press("Escape");
+      await page.waitForFunction(
+        () =>
+          /lit/u.test(document.querySelector("#beat-captions").textContent) &&
+          !document.querySelector(".inscribe"),
+      );
+      assert.equal(await front(), "Pip");
       // The earlier beat is a card behind, with the speech on one line
       // peeking above the front card. The action sits under the speech.
       // Phones keep both inside the fixed box over the hand (#1897).
@@ -300,7 +312,8 @@ try {
         front: true,
         behind: true,
       });
-      assert.match(await behind.textContent(), /Vale arrived from/u);
+      // The arrival card behind shows its latest inscribed effect.
+      assert.match(await behind.textContent(), /^\s*Vale\S/u);
       assert.equal(await front(), "Vale");
       assert.equal(await words(), lines.vale);
       assert(await page.locator("#live-line").isVisible());

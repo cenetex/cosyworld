@@ -26,14 +26,19 @@ const state = (page) =>
       strip: q(".beat-stack").dataset.action === "true",
       front: q("#speech-row").hidden ? null : q("#speech-row").dataset.beat,
       typing: q("#dialogue-advance").dataset.revealing === "true",
+      thinking: !q("#story-status").hidden,
+      caption: q("#beat-captions").lastElementChild?.textContent || "",
+      note: q(".action-beat-note").hidden
+        ? ""
+        : q(".action-beat-note").textContent,
       selected: [
         ...document.querySelectorAll('#hand .card[aria-pressed="true"]'),
       ].map((c) => c.dataset.card),
     };
   });
-async function until(page, test, label) {
+async function until(page, test, label, tries = 160) {
   let last;
-  for (let i = 0; i < 160; i++) {
+  for (let i = 0; i < tries; i++) {
     if (test((last = await state(page)))) return last;
     await page.waitForTimeout(50);
   }
@@ -55,6 +60,10 @@ async function open(width, path, route) {
   );
   const tap = (locator) => (touch ? locator.tap() : locator.click());
   const choose = (id) => selectCard(page, id, { touch });
+  const shot = (name) =>
+    page.screenshot({
+      path: `${process.env.SHOTS || "output"}/${name}-${width}.png`,
+    });
   // A choice during a typing line waits; the line keeps its full card.
   const waits = async (label) => {
     const s = await until(page, (s) => s.typing, label);
@@ -70,14 +79,17 @@ async function open(width, path, route) {
     return until(page, (s) => s.panel, "the panel returns after the line");
   };
   const clickOff = () => page.mouse.click(Math.round(width * 0.3), 140);
-  return { page, tap, choose, waits, readAll, clickOff };
+  return { page, tap, shot, choose, waits, readAll, clickOff };
 }
 
 async function local(width) {
   const world = W.createWorld();
   world.actors.vale.place = world.actors.moth.place = "pond";
   world.actors.moth.want = null;
+  world.items.lamp.holder = "vale";
   const key = "cosyworld.reflected-shore.v1.present";
+  let mode = "reply";
+  const held = [];
   const t = await open(width, "?table=present", (page) =>
     Promise.all([
       page.addInitScript(
@@ -91,7 +103,12 @@ async function local(width) {
       page.route("**/card-game/text", (route) => {
         const { revision, entities } = route.request().postDataJSON();
         const entries = entities.map(({ id }) => ({ id, text: LONG(id) }));
-        route.fulfill({ json: { revision, model: "smoke", entries } });
+        const reply = () =>
+          mode === "fail"
+            ? route.fulfill({ status: 503, body: "busy" })
+            : route.fulfill({ json: { revision, model: "smoke", entries } });
+        if (mode === "hold") held.push(reply);
+        else reply();
       }),
     ]),
   );
@@ -106,6 +123,53 @@ async function local(width) {
   await t.clickOff();
   const off = await until(t.page, (s) => !s.panel && !s.strip, "click off");
   assert.deepEqual([off.selected, off.front], [[], "speech"]);
+  // A silent play inscribes its effect onto the current card: no new card.
+  const speaker = await t.page.locator("#speaker").innerText();
+  await t.choose("vale");
+  await t.choose("lamp");
+  await t.page.evaluate(() =>
+    new MutationObserver(() => {
+      if (document.querySelector("#beat-captions .inscribe"))
+        window.inscribed ??= performance.now();
+    }).observe(document.body, { subtree: true, childList: true }),
+  );
+  await t.page.locator('#card-actions [data-action="light"]').click();
+  await t.page.keyboard.press("Escape");
+  await t.page.waitForFunction(() => window.inscribed);
+  await t.shot("local-inscribing");
+  const lit = await until(
+    t.page,
+    (s) => s.caption.includes("lit"),
+    "inscribed",
+  );
+  assert.equal(lit.front, "speech", "the effect has no card of its own");
+  assert.equal(await t.page.locator("#speaker").innerText(), speaker);
+  assert.equal(await t.page.locator("#live-line").isHidden(), true);
+  // D3: a choice made after a play waits behind its Thinking card.
+  mode = "hold";
+  await t.choose("moth");
+  await t.page.locator('#card-actions [data-action="talk"]').click();
+  await t.choose("pond");
+  await t.page.waitForTimeout(300);
+  const thinking = await until(t.page, (s) => s.thinking, "Thinking card");
+  assert.equal(thinking.panel, false, "no panel beside the Thinking card");
+  mode = "reply";
+  while (!held.length) await t.page.waitForTimeout(50);
+  await held.shift()();
+  await t.waits(`local ${width} reply after a play`);
+  // D5: a play chosen while the last line rests shows Thinking at once.
+  await t.readAll();
+  mode = "hold";
+  await t.page.locator("#card-actions .card-primary").click();
+  await until(t.page, (s) => s.thinking && !s.panel, "Thinking at once", 16);
+  // A choice over words that failed keeps the failure and its Retry.
+  mode = "fail";
+  await held.shift()();
+  await t.page.waitForSelector("#story-retry:not([hidden])");
+  await t.choose("pond");
+  const failed = await until(t.page, (s) => s.panel, "a choice after failure");
+  assert.match(failed.note, /Dialogue didn.t arrive/);
+  assert(await t.page.locator("#card-actions [data-retry-words]").isVisible());
   assert.deepEqual(t.page.errors, []);
   await t.page.close();
 }
@@ -173,6 +237,7 @@ async function shared(width) {
   // A reply under a choice hides the panel until it is read.
   await playWait();
   await t.choose("lamp");
+  await until(t.page, (s) => s.thinking && !s.panel, "shared Thinking alone");
   commit();
   await t.waits(`shared ${width} reply under a choice`);
   const back = await t.readAll();

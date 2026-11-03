@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createRoomMusic } from "../v2/card-game/music.mjs";
+import { createRoomMusic, openingRevealed } from "../v2/card-game/music.mjs";
+import { createWorld, legalActions, play } from "../v2/card-game/world.mjs";
 
 beforeEach(() => {
   vi.useFakeTimers();
@@ -394,5 +395,35 @@ describe("songs that follow the player", () => {
     await advance(500);
     expect(level()).toBe(0);
     expect(pauseLevels.every((value) => value === 0)).toBe(true);
+  });
+});
+
+describe("opening music", () => {
+  const act = (world, kind) => {
+    const action = legalActions(world).find(
+      (a) => a.kind === kind && (kind === "wait" || a.item === "lamp"),
+    );
+    const result = play(world, action, world.revision);
+    expect(result.ok).toBe(true);
+    return result.state;
+  };
+  it("waits in the attic until the mirror first shows the pond", () => {
+    let world = createWorld({ opening: true, seed: 7 });
+    expect(openingRevealed(world, "vale")).toBe(false);
+    world = act(world, "wait");
+    expect(world.turn).toBe(1);
+    expect(openingRevealed(world, "vale")).toBe(false);
+    world = act(world, "snuff");
+    expect(openingRevealed(world, "vale")).toBe(true);
+    // Relighting closes the mirror; the reveal has still happened.
+    world = act(world, "light");
+    expect(openingRevealed(world, "vale")).toBe(true);
+  });
+  it("plays as before without the attic opening", () => {
+    expect(openingRevealed(createWorld({ seed: 7 }), "vale")).toBe(true);
+    const world = createWorld({ opening: true, seed: 7 });
+    expect(openingRevealed(world, "pip")).toBe(true);
+    world.actors.vale.place = "cottage";
+    expect(openingRevealed(world, "vale")).toBe(true);
   });
 });

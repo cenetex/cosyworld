@@ -5,6 +5,10 @@ const DEFAULT_LISTEN_ADDR: &str = "127.0.0.1:3102";
 pub(super) async fn run() -> Result<(), Box<dyn std::error::Error>> {
     let boot_started = Instant::now();
     initialize_tracing();
+    // The signing key: made on first start and kept on the volume, or the
+    // `COSYWORLD_SIGNING_KEY` override (docs/release.md#signing-key).
+    crate::routes::signed_envelope::init().map_err(deployment_config_error)?;
+    crate::routes::card_game::narrative::catalog_stale();
 
     if let Some(config) =
         crate::routes::card_game::local::Config::from_env().map_err(io::Error::other)?
@@ -171,7 +175,6 @@ struct BackgroundServices {
     _canonical_capacity: Option<tokio::task::JoinHandle<()>>,
     _ai_readiness: Option<tokio::task::JoinHandle<()>>,
     _media_jobs: Option<tokio::task::JoinHandle<()>>,
-    _video_jobs: Option<tokio::task::JoinHandle<()>>,
 }
 
 impl BackgroundServices {
@@ -194,7 +197,6 @@ impl BackgroundServices {
             _canonical_capacity: canonical_capacity,
             _ai_readiness: ai_readiness,
             _media_jobs: media_jobs,
-            _video_jobs: crate::routes::card_video::start_reconciler(state),
         }
     }
 }

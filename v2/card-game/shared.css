@@ -27,3 +27,11 @@
   padding: 4px 8px;
   font-size: 12px;
 }
+.shared-lobby > .privacy-notice {
+  font-size: 13px;
+  line-height: 1.5;
+  color: #b9b6bc;
+}
+.shared-lobby > .privacy-notice a {
+  color: #dfc38d;
+}

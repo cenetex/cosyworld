@@ -1,9 +1,9 @@
-// A passkey's credits pay for spoken voices and scene videos (#1924).
+// A passkey's credits pay for spoken voices (#1924).
 // The server holds the balance; this page shows it and asks for clips.
 // In a shared world the world's pool pays, and any passkey may commit
 // credits to it.
 export function createCredits({ fetcher = globalThis.fetch, world = "" } = {}) {
-  let state = { signed_in: false, balance: 0, prices: { tts: 1, video: 100 } };
+  let state = { signed_in: false, balance: 0, prices: { tts: 1 } };
   let pool = null;
   const listeners = new Set();
   const publish = () =>
@@ -96,9 +96,9 @@ export function createCredits({ fetcher = globalThis.fetch, world = "" } = {}) {
 
 export function creditsText(state) {
   if (!state.signed_in)
-    return "Sign in with your passkey to use credits for voices and scene videos.";
-  const { tts = 1, video = 100 } = state.prices || {};
-  return `Credits: ${state.balance}. A spoken line costs ${tts}; a scene video costs ${video}.`;
+    return "Sign in with your passkey to use credits for voices.";
+  const { tts = 1 } = state.prices || {};
+  return `Credits: ${state.balance}. A spoken line costs ${tts}.`;
 }
 
 // Start a Stripe Checkout for one speech pack; Stripe returns the player

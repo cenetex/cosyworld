@@ -153,18 +153,19 @@ try {
         await page.locator("#dialogue-advance").click();
       await page.waitForTimeout(50);
     }
-    // A Talk asks for words; a silent move made before they arrive
-    // supersedes them and sends no request of its own.
+    // A Talk asks for words. Its Thinking card holds the panel back; two
+    // taps stop waiting, the play stays saved, and a silent move made then
+    // sends no request of its own and never shows the late words.
     const talkRequest = page.waitForRequest("**/card-game/text");
     await selectCard(page, "moth");
     await page.locator('#card-actions [data-action="talk"]').click();
     await talkRequest;
     const replaced = requests.at(-1);
     const asked = requests.length;
-    await page.waitForFunction(
-      () => document.querySelector("#hand").dataset.cooling === "false",
-    );
     await selectCard(page, "station");
+    assert.equal(await page.locator("#card-actions button").count(), 0);
+    await page.locator("#speech-row").click();
+    await page.locator("#speech-row").click();
     await page.locator('#card-actions [data-action="move"]').click();
     await page.waitForFunction(
       (title) => document.querySelector("#place-title").textContent === title,

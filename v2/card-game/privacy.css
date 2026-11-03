@@ -1,0 +1,32 @@
+:root {
+  color-scheme: dark;
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  color: #f1e8d5;
+  background: #101119;
+}
+body {
+  margin: 0;
+  padding: 24px 16px 48px;
+}
+main {
+  max-width: 640px;
+  margin: 0 auto;
+}
+h1,
+h2 {
+  font-family: Georgia, serif;
+  font-weight: normal;
+  margin: 12px 0 4px;
+}
+h2 {
+  margin-top: 28px;
+  color: #dfc38d;
+}
+p {
+  font-size: 15px;
+  line-height: 1.65;
+  margin: 0;
+}
+a {
+  color: #e8cf97;
+}

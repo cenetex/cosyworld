@@ -2234,7 +2234,7 @@ body .beat-live {
     font-size: 12px;
     line-height: 1.3;
   }
-  .beat-stack .beat-caption + .beat-caption {
+  .beat-stack .beat-caption:not(:last-child) {
     display: none;
   }
   .dialogue:has(#live-line:not([hidden])) .beat-behind {
@@ -2365,8 +2365,26 @@ body .beat-live {
 .beat-stack[data-action="true"]:not([data-dropped="true"]) > #beat-behind,
 .beat-stack[data-action="true"]
   > #speech-row
-  :is(.speech-hint, .line-controls, .beat-caption + .beat-caption) {
+  :is(.speech-hint, .line-controls, .beat-caption:not(:last-child)) {
   display: none;
+}
+/* A card shows its latest three effects; Memory keeps them all. */
+.beat-stack .beat-caption:nth-last-child(n + 4) {
+  display: none;
+}
+/* An effect is inscribed onto the card current when it happens: it writes
+   in from the left. Reduced motion shows it at once. */
+.beat-caption.inscribe,
+.beat-behind-caption.inscribe {
+  animation: inscribe var(--inscribe-ms, 600ms) steps(24, end) both;
+}
+@keyframes inscribe {
+  from {
+    clip-path: inset(0 100% 0 0);
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+  }
 }
 .beat-stack[data-action="true"] > #speech-row * {
   flex: none;
@@ -2758,7 +2776,8 @@ main > .dialogue {
     --dialogue-height: 96px;
   }
 }
-#credits a {
+#credits a,
+#privacy-link {
   color: #e5cb92;
   font-size: 14px;
 }

@@ -1,5 +1,6 @@
 import { imageUrl } from "./images.mjs";
 import { request, passkey, WORLD_UPDATE } from "./shared-auth.mjs";
+import { passkeyNotice } from "./privacy.mjs";
 import { createSharedSync } from "./shared-sync.mjs";
 import roster from "./shared-cast.json" with { type: "json" };
 import { worldNameOf } from "./world-name.mjs";
@@ -98,6 +99,8 @@ async function authenticate(next, closable) {
     "A passkey keeps your avatar and your worlds together.",
     closable,
   );
+  // The notice comes before the buttons, so it is read before a passkey is made.
+  box.append(passkeyNotice());
   for (const [label, register] of [
     ["Continue with a passkey", false],
     ["Create a passkey", true],
