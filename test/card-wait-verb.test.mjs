@@ -63,7 +63,7 @@ describe("transport wait words in the pack schema", () => {
 
 describe("the table reads the transport's wait words", () => {
   const shown = (world, cards) =>
-    restPlays(world, cardActions(world, cards).actions, false);
+    restPlays(world, cardActions(world, cards).actions, false, cards);
   function voyage() {
     let world = createWorld();
     world.crossings["pond-greek-harbor"].discovered = true;
@@ -83,6 +83,13 @@ describe("the table reads the transport's wait words", () => {
       "Sail",
       "Vale sails on.",
       "wait",
+    ]);
+  });
+  it("keeps Wait for Vale alone and Sail for the ship's card", () => {
+    const { atSea } = voyage();
+    expect(shown(atSea, ["vale"]).map(playLabel)).toEqual(["Wait"]);
+    expect(shown(atSea, ["vale", "greek-ship"]).map(playLabel)).toEqual([
+      "Sail",
     ]);
   });
   it("puts a name with replacement patterns into the sentence as written", () => {

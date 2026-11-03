@@ -1815,6 +1815,7 @@ function renderActions() {
     offered,
     lastWait?.key === selected.join("+") &&
       lastWait.revision === world.revision,
+    selected,
   );
   // A chosen play leaves the beat: the Thinking card stands for it, and its
   // reply types into the full-size front card.

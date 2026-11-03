@@ -124,7 +124,7 @@ export function cardPlay(world, selected) {
   const cards = [...new Set(selected)];
   const available = availableCards(world);
   const result = (found, hint) => {
-    const action = shownPlay(world, found);
+    const action = shownPlay(world, found, cards);
     return { action, hint: playText(action) || hint };
   };
   if (!cards.length || cards.some((id) => !available.includes(id)))
@@ -333,8 +333,10 @@ export function cardActions(world, selected) {
 
 // Aboard a transport under way (course set or at sea), a Wait is the voyage:
 // each round passed carries it on (sailTransports in pack-transport.mjs). The
-// pack names that Wait (waitVerb, waitSentence); a docked ship keeps Wait
-// because a wait there moves nothing. The rules keep their wait and journal.
+// pack names that Wait (waitVerb, waitSentence) when the selection holds the
+// transport's own card: choosing the ship lets it carry us. The avatar alone
+// keeps Wait, and so does a docked ship, where a wait moves nothing. The rules
+// keep their wait and journal either way.
 function underWay(world, actor) {
   const here = world.actors[actor]?.place;
   return Object.entries(transports).find(
@@ -344,9 +346,12 @@ function underWay(world, actor) {
       ["course", "sea"].includes(world.transports?.[id]?.phase),
   )?.[1];
 }
-function shownPlay(world, action) {
+function shownPlay(world, action, cards = []) {
   const t =
-    action?.kind === "wait" && !action.sleep && underWay(world, action.actor);
+    action?.kind === "wait" &&
+    !action.sleep &&
+    cards.includes(world.actors[action.actor]?.place) &&
+    underWay(world, action.actor);
   if (!t) return action;
   return {
     ...action,
@@ -404,7 +409,8 @@ export function playLabel(action) {
 
 // Sleep is the Wait played again with the same cards still chosen (#2028);
 // otherwise the plain Wait. A sleeper may sleep on or wake by waiting.
-export function restPlays(world, actions, again) {
+// `cards` is the selection, which names a Wait aboard (shownPlay).
+export function restPlays(world, actions, again, cards = []) {
   const legal = legalActions(world),
     sleep = legal.find((a) => a.sleep),
     wait = legal.find((a) => a.kind === "wait" && !a.sleep);
@@ -418,7 +424,7 @@ export function restPlays(world, actions, again) {
   const busy = rested.some((a) => a.kind !== "wait");
   return rested
     .filter((a) => !busy || a.kind !== "wait" || a.sleep)
-    .map((a) => shownPlay(world, a));
+    .map((a) => shownPlay(world, a, cards));
 }
 
 export function cardObservation(world, id) {
