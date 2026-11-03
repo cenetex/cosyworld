@@ -36,6 +36,8 @@ mod custody;
 mod dream;
 #[path = "card_narrative/expression.rs"]
 mod expression;
+#[path = "card_narrative/framing.rs"]
+mod framing;
 #[path = "card_narrative/grounding.rs"]
 mod grounding;
 use grounding::{dialogue_tag, first_person, grounded, invents_item};
@@ -81,8 +83,17 @@ const PER_HOUR: RateLimit = RateLimit {
     max_hits: 1200,
     window: Duration::from_secs(3600),
 };
-/// Model requests in flight across all clients.
-const TOTAL_CONCURRENCY: usize = 2;
+/// Model requests in flight across all clients. Scenes wait on the provider,
+/// not the CPU, and the hourly budgets above bound spend, so four slots on
+/// the one Fly machine cost no more than two did while turning fewer
+/// simultaneous players away (#2016).
+const TOTAL_CONCURRENCY: usize = 4;
+/// Reflections keep their own two slots: they never delay a line.
+const REFLECTION_CONCURRENCY: usize = 2;
+/// A full server or this client's own unfinished scene clears in seconds, so
+/// the client may retry once its short Retry-After passes. The minute and
+/// hour limits keep the long one.
+const BUSY_RETRY_AFTER: &str = "1";
 /// Model requests in flight per client. A client's play waits on its own
 /// story text, so one is enough, and it leaves the remaining capacity for
 /// other players.
@@ -312,7 +323,7 @@ fn router_with_models<S: Clone + Send + Sync + 'static>(
             background: Arc::new(reflections::Queue::new(
                 settings
                     .as_ref()
-                    .map_or(1, |s| s.parallel.clamp(1, TOTAL_CONCURRENCY)),
+                    .map_or(1, |s| s.parallel.clamp(1, REFLECTION_CONCURRENCY)),
             )),
             settings: Arc::new(settings),
         })
@@ -713,9 +724,15 @@ fn valid_outcome(outcome: &TurnOutcome) -> bool {
 // Restate the resolved action and each trip for every voice, including places.
 // The model can then keep a character's style while following the player's play.
 fn error(status: StatusCode, message: &str) -> Response {
+    refusal(status, message, "10")
+}
+fn busy(message: &str) -> Response {
+    refusal(StatusCode::TOO_MANY_REQUESTS, message, BUSY_RETRY_AFTER)
+}
+fn refusal(status: StatusCode, message: &str, retry_after: &str) -> Response {
     (
         status,
-        [("cache-control", "no-store"), ("retry-after", "10")],
+        [("cache-control", "no-store"), ("retry-after", retry_after)],
         Json(json!({"error": message})),
     )
         .into_response()
@@ -795,10 +812,7 @@ async fn generate(
     // another client waits, nor spend the server's time on text matching.
     let client = peer.ip();
     let Some(_client_slot) = state.in_flight.try_enter(client, PER_CLIENT_CONCURRENCY) else {
-        return error(
-            StatusCode::TOO_MANY_REQUESTS,
-            "Your last story is still being written.",
-        );
+        return busy("Your last story is still being written.");
     };
     {
         let Ok(mut limits) = state.limits.lock() else {
@@ -836,7 +850,7 @@ async fn generate(
         );
     };
     let Ok(_permit) = state.capacity.clone().try_acquire_owned() else {
-        return error(StatusCode::TOO_MANY_REQUESTS, "The story service is busy.");
+        return busy("The story service is busy.");
     };
     // Only an admitted scene replaces this client's queued reflections: a
     // refused request must not cancel work, and other clients keep theirs.
@@ -2235,69 +2249,6 @@ fn excerpt(text: &str) -> String {
     short
 }
 
-/// Phrases that belong to an assistant, not to anyone at this table. The
-/// second group was collected from forty small models answering the real
-/// transcript on 2026-10-23: a model that analyses the scene instead of
-/// speaking in it opens with these.
-const ASSISTANT_SPEAK: &[&str] = &[
-    "as an ai",
-    "language model",
-    "i'm here to help",
-    "i am here to help",
-    "how can i assist",
-    "certainly!",
-    "i cannot",
-    "i can't help",
-    "prompt",
-    "the user",
-    "roleplay",
-    "role-play",
-    "in character",
-    "it seems",
-    "it appears",
-    "it looks like you",
-    "here is the",
-    "here's the",
-    "here is a",
-    "here's a",
-    "let's break",
-    "let's analy",
-    "let's build on",
-    "let's flesh",
-    "let's solidif",
-    "let's navigate",
-    "let's dive",
-    "let's continue",
-    "let's play this out",
-    "okay, let",
-    "okay, this",
-    "continue the",
-    "continue this",
-    "scenario",
-    "narrative",
-    "continuation",
-    "breakdown",
-    "text-based",
-    "choose-your-own",
-    "short story",
-    "what do you do?",
-    "to do next",
-    "or something else?",
-    "dialogue scene",
-    "i'd be delighted",
-    "i'll do my best",
-    "i can help",
-    "i can provide",
-    "i'll provide",
-    "this scene",
-    "the scene",
-    "your character",
-    "your objective",
-    "in this setting",
-    "sure thing",
-    "of course!",
-];
-
 /// What a reply is checked against before it is published.
 struct Check<'a> {
     expression: expression::Mode,
@@ -2560,7 +2511,7 @@ impl<'a> Check<'a> {
             return Err("story_outcome");
         }
         let lower = kept.to_lowercase();
-        if ASSISTANT_SPEAK.iter().any(|phrase| lower.contains(phrase)) {
+        if framing::assistant(&kept) {
             return Err("assistant");
         }
         for (id, profile) in profiles().as_object().expect("profiles") {
@@ -2623,7 +2574,7 @@ impl<'a> Check<'a> {
         }
         // A character speaks as "I"; a line that names its speaker in the
         // third person ("Vale's eyes flick to Pip") is narration.
-        if kind(&self.entity.id, "avatar") && mentions(&freely_spoken, &own) {
+        if kind(&self.entity.id, "avatar") && framing::narrates_self(&freely_spoken, &own) {
             return Err("self-narration");
         }
         // The stage shows the play; a line that narrates the speaker's own
@@ -2633,9 +2584,15 @@ impl<'a> Check<'a> {
         }
         // A line wrapped in its own dialogue tag (`hit you back," I say,
         // keeping my hand…`) leaves a stray quote or tags its speaker.
-        let marks = kept.matches(['"', '\u{201c}', '\u{201d}']).count();
-        if kind(&self.entity.id, "avatar") && (marks % 2 == 1 || dialogue_tag(&kept)) {
+        // A quote left open by our own sentence trim (`"Keep it lit," my
+        // mother told me`) is dropped; one the reply left open is not.
+        let marks = |s: &str| s.matches(['"', '\u{201c}', '\u{201d}']).count() % 2 == 1;
+        if kind(&self.entity.id, "avatar") && (dialogue_tag(&kept) || (marks(&kept) && marks(line)))
+        {
             return Err("narration tag");
+        }
+        if marks(&kept) {
+            kept.retain(|c| !matches!(c, '"' | '\u{201c}' | '\u{201d}'));
         }
         if self
             .labels
@@ -4845,24 +4802,35 @@ pub(crate) mod tests {
             .await
             .unwrap();
         assert_eq!(second.status(), StatusCode::TOO_MANY_REQUESTS);
+        assert_eq!(second.headers()["retry-after"], BUSY_RETRY_AFTER);
         assert_eq!(
             error_text(second).await,
             "Your last story is still being written."
         );
-        // The second shared slot is still open for a different client.
-        let other = app
-            .clone()
-            .oneshot(request_from(&context(), "198.51.100.7:5000"))
-            .await
-            .unwrap();
-        assert_eq!(other.status(), StatusCode::OK);
-        let third = app
+        // The other shared slots are still open for different clients.
+        let mut others = Vec::new();
+        for client in [
+            "198.51.100.7:5000",
+            "198.51.100.8:5000",
+            "198.51.100.9:5000",
+        ] {
+            let other = app
+                .clone()
+                .oneshot(request_from(&context(), client))
+                .await
+                .unwrap();
+            assert_eq!(other.status(), StatusCode::OK);
+            others.push(other);
+        }
+        assert_eq!(others.len() + 1, TOTAL_CONCURRENCY);
+        let full = app
             .clone()
             .oneshot(request_from(&context(), "192.0.2.9:5000"))
             .await
             .unwrap();
-        assert_eq!(third.status(), StatusCode::TOO_MANY_REQUESTS);
-        assert_eq!(error_text(third).await, "The story service is busy.");
+        assert_eq!(full.status(), StatusCode::TOO_MANY_REQUESTS);
+        assert_eq!(full.headers()["retry-after"], BUSY_RETRY_AFTER);
+        assert_eq!(error_text(full).await, "The story service is busy.");
 
         // Closing the held stream releases that client's slot.
         drop(held);
@@ -4880,7 +4848,7 @@ pub(crate) mod tests {
             tokio::time::sleep(Duration::from_millis(20)).await;
         }
         assert!(released);
-        drop(other);
+        drop(others);
         server.abort();
     }
 
