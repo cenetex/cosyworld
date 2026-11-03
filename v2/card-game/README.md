@@ -50,6 +50,11 @@ and it drops days older than 400 days on every write. The request log names
 only the route and status. `GET /moderation/play-metrics` (moderation token)
 returns the last seven days. Nothing reads the counts back into play.
 
+`metrics.mjs` counts in memory and sends one `sendBeacon` batch a minute and on
+`pagehide`. Settings has "Share anonymous play counts". With it off, under
+Global Privacy Control, or in the desktop app until turned on, nothing is
+counted or sent. `smoke-card-play-counts.mjs` checks all three.
+
 ## Public assets
 
 `public-assets.mjs` defines the public files and their content types. It includes

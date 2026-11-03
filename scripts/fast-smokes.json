@@ -56,6 +56,10 @@
     {
       "paths": "^v2/card-game/(privacy|shared-auth)",
       "smokes": ["smoke-card-privacy"]
+    },
+    {
+      "paths": "^v2/card-game/metrics",
+      "smokes": ["smoke-card-play-counts"]
     }
   ]
 }

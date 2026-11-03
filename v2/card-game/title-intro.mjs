@@ -1,6 +1,7 @@
 import landings from "./pack-landings.json" with { type: "json" };
 import { PLAYING_KEY, SAVE_BASE } from "./avatar-world.mjs";
 import { imageUrl } from "./images.mjs";
+import { count } from "./metrics.mjs";
 import { LOGOS, logoSite, showToolbarLogo, worldLogo } from "./title-logo.mjs";
 import { createTitleSong } from "./title-song.mjs";
 
@@ -124,7 +125,10 @@ export function playTitleIntro({
   const button = document.createElement("button");
   button.type = "button";
   button.className = "title-wake";
-  button.addEventListener("click", finish);
+  button.addEventListener("click", () => {
+    if (!leaving) count("intro.wake");
+    finish();
+  });
   // The first gesture on the title: the song, the lifted logo, Wake.
   const wake = () => {
     if (woken || leaving) return;
@@ -162,6 +166,7 @@ export function playTitleIntro({
     event.stopPropagation();
     if (event.key === "Escape") {
       event.preventDefault();
+      if (!leaving) count("intro.skip");
       finish();
       return;
     }
