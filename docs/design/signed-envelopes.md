@@ -1,6 +1,7 @@
 # Signed envelopes
 
-Status: the primitive and its first use (local dialogue) are built. Everything
+Status: the primitive, its first use (local dialogue) and imported saves
+are built. Everything
 after "Toward everything" is a sketch.
 
 ## Why
@@ -157,6 +158,10 @@ a world id and sequence, would close that.
   with its own published keys. Envelopes from several issuers can travel
   together, because each names its `kid`. A key directory (a list of trusted
   issuers and their well-known URLs) would be the next design step.
-- **Saves.** A local save that carries envelopes for its server-written
-  content could be imported into a shared world with those parts verified,
-  which closes the import path still open today.
+- **Saves.** Built for imports (#2067): sharing a local save sends the
+  envelopes the browser kept, and the service keeps only the save's words
+  they verify (`world` `local`, the same speaker and content), with the rest
+  of its text checked against the authored catalogs
+  ([untrusted input](../../v2/docs/card-table/shared-worlds.md#untrusted-input)).
+  The kept words are not re-signed as journal rows yet; that waits for
+  signed journal rows above.

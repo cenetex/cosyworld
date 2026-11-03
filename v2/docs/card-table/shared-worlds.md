@@ -452,9 +452,20 @@ scene the browser built, so the service checks every field
 - **Unknown fields** are refused (serde `deny_unknown_fields`), and every
   string keeps its length limit inside the 64 KiB body limit.
 
-Two paths still accept player-side text and are not covered here: importing
-a whole local save into a new shared world (#2067), and browser-funded shared
-speech, where the player's own OpenRouter key writes the line (#2068).
+A local save shared into a new world (`Create.save`) is untrusted too: its
+text would become journal state that other members' hosted prompts read.
+Before the first journal row, the service keeps a string from the save only
+when it is an id or enum, a name from the packs (a log `speaker` must be
+one, or `World`), a rules-built sentence matching its field's authored
+catalog, or a line, thought, persona or dream whose signed envelope comes
+with the import (`signed`, from `signed-words.mjs`) and verifies for that
+speaker and for a local save (`card_narrative/imported.rs`). Everything else
+is stripped (its list entry dropped, a lone field cleared) and counted in a
+warning. A stripped save the rules refuse loses every avatar's inner life
+too. Matching is bounded at 40 scenes' work and 400 envelopes.
+
+Browser-funded shared speech, where the player's own OpenRouter key writes
+the line, is still open (#2068).
 
 ## Entrances and future journeys
 

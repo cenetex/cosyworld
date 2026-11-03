@@ -114,6 +114,13 @@ export const signedRequest =
   async (context, ...rest) =>
     rememberSigned(await send(withSignatures(context), ...rest));
 
+// Every kept envelope, once each: a save shared into a new world sends them
+// so the server keeps the words they cover (#2067).
+export function signedEnvelopes(storage = globalThis.localStorage) {
+  const all = [...load(storage).values()];
+  return [...new Map(all.map((e) => [e.sig, e])).values()];
+}
+
 // Tests start from an empty store.
 export function forgetSigned() {
   cache = null;

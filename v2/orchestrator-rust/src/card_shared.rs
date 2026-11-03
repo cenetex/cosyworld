@@ -24,6 +24,8 @@ mod full_world;
 mod homecoming_tests;
 #[cfg(test)]
 mod hoppycat_tests;
+#[cfg(test)]
+mod import_tests;
 mod kernel;
 mod narrator;
 /// The shared narrator's dialogue context, for the story service's parity
