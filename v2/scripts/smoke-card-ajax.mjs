@@ -14,6 +14,7 @@ import {
   selectCard,
   smokeWidths,
   topicForChoice,
+  wordsFellSilent,
 } from "./card-browser-helpers.mjs";
 
 function steps(route) {
@@ -122,7 +123,7 @@ export async function checkAjax(browser, origin) {
             if (await page.locator("#dialogue-advance").isVisible())
               await page.locator("#dialogue-advance").click();
             assert.equal(
-              await page.locator("#story-retry").isVisible(),
+              await wordsFellSilent(page, key),
               false,
               "The story completes",
             );

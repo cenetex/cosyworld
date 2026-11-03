@@ -367,22 +367,35 @@ const sharedLineDuration = (line) =>
   Math.min(9000, Math.max(3500, line.text.length * 45 + 1500));
 // A reply speaker whose words did not come is listed under `silent` on the
 // scene record. The table shows "…" for them after the spoken lines; these
-// lines are read on the scene clock but never voiced or saved.
+// lines are read on the scene clock but never voiced or saved. Words that
+// failed are the same silence: a scene with no lines follows its play's last
+// event (`after`), and an older failed record without `silent` shows "…" for
+// the player who played it. A line arrives whole or is "…", never a failure.
 export const SHARED_SILENT_TEXT = "…";
 function withSilence(scene) {
-  const last = scene.lines.at(-1);
-  if (!Array.isArray(scene.silent) || !Number.isFinite(last?.seq)) return scene;
-  const quiet = [...new Set(scene.silent)].filter(
+  const lines = scene.lines || [];
+  const last = lines.at(-1) ?? {
+    seq: scene.after,
+    turn: scene.turn ?? null,
+    locationId: scene.room,
+  };
+  const silent =
+    Array.isArray(scene.silent) || !scene.error || lines.length
+      ? scene.silent
+      : [scene.actor];
+  if (!Array.isArray(silent) || !Number.isFinite(last?.seq))
+    return { ...scene, lines };
+  const quiet = [...new Set(silent)].filter(
     (id) =>
       typeof id === "string" &&
       id.length <= 80 &&
-      !scene.lines.some((line) => (line.actorId || line.entityId) === id),
+      !lines.some((line) => (line.actorId || line.entityId) === id),
   );
-  if (!quiet.length) return scene;
+  if (!quiet.length) return { ...scene, lines };
   return {
     ...scene,
     lines: [
-      ...scene.lines,
+      ...lines,
       ...quiet.slice(0, 2).map((id, index) => ({
         seq: last.seq + (index + 1) / 10,
         turn: last.turn,
@@ -399,8 +412,9 @@ function withSilence(scene) {
 }
 const roomScenes = (state, room) =>
   (state.history || [])
-    .filter((entry) => entry.room === room && entry.lines?.length)
+    .filter((entry) => entry.room === room)
     .map(withSilence)
+    .filter((entry) => entry.lines.length)
     .toSorted((a, b) => a.starts_at - b.starts_at);
 // The "…" lines of this room's saved scenes, for the stage and Conversation.
 export const sharedSilentLines = (state, room) =>
@@ -494,18 +508,11 @@ export function sharedVoiceReference(state, line) {
   }
 }
 
-export function sharedSpeechState(state, room) {
+// Words on the way, or the room's scene as it stands. Words that failed are
+// already "…" in that scene, so nothing waits on them and nothing retries.
+export function sharedSpeechState(state) {
   const working = state.queue?.some((entry) => entry.status === "working");
-  if (working) return { status: "pending", retryKey: null };
-  const scene = state.history?.find((entry) => entry.room === room);
-  if (!scene?.error) return { status: "ready", retryKey: null };
-  const retryKey =
-    scene.actor === state.actor &&
-    scene.turn === state.world?.turn &&
-    !state.queue?.length
-      ? scene.play
-      : null;
-  return { status: "retry", retryKey };
+  return { status: working ? "pending" : "ready" };
 }
 
 export function hasSharedPlace(state) {

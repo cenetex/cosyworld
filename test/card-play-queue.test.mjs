@@ -91,11 +91,12 @@ describe("plays queued during dialogue", () => {
     words = "ready";
     expect(queue.flush()).toBe(true);
     expect(log).toEqual(["play focus", "P's line", "play Q"]);
-    // Words that failed free the next play too; it asks again.
+    // Words that failed are "…" at once and free the next play too.
     words = "pending";
     queue.submit({ key: "R", kind: "wait" }, 2);
-    words = "retry";
+    log.push("P's …");
+    words = "ready";
     queue.flush();
-    expect(log.at(-1)).toBe("play R");
+    expect(log.slice(-2)).toEqual(["P's …", "play R"]);
   });
 });

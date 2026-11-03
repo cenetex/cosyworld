@@ -112,3 +112,22 @@ export async function stackHits(page) {
     return { front: hit("speech-row"), behind: hit("beat-behind", 6) };
   });
 }
+
+// Words that failed show "…" with no failure UI (#2008's Retry is gone), so a
+// smoke that needs its fixture's words checks the table's own marker: the
+// save's revision whose words fell silent.
+export async function wordsFellSilent(page, key) {
+  return page.evaluate((key) => {
+    try {
+      const marker = localStorage.getItem(`${key}.words-failed`) || "";
+      const save = JSON.parse(localStorage.getItem(key) || "null");
+      return (
+        Boolean(marker) &&
+        !marker.endsWith(":pending") &&
+        marker === String(save?.revision)
+      );
+    } catch {
+      return false;
+    }
+  }, key);
+}

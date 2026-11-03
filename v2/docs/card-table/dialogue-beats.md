@@ -148,8 +148,8 @@ being read), the play is one Thinking card: the speaker's portrait,
 "Thinking…" and no button. The first tap reads "Tap again to cancel" and the
 second cancels; three seconds, Escape or a tap elsewhere puts it back. A play
 still waiting is withdrawn and its button returns. A committed one (a shared
-retry, or a local play awaiting its words) stays saved: its caption shows with
-no line, never "undone". Once a
+play resuming on the server, or a local play awaiting its words) stays saved:
+its caption shows with no line, never "undone". Once a
 play commits (a local play, or a shared play the room is playing) the beat
 leaves and its reply types into the full-size front card. After a play the
 beat rests until the player chooses a card or taps the raised hand. Choosing a quest in the open fan takes no
@@ -172,7 +172,6 @@ One phase decides what the dialogue box shows (`phase()` in
 | revealing | the live line is being written, or the exchange has more                      | the line, in its full-size card            |
 | thinking  | a play is queued, or committed less than 5 s ago, and its words have not come | the Thinking card                          |
 | choosing  | the hand is raised with a choice, and none of the above                       | the action beat, the spoken beat behind it |
-| failed    | the scene's words did not arrive                                              | the beat with Retry                        |
 | reviewing | the player stepped back behind live                                           | the earlier beat, with ● live              |
 | idle      | otherwise                                                                     | the latest beat                            |
 
@@ -181,8 +180,8 @@ for it: the line keeps its full card, and the play comes forward once the
 exchange is read. A shared refusal waits for the line too. A tap anywhere
 on a card that is being written, portrait and name included, finishes it.
 A reload shows a line already begun in full, and a play whose words were
-still on the way asks again with its Thinking card; only words that failed
-come back with Retry. Clicking off the cards, like Escape, clears the choice: the action beat
+still on the way asks again, quietly, with its Thinking card. Words that
+failed are not asked again. Clicking off the cards, like Escape, clears the choice: the action beat
 fades and the full dialogue card comes back.
 
 Every play in flight is one Thinking card with the speaker's portrait: queued
@@ -192,13 +191,31 @@ so its Thinking card comes at once. Cards chosen meanwhile wait behind it.
 The Thinking chip shows only on that card, never on a line. Dialogue never
 holds play for long: five seconds after a play commits, its slow words stop
 holding the hand. The Thinking card stays, a choice comes forward over it,
-and the late line types in when it arrives (#2008's failure and Retry follow
-if it never does). A play made from that choice never drops the late line:
-it waits behind it with its own Thinking card, locally as at a shared seat,
-and runs once the line has typed into its beat or failed, so the next scene
-is asked after it and the lines keep their order. A choice over
-words that did not arrive is offered with the failure and its Retry in the
-action beat, since the new play also asks again.
+and the late line types in when it arrives. A play made from that choice
+never drops the late line: it waits behind it with its own Thinking card,
+locally as at a shared seat, and runs once the line has typed into its beat
+or fallen silent, so the next scene is asked after it and the lines keep
+their order.
+
+## Words that fail
+
+There is no failure state, note or Retry. Words that do not come (a provider
+error, a timeout, a reply the validator or the shared rules refuse, a worker
+lost mid-scene) are silence: each avatar due to speak shows "…" on its own
+beat, like a quiet JRPG line, and play goes on at once. The "…" is never
+voiced or saved, and nothing asks again for it. A line either arrives whole
+or is "…": a beat never carries both. The browser makes one quiet automatic
+attempt for a temporary error inside the scene's budget before it falls
+silent; a 429 is not retried. The metrics still count each outcome as
+`voice.failed` or `voice.silent`, with no UI.
+
+In shared play the server finishes a play whose words failed as a silent
+scene: no speech op is journaled (exactly as for words that never came, so
+replay and the rules are unchanged), the scene record has no lines, lists
+the due avatars under `silent`, marks `failed: true` and names the play's
+last event in `after`, and the seat frees at once. The table renders that
+record, and any older failed record, as "…" (`withSilence` in
+`v2/card-game/shared.mjs`).
 
 ## Memory
 

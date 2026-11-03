@@ -16,6 +16,7 @@ import {
   clearSelection,
   selectCard,
   smokeWidths,
+  wordsFellSilent,
 } from "./card-browser-helpers.mjs";
 
 export async function checkOpenDoor(browser, origin) {
@@ -78,10 +79,8 @@ export async function checkOpenDoor(browser, origin) {
         for (let turn = 0; turn < 250; turn++) {
           if (await page.locator("#dialogue-advance").isVisible())
             await page.locator("#dialogue-advance").click();
-          if (await page.locator("#story-retry").isVisible())
-            throw new Error(
-              `Story retry at ${width}px: ${await page.locator("#story-retry").textContent()}`,
-            );
+          if (await wordsFellSilent(page, key))
+            throw new Error(`Story fell silent at ${width}px.`);
           if (
             (await page.locator("#hand").getAttribute("data-cooling")) ===
             "false"

@@ -99,6 +99,16 @@ pub(super) fn parse(
     }
     Ok(json!(lines))
 }
+/// The avatars a play's words were due from, the acting avatar included.
+/// When those words fail, every one of them shows "…" (`silent`).
+pub(super) fn voices(work: &Value, actor: usize) -> Vec<String> {
+    let Ok((_, ids)) = prepared(actor, work) else {
+        return Vec::new();
+    };
+    ids.into_iter()
+        .filter(|id| work["profiles"][id]["kind"] == "avatar")
+        .collect()
+}
 /// Requested avatars with no published line. The scene record keeps them so
 /// the table can show "…"; the journal speech op stays as it was.
 pub(super) fn silent(work: &Value, actor: usize, lines: &Value) -> Vec<String> {
