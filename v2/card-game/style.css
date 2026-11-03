@@ -2871,12 +2871,46 @@ main > .dialogue {
 .title-ack p {
   margin: 0 0 0.9em;
 }
+/* A short phone (375x667) fits the whole poem without scrolling. */
+@media (max-height: 720px) {
+  .title-ack {
+    font-size: 1rem;
+    line-height: 1.5;
+  }
+  .title-ack p {
+    margin-bottom: 0.7em;
+  }
+}
 /* Each line as written; a line too long for a phone wraps under a hanging
    indent, so it still reads as one line of the poem. */
 .title-ack-line {
   display: block;
   padding-left: 1.2em;
   text-indent: -1.2em;
+}
+/* The words it pauses on take a gentle tint of their rarity tier's colour
+   (level-tiers.mjs), climbing as the poem goes, with a soft, low glow. It
+   rises as the word is written and fades back slowly as the reveal moves
+   on, like a lamp passing; the last word keeps it. Every tint stays far
+   above AA contrast on the black. Reduced motion shows only the last word's
+   tint, still. */
+.title-ack-glow {
+  transition:
+    color var(--glow-fade, 1200ms) ease-out,
+    text-shadow var(--glow-fade, 1200ms) ease-out;
+}
+.title-ack-glow[data-lit] {
+  color: color-mix(in srgb, var(--tier-color) 55%, #fff4dc);
+  text-shadow: 0 0 6px color-mix(in srgb, var(--tier-color) 40%, transparent);
+  transition-duration: var(--glow-in, 350ms);
+  transition-timing-function: ease;
+}
+@media (prefers-reduced-motion: reduce) {
+  .title-ack-glow,
+  .title-ack-glow[data-lit] {
+    transition: none;
+    text-shadow: none;
+  }
 }
 .title-intro a {
   color: inherit;

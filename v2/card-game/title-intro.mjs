@@ -4,9 +4,11 @@ import { PLAYING_KEY, SAVE_BASE } from "./avatar-world.mjs";
 import { imageUrl } from "./images.mjs";
 import { count } from "./metrics.mjs";
 import { revealCard } from "./card-reveal.mjs";
+import { tiers } from "./level-tiers.mjs";
 import { LOGOS, logoSite, showToolbarLogo, worldLogo } from "./title-logo.mjs";
 import { createTitleSong } from "./title-song.mjs";
 import {
+  REVEAL_FADE_MS,
   createRevealPainter,
   createTextReveal,
   letterDelay,
@@ -126,16 +128,21 @@ const link = (text, href) => {
 // a longer breath between stanzas, and a breath after its weighty words
 // (`pauses` in acknowledgement.json: the word, which time it appears,
 // counting from 1, and the ms to hold after it and any punctuation touching
-// it, a spaced dash too; the larger breath wins). Each line is set as
-// written, wrapping under a hanging indent on a narrow screen. About 18
+// it, a spaced dash too; the larger breath wins; one long silence falls
+// before "Behold"). Each line is set as
+// written, wrapping under a hanging indent on a narrow screen. About 21
 // seconds; a tap shows the rest, and the cue follows.
 export const STANZA_MS = 650;
 const escape = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-// Where each pause falls: its line, the word's span in it, and the offset
-// its breath follows.
+// Where each pause falls: its line, the word's span in it, the offset its
+// breath follows, and how many letters of the whole run are written once
+// the word is.
 export function acknowledgementPauses({ stanzas, pauses = [] }) {
   const lines = stanzas.flat();
-  return pauses.flatMap(({ word, occurrence = 1, pauseMs }) => {
+  const before = lines.map(
+    (_, line) => splitLetters(lines.slice(0, line).join("")).length,
+  );
+  return pauses.flatMap(({ word, occurrence = 1, pauseMs, tier, stays }) => {
     const pattern = new RegExp(
       `(?<![\\p{L}\\p{N}])${escape(word)}(?![\\p{L}\\p{N}])(?:[.,;:!?…—]|\\s—)*`,
       "gu",
@@ -147,11 +154,16 @@ export function acknowledgementPauses({ stanzas, pauses = [] }) {
           return [
             {
               word,
+              tier,
               pauseMs,
+              stays: !!stays,
               line,
               start: index,
               end: index + word.length,
               hold: index + match.length,
+              written:
+                before[line] +
+                splitLetters(text.slice(0, index + word.length)).length,
             },
           ];
     return [];
@@ -181,12 +193,36 @@ export function acknowledgementDelays(acknowledgement) {
     });
   });
 }
-// Real text from acknowledgement.json, set like a film's opening card.
+// The held words: the pauses with a rarity tier (the rest are silences).
+export const acknowledgementHeld = (acknowledgement) =>
+  acknowledgementPauses(acknowledgement).filter(({ tier }) => tier);
+// Which held words glow once `shown` letters are written: each from its
+// last letter for `glowHoldMs` of the reveal's own clock (so a hidden tab
+// holds it too), then it fades. Once whole, only the words that stay glow,
+// and a tap that shows the rest goes straight there.
+export function acknowledgementGlows(acknowledgement) {
+  const at = [0];
+  for (const ms of acknowledgementDelays(acknowledgement))
+    at.push(at.at(-1) + ms);
+  const pauses = acknowledgementHeld(acknowledgement);
+  return (shown, done) =>
+    pauses.map(({ written, stays }) =>
+      done
+        ? stays
+        : shown >= written &&
+          (stays ||
+            at[shown - 1] - at[written - 1] < acknowledgement.glowHoldMs),
+    );
+}
+// Real text from acknowledgement.json, set like a film's opening card. Each
+// paused word takes on its rarity tier's colour as its last letter writes,
+// and gives it back as the reveal moves on.
 function acknowledgementPanel() {
   const glyphs = [];
+  // A spaced dash keeps to the word before it, never alone on a row.
   const streamed = (words) => {
     const part = document.createDocumentFragment();
-    part.append(...letterSpans(words));
+    part.append(...letterSpans(words.replace(/ (?=—)/gu, "\u00a0")));
     glyphs.push(...part.children);
     return part;
   };
@@ -195,12 +231,35 @@ function acknowledgementPanel() {
   text.tabIndex = 0;
   text.setAttribute("role", "region");
   text.setAttribute("aria-label", acknowledgement.title);
+  const pauses = acknowledgementHeld(acknowledgement);
+  const glowing = acknowledgementGlows(acknowledgement);
+  const glows = [],
+    lighting = new Map();
+  text.style.setProperty("--glow-in", `${acknowledgement.glowInMs}ms`);
+  text.style.setProperty("--glow-fade", `${acknowledgement.glowFadeMs}ms`);
+  let at = 0;
   for (const stanza of acknowledgement.stanzas) {
     const paragraph = element("p");
     for (const words of stanza) {
       const row = element("span", "title-ack-line");
-      row.append(streamed(words));
+      let from = 0;
+      for (const pause of pauses
+        .filter(({ line }) => line === at)
+        .sort((a, b) => a.start - b.start)) {
+        const { start, end, tier } = pause;
+        row.append(streamed(words.slice(from, start)));
+        const glow = element("span", "title-ack-glow");
+        const { color } = tiers.find(({ id }) => id === tier) || tiers[0];
+        glow.dataset.tier = tier;
+        glow.style.setProperty("--tier-color", color);
+        glow.append(streamed(words.slice(start, end)));
+        glows[pauses.indexOf(pause)] = glow;
+        row.append(glow);
+        from = end;
+      }
+      row.append(streamed(words.slice(from)));
       paragraph.append(row);
+      at++;
     }
     text.append(paragraph);
   }
@@ -219,6 +278,22 @@ function acknowledgementPanel() {
     delay: (letter, i) => delays[i],
     frame: (value) => {
       painter.paint(value);
+      // A word lights once its last letter's ink is whole: its letters
+      // take their colour from it, and a change mid-ink would slow theirs.
+      const lit = glowing(value.shown, value.complete);
+      glows.forEach((glow, i) => {
+        const pending = lighting.get(glow);
+        if (!lit[i] || value.instant) {
+          clearTimeout(pending);
+          lighting.delete(glow);
+          if (lit[i]) glow.dataset.lit = "";
+          else delete glow.dataset.lit;
+        } else if (!pending && !("lit" in glow.dataset))
+          lighting.set(
+            glow,
+            setTimeout(() => (glow.dataset.lit = ""), REVEAL_FADE_MS + 40),
+          );
+      });
       if (!value.complete || !("stream" in panel.dataset)) return;
       delete panel.dataset.stream;
       panel.dataset.written = "";

@@ -5,6 +5,7 @@ import { createServer } from "../card-game/serve.mjs";
 import { startNewGame } from "./card-browser-helpers.mjs";
 import { TITLES } from "../card-game/title-intro.mjs";
 import acknowledgement from "../card-game/acknowledgement.json" with { type: "json" };
+const held = acknowledgement.pauses.filter(({ tier }) => tier);
 import {
   cardShown,
   checkTitleMusicAlone,
@@ -156,6 +157,14 @@ const streamState = (page) =>
       words: panel.querySelector(".title-ack-text").textContent,
     };
   });
+// The paused words' tiers, in order, and which of them glow now.
+const glowState = (page) =>
+  page.$$eval(".title-ack-glow", (glows) => ({
+    tiers: glows.map((glow) => glow.dataset.tier),
+    lit: glows
+      .filter((glow) => "lit" in glow.dataset)
+      .map((g) => g.textContent),
+  }));
 const whole = (state) =>
   state.dark === 0 && state.cue === "0.6" && state.words.length > 400;
 // Letters whose ink is partway in, among the newest `last` written.
@@ -288,7 +297,7 @@ try {
     // never wider than the panel on a phone.
     const ack = await page.$eval(".title-ack-text", (text) => ({
       words: text.innerText,
-      plain: text.textContent,
+      plain: text.textContent.replaceAll("\u00a0", " "),
       lines: [...text.querySelectorAll(".title-ack-line")].map((line) =>
         Math.round(
           line.getBoundingClientRect().height /
@@ -304,20 +313,26 @@ try {
     }));
     assert.match(
       ack.words,
-      /^Before our forest, there was land\.\nBefore our story, there were peoples;\nwho named the waters,\n/,
+      /^Before our forest, there was land\.\nBefore our story, there were peoples:\nwho named the waters,\n/,
     );
     assert.match(
       ack.words,
-      /wooden box,\na forest folded within\.\n\s*Open the box/,
+      /with us\.\n\s*Behold this intricately carved wooden box,\nits surface rippling with stories\nolder than you, or I\.\n\s*Open the box/,
     );
     assert.match(ack.words, /Open the box\. The path is yours\.$/);
     assert.equal(ack.plain, acknowledgement.stanzas.flat().join(""));
-    assert.equal(ack.lines.length, 15);
+    assert.equal(ack.lines.length, 17);
     assert.ok(
       ack.lines.every((rows) => rows >= 1 && rows <= (desktop ? 1 : 2)),
       JSON.stringify(ack.lines),
     );
     assert.ok(ack.overflow <= 0, `${ack.overflow}px wider than the panel`);
+    // A tap that shows the rest goes straight to the end: only "yours"
+    // keeps its glow, and every paused word carries its climbing tier.
+    assert.deepEqual(await glowState(page), {
+      tiers: held.map(({ tier }) => tier),
+      lit: ["yours"],
+    });
     assert.doesNotMatch(ack.words, /Cenetex|RATi|Foundation/u);
     assert.equal(await page.locator(".title-ack a").count(), 0);
     assert.ok(ack.size >= 17 && ack.bottom <= height, JSON.stringify(ack));
@@ -518,6 +533,31 @@ try {
   const muted = await open(off);
   await muted.goto(`${origin}/?intro=1`);
   await titlePhase(muted);
+  // Each paused word glows as it is written, in a soft tint of its tier's
+  // colour, then fades as the reveal moves on, like a lamp passing: at
+  // most two glow at once, and "yours" keeps it.
+  await muted.evaluate(() => {
+    window.__glows = [];
+    window.__mostLit = 0;
+    window.__litStyle = null;
+    new MutationObserver((changes) => {
+      for (const { target } of changes) {
+        const lit = "lit" in target.dataset;
+        window.__glows.push([target.textContent, lit, performance.now()]);
+        if (lit && !window.__litStyle) {
+          const style = getComputedStyle(target);
+          window.__litStyle = style.transitionDuration;
+        }
+      }
+      window.__mostLit = Math.max(
+        window.__mostLit,
+        document.querySelectorAll(".title-ack-glow[data-lit]").length,
+      );
+    }).observe(document.querySelector(".title-ack-text"), {
+      subtree: true,
+      attributeFilter: ["data-lit"],
+    });
+  });
   await muted.waitForSelector("#hand .card");
   // Left alone, it is written in about 18 seconds, then the cue shows,
   // and one key then goes on.
@@ -530,6 +570,33 @@ try {
   assert.ok(Date.now() - begun > 15000, `written in ${Date.now() - begun} ms`);
   await muted.waitForTimeout(1500);
   assert.ok(whole(await streamState(muted)), "the stream ends on its own");
+  const lamp = await muted.evaluate(() => ({
+    rose: window.__glows.filter(([, lit]) => lit).map(([word]) => word),
+    most: window.__mostLit,
+    style: window.__litStyle,
+  }));
+  assert.deepEqual(
+    lamp.rose,
+    held.map(({ word }) => word),
+  );
+  assert.ok(lamp.most >= 1 && lamp.most <= 2, String(lamp.most));
+  assert.equal(lamp.style, `${acknowledgement.glowInMs / 1000}s`);
+  assert.deepEqual((await glowState(muted)).lit, ["yours"]);
+  const yours = await muted.$eval(".title-ack-glow[data-lit]", (glow) => ({
+    color: getComputedStyle(glow).color,
+    base: getComputedStyle(glow.parentElement).color,
+    shadow: getComputedStyle(glow).textShadow,
+  }));
+  assert.notEqual(yours.color, yours.base, "the last word keeps its tint");
+  assert.match(yours.shadow, /^(rgba?|color)\(.+\) 0px 0px 6px$/);
+  // The whole poem fits the short phone, with no scrolling.
+  assert.ok(
+    await muted.$eval(
+      ".title-ack-text",
+      (text) => text.scrollHeight <= text.clientHeight + 1,
+    ),
+    "the poem fits 375x667",
+  );
   await shot(muted, "ack-375");
   await muted.keyboard.press("Space");
   await cardShown(muted);
@@ -557,6 +624,15 @@ try {
   await titlePhase(quiet);
   // The acknowledgement shows whole at once, and one tap goes on.
   assert.ok(whole(await streamState(quiet)), "reduced motion shows it all");
+  // Only the last word's tint shows, still: no glow, no fade.
+  assert.deepEqual((await glowState(quiet)).lit, ["yours"]);
+  assert.deepEqual(
+    await quiet.$eval(".title-ack-glow[data-lit]", (glow) => [
+      getComputedStyle(glow).transitionDuration,
+      getComputedStyle(glow).textShadow,
+    ]),
+    ["0s", "none"],
+  );
   await quiet.mouse.click(195, 10);
   await quiet.waitForSelector('.title-intro[data-phase="title"]');
   await quiet.waitForTimeout(300);
