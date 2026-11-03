@@ -743,7 +743,14 @@ and lifts over one face-down
 card, the game's own card back, with a small Privacy link (`/privacy`) under
 it. The card is a button named "Reveal your traveller" and takes focus, with
 a ring only from the keyboard; like a hand card it lifts under a pointer
-(brightens under reduced motion), and Privacy is a 24 px tap target. A
+(brightens under reduced motion), and Privacy is a 24 px tap target. Left
+alone for 3 seconds, the card breathes a faint warm glow on a slow 3.6-second
+cycle; at 6 seconds a quiet "click to reveal" line ("tap to reveal" on touch
+screens) fades in under it, styled like the acknowledgement's line, never on
+the card. The line is hidden from screen readers, which hear the card's name,
+and a tap on it turns the card too. Any tap, key or pointer over the card
+starts the wait again. Reduced motion holds the glow still and shows the line
+without a fade. The times are `REVEAL_HINT` in `title-intro.mjs`. A
 click, Enter or Space turns it with the hand's reveal (`card-reveal.mjs`) to
 the face of the avatar this world opens with (the joining avatar in a shared
 world), cloned from the hand and named for screen readers. The turn waits up to
@@ -751,9 +758,13 @@ world), cloned from the hand and named for screen readers. The turn waits up to
 frame. The card shows whole, so
 its name and shade sit on its floor, at the figure's feet, rather than a
 quarter up where the hand clips its cards. The face holds for
-0.8 seconds, then the title fades to the table while the song rings on and
-fades out over three seconds. Escape skips straight in at any step and fades
-the song over one.
+0.7 seconds; then the song fades out over 1.8 seconds as the title, card and
+all, goes to black over 0.9 seconds. Black holds 0.3 seconds, then slowly
+opens (2.5 seconds, ease-out) on the scene the world opens in: Vale's lit
+attic, or a joining avatar's place. Escape skips in at any step by the same
+way, quickly: the song fades over one second and the title over about 1.2.
+Reduced motion cuts straight to black, holds 0.3 seconds and crossfades into
+the scene over 0.3. The times are `WAKE_FADE` in `title-intro.mjs`.
 The title's card is the avatar's own card: as the title leaves, by its turn or
 by Escape, that card is uncovered in the hand (`onTitleWake`), face up with no
 second flip and announced as a new card. Skipping counts as the reveal. The
