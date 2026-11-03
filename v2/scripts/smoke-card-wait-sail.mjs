@@ -1,6 +1,8 @@
 // Wait gives way to another play, and a Wait at sea is Sail (#2027): the
-// Forest Clearing's card offers only Ring the Steam Clock, and aboard the
-// Greek ship under way the lone Wait reads Sail and carries the voyage on.
+// Forest Clearing's card offers only Ring the Steam Clock. Aboard the Greek
+// ship under way, choosing the ship's card (alone or with Vale's) reads Sail
+// and carries the voyage on; Vale's card alone reads Wait. Docked, every
+// selection reads Wait.
 import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
 import { resolve } from "node:path";
@@ -28,21 +30,21 @@ function clearing() {
   world.actors.vale.place = "clearing";
   return world;
 }
-// Board at the harbor and set a course for the pond: the ship is at sea.
-function atSea() {
+// Board at the harbor (docked), then set a course for the pond (at sea).
+function aboard(sail) {
   let world = createWorld();
   world.crossings["pond-greek-harbor"].discovered = true;
   world.actors.vale.place = "greek-harbor";
   for (const pick of [
     (a) => a.kind === "move" && a.target === "greek-ship",
-    (a) => a.kind !== "wait" && a.target === "pond",
+    ...(sail ? [(a) => a.kind !== "wait" && a.target === "pond"] : []),
   ])
     world = play(world, legalActions(world).find(pick)).state;
-  assert.equal(world.transports["greek-ship"].phase, "sea");
+  assert.equal(world.transports["greek-ship"].phase, sail ? "sea" : "docked");
   return decodeSave(encodeSave(world));
 }
 
-async function check(width, name, world, card, label, sentence) {
+async function check(width, name, world, cards, label, sentence) {
   const table = `wait-sail-${name}`;
   const page = await browser.newPage({
     viewport: { width, height: width === 390 ? 844 : 900 },
@@ -70,7 +72,8 @@ async function check(width, name, world, card, label, sentence) {
   try {
     await page.goto(`${origin}/?table=${table}`);
     await page.waitForFunction(() => document.body.inert === false);
-    await selectCard(page, card, { touch: width === 390 });
+    for (const card of [cards].flat())
+      await selectCard(page, card, { touch: width === 390 });
     const buttons = page.locator("#card-actions button");
     await page.waitForFunction(
       (label) =>
@@ -118,10 +121,46 @@ try {
       "Vale rings the Steam Clock's bell. The sound rolls between the trees.",
     );
     await glade.close();
+    // Docked, a wait moves nothing: every selection reads Wait.
+    for (const [name, cards] of [
+      ["docked-vale", "vale"],
+      ["docked-ship", "greek-ship"],
+    ])
+      await (
+        await check(
+          width,
+          name,
+          aboard(false),
+          cards,
+          "Wait",
+          "Vale waits one turn.",
+        )
+      ).close();
+    // Under way, Vale alone waits; choosing the ship sails.
+    await (
+      await check(
+        width,
+        "sea-vale",
+        aboard(true),
+        "vale",
+        "Wait",
+        "Vale waits one turn.",
+      )
+    ).close();
+    await (
+      await check(
+        width,
+        "sea-vale-ship",
+        aboard(true),
+        ["vale", "greek-ship"],
+        "Sail",
+        "Vale sails on.",
+      )
+    ).close();
     const ship = await check(
       width,
       "ship",
-      atSea(),
+      aboard(true),
       "greek-ship",
       "Sail",
       "Vale sails on.",

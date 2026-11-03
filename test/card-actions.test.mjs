@@ -223,7 +223,7 @@ describe("Sleep after a Wait (#2028)", () => {
 
 describe("Wait gives way; a wait at sea is Sail (#2027)", () => {
   const shown = (world, cards, again = false) =>
-    restPlays(world, cardActions(world, cards).actions, again);
+    restPlays(world, cardActions(world, cards).actions, again, cards);
   it("drops the plain Wait beside another play but never Sleep", () => {
     const world = createWorld();
     world.actors.vale.place = "clearing";
@@ -259,15 +259,37 @@ describe("Wait gives way; a wait at sea is Sail (#2027)", () => {
     const step = (pick) =>
       (world = play(world, legalActions(world).find(pick)).state);
     step((a) => a.kind === "move" && a.target === "greek-ship");
-    // Docked, a wait goes nowhere yet, so it stays Wait.
-    expect(shown(world, ["greek-ship"]).map(playLabel)).toEqual(["Wait"]);
+    // Docked, a wait goes nowhere yet, so it stays Wait for every selection.
+    for (const cards of [["vale"], ["greek-ship"], ["vale", "greek-ship"]]) {
+      expect(shown(world, cards).map(playLabel)).toEqual(["Wait"]);
+      expect(playText(shown(world, cards)[0])).toBe("Vale waits one turn.");
+    }
     step((a) => a.target === "pond" && a.kind !== "wait");
     expect(world.transports["greek-ship"].phase).toBe("sea");
     const [sail] = shown(world, ["greek-ship"]);
     expect(playLabel(sail)).toBe("Sail");
     expect(playText(sail)).toBe("Vale sails on.");
     expect(sail.kind).toBe("wait");
-    expect(playLabel(cardPlay(world, ["vale"]).action)).toBe("Sail");
+    // Sail is choosing the ship: the ship's card, alone or with Vale's.
+    for (const cards of [["greek-ship"], ["vale", "greek-ship"]]) {
+      const [play] = shown(world, cards);
+      expect([playLabel(play), playText(play), play.kind]).toEqual([
+        "Sail",
+        "Vale sails on.",
+        "wait",
+      ]);
+      expect(playLabel(cardPlay(world, cards).action)).toBe("Sail");
+    }
+    // Vale alone waits, the same rules wait, and Sleep stays off aboard.
+    const [wait] = shown(world, ["vale"]);
+    expect([playLabel(wait), playText(wait), wait.kind]).toEqual([
+      "Wait",
+      "Vale waits one turn.",
+      "wait",
+    ]);
+    expect(wait.key).toBe(sail.key);
+    expect(playLabel(cardPlay(world, ["vale"]).action)).toBe("Wait");
+    expect(shown(world, ["vale"], true).map(playLabel)).toEqual(["Wait"]);
     expect(play(world, sail).state.transports["greek-ship"]).toMatchObject({
       phase: "arrived",
       dock: "pond",
