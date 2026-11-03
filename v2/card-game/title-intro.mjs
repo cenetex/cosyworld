@@ -23,6 +23,24 @@ export const INTRO_KEY = "cosyworld.title-intro";
 export const TITLES = LOGOS.map((logo) => logo.src);
 const BLACK_MS = 350,
   LOAD_LIMIT_MS = 2500;
+// Left alone, the face-down card glows faintly (style.css) after idleGlowMs,
+// then "tap to reveal" shows under it at hintMs. A tap, a key or a pointer
+// over the card starts the wait again.
+export const REVEAL_HINT = { idleGlowMs: 3000, hintMs: 6000 };
+// Leaving: the turned face holds, the song fades as the title goes to black,
+// black holds a breath, then slowly opens on the world's scene. Escape is the
+// short way; reduced motion cuts to black and crossfades quickly.
+export const WAKE_FADE = {
+  turn: {
+    holdMs: 700,
+    songSeconds: 1.8,
+    blackMs: 900,
+    darkMs: 300,
+    sceneMs: 2500,
+  },
+  skip: { songSeconds: 1, blackMs: 250, darkMs: 100, sceneMs: 800 },
+  reduced: { blackMs: 0, darkMs: 300, sceneMs: 300 },
+};
 
 // Only on Lonely Forest: no other site's landing, not the local CosyWorld
 // app, no table or pack link. Automated browsers need `intro=1`.
@@ -282,16 +300,19 @@ export function playTitleIntro({
   let phase = "black",
     leaving = false,
     songDone = Promise.resolve(),
+    fades = WAKE_FADE.turn,
     leave;
   const left = new Promise((resolve) => (leave = resolve));
   const race = (promise) => Promise.race([promise, left]);
-  // Waking lets the song ring on as the table shows; Escape fades it fast.
-  const finish = (fadeSeconds = 3) => {
+  // The song fades as the title goes to black; Escape takes the short way.
+  const finish = (way = "turn") => {
     if (leaving) return;
     leaving = true;
+    idle(false);
     words.cancel();
     document.removeEventListener("visibilitychange", hidden);
-    songDone = song.stop(fadeSeconds);
+    fades = { ...WAKE_FADE[way], ...(reduced && WAKE_FADE.reduced) };
+    songDone = song.stop(fades.songSeconds);
     wake();
     leave();
   };
@@ -314,9 +335,25 @@ export function playTitleIntro({
   card.append(back);
   const frame = element("div", "card-frame title-card");
   frame.append(card);
+  // The way to turn it, under the card (never on it). The card's own name
+  // says it to screen readers, so this line is hidden from them.
+  const tap = matchMedia("(pointer: coarse)").matches;
+  const hint = element("p", "title-hint", `${tap ? "tap" : "click"} to reveal`);
+  hint.setAttribute("aria-hidden", "true");
   const row = element("div", "title-reveal");
-  row.append(frame, link("Privacy", "/privacy"));
+  row.append(frame, hint, link("Privacy", "/privacy"));
   row.lastChild.className = "title-privacy";
+  let idleTimers = [];
+  const idle = (again = true) => {
+    idleTimers.forEach(clearTimeout);
+    delete row.dataset.idle;
+    if (!again || phase !== "card" || leaving) return;
+    const { idleGlowMs, hintMs } = REVEAL_HINT;
+    idleTimers = [
+      setTimeout(() => (row.dataset.idle = "glow"), idleGlowMs),
+      setTimeout(() => (row.dataset.idle = "hint"), hintMs),
+    ];
+  };
 
   const loaded = new Promise((resolve) => {
     image.onload = () => resolve(true);
@@ -330,6 +367,7 @@ export function playTitleIntro({
   const turn = async () => {
     if (phase !== "card" || leaving) return;
     phase = layer.dataset.phase = "revealed";
+    idle(false);
     count("intro.wake");
     const face =
       wakeId &&
@@ -350,10 +388,12 @@ export function playTitleIntro({
     card.dataset.unrevealed = "false";
     card.setAttribute("aria-label", wakeName || "Your traveller");
     if (!reduced) await race(revealCard(card));
-    await race(wait(800));
+    await race(wait(WAKE_FADE.turn.holdMs));
     finish();
   };
   card.addEventListener("click", turn);
+  hint.addEventListener("click", turn);
+  card.addEventListener("pointermove", () => idle());
   // The logo lifts over the card, with the Privacy page under it.
   const showWake = () => {
     if (phase !== "title" || leaving) return;
@@ -370,6 +410,7 @@ export function playTitleIntro({
     layer.append(row);
     fade(row, reduced ? 250 : 600, reduced ? 0 : 300);
     card.focus({ preventScroll: true });
+    idle();
   };
   // The acknowledgement's gesture: the logo and the song.
   const showTitle = async () => {
@@ -421,7 +462,10 @@ export function playTitleIntro({
     if (!event.target.closest?.("a, button")) advance();
   });
   // A pointer hides the card's focus ring; the keyboard brings it back.
-  layer.addEventListener("pointerdown", () => (layer.dataset.pointer = "true"));
+  layer.addEventListener("pointerdown", (event) => {
+    layer.dataset.pointer = "true";
+    if (event.target !== hint) idle();
+  });
   // Keep focus on the step's button rather than the tapped title.
   layer.addEventListener("mousedown", (event) => {
     if (!event.target.closest?.("a, button, .title-ack-text"))
@@ -431,10 +475,11 @@ export function playTitleIntro({
     if (["Shift", "Control", "Alt", "Meta"].includes(event.key)) return;
     event.stopPropagation();
     delete layer.dataset.pointer;
+    idle();
     if (event.key === "Escape") {
       event.preventDefault();
       if (!leaving) count("intro.skip");
-      finish(1);
+      finish("skip");
       return;
     }
     // Tab moves between the step's links and button; Enter and Space press
@@ -471,12 +516,19 @@ export function playTitleIntro({
       next.focus({ preventScroll: true, focusVisible: false });
     }
     await left;
-    layer.dataset.phase = "out";
     window.removeEventListener("keydown", onKey, true);
+    // To black, a breath of it, then the scene slowly comes up.
+    const { blackMs, darkMs, sceneMs } = fades;
+    phase = layer.dataset.phase = "dark";
+    const dark = element("div", "title-dark");
+    layer.append(dark);
+    await fade(dark, blackMs).finished.catch(() => {});
+    await wait(darkMs);
+    layer.dataset.phase = "out";
     await layer
       .animate([{ opacity: 1 }, { opacity: 0 }], {
-        duration: reduced ? 250 : 900,
-        easing: "ease",
+        duration: sceneMs,
+        easing: "ease-out",
         fill: "both",
       })
       .finished.catch(() => {});
