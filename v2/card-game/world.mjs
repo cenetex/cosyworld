@@ -68,6 +68,7 @@ import {
   wake,
   dropQuest,
   focusQuest,
+  pushQuest,
   questsOf,
   levelOf,
   wantOf,
@@ -77,6 +78,7 @@ import {
   meetsItemWant,
   refuseWant,
   reviseStalledWants,
+  setAsideWant,
   fillWants,
   renewWant,
   validWant,
@@ -103,6 +105,7 @@ import {
   applyMeetingChoices,
   applyHoldChoices,
   packGiveChoice,
+  makerChoice,
   packWaitChoice,
   applyDeparture,
   departureWaits,
@@ -169,6 +172,12 @@ import {
   laneOfEdge,
 } from "./pack-transport.mjs";
 import { upgradeSave } from "./legacy-saves.mjs";
+import {
+  installItemCycle,
+  settleItemCycle,
+  settleVoyageCargo,
+  validItemCycle,
+} from "./pack-items.mjs";
 import { installSpecials, validSeed } from "./pack-specials.mjs";
 import forest from "./forest.json" with { type: "json" };
 import { BOARDY, connectedHumans } from "./boardyai.mjs";
@@ -285,6 +294,7 @@ export function createWorld({ opening = false, packScopes = {}, seed } = {}) {
 // Mount every pack missing from this save: its crossings, its state, and its
 // residents with fresh relationships. Earlier saves keep their own history.
 function installPacks(s) {
+  const added = [];
   installTransports(s);
   s.crossings ??= {};
   s.packs ??= {};
@@ -330,6 +340,7 @@ function installPacks(s) {
       if (s.items[id]) throw new Error("A pack item is already present.");
       s.items[id] = { holder: item.holder, history: [] };
       s.memories[id] = fresh[id];
+      added.push(id);
     }
     for (const [id, actor] of Object.entries(s.actors))
       for (const other of Object.keys(pack.avatars))
@@ -337,6 +348,7 @@ function installPacks(s) {
     for (const id of Object.keys(pack.places)) s.memories[id] ??= fresh[id];
   }
   for (const pack of packDefinitions) installSpecials(s, pack);
+  installItemCycle(s, added);
   installLife(s, travels);
   installRouteKnowledge(s);
   installWants(s);
@@ -567,6 +579,30 @@ export function exits(s, place, actor = null, previous = null) {
   );
 }
 
+// A sealed way (rules 95): a pack route that names its sealed card and the
+// quest that opens it, while it is shut from where the traveller stands.
+const sealedRoutes = packDefinitions.flatMap((pack) =>
+  (pack.routes || []).filter((r) => r.sealed),
+);
+export function sealedWays(s, actor = currentActor(s)) {
+  const here = s.actors[actor]?.place,
+    ways = sealedRoutes.filter(
+      (r) => r.from === here && entityActive(s, r.to) && entityActive(s, here),
+    );
+  if (!ways.length) return [];
+  const open = exits(s, here, actor);
+  return ways.filter((r) => !open.includes(r.to));
+}
+// The quest a sealed card gives: the thing to hold, or to give someone, the
+// place to reach or the person to talk with.
+const gateQuest = (s, { kind, target, to }) => ({
+  kind,
+  target,
+  since: s.turn,
+  refusals: 0,
+  story: true,
+  ...(to ? { step: { verb: "give", to } } : {}),
+});
 function meetCast(s) {
   const player = currentActor(s);
   for (const [id, a] of Object.entries(packPeople))
@@ -1653,6 +1689,17 @@ export function legalActions(s, actor = currentActor(s)) {
   // A player may drop any quest in its stack (a level quest costs half the
   // experience), or choose one from beneath, which brings it to the top
   // without taking a turn.
+  // A sealed card gives its quest, unless that quest is already on top.
+  if (controlledByHuman(s, actor))
+    for (const r of sealedWays(s, actor)) {
+      const top = questsOf(s, actor)[0];
+      if (
+        top?.kind === r.sealed.quest.kind &&
+        top.target === r.sealed.quest.target
+      )
+        continue;
+      out.push(offer("gate", actor, null, r.to, r.sealed.reason, [r.to]));
+    }
   if (actor === currentActor(s) || controlledByHuman(s, actor))
     questsOf(s, actor).forEach((w, quest) => {
       const drop = offer(
@@ -1698,6 +1745,7 @@ const ROOM_LOCKED = new Set([
   "move",
   "accompany",
   "course",
+  "gate",
   "take",
   "drop",
   "give",
@@ -2528,6 +2576,8 @@ function wantPlan(s, actor) {
   }
   if (!want) return idle();
   if (resting(s, actor)) return idle();
+  // A maker leaves what it makes for others to carry.
+  if (want.kind === "item" && makerChoice(actor, want.target)) return idle();
   const go = (place) => {
     if (!travels(actor, s) || staysPut(actor, s)) return idle();
     const step = stepToward(s, actor, place);
@@ -2657,6 +2707,23 @@ export function play(
     validateWorld(next);
     return { ok: true, state: next };
   }
+  // A sealed card hands its quest to the traveller, as picking a quest does:
+  // no turn passes (rules 95).
+  if (exact.kind === "gate") {
+    next.revision += 1;
+    const way = sealedWays(next, actor).find((r) => r.to === exact.target);
+    const quest = pushQuest(next, actor, gateQuest(next, way.sealed.quest));
+    const what = wantText(quest).replace(/(^| )The /gu, "$1the ");
+    addLog(next, "World", `${nameOf(actor)} takes up a quest: ${what}.`, {
+      kind: "action",
+      actorId: actor,
+      verb: "gate",
+      targetId: exact.target,
+      witnesses: [actor],
+    });
+    validateWorld(next);
+    return { ok: true, state: next };
+  }
   // Crossings open before the play decide whether a signal refreshes them.
   const round = beginRound(s, sensesFor(s));
   next.turn += 1;
@@ -2773,11 +2840,22 @@ export function play(
       "World",
       voyage.kind === "arrive"
         ? `${nameOf(ship)} docks at ${nameOf(voyage.dock)}.`
-        : `${nameOf(ship)} ${voyage.idle ? "sails on its own" : "casts off"} for ${nameOf(voyage.to)}.`,
-      { locationId: ship },
+        : voyage.kind === "home"
+          ? `With no cargo to sail on, ${nameOf(ship)} puts in at ${nameOf(voyage.dock)}, and everyone aboard goes ashore.`
+          : `${nameOf(ship)} ${voyage.idle ? "sails on its own" : "casts off"} for ${nameOf(voyage.to)}.`,
+      { locationId: voyage.kind === "home" ? voyage.dock : ship },
     );
+    // Residents put ashore set that pursuit aside.
+    if (voyage.kind === "home")
+      for (const id of voyage.ashore)
+        if (!controlledByHuman(next, id)) setAsideWant(next, id, wantAPI(next));
   }
+  const worldLine = (text, locationId) =>
+    addLog(next, "World", text, { kind: "narration", locationId });
+  settleVoyageCargo(next, voyages, nameOf, worldLine);
   wakeSleepers(next, s, voyages);
+  // Regrowth, the dawn safeguard and kits follow the light and long rests.
+  settleItemCycle(next, nameOf, worldLine);
   reviseStalledWants(
     next,
     wantActors(next, [...residents, ...roamingActors]).filter(
@@ -2944,7 +3022,7 @@ export function validateWorld(s) {
     (Object.keys(s.run || {}).join() !== "seed" || !validSeed(s.run.seed))
   )
     fail();
-  if (!validPackState(s, sensesFor(s))) fail();
+  if (!validPackState(s, sensesFor(s)) || !validItemCycle(s)) fail();
   if (
     !validOpenedRoutes(s.openedRoutes) ||
     !validHidden(s) ||
@@ -3186,6 +3264,7 @@ export function validateWorld(s) {
     "take",
     "drop",
     "focus",
+    "gate",
     "give",
     "ask",
     "light",
@@ -3331,7 +3410,14 @@ export function encodeSave(s) {
 export function decodeSave(text) {
   const s = JSON.parse(text);
   try {
-    upgradeSave(s, { actorIds, installPacks, laneText: laneFactText });
+    upgradeSave(s, {
+      actorIds,
+      installPacks,
+      laneText: laneFactText,
+      setAside: (world, id) =>
+        !controlledByHuman(world, id) &&
+        setAsideWant(world, id, wantAPI(world)),
+    });
     // An earlier save records the gates already open as it loads.
     latchRoutes(s);
     validateWorld(s);

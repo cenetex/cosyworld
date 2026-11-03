@@ -98,6 +98,7 @@ const released = {
   91: "2fae8e7eb4859a536a4832f8a959564c8d23f3fc00346c138cfbf2880bf335c4",
   92: "75c59c37e816f0265361829572b6c7b1e1e822bf388d4a19df4a9d4ad5f5e1cf",
   93: "5e715382e000e2ee4532067c94bb00f627e5a383c46aa98e7ec9dff0f69cca57",
+  94: "e7783ada71f7a345df9be503f153e6e963adbaaf60558f2502feb96cb8e7a7ea",
 };
 
 it("preserves every released and qualified interpreter for exact journal replay", () => {

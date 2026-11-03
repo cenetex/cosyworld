@@ -7,6 +7,7 @@ import {
 } from "./human-cast.mjs";
 import { knowsFact } from "./knowledge.mjs";
 import { locationWeather } from "./weather.mjs";
+import { usedUp } from "./item-use.mjs";
 // General rules over world-pack data: crossings and their signals, fixtures
 // that sound, and residents with a temperament. No rule here names a pack,
 // place, resident or hub object; the compiled packs supply every name.
@@ -120,7 +121,10 @@ export function conditionMet(s, c, senses, packId = null, actor = null) {
       return (c.topics || [c.topic]).some((topic) => knowsFact(s, who, topic));
     }
     case "holding":
-      return s.items[c.item]?.holder === (c.role === "actor" ? actor : c.actor);
+      return (
+        s.items[c.item]?.holder === (c.role === "actor" ? actor : c.actor) &&
+        !usedUp(s, c.item)
+      );
     // A one-way cosmetic upgrade the traveler carries between worlds (#1873).
     case "upgraded":
       return Boolean(s.actors[actor]?.upgrades?.includes(c.upgrade));
@@ -136,6 +140,7 @@ export function conditionMet(s, c, senses, packId = null, actor = null) {
         humanAvatarIds.filter((id) => humanPresent(s, id)).length >= c.minimum
       );
     case "item_near": {
+      if (usedUp(s, c.item)) return false;
       let holder = s.items[c.item]?.holder;
       const seen = new Set([c.item]);
       while (s.items[holder] && !seen.has(holder)) {
@@ -148,7 +153,11 @@ export function conditionMet(s, c, senses, packId = null, actor = null) {
       );
     }
     case "item_present":
-      return Boolean(s.items[c.item] && objectPlace(s, c.item) === c.place);
+      return Boolean(
+        s.items[c.item] &&
+          !usedUp(s, c.item) &&
+          objectPlace(s, c.item) === c.place,
+      );
     // Any thing tagged c.tag, carried by someone present at c.place.
     case "tag_held":
       // A worn upgrade of that name counts as carrying the tag (#1873).
@@ -170,7 +179,7 @@ export function conditionMet(s, c, senses, packId = null, actor = null) {
         })
       );
     case "item_at":
-      return s.items[c.item]?.holder === c.place;
+      return s.items[c.item]?.holder === c.place && !usedUp(s, c.item);
     // Any thing from that world in the place: carried there or resting there.
     case "pack_item_present":
       return Object.keys(s.items).some(

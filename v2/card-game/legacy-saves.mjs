@@ -23,12 +23,15 @@ import {
   laneOfEdge,
   learnLane,
   passengers,
+  sendShipHome,
+  stuckShip,
   upgradeTransportState,
 } from "./pack-transport.mjs";
 import { installKnowledge } from "./knowledge.mjs";
 import { questSteps } from "./want.mjs";
 import { newTemperament } from "./pack-rules.mjs";
 import forest from "./forest.json" with { type: "json" };
+import { installItemCycle } from "./pack-items.mjs";
 
 // The quest machinery was replaced by one want per avatar. Its saved records
 // are dropped; each avatar's want is installed again from authored data.
@@ -55,9 +58,13 @@ export function forgetQuests(s) {
 // World-owned helpers keep pack installation on the same path as a new game,
 // while this module owns the schema order. Saves before schema 6 come from
 // the first alpha tables and start fresh.
-export function upgradeSave(s, { installPacks, laneText = () => null }) {
+export function upgradeSave(
+  s,
+  { installPacks, laneText = () => null, setAside = () => {} },
+) {
   if (!s || ![6, 7].includes(s.schema))
     throw new Error("This save needs a fresh start.");
+  const beforeItemCycle = !Array.isArray(s.usedUp);
   // Packs saved at an earlier revision follow their reworked story below.
   const reworked = new Set(
     packDefinitions
@@ -157,6 +164,13 @@ export function upgradeSave(s, { installPacks, laneText = () => null }) {
         (pack.topics || []).map((topic) => ({ ...topic, packId: pack.id })),
       ),
     );
+  // A save from before rules 95 may hold a ship already stuck, its riders
+  // waiting aboard for a shut cargo lane: it goes home now (rules 95).
+  if (beforeItemCycle)
+    for (const id of Object.keys(transports))
+      if (s.transports?.[id] && stuckShip(s, id))
+        // Residents set that pursuit aside, as in play.
+        for (const actor of sendShipHome(s, id).ashore) setAside(s, actor);
   return s;
 }
 
@@ -180,10 +194,12 @@ export function reconcileContent(s) {
   for (const pack of packDefinitions)
     for (const [id, item] of Object.entries(pack.items || {}))
       authored[id] ??= { holder: item.holder, history: [] };
+  const added = [];
   for (const [id, item] of Object.entries(authored))
     if (!Object.hasOwn(s.items, id)) {
       s.items[id] = item;
       if (s.memories) s.memories[id] ??= fresh[id];
+      added.push(id);
     }
   const root = (id) => {
     let holder = s.items[id]?.holder;
@@ -205,6 +221,14 @@ export function reconcileContent(s) {
     if (s.memories) delete s.memories[id];
   }
   forgetRetiredThings(s, new Set(gone));
+  // A used-up thing waits where its content now starts it (rules 95).
+  if (Array.isArray(s.usedUp)) {
+    s.usedUp = s.usedUp.filter((id) => Object.hasOwn(s.items, id));
+    for (const pack of packDefinitions)
+      for (const [id, item] of Object.entries(pack.items || {}))
+        if (s.usedUp.includes(id)) s.items[id].holder = item.holder;
+    installItemCycle(s, added);
+  }
 }
 
 // A story step the content no longer leads to leaves a save from an earlier

@@ -6,6 +6,7 @@ import { validFactText } from "./knowledge.mjs";
 import { EXPRESSION_TYPES } from "./expression.mjs";
 import { humanAvatarIds } from "./human-cast.mjs";
 import { RARITY_WEIGHTS } from "./pack-specials.mjs";
+import { itemCycleProblems } from "./pack-items-schema.mjs";
 
 export const PACK_SCHEMA_VERSION = 1;
 export const AUTHORED_TOPIC_LIMIT = 128;
@@ -128,7 +129,7 @@ export function laneProblems(t) {
     leaving = new Set();
   for (const lane of t.lanes) {
     if (
-      !keysOk(lane, ["from", "to", "oneWay", "opensWith"]) ||
+      !keysOk(lane, ["from", "to", "oneWay", "opensWith", "spends"]) ||
       !docks.includes(lane.from) ||
       !docks.includes(lane.to) ||
       lane.from === lane.to ||
@@ -336,6 +337,7 @@ export function packProblems(pack, hub, mountedPlaces = [], mountedItems = []) {
       "situations",
       "specials",
       "hiding",
+      "kits",
     ]),
     "has an unknown top-level field",
   );
@@ -1149,6 +1151,10 @@ export function packProblems(pack, hub, mountedPlaces = [], mountedItems = []) {
         "requires",
         "startLevel",
         "tags",
+        "home",
+        "regrow",
+        "startsUsed",
+        "absentReturn",
       ]) &&
         (i.tags === undefined ||
           (Array.isArray(i.tags) &&
@@ -1173,12 +1179,29 @@ export function packProblems(pack, hub, mountedPlaces = [], mountedItems = []) {
   const routes = pack.routes || [];
   for (const r of routes) {
     check(
-      keysOk(r, ["from", "to", "requires", "live"]) &&
+      keysOk(r, ["from", "to", "requires", "live", "sealed"]) &&
         (r.live === undefined || r.live === true) &&
         owns(places, r.from) &&
         owns(places, r.to) &&
         r.from !== r.to,
       "routes must stay within their pack",
+    );
+    // A gated route may show a sealed card whose quest opens it (rules 95).
+    const q = r.sealed?.quest;
+    check(
+      r.sealed === undefined ||
+        (keysOk(r.sealed, ["quest", "reason"]) &&
+          Boolean(r.requires?.length) &&
+          textOk(r.sealed.reason, 240) &&
+          keysOk(q, ["kind", "target", "to"]) &&
+          (q.kind === "item"
+            ? owns(items, q.target) &&
+              (q.to === undefined || owns(avatars, q.to))
+            : q.to === undefined &&
+              (q.kind === "place"
+                ? owns(places, q.target)
+                : q.kind === "person" && owns(avatars, q.target)))),
+      `route ${r.from}>${r.to} sealed card needs a gate, a reason and a quest`,
     );
     requirements(r.requires, "route requires");
     check(
@@ -1206,6 +1229,7 @@ export function packProblems(pack, hub, mountedPlaces = [], mountedItems = []) {
         "workId",
         "on",
         "for",
+        "repeats",
       ]) &&
         idOk(c.id) &&
         (c.on === undefined ||
@@ -1280,14 +1304,25 @@ export function packProblems(pack, hub, mountedPlaces = [], mountedItems = []) {
           keysOk(e, ["kind", "upgrade"]) &&
           idOk(e.upgrade) &&
           c.for !== undefined;
+      // A choice uses up a thing in the actor's hands, or one at its place
+      // (a rite uses up what lies on the grave).
       if (e.kind === "retire_item")
         valid =
           keysOk(e, ["kind", "item"]) &&
           owns(items, e.item) &&
-          (c.requires || []).some(
-            (r) =>
-              r.kind === "holding" && r.item === e.item && r.role === "actor",
-          );
+          (c.requires || [])
+            .flatMap((r) => (r.kind === "any" ? r.conditions : [r]))
+            .some(
+              (r) =>
+                r.item === e.item &&
+                ((r.kind === "holding" && r.role === "actor") ||
+                  (["item_near", "item_at"].includes(r.kind) &&
+                    r.place === c.at)),
+            );
+      // The subject sets a used-up thing down at the choice's place.
+      if (e.kind === "drop_item")
+        valid =
+          keysOk(e, ["kind", "item"]) && owns(items, e.item) && c.on !== "hold";
       check(valid, `choice ${c.id} effect is unsupported or lacks custody`);
     }
   }
@@ -1819,5 +1854,8 @@ export function packProblems(pack, hub, mountedPlaces = [], mountedItems = []) {
     crossings.some((c) => owns(places, c?.from) && !owns(places, c.to)),
     "the bridge needs a crossing back to the hub",
   );
+  for (const kit of Array.isArray(pack.kits) ? pack.kits : [])
+    requirements(kit?.requires, `kit ${kit?.id} requires`);
+  problems.push(...itemCycleProblems(pack, mountedPlaces, hub?.places || []));
   return problems;
 }
