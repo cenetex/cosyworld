@@ -208,7 +208,11 @@ voiced or saved, and nothing asks again for it. A line either arrives whole
 or is "…": a beat never carries both. The browser makes one quiet automatic
 attempt for a temporary error inside the scene's budget before it falls
 silent; a 429 is not retried. The metrics still count each outcome as
-`voice.failed` or `voice.silent`, with no UI.
+`voice.failed` or `voice.silent`, with no UI. A reply the scene outgrew while
+it was written (its revision moved, so the table drops it) also counts
+`voice.mismatch`, and each speaker left "…" by an otherwise good reply counts
+`voice.speaker_silent`. The server's `card voice scene` log and `/meta`
+`card_voice.scenes` count the rest per speaker, shared plays included.
 
 In shared play the server finishes a play whose words failed as a silent
 scene: no speech op is journaled (exactly as for words that never came, so

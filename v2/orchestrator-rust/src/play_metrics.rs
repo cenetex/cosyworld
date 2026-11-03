@@ -39,7 +39,8 @@ pub(crate) const COUNTERS: &str = "\
     play.use play.wait play.other quest.accept quest.abandon quest.met \
     line.skip line.finish_early scrollback.open voice.line.lt2s \
     voice.line.2to5s voice.line.5to10s voice.line.10to20s voice.line.gt20s \
-    voice.silent voice.failed travel defeat intro.skip intro.wake \
+    voice.silent voice.failed voice.mismatch voice.speaker_silent travel \
+    defeat intro.skip intro.wake \
     error.network error.timeout error.rules_reject error.storage \
     error.script error.other";
 

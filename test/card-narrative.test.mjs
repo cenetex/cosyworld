@@ -672,6 +672,29 @@ describe("entity memories and model text", () => {
     expect(vi.getTimerCount()).toBe(0);
   });
 
+  it("marks a reply the scene outgrew as a mismatch", async () => {
+    vi.useFakeTimers();
+    const world = act(createWorld(), "take", "lamp");
+    const status = vi.fn();
+    const request = vi.fn(async (context) => ({
+      revision: context.revision + 1,
+      model: "card-voices-v1",
+      entries: [],
+      omitted: [],
+    }));
+    const narrator = createNarrator({
+      getWorld: () => world,
+      apply: vi.fn(),
+      status,
+      request,
+    });
+    narrator.changed({ kind: "take", item: "lamp" });
+    await vi.advanceTimersByTimeAsync(750);
+    const [value, error] = status.mock.calls.at(-1);
+    expect(value).toBe("failed");
+    expect(error.code).toBe("mismatch");
+  });
+
   it("ends failed dialogue as silence without a world turn or another request", async () => {
     vi.useFakeTimers();
     let world = act(createWorld(), "take", "lamp");
