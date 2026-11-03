@@ -97,6 +97,22 @@ export function returnVisit() {
       lines: before.lines,
     },
     { name: "return visit after", context: after.context, lines: after.lines },
+    ...pondVisit(world),
+  ];
+}
+
+// The same pair talking again at the pond, where "Recent talk here" is
+// empty, so the last words between them show under "Between us".
+function pondVisit(world) {
+  world = step(world, "accompany", "moth", 4).world;
+  if (world.actors.moth.place !== world.actors.vale.place)
+    throw new Error("Pip did not come along");
+  world = step(world, "move", "pond", 4).world;
+  if (world.actors.moth.place !== "pond")
+    throw new Error("Pip is not at the pond");
+  const talk = step(world, "talk", "moth", 5);
+  return [
+    { name: "return visit pond", context: talk.context, lines: talk.lines },
   ];
 }
 

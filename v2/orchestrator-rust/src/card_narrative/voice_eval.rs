@@ -360,19 +360,35 @@ fn a_return_visit_remembers_what_is_between_us() {
     let vale = prompt("return visit after", "vale");
     let between = vale.split_once("Between us:\n").unwrap().1;
     assert!(between.starts_with(
-        "I witnessed this a little while ago at Empty station: Pip threatens Vale over the Lamp.\n\
+        "Pip threatened me over the Lamp, a little while ago.\n\
+         I threatened Pip over the Black cloth, some time ago.\n\
          Pip gave me this Black cloth. I'm keeping it."
     ));
     assert!(
         !vale.contains("last said"),
         "the talk here already shows it"
     );
+    // Pip sees his own newer threat first, then Vale's older one.
     let pip = prompt("return visit after", "moth");
     assert!(pip.contains(
-        "Between us:\nI witnessed this some time ago at Empty station: Vale threatens Pip over the Black cloth."
+        "Between us:\nI threatened Vale over the Lamp, a little while ago.\n\
+         Vale threatened me over the Black cloth, some time ago."
     ));
-    // Each fact appears once.
-    assert_eq!(pip.matches("Vale threatens Pip").count(), 1);
+    // The rules' third-person account is not told twice.
+    for prompt in [&vale, &pip] {
+        assert!(!prompt.contains(" threatens "), "{prompt}");
+    }
+    // At the pond the talk here is new, so the last words between them show.
+    let vale = prompt("return visit pond", "vale");
+    assert!(!vale.contains("Recent talk here"), "{vale}");
+    let between = vale.split_once("Between us:\n").unwrap().1;
+    assert!(
+        between.starts_with(
+            "Pip threatened me over the Lamp, some time ago.\n\
+             Pip last said to me, a little while ago: Then stay. I like company in the dark."
+        ),
+        "{between}"
+    );
 }
 
 #[test]

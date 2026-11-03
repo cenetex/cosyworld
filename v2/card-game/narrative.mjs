@@ -182,8 +182,9 @@ export function turnOutcome(world) {
 }
 
 // An avatar does not retell its own earlier deed ("I threatened the Keeper
-// over the Bell") unless this Talk tells it (#1850).
-function pastDeedsAside(world, id, telling) {
+// over the Bell") unless this Talk tells it (#1850). A fact "Between us"
+// retells in the speaker's own words is not said twice either.
+function pastDeedsAside(world, id, telling, retold = []) {
   const known = world.knowledge?.known?.[id];
   if (!known) return world;
   const keep = Object.fromEntries(
@@ -191,9 +192,10 @@ function pastDeedsAside(world, id, telling) {
       const source = world.knowledge.facts[factId]?.source;
       return (
         telling.includes(factId) ||
-        source?.kind !== "event" ||
-        source.actorId !== id ||
-        source.turn >= world.turn
+        (!retold.includes(factId) &&
+          (source?.kind !== "event" ||
+            source.actorId !== id ||
+            source.turn >= world.turn))
       );
     }),
   );
@@ -464,11 +466,14 @@ export function narrativeContext(world, action = null) {
         quest.since === world.turn
           ? `In a dream, the quest for level ${quest.quest.level}: ${wantText(quest)}.`
           : null;
+      const between = beforeFirstLight
+        ? { entries: [], retold: [] }
+        : betweenUs(world, id, speakers, nameOf);
       const facts = [
         ...(dreamt ? [dreamt] : []),
         ...(want ? [want] : []),
         ...knowledgeFacts(
-          pastDeedsAside(world, id, told(id)),
+          pastDeedsAside(world, id, told(id), between.retold),
           id,
           nameOf,
           told(id),
@@ -638,9 +643,6 @@ export function narrativeContext(world, action = null) {
       facts.push(
         `At the dialogue scene: ${present.map(nameOf).join(", ")}. Items here: ${localItems.map(nameOf).join(", ") || "none"}.`,
       );
-      const between = beforeFirstLight
-        ? []
-        : betweenUs(world, id, speakers, nameOf);
       return {
         id,
         poem: recitalContext(world, packDefinitions, id),
@@ -656,7 +658,7 @@ export function narrativeContext(world, action = null) {
               hope: null,
             }
           : {}),
-        ...(between.length ? { between } : {}),
+        ...(between.entries.length ? { between: between.entries } : {}),
       };
     }),
   });
