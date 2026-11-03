@@ -20,7 +20,11 @@ import {
 const server = createServer();
 await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
 const origin = `http://127.0.0.1:${server.address().port}`;
-const browser = await chromium.launch({ headless: true });
+// Real browsers allow sound only after a gesture; so does this one.
+const browser = await chromium.launch({
+  headless: true,
+  args: ["--autoplay-policy=user-gesture-required"],
+});
 const output = new URL(
   process.env.TITLE_INTRO_SHOTS
     ? `file://${process.env.TITLE_INTRO_SHOTS.replace(/\/?$/, "/")}`
@@ -79,8 +83,30 @@ async function newContext(width, height, { reducedMotion, music = true } = {}) {
       const song = this === room ? window.__titleSong : room;
       if (song && !song.paused) window.__overlaps++;
       if (/title-attic-lamp/.test(this.src)) window.__titleSong = this;
-      return play.call(this);
+      const started = play.call(this);
+      if (/title-attic-lamp/.test(this.src))
+        window.__titlePlay = started.then(
+          () => "resolved",
+          (error) => error.name,
+        );
+      return started;
     };
+    // Every gain node gets a listener, so the smoke hears what plays.
+    const Context = window.AudioContext;
+    window.__listeners = [];
+    window.AudioContext = function (...args) {
+      const context = new Context(...args);
+      const createGain = context.createGain.bind(context);
+      context.createGain = () => {
+        const gain = createGain();
+        const analyser = context.createAnalyser();
+        gain.connect(analyser);
+        window.__listeners.push(analyser);
+        return gain;
+      };
+      return context;
+    };
+    window.AudioContext.prototype = Context.prototype;
   }, music);
   return context;
 }
@@ -88,6 +114,30 @@ const titlePlays = (page) =>
   page.evaluate(
     () => window.__plays.filter((p) => /title-attic-lamp/.test(p)).length,
   );
+// The loudest gain node right now, in dBFS.
+const loudness = (page) =>
+  page.evaluate(() =>
+    Math.max(
+      -200,
+      ...window.__listeners.map((analyser) => {
+        const data = new Float32Array(analyser.fftSize);
+        analyser.getFloatTimeDomainData(data);
+        const power = data.reduce((sum, x) => sum + x * x, 0) / data.length;
+        return 10 * Math.log10(power || 1e-20);
+      }),
+    ),
+  );
+// The song is heard within a second and a half of the gesture: its play
+// resolved and it reaches -45 dBFS (the 2-second fade from silence did not).
+async function heard(page) {
+  assert.equal(await page.evaluate(() => window.__titlePlay), "resolved");
+  let loudest = -200;
+  for (let i = 0; i < 15 && loudest < -45; i++) {
+    await page.waitForTimeout(100);
+    loudest = Math.max(loudest, await loudness(page));
+  }
+  assert.ok(loudest >= -45, `title song too quiet: ${loudest.toFixed(1)} dBFS`);
+}
 const titlePhase = (page) =>
   page.waitForSelector('.title-intro[data-phase="ack"] .title-ack-text');
 const gone = (page, timeout) =>
@@ -140,7 +190,8 @@ try {
     else await page.keyboard.press("a");
     await page.waitForSelector('.title-intro[data-phase="title"]');
     assert.equal(await titlePlays(page), 1);
-    await page.waitForTimeout(1000);
+    await heard(page);
+    await page.waitForTimeout(500);
     await shot(page, `logo-${width}`);
     const box = await page.locator(".title-intro > img").boundingBox();
     assert.ok(
@@ -185,7 +236,9 @@ try {
       "the song fades rather than cutting",
     );
     await gone(page, 1500);
-    await page.waitForTimeout(1000);
+    // It rings on over the table, fading for three seconds from the wake.
+    assert.equal(await page.evaluate(() => window.__titleSong.paused), false);
+    await page.waitForTimeout(2600);
     assert.equal(await page.evaluate(() => window.__titleSong.paused), true);
     // #2061: the lamplit attic plays no room music.
     assert.equal(await page.$eval("#room-music", (a) => a.paused), true);
@@ -220,6 +273,7 @@ try {
     await later.keyboard.press("Enter");
     await later.waitForSelector('.title-intro[data-phase="title"]');
     assert.equal(await titlePlays(later), 1);
+    await heard(later);
     // Escape skips straight in and fades the song.
     await later.keyboard.press("Escape");
     await gone(later, 1500);

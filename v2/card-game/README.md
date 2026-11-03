@@ -723,8 +723,9 @@ it. The card is a button named "Reveal your traveller" and takes focus. A
 click, Enter or Space turns it with the hand's reveal (`card-reveal.mjs`) to
 the face of the avatar this world opens with (the joining avatar in a shared
 world), cloned from the hand and named for screen readers. The face holds for
-0.8 seconds, then the song fades out over a second and the title fades to the
-table. Escape skips straight in at any step and fades the song the same way.
+0.8 seconds, then the title fades to the table while the song rings on and
+fades out over three seconds. Escape skips straight in at any step and fades
+the song over one.
 Reduced motion crossfades each step, moves the logo up at once and swaps the
 face in without the flip. If the logo does not load within 2.5 seconds, the
 card shows without it.
@@ -732,7 +733,10 @@ card shows without it.
 The song is _The Attic Keeps Its Lamp × Moonstone Sanctum_
 (`assets/music/title-attic-lamp.mp3`, `title-song.mjs`). It follows the saved
 music switch and volume: with music off the title and its card work in silence.
-It downloads only after that first gesture. No room music plays while the
+It downloads only after that first gesture, and `play()` runs inside it. The
+title lasts seconds, so the song comes in over a quarter second, 1.4 times the
+saved volume (it is mastered about 3 LU under the room songs); the old 2-second
+fade from silence left it near -50 dBFS until the card showed. No room music plays while the
 title is up or its song is fading (`titleMusicHold`): the title's own gesture
 used to start an avatar's room music under the song. Then room music keeps its
 own rules (see Music below): the attic stays silent until the pond reveal.
