@@ -789,9 +789,14 @@ id (`?world=`, `?table=`, `?pack=` or the bare local table), never the logo
 shown last when another exists, then remembered in `cosyworld.title-logo` so
 a reload or a return shows the same one; New game picks afresh. The same
 logo replaces the COSYWORLD wordmark in the toolbar, at its own aspect ratio
-and 40 px tall (34 px at phone width), named by its `alt`; it is a plain image,
-not a button. An artwork too wide to read at that height names a wordmark
-to show there instead (`toolbar`, an index into the list). Other sites' landings and the local CosyWorld app keep
+and as tall as the toolbar buttons (46 px, 40 px at phone width), named by its
+`alt`; it is a plain image, not a button. A 16:9 artwork shows its own
+lettering there (`toolbar`: a file, size and optional `crop` of the artwork;
+`npm run v2:card:images:build` writes a cropped one under
+`assets/title/toolbar/`, and a supplied file, such as transparent lettering,
+needs no `crop`). `v2/scripts/smoke-card-toolbar-logo.mjs` checks each logo at
+desktop and phone widths (`TOOLBAR_LOGO_SHOTS=<dir>` saves screenshots).
+Other sites' landings and the local CosyWorld app keep
 the COSYWORLD wordmark.
 Automated browsers skip it unless the address has `intro=1`;
 `v2/scripts/smoke-card-title-intro.mjs` plays it at desktop and phone width,

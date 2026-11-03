@@ -4841,6 +4841,33 @@
       "phone": "assets/optimized/phone/webp/title/lonely-forest-listening-wood.webp",
       "phoneHash": "36ffcc0e144000e9ca290053bbe695fad01a05214049da1256e6fcc34221c93a"
     },
+    "assets/title/toolbar/lonely-forest-black-pond.webp": {
+      "sourceHash": "46bfb5dc26c40cdcc01e0279e56ecd28db7b7bf3a36976ff47862a1e91d80c7e",
+      "stage": "assets/title/toolbar/lonely-forest-black-pond.webp",
+      "stageHash": "46bfb5dc26c40cdcc01e0279e56ecd28db7b7bf3a36976ff47862a1e91d80c7e",
+      "card": "assets/title/toolbar/lonely-forest-black-pond.webp",
+      "cardHash": "46bfb5dc26c40cdcc01e0279e56ecd28db7b7bf3a36976ff47862a1e91d80c7e",
+      "phone": "assets/title/toolbar/lonely-forest-black-pond.webp",
+      "phoneHash": "46bfb5dc26c40cdcc01e0279e56ecd28db7b7bf3a36976ff47862a1e91d80c7e"
+    },
+    "assets/title/toolbar/lonely-forest-hearth-and-oak.webp": {
+      "sourceHash": "977891a97192dd407427f20407e05d03822076cb8c0a214383604364b036a380",
+      "stage": "assets/title/toolbar/lonely-forest-hearth-and-oak.webp",
+      "stageHash": "977891a97192dd407427f20407e05d03822076cb8c0a214383604364b036a380",
+      "card": "assets/title/toolbar/lonely-forest-hearth-and-oak.webp",
+      "cardHash": "977891a97192dd407427f20407e05d03822076cb8c0a214383604364b036a380",
+      "phone": "assets/title/toolbar/lonely-forest-hearth-and-oak.webp",
+      "phoneHash": "977891a97192dd407427f20407e05d03822076cb8c0a214383604364b036a380"
+    },
+    "assets/title/toolbar/lonely-forest-listening-wood.webp": {
+      "sourceHash": "e4be0ba420521e1dd137f6474fa56dbcfc7033d543cb0c034f294b0fe15e3e61",
+      "stage": "assets/title/toolbar/lonely-forest-listening-wood.webp",
+      "stageHash": "e4be0ba420521e1dd137f6474fa56dbcfc7033d543cb0c034f294b0fe15e3e61",
+      "card": "assets/title/toolbar/lonely-forest-listening-wood.webp",
+      "cardHash": "e4be0ba420521e1dd137f6474fa56dbcfc7033d543cb0c034f294b0fe15e3e61",
+      "phone": "assets/title/toolbar/lonely-forest-listening-wood.webp",
+      "phoneHash": "e4be0ba420521e1dd137f6474fa56dbcfc7033d543cb0c034f294b0fe15e3e61"
+    },
     "assets/vale.png": {
       "sourceHash": "f6a79cda52b36495592c5dcf3f53e4e611cdcd4b9d6573b399270b42b7991079",
       "stage": "assets/optimized/stage/png/vale.webp",
@@ -5264,5 +5291,10 @@
       "phone": "assets/optimized/phone/webp/willows/thicket.webp",
       "phoneHash": "1afb03661eb3af33fcde7183f480814c21051c8eaf33c7a7fdd95f91614543b0"
     }
+  },
+  "crops": {
+    "assets/title/toolbar/lonely-forest-hearth-and-oak.webp": "d4806b8b1bc5fb880549060206cda0dc843a68b792157bc8f8aaaab5a4437c6f",
+    "assets/title/toolbar/lonely-forest-listening-wood.webp": "308c5882f08c9403c08251c50d9eb9436e580294100ed644eb68c13359fd02b8",
+    "assets/title/toolbar/lonely-forest-black-pond.webp": "8dbae0ee36df2ce6690609514a60731722d82544942bb5ef657fabe92d879729"
   }
 }

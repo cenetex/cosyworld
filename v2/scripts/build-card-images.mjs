@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import { createHash } from "node:crypto";
 import sharp from "sharp";
 import { publicAssets } from "../card-game/public-assets.mjs";
+import titleLogos from "../card-game/title-logos.json" with { type: "json" };
 import { reuseVariants } from "./card-image-cache.mjs";
 
 const check = process.argv.includes("--check");
@@ -84,6 +85,34 @@ if (
   throw new Error(
     "Image sources or settings changed. Run npm run v2:card:images:build.",
   );
+
+// A title artwork too wide to read at toolbar height names its lettering
+// (`toolbar` in title-logos.json). With a `crop`, the toolbar image is that
+// region of the artwork at the stated size; without one it is a supplied file.
+const toolbarCrops = {};
+for (const { src, toolbar } of titleLogos.logos) {
+  if (!toolbar?.crop) continue;
+  const source = await readFile(new URL(src, root));
+  const key = hash(JSON.stringify([hash(source), toolbar, pick(settings)]));
+  let body = null;
+  try {
+    body = await readFile(new URL(toolbar.src, root));
+  } catch {}
+  if (check && (old.crops?.[toolbar.src] !== key || !body))
+    throw new Error(`Title toolbar crop changed: ${toolbar.src}`);
+  if (!body || reencode || old?.crops?.[toolbar.src] !== key) {
+    body = await sharp(source)
+      .extract(toolbar.crop)
+      .resize({ width: toolbar.width, height: toolbar.height, fit: "fill" })
+      .webp(settings)
+      .toBuffer();
+    await writeChanged(toolbar.src, body);
+  }
+  const result = await sharp(body).metadata();
+  if (result.width !== toolbar.width || result.height !== toolbar.height)
+    throw new Error(`Title toolbar size changed: ${toolbar.src}`);
+  toolbarCrops[toolbar.src] = key;
+}
 
 const settingsMatch =
   old?.version === 1 && pick(old.settings) === pick(settings);
@@ -249,6 +278,7 @@ const manifest = {
   version: 1,
   settings,
   images: Object.fromEntries(files.map((file) => [file, records[file]])),
+  crops: toolbarCrops,
 };
 const text = `${JSON.stringify(manifest, null, 2)}\n`;
 if (check) {

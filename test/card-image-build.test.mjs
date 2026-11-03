@@ -69,6 +69,7 @@ describe("phone image rebuilds", () => {
         join(game, "public-assets.mjs"),
         `export const publicAssets = ${JSON.stringify([source, unchanged])}.map(file => ({ file }));\n`,
       );
+      await writeFile(join(game, "title-logos.json"), '{ "logos": [] }\n');
       await writeFile(
         join(game, "index.html"),
         "    <!-- card-image-preload:start -->\n    <!-- card-image-preload:end -->\n",
