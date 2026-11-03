@@ -724,7 +724,9 @@ card, the game's own card back, with a small Privacy link (`/privacy`) under
 it. The card is a button named "Reveal your traveller" and takes focus. A
 click, Enter or Space turns it with the hand's reveal (`card-reveal.mjs`) to
 the face of the avatar this world opens with (the joining avatar in a shared
-world), cloned from the hand and named for screen readers. The face holds for
+world), cloned from the hand and named for screen readers. The card shows whole, so
+its name and shade sit on its floor, at the figure's feet, rather than a
+quarter up where the hand clips its cards. The face holds for
 0.8 seconds, then the title fades to the table while the song rings on and
 fades out over three seconds. Escape skips straight in at any step and fades
 the song over one.

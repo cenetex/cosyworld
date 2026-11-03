@@ -2870,6 +2870,11 @@ main > .dialogue {
 .title-card .card {
   cursor: pointer;
 }
+/* The hand shows a card's top three quarters, so its name and shade sit a
+   quarter up; this card shows whole, so they sit on its floor. */
+.title-card .card .name {
+  bottom: 0;
+}
 .title-privacy {
   color: #fff4dc;
   font: 0.85rem Georgia, serif;
