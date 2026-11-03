@@ -4,11 +4,18 @@ import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
 import { startNewGame } from "./card-browser-helpers.mjs";
 import { TITLES } from "../card-game/title-intro.mjs";
-import { checkTitleMusicAlone } from "./title-music-alone.mjs";
+import {
+  cardShown,
+  checkTitleMusicAlone,
+  revealed,
+  traveller,
+} from "./title-music-alone.mjs";
 
-// A new world opens with a silent Lonely Forest title over the booting table.
-// The first tap or key starts the title song, lifts the logo and shows Wake;
-// Wake fades the song and enters Vale's lit attic. Escape skips straight in.
+// A new world opens with the silent land acknowledgement over the booting
+// table. Its tap or key brings the logo and the title song; the logo lifts
+// over a face-down card and Privacy; the card turns to Vale, the song fades
+// and the table shows Vale's lit
+// attic. Escape skips straight in. Room music never plays under the song.
 // A reload or a later visit goes straight to the table; New game plays it again.
 const server = createServer();
 await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
@@ -64,9 +71,13 @@ async function newContext(width, height, { reducedMotion, music = true } = {}) {
       );
     }
     window.__plays = [];
+    window.__overlaps = 0;
     const play = HTMLMediaElement.prototype.play;
     HTMLMediaElement.prototype.play = function () {
       window.__plays.push(this.id || this.src);
+      const room = document.getElementById("room-music");
+      const song = this === room ? window.__titleSong : room;
+      if (song && !song.paused) window.__overlaps++;
       if (/title-attic-lamp/.test(this.src)) window.__titleSong = this;
       return play.call(this);
     };
@@ -78,18 +89,9 @@ const titlePlays = (page) =>
     () => window.__plays.filter((p) => /title-attic-lamp/.test(p)).length,
   );
 const titlePhase = (page) =>
-  page.waitForSelector('.title-intro[data-phase="title"]');
+  page.waitForSelector('.title-intro[data-phase="ack"] .title-ack-text');
 const gone = (page, timeout) =>
   page.waitForSelector(".title-intro", { state: "detached", timeout });
-const wakeShown = async (page) => {
-  await page.waitForSelector(".title-wake");
-  await page.waitForFunction(
-    () =>
-      document.activeElement?.classList.contains("title-wake") &&
-      document.activeElement.textContent === "Wake Vale",
-  );
-};
-
 try {
   for (const [width, height] of [
     [1440, 900],
@@ -111,11 +113,39 @@ try {
     await titlePhase(page);
     const title = await page.locator(".title-intro").getAttribute("data-title");
     assert.ok(TITLES.includes(title), title);
-    await page.waitForTimeout(1100);
-    const box = await page.locator(".title-intro img").boundingBox();
+    // The acknowledgement is real text, readable, and scrolls in its panel.
+    const ack = await page.$eval(".title-ack-text", (text) => ({
+      words: text.innerText,
+      size: parseFloat(getComputedStyle(text).fontSize),
+      bottom: text.closest(".title-ack").getBoundingClientRect().bottom,
+      link: text.querySelector("a")?.href,
+    }));
+    assert.match(ack.words, /RATi Open Software Foundation has no single home/);
+    assert.match(ack.words, /intricately carved wooden box/);
+    assert.match(ack.words, /All revenue goes to the Foundation/);
+    assert.equal(ack.link, "https://rati.foundation/about/#land");
+    assert.ok(ack.size >= 15 && ack.bottom <= height, JSON.stringify(ack));
+    assert.equal(
+      await page.evaluate(() => document.activeElement?.className),
+      "title-continue",
+    );
+    await page.waitForTimeout(800);
+    await shot(page, `ack-${width}`);
+    await page.waitForSelector("#hand .card");
+    await page.waitForTimeout(1500);
+    assert.equal(await titlePlays(page), 0, "silent before the first tap");
+
+    // The first tap (desktop) or key (phone) brings the logo and the song.
+    if (desktop) await page.mouse.click(width / 2, 10);
+    else await page.keyboard.press("a");
+    await page.waitForSelector('.title-intro[data-phase="title"]');
+    assert.equal(await titlePlays(page), 1);
+    await page.waitForTimeout(1000);
+    await shot(page, `logo-${width}`);
+    const box = await page.locator(".title-intro > img").boundingBox();
     assert.ok(
       await page.$eval(
-        ".title-intro img",
+        ".title-intro > img",
         (img) => img.complete && img.naturalWidth > 0,
       ),
       "the title image loaded before fading in",
@@ -124,20 +154,11 @@ try {
     if (desktop)
       assert.ok(box.width > width * 0.65 && box.width < width * 0.85);
     else assert.ok(Math.abs(box.width - (width - 32)) < 2, String(box.width));
-    // The table boots under the title, which holds silently for a gesture.
-    await page.waitForSelector("#hand .card");
-    await page.waitForTimeout(1500);
-    assert.equal(await page.locator(".title-intro").count(), 1);
-    assert.equal(await titlePlays(page), 0, "silent before the first tap");
-    await shot(page, `before-${width}`);
-
-    // The first tap (desktop) or key (phone) starts the song and shows Wake.
-    if (desktop) await page.mouse.click(width / 2, height / 2);
-    else await page.keyboard.press("a");
-    await wakeShown(page);
+    // Then the logo lifts over the face-down card.
+    await cardShown(page);
     assert.equal(await titlePlays(page), 1);
     await page.waitForTimeout(1200);
-    const lifted = await page.locator(".title-intro img").boundingBox();
+    const lifted = await page.locator(".title-intro > img").boundingBox();
     assert.ok(lifted.y + lifted.height / 2 < height * 0.45, "the logo lifts");
     assert.ok(
       await page.evaluate(
@@ -148,11 +169,15 @@ try {
     await page.mouse.click(width / 2, 20);
     assert.equal(await page.locator(".title-intro").count(), 1);
     assert.equal(await titlePlays(page), 1);
-    await shot(page, `wake-${width}`);
+    await shot(page, `card-${width}`);
 
-    // Wake (click, or Enter on the focused button) fades the song and enters.
-    if (desktop) await page.locator(".title-wake").click();
+    // A click, or Enter on the focused card, turns it; then the song fades.
+    if (desktop) await page.locator(traveller).click();
     else await page.keyboard.press("Enter");
+    await revealed(page, "Vale");
+    await page.waitForTimeout(desktop ? 300 : 100);
+    await shot(page, `face-${width}`);
+    await page.waitForSelector(".title-intro[data-phase=out]");
     await page.waitForTimeout(300);
     assert.equal(
       await page.evaluate(() => window.__titleSong.paused),
@@ -192,8 +217,8 @@ try {
     await titlePhase(later);
     await later.waitForTimeout(400);
     assert.equal(await titlePlays(later), 0);
-    await later.mouse.click(width / 2, height / 2);
-    await wakeShown(later);
+    await later.keyboard.press("Enter");
+    await later.waitForSelector('.title-intro[data-phase="title"]');
     assert.equal(await titlePlays(later), 1);
     // Escape skips straight in and fades the song.
     await later.keyboard.press("Escape");
@@ -205,6 +230,8 @@ try {
     await later.waitForTimeout(600);
     assert.equal(await later.locator(".title-intro").count(), 0);
     assert.deepEqual([...page.errors, ...later.errors], []);
+    for (const p of [page, later])
+      assert.equal(await p.evaluate(() => window.__overlaps), 0);
     await fresh.close();
 
     // Escape before the first tap goes straight in, silent.
@@ -219,16 +246,22 @@ try {
     await skipContext.close();
   }
 
-  // Music off: the same title and Wake, no song.
+  // Music off: the same title and card, no song.
   const off = await newContext(390, 844, { music: false });
   const muted = await open(off);
   await muted.goto(`${origin}/?intro=1`);
   await titlePhase(muted);
   await muted.waitForSelector("#hand .card");
-  await muted.mouse.click(195, 422);
-  await wakeShown(muted);
   await muted.keyboard.press("Space");
-  await gone(muted, 1500);
+  await cardShown(muted);
+  await muted.keyboard.press("Tab");
+  assert.equal(
+    await muted.evaluate(() => document.activeElement.className),
+    "title-privacy",
+  );
+  await muted.keyboard.press("Shift+Tab");
+  await muted.keyboard.press("Space");
+  await gone(muted, 4000);
   assert.equal(await titlePlays(muted), 0);
   assert.deepEqual(muted.errors, []);
   await off.close();
@@ -238,34 +271,37 @@ try {
   const quiet = await open(reduced);
   await quiet.goto(`${origin}/?intro=1`);
   await titlePhase(quiet);
-  await quiet.waitForTimeout(400);
+  await quiet.mouse.click(195, 10);
+  await quiet.waitForSelector('.title-intro[data-phase="title"]');
+  await quiet.waitForTimeout(300);
   assert.equal(
     await quiet.$eval(
-      ".title-intro img",
+      ".title-intro > img",
       (img) => getComputedStyle(img).transform,
     ),
     "none",
   );
-  await quiet.waitForSelector("#hand .card");
-  await quiet.mouse.click(195, 422);
-  await wakeShown(quiet);
+  await cardShown(quiet);
   await quiet.waitForTimeout(300);
   assert.notEqual(
     await quiet.$eval(
-      ".title-intro img",
+      ".title-intro > img",
       (img) => getComputedStyle(img).transform,
     ),
     "none",
   );
   assert.equal(
-    await quiet.$eval(".title-wake", (b) => getComputedStyle(b).opacity),
+    await quiet.$eval(".title-reveal", (b) => getComputedStyle(b).opacity),
     "1",
   );
-  await quiet.locator(".title-wake").click();
-  await gone(quiet, 1000);
+  // Reduced motion swaps the face in at once, with no flip.
+  await quiet.locator(traveller).click();
+  await revealed(quiet, "Vale");
+  assert.equal(await quiet.locator(".reveal-lid").count(), 0);
+  await gone(quiet, 3000);
   await quiet.waitForSelector("#hand .card");
   await reduced.close();
-  await checkTitleMusicAlone(browser, origin);
+  await checkTitleMusicAlone(browser, origin, shot);
   console.log(`Title intro smoke passed. Screenshots: ${shots.join(", ")}`);
 } finally {
   await browser.close();

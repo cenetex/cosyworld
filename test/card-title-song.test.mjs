@@ -4,7 +4,6 @@ import {
   createTitleSong,
   titleSongSettings,
 } from "../v2/card-game/title-song.mjs";
-import { wakeLabel } from "../v2/card-game/title-intro.mjs";
 
 beforeEach(() => vi.useFakeTimers());
 afterEach(() => vi.useRealTimers());
@@ -116,9 +115,4 @@ test("settings default to music on at 30%", () => {
     enabled: true,
     volume: 1,
   });
-});
-
-test("the Wake button names the avatar", () => {
-  expect(wakeLabel("Vale")).toBe("Wake Vale");
-  expect(wakeLabel("")).toBe("Wake up");
 });

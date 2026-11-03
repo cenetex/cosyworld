@@ -1,6 +1,7 @@
 import { test } from "vitest";
 import assert from "node:assert/strict";
 import { titleIntroWanted } from "../v2/card-game/title-intro.mjs";
+import acknowledgement from "../v2/card-game/acknowledgement.json" with { type: "json" };
 
 const storage = (entries = {}) => ({
   getItem: (key) => (key in entries ? entries[key] : null),
@@ -60,4 +61,18 @@ test("blocked storage shows it; automated browsers need intro=1", () => {
     wanted({ webdriver: true, href: "https://lonelyforest.com/?intro=1" }),
     true,
   );
+});
+
+test("the acknowledgement quotes RATi's statement and names its link", () => {
+  const quoted = acknowledgement.paragraphs.filter((p) => p.source);
+  assert.equal(quoted.length, 4);
+  assert.match(quoted[1].text, /^The RATi Open Software Foundation has no/);
+  assert.equal(
+    quoted[1].links["RATi Open Software Foundation"],
+    "https://rati.foundation/about/#land",
+  );
+  for (const { text, links = {} } of acknowledgement.paragraphs)
+    for (const phrase of Object.keys(links)) assert.ok(text.includes(phrase));
+  assert.match(acknowledgement.paragraphs.at(-1).text, /wooden box/);
+  assert.match(acknowledgement.credit, /All revenue goes to the Foundation$/);
 });

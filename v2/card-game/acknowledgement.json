@@ -1,0 +1,42 @@
+{
+  "about": "The land acknowledgement on the new-world title (title-intro.mjs). Paragraphs with a source are quoted word for word from it; links name a phrase in the text.",
+  "title": "The land we are on",
+  "paragraphs": [
+    {
+      "text": "This statement is our own. It has not been reviewed by the Nations named here, and we welcome their teaching.",
+      "note": true,
+      "source": "https://rati.foundation/about/#land"
+    },
+    {
+      "text": "The RATi Open Software Foundation has no single home. Our people live and work across the lands of many First Nations, Inuit and Métis peoples, in the place now called Canada. Many of us came here recently. Our work happens online, but the internet is not placeless: every person, server and cable rests on someone’s land.",
+      "links": {
+        "RATi Open Software Foundation": "https://rati.foundation/about/#land"
+      },
+      "source": "https://rati.foundation/about/#land"
+    },
+    {
+      "text": "Today our work centres on the unceded lands of the Coast Salish peoples, whose home this has always been, in Richmond, British Columbia. We are guests here, though we were not invited.",
+      "source": "https://rati.foundation/about/#land"
+    },
+    {
+      "text": "Words are not enough on their own, so our door is open. If you would like to teach us, work with us, or use our engineering time, write to us at info@rati.foundation. We will answer, and we will share what we learn.",
+      "links": {
+        "info@rati.foundation": "mailto:info@rati.foundation"
+      },
+      "source": "https://rati.foundation/about/#land"
+    },
+    {
+      "text": "Lonely Forest is operated from Toronto, on the ancestral and continuing homelands of the Anishinaabe, Haudenosaunee and Huron-Wendat peoples, and of the many other Nations who have cared for these lands since long before there was a city, and who care for them still."
+    },
+    {
+      "text": "Its servers run in what is now called California, on the ancestral and continuing homelands of the Ohlone peoples, whose communities are still here."
+    },
+    {
+      "text": "The voices in this forest are made by artificial intelligence, and artificial intelligence is made from all of us: the words, songs, stories and knowledge of every people, from every land, gathered from across the earth. It runs on machines that draw on land, water and energy all over the world."
+    },
+    {
+      "text": "And so we offer back to all the peoples of the earth, and to those on whose lands we do and do not yet live, work and make stories, this intricately carved wooden box: free to play, to open and to change."
+    }
+  ],
+  "credit": "Designed by the RATi Open Software Foundation · Operated as a service by Cenetex Inc. · All revenue goes to the Foundation"
+}

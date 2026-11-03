@@ -4142,7 +4142,7 @@ $("confirm-reset").onclick = () => {
   $("reset-dialog").close();
   playNewWorldIntro();
   holdMusicForTitle();
-  nameTitleWaker(nameOf(currentActor(world)));
+  nameTitleWaker(nameOf(currentActor(world)), currentActor(world));
   resumeScene();
 };
 window.addEventListener("storage", (event) => {
@@ -4645,5 +4645,5 @@ if (sharedSession) {
   setInterval(syncSharedLine, 200);
 }
 // The title's Wake button names the avatar this world opens with.
-nameTitleWaker(nameOf(currentActor(world)));
+nameTitleWaker(nameOf(currentActor(world)), currentActor(world));
 resumeScene();

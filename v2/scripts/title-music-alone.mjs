@@ -2,17 +2,46 @@ import assert from "node:assert/strict";
 import { dispatchShared } from "../card-game/shared-world.mjs";
 import { humanAvatarIds } from "../card-game/human-cast.mjs";
 
+export const traveller = ".title-card .card";
+export const cardShown = async (page) => {
+  await page.waitForSelector(traveller);
+  assert.equal(await page.getAttribute(".title-privacy", "href"), "/privacy");
+  await page.waitForFunction(
+    (selector) =>
+      document.activeElement === document.querySelector(selector) &&
+      document.activeElement.ariaLabel === "Reveal your traveller" &&
+      document.activeElement.dataset.unrevealed === "true",
+    traveller,
+  );
+};
+// The card turns to the avatar's face, named for screen readers too.
+export const revealed = (page, name) =>
+  page.waitForFunction(
+    ([selector, name]) => {
+      const card = document.querySelector(selector);
+      return (
+        card?.dataset.unrevealed === "false" &&
+        card.ariaLabel === name &&
+        card.querySelector(".name")?.textContent === name &&
+        card.querySelector(".art img")?.complete
+      );
+    },
+    [traveller, name],
+  );
+
 // Room music never plays under the new-world title song. Rue joins a world
-// she has played in, so her music has started: it waits for Wake and the
-// song's fade. Vale's lamplit attic stays silent after Wake (#2061).
-export async function checkTitleMusicAlone(browser, origin) {
+// she has played in, so her music has started: it waits for her card's
+// reveal and the song's fade. Vale's lamplit attic stays silent (#2061).
+export async function checkTitleMusicAlone(browser, origin, shot) {
   const world = dispatchShared({ op: "create" }).world;
-  for (const [actor, started] of [
-    ["rue", true],
-    ["vale", false],
+  for (const [actor, started, width, height] of [
+    ["rue", true, 1440, 900],
+    ["vale", false, 1440, 900],
+    ["rue", true, 390, 844],
+    ["vale", false, 390, 844],
   ]) {
     const context = await browser.newContext({
-      viewport: { width: 390, height: 844 },
+      viewport: { width, height },
     });
     await context.addInitScript(() => {
       if (!sessionStorage.getItem("seeded")) {
@@ -71,14 +100,20 @@ export async function checkTitleMusicAlone(browser, origin) {
     page.setDefaultTimeout(15000);
     const roomPaused = () => page.$eval("#room-music", (a) => a.paused);
     await page.goto(`${origin}/?world=alone&intro=1`);
-    await page.waitForSelector('.title-intro[data-phase="title"]');
+    await page.waitForSelector('.title-intro[data-phase="ack"] .title-ack');
     await page.waitForSelector("#hand .card", { state: "attached" });
-    await page.mouse.click(195, 10);
-    await page.waitForSelector(".title-wake");
-    await page.waitForTimeout(500);
+    await page.mouse.click(width / 2, 10);
+    await cardShown(page);
+    await page.waitForTimeout(1000);
     assert.ok(await page.evaluate(() => !window.__titleSong.paused), actor);
     assert.ok(await roomPaused(), `${actor}: no room music under the title`);
-    await page.locator(".title-wake").click();
+    await shot(page, `${actor}-card-${width}`);
+    await page.keyboard.press("Space");
+    const name = actor === "rue" ? "Rue" : "Vale";
+    await revealed(page, name);
+    await page.waitForTimeout(width > 640 ? 300 : 100);
+    await shot(page, `${actor}-face-${width}`);
+    assert.ok(await roomPaused(), `${actor}: none while the card turns`);
     await page.waitForSelector(".title-intro", { state: "detached" });
     if (started)
       await page.waitForFunction(
@@ -86,8 +121,9 @@ export async function checkTitleMusicAlone(browser, origin) {
       );
     else {
       await page.waitForTimeout(1500);
-      assert.ok(await roomPaused(), "the attic stays silent after Wake");
+      assert.ok(await roomPaused(), "the attic stays silent after the title");
     }
+    await shot(page, `${actor}-game-${width}`);
     assert.deepEqual(await page.evaluate(() => window.__overlaps), [], actor);
     console.log(`${actor}: one track at a time through the title`);
     await context.close();
