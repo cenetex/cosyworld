@@ -32,7 +32,11 @@ export function selectSmokes(changed, config, shardChecks = {}) {
     if (changed.some((file) => pattern.test(file))) rule.smokes.forEach(add);
   }
   if (!picked.length) config.default.forEach(add);
-  return picked.slice(0, config.max);
+  const always = (config.always || []).filter((smoke) => !rust.has(smoke));
+  return [
+    ...always,
+    ...picked.filter((smoke) => !always.includes(smoke)).slice(0, config.max),
+  ];
 }
 
 if (

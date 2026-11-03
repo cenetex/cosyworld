@@ -211,7 +211,14 @@ function node(tag, text, className) {
   if (className) el.className = className;
   return el;
 }
+// The action beat's state is declared before notice(), which can run at boot
+// (a refused save, blocked storage) before the rest of the table exists.
 let borrowedBeat = null;
+// A play that commits rests the action beat, so the reply comes to the
+// front, until the player chooses or raises the hand again.
+let restedChoice = null;
+// What the dialogue box shows now (presentation.mjs).
+let shownPhase = null;
 // Nothing floats over the stage. A failure the player must see (a refused
 // play, an unsaved world, a lost connection, a nudge) reads on the action
 // beat's status line; a pending play reads on its own button.
@@ -1682,12 +1689,7 @@ function showBorrowedBeat(row, heading) {
   );
   syncActionBeat();
 }
-// A play that commits rests the action beat, so the reply comes to the
-// front, until the player chooses or raises the hand again.
-let restedChoice = null;
 const choiceKey = () => `${selected.join("+")}:${rowCollapsed}`;
-// What the dialogue box shows now (presentation.mjs).
-let shownPhase = null;
 function presentPhase() {
   if (restedChoice !== choiceKey()) restedChoice = null;
   return phase({
