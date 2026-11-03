@@ -81,8 +81,17 @@ const PER_HOUR: RateLimit = RateLimit {
     max_hits: 1200,
     window: Duration::from_secs(3600),
 };
-/// Model requests in flight across all clients.
-const TOTAL_CONCURRENCY: usize = 2;
+/// Model requests in flight across all clients. Scenes wait on the provider,
+/// not the CPU, and the hourly budgets above bound spend, so four slots on
+/// the one Fly machine cost no more than two did while turning fewer
+/// simultaneous players away (#2016).
+const TOTAL_CONCURRENCY: usize = 4;
+/// Reflections keep their own two slots: they never delay a line.
+const REFLECTION_CONCURRENCY: usize = 2;
+/// A full server or this client's own unfinished scene clears in seconds, so
+/// the client may retry once its short Retry-After passes. The minute and
+/// hour limits keep the long one.
+const BUSY_RETRY_AFTER: &str = "1";
 /// Model requests in flight per client. A client's play waits on its own
 /// story text, so one is enough, and it leaves the remaining capacity for
 /// other players.
@@ -312,7 +321,7 @@ fn router_with_models<S: Clone + Send + Sync + 'static>(
             background: Arc::new(reflections::Queue::new(
                 settings
                     .as_ref()
-                    .map_or(1, |s| s.parallel.clamp(1, TOTAL_CONCURRENCY)),
+                    .map_or(1, |s| s.parallel.clamp(1, REFLECTION_CONCURRENCY)),
             )),
             settings: Arc::new(settings),
         })
@@ -713,9 +722,15 @@ fn valid_outcome(outcome: &TurnOutcome) -> bool {
 // Restate the resolved action and each trip for every voice, including places.
 // The model can then keep a character's style while following the player's play.
 fn error(status: StatusCode, message: &str) -> Response {
+    refusal(status, message, "10")
+}
+fn busy(message: &str) -> Response {
+    refusal(StatusCode::TOO_MANY_REQUESTS, message, BUSY_RETRY_AFTER)
+}
+fn refusal(status: StatusCode, message: &str, retry_after: &str) -> Response {
     (
         status,
-        [("cache-control", "no-store"), ("retry-after", "10")],
+        [("cache-control", "no-store"), ("retry-after", retry_after)],
         Json(json!({"error": message})),
     )
         .into_response()
@@ -795,10 +810,7 @@ async fn generate(
     // another client waits, nor spend the server's time on text matching.
     let client = peer.ip();
     let Some(_client_slot) = state.in_flight.try_enter(client, PER_CLIENT_CONCURRENCY) else {
-        return error(
-            StatusCode::TOO_MANY_REQUESTS,
-            "Your last story is still being written.",
-        );
+        return busy("Your last story is still being written.");
     };
     {
         let Ok(mut limits) = state.limits.lock() else {
@@ -836,7 +848,7 @@ async fn generate(
         );
     };
     let Ok(_permit) = state.capacity.clone().try_acquire_owned() else {
-        return error(StatusCode::TOO_MANY_REQUESTS, "The story service is busy.");
+        return busy("The story service is busy.");
     };
     // Only an admitted scene replaces this client's queued reflections: a
     // refused request must not cancel work, and other clients keep theirs.
@@ -4845,24 +4857,35 @@ pub(crate) mod tests {
             .await
             .unwrap();
         assert_eq!(second.status(), StatusCode::TOO_MANY_REQUESTS);
+        assert_eq!(second.headers()["retry-after"], BUSY_RETRY_AFTER);
         assert_eq!(
             error_text(second).await,
             "Your last story is still being written."
         );
-        // The second shared slot is still open for a different client.
-        let other = app
-            .clone()
-            .oneshot(request_from(&context(), "198.51.100.7:5000"))
-            .await
-            .unwrap();
-        assert_eq!(other.status(), StatusCode::OK);
-        let third = app
+        // The other shared slots are still open for different clients.
+        let mut others = Vec::new();
+        for client in [
+            "198.51.100.7:5000",
+            "198.51.100.8:5000",
+            "198.51.100.9:5000",
+        ] {
+            let other = app
+                .clone()
+                .oneshot(request_from(&context(), client))
+                .await
+                .unwrap();
+            assert_eq!(other.status(), StatusCode::OK);
+            others.push(other);
+        }
+        assert_eq!(others.len() + 1, TOTAL_CONCURRENCY);
+        let full = app
             .clone()
             .oneshot(request_from(&context(), "192.0.2.9:5000"))
             .await
             .unwrap();
-        assert_eq!(third.status(), StatusCode::TOO_MANY_REQUESTS);
-        assert_eq!(error_text(third).await, "The story service is busy.");
+        assert_eq!(full.status(), StatusCode::TOO_MANY_REQUESTS);
+        assert_eq!(full.headers()["retry-after"], BUSY_RETRY_AFTER);
+        assert_eq!(error_text(full).await, "The story service is busy.");
 
         // Closing the held stream releases that client's slot.
         drop(held);
@@ -4880,7 +4903,7 @@ pub(crate) mod tests {
             tokio::time::sleep(Duration::from_millis(20)).await;
         }
         assert!(released);
-        drop(other);
+        drop(others);
         server.abort();
     }
 
