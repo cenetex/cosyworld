@@ -12,7 +12,7 @@ import { decodeSave, encodeSave } from "../v2/card-game/world.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import {
   courseOptions,
-  sailTransports,
+  courseToward,
 } from "../v2/card-game/pack-transport.mjs";
 import { openSeas } from "./helpers/open-door.mjs";
 
@@ -138,18 +138,43 @@ describe("residents embark to their own destination", () => {
     expect(courseOptions(s, SHIP, "vale")).not.toContain(PIRAEUS);
   });
 
-  it("strikes a resident's cargo course when a human boards before it sails", () => {
+  it("never carries a player's avatar past a cargo gate, even while away", () => {
+    // Vale boards beside the Bard and goes away (#2139 review). Her avatar
+    // still rides by the cargo rule, so the Bard cannot sail them both to
+    // Piraeus; the stuck ship goes home, everyone goes ashore, and the Bard
+    // sets that pursuit aside, so he does not board again for it at once.
+    const saved = start();
+    saved.actors.vale.place = SHIP;
+    let world = current({ op: "create", save: JSON.stringify(saved) }).world;
+    const ask = (op, extra = {}) =>
+      current({
+        world,
+        actor: "mara",
+        op,
+        claimed: players,
+        present: ["mara"],
+        ...extra,
+      });
+    const voyages = [];
+    let home = false;
+    for (let i = 0; i < 8; i++) {
+      const result = ask("play", {
+        action: ask("view").actions.find((a) => a.kind === "wait"),
+      });
+      expect(result.ok, result.error).toBe(true);
+      world = result.world;
+      voyages.push([world.transports[SHIP].dock, world.actors.vale.place]);
+      home ||= world.log.some((e) => /puts in at/u.test(e.text || ""));
+    }
+    expect(voyages).not.toContainEqual([PIRAEUS, SHIP]);
+    expect(world.actors.vale.place).not.toBe(PIRAEUS);
+    expect(home).toBe(true);
+    expect(world.actors[BARD].gaveUp?.target).toBe(PIRAEUS);
+  });
+
+  it("sets a resident bound for its own dock ashore instead of sailing", () => {
     const s = decodeSave(JSON.stringify(start()));
-    s.actors.vale.place = SHIP;
-    Object.assign(s.transports[SHIP], {
-      phase: "course",
-      destination: PIRAEUS,
-    });
-    sailTransports(s);
-    expect(s.transports[SHIP]).toMatchObject({
-      phase: "docked",
-      dock: HARBOR,
-      destination: null,
-    });
+    s.actors[BARD].want = { ...s.actors[BARD].want, target: HARBOR };
+    expect(courseToward(s, SHIP, HARBOR, BARD)).toBe(null);
   });
 });

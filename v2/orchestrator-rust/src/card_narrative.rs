@@ -3062,9 +3062,8 @@ pub(crate) mod tests {
         // Memories stay out of a line's brief (#1537); a reflection may
         // retell one (#2016), but not read back its label.
         let thought = Check::new(&c, pip, Part::Thought);
-        for raw in ["I remember: the lamp moved."] {
-            assert_eq!(thought.clean(raw, true), Err("echoed brief"), "{raw}");
-        }
+        let raw = "I remember: the lamp moved.";
+        assert_eq!(thought.clean(raw, true), Err("echoed brief"), "{raw}");
         // Inner life is first person about known things (#1850).
         for (raw, reason) in [
             (

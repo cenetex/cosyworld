@@ -1,4 +1,4 @@
-import { controlledByHuman } from "./human-cast.mjs";
+import { controlledByHuman, humanAvatar } from "./human-cast.mjs";
 import {
   transports,
   crossings,
@@ -267,15 +267,20 @@ const humanAboard = (s, t) =>
   Object.entries(s.actors).some(
     ([who, a]) => a.place === t.place && controlledByHuman(s, who),
   );
-// Residents embark to their own destination (rules 96). With no human
-// aboard, a resident's course is the ship's, along any lane between active
-// docks: the cargo rule binds only a voyage a human rides, so no traveler
-// is carried past a cargo gate, and every dock keeps its free way home.
+// Residents embark to their own destination (rules 96). With no player's
+// avatar aboard, a resident's course is the ship's, along any lane between
+// active docks: the cargo rule binds every voyage a player's avatar rides,
+// held, away or unheld, so no traveler is carried past a cargo gate, and
+// every dock keeps its free way home.
+const playerAvatar = (s, who) =>
+  controlledByHuman(s, who) || Boolean(humanAvatar(who));
 const residentVoyage = (s, t, actor) =>
   Boolean(actor) &&
   s.actors[actor]?.place === t.place &&
-  !controlledByHuman(s, actor) &&
-  !humanAboard(s, t);
+  !playerAvatar(s, actor) &&
+  !Object.entries(s.actors).some(
+    ([who, a]) => a.place === t.place && playerAvatar(s, who),
+  );
 
 // Riders sailed in on the last voyage. Only they can step ashore, and only
 // at the arrival port. A person who boarded here cannot step straight back.
@@ -335,9 +340,10 @@ export function courseToward(s, place, target, actor = null) {
   if (!found) return null;
   const dock = read(s, found[0]).dock,
     free = residentVoyage(s, found[1], actor);
-  // Back to the port it left: sail out on the first lane and return.
+  // Back to the port it left: sail out on the first lane and return. A
+  // resident sails nowhere for its own dock; it waits to go ashore.
   if (dock === target)
-    return openLanes(s, found[1], dock, actor, free)[0] ?? null;
+    return free ? null : (openLanes(s, found[1], dock, actor)[0] ?? null);
   return lanePath(s, found[0], dock, target, actor, free)?.[1] ?? null;
 }
 
@@ -480,16 +486,7 @@ export function sailTransports(s) {
         riders: aboard,
       });
     } else if (state.phase === "course") {
-      const gate = laneGate(t, state.dock, state.destination);
       if (!aboard.length) settleEmpty(state, s.turn);
-      // A human who boarded after a resident set a cargo course stays in
-      // port: the course is struck until the cargo is aboard.
-      else if (gate && humanAboard(s, t) && !conditionsMet(s, t.packId, gate))
-        Object.assign(state, {
-          phase: "docked",
-          destination: null,
-          since: s.turn,
-        });
       else {
         Object.assign(state, { phase: "sea", since: s.turn });
         events.push({

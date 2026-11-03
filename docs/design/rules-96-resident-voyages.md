@@ -11,21 +11,22 @@ traveler at Piraeus never got the ship.
 
 ## The rule
 
-- **A resident's course is the ship's.** With no human aboard, a resident
-  aboard plans and sets the course toward its own destination (the dock on
-  the route its want or its wandering names), exactly as a player's course
-  card does. On arrival it goes ashore as a rider; the empty ship then
+- **A resident's course is the ship's.** With no player's avatar aboard
+  (held, away or unheld), a resident aboard plans and sets the course toward
+  its own destination (the dock on the route its want or its wandering
+  names), exactly as a player's course card does. On arrival it goes ashore as a rider; the empty ship then
   answers the next call (rules 94).
-- **No cargo for resident voyages.** With no human aboard, every lane
-  between active docks is open to the resident's course, gated or not. The
-  cargo rule binds only a voyage a human rides, so no traveler is carried
-  past a cargo gate, and every dock keeps the free way home rules 94 gives
+- **No cargo for resident voyages.** With no player's avatar aboard, every
+  lane between active docks is open to the resident's course, gated or not.
+  The cargo rule binds every voyage a player's avatar rides, even while its
+  player is away, so no traveler is carried past a cargo gate, and every dock keeps the free way home rules 94 gives
   it, so a resident voyage never strands anyone. Lane knowledge still
   applies to ungated lanes, as before.
 - **Players first.** With a human aboard, residents leave the course to
-  the human (unchanged), and the cargo rule applies. If a human boards after
-  a resident set a cargo course and before it casts off, the course is
-  struck and the ship stays docked.
+  the human (unchanged), and the cargo rule applies. A course casts off in
+  the round it is set, so no player can board in between.
+- **Its own dock.** A resident whose destination is the dock it lies at sets
+  no course; it waits to go ashore, under the rules 95 fallback.
 - **Unreachable destinations** fall back to rules 95: a resident with no
   course waits, the idle sail or the stuck-ship rule runs after
   `IDLE_ROUNDS`, and a resident set ashore by it sets that pursuit aside.
@@ -39,4 +40,5 @@ byte-identical and hash-pinned.
 Tests: `test/card-resident-voyage.test.mjs` (the Bard sails to Piraeus,
 lands, and Mara boards; the same scenario under the released rules 95
 bundle keeps him short of Piraeus; two runs are identical; players first;
-a struck cargo course).
+an away player's avatar kept to the cargo rule, with the stuck ship setting
+the Bard's pursuit aside; a resident bound for its own dock sets no course).
