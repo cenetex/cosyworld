@@ -211,10 +211,6 @@ try {
           const next = nextVoyagePlay(await state(), "mara", target);
           await step(next.kind, next.target);
         }
-        // Waiting aboard with no course to set, a ship whose cargo lanes are
-        // shut puts in at its home port and sets everyone ashore (rules 95).
-        if (kind === "move" && (await state()).actors.mara.place === target)
-          return;
         if (target === "greek-ship")
           for (
             let n = 0;
