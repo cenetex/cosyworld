@@ -109,7 +109,9 @@ jobs:
   lint:
     name: Lint and guides
     runs-on: ${{ vars.FAST_CHECK_RUNNER || 'ubuntu-latest' }}
-    timeout-minutes: 8
+    # A cache miss fetches the whole tree from Git, which took up to 11
+    # minutes on 2026-11-03; with the cache the job takes about 5.
+    timeout-minutes: 15
     steps:
       - *restore-git-objects
       - *borrow-git-objects
@@ -126,25 +128,21 @@ jobs:
   unit:
     name: JavaScript unit tests
     runs-on: ${{ vars.FAST_CHECK_RUNNER || 'ubuntu-latest' }}
-    timeout-minutes: 8
+    # A cache miss fetches the whole tree from Git, which took up to 11
+    # minutes on 2026-11-03; with the cache the job takes about 5.
+    timeout-minutes: 15
     env:
       CI: true
     steps:
       - *restore-git-objects
       - *borrow-git-objects
       - *checkout
-      - uses: actions/setup-node@v7
-        with:
-          node-version: "24"
-          cache: "npm"
-          cache-dependency-path: package-lock.json
-      - run: npm ci --prefer-offline --no-audit --no-fund
-      - run: npm test
       # Packs the checkout's files into one pack for later checkouts. The key
       # changes daily and with the card art, so most main pushes save nothing.
+      # A run that found no cache at all saves one too, even on a pull request.
       - name: Pack Git objects for later checkouts
         id: pack-git-objects
-        if: github.event_name == 'push'
+        if: github.event_name == 'push' || steps.git-objects.outputs.cache-matched-key == ''
         env:
           MATCHED: ${{ steps.git-objects.outputs.cache-matched-key }}
         run: |
@@ -163,6 +161,13 @@ jobs:
         with:
           path: ${{ runner.temp }}/git-objects
           key: ${{ steps.pack-git-objects.outputs.key }}
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: "npm"
+          cache-dependency-path: package-lock.json
+      - run: npm ci --prefer-offline --no-audit --no-fund
+      - run: npm test
 
   # cargo fmt reads source only, so this job builds nothing and needs no
   # Cargo cache. It uses the same stable toolchain as ci.yml and deploy.yml
@@ -193,7 +198,9 @@ jobs:
     name: Browser smoke (${{ matrix.smoke }})
     needs: plan
     runs-on: ${{ vars.FAST_CHECK_RUNNER || 'ubuntu-latest' }}
-    timeout-minutes: 8
+    # A cache miss fetches the whole tree from Git, which took up to 11
+    # minutes on 2026-11-03; with the cache the job takes about 5.
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
