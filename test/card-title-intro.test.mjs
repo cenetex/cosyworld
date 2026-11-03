@@ -63,16 +63,19 @@ test("blocked storage shows it; automated browsers need intro=1", () => {
   );
 });
 
-test("the acknowledgement quotes RATi's statement and names its link", () => {
-  const quoted = acknowledgement.paragraphs.filter((p) => p.source);
-  assert.equal(quoted.length, 4);
-  assert.match(quoted[1].text, /^The RATi Open Software Foundation has no/);
+test("the acknowledgement is the owner's five paragraphs and the credit", () => {
+  const { paragraphs } = acknowledgement;
+  assert.equal(paragraphs.length, 5);
+  assert.match(paragraphs[0].text, /^Before this forest, there was land\./);
+  assert.match(paragraphs[3].text, /a forest folded inside\.$/);
   assert.equal(
-    quoted[1].links["RATi Open Software Foundation"],
-    "https://rati.foundation/about/#land",
+    paragraphs.at(-1).text,
+    "We leave the lid open. Whoever you are, wherever you have come from, there is a path here for you.",
   );
-  for (const { text, links = {} } of acknowledgement.paragraphs)
+  for (const { text, links = {} } of paragraphs)
     for (const phrase of Object.keys(links)) assert.ok(text.includes(phrase));
-  assert.match(acknowledgement.paragraphs.at(-1).text, /wooden box/);
-  assert.match(acknowledgement.credit, /All revenue goes to the Foundation$/);
+  assert.equal(
+    acknowledgement.credit,
+    "Designed by the RATi Open Software Foundation · Operated as a service by Cenetex Inc. · All revenue goes to the Foundation",
+  );
 });

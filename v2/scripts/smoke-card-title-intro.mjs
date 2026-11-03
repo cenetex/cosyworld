@@ -114,22 +114,39 @@ try {
     const title = await page.locator(".title-intro").getAttribute("data-title");
     assert.ok(TITLES.includes(title), title);
     // The acknowledgement is real text, readable, and scrolls in its panel.
+    // Its lines fade in on a clock, then every one is fully shown.
+    await page.waitForTimeout(3000);
     const ack = await page.$eval(".title-ack-text", (text) => ({
       words: text.innerText,
       size: parseFloat(getComputedStyle(text).fontSize),
       bottom: text.closest(".title-ack").getBoundingClientRect().bottom,
-      link: text.querySelector("a")?.href,
+      faint: [...text.querySelectorAll("p:not(.title-credit)")].filter(
+        (line) => getComputedStyle(line).opacity !== "1",
+      ).length,
     }));
-    assert.match(ack.words, /RATi Open Software Foundation has no single home/);
-    assert.match(ack.words, /intricately carved wooden box/);
+    assert.match(ack.words, /^Before this forest, there was land\./);
+    assert.match(ack.words, /a wooden box, intricately carved/);
+    assert.match(ack.words, /there is a path here for you\./);
     assert.match(ack.words, /All revenue goes to the Foundation/);
-    assert.equal(ack.link, "https://rati.foundation/about/#land");
-    assert.ok(ack.size >= 15 && ack.bottom <= height, JSON.stringify(ack));
-    assert.equal(
-      await page.evaluate(() => document.activeElement?.className),
-      "title-continue",
-    );
-    await page.waitForTimeout(800);
+    assert.ok(ack.size >= 17 && ack.bottom <= height, JSON.stringify(ack));
+    assert.equal(ack.faint, 0, "every line shown once loaded");
+    // The way on is a quiet line of text, still a focused button.
+    const cue = await page.$eval(".title-continue", (next) => ({
+      focused: document.activeElement === next,
+      ring: next.matches(":focus-visible"),
+      tag: next.tagName,
+      text: next.textContent,
+      border: getComputedStyle(next).borderStyle,
+      background: getComputedStyle(next).backgroundColor,
+    }));
+    assert.deepEqual(cue, {
+      focused: true,
+      ring: false,
+      tag: "BUTTON",
+      text: "click to continue",
+      border: "none",
+      background: "rgba(0, 0, 0, 0)",
+    });
     await shot(page, `ack-${width}`);
     await page.waitForSelector("#hand .card");
     await page.waitForTimeout(1500);

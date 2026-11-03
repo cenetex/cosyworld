@@ -99,15 +99,13 @@ const link = (text, href) => {
   anchor.rel = "noopener";
   return anchor;
 };
-// Real text from acknowledgement.json; each named phrase becomes its link.
+// Real text from acknowledgement.json, set like a film's opening card.
 function acknowledgementPanel() {
   const panel = element("section", "title-ack");
   const text = element("div", "title-ack-text");
   text.tabIndex = 0;
-  const heading = element("h2", "", acknowledgement.title);
-  heading.id = "title-ack-heading";
-  text.setAttribute("aria-labelledby", heading.id);
-  text.append(heading);
+  text.setAttribute("role", "region");
+  text.setAttribute("aria-label", acknowledgement.title);
   for (const { text: words, links = {}, note } of acknowledgement.paragraphs) {
     const paragraph = element("p", note ? "title-ack-note" : "");
     const phrases = Object.keys(links);
@@ -121,7 +119,13 @@ function acknowledgementPanel() {
     text.append(paragraph);
   }
   text.append(element("p", "title-credit", acknowledgement.credit));
-  const next = element("button", "title-continue", "Continue");
+  // A quiet line, still a real button for focus and Enter or Space.
+  const tap = matchMedia("(pointer: coarse)").matches;
+  const next = element(
+    "button",
+    "title-continue",
+    `${tap ? "tap" : "click"} to continue`,
+  );
   next.type = "button";
   panel.append(text, next);
   return { panel, next };
@@ -329,7 +333,20 @@ export function playTitleIntro({
       phase = layer.dataset.phase = "ack";
       layer.append(panel);
       fade(panel, reduced ? 250 : 700);
-      next.focus({ preventScroll: true });
+      // The paragraphs, credit and cue follow one another in, on a clock.
+      if (!reduced)
+        panel
+          .querySelectorAll(".title-ack-text > p, .title-continue")
+          .forEach((line, i) =>
+            line.animate([{ opacity: 0 }], {
+              duration: 600,
+              delay: 200 + i * 300,
+              easing: "ease",
+              fill: "backwards",
+            }),
+          );
+      // No ring until the keyboard moves; Tab shows it.
+      next.focus({ preventScroll: true, focusVisible: false });
     }
     await left;
     layer.dataset.phase = "out";
