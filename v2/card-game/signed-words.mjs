@@ -78,6 +78,15 @@ export function withSignatures(context, storage = globalThis.localStorage) {
       const signed = find("expression", "", memory.text);
       return signed ? [{ ...memory, signed }] : [];
     });
+    // "Between us" quotes signed lines too (between-us.mjs).
+    if (entity.between)
+      next.between = entity.between.map((b) => ({
+        ...b,
+        said: b.said.flatMap((line) => {
+          const signed = find("line", line.actorId, line.text);
+          return signed ? [{ ...line, signed }] : [];
+        }),
+      }));
     const life = entity.inner_life;
     if (life) {
       const persona = life.persona && find("persona", entity.id, life.persona);

@@ -26,6 +26,12 @@ mod homecoming_tests;
 mod hoppycat_tests;
 mod kernel;
 mod narrator;
+/// The shared narrator's dialogue context, for the story service's parity
+/// tests.
+#[cfg(test)]
+pub(crate) fn narrator_context(request: &Value) -> Result<Value> {
+    narrator::context(request)
+}
 #[cfg(test)]
 mod opening_tests;
 #[cfg(test)]

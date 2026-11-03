@@ -43,6 +43,7 @@ import { knownActors, wantOf } from "./want.mjs";
 import { forgetUnfound, groundedInner } from "./speech-knowledge.mjs";
 import { hasTemperament, variantOf, signalEcho } from "./pack-rules.mjs";
 import { reflectionDue } from "./reflections.mjs";
+import { betweenUs } from "./between-us.mjs";
 import speech from "./speech.json" with { type: "json" };
 
 // A refusal reaches the brief as its committed code; the refuser's line
@@ -181,8 +182,9 @@ export function turnOutcome(world) {
 }
 
 // An avatar does not retell its own earlier deed ("I threatened the Keeper
-// over the Bell") unless this Talk tells it (#1850).
-function pastDeedsAside(world, id, telling) {
+// over the Bell") unless this Talk tells it (#1850). A fact "Between us"
+// retells in the speaker's own words is not said twice either.
+function pastDeedsAside(world, id, telling, retold = []) {
   const known = world.knowledge?.known?.[id];
   if (!known) return world;
   const keep = Object.fromEntries(
@@ -190,9 +192,10 @@ function pastDeedsAside(world, id, telling) {
       const source = world.knowledge.facts[factId]?.source;
       return (
         telling.includes(factId) ||
-        source?.kind !== "event" ||
-        source.actorId !== id ||
-        source.turn >= world.turn
+        (!retold.includes(factId) &&
+          (source?.kind !== "event" ||
+            source.actorId !== id ||
+            source.turn >= world.turn))
       );
     }),
   );
@@ -463,11 +466,14 @@ export function narrativeContext(world, action = null) {
         quest.since === world.turn
           ? `In a dream, the quest for level ${quest.quest.level}: ${wantText(quest)}.`
           : null;
+      const between = beforeFirstLight
+        ? { entries: [], retold: [] }
+        : betweenUs(world, id, speakers, nameOf);
       const facts = [
         ...(dreamt ? [dreamt] : []),
         ...(want ? [want] : []),
         ...knowledgeFacts(
-          pastDeedsAside(world, id, told(id)),
+          pastDeedsAside(world, id, told(id), between.retold),
           id,
           nameOf,
           told(id),
@@ -652,6 +658,7 @@ export function narrativeContext(world, action = null) {
               hope: null,
             }
           : {}),
+        ...(between.entries.length ? { between: between.entries } : {}),
       };
     }),
   });

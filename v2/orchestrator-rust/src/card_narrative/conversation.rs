@@ -85,7 +85,8 @@ pub(super) fn others_lines(context: &Context, entity: &Entity) -> Vec<String> {
 }
 
 /// Arrange the scene lines for the system message: here and now, then what I
-/// know, then the talk here, then the fact I may mention.
+/// know, what is between me and the person I face, the talk here, and the
+/// fact I may mention.
 pub(super) fn frame(
     context: &Context,
     entity: &Entity,
@@ -94,14 +95,29 @@ pub(super) fn frame(
     mentions: Vec<String>,
 ) -> Vec<(Section, String)> {
     let mut out = vec![(Section::Now, format!("Here: {scene}"))];
+    let between = super::between::lines(context, entity);
+    // A fact shown under "Between us" is not said twice.
+    let once = |(section, text): (Section, String)| {
+        let text = between
+            .iter()
+            .fold(text, |t, line| t.replace(line.as_str(), ""));
+        let text = text.split_whitespace().collect::<Vec<_>>().join(" ");
+        (!text.is_empty()).then_some((section, text))
+    };
     let (known, now): (Vec<_>, Vec<_>) = lines
         .into_iter()
         .partition(|(section, _)| matches!(section, Section::Facts | Section::Inner));
+    let known: Vec<_> = known.into_iter().filter_map(once).collect();
     out.extend(now);
     if !known.is_empty() {
         out.push((Section::Now, String::new()));
         out.push((Section::Facts, "What I know:".into()));
         out.extend(known);
+    }
+    if !between.is_empty() {
+        out.push((Section::Now, String::new()));
+        out.push((Section::Facts, super::between::LABEL.into()));
+        out.extend(between.into_iter().map(|line| (Section::Facts, line)));
     }
     let chat = chat(context, entity);
     if !chat.is_empty() {
@@ -122,6 +138,7 @@ pub(super) const SCAFFOLD: &[&str] = &[
     "if it fits the conversation",
     "what i know:",
     "recent talk here",
+    "between us:",
     "my next words are fresh",
     "helped reach my goal",
     "measured attempt",

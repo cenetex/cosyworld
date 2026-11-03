@@ -342,6 +342,55 @@ fn conversation_turns_answer_one_line_with_the_talk_here() {
     );
 }
 
+/// A return visit (#2078): the same pair before an incident, then after it
+/// and a quiet spell. Only the second prompt carries "Between us", and it
+/// never repeats what the talk here already shows.
+#[test]
+fn a_return_visit_remembers_what_is_between_us() {
+    let cases = cases();
+    let prompt = |case: &str, id: &str| {
+        let (_, context, lines) = cases.iter().find(|(name, ..)| name == case).unwrap();
+        let heard = scene_for(context, lines, id);
+        let context = heard.as_ref().unwrap_or(context);
+        conversation::messages(context, entity(context, id), 0).0
+    };
+    for id in ["vale", "moth"] {
+        assert!(!prompt("return visit before", id).contains("Between us:"));
+    }
+    let vale = prompt("return visit after", "vale");
+    let between = vale.split_once("Between us:\n").unwrap().1;
+    assert!(between.starts_with(
+        "Pip threatened me over the Lamp, a little while ago.\n\
+         I threatened Pip over the Black cloth, some time ago.\n\
+         Pip gave me this Black cloth. I'm keeping it."
+    ));
+    assert!(
+        !vale.contains("last said"),
+        "the talk here already shows it"
+    );
+    // Pip sees his own newer threat first, then Vale's older one.
+    let pip = prompt("return visit after", "moth");
+    assert!(pip.contains(
+        "Between us:\nI threatened Vale over the Lamp, a little while ago.\n\
+         Vale threatened me over the Black cloth, some time ago."
+    ));
+    // The rules' third-person account is not told twice.
+    for prompt in [&vale, &pip] {
+        assert!(!prompt.contains(" threatens "), "{prompt}");
+    }
+    // At the pond the talk here is new, so the last words between them show.
+    let vale = prompt("return visit pond", "vale");
+    assert!(!vale.contains("Recent talk here"), "{vale}");
+    let between = vale.split_once("Between us:\n").unwrap().1;
+    assert!(
+        between.starts_with(
+            "Pip threatened me over the Lamp, some time ago.\n\
+             Pip last said to me, a little while ago: Then stay. I like company in the dark."
+        ),
+        "{between}"
+    );
+}
+
 #[test]
 fn voice_eval_measures_contract_prompts_and_recorded_replies() {
     let report = report();

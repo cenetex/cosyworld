@@ -21,3 +21,54 @@ and the reply recited a fact as a rule. Of 13 recorded asker lines on .dev,
 Replay: the caption is rules text, so it changes in a new bundle. Journals
 before rules 91 replay on their own bundles and keep the old wording in their
 logs.
+
+## Between us
+
+Status: built for [#2078](https://github.com/cenetex/cosyworld/issues/2078),
+with no rules version.
+
+On a return visit, a speaker sees a little of its history with the person it
+faces, under "Between us:" after "What I know". It decides nothing; it only
+shapes what is said.
+
+- **Sources.** `between-us.mjs` builds one entry per other voice in the scene
+  from committed state only: up to two threats between the pair that the
+  speaker knows of, from both sides (its grievances against the other, and
+  the other's against it), newest incident first; a keepsake the other gave
+  it, worded by `lifeFacts`; and the last line each said where the other
+  heard it, before this turn. A threat is told in the speaker's own words
+  with its age band: "Pip threatened me over the Lamp, a little while ago.",
+  "I threatened Pip over the Black cloth, some time ago.", or "Pip picked a
+  fight with me, long ago." with no item. A dormant one still shows, told by
+  its age. A repaired one adds who made it right (" Pip made it right." or
+  " I made it right.") when the speaker knows the repair fact that answers
+  it, and is left out when it does not. Only threats show: the other's taste,
+  light or noise grievances would say what it dislikes, and the other's
+  private inner life never appears. The rules' third-person account of a
+  told threat and its repair ("I witnessed this …: Pip threatens Vale …")
+  is then left out of "What I know".
+- **Shown.** The story service shows the entry for the speaker's listener:
+  at most 3 lines and 240 characters, in this order while they fit: the
+  newest incident (or the keepsake), their last words, the other facts, then
+  mine ("Pip last said to me, some time ago: …"), with a rough age in the
+  knowledge facts' bands. Words already in "Recent talk here", or the line
+  being answered, are left out, and a fact shown here is removed from "What
+  I know". With no shared history there is no section.
+- **Trust.** Shared scenes build it from the journal's world in the narrator.
+  A local scene's facts must match the facts catalog, and its lines must
+  carry the line envelope the service signed, whose turn must be the line's,
+  with at most one line from each side
+  ([untrusted input](../../v2/docs/card-table/shared-worlds.md#untrusted-input)).
+  The line envelope names the speaker, text and turn but not the listener,
+  so a local save could quote a line its speaker said to someone else. The
+  words are still the service's own; binding the listener needs an envelope
+  format change.
+- **Validator.** "Between us:" is a scaffold label. Saying a whole line of the
+  section back is an echo, and a six-word run of a quoted line is a repeat,
+  as for the talk here. Using the history in one's own words, or saying
+  "between us" in speech, is fine.
+- **Budget.** The offline voice eval's return visit (`returnVisit` in the
+  eval fixture) runs at the station, where the last words are already in
+  "Recent talk here", and again at the pond, where they show. Speech mean
+  stays 271 and p95 331, with a max of 354; the conversation p95 is 337
+  (#1537).

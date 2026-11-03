@@ -17914,6 +17914,12 @@
       return {
         ...entity,
         facts: entity.facts.map(blur),
+        ...entity.between && {
+          between: entity.between.map((b) => ({
+            ...b,
+            facts: b.facts.map(blur)
+          }))
+        },
         desire: {
           items: entity.desire.items.filter(kept),
           location: kept(entity.desire.location) ? entity.desire.location : null,
@@ -17922,6 +17928,55 @@
       };
     });
     return changed ? { ...context, entities: entities2 } : context;
+  }
+
+  // v2/card-game/between-us.mjs
+  var seqOf = (g) => Number(g.incident.slice("event:".length));
+  function incidents(world, id, other, nameOf2) {
+    const known = world.knowledge?.known?.[id] || {};
+    const facts = world.knowledge?.facts || {};
+    const Other = nameOf2(other);
+    const against = (holder, them) => (world.motives?.grievances?.[holder] || []).filter(
+      (g) => g.other === them && g.kind === "threat" && g.incident && known[g.incident] && facts[g.incident]
+    ).map((g) => ({ g, mine: holder === id }));
+    return [...against(id, other), ...against(other, id)].sort((a, b) => seqOf(b.g) - seqOf(a.g)).flatMap(({ g, mine }) => {
+      const repair = Object.values(facts).find(
+        (f) => f.source?.answers?.incident === g.incident && known[f.id]
+      );
+      if (g.repaired && !repair) return [];
+      const when = facts[g.incident].source?.turn ?? g.turn;
+      const age = ageText(world.turn - when);
+      const item = g.item ? nameOf2(g.item) : null;
+      const line = mine ? item ? `${Other} threatened me over the ${item}, ${age}.` : `${Other} picked a fight with me, ${age}.` : item ? `I threatened ${Other} over the ${item}, ${age}.` : `I picked a fight with ${Other}, ${age}.`;
+      const made = !g.repaired ? "" : mine ? ` ${Other} made it right.` : " I made it right.";
+      const covers2 = repair ? [g.incident, repair.id] : [g.incident];
+      return [{ text: line + made, covers: covers2 }];
+    }).slice(0, 2);
+  }
+  var keepsake = (world, id, other) => {
+    const from = `${nameIn(world, other)} gave me this `.toLowerCase();
+    return lifeFacts(world, id).find(
+      (line) => line.toLowerCase().startsWith(from)
+    );
+  };
+  var lastSaid = (world, from, to) => world.log.filter(
+    (e) => e.generated && e.kind === "dialogue" && !e.silent && e.actorId === from && e.turn < world.turn && e.text.length <= 400 && [...e.witnesses || [], ...e.cast || []].includes(to)
+  ).map(({ actorId, text: text2, turn }) => ({ actorId, text: text2, turn })).at(-1);
+  function betweenUs(world, id, speakers, nameOf2) {
+    if (!speakers.includes(id)) return { entries: [], retold: [] };
+    const covers2 = [];
+    const entries = speakers.filter((other) => other !== id).map((other) => {
+      const told = incidents(world, id, other, nameOf2);
+      covers2.push(...told.flatMap((t) => t.covers));
+      return {
+        with: other,
+        facts: [...told.map((t) => t.text), keepsake(world, id, other)].filter(Boolean).map((text2) => text2.slice(0, 240)),
+        said: [lastSaid(world, other, id), lastSaid(world, id, other)].filter(
+          Boolean
+        )
+      };
+    }).filter((entry) => entry.facts.length || entry.said.length);
+    return { entries, retold: covers2 };
   }
 
   // v2/card-game/speech.json
@@ -18025,13 +18080,13 @@
       observations: observableStates(world, [...actorIds2, ...relevantItems])
     };
   }
-  function pastDeedsAside(world, id, telling) {
+  function pastDeedsAside(world, id, telling, retold = []) {
     const known = world.knowledge?.known?.[id];
     if (!known) return world;
     const keep = Object.fromEntries(
       Object.entries(known).filter(([factId]) => {
         const source = world.knowledge.facts[factId]?.source;
-        return telling.includes(factId) || source?.kind !== "event" || source.actorId !== id || source.turn >= world.turn;
+        return telling.includes(factId) || !retold.includes(factId) && (source?.kind !== "event" || source.actorId !== id || source.turn >= world.turn);
       })
     );
     const knowledge = {
@@ -18206,11 +18261,12 @@
         const want = kind === "avatar" && wantHeard(world, played, id, currentActor(world)) ? wantFact(world, id, nameOf) : null;
         const quest = world.actors[id]?.want;
         const dreamt = rest === "long" && id === resting2 && quest?.quest?.left && quest.since === world.turn ? `In a dream, the quest for level ${quest.quest.level}: ${wantText(quest)}.` : null;
+        const between = beforeFirstLight ? { entries: [], retold: [] } : betweenUs(world, id, speakers, nameOf);
         const facts = [
           ...dreamt ? [dreamt] : [],
           ...want ? [want] : [],
           ...knowledgeFacts(
-            pastDeedsAside(world, id, told(id)),
+            pastDeedsAside(world, id, told(id), between.retold),
             id,
             nameOf,
             told(id)
@@ -18345,7 +18401,8 @@
           ...kind === "avatar" ? {
             inner_life: groundedLife(world, id),
             hope: null
-          } : {}
+          } : {},
+          ...between.entries.length ? { between: between.entries } : {}
         };
       })
     });
