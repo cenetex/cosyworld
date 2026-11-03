@@ -157,12 +157,14 @@ const streamState = (page) =>
   });
 const whole = (state) =>
   state.dark === 0 && state.cue === "0.6" && state.words.length > 400;
-// Letters whose ink is partway in.
-const softLetters = () =>
-  [...document.querySelectorAll(".title-ack .speech-letter")].filter((ch) => {
-    const [, , , alpha = 1] = getComputedStyle(ch).color.match(/[\d.]+/g);
-    return ch.matches(".revealed") && alpha > 0.02 && alpha < 0.98;
-  }).length;
+// Letters whose ink is partway in, among the newest `last` written.
+const softLetters = (last = 0) =>
+  [...document.querySelectorAll(".title-ack .speech-letter.revealed")]
+    .slice(-last)
+    .filter((ch) => {
+      const [, , , alpha = 1] = getComputedStyle(ch).color.match(/[\d.]+/g);
+      return alpha > 0.02 && alpha < 0.98;
+    }).length;
 const gone = (page, timeout) =>
   page.waitForSelector(".title-intro", { state: "detached", timeout });
 // The title's card is the avatar's: once the title leaves, by its turn or by
@@ -195,7 +197,7 @@ try {
     const title = await page.locator(".title-intro").getAttribute("data-title");
     assert.ok(TITLES.includes(title), title);
     // The acknowledgement writes in like dialogue, one letter at a time on
-    // a steady beat. For three seconds: no rest is longer than a word's
+    // a steady beat. Over its first 80 letters: no rest is longer than a word's
     // breath, "land." and "peoples" hold one, and at most three letters are
     // soft at once. The full text is in the page throughout.
     await page.evaluate(`window.softLetters = ${softLetters}`);
@@ -205,6 +207,7 @@ try {
           const times = [],
             text = document.querySelector(".title-ack-text");
           let softest = 0;
+          const start = performance.now();
           new MutationObserver((changes) => {
             for (const { target } of changes)
               if (target.matches(".revealed:not([data-at])")) {
@@ -213,8 +216,8 @@ try {
               }
           }).observe(text, { subtree: true, attributeFilter: ["class"] });
           const tick = () => {
-            softest = Math.max(softest, window.softLetters());
-            if (times.length && performance.now() - times[0][1] > 3000)
+            softest = Math.max(softest, window.softLetters(8));
+            if (times.length >= 80 || performance.now() - start > 8000)
               resolve({ times, softest });
             else requestAnimationFrame(tick);
           };
@@ -226,7 +229,7 @@ try {
       ms: at - cadence.times[i][1],
     }));
     const rests = gaps.filter(({ ms }) => ms > 200);
-    assert.ok(cadence.times.length > 60, String(cadence.times.length));
+    assert.ok(cadence.times.length >= 75, String(cadence.times.length));
     assert.ok(
       Math.max(...gaps.map(({ ms }) => ms)) < 700,
       JSON.stringify(rests),
@@ -488,9 +491,14 @@ try {
   await muted.waitForSelector("#hand .card");
   // Left alone, it is written in about 16 seconds, then the cue shows,
   // and one key then goes on.
-  await muted.waitForTimeout(13000);
-  assert.ok((await streamState(muted)).dark > 0, "not yet written");
-  await muted.waitForTimeout(5000);
+  const begun = Date.now();
+  await muted.waitForFunction(
+    () => !document.querySelector(".title-ack .speech-letter"),
+    null,
+    { timeout: 30000 },
+  );
+  assert.ok(Date.now() - begun > 13000, `written in ${Date.now() - begun} ms`);
+  await muted.waitForTimeout(1000);
   assert.ok(whole(await streamState(muted)), "the stream ends on its own");
   await muted.keyboard.press("Space");
   await cardShown(muted);
