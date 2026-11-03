@@ -18,7 +18,7 @@ describe("browser dialogue history contract", () => {
     "keeps avatar history valid after $name",
     ({ context }) => {
       const sent = JSON.parse(JSON.stringify(context));
-      expect(sent.conversation.length).toBeLessThanOrEqual(4);
+      expect(sent.conversation.length).toBeLessThanOrEqual(6);
       for (const line of sent.conversation) {
         expect(typeof line.actorId).toBe("string");
         expect(profiles[line.actorId]?.kind).toBe("avatar");
@@ -67,9 +67,9 @@ describe("browser dialogue history contract", () => {
     }
   });
 
-  it("selects the last four actual avatar lines before applying the history limit", () => {
+  it("selects the last six actual avatar lines before applying the history limit", () => {
     const world = hearFirstEcho();
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < 7; i++) {
       addLog(world, "Vale", `Avatar line ${i}`, {
         kind: "dialogue",
         generated: true,
@@ -87,7 +87,7 @@ describe("browser dialogue history contract", () => {
     world.turn++;
     world.revision++;
     expect(narrativeContext(world).conversation).toEqual(
-      [1, 2, 3, 4].map((i) => ({
+      [1, 2, 3, 4, 5, 6].map((i) => ({
         actorId: "vale",
         text: `Avatar line ${i}`,
         // Whoever is at the pond hears it; the cast follows its own wants.

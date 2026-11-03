@@ -33,7 +33,7 @@ fn rules_sentences_are_authored_and_instructions_are_not() {
         (Field::Facts, "Holding: Oil flask, something I can't make out."),
         (
             Field::Facts,
-            "The keeper refused Vale's request for Bell (refusal: needs-it). Nothing changed. Say why in your own words.",
+            "The keeper refused Vale's request for Bell (refusal: needs-it). Nothing changed.",
         ),
         (Field::Disclosures, "RATi keeps the kettle warm for anyone walking home late."),
     ] {

@@ -26,6 +26,8 @@ mod atmosphere;
 mod authored;
 #[path = "card_narrative/browser.rs"]
 pub(crate) mod browser;
+#[path = "card_narrative/conversation.rs"]
+mod conversation;
 #[path = "card_narrative/custody.rs"]
 mod custody;
 #[path = "card_narrative/dream.rs"]
@@ -521,7 +523,7 @@ fn valid(context: &Context) -> bool {
             .is_none_or(|name| voice_metrics::occasion_label(name).is_some())
         && context.events.len() <= 8
         && context.events.iter().all(|text| bounded(text, 650))
-        && context.conversation.len() <= 4
+        && context.conversation.len() <= conversation::CHAT_LINES
         && context.conversation.iter().all(|line| {
             kind(&line.actor_id, "avatar")
                 && bounded(&line.text, 400)
@@ -935,53 +937,57 @@ async fn complete_selected(
         }
     }
     let deadline = tokio::time::Instant::now() + settings.scene_timeout;
-    let calls: Vec<_> = voiced.iter().map(|id| (id.clone(), Part::Line)).collect();
-    let jobs = calls.into_iter().map(|(id, part)| async move {
-        let result = speak(
-            config,
-            context,
-            character_models,
-            settings,
-            deadline,
-            &id,
-            part,
-        )
-        .await;
-        (id, part, result)
-    });
-    let mut results = futures_util::StreamExt::buffer_unordered(
-        futures_util::stream::iter(jobs),
-        settings.parallel.max(1),
-    );
     let mut lines: BTreeMap<String, (String, String)> = BTreeMap::new();
-    let collected = tokio::time::timeout_at(deadline, async {
-        while let Some((id, part, result)) = futures_util::StreamExt::next(&mut results).await {
-            match (part, result) {
-                (Part::Line, Ok((text, model))) => {
-                    if context.speakers.contains(&id) {
-                        if let Some(emit) = on_delta {
-                            if !emit(&format!("{}\n", json!({"id": id, "text": text}))) {
-                                return Err(error(
-                                    StatusCode::SERVICE_UNAVAILABLE,
-                                    "The scene has closed.",
-                                ));
-                            }
-                        }
-                    }
-                    lines.insert(id, (text, model));
-                }
-                (Part::Line, Err(())) => {}
-                _ => {}
-            }
+    // A Talk is two turns of one conversation: the target answers the
+    // actor's line from this turn, so it speaks after the actor. Everyone
+    // else speaks alongside them until the scene's deadline.
+    match conversation::reply_target(context, voiced) {
+        None => {
+            voice_lines(
+                config,
+                context,
+                character_models,
+                settings,
+                deadline,
+                voiced,
+                on_delta,
+                &mut lines,
+            )
+            .await?
         }
-        Ok(())
-    })
-    .await;
-    // Past the scene deadline, what has been validated is published and the
-    // rest stay silent; dropping the stream cancels their provider requests.
-    drop(results);
-    if let Ok(Err(response)) = collected {
-        return Err(response);
+        Some((actor, target)) => {
+            let others: Vec<String> = voiced
+                .iter()
+                .filter(|id| **id != actor && **id != target)
+                .cloned()
+                .collect();
+            let mut talk = BTreeMap::new();
+            let (left, right) = tokio::join!(
+                voice_lines(
+                    config,
+                    context,
+                    character_models,
+                    settings,
+                    deadline,
+                    &others,
+                    on_delta,
+                    &mut lines,
+                ),
+                exchange(
+                    config,
+                    context,
+                    character_models,
+                    settings,
+                    deadline,
+                    (&actor, &target),
+                    on_delta,
+                    &mut talk,
+                ),
+            );
+            left?;
+            right?;
+            lines.extend(talk);
+        }
     }
     let mut private = BTreeMap::new();
     if reflections {
@@ -1052,6 +1058,113 @@ async fn complete_selected(
         "card-voices-v1".to_string()
     };
     Ok(json!({"revision":context.revision,"entries":entries,"omitted":omitted,"model":model}))
+}
+
+/// A Talk's two turns. The actor speaks within the first 55% of the scene,
+/// so the target always keeps the rest to answer it; with no line from the
+/// actor this turn there is nothing to answer, and an earlier turn's line is
+/// not this conversation.
+#[allow(clippy::too_many_arguments)]
+async fn exchange(
+    config: &AiConfig,
+    context: &Context,
+    character_models: &BTreeMap<String, String>,
+    settings: &VoiceSettings,
+    deadline: tokio::time::Instant,
+    (actor, target): (&str, &str),
+    on_delta: Option<&(dyn Fn(&str) -> bool + Send + Sync)>,
+    lines: &mut BTreeMap<String, (String, String)>,
+) -> Result<(), Response> {
+    let reserve = conversation::reply_reserve(settings.scene_timeout);
+    voice_lines(
+        config,
+        context,
+        character_models,
+        settings,
+        deadline - reserve,
+        &[actor.to_string()],
+        on_delta,
+        lines,
+    )
+    .await?;
+    let Some(heard) = lines
+        .get(actor)
+        .and_then(|(text, _)| conversation::with_line(context, actor, text))
+    else {
+        return Ok(());
+    };
+    voice_lines(
+        config,
+        &heard,
+        character_models,
+        settings,
+        deadline,
+        &[target.to_string()],
+        on_delta,
+        lines,
+    )
+    .await
+}
+
+/// Voice `ids` side by side until the scene deadline, adding each validated
+/// line to `lines`. Past the deadline, what has been validated is kept and
+/// the rest stay silent; dropping the stream cancels their requests.
+#[allow(clippy::too_many_arguments)]
+async fn voice_lines(
+    config: &AiConfig,
+    context: &Context,
+    character_models: &BTreeMap<String, String>,
+    settings: &VoiceSettings,
+    deadline: tokio::time::Instant,
+    ids: &[String],
+    on_delta: Option<&(dyn Fn(&str) -> bool + Send + Sync)>,
+    lines: &mut BTreeMap<String, (String, String)>,
+) -> Result<(), Response> {
+    // Each job owns its id: a borrowed one makes the scene future too
+    // general for `tokio::spawn`.
+    #[allow(clippy::unnecessary_to_owned)]
+    let jobs = ids.to_vec().into_iter().map(|id| async move {
+        let result = speak(
+            config,
+            context,
+            character_models,
+            settings,
+            deadline,
+            &id,
+            Part::Line,
+        )
+        .await;
+        (id, result)
+    });
+    let mut results = futures_util::StreamExt::buffer_unordered(
+        futures_util::stream::iter(jobs),
+        settings.parallel.max(1),
+    );
+    let collected = tokio::time::timeout_at(deadline, async {
+        while let Some((id, result)) = futures_util::StreamExt::next(&mut results).await {
+            let Ok((text, model)) = result else {
+                continue;
+            };
+            if context.speakers.contains(&id) {
+                if let Some(emit) = on_delta {
+                    if !emit(&format!("{}\n", json!({"id": id, "text": text}))) {
+                        return Err(error(
+                            StatusCode::SERVICE_UNAVAILABLE,
+                            "The scene has closed.",
+                        ));
+                    }
+                }
+            }
+            lines.insert(id, (text, model));
+        }
+        Ok(())
+    })
+    .await;
+    drop(results);
+    match collected {
+        Ok(Err(response)) => Err(response),
+        _ => Ok(()),
+    }
 }
 
 /// The checked context and settings for a shared scene's chosen voices.
@@ -1337,6 +1450,16 @@ fn seed_sentence(id: &str) -> String {
         .unwrap_or_else(|| format!("{}.", name(id)))
 }
 
+/// An avatar's first line: "I am" and its seed sentence.
+fn i_am(id: &str) -> String {
+    let seed = seed_sentence(id);
+    // "The Swede, ..." reads as "I am the Swede, ...".
+    match ["The ", "A ", "An "].iter().find(|a| seed.starts_with(**a)) {
+        Some(article) => format!("I am {}{}", article.to_lowercase(), &seed[article.len()..]),
+        None => format!("I am {seed}"),
+    }
+}
+
 /// The entity's own first-person words, with the persona its reflections grew.
 fn idiolect(entity: &Entity, part: Part) -> String {
     if kind(&entity.id, "location") {
@@ -1347,12 +1470,7 @@ fn idiolect(entity: &Entity, part: Part) -> String {
     }
     let profile = &profiles()[&entity.id];
     let mut text = if kind(&entity.id, "avatar") {
-        let seed = seed_sentence(&entity.id);
-        // "The Swede, ..." reads as "I am the Swede, ...".
-        match ["The ", "A ", "An "].iter().find(|a| seed.starts_with(**a)) {
-            Some(article) => format!("I am {}{}", article.to_lowercase(), &seed[article.len()..]),
-            None => format!("I am {seed}"),
-        }
+        i_am(&entity.id)
     } else {
         profile["idiolect"]
             .as_str()
@@ -1375,14 +1493,11 @@ fn idiolect(entity: &Entity, part: Part) -> String {
         text.push_str(persona);
     }
     text.push_str("\n\n");
-    text.push_str(&expression::direction(
-        if part == Part::Line {
-            expression::mode(profile)
-        } else {
-            expression::Mode::Speech
-        },
-        &name(&entity.id),
-    ));
+    text.push_str(&if part == Part::Line {
+        expression::line_direction(expression::mode(profile), &name(&entity.id))
+    } else {
+        expression::direction(expression::Mode::Speech, &name(&entity.id))
+    });
     text
 }
 
@@ -1595,7 +1710,13 @@ fn transcript_sections(context: &Context, entity: &Entity, part: Part) -> Vec<(S
     }
     lines.extend(tagged(Section::Directions, custody::facts(context, id)));
     scene.push('.');
-    if let Some(action) = &context.action {
+    // A Talk is the conversation itself: its caption is not a line to echo.
+    let chatting = conversation::applies(context, entity, part)
+        && context
+            .outcome
+            .as_ref()
+            .is_some_and(|o| o.card.kind == "talk");
+    if let Some(action) = context.action.as_ref().filter(|_| !chatting) {
         lines.push((Section::Now, format!("Just now: {action}")));
     }
     lines.extend(tagged(
@@ -1611,16 +1732,28 @@ fn transcript_sections(context: &Context, entity: &Entity, part: Part) -> Vec<(S
         context.outcome.is_some()
             && (fact.starts_with("Just arrived from ") || fact.starts_with("Leaving "))
     };
+    // A conversation turn's "Here:" line and custody already say who and
+    // what is at the scene.
+    let chatting_turn = conversation::applies(context, entity, part);
+    // What the speaker learned about its approaches is for planning, not
+    // speech: said aloud it is mechanics ("This approach helped reach my
+    // goal 0 times."), so a line never sees it.
     lines.extend(tagged(
         Section::Facts,
-        entity.facts.iter().filter(|f| !restated(f)).cloned(),
+        entity
+            .facts
+            .iter()
+            .filter(|f| !restated(f))
+            .filter(|f| part != Part::Line || !conversation::strategy(f))
+            .filter(|f| !chatting_turn || !f.starts_with("At the dialogue scene: "))
+            .cloned(),
     ));
-    if part == Part::Line {
-        lines.extend(tagged(
-            Section::Directions,
-            knowledge::directions(context, id),
-        ));
-    }
+    // A fact the rules reserved for this Talk: background to weave in.
+    let mentions = if part == Part::Line {
+        knowledge::directions(context, id)
+    } else {
+        Vec::new()
+    };
     for fact in observations::facts(context)
         .as_array()
         .into_iter()
@@ -1685,6 +1818,15 @@ fn transcript_sections(context: &Context, entity: &Entity, part: Part) -> Vec<(S
     }
     // No authored sample lines (#1537): the voice comes from the idiolect
     // and the world, never from example utterances.
+    if conversation::applies(context, entity, part) {
+        return conversation::frame(context, entity, scene, lines, mentions);
+    }
+    lines.extend(mentions.into_iter().map(|fact| {
+        (
+            Section::Directions,
+            format!("{} {fact}", conversation::MENTION),
+        )
+    }));
     let mut out: Vec<(Section, String)> = tagged(
         Section::Now,
         ["Current scene:".to_string(), scene, String::new()],
@@ -1932,9 +2074,6 @@ async fn speak(
             check.sentences = if atmosphere::narrator(id) { 3 } else { 1 };
         }
     }
-    // A reply that only missed its fact is kept. If no later attempt tells
-    // the fact, the speaker still speaks and the fact stays for another Talk.
-    let untold = std::sync::Mutex::new(None);
     let call = voice_metrics::Call::new(
         id,
         part,
@@ -1951,10 +2090,8 @@ async fn speak(
             } else {
                 &own
             };
-            let system = &system;
-            let user = attempt_transcript(context, entity, part, attempt);
+            let (system, user) = messages(context, entity, part, attempt);
             let check = &check;
-            let untold = &untold;
             let call = &call;
             call.attempt();
             async move {
@@ -1962,7 +2099,7 @@ async fn speak(
                     feature: "card_voice",
                     prompt_version: "card-voice-v3",
                     capability: ModelCapability::WorldContent,
-                    system,
+                    system: &system,
                     user: &user,
                     temperature: if part == Part::Dream {
                         1.2
@@ -1992,48 +2129,65 @@ async fn speak(
                             );
                         })?;
                 let finished = matches!(completion.finish_reason.as_str(), "stop" | "end_turn");
-                check
-                    .clean(&completion.text, finished)
-                    .map(|text| (text.clone(), completion.resolved_model_id.clone()))
-                    .map_err(|reason| {
-                        call.reject(reason);
-                        tracing::info!(
-                            feature = "card_voice",
-                            entity = id,
-                            attempt = attempt + 1,
-                            escalated,
-                            reason,
-                            excerpt = %excerpt(&completion.text),
-                            "card voice rejected"
-                        );
-                        if reason == "knowledge_fact" {
-                            if let Ok(text) = check.untold(&completion.text, finished) {
-                                let mut kept = untold.lock().expect("untold reply");
-                                kept.get_or_insert((text, completion.resolved_model_id));
-                            }
-                        }
-                    })
+                // A reply that only missed its fact is published at once
+                // (owner, 2026-11-02): the fact stays for another Talk and
+                // never costs an attempt. The rules' own check decides
+                // whether a published line taught it.
+                let told = check.clean(&completion.text, finished);
+                let untold = matches!(told, Err("knowledge_fact"));
+                told.or_else(|reason| match reason {
+                    "knowledge_fact" => check.untold(&completion.text, finished),
+                    _ => Err(reason),
+                })
+                .map(|text| (text, completion.resolved_model_id.clone(), untold))
+                .map_err(|reason| {
+                    call.reject(reason);
+                    tracing::info!(
+                        feature = "card_voice",
+                        entity = id,
+                        attempt = attempt + 1,
+                        escalated,
+                        reason,
+                        excerpt = %excerpt(&completion.text),
+                        "card voice rejected"
+                    );
+                })
             }
         },
     )
     .await;
-    if spoken.is_ok() {
-        call.finish(voice_metrics::Outcome::Spoken);
-    }
-    spoken.or_else(|()| {
-        let Some(kept) = untold.into_inner().expect("untold reply") else {
+    match spoken {
+        Ok((text, model, untold)) => {
+            if untold {
+                call.finish(voice_metrics::Outcome::Untold);
+                tracing::info!(
+                    feature = "card_voice",
+                    entity = id,
+                    reason = "knowledge_fact",
+                    "card voice spoke without its fact"
+                );
+            } else {
+                call.finish(voice_metrics::Outcome::Spoken);
+            }
+            Ok((text, model))
+        }
+        Err(()) => {
             call.finish(voice_metrics::Outcome::Silent);
-            return Err(());
-        };
-        call.finish(voice_metrics::Outcome::Untold);
-        tracing::info!(
-            feature = "card_voice",
-            entity = id,
-            reason = "knowledge_fact",
-            "card voice spoke without its fact"
-        );
-        Ok(kept)
-    })
+            Err(())
+        }
+    }
+}
+
+/// The system and user messages for one attempt. An avatar's line is a
+/// conversation turn (`conversation.rs`); other calls keep their transcript.
+fn messages(context: &Context, entity: &Entity, part: Part, attempt: u8) -> (String, String) {
+    if conversation::applies(context, entity, part) {
+        return conversation::messages(context, entity, attempt);
+    }
+    (
+        waking::system(context, entity, part),
+        attempt_transcript(context, entity, part, attempt),
+    )
 }
 
 /// A bounded, single-line excerpt of a rejected reply for the log. Long
@@ -2139,19 +2293,26 @@ struct Check<'a> {
     recent: Vec<String>,
     /// The line this reply answers, when there is one.
     answered: Option<String>,
+    /// Other speakers' recent lines here: a six-word run from one is a
+    /// parroted line ("Ships for Signal Jetty leave from ..."), not speech.
+    others: Vec<String>,
 }
 
 impl<'a> Check<'a> {
     fn new(context: &'a Context, entity: &'a Entity, part: Part) -> Self {
         let (limit, sentences) = part.limits();
         let own = name(&entity.id);
-        let brief: Vec<String> = transcript(context, entity, part)
+        let prompt: Vec<String> = transcript(context, entity, part)
             .lines()
             .map(str::trim)
             .filter(|line| !line.is_empty() && !line.starts_with(&format!("{own}:")))
             .map(str::to_string)
             .collect();
-        let labels = brief
+        // A conversation turn's facts, scene and talk are background the
+        // speaker may say in its own words (#2016). Only the scaffold's
+        // labels and its instructions about the reply are a read-back.
+        let chatting = conversation::applies(context, entity, part);
+        let labels = prompt
             .iter()
             .flat_map(|line| line.split(". "))
             .filter_map(|sentence| sentence.split_once(':'))
@@ -2173,12 +2334,25 @@ impl<'a> Check<'a> {
             limit,
             sentences,
             known: known(context),
-            brief,
+            brief: if chatting {
+                conversation::meta(entity)
+            } else {
+                prompt
+            },
             labels,
             recent: recent_own_lines(context, entity),
-            answered: (part == Part::Line)
-                .then(|| answered(context, entity).map(|line| line.text.clone()))
-                .flatten(),
+            answered: if chatting {
+                conversation::heard(context, entity).map(|line| line.text.clone())
+            } else {
+                (part == Part::Line)
+                    .then(|| answered(context, entity).map(|line| line.text.clone()))
+                    .flatten()
+            },
+            others: if chatting {
+                conversation::others_lines(context, entity)
+            } else {
+                Vec::new()
+            },
         }
     }
 
@@ -2386,7 +2560,21 @@ impl<'a> Check<'a> {
                 .iter()
                 .chain(self.answered.iter())
                 .any(|line| words(line).concat() == key);
-        if repeats && !sharing {
+        let spoken = words(&freely_spoken);
+        // Saying the whole line answered again, even inside a longer reply
+        // ("Yes, the lamp would help, if you trust me with it."), is a repeat.
+        let restates = |line: &String| {
+            let line = words(line);
+            line.len() >= 4 && spoken.windows(line.len()).any(|run| run == line)
+        };
+        let repeats = repeats || self.answered.iter().any(restates);
+        let run = |line: &String| {
+            let line = words(line);
+            spoken
+                .windows(6)
+                .any(|run| line.windows(6).any(|other| other == run))
+        };
+        if (repeats && !sharing) || self.others.iter().any(run) {
             return Err("repeat");
         }
         // A character speaks as "I"; a line that names its speaker in the
@@ -2405,14 +2593,14 @@ impl<'a> Check<'a> {
         if kind(&self.entity.id, "avatar") && (marks % 2 == 1 || dialogue_tag(&kept)) {
             return Err("narration tag");
         }
-        let spoken = words(&freely_spoken);
-        if self.labels.iter().any(|label| kept.contains(label))
-            || self.brief.iter().any(|line| {
-                let brief = words(line);
-                spoken
-                    .windows(6)
-                    .any(|run| brief.windows(6).any(|other| other == run))
-            })
+        if self
+            .labels
+            .iter()
+            .any(|label| conversation::reads_label(&lower, label))
+            || conversation::SCAFFOLD
+                .iter()
+                .any(|phrase| lower.contains(phrase))
+            || self.brief.iter().any(run)
         {
             return Err("echoed brief");
         }
@@ -2538,7 +2726,7 @@ pub(crate) mod tests {
         assert!(browser::complete(&scene, None, answers("I hear you,")).is_err());
     }
 
-    fn solo_departure() -> TurnOutcome {
+    pub(super) fn solo_departure() -> TurnOutcome {
         serde_json::from_value(json!({
             "card":{"kind":"wait","target":null,"item":null,"receive":null,"destination":null,"accepted":null},
             "avatars":[
@@ -2563,7 +2751,10 @@ pub(crate) mod tests {
         assert_eq!(c.speakers, ["vale"]);
         assert!(valid(&c));
         let vale = c.entities.iter().find(|e| e.id == "vale").unwrap();
-        assert!(transcript(&c, vale, Part::Line).ends_with("\nVale:"));
+        // A conversation turn has no cue; with nobody to answer, the user
+        // message names the place.
+        assert!(!transcript(&c, vale, Part::Line).contains("Vale:"));
+        assert_eq!(conversation::messages(&c, vale, 0).1, "Mirror attic.");
     }
     #[test]
     fn farewell_speakers_do_not_require_a_vale_reply() {
@@ -2576,7 +2767,7 @@ pub(crate) mod tests {
         let pip = transcript(&c, &c.entities[3], Part::Line);
         assert!(pip.contains("I'm leaving Empty station for Black pond on my own."));
         assert!(pip.contains("I'm saying goodbye to those staying."));
-        assert!(pip.ends_with("\nPip:"));
+        assert!(!pip.contains("Pip:"));
         // A later Stay or a direct interaction can still request Vale's voice.
         c.speakers.insert(0, "vale".into());
         assert_eq!(voiced(&c)[..2], ["vale", "moth"]);
@@ -2584,7 +2775,7 @@ pub(crate) mod tests {
         let vale = transcript(&c, &c.entities[0], Part::Line);
         assert!(vale.contains("Pip is leaving for Black pond, alone."));
         assert!(vale.contains("I'm talking with Pip."));
-        assert!(vale.ends_with("\nVale:"));
+        assert!(!vale.contains("Vale:"));
     }
 
     /// Sentence-initial words that would turn a prompt into an instruction.
@@ -3238,25 +3429,19 @@ pub(crate) mod tests {
         let requests = seen.lock().unwrap();
         let bard: Vec<_> = requests
             .iter()
-            .filter(|r| {
-                r["messages"][1]["content"]
-                    .as_str()
-                    .unwrap()
-                    .ends_with(&bard_stem)
-            })
+            .filter(|r| stem_of(r) == bard_stem)
             .collect();
         assert_eq!(bard.len(), 3);
         assert!(bard.iter().all(
             |r| r["temperature"].as_f64().unwrap() > 0.0 && r.get("response_format").is_none()
         ));
-        assert!(bard[1]["messages"][1]["content"]
+        assert!(bard[1]["messages"][0]["content"]
             .as_str()
             .unwrap()
-            .starts_with("My next words are fresh"));
-        assert!(bard.iter().all(|request| request["messages"][1]["content"]
-            .as_str()
-            .unwrap()
-            .contains(POEM_FACT)));
+            .ends_with("My next words are fresh."));
+        assert!(bard
+            .iter()
+            .all(|request| prompt_of(request).contains(POEM_FACT)));
         server.abort();
     }
 
@@ -3295,16 +3480,20 @@ pub(crate) mod tests {
         )
         .await
         .unwrap();
-        // Every attempt missed the fact; the last kept reply is spoken and
-        // the game, which finds no fact in it, keeps the fact for later.
-        assert!(tries.load(std::sync::atomic::Ordering::SeqCst) > 1);
+        // The reply missed the fact and is otherwise valid: it is spoken at
+        // once, with no retry, and the game, which finds no fact in it,
+        // keeps the fact for later.
+        assert_eq!(tries.load(std::sync::atomic::Ordering::SeqCst), 1);
         assert_eq!(result["entries"][0]["id"], "vale");
         assert_eq!(result["entries"][0]["text"], "I want to sit by the pond.");
-        let prompt = seen.lock().unwrap()[0]["messages"][1]["content"]
+        let system = seen.lock().unwrap()[0]["messages"][0]["content"]
             .as_str()
             .unwrap()
             .to_string();
-        assert!(prompt.contains("I took the Lamp."), "{prompt}");
+        assert!(
+            system.contains("If it fits the conversation, I mention: I took the Lamp."),
+            "{system}"
+        );
         server.abort();
     }
 
@@ -3492,14 +3681,8 @@ pub(crate) mod tests {
         .unwrap();
         assert_eq!(shared["entries"][1]["text"], "I will keep it safe, Vale.");
         assert_eq!(tries.load(std::sync::atomic::Ordering::SeqCst), 2);
-        assert!(seen
-            .lock()
-            .unwrap()
-            .iter()
-            .all(|request| request["messages"][1]["content"]
-                .as_str()
-                .unwrap()
-                .contains("Final custody: Bell — The keeper. Location: Mirror attic.")));
+        assert!(seen.lock().unwrap().iter().all(|request| prompt_of(request)
+            .contains("Final custody: Bell — The keeper. Location: Mirror attic.")));
         server.abort();
     }
 
@@ -3564,12 +3747,12 @@ pub(crate) mod tests {
             .all(|request| request["temperature"].as_f64().unwrap() > 0.0));
         let prompts: Vec<_> = bard
             .iter()
-            .map(|request| request["messages"][1]["content"].as_str().unwrap())
+            .map(|request| request["messages"][0]["content"].as_str().unwrap())
             .collect();
         assert!(prompts.iter().all(|prompt| prompt.contains(POEM_FACT)));
         assert_eq!(
-            prompts[0].split_once("Current scene:").unwrap().1,
-            prompts[1].split_once("Current scene:").unwrap().1
+            format!("{}\n\nMy next words are fresh.", prompts[0]),
+            prompts[1]
         );
         server.abort();
     }
@@ -3586,10 +3769,7 @@ pub(crate) mod tests {
                 async move {
                     seen.lock().unwrap().push(body.clone());
                     // A raw dream sends its user turn without a system voice.
-                    let user = body["messages"].as_array().unwrap().last().unwrap()["content"]
-                        .as_str()
-                        .unwrap();
-                    let stem = user.lines().last().unwrap().to_string();
+                    let stem = stem_of(&body);
                     let text = reply(&body, &stem);
                     Json(json!({"model":body["model"],"choices":[{"message":{"content":text},"finish_reason":"stop"}]}))
                 }
@@ -3654,15 +3834,9 @@ pub(crate) mod tests {
         }
         let requests = seen.lock().unwrap().clone();
         assert_eq!(requests.len(), 4);
-        assert!(requests.iter().all(|body| {
-            let cue = body["messages"].as_array().unwrap().last().unwrap()["content"]
-                .as_str()
-                .unwrap()
-                .lines()
-                .last()
-                .unwrap();
-            ["Vale:", "Pip:"].contains(&cue)
-        }));
+        assert!(requests
+            .iter()
+            .all(|body| ["Vale:", "Pip:"].contains(&stem_of(body).as_str())));
         server.abort();
     }
 
@@ -3748,12 +3922,8 @@ pub(crate) mod tests {
         for body in &requests {
             assert!(body.get("response_format").is_none());
             let text = body["messages"].to_string();
-            let stem = body["messages"].as_array().unwrap().last().unwrap()["content"]
-                .as_str()
-                .unwrap()
-                .lines()
-                .last()
-                .unwrap();
+            let stem = stem_of(body);
+            let stem = stem.as_str();
             if body["model"] == "vale-model" && stem == "Vale:" {
                 // A line sees this beat, not past deeds (#1537).
                 assert!(!text.contains("Vale private kindness memory"));
@@ -3810,16 +3980,11 @@ pub(crate) mod tests {
                     let tries = {
                         let mut seen = captured.lock().unwrap();
                         seen.push(body.clone());
-                        seen.iter().filter(|b| {
-                            b["messages"][1]["content"].as_str().and_then(|text| text.lines().last())
-                                == body["messages"].as_array().unwrap().last().unwrap()["content"].as_str().and_then(|text| text.lines().last())
-                        }).count()
+                        seen.iter().filter(|b| stem_of(b) == stem_of(&body)).count()
                     };
                     now.fetch_sub(1, SeqCst);
-                    let user = body["messages"].as_array().unwrap().last().unwrap()["content"]
-                .as_str()
-                .unwrap();
-                    let stem = user.lines().last().unwrap();
+                    let user = &prompt_of(&body);
+                    let stem = &*stem_of(&body);
                     let mute = (user.contains("Mute speaker")
                         && (stem == "Vale:" || stem == "Pip:"))
                         || (stem == "Empty station:" && user.contains("Paths visible"));
@@ -4108,7 +4273,7 @@ pub(crate) mod tests {
         let heard = transcript(&c, badger, Part::Line);
         assert!(heard.contains("Awake after Vale spoke. Still grumpy about the interruption."));
         assert!(heard.contains("I'm talking with Vale."));
-        assert!(heard.ends_with("\nGrumpy Badger:"));
+        assert!(!heard.contains("Grumpy Badger:"));
         assert!(
             transcript(&c, &c.entities[0], Part::Line).contains("I'm talking with Grumpy Badger.")
         );
@@ -4139,12 +4304,16 @@ pub(crate) mod tests {
             let card = &mut c.outcome.as_mut().unwrap().card;
             card.kind = verb.into();
             card.target = Some("moth".into());
-            // The earlier apology is not replayed; the chosen stance stands.
+            // The earlier apology is only recent talk, after the chosen
+            // stance, which stands as this moment.
             let vale = transcript(&c, &c.entities[0], Part::Line);
-            assert!(vale.contains(mine));
-            assert!(!vale.contains("I am sorry"));
+            let (now, talk) = vale.split_once("Recent talk here:").unwrap();
+            assert!(now.contains(mine));
+            assert!(!now.contains("I am sorry"));
+            assert!(talk.contains("Vale: I am sorry."));
             let pip = transcript(&c, &c.entities[3], Part::Line);
             assert!(pip.contains(theirs));
+            // For Pip, the apology is the line Vale last said to them.
             assert!(!pip.contains("I am sorry"));
         }
     }
@@ -4365,6 +4534,11 @@ pub(crate) mod tests {
                 assert!(system.contains("atmospheric caption"));
                 assert!(!user.contains("Just now:"));
                 assert!(!user.contains("I remember:"));
+            } else if ["Vale:", "Pip:"].contains(&stem) {
+                // A conversation turn: the frame is in the system message
+                // and the user message is one line, never the scaffold.
+                assert!(system.contains("Just now: Vale asks Pip what they want."));
+                assert!(!user.contains("Just now:") && !user.ends_with(':'));
             } else {
                 assert!(user.contains("Just now: Vale asks Pip what they want."));
             }
@@ -4372,7 +4546,7 @@ pub(crate) mod tests {
                 "Vale:" => {
                     // An avatar's system voice is its seed sentence (#1673).
                     assert!(system.starts_with("I am Vale, the Lamplighter."));
-                    assert!(user.contains("Holding the lamp."));
+                    assert!(system.contains("What I know:\nHolding the lamp."));
                     "Vale: What would you trade for this lamp, Pip?".into()
                 }
                 "Pip:" => {
@@ -4635,7 +4809,7 @@ pub(crate) mod tests {
         let provider = Router::new().route("/chat/completions", post(move |Json(body): Json<Value>| {
             let seen = capture.clone();
             async move {
-                let stem = body["messages"].as_array().unwrap().last().unwrap()["content"].as_str().unwrap().lines().last().unwrap().to_string();
+                let stem = stem_of(&body);
                 seen.lock().unwrap().push(stem.clone());
                 if stem == "Vale:" || stem.contains("to myself") { tokio::time::sleep(Duration::from_millis(500)).await; }
                 Json(json!({"model":body["model"],"choices":[{"message":{"content":stem_reply(&stem)},"finish_reason":"stop"}]}))
@@ -4711,11 +4885,11 @@ pub(crate) mod tests {
         let requests = seen.lock().unwrap();
         let vale: Vec<_> = requests
             .iter()
-            .filter_map(|request| request["messages"][1]["content"].as_str())
-            .filter(|text| text.ends_with("Vale:"))
+            .filter(|request| stem_of(request) == "Vale:")
+            .filter_map(|request| request["messages"][0]["content"].as_str())
             .collect();
-        assert!(vale[0].starts_with("Current scene:"));
-        assert!(vale[1].starts_with("My next words are fresh"));
+        assert!(!vale[0].contains("My next words are fresh"));
+        assert!(vale[1].ends_with("My next words are fresh."));
         assert!(vale[1].contains("unlit"));
         server.abort();
     }
@@ -4775,8 +4949,7 @@ pub(crate) mod tests {
         assert_eq!(result["entries"][1]["id"], "moth");
         assert_eq!(seen.lock().unwrap().len(), 2);
         for request in seen.lock().unwrap().iter() {
-            let user = request["messages"][1]["content"].as_str().unwrap();
-            assert!(user.ends_with("Mara:") || user.ends_with("Pip:"));
+            assert!(["Mara:", "Pip:"].contains(&stem_of(request).as_str()));
         }
         server.abort();
     }
@@ -4869,15 +5042,37 @@ pub(crate) mod tests {
         (status, result)
     }
 
-    /// The cue a captured request ends with, such as `Pip:`.
-    fn stem_of(body: &Value) -> String {
-        body["messages"].as_array().unwrap().last().unwrap()["content"]
-            .as_str()
+    /// Who a captured request asks, such as `Pip:`. Reflections end with
+    /// their cue; a conversation turn names its speaker in its system
+    /// message's first line.
+    /// Every message of a captured request, joined.
+    pub(crate) fn prompt_of(body: &Value) -> String {
+        body["messages"]
+            .as_array()
             .unwrap()
-            .lines()
-            .last()
-            .unwrap()
-            .to_string()
+            .iter()
+            .filter_map(|m| m["content"].as_str())
+            .collect::<Vec<_>>()
+            .join("\n")
+    }
+
+    pub(crate) fn stem_of(body: &Value) -> String {
+        let messages = body["messages"].as_array().unwrap();
+        let user = messages.last().unwrap()["content"].as_str().unwrap();
+        let last = user.lines().last().unwrap_or_default();
+        let system = messages[0]["content"].as_str().unwrap_or_default();
+        if messages.len() > 1 && !last.ends_with(':') {
+            let first = system.lines().next().unwrap_or_default();
+            if let Some((id, _)) = profiles()
+                .as_object()
+                .unwrap()
+                .iter()
+                .find(|(id, p)| p["kind"] == "avatar" && i_am(id) == first)
+            {
+                return format!("{}:", name(id));
+            }
+        }
+        last.to_string()
     }
 
     fn models_for(requests: &[Value], stem: &str) -> Vec<String> {
@@ -5039,17 +5234,19 @@ pub(crate) mod tests {
             .iter()
             .filter(|body| stem_of(body) == "Pip:")
             .map(|body| {
-                body["messages"].as_array().unwrap().last().unwrap()["content"]
-                    .as_str()
-                    .unwrap()
+                let messages = body["messages"].as_array().unwrap();
+                (
+                    messages[0]["content"].as_str().unwrap(),
+                    messages[1]["content"].as_str().unwrap(),
+                )
             })
             .collect();
-        assert!(prompts[0].starts_with("Current scene:"));
-        let facts = prompts[0].split_once("Current scene:\n").unwrap().1;
-        for retry in &prompts[1..] {
-            assert!(retry.starts_with("My next words are fresh"));
-            assert_eq!(retry.split_once("Current scene:\n").unwrap().1, facts);
-            assert!(retry.ends_with("Pip:"));
+        // A retry keeps the same frame and line, and asks for fresh words.
+        let (system, user) = prompts[0];
+        assert!(!system.contains("My next words are fresh"));
+        for (retry, answered) in &prompts[1..] {
+            assert_eq!(*retry, format!("{system}\n\nMy next words are fresh."));
+            assert_eq!(*answered, user);
         }
         let pip: Vec<_> = requests
             .iter()
@@ -5408,16 +5605,114 @@ pub(crate) mod tests {
         assert!(!transcript(&c, moth, Part::Line).contains("A secret between us."));
         c.conversation[0].witnesses = Some(vec!["vale".into(), "moth".into()]);
         let moth = c.entities.iter().find(|e| e.id == "moth").unwrap();
-        assert!(transcript(&c, moth, Part::Line).contains("\nVale: A secret between us.\nPip:"));
+        // Heard, it is the line Pip answers: the whole user message.
+        assert_eq!(conversation::user(&c, moth), "A secret between us.");
         c.conversation[0].witnesses = None;
         let moth = c.entities.iter().find(|e| e.id == "moth").unwrap();
         assert!(!transcript(&c, moth, Part::Line).contains("A secret between us."));
     }
 
-    /// #1537: speech prompts show the present, not a transcript. Only the
-    /// line a Talk answers is kept, and repeats are caught from memory.
+    /// A Talk is two turns: Pip answers the line Vale said this turn, in
+    /// local and shared scenes alike.
+    #[tokio::test]
+    async fn a_talk_target_answers_the_actors_line_from_this_turn() {
+        let seen = Arc::new(Mutex::new(Vec::<Value>::new()));
+        let provider = plain_provider(seen.clone(), |_, stem| match stem {
+            "Vale:" => "The clock stopped again, Pip.".into(),
+            _ => stem_reply(stem),
+        });
+        let (address, server) = serve(provider).await;
+        let mut c = context();
+        c.scenery = false;
+        c.focus = None;
+        c.outcome = Some(solo_departure());
+        c.outcome.as_mut().unwrap().avatars[1].travel = None;
+        c.outcome.as_mut().unwrap().avatars[1].location = "station".into();
+        for item in &mut c.outcome.as_mut().unwrap().items {
+            if item.holder == "moth" {
+                item.location = "station".into();
+            }
+        }
+        assert!(valid(&c));
+        let card = &mut c.outcome.as_mut().unwrap().card;
+        card.kind = "talk".into();
+        card.target = Some("moth".into());
+        let ids = vec!["vale".to_string(), "moth".into()];
+        let local = complete_selected(
+            &test_config(address),
+            &c,
+            &BTreeMap::new(),
+            &VoiceSettings::hosted(),
+            &ids,
+            false,
+            None,
+        )
+        .await
+        .unwrap();
+        assert_eq!(local["entries"].as_array().unwrap().len(), 2);
+        shared_lines(
+            &test_config(address),
+            &serde_json::to_value(&c).unwrap(),
+            "vale",
+            &ids,
+            &BTreeMap::new(),
+        )
+        .await
+        .unwrap();
+        let requests = seen.lock().unwrap();
+        let pip: Vec<_> = requests.iter().filter(|r| stem_of(r) == "Pip:").collect();
+        assert_eq!(pip.len(), 2);
+        for request in pip {
+            assert_eq!(
+                request["messages"][1]["content"],
+                "The clock stopped again, Pip."
+            );
+        }
+        server.abort();
+    }
+
+    /// #2016: a fact said in the speaker's own words is speech, not a
+    /// read-back. Scaffold labels and the instructions still are, and
+    /// grounding still rejects anyone the scene does not know.
     #[test]
-    fn speech_prompts_keep_only_the_answered_line_and_repeats_come_from_memory() {
+    fn conversation_checks_drop_fact_echo_and_keep_grounding() {
+        let mut c = context();
+        c.outcome = Some(solo_departure());
+        let card = &mut c.outcome.as_mut().unwrap().card;
+        card.kind = "talk".into();
+        card.target = Some("moth".into());
+        c.entities[0]
+            .facts
+            .push("The station clock stopped at half past nine last night.".into());
+        let check = Check::new(&c, &c.entities[0], Part::Line);
+        let fact = "The station clock stopped at half past nine last night, Pip.";
+        assert_eq!(check.clean(fact, true), Ok(fact.into()));
+        assert_eq!(
+            check.clean("What I know: the clock stopped.", true),
+            Err("echoed brief")
+        );
+        assert_eq!(
+            check.clean(
+                "I answer in one or two short sentences, in my own voice.",
+                true
+            ),
+            Err("echoed brief")
+        );
+        assert_eq!(
+            check.clean("Antigone left her oil here.", true),
+            Err("unknown entity")
+        );
+        assert_eq!(
+            check.clean("Certainly! Here is my reply.", true),
+            Err("assistant")
+        );
+    }
+
+    /// A conversation turn (owner, 2026-11-02): the system message carries
+    /// the recent talk here as a short group chat, and the user message is
+    /// only the line answered. Remembered speech ("Earlier:") stays out.
+    #[test]
+    fn speech_prompts_carry_the_recent_talk_and_answer_one_line() {
         let mut c = context();
         c.outcome = Some(solo_departure());
         let card = &mut c.outcome.as_mut().unwrap().card;
@@ -5444,23 +5739,31 @@ pub(crate) mod tests {
             text: "Vale: I keep my own counsel.".into(),
         });
         c.entities[0].previous = Some("Will you show me the far shore?".into());
-        let vale = transcript(&c, &c.entities[0], Part::Line);
-        for gone in [
-            "Where does the pond lead?",
-            "Somewhere with better light.",
-            "Will you show me the far shore?",
-            "Only if you bring the lamp.",
-            "I keep my own counsel.",
-            "Earlier:",
-        ] {
-            assert!(!vale.contains(gone), "{gone}");
+        let (system, user) = conversation::messages(&c, &c.entities[0], 0);
+        // Vale opens from the latest line said to them, not from the caption.
+        assert_eq!(user, "Only if you bring the lamp.");
+        assert!(!system.contains("Just now:"));
+        let talk = system.split_once("Recent talk here:\n").unwrap().1;
+        assert!(talk.starts_with(
+            "Vale: Where does the pond lead?\nPip: Somewhere with better light.\nVale: Will you show me the far shore?"
+        ));
+        assert!(!talk.contains("Only if you bring the lamp."));
+        assert!(!system.contains("I keep my own counsel."));
+        assert!(!system.contains("Earlier:"));
+        // Pip answers the line Vale's Talk put to them.
+        let (system, user) = conversation::messages(&c, &c.entities[3], 0);
+        assert_eq!(user, "Will you show me the far shore?");
+        assert!(system.contains("Pip: Only if you bring the lamp."));
+        assert!(!system.ends_with(':'));
+        // The chat is bounded: six lines at most, oldest dropped first.
+        for i in 0..4 {
+            c.conversation
+                .push(said("keeper", &format!("Line {i} from the keeper.")));
         }
-        // Pip answers the line Vale's Talk put to them, and nothing older.
-        let pip = transcript(&c, &c.entities[3], Part::Line);
-        assert!(pip.contains("\nVale: Will you show me the far shore?\nPip:"));
-        assert!(!pip.contains("Where does the pond lead?"));
-        assert!(!pip.contains("Somewhere with better light."));
-        assert!(!pip.contains("Earlier:"));
+        let chat = conversation::chat(&c, &c.entities[0]);
+        assert_eq!(chat.len(), conversation::CHAT_LINES);
+        assert_eq!(chat[0], "Pip: Somewhere with better light.");
+        c.conversation.truncate(4);
         // Repeats are still caught from what the speaker said before.
         let check = Check::new(&c, &c.entities[0], Part::Line);
         assert_eq!(

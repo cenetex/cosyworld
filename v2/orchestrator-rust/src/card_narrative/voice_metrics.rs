@@ -75,8 +75,17 @@ pub(super) struct Budget([u64; 9]);
 impl Budget {
     /// Measure the first attempt's prompt: the system text and the tagged
     /// transcript lines, each line with its newline.
+    /// A conversation turn's frame is in its system message and the answered
+    /// line is its user message; both count by section all the same.
     pub(super) fn measure(system: &str, context: &Context, entity: &Entity, part: Part) -> Self {
-        Self::of(system, &super::transcript_sections(context, entity, part))
+        let mut lines = super::transcript_sections(context, entity, part);
+        if super::conversation::applies(context, entity, part) {
+            lines.push((
+                Section::Conversation,
+                super::conversation::user(context, entity),
+            ));
+        }
+        Self::of(system, &lines)
     }
 
     pub(super) fn of(system: &str, lines: &[(Section, String)]) -> Self {

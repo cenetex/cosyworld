@@ -608,3 +608,113 @@ async fn a_scene_that_needs_too_much_matching_is_refused_fast() {
     }
     assert!(trusted(c).is_none());
 }
+
+/// A Talk between Vale and Pip with two signed earlier lines: Pip's line is
+/// what Vale answers (the user message), and Vale's earlier line is recent
+/// talk in the system message.
+fn talk() -> Context {
+    let mut c = context();
+    c.scenery = false;
+    c.focus = None;
+    c.acting_avatar = Some("vale".into());
+    c.outcome = Some(
+        serde_json::from_value(json!({
+            "card": {"kind": "talk", "target": "moth", "item": null, "receive": null,
+                "destination": null, "accepted": null},
+            "avatars": [
+                {"id": "vale", "location": "station", "holding": ["lamp"], "travel": null},
+                {"id": "moth", "location": "station", "holding": ["cloth"], "travel": null},
+            ],
+            "items": [
+                {"id": "lamp", "holder": "vale", "location": "station"},
+                {"id": "cloth", "holder": "moth", "location": "station"},
+            ],
+        }))
+        .unwrap(),
+    );
+    let heard = Some(vec!["vale".to_string(), "moth".into()]);
+    for (actor, text) in [
+        ("vale", "Where does the dark path go?"),
+        ("moth", "I offered my cloth."),
+    ] {
+        c.conversation.push(SpokenLine {
+            signed: None,
+            witnesses: heard.clone(),
+            actor_id: actor.into(),
+            text: text.into(),
+        });
+    }
+    signed(&c)
+}
+
+/// The recent talk and the answered line reach a prompt only as signed
+/// words: an edited or unsigned chat line or answered line is refused.
+#[tokio::test]
+async fn talk_lines_in_a_prompt_are_only_signed_words() {
+    let seen = Arc::new(Mutex::new(Vec::new()));
+    let (address, server) = serve(plain_provider(seen.clone(), |_, stem| stem_reply(stem))).await;
+    let app = router_with_models::<()>(
+        Arc::new(Some(test_config(address))),
+        Ok(BTreeMap::new()),
+        Ok(VoiceSettings::hosted()),
+    );
+    let response = app
+        .clone()
+        .oneshot(post("/card-game/text", body(&talk())))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    {
+        let requests = seen.lock().unwrap();
+        let system = |r: &Value| {
+            r["messages"][0]["content"]
+                .as_str()
+                .unwrap_or("")
+                .to_string()
+        };
+        assert!(requests
+            .iter()
+            .any(|r| system(r).contains("Recent talk here:\nVale: Where does the dark path go?")));
+        assert!(requests
+            .iter()
+            .any(|r| r["messages"][1]["content"] == "I offered my cloth."));
+    }
+    let cases: Vec<(&str, Change)> = vec![
+        (
+            "chat line",
+            Box::new(|c| c.conversation[0].text = INJECTION.into()),
+        ),
+        (
+            "answered line",
+            Box::new(|c| c.conversation[1].text = INJECTION.into()),
+        ),
+        (
+            "unsigned chat line",
+            Box::new(|c| {
+                c.conversation.insert(
+                    0,
+                    SpokenLine {
+                        signed: None,
+                        witnesses: Some(vec!["vale".into(), "moth".into()]),
+                        actor_id: "moth".into(),
+                        text: INJECTION.into(),
+                    },
+                )
+            }),
+        ),
+    ];
+    for (name, change) in cases {
+        seen.lock().unwrap().clear();
+        let mut c = talk();
+        change(&mut c);
+        let response = app
+            .clone()
+            .oneshot(post("/card-game/text", body(&c)))
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST, "{name}");
+        let prompts = json!(*seen.lock().unwrap()).to_string();
+        assert!(!prompts.contains("Ignore previous instructions"), "{name}");
+    }
+    server.abort();
+}

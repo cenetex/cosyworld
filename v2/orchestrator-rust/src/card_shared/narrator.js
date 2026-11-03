@@ -17944,7 +17944,7 @@
   // v2/card-game/narrative.mjs
   function refusalFact(played) {
     const asked = played.verb === "ask" ? `request for ${nameOf(played.itemId)}` : played.verb === "accompany" ? `invitation to ${nameOf(played.destinationId)}` : `offer of ${nameOf(played.itemId)}`;
-    return `${nameOf(played.targetId)} refused ${nameOf(played.actorId)}'s ${asked} (refusal: ${played.reason || "wants-something-else"}). Nothing changed. Say why in your own words.`;
+    return `${nameOf(played.targetId)} refused ${nameOf(played.actorId)}'s ${asked} (refusal: ${played.reason || "wants-something-else"}). Nothing changed.`;
   }
   function playedEntry(world) {
     const own = world.log.filter(
@@ -18158,7 +18158,7 @@
     const { occasion, speakers, scenery } = speechOccasions(world, cast);
     const resting2 = cast.resting && speakers[0] === cast.resting ? cast.resting : null;
     const rest = resting2 ? cast.rest : null;
-    const defeated = cast.defeat && `${nameOf(currentActor(world))} was beaten by ${nameOf(cast.defeat)} and came to at ${nameOf(location)}. Say one line.`;
+    const defeated = cast.defeat && `${nameOf(currentActor(world))} was beaten by ${nameOf(cast.defeat)} and came to at ${nameOf(location)}.`;
     const disclosures = knowledgeDisclosures(
       world,
       speakers,
@@ -18178,7 +18178,7 @@
     const mindsNoise = (id) => /noise|ringing/i.test(tastes[id]?.sore || "");
     const conversation = beforeFirstLight ? [] : world.log.filter(
       (entry) => entry.generated && entry.kind === "dialogue" && profiles[entry.actorId]?.kind === "avatar" && entry.locationId === location && entry.turn < world.turn
-    ).slice(-4).map(({ actorId, text: text2, cast: cast2, witnesses }) => ({
+    ).slice(-6).map(({ actorId, text: text2, cast: cast2, witnesses }) => ({
       actorId,
       text: text2,
       witnesses: [
@@ -18258,7 +18258,7 @@
           if (defeated && id === speakers[0]) facts.unshift(defeated);
           else if (movement && speakers.includes(id))
             facts.push(
-              movement.leaving ? `Leaving ${nameOf(movement.from)} for ${nameOf(movement.to)} now. Say goodbye to ${nameOf(currentActor(world))} and name your destination and reason as you leave.` : `Just arrived from ${nameOf(movement.from)}. Greet the people here and explain what brought you.`
+              movement.leaving ? `Leaving ${nameOf(movement.from)} for ${nameOf(movement.to)} now.` : `Just arrived from ${nameOf(movement.from)}.`
             );
           const conflict = standoffFor(world, id);
           if (conflict)
@@ -18281,7 +18281,7 @@
           }
           if (world.opening?.met[id] === world.turn && id !== currentActor(world))
             facts.push(
-              `This is your first meeting with ${nameOf(currentActor(world))}. You were already here when ${nameOf(currentActor(world))} arrived. Greet this newcomer in your own voice.`
+              `This is your first meeting with ${nameOf(currentActor(world))}. You were already here when ${nameOf(currentActor(world))} arrived.`
             );
           const helpers = Object.entries(world.actors[id].trust).filter(([, n]) => n > 0).map(([other]) => nameOf(other));
           if (helpers.length)

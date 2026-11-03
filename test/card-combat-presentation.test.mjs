@@ -339,7 +339,7 @@ describe("coming to after a defeat", () => {
     if (!present.length) expect(speaker).toBe("vale");
     const facts = context.entities.find((e) => e.id === speaker).facts;
     expect(facts[0]).toBe(
-      `Vale was beaten by Pip and came to at ${nameOf(here)}. Say one line.`,
+      `Vale was beaten by Pip and came to at ${nameOf(here)}.`,
     );
   });
 });

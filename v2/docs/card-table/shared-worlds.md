@@ -431,6 +431,12 @@ scene the browser built, so the service checks every field
   An unsigned, edited or moved one is refused with 400. One signed by an
   unlisted key, or for a later turn or revision than the scene, is left out. Older saves' words carry none, so the browser
   leaves them out (`signed-words.mjs`).
+  The "Recent talk here" lines and the line a speaker answers (its user
+  message) come only from these verified heard lines. A Talk target's
+  answer to this turn's actor line uses the line the service just wrote and
+  checked, so it never leaves the server unsigned. Who heard a line
+  (`witnesses`) is not signed: a client can change who heard a line, not its
+  words.
 - **Unknown fields** are refused (serde `deny_unknown_fields`), and every
   string keeps its length limit inside the 64 KiB body limit.
 

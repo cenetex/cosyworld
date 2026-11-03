@@ -1,7 +1,10 @@
 # Seed sentences
 
 Each avatar has one authored sentence: a name and a role. It has no tone
-adjectives, speech habits or goals. A speech prompt opens with `I am <seed>`.
+adjectives, speech habits or goals. A speech prompt's system message opens with `I am <seed>`; the rest of it
+is the voice direction, the scene, "What I know:", the recent talk at this
+place and any fact to mention, and the user message is the line being
+answered (see the card guide's character voices).
 Everything else comes from play: committed events, holdings, place, want and
 relationships, and the avatar's own inner life ("I'm", "I'm becoming", "I
 dream"). That inner life is how an avatar discovers itself over time
