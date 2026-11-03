@@ -287,6 +287,18 @@ try {
     await revealed(page, "Vale");
     await page.waitForTimeout(desktop ? 300 : 100);
     await shot(page, `face-${width}`);
+    // The name's shade is the figure's floor: it sits at the card's foot,
+    // in its bottom 15%, not a quarter up where the hand clips its cards.
+    const floor = await page.$eval(traveller, (card) => {
+      const face = card.getBoundingClientRect();
+      const name = card.querySelector(".name").getBoundingClientRect();
+      return {
+        shade: (face.bottom - (name.top + 0.65 * name.height)) / face.height,
+        gap: face.bottom - name.bottom,
+      };
+    });
+    assert.ok(floor.shade > 0 && floor.shade <= 0.15, JSON.stringify(floor));
+    assert.ok(Math.abs(floor.gap) <= 2, JSON.stringify(floor));
     await page.waitForSelector(".title-intro[data-phase=out]");
     await page.waitForTimeout(300);
     assert.equal(
