@@ -13,7 +13,8 @@ use std::{
     time::{Duration, Instant},
 };
 
-pub(super) const VERSION: &str = "full-card-world/92";
+pub(super) const VERSION: &str = "full-card-world/93";
+pub(super) const NINETY_SECOND_VERSION: &str = "full-card-world/92";
 pub(super) const NINETY_FIRST_VERSION: &str = "full-card-world/91";
 pub(super) const NINETIETH_VERSION: &str = "full-card-world/90";
 pub(super) const EIGHTY_NINTH_VERSION: &str = "full-card-world/89";
@@ -104,7 +105,12 @@ pub(super) const FIFTH_VERSION: &str = "full-card-world/5";
 pub(super) const PREVIOUS_VERSION: &str = "full-card-world/3";
 pub(super) const LEGACY_VERSION: &str = "full-card-world/2";
 pub(super) const FOURTH_VERSION: &str = "full-card-world/4";
-const SOURCE: &str = include_str!("engine-v92.js");
+const SOURCE: &str = include_str!("engine-v93.js");
+/// The current rules' source, whose words an imported save may use.
+pub(super) fn current_source() -> &'static str {
+    SOURCE
+}
+const NINETY_SECOND_SOURCE: &str = include_str!("engine-v92.js");
 const NINETY_FIRST_SOURCE: &str = include_str!("engine-v91.js");
 const NINETIETH_SOURCE: &str = include_str!("engine-v90.js");
 const EIGHTY_NINTH_SOURCE: &str = include_str!("engine-v89.js");
@@ -289,6 +295,7 @@ pub(super) fn historical(version: &str) -> bool {
             | EIGHTY_NINTH_VERSION
             | NINETIETH_VERSION
             | NINETY_FIRST_VERSION
+            | NINETY_SECOND_VERSION
     )
 }
 const MAX_BYTES: usize = 4 * 1024 * 1024;
@@ -362,6 +369,7 @@ pub(super) fn reduce_pack(version: &str, pack: Option<&str>, request: Value) -> 
 fn source(version: &str) -> Option<&'static str> {
     Some(match version {
         VERSION => SOURCE,
+        NINETY_SECOND_VERSION => NINETY_SECOND_SOURCE,
         NINETY_FIRST_VERSION => NINETY_FIRST_SOURCE,
         NINETIETH_VERSION => NINETIETH_SOURCE,
         EIGHTY_NINTH_VERSION => EIGHTY_NINTH_SOURCE,

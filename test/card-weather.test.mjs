@@ -20,7 +20,7 @@ import { dispatchShared, load } from "../v2/card-game/shared-world.mjs";
 describe("regional Greece weather", () => {
   it("covers every Greek location and keeps local scenery within its region", () => {
     const ids = Object.keys(packPlaces).filter((id) => id.startsWith("greek-"));
-    expect(ids).toHaveLength(67);
+    expect(ids).toHaveLength(69);
     for (let turn = 0; turn < WEATHER_TURNS * 8; turn++) {
       const regions = new Map();
       for (const id of ids) {
@@ -50,7 +50,8 @@ describe("regional Greece weather", () => {
   it("keeps the Willows rainy or misty, apart from the landing", () => {
     const seen = { day: new Set(), night: new Set() };
     for (let turn = 0; turn < WEATHER_TURNS * 16; turn++) {
-      const phase = Math.floor(turn / (WEATHER_TURNS * 2)) % 2 ? "night" : "day";
+      const phase =
+        Math.floor(turn / (WEATHER_TURNS * 2)) % 2 ? "night" : "day";
       for (const id of ["willows-camp", "willows-thicket", "willows-bank"]) {
         const weather = locationWeather({ turn }, id);
         expect(weather.exposure, id).toBe("river");

@@ -210,9 +210,10 @@ body.local-app #shared-worlds-button {
   padding: 0;
 }
 .seat-face img,
-.slot-locked img,
+.slot-back img,
 .world-menu .seat-open {
   display: block;
+  box-sizing: border-box;
   width: 32px;
   height: 43px;
   border: 1px solid #44444c;
@@ -220,18 +221,27 @@ body.local-app #shared-worlds-button {
   object-fit: cover;
   object-position: 50% 12%;
 }
+/* "+" is a seat-sized dashed card, its glyph centred, in every state. */
 .world-menu .seat-open {
+  display: flex;
+  align-items: center;
   justify-content: center;
+  min-height: 0;
+  padding: 0;
   border-style: dashed;
   color: var(--muted);
   font-size: 18px;
+  line-height: 1;
 }
 .world-menu .seat-open:disabled {
   opacity: 0.35;
 }
-/* Avatars not yet found (#1936): card backs, dim. */
-.slot-locked {
-  margin-top: 8px;
+/* Your avatars: found ones face up (grey while in a world), then card
+   backs, dim, for those not yet found (#1936). */
+.slot-cast {
+  margin: 8px 8px 0;
+}
+.slot-back {
   opacity: 0.6;
 }
 .slot-seat:not([data-lit="true"]) .seat-face img {

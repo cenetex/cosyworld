@@ -72,9 +72,13 @@ impl Budget {
             steps: REQUEST_STEPS,
         }
     }
+    /// A larger allowance, for a whole imported save.
+    pub(super) fn with(steps: usize) -> Self {
+        Self { steps }
+    }
     #[cfg_attr(not(test), allow(dead_code))]
     pub(super) fn spent(&self) -> usize {
-        REQUEST_STEPS - self.steps
+        REQUEST_STEPS.saturating_sub(self.steps)
     }
     fn spend(&mut self, steps: usize) -> Result<(), Exceeded> {
         self.steps = self.steps.checked_sub(steps).ok_or(Exceeded)?;

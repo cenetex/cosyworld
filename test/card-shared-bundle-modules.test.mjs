@@ -36,6 +36,7 @@ const RULES = [
   "roaming-routes.mjs",
   "scene-cast.mjs",
   "shared-rules.mjs",
+  "speech-occasions.mjs",
   "shared-world-entry.mjs",
   "shared-world.mjs",
   "want-talk.mjs",

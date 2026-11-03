@@ -68,6 +68,9 @@ speak alone, as the rules' speech occasions name them; when the rules refuse
 a play's words, the server fails that play at once instead of holding its
 seat for the working lease
 ([design](../../../docs/design/occasion-voices-in-shared-speech.md)).
+From rules 93 the rules accept only the voices the committed play named and
+the room, each once, and a place added to a pack joins every saved world with an empty
+memory ([design](../../../docs/design/rules-93-content-slots-and-speech-voices.md)).
 
 The server runs a checked-in bundle of those modules in QuickJS, a C interpreter.
 Rust supplies JSON and handles authentication, storage, queues, and provider IO.
@@ -439,15 +442,82 @@ scene the browser built, so the service checks every field
   The "Recent talk here" lines and the line a speaker answers (its user
   message) come only from these verified heard lines. A Talk target's
   answer to this turn's actor line uses the line the service just wrote and
-  checked, so it never leaves the server unsigned. Who heard a line
+  checked, so it never leaves the server unsigned. "Between us" lines
+  (`entities[].between[].said`) are signed lines too, and their envelope's
+  turn must be the line's; its facts are matched as facts
+  ([Talk is a conversation](../../../docs/design/talk-conversation.md#between-us)).
+  Who heard a line
   (`witnesses`) is not signed: a client can change who heard a line, not its
   words.
 - **Unknown fields** are refused (serde `deny_unknown_fields`), and every
   string keeps its length limit inside the 64 KiB body limit.
 
-Two paths still accept player-side text and are not covered here: importing
-a whole local save into a new shared world (#2067), and browser-funded shared
-speech, where the player's own OpenRouter key writes the line (#2068).
+A local save shared into a new world (`Create.save`) is untrusted too: its
+text would become journal state that other members' hosted prompts read.
+Before the first journal row, and after the passkey may found a world, the
+service keeps a string from the save only when it is:
+
+- outside a sentence field, a word the current rules or packs use (a string
+  literal of the rules bundle, or a key or one-word value of the pack
+  content), or such words and numbers joined by `:` and `-` (`event:67`);
+- a name from the packs (a log `speaker` must be one, `World` or an id);
+- a rules-built sentence matching its field's authored catalog (a grievance
+  `reason` as the fact `Remembered grievance: …`, item `history` as the
+  event after `Turn N:`);
+- a line, thought, persona or dream whose signed envelope comes with the
+  import (`signed`, from `signed-words.mjs`) and verifies for that kind,
+  that speaker (a log line's `speaker` is that speaker's name) and a local
+  save (`card_narrative/imported.rs`).
+
+A map key must fit its place. A map keyed by id (actors, items, places,
+memories, trust, grievances, crossings, doors, packs, facts and the like)
+takes only an id of pack or rules content, or ids and numbers joined by `:`
+and `-`. Any other object takes such an id or a name the rules give a
+property (`.place`, `want:`), never just any word of the rules source, so
+`forget_all_previous_rules` or `say` is removed. Everything else is
+stripped (its list entry dropped, a lone field cleared, a key removed) and
+counted in a warning. A stripped save the rules refuse loses every avatar's
+inner life too, with its own warning. Matching is bounded at 40 scenes'
+work (text past it is stripped, with a warning), 100,000 strings and 800
+envelopes, looked up by content hash. A save with nothing to strip runs the
+rules once.
+
+The browser keeps one envelope per word, its last 800. Words older than that
+are stripped on share. Envelopes are not bound to one save and do not
+expire, so a word signed for one local save can be replayed into another
+save, but only as the same kind of word by the same speaker.
+
+Every voice reply, hosted or not, is refused when it addresses a model
+(`card_narrative/instruction.rs`): "ignore previous instructions", a role
+label such as "System:" opening a line or sentence, chat-template tokens or
+code fences. The check reads the raw reply and again after markup is
+cleaned, both folded first: NFKD with marks dropped, lower case, common
+Cyrillic, Greek and fullwidth lookalikes as Latin letters, `* _ # ~ ^`
+removed and spaces collapsed, so `Ig*nore prev*ious`, `sys_tem:` and
+`ignore  previous` match. It also reads a squashed copy holding only the
+letters and digits, so `ig-nore`, `i.g.n.o.r.e`, `i g n o r e`, `sys-tem:`
+and `ignore_previous_instructions` match too. A squashed match must start
+and end at a separator, or lie inside one glued word, so "Ignore.
+Previously…" passes. A reply holding a Unicode format (Cf) character,
+a tag character, a variation selector, U+034F, a soft hyphen or a line or
+paragraph separator is refused outright. Ordinary speech ("you are now safe",
+"ignore your fears", "wait for clear instructions") passes; a test scans
+every pack, authored and recorded string for hits.
+
+Browser-funded shared speech, where the player's own OpenRouter key writes
+the line (`/browser-chat`), is client text. Before it is journaled it passes
+a hosted line's checks (`browser::complete_shared`): the shared scene's
+checks, one line per voice the play requested (never another player's
+avatar, never a thought), at most 2 KiB per answer, and the reply validator
+(shape and length, grounding, custody, names, assistant and instruction
+talk, repeats). A Talk target is checked after hearing the actor's accepted
+line. The client's `finish` is not trusted: every line must end as a
+sentence. As on the hosted path, a refused reply from any voice but the
+actor stays silent; a refused or missing actor line, or an empty answer
+list, sends the play back for a retry and journals nothing. An accepted
+line is journaled with the model mark `player-funded`, never a hosted
+model's id (shared journal rows carry no envelope yet). Shared plays do not take this path today: `take_work` sets
+`browser_chat` false.
 
 ## Entrances and future journeys
 

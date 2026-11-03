@@ -141,6 +141,18 @@ bump and a deliberate migration; never drop saved state to make it load.
 `legacy-saves.mjs` holds migrations that name pack ids, including the
 schema 6 `steamClock` record and the Greek ship in pack revision 2.
 
+From rules 93 a saved world gains a slot for each new place, dock, item,
+crossing, route, lane, topic or transport as it loads. The server repacks
+every shared world onto the current content when it loads it, so a change a
+saved world cannot take makes every shared world unloadable. A new resident
+is one: **do not add a resident to a pack that is already mounted.** Put it
+in a new pack, which installs fresh, or bump the pack's `revision` and add a
+save upgrade to `legacy-saves.mjs` that adds that resident's actor, trust and
+memories (as `upgradeGreekHomecomingSave` did), shipped in a rules release.
+`test/card-content-repack.test.mjs` loads a world saved on main's content
+under the branch's rules and content, so the fast check fails such a change
+before it merges.
+
 ## Rules the engine keeps
 
 - No engine module names a pack, place, resident, fixture or crossing id.

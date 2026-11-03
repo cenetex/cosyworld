@@ -46,6 +46,10 @@ fn remembered() -> Context {
         text: "I offered my cloth.".into(),
     });
     c.entities[0].previous = Some("The lamp is warm.".into());
+    c.entities[0].between = serde_json::from_value(json!([{"with": "moth",
+        "facts": ["Pip gave me this Black cloth. I'm keeping it."],
+        "said": [{"actorId": "moth", "text": "Bring the lamp next time.", "turn": 2}]}]))
+    .unwrap();
     c.entities[3].inner_life = Some(InnerLife {
         persona_signed: None,
         persona: Some("I keep my cloth close.".into()),
@@ -139,6 +143,18 @@ async fn unsigned_tampered_or_moved_words_are_refused() {
                 let e = c.conversation[0].signed.as_mut().unwrap();
                 e.claims.content = content_hash(INJECTION);
             }),
+        ),
+        (
+            "unsigned between-us line",
+            Box::new(|c| c.entities[0].between[0].said[0].signed = None),
+        ),
+        (
+            "edited between-us line",
+            Box::new(|c| c.entities[0].between[0].said[0].text = INJECTION.into()),
+        ),
+        (
+            "between-us line moved to its listener",
+            Box::new(|c| c.entities[0].between[0].said[0].actor_id = "vale".into()),
         ),
         (
             "unsigned previous words",
@@ -256,10 +272,16 @@ fn words_from_a_later_scene_or_another_turn_stay_out_of_the_prompt() {
     c.entities[3].memories[0].turn = 2;
     let kept = trusted(c).unwrap();
     assert!(kept.entities[3].memories.is_empty());
+    // A between-us line said on another turn than it claims.
+    let mut c = remembered();
+    c.entities[0].between[0].said[0].turn = 1;
+    assert!(trusted(c).unwrap().entities[0].between[0].said.is_empty());
     // The scene as signed keeps everything.
     let kept = trusted(remembered()).unwrap();
     assert_eq!(kept.conversation.len(), 1);
     assert_eq!(kept.entities[3].memories.len(), 1);
+    assert_eq!(kept.entities[0].between[0].said.len(), 1);
+    assert_eq!(kept.entities[0].between[0].facts.len(), 1);
 }
 
 #[test]
@@ -287,6 +309,8 @@ async fn unknown_and_oversized_fields_are_refused() {
         "/entities/3/memories/0",
         "/conversation/0",
         "/conversation/0/signed/claims",
+        "/entities/0/between/0",
+        "/entities/0/between/0/said/0",
     ] {
         let mut value = base.clone();
         value.pointer_mut(pointer).unwrap()["note"] = json!(INJECTION);
@@ -297,6 +321,7 @@ async fn unknown_and_oversized_fields_are_refused() {
         ("/action", 651),
         ("/events/0", 651),
         ("/entities/0/previous", 401),
+        ("/entities/0/between/0/facts/0", 241),
     ] {
         let mut value = base.clone();
         if pointer == "/events/0" {
@@ -410,6 +435,18 @@ async fn an_instruction_in_any_string_field_never_reaches_a_prompt() {
         (
             "desired company",
             Box::new(|c| c.entities[0].desire.as_mut().unwrap().avatars = vec![INJECTION.into()]),
+        ),
+        (
+            "between-us fact",
+            Box::new(|c| c.entities[0].between[0].facts.push(INJECTION.into())),
+        ),
+        (
+            "between-us line",
+            Box::new(|c| c.entities[0].between[0].said[0].text = INJECTION.into()),
+        ),
+        (
+            "between-us person",
+            Box::new(|c| c.entities[0].between[0].with = INJECTION.into()),
         ),
         (
             "envelope world",

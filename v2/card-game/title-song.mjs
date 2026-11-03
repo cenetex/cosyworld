@@ -5,9 +5,15 @@ import streams from "./music-streams.json" with { type: "json" };
 // first tap or key on the title, so the browser allows it, and fades out when
 // they wake their avatar or skip. It plays once and never loops. It follows
 // the saved music switch and volume; room music stays with music.mjs.
+// The title lasts only a few seconds, so the song comes in at once (a quarter
+// second against clicks) rather than over the 2-second fade that left it
+// inaudible, and it sits `level` above the saved volume: it is mastered about
+// 3 LU under the room songs (-18.3 against attic-1's -15.6 LUFS) and opens
+// quieter still.
 export const TITLE_SONG = {
   file: "title-attic-lamp.mp3",
   title: "The Attic Keeps Its Lamp × Moonstone Sanctum",
+  level: 1.4,
 };
 export const MUSIC_SETTINGS_KEY = "cosyworld.room-music";
 
@@ -33,7 +39,7 @@ export function createTitleSong({
   makeAudio = () => new Audio(),
   makeContext = () =>
     new (globalThis.AudioContext || globalThis.webkitAudioContext)(),
-  fadeInSeconds = 2,
+  fadeInSeconds = 0.25,
   doc = globalThis.document,
 } = {}) {
   let audio = null,
@@ -78,7 +84,7 @@ export function createTitleSong({
       if (audio || stopped) return false;
       const { enabled, volume } = titleSongSettings(storage);
       if (!enabled || volume <= 0) return false;
-      target = volume;
+      target = Math.min(1, volume * TITLE_SONG.level);
       try {
         audio = makeAudio();
         audio.preload = "auto";
@@ -106,21 +112,26 @@ export function createTitleSong({
         return false;
       }
     },
-    // Wake or skip: fade out, then stop for good.
+    // Wake or skip: fade out, then stop for good. Settles once it is silent.
     stop(seconds = 1) {
-      if (stopped) return;
+      if (stopped || !audio) {
+        stopped = true;
+        return Promise.resolve();
+      }
       stopped = true;
-      if (!audio) return;
       doc?.removeEventListener?.("visibilitychange", onVisibility);
       try {
         ramp(0, seconds);
       } catch {}
-      setTimeout(() => {
-        try {
-          audio.pause();
-          void context?.close?.().catch(() => {});
-        } catch {}
-      }, seconds * 1000);
+      return new Promise((resolve) =>
+        setTimeout(() => {
+          try {
+            audio.pause();
+            void context?.close?.().catch(() => {});
+          } catch {}
+          resolve();
+        }, seconds * 1000),
+      );
     },
     get audio() {
       return audio;

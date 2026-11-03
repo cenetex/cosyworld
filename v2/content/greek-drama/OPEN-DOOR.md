@@ -4,7 +4,10 @@ Dione's table opens the stories of five places: the Athenian Agora, Piraeus
 Quays, Colonus Grove, Eleusinian Sanctuary and Marathon Altar. Piraeus Quays
 lies outside the section: a ship with the Travel Provisions aboard reaches it
 from the Wine-Dark Harbor in any save, but its roads inland and Thaleia's
-work wait for the invitation. Athens has three districts of at most four
+work wait for the invitation. The Coast Road always leads from Piraeus back
+to the Wine-Dark Harbor, so a traveler whose ship sails away can walk home
+(#2049). From the harbor it opens only with the herald's truce in the Agora,
+like the Long Walls, so it never reaches the city before the petition. Athens has three districts of at most four
 places each: the countryside (Eleusis, Colonus, Marathon and the Attic Farm,
 with Acharnae Market within it), the city (the Agora, Assembly Hill, the
 Acropolis and the Thinkery, with the House of Demos and the Women's Festival

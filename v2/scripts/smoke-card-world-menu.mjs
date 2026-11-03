@@ -1,0 +1,205 @@
+import assert from "node:assert/strict";
+import { chromium } from "playwright";
+import { createServer } from "../card-game/serve.mjs";
+import { dispatchShared } from "../card-game/shared-world.mjs";
+import { createWorld, encodeSave } from "../card-game/world.mjs";
+
+// ☰ in each state, at 390 and 1440 (owner, 2026-11-02). Signed out it holds
+// only the tools (#1892). Signed in, under the worlds is a row of your
+// avatars: the found ones face up, grey while in a world and in colour while
+// free, then a card back for each still to find (#1936). "+" is a
+// seat-sized card, its glyph centred, level with the row's portraits, even
+// when the row has no portrait (a world your avatar left, with everyone
+// found, where + New world is gone).
+const server = createServer();
+await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+const origin = `http://127.0.0.1:${server.address().port}`;
+const browser = await chromium.launch({ headless: true });
+const world = dispatchShared({
+  op: "create",
+  save: encodeSave(createWorld()),
+}).world;
+delete world.opening;
+// Seat order: vale, mara, ash, nell, tavi, rue, orin, ada.
+const seats = (...held) => held.concat(Array(8 - held.length).fill(0));
+const everyone = ["vale", "mara", "ash", "nell", "tavi", "rue", "orin", "ada"];
+const snapshot = () => ({
+  ...dispatchShared({
+    op: "view",
+    world,
+    actor: "vale",
+    claimed: ["vale"],
+    present: ["vale"],
+  }),
+  id: "here",
+  version: "full-card-world/3",
+  claimed: seats(1),
+  present: seats(1),
+  bound: seats(1),
+  holders: seats(null),
+  owner: true,
+  now: Date.now(),
+  queue: [],
+  history: [],
+});
+const states = {
+  "signed-out": { at: "/" },
+  // Vale plays here; Tavi is found and free; six still to find.
+  "two-found": {
+    at: "/?world=here",
+    worlds: [
+      { id: "here", owner: true, actor: "vale", held: seats(1), seed: 1 },
+    ],
+    unlocked: ["vale", "tavi"],
+  },
+  // At the local table, Vale left the attic, and everyone is found.
+  "all-found-left": {
+    at: "/",
+    worlds: [
+      {
+        id: "attic",
+        owner: true,
+        actor: null,
+        bound: "vale",
+        held: seats(1),
+        seed: 4,
+      },
+    ],
+    unlocked: everyone,
+  },
+};
+const geometry = () => {
+  const box = (node) => node && node.getBoundingClientRect();
+  const row = box(document.querySelector(".world-slot"));
+  const plus = box(document.querySelector(".world-slot .seat-open"));
+  const glyph = document.querySelector(".world-slot .seat-open");
+  let text = null;
+  if (glyph) {
+    const range = document.createRange();
+    range.selectNodeContents(glyph);
+    text = range.getBoundingClientRect();
+  }
+  const cast = [...document.querySelectorAll(".slot-cast .slot-seat")].map(
+    (item) => ({
+      avatar: item.dataset.avatar || null,
+      lit: item.dataset.lit,
+      label: item.querySelector("button")?.getAttribute("aria-label") || null,
+    }),
+  );
+  return {
+    slots: document.querySelectorAll(".world-slot").length,
+    row: row && { top: row.top, bottom: row.bottom, right: row.right },
+    plus: plus && {
+      width: plus.width,
+      height: plus.height,
+      middle: plus.top + plus.height / 2,
+      right: plus.right,
+    },
+    glyph: text && { middle: text.top + text.height / 2 },
+    newWorld: Boolean(document.querySelector("#avatar-new-world")),
+    cast,
+    castLabel: document.querySelector(".slot-cast")?.getAttribute("aria-label"),
+  };
+};
+try {
+  for (const [width, height] of [
+    [390, 844],
+    [1440, 900],
+  ]) {
+    for (const [name, state] of Object.entries(states)) {
+      const page = await browser.newPage({
+        viewport: { width, height },
+        isMobile: width <= 390,
+        hasTouch: width <= 390,
+        reducedMotion: "reduce",
+      });
+      page.setDefaultTimeout(10000);
+      const errors = [];
+      page.on("pageerror", (error) => errors.push(error.message));
+      if (state.worlds) {
+        await page.route("**/auth/account", (route) =>
+          route.fulfill({ json: { authenticated: true } }),
+        );
+        await page.route(/\/card-game\/shared\/worlds$/, (route) =>
+          route.fulfill({
+            json: { worlds: state.worlds, unlocked: state.unlocked },
+          }),
+        );
+        await page.route(
+          /\/card-game\/shared\/worlds\/here(\/command)?$/,
+          (route) => route.fulfill({ json: snapshot() }),
+        );
+      }
+      await page.goto(`${origin}${state.at}`);
+      await page.waitForFunction(() => document.body.inert === false);
+      await page.locator("#toolbar-menu-button").click();
+      const menu = page.locator("#world-menu");
+      await menu.locator(".menu-tools").waitFor();
+      if (state.worlds) await menu.locator(".slot-cast").waitFor();
+      await page.waitForFunction(() =>
+        [...document.querySelectorAll("#world-menu img")].every(
+          (i) => i.complete,
+        ),
+      );
+      const seen = await page.evaluate(geometry);
+      if (!state.worlds) {
+        assert.equal(seen.slots, 0, `${name}: no world UI signed out`);
+        assert.equal(seen.cast.length, 0);
+        assert.equal(seen.newWorld, false);
+      } else {
+        assert.equal(seen.slots, 1, name);
+        assert.equal(seen.plus.width, 32, `${name}: + is seat-sized`);
+        assert.equal(seen.plus.height, 43, `${name}: + is seat-sized`);
+        assert(seen.plus.right <= seen.row.right, `${name}: + inside its row`);
+        const rowMiddle = (seen.row.top + seen.row.bottom) / 2;
+        assert(
+          Math.abs(seen.plus.middle - rowMiddle) <= 1,
+          `${name}: + centred`,
+        );
+        assert(
+          Math.abs(seen.glyph.middle - seen.plus.middle) <= 2,
+          `${name}: + glyph centred`,
+        );
+      }
+      if (name === "two-found") {
+        assert.equal(seen.newWorld, true);
+        assert.deepEqual(
+          seen.cast.slice(0, 2).map(({ avatar, lit }) => [avatar, lit]),
+          [
+            ["tavi", "true"],
+            ["vale", "false"],
+          ],
+        );
+        assert.match(seen.cast[0].label, /^Tavi, free$/);
+        assert.match(seen.cast[1].label, /^Vale, in /);
+        assert.equal(seen.cast.filter((c) => !c.avatar).length, 6);
+        assert.equal(seen.castLabel, "Your avatars, 6 still to find");
+        // A free avatar is chosen for + New world.
+        await menu.locator('.slot-cast [data-avatar="tavi"] button').click();
+        assert.equal(
+          await menu
+            .locator('.slot-cast [data-avatar="tavi"] button')
+            .getAttribute("aria-pressed"),
+          "true",
+        );
+      }
+      if (name === "all-found-left") {
+        assert.equal(seen.newWorld, false);
+        assert.equal(seen.cast.length, 8);
+        assert(seen.cast.every((c) => c.avatar && c.lit === "true"));
+        assert.equal(seen.castLabel, "Your avatars");
+      }
+      await page.screenshot({
+        path: `output/card-world-menu-${name}-${width}.png`,
+      });
+      assert.deepEqual(errors, []);
+      await page.close();
+    }
+  }
+  console.log(
+    "World menu: tools only signed out; signed in, a centred seat-sized + and your avatars face up (grey in a world) before card backs, at 390 and 1440.",
+  );
+} finally {
+  await browser.close();
+  await new Promise((resolve) => server.close(resolve));
+}

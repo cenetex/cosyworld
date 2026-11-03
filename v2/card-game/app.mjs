@@ -1,4 +1,10 @@
-import { nameTitleWaker, playNewWorldIntro } from "./title-intro.mjs";
+import {
+  nameTitleWaker,
+  onTitleWake,
+  playNewWorldIntro,
+  titleMusicHold,
+} from "./title-intro.mjs";
+import { count, lineCounter, playCounter, startMetrics } from "./metrics.mjs";
 import { imageUrl } from "./images.mjs";
 import { cardLevel, levelTier, romanLevel } from "./rarity.mjs";
 import { arriveCard, finishCardReveal, revealCard } from "./card-reveal.mjs";
@@ -405,6 +411,7 @@ function save() {
     rememberLocalUpgrades(world);
     void localBackups?.queue(encoded);
   } catch {
+    count("error.storage");
     notice(UNSAVED_NOTICE);
   }
 }
@@ -528,9 +535,16 @@ function ownSharedEntry() {
     (entry) => entry.actor === currentActor(world),
   );
 }
+// A local play's words still coming for the play before. The rules have
+// run, so a choice comes forward after the grace, but a next play waits
+// behind those words: the late line types into its own beat first, as the
+// shared table's seat makes it do, and the next scene is asked after it.
+const localWordsPending = () =>
+  !sharedSession && storyStatus === "pending" && !openingWordsDue();
 const playQueue = createPlayQueue({
-  ready: () =>
+  ready: (action) =>
     !cardsCooling &&
+    (action.kind === "focus" || !localWordsPending()) &&
     reveal.complete &&
     (!sharedSession ||
       (!sharedSending &&
@@ -544,6 +558,7 @@ const playQueue = createPlayQueue({
     // Choosing a quest takes no turn and brings no reply, so its beat stays
     // awake: the chosen quest's Drop quest is still offered.
     if (action.kind !== "focus") restedChoice = choiceKey();
+    count(playCounter(action));
     if (sharedSession) void submitSharedPlay(action);
     else performAction(action, revision);
   },
@@ -653,6 +668,20 @@ function syncLayering() {
 }
 wideLayout.addEventListener("change", syncLayering);
 const speechSounds = createSpeechSounds();
+// Since when this play's Thinking card has waited for words (#2016): its
+// outcome is counted once, as a latency bucket, silence or a failure.
+let thinkingStartedAt = null;
+function lineHeard(spoken) {
+  if (thinkingStartedAt === null) return;
+  count(
+    spoken === null
+      ? "voice.failed"
+      : spoken
+        ? lineCounter(performance.now() - thinkingStartedAt)
+        : "voice.silent",
+  );
+  thinkingStartedAt = null;
+}
 let completedSpokenLine = null;
 function finishSpokenLine() {
   const line = completedSpokenLine;
@@ -917,8 +946,24 @@ function musicRevealed() {
   } catch {}
   return true;
 }
+// No room music under the new-world title or while its song fades: the
+// title's own gesture would otherwise start it beneath the song. Then the
+// rules above apply.
+let titleHolding = false;
+function holdMusicForTitle() {
+  const hold = titleMusicHold();
+  if (!hold) return;
+  titleHolding = true;
+  hold.then(() => {
+    if (titleMusicHold()) return;
+    titleHolding = false;
+    music.setStarted(musicHasStarted());
+    hum.setStarted(musicHasStarted());
+  });
+}
+holdMusicForTitle();
 function musicHasStarted() {
-  return musicPlayed() && musicRevealed();
+  return !titleHolding && musicPlayed() && musicRevealed();
 }
 try {
   const saved = JSON.parse(localStorage.getItem("cosyworld.room-music"));
@@ -1038,7 +1083,10 @@ const narrator = createNarrator({
     requestNarrative(context, signal, () => {}, "/card-game/reflections"),
   ),
   // A silent play ends its exchange at once; the beat is its caption.
-  silent: () => exchange.cancel(),
+  silent: () => {
+    lineHeard(false);
+    exchange.cancel();
+  },
   started: (context) => {
     if (localRuntime()) characterSpeech.clear();
     // A speaker who left this turn speaks at the destination, not here.
@@ -1060,6 +1108,7 @@ const narrator = createNarrator({
     }
     storyStatus = pending ? "pending" : "ready";
     if (!pending) {
+      lineHeard(true);
       rememberWordsFailed(null);
       silence = { turn: world.turn, lines: silentLines(world, silent) };
     }
@@ -1082,9 +1131,13 @@ const narrator = createNarrator({
   },
   status: (value) => {
     storyStatus = value;
+    // Words that came, or failed, free a play waiting behind them.
+    if (value !== "pending" && playQueue.pending)
+      queueMicrotask(() => playQueue.flush());
     if (value === "pending") rememberWordsFailed(world.revision, true);
     if (value === "pending" && !exchange.active) exchange.begin();
     if (value === "retry") {
+      lineHeard(null);
       rememberWordsFailed(world.revision);
       exchange.cancel();
       showOpeningSilence();
@@ -1200,18 +1253,26 @@ function selectCards(cards) {
   // Choosing other cards after a Wait brings back the plain Wait.
   if (lastWait && cards.join("+") !== lastWait.key) lastWait = null;
 }
+// Uncovering a card names it, remembers it, and lets a held first line
+// begin once the avatar and its place are both known. The new-world title's
+// turn has already shown the avatar's face, so it uncovers that card without
+// a second flip.
+function uncover(id, { flip = true } = {}) {
+  if (!cardIsCovered(id)) return;
+  encountered.add(id);
+  coveredCards.delete(id);
+  rememberCards();
+  render();
+  const shown = $("hand").querySelector(`.card[data-card="${id}"]`);
+  if (shown && flip) void revealCard(shown);
+  $("discovery-announcement").textContent = `New card: ${nameOf(id)}.`;
+  if (openingHeld && openingWordsDue() && selfKnown()) resumeScene();
+  if (sharedSession) syncSharedLine();
+}
 function choose(id) {
   if (finishCardReveal(id) || selectionBlocked()) return;
   if (cardIsCovered(id)) {
-    encountered.add(id);
-    coveredCards.delete(id);
-    rememberCards();
-    render();
-    const shown = $("hand").querySelector(`.card[data-card="${id}"]`);
-    if (shown) void revealCard(shown);
-    $("discovery-announcement").textContent = `New card: ${nameOf(id)}.`;
-    if (openingHeld && openingWordsDue() && selfKnown()) resumeScene();
-    if (sharedSession) syncSharedLine();
+    uncover(id);
     return;
   }
   playQueue.clear();
@@ -1286,6 +1347,7 @@ function performAction(action, revision) {
   if (saveBlocked || sharedSession) return;
   const result = play(world, action, revision);
   if (!result.ok) {
+    count("error.rules_reject");
     notice(result.error);
     render();
     return;
@@ -1303,6 +1365,7 @@ function performAction(action, revision) {
   narrator.invalidate();
   exchange.cancel();
   storyStatus = "pending";
+  thinkingStartedAt = performance.now();
   const from = world.actors[currentActor(world)].place;
   const heldBefore = heldSelection();
   const beats = combatBeats(world, result.state, {
@@ -1403,6 +1466,8 @@ function endCombat() {
   release?.();
 }
 async function presentCombat(beats, land) {
+  if (beats.some((beat) => beat.kind === "defeat" && beat.viewerLost))
+    count("defeat");
   const mine = ++combatRun;
   const view = combatStage();
   for (const beat of beats) combatHeld.add(beat.seq);
@@ -1467,6 +1532,7 @@ function cancelTravel() {
 }
 // Cards met at the new place are unveiled once the veil has fully lifted.
 async function travel(place, arrive, landed, kicker = "Travelling to") {
+  count("travel");
   const veil = $("travel");
   $("travel-kicker").textContent = kicker;
   $("travel-name").textContent = nameOf(place);
@@ -2346,6 +2412,7 @@ function clearQuest(button, quest) {
     { duration: 1100, easing: "ease-out" },
   );
   rise.finished.catch(() => {}).then(() => gain.remove());
+  count("quest.met");
   sealedQuests = sealedQuests.filter((q) => q !== quest);
   if (!sealedQuests.length) questOpen = false;
   render();
@@ -3363,6 +3430,7 @@ function animateStack(direction, ghost) {
 function stepBack() {
   const beat = stackView.beats[stackView.frontIndex - 1];
   if (!beat) return false;
+  count("scrollback.open");
   reviewing = true;
   reviewBeat = beat.key;
   if (beat.line) lineSeq = beat.line.seq;
@@ -3386,12 +3454,14 @@ function stepForward() {
 // exchange on to its next speaker.
 function advanceFront() {
   if (!$("dialogue-text").hidden && !reveal.complete) {
+    count("line.finish_early");
     reveal.finish();
     speechSounds.stop();
     return;
   }
   if (stepForward()) return;
   if (exchange.current) {
+    count("line.skip");
     characterSpeech.stop();
     syncSpeechPlayback();
     finishSpokenLine();
@@ -4022,12 +4092,14 @@ function foldHand() {
   render();
 }
 $("history-button").onclick = () => {
+  count("scrollback.open");
   renderLog(true);
   $("history-dialog").showModal();
   pauseSpeech();
   // The newest visit is first; the past is further down.
   $("messages").scrollTop = 0;
 };
+startMetrics($("metrics-toggle"));
 $("menu-button").onclick = () => {
   $("menu-dialog").showModal();
   pauseSpeech();
@@ -4078,7 +4150,8 @@ $("confirm-reset").onclick = () => {
   save();
   $("reset-dialog").close();
   playNewWorldIntro();
-  nameTitleWaker(nameOf(currentActor(world)));
+  holdMusicForTitle();
+  nameTitleWaker(nameOf(currentActor(world)), currentActor(world));
   resumeScene();
 };
 window.addEventListener("storage", (event) => {
@@ -4375,6 +4448,7 @@ async function submitSharedPlay(action) {
       trackSharedPlay(sharedSession.state);
     }
   } catch (error) {
+    count(error.cause ? "error.network" : "error.rules_reject");
     if (error.cause) showSharedPlay("uncertain", error.message);
     else showSharedPlay("rejected", error.message);
   } finally {
@@ -4580,5 +4654,7 @@ if (sharedSession) {
   setInterval(syncSharedLine, 200);
 }
 // The title's Wake button names the avatar this world opens with.
-nameTitleWaker(nameOf(currentActor(world)));
+nameTitleWaker(nameOf(currentActor(world)), currentActor(world));
 resumeScene();
+// The title's turn (or Escape past it) is this avatar's reveal.
+onTitleWake(() => uncover(currentActor(world), { flip: false }));

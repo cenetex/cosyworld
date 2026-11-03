@@ -217,6 +217,12 @@ export function forgetUnfound(world, context, isCovered = () => false) {
     return {
       ...entity,
       facts: entity.facts.map(blur),
+      ...(entity.between && {
+        between: entity.between.map((b) => ({
+          ...b,
+          facts: b.facts.map(blur),
+        })),
+      }),
       desire: {
         items: entity.desire.items.filter(kept),
         location: kept(entity.desire.location) ? entity.desire.location : null,

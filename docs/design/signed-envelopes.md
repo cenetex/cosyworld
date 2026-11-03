@@ -1,6 +1,7 @@
 # Signed envelopes
 
-Status: the primitive and its first use (local dialogue) are built. Everything
+Status: the primitive, its first use (local dialogue) and imported saves
+are built. Everything
 after "Toward everything" is a sketch.
 
 ## Why
@@ -122,14 +123,14 @@ a word signed by an unlisted key ([untrusted input](../../v2/docs/card-table/sha
 
 What a returned word is checked against (`card_narrative/untrusted.rs`):
 
-| Claim                       | Enforced                                                                                                                                                            |
-| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `content`, `kind`, `entity` | Must match the word, its field and its speaker; otherwise 400.                                                                                                      |
-| `world`                     | Must be `local`; otherwise 400.                                                                                                                                     |
-| `rules`                     | Must name this build family (`cosyworld-orchestrator/…`); otherwise 400. Any version verifies, so remembered words survive a release.                               |
-| `turn`                      | No later than the scene's turn. A thought or dream must carry its own turn, and a remembered line must be no later than its memory. Otherwise the word is left out. |
-| `seq`                       | No later than the scene's revision; otherwise left out.                                                                                                             |
-| `iat`                       | No more than five minutes in the future; otherwise left out.                                                                                                        |
+| Claim                       | Enforced                                                                                                                                                             |
+| --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `content`, `kind`, `entity` | Must match the word, its field and its speaker; otherwise 400.                                                                                                       |
+| `world`                     | Must be `local`; otherwise 400.                                                                                                                                      |
+| `rules`                     | Must name this build family (`cosyworld-orchestrator/…`); otherwise 400. Any version verifies, so remembered words survive a release.                                |
+| `turn`                      | No later than the scene's turn. A thought, dream or between-us line has its own turn; a remembered line is no later than its memory. Otherwise the word is left out. |
+| `seq`                       | No later than the scene's revision; otherwise left out.                                                                                                              |
+| `iat`                       | No more than five minutes in the future; otherwise left out.                                                                                                         |
 
 A word that fails a binding check is left out rather than refused, because
 the browser keeps envelopes by text and an honest player can meet the same
@@ -157,6 +158,12 @@ a world id and sequence, would close that.
   with its own published keys. Envelopes from several issuers can travel
   together, because each names its `kid`. A key directory (a list of trusted
   issuers and their well-known URLs) would be the next design step.
-- **Saves.** A local save that carries envelopes for its server-written
-  content could be imported into a shared world with those parts verified,
-  which closes the import path still open today.
+- **Saves.** Built for imports (#2067): sharing a local save sends the
+  envelopes the browser kept, and the service keeps only the save's words
+  they verify (`world` `local`, the same kind, speaker and content), with the rest
+  of its text checked against the authored catalogs
+  ([untrusted input](../../v2/docs/card-table/shared-worlds.md#untrusted-input)).
+  The kept words are not re-signed as journal rows yet; that waits for
+  signed journal rows above. A local envelope names no save and does not
+  expire, so a word can be replayed into another save by the same speaker;
+  binding envelopes to a save id would close that.

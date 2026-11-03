@@ -50,7 +50,13 @@ try {
     const notice = lobby.locator(".privacy-notice");
     await notice.waitFor();
     const text = await notice.textContent();
-    for (const phrase of ["log in", "public half", "OpenRouter", "type"])
+    for (const phrase of [
+      "log in",
+      "public half",
+      "OpenRouter",
+      "type",
+      "We count plays without knowing who you are",
+    ])
       assert.ok(text.includes(phrase), `${phrase} at ${width}px`);
     const links = notice.locator("a");
     assert.deepEqual(
@@ -86,6 +92,7 @@ try {
     for (const heading of [
       "Passkeys and your account",
       "AI providers",
+      "Play counts",
       "Where data is processed",
       "Play on your own computer",
       "Deleting your data",

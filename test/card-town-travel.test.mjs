@@ -55,7 +55,11 @@ function releasedRoad(road, version = 16) {
 
 describe("local town visits and road history", () => {
   // Athens Harbor has joined Piraeus: its old road folds into the quays.
-  const quay = ["greek-road-athens-harbor", "greek-piraeus", "greek-road-athens-piraeus"];
+  const quay = [
+    "greek-road-athens-harbor",
+    "greek-piraeus",
+    "greek-road-athens-piraeus",
+  ];
   it.each([
     [...quay, 16],
     [...quay, 17],
@@ -81,7 +85,10 @@ describe("local town visits and road history", () => {
       // Quest records leave the history; every other event stays.
       expect(current.log).toEqual(
         before.log
-          .filter((e) => e.kind !== "quest" && !/-quest$|^pursue$/u.test(e.verb || ""))
+          .filter(
+            (e) =>
+              e.kind !== "quest" && !/-quest$|^pursue$/u.test(e.verb || ""),
+          )
           .map(({ questPlan, consequence, questKey, ...e }) => e),
       );
       expect(current.memories[road]).toMatchObject(before.memories[road]);
@@ -195,6 +202,7 @@ describe("local town visits and road history", () => {
       "greek-cithaeron",
       "greek-road-athens-eleusis",
       "greek-road-athens-piraeus",
+      "greek-road-coast",
       "greek-road-sacred-way",
     ]);
     // The Long Walls open from the Agora only with the olive branch there.
@@ -206,12 +214,15 @@ describe("local town visits and road history", () => {
     );
     expect(exits(w, "greek-piraeus", "vale")).toEqual([
       "greek-road-athens-piraeus",
+      "greek-road-coast",
     ]);
     expect(roads.map(([id]) => id).sort()).toEqual([
       "greek-cithaeron",
       "greek-oeta",
       "greek-road-athens-eleusis",
       "greek-road-athens-piraeus",
+      "greek-road-coast",
+      "greek-road-north",
       "greek-road-sacred-way",
       "greek-road-thebes",
     ]);

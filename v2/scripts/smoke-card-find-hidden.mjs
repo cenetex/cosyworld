@@ -99,11 +99,11 @@ try {
     assert.equal(await find.innerText(), "+ Find Mara");
     assert.equal(await menu.locator("#avatar-new-world").count(), 0);
     // Not yet found: six card backs, Mara among them, and no names.
-    const backs = menu.locator(".slot-locked img");
+    const backs = menu.locator(".slot-back img");
     assert.equal(await backs.count(), 6);
     assert.equal(
-      await menu.locator(".slot-locked").getAttribute("aria-label"),
-      "6 still to find",
+      await menu.locator(".slot-cast").getAttribute("aria-label"),
+      "Your avatars, 6 still to find",
     );
     await page.waitForFunction(() =>
       [...document.querySelectorAll("#world-menu img")].every(

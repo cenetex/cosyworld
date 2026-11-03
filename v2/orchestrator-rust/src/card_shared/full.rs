@@ -8,6 +8,7 @@ use super::{
     store::{sql_error, Result},
     user, valid_id,
 };
+use crate::routes::card_game::narrative::imported;
 use crate::AppState;
 use axum::{
     extract::{DefaultBodyLimit, Path, State},
@@ -56,6 +57,9 @@ pub(super) fn router() -> Router<AppState> {
 struct Create {
     #[serde(default)]
     save: Option<String>,
+    // The envelopes of the save's server-written words (signed-words.mjs).
+    #[serde(default)]
+    signed: Vec<crate::routes::signed_envelope::Envelope>,
     // The avatar the host shares as. `move` is accepted from older clients;
     // every claim now leaves the avatar's other worlds (#1846).
     #[serde(default)]
@@ -162,6 +166,19 @@ async fn create(State(state): State<AppState>, h: HeaderMap, Json(body): Json<Cr
         admit(&u)?;
         let mut c = db(&state)?;
         store::schema(&c)?;
+        // A passkey that may not found a world spends no import work.
+        unlocks::may_create(&c, &u)?;
+        // An imported save keeps only text the server can vouch for (#2067),
+        // checked before the world's writer is held.
+        let save = body
+            .save
+            .as_deref()
+            .map(|save| {
+                imported::trusted_save(save, &body.signed, vocabulary(), |s| {
+                    World::hiding(Some(s), None, &Value::Null).is_ok()
+                })
+            })
+            .transpose()?;
         let gate = writer(&state);
         let _turn = turn(&gate);
         let tx = c
@@ -169,12 +186,22 @@ async fn create(State(state): State<AppState>, h: HeaderMap, Json(body): Json<Cr
             .map_err(sql_error)?;
         let a = actor_index(body.avatar.as_deref().unwrap_or("vale"))?;
         unlocks::may_create(&tx, &u)?;
-        let id = found(&tx, &u, a, body.save.as_deref(), now())?;
+        let id = found(&tx, &u, a, save.as_deref(), now())?;
         tx.commit().map_err(sql_error)?;
         Ok(json!({"id":id}))
     })
     .await;
     reply(result)
+}
+/// The words the current rules and packs use, for imported saves.
+pub(super) fn vocabulary() -> &'static imported::Vocabulary {
+    static WORDS: OnceLock<imported::Vocabulary> = OnceLock::new();
+    WORDS.get_or_init(|| {
+        imported::Vocabulary::new(
+            &[super::engine::current_source()],
+            super::content::current_text(),
+        )
+    })
 }
 // A new world for one of the passkey's unlocked avatars. A fresh one hides
 // one of its still-locked avatars (unlocks.rs).

@@ -1,6 +1,7 @@
 import { test } from "vitest";
 import assert from "node:assert/strict";
 import { titleIntroWanted } from "../v2/card-game/title-intro.mjs";
+import acknowledgement from "../v2/card-game/acknowledgement.json" with { type: "json" };
 
 const storage = (entries = {}) => ({
   getItem: (key) => (key in entries ? entries[key] : null),
@@ -59,5 +60,21 @@ test("blocked storage shows it; automated browsers need intro=1", () => {
   assert.equal(
     wanted({ webdriver: true, href: "https://lonelyforest.com/?intro=1" }),
     true,
+  );
+});
+
+test("the acknowledgement is the owner's five paragraphs and the credit", () => {
+  const { paragraphs } = acknowledgement;
+  assert.equal(paragraphs.length, 5);
+  assert.match(paragraphs[0].text, /^Before our forest, there was land\./);
+  assert.match(paragraphs[0].text, /cared for it—and who care for it still\.$/);
+  assert.equal(paragraphs[2].text, "Nothing here began with us.");
+  assert.match(paragraphs[3].text, /a forest folded inside\.$/);
+  assert.equal(paragraphs.at(-1).text, "The lid is open. The path is yours.");
+  for (const { text, links = {} } of paragraphs)
+    for (const phrase of Object.keys(links)) assert.ok(text.includes(phrase));
+  assert.equal(
+    acknowledgement.credit,
+    "Designed by the RATi Open Software Foundation · Operated as a service by Cenetex Inc. · All revenue goes to the Foundation",
   );
 });

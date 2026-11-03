@@ -39,6 +39,22 @@ link the Privacy page (`privacy.html` at `/privacy`, also in Settings;
 [#2052](https://github.com/cenetex/cosyworld/issues/2052)). `privacy.mjs` holds
 the notice and operator details. `/download` redirects to the source on GitHub.
 
+Play counts are anonymous daily totals. `POST /card-game/metrics` takes
+`{"day": <UTC day number>, "counters": {"play.talk": 2}}`, where every name
+comes from the fixed list in `play_metrics.rs`. An unknown name or field, a
+count over 1,000, a day more than one day from today, a cross-site post or a
+body over 4 KiB is refused. Each client may post 12 times a minute. The
+server adds the counts to `play_metrics_daily (day, name, count)` in the event
+database. It keeps no IP, account, world, install or session id, and no text,
+and it drops days older than 400 days on every write. The request log names
+only the route and status. `GET /moderation/play-metrics` (moderation token)
+returns the last seven days. Nothing reads the counts back into play.
+
+`metrics.mjs` counts in memory and sends one `sendBeacon` batch a minute and on
+`pagehide`. Settings has "Share anonymous play counts". With it off, under
+Global Privacy Control, or in the desktop app until turned on, nothing is
+counted or sent. `smoke-card-play-counts.mjs` checks all three.
+
 ## Public assets
 
 `public-assets.mjs` defines the public files and their content types. It includes
@@ -401,7 +417,8 @@ a play, the redrawn row ignores taps, so a double tap cannot reach the new slot.
 
 New cards arrive in their normal stacks with a carved wooden-box cover. A new
 game's opening cards, such as Vale, the lamp and the attic, start covered too, as
-do a new visitor's first cards in a shared world; a table this browser already
+do a new visitor's first cards in a shared world (after the new-world title,
+the avatar's own card is already face up); a table this browser already
 knows keeps the cards its player has uncovered. The first tap uncovers a card
 without selecting it or spending a turn; subsequent taps select it normally.
 A place widens from the upright cover to its wider card as the lid lifts;
@@ -693,25 +710,61 @@ Schema 6 saves include location changes, favours and lasting memories. Earlier s
 
 ### New-world title
 
-Every new world on Lonely Forest opens black and fades in that world's logo
-(`title-intro.mjs`, started from `entry.mjs`). The logo then holds, silent,
-while the table boots and asks for Vale's opening line underneath it. The
-player's first tap, click or key on the title starts the title song, lifts the
-logo, and shows a **Wake Vale** button named for the avatar this world opens
-with (the joining avatar in a shared world). The button takes focus, so Enter
-or Space presses it. Wake fades the song out over a second and fades the title
-to the attic. Escape skips straight in at any point and fades the song the same
-way. If the player never presses Wake, the song plays once to its end and the
-button stays. Browsers refuse sound before a gesture, so the title waits for
-one instead of playing music on load. Reduced motion crossfades the logo
-without scaling and moves it up at once. The image loads before it fades in;
-if it does not load within 2.5 seconds the black fades straight to the table.
+Every new world on Lonely Forest opens black, then shows the land
+acknowledgement (`title-intro.mjs`, started from `entry.mjs`), silent, while
+the table boots underneath. Its text is data in `acknowledgement.json`: five
+short paragraphs set like a film's opening card, in a narrow measure with
+generous leading, then the Foundation and Cenetex credit in small type. The
+text streams in letter by letter like streamed AI text: a letter every 9 ms,
+each fading in over 180 ms, with a breath after punctuation, half a second
+between paragraphs and a longer pause before a short line, about 7 seconds
+in all. Every letter is laid out
+from the start and CSS runs the clock (`STREAM` in `title-intro.mjs`), so
+nothing reflows and screen readers have the whole text at once. Reduced motion
+shows it all at once. The credit and a quiet "click to continue" line ("tap to
+continue" on touch screens) follow the stream; the panel scrolls when it does
+not fit. The line is a button with no chrome that takes focus, with a ring
+only from the keyboard. A tap or click anywhere, or a key (the arrows scroll),
+is the gesture browsers ask for before sound: during the stream the first one
+shows the whole text and starts the title song, and the next one goes on.
+After it, the world's logo fades in (with the song, if it has not begun)
+and lifts over one face-down
+card, the game's own card back, with a small Privacy link (`/privacy`) under
+it. The card is a button named "Reveal your traveller" and takes focus, with
+a ring only from the keyboard; like a hand card it lifts under a pointer
+(brightens under reduced motion), and Privacy is a 24 px tap target. A
+click, Enter or Space turns it with the hand's reveal (`card-reveal.mjs`) to
+the face of the avatar this world opens with (the joining avatar in a shared
+world), cloned from the hand and named for screen readers. The turn waits up to
+0.4 seconds for the face and back to decode, so it never shows a blank
+frame. The card shows whole, so
+its name and shade sit on its floor, at the figure's feet, rather than a
+quarter up where the hand clips its cards. The face holds for
+0.8 seconds, then the title fades to the table while the song rings on and
+fades out over three seconds. Escape skips straight in at any step and fades
+the song over one.
+The title's card is the avatar's own card: as the title leaves, by its turn or
+by Escape, that card is uncovered in the hand (`onTitleWake`), face up with no
+second flip and announced as a new card. Skipping counts as the reveal. The
+first line still waits for the place card (see the hand above), and the
+uncovered set is saved, so a reload neither covers the avatar again nor asks
+for its first line twice. A joining avatar in a shared world is uncovered the
+same way; with no title (a reload, other sites, the local app), the avatar's
+card waits for its own tap as before.
+Reduced motion crossfades each step, moves the logo up at once and swaps the
+face in without the flip. If the logo does not load within 2.5 seconds, the
+card shows without it.
 
 The song is _The Attic Keeps Its Lamp × Moonstone Sanctum_
 (`assets/music/title-attic-lamp.mp3`, `title-song.mjs`). It follows the saved
-music switch and volume: with music off the title and Wake work in silence.
-It downloads only after that first gesture. Room music keeps its own rules
-(see Music below): the attic stays silent until the pond reveal.
+music switch and volume: with music off the title and its card work in silence.
+It downloads only after that first gesture, and `play()` runs inside it. The
+title lasts seconds, so the song comes in over a quarter second, 1.4 times the
+saved volume (it is mastered about 3 LU under the room songs); the old 2-second
+fade from silence left it near -50 dBFS until the card showed. No room music plays while the
+title is up or its song is fading (`titleMusicHold`): the title's own gesture
+used to start an avatar's room music under the song. Then room music keeps its
+own rules (see Music below): the attic stays silent until the pond reveal.
 A new world is the bare address with no save and no last-played world, New
 game on the local table, or a shared world this browser just created or joined
 an avatar to (`avatar-menu.mjs` stores its id in `cosyworld.title-intro`, and
@@ -730,7 +783,9 @@ not a button. Other sites' landings and the local CosyWorld app keep
 the COSYWORLD wordmark.
 Automated browsers skip it unless the address has `intro=1`;
 `v2/scripts/smoke-card-title-intro.mjs` plays it at desktop and phone width,
-including after New game, music off and reduced motion
+including after New game, music off, reduced motion and the keyboard, and
+for a Rue and a Vale world where room music waits for the song
+(`title-music-alone.mjs`)
 (`TITLE_INTRO_SHOTS=<dir>` saves its screenshots there).
 
 New browser tables and shared worlds use `createWorld({ opening: true })`.
@@ -803,7 +858,7 @@ Accompany requests use the companion's quest, the items carried by the requester
 
 Tastes shape prices; a remembered grievance raises a price, refuses company, or prompts a retreat. A quest item is worth more to the avatar that wants it, and nobody trades away its own quest item. Generated speech receives exact outcomes and witnessed grievances.
 
-A hub thing may name its own `art` (the card and stage image) and a `view` (a larger image). Once its card is uncovered and selected, the action row offers **Look**, a client-only overlay of the view: tap the image to zoom, tap outside it or press Escape to close. Look plays nothing and never reaches the rules. A save written before a hub item existed gains it at its `initialState` holder on load. Every load reconciles the save with the current content: a missing authored thing joins at its authored holder, a thing the content no longer defines leaves and whatever it held stays with its holder, and a retired crossing closes. A save that still cannot be read shows its "needs a fresh start" notice and offers New game instead of an error (`node v2/scripts/smoke-card-boot.mjs`, which every pull request's fast check runs).
+A hub thing may name its own `art` (the card and stage image) and a `view` (a larger image). Once its card is uncovered and selected, the action row offers **Look**, a client-only overlay of the view: tap the image to zoom, tap outside it or press Escape to close. Look plays nothing and never reaches the rules. A save written before a hub item existed gains it at its `initialState` holder on load. Every load reconciles the save with the current content: a missing authored thing joins at its authored holder, a place or dock added to a pack gains an empty memory (rules 93), a thing the content no longer defines leaves and whatever it held stays with its holder, and a retired crossing closes. A save that still cannot be read shows its "needs a fresh start" notice and offers New game instead of an error (`node v2/scripts/smoke-card-boot.mjs`, which every pull request's fast check runs).
 
 At the station, Vale can take the bell. The Keeper values the bell more than the oil and accepts that pair. Ring the bell beside the Keeper first and the price rises. Pip values the lamp more than the cloth. These competing tastes let the same objects support several bargains.
 
@@ -998,7 +1053,7 @@ Run `node v2/scripts/smoke-card-pond-access.mjs` to check lamp custody, quiet de
 
 Run `node v2/scripts/smoke-card-dialogue-recovery.mjs` to check visible service failures, same-turn retry, incomplete responses, later plays and reload at desktop and phone widths. It uses local fixture responses and makes no model calls.
 
-The new-world title plays its own song between the first tap and Wake (see New-world title); it never starts or stops room music.
+The new-world title plays its own song between the acknowledgement and the card reveal (see New-world title); room music waits until the title is gone and its song has faded.
 
 Music loading starts when playback is ready: after the first accepted play
 (in the attic opening, the pond reveal), with music enabled and the page visible. A place triggers a song when music

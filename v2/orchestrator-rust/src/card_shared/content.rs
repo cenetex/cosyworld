@@ -25,6 +25,10 @@ pub(super) fn current() -> &'static str {
     static HASH: OnceLock<String> = OnceLock::new();
     HASH.get_or_init(|| hash(CURRENT))
 }
+/// The current revision's text.
+pub(super) fn current_text() -> &'static str {
+    CURRENT
+}
 /// The package version that built the current revision, for people.
 pub(super) const REVISION: &str = env!("CARGO_PKG_VERSION");
 /// A rules bundle takes content as input when it reads the content global.

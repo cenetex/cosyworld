@@ -4,6 +4,7 @@ import { passkeyNotice } from "./privacy.mjs";
 import { createSharedSync } from "./shared-sync.mjs";
 import roster from "./shared-cast.json" with { type: "json" };
 import { worldNameOf } from "./world-name.mjs";
+import { signedEnvelopes } from "./signed-words.mjs";
 import { INVITE_KEY, PLAYING_KEY } from "./avatar-world.mjs";
 
 export const humanAvatars = roster.avatars;
@@ -303,6 +304,7 @@ export function installSharedControls({
           const save = getSave();
           const created = await request("/card-game/shared/worlds", {
             save,
+            signed: signedEnvelopes(),
             avatar: getWorld()?.playerActorId || "vale",
             move: true,
           });

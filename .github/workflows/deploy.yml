@@ -669,7 +669,15 @@ jobs:
   restore-dev:
     name: Return .dev to the main commit it ran
     needs: [primary-fly]
-    if: startsWith(github.ref, 'refs/tags/') && needs.primary-fly.result == 'success' && needs.primary-fly.outputs.deployed == 'true'
+    # `!cancelled()` replaces the implicit `success()`, which is false when
+    # any job upstream of primary-fly was skipped (dev-deploy always is on a
+    # tag), so v1.2.116 and v1.2.117 skipped this job. A partial rerun can
+    # drop primary-fly's outputs, so the first step also reads the rollout
+    # step's result from every attempt of this run.
+    if: >-
+      !cancelled() &&
+      startsWith(github.ref, 'refs/tags/') &&
+      needs.primary-fly.result == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -690,12 +698,26 @@ jobs:
         with:
           node-version: "24"
 
+      # A superseded tag skipped its rollout step, so .dev serves another
+      # commit and there is nothing to return.
+      - name: Confirm this tag rolled out to the primary app
+        id: rolled
+        env:
+          DEPLOYED: ${{ needs.primary-fly.outputs.deployed }}
+        run: |
+          if [ "$DEPLOYED" = "true" ] || scripts/rolled-out-in-run.sh "Deploy primary to Fly" "Deploy primary Fly app"; then
+            echo "deployed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "This run did not roll out the tag; nothing to restore."
+          fi
+
       # The newest earlier rollout, leaving out this run, is what .dev ran:
       # the last train's commit, so this restores it and deploys nothing new.
       # Only a newer commit on main is restored; an unreadable list keeps the
       # tag, and the next .dev train deploys main as before.
       - name: Find the commit .dev ran before this tag
         id: previous
+        if: steps.rolled.outputs.deployed == 'true'
         run: |
           sha="$(node scripts/last-dev-rollout.mjs)"
           status=""
@@ -1057,15 +1079,43 @@ jobs:
     name: Create GitHub release
     runs-on: ubuntu-latest
     # A tag superseded by a newer release before its rollouts gets no release.
+    # `!cancelled()` replaces the implicit `success()`, which is false when
+    # any upstream job was skipped (dev-deploy always is on a tag), so
+    # v1.2.116 and v1.2.117 got no release. The first step decides whether
+    # this tag shipped, from the rollout outputs or, when a partial rerun
+    # dropped them, from the rollout steps of every attempt of this run.
     if: >-
+      !cancelled() &&
       startsWith(github.ref, 'refs/tags/') &&
-      needs.primary-fly.outputs.deployed == 'true' &&
-      needs.lonelyforest-fly.outputs.deployed == 'true'
+      needs.primary-fly.result == 'success' &&
+      needs.lonelyforest-fly.result == 'success'
     needs: [production-gate, primary-fly, lonelyforest-fly]
     permissions:
       contents: write
+      actions: read
     steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          sparse-checkout: scripts
+
+      - name: Confirm both apps rolled out this tag
+        id: shipped
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PRIMARY_DEPLOYED: ${{ needs.primary-fly.outputs.deployed }}
+          LONELYFOREST_DEPLOYED: ${{ needs.lonelyforest-fly.outputs.deployed }}
+        run: |
+          if { [ "$PRIMARY_DEPLOYED" = "true" ] || scripts/rolled-out-in-run.sh "Deploy primary to Fly" "Deploy primary Fly app"; } &&
+             { [ "$LONELYFOREST_DEPLOYED" = "true" ] || scripts/rolled-out-in-run.sh "Deploy Lonely Forest to Fly" "Deploy Lonely Forest"; }; then
+            echo "shipped=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "A newer release superseded this tag before its rollouts; no GitHub release."
+          fi
+
       - name: Create release notes
+        if: steps.shipped.outputs.shipped == 'true'
         run: gh release view "$GITHUB_REF_NAME" || gh release create "$GITHUB_REF_NAME" --generate-notes --verify-tag
         env:
           GH_TOKEN: ${{ github.token }}

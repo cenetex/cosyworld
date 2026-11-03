@@ -307,16 +307,40 @@ try {
       await page.textContent("#dialogue-text"),
       new RegExp(`speaks on turn ${slow.turn}`),
     );
-    await page.waitForFunction(
-      (turn) =>
-        document
-          .querySelector("#dialogue-text")
-          .textContent.includes(`speaks on turn ${turn}`),
-      slow.turn,
-      { timeout: 12_000 },
-    );
+    // Playing a voiced choice (Wait, here at the pond) while the line is
+    // late keeps the line: the next play waits behind it, as at a shared
+    // seat, then speaks in turn.
+    await page.keyboard.press("Escape");
+    await page.locator('#hand [data-card="pond"]').click();
+    await page.locator("#card-actions .card-primary").click();
+    assert.equal((await state()).turn, slow.turn, "the next play waits");
+    const lineFor = (turn) =>
+      page.waitForFunction(
+        (turn) =>
+          document
+            .querySelector("#dialogue-text")
+            .textContent.includes(`speaks on turn ${turn}`),
+        turn,
+        { timeout: 12_000 },
+      );
+    await lineFor(slow.turn);
+    assert(!abandoned.includes(slow.revision), "the late line is not dropped");
     assert.equal(await failure.isVisible(), false);
     mode = "ready";
+    await lineFor(slow.turn + 1);
+    const spoken = (await state()).log.filter((entry) =>
+      /speaks on turn \d+/u.test(entry.text || ""),
+    );
+    const late = spoken.findIndex((entry) =>
+      entry.text.endsWith(`speaks on turn ${slow.turn}.`),
+    );
+    const next = spoken.findIndex((entry) =>
+      entry.text.endsWith(`speaks on turn ${slow.turn + 1}.`),
+    );
+    assert(late >= 0 && next > late, "the late line comes before the next");
+    assert.equal(spoken[late].turn, slow.turn);
+    assert.equal(await failure.isVisible(), false);
+    assert.equal(await retry.isVisible(), false);
     await page.locator("#toolbar-menu-button").click();
     await page.locator("#world-menu").waitFor({ state: "visible" });
     await page.keyboard.press("Escape");
