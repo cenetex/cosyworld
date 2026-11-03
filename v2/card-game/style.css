@@ -2875,7 +2875,7 @@ main > .dialogue {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 14px;
+  gap: 8px;
   opacity: 0;
 }
 /* One face-down card, sized as in the hand; its reveal enters the world. */
@@ -2888,12 +2888,31 @@ main > .dialogue {
 .title-card .card {
   cursor: pointer;
 }
+/* As in the hand: a pointer over the face-down card lifts it (brightens it
+   under reduced motion), and only the keyboard shows its focus ring. */
+@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+  .title-card .card {
+    transition: translate 180ms ease-out;
+  }
+  .title-card .card[data-unrevealed="true"]:hover {
+    translate: 0 -8px;
+  }
+}
+@media (hover: hover) and (prefers-reduced-motion: reduce) {
+  .title-card .card[data-unrevealed="true"]:hover {
+    filter: brightness(1.12);
+  }
+}
+.title-intro[data-pointer] .title-card .card:focus-visible {
+  outline-color: transparent;
+}
 /* The hand shows a card's top three quarters, so its name and shade sit a
    quarter up; this card shows whole, so they sit on its floor. */
 .title-card .card .name {
   bottom: 0;
 }
 .title-privacy {
+  padding: 6px 8px;
   color: #fff4dc;
   font: 0.85rem Georgia, serif;
   opacity: 0.7;

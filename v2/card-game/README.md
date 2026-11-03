@@ -729,10 +729,14 @@ shows the whole text and starts the title song, and the next one goes on.
 After it, the world's logo fades in (with the song, if it has not begun)
 and lifts over one face-down
 card, the game's own card back, with a small Privacy link (`/privacy`) under
-it. The card is a button named "Reveal your traveller" and takes focus. A
+it. The card is a button named "Reveal your traveller" and takes focus, with
+a ring only from the keyboard; like a hand card it lifts under a pointer
+(brightens under reduced motion), and Privacy is a 24 px tap target. A
 click, Enter or Space turns it with the hand's reveal (`card-reveal.mjs`) to
 the face of the avatar this world opens with (the joining avatar in a shared
-world), cloned from the hand and named for screen readers. The card shows whole, so
+world), cloned from the hand and named for screen readers. The turn waits up to
+0.4 seconds for the face and back to decode, so it never shows a blank
+frame. The card shows whole, so
 its name and shade sit on its floor, at the figure's feet, rather than a
 quarter up where the hand clips its cards. The face holds for
 0.8 seconds, then the title fades to the table while the song rings on and

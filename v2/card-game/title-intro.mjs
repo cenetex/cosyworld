@@ -280,6 +280,12 @@ export function playTitleIntro({
       if (art) card.prepend(art.cloneNode(true));
     }
     back.before(element("span", "name", wakeName));
+    // The face and the lid paint on the turn's first frame, not a blank one.
+    const decoded = [back, ...card.querySelectorAll(".art img")].map((img) =>
+      img.decode().catch(() => {}),
+    );
+    await race(Promise.race([Promise.all(decoded), wait(400)]));
+    if (leaving) return;
     card.dataset.unrevealed = "false";
     card.setAttribute("aria-label", wakeName || "Your traveller");
     if (!reduced) await race(revealCard(card));
@@ -353,6 +359,8 @@ export function playTitleIntro({
   layer.addEventListener("click", (event) => {
     if (!event.target.closest?.("a, button")) advance();
   });
+  // A pointer hides the card's focus ring; the keyboard brings it back.
+  layer.addEventListener("pointerdown", () => (layer.dataset.pointer = "true"));
   // Keep focus on the step's button rather than the tapped title.
   layer.addEventListener("mousedown", (event) => {
     if (!event.target.closest?.("a, button, .title-ack-text"))
@@ -361,6 +369,7 @@ export function playTitleIntro({
   const onKey = (event) => {
     if (["Shift", "Control", "Alt", "Meta"].includes(event.key)) return;
     event.stopPropagation();
+    delete layer.dataset.pointer;
     if (event.key === "Escape") {
       event.preventDefault();
       if (!leaving) count("intro.skip");

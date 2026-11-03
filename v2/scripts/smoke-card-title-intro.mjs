@@ -280,9 +280,26 @@ try {
     assert.equal(await page.locator(".title-intro").count(), 1);
     assert.equal(await titlePlays(page), 1);
     await shot(page, `card-${width}`);
+    // After the tap above the card shows no focus ring (the keyboard shows
+    // it, below). Privacy is a full tap target.
+    const look = await page.$eval(traveller, (card) => ({
+      ring: getComputedStyle(card).outlineColor,
+      privacy: document.querySelector(".title-privacy").offsetHeight,
+    }));
+    assert.equal(look.ring, "rgba(0, 0, 0, 0)");
+    assert.ok(look.privacy >= 24, String(look.privacy));
 
     // A click, or Enter on the focused card, turns it; then the song fades.
-    if (desktop) await page.locator(traveller).click();
+    if (desktop) {
+      // Like a hand card, it lifts under the pointer.
+      await page.locator(traveller).hover();
+      await page.waitForTimeout(250);
+      assert.equal(
+        await page.$eval(traveller, (c) => getComputedStyle(c).translate),
+        "0px -8px",
+      );
+      await page.locator(traveller).click();
+    }
     else await page.keyboard.press("Enter");
     await revealed(page, "Vale");
     await page.waitForTimeout(desktop ? 300 : 100);
@@ -391,6 +408,11 @@ try {
     "title-privacy",
   );
   await muted.keyboard.press("Shift+Tab");
+  assert.notEqual(
+    await muted.$eval(traveller, (c) => getComputedStyle(c).outlineColor),
+    "rgba(0, 0, 0, 0)",
+    "the keyboard shows the card's focus ring",
+  );
   await muted.keyboard.press("Space");
   await gone(muted, 4000);
   assert.equal(await titlePlays(muted), 0);
