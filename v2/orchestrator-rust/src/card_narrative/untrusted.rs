@@ -2,15 +2,23 @@
 //! against the mounted packs (`valid`). Words the server wrote earlier
 //! (dialogue lines, thoughts, personas, dreams) come back with the signed
 //! envelope the server issued for them, and are accepted only when it
-//! verifies (`routes::signed_envelope`). Rules-built sentences (the action,
-//! events, facts and event memories) reach a prompt only when they are made
-//! of authored text (`authored`); any other sentence is left out. Shared
-//! scenes are built on the server from its own journal and skip this.
+//! verifies (`routes::signed_envelope`) for this speaker, kind and scene
+//! (`Scene`). Rules-built sentences (the action, events, facts, event
+//! memories and disclosures) reach a prompt only when they are made of their
+//! field's authored text (`authored`); any other sentence is left out, and a
+//! request that quotes more text or needs more matching work than an honest
+//! scene is refused. Shared scenes are built on the server from its own
+//! journal and skip this.
+use super::authored::{authored, Budget, Field, REQUEST_CHARS};
 use super::*;
 use crate::routes::signed_envelope::{content_hash, keys, Claims, Verdict};
 
 /// Local play has no server-side world id; shared journal rows would carry it.
 const LOCAL_WORLD: &str = "local";
+/// The build family that signs local words.
+const ISSUER: &str = "cosyworld-orchestrator/";
+/// Clock skew allowed between machines that share a key.
+const SKEW_SECS: u64 = 300;
 
 enum Check {
     Keep,
@@ -18,7 +26,41 @@ enum Check {
     Reject,
 }
 
-fn check(envelope: Option<&Envelope>, kind: &str, entity: &str, text: &str) -> Check {
+/// What a remembered word must fit: it was written no later than this
+/// scene's turn and revision, and not in the future.
+struct Scene {
+    turn: u64,
+    revision: u64,
+    now: u64,
+}
+
+impl Scene {
+    fn of(context: &Context) -> Self {
+        Self {
+            turn: context.turn,
+            revision: context.revision,
+            now: unix_now(),
+        }
+    }
+}
+
+fn unix_now() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |d| d.as_secs())
+}
+
+/// Verify a remembered word. A forged, altered or moved envelope rejects the
+/// request. A genuine one from a later turn or revision than this scene (an
+/// envelope kept from another save, or replayed into an earlier one), or
+/// signed by an unlisted key, is dropped: the word stays out of the prompt.
+fn check(
+    envelope: Option<&Envelope>,
+    scene: &Scene,
+    kind: &str,
+    entity: &str,
+    text: &str,
+) -> Check {
     let Some(envelope) = envelope else {
         return Check::Reject;
     };
@@ -28,22 +70,26 @@ fn check(envelope: Option<&Envelope>, kind: &str, entity: &str, text: &str) -> C
         Verdict::Invalid => Check::Reject,
         Verdict::Valid => {
             let c = &envelope.claims;
-            if c.kind == kind
+            if !(c.kind == kind
                 && c.entity == entity
                 && c.world == LOCAL_WORLD
-                && c.content == content_hash(text)
+                && c.rules.starts_with(ISSUER)
+                && c.content == content_hash(text))
             {
-                Check::Keep
-            } else {
                 Check::Reject
+            } else if c.turn > scene.turn || c.seq > scene.revision || c.iat > scene.now + SKEW_SECS
+            {
+                Check::Drop
+            } else {
+                Check::Keep
             }
         }
     }
 }
 
 /// An expression memory is `Name: line`, the speaker's pack name and a
-/// signed line.
-fn check_expression(memory: &Memory) -> Check {
+/// signed line, remembered no earlier than it was spoken.
+fn check_expression(memory: &Memory, scene: &Scene) -> Check {
     let Some(envelope) = memory.signed.as_ref() else {
         return Check::Reject;
     };
@@ -51,7 +97,10 @@ fn check_expression(memory: &Memory) -> Check {
     let prefix = format!("{}: ", name(entity));
     match memory.text.strip_prefix(&prefix) {
         Some(line) if profiles().get(entity).is_some() => {
-            check(Some(envelope), "line", entity, line)
+            match check(Some(envelope), scene, "line", entity, line) {
+                Check::Keep if envelope.claims.turn > memory.turn => Check::Drop,
+                verdict => verdict,
+            }
         }
         _ => Check::Reject,
     }
@@ -66,25 +115,82 @@ fn keep<T>(value: T, check: Check) -> Option<Option<T>> {
     }
 }
 
-/// The scene with every server-written string verified, unverifiable ones
-/// (unknown key) dropped, or `None` when any is unsigned or tampered.
-pub(super) fn trusted(mut context: Context) -> Option<Context> {
+/// The scene's rules-built sentences.
+fn rules_text(context: &Context) -> impl Iterator<Item = &str> {
+    let entities = context.entities.iter();
+    context
+        .action
+        .iter()
+        .chain(&context.events)
+        .map(String::as_str)
+        .chain(context.disclosures.iter().map(|d| d.text.as_str()))
+        .chain(entities.flat_map(|e| {
+            e.facts.iter().map(String::as_str).chain(
+                e.memories
+                    .iter()
+                    .filter(|m| m.kind == "event")
+                    .map(|m| m.text.as_str()),
+            )
+        }))
+}
+
+/// The scene's rules-built sentences with the unauthored ones left out, or
+/// `None` when the request quotes more text, or needs more matching work,
+/// than an honest scene.
+fn keep_authored(mut context: Context) -> Option<Context> {
+    if rules_text(&context).map(str::len).sum::<usize>() > REQUEST_CHARS {
+        return None;
+    }
+    let mut budget = Budget::new();
     let mut dropped = 0;
-    let mut keep_authored = |text: &String, limit: usize| {
-        let ok = super::authored::authored(text, limit);
-        dropped += usize::from(!ok);
-        ok
-    };
-    context.action = context.action.filter(|text| keep_authored(text, 650));
-    context.events.retain(|text| keep_authored(text, 650));
+    let mut exceeded = false;
+    let mut keep =
+        |text: &String, limit: usize, field: Field| match authored(text, limit, field, &mut budget)
+        {
+            Ok(true) => true,
+            Ok(false) => {
+                dropped += 1;
+                false
+            }
+            Err(_) => {
+                exceeded = true;
+                false
+            }
+        };
+    context.action = context.action.filter(|text| keep(text, 650, Field::Action));
+    context.events.retain(|text| keep(text, 650, Field::Events));
     context
         .disclosures
-        .retain(|fact| keep_authored(&fact.text, 180));
+        .retain(|fact| keep(&fact.text, 180, Field::Disclosures));
     for entity in &mut context.entities {
-        entity.facts.retain(|text| keep_authored(text, 240));
+        entity.facts.retain(|text| keep(text, 240, Field::Facts));
         entity
             .memories
-            .retain(|m| m.kind != "event" || keep_authored(&m.text, 650));
+            .retain(|m| m.kind != "event" || keep(&m.text, 650, Field::Memories));
+    }
+    if exceeded {
+        tracing::warn!(
+            feature = "card_text",
+            "refused a scene that needs more text matching than an honest one"
+        );
+        return None;
+    }
+    if dropped > 0 {
+        tracing::warn!(
+            feature = "card_text",
+            dropped,
+            "left unauthored scene text out of the prompt"
+        );
+    }
+    Some(context)
+}
+
+/// The scene with every server-written string verified, unverifiable ones
+/// (unknown key, another save) dropped, or `None` when any is unsigned or
+/// tampered. Matching is bounded, but the caller runs this off the async
+/// workers (`spawn_blocking`) after admitting the client.
+pub(super) fn trusted(context: Context) -> Option<Context> {
+    for entity in &context.entities {
         if let Some(poem) = &entity.poem {
             if !poem
                 .stanzas
@@ -95,30 +201,37 @@ pub(super) fn trusted(mut context: Context) -> Option<Context> {
             }
         }
     }
-    if dropped > 0 {
-        tracing::warn!(
-            feature = "card_text",
-            dropped,
-            "left unauthored scene text out of the prompt"
-        );
-    }
+    let mut context = keep_authored(context)?;
+    let scene = Scene::of(&context);
     let mut conversation = Vec::new();
     for line in std::mem::take(&mut context.conversation) {
-        let verdict = check(line.signed.as_ref(), "line", &line.actor_id, &line.text);
+        let verdict = check(
+            line.signed.as_ref(),
+            &scene,
+            "line",
+            &line.actor_id,
+            &line.text,
+        );
         conversation.extend(keep(line, verdict)?);
     }
     context.conversation = conversation;
     for entity in &mut context.entities {
         let id = entity.id.clone();
         if let Some(previous) = entity.previous.take() {
-            let verdict = check(entity.previous_signed.as_ref(), "line", &id, &previous);
+            let verdict = check(
+                entity.previous_signed.as_ref(),
+                &scene,
+                "line",
+                &id,
+                &previous,
+            );
             entity.previous = keep(previous, verdict)?;
         }
         entity.previous_signed = None;
         let mut memories = Vec::new();
         for memory in std::mem::take(&mut entity.memories) {
             if memory.kind == "expression" {
-                let verdict = check_expression(&memory);
+                let verdict = check_expression(&memory, &scene);
                 memories.extend(keep(memory, verdict)?);
             } else if memory.signed.is_none() {
                 memories.push(memory);
@@ -133,21 +246,32 @@ pub(super) fn trusted(mut context: Context) -> Option<Context> {
         }
         if let Some(life) = entity.inner_life.as_mut() {
             if let Some(persona) = life.persona.take() {
-                let verdict = check(life.persona_signed.as_ref(), "persona", &id, &persona);
+                let verdict = check(
+                    life.persona_signed.as_ref(),
+                    &scene,
+                    "persona",
+                    &id,
+                    &persona,
+                );
                 life.persona = keep(persona, verdict)?;
             }
             life.persona_signed = None;
             for (kind, moments) in [("thought", &mut life.thoughts), ("dream", &mut life.dreams)] {
                 let mut kept = Vec::new();
                 for moment in std::mem::take(moments) {
-                    let turn_matches = moment
-                        .signed
-                        .as_ref()
-                        .is_none_or(|e| e.claims.turn == moment.turn);
-                    let verdict = check(moment.signed.as_ref(), kind, &id, &moment.text);
-                    if !turn_matches {
-                        return None;
-                    }
+                    let verdict =
+                        match check(moment.signed.as_ref(), &scene, kind, &id, &moment.text) {
+                            // The envelope names the turn the moment was had.
+                            Check::Keep
+                                if moment
+                                    .signed
+                                    .as_ref()
+                                    .is_some_and(|e| e.claims.turn != moment.turn) =>
+                            {
+                                Check::Drop
+                            }
+                            verdict => verdict,
+                        };
                     kept.extend(keep(moment, verdict)?);
                 }
                 *moments = kept;
@@ -161,12 +285,10 @@ fn claims(context: &Context, kind: &str, entity: &str, text: &str) -> Claims {
     Claims {
         content: content_hash(text),
         entity: entity.into(),
-        iat: std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map_or(0, |d| d.as_secs()),
+        iat: unix_now(),
         kind: kind.into(),
         kid: String::new(),
-        rules: concat!("cosyworld-orchestrator/", env!("CARGO_PKG_VERSION")).into(),
+        rules: format!("{ISSUER}{}", env!("CARGO_PKG_VERSION")),
         seq: context.revision,
         turn: context.turn,
         world: LOCAL_WORLD.into(),

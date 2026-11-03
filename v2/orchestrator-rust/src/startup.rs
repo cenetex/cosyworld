@@ -5,6 +5,10 @@ const DEFAULT_LISTEN_ADDR: &str = "127.0.0.1:3102";
 pub(super) async fn run() -> Result<(), Box<dyn std::error::Error>> {
     let boot_started = Instant::now();
     initialize_tracing();
+    // The signing key: made on first start and kept on the volume, or the
+    // `COSYWORLD_SIGNING_KEY` override (docs/release.md#signing-key).
+    crate::routes::signed_envelope::init().map_err(deployment_config_error)?;
+    crate::routes::card_game::narrative::catalog_stale();
 
     if let Some(config) =
         crate::routes::card_game::local::Config::from_env().map_err(io::Error::other)?

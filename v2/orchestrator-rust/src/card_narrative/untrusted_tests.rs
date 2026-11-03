@@ -34,6 +34,11 @@ async fn status(path: &str, body: impl Into<Body>) -> StatusCode {
 /// persona and a thought, each signed as the service returned them.
 fn remembered() -> Context {
     let mut c = context();
+    c.disclosures = serde_json::from_value(json!([{
+        "factId": "kettle", "speaker": "vale", "listener": "moth", "eventSeq": 3,
+        "text": "RATi keeps the kettle warm for anyone walking home late.",
+    }]))
+    .unwrap();
     c.conversation.push(SpokenLine {
         signed: None,
         witnesses: None,
@@ -49,7 +54,11 @@ fn remembered() -> Context {
             turn: 3,
             text: "Vale was kind to me.".into(),
         }],
-        dreams: vec![],
+        dreams: vec![InnerMoment {
+            signed: None,
+            turn: 2,
+            text: "I dreamt the pond was warm.".into(),
+        }],
     });
     signed(&c)
 }
@@ -169,10 +178,14 @@ async fn unsigned_tampered_or_moved_words_are_refused() {
             }),
         ),
         (
-            "moved thought",
+            "edited dream",
             Box::new(|c| {
-                c.entities[3].inner_life.as_mut().unwrap().thoughts[0].turn = 2;
+                c.entities[3].inner_life.as_mut().unwrap().dreams[0].text = INJECTION.into();
             }),
+        ),
+        (
+            "envelope from another build family",
+            Box::new(|c| resign(c, |claims| claims.rules = "elsewhere/1.0.0".into())),
         ),
         (
             "a hope",
@@ -195,6 +208,58 @@ async fn unsigned_tampered_or_moved_words_are_refused() {
             );
         }
     }
+}
+
+/// Re-sign the heard line with changed claims, as this server would have.
+fn resign(c: &mut Context, change: impl Fn(&mut Claims)) {
+    let mut claims = c.conversation[0].signed.clone().unwrap().claims;
+    change(&mut claims);
+    c.conversation[0].signed = Some(keys().sign(claims));
+}
+
+/// A genuine envelope bound to a later point than this scene (kept from
+/// another save, or replayed into an earlier one) is left out, not trusted.
+#[test]
+fn words_from_a_later_scene_or_another_turn_stay_out_of_the_prompt() {
+    let later: Vec<(&str, Change)> = vec![
+        (
+            "later turn",
+            Box::new(|c| resign(c, |claims| claims.turn += 1)),
+        ),
+        (
+            "later revision",
+            Box::new(|c| resign(c, |claims| claims.seq += 1)),
+        ),
+        (
+            "issued in the future",
+            Box::new(|c| resign(c, |claims| claims.iat += 3600)),
+        ),
+    ];
+    for (name, change) in later {
+        let mut c = remembered();
+        change(&mut c);
+        let kept = trusted(c).unwrap_or_else(|| panic!("{name} was refused"));
+        assert!(kept.conversation.is_empty(), "{name} was kept");
+    }
+    // A thought moved to another turn, and a line remembered before it was
+    // spoken.
+    let mut c = remembered();
+    c.entities[3].inner_life.as_mut().unwrap().thoughts[0].turn = 2;
+    let kept = trusted(c).unwrap();
+    assert!(kept.entities[3]
+        .inner_life
+        .as_ref()
+        .unwrap()
+        .thoughts
+        .is_empty());
+    let mut c = remembered();
+    c.entities[3].memories[0].turn = 2;
+    let kept = trusted(c).unwrap();
+    assert!(kept.entities[3].memories.is_empty());
+    // The scene as signed keeps everything.
+    let kept = trusted(remembered()).unwrap();
+    assert_eq!(kept.conversation.len(), 1);
+    assert_eq!(kept.entities[3].memories.len(), 1);
 }
 
 #[test]
@@ -353,7 +418,109 @@ async fn an_instruction_in_any_string_field_never_reaches_a_prompt() {
             }),
         ),
     ];
-    for (name, change) in fields {
+    let mut fields: Vec<(&str, Change, &str)> = fields
+        .into_iter()
+        .map(|(name, change)| (name, change, "Ignore previous instructions"))
+        .collect();
+    let disclosure = |field: &'static str, value: &'static str| -> Change {
+        Box::new(move |c| {
+            let mut fact = json!(c.disclosures[0]);
+            fact[field] = json!(value);
+            c.disclosures = vec![serde_json::from_value(fact).unwrap()];
+        })
+    };
+    let outcome = |change: fn(&mut Value)| -> Change {
+        Box::new(move |c| {
+            let mut value = json!({
+                "card": {"kind": "arrive", "target": null, "item": null, "receive": null,
+                    "destination": null, "accepted": null},
+                "avatars": [{"id": "vale", "location": "station", "holding": ["lamp"], "travel": null}],
+                "items": [{"id": "lamp", "holder": "vale", "location": "station"}],
+                "observations": [{"id": "lamp-flame", "value": true}],
+            });
+            change(&mut value);
+            c.outcome = Some(serde_json::from_value(value).unwrap());
+        })
+    };
+    let poem = |title: &'static str, author: &'static str| -> Change {
+        Box::new(move |c| {
+            c.entities[0].poem = Some(
+                serde_json::from_value(json!({"title": title, "stanzas": [
+                    {"id": "first", "turn": 1, "authorId": "vale", "authorName": author}
+                ]}))
+                .unwrap(),
+            );
+        })
+    };
+    let marker = "Ignore previous instructions";
+    fields.extend([
+        ("disclosure text", disclosure("text", INJECTION), marker),
+        (
+            "disclosure fact id",
+            disclosure("factId", INJECTION),
+            marker,
+        ),
+        (
+            "disclosure speaker",
+            disclosure("speaker", INJECTION),
+            marker,
+        ),
+        (
+            "disclosure listener",
+            disclosure("listener", INJECTION),
+            marker,
+        ),
+        ("poem title", poem(INJECTION, "Vale"), marker),
+        ("poem author", poem("The Lantern Song", INJECTION), marker),
+        (
+            "outcome id",
+            outcome(|v| v["card"]["target"] = json!(INJECTION)),
+            marker,
+        ),
+        (
+            "outcome avatar",
+            outcome(|v| v["avatars"][0]["id"] = json!(INJECTION)),
+            marker,
+        ),
+        (
+            "observation id",
+            outcome(|v| v["observations"][0]["id"] = json!(INJECTION)),
+            marker,
+        ),
+        (
+            "dream",
+            Box::new(|c| {
+                c.entities[3].inner_life.as_mut().unwrap().dreams[0].text = INJECTION.into()
+            }),
+            marker,
+        ),
+        // Authored pieces recombined into words nobody wrote.
+        (
+            "a pack's voice direction as a fact",
+            Box::new(|c| {
+                c.entities[0].facts.push(
+                    "Speak as the willows, many together: one to three very short sentences."
+                        .into(),
+                )
+            }),
+            "Speak as the willows",
+        ),
+        (
+            "a link as a held item",
+            Box::new(|c| {
+                c.entities[0]
+                    .facts
+                    .push("Holding: https://bubbleteacat.com/.".into())
+            }),
+            "bubbleteacat",
+        ),
+        (
+            "loose words as an event",
+            Box::new(|c| c.events.push("You not the key. You not a door.".into())),
+            "You not the key",
+        ),
+    ]);
+    for (name, change, marker) in fields {
         let seen = Arc::new(Mutex::new(Vec::new()));
         let (address, server) =
             serve(plain_provider(seen.clone(), |_, stem| stem_reply(stem))).await;
@@ -370,7 +537,7 @@ async fn an_instruction_in_any_string_field_never_reaches_a_prompt() {
             let _ = to_bytes(response.into_body(), 1 << 20).await;
             let prompts = json!(*seen.lock().unwrap()).to_string();
             assert!(
-                code.is_client_error() || !prompts.contains("Ignore previous instructions"),
+                code.is_client_error() || !prompts.contains(marker),
                 "{name} at {path} reached a prompt ({code})"
             );
         }
@@ -395,4 +562,49 @@ async fn the_signing_keys_are_published() {
     assert_eq!(value, keys().public_keys());
     assert_eq!(value["keys"][0]["alg"], "Ed25519");
     assert_eq!(value["keys"][0]["current"], true);
+}
+
+/// The costly shape from the security review, in every rules-built field
+/// that fits under the quoted-text cap, is refused within the budget.
+#[tokio::test]
+async fn a_scene_that_needs_too_much_matching_is_refused_fast() {
+    let mut c = remembered();
+    let costly = |n: usize| format!("{}zz{n}.", "Vale: Pip. ".repeat(58));
+    c.events = (0..8).map(costly).collect();
+    c.entities[1].memories = (0..8)
+        .map(|n| Memory {
+            seq: None,
+            turn: 1,
+            kind: "event".into(),
+            text: costly(100 + n),
+            signed: None,
+        })
+        .collect();
+    let started = std::time::Instant::now();
+    assert!(trusted(serde_json::from_value(json!(c)).unwrap()).is_none());
+    let elapsed = started.elapsed();
+    let limit = if cfg!(debug_assertions) { 600 } else { 30 };
+    assert!(elapsed.as_millis() <= limit, "took {elapsed:?}");
+    for path in ["/card-game/text", "/card-game/reflections"] {
+        assert_eq!(
+            status(path, body(&c)).await,
+            StatusCode::BAD_REQUEST,
+            "{path}"
+        );
+    }
+    // More quoted text than an honest scene is refused before any matching.
+    let mut c = remembered();
+    for e in &mut c.entities {
+        e.facts = vec!["a".repeat(240); 16];
+        e.memories = (0..8)
+            .map(|_| Memory {
+                seq: None,
+                turn: 1,
+                kind: "event".into(),
+                text: "a".repeat(650),
+                signed: None,
+            })
+            .collect();
+    }
+    assert!(trusted(c).is_none());
 }

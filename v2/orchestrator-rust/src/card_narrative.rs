@@ -727,6 +727,37 @@ fn same_origin(headers: &HeaderMap) -> bool {
                 .any(|prefix| origin.strip_prefix(prefix) == Some(host))
     })
 }
+/// Whether the authored-text catalog is older than the scene modules and
+/// packs this build serves. A stale catalog leaves new rules text out of
+/// every prompt, so startup logs it loudly and /meta reports it
+/// (`card_game.card_text.catalog_stale`).
+pub(crate) fn catalog_stale() -> bool {
+    static STALE: OnceLock<bool> = OnceLock::new();
+    *STALE.get_or_init(|| {
+        let stale = !authored::catalog_current(|path| {
+            let file = path.strip_prefix("v2/card-game/")?;
+            cosyworld_orchestrator::card_assets::get(file).map(|(_, bytes)| bytes.to_vec())
+        });
+        if stale {
+            tracing::error!(
+                feature = "card_text",
+                "AUTHORED TEXT CATALOG IS STALE: rebuild it with node \
+                 v2/scripts/build-card-authored-text.mjs; new rules sentences are left out \
+                 of dialogue prompts until then"
+            );
+        }
+        stale
+    })
+}
+
+/// The scene with its untrusted text checked (`untrusted::trusted`), off the
+/// async workers. Matching is bounded per request (`authored::Budget`).
+async fn screened(context: Context) -> Option<Context> {
+    tokio::task::spawn_blocking(move || untrusted::trusted(context))
+        .await
+        .ok()
+        .flatten()
+}
 async fn generate(
     State(state): State<TextState>,
     ConnectInfo(peer): ConnectInfo<SocketAddr>,
@@ -736,37 +767,20 @@ async fn generate(
     if !same_origin(&headers) {
         return error(StatusCode::FORBIDDEN, "Open the card game on this site.");
     }
-    let Some(context) = valid(&context)
-        .then(|| untrusted::trusted(context))
-        .flatten()
-    else {
-        return error(
+    let refused = || {
+        error(
             StatusCode::BAD_REQUEST,
             "Use the current scene and its saved memories.",
-        );
+        )
     };
-    let Some(config) = state.ai.as_ref().as_ref() else {
-        return error(
-            StatusCode::SERVICE_UNAVAILABLE,
-            "Story generation is waiting for its model connection.",
-        );
-    };
-    let Ok(character_models) = state.character_models.as_ref() else {
-        return error(
-            StatusCode::SERVICE_UNAVAILABLE,
-            "Character voices are waiting for their model settings.",
-        );
-    };
-    let Ok(settings) = state.settings.as_ref() else {
-        return error(
-            StatusCode::SERVICE_UNAVAILABLE,
-            "Character voices are waiting for valid timing settings.",
-        );
-    };
+    if !valid(&context) {
+        return refused();
+    }
     // `peer` is already the derived client address (see
     // `rate_limit::client_addr`). Check this client's own limits before
-    // touching shared capacity, so one client can neither hold every permit
-    // nor spend the shared budget while another client waits.
+    // checking its scene's text or touching shared capacity, so one client
+    // can neither hold every permit nor spend the shared budget while
+    // another client waits, nor spend the server's time on text matching.
     let client = peer.ip();
     let Some(_client_slot) = state.in_flight.try_enter(client, PER_CLIENT_CONCURRENCY) else {
         return error(
@@ -788,6 +802,27 @@ async fn generate(
             );
         }
     }
+    let Some(context) = screened(context).await else {
+        return refused();
+    };
+    let Some(config) = state.ai.as_ref().as_ref() else {
+        return error(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "Story generation is waiting for its model connection.",
+        );
+    };
+    let Ok(character_models) = state.character_models.as_ref() else {
+        return error(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "Character voices are waiting for their model settings.",
+        );
+    };
+    let Ok(settings) = state.settings.as_ref() else {
+        return error(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "Character voices are waiting for valid timing settings.",
+        );
+    };
     let Ok(_permit) = state.capacity.clone().try_acquire_owned() else {
         return error(StatusCode::TOO_MANY_REQUESTS, "The story service is busy.");
     };
