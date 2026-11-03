@@ -58,10 +58,5 @@ export async function showBuildInfo({
   }
   const brand = root.querySelector(".brand");
   if (brand) brand.title = `Build ${info.text}`;
-  const wordmark = root.getElementById("scene-video-button");
-  if (wordmark)
-    wordmark.title = [wordmark.title, `Build ${info.text}`]
-      .filter(Boolean)
-      .join("\n");
   return info;
 }

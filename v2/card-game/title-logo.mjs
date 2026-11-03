@@ -78,9 +78,10 @@ export function worldLogo({ href, storage, fresh = false }) {
   return LOGOS[index];
 }
 
-// The toolbar wordmark becomes the world's logo; the button keeps its job.
+// The toolbar wordmark becomes the world's logo, a plain image named by its
+// alt text.
 export function showToolbarLogo(logo, root = document) {
-  const mark = root.querySelector("#scene-video-button strong");
+  const mark = root.querySelector(".brand strong");
   if (!mark || !logo) return;
   let image = mark.querySelector("img.brand-logo");
   if (!image) {

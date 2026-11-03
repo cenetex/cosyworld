@@ -1,7 +1,6 @@
-// Settings shows the passkey's credits and the speech pack link, and the
-// camera films a scene for 100 credits on the server (#1924). In a shared
-// world, Settings shows the world's pool and commits credits to it through
-// the action beat, and the camera films on the pool.
+// Settings shows the passkey's credits and the speech pack link (#1924).
+// In a shared world, Settings shows the world's pool and commits credits to
+// it through the action beat. The toolbar shows the plain wordmark.
 import assert from "node:assert/strict";
 import { mkdir, readFile } from "node:fs/promises";
 import { chromium } from "playwright";
@@ -89,7 +88,7 @@ async function checkPool(width) {
       json: {
         signed_in: true,
         balance: 142 - pool,
-        prices: { tts: 1, video: 100 },
+        prices: { tts: 1 },
       },
     }),
   );
@@ -145,12 +144,6 @@ async function checkPool(width) {
     { world: "pool-w", play: "saved-pool-play", line: 0 },
   ]);
   await page.screenshot({ path: `output/credits/shared-voice-${width}.png` });
-  await page.locator("#scene-video-button").click();
-  assert.match(
-    await page.textContent("#scene-video-create"),
-    /from the pool \(10\)/u,
-  );
-  assert.equal(await page.locator("#scene-video-create").isDisabled(), true);
   assert.deepEqual(errors, []);
   console.log(
     `Committed pool credits and voiced a saved scene line at ${width}px.`,
@@ -180,36 +173,10 @@ try {
           signed_in: signedIn,
           balance: signedIn ? 142 : 0,
           checkout: signedIn,
-          prices: { tts: 1, video: 100 },
+          prices: { tts: 1 },
         }),
       }),
     );
-    const filmed = [];
-    await page.route("**/card-game/video**", (route) => {
-      const url = new URL(route.request().url());
-      filmed.push(`${route.request().method()} ${url.pathname}`);
-      if (url.pathname.endsWith("/content"))
-        return route.fulfill({
-          status: 200,
-          contentType: "video/mp4",
-          body: "",
-        });
-      return route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify(
-          url.pathname.endsWith("/model")
-            ? { id: "tbc/mischief-1", supported_durations: [5] }
-            : {
-                request_id: "x",
-                status:
-                  url.pathname === "/card-game/video"
-                    ? "submitted"
-                    : "completed",
-              },
-        ),
-      });
-    });
     const table = `credits-${width}`;
     await page.addInitScript(
       ({ key, save }) => {
@@ -220,42 +187,12 @@ try {
     await page.goto(
       `http://127.0.0.1:${server.address().port}/?table=${table}`,
     );
-    // The camera sits beside the wordmark, in colour or grey, never over it.
-    await page.waitForFunction(
-      () => document.querySelector("#scene-video-button").dataset.affordable,
-    );
-    const [mark, camera] = await Promise.all(
-      ["#scene-video-button strong", "#scene-video-button svg"].map((s) =>
-        page.locator(s).boundingBox(),
-      ),
-    );
-    assert.ok(mark && camera, `wordmark and camera render at ${width}px`);
-    assert.ok(
-      camera.x >= mark.x + mark.width ||
-        camera.x + camera.width <= mark.x ||
-        camera.y >= mark.y + mark.height ||
-        camera.y + camera.height <= mark.y,
-      `camera ${JSON.stringify(camera)} overlaps wordmark ${JSON.stringify(mark)} at ${width}px`,
-    );
-    await page.locator("#scene-video-button").click();
-    const create = page.locator("#scene-video-create");
-    assert.match(await create.textContent(), /100 credits/u);
-    if (signedIn) {
-      await create.click();
-      await page.locator("#scene-video-player").waitFor({ state: "visible" });
-      assert.deepEqual(filmed, [
-        "GET /card-game/video/model",
-        "POST /card-game/video",
-        filmed[2],
-        filmed[3],
-      ]);
-      assert.match(filmed[3], /\/content$/u);
-    } else {
-      assert.equal(await create.isDisabled(), true);
-      assert.match(await page.textContent("#scene-video-status"), /Sign in/u);
-    }
-    await page.screenshot({ path: `output/credits/camera-${width}.png` });
-    await page.locator("#scene-video-close").click();
+    await page.waitForFunction(() => document.body.inert === false);
+    // The toolbar shows the world's logo as a plain image, not a button.
+    await page.locator(".brand strong img.brand-logo").waitFor();
+    assert.ok(await page.getAttribute(".brand-logo", "alt"));
+    assert.equal(await page.locator(".brand button").count(), 0);
+    assert.equal(await page.locator("#scene-video-button").count(), 0);
     await page.locator("#toolbar-menu-button").click();
     await page.locator("#menu-button").click();
     await page.locator("#credits-status").waitFor({ state: "visible" });

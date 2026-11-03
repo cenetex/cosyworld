@@ -5,7 +5,7 @@
 // knowing who you are; turn that off in Settings." here and update the
 // counts section of privacy.html in the same PR.
 const PASSKEY_NOTICE = [
-  "We collect your passkey so you can log in and keep your avatars on our shared servers, which use our shared AI on our domain. Your device keeps the key; we keep only its public half and an account number. While you're signed in, we keep your avatars, shared worlds and their play history, and any credits. Character dialogue, voices and videos are made by AI providers such as OpenRouter from the game's own state. Nothing you type is sent, because the game has no typing. If you want to play the game without sharing your passkey data with us, download, modify, and play the game yourself for free from ",
+  "We collect your passkey so you can log in and keep your avatars on our shared servers, which use our shared AI on our domain. Your device keeps the key; we keep only its public half and an account number. While you're signed in, we keep your avatars, shared worlds and their play history, and any credits. Character dialogue and voices are made by AI providers such as OpenRouter from the game's own state. Nothing you type is sent, because the game has no typing. If you want to play the game without sharing your passkey data with us, download, modify, and play the game yourself for free from ",
   ["lonelyforest.com/download", "/download"],
   ". ",
   ["Privacy", "/privacy"],

@@ -23,7 +23,6 @@ import {
   newRunSeed,
 } from "./pack-landing.mjs";
 import { flipStagePortrait, portraitFraming } from "./portrait-facing.mjs";
-import { installSceneVideo } from "./scene-video.mjs";
 import { locationWeather } from "./weather.mjs";
 import { DAYLIGHT_TURNS, isNight, locationDaylight } from "./daylight.mjs";
 import { renderWeather } from "./weather-view.mjs";
@@ -184,7 +183,6 @@ let world = sharedSession
     slotLabel.textContent = `Saving as table "${tableName}". Without the ?table= parameter this menu shows a different saved game.`;
   }
 }
-let videoScene = null;
 // Beat captions keep their glyph as data; the table draws each one as line
 // art in the toolbar's style so no glyph falls back to a colour emoji.
 const beatIcons = {
@@ -668,7 +666,7 @@ const characterSpeech = createCharacterSpeech({
     });
   },
 });
-// Hosted voices and scene videos spend the passkey's credits (#1924).
+// Hosted voices spend the passkey's credits (#1924).
 $("credits").hidden = Boolean(localRuntime());
 let creditsSeen;
 playerCredits().subscribe((credits) => {
@@ -2522,7 +2520,6 @@ function renderScene() {
   // Reviewing a line changes the words while present people keep their places.
   const resolvedBeat = exchange.preparing || scene.line?.turn !== world.turn;
   scene.slots = sceneCast(world);
-  videoScene = scene;
   $("stage").dataset.presentedRevision = String(world.revision);
   shownSceneLine = scene.line;
   const img = $("backdrop");
@@ -4514,10 +4511,6 @@ if (localRuntime()) {
     if (button) button.hidden = true;
   }
 }
-installSceneVideo({
-  getWorld: () => world,
-  getScene: () => videoScene || currentScene(world),
-});
 if (sharedSession) {
   world = sharedWorld(sharedSession.state);
   sharedSession.subscribe(adoptShared, (message, recoveredFrom) => {

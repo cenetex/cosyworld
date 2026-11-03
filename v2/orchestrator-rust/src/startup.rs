@@ -175,7 +175,6 @@ struct BackgroundServices {
     _canonical_capacity: Option<tokio::task::JoinHandle<()>>,
     _ai_readiness: Option<tokio::task::JoinHandle<()>>,
     _media_jobs: Option<tokio::task::JoinHandle<()>>,
-    _video_jobs: Option<tokio::task::JoinHandle<()>>,
 }
 
 impl BackgroundServices {
@@ -198,7 +197,6 @@ impl BackgroundServices {
             _canonical_capacity: canonical_capacity,
             _ai_readiness: ai_readiness,
             _media_jobs: media_jobs,
-            _video_jobs: crate::routes::card_video::start_reconciler(state),
         }
     }
 }

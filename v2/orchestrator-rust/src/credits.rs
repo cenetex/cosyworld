@@ -39,22 +39,20 @@ const MAX_GRANT: i64 = 100_000;
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum SpendKind {
     Tts,
-    Video,
 }
 
 impl SpendKind {
-    pub(crate) const ALL: [SpendKind; 2] = [Self::Tts, Self::Video];
+    pub(crate) const ALL: [SpendKind; 1] = [Self::Tts];
     pub(crate) fn name(self) -> &'static str {
         match self {
             Self::Tts => "tts",
-            Self::Video => "video",
         }
     }
-    /// One spoken line costs one credit; a scene video costs a speech pack.
+    /// One spoken line costs one credit. Older ledgers may hold `video`
+    /// spends and refunds; they still count toward each balance.
     pub(crate) fn price(self) -> i64 {
         match self {
             Self::Tts => 1,
-            Self::Video => 100,
         }
     }
 }
@@ -472,7 +470,7 @@ mod tests {
     #[test]
     fn reservations_and_receipts_can_roll_back_with_their_ledger_rows() {
         let mut c = db();
-        grant(&mut c, "u1", 100, "pack", "").unwrap();
+        grant(&mut c, "u1", 1, "pack", "").unwrap();
         c.execute_batch("CREATE TABLE receipts (state TEXT NOT NULL)")
             .unwrap();
         {
@@ -480,22 +478,20 @@ mod tests {
                 .transaction_with_behavior(TransactionBehavior::Immediate)
                 .unwrap();
             assert_eq!(
-                spend_in(&tx, Payer::Person("u1"), SpendKind::Video, "film").unwrap(),
+                spend_in(&tx, Payer::Person("u1"), SpendKind::Tts, "film").unwrap(),
                 Spend::Spent { balance: 0 }
             );
             tx.execute("INSERT INTO receipts VALUES ('reserved')", [])
                 .unwrap();
             // Dropping an uncommitted transaction models a failed reservation write.
         }
-        assert_eq!(balance(&c, "u1").unwrap(), 100);
-        spend(&mut c, "u1", SpendKind::Video, "film").unwrap();
+        assert_eq!(balance(&c, "u1").unwrap(), 1);
+        spend(&mut c, "u1", SpendKind::Tts, "film").unwrap();
         {
             let tx = c
                 .transaction_with_behavior(TransactionBehavior::Immediate)
                 .unwrap();
-            assert!(
-                refund_in(&tx, Payer::Person("u1"), SpendKind::Video, "film", "failed").unwrap()
-            );
+            assert!(refund_in(&tx, Payer::Person("u1"), SpendKind::Tts, "film", "failed").unwrap());
             tx.execute("INSERT INTO receipts VALUES ('failed')", [])
                 .unwrap();
         }
@@ -506,8 +502,8 @@ mod tests {
                 .unwrap(),
             0
         );
-        assert!(refund(&mut c, "u1", SpendKind::Video, "film", "failed").unwrap());
-        assert!(!refund(&mut c, "u1", SpendKind::Video, "film", "failed").unwrap());
+        assert!(refund(&mut c, "u1", SpendKind::Tts, "film", "failed").unwrap());
+        assert!(!refund(&mut c, "u1", SpendKind::Tts, "film", "failed").unwrap());
     }
 
     #[test]
@@ -543,14 +539,6 @@ mod tests {
             spend(&mut c, "u1", SpendKind::Tts, "line-a").unwrap(),
             Spend::AlreadyPaid { balance: 99 }
         );
-        // The same id under another kind is a different request.
-        assert_eq!(
-            spend(&mut c, "u1", SpendKind::Video, "line-a").unwrap(),
-            Spend::Insufficient {
-                balance: 99,
-                price: 100
-            }
-        );
         assert!(refund(&mut c, "u1", SpendKind::Tts, "line-a", "failed").unwrap());
         assert!(!refund(&mut c, "u1", SpendKind::Tts, "line-a", "failed").unwrap());
         assert!(!refund(&mut c, "u1", SpendKind::Tts, "never-spent", "failed").unwrap());
@@ -571,19 +559,26 @@ mod tests {
                 price: 1
             }
         );
-        grant(&mut c, "u1", 99, "gift", "almost a video").unwrap();
-        assert_eq!(
-            spend(&mut c, "u1", SpendKind::Video, "film").unwrap(),
-            Spend::Insufficient {
-                balance: 99,
-                price: 100
-            }
-        );
-        assert_eq!(balance(&c, "u1").unwrap(), 99);
+        assert_eq!(balance(&c, "u1").unwrap(), 0);
         let rows: i64 = c
             .query_row("SELECT COUNT(*) FROM credit_events", [], |r| r.get(0))
             .unwrap();
-        assert_eq!(rows, 1);
+        assert_eq!(rows, 0);
+    }
+
+    #[test]
+    fn retired_video_rows_still_count_toward_the_balance() {
+        let mut c = db();
+        grant(&mut c, "u1", 300, "pack", "").unwrap();
+        c.execute_batch(
+            "INSERT INTO credit_events (user_id, request_id, kind, spend_kind, delta, created_at_unix)
+             VALUES ('u1', 'film-a', 'spend', 'video', -100, 1),
+                    ('u1', 'film-b', 'spend', 'video', -100, 1),
+                    ('u1', 'film-b', 'refund', 'video', 100, 2);",
+        )
+        .unwrap();
+        assert_eq!(balance(&c, "u1").unwrap(), 200);
+        assert!(!refund(&mut c, "u1", SpendKind::Tts, "film-a", "failed").unwrap());
     }
 
     #[test]
@@ -705,12 +700,8 @@ mod tests {
         )
         .await;
         assert_eq!(
-            (
-                status,
-                body["signed_in"].clone(),
-                body["prices"]["video"].clone()
-            ),
-            (StatusCode::OK, json!(false), json!(100))
+            (status, body["signed_in"].clone(), body["prices"].clone()),
+            (StatusCode::OK, json!(false), json!({"tts": 1}))
         );
         let _ = std::fs::remove_file(path);
     }
