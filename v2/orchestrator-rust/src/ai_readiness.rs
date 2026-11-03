@@ -1,12 +1,21 @@
 use serde::Serialize;
 use std::{
-    collections::BTreeMap,
+    collections::{BTreeMap, VecDeque},
     sync::{Arc, RwLock, RwLockWriteGuard},
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 use tracing::{info, warn};
 
 const DEFAULT_ROUTE_COOLDOWN: Duration = Duration::from_secs(30);
+/// A 5xx or transport fault opens its exact route only when it repeats: this
+/// many inside `PROVIDER_FAULT_WINDOW`. One slow or failed call is the
+/// caller's own loss and must not silence every later call on that model.
+const PROVIDER_FAULT_THRESHOLD: usize = 3;
+const PROVIDER_FAULT_WINDOW: Duration = Duration::from_secs(60);
+/// How long a tripped route stays open before it is half-open again. While
+/// half-open, calls pass and the first fault reopens it at once; the first
+/// success closes it.
+const PROVIDER_OPEN_COOLDOWN: Duration = Duration::from_secs(10);
 const MIN_ROUTE_COOLDOWN: Duration = Duration::from_secs(1);
 const MAX_ROUTE_COOLDOWN: Duration = Duration::from_secs(5 * 60);
 const HEALTHY_PROBE_INTERVAL: Duration = Duration::from_secs(5 * 60);
@@ -79,6 +88,13 @@ struct RouteFailure {
     retry_at_unix: Option<u64>,
 }
 
+/// Recent provider faults on a closed route, and until when it is half-open.
+#[derive(Debug, Default)]
+struct RouteFaults {
+    recent: VecDeque<Instant>,
+    half_open_until: Option<Instant>,
+}
+
 #[derive(Debug)]
 struct AiReadinessState {
     account: AccountReadiness,
@@ -86,6 +102,7 @@ struct AiReadinessState {
     low_credit_threshold: f64,
     checked_at_unix: Option<u64>,
     routes: BTreeMap<AiExactRoute, RouteFailure>,
+    faults: BTreeMap<AiExactRoute, RouteFaults>,
 }
 
 impl AiReadinessState {
@@ -96,6 +113,7 @@ impl AiReadinessState {
             low_credit_threshold,
             checked_at_unix: None,
             routes: BTreeMap::new(),
+            faults: BTreeMap::new(),
         }
     }
 
@@ -106,6 +124,7 @@ impl AiReadinessState {
             low_credit_threshold,
             checked_at_unix: None,
             routes: BTreeMap::new(),
+            faults: BTreeMap::new(),
         }
     }
 }
@@ -229,6 +248,13 @@ impl AiReadiness {
         };
         if failure.retry_at.is_some_and(|retry_at| retry_at <= now) {
             state.routes.remove(&route);
+            if failure.kind == RouteFailureKind::ProviderUnavailable {
+                state
+                    .faults
+                    .entry(route.clone())
+                    .or_default()
+                    .half_open_until = Some(now + PROVIDER_FAULT_WINDOW);
+            }
             info!(
                 event = "ai_readiness_transition",
                 endpoint = route.endpoint,
@@ -253,6 +279,7 @@ impl AiReadiness {
         let route = AiExactRoute::new(endpoint, requested_model_id);
         let mut state = self.write_state();
         let prior_route = state.routes.remove(&route);
+        state.faults.remove(&route);
         state.checked_at_unix = Some(now_unix());
         if prior_route.is_some() {
             info!(
@@ -337,28 +364,69 @@ impl AiReadiness {
                 now,
                 now_unix,
             ),
-            500..=599 => self.record_route_failure(
-                endpoint,
-                requested_model_id,
-                RouteFailureKind::ProviderUnavailable,
-                Some(DEFAULT_ROUTE_COOLDOWN),
-                status,
-                now,
-                now_unix,
-            ),
+            500..=599 => {
+                self.record_provider_fault(endpoint, requested_model_id, status, now, now_unix)
+            }
             _ => {}
         }
     }
 
     pub(crate) fn record_transport_failure(&self, endpoint: &str, requested_model_id: &str) {
+        self.record_provider_fault(endpoint, requested_model_id, 0, Instant::now(), now_unix());
+    }
+
+    /// Count a 5xx or transport fault, and open the exact route only when
+    /// faults repeat inside the window or the route is half-open.
+    fn record_provider_fault(
+        &self,
+        endpoint: &str,
+        requested_model_id: &str,
+        http_status: u16,
+        now: Instant,
+        now_unix: u64,
+    ) {
+        let route = AiExactRoute::new(endpoint, requested_model_id);
+        {
+            let mut state = self.write_state();
+            state.checked_at_unix = Some(now_unix);
+            if state
+                .routes
+                .get(&route)
+                .is_some_and(|open| open.retry_at.is_none_or(|retry_at| retry_at > now))
+            {
+                return;
+            }
+            let faults = state.faults.entry(route.clone()).or_default();
+            while faults
+                .recent
+                .front()
+                .is_some_and(|at| now.saturating_duration_since(*at) >= PROVIDER_FAULT_WINDOW)
+            {
+                faults.recent.pop_front();
+            }
+            faults.recent.push_back(now);
+            let half_open = faults.half_open_until.is_some_and(|until| now < until);
+            if !half_open && faults.recent.len() < PROVIDER_FAULT_THRESHOLD {
+                info!(
+                    event = "ai_readiness_fault",
+                    endpoint = route.endpoint,
+                    requested_model_id = route.requested_model_id,
+                    http_status,
+                    recent_faults = faults.recent.len(),
+                    "AI exact route fault counted"
+                );
+                return;
+            }
+            state.faults.remove(&route);
+        }
         self.record_route_failure(
             endpoint,
             requested_model_id,
             RouteFailureKind::ProviderUnavailable,
-            Some(DEFAULT_ROUTE_COOLDOWN),
-            0,
-            Instant::now(),
-            now_unix(),
+            Some(PROVIDER_OPEN_COOLDOWN),
+            http_status,
+            now,
+            now_unix,
         );
     }
 
@@ -637,7 +705,19 @@ mod tests {
     fn server_and_incompatible_route_failures_recover_after_cooldown() {
         let readiness = AiReadiness::default();
         let started = Instant::now();
-        readiness.record_http_failure_at("rerank", "provider/transient", 503, None, started, 100);
+        for _ in 0..PROVIDER_FAULT_THRESHOLD {
+            readiness.record_http_failure_at(
+                "rerank",
+                "provider/transient",
+                503,
+                None,
+                started,
+                100,
+            );
+        }
+        assert!(!readiness
+            .gate_at("rerank", "provider/transient", started, 100)
+            .is_ready());
         readiness.record_http_failure_at(
             "rerank",
             "provider/incompatible",
@@ -650,7 +730,7 @@ mod tests {
             .gate_at(
                 "rerank",
                 "provider/transient",
-                started + DEFAULT_ROUTE_COOLDOWN,
+                started + PROVIDER_OPEN_COOLDOWN,
                 130,
             )
             .is_ready());
@@ -661,6 +741,99 @@ mod tests {
                 started + DEFAULT_ROUTE_COOLDOWN,
                 130,
             )
+            .is_ready());
+    }
+
+    #[test]
+    fn one_provider_fault_does_not_open_its_route_but_repeated_faults_do() {
+        let readiness = AiReadiness::default();
+        let started = Instant::now();
+        let at = |secs| started + Duration::from_secs(secs);
+        let fault = |secs| {
+            readiness.record_http_failure_at(
+                "chat/completions",
+                "provider/voice",
+                500,
+                None,
+                at(secs),
+                100 + secs,
+            )
+        };
+        let ready = |secs| {
+            readiness
+                .gate_at("chat/completions", "provider/voice", at(secs), 100 + secs)
+                .is_ready()
+        };
+        // One 500, or one timeout, leaves every later call on the model open.
+        fault(0);
+        assert!(ready(0), "a single fault must not open the route");
+        readiness.record_transport_failure("chat/completions", "provider/voice");
+        assert!(readiness
+            .gate("chat/completions", "provider/voice")
+            .is_ready());
+        // Faults older than the window no longer count toward the trip.
+        let quiet = AiReadiness::default();
+        for secs in [0, 61, 122] {
+            quiet.record_http_failure_at(
+                "chat/completions",
+                "provider/voice",
+                502,
+                None,
+                at(secs),
+                100 + secs,
+            );
+        }
+        assert!(quiet
+            .gate_at("chat/completions", "provider/voice", at(122), 222)
+            .is_ready());
+
+        // Three inside sixty seconds open it, for the short cooldown only.
+        let repeated = AiReadiness::default();
+        for secs in [0, 20, 40] {
+            repeated.record_http_failure_at(
+                "chat/completions",
+                "provider/voice",
+                503,
+                None,
+                at(secs),
+                100 + secs,
+            );
+        }
+        let gate = repeated.gate_at("chat/completions", "provider/voice", at(40), 140);
+        assert_eq!(gate.reason_code(), Some(AI_PROVIDER_UNAVAILABLE));
+        assert!(gate.is_retryable_block());
+        assert!(repeated
+            .gate_at("chat/completions", "provider/other", at(40), 140)
+            .is_ready());
+        assert!(repeated
+            .gate_at("chat/completions", "provider/voice", at(50), 150)
+            .is_ready());
+        // Half-open: the next fault reopens at once; a success closes it.
+        repeated.record_http_failure_at(
+            "chat/completions",
+            "provider/voice",
+            500,
+            None,
+            at(51),
+            151,
+        );
+        assert!(!repeated
+            .gate_at("chat/completions", "provider/voice", at(51), 151)
+            .is_ready());
+        assert!(repeated
+            .gate_at("chat/completions", "provider/voice", at(61), 161)
+            .is_ready());
+        repeated.record_success("chat/completions", "provider/voice");
+        repeated.record_http_failure_at(
+            "chat/completions",
+            "provider/voice",
+            500,
+            None,
+            at(62),
+            162,
+        );
+        assert!(repeated
+            .gate_at("chat/completions", "provider/voice", at(62), 162)
             .is_ready());
     }
 

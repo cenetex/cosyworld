@@ -209,7 +209,11 @@ or is "…": a beat never carries both. The browser makes one quiet automatic
 attempt for a temporary error inside the scene's budget before it falls
 silent. A busy 429 with a short `Retry-After` is asked again at most twice
 inside the five-second Thinking grace; a longer limit is not retried. The metrics still count each outcome as
-`voice.failed` or `voice.silent`, with no UI.
+`voice.failed` or `voice.silent`, with no UI. A reply the scene outgrew while
+it was written (its revision moved, so the table drops it) also counts
+`voice.mismatch`, and each speaker left "…" by an otherwise good reply counts
+`voice.speaker_silent`. The server's `card voice scene` log and `/meta`
+`card_voice.scenes` count the rest per speaker, shared plays included.
 
 The server's check (`Check` in `card_narrative.rs`, with `framing.rs`)
 refuses meta-talk and narration, not plain speech
@@ -223,6 +227,22 @@ introduces them ("I'm Vale", "call me Vale", "Vale here"). A narration tag
 is a speaker and a speech verb after a closing quote (`," I say`); a
 quotation inside speech keeps its words. The corpus in `framing.rs` lists
 lines that must pass and lines that must fail.
+
+The check flags by default (owner, 2026-11-03). It **blocks** only:
+an empty reply; one over its size cap or unfinished (`shape`); an
+instruction aimed at a model (`instruction`); system talk (`assistant`); a
+run of ten or more words from the prompt's own instructions (`echoed
+brief`); and a false world claim (`observable_state`, `custody`,
+`story_outcome`). A blocked reply is retried once, and the retry's system
+message ends with a short first-person correction for that reason, such as
+"I stay in this moment and speak as myself." (`CORRECTIONS` in
+`framing.rs`). Everything else is **flagged**: self-narration, stage
+action, narration tag, repeat, atmosphere, a short read-back of a label or
+the instructions, third person, an unknown name or item, and an
+unpunctuated or cut line. A flagged reply is published as written on its
+first attempt, and the server logs `card voice flagged` with its `reasons`.
+A missed fact is still published as `untold`. Facts, the scene and memories
+are background any line, thought or persona may say.
 
 In shared play the server finishes a play whose words failed as a silent
 scene: no speech op is journaled (exactly as for words that never came, so
