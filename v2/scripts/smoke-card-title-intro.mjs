@@ -4,6 +4,7 @@ import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
 import { startNewGame } from "./card-browser-helpers.mjs";
 import { TITLES } from "../card-game/title-intro.mjs";
+import acknowledgement from "../card-game/acknowledgement.json" with { type: "json" };
 import {
   cardShown,
   checkTitleMusicAlone,
@@ -142,25 +143,29 @@ async function heard(page) {
 }
 const titlePhase = (page) =>
   page.waitForSelector('.title-intro[data-phase="ack"] .title-ack-text');
-// How much of the acknowledgement shows: letters fully in, letters still
-// dark, and whether the cue is at its resting opacity.
+// How much of the acknowledgement shows: letter spans still writing, those
+// still dark, and whether the cue is at its resting opacity. Written whole,
+// the spans fold back into plain text.
 const streamState = (page) =>
   page.$eval(".title-ack", (panel) => {
-    const letters = [...panel.querySelectorAll(".title-ack-ch")].map((ch) =>
-      Number(getComputedStyle(ch).opacity),
-    );
-    const at = (selector) =>
-      getComputedStyle(panel.querySelector(selector)).opacity;
+    const letters = panel.querySelectorAll(".speech-letter");
     return {
       letters: letters.length,
-      shown: letters.filter((o) => o === 1).length,
-      dark: letters.filter((o) => o === 0).length,
-      cue: at(".title-continue"),
+      dark: panel.querySelectorAll(".speech-letter:not(.revealed)").length,
+      cue: getComputedStyle(panel.querySelector(".title-continue")).opacity,
       words: panel.querySelector(".title-ack-text").textContent,
     };
   });
 const whole = (state) =>
-  state.letters > 300 && state.shown === state.letters && state.cue === "0.6";
+  state.dark === 0 && state.cue === "0.6" && state.words.length > 400;
+// Letters whose ink is partway in, among the newest `last` written.
+const softLetters = (last = 0) =>
+  [...document.querySelectorAll(".title-ack .speech-letter.revealed")]
+    .slice(-last)
+    .filter((ch) => {
+      const [, , , alpha = 1] = getComputedStyle(ch).color.match(/[\d.]+/g);
+      return alpha > 0.02 && alpha < 0.98;
+    }).length;
 const gone = (page, timeout) =>
   page.waitForSelector(".title-intro", { state: "detached", timeout });
 // The title's card is the avatar's: once the title leaves, by its turn or by
@@ -192,40 +197,86 @@ try {
     await titlePhase(page);
     const title = await page.locator(".title-intro").getAttribute("data-title");
     assert.ok(TITLES.includes(title), title);
-    // The acknowledgement streams in letter by letter. A second in, the
-    // first words show, most letters are still dark, and the cue
-    // waits; the full text is in the page for screen readers throughout.
-    await page.waitForTimeout(1000);
+    // The acknowledgement writes in like dialogue, one letter at a time on
+    // a steady beat. Over its first 80 letters: no rest is longer than a word's
+    // breath, "land." and "peoples" hold one, and at most three letters are
+    // soft at once. The full text is in the page throughout.
+    await page.evaluate(`window.softLetters = ${softLetters}`);
+    const cadence = await page.evaluate(
+      () =>
+        new Promise((resolve) => {
+          const times = [],
+            text = document.querySelector(".title-ack-text");
+          // A stalled frame lets the clock catch up a few letters; the
+          // soft count is the steady beat's, so it skips the catch-up.
+          const start = performance.now();
+          let softest = 0,
+            last = start,
+            calm = start;
+          new MutationObserver((changes) => {
+            for (const { target } of changes)
+              if (target.matches(".revealed:not([data-at])")) {
+                target.dataset.at = "";
+                times.push([target.textContent, performance.now()]);
+              }
+          }).observe(text, { subtree: true, attributeFilter: ["class"] });
+          const tick = (now = performance.now()) => {
+            if (now - last > 34) calm = now + 150;
+            if (now > calm) softest = Math.max(softest, window.softLetters(8));
+            last = now;
+            if (times.length >= 80 || performance.now() - start > 8000)
+              resolve({ times, softest });
+            else requestAnimationFrame(() => tick());
+          };
+          tick();
+        }),
+    );
+    const gaps = cadence.times.slice(1).map(([, at], i) => ({
+      after: cadence.times[i][0],
+      ms: at - cadence.times[i][1],
+    }));
+    const rests = gaps.filter(({ ms }) => ms > 200);
+    assert.ok(cadence.times.length >= 75, String(cadence.times.length));
+    assert.ok(
+      Math.max(...gaps.map(({ ms }) => ms)) < 700,
+      JSON.stringify(rests),
+    );
+    assert.ok(rests.length >= 2 && rests.length <= 4, JSON.stringify(rests));
+    assert.ok(cadence.softest <= 3, `${cadence.softest} letters soft at once`);
     const early = await streamState(page);
     assert.ok(
-      early.shown > 20 && early.dark > early.letters / 2,
+      early.dark > early.letters / 2,
       JSON.stringify({ ...early, words: "" }),
     );
     assert.equal(early.cue, "0");
-    assert.match(early.words, /The lid is open\. The path is yours\./);
-    // It breathes after its weighty words: the next letter after "land."
-    // and after "peoples" waits well past the 9 ms letter beat.
-    const gaps = await page.$eval(".title-ack-text", (text) => {
-      const letters = [...text.querySelectorAll(".title-ack-ch")];
-      const words = letters.map((ch) => ch.textContent).join("");
-      const after = (phrase) => {
-        const i = words.indexOf(phrase) + phrase.length - 1;
-        return (
-          parseFloat(letters[i + 1].style.animationDelay) -
-          parseFloat(letters[i].style.animationDelay)
-        );
-      };
-      return { land: after("wasland."), peoples: after("werepeoples") };
-    });
-    assert.ok(gaps.land >= 300 && gaps.peoples >= 300, JSON.stringify(gaps));
+    assert.match(early.words, /Open the box\. The path is yours\./);
     await page.waitForSelector("#hand .card");
     assert.equal(await titlePlays(page), 0, "silent before the first tap");
-    // The first tap (desktop) or key (phone) shows it whole and starts the
-    // song; the acknowledgement stays.
+    // The first tap (desktop) or key (phone) shows it whole, the rest
+    // fading in together rather than at once, and starts the song; the
+    // acknowledgement stays.
+    await page.evaluate(() => {
+      window.__soft = 0;
+      const until = () => performance.now() + 300;
+      const watch = (end = until()) => {
+        window.__soft = Math.max(window.__soft, window.softLetters());
+        if (performance.now() < end) requestAnimationFrame(() => watch(end));
+      };
+      for (const type of ["click", "keydown"])
+        window.addEventListener(type, () => watch(), {
+          capture: true,
+          once: true,
+        });
+    });
     if (desktop) await page.mouse.click(width / 2, 10);
     else await page.keyboard.press("a");
+    assert.equal((await streamState(page)).dark, 0);
+    await page.waitForTimeout(1000);
+    const soft = await page.evaluate(() => window.__soft);
+    assert.ok(soft > 50, `${soft} letters fading after the tap`);
     const tapped = await streamState(page);
     assert.ok(whole(tapped), JSON.stringify({ ...tapped, words: "" }));
+    assert.equal(tapped.letters, 0, "the spans fold into plain text");
     assert.equal(
       await page.locator(".title-intro").getAttribute("data-phase"),
       "ack",
@@ -233,17 +284,40 @@ try {
     assert.equal(await titlePlays(page), 1);
     await heard(page);
     // The acknowledgement is real text, readable, and scrolls in its panel.
+    // Its lines break as written, each one line wide on a desktop and
+    // never wider than the panel on a phone.
     const ack = await page.$eval(".title-ack-text", (text) => ({
       words: text.innerText,
+      plain: text.textContent,
+      lines: [...text.querySelectorAll(".title-ack-line")].map((line) =>
+        Math.round(
+          line.getBoundingClientRect().height /
+            parseFloat(getComputedStyle(line).lineHeight),
+        ),
+      ),
+      overflow: text.scrollWidth - text.clientWidth,
       size: parseFloat(getComputedStyle(text).fontSize),
       bottom: text.closest(".title-ack").getBoundingClientRect().bottom,
       faint: [...text.querySelectorAll("p")].filter(
         (line) => getComputedStyle(line).opacity !== "1",
       ).length,
     }));
-    assert.match(ack.words, /^Before our forest, there was land\./);
-    assert.match(ack.words, /a carved wooden box, with a forest folded inside/);
-    assert.match(ack.words, /The lid is open\. The path is yours\./);
+    assert.match(
+      ack.words,
+      /^Before our forest, there was land\.\nBefore our story, there were peoples;\nwho named the waters,\n/,
+    );
+    assert.match(
+      ack.words,
+      /wooden box,\na forest folded within\.\n\s*Open the box/,
+    );
+    assert.match(ack.words, /Open the box\. The path is yours\.$/);
+    assert.equal(ack.plain, acknowledgement.stanzas.flat().join(""));
+    assert.equal(ack.lines.length, 15);
+    assert.ok(
+      ack.lines.every((rows) => rows >= 1 && rows <= (desktop ? 1 : 2)),
+      JSON.stringify(ack.lines),
+    );
+    assert.ok(ack.overflow <= 0, `${ack.overflow}px wider than the panel`);
     assert.doesNotMatch(ack.words, /Cenetex|RATi|Foundation/u);
     assert.equal(await page.locator(".title-ack a").count(), 0);
     assert.ok(ack.size >= 17 && ack.bottom <= height, JSON.stringify(ack));
@@ -439,16 +513,24 @@ try {
     await skipContext.close();
   }
 
-  // Music off: the same title and card, no song.
-  const off = await newContext(390, 844, { music: false });
+  // Music off, on the narrowest phone: the same title and card, no song.
+  const off = await newContext(375, 667, { music: false });
   const muted = await open(off);
   await muted.goto(`${origin}/?intro=1`);
   await titlePhase(muted);
   await muted.waitForSelector("#hand .card");
-  // Left alone, the stream ends by 10.5 seconds with the cue,
+  // Left alone, it is written in about 18 seconds, then the cue shows,
   // and one key then goes on.
-  await muted.waitForTimeout(10500);
+  const begun = Date.now();
+  await muted.waitForFunction(
+    () => !document.querySelector(".title-ack .speech-letter"),
+    null,
+    { timeout: 30000 },
+  );
+  assert.ok(Date.now() - begun > 15000, `written in ${Date.now() - begun} ms`);
+  await muted.waitForTimeout(1500);
   assert.ok(whole(await streamState(muted)), "the stream ends on its own");
+  await shot(muted, "ack-375");
   await muted.keyboard.press("Space");
   await cardShown(muted);
   await muted.keyboard.press("Tab");

@@ -1,68 +1,36 @@
 {
-  "about": "The land acknowledgement on the new-world title (title-intro.mjs), set like a film's opening card. The title names the panel for screen readers; it is not shown. Pauses hold a breath after a word: which time it appears (from 1) and the ms, replacing any shorter punctuation or paragraph breath after it.",
+  "about": "The land acknowledgement on the new-world title (title-intro.mjs), set like a film's opening card: each stanza a list of lines, shown as written. The title names the panel for screen readers; it is not shown. Pauses hold a breath after a word: which time it appears (from 1) and the ms, replacing any shorter punctuation or stanza breath after it and any punctuation touching it.",
   "title": "Before this forest",
-  "paragraphs": [
-    {
-      "text": "Before our forest, there was land. Before our story, there were peoples who named its waters, sang its seasons, and cared for it—and who care for it still."
-    },
-    {
-      "text": "We honour the first keepers of the lands beneath our homes and machines, and the countless voices that taught those machines to speak."
-    },
-    {
-      "text": "Nothing here began with us."
-    },
-    {
-      "text": "We offer back a carved wooden box, with a forest folded inside."
-    },
-    {
-      "text": "The lid is open. The path is yours."
-    }
+  "stanzas": [
+    [
+      "Before our forest, there was land.",
+      "Before our story, there were peoples;",
+      "who named the waters,",
+      "who sang the seasons,",
+      "who cared for these lands —",
+      "and who care for them still."
+    ],
+    [
+      "We honour the first keepers",
+      "of the lands beneath our homes",
+      "and beneath the machines we built,",
+      "and the countless voices, old and living,",
+      "whose stories taught those machines — and us — to tell our own."
+    ],
+    ["Nothing here began with us."],
+    ["We offer back a carved wooden box,", "a forest folded within."],
+    ["Open the box. The path is yours."]
   ],
   "pauses": [
-    {
-      "word": "land",
-      "occurrence": 1,
-      "ms": 420
-    },
-    {
-      "word": "peoples",
-      "occurrence": 1,
-      "ms": 350
-    },
-    {
-      "word": "still",
-      "occurrence": 1,
-      "ms": 420
-    },
-    {
-      "word": "keepers",
-      "occurrence": 1,
-      "ms": 350
-    },
-    {
-      "word": "machines",
-      "occurrence": 2,
-      "ms": 350
-    },
-    {
-      "word": "Nothing",
-      "occurrence": 1,
-      "ms": 420
-    },
-    {
-      "word": "box",
-      "occurrence": 1,
-      "ms": 350
-    },
-    {
-      "word": "open",
-      "occurrence": 1,
-      "ms": 380
-    },
-    {
-      "word": "yours",
-      "occurrence": 1,
-      "ms": 400
-    }
+    { "word": "land", "occurrence": 1, "pauseMs": 320 },
+    { "word": "peoples", "occurrence": 1, "pauseMs": 320 },
+    { "word": "still", "occurrence": 1, "pauseMs": 320 },
+    { "word": "keepers", "occurrence": 1, "pauseMs": 300 },
+    { "word": "living", "occurrence": 1, "pauseMs": 320 },
+    { "word": "us", "occurrence": 1, "pauseMs": 320 },
+    { "word": "own", "occurrence": 1, "pauseMs": 320 },
+    { "word": "us", "occurrence": 2, "pauseMs": 320 },
+    { "word": "box", "occurrence": 1, "pauseMs": 320 },
+    { "word": "yours", "occurrence": 1, "pauseMs": 350 }
   ]
 }

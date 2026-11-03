@@ -1,9 +1,16 @@
 import { test } from "vitest";
 import assert from "node:assert/strict";
 import {
-  streamSchedule,
+  STANZA_MS,
+  acknowledgementDelays,
+  acknowledgementPauses,
   titleIntroWanted,
 } from "../v2/card-game/title-intro.mjs";
+import {
+  REVEAL_FADE_MS,
+  letterDelay,
+  splitLetters,
+} from "../v2/card-game/dialogue.mjs";
 import acknowledgement from "../v2/card-game/acknowledgement.json" with { type: "json" };
 
 const storage = (entries = {}) => ({
@@ -66,16 +73,31 @@ test("blocked storage shows it; automated browsers need intro=1", () => {
   );
 });
 
-test("the acknowledgement is the owner's five paragraphs and nothing else", () => {
-  const { paragraphs } = acknowledgement;
-  assert.equal(paragraphs.length, 5);
-  assert.match(paragraphs[0].text, /^Before our forest, there was land\./);
-  assert.match(paragraphs[0].text, /cared for it—and who care for it still\.$/);
-  assert.equal(paragraphs[2].text, "Nothing here began with us.");
-  assert.match(paragraphs[3].text, /a forest folded inside\.$/);
-  assert.equal(paragraphs.at(-1).text, "The lid is open. The path is yours.");
-  for (const { text, links = {} } of paragraphs)
-    for (const phrase of Object.keys(links)) assert.ok(text.includes(phrase));
+test("the acknowledgement is the owner's five stanzas, line by line, and nothing else", () => {
+  const { stanzas } = acknowledgement;
+  assert.deepEqual(
+    stanzas.map((lines) => lines.length),
+    [6, 5, 1, 2, 1],
+  );
+  assert.deepEqual(stanzas[0].slice(0, 2), [
+    "Before our forest, there was land.",
+    "Before our story, there were peoples;",
+  ]);
+  assert.equal(stanzas[0][4], "who cared for these lands —");
+  assert.equal(
+    stanzas[1][4],
+    "whose stories taught those machines — and us — to tell our own.",
+  );
+  assert.deepEqual(stanzas[2], ["Nothing here began with us."]);
+  assert.deepEqual(stanzas[3], [
+    "We offer back a carved wooden box,",
+    "a forest folded within.",
+  ]);
+  assert.deepEqual(stanzas[4], ["Open the box. The path is yours."]);
+  for (const line of stanzas.flat()) {
+    assert.equal(line, line.trim());
+    assert.doesNotMatch(line, /\S—|—\S/u, "em dashes are spaced");
+  }
   assert.equal(acknowledgement.credit, undefined);
   assert.doesNotMatch(
     JSON.stringify(acknowledgement),
@@ -83,23 +105,49 @@ test("the acknowledgement is the owner's five paragraphs and nothing else", () =
   );
 });
 
-test("the acknowledgement breathes after its weighty words, in about 10 s", () => {
-  const { schedule, end } = streamSchedule(acknowledgement);
-  const letters = schedule.flat();
-  const words = letters.map(({ letter }) => letter).join("");
-  const gap = (phrase) => {
-    const i = words.indexOf(phrase) + phrase.length - 1;
-    return letters[i + 1].at - letters[i].at;
-  };
-  const plain = streamSchedule({ ...acknowledgement, pauses: [] });
-  assert.ok(gap("there was land.") > 300);
-  assert.ok(gap("were peoples") > 300);
-  assert.ok(gap("Nothing") > 300);
-  // A pause after punctuation takes the larger breath, not both.
-  assert.equal(gap("there was land."), 9 + 420);
-  assert.ok(end > plain.end && end <= 10_000, `${end} ms`);
-  for (const { word } of acknowledgement.pauses)
-    assert.ok(
-      acknowledgement.paragraphs.some(({ text }) => text.includes(word)),
+test("the acknowledgement writes at the dialogue's beat, breathing after its weighty words", () => {
+  const delays = acknowledgementDelays(acknowledgement);
+  const words = acknowledgement.stanzas.flat().join("");
+  const letters = splitLetters(words);
+  assert.equal(delays.length, letters.length);
+  const after = (phrase) =>
+    delays[
+      splitLetters(words.slice(0, words.indexOf(phrase) + phrase.length))
+        .length - 1
+    ];
+  assert.equal(after("there was land."), 320);
+  assert.equal(after("were peoples;"), 320);
+  assert.equal(after("first keepers"), 300);
+  assert.equal(after("and us —"), 320);
+  assert.equal(after("began with us."), STANZA_MS);
+  // Stanzas hold the same breath; nothing else rests past a word hold,
+  // and between rests every letter keeps the dialogue's own beat.
+  const ends = new Set();
+  let at = -1;
+  for (const lines of acknowledgement.stanzas.slice(0, -1))
+    ends.add((at += splitLetters(lines.join("")).length));
+  delays.forEach((ms, i) => {
+    if (ends.has(i)) assert.equal(ms, STANZA_MS);
+    else
+      assert.ok(
+        ms === letterDelay(letters[i]) || (ms >= 300 && ms <= 350),
+        `${i}: ${ms}`,
+      );
+  });
+  assert.ok(STANZA_MS >= 600 && STANZA_MS <= 700);
+  const total = delays.slice(0, -1).reduce((sum, ms) => sum + ms, 28);
+  assert.ok(total > 16_000 && total < 18_500, `${total} ms`);
+  // A letter fades in over less than three beats: at most three are soft.
+  assert.ok(Math.ceil(REVEAL_FADE_MS / 28) <= 3);
+  // Every pause finds its word, in the order the poem reads.
+  const pauses = acknowledgementPauses(acknowledgement);
+  assert.deepEqual(
+    pauses.map(({ word }) => word),
+    acknowledgement.pauses.map(({ word }) => word),
+  );
+  pauses
+    .slice(1)
+    .forEach((p, i) =>
+      assert.ok(p.line > pauses[i].line || p.start > pauses[i].start),
     );
 });

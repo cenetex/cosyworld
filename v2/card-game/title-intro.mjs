@@ -6,7 +6,13 @@ import { count } from "./metrics.mjs";
 import { revealCard } from "./card-reveal.mjs";
 import { LOGOS, logoSite, showToolbarLogo, worldLogo } from "./title-logo.mjs";
 import { createTitleSong } from "./title-song.mjs";
-import { splitLetters } from "./dialogue.mjs";
+import {
+  createRevealPainter,
+  createTextReveal,
+  letterDelay,
+  letterSpans,
+  splitLetters,
+} from "./dialogue.mjs";
 
 // The Lonely Forest title opens every new world: black, the land
 // acknowledgement (acknowledgement.json), the world's logo (title-logo.mjs)
@@ -109,97 +115,79 @@ const element = (tag, className, text) => {
   return node;
 };
 const link = (text, href) => {
-  const anchor = element("a", "", typeof text === "string" ? text : "");
-  if (typeof text !== "string") anchor.append(text);
+  const anchor = element("a", "", text);
   anchor.href = href;
   anchor.target = "_blank";
   anchor.rel = "noopener";
   return anchor;
 };
-// The acknowledgement arrives like streamed text: each letter fades in over
-// `fade` ms, `letter` ms after the one before, with a breath after
-// punctuation and between paragraphs, and a longer one before a short line
-// so it lands. Some words hold a longer breath of their own (`pauses` in
-// acknowledgement.json: the word, which time it appears, counting from 1,
-// and the ms to hold after it and any punctuation touching it; the larger of
-// that and the punctuation's or paragraph's breath wins). The whole is about 10 seconds;
-// the cue follows. Every letter is in place from the start (transparent), so
-// nothing reflows, and CSS runs the clock: no timer per letter.
-export const STREAM = {
-  letter: 9,
-  stop: 130,
-  pause: 50,
-  paragraph: 500,
-  short: 350,
-  fade: 180,
-};
-const SHORT_LINE = 40;
-const breath = (letter) =>
-  /[.!?…]/u.test(letter)
-    ? STREAM.stop
-    : /[,;:—]/u.test(letter)
-      ? STREAM.pause
-      : 0;
+// The acknowledgement writes in like dialogue, with the same reveal
+// (dialogue.mjs): one steady letter beat, the same rests after punctuation,
+// a longer breath between stanzas, and a breath after its weighty words
+// (`pauses` in acknowledgement.json: the word, which time it appears,
+// counting from 1, and the ms to hold after it and any punctuation touching
+// it, a spaced dash too; the larger breath wins). Each line is set as
+// written, wrapping under a hanging indent on a narrow screen. About 18
+// seconds; a tap shows the rest, and the cue follows.
+export const STANZA_MS = 650;
 const escape = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-// Each paragraph's letters with the ms each starts at, and when the last
-// one has faded in.
-export function streamSchedule({ paragraphs, pauses = [] }) {
-  // Where each word pause lands: [paragraph, character offset it ends at].
-  const holds = paragraphs.map(() => new Map());
-  for (const { word, occurrence = 1, ms } of pauses) {
+// Where each pause falls: its line, the word's span in it, and the offset
+// its breath follows.
+export function acknowledgementPauses({ stanzas, pauses = [] }) {
+  const lines = stanzas.flat();
+  return pauses.flatMap(({ word, occurrence = 1, pauseMs }) => {
     const pattern = new RegExp(
-      `(?<![\\p{L}\\p{N}])${escape(word)}(?![\\p{L}\\p{N}])[.,;:!?…—]*`,
+      `(?<![\\p{L}\\p{N}])${escape(word)}(?![\\p{L}\\p{N}])(?:[.,;:!?…—]|\\s—)*`,
       "gu",
     );
     let seen = 0;
-    paragraphs.some(({ text }, p) => {
-      for (const match of text.matchAll(pattern))
-        if (++seen === occurrence) {
-          holds[p].set(match.index + match[0].length, ms);
-          return true;
-        }
-      return false;
-    });
-  }
-  // A hold at a paragraph's end shares the break before the next one.
-  let clock = 0,
-    held = 0;
-  const schedule = paragraphs.map(({ text }, p) => {
-    if (p)
-      clock += Math.max(
-        held,
-        STREAM.paragraph + (text.length < SHORT_LINE ? STREAM.short : 0),
-      );
-    const letters = splitLetters(text);
+    for (const [line, text] of lines.entries())
+      for (const { index, 0: match } of text.matchAll(pattern))
+        if (++seen === occurrence)
+          return [
+            {
+              word,
+              pauseMs,
+              line,
+              start: index,
+              end: index + word.length,
+              hold: index + match.length,
+            },
+          ];
+    return [];
+  });
+}
+// The ms after each letter of the lines, read as one run.
+export function acknowledgementDelays(acknowledgement) {
+  const lines = acknowledgement.stanzas.flat();
+  const holds = lines.map(() => new Map());
+  for (const { line, hold, pauseMs } of acknowledgementPauses(acknowledgement))
+    holds[line].set(hold, pauseMs);
+  const stanzaEnds = new Set();
+  let last = -1;
+  for (const stanza of acknowledgement.stanzas.slice(0, -1))
+    stanzaEnds.add((last += stanza.length));
+  return lines.flatMap((text, line) => {
     let offset = 0;
+    const letters = splitLetters(text);
     return letters.map((letter, i) => {
-      const at = clock;
       offset += letter.length;
-      const hold = holds[p].get(offset) ?? 0;
-      const end = i === letters.length - 1;
-      held = end ? hold : 0;
-      clock += STREAM.letter + (end ? 0 : Math.max(hold, breath(letter)));
-      return { letter, at };
+      const end = i === letters.length - 1 && stanzaEnds.has(line);
+      return Math.max(
+        letterDelay(letter),
+        holds[line].get(offset) ?? 0,
+        end ? STANZA_MS : 0,
+      );
     });
   });
-  clock += held;
-  return { schedule, end: Math.round(clock + STREAM.fade) };
 }
 // Real text from acknowledgement.json, set like a film's opening card.
 function acknowledgementPanel() {
-  const { schedule, end: streamMs } = streamSchedule(acknowledgement);
-  let letters = [];
+  const glyphs = [];
   const streamed = (words) => {
     const part = document.createDocumentFragment();
-    for (const letter of splitLetters(words)) {
-      const { at } = letters.shift() ?? { at: 0 };
-      if (/^\s+$/u.test(letter)) part.append(letter);
-      else {
-        const span = element("span", "title-ack-ch", letter);
-        span.style.animationDelay = `${Math.round(at)}ms`;
-        part.append(span);
-      }
-    }
+    part.append(...letterSpans(words));
+    glyphs.push(...part.children);
     return part;
   };
   const panel = element("section", "title-ack");
@@ -207,19 +195,15 @@ function acknowledgementPanel() {
   text.tabIndex = 0;
   text.setAttribute("role", "region");
   text.setAttribute("aria-label", acknowledgement.title);
-  acknowledgement.paragraphs.forEach(({ text: words, links = {}, note }, i) => {
-    letters = [...schedule[i]];
-    const paragraph = element("p", note ? "title-ack-note" : "");
-    const phrases = Object.keys(links);
-    const split = phrases.length
-      ? new RegExp(`(${phrases.map(escape).join("|")})`)
-      : null;
-    for (const part of split ? words.split(split) : [words])
-      paragraph.append(
-        links[part] ? link(streamed(part), links[part]) : streamed(part),
-      );
+  for (const stanza of acknowledgement.stanzas) {
+    const paragraph = element("p");
+    for (const words of stanza) {
+      const row = element("span", "title-ack-line");
+      row.append(streamed(words));
+      paragraph.append(row);
+    }
     text.append(paragraph);
-  });
+  }
   // A quiet line, still a real button for focus and Enter or Space.
   const tap = matchMedia("(pointer: coarse)").matches;
   const next = element(
@@ -229,8 +213,25 @@ function acknowledgementPanel() {
   );
   next.type = "button";
   panel.append(text, next);
-  panel.style.setProperty("--stream-end", `${streamMs}ms`);
-  return { panel, next, streamMs };
+  const delays = acknowledgementDelays(acknowledgement);
+  const painter = createRevealPainter(text);
+  const reveal = createTextReveal({
+    delay: (letter, i) => delays[i],
+    frame: (value) => {
+      painter.paint(value);
+      if (!value.complete || !("stream" in panel.dataset)) return;
+      delete panel.dataset.stream;
+      panel.dataset.written = "";
+    },
+  });
+  // Visible by default: the cue waits only while the words write in.
+  const write = (instant) => {
+    if (!instant) panel.dataset.stream = "";
+    painter.start(glyphs);
+    const words = acknowledgement.stanzas.flat().join("");
+    reveal.show("acknowledgement", words, null, { instant });
+  };
+  return { panel, next, reveal, write };
 }
 
 const SCROLL_KEYS = [
@@ -265,12 +266,11 @@ export function playTitleIntro({
   layer.setAttribute("role", "dialog");
   layer.setAttribute("aria-modal", "true");
   layer.setAttribute("aria-label", logo.name);
-  const { panel, next, streamMs } = acknowledgementPanel();
-  // The first gesture during the stream shows it whole (and starts the
-  // song, as browsers ask); the next one continues.
-  let streamUntil = 0;
-  const streaming = () =>
-    "stream" in panel.dataset && performance.now() < streamUntil;
+  const { panel, next, reveal: words, write } = acknowledgementPanel();
+  // The first gesture while it writes shows it whole (and starts the song,
+  // as browsers ask); the next one continues. A hidden tab holds the pen.
+  const hidden = () => words.pause(document.hidden);
+  document.addEventListener("visibilitychange", hidden);
   const image = element("img");
   image.alt = "";
   image.decoding = "async";
@@ -289,6 +289,8 @@ export function playTitleIntro({
   const finish = (fadeSeconds = 3) => {
     if (leaving) return;
     leaving = true;
+    words.cancel();
+    document.removeEventListener("visibilitychange", hidden);
     songDone = song.stop(fadeSeconds);
     wake();
     leave();
@@ -407,9 +409,9 @@ export function playTitleIntro({
     showWake();
   };
   const advance = () => {
-    if (phase === "ack" && streaming()) {
+    if (phase === "ack" && !words.complete) {
       song.start();
-      delete panel.dataset.stream;
+      words.finish();
       return;
     }
     return phase === "ack" ? showTitle() : showWake();
@@ -463,12 +465,8 @@ export function playTitleIntro({
     );
     if (!leaving) {
       phase = layer.dataset.phase = "ack";
-      // Visible by default; the stream is a CSS enhancement (style.css).
-      if (!reduced) {
-        panel.dataset.stream = "";
-        streamUntil = performance.now() + streamMs + 600;
-      }
       layer.append(panel);
+      write(reduced);
       // No ring until the keyboard moves; Tab shows it.
       next.focus({ preventScroll: true, focusVisible: false });
     }

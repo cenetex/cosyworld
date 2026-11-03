@@ -34,7 +34,9 @@ Owner controls:
   minutes late, so keep the interval at 15 minutes or more.
 
 CI follows the same budget. The fast check (`fast-check.yml`, about five
-minutes) runs on each pull request and each main push. The full suite
+minutes) runs on each pull request and each main push, including the boot
+smoke and `cargo fmt --check` for the Rust orchestrator; clippy and the Rust
+tests stay on the .dev train's Rust gate. The full suite
 (`ci.yml`) runs only by hand; run it on a train's commit, not per pull
 request, when a release needs it.
 

@@ -41,15 +41,16 @@
   transform-origin: 50% 62%;
 }
 
-/* The caption reads under the top bar, never over the place name. */
+/* The caption reads under the top bar, never over the place name. It keeps
+   one width at each breakpoint, so a new beat never resizes or re-centres
+   it; the words crossfade (combat-view.mjs) over a ghost of the last ones. */
 .combat-caption {
   position: absolute;
   z-index: 5;
   top: 64px;
   left: 50%;
   translate: -50% 0;
-  width: max-content;
-  max-width: calc(100% - 32px);
+  width: min(26em, calc(100% - 32px));
   margin: 0;
   padding: 7px 14px;
   border: 1px solid #a38b64;
@@ -60,6 +61,12 @@
     15px/1.4 Georgia,
     serif;
   text-align: center;
+}
+
+.combat-caption[aria-hidden] {
+  pointer-events: none;
+  border-color: transparent;
+  background: none;
 }
 
 .combat-telegraph {
@@ -210,6 +217,7 @@
 @media (max-width: 640px) {
   .combat-caption {
     top: 60px;
+    width: min(24em, calc(100% - 32px));
     display: -webkit-box;
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 3;
