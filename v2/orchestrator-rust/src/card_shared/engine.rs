@@ -106,6 +106,10 @@ pub(super) const PREVIOUS_VERSION: &str = "full-card-world/3";
 pub(super) const LEGACY_VERSION: &str = "full-card-world/2";
 pub(super) const FOURTH_VERSION: &str = "full-card-world/4";
 const SOURCE: &str = include_str!("engine-v93.js");
+/// The current rules' source, whose words an imported save may use.
+pub(super) fn current_source() -> &'static str {
+    SOURCE
+}
 const NINETY_SECOND_SOURCE: &str = include_str!("engine-v92.js");
 const NINETY_FIRST_SOURCE: &str = include_str!("engine-v91.js");
 const NINETIETH_SOURCE: &str = include_str!("engine-v90.js");

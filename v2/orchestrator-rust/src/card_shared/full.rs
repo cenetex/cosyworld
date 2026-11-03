@@ -164,22 +164,21 @@ async fn create(State(state): State<AppState>, h: HeaderMap, Json(body): Json<Cr
     let result = blocking(move || {
         let u = user(&state, &h, true)?;
         admit(&u)?;
-        if body.signed.len() > imported::ENVELOPES {
-            return Err("Choose a saved world.".into());
-        }
+        let mut c = db(&state)?;
+        store::schema(&c)?;
+        // A passkey that may not found a world spends no import work.
+        unlocks::may_create(&c, &u)?;
         // An imported save keeps only text the server can vouch for (#2067),
         // checked before the world's writer is held.
         let save = body
             .save
             .as_deref()
             .map(|save| {
-                imported::trusted_save(save, &body.signed, |s| {
+                imported::trusted_save(save, &body.signed, vocabulary(), |s| {
                     World::hiding(Some(s), None, &Value::Null).is_ok()
                 })
             })
             .transpose()?;
-        let mut c = db(&state)?;
-        store::schema(&c)?;
         let gate = writer(&state);
         let _turn = turn(&gate);
         let tx = c
@@ -193,6 +192,16 @@ async fn create(State(state): State<AppState>, h: HeaderMap, Json(body): Json<Cr
     })
     .await;
     reply(result)
+}
+/// The words the current rules and packs use, for imported saves.
+pub(super) fn vocabulary() -> &'static imported::Vocabulary {
+    static WORDS: OnceLock<imported::Vocabulary> = OnceLock::new();
+    WORDS.get_or_init(|| {
+        imported::Vocabulary::new(
+            &[super::engine::current_source()],
+            super::content::current_text(),
+        )
+    })
 }
 // A new world for one of the passkey's unlocked avatars. A fresh one hides
 // one of its still-locked avatars (unlocks.rs).
