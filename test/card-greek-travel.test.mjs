@@ -72,6 +72,15 @@ function shared(dock, seas = false, ajax = false) {
   // The Travel Provisions ride on deck, which opens the Wine-Dark Harbor's
   // lane to Piraeus.
   world.items["greek-provisions"].holder = "greek-ship";
+  // The Northern Road leaves Thebes once the guard has opened the City Gate.
+  if (ajax)
+    world.openedRoutes = [
+      ...new Set([
+        ...(world.openedRoutes || []),
+        "greek-gate>greek-battlefield",
+        "greek-sanctuary>greek-road-north",
+      ]),
+    ].sort();
   return world;
 }
 const ask = (world, actor, extra = {}) =>

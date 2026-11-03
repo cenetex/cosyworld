@@ -116,15 +116,27 @@ Tauris, and the Colonists' Road joins Corinth and Sicily. Troy is reached by
 ship at the Trojan landing. The Greek ship serves Piraeus, the Wine-Dark
 Harbor, Black Pond and the invited Trojan landing.
 
-The ship is the quick way to a port, never the only way (#2049). The Coast
-Road joins Piraeus and the Wine-Dark Harbor: it is always open from Piraeus,
-and its harbor end opens with Dione's invitation. The Northern Road joins the
-Trojan landing and the Exposed Battlefield, and appears with Ajax's story.
-Both reuse retired road art. `test/card-ship-port-roads.test.mjs` checks that
-no dock a world can sail to is ship-only. Old full-scope worlds keep four
-one-place stops with no road: the Lemnian and Sicilian caves are islands, and
-the Thracian Shore and the Taurian Temple are far shores whose roads retired. Athens is three districts
-joined by two gate roads; see [The Open Door](OPEN-DOOR.md).
+The ship is the quick way to a port, never the only way (#2049). Each
+port the ship alone once reached now has a road out that is always open, and
+a far end that stays shut until its story gate opens:
+
+- The Coast Road joins Piraeus and the Wine-Dark Harbor. From the harbor it
+  opens only while the herald's truce is in the Agora, the Long Walls'
+  condition, so it never reaches the city before the petition or the
+  provisions.
+- The Northern Road joins the Trojan landing and the Hillside Sanctuary inside
+  Thebes, and appears with Ajax's story. It never touches the battlefield,
+  which still needs the guard to hold the decree at the City Gate. From the
+  sanctuary it opens only once that gate is open.
+
+Both reuse retired road art. `test/card-ship-port-roads.test.mjs` searches
+every walk, carry and hand-over to check that no dock is ship-only wherever
+its things lie, and that the City Gate, the Cithaeron road and the Agora stay
+shut until their conditions hold. Old full-scope worlds keep four one-place
+stops with no road: the Lemnian and Sicilian caves are islands, and the
+Thracian Shore and the Taurian Temple are far shores whose roads retired.
+Athens is three districts joined by two gate roads; see
+[The Open Door](OPEN-DOOR.md).
 
 A pack retires a place with `retired: true` and one exit, the place that took
 it in. No exit or route leads to it. A save upgrade moves anyone and anything
@@ -134,7 +146,7 @@ Underworld Landing retired.
 
 ## Sources and runtime
 
-`card-world.json` is canonical author data: 67 places including the ship,
+`card-world.json` is canonical author data: 69 places including the ship,
 33 residents, 26 objects, 149 typed choices and 44 work records. Nine works
 have developed scenes; 35 retain situated hooks for later releases.
 
