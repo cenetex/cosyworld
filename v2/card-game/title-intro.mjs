@@ -152,38 +152,47 @@ const link = (text, href) => {
 // seconds; a tap shows the rest, and the cue follows.
 export const STANZA_MS = 650;
 const escape = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-// Where each pause falls: its line, the word's span in it, the offset its
-// breath follows, and how many letters of the whole run are written once
-// the word is.
-export function acknowledgementPauses({ stanzas, pauses = [] }) {
+// Where each pause falls: its line, the span that lights (a held word's
+// phrase on its line, from `phrases`, else the word), the offset its breath
+// follows, and how many letters of the whole run are written once that span is.
+export function acknowledgementPauses({ stanzas, pauses = [], phrases = {} }) {
   const lines = stanzas.flat();
   const before = lines.map(
     (_, line) => splitLetters(lines.slice(0, line).join("")).length,
   );
-  return pauses.flatMap(({ word, occurrence = 1, pauseMs, tier, stays }) => {
+  return pauses.flatMap(({ word, occurrence = 1, pauseMs, tier }) => {
+    const phrase = tier && phrases[word];
     const pattern = new RegExp(
       `(?<![\\p{L}\\p{N}])${escape(word)}(?![\\p{L}\\p{N}])(?:[.,;:!?…—]|\\s—)*`,
       "gu",
     );
     let seen = 0;
     for (const [line, text] of lines.entries())
-      for (const { index, 0: match } of text.matchAll(pattern))
-        if (++seen === occurrence)
-          return [
-            {
-              word,
-              tier,
-              pauseMs,
-              stays: !!stays,
-              line,
-              start: index,
-              end: index + word.length,
-              hold: index + match.length,
-              written:
-                before[line] +
-                splitLetters(text.slice(0, index + word.length)).length,
-            },
-          ];
+      for (const { index, 0: match } of text.matchAll(pattern)) {
+        if (++seen !== occurrence) continue;
+        let start = index,
+          end = index + word.length;
+        for (let at = text.indexOf(phrase); phrase && at >= 0; ) {
+          if (at <= start && at + phrase.length >= end) {
+            [start, end] = [at, at + phrase.length];
+            break;
+          }
+          at = text.indexOf(phrase, at + 1);
+        }
+        return [
+          {
+            word,
+            phrase: text.slice(start, end),
+            tier,
+            pauseMs,
+            line,
+            start,
+            end,
+            hold: index + match.length,
+            written: before[line] + splitLetters(text.slice(0, end)).length,
+          },
+        ];
+      }
     return [];
   });
 }
@@ -214,27 +223,24 @@ export function acknowledgementDelays(acknowledgement) {
 // The held words: the pauses with a rarity tier (the rest are silences).
 export const acknowledgementHeld = (acknowledgement) =>
   acknowledgementPauses(acknowledgement).filter(({ tier }) => tier);
-// Which held words glow once `shown` letters are written: each from its
-// last letter for `glowHoldMs` of the reveal's own clock (so a hidden tab
-// holds it too), then it fades. Once whole, only the words that stay glow,
-// and a tap that shows the rest goes straight there.
+// Which held phrases glow once `shown` letters are written: each from its
+// last letter on, and it stays lit. A tap that shows the rest lights them all.
 export function acknowledgementGlows(acknowledgement) {
-  const at = [0];
-  for (const ms of acknowledgementDelays(acknowledgement))
-    at.push(at.at(-1) + ms);
   const pauses = acknowledgementHeld(acknowledgement);
-  return (shown, done) =>
-    pauses.map(({ written, stays }) =>
-      done
-        ? stays
-        : shown >= written &&
-          (stays ||
-            at[shown - 1] - at[written - 1] < acknowledgement.glowHoldMs),
-    );
+  return (shown, done) => pauses.map(({ written }) => done || shown >= written);
+}
+// The title's letters blip in the dialogue's own voice (createSpeechSounds in
+// dialogue.mjs). The table registers its sounds when it boots, so the title
+// shares their Voices setting and the audio the player's gesture unlocked:
+// a new world from the menu hears them from the first letter, a first visit
+// once a gesture unlocks audio.
+let voice = null;
+export function voiceTitle(sounds) {
+  voice = sounds;
 }
 // Real text from acknowledgement.json, set like a film's opening card. Each
-// paused word takes on its rarity tier's colour as its last letter writes,
-// and gives it back as the reveal moves on.
+// held phrase takes on its rarity tier's colour as its last letter writes,
+// and keeps it.
 function acknowledgementPanel() {
   const glyphs = [];
   // A spaced dash keeps to the word before it, never alone on a row.
@@ -254,7 +260,6 @@ function acknowledgementPanel() {
   const glows = [],
     lighting = new Map();
   text.style.setProperty("--glow-in", `${acknowledgement.glowInMs}ms`);
-  text.style.setProperty("--glow-fade", `${acknowledgement.glowFadeMs}ms`);
   let at = 0;
   for (const stanza of acknowledgement.stanzas) {
     const paragraph = element("p");
@@ -311,10 +316,16 @@ function acknowledgementPanel() {
   const painter = createRevealPainter(text);
   const reveal = createTextReveal({
     delay: (letter, i) => delays[i],
+    // As in dialogue: a blip on every other letter, none on a rest, none
+    // under reduced motion or in a hidden tab, the narrator's neutral voice.
+    reduced: () => matchMedia("(prefers-reduced-motion: reduce)").matches,
+    sound: (speaker, letter, index) => {
+      if (!document.hidden) voice?.syllable(speaker, letter, index);
+    },
     frame: (value) => {
       painter.paint(value);
       follow(value);
-      // A word lights once its last letter's ink is whole: its letters
+      // A phrase lights once its last letter's ink is whole: its letters
       // take their colour from it, and a change mid-ink would slow theirs.
       const lit = glowing(value.shown, value.complete);
       glows.forEach((glow, i) => {
@@ -409,6 +420,7 @@ export function playTitleIntro({
     leaving = true;
     idle(false);
     words.cancel();
+    voice?.stop();
     document.removeEventListener("visibilitychange", hidden);
     fades = { ...WAKE_FADE[way], ...(reduced && WAKE_FADE.reduced) };
     songDone = song.stop(fades.songSeconds);
@@ -551,6 +563,8 @@ export function playTitleIntro({
   };
   const advance = () => {
     if (phase === "ack" && !words.complete) {
+      // The song takes over from the letters' blips.
+      voice?.stop();
       song.start();
       words.finish();
       return;
@@ -574,6 +588,9 @@ export function playTitleIntro({
   const onKey = (event) => {
     if (["Shift", "Control", "Alt", "Meta"].includes(event.key)) return;
     event.stopPropagation();
+    // The table's own unlock never hears this key; a scroll key lets the
+    // letters' blips start while the poem still writes.
+    voice?.unlock();
     delete layer.dataset.pointer;
     idle();
     if (event.key === "Escape") {

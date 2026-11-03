@@ -6,6 +6,7 @@ import { startNewGame } from "./card-browser-helpers.mjs";
 import { REVEAL_HINT, TITLES, WAKE_FADE } from "../card-game/title-intro.mjs";
 import acknowledgement from "../card-game/acknowledgement.json" with { type: "json" };
 const held = acknowledgement.pauses.filter(({ tier }) => tier);
+const phrases = held.map(({ word }) => acknowledgement.phrases[word]);
 import {
   cardShown,
   checkTitleMusicAlone,
@@ -64,7 +65,11 @@ async function open(context) {
   return page;
 }
 // Every media play is recorded; the title song's element is kept.
-async function newContext(width, height, { reducedMotion, music = true } = {}) {
+async function newContext(
+  width,
+  height,
+  { reducedMotion, music = true, sound = false } = {},
+) {
   const context = await browser.newContext({
     viewport: { width, height },
     reducedMotion: reducedMotion || "no-preference",
@@ -111,9 +116,29 @@ async function newContext(width, height, { reducedMotion, music = true } = {}) {
       return context;
     };
     window.AudioContext.prototype = Context.prototype;
+    // The dialogue's letter blips: a 70 ms triangle (createSpeechSounds).
+    window.__blips = 0;
+    const { start, stop } = OscillatorNode.prototype;
+    OscillatorNode.prototype.start = function (when = 0) {
+      this.__at = when;
+      return start.call(this, when);
+    };
+    OscillatorNode.prototype.stop = function (when = 0) {
+      if (this.type === "triangle" && Math.abs(when - this.__at - 0.07) < 1e-3)
+        window.__blips++;
+      return stop.call(this, when);
+    };
   }, music);
+  // The letters' blips need the table's Voices on.
+  if (sound)
+    await context.addInitScript(() => {
+      if (sessionStorage.getItem("voiced")) return;
+      sessionStorage.setItem("voiced", "1");
+      localStorage.setItem("cosyworld.dialogue.sound", "on");
+    });
   return context;
 }
+const blips = (page) => page.evaluate(() => window.__blips);
 const titlePlays = (page) =>
   page.evaluate(
     () => window.__plays.filter((p) => /title-attic-lamp/.test(p)).length,
@@ -266,6 +291,40 @@ async function valeShown(page, id = "vale") {
   );
   assert.equal(await page.locator("#hand .reveal-lid").count(), 0);
 }
+// The letters blip in the dialogue's voice once audio is unlocked. A first
+// visit is silent before its gesture, and that gesture shows the rest and
+// starts the song. A new world from the menu, after a gesture, hears them
+// from the first letters, until a key shows the rest and the song takes over.
+async function checkBlips() {
+  const context = await newContext(1440, 900, { sound: true });
+  const page = await open(context);
+  await page.goto(`${origin}/?intro=1`);
+  await titlePhase(page);
+  await page.waitForSelector("#hand .card");
+  await page.waitForTimeout(1500);
+  assert.equal(await blips(page), 0, "silent before a gesture");
+  await page.keyboard.press("Enter");
+  await page.waitForTimeout(300);
+  assert.equal(await blips(page), 0, "the first key ends the stream");
+  await page.keyboard.press("Escape");
+  await gone(page, 2500);
+  await startNewGame(page);
+  await titlePhase(page);
+  await page.waitForTimeout(1500);
+  const heard = await blips(page);
+  assert.ok(heard >= 10, `${heard} blips in the first 1.5 s`);
+  const songs = await titlePlays(page);
+  await page.keyboard.press("Enter");
+  const stopped = await blips(page);
+  await page.waitForTimeout(600);
+  assert.equal(await blips(page), stopped, "a key shows the rest, silently");
+  assert.equal(await titlePlays(page), songs + 1, "the song takes over");
+  await page.keyboard.press("Escape");
+  await gone(page, 2500);
+  assert.deepEqual(page.errors, []);
+  await context.close();
+}
+
 // Large text: 320x568 at 200% browser zoom, and 390x844 with the root font
 // at 200% under reduced motion. The poem wraps in its panel with no sideways
 // scroll; while it writes, the panel follows the pen; a key shows it whole
@@ -486,7 +545,7 @@ try {
     );
     assert.match(
       ack.words,
-      /with us\.\n\s*Before you sits a carved wooden box,\nits surface rippling with stories\nolder than either of us\.\n\s*Open the box/,
+      /with us\.\n\s*Before you sits an intricately carved wooden box,\nits surface rippling with stories\nolder than either of us\.\n\s*Open the box/,
     );
     assert.match(ack.words, /Open the box\. The path is yours\.$/);
     assert.equal(ack.plain, acknowledgement.stanzas.flat().join(""));
@@ -496,11 +555,11 @@ try {
       JSON.stringify(ack.lines),
     );
     assert.ok(ack.overflow <= 0, `${ack.overflow}px wider than the panel`);
-    // A tap that shows the rest goes straight to the end: only "yours"
-    // keeps its glow, and every paused word carries its climbing tier.
+    // A tap that shows the rest lights every held phrase at once, each in
+    // its climbing tier.
     assert.deepEqual(await glowState(page), {
       tiers: held.map(({ tier }) => tier),
-      lit: ["yours"],
+      lit: phrases,
     });
     assert.doesNotMatch(ack.words, /Cenetex|RATi|Foundation/u);
     assert.equal(await page.locator(".title-ack a").count(), 0);
@@ -710,12 +769,10 @@ try {
   const muted = await open(off);
   await muted.goto(`${origin}/?intro=1`);
   await titlePhase(muted);
-  // Each paused word glows as it is written, in a soft tint of its tier's
-  // colour, then fades as the reveal moves on, like a lamp passing: at
-  // most two glow at once, and "yours" keeps it.
+  // Each held phrase lights as its last letter is written, in a soft tint
+  // of its tier's colour, and stays lit.
   await muted.evaluate(() => {
     window.__glows = [];
-    window.__mostLit = 0;
     window.__litStyle = null;
     new MutationObserver((changes) => {
       for (const { target } of changes) {
@@ -726,10 +783,6 @@ try {
           window.__litStyle = style.transitionDuration;
         }
       }
-      window.__mostLit = Math.max(
-        window.__mostLit,
-        document.querySelectorAll(".title-ack-glow[data-lit]").length,
-      );
     }).observe(document.querySelector(".title-ack-text"), {
       subtree: true,
       attributeFilter: ["data-lit"],
@@ -748,24 +801,31 @@ try {
   await muted.waitForTimeout(1500);
   assert.ok(whole(await streamState(muted)), "the stream ends on its own");
   const lamp = await muted.evaluate(() => ({
-    rose: window.__glows.filter(([, lit]) => lit).map(([word]) => word),
-    most: window.__mostLit,
+    changes: window.__glows.map(([phrase, lit]) => [phrase, lit]),
     style: window.__litStyle,
   }));
   assert.deepEqual(
-    lamp.rose,
-    held.map(({ word }) => word),
+    lamp.changes,
+    phrases.map((phrase) => [phrase, true]),
+    "each phrase lights once and never goes out",
   );
-  assert.ok(lamp.most >= 1 && lamp.most <= 2, String(lamp.most));
-  assert.equal(lamp.style, `${acknowledgement.glowInMs / 1000}s`);
-  assert.deepEqual((await glowState(muted)).lit, ["yours"]);
-  const yours = await muted.$eval(".title-ack-glow[data-lit]", (glow) => ({
-    color: getComputedStyle(glow).color,
-    base: getComputedStyle(glow.parentElement).color,
-    shadow: getComputedStyle(glow).textShadow,
-  }));
-  assert.notEqual(yours.color, yours.base, "the last word keeps its tint");
-  assert.match(yours.shadow, /^(rgba?|color)\(.+\) 0px 0px 6px$/);
+  assert.deepEqual(
+    [...new Set(lamp.style.split(", "))],
+    [`${acknowledgement.glowInMs / 1000}s`],
+    "it rises over glowInMs",
+  );
+  assert.deepEqual((await glowState(muted)).lit, phrases);
+  const tints = await muted.$$eval(".title-ack-glow[data-lit]", (glows) =>
+    glows.map((glow) => ({
+      color: getComputedStyle(glow).color,
+      base: getComputedStyle(glow.parentElement).color,
+      shadow: getComputedStyle(glow).textShadow,
+    })),
+  );
+  for (const tint of tints) {
+    assert.notEqual(tint.color, tint.base, "every phrase keeps its tint");
+    assert.match(tint.shadow, /^(rgba?|color)\(.+\) 0px 0px 5px$/);
+  }
   // The whole poem fits the short phone, with no scrolling.
   assert.ok(
     await muted.$eval(
@@ -795,20 +855,27 @@ try {
   await off.close();
 
   // Reduced motion crossfades without scaling and moves the logo at once.
-  const reduced = await newContext(390, 844, { reducedMotion: "reduce" });
+  const reduced = await newContext(390, 844, {
+    reducedMotion: "reduce",
+    sound: true,
+  });
   const quiet = await open(reduced);
   await quiet.goto(`${origin}/?intro=1`);
   await titlePhase(quiet);
   // The acknowledgement shows whole at once, and one tap goes on.
   assert.ok(whole(await streamState(quiet)), "reduced motion shows it all");
-  // Only the last word's tint shows, still: no glow, no fade.
-  assert.deepEqual((await glowState(quiet)).lit, ["yours"]);
+  // Every phrase's tint shows, still: no glow, no rise. No letter blips.
+  assert.deepEqual((await glowState(quiet)).lit, phrases);
   assert.deepEqual(
-    await quiet.$eval(".title-ack-glow[data-lit]", (glow) => [
-      getComputedStyle(glow).transitionDuration,
-      getComputedStyle(glow).textShadow,
+    await quiet.$$eval(".title-ack-glow[data-lit]", (glows) => [
+      ...new Set(
+        glows.map(
+          (glow) =>
+            `${getComputedStyle(glow).transitionDuration} ${getComputedStyle(glow).textShadow}`,
+        ),
+      ),
     ]),
-    ["0s", "none"],
+    ["0s none"],
   );
   await quiet.mouse.click(195, 10);
   await quiet.waitForSelector('.title-intro[data-phase="title"]');
@@ -854,7 +921,9 @@ try {
   );
   await gone(quiet, 3000);
   await quiet.waitForSelector("#hand .card");
+  assert.equal(await blips(quiet), 0, "reduced motion writes without blips");
   await reduced.close();
+  await checkBlips();
   await checkLargeText();
   await checkTitleMusicAlone(browser, origin, shot);
   console.log(`Title intro smoke passed. Screenshots: ${shots.join(", ")}`);

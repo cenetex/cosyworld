@@ -1,9 +1,7 @@
 {
-  "about": "The land acknowledgement on the new-world title (title-intro.mjs), set like a film's opening card: each stanza a list of lines, shown as written. The title names the panel for screen readers; it is not shown. Pauses hold a breath after a word: which time it appears (from 1), the ms (replacing any shorter punctuation or stanza breath after it and any punctuation touching it) and, for a held word, the card rarity tier (level-tiers.mjs) whose colour it takes on once written, climbing as the poem goes. A pause with no tier is a silence only, like the long hold before the carved box stanza. A word's glow rises over glowInMs, holds for glowHoldMs of the reveal, then fades back over glowFadeMs, like a lamp passing; a word that stays keeps it once the text is whole.",
+  "about": "The land acknowledgement on the new-world title (title-intro.mjs), set like a film's opening card: each stanza a list of lines, shown as written. The title names the panel for screen readers; it is not shown. Pauses hold a breath after a word: which time it appears (from 1), the ms (replacing any shorter punctuation or stanza breath after it and any punctuation touching it) and, for a held word, the card rarity tier (level-tiers.mjs) whose colour its phrase takes on, climbing as the poem goes. Its phrase (`phrases`, by held word) is the words around it on its line that light with it; it lights once its last letter is written, its glow rising over glowInMs, and stays lit. A pause with no tier is a silence only, like the long hold before the carved box stanza.",
   "title": "Before this forest",
   "glowInMs": 350,
-  "glowHoldMs": 1500,
-  "glowFadeMs": 1200,
   "stanzas": [
     [
       "Before our forest, there was land.",
@@ -25,7 +23,7 @@
     ],
     ["Nothing here began with us."],
     [
-      "Before you sits a carved wooden box,",
+      "Before you sits an intricately carved wooden box,",
       "its surface rippling with stories",
       "older than either of us."
     ],
@@ -40,12 +38,16 @@
     { "word": "Nothing", "occurrence": 1, "pauseMs": 300, "tier": "epic" },
     { "word": "us", "occurrence": 2, "pauseMs": 1800 },
     { "word": "box", "occurrence": 1, "pauseMs": 320, "tier": "legendary" },
-    {
-      "word": "yours",
-      "occurrence": 1,
-      "pauseMs": 350,
-      "tier": "mythic",
-      "stays": true
-    }
-  ]
+    { "word": "yours", "occurrence": 1, "pauseMs": 350, "tier": "mythic" }
+  ],
+  "phrases": {
+    "land": "there was land",
+    "peoples": "there were peoples",
+    "still": "care for them still",
+    "keepers": "the keepers",
+    "living": "the voices old and living",
+    "Nothing": "Nothing here began with us.",
+    "box": "an intricately carved wooden box",
+    "yours": "The path is yours."
+  }
 }

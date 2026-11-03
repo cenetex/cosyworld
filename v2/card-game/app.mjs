@@ -3,6 +3,7 @@ import {
   onTitleWake,
   playNewWorldIntro,
   titleMusicHold,
+  voiceTitle,
 } from "./title-intro.mjs";
 import { count, lineCounter, playCounter, startMetrics } from "./metrics.mjs";
 import { imageUrl } from "./images.mjs";
@@ -670,6 +671,7 @@ function syncLayering() {
 }
 wideLayout.addEventListener("change", syncLayering);
 const speechSounds = createSpeechSounds();
+voiceTitle(speechSounds);
 // Since when this play's Thinking card has waited for words (#2016): its
 // outcome is counted once, as a latency bucket, silence or a failure.
 let thinkingStartedAt = null;

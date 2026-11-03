@@ -98,7 +98,7 @@ test("the acknowledgement is the owner's six stanzas, line by line, and nothing 
     ],
     ["Nothing here began with us."],
     [
-      "Before you sits a carved wooden box,",
+      "Before you sits an intricately carved wooden box,",
       "its surface rippling with stories",
       "older than either of us.",
     ],
@@ -161,46 +161,51 @@ test("the acknowledgement writes at the dialogue's beat, breathing after its wei
     );
 });
 
-test("its held words glow in rarity tiers that climb, a lamp passing", () => {
+test("its held phrases light in rarity tiers that climb, and stay lit", () => {
   const pauses = acknowledgementHeld(acknowledgement);
   assert.deepEqual(
-    pauses.map(({ word }) => word),
+    pauses.map(({ phrase }) => phrase),
     [
-      "land",
-      "peoples",
-      "still",
-      "keepers",
-      "living",
-      "Nothing",
-      "box",
-      "yours",
+      "there was land",
+      "there were peoples",
+      "care for them still",
+      "the keepers",
+      "the voices old and living",
+      "Nothing here began with us.",
+      "an intricately carved wooden box",
+      "The path is yours.",
     ],
+  );
+  // Each phrase is set in the data and found around its held word.
+  assert.deepEqual(
+    pauses.map(({ phrase }) => phrase),
+    pauses.map(({ word }) => acknowledgement.phrases[word]),
   );
   const rank = (id) => tiers.find((tier) => tier.id === id).rank;
   const ranks = pauses.map(({ tier }) => rank(tier));
   ranks.slice(1).forEach((r, i) => assert.ok(r >= ranks[i], "tiers climb"));
   assert.equal(ranks[0], 0);
   assert.equal(ranks.at(-1), tiers.at(-1).rank);
-  // Each word glows from its last letter, then gives it back; at most two
-  // glow at once, and once whole only "yours" stays.
+  // Each phrase lights from its last letter and stays lit; once whole, or
+  // after a tap that shows the rest, all of them are lit.
   const lit = acknowledgementGlows(acknowledgement);
   const total = splitLetters(acknowledgement.stanzas.flat().join("")).length;
   pauses.forEach(({ written }, i) => {
     assert.equal(lit(written - 1, false)[i], false);
     assert.equal(lit(written, false)[i], true);
   });
-  let most = 0;
-  for (let shown = 1; shown < total; shown++)
-    most = Math.max(most, lit(shown, false).filter(Boolean).length);
-  assert.equal(most, 2);
-  assert.ok(!lit(pauses[1].written + 80, false)[0], "land fades");
+  assert.ok(lit(pauses[1].written + 80, false)[0], "land stays lit");
+  assert.ok(
+    lit(total - 1, false)
+      .slice(0, -1)
+      .every(Boolean),
+  );
   assert.deepEqual(
     lit(total, true),
-    pauses.map(({ word }) => word === "yours"),
+    pauses.map(() => true),
   );
-  // A tap that shows the rest early goes straight to the end, no burst.
   assert.deepEqual(lit(40, true), lit(total, true));
-  const { glowInMs, glowHoldMs, glowFadeMs } = acknowledgement;
+  const { glowInMs } = acknowledgement;
   assert.ok(glowInMs >= 300 && glowInMs <= 400);
-  assert.ok(glowHoldMs >= 1000 && glowFadeMs >= 800);
+  assert.equal(acknowledgement.glowHoldMs, undefined);
 });
