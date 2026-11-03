@@ -747,7 +747,10 @@ the whole text at once; written whole, it folds back into plain text. Reduced
 motion shows it all at once, with only the still tint on "yours", and a
 hidden tab pauses it. A quiet "click to
 continue" line ("tap to continue" on touch screens) fades in once the words
-are whole; the panel scrolls when it does not fit. The line is a button with no chrome that takes focus, with a ring
+are whole; the panel scrolls when it does not fit. At a large text size
+(200% zoom or a 200% root font) the poem wraps in its panel with no sideways
+scroll, and while it writes the panel follows the pen a line at a time, so the
+newest words stay in view, until the reader scrolls it themselves. The line is a button with no chrome that takes focus, with a ring
 only from the keyboard. A tap or click anywhere, or a key (the arrows scroll),
 is the gesture browsers ask for before sound: while it writes the first one
 fades the rest in over 150 ms and starts the title song, and the next one
@@ -755,13 +758,15 @@ goes on.
 After it, the world's logo fades in (with the song, if it has not begun)
 and lifts over one face-down
 card, the game's own card back, with a small Privacy link (`/privacy`) under
-it. The card is a button named "Reveal your traveller" and takes focus, with
+it. The card is a button named "Open the box", the poem's last words (the
+card back is the carved box's lid), and takes focus, with
 a ring only from the keyboard; like a hand card it lifts under a pointer
 (brightens under reduced motion), and Privacy is a 24 px tap target. Left
 alone for 3 seconds, the card breathes a faint warm glow on a slow 3.6-second
-cycle; at 6 seconds a quiet "click to reveal" line ("tap to reveal" on touch
-screens) fades in under it, styled like the acknowledgement's line, never on
-the card. The line is hidden from screen readers, which hear the card's name,
+cycle; at 6 seconds a quiet "open the box" line, the same on every screen,
+fades in under it, styled like the acknowledgement's line, never on
+the card. On a short screen or at a large text size the card gives up height
+so the line and Privacy stay on screen. The line is hidden from screen readers, which hear the card's name,
 and a tap on it turns the card too. Any tap, key or pointer over the card
 starts the wait again. Reduced motion holds the glow still and shows the line
 without a fade. The times are `REVEAL_HINT` in `title-intro.mjs`. A

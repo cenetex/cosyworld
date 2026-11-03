@@ -2921,24 +2921,30 @@ main > .dialogue {
   outline: 2px solid #fff4dc;
   outline-offset: 3px;
 }
-/* The logo lifts; Wake enters the world, with Privacy beside it. */
+/* The logo lifts over the card, with its hint and Privacy under it. The row
+   ends above the screen's foot: on a short screen or at a large text size
+   the card gives up height, never the lines under it. */
 .title-reveal {
   position: absolute;
   top: 55%;
+  bottom: 8px;
   left: 50%;
   translate: -50% 0;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 8px;
+  width: max-content;
+  max-width: calc(100vw - 32px);
   opacity: 0;
 }
 /* One face-down card, sized as in the hand; its reveal enters the world. */
 .title-card {
   --card-height: clamp(200px, 30dvh, 280px);
   position: relative;
-  width: calc(var(--card-height) * 2 / 3);
-  height: var(--card-height);
+  flex: 0 1 var(--card-height);
+  min-height: 0;
+  aspect-ratio: 2 / 3;
 }
 .title-card .card {
   cursor: pointer;
@@ -2967,12 +2973,21 @@ main > .dialogue {
   bottom: 0;
 }
 .title-privacy {
+  flex: none;
   padding: 6px 8px;
   color: #fff4dc;
   font:
     0.85rem Georgia,
     serif;
   opacity: 0.7;
+}
+/* The quiet lines wrap rather than run off a narrow screen at a large size. */
+.title-continue,
+.title-hint {
+  flex: none;
+  max-width: 100%;
+  text-align: center;
+  text-wrap: balance;
 }
 .title-continue {
   padding: 4px 8px;
