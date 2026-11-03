@@ -116,6 +116,7 @@ async function local(width) {
   await t.page.locator('#card-actions [data-action="talk"]').click();
   await t.choose("pond");
   await t.waits(`local ${width} choose while typing`);
+  await t.shot("local-choose-while-typing");
   await t.tap(t.page.locator("#speaker-portrait"));
   await until(t.page, (s) => !s.typing, "a tap finishes the line");
   const chosen = await t.readAll();
@@ -123,6 +124,7 @@ async function local(width) {
   await t.clickOff();
   const off = await until(t.page, (s) => !s.panel && !s.strip, "click off");
   assert.deepEqual([off.selected, off.front], [[], "speech"]);
+  await t.shot("local-clicked-off");
   // A silent play inscribes its effect onto the current card: no new card.
   const speaker = await t.page.locator("#speaker").innerText();
   await t.choose("vale");
@@ -153,6 +155,7 @@ async function local(width) {
   await t.page.waitForTimeout(300);
   const thinking = await until(t.page, (s) => s.thinking, "Thinking card");
   assert.equal(thinking.panel, false, "no panel beside the Thinking card");
+  await t.shot("local-thinking-after-play");
   mode = "reply";
   while (!held.length) await t.page.waitForTimeout(50);
   await held.shift()();
@@ -252,6 +255,7 @@ async function shared(width) {
   await until(t.page, (s) => s.thinking && !s.panel, "shared Thinking alone");
   commit();
   await t.waits(`shared ${width} reply under a choice`);
+  await t.shot("shared-reply-under-choice");
   const back = await t.readAll();
   assert(back.selected.includes("lamp") && back.buttons > 0);
   await t.clickOff();
@@ -264,6 +268,7 @@ async function shared(width) {
   await t.tap(t.page.locator("#speaker-portrait"));
   const refused = await until(t.page, (s) => s.status, "refusal after line");
   assert.match(refused.status, /^Not played: /);
+  await t.shot("shared-refusal-after-line");
   assert.deepEqual(t.page.errors, []);
   await t.page.close();
 }
@@ -314,12 +319,14 @@ async function reloads(width) {
   await until(t.page, (s) => s.thinking, "Thinking again after reload");
   while (asked === before) await t.page.waitForTimeout(50);
   assert.equal(await t.page.locator("#story-error").isVisible(), false);
+  await t.shot("reload-thinking");
   // D8: a reload mid-line shows the line whole.
   await held.at(-1)();
   await t.waits(`reload ${width} typing`);
   await t.page.reload();
   const whole = await until(t.page, (s) => s.front === "speech", "line");
   assert.equal(whole.typing, false, "a line begun before reload shows whole");
+  await t.shot("reload-whole-line");
   // A reply too long to accept fails visibly after its retry.
   length = 504;
   await t.readAll().catch(() => {});
