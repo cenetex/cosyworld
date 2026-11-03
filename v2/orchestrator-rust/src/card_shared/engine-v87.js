@@ -327,8 +327,8 @@
     return view2;
   }
 
-  // card-content:v2/card-game/emoji-symbols.json
-  var emoji_symbols_default = globalThis.cardContent.files["v2/card-game/emoji-symbols.json"];
+  // card-content:v2\card-game\emoji-symbols.json
+  var emoji_symbols_default = globalThis.cardContent.files["v2\\card-game\\emoji-symbols.json"];
 
   // v2/card-game/expression.mjs
   var EXPRESSION_TYPES = ["speech", "movement", "emoji"];
@@ -374,11 +374,11 @@
   }));
   var levelTier = (level) => tiers.findLast((tier) => level >= tier.minLevel) || tiers[0];
 
-  // card-content:v2/card-game/forest.json
-  var forest_default = globalThis.cardContent.files["v2/card-game/forest.json"];
+  // card-content:v2\card-game\forest.json
+  var forest_default = globalThis.cardContent.files["v2\\card-game\\forest.json"];
 
-  // card-content:v2/card-game/shared-cast.json
-  var shared_cast_default = globalThis.cardContent.files["v2/card-game/shared-cast.json"];
+  // card-content:v2\card-game\shared-cast.json
+  var shared_cast_default = globalThis.cardContent.files["v2\\card-game\\shared-cast.json"];
 
   // v2/card-game/human-cast.mjs
   var humanAvatars = shared_cast_default.avatars;
@@ -584,8 +584,8 @@
     }
   }
 
-  // card-content:v2/card-game/boardyai.json
-  var boardyai_default = globalThis.cardContent.files["v2/card-game/boardyai.json"];
+  // card-content:v2\card-game\boardyai.json
+  var boardyai_default = globalThis.cardContent.files["v2\\card-game\\boardyai.json"];
 
   // v2/card-game/boardyai.mjs
   var boardyPack = boardyai_default;
@@ -1084,8 +1084,8 @@
     });
   }
 
-  // card-content:v2/card-game/weather.json
-  var weather_default = globalThis.cardContent.files["v2/card-game/weather.json"];
+  // card-content:v2\card-game\weather.json
+  var weather_default = globalThis.cardContent.files["v2\\card-game\\weather.json"];
 
   // v2/card-game/weather.mjs
   var WEATHER_TURNS = weather_default.turns;
@@ -2201,8 +2201,8 @@
     );
   }
 
-  // card-content:v2/card-game/packs.json
-  var packs_default = globalThis.cardContent.files["v2/card-game/packs.json"];
+  // card-content:v2\card-game\packs.json
+  var packs_default = globalThis.cardContent.files["v2\\card-game\\packs.json"];
 
   // v2/card-game/pack-schema.mjs
   var PACK_SCHEMA_VERSION = 1;
@@ -4090,8 +4090,8 @@
     wait: 11
   });
 
-  // card-content:v2/card-game/entity-profiles.json
-  var entity_profiles_default = globalThis.cardContent.files["v2/card-game/entity-profiles.json"];
+  // card-content:v2\card-game\entity-profiles.json
+  var entity_profiles_default = globalThis.cardContent.files["v2\\card-game\\entity-profiles.json"];
 
   // v2/card-game/memory.mjs
   var profiles = { ...entity_profiles_default, ...packProfiles };
