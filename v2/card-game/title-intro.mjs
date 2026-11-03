@@ -6,6 +6,7 @@ import { count } from "./metrics.mjs";
 import { revealCard } from "./card-reveal.mjs";
 import { LOGOS, logoSite, showToolbarLogo, worldLogo } from "./title-logo.mjs";
 import { createTitleSong } from "./title-song.mjs";
+import { splitLetters } from "./dialogue.mjs";
 
 // The Lonely Forest title opens every new world: black, the land
 // acknowledgement (acknowledgement.json), the world's logo (title-logo.mjs)
@@ -93,20 +94,60 @@ const element = (tag, className, text) => {
   return node;
 };
 const link = (text, href) => {
-  const anchor = element("a", "", text);
+  const anchor = element("a", "", typeof text === "string" ? text : "");
+  if (typeof text !== "string") anchor.append(text);
   anchor.href = href;
   anchor.target = "_blank";
   anchor.rel = "noopener";
   return anchor;
 };
+// The acknowledgement arrives like streamed text: each letter fades in over
+// `fade` ms, `letter` ms after the one before, with a breath after
+// punctuation and between paragraphs, and a longer one before a short line
+// so it lands. The whole is about 7 seconds; the credit and the cue follow.
+// Every letter is in place from the start (transparent), so nothing
+// reflows, and CSS runs the clock: no timer per letter.
+export const STREAM = {
+  letter: 9,
+  stop: 130,
+  pause: 50,
+  paragraph: 500,
+  short: 350,
+  fade: 180,
+};
+const SHORT_LINE = 40;
+const breath = (letter) =>
+  /[.!?…]/u.test(letter)
+    ? STREAM.stop
+    : /[,;:—]/u.test(letter)
+      ? STREAM.pause
+      : 0;
 // Real text from acknowledgement.json, set like a film's opening card.
 function acknowledgementPanel() {
+  let clock = 0;
+  const streamed = (words) => {
+    const part = document.createDocumentFragment();
+    const letters = splitLetters(words);
+    letters.forEach((letter, i) => {
+      if (/^\s+$/u.test(letter)) part.append(letter);
+      else {
+        const span = element("span", "title-ack-ch", letter);
+        span.style.animationDelay = `${Math.round(clock)}ms`;
+        part.append(span);
+      }
+      clock += STREAM.letter + (i < letters.length - 1 ? breath(letter) : 0);
+    });
+    return part;
+  };
   const panel = element("section", "title-ack");
   const text = element("div", "title-ack-text");
   text.tabIndex = 0;
   text.setAttribute("role", "region");
   text.setAttribute("aria-label", acknowledgement.title);
-  for (const { text: words, links = {}, note } of acknowledgement.paragraphs) {
+  acknowledgement.paragraphs.forEach(({ text: words, links = {}, note }, i) => {
+    if (i)
+      clock +=
+        STREAM.paragraph + (words.length < SHORT_LINE ? STREAM.short : 0);
     const paragraph = element("p", note ? "title-ack-note" : "");
     const phrases = Object.keys(links);
     const split = phrases.length
@@ -115,9 +156,11 @@ function acknowledgementPanel() {
         )
       : null;
     for (const part of split ? words.split(split) : [words])
-      paragraph.append(links[part] ? link(part, links[part]) : part);
+      paragraph.append(
+        links[part] ? link(streamed(part), links[part]) : streamed(part),
+      );
     text.append(paragraph);
-  }
+  });
   text.append(element("p", "title-credit", acknowledgement.credit));
   // A quiet line, still a real button for focus and Enter or Space.
   const tap = matchMedia("(pointer: coarse)").matches;
@@ -128,7 +171,9 @@ function acknowledgementPanel() {
   );
   next.type = "button";
   panel.append(text, next);
-  return { panel, next };
+  const streamMs = Math.round(clock + STREAM.fade);
+  panel.style.setProperty("--stream-end", `${streamMs}ms`);
+  return { panel, next, streamMs };
 }
 
 const SCROLL_KEYS = [
@@ -162,7 +207,12 @@ export function playTitleIntro({
   layer.setAttribute("role", "dialog");
   layer.setAttribute("aria-modal", "true");
   layer.setAttribute("aria-label", logo.name);
-  const { panel, next } = acknowledgementPanel();
+  const { panel, next, streamMs } = acknowledgementPanel();
+  // The first gesture during the stream shows it whole (and starts the
+  // song, as browsers ask); the next one continues.
+  let streamUntil = 0;
+  const streaming = () =>
+    "stream" in panel.dataset && performance.now() < streamUntil;
   const image = element("img");
   image.alt = "";
   image.decoding = "async";
@@ -291,7 +341,14 @@ export function playTitleIntro({
     await race(wait(reduced ? 600 : 1200));
     showWake();
   };
-  const advance = () => (phase === "ack" ? showTitle() : showWake());
+  const advance = () => {
+    if (phase === "ack" && streaming()) {
+      song.start();
+      delete panel.dataset.stream;
+      return;
+    }
+    return phase === "ack" ? showTitle() : showWake();
+  };
   next.addEventListener("click", advance);
   layer.addEventListener("click", (event) => {
     if (!event.target.closest?.("a, button")) advance();
@@ -329,23 +386,21 @@ export function playTitleIntro({
   window.addEventListener("keydown", onKey, true);
 
   const shown = (async () => {
-    await race(wait(BLACK_MS));
+    // The font is settled before the stream starts, so no letter swaps.
+    await race(
+      Promise.all([
+        wait(BLACK_MS),
+        Promise.race([document.fonts?.ready, wait(LOAD_LIMIT_MS)]),
+      ]),
+    );
     if (!leaving) {
       phase = layer.dataset.phase = "ack";
+      // Visible by default; the stream is a CSS enhancement (style.css).
+      if (!reduced) {
+        panel.dataset.stream = "";
+        streamUntil = performance.now() + streamMs + 600;
+      }
       layer.append(panel);
-      fade(panel, reduced ? 250 : 700);
-      // The paragraphs, credit and cue follow one another in, on a clock.
-      if (!reduced)
-        panel
-          .querySelectorAll(".title-ack-text > p, .title-continue")
-          .forEach((line, i) =>
-            line.animate([{ opacity: 0 }], {
-              duration: 600,
-              delay: 200 + i * 300,
-              easing: "ease",
-              fill: "backwards",
-            }),
-          );
       // No ring until the keyboard moves; Tab shows it.
       next.focus({ preventScroll: true, focusVisible: false });
     }

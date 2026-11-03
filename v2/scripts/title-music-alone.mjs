@@ -102,6 +102,8 @@ export async function checkTitleMusicAlone(browser, origin, shot) {
     await page.goto(`${origin}/?world=alone&intro=1`);
     await page.waitForSelector('.title-intro[data-phase="ack"] .title-ack');
     await page.waitForSelector("#hand .card", { state: "attached" });
+    // One tap shows the streaming acknowledgement whole; the next goes on.
+    await page.mouse.click(width / 2, 10);
     await page.mouse.click(width / 2, 10);
     await cardShown(page);
     await page.waitForTimeout(1000);

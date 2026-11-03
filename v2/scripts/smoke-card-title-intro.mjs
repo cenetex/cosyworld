@@ -140,6 +140,29 @@ async function heard(page) {
 }
 const titlePhase = (page) =>
   page.waitForSelector('.title-intro[data-phase="ack"] .title-ack-text');
+// How much of the acknowledgement shows: letters fully in, letters still
+// dark, and whether the credit and the cue are at their resting opacity.
+const streamState = (page) =>
+  page.$eval(".title-ack", (panel) => {
+    const letters = [...panel.querySelectorAll(".title-ack-ch")].map((ch) =>
+      Number(getComputedStyle(ch).opacity),
+    );
+    const at = (selector) =>
+      getComputedStyle(panel.querySelector(selector)).opacity;
+    return {
+      letters: letters.length,
+      shown: letters.filter((o) => o === 1).length,
+      dark: letters.filter((o) => o === 0).length,
+      credit: at(".title-credit"),
+      cue: at(".title-continue"),
+      words: panel.querySelector(".title-ack-text").textContent,
+    };
+  });
+const whole = (state) =>
+  state.letters > 300 &&
+  state.shown === state.letters &&
+  state.credit === "0.65" &&
+  state.cue === "0.6";
 const gone = (page, timeout) =>
   page.waitForSelector(".title-intro", { state: "detached", timeout });
 try {
@@ -163,9 +186,32 @@ try {
     await titlePhase(page);
     const title = await page.locator(".title-intro").getAttribute("data-title");
     assert.ok(TITLES.includes(title), title);
+    // The acknowledgement streams in letter by letter. A second in, the
+    // first words show, most letters are still dark, and the credit and
+    // cue wait; the full text is in the page for screen readers throughout.
+    await page.waitForTimeout(1000);
+    const early = await streamState(page);
+    assert.ok(
+      early.shown > 20 && early.dark > early.letters / 2,
+      JSON.stringify({ ...early, words: "" }),
+    );
+    assert.equal(early.credit, "0");
+    assert.match(early.words, /The lid is open\. The path is yours\./);
+    await page.waitForSelector("#hand .card");
+    assert.equal(await titlePlays(page), 0, "silent before the first tap");
+    // The first tap (desktop) or key (phone) shows it whole and starts the
+    // song; the acknowledgement stays.
+    if (desktop) await page.mouse.click(width / 2, 10);
+    else await page.keyboard.press("a");
+    const tapped = await streamState(page);
+    assert.ok(whole(tapped), JSON.stringify({ ...tapped, words: "" }));
+    assert.equal(
+      await page.locator(".title-intro").getAttribute("data-phase"),
+      "ack",
+    );
+    assert.equal(await titlePlays(page), 1);
+    await heard(page);
     // The acknowledgement is real text, readable, and scrolls in its panel.
-    // Its lines fade in on a clock, then every one is fully shown.
-    await page.waitForTimeout(3000);
     const ack = await page.$eval(".title-ack-text", (text) => ({
       words: text.innerText,
       size: parseFloat(getComputedStyle(text).fontSize),
@@ -174,9 +220,9 @@ try {
         (line) => getComputedStyle(line).opacity !== "1",
       ).length,
     }));
-    assert.match(ack.words, /^Before this forest, there was land\./);
-    assert.match(ack.words, /a wooden box, intricately carved/);
-    assert.match(ack.words, /there is a path here for you\./);
+    assert.match(ack.words, /^Before our forest, there was land\./);
+    assert.match(ack.words, /a carved wooden box, with a forest folded inside/);
+    assert.match(ack.words, /The lid is open\. The path is yours\./);
     assert.match(ack.words, /All revenue goes to the Foundation/);
     assert.ok(ack.size >= 17 && ack.bottom <= height, JSON.stringify(ack));
     assert.equal(ack.faint, 0, "every line shown once loaded");
@@ -198,16 +244,12 @@ try {
       background: "rgba(0, 0, 0, 0)",
     });
     await shot(page, `ack-${width}`);
-    await page.waitForSelector("#hand .card");
-    await page.waitForTimeout(1500);
-    assert.equal(await titlePlays(page), 0, "silent before the first tap");
 
-    // The first tap (desktop) or key (phone) brings the logo and the song.
+    // The second brings the logo; the song plays on, once.
     if (desktop) await page.mouse.click(width / 2, 10);
     else await page.keyboard.press("a");
     await page.waitForSelector('.title-intro[data-phase="title"]');
     assert.equal(await titlePlays(page), 1);
-    await heard(page);
     await page.waitForTimeout(500);
     await shot(page, `logo-${width}`);
     const box = await page.locator(".title-intro > img").boundingBox();
@@ -288,6 +330,8 @@ try {
     await later.waitForTimeout(400);
     assert.equal(await titlePlays(later), 0);
     await later.keyboard.press("Enter");
+    assert.equal(await titlePlays(later), 1);
+    await later.keyboard.press("Enter");
     await later.waitForSelector('.title-intro[data-phase="title"]');
     assert.equal(await titlePlays(later), 1);
     await heard(later);
@@ -323,6 +367,10 @@ try {
   await muted.goto(`${origin}/?intro=1`);
   await titlePhase(muted);
   await muted.waitForSelector("#hand .card");
+  // Left alone, the stream ends by 8.5 seconds with the credit and the cue,
+  // and one key then goes on.
+  await muted.waitForTimeout(8500);
+  assert.ok(whole(await streamState(muted)), "the stream ends on its own");
   await muted.keyboard.press("Space");
   await cardShown(muted);
   await muted.keyboard.press("Tab");
@@ -342,6 +390,8 @@ try {
   const quiet = await open(reduced);
   await quiet.goto(`${origin}/?intro=1`);
   await titlePhase(quiet);
+  // The acknowledgement shows whole at once, and one tap goes on.
+  assert.ok(whole(await streamState(quiet)), "reduced motion shows it all");
   await quiet.mouse.click(195, 10);
   await quiet.waitForSelector('.title-intro[data-phase="title"]');
   await quiet.waitForTimeout(300);

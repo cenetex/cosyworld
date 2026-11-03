@@ -714,12 +714,20 @@ acknowledgement (`title-intro.mjs`, started from `entry.mjs`), silent, while
 the table boots underneath. Its text is data in `acknowledgement.json`: five
 short paragraphs set like a film's opening card, in a narrow measure with
 generous leading, then the Foundation and Cenetex credit in small type. The
-paragraphs fade in one after another (at once under reduced motion), and the
-panel scrolls when it does not fit. A quiet "click to continue" line ("tap to
-continue" on touch screens) sits under it: a button with no chrome that takes
-focus, with a ring only from the keyboard. A tap or click anywhere, or a key
-(the arrows scroll), is the gesture browsers ask for before sound:
-the world's logo fades in with the title song and lifts over one face-down
+text streams in letter by letter like streamed AI text: a letter every 9 ms,
+each fading in over 180 ms, with a breath after punctuation, half a second
+between paragraphs and a longer pause before a short line, about 7 seconds
+in all. Every letter is laid out
+from the start and CSS runs the clock (`STREAM` in `title-intro.mjs`), so
+nothing reflows and screen readers have the whole text at once. Reduced motion
+shows it all at once. The credit and a quiet "click to continue" line ("tap to
+continue" on touch screens) follow the stream; the panel scrolls when it does
+not fit. The line is a button with no chrome that takes focus, with a ring
+only from the keyboard. A tap or click anywhere, or a key (the arrows scroll),
+is the gesture browsers ask for before sound: during the stream the first one
+shows the whole text and starts the title song, and the next one goes on.
+After it, the world's logo fades in (with the song, if it has not begun)
+and lifts over one face-down
 card, the game's own card back, with a small Privacy link (`/privacy`) under
 it. The card is a button named "Reveal your traveller" and takes focus. A
 click, Enter or Space turns it with the hand's reveal (`card-reveal.mjs`) to
