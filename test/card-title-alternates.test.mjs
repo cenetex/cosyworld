@@ -132,8 +132,14 @@ test("the toolbar shows the logo the title chose, for every logo", () => {
 });
 
 test("wide artworks show their own lettering, never another logo", async () => {
-  for (const logo of LOGOS.slice(0, 2)) assert.equal(toolbarLogo(logo), logo);
-  for (const src of alternatives) {
+  // Only the Pip-and-lantern wordmark still shows its whole (opaque) artwork.
+  assert.equal(toolbarLogo(LOGOS[1]), LOGOS[1]);
+  const lettered = [original[0], ...alternatives];
+  assert.deepEqual(
+    LOGOS.filter(({ toolbar }) => toolbar).map(({ src }) => src),
+    lettered,
+  );
+  for (const src of lettered) {
     const logo = LOGOS.find((entry) => entry.src === src);
     const { toolbar } = logo;
     assert.ok(toolbar?.src, src);
@@ -159,12 +165,27 @@ test("wide artworks show their own lettering, never another logo", async () => {
       const record = variants.images[toolbar.src];
       assert.ok(record, `Build the variants of ${toolbar.src}`);
       assert.equal(record.card, toolbar.src, src);
-      const { width, height } = await sharp(
+      const image = sharp(
         readFileSync(
           new URL(`../v2/card-game/${toolbar.src}`, import.meta.url),
         ),
-      ).metadata();
+      );
+      const { width, height, hasAlpha } = await image.metadata();
       assert.deepEqual([width, height], [toolbar.width, toolbar.height], src);
+      // Supplied lettering is transparent: no box around it in the toolbar.
+      assert.ok(hasAlpha, toolbar.src);
+      const { data, info } = await image
+        .ensureAlpha()
+        .raw()
+        .toBuffer({ resolveWithObject: true });
+      const alpha = (x, y) => data[(y * info.width + x) * info.channels + 3];
+      for (const [x, y] of [
+        [0, 0],
+        [width - 1, 0],
+        [0, height - 1],
+        [width - 1, height - 1],
+      ])
+        assert.equal(alpha(x, y), 0, `${toolbar.src} corner ${x},${y}`);
     }
     assert.deepEqual(toolbarLogo(logo), {
       name: logo.name,

@@ -43,6 +43,7 @@ async function toolbar(page) {
       loaded: image.naturalWidth > 0,
       image: box(image),
       name: box(document.querySelector(".brand span")),
+      label: document.querySelector(".brand span").textContent,
       actions: [...document.querySelectorAll(".top-actions > *")]
         .map(box)
         .filter(Boolean),
@@ -92,6 +93,8 @@ try {
       // Lettering reads: the logo is at least 30 px tall on every width.
       assert.ok(first.image.bottom - first.image.top >= 30, table);
       assert.ok(first.image.left >= 0 && first.image.right <= width, table);
+      // A covered world's "…" never stands beside the logo (Safari showed it).
+      if (first.name) assert.notEqual(first.label, "…", `${table} shows "…"`);
       for (const other of [first.name, ...first.actions].filter(Boolean))
         assert.ok(apart(first.image, other), `${table} logo overlaps`);
       if (first.name)

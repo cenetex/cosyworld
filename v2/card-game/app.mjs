@@ -2452,7 +2452,9 @@ function renderStage(locationId) {
   const worldName = coveredCards.has(locationId)
     ? null
     : pack?.name || "The reflected shore";
-  document.querySelector(".brand span").textContent = worldName || "…";
+  const brandName = document.querySelector(".brand span");
+  brandName.textContent = worldName || "…";
+  brandName.toggleAttribute("data-covered", !worldName);
   document.title = worldName ? `CosyWorld · ${worldName}` : "CosyWorld";
   const fraction = (value, fallback) => String((value ?? fallback) / 100);
   view.style.setProperty("--focus-x", fraction(stage.focus?.x, 50));

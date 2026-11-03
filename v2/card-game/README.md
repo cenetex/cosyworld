@@ -435,7 +435,8 @@ are still covered, including after a reload.
 
 The player's avatar knows only what its player has uncovered (#1575). Until a
 card is uncovered, the screen never names it: the place heading, world name
-and page title show "…", and card labels, screen-reader text and stage alt text
+and page title show "…" (beside a toolbar logo the covered world name is
+hidden instead), and card labels, screen-reader text and stage alt text
 leave it out. A new game's first line waits until its player uncovers both the
 avatar and its place; in shared play the room's lines wait the same way for
 each viewer. `speech-knowledge.mjs` removes covered items from every local
@@ -825,7 +826,10 @@ and as tall as the toolbar buttons (46 px, 40 px at phone width), named by its
 lettering there (`toolbar`: a file, size and optional `crop` of the artwork;
 `npm run v2:card:images:build` writes a cropped one under
 `assets/title/toolbar/`, and a supplied file, such as transparent lettering,
-needs no `crop`). `v2/scripts/smoke-card-toolbar-logo.mjs` checks each logo at
+needs no `crop`). The first wordmark uses its transparent toolbar copy; the
+Pip-and-lantern wordmark and The Black Pond crop are still opaque, so they
+show their black ground until transparent masters are supplied
+(`assets/title/PROVENANCE.md`). `v2/scripts/smoke-card-toolbar-logo.mjs` checks each logo at
 desktop and phone widths (`TOOLBAR_LOGO_SHOTS=<dir>` saves screenshots).
 Other sites' landings and the local CosyWorld app keep
 the COSYWORLD wordmark.
