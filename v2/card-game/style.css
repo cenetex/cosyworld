@@ -2843,7 +2843,7 @@ main > .dialogue {
   flex-direction: column;
   align-items: center;
   gap: 12px;
-  width: min(40ch, calc(100vw - 32px));
+  width: min(34em, calc(100vw - 32px));
   max-height: calc(100dvh - 32px);
   color: #fff4dc;
   font:
@@ -2862,7 +2862,7 @@ main > .dialogue {
 .title-ack[data-written] .title-continue {
   animation: beat-fade 600ms ease 300ms backwards;
 }
-/* A film's opening card: a narrow measure, generous leading. */
+/* A film's opening card: generous leading. */
 .title-ack-text {
   min-height: 0;
   overflow-y: auto;
@@ -2871,9 +2871,12 @@ main > .dialogue {
 .title-ack p {
   margin: 0 0 0.9em;
 }
-.title-ack-note {
-  font-style: italic;
-  opacity: 0.8;
+/* Each line as written; a line too long for a phone wraps under a hanging
+   indent, so it still reads as one line of the poem. */
+.title-ack-line {
+  display: block;
+  padding-left: 1.2em;
+  text-indent: -1.2em;
 }
 .title-intro a {
   color: inherit;
