@@ -41,8 +41,11 @@ condition and an `item_near` condition at the gate. The first time they hold,
 the world records the gate in `openedRoutes`. The gate's open paintings
 require `gate_open` for that route, and `test/card-theban-gate.test.mjs`
 checks it, so the painting and the passage cannot disagree. While the gate is closed no
-travel card leads out. The gate only blocks the way out: anyone already on the
-battlefield can always walk back in. If the guard later gives the decree
+travel card leads out. The gate guards the city both ways (rules 94): the
+`greek-battlefield` → `greek-gate` route is `live` and `requires`
+`gate_open` for the way out, so the battlefield has no plain exits. A
+traveler who comes over Cithaeron reaches the battlefield on foot, but enters
+Thebes only once the gate has opened. If the guard later gives the decree
 away or leaves his post, the gate stays open. A petition needs the decree in hand and
 returns it to the palace, so a petitioner carries it back to the guard
 afterwards. The battlefield is a Theban place just outside the walls, so by
@@ -116,23 +119,31 @@ Tauris, and the Colonists' Road joins Corinth and Sicily. Troy is reached by
 ship at the Trojan landing. The Greek ship serves Piraeus, the Wine-Dark
 Harbor, Black Pond and the invited Trojan landing.
 
-The ship is the quick way to a port, never the only way (#2049). Each
-port the ship alone once reached now has a road out that is always open, and
-a far end that stays shut until its story gate opens:
+The ship is the quick way to a port, never the only way (#2049). Greek
+revision 18 (rules 94) makes the walk home from each port a real road:
 
-- The Coast Road joins Piraeus and the Wine-Dark Harbor. From the harbor it
-  opens only while the herald's truce is in the Agora, the Long Walls'
-  condition, so it never reaches the city before the petition or the
-  provisions.
-- The Northern Road joins the Trojan landing and the Hillside Sanctuary inside
-  Thebes, and appears with Ajax's story. It never touches the battlefield,
-  which still needs the guard to hold the decree at the City Gate. From the
-  sanctuary it opens only once that gate is open.
+- From Piraeus it is the land route of real geography: the Long Walls to
+  the Agora, the Sacred Way to Eleusis, the Cithaeron road to the
+  battlefield, then the City Gate into Thebes. Marathon joins it at Eleusis.
+  The gate guards the city, so this walk ends at the battlefield until the
+  guard has held the decree at the gate. Piraeus is part of the Open Door:
+  the ship does not call there before Dione's invitation, so nobody lands
+  at a quay with no road inland. The Hoppy Cat jetty, reached from Piraeus,
+  waits for the invitation too; its red thread still leads home to Black
+  Pond.
+- The Northern Road joins the Trojan landing and the Wine-Dark Harbor,
+  outside the city, and appears with Ajax's story. It never passes the City
+  Gate, so the landing walks home with every gate shut.
+- The Coast Road, Piraeus to the Wine-Dark Harbor, retired.
 
-Both reuse retired road art. `test/card-ship-port-roads.test.mjs` searches
-every walk, carry and hand-over to check that no dock is ship-only wherever
-its things lie, and that the City Gate, the Cithaeron road and the Agora stay
-shut until their conditions hold. Old full-scope worlds keep four one-place
+The Northern Road reuses retired road art. `test/card-ship-port-roads.test.mjs`
+searches every walk, carry and hand-over to check that no dock is ship-only
+once the City Gate is open, that only the Attic docks wait on it, and that
+the City Gate, the Cithaeron road and the Agora stay shut until their
+conditions hold. The revision 18 save upgrade moves anyone or anything on
+the Coast Road to Piraeus, forgets the retired gates and known steps, and,
+before the invitation, returns travelers at Piraeus and a ship there or at
+the Hoppy Cat jetty to the harbor. Old full-scope worlds keep four one-place
 stops with no road: the Lemnian and Sicilian caves are islands, and the
 Thracian Shore and the Taurian Temple are far shores whose roads retired.
 Athens is three districts joined by two gate roads; see
@@ -217,8 +228,8 @@ herald's truce (`greek-olive-branch`, the Open Door's Agora outcome) into the
 Agora. While it is in the Agora, the Long Walls open from the Agora to Piraeus.
 Its card uses `assets/greek-drama/olive-branch.webp`, the wool-bound branch
 painting documented in [the Argos art handoff](../../card-game/assets/greek-drama/argos-alternates-README.md).
-Piraeus Quays lies outside the Open Door section, so that lane reaches it in
-any save; its roads inland and its stories still wait for Dione's invitation.
+Piraeus Quays lies inside the Open Door section, so that lane opens only
+after Dione's invitation (Greek revision 18).
 Boarding keeps the ship at its harbour. The first course
 card played aboard sets the voyage for everyone, and the ship spends one world
 round at sea. On arrival the only Disembark card is that port. The ship stays

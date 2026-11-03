@@ -1,13 +1,17 @@
 // The ship is the quick way to a port, never the only way (#2049). Every dock
 // a world can sail to has a walking way to its pack's start, so a traveler
-// whose ship is called away can always walk home. The walking roads home must
-// not walk around the Greek story gates: each gate is checked by search over
-// every place a traveler could walk to and every thing they could carry or
-// hand over on the way.
+// whose ship is called away can walk home. From Attica that walk is the land
+// route, Piraeus to Athens, Eleusis, Cithaeron and the battlefield, and the
+// Theban City Gate guards the city: it needs the gate open (rules 94). The
+// walking roads home must not walk around the Greek story gates: each gate is
+// checked by search over every place a traveler could walk to and every thing
+// they could carry or hand over on the way.
 import { describe, expect, it } from "vitest";
 import {
   createWorld,
   currentActor,
+  decodeSave,
+  encodeSave,
   exits,
   legalActions,
   play,
@@ -26,6 +30,7 @@ import {
   lanesFrom,
 } from "../v2/card-game/pack-transport.mjs";
 import { conditionMet } from "../v2/card-game/pack-rules.mjs";
+import { openDoorStart } from "./helpers/open-door.mjs";
 
 const pack = packDefinition("greek-drama");
 const ships = new Set(Object.values(transports).map((t) => t.place));
@@ -154,18 +159,21 @@ function reach(world, from, { pinned = [], ship = false, local = true } = {}) {
 }
 
 // The worst case for a walker: every key is somewhere out of reach and no
-// gate has ever opened. What is still walkable then is walkable always.
-function worstCase(world) {
+// gate has ever opened, or only the given gates. What is still walkable then
+// is walkable always.
+const CITY_GATE = "greek-gate>greek-battlefield";
+function worstCase(world, opened = []) {
   const s = structuredClone(world);
   delete s.openedRoutes;
+  if (opened.length) s.openedRoutes = opened;
   for (const id of KEYS) if (s.items[id]) s.items[id].holder = "greek-ship";
   return s;
 }
 const start = (dock) =>
   packDefinitions.find((p) => p.places[dock])?.entry ?? "station";
 
-function shipOnly(world) {
-  const bare = worstCase(world);
+function shipOnly(world, opened = []) {
+  const bare = worstCase(world, opened);
   return Object.values(transports)
     .flatMap((t) => t.docks)
     .filter((dock) => entityActive(world, dock))
@@ -175,17 +183,42 @@ function shipOnly(world) {
     );
 }
 
+// The Attic docks lie outside the Theban walls.
+const OUTSIDE_WALLS = ["greek-piraeus", "greek-marathon"];
+
 describe("ports reachable by land", () => {
   for (const [stage, make] of Object.entries(stages))
-    it(`leaves no dock ship-only, wherever its things lie: ${stage}`, () => {
-      expect(shipOnly(make())).toEqual(stage === "full" ? FAR_SHORES : []);
+    it(`leaves no dock ship-only once the City Gate is open: ${stage}`, () => {
+      const far = stage === "full" ? FAR_SHORES : [];
+      expect(shipOnly(make(), [CITY_GATE])).toEqual(far);
+      // Shut, the gate keeps only the Attic docks from home; their walkers
+      // still reach the battlefield outside it.
+      const shut = stage === "opening" ? [] : OUTSIDE_WALLS;
+      expect(shipOnly(make()).sort()).toEqual([...shut, ...far].sort());
+      for (const dock of shut)
+        expect(
+          reach(worstCase(make()), dock, { pinned: KEYS }).has(
+            "greek-battlefield",
+          ),
+          dock,
+        ).toBe(true);
     });
 
+  it("never calls at Piraeus before Dione's invitation", () => {
+    const s = stages.opening();
+    expect(entityActive(s, "greek-piraeus")).toBe(false);
+    expect(reach(s, "greek-harbor", { ship: true }).has("greek-piraeus")).toBe(
+      false,
+    );
+    expect(entityActive(stages["open door"](), "greek-piraeus")).toBe(true);
+  });
+
   it("walks home from Piraeus when another traveler calls the ship away", () => {
-    // The #2049 strand: Vale ashore at Piraeus before Dione's invitation, the
+    // The #2049 strand, after the invitation: Vale ashore at Piraeus, the
     // ship called to the harbor and the provisions carried ashore there.
-    let s = createWorld();
-    s.crossings["pond-greek-harbor"].discovered = true;
+    // The burial opened the City Gate and Dione's invitation.
+    let s = openDoorStart("burial");
+    expect(s.openedRoutes).toContain(CITY_GATE);
     s.controlledActors = ["vale", "mara"];
     s.actors.vale.place = "greek-piraeus";
     s.transports["greek-ship"].dock = "greek-piraeus";
@@ -205,9 +238,20 @@ describe("ports reachable by land", () => {
       step({ kind: "wait" });
     // The ship stays away: the lanes and the call are unchanged.
     expect(s.transports["greek-ship"].dock).not.toBe("greek-piraeus");
-    expect(exits(s, "greek-harbor", "vale")).not.toContain("greek-road-coast");
-    step({ kind: "move", target: "greek-road-coast" });
-    step({ kind: "move", target: "greek-harbor" });
+    expect(pack.places["greek-road-coast"].retired).toBe(true);
+    for (const target of [
+      "greek-road-athens-piraeus",
+      "greek-athens",
+      "greek-road-athens-eleusis",
+      "greek-eleusis",
+      "greek-cithaeron",
+      "greek-battlefield",
+      "greek-gate",
+      "greek-courtyard",
+      "greek-road-thebes",
+      "greek-harbor",
+    ])
+      step({ kind: "move", target });
     expect(s.actors.vale.place).toBe("greek-harbor");
   });
 
@@ -216,11 +260,11 @@ describe("ports reachable by land", () => {
     expect(exits(s, "greek-ajax-landing", "vale")).toContain(
       "greek-road-north",
     );
-    // The road comes down inside Thebes at the Hillside Sanctuary, never at
-    // the battlefield beyond the City Gate.
+    // The road comes down at the harbor, outside the city, and never passes
+    // the City Gate: the landing walks home with every gate shut.
     expect(pack.places["greek-road-north"].road).toEqual([
       "greek-ajax-landing",
-      "greek-sanctuary",
+      "greek-harbor",
     ]);
     expect(reach(worstCase(s), "greek-ajax-landing").has("greek-harbor")).toBe(
       true,
@@ -231,8 +275,18 @@ describe("ports reachable by land", () => {
 });
 
 // The places behind each Greek story gate, and the ways in that a traveler
-// should never find by walking around it.
+// should never find by walking around it. The City Gate guards the city;
+// the battlefield and Cithaeron lie outside it.
 const BATTLEFIELD = ["greek-battlefield", "greek-cithaeron"];
+const THEBES = [
+  "greek-courtyard",
+  "greek-well",
+  "greek-palace",
+  "greek-sanctuary",
+  "greek-gate",
+  "greek-road-thebes",
+  "greek-harbor",
+];
 const COUNTRYSIDE = ["greek-cithaeron", "greek-eleusis", "greek-colonus"];
 // Assembly Hill and the Acropolis belong to full-scope worlds only.
 const CITY = ["greek-athens", "greek-road-athens-piraeus"];
@@ -250,12 +304,9 @@ describe("the roads home keep the Greek story gates", () => {
       if (stage === "ajax") starts.push("greek-ajax-landing");
       for (const from of starts) {
         // Carrying anything else anywhere, without the guard holding the
-        // decree no walker passes the gate, and the Northern Road stays shut
-        // from the city side.
+        // decree no walker from the city passes the gate.
         const before = reach(s, from, { pinned: ["greek-decree"] });
         expect(has(before, BATTLEFIELD), from).toEqual([]);
-        if (from === "greek-harbor")
-          expect(before.has("greek-road-north")).toBe(false);
         // The guard holding the decree at the gate opens it.
         const after = reach(
           holding(structuredClone(s), "greek-decree", "greek-guard"),
@@ -269,6 +320,30 @@ describe("the roads home keep the Greek story gates", () => {
       }
       // The search itself finds the gate's key: the decree from the palace.
       expect(reach(s, "greek-harbor").has("greek-battlefield")).toBe(true);
+    });
+
+  for (const stage of ["open door", "ajax"])
+    it(`keeps Thebes behind the City Gate from outside the walls: ${stage}`, () => {
+      // Thebes settled by the tablet; the Agora's keys at hand.
+      const s = holding(
+        stages[stage](),
+        "greek-guard-tablet",
+        "greek-courtyard",
+      );
+      for (const from of [...OUTSIDE_WALLS, "greek-cithaeron"]) {
+        // Without the guard holding the decree, a walker from Attica reaches
+        // the battlefield but never the city.
+        const before = reach(s, from, { pinned: ["greek-decree"] });
+        expect(before.has("greek-battlefield"), from).toBe(true);
+        expect(has(before, THEBES), from).toEqual([]);
+        // The guard holding it at the gate opens the city to the land route.
+        const after = reach(
+          holding(structuredClone(s), "greek-decree", "greek-guard"),
+          from,
+          { pinned: ["greek-decree"] },
+        );
+        expect(has(after, THEBES), from).toEqual(THEBES);
+      }
     });
 
   for (const stage of ["open door", "ajax"])
@@ -318,7 +393,6 @@ describe("the roads home keep the Greek story gates", () => {
         expect(before.has("greek-eleusis"), from).toBe(true);
         expect(has(before, CITY), from).toEqual([]);
         expect(before.has("greek-piraeus"), from).toBe(false);
-        expect(before.has("greek-road-coast"), from).toBe(false);
         // The provisions aboard sail to Piraeus, whose Long Walls lead in.
         const sailed = reach(s, from, {
           pinned: keys.filter((id) => id !== "greek-provisions"),
@@ -334,8 +408,7 @@ describe("the roads home keep the Greek story gates", () => {
         const walked = reach(heard, from, { pinned: keys });
         expect(walked.has("greek-athens"), from).toBe(true);
         expect(walked.has("greek-piraeus"), from).toBe(false);
-        // The herald's truce in the Agora opens the Long Walls and the Coast
-        // Road from the harbor.
+        // The herald's truce in the Agora opens the Long Walls.
         const truce = holding(
           flags(structuredClone(heard), "greek-open-door-plea-registered"),
           "greek-olive-branch",
@@ -343,9 +416,47 @@ describe("the roads home keep the Greek story gates", () => {
         );
         const open = reach(truce, from, { pinned: keys });
         expect(open.has("greek-piraeus"), from).toBe(true);
-        expect(exits(truce, "greek-harbor", "vale")).toContain(
-          "greek-road-coast",
-        );
       }
     });
+});
+
+// A save from rules 93 (Greek revision 17) still holds the Coast Road and the
+// Northern Road's gate at the sanctuary. It loads without a fresh start: the
+// road's travelers and things come ashore at Piraeus, and the retired gates
+// and steps are forgotten (rules 94). The Rust road upgrade test loads a
+// shared rules 93 world saved before the invitation.
+describe("a rules 93 save on the Coast Road", () => {
+  it("comes ashore at Piraeus after the invitation", () => {
+    const s = JSON.parse(encodeSave(openDoorStart("burial")));
+    s.packs["greek-drama"].revision = 17;
+    s.actors.vale.place = "greek-road-coast";
+    s.items["greek-water-jar"].holder = "greek-road-coast";
+    s.openedRoutes = [
+      ...s.openedRoutes,
+      "greek-harbor>greek-road-coast",
+      "greek-sanctuary>greek-road-north",
+    ].sort();
+    s.routeKnowledge["greek-rhapsode"] = [
+      ["greek-piraeus", "greek-road-coast"],
+      ["greek-road-coast", "greek-harbor"],
+      ["greek-road-north", "greek-sanctuary"],
+    ];
+    const w = decodeSave(JSON.stringify(s));
+    expect(w.packs["greek-drama"].revision).toBe(18);
+    expect(w.actors.vale.place).toBe("greek-piraeus");
+    expect(w.items["greek-water-jar"].holder).toBe("greek-piraeus");
+    expect(w.openedRoutes).toContain(CITY_GATE);
+    expect(w.openedRoutes).not.toContain("greek-harbor>greek-road-coast");
+    expect(w.openedRoutes).not.toContain("greek-sanctuary>greek-road-north");
+    const edges = w.routeKnowledge["greek-rhapsode"],
+      known = edges.flat();
+    expect(known).not.toContain("greek-road-coast");
+    expect(edges).not.toContainEqual(["greek-road-north", "greek-sanctuary"]);
+    // The Northern Road's known step became the walk from its new end at
+    // the harbor up to the sanctuary.
+    expect(edges).toContainEqual(["greek-road-north", "greek-harbor"]);
+    expect(exits(w, "greek-piraeus", "vale")).toEqual([
+      "greek-road-athens-piraeus",
+    ]);
+  });
 });

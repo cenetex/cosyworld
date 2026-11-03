@@ -72,13 +72,12 @@ function shared(dock, seas = false, ajax = false) {
   // The Travel Provisions ride on deck, which opens the Wine-Dark Harbor's
   // lane to Piraeus.
   world.items["greek-provisions"].holder = "greek-ship";
-  // The Northern Road leaves Thebes once the guard has opened the City Gate.
+  // The guard has opened the City Gate, so the land route enters Thebes.
   if (ajax)
     world.openedRoutes = [
       ...new Set([
         ...(world.openedRoutes || []),
         "greek-gate>greek-battlefield",
-        "greek-sanctuary>greek-road-north",
       ]),
     ].sort();
   return world;
@@ -177,10 +176,10 @@ describe("Greek ports and fixed roads", () => {
     // Athens Harbor has joined Piraeus, whose Long Walls lead to the city.
     expect(entityActive(after, "greek-athens-harbor")).toBe(false);
     expect(entityActive(after, "greek-road-athens-piraeus")).toBe(true);
-    // The Coast Road walks back to the harbor (#2049).
+    // The Coast Road retired: Piraeus walks home by the Long Walls and the
+    // land route through Thebes (#2049).
     expect(exits(after, "greek-piraeus", "vale")).toEqual([
       "greek-road-athens-piraeus",
-      "greek-road-coast",
     ]);
     expect(exits(after, "greek-harbor", "vale")).toContain("greek-road-thebes");
     expect(exits(after, "greek-harbor", "vale")).not.toContain(

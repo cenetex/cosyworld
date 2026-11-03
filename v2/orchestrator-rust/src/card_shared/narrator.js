@@ -2588,7 +2588,7 @@
         schemaVersion: 1,
         id: "greek-drama",
         packId: "cosyworld.greek-drama",
-        revision: 17,
+        revision: 18,
         name: "The Wine-Dark Sea",
         description: "A branching Greek drama world. A shared ship visits the Wine-Dark Harbor, Athens Harbor and Piraeus. One road joins Athens and Piraeus, and short paths lead to the Attic places where welcome becomes a growing poem.",
         tone: "Concrete Greek domestic and civic life: bread, work, desire, grief, argument, irreverence, and hospitality. Dialogue expresses committed actions. A tragic ending is never required.",
@@ -2633,7 +2633,8 @@
             text: "Worn steps climb from the stone landing toward the town.",
             exits: [
               "greek-road-thebes",
-              "greek-argolid-road"
+              "greek-argolid-road",
+              "greek-road-north"
             ],
             backdrop: "assets/greek-drama/harbor-open-berth.webp",
             persona: "Worn steps climb from the stone landing toward the town."
@@ -2713,9 +2714,7 @@
           "greek-battlefield": {
             name: "The Exposed Battlefield",
             text: "Broken spear shafts lie in the dust. A strip of earth outside the city is set apart for the fallen brother.",
-            exits: [
-              "greek-gate"
-            ],
+            exits: [],
             backdrop: "assets/greek-drama/burial-ground-dusk.webp",
             persona: "Broken spear shafts lie in the dust. A strip of earth outside the city is set apart for the fallen brother."
           },
@@ -2785,8 +2784,7 @@
             name: "Piraeus Quays",
             text: "Folded cloth, a grain basket and a low bench stand beside the mooring ropes. A host waits for the names of returning families. The Long Walls run inland to Athens.",
             exits: [
-              "greek-road-athens-piraeus",
-              "greek-road-coast"
+              "greek-road-athens-piraeus"
             ],
             backdrop: "assets/greek-drama/piraeus-open-berth.webp",
             persona: "These quays hold the practical work of welcome. A reserved berth records a promise and supplies at this quay. The host speaks about the actual list, cloth and basket and the traveler\u2019s chosen terms."
@@ -3526,19 +3524,20 @@
               "greek-piraeus",
               "greek-harbor"
             ],
-            backdrop: "assets/greek-drama/black-sea-road.svg"
+            backdrop: "assets/greek-drama/black-sea-road.svg",
+            retired: true
           },
           "greek-road-north": {
             name: "The Northern Road",
-            text: "A long road runs north through Thessaly and Thrace and crosses the strait to Troy. One end leads to The Trojan Camp Landing; the other comes down to The Hillside Sanctuary above Thebes. The ship makes the same passage sooner.",
-            persona: "A shared road between The Trojan Camp Landing and The Hillside Sanctuary above Thebes. The left end always leads to The Trojan Camp Landing. The right end always leads to The Hillside Sanctuary, inside the city; the battlefield lies beyond the City Gate, not on this road. From the landing the road is always open. From the sanctuary it opens only once the guard has opened the City Gate. The ship is the quicker way. Travelers can meet, talk, rest and carry their belongings here.",
+            text: "A long road runs north through Thessaly and Thrace and crosses the strait to Troy. One end leads to The Trojan Camp Landing; the other comes down to The Wine-Dark Harbor. The ship makes the same passage sooner.",
+            persona: "A shared road between The Trojan Camp Landing and The Wine-Dark Harbor. The left end always leads to The Trojan Camp Landing. The right end always leads to The Wine-Dark Harbor, outside the city; it never passes the City Gate. The road is open both ways. The ship is the quicker way. Travelers can meet, talk, rest and carry their belongings here.",
             exits: [
               "greek-ajax-landing",
-              "greek-sanctuary"
+              "greek-harbor"
             ],
             road: [
               "greek-ajax-landing",
-              "greek-sanctuary"
+              "greek-harbor"
             ],
             backdrop: "assets/greek-drama/royal-road.svg"
           },
@@ -4828,6 +4827,18 @@
             ]
           },
           {
+            from: "greek-battlefield",
+            to: "greek-gate",
+            live: true,
+            requires: [
+              {
+                kind: "gate_open",
+                from: "greek-gate",
+                to: "greek-battlefield"
+              }
+            ]
+          },
+          {
             from: "greek-harbor",
             to: "greek-egypt-tomb",
             requires: [
@@ -5024,38 +5035,6 @@
                 kind: "item_near",
                 item: "greek-olive-branch",
                 place: "greek-athens"
-              }
-            ]
-          },
-          {
-            from: "greek-harbor",
-            to: "greek-road-coast",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-open-door-plea-registered",
-                value: true
-              },
-              {
-                kind: "item_near",
-                item: "greek-olive-branch",
-                place: "greek-athens"
-              }
-            ]
-          },
-          {
-            from: "greek-sanctuary",
-            to: "greek-road-north",
-            requires: [
-              {
-                kind: "holding",
-                item: "greek-decree",
-                actor: "greek-guard"
-              },
-              {
-                kind: "item_near",
-                item: "greek-decree",
-                place: "greek-gate"
               }
             ]
           }
@@ -9472,6 +9451,7 @@
             name: "The Open Door",
             places: [
               "greek-athens",
+              "greek-piraeus",
               "greek-colonus",
               "greek-eleusis",
               "greek-marathon",
@@ -15385,6 +15365,7 @@
     }
     return world;
   }
+  var latchingRoute = (key) => latchKeys.has(key);
   var validOpenedRoutes = (list) => list === void 0 || Array.isArray(list) && list.length > 0 && list.every((key, i) => latchKeys.has(key) && (!i || list[i - 1] < key));
   function packExits(world, place, actor = null) {
     const routes = packDefinitions.flatMap(
@@ -16086,6 +16067,7 @@
       upgradeGreekOpenDoorSave(s);
       upgradeGreekEastSeaSave(s);
       upgradeGreekThreeLinksSave(s);
+      upgradeGreekLandRouteSave(s);
       upgradeRecitals(s, packDefinitions);
     }
     upgradeSightings(s);
@@ -16459,6 +16441,32 @@
     if (!pack || pack.revision < 17 || saved?.revision !== 16) return;
     foldRetiredRoads(s);
     saved.revision = 17;
+  }
+  function upgradeGreekLandRouteSave(s) {
+    const pack = packDefinitions.find((p) => p.id === "greek-drama");
+    const saved = s.packs?.[pack?.id];
+    if (!pack || pack.revision < 18 || saved?.revision !== 17) return;
+    foldRetiredRoads(s);
+    if (Array.isArray(s.openedRoutes)) {
+      s.openedRoutes = s.openedRoutes.filter(latchingRoute);
+      if (!s.openedRoutes.length) delete s.openedRoutes;
+    }
+    if (!entityEnabled(s, "greek-piraeus", true)) {
+      const away = ["greek-piraeus", "hoppycat-signal-jetty"];
+      const fix = (place) => away.includes(place) ? pack.entry : place;
+      for (const [id, state] of Object.entries(s.transports || {})) {
+        const dock = fix(state?.destination || state?.dock);
+        if (dock === (state?.destination || state?.dock) && fix(state?.recall) === state?.recall)
+          continue;
+        s.transports[id] = upgradeTransportState(s, id, {
+          ...state,
+          dock,
+          destination: dock,
+          recall: state.recall && fix(state.recall)
+        });
+      }
+    }
+    saved.revision = 18;
   }
   function upgradeGreekDistrictRoadsSave(s) {
     const pack = packDefinitions.find((p) => p.id === "greek-drama");

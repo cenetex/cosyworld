@@ -121,10 +121,7 @@ describe("the Theban release and its ship", () => {
     ).toEqual(
       [
         ...openingPlaces,
-        // Piraeus Quays lies outside every section; a ship with the Travel
-        // Provisions aboard reaches it, and so does the Coast Road.
-        "greek-piraeus",
-        "greek-road-coast",
+        // Piraeus Quays waits for Dione's invitation with the Open Door.
         ...sectionPlaces.filter(
           (id) => !retired(id) && id !== "greek-road-athens-harbor",
         ),
@@ -147,14 +144,12 @@ describe("the Theban release and its ship", () => {
     s = act(s, "give", { item: "greek-guard-tablet", target: "greek-baker" });
     // The tablet on Dione's table opens the Cithaeron road from the
     // battlefield to the countryside. The Sacred Way waits for the mothers'
-    // petition; the ship with the Travel Provisions reaches the city. The
-    // Coast Road from the harbor waits for the herald's truce (#2049).
+    // petition; the ship with the Travel Provisions reaches the city.
     expect(reachable(s)).toContain("greek-eleusis");
     expect(reachable(s)).not.toContain("greek-athens");
-    expect(reachable(s)).not.toContain("greek-road-coast");
     s.items["greek-provisions"].holder = "greek-ship";
     expect(reachable(s)).toEqual([...openDoorReleasedPlaces].sort());
-    expect(reachable(s)).toHaveLength(18);
+    expect(reachable(s)).toHaveLength(17);
     s = decodeSave(encodeSave(s));
     expect(reachable(s)).toEqual([...openDoorReleasedPlaces].sort());
     for (const start of openDoorPlaces) {
@@ -162,6 +157,9 @@ describe("the Theban release and its ship", () => {
       trip.transports["greek-ship"].dock = "greek-piraeus";
       // Vale sailed in, so she knows the lane home from Piraeus.
       learnLane(trip, "vale", "greek-harbor", "greek-piraeus");
+      // The land route home enters Thebes by the City Gate, open once the
+      // guard has held the decree there.
+      trip.openedRoutes = ["greek-gate>greek-battlefield"];
       // The Long Walls lead home from the city once the plea's olive branch
       // is in the Agora; the mothers' petition there keeps the Sacred Way
       // open from Eleusis.
@@ -202,6 +200,8 @@ describe("the Theban release and its ship", () => {
   it("keeps a route from every opening place back to the pond after the signal", () => {
     const s = createWorld();
     s.crossings["pond-greek-harbor"].discovered = true;
+    // The battlefield is reached only through the opened City Gate.
+    s.openedRoutes = ["greek-gate>greek-battlefield"];
     for (const start of openingPlaces.filter((id) => id !== "greek-ship")) {
       const seen = new Set([start]);
       for (const id of seen)

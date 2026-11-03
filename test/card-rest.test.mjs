@@ -338,11 +338,12 @@ describe("rest and sanctuary", () => {
     });
     // A ship docks where it sleeps.
     s = seat(["vale"]);
-    s.actors.vale.place = "greek-piraeus";
+    s.actors.vale.place = "greek-harbor";
     s = sleep(s);
     Object.assign(s.transports["greek-ship"], {
       phase: "sea",
-      destination: "greek-piraeus",
+      dock: "pond",
+      destination: "greek-harbor",
       since: s.turn,
     });
     s = wait(s);

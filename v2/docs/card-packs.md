@@ -149,6 +149,12 @@ is one: **do not add a resident to a pack that is already mounted.** Put it
 in a new pack, which installs fresh, or bump the pack's `revision` and add a
 save upgrade to `legacy-saves.mjs` that adds that resident's actor, trust and
 memories (as `upgradeGreekHomecomingSave` did), shipped in a rules release.
+Removing a place or a gated route is another: saves keep each opened gate
+(`openedRoutes`) and each known step (`routeKnowledge`), and validation
+refuses one the content no longer authors. Retire the place with
+`retired: true` instead of deleting it, and add a pack revision upgrade that
+calls `foldRetiredRoads` and drops gates that no longer latch (as
+`upgradeGreekLandRouteSave` did for the Coast Road in rules 94).
 `test/card-content-repack.test.mjs` loads a world saved on main's content
 under the branch's rules and content, so the fast check fails such a change
 before it merges.

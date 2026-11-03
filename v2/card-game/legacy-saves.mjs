@@ -12,6 +12,7 @@ import {
   conditionsMet,
   departed,
   entityEnabled,
+  latchingRoute,
   packEntity,
 } from "./pack-registry.mjs";
 import { sectionAllows } from "./pack-sections.mjs";
@@ -132,6 +133,7 @@ export function upgradeSave(s, { installPacks, laneText = () => null }) {
     upgradeGreekOpenDoorSave(s);
     upgradeGreekEastSeaSave(s);
     upgradeGreekThreeLinksSave(s);
+    upgradeGreekLandRouteSave(s);
     upgradeRecitals(s, packDefinitions);
   }
   upgradeSightings(s);
@@ -627,6 +629,43 @@ export function upgradeGreekThreeLinksSave(s) {
   if (!pack || pack.revision < 17 || saved?.revision !== 16) return;
   foldRetiredRoads(s);
   saved.revision = 17;
+}
+
+// Revision 18 makes the land route Piraeus to Thebes the walk home (#2049).
+// The Coast Road retires: anyone or anything on it goes to Piraeus, and its
+// gate and every known step along it are forgotten. The Northern Road comes
+// down at the harbor instead of the sanctuary. Piraeus waits for Dione's
+// invitation: before it, a ship berthed or bound there, or at the Hoppy Cat
+// jetty beyond it, returns to the harbor (and reconcilePackProgress sends
+// anyone ashore there to the harbor too).
+export function upgradeGreekLandRouteSave(s) {
+  const pack = packDefinitions.find((p) => p.id === "greek-drama");
+  const saved = s.packs?.[pack?.id];
+  if (!pack || pack.revision < 18 || saved?.revision !== 17) return;
+  foldRetiredRoads(s);
+  if (Array.isArray(s.openedRoutes)) {
+    s.openedRoutes = s.openedRoutes.filter(latchingRoute);
+    if (!s.openedRoutes.length) delete s.openedRoutes;
+  }
+  if (!entityEnabled(s, "greek-piraeus", true)) {
+    const away = ["greek-piraeus", "hoppycat-signal-jetty"];
+    const fix = (place) => (away.includes(place) ? pack.entry : place);
+    for (const [id, state] of Object.entries(s.transports || {})) {
+      const dock = fix(state?.destination || state?.dock);
+      if (
+        dock === (state?.destination || state?.dock) &&
+        fix(state?.recall) === state?.recall
+      )
+        continue;
+      s.transports[id] = upgradeTransportState(s, id, {
+        ...state,
+        dock,
+        destination: dock,
+        recall: state.recall && fix(state.recall),
+      });
+    }
+  }
+  saved.revision = 18;
 }
 
 // Revision 14 sorts Athens into districts joined by gate roads. A known step

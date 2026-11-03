@@ -180,9 +180,9 @@ describe("the Open Door", () => {
         branch === "concession"
           ? fixture.permission
           : fixture.choice || fixture.buried;
-      // Piraeus Quays lies outside the Open Door: a ship with provisions
-      // aboard reaches it. Its stories still wait for Dione's road.
-      expect(accessible(before)).toEqual(["greek-piraeus"]);
+      // Piraeus Quays waits for Dione's road with the rest: the ship does
+      // not call there before it (rules 94).
+      expect(accessible(before)).toEqual([]);
       let world = fixture.closed;
       expect(accessible(world)).toEqual(OPEN_DOOR_PLACES);
       expect(state(world).choices["greek-theban-response"]).toBe(branch);
@@ -317,7 +317,7 @@ describe("the Open Door", () => {
 
   it("keeps later places and choices behind the first invitation", () => {
     const world = createWorld();
-    expect(accessible(world)).toEqual(["greek-piraeus"]);
+    expect(accessible(world)).toEqual([]);
     for (const place of OPEN_DOOR_PLACES) {
       world.actors.vale.place = place;
       expect(

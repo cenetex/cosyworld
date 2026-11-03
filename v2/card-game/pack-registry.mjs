@@ -383,6 +383,8 @@ export function latchRoutes(world) {
   }
   return world;
 }
+// A saved gate the content still authors as a latching route.
+export const latchingRoute = (key) => latchKeys.has(key);
 export const validOpenedRoutes = (list) =>
   list === undefined ||
   (Array.isArray(list) &&
