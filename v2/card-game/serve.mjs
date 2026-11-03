@@ -94,6 +94,12 @@ export function createServer({
     const path = pathname.startsWith("/card-game/")
       ? pathname.slice("/card-game".length)
       : pathname;
+    if (pathname === "/card-game/metrics" && req.method === "POST") {
+      req.resume();
+      res.writeHead(204);
+      res.end();
+      return;
+    }
     if (pathname === "/card-game/text" && req.method === "POST") {
       // Use the same Rust service as production. Keep provider keys there.
       const origin = process.env.COSYWORLD_CARD_TEXT_ORIGIN;
