@@ -718,21 +718,30 @@ Schema 6 saves include location changes, favours and lasting memories. Earlier s
 
 Every new world on Lonely Forest opens black, then shows the land
 acknowledgement (`title-intro.mjs`, started from `entry.mjs`), silent, while
-the table boots underneath. Its text is data in `acknowledgement.json`: five
+the table boots underneath. Its text is data in `acknowledgement.json`: six
 stanzas, each a list of lines, set like a film's opening card with generous
 leading, and nothing else. Each line shows as written; on a narrow phone a long
 line wraps under a hanging indent. The
 text writes in with the dialogue's own reveal (`dialogue.mjs`) at the
 dialogue's pace: a letter every 28 ms behind a gold caret, each letter's ink
 fading in over 60 ms, the same rests after punctuation, and 650 ms between
-stanzas (`STANZA_MS`). Ten weighty words hold a breath of their own
-(300–350 ms after "land", "peoples", "still", "keepers", "living", "us",
-"own", "us", "box" and "yours"): `pauses` in `acknowledgement.json` names each
-word, which time it appears and its `pauseMs`, and the larger of that and
-any punctuation or stanza breath wins. About 18 seconds in all. Every
+stanzas (`STANZA_MS`). Eight held words keep a breath of their own
+(300–350 ms after "land", "peoples", "still", "keepers", "living", "Nothing",
+"box" and "yours"), and one long silence (1.8 s) falls after "Nothing here
+began with us." before "Behold": `pauses` in `acknowledgement.json` names each
+word, which time it appears, its `pauseMs` and, for a held word, its card
+rarity `tier` (`level-tiers.mjs`); the larger of that and any punctuation or
+stanza breath wins. About 21 seconds in all. The tiers climb as the poem goes,
+from Common ("land", "peoples") to Mythic ("yours"). Each held word, once
+written, takes a gentle tint of its tier's colour with a soft 6 px glow that
+rises over `glowInMs`, holds for `glowHoldMs` of the reveal, then fades back
+over `glowFadeMs`, like a lamp passing, so one or two glow at a time. Once the
+text is whole only "yours" (`"stays": true`) keeps its glow; a tap that shows
+the rest goes straight there. Every
 letter is laid out from the start, so nothing reflows and screen readers have
 the whole text at once; written whole, it folds back into plain text. Reduced
-motion shows it all at once, and a hidden tab pauses it. A quiet "click to
+motion shows it all at once, with only the still tint on "yours", and a
+hidden tab pauses it. A quiet "click to
 continue" line ("tap to continue" on touch screens) fades in once the words
 are whole; the panel scrolls when it does not fit. The line is a button with no chrome that takes focus, with a ring
 only from the keyboard. A tap or click anywhere, or a key (the arrows scroll),
@@ -744,7 +753,14 @@ and lifts over one face-down
 card, the game's own card back, with a small Privacy link (`/privacy`) under
 it. The card is a button named "Reveal your traveller" and takes focus, with
 a ring only from the keyboard; like a hand card it lifts under a pointer
-(brightens under reduced motion), and Privacy is a 24 px tap target. A
+(brightens under reduced motion), and Privacy is a 24 px tap target. Left
+alone for 3 seconds, the card breathes a faint warm glow on a slow 3.6-second
+cycle; at 6 seconds a quiet "click to reveal" line ("tap to reveal" on touch
+screens) fades in under it, styled like the acknowledgement's line, never on
+the card. The line is hidden from screen readers, which hear the card's name,
+and a tap on it turns the card too. Any tap, key or pointer over the card
+starts the wait again. Reduced motion holds the glow still and shows the line
+without a fade. The times are `REVEAL_HINT` in `title-intro.mjs`. A
 click, Enter or Space turns it with the hand's reveal (`card-reveal.mjs`) to
 the face of the avatar this world opens with (the joining avatar in a shared
 world), cloned from the hand and named for screen readers. The turn waits up to
@@ -752,9 +768,13 @@ world), cloned from the hand and named for screen readers. The turn waits up to
 frame. The card shows whole, so
 its name and shade sit on its floor, at the figure's feet, rather than a
 quarter up where the hand clips its cards. The face holds for
-0.8 seconds, then the title fades to the table while the song rings on and
-fades out over three seconds. Escape skips straight in at any step and fades
-the song over one.
+0.7 seconds; then the song fades out over 1.8 seconds as the title, card and
+all, goes to black over 0.9 seconds. Black holds 0.3 seconds, then slowly
+opens (2.5 seconds, ease-out) on the scene the world opens in: Vale's lit
+attic, or a joining avatar's place. Escape skips in at any step by the same
+way, quickly: the song fades over one second and the title over about 1.2.
+Reduced motion cuts straight to black, holds 0.3 seconds and crossfades into
+the scene over 0.3. The times are `WAKE_FADE` in `title-intro.mjs`.
 The title's card is the avatar's own card: as the title leaves, by its turn or
 by Escape, that card is uncovered in the hand (`onTitleWake`), face up with no
 second flip and announced as a new card. Skipping counts as the reveal. The
@@ -1018,7 +1038,7 @@ Run `node v2/scripts/smoke-card-combat.mjs` for a lost battle at desktop, phone 
 
 Card selection keeps the current card elements in place and leaves keyboard focus on the tapped card. The hand opens over 220 milliseconds; held items slide out from their owner. A play leaves the hand where it is: a raised hand stays raised and keeps its scroll, and a play in the same place refreshes the cards in place. Travel changes the cards while the scene veil is down. Rapid taps reverse the current motion. Reduced motion applies the final layout at once. Menu and Memory keep the selected cards and open items, and Escape closes the active panel before lowering the hand. Only a click on empty table space (the stage, outside the cards and the dialogue; not the toolbar or action beat) or Escape folds the hand to its resting row; a play never does. Both clear the selection, held items included, so the action beat fades and the full dialogue card comes back; a play already chosen keeps its Thinking card. A tap on the dialogue steps its beat and leaves a raised hand raised. Nothing but the player's own action moves the hand: new beats, shared updates and another tab's save leave it, and its scroll, as they were (a card that leaves the table drops out of the selection). Selecting, changing the pair and deselecting keep it open, as does a tap on empty hand space. The hand has no scroll arrows: a swipe, drag or wheel reaches cards past its faded edges. A held item stays raised with its plays, and any tap on the folded hand opens it again. Short landscape screens keep the hand inside the viewport.
 
-A ready play is an action beat, shown only while the player is choosing (`presentation.mjs`, [dialogue beats](../docs/card-table/dialogue-beats.md#what-is-in-front)): never over a line still being written, which keeps its full-size card, and never over the rest of an exchange. A choice made meanwhile comes forward once the lines are read. A ready play's beat is a card in front of the dialogue with small cards of who acts and what it acts on (the chosen cards, or the place for Wait), what the play will do ("Vale gives the Burial Decree to Creon.") and its buttons, square-cornered like the beat cards, as on any screen width. The plain Wait is offered only when the selection has nothing else to do: the Forest Clearing's card rings the Steam Clock, Vale's own card still waits, and Sleep or "sleep on" is never dropped. Aboard a ship under way (course set or at sea) the Wait reads **Sail** ("Vale sails on."), the words the pack gives the transport (`waitVerb`, `waitSentence`), because each round passed carries the voyage on; a docked ship keeps Wait, and the rules action and journal stay `wait` ([#2027](https://github.com/cenetex/cosyworld/issues/2027)). The spoken beat fades into the slot behind it, one dimmed line, and comes back to the front when the play is chosen, which leaves the beat for its Thinking card; a held item's next plays return when the player raises the hand or chooses again. Nothing lies between the dialogue and the hand, and the hand never moves for the beat. A strike or journey hides it while the dialogue steps aside. The status line (#1725) sits in the action beat, above the buttons; a shared refusal that lands while a line is being written waits for the line. Captions name a thing with one article: "Vale took the Burial Decree". `node v2/scripts/smoke-card-action-spot.mjs` checks the beat at 1440, 1900, 765, 390 and 844 px, with reduced motion at 390 and 844.
+A ready play is an action beat, shown only while the player is choosing (`presentation.mjs`, [dialogue beats](../docs/card-table/dialogue-beats.md#what-is-in-front)): never over a line still being written, which keeps its full-size card, and never over the rest of an exchange. A choice made meanwhile comes forward once the lines are read. A ready play's beat is a card in front of the dialogue with small cards of who acts and what it acts on (the chosen cards, or the place for Wait), what the play will do ("Vale gives the Burial Decree to Creon.") and its buttons, square-cornered like the beat cards, as on any screen width. The plain Wait is offered only when the selection has nothing else to do: the Forest Clearing's card rings the Steam Clock, Vale's own card still waits, and Sleep or "sleep on" is never dropped. Aboard a ship under way (course set or at sea), choosing the ship's card, alone or with Vale's, reads **Sail** ("Vale sails on."), the words the pack gives the transport (`waitVerb`, `waitSentence`), because each round passed carries the voyage on. Vale's card alone still reads Wait ("Vale waits one turn."), and Sleep is never offered aboard. A docked ship keeps Wait for every selection, and the rules action and journal stay `wait` either way ([#2027](https://github.com/cenetex/cosyworld/issues/2027)). The spoken beat fades into the slot behind it, one dimmed line, and comes back to the front when the play is chosen, which leaves the beat for its Thinking card; a held item's next plays return when the player raises the hand or chooses again. Nothing lies between the dialogue and the hand, and the hand never moves for the beat. A strike or journey hides it while the dialogue steps aside. The status line (#1725) sits in the action beat, above the buttons; a shared refusal that lands while a line is being written waits for the line. Captions name a thing with one article: "Vale took the Burial Decree". `node v2/scripts/smoke-card-action-spot.mjs` checks the beat at 1440, 1900, 765, 390 and 844 px, with reduced motion at 390 and 844.
 
 Run `node v2/scripts/smoke-card-actions.mjs` for Chromium controls, or `CARD_BROWSER=webkit node v2/scripts/smoke-card-actions.mjs` for WebKit. The checks cover desktop, phone, short landscape, reduced motion, fast taps, panel dismissal, and save updates.
 
