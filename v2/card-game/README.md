@@ -718,21 +718,30 @@ Schema 6 saves include location changes, favours and lasting memories. Earlier s
 
 Every new world on Lonely Forest opens black, then shows the land
 acknowledgement (`title-intro.mjs`, started from `entry.mjs`), silent, while
-the table boots underneath. Its text is data in `acknowledgement.json`: five
+the table boots underneath. Its text is data in `acknowledgement.json`: six
 stanzas, each a list of lines, set like a film's opening card with generous
 leading, and nothing else. Each line shows as written; on a narrow phone a long
 line wraps under a hanging indent. The
 text writes in with the dialogue's own reveal (`dialogue.mjs`) at the
 dialogue's pace: a letter every 28 ms behind a gold caret, each letter's ink
 fading in over 60 ms, the same rests after punctuation, and 650 ms between
-stanzas (`STANZA_MS`). Ten weighty words hold a breath of their own
-(300–350 ms after "land", "peoples", "still", "keepers", "living", "us",
-"own", "us", "box" and "yours"): `pauses` in `acknowledgement.json` names each
-word, which time it appears and its `pauseMs`, and the larger of that and
-any punctuation or stanza breath wins. About 18 seconds in all. Every
+stanzas (`STANZA_MS`). Eight held words keep a breath of their own
+(300–350 ms after "land", "peoples", "still", "keepers", "living", "Nothing",
+"box" and "yours"), and one long silence (1.8 s) falls after "Nothing here
+began with us." before "Behold": `pauses` in `acknowledgement.json` names each
+word, which time it appears, its `pauseMs` and, for a held word, its card
+rarity `tier` (`level-tiers.mjs`); the larger of that and any punctuation or
+stanza breath wins. About 21 seconds in all. The tiers climb as the poem goes,
+from Common ("land", "peoples") to Mythic ("yours"). Each held word, once
+written, takes a gentle tint of its tier's colour with a soft 6 px glow that
+rises over `glowInMs`, holds for `glowHoldMs` of the reveal, then fades back
+over `glowFadeMs`, like a lamp passing, so one or two glow at a time. Once the
+text is whole only "yours" (`"stays": true`) keeps its glow; a tap that shows
+the rest goes straight there. Every
 letter is laid out from the start, so nothing reflows and screen readers have
 the whole text at once; written whole, it folds back into plain text. Reduced
-motion shows it all at once, and a hidden tab pauses it. A quiet "click to
+motion shows it all at once, with only the still tint on "yours", and a
+hidden tab pauses it. A quiet "click to
 continue" line ("tap to continue" on touch screens) fades in once the words
 are whole; the panel scrolls when it does not fit. The line is a button with no chrome that takes focus, with a ring
 only from the keyboard. A tap or click anywhere, or a key (the arrows scroll),
