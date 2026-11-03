@@ -1,4 +1,4 @@
-import { playNewWorldIntro } from "./title-intro.mjs";
+import { nameTitleWaker, playNewWorldIntro } from "./title-intro.mjs";
 import { imageUrl } from "./images.mjs";
 import { cardLevel, levelTier, romanLevel } from "./rarity.mjs";
 import { arriveCard, finishCardReveal, revealCard } from "./card-reveal.mjs";
@@ -4038,6 +4038,7 @@ $("confirm-reset").onclick = () => {
   save();
   $("reset-dialog").close();
   playNewWorldIntro();
+  nameTitleWaker(nameOf(currentActor(world)));
   resumeScene();
 };
 window.addEventListener("storage", (event) => {
@@ -4526,4 +4527,6 @@ if (sharedSession) {
   adoptShared(sharedSession.state);
   setInterval(syncSharedLine, 200);
 }
+// The title's Wake button names the avatar this world opens with.
+nameTitleWaker(nameOf(currentActor(world)));
 resumeScene();

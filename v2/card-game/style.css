@@ -2802,3 +2802,34 @@ main > .dialogue {
     width: calc(100vw - 32px);
   }
 }
+.title-intro[data-phase="wake"] {
+  cursor: default;
+}
+/* The first tap lifts the logo; Wake enters the world. */
+.title-wake {
+  position: absolute;
+  top: 62%;
+  left: 50%;
+  translate: -50% 0;
+  padding: 12px 28px;
+  border: 1px solid rgba(255, 244, 220, 0.55);
+  border-radius: 999px;
+  background: rgba(255, 244, 220, 0.08);
+  color: #fff4dc;
+  font: 1.15rem Georgia, serif;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  opacity: 0;
+}
+@media (max-width: 640px) {
+  .title-wake {
+    top: 52%;
+  }
+}
+.title-wake:hover {
+  background: rgba(255, 244, 220, 0.16);
+}
+.title-wake:focus-visible {
+  outline: 2px solid #fff4dc;
+  outline-offset: 3px;
+}

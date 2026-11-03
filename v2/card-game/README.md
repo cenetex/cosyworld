@@ -693,14 +693,25 @@ Schema 6 saves include location changes, favours and lasting memories. Earlier s
 
 ### New-world title
 
-Every new world on Lonely Forest opens black, fades in
-that world's logo, holds it for
-about three and a half seconds, then fades to the table: about six seconds in
-all (`title-intro.mjs`, started from `entry.mjs`; it was about four seconds
-with a two-second hold). The table boots and asks for
-Vale's opening line underneath it. A tap, click or key skips to the attic.
-Reduced motion crossfades without scaling. The image loads before it fades in;
+Every new world on Lonely Forest opens black and fades in that world's logo
+(`title-intro.mjs`, started from `entry.mjs`). The logo then holds, silent,
+while the table boots and asks for Vale's opening line underneath it. The
+player's first tap, click or key on the title starts the title song, lifts the
+logo, and shows a **Wake Vale** button named for the avatar this world opens
+with (the joining avatar in a shared world). The button takes focus, so Enter
+or Space presses it. Wake fades the song out over a second and fades the title
+to the attic. Escape skips straight in at any point and fades the song the same
+way. If the player never presses Wake, the song plays once to its end and the
+button stays. Browsers refuse sound before a gesture, so the title waits for
+one instead of playing music on load. Reduced motion crossfades the logo
+without scaling and moves it up at once. The image loads before it fades in;
 if it does not load within 2.5 seconds the black fades straight to the table.
+
+The song is _The Attic Keeps Its Lamp × Moonstone Sanctum_
+(`assets/music/title-attic-lamp.mp3`, `title-song.mjs`). It follows the saved
+music switch and volume: with music off the title and Wake work in silence.
+It downloads only after that first gesture. Room music keeps its own rules
+(see Music below): the attic stays silent until the pond reveal.
 A new world is the bare address with no save and no last-played world, New
 game on the local table, or a shared world this browser just created or joined
 an avatar to (`avatar-menu.mjs` stores its id in `cosyworld.title-intro`, and
@@ -719,7 +730,8 @@ not a button. Other sites' landings and the local CosyWorld app keep
 the COSYWORLD wordmark.
 Automated browsers skip it unless the address has `intro=1`;
 `v2/scripts/smoke-card-title-intro.mjs` plays it at desktop and phone width,
-including after New game.
+including after New game, music off and reduced motion
+(`TITLE_INTRO_SHOTS=<dir>` saves its screenshots there).
 
 New browser tables and shared worlds use `createWorld({ opening: true })`.
 Vale starts alone in the lamplit attic with a lit lamp; the mirror shows only
@@ -985,6 +997,8 @@ The dialogue service gives the model a plain account of every recorded trip and 
 Run `node v2/scripts/smoke-card-pond-access.mjs` to check lamp custody, quiet departures, both mirror directions (douse to leave, hold it lit at the pond to return), the lit and doused attic paintings, reload and relighting at desktop and phone widths. Run `node v2/scripts/smoke-card-dialogue-timing.mjs` to check the first loading speaker, card locks through each reply, and the cast after quiet actions. Run `node v2/scripts/smoke-card-beat-stack.mjs` to check the beat stack at desktop and phone widths, with and without reduced motion: a new beat arriving in front, tapping behind to step back, tapping the front card to finish a line or step forward, the live count, and Memory. Run `node v2/scripts/smoke-card-movement.mjs` to check visible entrances, the travel screen, arrival beat captions, and reset during travel with fast and delayed replies. The card table still keeps its rules and inventory in the browser; `/card-game/text` only generates validated text and does not authorize movement.
 
 Run `node v2/scripts/smoke-card-dialogue-recovery.mjs` to check visible service failures, same-turn retry, incomplete responses, later plays and reload at desktop and phone widths. It uses local fixture responses and makes no model calls.
+
+The new-world title plays its own song between the first tap and Wake (see New-world title); it never starts or stops room music.
 
 Music loading starts when playback is ready: after the first accepted play
 (in the attic opening, the pond reveal), with music enabled and the page visible. A place triggers a song when music

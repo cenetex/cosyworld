@@ -128,5 +128,10 @@
     "file": "assets/music-stream/station-2.mp3",
     "offset": 25032,
     "sourceHash": "67648d54c0ceefd1911079f5f842663f6c0cd4f5dc7da309807e4e63a4b1213d"
+  },
+  "assets/music/title-attic-lamp.mp3": {
+    "file": "assets/music-stream/title-attic-lamp.mp3",
+    "offset": 147,
+    "sourceHash": "e3bd0cce79a0830e376a79453caa1213ae8cc1fee597e590567af6b8017cb0bc"
   }
 }

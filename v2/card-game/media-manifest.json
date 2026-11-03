@@ -2,6 +2,7 @@
   "assets/card-back.webp": "8acc1349faa332899cf4123c2c308489c3c3ffe9b0c9c528f46d76d81caec29f",
   "assets/title/lonely-forest-1.webp": "3161ccea9069db55962972a01da5be0e62d5faf5d6a8d4e29206293aa89986aa",
   "assets/title/lonely-forest-2.webp": "89dbb2d6ee35c97f53710a2d1407d5d7f9673938dfc6541e66ea741792e4b770",
+  "assets/music/title-attic-lamp.mp3": "e3bd0cce79a0830e376a79453caa1213ae8cc1fee597e590567af6b8017cb0bc",
   "assets/rest/short-rest.webp": "061729cfd13b522f484185c365d375192d7220ff79bc150d2ef2800fa3427e5e",
   "assets/rest/long-rest.webp": "9cd6aea86be840fd030bfaf584c8b4f6c30641bbb104090840f92fb6d50a6a0e",
   "assets/shared/characters/vale-sleeping.webp": "565e0d457a8d00296df1c1cf19b31e4a73cb2125f4ba6c3c846daa3cb695d998",
@@ -1983,5 +1984,6 @@
   "assets/music-stream/ship-4.mp3": "953d1a405aa326367bf4152d1bbdab4590dee471baa0e803763b0413500523e1",
   "assets/music-stream/small-change-tall-stories.mp3": "a722fbf97dcfd5664b0b49dfe6e6b73ec7fdc3e2fbd7380322d647fe5601b82f",
   "assets/music-stream/station-1.mp3": "fc41ebde786f7eb956d7a8ecef4cc403b0546fd6e2b7497061c552541ee23315",
-  "assets/music-stream/station-2.mp3": "5fb6202caa89dcbe4a81def6e0ec2a846cb4e53ffd953e676ec367400455e3c8"
+  "assets/music-stream/station-2.mp3": "5fb6202caa89dcbe4a81def6e0ec2a846cb4e53ffd953e676ec367400455e3c8",
+  "assets/music-stream/title-attic-lamp.mp3": "bae675afdb05ce2396f7aa5f05163171e1a34a21f5a205c600be7486be61438e"
 }

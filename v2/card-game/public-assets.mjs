@@ -38,6 +38,7 @@ const files = [
   // The new-world title (title-intro.mjs).
   "assets/title/lonely-forest-1.webp",
   "assets/title/lonely-forest-2.webp",
+  "assets/music/title-attic-lamp.mp3",
   // Rest card paintings for issue #1849; the rest-card feature follows.
   "assets/rest/short-rest.webp",
   "assets/rest/long-rest.webp",
@@ -191,6 +192,7 @@ const files = [
   "title-intro.mjs",
   "title-logo.mjs",
   "title-logos.json",
+  "title-song.mjs",
   "local-service.mjs",
   "local-saves.mjs",
   "combat.css",
