@@ -106,21 +106,26 @@ export function createTitleSong({
         return false;
       }
     },
-    // Wake or skip: fade out, then stop for good.
+    // Wake or skip: fade out, then stop for good. Settles once it is silent.
     stop(seconds = 1) {
-      if (stopped) return;
+      if (stopped || !audio) {
+        stopped = true;
+        return Promise.resolve();
+      }
       stopped = true;
-      if (!audio) return;
       doc?.removeEventListener?.("visibilitychange", onVisibility);
       try {
         ramp(0, seconds);
       } catch {}
-      setTimeout(() => {
-        try {
-          audio.pause();
-          void context?.close?.().catch(() => {});
-        } catch {}
-      }, seconds * 1000);
+      return new Promise((resolve) =>
+        setTimeout(() => {
+          try {
+            audio.pause();
+            void context?.close?.().catch(() => {});
+          } catch {}
+          resolve();
+        }, seconds * 1000),
+      );
     },
     get audio() {
       return audio;

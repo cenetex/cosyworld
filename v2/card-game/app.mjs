@@ -1,4 +1,8 @@
-import { nameTitleWaker, playNewWorldIntro } from "./title-intro.mjs";
+import {
+  nameTitleWaker,
+  playNewWorldIntro,
+  titleMusicHold,
+} from "./title-intro.mjs";
 import { imageUrl } from "./images.mjs";
 import { cardLevel, levelTier, romanLevel } from "./rarity.mjs";
 import { arriveCard, finishCardReveal, revealCard } from "./card-reveal.mjs";
@@ -917,8 +921,24 @@ function musicRevealed() {
   } catch {}
   return true;
 }
+// No room music under the new-world title or while its song fades: the
+// title's own gesture would otherwise start it beneath the song. Then the
+// rules above apply.
+let titleHolding = false;
+function holdMusicForTitle() {
+  const hold = titleMusicHold();
+  if (!hold) return;
+  titleHolding = true;
+  hold.then(() => {
+    if (titleMusicHold()) return;
+    titleHolding = false;
+    music.setStarted(musicHasStarted());
+    hum.setStarted(musicHasStarted());
+  });
+}
+holdMusicForTitle();
 function musicHasStarted() {
-  return musicPlayed() && musicRevealed();
+  return !titleHolding && musicPlayed() && musicRevealed();
 }
 try {
   const saved = JSON.parse(localStorage.getItem("cosyworld.room-music"));
@@ -4078,6 +4098,7 @@ $("confirm-reset").onclick = () => {
   save();
   $("reset-dialog").close();
   playNewWorldIntro();
+  holdMusicForTitle();
   nameTitleWaker(nameOf(currentActor(world)));
   resumeScene();
 };

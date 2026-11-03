@@ -4,6 +4,7 @@ import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
 import { startNewGame } from "./card-browser-helpers.mjs";
 import { TITLES } from "../card-game/title-intro.mjs";
+import { checkTitleMusicAlone } from "./title-music-alone.mjs";
 
 // A new world opens with a silent Lonely Forest title over the booting table.
 // The first tap or key starts the title song, lifts the logo and shows Wake;
@@ -264,6 +265,7 @@ try {
   await gone(quiet, 1000);
   await quiet.waitForSelector("#hand .card");
   await reduced.close();
+  await checkTitleMusicAlone(browser, origin);
   console.log(`Title intro smoke passed. Screenshots: ${shots.join(", ")}`);
 } finally {
   await browser.close();
