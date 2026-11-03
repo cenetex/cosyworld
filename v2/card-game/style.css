@@ -2882,28 +2882,27 @@ main > .dialogue {
   }
 }
 /* Each line as written; a line too long for a phone wraps under a hanging
-   indent, so it still reads as one line of the poem. */
+   indent, so it still reads as one line of the poem, its rows balanced so
+   no word ("box,") is left alone. */
 .title-ack-line {
   display: block;
   padding-left: 1.2em;
   text-indent: -1.2em;
+  text-wrap: balance;
 }
-/* The words it pauses on take a gentle tint of their rarity tier's colour
-   (level-tiers.mjs), climbing as the poem goes, with a soft, low glow. It
-   rises as the word is written and fades back slowly as the reveal moves
-   on, like a lamp passing; the last word keeps it. Every tint stays far
-   above AA contrast on the black. Reduced motion shows only the last word's
-   tint, still. */
+/* The phrases it pauses on take a gentle tint of their rarity tier's colour
+   (level-tiers.mjs), climbing as the poem goes, with a soft, low glow. The
+   tint rises as a phrase's last letter writes, and stays: all eight light the
+   finished poem, so it is kept calm, well above AA contrast on the black.
+   Reduced motion shows the tint still, with no glow. */
 .title-ack-glow {
   transition:
-    color var(--glow-fade, 1200ms) ease-out,
-    text-shadow var(--glow-fade, 1200ms) ease-out;
+    color var(--glow-in, 350ms) ease,
+    text-shadow var(--glow-in, 350ms) ease;
 }
 .title-ack-glow[data-lit] {
-  color: color-mix(in srgb, var(--tier-color) 55%, #fff4dc);
-  text-shadow: 0 0 6px color-mix(in srgb, var(--tier-color) 40%, transparent);
-  transition-duration: var(--glow-in, 350ms);
-  transition-timing-function: ease;
+  color: color-mix(in srgb, var(--tier-color) 45%, #fff4dc);
+  text-shadow: 0 0 5px color-mix(in srgb, var(--tier-color) 30%, transparent);
 }
 @media (prefers-reduced-motion: reduce) {
   .title-ack-glow,

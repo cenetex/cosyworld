@@ -735,17 +735,26 @@ stanzas (`STANZA_MS`). Eight held words keep a breath of their own
 "box" and "yours"), and one long silence (1.8 s) falls after "Nothing here
 began with us." before "Before you sits": `pauses` in `acknowledgement.json`
 names each word, which time it appears, its `pauseMs` and, for a held word,
-its card rarity `tier` (`level-tiers.mjs`); the larger of that and any punctuation or
-stanza breath wins. About 20 seconds in all. The tiers climb as the poem goes,
-from Common ("land", "peoples") to Mythic ("yours"). Each held word, once
-written, takes a gentle tint of its tier's colour with a soft 6 px glow that
-rises over `glowInMs`, holds for `glowHoldMs` of the reveal, then fades back
-over `glowFadeMs`, like a lamp passing, so one or two glow at a time. Once the
-text is whole only "yours" (`"stays": true`) keeps its glow; a tap that shows
-the rest goes straight there. Every
+its card rarity `tier` (`level-tiers.mjs`) and the `phrase` around it that
+lights; the larger of that and any punctuation or
+stanza breath wins. About 20 seconds in all. The tiers climb as the poem goes:
+Common "there was land" and "there were peoples", Uncommon "care for them
+still" and "the keepers", Rare "the voices old and living", Epic "Nothing here
+began with us.", Legendary "an intricately carved wooden box" and Mythic "The
+path is yours.". Each phrase, once its last letter is written, takes a gentle
+tint of its tier's colour (45% of the tier over the text's cream) with a soft
+5 px glow (the tier at 30%) that rises over `glowInMs` and stays, so the
+finished poem shows all eight, calm and well above AA contrast; a tap that
+shows the rest lights them all at once. While it writes, every other letter
+blips in the dialogue's own voice (`createSpeechSounds`, the neutral 145 Hz
+voice of a speaker with no pitch of their own), with the table's Voices
+setting, none on rests, under reduced motion or in a hidden tab. The blips
+play once audio is unlocked: a new world from the menu hears them from the
+first letter; a first visit, before any gesture, is silent, and the first
+tap shows the rest and starts the song, which stops the blips. Every
 letter is laid out from the start, so nothing reflows and screen readers have
 the whole text at once; written whole, it folds back into plain text. Reduced
-motion shows it all at once, with only the still tint on "yours", and a
+motion shows it all at once, with every phrase's tint still and no glow, and a
 hidden tab pauses it. A quiet "click to
 continue" line ("tap to continue" on touch screens) fades in once the words
 are whole; the panel scrolls when it does not fit. At a large text size
