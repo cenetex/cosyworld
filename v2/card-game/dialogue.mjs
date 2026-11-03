@@ -354,6 +354,8 @@ export function createExchange({
 }
 
 // Keep one explicit next play. The world checks its revision when it runs.
+// `ready(action)` decides when it may run, so a play can wait on words still
+// coming for the play before it.
 export function createPlayQueue({ ready, play, changed = () => {} }) {
   let pending = null;
   function clear() {
@@ -362,7 +364,7 @@ export function createPlayQueue({ ready, play, changed = () => {} }) {
     changed(null);
   }
   function flush() {
-    if (!pending || !ready()) return false;
+    if (!pending || !ready(pending.action)) return false;
     const next = pending;
     clear();
     play(next.action, next.revision);

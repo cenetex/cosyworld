@@ -70,4 +70,32 @@ describe("plays queued during dialogue", () => {
     expect(results[0].ok).toBe(false);
     expect(results[0].state.turn).toBe(1);
   });
+
+  it("holds a next play behind the last play's late words, never dropping them", () => {
+    // Local play: the app's ready() waits while the committed play's words
+    // are still pending, as the shared seat does. A quest choice takes no
+    // turn and never waits.
+    let words = "pending";
+    const log = [];
+    const queue = createPlayQueue({
+      ready: (action) => action.kind === "focus" || words !== "pending",
+      play: (action) => log.push(`play ${action.key}`),
+    });
+    queue.submit({ key: "focus", kind: "focus" }, 1);
+    expect(log).toEqual(["play focus"]);
+    queue.submit({ key: "Q", kind: "wait" }, 1);
+    expect(log).toEqual(["play focus"]);
+    expect(queue.pending.action.key).toBe("Q");
+    // P's late line lands first, then the waiting play runs.
+    log.push("P's line");
+    words = "ready";
+    expect(queue.flush()).toBe(true);
+    expect(log).toEqual(["play focus", "P's line", "play Q"]);
+    // Words that failed free the next play too; it asks again.
+    words = "pending";
+    queue.submit({ key: "R", kind: "wait" }, 2);
+    words = "retry";
+    queue.flush();
+    expect(log.at(-1)).toBe("play R");
+  });
 });
