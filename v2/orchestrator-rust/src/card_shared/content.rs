@@ -88,7 +88,7 @@ pub(super) fn preload(c: &Connection, pack: &str) -> Result<()> {
     Ok(())
 }
 
-/// This binary's content less what rules 86 and 91 added (hiding places,
+/// This binary's content less what rules 86, 91 and 94 added (hiding places,
 /// `live` routes, `gate_open`, a transport's `waitVerb` and `waitSentence`),
 /// which earlier released rules refuse. Tests that seed
 /// a world on those rules read it. The cut keeps every other byte in order.
@@ -104,6 +104,9 @@ pub(super) fn released() -> &'static str {
     static HASH: OnceLock<String> = OnceLock::new();
     HASH.get_or_init(|| {
         let mut text = CURRENT.replace("\"live\":true,", "");
+        // A route that only follows an opened gate (rules 94) becomes the
+        // plain way it was before.
+        cut(&mut text, ",\"requires\":[{\"kind\":\"gate_open\"", "}]");
         cut(&mut text, ",\"hiding\":{\"pool\":[", "]}");
         cut(&mut text, ",{\"kind\":\"gate_open\"", "}");
         cut(&mut text, ",\"waitVerb\":\"", "\"");

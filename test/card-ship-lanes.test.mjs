@@ -9,7 +9,10 @@ import {
 } from "../v2/card-game/world.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import { narrativeContext } from "../v2/card-game/narrative.mjs";
-import { knowsLane, summonTransport } from "../v2/card-game/pack-transport.mjs";
+import {
+  knowsLane,
+  summonTransport,
+} from "../v2/card-game/pack-transport.mjs";
 import { knowsFact } from "../v2/card-game/knowledge.mjs";
 import { openDoorStart, openSeas } from "./helpers/open-door.mjs";
 
@@ -69,9 +72,9 @@ describe("knowing a lane is personal", () => {
     expect(knowsLane(s, "vale", "pond", "greek-harbor")).toBe(true);
     expect(knowsLane(s, "vale", "greek-harbor", "pond")).toBe(true);
     expect(knowsLane(s, "mara", "greek-harbor", "greek-piraeus")).toBe(false);
-    expect(
-      knowsLane(s, "greek-antigone", "greek-harbor", "greek-piraeus"),
-    ).toBe(true);
+    expect(knowsLane(s, "greek-antigone", "greek-harbor", "greek-piraeus")).toBe(
+      true,
+    );
     for (const [from, to] of [
       ["greek-harbor", "greek-piraeus"],
       ["greek-marathon", "greek-ajax-landing"],
@@ -82,10 +85,8 @@ describe("knowing a lane is personal", () => {
   // Every lane past the Wine-Dark Harbor now opens with a thing aboard or a
   // story dock, so knowing one changes what Myrto tells, not the course cards.
   it("everyone who sails a lane learns it, both ways", () => {
-    let s = dispatchShared({
-      op: "create",
-      save: encodeSave(openSeas()),
-    }).world;
+    let s = dispatchShared({ op: "create", save: encodeSave(openSeas()) })
+      .world;
     for (const id of players) s.actors[id].place = "greek-piraeus";
     // The roaming Bard may be aboard, bound for Marathon Bay; set him ashore.
     if (s.actors["greek-rhapsode"].place === "greek-ship") {
