@@ -959,8 +959,12 @@ export function createNarrator({
         const next = applyGeneratedText(getWorld(), context, response, {
           incremental: early,
         });
+        // `code` lets the table count a reply the scene had outgrown.
         if (!next)
-          throw new Error("The story response did not match this scene.");
+          throw Object.assign(
+            new Error("The story response did not match this scene."),
+            { code: "mismatch" },
+          );
         preview(null);
         apply(next, { silent: silentSpeakers(context, response, next) });
         status("ready");
