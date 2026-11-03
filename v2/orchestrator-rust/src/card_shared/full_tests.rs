@@ -3060,7 +3060,8 @@ fn refused_words_fail_the_play_at_once_instead_of_holding_the_seat() {
     let work = full::take_work(&app, &id).unwrap().unwrap();
     let committed = full_store::world(&c, &id, now()).unwrap();
     // A speaker who is not in the room: the rules refuse the speech op.
-    let lines = json!([{"speaker":"Nobody","actorId":null,"entityId":"no-such-room","text":"Hello."}]);
+    let lines =
+        json!([{"speaker":"Nobody","actorId":null,"entityId":"no-such-room","text":"Hello."}]);
     full::publish(&app, &id, work, Ok(lines)).unwrap();
     let (status, result): (String, String) = c
         .query_row(
@@ -3071,8 +3072,14 @@ fn refused_words_fail_the_play_at_once_instead_of_holding_the_seat() {
         .unwrap();
     assert_eq!(status, "failed");
     let scene: Value = serde_json::from_str(&result).unwrap();
-    assert_eq!(scene["error"], "The play is saved. Its words need another moment.");
+    assert_eq!(
+        scene["error"],
+        "The play is saved. Its words need another moment."
+    );
     // The committed play stays; the seat is free for Retry or a new play.
-    assert_eq!(full_store::world(&c, &id, now()).unwrap().game, committed.game);
+    assert_eq!(
+        full_store::world(&c, &id, now()).unwrap().game,
+        committed.game
+    );
     assert!(full::take_work(&app, &id).unwrap().is_none());
 }
