@@ -90,6 +90,13 @@ Beats are cards in depth, not rows in a scroll:
   forward, or to finish the line at once while it is still being written.
 - One "● live" control appears only when the player is behind live. It counts
   the newer beats: "● live · 3". There are no previous and next arrows.
+- A new line never pulls a player who stepped back forward: it raises the
+  live count, and the exchange waits to write it until they return. Only the
+  player's own play or a journey returns them to live.
+- The stack holds the whole current visit, as far as the log window reaches
+  (the latest 100 rule events and 100 lines), so the last exchange stays a
+  few steps back after the next play. A journey starts a new visit; earlier
+  visits are in Memory.
 - Desktop also steps with ↑ and ↓ and the wheel over the stack. Phones swipe:
   down brings the earlier card forward, up steps toward live.
 - Steps fade and settle in about 300 ms, eased out, with 2D transform and
