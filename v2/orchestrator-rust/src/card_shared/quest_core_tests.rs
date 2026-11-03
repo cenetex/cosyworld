@@ -175,7 +175,7 @@ fn quest_history_upgrade(version: &str, speeches: usize) {
 }
 
 #[test]
-fn quest_core_talk_disclosure_retries_the_original_scene_and_replays_accepted_learning() {
+fn quest_core_talk_disclosure_waits_for_published_speech_and_replays_accepted_learning() {
     let (path, c, id, _) = fixture(engine::VERSION);
     full::run(&c, &id, "user0", &command("claim", ""), now()).unwrap();
     let before = full_store::world(&c, &id, now()).unwrap();
@@ -202,17 +202,7 @@ fn quest_core_talk_disclosure_retries_the_original_scene_and_replays_accepted_le
         interrupted.game["packs"]["greek-drama"]["receipts"]["greek-hear-decree"],
         played_turn
     );
-    full::finish_work(&app, &id, work, Err("The voice needs another try.".into())).unwrap();
-    assert_eq!(full_store::world(&c, &id, now()).unwrap(), interrupted);
-    full::run(
-        &c,
-        &id,
-        "user0",
-        &command("retry", "quest-core-talk-request"),
-        now(),
-    )
-    .unwrap();
-    let retry = full::take_work(&app, &id).unwrap().unwrap();
+    let retry = work;
     assert_eq!(retry.room, "greek-gate");
     assert_eq!(retry.context["turn"], played_turn);
     assert_eq!(retry.context["context"]["disclosures"], disclosures);

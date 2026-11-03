@@ -12,17 +12,14 @@ export function phase({
   revealing = false,
   inFlight = false,
   lingering = false,
-  failed = false,
   raised = false,
   chosen = false,
   rested = false,
 } = {}) {
   if (revealing) return "revealing";
   if (inFlight && !lingering) return "thinking";
-  // A later play also asks again for words that failed, so a choice comes
-  // forward over a failed scene.
+  // Words that fail are "…" like any line, so they never hold a choice.
   if (raised && chosen && !rested) return "choosing";
-  if (failed) return "failed";
   // Stepping back never hides a choice: the earlier beat steps behind it.
   if (reviewing) return "reviewing";
   return "idle";

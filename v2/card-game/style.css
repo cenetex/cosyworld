@@ -549,27 +549,6 @@ main {
     animation: none;
   }
 }
-#story-error {
-  color: var(--muted);
-  font-size: 14px;
-}
-body .dialogue-heading #story-retry {
-  width: auto;
-  height: 28px;
-  min-width: 28px;
-  min-height: 28px;
-  padding: 0 4px;
-  border: 0;
-  border-radius: 4px;
-  background: transparent;
-  color: var(--muted);
-  font-size: 14px;
-  line-height: 1;
-}
-body .dialogue-heading #story-retry:hover,
-body .dialogue-heading #story-retry:focus-visible {
-  color: var(--ink);
-}
 @keyframes speech-blink {
   50% {
     opacity: 0;
@@ -2066,11 +2045,6 @@ body .beat-live {
 }
 #speech-row[data-beat="action"] .dialogue-heading {
   min-height: 0;
-}
-#speech-row[data-beat="action"]:has(#story-error:not([hidden])) {
-  grid-template-areas: "portrait line" "heading heading";
-  grid-template-columns: 28px minmax(0, 1fr);
-  grid-template-rows: auto auto;
 }
 .beat-stack .beat-front[data-beat="silent"] #dialogue-text {
   color: var(--muted);

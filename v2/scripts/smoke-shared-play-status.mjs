@@ -285,7 +285,7 @@ async function check(width) {
     assert.deepEqual(cancels, [keys.at(-1)]);
     await thinkingIs("");
 
-    // A retrying play is committed: cancelling stops waiting for its line,
+    // A resuming play is committed: cancelling stops waiting for its line,
     // keeps the play and shows its caption with no line or error.
     await chooseWait();
     await wait.click();
@@ -313,8 +313,7 @@ async function check(width) {
     await page.waitForTimeout(600);
     // The committed play's effect is inscribed on the card in front.
     assert.match(await page.locator("#beat-captions").innerText(), /waited/);
-    assert(await page.locator("#story-error").isHidden());
-    assert(await page.locator("#story-retry").isHidden());
+    assert.equal(await page.locator("#story-retry, #story-error").count(), 0);
     const text = await page.locator("body").innerText();
     assert.doesNotMatch(text, /undone|withdrawn|cancelled/i);
     assert.equal(world.turn, 2);

@@ -260,7 +260,7 @@ describe("shared room dialogue clock", () => {
   });
 });
 
-describe("shared speech recovery", () => {
+describe("shared words that fail", () => {
   const failed = {
     play: "play1",
     actor: "vale",
@@ -270,32 +270,44 @@ describe("shared speech recovery", () => {
   };
   const state = {
     actor: "vale",
-    world: { turn: 4 },
+    world: { turn: 4, log: [{ seq: 7, turn: 4 }] },
     queue: [],
     history: [failed],
   };
-  it("offers the actor a server retry for the saved play", () => {
-    expect(sharedSpeechState(state, "pond")).toEqual({
-      status: "retry",
-      retryKey: "play1",
-    });
-  });
-  it("keeps recovery tied to the room, actor, turn and queue", () => {
-    expect(sharedSpeechState(state, "station").status).toBe("ready");
-    expect(
-      sharedSpeechState({ ...state, actor: "mara" }, "pond").retryKey,
-    ).toBeNull();
-    expect(
-      sharedSpeechState({ ...state, world: { turn: 5 } }, "pond").retryKey,
-    ).toBeNull();
-    expect(
-      sharedSpeechState({ ...state, queue: [{ status: "waiting" }] }, "pond")
-        .retryKey,
-    ).toBeNull();
+  it("never offer a retry: the room is ready or its words are on the way", () => {
+    expect(sharedSpeechState(state, "pond")).toEqual({ status: "ready" });
     expect(
       sharedSpeechState({ ...state, queue: [{ status: "working" }] }, "pond")
         .status,
     ).toBe("pending");
+  });
+  it("show a silent scene's speakers as … after the play's last event", () => {
+    const silent = {
+      play: "play2",
+      actor: "vale",
+      room: "pond",
+      turn: 4,
+      lines: [],
+      silent: ["vale", "moth"],
+      after: 7,
+      starts_at: 10,
+      until_at: 10,
+    };
+    const lines = sharedSilentLines({ ...state, history: [silent] }, "pond");
+    expect(lines.map((line) => [line.actorId, line.text, line.seq])).toEqual([
+      ["vale", "…", 7.1],
+      ["moth", "…", 7.2],
+    ]);
+    expect(lines.every((line) => line.silent)).toBe(true);
+  });
+  it("show an older failed record as … for its player, never its error", () => {
+    const old = { ...failed, lines: [], after: 7 };
+    const lines = sharedSilentLines({ ...state, history: [old] }, "pond");
+    expect(lines.map((line) => [line.actorId, line.text])).toEqual([
+      ["vale", "…"],
+    ]);
+    // Without an anchor there is nothing to place: the caption stands alone.
+    expect(sharedSilentLines(state, "pond")).toEqual([]);
   });
 });
 

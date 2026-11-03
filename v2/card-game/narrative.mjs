@@ -896,7 +896,6 @@ export function createNarrator({
 }) {
   let ticket = 0,
     pending = null,
-    failed = null,
     running = false,
     // A 429's Retry-After: no request leaves before this time.
     holdUntil = 0,
@@ -1012,7 +1011,6 @@ export function createNarrator({
         }
         controller = new AbortController();
         status("pending");
-        const revision = getWorld().revision;
         try {
           if (Date.now() < holdUntil)
             await retryPause(controller.signal, holdUntil - Date.now());
@@ -1021,10 +1019,11 @@ export function createNarrator({
           started(context);
           await write(context, version, controller.signal);
         } catch (error) {
+          // Words that never came leave the scene's speakers silent: the
+          // table shows "…" and play goes on. Nothing asks again.
           if (version === ticket) {
             preview(null);
-            if (revision === getWorld().revision) failed = { action, revision };
-            status("retry", error);
+            status("failed", error);
           }
         }
       }
@@ -1039,7 +1038,6 @@ export function createNarrator({
     if (asking?.revision === revision && asking.action === action) return;
     asking = { revision, action };
     reflectionController?.abort();
-    failed = null;
     pending = { action, version: ++ticket };
     preview(null);
     controller?.abort();
@@ -1047,21 +1045,11 @@ export function createNarrator({
   }
   return {
     changed,
-    retry() {
-      if (!failed || failed.revision !== getWorld().revision) return false;
-      changed(failed.action);
-      return true;
-    },
-    // A reloaded page restores a failed turn, so Retry can ask again.
-    resume(action = null) {
-      failed = { action, revision: getWorld().revision };
-    },
     invalidate() {
       reflectionController?.abort();
       asking = null;
       ticket += 1;
       pending = null;
-      failed = null;
       controller?.abort();
       preview(null);
       status("ready");

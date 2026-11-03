@@ -25,7 +25,7 @@ it("uses server dialogue with an earlier connected chat preference", async () =>
   );
 });
 
-it.each(["play", "retry"])(
+it.each(["play", "cancel"])(
   "sends shared %s to the server with a media account connected",
   async (op) => {
     vi.stubGlobal("sessionStorage", {

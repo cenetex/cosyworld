@@ -168,7 +168,7 @@ describe("live story text", () => {
     await vi.advanceTimersByTimeAsync(0);
     expect(preview).toHaveBeenLastCalledWith(null);
     expect(status).toHaveBeenLastCalledWith(
-      "retry",
+      "failed",
       expect.objectContaining({ message: "offline again" }),
     );
   });

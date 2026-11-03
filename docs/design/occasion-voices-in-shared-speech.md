@@ -17,9 +17,11 @@ text."). The play then held its seat and the world's worker for the
 - From rules 92, an exchange has one to four lines. Each line still needs a
   present speaker or the room and clear text in the speaker's authored form;
   a lone line may come from any of them.
-- When the rules refuse a play's words, the server fails the play at once
-  with "The play is saved. Its words need another moment." The committed
-  play stays, and the seat is free for Retry or the next play.
+- When the rules refuse a play's words, the server finishes the play at
+  once as silence: its voices show "…", nothing is journaled for the words,
+  and the seat is free for the next play. (First shipped as a failure with
+  Retry; Retry was removed in favour of "…", see
+  [words that fail](../../v2/docs/card-table/dialogue-beats.md#words-that-fail).)
 - At the table, a committed play's words hold the hand for five seconds at
   most (`THINKING_GRACE_MS`). The Thinking card stays in front; a later line
   types in when it arrives, and the action beat never covers a typing line.

@@ -35,8 +35,11 @@ from the hand. The server checks room space again when a play reaches its turn.
 The existing Play buttons add an action to the room queue. A room holds four
 pending plays, including the current play. Each person has one pending play.
 A sent play is one **Thinking…** card until its scene starts; two taps on
-it withdraw a waiting play. A retrying play is committed, so cancelling only
-stops waiting for its line. Once the room plays it, the reply types into the
+it withdraw a waiting play. A resuming play is committed, so cancelling only
+stops waiting for its line. Words that fail never hold the seat: the play
+finishes at once as a silent scene, each due avatar shows "…", and nothing is
+journaled for the words ([words that fail](dialogue-beats.md#words-that-fail)).
+There is no Retry command. Once the room plays it, the reply types into the
 full-size front card. A refusal names the
 server's reason on the action beat's status line. Nudge asks a present human for attention. People
 can sit quietly while the scene runs. Presence has a 60-second reconnect grace;
@@ -514,7 +517,7 @@ talk, repeats). A Talk target is checked after hearing the actor's accepted
 line. The client's `finish` is not trusted: every line must end as a
 sentence. As on the hosted path, a refused reply from any voice but the
 actor stays silent; a refused or missing actor line, or an empty answer
-list, sends the play back for a retry and journals nothing. An accepted
+list, ends the play as silence ("…") and journals nothing. An accepted
 line is journaled with the model mark `player-funded`, never a hosted
 model's id (shared journal rows carry no envelope yet). Shared plays do not take this path today: `take_work` sets
 `browser_chat` false.
@@ -756,8 +759,8 @@ in order. The prompt gives the fact in that voice ("I take the Lamp.") when the
 teller is its actor. A line that passes every other check but misses the fact
 is still spoken after the last attempt; it teaches nothing, so the fact stays
 queued for a later Talk instead of silencing the teller. Publication records
-the listener, teller and original Talk event, then checks quest progress. A retry
-uses that saved exchange. The speech command carries its disclosure through the
+the listener, teller and original Talk event, then checks quest progress. Words
+that fail publish nothing, so the fact stays untold until a later Talk. The speech command carries its disclosure through the
 world journal, so checkpoint recovery and journal replay produce the same facts.
 
 Versions 2 through 17 retain their released interpreters. Loading an earlier

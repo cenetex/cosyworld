@@ -15,6 +15,7 @@ import {
   clearSelection,
   selectCard,
   smokeWidths,
+  wordsFellSilent,
 } from "./card-browser-helpers.mjs";
 
 const output = new URL("../../output/greek-homecoming/", import.meta.url);
@@ -92,7 +93,7 @@ try {
         if (await page.locator("#dialogue-advance").isVisible())
           await page.locator("#dialogue-advance").click();
         assert.equal(
-          await page.locator("#story-retry").isVisible(),
+          await wordsFellSilent(page, key),
           false,
           "fixture speech resolves",
         );

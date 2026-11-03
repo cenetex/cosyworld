@@ -2,7 +2,12 @@ import assert from "node:assert/strict";
 import { mkdir, writeFile } from "node:fs/promises";
 import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
-import { revealCard, selectCard, stackHits } from "./card-browser-helpers.mjs";
+import {
+  revealCard,
+  selectCard,
+  stackHits,
+  wordsFellSilent,
+} from "./card-browser-helpers.mjs";
 
 const server = createServer();
 await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
@@ -368,8 +373,14 @@ try {
       await page.keyboard.press("Escape");
       await page.locator(".action-panel").waitFor({ state: "hidden" });
       await finish();
-      if (motion === "reduce")
-        assert.equal(await page.locator("#story-retry").isVisible(), true);
+      // Words that failed are "…" alone: no failure note and no Retry.
+      if (motion === "reduce") {
+        assert.equal(await wordsFellSilent(page, key), true);
+        assert.equal(
+          await page.locator("#story-retry, #story-error").count(),
+          0,
+        );
+      }
       // Tapping the card behind still goes back in time after discoveries.
       if (await page.locator("#beat-behind").isVisible()) {
         await page.waitForTimeout(400);
