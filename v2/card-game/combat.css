@@ -66,7 +66,7 @@
   position: absolute;
   z-index: 4;
   left: 50%;
-  top: -6%;
+  top: -1%;
   width: clamp(26px, 18%, 42px);
   aspect-ratio: 1;
   translate: -50% 0;
@@ -205,10 +205,19 @@
   font-size: 16px;
 }
 
+/* Phones keep the caption below the toolbar's logo and menu button, at
+   most three short lines; the beat's full text reads in the story. */
 @media (max-width: 640px) {
   .combat-caption {
-    top: 8px;
-    font-size: 14px;
+    top: 60px;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+    line-clamp: 3;
+    overflow: hidden;
+    padding: 5px 12px;
+    font-size: 13px;
+    line-height: 1.35;
   }
   .combat-word {
     font-size: 14px;
@@ -223,6 +232,12 @@
 }
 .play-dock {
   transition: translate 280ms ease-in-out;
+}
+/* The beat card steps out of the fight too: its strip would cover the
+   fighters' feet and still read the beat from before the fight. The caption
+   carries the fight, and the card returns with the speech that follows. */
+body .stage[data-combat="true"] ~ .dialogue.beat-stack[data-dropped="true"] {
+  opacity: 0;
 }
 
 /* In battle the current exchange steps to the front slots and the other
@@ -252,9 +267,21 @@
     left: var(--battle-x, var(--stage-x));
   }
   /* The exchange shares one scale whatever each painting's framing, so a
-     strike painting swapping in never resizes its fighter. */
+     strike painting swapping in never resizes its fighter. Each stays on
+     screen: a mark keeps about half the widest painting from either edge.
+     The margin is the same for every fighter, so the exchange keeps the
+     middle that combat-view.mjs turns those waiting toward. */
   #cast[data-battle] .portrait[data-battle-row="front"] {
-    height: min(calc(var(--stage-size) * 0.8), 96vw);
+    height: min(calc(var(--stage-size) * 0.8), 88vw);
+    left: clamp(32vw, var(--battle-x), calc(100% - 32vw));
+  }
+  /* Stepping from the scene's close-up into the two-shot is one slow
+     camera move: no push-in zoom against it (combat-view.mjs). */
+  .stage[data-combat="true"] #cast[data-battle] .portrait {
+    transition:
+      left 0.6s ease-in-out,
+      bottom 0.6s ease-in-out,
+      height 0.6s ease-in-out;
   }
   /* Those waiting stand further back, smaller, between the two sides. */
   #cast[data-battle] .portrait[data-battle-row="back"] {
