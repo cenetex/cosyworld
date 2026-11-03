@@ -26,7 +26,7 @@ export const TITLES = LOGOS.map((logo) => logo.src);
 const BLACK_MS = 350,
   LOAD_LIMIT_MS = 2500;
 // Left alone, the face-down card glows faintly (style.css) after idleGlowMs,
-// then "tap to reveal" shows under it at hintMs. A tap, a key or a pointer
+// then "open the box" shows under it at hintMs. A tap, a key or a pointer
 // over the card starts the wait again.
 export const REVEAL_HINT = { idleGlowMs: 3000, hintMs: 6000 };
 // Leaving: the turned face holds, the song fades as the title goes to black,
@@ -290,12 +290,30 @@ function acknowledgementPanel() {
   );
   next.type = "button";
   panel.append(text, next);
+  // At a large text size the poem outgrows its panel. While it writes, the
+  // panel scrolls on as the pen reaches its foot, so the newest words stay
+  // in view, until the reader scrolls it themselves.
+  let following = true,
+    target = 0;
+  const unfollow = () => (following = false);
+  text.addEventListener("wheel", unfollow, { passive: true });
+  text.addEventListener("pointerdown", unfollow);
+  const follow = ({ shown, complete, instant }) => {
+    const pen = glyphs[shown - 1];
+    if (!following || complete || instant || !pen) return;
+    const below =
+      pen.getBoundingClientRect().bottom - text.getBoundingClientRect().bottom;
+    if (below <= 0 || text.scrollTop + below <= target + 1) return;
+    target = text.scrollTop + below;
+    text.scrollTo({ top: target, behavior: "smooth" });
+  };
   const delays = acknowledgementDelays(acknowledgement);
   const painter = createRevealPainter(text);
   const reveal = createTextReveal({
     delay: (letter, i) => delays[i],
     frame: (value) => {
       painter.paint(value);
+      follow(value);
       // A word lights once its last letter's ink is whole: its letters
       // take their colour from it, and a change mid-ink would slow theirs.
       const lit = glowing(value.shown, value.complete);
@@ -324,7 +342,7 @@ function acknowledgementPanel() {
     const words = acknowledgement.stanzas.flat().join("");
     reveal.show("acknowledgement", words, null, { instant });
   };
-  return { panel, next, reveal, write };
+  return { panel, next, reveal, write, unfollow };
 }
 
 const SCROLL_KEYS = [
@@ -359,7 +377,13 @@ export function playTitleIntro({
   layer.setAttribute("role", "dialog");
   layer.setAttribute("aria-modal", "true");
   layer.setAttribute("aria-label", logo.name);
-  const { panel, next, reveal: words, write } = acknowledgementPanel();
+  const {
+    panel,
+    next,
+    reveal: words,
+    write,
+    unfollow,
+  } = acknowledgementPanel();
   // The first gesture while it writes shows it whole (and starts the song,
   // as browsers ask); the next one continues. A hidden tab holds the pen.
   const hidden = () => words.pause(document.hidden);
@@ -403,17 +427,18 @@ export function playTitleIntro({
   card.type = "button";
   card.dataset.unrevealed = "true";
   card.dataset.card = "title-traveller";
-  card.setAttribute("aria-label", "Reveal your traveller");
+  // The acknowledgement ends "Open the box", and the card back is its lid.
+  card.setAttribute("aria-label", "Open the box");
   const back = element("img", "card-back");
   back.alt = "";
   back.src = imageUrl("./assets/card-back.webp", "card");
   card.append(back);
   const frame = element("div", "card-frame title-card");
   frame.append(card);
-  // The way to turn it, under the card (never on it). The card's own name
-  // says it to screen readers, so this line is hidden from them.
-  const tap = matchMedia("(pointer: coarse)").matches;
-  const hint = element("p", "title-hint", `${tap ? "tap" : "click"} to reveal`);
+  // The way to turn it, under the card (never on it), in the poem's own
+  // words. The card's name says it to screen readers, so this line is
+  // hidden from them.
+  const hint = element("p", "title-hint", "open the box");
   hint.setAttribute("aria-hidden", "true");
   const row = element("div", "title-reveal");
   row.append(frame, hint, link("Privacy", "/privacy"));
@@ -559,6 +584,7 @@ export function playTitleIntro({
     }
     // Tab moves between the step's links and button; Enter and Space press
     // them; the arrows scroll the acknowledgement.
+    if (phase === "ack" && SCROLL_KEYS.includes(event.key)) unfollow();
     if (
       event.key === "Tab" ||
       (phase === "ack" && SCROLL_KEYS.includes(event.key))

@@ -9,7 +9,7 @@ export const cardShown = async (page) => {
   await page.waitForFunction(
     (selector) =>
       document.activeElement === document.querySelector(selector) &&
-      document.activeElement.ariaLabel === "Reveal your traveller" &&
+      document.activeElement.ariaLabel === "Open the box" &&
       document.activeElement.dataset.unrevealed === "true",
     traveller,
   );

@@ -213,7 +213,7 @@ async function idleCue(page, width, { reduced = false } = {}) {
   assert.equal(none.glow, 0);
   assert.equal(none.hint, 0);
   assert.equal(none.hidden, "true", "screen readers hear the card's name");
-  assert.equal(none.words, "click to reveal");
+  assert.equal(none.words, "open the box", "the poem's last words");
   if (!reduced) await shot(page, `reveal-0s-${width}`);
   await at(idleGlowMs - 400);
   assert.equal((await idleState(page)).step, "none", "no glow before idle");
@@ -266,6 +266,94 @@ async function valeShown(page, id = "vale") {
   );
   assert.equal(await page.locator("#hand .reveal-lid").count(), 0);
 }
+// Large text: 320x568 at 200% browser zoom, and 390x844 with the root font
+// at 200% under reduced motion. The poem wraps in its panel with no sideways
+// scroll; while it writes, the panel follows the pen; a key shows it whole
+// and the next goes on. The card gives up height so its hint and Privacy
+// stay on screen.
+async function checkLargeText() {
+  const inView = (page, selector) =>
+    page.$eval(selector, (node) => {
+      const box = node.getBoundingClientRect();
+      return (
+        box.left >= -1 &&
+        box.top >= -1 &&
+        box.right <= innerWidth + 1 &&
+        box.bottom <= innerHeight + 1
+      );
+    });
+  for (const { width, height, zoom, reducedMotion } of [
+    { width: 160, height: 284, zoom: true, reducedMotion: "no-preference" },
+    { width: 390, height: 844, zoom: false, reducedMotion: "reduce" },
+  ]) {
+    const context = await browser.newContext({
+      viewport: { width, height },
+      deviceScaleFactor: zoom ? 2 : 1,
+      reducedMotion,
+    });
+    if (!zoom)
+      await context.route("**/style.css", async (route) => {
+        const response = await route.fetch();
+        const body = `${await response.text()}\nhtml { font-size: 200%; }\n`;
+        await route.fulfill({ response, body });
+      });
+    const page = await open(context);
+    await page.goto(`${origin}/?intro=1`);
+    await titlePhase(page);
+    const name = `large-${zoom ? "zoom" : "font"}-${width}`;
+    if (reducedMotion === "reduce")
+      assert.ok(whole(await streamState(page)), "reduced motion shows it all");
+    else {
+      await page.waitForFunction(
+        () => document.querySelector(".title-ack-text").scrollTop > 0,
+        null,
+        { timeout: 15000 },
+      );
+      await page.waitForTimeout(400);
+      // The newest letter is on screen, though a line may be scrolling up.
+      const pen = await page.$eval(".title-ack-text", (text) => {
+        const written = text.querySelectorAll(".speech-letter.revealed");
+        const box = text.getBoundingClientRect();
+        const last = written[written.length - 1].getBoundingClientRect();
+        return { top: last.top - box.bottom, bottom: last.bottom - box.top };
+      });
+      assert.ok(pen.top < 0 && pen.bottom > 0, JSON.stringify(pen));
+      await shot(page, `${name}-writing`);
+      await page.keyboard.press("a");
+      assert.equal((await streamState(page)).dark, 0, "a key shows it whole");
+      await page.waitForTimeout(1000);
+      assert.ok(whole(await streamState(page)));
+    }
+    const ack = await page.$eval(".title-ack-text", (text) => ({
+      sideways: text.scrollWidth - text.clientWidth,
+      page: document.documentElement.scrollWidth - innerWidth,
+      size: parseFloat(getComputedStyle(text).fontSize),
+    }));
+    assert.ok(ack.sideways <= 0 && ack.page <= 0, JSON.stringify(ack));
+    if (!zoom) assert.ok(ack.size >= 32, JSON.stringify(ack));
+    for (const part of [".title-ack", ".title-continue"])
+      assert.ok(await inView(page, part), `${name}: ${part} on screen`);
+    await shot(page, `${name}-ack`);
+    await page.keyboard.press("a");
+    await cardShown(page);
+    await page.waitForSelector('.title-reveal[data-idle="hint"]', {
+      timeout: REVEAL_HINT.hintMs + 3000,
+    });
+    await page.waitForTimeout(reducedMotion === "reduce" ? 100 : 1300);
+    for (const part of [traveller, ".title-hint", ".title-privacy"])
+      assert.ok(await inView(page, part), `${name}: ${part} on screen`);
+    const card = await page.locator(traveller).boundingBox();
+    assert.ok(card.height > 40, JSON.stringify(card));
+    assert.equal(await page.textContent(".title-hint"), "open the box");
+    await shot(page, `${name}-card`);
+    await page.keyboard.press("Enter");
+    await revealed(page, "Vale");
+    await gone(page, 7000);
+    assert.deepEqual(page.errors, []);
+    await context.close();
+  }
+}
+
 try {
   for (const [width, height] of [
     [1440, 900],
@@ -767,6 +855,7 @@ try {
   await gone(quiet, 3000);
   await quiet.waitForSelector("#hand .card");
   await reduced.close();
+  await checkLargeText();
   await checkTitleMusicAlone(browser, origin, shot);
   console.log(`Title intro smoke passed. Screenshots: ${shots.join(", ")}`);
 } finally {
