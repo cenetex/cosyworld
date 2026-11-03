@@ -389,11 +389,15 @@ slides to the middle (at most 720 px wide) and lies over the cards' feet, and
 lowering slides both back. Reduced motion crossfades. On phones and tablets the
 dialogue is always that fixed box at the foot of the screen, over the hand,
 with the earlier beat peeking dimmed above the current one inside it: resting
-cards show their tops and names above it, and a tap on a card raises the hand
+cards show their tops above it, and a tap on a card raises the hand
 above it with each card's foot still tucked behind it. A tap on the scene
 drops the hand again; there the dialogue never moves. Before the first beat there is no dialogue, and the hand leaves no hole for
 it: raised cards show whole, name and all, and the first beat lifts the row
-under its box. Short landscape screens keep the dialogue above the hand. Swipe, use the wheel, tap the ‹ › buttons beside an overflowing hand, or use the arrow keys to reach more cards. The buttons dim at each end, cards fade out at an edge that hides more of the hand, and a sideways swipe stays inside the hand.
+under its box. Short landscape screens keep the dialogue above the hand.
+A resting hand, and one tucked down for a fight, shows only its cards' art:
+each name and its shade fade out (120 ms; reduced motion switches at once)
+and fade back when the hand rises, a card is chosen, or a pointer or keyboard
+focus is on the card. The card buttons keep their names for screen readers. Swipe, use the wheel, tap the ‹ › buttons beside an overflowing hand, or use the arrow keys to reach more cards. The buttons dim at each end, cards fade out at an edge that hides more of the hand, and a sideways swipe stays inside the hand.
 Play stays available once a line has been read, in an exchange's last reading pause, which a chosen play skips. Every play in flight, queued, sent or committed, is one **Thinking…** card with no button ([dialogue beats](../docs/card-table/dialogue-beats.md#what-is-in-front)); two taps cancel it, and choosing the same play again keeps it. A committed play stays saved: its two taps only stop waiting for its words. Cards chosen meanwhile wait behind the Thinking card, and their play comes forward with the reply read. Selecting another
 card clears a play queued here. Shared play waits for the player's current turn
 to finish, then checks the chosen action against the current table before

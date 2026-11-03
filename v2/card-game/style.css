@@ -1690,6 +1690,35 @@ body[data-hand-expanded="true"] .hand {
 body[data-hand-expanded="true"] .card .name {
   bottom: 0;
 }
+/* A resting hand, or one tucked down for a fight, shows only its cards' art:
+   the names and their shade fade in as the hand rises, a card is chosen, or
+   one is pointed at or focused. The buttons keep their aria-label names. */
+.hand .card .name {
+  transition: opacity 120ms ease-out;
+}
+body[data-hand-expanded="false"]
+  .play-dock:not([data-selected="true"])
+  .hand
+  .card:not(:focus-visible)
+  .name,
+.stage[data-combat="true"] ~ .play-dock .hand .card .name {
+  opacity: 0;
+}
+@media (hover: hover) and (pointer: fine) {
+  body[data-hand-expanded="false"]
+    .stage:not([data-combat="true"])
+    ~ .play-dock:not([data-selected="true"])
+    .hand
+    .card:hover
+    .name {
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hand .card .name {
+    transition: none;
+  }
+}
 /* A resting hand shares the bottom edge with the dialogue on wide screens. */
 @media (min-width: 1100px) and (min-aspect-ratio: 3/2) {
   :root {
