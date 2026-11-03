@@ -710,7 +710,7 @@ fn error(status: StatusCode, message: &str) -> Response {
     )
         .into_response()
 }
-fn same_origin(headers: &HeaderMap) -> bool {
+pub(crate) fn same_origin(headers: &HeaderMap) -> bool {
     if headers
         .get("sec-fetch-site")
         .is_some_and(|v| v == "cross-site")

@@ -39,6 +39,17 @@ link the Privacy page (`privacy.html` at `/privacy`, also in Settings;
 [#2052](https://github.com/cenetex/cosyworld/issues/2052)). `privacy.mjs` holds
 the notice and operator details. `/download` redirects to the source on GitHub.
 
+Play counts are anonymous daily totals. `POST /card-game/metrics` takes
+`{"day": <UTC day number>, "counters": {"play.talk": 2}}`, where every name
+comes from the fixed list in `play_metrics.rs`. An unknown name or field, a
+count over 1,000, a day more than one day from today, a cross-site post or a
+body over 4 KiB is refused. Each client may post 12 times a minute. The
+server adds the counts to `play_metrics_daily (day, name, count)` in the event
+database. It keeps no IP, account, world, install or session id, and no text,
+and it drops days older than 400 days on every write. The request log names
+only the route and status. `GET /moderation/play-metrics` (moderation token)
+returns the last seven days. Nothing reads the counts back into play.
+
 ## Public assets
 
 `public-assets.mjs` defines the public files and their content types. It includes
