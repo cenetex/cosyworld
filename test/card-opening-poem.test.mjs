@@ -311,7 +311,9 @@ it("keeps a pruned shared deed's author unknown when Vale loads Mara's saved dee
     expect(result.ok, result.error || JSON.stringify(result)).toBe(true);
     return result;
   };
-  // Mara reports the plan by handing the guard the shovel.
+  // Mara reports the plan by handing the guard the shovel, the funeral
+  // cloth in her other hand.
+  imported.items["greek-funeral-cloth"].holder = "mara";
   const taken = marasPlay(
     imported,
     (a) => a.kind === "take" && a.item === "greek-shovel",

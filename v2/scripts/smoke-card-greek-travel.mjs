@@ -119,6 +119,7 @@ try {
       start: "greek-harbor",
       route: charybdis,
       make: openSeas,
+      hoppy: true,
     },
   ];
   for (const width of [1440, 390])
@@ -132,15 +133,18 @@ try {
       fixture.presentActors = ["mara"];
       fixture.actors.mara.place = journey.start;
       // Black Pond sails only to the Wine-Dark Harbor. The Travel Provisions
-      // on deck open the lane between Piraeus and the Wine-Dark Harbor.
-      if (
-        journey.make === openSeas &&
-        fixture.items["greek-provisions"].holder !== "greek-ship"
-      )
-        throw new Error("The opening fixture keeps the provisions aboard.");
-      // The free leg home carries no cargo: the provisions stay ashore.
-      if (journey.cargo === false)
-        fixture.items["greek-provisions"].holder = "greek-athens";
+      // on deck open the lane between Piraeus and the Wine-Dark Harbor:
+      // Myrto has packed a load (rules 95). The free leg home carries no
+      // cargo: the provisions stay ashore.
+      fixture.usedUp = (fixture.usedUp || []).filter(
+        (id) => id !== "greek-provisions",
+      );
+      fixture.items["greek-provisions"].holder =
+        journey.cargo === false ? "greek-athens" : "greek-ship";
+      // The voyage to Piraeus uses the provisions up (rules 95); a Hoppy
+      // Cat thing aboard carries the ship on to the jetty.
+      if (journey.hoppy)
+        fixture.items["hoppycat-halfway-cup"].holder = "greek-ship";
       const page = await browser.newPage({
         viewport: { width, height: width === 390 ? 844 : 900 },
         reducedMotion: "reduce",

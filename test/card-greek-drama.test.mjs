@@ -30,6 +30,7 @@ import {
 } from "../v2/card-game/pack-registry.mjs";
 
 import { endStandoff } from "./helpers/standoff.mjs";
+import { stowProvisions } from "./helpers/provisions.mjs";
 const PACK = "greek-drama";
 const HARBOR = "greek-harbor";
 const COURTYARD = "greek-courtyard";
@@ -318,9 +319,17 @@ describe("Greek choices and their receipts", () => {
     let world = move(courtyard("opening"), GATE);
     expect(done(world, "hear-decree")).toBeTruthy();
     noButtons(world);
+    // The shovel alone is no report: the guard declines it, and nothing is
+    // decided for the city.
     world = give(take(world, "greek-shovel"), "greek-shovel", "greek-guard");
+    expect(stateOf(world).choices["greek-theban-response"]).toBeUndefined();
+    expect(world.items["greek-shovel"].holder).toBe("vale");
+    // With the funeral cloth in hand too, it reports the burial planned.
+    world.items["greek-funeral-cloth"].holder = "vale";
+    world = give(reload(world), "greek-shovel", "greek-guard");
     expect(stateOf(world).choices["greek-theban-response"]).toBe("exposure");
     expect(world.items["greek-shovel"].holder).toBe(GATE);
+    expect(itemPlace(world, "greek-funeral-cloth")).toBe(GATE);
     world = move(take(world, "greek-guard-tablet"), COURTYARD);
     world = give(world, "greek-guard-tablet", "greek-baker");
     expect(done(reload(world), "courtyard-exposure")).toBe(world.turn);
@@ -439,7 +448,9 @@ describe("Before the Burial", () => {
 
   it("keeps the report consequential and leaves a way home", () => {
     let world = move(courtyard(), GATE);
-    world = give(take(world, "greek-shovel"), "greek-shovel", "greek-guard");
+    world.items["greek-funeral-cloth"].holder = "vale";
+    world = take(reload(world), "greek-shovel");
+    world = give(world, "greek-shovel", "greek-guard");
     expect(stateOf(world).choices["greek-theban-response"]).toBe("exposure");
     world.items["greek-decree"].holder = "greek-guard";
     world = act(move(take(reload(world), "greek-shovel"), BATTLEFIELD), "wait");
@@ -608,13 +619,15 @@ describe("incompatible histories become playable branches", () => {
       expect(() => decodeSave(JSON.stringify(forged))).toThrow();
 
       const response = branch === "egypt" ? "passage" : "shelter";
-      if (response === "passage") world = take(world, "greek-provisions");
+      // Myrto has packed a load; the passage uses it up (rules 95).
+      if (response === "passage")
+        world = take(stowProvisions(world, HARBOR), "greek-provisions");
       world = move(world, destination);
       world = choose(world, `greek-helen-${branch}-${response}`);
       expect(stateOf(world).choices["greek-helen-response"]).toBe(response);
       expect(world.items[evidence].holder).toBe(destination);
       if (response === "passage")
-        expect(world.items["greek-provisions"].holder).toBe(destination);
+        expect(world.usedUp).toContain("greek-provisions");
       world = walk(reload(world), HARBOR, "pond", HARBOR, destination);
       expect(stateOf(world).choices["greek-helen-response"]).toBe(response);
       expect(world.items[evidence].holder).toBe(destination);

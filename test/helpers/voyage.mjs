@@ -3,6 +3,7 @@ import {
   courseToward,
   transportPlace,
 } from "../../v2/card-game/pack-transport.mjs";
+import { stowProvisions } from "./provisions.mjs";
 
 const localPlay = (world, action) => {
   const result = play(world, action, world.revision, action.actor);
@@ -28,8 +29,16 @@ export function sailTo(
     const legal = actions(world, actor);
     const ashore = legal.find((a) => a.kind === "move" && a.target === dock);
     if (ashore) return step(world, ashore);
-    const lane = courseToward(world, here, dock, actor);
-    const course = legal.find((a) => a.kind === "course" && a.target === lane);
+    let lane = courseToward(world, here, dock, actor);
+    // These journeys test other stories: a voyage out of Thebes that needs
+    // provisions takes a packed load, as Myrto would make (rules 95).
+    if (!lane && world.usedUp?.includes("greek-provisions")) {
+      world = stowProvisions(structuredClone(world), here);
+      lane = courseToward(world, here, dock, actor);
+    }
+    const course = actions(world, actor).find(
+      (a) => a.kind === "course" && a.target === lane,
+    );
     world = step(world, course || legal.find((a) => a.kind === "wait"));
   }
   throw new Error(`The ship never reached ${dock}`);

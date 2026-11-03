@@ -30,6 +30,7 @@ import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import { darkMist, isNight } from "../v2/card-game/daylight.mjs";
 import { locationWeather } from "../v2/card-game/weather.mjs";
 import { cardChoices, availableCards } from "../v2/card-game/cards.mjs";
+import { stowProvisions } from "./helpers/provisions.mjs";
 
 const pack = packDefinitions.find((p) => p.id === "willows");
 const find = (world, fields) =>
@@ -65,10 +66,10 @@ const take = (world, item) =>
 // Wait out the saved world clock until night and mist beside the ship's rail.
 // The jump skips the rounds between, so the ship counts its idle rounds from
 // here (a resident aboard would otherwise sail it off on the next round).
-// The mist opens only with cargo aboard the Charybdis (rules 94): the Travel
-// Provisions ride along.
+// The mist opens only with cargo aboard the Charybdis (rules 94): a packed
+// load of Travel Provisions rides along.
 function mist(world, cargo = true) {
-  if (cargo) world.items["greek-provisions"].holder = "greek-ship";
+  if (cargo) stowProvisions(world, "greek-ship");
   while (!darkMist(world)) world.turn += 1;
   world.revision = Math.max(world.revision, world.turn);
   world.transports["greek-ship"].since = world.turn;

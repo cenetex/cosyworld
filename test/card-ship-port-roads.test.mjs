@@ -32,6 +32,7 @@ import {
   lanesFrom,
 } from "../v2/card-game/pack-transport.mjs";
 import { conditionMet } from "../v2/card-game/pack-rules.mjs";
+import { stowProvisions } from "./helpers/provisions.mjs";
 import { openDoorStart } from "./helpers/open-door.mjs";
 import { sailTo } from "./helpers/voyage.mjs";
 import { openingFixture } from "./helpers/greek-opening.mjs";
@@ -278,7 +279,8 @@ describe("ports reachable on foot or by a free leg home", () => {
   it("calls at Piraeus before Dione's invitation, with cargo aboard", () => {
     // Piraeus is Thebes's sea exit: the provisions or a Hoppy Cat thing
     // aboard sail there at once. Its road inland waits for the invitation.
-    const s = stages.opening();
+    // Myrto has packed a load of provisions (rules 95).
+    const s = stowProvisions(stages.opening(), "greek-harbor");
     expect(entityActive(s, "greek-piraeus")).toBe(true);
     expect(entityActive(s, "greek-road-athens-piraeus")).toBe(false);
     expect(reach(s, "greek-harbor", { ship: true }).has("greek-piraeus")).toBe(
@@ -325,7 +327,7 @@ describe("ports reachable on foot or by a free leg home", () => {
     expect(s.packs["greek-drama"].flags["greek-open-door-open"]).not.toBe(true);
     s.controlledActors = ["vale"];
     s.actors.vale.place = "greek-piraeus";
-    s.items["greek-provisions"].holder = "vale";
+    stowProvisions(s, "vale");
     Object.assign(s.transports["greek-ship"], {
       phase: "docked",
       dock: "greek-piraeus",
@@ -365,11 +367,21 @@ describe("ports reachable on foot or by a free leg home", () => {
     // Gate, so the land route leads home.
     let s = openDoorStart("burial");
     expect(s.openedRoutes).toContain(CITY_GATE);
+    // Roaming residents aboard go ashore: the ship is empty.
+    for (const a of Object.values(s.actors))
+      if (a.place === "greek-ship") a.place = "greek-piraeus";
     s.actors.vale.place = "greek-piraeus";
-    s.transports["greek-ship"].dock = "greek-piraeus";
-    s.items["greek-provisions"].holder = "greek-ship";
+    Object.assign(s.transports["greek-ship"], {
+      phase: "docked",
+      dock: "greek-piraeus",
+      destination: null,
+      riders: [],
+      since: s.turn - 1,
+      recall: null,
+    });
+    stowProvisions(s, "greek-ship");
     callTransport(s, "greek-harbor");
-    s.items["greek-provisions"].holder = "greek-harbor";
+    stowProvisions(s, "greek-harbor");
     expect(s.transports["greek-ship"].dock).toBe("greek-harbor");
     expect(exits(s, "greek-piraeus", "vale")).toEqual([]);
     // The truce latched both ends of the Long Walls.
@@ -504,8 +516,13 @@ describe("the roads home keep the Greek story gates", () => {
   for (const stage of ["open door", "ajax"])
     it(`keeps the Agora behind the petition or the truce: ${stage}`, () => {
       // Thebes is settled and the countryside open: only the city waits.
+      // Myrto has packed a load of provisions (rules 95).
       const s = holding(
-        holding(stages[stage](), "greek-decree", "greek-guard"),
+        holding(
+          stowProvisions(stages[stage](), "greek-harbor"),
+          "greek-decree",
+          "greek-guard",
+        ),
         "greek-guard-tablet",
         "greek-courtyard",
       );
@@ -560,7 +577,11 @@ describe("the roads home keep the Greek story gates", () => {
 // traveler can get to still leads home with every key carried off.
 describe("the exposure ending with the City Gate shut", () => {
   it("strands nobody", () => {
-    const s = openDoorStart("exposure", { gate: false });
+    // Myrto has packed a load of provisions (rules 95).
+    const s = stowProvisions(
+      openDoorStart("exposure", { gate: false }),
+      "greek-harbor",
+    );
     expect(s.openedRoutes).not.toContain(CITY_GATE);
     const reached = reach(s, "greek-harbor", {
       pinned: ["greek-decree"],
@@ -635,6 +656,9 @@ describe("a rules 93 save on the Coast Road", () => {
 describe("a rules 93 save at Marathon and Troy", () => {
   const saved = (vale, ship, edit = () => {}) => {
     const s = JSON.parse(encodeSave(openDoorStart("burial")));
+    // Roaming residents aboard go ashore: only Vale may ride.
+    for (const a of Object.values(s.actors))
+      if (a.place === "greek-ship") a.place = "greek-harbor";
     edit(s);
     s.packs["greek-drama"].revision = 17;
     s.actors.vale.place = vale;

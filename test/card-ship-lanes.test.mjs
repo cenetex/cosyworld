@@ -16,6 +16,7 @@ import {
 } from "../v2/card-game/pack-transport.mjs";
 import { knowsFact } from "../v2/card-game/knowledge.mjs";
 import { openDoorStart, openSeas } from "./helpers/open-door.mjs";
+import { stowProvisions } from "./helpers/provisions.mjs";
 
 const players = ["vale", "mara"];
 const reload = (s) => decodeSave(encodeSave(s));
@@ -91,11 +92,10 @@ describe("knowing a lane is personal", () => {
       save: encodeSave(openSeas()),
     }).world;
     for (const id of players) s.actors[id].place = "greek-piraeus";
-    // The roaming Bard may be aboard, bound for Marathon Bay; set him ashore.
-    if (s.actors["greek-rhapsode"].place === "greek-ship") {
-      s.actors["greek-rhapsode"].place = s.transports["greek-ship"].dock;
-      s.transports["greek-ship"].riders = [];
-    }
+    // Roaming residents, such as the Bard, may be aboard; set them ashore.
+    for (const a of Object.values(s.actors))
+      if (a.place === "greek-ship") a.place = s.transports["greek-ship"].dock;
+    s.transports["greek-ship"].riders = [];
     summonTransport(s, "greek-ship", "greek-piraeus");
     s = reload(s);
     s = act(s, "vale", "move", "greek-ship");
@@ -131,13 +131,13 @@ describe("knowing a lane is personal", () => {
     // Piraeus is Thebes's sea exit: before Dione's invitation the
     // provisions aboard already sail there (rules 94).
     s = fresh("greek-harbor");
-    s.items["greek-provisions"].holder = "greek-ship";
+    stowProvisions(s, "greek-ship");
     s = act(reload(s), "vale", "move", "greek-ship");
     expect(courses(s, "vale")).toEqual(["greek-piraeus", "pond"]);
     // After it, Mara carries the provisions aboard. Neither has heard the
     // lane; the thing aboard opens it for both.
     s = fresh("greek-harbor", openDoorStart());
-    s.items["greek-provisions"].holder = "mara";
+    stowProvisions(s, "mara");
     s = act(reload(s), "vale", "move", "greek-ship");
     expect(courses(s, "vale")).toEqual(["pond"]);
     s = act(s, "mara", "move", "greek-ship");
@@ -153,13 +153,10 @@ describe("knowing a lane is personal", () => {
     // herald's truce.
     expect(ask(s, "vale").exits).not.toContain("greek-road-athens-piraeus");
     // The lane home from Piraeus stays open, even with the provisions
-    // left on the quay; with them aboard the ship also sails on to the
-    // Hoppy Cat jetty. It no longer rounds the cape to Marathon.
-    expect(courses(s, "mara")).toEqual([
-      "greek-harbor",
-      "hoppycat-signal-jetty",
-    ]);
-    s.items["greek-provisions"].holder = "greek-piraeus";
+    // left on the quay: the voyage used them up, so the ship no longer sails
+    // on to the Hoppy Cat jetty.
+    expect(courses(s, "mara")).toEqual(["greek-harbor"]);
+    stowProvisions(s, "greek-piraeus");
     s = reload(s);
     expect(courses(s, "mara")).toEqual(["greek-harbor"]);
   });

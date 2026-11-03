@@ -95,6 +95,11 @@ fn released_pond_opening_keeps_its_place_through_upgrade_and_journal_rebuild() {
         // Greek revision 15's Athenian outcomes wait the same way.
         ("greek-pyre-account", "greek-eleusis"),
         ("greek-marathon-record", "greek-marathon"),
+        // The Thebes provisions loop: the Dried Figs, the Wine Skin and the
+        // Libation Wine wait at home (rules 95).
+        ("greek-figs", "greek-sanctuary"),
+        ("greek-wine-skin", "greek-gate"),
+        ("greek-libation", "greek-cithaeron"),
     ] {
         items.insert(id.into(), json!({"holder": holder, "history": []}));
     }

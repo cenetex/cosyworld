@@ -6,7 +6,8 @@ rumour in this release (Greek revision 18, rules 94): no way leads to it, so
 its tale and the full account below play only in old full-scope worlds.
 Piraeus Quays is Thebes's sea exit. It lies outside the section, so the
 Charybdis calls there before the invitation whenever the Travel Provisions
-or a Hoppy Cat thing are aboard, and sails home to the harbor free. Called
+or a Hoppy Cat thing are aboard, and sails home to the harbor free. The
+voyage there uses up the provisions, which Myrto packs again. Called
 away empty, the ship answers a wait at Piraeus without cargo. The Long
 Walls open from either end only once the mothers' plea is registered with
 the herald's truce in the Agora, so until then a sea arrival stays at the

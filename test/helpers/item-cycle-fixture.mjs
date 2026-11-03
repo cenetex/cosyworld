@@ -42,6 +42,11 @@ export function itemCycleFixture(compiled) {
     home: "greek-harbor",
     startsUsed: true,
   });
+  // The shipped loop gives way to the test's own set.
+  greek.choices = greek.choices.filter((c) => c.id !== "greek-pack-provisions");
+  greek.release.choices = greek.release.choices.filter(
+    (id) => id !== "greek-pack-provisions",
+  );
   greek.choices.push({
     id: "greek-test-pack",
     subject: "greek-shipmaster",
