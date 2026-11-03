@@ -2850,24 +2850,17 @@ main > .dialogue {
     1.1rem/1.65 Georgia,
     serif;
 }
-/* It streams in letter by letter (title-intro.mjs sets each letter's delay):
-   opacity only, every letter already in place. The cue comes
-   after. Without the animation everything simply shows. */
-@keyframes title-ack-in {
-  from {
-    opacity: 0;
-  }
-}
-.title-ack[data-stream] .title-ack-ch {
-  animation: title-ack-in 180ms ease-out backwards;
+/* It writes in with the dialogue's reveal (.speech-letter), its letters in
+   place from the start and readable to screen readers throughout; the cue
+   waits until the words are whole. */
+.title-ack .speech-letter {
+  visibility: visible;
 }
 .title-ack[data-stream] .title-continue {
-  animation: title-ack-in 600ms ease-out var(--stream-end) backwards;
+  opacity: 0;
 }
-@media (prefers-reduced-motion: reduce) {
-  .title-ack[data-stream] :is(.title-ack-ch, .title-continue) {
-    animation: none;
-  }
+.title-ack[data-written] .title-continue {
+  animation: beat-fade 600ms ease 300ms backwards;
 }
 /* A film's opening card: a narrow measure, generous leading. */
 .title-ack-text {
