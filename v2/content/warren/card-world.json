@@ -1,0 +1,130 @@
+{
+  "schemaVersion": 1,
+  "id": "warren",
+  "packId": "cosyworld.warren",
+  "revision": 1,
+  "name": "The Warren",
+  "description": "A patient burrow beneath Black pond, reached through a crack in the stone. Whatever the surface discards drifts down here, and the residents keep it: spores of memory on cool shelves, small refusals recorded in soft marks on the wall. Nothing down here is thrown away twice.",
+  "entry": "warren-threshold",
+  "places": {
+    "warren-threshold": {
+      "name": "The Threshold",
+      "text": "A burrow mouth beneath the shore. A crack in the stone lets a thin grey light through, and the air smells of rain, moss and old paper. Small things rest on the lip of the crack: a button, a bendy straw, someone's lost key. They are arranged, not abandoned.",
+      "persona": "A quiet, tender burrow mouth where lost things are set down with care. Describe small objects gently, as if each one mattered to somebody once. Use the current story facts for progress.",
+      "exits": [
+        "warren-shelf"
+      ],
+      "backdrop": "assets/warren/threshold.png"
+    },
+    "warren-shelf": {
+      "name": "The Spore Shelf",
+      "text": "Shelves of pale clay hold rows of small jars. Each jar carries a memory-spore: a soft glowing mote that holds one kept thing — a name, a promise, the way rain sounded last spring. A Sifter moves along the shelves, turning each jar a quarter-turn so the light fades evenly.",
+      "persona": "A long room of cool shelves and patient tending. Memory here is kept, not hoarded: a spore that is never visited fades on its own, and the residents let it. Describe the glow as gentle, never eerie. Use the current story facts for progress.",
+      "exits": [
+        "warren-threshold",
+        "warren-ledger"
+      ],
+      "backdrop": "assets/warren/shelf.png"
+    },
+    "warren-ledger": {
+      "name": "The Ledger Nook",
+      "text": "A round room with a wall of small soft marks, each one a refusal: a thing somebody chose not to do, recorded kindly. The Hissling keeps the ledger and can read any mark aloud without judgment — the no is as much a part of a story as the yes.",
+      "persona": "A warm round nook where refusals are recorded with respect. Treat every 'no' in the story as a fact worth keeping, never as a failure. Describe the marks as soft, like chalk or charcoal, never as scars. Use the current story facts for progress.",
+      "exits": [
+        "warren-shelf"
+      ],
+      "backdrop": "assets/warren/ledger.png"
+    }
+  },
+  "avatars": {
+    "hissling": {
+      "name": "The Hissling",
+      "place": "warren-threshold",
+      "text": "A patient coil of a snake that hatched itself, with pale moon spots along its scales. It keeps the Threshold and sets each fallen thing in its place.",
+      "seed": "A patient coil that hatched itself.",
+      "tastes": {
+        "likes": "Stillness, long silences, and things set down gently",
+        "sore": "Loud jeers and hurried hands",
+        "reason": "It hatched patient, and it stays that way.",
+        "noise": "{actor} clattered through the Threshold."
+      },
+      "desire": {
+        "items": [
+          "spore-jar"
+        ],
+        "location": "warren-threshold",
+        "avatars": []
+      },
+      "want": {
+        "kind": "item",
+        "target": "spore-jar"
+      },
+      "portrait": "assets/warren/hissling.png"
+    },
+    "sifter": {
+      "name": "The Sifter",
+      "place": "warren-shelf",
+      "text": "A small quick creature, something between a moth and a shrew, that sorts what falls through the crack. It turns every jar a quarter-turn each day so the spores fade evenly — tending, not rescuing.",
+      "seed": "A small sorter of fallen things.",
+      "tastes": {
+        "likes": "Useful small things and an even fade",
+        "sore": "Things thrown away in anger",
+        "reason": "The Sifter keeps memory by letting it fade, and anger breaks the fade.",
+        "noise": "{actor} rattled the spore jars."
+      },
+      "desire": {
+        "items": [
+          "spore-jar"
+        ],
+        "location": "warren-shelf",
+        "avatars": []
+      },
+      "want": {
+        "kind": "item",
+        "target": "spore-jar"
+      },
+      "portrait": "assets/warren/sifter.png"
+    }
+  },
+  "items": {
+    "spore-jar": {
+      "name": "Memory-spore jar",
+      "text": "A small clay jar with a pale mote inside, cool to the touch. It holds one kept thing.",
+      "persona": "A small clay jar holding a memory-spore: one kept thing, glowing softly.",
+      "holder": "warren-shelf",
+      "art": "assets/warren/spore-jar.png"
+    },
+    "moon-token": {
+      "name": "Moon token",
+      "text": "A pale coin, cool on one face and warm on the other. The Hissling gives it to visitors it decides are patient.",
+      "persona": "A pale coin, cool on one face and warm on the other.",
+      "holder": "hissling",
+      "art": "assets/warren/moon-token.png"
+    }
+  },
+  "routes": [],
+  "choices": [],
+  "topics": [
+    {
+      "id": "hissling-kept-things",
+      "speaker": "hissling",
+      "at": "warren-threshold",
+      "text": "The Hissling says nothing down here is thrown away twice.",
+      "requires": []
+    },
+    {
+      "id": "sifter-even-fade",
+      "speaker": "sifter",
+      "at": "warren-shelf",
+      "text": "The Sifter says a memory that is never visited fades on its own, and that is tending too.",
+      "requires": []
+    },
+    {
+      "id": "hissling-the-ledger",
+      "speaker": "hissling",
+      "at": "warren-ledger",
+      "text": "The Hissling says the ledger keeps every no as kindly as any yes.",
+      "requires": []
+    }
+  ]
+}

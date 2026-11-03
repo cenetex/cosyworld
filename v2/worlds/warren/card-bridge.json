@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "id": "shore-warren",
+  "pack": "warren",
+  "description": "A crack below the shore: from Black Pond a patient descent reaches the burrow where what the surface discards is kept and tended. The way back is the same crack, climbed slowly.",
+  "crossings": [
+    {
+      "id": "pond-warren-threshold",
+      "from": "pond",
+      "to": "warren-threshold",
+      "travelers": "any",
+      "travel": "down through the crack beneath the still water",
+      "travelLabel": "Descend",
+      "requires": []
+    },
+    {
+      "id": "warren-threshold-pond",
+      "from": "warren-threshold",
+      "to": "pond",
+      "travelers": "any",
+      "travel": "up through the crack to the shore",
+      "travelLabel": "Surface",
+      "requires": []
+    }
+  ]
+}

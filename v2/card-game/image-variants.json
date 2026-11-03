@@ -4877,6 +4877,69 @@
       "phone": "assets/optimized/phone/png/vale.webp",
       "phoneHash": "5b8dccb569329a9f608021153b7572c6f6d2d406cfbde50660b280030458690c"
     },
+    "assets/warren/hissling.png": {
+      "sourceHash": "6d2280ea0936c030a34e2c441b2ca69080844ad9175f3535361d3c52a4faabff",
+      "stage": "assets/optimized/stage/png/warren/hissling.webp",
+      "stageHash": "45aee1fb87b05654c1c1247745822551fdf0ef642c1015056c3d84f198bca41b",
+      "card": "assets/optimized/stage/png/warren/hissling.webp",
+      "cardHash": "45aee1fb87b05654c1c1247745822551fdf0ef642c1015056c3d84f198bca41b",
+      "phone": "assets/optimized/stage/png/warren/hissling.webp",
+      "phoneHash": "45aee1fb87b05654c1c1247745822551fdf0ef642c1015056c3d84f198bca41b"
+    },
+    "assets/warren/ledger.png": {
+      "sourceHash": "58cb6b9aa2b492b6f17457b1cb6637516f9efb57aee2a30be2b9bc5310f40eef",
+      "stage": "assets/optimized/stage/png/warren/ledger.webp",
+      "stageHash": "5e417bccbc769cc5cb71e53af16952d1a25a244933dd2a83f5064bb2de9c29b3",
+      "card": "assets/optimized/card/png/warren/ledger.webp",
+      "cardHash": "701a17c9dd485d9e52d2c78376a113d0cbd8525612c317f6de78b584f9ab3807",
+      "phone": "assets/optimized/phone/png/warren/ledger.webp",
+      "phoneHash": "d8e074c324fc247e6cb0c498a053b3517e7944b9fbfae325fbaadcb9f83c4ca1"
+    },
+    "assets/warren/moon-token.png": {
+      "sourceHash": "1b10b9bce07531968f7226f36b6cf3bb08f0154f02a6c535e04712ad5ee2db7e",
+      "stage": "assets/optimized/stage/png/warren/moon-token.webp",
+      "stageHash": "785d7320fc36fc58786a06a788742db5c1756359abacc6d667507e14402adee9",
+      "card": "assets/optimized/stage/png/warren/moon-token.webp",
+      "cardHash": "785d7320fc36fc58786a06a788742db5c1756359abacc6d667507e14402adee9",
+      "phone": "assets/optimized/stage/png/warren/moon-token.webp",
+      "phoneHash": "785d7320fc36fc58786a06a788742db5c1756359abacc6d667507e14402adee9"
+    },
+    "assets/warren/shelf.png": {
+      "sourceHash": "03f5bf0616587dabb6a5167af691efffe2f56ae6fdcaf17c16e081d29ca57a74",
+      "stage": "assets/optimized/stage/png/warren/shelf.webp",
+      "stageHash": "bbfabefee45aa0334cd5da117734022e96b62bef84919e22ea0de8d66e00bfa7",
+      "card": "assets/optimized/card/png/warren/shelf.webp",
+      "cardHash": "f8a9254b6f2173832a0343d4768906ac4933d316ecf543b410e6e8009baddc6a",
+      "phone": "assets/optimized/phone/png/warren/shelf.webp",
+      "phoneHash": "b1da0bea892345f8ac03e0f318a383e169b7afd5776ae29353e1f1565176f40e"
+    },
+    "assets/warren/sifter.png": {
+      "sourceHash": "20753c3af1db3064079f08c2d466f69b688db3a61974c23250abe470a55dda03",
+      "stage": "assets/optimized/stage/png/warren/sifter.webp",
+      "stageHash": "d8dcf6fcfd29e851c65ffa8f16c46038277e458fe2d07db5061f645426cccb56",
+      "card": "assets/optimized/stage/png/warren/sifter.webp",
+      "cardHash": "d8dcf6fcfd29e851c65ffa8f16c46038277e458fe2d07db5061f645426cccb56",
+      "phone": "assets/optimized/stage/png/warren/sifter.webp",
+      "phoneHash": "d8dcf6fcfd29e851c65ffa8f16c46038277e458fe2d07db5061f645426cccb56"
+    },
+    "assets/warren/spore-jar.png": {
+      "sourceHash": "c2d0d7c5c486e0e108f0fe3c547bf519a46c3a8caae683b14f73f11b716f87b5",
+      "stage": "assets/optimized/stage/png/warren/spore-jar.webp",
+      "stageHash": "3ba8c1a010a55fe7fe0c2aeecd0bafe9c3b77f91d2094419b5f6973105710495",
+      "card": "assets/optimized/stage/png/warren/spore-jar.webp",
+      "cardHash": "3ba8c1a010a55fe7fe0c2aeecd0bafe9c3b77f91d2094419b5f6973105710495",
+      "phone": "assets/optimized/stage/png/warren/spore-jar.webp",
+      "phoneHash": "3ba8c1a010a55fe7fe0c2aeecd0bafe9c3b77f91d2094419b5f6973105710495"
+    },
+    "assets/warren/threshold.png": {
+      "sourceHash": "d0820b2eb74dcc2de511db449b8ba30057e51f9bb10217fb3abb2e7c1929dbf7",
+      "stage": "assets/optimized/stage/png/warren/threshold.webp",
+      "stageHash": "03a98dfd35fd65b0618c66381f9d804ac009825c12610034298a34c4bf61bf28",
+      "card": "assets/optimized/card/png/warren/threshold.webp",
+      "cardHash": "8aa6f5b735d76b02bf758c080ed6aa79fecf651ace106f4424acb66987a271f8",
+      "phone": "assets/optimized/phone/png/warren/threshold.webp",
+      "phoneHash": "b5a00dffb105af47f44e59a07201924f653d88caca0df63be60028d1346b1dd2"
+    },
     "assets/willows/bank-drowned.webp": {
       "sourceHash": "0e4a5f05ccbc424140f18275d65c5744c1befe499f9f3fb6d7eb0f758d38b8f3",
       "stage": "assets/willows/bank-drowned.webp",
