@@ -105,8 +105,17 @@ only the tools. ☰ opens a list of **world slots**:
   "*Mara* remembers you" and opens Mara's own world. With nobody hidden here,
   **+ New world** starts a fresh world, which hides the next, for the card's
   avatar when it is in no world, else the first found avatar in no world.
-  Once all eight are found the row is gone. Avatars not yet found are card
-  backs under it ("6 still to find"), with no hint of where they are.
+  Once all eight are found the row is gone.
+- **Your avatars** are one row under it (owner, 2026-11-02): each avatar
+  this passkey has found, face up in R·A·T·V·M·I·C·S order, in colour while
+  it is free and grey while it is in a world ("Tavi, free", "Vale, in
+  *Silverhook*" to screen readers), then a card back for each not yet
+  found ("Your avatars, 6 still to find"), with no hint of where they are.
+  A tap on a free avatar chooses it for + New world; a tap on a placed one
+  acts as its portrait in its world's row.
+- **+** is a seat-sized dashed card with its glyph centred, level with the
+  row's portraits, in every state, including a row with no portrait (a
+  world your avatar left).
 - **There is no Delete world.** Emptying a world (Leave of its last
   avatar) is how it goes: a world with nobody in it vanishes from the list. The server has no delete for shared
   worlds and none is added: an empty world closes, keeping its journal, and
@@ -181,7 +190,9 @@ The menu shows now, not a log: where each avatar is now. There is no list of
 past or visited worlds. `v2/scripts/smoke-card-world-slots.mjs` checks
 the portraits and +, colour, choosing and arming, a move from +, Leave,
 and + New world, at 390 and 1440 pixels; `smoke-card-find-hidden.mjs` checks
-"+ Find Mara", its `seek` and the card backs.
+"+ Find Mara", its `seek` and the card backs; `smoke-card-world-menu.mjs`
+checks ☰ signed out, with two found (one in a world, one free) and with
+all found after a Leave, including the + card's size and centring.
 
 **Notes go with the chosen avatar.** The beat names it and its world, so it
 changes when another is chosen or disarmed, and goes when ☰ closes.
