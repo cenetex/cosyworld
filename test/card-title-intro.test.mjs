@@ -1,9 +1,15 @@
 import { test } from "vitest";
 import assert from "node:assert/strict";
 import {
-  streamSchedule,
+  PARAGRAPH_MS,
+  acknowledgementDelays,
   titleIntroWanted,
 } from "../v2/card-game/title-intro.mjs";
+import {
+  REVEAL_FADE_MS,
+  letterDelay,
+  splitLetters,
+} from "../v2/card-game/dialogue.mjs";
 import acknowledgement from "../v2/card-game/acknowledgement.json" with { type: "json" };
 
 const storage = (entries = {}) => ({
@@ -83,21 +89,38 @@ test("the acknowledgement is the owner's five paragraphs and nothing else", () =
   );
 });
 
-test("the acknowledgement breathes after its weighty words, in about 10 s", () => {
-  const { schedule, end } = streamSchedule(acknowledgement);
-  const letters = schedule.flat();
-  const words = letters.map(({ letter }) => letter).join("");
-  const gap = (phrase) => {
-    const i = words.indexOf(phrase) + phrase.length - 1;
-    return letters[i + 1].at - letters[i].at;
-  };
-  const plain = streamSchedule({ ...acknowledgement, pauses: [] });
-  assert.ok(gap("there was land.") > 300);
-  assert.ok(gap("were peoples") > 300);
-  assert.ok(gap("Nothing") > 300);
-  // A pause after punctuation takes the larger breath, not both.
-  assert.equal(gap("there was land."), 9 + 420);
-  assert.ok(end > plain.end && end <= 10_000, `${end} ms`);
+test("the acknowledgement writes at the dialogue's beat, breathing after its weighty words", () => {
+  const delays = acknowledgementDelays(acknowledgement);
+  const words = acknowledgement.paragraphs.map(({ text }) => text).join("");
+  const letters = splitLetters(words);
+  assert.equal(delays.length, letters.length);
+  const after = (phrase) =>
+    delays[
+      splitLetters(words.slice(0, words.indexOf(phrase) + phrase.length))
+        .length - 1
+    ];
+  assert.equal(after("there was land."), 350);
+  assert.equal(after("were peoples"), 300);
+  assert.equal(after("Nothing"), 350);
+  // Paragraphs hold the same breath; nothing else rests past a word hold,
+  // and between rests every letter keeps the dialogue's own beat.
+  const ends = new Set();
+  let at = -1;
+  for (const { text } of acknowledgement.paragraphs.slice(0, -1))
+    ends.add((at += splitLetters(text).length));
+  delays.forEach((ms, i) => {
+    if (ends.has(i)) assert.equal(ms, PARAGRAPH_MS);
+    else
+      assert.ok(
+        ms === letterDelay(letters[i]) || (ms >= 250 && ms <= 350),
+        `${i}: ${ms}`,
+      );
+  });
+  assert.ok(PARAGRAPH_MS >= 600 && PARAGRAPH_MS <= 700);
+  const total = delays.slice(0, -1).reduce((sum, ms) => sum + ms, 28);
+  assert.ok(total > 14_000 && total < 18_000, `${total} ms`);
+  // A letter fades in over less than three beats: at most three are soft.
+  assert.ok(Math.ceil(REVEAL_FADE_MS / 28) <= 3);
   for (const { word } of acknowledgement.pauses)
     assert.ok(
       acknowledgement.paragraphs.some(({ text }) => text.includes(word)),

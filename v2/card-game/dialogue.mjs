@@ -1,8 +1,9 @@
 // A complete line gets its own clock, independent of network chunk timing.
-// The same reveal writes dialogue and the effects inscribed on beat cards
-// (app.mjs): one letter at a time on one steady beat, with a short rest after
-// punctuation. Each letter fades in over REVEAL_FADE_MS (style.css
-// `.speech-letter`), so two or three are soft at once.
+// The same reveal writes dialogue, the land acknowledgement (title-intro.mjs)
+// and the effects inscribed on beat cards (app.mjs): one letter at a time on
+// one steady beat, with a short rest after punctuation. Each letter fades in
+// over REVEAL_FADE_MS (style.css `.speech-letter`), so two or three are soft
+// at once.
 export const REVEAL_FADE_MS = 80,
   REVEAL_FINISH_MS = 150;
 const segmenter = new Intl.Segmenter(undefined, { granularity: "grapheme" });
