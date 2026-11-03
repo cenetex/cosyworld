@@ -24,22 +24,25 @@ import {
   learnLane,
 } from "../v2/card-game/pack-transport.mjs";
 import { openDoorStart, openSeas } from "./helpers/open-door.mjs";
-import { upgradedActor, upgradedItems } from "./fixtures/card-upgraded-items.mjs";
+import { ajaxCamp } from "./helpers/greek-ajax.mjs";
+import {
+  upgradedActor,
+  upgradedItems,
+} from "./fixtures/card-upgraded-items.mjs";
 
 const docks = ["pond", "greek-harbor", "greek-piraeus"];
 const players = ["vale", "mara"];
 const pack = packDefinition("greek-drama");
-function shared(dock, seas = false) {
+function shared(dock, seas = false, ajax = false) {
   // After the plea at the Agora the petition and the olive branch rest
-  // there, so both Athenian gates stand open.
-  const world = dispatchShared({
-    op: "create",
-    save: encodeSave(
-      seas
-        ? openSeas()
-        : createWorld({ packScopes: { "greek-drama": "full" } }),
-    ),
-  }).world;
+  // there, so both Athenian gates stand open. Ajax's roads open with his
+  // story.
+  const local = ajax
+    ? ajaxCamp()
+    : seas
+      ? openSeas()
+      : createWorld({ packScopes: { "greek-drama": "full" } });
+  const world = dispatchShared({ op: "create", save: encodeSave(local) }).world;
   world.crossings["pond-greek-harbor"].discovered = true;
   // The ship lies empty at the dock, whatever errand it was on.
   Object.assign(world.transports["greek-ship"], {
@@ -57,7 +60,10 @@ function shared(dock, seas = false) {
   // Residents' errands (BoardyAI's introductions, a rhapsode bound for
   // Athens Harbor) are tested on their own; here nobody calls the ship.
   for (const [id, actor] of Object.entries(world.actors))
-    if (!players.includes(id)) actor.want = null;
+    if (!players.includes(id)) {
+      actor.want = null;
+      delete actor.under;
+    }
   // These travellers have heard every lane from Myrto.
   const ship = transports["greek-ship"];
   for (const id of players)
@@ -162,8 +168,10 @@ describe("Greek ports and fixed roads", () => {
     // Athens Harbor has joined Piraeus, whose Long Walls lead to the city.
     expect(entityActive(after, "greek-athens-harbor")).toBe(false);
     expect(entityActive(after, "greek-road-athens-piraeus")).toBe(true);
+    // The Coast Road walks back to the harbor (#2049).
     expect(exits(after, "greek-piraeus", "vale")).toEqual([
       "greek-road-athens-piraeus",
+      "greek-road-coast",
     ]);
     expect(exits(after, "greek-harbor", "vale")).toContain("greek-road-thebes");
     expect(exits(after, "greek-harbor", "vale")).not.toContain(
@@ -185,6 +193,10 @@ describe("Greek ports and fixed roads", () => {
         let w = shared(
           from,
           pack.routes.some((r) => r.to === id),
+          pack.sections.some(
+            (section) =>
+              section.id === "greek-ajax" && section.places.includes(id),
+          ),
         );
         const other = road.road.find((end) => end !== from);
         expect(travelCard(ask(w, "vale").world, id).name).toBe(

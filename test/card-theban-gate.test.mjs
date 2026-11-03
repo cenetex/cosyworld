@@ -44,7 +44,11 @@ const walk = (s, ...ids) =>
 describe("the Theban City Gate", () => {
   it("paints the gate open once the road has opened", () => {
     expect(pack.places["greek-gate"].exits).not.toContain("greek-battlefield");
-    expect(pack.places["greek-battlefield"].exits).toEqual(["greek-gate"]);
+    // The Northern Road from the Trojan landing ends here too (#2049).
+    expect(pack.places["greek-battlefield"].exits).toEqual([
+      "greek-gate",
+      "greek-road-north",
+    ]);
     for (const b of pack.places["greek-gate"].backdrops)
       expect(b.requires.filter((r) => r.kind !== "daylight")).toEqual([
         { kind: "gate_open", from: route.from, to: route.to },

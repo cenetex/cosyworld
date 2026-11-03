@@ -113,7 +113,7 @@ describe("the Theban release and its ship", () => {
     s.crossings["pond-greek-harbor"].discovered = true;
     expect(reachable(s)).toEqual([...openingPlaces].sort());
     expect(reachable(s)).toHaveLength(9);
-    expect(pack.release.places).toHaveLength(28);
+    expect(pack.release.places).toHaveLength(30);
     expect(
       pack.release.places
         .filter((id) => !retired(id) && id !== "greek-road-athens-harbor")
@@ -122,8 +122,9 @@ describe("the Theban release and its ship", () => {
       [
         ...openingPlaces,
         // Piraeus Quays lies outside every section; a ship with the Travel
-        // Provisions aboard reaches it.
+        // Provisions aboard reaches it, and so does the Coast Road.
         "greek-piraeus",
+        "greek-road-coast",
         ...sectionPlaces.filter(
           (id) => !retired(id) && id !== "greek-road-athens-harbor",
         ),
@@ -145,13 +146,15 @@ describe("the Theban release and its ship", () => {
     expect(reachable(s)).toHaveLength(9);
     s = act(s, "give", { item: "greek-guard-tablet", target: "greek-baker" });
     // The tablet on Dione's table opens the Cithaeron road from the
-    // battlefield to the countryside. The Sacred Way waits for the mothers'
-    // petition; the ship with the Travel Provisions reaches the city.
+    // battlefield to the countryside, and the Coast Road from the harbor to
+    // Piraeus, whose Long Walls reach the city (#2049). The Sacred Way waits
+    // for the mothers' petition.
     expect(reachable(s)).toContain("greek-eleusis");
-    expect(reachable(s)).not.toContain("greek-athens");
+    expect(reachable(s)).toContain("greek-road-coast");
+    expect(reachable(s)).toContain("greek-athens");
     s.items["greek-provisions"].holder = "greek-ship";
     expect(reachable(s)).toEqual([...openDoorReleasedPlaces].sort());
-    expect(reachable(s)).toHaveLength(17);
+    expect(reachable(s)).toHaveLength(18);
     s = decodeSave(encodeSave(s));
     expect(reachable(s)).toEqual([...openDoorReleasedPlaces].sort());
     for (const start of openDoorPlaces) {
@@ -188,7 +191,7 @@ describe("the Theban release and its ship", () => {
       ).toBe(false);
     }
     expect(pack.works).toHaveLength(44);
-    expect(Object.keys(pack.places)).toHaveLength(67);
+    expect(Object.keys(pack.places)).toHaveLength(69);
   });
   it("preserves opening scope through reloads", () => {
     let s = createWorld();

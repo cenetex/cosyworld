@@ -448,7 +448,8 @@
           "name": "The Exposed Battlefield",
           "text": "Broken spear shafts lie in the dust. A strip of earth outside the city is set apart for the fallen brother.",
           "exits": [
-            "greek-gate"
+            "greek-gate",
+            "greek-road-north"
           ],
           "backdrop": "assets/greek-drama/burial-ground-dusk.webp",
           "persona": "Broken spear shafts lie in the dust. A strip of earth outside the city is set apart for the fallen brother."
@@ -519,7 +520,8 @@
           "name": "Piraeus Quays",
           "text": "Folded cloth, a grain basket and a low bench stand beside the mooring ropes. A host waits for the names of returning families. The Long Walls run inland to Athens.",
           "exits": [
-            "greek-road-athens-piraeus"
+            "greek-road-athens-piraeus",
+            "greek-road-coast"
           ],
           "backdrop": "assets/greek-drama/piraeus-open-berth.webp",
           "persona": "These quays hold the practical work of welcome. A reserved berth records a promise and supplies at this quay. The host speaks about the actual list, cloth and basket and the traveler’s chosen terms."
@@ -1247,6 +1249,34 @@
           "backdrop": "assets/greek-drama/colonists-road.svg",
           "retired": true
         },
+        "greek-road-coast": {
+          "name": "The Coast Road",
+          "text": "A long coast road winds west over the cliffs above the gulf. One end leads to Piraeus Quays; the other leads to The Wine-Dark Harbor. The ship makes the same passage sooner.",
+          "persona": "A shared road between Piraeus Quays and The Wine-Dark Harbor. The left end always leads to Piraeus Quays. The right end always leads to The Wine-Dark Harbor. From the harbor the road opens only after Dione’s invitation; from Piraeus it is always open. The ship is the quicker way. Travelers can meet, talk, rest and carry their belongings here.",
+          "exits": [
+            "greek-piraeus",
+            "greek-harbor"
+          ],
+          "road": [
+            "greek-piraeus",
+            "greek-harbor"
+          ],
+          "backdrop": "assets/greek-drama/black-sea-road.svg"
+        },
+        "greek-road-north": {
+          "name": "The Northern Road",
+          "text": "A long road runs north through Thessaly and Thrace and crosses the strait to Troy. One end leads to The Trojan Camp Landing; the other leads to The Exposed Battlefield. The ship makes the same passage sooner.",
+          "persona": "A shared road between The Trojan Camp Landing and The Exposed Battlefield outside Thebes. The left end always leads to The Trojan Camp Landing. The right end always leads to The Exposed Battlefield. The ship is the quicker way. Travelers can meet, talk, rest and carry their belongings here.",
+          "exits": [
+            "greek-ajax-landing",
+            "greek-battlefield"
+          ],
+          "road": [
+            "greek-ajax-landing",
+            "greek-battlefield"
+          ],
+          "backdrop": "assets/greek-drama/royal-road.svg"
+        },
         "greek-ajax-landing": {
           "stage": {
             "focus": {
@@ -1258,7 +1288,8 @@
           "text": "A wooden landing meets the ships below the tents. The Greek ship calls here for the named Trojan burial account.",
           "persona": "This is a named Trojan account, beginning after Ajax’s death. Its deeds belong to that telling. The Theban opening keeps its own time. A wooden landing meets the ships below the tents. The Greek ship calls here for the named Trojan burial account.",
           "exits": [
-            "greek-greek-camp"
+            "greek-greek-camp",
+            "greek-road-north"
           ],
           "backdrop": "assets/greek-drama/ajax-camp-day.webp",
           "requires": [
@@ -2728,6 +2759,17 @@
               "kind": "item_near",
               "item": "greek-olive-branch",
               "place": "greek-athens"
+            }
+          ]
+        },
+        {
+          "from": "greek-harbor",
+          "to": "greek-road-coast",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "greek-open-door-open",
+              "value": true
             }
           ]
         }
@@ -6751,6 +6793,7 @@
           "greek-road-thebes",
           "greek-road-athens-harbor",
           "greek-road-athens-piraeus",
+          "greek-road-coast",
           "greek-road-athens-colonus",
           "greek-road-athens-eleusis",
           "greek-road-athens-marathon",
@@ -6762,6 +6805,7 @@
           "greek-ajax-landing",
           "greek-ajax-household",
           "greek-ajax-grave",
+          "greek-road-north",
           "greek-cithaeron"
         ],
         "avatars": [
@@ -7166,7 +7210,8 @@
             "greek-greek-camp",
             "greek-ajax-landing",
             "greek-ajax-household",
-            "greek-ajax-grave"
+            "greek-ajax-grave",
+            "greek-road-north"
           ],
           "requires": [
             {

@@ -399,9 +399,10 @@ describe("rest and sanctuary", () => {
       seen = 0;
     for (let step = 0; step < 300; step++) {
       // Now and then the player sleeps at home in the attic.
-      if (step % 50 === 0) {
+      // A fighter is never lifted out of a battle.
+      if (step % 50 === 0 && !standoffFor(s, "vale")) {
         s.actors.vale.place = "attic";
-        if (!standoffFor(s, "vale")) s = sleep(s);
+        s = sleep(s);
       }
       const actions = legalActions(s);
       const here = s.actors.vale.place;

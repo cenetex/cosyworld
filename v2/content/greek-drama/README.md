@@ -114,7 +114,16 @@ the Road to Delphi joins the Agora and Delphi, the Oeta Road joins Delphi and
 Trachis, the Royal Road joins Troy and Susa, the Black Sea Road joins Thrace and
 Tauris, and the Colonists' Road joins Corinth and Sicily. Troy is reached by
 ship at the Trojan landing. The Greek ship serves Piraeus, the Wine-Dark
-Harbor, Black Pond and the invited Trojan landing. Athens is three districts
+Harbor, Black Pond and the invited Trojan landing.
+
+The ship is the quick way to a port, never the only way (#2049). The Coast
+Road joins Piraeus and the Wine-Dark Harbor: it is always open from Piraeus,
+and its harbor end opens with Dione's invitation. The Northern Road joins the
+Trojan landing and the Exposed Battlefield, and appears with Ajax's story.
+Both reuse retired road art. `test/card-ship-port-roads.test.mjs` checks that
+no dock a world can sail to is ship-only. Old full-scope worlds keep four
+one-place stops with no road: the Lemnian and Sicilian caves are islands, and
+the Thracian Shore and the Taurian Temple are far shores whose roads retired. Athens is three districts
 joined by two gate roads; see [The Open Door](OPEN-DOOR.md).
 
 A pack retires a place with `retired: true` and one exit, the place that took
