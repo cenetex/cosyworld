@@ -119,9 +119,12 @@ const link = (text, href) => {
 // The acknowledgement arrives like streamed text: each letter fades in over
 // `fade` ms, `letter` ms after the one before, with a breath after
 // punctuation and between paragraphs, and a longer one before a short line
-// so it lands. The whole is about 7 seconds; the credit and the cue follow.
-// Every letter is in place from the start (transparent), so nothing
-// reflows, and CSS runs the clock: no timer per letter.
+// so it lands. Some words hold a longer breath of their own (`pauses` in
+// acknowledgement.json: the word, which time it appears, counting from 1,
+// and the ms to hold after it and any punctuation touching it; the larger of
+// that and the punctuation's or paragraph's breath wins). The whole is about 10 seconds;
+// the cue follows. Every letter is in place from the start (transparent), so
+// nothing reflows, and CSS runs the clock: no timer per letter.
 export const STREAM = {
   letter: 9,
   stop: 130,
@@ -137,21 +140,66 @@ const breath = (letter) =>
     : /[,;:—]/u.test(letter)
       ? STREAM.pause
       : 0;
+const escape = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+// Each paragraph's letters with the ms each starts at, and when the last
+// one has faded in.
+export function streamSchedule({ paragraphs, pauses = [] }) {
+  // Where each word pause lands: [paragraph, character offset it ends at].
+  const holds = paragraphs.map(() => new Map());
+  for (const { word, occurrence = 1, ms } of pauses) {
+    const pattern = new RegExp(
+      `(?<![\\p{L}\\p{N}])${escape(word)}(?![\\p{L}\\p{N}])[.,;:!?…—]*`,
+      "gu",
+    );
+    let seen = 0;
+    paragraphs.some(({ text }, p) => {
+      for (const match of text.matchAll(pattern))
+        if (++seen === occurrence) {
+          holds[p].set(match.index + match[0].length, ms);
+          return true;
+        }
+      return false;
+    });
+  }
+  // A hold at a paragraph's end shares the break before the next one.
+  let clock = 0,
+    held = 0;
+  const schedule = paragraphs.map(({ text }, p) => {
+    if (p)
+      clock += Math.max(
+        held,
+        STREAM.paragraph + (text.length < SHORT_LINE ? STREAM.short : 0),
+      );
+    const letters = splitLetters(text);
+    let offset = 0;
+    return letters.map((letter, i) => {
+      const at = clock;
+      offset += letter.length;
+      const hold = holds[p].get(offset) ?? 0;
+      const end = i === letters.length - 1;
+      held = end ? hold : 0;
+      clock += STREAM.letter + (end ? 0 : Math.max(hold, breath(letter)));
+      return { letter, at };
+    });
+  });
+  clock += held;
+  return { schedule, end: Math.round(clock + STREAM.fade) };
+}
 // Real text from acknowledgement.json, set like a film's opening card.
 function acknowledgementPanel() {
-  let clock = 0;
+  const { schedule, end: streamMs } = streamSchedule(acknowledgement);
+  let letters = [];
   const streamed = (words) => {
     const part = document.createDocumentFragment();
-    const letters = splitLetters(words);
-    letters.forEach((letter, i) => {
+    for (const letter of splitLetters(words)) {
+      const { at } = letters.shift() ?? { at: 0 };
       if (/^\s+$/u.test(letter)) part.append(letter);
       else {
         const span = element("span", "title-ack-ch", letter);
-        span.style.animationDelay = `${Math.round(clock)}ms`;
+        span.style.animationDelay = `${Math.round(at)}ms`;
         part.append(span);
       }
-      clock += STREAM.letter + (i < letters.length - 1 ? breath(letter) : 0);
-    });
+    }
     return part;
   };
   const panel = element("section", "title-ack");
@@ -160,15 +208,11 @@ function acknowledgementPanel() {
   text.setAttribute("role", "region");
   text.setAttribute("aria-label", acknowledgement.title);
   acknowledgement.paragraphs.forEach(({ text: words, links = {}, note }, i) => {
-    if (i)
-      clock +=
-        STREAM.paragraph + (words.length < SHORT_LINE ? STREAM.short : 0);
+    letters = [...schedule[i]];
     const paragraph = element("p", note ? "title-ack-note" : "");
     const phrases = Object.keys(links);
     const split = phrases.length
-      ? new RegExp(
-          `(${phrases.map((p) => p.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})`,
-        )
+      ? new RegExp(`(${phrases.map(escape).join("|")})`)
       : null;
     for (const part of split ? words.split(split) : [words])
       paragraph.append(
@@ -176,7 +220,6 @@ function acknowledgementPanel() {
       );
     text.append(paragraph);
   });
-  text.append(element("p", "title-credit", acknowledgement.credit));
   // A quiet line, still a real button for focus and Enter or Space.
   const tap = matchMedia("(pointer: coarse)").matches;
   const next = element(
@@ -186,7 +229,6 @@ function acknowledgementPanel() {
   );
   next.type = "button";
   panel.append(text, next);
-  const streamMs = Math.round(clock + STREAM.fade);
   panel.style.setProperty("--stream-end", `${streamMs}ms`);
   return { panel, next, streamMs };
 }

@@ -1,6 +1,9 @@
 import { test } from "vitest";
 import assert from "node:assert/strict";
-import { titleIntroWanted } from "../v2/card-game/title-intro.mjs";
+import {
+  streamSchedule,
+  titleIntroWanted,
+} from "../v2/card-game/title-intro.mjs";
 import acknowledgement from "../v2/card-game/acknowledgement.json" with { type: "json" };
 
 const storage = (entries = {}) => ({
@@ -63,7 +66,7 @@ test("blocked storage shows it; automated browsers need intro=1", () => {
   );
 });
 
-test("the acknowledgement is the owner's five paragraphs and the credit", () => {
+test("the acknowledgement is the owner's five paragraphs and nothing else", () => {
   const { paragraphs } = acknowledgement;
   assert.equal(paragraphs.length, 5);
   assert.match(paragraphs[0].text, /^Before our forest, there was land\./);
@@ -73,8 +76,30 @@ test("the acknowledgement is the owner's five paragraphs and the credit", () => 
   assert.equal(paragraphs.at(-1).text, "The lid is open. The path is yours.");
   for (const { text, links = {} } of paragraphs)
     for (const phrase of Object.keys(links)) assert.ok(text.includes(phrase));
-  assert.equal(
-    acknowledgement.credit,
-    "Designed by the RATi Open Software Foundation · Operated as a service by Cenetex Inc. · All revenue goes to the Foundation",
+  assert.equal(acknowledgement.credit, undefined);
+  assert.doesNotMatch(
+    JSON.stringify(acknowledgement),
+    /Cenetex|RATi|Foundation|rati\.foundation/u,
   );
+});
+
+test("the acknowledgement breathes after its weighty words, in about 10 s", () => {
+  const { schedule, end } = streamSchedule(acknowledgement);
+  const letters = schedule.flat();
+  const words = letters.map(({ letter }) => letter).join("");
+  const gap = (phrase) => {
+    const i = words.indexOf(phrase) + phrase.length - 1;
+    return letters[i + 1].at - letters[i].at;
+  };
+  const plain = streamSchedule({ ...acknowledgement, pauses: [] });
+  assert.ok(gap("there was land.") > 300);
+  assert.ok(gap("were peoples") > 300);
+  assert.ok(gap("Nothing") > 300);
+  // A pause after punctuation takes the larger breath, not both.
+  assert.equal(gap("there was land."), 9 + 420);
+  assert.ok(end > plain.end && end <= 10_000, `${end} ms`);
+  for (const { word } of acknowledgement.pauses)
+    assert.ok(
+      acknowledgement.paragraphs.some(({ text }) => text.includes(word)),
+    );
 });

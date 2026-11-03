@@ -2819,7 +2819,7 @@ main > .dialogue {
   font: 1.1rem/1.65 Georgia, serif;
 }
 /* It streams in letter by letter (title-intro.mjs sets each letter's delay):
-   opacity only, every letter already in place. The credit and the cue come
+   opacity only, every letter already in place. The cue comes
    after. Without the animation everything simply shows. */
 @keyframes title-ack-in {
   from {
@@ -2829,11 +2829,11 @@ main > .dialogue {
 .title-ack[data-stream] .title-ack-ch {
   animation: title-ack-in 180ms ease-out backwards;
 }
-.title-ack[data-stream] :is(.title-credit, .title-continue) {
+.title-ack[data-stream] .title-continue {
   animation: title-ack-in 600ms ease-out var(--stream-end) backwards;
 }
 @media (prefers-reduced-motion: reduce) {
-  .title-ack[data-stream] :is(.title-ack-ch, .title-credit, .title-continue) {
+  .title-ack[data-stream] :is(.title-ack-ch, .title-continue) {
     animation: none;
   }
 }
@@ -2853,13 +2853,6 @@ main > .dialogue {
 .title-intro a {
   color: inherit;
   text-decoration-color: rgba(255, 244, 220, 0.5);
-}
-.title-ack .title-credit {
-  margin: 1.2em 0 0;
-  line-height: 1.5;
-  font-size: 0.75rem;
-  opacity: 0.65;
-  text-align: center;
 }
 .title-ack-text:focus-visible,
 .title-intro a:focus-visible {

@@ -716,14 +716,18 @@ Every new world on Lonely Forest opens black, then shows the land
 acknowledgement (`title-intro.mjs`, started from `entry.mjs`), silent, while
 the table boots underneath. Its text is data in `acknowledgement.json`: five
 short paragraphs set like a film's opening card, in a narrow measure with
-generous leading, then the Foundation and Cenetex credit in small type. The
+generous leading, and nothing else. The
 text streams in letter by letter like streamed AI text: a letter every 9 ms,
 each fading in over 180 ms, with a breath after punctuation, half a second
-between paragraphs and a longer pause before a short line, about 7 seconds
-in all. Every letter is laid out
+between paragraphs and a longer pause before a short line. A few weighty
+words hold a breath of their own (350–420 ms after "land", "peoples", "still",
+"keepers", "machines", "Nothing", "box", "open" and "yours"): `pauses` in
+`acknowledgement.json` names each word, which time it appears and its ms,
+and the larger of that and any punctuation or paragraph breath wins. About
+10 seconds in all. Every letter is laid out
 from the start and CSS runs the clock (`STREAM` in `title-intro.mjs`), so
 nothing reflows and screen readers have the whole text at once. Reduced motion
-shows it all at once. The credit and a quiet "click to continue" line ("tap to
+shows it all at once. A quiet "click to continue" line ("tap to
 continue" on touch screens) follow the stream; the panel scrolls when it does
 not fit. The line is a button with no chrome that takes focus, with a ring
 only from the keyboard. A tap or click anywhere, or a key (the arrows scroll),
