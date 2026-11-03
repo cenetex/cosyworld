@@ -144,6 +144,11 @@ describe("paced conversation", () => {
     expect(frame.mock.lastCall[0].shown).toBe(2);
     tick(600);
     expect(frame.mock.lastCall[0].shown).toBe(3);
+    // After a stall it catches up at no more than twice the beat.
+    tick(610);
+    expect(frame.mock.lastCall[0].shown).toBe(3);
+    tick(614);
+    expect(frame.mock.lastCall[0].shown).toBe(4);
     expect(sound).toHaveBeenCalledTimes(2);
     reveal.finish();
     expect(cancelFrame).toHaveBeenLastCalledWith(1);

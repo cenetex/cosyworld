@@ -482,14 +482,14 @@ main {
   background: transparent;
 }
 /* One reveal writes dialogue and inscribed effects (dialogue.mjs): every
-   letter is in place from the start, and its ink fades in over 80 ms on its
+   letter is in place from the start, and its ink fades in over 60 ms on its
    turn, so two or three letters are soft at once. A tap fades the rest in
    together. The caret has its own colour and never fades. */
 .speech-letter {
   visibility: hidden;
   position: relative;
   color: transparent;
-  transition: color 80ms linear;
+  transition: color 60ms linear;
 }
 .speech-letter.revealed {
   visibility: visible;
