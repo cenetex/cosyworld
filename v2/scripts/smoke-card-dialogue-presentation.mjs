@@ -140,14 +140,25 @@ async function local(width) {
   await t.choose("lamp");
   await t.page.evaluate(() =>
     new MutationObserver(() => {
-      if (document.querySelector("#beat-captions .inscribe"))
-        window.inscribed ??= performance.now();
+      const item = document.querySelector("#beat-captions .inscribe");
+      if (item)
+        window.inscribed ??= {
+          clip: getComputedStyle(item).clipPath,
+          steps: getComputedStyle(item).animationTimingFunction,
+          letters: item.querySelectorAll(".speech-letter").length,
+        };
     }).observe(document.body, { subtree: true, childList: true }),
   );
   await t.page.locator('#card-actions [data-action="light"]').click();
   await t.page.keyboard.press("Escape");
   await t.page.waitForFunction(() => window.inscribed);
   await t.shot("local-inscribing");
+  // It writes in letter by letter with the dialogue's reveal: no clip wipe
+  // that slices through letters.
+  const pen = await t.page.evaluate(() => window.inscribed);
+  assert.equal(pen.clip, "none", JSON.stringify(pen));
+  assert.doesNotMatch(pen.steps, /steps/, JSON.stringify(pen));
+  assert.ok(pen.letters > 3, JSON.stringify(pen));
   const lit = await until(
     t.page,
     (s) => s.caption.includes("lit"),

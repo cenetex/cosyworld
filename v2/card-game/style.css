@@ -481,12 +481,30 @@ main {
 .speech-line:hover {
   background: transparent;
 }
+/* One reveal writes dialogue and inscribed effects (dialogue.mjs): every
+   letter is in place from the start, and its ink fades in over 80 ms on its
+   turn, so two or three letters are soft at once. A tap fades the rest in
+   together. The caret has its own colour and never fades. */
 .speech-letter {
   visibility: hidden;
   position: relative;
+  color: transparent;
+  transition: color 80ms linear;
 }
 .speech-letter.revealed {
   visibility: visible;
+  color: inherit;
+}
+[data-reveal="finish"] .speech-letter {
+  transition: color 150ms ease;
+}
+[data-reveal="instant"] .speech-letter {
+  transition: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .speech-letter {
+    transition: none;
+  }
 }
 .speech-letter.cursor::after {
   content: "";
@@ -1076,8 +1094,7 @@ body .card[data-selected="true"] {
   #hand:not([aria-busy="true"]) > .card-frame:has(> .card:hover) ~ .card-frame {
     translate: 12px 0;
   }
-  #hand:not([aria-busy="true"])
-    > .card-frame:has(~ .card-frame > .card:hover) {
+  #hand:not([aria-busy="true"]) > .card-frame:has(~ .card-frame > .card:hover) {
     translate: -12px 0;
   }
 }
@@ -1155,7 +1172,8 @@ body .card.item .art img {
 .hand > .card-frame:has(~ .card-frame:not([hidden])) .card .name {
   padding-right: calc(var(--fan-overlap) + 8px);
 }
-.hand > .card-frame:has(~ .card-frame:not([hidden])):is(:hover, :focus-within)
+.hand
+  > .card-frame:has(~ .card-frame:not([hidden])):is(:hover, :focus-within)
   .card
   .name,
 .hand > .card-frame:has(> .card[data-selected="true"]) .card .name {
@@ -1209,7 +1227,9 @@ body .card-frame[hidden] {
   inset: 0;
   border: 1px solid #a48d6380;
   border-radius: 13px;
-  background: var(--card-back) center / cover no-repeat, #2a2118;
+  background:
+    var(--card-back) center / cover no-repeat,
+    #2a2118;
   box-shadow: 0 4px 12px #0007;
   pointer-events: none;
 }
@@ -1268,12 +1288,16 @@ body .card.want-card[data-near="true"] {
   pointer-events: none;
 }
 .quest-verb {
-  font: 600 calc(var(--card-height) * 0.042) / 1 system-ui, sans-serif;
+  font:
+    600 calc(var(--card-height) * 0.042) / 1 system-ui,
+    sans-serif;
   letter-spacing: 0.14em;
   text-transform: uppercase;
 }
 .quest-level {
-  font: calc(var(--card-height) * 0.064) / 1 Georgia, serif;
+  font:
+    calc(var(--card-height) * 0.064) / 1 Georgia,
+    serif;
   letter-spacing: 0.08em;
   text-shadow: 0 0 6px var(--tier-color);
 }
@@ -1329,10 +1353,19 @@ body .card.want-card[data-near="true"] {
   translate: -50% 0;
   rotate: -8deg;
   border-radius: 50%;
-  background: radial-gradient(circle at 40% 35%, #fff8, var(--tier-color) 55%, #5b4c22);
-  box-shadow: 0 0 16px var(--tier-color), 0 3px 8px #000a;
+  background: radial-gradient(
+    circle at 40% 35%,
+    #fff8,
+    var(--tier-color) 55%,
+    #5b4c22
+  );
+  box-shadow:
+    0 0 16px var(--tier-color),
+    0 3px 8px #000a;
   color: #1a1408;
-  font: calc(var(--card-height) * 0.085) / 1 Georgia, serif;
+  font:
+    calc(var(--card-height) * 0.085) / 1 Georgia,
+    serif;
   pointer-events: none;
 }
 body .card.want-card[data-met="true"] {
@@ -1345,8 +1378,12 @@ body .card.want-card[data-met="true"] {
   z-index: 200;
   translate: -50% 0;
   color: var(--tier-color);
-  font: 600 18px/1 Georgia, serif;
-  text-shadow: 0 0 8px var(--tier-color), 0 2px 3px #000;
+  font:
+    600 18px/1 Georgia,
+    serif;
+  text-shadow:
+    0 0 8px var(--tier-color),
+    0 2px 3px #000;
   pointer-events: none;
 }
 @media (prefers-reduced-motion: reduce) {
@@ -2375,20 +2412,6 @@ body .beat-live {
 .beat-stack .beat-caption:nth-last-child(n + 4) {
   display: none;
 }
-/* An effect is inscribed onto the card current when it happens: it writes
-   in from the left. Reduced motion shows it at once. */
-.beat-caption.inscribe,
-.beat-behind-caption.inscribe {
-  animation: inscribe var(--inscribe-ms, 600ms) steps(24, end) both;
-}
-@keyframes inscribe {
-  from {
-    clip-path: inset(0 100% 0 0);
-  }
-  to {
-    clip-path: inset(0 0 0 0);
-  }
-}
 .beat-stack[data-action="true"] > #speech-row * {
   flex: none;
   min-height: 0;
@@ -2769,7 +2792,11 @@ main > .dialogue {
     bottom: calc(var(--card-height) * (1 - var(--resting-show)));
     padding-top: 24px;
   }
-  body[data-dialogue-over="true"] .play-dock[data-selected="true"] .hand .card .name,
+  body[data-dialogue-over="true"]
+    .play-dock[data-selected="true"]
+    .hand
+    .card
+    .name,
   body[data-dialogue-over="true"][data-hand-expanded="true"] .hand .card .name {
     bottom: calc(var(--card-height) * var(--raised-tuck));
   }
@@ -2819,7 +2846,9 @@ main > .dialogue {
   width: min(40ch, calc(100vw - 32px));
   max-height: calc(100dvh - 32px);
   color: #fff4dc;
-  font: 1.1rem/1.65 Georgia, serif;
+  font:
+    1.1rem/1.65 Georgia,
+    serif;
 }
 /* It streams in letter by letter (title-intro.mjs sets each letter's delay):
    opacity only, every letter already in place. The cue comes
@@ -2910,7 +2939,9 @@ main > .dialogue {
 .title-privacy {
   padding: 6px 8px;
   color: #fff4dc;
-  font: 0.85rem Georgia, serif;
+  font:
+    0.85rem Georgia,
+    serif;
   opacity: 0.7;
 }
 .title-continue {
@@ -2918,7 +2949,9 @@ main > .dialogue {
   border: 0;
   background: none;
   color: #fff4dc;
-  font: italic 0.85rem Georgia, serif;
+  font:
+    italic 0.85rem Georgia,
+    serif;
   letter-spacing: 0.04em;
   opacity: 0.6;
   cursor: pointer;
