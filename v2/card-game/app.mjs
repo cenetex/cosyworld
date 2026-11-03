@@ -269,23 +269,33 @@ const UNSAVED_NOTICE =
   "This browser could not save the world. Keep this tab open to keep playing.";
 if (storageBlocked) notice(UNSAVED_NOTICE);
 const SEEN_KEY = `${SAVE_KEY}.seen`;
-// Keep the revision whose words are still needed. A reload interrupts a
-// pending request too; a completed reply clears its Retry marker.
+// Keep the revision whose words are still needed, and whether they failed or
+// were still on the way: a reload asks again for words it interrupted and
+// offers Retry for words that failed. A completed reply clears the marker.
 const WORDS_FAILED_KEY = `${SAVE_KEY}.words-failed`;
-function rememberWordsFailed(revision) {
+function rememberWordsFailed(revision, pending = false) {
   if (sharedSession) return;
   try {
     if (revision === null) localStorage.removeItem(WORDS_FAILED_KEY);
-    else localStorage.setItem(WORDS_FAILED_KEY, String(revision));
+    else
+      localStorage.setItem(
+        WORDS_FAILED_KEY,
+        `${revision}${pending ? ":pending" : ""}`,
+      );
   } catch {
     /* Retry still works in this tab. */
   }
 }
+// "failed", "pending" or null for the current revision.
 function wordsFailedOnLoad() {
   try {
-    return localStorage.getItem(WORDS_FAILED_KEY) === String(world.revision);
+    const [revision, pending] = (
+      localStorage.getItem(WORDS_FAILED_KEY) || ""
+    ).split(":");
+    if (revision !== String(world.revision)) return null;
+    return pending ? "pending" : "failed";
   } catch {
-    return false;
+    return null;
   }
 }
 let encountered = new Set(),
@@ -409,6 +419,8 @@ if (localBackups) {
 // Effect captions being written onto a card (inscribe()).
 const inscribing = new Set();
 let shownCaptions = { key: null, count: 0 };
+// Whether a shared room line has shown since this page opened.
+let sharedLineSeen = false;
 let storyStatus = "ready",
   storyRetrying = false,
   renderedCast = "",
@@ -1067,7 +1079,7 @@ const narrator = createNarrator({
   },
   status: (value) => {
     storyStatus = value;
-    if (value === "pending") rememberWordsFailed(world.revision);
+    if (value === "pending") rememberWordsFailed(world.revision, true);
     if (value === "pending" && !exchange.active) exchange.begin();
     if (value === "retry") {
       rememberWordsFailed(world.revision);
@@ -4117,9 +4129,10 @@ function resumeScene({ otherTab = false } = {}) {
     render();
     return;
   }
-  if (openingWordsDue() && !otherTab && !wordsFailedOnLoad()) {
-    // A new game asks the dialogue model for Vale's first line. A reload
-    // after it failed offers Retry instead of asking again.
+  const words = wordsFailedOnLoad();
+  if (openingWordsDue() && !otherTab && words !== "failed") {
+    // A new game asks the dialogue model for Vale's first line, and a reload
+    // that interrupted it asks again. A reload after it failed offers Retry.
     lineSeq = null;
     storyStatus = "pending";
     exchange.begin();
@@ -4127,8 +4140,9 @@ function resumeScene({ otherTab = false } = {}) {
     narrator.changed();
     return;
   }
-  if (!saveBlocked && !hasCurrentWords() && wordsFailedOnLoad()) {
-    // This turn's words failed before the reload: offer Retry again.
+  if (!saveBlocked && !hasCurrentWords() && words) {
+    // This turn's words were on the way before the reload: ask again. If
+    // they had failed, or another tab is asking, offer Retry.
     const played = world.log.findLast(
       (entry) =>
         entry.turn === world.turn &&
@@ -4139,6 +4153,11 @@ function resumeScene({ otherTab = false } = {}) {
       played ? { item: played.itemId, target: played.targetId } : null,
     );
     lineSeq = null;
+    if (words === "pending" && !otherTab) {
+      render();
+      narrator.retry();
+      return;
+    }
     storyStatus = "retry";
     render();
     showOpeningSilence();
@@ -4146,6 +4165,8 @@ function resumeScene({ otherTab = false } = {}) {
   }
   if (!saveBlocked && hasCurrentWords()) {
     const line = currentScene(world).line;
+    // A line read, or begun, before the reload shows whole.
+    if (line) completedSpeech.add(lineKey(line, line.locationId));
     lineSeq = null;
     exchange.begin();
     render();
@@ -4373,6 +4394,9 @@ function syncSharedLine() {
   if (!entry || (lineSeq !== null && entry.seq < lineSeq)) return;
   const key = `${room}:${entry.seq}`;
   if (key === sharedLineKey) return;
+  // The room's line when this page opens began before it: it shows whole.
+  if (!sharedLineSeen) completedSpeech.add(lineKey(entry, room));
+  sharedLineSeen = true;
   sharedLineKey = key;
   lineSeq = entry.seq;
   storyStatus = "ready";

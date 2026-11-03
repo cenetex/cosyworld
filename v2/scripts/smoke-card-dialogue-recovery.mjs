@@ -239,16 +239,17 @@ try {
       ),
       true,
     );
+    // A reload while the words were on the way asks again (#2017).
     const pendingRequests = requests.length;
-    await page.reload();
-    await retry.waitFor({ state: "visible", timeout: 3000 });
-    assert.equal(await failure.isVisible(), true);
-    assert.equal(
-      requests.length,
-      pendingRequests,
-      "reload waits for an explicit retry",
-    );
     mode = "ready";
+    await page.reload();
+    await ready();
+    assert.equal(requests.length, pendingRequests + 1, "reload asks again");
+    assert.equal(await failure.isVisible(), false);
+    assert.match(
+      await page.textContent("#dialogue-text"),
+      new RegExp(`speaks on turn ${before.turn + 2}`),
+    );
     await pond.click();
     await page.locator("#card-actions .card-primary").click();
     await ready();

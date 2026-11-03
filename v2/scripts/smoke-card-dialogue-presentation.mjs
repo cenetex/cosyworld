@@ -268,8 +268,75 @@ async function shared(width) {
   await t.page.close();
 }
 
+// A reload shows a line already begun in full (D8) and asks again for words
+// it interrupted (D9). A reply over 400 characters fails visibly, after its
+// one retry, rather than holding Thinking.
+async function reloads(width) {
+  const world = W.createWorld();
+  world.actors.vale.place = world.actors.moth.place = "pond";
+  world.actors.moth.want = null;
+  const key = "cosyworld.reflected-shore.v1.reload";
+  let length = 280,
+    asked = 0;
+  const held = [];
+  const t = await open(width, "?table=reload", (page) =>
+    Promise.all([
+      page.addInitScript(
+        ([key, save, seen]) => {
+          if (sessionStorage.getItem("seeded")) return;
+          sessionStorage.setItem("seeded", "1");
+          localStorage.setItem(key, save);
+          localStorage.setItem(`${key}.seen`, seen);
+          localStorage.setItem("cosyworld.dialogue.sound", "off");
+        },
+        [key, W.encodeSave(world), JSON.stringify(availableCards(world))],
+      ),
+      page.route("**/card-game/text", (route) => {
+        asked++;
+        const { revision, entities } = route.request().postDataJSON();
+        const text = "Slowly. ".repeat(length / 8);
+        const entries = entities.map(({ id }) => ({ id, text }));
+        held.push(() =>
+          route.fulfill({ json: { revision, model: "smoke", entries } }),
+        );
+      }),
+    ]),
+  );
+  const play = async () => {
+    await t.choose("moth");
+    await t.page.locator('#card-actions [data-action="talk"]').click();
+    while (!held.length) await t.page.waitForTimeout(50);
+  };
+  // D9: a reload while Thinking asks again instead of failing.
+  await play();
+  const before = asked;
+  await t.page.reload();
+  await until(t.page, (s) => s.thinking, "Thinking again after reload");
+  while (asked === before) await t.page.waitForTimeout(50);
+  assert.equal(await t.page.locator("#story-error").isVisible(), false);
+  // D8: a reload mid-line shows the line whole.
+  await held.at(-1)();
+  await t.waits(`reload ${width} typing`);
+  await t.page.reload();
+  const whole = await until(t.page, (s) => s.front === "speech", "line");
+  assert.equal(whole.typing, false, "a line begun before reload shows whole");
+  // A reply too long to accept fails visibly after its retry.
+  length = 504;
+  await t.readAll().catch(() => {});
+  await t.page.keyboard.press("Escape");
+  held.length = 0;
+  await play();
+  await held.shift()();
+  while (!held.length) await t.page.waitForTimeout(50);
+  await held.shift()();
+  await t.page.locator("#story-error").waitFor({ timeout: 4000 });
+  assert.deepEqual(t.page.errors, []);
+  await t.page.close();
+}
+
 try {
   for (const width of smokeWidths([1440, 390])) {
+    await reloads(width);
     await local(width);
     await shared(width);
     console.log(`Dialogue presentation passed at ${width}px.`);
