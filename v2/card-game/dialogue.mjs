@@ -3,7 +3,7 @@
 // (app.mjs): one letter at a time on one steady beat, with a short rest after
 // punctuation. Each letter fades in over REVEAL_FADE_MS (style.css
 // `.speech-letter`), so two or three are soft at once.
-export const REVEAL_FADE_MS = 80,
+export const REVEAL_FADE_MS = 60,
   REVEAL_FINISH_MS = 150;
 const segmenter = new Intl.Segmenter(undefined, { granularity: "grapheme" });
 export function splitLetters(text) {
@@ -59,8 +59,10 @@ export function createTextReveal({
       sound(current.speaker, letter, current.shown);
     emit();
     // Keep the cadence through small frame delays. A slow frame reveals one
-    // letter, so returning from a busy frame keeps the words readable.
-    due = Math.max(due + delay(letter, current.shown - 1), time);
+    // letter, and the clock never catches up faster than twice the beat, so
+    // returning from a busy frame keeps a steady beat rather than a burst.
+    const pause = delay(letter, current.shown - 1);
+    due = Math.max(due + pause, time + pause / 2);
     queue();
   }
   return {
