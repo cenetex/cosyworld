@@ -294,7 +294,8 @@ fn example(cases: &[Case]) -> Value {
         .map(|id| {
             let heard = scene_for(context, lines, id);
             let context = heard.as_ref().unwrap_or(context);
-            let (system, user) = conversation::messages(context, entity(context, id));
+            let p = conversation::messages(context, entity(context, id));
+            let (system, user) = (p.assistant, p.user);
             json!({"speaker": id, "system": system, "user": user})
         })
         .collect()
@@ -312,13 +313,18 @@ fn conversation_turns_answer_one_line_with_the_talk_here() {
         .unwrap();
     let action = context.action.clone().unwrap();
     // The opener: never the caption, and no cue.
-    let (system, user) = conversation::messages(context, entity(context, "vale"));
+    let p = conversation::messages(context, entity(context, "vale"));
+    let (system, user) = (p.assistant, p.user);
     assert!(!system.contains(&action) && !user.contains(&action));
     assert!(!user.ends_with(':'));
     // The reply answers Vale's line from this turn, the second Talk with Pip.
     let heard = scene_for(context, lines, "moth").unwrap();
-    let (system, user) = conversation::messages(&heard, entity(&heard, "moth"));
-    assert_eq!(user, "Tell me again what the pond wants.");
+    let p = conversation::messages(&heard, entity(&heard, "moth"));
+    let (system, user) = (p.assistant, p.user);
+    assert_eq!(
+        user,
+        "Vale says, \u{201c}Tell me again what the pond wants.\u{201d}"
+    );
     // The group chat: earlier lines here, by both speakers, oldest first.
     let talk = system.rsplit_once("\n\n").unwrap().1;
     let vale = talk
@@ -351,7 +357,7 @@ fn a_return_visit_remembers_what_is_between_us() {
         let (_, context, lines) = cases.iter().find(|(name, ..)| name == case).unwrap();
         let heard = scene_for(context, lines, id);
         let context = heard.as_ref().unwrap_or(context);
-        conversation::messages(context, entity(context, id)).0
+        conversation::messages(context, entity(context, id)).assistant
     };
     for id in ["vale", "moth"] {
         assert!(!prompt("return visit before", id).contains(" over the Lamp, "));
@@ -410,7 +416,8 @@ fn prompts_say_moments_not_turns() {
                 &[Part::Line]
             };
             for part in parts {
-                let (system, user) = messages(context, entity(context, &id), *part);
+                let p = messages(context, entity(context, &id), *part);
+                let (system, user) = (p.assistant, p.user);
                 let text = format!("{system}\n{user}").to_lowercase();
                 let turn = text
                     .split(|c: char| !c.is_alphanumeric())
@@ -537,4 +544,53 @@ async fn each_voice_call_counts_its_attempts_reasons_and_tokens() {
     assert!(after["prompt_tokens"]["max"].as_u64().unwrap() > 0);
     // Counters carry labels and numbers, never prompt or reply text.
     assert!(!after.to_string().contains("lamp"));
+}
+
+/// Dione wants the Funeral Oil Vale carries (.dev, 2026-11-03: "Ask Vale to
+/// hand you the Funeral Oil."). Her view is her own assistant turn after
+/// silence, the line she answers is the user turn, and the checks still read
+/// the structured facts and the view.
+#[test]
+fn a_character_speaks_as_itself_in_the_assistant_turn() {
+    let cases = cases();
+    let (_, context, lines) = cases
+        .iter()
+        .find(|(name, ..)| name == "Dione wants the Funeral Oil")
+        .unwrap();
+    let heard = scene_for(context, lines, "greek-baker").unwrap();
+    let dione = entity(&heard, "greek-baker");
+    let prompt = messages(&heard, dione, Part::Line);
+    assert_eq!(prompt.system, "You are Dione the Baker.");
+    let view = prose(&prompt.assistant);
+    assert!(view.starts_with("I am Dione the Baker.\n\nI'm at Theban Courtyard. "));
+    assert!(prompt
+        .assistant
+        .contains("Vale is holding the Lamp, the Black cloth and the Funeral Oil."));
+    assert!(prompt.assistant.contains("I want the Funeral Oil."));
+    assert!(view.split("\n\n").all(|part| !part.contains('\n')));
+    assert_eq!(
+        prompt.user,
+        "Vale says, \u{201c}Good evening, Dione. What are you baking?\u{201d}"
+    );
+    // A wrong custody claim about Vale's oil is still blocked; the view
+    // read back across its facts is an echo.
+    let check = Check::new(&heard, dione, Part::Line);
+    assert_eq!(
+        check.verdict("I'm holding the Funeral Oil.", true, false),
+        Err("custody")
+    );
+    assert_eq!(
+        check.verdict("The Funeral Oil is mine.", true, false),
+        Err("custody")
+    );
+    let echo = "I am Dione the Baker I'm at Theban Courtyard Vale and The Bard are here with me.";
+    assert_eq!(check.verdict(echo, true, false), Err("echoed brief"));
+    // Vale, with nobody heard, answers silence; who is with him is his view.
+    let (_, wait, _) = cases
+        .iter()
+        .find(|(name, ..)| name == "Black pond wait")
+        .unwrap();
+    let vale = messages(wait, entity(wait, "vale"), Part::Line);
+    assert_eq!(vale.user, crate::ai_gateway::SILENCE);
+    assert!(vale.assistant.contains("Pip is here with me."));
 }

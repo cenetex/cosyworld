@@ -230,7 +230,7 @@ fn alive(job: &Job) -> Result<(), String> {
 
 /// A speaking voice that heard a line continues its opening quote.
 fn quoted(system: &str, assistant: &str, user: &str) -> bool {
-    !assistant.is_empty() && system.trim().is_empty() && user != super::SILENCE
+    !assistant.is_empty() && !system.starts_with(super::SHAPE) && user != super::SILENCE
 }
 
 fn generate(

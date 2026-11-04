@@ -3437,6 +3437,10 @@ fn readable_reasoning_trace(message: &Value) -> Option<String> {
 /// instruction.
 pub(crate) const SILENCE: &str = "…";
 
+/// How a gesture or emoji voice's system turn opens (`expression::direction`):
+/// its check reads that shape, so its reply gets no opening quote.
+pub(crate) const SHAPE: &str = "My next reply";
+
 /// The opening quote a speaking voice's reply continues, where a provider
 /// continues a final assistant turn: Mistral, and the desktop's embedded
 /// llama.cpp (`card_llama`). Claude 4.6+ and Haiku 5.5 reject one (400) and
@@ -3511,7 +3515,7 @@ async fn request_completion(
     // A speaking voice (no system shape) that heard a line continues its
     // opening quote; speaking first, a prefill voiced the listener instead.
     let quote = !assistant.is_empty()
-        && system.trim().is_empty()
+        && !system.starts_with(SHAPE)
         && user_content.as_str() != Some(SILENCE)
         && model.starts_with("mistralai/");
     let context_hash = {
