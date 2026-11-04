@@ -16,12 +16,12 @@ import {
   createBeatRunner,
   defeatSummary,
   inSentence,
+  lossTimes,
   outcomeWord,
   telegraphText,
 } from "./combat-beats.mjs";
 
 const SPEED_KEY = "cosyworld.combat-speed";
-const FAINT_MS = 1400;
 
 export function combatSpeed() {
   try {
@@ -573,7 +573,7 @@ export function createCombatView({
       const summary = defeatSummary(beat);
       setCaption(
         beat.viewerLost
-          ? `${summary.title}.`
+          ? summary.title
           : `${nameOf(beat.loserId)} yields to ${inSentence(beat.winnerId)}.`,
       );
     }
@@ -594,7 +594,7 @@ export function createCombatView({
   // dark until the travel veil takes over (app.mjs removes `fainting`).
   const faint = async () => {
     if (!veil) return;
-    veil.style.setProperty("--faint-ms", `${Math.round(FAINT_MS / speed)}ms`);
+    veil.style.setProperty("--faint-ms", `${lossTimes({ speed }).faint}ms`);
     veil.classList.add("fainting");
     await Promise.allSettled(veil.getAnimations().map((a) => a.finished));
   };
@@ -639,13 +639,14 @@ export function createCombatView({
       dialog.querySelector("[data-combat-title]").textContent = summary.title;
       const list = dialog.querySelector("[data-combat-changes]");
       list.replaceChildren(
-        ...summary.changes.map((text) => {
+        ...summary.changes.map(({ text }) => {
           const item = document.createElement("li");
           item.textContent = text;
           return item;
         }),
       );
-      announce.textContent = `${summary.title}. ${summary.changes.join(" ")}`;
+      const { title, changes } = summary;
+      announce.textContent = [title, ...changes.map((c) => c.text)].join(" ");
       const mine = portraitRun;
       await faint();
       // A cleanup during the fade (a cancelled scene) shows no card.

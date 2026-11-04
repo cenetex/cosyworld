@@ -422,7 +422,7 @@ try {
     );
     assert.equal(
       await page.locator("#defeat-title").textContent(),
-      `${nameOf(opponent)} drove you off`,
+      `${nameOf(opponent)} drove you off.`,
     );
     assert.match(
       await page.locator("#defeat-changes").textContent(),

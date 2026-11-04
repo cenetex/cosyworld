@@ -10,6 +10,9 @@ import {
   createBeatRunner,
   defeatSummary,
   isCombatLine,
+  LOSS_MS,
+  lossStep,
+  lossTimes,
   outcomeWord,
   sequencePlan,
   telegraphText,
@@ -75,9 +78,19 @@ describe("combat beats from today's rule lines", () => {
       viewerLost: true,
     });
     const summary = defeatSummary(defeat);
-    expect(summary.title).toBe("Pip drove you off");
-    expect(summary.changes).toContain("You dropped the Lamp.");
-    expect(summary.arrival).toMatch(/^You come to at /u);
+    expect(summary.title).toBe("Pip drove you off.");
+    // Who drove the player off and what was lost are its cards; the words
+    // are beat captions, ending where the rules put the player.
+    expect(summary.cards).toEqual(["moth", "lamp"]);
+    expect(summary.changes[0]).toEqual({
+      icon: "✋",
+      kind: "drop",
+      text: "You dropped the Lamp.",
+    });
+    expect(summary.changes.at(-1)).toMatchObject({
+      icon: "↳",
+      text: `You come to at ${nameOf(after.actors.vale.place)}.`,
+    });
     // Every beat is a committed log line the viewer saw.
     for (const beat of beats)
       expect(
@@ -189,8 +202,10 @@ describe("combat beats from structured rule fields", () => {
       sentHome: true,
     });
     const summary = defeatSummary(beats[1]);
-    expect(summary.changes).toContain("Sent home.");
-    expect(summary.changes).toContain("Standoffs lost: 3 of 3.");
+    const texts = summary.changes.map((change) => change.text);
+    expect(texts).toContain("Sent home.");
+    expect(texts).toContain("Standoffs lost: 3 of 3.");
+    expect(summary.cards).toEqual(["moth", "lamp", "oil"]);
     expect(isCombatLine(after.log[1], "vale")).toBe(true);
   });
   it("reads a guarded hit and a retreat move", () => {
@@ -341,5 +356,31 @@ describe("coming to after a defeat", () => {
     expect(facts[0]).toBe(
       `Vale was beaten by Pip and came to at ${nameOf(here)}.`,
     );
+  });
+});
+
+describe("the loss screen", () => {
+  it("writes, is read and leaves without waiting on a button", () => {
+    const run = (events, step = "writing") =>
+      events.map((event) => (step = lossStep(step, event)));
+    // Left alone it moves on once written and read.
+    expect(run(["written", "read", "left"])).toEqual([
+      "read",
+      "leaving",
+      "done",
+    ]);
+    // A tap shows the words whole; the next moves on.
+    expect(run(["tap", "tap", "left"])).toEqual(["read", "leaving", "done"]);
+    // The read's clock never skips the writing, and nothing ends early.
+    expect(run(["read", "left", "written", "left"]).at(-1)).toBe("read");
+    for (const step of ["writing", "read", "leaving"])
+      expect(lossStep(step, "cancel")).toBe("done");
+  });
+  it("halves at 2x and cuts its fades for reduced motion", () => {
+    expect(lossTimes()).toEqual(LOSS_MS);
+    expect(lossTimes({ speed: 2 }).faint).toBe(LOSS_MS.faint / 2);
+    const reduced = lossTimes({ reduced: true });
+    expect(reduced.faint + reduced.wake + reduced.out).toBe(0);
+    expect(reduced.read).toBe(LOSS_MS.read);
   });
 });
