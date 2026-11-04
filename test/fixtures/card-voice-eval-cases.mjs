@@ -258,6 +258,65 @@ export function perceptionScenes() {
   ].map(({ name, context, lines = {} }) => ({ name, context, lines }));
 }
 
+// Memory scenes (P4): Vale and Pip part and meet again. M1 after Pip's
+// refused ask, M2 after many visits, M3 after a gift, and C1 the moment
+// after M1, where the same memory rests.
+export function memoryScenes() {
+  const start = () => {
+    const w = enableMotives(createWorld());
+    w.actors.moth.place = "station";
+    w.actors.keeper.place = "attic";
+    w.items.lamp.holder = "vale";
+    w.items.cloth.holder = "vale";
+    return w;
+  };
+  // Vale leaves, waits at the pond while Pip is far off, and Pip joins Vale.
+  const apart = (w, i) => {
+    w = step(w, "move", "pond", i).world;
+    w.actors.moth.place = "greek-courtyard";
+    w = step(w, "wait", null, i).world;
+    w.actors.moth.place = w.actors.vale.place;
+    return w;
+  };
+  const back = (w, i) => {
+    w = step(w, "move", "station", i).world;
+    w.actors.moth.place = "station";
+    return w;
+  };
+  const m1 = apart(step(start(), "talk", "moth", 0).world, 1);
+  const talk = step(m1, "talk", "moth", 2);
+  let many = start();
+  for (let i = 0; i < 3; i++)
+    many = back(apart(step(many, "talk", "moth", i).world, i), i);
+  const gift = start();
+  const given = legalActions(gift).find(
+    (a) => a.kind === "give" && a.target === "moth" && a.item === "cloth",
+  );
+  const m3 = apart(play(gift, given).state, 1);
+  return [
+    {
+      name: "M1 Pip again at the pond",
+      context: talk.context,
+      lines: { vale: "You found me." },
+    },
+    {
+      name: "C1 the next moment",
+      context: step(talk.world, "talk", "moth", 3).context,
+      lines: { vale: "Still here?" },
+    },
+    {
+      name: "M2 Pip after many visits",
+      context: step(many, "talk", "moth", 4).context,
+      lines: { vale: "Back again, Pip." },
+    },
+    {
+      name: "M3 Pip after the gift",
+      context: step(m3, "talk", "moth", 5).context,
+      lines: { vale: "How is the cloth?" },
+    },
+  ];
+}
+
 // A silent play (Light, Put down, Take, ...) sends no voice request, so only
 // scenes that voice someone are measured.
 export function voiceEvalCases() {
@@ -271,5 +330,6 @@ export function voiceEvalCases() {
     ...returnVisit(),
     ...assistantRoleScenes(),
     ...perceptionScenes(),
+    ...memoryScenes(),
   ].filter(({ context }) => !voicesNobody(context));
 }

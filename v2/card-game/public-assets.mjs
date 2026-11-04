@@ -251,6 +251,7 @@ const files = [
   "reflections.mjs",
   "narrative.mjs",
   "perception.mjs",
+  "recall.mjs",
   "between-us.mjs",
   "signed-words.mjs",
   "speech-knowledge.mjs",

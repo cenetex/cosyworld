@@ -318,17 +318,17 @@ fn conversation_turns_answer_one_line_with_the_talk_here() {
     assert!(!system.contains(&action) && !user.contains(&action));
     assert!(!user.ends_with(':'));
     // The reply answers Vale's line from this turn, the second Talk with Pip.
-    let heard = scene_for(context, lines, "moth").unwrap();
+    // An older tab's reply still reads the group chat; a current one
+    // remembers through recall (P4).
+    let heard = older(&scene_for(context, lines, "moth").unwrap());
     let p = conversation::messages(&heard, entity(&heard, "moth"));
     let (system, user) = (p.assistant, p.user);
     assert_eq!(
         user,
         "Vale says, \u{201c}Tell me again what the pond wants.\u{201d}"
     );
-    // The group chat: earlier lines here, by both speakers, oldest first,
-    // just before what Pip perceives now.
-    let talk = system.rsplit_once("\n\n").unwrap().0;
-    let talk = talk.rsplit_once("\n\n").unwrap().1;
+    // The group chat: earlier lines here, by both speakers, oldest first.
+    let talk = system.rsplit_once("\n\n").unwrap().1;
     let vale = talk
         .find("Vale said: \"I could carry the lamp for you a while.\"")
         .unwrap();
@@ -349,7 +349,18 @@ fn conversation_turns_answer_one_line_with_the_talk_here() {
     );
 }
 
-/// A return visit (#2078): the same pair before an incident, then after it
+/// The scene as a tab from before P3 and P4 sends it.
+fn older(context: &Context) -> Context {
+    let mut old: Context = serde_json::from_value(serde_json::to_value(context).unwrap()).unwrap();
+    old.acting_avatar = context.acting_avatar.clone();
+    for e in &mut old.entities {
+        e.perception = None;
+        e.recall = None;
+    }
+    old
+}
+
+/// A return visit (#2078), as an older tab sees it: the same pair before an incident, then after it
 /// and a quiet spell. Only the second prompt carries "Between us", and it
 /// never repeats what the talk here already shows.
 #[test]
@@ -358,8 +369,8 @@ fn a_return_visit_remembers_what_is_between_us() {
     let prompt = |case: &str, id: &str| {
         let (_, context, lines) = cases.iter().find(|(name, ..)| name == case).unwrap();
         let heard = scene_for(context, lines, id);
-        let context = heard.as_ref().unwrap_or(context);
-        conversation::messages(context, entity(context, id)).assistant
+        let context = older(heard.as_ref().unwrap_or(context));
+        conversation::messages(&context, entity(&context, id)).assistant
     };
     for id in ["vale", "moth"] {
         assert!(!prompt("return visit before", id).contains(" over the Lamp, "));
@@ -388,8 +399,7 @@ fn a_return_visit_remembers_what_is_between_us() {
     // At the pond the talk here is new, so the last words between them show.
     let vale = prompt("return visit pond", "vale");
     assert!(!vale.contains("Pip said: "), "{vale}");
-    let between = vale.rsplit_once("\n\n").unwrap().0;
-    let between = between.rsplit_once("\n\n").unwrap().1;
+    let between = vale.rsplit_once("\n\n").unwrap().1;
     assert!(
         between.starts_with(
             "Pip threatened me over the Lamp, some time ago.\n\

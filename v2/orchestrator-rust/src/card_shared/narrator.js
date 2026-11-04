@@ -2439,11 +2439,11 @@
     const { verb, ...cards } = w.step;
     const home = verb === "bring" && w.story && !cards.to;
     const gift = verb === "give" && w.story && !w.quest;
-    const named = home ? ["at"] : STEP_CARDS[verb] || (verb === "meet" && cards.at ? ["at"] : []);
+    const named2 = home ? ["at"] : STEP_CARDS[verb] || (verb === "meet" && cards.at ? ["at"] : []);
     return (Boolean(w.quest) || home || gift) && [
       ...STEP_VERBS[w.kind] || [],
       ...w.kind === "person" ? SAVED_STEP_VERBS : []
-    ].includes(verb) && Object.keys(cards).length === named.length && named.every((key) => typeof cards[key] === "string") && (!cards.to || Object.hasOwn(s.actors, cards.to) && cards.to !== w.target);
+    ].includes(verb) && Object.keys(cards).length === named2.length && named2.every((key) => typeof cards[key] === "string") && (!cards.to || Object.hasOwn(s.actors, cards.to) && cards.to !== w.target);
   }
   function validWant(s, id) {
     const a = s.actors[id];
@@ -15048,12 +15048,12 @@
             ok = keysOk(c, ["kind", "transport", "dock"]) && idOk2(c.transport) && (c.dock === AT_SEA || anyPlace(c.dock));
             break;
           case "knows": {
-            const named = Array.isArray(c.topics) ? c.topics : [c.topic];
-            ok = (c.topics === void 0 ? keysOk(c, ["kind", "topic", "role"]) : keysOk(c, ["kind", "topics", "role"]) && named.length >= 2 && named.length <= 4 && new Set(named).size === named.length && new Set(
-              named.map(
+            const named2 = Array.isArray(c.topics) ? c.topics : [c.topic];
+            ok = (c.topics === void 0 ? keysOk(c, ["kind", "topic", "role"]) : keysOk(c, ["kind", "topics", "role"]) && named2.length >= 2 && named2.length <= 4 && new Set(named2).size === named2.length && new Set(
+              named2.map(
                 (id) => (pack.topics || []).find((topic) => topic.id === id)?.speaker
               )
-            ).size === named.length) && c.role === "actor" && named.every(
+            ).size === named2.length) && c.role === "actor" && named2.every(
               (id) => idOk2(id) && (pack.topics || []).some((topic) => topic.id === id)
             );
             break;
@@ -15366,9 +15366,9 @@
           cast.filter((a) => a.place === place).length <= 2,
           `${place} exceeds two initially active residents`
         );
-      const named = cast.map((a) => a.canonicalPerson).filter(Boolean);
+      const named2 = cast.map((a) => a.canonicalPerson).filter(Boolean);
       check(
-        new Set(named).size === named.length,
+        new Set(named2).size === named2.length,
         "incompatible embodiments are active together"
       );
     }
@@ -16307,8 +16307,8 @@
     return typeof life === "object" && !Array.isArray(life) && Object.keys(life).every(
       (key) => ["persona", "thoughts", "dreams"].includes(key)
     ) && (life.persona === null || text2(life.persona, 600)) && [life.thoughts, life.dreams].every(
-      (moments) => Array.isArray(moments) && moments.length <= 4 && moments.every(
-        (m, index) => m && Number.isSafeInteger(m.turn) && m.turn >= 0 && m.turn <= turn && text2(m.text, 400) && (index === 0 || moments[index - 1].turn < m.turn)
+      (moments2) => Array.isArray(moments2) && moments2.length <= 4 && moments2.every(
+        (m, index) => m && Number.isSafeInteger(m.turn) && m.turn >= 0 && m.turn <= turn && text2(m.text, 400) && (index === 0 || moments2[index - 1].turn < m.turn)
       )
     );
   }
@@ -18778,9 +18778,9 @@
       new_place: firstArrival(world, cast.location)
     };
     const occasions = meets.defeat ? ["defeat"] : SPEECH_OCCASIONS.filter((name) => meets[name]);
-    const named = occasions.flatMap((name) => speech_default[name] || []);
+    const named2 = occasions.flatMap((name) => speech_default[name] || []);
     const voices = [
-      ...new Set(named.flatMap((role) => roles[role] || []))
+      ...new Set(named2.flatMap((role) => roles[role] || []))
     ].filter(
       (id) => id && cast.ids.includes(id) && profiles[id]?.kind === "avatar"
     );
@@ -18791,7 +18791,7 @@
         ...voices.filter((id) => id === actor),
         ...voices.filter((id) => id !== actor)
       ].slice(0, 3),
-      scenery: named.includes("place")
+      scenery: named2.includes("place")
     };
   }
 
@@ -19084,7 +19084,7 @@
     return entries.map((entry, index) => ({
       index,
       score: involvement(entry, id, listener, wanted)
-    })).filter(({ score }) => score > 0).sort((a, b) => b.score - a.score || b.index - a.index).slice(0, 2).map(({ index }) => index);
+    })).filter(({ score: score2 }) => score2 > 0).sort((a, b) => b.score - a.score || b.index - a.index).slice(0, 2).map(({ index }) => index);
   }
   function arrival(world, id, present, here) {
     if (world.actors[id].place !== here) return null;
@@ -19129,7 +19129,106 @@
     };
   }
 
+  // v2/card-game/recall.mjs
+  var WEIGHT = { give: 60, threaten: 60, attack: 60, accompany: 60 };
+  var DEEDS = /* @__PURE__ */ new Set(["ask", "give", "trade", ...Object.keys(WEIGHT)]);
+  var both = (e, a, b) => [a, b].every(
+    (id) => [...e.cast || [], ...e.witnesses || []].includes(id)
+  );
+  function named(text2, pair) {
+    const low = text2.toLowerCase();
+    return Object.keys(profiles).filter((id) => {
+      if (pair.includes(id) || !["item", "location", "avatar"].includes(profiles[id].kind))
+        return false;
+      const name = nameOf(id).toLowerCase().replace(/^the /u, "");
+      return name.length > 2 && low.includes(name);
+    });
+  }
+  function candidates(log, id, other, turn) {
+    const deeds = /* @__PURE__ */ new Map();
+    let talk = null;
+    for (const e of log) {
+      if (e.turn >= turn) break;
+      const pair = [e.actorId, e.targetId];
+      if (!e.generated && DEEDS.has(e.verb) && pair.includes(id) && pair.includes(other))
+        deeds.set(`${e.verb}|${e.actorId}|${e.itemId || ""}`, e);
+      else if (e.generated && e.kind === "dialogue" && [id, other].includes(e.actorId) && both(e, id, other)) {
+        const topics = named(e.text || "", [id, other]);
+        if (topics.length)
+          talk = {
+            verb: "talk",
+            seq: e.seq,
+            turn: e.turn,
+            locationId: e.locationId,
+            topics
+          };
+      }
+    }
+    return [...deeds.values(), ...talk ? [talk] : []];
+  }
+  var keyOf2 = (c) => `${c.verb}|${c.actorId || ""}|${c.itemId || ""}`;
+  function score(world, c, id, frame) {
+    const open = c.verb === "ask" && c.actorId !== id && c.accepted === false || ["threaten", "attack"].includes(c.verb) || c.verb === "give" && c.targetId === id && rootHolder(world, c.itemId) === id;
+    const ids3 = [c.itemId, c.locationId, ...c.topics || []].filter(Boolean);
+    return (WEIGHT[c.verb] ?? (c.verb === "talk" ? 20 : 40)) + (open ? 40 : 0) + 20 * ids3.filter((x) => frame.includes(x)).length + (c.locationId === frame[0] ? 10 : 0);
+  }
+  var moments = (log, id, other) => log.filter((e) => e.generated && e.actorId === id && both(e, id, other)).map((e) => e.turn).filter((t, i, all) => all.indexOf(t) === i).reverse();
+  function choose(world, id, other, frame, turn, depth) {
+    const before = moments(world.log, id, other).find((t) => t < turn);
+    const rested = depth > 0 && before !== void 0 ? choose(world, id, other, frame, before, depth - 1).map(keyOf2) : [];
+    return candidates(world.log, id, other, turn).filter((c) => !rested.includes(keyOf2(c))).map((c) => ({ c, s: score(world, c, id, frame) })).sort((a, b) => b.s - a.s || b.c.seq - a.c.seq).slice(0, 2).map(({ c }) => c);
+  }
+  function reunion(world, id, other) {
+    const log = world.log;
+    const apart = (e) => (e.cast || []).filter((x) => x === id || x === other).length === 1 && !(e.fromLocationId && e.fromLocationId !== e.locationId);
+    const parted = log.findLastIndex(apart);
+    if (parted < 0) return null;
+    if (log.slice(parted).some((e) => e.generated && e.actorId === id && both(e, id, other)))
+      return null;
+    const shared = log.slice(0, parted).filter((e) => both(e, id, other));
+    const last = shared.at(-1);
+    if (!last) return null;
+    const visits = shared.filter(
+      (e, i) => i === 0 || e.locationId !== shared[i - 1].locationId || e.turn > shared[i - 1].turn + 1
+    ).length;
+    return {
+      place: last.locationId,
+      turn: last.turn,
+      visits: Math.min(visits + 1, 99)
+    };
+  }
+  function recall(world, id, other, frame) {
+    if (!other || profiles[other]?.kind !== "avatar") return null;
+    const met2 = reunion(world, id, other);
+    const chosen = choose(world, id, other, frame, world.turn, 2);
+    const items2 = chosen.map((c) => c.itemId).filter(Boolean);
+    const acts = chosen.map(
+      (c) => c.topics ? { ...c, topics: c.topics.filter((t) => !items2.includes(t)) } : c
+    ).filter((c) => !c.topics || c.topics.length).map((c) => ({
+      verb: c.verb,
+      by: c.actorId || id,
+      ...c.itemId ? { item: c.itemId } : {},
+      ...c.accepted === false ? { refused: true } : {},
+      ...c.topics ? { topics: c.topics.slice(0, 2) } : {},
+      turn: c.turn
+    }));
+    return met2 || acts.length ? { ...met2 ? { reunion: met2 } : {}, acts } : null;
+  }
+
   // v2/card-game/narrative.mjs
+  function remembered(world, id, speakers, desire, localItems) {
+    const other = listenerOf(speakers, id, currentActor(world));
+    if (!other) return {};
+    const frame = [
+      world.actors[id].place,
+      ...localItems,
+      ...desire?.items || [],
+      ...carried(world, id),
+      ...carried(world, other)
+    ];
+    const memory = recall(world, id, other, frame);
+    return memory ? { recall: memory } : {};
+  }
   function refusalFact(played) {
     const asked = played.verb === "ask" ? `request for ${nameOf(played.itemId)}` : played.verb === "accompany" ? `invitation to ${nameOf(played.destinationId)}` : `offer of ${nameOf(played.itemId)}`;
     return `${nameOf(played.targetId)} refused ${nameOf(played.actorId)}'s ${asked} (refusal: ${played.reason || "wants-something-else"}). Nothing changed.`;
@@ -19442,7 +19541,8 @@
               present,
               desire,
               location
-            })
+            }),
+            ...remembered(world, id, speakers, desire, localItems)
           } : {}
         };
       })

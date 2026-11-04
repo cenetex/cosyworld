@@ -200,21 +200,11 @@ pub(super) fn lines(context: &Context, entity: &Entity, p: &Perception) -> Vec<(
             .into_iter()
             .filter(|f| f.starts_with("I ")),
     );
-    // "Between us" may already tell a deed ("Pip threatened me…").
-    let between = super::between::lines(context, entity);
-    let stem = |line: &str| -> Vec<String> {
-        line.split_whitespace()
-            .take(2)
-            .map(|w| w.chars().take(5).collect())
-            .collect()
-    };
-    let told = |line: &str| between.iter().any(|b| stem(b) == stem(line));
     let changes: Vec<String> = p
         .changes
         .iter()
         .filter_map(|i| context.events.get(*i))
         .map(|e| person::shift(e, &own))
-        .filter(|line| !told(line))
         .collect();
     // In order, each with the rank it keeps when the view is too long.
     let mut extra: Vec<(u8, String)> = states(context, id, listener.as_deref())

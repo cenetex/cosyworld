@@ -139,7 +139,10 @@ pub(super) fn frame(
     lines: Vec<(Section, String)>,
     mentions: Vec<String>,
 ) -> Vec<(Section, String)> {
-    let between = if part == Part::Line {
+    // A current tab's line remembers through `recall` instead (P4): no
+    // "Between us" and no recent talk here.
+    let recalled = part == Part::Line && entity.perception.is_some();
+    let between = if part == Part::Line && !recalled {
         super::between::lines(context, entity)
     } else {
         Vec::new()
@@ -163,6 +166,7 @@ pub(super) fn frame(
     let between = between.iter().map(|l| (Section::Conversation, l.clone()));
     let chat = chat(context, entity, part)
         .into_iter()
+        .filter(|_| !recalled || std::env::var("FP_KEEP_CHAT").is_ok())
         .map(|l| (Section::Conversation, l));
     for block in [known, between.collect(), chat.collect()] {
         if !block.is_empty() {

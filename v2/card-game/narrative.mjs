@@ -45,7 +45,23 @@ import { hasTemperament, variantOf, signalEcho } from "./pack-rules.mjs";
 import { reflectionDue } from "./reflections.mjs";
 import { betweenUs } from "./between-us.mjs";
 import { playedEntry, speechOccasions } from "./speech-occasions.mjs";
-import { perception } from "./perception.mjs";
+import { perception, listenerOf } from "./perception.mjs";
+import { recall } from "./recall.mjs";
+
+// What a speaker remembers of the one it faces, touching this scene (P4).
+function remembered(world, id, speakers, desire, localItems) {
+  const other = listenerOf(speakers, id, currentActor(world));
+  if (!other) return {};
+  const frame = [
+    world.actors[id].place,
+    ...localItems,
+    ...(desire?.items || []),
+    ...carried(world, id),
+    ...carried(world, other),
+  ];
+  const memory = recall(world, id, other, frame);
+  return memory ? { recall: memory } : {};
+}
 
 // A refusal reaches the brief as its committed code; the refuser's line
 // says why in its own words.
@@ -516,6 +532,7 @@ export function narrativeContext(world, action = null) {
                 desire,
                 location,
               }),
+              ...remembered(world, id, speakers, desire, localItems),
             }
           : {}),
       };
