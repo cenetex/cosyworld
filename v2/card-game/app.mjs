@@ -17,8 +17,14 @@ import {
   releaseGhost,
   releaseGhosts,
 } from "./card-ghost.mjs";
-import { dropCards, leavingFrames } from "./card-exit.mjs";
+import { EXIT_MS, cardOf, dropCards, leavingFrames } from "./card-exit.mjs";
 import { keepFrames, morphFrame } from "./card-keep.mjs";
+import {
+  SWAP_REDUCED_MS,
+  fadeFaces,
+  nearestFirst,
+  swapTiming,
+} from "./card-swap.mjs";
 import {
   ENTRY_STAGGER_MS,
   QUEST_DOWN_MS,
@@ -613,6 +619,7 @@ const localWordsPending = () =>
 const playQueue = createPlayQueue({
   ready: (action) =>
     !cardsCooling &&
+    performance.now() >= swapEnd &&
     (action.kind === "focus" || !localWordsPending()) &&
     reveal.complete &&
     (!sharedSession ||
@@ -1666,6 +1673,7 @@ let covering = false,
 function cancelTravel() {
   endCombat();
   trip++;
+  swapFrom = null;
   covering = false;
   syncHandDrop();
   revealTravel();
@@ -1704,6 +1712,7 @@ async function travel(place, arrive, landed, lost = false) {
   travelShown = new Promise((resolve) => {
     revealTravel = resolve;
   });
+  departHand();
   covering = true;
   syncHandDrop();
   veil.classList.add("travelling");
@@ -2278,6 +2287,38 @@ const entryKey = (frame) =>
 // Cards leaving the hand fall as ghosts over it (card-exit.mjs). A world
 // loaded in its place (another tab's save) shows none.
 let quietExits = false;
+// A scene change (a new place, the light here going out or coming on) swaps
+// the hand in beats (card-swap.mjs). Travel starts it at the tap: the cards
+// left behind fall as the veil comes down, and the rest of the swap plays
+// when the hand redraws under it. Plays wait until it ends.
+let renderedScene = null,
+  swapFrom = null,
+  swapEnd = 0;
+function departHand() {
+  const row = [...$("hand").children],
+    staying = new Set(availableCards(world)),
+    leaving = row.filter(
+      (frame) =>
+        !frame.hidden &&
+        frame.querySelector(".card[data-card]") &&
+        !staying.has(cardOf(frame)),
+    ),
+    { exits } = swapTiming(leaving.length);
+  swapFrom = {
+    at: performance.now(),
+    left: leaving.length,
+    fallen: leaving.length ? exits.at(-1) + EXIT_MS : 0,
+  };
+  dropCards(
+    nearestFirst(leaving, row, currentActor(world)),
+    handExits(),
+    exits,
+  );
+  for (const frame of leaving) {
+    frame.dataset.gone = "true";
+    frame.style.visibility = "hidden";
+  }
+}
 function handExits() {
   let layer = $("hand").parentElement.querySelector(":scope > .card-exits");
   if (!layer) {
@@ -4108,10 +4149,19 @@ function render() {
       stayed = renderedHandPlace === world.actors[currentActor(world)].place,
       samePlace = renderedHand && stayed,
       arriving = renderedHandPlace !== null && !stayed,
-      animate = samePlace && !reducedMotion.matches,
+      here = world.actors[currentActor(world)].place,
+      scene = `${here}:${lampLitHere(world, here)}`,
+      sceneChanged = !opening && !quietExits && renderedScene !== scene,
+      swapping = sceneChanged && !reducedMotion.matches,
+      animate = (samePlace || swapping) && !reducedMotion.matches,
       exits = !opening && !quietExits && !reducedMotion.matches,
-      before = new Map();
+      before = new Map(),
+      swap = swapping
+        ? (swapFrom ?? { at: performance.now(), left: 0, fallen: 0 })
+        : null;
     quietExits = false;
+    renderedScene = scene;
+    swapFrom = null;
     if (animate)
       for (const frame of $("hand").children)
         if (!frame.hidden) {
@@ -4133,18 +4183,39 @@ function render() {
     else {
       // A card still in the hand keeps its node (card-keep.mjs).
       const row = [...$("hand").children],
-        { frames, changed } = keepFrames(
+        { frames, changed, faces } = keepFrames(
           row,
           handCards.map((id) =>
             isQuestId(id) ? questFrame(questEntry(id)) : card(id),
           ),
         ),
-        leaving = exits ? leavingFrames(row, frames) : [];
+        leaving = exits
+          ? leavingFrames(
+              row.filter((frame) => !frame.dataset.gone),
+              frames,
+            )
+          : [];
       // A card gone from view falls from where it lay, while the hand
       // redraws at once; a reveal keeps its card, so it never falls.
-      if (leaving.length) dropCards(leaving, handExits());
+      if (swap) {
+        const since = performance.now() - swap.at,
+          { exits: steps, faceAt } = swapTiming(swap.left + leaving.length),
+          wait = (ms) => Math.max(0, ms - since),
+          late = steps.slice(swap.left).map(wait);
+        dropCards(
+          nearestFirst(leaving, row, currentActor(world)),
+          handExits(),
+          late,
+        );
+        // Exits the redraw starts late end late; entries wait for them.
+        if (late.length)
+          swap.fallen = Math.max(swap.fallen, since + late.at(-1) + EXIT_MS);
+        // A face changed with the light fades; one that moves just moves.
+        if (stayed && faces.length) fadeFaces(faces, handExits(), wait(faceAt));
+      } else if (leaving.length) dropCards(leaving, handExits());
       for (const [was, now] of changed) morphFrame(was, now);
       $("hand").replaceChildren(...frames);
+      if (swap) swap.left += leaving.length;
     }
     // Lean the new row before measuring it, so each card moves from where
     // it was to its fanned place.
@@ -4173,6 +4244,15 @@ function render() {
           .animate({ opacity: [0, 1] }, { duration: LAYOUT_MS });
     if (!sameWorld) playLevelUps();
     if (arriving) revealHandCard(renderedHandPlace, true, true);
+    // A scene change's new cards rise after the old ones fall and a beat.
+    const entering = (count) => {
+      const timing = swapTiming(swap.left, count, swap.fallen);
+      swapEnd = swap.at + timing.end;
+      setTimeout(() => playQueue.flush(), swapEnd - performance.now());
+      return Math.max(0, swap.at + timing.entryAt - performance.now());
+    };
+    if (sceneChanged && reducedMotion.matches)
+      $("hand").animate({ opacity: [0, 1] }, { duration: SWAP_REDUCED_MS });
     // A card new to the view rises in; one seen moving keeps that move.
     const rising = handEntries.draw(
       [...$("hand").children]
@@ -4184,7 +4264,7 @@ function render() {
             frame.hidden ||
             before.has(frame.querySelector(".card").dataset.card),
         })),
-      { reduced: reducedMotion.matches || opening },
+      { reduced: reducedMotion.matches || opening, after: swap ? entering : 0 },
     );
     showQuests(opening);
     openLockedBoxes();
