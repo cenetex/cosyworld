@@ -53,6 +53,10 @@
       "smokes": ["smoke-card-page-fade"]
     },
     {
+      "paths": "^v2/card-game/style\\.css|^v2/card-game/(combat-beats|combat-view)\\.",
+      "smokes": ["smoke-card-reduced-fades", "smoke-card-combat"]
+    },
+    {
       "paths": "^v2/card-game/credits",
       "smokes": ["smoke-card-credits"]
     },

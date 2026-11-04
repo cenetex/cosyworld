@@ -228,19 +228,20 @@ export function defeatSummary(beat) {
 
 // The loss screen in ms at 1×: the fade to black, the read once the words
 // are whole, the words leaving (and a breath after), and the slow lift onto
-// wherever the rules put the player. 2× halves it; reduced motion cuts the
-// fades but keeps the read.
+// wherever the rules put the player. 2× halves it; reduced motion keeps the
+// read and shortens each fade to a 300 ms dip, with nothing moving.
 export const LOSS_MS = Object.freeze({
   faint: 1400,
   read: 2600,
   out: 400,
   wake: 2500,
 });
+export const REDUCED_FADE_MS = 300;
 export const lossTimes = ({ speed = 1, reduced = false } = {}) =>
   Object.fromEntries(
     Object.entries(LOSS_MS).map(([step, ms]) => [
       step,
-      reduced && step !== "read" ? 0 : Math.round(ms / speed),
+      reduced && step !== "read" ? REDUCED_FADE_MS : Math.round(ms / speed),
     ]),
   );
 // Its steps. Nothing waits on a button: a tap (or Enter, Space, Escape)

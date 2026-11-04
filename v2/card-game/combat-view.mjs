@@ -603,10 +603,11 @@ export function createCombatView({
     runner.finishBeat();
   };
   // Being driven off is losing consciousness: the scene fades slowly to
-  // black (faster at 2x; reduced motion cuts) before the loss screen. It
-  // stays dark until the travel veil takes over (app.mjs removes `fainting`).
+  // black (faster at 2x; reduced motion dips in 300 ms) before the loss
+  // screen. It stays dark until the travel veil takes over (app.mjs removes
+  // `fainting`).
   const faint = async () => {
-    const { faint, wake } = lossTimes({ speed });
+    const { faint, wake } = lossTimes({ speed, reduced: reduced() });
     veil.style.setProperty("--faint-ms", `${faint}ms`);
     veil.style.setProperty("--wake-ms", `${wake}ms`);
     veil.classList.add("fainting");
