@@ -526,7 +526,8 @@ resident aboard sets the course to its own destination along any lane
 (rules 96), and an empty ship called to a dock
 sails any lane between active docks. A ship idle for `IDLE_ROUNDS` with
 someone aboard, at a dock whose cargo lanes are all shut, is stuck: it puts
-in at its home port (`at`) and everyone aboard goes ashore (rules 95). A ship route should give every dock a
+in at its home port (`at`) and everyone aboard goes ashore (rules 95),
+except a player the port has no room for, who stays aboard (rules 98). A ship route should give every dock a
 free lane toward home, so a traveler ashore there is never stranded:
 `test/card-ship-port-roads.test.mjs` searches every walk, carry and free lane
 from every dock the empty ship can be called to. Myrto knows every lane; through

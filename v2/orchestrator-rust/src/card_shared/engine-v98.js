@@ -1472,8 +1472,12 @@
     ) && entityActive(s, t.at);
   }
   function sendShipHome(s, id) {
-    const t = transports[id], state = own(s, id), from = state.dock, ashore = passengerIds(s, id);
-    for (const actor of ashore) s.actors[actor].place = t.at;
+    const t = transports[id], state = own(s, id), from = state.dock, ashore = [];
+    for (const actor of passengerIds(s, id))
+      if (humanRoomAvailable(s, actor, t.at)) {
+        s.actors[actor].place = t.at;
+        ashore.push(actor);
+      }
     Object.assign(state, {
       phase: "docked",
       dock: t.at,
