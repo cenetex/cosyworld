@@ -1,6 +1,6 @@
 {
   "assets/card-back.webp": "8acc1349faa332899cf4123c2c308489c3c3ffe9b0c9c528f46d76d81caec29f",
-  "assets/card-back-locked.webp": "0fb3993730387814ebe5486483d7894528d6ee9ae107b71eaf2968156fc233ee",
+  "assets/card-back-locked.webp": "ed4b317614178f9d0bec4826bf86c3da01951aeed4550d2d9352ff8336bb7899",
   "assets/title/lonely-forest-1.webp": "3161ccea9069db55962972a01da5be0e62d5faf5d6a8d4e29206293aa89986aa",
   "assets/title/toolbar/lonely-forest-1-transparent.webp": "d66c4e90e7e1d1be50544cfd78cc052403f93b77b042a0fed896e54ff05bba64",
   "assets/title/lonely-forest-2.webp": "89dbb2d6ee35c97f53710a2d1407d5d7f9673938dfc6541e66ea741792e4b770",
@@ -670,8 +670,8 @@
   "assets/optimized/stage/png/boardyai/parlour.webp": "37121c817bfcc5df66db8bb39791ce1e5f84d7e3dada075e15a7efa483352d91",
   "assets/optimized/card/png/boardyai/parlour.webp": "f55c7200578115e2428db703a0b467fc3e599c41dc00990797a22dfd63b1679c",
   "assets/optimized/phone/png/boardyai/parlour.webp": "260c12297365aa79427b4f27f2bb630da268d1095977a112fa17280099aa5def",
-  "assets/optimized/card/webp/card-back-locked.webp": "48049efb8234790e576cfa2da67926a45bcb8d1b689226cae2a30bc43c45cb55",
-  "assets/optimized/phone/webp/card-back-locked.webp": "39f080b97ebf9e1dea7717f096fb885ffa14c0c546738790e00424b0b21c4f88",
+  "assets/optimized/card/webp/card-back-locked.webp": "a6b86f5ae3a0f2e6308a2c123419b44c71dbc2d448d185eaff7fdb9f3050a8e4",
+  "assets/optimized/phone/webp/card-back-locked.webp": "eb1310dff4a7c93ffc3b824a27bd30b05f0f766b7b525249a2a8d1ce1aba30ae",
   "assets/optimized/card/webp/card-back.webp": "65552d4b584ba4c017fc13011f26add7f0fe2d8afa92f26f79a19d11be663ebc",
   "assets/optimized/phone/webp/card-back.webp": "fee1e8f9052ac182e5f9c46cacc737eeeb33a53f36f82ae16b6af405ed36de72",
   "assets/optimized/stage/png/cloth-card.webp": "358e4584c7aa6cafa68f6d776ff8343b41168db9ff2477c2752114061b8a862c",

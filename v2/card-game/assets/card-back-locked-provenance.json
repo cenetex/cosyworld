@@ -1,52 +1,81 @@
 {
   "asset": "assets/card-back-locked.webp",
   "created": "2026-11-03",
-  "status": "stand-in",
-  "requirements": "1024 by 1536 (2:3), opaque full bleed; the same carved-box lid as assets/card-back.webp seen straight down; a lock or clasp clearly shut; worn wood, old brass, amber light and indigo shadow; no lettering.",
+  "updated": "2026-11-04",
+  "status": "final",
+  "requirements": "1024 by 1536, opaque full bleed. Carved oak lid with a recessed fixed iron keyhole plate, no padlock shackle and no lettering.",
   "generation": {
-    "tool": null,
-    "id": null,
+    "tool": "image_gen",
+    "id": "25e0f356-5634-479b-9c89-fd35760f9dc3",
     "transparent_background": false,
-    "prompt_summary": null,
-    "prompt_file": null
+    "prompt_summary": "Preserve the carved oak, moths, acorns, bells, border and straight-down view. Replace the projecting padlock with a small, fixed blackened-iron keyhole plate recessed into the central tree-ring medallion. Forged edges, leaf ornament, believable fasteners and a narrow dark keyhole; no shackle, hanging lock or shield-shaped padlock. The working mechanism is concealed beneath the lid.",
+    "prompt_note": "This is a summary of the approved edit direction, not a recovered verbatim tool prompt; the generation metadata did not expose one.",
+    "prompt_file": "assets/locked-card/iron-keyhole-source.json"
   },
   "source": {
-    "file": "assets/card-back.webp",
-    "sha256": "8acc1349faa332899cf4123c2c308489c3c3ffe9b0c9c528f46d76d81caec29f",
+    "file": "assets/locked-card/iron-keyhole-master.png",
+    "source_filename": "victorian_oak_carving_with_antique_keyhole.png",
+    "sha256": "e74213b059921642d2af213df18071db0dfa70dce3c6b510e14b1fa46898d139",
+    "bytes": 3624798,
     "width": 1024,
     "height": 1536,
     "has_alpha": false
   },
   "runtime": {
     "file": "assets/card-back-locked.webp",
-    "sha256": "0fb3993730387814ebe5486483d7894528d6ee9ae107b71eaf2968156fc233ee",
-    "bytes": 201060,
+    "sha256": "ed4b317614178f9d0bec4826bf86c3da01951aeed4550d2d9352ff8336bb7899",
+    "bytes": 289308,
     "width": 1024,
     "height": 1536,
     "has_alpha": false,
     "encoding": {
       "format": "webp",
-      "quality": 57,
+      "quality": 64,
       "alphaQuality": 100,
       "effort": 6,
-      "smartSubsample": true
+      "smartSubsample": true,
+      "sharp": "0.35.5",
+      "webp": "1.6.0"
     }
   },
   "card": {
     "file": "assets/optimized/card/webp/card-back-locked.webp",
-    "sha256": "48049efb8234790e576cfa2da67926a45bcb8d1b689226cae2a30bc43c45cb55",
-    "bytes": 137952,
+    "sha256": "a6b86f5ae3a0f2e6308a2c123419b44c71dbc2d448d185eaff7fdb9f3050a8e4",
+    "bytes": 172244,
     "width": 512,
     "height": 768,
     "has_alpha": false,
     "encoding": {
-      "format": "webp",
       "quality": 88,
       "alphaQuality": 100,
+      "cardWidth": 512,
       "effort": 6,
-      "cardWidth": 512
+      "phoneSize": 960
     }
   },
-  "derivation": "Stand-in until the owner's painting: assets/card-back.webp darkened with sharp modulate({ brightness: 0.6, saturation: 0.7 }) and linear(1.08, -6), no crop or other change. When the painting arrives, fill generation (tool, id, prompt summary and prompt file) as in card-back-provenance.json, set status to final, and record the new hashes.",
-  "references": ["assets/card-back-provenance.json"]
+  "phone": {
+    "file": "assets/optimized/phone/webp/card-back-locked.webp",
+    "sha256": "eb1310dff4a7c93ffc3b824a27bd30b05f0f766b7b525249a2a8d1ce1aba30ae",
+    "bytes": 234802,
+    "width": 640,
+    "height": 960,
+    "has_alpha": false,
+    "encoding": {
+      "quality": 88,
+      "alphaQuality": 100,
+      "cardWidth": 512,
+      "effort": 6,
+      "phoneSize": 960
+    }
+  },
+  "derivation": "The owner's exact final iron-keyhole PNG, encoded without resizing or cropping. Card and phone derivatives and both runtime manifests come from the existing project builders. No gameplay change.",
+  "replaces": {
+    "status": "stand-in",
+    "runtime_sha256": "0fb3993730387814ebe5486483d7894528d6ee9ae107b71eaf2968156fc233ee",
+    "derivation": "Earlier darkened copy of the unlocked card back; not the approved lock painting."
+  },
+  "references": [
+    "assets/card-back-provenance.json",
+    "assets/locked-card/iron-keyhole-source.json"
+  ]
 }
