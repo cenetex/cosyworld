@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { legalActions, play } from "../v2/card-game/world.mjs";
 import { availableCards } from "../v2/card-game/cards.mjs";
 import { createLockedBoxes, isLockedBox } from "../v2/card-game/locked-box.mjs";
+import { seatActors } from "../v2/card-game/human-cast.mjs";
 import { greekTravelTargets } from "./helpers/greek-travel.mjs";
 import { openingFixture } from "./helpers/greek-opening.mjs";
 
@@ -34,6 +35,22 @@ describe("locked boxes", () => {
       target: "greek-guard",
     });
     expect(isLockedBox(s, "greek-battlefield")).toBe(false);
+  });
+
+  it("lock the same card for a shared seat, from the same world state", () => {
+    // Shared play builds its client world from the server's world JSON
+    // (sharedWorld in app.mjs), so a seated traveller sees the same box.
+    const base = openingFixture("burial").decree;
+    const shared = seatActors(
+      { ...structuredClone(base), playerActorId: "mara" },
+      ["mara"],
+      ["mara"],
+    );
+    shared.actors.mara.place = "greek-gate";
+    expect(isLockedBox(shared, "greek-battlefield")).toBe(true);
+    expect(availableCards(shared)).toContain("greek-battlefield");
+    shared.items["greek-decree"].holder = "greek-guard";
+    expect(isLockedBox(shared, "greek-battlefield")).toBe(false);
   });
 
   it("turn over once, when next seen open, and never cover again", () => {

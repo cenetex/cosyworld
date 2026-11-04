@@ -2365,9 +2365,14 @@ function card(id) {
   if (raised && label) observation.textContent += ` ${label}.`;
   const hidden = cardIsCovered(id) || locked;
   if (hidden) observation.textContent = "";
+  // A locked box is labelled "Locked" (the owner's exception); its reason
+  // is in the context button.
   el.append(
     graphic,
-    setCardLabel(node("span", undefined, "name"), hidden ? "" : def.name),
+    setCardLabel(
+      node("span", undefined, "name"),
+      locked ? "Locked" : hidden ? "" : def.name,
+    ),
     observation,
   );
   // One faint numeral shows a selected person's or thing's level. Places
@@ -4045,15 +4050,10 @@ function render() {
     if (animate)
       for (const frame of $("hand").children)
         if (!frame.hidden) {
-          const rect = frame.getBoundingClientRect(),
-            name = frame.querySelector(".name"); // the quest card has none
+          const rect = frame.getBoundingClientRect();
           before.set(
             frame.querySelector(".card").dataset.card ?? frame.dataset.questId,
-            {
-              left: rect.left,
-              top: rect.top,
-              nameBottom: name && getComputedStyle(name).bottom,
-            },
+            { left: rect.left, top: rect.top },
           );
         }
     for (const motion of handMotions.values()) motion.cancel();
@@ -4124,17 +4124,16 @@ function render() {
           previous = before.get(id) || before.get(frame.dataset.holder);
         if (!previous || (!frame.dataset.want && rising.has(entryKey(frame))))
           continue;
-        const name = frame.querySelector(".name");
         moves.push({
           id,
           frame,
           previous,
           next: frame.getBoundingClientRect(),
-          name,
-          nameBottom: name && getComputedStyle(name).bottom,
         });
       }
-    for (const { id, frame, previous, next, name, nameBottom } of moves) {
+    // A card's name label sits at its top (card-label.mjs), so it moves
+    // with its card and never slides on its own.
+    for (const { id, frame, previous, next } of moves) {
       const dx = previous.left - next.left,
         dy = previous.top - next.top;
       if (Math.abs(dx) >= 1 || Math.abs(dy) >= 1 || !before.has(id))
@@ -4145,13 +4144,6 @@ function render() {
             translate: [`${dx}px ${dy}px`, "0 0"],
             opacity: [before.has(id) ? 1 : 0.3, 1],
           },
-          reshaped ? LAYOUT_MS : undefined,
-        );
-      if (name && before.has(id) && previous.nameBottom !== nameBottom)
-        moveHandPart(
-          `name:${id}`,
-          name,
-          { bottom: [previous.nameBottom, nameBottom] },
           reshaped ? LAYOUT_MS : undefined,
         );
     }
