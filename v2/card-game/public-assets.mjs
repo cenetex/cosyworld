@@ -100,6 +100,7 @@ const files = [
   "card-entry.mjs",
   "card-exit.mjs",
   "card-ghost.mjs",
+  "card-swap.mjs",
   "dream-card.mjs",
   "glimpse-card.mjs",
   "sleep-presentation.mjs",
