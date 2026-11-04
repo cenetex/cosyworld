@@ -603,6 +603,12 @@ const gateQuest = (s, { kind, target, to }) => ({
   story: true,
   ...(to ? { step: { verb: "give", to } } : {}),
 });
+// Before the pond, Vale stays in an opening home, its rescue or the station.
+const openingPlace = (place) =>
+  Object.entries(homeGates).some(
+    ([home, gate]) =>
+      gate.opening && [home, gate.rescue, "station"].includes(place),
+  );
 function meetCast(s) {
   const player = currentActor(s);
   for (const [id, a] of Object.entries(packPeople))
@@ -613,6 +619,12 @@ function meetCast(s) {
   if (!s.opening || (player !== "vale" && !s.opening.crossed)) return;
   if (player === "vale" && s.actors.vale.place === "pond")
     s.opening.crossed = true;
+  // Leaving the opening home another way (a scarf's stair down to the
+  // forest cottage) ends the opening: the pond is no longer its first shore.
+  if (!s.opening.crossed && !openingPlace(s.actors.vale.place)) {
+    delete s.opening;
+    return;
+  }
   if (!s.opening.crossed) {
     for (const id of roamingActors)
       if (entityActive(s, id) && s.actors[id].place === s.actors[player].place)
@@ -2979,11 +2991,7 @@ export function validateWorld(s) {
         o.met.keeper !== undefined &&
         o.met.moth === undefined) ||
       (!o.crossed &&
-        (!Object.entries(homeGates).some(
-          ([place, gate]) =>
-            gate.opening &&
-            [place, gate.rescue, "station"].includes(s.actors?.vale?.place),
-        ) ||
+        (!openingPlace(s.actors?.vale?.place) ||
           Object.keys(o.met).some(
             (id) => id !== "vale" && !roamingActors.includes(id),
           ))) ||

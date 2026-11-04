@@ -17897,6 +17897,9 @@
   var sealedRoutes = packDefinitions.flatMap(
     (pack) => (pack.routes || []).filter((r) => r.sealed)
   );
+  var openingPlace = (place) => Object.entries(homeGates).some(
+    ([home, gate]) => gate.opening && [home, gate.rescue, "station"].includes(place)
+  );
   var canReach = (s, actor, item) => itemPlace2(s, item) === s.actors[actor].place && !actorIds.includes(rootHolder(s, item)) || rootHolder(s, item) === actor;
   var canUse = canReach;
   var loadOf = (s, id) => 1 + (s.items.cloth.holder === id ? 1 : 0);
@@ -18178,9 +18181,7 @@
       const o = s.opening;
       if (!o || ![1, 2].includes(o.version) || typeof o.crossed !== "boolean" || !o.met || o.met.vale !== 0 || Object.keys(o.met).some((id) => !actorIds.includes(id)) || Object.values(o.met).some(
         (turn) => !Number.isSafeInteger(turn) || turn < 0 || turn > s.turn
-      ) || !sharedEnabled(s) && o.met.keeper !== void 0 && o.met.moth === void 0 || !o.crossed && (!Object.entries(homeGates).some(
-        ([place, gate]) => gate.opening && [place, gate.rescue, "station"].includes(s.actors?.vale?.place)
-      ) || Object.keys(o.met).some(
+      ) || !sharedEnabled(s) && o.met.keeper !== void 0 && o.met.moth === void 0 || !o.crossed && (!openingPlace(s.actors?.vale?.place) || Object.keys(o.met).some(
         (id) => id !== "vale" && !roamingActors.includes(id)
       )) || o.version === 1 && o.crossed && !s.locations?.attic.anchored || o.crossed && o.met.moth === void 0 || o.version === 2 && !o.crossed)
         fail();

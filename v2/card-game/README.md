@@ -439,10 +439,14 @@ card clears a play queued here. Shared play waits for the player's current turn
 to finish, then checks the chosen action against the current table before
 sending it. Once the room plays it, the reply types into the full-size front
 card.
-Nothing floats over the stage. Words the player must see, such as **Not played**
-with the server's reason, an unsaved world, a lost connection or a nudge, read
-on the action beat's status line in front of the dialogue. A refusal stays until the next
-play and does not return on reload.
+Nothing floats over the stage. A play the shared table refuses says why on its
+own button, disabled, in the server's first sentence ("Waiting for an update"),
+as a blocked Take does; choosing its cards again, or the world moving on,
+offers it again. A refusal that lands once its cards are let go reads briefly
+on the action beat's status line ("Not played: Wait. That play has changed.").
+Other words the player must see, such as an unsaved world, a lost connection
+or a nudge, read on that status line in front of the dialogue. A refusal does
+not return on reload.
 Selection, cancellation,
 drag pairing and keyboard navigation spend no turn; only a committed play does.
 The latest selected carried item appears in the player's avatar hand.
@@ -905,6 +909,8 @@ and dark offers only the pond. The lit attic keeps its lit
 painting, whose mirror shows only the room. The cloth can lie in the room or
 travel with someone or something there. The cottage's
 stairs back up stay open after either item leaves or the light goes out.
+Taking the stairs before the pond, as a scarf allows from the first turn, ends
+Vale's opening there; the pond is no longer its first shore (rules 97).
 A stranded traveler in the attic still finds a narrow rescue path to the pond
 when the lamp is out of reach. That escape is separate from the
 mirror and cottage gates.

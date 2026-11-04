@@ -2529,7 +2529,9 @@ body .beat-live {
   display: grid;
   flex: 1000 1 120px;
   grid-template-columns: minmax(0, 1fr);
-  align-self: center;
+  /* Centred while it fits; longer words run down into the scrolling box
+     instead of past its top. */
+  margin-block: auto;
   align-content: start;
   gap: 4px;
   min-width: 0;
@@ -2662,7 +2664,8 @@ body .beat-live {
   font-size: 13px;
 }
 .beat-action #card-actions {
-  flex: 1 0 auto;
+  /* A strip wider than a very narrow box (200% text) wraps its words. */
+  flex: 1 1 auto;
   gap: 0;
   padding: 0;
   overflow: visible;

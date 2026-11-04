@@ -122,3 +122,45 @@ fn released_pond_opening_keeps_its_place_through_upgrade_and_journal_rebuild() {
     assert_eq!(full_store::world(&c, &id, now()).unwrap(), world);
     let _ = std::fs::remove_file(path);
 }
+
+// A scarf opens the attic stair from the first turn. Rules 96 offered it and
+// then refused the play as an invalid save ("waiting for an update"); from
+// rules 97 the stair ends Vale's opening and the journal replays it.
+#[test]
+fn scarf_stair_down_to_the_cottage_ends_the_opening_and_replays() {
+    let mut world = World::create(None).unwrap();
+    let path = std::env::temp_dir().join(format!("scarf-stair-{}.sqlite", crate::random_hex(12)));
+    let c = store::open(&path).unwrap();
+    full_store::schema(&c).unwrap();
+    let id = "f".repeat(48);
+    store::create(&c, &id, "owner", now()).unwrap();
+    full_store::seed(&c, &id, &world, "scarf-stair", now()).unwrap();
+    let claim = json!({"op":"claim","actor":"vale","progress":{"upgrades":["scarf"]}});
+    full_store::commit(&c, &id, &mut world, claim, now()).unwrap();
+    full_store::commit(
+        &c,
+        &id,
+        &mut world,
+        json!({"op":"enter","actor":"vale"}),
+        now(),
+    )
+    .unwrap();
+    assert_eq!(world.game["opening"]["crossed"], false);
+    let view = world.project(0).unwrap();
+    let down = view["actions"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|a| a["kind"] == "move" && a["target"] == "forest-cottage" && a["item"] == "lamp")
+        .unwrap()
+        .clone();
+    let play = json!({"op":"play","actor":"vale","action":down});
+    full_store::commit(&c, &id, &mut world, play, now()).unwrap();
+    assert_eq!(world.game["actors"]["vale"]["place"], "forest-cottage");
+    assert_eq!(world.game["items"]["lamp"]["holder"], "vale");
+    assert!(world.game.get("opening").is_none());
+    c.execute("DELETE FROM card_full_checkpoints WHERE world=?", [&id])
+        .unwrap();
+    assert_eq!(full_store::world(&c, &id, now()).unwrap(), world);
+    let _ = std::fs::remove_file(path);
+}
