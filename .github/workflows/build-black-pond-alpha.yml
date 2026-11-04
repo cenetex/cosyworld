@@ -1,0 +1,40 @@
+name: Build Black Pond alpha artwork
+
+on:
+  push:
+    branches: [codex/fullsize-transparent-logos]
+    paths: [.github/workflows/build-black-pond-alpha.yml]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: black-pond-alpha-artwork
+  cancel-in-progress: false
+
+jobs:
+  artwork:
+    if: github.repository == 'cenetex/cosyworld' && github.ref == 'refs/heads/codex/fullsize-transparent-logos'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          sparse-checkout: v2/card-game/assets/title
+          fetch-depth: 1
+      - name: Install pinned authoring tools
+        run: python3 -m pip install 'Pillow==12.3.0' 'numpy==2.3.5' 'scipy==1.17.0'
+      - name: Extract and verify the existing Black Pond artwork
+        run: python3 v2/card-game/assets/title/transparent/build-black-pond-alpha.py
+      - name: Commit only the derived artwork and its provenance
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -f -- v2/card-game/assets/title/transparent/lonely-forest-black-pond.png v2/card-game/assets/title/transparent/lonely-forest-black-pond-toolbar.webp v2/card-game/assets/title/transparent/black-pond-alpha.provenance.json
+          git diff --cached --check
+          if git diff --cached --quiet; then
+            echo 'Black Pond transparent assets already match.'
+            exit 0
+          fi
+          git commit -m 'Add full-size Black Pond transparent artwork and toolbar cutout'
+          git push origin HEAD:refs/heads/codex/fullsize-transparent-logos
