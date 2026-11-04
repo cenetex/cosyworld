@@ -640,8 +640,10 @@ const exchange = createExchange({
     pendingSpeaker = null;
     awaitingNext = false;
     const speakerId = line.entityId || line.actorId;
-    // An unrevealed person who speaks is revealed with the line.
-    if (people[speakerId] && cardIsCovered(speakerId)) uncover(speakerId);
+    // An unrevealed person who speaks is revealed with the line, there at
+    // once so the words never wait on a fade.
+    if (people[speakerId] && cardIsCovered(speakerId))
+      uncover(speakerId, { fade: false });
     if (speakerId && !shownSpeakers.includes(speakerId))
       shownSpeakers.push(speakerId);
     lineSeq = line.seq;
@@ -1307,13 +1309,13 @@ function selectCards(cards) {
 // begin once the avatar and its place are both known. The new-world title's
 // turn has already shown the avatar's face, so it uncovers that card without
 // a second flip.
-function uncover(id, { flip = true, lid = null } = {}) {
+function uncover(id, { flip = true, lid = null, fade = true } = {}) {
   if (!cardIsCovered(id)) return;
   encountered.add(id);
   coveredCards.delete(id);
   rememberCards();
   // Its figure or item fades into the scene (stage-reveal.mjs).
-  stageReveals.add(id);
+  if (fade) stageReveals.add(id);
   render();
   const shown = $("hand").querySelector(`.card[data-card="${id}"]`);
   if (shown && flip) void revealCard(openingLid(shown, lid));
