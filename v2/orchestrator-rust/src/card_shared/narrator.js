@@ -18052,8 +18052,9 @@
   var needed = (s, actor, item) => questsOf(s, actor).some(
     (want) => want.kind === "item" && bundle(s, item).includes(want.target)
   );
+  var humanHeld = (s, id) => controlledByHuman(s, id) || residentAvatar(s, id);
   function willingToGive(s, owner2, item, recipient = null) {
-    return !controlledByHuman(s, owner2) && recipient !== null && !resentment(s, owner2, recipient) && !needed(s, owner2, item) && giftDecision(s, owner2, item, recipient).accepted;
+    return !humanHeld(s, owner2) && recipient !== null && !resentment(s, owner2, recipient) && !needed(s, owner2, item) && giftDecision(s, owner2, item, recipient).accepted;
   }
   function tradePossible(s, actor, give, receive) {
     const other = s.items[receive]?.holder;

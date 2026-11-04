@@ -568,6 +568,8 @@ lit or uncovered; a dry lamp fills itself when someone holds it with an Oil
 flask available in the room. A belonging
 carried away leaves the pond path available. Since rules 80 an away
 player's avatar stays as a resident, so what it holds still counts.
+From rules 98 nobody threatens, trades with, takes by Ask from or draws into
+a fight an away player's avatar, and a stuck ship never sets its quest aside.
 Room capacity still applies to the destination.
 
 The same home-gate rule serves the attic and all seven visitor homes. Shared

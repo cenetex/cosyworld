@@ -671,9 +671,12 @@ const needed = (s, actor, item) =>
   questsOf(s, actor).some(
     (want) => want.kind === "item" && bundle(s, item).includes(want.target),
   );
+// An away traveler's avatar, played as a resident, is no one's to ask,
+// threaten, trade with or draw into a fight (rules 98).
+const humanHeld = (s, id) => controlledByHuman(s, id) || residentAvatar(s, id);
 export function willingToGive(s, owner, item, recipient = null) {
   return (
-    !controlledByHuman(s, owner) &&
+    !humanHeld(s, owner) &&
     recipient !== null &&
     !resentment(s, owner, recipient) &&
     !needed(s, owner, item) &&
@@ -1172,7 +1175,7 @@ function leaveBattle(s, c, id) {
 }
 const fightsHere = (s, c, id) =>
   [c.challenger, c.defender].includes(id) ||
-  (!avoidsStandoffs(id) && !(sharedEnabled(s) && controlledByHuman(s, id)));
+  (!avoidsStandoffs(id) && !(sharedEnabled(s) && humanHeld(s, id)));
 // Consecutive defeats per avatar. A win or a rest at a sanctuary clears it;
 // the third defeat sends the loser home with empty hands.
 export const DEFEATS_TO_SEND_HOME = 3;
@@ -1484,7 +1487,7 @@ export function legalActions(s, actor = currentActor(s)) {
           ),
         );
     } else if (
-      !(sharedEnabled(s) && controlledByHuman(s, other)) &&
+      !(sharedEnabled(s) && humanHeld(s, other)) &&
       !avoidsStandoffs(other) &&
       !conflict &&
       !standoffFor(s, other) &&
@@ -1668,7 +1671,7 @@ export function legalActions(s, actor = currentActor(s)) {
       ? knownActors(s).filter(
           (other) =>
             other !== actor &&
-            !controlledByHuman(s, other) &&
+            !humanHeld(s, other) &&
             s.actors[other].place === here,
         )
       : [],
@@ -1691,8 +1694,8 @@ export function legalActions(s, actor = currentActor(s)) {
       out.push(action);
     }
   out.push(...fixtureOffers(s, actor, sensesFor(s)), ...packChoices(s, actor));
-  // A player may drop any quest in its stack (a level quest costs half the
-  // experience), or choose one from beneath, which brings it to the top
+  // A player may drop any quest in its stack (a level quest costs
+  // experience, `dropCost`), or choose one from beneath, which brings it to the top
   // without taking a turn.
   // A sealed card gives its quest, unless that quest is already on top.
   if (controlledByHuman(s, actor))
@@ -2872,7 +2875,7 @@ export function play(
     // Residents put ashore set that pursuit aside.
     if (voyage.kind === "home")
       for (const id of voyage.ashore)
-        if (!controlledByHuman(next, id)) setAsideWant(next, id, wantAPI(next));
+        if (!humanHeld(next, id)) setAsideWant(next, id, wantAPI(next));
   }
   const worldLine = (text, locationId) =>
     addLog(next, "World", text, { kind: "narration", locationId });

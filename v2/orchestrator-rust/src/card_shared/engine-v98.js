@@ -6668,8 +6668,9 @@
   var needed = (s, actor, item) => questsOf(s, actor).some(
     (want) => want.kind === "item" && bundle(s, item).includes(want.target)
   );
+  var humanHeld = (s, id) => controlledByHuman(s, id) || residentAvatar(s, id);
   function willingToGive(s, owner2, item, recipient = null) {
-    return !controlledByHuman(s, owner2) && recipient !== null && !resentment(s, owner2, recipient) && !needed(s, owner2, item) && giftDecision(s, owner2, item, recipient).accepted;
+    return !humanHeld(s, owner2) && recipient !== null && !resentment(s, owner2, recipient) && !needed(s, owner2, item) && giftDecision(s, owner2, item, recipient).accepted;
   }
   function tradePossible(s, actor, give, receive) {
     const other = s.items[receive]?.holder;
@@ -6992,7 +6993,7 @@
         if (key === id || value === id) delete map[key];
     s.peaceUntil[id] = s.turn + 3;
   }
-  var fightsHere = (s, c, id) => [c.challenger, c.defender].includes(id) || !avoidsStandoffs(id) && !(sharedEnabled(s) && controlledByHuman(s, id));
+  var fightsHere = (s, c, id) => [c.challenger, c.defender].includes(id) || !avoidsStandoffs(id) && !(sharedEnabled(s) && humanHeld(s, id));
   var DEFEATS_TO_SEND_HOME = 3;
   function defeatInStandoff(s, c, winner, loser, here) {
     const defeats = s.defeats ??= {};
@@ -7200,7 +7201,7 @@
               [other]
             )
           );
-      } else if (!(sharedEnabled(s) && controlledByHuman(s, other)) && !avoidsStandoffs(other) && !conflict && !standoffFor(s, other) && s.peaceUntil[actor] <= s.turn && s.peaceUntil[other] <= s.turn) {
+      } else if (!(sharedEnabled(s) && humanHeld(s, other)) && !avoidsStandoffs(other) && !conflict && !standoffFor(s, other) && s.peaceUntil[actor] <= s.turn && s.peaceUntil[other] <= s.turn) {
         const stake = ids.find(
           (id) => s.items[id].holder === other && needed(s, actor, id)
         ) || ids.find((id) => s.items[id].holder === other) || null;
@@ -7349,7 +7350,7 @@
     const payments = ids.filter((id) => s.items[id].holder === actor);
     const tradePartners = new Set(
       payments.length ? knownActors2(s).filter(
-        (other) => other !== actor && !controlledByHuman(s, other) && s.actors[other].place === here
+        (other) => other !== actor && !humanHeld(s, other) && s.actors[other].place === here
       ) : []
     );
     const tradeGoods = ids.filter((id) => tradePartners.has(s.items[id].holder));
@@ -8286,7 +8287,7 @@
       );
       if (voyage.kind === "home") {
         for (const id of voyage.ashore)
-          if (!controlledByHuman(next, id)) setAsideWant(next, id, wantAPI(next));
+          if (!humanHeld(next, id)) setAsideWant(next, id, wantAPI(next));
       }
     }
     const worldLine = (text2, locationId) => addLog(next, "World", text2, { kind: "narration", locationId });
