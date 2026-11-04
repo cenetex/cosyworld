@@ -133,3 +133,20 @@ The next layer covers him fully in linen and puts one raven feather on his chest
 The viewer shows all four states in both lights, plus the empty backdrops.
 All ten selections were checked. All twelve layer-set additions used the built-in
 image tool. Source PNGs are preserved byte for byte.
+
+## Shipping exports
+
+The game files are in `v2/card-game/assets/greek-drama/` (#2301). Each of the
+eight `polynices-hollow-{fallen,anointed,veiled,buried}-{day,night}.webp`
+backdrops flattens one cutout onto the empty Hollow of the same light, at the
+layer review's placement. The veiled state uses the shrouded cutout and the
+buried state the grave cutout; the finished buried paintings stay reference.
+`polynices-shade.webp` is the shade study with its see-through look baked in:
+alpha falls from 88% at the head to 45% at the feet, and the colour lifts 10%
+toward moonlit grey. It faces left.
+
+`node v2/scripts/build-polynices-hollow-art.mjs` rebuilds them and writes
+`polynices-hollow-provenance.json` with source and output hashes; `--check`
+fails on any difference.
+
+![Shipping backdrops and shade](hollow-shipping-review.webp)

@@ -1,0 +1,333 @@
+{
+  "created": "2026-11-04",
+  "issue": "https://github.com/cenetex/cosyworld/issues/2301",
+  "generator": "Composited by v2/scripts/build-polynices-hollow-art.mjs from the built-in image tool studies in docs/design/assets/polynices (#2291, #2296). Their prompts are in prompts.json and layer-prompts.json there.",
+  "brief": "Polynices' Hollow in four burial states (fallen, anointed, veiled, buried) by day and night, each the matching transparent cutout flattened onto the empty Hollow of the same light, so all four states match. The owner chose the grave cutout over the finished buried paintings. Plus Polynices' shade portrait with its translucency baked in, so it reads as a shade without CSS effects.",
+  "rebuild": "node v2/scripts/build-polynices-hollow-art.mjs [--check]",
+  "encoding": {
+    "format": "webp",
+    "quality": 88,
+    "alphaQuality": 100,
+    "effort": 6,
+    "smartSubsample": true
+  },
+  "canvas": [
+    1672,
+    941
+  ],
+  "assets": [
+    {
+      "id": "polynices-hollow-fallen-day",
+      "file": "polynices-hollow-fallen-day.webp",
+      "place": "greek-polynices-hollow",
+      "state": "fallen",
+      "flag": null,
+      "period": "day",
+      "dimensions": [
+        1672,
+        941
+      ],
+      "transparent_background": false,
+      "sources": [
+        {
+          "role": "empty Hollow backdrop",
+          "repository_path": "docs/design/assets/polynices/hollow-empty-day-study.png",
+          "sha256": "6de50a3095acb47114d30260b888b2ce850d91d7014c1b005f0a79c92906187c",
+          "dimensions": [
+            1672,
+            941
+          ]
+        },
+        {
+          "role": "fallen cutout layer",
+          "repository_path": "docs/design/assets/polynices/polynices-fallen-cutout.png",
+          "sha256": "386777f08d919402df2b974769a5c017a4fe4b332c13e888acea8c4394e927d3",
+          "dimensions": [
+            1672,
+            941
+          ]
+        }
+      ],
+      "compositing": "Backdrop and cutout each fitted to 1672 x 941 and flattened at the origin (the layers.html placement). The cutout's own contact shadow is kept; no shadow is added.",
+      "bytes": 436954,
+      "sha256": "6e8148e71ecb2fa289efe17dfacac8c14cbc7be2e3bed80714673a65f3ebfbf1"
+    },
+    {
+      "id": "polynices-hollow-anointed-day",
+      "file": "polynices-hollow-anointed-day.webp",
+      "place": "greek-polynices-hollow",
+      "state": "anointed",
+      "flag": "greek-polynices-anointed",
+      "period": "day",
+      "dimensions": [
+        1672,
+        941
+      ],
+      "transparent_background": false,
+      "sources": [
+        {
+          "role": "empty Hollow backdrop",
+          "repository_path": "docs/design/assets/polynices/hollow-empty-day-study.png",
+          "sha256": "6de50a3095acb47114d30260b888b2ce850d91d7014c1b005f0a79c92906187c",
+          "dimensions": [
+            1672,
+            941
+          ]
+        },
+        {
+          "role": "anointed cutout layer",
+          "repository_path": "docs/design/assets/polynices/polynices-anointed-cutout.png",
+          "sha256": "3b6258e631aed9d672e856d333fe20242c075d53394f5541f6e27034482f3127",
+          "dimensions": [
+            1671,
+            941
+          ]
+        }
+      ],
+      "compositing": "Backdrop and cutout each fitted to 1672 x 941; cutout scaled to 83% from the top left and placed 40 px right, 70 px down (the layers.html care adjustment), then flattened. The cutout's own contact shadow is kept; no shadow is added.",
+      "bytes": 434090,
+      "sha256": "c61f68c5eacc99b7ecf6defda6af133a8702ee54efccd1887876929e87c5637f"
+    },
+    {
+      "id": "polynices-hollow-veiled-day",
+      "file": "polynices-hollow-veiled-day.webp",
+      "place": "greek-polynices-hollow",
+      "state": "veiled",
+      "flag": "greek-polynices-veiled",
+      "period": "day",
+      "dimensions": [
+        1672,
+        941
+      ],
+      "transparent_background": false,
+      "sources": [
+        {
+          "role": "empty Hollow backdrop",
+          "repository_path": "docs/design/assets/polynices/hollow-empty-day-study.png",
+          "sha256": "6de50a3095acb47114d30260b888b2ce850d91d7014c1b005f0a79c92906187c",
+          "dimensions": [
+            1672,
+            941
+          ]
+        },
+        {
+          "role": "shrouded cutout layer",
+          "repository_path": "docs/design/assets/polynices/polynices-shrouded-cutout.png",
+          "sha256": "70937602938686f81619904c8882467534213740388e877da779bc26e4555913",
+          "dimensions": [
+            1670,
+            941
+          ]
+        }
+      ],
+      "compositing": "Backdrop and cutout each fitted to 1672 x 941; cutout scaled to 83% from the top left and placed 40 px right, 70 px down (the layers.html care adjustment), then flattened. The cutout's own contact shadow is kept; no shadow is added.",
+      "bytes": 426068,
+      "sha256": "11a19e8cf4163df4cfb7721caf1c6490a0ac5f5c6eb41ae38772e9eb20494149"
+    },
+    {
+      "id": "polynices-hollow-buried-day",
+      "file": "polynices-hollow-buried-day.webp",
+      "place": "greek-polynices-hollow",
+      "state": "buried",
+      "flag": "greek-burial-performed",
+      "period": "day",
+      "dimensions": [
+        1672,
+        941
+      ],
+      "transparent_background": false,
+      "sources": [
+        {
+          "role": "empty Hollow backdrop",
+          "repository_path": "docs/design/assets/polynices/hollow-empty-day-study.png",
+          "sha256": "6de50a3095acb47114d30260b888b2ce850d91d7014c1b005f0a79c92906187c",
+          "dimensions": [
+            1672,
+            941
+          ]
+        },
+        {
+          "role": "grave cutout layer",
+          "repository_path": "docs/design/assets/polynices/polynices-grave-cutout.png",
+          "sha256": "342fa4b855d4a7da8a925748f069b253d185667a57de0dd0b300669494e709ac",
+          "dimensions": [
+            1670,
+            941
+          ]
+        }
+      ],
+      "compositing": "Backdrop and cutout each fitted to 1672 x 941 and flattened at the origin (the layers.html placement). The cutout's own contact shadow is kept; no shadow is added.",
+      "bytes": 436856,
+      "sha256": "b9d43d1583ca4bf5aca66145a554e9fe2f9079a305505669f74ef290683d150b"
+    },
+    {
+      "id": "polynices-hollow-fallen-night",
+      "file": "polynices-hollow-fallen-night.webp",
+      "place": "greek-polynices-hollow",
+      "state": "fallen",
+      "flag": null,
+      "period": "night",
+      "dimensions": [
+        1672,
+        941
+      ],
+      "transparent_background": false,
+      "sources": [
+        {
+          "role": "empty Hollow backdrop",
+          "repository_path": "docs/design/assets/polynices/hollow-empty-night-study.png",
+          "sha256": "910741dbb5ad375bf72b4b817c7332b3bc67afdf8ce15a94c29c9b64c6521f77",
+          "dimensions": [
+            1672,
+            941
+          ]
+        },
+        {
+          "role": "fallen cutout layer",
+          "repository_path": "docs/design/assets/polynices/polynices-fallen-night-cutout.png",
+          "sha256": "cbbd1021898900be8c5cae7830dbb4bc9d7949c9865a28b396c16e9cd5417c85",
+          "dimensions": [
+            1671,
+            941
+          ]
+        }
+      ],
+      "compositing": "Backdrop and cutout each fitted to 1672 x 941 and flattened at the origin (the layers.html placement). The cutout's own contact shadow is kept; no shadow is added.",
+      "bytes": 344470,
+      "sha256": "7a127b1206b0bc7df36de695808175d02333d5ce17279bdce8eed7ad85065741"
+    },
+    {
+      "id": "polynices-hollow-anointed-night",
+      "file": "polynices-hollow-anointed-night.webp",
+      "place": "greek-polynices-hollow",
+      "state": "anointed",
+      "flag": "greek-polynices-anointed",
+      "period": "night",
+      "dimensions": [
+        1672,
+        941
+      ],
+      "transparent_background": false,
+      "sources": [
+        {
+          "role": "empty Hollow backdrop",
+          "repository_path": "docs/design/assets/polynices/hollow-empty-night-study.png",
+          "sha256": "910741dbb5ad375bf72b4b817c7332b3bc67afdf8ce15a94c29c9b64c6521f77",
+          "dimensions": [
+            1672,
+            941
+          ]
+        },
+        {
+          "role": "anointed cutout layer",
+          "repository_path": "docs/design/assets/polynices/polynices-anointed-night-cutout.png",
+          "sha256": "a7962e3a03ae6104f4c7eee19d6f1d55bbd367562846a79935c250fc67ac24eb",
+          "dimensions": [
+            1670,
+            941
+          ]
+        }
+      ],
+      "compositing": "Backdrop and cutout each fitted to 1672 x 941; cutout scaled to 83% from the top left and placed 40 px right, 70 px down (the layers.html care adjustment), then flattened. The cutout's own contact shadow is kept; no shadow is added.",
+      "bytes": 345952,
+      "sha256": "b8e3bdf83522648ea25dfdb4ff2cab260ae78ddbc38644b610c50c83790a35a7"
+    },
+    {
+      "id": "polynices-hollow-veiled-night",
+      "file": "polynices-hollow-veiled-night.webp",
+      "place": "greek-polynices-hollow",
+      "state": "veiled",
+      "flag": "greek-polynices-veiled",
+      "period": "night",
+      "dimensions": [
+        1672,
+        941
+      ],
+      "transparent_background": false,
+      "sources": [
+        {
+          "role": "empty Hollow backdrop",
+          "repository_path": "docs/design/assets/polynices/hollow-empty-night-study.png",
+          "sha256": "910741dbb5ad375bf72b4b817c7332b3bc67afdf8ce15a94c29c9b64c6521f77",
+          "dimensions": [
+            1672,
+            941
+          ]
+        },
+        {
+          "role": "shrouded cutout layer",
+          "repository_path": "docs/design/assets/polynices/polynices-shrouded-night-cutout.png",
+          "sha256": "82c0a815307949b06ba8dc8ced88ae70a18ab335f87fb2b5d9fea21b537da794",
+          "dimensions": [
+            1670,
+            942
+          ]
+        }
+      ],
+      "compositing": "Backdrop and cutout each fitted to 1672 x 941; cutout scaled to 83% from the top left and placed 40 px right, 70 px down (the layers.html care adjustment), then flattened. The cutout's own contact shadow is kept; no shadow is added.",
+      "bytes": 339726,
+      "sha256": "f622a5e61bc00ab5ad75f9c18016e0dedcb215649c4ba83db4dbc6679d4a8429"
+    },
+    {
+      "id": "polynices-hollow-buried-night",
+      "file": "polynices-hollow-buried-night.webp",
+      "place": "greek-polynices-hollow",
+      "state": "buried",
+      "flag": "greek-burial-performed",
+      "period": "night",
+      "dimensions": [
+        1672,
+        941
+      ],
+      "transparent_background": false,
+      "sources": [
+        {
+          "role": "empty Hollow backdrop",
+          "repository_path": "docs/design/assets/polynices/hollow-empty-night-study.png",
+          "sha256": "910741dbb5ad375bf72b4b817c7332b3bc67afdf8ce15a94c29c9b64c6521f77",
+          "dimensions": [
+            1672,
+            941
+          ]
+        },
+        {
+          "role": "grave cutout layer",
+          "repository_path": "docs/design/assets/polynices/polynices-grave-night-cutout.png",
+          "sha256": "6ac5b780965e7ca134d6a725990e8c588f96a97af3662ad767e951ae29a02eaf",
+          "dimensions": [
+            1670,
+            942
+          ]
+        }
+      ],
+      "compositing": "Backdrop and cutout each fitted to 1672 x 941 and flattened at the origin (the layers.html placement). The cutout's own contact shadow is kept; no shadow is added.",
+      "bytes": 345768,
+      "sha256": "2cfdcd4aedef8492b2d2b0410416d14fed5075018775bdd54b4a9c380d0659bd"
+    },
+    {
+      "id": "polynices-shade",
+      "file": "polynices-shade.webp",
+      "role": "resident portrait",
+      "facing": "left",
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "transparent_background": true,
+      "sources": [
+        {
+          "role": "shade study",
+          "repository_path": "docs/design/assets/polynices/shade-study.png",
+          "sha256": "22e0e45efd72fcfc4065fe6a1754355f3318e6c322862d794025a8720367748c",
+          "dimensions": [
+            1024,
+            1536
+          ]
+        }
+      ],
+      "compositing": "Alpha multiplied by a vertical opacity ramp (0.88 at the top, 0.72 at mid height, 0.45 at the feet); colour mixed 10% toward rgb(222, 230, 238). No crop or resize.",
+      "bytes": 170736,
+      "sha256": "c926e605b3cba3eeb0bcbafbeb1f60d8d8465110d7db59e1d4b72d42d82a28d9"
+    }
+  ]
+}
