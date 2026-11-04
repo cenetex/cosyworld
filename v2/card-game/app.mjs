@@ -397,7 +397,10 @@ let shownQuests = [],
   questSeq = null,
   questPick = 0,
   questOpen = false,
-  questFresh = false;
+  questFresh = false,
+  // Which of the avatar's two stacks, "items" or "quests", is fanned while
+  // its stacks show (#2256).
+  avatarFan = null;
 // The folded card behind the avatar shows the top quest.
 const foldQuest = () => shownQuests[0] ?? sealedQuests[0] ?? null;
 const questEntries = () => [
@@ -1335,7 +1338,8 @@ function keepHeldSelection(before, action = null) {
       : before.held.filter((id) => selectedHandItem(world, [id]))
   ).filter((id) => shown.includes(id));
   const keepActor = held.length > 0 && selected.includes(actor);
-  const expanded = keepActor && expandedHolders.has(actor);
+  // The avatar's stacks stay as they were while it holds the choice.
+  const expanded = (held.length > 0 || questOpen) && expandedHolders.has(actor);
   selected = keepActor ? [actor, ...held] : held;
   expandedHolders.clear();
   if (expanded) expandedHolders.add(actor);
@@ -1358,6 +1362,75 @@ function stackPlaces(cards) {
   hand.splice(at || hand.length, 0, ...cards.filter(stackedPlace));
   return hand;
 }
+// While the avatar's stacks show, the things it carries and its quests lie
+// in two stacks beside it, as the ways on lie behind the current place
+// (#2256). Each shows its top card with the rest face down behind it until
+// it fans; the chosen card moves left of both. An empty stack is left out.
+function avatarStack(id) {
+  const actor = currentActor(world),
+    kind = isQuestId(id)
+      ? "quests"
+      : things[id] && rootHolder(world, id) === actor
+        ? "items"
+        : null;
+  if (!kind) return null;
+  const picked = (entryId) =>
+      questOpen &&
+      entryId === questId(questPick) &&
+      Boolean(shownQuests.length),
+    chosen = kind === "items" ? selected.includes(id) : picked(id),
+    rest = (
+      kind === "items"
+        ? availableCards(world).filter(
+            (item) => things[item] && rootHolder(world, item) === actor,
+          )
+        : questEntries().map((entry) => entry.id)
+    ).filter(
+      (card) => !(kind === "items" ? selected.includes(card) : picked(card)),
+    ),
+    open = avatarFan === kind,
+    top = rest[0] === id;
+  return {
+    kind,
+    chosen,
+    open,
+    top,
+    // The cards still folded under the top one; one alone hides none.
+    under: top && !open ? rest.length - 1 : 0,
+    shown: expandedHolders.has(actor) ? chosen || open || top : chosen,
+  };
+}
+function syncAvatarStack(frame, id) {
+  const part = avatarStack(id);
+  if (!part) return;
+  frame.hidden = !part.shown;
+  frame
+    .querySelectorAll(":scope > .place-edge")
+    .forEach((edge) => edge.remove());
+  const button = frame.querySelector(".card");
+  if (part.top && (part.open || part.under)) {
+    frame.dataset.expanded = String(part.open);
+    button.setAttribute("aria-expanded", String(part.open));
+  } else {
+    delete frame.dataset.expanded;
+    button.removeAttribute("aria-expanded");
+  }
+  for (let i = Math.min(part.under, 3); i > 0; i--) {
+    const edge = node("span", undefined, "place-edge");
+    edge.style.setProperty("--i", String(i));
+    edge.style.setProperty("--card-back", cardBackImage());
+    frame.prepend(edge);
+  }
+}
+// The chosen thing or quest moves left, beside the avatar.
+function chosenFirst(cards) {
+  const actor = currentActor(world);
+  if (!expandedHolders.has(actor)) return cards;
+  const chosen = cards.filter((id) => avatarStack(id)?.chosen),
+    hand = cards.filter((id) => !chosen.includes(id));
+  hand.splice(hand.indexOf(actor) + 1, 0, ...chosen);
+  return hand;
+}
 // The cards of the player's last committed Wait and the table's revision
 // after it: the same cards chosen again offer Sleep.
 let lastWait = null;
@@ -1367,13 +1440,15 @@ function rememberWait(action, key) {
       ? { key, revision: world.revision }
       : null;
 }
-function selectCards(cards) {
+function selectCards(cards, { keepOpen = false } = {}) {
   for (const id of selected)
     if (people[id] && !cards.includes(id)) expandedHolders.delete(id);
   // A place stays open, and raised, only while it is chosen or holds a
-  // chosen thing.
+  // chosen thing. Tapping a chosen card again only lowers that card, so the
+  // stack it lies in stays fanned (#2247).
   for (const id of expandedHolders)
     if (
+      !keepOpen &&
       places[id] &&
       !cards.includes(id) &&
       !cards.some((card) => things[card] && rootHolder(world, card) === id) &&
@@ -1424,10 +1499,35 @@ function choose(id) {
   playQueue.clear();
   lastPlayAt = -Infinity;
   fresh.delete(id);
+  const questPicked = questOpen;
   questOpen = false;
   // Any tap opens a folded row again; the held item is still raised.
   rowCollapsed = false;
-  if (places[id] && expandedHolders.has(id)) {
+  // While the avatar's stacks show, tapping it folds them back, then lowers
+  // it; tapping a folded stack fans it, folding the other; tapping a card in
+  // the fan, or the only card in a stack, chooses it (#2256).
+  const actor = currentActor(world),
+    part = expandedHolders.has(actor) ? avatarStack(id) : null;
+  if (id === actor && expandedHolders.has(actor)) {
+    const settled = !avatarFan && !questPicked && selected.join("+") === actor;
+    avatarFan = null;
+    if (settled) expandedHolders.delete(actor);
+    selectCards(settled ? [] : [actor], { keepOpen: true });
+  } else if (part?.under) avatarFan = part.kind;
+  else if (part) {
+    // A thing chosen takes the avatar's place in the choice, so it pairs
+    // with another card as it did; tapped again, it is only lowered.
+    const others = selected.filter((cardId) => cardId !== actor);
+    selectCards(
+      part.chosen
+        ? selected.filter((cardId) => cardId !== id)
+        : others.length >= 2
+          ? [selectedHandItem(world, others), id].filter(Boolean)
+          : [...others, id],
+      { keepOpen: true },
+    );
+    expandedHolders.add(actor);
+  } else if (places[id] && expandedHolders.has(id)) {
     expandedHolders.delete(id);
     selectCards(
       selected.filter(
@@ -1436,6 +1536,8 @@ function choose(id) {
           !(id === placeHere() && stackedPlace(cardId)) &&
           (!things[cardId] || rootHolder(world, cardId) !== id),
       ),
+      // Only the current place's own tap folds its ways on.
+      { keepOpen: id !== placeHere() },
     );
   } else {
     const holder = things[id] ? rootHolder(world, id) : null;
@@ -1445,8 +1547,9 @@ function choose(id) {
     // keeps its partner: Pip + Station, then Pond, invites Pip to the Pond.
     if (places[id] && !selected.includes(id))
       selected = selected.filter((cardId) => !places[cardId]);
+    const lowering = selected.includes(id);
     selectCards(
-      selected.includes(id)
+      lowering
         ? selected.filter((cardId) => cardId !== id)
         : selected.length >= 2
           ? selected.includes(holder)
@@ -1455,6 +1558,7 @@ function choose(id) {
               ? [selectedHandItem(world, selected), id]
               : [id]
           : [...selected, id],
+      { keepOpen: lowering },
     );
   }
   selectionRevision = world.revision;
@@ -2265,6 +2369,7 @@ function updateCardSelection(frame) {
     frame.dataset.expanded = String(expandedHolders.has(id));
     button.setAttribute("aria-expanded", String(expandedHolders.has(id)));
   }
+  syncAvatarStack(frame, id);
   if (button.dataset.locked === "true") return;
   button.querySelector(".sr-only").textContent =
     cardObservation(world, id) +
@@ -2619,6 +2724,7 @@ function card(id) {
       frame.prepend(edge);
     }
   }
+  syncAvatarStack(frame, id);
   if (foldQuest()?.actor === id) frame.prepend(questFold(foldQuest()));
   // Its reason is in the context button, never on the box.
   el.dataset.locked = String(locked);
@@ -2726,21 +2832,22 @@ function questFrame({ id, quest, met }) {
     ),
     head,
   );
-  // A met quest clears; in the open fan choosing another quest brings it to
-  // the top, and choosing the chosen one folds the fan again.
+  // A folded stack fans out. In the fan, or alone, a met quest clears, and choosing
+  // a quest moves it left; choosing it again only lowers it (#2256).
   el.addEventListener("click", () => {
-    if (met) return clearQuest(el, quest);
-    if (questOpen && quest.index !== questPick) return pickQuest(quest);
-    if (!questOpen) questPick = quest.index;
-    toggleQuest();
+    if (selectionBlocked()) return;
+    if (picked) questOpen = false;
+    else if (avatarStack(id)?.under) avatarFan = "quests";
+    else if (met) return clearQuest(el, quest);
+    else return pickQuest(quest);
+    render();
   });
   const frame = node("div", undefined, "card-frame want-frame");
   frame.dataset.want = quest.kind;
   frame.dataset.questId = id;
-  frame.dataset.raised = String(questOpen && (met || picked));
-  // It folds behind the player's avatar until that stack or the quest opens.
+  frame.dataset.raised = String(picked);
+  // It folds behind the player's avatar until that avatar's stacks show.
   frame.dataset.holder = quest.actor;
-  frame.hidden = !questOpen && !expandedHolders.has(quest.actor);
   // Steps still to come lie face down behind the card, as a stack.
   for (let i = Math.min(quest.left - 1, 3); i > 0; i--) {
     const edge = node("span", undefined, "quest-edge");
@@ -2750,6 +2857,7 @@ function questFrame({ id, quest, met }) {
     frame.append(edge);
   }
   frame.append(el);
+  syncAvatarStack(frame, id);
   return frame;
 }
 // Choosing a quest beneath the top plays the rules' focus, which takes no
@@ -2760,23 +2868,26 @@ function pickQuest(quest) {
     (a) => a.kind === "focus" && a.quest === quest.index,
   );
   questPick = quest.index;
+  // The chosen quest is the choice alone, beside its avatar's stacks.
+  questOpen = true;
+  selected = [];
   if (focus) playQueue.submit(focus, world.revision);
   render();
 }
+// The fold behind the avatar opens its stacks with the quests fanned.
 function toggleQuest() {
   if (selectionBlocked()) return;
   playQueue.clear();
-  questOpen = !questOpen;
-  if (!questOpen) questPick = 0;
+  questOpen = false;
   questFresh = false;
-  selected = [];
-  expandedHolders.clear();
+  avatarFan = "quests";
+  selectCards([currentActor(world)]);
   rowCollapsed = false;
   render();
 }
-// The quest shows when the avatar's stack or the quest itself is open.
+// The quest shows when the avatar's stacks show.
 const questShown = (quest) =>
-  Boolean(quest) && (questOpen || expandedHolders.has(quest.actor));
+  Boolean(quest) && expandedHolders.has(quest.actor);
 // The folded quest is a card in the avatar's stack: the world's card back
 // with a glowing line in its tier colour. The line pulses while a first
 // quest is new or a met quest waits to be cleared and holds a steady halo
@@ -4144,6 +4255,11 @@ function render() {
     for (const id of selected) {
       if (people[id] || places[id]) expandedHolders.add(id);
     }
+  // Folding the avatar's stacks folds its fan and lowers a chosen quest.
+  if (!expandedHolders.has(currentActor(world))) {
+    avatarFan = null;
+    questOpen = false;
+  }
   // The quests the rules met since the last look stay, sealed, until cleared.
   const liveQuests = questCards(world);
   if (questSeq !== null && world.eventSeq > questSeq)
@@ -4164,10 +4280,12 @@ function render() {
   );
   // A new quest stops glowing once its card has been seen.
   if (questShown(foldQuest())) questFresh = false;
-  const handCards = questHand(
-    stackPlaces(availableCards(world)),
-    world,
-    questEntries().map((entry) => entry.id),
+  const handCards = chosenFirst(
+    questHand(
+      stackPlaces(availableCards(world)),
+      world,
+      questEntries().map((entry) => entry.id),
+    ),
   );
   // Published speech can unlock cards and plays during the current turn.
   const handState = JSON.stringify([
@@ -4188,6 +4306,7 @@ function render() {
     questPick,
     questOpen,
     questFresh,
+    avatarFan,
   ]);
   if (handKey !== renderedHand) {
     // The hand a page or a new game opens on is already dealt.

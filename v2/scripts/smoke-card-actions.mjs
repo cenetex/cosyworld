@@ -253,10 +253,11 @@ try {
       await page.locator("#toolbar-menu-button").click();
       await page.locator(`#${dialog}-button`).click();
       await page.keyboard.press("Escape");
+      // A thing chosen from Vale's stack is the choice alone (#2256).
       assert.equal(
         await page.locator('#hand [aria-pressed="true"]').count(),
-        2,
-        `${dialog} preserves the selected pair`,
+        1,
+        `${dialog} preserves the chosen thing`,
       );
       assert.equal(await card("lamp").isVisible(), true);
     }
@@ -322,6 +323,13 @@ try {
     await selectCard(page, "moth");
     assert.deepEqual(await chosen(), ["pond"]);
     assert.deepEqual(await labels(), ["Travel"]);
+    // Tapping the chosen way on again only lowers it: the stack stays fanned
+    // (#2247).
+    await selectCard(page, "pond");
+    assert.deepEqual(await chosen(), []);
+    assert.deepEqual(await labels(), []);
+    assert.equal(await card("station").getAttribute("aria-expanded"), "true");
+    assert.equal(await card("pond").isVisible(), true);
     await page.keyboard.press("Escape");
     await selectCard(page, "moth", { touch: width < 700 });
     assert.deepEqual(await labels(), ["Talk"]);
@@ -344,16 +352,15 @@ try {
     await shot("trade");
     await page.locator("#card-actions button").click();
     assert.equal(await card("vale").isDisabled(), false);
-    // The received cloth is raised in the hand, so Vale joins it.
+    // The received cloth is raised in the hand, chosen from Vale's stacks;
+    // tapping Vale folds them back to Vale alone (#2256).
     assert.deepEqual(await pressed(), ["cloth"]);
     await card("vale").dispatchEvent("click");
-    assert.deepEqual(await pressed(), ["cloth", "vale"]);
-    await card("vale").dispatchEvent("click");
+    assert.deepEqual(await pressed(), ["vale"]);
     await ready();
     assert.equal((await state()).turn, before.turn + 1);
     assert.equal((await state()).items.cloth.holder, "vale");
     assert.equal((await state()).items.lamp.holder, "moth");
-    await selectCard(page, "vale");
     assert.equal(await card("cloth").isVisible(), true);
     assert.equal(await card("lamp").isVisible(), false);
     await load(meeting());

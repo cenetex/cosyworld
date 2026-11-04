@@ -7,7 +7,8 @@ import { availableCards } from "../card-game/cards.mjs";
 
 // The quest folds behind the player's avatar. A met quest stays, sealed,
 // until its player clears it; clearing shows the experience it brought. The
-// fold opens into the whole stack, where a quest can be pursued or dropped.
+// fold opens into the whole stack, where a quest can be chosen, pursued or
+// dropped.
 const server = createServer();
 await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
 const browser = await chromium.launch({ headless: true });
@@ -251,8 +252,21 @@ try {
     await openFold();
     const fan = page.locator("#hand .want-frame:not([hidden])");
     assert.equal(await fan.count(), 2, "the open fold fans out the stack");
+    // Nothing is chosen until a quest in the fan is, and it moves left,
+    // beside Vale (#2256).
     const picked = page.locator('#hand .want-card[data-picked="true"]');
+    assert.equal(await picked.count(), 0);
+    await page.locator('#hand .want-card[data-quest-id="quest:0"]').click();
     assert.equal(await picked.getAttribute("data-quest-id"), "quest:0");
+    assert.equal(
+      await page.evaluate(
+        () =>
+          document
+            .querySelector("#hand > .card-frame:not([hidden]) + .want-frame")
+            ?.previousElementSibling.querySelector(".card").dataset.card,
+      ),
+      "vale",
+    );
     assert.equal(
       await page.locator('#card-actions [data-drop-quest="0"]').textContent(),
       "Drop quest (−1 XP)",
@@ -369,7 +383,9 @@ try {
         .getAttribute("aria-label"),
       "Quest: Give The Burial Decree to The Gate Guard, near",
     );
-    // The beat keeps its box and names the quest above Drop quest.
+    // Chosen, the beat keeps its box and names the quest above Drop quest.
+    await page.locator('#hand .want-card[data-quest-id="quest:0"]').click();
+    await page.locator('#card-actions [data-drop-quest="0"]').waitFor();
     assert.equal(
       await page.locator(".action-beat-heading:not([hidden])").innerText(),
       "Give The Burial Decree to The Gate Guard",

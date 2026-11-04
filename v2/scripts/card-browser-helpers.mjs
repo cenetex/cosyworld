@@ -60,11 +60,18 @@ export async function startNewGame(page) {
 export async function revealCard(page, id) {
   const card = page.locator(`#hand [data-card="${id}"]`);
   const frame = card.locator("..");
+  const holder = await frame.getAttribute("data-holder");
   if ((await frame.getAttribute("hidden")) !== null) {
-    const holder = await frame.getAttribute("data-holder");
-    const owner = await revealCard(page, holder);
-    await tapCard(owner);
-  }
+    if (!(await fanAvatarStack(page, holder))) {
+      await tapCard(await revealCard(page, holder));
+      await fanAvatarStack(page, holder);
+    }
+  } else if (
+    holder &&
+    (await card.getAttribute("aria-expanded")) === "false" &&
+    !(await card.evaluate((el) => el.classList.contains("location")))
+  )
+    await tapCard(card);
   await card.scrollIntoViewIfNeeded();
   // The first tap uncovers; a tap during the reveal only skips it.
   if ((await card.getAttribute("data-unrevealed")) === "true") {
@@ -76,6 +83,16 @@ export async function revealCard(page, id) {
     );
   }
   return card;
+}
+// The avatar's things lie in a stack beside it, its quests in another; a
+// folded stack's top card fans it out (#2256).
+async function fanAvatarStack(page, holder) {
+  const folded = page.locator(
+    `#hand .card-frame[data-holder="${holder}"]:not([hidden], [data-want]) > .card[aria-expanded="false"]:not(.location)`,
+  );
+  if (!(await folded.count())) return false;
+  await tapCard(folded.first());
+  return true;
 }
 // A held item stays raised through plays and new targets (#1417, #1435), so
 // a scripted step that names its own cards first lowers it, as Escape does.
