@@ -7,6 +7,7 @@ import { playerCredits } from "./credits.mjs";
 import { localRuntime } from "./local-service.mjs";
 import { levelTier } from "./level-tiers.mjs";
 import { questScreen } from "./quest-screen.mjs";
+import { setCardLabel } from "./card-label.mjs";
 import { passkey, request } from "./shared-auth.mjs";
 import {
   PACKS,
@@ -150,7 +151,7 @@ export function installSettingsCards({ actionBeat, packs }) {
   function placeFace(el, c) {
     el.style.setProperty("--tier-color", levelTier(0).color);
     const head = make("span", "quest-head");
-    head.append(make("span", "quest-verb", { textContent: c.name }));
+    head.append(setCardLabel(make("span", "quest-verb"), c.name));
     el.append(
       questScreen(
         { kind: "place", target: c.art },
@@ -181,7 +182,7 @@ export function installSettingsCards({ actionBeat, packs }) {
           draggable: false,
         }),
       );
-      el.append(art, make("span", "name", { textContent: c.name }));
+      el.append(art, setCardLabel(make("span", "name"), c.name));
     }
     const holder = make("div", "card-frame");
     holder.style.setProperty("--fan-at", String(index - (count - 1) / 2));

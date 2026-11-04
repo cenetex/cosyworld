@@ -428,8 +428,14 @@ the carved card back, behind it, up to three. Tapping the current place fans the
 out like the hand; tapping a place selects it for **Travel**, and the stack
 folds back after the play.
 A person or place holding things shows the first of them peeking out behind
-its card. A pointer over a card shuffles it: the card and its preview stack lift together while the rest of the fan parts around it (180 ms; touch has no hover, reduced motion only brightens it). The name shade reaches the
-card edge, so a raised card clipped by the folded row shows no stray art.
+its card. A pointer over a card shuffles it: the card and its preview stack lift together while the rest of the fan parts around it (180 ms; touch has no hover, reduced motion only brightens it).
+Every card names itself at its top in one label, for avatars, items, places,
+quests, packs and Settings alike: the quest card's 600-weight sans in capitals
+at 4.2% of the card's height (10 px at least), in the card's tier colour over
+a light shade. It breaks only between words, a hyphenated word staying whole
+(`card-label.mjs`), and keeps clear of the next card in a fan; an unlit card
+dims it. A figure's head stands below the label. A face-down or locked box
+carries none.
 A card new to the view (an avatar arriving, a thing picked up or put down, a
 place found, the hand at a new place) rises into its slot over 460 ms, cards
 entering together 70 ms apart (`card-entry.mjs`). A card already there never
@@ -771,7 +777,7 @@ are saved in `output/badger-check/`.
 
 ## Shore text and memory
 
-Every avatar, item, and location has a profile in `entity-profiles.json` and a saved memory in the browser world. A memory holds the latest 16 witnessed events, six lasting encounters, and the latest generated text. Gifts, trades, threats, shared trips and quest effects can become lasting encounters. Card plays record events for the actors and objects present, the item used, and both places during travel. Generated speech and descriptions are marked as expressions, so the next prompt can distinguish them from game events. Speech receives recent facts and a few lasting encounters. Each avatar's memories, beliefs and fears give its request or response a personal reason.
+Every avatar, item, and location has a profile in `entity-profiles.json` and a saved memory in the browser world. `senses.json` gives each place one first-person sense line (what a visitor feels, hears or sees there, without the place's name) and each avatar its pronouns. Only the server's voice context reads it; the rules and the browser do not. A memory holds the latest 16 witnessed events, six lasting encounters, and the latest generated text. Gifts, trades, threats, shared trips and quest effects can become lasting encounters. Card plays record events for the actors and objects present, the item used, and both places during travel. Generated speech and descriptions are marked as expressions, so the next prompt can distinguish them from game events. Speech receives recent facts and a few lasting encounters. Each avatar's memories, beliefs and fears give its request or response a personal reason.
 
 Speech receives visible facts, current wants, and witnessed results. Item and place profiles describe appearance; an avatar profile is one seed sentence. Hidden interaction rules stay in the simulation; each avatar's facts can include the quest line described in [A quest stack per avatar](#a-quest-stack-per-avatar). A revealed path joins the location cards; travel happens when its card is played. Earlier opening expressions stay in saved history while fresh speech uses observations until Vale first douses or relights the lamp in the attic, or leaves it.
 
@@ -858,9 +864,7 @@ click, Enter or Space turns it with the hand's reveal (`card-reveal.mjs`) to
 the face of the avatar this world opens with (the joining avatar in a shared
 world), cloned from the hand and named for screen readers. The turn waits up to
 0.4 seconds for the face and back to decode, so it never shows a blank
-frame. The card shows whole, so
-its name and shade sit on its floor, at the figure's feet, rather than a
-quarter up where the hand clips its cards. The face holds for
+frame. Its name tops it, as on every card. The face holds for
 0.7 seconds; then the song fades out over 1.8 seconds as the title, card and
 all, goes to black over 0.9 seconds. Black holds 0.3 seconds, then slowly
 opens (2.5 seconds, ease-out) on the scene the world opens in: Vale's lit
@@ -1084,6 +1088,8 @@ Each avatar counts its defeats in a row in `defeats`. A win clears the count. On
 ### Rest and sanctuary
 
 Each world has one sanctuary, marked `"sanctuary": true` on a place in its pack data (the Mirror attic for the reflected shore; Badger's glade is part of the Lonely Forest, whose sanctuary is the Cosy Cottage; the Willows has none). Wait is always one turn, everywhere. Since rules 89, a player's Wait right after a Wait is offered as **Sleep**: the same `wait` play with `sleep: true` and the label "Sleep", never aboard a ship or during a standoff. Sleep is not offered beside a lit lamp with one oil left, so the burnout always comes on a plain Wait. The sleeper (`actor.sleeping = {since, place, present}`) may sleep on or choose any other play, which wakes it first ("Vale wakes."). It wakes after the round's lamp burn at the first change where it sleeps: it is moved, the lit lamp there reaches its last oil or runs dry, someone physically arrives or leaves, a way out opens or closes, a standoff holds it, a ship docks there, dawn or dusk comes, or 24 turns pass. The wake line names the reason (`woke`), as in "Vale wakes as the lamp gutters." A Sleep at a sanctuary that lasts 12 turns or more is a long rest: on waking, defeats clear and the wake event carries `rest: "long"`, which makes a thought and a dream due and may bring the level quest. A shorter Sleep there, like a plain Wait, clears defeats without a dream. Sleeping on at a dock calls no ship. Solo play runs the world on until the sleeper wakes; in a shared world the others' plays move the clock. A sanctuary allows Threaten but never Attack. Resting gives no experience. See [rest and sanctuary](../docs/card-table/rest-and-sanctuary.md) and [#2028](https://github.com/cenetex/cosyworld/issues/2028).
+
+A wake plays on the table (`sleep-presentation.mjs`, `sleep-view.mjs`, `dream-card.mjs`; presentation only). A Sleep that ends across dusk or dawn fades the stage to black (900 ms), holds the black (700 ms) and opens on the new light over 2.5 s: dawn on full daylight, dusk on night, since the stage grade (`stage-light.mjs`) meets the rules' light at 06:00 and 18:00. A Sleep that crosses no light only dims and lifts. A long rest that deals a level quest first shows the dream: the dark keeps only the dreamer, a **DREAM** card (its name at the top in the Common colour) enters as a beat in the dialogue stack, reads "Dreaming…" while the existing reflection is written (two taps cancel it), and its words reveal with the dialogue's letter reveal, or read "…" when none come. The quest is then dealt face down on the stack (behind the dreamer when folded) and the light returns. The dreamer's own spoken line on that wake is not shown, and the DREAM card stays in the stack. An ordinary long rest shows no dream card (owner, 2026-11-04). A tap finishes the current beat but never skips the quest's arrival; reduced motion crossfades. A place with no night painting takes the full night grade with a cool tint. `node v2/scripts/smoke-card-sleep-dream.mjs` drives both wakes at 390 and 1440 px and under reduced motion; `COSYWORLD_SLEEP_FRAMES` saves its frames.
 
 - Defeats one and two: the loser drops the disputed item and retreats, as above.
 - Defeat three: the loser drops everything they carry where they fell, their own belonging included. Then they go home. Nothing goes home with them, and the count clears. An avatar without a reachable home retreats instead.
