@@ -470,18 +470,13 @@ fn hand_over(
 }
 // An avatar is in one world at a time (#1846): a claim empties its seats in
 // every other world, in the same transaction, and takes its level along.
-// Rules that cannot reset a seat release the claim and its binding instead.
+// Loading upgrades earlier rules first. A busy seat keeps its claim and
+// progress until the move can reset it in this same transaction.
 fn leave_elsewhere(c: &rusqlite::Connection, id: &str, u: &str, a: usize, time: i64) -> Result<()> {
     for other in bindings::seats_elsewhere(c, id, u, a)? {
         let mut w = store::world(c, &other, time)?;
         store::expire(c, &other, &mut w, time)?;
-        if vacate(c, &other, &mut w, a, time).is_err() {
-            let mut w = store::world(c, &other, time)?;
-            if w.claimed[a] == 1 {
-                leave(c, &other, &mut w, a, "release", time)?;
-            }
-            bindings::free(c, &other, a)?;
-        }
+        vacate(c, &other, &mut w, a, time)?;
         retire::if_empty(c, &other, u, time)?;
     }
     Ok(())

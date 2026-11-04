@@ -13,6 +13,8 @@ mod content;
 mod engine;
 #[cfg(test)]
 mod forest_tests;
+#[cfg(test)]
+mod move_tests;
 pub(crate) const RULES_VERSION: &str = engine::VERSION;
 mod full;
 mod full_speech;
