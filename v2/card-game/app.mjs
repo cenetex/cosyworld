@@ -50,7 +50,7 @@ import {
   installScaresToggle,
 } from "./transitions.mjs";
 import { installSettingsCards } from "./settings-screen.mjs";
-import { packToggleBlock } from "./pack-toggle.mjs";
+import { groupOn, packToggleBlock } from "./pack-toggle.mjs";
 import { installToolbar, renderPlayers } from "./toolbar.mjs";
 import { innerLifeChain, innerLifeSection } from "./inner-life.mjs";
 import { combatBeats, lastSeq, theName } from "./combat-beats.mjs";
@@ -4749,7 +4749,7 @@ const settingsCards = installSettingsCards({
   avatar: () => portrait(currentActor(world), null, world),
   // Switching a pack is a play that passes no turn (pack-toggle.mjs).
   packs: {
-    on: (id) => !world.disabledPacks?.includes(id),
+    on: (id) => groupOn(world, id),
     block: (id) => packToggleBlock(world, id, currentActor(world)),
     play: (pack, enable) =>
       performAction({ kind: "pack", pack, enable }, world.revision),

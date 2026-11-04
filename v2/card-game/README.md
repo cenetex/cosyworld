@@ -81,7 +81,8 @@ painting feathered into the card, its name where the quest names its verb.
 A pack card is lit while its pack is on, and dims when it is off. Its button
 switches it (rules 98, `pack-toggle.mjs`; no turn passes) or names why it
 can't: one pack stays on, not during a fight, the shore not before the first
-crossing, and shared worlds keep every pack for now. The cards drive the controls in `#menu-dialog`, which no longer
+crossing, Hoppy Cat "Reached by The Wine-Dark Sea" while the Sea is off (it
+dims with it), and shared worlds keep every pack for now. The cards drive the controls in `#menu-dialog`, which no longer
 opens. `smoke-card-settings.mjs` checks choosing, pressing, the second press
 and closing at three widths.
 

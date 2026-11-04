@@ -62,6 +62,15 @@ try {
     const dim = page.locator('[data-setting="pack-sea"][data-lit="false"]');
     await dim.waitFor();
     assert.equal(await sea.textContent(), "Turn The Wine-Dark Sea on");
+    // Hoppy Cat, reached only by the Sea, dims with it and says why.
+    const hoppy = '[data-setting="pack-hoppy"]';
+    assert.equal(await page.locator(hoppy).getAttribute("data-lit"), "false");
+    await tapCard(page.locator(hoppy));
+    assert.equal(
+      await page.locator("#setting-pack-hoppy").textContent(),
+      "Reached by The Wine-Dark Sea",
+    );
+    await tapCard(page.locator('[data-setting="pack-sea"]'));
     await sea.click();
     await page.locator('[data-setting="pack-sea"][data-lit="true"]').waitFor();
     // A pack is a place card: the quest card's place painting and its name
