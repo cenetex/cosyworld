@@ -2536,7 +2536,20 @@ impl<'a> Check<'a> {
             return Err("instruction");
         }
         if self.expression != expression::Mode::Speech {
-            let text = expression::clean(self.expression, raw, &own, self.limit, finished)?;
+            // Its own shape read back is the prompt, not a reply.
+            if raw
+                .to_lowercase()
+                .contains(&crate::ai_gateway::SHAPE.to_lowercase())
+            {
+                return Err("instruction");
+            }
+            let text = if self.expression == expression::Mode::Emoji {
+                let (text, reduced) = expression::emoji(raw)?;
+                flag(reduced, "emoji reduced");
+                text
+            } else {
+                expression::clean(self.expression, raw, &own, self.limit, finished)?
+            };
             if instruction::instructs(&text) {
                 return Err("instruction");
             }
@@ -3360,8 +3373,17 @@ pub(crate) mod tests {
         assert_eq!(check.clean("I will help you.", true), Err("expression"));
         check.expression = expression::Mode::Emoji;
         assert_eq!(check.clean("🌳 👀", true), Ok("🌳👀".into()));
+        assert_eq!(check.clean("🌳👀", false), Ok("🌳👀".into()));
         assert_eq!(check.clean("A tree 🌳", true), Err("expression"));
-        assert_eq!(check.clean("🌳👀", false), Err("expression"));
+        // Words fall away and the line publishes, flagged.
+        assert_eq!(
+            check.verdict("A tree 🌳 and eyes 👀.", true, true),
+            Ok(("🌳👀".into(), vec!["emoji reduced"]))
+        );
+        assert_eq!(
+            check.verdict("My next reply contains 🌳 👀", true, true),
+            Err("instruction")
+        );
     }
 
     #[test]
