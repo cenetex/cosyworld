@@ -479,4 +479,7 @@
 # routes and tests live in card_shared and the C kernel.
 # 59472 -> 58665: the classic /classic page is retired. Its shell handler and
 # the Rust tests that read its HTML are gone.
-58665
+#
+# 58665 -> 58658: /meta builds its AI block with MetaAi::from_config in
+# ai_readiness.rs, which also reports the model bench (ai_bench.rs).
+58658

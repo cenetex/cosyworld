@@ -85,13 +85,45 @@ try {
     });
     // Opening Vale's stack brings the quest forward with its halo; the fold
     // behind Vale hides, so Vale's card carries no quest glow.
+    // Watches, from each change to the hand, whether a quest in view shows
+    // the carved lid; the turn is quick, so polling could miss it.
+    const watchFaceDown = () =>
+      page.evaluate(() => {
+        window.questFaceDown?.disconnect();
+        const watch = new MutationObserver(() => {
+          const back = document.querySelector(
+            '#hand .want-frame:not([hidden]) .want-card[data-unrevealed="true"] .card-back',
+          );
+          if (back && getComputedStyle(back).display === "block")
+            watch.seen = true;
+        });
+        watch.seen = false;
+        watch.observe(document.getElementById("hand"), {
+          subtree: true,
+          childList: true,
+          attributes: true,
+        });
+        window.questFaceDown = watch;
+      });
+    const sawFaceDown = () => page.evaluate(() => window.questFaceDown.seen);
+    await watchFaceDown();
     await page.locator('#hand [data-card="vale"]').click();
     await quest.waitFor();
     // It enters face down, the carved lid showing, then turns to its face.
     const entered = page.locator("#hand .want-frame:not([hidden]) .want-card");
-    assert.equal(await entered.getAttribute("data-unrevealed"), "true");
-    assert.equal(await entered.locator(".card-back").isVisible(), true);
     await page.locator('#hand .want-card[data-unrevealed="false"]').waitFor();
+    assert.equal(await sawFaceDown(), true, "the quest is dealt face down");
+    // It turns once: folding Vale's stack and opening it again, redraw after
+    // redraw, never deals it face down again.
+    await watchFaceDown();
+    for (let i = 0; i < 2; i++) {
+      await page.locator('#hand [data-card="vale"]').click();
+      await quest.waitFor({ state: "hidden" });
+      await page.locator('#hand [data-card="vale"]').click();
+      await quest.waitFor();
+      assert.equal(await entered.getAttribute("data-unrevealed"), "false");
+    }
+    assert.equal(await sawFaceDown(), false, "it never turns back over");
     assert.equal(await page.locator("#hand .quest-fold").isHidden(), true);
     assert.equal(
       await page.locator('#hand .want-card[data-near="true"]').isVisible(),
@@ -113,6 +145,8 @@ try {
     await page.keyboard.press("Enter");
     const card = page.locator('#hand .want-card[data-met="true"]');
     await card.waitFor();
+    // Met by a play, the same quest is still face up.
+    assert.equal(await card.getAttribute("data-unrevealed"), "false");
     assert.equal(await card.locator(".quest-seal").count(), 1);
     assert.equal(await page.locator("#hand .quest-fold").isHidden(), true);
     await page.screenshot({
@@ -177,6 +211,17 @@ try {
       0,
       "no Pursue button",
     );
+    // Both are dealt face down here and turn once.
+    const facedDown = page.locator(
+      '#hand .want-frame:not([hidden]) .want-card[data-unrevealed="true"]',
+    );
+    await page.waitForFunction(
+      () =>
+        !document.querySelector(
+          '#hand .want-frame:not([hidden]) .want-card[data-unrevealed="true"]',
+        ),
+    );
+    await watchFaceDown();
     const { turn } = await saved();
     await page.locator('#hand .want-card[data-quest-id="quest:1"]').click();
     await page.waitForFunction(
@@ -191,6 +236,9 @@ try {
       "the chosen quest on top, no turn taken",
     );
     assert.equal(await fan.count(), 2, "the fan stays open");
+    // Reordering the stack is progress, not a new deal: both stay face up.
+    assert.equal(await facedDown.count(), 0, "no quest turns back over");
+    assert.equal(await sawFaceDown(), false, "no quest turns back over");
     assert.equal(await picked.getAttribute("data-quest-id"), "quest:0");
     const drop = page.locator('#card-actions [data-drop-quest="0"]');
     await drop.waitFor();

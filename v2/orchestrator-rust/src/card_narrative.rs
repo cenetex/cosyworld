@@ -14,7 +14,10 @@ use serde_json::{json, Value};
 use std::{
     collections::{BTreeMap, BTreeSet},
     net::{IpAddr, SocketAddr},
-    sync::{Arc, Mutex, OnceLock},
+    sync::{
+        atomic::{AtomicU8, Ordering},
+        Arc, Mutex, OnceLock,
+    },
     time::{Duration, Instant},
 };
 use tokio::sync::{mpsc, Semaphore};
@@ -2118,6 +2121,8 @@ async fn speak(
         voice_metrics::Budget::measure(&system, context, entity, part),
     )
     .labelled(context);
+    // Per tier, for the bench: 1 an empty or blocked reply, 2 a usable line.
+    let tiers = [AtomicU8::new(0), AtomicU8::new(0)];
     let spoken = voice_attempts(
         settings,
         deadline,
@@ -2132,6 +2137,7 @@ async fn speak(
             let (system, user) = messages(context, entity, part);
             let check = &check;
             let call = &call;
+            let tier = &tiers[usize::from(escalated)];
             let (model, provider) = match &escalation_route {
                 Some(route) if escalated => route,
                 _ => &own_route,
@@ -2159,6 +2165,9 @@ async fn speak(
                 let completion = request_voice_completion(config, request, "")
                     .await
                     .map_err(|error| {
+                        if error.code() == "inference_invalid_response" {
+                            tier.fetch_max(1, Ordering::Relaxed);
+                        }
                         call.reject_provider(error.code());
                         tracing::info!(
                             feature = "card_voice",
@@ -2193,9 +2202,11 @@ async fn speak(
                             "card voice flagged"
                         );
                     }
+                    tier.store(2, Ordering::Relaxed);
                     (text, completion.resolved_model_id.clone(), untold)
                 })
                 .map_err(|reason| {
+                    tier.fetch_max(1, Ordering::Relaxed);
                     call.reject(reason);
                     tracing::info!(
                         feature = "card_voice",
@@ -2211,6 +2222,14 @@ async fn speak(
         },
     )
     .await;
+    for (route, tier) in [Some(&own_route), escalation_route.as_ref()]
+        .iter()
+        .zip(&tiers)
+    {
+        if let (Some((model, _)), seen @ 1..) = (route, tier.load(Ordering::Relaxed)) {
+            own.readiness.record_voice_outcome(model, seen == 2);
+        }
+    }
     match spoken {
         Ok((text, model, untold)) => {
             if untold {
@@ -3900,6 +3919,43 @@ pub(crate) mod tests {
         .unwrap();
         assert_eq!(result["entries"][0]["text"], "The lamp is warm tonight.");
         assert_eq!(result["entries"][1]["text"], "Hold on, I hear something.");
+        let requests = seen.lock().unwrap();
+        assert!(!requests.is_empty());
+        assert!(requests
+            .iter()
+            .all(|body| body["model"] == "escalation-model"));
+        server.abort();
+    }
+
+    /// A character model whose voices keep ending with no usable line is
+    /// benched: its next scene speaks on the escalation model alone, inside
+    /// the scene deadline.
+    #[tokio::test]
+    async fn a_benched_character_model_speaks_on_the_escalation_model() {
+        let seen = Arc::new(Mutex::new(Vec::<Value>::new()));
+        let provider = plain_provider(seen.clone(), |body, _| match body["model"].as_str() {
+            Some("escalation-model") => "The lamp is warm tonight.".into(),
+            _ => "As an AI, I can explain the lamp.".into(),
+        });
+        let (address, server) = serve(provider).await;
+        let config = tiered_config(address, &[("escalation-model", false)]);
+        let settings = VoiceSettings {
+            attempts: 1,
+            escalation_model: Some("escalation-model".into()),
+            ..VoiceSettings::hosted()
+        };
+        let (c, characters, ids) = (context(), BTreeMap::new(), ["vale".to_string()]);
+        let speak = || complete_selected(&config, &c, &characters, &settings, &ids, false, None);
+        while config.readiness.benched().is_empty() {
+            assert!(seen.lock().unwrap().len() < 40);
+            speak().await.unwrap();
+        }
+        assert_eq!(config.readiness.benched()[0].model, "test-entity-model");
+        seen.lock().unwrap().clear();
+        let started = tokio::time::Instant::now();
+        let result = speak().await.unwrap();
+        assert!(started.elapsed() < settings.scene_timeout);
+        assert_eq!(result["entries"][0]["text"], "The lamp is warm tonight.");
         let requests = seen.lock().unwrap();
         assert!(!requests.is_empty());
         assert!(requests

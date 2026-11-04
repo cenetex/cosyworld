@@ -14,6 +14,7 @@ import {
   QUEST_DOWN_MS,
   createCardEntries,
   createQuestEntries,
+  questEntryKey,
 } from "./card-entry.mjs";
 import { phase, THINKING_GRACE_MS } from "./presentation.mjs";
 import { glowCard, levelUpCard, transformPortrait } from "./card-level-up.mjs";
@@ -2096,19 +2097,24 @@ function updateCardSelection(frame) {
     stackLabel(stack);
 }
 const handMotions = new Map();
-// Cards new to the hand rise in, and quests enter face down (card-entry.mjs).
+// Cards new to the hand rise in, and quests are dealt face down
+// (card-entry.mjs).
 const handEntries = createCardEntries(),
   questsInView = createQuestEntries();
 const entryKey = (frame) =>
   `${frame.querySelector(".card").dataset.card}@${frame.dataset.holder ?? ""}`;
-// Each quest newly in view lies face down a beat, then turns; the next turns
-// a little after. A tap still plays it at once.
-function showQuests() {
-  const cards = [
-    ...$("hand").querySelectorAll(".want-frame:not([hidden]) > .want-card"),
-  ];
+// Each quest newly dealt lies face down until it is seen, then turns a beat
+// later; the next turns a little after. Once turned it stays face up while
+// it stays in the hand, folded or fanned. A tap still plays it at once.
+function showQuests(opening) {
+  const cards = [...$("hand").querySelectorAll(".want-card")],
+    seen = (card) => !card.closest(".want-frame").hidden;
   questsInView
-    .show(cards.map((card) => card.dataset.questKey))
+    .show(
+      cards.map((card) => card.dataset.questEntry),
+      cards.filter(seen).map((card) => card.dataset.questEntry),
+      { opening },
+    )
     .forEach((key, i) =>
       setTimeout(
         () => turnQuest(key),
@@ -2116,14 +2122,17 @@ function showQuests() {
       ),
     );
   for (const card of cards)
-    card.dataset.unrevealed = String(questsInView.down(card.dataset.questKey));
+    card.dataset.unrevealed = String(
+      questsInView.down(card.dataset.questEntry),
+    );
 }
 function turnQuest(key) {
+  const card = [
+    ...$("hand").querySelectorAll(".want-frame:not([hidden]) > .want-card"),
+  ].find((el) => el.dataset.questEntry === key);
+  // Folded away before its turn, it turns when it is next seen.
+  if (!card) return questsInView.unseen(key);
   if (!questsInView.turned(key)) return;
-  const card = [...$("hand").querySelectorAll(".want-card")].find(
-    (el) => el.dataset.questKey === key,
-  );
-  if (!card) return;
   card.dataset.unrevealed = "false";
   void revealCard(card);
 }
@@ -2384,7 +2393,8 @@ function questFrame({ id, quest, met }) {
   el.disabled = selectionBlocked();
   el.dataset.questId = id;
   el.dataset.questKey = quest.key;
-  el.dataset.unrevealed = String(questsInView.down(quest.key));
+  el.dataset.questEntry = questEntryKey(quest);
+  el.dataset.unrevealed = String(questsInView.down(questEntryKey(quest)));
   el.dataset.picked = String(picked);
   el.setAttribute("aria-pressed", String(picked));
   el.setAttribute(
@@ -3944,7 +3954,7 @@ function render() {
         })),
       { reduced: reducedMotion.matches || opening },
     );
-    showQuests();
+    showQuests(opening);
     if (animate)
       for (const frame of $("hand").children) {
         if (frame.hidden) continue;
