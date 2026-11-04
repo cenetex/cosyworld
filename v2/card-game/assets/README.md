@@ -44,11 +44,22 @@ this check.
 ## The locked box lid
 
 `card-back-locked.webp` is the lid of a card locked behind a quest
-(`locked-box.mjs`). Until its own painting exists it is a stand-in: the card
-back darkened (brightness 0.6, saturation 0.7) with sharp and saved at the card
-back's encode settings, with no other change. New art drops in at the same
-path with no code change; rebuild the images and the asset list as above,
-then update `card-back-locked-provenance.json`.
+(`locked-box.mjs`). The closed-clasp artwork adds a brass padlock, two keeper
+plates, chased oak detail and a contact shadow to the existing carved lid.
+The original carving outside the central lock remains unchanged in the PNG
+master. The runtime keeps the existing image path and 1024 by 1536 canvas.
+
+This is a composited illustration for review, not a new model-generated
+painting. `card-back-locked-provenance.json` records the pinned source,
+editable SVG, deterministic recipe, original-sized PNG and runtime hashes;
+its generation ID is null. Do not describe it as an image-model generation.
+
+The editable drawing and PNG master live in `locked-card-back/`. Rebuild with
+`python v2/card-game/assets/locked-card-back/build.py` from the repository
+root, using Pillow 12.3.0, numpy 2.3.5 and CairoSVG 2.8.2. Then run the image
+and asset builders above. The recipe stops if the source carving changes.
+The regression test checks native size, hashes, published variants and
+preservation of the wood outside the clasp.
 
 The painting needs:
 
