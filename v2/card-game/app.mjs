@@ -1471,7 +1471,6 @@ function combatStage() {
       face.dataset.selected = "false";
       return face;
     },
-    icon: beatIcon,
     reducedMotion,
     revealLine: (seq) => {
       if (combatHeld.delete(seq)) renderLog();

@@ -136,7 +136,6 @@ export function createCombatView({
   revealLine,
   veil,
   cardFace,
-  icon,
 }) {
   let animations = [],
     added = [],
@@ -635,7 +634,6 @@ export function createCombatView({
         veil,
         beat,
         cardFace,
-        icon,
         speed,
         reduced: reduced(),
       });

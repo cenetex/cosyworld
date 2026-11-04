@@ -82,15 +82,14 @@ describe("combat beats from today's rule lines", () => {
     // Who drove the player off and what was lost are its cards; the words
     // are beat captions, ending where the rules put the player.
     expect(summary.cards).toEqual(["moth", "lamp"]);
-    expect(summary.changes[0]).toEqual({
-      icon: "✋",
-      kind: "drop",
-      text: "You dropped the Lamp.",
-    });
-    expect(summary.changes.at(-1)).toMatchObject({
-      icon: "↳",
-      text: `You come to at ${nameOf(after.actors.vale.place)}.`,
-    });
+    // No icons and no standoff counter: the words alone.
+    expect(summary.changes).toEqual([
+      { kind: "drop", text: "You dropped the Lamp." },
+      {
+        kind: "retreat",
+        text: `You wake at ${nameOf(after.actors.vale.place)}.`,
+      },
+    ]);
     // Every beat is a committed log line the viewer saw.
     for (const beat of beats)
       expect(
@@ -204,7 +203,7 @@ describe("combat beats from structured rule fields", () => {
     const summary = defeatSummary(beats[1]);
     const texts = summary.changes.map((change) => change.text);
     expect(texts).toContain("Sent home.");
-    expect(texts).toContain("Standoffs lost: 3 of 3.");
+    expect(texts.at(-1)).toMatch(/^You wake at /u);
     expect(summary.cards).toEqual(["moth", "lamp", "oil"]);
     expect(isCombatLine(after.log[1], "vale")).toBe(true);
   });

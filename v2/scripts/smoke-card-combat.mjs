@@ -436,7 +436,8 @@ try {
     );
     const captions = await page.locator(".defeat-captions").textContent();
     assert.match(captions, /You dropped the Lamp\./);
-    assert.match(captions, /You come to at /);
+    assert.match(captions, /You wake at /);
+    assert.doesNotMatch(captions, /Standoffs lost/);
     assert.match(
       await page.locator("#combat-announcement").textContent(),
       new RegExp(`${nameOf(opponent)} drove you off`, "u"),

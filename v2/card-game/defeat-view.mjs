@@ -16,7 +16,7 @@ import { defeatSummary, lossStep, lossTimes } from "./combat-beats.mjs";
 const element = (tag, className) =>
   Object.assign(document.createElement(tag), { className });
 
-export function playLoss({ veil, beat, cardFace, icon, speed, reduced }) {
+export function playLoss({ veil, beat, cardFace, speed, reduced }) {
   const { title, changes, cards } = defeatSummary(beat);
   const times = lossTimes({ speed, reduced });
   const layer = element("div", "defeat-reveal");
@@ -30,10 +30,10 @@ export function playLoss({ veil, beat, cardFace, icon, speed, reduced }) {
   const line = element("p", "defeat-line");
   line.append(...letterSpans(title));
   const captions = element("div", "beat-captions defeat-captions");
-  for (const { icon: glyph, kind, text } of changes) {
+  for (const { kind, text } of changes) {
     const item = element("span", "beat-caption");
     item.dataset.kind = kind;
-    item.append(icon(glyph), element("span", ""));
+    item.append(element("span", ""));
     item.lastChild.append(...letterSpans(text));
     captions.append(item);
   }

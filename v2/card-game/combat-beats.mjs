@@ -206,20 +206,21 @@ function defeatBeat(before, after, attack, fresh, { viewer, here }) {
 }
 
 // What the loss screen says, worded from the viewer's defeat beat with no
-// AI: who drove them off, then each change the rules made as a beat caption
-// (icon, kind, sentence). Its cards are the winner and what was lost.
+// AI: who drove them off, then each change the rules made as a plain
+// caption (kind, sentence). Its cards are the winner and what was lost.
 export function defeatSummary(beat) {
-  const line = (icon, kind, text) => ({ icon, kind, text });
-  const lost = beat.lossCount ? `Standoffs lost: ${beat.lossCount} of 3.` : "";
   return {
     title: `${nameOf(beat.winnerId)} drove you off.`,
     changes: [
-      ...beat.droppedItemIds.map((id) =>
-        line("✋", "drop", `You dropped ${theName(id)}.`),
-      ),
-      ...(lost ? [line("⚔", "standoff", lost)] : []),
-      ...(beat.sentHome ? [line("↳", "sent-home", "Sent home.")] : []),
-      line("↳", "retreat", `You come to at ${inSentence(beat.locationId)}.`),
+      ...beat.droppedItemIds.map((id) => ({
+        kind: "drop",
+        text: `You dropped ${theName(id)}.`,
+      })),
+      ...(beat.sentHome ? [{ kind: "sent-home", text: "Sent home." }] : []),
+      {
+        kind: "retreat",
+        text: `You wake at ${inSentence(beat.locationId)}.`,
+      },
     ],
     cards: [beat.winnerId, ...beat.droppedItemIds].slice(0, 4),
   };
