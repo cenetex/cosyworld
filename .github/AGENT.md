@@ -142,13 +142,17 @@ changing application behavior.
 
 Rust build output grows fast. Each orchestrator debug build is about 5 GB
 (the binary embeds the card assets), Cargo keeps every old build, and each
-worktree has its own `target/`. Share one target
-dir across worktrees and prune it now and then:
+worktree has its own `target/`. Use one target dir for every worktree and
+prune it now and then. On the main dev Mac, `~/.cargo/config.toml` already sets
+`build.target-dir`, so do not set a CARGO_TARGET_DIR per task. Elsewhere:
 
 ```sh
-export CARGO_TARGET_DIR=~/.cache/cargo-target/cosyworld
+export CARGO_TARGET_DIR=~/.cache/cargo-target/shared
 cargo install cargo-sweep && cargo sweep --time 3   # drop builds older than 3 days
 ```
+
+Scripts find the binary with `cargo metadata` (`v2/scripts/cargo-target.mjs`),
+so do not hard-code `v2/orchestrator-rust/target`.
 
 ## Shared rules engine changes
 

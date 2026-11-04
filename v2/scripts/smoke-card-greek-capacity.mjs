@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { createServer } from "node:http";
 import { spawn } from "node:child_process";
+import { orchestratorBinary } from "./cargo-target.mjs";
 import { chromium } from "playwright";
 import { encodeSave } from "../card-game/world.mjs";
 import { courseToward } from "../card-game/pack-transport.mjs";
@@ -71,7 +72,7 @@ function start() {
   child = spawn(
     process.env.COSYWORLD_SHARED_BINARY ||
       process.env.COSYWORLD_SMOKE_BINARY ||
-      resolve("v2/orchestrator-rust/target/debug/cosyworld-orchestrator"),
+      orchestratorBinary(),
     [],
     {
       cwd: resolve("v2/orchestrator-rust"),

@@ -7,6 +7,17 @@ import subprocess
 import sys
 
 ROOT = Path(__file__).resolve().parents[2]
+
+
+def cargo_target_dir():
+    """Ask Cargo, so CARGO_TARGET_DIR and a shared `build.target-dir` both work."""
+    try:
+        out = subprocess.check_output(["cargo", "metadata", "--no-deps", "--format-version", "1",
+                                       "--manifest-path", str(ROOT / "v2/orchestrator-rust/Cargo.toml")],
+                                      text=True, stderr=subprocess.DEVNULL)
+        return Path(json.loads(out)["target_directory"])
+    except (OSError, subprocess.CalledProcessError, ValueError, KeyError):
+        return ROOT / "v2/orchestrator-rust/target"
 DESKTOP = ROOT / "v2/desktop"
 
 
@@ -25,7 +36,7 @@ def main():
         rust_env["OPENSSL_STATIC"] = "1"
     run(["cargo", "build", "--manifest-path", "v2/orchestrator-rust/Cargo.toml",
          "--release", "--features", "embedded-llama", "--bin", "cosyworld-orchestrator"], env=rust_env)
-    target = Path(os.environ.get("CARGO_TARGET_DIR", ROOT / "v2/orchestrator-rust/target"))
+    target = cargo_target_dir()
     name = "cosyworld-orchestrator.exe" if os.name == "nt" else "cosyworld-orchestrator"
     if sys.platform == "darwin":
         links = subprocess.check_output(["otool", "-L", str(target / "release" / name)], text=True)

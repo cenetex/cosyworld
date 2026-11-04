@@ -54,7 +54,7 @@ python3.11 -m venv .runtime/local-python
 
 The app is written to
 `v2/desktop/src-tauri/target/release/bundle/macos/CosyWorld.app`. When
-`CARGO_TARGET_DIR` is set, the bundle is under that folder instead. Keep build
+`CARGO_TARGET_DIR` or Cargo's `build.target-dir` is set, the bundle is under that folder instead. Keep build
 files and model downloads outside source control.
 
 The build uses one Cargo worker and one CMake worker by default. The helper is

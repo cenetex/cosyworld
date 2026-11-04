@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
+import { orchestratorBinary } from "./cargo-target.mjs";
 import { mkdtemp, rm } from "node:fs/promises";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
@@ -12,7 +13,7 @@ import { withSignatures } from "../card-game/signed-words.mjs";
 const root = fileURLToPath(new URL("../../", import.meta.url));
 const binary =
   process.env.COSYWORLD_SMOKE_BINARY ||
-  resolve(root, "v2/orchestrator-rust/target/debug/cosyworld-orchestrator");
+  orchestratorBinary();
 const directory = await mkdtemp(resolve(tmpdir(), "cosy-card-contract-"));
 const listener = createServer();
 await new Promise((ready) => listener.listen(0, "127.0.0.1", ready));

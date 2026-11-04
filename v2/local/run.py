@@ -12,6 +12,17 @@ import urllib.request
 ROOT = Path(__file__).resolve().parents[2]
 
 
+def cargo_target_dir():
+    """Ask Cargo, so CARGO_TARGET_DIR and a shared `build.target-dir` both work."""
+    try:
+        out = subprocess.check_output(["cargo", "metadata", "--no-deps", "--format-version", "1",
+                                       "--manifest-path", str(ROOT / "v2/orchestrator-rust/Cargo.toml")],
+                                      text=True, stderr=subprocess.DEVNULL)
+        return Path(json.loads(out)["target_directory"])
+    except (OSError, subprocess.CalledProcessError, ValueError, KeyError):
+        return ROOT / "v2/orchestrator-rust/target"
+
+
 def local_environment(source, port, speech_port, token, data_dir):
     # Start from system settings. A local app gets its own model configuration.
     env = {key: value for key, value in source.items()
@@ -72,7 +83,7 @@ def main():
         build_env.setdefault("CMAKE_BUILD_PARALLEL_LEVEL", "1")
         subprocess.run(["cargo", "build", "--release", "--features", "embedded-llama", "--bin", "cosyworld-orchestrator"],
                        cwd=ROOT / "v2/orchestrator-rust", check=True, env=build_env)
-        target = Path(os.environ.get("CARGO_TARGET_DIR", ROOT / "v2/orchestrator-rust/target"))
+        target = cargo_target_dir()
         binary = str(target / "release/cosyworld-orchestrator")
     python = os.environ.get("COSYWORLD_CHATTERBOX_PYTHON", sys.executable)
     voice_command = [python, str(Path(__file__).with_name("chatterbox_service.py")),
