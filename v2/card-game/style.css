@@ -2919,6 +2919,15 @@ body .beat-live {
   font-weight: 600;
 }
 
+@media (max-width: 700px) {
+  .action-beat-text {
+    display: block;
+    overflow: visible;
+    -webkit-line-clamp: none;
+    line-clamp: none;
+  }
+}
+
 /* The dialogue lies over the hand (option D). It is a sibling of the stage,
    so on phones and tablets it can sit over the dock. There it keeps one fixed
    box at the foot of the screen and never moves: a resting hand shows its

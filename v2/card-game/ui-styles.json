@@ -232,6 +232,7 @@
     "@media (max-height: 640px) and (min-width: 701px) | body .dialogue { bottom: calc(var(--dock-height)+4px); padding: 4px 10px }",
     "@media (max-height: 640px) | :root { --card-height: 176px; --card-width: 128px; --dock-height: 144px }",
     "@media (max-height: 740px) | .dialogue { bottom: 7px; padding: 5px 10px }",
+    "@media (max-width: 700px) | .action-beat-text { -webkit-line-clamp: none; display: block; line-clamp: none; overflow: visible }",
     "@media (max-width: 700px) | .beat-behind { font-size: 12px; gap: 6px; padding: 2px 10px 0 7px }",
     "@media (max-width: 700px) | .beat-behind-portrait { height: 17px; width: 17px }",
     "@media (max-width: 700px) | .beat-behind-text { line-height: 17px }",
