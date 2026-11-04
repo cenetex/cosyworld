@@ -859,22 +859,30 @@ line wraps under a hanging indent. The
 text writes in with the dialogue's own reveal (`dialogue.mjs`) at the
 dialogue's pace: a letter every 28 ms behind a gold caret, each letter's ink
 fading in over 60 ms, the same rests after punctuation, and 650 ms between
-stanzas (`STANZA_MS`). Eight held words keep a breath of their own
-(300–350 ms after "land", "peoples", "still", "keepers", "living", "Nothing",
-"box" and "yours"), and one long silence (1.8 s) falls after "Nothing here
-began with us." before "Before you sits": `pauses` in `acknowledgement.json`
-names each word, which time it appears, its `pauseMs` and, for a held word,
-its card rarity `tier` (`level-tiers.mjs`), with the phrase around it that
-lights in `phrases`; the larger of that and any punctuation or
-stanza breath wins. About 20 seconds in all. The tiers climb as the poem goes:
-Common "there was land" and "there were peoples", Uncommon "care for them
-still" and "the keepers", Rare "the voices old and living", Epic "Nothing here
-began with us.", Legendary "an intricately carved wooden box" and Mythic "The
-path is yours.". Each phrase, once its last letter is written, takes a gentle
-tint of its tier's colour (45% of the tier over the text's cream) with a soft
-5 px glow (the tier at 30%) that rises over `glowInMs` and stays, so the
-finished poem shows all eight, calm and well above AA contrast; a tap that
-shows the rest lights them all at once. While it writes, every other letter
+stanzas (`STANZA_MS`). A few words keep a silence of their own (300–320 ms
+after "land", "peoples", "still", "keepers", "living", "Nothing" and "box"),
+and one long silence (1.8 s) falls after "Nothing here began with us." before
+"Before you sits": `pauses` in `acknowledgement.json` names each word, which
+time it appears and its `pauseMs`; the larger of that and any punctuation or
+stanza breath wins. Fifteen single words light, in five sets
+(`highlights`), each in a held pause after its own stanza ends, so nothing
+lights while text is writing: Uncommon "peoples", "waters", "seasons",
+"lands"; Rare "keepers", "homes", "machines"; Epic "voices", "stories",
+"echo"; Legendary "Nothing"; Mythic "intricately", "carved", "wooden", "box"
+(`level-tiers.mjs`). Each word names which time it appears, so only "these
+lands", the first "machines" and the first "stories" light. The pen settles
+200 ms (`settleMs`), the words light in reading order one every 450 ms
+(`wordStepMs`), each glow rising over 600 ms (`glowInMs`) with no motion,
+then 250 ms (`tailMs`) before the next stanza: 2.25 s after stanzas 1 and 5,
+1.8 s after stanzas 2 and 3. "Nothing" lights 600 ms into the 1.8 s silence
+and stands alone before the box. About 25 seconds in all. The last line,
+"Will you take it?", stays plain cream. A lit word takes a gentle tint of its
+tier's colour (45% of the tier over the text's cream), a soft 5 px glow (the
+tier at 30%) and a little weight, a 0.03em stroke under the fill, so colour is
+never the only cue and no glyph moves; all fifteen stay lit, well above AA
+contrast. A tap that shows the rest lights them all at once, and at a large
+text size a set with a word scrolled out of view lights the rest at once. The
+highlight is styling only: the words stay plain text, announced nowhere. While it writes, every other letter
 blips in the dialogue's own voice (`createSpeechSounds`, the neutral 145 Hz
 voice of a speaker with no pitch of their own), with the table's Voices
 setting, none on rests, under reduced motion or in a hidden tab. The blips
@@ -883,7 +891,7 @@ first letter; a first visit, before any gesture, is silent, and the first
 tap shows the rest and starts the song, which stops the blips. Every
 letter is laid out from the start, so nothing reflows and screen readers have
 the whole text at once; written whole, it folds back into plain text. Reduced
-motion shows it all at once, with every phrase's tint still and no glow, and a
+motion shows it all at once, with every word's tint and weight still and no glow, and a
 hidden tab pauses it. A quiet "click to
 continue" line ("tap to continue" on touch screens) fades in once the words
 are whole; the panel scrolls when it does not fit. At a large text size
@@ -897,12 +905,12 @@ goes on.
 After it, the world's logo fades in (with the song, if it has not begun)
 and lifts over one face-down
 card, the game's own card back, with a small Privacy link (`/privacy`) under
-it. The card is a button named "Open the box", the poem's last words (the
-card back is the carved box's lid), and takes focus, with
+it. The card is a button named "Take the box", answering the poem's last
+line (the card back is the carved box's lid), and takes focus, with
 a ring only from the keyboard; like a hand card it lifts under a pointer
 (brightens under reduced motion), and Privacy is a 24 px tap target. Left
 alone for 3 seconds, the card breathes a faint warm glow on a slow 3.6-second
-cycle; at 6 seconds a quiet "open the box" line, the same on every screen,
+cycle; at 6 seconds a quiet "take it" line, the same on every screen,
 fades in under it, styled like the acknowledgement's line, never on
 the card. On a short screen or at a large text size the card gives up height
 so the line and Privacy stay on screen. The line is hidden from screen readers, which hear the card's name,
