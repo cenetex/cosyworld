@@ -13,6 +13,7 @@ import {
   LOSS_MS,
   lossStep,
   lossTimes,
+  REDUCED_FADE_MS,
   outcomeWord,
   sequencePlan,
   telegraphText,
@@ -375,11 +376,12 @@ describe("the loss screen", () => {
     for (const step of ["writing", "read", "leaving"])
       expect(lossStep(step, "cancel")).toBe("done");
   });
-  it("halves at 2x and cuts its fades for reduced motion", () => {
+  it("halves at 2x and shortens its fades for reduced motion", () => {
     expect(lossTimes()).toEqual(LOSS_MS);
     expect(lossTimes({ speed: 2 }).faint).toBe(LOSS_MS.faint / 2);
     const reduced = lossTimes({ reduced: true });
-    expect(reduced.faint + reduced.wake + reduced.out).toBe(0);
+    for (const step of ["faint", "wake", "out"])
+      expect(reduced[step]).toBe(REDUCED_FADE_MS);
     expect(reduced.read).toBe(LOSS_MS.read);
   });
 });

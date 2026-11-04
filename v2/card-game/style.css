@@ -873,11 +873,17 @@ h2 {
   transition-duration: var(--wake-ms, 2.5s);
 }
 
+/* Reduced motion means nothing moves, not that nothing changes: keyframe
+   motion stops, and a transition only fades (opacity), at most 300 ms
+   (smoke-card-reduced-fades.mjs checks every element's). */
 @media (prefers-reduced-motion: reduce) {
   * {
     animation: none !important;
-    transition: none !important;
+    transition-property: opacity !important;
     scroll-behavior: auto !important;
+  }
+  .travel {
+    transition-duration: 300ms;
   }
 }
 
