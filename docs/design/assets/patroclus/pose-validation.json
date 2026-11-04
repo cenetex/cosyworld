@@ -1,0 +1,164 @@
+{
+  "assets": [
+    {
+      "file": "patroclus-idle.png",
+      "size": [
+        1024,
+        1536
+      ],
+      "mode": "RGBA",
+      "sha256": "5fec40e7190818d1d80bac6ea82fa63efb7fc36e10531488013b319eff6f225f",
+      "alpha_range": [
+        0,
+        254
+      ],
+      "clear_pixels": 976182,
+      "visible_bounds": [
+        170,
+        17,
+        782,
+        1523
+      ]
+    },
+    {
+      "file": "patroclus-talking.png",
+      "size": [
+        1024,
+        1536
+      ],
+      "mode": "RGBA",
+      "sha256": "b299e998b6e0ca5548464fc4b9f2433bc5cf2453c731a339c3b90a41fc38ae22",
+      "alpha_range": [
+        0,
+        254
+      ],
+      "clear_pixels": 908176,
+      "visible_bounds": [
+        147,
+        12,
+        835,
+        1526
+      ]
+    },
+    {
+      "file": "patroclus-sleeping.png",
+      "size": [
+        1024,
+        1536
+      ],
+      "mode": "RGBA",
+      "sha256": "f43fca6438e5b9abc85d79d612d51c4c442f0902cdd2d63468abe114eea6a0bd",
+      "alpha_range": [
+        0,
+        254
+      ],
+      "clear_pixels": 824473,
+      "visible_bounds": [
+        20,
+        423,
+        1002,
+        1463
+      ]
+    },
+    {
+      "file": "patroclus-listening.png",
+      "size": [
+        1024,
+        1536
+      ],
+      "mode": "RGBA",
+      "sha256": "c43a82f19d4de8b77e10503c906fe6b1d506d8371c366fcaf0bd3d16ec211780",
+      "alpha_range": [
+        0,
+        254
+      ],
+      "clear_pixels": 970552,
+      "visible_bounds": [
+        176,
+        17,
+        782,
+        1528
+      ]
+    },
+    {
+      "file": "patroclus-walking.png",
+      "size": [
+        1024,
+        1536
+      ],
+      "mode": "RGBA",
+      "sha256": "0dca3a0d6a1de04ee468a403474c0e1a027bf09c9c237791c1361560e61958e3",
+      "alpha_range": [
+        0,
+        254
+      ],
+      "clear_pixels": 964931,
+      "visible_bounds": [
+        120,
+        30,
+        968,
+        1502
+      ]
+    },
+    {
+      "file": "patroclus-guard.png",
+      "size": [
+        1024,
+        1536
+      ],
+      "mode": "RGBA",
+      "sha256": "2fb66eeaa701ea44bc9974a2ee220af8edf82cfb4c583afd7039525bbf1eb596",
+      "alpha_range": [
+        0,
+        254
+      ],
+      "clear_pixels": 813316,
+      "visible_bounds": [
+        44,
+        31,
+        924,
+        1502
+      ]
+    },
+    {
+      "file": "patroclus-attack.png",
+      "size": [
+        1024,
+        1536
+      ],
+      "mode": "RGBA",
+      "sha256": "70711f2e8539b1ebd53d10795742faeacdb420087c51cb9a98dc86748d352909",
+      "alpha_range": [
+        0,
+        254
+      ],
+      "clear_pixels": 811098,
+      "visible_bounds": [
+        27,
+        36,
+        992,
+        1508
+      ]
+    },
+    {
+      "file": "patroclus-hit.png",
+      "size": [
+        1024,
+        1536
+      ],
+      "mode": "RGBA",
+      "sha256": "719f2cf5677a5bd369c361bc1f10d015815ca5349c8a676f3a8234a3a54042b7",
+      "alpha_range": [
+        0,
+        254
+      ],
+      "clear_pixels": 884103,
+      "visible_bounds": [
+        62,
+        35,
+        855,
+        1515
+      ]
+    }
+  ]
+}
