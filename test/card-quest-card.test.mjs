@@ -16,6 +16,7 @@ import {
   questCard,
   questCards,
   questDistance,
+  questGround,
   questHand,
   questId,
   questNear,
@@ -26,6 +27,29 @@ import { cardLevel, levelTier } from "../v2/card-game/rarity.mjs";
 import { QUEST_LIMIT } from "../v2/card-game/want.mjs";
 
 describe("the quest card", () => {
+  it("shows a Give's place only when the gift is bound to one", () => {
+    const s = baseCreateWorld();
+    s.actors.vale.place = "greek-gate";
+    s.items["greek-decree"].holder = "vale";
+    const give = (step) => ({
+      actor: "vale",
+      kind: "item",
+      target: "greek-decree",
+      step: { verb: "give", to: "greek-guard", ...step },
+    });
+    // Unbound: the player, the thing and the recipient, with no place.
+    expect(questGround(s, give(), false)).toBe(null);
+    // Bound to a place: that place, once it is known.
+    expect(questGround(s, give({ at: "greek-gate" }), false)).toBe(
+      "greek-gate",
+    );
+    expect(questGround(s, give({ at: "greek-gate" }), false, () => false)).toBe(
+      null,
+    );
+    // A held thing with no step still stands where the player is.
+    expect(questGround(s, { ...give(), step: null }, false)).toBe("greek-gate");
+  });
+
   it("names a gift by its verb and takes its parts' highest tier", () => {
     const s = createWorld();
     const quest = {

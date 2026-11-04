@@ -92,6 +92,23 @@ export function questDistance(world, actor, to) {
   return null;
 }
 
+// The place a quest card's screen shows behind its figures, or null: a
+// step's own known place (`at`), or else where the player stands when the
+// target is there too. A give step shows a place only when the want binds
+// the gift to one (`step.at`); the rules draw none today, so a Give shows
+// the player, the thing and the recipient on the card's dark ground.
+export function questGround(world, quest, covered, known = () => true) {
+  const { step, target } = quest;
+  if (step?.at && known(step.at)) return step.at;
+  if (step?.verb === "give" || covered || !target) return null;
+  const here = world.actors[quest.actor]?.place,
+    at =
+      quest.kind === "item"
+        ? itemPlace(world, target)
+        : world.actors[target]?.place;
+  return at === here ? here : null;
+}
+
 // Near is within two moves along the routes this avatar can use now. The
 // card shows only near or far: never who holds the target or how many moves.
 export const NEAR_MOVES = 2;

@@ -257,14 +257,25 @@ first, and is absent while the stack holds one. Player-facing text says quest.
 - **Choose and drop.** In the open fan, choosing a quest beneath the top
   brings it to the top with a **focus** play naming it (`quest`, its index).
   Focus is journaled like any play, but it takes no turn: the world does not
-  move on. The top quest offers **Drop quest**, the `drop` play with that
+  move on. The top quest offers **Discard**, the `drop` play with that
   index and no item; the rules accept a drop at any index. Dropping an
   ordinary quest costs nothing, and its target stays out of mind a while;
   dropping a level quest costs 1 XP for the first, 2 for the next, and so
   on, never below the experience its level took (`questXp`), so the level
-  stays; its button reads "Drop quest (−N XP)". The chosen quest shows in
-  the usual play beat: its sentence on the left and Drop quest as the
-  ordinary context button, its words red (`--danger`).
+  stays; its button reads "Discard (−N XP)". The chosen quest shows in
+  the usual play beat: its sentence on the left, then its next step, then
+  Discard as the ordinary context button, its words red (`--danger`).
+- **Next step.** Beside Discard, the chosen top quest offers one play the
+  rules already list (`quest-step.mjs`; nothing new is legal). Where the
+  step can happen here, it is that play: Talk with a person quest's
+  target, Take or Ask for a wanted item, Give to a give step's recipient.
+  A sanctuary quest at its sanctuary offers the hand's own Wait, then
+  Sleep. Otherwise it is the first Travel along the shortest route to
+  where the step happens (the place, the person, the item, or a step's
+  recipient or place), labelled "Travel to <place>". A target not yet found
+  reads "Not found yet", and one with no route "No way there yet", on a
+  disabled button; the card itself shows nothing more. Introduce quests
+  offer only Discard.
   Dropping the last quest draws another at once, and a drop takes a turn.
 
 - **First quest.** A player holds no quest at the start: the attic opening
@@ -300,7 +311,7 @@ first, and is absent while the stack holds one. Player-facing text says quest.
   enough for now (`actor.content`, `want: null`). A player draws its next
   quest on waking from any Sleep, a resident after a day (`CONTENT_TURNS`).
   A content resident waits and still answers plays. While content, no quest
-  card is shown: the hand has no fold, no quest card and no Drop quest until
+  card is shown: the hand has no fold, no quest card and no Discard until
   the next want is drawn (`v2/scripts/smoke-card-content.mjs`). A draw takes something
   near first; with nothing near left, curiosity starts over, and then
   anyone known, or what they hold, will do, reachable or not. A new world
@@ -376,8 +387,10 @@ the player's own stack (`quest-card.mjs`, client only). The card shows a small 4
 target on the right, from the images the stage already uses, with attack and
 guard poses for Strike and Threaten. A place quest shows the player small in
 that place. The place's painting fades softly into the card, with no frame,
-and appears only for the place itself or when the step happens where the
-player stands; elsewhere the figures stand on the card's dark ground. An
+and appears only for the place itself, a step's own place (`step.at`), or
+when the target is where the player stands; elsewhere the figures stand on
+the card's dark ground (`questGround`). A Give shows a place only when its
+step binds the gift to one; the rules draw none, so a Give shows none. An
 unknown target shows a small carved card back in its slot, and an unknown
 place shows the back alone. A step that gives to
 someone shows all three: the player, the thing and the recipient. Its label is
@@ -405,7 +418,7 @@ up. Its identity is whose quest it is, its kind and its target, so only a
 quest that leaves the hand and later comes back is dealt face down again. The
 hand a page or a new game opens on is already dealt: a quest in view then is
 face up at once. It takes taps while face down. In the open fan the top quest is chosen and
-offers Drop quest. Tapping a quest beneath brings it to the top, with no turn
+offers its next step and Discard. Tapping a quest beneath brings it to the top, with no turn
 taken, and tapping the chosen one folds the fan. The rules remove a met quest at once; the browser keeps its card,
 sealed, in the fan, and the folded line glows until its player taps the card
 to clear it. Any met card can be cleared, in any order; clearing shows the one
@@ -478,7 +491,7 @@ shows its top card face up with the rest face down behind it, up to three;
 tapping the top card fans that stack and folds the other. Tapping a card in a
 fan chooses it, and it moves left, next to the avatar: a thing takes the
 avatar's place in the choice, so it pairs with the next card, and a quest is
-the choice alone, offering **Drop quest**. A stack of one card hides nothing,
+the choice alone, offering its next step and **Discard**. A stack of one card hides nothing,
 so its card is chosen at the first tap. Tapping the avatar again folds both
 stacks back to the avatar, and tapping it once more lowers it.
 A person or place holding things shows the first of them peeking out behind

@@ -3016,10 +3016,13 @@ main > .dialogue {
   }
   body[data-dialogue-over="true"] .beat-action #card-actions {
     flex: 0 1 auto;
-    max-width: 42%;
+    max-width: 50%;
   }
+  /* Its verbs wrap between words but never clip: a quest's step and
+     Discard both fit. */
   body[data-dialogue-over="true"] .beat-action #card-actions button {
-    min-width: 0;
+    min-width: min-content;
+    padding-inline: 10px;
   }
   body[data-dialogue-over="true"] .action-beat-cards {
     padding: 2px 0 0 8px;

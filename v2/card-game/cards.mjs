@@ -423,10 +423,11 @@ export function playLabel(action, world = null) {
     return `Ask ${nameOf(action.target)} for ${nameOf(action.item)}`;
   if (action?.kind === "accompany")
     return `Invite ${nameOf(action.target)} along`;
-  // A level quest's drop names its experience cost (`dropCost`), only here.
+  // Dropping a quest reads Discard; a level quest's names its experience
+  // cost (`dropCost`), only here.
   if (action?.kind === "drop" && !action.item) {
     const cost = world ? dropCost(world, action.actor, action.quest) : 0;
-    return cost ? `Drop quest (−${cost} XP)` : "Drop quest";
+    return cost ? `Discard (−${cost} XP)` : "Discard";
   }
   if (action?.kind === "focus") return "Choose quest";
   if (action?.kind === "gate") return "Seek the way";

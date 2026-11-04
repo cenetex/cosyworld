@@ -58,12 +58,14 @@ import {
   metQuests,
   questCards,
   questCaption,
+  questGround,
   questHand,
   questId,
   questNear,
   questTier,
   questVerb,
 } from "./quest-card.mjs";
+import { questStep } from "./quest-step.mjs";
 import { questScreen } from "./quest-screen.mjs";
 import {
   landingPack,
@@ -646,7 +648,7 @@ const playQueue = createPlayQueue({
     !document.querySelector("dialog[open], .world-menu:popover-open"),
   play: (action, revision) => {
     // Choosing a quest takes no turn and brings no reply, so its beat stays
-    // awake: the chosen quest's Drop quest is still offered.
+    // awake: the chosen quest's next step and Discard are still offered.
     if (action.kind !== "focus") restedChoice = choiceKey();
     count(playCounter(action));
     if (sharedSession) void submitSharedPlay(action);
@@ -2210,7 +2212,7 @@ function renderActions() {
       );
       button.type = "button";
       button.dataset.action = action.kind;
-      // Dropping a quest is destructive: the usual button, red words.
+      // Discarding a quest is destructive: the usual button, red words.
       if (action.kind === "drop" && !action.item)
         button.dataset.destructive = "";
       button.title = refused || playText(action);
@@ -2242,19 +2244,61 @@ function renderActions() {
     reveal.onclick = () => uncover(opening()?.next);
     row.append(reveal);
   }
-  // The top quest, chosen in the open fan, can be dropped (a level quest
-  // costs experience, named on its button). Choosing a card beneath brings it to the top.
+  // The top quest, chosen in the open fan, offers its next step (a play the
+  // rules already offer, or why there is none) and Discard (a level quest
+  // costs experience, named on its button). Choosing a card beneath brings
+  // it to the top.
   const picked = questOpen && !rested ? shownQuests[questPick] : null;
-  for (const action of picked?.index === 0
-    ? legalActions(world).filter(
-        (a) => a.kind === "drop" && !a.item && a.quest === 0,
+  const legal = picked?.index === 0 ? legalActions(world) : [];
+  const next =
+    picked?.index === 0 &&
+    questStep(world, picked, questCovered(picked), legal);
+  const steps = next?.rest
+    ? restPlays(
+        world,
+        legal.filter((a) => a.kind === "wait" && !a.sleep && !a.guards),
+        lastWait?.key === selected.join("+") &&
+          lastWait.revision === world.revision,
       )
-    : []) {
-    const button = node("button", playLabel(action, world), "card-action");
+    : next?.action
+      ? [next.action]
+      : [];
+  // One context button each: the step's plays, or its reason (disabled),
+  // then Discard.
+  const questButtons = [
+    ...steps.map((action) => ({
+      action,
+      label:
+        action.kind === "move"
+          ? `Travel to ${nameOf(action.target)}`
+          : playLabel(action, world),
+    })),
+    ...(next?.reason ? [{ action: null, label: next.reason }] : []),
+    ...legal
+      .filter((a) => a.kind === "drop" && !a.item && a.quest === 0)
+      .map((action) => ({ action, label: playLabel(action, world) })),
+  ];
+  for (const { action, label } of questButtons) {
+    const discard = action?.kind === "drop",
+      button = node(
+        "button",
+        label,
+        action && !discard ? "card-primary" : "card-action",
+      );
     button.type = "button";
-    button.dataset.dropQuest = String(picked.index);
-    button.dataset.destructive = "";
-    button.title = "Give up this quest";
+    if (discard) {
+      button.dataset.dropQuest = String(picked.index);
+      button.dataset.destructive = "";
+    } else button.dataset.questStep = "";
+    if (!action) {
+      button.disabled = true;
+      button.dataset.blocked = "quest";
+      button.title = label;
+      row.append(button);
+      continue;
+    }
+    if (!discard) button.dataset.action = action.kind;
+    button.title = discard ? "Give up this quest" : playText(action);
     button.disabled = selectionBlocked();
     button.onclick = () => {
       questOpen = false;
@@ -2749,7 +2793,9 @@ const stackLabel = (stack) =>
     : "";
 // The quest card: a small screen showing the player doing the quest's verb
 // with its target, with only the verb, the level and the tier colour as
-// words. It glows while the target is near and plays nothing.
+// words. It glows while the target is near. The card itself plays nothing:
+// chosen on top, the context button offers its next step and Discard
+// (quest-step.mjs).
 const questCovered = (quest) => !quest.target || cardIsCovered(quest.target);
 const known = (id) => !cardIsCovered(id);
 function shownQuestCaption(quest) {
@@ -2799,11 +2845,7 @@ function questFrame({ id, quest, met }) {
     setCardLabel(node("span", undefined, "quest-verb"), verb),
     node("span", quest.level ? romanLevel(quest.level) : "", "quest-level"),
   );
-  const target = quest.target,
-    targetPlace =
-      quest.kind === "item"
-        ? itemPlace(world, target)
-        : world.actors[target]?.place;
+  const target = quest.target;
   el.append(
     // Face down, it shows the carved lid until it turns.
     Object.assign(node("img", undefined, "card-back"), {
@@ -2818,9 +2860,7 @@ function questFrame({ id, quest, met }) {
         kind: quest.kind,
         target,
         covered: hidden,
-        here:
-          (quest.step?.at && known(quest.step.at) ? quest.step.at : null) ||
-          (!hidden && targetPlace === here ? here : null),
+        here: questGround(world, quest, hidden, known),
         to: quest.step?.to,
         toCovered: Boolean(quest.step?.to && !known(quest.step.to)),
       },

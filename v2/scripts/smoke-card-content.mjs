@@ -6,7 +6,7 @@ import { createServer } from "../card-game/serve.mjs";
 
 // Content (rules 90): a met quest with nothing beneath leaves the avatar
 // content until its next Sleep, and while content the hand shows no quest
-// card at all: no fold behind the avatar, no quest card, no Drop quest.
+// card at all: no fold behind the avatar, no quest card, no Discard.
 // Waking from the Sleep draws a new quest and its card comes back.
 const server = createServer();
 await new Promise((done) => server.listen(0, "127.0.0.1", done));
@@ -92,7 +92,7 @@ try {
     assert.equal(await page.locator("#hand .quest-fold").count(), 0);
     assert.equal(await page.locator("#hand .want-frame").count(), 0);
     assert.equal(await page.locator("#hand .want-card").count(), 0);
-    // Choosing Vale offers no Drop quest, and the keyboard walks the hand.
+    // Choosing Vale offers no Discard, and the keyboard walks the hand.
     await page.locator('#hand [data-card="vale"]').click();
     assert.equal(
       await page.locator("#card-actions [data-drop-quest]").count(),

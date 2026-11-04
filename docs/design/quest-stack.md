@@ -42,8 +42,8 @@ first.
   A level quest costs `dropCost`: 1 XP for the first level quest, 2 for
   the next, and so on, never below `questXp` of the current level, so the
   level stays (owner, 2026-11-04; rules 98, which replaced rules 90's
-  halving). The Drop button says "Drop quest (−N XP)" from the same
-  function; at no cost it says "Drop quest". Dropping the last quest draws
+  halving). The button says "Discard (−N XP)" from the same
+  function; at no cost it says "Discard". Dropping the last quest draws
   a new one at once.
 - **Focus.** The player's `focus` play moves a quest from beneath to the
   top. Owner decision, 2026-11-01: choosing the card is the whole act, with no
@@ -91,7 +91,7 @@ first.
 
 The quest card code builds one card per stack entry (`questCards`). The folded
 card behind the avatar shows the top quest. Choosing the folded card fans the
-stack out. In the fan, the top quest is chosen and offers Drop quest. Tapping a card
+stack out. In the fan, the top quest is chosen and offers its next step and Discard. Tapping a card
 beneath plays focus, which brings it to the top, and the fan stays open on it.
 Tapping the chosen card folds the fan. The rules remove a met
 quest at once. The browser reads `want_met` events after the last event it saw
