@@ -152,7 +152,7 @@ mod tests {
 
     /// The system message's "Between us" section, or `None`.
     fn section(c: &Context) -> Option<String> {
-        let (system, _) = conversation::messages(c, &c.entities[0], 0);
+        let (system, _) = conversation::messages(c, &c.entities[0]);
         let (_, rest) = system.split_once("Between us:\n")?;
         Some(rest.split("\n\n").next().unwrap().to_string())
     }
@@ -173,7 +173,7 @@ mod tests {
         // A grievance's incident, as Vale knows it.
         let c = facing(json!([{"with": "moth", "facts": [INCIDENT]}]));
         assert_eq!(section(&c).unwrap(), INCIDENT);
-        let (system, _) = conversation::messages(&c, &c.entities[0], 0);
+        let (system, _) = conversation::messages(&c, &c.entities[0]);
         assert!(system.find("What I know:").unwrap() < system.find("Between us:").unwrap());
         // A keepsake and the last words each way; words the talk here
         // already shows are left out.

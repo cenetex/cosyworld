@@ -47,7 +47,7 @@ pub(super) fn valid(context: &Context) -> bool {
 }
 
 /// The speaker's reserved fact, in its own voice, for the prompt to offer as
-/// something to mention if it fits (`conversation::MENTION`).
+/// something the speaker knows and may say.
 pub(super) fn directions(context: &Context, id: &str) -> Vec<String> {
     let cast: Vec<String> = context
         .entities

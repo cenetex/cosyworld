@@ -12,7 +12,7 @@ pub(crate) struct Answer {
 /// Dreams and an avatar still waking unnamed send only the raw transcript,
 /// without a system voice.
 fn messages(context: &Context, id: &str, part: Part) -> Value {
-    let (system, user) = super::messages(context, entity(context, id), part, 0);
+    let (system, user) = super::messages(context, entity(context, id), part);
     let user = json!({"role":"user","content":user});
     if system.is_empty() {
         json!([user])

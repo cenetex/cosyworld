@@ -294,7 +294,7 @@ fn example(cases: &[Case]) -> Value {
         .map(|id| {
             let heard = scene_for(context, lines, id);
             let context = heard.as_ref().unwrap_or(context);
-            let (system, user) = conversation::messages(context, entity(context, id), 0);
+            let (system, user) = conversation::messages(context, entity(context, id));
             json!({"speaker": id, "system": system, "user": user})
         })
         .collect()
@@ -312,13 +312,13 @@ fn conversation_turns_answer_one_line_with_the_talk_here() {
         .unwrap();
     let action = context.action.clone().unwrap();
     // The opener: never the caption, and no cue.
-    let (system, user) = conversation::messages(context, entity(context, "vale"), 0);
+    let (system, user) = conversation::messages(context, entity(context, "vale"));
     assert!(!system.contains(&action) && !user.contains(&action));
     assert!(!system.contains("Just now:"));
     assert!(!user.ends_with(':'));
     // The reply answers Vale's line from this turn, the second Talk with Pip.
     let heard = scene_for(context, lines, "moth").unwrap();
-    let (system, user) = conversation::messages(&heard, entity(&heard, "moth"), 0);
+    let (system, user) = conversation::messages(&heard, entity(&heard, "moth"));
     assert_eq!(user, "Tell me again what the pond wants.");
     // The group chat: earlier lines here, by both speakers, oldest first.
     let talk = system.split_once("Recent talk here:\n").unwrap().1;
@@ -352,7 +352,7 @@ fn a_return_visit_remembers_what_is_between_us() {
         let (_, context, lines) = cases.iter().find(|(name, ..)| name == case).unwrap();
         let heard = scene_for(context, lines, id);
         let context = heard.as_ref().unwrap_or(context);
-        conversation::messages(context, entity(context, id), 0).0
+        conversation::messages(context, entity(context, id)).0
     };
     for id in ["vale", "moth"] {
         assert!(!prompt("return visit before", id).contains("Between us:"));
