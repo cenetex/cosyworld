@@ -18,16 +18,18 @@ const picture = (src, className, url) => {
   return img;
 };
 
-// view: { verb, actor, kind, target, covered, here, to, toCovered }. A step
-// that gives to someone (`to`) shows all three: the player, the thing and
-// the recipient. art: { url, portrait, thing, place } turn ids into image
+// view: { verb, actor, kind, target, covered, here, to, toCovered,
+// atCovered }. A step that gives to someone (`to`) shows all three: the
+// player, the thing and the recipient. A step bound to a place not yet
+// found (`atCovered`) shows the carved box in the recipient's slot, as
+// anything unknown on the card does. art: { url, portrait, thing, place } turn ids into image
 // paths.
 export function questScreen(view, art) {
   const screen = document.createElement("span");
   screen.className = "quest-screen";
   const { verb, actor, kind, target, covered, to } = view;
   screen.dataset.kind = kind;
-  if (to) screen.dataset.parts = "3";
+  if (to || view.atCovered) screen.dataset.parts = "3";
   // An unknown place is the carved back, whole.
   if (kind === "place" && covered) {
     screen.append(picture(BACK, "quest-back", art.url));
@@ -58,11 +60,9 @@ export function questScreen(view, art) {
   else if (kind === "item")
     screen.append(picture(art.thing(target), "quest-thing", art.url));
   else screen.append(figure(target, theirPose, "left", "right"));
-  if (to)
-    screen.append(
-      view.toCovered
-        ? picture(BACK, "quest-back quest-right quest-to", art.url)
-        : figure(to, theirPose, "left", "right quest-to"),
-    );
+  if (to && !view.toCovered)
+    screen.append(figure(to, theirPose, "left", "right quest-to"));
+  else if (to || view.atCovered)
+    screen.append(picture(BACK, "quest-back quest-right quest-to", art.url));
   return screen;
 }

@@ -14,6 +14,7 @@ import {
   metQuests,
   questCaption,
   questCard,
+  questBox,
   questCards,
   questDistance,
   questGround,
@@ -48,6 +49,33 @@ describe("the quest card", () => {
     );
     // A held thing with no step still stands where the player is.
     expect(questGround(s, { ...give(), step: null }, false)).toBe("greek-gate");
+  });
+
+  it("shows the carved box, not the place here, for a home not yet found", () => {
+    // Cass carries the board at the station; the pavilion is still unknown.
+    const s = baseCreateWorld();
+    s.actors.orin.place = "pond";
+    s.items.board.holder = "orin";
+    const bring = {
+      actor: "orin",
+      kind: "item",
+      target: "board",
+      step: { verb: "bring", at: "pavilion" },
+    };
+    const unknown = (id) => id !== "pavilion";
+    expect(questGround(s, bring, false, unknown)).toBe(null);
+    expect(questBox(bring, unknown)).toBe(true);
+    // Once found, the card shows the home itself, wherever Cass stands.
+    expect(questGround(s, bring, false)).toBe("pavilion");
+    expect(questBox(bring)).toBe(false);
+    // A step with a recipient shows the recipient in that slot instead.
+    const give = { ...bring, step: { verb: "give", to: "moth", at: "pavilion" } };
+    expect(questBox(give, unknown)).toBe(false);
+    // A quest with no place keeps the rule it had.
+    expect(questBox({ ...bring, step: null }, unknown)).toBe(false);
+    expect(questGround(s, { ...bring, step: null }, false, unknown)).toBe(
+      "pond",
+    );
   });
 
   it("names a gift by its verb and takes its parts' highest tier", () => {

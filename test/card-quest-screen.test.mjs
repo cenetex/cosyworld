@@ -1,0 +1,63 @@
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { questScreen } from "../v2/card-game/quest-screen.mjs";
+
+// Just enough of the DOM for the quest card's screen.
+const element = () => ({
+  className: "",
+  dataset: {},
+  children: [],
+  append(...nodes) {
+    this.children.push(...nodes);
+  },
+});
+const art = {
+  url: (src) => src,
+  portrait: (id) => `${id}.webp`,
+  thing: (id) => `${id}.webp`,
+  place: (id) => `${id}.webp`,
+};
+const parts = (screen) =>
+  screen.children.map((img) => `${img.className}:${img.src}`);
+
+describe("the quest card's screen", () => {
+  beforeEach(() => {
+    globalThis.document = { createElement: element };
+  });
+  afterEach(() => {
+    delete globalThis.document;
+  });
+
+  const bring = {
+    verb: "Bring",
+    actor: "orin",
+    kind: "item",
+    target: "board",
+    covered: false,
+  };
+
+  it("shows the carved box for a home not yet found, not the place here", () => {
+    const screen = questScreen({ ...bring, here: null, atCovered: true }, art);
+    expect(screen.dataset.parts).toBe("3");
+    expect(parts(screen)).toEqual([
+      "quest-figure quest-left:orin.webp",
+      "quest-thing:board.webp",
+      "quest-back quest-right quest-to:./assets/card-back.webp",
+    ]);
+  });
+
+  it("shows a found home as the card's ground", () => {
+    const screen = questScreen({ ...bring, here: "pavilion" }, art);
+    expect(screen.dataset.parts).toBeUndefined();
+    expect(parts(screen)[0]).toBe("quest-ground:pavilion.webp");
+  });
+
+  it("shows the box for an unknown recipient, as before", () => {
+    const screen = questScreen(
+      { ...bring, verb: "Give", to: "moth", toCovered: true },
+      art,
+    );
+    expect(parts(screen).at(-1)).toBe(
+      "quest-back quest-right quest-to:./assets/card-back.webp",
+    );
+  });
+});

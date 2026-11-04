@@ -93,13 +93,16 @@ export function questDistance(world, actor, to) {
 }
 
 // The place a quest card's screen shows behind its figures, or null: a
-// step's own known place (`at`), or else where the player stands when the
-// target is there too. A give step shows a place only when the want binds
-// the gift to one (`step.at`); the rules draw none today, so a Give shows
-// the player, the thing and the recipient on the card's dark ground.
+// step's own place (`at`) once it is known, or else where the player stands
+// when the target is there too. A step bound to a place the player has not
+// found shows no place at all: never the one the player stands in, which
+// would say the step happens here (questBox shows the carved box instead).
+// A give step shows a place only when the want binds the gift to one; the
+// rules draw none today, so a Give shows the player, the thing and the
+// recipient on the card's dark ground.
 export function questGround(world, quest, covered, known = () => true) {
   const { step, target } = quest;
-  if (step?.at && known(step.at)) return step.at;
+  if (step?.at) return known(step.at) ? step.at : null;
   if (step?.verb === "give" || covered || !target) return null;
   const here = world.actors[quest.actor]?.place,
     at =
@@ -108,6 +111,14 @@ export function questGround(world, quest, covered, known = () => true) {
         : world.actors[target]?.place;
   return at === here ? here : null;
 }
+
+// Whether the card shows the carved box for a step's place: one rule for
+// every unknown part, as a Give shows it for an unknown recipient. A step
+// bound to a place not yet found (Bring the board home to a pavilion not
+// yet discovered) shows the box in the place's slot; a step with a
+// recipient (`to`) shows that recipient there instead.
+export const questBox = (quest, known = () => true) =>
+  Boolean(quest.step?.at && !quest.step.to && !known(quest.step.at));
 
 // Near is within two moves along the routes this avatar can use now. The
 // card shows only near or far: never who holds the target or how many moves.
