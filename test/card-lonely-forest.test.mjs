@@ -10,7 +10,7 @@ vi.mock("../v2/card-game/packs.json", async (importOriginal) => {
     JSON.parse(readFileSync(new URL(name, import.meta.url), "utf8"));
   const source = read("../v2/content/lonely-forest/card-world.json");
   const joined = read("../v2/worlds/lonely-forest/card-bridge.json");
-  const { schemaVersion, pack, id, description, ...bridge } = joined;
+  const { schemaVersion, pack, id, description, entries, ...bridge } = joined;
   return {
     default: {
       ...original,
