@@ -9,7 +9,7 @@ Each new pose keeps the resident's face, age, clothes and paint style. Eyes are
 closed and hands rest empty. Worn costume details remain part of the figure.
 The full transparent canvas preserves room above a compact seated pose.
 
-Status: 36 portraits are saved. The remaining 13 portraits are in progress.
+Status: 42 portraits are saved. The remaining 7 portraits are in progress.
 These source PNGs are an art handoff. Game selection and final WebP exports are
 future work.
 
