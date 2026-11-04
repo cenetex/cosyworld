@@ -1,0 +1,88 @@
+{
+  "source": "source/moonlit-cozy-fantasy-workbench.png",
+  "supplied": "Moonlit Cozy Fantasy Workbench.png",
+  "suppliedBy": "owner",
+  "date": "2026-11-04",
+  "width": 2172,
+  "height": 724,
+  "sha256": "54bdc8d09db7a5954bdaedda0705114fa4613cf3c166ee93258fc12de29ccbd3",
+  "crops": {
+    "workbench-letter.png": {
+      "left": 624,
+      "top": 245,
+      "width": 392,
+      "height": 280,
+      "sha256": "aa832f5e59dc6768628a2630aa298fd267f81265d55f1004ee6dc99ed0c566ea"
+    },
+    "workbench-dice.png": {
+      "left": 444,
+      "top": 278,
+      "width": 392,
+      "height": 280,
+      "sha256": "ade22eb93d9b3de12f4ac979dc8a263897e84eb4ac101c71ccfd2bb66ffb4f32"
+    },
+    "workbench-dice-cup.png": {
+      "left": 737,
+      "top": 180,
+      "width": 336,
+      "height": 240,
+      "sha256": "5d2f4ba93ab4236b9d67673740373143b8779fd33e603b59a0733ac5beffab11"
+    },
+    "workbench-candle.png": {
+      "left": 758,
+      "top": 70,
+      "width": 644,
+      "height": 460,
+      "sha256": "edf557a96c3e7ae6da08fff75e0834441c2c5d626d59e9968daadaebfd1be7fa"
+    },
+    "workbench-old-books.png": {
+      "left": 0,
+      "top": 110,
+      "width": 448,
+      "height": 320,
+      "sha256": "d5c44af2b9a3d765ba27efa226bc42581624e19c3c28f09168d9bc0963b0e581"
+    },
+    "workbench-mug.png": {
+      "left": 486,
+      "top": 185,
+      "width": 364,
+      "height": 260,
+      "sha256": "50a7b20632d81779240f862ece94a8046b0cb8cd0a04e2dab52d64f3fdd5d613"
+    },
+    "workbench-armillary.png": {
+      "left": 1084,
+      "top": 100,
+      "width": 532,
+      "height": 380,
+      "sha256": "3d2f38b00f6b8315a7f0b0e0636ed8c136d2f86b2fda464205d3403c49b10186"
+    },
+    "workbench-scroll.png": {
+      "left": 1490,
+      "top": 245,
+      "width": 420,
+      "height": 300,
+      "sha256": "55cfcb8ca696e27bdc2e195a3abea8951d2147aed1f0e3e3ad4b0d45ab29a5db"
+    },
+    "workbench-book-stack.png": {
+      "left": 1383,
+      "top": 235,
+      "width": 364,
+      "height": 260,
+      "sha256": "5aceebc64c43b011e93a557c6322698fcbfb3f6619121e040d8f89d690e33fce"
+    },
+    "workbench-window.png": {
+      "left": 1528,
+      "top": 0,
+      "width": 644,
+      "height": 460,
+      "sha256": "8cf688f365f2fd8cee3866f8b4347987561a969c0a71348663cc2c3f4a70461d"
+    },
+    "workbench-moth.png": {
+      "left": 116,
+      "top": 60,
+      "width": 728,
+      "height": 520,
+      "sha256": "f98655a0f01f56e5fd5fff7a69f0ab1b5b315a5dad464e3ff3bde8878564af10"
+    }
+  }
+}

@@ -2,9 +2,11 @@
 
 Owner rules, 2026-11-01 (#1825): no takeover.
 
-- A person's passkey binds them to the avatar they take in a shared world,
-  for good. They always return there as that avatar, and nobody else can
-  claim it, released or not.
+- A person's passkey binds them to the avatar they take in a shared world.
+  Nobody else can claim it, released or not.
+- 2026-11-03: a person may bring any found avatar to a world they have
+  played. The one they had stays as a resident with its state and level,
+  and is no longer theirs (a journaled `release`, no `reset`).
 - When every avatar in a world is bound, the world is full. A newcomer sees
   "This world is full."
 - The world's owner can **Free** an avatar (2026-11-01: it removes that

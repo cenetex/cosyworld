@@ -126,6 +126,32 @@ it("follows the music switch, the volume and a hidden tab", async () => {
   expect(battle.paused).toBe(true);
 });
 
+it("fades the room or battle song out under Settings and back in place", async () => {
+  const { music, room, battle, level } = await table();
+  music.setQuiet(true);
+  await advance(500);
+  expect(level(room)).toBeCloseTo(0.15);
+  await advance(500);
+  expect([room.paused, room.currentTime]).toEqual([true, 42]);
+  music.setQuiet(false);
+  await advance(400);
+  expect([room.paused, room.currentTime]).toEqual([false, 42]);
+  expect(level(room)).toBeCloseTo(0.3);
+  music.cue("battle");
+  await advance(1000);
+  battle.currentTime = 12;
+  music.setQuiet(true);
+  await advance(750);
+  expect(level(battle)).toBeCloseTo(0.15);
+  await advance(750);
+  expect([battle.paused, room.paused]).toEqual([true, true]);
+  music.setQuiet(false);
+  await advance(400);
+  expect([battle.paused, battle.currentTime]).toEqual([false, 12]);
+  expect(level(battle)).toBeCloseTo(0.3);
+  expect(room.paused).toBe(true);
+});
+
 it("counts an open standoff the player fights in or stands beside", () => {
   let s = createWorld();
   s.actors.moth.place = "station";

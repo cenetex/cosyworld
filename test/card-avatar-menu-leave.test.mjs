@@ -25,22 +25,15 @@ describe("the chosen avatar's line", () => {
   });
 });
 
-describe("worlds an avatar can go to (#1825)", () => {
-  const ash = { id: "ash", name: "Ash" };
-  it("offers a world where this person returns as the same avatar", () => {
-    expect(joinable({ actor: null, bound: "mara", full: true }, mara)).toBe(
-      true,
-    );
-    expect(joinable({ actor: null, bound: "mara", full: false }, ash)).toBe(
-      false,
-    );
+describe("worlds an avatar can go to (owner, 2026-11-03)", () => {
+  it("offers any world you have played, whoever you had there", () => {
+    expect(joinable({ actor: null, bound: "mara", full: true })).toBe(true);
+    expect(joinable({ actor: null, bound: "mara", full: false })).toBe(true);
+    expect(joinable({ actor: "vale", bound: "vale", full: false })).toBe(true);
   });
-  it("offers a free world only while it has room", () => {
-    expect(joinable({ actor: null, bound: null, full: false }, ash)).toBe(true);
-    expect(joinable({ actor: null, bound: null, full: true }, ash)).toBe(false);
-    expect(joinable({ actor: "vale", bound: "vale", full: false }, ash)).toBe(
-      false,
-    );
+  it("offers a world you have not played only while it has room", () => {
+    expect(joinable({ actor: null, bound: null, full: false })).toBe(true);
+    expect(joinable({ actor: null, bound: null, full: true })).toBe(false);
   });
 });
 
@@ -127,17 +120,47 @@ describe("the world slots (#1877)", () => {
     ]);
     expect(view.canCreate).toBe(true);
   });
-  it("lights the deck, worlds with that seat free and none of yours, and New world", () => {
+  it("lights the deck, worlds with that seat free, and New world", () => {
     const vale = { id: "vale", name: "Vale" };
+    // Tavi stays in w3 as a resident if Vale comes.
     expect(targetsFor(vale, view.slots[0], view)).toEqual({
       deck: true,
-      worlds: ["w2"],
+      worlds: ["w2", "w3"],
       create: true,
     });
-    // Mara's seat in w2 is held by someone else.
+    // Mara's seat in w2 is held by someone else; in w1 Vale stays behind.
     const mara = { id: "mara", name: "Mara" };
-    expect(targetsFor(mara, null, view).worlds).toEqual([]);
+    expect(targetsFor(mara, null, view).worlds).toEqual(["w1", "w3"]);
     expect(targetsFor(mara, null, view).deck).toBe(false);
+  });
+  // The owner's report (2026-11-03): The Listening Fen, left by Tavi, with
+  // everyone found. Vale may come, and + New world stays.
+  it("brings any found avatar to a world you left, everyone found", () => {
+    const fen = worldSlots({
+      shared: true,
+      rows: [
+        {
+          id: "fen",
+          owner: true,
+          actor: null,
+          bound: "tavi",
+          held: held("tavi"),
+        },
+      ],
+      here: { actor: "vale", place: { local: true, name: "Attic" } },
+      unlocked: ["rue", "ash", "tavi", "vale", "mara", "nell", "orin", "ada"],
+    });
+    const vale = { id: "vale", name: "Vale" };
+    expect(targetsFor(vale, null, fen).worlds).toEqual(["fen"]);
+    expect(fen.canCreate).toBe(true);
+  });
+  it("never offers an avatar not yet found", () => {
+    const some = worldSlots({ shared: true, rows, here, unlocked: ["vale"] });
+    expect(targetsFor(mara, null, some)).toEqual({
+      deck: false,
+      worlds: [],
+      create: false,
+    });
   });
   it("stops New world at eight owned slots", () => {
     const full = [
@@ -167,7 +190,7 @@ describe("the world slots (#1877)", () => {
       "ada",
     ]);
     expect(found.canCreate).toBe(true);
-    // Once everyone is found, no new world opens.
+    // Once everyone is found, + New world stays (owner, 2026-11-03).
     const all = worldSlots({
       shared: true,
       rows,
@@ -175,7 +198,7 @@ describe("the world slots (#1877)", () => {
       unlocked: ["rue", "ash", "tavi", "vale", "mara", "nell", "orin", "ada"],
     });
     expect(all.locked).toEqual([]);
-    expect(all.canCreate).toBe(false);
+    expect(all.canCreate).toBe(true);
   });
   it("opens a friend's link as a slot, with your kept seat free for you", () => {
     const invite = {

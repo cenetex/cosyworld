@@ -144,7 +144,11 @@ main {
 /* One stage frames every painting. A place's data sets the point kept in
    view when the painting is cropped, and may anchor a resident to the
    painting. The painting then moves only as far as keeps that resident whole
-   and standing above the hand, and it always fills the stage. */
+   and standing above the hand, and it always fills the stage. A portrait
+   screen shows the painting's full height, so there it cannot rise: the
+   resident steps up off its spot instead, just far enough that its cutout
+   clears the resting hand, a beat's taller one included. Raising the hand
+   never lifts it. */
 .stage {
   --art-ratio: 1.5;
   --focus-x: 0.5;
@@ -178,6 +182,14 @@ main {
     ),
     0px
   );
+  /* Read in .stage-figure, whose container is this stage. */
+  --figure-lift: max(
+    0px,
+    calc(
+      var(--art-top) + var(--figure-foot) * var(--art-h) + var(--resting-dock) +
+        6px - 100cqh
+    )
+  );
 }
 .backdrop,
 .scene-shade {
@@ -205,6 +217,11 @@ main {
   top: var(--sprite-top);
   transform: translate(-50%, -92%);
   filter: drop-shadow(0 5px 4px #17201570) var(--tod-figure,);
+}
+@media (orientation: portrait) {
+  .stage-figure {
+    translate: 0 calc(var(--figure-lift) * -1);
+  }
 }
 .scene-shade {
   z-index: -1;
@@ -874,6 +891,9 @@ h2 {
   --card-width: clamp(174px, 15.5vw, 224px);
   --card-height: clamp(224px, 31dvh, 310px);
   --dock-height: calc(var(--card-height) * 0.75 + 12px);
+  /* The resting hand's dock, which app.mjs's measured --dock-height leaves
+     out once the hand rises. */
+  --resting-dock: calc(var(--card-height) * 0.75 + 12px);
   --hand-top: 26px;
   --hand-inline: calc(var(--card-height) * 0.12);
 }
@@ -1008,6 +1028,44 @@ body .dialogue[data-dropped="true"] {
   border: 0;
   background: none;
   box-shadow: none;
+}
+/* Behind it the scene fades to black under the world's logo, lifted and
+   scaled as the title lifts it over its card (title-intro.mjs). */
+.settings-veil {
+  position: absolute;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  background: #000;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition:
+    opacity 0.6s ease,
+    visibility 0s 0.6s;
+}
+body:has(#settings-screen[open]) .settings-veil {
+  opacity: 1;
+  visibility: visible;
+  transition: opacity 0.6s ease;
+}
+.settings-veil > img {
+  width: min(76vw, 1400px);
+  max-height: 80dvh;
+  object-fit: contain;
+  transform: translateY(-14dvh) scale(0.8);
+}
+@media (max-width: 640px) {
+  .settings-veil > img {
+    width: calc(100vw - 32px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .settings-veil,
+  body:has(#settings-screen[open]) .settings-veil {
+    transition: none;
+  }
 }
 .hand-wrap:has(> #settings-screen[open]) > #hand,
 body:has(#settings-screen[open]) .dialogue .beat-card {
@@ -1214,6 +1272,18 @@ body .card.item .art img {
   > .card[data-setting]
   > .quest-head {
   padding-right: var(--fan-overlap);
+}
+/* A card lifted over the next (pointer or focus) covers its left edge, so
+   that card's name moves clear of it. An unlit Settings place dims. */
+.hand
+  > .card-frame:is(:hover, :focus-within)
+  + .card-frame
+  > .card[data-setting]
+  > :is(.quest-head, .name) {
+  padding-left: calc(var(--fan-overlap) + 8px);
+}
+body .card[data-setting][data-lit="false"] .quest-ground {
+  filter: saturate(0.35) brightness(0.48);
 }
 /* Carry the label's shade to the card's edge, wherever the hand clips it. */
 body .card .name::after {
@@ -2529,7 +2599,9 @@ body .beat-live {
   display: grid;
   flex: 1000 1 120px;
   grid-template-columns: minmax(0, 1fr);
-  align-self: center;
+  /* Centred while it fits; longer words run down into the scrolling box
+     instead of past its top. */
+  margin-block: auto;
   align-content: start;
   gap: 4px;
   min-width: 0;
@@ -2662,7 +2734,8 @@ body .beat-live {
   font-size: 13px;
 }
 .beat-action #card-actions {
-  flex: 1 0 auto;
+  /* A strip wider than a very narrow box (200% text) wraps its words. */
+  flex: 1 1 auto;
   gap: 0;
   padding: 0;
   overflow: visible;
@@ -2756,6 +2829,9 @@ main > .dialogue {
        of a raised card stays behind it. */
     --resting-show: 0.4;
     --raised-tuck: 0.2;
+    --resting-dock: calc(
+      var(--dialogue-cover) + var(--card-height) * var(--resting-show) + 12px
+    );
   }
   body[data-dialogue-over="true"] main > .dialogue {
     z-index: 6;
@@ -2912,6 +2988,11 @@ main > .dialogue {
 @media (max-width: 700px) {
   body[data-dialogue-over="true"] {
     --dialogue-height: 96px;
+  }
+  /* While a beat shows, the cast stands on the dock's top edge, so the
+     resting cards' tops never hide their feet. */
+  body[data-dialogue-over="true"] .cast {
+    --cast-bottom: var(--dock-height);
   }
 }
 #credits a,
