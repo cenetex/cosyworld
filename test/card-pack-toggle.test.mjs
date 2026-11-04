@@ -82,39 +82,19 @@ describe("switching a pack off and on (rules 97)", () => {
   });
 
   it("ends a fight there and sets aside quests that name it", () => {
-    const fighters = ["keeper", "greek-elder"];
-    const each = (value) =>
-      Object.fromEntries(fighters.map((id) => [id, value]));
-    const w = ok(
-      play(
-        world(),
-        legalActions(world()).find((a) => a.kind === "wait"),
-      ),
-    );
+    const each = (v) => ({ keeper: v, "greek-elder": v });
+    const w = ok(play(world(), legalActions(world())[0]));
     w.actors["greek-elder"].place = w.actors.keeper.place = "greek-well";
-    for (const id of fighters) w.peaceUntil[id] = 0;
-    w.standoffs = [
-      {
-        challenger: "keeper",
-        defender: "greek-elder",
-        location: "greek-well",
-        item: null,
-        answered: false,
-        opened: w.turn,
-        resolve: each(4),
-        guarding: each(false),
-        struck: each(false),
-        steppedBack: each(false),
-      },
-    ];
-    w.actors.moth.want = {
-      kind: "item",
-      target: "greek-water-jar",
-      since: w.turn,
-      refusals: 0,
-    };
-    const s = reload(w);
-    const after = ok(play(s, off(GREEK)));
+    Object.assign(w.peaceUntil, each(0));
+    const [challenger, defender] = Object.keys(each());
+    const fight = { challenger, defender, location: "greek-well", item: null };
+    w.standoffs = [{ ...fight, answered: false, opened: w.turn }];
+    for (const field of ["guarding", "struck", "steppedBack"])
+      w.standoffs[0][field] = each(false);
+    w.standoffs[0].resolve = each(4);
+    const jar = { kind: "item", target: "greek-water-jar", refusals: 0 };
+    w.actors.moth.want = { ...jar, since: w.turn };
+    const after = ok(play(reload(w), off(GREEK)));
     expect(after.standoffs).toEqual([]);
     expect(after.actors.moth.want?.target).not.toBe("greek-water-jar");
     expect(questsOf(after, "moth").map((w) => w.target)).toContain(
@@ -162,14 +142,8 @@ describe("switching a pack off and on (rules 97)", () => {
     // rules 96 ignores the switch.
     const quiet = JSON.parse(encodeSave(world()));
     quiet.enabledPacks = ["hoppycat-archive", "lonely-forest"];
-    const file = (path) =>
-      readFileSync(
-        new URL(
-          `../v2/orchestrator-rust/src/card_shared/${path}`,
-          import.meta.url,
-        ),
-        "utf8",
-      );
+    const dir = "v2/orchestrator-rust/src/card_shared";
+    const file = (path) => readFileSync(`${dir}/${path}`, "utf8");
     const rules = (version) => {
       const context = vm.createContext({
         structuredClone,
