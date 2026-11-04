@@ -499,8 +499,18 @@ without selecting it or spending a turn; subsequent taps select it normally.
 A place widens from the upright cover to its wider card as the lid lifts;
 with reduced motion it crossfades.
 An uncovered new card glows in its tier colour and carries no text badge.
-Covered cards cannot be dragged or paired. Each browser remembers which cards
-are still covered, including after a reload.
+Covered cards cannot be dragged or paired; a tap on one reveals it first.
+Each browser remembers which cards are still covered, including after a
+reload, per table and per shared world and seat.
+The stage shows only what its player has revealed (`stage-reveal.mjs`): a
+covered person, resident or thing lying there, and a covered light someone
+carries, are not in the scene, and a covered current place is black behind
+whoever is revealed. A new world therefore opens on Vale alone, on black; the
+lamp and the attic come in as their cards are tapped, in either order. A tap
+fades the figure or item in over 900 ms and brings the place's painting up
+out of the black; reduced motion shows it at once. A covered person who
+speaks is revealed with the line, there at once, so the words never wait.
+The rules' world and knowledge are unchanged.
 
 The player's avatar knows only what its player has uncovered (#1575). Until a
 card is uncovered, the screen never names it: the place heading, world name
