@@ -38,6 +38,8 @@ const files = [
   "boardyai.mjs",
   "boardyai.json",
   "assets/card-back.webp",
+  // The locked box (locked-box.mjs); a stand-in until its own painting.
+  "assets/card-back-locked.webp",
   // The new-world title (title-intro.mjs); logos may share toolbar art.
   ...new Set(
     titleLogos.logos.flatMap(({ src, toolbar }) =>
@@ -93,6 +95,7 @@ const files = [
   "card-tiers.css",
   "card-reveal.mjs",
   "card-entry.mjs",
+  "locked-box.mjs",
   "card-level-up.mjs",
   // Willows sign alternates chosen by the willows pack.
   ...[

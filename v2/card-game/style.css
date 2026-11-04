@@ -1093,7 +1093,10 @@ body .card-frame {
     transform 0.22s ease-out,
     filter 0.22s ease-out;
 }
-body .card-frame:has(> .card.location:not([data-unrevealed="true"])) {
+body
+  .card-frame:has(
+    > .card.location:not([data-unrevealed="true"], [data-locked="true"])
+  ) {
   --frame-width: max(var(--card-width), calc(var(--card-height) * 0.8));
 }
 /* The hand fans: each card overlaps the one before it and leans with its
@@ -3205,31 +3208,6 @@ main > .dialogue {
   outline-offset: 3px;
 }
 
-/* A sealed card is the far side of a shut gate (rules 95): its painting is
-   dimmed behind two crossed bars. Tapping it gives the quest that opens it;
-   the reason is in the context button, never on the card. */
-.card.location[data-sealed="true"] .art img {
-  filter: grayscale(0.7) brightness(0.55);
-}
-.card.location[data-sealed="true"] .art::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background:
-    linear-gradient(
-      90deg,
-      transparent 44%,
-      rgb(58 42 26 / 0.92) 44% 56%,
-      transparent 56%
-    ),
-    linear-gradient(
-      0deg,
-      transparent 40%,
-      rgb(58 42 26 / 0.92) 40% 50%,
-      transparent 50%
-    );
-}
 /* Left alone, the face-down card breathes a faint warm light, slowly, then a
    quiet line under it says how to turn it (REVEAL_HINT in title-intro.mjs).
    Reduced motion holds the glow still and shows the line at once. */

@@ -40,3 +40,21 @@ this check.
 `image-variants.json` records the source and output hashes. The browser's
 `images.mjs` selects the scene, phone scene, or card file, then adds its content hash through
 `media.mjs`. Catalogs and portrait-facing records use the authored image paths.
+
+## The locked box lid
+
+`card-back-locked.webp` is the lid of a card locked behind a quest
+(`locked-box.mjs`). Until its own painting exists it is a stand-in: the card
+back darkened (brightness 0.6, saturation 0.7) with sharp and saved at the card
+back's encode settings, with no other change. New art drops in at the same
+path with no code change; rebuild the images and the asset list as above,
+then update `card-back-locked-provenance.json`.
+
+The painting needs:
+
+- 1024 by 1536 pixels (2:3), opaque and full bleed;
+- the same carved-box lid as `card-back.webp`, seen straight down, so the two
+  read as one box face down and locked;
+- a lock or clasp, clearly shut;
+- the same palette: worn wood, old brass, amber light and indigo shadow;
+- no lettering.
