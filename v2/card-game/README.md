@@ -913,8 +913,9 @@ and dark offers only the pond. The lit attic keeps its lit
 painting, whose mirror shows only the room. The cloth can lie in the room or
 travel with someone or something there. The cottage's
 stairs back up stay open after either item leaves or the light goes out.
-Taking the stairs before the pond, as a scarf allows from the first turn, ends
-Vale's opening there; the pond is no longer its first shore (rules 97).
+Taking the stairs before the pond, as a scarf allows from the first turn,
+crosses Vale's opening as the pond does: Vale still meets people one by one,
+starting with whoever is at the cottage (rules 97).
 A stranded traveler in the attic still finds a narrow rescue path to the pond
 when the lamp is out of reach. That escape is separate from the
 mirror and cottage gates.

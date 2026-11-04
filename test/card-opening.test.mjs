@@ -289,15 +289,26 @@ describe("dousing the lamp in the attic", () => {
 
   // A scarf opens the attic stair at once; it used to fail the opening check
   // and a shared world refused it as "waiting for an update".
-  it("ends the opening when a scarf's stair leads down to the cottage", () => {
+  it("crosses the opening when a scarf's stair leads down to the cottage", () => {
     const worn = fresh();
     worn.actors.vale.upgrades = ["scarf"];
+    expect(knownActors(worn)).toEqual(["vale"]);
     let s = act(worn, "move", { target: "forest-cottage" });
-    expect(s.opening).toBeUndefined();
+    expect(s.opening.crossed).toBe(true);
     expect(s.locations.attic.anchored).toBe(true);
+    // Vale meets people one by one, as after the pond: only who is here.
+    const here = Object.keys(s.actors).filter(
+      (id) => id !== "vale" && s.actors[id].place === "forest-cottage",
+    );
+    expect(Object.keys(s.opening.met).sort()).toEqual(["vale", ...here].sort());
+    expect(knownActors(s).length).toBeLessThan(Object.keys(s.actors).length);
+    expect(knownActors(s).every((id) => s.opening.met[id] !== undefined)).toBe(
+      true,
+    );
     s = act(s, "move", { target: "attic" });
     s = act(act(s, "snuff"), "move", { target: "pond" });
     expect(s.actors.vale.place).toBe("pond");
+    expect(s.opening.met.moth).toBe(s.turn);
     const ask = (world, op, extra) =>
       dispatchShared({ world, op, actor: "vale", ...extra });
     let shared = dispatchShared({ op: "create", seed: 7 }).world;

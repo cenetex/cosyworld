@@ -609,6 +609,12 @@ const openingPlace = (place) =>
     ([home, gate]) =>
       gate.opening && [home, gate.rescue, "station"].includes(place),
   );
+// A crossing out of an opening home taken (a scarf's attic stair) crosses
+// the opening without the pond, so Moth may be still unmet (rules 97).
+const leftHome = (s) =>
+  crossings.some(
+    (c) => homeGates[c.from]?.opening && s.crossings?.[c.id]?.discovered,
+  );
 function meetCast(s) {
   const player = currentActor(s);
   for (const [id, a] of Object.entries(packPeople))
@@ -617,14 +623,14 @@ function meetCast(s) {
   if (controlledByHuman(s, player))
     applyMeetingChoices(s, player, Object.keys(places));
   if (!s.opening || (player !== "vale" && !s.opening.crossed)) return;
-  if (player === "vale" && s.actors.vale.place === "pond")
+  // The pond crosses the opening, as does leaving its home another way (a
+  // scarf's stair down to the forest cottage); Vale still meets people one
+  // by one after either.
+  if (
+    player === "vale" &&
+    (s.actors.vale.place === "pond" || !openingPlace(s.actors.vale.place))
+  )
     s.opening.crossed = true;
-  // Leaving the opening home another way (a scarf's stair down to the
-  // forest cottage) ends the opening: the pond is no longer its first shore.
-  if (!s.opening.crossed && !openingPlace(s.actors.vale.place)) {
-    delete s.opening;
-    return;
-  }
   if (!s.opening.crossed) {
     for (const id of roamingActors)
       if (entityActive(s, id) && s.actors[id].place === s.actors[player].place)
@@ -2989,14 +2995,15 @@ export function validateWorld(s) {
       ) ||
       (!sharedEnabled(s) &&
         o.met.keeper !== undefined &&
-        o.met.moth === undefined) ||
+        o.met.moth === undefined &&
+        !leftHome(s)) ||
       (!o.crossed &&
         (!openingPlace(s.actors?.vale?.place) ||
           Object.keys(o.met).some(
             (id) => id !== "vale" && !roamingActors.includes(id),
           ))) ||
       (o.version === 1 && o.crossed && !s.locations?.attic.anchored) ||
-      (o.crossed && o.met.moth === undefined) ||
+      (o.crossed && o.met.moth === undefined && !leftHome(s)) ||
       (o.version === 2 && !o.crossed)
     )
       fail();

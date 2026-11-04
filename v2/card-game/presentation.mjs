@@ -30,8 +30,14 @@ export function phase({
 export function refusalLabel(reason = "") {
   const first = String(reason)
     .trim()
-    .split(/(?<=[.!?])\s/u)[0];
+    .split(/(?<=[.!?…])\s/u)[0];
   return (first || "Not played")
     .replace(/^This world is waiting/u, "Waiting")
     .replace(/[.!]$/u, "");
 }
+// The label as a sentence for the status line: a question or a trailing
+// ellipsis keeps its own mark.
+export const refusalSentence = (reason) => {
+  const label = refusalLabel(reason);
+  return /[?…]$/u.test(label) ? label : `${label}.`;
+};

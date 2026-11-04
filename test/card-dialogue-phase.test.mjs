@@ -2,6 +2,7 @@ import { expect, it } from "vitest";
 import {
   phase,
   refusalLabel,
+  refusalSentence,
   THINKING_GRACE_MS,
 } from "../v2/card-game/presentation.mjs";
 import { WORLD_UPDATE } from "../v2/card-game/shared-auth.mjs";
@@ -56,4 +57,15 @@ it("labels a refused play's button with the reason's first sentence", () => {
     "The room filled just now",
   );
   expect(refusalLabel("")).toBe("Not played");
+});
+
+it("ends a refusal's status sentence with one mark", () => {
+  expect(refusalSentence("Choose a current play.")).toBe(
+    "Choose a current play.",
+  );
+  expect(refusalSentence("Is anyone there? Try again.")).toBe(
+    "Is anyone there?",
+  );
+  expect(refusalSentence("Wait… then try again.")).toBe("Wait…");
+  expect(refusalSentence("Not now!")).toBe("Not now.");
 });

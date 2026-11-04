@@ -16,7 +16,12 @@ import {
   createQuestEntries,
   questEntryKey,
 } from "./card-entry.mjs";
-import { phase, refusalLabel, THINKING_GRACE_MS } from "./presentation.mjs";
+import {
+  phase,
+  refusalLabel,
+  refusalSentence,
+  THINKING_GRACE_MS,
+} from "./presentation.mjs";
 import { glowCard, levelUpCard, transformPortrait } from "./card-level-up.mjs";
 import { crossedPortraitTier } from "./rarity-portraits.mjs";
 import {
@@ -2066,7 +2071,7 @@ function renderActions() {
     sharedRefusal && !actions.some((a) => a.key === sharedRefusal.key);
   if (aside)
     notice(
-      `Not played: ${sharedRefusal.label}. ${refusalLabel(sharedRefusal.reason)}.`,
+      `Not played: ${sharedRefusal.label}. ${refusalSentence(sharedRefusal.reason)}`,
       "rejected",
     );
   else if ($("play-status").dataset.playStatus === "rejected") notice("");
