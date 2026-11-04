@@ -2971,8 +2971,12 @@ pub(crate) mod tests {
 
     /// Vale waited with two thoughts settled since any dream, so a thought
     /// and a dream are both due. Earlier events count as new since then.
+    /// A dream is due only on waking from a long rest that dreamed by the
+    /// rules (rules 99): here the level quest's.
     pub(super) fn dream_due(c: &mut Context) {
         resting(c);
+        c.rest = Some("long".into());
+        c.dream = Some("quest".into());
         c.turn = c.turn.max(20);
         c.revision = c.revision.max(c.turn);
         let vale = &mut c.entities[0];

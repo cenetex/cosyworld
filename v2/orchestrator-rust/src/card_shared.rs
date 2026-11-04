@@ -39,6 +39,8 @@ mod opening_tests;
 #[cfg(test)]
 mod quest_core_tests;
 #[cfg(test)]
+mod quest_loop_tests;
+#[cfg(test)]
 mod road_upgrade_tests;
 #[cfg(test)]
 mod saved_items;
