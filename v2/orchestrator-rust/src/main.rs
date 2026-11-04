@@ -20818,7 +20818,7 @@ fn canonical_internal_authorized(state: &AppState, headers: &HeaderMap) -> bool 
         .get(header::AUTHORIZATION)
         .and_then(|value| value.to_str().ok())
         .and_then(|value| value.strip_prefix("Bearer "))
-        .is_some_and(|provided| provided == expected)
+        .is_some_and(|provided| config::router_token_matches(provided, expected))
 }
 
 async fn internal_canonical_command(
