@@ -36,6 +36,8 @@ import { stowProvisions } from "./helpers/provisions.mjs";
 import { openDoorStart } from "./helpers/open-door.mjs";
 import { sailTo } from "./helpers/voyage.mjs";
 import { openingFixture } from "./helpers/greek-opening.mjs";
+import { settleGate } from "./helpers/world-life.mjs";
+import { settleGuards } from "../v2/card-game/resident-guard.mjs";
 
 const pack = packDefinition("greek-drama");
 const ships = new Set(Object.values(transports).map((t) => t.place));
@@ -193,6 +195,8 @@ function reach(
         s.actors.vale.place = place;
         if (item) s.items[item].holder = holder;
         latchRoutes(s);
+        // A latched gate's guard stands aside, as a play settles it.
+        settleGuards(s);
         const found = exits(s, place, "vale").filter(keep);
         for (const to of lanes(place)) {
           const gate = laneConditions(place, to) || [];
@@ -438,7 +442,7 @@ const COUNTRYSIDE = ["greek-cithaeron", "greek-eleusis", "greek-colonus"];
 const CITY = ["greek-athens", "greek-road-athens-piraeus"];
 const holding = (world, item, holder) => {
   world.items[item].holder = holder;
-  return world;
+  return settleGate(world);
 };
 const has = (seen, ids) => ids.filter((id) => seen.has(id));
 

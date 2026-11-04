@@ -354,6 +354,14 @@ first, and is absent while the stack holds one. Player-facing text says quest.
   Residents pursue their top quest. A resident that keeps to its scene acts only while someone is
   there, so its quest can stall only after a first refused attempt, and the
   stall clock starts at that attempt.
+- **Home, range and sleep** (rules 100, `world-life.json`). Each resident has
+  a home and a range in hops (default 2; Oak and the Gate Guard 0). With a
+  player it acts as before; away from players it walks home one step a turn
+  after a push-back, beyond its range or at bedtime, and at dawn and dusk it
+  takes one step toward a want in range. It sleeps on its schedule, scattered
+  by the seed (Pip and Nix are nocturnal), and wakes for a Talk, a threat or
+  a ring; Ask, Trade and Invite wait until then. See the
+  [design note](../../docs/design/rules-100-world-life.md).
 - **Trust** has one source: someone gave me the item my quest wanted.
 - **Connect.** BoardyAI's starter quest is `{ "kind": "connect", "target":
 "humans" }` in `boardyai.json`. It is met by any Talk in his room while two
@@ -689,8 +697,14 @@ end's exit, opens the first time its condition holds and stays open after,
 and the way back stays open (see the
 [Open Door guide](../content/greek-drama/OPEN-DOOR.md)). The Theban Harbor Road is the only way
 between the Wine-Dark Harbor and Thebes. The battlefield is a Theban place
-outside the walls; the City Gate opens onto it once the gate guard holds the
-Burial Decree there and stays open, and the way back in is always open. The
+outside the walls; the Gate Guard bars the way to it (rules 100) until he
+holds the Burial Decree or Creon's writ, wherever he stands, and then it stays
+open. Beaten, he is knocked onto the battlefield and bars it again once he
+walks back. He bars the gate from the battlefield side too (the locked box,
+with the same reason), and only he may pass; the battlefield's other way out
+is the Cithaeron road, shown locked until it opens. A player may stand guard
+there too: yourself and the way
+reads "Guard", barring residents until your next play. The
 Cithaeron road leads on from the battlefield to Eleusis once a Theban account
 of the burial is there or on Dione's table. The Road to Delphi joins the Agora and
 Delphi, the Oeta Road joins Delphi and Trachis, the Royal Road joins Troy and

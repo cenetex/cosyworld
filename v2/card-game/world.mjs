@@ -183,6 +183,32 @@ import {
 import { installSpecials, validSeed } from "./pack-specials.mjs";
 import forest from "./forest.json" with { type: "json" };
 import { BOARDY, connectedHumans } from "./boardyai.mjs";
+import {
+  lifeHome,
+  rangeOf,
+  wanders,
+  mayBoard,
+  inRange,
+  rangeTest,
+  walksHome,
+  keepsHome,
+  lifeDataProblems,
+  validHome,
+  OFFSTAGE_STEPS,
+  worldLife,
+} from "./resident-home.mjs";
+import { bedtime, residentAsleep, validSleep } from "./resident-sleep.mjs";
+import {
+  guardableWays,
+  guardedExits,
+  guardedFrom,
+  isGuardable,
+  guardPost,
+  guardOf,
+  wayLifted,
+  settleGuards,
+  validGuard,
+} from "./resident-guard.mjs";
 
 // Authored forest data and mounted packs share the same rule path.
 export const places = { ...forest.places, ...packPlaces };
@@ -193,6 +219,9 @@ export const sanctuaries = Object.keys(places).filter(
 export const people = { ...forest.people, ...packPeople };
 export const things = { ...packThings, ...forest.things };
 validatePackLinks(places, people, things);
+const lifeProblems = lifeDataProblems(places, people);
+if (lifeProblems.length)
+  throw new Error(`Invalid world life data: ${lifeProblems.join("; ")}`);
 // Geography identifies resources beyond the attic; each real trip keeps its gates.
 const atticInterior = (() => {
   const found = new Set(["attic"]),
@@ -291,6 +320,7 @@ export function createWorld({ opening = false, packScopes = {}, seed } = {}) {
   // waiting for its first quest.
   fillWants(world, wantAPI(world), true);
   rememberEvent(world, world.log[0]);
+  settleGuards(world);
   return world;
 }
 // Mount every pack missing from this save: its crossings, its state, and its
@@ -575,31 +605,50 @@ function pondRescueExit(s, place, actor, previous) {
 export function exits(s, place, actor = null, previous = null) {
   const rescue = homeRescueExit(s, place, actor, previous),
     returnPath = pondRescueExit(s, place, actor, previous);
-  return [
+  const ways = [
     ...ordinaryExits(s, place, actor, previous),
     ...(rescue ? [rescue] : []),
     ...(returnPath ? [returnPath] : []),
-  ].filter(
+  ];
+  // A guardable way, and the way back through it (rules 100).
+  for (const to of guardedExits(s, place))
+    if (!ways.includes(to)) ways.push(to);
+  return ways.filter(
     (to) =>
       entityActive(s, to) &&
       actorCanVisit(actor, to, s) &&
-      humanRoomAvailable(s, actor, to),
+      humanRoomAvailable(s, actor, to) &&
+      !guardOf(s, place, to, actor),
   );
 }
 
 // A sealed way (rules 95): a pack route that names its sealed card and the
 // quest that opens it, while it is shut from where the traveller stands.
-const sealedRoutes = packDefinitions.flatMap((pack) =>
-  (pack.routes || []).filter((r) => r.sealed),
-);
+// A guarded way shows the same sealed card while its guard bars it, and the
+// reason names the guard (rules 100); it gives its quest if the route has one.
+let sealedRoutes = null;
 export function sealedWays(s, actor = currentActor(s)) {
+  sealedRoutes ??= packDefinitions.flatMap((pack) =>
+    (pack.routes || []).filter((r) => r.sealed || isGuardable(r.from, r.to)),
+  );
   const here = s.actors[actor]?.place,
-    ways = sealedRoutes.filter(
-      (r) => r.from === here && entityActive(s, r.to) && entityActive(s, here),
-    );
+    ways = [
+      ...sealedRoutes.filter((r) => r.from === here),
+      // A guard bars his way from both sides (rules 100).
+      ...guardedFrom(here).map((to) => ({ from: here, to })),
+    ].filter((r) => entityActive(s, r.to) && entityActive(s, here));
   if (!ways.length) return [];
-  const open = exits(s, here, actor);
-  return ways.filter((r) => !open.includes(r.to));
+  const open = exits(s, here, actor),
+    seen = new Set();
+  return ways
+    .filter((r) => !open.includes(r.to))
+    .flatMap((r) => {
+      const guard = guardOf(s, here, r.to, actor);
+      if (!guard) return r.sealed ? [r] : [];
+      const reason = `${nameOf(guard)} bars the way`;
+      return [{ ...r, sealed: { ...r.sealed, reason }, guardedBy: guard }];
+    })
+    .filter((r) => !seen.has(r.to) && seen.add(r.to));
 }
 // The quest a sealed card gives: the thing to hold, or to give someone, the
 // place to reach or the person to talk with.
@@ -768,18 +817,24 @@ function refusalReason(s, a) {
 // What the other side will say to a Give or Trade. The residents' planner
 // reads this to avoid some offers it expects to be refused.
 export function expects(s, a) {
-  if (a.kind === "give") return giftWilling(s, a.item, a.target);
+  if (a.kind === "give")
+    return residentAsleep(s, a.target) || giftWilling(s, a.item, a.target);
   if (a.kind === "trade") return tradeWilling(s, a.actor, a.item, a.receive);
   return true;
 }
 // Places an actor can route to now, for drawing a next want.
-function reachable(s, actor) {
+// A resident kept to a range searches only within it (rules 100).
+function reachable(s, actor, within = null) {
   const from = s.actors[actor].place,
     seen = new Set([from]),
     queue = [from];
   for (let i = 0; i < queue.length; i++)
     for (const next of exits(s, queue[i], actor))
-      if (!seen.has(next) && entityActive(s, next)) {
+      if (
+        !seen.has(next) &&
+        entityActive(s, next) &&
+        (!within || within(next))
+      ) {
         seen.add(next);
         queue.push(next);
       }
@@ -807,7 +862,10 @@ export function wantAPI(s) {
         )
       );
     },
-    reachable: (actor) => reachable(s, actor),
+    // A resident kept to a range only wants what lies within it (rules 100).
+    reachable: (actor) => reachable(s, actor, rangeTest(s, actor)),
+    rangeTest: (actor) => rangeTest(s, actor),
+    wanders: (actor) => wanders(s, actor),
     places: () => Object.keys(places),
     home: homeOf,
     active: (id) => entityActive(s, id),
@@ -1213,7 +1271,16 @@ function defeatInStandoff(s, c, winner, loser, here) {
   delete defeats[winner];
   const lossCount = (defeats[loser] || 0) + 1;
   const home = homeOf(loser);
+  // A guard beaten at its post is knocked through the way it guards, even
+  // a third time: its home is the post (rules 100).
+  const post = guardPost(loser);
+  const knocked =
+    post?.from === here &&
+    !wayLifted(s, post.from, post.to) &&
+    entityActive(s, post.to) &&
+    actorCanVisit(loser, post.to, s);
   const sentHome =
+    !knocked &&
     lossCount >= DEFEATS_TO_SEND_HOME &&
     Boolean(home) &&
     entityActive(s, home) &&
@@ -1235,9 +1302,11 @@ function defeatInStandoff(s, c, winner, loser, here) {
   if (lossCount >= DEFEATS_TO_SEND_HOME) delete defeats[loser];
   else defeats[loser] = lossCount;
   const outcome = sentHome ? "sent-home" : "yield";
-  const to = sentHome
-    ? home
-    : exits(s, here, loser).find((next) => !isCourse(s, here, next, loser));
+  const to = knocked
+    ? post.to
+    : sentHome
+      ? home
+      : exits(s, here, loser).find((next) => !isCourse(s, here, next, loser));
   // The loser leaves the battle; it ends with one combatant left or the
   // disputed item let go.
   leaveBattle(s, c, loser);
@@ -1254,11 +1323,20 @@ function defeatInStandoff(s, c, winner, loser, here) {
   if (!sentHome) markCrossed(s, here, to);
   s.actors[loser].place = to;
   moveTransport(s, here, to);
+  // A resident pushed from home walks back to it (rules 100).
+  if (
+    !humanHeld(s, loser) &&
+    rangeOf(s, loser) !== null &&
+    to !== lifeHome(loser)
+  )
+    s.actors[loser].homeward = true;
   for (const id of carried(s, loser))
     remember(s, id, `${nameOf(loser)} retreated to ${nameOf(to)} with it.`);
   text += sentHome
     ? ` ${nameOf(loser)} is beaten a third time and sent home to ${nameOf(to)}.${ends}`
-    : ` ${nameOf(loser)} retreats to ${nameOf(to)}.${ends}`;
+    : knocked
+      ? ` ${nameOf(loser)} is knocked through to ${nameOf(to)}.${ends}`
+      : ` ${nameOf(loser)} retreats to ${nameOf(to)}.${ends}`;
   return {
     text,
     outcome,
@@ -1404,6 +1482,29 @@ export function legalActions(s, actor = currentActor(s)) {
     )?.verb === "wait"
   )
     out.push(sleep);
+  // A player may stand guard at a guardable way it could take: a standing
+  // Wait that lasts until its next other play (rules 100).
+  if (
+    !conflict &&
+    !transportPlace(here) &&
+    (actor === currentActor(s) || controlledByHuman(s, actor))
+  ) {
+    const open = exits(s, here, actor);
+    for (const to of guardableWays(here).filter((to) => open.includes(to)))
+      out.push({
+        ...offer(
+          "wait",
+          actor,
+          null,
+          to,
+          `${nameOf(actor)} guards the way to ${nameOf(to)}.`,
+          [actor, to],
+        ),
+        key: `guard-way:${actor}::${to}`,
+        label: "Guard",
+        guards: to,
+      });
+  }
   for (const to of packPeople[actor]?.journey ? [] : exits(s, here, actor)) {
     if (departureWaits(s, actor, to)) continue;
     // A course card aboard a docked ship sets the voyage for everyone aboard.
@@ -1434,7 +1535,8 @@ export function legalActions(s, actor = currentActor(s)) {
           canDisembark(s, crossing.transport, id)) &&
         id !== actor &&
         !controlledByHuman(s, id) &&
-        (!staysPut(id, s) || packJourneyDestination(s, id) === to) &&
+        ((!staysPut(id, s) && !keepsHome(s, id)) ||
+          packJourneyDestination(s, id) === to) &&
         !departureWaits(s, id, to) &&
         s.actors[id].place === here,
     )) {
@@ -1496,7 +1598,7 @@ export function legalActions(s, actor = currentActor(s)) {
           actor,
           null,
           other,
-          `${nameOf(actor)} guards ${nameOf(other)}.`,
+          `${nameOf(actor)} covers ${nameOf(other)}.`,
           [actor, other],
         ),
       );
@@ -1728,8 +1830,9 @@ export function legalActions(s, actor = currentActor(s)) {
     for (const r of sealedWays(s, actor)) {
       const top = questsOf(s, actor)[0];
       if (
-        top?.kind === r.sealed.quest.kind &&
-        top.target === r.sealed.quest.target
+        !r.sealed.quest ||
+        (top?.kind === r.sealed.quest.kind &&
+          top.target === r.sealed.quest.target)
       )
         continue;
       out.push(offer("gate", actor, null, r.to, r.sealed.reason, [r.to]));
@@ -1765,7 +1868,13 @@ export function legalActions(s, actor = currentActor(s)) {
       if (crossing?.travelLabel) action.label = crossing.travelLabel;
     }
   }
-  const open = roomLocked(s, here, actor, out);
+  // A sleeping resident is asked, traded with and invited only once awake;
+  // a Give it keeps for waking (rules 100).
+  const open = roomLocked(s, here, actor, out).filter(
+    (a) =>
+      !["ask", "trade", "accompany"].includes(a.kind) ||
+      !residentAsleep(s, a.target),
+  );
   // Every Give and Trade is offered. While planning, residents only consider
   // the offers they expect the other side to accept.
   return planReads ? open.filter((a) => expects(s, a)) : open;
@@ -1925,7 +2034,8 @@ function wakeUp(s, id, woke, text) {
 function wakeSleepers(s, before, voyages) {
   for (const id of actorIds) {
     const z = s.actors[id].sleeping;
-    if (!z) continue;
+    // A resident's sleep keeps its schedule (residentRound).
+    if (!z || z.until !== undefined) continue;
     // A traveller arriving or leaving is named before a resident.
     const first = (list) =>
       list.find((x) => controlledByHuman(s, x)) ?? list[0];
@@ -1972,6 +2082,171 @@ function wakeSleepers(s, before, voyages) {
         [s.turn - z.since >= SLEEP_TURNS, "rested", "wakes, rested"],
       ].find(([hit]) => hit) ?? [];
     if (woke) wakeUp(s, id, woke, `${who} ${text}.`);
+  }
+}
+// --- Rules 100: world life (resident-home, -sleep, -guard) ---------------
+// A resident asleep on its schedule wakes, at once, for a Talk, a threat, a
+// ring where it sleeps or being moved. It stays awake until its next bedtime.
+function wakeResident(s, id) {
+  if (!residentAsleep(s, id)) return false;
+  delete s.actors[id].sleeping;
+  return true;
+}
+// Where a resident's want would take it, or null.
+function wantPlace(s, id) {
+  const want = wantOf(s, id);
+  if (!want || resting(s, id)) return null;
+  if (want.kind === "place") return want.target;
+  if (want.kind === "person") return s.actors[want.target]?.place ?? null;
+  if (want.kind === "item" && rootHolder(s, want.target) !== id)
+    return itemPlace(s, want.target);
+  return null;
+}
+// After the cast has acted: who falls asleep or rises, then the walk home
+// and, at dawn and dusk, one step for each resident where no player is.
+// Sorted ids, at most OFFSTAGE_STEPS steps, starting further on each turn.
+function residentRound(s, acted) {
+  if (!worldLife.on) return;
+  const occupied = new Set(
+    actorIds
+      .filter((id) => controlledByHuman(s, id) && humanPresent(s, id))
+      .map((id) => s.actors[id].place),
+  );
+  const seen = (place) => occupied.has(place);
+  const life = actorIds
+    .filter(
+      (id) =>
+        !controlledByHuman(s, id) &&
+        !roamingActors.includes(id) &&
+        (!humanAvatar(id) || residentAvatar(s, id)) &&
+        entityActive(s, id),
+    )
+    .sort();
+  for (const id of life) {
+    const a = s.actors[id],
+      z = a.sleeping;
+    if (a.homeward && a.place === lifeHome(id)) delete a.homeward;
+    if (z?.until !== undefined) {
+      if (s.turn >= z.until || a.place !== z.place || standoffFor(s, id)) {
+        wakeResident(s, id);
+        if (seen(a.place))
+          addLog(s, "World", `${nameOf(id)} wakes.`, {
+            kind: "narration",
+            actorId: id,
+            locationId: a.place,
+          });
+      }
+      continue;
+    }
+    const w = bedtime(s, id);
+    if (
+      z ||
+      !w ||
+      a.slept === w.start ||
+      standoffFor(s, id) ||
+      transportPlace(a.place)
+    )
+      continue;
+    // A resident sleeps at home: away, it walks home first if it can.
+    const home = lifeHome(id);
+    if (
+      rangeOf(s, id) !== null &&
+      home &&
+      a.place !== home &&
+      entityActive(s, home) &&
+      stepToward(s, id, home).action?.kind === "move"
+    ) {
+      a.homeward = true;
+      continue;
+    }
+    a.slept = w.start;
+    a.sleeping = { since: s.turn, place: a.place, until: w.end };
+    if (seen(a.place))
+      addLog(s, "World", `${nameOf(id)} falls asleep.`, {
+        kind: "narration",
+        actorId: id,
+        locationId: a.place,
+      });
+  }
+  const dawnOrDusk = s.turn % DAYLIGHT_TURNS === 0;
+  const walkers = life.filter(
+    (id) =>
+      !acted.includes(id) &&
+      !s.actors[id].sleeping &&
+      !seen(s.actors[id].place) &&
+      !standoffFor(s, id) &&
+      s.peaceUntil[id] <= s.turn &&
+      (Number.isFinite(rangeOf(s, id)) || s.actors[id].homeward) &&
+      !transportPlace(s.actors[id].place),
+  );
+  const start = walkers.length ? s.turn % walkers.length : 0;
+  const moved = [];
+  let steps = 0;
+  for (const id of [...walkers.slice(start), ...walkers.slice(0, start)]) {
+    if (steps >= OFFSTAGE_STEPS) break;
+    const a = s.actors[id],
+      here = a.place,
+      home = lifeHome(id);
+    if (!home || !entityActive(s, home)) {
+      delete a.homeward;
+      continue;
+    }
+    const goal = wantPlace(s, id);
+    const ranged = Number.isFinite(rangeOf(s, id));
+    const idleAway = ranged && here !== home && !(goal && inRange(s, id, goal));
+    const target =
+      here !== home && (walksHome(s, id) || idleAway || (ranged && dawnOrDusk))
+        ? home
+        : dawnOrDusk &&
+            wanders(s, id) &&
+            goal &&
+            goal !== here &&
+            inRange(s, id, goal)
+          ? goal
+          : null;
+    if (!target) continue;
+    steps += 1;
+    const step = stepToward(s, id, target).action;
+    const to = step?.kind === "move" ? step.target : null;
+    if (!to || transportPlace(to) || (target !== home && !inRange(s, id, to)))
+      continue;
+    travel(s, id, to);
+    if (to === home) delete a.homeward;
+    moved.push(id);
+    if (seen(to) || seen(here))
+      addLog(
+        s,
+        "World",
+        seen(to)
+          ? `${nameOf(id)} arrives.`
+          : `${nameOf(id)} leaves for ${nameOf(to)}.`,
+        {
+          kind: "narration",
+          actorId: id,
+          locationId: seen(to) ? to : here,
+          fromLocationId: here,
+        },
+      );
+  }
+  if (!moved.length) return;
+  // Arriving meets a want for a place; two who meet off-stage meet a want
+  // to talk, as a rules fact without speech.
+  const api = wantAPI(s);
+  settleWants(s, moved, api);
+  for (const id of moved.sort()) {
+    const want = wantOf(s, id),
+      other = want?.kind === "person" ? want.target : null;
+    if (
+      other &&
+      s.actors[other]?.place === s.actors[id].place &&
+      !s.actors[other].sleeping &&
+      entityActive(s, other)
+    )
+      settleWants(s, [id, other], api, {
+        kind: "talk",
+        actor: id,
+        target: other,
+      });
   }
 }
 // A battle ends after one full round without a Strike: every combatant has
@@ -2029,6 +2304,7 @@ function performPlay(s, a, round = null, settle = []) {
   if (a.kind === "wait") {
     const asleep = Boolean(s.actors[a.actor].sleeping);
     rest(s, a.actor, here, a.sleep);
+    if (a.guards) s.actors[a.actor].guarding = a.guards;
     const learningStart = beginLearning(s, a);
     if (a.actor === currentActor(s)) calm(s, here);
     // Observing here, awake, may notice one of the place's signs.
@@ -2044,6 +2320,7 @@ function performPlay(s, a, round = null, settle = []) {
         verb: "wait",
         witnesses,
         ...(a.sleep ? { sleep: true } : {}),
+        ...(a.guards ? { guards: a.guards } : {}),
       });
       if (learningStart) recordLearning(s, a, learningStart, s.log.at(-1));
     }
@@ -2096,6 +2373,7 @@ function performPlay(s, a, round = null, settle = []) {
       break;
     }
     case "threaten":
+      if (wakeResident(s, a.target)) text += ` ${nameOf(a.target)} wakes.`;
       if (here === "pond") s.locations.pond.answer = null;
       s.standoffs.push({
         challenger: a.actor,
@@ -2134,7 +2412,7 @@ function performPlay(s, a, round = null, settle = []) {
       conflict.struck[a.actor] = true;
       (conflict.hitBy ??= {})[hit] = a.actor;
       conflict.resolve[hit] = Math.max(0, resolveBefore - damage);
-      text += `${guard ? ` ${nameOf(guard)} steps in front of ${nameOf(a.target)}.` : ""} ${guarded ? "The guard softens the blow. " : ""}${nameOf(hit)} loses ${damage} resolve.`;
+      text += `${guard ? ` ${nameOf(guard)} steps in front of ${nameOf(a.target)}.` : ""} ${guarded ? "The brace softens the blow. " : ""}${nameOf(hit)} loses ${damage} resolve.`;
       combat = {
         ...(guard ? { targetId: guard, coveredId: a.target } : {}),
         damage,
@@ -2222,6 +2500,9 @@ function performPlay(s, a, round = null, settle = []) {
     case "ring":
       // Any sound made here disturbs the residents resting here.
       for (const line of disturb(s, here)) text += ` ${line}`;
+      for (const id of actorIds)
+        if (s.actors[id].place === here && wakeResident(s, id))
+          text += ` ${nameOf(id)} wakes.`;
       if (a.fixture) {
         soundFixture(s, a.fixture);
         break;
@@ -2242,8 +2523,10 @@ function performPlay(s, a, round = null, settle = []) {
       const told = packTalkChoice(s, a);
       if (told)
         text = choiceText(applyPackChoice(s, told, { mode: "talk" }), a.actor);
-      const woken = wakeByVoice(s, a.target);
+      const woken = wakeByVoice(s, a.target),
+        roused = wakeResident(s, a.target);
       if (woken) text += ` ${woken}`;
+      else if (roused) text += ` ${nameOf(a.target)} wakes.`;
       s.actors[a.actor].lastTalk = s.turn;
       break;
     }
@@ -2617,13 +2900,33 @@ function wantPlan(s, actor) {
     );
     return answer(friend && find("intercept", (a) => a.target === friend));
   }
-  if (!want) return idle();
+  // Rules 100: a resident walking home goes home first, and one kept to a
+  // range drifts home when it has nothing to pursue here. With a player it
+  // acts as before; its wants take it walking only at dawn and dusk, away
+  // from players (residentRound).
+  const home = lifeHome(actor),
+    ranged = Number.isFinite(rangeOf(s, actor) ?? Infinity);
+  const homeStep = () => {
+    const step = home && here !== home ? stepToward(s, actor, home) : null;
+    return step?.action ? { action: step.action } : idle();
+  };
+  const drift = () => (ranged && worldLife.on ? homeStep() : idle());
+  if (walksHome(s, actor)) return homeStep();
+  if (!want) return drift();
   if (resting(s, actor)) return idle();
   // A maker leaves what it makes for others to carry.
   if (want.kind === "item" && makerChoice(actor, want.target)) return idle();
   const go = (place) => {
-    if (!travels(actor, s) || staysPut(actor, s)) return idle();
+    if (!travels(actor, s) || staysPut(actor, s) || keepsHome(s, actor))
+      return drift();
     const step = stepToward(s, actor, place);
+    const to = step.action?.kind === "move" ? step.action.target : null;
+    if (
+      ranged &&
+      to &&
+      (!inRange(s, actor, to) || (transportPlace(to) && !mayBoard(s, actor)))
+    )
+      return drift();
     return step.action
       ? { action: step.action }
       : { ...idle(), ...(step.callShip ? { callShip: true } : {}) };
@@ -2743,6 +3046,7 @@ export function play(
       verb: "pack",
       witnesses: [actor],
     });
+    settleGuards(next);
     validateWorld(next);
     return { ok: true, state: next };
   }
@@ -2786,6 +3090,16 @@ export function play(
     validateWorld(next);
     return { ok: true, state: next };
   }
+  // Any other play ends a player's guard (rules 100), and an away avatar's
+  // resident sleep becomes its returning player's own.
+  if (!exact.guards) delete next.actors[actor].guarding;
+  const dozing = next.actors[actor].sleeping;
+  if (dozing?.until !== undefined)
+    next.actors[actor].sleeping = {
+      since: dozing.since,
+      place: dozing.place,
+      present: bodiesAt(next, dozing.place),
+    };
   // Crossings open before the play decide whether a signal refreshes them.
   const round = beginRound(s, sensesFor(s));
   next.turn += 1;
@@ -2832,6 +3146,9 @@ export function play(
       controlledByHuman(next, id)
     )
       continue;
+    // A sleeper makes no play unless a fight wakes it (rules 100).
+    if (residentAsleep(next, id) && !standoffFor(next, id)) continue;
+    wakeResident(next, id);
     perform(next, plan(next, id).action, round, residents);
   }
   if (next.items.lamp.lit) {
@@ -2891,6 +3208,7 @@ export function play(
     if (next.actors[id].place !== from)
       arriveRoamingRecitals(next, packDefinitions, id);
   }
+  residentRound(next, [actor, respondent, ...residents].filter(Boolean));
   // Sleeping at a dock calls no ship: only the Wait before it does.
   if (exact.kind === "wait" && !exact.sleep)
     waitForTransport(next, next.actors[actor].place, actor);
@@ -2931,6 +3249,7 @@ export function play(
   settleStandoffs(next);
   // A gate whose condition now holds stays open from here on.
   latchRoutes(next);
+  settleGuards(next);
   for (const [id, allowance] of Object.entries(
     next.sharedMigration?.inventoryAllowances || {},
   )) {
@@ -3094,7 +3413,10 @@ export function validateWorld(s) {
     !validRouteKnowledge(s, [...authoredRouteEdges(), ...laneEdges()]) ||
     !validMemories(s) ||
     !validMotives(s) ||
-    !validLife(s, Object.keys(places))
+    !validLife(s, Object.keys(places)) ||
+    !validHome(s) ||
+    !validSleep(s, places) ||
+    !validGuard(s, places)
   )
     fail();
   if (
@@ -3205,6 +3527,7 @@ export function validateWorld(s) {
       a.lastTalk > s.turn ||
       (a.sanctuary !== undefined && !sanctuaries.includes(a.sanctuary)) ||
       (a.sleeping !== undefined &&
+        a.sleeping?.until === undefined &&
         (!a.sleeping ||
           Object.keys(a.sleeping).sort().join() !== "place,present,since" ||
           !Number.isSafeInteger(a.sleeping.since) ||
@@ -3402,7 +3725,9 @@ export function validateWorld(s) {
       (e.dream !== undefined &&
         (!DREAMS.includes(e.dream) || e.rest !== "long")) ||
       (e.woke !== undefined &&
-        (!WAKE_REASONS.includes(e.woke) || e.verb !== "wait"))
+        (!WAKE_REASONS.includes(e.woke) || e.verb !== "wait")) ||
+      (e.guards !== undefined &&
+        (e.verb !== "wait" || !Object.hasOwn(places, e.guards)))
     )
       fail();
     if (
@@ -3481,8 +3806,10 @@ export function decodeSave(text) {
       setAside: (world, id) =>
         !humanHeld(world, id) && setAsideWant(world, id, wantAPI(world)),
     });
-    // An earlier save records the gates already open as it loads.
+    // An earlier save records the gates already open as it loads, and its
+    // guards take their posts (rules 100).
     latchRoutes(s);
+    settleGuards(s);
     validateWorld(s);
     preserveTransportAccess(s);
   } catch (error) {

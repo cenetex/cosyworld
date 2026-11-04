@@ -57,7 +57,8 @@ verb: it is `wait` with `sleep: true`, labelled "Sleep" (key
 actor's last committed play was a Wait (a waking counts), and never aboard a
 ship, during a standoff, or where a lit lamp has one oil or less left: that
 Sleep would sleep through the burnout, so the player gets a plain Wait, which
-burns the last oil and opens the mirror. Residents never sleep.
+burns the last oil and opens the mirror. Residents sleep on their own
+schedules (below).
 
 The client (`restPlays` in `cards.mjs`) shows Sleep in place of the Wait only
 when the same cards are chosen again after a committed Wait, at the same table
@@ -112,6 +113,24 @@ thought and dream are due then and the `reflect` op accepts them.
 
 Old journals replay unchanged on their own bundles. A save from before rules
 89 loses `sleepUntil` when it loads, so its sleeper is simply awake.
+
+### Residents sleep (rules 100)
+
+Residents and away avatars sleep on schedules from `world-life.json`: the
+default is 22:00 to 06:00, the Greek cast 21:00 to 05:30, Pip and Nix are
+nocturnal, and the Bard, BoardyAI and the Gate Guard never sleep. Each
+bedtime and rise time scatters by up to three turns, by the run seed and the
+day (`sleep:<id>:<day>`, `wake:<id>:<day>`), so the world never drops asleep
+at once. Nobody sleeps on a world's first day.
+
+- An idle resident falls asleep at home, walking there first if it can:
+  `sleeping: {since, place, until}`, and `slept` records the window.
+- It wakes at `until`, for a Talk, a threat, a ring where it sleeps, a fight
+  or being moved, and stays awake until its next bedtime.
+- Asleep, it makes no play. Ask, Trade and Invite are not offered, and the
+  context button says why ("Pip is asleep"); a Give is kept for waking.
+- A resident's sleep never wakes on arrivals, light changes or the other
+  player rules above. The card shows the sleeping portrait where one exists.
 
 ## Losses
 

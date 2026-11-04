@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import "./helpers/still-cast.mjs";
 
 // Rules 95: things used up and coming back, on a test copy of the Greek pack.
 // The fixture adds a homed loop (bread, figs and wine regrow; Myrto makes the
@@ -50,6 +51,17 @@ function act(s, kind, fields = {}, actor = "vale") {
   return reload(result.state);
 }
 const wait = (s) => act(s, "wait", { sleep: undefined });
+// A long rest at the sanctuary: sleep again if a passer-by wakes the sleeper
+// first (the roaming Bard follows other residents' wants).
+function longRest(s) {
+  for (let i = 0; i < 6; i++) {
+    const turn = s.turn;
+    s = act(s, "wait", { sleep: true });
+    if (s.log.some((e) => e.turn > turn && e.rest === "long")) return s;
+    s = wait(s);
+  }
+  throw new Error("no long rest");
+}
 // A world at the Wine-Dark Harbor, with the bread already baked.
 function harbor() {
   let s = enableMotives(createWorld());
@@ -200,7 +212,7 @@ describe("rules 95 item cycle", () => {
     // A long rest at the sanctuary brings the figs back.
     s.actors.vale.place = "greek-sanctuary";
     s = reload(s);
-    s = act(s, "wait", { sleep: true });
+    s = longRest(s);
     expect(s.actors.vale.sleeping).toBeUndefined();
     expect(s.items["greek-test-figs"].holder).toBe("greek-sanctuary");
     expect(s.usedUp).toEqual([]);
@@ -317,7 +329,9 @@ describe("rules 95 item cycle", () => {
     s = reload(s);
     expect(exits(s, "greek-gate", "vale")).not.toContain("greek-battlefield");
     expect(availableCards(s)).toContain("greek-battlefield");
-    expect(sealedReason(s, "greek-battlefield")).toMatch(/holds an order/u);
+    expect(sealedReason(s, "greek-battlefield")).toBe(
+      "The Gate Guard bars the way",
+    );
     const row = cardActions(s, ["greek-battlefield"]).actions;
     expect(row.map((a) => a.kind)).toEqual(["gate"]);
     const turn = s.turn;
@@ -353,7 +367,7 @@ describe("rules 95 item cycle", () => {
           s = wait(toTurn(s, t - 1));
         }
         s.actors.vale.place = "greek-sanctuary";
-        s = act(reload(s), "wait", { sleep: true });
+        s = longRest(reload(s));
         unique(s);
         expect(s.usedUp).toEqual(["greek-provisions"]);
         for (const id of LOOP) s.items[id].holder = "vale";
