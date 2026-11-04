@@ -18,12 +18,46 @@ function wake() {
 document.addEventListener("visibilitychange", wake);
 reducedMotion.addEventListener("change", wake);
 
+// The painting's frame and the stage's box, read once and kept until
+// something can move them: a new size, the stage's or the page's own styles
+// (focus, art ratio, dock height). A fight pushes in on the painting
+// (combat-view.mjs), so it is followed frame by frame while the fight is on.
+// Reading them on every frame laid the page out again on every frame.
+const frames = new WeakMap();
+function paintingFrame(stage) {
+  const art = stage.querySelector(".stage-figures");
+  let kept = frames.get(stage);
+  if (!kept || kept.art !== art) {
+    kept?.watch.forEach((watcher) => watcher.disconnect());
+    const stale = () => (kept.boxes = null);
+    const sizes = new ResizeObserver(stale);
+    const styles = new MutationObserver(stale);
+    kept = { art, boxes: null, watch: [sizes, styles] };
+    for (const element of [stage, art].filter(Boolean)) sizes.observe(element);
+    for (const element of [stage, document.documentElement])
+      styles.observe(element, {
+        attributeFilter: ["style", "class", "data-combat"],
+      });
+    frames.set(stage, kept);
+  }
+  if (!kept.boxes || stage.dataset.combat)
+    kept.boxes = {
+      art: art?.getBoundingClientRect(),
+      box: stage.getBoundingClientRect(),
+    };
+  return kept.boxes;
+}
+function forgetFrame(stage) {
+  const kept = frames.get(stage);
+  if (kept) kept.boxes = null;
+}
+
 // Pools, stars and moon sit on the painting, so they follow its frame on the
 // stage: painting percent becomes the canvas's 0..1, bottom up.
 function onPainting(stage, light) {
-  const art = stage.querySelector(".stage-figures")?.getBoundingClientRect();
-  const box = stage.getBoundingClientRect();
-  if (!art?.height || !box.height || !light) return {};
+  if (!light) return {};
+  const { art, box } = paintingFrame(stage);
+  if (!art?.height || !box.height) return {};
   const x = (v) => (art.left - box.left + (art.width * v) / 100) / box.width;
   const y = (v) =>
     1 - (art.top - box.top + (art.height * v) / 100) / box.height;
@@ -106,6 +140,7 @@ function animate(layer, weather, ease) {
     };
     state.draw = draw;
     state.resize = new ResizeObserver(() => {
+      forgetFrame(stage);
       resize();
       if (!state.frame) draw();
     });
@@ -130,6 +165,7 @@ function animate(layer, weather, ease) {
   }
   state.uniforms = uniforms;
   state.weather = weather;
+  forgetFrame(stage);
   layer.dataset.shader = "webgl";
   stage.dataset.stageShader = "webgl";
   if (!state.frame) state.draw();
