@@ -108,7 +108,10 @@ both back in, the song from where it stopped (`setQuiet` in `music.mjs` and
 `music-cues.mjs`). The island hum and world sounds rest with it. Reduced
 motion swaps the scene at once. A moment later the workbench painting comes
 up whole as Settings' own scene, as a place's painting is a scene's
-(`SCENE`). `smoke-card-settings.mjs` checks the groups, Privacy one tap
+(`SCENE`). Opening, the play hand's cards fall away (`card-exit.mjs`) and the
+settings are dealt after a beat (`card-swap.mjs`); closing deals the play
+hand back, and reduced motion fades it in. `smoke-card-settings.mjs` checks
+the deal both ways, the groups, Privacy one tap
 away, the peek, the hover lift, fanning, choosing, pressing, the fold, the
 second press and closing at three widths; `smoke-card-music.mjs` checks the
 held song.
