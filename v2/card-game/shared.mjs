@@ -69,7 +69,24 @@ function openFailure(error) {
 // The world waits, unchanged, and opens itself when the newer build is back.
 export const UPDATING = "Updating — back in a moment";
 export const updatingDelay = (attempt) => Math.min(2000 * 2 ** attempt, 30000);
+// The panel's words cross into new ones, and an opened world fades the
+// panel out over its table, which it stops holding at once.
+const PANEL_FADE_MS = 200;
+function fadePanelOut() {
+  if (!modal?.open) return;
+  modal.close();
+  if (!modal.animate) return;
+  modal.show();
+  modal.animate({ opacity: [1, 0] }, { duration: PANEL_FADE_MS }).finished.then(
+    () => modal.open && modal.close(),
+    () => {},
+  );
+}
 function panel(title, description, closable = true) {
+  // A panel fading out comes back whole, holding the page again.
+  for (const fade of modal?.getAnimations?.() ?? []) fade.cancel();
+  if (modal?.open && !modal.matches(":modal")) modal.close();
+  const crossing = Boolean(modal?.open && modal.children.length);
   if (!modal) {
     ensureSharedStyle();
     modal = node("dialog", undefined, "shared-lobby");
@@ -93,6 +110,12 @@ function panel(title, description, closable = true) {
   modal.append(error);
   document.body.inert = false;
   if (!modal.open) modal.showModal();
+  // Its new words, and what the caller adds, come in over the old ones.
+  if (crossing && modal.animate)
+    queueMicrotask(() => {
+      for (const part of modal.children)
+        part.animate({ opacity: [0, 1] }, { duration: PANEL_FADE_MS });
+    });
   document.dispatchEvent(new Event("shared-dialog-change"));
   return modal;
 }
@@ -167,7 +190,7 @@ export async function connectSharedWorld(id) {
       }
       // A full room waits at the table (renderRoomStatus).
       value = await worldRequest({ op: "enter" });
-      modal?.close();
+      fadePanelOut();
       resolve(value);
     };
     // One message: why the world did not open, and that it is kept. A

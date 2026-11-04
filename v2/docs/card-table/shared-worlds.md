@@ -302,7 +302,10 @@ A world saved by rules newer than the server's (a release swap, see
 [release operations](../../../docs/release.md#dev-trains)) is not migrated or
 rewritten: the open and play paths answer `503` with `code: "updating"`, and
 the Open this world card labels its disabled action "Updating — back in a
-moment" and retries on its own (2 s doubling to 30 s). An older or unknown
+moment" and retries on its own (2 s doubling to 30 s). Each retry's words
+come in over the old ones, and when the world opens the card fades out over
+200 ms, no longer holding the page, as its first hand is dealt
+(`v2/scripts/smoke-card-shared-updating.mjs`). An older or unknown
 version keeps "This world's rules need a saved migration."
 
 Version 9 adds a two-card quest hand and explicit Drop actions. Loading an earlier

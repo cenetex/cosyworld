@@ -38,7 +38,11 @@
     },
     {
       "paths": "^v2/card-game/shared|^v2/orchestrator-rust/|^v2/core-c/",
-      "smokes": ["smoke-shared-play-status", "smoke-shared-snapshot-order"]
+      "smokes": [
+        "smoke-card-shared-updating",
+        "smoke-shared-play-status",
+        "smoke-shared-snapshot-order"
+      ]
     },
     {
       "paths": "^v2/card-game/(music|hum|opening)|music-streams|^v2/scripts/(music-reveal-check|shared-music-openings)\\.",

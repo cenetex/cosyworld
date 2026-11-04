@@ -7,6 +7,7 @@ import {
   updatingDelay,
 } from "../v2/card-game/shared.mjs";
 
+const fades = [];
 function element(tag) {
   const e = {
     tag,
@@ -19,6 +20,13 @@ function element(tag) {
     addEventListener: () => {},
     showModal: () => (e.open = true),
     close: () => (e.open = false),
+    // Each fade-in a panel's words make, by the element that fades.
+    animate: (frames) => {
+      fades.push([e.tag, frames.opacity]);
+      return { finished: Promise.resolve(), cancel() {} };
+    },
+    getAnimations: () => [],
+    matches: () => true,
   };
   return e;
 }
@@ -89,6 +97,10 @@ describe("a world updating during a release swap", () => {
     await vi.advanceTimersByTimeAsync(2000);
     await vi.waitFor(() => expect(opens).toBe(2));
     expect(text(modal())).toContain(UPDATING);
+    // The retry's words come in over the old ones rather than cutting.
+    await vi.waitFor(() =>
+      expect(fades.some(([, opacity]) => opacity?.[0] === 0)).toBe(true),
+    );
     await vi.advanceTimersByTimeAsync(4000);
     // A genuine refusal after the swap keeps its own message and Try again.
     await vi.waitFor(() =>
