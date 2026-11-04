@@ -18,6 +18,7 @@ import {
   releaseGhosts,
 } from "./card-ghost.mjs";
 import {
+  EXIT_MAX,
   EXIT_MS,
   cardOf,
   dropCards,
@@ -36,7 +37,9 @@ import {
   QUEST_DOWN_MS,
   createCardEntries,
   createQuestEntries,
+  entryDelays,
   questEntryKey,
+  riseIn,
 } from "./card-entry.mjs";
 import { LOCKED_BACK, createLockedBoxes, isLockedBox } from "./locked-box.mjs";
 import { fadeInRevealed, revealedStage } from "./stage-reveal.mjs";
@@ -5102,6 +5105,29 @@ installToolbar({
 });
 const settingsCards = installSettingsCards({
   actionBeat: { show: showActionBeat, clear: clearActionBeat },
+  // The play hand gives way to the settings and comes back dealt.
+  playHand: {
+    leave() {
+      const row = [...$("hand").children].filter((f) => !f.hidden),
+        leaving = nearestFirst(row, row, currentActor(world)).slice(
+          0,
+          EXIT_MAX,
+        );
+      if (reducedMotion.matches || !row.length) return 0;
+      const { exits, entryAt } = swapTiming(leaving.length, 1);
+      dropCards(leaving, handExits(), exits);
+      return entryAt;
+    },
+    back() {
+      const row = [...$("hand").children].filter((f) => !f.hidden);
+      if (reducedMotion.matches)
+        $("hand").animate({ opacity: [0, 1] }, { duration: SWAP_REDUCED_MS });
+      else
+        entryDelays(row.length).forEach((delay, i) =>
+          riseIn(row[i], { delay }),
+        );
+    },
+  },
   // Switching a pack is a play that passes no turn (pack-toggle.mjs).
   packs: {
     on: (id) => groupOn(world, id),
