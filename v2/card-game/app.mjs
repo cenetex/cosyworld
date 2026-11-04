@@ -1608,6 +1608,7 @@ function combatStage() {
 }
 function endCombat() {
   combatRun++;
+  delete document.body.dataset.handAway;
   combatCue = false;
   if (lossCue) {
     lossCue = false;
@@ -1639,6 +1640,8 @@ async function presentCombat(beats, land) {
     (beat) => beat.kind === "defeat" && beat.viewerLost,
   );
   if (defeat) {
+    // The hand stays away until the new place's hand is dealt (render).
+    document.body.dataset.handAway = "true";
     // The loss screen's song comes in on the black after three beats of
     // silence (music-cues.mjs). Leaving the loss screen fades it out fully
     // before the lift onto the next scene and its room song.
@@ -2315,6 +2318,7 @@ let renderedScene = null,
   swapFrom = null,
   swapEnd = 0;
 function departHand() {
+  if (document.body.dataset.handAway) return;
   const row = [...$("hand").children],
     staying = new Set(availableCards(world)),
     leaving = row.filter(
@@ -2338,6 +2342,13 @@ function departHand() {
     frame.dataset.gone = "true";
     frame.style.visibility = "hidden";
   }
+}
+// Deals the shown hand afresh, 70 ms apart; reduced motion fades it in.
+function dealHand() {
+  const row = [...$("hand").children].filter((f) => !f.hidden);
+  if (reducedMotion.matches)
+    $("hand").animate({ opacity: [0, 1] }, { duration: SWAP_REDUCED_MS });
+  else entryDelays(row.length).forEach((delay, i) => riseIn(row[i], { delay }));
 }
 function handExits() {
   let layer = $("hand").parentElement.querySelector(":scope > .card-exits");
@@ -4159,6 +4170,8 @@ function render() {
   ]);
   if (handKey !== renderedHand) {
     // The hand a page or a new game opens on is already dealt.
+    // A hand away after a loss lets the old cards go unseen.
+    if (document.body.dataset.handAway) quietExits = true;
     const opening = renderedHandPlace === null;
     const sameWorld =
         renderedHand &&
@@ -4331,6 +4344,12 @@ function render() {
           reshaped ? LAYOUT_MS : undefined,
         );
     }
+  }
+  // After a loss the new hand is dealt in as the black lifts; the old one
+  // never shows again.
+  if (document.body.dataset.handAway && !covering) {
+    delete document.body.dataset.handAway;
+    dealHand();
   }
   renderScene();
   renderLog();
@@ -5131,15 +5150,7 @@ const settingsCards = installSettingsCards({
       dropCards(leaving, handExits(), exits);
       return entryAt;
     },
-    back() {
-      const row = [...$("hand").children].filter((f) => !f.hidden);
-      if (reducedMotion.matches)
-        $("hand").animate({ opacity: [0, 1] }, { duration: SWAP_REDUCED_MS });
-      else
-        entryDelays(row.length).forEach((delay, i) =>
-          riseIn(row[i], { delay }),
-        );
-    },
+    back: dealHand,
   },
   // Switching a pack is a play that passes no turn (pack-toggle.mjs).
   packs: {
