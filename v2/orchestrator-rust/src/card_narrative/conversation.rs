@@ -5,7 +5,8 @@
 //! reach the user turn, so a chat-tuned model answers a person, the scaffold
 //! stays out of the reply, and the system text is stable across attempts.
 use super::{
-    answered, idiolect, kind, name, waking, witnessed, Context, Entity, Part, Section, SpokenLine,
+    answered, idiolect, kind, name, names, waking, witnessed, Context, Entity, Part, Section,
+    SpokenLine,
 };
 
 /// The recent talk here: at most this many lines, oldest dropped first.
@@ -32,15 +33,33 @@ pub(super) fn heard<'a>(context: &'a Context, entity: &Entity) -> Option<&'a Spo
     })
 }
 
-/// The user message: the answered line's words, or a neutral cue naming who
-/// is here. Never the play's caption.
-pub(super) fn user(context: &Context, entity: &Entity) -> String {
-    if let Some(line) = heard(context, entity) {
-        return line.text.clone();
+/// Who is with me, as I see it: "Pip is here with me." or "I'm alone here."
+pub(super) fn presence(context: &Context, id: &str) -> String {
+    let mut here: Vec<String> = context
+        .outcome
+        .iter()
+        .flat_map(|o| &o.avatars)
+        .filter(|a| a.id != id && a.location == context.location)
+        .map(|a| a.id.clone())
+        .collect();
+    if context.outcome.is_none() {
+        here.extend(super::listener(context, id));
     }
-    match super::listener(context, &entity.id) {
-        Some(other) => format!("{} is here.", name(&other)),
-        None => format!("{}.", name(&context.location)),
+    match here.len() {
+        0 => "I'm alone here.".into(),
+        1 => format!("{} is here with me.", names(&here)),
+        _ => format!("{} are here with me.", names(&here)),
+    }
+}
+
+/// The user message: what I just heard, verbatim. When nobody has spoken
+/// (a Wait, or the first words of a Talk), it is who is with me, which is
+/// what I answer: a cue in my own first person, never a request or the
+/// play's caption.
+pub(super) fn user(context: &Context, entity: &Entity) -> String {
+    match heard(context, entity) {
+        Some(line) => line.text.clone(),
+        None => presence(context, &entity.id),
     }
 }
 
@@ -81,16 +100,14 @@ pub(super) fn others_lines(context: &Context, entity: &Entity) -> Vec<String> {
 }
 
 /// Arrange the scene lines for the system message: here and now, then what I
-/// know, what is between me and the person I face, the talk here, and the
-/// fact I may mention.
+/// know, what is between me and the person I face, and the talk here.
 pub(super) fn frame(
     context: &Context,
     entity: &Entity,
-    scene: String,
     lines: Vec<(Section, String)>,
     mentions: Vec<String>,
 ) -> Vec<(Section, String)> {
-    let mut out = vec![(Section::Now, format!("Here: {scene}"))];
+    let mut out = Vec::new();
     let between = super::between::lines(context, entity);
     // A fact shown under "Between us" is not said twice.
     let once = |(section, text): (Section, String)| {
@@ -394,8 +411,6 @@ mod tests {
             "what i know: the clock stopped.",
             "If it fits the conversation, I'd say the clock stopped.",
             "Recent talk here was all about the clock.",
-            "here: the clock stopped.",
-            "PRESENT: the clock and me.",
         ] {
             assert_eq!(check.clean(leak, true), Err("echoed brief"), "{leak}");
         }

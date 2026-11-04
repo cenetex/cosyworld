@@ -1652,6 +1652,14 @@ fn transcript(context: &Context, entity: &Entity, part: Part) -> String {
         .join("\n")
 }
 
+/// "the Lamp is here." as a sentence: "The Lamp is here."
+fn sentence(text: String) -> String {
+    let mut chars = text.chars();
+    chars
+        .next()
+        .map_or(text.clone(), |c| c.to_uppercase().chain(chars).collect())
+}
+
 /// The transcript's lines, each tagged with the prompt section it belongs to
 /// so voice metrics can measure where a prompt's tokens go.
 fn transcript_sections(context: &Context, entity: &Entity, part: Part) -> Vec<(Section, String)> {
@@ -1683,25 +1691,9 @@ fn transcript_sections(context: &Context, entity: &Entity, part: Part) -> Vec<(S
             format!(", with {}", names(companions))
         }
     };
-    if let Some(outcome) = &context.outcome {
-        let present: Vec<_> = outcome
-            .avatars
-            .iter()
-            .filter(|a| a.location == context.location && a.id != id)
-            .map(|a| name(&a.id))
-            .collect();
-        let ground: Vec<_> = outcome
-            .items
-            .iter()
-            .filter(|i| i.holder == context.location)
-            .map(|i| name(&i.id))
-            .collect();
-        if !present.is_empty() {
-            scene.push_str(&format!(". Present: {}", present.join(", ")));
-        }
-        if !ground.is_empty() {
-            scene.push_str(&format!(". On the ground: {}", ground.join(", ")));
-        }
+    let outcome = context.outcome.as_ref();
+    let mut told = false;
+    if let Some(outcome) = outcome {
         for other in &outcome.avatars {
             let trip = other.travel.as_ref();
             if other.id == id {
@@ -1747,6 +1739,34 @@ fn transcript_sections(context: &Context, entity: &Entity, part: Part) -> Vec<(S
                 _ => {}
             }
         }
+    }
+    // Who is with me is what I answer when nobody has spoken
+    // (`conversation::user`), so it is said once.
+    if part != Part::Line || conversation::heard(context, entity).is_some() {
+        lines.push((Section::Now, conversation::presence(context, id)));
+    }
+    let held = entity.facts.iter().find(|f| f.starts_with("Holding: "));
+    lines.extend(tagged(
+        Section::Now,
+        held.and_then(|f| person::fact(f, id, true)),
+    ));
+    if let Some(outcome) = outcome {
+        let ground: Vec<_> = outcome
+            .items
+            .iter()
+            .filter(|i| i.holder == context.location)
+            .map(|i| person::the(&name(&i.id)))
+            .collect();
+        if !ground.is_empty() {
+            let verb = if ground.len() == 1 { "is" } else { "are" };
+            lines.push((
+                Section::Now,
+                sentence(format!(
+                    "{} {verb} on the ground here.",
+                    person::list(&ground)
+                )),
+            ));
+        }
         let card = &outcome.card;
         let stance = match card.kind.as_str() {
             "threaten" => Some("threatening"),
@@ -1754,27 +1774,12 @@ fn transcript_sections(context: &Context, entity: &Entity, part: Part) -> Vec<(S
             "guard" => Some("guarding against"),
             _ => None,
         };
-        // The play itself, once, in the present for the two it joins.
-        if let ("give", Some(item), Some(target)) = (
-            card.kind.as_str(),
-            card.item.as_deref(),
-            card.target.as_deref(),
-        ) {
-            let actor = context.acting_avatar.as_deref().unwrap_or("vale");
-            if card.accepted != Some(false) && id == actor {
-                lines.push((
-                    Section::Now,
-                    format!("I'm handing {} {}.", name(target), name(item)),
-                ));
-            } else if card.accepted != Some(false) && id == target {
-                lines.push((
-                    Section::Now,
-                    format!("{} is handing me {}.", name(actor), name(item)),
-                ));
-            }
-        }
+        // The play itself, once, for the two it joins: a gift as custody
+        // tells it ("I gave the Bell to The keeper."), a stance here.
+        let actor = context.acting_avatar.as_deref().unwrap_or("vale");
+        told = (id == actor || card.target.as_deref() == Some(id))
+            && ((card.kind == "give" && card.accepted != Some(false)) || stance.is_some());
         if let (Some(stance), Some(target)) = (stance, card.target.as_deref()) {
-            let actor = context.acting_avatar.as_deref().unwrap_or("vale");
             if id == actor {
                 lines.push((Section::Now, format!("I'm {stance} {}.", name(target))));
             } else if id == target {
@@ -1782,24 +1787,13 @@ fn transcript_sections(context: &Context, entity: &Entity, part: Part) -> Vec<(S
             }
         }
     }
-    lines.extend(tagged(
-        Section::Directions,
-        custody::facts(context, id)
-            .iter()
-            .map(|fact| person::shift(fact, &own)),
-    ));
+    lines.extend(tagged(Section::Directions, custody::facts(context, id)));
     scene.push('.');
     // A Talk is the conversation itself: its caption is not a line to echo.
     let chatting = conversation::applies(context, entity, part)
-        && context
-            .outcome
-            .as_ref()
-            .is_some_and(|o| o.card.kind == "talk");
-    if let Some(action) = context.action.as_ref().filter(|_| !chatting) {
-        lines.push((
-            Section::Now,
-            format!("Just now: {}", person::shift(action, &own)),
-        ));
+        && outcome.is_some_and(|o| o.card.kind == "talk");
+    if let Some(action) = context.action.as_ref().filter(|_| !chatting && !told) {
+        lines.push((Section::Now, person::shift(action, &own)));
     }
     lines.extend(tagged(
         Section::Now,
@@ -1811,12 +1805,9 @@ fn transcript_sections(context: &Context, entity: &Entity, part: Part) -> Vec<(S
     ));
     // The resolved turn above already covers this entity's own trip.
     let restated = |fact: &String| {
-        context.outcome.is_some()
+        outcome.is_some()
             && (fact.starts_with("Just arrived from ") || fact.starts_with("Leaving "))
     };
-    // A conversation turn's "Here:" line and custody already say who and
-    // what is at the scene.
-    let chatting_turn = conversation::applies(context, entity, part);
     // What the speaker learned about its approaches is for planning, not
     // speech: said aloud it is mechanics ("This approach helped reach my
     // goal 0 times."), so a line never sees it.
@@ -1825,10 +1816,9 @@ fn transcript_sections(context: &Context, entity: &Entity, part: Part) -> Vec<(S
         entity
             .facts
             .iter()
-            .filter(|f| !restated(f))
+            .filter(|f| !restated(f) && !f.starts_with("Holding: "))
             .filter(|f| part != Part::Line || !conversation::strategy(f))
-            .filter(|f| !chatting_turn || !f.starts_with("At the dialogue scene: "))
-            .map(|f| person::shift(f, &own)),
+            .filter_map(|f| person::fact(f, id, outcome.is_some())),
     ));
     // A fact the rules reserved for this Talk, among the things I know.
     let mentions = if part == Part::Line {
@@ -1842,7 +1832,10 @@ fn transcript_sections(context: &Context, entity: &Entity, part: Part) -> Vec<(S
         .flatten()
     {
         if let Some(text) = fact["fact"].as_str() {
-            lines.push((Section::Directions, text.to_string()));
+            let text = text
+                .strip_suffix(" now.")
+                .map_or(text.to_string(), |t| format!("{t}."));
+            lines.push((Section::Directions, text));
         }
     }
     // Spoken lines are not replayed to a speaker (#1537): the voice comes
@@ -1903,7 +1896,7 @@ fn transcript_sections(context: &Context, entity: &Entity, part: Part) -> Vec<(S
     // No authored sample lines (#1537): the voice comes from the idiolect
     // and the world, never from example utterances.
     if conversation::applies(context, entity, part) {
-        return conversation::frame(context, entity, scene, lines, mentions);
+        return conversation::frame(context, entity, lines, mentions);
     }
     lines.extend(tagged(Section::Directions, mentions));
     let mut out: Vec<(Section, String)> = tagged(
@@ -2885,9 +2878,9 @@ pub(crate) mod tests {
         assert!(valid(&c));
         let vale = c.entities.iter().find(|e| e.id == "vale").unwrap();
         // A conversation turn has no cue; with nobody to answer, the user
-        // message names the place.
-        assert!(!transcript(&c, vale, Part::Line).contains("Vale:"));
-        assert_eq!(conversation::messages(&c, vale).1, "Mirror attic.");
+        // message is who is with me, in my own words.
+        assert!(!transcript(&c, vale, Part::Line).contains("Vale"));
+        assert_eq!(conversation::messages(&c, vale).1, "I'm alone here.");
     }
     #[test]
     fn farewell_speakers_do_not_require_a_vale_reply() {
@@ -3730,8 +3723,9 @@ pub(crate) mod tests {
             "vale"
         ));
         let prompt = transcript(&c, &c.entities[3], Part::Line);
-        assert!(prompt.contains("I received Bell from Vale."));
-        assert!(prompt.contains("Final custody: Bell — me. Location: Mirror attic."));
+        assert!(prompt.contains("I received the Bell from Vale."));
+        let vale = transcript(&c, &c.entities[0], Part::Line);
+        assert!(vale.contains("The keeper has the Oil flask and the Bell at Mirror attic."));
         assert!(prompt.contains("I'm leaving Empty station for Mirror attic"));
         let outcome = c.outcome.as_mut().unwrap();
         outcome
@@ -3815,7 +3809,7 @@ pub(crate) mod tests {
         assert_eq!(shared["entries"][1]["text"], "I will keep it safe, Vale.");
         assert_eq!(tries.load(std::sync::atomic::Ordering::SeqCst), 2);
         assert!(seen.lock().unwrap().iter().any(|request| prompt_of(request)
-            .contains("Final custody: Bell — The keeper. Location: Mirror attic.")));
+            .contains("The keeper has the Oil flask and the Bell at Mirror attic.")));
         server.abort();
     }
 
@@ -4614,7 +4608,7 @@ pub(crate) mod tests {
         let mut c = context();
         assert!(valid(&c));
         let vale = transcript(&c, &c.entities[0], Part::Line);
-        assert!(vale.contains("Just now: I ask Pip what they want."));
+        assert!(vale.contains("I ask Pip what they want."));
         assert!(vale.contains("Holding the lamp."));
         // Past deeds stay out of a line (#1537); reflection still reads them.
         assert!(!transcript(&c, &c.entities[2], Part::Line).contains("I remember:"));
