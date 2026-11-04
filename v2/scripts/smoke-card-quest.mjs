@@ -321,9 +321,29 @@ try {
     await page.locator('#hand .want-card[data-unrevealed="false"]').waitFor();
     assert.deepEqual(await head(""), {
       kicker: "Quest",
-      name: "Give The Burial Decree to The Gate Guard",
+      name: "Give the Burial Decree to the Gate Guard",
       color: "rgb(255, 240, 130)",
     });
+    // The sentence takes at most two lines, broken only between words.
+    assert.ok(
+      await page
+        .locator("#hand .want-frame:not([hidden]) .want-card .quest-verb")
+        .first()
+        .evaluate(
+          (el) =>
+            el.getBoundingClientRect().height /
+              parseFloat(getComputedStyle(el).lineHeight) <
+            2.5,
+        ),
+      "the quest's sentence fits two lines",
+    );
+    // Drop quest alone keeps no box: red words over the table.
+    assert.equal(
+      await page
+        .locator("#action-beat")
+        .evaluate((el) => getComputedStyle(el).backgroundColor),
+      "rgba(0, 0, 0, 0)",
+    );
     assert.equal(
       await page
         .locator('#hand .want-card .quest-screen[data-parts="3"] > img')

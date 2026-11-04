@@ -2200,6 +2200,9 @@ const handMotions = new Map();
 const handEntries = createCardEntries(),
   questsInView = createQuestEntries(),
   lockedBoxes = createLockedBoxes();
+// Quests turned face up at least once: only these show their parts' tier
+// while folded.
+const revealedQuests = new Set();
 // A box whose quest is done turns over once, the next time it is in view. A
 // box never uncovered opens as a newly found card does, with its name.
 function openLockedBoxes() {
@@ -2253,10 +2256,11 @@ function showQuests(opening) {
         QUEST_DOWN_MS + i * 2 * ENTRY_STAGGER_MS,
       ),
     );
-  for (const card of cards)
-    card.dataset.unrevealed = String(
-      questsInView.down(card.dataset.questEntry),
-    );
+  for (const card of cards) {
+    const down = questsInView.down(card.dataset.questEntry);
+    card.dataset.unrevealed = String(down);
+    if (!down && seen(card)) revealedQuests.add(card.dataset.questEntry);
+  }
 }
 function turnQuest(key) {
   const card = [
@@ -2265,6 +2269,7 @@ function turnQuest(key) {
   // Folded away before its turn, it turns when it is next seen.
   if (!card) return questsInView.unseen(key);
   if (!questsInView.turned(key)) return;
+  revealedQuests.add(key);
   card.dataset.unrevealed = "false";
   void revealCard(card);
 }
@@ -2645,6 +2650,13 @@ const questShown = (quest) =>
 function syncQuestFold(fold) {
   const quest = foldQuest();
   fold.hidden = questShown(quest);
+  fold.style.setProperty(
+    "--tier-color",
+    (revealedQuests.has(questEntryKey(quest))
+      ? questTier(quest, world, known)
+      : questTier(quest)
+    ).color,
+  );
   fold.dataset.glow =
     sealedQuests.length || questFresh
       ? "invite"
@@ -2666,7 +2678,6 @@ function syncQuestFold(fold) {
 function questFold(quest) {
   const fold = node("button", undefined, "quest-fold");
   fold.type = "button";
-  fold.style.setProperty("--tier-color", questTier(quest, world, known).color);
   fold.style.setProperty("--card-back", cardBackImage());
   syncQuestFold(fold);
   fold.addEventListener("click", (event) => {

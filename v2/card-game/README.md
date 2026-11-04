@@ -241,7 +241,9 @@ first, and is absent while the stack holds one. Player-facing text says quest.
   ordinary quest costs nothing, and its target stays out of mind a while;
   dropping a level quest costs 1 XP for the first, 2 for the next, and so
   on, never below the experience its level took (`questXp`), so the level
-  stays; its button reads "Drop quest (−N XP)".
+  stays; its button reads "Drop quest (−N XP)". It is a secondary,
+  destructive choice: red words with no panel, and a play box holding only
+  it keeps no box of its own.
   Dropping the last quest draws another at once, and a drop takes a turn.
 
 - **First quest.** A player holds no quest at the start: the attic opening
@@ -342,10 +344,15 @@ that place. The place's painting fades softly into the card, with no frame,
 and appears only for the place itself or when the step happens where the
 player stands; elsewhere the figures stand on the card's dark ground. An
 unknown target shows a small carved card back in its slot, and an unknown
-place shows the back alone. The card names
-nothing: only one short verb (Hold, Talk, Go to, Discover, Introduce, or a
-step's own: Find, Give, Bring, Meet), the level numeral of a level quest and
-its tier colour, the tier of the level it leads to. It never
+place shows the back alone. A step that gives to
+someone shows all three: the player, the thing and the recipient. Its label
+reads "Quest" in small capitals, then the quest as a plain sentence ("Give the
+Burial Decree to the Gate Guard") in the label's face, as written, on at most
+two lines, with a level quest's numeral on the right. Its tier colour is the
+highest tier among the things it names that the player has found (its target,
+a step's recipient and place), from their levels (`questTier`), and at least
+the tier of the level a level quest leads to; face down, and folded until it
+has first turned, it shows only the common tier. It never
 shows who holds the target or how far it is; it glows softly and steadily
 while the target is within two moves. Steps still to come lie face down behind
 the card, showing the card back. It plays nothing. The top quest folds behind the player's avatar card as
