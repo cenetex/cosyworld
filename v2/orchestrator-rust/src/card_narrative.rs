@@ -1024,10 +1024,7 @@ async fn complete_selected(
     reflections: bool,
     on_delta: Option<&(dyn Fn(&str) -> bool + Send + Sync)>,
 ) -> Result<Value, Response> {
-    for model in [&settings.reflection_model, &settings.escalation_model]
-        .into_iter()
-        .flatten()
-    {
+    for model in settings.reflection_model.iter().chain(settings.fallbacks()) {
         if let Err(failure) =
             tier_config(config, Some(model)).pin_model(ModelCapability::WorldContent)
         {
@@ -1371,6 +1368,8 @@ struct VoiceSettings {
     line_limit: usize,
     reflection_model: Option<String>,
     escalation_model: Option<String>,
+    /// `COSYWORLD_CARD_FALLBACK_MODELS`, in order (`fallback::models`).
+    fallback_models: Vec<String>,
 }
 
 impl VoiceSettings {
@@ -1383,6 +1382,7 @@ impl VoiceSettings {
             line_limit: 400,
             reflection_model: None,
             escalation_model: None,
+            fallback_models: Vec::new(),
         }
     }
 
@@ -1395,6 +1395,7 @@ impl VoiceSettings {
             line_limit: 400,
             reflection_model: None,
             escalation_model: None,
+            fallback_models: Vec::new(),
         }
     }
 
@@ -1448,12 +1449,22 @@ impl VoiceSettings {
         };
         settings.reflection_model = model("COSYWORLD_CARD_REFLECTION_MODEL")?;
         settings.escalation_model = model("COSYWORLD_CARD_ESCALATION_MODEL")?;
+        let list = get("COSYWORLD_CARD_FALLBACK_MODELS");
+        settings.fallback_models = fallback::models(list, settings.escalation_model.is_some())?;
         if settings.call_timeout > settings.scene_timeout {
             return Err(
                 "COSYWORLD_CARD_TEXT_CALL_TIMEOUT_SECS must not exceed the scene timeout".into(),
             );
         }
         Ok(settings)
+    }
+
+    /// The fallback chain; the escalation model is a one-model chain.
+    fn fallbacks(&self) -> &[String] {
+        match &self.escalation_model {
+            Some(model) if self.fallback_models.is_empty() => std::slice::from_ref(model),
+            _ => &self.fallback_models,
+        }
     }
 
     /// The browser's budget for one scene, including its own single retry.
@@ -2072,8 +2083,8 @@ fn tier_config(config: &AiConfig, model: Option<&str>) -> AiConfig {
     config
 }
 
-/// Generate a validated part on its selected model, then on the optional
-/// escalation model when those attempts fail (`fallback::run`).
+/// Generate a validated part on its selected model, then on each fallback
+/// model in turn while the earlier ones fail (`fallback::run`).
 async fn speak(
     config: &AiConfig,
     context: &Context,
@@ -2089,27 +2100,7 @@ async fn speak(
         .flatten()
         .or_else(|| character_models.get(id).map(String::as_str));
     let own = tier_config(config, own_model);
-    let selected = own
-        .pin_model(ModelCapability::WorldContent)
-        .map_err(|_| ())?;
-    let escalation = settings
-        .escalation_model
-        .as_deref()
-        .map(|model| tier_config(config, Some(model)))
-        .filter(|candidate| {
-            candidate
-                .pin_model(ModelCapability::WorldContent)
-                .is_ok_and(|other| {
-                    selected.requested_model_id() != other.requested_model_id()
-                        && match (
-                            selected.candidate().concrete_model(),
-                            other.candidate().concrete_model(),
-                        ) {
-                            (Some(left), Some(right)) => left != right,
-                            _ => true,
-                        }
-                })
-        });
+    let links = fallback::chain(config, own, settings.fallbacks()).ok_or(())?;
     let system = waking::system(context, entity, part);
     let mut check = Check::new(context, entity, part);
     if part == Part::Line {
@@ -2120,51 +2111,27 @@ async fn speak(
             check.sentences = if atmosphere::narrator(id) { 3 } else { 1 };
         }
     }
-    // Registry labels only, so the counters stay bounded.
-    let route_of = |selected: &crate::ai_gateway::PinnedModelSelection| {
-        let candidate = selected.candidate();
-        (
-            candidate.requested_model_id().to_string(),
-            candidate.provider().to_string(),
-        )
-    };
-    let own_route = route_of(&selected);
-    let escalation_route = escalation.as_ref().and_then(|config| {
-        config
-            .pin_model(ModelCapability::WorldContent)
-            .ok()
-            .map(|selected| route_of(&selected))
-    });
     let call = voice_metrics::Call::new(
         id,
         part,
         voice_metrics::Budget::measure(&system, context, entity, part),
     )
     .labelled(context);
-    // Per tier, for the bench: 1 an empty or blocked reply, 2 a usable line.
-    let tiers = [AtomicU8::new(0), AtomicU8::new(0)];
+    // Per model, for the bench: 1 an empty or blocked reply, 2 a usable line.
+    let tiers: Vec<_> = links.iter().map(|_| AtomicU8::new(0)).collect();
     let spoken = fallback::run(
         settings,
         deadline,
-        1 + usize::from(escalation.is_some()),
+        links.len(),
         |n: usize, attempt: u8, timeout: Duration| {
-            let escalated = n == 1;
-            let config = if escalated {
-                escalation.as_ref().unwrap()
-            } else {
-                &own
-            };
+            let link = &links[n];
             // A retry resamples the same prompt; code, not words, shapes it.
             let prompt = messages(context, entity, part);
             let view = prose(&prompt.assistant);
             let check = &check;
             let call = &call;
-            let tier = &tiers[usize::from(escalated)];
-            let (model, provider) = match &escalation_route {
-                Some(route) if escalated => route,
-                _ => &own_route,
-            };
-            call.attempt(model, provider);
+            let tier = &tiers[n];
+            call.attempt(&link.model, &link.provider, n > 0);
             async move {
                 let request = ChatCompletionRequest {
                     feature: "card_voice",
@@ -2175,7 +2142,7 @@ async fn speak(
                     temperature: if part == Part::Dream {
                         1.2
                     } else {
-                        1.0 - 0.1 * f64::from(attempt)
+                        (1.0 - 0.1 * f64::from(attempt)).max(0.7)
                     },
                     max_tokens: if part == Part::Persona { 160 } else { 96 },
                     timeout,
@@ -2184,7 +2151,7 @@ async fn speak(
                     response_format: None,
                     room_id: None,
                 };
-                let completion = request_voice_completion(config, request, &view)
+                let completion = request_voice_completion(&link.config, request, &view)
                     .await
                     .map_err(|error| {
                         if error.code() == "inference_invalid_response" {
@@ -2195,7 +2162,7 @@ async fn speak(
                             feature = "card_voice",
                             entity = id,
                             attempt = attempt + 1,
-                            escalated,
+                            fallback = n,
                             reason = "provider",
                             failure = error.code(),
                             "card voice rejected"
@@ -2238,7 +2205,7 @@ async fn speak(
                         feature = "card_voice",
                         entity = id,
                         attempt = attempt + 1,
-                        escalated,
+                        fallback = n,
                         reason,
                         excerpt = %excerpt(&completion.text),
                         "card voice rejected"
@@ -2249,12 +2216,9 @@ async fn speak(
         },
     )
     .await;
-    for (route, tier) in [Some(&own_route), escalation_route.as_ref()]
-        .iter()
-        .zip(&tiers)
-    {
-        if let (Some((model, _)), seen @ 1..) = (route, tier.load(Ordering::Relaxed)) {
-            own.readiness.record_voice_outcome(model, seen == 2);
+    for (fallback::Link { model, .. }, tier) in links.iter().zip(&tiers) {
+        if let seen @ 1.. = tier.load(Ordering::Relaxed) {
+            config.readiness.record_voice_outcome(model, seen == 2);
         }
     }
     match spoken {
@@ -5523,7 +5487,7 @@ pub(crate) mod tests {
     /// entity model and the given tier models for world content; `true`
     /// marks a tier model that thinks by default. The table's own
     /// world-content model is pinned as `COSYWORLD_CARD_TEXT_MODEL` pins it.
-    fn tiered_config(address: SocketAddr, tiers: &[(&str, bool)]) -> AiConfig {
+    pub(crate) fn tiered_config(address: SocketAddr, tiers: &[(&str, bool)]) -> AiConfig {
         let mut config = test_config(address);
         config
             .capability_models
@@ -5654,7 +5618,7 @@ pub(crate) mod tests {
         }
     }
 
-    fn models_for(requests: &[Value], stem: &str) -> Vec<String> {
+    pub(crate) fn models_for(requests: &[Value], stem: &str) -> Vec<String> {
         requests
             .iter()
             .filter(|body| stem_of(body) == stem)
@@ -6101,7 +6065,7 @@ pub(crate) mod tests {
         for reflection in [false, true] {
             let settings = VoiceSettings {
                 reflection_model: reflection.then(|| "missing-model".into()),
-                escalation_model: (!reflection).then(|| "missing-model".into()),
+                fallback_models: vec!["test-entity-model".into(), "missing-model".into()],
                 ..VoiceSettings::hosted()
             };
             let app = router_with_models::<()>(

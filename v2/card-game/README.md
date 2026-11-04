@@ -1411,29 +1411,34 @@ delay or fail the line
 ([shared worlds](../docs/card-table/shared-worlds.md#learning-and-private-reflection)).
 
 Optional voice tiers are enabled with exact model IDs in
-`COSYWORLD_CARD_REFLECTION_MODEL` and `COSYWORLD_CARD_ESCALATION_MODEL`.
-Both settings start unset. The reflection tier writes an avatar's lasting
-persona in local play. Public speech, thoughts, and dreams use the character's
-own model. The escalation tier speaks when the selected model fails
-(`card_narrative/fallback.rs`): a provider error, an empty reply, or a timeout
-moves to it at once, and a reply the validator blocks moves on after the
-voice's attempts (two by default). It is also the voice's fallback
-while the character's own model route is open after repeated provider faults
-([runtime readiness](../docs/ai-capability-registry.md#runtime-readiness-and-account-probes)):
-the own attempts fail at once without a provider call, and the escalation
-attempt runs with up to one call timeout. A model whose route keeps opening, or
-whose voices keep ending with no usable line, is benched for six hours and is
-treated the same way
-([model bench](../docs/ai-capability-registry.md#the-model-bench)).
-Neither Fly site sets an escalation model today, so an open route or a bench
-still leaves that voice "…". All tier models must qualify for
-world content in the current registry and data policy. Equal selected models,
-including two IDs for the same concrete model, share the original attempts.
+`COSYWORLD_CARD_REFLECTION_MODEL` and `COSYWORLD_CARD_FALLBACK_MODELS`, a JSON
+array of up to six models such as
+`["openai/gpt-6-luna","anthropic/claude-haiku-5.5"]`. Both start unset. The
+older `COSYWORLD_CARD_ESCALATION_MODEL` is a one-model list; setting both is
+refused. The reflection tier writes an avatar's lasting persona in local play.
+Public speech, thoughts, and dreams use the character's own model.
+
+A part tries its own model, then each fallback in order
+(`card_narrative/fallback.rs`), leaving out repeats, two IDs for one concrete
+model, and benched models
+([model bench](../docs/ai-capability-registry.md#the-model-bench)). A provider
+error, an empty reply, or a timeout moves to the next model at once; a reply
+the validator blocks moves on after the voice's attempts (two by default). A
+lone model keeps all its attempts. While a route is open after repeated
+provider faults
+([runtime readiness](../docs/ai-capability-registry.md#runtime-readiness-and-account-probes)),
+its attempt fails at once without a provider call. Each attempt uses its own
+provider's layout, so a Mistral fallback continues an opening quote and a
+Claude one does not. Neither Fly site sets a fallback today, so an open route
+or a bench still leaves that voice "…". Every tier model must qualify for world
+content in the current registry and data policy, or scenes are refused.
 
 Each model gets the scene's remaining time split over the models still to try,
 up to one call timeout per attempt, and a quick failure passes its share on. A
-voice starting the hosted twenty-two-second scene with an escalation model has
-eleven seconds on each. A lone model keeps all its attempts. Queue waits use the same deadline. Every returned line
+voice starting the hosted twenty-two-second scene with one fallback has eleven
+seconds on each. Queue waits use the same deadline. The line records the model
+that spoke; `/meta.card_voice.by_model` counts, as `fallbacks`, calls that
+reached a model after an earlier one failed. Every returned line
 and reflection passes the same checks before it can enter the saved world.
 The browser retains the avatar's public model attribution beside its private
 persona, thoughts, and dreams across reloads.

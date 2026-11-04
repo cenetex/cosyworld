@@ -1,8 +1,8 @@
 //! The model bench, a tier above the exact-route breaker. A model whose
 //! route keeps opening (5xx or transport only), or whose card voices keep
 //! ending with no usable line, is benched for hours: every call on it fails
-//! at once with no provider call, like an open route, so the voice's
-//! escalation model speaks. Benches are process-wide per exact model and live
+//! at once with no provider call, like an open route, and a voice's
+//! fallback chain skips it. Benches are process-wide per exact model and live
 //! in memory; they end on their own, by `POST /moderation/ai/unbench`, or on
 //! restart.
 use serde::Serialize;

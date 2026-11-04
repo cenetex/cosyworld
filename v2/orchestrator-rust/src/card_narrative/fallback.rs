@@ -1,8 +1,80 @@
 //! The voice's fallback chain (owner, 2026-11-04: characters can be any
 //! model, with fallbacks). A part tries its own model, then each fallback in
-//! order, inside its one scene deadline.
-use super::VoiceSettings;
+//! order, inside its one scene deadline. Each attempt goes through its own
+//! model's route, so it gets that provider's layout (`chat_messages`).
+use super::{bounded, tier_config, VoiceSettings};
+use crate::ai_gateway::{AiConfig, ConcreteModelIdentity, ModelCapability};
 use std::time::Duration;
+
+const LIST: &str = "COSYWORLD_CARD_FALLBACK_MODELS";
+
+/// `COSYWORLD_CARD_FALLBACK_MODELS`: a JSON array of up to six exact model
+/// IDs. It replaces the one-model `COSYWORLD_CARD_ESCALATION_MODEL`.
+pub(super) fn models(list: Option<String>, alias: bool) -> Result<Vec<String>, String> {
+    let Some(list) = list.filter(|list| !list.trim().is_empty()) else {
+        return Ok(Vec::new());
+    };
+    if alias {
+        return Err(format!("{LIST} replaces COSYWORLD_CARD_ESCALATION_MODEL"));
+    }
+    serde_json::from_str::<Vec<String>>(&list)
+        .ok()
+        .filter(|models| {
+            let exact = |model: &String| bounded(model, 160) && model.trim() == model;
+            models.len() <= 6 && models.iter().all(exact)
+        })
+        .ok_or_else(|| format!("{LIST} must be a JSON array of at most 6 exact model IDs"))
+}
+
+/// One model in a part's chain, with its registry labels for the metrics.
+pub(super) struct Link {
+    pub(super) config: AiConfig,
+    pub(super) model: String,
+    pub(super) provider: String,
+    concrete: Option<ConcreteModelIdentity>,
+}
+
+impl Link {
+    fn of(config: AiConfig) -> Option<Self> {
+        let selected = config.pin_model(ModelCapability::WorldContent).ok()?;
+        let candidate = selected.candidate();
+        Some(Self {
+            model: candidate.requested_model_id().to_string(),
+            provider: candidate.provider().to_string(),
+            concrete: candidate.concrete_model().cloned(),
+            config,
+        })
+    }
+
+    /// One registry ID, or two IDs that name one concrete model.
+    fn same(&self, other: &Self) -> bool {
+        self.model == other.model
+            || matches!((&self.concrete, &other.concrete), (Some(a), Some(b)) if a == b)
+    }
+
+    fn benched(&self) -> bool {
+        self.config.readiness.is_benched(&self.model)
+    }
+}
+
+/// The part's own model, then each fallback that is not the same model as
+/// an earlier one, leaving out benched models. With every model benched the
+/// own model stays alone and fails at once, as a benched model does.
+pub(super) fn chain(config: &AiConfig, own: AiConfig, fallbacks: &[String]) -> Option<Vec<Link>> {
+    let mut chain = vec![Link::of(own)?];
+    for model in fallbacks {
+        let link = Link::of(tier_config(config, Some(model)));
+        if let Some(link) = link.filter(|link| !chain.iter().any(|seen| seen.same(link))) {
+            chain.push(link);
+        }
+    }
+    if chain.iter().any(|link| !link.benched()) {
+        chain.retain(|link| !link.benched());
+    } else {
+        chain.truncate(1);
+    }
+    Some(chain)
+}
 
 /// Why an attempt gave no line.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -70,7 +142,51 @@ where
 
 #[cfg(test)]
 mod tests {
+    use super::super::tests::{context, models_for, serve, solo_departure, stem_of, tiered_config};
+    use super::super::{complete_selected, voice_metrics};
     use super::*;
+    use axum::{http::StatusCode, routing::post, Json, Router};
+    use serde_json::{json, Value};
+    use std::sync::{Arc, Mutex};
+
+    #[test]
+    fn the_list_parses_and_replaces_the_escalation_model() {
+        let list = |text: &str| models(Some(text.into()), false);
+        assert_eq!(list(r#"["a","b"]"#).unwrap(), ["a", "b"]);
+        assert_eq!(list(" "), Ok(Vec::new()));
+        for bad in [r#""a""#, r#"[" a"]"#, r#"[""]"#, &format!("{:?}", ["a"; 7])] {
+            assert!(list(bad).unwrap_err().starts_with(LIST));
+        }
+        assert!(models(Some("[]".into()), true).is_err());
+        // The escalation model alone is a one-model chain.
+        let alias = VoiceSettings::from_lookup(|name| {
+            (name == "COSYWORLD_CARD_ESCALATION_MODEL").then(|| "a/b".into())
+        });
+        assert_eq!(alias.unwrap().fallbacks(), ["a/b"]);
+    }
+
+    #[test]
+    fn the_chain_keeps_its_order_and_skips_the_speakers_own_and_benched_models() {
+        let address = "127.0.0.1:9".parse().unwrap();
+        let config = tiered_config(address, &[("a", false), ("b", false)]);
+        let models = |own: &str| {
+            let fallbacks = ["test-entity-model", "a", "b", "a", "missing"].map(String::from);
+            let chain = chain(&config, tier_config(&config, Some(own)), &fallbacks).unwrap();
+            chain.into_iter().map(|link| link.model).collect::<Vec<_>>()
+        };
+        assert_eq!(models("a"), ["a", "test-entity-model", "b"]);
+        let bench = |model: &str| {
+            while !config.readiness.is_benched(model) {
+                config.readiness.record_voice_outcome(model, false);
+            }
+        };
+        bench("b");
+        assert_eq!(models("a"), ["a", "test-entity-model"]);
+        assert_eq!(models("b"), ["test-entity-model", "a"]);
+        bench("a");
+        bench("test-entity-model");
+        assert_eq!(models("b"), ["b"]);
+    }
 
     #[tokio::test(start_paused = true)]
     async fn each_failure_moves_on_and_blocked_replies_move_on_after_the_attempts() {
@@ -91,5 +207,66 @@ mod tests {
         .await;
         assert_eq!(result, Ok(3));
         assert_eq!(seen, [(0, 0), (1, 1), (2, 2), (2, 3), (3, 4)]);
+    }
+
+    /// Pip's line walks the chain: an empty reply, a 5xx, a reply blocked
+    /// twice, then a line. Each attempt has its own provider's layout, and the
+    /// line and the metrics name the model that spoke.
+    #[tokio::test]
+    async fn a_failing_line_walks_the_chain_in_each_models_own_layout() {
+        let seen = Arc::new(Mutex::new(Vec::<Value>::new()));
+        let log = seen.clone();
+        let provider = post(move |Json(body): Json<Value>| async move {
+            log.lock().unwrap().push(body.clone());
+            let text = match body["model"].as_str().unwrap() {
+                _ if stem_of(&body) != "Pip:" => "The clock stopped again, Pip.",
+                "test-entity-model" => "",
+                "mistralai/m" => return (StatusCode::BAD_GATEWAY, Json(json!({}))),
+                "anthropic/c" => "As an AI, I can explain the clock.",
+                _ => "I remember the kindness beside the lamp.",
+            };
+            let choice = json!({"message": {"content": text}, "finish_reason": "stop"});
+            let reply = json!({"model": body["model"], "choices": [choice]});
+            (StatusCode::OK, Json(reply))
+        });
+        let (address, server) = serve(Router::new().route("/chat/completions", provider)).await;
+        let chain = ["mistralai/m", "anthropic/c", "openai/d"];
+        let config = tiered_config(address, &chain.map(|model| (model, false)));
+        let settings = VoiceSettings {
+            fallback_models: chain.map(String::from).to_vec(),
+            ..VoiceSettings::hosted()
+        };
+        // Vale talks to Pip, who answers the line Vale says this turn.
+        let mut c = context();
+        (c.scenery, c.focus) = (false, None);
+        let mut outcome = solo_departure();
+        outcome.avatars[1].travel = None;
+        outcome.avatars[1].location = "station".into();
+        for item in &mut outcome.items {
+            if item.holder == "moth" {
+                item.location = "station".into();
+            }
+        }
+        outcome.card.kind = "talk".into();
+        outcome.card.target = Some("moth".into());
+        c.outcome = Some(outcome);
+        let ids = ["vale".to_string(), "moth".into()];
+        let none = Default::default();
+        let result = complete_selected(&config, &c, &none, &settings, &ids, false, None);
+        let result = result.await.unwrap();
+        assert_eq!(result["entries"][1]["model"], "openai/d");
+        let requests = seen.lock().unwrap();
+        let tried = "test-entity-model mistralai/m anthropic/c anthropic/c openai/d";
+        assert_eq!(models_for(&requests, "Pip:").join(" "), tried);
+        for body in requests.iter().filter(|body| stem_of(body) == "Pip:") {
+            let last = body["messages"].as_array().unwrap().last().unwrap();
+            // Only Mistral continues an opening quote; Claude gets none.
+            let quoted = body["model"] == "mistralai/m";
+            assert_eq!(last["prefix"] == true, quoted, "{}", body["model"]);
+            assert_eq!(last["role"] == "assistant", quoted, "{}", body["model"]);
+        }
+        let metrics = voice_metrics::snapshot();
+        assert!(metrics["by_model"]["openai/d"]["fallbacks"].as_u64() >= Some(1));
+        server.abort();
     }
 }

@@ -204,6 +204,8 @@ struct Mix {
     untold: u64,
     silent: u64,
     cancelled: u64,
+    /// Calls that reached this model after an earlier one in the chain failed.
+    fallbacks: u64,
 }
 
 /// The tally for a registry label. The registry is small; past 24 labels the
@@ -261,6 +263,7 @@ impl Totals {
         outcome: Outcome,
         failures: &[&'static str],
         flags: &[&'static str],
+        fell_back: bool,
     ) {
         for tally in [
             mix(&mut self.models, model),
@@ -268,6 +271,7 @@ impl Totals {
         ] {
             tally.calls += 1;
             tally.attempts += u64::from(attempts);
+            tally.fallbacks += u64::from(fell_back);
             *match outcome {
                 Outcome::Spoken => &mut tally.spoken,
                 Outcome::Untold => &mut tally.untold,
@@ -362,6 +366,7 @@ struct State {
     outcome: Option<Outcome>,
     model: String,
     provider: String,
+    fell_back: bool,
 }
 
 /// The play kind and speech occasion a call answers.
@@ -420,6 +425,7 @@ impl<'a> Call<'a> {
                 outcome: None,
                 model: "none".into(),
                 provider: "none".into(),
+                fell_back: false,
             }),
         }
     }
@@ -436,10 +442,12 @@ impl<'a> Call<'a> {
         }
     }
 
-    /// One more attempt, on this registry model and provider.
-    pub(super) fn attempt(&self, model: &str, provider: &str) {
+    /// One more attempt, on this registry model and provider, which is a
+    /// fallback after the part's own model failed.
+    pub(super) fn attempt(&self, model: &str, provider: &str, fallback: bool) {
         self.with(|state| {
             state.attempts = state.attempts.saturating_add(1);
+            state.fell_back |= fallback;
             if state.model != model || state.provider != provider {
                 state.model = model.into();
                 state.provider = provider.into();
@@ -518,6 +526,7 @@ impl Drop for Call<'_> {
             reasons = %reasons.join(","),
             model = %state.model,
             provider = %state.provider,
+            fell_back = state.fell_back,
             failures = %state.failures.join(","),
             flags = %state.flags.join(","),
             ms,
@@ -540,6 +549,7 @@ impl Drop for Call<'_> {
                 outcome,
                 &state.failures,
                 &state.flags,
+                state.fell_back,
             );
         }
         if self.part == Part::Line {
@@ -617,13 +627,21 @@ mod tests {
         );
         let mut totals = Totals::new();
         let route = ("openai/gpt-6-luna", "openrouter");
-        totals.record_route(route, 2, Outcome::Silent, &["inference_timeout"], &[]);
-        totals.record_route(route, 1, Outcome::Spoken, &[], &["echoed brief"]);
+        totals.record_route(
+            route,
+            2,
+            Outcome::Silent,
+            &["inference_timeout"],
+            &[],
+            false,
+        );
+        totals.record_route(route, 1, Outcome::Spoken, &[], &["echoed brief"], true);
         let value = totals.snapshot();
         assert_eq!(value["by_model"]["openai/gpt-6-luna"]["calls"], 2);
         assert_eq!(value["by_model"]["openai/gpt-6-luna"]["silent"], 1);
         assert_eq!(value["by_provider"]["openrouter"]["attempts"], 3);
         assert_eq!(value["provider_failures"]["inference_timeout"], 1);
+        assert_eq!(value["by_model"]["openai/gpt-6-luna"]["fallbacks"], 1);
         // A flagged line is spoken, and its flag is counted apart.
         assert_eq!(value["by_model"]["openai/gpt-6-luna"]["spoken"], 1);
         assert_eq!(value["flagged"]["echoed brief"], 1);

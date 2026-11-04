@@ -24,8 +24,9 @@ use cosyworld_orchestrator::card_policy::{
     CardPolicyModel, CARD_POLICY_DEFAULT_TOP_K, CARD_POLICY_MAX_TOP_K,
 };
 pub(crate) use registry::{
-    CapabilityRegistrySnapshot, DataPolicyMode, ModelAttribution, ModelCapability, ModelRarity,
-    PinnedModelSelection, RegistryError, AI_CAPABILITY_MODELS_ENV, AI_REGISTRY_ENV,
+    CapabilityRegistrySnapshot, ConcreteModelIdentity, DataPolicyMode, ModelAttribution,
+    ModelCapability, ModelRarity, PinnedModelSelection, RegistryError, AI_CAPABILITY_MODELS_ENV,
+    AI_REGISTRY_ENV,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
