@@ -108,6 +108,10 @@ try {
     // Walking away from the station leaves Pip, the keeper and the station
     // behind: each falls from where it lay, inert, a moment apart.
     await watch();
+    // Vale goes along and keeps his node (card-keep.mjs).
+    await page.evaluate(() => {
+      document.querySelector('#hand [data-card="vale"]').exitMark = "kept";
+    });
     await travel("pond");
     await page.waitForFunction(() => window.exitWatch.seen.length);
     const falling = await page.evaluate(() =>
@@ -141,6 +145,13 @@ try {
     await page.evaluate(() => window.exitMotions.forEach((m) => m.play()));
     await settled();
     await ready();
+    assert.equal(
+      await page.evaluate(
+        () => document.querySelector('#hand [data-card="vale"]').exitMark,
+      ),
+      "kept",
+      "Vale keeps his node",
+    );
     // Ghosts are released: many plays keep no more nodes than a few.
     const cdp = await page.context().newCDPSession(page);
     await cdp.send("Performance.enable");

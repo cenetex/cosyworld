@@ -482,6 +482,9 @@ from `card-ghost.mjs` plays the fall where the card lay and is released when
 it ends. A card shown under another holder moves there instead, and a reveal
 keeps its card, so it never falls. A page opening, a new game, another tab's
 world and reduced motion show no exit (`v2/scripts/smoke-card-exit.mjs`).
+A card still in the hand after a redraw keeps its node and stays put; when
+only its words or pictures changed it takes its new look in place
+(`card-keep.mjs`). A quest card is always drawn anew.
 A card locked behind a quest (a sealed card, the far side of a shut gate) is
 a locked wooden box: the darker locked lid on a red edge, labelled only
 "Locked" (the owner's one exception to words on a card), with no painting and

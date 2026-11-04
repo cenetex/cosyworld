@@ -14,7 +14,7 @@ export const EXIT_MAX = 6;
 
 // The card a hand frame shows: its entity, or its quest (whose place in the
 // stack another quest can take).
-const cardOf = (frame) => {
+export const cardOf = (frame) => {
   const card = frame.querySelector(".card");
   return card?.dataset.card ?? card?.dataset.questEntry;
 };

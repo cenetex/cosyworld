@@ -224,10 +224,11 @@ try {
       page,
       '#card-actions [data-action="wait"]',
     );
+    // Its handlers read the live world, so it is refreshed in place.
     assert.equal(
       played.same,
-      false,
-      "a committed play refreshes the card contents and handlers",
+      true,
+      "a committed play keeps a card still in the hand (card-keep.mjs)",
     );
     // A play leaves the raised hand where the player left it (#1922); only
     // the played card's own lift settles.

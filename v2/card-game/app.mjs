@@ -18,6 +18,7 @@ import {
   releaseGhosts,
 } from "./card-ghost.mjs";
 import { dropCards, leavingFrames } from "./card-exit.mjs";
+import { keepFrames, morphFrame } from "./card-keep.mjs";
 import {
   ENTRY_STAGGER_MS,
   QUEST_DOWN_MS,
@@ -4130,13 +4131,19 @@ function render() {
     if (sameWorld)
       for (const frame of $("hand").children) updateCardSelection(frame);
     else {
-      const frames = handCards.map((id) =>
-          isQuestId(id) ? questFrame(questEntry(id)) : card(id),
+      // A card still in the hand keeps its node (card-keep.mjs).
+      const row = [...$("hand").children],
+        { frames, changed } = keepFrames(
+          row,
+          handCards.map((id) =>
+            isQuestId(id) ? questFrame(questEntry(id)) : card(id),
+          ),
         ),
-        leaving = exits ? leavingFrames([...$("hand").children], frames) : [];
+        leaving = exits ? leavingFrames(row, frames) : [];
       // A card gone from view falls from where it lay, while the hand
       // redraws at once; a reveal keeps its card, so it never falls.
       if (leaving.length) dropCards(leaving, handExits());
+      for (const [was, now] of changed) morphFrame(was, now);
       $("hand").replaceChildren(...frames);
     }
     // Lean the new row before measuring it, so each card moves from where
