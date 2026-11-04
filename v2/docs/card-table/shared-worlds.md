@@ -184,11 +184,14 @@ presentation question for the UI lock-down, not a rules change.
 A person's passkey binds them to the avatar they take in a shared world
 ([#1825](https://github.com/cenetex/cosyworld/issues/1825)). The server keeps
 the binding in `card_bindings(world, actor, user)`, written by each new claim
-and by creating a world. Leave in ☰ (`leave`/`release`) keeps it: the person
-always
-returns there as that avatar, and nobody else can claim it. A person bound in
-a world can claim only their own avatar there. When all eight avatars are
-bound the world is full: "This world is full." Bindings sit outside the
+and by creating a world. Leave in ☰ (`leave`/`release`) keeps it, and
+nobody else can claim that avatar. A person who has played a world may bring
+any found avatar there whose seat nobody holds (owner, 2026-11-03): the
+server journals `release` for the one they had, with no `reset`, so it
+stays as a resident with its state and level; it drops that binding, keeps
+the level for the avatar's next seat, then journals the new `claim`
+(`hand_over` in `full.rs`). When all eight avatars are bound a newcomer
+finds the world full: "This world is full." Bindings sit outside the
 journal, so old journals replay unchanged. The table was back-filled from
 the members at deploy; an avatar released before then was never recorded
 and can be claimed once by a newcomer.
@@ -248,8 +251,8 @@ world for one, is refused: "Mara is still hidden from you." A fresh world
 hides one of its creator's locked avatars, picked by the first four bytes of
 SHA-256 over the passkey and the world id, and leaves the others out; the
 server passes both on `create` (`unlocks.rs`), so the seeded world records
-them and replay never reads the table. Once nobody is left to find, a passkey
-with a world makes no new one: "Everyone is found." The world list returns
+them and replay never reads the table. Once nobody is left to find, a new
+world hides nobody (owner, 2026-11-03). The world list returns
 `unlocked`, and `seek` journals the quest to talk to the hidden avatar.
 
 A committed play's `unlock` line adds the avatar for the passkey bound to the
