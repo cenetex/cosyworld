@@ -1215,6 +1215,18 @@ body .card.item .art img {
   > .quest-head {
   padding-right: var(--fan-overlap);
 }
+/* A card lifted over the next (pointer or focus) covers its left edge, so
+   that card's name moves clear of it. An unlit Settings place dims. */
+.hand
+  > .card-frame:is(:hover, :focus-within)
+  + .card-frame
+  > .card[data-setting]
+  > :is(.quest-head, .name) {
+  padding-left: calc(var(--fan-overlap) + 8px);
+}
+body .card[data-setting][data-lit="false"] .quest-ground {
+  filter: saturate(0.35) brightness(0.48);
+}
 /* Carry the label's shade to the card's edge, wherever the hand clips it. */
 body .card .name::after {
   content: "";

@@ -20,7 +20,7 @@ const named = (text) =>
     (b) => b.textContent === text,
   );
 
-function readSettings(avatar, tip) {
+function readSettings(tip) {
   const credits = playerCredits().state;
   const toggles = Object.fromEntries(
     TOGGLES.map(([id, control, , , status]) => {
@@ -40,7 +40,6 @@ function readSettings(avatar, tip) {
     hosted: !localRuntime(),
     signedIn: Boolean(credits.signed_in),
     shared: Boolean(named("Sign out")),
-    avatar: avatar(),
     credits: words("credits-status"),
     checkout: !$("buy-speech-pack").hidden,
     pool: $("credit-pool").hidden ? null : words("credit-pool-status"),
@@ -74,7 +73,7 @@ const runs = {
 // The context button is #setting-<card>, then #setting-<card>-1.
 const buttonId = (card, i) => `setting-${card || "close"}${i ? `-${i}` : ""}`;
 
-export function installSettingsCards({ actionBeat, avatar }) {
+export function installSettingsCards({ actionBeat }) {
   const screen = $("settings-screen"),
     hand = $("settings-hand");
   let chosen = null,
@@ -117,8 +116,9 @@ export function installSettingsCards({ actionBeat, avatar }) {
   }
   const make = (tag, className, props) =>
     Object.assign(document.createElement(tag), { className, ...props });
-  // A place card (a world pack) is the quest card's place: its painting
-  // feathered into the card, with its name where the quest names its verb.
+  // A place card (a world pack or a workbench painting) is the quest card's
+  // place: its painting feathered into the card, with its name where the
+  // quest names its verb.
   function placeFace(el, c) {
     el.style.setProperty("--tier-color", levelTier(0).color);
     const head = make("span", "quest-head");
@@ -161,7 +161,7 @@ export function installSettingsCards({ actionBeat, avatar }) {
     return holder;
   }
   function render() {
-    const cards = settingsCards(readSettings(avatar, tip));
+    const cards = settingsCards(readSettings(tip));
     if (!cards.some((c) => c.id === chosen)) chosen = null;
     const focused = document.activeElement?.dataset?.setting;
     hand.replaceChildren(...cards.map((c, i) => frame(c, i, cards.length)));
