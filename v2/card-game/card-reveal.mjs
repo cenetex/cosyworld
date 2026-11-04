@@ -51,7 +51,9 @@ function glowFrames(color, { pulses, glow }) {
 // Plays the reveal on a freshly uncovered card button. Returns a promise that
 // settles once every added layer is gone.
 export function revealCard(button, options = {}) {
-  finishCardReveal(button.dataset.card);
+  // A quest card has no card id; its quest key names its turn.
+  const id = button.dataset.card ?? button.dataset.questKey;
+  finishCardReveal(id);
   const plan = revealPlan(button.dataset.tier, {
     reduced: options.reduced ?? reduceMotion(),
     scares: options.scares ?? scaresEnabled(),
@@ -128,12 +130,12 @@ export function revealCard(button, options = {}) {
     );
   }
   const control = { button, finish: () => animations.forEach((a) => a.finish()) };
-  running.set(button.dataset.card, control);
+  running.set(id, control);
   const settle = () => {
     for (const animation of animations) animation.cancel();
     for (const layer of layers) layer.remove();
     delete button.dataset.revealing;
-    if (running.get(button.dataset.card) === control) running.delete(button.dataset.card);
+    if (running.get(id) === control) running.delete(id);
   };
   return Promise.allSettled(animations.map((a) => a.finished)).then(settle);
 }
@@ -144,20 +146,4 @@ export function finishCardReveal(id) {
   if (!control?.button.isConnected) return false;
   control.finish();
   return true;
-}
-
-// A newly met card settles into its stack, covered, instead of popping in.
-export function arriveCard(button, reduced = reduceMotion()) {
-  const frames = reduced
-    ? [{ opacity: 0 }, { opacity: 1 }]
-    : [
-        { opacity: 0, translate: "0 28px", scale: 0.96 },
-        { opacity: 1, translate: "0 -3px", scale: 1, offset: 0.75 },
-        { opacity: 1, translate: "0 0", scale: 1 },
-      ];
-  const animation = button.animate(frames, {
-    duration: reduced ? 200 : 460,
-    easing: "cubic-bezier(.2,.7,.25,1)",
-  });
-  return animation.finished.catch(() => {}).then(() => animation.cancel());
 }
