@@ -425,8 +425,14 @@ the carved card back, behind it, up to three. Tapping the current place fans the
 out like the hand; tapping a place selects it for **Travel**, and the stack
 folds back after the play.
 A person or place holding things shows the first of them peeking out behind
-its card. A pointer over a card shuffles it: the card and its preview stack lift together while the rest of the fan parts around it (180 ms; touch has no hover, reduced motion only brightens it). The name shade reaches the
-card edge, so a raised card clipped by the folded row shows no stray art.
+its card. A pointer over a card shuffles it: the card and its preview stack lift together while the rest of the fan parts around it (180 ms; touch has no hover, reduced motion only brightens it).
+Every card names itself at its top in one label, for avatars, items, places,
+quests, packs and Settings alike: the quest card's 600-weight sans in capitals
+at 4.2% of the card's height (10 px at least), in the card's tier colour over
+a light shade. It breaks only between words, a hyphenated word staying whole
+(`card-label.mjs`), and keeps clear of the next card in a fan; an unlit card
+dims it. A figure's head stands below the label. A face-down or locked box
+carries none.
 A card new to the view (an avatar arriving, a thing picked up or put down, a
 place found, the hand at a new place) rises into its slot over 460 ms, cards
 entering together 70 ms apart (`card-entry.mjs`). A card already there never
@@ -853,9 +859,7 @@ click, Enter or Space turns it with the hand's reveal (`card-reveal.mjs`) to
 the face of the avatar this world opens with (the joining avatar in a shared
 world), cloned from the hand and named for screen readers. The turn waits up to
 0.4 seconds for the face and back to decode, so it never shows a blank
-frame. The card shows whole, so
-its name and shade sit on its floor, at the figure's feet, rather than a
-quarter up where the hand clips its cards. The face holds for
+frame. Its name tops it, as on every card. The face holds for
 0.7 seconds; then the song fades out over 1.8 seconds as the title, card and
 all, goes to black over 0.9 seconds. Black holds 0.3 seconds, then slowly
 opens (2.5 seconds, ease-out) on the scene the world opens in: Vale's lit

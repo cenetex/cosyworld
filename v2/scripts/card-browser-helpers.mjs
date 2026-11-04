@@ -147,3 +147,65 @@ export async function wordsFellSilent(page, key) {
     }
   }, key);
 }
+
+// Card labels (style.css): every shown card has one name label at its top,
+// in at most `lines` lines, broken only between words; a face-down or locked
+// box shows none. Pass to page.evaluate; it returns the problems found.
+export function labelProblems({
+  root = "#hand, #settings-hand",
+  lines = 2,
+} = {}) {
+  const problems = [];
+  for (const card of document.querySelectorAll(
+    `:is(${root}) .card-frame:not([hidden]) > .card`,
+  )) {
+    if (!card.checkVisibility()) continue;
+    const id = card.dataset.card || card.dataset.setting || "quest",
+      labels = [...card.querySelectorAll(":scope > :is(.name, .quest-head)")],
+      shown = labels.filter(
+        (el) =>
+          el.textContent.trim() &&
+          el.checkVisibility({ visibilityProperty: true }),
+      );
+    const box =
+      card.dataset.unrevealed === "true" || card.dataset.locked === "true";
+    if (box) {
+      if (shown.length) problems.push(`${id} box shows a label`);
+      continue;
+    }
+    if (shown.length !== 1) {
+      problems.push(`${id} has ${shown.length} labels`);
+      continue;
+    }
+    const label = shown[0],
+      text = label.querySelector(".quest-verb") || label,
+      style = getComputedStyle(text);
+    if (label.offsetParent !== card || label.offsetTop > 1)
+      problems.push(`${id} label not at the top`);
+    const height =
+      text.clientHeight -
+      parseFloat(style.paddingTop) -
+      parseFloat(style.paddingBottom);
+    const count = Math.round(height / parseFloat(style.lineHeight));
+    if (count > lines)
+      problems.push(`${id} "${text.textContent}" in ${count} lines`);
+    // A word's letters run left to right on one line; a wrap jumps back.
+    const range = document.createRange(),
+      walk = document.createTreeWalker(text, NodeFilter.SHOW_TEXT);
+    let last = null;
+    for (let node = walk.nextNode(); node; node = walk.nextNode())
+      for (let i = 0; i < node.length; i++) {
+        if (/\s/u.test(node.data[i])) {
+          last = null;
+          continue;
+        }
+        range.setStart(node, i);
+        range.setEnd(node, i + 1);
+        const left = range.getBoundingClientRect().left;
+        if (last !== null && left < last - 1)
+          problems.push(`${id} "${text.textContent}" breaks inside a word`);
+        last = left;
+      }
+  }
+  return problems;
+}

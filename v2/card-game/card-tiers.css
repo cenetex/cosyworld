@@ -1,5 +1,5 @@
 /* Signal's palette follows level tiers; a selected person's or thing's exact
-   level appears as one faint numeral at its top. */
+   level appears as one faint numeral at its top right, as on the quest card. */
 :is(body, :where(.title-intro)) .card-frame .card[data-tier] {
   border-color: var(--tier-color);
 }
@@ -11,7 +11,7 @@ body .card[data-tier].new {
 .card-level {
   position: absolute;
   top: 7px;
-  left: 50%;
+  right: 10px;
   z-index: 3;
   color: var(--tier-color);
   font:
@@ -21,7 +21,6 @@ body .card[data-tier].new {
   pointer-events: none;
   visibility: hidden;
   opacity: 0;
-  transform: translateX(-50%);
   text-shadow:
     0 0 5px var(--tier-color),
     0 0 12px var(--tier-color);
