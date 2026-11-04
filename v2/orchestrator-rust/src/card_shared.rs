@@ -29,6 +29,8 @@ mod hoppycat_tests;
 #[cfg(test)]
 mod import_tests;
 mod kernel;
+#[cfg(test)]
+mod meet_on_arrival_tests;
 mod narrator;
 /// The shared narrator's dialogue context, for the story service's parity
 /// tests.
