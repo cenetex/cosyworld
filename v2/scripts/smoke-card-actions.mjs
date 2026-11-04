@@ -4,7 +4,7 @@ import { chromium, webkit } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
 import { createWorld, encodeSave } from "../card-game/world.mjs";
 import { knowsFact } from "../card-game/knowledge.mjs";
-import { selectCard } from "./card-browser-helpers.mjs";
+import { selectCard, revealCard, tapCard } from "./card-browser-helpers.mjs";
 
 const browserName = process.env.CARD_BROWSER || "chromium";
 const browserType = { chromium, webkit }[browserName];
@@ -341,7 +341,9 @@ try {
       { key, save: encodeSave(remote) },
     );
     await ready();
-    await selectCard(page, "keeper");
+    // A phone's dialogue covers the hand's foot; tap the exposed card top.
+    if (width < 700) await tapCard(await revealCard(page, "keeper"));
+    else await selectCard(page, "keeper");
     assert.equal(
       await card("lamp").isVisible(),
       true,
