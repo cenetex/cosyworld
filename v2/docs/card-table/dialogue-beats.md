@@ -195,16 +195,15 @@ One phase decides what the dialogue box shows (`phase()` in
 
 | Phase     | When                                                                          | In front                                   |
 | --------- | ----------------------------------------------------------------------------- | ------------------------------------------ |
+| choosing  | the hand has a choice and its play is ready or past the thinking grace        | the action beat, the spoken beat behind it |
 | revealing | the live line is being written, or the exchange has more                      | the line, in its full-size card            |
 | thinking  | a play is queued, or committed less than 5 s ago, and its words have not come | the Thinking card                          |
-| choosing  | the hand is raised with a choice, and none of the above                       | the action beat, the spoken beat behind it |
 | reviewing | the player stepped back behind live                                           | the earlier beat, with ● live              |
 | idle      | otherwise                                                                     | the latest beat                            |
 
-The action beat shows only while choosing. Cards chosen during a line wait
-for it: the line keeps its full card, and the play comes forward once the
-exchange is read. A shared refusal waits for the line too. A tap anywhere
-on a card that is being written, portrait and name included, finishes it.
+The action beat shows while choosing. Choosing cards brings their action
+forward while speech keeps writing behind it. The same rule applies to a shared
+refusal. A tap on the spoken card finishes its current line.
 A reload shows a line already begun in full, and a play whose words were
 still on the way asks again, quietly, with its Thinking card. Words that
 failed are not asked again. Clicking off the cards, like Escape, clears the choice: the action beat

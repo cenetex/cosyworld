@@ -247,6 +247,20 @@ try {
             .getAttribute("data-revealing"),
           "true",
         );
+        // Choosing a card keeps its action ready while the line writes.
+        await page.evaluate(() =>
+          document.querySelector('#hand [data-card="moth"]').click(),
+        );
+        await page
+          .locator("#card-actions .card-primary")
+          .waitFor({ state: "visible" });
+        assert.equal(
+          await page
+            .locator("#dialogue-advance")
+            .getAttribute("data-revealing"),
+          "true",
+        );
+        await page.keyboard.press("Escape");
         await page.locator("#dialogue-advance").click();
         assert.equal(await words(), lines.vale);
       }
