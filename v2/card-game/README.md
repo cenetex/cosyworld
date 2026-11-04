@@ -86,8 +86,11 @@ World pool, the scroll for Backup, the round window for New game, the
 armillary for Controls and the book stack for Download. Music, Voices,
 Flashes and scares and Another passkey keep their transparent figures. A
 card lifted over the next by pointer or focus moves that card's name clear.
-Every pack is mounted in every world (`installPacks`), so a pack card is lit and its button
-says so. The cards drive the controls in `#menu-dialog`, which no longer
+A pack card is lit while its pack is on, and dims when it is off. Its button
+switches it (rules 98, `pack-toggle.mjs`; no turn passes) or names why it
+can't: one pack stays on, not during a fight, the shore not before the first
+crossing, Hoppy Cat "Reached by The Wine-Dark Sea" while the Sea is off (it
+dims with it), and shared worlds keep every pack for now. The cards drive the controls in `#menu-dialog`, which no longer
 opens. While Settings is open the scene fades to black under the world's
 logo (the toolbar's, set where the title lifts it over its card) and the
 room or battle song fades out and holds its place; closing Settings fades
