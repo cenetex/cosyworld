@@ -1088,21 +1088,23 @@ const unlockAudio = () => {
 for (const type of ["pointerdown", "pointerup"])
   document.addEventListener(type, unlockAudio, { capture: true });
 document.addEventListener("keydown", unlockAudio, { capture: true });
-document.addEventListener("visibilitychange", () => {
+// Settings fades the scene's sound out and holds the song's place
+// (settings-screen.mjs); a hidden tab silences it too.
+function hideAudio() {
+  const quiet = $("settings-screen").open;
   music.setHidden(document.hidden);
-  hum.setHidden(document.hidden);
-  sfx.setHidden(document.hidden);
-});
+  music.setQuiet(quiet);
+  hum.setHidden(document.hidden || quiet);
+  sfx.setHidden(document.hidden || quiet);
+}
+document.addEventListener("visibilitychange", hideAudio);
+document.addEventListener("shared-dialog-change", hideAudio);
 window.addEventListener("pagehide", () => {
   music.setHidden(true);
   hum.setHidden(true);
   sfx.setHidden(true);
 });
-window.addEventListener("pageshow", () => {
-  music.setHidden(document.hidden);
-  hum.setHidden(document.hidden);
-  sfx.setHidden(document.hidden);
-});
+window.addEventListener("pageshow", hideAudio);
 const narrator = createNarrator({
   getWorld: () => world,
   early: Boolean(localRuntime()),

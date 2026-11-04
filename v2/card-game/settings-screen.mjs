@@ -14,6 +14,25 @@ const $ = (id) => document.getElementById(id);
 const words = (id) =>
   ($(id) && !$(id).hidden && $(id).textContent.trim()) || "";
 const open = (href) => window.open(href, "_blank", "noopener");
+// While Settings is open the scene fades to black under the world's logo,
+// set where the title sets it over its card (style.css; app.mjs fades the
+// music). The logo is the one the toolbar shows (title-logo.mjs).
+function showVeil() {
+  const stage = $("stage"),
+    logo = document.querySelector(".brand strong")?.dataset.logo;
+  let veil = stage.querySelector(".settings-veil");
+  if (!veil) {
+    veil = Object.assign(document.createElement("div"), {
+      className: "settings-veil",
+    });
+    veil.setAttribute("aria-hidden", "true");
+    stage.append(veil);
+  }
+  if (!logo) return veil.replaceChildren();
+  const image = veil.querySelector("img") || document.createElement("img");
+  Object.assign(image, { alt: "", decoding: "async", src: imageUrl(logo) });
+  veil.replaceChildren(image);
+}
 // Shared play's passkey buttons sit in #menu-dialog by their names.
 const named = (text) =>
   [...$("menu-dialog").querySelectorAll("button")].find(
@@ -189,6 +208,7 @@ export function installSettingsCards({ actionBeat }) {
   return {
     open() {
       if (!screen.open) screen.show();
+      showVeil();
       changed();
       render();
       hand.querySelector(".card")?.focus();
