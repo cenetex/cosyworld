@@ -8,8 +8,8 @@ import { worldName } from "../card-game/world-name.mjs";
 // ☰'s world slots (#1877, #1891): a world shows the avatars that entered
 // it, in colour only while online, then "+" for an open seat. A tap shows
 // that avatar as a beat in front of the dialogue (☰ has no profile card):
-// its small card, who plays it, online and where, and on yours Leave on the
-// right. One tap on yours in another world switches there, and ☰ opens
+// it stands as on the quest card, borderless, with two lines (its name,
+// then "Exploring" its world), and on yours Leave on the right. One tap on yours in another world switches there, and ☰ opens
 // with it chosen; on the one being played a tap only chooses. On another's
 // a second tap arms it for the owner's Free. "+" offers your
 // avatar in the beat. A friend's world shows while your avatar sits
@@ -166,8 +166,13 @@ try {
     assert.equal(await valeFace.getAttribute("aria-pressed"), "true");
     assert.match(
       await card.locator(".action-beat-heading").innerText(),
-      /^Vale · online · /,
+      /^Vale\nExploring \S.+$/,
     );
+    assert.equal(
+      await card.evaluate((panel) => getComputedStyle(panel).borderTopWidth),
+      "0px",
+    );
+    assert.equal(await card.locator(".beat-face.quest-screen").count(), 1);
     assert.deepEqual(await actions.allInnerTexts(), ["Leave"]);
     // Portrait left, words in the middle, Leave flush on the right, all in
     // one row.
@@ -184,7 +189,7 @@ try {
       leaveBox.y < words.y + words.height &&
         words.y < leaveBox.y + leaveBox.height,
     );
-    assert.match(await note.innerText(), /^Vale keeps their level; the seat/);
+    assert(await note.isHidden());
     await shot(`output/card-world-slots-selected-${width}.png`);
     await valeFace.click();
     assert(await menu.isVisible());
@@ -208,13 +213,10 @@ try {
     assert.equal(await card.getAttribute("data-avatar"), "tavi");
     assert.match(
       await card.locator(".action-beat-heading").innerText(),
-      /^Tavi · online · /,
+      /^Tavi\nExploring \S.+$/,
     );
     assert.deepEqual(await actions.allInnerTexts(), ["Leave"]);
-    assert.match(
-      await note.innerText(),
-      new RegExp(`^Tavi keeps their level; the seat in .+ opens\\.$`),
-    );
+    assert(await note.isHidden());
     await shot(`output/card-world-slots-arrived-${width}.png`);
     // Leave there frees her seat; the bare address opens with ☰.
     await Promise.all([
@@ -233,7 +235,7 @@ try {
     // button until, armed, the owner may free her.
     const spare = menu.locator('.world-slot[data-slot="spare"]');
     await spare.locator('[data-avatar="mara"] button').click();
-    assert.match(await card.innerText(), /Mara · Someone · offline/);
+    assert.match(await card.innerText(), /Mara\nSomeone · Exploring /);
     assert.equal(
       await card.locator(".beat-face").getAttribute("data-lit"),
       "false",

@@ -180,8 +180,8 @@ try {
     // Each avatar shows once: no avatar list and no Send to….
     assert.equal(await menu.locator(".avatar-row, .avatar-list").count(), 0);
     assert.doesNotMatch(await menu.innerText(), /Send to/);
-    // ☰ has no profile card: a tapped seat shows that avatar, who plays it,
-    // online and where, as a beat in front of the dialogue, outside ☰, with
+    // ☰ has no profile card: a tapped seat shows that avatar, who plays it
+    // and where, as a beat in front of the dialogue, outside ☰, with
     // its action on the right when it has one.
     assert.equal(await menu.locator(".profile-card").count(), 0);
     const card = page.locator(".dialogue > .action-panel");
@@ -194,13 +194,13 @@ try {
     assert.equal(await card.getAttribute("data-avatar"), "mara");
     assert.match(
       await card.locator(".action-beat-heading").innerText(),
-      /^Mara · Sable Swift · online · /,
+      /^Mara\nSable Swift · Exploring /,
     );
     assert.equal(await actions.count(), 0);
     await seats.nth(1).locator("button").click();
-    // Choosing your own avatar offers Leave, with what it costs.
+    // Choosing your own avatar offers Leave, with no note.
     assert.deepEqual(await actions.allInnerTexts(), ["Leave"]);
-    assert.match(await note.innerText(), /^Vale keeps their level/);
+    assert(await note.isHidden());
     await page.screenshot({
       path: new URL(`menu-${width}.png`, output).pathname,
     });

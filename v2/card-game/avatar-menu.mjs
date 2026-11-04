@@ -67,11 +67,11 @@ function stored(key, value) {
   return null;
 }
 
-// What Leave costs, on one line: the level goes along, and the seat frees
-// (#1846).
-export function leaveNote(avatar, place) {
-  if (!place) return "";
-  return `${avatar.name} keeps their level; the seat in ${place.name || "this world"} opens.`;
+// The chosen avatar's second line: where it is now. Another person's seat
+// names who holds it first.
+export function seatLine(seat, slot) {
+  const where = slot ? `Exploring ${slot.name || "a world"}` : "In no world";
+  return seat.kind === "human" ? `${seat.holder} · ${where}` : where;
 }
 
 // A shared world this avatar can go to: one this person holds no avatar in,
@@ -302,7 +302,7 @@ export function installAvatarMenu({
     result = `Find ${avatar.name} here and talk to them.`;
   }
   // The chosen seat's action: Leave for yours, the owner's Free for
-  // another's once armed, each with a one-line note; none otherwise.
+  // another's once armed, with a one-line note; none otherwise.
   function seatAction(slot, seat) {
     if (seat.kind === "human") {
       if (!slot.owner || !armed) return {};
@@ -326,10 +326,6 @@ export function installAvatarMenu({
       menu.showPopover();
     };
     return {
-      note: leaveNote(
-        humanAvatars.find((a) => a.id === seat.id),
-        slot,
-      ),
       buttons: [{ label: "Leave", id: "avatar-leave", run: guard(leaveSeat) }],
     };
   }
@@ -464,9 +460,10 @@ export function installAvatarMenu({
     return item;
   }
   // The chosen avatar, as a beat in front of the dialogue (owner,
-  // 2026-11-01: ☰ has no profile card). Its small card carries its level
-  // and tier; its line says who plays it, whether they are online and
-  // where; then its seat's action, or Bring to the world a "+" offers it in.
+  // 2026-11-01: ☰ has no profile card). It stands as on the quest card,
+  // in the place it is in here, with its level and tier; two lines give its
+  // name and where it is; then its seat's action, or Bring to the world a
+  // "+" offers it in.
   function chosenBeat(view, { id, slot: key, to }) {
     const home = view.slots.find((s) => s.mine === id);
     const slot = to ? home : view.slots.find((s) => s.key === key);
@@ -482,12 +479,8 @@ export function installAvatarMenu({
       level: level ? romanLevel(level) : "",
       color: levelTier(level).color,
       lit: Boolean(seat.online),
+      ground: world?.actors?.[id]?.place || null,
     };
-    const info = [
-      seat.kind === "human" ? seat.holder : "",
-      seat.online ? "online" : "offline",
-      slot ? slot.name || "A world" : "In no world",
-    ].filter(Boolean);
     const target = to && view.slots.find((s) => s.key === to);
     const action = target
       ? {
@@ -506,7 +499,7 @@ export function installAvatarMenu({
       avatar: id,
       cards: [card],
       name: seat.name,
-      info: info.join(" · "),
+      info: seatLine(seat, slot),
       buttons: [],
       ...action,
     };

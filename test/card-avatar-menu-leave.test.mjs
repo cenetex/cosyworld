@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   joinable,
-  leaveNote,
+  seatLine,
   targetsFor,
   worldSeats,
   worldSlots,
@@ -9,12 +9,19 @@ import {
 
 const mara = { id: "mara", name: "Mara" };
 
-describe("leaving", () => {
-  it("takes the level along and frees the seat (#1846)", () => {
-    expect(leaveNote(mara, { shared: "w1", name: "The Quiet Ferry" })).toBe(
-      "Mara keeps their level; the seat in The Quiet Ferry opens.",
+describe("the chosen avatar's line", () => {
+  const ferry = { shared: "w1", name: "The Quiet Ferry" };
+  it("says where it is now, with no presence or cost", () => {
+    expect(seatLine({ ...mara, kind: "you" }, ferry)).toBe(
+      "Exploring The Quiet Ferry",
     );
-    expect(leaveNote(mara, null)).toBe("");
+    expect(seatLine({ ...mara, kind: "you" }, null)).toBe("In no world");
+  });
+  it("names who holds another person's seat", () => {
+    const held = { ...mara, kind: "human", holder: "Amber Heron" };
+    expect(seatLine(held, ferry)).toBe(
+      "Amber Heron · Exploring The Quiet Ferry",
+    );
   });
 });
 
