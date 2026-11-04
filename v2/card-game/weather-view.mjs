@@ -24,6 +24,19 @@ reducedMotion.addEventListener("change", wake);
 // (combat-view.mjs), so it is followed frame by frame while the fight is on.
 // Reading them on every frame laid the page out again on every frame.
 const frames = new WeakMap();
+// The stage's light eases its own styles every frame; only these move it.
+const FRAMING = `--art-ratio --focus-x --focus-y --figure-left --figure-right
+  --figure-top --figure-width`.split(/\s+/);
+const framing = (stage) => {
+  const root = document.documentElement;
+  return [
+    ...FRAMING.map((name) => stage.style.getPropertyValue(name)),
+    root.style.getPropertyValue("--dock-height"),
+    stage.className,
+    root.className,
+    stage.dataset.combat,
+  ].join();
+};
 function paintingFrame(stage) {
   const art = stage.querySelector(".stage-figures");
   let kept = frames.get(stage);
@@ -31,7 +44,9 @@ function paintingFrame(stage) {
     kept?.watch.forEach((watcher) => watcher.disconnect());
     const stale = () => (kept.boxes = null);
     const sizes = new ResizeObserver(stale);
-    const styles = new MutationObserver(stale);
+    const styles = new MutationObserver(() => {
+      if (kept.framing !== framing(stage)) stale();
+    });
     kept = { art, boxes: null, watch: [sizes, styles] };
     for (const element of [stage, art].filter(Boolean)) sizes.observe(element);
     for (const element of [stage, document.documentElement])
@@ -40,11 +55,13 @@ function paintingFrame(stage) {
       });
     frames.set(stage, kept);
   }
-  if (!kept.boxes || stage.dataset.combat)
+  if (!kept.boxes || stage.dataset.combat) {
+    kept.framing = framing(stage);
     kept.boxes = {
       art: art?.getBoundingClientRect(),
       box: stage.getBoundingClientRect(),
     };
+  }
   return kept.boxes;
 }
 function forgetFrame(stage) {
