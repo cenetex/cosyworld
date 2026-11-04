@@ -279,8 +279,19 @@ describe("Greek ports and fixed roads", () => {
         recall: null,
       };
       const current = decodeSave(JSON.stringify(old));
-      // Quest progress is dropped; each avatar gains its want record.
-      const lived = ({ want, xp, visited, talked, metTurn, gaveUp, ...a }) => a;
+      // Quest progress is dropped; each avatar gains its want record, and
+      // the Gate Guard takes his post (rules 100).
+      expect(current.actors["greek-guard"].guarding).toBe("greek-battlefield");
+      const lived = ({
+        want,
+        xp,
+        visited,
+        talked,
+        metTurn,
+        gaveUp,
+        guarding,
+        ...a
+      }) => a;
       for (const [id, { progress, ...actor }] of Object.entries(old.actors))
         expect(lived(current.actors[id])).toEqual({
           ...upgradedActor(actor),

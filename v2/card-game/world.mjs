@@ -198,6 +198,16 @@ import {
   worldLife,
 } from "./resident-home.mjs";
 import { bedtime, residentAsleep, validSleep } from "./resident-sleep.mjs";
+import {
+  guardableWays,
+  guardedExits,
+  isGuardable,
+  guardPost,
+  guardOf,
+  wayLifted,
+  settleGuards,
+  validGuard,
+} from "./resident-guard.mjs";
 
 // Authored forest data and mounted packs share the same rule path.
 export const places = { ...forest.places, ...packPlaces };
@@ -309,6 +319,7 @@ export function createWorld({ opening = false, packScopes = {}, seed } = {}) {
   // waiting for its first quest.
   fillWants(world, wantAPI(world), true);
   rememberEvent(world, world.log[0]);
+  settleGuards(world);
   return world;
 }
 // Mount every pack missing from this save: its crossings, its state, and its
@@ -593,31 +604,48 @@ function pondRescueExit(s, place, actor, previous) {
 export function exits(s, place, actor = null, previous = null) {
   const rescue = homeRescueExit(s, place, actor, previous),
     returnPath = pondRescueExit(s, place, actor, previous);
-  return [
+  const ways = [
     ...ordinaryExits(s, place, actor, previous),
     ...(rescue ? [rescue] : []),
     ...(returnPath ? [returnPath] : []),
-  ].filter(
+  ];
+  // A guardable way, and the way back through it (rules 100).
+  for (const to of guardedExits(s, place, actor))
+    if (!ways.includes(to)) ways.push(to);
+  return ways.filter(
     (to) =>
       entityActive(s, to) &&
       actorCanVisit(actor, to, s) &&
-      humanRoomAvailable(s, actor, to),
+      humanRoomAvailable(s, actor, to) &&
+      !guardOf(s, place, to, actor),
   );
 }
 
 // A sealed way (rules 95): a pack route that names its sealed card and the
 // quest that opens it, while it is shut from where the traveller stands.
-const sealedRoutes = packDefinitions.flatMap((pack) =>
-  (pack.routes || []).filter((r) => r.sealed),
-);
+// A guarded way shows the same sealed card while its guard bars it, and the
+// reason names the guard (rules 100); it gives its quest if the route has one.
+let sealedRoutes = null;
 export function sealedWays(s, actor = currentActor(s)) {
+  sealedRoutes ??= packDefinitions.flatMap((pack) =>
+    (pack.routes || []).filter((r) => r.sealed || isGuardable(r.from, r.to)),
+  );
   const here = s.actors[actor]?.place,
     ways = sealedRoutes.filter(
       (r) => r.from === here && entityActive(s, r.to) && entityActive(s, here),
     );
   if (!ways.length) return [];
-  const open = exits(s, here, actor);
-  return ways.filter((r) => !open.includes(r.to));
+  const open = exits(s, here, actor),
+    seen = new Set();
+  return ways
+    .filter((r) => !open.includes(r.to))
+    .flatMap((r) => {
+      const guard = guardOf(s, here, r.to, actor);
+      if (!guard) return r.sealed ? [r] : [];
+      const reason = `${nameOf(guard)} bars the way`;
+      return [{ ...r, sealed: { ...r.sealed, reason }, guardedBy: guard }];
+    })
+    .filter((r) => !seen.has(r.to) && seen.add(r.to));
 }
 // The quest a sealed card gives: the thing to hold, or to give someone, the
 // place to reach or the person to talk with.
@@ -1240,7 +1268,16 @@ function defeatInStandoff(s, c, winner, loser, here) {
   delete defeats[winner];
   const lossCount = (defeats[loser] || 0) + 1;
   const home = homeOf(loser);
+  // A guard beaten at its post is knocked through the way it guards, even
+  // a third time: its home is the post (rules 100).
+  const post = guardPost(loser);
+  const knocked =
+    post?.from === here &&
+    !wayLifted(s, post.from, post.to) &&
+    entityActive(s, post.to) &&
+    actorCanVisit(loser, post.to, s);
   const sentHome =
+    !knocked &&
     lossCount >= DEFEATS_TO_SEND_HOME &&
     Boolean(home) &&
     entityActive(s, home) &&
@@ -1262,9 +1299,11 @@ function defeatInStandoff(s, c, winner, loser, here) {
   if (lossCount >= DEFEATS_TO_SEND_HOME) delete defeats[loser];
   else defeats[loser] = lossCount;
   const outcome = sentHome ? "sent-home" : "yield";
-  const to = sentHome
-    ? home
-    : exits(s, here, loser).find((next) => !isCourse(s, here, next, loser));
+  const to = knocked
+    ? post.to
+    : sentHome
+      ? home
+      : exits(s, here, loser).find((next) => !isCourse(s, here, next, loser));
   // The loser leaves the battle; it ends with one combatant left or the
   // disputed item let go.
   leaveBattle(s, c, loser);
@@ -1292,7 +1331,9 @@ function defeatInStandoff(s, c, winner, loser, here) {
     remember(s, id, `${nameOf(loser)} retreated to ${nameOf(to)} with it.`);
   text += sentHome
     ? ` ${nameOf(loser)} is beaten a third time and sent home to ${nameOf(to)}.${ends}`
-    : ` ${nameOf(loser)} retreats to ${nameOf(to)}.${ends}`;
+    : knocked
+      ? ` ${nameOf(loser)} is knocked through to ${nameOf(to)}.${ends}`
+      : ` ${nameOf(loser)} retreats to ${nameOf(to)}.${ends}`;
   return {
     text,
     outcome,
@@ -1438,6 +1479,29 @@ export function legalActions(s, actor = currentActor(s)) {
     )?.verb === "wait"
   )
     out.push(sleep);
+  // A player may stand guard at a guardable way it could take: a standing
+  // Wait that lasts until its next other play (rules 100).
+  if (
+    !conflict &&
+    !transportPlace(here) &&
+    (actor === currentActor(s) || controlledByHuman(s, actor))
+  ) {
+    const open = exits(s, here, actor);
+    for (const to of guardableWays(here).filter((to) => open.includes(to)))
+      out.push({
+        ...offer(
+          "wait",
+          actor,
+          null,
+          to,
+          `${nameOf(actor)} guards the way to ${nameOf(to)}.`,
+          [actor, to],
+        ),
+        key: `guard-way:${actor}::${to}`,
+        label: "Guard",
+        guards: to,
+      });
+  }
   for (const to of packPeople[actor]?.journey ? [] : exits(s, here, actor)) {
     if (departureWaits(s, actor, to)) continue;
     // A course card aboard a docked ship sets the voyage for everyone aboard.
@@ -1531,7 +1595,7 @@ export function legalActions(s, actor = currentActor(s)) {
           actor,
           null,
           other,
-          `${nameOf(actor)} guards ${nameOf(other)}.`,
+          `${nameOf(actor)} covers ${nameOf(other)}.`,
           [actor, other],
         ),
       );
@@ -1763,8 +1827,9 @@ export function legalActions(s, actor = currentActor(s)) {
     for (const r of sealedWays(s, actor)) {
       const top = questsOf(s, actor)[0];
       if (
-        top?.kind === r.sealed.quest.kind &&
-        top.target === r.sealed.quest.target
+        !r.sealed.quest ||
+        (top?.kind === r.sealed.quest.kind &&
+          top.target === r.sealed.quest.target)
       )
         continue;
       out.push(offer("gate", actor, null, r.to, r.sealed.reason, [r.to]));
@@ -2016,7 +2081,7 @@ function wakeSleepers(s, before, voyages) {
     if (woke) wakeUp(s, id, woke, `${who} ${text}.`);
   }
 }
-// --- Rules 100: world life (resident-home, resident-sleep) ---------------
+// --- Rules 100: world life (resident-home, -sleep, -guard) ---------------
 // A resident asleep on its schedule wakes, at once, for a Talk, a threat, a
 // ring where it sleeps or being moved. It stays awake until its next bedtime.
 function wakeResident(s, id) {
@@ -2236,6 +2301,7 @@ function performPlay(s, a, round = null, settle = []) {
   if (a.kind === "wait") {
     const asleep = Boolean(s.actors[a.actor].sleeping);
     rest(s, a.actor, here, a.sleep);
+    if (a.guards) s.actors[a.actor].guarding = a.guards;
     const learningStart = beginLearning(s, a);
     if (a.actor === currentActor(s)) calm(s, here);
     // Observing here, awake, may notice one of the place's signs.
@@ -2251,6 +2317,7 @@ function performPlay(s, a, round = null, settle = []) {
         verb: "wait",
         witnesses,
         ...(a.sleep ? { sleep: true } : {}),
+        ...(a.guards ? { guards: a.guards } : {}),
       });
       if (learningStart) recordLearning(s, a, learningStart, s.log.at(-1));
     }
@@ -2342,7 +2409,7 @@ function performPlay(s, a, round = null, settle = []) {
       conflict.struck[a.actor] = true;
       (conflict.hitBy ??= {})[hit] = a.actor;
       conflict.resolve[hit] = Math.max(0, resolveBefore - damage);
-      text += `${guard ? ` ${nameOf(guard)} steps in front of ${nameOf(a.target)}.` : ""} ${guarded ? "The guard softens the blow. " : ""}${nameOf(hit)} loses ${damage} resolve.`;
+      text += `${guard ? ` ${nameOf(guard)} steps in front of ${nameOf(a.target)}.` : ""} ${guarded ? "The brace softens the blow. " : ""}${nameOf(hit)} loses ${damage} resolve.`;
       combat = {
         ...(guard ? { targetId: guard, coveredId: a.target } : {}),
         damage,
@@ -2976,6 +3043,7 @@ export function play(
       verb: "pack",
       witnesses: [actor],
     });
+    settleGuards(next);
     validateWorld(next);
     return { ok: true, state: next };
   }
@@ -3019,8 +3087,9 @@ export function play(
     validateWorld(next);
     return { ok: true, state: next };
   }
-  // An away avatar's resident sleep becomes its returning player's own
-  // (rules 100).
+  // Any other play ends a player's guard (rules 100), and an away avatar's
+  // resident sleep becomes its returning player's own.
+  if (!exact.guards) delete next.actors[actor].guarding;
   const dozing = next.actors[actor].sleeping;
   if (dozing?.until !== undefined)
     next.actors[actor].sleeping = {
@@ -3177,6 +3246,7 @@ export function play(
   settleStandoffs(next);
   // A gate whose condition now holds stays open from here on.
   latchRoutes(next);
+  settleGuards(next);
   for (const [id, allowance] of Object.entries(
     next.sharedMigration?.inventoryAllowances || {},
   )) {
@@ -3342,7 +3412,8 @@ export function validateWorld(s) {
     !validMotives(s) ||
     !validLife(s, Object.keys(places)) ||
     !validHome(s) ||
-    !validSleep(s, places)
+    !validSleep(s, places) ||
+    !validGuard(s, places)
   )
     fail();
   if (
@@ -3651,7 +3722,9 @@ export function validateWorld(s) {
       (e.dream !== undefined &&
         (!DREAMS.includes(e.dream) || e.rest !== "long")) ||
       (e.woke !== undefined &&
-        (!WAKE_REASONS.includes(e.woke) || e.verb !== "wait"))
+        (!WAKE_REASONS.includes(e.woke) || e.verb !== "wait")) ||
+      (e.guards !== undefined &&
+        (e.verb !== "wait" || !Object.hasOwn(places, e.guards)))
     )
       fail();
     if (
@@ -3730,8 +3803,10 @@ export function decodeSave(text) {
       setAside: (world, id) =>
         !humanHeld(world, id) && setAsideWant(world, id, wantAPI(world)),
     });
-    // An earlier save records the gates already open as it loads.
+    // An earlier save records the gates already open as it loads, and its
+    // guards take their posts (rules 100).
     latchRoutes(s);
+    settleGuards(s);
     validateWorld(s);
     preserveTransportAccess(s);
   } catch (error) {

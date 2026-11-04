@@ -2690,11 +2690,6 @@
               "kind": "holding",
               "item": "greek-decree",
               "actor": "greek-guard"
-            },
-            {
-              "kind": "item_near",
-              "item": "greek-decree",
-              "place": "greek-gate"
             }
           ],
           "sealed": {
@@ -2714,11 +2709,6 @@
               "kind": "holding",
               "item": "greek-creon-writ",
               "actor": "greek-guard"
-            },
-            {
-              "kind": "item_near",
-              "item": "greek-creon-writ",
-              "place": "greek-gate"
             }
           ]
         },

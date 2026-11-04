@@ -260,6 +260,7 @@ const files = [
   "roaming-routes.mjs",
   "resident-home.mjs",
   "resident-sleep.mjs",
+  "resident-guard.mjs",
   "want-talk.mjs",
   "want.mjs",
   "glimpse.mjs",

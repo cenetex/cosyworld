@@ -329,7 +329,9 @@ describe("rules 95 item cycle", () => {
     s = reload(s);
     expect(exits(s, "greek-gate", "vale")).not.toContain("greek-battlefield");
     expect(availableCards(s)).toContain("greek-battlefield");
-    expect(sealedReason(s, "greek-battlefield")).toMatch(/holds an order/u);
+    expect(sealedReason(s, "greek-battlefield")).toBe(
+      "The Gate Guard bars the way",
+    );
     const row = cardActions(s, ["greek-battlefield"]).actions;
     expect(row.map((a) => a.kind)).toEqual(["gate"]);
     const turn = s.turn;

@@ -11,10 +11,11 @@ import { backdrop } from "../v2/card-game/scene.mjs";
 import { greekTravelTargets } from "./helpers/greek-travel.mjs";
 import { openingFixture } from "./helpers/greek-opening.mjs";
 
-// The road from the Theban City Gate out to the battlefield opens once the
-// Gate Guard holds the Burial Decree at the gate, and stays open after. The
-// gate guards the city both ways (rules 94): the way back in from the
-// battlefield is open once the gate is.
+// The road from the Theban City Gate out to the battlefield opens for good
+// once the Gate Guard holds the Burial Decree, wherever he stands (rules
+// 100); until then he bars it. The gate guards the city both ways (rules
+// 94): the way back in from the battlefield is open once the gate is, or to
+// anyone who has been at the gate, so it never traps them.
 const reload = (s) => decodeSave(encodeSave(s));
 const out = (s) => exits(s, "greek-gate", "vale").includes("greek-battlefield");
 const painted = (s) => !backdrop("greek-gate", s).includes("closed");
@@ -113,18 +114,18 @@ describe("the Theban City Gate", () => {
   });
 
   it("keeps a live route a toggle", () => {
+    // The way back in from the battlefield is live: it follows the gate and
+    // is never recorded as opened itself.
     const s = structuredClone(openingFixture("burial").decree);
-    route.live = true;
-    try {
-      s.items["greek-decree"].holder = "greek-guard";
-      s.actors["greek-guard"].place = "greek-gate";
-      const open = reload(s);
-      expect(open.openedRoutes).toBeUndefined();
-      expect(out(open)).toBe(true);
-      open.items["greek-decree"].holder = "greek-palace";
-      expect(out(reload(open))).toBe(false);
-    } finally {
-      delete route.live;
-    }
+    s.actors.vale.place = "greek-battlefield";
+    s.actors.vale.visited = ["greek-battlefield"];
+    const shut = reload(s);
+    expect(exits(shut, "greek-battlefield", "vale")).not.toContain(
+      "greek-gate",
+    );
+    s.items["greek-decree"].holder = "greek-guard";
+    const open = reload(s);
+    expect(open.openedRoutes).toEqual(OPENED);
+    expect(exits(open, "greek-battlefield", "vale")).toContain("greek-gate");
   });
 });

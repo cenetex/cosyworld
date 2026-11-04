@@ -253,7 +253,9 @@ export function cardPlay(world, selected) {
       avatar === currentActor(world)
         ? location === here
           ? stay()
-          : find("move", null, location)
+          : // Yourself and a guardable way stands guard (rules 100).
+            actions.find((a) => a.guards === location) ||
+            find("move", null, location)
         : actions.find(
             (a) =>
               a.kind === "accompany" &&
@@ -334,6 +336,11 @@ export function cardActions(world, selected) {
     actions.push(...cardChoices(world, id));
   } else if (cards.includes(currentActor(world))) {
     const other = cards.find((id) => id !== currentActor(world));
+    // Guard leads at a guardable way; Travel stays beside it.
+    const travel = legalActions(world).find(
+      (a) => a.kind === "move" && !a.item && a.target === other,
+    );
+    if (primary.action?.guards && travel) actions.push(travel);
     if (people[other]) {
       actions = avatarPlays(world, other).filter((a) =>
         ["threaten", "intercept"].includes(a.kind),
@@ -446,16 +453,18 @@ export function restPlays(world, actions, again, cards = []) {
   const legal = legalActions(world),
     sleep = legal.find((a) => a.sleep),
     wait = legal.find((a) => a.kind === "wait" && !a.sleep);
+  // A Guard is a Wait of its own and stays as it is (rules 100).
+  const plain = (a) => a.kind === "wait" && !a.guards;
   const rested =
-    !sleep || !wait || !actions.some((a) => a.kind === "wait")
+    !sleep || !wait || !actions.some(plain)
       ? actions
       : world.actors[currentActor(world)].sleeping
-        ? [sleep, wait, ...actions.filter((a) => a.kind !== "wait")]
-        : actions.map((a) => (a.kind === "wait" ? (again ? sleep : wait) : a));
+        ? [sleep, wait, ...actions.filter((a) => !plain(a))]
+        : actions.map((a) => (plain(a) ? (again ? sleep : wait) : a));
   // The plain Wait gives way to any other play; Sleep never does (#2027).
-  const busy = rested.some((a) => a.kind !== "wait");
+  const busy = rested.some((a) => !plain(a));
   return rested
-    .filter((a) => !busy || a.kind !== "wait" || a.sleep)
+    .filter((a) => !busy || !plain(a) || a.sleep)
     .map((a) => shownPlay(world, a, cards));
 }
 

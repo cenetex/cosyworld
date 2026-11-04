@@ -38,6 +38,7 @@ const RULES = [
   "pack-toggle.mjs",
   "pack-transport.mjs",
   "reflections.mjs",
+  "resident-guard.mjs",
   "resident-home.mjs",
   "resident-sleep.mjs",
   "roaming-routes.mjs",

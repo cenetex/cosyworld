@@ -185,8 +185,9 @@ describe("the City Gate", () => {
   it("shows a sealed card whose quest is the decree for the guard", () => {
     let s = openingFixture("burial").decree;
     expect(availableCards(s)).toContain("greek-battlefield");
+    // The guard at his post bars it, and the button names him (rules 100).
     expect(sealedReason(s, "greek-battlefield")).toBe(
-      "The guard lifts the bar for an order from the palace: the Burial Decree or Creon's writ.",
+      "The Gate Guard bars the way",
     );
     s = act(s, "gate", { target: "greek-battlefield" });
     expect(s.actors.vale.want).toMatchObject({

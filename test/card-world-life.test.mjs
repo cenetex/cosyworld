@@ -136,7 +136,7 @@ describe("home and range", () => {
 
 describe("world life is deterministic and cheap", () => {
   it("uses no clock and no random number", () => {
-    for (const file of ["home", "sleep"]) {
+    for (const file of ["home", "sleep", "guard"]) {
       const source = readFileSync(`v2/card-game/resident-${file}.mjs`, "utf8");
       expect(source).not.toMatch(/Date|Math\.random|performance/u);
     }

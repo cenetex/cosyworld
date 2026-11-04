@@ -7,7 +7,12 @@ import {
   play,
 } from "../../v2/card-game/world.mjs";
 import { DAY_TURNS } from "../../v2/card-game/resident-home.mjs";
-import { entityActive, packPeople } from "../../v2/card-game/pack-registry.mjs";
+import { settleGuards } from "../../v2/card-game/resident-guard.mjs";
+import {
+  entityActive,
+  latchRoutes,
+  packPeople,
+} from "../../v2/card-game/pack-registry.mjs";
 
 export const reload = (s) => decodeSave(encodeSave(s));
 // A full Greek world on its second day, Vale at `place`, the cast met.
@@ -39,3 +44,10 @@ export const wait = (s, n = 1) => {
   return s;
 };
 export const waitUntil = (s, turn) => wait(s, Math.max(0, turn - s.turn));
+// A gate whose condition was set by hand latches, and its guard stands
+// aside, as the end of a play would do it (rules 100).
+export const settleGate = (world) => {
+  latchRoutes(world);
+  settleGuards(world);
+  return world;
+};

@@ -30,6 +30,7 @@ import {
 import { createServer } from "../v2/card-game/serve.mjs";
 import { upgradedItems } from "./fixtures/card-upgraded-items.mjs";
 import { stowProvisions } from "./helpers/provisions.mjs";
+import { settleGate } from "./helpers/world-life.mjs";
 const pack = packDefinition("greek-drama");
 const openingPlaces = [
   "greek-harbor",
@@ -94,10 +95,11 @@ const act = (s, kind, fields = {}) => {
   expect(r.ok, r.error).toBe(true);
   return r.state;
 };
-// The battlefield road is open while the guard at the gate holds the decree.
+// The battlefield road is open once the guard holds the decree.
 const reachable = (world) => {
   const s = structuredClone(world);
   s.items["greek-decree"].holder = "greek-guard";
+  settleGate(s);
   const seen = new Set([pack.entry]);
   for (const id of seen)
     for (const to of exits(s, id, "vale"))
