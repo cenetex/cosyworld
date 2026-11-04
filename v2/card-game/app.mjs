@@ -1281,12 +1281,16 @@ function handItems() {
     (id) => world.items[id].holder === actor && selectedHandItem(world, [id]),
   );
 }
+// A thing the player's own play just put in their hands, until the hand's
+// next redraw brings its card into view.
+let receivedCard = null;
 function keepHeldSelection(before, action = null) {
   const actor = currentActor(world);
   const arrived = handItems().filter((id) => !before.hands.includes(id));
   const received =
     [action?.receive, action?.item].find((id) => arrived.includes(id)) ||
     arrived.at(-1);
+  receivedCard = received ?? null;
   // A standoff locks the room and takes the held things out of the hand
   // (#1775), so a raised item leaves the selection with its card.
   const shown = availableCards(world);
@@ -4035,6 +4039,14 @@ function render() {
     // it was to its fanned place.
     fanHand();
     $("hand").scrollLeft = stayed ? scroll : 0;
+    // A thing taken or received by the player's own play is in their hand
+    // at once: the row keeps its scroll, so the card would land out of view
+    // beside its new holder. Scrolled now, before the row's moves are
+    // measured, it slides from where it lay into view.
+    if (receivedCard) {
+      revealHandCard(receivedCard, false, true);
+      receivedCard = null;
+    }
     renderActions();
     // On wide screens raising or lowering the hand is one motion: the deck
     // grows from its corner into the row while the dialogue slides from

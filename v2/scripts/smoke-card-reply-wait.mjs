@@ -211,7 +211,62 @@ async function localCheck(width, actor, kind, mode) {
   reports.push({ width, actor, kind, [mode]: "passed" });
   await page.close();
 }
+// A taken thing is in the taker's hand at once, face up and in view, while
+// the words for the Take are still on the way. On a phone the row keeps its
+// scroll, so the card must not land out of view beside its new holder.
+async function takeHolds(width, reducedMotion) {
+  console.log(`Reply wait: take holds at ${width}px ${reducedMotion}`);
+  const page = await browser.newPage({
+    viewport: { width, height: width === 390 ? 844 : 900 },
+    reducedMotion,
+    hasTouch: width === 390,
+  });
+  const errors = [];
+  page.setDefaultTimeout(10000);
+  page.on("pageerror", (e) => errors.push(e.message));
+  const world = createWorld(),
+    table = `reply-take-${width}-${reducedMotion}`;
+  await seed(page, `cosyworld.reflected-shore.v1.${table}`, world);
+  await page.addInitScript(storyStream);
+  await page.goto(`${origin}/?table=${table}`);
+  await selectCard(page, "lamp");
+  await page.locator('#card-actions [data-action="take"]').first().click();
+  const held = await page.waitForFunction(
+    () => {
+      const card = document.querySelector('#hand .card[data-card="lamp"]'),
+        frame = card?.closest(".card-frame"),
+        hand = document.querySelector("#hand");
+      if (frame?.dataset.holder !== "vale") return false;
+      // Where the row lays it out, before any slide into place.
+      const left = frame.offsetLeft - hand.offsetLeft - hand.scrollLeft;
+      return {
+        hidden: frame.hidden,
+        covered: card.dataset.covered === "true",
+        unrevealed: card.dataset.unrevealed === "true",
+        inView: left >= -1 && left + frame.offsetWidth <= hand.clientWidth + 1,
+        replied: document
+          .querySelector("#dialogue-text")
+          .textContent.includes("Accepted words"),
+      };
+    },
+    null,
+    { timeout: 1000, polling: "raf" },
+  );
+  assert.deepEqual(await held.jsonValue(), {
+    hidden: false,
+    covered: false,
+    unrevealed: false,
+    inView: true,
+    replied: false,
+  });
+  assert.deepEqual(errors, []);
+  reports.push({ width, reducedMotion, take: "passed" });
+  await page.close();
+}
 try {
+  for (const width of [1440, 390])
+    for (const motion of ["reduce", "no-preference"])
+      await takeHolds(width, motion);
   for (const width of [1440, 390]) {
     for (const [actor, kind] of [
       ["vale", "talk"],
