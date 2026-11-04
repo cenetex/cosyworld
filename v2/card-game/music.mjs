@@ -362,6 +362,10 @@ export function createRoomMusic({
     sync();
   });
   return {
+    // Whether a cue song is still audible, fading out included.
+    get cueSounding() {
+      return Boolean(cues?.sounding);
+    },
     cue(name = null) {
       cues?.cue(name);
       if (cued === (cues?.current ?? null)) return;

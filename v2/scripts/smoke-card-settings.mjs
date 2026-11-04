@@ -7,7 +7,11 @@ import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
 import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
-import { splitNameWords, tapCard } from "./card-browser-helpers.mjs";
+import {
+  labelProblems,
+  splitNameWords,
+  tapCard,
+} from "./card-browser-helpers.mjs";
 
 const shots = process.env.SETTINGS_SHOTS;
 if (shots) await mkdir(shots, { recursive: true });
@@ -86,6 +90,17 @@ try {
     assert.equal(
       await pack.locator(".quest-head .quest-verb").textContent(),
       "The Wine-Dark Sea",
+    );
+    // Every card's name tops it and breaks only between words ("Music" was
+    // "Mus / ic"). On a phone the fan's overlap and the 10 px floor leave a
+    // three-word pack name three lines.
+    assert.deepEqual(
+      await page.evaluate(labelProblems, {
+        root: "#settings-hand",
+        lines: width > 700 ? 2 : 3,
+      }),
+      [],
+      `${width} labels`,
     );
     // Sign out, signed in, or New game, signed out, waits for a second press.
     const [risky, confirm] = signedIn

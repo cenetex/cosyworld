@@ -40,6 +40,20 @@
 .stage[data-combat="true"] .cast {
   transform-origin: 50% 62%;
 }
+/* The painting recedes behind a fight (combat-backdrop.mjs sets the
+   attribute and --recede-ms). weather.css keeps the opacity in its eased
+   light. Reduced motion cuts to the same dim. */
+.stage > .backdrop {
+  transition: opacity var(--recede-ms, 0ms) ease-in-out;
+}
+.stage[data-recede] > .backdrop {
+  opacity: 0.45;
+}
+@media (prefers-reduced-motion: reduce) {
+  .stage > .backdrop {
+    transition: none;
+  }
+}
 
 /* The caption reads under the top bar, never over the place name. It keeps
    one width at each breakpoint, so a new beat never resizes or re-centres
@@ -213,17 +227,13 @@
   animation: beat-fade 600ms ease backwards;
 }
 .defeat-card {
+  --card-height: 100cqh;
   height: 100%;
   aspect-ratio: 2 / 3;
   container-type: size;
 }
 .defeat-card .card[data-tier] {
   border-color: var(--tier-color);
-}
-.defeat-card .card .name {
-  bottom: 0;
-  padding: 28px 4px 10px;
-  font-size: clamp(9px, 7.5cqh, 18px);
 }
 .defeat-line {
   margin: 0;
@@ -318,9 +328,11 @@ body .stage[data-combat="true"] ~ .dialogue.beat-stack[data-dropped="true"] {
      strike painting swapping in never resizes its fighter. Each stays on
      screen: a mark keeps about half the widest painting from either edge.
      The margin is the same for every fighter, so the exchange keeps the
-     middle that combat-view.mjs turns those waiting toward. */
+     middle that combat-view.mjs turns those waiting toward. The height
+     reads the cast, not each slot's own size, since a beat's shorter cast
+     (style.css) can leave a smaller slot under the cap. */
   #cast[data-battle] .portrait[data-battle-row="front"] {
-    height: min(calc(var(--stage-size) * 0.8), 88vw);
+    height: min(80%, 88vw);
     left: clamp(32vw, var(--battle-x), calc(100% - 32vw));
   }
   /* Stepping from the scene's close-up into the two-shot is one slow

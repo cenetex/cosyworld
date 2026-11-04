@@ -6,6 +6,7 @@ import { scaresEnabled } from "./transitions.mjs";
 import { imageUrl } from "./images.mjs";
 import { flashStage } from "./weather-view.mjs";
 import { playLoss } from "./defeat-view.mjs";
+import { recedeBackdrop } from "./combat-backdrop.mjs";
 import {
   combatPortrait,
   createCombatPortraits,
@@ -368,17 +369,20 @@ export function createCombatView({
       stage.querySelector("#cast"),
       stage.querySelector("#floor-items"),
     ].filter(Boolean);
+    recedeBackdrop(stage, "beats", true);
     // Phones already step from the close-up into a wider two-shot, so a
     // push-in would fight that move and crowd the fighters off the edges.
+    // The fighters push in further than the painting, which falls back.
     const zoom = !phone();
-    cut = { dim, scene, zoom };
+    const depth = (el) => (el.id === "cast" ? 1.08 : 1.03);
+    cut = { dim, scene, zoom, depth };
     if (reduced()) {
       dim.style.opacity = "1";
       return;
     }
     if (zoom)
       for (const el of scene)
-        animate(el, [{ scale: 1 }, { scale: 1.08 }], {
+        animate(el, [{ scale: 1 }, { scale: depth(el) }], {
           duration: 260,
           easing: "ease-out",
           fill: "forwards",
@@ -388,16 +392,19 @@ export function createCombatView({
       fill: "forwards",
     });
   };
+  // Under the loss screen's black the painting returns at once.
+  const fainted = () => Boolean(veil?.classList.contains("fainting"));
   const releaseCut = async () => {
     if (!cut) return;
-    const { dim, scene, zoom } = cut;
+    const { dim, scene, zoom, depth } = cut;
     cut = null;
+    recedeBackdrop(stage, "beats", false, { instant: fainted() });
     if (!reduced()) {
       const back = [...(zoom ? scene : []), dim].map((el) =>
         el.animate(
           el === dim
             ? [{ opacity: 1 }, { opacity: 0 }]
-            : [{ scale: 1.08 }, { scale: 1 }],
+            : [{ scale: depth(el) }, { scale: 1 }],
           { duration: 220, easing: "ease-in-out" },
         ),
       );
@@ -657,6 +664,7 @@ export function createCombatView({
       added = [];
       releaseExchange();
       cut = null;
+      recedeBackdrop(stage, "beats", false, { instant: fainted() });
       delete stage.dataset.combat;
       for (const el of stage.querySelectorAll(
         ".combat-aim, .combat-outline, .combat-targeted, .combat-beaten",
