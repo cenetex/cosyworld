@@ -537,6 +537,11 @@ Travel, or a light put out or lit here, swaps the hand in beats
 card first, from the tap; a 160 ms beat; then new cards rise. A changed face
 (the lamp put out) fades over 600 ms. It ends within 1.2 s, plays wait for
 it, and reduced motion fades the hand (`v2/scripts/smoke-card-swap.mjs`).
+A play that cancels a travel or a scene change mid-motion (another tab's,
+a new game, a shared update) settles the cast instead of cutting it: a
+figure still entering or leaving goes from how it looks now to where it
+rests over 200 ms, and one leaving the stage fades out there before it is
+dropped (`figure-settle.mjs`, `v2/scripts/smoke-card-figure-settle.mjs`).
 A card locked behind a quest (a sealed card, the far side of a shut gate) is
 a locked wooden box: the darker locked lid on a red edge, labelled only
 "Locked" (the owner's one exception to words on a card), with no painting and

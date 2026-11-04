@@ -102,6 +102,7 @@ const files = [
   "card-exit.mjs",
   "card-ghost.mjs",
   "page-fade.mjs",
+  "figure-settle.mjs",
   "card-keep.mjs",
   "card-swap.mjs",
   "dream-card.mjs",

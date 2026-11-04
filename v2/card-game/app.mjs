@@ -101,6 +101,7 @@ import {
 } from "./transitions.mjs";
 import { installSettingsCards } from "./settings-screen.mjs";
 import { leavePage } from "./page-fade.mjs";
+import { settle } from "./figure-settle.mjs";
 import { groupOn, packToggleBlock } from "./pack-toggle.mjs";
 import { installToolbar, renderPlayers } from "./toolbar.mjs";
 import { showWorldTier } from "./world-level.mjs";
@@ -1847,17 +1848,26 @@ function cancelTravel() {
   revealTravel();
   travelShown = Promise.resolve();
   $("travel").classList.remove("travelling");
+  // Figures mid-entrance or mid-farewell settle rather than cut
+  // (figure-settle.mjs); one leaving the stage fades out, then goes.
+  const reduced = reducedMotion.matches;
   for (const figure of $("cast").children) {
+    const hidden = figure.classList.contains("entering"),
+      body = figure.querySelector(".portrait-body");
     figure.classList.remove("entering");
-    for (const animation of figure
-      .querySelector(".portrait-body")
-      .getAnimations())
-      animation.cancel();
+    if (hidden || body.getAnimations().length)
+      settle(body, { hidden, reduced });
   }
   entrances.clear();
   for (const figure of exits.keys()) {
-    for (const animation of figure.getAnimations()) animation.cancel();
-    if (figure.dataset.removing) dropFigure(figure);
+    const leaving = Boolean(figure.dataset.removing);
+    if (leaving) figure.dataset.settling = "true";
+    settle(figure, { leaving, reduced }).finished.then(
+      () => {
+        if (leaving && figure.dataset.settling) dropFigure(figure);
+      },
+      () => {},
+    );
   }
   exits.clear();
   renderedCast = "";
@@ -3124,7 +3134,7 @@ function dropFigure(figure) {
   figure.remove();
 }
 function leaveFigure(figure, remove = false) {
-  if (exits.has(figure)) return;
+  if (exits.has(figure) || figure.dataset.settling) return;
   if (remove) figure.dataset.removing = "true";
   figure.setAttribute("aria-hidden", "true");
   if (reducedMotion.matches || $("travel").classList.contains("travelling")) {
@@ -3395,6 +3405,7 @@ function renderScene() {
       // A returning actor keeps this figure after its earlier farewell.
       exits.delete(figure);
       delete figure.dataset.removing;
+      delete figure.dataset.settling;
       for (const animation of figure.getAnimations()) animation.cancel();
     }
     figure.dataset.depth = actor.depth;
