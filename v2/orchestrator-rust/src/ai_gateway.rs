@@ -3464,18 +3464,25 @@ pub(crate) fn chat_messages(system: &str, assistant: &str, user: Value, quote: b
     Value::Array(turns)
 }
 
-/// Speech after an opening quote ends at its closing quote, and is then
-/// finished: `Mind the oil," the keeper says` is `Mind the oil.`
+/// Speech after an opening quote is its quoted spans, joined, and is
+/// finished once a quote closes: `Mind the oil," he says. "And the wick."`
+/// is `Mind the oil, And the wick.`; a span left open is dropped.
 pub(crate) fn unquote(text: &str) -> (String, bool) {
     let text = text.trim_start().trim_start_matches(['\u{201c}', '"']);
-    let mut said = text.split(['\u{201d}', '"']);
-    let words = said.next().unwrap_or_default().trim();
-    let closed = said.next().is_some();
-    let words = match words.strip_suffix(',') {
-        Some(head) if closed => format!("{head}."),
-        _ => words.to_string(),
-    };
-    (words, closed)
+    let mut parts: Vec<&str> = text.split(['\u{201c}', '\u{201d}', '"']).collect();
+    let closed = parts.len() > 1;
+    if closed && parts.len() % 2 == 1 {
+        parts.pop();
+    }
+    let spans = parts.iter().step_by(2).map(|span| span.trim());
+    let said = spans
+        .filter(|span| !span.is_empty())
+        .collect::<Vec<_>>()
+        .join(" ");
+    match said.strip_suffix(',') {
+        Some(head) if closed => (format!("{head}."), true),
+        _ => (said, closed),
+    }
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -3501,9 +3508,12 @@ async fn request_completion(
     on_delta: Option<&(dyn Fn(&str) -> bool + Send + Sync)>,
 ) -> Result<AiCompletion, AiGatewayError> {
     let started_at = Instant::now();
-    // A speaking voice (no system shape) continues its opening quote.
-    let quote =
-        !assistant.is_empty() && system.trim().is_empty() && model.starts_with("mistralai/");
+    // A speaking voice (no system shape) that heard a line continues its
+    // opening quote; speaking first, a prefill voiced the listener instead.
+    let quote = !assistant.is_empty()
+        && system.trim().is_empty()
+        && user_content.as_str() != Some(SILENCE)
+        && model.starts_with("mistralai/");
     let context_hash = {
         let mut hasher = Sha256::new();
         hasher.update(feature.as_bytes());
@@ -4658,7 +4668,12 @@ mod tests {
         );
         assert_eq!(view[0]["content"], SILENCE);
         assert_eq!(roles(view), ["user", "assistant", "user"]);
-        let quoted = chat_messages("", "I am Pip.", SILENCE.into(), true);
+        let quoted = chat_messages(
+            "",
+            "I am Pip.",
+            "Vale says, \u{201c}Hi.\u{201d}".into(),
+            true,
+        );
         assert_eq!(
             quoted[3],
             json!({"role": "assistant", "content": "\u{201c}", "prefix": true})
@@ -4671,6 +4686,8 @@ mod tests {
             unquote("Mind the oil, and"),
             ("Mind the oil, and".into(), false)
         );
+        let spans = "Mind it,\u{201d} he says. \u{201c}And the wick.\u{201d} He \u{201c}Then";
+        assert_eq!(unquote(spans), ("Mind it, And the wick.".into(), true));
     }
 
     #[test]

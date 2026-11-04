@@ -135,7 +135,7 @@ pub(crate) async fn complete(
         "Local reply ready"
     );
     Ok(AiCompletion {
-        text: match quoted(request.system, assistant) {
+        text: match quoted(request.system, assistant, request.user) {
             true => super::unquote(&output.text).0,
             false => output.text,
         },
@@ -228,8 +228,9 @@ fn alive(job: &Job) -> Result<(), String> {
     }
 }
 
-fn quoted(system: &str, assistant: &str) -> bool {
-    !assistant.is_empty() && system.trim().is_empty()
+/// A speaking voice that heard a line continues its opening quote.
+fn quoted(system: &str, assistant: &str, user: &str) -> bool {
+    !assistant.is_empty() && system.trim().is_empty() && user != super::SILENCE
 }
 
 fn generate(
@@ -250,7 +251,7 @@ fn generate(
     let prompt = model
         .apply_chat_template(&template, &chat, true)
         .map_err(|e| e.to_string())?
-        + if quoted(&job.system, &job.assistant) {
+        + if quoted(&job.system, &job.assistant, &job.user) {
             "\u{201c}"
         } else {
             ""
