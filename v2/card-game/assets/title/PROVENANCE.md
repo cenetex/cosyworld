@@ -49,28 +49,29 @@ image without clear corners.
 
 | Logo (index) | Toolbar image | Transparent |
 | --- | --- | --- |
-| Lonely Forest (0) | `transparent/lonely-forest-1-toolbar.webp`, 320 x 125 | yes |
-| Pip and the lantern (1) | borrows `transparent/lonely-forest-1-toolbar.webp` (the same gold lettering and moth) | borrowed |
+| Lonely Forest (0) | `toolbar/lonely-forest-1-transparent.webp`, 417 x 160 | yes |
+| Pip and the lantern (1) | `toolbar/lonely-forest-2-transparent.webp`, 407 x 160 | yes |
 | Hearth and Oak (2) | `toolbar/lonely-forest-teal-lantern-left.webp` | yes |
 | The Listening Wood (3) | `toolbar/lonely-forest-teal-bell-and-lantern.webp` | yes |
 | The Black Pond (4) | borrows `toolbar/lonely-forest-teal-bell-and-lantern.webp` (cold teal) | borrowed |
 
-`transparent/lonely-forest-1-toolbar.webp` comes from #2119: a 320 px wide
-export of the owner's recovered RGBA original of the first wordmark, whose
-decoded alpha matched the resized original's alpha. Its Git blob ID is
-`312b8a116d17a15244bc8e5e700286c6b3842409`. The enclosed navy panel is part
-of the art; only the surroundings are clear.
+The two gold wordmarks' toolbar exports and their native transparent
+sources (`lonely-forest-1-transparent.webp`, 2007 x 783, and
+`lonely-forest-2-transparent.webp`, 1983 x 793) were supplied by the owner;
+`TRANSPARENT-LOGOS.md` and `transparent-logos.provenance.json` record their
+origin and hashes. The natives are source art and are not served. The
+enclosed navy panels are part of the art; only the surroundings are clear.
+The earlier 320 x 125 copy from #2119,
+`transparent/lonely-forest-1-toolbar.webp`, stays published but unused.
 
 Still missing, to be supplied by the owner rather than cut out of the black
 (an automatic cut-out leaks into the night-sky vignette and dark panel and
 leaves a halo):
 
-- A transparent Pip-and-lantern wordmark (RGBA source of `lonely-forest-2.webp`,
-  or a toolbar copy at least 92 px tall).
-- A transparent Black Pond lettering file.
-- The native transparent PNGs behind the toolbar copies: the first
-  wordmark's RGBA original, and the 2172 x 724 teal PNGs in the owner's
-  `lonely-forest-teal-pr-bundle.zip`. The intro needs none: it is black.
+- A transparent Black Pond lettering file (at least 92 px tall).
+- The 2172 x 724 native teal PNGs behind the two teal toolbar files, in the
+  owner's `lonely-forest-teal-pr-bundle.zip`. The intro needs none: it is
+  black.
 
 After adding source artwork, run `npm run v2:card:images:build`, then
 `npm run v2:card:assets:build`, and commit the resulting card/phone variants,

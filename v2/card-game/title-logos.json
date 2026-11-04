@@ -7,9 +7,9 @@
       "height": 512,
       "background": "dark",
       "toolbar": {
-        "src": "assets/title/transparent/lonely-forest-1-toolbar.webp",
-        "width": 320,
-        "height": 125
+        "src": "assets/title/toolbar/lonely-forest-1-transparent.webp",
+        "width": 417,
+        "height": 160
       }
     },
     {
@@ -19,9 +19,9 @@
       "height": 800,
       "background": "dark",
       "toolbar": {
-        "src": "assets/title/transparent/lonely-forest-1-toolbar.webp",
-        "width": 320,
-        "height": 125
+        "src": "assets/title/toolbar/lonely-forest-2-transparent.webp",
+        "width": 407,
+        "height": 160
       }
     },
     {

@@ -134,8 +134,13 @@ test("the toolbar shows the logo the title chose, for every logo", () => {
 // The toolbar is not black, so an opaque image there shows as a dark box.
 // Until the owner supplies transparent art for a logo, it borrows the
 // nearest transparent lettering (assets/title/PROVENANCE.md).
+// The two gold wordmarks have the owner's own transparent toolbar exports
+// (assets/title/TRANSPARENT-LOGOS.md).
+const own = {
+  [original[0]]: "assets/title/toolbar/lonely-forest-1-transparent.webp",
+  [original[1]]: "assets/title/toolbar/lonely-forest-2-transparent.webp",
+};
 const borrowed = {
-  [original[1]]: "assets/title/transparent/lonely-forest-1-toolbar.webp",
   "assets/title/lonely-forest-black-pond.webp":
     "assets/title/toolbar/lonely-forest-teal-bell-and-lantern.webp",
 };
@@ -147,7 +152,8 @@ test("every logo names transparent toolbar lettering, never another logo", () =>
     // A crop of an opaque artwork would bring its black ground with it.
     assert.equal(toolbar.crop, undefined, src);
     assert.ok(!LOGOS.some((other) => other.src === toolbar.src), src);
-    if (borrowed[src]) assert.equal(toolbar.src, borrowed[src], src);
+    if (own[src] || borrowed[src])
+      assert.equal(toolbar.src, own[src] || borrowed[src], src);
     assert.ok(
       publicAssets.some(({ file }) => file === toolbar.src),
       src,

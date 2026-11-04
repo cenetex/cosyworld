@@ -1,0 +1,91 @@
+{
+  "version": 1,
+  "scope": "Two original gold wordmarks, NOT the three opaque intro paintings from PR #2084 and NOT the three teal treatments visible only in recovered JPEG review sheets.",
+  "origin": "Existing generated transparent PNGs recovered from the owner's Library. The original PNGs are copied byte-for-byte into the handoff. No new image generation, background removal, inferred source prompt or generation ID is claimed.",
+  "transparency": "Exterior is transparent. The enclosed navy night scenes and painted dark interiors remain part of the artwork.",
+  "processing": {
+    "pillow": "12.3.0",
+    "libwebp": "1.6.0",
+    "native_webp": {
+      "quality": 88,
+      "method": 6,
+      "exact": true,
+      "crop": false,
+      "resize": false
+    },
+    "toolbar_webp": {
+      "quality": 90,
+      "method": 6,
+      "exact": true,
+      "height": 160,
+      "resize_filter": "LANCZOS",
+      "crop": "Full nonzero alpha bounding box; 8 px transparent safety padding on all sides before resize"
+    }
+  },
+  "artworks": [
+    {
+      "id": "lonely-forest-1",
+      "source_file_id": "file_00000000258c81f5b520e102760752ee",
+      "source_library_name": "Lonely Forest ornate gold emblem.png",
+      "source_png": "original-pngs/lonely-forest-1-transparent.png",
+      "source_sha256": "6aec0b5ad68e963a722fa4f8242e4c5c261980b85bb54164d5d3b9ebbf401aa5",
+      "native": {
+        "file": "v2/card-game/assets/title/lonely-forest-1-transparent.webp",
+        "width": 2007,
+        "height": 783,
+        "bytes": 379414,
+        "sha256": "c2297aa927666d54cfd7bb06004c5c245434f50d260ac77687d581f266d34e08",
+        "alpha_preserved_exactly": true,
+        "fully_transparent_percent": 41.6511
+      },
+      "toolbar": {
+        "file": "v2/card-game/assets/title/toolbar/lonely-forest-1-transparent.webp",
+        "width": 417,
+        "height": 160,
+        "bytes": 33584,
+        "sha256": "d66c4e90e7e1d1be50544cfd78cc052403f93b77b042a0fed896e54ff05bba64",
+        "source_alpha_bbox_xyxy": [
+          46,
+          53,
+          1975,
+          783
+        ],
+        "padding_before_resize": 8,
+        "alpha_preserved_exactly_after_resize": true,
+        "fully_transparent_percent": 35.1079
+      }
+    },
+    {
+      "id": "lonely-forest-2",
+      "source_file_id": "file_000000001fc881fb9c396626703bf31d",
+      "source_library_name": "Lonely Forest Logo with Pip and Lantern.png",
+      "source_png": "original-pngs/lonely-forest-2-transparent.png",
+      "source_sha256": "0e7654425135d67139f4ef543b2b835c4afa66cff14c6f5cc33956b7adf2ae6e",
+      "native": {
+        "file": "v2/card-game/assets/title/lonely-forest-2-transparent.webp",
+        "width": 1983,
+        "height": 793,
+        "bytes": 454214,
+        "sha256": "0d93d6004716e56a39b40bd9c11a6069b6386f5cf567c6c164fbfaf3158ee386",
+        "alpha_preserved_exactly": true,
+        "fully_transparent_percent": 38.3834
+      },
+      "toolbar": {
+        "file": "v2/card-game/assets/title/toolbar/lonely-forest-2-transparent.webp",
+        "width": 407,
+        "height": 160,
+        "bytes": 37678,
+        "sha256": "be7d0435e68c24c9595cc69044b91643a4123ec41938fa8d2f3823d3f0bbb8a2",
+        "source_alpha_bbox_xyxy": [
+          40,
+          31,
+          1959,
+          775
+        ],
+        "padding_before_resize": 8,
+        "alpha_preserved_exactly_after_resize": true,
+        "fully_transparent_percent": 32.394
+      }
+    }
+  ]
+}
