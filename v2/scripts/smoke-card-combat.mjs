@@ -1,6 +1,7 @@
-// A lost battle, seen in the browser: telegraph, hit, defeat card, Continue,
-// then the "You come to at" title at the new place. Desktop, phone and
-// reduced motion; against Antigone, Pip is a third combatant.
+// A lost battle, seen in the browser: telegraph, hit, the fade to black, the
+// loss screen with no buttons, then the slow lift onto the new place.
+// Desktop, phone and reduced motion; against Antigone, Pip is a third
+// combatant.
 import { atticOpening } from "../../test/fixtures/card-attic-opening.mjs";
 import { clearSelection, selectCard } from "./card-browser-helpers.mjs";
 import assert from "node:assert/strict";
@@ -365,14 +366,14 @@ try {
       .locator('#cast [data-avatar="vale"] .combat-word')
       .last()
       .textContent();
-    // The scene fades toward black before the defeat card opens.
+    // The scene fades toward black before the loss screen.
     await page.locator("#travel.fainting").waitFor();
     await page.waitForTimeout(motion === "reduce" ? 0 : 500);
     await page.screenshot({
       path: new URL(`faint-${opponent}-${width}-${motion}.png`, output)
         .pathname,
     });
-    await page.locator("#defeat-dialog[open]").waitFor();
+    await page.locator(".defeat-reveal").waitFor();
     // The striker and Vale step forward together; Pip waits behind.
     const rows = await page.evaluate(() => window.battleRows);
     const strike = rows.findLast((r) => r.front.length === 2);
@@ -420,22 +421,35 @@ try {
         .getAttribute("data-pose"),
       "beaten",
     );
+    // Full-art cards of who drove Vale off and what was lost, with the
+    // words written under them, never on them.
+    assert.deepEqual(
+      await page.$$eval(".defeat-reveal .card", (cards) =>
+        cards.map((card) => card.dataset.card),
+      ),
+      [opponent, "lamp"],
+    );
+    await page.locator('.defeat-reveal[data-step="read"]').waitFor();
     assert.equal(
-      await page.locator("#defeat-title").textContent(),
+      await page.locator(".defeat-line").textContent(),
       `${nameOf(opponent)} drove you off.`,
     );
-    assert.match(
-      await page.locator("#defeat-changes").textContent(),
-      /You dropped the Lamp\./,
-    );
+    const captions = await page.locator(".defeat-captions").textContent();
+    assert.match(captions, /You dropped the Lamp\./);
+    assert.match(captions, /You come to at /);
     assert.match(
       await page.locator("#combat-announcement").textContent(),
       new RegExp(`${nameOf(opponent)} drove you off`, "u"),
     );
-    // The player decides when to move on; the place has not changed yet.
-    // Being driven off fades the scene to black under the card.
-    await page.waitForTimeout(600);
-    assert.equal(await page.locator("#defeat-dialog[open]").count(), 1);
+    // No modal and no buttons: the hand stays locked until the new place.
+    assert.equal(
+      await page.locator("dialog[open], #travel button:not(.card)").count(),
+      0,
+    );
+    assert.equal(
+      await page.locator('.play-dock[data-covered="true"]').count(),
+      1,
+    );
     assert.equal(await page.locator("#travel.travelling").count(), 0);
     assert.deepEqual(
       await page.$eval("#travel", (veil) => [
@@ -450,7 +464,7 @@ try {
       path: new URL(`defeat-${opponent}-${width}-${motion}.png`, output)
         .pathname,
     });
-    await page.locator("#defeat-dialog [data-combat-continue]").click();
+    // A tap moves on; left alone, the read moves on by itself.
     if (motion === "reduce") {
       assert.equal(
         await page.locator("#travel.travelling").count(),
@@ -458,13 +472,11 @@ try {
         "Reduced motion arrives without an animated travel veil",
       );
     } else {
-      await page.locator("#travel.travelling").waitFor();
-      assert.equal(
-        await page.locator("#travel-kicker").textContent(),
-        "You come to at",
-      );
-      report.title = `${await page.locator("#travel-kicker").textContent()} ${await page.locator("#travel-name").textContent()}`;
+      await page.mouse.click(width / 2, height / 3);
+      // The black lifts slowly and wordless onto the new place.
+      await page.locator("#travel.travelling.waking").waitFor();
     }
+    await page.locator(".defeat-reveal").waitFor({ state: "detached" });
     const saved = await page.evaluate(
       (key) => JSON.parse(localStorage.getItem(key)),
       key,
@@ -539,7 +551,6 @@ try {
         stage: document.querySelector("#stage"),
         caption: document.querySelector("#combat-caption"),
         announce: document.querySelector("#combat-announcement"),
-        dialog: document.querySelector("#defeat-dialog"),
         reducedMotion: matchMedia("(prefers-reduced-motion: reduce)"),
         revealLine() {},
       });

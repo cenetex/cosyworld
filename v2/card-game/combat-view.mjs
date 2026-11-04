@@ -1,10 +1,11 @@
 // Play standoff beats on the stage: telegraph, cut, strike, resolve pips,
-// floating outcome words and the defeat card. Presentation only; the rules
-// already committed every result before the first beat starts.
+// floating outcome words and the loss screen (defeat-view.mjs). Presentation
+// only; the rules already committed every result before the first beat.
 import { nameOf } from "./world.mjs";
 import { scaresEnabled } from "./transitions.mjs";
 import { imageUrl } from "./images.mjs";
 import { flashStage } from "./weather-view.mjs";
+import { playLoss } from "./defeat-view.mjs";
 import {
   combatPortrait,
   createCombatPortraits,
@@ -133,8 +134,9 @@ export function createCombatView({
   announce,
   reducedMotion,
   revealLine,
-  dialog,
   veil,
+  cardFace,
+  icon,
 }) {
   let animations = [],
     added = [],
@@ -570,10 +572,9 @@ export function createCombatView({
       fighter(beat.loserId)?.classList.add("combat-beaten");
       revealLine(beat.seq);
       floatWord(beat.loserId, beat.sentHome ? "Sent home" : "Beaten", "beaten");
-      const summary = defeatSummary(beat);
       setCaption(
         beat.viewerLost
-          ? summary.title
+          ? defeatSummary(beat).title
           : `${nameOf(beat.loserId)} yields to ${inSentence(beat.winnerId)}.`,
       );
     }
@@ -590,27 +591,16 @@ export function createCombatView({
     runner.finishBeat();
   };
   // Being driven off is losing consciousness: the scene fades slowly to
-  // black (faster at 2x; reduced motion cuts) under the defeat card. It stays
-  // dark until the travel veil takes over (app.mjs removes `fainting`).
+  // black (faster at 2x; reduced motion cuts) before the loss screen. It
+  // stays dark until the travel veil takes over (app.mjs removes `fainting`).
   const faint = async () => {
-    if (!veil) return;
-    veil.style.setProperty("--faint-ms", `${lossTimes({ speed }).faint}ms`);
+    const { faint, wake } = lossTimes({ speed });
+    veil.style.setProperty("--faint-ms", `${faint}ms`);
+    veil.style.setProperty("--wake-ms", `${wake}ms`);
     veil.classList.add("fainting");
     await Promise.allSettled(veil.getAnimations().map((a) => a.finished));
   };
-  let defeatDone = null;
-  const continueButton = dialog.querySelector("[data-combat-continue]");
-  const closeDefeat = () => {
-    if (dialog.open) dialog.close();
-    const done = defeatDone;
-    defeatDone = null;
-    done?.();
-  };
-  continueButton.onclick = closeDefeat;
-  dialog.addEventListener("cancel", (event) => {
-    event.preventDefault();
-    closeDefeat();
-  });
+  let loss = null;
   return {
     get active() {
       return Boolean(cut) || added.length > 0;
@@ -633,29 +623,24 @@ export function createCombatView({
       }
     },
     finishBeat,
-    // Wait for the player on a defeat card. Resolves on Continue.
+    // The loss screen on the black. Resolves once its words have left.
     async defeat(beat) {
-      const summary = defeatSummary(beat);
-      dialog.querySelector("[data-combat-title]").textContent = summary.title;
-      const list = dialog.querySelector("[data-combat-changes]");
-      list.replaceChildren(
-        ...summary.changes.map(({ text }) => {
-          const item = document.createElement("li");
-          item.textContent = text;
-          return item;
-        }),
-      );
-      const { title, changes } = summary;
+      const { title, changes } = defeatSummary(beat);
       announce.textContent = [title, ...changes.map((c) => c.text)].join(" ");
       const mine = portraitRun;
       await faint();
-      // A cleanup during the fade (a cancelled scene) shows no card.
+      // A cleanup during the fade (a cancelled scene) shows no loss screen.
       if (mine !== portraitRun) return;
-      return new Promise((resolve) => {
-        defeatDone = resolve;
-        dialog.showModal();
-        continueButton.focus();
+      loss = playLoss({
+        veil,
+        beat,
+        cardFace,
+        icon,
+        speed,
+        reduced: reduced(),
       });
+      await loss.done;
+      loss = null;
     },
     async release() {
       setCaption("");
@@ -665,7 +650,7 @@ export function createCombatView({
       portraitRun++;
       runner.cancel();
       portraits.restore();
-      closeDefeat();
+      loss?.cancel();
       for (const animation of animations) animation.cancel();
       animations = [];
       for (const el of added) el.remove();

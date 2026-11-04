@@ -811,14 +811,20 @@ h2 {
 .travel.travelling {
   opacity: 1;
 }
-/* Driven off: the scene slowly fades to black under the defeat card. */
+/* Driven off: the scene slowly fades to black for the loss screen, and the
+   black lifts slowly, wordless, onto where the player comes to. */
 .travel.fainting {
   opacity: 1;
   background: #000;
   transition-duration: var(--faint-ms, 1.4s);
 }
-.travel.fainting:not(.travelling) > * {
+.travel.fainting:not(.travelling) > :not(.defeat-reveal),
+.travel.waking > * {
   visibility: hidden;
+}
+.travel.waking {
+  background: #000;
+  transition-duration: var(--wake-ms, 2.5s);
 }
 
 @media (prefers-reduced-motion: reduce) {
