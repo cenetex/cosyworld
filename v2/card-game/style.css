@@ -224,6 +224,30 @@ main {
     translate: 0 calc(var(--figure-lift) * -1);
   }
 }
+/* A place still face down is black behind whoever is revealed; turning its
+   card brings the painting up out of the black (stage-reveal.mjs). */
+.stage::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: #000;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.9s ease-in-out;
+}
+.stage[data-place-covered="true"]::after {
+  opacity: 1;
+  transition: none;
+}
+.stage[data-place-covered="true"] > .stage-grade {
+  display: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .stage::after {
+    transition: none;
+  }
+}
 .scene-shade {
   z-index: -1;
   background: linear-gradient(

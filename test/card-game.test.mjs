@@ -410,7 +410,9 @@ describe("the reflected shore card game", () => {
     expect(commit.indexOf("reviewing = false;")).toBeGreaterThan(accepted);
     // Read again and Previous line stage the cast present now.
     expect(app).toContain("review: reviewing || Boolean(sharedSession),");
-    expect(app).toContain("scene.slots = sceneCast(world);");
+    expect(app).toContain(
+      "scene.slots = revealedStage({ cast: sceneCast(world) }, cardIsCovered).cast;",
+    );
     expect(app).toContain("currentState: true,");
   });
 });

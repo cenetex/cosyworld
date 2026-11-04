@@ -102,6 +102,7 @@ const files = [
   "sleep-view.mjs",
   "sleep.css",
   "locked-box.mjs",
+  "stage-reveal.mjs",
   "card-level-up.mjs",
   // Willows sign alternates chosen by the willows pack.
   ...[
