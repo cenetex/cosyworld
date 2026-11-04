@@ -3462,8 +3462,7 @@ export function decodeSave(text) {
       installPacks,
       laneText: laneFactText,
       setAside: (world, id) =>
-        !controlledByHuman(world, id) &&
-        setAsideWant(world, id, wantAPI(world)),
+        !humanHeld(world, id) && setAsideWant(world, id, wantAPI(world)),
     });
     // An earlier save records the gates already open as it loads.
     latchRoutes(s);
