@@ -10,6 +10,7 @@ import {
 const createWorld = (...args) => questing(baseCreateWorld(...args));
 import { availableCards } from "../v2/card-game/cards.mjs";
 import {
+  avatarGroupOrdered,
   isQuestId,
   metQuests,
   questCaption,
@@ -267,6 +268,26 @@ describe("the quest card", () => {
     expect(hand.indexOf(ids[0])).toBeGreaterThan(hand.indexOf("vale"));
     expect(questHand(hand, s, ids).filter(isQuestId)).toEqual(ids);
     expect(questHand(hand, s).some(isQuestId)).toBe(false);
+  });
+
+  it("keeps a picked quest after the avatar's belongings (#2295)", () => {
+    const s = createWorld();
+    s.items.lamp.holder = "vale";
+    s.items["greek-funeral-cloth"].holder = "vale";
+    // The picked quest is passed first and leads its own stack only.
+    const ids = [questId(1), questId(0), questId(2)];
+    const hand = questHand(availableCards(s), s, ids);
+    expect(avatarGroupOrdered(hand, s)).toBe(true);
+    const at = hand.indexOf("vale");
+    expect(hand.slice(at + 1, at + 3).sort()).toEqual([
+      "greek-funeral-cloth",
+      "lamp",
+    ]);
+    expect(hand.slice(at + 3, at + 6)).toEqual(ids);
+    // The old chosenFirst placed the picked quest beside the avatar.
+    const ahead = hand.filter((id) => id !== ids[0]);
+    ahead.splice(at + 1, 0, ids[0]);
+    expect(avatarGroupOrdered(ahead, s)).toBe(false);
   });
 
   it("shows the whole stack, top first", () => {

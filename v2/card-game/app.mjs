@@ -1446,14 +1446,23 @@ function stackEdges(frame, count) {
     frame.prepend(edge);
   }
 }
-// The chosen thing or quest moves left, beside the avatar.
+// A chosen thing moves left, to the front of the avatar's items; a chosen
+// quest moves to the front of its quests (pickedFirst). The avatar's group
+// is always avatar, items, then quests.
 function chosenFirst(cards) {
   const actor = currentActor(world);
   if (!expandedHolders.has(actor)) return cards;
-  const chosen = cards.filter((id) => avatarStack(id)?.chosen),
+  const chosen = cards.filter(
+      (id) => !isQuestId(id) && avatarStack(id)?.chosen,
+    ),
     hand = cards.filter((id) => !chosen.includes(id));
   hand.splice(hand.indexOf(actor) + 1, 0, ...chosen);
   return hand;
+}
+function pickedFirst(ids) {
+  const id = questId(questPick);
+  if (!questOpen || !shownQuests.length || !ids.includes(id)) return ids;
+  return [id, ...ids.filter((other) => other !== id)];
 }
 // The cards of the player's last committed Wait and the table's revision
 // after it: the same cards chosen again offer Sleep.
@@ -2537,6 +2546,12 @@ function departHand() {
     frame.style.visibility = "hidden";
   }
 }
+// The key a hand card's motion is tracked by: its card, or its quest.
+function motionKey(frame) {
+  const card = frame.querySelector(".card");
+  if (card.dataset.card || !frame.dataset.questId) return card.dataset.card;
+  return `${frame.dataset.questId.split(":")[0]}:${card.dataset.questEntry}`;
+}
 // Deals the shown hand afresh, 70 ms apart; reduced motion fades it in.
 function dealHand() {
   const row = [...$("hand").children].filter((f) => !f.hidden);
@@ -2905,7 +2920,8 @@ function questFrame({ id, quest, met }) {
     head,
   );
   // A folded stack fans; a quest in the fan, or alone, clears if met, or is
-  // chosen, and moves left; tapped again it is only lowered (#2256).
+  // chosen, and moves to the front of the quests; tapped again it is only
+  // lowered (#2256, #2295).
   el.addEventListener("click", () => {
     if (selectionBlocked()) return;
     if (picked) questOpen = false;
@@ -4357,7 +4373,7 @@ function render() {
     questHand(
       stackPlaces(availableCards(world)),
       world,
-      questEntries().map((entry) => entry.id),
+      pickedFirst(questEntries().map((entry) => entry.id)),
     ),
   );
   // Published speech can unlock cards and plays during the current turn.
@@ -4410,15 +4426,20 @@ function render() {
     quietExits = false;
     renderedScene = scene;
     swapFrom = null;
+    // Quest frames are keyed by their quest, not their place in the
+    // stack, so a reorder moves each from its own last spot (#2295).
+    const dealtBefore = new Set();
+    let questBefore = null;
     if (animate)
-      for (const frame of $("hand").children)
-        if (!frame.hidden) {
-          const rect = frame.getBoundingClientRect();
-          before.set(
-            frame.querySelector(".card").dataset.card ?? frame.dataset.questId,
-            { left: rect.left, top: rect.top },
-          );
-        }
+      for (const frame of $("hand").children) {
+        const key = motionKey(frame);
+        if (frame.dataset.want) dealtBefore.add(key);
+        if (frame.hidden) continue;
+        const rect = frame.getBoundingClientRect(),
+          at = { left: rect.left, top: rect.top };
+        if (frame.dataset.want) questBefore = at;
+        before.set(key, at);
+      }
     for (const motion of handMotions.values()) motion.cancel();
     handMotions.clear();
     const wasExpanded = document.body.dataset.handExpanded;
@@ -4530,9 +4551,18 @@ function render() {
     if (animate)
       for (const frame of $("hand").children) {
         if (frame.hidden) continue;
-        const id =
-            frame.querySelector(".card").dataset.card ?? frame.dataset.questId,
-          previous = before.get(id) || before.get(frame.dataset.holder);
+        const id = motionKey(frame);
+        // A quest newly dealt rises in its own slot. One shown as its
+        // stack fans comes from the last quest in view, or, when the
+        // holder's stack opens, from behind the holder.
+        if (frame.dataset.want && !before.has(id) && !dealtBefore.has(id)) {
+          riseIn(frame);
+          continue;
+        }
+        const previous =
+          before.get(id) ||
+          (frame.dataset.want && questBefore) ||
+          before.get(frame.dataset.holder);
         if (!previous || (!frame.dataset.want && rising.has(entryKey(frame))))
           continue;
         moves.push({

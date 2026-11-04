@@ -493,9 +493,11 @@ Choosing the player's avatar shows two stacks beside it, in the same way: the
 things it carries, then its quests (#2256). An empty stack is left out. Each
 shows its top card face up with the rest face down behind it, up to three;
 tapping the top card fans that stack and folds the other. Tapping a card in a
-fan chooses it, and it moves left, next to the avatar: a thing takes the
-avatar's place in the choice, so it pairs with the next card, and a quest is
-the choice alone, offering its next step and **Discard**. A stack of one card hides nothing,
+fan chooses it, and it moves left, to the front of its own stack: the row
+stays avatar, things, then quests, so no quest ever lies ahead of a thing
+(#2295). A thing takes the avatar's place in the choice, so it pairs with the
+next card, and a quest is the choice alone, offering its next step and
+**Discard**. A quest dealt while the stacks show rises in its own slot. A stack of one card hides nothing,
 so its card is chosen at the first tap. Tapping the avatar again folds both
 stacks back to the avatar, and tapping it once more lowers it.
 A person or place holding things shows the first of them peeking out behind

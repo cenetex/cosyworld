@@ -256,6 +256,20 @@ try {
           targets: [vale.want, ...(vale.under || [])].map((w) => w.target),
         };
       }, key);
+    // No quest card lies ahead of a thing Vale carries (#2295).
+    const groupOrdered = () =>
+      page.evaluate(() => {
+        const row = [...document.querySelector("#hand").children],
+          first = row.findIndex(
+            (f) => f.dataset.want && f.dataset.holder === "vale",
+          );
+        return (
+          first < 0 ||
+          !row
+            .slice(first)
+            .some((f) => !f.dataset.want && f.dataset.holder === "vale")
+        );
+      });
     const openFold = async () => {
       await page.locator("#hand .quest-fold").focus();
       await page.keyboard.press("Enter");
@@ -264,21 +278,20 @@ try {
     await openFold();
     const fan = page.locator("#hand .want-frame:not([hidden])");
     assert.equal(await fan.count(), 2, "the open fold fans out the stack");
-    // Nothing is chosen until a quest in the fan is, and it moves left,
-    // beside Vale (#2256).
+    // Nothing is chosen until a quest in the fan is, and it moves left, to
+    // the front of the quests, still after what Vale carries (#2295).
     const picked = page.locator('#hand .want-card[data-picked="true"]');
     assert.equal(await picked.count(), 0);
     await page.locator('#hand .want-card[data-quest-id="quest:0"]').click();
     assert.equal(await picked.getAttribute("data-quest-id"), "quest:0");
     assert.equal(
-      await page.evaluate(
-        () =>
-          document
-            .querySelector("#hand > .card-frame:not([hidden]) + .want-frame")
-            ?.previousElementSibling.querySelector(".card").dataset.card,
-      ),
-      "vale",
+      await page
+        .locator("#hand > .want-frame:not([hidden]) .want-card")
+        .first()
+        .getAttribute("data-picked"),
+      "true",
     );
+    assert.equal(await groupOrdered(), true, "Vale, its things, its quests");
     assert.equal(
       await page.locator('#card-actions [data-drop-quest="0"]').textContent(),
       "Discard (−1 XP)",
@@ -511,7 +524,7 @@ try {
     await play(
       top,
       "quest",
-      "vale+ quest:0* greek-funeral-cloth quest:1+ quest:2",
+      "vale+ greek-funeral-cloth quest:0* quest:1+ quest:2",
       ["Travel to Theban Palace Forecourt", "Discard"],
     );
     await play(
@@ -520,6 +533,52 @@ try {
       "vale+ greek-funeral-cloth quest:0+ quest:1 quest:2",
     );
     await play(vale, "fold", "vale*+ greek-funeral-cloth quest:0");
+    // A quest dealt while Vale's stacks show rises in its own slot, not
+    // from Vale's card across its things (#2295).
+    if (motion === "no-preference") {
+      await page.evaluate(() => {
+        window.questStart = null;
+        const watch = new MutationObserver(() => {
+          const frame = document.querySelector(
+            '#hand > .want-frame:not([hidden]) > .want-card[data-quest-id="quest:0"]',
+          )?.parentElement;
+          if (!frame || window.questStart || !frame.getAnimations().length)
+            return;
+          window.questStart = frame.getBoundingClientRect().left;
+        });
+        watch.observe(document.getElementById("hand"), { childList: true });
+      });
+      // Another tab deals it: the same render path as a play.
+      await page.evaluate((shrineKey) => {
+        const s = JSON.parse(localStorage.getItem(shrineKey));
+        s.actors.vale.want = {
+          kind: "place",
+          target: "greek-palace",
+          since: s.turn,
+          refusals: 0,
+        };
+        const newValue = JSON.stringify(s);
+        localStorage.setItem(shrineKey, newValue);
+        window.dispatchEvent(
+          new StorageEvent("storage", { key: shrineKey, newValue }),
+        );
+      }, shrineKey);
+      await page.waitForFunction(() => window.questStart !== null);
+      await page.waitForTimeout(800);
+      const [start, slot, valeLeft] = await page.evaluate(() => [
+        window.questStart,
+        document
+          .querySelector("#hand > .want-frame:not([hidden])")
+          .getBoundingClientRect().left,
+        document
+          .querySelector('#hand [data-card="vale"]')
+          .getBoundingClientRect().left,
+      ]);
+      assert.ok(
+        Math.abs(start - slot) < 24 && Math.abs(start - valeLeft) > 80,
+        `a dealt quest starts in its slot (${start} vs ${slot}, Vale ${valeLeft})`,
+      );
+    }
     await play(vale, "deselect", "vale", []);
     assert.deepEqual(errors, []);
     console.log(

@@ -217,3 +217,16 @@ export function questHand(cards, world, ids = []) {
   hand.splice(at, 0, ...ids);
   return hand;
 }
+
+// Within the player's avatar's group the order is always the avatar, what
+// it carries, then its quests: no quest card lies ahead of a carried thing,
+// whichever is chosen (#2295).
+export function avatarGroupOrdered(hand, world) {
+  const actor = currentActor(world),
+    first = hand.findIndex(isQuestId);
+  if (first < 0) return true;
+  if (hand.indexOf(actor) > first) return false;
+  return !hand
+    .slice(first)
+    .some((id) => world.items[id] && rootHolder(world, id) === actor);
+}
