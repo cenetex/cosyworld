@@ -450,8 +450,6 @@ impl<'a> Call<'a> {
     /// A published line the validator flagged rather than blocked. The line
     /// still counts as spoken; `reason` is the validator's static label.
     /// `reject` records the blocked reasons.
-    // Called once the validator publishes flagged lines (#2016).
-    #[allow(dead_code)]
     pub(super) fn flag(&self, reason: &'static str) {
         self.with(|state| {
             if state.flags.len() < 8 {

@@ -30,17 +30,20 @@ const key = (hour, period, shade, desat, vignette, light, saturate, stars) => ({
   saturate,
   stars,
 });
-// Initial colour script; tune on .dev. Each key holds from its hour.
+// Initial colour script; tune on .dev. Each key holds from its hour. The
+// rules' light changes at 06:00 and 18:00 (turns 0 and 24), so the grade
+// meets them exactly: a wake at dawn opens on full daylight and a wake at
+// dusk on night (sleep spec §3). Dawn and dusk are the hour before.
 export const KEYS = [
   key(0, "midnight", "48558a", 0.5, 0.6, 0.56, 0.5, 1),
-  key(4.5, "night", "6c76a8", 0.4, 0.35, 0.7, 0.65, 0.6),
-  key(6, "dawn", "f3d2c4", 0.08, 0.12, 0.95, 0.95, 0),
-  key(8, "morning", "ffffff", 0, 0, 1, 1, 0),
+  key(4, "night", "6c76a8", 0.4, 0.35, 0.7, 0.65, 0.6),
+  key(5, "dawn", "f3d2c4", 0.08, 0.12, 0.95, 0.95, 0),
+  key(6, "morning", "ffffff", 0, 0, 1, 1, 0),
   key(12, "noon", "ffffff", 0, 0, 1, 1, 0),
   key(15, "afternoon", "fff8ee", 0, 0, 1, 1, 0),
-  key(17, "golden hour", "f2c98e", 0, 0.18, 1, 1.06, 0),
-  key(18.5, "dusk", "9fb0d8", 0.2, 0.25, 0.85, 0.8, 0.3),
-  key(21, "night", "5f6d9e", 0.4, 0.45, 0.68, 0.6, 0.8),
+  key(16.25, "golden hour", "f2c98e", 0, 0.18, 1, 1.06, 0),
+  key(17.25, "dusk", "9fb0d8", 0.2, 0.25, 0.85, 0.8, 0.3),
+  key(18, "night", "5f6d9e", 0.4, 0.45, 0.68, 0.6, 0.8),
 ];
 const smooth = (x) => x * x * (3 - 2 * x);
 const mix = (a, b, t) => a + (b - a) * t;
@@ -74,6 +77,28 @@ export function lightAt(hour, strength = 1) {
     light: value("light"),
     saturate: value("saturate"),
     stars: value("stars"),
+  };
+}
+
+// Whether a grade reads as night: the stars are out and the figures dim.
+export const gradedNight = (light) => light.stars > 0.5 && light.light < 0.8;
+
+// A place with no night painting (the hub, Lonely Forest, Badger, Hoppy Cat)
+// takes the full night grade, stronger than its daytime share, and a cool
+// tint over it; its lamps and windows still glow as pools.
+export const UNPAINTED_NIGHT_TINT = [0.8, 0.88, 1];
+export function gradeStrength({ grade, painted = false, night = false }) {
+  if (night && painted) return grade ?? GENTLE;
+  if (night) return Math.max(grade ?? 1, 1);
+  return grade ?? 1;
+}
+// The tint multiplied into the shade as the hour darkens.
+export function tintShade(light, tint, hour) {
+  if (!tint) return light;
+  const n = nightness(hour);
+  return {
+    ...light,
+    shade: light.shade.map((v, i) => v * mix(1, tint[i], n)),
   };
 }
 

@@ -55,10 +55,13 @@ pub(super) fn presence(context: &Context, id: &str) -> String {
     }
 }
 
-/// The user turn: what I just heard, verbatim, as `Pip says, "…"`, or
-/// silence when nobody has spoken (a Wait, or the first words of a Talk).
-/// My own view, who is with me included, is my assistant turn, so no "I"
-/// reaches the user turn. A bare line or `Pip: …` drew `Vale: …` back.
+/// The user turn: what I just heard, verbatim, as `Pip says, "…"`. When
+/// nobody has spoken (a Wait, or the first words of a Talk) it is the person
+/// I'm talking with, there ("Pip is here."), and silence when I face nobody:
+/// on gemma-3-4b, silence drew scene narration ("The rain is coming down
+/// harder now…") where the listener's presence drew speech (P3 eval). My own
+/// view is my assistant turn, so no "I" reaches the user turn. A bare line
+/// or `Pip: …` drew `Vale: …` back.
 pub(super) fn user(context: &Context, entity: &Entity) -> String {
     match heard(context, entity) {
         Some(line) => format!(
@@ -66,7 +69,12 @@ pub(super) fn user(context: &Context, entity: &Entity) -> String {
             name(&line.actor_id),
             line.text
         ),
-        None => crate::ai_gateway::SILENCE.into(),
+        None => super::listener(context, &entity.id)
+            .filter(|_| entity.perception.is_some())
+            .map_or_else(
+                || crate::ai_gateway::SILENCE.into(),
+                |l| format!("{} is here.", name(&l)),
+            ),
     }
 }
 
@@ -147,11 +155,15 @@ pub(super) fn frame(
     let (known, mut out): (Vec<_>, Vec<_>) = lines
         .into_iter()
         .partition(|(section, _)| matches!(section, Section::Facts | Section::Inner));
-    let known: Vec<_> = known
+    let known: Vec<_> = known.into_iter().filter_map(once).collect();
+    // A reserved fact I already witnessed ("I witnessed this just now at
+    // ...: Ships for ... leave ...") is not said twice.
+    let fresh: Vec<_> = mentions
         .into_iter()
-        .filter_map(once)
-        .chain(mentions.into_iter().map(|fact| (Section::Directions, fact)))
+        .filter(|fact| !known.iter().any(|(_, text)| text.contains(fact.as_str())))
+        .map(|fact| (Section::Directions, fact))
         .collect();
+    let known: Vec<_> = known.into_iter().chain(fresh).collect();
     let between = between.iter().map(|l| (Section::Conversation, l.clone()));
     let chat = chat(context, entity, part)
         .into_iter()

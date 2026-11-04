@@ -50,6 +50,8 @@ pub(crate) mod imported;
 mod knowledge;
 #[path = "card_narrative/observations.rs"]
 mod observations;
+#[path = "card_narrative/perception.rs"]
+mod perception;
 #[path = "card_narrative/person.rs"]
 mod person;
 #[path = "card_narrative/recital.rs"]
@@ -204,7 +206,7 @@ fn base_profiles() -> &'static Value {
                         profile["persona"] =
                             entity.get("persona").unwrap_or(&entity["text"]).clone();
                     }
-                    for field in ["seed", "voice", "idiolect", "expression"] {
+                    for field in PROFILE_FIELDS {
                         if let Some(value) = entity.get(field) {
                             profile[field] = value.clone();
                         }
@@ -240,9 +242,31 @@ fn base_profiles() -> &'static Value {
                 }
             }
         }
+        // Each place's first-person sense line and each avatar's pronouns,
+        // for the speaker's own view (P3). The rules never read this file.
+        let senses: Value = serde_json::from_str(include_str!("../../card-game/senses.json"))
+            .expect("embedded senses");
+        for (key, field) in [("places", "sense"), ("pronouns", "pronouns")] {
+            for (id, value) in senses[key].as_object().expect("sense entries") {
+                let profile = map
+                    .get_mut(id)
+                    .unwrap_or_else(|| panic!("senses.json names unknown {id}"));
+                profile[field] = value.clone();
+            }
+        }
         profiles
     })
 }
+/// Pack fields the voices read; `sense` and `pronouns` are perception's.
+const PROFILE_FIELDS: [&str; 6] = [
+    "seed",
+    "voice",
+    "idiolect",
+    "expression",
+    "sense",
+    "pronouns",
+];
+
 fn profiles() -> &'static Value {
     base_profiles()
 }
@@ -373,6 +397,9 @@ struct Entity {
     /// What this speaker shares with each other voice here (between.rs).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     between: Vec<between::Between>,
+    /// What this speaker notices now, chosen by the narrator (P3).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    perception: Option<perception::Perception>,
 }
 
 /// The avatar's rule-owned hope, in their own words.
@@ -585,6 +612,9 @@ fn valid(context: &Context) -> bool {
                 && e.facts.len() <= 16
                 && e.facts.iter().all(|s| bounded(s, 240))
                 && between::valid(context, e)
+                && e.perception.as_ref().is_none_or(|p| {
+                    kind(&e.id, "avatar") && perception::valid(context, p)
+                })
                 && e.previous.as_ref().is_none_or(|s| bounded(s, 400))
                 && e.hope.as_ref().is_none_or(|hope| {
                     kind(&e.id, "avatar") && bounded(&hope.wish, 240) && bounded(&hope.next, 240)
@@ -1600,6 +1630,7 @@ fn known(context: &Context) -> BTreeSet<String> {
             ids.extend(desire.avatars.iter().cloned());
             ids.extend(desire.location.iter().cloned());
         }
+        ids.extend(e.perception.iter().flat_map(perception::named).cloned());
     }
     if let Some(outcome) = &context.outcome {
         for avatar in &outcome.avatars {
@@ -1899,9 +1930,23 @@ fn transcript_sections(context: &Context, entity: &Entity, part: Part) -> Vec<(S
     if let Some(poem) = &entity.poem {
         lines.extend(tagged(Section::Facts, recital::prompt_lines(poem)));
     }
+    // A line's present is the narrator's choice, worded last, next to the
+    // line I answer (P3). An older tab sends none and keeps the scene above.
+    let perceived = entity
+        .perception
+        .as_ref()
+        .filter(|_| avatar && part == Part::Line);
+    if perceived.is_some() {
+        lines.retain(|(section, _)| !matches!(section, Section::Now | Section::Directions));
+    }
     // No authored sample lines (#1537): the voice comes from the idiolect
     // and the world, never from example utterances.
-    conversation::frame(context, entity, part, lines, mentions)
+    let mut view = conversation::frame(context, entity, part, lines, mentions);
+    if let Some(p) = perceived {
+        view.push((Section::Now, String::new()));
+        view.extend(perception::lines(context, entity, p));
+    }
+    view
 }
 
 /// Whether the entity heard a table line.
@@ -2196,6 +2241,9 @@ async fn speak(
                     _ => Err(reason),
                 })
                 .map(|(text, flags)| {
+                    for &reason in &flags {
+                        call.flag(reason);
+                    }
                     if !flags.is_empty() {
                         tracing::info!(
                             feature = "card_voice",
@@ -2505,42 +2553,59 @@ impl<'a> Check<'a> {
             flag(self.names_unknown(&text), "unknown entity");
             return Ok((text, flags));
         }
-        let mut lines = raw.trim().lines().map(str::trim).filter(|l| !l.is_empty());
-        let line = lines.next().ok_or("empty")?;
-        let cut_line = lines.next().is_some();
-        let mut text = line.split_whitespace().collect::<Vec<_>>().join(" ");
-        // Stage directions such as *shrugs* or (quietly) are not speech. A
-        // word or two emphasised in the middle of a sentence (*click*), or a
-        // span glued to a word (the *pond*'s edge), is speech, so it keeps
-        // its words rather than leaving a hole.
-        for (open, close) in [('*', '*'), ('(', ')'), ('[', ']')] {
-            let mut from = 0;
-            while let Some(start) = text[from..].find(open).map(|at| at + from) {
-                let inner_start = start + open.len_utf8();
-                let Some(len) = text[inner_start..].find(close) else {
-                    break;
-                };
-                let end = inner_start + len + close.len_utf8();
-                let inner = text[inner_start..inner_start + len].trim().to_string();
-                let glued = |c: char| c.is_alphanumeric() || c == '\'' || c == '\u{2019}';
-                let emphasis = !inner.is_empty()
-                    && (text[..start].chars().next_back().is_some_and(glued)
-                        || text[end..].chars().next().is_some_and(glued)
-                        || (open == '*'
-                            && start > 0
-                            && end < text.len()
-                            && inner.split_whitespace().count() <= 2));
-                if emphasis {
-                    text.replace_range(start..end, &inner);
-                    from = start + inner.len();
-                } else {
-                    text.replace_range(start..end, "");
-                    from = start;
-                }
-            }
+        // Each line without its stage directions. A line that is only a
+        // direction ("(I strum my lyre.)") is passed over, and a character
+        // whose reply opens in narration speaks from its first line that
+        // talks to someone.
+        let avatar = kind(&self.entity.id, "avatar");
+        let staged: Vec<(&str, String, bool)> = raw
+            .trim()
+            .lines()
+            .map(str::trim)
+            .filter(|l| !l.is_empty())
+            .map(|l| {
+                let (text, directed) = unstage(l);
+                (l, text, directed)
+            })
+            .collect();
+        if staged.is_empty() {
+            return Err("empty");
         }
-        text = text.replace(['*', '_', '#'], "");
-        text = text.split_whitespace().collect::<Vec<_>>().join(" ");
+        let talks = |text: &str| {
+            let body = text
+                .split_once(':')
+                .filter(|(head, _)| head.split_whitespace().count() <= 3)
+                .map_or(text, |(_, body)| body);
+            body.split_inclusive(['.', '!', '?', '\u{2026}'])
+                .enumerate()
+                .any(|(i, s)| framing::spoken(s, i == 0))
+        };
+        // Narration I may pass over sets the scene; narration of someone
+        // else ("The Bard clears his throat.") leads into their words, not
+        // mine.
+        let scenery = |text: &str| {
+            text.split_inclusive(['.', '!', '?', '\u{2026}'])
+                .enumerate()
+                .all(|(i, s)| framing::scenery(s, i == 0) && !self.of_others(s))
+        };
+        let first = staged
+            .iter()
+            .position(|(_, t, _)| !t.is_empty())
+            .unwrap_or(0);
+        let at = match staged[first..].iter().position(|(_, t, _)| talks(t)) {
+            Some(i)
+                if avatar
+                    && !talks(&staged[first].1)
+                    && staged[first..first + i].iter().all(|(_, t, _)| scenery(t)) =>
+            {
+                first + i
+            }
+            _ => first,
+        };
+        let line = staged[at].0;
+        let cut_line = staged.len() > at + 1;
+        flag(avatar && staged[..=at].iter().any(|s| s.2), "stage action");
+        let mut text = staged[at].1.clone();
         if instruction::instructs(&text) {
             return Err("instruction");
         }
@@ -2570,8 +2635,9 @@ impl<'a> Check<'a> {
             '"', '\'', '\u{201c}', '\u{201d}', '\u{2018}', '\u{2019}', ' ',
         ];
         let text = text.trim().trim_matches(quotes);
-        let mut kept = String::new();
-        let mut count = 0;
+        // Every complete sentence. A reply cut off at the token cap keeps
+        // those it finished.
+        let mut said = Vec::new();
         let mut chars = text.char_indices().peekable();
         let mut start = 0;
         while let Some((i, c)) = chars.next() {
@@ -2581,21 +2647,59 @@ impl<'a> Check<'a> {
                     let end = i + c.len_utf8();
                     let sentence = text[start..end].trim().trim_matches(quotes);
                     if !sentence.is_empty() {
-                        if kept.chars().count() + sentence.chars().count() + 1 > self.limit {
-                            break;
-                        }
-                        if !kept.is_empty() {
-                            kept.push(' ');
-                        }
-                        kept.push_str(sentence);
-                        count += 1;
+                        said.push(sentence);
                     }
                     start = end;
-                    if count == self.sentences {
-                        break;
-                    }
                 }
             }
+        }
+        // Saying the heard line back first ("Good evening, Dione. What are
+        // you baking? Bread, Vale.") is not my reply: the echo goes.
+        if let Some(heard) = &self.answered {
+            let heard = plain_words(heard);
+            let (mut covered, mut echo) = (0, 0);
+            for sentence in &said {
+                let words = plain_words(sentence);
+                if words.is_empty()
+                    || heard.get(covered..covered + words.len()) != Some(words.as_slice())
+                {
+                    break;
+                }
+                covered += words.len();
+                echo += 1;
+            }
+            if echo < said.len() && covered >= heard.len().min(3) {
+                said.drain(..echo);
+            }
+        }
+        // A reply that opens on the scene ("The rain has begun. Come in,
+        // Pip.") speaks from its first sentence to someone, unless the
+        // narration tells my fact.
+        if avatar {
+            let lead = said
+                .iter()
+                .enumerate()
+                .position(|(i, s)| !framing::scenery(s, i == 0))
+                .filter(|&i| framing::spoken(said[i], i == 0))
+                .unwrap_or(0);
+            let tells = |s: &&str| knowledge::other_words(self.context, &self.entity.id, s) != **s;
+            if !said[..lead].iter().any(|s| tells(s) || self.of_others(s)) {
+                said.drain(..lead);
+            }
+        }
+        let mut kept = String::new();
+        let mut kept_said = Vec::new();
+        for sentence in said {
+            if kept_said.len() == self.sentences
+                || kept.chars().count() + sentence.chars().count() + 1 > self.limit
+            {
+                break;
+            }
+            if !kept.is_empty() {
+                kept.push(' ');
+            }
+            kept.push_str(sentence);
+            kept_said.push(sentence);
         }
         // A finished, single-line imperative can stand without punctuation.
         // A continuation mark or a cut line needs a fresh complete reply.
@@ -2709,7 +2813,6 @@ impl<'a> Check<'a> {
             (repeats && !sharing) || self.others.iter().any(&run),
             "repeat",
         );
-        let avatar = kind(&self.entity.id, "avatar");
         // A character speaks as "I"; a line that names its speaker in the
         // third person ("Vale's eyes flick to Pip") is narration.
         flag(
@@ -2738,6 +2841,12 @@ impl<'a> Check<'a> {
                 .any(|phrase| lower.contains(phrase))
             || self.recital.iter().any(restates);
         flag(echoes, "echoed brief");
+        // Scene prose or a gesture instead of speech ("The air is still.
+        // Damp.", "I shift my weight.") is narration too.
+        flag(
+            avatar && framing::narrates_scene(&kept_said),
+            "self-narration",
+        );
         // Inner life is the avatar's own first person, about things the
         // scene knows: no narrator ("Myrto is a practical sort") and no
         // invented item ("my compass is ready") (#1850).
@@ -2745,6 +2854,24 @@ impl<'a> Check<'a> {
         flag(inner && !first_person(&kept), "third person");
         flag(inner && invents_item(&kept, &self.known), "unknown item");
         Ok((kept, flags))
+    }
+
+    /// Whether a sentence is about someone else: "he", "her", "they" or
+    /// another speaker's name, in any case.
+    fn of_others(&self, sentence: &str) -> bool {
+        let own = name(&self.entity.id).to_lowercase();
+        let lower = sentence.to_lowercase().replace('\u{2019}', "'");
+        plain_words(&lower).iter().any(|w| {
+            [
+                "he", "she", "his", "her", "him", "hers", "they", "them", "their",
+            ]
+            .contains(&w.as_str())
+        }) || profiles().as_object().expect("profiles").values().any(|p| {
+            p["name"]
+                .as_str()
+                .map(str::to_lowercase)
+                .is_some_and(|n| n != own && mentions(&lower, &n))
+        })
     }
 
     /// Whether a text names someone or something the scene does not know.
@@ -2769,6 +2896,55 @@ fn stage_action(text: &str) -> bool {
                 .iter()
                 .any(|verb| s.starts_with(&format!("i {verb} the ")))
         })
+}
+
+/// A line without its stage directions, and whether it had one. *shrugs*
+/// and (quietly) are not speech. A word or two emphasised in the middle of
+/// a sentence (*click*), or a span glued to a word (the *pond*'s edge), is
+/// speech, so it keeps its words rather than leaving a hole.
+fn unstage(line: &str) -> (String, bool) {
+    let mut text = line.split_whitespace().collect::<Vec<_>>().join(" ");
+    let mut directed = false;
+    for (open, close) in [('*', '*'), ('(', ')'), ('[', ']')] {
+        let mut from = 0;
+        while let Some(start) = text[from..].find(open).map(|at| at + from) {
+            let inner_start = start + open.len_utf8();
+            let Some(len) = text[inner_start..].find(close) else {
+                break;
+            };
+            let end = inner_start + len + close.len_utf8();
+            let inner = text[inner_start..inner_start + len].trim().to_string();
+            let glued = |c: char| c.is_alphanumeric() || c == '\'' || c == '\u{2019}';
+            let emphasis = !inner.is_empty()
+                && (text[..start].chars().next_back().is_some_and(glued)
+                    || text[end..].chars().next().is_some_and(glued)
+                    || (open == '*'
+                        && start > 0
+                        && end < text.len()
+                        && inner.split_whitespace().count() <= 2));
+            if emphasis {
+                text.replace_range(start..end, &inner);
+                from = start + inner.len();
+            } else {
+                directed |= !inner.is_empty();
+                text.replace_range(start..end, "");
+                from = start;
+            }
+        }
+    }
+    let text = text.replace(['*', '_', '#'], "");
+    (
+        text.split_whitespace().collect::<Vec<_>>().join(" "),
+        directed,
+    )
+}
+
+/// A sentence's words, lowercased, without punctuation.
+fn plain_words(text: &str) -> Vec<String> {
+    text.split(|c: char| !c.is_alphanumeric())
+        .filter(|w| !w.is_empty())
+        .map(str::to_lowercase)
+        .collect()
 }
 
 /// Whether `text` names `name` as a whole word.
@@ -2968,6 +3144,32 @@ pub(crate) mod tests {
         }
     }
 
+    /// senses.json names only real places and avatars, in short lines
+    /// that leave out the place's own name.
+    #[test]
+    fn senses_name_real_places_and_avatars() {
+        let senses: Value =
+            serde_json::from_str(include_str!("../../card-game/senses.json")).unwrap();
+        for (id, line) in senses["places"].as_object().unwrap() {
+            let profile = &profiles()[id];
+            let line = line.as_str().unwrap();
+            let name = profile["name"].as_str().unwrap().to_lowercase();
+            let name = name.strip_prefix("the ").unwrap_or(&name);
+            assert_eq!(profile["kind"], "location", "{id}");
+            assert!(bounded(line, 90), "{id}");
+            assert!(!line.to_lowercase().contains(name), "{id} names itself");
+            assert_no_instructions(line);
+        }
+        for (id, pronouns) in senses["pronouns"].as_object().unwrap() {
+            assert_eq!(profiles()[id]["kind"], "avatar", "{id}");
+            let pronouns = pronouns.as_str().unwrap();
+            assert!(
+                ["she/her", "he/him", "they/them", "it/its"].contains(&pronouns),
+                "{id} {pronouns}"
+            );
+        }
+    }
+
     #[test]
     fn prompts_hold_only_first_person_idiolect_and_transcript() {
         for (id, profile) in profiles().as_object().unwrap() {
@@ -3034,7 +3236,6 @@ pub(crate) mod tests {
             line.to_string(),
             format!("Pip: {line}"),
             format!("\"{line}\""),
-            format!("*shifts a little* {line}"),
             format!("{line} And another thing. And on."),
             format!("**Pip:** {line}\n\nI hope that helps!"),
             format!("{line}\nVale: Sure."),
@@ -3043,6 +3244,9 @@ pub(crate) mod tests {
         ] {
             assert_eq!(clean(&raw).as_deref(), Ok(line), "{raw}");
         }
+        // A stage direction goes and is counted.
+        let staged = check.verdict(&format!("*shifts a little* {line}"), true, true);
+        assert_eq!(staged, Ok((line.into(), vec!["stage action"])));
         assert_eq!(clean("Hold it higher").as_deref(), Ok("Hold it higher"));
         assert!(check.clean("Hold it higher", false).is_err());
         for (raw, reason) in [
@@ -3128,15 +3332,18 @@ pub(crate) mod tests {
             clean("The rhythmic *click* of boots reaches my sleeves."),
             Ok("The rhythmic click of boots reaches my sleeves.".into())
         );
-        assert_eq!(clean("Fine. *walks away slowly*"), Ok("Fine.".into()));
+        assert_eq!(
+            check.verdict("Fine. *walks away slowly*", true, true),
+            Ok(("Fine.".into(), vec!["stage action"]))
+        );
         assert_eq!(
             clean("At the *black still pond*'s edge, I wait."),
             Ok("At the black still pond's edge, I wait.".into())
         );
         assert_eq!(clean("The"), Err("shape"));
         assert_eq!(
-            clean("Yes. *She folds the cloth and looks away.* No."),
-            Ok("Yes. No.".into())
+            check.verdict("Yes. *She folds the cloth and looks away.* No.", true, true),
+            Ok(("Yes. No.".into(), vec!["stage action"]))
         );
     }
 

@@ -391,7 +391,7 @@ try {
     await selectCard(page, "moth");
     // In battle the selection names the verb: yourself and Pip is Guard,
     // Pip alone is Strike, yourself alone is Brace.
-    assert.deepEqual(await labels(), ["Guard"]);
+    assert.deepEqual(await labels(), ["Cover"]);
     await page.keyboard.press("Escape");
     await selectCard(page, "moth");
     assert.deepEqual(await labels(), ["Strike"]);

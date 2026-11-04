@@ -45,7 +45,7 @@ describe("stage time of day", () => {
     );
     const noon = lightAt(12);
     expect(isNeutral(noon)).toBe(true);
-    const golden = lightAt(17);
+    const golden = lightAt(16.25);
     expect(golden.shade[0]).toBeGreaterThan(golden.shade[2]);
     const midnight = lightAt(0);
     expect(midnight.light).toBeLessThan(lightAt(21).light);

@@ -22,6 +22,20 @@ const RISE = [
   { opacity: 1, translate: "0 0", scale: 1 },
 ];
 
+// One card rising into place now, as a newly met card does (the dealt
+// level quest after a dream). Under reduced motion it just appears.
+export function riseIn(element, { reduced = false, delay = 0 } = {}) {
+  if (reduced || !element?.animate) return null;
+  const rise = element.animate(RISE, {
+    duration: ENTRY_MS,
+    delay,
+    easing: EASE,
+    fill: "backwards",
+  });
+  rise.finished.then(() => rise.cancel()).catch(() => {});
+  return rise;
+}
+
 // The keys drawn now that were not drawn before, in drawing order.
 export const enteringKeys = (before, now) =>
   now.filter((key, i) => !before.has(key) && now.indexOf(key) === i);

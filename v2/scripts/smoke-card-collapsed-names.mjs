@@ -4,6 +4,7 @@ import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
 import { createWorld, encodeSave } from "../card-game/world.mjs";
 import { availableCards } from "../card-game/cards.mjs";
+import { splitNameWords } from "./card-browser-helpers.mjs";
 
 // A resting hand shows only its cards' art: the name labels and their shade
 // are faded out, and they fade back in (instantly under reduced motion) when
@@ -103,6 +104,30 @@ try {
       assert.equal(role, 1, `${tag} Vale button by its accessible name`);
       await vale.click();
       await settle(true);
+      // A raised name breaks only between words, the game's longest ones too.
+      assert.deepEqual(await splitNameWords(page), [], `${tag} names`);
+      const names = await page.evaluate(() =>
+        [...document.querySelectorAll("#hand .card .name")].map(
+          (name) => name.textContent,
+        ),
+      );
+      await page.evaluate(() => {
+        const longest = [
+          "The Exposed Battlefield",
+          "Agamemnon's Tomb",
+          "Concordance Tidelands",
+          "Hoppy Cat Universe",
+        ];
+        document
+          .querySelectorAll("#hand .card .name")
+          .forEach((name, i) => (name.textContent = longest[i % 4]));
+      });
+      assert.deepEqual(await splitNameWords(page), [], `${tag} long names`);
+      await page.evaluate((names) => {
+        document
+          .querySelectorAll("#hand .card .name")
+          .forEach((name, i) => (name.textContent = names[i]));
+      }, names);
       await page.screenshot({
         path: new URL(`${tag}-raised.png`, output).pathname,
       });

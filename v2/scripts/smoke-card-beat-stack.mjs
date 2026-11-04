@@ -109,6 +109,37 @@ async function watchStep(
   );
   return watch;
 }
+// Every leaving copy is released when its motion ends: stepping back and
+// forward many times leaves the page holding no more nodes than before.
+// Chromium never freed a copy whose pictures were let go after it left.
+async function nodesAfterSteps(page, stepBack, steps) {
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send("Performance.enable");
+  const nodes = async () => {
+    await cdp.send("HeapProfiler.collectGarbage");
+    const { metrics } = await cdp.send("Performance.getMetrics");
+    return metrics.find((metric) => metric.name === "Nodes").value;
+  };
+  const step = async (move, speaker) => {
+    await move();
+    await page.waitForFunction(
+      (speaker) =>
+        document.querySelector("#speaker").textContent === speaker &&
+        !document.querySelector(".beat-ghost, .beat-card[data-motion]"),
+      speaker,
+    );
+  };
+  const cycle = async () => {
+    await step(stepBack, "Vale");
+    await step(() => page.locator("#dialogue-advance").click(), "Pip");
+  };
+  await cycle();
+  const start = await nodes();
+  for (let i = 0; i < steps; i++) await cycle();
+  const grown = (await nodes()) - start;
+  await cdp.detach();
+  return grown;
+}
 let fixture = enableMotives(createWorld({ opening: true }));
 // The opening starts lit: douse it to open the mirror (#1653). Relighting it
 // at the pond would spend Pip's ask for the lamp before the talk.
@@ -384,6 +415,8 @@ try {
         () => document.querySelector("#speaker").textContent === "Pip",
       );
       assert.equal(await page.locator("#live-line").isVisible(), false);
+      const grown = await nodesAfterSteps(page, stepBack, 12);
+      assert(grown < 60, `Leaving copies are released: ${grown} nodes kept`);
       // A play leaves focus with the hand.
       assert.equal(
         await page.locator("#previous-line, #next-line").count(),

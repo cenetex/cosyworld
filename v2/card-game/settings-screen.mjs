@@ -7,8 +7,14 @@ import { playerCredits } from "./credits.mjs";
 import { localRuntime } from "./local-service.mjs";
 import { levelTier } from "./level-tiers.mjs";
 import { questScreen } from "./quest-screen.mjs";
+import { setCardLabel } from "./card-label.mjs";
 import { passkey, request } from "./shared-auth.mjs";
-import { TOGGLES, settingsBeat, settingsCards } from "./settings-cards.mjs";
+import {
+  PACKS,
+  TOGGLES,
+  settingsBeat,
+  settingsCards,
+} from "./settings-cards.mjs";
 
 const $ = (id) => document.getElementById(id);
 const words = (id) =>
@@ -39,7 +45,7 @@ const named = (text) =>
     (b) => b.textContent === text,
   );
 
-function readSettings(tip) {
+function readSettings(tip, packs) {
   const credits = playerCredits().state;
   const toggles = Object.fromEntries(
     TOGGLES.map(([id, control, , , status]) => {
@@ -67,6 +73,9 @@ function readSettings(tip) {
     newGame: !$("new-game").hidden,
     table: words("table-slot"),
     build: words("build-info"),
+    packs: Object.fromEntries(
+      PACKS.map(([id]) => [id, { on: packs.on(id), block: packs.block(id) }]),
+    ),
   };
 }
 
@@ -92,7 +101,7 @@ const runs = {
 // The context button is #setting-<card>, then #setting-<card>-1.
 const buttonId = (card, i) => `setting-${card || "close"}${i ? `-${i}` : ""}`;
 
-export function installSettingsCards({ actionBeat }) {
+export function installSettingsCards({ actionBeat, packs }) {
   const screen = $("settings-screen"),
     hand = $("settings-hand");
   let chosen = null,
@@ -119,6 +128,7 @@ export function installSettingsCards({ actionBeat }) {
     problem = "";
     if (action.run === "close" || action.closes) close();
     if (action.run === "tip") tip += 1;
+    if (action.run === "pack") packs.play(action.pack, action.enable);
     try {
       if (/^[#[]/.test(action.run)) document.querySelector(action.run).click();
       else await runs[action.run]?.(action);
@@ -141,7 +151,7 @@ export function installSettingsCards({ actionBeat }) {
   function placeFace(el, c) {
     el.style.setProperty("--tier-color", levelTier(0).color);
     const head = make("span", "quest-head");
-    head.append(make("span", "quest-verb", { textContent: c.name }));
+    head.append(setCardLabel(make("span", "quest-verb"), c.name));
     el.append(
       questScreen(
         { kind: "place", target: c.art },
@@ -172,7 +182,7 @@ export function installSettingsCards({ actionBeat }) {
           draggable: false,
         }),
       );
-      el.append(art, make("span", "name", { textContent: c.name }));
+      el.append(art, setCardLabel(make("span", "name"), c.name));
     }
     const holder = make("div", "card-frame");
     holder.style.setProperty("--fan-at", String(index - (count - 1) / 2));
@@ -180,7 +190,7 @@ export function installSettingsCards({ actionBeat }) {
     return holder;
   }
   function render() {
-    const cards = settingsCards(readSettings(tip));
+    const cards = settingsCards(readSettings(tip, packs));
     if (!cards.some((c) => c.id === chosen)) chosen = null;
     const focused = document.activeElement?.dataset?.setting;
     hand.replaceChildren(...cards.map((c, i) => frame(c, i, cards.length)));
