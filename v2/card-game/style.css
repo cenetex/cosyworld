@@ -3059,8 +3059,8 @@ main > .dialogue {
     img {
     width: auto;
   }
-  /* A chosen avatar's beat grows up over the hand to fit its two lines. */
-  body[data-dialogue-over="true"] .beat-stack > .action-panel[data-avatar] {
+  /* A chosen play grows up over the hand to show its complete caption. */
+  body[data-dialogue-over="true"] .beat-stack > .action-panel {
     position: absolute;
     inset: auto 0 0;
     height: auto;
