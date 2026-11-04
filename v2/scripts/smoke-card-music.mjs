@@ -7,6 +7,7 @@ import {
   openSettings,
   pressSetting,
   closeSettings,
+  tapCard,
 } from "./card-browser-helpers.mjs";
 import assert from "node:assert/strict";
 import { chromium } from "playwright";
@@ -280,6 +281,8 @@ try {
   );
   await page.setViewportSize({ width: 390, height: 844 });
   await openSettings(page);
+  // Music and Volume lie in Sound, which fans open.
+  await tapCard(page.locator('[data-setting="sound"]'));
   for (const id of ["music", "volume"])
     assert(await page.locator(`[data-setting="${id}"]`).isVisible());
   await page.waitForFunction(

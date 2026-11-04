@@ -1,9 +1,11 @@
-// Settings is a hand of cards (owner, 2026-11-03): choosing a card puts its
-// action in the context button, and pressing the button does it. A card
-// shows its name and art; its face is its state, lit or dim. Every state
-// word and reason is in the button or the beat's info line, never on a card.
-// This is the hand and its beats; settings-screen.mjs draws them (README,
-// Settings).
+// Settings is a hand of cards (owner, 2026-11-03), dealt as the play hand
+// deals a place and the things in it (owner, 2026-11-04): four group cards,
+// You, Sound, Play and World, each holding its settings as a place holds its
+// items. Choosing a setting puts its action in the context button, and
+// pressing the button does it. A card shows its name and art; its face is
+// its state, lit or dim. Every state word and reason is in the button or the
+// beat's info line, never on a card. This is the hand and its beats;
+// settings-screen.mjs draws them (README, Settings).
 
 // [card, its control, name, art, status line, label while on, label while
 // off]; one label is "Turn x" off or on. A control the browser holds off
@@ -65,8 +67,8 @@ function bench(name) {
   return `settings/workbench-${name}.png`;
 }
 // The owner's four packs, by their switchable groups (rules 98,
-// pack-toggle.mjs). A pack card is lit while it is on; its button switches
-// it, or says why it can't.
+// pack-toggle.mjs), lead World. A pack card is lit while it is on; its
+// button switches it, or says why it can't.
 export const PACKS = [
   ["cottage", "Cosy Cottage", "lonely-forest/cottage.png"],
   ["shore", "The Reflected Shore", "pond.png"],
@@ -75,6 +77,25 @@ export const PACKS = [
     "hoppy",
     "Hoppy Cat Universe",
     "hoppycat-archive/hoppycat-halfway-tea-garden.webp",
+  ],
+];
+// The groups in hand order, [card, name, painting, the settings it holds].
+// Privacy is the first thing You holds, and You opens fanned.
+export const GROUPS = [
+  ["you", "You", "you", ["privacy", "account", "passkey", "credits", "counts"]],
+  ["sound", "Sound", "candle", ["music", "voices", "volume"]],
+  ["play", "Play", "play", ["fight", "scares", "controls"]],
+  [
+    "world",
+    "World",
+    "window",
+    [
+      ...PACKS.map(([id]) => `pack-${id}`),
+      "new-game",
+      "backup",
+      "pool",
+      "download",
+    ],
   ],
 ];
 export const VOLUMES = [15, 30, 60, 100];
@@ -91,8 +112,22 @@ const card = (id, name, art, lit, state, actions, more) => ({
   art: /^(\.|\/|assets\/)/.test(art) ? art : `assets/${art}`,
 });
 
-// The hand for what the table knows now (`readSettings`), Privacy first.
+// The hand for what the table knows now (`readSettings`): each group card,
+// then the settings it holds (`holder`), as the play hand deals a place and
+// then its things.
 export function settingsCards(s) {
+  const cards = dealt(s);
+  return GROUPS.flatMap(([group, name, art, ids]) => {
+    const held = ids
+      .map((id) => cards.find((c) => c.id === id))
+      .filter(Boolean)
+      .map((c) => ({ ...c, holder: group }));
+    const names = held.map((c) => c.name).join(", ");
+    const box = card(group, name, bench(art), true, names, [], { group: true });
+    return [box, ...held];
+  });
+}
+function dealt(s) {
   const toggles = TOGGLES.map(([id, control, name, art, status, on, off]) => {
     const t = s.toggles[id];
     const label = off ? (t.on ? on : off) : `${on} ${t.on ? "off" : "on"}`;

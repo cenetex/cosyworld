@@ -1043,7 +1043,8 @@ body .dialogue[data-dropped="true"] {
     --hand-fade: 28px;
   }
 }
-/* Settings is a hand of cards in place of the play hand (settings-cards.mjs). */
+/* Settings is a hand of cards in place of the play hand, its groups and
+   their settings drawn as places and their things (settings-cards.mjs). */
 #settings-screen {
   position: static;
   width: auto;
@@ -1225,21 +1226,24 @@ body .card[data-selected="true"] {
       translate 180ms ease-out;
   }
   /* A chosen card is already up. */
-  #hand:not([aria-busy="true"])
+  :is(#hand, #settings-hand):not([aria-busy="true"])
     > .card-frame:has(> .card:hover:not([data-selected="true"])) {
     translate: 0 -8px;
   }
   /* The fan parts around it: cards after it slide right, cards before it
      slide left. */
-  #hand:not([aria-busy="true"]) > .card-frame:has(> .card:hover) ~ .card-frame {
+  :is(#hand, #settings-hand):not([aria-busy="true"])
+    > .card-frame:has(> .card:hover)
+    ~ .card-frame {
     translate: 12px 0;
   }
-  #hand:not([aria-busy="true"]) > .card-frame:has(~ .card-frame > .card:hover) {
+  :is(#hand, #settings-hand):not([aria-busy="true"])
+    > .card-frame:has(~ .card-frame > .card:hover) {
     translate: -12px 0;
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  #hand:not([aria-busy="true"]) .card:hover {
+  :is(#hand, #settings-hand):not([aria-busy="true"]) .card:hover {
     filter: brightness(1.12);
   }
 }

@@ -25,9 +25,10 @@ export async function tapCard(card) {
   await card.click({ position: { x: width / 2, y: 16 } });
 }
 
-// ☰ > Settings is a hand of cards (settings-cards.mjs). A setting is
-// chosen, then its context button (#setting-<card>) pressed `times` times:
-// a destructive one takes two. Escape unchooses, then closes.
+// ☰ > Settings is a hand of cards (settings-cards.mjs). A setting lies in
+// its group, as a thing lies in a place: the group is fanned open, the
+// setting chosen, then its context button (#setting-<card>) pressed `times`
+// times: a destructive one takes two. Escape unchooses, then closes.
 export async function openSettings(page) {
   await page.locator("#toolbar-menu-button").click();
   await page.locator("#menu-button").click();
@@ -35,6 +36,11 @@ export async function openSettings(page) {
 }
 export async function pressSetting(page, id, times = 1) {
   const card = page.locator(`#settings-hand [data-setting="${id}"]`);
+  const frame = card.locator("..");
+  if ((await frame.getAttribute("hidden")) !== null) {
+    const group = await frame.getAttribute("data-holder");
+    await tapCard(page.locator(`#settings-hand [data-setting="${group}"]`));
+  }
   if ((await card.getAttribute("aria-pressed")) !== "true") await tapCard(card);
   for (let i = 0; i < times; i++) await page.locator(`#setting-${id}`).click();
 }
