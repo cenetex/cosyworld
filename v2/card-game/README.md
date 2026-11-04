@@ -79,7 +79,8 @@ Settings opens with You fanned, and Privacy is the first thing it holds, so
 Privacy is one tap away. You then holds Account and Credits (hosted play),
 Another passkey (a shared world, signed in) and Play counts. Sound holds
 Music, Voices and Volume. Play holds Fight speed, Flashes and scares and
-Controls, which steps through tips. World holds the four pack cards, Cosy
+Controls, whose Next tip shows the next tip in place and keeps Controls
+chosen. World holds the four pack cards, Cosy
 Cottage (`lonely-forest`), The Reflected Shore (the hub), The Wine-Dark Sea
 (`greek-drama`) and Hoppy Cat Universe (`hoppycat-archive`), then New game
 (the local table), Backup (the desktop app), World pool (a shared world) and
