@@ -162,7 +162,18 @@ fn keep_authored(mut context: Context) -> Option<Context> {
             }
         };
     context.action = context.action.filter(|text| keep(text, 650, Field::Action));
-    context.events.retain(|text| keep(text, 650, Field::Events));
+    let kept: Vec<bool> = context
+        .events
+        .iter()
+        .map(|text| keep(text, 650, Field::Events))
+        .collect();
+    let mut flags = kept.iter();
+    context.events.retain(|_| *flags.next().unwrap_or(&false));
+    for entity in &mut context.entities {
+        if let Some(p) = &mut entity.perception {
+            super::perception::reindex(p, &kept);
+        }
+    }
     context
         .disclosures
         .retain(|fact| keep(&fact.text, 180, Field::Disclosures));
