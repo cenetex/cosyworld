@@ -107,6 +107,15 @@
       "phone": "assets/optimized/phone/png/boardyai/parlour.webp",
       "phoneHash": "260c12297365aa79427b4f27f2bb630da268d1095977a112fa17280099aa5def"
     },
+    "assets/card-back-locked.webp": {
+      "sourceHash": "0fb3993730387814ebe5486483d7894528d6ee9ae107b71eaf2968156fc233ee",
+      "stage": "assets/card-back-locked.webp",
+      "stageHash": "0fb3993730387814ebe5486483d7894528d6ee9ae107b71eaf2968156fc233ee",
+      "card": "assets/optimized/card/webp/card-back-locked.webp",
+      "cardHash": "48049efb8234790e576cfa2da67926a45bcb8d1b689226cae2a30bc43c45cb55",
+      "phone": "assets/optimized/phone/webp/card-back-locked.webp",
+      "phoneHash": "39f080b97ebf9e1dea7717f096fb885ffa14c0c546738790e00424b0b21c4f88"
+    },
     "assets/card-back.webp": {
       "sourceHash": "8acc1349faa332899cf4123c2c308489c3c3ffe9b0c9c528f46d76d81caec29f",
       "stage": "assets/card-back.webp",

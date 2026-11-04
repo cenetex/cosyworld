@@ -433,6 +433,13 @@ entering together 70 ms apart (`card-entry.mjs`). A card already there never
 moves again on a redraw, a card seen moving keeps that move, and reduced
 motion just shows it. An entering card takes taps at once; the motion is this
 browser's alone and never waits on the rules or the shared room.
+A card locked behind a quest (a sealed card, the far side of a shut gate) is
+a locked wooden box: the darker locked lid, with no painting and no name.
+Tapping it chooses it, and the context button gives its quest. When the quest
+opens the way, the box turns over once, with the same lift as an uncovered
+card (a crossfade under reduced motion), and the card shows as itself from
+then on; a redraw never covers it again (`locked-box.mjs`). In a shared world
+each browser reads its own player's view of the gate.
 Arrival starts the hand at the new current place. Selection keeps its scroll position.
 On wide screens, the resting hand is a fanned deck at the right, as wide as
 its cards so none is cut at the screen edge; once it would crowd the dialogue

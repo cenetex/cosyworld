@@ -16,6 +16,7 @@ import {
   createQuestEntries,
   questEntryKey,
 } from "./card-entry.mjs";
+import { LOCKED_BACK, createLockedBoxes, isLockedBox } from "./locked-box.mjs";
 import {
   phase,
   refusalLabel,
@@ -1301,21 +1302,22 @@ function selectCards(cards) {
 // begin once the avatar and its place are both known. The new-world title's
 // turn has already shown the avatar's face, so it uncovers that card without
 // a second flip.
-function uncover(id, { flip = true } = {}) {
+function uncover(id, { flip = true, lid = null } = {}) {
   if (!cardIsCovered(id)) return;
   encountered.add(id);
   coveredCards.delete(id);
   rememberCards();
   render();
   const shown = $("hand").querySelector(`.card[data-card="${id}"]`);
-  if (shown && flip) void revealCard(shown);
+  if (shown && flip) void revealCard(openingLid(shown, lid));
   $("discovery-announcement").textContent = `New card: ${nameOf(id)}.`;
   if (openingHeld && openingWordsDue() && selfKnown()) resumeScene();
   if (sharedSession) syncSharedLine();
 }
 function choose(id) {
   if (finishCardReveal(id) || selectionBlocked()) return;
-  if (cardIsCovered(id)) {
+  // A locked box is chosen, not uncovered: it opens with its quest.
+  if (cardIsCovered(id) && !isLockedBox(world, id)) {
     uncover(id);
     return;
   }
@@ -2120,6 +2122,7 @@ function updateCardSelection(frame) {
     frame.dataset.expanded = String(expandedHolders.has(id));
     button.setAttribute("aria-expanded", String(expandedHolders.has(id)));
   }
+  if (button.dataset.locked === "true") return;
   button.querySelector(".sr-only").textContent =
     cardObservation(world, id) +
     (label ? ` ${label}.` : "") +
@@ -2132,7 +2135,38 @@ const handMotions = new Map();
 // Cards new to the hand rise in, and quests are dealt face down
 // (card-entry.mjs).
 const handEntries = createCardEntries(),
-  questsInView = createQuestEntries();
+  questsInView = createQuestEntries(),
+  lockedBoxes = createLockedBoxes();
+// A box whose quest is done turns over once, the next time it is in view. A
+// box never uncovered opens as a newly found card does, with its name.
+function openLockedBoxes() {
+  const buttons = [...$("hand").children]
+    .filter((frame) => !frame.dataset.want)
+    .map((frame) => frame.querySelector(".card"));
+  const opening = lockedBoxes.draw(
+    buttons
+      .filter((button) => !button.parentElement.hidden)
+      .map((button) => button.dataset.card),
+    buttons
+      .filter((button) => button.dataset.locked === "true")
+      .map((button) => button.dataset.card),
+  );
+  const lid = imageUrl(LOCKED_BACK, "card");
+  for (const id of opening) {
+    const button = buttons.find((b) => b.dataset.card === id);
+    if (cardIsCovered(id)) {
+      // Face down for a moment, under the locked lid, until it is named.
+      openingLid(button, lid);
+      setTimeout(() => uncover(id, { lid }));
+    } else void revealCard(openingLid(button, lid));
+  }
+}
+// The lid that lifts is the one the card lay under (card-reveal.mjs).
+function openingLid(button, lid) {
+  const back = lid && button.querySelector(".card-back");
+  if (back) back.src = lid;
+  return button;
+}
 const entryKey = (frame) =>
   `${frame.querySelector(".card").dataset.card}@${frame.dataset.holder ?? ""}`;
 // Each quest newly dealt lies face down until it is seen, then turns a beat
@@ -2181,7 +2215,9 @@ function card(id) {
   const type = cardType(id),
     base = places[id] || people[id] || things[id],
     crossingFace = type === "location" ? travelCard(world, id) : null,
-    def = crossingFace ? { ...base, name: crossingFace.name } : base;
+    def = crossingFace ? { ...base, name: crossingFace.name } : base,
+    // A card locked behind a quest is a carved wooden box (locked-box.mjs).
+    locked = isLockedBox(world, id);
   const raised =
     selected.includes(id) || Boolean(places[id] && expandedHolders.has(id));
   const chosen = raised ? cardPlay(world, selected) : null;
@@ -2219,9 +2255,6 @@ function card(id) {
   if (type === "avatar") frameFigure(img);
   graphic.append(img);
   if (type === "location") {
-    // A sealed card is the far side of a shut gate; its reason is in the
-    // context button, never on the card.
-    if (sealedReason(world, id)) el.dataset.sealed = "true";
     graphic.dataset.timeOfDay = locationDaylight(world, id)?.phase || "day";
     renderWeather(graphic, locationWeather(world, id));
     el.dataset.locationVariant = locationVariant(world, id);
@@ -2255,7 +2288,7 @@ function card(id) {
   const observation = node("span", cardObservation(world, id), "sr-only");
   observation.id = `card-detail-${id}`;
   if (raised && label) observation.textContent += ` ${label}.`;
-  const hidden = cardIsCovered(id);
+  const hidden = cardIsCovered(id) || locked;
   if (hidden) observation.textContent = "";
   el.append(graphic, node("span", hidden ? "" : def.name, "name"), observation);
   // One faint numeral shows a selected person's or thing's level. Places
@@ -2335,7 +2368,7 @@ function card(id) {
     const held = availableCards(world).filter(
       (item) => things[item] && rootHolder(world, item) === id,
     );
-    if (held.length) {
+    if (held.length && !locked) {
       frame.dataset.inventory = String(held.length);
       frame.dataset.expanded = String(expandedHolders.has(id));
       el.setAttribute("aria-expanded", String(expandedHolders.has(id)));
@@ -2375,13 +2408,18 @@ function card(id) {
     }
   }
   if (foldQuest()?.actor === id) frame.prepend(questFold(foldQuest()));
-  el.dataset.unrevealed = String(cardIsCovered(id));
+  // Its reason is in the context button, never on the box.
+  el.dataset.locked = String(locked);
+  el.dataset.unrevealed = String(cardIsCovered(id) && !locked);
   const back = node("img", undefined, "card-back");
-  back.src = imageUrl("./assets/card-back.webp", "card");
+  back.src = imageUrl(locked ? LOCKED_BACK : "./assets/card-back.webp", "card");
   back.alt = "";
   back.draggable = false;
   el.append(back);
-  if (cardIsCovered(id)) {
+  if (locked) {
+    el.setAttribute("aria-label", `Locked ${type} card, ${tier.label}`);
+    el.removeAttribute("aria-describedby");
+  } else if (cardIsCovered(id)) {
     el.setAttribute("aria-label", `Uncover new ${type} card, ${tier.label}`);
     el.removeAttribute("aria-describedby");
   }
@@ -3987,6 +4025,7 @@ function render() {
       { reduced: reducedMotion.matches || opening },
     );
     showQuests(opening);
+    openLockedBoxes();
     if (animate)
       for (const frame of $("hand").children) {
         if (frame.hidden) continue;
