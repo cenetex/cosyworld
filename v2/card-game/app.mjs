@@ -12,6 +12,7 @@ import { finishCardReveal, revealCard } from "./card-reveal.mjs";
 import { setCardLabel } from "./card-label.mjs";
 import {
   fadeGhost,
+  fixedGhost,
   ghostOf,
   pinGhost,
   releaseGhost,
@@ -213,6 +214,7 @@ import {
   cardObservation,
   TOO_MANY_ITEMS,
   sealedReason,
+  asleepReason,
 } from "./cards.mjs";
 // A person's want reaches the player through Talk context (want-talk.mjs).
 // The hand holds people, items and places, and the player's quest cards.
@@ -1608,6 +1610,7 @@ function combatStage() {
 }
 function endCombat() {
   combatRun++;
+  delete document.body.dataset.handAway;
   combatCue = false;
   if (lossCue) {
     lossCue = false;
@@ -1639,6 +1642,8 @@ async function presentCombat(beats, land) {
     (beat) => beat.kind === "defeat" && beat.viewerLost,
   );
   if (defeat) {
+    // The hand stays away until the new place's hand is dealt (render).
+    document.body.dataset.handAway = "true";
     // The loss screen's song comes in on the black after three beats of
     // silence (music-cues.mjs). Leaving the loss screen fades it out fully
     // before the lift onto the next scene and its room song.
@@ -2172,6 +2177,16 @@ function renderActions() {
     why.title = sealed;
     row.append(why);
   }
+  // An Ask, Trade or Invite of a sleeping resident says so (rules 100).
+  const asleep = !rested && !actions.length && asleepReason(world, selected);
+  if (asleep) {
+    const blocked = node("button", asleep, "card-primary");
+    blocked.type = "button";
+    blocked.disabled = true;
+    blocked.dataset.blocked = "asleep";
+    blocked.title = asleep;
+    row.append(blocked);
+  }
   // A Take refused for space says why in the context button (#2018). It
   // plays nothing; the cards stay as they are.
   const crowded =
@@ -2305,6 +2320,7 @@ let renderedScene = null,
   swapFrom = null,
   swapEnd = 0;
 function departHand() {
+  if (document.body.dataset.handAway) return;
   const row = [...$("hand").children],
     staying = new Set(availableCards(world)),
     leaving = row.filter(
@@ -2328,6 +2344,13 @@ function departHand() {
     frame.dataset.gone = "true";
     frame.style.visibility = "hidden";
   }
+}
+// Deals the shown hand afresh, 70 ms apart; reduced motion fades it in.
+function dealHand() {
+  const row = [...$("hand").children].filter((f) => !f.hidden);
+  if (reducedMotion.matches)
+    $("hand").animate({ opacity: [0, 1] }, { duration: SWAP_REDUCED_MS });
+  else entryDelays(row.length).forEach((delay, i) => riseIn(row[i], { delay }));
 }
 function handExits() {
   let layer = $("hand").parentElement.querySelector(":scope > .card-exits");
@@ -3408,6 +3431,18 @@ function renderScene() {
         : null,
     front: stepping && !$("speech-row").hidden ? frontGhost(direction) : null,
   };
+  // The stack clearing fades out over 200 ms: the whole panel when nothing
+  // else stays in it, else the front card.
+  if (!front && !$("speech-row").hidden)
+    fadeGhost(
+      fixedGhost(
+        document.querySelector(".action-panel").hidden
+          ? document.querySelector(".dialogue")
+          : $("speech-row"),
+      ),
+      {},
+      STACK_CLEAR_MS,
+    );
   stackRendered = {
     key: frontKey,
     speaker: front?.speakerId ?? null,
@@ -3687,6 +3722,7 @@ function stackGhost(card) {
 // The old front card keeps its exact box, so its words do not reflow. Going
 // forward it settles behind the new card; going back, or crossfading for
 // reduced motion, it leaves over it.
+const STACK_CLEAR_MS = 200;
 function frontGhost(direction) {
   const under = direction === "forward" && !reducedMotion.matches;
   return pinGhost($("speech-row"), under ? "1" : "3");
@@ -4149,6 +4185,8 @@ function render() {
   ]);
   if (handKey !== renderedHand) {
     // The hand a page or a new game opens on is already dealt.
+    // A hand away after a loss lets the old cards go unseen.
+    if (document.body.dataset.handAway) quietExits = true;
     const opening = renderedHandPlace === null;
     const sameWorld =
         renderedHand &&
@@ -4321,6 +4359,12 @@ function render() {
           reshaped ? LAYOUT_MS : undefined,
         );
     }
+  }
+  // After a loss the new hand is dealt in as the black lifts; the old one
+  // never shows again.
+  if (document.body.dataset.handAway && !covering) {
+    delete document.body.dataset.handAway;
+    dealHand();
   }
   renderScene();
   renderLog();
@@ -5121,15 +5165,7 @@ const settingsCards = installSettingsCards({
       dropCards(leaving, handExits(), exits);
       return entryAt;
     },
-    back() {
-      const row = [...$("hand").children].filter((f) => !f.hidden);
-      if (reducedMotion.matches)
-        $("hand").animate({ opacity: [0, 1] }, { duration: SWAP_REDUCED_MS });
-      else
-        entryDelays(row.length).forEach((delay, i) =>
-          riseIn(row[i], { delay }),
-        );
-    },
+    back: dealHand,
   },
   // Switching a pack is a play that passes no turn (pack-toggle.mjs).
   packs: {

@@ -1,23 +1,14 @@
-// Rules 99 on the server: the released engine-v99.js bundle, as the shared
-// host runs it with its content, and the browser's own modules must commit
+// The quest loop (rules 99) on the server: the current rules bundle, as the
+// shared host runs it with its content, and the browser's own modules must commit
 // the same worlds through the quest loop: a Talk quest given and met, the
 // halfway quest to sleep at a sanctuary, its glimpse, and the level quest's
 // dream that honours it. The same requests replay to the same world.
 import { describe, expect, it } from "vitest";
-import { readFileSync } from "node:fs";
-import vm from "node:vm";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import { questsOf } from "../v2/card-game/want.mjs";
 import { honours } from "../v2/card-game/glimpse.mjs";
+import { currentSharedEngine } from "./fixtures/shared-engine.mjs";
 
-const file = (f) =>
-  readFileSync(`v2/orchestrator-rust/src/card_shared/${f}`, "utf8");
-function hosted(version) {
-  const cardContent = JSON.parse(file("content.json"));
-  const context = vm.createContext({ structuredClone, cardContent });
-  vm.runInContext(file(`engine-v${version}.js`), context);
-  return (request) => JSON.parse(context.cardShared(JSON.stringify(request)));
-}
 const seats = { claimed: ["vale"], present: ["vale"] };
 
 // Vale at level I, one want short of halfway, with the keeper in the attic.
@@ -100,7 +91,11 @@ function playLoop(server) {
 
 describe("rules 99 quest loop on the server", () => {
   it("commits the same worlds as the browser rules, and replays", () => {
-    const loop = playLoop(hosted(99));
+    // The current bundle: rules 99 made the loop, later rules keep it.
+    const engine = currentSharedEngine();
+    const loop = playLoop((request) =>
+      JSON.parse(engine.cardShared(JSON.stringify(request))),
+    );
     // The Talk quest and its record.
     expect(questsOf(loop.talked, "vale")[0]).toMatchObject({
       kind: "item",

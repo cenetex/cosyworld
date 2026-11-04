@@ -49,4 +49,8 @@ slept up to 24 turns and the lamp ran dry inside it.
 Replay: journals before rules 89 replay on their own bundles. Loading an older
 save drops `sleepUntil` (alpha saves may lose a pending sleep).
 
+Rules 100: residents and away avatars sleep too, on schedules scattered by
+the seed (`sleeping: {since, place, until}`); see
+[world life](rules-100-world-life.md).
+
 The full rules are in [rest and sanctuary](../../v2/docs/card-table/rest-and-sanctuary.md#sleep).

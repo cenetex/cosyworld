@@ -291,6 +291,10 @@
 .play-dock {
   transition: translate 280ms ease-in-out;
 }
+/* After a loss it stays away until the new place's hand is dealt. */
+body[data-hand-away="true"] .play-dock {
+  translate: 0 100%;
+}
 /* The beat card steps out of the fight too: its strip would cover the
    fighters' feet and still read the beat from before the fight. The caption
    carries the fight, and the card returns with the speech that follows. */

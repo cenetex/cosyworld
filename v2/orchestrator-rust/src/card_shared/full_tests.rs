@@ -45,7 +45,10 @@ pub(super) fn assert_saved_actors(current: &Value, old: &Value) {
                 saved[field] = json!("greek-colonus");
             }
         }
-        for field in ["want", "xp", "visited", "talked", "metTurn", "gaveUp"] {
+        // Rules 100: the Gate Guard takes his post.
+        for field in [
+            "want", "xp", "visited", "talked", "metTurn", "gaveUp", "guarding",
+        ] {
             actor.as_object_mut().unwrap().remove(field);
             saved.as_object_mut().unwrap().remove(field);
         }

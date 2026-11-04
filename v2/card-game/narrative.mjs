@@ -41,6 +41,7 @@ import {
   REFUSED_VERBS,
 } from "./world.mjs";
 import { knownActors, wantOf } from "./want.mjs";
+import { guardedFrom } from "./resident-guard.mjs";
 import { forgetUnfound, groundedInner } from "./speech-knowledge.mjs";
 import { hasTemperament, variantOf, signalEcho } from "./pack-rules.mjs";
 import { reflectionDue } from "./reflections.mjs";
@@ -199,10 +200,15 @@ function wayFacts(world, place) {
   if (world.actors[actor]?.place !== place) return [];
   const shut = sealedWays(world, actor).map((r) => r.to);
   const open = exits(world, place, actor);
-  const ways = packDefinitions
-    .flatMap((pack) => pack.routes || [])
-    .filter((r) => r.sealed && r.from === place)
-    .map((r) => r.to);
+  // A guarded way (rules 100) is told the same way from both sides: shut
+  // while its guard bars it, open once lifted or while he is away.
+  const ways = [
+    ...packDefinitions
+      .flatMap((pack) => pack.routes || [])
+      .filter((r) => r.sealed && r.from === place)
+      .map((r) => r.to),
+    ...guardedFrom(place),
+  ];
   return [...new Set(ways)]
     .filter((to) => shut.includes(to) || open.includes(to))
     .map((to) =>

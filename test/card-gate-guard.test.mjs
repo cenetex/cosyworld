@@ -1,0 +1,236 @@
+// Rules 100, world life: the Gate Guard's standing Wait bars the battlefield,
+// and a player may stand guard at a guardable way.
+import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import vm from "node:vm";
+import {
+  decodeSave,
+  encodeSave,
+  exits,
+  legalActions,
+  play,
+  sealedWays,
+} from "../v2/card-game/world.mjs";
+import { sealedReason } from "../v2/card-game/cards.mjs";
+import { dispatchShared } from "../v2/card-game/shared-world.mjs";
+import {
+  act,
+  lifeWorld,
+  reload,
+  settleGate,
+  wait,
+} from "./helpers/world-life.mjs";
+
+const GUARD = "greek-guard",
+  GATE = "greek-gate",
+  FIELD = "greek-battlefield";
+// Beat the guard at his post: threaten, then strike until he yields.
+function beatGuard(s) {
+  s = act(s, "threaten", { target: GUARD });
+  for (let i = 0; i < 24 && s.actors[GUARD].place === GATE; i++) {
+    const strike = legalActions(s).find(
+      (a) => a.kind === "attack" && a.target === GUARD,
+    );
+    const done = play(s, strike || legalActions(s)[0], s.revision);
+    expect(done.ok, done.error).toBe(true);
+    s = done.state;
+  }
+  // Anyone else at the gate joined in; a round of waits ends it.
+  for (let i = 0; i < 6 && s.standoffs.length; i++) s = wait(s);
+  return s;
+}
+
+describe("the Gate Guard", () => {
+  it("bars the battlefield as a locked way whose button names him", () => {
+    const s = lifeWorld({ place: GATE });
+    expect(s.actors[GUARD].guarding).toBe(FIELD);
+    expect(exits(s, GATE, "vale")).not.toContain(FIELD);
+    expect(exits(s, GATE, "greek-antigone")).not.toContain(FIELD);
+    expect(exits(s, GATE, GUARD)).toContain(FIELD);
+    expect(sealedReason(s, FIELD)).toBe("The Gate Guard bars the way");
+    // Seeking the way still gives the decree's quest.
+    expect(legalActions(s).find((a) => a.kind === "gate")?.text).toBe(
+      "The Gate Guard bars the way",
+    );
+    // He bars the gate from the battlefield side too: there it is the
+    // locked box with the same reason, and only he may pass.
+    const far = structuredClone(s);
+    far.actors.vale.place = FIELD;
+    far.actors.vale.visited.push(GATE);
+    const field = reload(far);
+    expect(exits(field, FIELD, "vale")).not.toContain(GATE);
+    expect(sealedReason(field, GATE)).toBe("The Gate Guard bars the way");
+    expect(exits(field, FIELD, GUARD)).toContain(GATE);
+  });
+
+  it("keeps guarding through a Talk", () => {
+    let s = lifeWorld({ place: GATE });
+    s = act(s, "talk", { target: GUARD });
+    expect(s.actors[GUARD].guarding).toBe(FIELD);
+    expect(sealedReason(s, FIELD)).toBe("The Gate Guard bars the way");
+  });
+
+  it("is knocked through on defeat, holds a grudge, walks back and bars again", () => {
+    let s = beatGuard(lifeWorld({ place: GATE }));
+    expect(s.actors[GUARD].place).toBe(FIELD);
+    expect(s.actors[GUARD].guarding).toBeUndefined();
+    expect(s.log.some((e) => /knocked through/u.test(e.text))).toBe(true);
+    const grudge = s.motives.grievances[GUARD].find((g) => g.other === "vale");
+    expect(grudge).toMatchObject({ kind: "threat" });
+    expect(grudge.weight).toBeGreaterThanOrEqual(1);
+    // The way is open while he is away.
+    expect(exits(s, GATE, "vale")).toContain(FIELD);
+    expect(sealedReason(s, FIELD)).toBe(null);
+    // After the peace he walks home, off-stage, and bars the way again.
+    s = act(s, "move", { target: "greek-courtyard" });
+    for (let i = 0; i < 8 && s.actors[GUARD].place !== GATE; i++) s = wait(s);
+    expect(s.actors[GUARD].place).toBe(GATE);
+    expect(s.actors[GUARD].guarding).toBe(FIELD);
+    s = act(s, "move", { target: GATE });
+    expect(exits(s, GATE, "vale")).not.toContain(FIELD);
+    expect(sealedReason(s, FIELD)).toBe("The Gate Guard bars the way");
+  });
+
+  it("lifts the bar for good when he holds the decree, wherever he stands", () => {
+    let s = lifeWorld({ place: "greek-courtyard" });
+    s.actors[GUARD].place = "greek-courtyard";
+    s.actors[GUARD].homeward = true;
+    s.items["greek-decree"].holder = GUARD;
+    s = wait(reload(s));
+    expect(s.openedRoutes).toContain(`${GATE}>${FIELD}`);
+    for (let i = 0; i < 4 && s.actors[GUARD].place !== GATE; i++) s = wait(s);
+    expect(s.actors[GUARD].place).toBe(GATE);
+    expect(s.actors[GUARD].guarding).toBeUndefined();
+    s = act(s, "move", { target: GATE });
+    expect(exits(s, GATE, "vale")).toContain(FIELD);
+    expect(sealedReason(s, FIELD)).toBe(null);
+  });
+});
+
+describe("a player's guard", () => {
+  const opened = () => {
+    const s = lifeWorld({ place: GATE });
+    s.items["greek-decree"].holder = GUARD;
+    return wait(reload(s));
+  };
+  it("stands as a Wait on a guardable way and bars residents only", () => {
+    let s = opened();
+    const guard = legalActions(s).find((a) => a.guards === FIELD);
+    expect(guard).toMatchObject({
+      kind: "wait",
+      label: "Guard",
+      cards: ["vale", FIELD],
+    });
+    const done = play(s, guard, s.revision);
+    expect(done.ok, done.error).toBe(true);
+    s = done.state;
+    expect(s.actors.vale.guarding).toBe(FIELD);
+    expect(
+      s.log.findLast((e) => e.actorId === "vale" && e.verb === "wait"),
+    ).toMatchObject({ guards: FIELD });
+    expect(exits(s, GATE, "greek-antigone")).not.toContain(FIELD);
+    expect(exits(s, GATE, "vale")).toContain(FIELD);
+    // Guard again keeps it; any other play ends it.
+    const again = legalActions(s).find((a) => a.guards === FIELD);
+    s = play(s, again, s.revision).state;
+    expect(s.actors.vale.guarding).toBe(FIELD);
+    s = wait(s);
+    expect(s.actors.vale.guarding).toBeUndefined();
+    expect(exits(s, GATE, "greek-antigone")).toContain(FIELD);
+  });
+
+  it("never bars another player in a shared world and lapses when its player leaves", () => {
+    const seats = { claimed: ["vale", "mara"], present: ["vale", "mara"] };
+    let world = dispatchShared({
+      op: "create",
+      seed: 7,
+      save: encodeSave(opened()),
+    }).world;
+    const view = (actor, present = seats.present) =>
+      dispatchShared({ op: "view", world, actor, ...seats, present });
+    world = dispatchShared({
+      op: "join",
+      world,
+      actor: "mara",
+      ...seats,
+    }).world;
+    world.actors.mara.place = GATE;
+    world = dispatchShared({
+      op: "validate",
+      world,
+      actor: "mara",
+      ...seats,
+    }).world;
+    const guard = view("vale").actions.find((a) => a.guards === FIELD);
+    world = dispatchShared({
+      op: "play",
+      world,
+      actor: "vale",
+      action: guard,
+      ...seats,
+    }).world;
+    expect(world.actors.vale.guarding).toBe(FIELD);
+    expect(view("mara").exits).toContain(FIELD);
+    // Vale leaves: the guard lapses at the next play.
+    world = dispatchShared({
+      op: "play",
+      world,
+      actor: "mara",
+      action: view("mara", ["mara"]).actions.find(
+        (a) => a.kind === "wait" && !a.sleep && !a.guards,
+      ),
+      claimed: seats.claimed,
+      present: ["mara"],
+    }).world;
+    expect(world.actors.vale.guarding).toBeUndefined();
+  });
+});
+
+// The battlefield's ways out are the City Gate and the Cithaeron Road, each
+// open or shown as the locked box with its reason (the owner, #2233).
+const waysOut = (s) =>
+  [
+    ...new Set([
+      ...exits(s, FIELD, "vale"),
+      ...sealedWays(s, "vale").map((r) => r.to),
+    ]),
+  ].sort();
+const ROAD = "greek-cithaeron";
+describe("the Exposed Battlefield", () => {
+  it("has two ways out, the gate and the road, in a new full world", () => {
+    let s = lifeWorld({ place: FIELD });
+    expect(waysOut(s)).toEqual([ROAD, GATE]);
+    expect(sealedReason(s, GATE)).toBe("The Gate Guard bars the way");
+    expect(sealedReason(s, ROAD)).toMatch(/Theban account of the burial/u);
+    // The decree lifts the bar on both sides for good, and a road once
+    // opened by a Theban account stays open.
+    s.items["greek-decree"].holder = GUARD;
+    s.openedRoutes = [...(s.openedRoutes || []), `${FIELD}>${ROAD}`].sort();
+    s = settleGate(reload(s));
+    expect(exits(s, FIELD, "vale").sort()).toEqual([ROAD, GATE]);
+    expect(exits(s, GATE, "vale")).toContain(FIELD);
+    expect(waysOut(s)).toEqual([ROAD, GATE]);
+  });
+
+  it("has the same two ways out in a rules 99 world upgraded to 100", () => {
+    const file = (f) =>
+      readFileSync(`v2/orchestrator-rust/src/card_shared/${f}`, "utf8");
+    const context = vm.createContext({
+      structuredClone,
+      cardContent: JSON.parse(file("content.json")),
+    });
+    vm.runInContext(file("engine-v99.js"), context);
+    const old = JSON.parse(
+      context.cardShared(JSON.stringify({ op: "create", seed: 9 })),
+    ).world;
+    // A world whose Theban release has opened the road (the guard's tablet
+    // on Dione's table): before that the road is not yet in the world.
+    delete old.opening;
+    old.packs["greek-drama"].scope = "full";
+    old.actors.vale.place = FIELD;
+    const upgraded = decodeSave(JSON.stringify(old));
+    expect(upgraded.actors[GUARD].guarding).toBe(FIELD);
+    expect(waysOut(upgraded)).toEqual([ROAD, GATE]);
+    expect(exits(upgraded, FIELD, GUARD)).toContain(GATE);
+  });
+});

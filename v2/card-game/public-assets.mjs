@@ -38,7 +38,7 @@ const files = [
   "boardyai.mjs",
   "boardyai.json",
   "assets/card-back.webp",
-  // The locked box (locked-box.mjs); a stand-in until its own painting.
+  // The locked box lid with its recessed iron keyhole (locked-box.mjs).
   "assets/card-back-locked.webp",
   // The new-world title (title-intro.mjs); logos may share toolbar art.
   ...new Set(
@@ -243,6 +243,7 @@ const files = [
   "scene.mjs",
   "weather.mjs",
   "weather.json",
+  "world-life.json",
   "daylight.mjs",
   ...daylightAssets,
   "weather-view.mjs",
@@ -259,6 +260,9 @@ const files = [
   "life.mjs",
   "knowledge.mjs",
   "roaming-routes.mjs",
+  "resident-home.mjs",
+  "resident-sleep.mjs",
+  "resident-guard.mjs",
   "want-talk.mjs",
   "want.mjs",
   "glimpse.mjs",

@@ -108,13 +108,13 @@
       "phoneHash": "260c12297365aa79427b4f27f2bb630da268d1095977a112fa17280099aa5def"
     },
     "assets/card-back-locked.webp": {
-      "sourceHash": "0fb3993730387814ebe5486483d7894528d6ee9ae107b71eaf2968156fc233ee",
+      "sourceHash": "ed4b317614178f9d0bec4826bf86c3da01951aeed4550d2d9352ff8336bb7899",
       "stage": "assets/card-back-locked.webp",
-      "stageHash": "0fb3993730387814ebe5486483d7894528d6ee9ae107b71eaf2968156fc233ee",
+      "stageHash": "ed4b317614178f9d0bec4826bf86c3da01951aeed4550d2d9352ff8336bb7899",
       "card": "assets/optimized/card/webp/card-back-locked.webp",
-      "cardHash": "48049efb8234790e576cfa2da67926a45bcb8d1b689226cae2a30bc43c45cb55",
+      "cardHash": "a6b86f5ae3a0f2e6308a2c123419b44c71dbc2d448d185eaff7fdb9f3050a8e4",
       "phone": "assets/optimized/phone/webp/card-back-locked.webp",
-      "phoneHash": "39f080b97ebf9e1dea7717f096fb885ffa14c0c546738790e00424b0b21c4f88"
+      "phoneHash": "eb1310dff4a7c93ffc3b824a27bd30b05f0f766b7b525249a2a8d1ce1aba30ae"
     },
     "assets/card-back.webp": {
       "sourceHash": "8acc1349faa332899cf4123c2c308489c3c3ffe9b0c9c528f46d76d81caec29f",

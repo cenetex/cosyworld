@@ -662,11 +662,14 @@ export function sceneStaging(
           ? "sleep"
           : movement
             ? "walk"
-            : ["threaten", "guard", "attack"].includes(act?.verb)
-              ? act.verb
-              : id === activeSpeaker
-                ? "speak"
-                : "listen",
+            : // A standing guard holds the Brace pose (rules 100).
+              world.actors[id]?.guarding
+              ? "guard"
+              : ["threaten", "guard", "attack"].includes(act?.verb)
+                ? act.verb
+                : id === activeSpeaker
+                  ? "speak"
+                  : "listen",
         movement: movement
           ? {
               kind: movement.locationId === locationId ? "arrive" : "leave",

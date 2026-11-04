@@ -5,6 +5,7 @@ import { createLockedBoxes, isLockedBox } from "../v2/card-game/locked-box.mjs";
 import { seatActors } from "../v2/card-game/human-cast.mjs";
 import { greekTravelTargets } from "./helpers/greek-travel.mjs";
 import { openingFixture } from "./helpers/greek-opening.mjs";
+import { settleGate } from "./helpers/world-life.mjs";
 
 function act(s, kind, fields = {}) {
   const action = legalActions(s).find(
@@ -50,7 +51,7 @@ describe("locked boxes", () => {
     expect(isLockedBox(shared, "greek-battlefield")).toBe(true);
     expect(availableCards(shared)).toContain("greek-battlefield");
     shared.items["greek-decree"].holder = "greek-guard";
-    expect(isLockedBox(shared, "greek-battlefield")).toBe(false);
+    expect(isLockedBox(settleGate(shared), "greek-battlefield")).toBe(false);
   });
 
   it("turn over once, when next seen open, and never cover again", () => {

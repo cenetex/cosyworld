@@ -174,6 +174,15 @@ someone plays in its room. There is no server tick, so in a world where
 nobody is playing, nothing acts. A claim can carry the avatar's level and
 experience from its last seat (`progress` on the journaled `claim`).
 
+Rules 100 ([world life](../../../docs/design/rules-100-world-life.md)): every
+accepted play, by any seat, also runs the residents' round on the shared
+clock. Residents and away avatars fall asleep and rise on their scattered
+schedules; residents walk home after a push-back, and at dawn and dusk take
+one step where no seat is present, at most 24 steps a play, in sorted id
+order. A seat may stand guard at a guardable way: its guard bars residents
+only, never another seat, and lapses at its next other play or when it
+leaves. The journal replays all of it exactly.
+
 ### Open question: whose conduct
 
 Other players need to tell whether an away avatar's conduct came from its
@@ -293,7 +302,10 @@ A world saved by rules newer than the server's (a release swap, see
 [release operations](../../../docs/release.md#dev-trains)) is not migrated or
 rewritten: the open and play paths answer `503` with `code: "updating"`, and
 the Open this world card labels its disabled action "Updating — back in a
-moment" and retries on its own (2 s doubling to 30 s). An older or unknown
+moment" and retries on its own (2 s doubling to 30 s). Each retry's words
+come in over the old ones, and when the world opens the card fades out over
+200 ms, no longer holding the page, as its first hand is dealt
+(`v2/scripts/smoke-card-shared-updating.mjs`). An older or unknown
 version keeps "This world's rules need a saved migration."
 
 Version 9 adds a two-card quest hand and explicit Drop actions. Loading an earlier
