@@ -15,6 +15,17 @@ const ajaxItems = Object.fromEntries(
     )
     .map(([id, item]) => [id, { holder: item.holder, history: [] }]),
 );
+// Greek revision 20: Creon holds his writ, and Dione her wheat, when an
+// earlier world first gains them.
+const decreeItems = Object.fromEntries(
+  ["greek-creon-writ", "greek-wheat"].map((id) => [
+    id,
+    {
+      holder: currentPackDefinition("greek-drama").items[id].holder,
+      history: [],
+    },
+  ]),
+);
 import { entityActive } from "../v2/card-game/pack-registry.mjs";
 import { greekTravelTargets } from "./helpers/greek-travel.mjs";
 import hoppycat from "../v2/content/hoppycat-archive/card-world.json" with { type: "json" };
@@ -253,6 +264,7 @@ describe("the side roads in earlier saved worlds", () => {
         ...branchItems,
         ...willowsItems,
         ...ajaxItems,
+        ...decreeItems,
         "boardyai-calling-card": { holder: "station", history: [] },
         ...Object.fromEntries(
           Object.entries(hoppycat.items).map(([id, item]) => [

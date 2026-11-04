@@ -9,9 +9,11 @@ import { DAYLIGHT_TURNS } from "../v2/card-game/pack-rules.mjs";
 import { greekTravelTargets } from "./helpers/greek-travel.mjs";
 import { openingFixture } from "./helpers/greek-opening.mjs";
 
-// Thebes on rules 95: the burial rites use up the funeral cloth and oil,
-// which regrow at Eleusis and Colonus. The provisions, the bread and the
-// gate are rules 102 now: card-thebes-bread.test.mjs.
+// Thebes on rules 95: the burial rites use the funeral cloth and oil. Under
+// rules 102 nothing regrows at dawn: a used thing goes straight back to its
+// home at Eleusis or Colonus, or, while its home is out of reach, to where
+// it started. The provisions, the bread and the gate are rules 102 now:
+// card-thebes-bread.test.mjs.
 const reload = (s) => decodeSave(encodeSave(s));
 function act(s, kind, fields = {}) {
   const action = legalActions(s).find(
@@ -43,24 +45,29 @@ function until(s, light) {
 }
 
 describe("the burial supplies", () => {
-  it("are used up by the defiant rite and regrow at Eleusis and Colonus", () => {
-    let s = openingFixture("burial").closed;
-    expect(s.usedUp).toEqual(
-      expect.arrayContaining(["greek-funeral-cloth", "greek-oil-flask"]),
-    );
+  it("go back where they started after the defiant rite", () => {
+    const f = openingFixture("burial");
+    let s = f.buried;
+    expect(s.usedUp).not.toContain("greek-funeral-cloth");
+    expect(s.usedUp).not.toContain("greek-oil-flask");
+    // Eleusis and Colonus are not yet in this world: back where they began.
+    expect(s.items["greek-funeral-cloth"].holder).toBe("greek-sanctuary");
+    expect(s.items["greek-oil-flask"].holder).toBe("greek-courtyard");
     // The shovel is a tool: it stays where it was used.
+    s = f.closed;
     expect(s.items["greek-shovel"].holder).toBe("greek-battlefield");
+    // Nothing moves them at dawn.
     s = until(s, "dawn");
-    expect(s.items["greek-funeral-cloth"].holder).toBe("greek-eleusis");
-    expect(s.items["greek-oil-flask"].holder).toBe("greek-colonus");
+    expect(s.items["greek-funeral-cloth"].holder).toBe("greek-sanctuary");
+    expect(s.items["greek-oil-flask"].holder).toBe("greek-courtyard");
   });
 
-  it("are used up by the permitted rite too", () => {
-    const s = openingFixture("concession").closed;
+  it("go straight home to Eleusis and Colonus after the permitted rite", () => {
+    const s = openingFixture("concession").buried;
     expect(s.packs["greek-drama"].flags["greek-burial-performed"]).toBe(true);
-    expect(s.usedUp).toEqual(
-      expect.arrayContaining(["greek-funeral-cloth", "greek-oil-flask"]),
-    );
+    expect(s.usedUp).not.toContain("greek-funeral-cloth");
+    expect(s.items["greek-funeral-cloth"].holder).toBe("greek-eleusis");
+    expect(s.items["greek-oil-flask"].holder).toBe("greek-colonus");
   });
 
   it("stay on the grave through a dawn until the rite", () => {

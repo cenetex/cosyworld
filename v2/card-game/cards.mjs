@@ -8,6 +8,7 @@ import {
 } from "./pack-registry.mjs";
 import { dropCost } from "./want.mjs";
 import { lockedAt } from "./pack-items.mjs";
+import { shutLanes } from "./pack-transport.mjs";
 import {
   currentActor,
   places,
@@ -62,6 +63,12 @@ export function availableCards(world) {
     .filter((id) => !destinations.includes(id));
   // A made thing waits locked at its home until its maker makes it again.
   sealed.push(...lockedAt(world, here));
+  // A port its ship cannot sail to yet, and why (rules 102).
+  sealed.push(
+    ...shutLanes(world, here)
+      .map((lane) => lane.to)
+      .filter((id) => !destinations.includes(id)),
+  );
   return [
     ...cast.flatMap((id) => [id, ...after(id)]),
     ...(road && destinations.includes(road[0]) ? [road[0]] : []),
@@ -151,9 +158,12 @@ export const sealedReason = (world, id) => {
     return lockedAt(world, packThings[id].home).includes(id)
       ? `${nameOf(lock.by)} consumes ${listOf(lock.consumes.map((c) => theThing(c)))}`
       : null;
+  const player = currentActor(world);
   return (
-    sealedWays(world, currentActor(world)).find((r) => r.to === id)?.sealed
-      .reason ?? null
+    sealedWays(world, player).find((r) => r.to === id)?.sealed.reason ??
+    shutLanes(world, world.actors[player]?.place).find((l) => l.to === id)
+      ?.reason ??
+    null
   );
 };
 const theThing = (id) =>

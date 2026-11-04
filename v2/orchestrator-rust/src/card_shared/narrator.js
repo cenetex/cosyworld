@@ -4863,8 +4863,7 @@
             holder: "greek-sanctuary",
             persona: "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
             art: "assets/greek-drama/funeral-cloth.png",
-            home: "greek-eleusis",
-            regrow: "dawn"
+            home: "greek-eleusis"
           },
           "greek-oil-flask": {
             name: "Funeral Oil",
@@ -4872,8 +4871,7 @@
             holder: "greek-courtyard",
             persona: "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
             art: "assets/greek-drama/oil-flask.png",
-            home: "greek-colonus",
-            regrow: "dawn"
+            home: "greek-colonus"
           },
           "greek-libation": {
             name: "Libation Wine",
@@ -4881,8 +4879,7 @@
             holder: "greek-cithaeron",
             persona: "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
             art: "assets/greek-drama/libation-cup.png",
-            home: "greek-cithaeron",
-            regrow: "dawn"
+            home: "greek-cithaeron"
           },
           "greek-shovel": {
             name: "Burial Shovel",
@@ -10587,6 +10584,7 @@
                 from: "greek-harbor",
                 to: "greek-piraeus",
                 oneWay: true,
+                reason: "Put the Travel Provisions down on deck",
                 opensWith: [
                   {
                     kind: "any",
@@ -14362,7 +14360,7 @@
     const renews = (id, seen = /* @__PURE__ */ new Set()) => {
       const thing = items2[id];
       if (!thing || seen.has(id)) return false;
-      if (thing.home && (thing.regrow || thing.locked)) return true;
+      if (thing.home) return true;
       return drops(id).some(
         (c) => c.repeats && c.effects.filter((e) => e.kind === "retire_item").every((e) => renews(e.item, /* @__PURE__ */ new Set([...seen, id])))
       );
@@ -14562,7 +14560,14 @@
     const docks = Array.isArray(t.docks) ? t.docks : [];
     const seen = /* @__PURE__ */ new Set(), neighbours = new Map(docks.map((d) => [d, /* @__PURE__ */ new Set()])), leaving = /* @__PURE__ */ new Set();
     for (const lane of t.lanes) {
-      if (!keysOk(lane, ["from", "to", "oneWay", "opensWith", "spends"]) || !docks.includes(lane.from) || !docks.includes(lane.to) || lane.from === lane.to || lane.oneWay !== void 0 && lane.oneWay !== true) {
+      if (!keysOk(lane, [
+        "from",
+        "to",
+        "oneWay",
+        "opensWith",
+        "spends",
+        "reason"
+      ]) || lane.reason !== void 0 && (!lane.opensWith || typeof lane.reason !== "string" || !lane.reason.trim() || lane.reason.length > 240) || !docks.includes(lane.from) || !docks.includes(lane.to) || lane.from === lane.to || lane.oneWay !== void 0 && lane.oneWay !== true) {
         out.push("has a lane that does not join two of its docks");
         continue;
       }
@@ -17164,6 +17169,11 @@
       s.openedRoutes = s.openedRoutes.filter(latchingRoute);
       if (!s.openedRoutes.length) delete s.openedRoutes;
     }
+    for (const [id, item] of Object.entries(pack.items))
+      if (item.home && !item.regrow && !item.locked && s.usedUp?.includes(id)) {
+        s.usedUp = s.usedUp.filter((used) => used !== id);
+        s.items[id].holder = item.home;
+      }
     saved.revision = 20;
   }
   var RUMOURS = {

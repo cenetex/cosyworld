@@ -129,7 +129,19 @@ export function laneProblems(t) {
     leaving = new Set();
   for (const lane of t.lanes) {
     if (
-      !keysOk(lane, ["from", "to", "oneWay", "opensWith", "spends"]) ||
+      !keysOk(lane, [
+        "from",
+        "to",
+        "oneWay",
+        "opensWith",
+        "spends",
+        "reason",
+      ]) ||
+      (lane.reason !== undefined &&
+        (!lane.opensWith ||
+          typeof lane.reason !== "string" ||
+          !lane.reason.trim() ||
+          lane.reason.length > 240)) ||
       !docks.includes(lane.from) ||
       !docks.includes(lane.to) ||
       lane.from === lane.to ||

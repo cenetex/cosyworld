@@ -24,11 +24,17 @@ const ELDER = "greek-elder",
 // A local save past the opening on its second day: Vale in the courtyard
 // has met the baker there but never the elder, who wants the courtyard.
 function courtyard() {
-  const s = createWorld({
-    opening: true,
-    seed: 7,
-    packScopes: { "greek-drama": "full" },
-  });
+  return reload(
+    toCourtyard(
+      createWorld({
+        opening: true,
+        seed: 7,
+        packScopes: { "greek-drama": "full" },
+      }),
+    ),
+  );
+}
+function toCourtyard(s) {
   s.turn = s.revision = DAY_TURNS + 20;
   s.actors.vale.place = COURT;
   s.opening.crossed = true;
@@ -41,7 +47,7 @@ function courtyard() {
     since: s.turn,
     refusals: 0,
   };
-  return reload(s);
+  return s;
 }
 const talkTo = (s, id) =>
   legalActions(s).some((a) => a.kind === "talk" && a.target === id);
@@ -130,10 +136,13 @@ describe("meeting on arrival on the server (rules 101)", () => {
     expect(arrive(null)).toEqual(world);
     // Rules 100 still plays as released: no meeting on arrival.
     const old = host(rules100());
+    // The same courtyard, from that release's own fresh world and content.
+    const fresh = old({ op: "create", seed: 7 }).world;
+    fresh.packs["greek-drama"].scope = "full";
     let w = old({
       op: "create",
       seed: 7,
-      save: encodeSave(courtyard()),
+      save: JSON.stringify(toCourtyard(fresh)),
       actor: "vale",
     }).world;
     for (let i = 0; i < 6 && w.actors[ELDER].place !== COURT; i++) {

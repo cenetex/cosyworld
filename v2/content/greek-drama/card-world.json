@@ -1657,8 +1657,7 @@
       "holder": "greek-sanctuary",
       "persona": "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
       "art": "assets/greek-drama/funeral-cloth.png",
-      "home": "greek-eleusis",
-      "regrow": "dawn"
+      "home": "greek-eleusis"
     },
     "greek-oil-flask": {
       "name": "Funeral Oil",
@@ -1666,8 +1665,7 @@
       "holder": "greek-courtyard",
       "persona": "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
       "art": "assets/greek-drama/oil-flask.png",
-      "home": "greek-colonus",
-      "regrow": "dawn"
+      "home": "greek-colonus"
     },
     "greek-libation": {
       "name": "Libation Wine",
@@ -1675,8 +1673,7 @@
       "holder": "greek-cithaeron",
       "persona": "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
       "art": "assets/greek-drama/libation-cup.png",
-      "home": "greek-cithaeron",
-      "regrow": "dawn"
+      "home": "greek-cithaeron"
     },
     "greek-shovel": {
       "name": "Burial Shovel",

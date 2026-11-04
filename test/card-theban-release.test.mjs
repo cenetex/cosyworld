@@ -218,9 +218,9 @@ describe("the Theban release and its ship", () => {
   it("keeps a route from every opening place back to the pond after the signal", () => {
     const s = createWorld();
     s.crossings["pond-greek-harbor"].discovered = true;
-    // The battlefield is reached only through the opened City Gate, and
-    // its guard stands aside for good.
-    s.openedRoutes = ["greek-gate>greek-battlefield"];
+    // The battlefield is reached only through the City Gate, whose guard
+    // stands aside while he holds Creon's writ (rules 102).
+    s.items["greek-creon-writ"].holder = "greek-guard";
     settleGate(s);
     for (const start of openingPlaces.filter((id) => id !== "greek-ship")) {
       const seen = new Set([start]);
@@ -269,6 +269,8 @@ describe("the Theban release and its ship", () => {
         "greek-figs",
         "greek-wine-skin",
         "greek-libation",
+        // Revision 20: Dione's wheat, for the bread she makes.
+        "greek-wheat",
         ...Object.keys(packDefinition("hoppycat-archive").items),
         ...Object.keys(packDefinition("willows").items),
         ...Object.keys(packDefinition("lonely-forest").items),

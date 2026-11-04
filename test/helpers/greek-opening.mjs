@@ -166,10 +166,21 @@ export function openingFixture(
     act("wait");
     states.buried = world;
     take("greek-burial-account");
-    walk("gate", "courtyard");
+    walk("gate");
+    if (branch === "concession" && !reportFirst) {
+      // The writ stays with the guard unless he is beaten for it; shared
+      // after the burial, it is told in its own place (rules 102).
+      beatGuard();
+      take("greek-creon-writ");
+    }
+    walk("courtyard");
     states.returning = world;
     if (branch === "concession") {
-      // The writ stays with the guard: the grave's account is the report.
+      if (!reportFirst) {
+        give("greek-creon-writ", "greek-baker");
+        states.permissionShared = world;
+      }
+      // Otherwise the grave's account is the only report.
       states.beforeGraveReport = world;
     }
     give("greek-burial-account", "greek-baker");

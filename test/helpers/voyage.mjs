@@ -38,8 +38,11 @@ export function sailTo(
       (world.usedUp?.includes("greek-provisions") ||
         world.items["greek-provisions"]?.holder !== here)
     ) {
-      world = stowProvisions(structuredClone(world), here);
-      lane = courseToward(world, here, dock, actor);
+      // Only a load that opens the course is laid down: a traveller who
+      // carries the provisions keeps them for a free leg.
+      const stowed = stowProvisions(structuredClone(world), here);
+      const opened = courseToward(stowed, here, dock, actor);
+      if (opened) [world, lane] = [stowed, opened];
     }
     const course = actions(world, actor).find(
       (a) => a.kind === "course" && a.target === lane,

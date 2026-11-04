@@ -718,6 +718,13 @@ export function upgradeGreekDecreeSave(s) {
     s.openedRoutes = s.openedRoutes.filter(latchingRoute);
     if (!s.openedRoutes.length) delete s.openedRoutes;
   }
+  // Nothing regrows at dawn now: a homed thing that was waiting to regrow
+  // is back at its home.
+  for (const [id, item] of Object.entries(pack.items))
+    if (item.home && !item.regrow && !item.locked && s.usedUp?.includes(id)) {
+      s.usedUp = s.usedUp.filter((used) => used !== id);
+      s.items[id].holder = item.home;
+    }
   saved.revision = 20;
 }
 

@@ -54,10 +54,21 @@ describe("want data", () => {
     ).toEqual({
       "greek-antigone": { kind: "item", target: "greek-funeral-cloth" },
       "greek-ismene": { kind: "place", target: "greek-sanctuary" },
-      "greek-creon": { kind: "place", target: "greek-palace" },
+      // Creon wants the decree back; the guard wants to eat the bread
+      // (Greek revision 20).
+      "greek-creon": { kind: "item", target: "greek-decree" },
+      "greek-guard": {
+        kind: "item",
+        target: "greek-bread",
+        step: { verb: "eat" },
+      },
       "greek-baker": { kind: "place", target: "greek-courtyard" },
-      // Myrto makes the provisions; Talk names the set (rules 95).
-      "greek-shipmaster": { kind: "item", target: "greek-provisions" },
+      // Myrto makes the provisions and wants to eat them at Piraeus.
+      "greek-shipmaster": {
+        kind: "item",
+        target: "greek-provisions",
+        step: { verb: "eat", at: "greek-piraeus" },
+      },
       "willows-swede": { kind: "place", target: "willows-landing" },
       boardyai: { kind: "connect", target: "humans" },
     });

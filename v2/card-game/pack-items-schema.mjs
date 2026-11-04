@@ -32,12 +32,13 @@ export function itemCycleProblems(pack, mountedPlaces = [], hubPlaces = []) {
     choices.filter((c) =>
       (c.effects || []).some((e) => e.kind === "drop_item" && e.item === id),
     );
-  // A thing renews when it regrows at home, or when a repeating give makes
-  // it from things that renew.
+  // A thing renews when it has a home (regrowing there, made there again,
+  // or, rules 102, sent straight back there once used), or when a repeating
+  // give makes it from things that renew.
   const renews = (id, seen = new Set()) => {
     const thing = items[id];
     if (!thing || seen.has(id)) return false;
-    if (thing.home && (thing.regrow || thing.locked)) return true;
+    if (thing.home) return true;
     return drops(id).some(
       (c) =>
         c.repeats &&

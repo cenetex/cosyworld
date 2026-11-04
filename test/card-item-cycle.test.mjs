@@ -4,9 +4,28 @@ import "./helpers/still-cast.mjs";
 // Rules 95: things used up and coming back, on a test copy of the Greek pack.
 // The fixture adds a homed loop (bread, figs and wine regrow; Myrto makes the
 // provisions from them; the Piraeus voyage spends them) and a two-thing kit.
+// The shipped pack no longer spends the provisions (rules 102), so this copy
+// keeps the spending lane of rules 95 to test the engine's `spends`: the
+// cargo it spends is the provisions present on deck. Travellers still lay
+// them down aboard, as the shipped lane needs.
 vi.mock("../v2/card-game/packs.json", async (importOriginal) => {
   const { itemCycleFixture } = await import("./helpers/item-cycle-fixture.mjs");
-  return { default: itemCycleFixture((await importOriginal()).default) };
+  const compiled = itemCycleFixture((await importOriginal()).default);
+  const lane = compiled.packs
+    .find((p) => p.id === "greek-drama")
+    .transports["greek-ship"].lanes.find(
+      (l) => l.from === "greek-harbor" && l.to === "greek-piraeus",
+    );
+  lane.opensWith = [
+    {
+      kind: "any",
+      conditions: [
+        { kind: "item_present", item: "greek-provisions", place: "greek-ship" },
+        { kind: "pack_item_present", pack: "hoppycat-archive", place: "greek-ship" },
+      ],
+    },
+  ];
+  return { default: compiled };
 });
 
 import {
@@ -113,9 +132,14 @@ describe("rules 95 item cycle", () => {
     expect(broken((p) => delete p.items["greek-test-figs"].home)).toMatch(
       /regrow need|must renew/u,
     );
-    expect(broken((p) => delete p.items["greek-test-wine"].regrow)).toMatch(
-      /greek-test-wine must renew/u,
-    );
+    // A homed thing renews by going home once used (rules 102); without a
+    // home it cannot.
+    expect(
+      broken((p) => {
+        delete p.items["greek-test-wine"].regrow;
+        delete p.items["greek-test-wine"].home;
+      }),
+    ).toMatch(/greek-test-wine must renew/u);
     expect(
       broken((p) => {
         const lanes = p.transports["greek-ship"].lanes;
@@ -130,9 +154,12 @@ describe("rules 95 item cycle", () => {
     expect(broken((p) => (p.kits[0].items = ["greek-decree"]))).toMatch(
       /kit greek-test-kit/u,
     );
-    // A thing used up by one choice and needed by another must renew.
+    // A thing used up by one choice and needed by another must renew: here
+    // an unhomed jar, which could never go home.
     expect(
       broken((p) => {
+        delete p.items["greek-water-jar"].home;
+        delete p.items["greek-water-jar"].absentReturn;
         p.choices.find((c) => c.id === "greek-return-water-jar").effects[0] = {
           kind: "retire_item",
           item: "greek-water-jar",
@@ -156,11 +183,17 @@ describe("rules 95 item cycle", () => {
     // leave play, and a carried copy would have stayed.
     const old = JSON.parse(encodeSave(s));
     delete old.usedUp;
-    // The fixture's bread has a history, so only the provisions fold.
+    // Dione's fresh bread lies where it starts with no history, so it folds
+    // like an untouched loaf (rules 102 bread starts used up too).
     expect(decodeSave(JSON.stringify(old)).usedUp).toEqual([
+      "greek-bread",
       "greek-provisions",
     ]);
     old.items["greek-provisions"] = { holder: "vale", history: ["Turn 1: x"] };
+    old.items["greek-bread"] = {
+      holder: "greek-courtyard",
+      history: ["Turn 1: x"],
+    };
     expect(decodeSave(JSON.stringify(old)).usedUp).toEqual([]);
   });
 
@@ -225,6 +258,7 @@ describe("rules 95 item cycle", () => {
     s = act(s, "give", { item: "greek-test-wine", target: "greek-shipmaster" });
     s = act(s, "take", { item: "greek-provisions" });
     s = act(s, "move", { target: "greek-ship" });
+    s = act(s, "drop", { item: "greek-provisions", target: "greek-ship" });
     s = act(s, "course", { target: "greek-piraeus" });
     s = wait(s);
     expect(usedUp(s, "greek-provisions")).toBe(true);
@@ -365,6 +399,7 @@ describe("rules 95 item cycle", () => {
       unique(s);
       s = act(s, "take", { item: "greek-provisions" });
       s = act(s, "move", { target: "greek-ship" });
+      s = act(s, "drop", { item: "greek-provisions", target: "greek-ship" });
       s = act(s, "course", { target: "greek-piraeus" });
       s = wait(s);
       unique(s);

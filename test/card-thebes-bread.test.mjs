@@ -14,6 +14,7 @@ import {
 import {
   availableCards,
   cardActions,
+  cardPlay,
   sealedReason,
 } from "../v2/card-game/cards.mjs";
 import { packDefinition } from "../v2/card-game/pack-registry.mjs";
@@ -339,8 +340,18 @@ describe("the Charybdis's provisions", () => {
     expect(courseOptions(s, "greek-ship", "vale")).not.toContain(
       "greek-piraeus",
     );
+    // Piraeus lies in the hand as a locked card; the context button says why.
+    expect(availableCards(s)).toContain("greek-piraeus");
+    expect(sealedReason(s, "greek-piraeus")).toBe(
+      "Put the Travel Provisions down on deck",
+    );
+    expect(cardPlay(s, ["greek-piraeus"]).action).toBeFalsy();
+    expect(cardPlay(s, ["greek-piraeus"]).hint).toBe(
+      "Put the Travel Provisions down on deck",
+    );
     s = act(s, "drop", { item: "greek-provisions", target: "greek-ship" });
     expect(courseOptions(s, "greek-ship", "vale")).toContain("greek-piraeus");
+    expect(sealedReason(s, "greek-piraeus")).toBe(null);
     s = sailTo(s, "greek-piraeus");
     s = act(s, "move", { target: "greek-ship" });
     // Docked at Piraeus they still lie on deck; eaten there, they go home

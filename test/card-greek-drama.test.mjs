@@ -341,22 +341,31 @@ describe("Greek choices and their receipts", () => {
 describe("Before the Burial", () => {
   it("makes the ordinary water errand change custody and access to bread", () => {
     let world = courtyard();
-    expect(availableCards(world)).not.toContain("greek-bread");
+    // The bread waits at the courtyard used up, shown as the locked box,
+    // until Dione has the jar and her wheat to bake it (rules 102).
+    expect(world.usedUp).toContain("greek-bread");
+    expect(cardPlay(world, ["greek-bread"]).action).toBeFalsy();
     world = take(move(world, WELL), "greek-water-jar");
     world = give(move(world, COURTYARD), "greek-water-jar", "greek-baker");
-    // Custody leaves Vale and stays with the receiving household at this place.
-    expect([COURTYARD, "greek-baker"]).toContain(
-      world.items["greek-water-jar"].holder,
-    );
-    expect(itemPlace(world, "greek-water-jar")).toBe(COURTYARD);
+    // Custody leaves Vale: Dione bakes with the jar, which goes home to the
+    // well, and the bread lies ready at the courtyard.
+    expect(rootHolder(world, "greek-water-jar")).not.toBe("vale");
+    expect(world.items["greek-water-jar"].holder).toBe(WELL);
     expect(stateOf(world).flags["greek-water-returned"]).toBe(true);
+    expect(world.usedUp).not.toContain("greek-bread");
+    expect(world.items["greek-bread"].holder).toBe(COURTYARD);
     expect(availableCards(world)).toContain("greek-bread");
+    expect(cardPlay(world, ["greek-bread"]).action).toMatchObject({
+      kind: "take",
+      item: "greek-bread",
+    });
     expect(reload(world)).toEqual(world);
   });
 
   it("reaches the palace forecourt through the Market Well", () => {
     const world = courtyard();
-    // Greek revision 19: courtyard, well, forecourt, sanctuary in a line.
+    // Greek revision 19 and later: courtyard, well, forecourt, sanctuary in
+    // a line.
     expect(exits(world, COURTYARD, "vale")).toEqual(
       expect.arrayContaining([WELL, GATE]),
     );
@@ -376,7 +385,7 @@ describe("Before the Burial", () => {
       [PALACE, COURTYARD],
     ];
     const world = decodeSave(JSON.stringify(old));
-    expect(world.packs[PACK].revision).toBe(19);
+    expect(world.packs[PACK].revision).toBe(20);
     expect(world.routeKnowledge["greek-rhapsode"]).toEqual([
       [COURTYARD, WELL],
       [WELL, PALACE],
@@ -409,7 +418,8 @@ describe("Before the Burial", () => {
     expect(availableCards(world)).not.toContain("greek-burial-account");
     world = act(world, "drop", { item: "greek-shovel", target: BATTLEFIELD });
     // The cloth in another's hands serves, but only the oil lying there is
-    // used up: a burial never takes what someone else holds (rules 98).
+    // used: a burial never takes what someone else holds (rules 98). Used,
+    // the oil goes straight home to Colonus (rules 102).
     world.items["greek-funeral-cloth"].holder = "keeper";
     world.actors.keeper.place = BATTLEFIELD;
     world = act(reload(world), "wait");
@@ -417,7 +427,8 @@ describe("Before the Burial", () => {
     const receipt = done(world, "perform-burial");
     expect(receipt).toBeTruthy();
     expect(world.items["greek-funeral-cloth"].holder).toBe("keeper");
-    expect(world.usedUp).toContain("greek-oil-flask");
+    expect(world.usedUp).not.toContain("greek-oil-flask");
+    expect(world.items["greek-oil-flask"].holder).toBe("greek-colonus");
     expect(world.usedUp).not.toContain("greek-funeral-cloth");
     expect(world.log.some((e) => e.text?.includes("is buried"))).toBe(true);
     world = take(reload(world), "greek-burial-account");
@@ -430,24 +441,48 @@ describe("Before the Burial", () => {
 
   it("lets a witnessed petition yield Creon's writ and a permitted burial", () => {
     let world = courtyard();
+    // Dione bakes once the jar is home; the guard trades the decree he holds
+    // for her bread and eats it (rules 102).
+    world = take(move(world, WELL), "greek-water-jar");
+    world = give(move(world, COURTYARD), "greek-water-jar", "greek-baker");
     world = take(move(world, SANCTUARY), "greek-household-token");
-    world = walk(world, COURTYARD, GATE);
+    world = take(move(world, COURTYARD), "greek-bread");
+    world = move(world, GATE);
+    expect(world.items["greek-decree"].holder).toBe("greek-guard");
+    world = act(world, "trade", {
+      item: "greek-bread",
+      receive: "greek-decree",
+    });
+    expect(world.items["greek-decree"].holder).toBe("vale");
+    expect(world.usedUp).toContain("greek-bread");
+    // Fed, the guard still guards the gate.
+    expect(exits(world, GATE, "vale")).not.toContain(BATTLEFIELD);
     // The elder may come back to the well just after Vale: the meeting
     // then lands on Vale's next play there.
     world = act(walk(world, COURTYARD, WELL), "wait");
     expect(done(world, "gather-witness")).toBeTruthy();
-    world = take(move(world, PALACE), "greek-decree");
-    world = give(world, "greek-decree", "greek-creon");
+    // Creon wants his decree; he trades his writ for it, and his grant
+    // commits on the meeting.
+    world = move(world, PALACE);
+    expect(world.items["greek-creon-writ"].holder).toBe("greek-creon");
+    world = act(world, "trade", {
+      item: "greek-decree",
+      receive: "greek-creon-writ",
+    });
     expect(stateOf(world).choices["greek-theban-response"]).toBe("concession");
-    expect(world.items["greek-decree"].holder).toBe(PALACE);
+    expect(done(world, "petition-burial")).toBeTruthy();
+    expect(world.items["greek-decree"].holder).toBe("greek-creon");
+    expect(world.items["greek-creon-writ"].holder).toBe("vale");
     expect(reload(world)).toEqual(world);
-    world = take(world, "greek-creon-writ");
     world = give(move(world, COURTYARD), "greek-creon-writ", "greek-baker");
     expect(stateOf(world).flags["greek-concession-public"]).toBe(true);
     expect(stateOf(world).flags["greek-open-door-open"]).toBe(true);
-    world = take(move(world, PALACE), "greek-decree");
-    world = walk(world, COURTYARD, GATE);
-    world = give(world, "greek-decree", "greek-guard");
+    // The writ in his hands, the guard stands aside.
+    world = take(world, "greek-creon-writ");
+    world = move(world, GATE);
+    expect(exits(world, GATE, "vale")).not.toContain(BATTLEFIELD);
+    world = give(world, "greek-creon-writ", "greek-guard");
+    expect(exits(world, GATE, "vale")).toContain(BATTLEFIELD);
     world = take(world, "greek-shovel");
     world = act(move(world, BATTLEFIELD), "wait");
     expect(done(world, "prepare-burial-ground")).toBeTruthy();

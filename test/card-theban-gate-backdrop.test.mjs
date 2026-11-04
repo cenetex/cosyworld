@@ -10,37 +10,40 @@ import {
 } from "../v2/card-game/pack-registry.mjs";
 import { openingFixture } from "./helpers/greek-opening.mjs";
 
-// The Theban City Gate shows its closed painting until the Gate Guard has held
-// the Burial Decree at the gate, which opens the battlefield road for good.
-// Night keeps the matching closed or open night painting.
+// The Theban City Gate shows its closed painting while the Gate Guard guards
+// it, and its open painting while he holds Creon's writ: a live route, read as
+// it stands (rules 102, Greek revision 20). Night keeps the matching closed or
+// open night painting.
 const art = (file) => `./assets/greek-drama/${file}.webp`;
 const gate = (s) => backdrop("greek-gate", s);
 const night = (s) => ({ ...s, turn: DAYLIGHT_TURNS });
 
 describe("the Theban City Gate backdrop", () => {
-  it("is closed until the guard has held the decree at the gate", () => {
+  it("is open only while the guard holds Creon's writ", () => {
     const s = openingFixture("burial").decree;
-    expect(s.items["greek-decree"].holder).toBe("greek-palace");
+    expect(s.items["greek-decree"].holder).toBe("greek-guard");
     s.turn = 0;
     expect(gate(s)).toBe(art("city-gate-closed-day"));
     expect(gate(night(s))).toBe(art("city-gate-closed-night"));
-    // Vale carrying the decree to the gate is not enough.
-    s.items["greek-decree"].holder = "vale";
+    // Vale carrying the writ to the gate is not enough.
+    s.items["greek-creon-writ"].holder = "vale";
     s.actors.vale.place = "greek-gate";
     expect(gate(s)).toBe(art("city-gate-closed-day"));
-    // The guard holds it at his post: the gate opens, day and night.
+    // The guard holds it at his post: the gate opens, day and night, with
+    // no latch.
     s.items["greek-creon-writ"].holder = "greek-guard";
     expect(s.actors["greek-guard"].place).toBe("greek-gate");
-    expect(gate(s)).toBe(art("city-gate-closed-day"));
-    latchRoutes(s);
     expect(gate(s)).toBe(art("city-gate-day"));
     expect(gate(night(s))).toBe(art("city-gate-night"));
-    // He leaves his post with it, or gives it away: it stays open.
-    const away = structuredClone(s);
-    away.actors["greek-guard"].place = "greek-well";
-    expect(gate(away)).toBe(art("city-gate-day"));
+    latchRoutes(s);
+    expect(s.openedRoutes ?? []).not.toContain("greek-gate>greek-battlefield");
+    // The decree going elsewhere changes nothing.
     s.items["greek-decree"].holder = "greek-elder";
     expect(gate(s)).toBe(art("city-gate-day"));
+    // Once the writ leaves him, the gate shows closed again.
+    s.items["greek-creon-writ"].holder = "greek-gate";
+    expect(gate(s)).toBe(art("city-gate-closed-day"));
+    expect(gate(night(s))).toBe(art("city-gate-closed-night"));
   });
 
   it("validates state backdrops like poses", () => {

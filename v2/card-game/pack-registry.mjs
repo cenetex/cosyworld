@@ -720,10 +720,23 @@ export function applyPackChoice(
     // An alternative a set slot did not use stays where it is. Only the
     // actor's own things or things lying at the place are used, never what
     // another person holds (rules 98).
+    // Rules 102: a homed thing that neither regrows nor is made again goes
+    // straight back to its home, ready to fetch, as eaten food does; while
+    // its home is out of this world's reach, back where it started.
     if (e.kind === "retire_item") {
-      const root = rootOf(world, e.item);
-      if (root === action.actor || root === choice.at)
-        useUp(world, e.item, pack.items[e.item].holder);
+      const root = rootOf(world, e.item),
+        thing = pack.items[e.item];
+      if (root === action.actor || root === choice.at) {
+        useUp(world, e.item, thing.holder);
+        if (thing.home && !thing.regrow && !thing.locked) {
+          bringBack(
+            world,
+            e.item,
+            entityActive(world, thing.home) ? thing.home : thing.holder,
+          );
+          if (!entityEnabled(world, e.item)) useUp(world, e.item, thing.holder);
+        }
+      }
     }
     // The subject sets a used-up thing down at the choice's place.
     if (e.kind === "drop_item") {
