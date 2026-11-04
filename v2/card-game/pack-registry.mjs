@@ -297,8 +297,11 @@ const hubIds = new Set(
 );
 export const packIdOf = (id) =>
   packEntity(id)?.packId ?? (hubIds.has(id) ? "hub" : null);
+// A group is awake unless it, or the group it is reached by, is off.
+export const groupAwake = (off, g) =>
+  !off?.includes(g) && !off?.includes(GROUPS[g]?.reachedBy);
 export const packOn = (world, packId) =>
-  !world.disabledPacks?.includes(packGroup(packId));
+  groupAwake(world.disabledPacks, packGroup(packId));
 export function conditionsMet(world, packId, conditions = [], actor = null) {
   if (!world.packs?.[packId]) return false;
   for (const condition of conditions)

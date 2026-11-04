@@ -3873,7 +3873,8 @@
     )
   );
   var packIdOf = (id) => packEntity(id)?.packId ?? (hubIds.has(id) ? "hub" : null);
-  var packOn = (world, packId) => !world.disabledPacks?.includes(packGroup(packId));
+  var groupAwake = (off, g) => !off?.includes(g) && !off?.includes(GROUPS[g]?.reachedBy);
+  var packOn = (world, packId) => groupAwake(world.disabledPacks, packGroup(packId));
   function conditionsMet(world, packId, conditions = [], actor = null) {
     if (!world.packs?.[packId]) return false;
     for (const condition of conditions)
@@ -6227,7 +6228,7 @@
     ])
   );
   var startOf = (packId) => packId === "hub" ? hub.start : packDefinition(packId).entry;
-  var validDisabledPacks = (list) => list === void 0 || Array.isArray(list) && list.length > 0 && list.length < ORDER.length && list.every((g, i) => ORDER.includes(g) && (!i || list[i - 1] < g));
+  var validDisabledPacks = (list) => list === void 0 || Array.isArray(list) && list.length > 0 && ORDER.some((g) => groupAwake(list, g)) && list.every((g, i) => ORDER.includes(g) && (!i || list[i - 1] < g));
   function firstStart(s) {
     for (const g of ORDER)
       for (const p of GROUPS[g].packs)
@@ -6239,9 +6240,11 @@
     if (!GROUPS[id]) return "Only a world pack switches off";
     if ((s.standoffs || []).some((c) => [c.challenger, c.defender].includes(actor)))
       return "Not during a fight";
-    const off = s.disabledPacks || [];
+    const off = s.disabledPacks || [], via = GROUPS[id].reachedBy;
+    if (off.includes(via)) return `Reached by ${GROUPS[via].name}`;
     if (off.includes(id)) return null;
-    if (off.length === ORDER.length - 1) return "One world pack stays on";
+    if (!ORDER.some((g) => groupAwake([...off, id], g)))
+      return "One world pack stays on";
     if (GROUPS[id].packs.includes("hub") && s.opening && !s.opening.crossed)
       return "Not before the first crossing";
     return null;
@@ -6257,7 +6260,9 @@
     if (next.length) s.disabledPacks = next;
     else delete s.disabledPacks;
     if (action.enable) return { text: `${name} returns as it was.` };
-    for (const pack of GROUPS[id].packs) scatter(s, pack, api);
+    for (const g of ORDER)
+      if (groupAwake(off, g) && !groupAwake(next, g))
+        for (const pack of GROUPS[g].packs) scatter(s, pack, api);
     return {
       text: `${name} goes quiet. Everyone and everything from elsewhere there is scattered.`
     };

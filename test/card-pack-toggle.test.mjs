@@ -40,9 +40,12 @@ describe("switching a pack off and on (rules 98)", () => {
     expect(after.disabledPacks).toEqual([SEA]);
     expect(after.actors.vale.place).toBe("pond");
     expect(after.items.lamp.holder).toBe("vale");
-    // Dealt round the Sea's ways out: the pond and the Hoppy Cat jetty.
-    const at = ["keeper", "moth"].map((id) => after.actors[id].place);
-    expect(at.sort()).toEqual(["hoppycat-signal-jetty", "pond"]);
+    // Hoppy Cat, reached only by the Sea, sleeps with it, so the Sea's one
+    // way out still awake is the pond.
+    expect(entityActive(after, "hoppycat-signal-jetty")).toBe(false);
+    expect(after.actors.keeper.place).toBe("pond");
+    const back = ok(play(after, on(SEA)));
+    expect(entityActive(back, "hoppycat-signal-jetty")).toBe(true);
     expect(play(world(), off(SEA)).state).toEqual(after);
     expect(reload(after)).toEqual(after);
   });
@@ -101,12 +104,11 @@ describe("switching a pack off and on (rules 98)", () => {
     for (const id of ["keeper", "lamp", "attic"])
       expect(entityActive(quiet, id)).toBe(false);
     expect(moves(quiet)).not.toContain("attic");
-    // Then the Sea; Hoppy Cat, entered only from the Sea, stays on and
-    // takes in the last arrivals at its jetty.
+    // Then the Cottage: everyone goes to the Sea's start. The Sea, with
+    // Hoppy Cat reached only by it, is then the last pack on.
     const sea = ok(play(reload(quiet), off(COTTAGE)));
     expect(sea.actors.vale.place).toBe("greek-harbor");
-    const last = ok(play(sea, off(SEA)));
-    expect(last.actors.vale.place).toBe("hoppycat-signal-jetty");
+    expect(play(sea, off(SEA)).error).toMatch(/One world pack/);
   });
 
   it("waits for the first crossing to switch the shore off", () => {
@@ -151,7 +153,9 @@ describe("switching a pack off and on (rules 98)", () => {
     expect(home.transports["greek-ship"].dock).toBe("greek-harbor");
     expect(home.actors.vale.place).toBe("greek-harbor");
     let w = ok(play(s, off(SEA)));
-    for (const id of [HOPPY, SHORE]) w = ok(play(w, off(id)));
+    for (const pack of [off(HOPPY), on(HOPPY)])
+      expect(play(w, pack).error).toMatch(/Reached by The Wine-Dark Sea/);
+    w = ok(play(w, off(SHORE)));
     expect(play(w, off(COTTAGE)).error).toMatch(/One world pack/);
     expect(play(w, off(SEA)).error).toMatch(/off already/);
     const { world: shared } = dispatchShared({

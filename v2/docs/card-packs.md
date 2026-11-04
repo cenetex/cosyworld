@@ -153,7 +153,9 @@ no pack schema changes. [Rules 98](../../docs/design/rules-98-pack-toggle.md) re
 
 The hub's entries are its packs' hub entries seen from the other side.
 Hoppy Cat has no live way in of its own: the pond's thread into the tea
-garden is retired, so travelers enter by the Charybdis from Piraeus. Boardy's
+garden is retired, so travelers enter by the Charybdis from Piraeus. It
+stays ship-only: its switchable group is `reachedBy` the Sea's, so it
+sleeps while the Sea is off. Boardy's
 parlour and the shared homes are mounted outside `packs.json` and declare no
 entries.
 

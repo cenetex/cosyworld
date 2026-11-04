@@ -6,7 +6,10 @@ switch, the Shore too, one stays on; local worlds only; the attic stays.
 
 - **Groups.** The hub's `switchable` names groups in a fixed order: shore
   (the pack `hub`: the hub's own places, residents and things), cottage,
-  sea and hoppy. A pack in no group is always on.
+  sea and hoppy. A pack in no group is always on. Hoppy Cat is reached
+  only by the Greek ship (owner, 2026-11-04), so its group is
+  `reachedBy: "sea"`: it sleeps while the Sea is off, and its button says
+  "Reached by The Wine-Dark Sea".
 - **Record.** `disabledPacks`, the groups off, sorted; absent when all are
   on, so a group added later is on in old saves.
 - **Play.** `{ kind: "pack", pack: group, enable }`, logged as `pack`; no

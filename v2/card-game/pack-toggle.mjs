@@ -6,6 +6,7 @@
 import {
   entityActive,
   GROUPS,
+  groupAwake,
   hub,
   packDefinition,
   packGroup,
@@ -39,8 +40,9 @@ export const validDisabledPacks = (list) =>
   list === undefined ||
   (Array.isArray(list) &&
     list.length > 0 &&
-    list.length < ORDER.length &&
+    ORDER.some((g) => groupAwake(list, g)) &&
     list.every((g, i) => ORDER.includes(g) && (!i || list[i - 1] < g)));
+export const groupOn = (s, g) => groupAwake(s.disabledPacks, g);
 
 // Where arrivals land with nowhere declared: the start of the first pack on.
 export function firstStart(s) {
@@ -58,9 +60,12 @@ export function packToggleBlock(s, id, actor) {
     (s.standoffs || []).some((c) => [c.challenger, c.defender].includes(actor))
   )
     return "Not during a fight";
-  const off = s.disabledPacks || [];
+  const off = s.disabledPacks || [],
+    via = GROUPS[id].reachedBy;
+  if (off.includes(via)) return `Reached by ${GROUPS[via].name}`;
   if (off.includes(id)) return null;
-  if (off.length === ORDER.length - 1) return "One world pack stays on";
+  if (!ORDER.some((g) => groupAwake([...off, id], g)))
+    return "One world pack stays on";
   if (GROUPS[id].packs.includes("hub") && s.opening && !s.opening.crossed)
     return "Not before the first crossing";
   return null;
@@ -85,7 +90,10 @@ export function togglePack(s, action, actor, api) {
   if (next.length) s.disabledPacks = next;
   else delete s.disabledPacks;
   if (action.enable) return { text: `${name} returns as it was.` };
-  for (const pack of GROUPS[id].packs) scatter(s, pack, api);
+  // It, and any group reached only by it, goes quiet.
+  for (const g of ORDER)
+    if (groupAwake(off, g) && !groupAwake(next, g))
+      for (const pack of GROUPS[g].packs) scatter(s, pack, api);
   return {
     text: `${name} goes quiet. Everyone and everything from elsewhere there is scattered.`,
   };

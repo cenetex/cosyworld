@@ -2485,7 +2485,8 @@
           name: "Hoppy Cat Universe",
           packs: [
             "hoppycat-archive"
-          ]
+          ],
+          reachedBy: "sea"
         }
       },
       places: [
@@ -15806,7 +15807,8 @@
     )
   );
   var packIdOf = (id) => packEntity(id)?.packId ?? (hubIds.has(id) ? "hub" : null);
-  var packOn = (world, packId) => !world.disabledPacks?.includes(packGroup(packId));
+  var groupAwake = (off, g) => !off?.includes(g) && !off?.includes(GROUPS[g]?.reachedBy);
+  var packOn = (world, packId) => groupAwake(world.disabledPacks, packGroup(packId));
   function conditionsMet(world, packId, conditions = [], actor = null) {
     if (!world.packs?.[packId]) return false;
     for (const condition of conditions)
@@ -17772,7 +17774,7 @@
     ])
   );
   var startOf = (packId) => packId === "hub" ? hub.start : packDefinition(packId).entry;
-  var validDisabledPacks = (list) => list === void 0 || Array.isArray(list) && list.length > 0 && list.length < ORDER.length && list.every((g, i) => ORDER.includes(g) && (!i || list[i - 1] < g));
+  var validDisabledPacks = (list) => list === void 0 || Array.isArray(list) && list.length > 0 && ORDER.some((g) => groupAwake(list, g)) && list.every((g, i) => ORDER.includes(g) && (!i || list[i - 1] < g));
   function firstStart(s) {
     for (const g of ORDER)
       for (const p of GROUPS[g].packs)
