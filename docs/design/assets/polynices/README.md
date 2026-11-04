@@ -77,9 +77,9 @@ source at 65% opacity to show the intended translucent look. Production needs
 to put that see-through treatment into the final asset or its existing figure
 rendering. The full alpha measurements are in the file checks.
 
-These are design studies. Production finishing covers the anointed and veiled
-scene layers, final alignment, the shade's body opacity, exports, and game asset
-registration. The generated edits preserve the composition visually; fine
+These are design studies. Production finishing covers final alignment, the
+shade's body opacity, exports, and game asset registration. The generated edits
+preserve the composition visually; fine
 texture varies between images.
 
 The source PNGs are preserved byte for byte. All generation used the built-in
@@ -105,17 +105,31 @@ At night, a small clay lamp lights that end of the grave.
   [empty night Hollow](hollow-empty-night-study.png).
 - Fallen cutouts: [day](polynices-fallen-cutout.png) and
   [night](polynices-fallen-night-cutout.png).
+- Anointed cutouts: [day](polynices-anointed-cutout.png) and
+  [night](polynices-anointed-night-cutout.png).
+- Shrouded cutouts: [day](polynices-shrouded-cutout.png) and
+  [night](polynices-shrouded-night-cutout.png).
 - Grave cutouts: [day](polynices-grave-cutout.png) and
   [night](polynices-grave-night-cutout.png).
 - [Interactive layer review](layers.html), [prompts](layer-prompts.json), and
   [source and alpha checks](layer-validation.json).
 
-The four cutouts have true alpha and over 90% fully clear pixels. Their full
+All eight cutouts have true alpha and at least 79% fully clear pixels. Their full
 landscape padding keeps the objects on the burial shelf. The review stretches
 each full canvas over one common 1672 × 941 frame. Source sizes vary by up to
-two pixels in width and one in height; final exports should use the common canvas. Each day/night
+two pixels in width and one in height; final exports should use the common
+canvas. Each day/night
 pair keeps its visual placement. Final stage placement still needs review in
 the game. The separate opaque paintings show the intended light and mood.
 
-The layer review was checked with both body states in both lights. Source PNGs
-are preserved byte for byte. All eight additions used the built-in image tool.
+The anointed and shrouded sources share one placement adjustment in the viewer:
+scale to 83%, then move 40 pixels right and 70 pixels down in the common frame.
+This brings their head and feet into line with the fallen layer. Both lights
+use the same adjustment. The source PNGs retain their generated pixels.
+
+The anointed figure wears clean linen with a soft oil sheen on his face and
+hands. His armour rests beside his head and the small oil jug lies at his feet.
+The next layer covers him fully in linen and puts one raven feather on his chest.
+The viewer shows all four states in both lights, plus the empty backdrops.
+All ten selections were checked. All twelve layer-set additions used the built-in
+image tool. Source PNGs are preserved byte for byte.
