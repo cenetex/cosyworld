@@ -6220,18 +6220,13 @@
     return g < 0 ? ORDER.length : g;
   };
   var sides = Object.entries(hub.packEntries);
+  var mirror = sides.flatMap(
+    ([id, list]) => list.filter((e) => e.joins === "hub").map((e) => ({ joins: id, at: e.arrive }))
+  );
   var ENTRIES = Object.fromEntries(
-    [
-      ...sides,
-      [
-        "hub",
-        sides.flatMap(
-          ([id, list]) => list.filter((e) => e.joins === "hub").map((e) => ({ joins: id, at: e.arrive }))
-        )
-      ]
-    ].map(([id, list]) => [
+    [...sides, ["hub", mirror]].map(([id, list]) => [
       id,
-      list.map((e, i) => [e, i]).sort(([a, i], [b, j]) => rank(a.joins) - rank(b.joins) || i - j).map(([e]) => e)
+      [...list].sort((a, b) => rank(a.joins) - rank(b.joins))
     ])
   );
   var startOf = (packId) => packId === "hub" ? hub.start : packDefinition(packId).entry;

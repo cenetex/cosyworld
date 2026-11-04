@@ -23,26 +23,18 @@ const rank = (packId) => {
   const g = ORDER.indexOf(packGroup(packId));
   return g < 0 ? ORDER.length : g;
 };
-// Each pack's entries; the hub's are its packs' hub entries, seen from the
-// other side. Sorted by the group order of the side they join.
+// Each pack's entries, by the group order of the side they join; the hub's
+// are its packs' hub entries seen from the other side.
 const sides = Object.entries(hub.packEntries);
+const mirror = sides.flatMap(([id, list]) =>
+  list
+    .filter((e) => e.joins === "hub")
+    .map((e) => ({ joins: id, at: e.arrive })),
+);
 const ENTRIES = Object.fromEntries(
-  [
-    ...sides,
-    [
-      "hub",
-      sides.flatMap(([id, list]) =>
-        list
-          .filter((e) => e.joins === "hub")
-          .map((e) => ({ joins: id, at: e.arrive })),
-      ),
-    ],
-  ].map(([id, list]) => [
+  [...sides, ["hub", mirror]].map(([id, list]) => [
     id,
-    list
-      .map((e, i) => [e, i])
-      .sort(([a, i], [b, j]) => rank(a.joins) - rank(b.joins) || i - j)
-      .map(([e]) => e),
+    [...list].sort((a, b) => rank(a.joins) - rank(b.joins)),
   ]),
 );
 const startOf = (packId) =>
@@ -165,8 +157,7 @@ function scatter(s, pack, api) {
         recall: null,
         since: s.turn,
       });
-    }
-    else if ((mine(state.dock) || mine(state.destination)) && !mine(t.at))
+    } else if ((mine(state.dock) || mine(state.destination)) && !mine(t.at))
       sendShipHome(s, ship);
   }
   // Quests naming it go to the bottom of the stack as they are; a rest
