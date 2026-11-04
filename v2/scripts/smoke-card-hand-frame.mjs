@@ -5,6 +5,7 @@ import { createServer } from "../card-game/serve.mjs";
 import { createWorld, encodeSave } from "../card-game/world.mjs";
 import { enableMotives } from "../card-game/motives.mjs";
 import { availableCards } from "../card-game/cards.mjs";
+import { labelProblems } from "./card-browser-helpers.mjs";
 
 // Hand cards wear no count badges, a chosen card has one white edge, the
 // first card and its folded quest stay inside the hand, the folded quest is
@@ -129,6 +130,11 @@ try {
       });
       await page.mouse.move(0, 0);
       assert.deepEqual(await page.evaluate(inspect), [], `${width} ${state}`);
+      assert.deepEqual(
+        await page.evaluate(labelProblems),
+        [],
+        `${width} ${state} labels`,
+      );
       const path = new URL(`${width}-${state}.png`, output).pathname;
       await page.screenshot({ path });
       const long = await page.evaluate(inspect, "Road to Theban Courtyard");

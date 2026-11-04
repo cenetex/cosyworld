@@ -7,7 +7,11 @@ import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
 import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
-import { tapCard } from "./card-browser-helpers.mjs";
+import {
+  labelProblems,
+  splitNameWords,
+  tapCard,
+} from "./card-browser-helpers.mjs";
 
 const shots = process.env.SETTINGS_SHOTS;
 if (shots) await mkdir(shots, { recursive: true });
@@ -42,8 +46,13 @@ try {
       "Close settings",
     );
     assert.equal(await label(page, "music"), "Music, on");
+    // A card lifted over the next narrows that card's name, which still
+    // breaks only between words ("Mus / ic" did).
+    await tapCard(page.locator('[data-setting="privacy"]'));
+    assert.deepEqual(await splitNameWords(page), [], `${width}px names`);
     // Choose, read the button, press it: the card's face and name follow.
     await tapCard(page.locator('[data-setting="music"]'));
+    assert.deepEqual(await splitNameWords(page), [], `${width}px names`);
     const press = page.locator("#setting-music");
     assert.equal(await press.textContent(), "Turn music off");
     if (shots) await page.screenshot({ path: `${shots}/music-${width}.png` });
@@ -81,6 +90,17 @@ try {
     assert.equal(
       await pack.locator(".quest-head .quest-verb").textContent(),
       "The Wine-Dark Sea",
+    );
+    // Every card's name tops it and breaks only between words ("Music" was
+    // "Mus / ic"). On a phone the fan's overlap and the 10 px floor leave a
+    // three-word pack name three lines.
+    assert.deepEqual(
+      await page.evaluate(labelProblems, {
+        root: "#settings-hand",
+        lines: width > 700 ? 2 : 3,
+      }),
+      [],
+      `${width} labels`,
     );
     // Sign out, signed in, or New game, signed out, waits for a second press.
     const [risky, confirm] = signedIn

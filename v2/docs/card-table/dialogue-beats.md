@@ -260,7 +260,20 @@ message ends with a short first-person correction for that reason, such as
 action, narration tag, repeat, atmosphere, a short read-back of a label or
 the instructions, third person, an unknown name or item, and an
 unpunctuated or cut line. A flagged reply is published as written on its
-first attempt, and the server logs `card voice flagged` with its `reasons`.
+first attempt, and the server logs `card voice flagged` with its `reasons`
+and counts it under `/meta` `card_voice.flagged`.
+
+Before those checks the reply is trimmed, never retried for its shape. A
+reply cut at the token cap keeps its complete sentences; only one with none
+is `shape`. A line that is only a stage direction ("(I strum my lyre.)") is
+passed over, and a stage direction inside a line goes; both flag `stage
+action`. A character whose reply opens in narration speaks from its first
+line, then its first sentence, that talks to someone ("The rain has begun.
+Come in, Pip." publishes "Come in, Pip."), unless the narration tells its
+fact. The heard line said back first goes too. Narration that never talks
+(two or more sentences to no one, or a gesture such as "I shift my weight")
+is published flagged `self-narration`. A fact the speaker already
+witnessed is not added to its view again as the fact it may tell.
 A missed fact is still published as `untold`. Facts, the scene and memories
 are background any line, thought or persona may say.
 
