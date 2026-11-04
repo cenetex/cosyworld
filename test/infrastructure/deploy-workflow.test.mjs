@@ -350,6 +350,9 @@ describe("deploy workflow", () => {
     );
     expect(restore).toContain("if: steps.rolled.outputs.deployed == 'true'");
     expect(restore).toContain("node scripts/last-dev-rollout.mjs");
+    expect(restore).toContain(
+      "name: Roll .dev forward to ${{ steps.previous.outputs.sha }}",
+    );
     // Only a commit ahead of the tag is restored, from its own image.
     expect(restore).toContain("compare/${GITHUB_SHA}...${sha}");
     expect(restore).toContain('if [ "$status" = ahead ]; then');

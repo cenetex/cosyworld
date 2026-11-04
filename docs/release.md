@@ -59,6 +59,11 @@ the tag rollout would leave `.dev` on that older commit, so the
 `Return .dev to the main commit it ran` job then rolls `.dev` back to the
 last train's commit, from that commit's existing `deploy-<sha>` image, and
 runs the same readiness and card-game smokes. It deploys nothing new.
+The restore step's name records the exact commit it returned to. Later trains
+and tags read that SHA and the successful step's completion time, including
+earlier run attempts. This keeps a second tag's return pointed at the train
+that `.dev` actually ran. Older restore steps use the earlier rollout record
+that selected their commit.
 Until it does, `.dev` runs the tag's older rules, so a world already on main's
 newer rules answers "updating" and its players wait, untouched, until the
 return lands ([shared worlds](../v2/docs/card-table/shared-worlds.md)).

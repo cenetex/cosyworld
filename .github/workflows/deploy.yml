@@ -741,7 +741,8 @@ jobs:
         if: steps.previous.outputs.sha != ''
         uses: superfly/flyctl-actions/setup-flyctl@master
 
-      - name: Roll .dev forward
+      # Keep the restored SHA in the job record for the next train or tag.
+      - name: Roll .dev forward to ${{ steps.previous.outputs.sha }}
         if: steps.previous.outputs.sha != ''
         run: flyctl deploy --config fly.toml --image "registry.fly.io/cosyworld:deploy-${DEV_SHA}" --strategy rolling --env "COSYWORLD_SOURCE_COMMIT=${DEV_SHA}"
         env:
