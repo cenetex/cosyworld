@@ -53,6 +53,26 @@ export function ghostsOver(frames, layer) {
   return ghosts;
 }
 
+// Cards folding into their holder's stack (a tap closing it) shrink and
+// fade where they lay, a little apart, instead of vanishing. Each is shown
+// for the moment its copy is read. Reduced motion only fades them.
+export const FOLD_MS = 220;
+export function foldCards(frames, layer, reduced = false) {
+  if (!frames.length) return [];
+  for (const frame of frames) frame.hidden = false;
+  const ghosts = ghostsOver(frames, layer);
+  for (const frame of frames) frame.hidden = true;
+  ghosts.forEach((ghost, i) =>
+    fadeGhost(
+      ghost,
+      reduced ? {} : { translate: "0 8px", scale: "0.9" },
+      FOLD_MS,
+      i * 30,
+    ),
+  );
+  return ghosts;
+}
+
 // Lets each leaving frame fall as a copy, by default staggered as entries
 // are; a scene change gives its own `delays` (card-swap.mjs).
 export function dropCards(frames, layer, delays = entryDelays(frames.length)) {
