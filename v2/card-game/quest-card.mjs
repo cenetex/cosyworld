@@ -109,7 +109,8 @@ export function questNear(world, quest) {
 }
 
 // The quest's one short verb, the step's own when it has one. A rest step
-// shows the way there; an unvisited or covered place is discovered.
+// shows the way there, and the rest once the player stands there (#2255); an
+// unvisited or covered place is discovered.
 const STEP_LABELS = {
   find: "Find",
   give: "Give",
@@ -123,6 +124,11 @@ export function questVerb(world, quest, covered = false) {
   if (quest.kind === "item") return "Hold";
   if (quest.kind === "person") return "Talk";
   if (quest.kind === "connect") return "Introduce";
+  if (
+    quest.step?.verb === "rest" &&
+    world.actors[quest.actor]?.place === quest.target
+  )
+    return "Rest";
   const seen = world.actors[quest.actor]?.visited || [];
   return covered || !seen.includes(quest.target) ? "Discover" : "Go to";
 }

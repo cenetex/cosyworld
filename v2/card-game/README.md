@@ -383,7 +383,8 @@ place shows the back alone. A step that gives to
 someone shows all three: the player, the thing and the recipient. Its label is
 its verb alone, on one line, in the standard card label (Talk, Give, Find,
 Bring, Meet, Hold, Go to, Discover, Introduce; a level or story quest shows its
-current step's verb), with a level quest's numeral on the right. The whole quest
+current step's verb; a quest to rest at a sanctuary reads Go to on the way and
+Rest once the player stands there), with a level quest's numeral on the right. The whole quest
 ("Give The Burial Decree to The Gate Guard") is only its accessible name. Its tier colour is the
 highest tier among the things it names that the player has found (its target,
 a step's recipient and place), from their levels (`questTier`), and at least
