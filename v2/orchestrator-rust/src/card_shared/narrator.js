@@ -2205,6 +2205,44 @@
     return validatePackStates(s);
   }
 
+  // v2/card-game/glimpse.mjs
+  var GLIMPSE_KINDS = ["verb", "person", "item", "place"];
+  var GLIMPSE_VERBS = ["find", "give", "bring", "meet"];
+  function gone(s, kind, id, api) {
+    if (kind === "item") return !Object.hasOwn(s.items, id);
+    if (kind === "person") return !Object.hasOwn(s.actors, id);
+    if (kind === "place")
+      return !api.places().includes(id) || retiredPlace(id) || Boolean(localRoadEnds(id));
+    return !GLIMPSE_VERBS.includes(id);
+  }
+  function knownAspects(s, actor, api) {
+    const a = s.actors[actor], been = new Set(a.visited);
+    const live = (kind) => (id) => !gone(s, kind, id, api) && api.active(id);
+    return {
+      verb: GLIMPSE_VERBS,
+      person: a.talked.filter((id) => id !== actor).filter(live("person")),
+      item: Object.keys(s.items).filter((id) => api.rootHolder(id) === actor || been.has(api.placeOf(id))).filter(live("item")),
+      place: a.visited.filter(live("place"))
+    };
+  }
+  var sorted = (list) => [...new Set(list)].sort();
+  function glimpseAspect(s, actor, api, glimpse) {
+    if (!gone(s, glimpse.kind, glimpse.id, api)) return glimpse;
+    const where = (id) => glimpse.kind === "place" ? id : glimpse.kind === "item" ? api.placeOf(id) : s.actors[id].place;
+    const steps = (id) => {
+      const n = api.distance(glimpse.at, where(id), actor);
+      return n < 0 ? 64 : n;
+    };
+    const near = sorted(knownAspects(s, actor, api)[glimpse.kind]).map((id) => [steps(id), id]).sort((x, y) => x[0] - y[0] || (x[1] < y[1] ? -1 : 1));
+    return near.length ? { ...glimpse, id: near[0][1] } : null;
+  }
+  function validGlimpse(g, most) {
+    const name = (v) => typeof v === "string" && v.length > 0 && v.length <= 120;
+    return Boolean(
+      g && typeof g === "object" && Object.keys(g).length === 4 && Number.isSafeInteger(g.level) && g.level >= 2 && g.level <= most && GLIMPSE_KINDS.includes(g.kind) && name(g.id) && (g.kind !== "verb" || GLIMPSE_VERBS.includes(g.id)) && name(g.at)
+    );
+  }
+
   // v2/card-game/want-talk.mjs
   var authoredWant = (id) => forest_default.people[id]?.want || packPeople[id]?.want || null;
   var wantOf = (world, id) => world.actors?.[id]?.want || authoredWant(id);
@@ -2225,6 +2263,11 @@
     if (want.kind === "place") return here === want.target;
     return world.actors[want.target]?.place === here;
   }
+  function revealed(world, id, want) {
+    return Boolean(
+      want && world.actors?.[id] && entityActive(world, want.target) && !(want.kind === "item" && !world.items[want.target]) && !(want.kind === "person" && !world.actors[want.target]) && !met(world, id, want)
+    );
+  }
   function wantFact(world, id, nameOf2) {
     const want = wantOf(world, id);
     if (want?.kind === "connect" && world.actors?.[id])
@@ -2236,11 +2279,7 @@
       );
       return `I want ${article(nameOf2(want.target))}: ${set.slice(0, -1).join(", ")}${set.length > 1 ? " and " : ""}${set.at(-1)}.`;
     }
-    if (!want || !world.actors?.[id] || !entityActive(world, want.target))
-      return null;
-    if (want.kind === "item" && !world.items[want.target]) return null;
-    if (want.kind === "person" && !world.actors[want.target]) return null;
-    if (met(world, id, want)) return null;
+    if (!revealed(world, id, want)) return null;
     const name = nameOf2(want.target);
     const line = want.kind === "item" ? `I want ${article(name)}.` : want.kind === "place" ? `I want to be at ${name}.` : `I want to see ${name}.`;
     const more = world.actors[id].under?.length || 0;
@@ -2326,6 +2365,42 @@
       return { verb, at: going.target };
     return { verb };
   }
+  function glimpseStep(s, actor, api, quest) {
+    const g = s.actors[actor].glimpse, aspect = g?.level === quest.level && glimpseAspect(s, actor, api, g);
+    if (!aspect) return null;
+    const roll = runHash(s, `glimpse-step:${actor}:${quest.level}`), here = s.actors[actor].place;
+    const want = (kind2, target2, step) => ({
+      ...newWant(kind2, target2, s.turn),
+      quest,
+      ...step ? { step } : {}
+    });
+    if (aspect.kind === "place") return want("place", aspect.id);
+    if (aspect.kind !== "verb")
+      return want(
+        aspect.kind,
+        aspect.id,
+        drawStep(s, actor, api, aspect.kind, aspect.id, quest.level, roll)
+      );
+    const verb = aspect.id, kind = verb === "meet" ? "person" : "item";
+    const pool = wantCandidates(s, actor, api, null, true).filter((entry) => entry.startsWith(`${kind}:`)).map((entry) => entry.slice(kind.length + 1)).filter(
+      (id) => kind === "person" ? s.actors[id].place !== here : verb !== "find" || placeOfItem(s, id) !== here
+    );
+    if (!pool.length) return null;
+    const target = pool[roll % pool.length];
+    if (verb === "find" || verb === "meet") return want(kind, target, { verb });
+    const others = knownActors(s).filter((id) => id !== actor && id !== rootOf2(s, target)).sort();
+    const to = others.find(
+      (id) => questsOf(s, id).some(
+        (w) => w.kind === "item" && !w.step && w.target === target
+      )
+    ) ?? others[Math.floor(roll / 7) % others.length];
+    if (!to) return null;
+    return want(
+      "item",
+      target,
+      verb === "give" ? { verb, to } : { verb, to, at: api.home(to) || s.actors[to].place }
+    );
+  }
   var restStep = (s, actor, api, quest) => ({
     ...newWant(
       "place",
@@ -2334,7 +2409,7 @@
       ) ?? s.actors[actor].place,
       s.turn
     ),
-    quest,
+    ...quest ? { quest } : {},
     step: { verb: "rest" }
   });
   var newWant = (kind, target, turn) => ({
@@ -2424,7 +2499,8 @@
     const a = s.actors[actor], want = a.want;
     a.gaveUp = { target: want.target, turn: s.turn };
     if (want.step?.verb === "rest") a.want = restStep(s, actor, api, want.quest);
-    else if (want.quest) a.want = questStep(s, actor, api, want.quest, want);
+    else if (want.quest)
+      a.want = want.quest.left === questSteps(want.quest.level) + 1 && glimpseStep(s, actor, api, want.quest) || questStep(s, actor, api, want.quest, want);
     else {
       const aside = { ...want, since: s.turn, refusals: 0 }, rest = questsOf(s, actor).slice(1);
       const next = rest.length ? null : nextWant(s, actor, api, want);
@@ -2439,11 +2515,23 @@
     const { verb, ...cards } = w.step;
     const home = verb === "bring" && w.story && !cards.to;
     const gift = verb === "give" && w.story && !w.quest;
-    const named = home ? ["at"] : STEP_CARDS[verb] || (verb === "meet" && cards.at ? ["at"] : []);
-    return (Boolean(w.quest) || home || gift) && [
+    const slept = verb === "rest" && !w.story;
+    const asked = !w.quest && !w.story && (verb === "give" && w.kind === "item" || verb === "bring" && w.kind === "person");
+    const named = home ? ["at"] : asked && w.kind === "person" ? [cards.at === void 0 ? "to" : "at"] : STEP_CARDS[verb] || (verb === "meet" && cards.at ? ["at"] : []);
+    return (Boolean(w.quest) || home || gift || slept || asked) && [
       ...STEP_VERBS[w.kind] || [],
-      ...w.kind === "person" ? SAVED_STEP_VERBS : []
+      ...w.kind === "person" ? SAVED_STEP_VERBS : [],
+      ...asked ? [verb] : []
     ].includes(verb) && Object.keys(cards).length === named.length && named.every((key) => typeof cards[key] === "string") && (!cards.to || Object.hasOwn(s.actors, cards.to) && cards.to !== w.target);
+  }
+  function validHeard(s, id) {
+    const heard = s.actors[id].heard;
+    if (heard === void 0) return true;
+    return Boolean(
+      heard && typeof heard === "object" && !Array.isArray(heard) && Object.entries(heard).every(
+        ([them, told]) => them !== id && Object.hasOwn(s.actors, them) && typeof told === "string" && told.length <= 160 && /^(item|place|person):./u.test(told)
+      )
+    );
   }
   function validWant(s, id) {
     const a = s.actors[id];
@@ -2451,7 +2539,7 @@
     const list = (v, of) => Array.isArray(v) && v.length <= 64 && new Set(v).size === v.length && v.every((x) => Object.hasOwn(of, x));
     const quests = questsOf(s, id);
     const most = startXp(id) + (a.carried ?? 0) + s.turn * 8;
-    return Number.isSafeInteger(a.xp) && a.xp >= 0 && (a.carried === void 0 || Number.isSafeInteger(a.carried) && a.carried >= 0) && (a.level === void 0 || Number.isSafeInteger(a.level) && a.level >= 1 && a.level <= levelFor(most)) && a.xp <= most && (a.metTurn === void 0 || whole5(a.metTurn)) && (a.content === void 0 || a.content === true) && (a.gaveUp === void 0 || a.gaveUp && Object.keys(a.gaveUp).length === 2 && typeof a.gaveUp.target === "string" && whole5(a.gaveUp.turn)) && list(a.talked, s.actors) && !a.talked.includes(id) && Array.isArray(a.visited) && (a.want === null || validQuest(s, id, a.want)) && (a.under === void 0 || Array.isArray(a.under) && a.want !== null && a.under.length >= 1 && a.under.length < QUEST_LIMIT && a.under.every((w) => validQuest(s, id, w))) && quests.filter((w) => w.quest).length <= 1 && new Set(quests.filter((w) => !w.quest).map((w) => `${w.kind}:${w.target}`)).size === quests.filter((w) => !w.quest).length;
+    return Number.isSafeInteger(a.xp) && a.xp >= 0 && (a.carried === void 0 || Number.isSafeInteger(a.carried) && a.carried >= 0) && (a.level === void 0 || Number.isSafeInteger(a.level) && a.level >= 1 && a.level <= levelFor(most)) && a.xp <= most && (a.metTurn === void 0 || whole5(a.metTurn)) && (a.content === void 0 || a.content === true) && (a.glimpse === void 0 || validGlimpse(a.glimpse, levelFor(most) + 1)) && (a.halfwayIssued === void 0 || Number.isSafeInteger(a.halfwayIssued) && a.halfwayIssued >= 2 && a.halfwayIssued <= levelFor(most) + 1) && (a.gaveUp === void 0 || a.gaveUp && Object.keys(a.gaveUp).length === 2 && typeof a.gaveUp.target === "string" && whole5(a.gaveUp.turn)) && list(a.talked, s.actors) && validHeard(s, id) && !a.talked.includes(id) && Array.isArray(a.visited) && (a.want === null || validQuest(s, id, a.want)) && (a.under === void 0 || Array.isArray(a.under) && a.want !== null && a.under.length >= 1 && a.under.length < QUEST_LIMIT && a.under.every((w) => validQuest(s, id, w))) && quests.filter((w) => w.quest).length <= 1 && new Set(quests.filter((w) => !w.quest).map((w) => `${w.kind}:${w.target}`)).size === quests.filter((w) => !w.quest).length;
   }
   function validQuest(s, id, w) {
     const whole5 = (n) => Number.isSafeInteger(n) && n >= 0 && n <= s.turn;
@@ -16718,17 +16806,17 @@
       }
       return holder;
     };
-    const gone = Object.keys(s.items).filter(
+    const gone2 = Object.keys(s.items).filter(
       (id) => !Object.hasOwn(authored, id)
     );
-    for (const id of gone) {
+    for (const id of gone2) {
       const keeper = root(id);
       for (const item of Object.values(s.items))
         if (item?.holder === id) item.holder = keeper;
       delete s.items[id];
       if (s.memories) delete s.memories[id];
     }
-    forgetRetiredThings(s, new Set(gone));
+    forgetRetiredThings(s, new Set(gone2));
     if (Array.isArray(s.usedUp)) {
       s.usedUp = s.usedUp.filter((id) => Object.hasOwn(s.items, id));
       for (const pack of packDefinitions)
@@ -18046,6 +18134,8 @@
     if (!want) return "nothing in particular";
     const step = want.step, what = nameOf(want.target), verb = step?.verb === "attack" ? "strike" : step?.verb;
     if (step?.verb === "give") return `give ${what} to ${nameOf(step.to)}`;
+    if (step?.verb === "bring" && want.kind === "person")
+      return `bring ${what} to ${nameOf(step.at ?? step.to)}`;
     if (step?.verb === "bring")
       return step.to ? `bring ${what} to ${nameOf(step.to)} at ${nameOf(step.at)}` : `bring ${what} home to ${nameOf(step.at)}`;
     if (step?.at) return `${verb} ${what} at ${nameOf(step.at)}`;
@@ -18250,6 +18340,7 @@
     "rested"
   ];
   var SLEEP_TURNS = 24;
+  var DREAMS = ["glimpse", "quest"];
   var LONG_SLEEP_TURNS = DAYLIGHT_TURNS / 2;
   function routeBetween(s, from, target, actor = null) {
     const reads = planningReadsFor(s);
@@ -18478,7 +18569,7 @@
       if (e.destinationId != null && !Object.hasOwn(places, e.destinationId))
         fail();
       if (e.accepted !== void 0 && typeof e.accepted !== "boolean") fail();
-      if (e.rest !== void 0 && (e.rest !== "long" || e.verb !== "wait") || e.sleep !== void 0 && (e.sleep !== true || e.verb !== "wait") || e.woke !== void 0 && (!WAKE_REASONS.includes(e.woke) || e.verb !== "wait"))
+      if (e.rest !== void 0 && (e.rest !== "long" || e.verb !== "wait") || e.sleep !== void 0 && (e.sleep !== true || e.verb !== "wait") || e.dream !== void 0 && (!DREAMS.includes(e.dream) || e.rest !== "long") || e.woke !== void 0 && (!WAKE_REASONS.includes(e.woke) || e.verb !== "wait"))
         fail();
       if (e.reason !== void 0 && (!REFUSED_VERBS.includes(e.verb) || e.accepted !== false || !REFUSAL_REASONS.includes(e.reason)))
         fail();
@@ -18625,6 +18716,7 @@
     const rested = speakers[0] === currentActor(world) && restingWake(world.log, currentActor(world), world.turn)?.rest === "long";
     const resting2 = waited || rested ? currentActor(world) : null;
     const rest = waited?.rest === "long" || rested ? "long" : null;
+    const dream = rest ? ((waited?.rest === "long" ? waited : null) || restingWake(world.log, currentActor(world), world.turn))?.dream ?? null : null;
     return {
       location,
       beforeFirstLight,
@@ -18640,34 +18732,25 @@
       speakers,
       ids: ids3,
       resting: resting2,
-      rest
+      rest,
+      dream
     };
   }
 
   // v2/card-game/reflections.mjs
   var THOUGHT_GAP = 6;
-  var DREAM_GAP = 24;
-  var THOUGHTS_PER_DREAM = 2;
+  var DREAMS2 = ["glimpse", "quest"];
   function reflectionDue(context, id, life) {
     if (context.rest === "long" && context.resting === id && context.turn > 0)
-      return { thought: true, dream: true };
-    const thoughts = life?.thoughts || [];
-    const dreams = life?.dreams || [];
-    const last = thoughts.at(-1)?.turn;
+      return { thought: true, dream: DREAMS2.includes(context.dream) };
+    const last = life?.thoughts?.at(-1)?.turn;
     const changed = context.entities.find((e) => e.id === id)?.memories.some(
       (m) => m.kind === "event" && (last === void 0 || m.turn > last)
     );
     const thought = Boolean(
       context.resting === id && context.turn > 0 && changed && (last === void 0 || context.turn >= last + THOUGHT_GAP)
     );
-    const dreamt = dreams.at(-1)?.turn;
-    const settled = thoughts.filter(
-      (m) => dreamt === void 0 || m.turn > dreamt
-    ).length;
-    return {
-      thought,
-      dream: thought && settled >= THOUGHTS_PER_DREAM && (dreamt === void 0 || context.turn >= dreamt + DREAM_GAP)
-    };
+    return { thought, dream: false };
   }
 
   // v2/card-game/speech.json
@@ -19108,11 +19191,11 @@
       )
     ];
     const others = (ids3) => ids3.filter((other) => other !== id);
-    const gone = others(then).find(
+    const gone2 = others(then).find(
       (other) => !now.includes(other) && (world.actors[other] || world.items[other])
     );
     const came = others(now).find((other) => !then.includes(other));
-    return gone ? { gone } : came ? { came } : {};
+    return gone2 ? { gone: gone2 } : came ? { came } : {};
   }
   function perception(world, id, cast) {
     const { speakers, entries, actor, present, desire, location } = cast;
@@ -19282,6 +19365,8 @@
       ...occasion ? { occasion } : {},
       resting: resting2,
       ...rest ? { rest } : {},
+      // What the long rest dreamed by the rules, the only time a dream is due.
+      ...rest && cast.dream ? { dream: cast.dream } : {},
       ...disclosures.length ? { disclosures } : {},
       action: played?.text || (world.turn ? `${nameOf(currentActor(world))} waits and watches the cast.` : null),
       events,
@@ -19292,9 +19377,12 @@
         const want = kind === "avatar" && wantHeard(world, played, id, currentActor(world)) ? wantFact(world, id, nameOf) : null;
         const quest = world.actors[id]?.want;
         const dreamt = rest === "long" && id === resting2 && quest?.quest?.left && quest.since === world.turn ? `In a dream, the quest for level ${quest.quest.level}: ${wantText(quest)}.` : null;
+        const glimpse = world.actors[id]?.glimpse;
+        const glimpsed = cast.dream === "glimpse" && id === resting2 && glimpse ? `In a dream, a glimpse of the quest for level ${glimpse.level}: ${glimpse.kind === "verb" ? glimpse.id : nameOf(glimpse.id)}.` : null;
         const between = beforeFirstLight ? { entries: [], retold: [] } : betweenUs(world, id, speakers, nameOf);
         const facts = [
           ...dreamt ? [dreamt] : [],
+          ...glimpsed ? [glimpsed] : [],
           ...want ? [want] : [],
           ...knowledgeFacts(
             pastDeedsAside(world, id, told(id), between.retold),
