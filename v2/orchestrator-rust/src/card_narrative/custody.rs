@@ -21,12 +21,23 @@ pub(super) fn facts(context: &Context, speaker: &str) -> Vec<String> {
     if outcome.card.kind == "give" && outcome.card.accepted != Some(false) {
         if let (Some(item), Some(target)) = (&outcome.card.item, &outcome.card.target) {
             if speaker == target {
-                facts.push(format!("I received {} from {}.", name(item), name(actor)));
+                facts.push(format!(
+                    "I received {} from {}.",
+                    super::person::the(&name(item)),
+                    name(actor)
+                ));
             } else if speaker == actor {
-                facts.push(format!("I gave {} to {}.", name(item), name(target)));
+                facts.push(format!(
+                    "I gave {} to {}.",
+                    super::person::the(&name(item)),
+                    name(target)
+                ));
             }
         }
     }
+    // Who holds what, each holder once: "The keeper is holding the Oil
+    // flask and the Bell."
+    let mut held: Vec<(&str, &str, Vec<String>)> = Vec::new();
     for item in &outcome.items {
         if let Some(owner) = holder(outcome, &item.id) {
             let relevant = context
@@ -35,16 +46,34 @@ pub(super) fn facts(context: &Context, speaker: &str) -> Vec<String> {
                 .any(|entity| entity.id == item.id || entity.id == owner)
                 || outcome.card.item.as_deref() == Some(&item.id)
                 || outcome.card.receive.as_deref() == Some(&item.id);
-            if !relevant {
+            // My own hands and the ground here are said with where I am.
+            if !relevant || owner == speaker || owner == context.location {
                 continue;
             }
-            facts.push(format!(
-                "Final custody: {} — {}. Location: {}.",
-                name(&item.id),
-                name(owner),
-                name(&item.location)
-            ));
+            let thing = super::person::the(&name(&item.id));
+            match held
+                .iter_mut()
+                .find(|(o, at, _)| *o == owner && *at == item.location)
+            {
+                Some((_, _, things)) => things.push(thing),
+                None => held.push((owner, &item.location, vec![thing])),
+            }
         }
+    }
+    for (owner, at, things) in held {
+        let things = super::person::list(&things);
+        facts.push(super::sentence(if kind(owner, "location") {
+            let verb = if things.contains(" and ") {
+                "are"
+            } else {
+                "is"
+            };
+            format!("{things} {verb} at {}.", name(owner))
+        } else if at == context.location {
+            format!("{} is holding {things}.", name(owner))
+        } else {
+            format!("{} has {things} at {}.", name(owner), name(at))
+        }));
     }
     facts
 }

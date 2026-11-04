@@ -106,7 +106,7 @@ mod tests {
         let mut c = waking(&["station"]);
         c.waking = false;
         let full = super::super::transcript(&c, entity(&c, "vale"), Part::Line);
-        assert!(full.starts_with("Here: "));
+        assert!(full.starts_with("I ask Pip what they want."), "{full}");
     }
 
     /// Client/server agreement: a new local world, which only Vale plays
