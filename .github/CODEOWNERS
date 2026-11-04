@@ -1,4 +1,5 @@
 # The owner approves every new card-table UI element (AGENTS.md, UI rule).
 /v2/card-game/ui-inventory.json @atimics
+/v2/card-game/ui-styles.json @atimics
 /scripts/check-ui-inventory.mjs @atimics
 /.github/CODEOWNERS @atimics

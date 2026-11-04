@@ -1,7 +1,6 @@
 #!/usr/bin/env node
-// Fail on card-table UI the owner has not approved in ui-inventory.json (see
-// its "about"). State, text and colour variants pass. --prune drops stale.
-import { execFileSync } from "node:child_process";
+// Fail on card-table UI the owner has not approved in ui-inventory.json or
+// ui-styles.json (see their "about"). --styles rewrites ui-styles.json.
 import { readdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import process from "node:process";
@@ -10,18 +9,18 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 export const ROOT = fileURLToPath(new URL("../", import.meta.url));
 export const UI_DIR = "v2/card-game";
 export const INVENTORY = `${UI_DIR}/ui-inventory.json`;
+export const STYLES = `${UI_DIR}/ui-styles.json`;
 const NAME = /^-?[A-Za-z_][\w-]*/;
 
 const lineAt = (text, offset) => text.slice(0, offset).split("\n").length;
 const blank = (match) => match.replace(/[^\n]/g, " ");
 
 // Names in a class/id attribute value; `${x}` parts become `*`.
-function tokens(value) {
-  return value
+const tokens = (value) =>
+  value
     .replace(/\$\{[^}]*\}/g, "*")
     .split(/\s+/)
-    .filter((t) => t && t !== "*" && /^[\w*-]+$/.test(t));
-}
+    .filter((t) => /^[\w-][\w*-]*$/.test(t));
 
 // Classes and ids in one selector list. `qualified` is true once the current
 // compound holds a class, id, html, body or :root, so later classes in that
@@ -43,7 +42,7 @@ function scanSelector(text, base, out, initial = false) {
     if (c === "." || c === "#") {
       const name = NAME.exec(text.slice(i + 1))?.[0];
       if (name) {
-        const kind = c === "." ? "classes" : "ids";
+        const kind = { ".": "classes", "#": "ids" }[c];
         out.push({ kind, name, offset: base + i, modifier: qualified });
         qualified = true;
         i += 1 + name.length;
@@ -51,8 +50,7 @@ function scanSelector(text, base, out, initial = false) {
       }
     }
     if (c === "[") {
-      const end = text.indexOf("]", i);
-      i = end < 0 ? text.length : end + 1;
+      i = text.indexOf("]", i) + 1 || text.length;
       continue;
     }
     if (c === ":") {
@@ -60,10 +58,9 @@ function scanSelector(text, base, out, initial = false) {
       i += pseudo.length;
       if (pseudo === ":root") qualified = true;
       if (text[i] === "(") {
-        let depth = 1;
-        let end = i + 1;
+        let [depth, end] = [1, i + 1];
         for (; end < text.length && depth; end += 1)
-          depth += text[end] === "(" ? 1 : text[end] === ")" ? -1 : 0;
+          depth += { "(": 1, ")": -1 }[text[end]] ?? 0;
         const inner = pseudo === ":has" ? false : qualified;
         scanSelector(text.slice(i + 1, end - 1), base + i + 1, out, inner);
         i = end;
@@ -81,20 +78,44 @@ function scanSelector(text, base, out, initial = false) {
   }
 }
 
-export function scanCss(source) {
-  const text = source.replace(
-    /\/\*[\s\S]*?\*\/|"(?:\\.|[^"\\\n])*"|'(?:\\.|[^'\\\n])*'/g,
-    blank,
-  );
-  const found = [];
+const squash = (t) =>
+  t
+    .replace(/\s+/g, " ")
+    .replace(/\s*([>+~,])\s*|(\()\s+|\s+(\))/g, "$1$2$3")
+    .trim();
+const unquote = (t) => t.replace(/"[^"]*"|'[^']*'/g, blank);
+
+// Style rules (not at-rules or keyframes) with their at-rule context.
+function cssRules(source) {
+  const text = source.replace(/\/\*[\s\S]*?\*\//g, blank);
+  const rules = [];
+  const open = [];
   let start = 0;
+  let quote = null;
   for (let i = 0; i < text.length; i += 1) {
-    if (text[i] === "{" && !text.slice(start, i).trim().startsWith("@"))
-      scanSelector(text.slice(start, i), start, found);
-    if ("{};".includes(text[i])) start = i + 1;
+    const c = text[i];
+    if (quote) {
+      if (c === "\\") i += 1;
+      else if (c === quote) quote = null;
+    } else if (c === '"' || c === "'") quote = c;
+    else if (c === "{")
+      open.push({ raw: text.slice(start, i), at: start, body: i + 1 });
+    if (!quote && "{};".includes(c)) start = i + 1;
+    const rule = !quote && c === "}" && open.pop();
+    const outer = rule ? open.map((o) => squash(o.raw)) : [];
+    const keyframes = /^@keyframes/m.test(outer.join("\n"));
+    if (rule && !keyframes && !squash(rule.raw).startsWith("@"))
+      rules.push({ ...rule, outer, decls: text.slice(rule.body, i), text });
   }
+  return rules;
+}
+
+export function scanCss(source) {
+  const found = [];
+  const rules = cssRules(source);
+  for (const { raw, at } of rules) scanSelector(unquote(raw), at, found);
   const names = found.filter((f) => !f.modifier);
-  for (const f of names) f.line = lineAt(text, f.offset);
+  for (const f of names) f.line = lineAt(source, f.offset);
   return { names, elements: [] };
 }
 
@@ -113,31 +134,9 @@ export function scanHtml(source) {
   return { names, elements };
 }
 
-// The argument at `index` of the call whose "(" is at `open`.
-function argument(text, open, index) {
-  const args = [];
-  let depth = 0;
-  let quote = null;
-  let start = open + 1;
-  for (let i = open + 1; i < text.length; i += 1) {
-    const c = text[i];
-    if (quote) {
-      if (c === "\\") i += 1;
-      else if (c === quote) quote = null;
-    } else if ("\"'`".includes(c)) quote = c;
-    else if ("([{".includes(c)) depth += 1;
-    else if (")]}".includes(c) && depth) depth -= 1;
-    else if ((c === "," || c === ")") && !depth) {
-      args.push(text.slice(start, i).trim());
-      start = i + 1;
-      if (c === ")") break;
-    }
-  }
-  return args[index] ?? "";
-}
-
-const literal = (arg) => /^(["'`])([^]*)\1$/.exec(arg)?.[2];
-const STRING = String.raw`(["'\x60])((?:\\.|(?!\1)[^\\])*)\1`;
+const literal = (n) =>
+  String.raw`\((?:[^,()]*(?:\([^()]*\))?[^,()]*,){${n}}\s*(["'\x60])([^"'\x60]*)\1`;
+const STRING = String.raw`(?<q>["'\x60])((?:\\.|(?!\k<q>)[^\\])*)\k<q>`;
 
 export function scanJs(text) {
   const names = [];
@@ -146,14 +145,9 @@ export function scanJs(text) {
     for (const name of tokens(value))
       names.push({ kind, name, line: lineAt(text, offset) });
   };
-  for (const [kind, lead] of [
-    ["classes", "\\bclassName\\s*[=:]"],
-    ["ids", "\\.id\\s*="],
-  ])
-    for (const m of text.matchAll(new RegExp(`${lead}\\s*${STRING}`, "g")))
-      add(kind, m[2], m.index);
-  for (const m of text.matchAll(/\b(class|id)=\\?["']([^"'\\]*)/g))
-    add(m[1] === "id" ? "ids" : "classes", m[2], m.index);
+  const kinds = String.raw`(?:\b(className)\s*[=:]|\.(id)\s*=|\b(class|id)=\\?(?=["']))\s*`;
+  for (const m of text.matchAll(new RegExp(kinds + STRING, "g")))
+    add(m[2] || m[3] === "id" ? "ids" : "classes", m[5], m.index);
   // Module-local helpers that wrap createElement(tag).
   const helpers = new Map();
   const definition =
@@ -173,15 +167,52 @@ export function scanJs(text) {
     for (const m of text.matchAll(call)) {
       if (m.index >= at && m.index < at + 80) continue;
       elements.push(lineAt(text, m.index));
-      const open = m.index + m[0].length - 1;
-      const value = cls >= 0 && literal(argument(text, open, cls));
+      const arg = cls >= 0 && new RegExp(literal(cls), "y");
+      if (arg) arg.lastIndex = m.index + name.length;
+      const value = arg && arg.exec(text)?.[2];
       if (value) add("classes", value, m.index);
     }
   }
   return { names, elements: elements.sort((a, b) => a - b) };
 }
 
-// The UI files: the table's page, its stylesheets and its modules.
+const surface = (patterns) =>
+  new RegExp(
+    `(?<![\\w-])(?:${patterns.join("|").replace(/[.*]/g, (c) => (c === "." ? "\\." : "[\\w-]*"))})(?![\\w-])`,
+  );
+
+// Rules whose selector names a core surface, as "context | selector { a: b }"
+// with sorted declarations, mapped to file:line.
+export function styleRules(file, source, patterns, rules = new Map()) {
+  const targets = surface(patterns);
+  for (const { raw, at, outer, decls, text } of cssRules(source)) {
+    if (!targets.test(unquote(raw))) continue;
+    const sorted = decls
+      .split(/;(?![^(]*\))/)
+      .map((d) => squash(d).replace(/\s*:\s*/, ": "))
+      .filter(Boolean)
+      .sort();
+    const key = `${[...outer, squash(raw)].join(" | ")} { ${sorted.join("; ")} }`;
+    rules.set(key, `${file}:${lineAt(text, at + raw.search(/\S/))}`);
+  }
+  return rules;
+}
+
+export function compareStyles(rules, snapshot) {
+  const approved = new Set(snapshot.rules);
+  const errors = [...rules]
+    .filter(([key]) => !approved.has(key))
+    .map(([key, where]) => `New or changed core UI style in ${where}: ${key}`);
+  for (const key of snapshot.rules)
+    if (!rules.has(key))
+      errors.push(`Core UI style removed or changed: ${key}`);
+  if (errors.length)
+    errors.push(
+      "Core surfaces (the context button, dialogue bar, cards and hand) are restyled only with the owner's approval. If approved, run `npm run check:ui -- --styles` and have the owner review v2/card-game/ui-styles.json.",
+    );
+  return errors;
+}
+
 export function uiFiles(root = ROOT) {
   return readdirSync(path.join(root, UI_DIR))
     .filter((f) => f === "index.html" || /\.(css|mjs)$/.test(f))
@@ -191,7 +222,6 @@ export function uiFiles(root = ROOT) {
 
 const scanners = { css: scanCss, html: scanHtml, mjs: scanJs };
 
-// { classes: Map name -> "file:line", ids: Map, elements: { file: [lines] } }
 export function scanTree(files, read) {
   const tree = { classes: new Map(), ids: new Map(), elements: {} };
   for (const file of files) {
@@ -214,17 +244,15 @@ export const inventoryOf = (tree) => ({
 const RULE =
   "All UI must go through existing systems (see AGENTS.md). If the owner approved it, add it to v2/card-game/ui-inventory.json in a PR the owner reviews.";
 
-// `added(file)` returns the line numbers added on this branch, when known.
-export function compare(tree, inventory, added = () => null) {
+export function compare(tree, inventory) {
   const errors = [];
   const notes = [];
   for (const kind of ["classes", "ids"]) {
     const approved = new Set(inventory[kind]);
-    const label = kind === "ids" ? "id" : "class";
     for (const [name, where] of tree[kind])
       if (!approved.has(name))
         errors.push(
-          `New UI element ${label} "${name}" in ${where} is not in the approved UI inventory.`,
+          `New UI element ${kind === "ids" ? "id" : "class"} "${name}" in ${where} is not in the approved UI inventory.`,
         );
     const stale = inventory[kind].filter((name) => !tree[kind].has(name));
     if (stale.length) notes.push(`No longer used ${kind}: ${stale.join(", ")}`);
@@ -233,79 +261,39 @@ export function compare(tree, inventory, added = () => null) {
   for (const file of Object.keys(files).sort()) {
     const lines = tree.elements[file] ?? [];
     const approved = inventory.elements[file] ?? 0;
-    if (lines.length > approved) {
-      const fresh = added(file);
-      const where = fresh ? lines.filter((l) => fresh.has(l)) : [];
-      const at = (where.length ? where : lines).map((l) => `${file}:${l}`);
-      const shown = at.slice(0, 8).join(", ") + (at.length > 8 ? ", ..." : "");
+    if (lines.length > approved)
       errors.push(
-        `New UI element in ${file}: it creates ${lines.length} elements and the approved UI inventory allows ${approved}. See ${shown}.`,
+        `New UI element in ${file}: it creates ${lines.length} elements and the approved UI inventory allows ${approved} (see \`git diff origin/main -- ${file}\`).`,
       );
-    } else if (lines.length < approved)
+    else if (lines.length < approved)
       notes.push(`${file} creates ${lines.length} elements, not ${approved}`);
   }
   if (errors.length) errors.push(RULE);
-  if (notes.length) notes.push("Drop them with `npm run check:ui -- --prune`.");
+  if (notes.length) notes.push(`Delete them from ${INVENTORY}.`);
   return { ok: !errors.length, errors, notes };
-}
-
-// Removes stale entries and lowers counts; never approves anything new.
-export function prune(tree, inventory) {
-  const current = inventoryOf(tree);
-  const elements = {};
-  for (const [file, count] of Object.entries(inventory.elements))
-    if (current.elements[file])
-      elements[file] = Math.min(count, current.elements[file]);
-  return {
-    ...inventory,
-    classes: inventory.classes.filter((name) => tree.classes.has(name)),
-    ids: inventory.ids.filter((name) => tree.ids.has(name)),
-    elements,
-  };
-}
-
-// Lines added since the merge base with origin/main, working tree included.
-function addedLines() {
-  const git = (...args) =>
-    execFileSync("git", args, {
-      cwd: ROOT,
-      encoding: "utf8",
-      stdio: ["ignore", "pipe", "ignore"],
-    });
-  return (file) => {
-    try {
-      const from = git("merge-base", "origin/main", "HEAD").trim();
-      const diff = git("diff", "-U0", "--no-color", from, "--", file);
-      const lines = new Set();
-      for (const m of diff.matchAll(/^@@ -\S+ \+(\d+)(?:,(\d+))? @@/gm))
-        for (let i = 0; i < Number(m[2] ?? 1); i += 1)
-          lines.add(Number(m[1]) + i);
-      return lines;
-    } catch {
-      return null;
-    }
-  };
 }
 
 function main(args) {
   const read = (file) => readFileSync(path.join(ROOT, file), "utf8");
   const inventory = JSON.parse(read(INVENTORY));
-  const tree = scanTree(uiFiles(), read);
-  if (args.includes("--prune")) {
-    const next = JSON.stringify(prune(tree, inventory), null, 2);
-    writeFileSync(path.join(ROOT, INVENTORY), `${next}\n`);
-    console.log(`[ui-inventory] pruned ${INVENTORY}`);
-    return;
+  const snapshot = JSON.parse(read(STYLES));
+  const files = uiFiles();
+  const rules = new Map();
+  for (const file of files.filter((f) => f.endsWith(".css")))
+    styleRules(file, read(file), snapshot.surfaces, rules);
+  if (args.includes("--styles")) {
+    const next = { ...snapshot, rules: [...rules.keys()].sort() };
+    const json = JSON.stringify(next, null, 2);
+    writeFileSync(path.join(ROOT, STYLES), `${json}\n`);
+    return console.log(`[ui-inventory] wrote ${STYLES}`);
   }
-  const result = compare(tree, inventory, addedLines());
+  const result = compare(scanTree(files, read), inventory);
+  result.errors.push(...compareStyles(rules, snapshot));
   for (const note of result.notes) console.log(`[ui-inventory] note: ${note}`);
   for (const error of result.errors) console.error(`[ui-inventory] ${error}`);
-  const { classes, ids } = inventory;
-  if (result.ok)
-    console.log(
-      `[ui-inventory] ok: ${classes.length} classes, ${ids.length} ids`,
-    );
-  process.exitCode = result.ok ? 0 : 1;
+  if (!result.errors.length)
+    console.log(`[ui-inventory] ok, ${rules.size} core styles`);
+  process.exitCode = result.errors.length ? 1 : 0;
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href)

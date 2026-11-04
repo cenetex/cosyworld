@@ -3,7 +3,7 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 import * as ui from "../scripts/check-ui-inventory.mjs";
 
-const { INVENTORY, ROOT, compare, inventoryOf, prune, scanTree } = ui;
+const { INVENTORY, ROOT, compare, inventoryOf, scanTree, styleRules } = ui;
 
 const scan = (files) => scanTree(Object.keys(files), (file) => files[file]);
 const base = {
@@ -26,19 +26,16 @@ describe("UI inventory guard", () => {
     const css = check({
       "a.css": `${base["a.css"]}\n.quest-drop-panel { inset: 0 }`,
     });
-    expect(css.ok).toBe(false);
     expect(css.errors[0]).toBe(
       'New UI element class "quest-drop-panel" in a.css:3 is not in the approved UI inventory.',
     );
     expect(css.errors.at(-1)).toMatch(/see AGENTS\.md/);
-    const html = check({
-      "index.html": '<body><main id="hand"></main><div id="drop"></div></body>',
-    });
-    expect(html.errors[0]).toContain('id "drop" in index.html:1');
-    const js = check({
-      "a.mjs": `${base["a.mjs"]}\nconst panel = node("div", "Drop", "card");`,
-    });
-    expect(js.errors[0]).toMatch(/a\.mjs: it creates 3 elements .* allows 2/);
+    const html = '<body><main id="hand"></main><b id="drop"></b></body>';
+    expect(check({ "index.html": html }).errors[0]).toContain(
+      '"drop" in index',
+    );
+    const js = `${base["a.mjs"]}\nnode("div", "Drop", "card");`;
+    expect(check({ "a.mjs": js }).errors[0]).toMatch(/creates 3 .* allows 2/);
   });
 
   it("lets state, colour and text variants through", () => {
@@ -52,16 +49,29 @@ describe("UI inventory guard", () => {
         '\nel.classList.add("chosen");',
     });
     expect(result.errors).toEqual([]);
+    const gone = { ...approved, classes: [...approved.classes, "gone"] };
+    expect(compare(scan(base), gone).notes[0]).toContain("gone");
   });
 
-  it("notes removals and prunes without approving anything", () => {
-    const tree = scan({ ...base, "a.css": ".card {}" });
-    const stale = { ...approved, classes: [...approved.classes, "gone"] };
-    const result = compare(tree, stale);
-    expect(result.ok).toBe(true);
-    expect(result.notes[0]).toContain("gone");
-    const next = prune(tree, stale);
-    expect(next.classes).toEqual(approved.classes);
-    expect(next.elements).toEqual(approved.elements);
+  // The #2206 Drop restyle (af28bc3cf): restyled #card-actions and its panel
+  // through [data-*] and :has() without a new name.
+  it("flags a restyle of a core surface but not a reformat", () => {
+    const surfaces = ["#card-actions", ".action-*", ".card"];
+    const css = `#card-actions button { color: #f2e3c4 }
+.stage .glow { color: red }
+@media (width < 600px) { .card .name { font-size: 12px; color: red } }`;
+    const rules = (text) => styleRules("style.css", text, surfaces);
+    const snapshot = { rules: [...rules(css).keys()] };
+    expect(snapshot.rules).toHaveLength(2);
+    const reformat = rules(css.replace("12px; ", "12px;\n  "));
+    expect(ui.compareStyles(reformat, snapshot)).toEqual([]);
+    const drop = `${css}
+body #card-actions button[data-destructive] { color: var(--danger) }
+.beat-stack > .action-panel:has(> #card-actions > [data-destructive]) { border: 0 }`;
+    const errors = ui.compareStyles(rules(drop), snapshot);
+    expect(errors[0]).toMatch(/css:4: body #card-actions button\[data-/);
+    expect(errors[1]).toMatch(/style\.css:5: \.beat-stack>\.action-panel:has/);
+    const recolour = rules(css.replace("#f2e3c4", "red"));
+    expect(ui.compareStyles(recolour, snapshot)).toHaveLength(3);
   });
 });

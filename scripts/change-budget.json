@@ -28,7 +28,7 @@
     },
     "approvals": {
       "why": "Owner-approved inventories, reviewed through CODEOWNERS.",
-      "paths": ["v2/card-game/ui-inventory.json"]
+      "paths": ["v2/card-game/ui-*.json"]
     },
     "assets": {
       "why": "Art, audio, video, fonts, and authored pack content.",
