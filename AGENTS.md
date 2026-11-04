@@ -6,6 +6,12 @@ code change. Preserve other contributors' files and local settings.
 Push early: open a draft PR from your first commit and keep pushing work in
 progress, so stopped work is never stranded on a local branch.
 
+**Card-table UI rule.** All card-table UI goes through the existing systems:
+the dialogue/descriptor bar, the single context action button, and the cards
+and stacks. A variant is a label, colour or state on those systems. Never
+delete a working piece of UI and build a new widget, overlay or panel in its
+place. If a request seems to need a new UI system, stop and ask the owner.
+
 Before feature work:
 
 1. Check `git status --short --branch`, the current commit, and the package version.

@@ -66,7 +66,9 @@ with `rustup target add wasm32-unknown-unknown`.
 Keep secrets and runtime files local. Preserve journal semantics, stable entity
 IDs, bundle hashes, and save compatibility. Use source compilers for generated
 packs, public assets, and shared engines. Keep new Rust systems in focused
-modules and respect the checked main-file size ceiling.
+modules and respect the checked main-file size ceiling. Card-table UI uses
+only the existing bar, context button, cards and stacks (see the UI rule in
+`AGENTS.md`); ask the owner before any new UI system.
 
 `.github/AGENT.md` defines the required checks and PR format.
 [Release operations](docs/release.md) define deployment and recovery.

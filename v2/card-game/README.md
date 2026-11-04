@@ -262,9 +262,9 @@ first, and is absent while the stack holds one. Player-facing text says quest.
   ordinary quest costs nothing, and its target stays out of mind a while;
   dropping a level quest costs 1 XP for the first, 2 for the next, and so
   on, never below the experience its level took (`questXp`), so the level
-  stays; its button reads "Drop quest (−N XP)". It is a secondary,
-  destructive choice: red words with no panel, and a play box holding only
-  it keeps no box of its own.
+  stays; its button reads "Drop quest (−N XP)". The chosen quest shows in
+  the usual play beat: its sentence on the left and Drop quest as the
+  ordinary context button, its words red (`--danger`).
   Dropping the last quest draws another at once, and a drop takes a turn.
 
 - **First quest.** A player holds no quest at the start: the attic opening
