@@ -15,7 +15,12 @@ import { entityActive } from "../v2/card-game/pack-registry.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import { questsOf } from "../v2/card-game/want.mjs";
 
-const GREEK = "greek-drama";
+const [GREEK, HOPPY, COTTAGE, SHORE] = [
+  "greek-drama",
+  "hoppycat-archive",
+  "lonely-forest",
+  "reflected-shore",
+];
 const off = (pack) => ({ kind: "pack", pack, enable: false });
 const on = (pack) => ({ kind: "pack", pack, enable: true });
 const reload = (s) => decodeSave(encodeSave(s));
@@ -36,11 +41,7 @@ const ok = (result) => {
 describe("switching a pack off and on (rules 97)", () => {
   it("starts every world with every pack on", () => {
     const s = createWorld({ seed: 1 });
-    expect(s.enabledPacks).toEqual([
-      GREEK,
-      "hoppycat-archive",
-      "lonely-forest",
-    ]);
+    expect(s.enabledPacks).toEqual([GREEK, HOPPY, COTTAGE, SHORE]);
     const old = JSON.parse(encodeSave(s));
     delete old.enabledPacks;
     expect(reload(old).enabledPacks).toEqual(s.enabledPacks);
@@ -49,7 +50,7 @@ describe("switching a pack off and on (rules 97)", () => {
   it("scatters others from its places, the same way every time", () => {
     const s = world();
     const after = ok(play(s, off(GREEK)));
-    expect(after.enabledPacks).toEqual(["hoppycat-archive", "lonely-forest"]);
+    expect(after.enabledPacks).toEqual([HOPPY, COTTAGE, SHORE]);
     // The player comes out where the pack's way opens; the rest spread.
     expect(after.actors.vale.place).toBe("pond");
     expect(after.items.lamp.holder).toBe("vale");
@@ -111,7 +112,7 @@ describe("switching a pack off and on (rules 97)", () => {
         riders: ["vale"],
       });
     });
-    const after = ok(play(s, off("hoppycat-archive")));
+    const after = ok(play(s, off(HOPPY)));
     expect(after.transports["greek-ship"]).toMatchObject({
       phase: "docked",
       dock: "greek-harbor",
@@ -120,12 +121,40 @@ describe("switching a pack off and on (rules 97)", () => {
     expect(after.actors.vale.place).toBe("greek-harbor");
   });
 
-  it("keeps the shore and one pack on, and shared worlds as they are", () => {
+  it("switches the shore off: the first pack on takes everyone in", () => {
+    const s = world((w) => {
+      Object.assign(w.actors.vale, { place: "attic" });
+      Object.assign(w.items.lamp, { holder: "attic", lit: true });
+      w.items.cloth.holder = "attic";
+    });
+    const moves = (w) =>
+      legalActions(w)
+        .filter((a) => a.kind === "move")
+        .map((a) => a.target);
+    // Cosy Cottage's entry, the lit attic, goes with it.
+    expect(moves(s)).toContain("forest-cottage");
+    expect(moves(ok(play(s, off(COTTAGE))))).not.toContain("forest-cottage");
+    const quiet = ok(play(s, off(SHORE)));
+    expect(quiet.actors.vale.place).toBe("forest-cottage");
+    for (const id of ["keeper", "lamp", "attic"])
+      expect(entityActive(quiet, id)).toBe(false);
+    expect(moves(quiet)).not.toContain("attic");
+    // Then the Sea: its ship puts in at home; Hoppy Cat, entered only from
+    // the Sea, stays on and takes in the last arrivals at its jetty.
+    const sea = ok(play(reload(quiet), off(COTTAGE)));
+    expect(sea.actors.vale.place).toBe("greek-harbor");
+    expect(sea.transports["greek-ship"].dock).toBe("greek-harbor");
+    expect(ok(play(sea, off(GREEK))).actors.vale.place).toBe(
+      "hoppycat-signal-jetty",
+    );
+  });
+
+  it("keeps one pack on, and shared worlds as they are", () => {
     const s = world();
-    expect(play(s, off("badger-forest")).error).toMatch(/Reflected Shore/);
+    expect(play(s, off("badger-forest")).error).toMatch(/Only a world pack/);
     let w = ok(play(s, off(GREEK)));
-    w = ok(play(w, off("hoppycat-archive")));
-    expect(play(w, off("lonely-forest")).error).toMatch(/One world pack/);
+    for (const id of [HOPPY, SHORE]) w = ok(play(w, off(id)));
+    expect(play(w, off(COTTAGE)).error).toMatch(/One world pack/);
     expect(play(w, off(GREEK)).error).toMatch(/off already/);
     const shared = dispatchShared({ op: "create", save: encodeSave(s) });
     const asked = dispatchShared({
@@ -141,7 +170,7 @@ describe("switching a pack off and on (rules 97)", () => {
     // Vale at the well of a pack switched off: rules 97 refuses the world,
     // rules 96 ignores the switch.
     const quiet = JSON.parse(encodeSave(world()));
-    quiet.enabledPacks = ["hoppycat-archive", "lonely-forest"];
+    quiet.enabledPacks = [HOPPY, COTTAGE, SHORE];
     const dir = "v2/orchestrator-rust/src/card_shared";
     const file = (path) => readFileSync(`${dir}/${path}`, "utf8");
     const rules = (version) => {

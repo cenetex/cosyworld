@@ -15772,7 +15772,13 @@
   ].filter(Boolean);
   var packState = (world, id) => world.packs?.[id];
   var SWITCHED = Object.keys(hub.switchable || {});
-  var packOn = (world, id) => !SWITCHED.includes(id) || world.enabledPacks.includes(id);
+  var shoreIds = new Set(
+    [...hub.places, ...hub.avatars, ...hub.items].filter(
+      (id) => !humanAvatar(id)
+    )
+  );
+  var packIdOf = (id) => packEntity(id)?.packId ?? (shoreIds.has(id) ? hub.id : null);
+  var packOn = (world, id) => !world.enabledPacks || !SWITCHED.includes(id) || world.enabledPacks.includes(id);
   function conditionsMet(world, packId, conditions = [], actor = null) {
     if (!world.packs?.[packId]) return false;
     for (const condition of conditions)
@@ -15813,9 +15819,9 @@
   function entityEnabled(world, id, saved = false) {
     if (localRoads.has(id) || retiredPlaces.has(id) || usedUp(world, id))
       return false;
+    if (!saved && !packOn(world, packIdOf(id))) return false;
     const e = packEntity(id);
     if (!e) return true;
-    if (!saved && world.enabledPacks && !packOn(world, e.packId)) return false;
     const pack = packDefinition(e.packId), state = packState(world, e.packId);
     if (!state || !conditionsMet(
       world,
@@ -17724,14 +17730,25 @@
   }
 
   // v2/card-game/pack-toggle.mjs
-  var TOGGLE_PACKS = SWITCHED;
-  var PACK_NAMES = hub.switchable;
-  function installEnabledPacks(s) {
-    if (!Array.isArray(s.enabledPacks)) s.enabledPacks = [...TOGGLE_PACKS];
-  }
-  var validEnabledPacks = (list) => list === void 0 || Array.isArray(list) && list.length > 0 && list.every(
-    (id, i) => TOGGLE_PACKS.includes(id) && (!i || list[i - 1] < id)
+  var NAMES = hub.switchable;
+  var ALL = [...SWITCHED].sort();
+  var ENTRIES = { ...hub.packEntries, [hub.id]: hub.entries };
+  var WAYS = Object.fromEntries(
+    Object.entries(hub.packEntries).map(([id, l]) => [id, l.map((e) => e.from)])
   );
+  function installEnabledPacks(s) {
+    if (!Array.isArray(s.enabledPacks)) s.enabledPacks = [...ALL];
+  }
+  var validEnabledPacks = (list) => list === void 0 || Array.isArray(list) && list.length > 0 && list.every((id, i) => ALL.includes(id) && (!i || list[i - 1] < id));
+  function landingPlaces(s) {
+    for (const id of SWITCHED) {
+      const spots = packOn(s, id) ? [...new Set(ENTRIES[id].map((e) => e.to))].filter(
+        (p) => entityActive(s, p)
+      ) : [];
+      if (spots.length) return spots;
+    }
+    return [];
+  }
 
   // v2/card-game/world.mjs
   var places = { ...forest_default.places, ...packPlaces };
@@ -17937,7 +17954,10 @@
   function homeRescueExit(s, place, actor = currentActor(s), previous = null) {
     const gate = homeGates[place];
     actor ||= currentActor(s);
-    return gate && (controlledByHuman(s, actor) || homeOf2(actor) === place || gate.opening && knownActors2(s).includes(actor)) && s.actors[actor]?.place === place && !ordinaryRouteHome(s, place, gate.rescue, actor, previous) && !homeGateRecoverable(s, place, gate, actor) ? gate.rescue : null;
+    return gate && (controlledByHuman(s, actor) || homeOf2(actor) === place || gate.opening && knownActors2(s).includes(actor)) && s.actors[actor]?.place === place && !ordinaryRouteHome(s, place, gate.rescue, actor, previous) && !homeGateRecoverable(s, place, gate, actor) ? (
+      // With its rescue place asleep, the first pack on takes them in (rules 97).
+      entityActive(s, gate.rescue) ? gate.rescue : landingPlaces(s)[0] ?? null
+    ) : null;
   }
   function insideLampRemedy(s, actor) {
     const here = s.actors[actor].place, lamp = itemPlace2(s, "lamp"), oil = itemPlace2(s, "oil");

@@ -139,8 +139,9 @@ The hub declares its own `entries` (where its packs and homes join it), its
 `id`, and `switchable`: the packs a world may switch off, in a fixed order,
 by their card names. The build checks that every entry names a live link and
 gathers the bridges' entries into the hub as `packEntries`, so a pack's own
-schema is unchanged. Pack switching (rules 97) is to read them; earlier rules
-ignore them.
+schema is unchanged. Pack switching reads them from
+[rules 97](../../docs/design/rules-97-pack-toggle.md); earlier rules ignore
+them.
 
 | Pack                                    | Entered                                                                              | Condition (the link's own)                                                                                                   |
 | --------------------------------------- | ------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------- |
@@ -196,7 +197,8 @@ before it merges.
 From rules 97 a world may switch the hub's `switchable` packs off and on
 mid-world (`enabledPacks`, `pack-toggle.mjs`). A pack switched off sleeps
 with its state kept, and everyone and everything from elsewhere in its places
-is scattered to the shore ([rules 97](../../docs/design/rules-97-pack-toggle.md)).
+is scattered to the entries of the first pack still on
+([rules 97](../../docs/design/rules-97-pack-toggle.md)).
 A new pack is always on unless the hub names it there.
 
 ## Rules the engine keeps

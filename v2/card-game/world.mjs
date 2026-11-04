@@ -174,6 +174,7 @@ import {
 import { upgradeSave } from "./legacy-saves.mjs";
 import {
   installEnabledPacks,
+  landingPlaces,
   togglePack,
   validEnabledPacks,
 } from "./pack-toggle.mjs";
@@ -512,7 +513,10 @@ function homeRescueExit(s, place, actor = currentActor(s), previous = null) {
     s.actors[actor]?.place === place &&
     !ordinaryRouteHome(s, place, gate.rescue, actor, previous) &&
     !homeGateRecoverable(s, place, gate, actor)
-    ? gate.rescue
+    ? // With its rescue place asleep, the first pack on takes them in (rules 97).
+      entityActive(s, gate.rescue)
+      ? gate.rescue
+      : (landingPlaces(s)[0] ?? null)
     : null;
 }
 function insideLampRemedy(s, actor) {
