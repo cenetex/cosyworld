@@ -459,7 +459,14 @@ function hash(text) {
 // A player's wide pool is the whole world (#1831): any active person and
 // place, met or found or not, and any item someone else holds or that lies
 // somewhere. Residents, whose pursuit needs a way there, keep to the known.
-export function wantCandidates(s, actor, api, previous = null, wide = false) {
+export function wantCandidates(
+  s,
+  actor,
+  api,
+  previous = null,
+  wide = false,
+  anywhere = false,
+) {
   const a = s.actors[actor];
   const held = api.carried(actor);
   // Something valued at the minimum is never wanted.
@@ -471,10 +478,15 @@ export function wantCandidates(s, actor, api, previous = null, wide = false) {
   );
   // Only what can be reached from here: the open routes, or this place for
   // a resident who keeps to its scene.
-  const reach = travels(actor, s) ? api.reachable(actor) : [];
+  // A resident kept to a range (rules 100) reaches what lies within it.
+  const reach =
+    travels(actor, s) || api.wanders?.(actor) ? api.reachable(actor) : [];
   const near = new Set([a.place, ...reach]);
   const whole = wide && Boolean(api.player?.(actor));
-  const within = (place) => wide || near.has(place);
+  // A resident kept to a range wants within it (rules 100).
+  const inRange = anywhere ? null : api.rangeTest?.(actor);
+  const within = (place) =>
+    (wide || near.has(place)) && (!inRange || inRange(place));
   const items = Object.keys(s.items).filter((id) => {
     const owner = api.rootHolder(id);
     const person = Object.hasOwn(s.actors, owner);
@@ -540,7 +552,8 @@ export function nextWant(s, actor, api, previous = null) {
     pool = wantCandidates(s, actor, api, previous);
   }
   if (!pool.length) pool = wantCandidates(s, actor, api, previous, true);
-  if (!pool.length) pool = wantCandidates(s, actor, api, null, true);
+  // At last even the want just met, and out of range (rules 100).
+  if (!pool.length) pool = wantCandidates(s, actor, api, null, true, true);
   if (!pool.length) return null;
   const [kind, target] = pool[roll % pool.length].split(":");
   return newWant(kind, target, s.turn);
@@ -771,7 +784,7 @@ export function reviseStalledWants(s, actors, api) {
     const want = wantOf(s, id);
     if (
       want &&
-      (travels(id, s) || want.refusals > 0) &&
+      (travels(id, s) || api.wanders?.(id) || want.refusals > 0) &&
       s.turn - want.since >= STALL_TURNS
     )
       giveUp(s, id, api);

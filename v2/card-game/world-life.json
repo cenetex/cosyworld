@@ -1,0 +1,8 @@
+{
+  "defaults": { "range": 2, "sails": false },
+  "residents": {
+    "oak": { "range": 0 },
+    "greek-guard": { "range": 0 },
+    "greek-shipmaster": { "sails": true }
+  }
+}

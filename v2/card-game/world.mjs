@@ -183,6 +183,20 @@ import {
 import { installSpecials, validSeed } from "./pack-specials.mjs";
 import forest from "./forest.json" with { type: "json" };
 import { BOARDY, connectedHumans } from "./boardyai.mjs";
+import {
+  lifeHome,
+  rangeOf,
+  wanders,
+  mayBoard,
+  inRange,
+  rangeTest,
+  walksHome,
+  keepsHome,
+  lifeDataProblems,
+  validHome,
+  OFFSTAGE_STEPS,
+  worldLife,
+} from "./resident-home.mjs";
 
 // Authored forest data and mounted packs share the same rule path.
 export const places = { ...forest.places, ...packPlaces };
@@ -193,6 +207,9 @@ export const sanctuaries = Object.keys(places).filter(
 export const people = { ...forest.people, ...packPeople };
 export const things = { ...packThings, ...forest.things };
 validatePackLinks(places, people, things);
+const lifeProblems = lifeDataProblems(places, people);
+if (lifeProblems.length)
+  throw new Error(`Invalid world life data: ${lifeProblems.join("; ")}`);
 // Geography identifies resources beyond the attic; each real trip keeps its gates.
 const atticInterior = (() => {
   const found = new Set(["attic"]),
@@ -773,13 +790,18 @@ export function expects(s, a) {
   return true;
 }
 // Places an actor can route to now, for drawing a next want.
-function reachable(s, actor) {
+// A resident kept to a range searches only within it (rules 100).
+function reachable(s, actor, within = null) {
   const from = s.actors[actor].place,
     seen = new Set([from]),
     queue = [from];
   for (let i = 0; i < queue.length; i++)
     for (const next of exits(s, queue[i], actor))
-      if (!seen.has(next) && entityActive(s, next)) {
+      if (
+        !seen.has(next) &&
+        entityActive(s, next) &&
+        (!within || within(next))
+      ) {
         seen.add(next);
         queue.push(next);
       }
@@ -807,7 +829,10 @@ export function wantAPI(s) {
         )
       );
     },
-    reachable: (actor) => reachable(s, actor),
+    // A resident kept to a range only wants what lies within it (rules 100).
+    reachable: (actor) => reachable(s, actor, rangeTest(s, actor)),
+    rangeTest: (actor) => rangeTest(s, actor),
+    wanders: (actor) => wanders(s, actor),
     places: () => Object.keys(places),
     home: homeOf,
     active: (id) => entityActive(s, id),
@@ -1254,6 +1279,13 @@ function defeatInStandoff(s, c, winner, loser, here) {
   if (!sentHome) markCrossed(s, here, to);
   s.actors[loser].place = to;
   moveTransport(s, here, to);
+  // A resident pushed from home walks back to it (rules 100).
+  if (
+    !humanHeld(s, loser) &&
+    rangeOf(s, loser) !== null &&
+    to !== lifeHome(loser)
+  )
+    s.actors[loser].homeward = true;
   for (const id of carried(s, loser))
     remember(s, id, `${nameOf(loser)} retreated to ${nameOf(to)} with it.`);
   text += sentHome
@@ -1434,7 +1466,8 @@ export function legalActions(s, actor = currentActor(s)) {
           canDisembark(s, crossing.transport, id)) &&
         id !== actor &&
         !controlledByHuman(s, id) &&
-        (!staysPut(id, s) || packJourneyDestination(s, id) === to) &&
+        ((!staysPut(id, s) && !keepsHome(s, id)) ||
+          packJourneyDestination(s, id) === to) &&
         !departureWaits(s, id, to) &&
         s.actors[id].place === here,
     )) {
@@ -1972,6 +2005,122 @@ function wakeSleepers(s, before, voyages) {
         [s.turn - z.since >= SLEEP_TURNS, "rested", "wakes, rested"],
       ].find(([hit]) => hit) ?? [];
     if (woke) wakeUp(s, id, woke, `${who} ${text}.`);
+  }
+}
+// --- Rules 100: world life (resident-home.mjs) ---------------------------
+// Where a resident's want would take it, or null.
+function wantPlace(s, id) {
+  const want = wantOf(s, id);
+  if (!want || resting(s, id)) return null;
+  if (want.kind === "place") return want.target;
+  if (want.kind === "person") return s.actors[want.target]?.place ?? null;
+  if (want.kind === "item" && rootHolder(s, want.target) !== id)
+    return itemPlace(s, want.target);
+  return null;
+}
+// After the cast has acted: the walk home and, at dawn and dusk, one step
+// for each resident where no player is.
+// Sorted ids, at most OFFSTAGE_STEPS steps, starting further on each turn.
+function residentRound(s, acted) {
+  if (!worldLife.on) return;
+  const occupied = new Set(
+    actorIds
+      .filter((id) => controlledByHuman(s, id) && humanPresent(s, id))
+      .map((id) => s.actors[id].place),
+  );
+  const seen = (place) => occupied.has(place);
+  const life = actorIds
+    .filter(
+      (id) =>
+        !controlledByHuman(s, id) &&
+        !roamingActors.includes(id) &&
+        (!humanAvatar(id) || residentAvatar(s, id)) &&
+        entityActive(s, id),
+    )
+    .sort();
+  for (const id of life) {
+    const a = s.actors[id];
+    if (a.homeward && a.place === lifeHome(id)) delete a.homeward;
+  }
+  const dawnOrDusk = s.turn % DAYLIGHT_TURNS === 0;
+  const walkers = life.filter(
+    (id) =>
+      !acted.includes(id) &&
+      !s.actors[id].sleeping &&
+      !seen(s.actors[id].place) &&
+      !standoffFor(s, id) &&
+      s.peaceUntil[id] <= s.turn &&
+      (Number.isFinite(rangeOf(s, id)) || s.actors[id].homeward) &&
+      !transportPlace(s.actors[id].place),
+  );
+  const start = walkers.length ? s.turn % walkers.length : 0;
+  const moved = [];
+  let steps = 0;
+  for (const id of [...walkers.slice(start), ...walkers.slice(0, start)]) {
+    if (steps >= OFFSTAGE_STEPS) break;
+    const a = s.actors[id],
+      here = a.place,
+      home = lifeHome(id);
+    if (!home || !entityActive(s, home)) {
+      delete a.homeward;
+      continue;
+    }
+    const goal = wantPlace(s, id);
+    const ranged = Number.isFinite(rangeOf(s, id));
+    const idleAway = ranged && here !== home && !(goal && inRange(s, id, goal));
+    const target =
+      here !== home && (walksHome(s, id) || idleAway || (ranged && dawnOrDusk))
+        ? home
+        : dawnOrDusk &&
+            wanders(s, id) &&
+            goal &&
+            goal !== here &&
+            inRange(s, id, goal)
+          ? goal
+          : null;
+    if (!target) continue;
+    steps += 1;
+    const step = stepToward(s, id, target).action;
+    const to = step?.kind === "move" ? step.target : null;
+    if (!to || transportPlace(to) || (target !== home && !inRange(s, id, to)))
+      continue;
+    travel(s, id, to);
+    if (to === home) delete a.homeward;
+    moved.push(id);
+    if (seen(to) || seen(here))
+      addLog(
+        s,
+        "World",
+        seen(to)
+          ? `${nameOf(id)} arrives.`
+          : `${nameOf(id)} leaves for ${nameOf(to)}.`,
+        {
+          kind: "narration",
+          actorId: id,
+          locationId: seen(to) ? to : here,
+          fromLocationId: here,
+        },
+      );
+  }
+  if (!moved.length) return;
+  // Arriving meets a want for a place; two who meet off-stage meet a want
+  // to talk, as a rules fact without speech.
+  const api = wantAPI(s);
+  settleWants(s, moved, api);
+  for (const id of moved.sort()) {
+    const want = wantOf(s, id),
+      other = want?.kind === "person" ? want.target : null;
+    if (
+      other &&
+      s.actors[other]?.place === s.actors[id].place &&
+      !s.actors[other].sleeping &&
+      entityActive(s, other)
+    )
+      settleWants(s, [id, other], api, {
+        kind: "talk",
+        actor: id,
+        target: other,
+      });
   }
 }
 // A battle ends after one full round without a Strike: every combatant has
@@ -2617,13 +2766,33 @@ function wantPlan(s, actor) {
     );
     return answer(friend && find("intercept", (a) => a.target === friend));
   }
-  if (!want) return idle();
+  // Rules 100: a resident walking home goes home first, and one kept to a
+  // range drifts home when it has nothing to pursue here. With a player it
+  // acts as before; its wants take it walking only at dawn and dusk, away
+  // from players (residentRound).
+  const home = lifeHome(actor),
+    ranged = Number.isFinite(rangeOf(s, actor) ?? Infinity);
+  const homeStep = () => {
+    const step = home && here !== home ? stepToward(s, actor, home) : null;
+    return step?.action ? { action: step.action } : idle();
+  };
+  const drift = () => (ranged && worldLife.on ? homeStep() : idle());
+  if (walksHome(s, actor)) return homeStep();
+  if (!want) return drift();
   if (resting(s, actor)) return idle();
   // A maker leaves what it makes for others to carry.
   if (want.kind === "item" && makerChoice(actor, want.target)) return idle();
   const go = (place) => {
-    if (!travels(actor, s) || staysPut(actor, s)) return idle();
+    if (!travels(actor, s) || staysPut(actor, s) || keepsHome(s, actor))
+      return drift();
     const step = stepToward(s, actor, place);
+    const to = step.action?.kind === "move" ? step.action.target : null;
+    if (
+      ranged &&
+      to &&
+      (!inRange(s, actor, to) || (transportPlace(to) && !mayBoard(s, actor)))
+    )
+      return drift();
     return step.action
       ? { action: step.action }
       : { ...idle(), ...(step.callShip ? { callShip: true } : {}) };
@@ -2891,6 +3060,7 @@ export function play(
     if (next.actors[id].place !== from)
       arriveRoamingRecitals(next, packDefinitions, id);
   }
+  residentRound(next, [actor, respondent, ...residents].filter(Boolean));
   // Sleeping at a dock calls no ship: only the Wait before it does.
   if (exact.kind === "wait" && !exact.sleep)
     waitForTransport(next, next.actors[actor].place, actor);
@@ -3094,7 +3264,8 @@ export function validateWorld(s) {
     !validRouteKnowledge(s, [...authoredRouteEdges(), ...laneEdges()]) ||
     !validMemories(s) ||
     !validMotives(s) ||
-    !validLife(s, Object.keys(places))
+    !validLife(s, Object.keys(places)) ||
+    !validHome(s)
   )
     fail();
   if (
