@@ -223,7 +223,10 @@ try {
     await shot("06-piraeus-locked-aboard");
     // Laid on deck, they open the course to Piraeus.
     await primary("greek-provisions", "greek-ship");
-    assert.equal((await state()).items["greek-provisions"].holder, "greek-ship");
+    assert.equal(
+      (await state()).items["greek-provisions"].holder,
+      "greek-ship",
+    );
     assert.notEqual(await port.getAttribute("data-locked"), "true");
     await primary("greek-piraeus");
     for (
