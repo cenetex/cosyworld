@@ -35,8 +35,10 @@ Owner controls:
   minutes late, so keep the interval at 15 minutes or more.
 
 CI follows the same budget. The fast check (`fast-check.yml`, about five
-minutes) runs on each pull request and each main push, including the boot
-smoke and `cargo fmt --check` for the Rust orchestrator. A pull request that
+minutes) runs on each pull request and each main push, including the core
+browser smokes (the `core` list in `scripts/fast-smokes.json`, each in its own
+parallel job, ahead of up to three chosen by changed paths) and
+`cargo fmt --check` for the Rust orchestrator. A pull request that
 touches Rust inputs (the crate, the C kernel, or a file the crate reads, such
 as `v2/card-game/senses.json`) also runs the focused Rust tests of the modules
 involved; clippy and the full Rust suite stay on the .dev train's Rust gate and
