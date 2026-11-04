@@ -41,12 +41,9 @@ describe("switching a pack off and on (rules 97)", () => {
     // The player comes out where the pack's way opens; the rest spread.
     expect(after.actors.vale.place).toBe("pond");
     expect(after.items.lamp.holder).toBe("vale");
-    const spots = ["pond", "hoppycat-signal-jetty"];
-    for (const at of [after.actors.keeper.place, after.items.oil.holder])
-      expect(spots).toContain(at);
-    expect(
-      new Set(["keeper", "moth"].map((id) => after.actors[id].place)).size,
-    ).toBe(2);
+    // Dealt round the Sea's ways out: the pond and the Hoppy Cat jetty.
+    const at = ["keeper", "moth"].map((id) => after.actors[id].place);
+    expect(at.sort()).toEqual(["hoppycat-signal-jetty", "pond"]);
     expect(play(world(), off(SEA)).state).toEqual(after);
     expect(reload(after)).toEqual(after);
   });
@@ -57,13 +54,12 @@ describe("switching a pack off and on (rules 97)", () => {
     const quiet = ok(play(s, off(SEA)));
     expect(entityActive(quiet, "greek-well")).toBe(false);
     expect(entityActive(quiet, "greek-elder")).toBe(false);
-    // Carried, its thing is set down to sleep where its carrier stood.
-    expect(quiet.items["greek-water-jar"].holder).toBe("greek-well");
+    // Carried away, its thing stays with its holder, unseen.
+    expect(quiet.items["greek-water-jar"].holder).toBe("vale");
     expect(entityActive(quiet, "greek-water-jar")).toBe(false);
     const back = ok(play(reload(quiet), on(SEA)));
     expect(back.actors["greek-elder"]).toEqual(before);
     expect(entityActive(back, "greek-water-jar")).toBe(true);
-    // Scattered things stay where they were scattered.
     expect(back.actors.vale.place).toBe("pond");
   });
 
@@ -95,24 +91,6 @@ describe("switching a pack off and on (rules 97)", () => {
     expect(after.actors.moth.gaveUp).toBeUndefined();
   });
 
-  it("puts another pack's ship in at home when its dock goes quiet", () => {
-    const s = world((w) => {
-      w.actors.vale.place = "greek-ship";
-      Object.assign(w.transports["greek-ship"], {
-        phase: "arrived",
-        dock: "hoppycat-signal-jetty",
-        riders: ["vale"],
-      });
-    });
-    const after = ok(play(s, off(HOPPY)));
-    expect(after.transports["greek-ship"]).toMatchObject({
-      phase: "docked",
-      dock: "greek-harbor",
-      riders: [],
-    });
-    expect(after.actors.vale.place).toBe("greek-harbor");
-  });
-
   it("switches the shore off: the first pack on takes everyone in", () => {
     const s = world((w) => {
       w.actors.vale.place = w.items.cloth.holder = "attic";
@@ -135,28 +113,7 @@ describe("switching a pack off and on (rules 97)", () => {
     expect(last.actors.vale.place).toBe("hoppycat-signal-jetty");
   });
 
-  it("turns a rest step from its sanctuary and keeps its ship's crew", () => {
-    const garden = "hoppycat-halfway-tea-garden";
-    const s = world((w) => {
-      w.actors.vale.sanctuary = garden;
-      const rest = { kind: "place", target: garden, since: 0, refusals: 0 };
-      const quest = { level: 2, left: 1 };
-      w.actors.vale.want = { ...rest, quest, step: { verb: "rest" } };
-    });
-    const after = ok(play(s, off(HOPPY)));
-    expect(after.actors.vale.sanctuary).toBeUndefined();
-    expect(after.actors.vale.want.step.verb).toBe("rest");
-    expect(entityActive(after, after.actors.vale.want.target)).toBe(true);
-    const crew = world((w) => {
-      w.actors.vale.place = w.actors["greek-elder"].place = "greek-ship";
-      Object.assign(w.transports["greek-ship"], {
-        phase: "arrived",
-        riders: ["greek-elder", "vale"],
-      });
-    });
-    expect(ok(play(crew, off(SEA))).transports["greek-ship"].riders).toEqual([
-      "greek-elder",
-    ]);
+  it("waits for the first crossing to switch the shore off", () => {
     const opening = createWorld({ opening: true, seed: 3 });
     expect(play(opening, off(SHORE)).error).toMatch(/first crossing/);
   });
@@ -164,6 +121,15 @@ describe("switching a pack off and on (rules 97)", () => {
   it("keeps one pack on, and shared worlds as they are", () => {
     const s = world();
     expect(play(s, off("badger-forest")).error).toMatch(/Only a world pack/);
+    // Another pack's ship at a dock that goes quiet puts in at home.
+    const ship = world((w) => {
+      w.actors.vale.place = "greek-ship";
+      const at = { phase: "arrived", dock: "hoppycat-signal-jetty" };
+      Object.assign(w.transports["greek-ship"], at, { riders: ["vale"] });
+    });
+    const home = ok(play(ship, off(HOPPY)));
+    expect(home.transports["greek-ship"].dock).toBe("greek-harbor");
+    expect(home.actors.vale.place).toBe("greek-harbor");
     let w = ok(play(s, off(SEA)));
     for (const id of [HOPPY, SHORE]) w = ok(play(w, off(id)));
     expect(play(w, off(COTTAGE)).error).toMatch(/One world pack/);
@@ -172,32 +138,28 @@ describe("switching a pack off and on (rules 97)", () => {
       op: "create",
       save: encodeSave(s),
     });
-    const asked = {
+    const asked = dispatchShared({
       op: "play",
       world: shared,
       actor: "vale",
       action: off(SEA),
-    };
-    expect(dispatchShared(asked).error).toMatch(/Shared worlds keep every/);
+    });
+    expect(asked.error).toMatch(/Shared worlds keep every/);
   });
 
   it("is a rules 97 rule: rules 96 keeps the pack awake", () => {
     // Vale in a pack switched off: rules 97 refuses the world, 96 ignores it.
     const quiet = JSON.parse(encodeSave(world()));
     quiet.disabledPacks = [SEA];
-    const dir = "v2/orchestrator-rust/src/card_shared";
-    const file = (path) => readFileSync(`${dir}/${path}`, "utf8");
-    const rules = (version) => {
-      const context = vm.createContext({
-        structuredClone,
-        cardContent: JSON.parse(file("content.json")),
-      });
+    const file = (f) =>
+      readFileSync(`v2/orchestrator-rust/src/card_shared/${f}`, "utf8");
+    const create = (version) => {
+      const cardContent = JSON.parse(file("content.json"));
+      const context = vm.createContext({ structuredClone, cardContent });
       vm.runInContext(file(`engine-v${version}.js`), context);
-      return (request) =>
-        JSON.parse(context.cardShared(JSON.stringify(request)));
+      const request = { op: "create", save: JSON.stringify(quiet) };
+      return JSON.parse(context.cardShared(JSON.stringify(request)));
     };
-    const create = (version) =>
-      rules(version)({ op: "create", save: JSON.stringify(quiet) });
     expect(create(96).ok).not.toBe(false);
     expect(create(97).ok).toBe(false);
   });

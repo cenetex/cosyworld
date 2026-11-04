@@ -283,10 +283,8 @@ export const packMediaFiles = [
 ].filter(Boolean);
 
 export const packState = (world, id) => world.packs?.[id];
-// The groups of packs a world may switch off, in their fixed order (the
-// hub's `switchable`, pack-toggle.mjs); `disabledPacks` names the groups
-// off. A pack in no group is always on. The hub's own places, residents and
-// things are the pack `hub`.
+// The hub's `switchable` groups of packs, in order (pack-toggle.mjs); a pack
+// in none is always on. The hub's own content is the pack `hub`.
 export const GROUPS = hub.switchable || {};
 const groupOf = new Map(
   Object.entries(GROUPS).flatMap(([g, { packs }]) => packs.map((p) => [p, g])),

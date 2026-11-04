@@ -229,13 +229,11 @@ export function offerLevelQuest(s, actor, api) {
   );
 }
 // The way back to the sanctuary the avatar last slept in, or, for one that
-// never reached a sanctuary or whose sanctuary sleeps, its home.
-export const restStep = (s, actor, api, quest) => ({
+// never reached a sanctuary, its home.
+const restStep = (s, actor, api, quest) => ({
   ...newWant(
     "place",
-    [s.actors[actor].sanctuary, api.home(actor)].find(
-      (p) => p && (api.active?.(p) ?? true),
-    ) ?? s.actors[actor].place,
+    s.actors[actor].sanctuary ?? api.home(actor) ?? s.actors[actor].place,
     s.turn,
   ),
   quest,

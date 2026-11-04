@@ -2072,9 +2072,7 @@
   var restStep = (s, actor, api, quest) => ({
     ...newWant(
       "place",
-      [s.actors[actor].sanctuary, api.home(actor)].find(
-        (p) => p && (api.active?.(p) ?? true)
-      ) ?? s.actors[actor].place,
+      s.actors[actor].sanctuary ?? api.home(actor) ?? s.actors[actor].place,
       s.turn
     ),
     quest,
@@ -6215,10 +6213,7 @@
 
   // v2/card-game/pack-toggle.mjs
   var ORDER = Object.keys(GROUPS);
-  var rank = (packId) => {
-    const g = ORDER.indexOf(packGroup(packId));
-    return g < 0 ? ORDER.length : g;
-  };
+  var rank = (id) => (ORDER.indexOf(packGroup(id)) + 1 || 99) - 1;
   var sides = Object.entries(hub.packEntries);
   var mirror = sides.flatMap(
     ([id, list]) => list.filter((e) => e.joins === "hub").map((e) => ({ joins: id, at: e.arrive }))
@@ -6272,50 +6267,33 @@
     const spots = at.length ? [...new Set(at)] : [firstStart(s)];
     let next = api.hash(`scatter:${pack}:${s.revision}`) % spots.length;
     const spot = () => spots[next++ % spots.length];
-    const root = (id) => {
-      let holder2 = s.items[id].holder;
-      for (let i = 0; i < 32 && s.items[holder2]; i++)
-        holder2 = s.items[holder2].holder;
-      return holder2;
-    };
-    for (const [id, item] of byId(s.items)) {
-      const top = root(id);
-      if (mine(id) && s.actors[top] && !mine(top))
-        item.holder = s.actors[top].place;
-    }
     for (const [id, a] of byId(s.actors))
       if (!mine(id) && mine(a.place)) {
         a.place = api.want.player(id) ? spots[0] : spot();
         delete a.sleeping;
       }
-    for (const [id, item] of byId(s.items)) {
-      if (mine(id) || !mine(item.holder)) continue;
-      const top = root(id), place = s.actors[top]?.place;
-      item.holder = s.actors[top] && !mine(top) ? top : place && !mine(place) && entityActive(s, place) ? place : spot();
-    }
+    for (const [id, item] of byId(s.items))
+      if (!mine(id) && mine(item.holder)) {
+        let top = item.holder;
+        for (let i = 0; i < 32 && s.items[top]; i++) top = s.items[top].holder;
+        item.holder = s.actors[top] && !mine(top) ? top : spot();
+      }
     for (const c of [...s.standoffs || []])
       if (mine(c.location) || mine(c.challenger) || mine(c.defender))
         api.closeStandoff(s, c);
     for (const [ship, t] of Object.entries(transports)) {
       const state = s.transports[ship];
-      if (t.packId === pack) {
-        const crew = state.riders.filter(mine);
+      if (t.packId === pack)
         Object.assign(state, {
-          phase: crew.length ? "arrived" : "docked",
-          destination: null,
-          riders: crew,
-          recall: null,
-          since: s.turn
+          phase: "docked",
+          ...{ destination: null, riders: [], recall: null, since: s.turn }
         });
-      } else if ((mine(state.dock) || mine(state.destination)) && !mine(t.at))
+      else if ((mine(state.dock) || mine(state.destination)) && !mine(t.at))
         sendShipHome(s, ship);
     }
     for (const [id, a] of byId(s.actors)) {
       if (mine(id)) continue;
-      if (mine(a.sanctuary)) delete a.sanctuary;
-      const list = questsOf(s, id).map(
-        (w) => w.step?.verb === "rest" && mine(w.target) ? restStep(s, id, api.want, w.quest) : w
-      );
+      const list = questsOf(s, id);
       const named = (w) => names2(w).some(mine);
       const order = [...list.filter((w) => !named(w)), ...list.filter(named)];
       if (!order.length) continue;
@@ -6560,10 +6538,7 @@
   function homeRescueExit(s, place, actor = currentActor(s), previous = null) {
     const gate = homeGates[place];
     actor ||= currentActor(s);
-    return gate && (controlledByHuman(s, actor) || homeOf2(actor) === place || gate.opening && knownActors2(s).includes(actor)) && s.actors[actor]?.place === place && !ordinaryRouteHome(s, place, gate.rescue, actor, previous) && !homeGateRecoverable(s, place, gate, actor) ? (
-      // With its rescue place asleep, the first pack on takes them in (rules 97).
-      entityActive(s, gate.rescue) ? gate.rescue : firstStart(s)
-    ) : null;
+    return gate && (controlledByHuman(s, actor) || homeOf2(actor) === place || gate.opening && knownActors2(s).includes(actor)) && s.actors[actor]?.place === place && !ordinaryRouteHome(s, place, gate.rescue, actor, previous) && !homeGateRecoverable(s, place, gate, actor) ? gate.rescue : null;
   }
   function insideLampRemedy(s, actor) {
     const here = s.actors[actor].place, lamp = itemPlace2(s, "lamp"), oil = itemPlace2(s, "oil");
@@ -6727,7 +6702,6 @@
       reachable: (actor) => reachable(s, actor),
       places: () => Object.keys(places),
       home: homeOf2,
-      active: (id) => entityActive(s, id),
       sanctuaries,
       player: (id) => id === currentActor(s) || heldByHuman(s, id),
       questsBeginAt: forest_default.questsBeginAt,
