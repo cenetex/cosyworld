@@ -2089,11 +2089,16 @@
     if (rest2 >= 0) return commitMet(s, actor, api, [], rest2);
     return offerLevelQuest(s, actor, api);
   }
+  function dropCost(s, actor, index = 0) {
+    const a = s.actors[actor], want = questsOf(s, actor)[index];
+    if (!want?.quest) return 0;
+    const floor = questXp(a.level ?? levelFor(a.xp));
+    return Math.max(0, Math.min(want.quest.level - 1, a.xp - floor));
+  }
   function dropQuest(s, actor, api, index = 0) {
     const a = s.actors[actor], list = questsOf(s, actor), want = list[index];
     if (!want) return;
-    if (want.quest)
-      a.xp = Math.max(questXp(a.level ?? levelFor(a.xp)), Math.floor(a.xp / 2));
+    a.xp -= dropCost(s, actor, index);
     a.gaveUp = { target: want.target, turn: s.turn };
     list.splice(index, 1);
     setQuests(a, list);
@@ -2271,7 +2276,8 @@
   }
   function refuseWant(s, actor, item, api) {
     const want = wantOf(s, actor);
-    if (want?.kind !== "item" || want.target !== item) return;
+    if (want?.kind !== "item" || want.target !== item || api.player(actor))
+      return;
     if (want.refusals === 0 && !travels(actor, s)) want.since = s.turn;
     want.refusals += 1;
     if (want.refusals >= REFUSAL_LIMIT) giveUp(s, actor, api);

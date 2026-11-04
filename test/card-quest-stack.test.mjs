@@ -14,8 +14,11 @@ import {
   rootHolder,
   validateWorld,
 } from "../v2/card-game/world.mjs";
+import { playLabel } from "../v2/card-game/cards.mjs";
 import {
   QUEST_LIMIT,
+  dropCost,
+  questXp,
   knownActors,
   newWant,
   pushQuest,
@@ -87,7 +90,7 @@ describe("the quest stack", () => {
     ).toBe(false);
   });
 
-  it("drops an ordinary quest for nothing and a level quest for half the experience", () => {
+  it("drops an ordinary quest for nothing and a level quest at its cost", () => {
     let s = createWorld();
     s.actors.vale.xp = 6;
     s.actors.vale.level = 3;
@@ -98,13 +101,39 @@ describe("the quest stack", () => {
     expect(s.actors.vale.gaveUp).toEqual({ target: "pond", turn: s.turn });
     s = act(s, (a) => a.kind === "drop" && !a.item && a.quest === 1);
     expect(targets(s)).toEqual(["lamp"]);
-    expect(s.actors.vale.xp).toBe(3);
+    expect(s.actors.vale.xp).toBe(5);
     expect(s.actors.vale.level).toBe(3);
     // Dropping the last one draws another at once.
     s = act(s, (a) => a.kind === "drop" && !a.item);
     expect(questsOf(s, "vale")).toHaveLength(1);
     expect(s.actors.vale.want.target).not.toBe("lamp");
     expect(validateWorld(reload(s))).toBeTruthy();
+  });
+
+  it("costs 1, 2, 3 XP by level quest, clamped, and says so on Drop", () => {
+    const drop = (lvl, xp, quest = lvl + 1) => {
+      const s = createWorld();
+      Object.assign(s.actors.vale, { level: lvl, xp });
+      s.actors.vale.want = {
+        ...level("keeper"),
+        quest: { level: quest, left: 2 },
+      };
+      const action = legalActions(s).find((a) => a.kind === "drop" && !a.item);
+      const after = act(s, (a) => a.key === action.key);
+      return [s.actors.vale.xp - after.actors.vale.xp, playLabel(action, s)];
+    };
+    expect(drop(1, 1)).toEqual([1, "Drop quest (−1 XP)"]);
+    expect(drop(2, questXp(3))).toEqual([2, "Drop quest (−2 XP)"]);
+    expect(drop(3, questXp(4) + 1)).toEqual([3, "Drop quest (−3 XP)"]);
+    // Clamped at the level held: never below its experience.
+    expect(drop(3, questXp(3) + 1)).toEqual([1, "Drop quest (−1 XP)"]);
+    expect(drop(3, questXp(3))).toEqual([0, "Drop quest"]);
+    const s = createWorld();
+    const plain = legalActions(s).find((a) => a.kind === "drop" && !a.item);
+    expect([dropCost(s, "vale"), playLabel(plain, s)]).toEqual([
+      0,
+      "Drop quest",
+    ]);
   });
 
   it("brings a chosen quest to the top without taking a turn", () => {

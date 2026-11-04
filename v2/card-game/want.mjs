@@ -252,18 +252,26 @@ export function wake(s, actor, api) {
   if (rest >= 0) return commitMet(s, actor, api, [], rest);
   return offerLevelQuest(s, actor, api);
 }
-// A player may drop any quest in its stack. Dropping a level quest halves
-// the experience gained toward the next level: the avatar keeps its level
-// and never falls below the experience that earned it. An ordinary quest
-// costs nothing. Its target stays out of mind a while, and the quest beneath comes
-// to the top; dropping the last one draws another at once.
+// Dropping a level quest costs one experience for the first (the quest to
+// level 2), two for the next, and so on, never below the experience of the
+// level held, so a level never falls. Any other quest is free (owner,
+// 2026-11-04; rules 98).
+export function dropCost(s, actor, index = 0) {
+  const a = s.actors[actor],
+    want = questsOf(s, actor)[index];
+  if (!want?.quest) return 0;
+  const floor = questXp(a.level ?? levelFor(a.xp));
+  return Math.max(0, Math.min(want.quest.level - 1, a.xp - floor));
+}
+// A player may drop any quest in its stack, at its `dropCost`. Its target
+// stays out of mind a while, and the quest beneath comes to the top;
+// dropping the last one draws another at once.
 export function dropQuest(s, actor, api, index = 0) {
   const a = s.actors[actor],
     list = questsOf(s, actor),
     want = list[index];
   if (!want) return;
-  if (want.quest)
-    a.xp = Math.max(questXp(a.level ?? levelFor(a.xp)), Math.floor(a.xp / 2));
+  a.xp -= dropCost(s, actor, index);
   a.gaveUp = { target: want.target, turn: s.turn };
   list.splice(index, 1);
   setQuests(a, list);
@@ -569,7 +577,10 @@ function commitMet(s, id, api, met, index = 0) {
 // A refusal of the actor's own want counts; enough of them set it aside.
 export function refuseWant(s, actor, item, api) {
   const want = wantOf(s, actor);
-  if (want?.kind !== "item" || want.target !== item) return;
+  // A player's quest is never set aside by refusals, so refused Trades or
+  // Asks cannot redraw a level quest's step for free; Drop has its cost.
+  if (want?.kind !== "item" || want.target !== item || api.player(actor))
+    return;
   // A resident that keeps to its scene only tries while someone is there, so
   // its stall clock starts at the first real attempt, not when it was given.
   if (want.refusals === 0 && !travels(actor, s)) want.since = s.turn;

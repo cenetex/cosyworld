@@ -4,6 +4,7 @@ import {
   packDefinitions,
   transports,
 } from "./pack-registry.mjs";
+import { dropCost } from "./want.mjs";
 import {
   currentActor,
   places,
@@ -384,7 +385,7 @@ export function playText(action) {
   return action?.shown || action?.text;
 }
 
-export function playLabel(action) {
+export function playLabel(action, world = null) {
   // Pack data can name a play (a fixture, or greeting a sleeping resident).
   if (action?.label) return action.label;
   if (action?.kind === "trade")
@@ -396,7 +397,11 @@ export function playLabel(action) {
     return `Ask ${nameOf(action.target)} for ${nameOf(action.item)}`;
   if (action?.kind === "accompany")
     return `Invite ${nameOf(action.target)} along`;
-  if (action?.kind === "drop" && !action.item) return "Drop quest";
+  // A level quest's drop names its experience cost (`dropCost`), only here.
+  if (action?.kind === "drop" && !action.item) {
+    const cost = world ? dropCost(world, action.actor, action.quest) : 0;
+    return cost ? `Drop quest (−${cost} XP)` : "Drop quest";
+  }
   if (action?.kind === "focus") return "Choose quest";
   if (action?.kind === "gate") return "Seek the way";
   if (action?.kind === "move" && action.item)

@@ -19,6 +19,7 @@ import {
   wantCandidates,
   wantMet,
   REFUSAL_LIMIT,
+  dropCost,
   STALL_TURNS,
   CONTENT_TURNS,
   contentOf,
@@ -240,23 +241,28 @@ describe("one want per avatar", () => {
     expect(s.actors[id].want?.target).not.toBe(start.target);
   });
 
-  it("counts refusals of the want and sets it aside at the limit", () => {
+  it("never redraws a player's level step for refusals; Drop costs", () => {
     let s = createWorld();
     s.actors.vale.place = "station";
     s.items.oil.holder = "keeper";
     s.actors.keeper.place = "station";
     s.actors.keeper.want = newWant("place", "station", 0);
-    s.actors.vale.want = newWant("item", "oil", 0);
+    const step = { ...newWant("item", "oil", 0), quest: { level: 2, left: 2 } };
+    Object.assign(s.actors.vale, { want: step, xp: 1, level: 1 });
+    let refused = 0;
     for (let i = 0; i < REFUSAL_LIMIT; i++) {
-      const ask = legalActions(s).find(
-        (a) => a.kind === "ask" && a.item === "oil",
-      );
-      if (!ask) break;
-      s = play(s, ask).state;
-      if (s.actors.vale.want?.target !== "oil") break;
+      const ask = (w) =>
+        legalActions(w).find((a) => a.kind === "ask" && a.item === "oil");
+      if (!ask(s)) break;
+      s = play(s, ask(s)).state;
+      if (s.items.oil.holder === "keeper") refused += 1;
     }
-    expect(s.actors.vale.want?.target).not.toBe("oil");
-    expect(s.actors.vale.gaveUp).toMatchObject({ target: "oil" });
+    expect(refused).toBeGreaterThan(0);
+    // No free redraw (rules 98): the step stays, and only Drop, at its
+    // cost, takes it off.
+    expect(s.actors.vale.want).toMatchObject({ target: "oil", refusals: 0 });
+    expect(s.actors.vale.gaveUp).toBeUndefined();
+    expect(dropCost(s, "vale")).toBe(1);
   });
 
   it("trusts only someone who gave the wanted item", () => {
