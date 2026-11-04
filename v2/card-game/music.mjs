@@ -7,6 +7,7 @@ import {
   contextAsleep,
   wakeContext,
 } from "./audio-wake.mjs";
+import { CUE_TRACKS } from "./music-cues.mjs";
 
 export const roomTracks = {
   "willows-camp": [
@@ -108,8 +109,11 @@ export function openingRevealed(world, actor) {
 // until its end. The audio clock keeps volume and pause fades smooth.
 // A hidden tab fades the song out and pauses it in place; the return wakes
 // the audio context (phones put it to sleep) and fades back in from there.
+// cue(name) plays a song from music-cues.mjs over the room for a moment of
+// play, such as a battle; cue(null) brings the room song back from its place.
 export function createRoomMusic({
   audio,
+  cues = null,
   changed = () => {},
   makeContext = () =>
     new (globalThis.AudioContext || globalThis.webkitAudioContext)(),
@@ -118,6 +122,7 @@ export function createRoomMusic({
 }) {
   const fadeSeconds = 1;
   let room = null,
+    cued = null,
     phase = "day",
     sourceRoom = null,
     loadedFile = null,
@@ -207,6 +212,7 @@ export function createRoomMusic({
   function wanted() {
     return (
       started &&
+      !cued &&
       unlocked &&
       enabled &&
       !hidden &&
@@ -218,8 +224,8 @@ export function createRoomMusic({
     changed({
       enabled,
       started,
-      title: track()?.title || "",
-      playing: !audio.paused,
+      title: CUE_TRACKS[cued]?.title || track()?.title || "",
+      playing: Boolean(cued) || !audio.paused,
       failed: failures >= (roomTracks[trackRoom()]?.length || 1),
     });
   }
@@ -354,7 +360,15 @@ export function createRoomMusic({
     sync();
   });
   return {
+    cue(name = null) {
+      cues?.cue(name);
+      if (cued === (cues?.current ?? null)) return;
+      cued = cues?.current ?? null;
+      sync();
+      report();
+    },
     setStarted(value) {
+      cues?.setStarted(value);
       if (started === Boolean(value)) {
         // The waiting status follows plays made before music starts.
         if (!started) report();
@@ -387,11 +401,13 @@ export function createRoomMusic({
       // Keep the gesture while a shared item play waits for the server.
       // wanted() holds playback until that avatar's play is accepted.
       unlocked = true;
+      cues?.unlock();
       if (enabled && !hidden) unlockGraph();
       start();
     },
     setEnabled(value) {
       enabled = Boolean(value);
+      cues?.setEnabled(enabled);
       if (enabled && failures) {
         failures = 0;
         pause();
@@ -403,6 +419,7 @@ export function createRoomMusic({
     setVolume(value) {
       if (!Number.isFinite(value)) return;
       volume = Math.max(0, Math.min(1, value));
+      cues?.setVolume(volume);
       if (
         wanted() &&
         !audio.paused &&
@@ -415,6 +432,7 @@ export function createRoomMusic({
     setHidden(value) {
       if (hidden === Boolean(value)) return;
       hidden = Boolean(value);
+      cues?.setHidden(hidden);
       if (!hidden) {
         returning = true;
         void wakeContext(context);

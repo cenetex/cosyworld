@@ -84,6 +84,7 @@ import {
 } from "./speech-knowledge.mjs";
 import { packMedia } from "./pack-registry.mjs";
 import { createRoomMusic, openingRevealed } from "./music.mjs";
+import { battleMusicDue, createMusicCues } from "./music-cues.mjs";
 import { createHum } from "./hum.mjs";
 import { createSfx } from "./sfx.mjs";
 import { createCharacterSpeech } from "./character-speech.mjs";
@@ -973,6 +974,7 @@ try {
 } catch {}
 const music = createRoomMusic({
   audio: $("room-music"),
+  cues: createMusicCues(),
   changed: ({ enabled, started, title, playing, failed }) => {
     $("music-toggle").textContent = `Music: ${enabled ? "on" : "off"}`;
     $("music-toggle").setAttribute("aria-pressed", String(enabled));
@@ -993,6 +995,13 @@ music.setEnabled(musicEnabled);
 music.setVolume(musicVolume);
 music.setHidden(document.hidden);
 music.setStarted(musicHasStarted());
+// The battle song plays while the player's room holds an open battle. While a
+// fight's beats or its loss screen play, presentCombat sets the cue instead.
+let combatCue = false;
+function syncMusicCue() {
+  if (!combatCue)
+    music.cue(battleMusicDue(world, currentActor(world)) ? "battle" : null);
+}
 // The island's drone follows the same switch and volume as the music.
 const hum = createHum();
 hum.setEnabled(musicEnabled);
@@ -1459,6 +1468,7 @@ function combatStage() {
 }
 function endCombat() {
   combatRun++;
+  combatCue = false;
   combatView?.cleanup();
   $("travel").classList.remove("fainting");
   combatHeld.clear();
@@ -1472,6 +1482,8 @@ async function presentCombat(beats, land) {
   const mine = ++combatRun;
   const view = combatStage();
   for (const beat of beats) combatHeld.add(beat.seq);
+  combatCue = true;
+  music.cue("battle");
   covering = true;
   travelShown = new Promise((resolve) => {
     combatRelease = resolve;
@@ -1482,7 +1494,12 @@ async function presentCombat(beats, land) {
   const defeat = beats.find(
     (beat) => beat.kind === "defeat" && beat.viewerLost,
   );
-  if (defeat) await view.defeat(defeat);
+  if (defeat) {
+    // The loss screen's song, from its fade to black until Continue.
+    music.cue("battle-loss");
+    await view.defeat(defeat);
+    if (mine === combatRun) music.cue(null);
+  }
   if (mine !== combatRun) return;
   await view.release();
   if (mine !== combatRun) return;
@@ -1491,6 +1508,7 @@ async function presentCombat(beats, land) {
   combatView.cleanup();
   combatHeld.clear();
   covering = false;
+  combatCue = false;
   renderLog();
   land(release);
   // The travel veil (already down) takes over from a defeat's black.
@@ -3678,6 +3696,7 @@ function renderLog(open = $("history-dialog").open) {
 function render() {
   renderPlayers();
   music.setStarted(musicHasStarted());
+  syncMusicCue();
   hum.setStarted(musicHasStarted());
   ringHeard();
   // While the travel veil comes down, the old place stays drawn.
