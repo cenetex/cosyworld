@@ -61,6 +61,10 @@
       "smokes": ["smoke-card-hosted-voices"]
     },
     {
+      "paths": "^v2/card-game/figure-settle\\.",
+      "smokes": ["smoke-card-figure-settle"]
+    },
+    {
       "paths": "^v2/card-game/(weather|stage-light)",
       "smokes": ["smoke-card-weather"]
     },
