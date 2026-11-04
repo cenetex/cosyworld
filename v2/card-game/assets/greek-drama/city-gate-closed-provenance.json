@@ -72,8 +72,9 @@
       "pixel_identity_note": "Imagegen edit preserves scene geometry visually but is not pixel-identical outside the two notice regions.",
       "outside_notice_regions_mean_channel_delta_255": 6.273,
       "quality": 76,
-      "bytes": 298308,
-      "sha256": "f8a9e1cbaf02a869a641937de6e547f2b4253f41037a21cfe79f466994604eef"
+      "bytes": 295114,
+      "sha256": "b299fbf9054d6dad6d77c5ad25e665a1ef356da659a6983d632503c3f485afcd",
+      "processing": "Mirrored horizontally, owner request 2026-11-04, so the gate and forecourt doors face the new card row (current place and way back on the left, exits on the right); the sealed decree now hangs below the left ring handle. Re-encoded as WebP at quality 76, effort 6, alphaQuality 100 and smartSubsample (previous sha256 f8a9e1cbaf02a869a641937de6e547f2b4253f41037a21cfe79f466994604eef)."
     },
     {
       "id": "city-gate-closed-night",
@@ -146,8 +147,9 @@
       "pixel_identity_note": "Imagegen edit preserves scene geometry visually but is not pixel-identical outside the two notice regions.",
       "outside_notice_regions_mean_channel_delta_255": 4.763,
       "quality": 85,
-      "bytes": 292862,
-      "sha256": "b4fae4c077c430ef567ee31987e3e073c9a3082cc0a08e9aa0bd4f36ad72c095"
+      "bytes": 287468,
+      "sha256": "58e4c35ba816b00855661a075258fe3acd5f21f2cc0911ddec24972da1962ea9",
+      "processing": "Mirrored horizontally, owner request 2026-11-04, so the gate and forecourt doors face the new card row (current place and way back on the left, exits on the right); the sealed decree now hangs below the left ring handle. Re-encoded as WebP at quality 85, effort 6, alphaQuality 100 and smartSubsample (previous sha256 b4fae4c077c430ef567ee31987e3e073c9a3082cc0a08e9aa0bd4f36ad72c095)."
     }
   ]
 }
