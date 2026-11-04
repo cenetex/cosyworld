@@ -1186,6 +1186,8 @@ body .hand > .card-frame:focus-within {
   position: absolute;
   inset: 0;
   pointer-events: none;
+  /* A card at the row's edge never widens the page as it goes. */
+  overflow: clip;
 }
 body .card-frame[data-raised="true"] {
   z-index: 3;
