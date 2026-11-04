@@ -401,6 +401,32 @@ pub(super) struct PlayRequest<'a> {
     pub action: Value,
     pub key: &'a str,
 }
+/// Rejected plays per user, matching the queued-play minute limit. With
+/// `record`, count one rejection; without it, report whether the budget is spent.
+fn rejections(user: &str, record: bool) -> bool {
+    use crate::rate_limit::{RateLimit, RateLimiter};
+    use std::{
+        sync::{Mutex, OnceLock, PoisonError},
+        time::{Duration, Instant},
+    };
+    const LIMIT: RateLimit = RateLimit {
+        max_hits: 24,
+        window: Duration::from_secs(60),
+    };
+    static LIMITS: OnceLock<Mutex<RateLimiter>> = OnceLock::new();
+    let mut limits = LIMITS
+        .get_or_init(Default::default)
+        .lock()
+        .unwrap_or_else(PoisonError::into_inner);
+    let key = format!("full-reject:{user}");
+    if record {
+        limits.allow(key, LIMIT, Instant::now());
+        false
+    } else {
+        limits.spent(&key, LIMIT, Instant::now())
+    }
+}
+
 pub(super) fn enqueue(
     c: &Connection,
     id: &str,
@@ -439,11 +465,20 @@ pub(super) fn enqueue(
     if minute >= 24 || hour >= 240 || total >= 1200 {
         return Err("The table is resting for a moment. Try your play shortly.".into());
     }
-    let mut probe = w.clone();
-    probe.apply(&command)?;
     let pending:i32=c.query_row("SELECT count(*) FROM card_full_plays WHERE world=? AND actor=? AND status IN ('waiting','retry','working','playing')",params![id,a],|r|r.get(0)).map_err(sql_error)?;
     if pending > 0 {
         return Err("Your play is already at the table.".into());
+    }
+    // The probe is a full rules run under the shared writer lock, and a
+    // rejected play leaves no row for the limits above to count. Spend a
+    // per-user budget on rejections so they cannot keep that lock busy.
+    if rejections(user, false) {
+        return Err("The table is resting for a moment. Try your play shortly.".into());
+    }
+    let mut probe = w.clone();
+    if let Err(error) = probe.apply(&command) {
+        rejections(user, true);
+        return Err(error);
     }
     let room = w.room(a)?;
     let count:i32=c.query_row("SELECT count(*) FROM card_full_plays WHERE world=? AND room=? AND status IN ('waiting','retry','working','playing')",params![id,room],|r|r.get(0)).map_err(sql_error)?;

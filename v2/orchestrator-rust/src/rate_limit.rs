@@ -61,6 +61,14 @@ impl RateLimiter {
 
         true
     }
+
+    /// Whether `key` is at its limit, without recording a hit.
+    pub(super) fn spent(&mut self, key: &str, limit: RateLimit, now: Instant) -> bool {
+        self.hits.get_mut(key).is_some_and(|bucket| {
+            bucket.prune(now);
+            bucket.hits.len() >= limit.max_hits
+        })
+    }
 }
 
 pub(super) const AVATAR_CREATE_LIMIT: RateLimit = RateLimit {
@@ -205,6 +213,23 @@ mod tests {
             );
         }
         headers
+    }
+
+    #[test]
+    fn spent_reports_a_full_bucket_without_adding_a_hit() {
+        let mut limiter = RateLimiter::default();
+        let limit = RateLimit {
+            max_hits: 2,
+            window: Duration::from_secs(60),
+        };
+        let start = Instant::now();
+        assert!(!limiter.spent("k", limit, start));
+        assert!(limiter.allow("k".into(), limit, start));
+        assert!(!limiter.spent("k", limit, start));
+        assert!(!limiter.spent("k", limit, start));
+        assert!(limiter.allow("k".into(), limit, start));
+        assert!(limiter.spent("k", limit, start));
+        assert!(!limiter.spent("k", limit, start + Duration::from_secs(61)));
     }
 
     #[test]
