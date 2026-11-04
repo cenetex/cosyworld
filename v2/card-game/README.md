@@ -60,26 +60,36 @@ counted or sent. `smoke-card-play-counts.mjs` checks all three.
 ## Settings
 
 ☰ › Settings is a hand of cards in place of the play hand
-(`settings-cards.mjs` deals it, `settings-screen.mjs` draws it). Choosing a
-card puts its action in the context button ("Turn voices off", "Open
-privacy"); pressing the button does it. With no card chosen the button is
-Close settings, and Escape unchooses, then closes. A card shows only its name
-and art. Its face is its state: lit while on, dim while off. State words and
-reasons are in the button and the beat's info line, and in each card's
-accessible name ("Music, off"). Sign out, New game and Restore a backup ask a
-second press ("Tap again to sign out"); a credit commit asks in its own beat.
+(`settings-cards.mjs` deals it, `settings-screen.mjs` draws it), dealt the
+way the play hand deals a place and the things in it. Four group cards, You,
+Sound, Play and World, hold their settings as a place holds its items: a
+folded group shows its first setting peeking out behind it, a tap fans it
+open and folds any other, another tap folds it, and a pointer lifts the
+group with its peek (the play hand's 180 ms shuffle; reduced motion only
+brightens it). Choosing a setting puts its action in the context button
+("Turn voices off", "Open privacy"); pressing the button does it and folds
+the group back. With no card chosen the button is Close settings, and Escape
+unchooses, then closes. A card shows only its name and art. Its face is its
+state: lit while on, dim while off. State words and reasons are in the button
+and the beat's info line, and in each card's accessible name ("Music, off").
+Sign out, New game and Restore a backup ask a second press ("Tap again to
+sign out"); a credit commit asks in its own beat.
 
-Privacy comes first, then Music, Volume, Voices, Flashes and scares, Fight
-speed and Play counts. Hosted play adds Account (Sign in with your passkey, or
-Sign out) and Credits; a shared world adds Another passkey and World pool; the
-local table adds New game, and the desktop app Backup. Controls steps through
-tips, and Download opens `/download`. Four pack cards close the hand: Cosy
+Settings opens with You fanned, and Privacy is the first thing it holds, so
+Privacy is one tap away. You then holds Account and Credits (hosted play),
+Another passkey (a shared world, signed in) and Play counts. Sound holds
+Music, Voices and Volume. Play holds Fight speed, Flashes and scares and
+Controls, which steps through tips. World holds the four pack cards, Cosy
 Cottage (`lonely-forest`), The Reflected Shore (the hub), The Wine-Dark Sea
-(`greek-drama`) and Hoppy Cat Universe (`hoppycat-archive`). A pack card is
+(`greek-drama`) and Hoppy Cat Universe (`hoppycat-archive`), then New game
+(the local table), Backup (the desktop app), World pool (a shared world) and
+Download, which opens `/download`. A pack card is
 a place card drawn as the quest card draws its place (`questScreen`): the
 painting feathered into the card, its name where the quest names its verb.
 Every other card is a place card too, each a region of the owner's moonlit
-workbench (`assets/settings/PROVENANCE.md`): the sealed letter for Privacy,
+workbench (`assets/settings/PROVENANCE.md`): the letter and dice for You,
+the candle for Sound, the dice cup and mug for Play, the window for World,
+the sealed letter for Privacy,
 lamplight on the bench for Music, Pip's ears for Voices, the candle flame for
 Volume, a moth's wing for Flashes and scares, the dice cup for Fight speed,
 the dice for Play counts, Pip at the table for Account, the gear for Another
@@ -98,9 +108,10 @@ both back in, the song from where it stopped (`setQuiet` in `music.mjs` and
 `music-cues.mjs`). The island hum and world sounds rest with it. Reduced
 motion swaps the scene at once. A moment later the workbench painting comes
 up whole as Settings' own scene, as a place's painting is a scene's
-(`SCENE`). `smoke-card-settings.mjs` checks choosing,
-pressing, the second press and closing at three widths; `smoke-card-music.mjs`
-checks the held song.
+(`SCENE`). `smoke-card-settings.mjs` checks the groups, Privacy one tap
+away, the peek, the hover lift, fanning, choosing, pressing, the fold, the
+second press and closing at three widths; `smoke-card-music.mjs` checks the
+held song.
 
 ## Public assets
 

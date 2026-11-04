@@ -27,22 +27,33 @@ const labels = (cards, id) =>
   cards.find((c) => c.id === id).actions.map((a) => a.label);
 
 describe("settings as a hand of cards", () => {
-  it("deals Privacy first and the owner's four packs last", () => {
+  it("deals four groups holding their settings, Privacy first in You", () => {
     const cards = settingsCards(table());
-    expect(cards[0].id).toBe("privacy");
+    const groups = cards.filter((c) => c.group);
+    expect(ids(groups)).toEqual(["you", "sound", "play", "world"]);
+    expect(groups.map((c) => c.actions)).toEqual([[], [], [], []]);
+    // Each group comes before the settings it holds, as a place before its
+    // things.
+    let holder = null;
+    for (const c of cards) {
+      if (c.group) holder = c.id;
+      else expect(c.holder).toBe(holder);
+    }
+    const held = (id) => ids(cards.filter((c) => c.holder === id));
+    expect(held("you")).toEqual(["privacy", "counts"]);
     expect(labels(cards, "privacy")).toEqual(["Open privacy"]);
-    expect(cards.slice(-4).map((c) => c.name)).toEqual([
-      "Cosy Cottage",
-      "The Reflected Shore",
-      "The Wine-Dark Sea",
-      "Hoppy Cat Universe",
-    ]);
-    // Every card is a full-bleed painting: a workbench crop or a pack's.
-    expect(ids(cards.filter((c) => !c.art.includes("/settings/")))).toEqual(
+    expect(held("sound")).toEqual(["music", "voices", "volume"]);
+    expect(held("play")).toEqual(["fight", "scares", "controls"]);
+    expect(held("world").slice(0, 4)).toEqual(
       PACKS.map(([id]) => `pack-${id}`),
     );
+    expect(held("world").slice(4)).toEqual(["new-game", "download"]);
+    // Every card is a full-bleed painting: a workbench crop or a pack's.
     for (const c of cards)
       expect(existsSync(`v2/card-game/${c.art.replace("./", "")}`)).toBe(true);
+    expect(cards.filter((c) => !/settings\/|pack-/.test(c.art + c.id))).toEqual(
+      [],
+    );
   });
 
   it("shows state as the face and says the next action in the button", () => {
@@ -95,6 +106,9 @@ describe("settings as a hand of cards", () => {
     expect(ids(cards)).toEqual(
       expect.arrayContaining(["account", "passkey", "credits", "pool"]),
     );
+    expect(ids(cards.filter((c) => c.holder === "you"))).toEqual([
+      ...["privacy", "account", "passkey", "credits", "counts"],
+    ]);
     expect(ids(cards)).not.toContain("new-game");
     expect(labels(cards, "pool")).toEqual([
       "Commit 10: you hold 0",

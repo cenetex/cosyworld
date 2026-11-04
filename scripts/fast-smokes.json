@@ -9,6 +9,7 @@
     "smoke-card-unveil"
   ],
   "needsRust": [
+    "smoke-card-local",
     "smoke-shared-cards",
     "smoke-card-greek-capacity",
     "smoke-card-narrative-contract"

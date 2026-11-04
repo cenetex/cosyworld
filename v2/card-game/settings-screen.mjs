@@ -1,5 +1,7 @@
 // The settings screen (settings-cards.mjs): its hand stands in for the play
-// hand while open, and the chosen card's beat borrows the context button.
+// hand while open, drawn as the play hand draws a place and its things: a
+// group's first setting peeks out behind it, a tap fans the group open and
+// another folds it, and the chosen card's beat borrows the context button.
 // The controls behind the cards are the buttons in #menu-dialog, which no
 // longer opens.
 import { imageUrl } from "./images.mjs";
@@ -111,6 +113,8 @@ export function installSettingsCards({ actionBeat, packs }) {
   const screen = $("settings-screen"),
     hand = $("settings-hand");
   let chosen = null,
+    fanned = null,
+    cards = [],
     armed = null,
     problem = "",
     tip = 0,
@@ -120,7 +124,7 @@ export function installSettingsCards({ actionBeat, packs }) {
   function close() {
     if (!screen.open) return;
     screen.close();
-    chosen = armed = null;
+    chosen = fanned = armed = null;
     actionBeat.clear(beat);
     changed();
     $("toolbar-menu-button")?.focus();
@@ -132,6 +136,8 @@ export function installSettingsCards({ actionBeat, packs }) {
     }
     armed = null;
     problem = "";
+    // Playing a setting folds its group back, as a play folds a place.
+    chosen = fanned = null;
     if (action.run === "close" || action.closes) close();
     if (action.run === "tip") tip += 1;
     if (action.run === "pack") packs.play(action.pack, action.enable);
@@ -143,17 +149,33 @@ export function installSettingsCards({ actionBeat, packs }) {
     }
     if (screen.open) render();
   }
+  // A group opens as a place does, and folds on a second tap; opening
+  // another folds the first. A setting is chosen, and unchosen on a second.
   function choose(id) {
-    chosen = chosen === id ? null : id;
+    const group = cards.find((c) => c.id === id)?.group;
+    if (group) fanned = fanned === id ? null : id;
+    else chosen = chosen === id ? null : id;
+    if (cards.find((c) => c.id === chosen)?.holder !== fanned) chosen = null;
     armed = null;
     problem = "";
     render();
+    // An opened group starts the row, so its settings fan into view.
+    if (group && fanned)
+      hand
+        .querySelector(`[data-setting="${id}"]`)
+        .parentElement.scrollIntoView({
+          behavior: matchMedia("(prefers-reduced-motion: reduce)").matches
+            ? "instant"
+            : "smooth",
+          block: "nearest",
+          inline: "start",
+        });
   }
   const make = (tag, className, props) =>
     Object.assign(document.createElement(tag), { className, ...props });
-  // Every card (a world pack or a workbench painting) is the quest card's
-  // place: its painting feathered into the card, with its name where the
-  // quest names its verb.
+  // Each card (a group, a world pack or a workbench painting) is the quest
+  // card's place: its painting feathered into the card, with its name where
+  // the quest names its verb.
   function placeFace(el, c) {
     el.style.setProperty("--tier-color", levelTier(0).color);
     const head = make("span", "quest-head");
@@ -166,29 +188,55 @@ export function installSettingsCards({ actionBeat, packs }) {
       head,
     );
   }
-  function frame(c, index, count) {
+  // The play hand's card frame: a setting lies hidden in its group until the
+  // group fans, and the group's first setting peeks out behind it.
+  function frame(c) {
     const el = make("button", "card want-card", {
       type: "button",
       onclick: () => choose(c.id),
     });
+    const raised = chosen === c.id || fanned === c.id;
     Object.assign(el.dataset, {
       setting: c.id,
       lit: c.lit,
       selected: chosen === c.id,
     });
-    el.setAttribute("aria-pressed", String(chosen === c.id));
+    el.setAttribute("aria-pressed", String(raised));
     el.setAttribute("aria-label", [c.name, c.state].filter(Boolean).join(", "));
     placeFace(el, c);
     const holder = make("div", "card-frame");
-    holder.style.setProperty("--fan-at", String(index - (count - 1) / 2));
+    holder.dataset.raised = String(raised);
     holder.append(el);
+    if (c.holder) {
+      holder.dataset.holder = c.holder;
+      holder.hidden = fanned !== c.holder;
+    }
+    const held = cards.filter((item) => item.holder === c.id);
+    if (held.length) {
+      holder.dataset.inventory = String(held.length);
+      holder.dataset.expanded = String(fanned === c.id);
+      el.setAttribute("aria-expanded", String(fanned === c.id));
+      holder.prepend(
+        make("img", "held-preview", {
+          src: imageUrl(held[0].art, "card"),
+          alt: "",
+          decoding: "async",
+          draggable: false,
+        }),
+      );
+    }
     return holder;
   }
   function render() {
-    const cards = settingsCards(readSettings(tip, packs));
+    cards = settingsCards(readSettings(tip, packs));
     if (!cards.some((c) => c.id === chosen)) chosen = null;
     const focused = document.activeElement?.dataset?.setting;
-    hand.replaceChildren(...cards.map((c, i) => frame(c, i, cards.length)));
+    hand.replaceChildren(...cards.map(frame));
+    // The fan leans each shown card by its place in the row (fanHand).
+    const shown = [...hand.children].filter((f) => !f.hidden);
+    shown.forEach((f, i) =>
+      f.style.setProperty("--fan-at", String(i - (shown.length - 1) / 2)),
+    );
     if (focused) hand.querySelector(`[data-setting="${focused}"]`)?.focus();
     const view = settingsBeat(cards, chosen, armed),
       face = cards.find((c) => c.id === chosen);
@@ -213,6 +261,8 @@ export function installSettingsCards({ actionBeat, packs }) {
   return {
     open() {
       if (!screen.open) screen.show();
+      // You opens fanned, so Privacy is one tap away.
+      fanned = "you";
       showVeil();
       changed();
       render();
