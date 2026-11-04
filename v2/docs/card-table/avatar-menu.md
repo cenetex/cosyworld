@@ -124,14 +124,18 @@ only the tools. ☰ opens a list of **world slots**:
 - ☰ has **no profile card** (owner, 2026-11-01). A chosen avatar shows in
   the action beat in front of the dialogue instead.
 
-**Tap a portrait once** to choose it: it glows and the action beat shows it:
-its small hand card (the faint level numeral and the level tier's edge, grey
-while offline) on the left; in the middle its name and one line, "Mara ·
-online · *Hollowmere*" (another person's seat adds who holds it: "Ash ·
-Amber Heron · online · *Hollowmere*"), then the note; and its action on the
-right. On one of yours that is **Leave**. A chosen avatar with no action
-(someone else's, unarmed, or anyone's for a non-owner) shows the line with
-no button.
+**Tap a portrait once** to choose it: it glows and the action beat shows it,
+with no border. On the left the avatar stands as on the quest card: no
+tile, a drop shadow, in its place's painting feathered in (the world being
+played) or on the dark ground, under its tier's glow and faint level
+numeral, grey while offline. In the middle are exactly two lines, its name
+("Mara") and where it is ("Exploring *Hollowmere*"; another person's seat
+names who holds it first: "Amber Heron · Exploring *Hollowmere*"). They
+wrap, never ending in an ellipsis, and on a phone the beat grows over the
+hand to fit them. Its action is on the right. On one of yours that is
+**Leave**. A chosen avatar with no action (someone else's, unarmed, or
+anyone's for a non-owner) shows the two lines with no button. Presence is
+the card's colour, not a word.
 
 **Tap one of your avatars in another world** to switch to it at once
 (owner, 2026-11-01): the page goes to that world with no veil or
@@ -159,15 +163,16 @@ player picks what comes next.
 
 - **Leave** frees your seat and keeps the avatar's level and its binding
   there; the avatar is then in no world, ready for + New world or a move.
-  The beat notes "Mara keeps their level; the seat in *Hollowmere* opens.",
-  and after it the status reads "Mara left *Hollowmere*." It sends the
-  `release` command (was Step away, and Move to your deck before #1891).
+  The beat has no note: consequences go in the action button, never as text
+  on the card (owner, 2026-11-03), and every avatar keeps its level between
+  seats anyway. After it the status reads "Mara left *Hollowmere*." It sends
+  the `release` command (was Step away, and Move to your deck before #1891).
 - **Free** (owner) notes "Removes Amber Heron's hold and resets Ash." and
   sends `reset`.
 
 The actions use the same action beat as a ready play (`showActionBeat` in
 `app.mjs`, passed to ☰ through `installToolbar`): the avatar's card, its
-line, the note and the button on the right. ☰ stays open beside it at
+two lines, any note and the button on the right. ☰ stays open beside it at
 390 and 1440 pixels; on a short landscape phone ☰ lies over part of it. A tap
 on one of its buttons closes ☰ (it is outside it); after Leave ☰ opens again
 to say what happened.
