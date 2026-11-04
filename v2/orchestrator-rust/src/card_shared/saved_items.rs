@@ -34,3 +34,27 @@ pub(super) fn willows_kit_moved(items: &mut Value) {
         }
     }
 }
+
+/// What Greek revision 20 (rules 102) changes in a world saved on earlier
+/// rules: the pack revision, the decree chain's things (the wheat joins, the
+/// writ and the decree change hands, the bread starts to be baked) and the
+/// wants of Creon, the guard and Myrto. Everything else is kept as saved.
+pub(super) fn greek_revision_20(old: &Value, upgraded: &Value) -> Value {
+    let mut expected = old.clone();
+    expected["packs"]["greek-drama"]["revision"] =
+        upgraded["packs"]["greek-drama"]["revision"].clone();
+    for id in [
+        "greek-wheat",
+        "greek-creon-writ",
+        "greek-decree",
+        "greek-bread",
+    ] {
+        expected["items"][id] = upgraded["items"][id].clone();
+    }
+    for id in ["greek-creon", "greek-guard", "greek-shipmaster"] {
+        expected["actors"][id]["want"] = upgraded["actors"][id]["want"].clone();
+    }
+    expected["usedUp"] = upgraded["usedUp"].clone();
+    expected["memories"]["greek-wheat"] = upgraded["memories"]["greek-wheat"].clone();
+    expected
+}

@@ -174,7 +174,8 @@ export async function checkOpenDoor(browser, origin) {
       );
       await step({ kind: "drop", item: "lamp", target: "greek-courtyard" });
       // Every story step is an ordinary play: a meeting, a Wait or a gift.
-      // The decree opens the City Gate first: the land route to Eleusis.
+      // The City Gate opens first, the land route to Eleusis: the bread buys
+      // the decree, the decree Creon's writ, and the writ moves the guard.
       for (const action of [
         ...cityGateSteps(),
         ...openDoorSteps({ rumours: true }),

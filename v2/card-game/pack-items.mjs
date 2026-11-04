@@ -128,7 +128,7 @@ export function itemEvents(s) {
 function cargo(s, t, conditions) {
   const out = [];
   for (const c of conditions) {
-    if (c.kind === "item_present" && c.place === t.place)
+    if (["item_present", "item_at"].includes(c.kind) && c.place === t.place)
       if (packThings[c.item] && conditionMet(s, c, null, t.packId))
         out.push(c.item);
     if (c.kind === "pack_item_present" && c.place === t.place) {

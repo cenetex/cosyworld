@@ -192,14 +192,26 @@ export async function checkAjax(browser, origin) {
             )
               await step({ kind: "wait" });
           }
-          const before = await state();
           const topic = topicForChoice(fields.choiceId);
-          const action = legalActions(before).find((a) =>
-            topic
-              ? a.kind === "talk" && a.target === topic.speaker
-              : a.kind === kind &&
-                Object.entries(fields).every(([k, v]) => a[k] === v),
-          );
+          const offer = (world) =>
+            legalActions(world).find((a) =>
+              topic
+                ? a.kind === "talk" && a.target === topic.speaker
+                : a.kind === kind &&
+                  Object.entries(fields).every(([k, v]) => a[k] === v),
+            );
+          // A resident kept to a range walks to its edge on a want and
+          // drifts home (rules 100): a choice told to someone who has
+          // stepped out waits for them, as a player would.
+          for (
+            let wait = 0;
+            wait < 16 && kind === "choose" && !offer(await state());
+            wait++
+          )
+            await step({ kind: "wait" });
+          current = { kind, ...fields };
+          const before = await state();
+          const action = offer(before);
           assert.ok(action, `Offer ${kind} ${JSON.stringify(fields)}`);
           await clearSelection(page);
           await selectCard(
@@ -212,7 +224,18 @@ export async function checkAjax(browser, origin) {
             : fields.choiceId
               ? `[data-choice="${fields.choiceId}"]`
               : `[data-action="${kind}"]`;
-          await page.locator(`#card-actions ${selector}`).first().click();
+          // Choosing the same cards after Wait offers Sleep: choose them
+          // afresh so each wait is one turn.
+          const wait = page
+            .locator("#card-actions")
+            .getByRole("button", { name: "Wait", exact: true });
+          if (kind === "wait" && !(await wait.count()))
+            for (let n = 0; n < 2; n++)
+              await selectCard(page, action.cards?.[0] || "vale", {
+                touch: width === 390,
+              });
+          if (kind === "wait") await wait.click();
+          else await page.locator(`#card-actions ${selector}`).first().click();
           await settle();
           const after = await state();
           assert.equal(after.turn, before.turn + 1, "Each action commits once");

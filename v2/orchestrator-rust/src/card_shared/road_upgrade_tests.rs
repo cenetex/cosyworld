@@ -157,8 +157,9 @@ fn a_rules_93_world_on_the_coast_road_takes_the_land_route() {
     assert_eq!(w.version, engine::VERSION);
     assert_eq!(w.pack.as_deref(), Some(content::current()));
     let g = &w.game;
-    // Revision 19 follows: the forecourt through the well.
-    assert_eq!(g["packs"]["greek-drama"]["revision"], 19);
+    // Revisions 19 and 20 follow: the forecourt through the well, then the
+    // decree, the bread and the guard's live gate (rules 102).
+    assert_eq!(g["packs"]["greek-drama"]["revision"], 20);
     assert_eq!(g["actors"]["vale"]["place"], "greek-piraeus");
     assert_eq!(g["items"]["greek-water-jar"]["holder"], "greek-piraeus");
     assert_eq!(g["transports"]["greek-ship"]["dock"], "greek-piraeus");

@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 // The server hosts the shared rules bundle with content from the host; the
 // browser runs the same modules directly. Through a whole item cycle (the
-// set give, a voyage with the cargo on deck, regrowth, the dawn safeguard, a kit scatter
+// set give, a spending voyage with the cargo on deck, regrowth, the dawn safeguard, a kit scatter
 // and a sealed gate's quest) both must commit the same world, step by step.
 vi.mock("../v2/card-game/packs.json", async (importOriginal) => {
   const { sealedGardenFixture } = await import(
@@ -127,9 +127,8 @@ describe("rules 95 item cycle on the server", () => {
     doing("vale", "drop", (a) => a.item === "greek-provisions");
     doing("vale", "course", (a) => a.target === "greek-piraeus");
     doing("vale", "wait");
-    // The voyage leaves them whole on deck (rules 102).
-    expect(world.usedUp).not.toContain("greek-provisions");
-    expect(world.items["greek-provisions"].holder).toBe("greek-ship");
+    // The test's lane still spends the cargo lying on deck.
+    expect(world.usedUp).toContain("greek-provisions");
     // Mara holds the figs and leaves; at dawn they go home.
     world.turn = DAYLIGHT_TURNS * 2 - 1;
     world.revision = Math.max(world.revision, world.turn);

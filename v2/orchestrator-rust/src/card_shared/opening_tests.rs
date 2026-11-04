@@ -90,7 +90,9 @@ fn released_pond_opening_keeps_its_place_through_upgrade_and_journal_rebuild() {
     // Greek revision 11's Theban outcomes wait unseen where their deeds are done.
     for (id, holder) in [
         ("greek-burial-account", "greek-battlefield"),
-        ("greek-creon-writ", "greek-palace"),
+        // Greek revision 20: Creon holds his writ, and Dione the wheat.
+        ("greek-creon-writ", "greek-creon"),
+        ("greek-wheat", "greek-baker"),
         ("greek-guard-tablet", "greek-gate"),
         // Greek revision 15's Athenian outcomes wait the same way.
         ("greek-pyre-account", "greek-eleusis"),
@@ -129,13 +131,17 @@ fn released_pond_opening_keeps_its_place_through_upgrade_and_journal_rebuild() {
 // Vale meets only who is at the cottage, and the journal replays it.
 #[test]
 fn scarf_stair_refused_by_rules_96_crosses_the_opening_after_upgrade() {
-    let created = engine::reduce_version(engine::NINETY_SIXTH_VERSION, json!({"op":"create"}));
+    let created = engine::reduce_pack(
+        engine::NINETY_SIXTH_VERSION,
+        Some(super::content::released_101()),
+        json!({"op":"create"}),
+    );
     let mut world = World {
         version: engine::NINETY_SIXTH_VERSION.into(),
         game: created.unwrap()["world"].clone(),
         claimed: [0; 8],
         present: [0; 8],
-        pack: Some(super::content::current().into()),
+        pack: Some(super::content::released_101().into()),
     };
     let path = std::env::temp_dir().join(format!("scarf-stair-{}.sqlite", crate::random_hex(12)));
     let c = store::open(&path).unwrap();
