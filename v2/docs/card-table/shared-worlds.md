@@ -101,14 +101,20 @@ bundle after changing any module it imports. The check mode compares the bundle
 with its sources. The Rust service embeds the bundle, so a deployed server and
 its browser assets come from one release.
 
-Every merge to `main` deploys, so main's newest bundle is live and its bytes
-are fixed. A branch that changes rule modules runs `npm run v2:card:shared:next`
-after it rebases on or merges `main`. The script restores main's released
-bundles and version wiring, rebuilds the rules, and adds the next version only
-when the bytes differ from main's. It pins the live bundle's hash in
-`test/card-released-rules.test.mjs`. Run it again after each later rebase; it
-gives the same result. Then rebuild the card assets and bump the release
-version. Do not resolve bundle conflicts by hand.
+Main's checked-in rule bundles keep fixed bytes for journal replay. A scheduled
+train ships main to `.dev` every 30 minutes; a version tag ships a production
+release. Read each site's `/meta.commit` and
+`/meta.card_game.shared_rules_version` for its running code and rules. See
+[release operations](../../../docs/release.md#delivery-schedule).
+
+A branch that changes rule modules runs `npm run v2:card:shared:next` after
+it rebases on or merges `main`. The script restores main's recorded bundles
+and version wiring, rebuilds the rules, and adds the next version only when
+the bytes differ from main's. It pins the prior bundle's hash in
+`test/card-released-rules.test.mjs`. Run it again after each later rebase;
+it gives the same result. Then rebuild the card assets. Keep the package
+version for feature PRs; a release runs `npm run version:bump` once. Resolve
+bundle conflicts through the generator so recorded bytes stay exact.
 
 `test/card-shared-bundle-modules.test.mjs` lists the modules the bundle may
 contain. A new import into the shared rules fails it. Pack content and
