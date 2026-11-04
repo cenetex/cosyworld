@@ -1,0 +1,117 @@
+/* Waking (sleep-view.mjs, sleep spec §2 and §3). The black is a veil under
+   the cast, so only the dreamer stays lit; the hand dims with the stage; the
+   DREAM card is the dialogue's front beat. --sleep-ms is the current beat's
+   fade, a crossfade under reduced motion. */
+.sleep-veil {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: #030409;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--sleep-ms, 0ms) ease-in-out;
+}
+.stage:is(
+    [data-sleep="fade"],
+    [data-sleep="held"],
+    [data-sleep="enter"],
+    [data-sleep="dreaming"],
+    [data-sleep="dream"],
+    [data-sleep="quest"]
+  )
+  > .sleep-veil {
+  opacity: 1;
+}
+/* A sleep that crosses no light only dims and lifts. */
+.stage[data-sleep="dim"] > .sleep-veil {
+  opacity: 0.55;
+}
+.stage[data-sleep] #cast > .portrait,
+.stage[data-sleep] > .weather-layer {
+  transition: opacity var(--sleep-ms, 0ms) ease-in-out;
+}
+.stage:is(
+    [data-sleep="fade"],
+    [data-sleep="held"],
+    [data-sleep="enter"],
+    [data-sleep="dreaming"],
+    [data-sleep="dream"],
+    [data-sleep="quest"]
+  )
+  #cast
+  > .portrait:not([data-dreamer]),
+.stage:is(
+    [data-sleep="fade"],
+    [data-sleep="held"],
+    [data-sleep="enter"],
+    [data-sleep="dreaming"],
+    [data-sleep="dream"],
+    [data-sleep="quest"]
+  )
+  > .weather-layer {
+  opacity: 0;
+}
+/* The dialogue leaves with the light and comes back with the dream card,
+   or with the light when there is no dream. */
+body:is([data-sleep="fade"], [data-sleep="held"]) .dialogue {
+  opacity: 0;
+  transition: opacity var(--sleep-ms, 0ms) ease-in-out;
+}
+body[data-sleep] #hand > * {
+  transition: filter var(--sleep-ms, 0ms) ease-in-out;
+}
+body:is(
+    [data-sleep="fade"],
+    [data-sleep="held"],
+    [data-sleep="enter"],
+    [data-sleep="dreaming"],
+    [data-sleep="dream"],
+    [data-sleep="quest"]
+  )
+  #hand
+  > * {
+  filter: brightness(0.18) saturate(0.4);
+}
+/* The quest a dream deals is the one card lit as it arrives: its own card,
+   or, folded, the face-down card behind the dreamer. */
+body[data-sleep="quest"] #hand > .want-frame:not([hidden]),
+body[data-sleep="quest"] #hand > :has(> .quest-fold:not([hidden])) {
+  filter: none;
+}
+/* While a wake plays, a tap anywhere finishes its beat. */
+.sleep-catcher {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.sleep-catcher[hidden] {
+  display: none;
+}
+/* The DREAM card. Its name sits at the top in the Common tier colour
+   (card-label-spec.md); its art keeps the night treatment until dream art
+   arrives. */
+#speech-row[data-beat="dream"] {
+  background: radial-gradient(ellipse at 24% 0%, #1a2240f0, #070a14f2 72%);
+  border-color: #3e4c7a88;
+}
+#speech-row[data-beat="dream"] #speaker {
+  font:
+    600 max(10px, calc(var(--card-height, 260px) * 0.042)) system-ui,
+    sans-serif;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  line-height: 1.18;
+  color: var(--tier-color, #c8dce6);
+  text-shadow:
+    0 1px 2px #000,
+    0 0 8px #000c;
+}
+#speech-row[data-beat="dream"] .speaker-portrait img {
+  filter: brightness(0.62) saturate(0.55) hue-rotate(-12deg);
+}
+#speech-row[data-beat="dream"] #dialogue-text {
+  font-style: italic;
+  color: #dfe6f4;
+}

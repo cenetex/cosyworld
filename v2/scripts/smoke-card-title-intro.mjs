@@ -651,18 +651,12 @@ try {
     await revealed(page, "Vale");
     await page.waitForTimeout(desktop ? 300 : 100);
     await shot(page, `face-${width}`);
-    // The name's shade is the figure's floor: it sits at the card's foot,
-    // in its bottom 15%, not a quarter up where the hand clips its cards.
-    const floor = await page.$eval(traveller, (card) => {
-      const face = card.getBoundingClientRect();
-      const name = card.querySelector(".name").getBoundingClientRect();
-      return {
-        shade: (face.bottom - (name.top + 0.65 * name.height)) / face.height,
-        gap: face.bottom - name.bottom,
-      };
+    // The name sits at the card's top, as on every card.
+    const top = await page.$eval(traveller, (card) => {
+      const name = card.querySelector(".name");
+      return [name.offsetParent === card, name.offsetTop];
     });
-    assert.ok(floor.shade > 0 && floor.shade <= 0.15, JSON.stringify(floor));
-    assert.ok(Math.abs(floor.gap) <= 2, JSON.stringify(floor));
+    assert.deepEqual(top, [true, 0], "the name tops the card");
     assert.equal((await idleState(page)).step, "none", "the turn ends the cue");
     await page.waitForSelector(".title-intro[data-phase=dark]");
     assert.equal(
