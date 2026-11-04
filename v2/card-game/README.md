@@ -931,9 +931,16 @@ sites' landings (`pack-landings.json`) and the local CosyWorld app never show
 it. Storage that cannot be read shows it once per load of the bare address.
 The logos are data in `title-logos.json` (file, name, size; all suit a
 dark ground): the two wordmarks, then three hand-lettered 16:9 artworks
-appended so saved picks keep their indices. `title-logo.mjs` picks one per world: first from the world's
-id (`?world=`, `?table=`, `?pack=` or the bare local table), never the logo
-shown last when another exists, then remembered in `cosyworld.title-logo` so
+appended so saved picks keep their indices. Each logo has a hidden `rarity`,
+a game tier id that only weights the draw by the card tier weights
+(`RARITY_WEIGHTS` in `pack-specials.mjs`): the two teal artworks are common,
+Pip and the lantern uncommon, the Black Pond rare and the gold ornate emblem
+epic. It is never shown. A legendary logo is never drawn, and a logo marked
+`retired: true` is drawn no more but still shows where it was remembered;
+append new logos and never reorder or remove one. `title-logo.mjs` picks one
+per world: first a weighted draw seeded by the world's id (`?world=`,
+`?table=`, `?pack=` or the bare local table), the same for every player,
+then the next drawable logo if that was the one shown last, then remembered in `cosyworld.title-logo` so
 a reload or a return shows the same one; New game picks afresh. The same
 logo replaces the COSYWORLD wordmark in the toolbar, at its own aspect ratio
 and as tall as the toolbar buttons (46 px, 40 px at phone width), named by its
