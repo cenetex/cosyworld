@@ -223,9 +223,18 @@ try {
     );
     // The telegraph and the rules line appear on stage before the new place.
     await page.locator("#combat-caption:not([hidden])").waitFor();
-    await page.waitForTimeout(400);
     // The locked hand tucks straight down out of the fighters' way, keeping
-    // its layout, and the caption reads below the top bar.
+    // its layout, and the caption reads below the top bar. A busy runner may
+    // take longer than the 280 ms tuck, so wait for it rather than a fixed
+    // pause.
+    await page
+      .waitForFunction(
+        (foot) =>
+          document.querySelector("#hand").getBoundingClientRect().top >= foot,
+        height - 60,
+        { timeout: 2000 },
+      )
+      .catch(() => {});
     const tucked = await handRect();
     assert.deepEqual(
       [tucked[0], tucked[2], tucked[3]],
