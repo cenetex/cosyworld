@@ -192,12 +192,8 @@ try {
     await fullVolume();
     const oldSource = await page.locator("#room-music").getAttribute("src");
     const from = await page.locator("body").getAttribute("data-place");
-    const kind =
-      room === "greek-ship"
-        ? "board"
-        : from === "greek-ship"
-          ? "disembark"
-          : "move";
+    // Board and Disembark are both authored move actions.
+    const kind = "move";
     await playCard(card, kind);
     assert.equal(
       await page.locator("#room-music").getAttribute("src"),
