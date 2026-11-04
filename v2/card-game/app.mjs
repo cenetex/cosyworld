@@ -1975,7 +1975,7 @@ function renderActions() {
       const refused = refusedPlay(action);
       const button = node(
         "button",
-        refused ? refusalLabel(refused) : playLabel(action),
+        refused ? refusalLabel(refused) : playLabel(action, world),
         index === 0 ? "card-primary" : "card-action",
       );
       button.type = "button";
@@ -4606,7 +4606,7 @@ async function submitSharedPlay(action) {
     key: crypto.randomUUID(),
     action: current,
     choice: selected.join("+"),
-    label: playLabel(action),
+    label: playLabel(action, world),
     notice: sharedSession.state.notice || "",
   };
   showSharedPlay("sending");

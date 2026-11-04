@@ -15867,7 +15867,7 @@
       return false;
     if (!pack.release || state.scope === "full") return true;
     if (pack.recital?.actor === id)
-      return (roamingQuestActor(id) || !!recitalVisit(world, pack)) && entityEnabled(world, world.actors[id].place);
+      return (roamingQuestActor(id) || !!recitalVisit(world, pack)) && entityEnabled(world, world.actors[id].place, saved);
     return pack.release.places.includes(id) || pack.release.avatars.includes(id) || pack.release.items.includes(id);
   }
   var routeKey = (r) => `${r.from}>${r.to}`;
@@ -18508,7 +18508,7 @@
         actorIds,
         installPacks,
         laneText: laneFactText,
-        setAside: (world, id) => !controlledByHuman(world, id) && setAsideWant(world, id, wantAPI(world))
+        setAside: (world, id) => !humanHeld(world, id) && setAsideWant(world, id, wantAPI(world))
       });
       latchRoutes(s);
       validateWorld(s);
