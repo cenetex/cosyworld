@@ -18,8 +18,6 @@ pub(super) struct Speech {
 enum Who {
     Me,
     Other,
-    /// "he", "she" or "they": mine unless it says the heard line back.
-    Pronoun,
 }
 
 /// Verbs a dialogue tag opens with, by stem ("says", "asked", "repeats").
@@ -35,10 +33,11 @@ pub(super) fn opens(text: &str) -> bool {
 }
 
 /// My quoted spans, joined. `others` are the names of everyone else who
-/// speaks; `heard` is the line I answer. A span tagged with another's name,
-/// or a span the heard line is said back in and tagged "he" or "she", is
-/// theirs, as are the untagged spans after it until I speak again ("I
-/// nod."). A span left open is dropped once a quote has closed.
+/// speaks; `heard` is the line I answer. I tag my own words "I say"; a
+/// span tagged with another's name or "he", "she" or "they", or one that
+/// says the heard line back, is theirs, as are the untagged spans after it
+/// until I act again ("I nod."). A span left open is dropped once a quote
+/// has closed.
 pub(super) fn own_words(text: &str, others: &[String], heard: Option<&str>) -> Speech {
     let text = text.trim_start().trim_start_matches(['\u{201c}', '"']);
     let mut parts: Vec<&str> = text.split(['\u{201c}', '\u{201d}', '"']).collect();
@@ -68,8 +67,6 @@ pub(super) fn own_words(text: &str, others: &[String], heard: Option<&str>) -> S
             _ => speaker,
         };
         speaker = match after {
-            Some(Who::Pronoun) if speaker == Who::Other || echoes(span) => Who::Other,
-            Some(Who::Pronoun) => Who::Me,
             Some(who) => who,
             None if echoes(span) => Who::Other,
             None => speaker,
@@ -168,7 +165,7 @@ fn tag(span: &str, narration: &str, forms: &[String]) -> Option<Who> {
         .iter()
         .find_map(|p| lower.strip_prefix(p))
     {
-        return verb(rest).then_some(Who::Pronoun);
+        return verb(rest).then_some(Who::Other);
     }
     forms
         .iter()
@@ -255,11 +252,17 @@ mod tests {
     }
 
     #[test]
-    fn a_pronoun_tag_is_mine_unless_it_says_the_heard_line() {
+    fn a_third_person_tag_is_someone_elses() {
         let heard = "Tired is a kind word for it.";
         let echo = speak("Tired is a kind word for it,\u{201d} he grunts.", heard);
         assert_eq!((echo.text.as_str(), echo.other), ("", true));
-        let own = speak("Mind the oil,\u{201d} he says", heard);
+        // "Trust,” he says: a word of Pip's, as Vale tells it.
+        let word = speak(
+            "Trust,\u{201d} he says. I frown. \u{201c}Then trust me.\u{201d}",
+            heard,
+        );
+        assert_eq!((word.text.as_str(), word.other), ("Then trust me.", true));
+        let own = speak("Mind the oil,\u{201d} I say", heard);
         assert_eq!((own.text.as_str(), own.other), ("Mind the oil.", false));
     }
 
