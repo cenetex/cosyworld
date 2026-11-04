@@ -13,7 +13,7 @@ export const TOGGLES = [
     "music",
     "music-toggle",
     "Music",
-    "lamp-card.png",
+    bench("lamplight"),
     "music-status",
     "Turn music",
   ],
@@ -21,7 +21,7 @@ export const TOGGLES = [
     "voices",
     "speech-sound",
     "Voices",
-    "bell-card.png",
+    bench("ears"),
     "voice-status",
     "Turn voices",
   ],
@@ -29,7 +29,7 @@ export const TOGGLES = [
     "scares",
     "scares-toggle",
     "Flashes and scares",
-    "lonely-forest/skull.png",
+    bench("wing"),
     "",
     "Turn flashes and scares",
   ],
@@ -52,20 +52,21 @@ export const TOGGLES = [
     "Share play counts",
   ],
 ];
-// The owner's moonlit workbench, cut into the cards' paintings
-// (assets/settings/PROVENANCE.md). Each is a place card, drawn as the quest
-// card draws its place, like the packs below; the rest stand as figures.
+// The owner's moonlit workbench is the scene, and its regions are the cards'
+// paintings (assets/settings/PROVENANCE.md). Every card is a place card,
+// drawn as the quest card draws its place, like the packs below.
+export const SCENE = "settings/source/moonlit-cozy-fantasy-workbench.png";
 export const BENCH = [
   ...["letter", "dice", "dice-cup", "candle", "old-books", "mug"],
-  ...["armillary", "scroll", "book-stack", "window", "moth"],
+  ...["armillary", "scroll", "book-stack", "window", "moth", "you"],
+  ...["play", "lamplight", "flame", "ears", "wing", "gear", "moon"],
 ];
 function bench(name) {
   return `settings/workbench-${name}.png`;
 }
 // The owner's four packs, by their switchable groups (rules 98,
 // pack-toggle.mjs). A pack card is lit while it is on; its button switches
-// it, or says why it can't. Each is a place card, drawn as the quest card
-// draws its place (`place`).
+// it, or says why it can't.
 export const PACKS = [
   ["cottage", "Cosy Cottage", "lonely-forest/cottage.png"],
   ["shore", "The Reflected Shore", "pond.png"],
@@ -88,7 +89,6 @@ const reason = (label) => act(label, null, { disabled: true });
 const card = (id, name, art, lit, state, actions, more) => ({
   ...{ id, name, lit, state, actions, ...more },
   art: /^(\.|\/|assets\/)/.test(art) ? art : `assets/${art}`,
-  place: more?.place || art.startsWith("settings/"),
 });
 
 // The hand for what the table knows now (`readSettings`), Privacy first.
@@ -112,7 +112,7 @@ export function settingsCards(s) {
       act("Open privacy", "privacy"),
     ]),
     toggles[0],
-    card("volume", "Volume", bench("candle"), s.volume > 0, `${s.volume}%`, [
+    card("volume", "Volume", bench("flame"), s.volume > 0, `${s.volume}%`, [
       act(`Set volume to ${next}%`, "volume", { value: next }),
     ]),
     ...toggles.slice(1),
@@ -124,14 +124,9 @@ export function settingsCards(s) {
       ]),
     s.shared &&
       s.signedIn &&
-      card(
-        "passkey",
-        "Another passkey",
-        "lonely-forest/wolfprint-charm.webp",
-        true,
-        "",
-        [act("Add a passkey", "addPasskey")],
-      ),
+      card("passkey", "Another passkey", bench("gear"), true, "", [
+        act("Add a passkey", "addPasskey"),
+      ]),
     s.hosted &&
       card(
         "credits",
@@ -177,7 +172,7 @@ export function settingsCards(s) {
       card(
         "new-game",
         "New game",
-        bench("window"),
+        bench("moon"),
         true,
         "",
         [
@@ -212,15 +207,9 @@ export function settingsCards(s) {
         ...{ pack: id, enable: !on },
       });
       const state = on ? "on" : "off";
-      return card(
-        `pack-${id}`,
-        name,
-        art,
-        on,
-        state,
-        [block ? reason(block) : turn],
-        { place: true },
-      );
+      return card(`pack-${id}`, name, art, on, state, [
+        block ? reason(block) : turn,
+      ]);
     }),
   ].filter(Boolean);
 }

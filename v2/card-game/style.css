@@ -1055,7 +1055,8 @@ body .dialogue[data-dropped="true"] {
   box-shadow: none;
 }
 /* Behind it the scene fades to black under the world's logo, lifted and
-   scaled as the title lifts it over its card (title-intro.mjs). */
+   scaled as the title lifts it over its card (title-intro.mjs). Then the
+   owner's workbench comes up as Settings' own scene. */
 .settings-veil {
   position: absolute;
   inset: 0;
@@ -1075,14 +1076,38 @@ body:has(#settings-screen[open]) .settings-veil {
   visibility: visible;
   transition: opacity 0.6s ease;
 }
-.settings-veil > img {
+.settings-scene {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  /* It stays while the veil fades out. */
+  animation: settings-scene-hold 0.6s;
+}
+body:has(#settings-screen[open]) .settings-scene {
+  animation: settings-scene 0.8s ease 1.2s both;
+}
+@keyframes settings-scene {
+  to {
+    opacity: 1;
+  }
+}
+@keyframes settings-scene-hold {
+  from,
+  to {
+    opacity: 1;
+  }
+}
+.settings-logo {
   width: min(76vw, 1400px);
   max-height: 80dvh;
   object-fit: contain;
   transform: translateY(-14dvh) scale(0.8);
 }
 @media (max-width: 640px) {
-  .settings-veil > img {
+  .settings-logo {
     width: calc(100vw - 32px);
   }
 }
@@ -1090,6 +1115,10 @@ body:has(#settings-screen[open]) .settings-veil {
   .settings-veil,
   body:has(#settings-screen[open]) .settings-veil {
     transition: none;
+  }
+  .settings-scene,
+  body:has(#settings-screen[open]) .settings-scene {
+    animation-duration: 0s;
   }
 }
 .hand-wrap:has(> #settings-screen[open]) > #hand,

@@ -78,14 +78,14 @@ Cottage (`lonely-forest`), The Reflected Shore (the hub), The Wine-Dark Sea
 (`greek-drama`) and Hoppy Cat Universe (`hoppycat-archive`). A pack card is
 a place card drawn as the quest card draws its place (`questScreen`): the
 painting feathered into the card, its name where the quest names its verb.
-Most other cards are place cards too, each a region of the owner's moonlit
+Every other card is a place card too, each a region of the owner's moonlit
 workbench (`assets/settings/PROVENANCE.md`): the sealed letter for Privacy,
-the candle for Volume, the dice cup for Fight speed, the dice for Play counts,
-Pip at the table for Account, the old books for Credits, the brass mug for
-World pool, the scroll for Backup, the round window for New game, the
-armillary for Controls and the book stack for Download. Music, Voices,
-Flashes and scares and Another passkey keep their transparent figures. A
-card lifted over the next by pointer or focus moves that card's name clear.
+lamplight on the bench for Music, Pip's ears for Voices, the candle flame for
+Volume, a moth's wing for Flashes and scares, the dice cup for Fight speed,
+the dice for Play counts, Pip at the table for Account, the gear for Another
+passkey, the old books for Credits, the brass mug for World pool, the scroll
+for Backup, the moon for New game, the armillary for Controls and the book
+stack for Download. A card lifted over the next by pointer or focus moves that card's name clear.
 A pack card is lit while its pack is on, and dims when it is off. Its button
 switches it (rules 98, `pack-toggle.mjs`; no turn passes) or names why it
 can't: one pack stays on, not during a fight, the shore not before the first
@@ -96,7 +96,9 @@ logo (the toolbar's, set where the title lifts it over its card) and the
 room or battle song fades out and holds its place; closing Settings fades
 both back in, the song from where it stopped (`setQuiet` in `music.mjs` and
 `music-cues.mjs`). The island hum and world sounds rest with it. Reduced
-motion swaps the scene at once. `smoke-card-settings.mjs` checks choosing,
+motion swaps the scene at once. A moment later the workbench painting comes
+up whole as Settings' own scene, as a place's painting is a scene's
+(`SCENE`). `smoke-card-settings.mjs` checks choosing,
 pressing, the second press and closing at three widths; `smoke-card-music.mjs`
 checks the held song.
 

@@ -4337,6 +4337,15 @@
       "phone": "assets/optimized/phone/webp/rest/short-rest.webp",
       "phoneHash": "0d2b50defdcb3098af2b821292be9bf6ee38e340470a2c304f06c922abe6c5fb"
     },
+    "assets/settings/source/moonlit-cozy-fantasy-workbench.png": {
+      "sourceHash": "54bdc8d09db7a5954bdaedda0705114fa4613cf3c166ee93258fc12de29ccbd3",
+      "stage": "assets/optimized/stage/png/settings/source/moonlit-cozy-fantasy-workbench.webp",
+      "stageHash": "18f27be4579746ee106760edec4a49bfcf01d2d57529afff0004ebe817be4192",
+      "card": "assets/optimized/card/png/settings/source/moonlit-cozy-fantasy-workbench.webp",
+      "cardHash": "8feb74d03ef48dc2bf5092f01e2450a859de20fe1f4e4ab1cf5523816cd4097e",
+      "phone": "assets/optimized/phone/png/settings/source/moonlit-cozy-fantasy-workbench.webp",
+      "phoneHash": "18e8343e5d2bc34badef133b53692d701e5118ac3ae838307ace2b49783bac8b"
+    },
     "assets/settings/workbench-armillary.png": {
       "sourceHash": "3d2f38b00f6b8315a7f0b0e0636ed8c136d2f86b2fda464205d3403c49b10186",
       "stage": "assets/optimized/stage/png/settings/workbench-armillary.webp",
@@ -4382,6 +4391,42 @@
       "phone": "assets/optimized/stage/png/settings/workbench-dice.webp",
       "phoneHash": "5ea43642fa308b9992ac4bc62948e272169e605cfcd58cfbed374b888f101b5b"
     },
+    "assets/settings/workbench-ears.png": {
+      "sourceHash": "fbbd0ea6459b6c52d15d481c5d9b01b1f628624ec6b5ffd3501a3dd7187f631e",
+      "stage": "assets/optimized/stage/png/settings/workbench-ears.webp",
+      "stageHash": "93e949bf942df77e5bb0abc61162fdfb4b912d1d831167a90e9fd37d8d767e25",
+      "card": "assets/optimized/stage/png/settings/workbench-ears.webp",
+      "cardHash": "93e949bf942df77e5bb0abc61162fdfb4b912d1d831167a90e9fd37d8d767e25",
+      "phone": "assets/optimized/stage/png/settings/workbench-ears.webp",
+      "phoneHash": "93e949bf942df77e5bb0abc61162fdfb4b912d1d831167a90e9fd37d8d767e25"
+    },
+    "assets/settings/workbench-flame.png": {
+      "sourceHash": "00b890ab47359f4ef3600cdb6cc7181aa2925051304deec57d99e0e7a335522b",
+      "stage": "assets/optimized/stage/png/settings/workbench-flame.webp",
+      "stageHash": "5d0a2f84c1987005ad1c54ffbfcd705355b06bb6b157f76dcb3ccf255679b959",
+      "card": "assets/optimized/stage/png/settings/workbench-flame.webp",
+      "cardHash": "5d0a2f84c1987005ad1c54ffbfcd705355b06bb6b157f76dcb3ccf255679b959",
+      "phone": "assets/optimized/stage/png/settings/workbench-flame.webp",
+      "phoneHash": "5d0a2f84c1987005ad1c54ffbfcd705355b06bb6b157f76dcb3ccf255679b959"
+    },
+    "assets/settings/workbench-gear.png": {
+      "sourceHash": "7a58928f4af21f4b41eda1dcf047cc7bee6bb79e754d40f8f579c7b4bfb60d2d",
+      "stage": "assets/optimized/stage/png/settings/workbench-gear.webp",
+      "stageHash": "8461c11cf0473d082aebc77e5ebb66a76b250e7a39ae4324343ee2171483c332",
+      "card": "assets/optimized/stage/png/settings/workbench-gear.webp",
+      "cardHash": "8461c11cf0473d082aebc77e5ebb66a76b250e7a39ae4324343ee2171483c332",
+      "phone": "assets/optimized/stage/png/settings/workbench-gear.webp",
+      "phoneHash": "8461c11cf0473d082aebc77e5ebb66a76b250e7a39ae4324343ee2171483c332"
+    },
+    "assets/settings/workbench-lamplight.png": {
+      "sourceHash": "4bc06b7f60a798ffa4d7a2e6848da94eaa192abb0760bb91e361e72203876e96",
+      "stage": "assets/optimized/stage/png/settings/workbench-lamplight.webp",
+      "stageHash": "bed2b52ce604e9bc903d70a8280b1ecabe80292d221d91a6dcf4aecf3bcc2ec0",
+      "card": "assets/optimized/stage/png/settings/workbench-lamplight.webp",
+      "cardHash": "bed2b52ce604e9bc903d70a8280b1ecabe80292d221d91a6dcf4aecf3bcc2ec0",
+      "phone": "assets/optimized/stage/png/settings/workbench-lamplight.webp",
+      "phoneHash": "bed2b52ce604e9bc903d70a8280b1ecabe80292d221d91a6dcf4aecf3bcc2ec0"
+    },
     "assets/settings/workbench-letter.png": {
       "sourceHash": "aa832f5e59dc6768628a2630aa298fd267f81265d55f1004ee6dc99ed0c566ea",
       "stage": "assets/optimized/stage/png/settings/workbench-letter.webp",
@@ -4390,6 +4435,15 @@
       "cardHash": "4b9c32dd746293f6e78cf5559794d91125461931c8b9a2583e8618d3f04891b7",
       "phone": "assets/optimized/stage/png/settings/workbench-letter.webp",
       "phoneHash": "4b9c32dd746293f6e78cf5559794d91125461931c8b9a2583e8618d3f04891b7"
+    },
+    "assets/settings/workbench-moon.png": {
+      "sourceHash": "2b072bd659868e7b09df61234015b662bcfea3fb681fce16a53195a9bf23727e",
+      "stage": "assets/optimized/stage/png/settings/workbench-moon.webp",
+      "stageHash": "964b9513c8cef9cae49835202019844e6d5343def3d884ba7913414407e4130f",
+      "card": "assets/optimized/stage/png/settings/workbench-moon.webp",
+      "cardHash": "964b9513c8cef9cae49835202019844e6d5343def3d884ba7913414407e4130f",
+      "phone": "assets/optimized/stage/png/settings/workbench-moon.webp",
+      "phoneHash": "964b9513c8cef9cae49835202019844e6d5343def3d884ba7913414407e4130f"
     },
     "assets/settings/workbench-moth.png": {
       "sourceHash": "f98655a0f01f56e5fd5fff7a69f0ab1b5b315a5dad464e3ff3bde8878564af10",
@@ -4418,6 +4472,15 @@
       "phone": "assets/optimized/stage/png/settings/workbench-old-books.webp",
       "phoneHash": "2efc96ddaaa64657216a555dd5e0571a380ac55843458f1ac04cf26293d183df"
     },
+    "assets/settings/workbench-play.png": {
+      "sourceHash": "6f3ddc53d11d48b217048d2635ff4be34f33e8a51568e7e18ae6475d4973a101",
+      "stage": "assets/optimized/stage/png/settings/workbench-play.webp",
+      "stageHash": "6ae6d3baff0c22bec1245dceccba452429c218c00b3c0b616fd609bc31716bdb",
+      "card": "assets/optimized/stage/png/settings/workbench-play.webp",
+      "cardHash": "6ae6d3baff0c22bec1245dceccba452429c218c00b3c0b616fd609bc31716bdb",
+      "phone": "assets/optimized/stage/png/settings/workbench-play.webp",
+      "phoneHash": "6ae6d3baff0c22bec1245dceccba452429c218c00b3c0b616fd609bc31716bdb"
+    },
     "assets/settings/workbench-scroll.png": {
       "sourceHash": "55cfcb8ca696e27bdc2e195a3abea8951d2147aed1f0e3e3ad4b0d45ab29a5db",
       "stage": "assets/optimized/stage/png/settings/workbench-scroll.webp",
@@ -4435,6 +4498,24 @@
       "cardHash": "29abd4abf9a5139d52f85a78f067ca53a6c111399618e804fe03b0b3b596ed38",
       "phone": "assets/optimized/stage/png/settings/workbench-window.webp",
       "phoneHash": "60dfa1c949cd4cd0f97de76b62793da07b2957f97210f951e184820278b29692"
+    },
+    "assets/settings/workbench-wing.png": {
+      "sourceHash": "c063768fa4a1da1437dba66f1d64344eaac7c38009c9a10614ea64213ca60c33",
+      "stage": "assets/optimized/stage/png/settings/workbench-wing.webp",
+      "stageHash": "9220db23437b929c98abde849a09d20c99e531e98dc91117e79a4b3a95ba5c3d",
+      "card": "assets/optimized/stage/png/settings/workbench-wing.webp",
+      "cardHash": "9220db23437b929c98abde849a09d20c99e531e98dc91117e79a4b3a95ba5c3d",
+      "phone": "assets/optimized/stage/png/settings/workbench-wing.webp",
+      "phoneHash": "9220db23437b929c98abde849a09d20c99e531e98dc91117e79a4b3a95ba5c3d"
+    },
+    "assets/settings/workbench-you.png": {
+      "sourceHash": "a76189ad4ad104802c3c13795ac813d2aa2e5c3d5d657db0e47856fc630db67c",
+      "stage": "assets/optimized/stage/png/settings/workbench-you.webp",
+      "stageHash": "bfa58d32be3b74a7ffb18015f0de8b5f18301d5394cd4e60edd6d22b2ace2116",
+      "card": "assets/optimized/stage/png/settings/workbench-you.webp",
+      "cardHash": "bfa58d32be3b74a7ffb18015f0de8b5f18301d5394cd4e60edd6d22b2ace2116",
+      "phone": "assets/optimized/stage/png/settings/workbench-you.webp",
+      "phoneHash": "bfa58d32be3b74a7ffb18015f0de8b5f18301d5394cd4e60edd6d22b2ace2116"
     },
     "assets/shared/characters/ada-scarf.png": {
       "sourceHash": "401bf9cc37ba4bb8ebcfaae2fa45b9e3126e197d1a6e482da7bf006b63b98c8f",
