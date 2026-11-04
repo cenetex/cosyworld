@@ -5598,7 +5598,7 @@
             subject: "greek-guard",
             at: "greek-gate",
             label: "Hear the burial order",
-            text: "The guard reads the burial prohibition aloud. He keeps the road shut until an order from the palace is in his hand.",
+            text: "The guard reads the burial prohibition aloud.",
             requires: [],
             effects: [
               {
@@ -5607,7 +5607,7 @@
                 value: true
               }
             ],
-            textTemplate: "The guard reads the burial prohibition aloud. He keeps the road shut until an order from the palace is in his hand.",
+            textTemplate: "The guard reads the burial prohibition aloud.",
             on: "meet"
           },
           {
@@ -18138,6 +18138,14 @@
   var sealedRoutes = packDefinitions.flatMap(
     (pack) => (pack.routes || []).filter((r) => r.sealed)
   );
+  function sealedWays(s, actor = currentActor(s)) {
+    const here = s.actors[actor]?.place, ways = sealedRoutes.filter(
+      (r) => r.from === here && entityActive(s, r.to) && entityActive(s, here)
+    );
+    if (!ways.length) return [];
+    const open = exits(s, here, actor);
+    return ways.filter((r) => !open.includes(r.to));
+  }
   var openingPlace = (place) => Object.entries(homeGates).some(
     ([home, gate]) => gate.opening && [home, gate.rescue, "station"].includes(place)
   );
@@ -19324,6 +19332,16 @@
       return life || null;
     return { ...life, persona: null };
   }
+  function wayFacts(world, place) {
+    const actor = currentActor(world);
+    if (world.actors[actor]?.place !== place) return [];
+    const shut = sealedWays(world, actor).map((r) => r.to);
+    const open = exits(world, place, actor);
+    const ways = packDefinitions.flatMap((pack) => pack.routes || []).filter((r) => r.sealed && r.from === place).map((r) => r.to);
+    return [...new Set(ways)].filter((to) => shut.includes(to) || open.includes(to)).map(
+      (to) => shut.includes(to) ? `The way to ${nameOf(to)} is shut.` : `The way to ${nameOf(to)} is open.`
+    );
+  }
   function narrativeContext(world, action = null) {
     const cast = dialogueCast(world, action);
     const {
@@ -19362,6 +19380,7 @@
     );
     const quietFact = bellHandled && !bellRang && !world.items.bell.ringing ? `The Bell made no sound this turn: it is ${covered(world, "bell") ? "wrapped in the Black cloth and " : ""}silent. Nobody rang it.` : null;
     const mindsNoise = (id) => /noise|ringing/i.test(tastes[id]?.sore || "");
+    const ways = wayFacts(world, location);
     const conversation = beforeFirstLight ? [] : world.log.filter(
       (entry) => entry.generated && entry.kind === "dialogue" && profiles[entry.actorId]?.kind === "avatar" && entry.locationId === location && entry.turn < world.turn
     ).slice(-6).map(({ actorId, text: text2, cast: cast2, witnesses }) => ({
@@ -19446,6 +19465,7 @@
           facts.push(
             `Location now: ${nameOf(world.actors[id].place)}. Company now: ${company.map(nameOf).join(", ") || "alone"}.`
           );
+          if (world.actors[id].place === location) facts.push(...ways);
           const movement = changes2.find((change) => change.actorId === id);
           if (defeated && id === speakers[0]) facts.unshift(defeated);
           else if (movement && speakers.includes(id))
@@ -19517,6 +19537,7 @@
           facts.push(
             `Paths visible now: ${exits(world, id, currentActor(world)).map(nameOf).join(", ") || "none"}.`
           );
+          if (id === location) facts.push(...ways);
           if ((id === "attic" || id === "pond") && exits(world, id).includes(id === "attic" ? "pond" : "attic"))
             facts.push("An open passage is visible in the reflection.");
           if (id === "pond" && world.locations.pond.answer === "hush")
