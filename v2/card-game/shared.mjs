@@ -65,6 +65,10 @@ function openFailure(error) {
     ? PAUSED
     : errorText(error);
 }
+// A release swap briefly runs rules older than the world's (docs/release.md).
+// The world waits, unchanged, and opens itself when the newer build is back.
+export const UPDATING = "Updating — back in a moment";
+export const updatingDelay = (attempt) => Math.min(2000 * 2 ** attempt, 30000);
 function panel(title, description, closable = true) {
   if (!modal) {
     ensureSharedStyle();
@@ -168,7 +172,21 @@ export async function connectSharedWorld(id) {
     };
     // One message: why the world did not open, and that it is kept. A
     // failed retry redraws the card instead of repeating the message below.
+    let waits = 0;
     const failed = (error) => {
+      // The reason is the action's label; it retries on its own.
+      if (error?.code === "updating") {
+        const wait = node("button", UPDATING);
+        wait.type = "button";
+        wait.disabled = true;
+        panel("Open this world", "Everything in it is kept.", false).append(
+          wait,
+        );
+        return setTimeout(
+          () => authenticate(enter, false).catch(failed),
+          updatingDelay(waits++),
+        );
+      }
       // A world nobody is in any more has closed (full_retire.rs): the bare
       // address stops resuming it, and nothing is worth trying again.
       if (/has closed/.test(error?.message || "")) {

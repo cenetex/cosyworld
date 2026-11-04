@@ -203,6 +203,8 @@ jobs:
             exit 1
           fi
 
+  # One job per smoke: the core list in scripts/fast-smokes.json on every run,
+  # then up to three chosen by changed paths. The fast job counts them all.
   smoke:
     name: Browser smoke (${{ matrix.smoke }})
     needs: plan

@@ -38,19 +38,20 @@ test("each address names its world", () => {
 });
 
 test("a world keeps its logo and a new world avoids the last one", () => {
-  const first = chooseLogo("world:a", {}, 2);
+  const two = LOGOS.slice(0, 2);
+  const first = chooseLogo("world:a", {}, two);
   assert.equal(
-    chooseLogo("world:a", {}, 2),
+    chooseLogo("world:a", {}, two),
     first,
     "deterministic from the id",
   );
   let memory = rememberLogo({}, "world:a", first);
-  assert.equal(chooseLogo("world:a", memory, 2), first);
-  const second = chooseLogo("world:b", memory, 2);
+  assert.equal(chooseLogo("world:a", memory, two), first);
+  const second = chooseLogo("world:b", memory, two);
   assert.notEqual(second, first);
   memory = rememberLogo(memory, "world:b", second);
-  assert.equal(chooseLogo("world:a", memory, 2), first, "a return keeps it");
-  assert.equal(chooseLogo("solo", { last: 0 }, 1), 0);
+  assert.equal(chooseLogo("world:a", memory, two), first, "a return keeps it");
+  assert.equal(chooseLogo("solo", { last: 0 }, LOGOS.slice(0, 1)), 0);
 });
 
 test("worldLogo remembers reloads; a fresh world switches logos", () => {

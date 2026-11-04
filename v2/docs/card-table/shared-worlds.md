@@ -289,6 +289,13 @@ versions 2–10 retain their exact interpreter bytes for replay.
 The current rules version is reported by `/meta.card_game.shared_rules_version`
 and comes from the shared engine constant.
 
+A world saved by rules newer than the server's (a release swap, see
+[release operations](../../../docs/release.md#dev-trains)) is not migrated or
+rewritten: the open and play paths answer `503` with `code: "updating"`, and
+the Open this world card labels its disabled action "Updating — back in a
+moment" and retries on its own (2 s doubling to 30 s). An older or unknown
+version keeps "This world's rules need a saved migration."
+
 Version 9 adds a two-card quest hand and explicit Drop actions. Loading an earlier
 world first replays its accepted history with the recorded interpreters, then
 records an upgrade to version 9. The upgrade preserves the world turn, item
