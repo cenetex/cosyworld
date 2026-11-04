@@ -4,7 +4,11 @@ import { chromium, webkit } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
 import { createWorld, encodeSave } from "../card-game/world.mjs";
 import { knowsFact } from "../card-game/knowledge.mjs";
-import { selectCard, revealCard, tapCard } from "./card-browser-helpers.mjs";
+import {
+  selectCard as selectDesktopCard,
+  revealCard,
+  tapCard,
+} from "./card-browser-helpers.mjs";
 
 const browserName = process.env.CARD_BROWSER || "chromium";
 const browserType = { chromium, webkit }[browserName];
@@ -121,6 +125,25 @@ try {
       });
     });
     const card = (id) => page.locator(`#hand [data-card="${id}"]`);
+    // Phone play uses the exposed card top above the dialogue, including
+    // after a new scene or a storage refresh changes the hand's layout.
+    const selectCard = async (page, id, options) => {
+      if (width >= 700) return selectDesktopCard(page, id, options);
+      const frame = card(id).locator("..");
+      const holder =
+        (await frame.getAttribute("hidden")) !== null
+          ? await frame.getAttribute("data-holder")
+          : null;
+      await tapCard(await revealCard(page, id));
+      if (
+        holder &&
+        (await card(holder).getAttribute("aria-pressed")) === "true" &&
+        !(await card(holder).evaluate((node) =>
+          node.classList.contains("location"),
+        ))
+      )
+        await tapCard(card(holder));
+    };
     const state = () =>
       page.evaluate((key) => JSON.parse(localStorage.getItem(key)), key);
     const ready = async () => {
