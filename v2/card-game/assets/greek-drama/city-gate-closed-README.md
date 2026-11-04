@@ -2,8 +2,11 @@
 
 Matched paintings for the `greek-gate` place when its state is `closed`.
 Both bronze-studded leaves are shut and barred. The lion-head handles remain
-visible, and a small sealed decree hangs below the right ring handle at adult
+visible, and a small sealed decree hangs below the left ring handle at adult
 eye height. The Gate Guard belongs in a separate character sprite.
+
+All four gate paintings were mirrored on 2026-11-04 so the doors face the
+card row; the recorded prompts describe the unmirrored originals.
 
 | Place        | State    | Period  | Asset                         |
 | ------------ | -------- | ------- | ----------------------------- |
