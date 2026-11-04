@@ -63,6 +63,8 @@ mod reflections;
 pub(crate) use reflections::shared as shared_reflections;
 #[path = "card_narrative/instruction.rs"]
 mod instruction;
+#[path = "card_narrative/speech.rs"]
+mod speech;
 #[path = "card_narrative/untrusted.rs"]
 mod untrusted;
 #[cfg(test)]
@@ -2403,6 +2405,8 @@ struct Check<'a> {
     recent: Vec<String>,
     /// The line this reply answers, when there is one.
     answered: Option<String>,
+    /// Everyone else's names, for a quoted reply's dialogue tags.
+    speakers: Vec<String>,
     /// Other speakers' recent lines here: a six-word run from one is a
     /// parroted line ("Ships for Signal Jetty leave from ..."), not speech.
     others: Vec<String>,
@@ -2477,6 +2481,14 @@ impl<'a> Check<'a> {
                     .then(|| answered(context, entity).map(|line| line.text.clone()))
                     .flatten()
             },
+            speakers: profiles()
+                .as_object()
+                .expect("profiles")
+                .values()
+                .filter_map(|p| p["name"].as_str())
+                .filter(|n| *n != own)
+                .map(str::to_string)
+                .collect(),
             others: if chatting {
                 let mut others = conversation::others_lines(context, entity);
                 others.extend(between::quoted(context, entity));
@@ -2616,9 +2628,28 @@ impl<'a> Check<'a> {
             _ => first,
         };
         let line = staged[at].0;
-        let cut_line = staged.len() > at + 1;
+        let mut cut_line = staged.len() > at + 1;
         flag(avatar && staged[..=at].iter().any(|s| s.2), "stage action");
         let mut text = staged[at].1.clone();
+        // An answer in quotes, as a prefilled reply continues it after a
+        // heard line: my own spans, without their tags or the narration
+        // between them. A span tagged to someone else ("Then stay,” Pip
+        // says) is theirs.
+        let mut finished = finished;
+        if avatar && self.answered.is_some() && speech::opens(&text) {
+            let rest: Vec<&str> = staged[at..].iter().map(|s| s.1.as_str()).collect();
+            let said =
+                speech::own_words(&rest.join("\n"), &self.speakers, self.answered.as_deref());
+            flag(said.other, "other speaker");
+            if said.text.trim().is_empty() && said.other {
+                return Err("other speaker");
+            }
+            if !said.text.trim().is_empty() {
+                text = said.text;
+                cut_line = false;
+                finished |= said.closed;
+            }
+        }
         if instruction::instructs(&text) {
             return Err("instruction");
         }
