@@ -19,11 +19,35 @@ import {
   questHand,
   questId,
   questNear,
+  questSentence,
+  questTier,
   questVerb,
 } from "../v2/card-game/quest-card.mjs";
+import { cardLevel, levelTier } from "../v2/card-game/rarity.mjs";
 import { QUEST_LIMIT } from "../v2/card-game/want.mjs";
 
 describe("the quest card", () => {
+  it("names a gift as a sentence and takes its parts' highest tier", () => {
+    const s = createWorld();
+    const quest = {
+      actor: "vale",
+      kind: "item",
+      target: "greek-decree",
+      step: { verb: "give", to: "greek-guard" },
+    };
+    expect(questSentence(quest)).toBe(
+      "Give the Burial Decree to the Gate Guard",
+    );
+    const top = Math.max(
+      cardLevel(s, "greek-decree"),
+      cardLevel(s, "greek-guard"),
+    );
+    expect(questTier(quest, s).id).toBe(levelTier(top).id);
+    expect(questTier(quest, s).id).not.toBe("common");
+    // Parts not yet found give no colour away.
+    expect(questTier(quest, s, () => false).id).toBe("common");
+  });
+
   it("shows the player's want in the rules' words, covered until uncovered", () => {
     const s = createWorld();
     const quest = questCard(s);
