@@ -283,6 +283,10 @@ export const packMediaFiles = [
 ].filter(Boolean);
 
 export const packState = (world, id) => world.packs?.[id];
+// Packs a world may switch off (pack-toggle.mjs); the rest are always on.
+export const SWITCHED = ["greek-drama", "hoppycat-archive", "lonely-forest"];
+export const packOn = (world, id) =>
+  !SWITCHED.includes(id) || world.enabledPacks.includes(id);
 export function conditionsMet(world, packId, conditions = [], actor = null) {
   if (!world.packs?.[packId]) return false;
   for (const condition of conditions)
@@ -336,6 +340,8 @@ export function entityEnabled(world, id, saved = false) {
     return false;
   const e = packEntity(id);
   if (!e) return true;
+  // A pack switched off sleeps where it stands (rules 97, pack-toggle.mjs).
+  if (!saved && world.enabledPacks && !packOn(world, e.packId)) return false;
   const pack = packDefinition(e.packId),
     state = packState(world, e.packId);
   if (

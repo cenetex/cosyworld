@@ -173,6 +173,11 @@ import {
 } from "./pack-transport.mjs";
 import { upgradeSave } from "./legacy-saves.mjs";
 import {
+  installEnabledPacks,
+  togglePack,
+  validEnabledPacks,
+} from "./pack-toggle.mjs";
+import {
   installItemCycle,
   settleItemCycle,
   settleVoyageCargo,
@@ -296,6 +301,7 @@ export function createWorld({ opening = false, packScopes = {}, seed } = {}) {
 function installPacks(s) {
   const added = [];
   installTransports(s);
+  installEnabledPacks(s);
   s.crossings ??= {};
   s.packs ??= {};
   const fresh = newMemories();
@@ -2684,6 +2690,28 @@ export function play(
       state: s,
       error: "The world changed. Choose a current play.",
     };
+  // Switching a pack off or on is journaled like a play; no turn passes
+  // (rules 97, pack-toggle.mjs).
+  if (action?.kind === "pack") {
+    const next = structuredClone(s);
+    const done = togglePack(next, action, {
+      closeStandoff,
+      questsOf,
+      player: (id) => controlledByHuman(next, id) || humanAvatar(id),
+      hash: (key) => runHash(next, key),
+      setAside: (world, id) => setAsideWant(world, id, wantAPI(world)),
+    });
+    if (done.error) return { ok: false, state: s, error: done.error };
+    next.revision += 1;
+    addLog(next, "World", done.text, {
+      kind: "action",
+      actorId: actor,
+      verb: "pack",
+      witnesses: [actor],
+    });
+    validateWorld(next);
+    return { ok: true, state: next };
+  }
   const exact = legalActions(s, actor).find((a) => a.key === action?.key);
   if (!exact)
     return {
@@ -3249,6 +3277,7 @@ export function validateWorld(s) {
       s.arrival.fromLocationId === s.arrival.locationId)
   )
     fail();
+  if (!validEnabledPacks(s.enabledPacks)) fail();
   let seq = 0;
   const verbs = [
     "want_met",
@@ -3265,6 +3294,7 @@ export function validateWorld(s) {
     "drop",
     "focus",
     "gate",
+    "pack",
     "give",
     "ask",
     "light",
