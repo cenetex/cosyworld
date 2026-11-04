@@ -446,6 +446,12 @@ try {
     const captions = await page.locator(".defeat-captions").textContent();
     assert.match(captions, /You dropped the Lamp\./);
     assert.match(captions, /You wake at /);
+    // The winner and the Lamp are written in their card colours.
+    const named = await page.$$eval(".defeat-reveal .card-name", (runs) =>
+      runs.map((run) => run.textContent),
+    );
+    assert.equal(named[0], nameOf(opponent));
+    assert.ok(named.includes("Lamp"), named.join());
     assert.doesNotMatch(captions, /Standoffs lost/);
     assert.match(
       await page.locator("#combat-announcement").textContent(),
