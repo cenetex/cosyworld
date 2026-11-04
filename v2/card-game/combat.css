@@ -332,9 +332,11 @@ body .stage[data-combat="true"] ~ .dialogue.beat-stack[data-dropped="true"] {
      strike painting swapping in never resizes its fighter. Each stays on
      screen: a mark keeps about half the widest painting from either edge.
      The margin is the same for every fighter, so the exchange keeps the
-     middle that combat-view.mjs turns those waiting toward. */
+     middle that combat-view.mjs turns those waiting toward. The height
+     reads the cast, not each slot's own size, since a beat's shorter cast
+     (style.css) can leave a smaller slot under the cap. */
   #cast[data-battle] .portrait[data-battle-row="front"] {
-    height: min(calc(var(--stage-size) * 0.8), 88vw);
+    height: min(80%, 88vw);
     left: clamp(32vw, var(--battle-x), calc(100% - 32vw));
   }
   /* Stepping from the scene's close-up into the two-shot is one slow
