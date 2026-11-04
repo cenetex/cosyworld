@@ -9,6 +9,13 @@ const server = createServer();
 await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
 const origin = `http://127.0.0.1:${server.address().port}`;
 const browser = await chromium.launch({ headless: true });
+// The words a play's outcome shows: the status line, or once that is clear,
+// a refused play's own disabled button.
+const shows = (text) =>
+  (document.querySelector("#play-status").hidden
+    ? document.querySelector("#card-actions [data-blocked=refused]")
+        ?.textContent
+    : document.querySelector("#play-status").textContent) === text;
 async function checkPlayRecovery(width, scenario) {
   let world = dispatchShared({
     op: "create",
@@ -117,19 +124,7 @@ async function checkPlayRecovery(width, scenario) {
     const expected = validation
       ? "Choose a current play"
       : "The connection paused. Check the table, then try again.";
-    const shown = () =>
-      document.querySelector("#play-status").hidden
-        ? document.querySelector("#card-actions [data-blocked=refused]")
-            ?.textContent
-        : document.querySelector("#play-status").textContent;
-    await page.waitForFunction(
-      (text) =>
-        (document.querySelector("#play-status").hidden
-          ? document.querySelector("#card-actions [data-blocked=refused]")
-              ?.textContent
-          : document.querySelector("#play-status").textContent) === text,
-      expected,
-    );
+    await page.waitForFunction(shows, expected);
     releasePolls = true;
     // A recovered play that is queued or played retires the cue; its button
     // shows the pending play.
@@ -150,8 +145,7 @@ async function checkPlayRecovery(width, scenario) {
       "Polling preserves the single submitted play.",
     );
     assert.equal(world.turn, scenario === "validation" ? 0 : 1);
-    if (unaccepted || validation)
-      assert.equal(await page.evaluate(shown), expected);
+    if (unaccepted || validation) assert(await page.evaluate(shows, expected));
     if (scenario === "new-notice")
       assert.equal(
         await page.locator("#play-status").textContent(),
@@ -162,25 +156,17 @@ async function checkPlayRecovery(width, scenario) {
       await page.locator('#card-actions [data-action="wait"]').click();
       // Its cards are still chosen, so the refused play's own button says
       // why, disabled, and the status line stays clear.
-      const refusedButton = () =>
-        document.querySelector("#card-actions [data-blocked=refused]")
-          ?.textContent || "";
       await page.waitForFunction(
-        (validation) =>
-          document.querySelector("#play-status").hidden &&
-          (!validation ||
-            document.querySelector("#card-actions [data-blocked=refused]")
-              ?.textContent === "Choose a current play"),
-        validation,
+        validation
+          ? shows
+          : () => document.querySelector("#play-status").hidden,
+        "Choose a current play",
       );
       failAfterRetry = true;
       await page.waitForTimeout(2200);
       assert(pollFailed);
       if (validation)
-        assert.equal(
-          await page.evaluate(refusedButton),
-          "Choose a current play",
-        );
+        assert(await page.evaluate(shows, "Choose a current play"));
       else
         assert(
           await page
