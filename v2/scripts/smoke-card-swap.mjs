@@ -157,7 +157,6 @@ try {
       `http://127.0.0.1:${server.address().port}/?table=swap-${tag}`,
     );
     await ready();
-    // Walks to `place`, filming the swap, and checks what every swap keeps.
     const go = async (place, name) => {
       await selectCard(page, place);
       await tap("#card-actions button");
