@@ -10706,7 +10706,6 @@
             exits: [
               "hoppycat-halfway-tea-garden"
             ],
-            within: "hoppycat-halfway-tea-garden",
             backdrop: "assets/hoppycat-archive/hoppycat-open-record-cathedral.webp"
           },
           "hoppycat-red-thread-belfry": {
@@ -10716,7 +10715,6 @@
             exits: [
               "hoppycat-signal-jetty"
             ],
-            within: "hoppycat-signal-jetty",
             backdrop: "assets/hoppycat-archive/hoppycat-red-thread-belfry.webp"
           },
           "hoppycat-prism-foundry": {
@@ -10726,7 +10724,6 @@
             exits: [
               "hoppycat-halfway-tea-garden"
             ],
-            within: "hoppycat-halfway-tea-garden",
             backdrop: "assets/hoppycat-archive/hoppycat-prism-foundry.webp"
           },
           "hoppycat-context-greenhouse": {
@@ -10736,7 +10733,6 @@
             exits: [
               "hoppycat-halfway-tea-garden"
             ],
-            within: "hoppycat-halfway-tea-garden",
             backdrop: "assets/hoppycat-archive/hoppycat-context-greenhouse.webp"
           },
           "hoppycat-concordance-tidelands": {
@@ -10746,7 +10742,6 @@
             exits: [
               "hoppycat-signal-jetty"
             ],
-            within: "hoppycat-signal-jetty",
             backdrop: "assets/hoppycat-archive/hoppycat-concordance-tidelands.webp"
           },
           "hoppycat-settled-light-theatre": {
@@ -10756,7 +10751,6 @@
             exits: [
               "hoppycat-signal-jetty"
             ],
-            within: "hoppycat-signal-jetty",
             backdrop: "assets/hoppycat-archive/hoppycat-settled-light-theatre.webp"
           },
           "hoppycat-meraki-atelier": {
@@ -10766,7 +10760,6 @@
             exits: [
               "hoppycat-halfway-tea-garden"
             ],
-            within: "hoppycat-halfway-tea-garden",
             backdrop: "assets/hoppycat-archive/hoppycat-meraki-atelier.webp"
           },
           "hoppycat-goldfish-tank": {
@@ -10776,7 +10769,6 @@
             exits: [
               "hoppycat-signal-jetty"
             ],
-            within: "hoppycat-signal-jetty",
             backdrop: "assets/hoppycat-archive/hoppycat-goldfish-tank.webp"
           },
           "hoppycat-signal-jetty": {
@@ -14833,8 +14825,7 @@
           "requires",
           "road",
           "retired",
-          "sanctuary",
-          "within"
+          "sanctuary"
         ]),
         `place ${id} has an unknown field`
       );
@@ -14861,11 +14852,6 @@
             (b) => keysOk(b, ["backdrop", "requires"]) && mediaPathOk(pack.id, b.backdrop) && Array.isArray(b.requires) && b.requires.length > 0
           ),
           `place ${id} backdrops need a backdrop in this pack and saved conditions`
-        );
-      if (p.within !== void 0)
-        check(
-          owns3(places2, p.within) && p.within !== id && places2[p.within].within === void 0 && places2[p.within].exits?.includes(id) && p.exits.length === 1 && p.exits[0] === p.within && p.road === void 0,
-          `place ${id} within ${p.within} must link only to that parent`
         );
       if (p.road !== void 0)
         check(

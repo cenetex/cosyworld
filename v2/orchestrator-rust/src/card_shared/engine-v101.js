@@ -2994,8 +2994,7 @@
           "requires",
           "road",
           "retired",
-          "sanctuary",
-          "within"
+          "sanctuary"
         ]),
         `place ${id} has an unknown field`
       );
@@ -3022,11 +3021,6 @@
             (b) => keysOk(b, ["backdrop", "requires"]) && mediaPathOk(pack.id, b.backdrop) && Array.isArray(b.requires) && b.requires.length > 0
           ),
           `place ${id} backdrops need a backdrop in this pack and saved conditions`
-        );
-      if (p.within !== void 0)
-        check(
-          owns3(places2, p.within) && p.within !== id && places2[p.within].within === void 0 && places2[p.within].exits?.includes(id) && p.exits.length === 1 && p.exits[0] === p.within && p.road === void 0,
-          `place ${id} within ${p.within} must link only to that parent`
         );
       if (p.road !== void 0)
         check(
@@ -5364,6 +5358,7 @@
       upgradeGreekEastSeaSave(s);
       upgradeGreekThreeLinksSave(s);
       upgradeGreekLandRouteSave(s);
+      upgradeGreekForecourtSave(s);
       upgradeRecitals(s, packDefinitions);
     }
     upgradeSightings(s);
@@ -5778,6 +5773,13 @@
           (edge) => !laneOfEdge(edge) || sailed.has(JSON.stringify(edge))
         );
     saved.revision = 18;
+  }
+  function upgradeGreekForecourtSave(s) {
+    const pack = packDefinitions.find((p) => p.id === "greek-drama");
+    const saved = s.packs?.[pack?.id];
+    if (!pack || pack.revision < 19 || saved?.revision !== 18) return;
+    foldRetiredRoads(s);
+    saved.revision = 19;
   }
   var RUMOURS = {
     "greek-marathon": "greek-piraeus",

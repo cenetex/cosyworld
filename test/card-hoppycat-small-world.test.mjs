@@ -40,11 +40,12 @@ describe("Hoppy Cat as a small world", () => {
       expect([...reachable(world)].sort()).toEqual(
         [garden, jetty, ...places].sort(),
       );
-      // Each drawn place is within the garden or the jetty and leads back.
+      // Each drawn place leads back to the garden or the jetty alone.
       for (const id of places) {
         world.actors.vale.place = id;
-        expect([garden, jetty]).toContain(pack.places[id].within);
-        expect(exits(world, id, "vale")).toEqual([pack.places[id].within]);
+        const back = exits(world, id, "vale");
+        expect(back).toHaveLength(1);
+        expect([garden, jetty]).toContain(back[0]);
       }
       // The resident and the thing come from undrawn places to the garden.
       const [, , avatar, item] = drawn;

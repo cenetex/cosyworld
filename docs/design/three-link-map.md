@@ -1,14 +1,19 @@
 # Three links per place
 
-Status: owner decision, 2026-11-01. First pack: Thebes (Greek revision 17).
+Status: owner decision, 2026-11-01; interiors retired 2026-11-04. First
+pack: Thebes (Greek revision 17).
 
 ## Rule
 
 Every place has at most three links. Exits, roads, routes, crossings (even
 while closed) and reflections all count. Boarding a ship counts as one link,
-however many lanes the ship sails, and the ship itself has no cap. A place
-`within` another, such as a house in a quarter, links only
-to its parent and does not count against it.
+however many lanes the ship sails, and the ship itself has no cap. Every
+place counts. There are no interiors: the owner retired `within` on
+2026-11-04 ("Inside is meaningless, it's just a metaphor"), because the
+table shows no difference between inside and outside. The pack schema no
+longer accepts the field, and the Market Well and Hoppy Cat's drawn places
+are ordinary places. Their exits did not change, so saves need no upgrade
+for it.
 
 `test/card-map-rule.test.mjs` enforces the cap. Places still over it are
 listed in `OVER_CAP_FOR_NOW` until their maps are redrawn; remove each one as
@@ -17,13 +22,12 @@ its pack lands.
 ## Thebes
 
 The Hillside Sanctuary is reached through the Palace Forecourt instead of the
-courtyard. The courtyard keeps the Harbor Road, the palace and the gate, plus
-the well within it. A saved step between the courtyard and the sanctuary is
+courtyard. The courtyard keeps the Harbor Road, the palace, the gate and the
+well. A saved step between the courtyard and the sanctuary is
 re-walked through the palace (`upgradeGreekThreeLinksSave`).
 
 Greek revision 19 (#2264) reaches the Palace Forecourt through the Market
-Well. The well leaves the courtyard's interior and links to the courtyard
-and the forecourt; the courtyard keeps the Harbor Road, the well and the
+Well. The well links to the courtyard and the forecourt; the courtyard keeps the Harbor Road, the well and the
 gate. Thebes stays five places with at most three links each. A saved step
 between the courtyard and the forecourt is re-walked through the well
 (`upgradeGreekForecourtSave`).
@@ -58,4 +62,4 @@ or bundle changes.
 ## Engine
 
 The save upgrade lives in `legacy-saves.mjs`, which the shared bundle
-imports, so this ships with the next rules version.
+imports, so this ships with rules 101 (with meeting on arrival, #2257).

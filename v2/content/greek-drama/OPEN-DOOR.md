@@ -16,12 +16,11 @@ City Gate to the battlefield, the Cithaeron road to Eleusis and the Sacred
 Way to the Agora (#2049). The gate guards the city both ways and opens
 only once the guard has held the decree at the gate; after the exposure
 the traveler brings it to him. The Coast Road from
-Piraeus to the Wine-Dark Harbor retired. Athens has three districts of at
-most four places each: the countryside (Eleusis, Colonus, Marathon and the
-Attic Farm, with Acharnae Market within it), the city (the Agora, Assembly
-Hill, the Acropolis and the Thinkery, with the House of Demos and the
-Women's Festival within) and the harbour (Piraeus, which took in Athens
-Harbor). Places in a district link directly. Two gate roads join the
+Piraeus to the Wine-Dark Harbor retired. Athens has three districts: the
+countryside (Eleusis, Colonus, Marathon, the Attic Farm and Acharnae
+Market), the city (the Agora, Assembly Hill, the Acropolis, the Thinkery,
+the House of Demos and the Women's Festival) and the harbour (Piraeus,
+which took in Athens Harbor). Places in a district link directly. Two gate roads join the
 districts. The Sacred Way leads from Eleusis into the city once the mothers'
 petition is at Eleusis or in the Agora; the way back is always open. The
 Long Walls open from both ends once the herald's truce is in the Agora. A

@@ -28,7 +28,6 @@
       "exits": [
         "hoppycat-halfway-tea-garden"
       ],
-      "within": "hoppycat-halfway-tea-garden",
       "backdrop": "assets/hoppycat-archive/hoppycat-open-record-cathedral.webp"
     },
     "hoppycat-red-thread-belfry": {
@@ -38,7 +37,6 @@
       "exits": [
         "hoppycat-signal-jetty"
       ],
-      "within": "hoppycat-signal-jetty",
       "backdrop": "assets/hoppycat-archive/hoppycat-red-thread-belfry.webp"
     },
     "hoppycat-prism-foundry": {
@@ -48,7 +46,6 @@
       "exits": [
         "hoppycat-halfway-tea-garden"
       ],
-      "within": "hoppycat-halfway-tea-garden",
       "backdrop": "assets/hoppycat-archive/hoppycat-prism-foundry.webp"
     },
     "hoppycat-context-greenhouse": {
@@ -58,7 +55,6 @@
       "exits": [
         "hoppycat-halfway-tea-garden"
       ],
-      "within": "hoppycat-halfway-tea-garden",
       "backdrop": "assets/hoppycat-archive/hoppycat-context-greenhouse.webp"
     },
     "hoppycat-concordance-tidelands": {
@@ -68,7 +64,6 @@
       "exits": [
         "hoppycat-signal-jetty"
       ],
-      "within": "hoppycat-signal-jetty",
       "backdrop": "assets/hoppycat-archive/hoppycat-concordance-tidelands.webp"
     },
     "hoppycat-settled-light-theatre": {
@@ -78,7 +73,6 @@
       "exits": [
         "hoppycat-signal-jetty"
       ],
-      "within": "hoppycat-signal-jetty",
       "backdrop": "assets/hoppycat-archive/hoppycat-settled-light-theatre.webp"
     },
     "hoppycat-meraki-atelier": {
@@ -88,7 +82,6 @@
       "exits": [
         "hoppycat-halfway-tea-garden"
       ],
-      "within": "hoppycat-halfway-tea-garden",
       "backdrop": "assets/hoppycat-archive/hoppycat-meraki-atelier.webp"
     },
     "hoppycat-goldfish-tank": {
@@ -98,7 +91,6 @@
       "exits": [
         "hoppycat-signal-jetty"
       ],
-      "within": "hoppycat-signal-jetty",
       "backdrop": "assets/hoppycat-archive/hoppycat-goldfish-tank.webp"
     },
     "hoppycat-signal-jetty": {
