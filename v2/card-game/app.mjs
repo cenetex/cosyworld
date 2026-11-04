@@ -68,11 +68,7 @@ import {
 } from "./quest-card.mjs";
 import { questStep } from "./quest-step.mjs";
 import { questScreen } from "./quest-screen.mjs";
-import {
-  landingPack,
-  createLandingWorld,
-  newRunSeed,
-} from "./pack-landing.mjs";
+import { createLandingWorld, newRunSeed } from "./pack-landing.mjs";
 import { flipStagePortrait, portraitFraming } from "./portrait-facing.mjs";
 import { locationWeather } from "./weather.mjs";
 import { DAYLIGHT_TURNS, isNight, locationDaylight } from "./daylight.mjs";
@@ -121,7 +117,6 @@ import {
 } from "./combat-view.mjs";
 import { expressionLabel, expressionOf } from "./expression.mjs";
 import {
-  connectSharedWorld,
   createSharedPlaybackClock,
   installSharedControls,
   renderRoomStatus,
@@ -134,7 +129,8 @@ import {
 } from "./shared.mjs";
 import { enableMotives } from "./motives.mjs";
 import { seatActors } from "./human-cast.mjs";
-import { PLAYING_KEY, SAVE_BASE } from "./avatar-world.mjs";
+import { PLAYING_KEY } from "./avatar-world.mjs";
+import { openTableSession } from "./table-session.mjs";
 import { createNarrator, requestNarrative, silentLines } from "./narrative.mjs";
 import { signedRequest } from "./signed-words.mjs";
 import { rememberLocalUpgrades, wearLocalUpgrades } from "./scarves.mjs";
@@ -218,20 +214,14 @@ import {
 // A person's want reaches the player through Talk context (want-talk.mjs).
 // The hand holds people, items and places, and the player's quest cards.
 const $ = (id) => document.getElementById(id);
-const tableName = new URLSearchParams(window.location.search).get("table");
-const startingPack = landingPack(window.location.href);
-const sharedWorldId = new URLSearchParams(location.search).get("world");
-const sharedSession = sharedWorldId
-  ? await connectSharedWorld(sharedWorldId)
-  : null;
+const {
+  tableName,
+  startingPack,
+  sharedWorldId,
+  sharedSession,
+  saveKey: SAVE_KEY,
+} = await openTableSession(window.location.href);
 const sharedPlayback = createSharedPlaybackClock();
-const SAVE_KEY = sharedSession
-  ? `${SAVE_BASE}.shared.${sharedWorldId}.${sharedSession.state.actor}`
-  : tableName && /^[a-z0-9-]{1,40}$/i.test(tableName)
-    ? `${SAVE_BASE}.${tableName}`
-    : startingPack
-      ? `${SAVE_BASE}.pack.${startingPack.id}`
-      : SAVE_BASE;
 // A new local world: Vale wakes in the attic, the only avatar played locally
 // (#1892). Its travelers wear the local passkey's cosmetic upgrades (#1873).
 const freshWorld = () =>
