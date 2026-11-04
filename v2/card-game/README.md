@@ -437,7 +437,9 @@ moves again on a redraw, a card seen moving keeps that move, and reduced
 motion just shows it. An entering card takes taps at once; the motion is this
 browser's alone and never waits on the rules or the shared room.
 A card locked behind a quest (a sealed card, the far side of a shut gate) is
-a locked wooden box: the darker locked lid, with no painting and no name.
+a locked wooden box: the darker locked lid on a red edge, labelled only
+"Locked" (the owner's one exception to words on a card), with no painting and
+no name.
 Tapping it chooses it, and the context button gives its quest. When the quest
 opens the way, the box turns over once, with the same lift as an uncovered
 card (a crossfade under reduced motion), and the card shows as itself from

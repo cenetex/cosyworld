@@ -2298,7 +2298,10 @@ function card(id) {
   if (raised && label) observation.textContent += ` ${label}.`;
   const hidden = cardIsCovered(id) || locked;
   if (hidden) observation.textContent = "";
-  el.append(graphic, node("span", hidden ? "" : def.name, "name"), observation);
+  // A locked box is labelled "Locked" (the owner's exception); its reason
+  // is in the context button.
+  const title = locked ? "Locked" : hidden ? "" : def.name;
+  el.append(graphic, node("span", title, "name"), observation);
   // One faint numeral shows a selected person's or thing's level. Places
   // have no level of their own, so they carry none.
   if (type !== "location") {

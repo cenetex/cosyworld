@@ -479,7 +479,8 @@ The save counts each kit's scatters in `scatters`.
 
 A gated route may show a sealed card. While the route is shut from `from`,
 `to` appears as a locked wooden box: the locked lid
-(`assets/card-back-locked.webp`), with no painting and no name. Selecting it
+(`assets/card-back-locked.webp`) on a red edge, labelled only "Locked", with
+no painting and no name. Selecting it
 shows `reason` in the context button, and its play, Seek the way, gives the
 traveller the route's quest at once, as picking a quest does (no turn
 passes). The quest is a story quest: hold or give an item (`to` names who to
