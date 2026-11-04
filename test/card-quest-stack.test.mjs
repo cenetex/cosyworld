@@ -92,16 +92,16 @@ describe("the quest stack", () => {
 
   it("drops an ordinary quest for nothing and a level quest at its cost", () => {
     let s = createWorld();
-    s.actors.vale.xp = 6;
+    s.actors.vale.xp = questXp(3) + 1;
     s.actors.vale.level = 3;
     s.actors.vale.under = [newWant("place", "pond", 0), level("keeper")];
     s = act(s, (a) => a.kind === "drop" && !a.item && a.quest === 1);
     expect(targets(s)).toEqual(["lamp", "keeper"]);
-    expect(s.actors.vale.xp).toBe(6);
+    expect(s.actors.vale.xp).toBe(questXp(3) + 1);
     expect(s.actors.vale.gaveUp).toEqual({ target: "pond", turn: s.turn });
     s = act(s, (a) => a.kind === "drop" && !a.item && a.quest === 1);
     expect(targets(s)).toEqual(["lamp"]);
-    expect(s.actors.vale.xp).toBe(5);
+    expect(s.actors.vale.xp).toBe(questXp(3));
     expect(s.actors.vale.level).toBe(3);
     // Dropping the last one draws another at once.
     s = act(s, (a) => a.kind === "drop" && !a.item);
@@ -113,6 +113,8 @@ describe("the quest stack", () => {
   it("costs 1, 2, 3 XP by level quest, clamped, and says so on Drop", () => {
     const drop = (lvl, xp, quest = lvl + 1) => {
       const s = createWorld();
+      // A world played long enough for the experience.
+      s.turn = s.revision = 4;
       Object.assign(s.actors.vale, { level: lvl, xp });
       s.actors.vale.want = {
         ...level("keeper"),

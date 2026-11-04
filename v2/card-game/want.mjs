@@ -81,14 +81,24 @@ export const levelOf = (s, id) =>
 // the rest that raises the level. The table is in docs/design/level-curve.md.
 export const QUEST_STEP_LEVELS = 5;
 export const questSteps = (level) => Math.ceil(level / QUEST_STEP_LEVELS);
+// Between level quests a player meets ordinary wants, as many as the next
+// quest has steps and rest (option A, rules 99): `levelGap(L)` at level L.
+export const levelGap = (level) => questSteps(level + 1) + 1;
 // A player's next level quest comes with the experience its earlier level
-// quests give (each step and rest is one), plus the one quest met before
-// the first. Residents level on experience alone, on `levelFor`.
+// quests give (each step and rest is one), the one quest met before the
+// first, and each level's gap of ordinary wants. Residents level on
+// experience alone, on `levelFor`.
 export const questXp = (level) => {
-  let xp = level > 1 ? 1 : 0;
+  if (level < 2) return 0;
+  let xp = 1;
   for (let k = 2; k < level; k++) xp += questSteps(k) + 1;
+  for (let k = 1; k < level; k++) xp += levelGap(k);
   return xp;
 };
+// The experience a level is reached with, before its gap, and its halfway.
+export const levelXp = (level) => questXp(level + 1) - levelGap(level);
+export const halfwayXp = (level) =>
+  levelXp(level) + Math.ceil(levelGap(level) / 2);
 // A pack resident may start at an authored level, with the experience that
 // level takes, so its later level-ups stay on the same curve. Player and
 // human avatars always start at the bottom.
