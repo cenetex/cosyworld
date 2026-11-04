@@ -226,6 +226,10 @@ try {
             }),
           ),
           cooling: document.querySelector("#hand").dataset.cooling,
+          handAnimations: document
+            .querySelector("#hand")
+            .getAnimations({ subtree: true })
+            .map((animation) => animation.playState),
         };
       });
       console.error("Music travel failed", {

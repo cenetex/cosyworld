@@ -547,3 +547,16 @@ it("flushes a queued play after an early swap timer wakes", () => {
   expect(queue.pending).toBeNull();
   expect(timers).toHaveLength(0);
 });
+
+it("keeps an expired deadline callback asynchronous during a render", () => {
+  const callback = vi.fn();
+  const timers = [];
+  afterDeadline(() => 1, callback, {
+    now: () => 2,
+    schedule: (run, delay) => timers.push({ run, delay }),
+  });
+  expect(callback).not.toHaveBeenCalled();
+  expect(timers[0].delay).toBe(0);
+  timers.shift().run();
+  expect(callback).toHaveBeenCalledTimes(1);
+});

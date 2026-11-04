@@ -462,5 +462,5 @@ export function afterDeadline(
     if (remaining > 0) schedule(check, Math.ceil(remaining));
     else callback();
   };
-  check();
+  schedule(check, Math.max(0, Math.ceil(deadline() - now())));
 }
