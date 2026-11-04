@@ -64,7 +64,7 @@ function outcomeOf(entry, after) {
 export function outcomeWord(beat) {
   if (beat.kind === "threaten") return "Standoff";
   if (beat.kind === "guard") return "Bracing";
-  if (beat.kind === "intercept") return "Guarding";
+  if (beat.kind === "intercept") return "Covering";
   if (beat.outcome === "sent-home") return "Sent home";
   if (beat.outcome === "yield") return "Yields";
   if (beat.outcome === "guarded") return `Braced −${beat.damage}`;

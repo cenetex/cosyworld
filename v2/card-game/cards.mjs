@@ -72,7 +72,7 @@ export function cardType(id) {
 
 const PLAY_ORDER = ["talk", "wait", "threaten", "guard", "intercept", "attack"];
 // In battle the selection names the verb: yourself is Brace, yourself and
-// another combatant is Guard, another combatant alone is Strike, and this
+// another combatant is Cover, another combatant alone is Strike, and this
 // place is Wait. There is no Talk.
 export function avatarPlays(world, id) {
   if (!people[id] || !availableCards(world).includes(id)) return [];
@@ -381,7 +381,7 @@ export function playText(action) {
     other = nameOf(action?.target).replace(/^The /u, "the ");
   if (action?.kind === "attack") return `${who} strikes ${other}.`;
   if (action?.kind === "guard") return `${who} braces.`;
-  if (action?.kind === "intercept") return `${who} guards ${other}.`;
+  if (action?.kind === "intercept") return `${who} covers ${other}.`;
   return action?.shown || action?.text;
 }
 
@@ -410,7 +410,7 @@ export function playLabel(action, world = null) {
     accompany: "Accompany",
     threaten: "Threaten",
     guard: "Brace",
-    intercept: "Guard",
+    intercept: "Cover",
     attack: "Strike",
     take: "Take",
     drop: "Put down",
