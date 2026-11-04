@@ -119,3 +119,21 @@ comment were dropped; only a display title tag is kept.
 | ------------------------- | ------------------------------------- | -------------------------------------------------------------------------------------- | -------- | ------- | ------------------------------------------------------------------ | ------------------------------------------------------------------ |
 | battle-attic-lamp.mp3     | 3aa3c71f-The_Attic_Keeps_Its_Lamp.m4a | [The Attic Keeps Its Lamp](https://suno.com/song/69f97354-201a-4d76-af26-dee772e9bab1) | 1:18     | -1.0 dB | `d1a9a23ab164dc243c666c3fe48dbfa84ef957a82f3933289d63cfc9d6375a85` | `24cc1aa264262c6c796caebaf278b3f89e2738c6fb50c840d9671b4beb9b945e` |
 | battle-loss-moonstone.mp3 | f72d57eb-Moonstone_Sanctuary.m4a      | [Moonstone Sanctuary](https://suno.com/song/2131fbe4-2f24-4093-8876-139b33de21f8)      | 2:59     | +0.9 dB | `298e341a88f7a2f3fcc4c3be3780517b01facbcb36be515a1a1bee0de9e938be` | `dcbcd0457fcaed65a12d0dbfa6fc95fb560dd8a0b5b344cf12d75c760ce89830` |
+
+## Polynices' burial — November 4, 2026
+
+The project owner made this song in their Suno account and supplied it on
+2026-11-04 as the burial song. It is track 07 of their Wine Dark Sea album
+and replaces their earlier "Anoint Him Slow" in the parked burial design
+(issue #2290): once the rites end at midnight and Antigone sleeps beside her
+brother's grave in the Hollow, it fades in. The card table publishes the file
+now; no room or cue plays it until the burial is built.
+
+The supplied M4A container holds Opus audio, so FFmpeg 9.0.2 made an MP3 copy
+with `libmp3lame -q:a 2` at 48 kHz stereo. A fixed gain then brought it to
+-16.0 LUFS integrated, matching the other songs. The lyrics, subtitle track
+and Suno comment were dropped; only a display title tag is kept.
+
+| File                   | Supplied filename                                          | Suno source                                                                          | Duration | Gain    | Source SHA-256                                                     | MP3 SHA-256                                                        |
+| ---------------------- | ---------------------------------------------------------- | ------------------------------------------------------------------------------------ | -------- | ------- | ------------------------------------------------------------------ | ------------------------------------------------------------------ |
+| hillside-sanctuary.mp3 | c048fd22-Wine_Dark_Sea\_-_07\_-_The_Hillside_Sanctuary.m4a | [The Hillside Sanctuary](https://suno.com/song/1f1ae5c3-9239-43d3-a468-49a1e38b013e) | 4:23     | -0.4 dB | `94fe86c4f42518505e39da97a0523ae04e0e01413341a3f43c90c039705d0039` | `a67672f521db19bb5a3f773871388441342e889cff90aaae61f99db27116b7ca` |
