@@ -87,6 +87,21 @@ run_tests() {
   run_cargo_tests "running orchestrator cargo test" ${skips[@]+"${skips[@]}"}
 }
 
+# The fast check's Rust job: compiles every test target, then runs only the
+# tests whose names contain one of the given filters (module paths chosen by
+# scripts/select-rust-tests.mjs). The full gate stays `test`.
+run_focused() {
+  if [ "$#" -eq 0 ]; then
+    echo "check-rust.sh focused needs at least one test filter" >&2
+    return 2
+  fi
+  local skips=()
+  for name in ${QUARANTINED_TESTS[@]+"${QUARANTINED_TESTS[@]}"}; do
+    skips+=(--skip "$name")
+  done
+  run_cargo_tests "running focused orchestrator tests ($*)" "$@" ${skips[@]+"${skips[@]}"}
+}
+
 run_quarantined() {
   # With no names, libtest would run every test instead of none.
   if [ "${#QUARANTINED_TESTS[@]}" -eq 0 ]; then
@@ -111,6 +126,10 @@ case "${1:-all}" in
     run_fmt
     run_tests
     ;;
+  focused)
+    shift
+    run_focused "$@"
+    ;;
   quarantine)
     run_quarantined
     ;;
@@ -123,7 +142,7 @@ case "${1:-all}" in
     run_build
     ;;
   *)
-    echo "Usage: check-rust.sh [fmt|test|quarantine|build|all]" >&2
+    echo "Usage: check-rust.sh [fmt|test|focused FILTER...|quarantine|build|all]" >&2
     exit 2
     ;;
 esac
