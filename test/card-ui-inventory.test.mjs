@@ -74,4 +74,60 @@ body #card-actions button[data-destructive] { color: var(--danger) }
     const recolour = rules(css.replace("#f2e3c4", "red"));
     expect(ui.compareStyles(recolour, snapshot)).toHaveLength(3);
   });
+
+  it("guards variables across files, chains, fallbacks and media overrides", () => {
+    const files = {
+      "cards.css":
+        ".card { height: var(--height, var(--fallback)); color: var(--ink) }",
+      "theme.css": `:root { --height: calc(var(--unit) * 3); --unit: 20px; --fallback: 40px; --ink: red; --other: 10px }
+@media (width < 600px) { body { --unit: 15px } }`,
+    };
+    const rules = (theme) =>
+      ui.styleTree(
+        Object.keys(files),
+        (f) => (f === "theme.css" ? theme : files[f]),
+        [".card"],
+      );
+    const snapshot = { rules: [...rules(files["theme.css"]).keys()] };
+    for (const [from, to] of [
+      ["20px", "1px"],
+      ["15px", "2px"],
+      ["40px", "3px"],
+      ["--ink: red;", ""],
+    ])
+      expect(
+        ui.compareStyles(rules(files["theme.css"].replace(from, to)), snapshot)
+          .length,
+      ).toBeGreaterThan(0);
+    expect(
+      ui.compareStyles(
+        rules(`${files["theme.css"]}\nbody { --height: 1px }`),
+        snapshot,
+      ).length,
+    ).toBeGreaterThan(0);
+    expect(
+      ui.compareStyles(
+        rules(files["theme.css"].replace("10px", "11px")),
+        snapshot,
+      ),
+    ).toEqual([]);
+  });
+
+  it("flags a card height change in the shipping root variables", () => {
+    const read = (file) => readFileSync(path.join(ROOT, file), "utf8");
+    const snapshot = JSON.parse(read(ui.STYLES));
+    const files = ui.uiFiles();
+    expect(
+      ui.compareStyles(ui.styleTree(files, read, snapshot.surfaces), snapshot),
+    ).toEqual([]);
+    const changed = (file) =>
+      file === "v2/card-game/style.css"
+        ? read(file).replace(/--card-height:\s*[^;]+;/, "--card-height: 1px;")
+        : read(file);
+    const result = ui.compareStyles(
+      ui.styleTree(files, changed, snapshot.surfaces),
+      snapshot,
+    );
+    expect(result.join("\n")).toContain(":root { --card-height: 1px;");
+  });
 });
