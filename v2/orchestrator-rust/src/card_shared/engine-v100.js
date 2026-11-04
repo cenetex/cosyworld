@@ -759,45 +759,18 @@
   // v2/card-game/expression.mjs
   var EXPRESSION_TYPES = ["speech", "movement", "emoji"];
   var expressionOf = (profile) => profile?.expression || "speech";
-  var SELECTOR = String.fromCodePoint(65039);
-  var JOINER = String.fromCodePoint(8205);
-  var bare = (text2) => text2.replace(/[\ufe0f\u{1f3fb}-\u{1f3ff}]/gu, "");
-  var named = new Map(
-    Object.entries(emoji_symbols_default).map(([symbol, name]) => [bare(symbol), name])
-  );
-  var orderedBare = [...named.keys()].sort((a, b) => b.length - a.length);
-  var TONE = /^[\u{1f3fb}-\u{1f3ff}]/u;
-  function readSymbol(rest2) {
-    const base = orderedBare.find((value) => rest2.startsWith(value));
-    if (!base) return null;
-    let length = base.length;
-    if (rest2.startsWith(SELECTOR, length)) length += 1;
-    if (TONE.test(rest2.slice(length))) length += 2;
-    return { length, name: named.get(base) };
-  }
-  function emojiClusters(text2) {
+  var orderedSymbols = Object.keys(emoji_symbols_default).sort((a, b) => b.length - a.length);
+  function emojiParts(text2) {
     if (typeof text2 !== "string" || text2.length > 160) return null;
     let rest2 = text2.trim();
     const parts = [];
     while (rest2) {
-      if (parts.length === 5) return null;
-      let symbol = readSymbol(rest2);
-      if (!symbol) return null;
-      let length = symbol.length;
-      const names3 = [symbol.name];
-      while (rest2.startsWith(JOINER, length)) {
-        symbol = readSymbol(rest2.slice(length + 1));
-        if (!symbol) return null;
-        length += 1 + symbol.length;
-        names3.push(symbol.name);
-      }
-      parts.push({ text: rest2.slice(0, length), name: names3.join(" with ") });
-      rest2 = rest2.slice(length).trimStart();
+      const symbol = orderedSymbols.find((value) => rest2.startsWith(value));
+      if (!symbol || parts.length === 5) return null;
+      parts.push(symbol);
+      rest2 = rest2.slice(symbol.length).trimStart();
     }
     return parts.length >= 2 ? parts : null;
-  }
-  function emojiParts(text2) {
-    return emojiClusters(text2)?.map((part) => part.text) ?? null;
   }
   var expressionKind = (profile) => expressionOf(profile) === "movement" ? "narration" : "dialogue";
   function validExpression(profile, text2) {
@@ -2526,12 +2499,12 @@
     const gift = verb === "give" && w.story && !w.quest;
     const slept = verb === "rest" && !w.story;
     const asked = !w.quest && !w.story && (verb === "give" && w.kind === "item" || verb === "bring" && w.kind === "person");
-    const named2 = home ? ["at"] : asked && w.kind === "person" ? [cards.at === void 0 ? "to" : "at"] : STEP_CARDS[verb] || (verb === "meet" && cards.at ? ["at"] : []);
+    const named = home ? ["at"] : asked && w.kind === "person" ? [cards.at === void 0 ? "to" : "at"] : STEP_CARDS[verb] || (verb === "meet" && cards.at ? ["at"] : []);
     return (Boolean(w.quest) || home || gift || slept || asked) && [
       ...STEP_VERBS[w.kind] || [],
       ...w.kind === "person" ? SAVED_STEP_VERBS : [],
       ...asked ? [verb] : []
-    ].includes(verb) && Object.keys(cards).length === named2.length && named2.every((key2) => typeof cards[key2] === "string") && (!cards.to || Object.hasOwn(s.actors, cards.to) && cards.to !== w.target);
+    ].includes(verb) && Object.keys(cards).length === named.length && named.every((key2) => typeof cards[key2] === "string") && (!cards.to || Object.hasOwn(s.actors, cards.to) && cards.to !== w.target);
   }
   function validHeard(s, id) {
     const heard = s.actors[id].heard;
@@ -3328,12 +3301,12 @@
             ok = keysOk(c, ["kind", "transport", "dock"]) && idOk2(c.transport) && (c.dock === AT_SEA || anyPlace(c.dock));
             break;
           case "knows": {
-            const named2 = Array.isArray(c.topics) ? c.topics : [c.topic];
-            ok = (c.topics === void 0 ? keysOk(c, ["kind", "topic", "role"]) : keysOk(c, ["kind", "topics", "role"]) && named2.length >= 2 && named2.length <= 4 && new Set(named2).size === named2.length && new Set(
-              named2.map(
+            const named = Array.isArray(c.topics) ? c.topics : [c.topic];
+            ok = (c.topics === void 0 ? keysOk(c, ["kind", "topic", "role"]) : keysOk(c, ["kind", "topics", "role"]) && named.length >= 2 && named.length <= 4 && new Set(named).size === named.length && new Set(
+              named.map(
                 (id) => (pack.topics || []).find((topic) => topic.id === id)?.speaker
               )
-            ).size === named2.length) && c.role === "actor" && named2.every(
+            ).size === named.length) && c.role === "actor" && named.every(
               (id) => idOk2(id) && (pack.topics || []).some((topic) => topic.id === id)
             );
             break;
@@ -3646,9 +3619,9 @@
           cast.filter((a) => a.place === place).length <= 2,
           `${place} exceeds two initially active residents`
         );
-      const named2 = cast.map((a) => a.canonicalPerson).filter(Boolean);
+      const named = cast.map((a) => a.canonicalPerson).filter(Boolean);
       check(
-        new Set(named2).size === named2.length,
+        new Set(named).size === named.length,
         "incompatible embodiments are active together"
       );
     }
@@ -6605,8 +6578,8 @@
           (w) => w.step?.verb === "rest" && mine(w.target) ? restStep(s, id, api.want, w.quest) : w
         )
       );
-      const named2 = (w) => names2(w).some(mine);
-      const order = [...list.filter((w) => !named2(w)), ...list.filter(named2)];
+      const named = (w) => names2(w).some(mine);
+      const order = [...list.filter((w) => !named(w)), ...list.filter(named)];
       if (order.length) setQuests(a, order);
     }
   }
@@ -6767,18 +6740,18 @@
   };
   var guardPost = (id) => lifeField(id, "guards") && !humanAvatar(id) ? { from: lifeHome(id), to: lifeField(id, "guards") } : null;
   var wayLifted = (s, from, to) => Boolean(s.openedRoutes?.includes(`${from}>${to}`));
-  function guardedExits(s, place, actor) {
+  function guardedExits(_s, place) {
     guardData();
-    const back = [...returns2.get(place) || []].filter(
-      (from) => actor && (lifeHome(actor) === from || packPeople[actor]?.place === from || s.actors[actor]?.visited?.includes(from))
-    );
-    return [...guardable.get(place) || [], ...back];
+    return [...guardable.get(place) || [], ...returns2.get(place) || []];
   }
+  var guardedWay = (from, to) => isGuardable(from, to) ? [from, to] : isGuardable(to, from) ? [to, from] : null;
   function guardOf(s, from, to, traveller = null) {
-    if (!isGuardable(from, to)) return null;
+    const way = guardedWay(from, to);
+    if (!way) return null;
+    const [post, beyond] = way;
     for (const id of guardians) {
       const a = s.actors[id];
-      if (id === traveller || a?.guarding !== to || a.place !== from || !entityActive(s, id))
+      if (id === traveller || a?.guarding !== beyond || a.place !== post || !entityActive(s, id))
         continue;
       if (!humanAvatar(id)) return id;
       if (humanPresent(s, id) && !(traveller && controlledByHuman(s, traveller)))
@@ -6786,6 +6759,7 @@
     }
     return null;
   }
+  var guardedFrom = (place) => guardedExits(null, place);
   var inStandoff = (s, id) => (s.standoffs || []).some((c) => Object.hasOwn(c.resolve || {}, id));
   function settleGuards(s) {
     guardData();
@@ -7091,7 +7065,7 @@
       ...rescue ? [rescue] : [],
       ...returnPath ? [returnPath] : []
     ];
-    for (const to of guardedExits(s, place, actor))
+    for (const to of guardedExits(s, place))
       if (!ways.includes(to)) ways.push(to);
     return ways.filter(
       (to) => entityActive(s, to) && actorCanVisit(actor, to, s) && humanRoomAvailable(s, actor, to) && !guardOf(s, place, to, actor)
@@ -7102,9 +7076,11 @@
     sealedRoutes ??= packDefinitions.flatMap(
       (pack) => (pack.routes || []).filter((r) => r.sealed || isGuardable(r.from, r.to))
     );
-    const here = s.actors[actor]?.place, ways = sealedRoutes.filter(
-      (r) => r.from === here && entityActive(s, r.to) && entityActive(s, here)
-    );
+    const here = s.actors[actor]?.place, ways = [
+      ...sealedRoutes.filter((r) => r.from === here),
+      // A guard bars his way from both sides (rules 100).
+      ...guardedFrom(here).map((to) => ({ from: here, to }))
+    ].filter((r) => entityActive(s, r.to) && entityActive(s, here));
     if (!ways.length) return [];
     const open = exits(s, here, actor), seen = /* @__PURE__ */ new Set();
     return ways.filter((r) => !open.includes(r.to)).flatMap((r) => {
@@ -7398,8 +7374,8 @@
     return from && to && laneEdges().some(([a, b]) => a === `sea:${from}` && b === `sea:${to}`) ? laneFact(from, to).text : null;
   };
   function publishKnowledgeSpeech(s, entry, disclosures) {
-    const named2 = (id) => nameOf(id) === "the world" ? null : nameOf(id);
-    const learned = acceptKnowledgeSpeech(s, entry, disclosures, named2);
+    const named = (id) => nameOf(id) === "the world" ? null : nameOf(id);
+    const learned = acceptKnowledgeSpeech(s, entry, disclosures, named);
     for (const { fact, listener } of learned)
       if (fact.source.kind === "lane")
         learnLane(s, listener, ...fact.id.slice(5).split(">"));
@@ -9680,9 +9656,9 @@
       new_place: firstArrival(world, cast.location)
     };
     const occasions = meets.defeat ? ["defeat"] : SPEECH_OCCASIONS.filter((name) => meets[name]);
-    const named2 = occasions.flatMap((name) => speech_default[name] || []);
+    const named = occasions.flatMap((name) => speech_default[name] || []);
     const voices = [
-      ...new Set(named2.flatMap((role) => roles[role] || []))
+      ...new Set(named.flatMap((role) => roles[role] || []))
     ].filter(
       (id) => id && cast.ids.includes(id) && profiles[id]?.kind === "avatar"
     );
@@ -9693,7 +9669,7 @@
         ...voices.filter((id) => id === actor),
         ...voices.filter((id) => id !== actor)
       ].slice(0, 3),
-      scenery: named2.includes("place")
+      scenery: named.includes("place")
     };
   }
 
