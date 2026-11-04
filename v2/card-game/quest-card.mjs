@@ -127,15 +127,6 @@ export function questVerb(world, quest, covered = false) {
   return covered || !seen.includes(quest.target) ? "Discover" : "Go to";
 }
 
-// The card's name: the quest as a plain sentence ("Give the Burial Decree
-// to the Gate Guard"), under its "Quest" kicker; a level quest's numeral
-// sits apart. A name's "The" reads lower case inside the sentence.
-export const questSentence = (quest, covered = false, verb = null) =>
-  questCaption({ ...quest, level: null }, covered, verb).replace(
-    /(?<=\s)The(?=\s)/gu,
-    "the",
-  );
-
 // A quest's colour is the tier of the highest-level thing it names (its
 // target, a step's recipient and place), as other cards take theirs, and a
 // level quest's at least the level it leads to. What the player has not

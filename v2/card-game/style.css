@@ -1448,9 +1448,8 @@ body .card-frame[hidden] {
    It holds steady while the target is near: a soft halo, unlike the brief
    met glow. */
 body .card.want-card {
-  /* The scene sits low in the top 75% the hand shows, leaving the label
-     room for its sentence. */
-  --screen-top: 26%;
+  /* The scene sits centred in the top 75% the hand shows. */
+  --screen-top: 17.5%;
   background:
     radial-gradient(
       ellipse 90% 55% at 50% 0%,
@@ -1465,24 +1464,15 @@ body .card.want-card[data-near="true"] {
     0 0 18px 3px color-mix(in srgb, var(--tier-color) 45%, transparent),
     0 6px 20px #0006;
 }
-/* "Quest" and a level quest's numeral, then the quest as a sentence. */
+/* The quest's verb on one line, and a level quest's numeral on the right. */
 .quest-head {
   display: flex;
-  flex-wrap: wrap;
   justify-content: space-between;
   align-items: baseline;
-  gap: 0 6px;
+  gap: 6px;
 }
-.quest-kicker {
-  font-size: 0.85em;
-  opacity: 0.8;
-}
-/* The sentence reads as written, in the label's face, on at most two
-   lines. */
-.quest-head > .quest-verb {
-  flex: 1 0 100%;
-  text-transform: none;
-  letter-spacing: 0.01em;
+.want-card > .quest-head > .quest-verb {
+  white-space: nowrap;
 }
 /* A face-down quest keeps its tier until it turns. */
 body .card.want-card[data-unrevealed="true"] {

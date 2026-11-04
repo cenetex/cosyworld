@@ -44,7 +44,6 @@ import {
   questHand,
   questId,
   questNear,
-  questSentence,
   questTier,
   questVerb,
 } from "./quest-card.mjs";
@@ -2611,13 +2610,11 @@ function questFrame({ id, quest, met }) {
     el.append(node("span", "✓", "quest-seal"));
   }
   const head = node("span", undefined, "quest-head");
+  // The label is the quest's verb alone; the whole quest is its accessible
+  // name (aria-label above).
   head.append(
-    node("span", "Quest", "quest-kicker"),
+    setCardLabel(node("span", undefined, "quest-verb"), verb),
     node("span", quest.level ? romanLevel(quest.level) : "", "quest-level"),
-    setCardLabel(
-      node("span", undefined, "quest-verb"),
-      questSentence(quest, hidden, verb),
-    ),
   );
   const target = quest.target,
     targetPlace =
