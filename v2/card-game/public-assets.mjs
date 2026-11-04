@@ -249,6 +249,7 @@ const files = [
   "adaptive-learning.mjs",
   "reflections.mjs",
   "narrative.mjs",
+  "perception.mjs",
   "between-us.mjs",
   "signed-words.mjs",
   "speech-knowledge.mjs",

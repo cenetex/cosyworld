@@ -18580,8 +18580,8 @@
     const localItems = Object.keys(world.items).filter(
       (id) => entityActive(world, id) && itemPlace2(world, id) === location
     );
-    const changes = sceneChanges(world);
-    const departing = changes.filter((change) => change.leaving).map((change) => change.actorId);
+    const changes2 = sceneChanges(world);
+    const departing = changes2.filter((change) => change.leaving).map((change) => change.actorId);
     const awake = (id) => !hasTemperament(id) || world.actors[id].awake;
     const introductions = present.filter(
       (id) => id !== currentActor(world) && awake(id) && world.opening?.met[id] === world.turn
@@ -18594,7 +18594,7 @@
     const target = action?.target || played?.targetId;
     const directPartner = audience.includes(target) && target !== currentActor(world) && awake(target);
     const partner = directPartner ? target : introductions[0] || departing[0] || present.find((id) => id !== currentActor(world) && awake(id));
-    const movers = changes.map((change) => change.actorId);
+    const movers = changes2.map((change) => change.actorId);
     const chosen = new Set(
       [currentActor(world), partner, ...introductions, ...movers].filter(
         (id) => id && awake(id)
@@ -18631,7 +18631,7 @@
       known,
       present,
       localItems,
-      changes,
+      changes: changes2,
       audience,
       focus,
       played,
@@ -19002,6 +19002,9 @@
             facts: b.facts.map(blur)
           }))
         },
+        ...entity.perception?.pull && !kept(entity.perception.pull) && {
+          perception: { ...entity.perception, pull: void 0 }
+        },
         desire: {
           items: entity.desire.items.filter(kept),
           location: kept(entity.desire.location) ? entity.desire.location : null,
@@ -19059,6 +19062,71 @@
       };
     }).filter((entry) => entry.facts.length || entry.said.length);
     return { entries, retold: covers2 };
+  }
+
+  // v2/card-game/perception.mjs
+  var QUIET = /* @__PURE__ */ new Set(["wait", "talk"]);
+  function listenerOf(speakers, id, actor) {
+    if (!speakers.includes(id)) return null;
+    if (id !== actor && speakers.includes(actor)) return actor;
+    return speakers.find((other) => other !== id) || null;
+  }
+  function involvement(entry, id, listener, wanted) {
+    if (QUIET.has(entry.verb)) return 0;
+    if (entry.actorId === id && entry.fromLocationId && entry.fromLocationId !== entry.locationId)
+      return 0;
+    if ([entry.actorId, entry.targetId].includes(id)) return 4;
+    if (listener && [entry.actorId, entry.targetId].includes(listener)) return 3;
+    if (wanted.includes(entry.itemId)) return 2;
+    return 1;
+  }
+  function changes(entries, id, listener, wanted) {
+    return entries.map((entry, index) => ({
+      index,
+      score: involvement(entry, id, listener, wanted)
+    })).filter(({ score }) => score > 0).sort((a, b) => b.score - a.score || b.index - a.index).slice(0, 2).map(({ index }) => index);
+  }
+  function arrival(world, id, present, here) {
+    if (world.actors[id].place !== here) return null;
+    const arrived = world.log.findLast(
+      (e) => !e.generated && e.locationId === here && e.fromLocationId && e.fromLocationId !== here && (e.actorId === id || e.verb === "accompany" && e.accepted && e.targetId === id)
+    );
+    if (!arrived || world.log.some(
+      (e) => e.seq > arrived.seq && e.generated && e.actorId === id && e.locationId === here
+    ))
+      return null;
+    const last = world.log.findLast(
+      (e) => e.seq < arrived.seq && e.locationId === here && e.cast?.includes(id)
+    );
+    if (!last) return world.log[0]?.seq === 1 ? { first: true } : null;
+    const ground = (items2) => items2.filter((item) => item.holder === here).map((item) => item.id);
+    const then = [...last.cast, ...ground(last.items || [])];
+    const now = [
+      ...present,
+      ...Object.keys(world.items).filter(
+        (item) => world.items[item].holder === here
+      )
+    ];
+    const others = (ids3) => ids3.filter((other) => other !== id);
+    const gone = others(then).find(
+      (other) => !now.includes(other) && (world.actors[other] || world.items[other])
+    );
+    const came = others(now).find((other) => !then.includes(other));
+    return gone ? { gone } : came ? { came } : {};
+  }
+  function perception(world, id, cast) {
+    const { speakers, entries, actor, present, desire, location } = cast;
+    const listener = listenerOf(speakers, id, actor);
+    const here = world.actors[id].place;
+    const pull = desire?.location && exits(world, here, id).includes(desire.location) ? desire.location : null;
+    const wanted = (desire?.items || []).filter(
+      (item) => itemPlace2(world, item) === here
+    );
+    return {
+      changes: changes(entries, id, listener, wanted),
+      arrival: arrival(world, id, present, location),
+      ...pull ? { pull } : {}
+    };
   }
 
   // v2/card-game/narrative.mjs
@@ -19164,7 +19232,7 @@
       known,
       present,
       localItems,
-      changes,
+      changes: changes2,
       played,
       ids: ids3
     } = cast;
@@ -19184,9 +19252,10 @@
       playedEntry(world)?.seq
     );
     const told = (id) => disclosures.filter((d) => d.speaker === id).map((d) => d.factId);
-    const events = world.log.filter(
+    const eventEntries = world.log.filter(
       (entry) => entry.turn === world.turn && !entry.generated && (entry.locationId === location || entry.fromLocationId === location || entry.witnesses?.includes(currentActor(world)))
-    ).slice(-8).map((entry) => entry.text);
+    ).slice(-8);
+    const events = eventEntries.map((entry) => entry.text);
     const bellHandled = localItems.includes("bell") || [played?.itemId, played?.receiveId].includes("bell");
     const bellRang = world.log.some(
       (entry) => entry.turn === world.turn && !entry.generated && entry.verb === "ring" && entry.itemId === "bell"
@@ -19272,7 +19341,7 @@
           facts.push(
             `Location now: ${nameOf(world.actors[id].place)}. Company now: ${company.map(nameOf).join(", ") || "alone"}.`
           );
-          const movement = changes.find((change) => change.actorId === id);
+          const movement = changes2.find((change) => change.actorId === id);
           if (defeated && id === speakers[0]) facts.unshift(defeated);
           else if (movement && speakers.includes(id))
             facts.push(
@@ -19364,7 +19433,17 @@
             inner_life: groundedLife(world, id),
             hope: null
           } : {},
-          ...between.entries.length ? { between: between.entries } : {}
+          ...between.entries.length ? { between: between.entries } : {},
+          ...kind === "avatar" && speakers.includes(id) ? {
+            perception: perception(world, id, {
+              speakers,
+              entries: eventEntries,
+              actor: currentActor(world),
+              present,
+              desire,
+              location
+            })
+          } : {}
         };
       })
     });

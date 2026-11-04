@@ -50,6 +50,8 @@ pub(crate) mod imported;
 mod knowledge;
 #[path = "card_narrative/observations.rs"]
 mod observations;
+#[path = "card_narrative/perception.rs"]
+mod perception;
 #[path = "card_narrative/person.rs"]
 mod person;
 #[path = "card_narrative/recital.rs"]
@@ -373,6 +375,9 @@ struct Entity {
     /// What this speaker shares with each other voice here (between.rs).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     between: Vec<between::Between>,
+    /// What this speaker notices now, chosen by the narrator (P3).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    perception: Option<perception::Perception>,
 }
 
 /// The avatar's rule-owned hope, in their own words.
@@ -585,6 +590,9 @@ fn valid(context: &Context) -> bool {
                 && e.facts.len() <= 16
                 && e.facts.iter().all(|s| bounded(s, 240))
                 && between::valid(context, e)
+                && e.perception.as_ref().is_none_or(|p| {
+                    kind(&e.id, "avatar") && perception::valid(context, p)
+                })
                 && e.previous.as_ref().is_none_or(|s| bounded(s, 400))
                 && e.hope.as_ref().is_none_or(|hope| {
                     kind(&e.id, "avatar") && bounded(&hope.wish, 240) && bounded(&hope.next, 240)
@@ -1600,6 +1608,7 @@ fn known(context: &Context) -> BTreeSet<String> {
             ids.extend(desire.avatars.iter().cloned());
             ids.extend(desire.location.iter().cloned());
         }
+        ids.extend(e.perception.iter().flat_map(perception::named).cloned());
     }
     if let Some(outcome) = &context.outcome {
         for avatar in &outcome.avatars {
