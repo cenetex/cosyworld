@@ -141,6 +141,7 @@ export function upgradeSave(
     upgradeGreekEastSeaSave(s);
     upgradeGreekThreeLinksSave(s);
     upgradeGreekLandRouteSave(s);
+    upgradeGreekForecourtSave(s);
     upgradeRecitals(s, packDefinitions);
   }
   upgradeSightings(s);
@@ -693,6 +694,17 @@ export function upgradeGreekLandRouteSave(s) {
         (edge) => !laneOfEdge(edge) || sailed.has(JSON.stringify(edge)),
       );
   saved.revision = 18;
+}
+
+// Revision 19 reaches the Palace Forecourt through the Market Well, which is
+// no longer within the courtyard. A known step between the courtyard and the
+// forecourt becomes the walk through the well.
+export function upgradeGreekForecourtSave(s) {
+  const pack = packDefinitions.find((p) => p.id === "greek-drama");
+  const saved = s.packs?.[pack?.id];
+  if (!pack || pack.revision < 19 || saved?.revision !== 18) return;
+  foldRetiredRoads(s);
+  saved.revision = 19;
 }
 
 // Each rumoured place and the reachable place its visitors return to. Troy

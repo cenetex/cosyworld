@@ -2979,7 +2979,7 @@
         schemaVersion: 1,
         id: "greek-drama",
         packId: "cosyworld.greek-drama",
-        revision: 18,
+        revision: 19,
         name: "The Wine-Dark Sea",
         description: "A branching Greek drama world. A shared ship visits the Wine-Dark Harbor, Athens Harbor and Piraeus. One road joins Athens and Piraeus, and short paths lead to the Attic places where welcome becomes a growing poem.",
         tone: "Concrete Greek domestic and civic life: bread, work, desire, grief, argument, irreverence, and hospitality. Dialogue expresses committed actions. A tragic ending is never required.",
@@ -3036,7 +3036,6 @@
             exits: [
               "greek-road-thebes",
               "greek-well",
-              "greek-palace",
               "greek-gate"
             ],
             backdrop: "assets/greek-drama/courtyard-day.webp",
@@ -3046,9 +3045,9 @@
             name: "Theban Market Well",
             text: "Water jars stand beside the well. Neighbors lower their voices when palace servants pass.",
             exits: [
-              "greek-courtyard"
+              "greek-courtyard",
+              "greek-palace"
             ],
-            within: "greek-courtyard",
             backdrop: "assets/greek-drama/market-well-day.webp",
             persona: "Water jars stand beside the well. Neighbors lower their voices when palace servants pass."
           },
@@ -3056,7 +3055,7 @@
             name: "Theban Palace Forecourt",
             text: "The king receives petitions beneath a painted portico. A space beside the door is kept for public orders.",
             exits: [
-              "greek-courtyard",
+              "greek-well",
               "greek-sanctuary"
             ],
             backdrop: "assets/greek-drama/palace-day.webp",
@@ -10707,7 +10706,6 @@
             exits: [
               "hoppycat-halfway-tea-garden"
             ],
-            within: "hoppycat-halfway-tea-garden",
             backdrop: "assets/hoppycat-archive/hoppycat-open-record-cathedral.webp"
           },
           "hoppycat-red-thread-belfry": {
@@ -10717,7 +10715,6 @@
             exits: [
               "hoppycat-signal-jetty"
             ],
-            within: "hoppycat-signal-jetty",
             backdrop: "assets/hoppycat-archive/hoppycat-red-thread-belfry.webp"
           },
           "hoppycat-prism-foundry": {
@@ -10727,7 +10724,6 @@
             exits: [
               "hoppycat-halfway-tea-garden"
             ],
-            within: "hoppycat-halfway-tea-garden",
             backdrop: "assets/hoppycat-archive/hoppycat-prism-foundry.webp"
           },
           "hoppycat-context-greenhouse": {
@@ -10737,7 +10733,6 @@
             exits: [
               "hoppycat-halfway-tea-garden"
             ],
-            within: "hoppycat-halfway-tea-garden",
             backdrop: "assets/hoppycat-archive/hoppycat-context-greenhouse.webp"
           },
           "hoppycat-concordance-tidelands": {
@@ -10747,7 +10742,6 @@
             exits: [
               "hoppycat-signal-jetty"
             ],
-            within: "hoppycat-signal-jetty",
             backdrop: "assets/hoppycat-archive/hoppycat-concordance-tidelands.webp"
           },
           "hoppycat-settled-light-theatre": {
@@ -10757,7 +10751,6 @@
             exits: [
               "hoppycat-signal-jetty"
             ],
-            within: "hoppycat-signal-jetty",
             backdrop: "assets/hoppycat-archive/hoppycat-settled-light-theatre.webp"
           },
           "hoppycat-meraki-atelier": {
@@ -10767,7 +10760,6 @@
             exits: [
               "hoppycat-halfway-tea-garden"
             ],
-            within: "hoppycat-halfway-tea-garden",
             backdrop: "assets/hoppycat-archive/hoppycat-meraki-atelier.webp"
           },
           "hoppycat-goldfish-tank": {
@@ -10777,7 +10769,6 @@
             exits: [
               "hoppycat-signal-jetty"
             ],
-            within: "hoppycat-signal-jetty",
             backdrop: "assets/hoppycat-archive/hoppycat-goldfish-tank.webp"
           },
           "hoppycat-signal-jetty": {
@@ -14834,8 +14825,7 @@
           "requires",
           "road",
           "retired",
-          "sanctuary",
-          "within"
+          "sanctuary"
         ]),
         `place ${id} has an unknown field`
       );
@@ -14862,11 +14852,6 @@
             (b) => keysOk(b, ["backdrop", "requires"]) && mediaPathOk(pack.id, b.backdrop) && Array.isArray(b.requires) && b.requires.length > 0
           ),
           `place ${id} backdrops need a backdrop in this pack and saved conditions`
-        );
-      if (p.within !== void 0)
-        check(
-          owns3(places2, p.within) && p.within !== id && places2[p.within].within === void 0 && places2[p.within].exits?.includes(id) && p.exits.length === 1 && p.exits[0] === p.within && p.road === void 0,
-          `place ${id} within ${p.within} must link only to that parent`
         );
       if (p.road !== void 0)
         check(
@@ -16753,6 +16738,7 @@
       upgradeGreekEastSeaSave(s);
       upgradeGreekThreeLinksSave(s);
       upgradeGreekLandRouteSave(s);
+      upgradeGreekForecourtSave(s);
       upgradeRecitals(s, packDefinitions);
     }
     upgradeSightings(s);
@@ -17167,6 +17153,13 @@
           (edge) => !laneOfEdge(edge) || sailed.has(JSON.stringify(edge))
         );
     saved.revision = 18;
+  }
+  function upgradeGreekForecourtSave(s) {
+    const pack = packDefinitions.find((p) => p.id === "greek-drama");
+    const saved = s.packs?.[pack?.id];
+    if (!pack || pack.revision < 19 || saved?.revision !== 18) return;
+    foldRetiredRoads(s);
+    saved.revision = 19;
   }
   var RUMOURS = {
     "greek-marathon": "greek-piraeus",

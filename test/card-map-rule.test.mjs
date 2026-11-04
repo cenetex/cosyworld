@@ -91,23 +91,10 @@ const TOWNS = {
   ],
 };
 
-// A place within another links only to its parent and does not count toward
-// its district's four places. The well and other places name it in `within`.
-const INTERIORS = {
-  "greek-acharnae": "greek-attic-farm",
-  "greek-demos-house": "greek-assembly",
-  "greek-festival": "greek-acropolis",
-  ...Object.fromEntries(
-    Object.entries(packPlaces)
-      .filter(([, place]) => place.within)
-      .map(([id, place]) => [id, place.within]),
-  ),
-};
-
 // Every place has at most three links (owner decision, 2026-11-01): exits,
 // roads, routes and crossings, counted even while closed, and reflections.
 // Boarding a ship is one link however many lanes it sails, and the ship has
-// no cap. A place within another does not count against its parent.
+// no cap. Every place counts: there are no interiors (owner, 2026-11-04).
 const LINK_CAP = 3;
 // Still over the cap while their maps are redrawn. Remove each place as its
 // pack lands: Hoppy Cat (#1785), Athens, Argos and the hub; Troy, the Greek
@@ -144,7 +131,7 @@ function links(doors = worlds[0]) {
   const places = { ...forest.places, ...packPlaces };
   const out = new Map();
   const add = (from, to) => {
-    if (ships.has(from) || INTERIORS[to] === from) return;
+    if (ships.has(from)) return;
     out.set(from, (out.get(from) || new Set()).add(to));
   };
   for (const [id, place] of Object.entries(places))
@@ -163,7 +150,6 @@ function links(doors = worlds[0]) {
       add(c.from, c.transport ? transports[c.transport].place : c.to);
   return out;
 }
-const DISTRICTS = ["athens-countryside", "athens-city", "athens-harbour"];
 
 const town = (id) =>
   Object.entries(TOWNS).find(([, places]) => places.includes(id))?.[0] ?? id;
@@ -238,28 +224,13 @@ describe("the map rule", () => {
           expect(back.has(`${to}>${id}`), `${id} -> ${to}`).toBe(true);
   });
 
-  it("keeps each Athens district to four places, not counting interiors", () => {
-    for (const district of DISTRICTS)
-      expect(
-        TOWNS[district].filter((id) => !INTERIORS[id]).length,
-        district,
-      ).toBeLessThanOrEqual(4);
-    for (const [id, parent] of Object.entries(INTERIORS)) {
-      expect(packPlaces[id].exits, id).toEqual([parent]);
-      expect(packPlaces[parent].exits, parent).toContain(id);
-      expect(town(id), id).toBe(town(parent));
-    }
-  });
-
-  it("gives every place at most three links, and an interior only its parent", () => {
+  it("gives every place at most three links", () => {
     for (const doors of worlds)
       for (const [id, to] of links(doors))
         if (!OVER_CAP_FOR_NOW.has(id))
           expect(to.size, `${id}: ${[...to].join(", ")}`).toBeLessThanOrEqual(
             LINK_CAP,
           );
-    for (const [id, parent] of Object.entries(INTERIORS))
-      expect([...(links().get(id) || [])], id).toEqual([parent]);
   });
 
   it("gives every walkable road its own painting", () => {

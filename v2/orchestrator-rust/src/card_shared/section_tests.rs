@@ -258,12 +258,19 @@ fn a_shared_section_opens_from_an_accepted_invitation_and_replays_for_both_peopl
         )
         .unwrap();
     };
-    for target in ["greek-road-thebes", "greek-courtyard", "greek-palace"] {
+    // The forecourt lies beyond the Market Well (Greek revision 19).
+    for target in [
+        "greek-road-thebes",
+        "greek-courtyard",
+        "greek-well",
+        "greek-palace",
+    ] {
         act(&mut world, "move", "target", target);
     }
     act(&mut world, "take", "item", "greek-decree");
-    act(&mut world, "move", "target", "greek-courtyard");
-    act(&mut world, "move", "target", "greek-gate");
+    for target in ["greek-well", "greek-courtyard", "greek-gate"] {
+        act(&mut world, "move", "target", target);
+    }
     act(&mut world, "give", "target", "greek-guard");
     // The guard's tablet, carried out, opens the Cithaeron road.
     act(&mut world, "take", "item", "greek-guard-tablet");

@@ -9,9 +9,10 @@ recorded on #1581 and #1540 to the Wine-Dark Sea pack
 - **Scale.** A district has at most four places. Thebes, in four quarters,
   is the model. Roads are real places you can stand in, and there is one road per
   pair of towns. The current paintings roughly fit this scale.
-- **Interiors.** A place *within* another, such as a shop, a house or the
-  well in a courtyard, links only to its one parent. The map rule allows it:
-  an interior is a leaf of its parent. Interiors do not count toward the four.
+- **No interiors.** The owner retired them on 2026-11-04: inside and
+  outside look the same on the table, so a shop or a house is an ordinary
+  place under the three-link rule. The interiors this plan named below are
+  now ordinary places.
 - **No story buttons.** Every authored `choice` becomes an item quest done
   with the normal verbs, something said through Talk, or nothing. Item quests
   use the existing `item_near` and `holding` conditions, as the Willows kit
@@ -33,17 +34,18 @@ deletes them, so they are not in the table below. That leaves 108 choices.
 
 ## Map
 
-Each district lists its places; *interiors* are marked and do not count.
+Each district lists its places. The plan's *interiors* are now ordinary
+places (owner, 2026-11-04).
 Today's place ids are in backticks.
 
 ### Thebes: four quarters
 
 | Quarter | Place | Links | Who and what |
 | --- | --- | --- | --- |
-| Lower Town | Theban Courtyard `courtyard` | Harbor Road, palace, sanctuary, gate, well | Dione's table, the homecoming frame |
-| (within Lower Town) | Market Well `well` | courtyard only | *Interior*; the elder and the water jar |
-| The Cadmeia | Palace Forecourt `palace` | courtyard | Creon; the decree starts here |
-| The Ismenion | Hillside Sanctuary `sanctuary` | courtyard | The Greek rest place (#1713) |
+| Lower Town | Theban Courtyard `courtyard` | Harbor Road, well, gate | Dione's table, the homecoming frame |
+| Lower Town | Market Well `well` | courtyard, palace | The elder and the water jar |
+| The Cadmeia | Palace Forecourt `palace` | well, sanctuary | Creon; the decree starts here |
+| The Ismenion | Hillside Sanctuary `sanctuary` | palace | The Greek rest place (#1713) |
 | The Gate | City Gate `gate` | courtyard, battlefield (gated, #1728) | The guard and the decree |
 
 Thebes has two roads:
@@ -53,9 +55,10 @@ Thebes has two roads:
   road-like place you stand in. It leads on over the **Cithaeron road**
   (today's Cithaeron Slopes `cithaeron`, as a road place) toward Attica.
 
-The well's links to the palace and gate go; the palace links to the
-courtyard. Aulis leaves the gate and becomes a ship stop. Cithaeron leaves the
-sanctuary and becomes the road beyond the battlefield.
+The well's link to the gate goes. The sanctuary lies beyond the palace
+(revision 17), and the palace beyond the well (revision 19, #2264). Aulis
+leaves the gate and becomes a ship stop. Cithaeron leaves the sanctuary and
+becomes the road beyond the battlefield.
 
 ### The unlock chain
 

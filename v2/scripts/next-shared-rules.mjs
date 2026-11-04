@@ -137,7 +137,9 @@ const tens = [
 const ordinal = (n) => {
   if (n < 10) return ones[n];
   if (n < 20) return teens[n - 10];
-  if (n >= 100) throw new Error("Name rules versions past 99 by hand.");
+  if (n === 100) return "HUNDREDTH";
+  if (n > 100 && n < 200) return `HUNDRED_${ordinal(n - 100)}`;
+  if (n >= 200) throw new Error("Name rules versions past 199 by hand.");
   const t = Math.floor(n / 10);
   return n % 10
     ? `${tens[t]}_${ones[n % 10]}`
