@@ -83,7 +83,15 @@ build; run `cargo fmt` in `v2/orchestrator-rust` when it fails), the boot smoke 
 every early notice path), and two or three browser smokes chosen by changed
 paths (`scripts/fast-smokes.json`; a changed smoke script runs itself). Each
 smoke serves the static card game; smokes that start the Rust server run only
-in the full suite. A new PR run cancels the PR's older run; main runs are
+in the full suite. A change to the Rust crate, the C kernel, the AI model
+crate, or a file the crate reads (such as `v2/card-game/senses.json`,
+`packs.json`, or a test fixture) adds the `rust` job: the tests of the modules
+that own or read the changed files, from Cargo's restored cache.
+`scripts/select-rust-tests.mjs` derives those inputs from the
+crate's sources (`node scripts/select-rust-tests.mjs --inputs` lists them);
+the `rust` section of `scripts/fast-smokes.json` holds the default and the
+extra rules. Clippy and the full Rust suite stay on the .dev train's Rust gate
+and on tags. A new PR run cancels the PR's older run; main runs are
 never cancelled. Each job reads its runner label from the `FAST_CHECK_RUNNER`
 repository variable (default `ubuntu-latest`), so moving to the Fly runner
 (#1565) needs no workflow edit. While a production deploy (a `v*` tag or a
