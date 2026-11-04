@@ -28,6 +28,18 @@ The pillars, as agreed with the owner (2026-11-04):
 - **A cosy-uncanny threshold.** Warm on the surface, strange underneath.
 - **Open by design.** Packs, models and code stay open to contributors.
 
+**The core interaction is tapping a card to reveal it in the world.** New
+people, things and places arrive as face-down carved-box cards. A tap opens
+the box and reveals them into the scene, in any order the player likes. At
+Black pond a card appears, the player taps it, and Pip is released: opening
+the box let out a moth. Revealing is presentation and takes no turn. Only
+revealed figures and things stand on the stage, and each fades in as it is
+revealed. A *locked* card is different from a face-down one: it stays a box
+until its quest is done, then reveals once. The opening is the first
+instance: Vale alone on black, then the lit lantern and the lit attic,
+revealed in either order, then the first real play (put out the lamp), which
+brings a new card.
+
 How deepening shows is still being designed. It should show without a log or
 text on cards: in what characters say when you meet again, in how they greet
 you, and in what they offer, ask or refuse.
