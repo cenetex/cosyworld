@@ -2458,7 +2458,25 @@
   var packs_default = {
     schemaVersion: 1,
     hub: {
+      id: "reflected-shore",
       player: "vale",
+      switchable: {
+        "reflected-shore": "The Reflected Shore",
+        "lonely-forest": "Cosy Cottage",
+        "greek-drama": "The Wine-Dark Sea",
+        "hoppycat-archive": "Hoppy Cat Universe"
+      },
+      entries: [
+        {
+          to: "pond"
+        },
+        {
+          to: "attic"
+        },
+        {
+          to: "station"
+        }
+      ],
       places: [
         "station",
         "attic",
@@ -2549,7 +2567,54 @@
             }
           }
         }
-      ]
+      ],
+      packEntries: {
+        "badger-forest": [
+          {
+            from: "pond",
+            to: "clearing",
+            by: "pond-clearing"
+          }
+        ],
+        "greek-drama": [
+          {
+            from: "pond",
+            to: "greek-harbor",
+            by: "pond-greek-harbor"
+          },
+          {
+            from: "hoppycat-signal-jetty",
+            to: "greek-piraeus",
+            by: "greek-ship"
+          }
+        ],
+        "hoppycat-archive": [
+          {
+            from: "greek-piraeus",
+            to: "hoppycat-signal-jetty",
+            by: "greek-ship"
+          }
+        ],
+        willows: [
+          {
+            from: "pond",
+            to: "willows-landing",
+            by: "pond-willows-landing"
+          },
+          {
+            from: "greek-ship",
+            to: "willows-landing",
+            by: "greek-ship-willows-landing"
+          }
+        ],
+        "lonely-forest": [
+          {
+            from: "attic",
+            to: "forest-cottage",
+            by: "attic-forest-cottage"
+          }
+        ]
+      }
     },
     packs: [
       {
