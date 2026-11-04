@@ -556,6 +556,7 @@ then on; a redraw never covers it again (`locked-box.mjs`). In a shared world
 each browser reads its own player's view of the gate.
 Arrival starts the hand at the new current place. Selection scrolls only far
 enough to bring the chosen card into view, including when a person opens a stack.
+A newly dealt quest brings its slot into view before it rises.
 On wide screens, the resting hand is a fanned deck at the right, as wide as
 its cards so none is cut at the screen edge; once it would crowd the dialogue
 the cards overlap more instead. The dialogue sits at the left with the

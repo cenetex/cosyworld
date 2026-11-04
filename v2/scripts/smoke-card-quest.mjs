@@ -579,6 +579,23 @@ try {
         `a dealt quest starts in its slot (${start} vs ${slot}, Vale ${valeLeft})`,
       );
     }
+    const dealtQuest = await page
+      .locator("#hand > .want-frame:not([hidden])")
+      .first()
+      .evaluate((frame) => {
+        const card = frame.getBoundingClientRect(),
+          hand = frame.parentElement.getBoundingClientRect();
+        return {
+          left: card.left,
+          right: card.right,
+          start: hand.left,
+          end: hand.right,
+        };
+      });
+    assert(
+      dealtQuest.right > dealtQuest.start && dealtQuest.left < dealtQuest.end,
+      `the dealt quest appears in the visible hand: ${JSON.stringify(dealtQuest)}`,
+    );
     await play(vale, "deselect", "vale", []);
     assert.deepEqual(errors, []);
     console.log(
