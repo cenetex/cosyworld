@@ -93,6 +93,7 @@ const files = [
   "quest-card.mjs",
   "quest-screen.mjs",
   "card-tiers.css",
+  "card-label.mjs",
   "card-reveal.mjs",
   "card-entry.mjs",
   "card-ghost.mjs",

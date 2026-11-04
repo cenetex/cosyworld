@@ -9,6 +9,7 @@ import { count, lineCounter, playCounter, startMetrics } from "./metrics.mjs";
 import { imageUrl } from "./images.mjs";
 import { cardLevel, levelTier, romanLevel } from "./rarity.mjs";
 import { finishCardReveal, revealCard } from "./card-reveal.mjs";
+import { setCardLabel } from "./card-label.mjs";
 import {
   fadeGhost,
   ghostOf,
@@ -2334,7 +2335,11 @@ function card(id) {
   if (raised && label) observation.textContent += ` ${label}.`;
   const hidden = cardIsCovered(id) || locked;
   if (hidden) observation.textContent = "";
-  el.append(graphic, node("span", hidden ? "" : def.name, "name"), observation);
+  el.append(
+    graphic,
+    setCardLabel(node("span", undefined, "name"), hidden ? "" : def.name),
+    observation,
+  );
   // One faint numeral shows a selected person's or thing's level. Places
   // have no level of their own, so they carry none.
   if (type !== "location") {
@@ -2523,7 +2528,7 @@ function questFrame({ id, quest, met }) {
   }
   const head = node("span", undefined, "quest-head");
   head.append(
-    node("span", verb, "quest-verb"),
+    setCardLabel(node("span", undefined, "quest-verb"), verb),
     node("span", quest.level ? romanLevel(quest.level) : "", "quest-level"),
   );
   const target = quest.target,

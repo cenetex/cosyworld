@@ -1233,55 +1233,67 @@ body .card.item .art img {
 :is(body, :where(.title-intro)) .card.avatar .art img {
   --shown: calc(var(--figure-height, 1) * 0.78);
   inset: auto;
-  top: calc(6% - 100% * var(--figure-top, 0) / var(--shown));
+  /* The head stands below the name's band at the card's top. */
+  top: calc(15% - 100% * var(--figure-top, 0) / var(--shown));
   left: 50%;
   width: auto;
   height: calc(100% / var(--shown));
   translate: calc(-100% * var(--head-x, 0.5)) 0;
   object-fit: fill;
 }
-:is(body, :where(.title-intro)) .card .name {
+/* Every card's name sits at its top in the quest card's label: one font
+   and treatment in its tier colour over a light shade, broken only between
+   words (card-label.mjs keeps a hyphenated word whole). */
+:is(body, :where(.title-intro)) .card :is(.name, .quest-head) {
+  --label-size: max(10px, calc(var(--card-height) * 0.042));
   position: absolute;
-  inset: auto 0 calc(var(--card-height) * 0.25);
-  z-index: 1;
+  inset: 0 0 auto;
+  z-index: 3;
   margin: 0;
-  padding: 36px 8px 14px;
-  background: linear-gradient(transparent, #080b12eb 65%);
-  /* A name breaks only between words. On a narrow card it shrinks from
-     --name-size until the game's longest word (Agamemnon's, about 6.3em)
-     fits the card's width. */
+  padding: calc(var(--label-size) * 0.85) 10px calc(var(--label-size) * 2.4);
+  background: linear-gradient(#080b12db, #080b1285 50%, transparent);
   font:
-    clamp(10px, (100cqi - 16px) / 6.4, var(--name-size, 18px)) / 1.2 Georgia,
-    serif;
-  color: #f2e3c4;
-  white-space: normal;
+    600 var(--label-size) / 1.18 system-ui,
+    sans-serif;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  text-align: left;
+  color: var(--tier-color, #c8dce6);
   text-wrap: balance;
-  word-break: normal;
   overflow-wrap: normal;
-  hyphens: manual;
-  text-shadow: 0 2px 5px #000;
+  word-break: keep-all;
+  hyphens: none;
+  text-shadow:
+    0 1px 2px #000,
+    0 0 8px #000c;
+  pointer-events: none;
+}
+:is(body, :where(.title-intro)) .card .label-word {
+  white-space: nowrap;
+}
+:is(body, :where(.title-intro)) .card .name:empty {
+  display: none;
+}
+/* An unlit card dims its name with its face. */
+.card[data-lit="false"] :is(.name, .quest-head) {
+  filter: brightness(0.6);
 }
 /* A name stays clear of the next card's overlap in the fan. */
-.hand > .card-frame:has(~ .card-frame:not([hidden])) .card .name {
+.hand
+  > .card-frame:has(~ .card-frame:not([hidden]))
+  .card
+  :is(.name, .quest-head) {
   padding-right: calc(var(--fan-overlap) + 8px);
 }
 .hand
   > .card-frame:has(~ .card-frame:not([hidden])):is(:hover, :focus-within)
   .card
-  .name,
-.hand > .card-frame:has(> .card[data-selected="true"]) .card .name {
-  padding-right: 8px;
-}
-/* So does a Settings pack's name, set where the quest card sets its verb. */
+  :is(.name, .quest-head),
 .hand
-  > .card-frame:has(~ .card-frame:not([hidden])):not(
-    :hover,
-    :focus-within,
-    :has(> .card[data-selected="true"])
-  )
-  > .card[data-setting]
-  > .quest-head {
-  padding-right: var(--fan-overlap);
+  > .card-frame:has(> .card[data-selected="true"])
+  .card
+  :is(.name, .quest-head) {
+  padding-right: 10px;
 }
 /* A card lifted over the next (pointer or focus) covers its left edge, so
    that card's name moves clear of it. An unlit Settings place dims. */
@@ -1294,14 +1306,6 @@ body .card.item .art img {
 }
 body .card[data-setting][data-lit="false"] .quest-ground {
   filter: saturate(0.35) brightness(0.48);
-}
-/* Carry the label's shade to the card's edge, wherever the hand clips it. */
-body .card .name::after {
-  content: "";
-  position: absolute;
-  inset: 100% 0 auto;
-  height: var(--card-height);
-  background: #080b12eb;
 }
 body .card[data-lit="true"] .art {
   background: radial-gradient(ellipse at 50% 60%, #e0a94a66, #151b24 76%);
@@ -1395,21 +1399,10 @@ body .card.want-card[data-near="true"] {
     0 6px 20px #0006;
 }
 .quest-head {
-  position: absolute;
-  inset: 7px 10px auto;
-  z-index: 3;
   display: flex;
   justify-content: space-between;
   align-items: baseline;
-  color: var(--tier-color);
-  pointer-events: none;
-}
-.quest-verb {
-  font:
-    600 calc(var(--card-height) * 0.042) / 1 system-ui,
-    sans-serif;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
+  gap: 6px;
 }
 .quest-level {
   font:
@@ -1667,10 +1660,6 @@ body .cast[data-count] {
   .hand {
     --fan-overlap: calc(var(--card-height) * 0.2);
   }
-  body .card .name {
-    --name-size: 16px;
-    padding-bottom: 12px;
-  }
   body .cast {
     top: 54px;
     width: 98%;
@@ -1818,10 +1807,6 @@ body .line-controls button {
 .play-dock[data-selected="true"] .hand,
 body[data-hand-expanded="true"] .hand {
   height: calc(var(--card-height) + var(--hand-top) + 4px);
-}
-.play-dock[data-selected="true"] .card .name,
-body[data-hand-expanded="true"] .card .name {
-  bottom: 0;
 }
 /* A resting hand, or one tucked down for a fight, shows only its cards' art:
    the names and their shade fade in as the hand rises, a card is chosen, or
@@ -2002,10 +1987,6 @@ body[data-dim="true"] .card {
   .topbar {
     min-height: 44px;
     padding-block: 2px;
-  }
-  body .card .name {
-    --name-size: 14px;
-    padding-bottom: 8px;
   }
   body .cast {
     top: 46px;
@@ -2983,18 +2964,6 @@ main > .dialogue {
         var(--hand-top)
     );
   }
-  body[data-dialogue-over="true"] .hand .card .name {
-    bottom: calc(var(--card-height) * (1 - var(--resting-show)));
-    padding-top: 24px;
-  }
-  body[data-dialogue-over="true"]
-    .play-dock[data-selected="true"]
-    .hand
-    .card
-    .name,
-  body[data-dialogue-over="true"][data-hand-expanded="true"] .hand .card .name {
-    bottom: calc(var(--card-height) * var(--raised-tuck));
-  }
 }
 @media (max-width: 700px) {
   body[data-dialogue-over="true"] {
@@ -3165,11 +3134,6 @@ main > .dialogue {
 }
 .title-intro[data-pointer] .title-card .card:focus-visible {
   outline-color: transparent;
-}
-/* The hand shows a card's top three quarters, so its name and shade sit a
-   quarter up; this card shows whole, so they sit on its floor. */
-.title-card .card .name {
-  bottom: 0;
 }
 .title-privacy {
   flex: none;
