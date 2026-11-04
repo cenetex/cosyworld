@@ -51,12 +51,84 @@ fn a_released_avatar_stays_bound_to_its_person() {
     run(&mut c, &id, "ann", &body("release", None)).unwrap();
     let taken = run(&mut c, &id, "bob", &body("claim", Some("mara"))).unwrap_err();
     assert_eq!(taken, "That avatar belongs to someone else in this world.");
-    // Ann returns as Mara, and only as Mara.
-    let other = run(&mut c, &id, "ann", &body("claim", Some("ash"))).unwrap_err();
-    assert_eq!(other, "You play Mara in this world.");
     run(&mut c, &id, "ann", &body("claim", Some("mara"))).unwrap();
     let w = full_store::world(&c, &id, now()).unwrap();
     assert_eq!(w.claimed[actor_index("mara").unwrap()], 1);
+}
+
+fn journal(c: &rusqlite::Connection, id: &str) -> Vec<String> {
+    let mut q = c
+        .prepare("SELECT command FROM card_full_log WHERE world=? ORDER BY seq")
+        .unwrap();
+    let rows = q.query_map([id], |r| r.get::<_, String>(0)).unwrap();
+    rows.map(|r| {
+        let v: serde_json::Value = serde_json::from_str(&r.unwrap()).unwrap();
+        format!(
+            "{} {}",
+            v["op"].as_str().unwrap(),
+            v["actor"].as_str().unwrap_or("")
+        )
+    })
+    .collect()
+}
+
+// Any found avatar may come to a world its person has played (owner,
+// 2026-11-03), seated or stepped away. The one they had stays as a resident
+// with its state and level, and is no longer theirs: a journaled release, no
+// reset, so the journal replays to the same world.
+#[test]
+fn bringing_another_avatar_leaves_the_old_one_as_a_resident() {
+    let (_path, mut c, id) = fixture();
+    run(&mut c, &id, "ann", &body("claim", Some("mara"))).unwrap();
+    let mara = actor_index("mara").unwrap();
+    let had = full_store::world(&c, &id, now()).unwrap().game["actors"]["mara"].clone();
+    let before = journal(&c, &id).len();
+    run(&mut c, &id, "ann", &body("claim", Some("ash"))).unwrap();
+    assert_eq!(
+        journal(&c, &id)[before..],
+        ["release mara", "claim ash", "enter ash"]
+    );
+    let w = full_store::world(&c, &id, now()).unwrap();
+    assert_eq!((w.claimed[mara], w.present[mara]), (0, 0));
+    assert_eq!(w.game["actors"]["mara"], had);
+    assert_eq!(w.claimed[actor_index("ash").unwrap()], 1);
+    assert_eq!(
+        super::bindings::mine(&c, &id, "ann").unwrap(),
+        Some(actor_index("ash").unwrap())
+    );
+    assert_eq!(super::bindings::holder(&c, &id, mara).unwrap(), None);
+    // Mara's level goes with Ann to Mara's next seat.
+    let kept = super::bindings::take_progress(&c, "ann", mara)
+        .unwrap()
+        .unwrap();
+    assert_eq!(kept, super::bindings::progress_of(&w.game, "mara"));
+    // The journal alone replays to the same world.
+    c.execute("DELETE FROM card_full_checkpoints WHERE world=?", [&id])
+        .unwrap();
+    let replayed = full_store::world(&c, &id, now()).unwrap();
+    assert_eq!(replayed.game, w.game);
+    assert_eq!((replayed.claimed, replayed.present), (w.claimed, w.present));
+    // Stepped away, Ann brings Vale; Bob may now take Mara.
+    run(&mut c, &id, "ann", &body("release", None)).unwrap();
+    run(&mut c, &id, "ann", &body("claim", Some("vale"))).unwrap();
+    assert_eq!(
+        super::bindings::holder(&c, &id, actor_index("ash").unwrap()).unwrap(),
+        None
+    );
+    run(&mut c, &id, "bob", &body("claim", Some("mara"))).unwrap();
+}
+
+#[test]
+fn another_persons_avatar_is_refused_before_anything_is_journaled() {
+    let (_path, mut c, id) = fixture();
+    run(&mut c, &id, "ann", &body("claim", Some("mara"))).unwrap();
+    run(&mut c, &id, "bob", &body("claim", Some("ash"))).unwrap();
+    let before = journal(&c, &id);
+    let taken = run(&mut c, &id, "ann", &body("claim", Some("ash"))).unwrap_err();
+    assert_eq!(taken, "That avatar belongs to someone else in this world.");
+    let again = run(&mut c, &id, "ann", &body("claim", Some("mara"))).unwrap_err();
+    assert_eq!(again, "You already have an avatar in this world.");
+    assert_eq!(journal(&c, &id), before);
 }
 
 #[test]

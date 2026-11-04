@@ -127,6 +127,9 @@ pub(super) fn world(c: &Connection, id: &str, now: i64) -> Result<World> {
             commit(c, id, &mut w, upgrade, now)?;
             return Ok(w);
         }
+        if engine::newer(&w.version) {
+            return Err(engine::UPDATING.into());
+        }
         if w.version != engine::VERSION {
             return Err("This world's rules need a saved migration.".into());
         }
@@ -449,4 +452,53 @@ pub(super) fn enqueue(
     }
     c.execute("INSERT INTO card_full_plays(id,world,actor,user,room,command,status,created) VALUES(?,?,?,?,?,?,'waiting',?)",params![key,id,a,user,room,text,now]).map_err(sql_error)?;
     Ok(())
+}
+#[cfg(test)]
+mod tests {
+    use super::*;
+    const T: i64 = 1_000_000;
+    // A world whose saved rules read `version`, opened by this server.
+    fn opened(version: &str, then: Option<Value>) -> Result<World> {
+        let path =
+            std::env::temp_dir().join(format!("card-newer-{}.sqlite", crate::random_hex(12)));
+        let c = store::open(&path).unwrap();
+        schema(&c).unwrap();
+        let id = "a".repeat(48);
+        store::create(&c, &id, "ann", T).unwrap();
+        let mut w = World::create(None).unwrap();
+        w.version = version.into();
+        seed(&c, &id, &w, "test-create", T).unwrap();
+        if let Some(command) = then {
+            c.execute(
+                "INSERT INTO card_full_log(world,command,at) VALUES(?,?,?)",
+                params![id, command.to_string(), T],
+            )
+            .unwrap();
+        }
+        let opened = world(&c, &id, T + 1);
+        let _ = std::fs::remove_file(path);
+        opened
+    }
+    #[test]
+    fn newer_rules_wait_for_the_swap_and_older_ones_need_a_migration() {
+        let next = format!(
+            "full-card-world/{}",
+            engine::VERSION[16..].parse::<u32>().unwrap() + 1
+        );
+        let migration = "This world's rules need a saved migration.";
+        // The release swap: a newer checkpoint, a newer play, a newer upgrade.
+        assert_eq!(opened(&next, None).unwrap_err(), engine::UPDATING);
+        let play = json!({"op":"release","actor":"mara"});
+        assert_eq!(opened(&next, Some(play)).unwrap_err(), engine::UPDATING);
+        let upgrade = json!({"op":"upgrade","from":engine::VERSION,"to":next,"seed":1});
+        assert_eq!(
+            opened(engine::VERSION, Some(upgrade)).unwrap_err(),
+            engine::UPDATING
+        );
+        // Genuine migrations keep their error.
+        assert_eq!(opened("full-card-world/1", None).unwrap_err(), migration);
+        assert_eq!(opened("full-card-world/x", None).unwrap_err(), migration);
+        assert_eq!(opened("other-world/999", None).unwrap_err(), migration);
+        assert!(opened(engine::VERSION, None).is_ok());
+    }
 }

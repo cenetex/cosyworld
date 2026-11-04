@@ -35,9 +35,14 @@ Owner controls:
   minutes late, so keep the interval at 15 minutes or more.
 
 CI follows the same budget. The fast check (`fast-check.yml`, about five
-minutes) runs on each pull request and each main push, including the boot
-smoke and `cargo fmt --check` for the Rust orchestrator; clippy and the Rust
-tests stay on the .dev train's Rust gate. The full suite
+minutes) runs on each pull request and each main push, including the core
+browser smokes (the `core` list in `scripts/fast-smokes.json`, each in its own
+parallel job, ahead of up to three chosen by changed paths) and
+`cargo fmt --check` for the Rust orchestrator. A pull request that
+touches Rust inputs (the crate, the C kernel, or a file the crate reads, such
+as `v2/card-game/senses.json`) also runs the focused Rust tests of the modules
+involved; clippy and the full Rust suite stay on the .dev train's Rust gate and
+on tags. The full suite
 (`ci.yml`) runs only by hand; run it on a train's commit, not per pull
 request, when a release needs it.
 
@@ -54,6 +59,9 @@ the tag rollout would leave `.dev` on that older commit, so the
 `Return .dev to the main commit it ran` job then rolls `.dev` back to the
 last train's commit, from that commit's existing `deploy-<sha>` image, and
 runs the same readiness and card-game smokes. It deploys nothing new.
+Until it does, `.dev` runs the tag's older rules, so a world already on main's
+newer rules answers "updating" and its players wait, untouched, until the
+return lands ([shared worlds](../v2/docs/card-table/shared-worlds.md)).
 
 `Create GitHub release` and the `.dev` return run on a tag even though
 `Deploy main to .dev` is always skipped there (an implicit `success()` skipped

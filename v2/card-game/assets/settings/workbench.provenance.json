@@ -1,0 +1,144 @@
+{
+  "source": "source/moonlit-cozy-fantasy-workbench.png",
+  "supplied": "Moonlit Cozy Fantasy Workbench.png",
+  "suppliedBy": "owner",
+  "date": "2026-11-04",
+  "width": 2172,
+  "height": 724,
+  "sha256": "54bdc8d09db7a5954bdaedda0705114fa4613cf3c166ee93258fc12de29ccbd3",
+  "crops": {
+    "workbench-letter.png": {
+      "left": 624,
+      "top": 245,
+      "width": 392,
+      "height": 280,
+      "sha256": "aa832f5e59dc6768628a2630aa298fd267f81265d55f1004ee6dc99ed0c566ea"
+    },
+    "workbench-dice.png": {
+      "left": 444,
+      "top": 278,
+      "width": 392,
+      "height": 280,
+      "sha256": "ade22eb93d9b3de12f4ac979dc8a263897e84eb4ac101c71ccfd2bb66ffb4f32"
+    },
+    "workbench-dice-cup.png": {
+      "left": 737,
+      "top": 180,
+      "width": 336,
+      "height": 240,
+      "sha256": "5d2f4ba93ab4236b9d67673740373143b8779fd33e603b59a0733ac5beffab11"
+    },
+    "workbench-candle.png": {
+      "left": 758,
+      "top": 70,
+      "width": 644,
+      "height": 460,
+      "sha256": "edf557a96c3e7ae6da08fff75e0834441c2c5d626d59e9968daadaebfd1be7fa"
+    },
+    "workbench-old-books.png": {
+      "left": 0,
+      "top": 110,
+      "width": 448,
+      "height": 320,
+      "sha256": "d5c44af2b9a3d765ba27efa226bc42581624e19c3c28f09168d9bc0963b0e581"
+    },
+    "workbench-mug.png": {
+      "left": 486,
+      "top": 185,
+      "width": 364,
+      "height": 260,
+      "sha256": "50a7b20632d81779240f862ece94a8046b0cb8cd0a04e2dab52d64f3fdd5d613"
+    },
+    "workbench-armillary.png": {
+      "left": 1084,
+      "top": 100,
+      "width": 532,
+      "height": 380,
+      "sha256": "3d2f38b00f6b8315a7f0b0e0636ed8c136d2f86b2fda464205d3403c49b10186"
+    },
+    "workbench-scroll.png": {
+      "left": 1490,
+      "top": 245,
+      "width": 420,
+      "height": 300,
+      "sha256": "55cfcb8ca696e27bdc2e195a3abea8951d2147aed1f0e3e3ad4b0d45ab29a5db"
+    },
+    "workbench-book-stack.png": {
+      "left": 1383,
+      "top": 235,
+      "width": 364,
+      "height": 260,
+      "sha256": "5aceebc64c43b011e93a557c6322698fcbfb3f6619121e040d8f89d690e33fce"
+    },
+    "workbench-window.png": {
+      "left": 1528,
+      "top": 0,
+      "width": 644,
+      "height": 460,
+      "sha256": "8cf688f365f2fd8cee3866f8b4347987561a969c0a71348663cc2c3f4a70461d"
+    },
+    "workbench-moth.png": {
+      "left": 116,
+      "top": 60,
+      "width": 728,
+      "height": 520,
+      "sha256": "f98655a0f01f56e5fd5fff7a69f0ab1b5b315a5dad464e3ff3bde8878564af10"
+    },
+    "workbench-you.png": {
+      "left": 470,
+      "top": 280,
+      "width": 504,
+      "height": 360,
+      "sha256": "a76189ad4ad104802c3c13795ac813d2aa2e5c3d5d657db0e47856fc630db67c"
+    },
+    "workbench-play.png": {
+      "left": 590,
+      "top": 190,
+      "width": 476,
+      "height": 340,
+      "sha256": "6f3ddc53d11d48b217048d2635ff4be34f33e8a51568e7e18ae6475d4973a101"
+    },
+    "workbench-lamplight.png": {
+      "left": 880,
+      "top": 300,
+      "width": 504,
+      "height": 360,
+      "sha256": "4bc06b7f60a798ffa4d7a2e6848da94eaa192abb0760bb91e361e72203876e96"
+    },
+    "workbench-flame.png": {
+      "left": 930,
+      "top": 90,
+      "width": 280,
+      "height": 200,
+      "sha256": "00b890ab47359f4ef3600cdb6cc7181aa2925051304deec57d99e0e7a335522b"
+    },
+    "workbench-ears.png": {
+      "left": 360,
+      "top": 70,
+      "width": 336,
+      "height": 240,
+      "sha256": "fbbd0ea6459b6c52d15d481c5d9b01b1f628624ec6b5ffd3501a3dd7187f631e"
+    },
+    "workbench-wing.png": {
+      "left": 150,
+      "top": 330,
+      "width": 392,
+      "height": 280,
+      "sha256": "c063768fa4a1da1437dba66f1d64344eaac7c38009c9a10614ea64213ca60c33"
+    },
+    "workbench-gear.png": {
+      "left": 1150,
+      "top": 270,
+      "width": 336,
+      "height": 240,
+      "sha256": "7a58928f4af21f4b41eda1dcf047cc7bee6bb79e754d40f8f579c7b4bfb60d2d"
+    },
+    "workbench-moon.png": {
+      "left": 1820,
+      "top": 30,
+      "width": 336,
+      "height": 240,
+      "sha256": "2b072bd659868e7b09df61234015b662bcfea3fb681fce16a53195a9bf23727e"
+    }
+  }
+}

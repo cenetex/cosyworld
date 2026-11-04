@@ -6,6 +6,8 @@ import {
   openSettings,
   closeSettings,
   pressSetting,
+  putOutOpening,
+  revealOpening,
 } from "./card-browser-helpers.mjs";
 import { roomTracks } from "../card-game/music.mjs";
 
@@ -78,7 +80,9 @@ export async function checkMusicReveal(browser, origin) {
   }
   try {
     await page.goto(`${origin}/?table=music-reveal`);
-    // A Wait in the lamplit attic is a first play, but the music waits.
+    // A Wait in the lamplit attic is a first play, but the music waits. The
+    // opening offers no play until the lamp and attic are revealed.
+    await revealOpening(page);
     await playCard("attic");
     await page.waitForTimeout(1200);
     assert(await audio((a) => a.paused), "The lit attic stays silent");
@@ -108,10 +112,11 @@ export async function checkMusicReveal(browser, origin) {
     console.log("Music: silent lit attic, the pond reveal fades it in");
     // Relit, the mirror closes, but the reveal has happened: a reload plays.
     await playCard("lamp");
+    // Settings holds the song, so it plays once Settings closes.
     await page.reload();
     await openSettings(page);
-    await playing();
     await closeSettings(page);
+    await playing();
     console.log("Music: a reload after the reveal keeps music");
     // A new world wakes in the silent attic again.
     await startNewGame(page);
@@ -125,7 +130,11 @@ export async function checkMusicReveal(browser, origin) {
     );
     await closeSettings(page);
     await page.evaluate(() => (window.musicPlays = []));
-    await playCard("lamp");
+    // The new world opens on its reveals, then Put out (opening.mjs).
+    await page.waitForFunction(
+      () => document.querySelector("#hand").dataset.cooling === "false",
+    );
+    await putOutOpening(page);
     await page
       .locator('#hand [data-card="pond"]')
       .waitFor({ state: "attached" });
@@ -139,6 +148,7 @@ export async function checkMusicReveal(browser, origin) {
     );
     await openSettings(page);
     await pressSetting(page, "music");
+    await closeSettings(page);
     await playing();
     assert.deepEqual(errors, []);
     console.log("Music: a new world is silent again and music off stays off");

@@ -183,6 +183,13 @@ body.local-app #shared-worlds-button {
 .world-slot[data-current="true"] {
   background: #dfc38d1c;
 }
+/* A world past Common has its tier's edge, as a card's rarity edge
+   (world-level.mjs). */
+.world-slot[data-world-tier] {
+  box-shadow:
+    inset 0 0 0 1px var(--world-tier),
+    0 0 10px color-mix(in srgb, var(--world-tier) 35%, transparent);
+}
 .slot-name {
   flex: 1 0 96px;
   font-size: 13px;
@@ -308,6 +315,11 @@ body.local-app #shared-worlds-button {
   max-width: min(160px, 40vw);
   object-fit: contain;
   border-radius: 6px;
+}
+/* The lettering keeps its colour; a world past Common glows softly in its
+   tier (world-level.mjs), as does the Settings black screen's logo. */
+:root[data-world-tier] :is(.brand .brand-logo, .settings-logo) {
+  filter: drop-shadow(0 0 6px var(--world-tier));
 }
 .topbar .brand:has(.brand-logo) {
   display: flex;

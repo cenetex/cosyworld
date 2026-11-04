@@ -121,6 +121,23 @@ describe("a stuck ship goes home", () => {
     expect(s.actors.mara.place).toBe(SHIP);
   });
 
+  it("leaves aboard a player the full harbor has no room for", () => {
+    const five = ["vale", "mara", "ash", "nell", "tavi"];
+    const s = dispatchShared({
+      op: "create",
+      save: encodeSave(openSeas()),
+    }).world;
+    for (const id of five) s.actors[id].place = HOME;
+    s.actors.vale.place = SHIP;
+    Object.assign(s, { controlledActors: five, presentActors: five });
+    Object.assign(s.transports[SHIP], { phase: "docked", dock: HOME });
+    // The harbor holds four players, so Vale stays aboard (rules 98).
+    expect(sendShipHome(s, SHIP).ashore).not.toContain("vale");
+    expect(s.actors.vale.place).toBe(SHIP);
+    const ashore = five.filter((id) => s.actors[id].place === HOME);
+    expect(ashore).toHaveLength(4);
+  });
+
   it("sends a ship already stuck in a save from before rules 95 home", () => {
     const saved = JSON.parse(encodeSave(stuck(BARD)));
     delete saved.usedUp;
@@ -136,6 +153,25 @@ describe("a stuck ship goes home", () => {
       riders: [],
     });
     expect(stuckShip(w, SHIP)).toBe(false);
+  });
+
+  it("spares an away traveler's quest when a pre-95 save puts the ship in", () => {
+    const s = stuck("ash");
+    s.actors.ash.want = {
+      kind: "place",
+      target: NOWHERE,
+      since: s.turn,
+      refusals: 0,
+    };
+    s.controlledActors = s.presentActors = players;
+    const saved = JSON.parse(encodeSave(s));
+    delete saved.usedUp;
+    saved.turn += IDLE_ROUNDS;
+    saved.revision = Math.max(saved.revision, saved.turn);
+    const w = decodeSave(JSON.stringify(saved));
+    expect(w.actors.ash.place).toBe(HOME);
+    // Ash plays as a resident while away: no set-aside (rules 98).
+    expect(w.actors.ash.want?.target).toBe(NOWHERE);
   });
 
   it("keeps a ship with a standoff aboard, in play and in a save from before rules 95", () => {

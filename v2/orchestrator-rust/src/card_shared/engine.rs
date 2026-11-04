@@ -13,7 +13,11 @@ use std::{
     time::{Duration, Instant},
 };
 
-pub(super) const VERSION: &str = "full-card-world/96";
+pub(super) const VERSION: &str = "full-card-world/100";
+pub(super) const NINETY_NINTH_VERSION: &str = "full-card-world/99";
+pub(super) const NINETY_EIGHTH_VERSION: &str = "full-card-world/98";
+pub(super) const NINETY_SEVENTH_VERSION: &str = "full-card-world/97";
+pub(super) const NINETY_SIXTH_VERSION: &str = "full-card-world/96";
 pub(super) const NINETY_FIFTH_VERSION: &str = "full-card-world/95";
 pub(super) const NINETY_FOURTH_VERSION: &str = "full-card-world/94";
 pub(super) const NINETY_THIRD_VERSION: &str = "full-card-world/93";
@@ -108,7 +112,11 @@ pub(super) const FIFTH_VERSION: &str = "full-card-world/5";
 pub(super) const PREVIOUS_VERSION: &str = "full-card-world/3";
 pub(super) const LEGACY_VERSION: &str = "full-card-world/2";
 pub(super) const FOURTH_VERSION: &str = "full-card-world/4";
-const SOURCE: &str = include_str!("engine-v96.js");
+const SOURCE: &str = include_str!("engine-v100.js");
+const NINETY_NINTH_SOURCE: &str = include_str!("engine-v99.js");
+const NINETY_EIGHTH_SOURCE: &str = include_str!("engine-v98.js");
+const NINETY_SEVENTH_SOURCE: &str = include_str!("engine-v97.js");
+const NINETY_SIXTH_SOURCE: &str = include_str!("engine-v96.js");
 const NINETY_FIFTH_SOURCE: &str = include_str!("engine-v95.js");
 const NINETY_FOURTH_SOURCE: &str = include_str!("engine-v94.js");
 const NINETY_THIRD_SOURCE: &str = include_str!("engine-v93.js");
@@ -208,6 +216,15 @@ const FOURTH_SOURCE: &str = include_str!("engine-v4.js");
 // Released rule bundles retain the exact semantics of their journal entries.
 const PREVIOUS_SOURCE: &str = include_str!("engine-v3.js");
 const LEGACY_SOURCE: &str = include_str!("engine-v2.js");
+// A world saved by rules newer than this server's: a release swap briefly
+// runs the older build (docs/release.md), so the world waits, unchanged.
+pub(super) const UPDATING: &str = "This world is updating. Back in a moment.";
+pub(super) fn newer(version: &str) -> bool {
+    let number = |v: &str| v.strip_prefix("full-card-world/")?.parse::<u32>().ok();
+    number(version)
+        .zip(number(VERSION))
+        .is_some_and(|(v, ours)| v > ours)
+}
 pub(super) fn historical(version: &str) -> bool {
     matches!(
         version,
@@ -305,6 +322,10 @@ pub(super) fn historical(version: &str) -> bool {
             | NINETY_THIRD_VERSION
             | NINETY_FOURTH_VERSION
             | NINETY_FIFTH_VERSION
+            | NINETY_SIXTH_VERSION
+            | NINETY_SEVENTH_VERSION
+            | NINETY_EIGHTH_VERSION
+            | NINETY_NINTH_VERSION
     )
 }
 const MAX_BYTES: usize = 4 * 1024 * 1024;
@@ -378,6 +399,10 @@ pub(super) fn reduce_pack(version: &str, pack: Option<&str>, request: Value) -> 
 fn source(version: &str) -> Option<&'static str> {
     Some(match version {
         VERSION => SOURCE,
+        NINETY_NINTH_VERSION => NINETY_NINTH_SOURCE,
+        NINETY_EIGHTH_VERSION => NINETY_EIGHTH_SOURCE,
+        NINETY_SEVENTH_VERSION => NINETY_SEVENTH_SOURCE,
+        NINETY_SIXTH_VERSION => NINETY_SIXTH_SOURCE,
         NINETY_FIFTH_VERSION => NINETY_FIFTH_SOURCE,
         NINETY_FOURTH_VERSION => NINETY_FOURTH_SOURCE,
         NINETY_THIRD_VERSION => NINETY_THIRD_SOURCE,

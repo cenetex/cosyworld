@@ -1,5 +1,5 @@
 /* Signal's palette follows level tiers; a selected person's or thing's exact
-   level appears as one faint numeral at its top. */
+   level appears as one faint numeral at its top right, as on the quest card. */
 :is(body, :where(.title-intro)) .card-frame .card[data-tier] {
   border-color: var(--tier-color);
 }
@@ -11,7 +11,7 @@ body .card[data-tier].new {
 .card-level {
   position: absolute;
   top: 7px;
-  left: 50%;
+  right: 10px;
   z-index: 3;
   color: var(--tier-color);
   font:
@@ -21,7 +21,6 @@ body .card[data-tier].new {
   pointer-events: none;
   visibility: hidden;
   opacity: 0;
-  transform: translateX(-50%);
   text-shadow:
     0 0 5px var(--tier-color),
     0 0 12px var(--tier-color);
@@ -47,11 +46,29 @@ body .card[data-tier].new {
   pointer-events: none;
   display: none;
 }
-:is(body, :where(.title-intro)) .card[data-unrevealed="true"] > :not(.card-back) {
+/* A face-down card, and a card locked behind a quest (locked-box.mjs), show
+   only the carved lid. */
+:is(body, :where(.title-intro))
+  .card:is([data-unrevealed="true"], [data-locked="true"])
+  > :not(.card-back) {
   visibility: hidden;
 }
-:is(body, :where(.title-intro)) .card[data-unrevealed="true"] .card-back {
+:is(body, :where(.title-intro))
+  .card:is([data-unrevealed="true"], [data-locked="true"])
+  .card-back {
   display: block;
+}
+/* A locked box keeps its label, "Locked", and a red edge. */
+:is(body, :where(.title-intro)) .card[data-locked="true"] > .name {
+  visibility: visible;
+  z-index: 5;
+}
+:is(body, :where(.title-intro)) .card-frame .card[data-locked="true"] {
+  border-color: #e2483a;
+}
+body .card[data-locked="true"] .card-back {
+  outline: 3px solid #e2483a;
+  outline-offset: -3px;
 }
 /* The lid of a card opening on its first tap; see card-reveal.mjs. */
 .reveal-lid,

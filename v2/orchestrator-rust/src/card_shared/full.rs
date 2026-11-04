@@ -166,8 +166,6 @@ async fn create(State(state): State<AppState>, h: HeaderMap, Json(body): Json<Cr
         admit(&u)?;
         let mut c = db(&state)?;
         store::schema(&c)?;
-        // A passkey that may not found a world spends no import work.
-        unlocks::may_create(&c, &u)?;
         // An imported save keeps only text the server can vouch for (#2067),
         // checked before the world's writer is held.
         let save = body
@@ -185,7 +183,6 @@ async fn create(State(state): State<AppState>, h: HeaderMap, Json(body): Json<Cr
             .transaction_with_behavior(TransactionBehavior::Immediate)
             .map_err(sql_error)?;
         let a = actor_index(body.avatar.as_deref().unwrap_or("vale"))?;
-        unlocks::may_create(&tx, &u)?;
         let id = found(&tx, &u, a, save.as_deref(), now())?;
         tx.commit().map_err(sql_error)?;
         Ok(json!({"id":id}))
@@ -447,6 +444,30 @@ fn vacate(c: &rusqlite::Connection, id: &str, w: &mut World, a: usize, time: i64
     }
     bindings::free(c, id, a)
 }
+// Any found avatar may come to a world this passkey has played (owner,
+// 2026-11-03). The avatar it had there stays as a resident: a journaled
+// release, no reset, so it keeps its state and level there, and its binding
+// goes. Its level also goes with the passkey to that avatar's next seat
+// (#1846). Refused before anything is journaled.
+fn hand_over(
+    c: &rusqlite::Connection,
+    id: &str,
+    u: &str,
+    w: &mut World,
+    old: usize,
+    a: usize,
+    time: i64,
+) -> Result<()> {
+    if w.claimed[a] == 1 || bindings::holder(c, id, a)?.is_some() {
+        return Err("That avatar belongs to someone else in this world.".into());
+    }
+    if w.claimed[old] == 1 {
+        leave(c, id, w, old, "release", time)?;
+    }
+    let progress = bindings::progress_of(&w.game, actor_id(old));
+    bindings::save_progress(c, u, old, &progress)?;
+    bindings::free(c, id, old)
+}
 // An avatar is in one world at a time (#1846): a claim empties its seats in
 // every other world, in the same transaction, and takes its level along.
 // Rules that cannot reset a seat release the claim and its binding instead.
@@ -500,11 +521,16 @@ pub(super) fn run(
         return reset(c, id, u, &mut w, b, time);
     }
     if b.op == "claim" {
-        if member.is_some() {
-            return Err("You already have an avatar in this world.".into());
-        }
         let a = actor_index(b.avatar.as_deref().ok_or("Choose an avatar.")?)?;
         unlocks::require(c, u, a)?;
+        let seated = member.and_then(|m| usize::try_from(m).ok());
+        match seated.or(bindings::mine(c, id, u)?) {
+            Some(old) if old != a => hand_over(c, id, u, &mut w, old, a, time)?,
+            Some(_) if seated.is_some() => {
+                return Err("You already have an avatar in this world.".into())
+            }
+            _ => {}
+        }
         bindings::claim(c, id, u, a)?;
         leave_elsewhere(c, id, u, a, time)?;
         let claim = claim_command(c, &w, u, a)?;

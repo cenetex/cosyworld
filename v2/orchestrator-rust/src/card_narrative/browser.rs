@@ -9,16 +9,13 @@ pub(crate) struct Answer {
     text: String,
     finish: String,
 }
-/// Dreams and an avatar still waking unnamed send only the raw transcript,
-/// without a system voice.
-fn messages(context: &Context, id: &str, part: Part) -> Value {
-    let (system, user) = super::messages(context, entity(context, id), part);
-    let user = json!({"role":"user","content":user});
-    if system.is_empty() {
-        json!([user])
-    } else {
-        json!([{"role":"system","content":system}, user])
-    }
+/// The same turns the server sends this model (`chat_messages`).
+fn messages(context: &Context, id: &str, part: Part, model: &str) -> Value {
+    let prompt = super::messages(context, entity(context, id), part);
+    // The browser sends these itself and keeps no closing-quote trim.
+    let _ = model;
+    let view = super::prose(&prompt.assistant);
+    crate::ai_gateway::chat_messages(&prompt.system, &view, prompt.user.into(), false)
 }
 fn parts(context: &Context, id: &str, shared: bool) -> Vec<(&'static str, Part)> {
     let mut parts = vec![("line", Part::Line)];
@@ -105,7 +102,7 @@ pub(crate) fn prepare(
                 .is_some_and(|s| s.candidate().supported_parameters().reasoning);
             let mut request = json!({
                 "model":model,
-                "messages":messages(&context, &id, part),
+                "messages":messages(&context, &id, part, &model),
                 "temperature":if part==Part::Dream{1.2}else{1.0},"max_tokens":if part==Part::Persona{160}else{96},
                 "stream":false
             });

@@ -9,6 +9,7 @@ import { daylightAssets } from "./daylight.mjs";
 import { rarityPortraitAssets } from "./rarity-portraits.mjs";
 import { castCombatAssets } from "./cast-combat-art.mjs";
 import { sleepPortraitAssets } from "./sleep-portraits.mjs";
+import { BENCH, SCENE } from "./settings-cards.mjs";
 
 // The local server, release smoke, and Rust asset generator use this list.
 const files = [
@@ -37,6 +38,8 @@ const files = [
   "boardyai.mjs",
   "boardyai.json",
   "assets/card-back.webp",
+  // The locked box lid with its recessed iron keyhole (locked-box.mjs).
+  "assets/card-back-locked.webp",
   // The new-world title (title-intro.mjs); logos may share toolbar art.
   ...new Set(
     titleLogos.logos.flatMap(({ src, toolbar }) =>
@@ -44,6 +47,10 @@ const files = [
     ),
   ),
   "assets/music/title-attic-lamp.mp3",
+  // Settings cards cut from the owner's workbench (settings-cards.mjs).
+  ...BENCH.map((name) => `assets/settings/workbench-${name}.png`),
+  // The workbench itself is Settings' scene.
+  `assets/${SCENE}`,
   // Rest card paintings for issue #1849; the rest-card feature follows.
   "assets/rest/short-rest.webp",
   "assets/rest/long-rest.webp",
@@ -88,8 +95,21 @@ const files = [
   "quest-card.mjs",
   "quest-screen.mjs",
   "card-tiers.css",
+  "card-label.mjs",
   "card-reveal.mjs",
   "card-entry.mjs",
+  "card-exit.mjs",
+  "card-ghost.mjs",
+  "card-keep.mjs",
+  "card-swap.mjs",
+  "dream-card.mjs",
+  "glimpse-card.mjs",
+  "sleep-presentation.mjs",
+  "sleep-view.mjs",
+  "sleep.css",
+  "locked-box.mjs",
+  "stage-reveal.mjs",
+  "opening.mjs",
   "card-level-up.mjs",
   // Willows sign alternates chosen by the willows pack.
   ...[
@@ -199,6 +219,7 @@ const files = [
   "title-intro.mjs",
   "title-logo.mjs",
   "title-logos.json",
+  "world-level.mjs",
   "acknowledgement.json",
   "title-song.mjs",
   "audio-wake.mjs",
@@ -208,6 +229,7 @@ const files = [
   "beats.mjs",
   "combat-beats.mjs",
   "combat-view.mjs",
+  "combat-backdrop.mjs",
   "defeat-view.mjs",
   "combat-portraits.mjs",
   "app.mjs",
@@ -220,6 +242,7 @@ const files = [
   "scene.mjs",
   "weather.mjs",
   "weather.json",
+  "world-life.json",
   "daylight.mjs",
   ...daylightAssets,
   "weather-view.mjs",
@@ -236,13 +259,19 @@ const files = [
   "life.mjs",
   "knowledge.mjs",
   "roaming-routes.mjs",
+  "resident-home.mjs",
+  "resident-sleep.mjs",
+  "resident-guard.mjs",
   "want-talk.mjs",
   "want.mjs",
+  "glimpse.mjs",
+  "talk-quest.mjs",
   "memory.mjs",
   "learning.mjs",
   "adaptive-learning.mjs",
   "reflections.mjs",
   "narrative.mjs",
+  "perception.mjs",
   "between-us.mjs",
   "signed-words.mjs",
   "speech-knowledge.mjs",
@@ -264,6 +293,7 @@ const files = [
   "pack-journeys.mjs",
   "pack-recital.mjs",
   "pack-rules.mjs",
+  "pack-toggle.mjs",
   "pack-transport.mjs",
   "item-use.mjs",
   "pack-items.mjs",
@@ -277,6 +307,7 @@ const files = [
   ...Object.values(CUE_TRACKS).map(({ file }) => `assets/music/${file}`),
   "hum.mjs",
   "sfx.mjs",
+  "combat-sfx.mjs",
   "entity-profiles.json",
   ...new Set(
     Object.values(roomTracks)

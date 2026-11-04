@@ -40,8 +40,9 @@ stops waiting for its line. Words that fail never hold the seat: the play
 finishes at once as a silent scene, each due avatar shows "…", and nothing is
 journaled for the words ([words that fail](dialogue-beats.md#words-that-fail)).
 There is no Retry command. Once the room plays it, the reply types into the
-full-size front card. A refusal names the
-server's reason on the action beat's status line. Nudge asks a present human for attention. People
+full-size front card. A refused play's
+button reads the server's reason, disabled ("Waiting for an update"); one
+whose cards were let go reads it briefly on the action beat's status line. Nudge asks a present human for attention. People
 can sit quietly while the scene runs. Presence has a 60-second reconnect grace;
 the avatar claim remains saved.
 
@@ -173,6 +174,15 @@ someone plays in its room. There is no server tick, so in a world where
 nobody is playing, nothing acts. A claim can carry the avatar's level and
 experience from its last seat (`progress` on the journaled `claim`).
 
+Rules 100 ([world life](../../../docs/design/rules-100-world-life.md)): every
+accepted play, by any seat, also runs the residents' round on the shared
+clock. Residents and away avatars fall asleep and rise on their scattered
+schedules; residents walk home after a push-back, and at dawn and dusk take
+one step where no seat is present, at most 24 steps a play, in sorted id
+order. A seat may stand guard at a guardable way: its guard bars residents
+only, never another seat, and lapses at its next other play or when it
+leaves. The journal replays all of it exactly.
+
 ### Open question: whose conduct
 
 Other players need to tell whether an away avatar's conduct came from its
@@ -184,11 +194,14 @@ presentation question for the UI lock-down, not a rules change.
 A person's passkey binds them to the avatar they take in a shared world
 ([#1825](https://github.com/cenetex/cosyworld/issues/1825)). The server keeps
 the binding in `card_bindings(world, actor, user)`, written by each new claim
-and by creating a world. Leave in ☰ (`leave`/`release`) keeps it: the person
-always
-returns there as that avatar, and nobody else can claim it. A person bound in
-a world can claim only their own avatar there. When all eight avatars are
-bound the world is full: "This world is full." Bindings sit outside the
+and by creating a world. Leave in ☰ (`leave`/`release`) keeps it, and
+nobody else can claim that avatar. A person who has played a world may bring
+any found avatar there whose seat nobody holds (owner, 2026-11-03): the
+server journals `release` for the one they had, with no `reset`, so it
+stays as a resident with its state and level; it drops that binding, keeps
+the level for the avatar's next seat, then journals the new `claim`
+(`hand_over` in `full.rs`). When all eight avatars are bound a newcomer
+finds the world full: "This world is full." Bindings sit outside the
 journal, so old journals replay unchanged. The table was back-filled from
 the members at deploy; an avatar released before then was never recorded
 and can be claimed once by a newcomer.
@@ -248,8 +261,8 @@ world for one, is refused: "Mara is still hidden from you." A fresh world
 hides one of its creator's locked avatars, picked by the first four bytes of
 SHA-256 over the passkey and the world id, and leaves the others out; the
 server passes both on `create` (`unlocks.rs`), so the seeded world records
-them and replay never reads the table. Once nobody is left to find, a passkey
-with a world makes no new one: "Everyone is found." The world list returns
+them and replay never reads the table. Once nobody is left to find, a new
+world hides nobody (owner, 2026-11-03). The world list returns
 `unlocked`, and `seek` journals the quest to talk to the hidden avatar.
 
 A committed play's `unlock` line adds the avatar for the passkey bound to the
@@ -284,6 +297,13 @@ versions 2–10 retain their exact interpreter bytes for replay.
 
 The current rules version is reported by `/meta.card_game.shared_rules_version`
 and comes from the shared engine constant.
+
+A world saved by rules newer than the server's (a release swap, see
+[release operations](../../../docs/release.md#dev-trains)) is not migrated or
+rewritten: the open and play paths answer `503` with `code: "updating"`, and
+the Open this world card labels its disabled action "Updating — back in a
+moment" and retries on its own (2 s doubling to 30 s). An older or unknown
+version keeps "This world's rules need a saved migration."
 
 Version 9 adds a two-card quest hand and explicit Drop actions. Loading an earlier
 world first replays its accepted history with the recorded interpreters, then
@@ -568,6 +588,8 @@ lit or uncovered; a dry lamp fills itself when someone holds it with an Oil
 flask available in the room. A belonging
 carried away leaves the pond path available. Since rules 80 an away
 player's avatar stays as a resident, so what it holds still counts.
+From rules 98 nobody threatens, trades with, takes by Ask from or draws into
+a fight an away player's avatar, and a stuck ship never sets its quest aside.
 Room capacity still applies to the destination.
 
 The same home-gate rule serves the attic and all seven visitor homes. Shared

@@ -1,3 +1,4 @@
+import "./still-cast.mjs";
 import { currentActor, legalActions, play } from "../../v2/card-game/world.mjs";
 import { needsVoyage, sailTo } from "./voyage.mjs";
 import { summonTransport } from "../../v2/card-game/pack-transport.mjs";

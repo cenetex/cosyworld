@@ -4,6 +4,7 @@ import {
   packDefinitions,
   transports,
 } from "./pack-registry.mjs";
+import { dropCost } from "./want.mjs";
 import {
   currentActor,
   places,
@@ -71,7 +72,7 @@ export function cardType(id) {
 
 const PLAY_ORDER = ["talk", "wait", "threaten", "guard", "intercept", "attack"];
 // In battle the selection names the verb: yourself is Brace, yourself and
-// another combatant is Guard, another combatant alone is Strike, and this
+// another combatant is Cover, another combatant alone is Strike, and this
 // place is Wait. There is no Talk.
 export function avatarPlays(world, id) {
   if (!people[id] || !availableCards(world).includes(id)) return [];
@@ -124,6 +125,19 @@ function carryFull(world, id) {
   );
 }
 
+// Why an Ask, Trade or Invite is missing: the resident it needs is asleep
+// (rules 100), for the context button. Talk wakes it; a Give it keeps.
+export function asleepReason(world, selected) {
+  const sleeper = selected
+    .map((id) => (people[id] ? id : things[id] ? rootHolder(world, id) : null))
+    .find(
+      (id) =>
+        id &&
+        id !== currentActor(world) &&
+        world.actors[id]?.sleeping?.until !== undefined,
+    );
+  return sleeper ? `${nameOf(sleeper)} is asleep` : null;
+}
 // Why a sealed card's way is shut, from its pack data, or null.
 export const sealedReason = (world, id) =>
   sealedWays(world, currentActor(world)).find((r) => r.to === id)?.sealed
@@ -239,7 +253,9 @@ export function cardPlay(world, selected) {
       avatar === currentActor(world)
         ? location === here
           ? stay()
-          : find("move", null, location)
+          : // Yourself and a guardable way stands guard (rules 100).
+            actions.find((a) => a.guards === location) ||
+            find("move", null, location)
         : actions.find(
             (a) =>
               a.kind === "accompany" &&
@@ -320,6 +336,11 @@ export function cardActions(world, selected) {
     actions.push(...cardChoices(world, id));
   } else if (cards.includes(currentActor(world))) {
     const other = cards.find((id) => id !== currentActor(world));
+    // Guard leads at a guardable way; Travel stays beside it.
+    const travel = legalActions(world).find(
+      (a) => a.kind === "move" && !a.item && a.target === other,
+    );
+    if (primary.action?.guards && travel) actions.push(travel);
     if (people[other]) {
       actions = avatarPlays(world, other).filter((a) =>
         ["threaten", "intercept"].includes(a.kind),
@@ -380,11 +401,11 @@ export function playText(action) {
     other = nameOf(action?.target).replace(/^The /u, "the ");
   if (action?.kind === "attack") return `${who} strikes ${other}.`;
   if (action?.kind === "guard") return `${who} braces.`;
-  if (action?.kind === "intercept") return `${who} guards ${other}.`;
+  if (action?.kind === "intercept") return `${who} covers ${other}.`;
   return action?.shown || action?.text;
 }
 
-export function playLabel(action) {
+export function playLabel(action, world = null) {
   // Pack data can name a play (a fixture, or greeting a sleeping resident).
   if (action?.label) return action.label;
   if (action?.kind === "trade")
@@ -396,7 +417,11 @@ export function playLabel(action) {
     return `Ask ${nameOf(action.target)} for ${nameOf(action.item)}`;
   if (action?.kind === "accompany")
     return `Invite ${nameOf(action.target)} along`;
-  if (action?.kind === "drop" && !action.item) return "Drop quest";
+  // A level quest's drop names its experience cost (`dropCost`), only here.
+  if (action?.kind === "drop" && !action.item) {
+    const cost = world ? dropCost(world, action.actor, action.quest) : 0;
+    return cost ? `Drop quest (−${cost} XP)` : "Drop quest";
+  }
   if (action?.kind === "focus") return "Choose quest";
   if (action?.kind === "gate") return "Seek the way";
   if (action?.kind === "move" && action.item)
@@ -405,7 +430,7 @@ export function playLabel(action) {
     accompany: "Accompany",
     threaten: "Threaten",
     guard: "Brace",
-    intercept: "Guard",
+    intercept: "Cover",
     attack: "Strike",
     take: "Take",
     drop: "Put down",
@@ -428,16 +453,18 @@ export function restPlays(world, actions, again, cards = []) {
   const legal = legalActions(world),
     sleep = legal.find((a) => a.sleep),
     wait = legal.find((a) => a.kind === "wait" && !a.sleep);
+  // A Guard is a Wait of its own and stays as it is (rules 100).
+  const plain = (a) => a.kind === "wait" && !a.guards;
   const rested =
-    !sleep || !wait || !actions.some((a) => a.kind === "wait")
+    !sleep || !wait || !actions.some(plain)
       ? actions
       : world.actors[currentActor(world)].sleeping
-        ? [sleep, wait, ...actions.filter((a) => a.kind !== "wait")]
-        : actions.map((a) => (a.kind === "wait" ? (again ? sleep : wait) : a));
+        ? [sleep, wait, ...actions.filter((a) => !plain(a))]
+        : actions.map((a) => (plain(a) ? (again ? sleep : wait) : a));
   // The plain Wait gives way to any other play; Sleep never does (#2027).
-  const busy = rested.some((a) => a.kind !== "wait");
+  const busy = rested.some((a) => !plain(a));
   return rested
-    .filter((a) => !busy || a.kind !== "wait" || a.sleep)
+    .filter((a) => !busy || !plain(a) || a.sleep)
     .map((a) => shownPlay(world, a, cards));
 }
 
@@ -465,7 +492,9 @@ export function cardObservation(world, id) {
     return observations.join(". ") + ".";
   }
   if (world.actors[id])
-    return world.actors[id].awake === false ? "Asleep." : "Here.";
+    return world.actors[id].awake === false || world.actors[id].sleeping
+      ? "Asleep."
+      : "Here.";
   return id === world.actors[currentActor(world)].place
     ? "Here."
     : "A way onward.";

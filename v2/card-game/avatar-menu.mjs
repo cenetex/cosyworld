@@ -9,6 +9,7 @@ import { nameOf } from "./world.mjs";
 import { avatarImage } from "./scarves.mjs";
 import { levelTier, romanLevel } from "./rarity.mjs";
 import { hiddenFor } from "./unlock-view.mjs";
+import { cachedWorldTier, tintByTier, worldLevel } from "./world-level.mjs";
 
 // ☰ lists the passkey's worlds, each with the avatars that have entered it
 // and "+" for an open seat, then + New world. A chosen avatar and its
@@ -74,11 +75,9 @@ export function seatLine(seat, slot) {
   return seat.kind === "human" ? `${seat.holder} · ${where}` : where;
 }
 
-// A shared world this avatar can go to: one this person holds no avatar in,
-// where the avatar is the one bound to them there, or a free one has room
-// (#1825: a passkey keeps the avatar it took in a world).
-export const joinable = (row, avatar) =>
-  !row.actor && (row.bound ? row.bound === avatar.id : !row.full);
+// A shared world your avatars can go to: one you have played, where the
+// avatar you had stays as a resident (owner, 2026-11-03), or one with room.
+export const joinable = (row) => Boolean(row.actor || row.bound) || !row.full;
 
 // A world's eight seats, as on the board: yours is marked, other humans are
 // held, a seat in colour only while online (owner, 2026-11-01), and an
@@ -128,7 +127,7 @@ export function worldSeats(state) {
 // (#1892, #1846). A world nobody is in any more has closed on the server and
 // is not listed (full_retire.rs). An avatar this passkey has not found yet
 // (`unlocked`, from the world list) is `locked`: a card back, in no deck
-// (#1936). Once nobody is left to find, no new world opens.
+// (#1936). Once nobody is left to find, a new world hides nobody.
 export function worldSlots({
   shared,
   rows = [],
@@ -195,15 +194,17 @@ export function worldSlots({
     slots,
     deck,
     locked,
-    canCreate:
-      used.length < 8 && (!unlocked || locked.length > 0 || !used.length),
+    canCreate: used.length < 8,
   };
 }
 
-// Where one of your avatars can go from `from`, its slot or null for the
-// deck: the deck, another slot whose seat for it is free and that holds
-// none of your avatars, and + New world while a slot is free.
-export function targetsFor(avatar, from, { slots, canCreate }) {
+// Where one of your found avatars can go from `from`, its slot or null for
+// the deck: the deck, another slot whose seat for it is free, and + New
+// world while a slot is free. In a slot with another of yours, that one
+// stays there as a resident (owner, 2026-11-03).
+export function targetsFor(avatar, from, { slots, canCreate, locked = [] }) {
+  if (locked.some((a) => a.id === avatar.id))
+    return { deck: false, worlds: [], create: false };
   return {
     deck: Boolean(from),
     worlds: slots
@@ -211,8 +212,7 @@ export function targetsFor(avatar, from, { slots, canCreate }) {
         (slot) =>
           slot !== from &&
           slot.shared &&
-          !slot.mine &&
-          joinable(slot.row, avatar) &&
+          joinable(slot.row) &&
           slot.seats.find((seat) => seat.id === avatar.id).kind === "resident",
       )
       .map((slot) => slot.key),
@@ -481,20 +481,17 @@ export function installAvatarMenu({
       lit: Boolean(seat.online),
       ground: world?.actors?.[id]?.place || null,
     };
+    const bring = (target, index = 0) => ({
+      label: `Bring to ${target.name || "this world"}`,
+      id: index ? `avatar-bring-${index}` : "avatar-bring",
+      run: guard(() => toWorld(avatar, home, target)),
+    });
     const target = to && view.slots.find((s) => s.key === to);
     const action = target
-      ? {
-          buttons: [
-            {
-              label: `Bring to ${target.name || "this world"}`,
-              id: "avatar-bring",
-              run: guard(() => toWorld(avatar, home, target)),
-            },
-          ],
-        }
+      ? { buttons: [bring(target)] }
       : slot
         ? seatAction(slot, seat)
-        : {};
+        : { buttons: bringButtons(avatar, view, bring) };
     return {
       avatar: id,
       cards: [card],
@@ -503,6 +500,20 @@ export function installAvatarMenu({
       buttons: [],
       ...action,
     };
+  }
+  // A free avatar of yours: Bring to each world it can go to, else one
+  // dim button that says why not.
+  function bringButtons(avatar, view, bring) {
+    const keys = targetsFor(avatar, null, view).worlds;
+    const worlds = view.slots.filter((s) => keys.includes(s.key));
+    if (worlds.length) return worlds.map(bring);
+    const shared = view.slots.filter((s) => s.shared);
+    const label = !shared.length
+      ? "No world yet"
+      : shared.length === 1
+        ? `Taken in ${shared[0].name || "your world"}`
+        : "Taken in every world";
+    return [{ label, id: "avatar-bring", disabled: true, run() {} }];
   }
   function render() {
     // Signed out, ☰ has no world UI at all (#1892).
@@ -543,6 +554,12 @@ export function installAvatarMenu({
         title.append(mark);
       }
       const world = slot.current ? session?.state.world || getWorld() : null;
+      // Its edge is the world's tier, as a card's rarity edge: the one
+      // played now from its state, another as it was when last opened.
+      tintByTier(
+        row,
+        world ? worldLevel(world).tier : cachedWorldTier(`world:${slot.key}`),
+      );
       const seats = el("ul", "slot-seats");
       for (const seat of slot.seats)
         if (seat.kind !== "resident")

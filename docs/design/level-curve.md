@@ -18,11 +18,15 @@ and no check that the fight was possible.
   level. That is one step through level 5, two through level 10, ten at
   Legendary and twenty at Mythic.
 - A player's next level quest comes on a long rest once its experience
-  reaches `questXp(n)`: the one quest met before the first level quest, plus
-  one point for each step and rest of its earlier level quests. The level
-  quests feed themselves, so ordinary wants are surplus and never the gate.
-  With the old F(n) curve this sum was the triangular curve `levelFor`;
-  residents still level on `levelFor` alone.
+  reaches `questXp(n)`: the one quest met before the first level quest, one
+  point for each step and rest of its earlier level quests, and, since
+  rules 99 (option A, [sleep spec](../../v2/docs/card-table/rest-and-sanctuary.md)),
+  each level's gap of ordinary wants. The gap at level L is
+  `levelGap(L) = questSteps(L + 1) + 1`, the size of the next quest. A level
+  is reached at `levelXp(L)`, its halfway is `halfwayXp(L) = levelXp(L) +
+  ceil(levelGap(L) / 2)`, and the next quest comes at `questXp(L + 1) =
+  levelXp(L) + levelGap(L)`. Ordinary wants met past the gap carry on to
+  the next level. Residents still level on `levelFor` alone.
 - No step is violent. A person step is Talk (the person want itself) or
   Meet, at every level. Threaten and Attack steps saved before rules 90 stay
   valid and are met as before; none is drawn.
@@ -55,6 +59,10 @@ turns, measure time.
 
 - Legendary: 274 × 8 + 49 × 10 ≈ 2,700 plays, about 11 hours or 22 sessions.
 - Mythic: 1,049 × 8 + 99 × 10 ≈ 9,400 plays, about 39 hours.
+
+Since rules 99 each level also asks its gap of ordinary wants, as many as
+the quest's steps and rest, so these times roughly double: `questXp(50)` is
+636 and `questXp(100)` is 2,276.
 
 Contentment ("enough for now", [quest stack](quest-stack.md)) does not slow
 this: a finished level quest draws the next want at once, and every rest

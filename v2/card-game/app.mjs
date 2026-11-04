@@ -9,13 +9,47 @@ import { count, lineCounter, playCounter, startMetrics } from "./metrics.mjs";
 import { imageUrl } from "./images.mjs";
 import { cardLevel, levelTier, romanLevel } from "./rarity.mjs";
 import { finishCardReveal, revealCard } from "./card-reveal.mjs";
+import { setCardLabel } from "./card-label.mjs";
+import {
+  fadeGhost,
+  ghostOf,
+  pinGhost,
+  releaseGhost,
+  releaseGhosts,
+} from "./card-ghost.mjs";
+import {
+  EXIT_MAX,
+  EXIT_MS,
+  cardOf,
+  dropCards,
+  foldCards,
+  leavingFrames,
+} from "./card-exit.mjs";
+import { keepFrames, morphFrame } from "./card-keep.mjs";
+import {
+  SWAP_REDUCED_MS,
+  fadeFaces,
+  nearestFirst,
+  swapTiming,
+} from "./card-swap.mjs";
 import {
   ENTRY_STAGGER_MS,
   QUEST_DOWN_MS,
   createCardEntries,
   createQuestEntries,
+  entryDelays,
+  questEntryKey,
+  riseIn,
 } from "./card-entry.mjs";
-import { phase, THINKING_GRACE_MS } from "./presentation.mjs";
+import { LOCKED_BACK, createLockedBoxes, isLockedBox } from "./locked-box.mjs";
+import { fadeInRevealed, revealedStage } from "./stage-reveal.mjs";
+import { OPENING_REVEAL, openingStep } from "./opening.mjs";
+import {
+  phase,
+  refusalLabel,
+  refusalSentence,
+  THINKING_GRACE_MS,
+} from "./presentation.mjs";
 import { glowCard, levelUpCard, transformPortrait } from "./card-level-up.mjs";
 import { crossedPortraitTier } from "./rarity-portraits.mjs";
 import {
@@ -40,7 +74,19 @@ import { locationWeather } from "./weather.mjs";
 import { DAYLIGHT_TURNS, isNight, locationDaylight } from "./daylight.mjs";
 import { renderWeather } from "./weather-view.mjs";
 import { renderStageLight } from "./stage-light-view.mjs";
-import { GENTLE, placeLight } from "./stage-light.mjs";
+import {
+  UNPAINTED_NIGHT_TINT,
+  gradeStrength,
+  placeLight,
+} from "./stage-light.mjs";
+import { createSleepView } from "./sleep-view.mjs";
+import {
+  DREAM_TIER,
+  dreamingAria,
+  dreamingLabel,
+  withDream,
+} from "./dream-card.mjs";
+import { paintGlimpse } from "./glimpse-card.mjs";
 import {
   CHANGE_FADE_MS,
   CROSSFADE_MS,
@@ -50,7 +96,10 @@ import {
   installScaresToggle,
 } from "./transitions.mjs";
 import { installSettingsCards } from "./settings-screen.mjs";
+import { groupOn, packToggleBlock } from "./pack-toggle.mjs";
 import { installToolbar, renderPlayers } from "./toolbar.mjs";
+import { showWorldTier } from "./world-level.mjs";
+import { worldLogoKey } from "./title-logo.mjs";
 import { innerLifeChain, innerLifeSection } from "./inner-life.mjs";
 import { combatBeats, lastSeq, theName } from "./combat-beats.mjs";
 import {
@@ -90,9 +139,15 @@ import {
 } from "./speech-knowledge.mjs";
 import { packMedia } from "./pack-registry.mjs";
 import { createRoomMusic, openingRevealed } from "./music.mjs";
-import { battleMusicDue, createMusicCues } from "./music-cues.mjs";
+import {
+  CUE_TRACKS,
+  HUSH,
+  battleMusicDue,
+  createMusicCues,
+} from "./music-cues.mjs";
 import { createHum } from "./hum.mjs";
 import { createSfx } from "./sfx.mjs";
+import { recedeBackdrop } from "./combat-backdrop.mjs";
 import { createCharacterSpeech } from "./character-speech.mjs";
 import { localRuntime } from "./local-service.mjs";
 import {
@@ -157,6 +212,7 @@ import {
   cardObservation,
   TOO_MANY_ITEMS,
   sealedReason,
+  asleepReason,
 } from "./cards.mjs";
 // A person's want reaches the player through Talk context (want-talk.mjs).
 // The hand holds people, items and places, and the player's quest cards.
@@ -321,6 +377,8 @@ function wordsOnLoad() {
 }
 let encountered = new Set(),
   discoveryDone = Promise.resolve();
+// Cards just revealed whose figure or item has yet to fade into the scene.
+const stageReveals = new Set();
 const fresh = new Set();
 // The level each card last showed, so a rise plays on the card itself.
 const shownLevels = new Map();
@@ -571,6 +629,7 @@ const localWordsPending = () =>
 const playQueue = createPlayQueue({
   ready: (action) =>
     !cardsCooling &&
+    performance.now() >= swapEnd &&
     (action.kind === "focus" || !localWordsPending()) &&
     reveal.complete &&
     (!sharedSession ||
@@ -630,6 +689,10 @@ const exchange = createExchange({
     pendingSpeaker = null;
     awaitingNext = false;
     const speakerId = line.entityId || line.actorId;
+    // An unrevealed person who speaks is revealed with the line, there at
+    // once so the words never wait on a fade.
+    if (people[speakerId] && cardIsCovered(speakerId))
+      uncover(speakerId, { fade: false });
     if (speakerId && !shownSpeakers.includes(speakerId))
       shownSpeakers.push(speakerId);
     lineSeq = line.seq;
@@ -799,6 +862,21 @@ function updateSpeechControls(complete) {
     : "Tap to reveal";
 }
 const speechPainter = createRevealPainter($("dialogue-text"), { rest: true });
+// A wake plays on the table: dusk or dawn through a held black, and a level
+// quest's dream before it (sleep-view.mjs).
+const sleepView = createSleepView({
+  stage: $("stage"),
+  speechRow: $("speech-row"),
+  hand: $("hand"),
+  reducedMotion,
+  render: () => render(),
+  finishReveal: () => {
+    if (reveal.complete) return;
+    reveal.finish();
+    speechSounds.stop();
+  },
+  dealQuests: () => showQuests(false),
+});
 const reveal = createTextReveal({
   reduced: () => reducedMotion.matches,
   sound: (...args) => {
@@ -866,6 +944,7 @@ const reveal = createTextReveal({
     if (value.complete) {
       updateSpeechControls(true);
       completedSpeech.add(value.key);
+      sleepView.revealed(value.key);
       if (completedSpeech.size > 100)
         completedSpeech.delete(completedSpeech.values().next().value);
       completedSpokenLine = { ...value, seq: shownSceneLine?.seq };
@@ -932,6 +1011,7 @@ $("speech-sound").onclick = () => {
   soundEnabled = !soundEnabled;
   speechSounds.setEnabled(soundEnabled);
   characterSpeech.setEnabled(soundEnabled);
+  sfx.setVoices(soundEnabled);
   if (soundEnabled) unlockSpeech();
   try {
     localStorage.setItem(
@@ -1037,6 +1117,7 @@ hum.setStarted(musicHasStarted());
 // The bell and later world effects use the same switch and volume.
 const sfx = createSfx();
 sfx.setEnabled(musicEnabled);
+sfx.setVoices(soundEnabled);
 sfx.setVolume(musicVolume);
 sfx.setHidden(document.hidden);
 function ringHeard() {
@@ -1082,21 +1163,23 @@ const unlockAudio = () => {
 for (const type of ["pointerdown", "pointerup"])
   document.addEventListener(type, unlockAudio, { capture: true });
 document.addEventListener("keydown", unlockAudio, { capture: true });
-document.addEventListener("visibilitychange", () => {
+// Settings fades the scene's sound out and holds the song's place
+// (settings-screen.mjs); a hidden tab silences it too.
+function hideAudio() {
+  const quiet = $("settings-screen").open;
   music.setHidden(document.hidden);
-  hum.setHidden(document.hidden);
-  sfx.setHidden(document.hidden);
-});
+  music.setQuiet(quiet);
+  hum.setHidden(document.hidden || quiet);
+  sfx.setHidden(document.hidden || quiet);
+}
+document.addEventListener("visibilitychange", hideAudio);
+document.addEventListener("shared-dialog-change", hideAudio);
 window.addEventListener("pagehide", () => {
   music.setHidden(true);
   hum.setHidden(true);
   sfx.setHidden(true);
 });
-window.addEventListener("pageshow", () => {
-  music.setHidden(document.hidden);
-  hum.setHidden(document.hidden);
-  sfx.setHidden(document.hidden);
-});
+window.addEventListener("pageshow", hideAudio);
 const narrator = createNarrator({
   getWorld: () => world,
   early: Boolean(localRuntime()),
@@ -1114,8 +1197,11 @@ const narrator = createNarrator({
       : requestNarrative,
   ),
   // Thoughts, persona and dreams come after the line, so they never delay it.
-  reflect: signedRequest((context, signal) =>
-    requestNarrative(context, signal, () => {}, "/card-game/reflections"),
+  // A level quest's dream waits on it (sleep-view.mjs).
+  reflect: sleepView.reflect(
+    signedRequest((context, signal) =>
+      requestNarrative(context, signal, () => {}, "/card-game/reflections"),
+    ),
   ),
   // A silent play ends its exchange at once; the beat is its caption.
   silent: () => {
@@ -1152,6 +1238,7 @@ const narrator = createNarrator({
     loadTurnLines({ pending });
   },
   status: (value, error) => {
+    sleepView.words(value);
     // Words that failed are this scene's silence: each speaker due shows
     // "…", like a line that came, and play goes on. There is no failed state.
     storyStatus = value === "failed" ? "ready" : value;
@@ -1177,7 +1264,9 @@ function loadTurnLines({ pending = false } = {}) {
       entry.generated &&
       entry.kind === "dialogue" &&
       entry.turn === world.turn &&
-      entry.locationId === world.actors[currentActor(world)].place,
+      entry.locationId === world.actors[currentActor(world)].place &&
+      // The dreamer says nothing on waking: the dream is the beat.
+      !sleepView.hidesLine(entry),
   );
   const voiced = lines.filter((entry) => !entry.silent);
   if (localRuntime() && voiced.length) {
@@ -1225,12 +1314,16 @@ function handItems() {
     (id) => world.items[id].holder === actor && selectedHandItem(world, [id]),
   );
 }
+// A thing the player's own play just put in their hands, until the hand's
+// next redraw brings its card into view.
+let receivedCard = null;
 function keepHeldSelection(before, action = null) {
   const actor = currentActor(world);
   const arrived = handItems().filter((id) => !before.hands.includes(id));
   const received =
     [action?.receive, action?.item].find((id) => arrived.includes(id)) ||
     arrived.at(-1);
+  receivedCard = received ?? null;
   // A standoff locks the room and takes the held things out of the hand
   // (#1775), so a raised item leaves the selection with its card.
   const shown = availableCards(world);
@@ -1293,21 +1386,36 @@ function selectCards(cards) {
 // begin once the avatar and its place are both known. The new-world title's
 // turn has already shown the avatar's face, so it uncovers that card without
 // a second flip.
-function uncover(id, { flip = true } = {}) {
+function uncover(id, { flip = true, lid = null, fade = true } = {}) {
   if (!cardIsCovered(id)) return;
+  const was = opening()?.step;
   encountered.add(id);
   coveredCards.delete(id);
   rememberCards();
+  // Its figure or item fades into the scene (stage-reveal.mjs).
+  if (fade) stageReveals.add(id);
+  // The opening's last card down raises its first play, Put out (opening.mjs).
+  const step = opening();
+  if (was === "reveal" && step?.step === "play" && step.choice.length) {
+    selectCards(step.choice);
+    rowCollapsed = false;
+  }
   render();
   const shown = $("hand").querySelector(`.card[data-card="${id}"]`);
-  if (shown && flip) void revealCard(shown);
+  if (shown && flip) void revealCard(openingLid(shown, lid));
   $("discovery-announcement").textContent = `New card: ${nameOf(id)}.`;
   if (openingHeld && openingWordsDue() && selfKnown()) resumeScene();
   if (sharedSession) syncSharedLine();
 }
+// A new local world's opening, while it lasts (opening.mjs).
+function opening() {
+  if (sharedSession) return null;
+  return openingStep(world, currentActor(world), cardIsCovered);
+}
 function choose(id) {
   if (finishCardReveal(id) || selectionBlocked()) return;
-  if (cardIsCovered(id)) {
+  // A locked box is chosen, not uncovered: it opens with its quest.
+  if (cardIsCovered(id) && !isLockedBox(world, id)) {
     uncover(id);
     return;
   }
@@ -1367,11 +1475,6 @@ function commitAction(action, revision, renderedAt = -Infinity) {
   if (selectionBlocked()) return;
   if (renderedAt >= lastPlayAt && performance.now() - lastPlayAt < SETTLE_MS)
     return;
-  // The player's next move ends the loss screen's song.
-  if (lossCue) {
-    lossCue = false;
-    syncMusicCue();
-  }
   // The drone falls silent just before a discovery is revealed.
   if (action.choiceId) hum.hush();
   // The same play chosen again keeps it; its Thinking card cancels it.
@@ -1394,7 +1497,7 @@ function performAction(action, revision) {
     return;
   }
   // Choosing a quest passes no turn and leaves the scene and its speech be.
-  if (action.kind === "focus") {
+  if (action.kind === "focus" || action.kind === "pack") {
     world = result.state;
     save();
     render();
@@ -1500,11 +1603,17 @@ function combatStage() {
     revealLine: (seq) => {
       if (combatHeld.delete(seq)) renderLog();
     },
+    sound: (name, seed) => name && sfx.fight(name, seed),
   }));
 }
 function endCombat() {
   combatRun++;
+  delete document.body.dataset.handAway;
   combatCue = false;
+  if (lossCue) {
+    lossCue = false;
+    syncMusicCue();
+  }
   combatView?.cleanup();
   $("travel").classList.remove("fainting");
   combatHeld.clear();
@@ -1531,11 +1640,21 @@ async function presentCombat(beats, land) {
     (beat) => beat.kind === "defeat" && beat.viewerLost,
   );
   if (defeat) {
-    // The loss screen's song plays from its fade to black, over the slow
-    // lift, until the player's next move (commitAction).
+    // The hand stays away until the new place's hand is dealt (render).
+    document.body.dataset.handAway = "true";
+    // The loss screen's song comes in on the black after three beats of
+    // silence (music-cues.mjs). Leaving the loss screen fades it out fully
+    // before the lift onto the next scene and its room song.
     lossCue = true;
     music.cue("battle-loss");
     await view.defeat(defeat);
+    if (mine !== combatRun) return;
+    music.cue(HUSH);
+    if (music.cueSounding)
+      await new Promise((done) =>
+        setTimeout(done, CUE_TRACKS["battle-loss"].fadeOut * 1000),
+      );
+    lossCue = false;
   }
   if (mine !== combatRun) return;
   await view.release();
@@ -1567,6 +1686,7 @@ let covering = false,
 function cancelTravel() {
   endCombat();
   trip++;
+  swapFrom = null;
   covering = false;
   syncHandDrop();
   revealTravel();
@@ -1605,6 +1725,7 @@ async function travel(place, arrive, landed, lost = false) {
   travelShown = new Promise((resolve) => {
     revealTravel = resolve;
   });
+  departHand();
   covering = true;
   syncHandDrop();
   veil.classList.add("travelling");
@@ -1890,8 +2011,18 @@ function presentPhase() {
 function syncPhase() {
   if (presentPhase() !== shownPhase) renderActions();
 }
+// The server's reason for refusing this play, while its cards stay chosen
+// and the world has not moved on.
+const refusedPlay = (action) =>
+  sharedRefusal?.key === action.key ? sharedRefusal.reason : "";
 function renderActions() {
   const row = $("card-actions");
+  if (
+    sharedRefusal &&
+    (sharedRefusal.choice !== selected.join("+") ||
+      sharedRefusal.revision !== world.revision)
+  )
+    sharedRefusal = null;
   shownPhase = presentPhase();
   const rested = shownPhase !== "choosing";
   const { actions: offered, hint } = cardActions(world, selected);
@@ -1904,7 +2035,9 @@ function renderActions() {
   );
   // A chosen play leaves the beat: the Thinking card stands for it, and its
   // reply types into the full-size front card.
-  const actions = rested ? [] : ready;
+  // While the opening has a card down, the button only reveals the next.
+  const quiet = !rested && opening()?.step === "reveal";
+  const actions = rested || quiet ? [] : ready;
   const selectionName = selected.map(nameOf).join(" + ");
   $("selection-name").textContent = selected.length
     ? selectionName
@@ -1956,15 +2089,20 @@ function renderActions() {
     );
   row.replaceChildren(
     ...actions.map((action, index) => {
+      const refused = refusedPlay(action);
       const button = node(
         "button",
-        playLabel(action),
+        refused ? refusalLabel(refused) : playLabel(action, world),
         index === 0 ? "card-primary" : "card-action",
       );
       button.type = "button";
       button.dataset.action = action.kind;
-      button.title = playText(action);
-      button.disabled = selectionBlocked();
+      // Dropping a quest is destructive: red words (style.css).
+      if (action.kind === "drop" && !action.item)
+        button.dataset.destructive = "";
+      button.title = refused || playText(action);
+      button.disabled = Boolean(refused) || selectionBlocked();
+      if (refused) button.dataset.blocked = "refused";
       if (action.choiceId) {
         button.dataset.choice = action.choiceId;
         button.dataset.pack = action.packId;
@@ -1983,20 +2121,27 @@ function renderActions() {
         .catch((error) => notice(error.message));
     row.append(nudge);
   }
+  if (quiet) {
+    const reveal = node("button", OPENING_REVEAL, "card-primary");
+    reveal.type = "button";
+    reveal.dataset.quiet = "true";
+    reveal.disabled = selectionBlocked();
+    reveal.onclick = () => uncover(opening()?.next);
+    row.append(reveal);
+  }
   // The top quest, chosen in the open fan, can be dropped (a level quest
-  // costs half the experience). Choosing a card beneath brings it to the top.
+  // costs experience, named on its button). Choosing a card beneath brings it to the top.
   const picked = questOpen && !rested ? shownQuests[questPick] : null;
   for (const action of picked?.index === 0
     ? legalActions(world).filter(
         (a) => a.kind === "drop" && !a.item && a.quest === 0,
       )
     : []) {
-    const button = node("button", playLabel(action), "card-action");
+    const button = node("button", playLabel(action, world), "card-action");
     button.type = "button";
     button.dataset.dropQuest = String(picked.index);
-    button.title = picked.level
-      ? "Give up this level quest; it costs half your experience"
-      : "Give up this quest";
+    button.dataset.destructive = "";
+    button.title = "Give up this quest";
     button.disabled = selectionBlocked();
     button.onclick = () => {
       questOpen = false;
@@ -2030,6 +2175,16 @@ function renderActions() {
     why.title = sealed;
     row.append(why);
   }
+  // An Ask, Trade or Invite of a sleeping resident says so (rules 100).
+  const asleep = !rested && !actions.length && asleepReason(world, selected);
+  if (asleep) {
+    const blocked = node("button", asleep, "card-primary");
+    blocked.type = "button";
+    blocked.disabled = true;
+    blocked.dataset.blocked = "asleep";
+    blocked.title = asleep;
+    row.append(blocked);
+  }
   // A Take refused for space says why in the context button (#2018). It
   // plays nothing; the cards stay as they are.
   const crowded =
@@ -2047,9 +2202,24 @@ function renderActions() {
   note.textContent = "";
   note.hidden = true;
   delete $("action-beat").dataset.avatar;
+  // A refused play whose cards are no longer chosen says so on the status
+  // line, briefly, as its button would.
+  const aside =
+    sharedRefusal && !actions.some((a) => a.key === sharedRefusal.key);
+  if (aside)
+    notice(
+      `Not played: ${sharedRefusal.label}. ${refusalSentence(sharedRefusal.reason)}`,
+      "rejected",
+    );
+  else if ($("play-status").dataset.playStatus === "rejected") notice("");
   syncActionBeat();
+  // A refused play reads its reason to a screen reader, as its button shows.
+  const readout = (a) =>
+    refusedPlay(a)
+      ? `Not played: ${playLabel(a)}. ${refusedPlay(a)}`
+      : playLabel(a);
   $("play-readout").textContent = selected.length
-    ? `${selectionName}. ${ready.map(playLabel).join(". ") || hint}`
+    ? `${selectionName}. ${ready.map(readout).join(". ") || hint}`
     : questOpen && (shownQuests[questPick] || sealedQuests[0])
       ? shownQuestCaption(shownQuests[questPick] || sealedQuests[0])
       : "";
@@ -2087,6 +2257,7 @@ function updateCardSelection(frame) {
     frame.dataset.expanded = String(expandedHolders.has(id));
     button.setAttribute("aria-expanded", String(expandedHolders.has(id)));
   }
+  if (button.dataset.locked === "true") return;
   button.querySelector(".sr-only").textContent =
     cardObservation(world, id) +
     (label ? ` ${label}.` : "") +
@@ -2096,34 +2267,133 @@ function updateCardSelection(frame) {
     stackLabel(stack);
 }
 const handMotions = new Map();
-// Cards new to the hand rise in, and quests enter face down (card-entry.mjs).
+// Cards new to the hand rise in, and quests are dealt face down
+// (card-entry.mjs).
 const handEntries = createCardEntries(),
-  questsInView = createQuestEntries();
+  questsInView = createQuestEntries(),
+  lockedBoxes = createLockedBoxes();
+// Quests turned face up at least once: only these show their parts' tier
+// while folded.
+const revealedQuests = new Set();
+// A box whose quest is done turns over once, the next time it is in view. A
+// box never uncovered opens as a newly found card does, with its name.
+function openLockedBoxes() {
+  const buttons = [...$("hand").children]
+    .filter((frame) => !frame.dataset.want)
+    .map((frame) => frame.querySelector(".card"));
+  const opening = lockedBoxes.draw(
+    buttons
+      .filter((button) => !button.parentElement.hidden)
+      .map((button) => button.dataset.card),
+    buttons
+      .filter((button) => button.dataset.locked === "true")
+      .map((button) => button.dataset.card),
+  );
+  const lid = imageUrl(LOCKED_BACK, "card");
+  for (const id of opening) {
+    const button = buttons.find((b) => b.dataset.card === id);
+    if (cardIsCovered(id)) {
+      // Face down for a moment, under the locked lid, until it is named.
+      openingLid(button, lid);
+      setTimeout(() => uncover(id, { lid }));
+    } else void revealCard(openingLid(button, lid));
+  }
+}
+// The lid that lifts is the one the card lay under (card-reveal.mjs).
+function openingLid(button, lid) {
+  const back = lid && button.querySelector(".card-back");
+  if (back) back.src = lid;
+  return button;
+}
 const entryKey = (frame) =>
   `${frame.querySelector(".card").dataset.card}@${frame.dataset.holder ?? ""}`;
-// Each quest newly in view lies face down a beat, then turns; the next turns
-// a little after. A tap still plays it at once.
-function showQuests() {
-  const cards = [
-    ...$("hand").querySelectorAll(".want-frame:not([hidden]) > .want-card"),
-  ];
+// Cards leaving the hand fall as ghosts over it (card-exit.mjs). A world
+// loaded in its place (another tab's save) shows none.
+let quietExits = false;
+// A scene change (a new place, the light here going out or coming on) swaps
+// the hand in beats (card-swap.mjs). Travel starts it at the tap: the cards
+// left behind fall as the veil comes down, and the rest of the swap plays
+// when the hand redraws under it. Plays wait until it ends.
+let renderedScene = null,
+  swapFrom = null,
+  swapEnd = 0;
+function departHand() {
+  if (document.body.dataset.handAway) return;
+  const row = [...$("hand").children],
+    staying = new Set(availableCards(world)),
+    leaving = row.filter(
+      (frame) =>
+        !frame.hidden &&
+        frame.querySelector(".card[data-card]") &&
+        !staying.has(cardOf(frame)),
+    ),
+    { exits } = swapTiming(leaving.length);
+  swapFrom = {
+    at: performance.now(),
+    left: leaving.length,
+    fallen: leaving.length ? exits.at(-1) + EXIT_MS : 0,
+  };
+  dropCards(
+    nearestFirst(leaving, row, currentActor(world)),
+    handExits(),
+    exits,
+  );
+  for (const frame of leaving) {
+    frame.dataset.gone = "true";
+    frame.style.visibility = "hidden";
+  }
+}
+// Deals the shown hand afresh, 70 ms apart; reduced motion fades it in.
+function dealHand() {
+  const row = [...$("hand").children].filter((f) => !f.hidden);
+  if (reducedMotion.matches)
+    $("hand").animate({ opacity: [0, 1] }, { duration: SWAP_REDUCED_MS });
+  else entryDelays(row.length).forEach((delay, i) => riseIn(row[i], { delay }));
+}
+function handExits() {
+  let layer = $("hand").parentElement.querySelector(":scope > .card-exits");
+  if (!layer) {
+    layer = node("div", undefined, "card-exits");
+    layer.setAttribute("aria-hidden", "true");
+    $("hand").after(layer);
+  }
+  return layer;
+}
+// Each quest newly dealt lies face down until it is seen, then turns a beat
+// later; the next turns a little after. Once turned it stays face up while
+// it stays in the hand, folded or fanned. A tap still plays it at once.
+function showQuests(opening) {
+  const cards = [...$("hand").querySelectorAll(".want-card")],
+    // A quest a dream deals stays face down until the dream is done.
+    seen = (card) =>
+      !card.closest(".want-frame").hidden &&
+      !sleepView.holdsQuest(card.dataset.questEntry);
   questsInView
-    .show(cards.map((card) => card.dataset.questKey))
+    .show(
+      cards.map((card) => card.dataset.questEntry),
+      cards.filter(seen).map((card) => card.dataset.questEntry),
+      { opening },
+    )
     .forEach((key, i) =>
       setTimeout(
         () => turnQuest(key),
         QUEST_DOWN_MS + i * 2 * ENTRY_STAGGER_MS,
       ),
     );
-  for (const card of cards)
-    card.dataset.unrevealed = String(questsInView.down(card.dataset.questKey));
+  for (const card of cards) {
+    const down = questsInView.down(card.dataset.questEntry);
+    card.dataset.unrevealed = String(down);
+    if (!down && seen(card)) revealedQuests.add(card.dataset.questEntry);
+  }
 }
 function turnQuest(key) {
+  const card = [
+    ...$("hand").querySelectorAll(".want-frame:not([hidden]) > .want-card"),
+  ].find((el) => el.dataset.questEntry === key);
+  // Folded away before its turn, it turns when it is next seen.
+  if (!card) return questsInView.unseen(key);
   if (!questsInView.turned(key)) return;
-  const card = [...$("hand").querySelectorAll(".want-card")].find(
-    (el) => el.dataset.questKey === key,
-  );
-  if (!card) return;
+  revealedQuests.add(key);
   card.dataset.unrevealed = "false";
   void revealCard(card);
 }
@@ -2140,7 +2410,9 @@ function card(id) {
   const type = cardType(id),
     base = places[id] || people[id] || things[id],
     crossingFace = type === "location" ? travelCard(world, id) : null,
-    def = crossingFace ? { ...base, name: crossingFace.name } : base;
+    def = crossingFace ? { ...base, name: crossingFace.name } : base,
+    // A card locked behind a quest is a carved wooden box (locked-box.mjs).
+    locked = isLockedBox(world, id);
   const raised =
     selected.includes(id) || Boolean(places[id] && expandedHolders.has(id));
   const chosen = raised ? cardPlay(world, selected) : null;
@@ -2178,9 +2450,6 @@ function card(id) {
   if (type === "avatar") frameFigure(img);
   graphic.append(img);
   if (type === "location") {
-    // A sealed card is the far side of a shut gate; its reason is in the
-    // context button, never on the card.
-    if (sealedReason(world, id)) el.dataset.sealed = "true";
     graphic.dataset.timeOfDay = locationDaylight(world, id)?.phase || "day";
     renderWeather(graphic, locationWeather(world, id));
     el.dataset.locationVariant = locationVariant(world, id);
@@ -2214,9 +2483,18 @@ function card(id) {
   const observation = node("span", cardObservation(world, id), "sr-only");
   observation.id = `card-detail-${id}`;
   if (raised && label) observation.textContent += ` ${label}.`;
-  const hidden = cardIsCovered(id);
+  const hidden = cardIsCovered(id) || locked;
   if (hidden) observation.textContent = "";
-  el.append(graphic, node("span", hidden ? "" : def.name, "name"), observation);
+  // A locked box is labelled "Locked" (the owner's exception); its reason
+  // is in the context button.
+  el.append(
+    graphic,
+    setCardLabel(
+      node("span", undefined, "name"),
+      locked ? "Locked" : hidden ? "" : def.name,
+    ),
+    observation,
+  );
   // One faint numeral shows a selected person's or thing's level. Places
   // have no level of their own, so they carry none.
   if (type !== "location") {
@@ -2294,7 +2572,7 @@ function card(id) {
     const held = availableCards(world).filter(
       (item) => things[item] && rootHolder(world, item) === id,
     );
-    if (held.length) {
+    if (held.length && !locked) {
       frame.dataset.inventory = String(held.length);
       frame.dataset.expanded = String(expandedHolders.has(id));
       el.setAttribute("aria-expanded", String(expandedHolders.has(id)));
@@ -2334,13 +2612,18 @@ function card(id) {
     }
   }
   if (foldQuest()?.actor === id) frame.prepend(questFold(foldQuest()));
-  el.dataset.unrevealed = String(cardIsCovered(id));
+  // Its reason is in the context button, never on the box.
+  el.dataset.locked = String(locked);
+  el.dataset.unrevealed = String(cardIsCovered(id) && !locked);
   const back = node("img", undefined, "card-back");
-  back.src = imageUrl("./assets/card-back.webp", "card");
+  back.src = imageUrl(locked ? LOCKED_BACK : "./assets/card-back.webp", "card");
   back.alt = "";
   back.draggable = false;
   el.append(back);
-  if (cardIsCovered(id)) {
+  if (locked) {
+    el.setAttribute("aria-label", `Locked ${type} card, ${tier.label}`);
+    el.removeAttribute("aria-describedby");
+  } else if (cardIsCovered(id)) {
     el.setAttribute("aria-label", `Uncover new ${type} card, ${tier.label}`);
     el.removeAttribute("aria-describedby");
   }
@@ -2358,6 +2641,7 @@ const stackLabel = (stack) =>
 // with its target, with only the verb, the level and the tier colour as
 // words. It glows while the target is near and plays nothing.
 const questCovered = (quest) => !quest.target || cardIsCovered(quest.target);
+const known = (id) => !cardIsCovered(id);
 function shownQuestCaption(quest) {
   const hidden = questCovered(quest);
   return questCaption(quest, hidden, questVerb(world, quest, hidden));
@@ -2371,7 +2655,7 @@ const questArt = {
 function questFrame({ id, quest, met }) {
   const picked = !met && questOpen && quest.index === questPick;
   const hidden = questCovered(quest),
-    tier = questTier(quest),
+    tier = questTier(quest, world, known),
     verb = questVerb(world, quest, hidden),
     near = !hidden && questNear(world, quest),
     here = world.actors[quest.actor].place;
@@ -2384,7 +2668,8 @@ function questFrame({ id, quest, met }) {
   el.disabled = selectionBlocked();
   el.dataset.questId = id;
   el.dataset.questKey = quest.key;
-  el.dataset.unrevealed = String(questsInView.down(quest.key));
+  el.dataset.questEntry = questEntryKey(quest);
+  el.dataset.unrevealed = String(questsInView.down(questEntryKey(quest)));
   el.dataset.picked = String(picked);
   el.setAttribute("aria-pressed", String(picked));
   el.setAttribute(
@@ -2398,8 +2683,10 @@ function questFrame({ id, quest, met }) {
     el.append(node("span", "✓", "quest-seal"));
   }
   const head = node("span", undefined, "quest-head");
+  // The label is the quest's verb alone; the whole quest is its accessible
+  // name (aria-label above).
   head.append(
-    node("span", verb, "quest-verb"),
+    setCardLabel(node("span", undefined, "quest-verb"), verb),
     node("span", quest.level ? romanLevel(quest.level) : "", "quest-level"),
   );
   const target = quest.target,
@@ -2421,7 +2708,11 @@ function questFrame({ id, quest, met }) {
         kind: quest.kind,
         target,
         covered: hidden,
-        here: !hidden && targetPlace === here ? here : null,
+        here:
+          (quest.step?.at && known(quest.step.at) ? quest.step.at : null) ||
+          (!hidden && targetPlace === here ? here : null),
+        to: quest.step?.to,
+        toCovered: Boolean(quest.step?.to && !known(quest.step.to)),
       },
       questArt,
     ),
@@ -2486,6 +2777,13 @@ const questShown = (quest) =>
 function syncQuestFold(fold) {
   const quest = foldQuest();
   fold.hidden = questShown(quest);
+  fold.style.setProperty(
+    "--tier-color",
+    (revealedQuests.has(questEntryKey(quest))
+      ? questTier(quest, world, known)
+      : questTier(quest)
+    ).color,
+  );
   fold.dataset.glow =
     sealedQuests.length || questFresh
       ? "invite"
@@ -2507,7 +2805,6 @@ function syncQuestFold(fold) {
 function questFold(quest) {
   const fold = node("button", undefined, "quest-fold");
   fold.type = "button";
-  fold.style.setProperty("--tier-color", questTier(quest).color);
   fold.style.setProperty("--card-back", cardBackImage());
   syncQuestFold(fold);
   fold.addEventListener("click", (event) => {
@@ -2591,7 +2888,7 @@ function renderStage(locationId) {
     else view.style.removeProperty(name);
   const figures = $("stage-figures");
   let figure = figures.querySelector(".stage-figure");
-  if (!stage.resident) {
+  if (!stage.resident || cardIsCovered(stage.resident)) {
     figure?.remove();
     return;
   }
@@ -2615,8 +2912,9 @@ function renderStage(locationId) {
     : mood?.alt || nameOf(stage.resident);
 }
 function dropFigure(figure) {
-  figure.remove();
+  // An image let go after it left the page is never freed (card-ghost.mjs).
   releaseImages(figure);
+  figure.remove();
 }
 function leaveFigure(figure, remove = false) {
   if (exits.has(figure)) return;
@@ -2658,7 +2956,10 @@ function returnToLive() {
 }
 const litCarried = (actor) =>
   Object.keys(world.items).find(
-    (id) => world.items[id].lit && rootHolder(world, id) === actor,
+    (id) =>
+      world.items[id].lit &&
+      rootHolder(world, id) === actor &&
+      !cardIsCovered(id),
   ) || null;
 function renderHeldItem(figure, actor, itemId) {
   let preview = figure.querySelector(".portrait-held-item");
@@ -2715,6 +3016,8 @@ function renderFloorItems(items) {
       if (!prop) {
         prop = node("span", undefined, "floor-item");
         prop.dataset.item = id;
+        if (stageReveals.delete(id))
+          fadeInRevealed(prop, { reduced: reducedMotion.matches });
       }
       const key = JSON.stringify([id, cover]);
       if (prop.dataset.key !== key) {
@@ -2747,6 +3050,7 @@ function renderFloorItems(items) {
 function renderScene() {
   // Every path to this renderer keeps the source visible until the veil covers it.
   if (covering) return;
+  sleepView.observe(world, currentActor(world));
   const view = shownWorld();
   const scene = currentScene(view, null, {
     seq: lineSeq,
@@ -2757,7 +3061,9 @@ function renderScene() {
   // The hand and physical stage always show this same committed world.
   // Reviewing a line changes the words while present people keep their places.
   const resolvedBeat = exchange.preparing || scene.line?.turn !== world.turn;
-  scene.slots = sceneCast(world);
+  scene.slots = revealedStage({ cast: sceneCast(world) }, cardIsCovered).cast;
+  // A place still face down is black behind whoever is revealed.
+  $("stage").dataset.placeCovered = String(cardIsCovered(scene.locationId));
   $("stage").dataset.presentedRevision = String(world.revision);
   shownSceneLine = scene.line;
   const img = $("backdrop");
@@ -2770,14 +3076,17 @@ function renderScene() {
   img.dataset.phase = phase;
   img.dataset.source = scene.background;
   $("stage").dataset.settled = String(stayed);
-  crossfadeImage(img, background, {
-    duration:
-      !stayed || reducedMotion.matches
-        ? 0
-        : nightfall
-          ? CROSSFADE_MS
-          : CHANGE_FADE_MS,
-  });
+  // A wake fades on the old light and cuts to the new one under the black.
+  const sleepLight = sleepView.light(view.turn);
+  if (!sleepLight.hold)
+    crossfadeImage(img, background, {
+      duration:
+        !stayed || sleepLight.cut || reducedMotion.matches
+          ? 0
+          : nightfall
+            ? CROSSFADE_MS
+            : CHANGE_FADE_MS,
+    });
   img.alt = coveredCards.has(scene.locationId)
     ? ""
     : stageOf(world, scene.locationId).alt ||
@@ -2787,17 +3096,23 @@ function renderScene() {
   img.dataset.locationVariant = scene.variant;
   $("stage").dataset.timeOfDay = scene.daylight?.phase || "day";
   // A painted night already carries its own dark; stage-light.json gives a
-  // place its own share and lights, such as the attic's lamp.
+  // place its own share and lights, such as the attic's lamp. A place with
+  // no night painting takes the full night grade, cooled.
   const authored = placeLight(scene.locationId);
   renderStageLight($("stage"), {
-    turn: view.turn,
-    strength: authored.grade ?? (phase === "night" ? GENTLE : 1),
+    turn: sleepLight.turn,
+    strength: gradeStrength({
+      grade: authored.grade,
+      painted: Boolean(scene.daylight),
+      night: isNight({ turn: sleepLight.turn }),
+    }),
+    tint: scene.daylight ? null : UNPAINTED_NIGHT_TINT,
     pools: (authored.lights || []).map((pool) => ({
       ...pool,
       on: !pool.item || lampLitHere(view, scene.locationId),
     })),
     sky: authored,
-    ease: stayed,
+    ease: stayed && !sleepLight.cut,
   });
   renderWeather($("stage"), scene.weather, { ease: stayed });
   let overlay = $("location-overlay");
@@ -2826,7 +3141,7 @@ function renderScene() {
     currentState: true,
     sharedPlays: sharedSession?.state.history,
   });
-  renderFloorItems(staging.floorItems);
+  renderFloorItems(revealedStage(staging, cardIsCovered).floorItems);
   $("cast").dataset.layout = staging.layout;
   $("cast").dataset.count = String(staging.actors.length);
   $("cast").dataset.shared = String(Boolean(sharedSession));
@@ -2847,6 +3162,8 @@ function renderScene() {
         if (existing.has(id)) return existing.get(id);
         const figure = node("div", undefined, "portrait");
         figure.dataset.avatar = id;
+        if (stageReveals.delete(id))
+          fadeInRevealed(figure, { reduced: reducedMotion.matches });
         figure.setAttribute("aria-label", nameOf(id));
         const body = node("div", undefined, "portrait-body");
         const image = node("img");
@@ -2972,6 +3289,8 @@ function renderScene() {
       });
     }
   });
+  // A reveal off stage (a place card, someone elsewhere) fades nothing later.
+  stageReveals.clear();
   hauntScene($("stage"), scene.locationId, {
     reduced: reducedMotion.matches,
     url: (source) => imageUrl(source),
@@ -3004,7 +3323,8 @@ function renderScene() {
       ? (exchange.current?.seq ?? -Infinity)
       : Infinity;
   const hiddenSpeech = (line) =>
-    line.seq > liveThrough && (shared || line.turn === world.turn);
+    sleepView.hidesLine(line) ||
+    (line.seq > liveThrough && (shared || line.turn === world.turn));
   // Queued shared plays commit before their words. While the room clock still
   // has lines to read, later turns' actions wait for their own scene.
   const shownTurn = sharedSession
@@ -3055,12 +3375,18 @@ function renderScene() {
         : null,
     turn: world.turn,
   });
-  const beats = stack.beats;
-  const pendingCard = stack.pending && {
-    ...stack.pending,
-    // Its two taps cancel the player's own play.
-    own: stack.pending.speakerId === viewer || !sharedSession ? own : null,
-  };
+  // A level quest's dream is a beat after the wake, in front while it plays.
+  const dreaming = sleepView.dream();
+  const dreamt = withDream(stack.beats, dreaming?.beat, {
+    front: dreaming?.front,
+  });
+  const beats = dreamt.beats;
+  const pendingCard = !dreaming?.front &&
+    stack.pending && {
+      ...stack.pending,
+      // Its two taps cancel the player's own play.
+      own: stack.pending.speakerId === viewer || !sharedSession ? own : null,
+    };
   const liveIndex = pendingCard ? beats.length : beats.length - 1;
   let frontIndex = -1;
   if (reviewing) {
@@ -3068,7 +3394,7 @@ function renderScene() {
     if (frontIndex < 0 && lineSeq !== null)
       frontIndex = beats.findIndex((beat) => beat.line?.seq === lineSeq);
   }
-  if (frontIndex < 0) frontIndex = liveIndex;
+  if (frontIndex < 0) frontIndex = dreamt.front >= 0 ? dreamt.front : liveIndex;
   const front =
     frontIndex === beats.length ? pendingCard : beats[frontIndex] || null;
   const behind = frontIndex > 0 ? beats[frontIndex - 1] : null;
@@ -3093,7 +3419,7 @@ function renderScene() {
             : "back";
   }
   // The leaving cards are copies, so the real cards can change at once.
-  for (const old of document.querySelectorAll(".beat-ghost")) old.remove();
+  releaseGhosts($("speech-row").parentElement);
   const stepping = direction === "forward" || direction === "back";
   const ghost = {
     behind:
@@ -3112,21 +3438,30 @@ function renderScene() {
   shownSceneLine = line;
   const text = line ? line.text : "";
   $("speaker").textContent = front
-    ? line?.speaker || (front.speakerId ? nameOf(front.speakerId) : "")
+    ? line?.speaker ||
+      front.label ||
+      (front.speakerId ? nameOf(front.speakerId) : "")
     : "";
   const ownFront = behindLive ? null : front?.own || null;
   if (!ownFront?.cancel) disarmThinking(false);
   // The Thinking chip belongs to the Thinking card, never to a line.
   $("story-status").hidden = !front?.pending || behindLive;
-  $("story-status").lastElementChild.textContent = thinkingArmed
-    ? "Tap again to cancel"
-    : "Thinking…";
-  $("story-status").dataset.armed = String(thinkingArmed);
+  // A dream being written is the same card, "Dreaming…" (dream-card.mjs).
+  $("story-status").lastElementChild.textContent = front?.dream
+    ? dreamingLabel(front.armed)
+    : thinkingArmed
+      ? "Tap again to cancel"
+      : "Thinking…";
+  $("story-status").dataset.armed = String(
+    front?.dream ? front.armed : thinkingArmed,
+  );
   $("story-status").setAttribute(
     "aria-label",
-    thinkingArmed
-      ? "Tap again to cancel this play"
-      : "Thinking about this scene",
+    front?.dream
+      ? dreamingAria(front.armed)
+      : thinkingArmed
+        ? "Tap again to cancel this play"
+        : "Thinking about this scene",
   );
   $("speech-row").setAttribute("aria-busy", String(!$("story-status").hidden));
   const portraitId = front?.speakerId || null;
@@ -3177,13 +3512,23 @@ function renderScene() {
   document.querySelector(".dialogue").dataset.behind = String(Boolean(behind));
   $("speech-row").hidden = !showFront;
   syncDialogueShown();
-  $("speech-row").dataset.beat = front?.line
-    ? front.silent
-      ? "silent"
-      : "speech"
-    : front?.pending
-      ? "pending"
-      : "action";
+  if (front?.dream)
+    $("speech-row").style.setProperty("--tier-color", DREAM_TIER.color);
+  else $("speech-row").style.removeProperty("--tier-color");
+  paintGlimpse($("speech-row").parentElement, front?.companion ?? null, {
+    artOf: beatPortrait,
+    nameOf,
+    icon: beatIcon,
+  });
+  $("speech-row").dataset.beat = front?.dream
+    ? "dream"
+    : front?.line
+      ? front.silent
+        ? "silent"
+        : "speech"
+      : front?.pending
+        ? "pending"
+        : "action";
   $("dialogue-text").hidden = !text;
   // The Thinking card of a play that can be cancelled takes taps.
   $("dialogue-advance").hidden =
@@ -3354,20 +3699,7 @@ const STACK_MS = 300,
   STACK_LEAVE_MS = 200,
   STACK_FADE_MS = 160,
   STACK_NEARER = "translateY(8px) scale(1.015)";
-// A leaving card is an inert copy that never takes pointer hits.
-function ghostOf(card) {
-  const ghost = card.cloneNode(true);
-  for (const part of [ghost, ...ghost.querySelectorAll("[id], [aria-live]")]) {
-    part.removeAttribute("id");
-    part.removeAttribute("aria-live");
-  }
-  ghost.classList.add("beat-ghost");
-  delete ghost.dataset.motion;
-  ghost.setAttribute("aria-hidden", "true");
-  ghost.inert = true;
-  for (const image of ghost.querySelectorAll("img")) image.decoding = "sync";
-  return ghost;
-}
+// A leaving card is an inert copy (card-ghost.mjs).
 function stackGhost(card) {
   const ghost = ghostOf(card);
   card.after(ghost);
@@ -3378,32 +3710,7 @@ function stackGhost(card) {
 // reduced motion, it leaves over it.
 function frontGhost(direction) {
   const under = direction === "forward" && !reducedMotion.matches;
-  return pinnedGhost($("speech-row"), under ? "1" : "3");
-}
-// A copy pinned to the card's box, with the look the card had.
-function pinnedGhost(card, zIndex) {
-  const ghost = ghostOf(card);
-  // The card's styles hang on its ids, which the copy cannot share, so the
-  // copy keeps the look it had.
-  const copies = [ghost, ...ghost.querySelectorAll("*")];
-  [card, ...card.querySelectorAll("*")].forEach((part, index) => {
-    const look = getComputedStyle(part);
-    for (const name of look)
-      if (!/^(animation|transition|pointer-events)/.test(name))
-        copies[index].style.setProperty(name, look.getPropertyValue(name));
-  });
-  Object.assign(ghost.style, {
-    position: "absolute",
-    margin: "0",
-    left: `${card.offsetLeft}px`,
-    top: `${card.offsetTop}px`,
-    width: `${card.offsetWidth}px`,
-    height: `${card.offsetHeight}px`,
-    zIndex,
-  });
-  // After the card, so lookups by class still find the real one first.
-  card.after(ghost);
-  return ghost;
+  return pinGhost($("speech-row"), under ? "1" : "3");
 }
 // Cards move in depth with transform and opacity; reduced motion crossfades.
 // The front and behind cards are hit-tested buttons, so their motion is a CSS
@@ -3413,7 +3720,8 @@ function pinnedGhost(card, zIndex) {
 function playMotion(card, motion) {
   delete card.dataset.motion;
   if (!motion) return;
-  void card.offsetWidth;
+  // Restyling the card ends the old motion; no layout is needed for that.
+  void getComputedStyle(card).animationName;
   card.dataset.motion = motion;
 }
 for (const id of ["speech-row", "beat-behind", "action-beat"]) {
@@ -3423,22 +3731,6 @@ for (const id of ["speech-row", "beat-behind", "action-beat"]) {
     };
   card.addEventListener("animationend", settle);
   card.addEventListener("animationcancel", settle);
-}
-// A ghost rests invisible, so it never shows again after its fade ends.
-function fadeGhost(ghost, to, duration) {
-  if (!ghost) return;
-  const from = getComputedStyle(ghost).opacity;
-  ghost.style.opacity = "0";
-  const done = () => {
-    ghost.remove();
-    releaseImages(ghost);
-  };
-  ghost
-    .animate([{ opacity: from }, { opacity: 0, ...to }], {
-      duration,
-      easing: "cubic-bezier(.22,.61,.36,1)",
-    })
-    .finished.then(done, done);
 }
 // A ready or pending play, or words the player must see, are a beat in
 // front of the dialogue. The spoken beat settles behind it and comes back
@@ -3468,7 +3760,7 @@ function syncActionBeat() {
     moves = panel.parentElement.dataset.dropped !== "true";
   const ghost =
     moves && (show ? still && !front.hidden && front : panel)
-      ? pinnedGhost(show ? front : panel, "4")
+      ? pinGhost(show ? front : panel, "4")
       : null;
   if (ghost && !show) {
     // The stack keeps its foot as it shrinks, and the leaving copy must
@@ -3509,10 +3801,8 @@ function animateStack(direction, ghost) {
   const front = $("speech-row"),
     behind = $("beat-behind");
   if (!direction || front.hidden) {
-    for (const copy of [ghost.front, ghost.behind]) {
-      copy?.remove();
-      releaseImages(copy);
-    }
+    releaseGhost(ghost.front);
+    releaseGhost(ghost.behind);
     return;
   }
   const showBehind = !behind.hidden;
@@ -3800,13 +4090,22 @@ function renderLog(open = $("history-dialog").open) {
 }
 
 function render() {
+  showWorldTier(world, worldLogoKey(location.href));
   renderPlayers();
   music.setStarted(musicHasStarted());
   syncMusicCue();
+  // An open standoff in the player's room holds the painting back too.
+  recedeBackdrop(
+    $("stage"),
+    "standoff",
+    battleMusicDue(world, currentActor(world)),
+    { instant: covering },
+  );
   hum.setStarted(musicHasStarted());
   ringHeard();
   // While the travel veil comes down, the old place stays drawn.
   if (covering) return;
+  sleepView.observe(world, currentActor(world));
   music.setRoom(
     world.actors[currentActor(world)].place,
     locationDaylight(world, world.actors[currentActor(world)].place)?.phase ||
@@ -3871,30 +4170,39 @@ function render() {
   ]);
   if (handKey !== renderedHand) {
     // The hand a page or a new game opens on is already dealt.
+    // A hand away after a loss lets the old cards go unseen.
+    if (document.body.dataset.handAway) quietExits = true;
     const opening = renderedHandPlace === null;
     const sameWorld =
         renderedHand &&
         renderedHandRevision === world.revision &&
         renderedHandState === handState,
       // A redraw from a shared update or another tab is no arrival: the
-      // hand keeps its scroll unless the player's avatar changed place.
+      // hand keeps its scroll unless the player's avatar changed place,
+      // and its cards still slide to their new places.
       stayed = renderedHandPlace === world.actors[currentActor(world)].place,
-      samePlace = renderedHand && stayed,
+      samePlace = stayed,
       arriving = renderedHandPlace !== null && !stayed,
-      animate = samePlace && !reducedMotion.matches,
-      before = new Map();
+      here = world.actors[currentActor(world)].place,
+      scene = `${here}:${lampLitHere(world, here)}`,
+      sceneChanged = !opening && !quietExits && renderedScene !== scene,
+      swapping = sceneChanged && !reducedMotion.matches,
+      animate = (samePlace || swapping) && !reducedMotion.matches,
+      exits = !opening && !quietExits && !reducedMotion.matches,
+      before = new Map(),
+      swap = swapping
+        ? (swapFrom ?? { at: performance.now(), left: 0, fallen: 0 })
+        : null;
+    quietExits = false;
+    renderedScene = scene;
+    swapFrom = null;
     if (animate)
       for (const frame of $("hand").children)
         if (!frame.hidden) {
-          const rect = frame.getBoundingClientRect(),
-            name = frame.querySelector(".name"); // the quest card has none
+          const rect = frame.getBoundingClientRect();
           before.set(
             frame.querySelector(".card").dataset.card ?? frame.dataset.questId,
-            {
-              left: rect.left,
-              top: rect.top,
-              nameBottom: name && getComputedStyle(name).bottom,
-            },
+            { left: rect.left, top: rect.top },
           );
         }
     for (const motion of handMotions.values()) motion.cancel();
@@ -3904,18 +4212,64 @@ function render() {
     renderedHandRevision = world.revision;
     renderedHandPlace = world.actors[currentActor(world)].place;
     renderedHandState = handState;
-    if (sameWorld)
+    if (sameWorld) {
+      const shown = [...$("hand").children].filter((frame) => !frame.hidden);
       for (const frame of $("hand").children) updateCardSelection(frame);
-    else
-      $("hand").replaceChildren(
-        ...handCards.map((id) =>
-          isQuestId(id) ? questFrame(questEntry(id)) : card(id),
-        ),
+      // A stack folding shows its cards folding away (card-exit.mjs).
+      foldCards(
+        shown.filter((frame) => frame.hidden && frame.isConnected),
+        handExits(),
+        reducedMotion.matches,
       );
+    } else {
+      // A card still in the hand keeps its node (card-keep.mjs).
+      const row = [...$("hand").children],
+        { frames, changed, faces } = keepFrames(
+          row,
+          handCards.map((id) =>
+            isQuestId(id) ? questFrame(questEntry(id)) : card(id),
+          ),
+        ),
+        leaving = exits
+          ? leavingFrames(
+              row.filter((frame) => !frame.dataset.gone),
+              frames,
+            )
+          : [];
+      // A card gone from view falls from where it lay, while the hand
+      // redraws at once; a reveal keeps its card, so it never falls.
+      if (swap) {
+        const since = performance.now() - swap.at,
+          { exits: steps, faceAt } = swapTiming(swap.left + leaving.length),
+          wait = (ms) => Math.max(0, ms - since),
+          late = steps.slice(swap.left).map(wait);
+        dropCards(
+          nearestFirst(leaving, row, currentActor(world)),
+          handExits(),
+          late,
+        );
+        // Exits the redraw starts late end late; entries wait for them.
+        if (late.length)
+          swap.fallen = Math.max(swap.fallen, since + late.at(-1) + EXIT_MS);
+        // A face changed with the light fades; one that moves just moves.
+        if (stayed && faces.length) fadeFaces(faces, handExits(), wait(faceAt));
+      } else if (leaving.length) dropCards(leaving, handExits());
+      for (const [was, now] of changed) morphFrame(was, now);
+      $("hand").replaceChildren(...frames);
+      if (swap) swap.left += leaving.length;
+    }
     // Lean the new row before measuring it, so each card moves from where
     // it was to its fanned place.
     fanHand();
     $("hand").scrollLeft = stayed ? scroll : 0;
+    // A thing taken or received by the player's own play is in their hand
+    // at once: the row keeps its scroll, so the card would land out of view
+    // beside its new holder. Scrolled now, before the row's moves are
+    // measured, it slides from where it lay into view.
+    if (receivedCard) {
+      revealHandCard(receivedCard, false, true);
+      receivedCard = null;
+    }
     renderActions();
     // On wide screens raising or lowering the hand is one motion: the deck
     // grows from its corner into the row while the dialogue slides from
@@ -3931,6 +4285,15 @@ function render() {
           .animate({ opacity: [0, 1] }, { duration: LAYOUT_MS });
     if (!sameWorld) playLevelUps();
     if (arriving) revealHandCard(renderedHandPlace, true, true);
+    // A scene change's new cards rise after the old ones fall and a beat.
+    const entering = (count) => {
+      const timing = swapTiming(swap.left, count, swap.fallen);
+      swapEnd = swap.at + timing.end;
+      setTimeout(() => playQueue.flush(), swapEnd - performance.now());
+      return Math.max(0, swap.at + timing.entryAt - performance.now());
+    };
+    if (sceneChanged && reducedMotion.matches)
+      $("hand").animate({ opacity: [0, 1] }, { duration: SWAP_REDUCED_MS });
     // A card new to the view rises in; one seen moving keeps that move.
     const rising = handEntries.draw(
       [...$("hand").children]
@@ -3942,9 +4305,14 @@ function render() {
             frame.hidden ||
             before.has(frame.querySelector(".card").dataset.card),
         })),
-      { reduced: reducedMotion.matches || opening },
+      // The hand a page, a resumed save or a new game opens on is dealt.
+      { reduced: reducedMotion.matches, after: swap ? entering : 0 },
     );
-    showQuests();
+    showQuests(opening);
+    openLockedBoxes();
+    // Every new place is measured before any card starts moving, so the
+    // row is laid out once rather than once per card.
+    const moves = [];
     if (animate)
       for (const frame of $("hand").children) {
         if (frame.hidden) continue;
@@ -3953,29 +4321,35 @@ function render() {
           previous = before.get(id) || before.get(frame.dataset.holder);
         if (!previous || (!frame.dataset.want && rising.has(entryKey(frame))))
           continue;
-        const next = frame.getBoundingClientRect(),
-          dx = previous.left - next.left,
-          dy = previous.top - next.top;
-        if (Math.abs(dx) >= 1 || Math.abs(dy) >= 1 || !before.has(id))
-          moveHandPart(
-            `frame:${id}`,
-            frame,
-            {
-              translate: [`${dx}px ${dy}px`, "0 0"],
-              opacity: [before.has(id) ? 1 : 0.3, 1],
-            },
-            reshaped ? LAYOUT_MS : undefined,
-          );
-        const name = frame.querySelector(".name"),
-          nameBottom = name && getComputedStyle(name).bottom;
-        if (name && before.has(id) && previous.nameBottom !== nameBottom)
-          moveHandPart(
-            `name:${id}`,
-            name,
-            { bottom: [previous.nameBottom, nameBottom] },
-            reshaped ? LAYOUT_MS : undefined,
-          );
+        moves.push({
+          id,
+          frame,
+          previous,
+          next: frame.getBoundingClientRect(),
+        });
       }
+    // A card's name label sits at its top (card-label.mjs), so it moves
+    // with its card and never slides on its own.
+    for (const { id, frame, previous, next } of moves) {
+      const dx = previous.left - next.left,
+        dy = previous.top - next.top;
+      if (Math.abs(dx) >= 1 || Math.abs(dy) >= 1 || !before.has(id))
+        moveHandPart(
+          `frame:${id}`,
+          frame,
+          {
+            translate: [`${dx}px ${dy}px`, "0 0"],
+            opacity: [before.has(id) ? 1 : 0.3, 1],
+          },
+          reshaped ? LAYOUT_MS : undefined,
+        );
+    }
+  }
+  // After a loss the new hand is dealt in as the black lifts; the old one
+  // never shows again.
+  if (document.body.dataset.handAway && !covering) {
+    delete document.body.dataset.handAway;
+    dealHand();
   }
   renderScene();
   renderLog();
@@ -4038,8 +4412,15 @@ function revealHandCard(id, alignStart = false, instant = false) {
 function fanHand() {
   const shown = [...$("hand").children].filter((frame) => !frame.hidden);
   shown.forEach((frame, i) =>
-    frame.style.setProperty("--fan-at", String(i - (shown.length - 1) / 2)),
+    setStyle(frame.style, "--fan-at", String(i - (shown.length - 1) / 2)),
   );
+}
+// A style set only when it changes, so an unchanged hand needs no new layout.
+function setStyle(style, name, value) {
+  if (value === null) {
+    if (style.getPropertyValue(name)) style.removeProperty(name);
+  } else if (style.getPropertyValue(name) !== value)
+    style.setProperty(name, value);
 }
 // A resting hand on a wide screen is as wide as its fanned cards, so none
 // is cut at the screen edge (#2017). Past the dialogue's room the cards
@@ -4048,8 +4429,8 @@ function fitRestingHand() {
   const root = document.documentElement.style;
   const shown = [...$("hand").children].filter((frame) => !frame.hidden);
   if (!wideLayout.matches || !shown.length) {
-    root.removeProperty("--resting-hand-fit");
-    root.removeProperty("--resting-fan-overlap");
+    setStyle(root, "--resting-hand-fit", null);
+    setStyle(root, "--resting-fan-overlap", null);
     return;
   }
   const hand = getComputedStyle($("hand")),
@@ -4060,13 +4441,12 @@ function fitRestingHand() {
     room = Math.max(innerWidth - 540, shown[0].offsetWidth * 2),
     natural = cards - gaps * overlap + padding + 14,
     width = Math.min(natural, room);
-  root.setProperty("--resting-hand-fit", `${Math.ceil(width)}px`);
-  if (natural > room && gaps)
-    root.setProperty(
-      "--resting-fan-overlap",
-      `${overlap + (natural - room) / gaps}px`,
-    );
-  else root.removeProperty("--resting-fan-overlap");
+  setStyle(root, "--resting-hand-fit", `${Math.ceil(width)}px`);
+  setStyle(
+    root,
+    "--resting-fan-overlap",
+    natural > room && gaps ? `${overlap + (natural - room) / gaps}px` : null,
+  );
 }
 // Fade only the hand's edges that hide more cards.
 function updateHandEdges() {
@@ -4087,8 +4467,9 @@ function updateHandEdges() {
       hand.scrollLeft + hand.clientWidth < hand.scrollWidth - 2 &&
       "end",
   ].filter(Boolean);
-  if (fade.length) hand.dataset.fade = fade.join(" ");
-  else delete hand.dataset.fade;
+  if (!fade.length) delete hand.dataset.fade;
+  else if (hand.dataset.fade !== fade.join(" "))
+    hand.dataset.fade = fade.join(" ");
 }
 $("hand").addEventListener("scroll", updateHandEdges, { passive: true });
 new ResizeObserver(updateHandEdges).observe($("hand"));
@@ -4254,6 +4635,7 @@ $("new-game").onclick = () => {
 $("cancel-reset").onclick = () => $("reset-dialog").close();
 $("confirm-reset").onclick = () => {
   playQueue.clear();
+  releaseGhosts();
   // Archive the outgoing save: starting fresh must be reversible, because
   // a confirm click is not enough consent to destroy a whole run.
   try {
@@ -4290,6 +4672,7 @@ $("confirm-reset").onclick = () => {
 window.addEventListener("storage", (event) => {
   if (sharedSession || event.key !== SAVE_KEY || !event.newValue) return;
   playQueue.clear();
+  releaseGhosts();
   cancelTravel();
   narrator.invalidate();
   exchange.cancel();
@@ -4300,6 +4683,7 @@ window.addEventListener("storage", (event) => {
     world = enableMotives(decodeSave(event.newValue));
     loadSeen();
     renderedHand = "";
+    quietExits = true;
     lineSeq = null;
     // Another tab's play is not this player's: the hand stays as it was,
     // less any card that has left the table.
@@ -4408,8 +4792,9 @@ function resumeScene({ otherTab = false } = {}) {
   } else render();
 }
 // Until it resolves, the player's own play reads on its button as what their
-// avatar is doing. Only a refusal or an unconfirmed send needs words.
-const refusalText = ({ label }, reason) => `Not played: ${label}. ${reason}`;
+// avatar is doing. Only a refusal or an unconfirmed send needs words. A
+// refusal is its play's button label (refusalLabel) until the selection or
+// the world changes.
 function showSharedPlay(state, reason = "") {
   if (!sharedPlay) return;
   const play = sharedPlay,
@@ -4417,8 +4802,8 @@ function showSharedPlay(state, reason = "") {
   sharedPlay.state = state;
   if (state === "played" || state === "rejected") sharedPlay = null;
   if (state === "sending") sharedRefusal = null;
-  // A play the server did not take wakes its rested beat, so the player
-  // can play it again from the beat.
+  // A play the server did not take wakes its rested beat: a refused one
+  // says why there, and choosing its cards again offers it again.
   if (["rejected", "uncertain"].includes(state)) restedChoice = null;
   if (
     ["playing", "played"].includes(state) &&
@@ -4426,11 +4811,16 @@ function showSharedPlay(state, reason = "") {
   )
     rememberWait(play.action, play.choice);
   const shown = $("play-status").dataset.playStatus;
-  if (state === "rejected") {
-    sharedRefusal = { reason, text: refusalText(play, reason) };
-    notice(sharedRefusal.text, state);
-  } else if (state === "uncertain") notice(reason, state);
-  else if (["rejected", "uncertain"].includes(shown)) notice("");
+  if (state === "rejected")
+    sharedRefusal = {
+      reason,
+      key: play.action.key,
+      label: play.label,
+      choice: selected.join("+"),
+      revision: world.revision,
+    };
+  if (state === "uncertain") notice(reason, state);
+  else if (shown === "uncertain") notice("");
   renderActions();
 }
 // Follow the play's key through the room queue into the committed history.
@@ -4560,7 +4950,7 @@ async function submitSharedPlay(action) {
     key: crypto.randomUUID(),
     action: current,
     choice: selected.join("+"),
-    label: playLabel(action),
+    label: playLabel(action, world),
     notice: sharedSession.state.notice || "",
   };
   showSharedPlay("sending");
@@ -4747,7 +5137,28 @@ installToolbar({
 });
 const settingsCards = installSettingsCards({
   actionBeat: { show: showActionBeat, clear: clearActionBeat },
-  avatar: () => portrait(currentActor(world), null, world),
+  // The play hand gives way to the settings and comes back dealt.
+  playHand: {
+    leave() {
+      const row = [...$("hand").children].filter((f) => !f.hidden),
+        leaving = nearestFirst(row, row, currentActor(world)).slice(
+          0,
+          EXIT_MAX,
+        );
+      if (reducedMotion.matches || !row.length) return 0;
+      const { exits, entryAt } = swapTiming(leaving.length, 1);
+      dropCards(leaving, handExits(), exits);
+      return entryAt;
+    },
+    back: dealHand,
+  },
+  // Switching a pack is a play that passes no turn (pack-toggle.mjs).
+  packs: {
+    on: (id) => groupOn(world, id),
+    block: (id) => packToggleBlock(world, id, currentActor(world)),
+    play: (pack, enable) =>
+      performAction({ kind: "pack", pack, enable }, world.revision),
+  },
 });
 installCreditPool({
   actionBeat: { show: showActionBeat, clear: clearActionBeat },
@@ -4775,10 +5186,9 @@ if (sharedSession) {
   world = sharedWorld(sharedSession.state);
   sharedSession.subscribe(adoptShared, (message, recoveredFrom) => {
     if (!recoveredFrom || $("play-status").textContent === recoveredFrom) {
-      // A recovered connection restores a refusal with its play name.
-      if (message && message === sharedRefusal?.reason)
-        notice(sharedRefusal.text, "rejected");
-      else notice(message);
+      // A refusal stays on its play's button (renderActions).
+      notice(message === sharedRefusal?.reason ? "" : message);
+      if (message && message === sharedRefusal?.reason) renderActions();
     }
   });
   adoptShared(sharedSession.state);

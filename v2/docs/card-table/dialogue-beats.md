@@ -125,6 +125,15 @@ Beats are cards in depth, not rows in a scroll:
   pointer hits, use Web Animations, and they rest invisible and are removed
   when their fade ends. `v2/scripts/smoke-card-beat-stack.mjs` checks both
   directions frame by frame and that the front card takes clicks afterwards.
+- The copies come from `card-ghost.mjs`, which other leaving cards reuse:
+  `pinGhost(card, zIndex)` pins a copy over the card's box with a short list
+  of its computed looks (`lookAlike` makes the copy unplaced, for a layer,
+  as the hand's falling cards do), `fadeGhost(ghost, keyframe, ms, delay)`
+  plays it out and releases it, and `releaseGhost`/`releaseGhosts` drop copies at once, as a
+  new game or another tab's save does. A release lets go of the copy's
+  pictures before the copy leaves the page, because Chromium never frees an
+  image let go after it left. The beat-stack smoke steps back and forward a
+  dozen times and checks that the page holds no more nodes than before.
 
 ## The action beat
 
@@ -245,14 +254,38 @@ an empty reply; one over its size cap or unfinished (`shape`); an
 instruction aimed at a model (`instruction`); system talk (`assistant`); a
 run of ten or more words from the prompt's own instructions (`echoed
 brief`); and a false world claim (`observable_state`, `custody`,
-`story_outcome`). A blocked reply is retried once, and the retry's system
+`story_outcome`); and an answer whose quoted words are all someone else's
+(`other speaker`). A blocked reply is retried once, and the retry's system
 message ends with a short first-person correction for that reason, such as
 "I stay in this moment and speak as myself." (`CORRECTIONS` in
 `framing.rs`). Everything else is **flagged**: self-narration, stage
 action, narration tag, repeat, atmosphere, a short read-back of a label or
 the instructions, third person, an unknown name or item, and an
 unpunctuated or cut line. A flagged reply is published as written on its
-first attempt, and the server logs `card voice flagged` with its `reasons`.
+first attempt, and the server logs `card voice flagged` with its `reasons`
+and counts it under `/meta` `card_voice.flagged`.
+
+Before those checks the reply is trimmed, never retried for its shape. A
+reply cut at the token cap keeps its complete sentences; only one with none
+is `shape`. A line that is only a stage direction ("(I strum my lyre.)") is
+passed over, and a stage direction inside a line goes; both flag `stage
+action`. A character whose reply opens in narration speaks from its first
+line, then its first sentence, that talks to someone ("The rain has begun.
+Come in, Pip." publishes "Come in, Pip."), unless the narration tells its
+fact. The heard line said back first goes too. An answer in quotes, as the
+local model and Mistral continue an opening quote after a heard line, keeps
+only the speaker's own spans (`speech.rs`), without their tags or the
+narration between them. A span tagged to someone else ("Then stay,” Pip
+says), a span that says the heard line back, and the untagged spans after
+them until the speaker acts again ("I nod.") are theirs; a reply that keeps
+some words of its own publishes them flagged `other speaker`. Speaking first,
+a reply in quotes gets the same trim when a dialogue tag follows its words
+(`“Menelaus,” I say, my voice low. “You’re here.”` publishes "Menelaus.
+You’re here."), flagged `narration tag`; a quotation with no tag ("Keep it
+lit," my mother said) is speech and keeps its words. Narration that never talks
+(two or more sentences to no one, or a gesture such as "I shift my weight")
+is published flagged `self-narration`. A fact the speaker already
+witnessed is not added to its view again as the fact it may tell.
 A missed fact is still published as `untold`. Facts, the scene and memories
 are background any line, thought or persona may say.
 

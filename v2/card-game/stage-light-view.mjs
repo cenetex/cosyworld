@@ -6,6 +6,7 @@ import {
   lightPath,
   lightStyle,
   nightness,
+  tintShade,
 } from "./stage-light.mjs";
 
 // Eases the stage's time of day between committed turns. The grade is CSS
@@ -29,16 +30,17 @@ function apply(stage, light) {
 
 // turn is the committed world turn; strength is the share of the grade the
 // painting takes; pools are the place's lights, each on or off; sky is where
-// its stars and moon come out; ease is false on arrival at a new place. Pools
-// glow as the hour darkens.
+// its stars and moon come out; ease is false on arrival at a new place; tint
+// cools the shade as the hour darkens (a place with no night painting).
+// Pools glow as the hour darkens.
 export function renderStageLight(
   stage,
-  { turn, strength = 1, pools = [], sky = {}, ease = true },
+  { turn, strength = 1, pools = [], sky = {}, ease = true, tint = null },
 ) {
   let state = states.get(stage);
   if (!state) states.set(stage, (state = { frame: 0 }));
   const lit = pools.map((pool) => Number(Boolean(pool.on)));
-  const key = JSON.stringify(pools);
+  const key = JSON.stringify([pools, tint]);
   if (state.turn === turn && state.strength === strength && state.key === key)
     return;
   const shown = state.shown ?? { turn, strength, lit };
@@ -74,7 +76,7 @@ export function renderStageLight(
     };
     state.shown = now;
     const hour = hourOf(now.turn);
-    const light = lightAt(hour, now.strength);
+    const light = tintShade(lightAt(hour, now.strength), tint, hour);
     light.sky = sky;
     light.pools = pools.map((pool, i) => ({
       ...pool,

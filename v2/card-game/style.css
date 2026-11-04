@@ -6,6 +6,7 @@
   --edge: #55505c;
   --panel: #191a25;
   --focus: #e8cf97;
+  --danger: #ff8f84;
   font-family: ui-sans-serif, system-ui, sans-serif;
   background: #101119;
   color: var(--ink);
@@ -144,7 +145,11 @@ main {
 /* One stage frames every painting. A place's data sets the point kept in
    view when the painting is cropped, and may anchor a resident to the
    painting. The painting then moves only as far as keeps that resident whole
-   and standing above the hand, and it always fills the stage. */
+   and standing above the hand, and it always fills the stage. A portrait
+   screen shows the painting's full height, so there it cannot rise: the
+   resident steps up off its spot instead, just far enough that its cutout
+   clears the resting hand, a beat's taller one included. Raising the hand
+   never lifts it. */
 .stage {
   --art-ratio: 1.5;
   --focus-x: 0.5;
@@ -178,6 +183,14 @@ main {
     ),
     0px
   );
+  /* Read in .stage-figure, whose container is this stage. */
+  --figure-lift: max(
+    0px,
+    calc(
+      var(--art-top) + var(--figure-foot) * var(--art-h) + var(--resting-dock) +
+        6px - 100cqh
+    )
+  );
 }
 .backdrop,
 .scene-shade {
@@ -205,6 +218,35 @@ main {
   top: var(--sprite-top);
   transform: translate(-50%, -92%);
   filter: drop-shadow(0 5px 4px #17201570) var(--tod-figure,);
+}
+@media (orientation: portrait) {
+  .stage-figure {
+    translate: 0 calc(var(--figure-lift) * -1);
+  }
+}
+/* A place still face down is black behind whoever is revealed; turning its
+   card brings the painting up out of the black (stage-reveal.mjs). */
+.stage::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: #000;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.9s ease-in-out;
+}
+.stage[data-place-covered="true"]::after {
+  opacity: 1;
+  transition: none;
+}
+.stage[data-place-covered="true"] > .stage-grade {
+  display: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .stage::after {
+    transition: none;
+  }
 }
 .scene-shade {
   z-index: -1;
@@ -874,6 +916,9 @@ h2 {
   --card-width: clamp(174px, 15.5vw, 224px);
   --card-height: clamp(224px, 31dvh, 310px);
   --dock-height: calc(var(--card-height) * 0.75 + 12px);
+  /* The resting hand's dock, which app.mjs's measured --dock-height leaves
+     out once the hand rises. */
+  --resting-dock: calc(var(--card-height) * 0.75 + 12px);
   --hand-top: 26px;
   --hand-inline: calc(var(--card-height) * 0.12);
 }
@@ -998,7 +1043,8 @@ body .dialogue[data-dropped="true"] {
     --hand-fade: 28px;
   }
 }
-/* Settings is a hand of cards in place of the play hand (settings-cards.mjs). */
+/* Settings is a hand of cards in place of the play hand, its groups and
+   their settings drawn as places and their things (settings-cards.mjs). */
 #settings-screen {
   position: static;
   width: auto;
@@ -1008,6 +1054,73 @@ body .dialogue[data-dropped="true"] {
   border: 0;
   background: none;
   box-shadow: none;
+}
+/* Behind it the scene fades to black under the world's logo, lifted and
+   scaled as the title lifts it over its card (title-intro.mjs). Then the
+   owner's workbench comes up as Settings' own scene. */
+.settings-veil {
+  position: absolute;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  background: #000;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition:
+    opacity 0.6s ease,
+    visibility 0s 0.6s;
+}
+body:has(#settings-screen[open]) .settings-veil {
+  opacity: 1;
+  visibility: visible;
+  transition: opacity 0.6s ease;
+}
+.settings-scene {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  /* It stays while the veil fades out. */
+  animation: settings-scene-hold 0.6s;
+}
+body:has(#settings-screen[open]) .settings-scene {
+  animation: settings-scene 0.8s ease 1.2s both;
+}
+@keyframes settings-scene {
+  to {
+    opacity: 1;
+  }
+}
+@keyframes settings-scene-hold {
+  from,
+  to {
+    opacity: 1;
+  }
+}
+.settings-logo {
+  width: min(76vw, 1400px);
+  max-height: 80dvh;
+  object-fit: contain;
+  transform: translateY(-14dvh) scale(0.8);
+}
+@media (max-width: 640px) {
+  .settings-logo {
+    width: calc(100vw - 32px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .settings-veil,
+  body:has(#settings-screen[open]) .settings-veil {
+    transition: none;
+  }
+  .settings-scene,
+  body:has(#settings-screen[open]) .settings-scene {
+    animation-duration: 0s;
+  }
 }
 .hand-wrap:has(> #settings-screen[open]) > #hand,
 body:has(#settings-screen[open]) .dialogue .beat-card {
@@ -1035,7 +1148,10 @@ body .card-frame {
     transform 0.22s ease-out,
     filter 0.22s ease-out;
 }
-body .card-frame:has(> .card.location:not([data-unrevealed="true"])) {
+body
+  .card-frame:has(
+    > .card.location:not([data-unrevealed="true"], [data-locked="true"])
+  ) {
   --frame-width: max(var(--card-width), calc(var(--card-height) * 0.8));
 }
 /* The hand fans: each card overlaps the one before it and leans with its
@@ -1064,6 +1180,14 @@ body .hand > .card-frame {
 body .hand > .card-frame:hover,
 body .hand > .card-frame:focus-within {
   z-index: 2;
+}
+/* Cards leaving the hand fall here as inert ghosts (card-exit.mjs). */
+.card-exits {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  /* A card at the row's edge never widens the page as it goes. */
+  overflow: clip;
 }
 body .card-frame[data-raised="true"] {
   z-index: 3;
@@ -1110,21 +1234,24 @@ body .card[data-selected="true"] {
       translate 180ms ease-out;
   }
   /* A chosen card is already up. */
-  #hand:not([aria-busy="true"])
+  :is(#hand, #settings-hand):not([aria-busy="true"])
     > .card-frame:has(> .card:hover:not([data-selected="true"])) {
     translate: 0 -8px;
   }
   /* The fan parts around it: cards after it slide right, cards before it
      slide left. */
-  #hand:not([aria-busy="true"]) > .card-frame:has(> .card:hover) ~ .card-frame {
+  :is(#hand, #settings-hand):not([aria-busy="true"])
+    > .card-frame:has(> .card:hover)
+    ~ .card-frame {
     translate: 12px 0;
   }
-  #hand:not([aria-busy="true"]) > .card-frame:has(~ .card-frame > .card:hover) {
+  :is(#hand, #settings-hand):not([aria-busy="true"])
+    > .card-frame:has(~ .card-frame > .card:hover) {
     translate: -12px 0;
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  #hand:not([aria-busy="true"]) .card:hover {
+  :is(#hand, #settings-hand):not([aria-busy="true"]) .card:hover {
     filter: brightness(1.12);
   }
 }
@@ -1141,6 +1268,8 @@ body .card[data-selected="true"] {
   background: #181b22;
   touch-action: pan-x;
   box-shadow: 0 6px 20px #0006;
+  /* Its name sizes to the card's width (cqi). */
+  container-type: inline-size;
 }
 body .card:hover {
   background: #181b22;
@@ -1170,63 +1299,87 @@ body .card.item .art img {
 :is(body, :where(.title-intro)) .card.avatar .art img {
   --shown: calc(var(--figure-height, 1) * 0.78);
   inset: auto;
-  top: calc(6% - 100% * var(--figure-top, 0) / var(--shown));
+  /* The head stands below the name's band at the card's top. */
+  top: calc(15% - 100% * var(--figure-top, 0) / var(--shown));
   left: 50%;
   width: auto;
   height: calc(100% / var(--shown));
   translate: calc(-100% * var(--head-x, 0.5)) 0;
   object-fit: fill;
 }
-:is(body, :where(.title-intro)) .card .name {
+/* Every card's name sits at its top in the quest card's label: one font
+   and treatment in its tier colour over a light shade, broken only between
+   words (card-label.mjs keeps a hyphenated word whole). */
+:is(body, :where(.title-intro)) .card :is(.name, .quest-head) {
+  --label-size: max(10px, calc(var(--card-height) * 0.042));
   position: absolute;
-  inset: auto 0 calc(var(--card-height) * 0.25);
-  z-index: 1;
+  inset: 0 0 auto;
+  z-index: 3;
   margin: 0;
-  padding: 36px 8px 14px;
-  background: linear-gradient(transparent, #080b12eb 65%);
+  padding: calc(var(--label-size) * 0.85) 10px calc(var(--label-size) * 2.4);
+  background: linear-gradient(#080b12db, #080b1285 50%, transparent);
   font:
-    18px/1.2 Georgia,
-    serif;
-  color: #f2e3c4;
-  white-space: normal;
+    600 var(--label-size) / 1.18 system-ui,
+    sans-serif;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  text-align: left;
+  color: var(--tier-color, #c8dce6);
   text-wrap: balance;
-  overflow-wrap: anywhere;
-  text-shadow: 0 2px 5px #000;
+  overflow-wrap: normal;
+  word-break: keep-all;
+  hyphens: none;
+  text-shadow:
+    0 1px 2px #000,
+    0 0 8px #000c;
+  pointer-events: none;
+}
+:is(body, :where(.title-intro)) .card .label-word {
+  white-space: nowrap;
+}
+:is(body, :where(.title-intro)) .card .name:empty {
+  display: none;
+}
+/* An unlit card dims its name with its face. */
+.card[data-lit="false"] :is(.name, .quest-head) {
+  filter: brightness(0.6);
 }
 /* A name stays clear of the next card's overlap in the fan. */
-.hand > .card-frame:has(~ .card-frame:not([hidden])) .card .name {
+.hand
+  > .card-frame:has(~ .card-frame:not([hidden]))
+  .card
+  :is(.name, .quest-head) {
   padding-right: calc(var(--fan-overlap) + 8px);
 }
 .hand
   > .card-frame:has(~ .card-frame:not([hidden])):is(:hover, :focus-within)
   .card
-  .name,
-.hand > .card-frame:has(> .card[data-selected="true"]) .card .name {
-  padding-right: 8px;
-}
-/* So does a Settings pack's name, set where the quest card sets its verb. */
+  :is(.name, .quest-head),
 .hand
-  > .card-frame:has(~ .card-frame:not([hidden])):not(
-    :hover,
-    :focus-within,
-    :has(> .card[data-selected="true"])
-  )
-  > .card[data-setting]
-  > .quest-head {
-  padding-right: var(--fan-overlap);
+  > .card-frame:has(> .card[data-selected="true"])
+  .card
+  :is(.name, .quest-head),
+/* A raised quest card lies over the next card. */
+.hand > .card-frame.want-frame[data-raised="true"] .card .quest-head {
+  padding-right: 10px;
 }
-/* Carry the label's shade to the card's edge, wherever the hand clips it. */
-body .card .name::after {
-  content: "";
-  position: absolute;
-  inset: 100% 0 auto;
-  height: var(--card-height);
-  background: #080b12eb;
+/* A card lifted over the next (pointer or focus) covers its left edge, so
+   that card's name moves clear of it. An unlit Settings place dims. */
+.hand
+  > .card-frame:is(:hover, :focus-within)
+  + .card-frame
+  > .card[data-setting]
+  > :is(.quest-head, .name) {
+  padding-left: calc(var(--fan-overlap) + 8px);
+}
+body .card[data-setting][data-lit="false"] .quest-ground {
+  filter: saturate(0.35) brightness(0.48);
 }
 body .card[data-lit="true"] .art {
   background: radial-gradient(ellipse at 50% 60%, #e0a94a66, #151b24 76%);
 }
-body .card[data-lit="false"] .art > img:first-child {
+body .card[data-lit="false"] .art > img:first-child,
+body .card.want-card[data-lit="false"] .quest-ground {
   filter: saturate(0.35) brightness(0.48);
 }
 body .card[data-covered="true"] .art > img:first-child {
@@ -1313,22 +1466,19 @@ body .card.want-card[data-near="true"] {
     0 0 18px 3px color-mix(in srgb, var(--tier-color) 45%, transparent),
     0 6px 20px #0006;
 }
+/* The quest's verb on one line, and a level quest's numeral on the right. */
 .quest-head {
-  position: absolute;
-  inset: 7px 10px auto;
-  z-index: 3;
   display: flex;
   justify-content: space-between;
   align-items: baseline;
-  color: var(--tier-color);
-  pointer-events: none;
+  gap: 6px;
 }
-.quest-verb {
-  font:
-    600 calc(var(--card-height) * 0.042) / 1 system-ui,
-    sans-serif;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
+.want-card > .quest-head > .quest-verb {
+  white-space: nowrap;
+}
+/* A face-down quest keeps its tier until it turns. */
+body .card.want-card[data-unrevealed="true"] {
+  --tier-color: #c8dce6 !important;
 }
 .quest-level {
   font:
@@ -1478,6 +1628,23 @@ body .card.want-card[data-met="true"] {
   bottom: 30%;
   height: 34%;
 }
+/* A gift's step shows the giver, the thing and its recipient. */
+.quest-screen[data-parts="3"] :is(.quest-left, .quest-right) {
+  height: 80%;
+}
+.quest-screen[data-parts="3"] .quest-left {
+  left: 20%;
+}
+.quest-screen[data-parts="3"] .quest-thing {
+  left: 50%;
+  height: 28%;
+}
+.quest-screen[data-parts="3"] .quest-to {
+  left: 80%;
+}
+.quest-screen[data-parts="3"] .quest-back:not(.quest-to) {
+  left: 50%;
+}
 .quest-back.quest-right {
   bottom: 12%;
   height: 64%;
@@ -1518,6 +1685,32 @@ body .card.want-card[data-met="true"] {
 }
 #card-actions button:hover {
   background: #3c3325;
+}
+/* Dropping a quest is a secondary, destructive choice: red words, no panel. */
+body #card-actions button[data-destructive] {
+  background: transparent;
+  border-color: transparent;
+  color: var(--danger);
+}
+body #card-actions button[data-destructive],
+body #card-actions button[data-destructive]:active {
+  color: var(--danger);
+  text-shadow:
+    0 1px 2px #000,
+    0 0 8px #000c;
+}
+body #card-actions button[data-destructive]:is(:hover, :focus-visible) {
+  background: color-mix(in srgb, var(--danger) 14%, transparent);
+}
+/* A play box holding only Drop quest keeps no box of its own. */
+.beat-stack
+  > .action-panel:has(> #card-actions > [data-destructive]:only-child):not(
+    :has(> .action-beat-cards > *, > .action-beat-body > :not([hidden]))
+  ) {
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
 }
 body .card.drag-over {
   outline: 2px solid var(--gold);
@@ -1585,10 +1778,6 @@ body .cast[data-count] {
   }
   .hand {
     --fan-overlap: calc(var(--card-height) * 0.2);
-  }
-  body .card .name {
-    font-size: 16px;
-    padding-bottom: 12px;
   }
   body .cast {
     top: 54px;
@@ -1737,10 +1926,6 @@ body .line-controls button {
 .play-dock[data-selected="true"] .hand,
 body[data-hand-expanded="true"] .hand {
   height: calc(var(--card-height) + var(--hand-top) + 4px);
-}
-.play-dock[data-selected="true"] .card .name,
-body[data-hand-expanded="true"] .card .name {
-  bottom: 0;
 }
 /* A resting hand, or one tucked down for a fight, shows only its cards' art:
    the names and their shade fade in as the hand rises, a card is chosen, or
@@ -1921,10 +2106,6 @@ body[data-dim="true"] .card {
   .topbar {
     min-height: 44px;
     padding-block: 2px;
-  }
-  body .card .name {
-    font-size: 14px;
-    padding-bottom: 8px;
   }
   body .cast {
     top: 46px;
@@ -2529,7 +2710,9 @@ body .beat-live {
   display: grid;
   flex: 1000 1 120px;
   grid-template-columns: minmax(0, 1fr);
-  align-self: center;
+  /* Centred while it fits; longer words run down into the scrolling box
+     instead of past its top. */
+  margin-block: auto;
   align-content: start;
   gap: 4px;
   min-width: 0;
@@ -2662,7 +2845,8 @@ body .beat-live {
   font-size: 13px;
 }
 .beat-action #card-actions {
-  flex: 1 0 auto;
+  /* A strip wider than a very narrow box (200% text) wraps its words. */
+  flex: 1 1 auto;
   gap: 0;
   padding: 0;
   overflow: visible;
@@ -2756,6 +2940,9 @@ main > .dialogue {
        of a raised card stays behind it. */
     --resting-show: 0.4;
     --raised-tuck: 0.2;
+    --resting-dock: calc(
+      var(--dialogue-cover) + var(--card-height) * var(--resting-show) + 12px
+    );
   }
   body[data-dialogue-over="true"] main > .dialogue {
     z-index: 6;
@@ -2896,22 +3083,15 @@ main > .dialogue {
         var(--hand-top)
     );
   }
-  body[data-dialogue-over="true"] .hand .card .name {
-    bottom: calc(var(--card-height) * (1 - var(--resting-show)));
-    padding-top: 24px;
-  }
-  body[data-dialogue-over="true"]
-    .play-dock[data-selected="true"]
-    .hand
-    .card
-    .name,
-  body[data-dialogue-over="true"][data-hand-expanded="true"] .hand .card .name {
-    bottom: calc(var(--card-height) * var(--raised-tuck));
-  }
 }
 @media (max-width: 700px) {
   body[data-dialogue-over="true"] {
     --dialogue-height: 96px;
+  }
+  /* While a beat shows, the cast stands on the dock's top edge, so the
+     resting cards' tops never hide their feet. */
+  body[data-dialogue-over="true"] .cast {
+    --cast-bottom: var(--dock-height);
   }
 }
 #credits a,
@@ -2940,6 +3120,12 @@ main > .dialogue {
   .title-intro > img {
     width: calc(100vw - 32px);
   }
+}
+/* The title's logo is framed in the world's tier, as a card's edge glow. */
+:root[data-world-tier] .title-intro > img {
+  box-shadow:
+    0 0 0 1px var(--world-tier),
+    0 0 14px color-mix(in srgb, var(--world-tier) 35%, transparent);
 }
 .title-intro[data-phase="wake"] {
   cursor: default;
@@ -2998,18 +3184,23 @@ main > .dialogue {
   text-indent: -1.2em;
   text-wrap: balance;
 }
-/* The phrases it pauses on take a gentle tint of their rarity tier's colour
-   (level-tiers.mjs), climbing as the poem goes, with a soft, low glow. The
-   tint rises as a phrase's last letter writes, and stays: all eight light the
-   finished poem, so it is kept calm, well above AA contrast on the black.
-   Reduced motion shows the tint still, with no glow. */
+/* Its highlighted words take a gentle tint of their set's rarity tier colour
+   (level-tiers.mjs), climbing as the poem goes, with a soft, low glow and a
+   little weight: a stroke under the fill, so no glyph widens and nothing
+   reflows. The tint rises in the pause after a word's stanza, with no motion,
+   and stays: all fifteen light the finished poem, well above AA contrast on
+   the black. Reduced motion shows the tint and weight still, with no glow. */
 .title-ack-glow {
+  -webkit-text-stroke: 0.03em transparent;
+  paint-order: stroke fill;
   transition:
-    color var(--glow-in, 350ms) ease,
-    text-shadow var(--glow-in, 350ms) ease;
+    color var(--glow-in, 600ms) ease,
+    -webkit-text-stroke-color var(--glow-in, 600ms) ease,
+    text-shadow var(--glow-in, 600ms) ease;
 }
 .title-ack-glow[data-lit] {
   color: color-mix(in srgb, var(--tier-color) 45%, #fff4dc);
+  -webkit-text-stroke-color: currentColor;
   text-shadow: 0 0 5px color-mix(in srgb, var(--tier-color) 30%, transparent);
 }
 @media (prefers-reduced-motion: reduce) {
@@ -3074,11 +3265,6 @@ main > .dialogue {
 .title-intro[data-pointer] .title-card .card:focus-visible {
   outline-color: transparent;
 }
-/* The hand shows a card's top three quarters, so its name and shade sit a
-   quarter up; this card shows whole, so they sit on its floor. */
-.title-card .card .name {
-  bottom: 0;
-}
 .title-privacy {
   flex: none;
   padding: 6px 8px;
@@ -3124,31 +3310,6 @@ main > .dialogue {
   outline-offset: 3px;
 }
 
-/* A sealed card is the far side of a shut gate (rules 95): its painting is
-   dimmed behind two crossed bars. Tapping it gives the quest that opens it;
-   the reason is in the context button, never on the card. */
-.card.location[data-sealed="true"] .art img {
-  filter: grayscale(0.7) brightness(0.55);
-}
-.card.location[data-sealed="true"] .art::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background:
-    linear-gradient(
-      90deg,
-      transparent 44%,
-      rgb(58 42 26 / 0.92) 44% 56%,
-      transparent 56%
-    ),
-    linear-gradient(
-      0deg,
-      transparent 40%,
-      rgb(58 42 26 / 0.92) 40% 50%,
-      transparent 50%
-    );
-}
 /* Left alone, the face-down card breathes a faint warm light, slowly, then a
    quiet line under it says how to turn it (REVEAL_HINT in title-intro.mjs).
    Reduced motion holds the glow still and shows the line at once. */

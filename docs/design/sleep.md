@@ -24,13 +24,18 @@ slept up to 24 turns and the lamp ran dry inside it.
   running dry there (`dry`), someone physically arriving or leaving, a way out
   opening or closing (`crossing`), a standoff (`threat`), a ship docking
   (`dock`), dawn or dusk after it fell asleep, or 24 turns asleep (`rested`).
-- A Sleep at a sanctuary is a long rest (`rest: "long"`, `wake()`, dream,
-  level quest) only when it lasted `LONG_SLEEP_TURNS` = 12 turns, half a light
-  period. Every Sleep ends by the next light change, so at most one long rest
-  fits in a light period: one dream per period. A shorter Sleep there is a
-  short rest that clears defeats with no forced thought or dream.
-  `DREAM_GAP` (24) was not used: a Sleep cannot outlast a light period, so it
-  would almost never be met.
+- A Sleep at a sanctuary is a long rest (`rest: "long"`, `wake()`, a
+  thought, level quest) only when it lasted `LONG_SLEEP_TURNS` = 12 turns,
+  half a light period. Every Sleep ends by the next light change, so at most
+  one long rest fits in a light period. A shorter Sleep there is a short rest
+  that clears defeats with no forced thought.
+- Rules 99: a long rest dreams only by the rules, and its wake entry records
+  which (`dream: "glimpse"` or `"quest"`). The halfway glimpse and the level
+  quest are a level's only dreams, one or two and never more (sleep spec §5);
+  an ordinary long rest brings a thought and no dream, and a Wait never
+  dreams. The scene context carries the wake's `dream`, and `reflectionDue`
+  (mirrored by `reflection_due` in `card_narrative.rs`) makes a dream due only
+  then.
 - Sleeping on at a dock calls no ship; the Wait before the Sleep already
   called it one lane.
 - Solo play runs the world until the sleeper wakes, stopping at a refused play
@@ -43,5 +48,9 @@ slept up to 24 turns and the lamp ran dry inside it.
 
 Replay: journals before rules 89 replay on their own bundles. Loading an older
 save drops `sleepUntil` (alpha saves may lose a pending sleep).
+
+Rules 100: residents and away avatars sleep too, on schedules scattered by
+the seed (`sleeping: {since, place, until}`); see
+[world life](rules-100-world-life.md).
 
 The full rules are in [rest and sanctuary](../../v2/docs/card-table/rest-and-sanctuary.md#sleep).

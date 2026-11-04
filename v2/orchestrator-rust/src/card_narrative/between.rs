@@ -157,7 +157,7 @@ mod tests {
 
     /// Our history, its own paragraph of the system message, or `None`.
     fn section(c: &Context) -> Option<String> {
-        let (system, _) = conversation::messages(c, &c.entities[0]);
+        let system = conversation::messages(c, &c.entities[0]).assistant;
         let block = lines(c, &c.entities[0]).join("\n");
         (!block.is_empty()).then(|| {
             assert!(system.contains(&format!("\n\n{block}")), "{system}");
@@ -181,7 +181,7 @@ mod tests {
         // A grievance's incident, as Vale knows it.
         let c = facing(json!([{"with": "moth", "facts": [INCIDENT]}]));
         assert_eq!(section(&c).unwrap(), INCIDENT);
-        let (system, _) = conversation::messages(&c, &c.entities[0]);
+        let system = conversation::messages(&c, &c.entities[0]).assistant;
         assert!(system.ends_with(&format!("\n\n{INCIDENT}")));
         // A keepsake and the last words each way; words the talk here
         // already shows are left out.

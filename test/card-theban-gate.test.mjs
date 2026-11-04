@@ -8,16 +8,28 @@ import {
 } from "../v2/card-game/world.mjs";
 import { packDefinition } from "../v2/card-game/pack-registry.mjs";
 import { backdrop } from "../v2/card-game/scene.mjs";
+import { narrativeContext } from "../v2/card-game/narrative.mjs";
 import { greekTravelTargets } from "./helpers/greek-travel.mjs";
 import { openingFixture } from "./helpers/greek-opening.mjs";
 
-// The road from the Theban City Gate out to the battlefield opens once the
-// Gate Guard holds the Burial Decree at the gate, and stays open after. The
-// gate guards the city both ways (rules 94): the way back in from the
-// battlefield is open once the gate is.
+// The road from the Theban City Gate out to the battlefield opens for good
+// once the Gate Guard holds the Burial Decree, wherever he stands (rules
+// 100); until then he bars it. The gate guards the city both ways (rules
+// 94): the way back in from the battlefield is open once the gate is, or to
+// anyone who has been at the gate, so it never traps them.
 const reload = (s) => decodeSave(encodeSave(s));
 const out = (s) => exits(s, "greek-gate", "vale").includes("greek-battlefield");
 const painted = (s) => !backdrop("greek-gate", s).includes("closed");
+// What the voices at the gate are told about it: every fact but the ones
+// that list the room, which name the battlefield either way.
+const told = (s) =>
+  narrativeContext(s)
+    .entities.filter((e) =>
+      ["greek-gate", "greek-guard", "greek-antigone", "vale"].includes(e.id),
+    )
+    .flatMap((e) => e.facts)
+    .filter((f) => !/^(Paths visible|At the dialogue scene)/.test(f))
+    .join(" ");
 const pack = packDefinition("greek-drama");
 const OPENED = ["greek-gate>greek-battlefield"];
 const route = pack.routes.find(
@@ -46,18 +58,14 @@ const walk = (s, ...ids) =>
 describe("the Theban City Gate", () => {
   it("paints the gate open once the road has opened", () => {
     expect(pack.places["greek-gate"].exits).not.toContain("greek-battlefield");
-    // The way in from the battlefield is a route that follows the gate.
-    expect(pack.places["greek-battlefield"].exits).toEqual([]);
+    // The way in from the battlefield is the gate itself, which its guard
+    // bars from both sides until it opens (rules 100).
+    expect(pack.places["greek-battlefield"].exits).toEqual(["greek-gate"]);
     expect(
       pack.routes.find(
         (r) => r.from === "greek-battlefield" && r.to === "greek-gate",
       ),
-    ).toEqual({
-      from: "greek-battlefield",
-      to: "greek-gate",
-      live: true,
-      requires: [{ kind: "gate_open", from: route.from, to: route.to }],
-    });
+    ).toBeUndefined();
     for (const b of pack.places["greek-gate"].backdrops)
       expect(b.requires.filter((r) => r.kind !== "daylight")).toEqual([
         { kind: "gate_open", from: route.from, to: route.to },
@@ -81,10 +89,16 @@ describe("the Theban City Gate", () => {
     s = act(walk(s, "palace"), "take", { item: "greek-decree" });
     s = walk(s, "gate");
     expect(out(s)).toBe(false);
+    // The voices hear the shut way from the rules, and nothing calls it open.
+    expect(told(s)).toContain("The way to The Exposed Battlefield is shut.");
+    expect(told(s)).not.toMatch(/\bopen\b/i);
     s = act(s, "give", { item: "greek-decree", target: "greek-guard" });
     expect(s.items["greek-decree"].holder).toBe("greek-guard");
     expect(out(s)).toBe(true);
     expect(painted(s)).toBe(true);
+    // Once open, no fact or meeting line keeps the road shut.
+    expect(told(s)).toContain("The way to The Exposed Battlefield is open.");
+    expect(told(s)).not.toMatch(/\b(shut|barred|bar sits)\b/i);
     s = act(s, "move", { target: "greek-battlefield" });
     // The open gate leads back in.
     expect(exits(s, "greek-battlefield", "vale")).toContain("greek-gate");
@@ -100,6 +114,10 @@ describe("the Theban City Gate", () => {
     // He gives the decree away: it stays open.
     s.items["greek-decree"].holder = "greek-elder";
     expect(out(reload(s))).toBe(true);
+    // Back at the gate with the decree gone, the voices still hear it open.
+    const back = act(reload(s), "move", { target: "greek-gate" });
+    expect(told(back)).toContain("The way to The Exposed Battlefield is open.");
+    expect(told(back)).not.toMatch(/\b(shut|barred)\b/i);
   });
 
   it("records a gate already open when an earlier save loads", () => {
@@ -113,18 +131,18 @@ describe("the Theban City Gate", () => {
   });
 
   it("keeps a live route a toggle", () => {
+    // The way back in from the battlefield is live: it follows the gate and
+    // is never recorded as opened itself.
     const s = structuredClone(openingFixture("burial").decree);
-    route.live = true;
-    try {
-      s.items["greek-decree"].holder = "greek-guard";
-      s.actors["greek-guard"].place = "greek-gate";
-      const open = reload(s);
-      expect(open.openedRoutes).toBeUndefined();
-      expect(out(open)).toBe(true);
-      open.items["greek-decree"].holder = "greek-palace";
-      expect(out(reload(open))).toBe(false);
-    } finally {
-      delete route.live;
-    }
+    s.actors.vale.place = "greek-battlefield";
+    s.actors.vale.visited = ["greek-battlefield"];
+    const shut = reload(s);
+    expect(exits(shut, "greek-battlefield", "vale")).not.toContain(
+      "greek-gate",
+    );
+    s.items["greek-decree"].holder = "greek-guard";
+    const open = reload(s);
+    expect(open.openedRoutes).toEqual(OPENED);
+    expect(exits(open, "greek-battlefield", "vale")).toContain("greek-gate");
   });
 });

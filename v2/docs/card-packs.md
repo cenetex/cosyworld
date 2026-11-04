@@ -10,13 +10,13 @@ shape for the next spoke.
 
 ## Files
 
-| File                                | Owns                                                                                                      |
-| ----------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| `v2/worlds/card-table.json`         | The hub's own places, avatars and items, the player id, and the list of mounted packs.                    |
-| `v2/content/<pack>/card-world.json` | The reusable world: places, residents, fixtures. It never names the hub or another pack.                  |
-| `v2/worlds/<pack>/card-bridge.json` | How the pack meets the hub: crossings, their conditions and signals, and how residents value hub objects. |
-| `v2/card-game/assets/<pack>/*.png`  | The pack's art. Every media path in the source must point here.                                           |
-| `v2/card-game/packs.json`           | Generated. All mounted packs with their bridges, validated. Do not edit by hand.                          |
+| File                                | Owns                                                                                                                    |
+| ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `v2/worlds/card-table.json`         | The hub's own places, avatars and items, the player id, its start and switchable groups, and the list of mounted packs. |
+| `v2/content/<pack>/card-world.json` | The reusable world: places, residents, fixtures. It never names the hub or another pack.                                |
+| `v2/worlds/<pack>/card-bridge.json` | How the pack meets the hub: entries, crossings, their conditions and signals, and how residents value hub objects.      |
+| `v2/card-game/assets/<pack>/*.png`  | The pack's art. Every media path in the source must point here.                                                         |
+| `v2/card-game/packs.json`           | Generated. All mounted packs with their bridges, validated. Do not edit by hand.                                        |
 
 ```sh
 npm run v2:card:pack:build   # regenerate v2/card-game/packs.json
@@ -130,6 +130,35 @@ generated speech never advance a signal. Leaving the place resets progress.
 With `"consecutive": false`, other plays leave progress alone. A refresh
 play counts from anyone at the place while the crossing is open.
 
+### Entries
+
+Each bridge declares `entries`, its ways in, as `{"joins", "at", "arrive",
+"via"}`: `joins` is `hub` or another pack, `at` that side's place where this
+pack's travelers come out, `arrive` this pack's place where they enter, and
+`via` the existing crossing between the two, whose own conditions govern
+passage. A pack's `entry` is its start. The hub declares its `start` and
+`switchable`, the named groups of packs a world may switch off, in a fixed
+order. The build checks that every place is in its pack's release and every
+crossing is live, and gathers the entries into the hub as `packEntries`, so
+no pack schema changes. [Rules 98](../../docs/design/rules-98-pack-toggle.md) reads them; earlier rules ignore them.
+
+| Pack                                    | Joins: at → arrive (via)                                                                |
+| --------------------------------------- | --------------------------------------------------------------------------------------- |
+| The Reflected Shore (`hub`)             | no entries of its own; start: Black pond                                                |
+| Cosy Cottage (`lonely-forest`)          | hub: attic → cottage, the lamplit attic with the black cloth or a scarf                 |
+| The Wine-Dark Sea (`greek-drama`)       | hub: pond → harbour by the Charybdis; Hoppy Cat: Signal Jetty → Piraeus by its ship     |
+| Hoppy Cat Universe (`hoppycat-archive`) | hub: pond ↔ tea garden by the red thread, open only outward; the Sea: Piraeus ↔ jetty |
+| The Steam Clock (`badger-forest`)       | hub: pond → clearing, the bell sounding at the pond                                     |
+| The Willows (`willows`)                 | hub: pond → landing by canoe; the Sea: the Charybdis's rail → landing on misty nights   |
+
+The hub's entries are its packs' hub entries seen from the other side.
+Hoppy Cat has no live way in of its own: the pond's thread into the tea
+garden is retired, so travelers enter by the Charybdis from Piraeus. It
+stays ship-only: its switchable group is `reachedBy` the Sea's, so it
+sleeps while the Sea is off. Boardy's
+parlour and the shared homes are mounted outside `packs.json` and declare no
+entries.
+
 ## Saves
 
 A save keeps `crossings` (per crossing: `discovered`, plus `phase` and
@@ -229,7 +258,9 @@ for the acting avatar's name; ordinary `text` remains literal.
 Effects are choose, set_flag, custody-checked place_item, and four item
 moves. `give_item` hands a pack item to the acting avatar. `retire_item`
 uses an item up (below); the actor must hold it, or the choice must require
-it `item_near` or `item_at` its own place. `drop_item` brings a used-up item
+it `item_near` or `item_at` its own place. From rules 98 it uses only the
+actor's own item or one lying at the place, never one another person holds.
+`drop_item` brings a used-up item
 back at the choice's place. `hide_item` belongs only to a
 meeting choice. `{"kind":"upgrade","upgrade":"scarf"}`, on a choice with
 `for`, adds a one-way cosmetic upgrade to the acting traveler's `upgrades`
@@ -447,12 +478,15 @@ The save counts each kit's scatters in `scatters`.
 ```
 
 A gated route may show a sealed card. While the route is shut from `from`,
-`to` appears as a sealed travel card: dimmed and barred, with no words on
-it. Selecting it shows `reason` in the context button, and its play, Seek the
-way, gives the traveller the route's quest at once, as picking a quest does
-(no turn passes). The quest is a story quest: hold or give an item
-(`to` names who to give it to), reach a place, or talk with a person. Once
-the route opens, the card is an ordinary travel card.
+`to` appears as a locked wooden box: the locked lid
+(`assets/card-back-locked.webp`) on a red edge, labelled only "Locked", with
+no painting and no name. Selecting it
+shows `reason` in the context button, and its play, Seek the way, gives the
+traveller the route's quest at once, as picking a quest does (no turn
+passes). The quest is a story quest: hold or give an item (`to` names who to
+give it to), reach a place, or talk with a person. Once the route opens, the
+box turns over once, the next time it is in view, and the card is an
+ordinary travel card from then on (`locked-box.mjs`).
 
 ```json
 { "from": "greek-gate", "to": "greek-battlefield", "requires": [ ... ],
@@ -495,7 +529,8 @@ resident aboard sets the course to its own destination along any lane
 (rules 96), and an empty ship called to a dock
 sails any lane between active docks. A ship idle for `IDLE_ROUNDS` with
 someone aboard, at a dock whose cargo lanes are all shut, is stuck: it puts
-in at its home port (`at`) and everyone aboard goes ashore (rules 95). A ship route should give every dock a
+in at its home port (`at`) and everyone aboard goes ashore (rules 95),
+except a player the port has no room for, who stays aboard (rules 98). A ship route should give every dock a
 free lane toward home, so a traveler ashore there is never stranded:
 `test/card-ship-port-roads.test.mjs` searches every walk, carry and free lane
 from every dock the empty ship can be called to. Myrto knows every lane; through

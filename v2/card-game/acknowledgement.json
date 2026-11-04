@@ -1,7 +1,10 @@
 {
-  "about": "The land acknowledgement on the new-world title (title-intro.mjs), set like a film's opening card: each stanza a list of lines, shown as written. The title names the panel for screen readers; it is not shown. Pauses hold a breath after a word: which time it appears (from 1), the ms (replacing any shorter punctuation or stanza breath after it and any punctuation touching it) and, for a held word, the card rarity tier (level-tiers.mjs) whose colour its phrase takes on, climbing as the poem goes. Its phrase (`phrases`, by held word) is the words around it on its line that light with it; it lights once its last letter is written, its glow rising over glowInMs, and stays lit. A pause with no tier is a silence only, like the long hold before the carved box stanza.",
+  "about": "The land acknowledgement on the new-world title (title-intro.mjs), set like a film's opening card: each stanza a list of lines, shown as written. The title names the panel for screen readers; it is not shown. Pauses are silences after a word: which time it appears (from 1) and the ms (replacing any shorter punctuation or stanza breath after it and any punctuation touching it). Highlights light single words in a held pause after their stanza (from 1) ends: settleMs after its last letter, then one word every wordStepMs in reading order, each glow rising over glowInMs, then tailMs before the next stanza. Each word names which time it appears in the whole poem (from 1) and takes its set's card rarity tier (level-tiers.mjs), climbing as the poem goes; it stays lit. A set's own settleMs lights it inside a longer silence already there.",
   "title": "Before this forest",
-  "glowInMs": 350,
+  "settleMs": 200,
+  "wordStepMs": 450,
+  "glowInMs": 600,
+  "tailMs": 250,
   "stanzas": [
     [
       "Before our forest, there was land.",
@@ -27,27 +30,62 @@
       "its surface rippling with stories",
       "older than either of us."
     ],
-    ["Open the box. The path is yours."]
+    ["Will you take it?"]
   ],
   "pauses": [
-    { "word": "land", "occurrence": 1, "pauseMs": 320, "tier": "common" },
-    { "word": "peoples", "occurrence": 1, "pauseMs": 320, "tier": "common" },
-    { "word": "still", "occurrence": 1, "pauseMs": 320, "tier": "uncommon" },
-    { "word": "keepers", "occurrence": 1, "pauseMs": 300, "tier": "uncommon" },
-    { "word": "living", "occurrence": 1, "pauseMs": 320, "tier": "rare" },
-    { "word": "Nothing", "occurrence": 1, "pauseMs": 300, "tier": "epic" },
+    { "word": "land", "occurrence": 1, "pauseMs": 320 },
+    { "word": "peoples", "occurrence": 1, "pauseMs": 320 },
+    { "word": "still", "occurrence": 1, "pauseMs": 320 },
+    { "word": "keepers", "occurrence": 1, "pauseMs": 300 },
+    { "word": "living", "occurrence": 1, "pauseMs": 320 },
+    { "word": "Nothing", "occurrence": 1, "pauseMs": 300 },
     { "word": "us", "occurrence": 2, "pauseMs": 1800 },
-    { "word": "box", "occurrence": 1, "pauseMs": 320, "tier": "legendary" },
-    { "word": "yours", "occurrence": 1, "pauseMs": 350, "tier": "mythic" }
+    { "word": "box", "occurrence": 1, "pauseMs": 320 }
   ],
-  "phrases": {
-    "land": "there was land",
-    "peoples": "there were peoples",
-    "still": "care for them still",
-    "keepers": "the keepers",
-    "living": "the voices old and living",
-    "Nothing": "Nothing here began with us.",
-    "box": "an intricately carved wooden box",
-    "yours": "The path is yours."
-  }
+  "highlights": [
+    {
+      "stanza": 1,
+      "tier": "uncommon",
+      "words": [
+        { "word": "peoples", "occurrence": 1 },
+        { "word": "waters", "occurrence": 1 },
+        { "word": "seasons", "occurrence": 1 },
+        { "word": "lands", "occurrence": 1 }
+      ]
+    },
+    {
+      "stanza": 2,
+      "tier": "rare",
+      "words": [
+        { "word": "keepers", "occurrence": 1 },
+        { "word": "homes", "occurrence": 1 },
+        { "word": "machines", "occurrence": 1 }
+      ]
+    },
+    {
+      "stanza": 3,
+      "tier": "epic",
+      "words": [
+        { "word": "voices", "occurrence": 1 },
+        { "word": "stories", "occurrence": 1 },
+        { "word": "echo", "occurrence": 1 }
+      ]
+    },
+    {
+      "stanza": 4,
+      "tier": "legendary",
+      "settleMs": 600,
+      "words": [{ "word": "Nothing", "occurrence": 1 }]
+    },
+    {
+      "stanza": 5,
+      "tier": "mythic",
+      "words": [
+        { "word": "intricately", "occurrence": 1 },
+        { "word": "carved", "occurrence": 1 },
+        { "word": "wooden", "occurrence": 1 },
+        { "word": "box", "occurrence": 1 }
+      ]
+    }
+  ]
 }

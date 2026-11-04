@@ -45,7 +45,10 @@ pub(super) fn assert_saved_actors(current: &Value, old: &Value) {
                 saved[field] = json!("greek-colonus");
             }
         }
-        for field in ["want", "xp", "visited", "talked", "metTurn", "gaveUp"] {
+        // Rules 100: the Gate Guard takes his post.
+        for field in [
+            "want", "xp", "visited", "talked", "metTurn", "gaveUp", "guarding",
+        ] {
             actor.as_object_mut().unwrap().remove(field);
             saved.as_object_mut().unwrap().remove(field);
         }
@@ -1004,7 +1007,13 @@ fn full_world_claims_queue_authority_and_request_ids() {
     b.key = "full-world-action-0002".into();
     b.action["actor"] = json!("mara");
     assert!(full::run(&tx, &id, "user0", &b, now()).is_err());
-    assert!(full::run(&tx, &id, "user0", &body("claim", Some("mara")), now()).is_err());
+    // Bringing Mara leaves Vale as a resident and cancels Vale's queued play
+    // (owner, 2026-11-03).
+    full::run(&tx, &id, "user0", &body("claim", Some("mara")), now()).unwrap();
+    let left: String = tx
+        .query_row("SELECT status FROM card_full_plays", [], |r| r.get(0))
+        .unwrap();
+    assert_eq!(left, "cancelled");
     tx.commit().unwrap();
 }
 #[test]

@@ -34,6 +34,80 @@ pub(super) fn direction(mode: Mode, own: &str) -> String {
     }
 }
 
+/// One emoji as a reader sees it: a base with its presentation selectors,
+/// skin tone, keycap and tag marks, joined by ZWJ to the next, or a pair of
+/// regional indicators (a flag). Other characters stand alone.
+fn clusters(text: &str) -> Vec<&str> {
+    let joins = |c: char| matches!(c, '\u{FE0E}' | '\u{FE0F}' | '\u{20E3}' | '\u{1F3FB}'..='\u{1F3FF}' | '\u{E0020}'..='\u{E007F}');
+    let regional = |c: char| ('\u{1F1E6}'..='\u{1F1FF}').contains(&c);
+    let mut out = Vec::new();
+    let mut chars = text.char_indices().peekable();
+    while let Some((start, first)) = chars.next() {
+        let mut end = start + first.len_utf8();
+        if regional(first) {
+            if let Some(&(at, next)) = chars.peek().filter(|(_, c)| regional(*c)) {
+                chars.next();
+                end = at + next.len_utf8();
+            }
+        } else {
+            while let Some(&(at, next)) = chars.peek() {
+                if joins(next) {
+                    chars.next();
+                    end = at + next.len_utf8();
+                } else if next == '\u{200D}' {
+                    chars.next();
+                    end = at + next.len_utf8();
+                    if let Some((at, joined)) = chars.next() {
+                        end = at + joined.len_utf8();
+                    }
+                } else {
+                    break;
+                }
+            }
+        }
+        out.push(&text[start..end]);
+    }
+    out
+}
+
+/// The authored symbol a cluster shows, read without its presentation
+/// selector and, for a single symbol, without its skin tone ("👋🏽" is the
+/// authored wave). A ZWJ sequence is one symbol: whole or not at all.
+fn authored(cluster: &str) -> Option<&'static str> {
+    let bare = |text: &str, tone: bool| -> String {
+        text.chars()
+            .filter(|c| !matches!(c, '\u{FE0E}' | '\u{FE0F}'))
+            .filter(|c| !tone || !('\u{1F3FB}'..='\u{1F3FF}').contains(c))
+            .collect()
+    };
+    let key = bare(cluster, !cluster.contains('\u{200D}'));
+    symbols()
+        .keys()
+        .find(|symbol| bare(symbol, false) == key)
+        .map(String::as_str)
+}
+
+/// An emoji voice's reply (Whiskerwind) as the rules accept it: two to five
+/// authored symbols. Code, not the prompt, keeps that shape: words,
+/// punctuation and symbols the table cannot name fall away, the first five
+/// symbols stay, and a reply with fewer than two left is silent ("…").
+/// The bool says whether anything fell away.
+pub(super) fn emoji(raw: &str) -> Result<(String, bool), &'static str> {
+    let mut parts = Vec::new();
+    let mut dropped = false;
+    for cluster in clusters(raw) {
+        match authored(cluster) {
+            Some(symbol) if parts.len() < 5 => parts.push(symbol),
+            Some(_) => dropped = true,
+            None => dropped |= !cluster.chars().all(char::is_whitespace),
+        }
+    }
+    if parts.len() < 2 {
+        return Err("expression");
+    }
+    Ok((parts.concat(), dropped))
+}
+
 pub(super) fn clean(
     mode: Mode,
     raw: &str,
@@ -41,6 +115,9 @@ pub(super) fn clean(
     limit: usize,
     finished: bool,
 ) -> Result<String, &'static str> {
+    if mode == Mode::Emoji {
+        return emoji(raw).map(|(text, _)| text);
+    }
     let text = raw.trim();
     if !finished
         || text.is_empty()
@@ -50,26 +127,7 @@ pub(super) fn clean(
         return Err("expression");
     }
     match mode {
-        Mode::Emoji => {
-            let mut rest = text;
-            let mut parts = Vec::new();
-            while !rest.is_empty() {
-                let symbol = symbols()
-                    .keys()
-                    .filter(|symbol| rest.starts_with(symbol.as_str()))
-                    .max_by_key(|symbol| symbol.len())
-                    .ok_or("expression")?;
-                if parts.len() == 5 {
-                    return Err("expression");
-                }
-                parts.push(symbol.as_str());
-                rest = rest[symbol.len()..].trim_start();
-            }
-            if parts.len() < 2 {
-                return Err("expression");
-            }
-            Ok(parts.join(""))
-        }
+        Mode::Emoji => unreachable!("emoji replies are reduced above"),
         Mode::Movement => {
             let body = text.strip_prefix(&format!("{own} ")).ok_or("expression")?;
             let verb = body.split_whitespace().next().ok_or("expression")?;
@@ -129,18 +187,40 @@ mod tests {
     }
 
     #[test]
-    fn emoji_replies_have_known_symbols_and_a_small_complete_shape() {
+    fn emoji_only_replies_pass_with_spacing_and_punctuation_dropped() {
+        assert_eq!(emoji("🌧️ 🐾 🏠 ☕"), Ok(("🌧️🐾🏠☕".into(), false)));
+        assert_eq!(emoji("  🌧️🐾\n"), Ok(("🌧️🐾".into(), false)));
+        assert_eq!(emoji("🌧️… 🐾!"), Ok(("🌧️🐾".into(), true)));
+        // A selector the model left off still names the authored symbol.
+        assert_eq!(emoji("🌧 ❤"), Ok(("🌧️❤️".into(), false)));
+        // Even unfinished, a complete symbol is complete.
         assert_eq!(
-            clean(Mode::Emoji, "🌧️ 🐾 🏠 ☕", "Whiskerwind", 400, true),
-            Ok("🌧️🐾🏠☕".into())
+            clean(Mode::Emoji, "🌳👀", "Whiskerwind", 400, false),
+            Ok("🌳👀".into())
         );
-        for text in ["hello 🌳", "🌳", "🌳👀🏠☕🌙⭐", "🌳<script>"] {
-            assert!(
-                clean(Mode::Emoji, text, "Whiskerwind", 400, true).is_err(),
-                "{text}"
-            );
+    }
+
+    #[test]
+    fn emoji_sequences_stay_whole_symbols() {
+        // A skin tone is one wave, not a wave and a stray tone.
+        assert_eq!(emoji("👋🏽 🙏🏿"), Ok(("👋🙏".into(), false)));
+        // A ZWJ sequence is one symbol: a black cat is not the authored
+        // cat, and a family is not three people.
+        assert_eq!(emoji("🐈‍⬛ 🌙 ⭐"), Ok(("🌙⭐".into(), true)));
+        assert_eq!(emoji("👨‍👩‍👧 🏠"), Err("expression"));
+        assert_eq!(clusters("👩🏽‍🦰🇬🇧🐾"), vec!["👩🏽‍🦰", "🇬🇧", "🐾"]);
+    }
+
+    #[test]
+    fn worded_emoji_replies_reduce_to_their_symbols_or_fall_silent() {
+        assert_eq!(
+            emoji("I watch the rain 🌧️ and follow the paw prints 🐾 home 🏠."),
+            Ok(("🌧️🐾🏠".into(), true))
+        );
+        assert_eq!(emoji("🌳👀🏠☕🌙⭐"), Ok(("🌳👀🏠☕🌙".into(), true)));
+        for text in ["hello 🌳", "🌳", "", "The rain is soft.", "🌳<script>"] {
+            assert_eq!(emoji(text), Err("expression"), "{text}");
         }
-        assert!(clean(Mode::Emoji, "🌳👀", "Whiskerwind", 400, false).is_err());
     }
 
     #[test]

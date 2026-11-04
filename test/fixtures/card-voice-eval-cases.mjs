@@ -9,7 +9,12 @@ import {
   applyGeneratedText,
   voicesNobody,
 } from "../../v2/card-game/narrative.mjs";
-import { narrativeContractCases } from "./card-narrative-contexts.mjs";
+import {
+  narrativeContractCases,
+  playCard,
+} from "./card-narrative-contexts.mjs";
+import { atticOpening } from "./card-attic-opening.mjs";
+import { sailTo } from "../helpers/voyage.mjs";
 
 // Recorded lines, one per speaker and turn, standing in for model replies.
 const recorded = {
@@ -141,6 +146,150 @@ function beforeReturn() {
   return { before, world };
 }
 
+// Two scenes from .dev where a character answered its own context back as
+// "you" (2026-11-03): Myrto at the harbor beside Vale (who holds the black
+// cloth and the uncovered, burning Lamp) and Pip, and Dione, who wants the
+// Funeral Oil that Vale carries.
+export function assistantRoleScenes() {
+  let world = playCard(enableMotives(atticOpening()), "snuff", "lamp");
+  world = playCard(playCard(world, "move", null, "pond"), "light", "lamp");
+  world.items.cloth.holder = "vale";
+  world.items.lamp.fuel = 12;
+  world = playCard(playCard(world, "cover", "cloth", "lamp"), "take", "cloth");
+  world = sailTo(playCard(world, "move", null, "greek-ship"), "greek-harbor");
+  world.actors.moth.place = "greek-harbor";
+  const harbor = (kind, target, i) => step(world, kind, target, i).context;
+  const road = playCard(world, "move", null, "greek-road-thebes");
+  const bakery = playCard(road, "move", null, "greek-courtyard");
+  bakery.items["greek-oil-flask"].holder = "vale";
+  bakery.actors["greek-baker"].want = {
+    kind: "item",
+    target: "greek-oil-flask",
+    since: bakery.turn,
+    refusals: 0,
+  };
+  const dione = step(bakery, "talk", "greek-baker", 0);
+  // Antigone at the city gate, who read back "Vale and Antigone are both at
+  // Theban City Gate".
+  const gate = playCard(road, "move", null, "greek-courtyard");
+  const antigone = playCard(gate, "move", null, "greek-gate");
+  // The reflected shore: Vale at Black pond with Pip, holding the unlit Lamp.
+  const shore = enableMotives(createWorld());
+  shore.items.cloth.holder = "vale";
+  shore.items.lamp.holder = "vale";
+  shore.items.lamp.lit = false;
+  const pond = step(shore, "move", "pond", 0).world;
+  return [
+    { name: "Black pond wait", context: step(pond, "wait", null, 0).context },
+    {
+      name: "Black pond talk",
+      context: step(pond, "talk", "moth", 0).context,
+      lines: { vale: "The pond is very still tonight, Pip." },
+    },
+    { name: "harbor wait with Myrto", context: harbor("wait", null, 0) },
+    {
+      name: "harbor talk with Myrto",
+      context: harbor("talk", "greek-shipmaster", 1),
+      lines: { vale: "Are you sailing tonight?" },
+    },
+    {
+      name: "Dione wants the Funeral Oil",
+      context: dione.context,
+      lines: { vale: "Good evening, Dione. What are you baking?" },
+    },
+    {
+      name: "Antigone at the gate",
+      context: step(antigone, "talk", "greek-antigone", 0).context,
+      lines: { vale: "Antigone? What are you doing out here?" },
+    },
+    {
+      name: "Dione waits for the Funeral Oil",
+      context: step(dione.world, "wait", null, 2).context,
+    },
+  ].map(({ name, context, lines = {} }) => ({ name, context, lines }));
+}
+
+// Perception scenes (P3): a crowded place, a return visit after a change,
+// a want that points through an exit, and a moment alone.
+export function perceptionScenes() {
+  const crowd = enableMotives(createWorld());
+  for (const id of ["moth", "keeper"]) crowd.actors[id].place = "station";
+  for (const id of ["bell", "oil", "cloth"]) crowd.items[id].holder = "station";
+  crowd.items.lamp.holder = "vale";
+  // The keeper wants the pond, one path away.
+  const pull = enableMotives(createWorld());
+  pull.actors.keeper.place = "station";
+  pull.actors.keeper.want = {
+    kind: "place",
+    target: "pond",
+    since: pull.turn,
+    refusals: 0,
+  };
+  // Vale leaves the pond with Pip there and comes back to find the Bell.
+  let back = enableMotives(createWorld());
+  back.items.lamp.holder = "vale";
+  back = step(back, "move", "pond", 0).world;
+  back = step(back, "move", "station", 0).world;
+  back.items.bell.holder = "pond";
+  back = step(back, "move", "pond", 0).world;
+  const alone = structuredClone(back);
+  for (const id of ["moth", "keeper"])
+    alone.actors[id].place = "greek-courtyard";
+  return [
+    {
+      name: "P1 crowded station",
+      context: step(crowd, "talk", "moth", 0).context,
+      lines: { vale: "Busy tonight, isn't it?" },
+    },
+    {
+      name: "P2 back at the pond",
+      context: step(back, "talk", "moth", 0).context,
+      lines: { vale: "Did you ring that bell?" },
+    },
+    {
+      name: "P3 the pond pulls",
+      context: step(pull, "talk", "keeper", 0).context,
+      lines: { vale: "You look restless tonight." },
+    },
+    {
+      name: "P4 alone at the pond",
+      context: step(alone, "wait", null, 0).context,
+    },
+  ].map(({ name, context, lines = {} }) => ({ name, context, lines }));
+}
+
+// The Theban City Gate shut, open, and open after the decree has gone: Vale
+// asks the Gate Guard to open it. Each speaker hears the way as the rules
+// have it.
+export function gateScenes() {
+  let world = playCard(enableMotives(atticOpening()), "snuff", "lamp");
+  world = playCard(playCard(world, "move", null, "pond"), "light", "lamp");
+  world.items.cloth.holder = "vale";
+  world = playCard(playCard(world, "cover", "cloth", "lamp"), "take", "cloth");
+  world = sailTo(playCard(world, "move", null, "greek-ship"), "greek-harbor");
+  const court = playCard(
+    playCard(world, "move", null, "greek-road-thebes"),
+    "move",
+    null,
+    "greek-courtyard",
+  );
+  const opened = structuredClone(court);
+  opened.items["greek-decree"].holder = "greek-guard";
+  const open = playCard(opened, "move", null, "greek-gate");
+  const latched = structuredClone(open);
+  latched.items["greek-decree"].holder = "greek-palace";
+  const lines = { vale: "Will you open the gate for us?" };
+  return [
+    ["gate shut", playCard(court, "move", null, "greek-gate")],
+    ["gate open", open],
+    ["gate open, decree gone", latched],
+  ].map(([name, w]) => ({
+    name,
+    context: step(w, "talk", "greek-guard", 0).context,
+    lines,
+  }));
+}
+
 // A silent play (Light, Put down, Take, ...) sends no voice request, so only
 // scenes that voice someone are measured.
 export function voiceEvalCases() {
@@ -152,5 +301,8 @@ export function voiceEvalCases() {
     })),
     ...stationConversation(),
     ...returnVisit(),
+    ...assistantRoleScenes(),
+    ...perceptionScenes(),
+    ...gateScenes(),
   ].filter(({ context }) => !voicesNobody(context));
 }

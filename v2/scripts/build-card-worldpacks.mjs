@@ -18,6 +18,7 @@ import {
 
 const v2 = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const output = path.join(v2, "card-game/packs.json");
+const owns = (o, key) => Object.hasOwn(o || {}, key);
 const read = (file) => JSON.parse(fs.readFileSync(path.join(v2, file), "utf8"));
 const check = process.argv.includes("--check");
 
@@ -31,6 +32,7 @@ if (
 )
   problems.push("card-table.json needs schemaVersion 1 and distinct packs");
 
+const bridgeEntries = {};
 const packs = (table.packs || []).map((id) => {
   const source = read(`content/${id}/card-world.json`);
   const bridge = read(`worlds/${id}/card-bridge.json`);
@@ -42,8 +44,10 @@ const packs = (table.packs || []).map((id) => {
     pack: _p,
     id: bridgeId,
     description,
+    entries,
     ...joins
   } = bridge;
+  bridgeEntries[id] = entries;
   const unknown = Object.keys(joins).filter(
     (key) => !["values", "crossings", "transports"].includes(key),
   );
@@ -126,12 +130,75 @@ for (const pack of packs) {
   }
 }
 
+// Entries: each pack's ways in, as `{joins, at, arrive, via}`. `joins` is
+// the hub or another pack, `at` its place where this pack's travelers come
+// out, `arrive` this pack's place where they enter, and `via` the existing
+// crossing between the two, so passage keeps one source of truth. Every
+// place is in the pack's release. The hub declares its `start` and the
+// switchable groups. The rules read the entries from the hub
+// (`packEntries`), so no pack schema changes (v2/docs/card-packs.md).
+const hub = table.hub || {};
+const sides = {
+  hub: { places: Object.fromEntries((hub.places || []).map((id) => [id, {}])) },
+};
+for (const pack of packs) sides[pack.id] = pack;
+const released = (side, place) =>
+  owns(side?.places, place) &&
+  (!side.release || side.release.places.includes(place));
+const crossing = (e) =>
+  packs.some((p) =>
+    (p.crossings || []).some(
+      (c) =>
+        c.id === e.via &&
+        !c.retired &&
+        [c.from, c.to].sort().join() === [e.at, e.arrive].sort().join(),
+    ),
+  );
+for (const pack of packs) {
+  const list = bridgeEntries[pack.id];
+  if (
+    !Array.isArray(list) ||
+    !list.length ||
+    !list.every(
+      (e) =>
+        Object.keys(e).join() === "joins,at,arrive,via" &&
+        e.joins !== pack.id &&
+        released(sides[e.joins], e.at) &&
+        released(pack, e.arrive) &&
+        crossing(e),
+    )
+  )
+    problems.push(
+      `${pack.id}: entries must name released places and a live crossing`,
+    );
+}
+const groups = Object.values(hub.switchable || {});
+if (
+  !released(sides.hub, hub.start) ||
+  !groups.length ||
+  !groups.every(
+    (g) =>
+      typeof g?.name === "string" &&
+      (g.reachedBy === undefined ||
+        (hub.switchable[g.reachedBy] && hub.switchable[g.reachedBy] !== g)) &&
+      g.packs?.length &&
+      g.packs.every((id) => sides[id]),
+  ) ||
+  new Set(groups.flatMap((g) => g.packs)).size !==
+    groups.flatMap((g) => g.packs).length
+)
+  problems.push("the hub needs a start and switchable groups of known packs");
+
 if (problems.length) {
   console.error(`Card world packs are invalid:\n- ${problems.join("\n- ")}`);
   process.exit(1);
 }
 const compiled = `${JSON.stringify(
-  { schemaVersion: 1, hub: table.hub, packs },
+  {
+    schemaVersion: 1,
+    hub: { ...table.hub, packEntries: bridgeEntries },
+    packs,
+  },
   null,
   2,
 )}\n`;

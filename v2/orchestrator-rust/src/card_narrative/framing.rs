@@ -92,6 +92,82 @@ pub(super) fn narrates_self(text: &str, own: &str) -> bool {
     })
 }
 
+/// Openings that talk to someone: an answer, a greeting, a request.
+const SPEECH_LEAD: &str = "i i'm i'll i've i'd we we're we'll let let's don't do please come go \
+    take give look listen wait yes no ah oh well hello greetings welcome thank thanks good stay \
+    keep hold tell mind here here's certainly sure okay of";
+/// "I shift my weight", "My voice is low": a first-person stage gesture.
+const GESTURE: &str = "shift strum glance gaze smile sigh nod lean turn flutter tilt wipe rub \
+    tap brush fold adjust kneel shrug stare blink frown grin chuckle laugh pause hum twitch";
+const BODY: &str = "voice gaze eyes hands fingers wings antennae";
+
+fn words(sentence: &str) -> Vec<String> {
+    sentence
+        .to_lowercase()
+        .replace('\u{2019}', "'")
+        .split(|c: char| !c.is_alphanumeric() && c != '\'')
+        .filter(|w| !w.is_empty())
+        .map(str::to_string)
+        .collect()
+}
+
+fn listed(list: &str, word: Option<&String>) -> bool {
+    word.is_some_and(|word| list.split_whitespace().any(|w| w == word))
+}
+
+/// Whether a sentence is a first-person stage gesture.
+pub(super) fn gesture(sentence: &str) -> bool {
+    let words = words(sentence);
+    match words.first().map(String::as_str) {
+        Some("i") => listed(GESTURE, words.get(1)),
+        Some("my") => listed(BODY, words.get(1)),
+        _ => false,
+    }
+}
+
+/// Whether a sentence talks to someone: a question or exclamation, "you",
+/// a speaking opening, a closing name ("..., Pip."), or a short first
+/// word ("Promptly, then.").
+pub(super) fn spoken(sentence: &str, first: bool) -> bool {
+    let s = sentence.trim();
+    if gesture(s) {
+        return false;
+    }
+    let words = words(s);
+    let named = s
+        .trim_end_matches(|c: char| !c.is_alphanumeric())
+        .rsplit_once(", ")
+        .is_some_and(|(_, name)| {
+            name.starts_with(char::is_uppercase) && name.split_whitespace().count() <= 3
+        });
+    s.contains(['?', '!'])
+        || words.iter().any(|w| {
+            [
+                "you", "your", "yours", "you're", "you've", "you'll", "you'd",
+            ]
+            .contains(&w.as_str())
+        })
+        || listed(SPEECH_LEAD, words.first())
+        || (first && words.len() <= 3)
+        || named
+}
+
+/// Whether a sentence sets the scene rather than talking: a gesture, or
+/// prose that opens on a thing ("The rain has begun.", "It drips.").
+pub(super) fn scenery(sentence: &str, first: bool) -> bool {
+    let opens = words(sentence)
+        .first()
+        .is_some_and(|w| ["the", "a", "an", "it", "its", "there"].contains(&w.as_str()));
+    gesture(sentence) || (opens && !spoken(sentence, first))
+}
+
+/// Narration instead of speech: a gesture, or two or more sentences that
+/// talk to no one ("The air is still. Damp.").
+pub(super) fn narrates_scene(sentences: &[&str]) -> bool {
+    sentences.iter().any(|s| gesture(s))
+        || (sentences.len() >= 2 && !sentences.iter().enumerate().any(|(i, s)| spoken(s, i == 0)))
+}
+
 #[cfg(test)]
 mod tests {
     use super::super::tests::{context, plain_provider, serve, solo_departure, test_config};
@@ -173,13 +249,6 @@ mod tests {
         ("Vale smiles and lifts the lamp.", "self-narration"),
         ("Vale nods slowly.", "self-narration"),
         ("\"Come closer,\" Vale whispers.", "self-narration"),
-        ("\"Stay,\" I say, \"and listen.\"", "narration tag"),
-        (
-            "\"You hit me and I hit back,\" I say, keeping my hand near the door.",
-            "narration tag",
-        ),
-        ("\"Come closer,\" Pip says.", "narration tag"),
-        ("\"Stay here,\" I tell Pip.", "narration tag"),
         ("I give the Lamp to Pip.", "stage action"),
         ("What I know: the clock stopped.", "echoed brief"),
         (
@@ -202,7 +271,7 @@ mod tests {
         assert_eq!(persona.clean(line, true), Ok(line.into()));
         let recited = "The station clock stopped at half past nine last night, I tell you.";
         assert_eq!(persona.clean(recited, true), Ok(recited.into()));
-        let (system, _) = super::super::messages(&c, &c.entities[3], Part::Persona);
+        let system = super::super::messages(&c, &c.entities[3], Part::Persona).assistant;
         let lines: Vec<_> = system.lines().filter(|l| !l.is_empty()).collect();
         let at = lines.iter().position(|l| *l == clock).unwrap();
         let dump = format!("{} {}", lines[at - 1], clock);
@@ -229,11 +298,61 @@ mod tests {
             assert!(flags.contains(reason), "{line}: {flags:?}");
             assert_eq!(text, line.trim_matches('"'), "{line}");
         }
+        // A quoted reply with a tag keeps its own words, flagged.
+        for (line, said) in [
+            ("\"Stay,\" I say, \"and listen.\"", "Stay, and listen."),
+            (
+                "\"You hit me and I hit back,\" I say, keeping my hand near the door.",
+                "You hit me and I hit back.",
+            ),
+        ] {
+            let want = Ok((said.into(), vec!["narration tag"]));
+            assert_eq!(check.verdict(line, true, true), want, "{line}");
+        }
+        let told = check.verdict("\"Stay here,\" I tell Pip.", true, true);
+        assert_eq!(told, Ok(("Stay here.".into(), vec!["narration tag"])));
+        // Pip's words written for Pip are not mine to say.
+        let voiced = check.verdict("\"Come closer,\" Pip says.", true, true);
+        assert_eq!(voiced, Err("other speaker"));
         for (line, reason) in BLOCKED {
             assert_eq!(check.verdict(line, true, true), Err(*reason), "{line}");
         }
         let long = format!("{}.", "a".repeat(400));
         assert_eq!(check.verdict(&long, true, true), Err("shape"));
+    }
+
+    /// A reply cut at the token cap keeps its complete sentences; a stage
+    /// line or opening scene prose gives way to the words said to someone,
+    /// and narration that never speaks is published flagged.
+    #[test]
+    fn a_cut_or_narrated_reply_keeps_what_it_says() {
+        let c = context();
+        let check = Check::new(&c, &c.entities[0], Part::Line);
+        let said = |raw: &str, finished: bool| check.verdict(raw, finished, true);
+        let cut = "Hold the lamp higher, Pip. I can't see your fa";
+        assert_eq!(
+            said(cut, false),
+            Ok(("Hold the lamp higher, Pip.".into(), vec![]))
+        );
+        assert_eq!(said("Hold the lamp higher and", false), Err("shape"));
+        let staged = "(I lift the lamp.)\n\nHold still, Pip. The light is coming.";
+        let spoken = "Hold still, Pip. The light is coming.".to_string();
+        assert_eq!(said(staged, false), Ok((spoken, vec!["stage action"])));
+        let scene = "The rain has begun. It drips from the eaves. Come in out of it, Pip.";
+        assert_eq!(
+            said(scene, true),
+            Ok(("Come in out of it, Pip.".into(), vec![]))
+        );
+        // Narration of someone else leads into their words, so it stays.
+        let theirs = "The keeper clears his throat. You seem tired, Vale.";
+        assert_eq!(said(theirs, true).map(|(text, _)| text), Ok(theirs.into()));
+        for prose in [
+            "The air is still. Damp.",
+            "I shift my weight. The lamp hums.",
+        ] {
+            let (text, flags) = said(prose, true).expect(prose);
+            assert_eq!((text.as_str(), flags), (prose, vec!["self-narration"]));
+        }
     }
 
     /// A flagged line is spoken as written on its first attempt.

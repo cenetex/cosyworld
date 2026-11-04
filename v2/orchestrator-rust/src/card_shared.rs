@@ -39,6 +39,8 @@ mod opening_tests;
 #[cfg(test)]
 mod quest_core_tests;
 #[cfg(test)]
+mod quest_loop_tests;
+#[cfg(test)]
 mod road_upgrade_tests;
 #[cfg(test)]
 mod saved_items;
@@ -65,6 +67,8 @@ mod unlocks_tests;
 mod weather_tests;
 #[cfg(test)]
 mod willows_tests;
+#[cfg(test)]
+mod world_life_tests;
 mod world_list;
 
 use crate::AppState;
@@ -108,6 +112,11 @@ pub(super) fn router() -> Router<AppState> {
 fn reply(r: Result<Value>) -> Response {
     let (status, body) = match r {
         Ok(v) => (StatusCode::OK, v),
+        // The client waits and retries on its own (shared.mjs).
+        Err(e) if e == engine::UPDATING => (
+            StatusCode::SERVICE_UNAVAILABLE,
+            json!({"error":e, "code":"updating"}),
+        ),
         Err(e) => (
             if e == "Sign in with your passkey." {
                 StatusCode::UNAUTHORIZED

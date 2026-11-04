@@ -9,7 +9,9 @@ import {
 import { readFileSync } from "node:fs";
 import {
   drawStep,
+  levelGap,
   levelOf,
+  levelXp,
   questSteps,
   questXp,
   STEP_VERBS,
@@ -29,7 +31,7 @@ const wait = (s) => act(s, (a) => a.kind === "wait");
 const sleep = (s) => act(wait(s), (a) => a.sleep);
 const dropQuest = (a) => a.kind === "drop" && !a.item;
 // Vale at home in the attic, the hub's sanctuary, with experience enough.
-const ready = (xp = 1) => {
+const ready = (xp = questXp(2)) => {
   const s = createWorld();
   s.actors.vale.place = "attic";
   s.actors.vale.xp = xp;
@@ -61,14 +63,17 @@ describe("the level quest", () => {
         [Number(steps), Number(total), Number(all)],
       );
     }
-    // Legendary is in reach: at most 400 steps and rests from level 1, and
-    // the experience they give is the experience it asks.
+    // Legendary is in reach: at most 400 steps and rests from level 1, as
+    // many ordinary wants again between levels (option A, rules 99), and the
+    // experience they give is the experience it asks.
     const legendary = levelTier(50);
     expect(legendary.id).toBe("legendary");
-    expect(questXp(legendary.minLevel)).toBeLessThanOrEqual(400);
+    expect(questXp(legendary.minLevel)).toBeLessThanOrEqual(800);
     let xp = 1;
     for (let level = 2; level < 50; level++) {
-      expect(xp).toBeGreaterThanOrEqual(questXp(level));
+      expect(levelXp(level - 1)).toBe(xp);
+      xp += levelGap(level - 1);
+      expect(xp).toBe(questXp(level));
       xp += questSteps(level) + 1;
     }
   });
@@ -172,13 +177,14 @@ describe("the level quest", () => {
     expect(validateWorld(s)).toBe(s);
   });
 
-  it("can be dropped for half the experience, keeping the level", () => {
-    let s = ready(6);
+  it("can be dropped for its cost in experience, keeping the level", () => {
+    let s = ready(questXp(4));
+    s.turn = s.revision = 4;
     s.actors.vale.level = 3;
     s = sleep(s);
     expect(s.actors.vale.want.quest.level).toBe(4);
     s = act(s, dropQuest);
-    expect(s.actors.vale.xp).toBe(3);
+    expect(s.actors.vale.xp).toBe(questXp(4) - 3);
     expect(levelOf(s, "vale")).toBe(3);
     expect(s.actors.vale.want?.quest).toBeUndefined();
     // The ordinary quest beneath stays droppable; no level quest is left.
@@ -204,13 +210,13 @@ describe("the level quest", () => {
     s = act(s, dropQuest);
     expect(s.actors.vale.xp).toBe(questXp(50));
     expect(levelOf(s, "vale")).toBe(50);
-    // Experience well past the level, from the old curve, still halves.
+    // Experience well past the level, from the old curve, costs the same.
     s = ready(1000);
     s.turn = s.revision = 200;
     s.actors.vale.level = 6;
     s = sleep(s);
     s = act(s, dropQuest);
-    expect(s.actors.vale.xp).toBe(500);
+    expect(s.actors.vale.xp).toBe(994);
     expect(levelOf(s, "vale")).toBe(6);
     expect(validateWorld(s)).toBe(s);
   });

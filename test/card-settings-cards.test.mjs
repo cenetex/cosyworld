@@ -19,6 +19,7 @@ const table = (more = {}) => ({
   ...{ avatar: "./assets/vale.png", credits: "", checkout: false },
   ...{ pool: null, balance: 0, backup: null, newGame: true, table: "" },
   build: "",
+  packs: Object.fromEntries(PACKS.map(([id]) => [id, { on: true }])),
   ...more,
 });
 const ids = (cards) => cards.map((c) => c.id);
@@ -26,22 +27,33 @@ const labels = (cards, id) =>
   cards.find((c) => c.id === id).actions.map((a) => a.label);
 
 describe("settings as a hand of cards", () => {
-  it("deals Privacy first and the owner's four packs last", () => {
+  it("deals four groups holding their settings, Privacy first in You", () => {
     const cards = settingsCards(table());
-    expect(cards[0].id).toBe("privacy");
+    const groups = cards.filter((c) => c.group);
+    expect(ids(groups)).toEqual(["you", "sound", "play", "world"]);
+    expect(groups.map((c) => c.actions)).toEqual([[], [], [], []]);
+    // Each group comes before the settings it holds, as a place before its
+    // things.
+    let holder = null;
+    for (const c of cards) {
+      if (c.group) holder = c.id;
+      else expect(c.holder).toBe(holder);
+    }
+    const held = (id) => ids(cards.filter((c) => c.holder === id));
+    expect(held("you")).toEqual(["privacy", "counts"]);
     expect(labels(cards, "privacy")).toEqual(["Open privacy"]);
-    expect(cards.slice(-4).map((c) => c.name)).toEqual([
-      "Cosy Cottage",
-      "The Reflected Shore",
-      "The Wine-Dark Sea",
-      "Hoppy Cat Universe",
-    ]);
-    // The packs are place cards; the rest keep their item faces.
-    expect(cards.filter((c) => c.place).map((c) => c.id)).toEqual(
+    expect(held("sound")).toEqual(["music", "voices", "volume"]);
+    expect(held("play")).toEqual(["fight", "scares", "controls"]);
+    expect(held("world").slice(0, 4)).toEqual(
       PACKS.map(([id]) => `pack-${id}`),
     );
+    expect(held("world").slice(4)).toEqual(["new-game", "download"]);
+    // Every card is a full-bleed painting: a workbench crop or a pack's.
     for (const c of cards)
       expect(existsSync(`v2/card-game/${c.art.replace("./", "")}`)).toBe(true);
+    expect(cards.filter((c) => !/settings\/|pack-/.test(c.art + c.id))).toEqual(
+      [],
+    );
   });
 
   it("shows state as the face and says the next action in the button", () => {
@@ -70,16 +82,18 @@ describe("settings as a hand of cards", () => {
     });
   });
 
-  it("cannot switch a pack off, and says why", () => {
-    const cards = settingsCards(table());
-    for (const [id] of PACKS) {
-      const pack = cards.find((c) => c.id === `pack-${id}`);
-      expect(pack.lit).toBe(true);
-      expect(pack.actions[0].disabled).toBe(true);
-    }
-    expect(labels(cards, "pack-sea")).toEqual([
-      "Every world holds The Wine-Dark Sea",
-    ]);
+  it("switches a pack, or says why it can't", () => {
+    const packs = { ...table().packs, sea: { on: false } };
+    packs.shore = { on: true, block: "One world pack stays on" };
+    const cards = settingsCards(table({ packs }));
+    const sea = cards.find((c) => c.id === "pack-sea");
+    expect(sea.lit).toBe(false);
+    expect(sea.actions).toMatchObject([{ run: "pack", enable: true }]);
+    expect(labels(cards, "pack-sea")).toEqual(["Turn The Wine-Dark Sea on"]);
+    expect(labels(cards, "pack-cottage")).toEqual(["Turn Cosy Cottage off"]);
+    const shore = cards.find((c) => c.id === "pack-shore");
+    expect(shore.actions[0]).toMatchObject({ disabled: true, run: null });
+    expect(labels(cards, "pack-shore")).toEqual(["One world pack stays on"]);
   });
 
   it("deals account cards by sign-in and world", () => {
@@ -92,6 +106,9 @@ describe("settings as a hand of cards", () => {
     expect(ids(cards)).toEqual(
       expect.arrayContaining(["account", "passkey", "credits", "pool"]),
     );
+    expect(ids(cards.filter((c) => c.holder === "you"))).toEqual([
+      ...["privacy", "account", "passkey", "credits", "counts"],
+    ]);
     expect(ids(cards)).not.toContain("new-game");
     expect(labels(cards, "pool")).toEqual([
       "Commit 10: you hold 0",

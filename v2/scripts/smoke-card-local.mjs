@@ -114,7 +114,9 @@ try {
     );
     await page.keyboard.press("Escape");
     await openSettings(page);
-    await page.locator('[data-setting="backup"]').waitFor();
+    await page
+      .locator('[data-setting="backup"]')
+      .waitFor({ state: "attached" });
     assert.equal(await page.locator(".openrouter-settings").isVisible(), false);
     assert.equal(await page.locator("#owned-worlds-button").isVisible(), false);
     const download = page.waitForEvent("download");

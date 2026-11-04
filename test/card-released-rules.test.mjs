@@ -4,6 +4,7 @@ import { expect, it } from "vitest";
 
 // Rules 2–18 were released at be94af7b. Rules 19 were qualified at 1be7794b.
 // Rules 20 shipped in v1.2.4, 21 in v1.2.5, 22 in v1.2.7 and 23 in v1.2.8.
+// Rules 96 shipped in v1.2.121 and run on Lonely Forest.
 // Journal commands keep these exact rules.
 const released = {
   2: "c494fb944d97cd8e214f09382add1501e98c93ab8f8d29b5c13f77caa59c3fef",
@@ -100,6 +101,10 @@ const released = {
   93: "5e715382e000e2ee4532067c94bb00f627e5a383c46aa98e7ec9dff0f69cca57",
   94: "e7783ada71f7a345df9be503f153e6e963adbaaf60558f2502feb96cb8e7a7ea",
   95: "f3ad87558fb77be0e3a70ba639f898057e8e84b25bb5d82758a9f52472e4efc3",
+  96: "c7f7a1e4762c5beed19d5121a64f167f9f169f43dc7eeac138cc7978b49973a6",
+  97: "ffecfea51897ccd18bff1dfb646597406d86a911df73bc695a74d61b7331bb09",
+  98: "03cbd9658245ab4c6ecbcbebe90a7170a535962014c5a742f1db020b650da5cb",
+  99: "f038043c374111bd7026ecf466e77500f5ce4fea52f1bd8e06e740ee0d6bf178",
 };
 
 it("preserves every released and qualified interpreter for exact journal replay", () => {

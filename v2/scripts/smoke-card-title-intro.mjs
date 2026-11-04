@@ -5,8 +5,9 @@ import { createServer } from "../card-game/serve.mjs";
 import { startNewGame } from "./card-browser-helpers.mjs";
 import { REVEAL_HINT, TITLES, WAKE_FADE } from "../card-game/title-intro.mjs";
 import acknowledgement from "../card-game/acknowledgement.json" with { type: "json" };
-const held = acknowledgement.pauses.filter(({ tier }) => tier);
-const phrases = held.map(({ word }) => acknowledgement.phrases[word]);
+import * as intro from "../card-game/title-intro.mjs";
+const held = intro.acknowledgementHighlights(acknowledgement);
+const phrases = held.map(({ word }) => word);
 import {
   cardShown,
   checkTitleMusicAlone,
@@ -238,7 +239,7 @@ async function idleCue(page, width, { reduced = false } = {}) {
   assert.equal(none.glow, 0);
   assert.equal(none.hint, 0);
   assert.equal(none.hidden, "true", "screen readers hear the card's name");
-  assert.equal(none.words, "open the box", "the poem's last words");
+  assert.equal(none.words, "take it", "answering the poem's question");
   if (!reduced) await shot(page, `reveal-0s-${width}`);
   await at(idleGlowMs - 400);
   assert.equal((await idleState(page)).step, "none", "no glow before idle");
@@ -378,6 +379,13 @@ async function checkLargeText() {
       });
       assert.ok(pen.top < 0 && pen.bottom > 0, JSON.stringify(pen));
       await shot(page, `${name}-writing`);
+      // Scrolled on past the first stanza, its set lights all at once.
+      await page.hover(".title-ack-text");
+      await page.mouse.wheel(0, 4000);
+      const set = '.title-ack-glow[data-tier="uncommon"][data-lit]';
+      await page.waitForSelector(set, { timeout: 15000 });
+      await page.waitForTimeout(100);
+      assert.equal(await page.locator(set).count(), 4, "lit at once");
       await page.keyboard.press("a");
       assert.equal((await streamState(page)).dark, 0, "a key shows it whole");
       await page.waitForTimeout(1000);
@@ -403,7 +411,7 @@ async function checkLargeText() {
       assert.ok(await inView(page, part), `${name}: ${part} on screen`);
     const card = await page.locator(traveller).boundingBox();
     assert.ok(card.height > 40, JSON.stringify(card));
-    assert.equal(await page.textContent(".title-hint"), "open the box");
+    assert.equal(await page.textContent(".title-hint"), "take it");
     await shot(page, `${name}-card`);
     await page.keyboard.press("Enter");
     await revealed(page, "Vale");
@@ -486,7 +494,15 @@ try {
       JSON.stringify({ ...early, words: "" }),
     );
     assert.equal(early.cue, "0");
-    assert.match(early.words, /Open the box\. The path is yours\./);
+    assert.match(early.words, /either of us\.Will you take it\?$/);
+    // Every letter is laid out from the start: lighting moves no glyph.
+    const layout = () =>
+      page.$$eval(".title-ack-glow", (glows) =>
+        glows.flatMap((glow) =>
+          Object.values(glow.getBoundingClientRect().toJSON()),
+        ),
+      );
+    const unlit = await layout();
     await page.waitForSelector("#hand .card");
     assert.equal(await titlePlays(page), 0, "silent before the first tap");
     // The first tap (desktop) or key (phone) shows it whole, the rest
@@ -509,6 +525,8 @@ try {
     else await page.keyboard.press("a");
     assert.equal((await streamState(page)).dark, 0);
     await page.waitForTimeout(1000);
+    const moved = (await layout()).map((v, i) => Math.abs(v - unlit[i]));
+    assert.ok(Math.max(...moved) < 1, `words moved ${Math.max(...moved)} px`);
     const soft = await page.evaluate(() => window.__soft);
     assert.ok(soft > 50, `${soft} letters fading after the tap`);
     const tapped = await streamState(page);
@@ -545,9 +563,16 @@ try {
     );
     assert.match(
       ack.words,
-      /with us\.\n\s*Before you sits an intricately carved wooden box,\nits surface rippling with stories\nolder than either of us\.\n\s*Open the box/,
+      /with us\.\n\s*Before you sits an intricately carved wooden box,\nits surface rippling with stories\nolder than either of us\.\n\s*Will you take it\?$/,
     );
-    assert.match(ack.words, /Open the box\. The path is yours\.$/);
+    // The question is plain cream, with nothing lit.
+    assert.deepEqual(
+      await page.$eval(".title-ack p:last-child", (p) => [
+        p.querySelectorAll(".title-ack-glow").length,
+        getComputedStyle(p).color,
+      ]),
+      [0, "rgb(255, 244, 220)"],
+    );
     assert.equal(ack.plain, acknowledgement.stanzas.flat().join(""));
     assert.equal(ack.lines.length, 17);
     assert.ok(
@@ -651,18 +676,12 @@ try {
     await revealed(page, "Vale");
     await page.waitForTimeout(desktop ? 300 : 100);
     await shot(page, `face-${width}`);
-    // The name's shade is the figure's floor: it sits at the card's foot,
-    // in its bottom 15%, not a quarter up where the hand clips its cards.
-    const floor = await page.$eval(traveller, (card) => {
-      const face = card.getBoundingClientRect();
-      const name = card.querySelector(".name").getBoundingClientRect();
-      return {
-        shade: (face.bottom - (name.top + 0.65 * name.height)) / face.height,
-        gap: face.bottom - name.bottom,
-      };
+    // The name sits at the card's top, as on every card.
+    const top = await page.$eval(traveller, (card) => {
+      const name = card.querySelector(".name");
+      return [name.offsetParent === card, name.offsetTop];
     });
-    assert.ok(floor.shade > 0 && floor.shade <= 0.15, JSON.stringify(floor));
-    assert.ok(Math.abs(floor.gap) <= 2, JSON.stringify(floor));
+    assert.deepEqual(top, [true, 0], "the name tops the card");
     assert.equal((await idleState(page)).step, "none", "the turn ends the cue");
     await page.waitForSelector(".title-intro[data-phase=dark]");
     assert.equal(
@@ -777,7 +796,8 @@ try {
     new MutationObserver((changes) => {
       for (const { target } of changes) {
         const lit = "lit" in target.dataset;
-        window.__glows.push([target.textContent, lit, performance.now()]);
+        const written = document.querySelectorAll(".title-ack .revealed");
+        window.__glows.push([target.textContent, lit, written.length]);
         if (lit && !window.__litStyle) {
           const style = getComputedStyle(target);
           window.__litStyle = style.transitionDuration;
@@ -795,19 +815,25 @@ try {
   await muted.waitForFunction(
     () => !document.querySelector(".title-ack .speech-letter"),
     null,
-    { timeout: 30000 },
+    { timeout: 40000 },
   );
-  assert.ok(Date.now() - begun > 15000, `written in ${Date.now() - begun} ms`);
+  assert.ok(Date.now() - begun > 20000, `written in ${Date.now() - begun} ms`);
   await muted.waitForTimeout(1500);
   assert.ok(whole(await streamState(muted)), "the stream ends on its own");
   const lamp = await muted.evaluate(() => ({
     changes: window.__glows.map(([phrase, lit]) => [phrase, lit]),
+    written: window.__glows.map(([, , written]) => written),
     style: window.__litStyle,
   }));
   assert.deepEqual(
     lamp.changes,
     phrases.map((phrase) => [phrase, true]),
-    "each phrase lights once and never goes out",
+    "each word lights once and never goes out",
+  );
+  // Each lights while the pen holds at its own stanza's end.
+  assert.deepEqual(
+    lamp.written,
+    held.map(({ written }) => written),
   );
   assert.deepEqual(
     [...new Set(lamp.style.split(", "))],
@@ -820,11 +846,22 @@ try {
       color: getComputedStyle(glow).color,
       base: getComputedStyle(glow.parentElement).color,
       shadow: getComputedStyle(glow).textShadow,
+      stroke: getComputedStyle(glow).webkitTextStroke,
     })),
   );
+  // Weight as well as colour, and every tint (srgb 0-1) above AA on black.
+  const luminance = (color) =>
+    color
+      .match(/[\d.]+/g)
+      .slice(0, 3)
+      .map((v) => (v <= 0.04045 ? v / 12.92 : ((+v + 0.055) / 1.055) ** 2.4))
+      .reduce((sum, v, i) => sum + v * [0.2126, 0.7152, 0.0722][i], 0);
   for (const tint of tints) {
-    assert.notEqual(tint.color, tint.base, "every phrase keeps its tint");
+    assert.notEqual(tint.color, tint.base, "every word keeps its tint");
     assert.match(tint.shadow, /^(rgba?|color)\(.+\) 0px 0px 5px$/);
+    assert.match(tint.stroke, /^0\.\d+px color\(/, tint.stroke);
+    const contrast = (luminance(tint.color) + 0.05) / 0.05;
+    assert.ok(contrast >= 7, `${tint.color}: ${contrast.toFixed(1)}:1`);
   }
   // The whole poem fits the short phone, with no scrolling.
   assert.ok(

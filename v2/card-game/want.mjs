@@ -14,7 +14,8 @@ import {
   packOf,
   packPeople,
 } from "./pack-registry.mjs";
-import { packDiscovered } from "./pack-rules.mjs";
+import { packDiscovered, runHash } from "./pack-rules.mjs";
+import { drawGlimpse, glimpseAspect, validGlimpse } from "./glimpse.mjs";
 import { authoredWant } from "./want-talk.mjs";
 
 export const WANT_KINDS = ["item", "place", "person", "connect"];
@@ -81,14 +82,24 @@ export const levelOf = (s, id) =>
 // the rest that raises the level. The table is in docs/design/level-curve.md.
 export const QUEST_STEP_LEVELS = 5;
 export const questSteps = (level) => Math.ceil(level / QUEST_STEP_LEVELS);
+// Between level quests a player meets ordinary wants, as many as the next
+// quest has steps and rest (option A, rules 99): `levelGap(L)` at level L.
+export const levelGap = (level) => questSteps(level + 1) + 1;
 // A player's next level quest comes with the experience its earlier level
-// quests give (each step and rest is one), plus the one quest met before
-// the first. Residents level on experience alone, on `levelFor`.
+// quests give (each step and rest is one), the one quest met before the
+// first, and each level's gap of ordinary wants. Residents level on
+// experience alone, on `levelFor`.
 export const questXp = (level) => {
-  let xp = level > 1 ? 1 : 0;
+  if (level < 2) return 0;
+  let xp = 1;
   for (let k = 2; k < level; k++) xp += questSteps(k) + 1;
+  for (let k = 1; k < level; k++) xp += levelGap(k);
   return xp;
 };
+// The experience a level is reached with, before its gap, and its halfway.
+export const levelXp = (level) => questXp(level + 1) - levelGap(level);
+export const halfwayXp = (level) =>
+  levelXp(level) + Math.ceil(levelGap(level) / 2);
 // A pack resident may start at an authored level, with the experience that
 // level takes, so its later level-ups stay on the same curve. Player and
 // human avatars always start at the bottom.
@@ -108,7 +119,7 @@ export const questsOf = (s, id) => {
 // ends that.
 export const contentOf = (s, id) =>
   Boolean(s.actors[id]?.content && !s.actors[id].want);
-function setQuests(a, list) {
+export function setQuests(a, list) {
   a.want = list[0] ?? null;
   if (a.want) delete a.content;
   if (list.length > 1) a.under = list.slice(1);
@@ -119,7 +130,8 @@ const lastIndex = (list, test) => {
   return -1;
 };
 // A new quest goes on top. One the avatar already holds comes to the top
-// instead of being held twice. Past the limit the oldest ordinary quest
+// instead of being held twice; a sanctuary quest takes the place of another
+// quest for the same place. Past the limit the oldest ordinary quest
 // leaves; a level quest never does, and a story quest (`story`, set by pack
 // content) only when everything beneath the top is a level or story quest.
 export function pushQuest(s, actor, want) {
@@ -128,7 +140,13 @@ export function pushQuest(s, actor, want) {
     !w.quest && !want.quest && w.kind === want.kind && w.target === want.target;
   const held = questsOf(s, actor);
   const old = held.find(same);
-  const top = old ? { ...old, ...(want.story ? { story: true } : {}) } : want;
+  const shape = (w) => JSON.stringify([w.step ?? null]);
+  const replaces =
+    old && shape(old) !== shape(want) && want.step?.verb === "rest";
+  const top =
+    old && !replaces
+      ? { ...old, ...(want.story ? { story: true } : {}) }
+      : want;
   const list = [top, ...held.filter((w) => !same(w))];
   while (list.length > QUEST_LIMIT) {
     const at = lastIndex(list, (w) => !w.quest && !w.story);
@@ -221,47 +239,169 @@ export function offerLevelQuest(s, actor, api) {
   a.level ??= levelFor(a.xp);
   if (questsOf(s, actor).some((w) => w.quest) || a.xp < questXp(a.level + 1))
     return null;
-  const level = a.level + 1;
+  const level = a.level + 1,
+    quest = { level, left: questSteps(level) + 1 };
   return pushQuest(
     s,
     actor,
-    questStep(s, actor, api, { level, left: questSteps(level) + 1 }),
+    glimpseStep(s, actor, api, quest) ?? questStep(s, actor, api, quest),
+  );
+}
+// The first step of a level quest glimpsed at halfway uses the glimpse's
+// aspect (glimpse.mjs): an item is found, given, brought or held; a person
+// met or talked with; a place visited. A verb is the step's own verb, on a
+// target drawn from the whole world: an item to find, give or bring, or a
+// person to meet. Giving and bringing go to one who wants the item, else to
+// someone known. Null when the aspect cannot make a step.
+function glimpseStep(s, actor, api, quest) {
+  const g = s.actors[actor].glimpse,
+    aspect = g?.level === quest.level && glimpseAspect(s, actor, api, g);
+  if (!aspect) return null;
+  const roll = runHash(s, `glimpse-step:${actor}:${quest.level}`),
+    here = s.actors[actor].place;
+  const want = (kind, target, step) => ({
+    ...newWant(kind, target, s.turn),
+    quest,
+    ...(step ? { step } : {}),
+  });
+  if (aspect.kind === "place") return want("place", aspect.id);
+  if (aspect.kind !== "verb")
+    return want(
+      aspect.kind,
+      aspect.id,
+      drawStep(s, actor, api, aspect.kind, aspect.id, quest.level, roll),
+    );
+  const verb = aspect.id,
+    kind = verb === "meet" ? "person" : "item";
+  const pool = wantCandidates(s, actor, api, null, true)
+    .filter((entry) => entry.startsWith(`${kind}:`))
+    .map((entry) => entry.slice(kind.length + 1))
+    .filter((id) =>
+      kind === "person"
+        ? s.actors[id].place !== here
+        : verb !== "find" || placeOfItem(s, id) !== here,
+    );
+  if (!pool.length) return null;
+  const target = pool[roll % pool.length];
+  if (verb === "find" || verb === "meet") return want(kind, target, { verb });
+  const others = knownActors(s)
+    .filter((id) => id !== actor && id !== rootOf(s, target))
+    .sort();
+  const to =
+    others.find((id) =>
+      questsOf(s, id).some(
+        (w) => w.kind === "item" && !w.step && w.target === target,
+      ),
+    ) ?? others[Math.floor(roll / 7) % others.length];
+  if (!to) return null;
+  return want(
+    "item",
+    target,
+    verb === "give"
+      ? { verb, to }
+      : { verb, to, at: api.home(to) || s.actors[to].place },
   );
 }
 // The way back to the sanctuary the avatar last slept in, or, for one that
-// never reached a sanctuary, its home.
-const restStep = (s, actor, api, quest) => ({
+// never reached a sanctuary or whose sanctuary sleeps, its home. Without a
+// level quest it is the ordinary quest to sleep at a sanctuary, met by a
+// long rest in any of them (rules 99).
+export const restStep = (s, actor, api, quest) => ({
   ...newWant(
     "place",
-    s.actors[actor].sanctuary ?? api.home(actor) ?? s.actors[actor].place,
+    [s.actors[actor].sanctuary, api.home(actor)].find(
+      (p) => p && (api.active?.(p) ?? true),
+    ) ?? s.actors[actor].place,
     s.turn,
   ),
-  quest,
+  ...(quest ? { quest } : {}),
   step: { verb: "rest" },
 });
-// Waking from a long rest completes a level quest's rest step there, or
-// brings the level quest when experience is enough for the next level.
-export function wake(s, actor, api) {
-  const a = s.actors[actor];
-  if (api.sanctuaries.includes(a.place)) a.sanctuary = a.place;
-  const rest = questsOf(s, actor).findIndex(
-    (w) => w.step?.verb === "rest" && w.target === a.place,
-  );
-  if (rest >= 0) return commitMet(s, actor, api, [], rest);
-  return offerLevelQuest(s, actor, api);
+const sanctuaryQuest = (w) => w.step?.verb === "rest" && !w.quest;
+// A sanctuary quest rebuilt for another place (its sanctuary gone quiet, or
+// set aside) takes the place of an ordinary quest for that place, as
+// `pushQuest` does, and of a later sanctuary quest; level quests stay as they
+// are. Nothing else is held twice (rules 99).
+export function mergeSanctuaryQuests(list) {
+  const key = (w) => `${w.kind}:${w.target}`;
+  const keeps = (k) => {
+    const same = (w) => !w.quest && key(w) === k;
+    const rest = list.findIndex((w) => same(w) && sanctuaryQuest(w));
+    return rest >= 0 ? rest : list.findIndex(same);
+  };
+  return list.filter((w, i) => w.quest || keeps(key(w)) === i);
 }
-// A player may drop any quest in its stack. Dropping a level quest halves
-// the experience gained toward the next level: the avatar keeps its level
-// and never falls below the experience that earned it. An ordinary quest
-// costs nothing. Its target stays out of mind a while, and the quest beneath comes
-// to the top; dropping the last one draws another at once.
+// Waking from a long rest meets a quest to sleep at a sanctuary, completes a
+// level quest's rest step there, or, with the experience for the next level
+// before it woke, brings that level quest. One long rest brings one of them
+// at most: a sanctuary quest met short of full experience brings no level
+// quest until the next long rest. It returns the rest's dream, if any: the
+// halfway glimpse or the level quest, the only two a level has (rules 99).
+export function wake(s, actor, api) {
+  const a = s.actors[actor],
+    before = a.xp;
+  if (api.sanctuaries.includes(a.place)) a.sanctuary = a.place;
+  a.level ??= levelFor(a.xp);
+  const full = a.xp >= questXp(a.level + 1);
+  let dream = null;
+  // Met short of full experience, the sanctuary quest brings the glimpse.
+  const slept = questsOf(s, actor).findIndex(sanctuaryQuest);
+  if (slept >= 0) {
+    commitMet(s, actor, api, [], slept);
+    if (
+      !full &&
+      api.player(actor) &&
+      !questsOf(s, actor).some((w) => w.quest) &&
+      a.glimpse?.level !== a.level + 1
+    ) {
+      a.glimpse = drawGlimpse(s, actor, api, a.level + 1);
+      dream = "glimpse";
+    }
+  }
+  const rest = questsOf(s, actor).findIndex(
+    (w) => w.quest && w.step?.verb === "rest" && w.target === a.place,
+  );
+  if (rest >= 0) commitMet(s, actor, api, [], rest);
+  else if (full && offerLevelQuest(s, actor, api)) dream = "quest";
+  milestones(s, actor, api, before);
+  return dream;
+}
+// At halfway to the next level quest, and again at full experience as a
+// pointer, a player is given the ordinary quest to sleep at a sanctuary
+// (rules 99). It comes once per level at halfway, recorded as
+// `halfwayIssued`, so a dropped one never returns; the pointer comes only as
+// experience reaches full. A held level quest needs neither.
+function milestones(s, id, api, before) {
+  const a = s.actors[id];
+  if (!api.player(id) || questsOf(s, id).some((w) => w.quest)) return;
+  const level = a.level ?? levelFor(a.xp),
+    full = questXp(level + 1);
+  const halfway =
+    a.xp >= halfwayXp(level) && a.xp < full && a.halfwayIssued !== level + 1;
+  if (!halfway && !(before < full && a.xp >= full)) return;
+  a.halfwayIssued = level + 1;
+  pushQuest(s, id, restStep(s, id, api));
+}
+// Dropping a level quest costs one experience for the first (the quest to
+// level 2), two for the next, and so on, never below the experience of the
+// level held, so a level never falls. Any other quest is free (owner,
+// 2026-11-04; rules 98).
+export function dropCost(s, actor, index = 0) {
+  const a = s.actors[actor],
+    want = questsOf(s, actor)[index];
+  if (!want?.quest) return 0;
+  const floor = questXp(a.level ?? levelFor(a.xp));
+  return Math.max(0, Math.min(want.quest.level - 1, a.xp - floor));
+}
+// A player may drop any quest in its stack, at its `dropCost`. Its target
+// stays out of mind a while, and the quest beneath comes to the top;
+// dropping the last one draws another at once.
 export function dropQuest(s, actor, api, index = 0) {
   const a = s.actors[actor],
     list = questsOf(s, actor),
     want = list[index];
   if (!want) return;
-  if (want.quest)
-    a.xp = Math.max(questXp(a.level ?? levelFor(a.xp)), Math.floor(a.xp / 2));
+  a.xp -= dropCost(s, actor, index);
   a.gaveUp = { target: want.target, turn: s.turn };
   list.splice(index, 1);
   setQuests(a, list);
@@ -319,7 +459,14 @@ function hash(text) {
 // A player's wide pool is the whole world (#1831): any active person and
 // place, met or found or not, and any item someone else holds or that lies
 // somewhere. Residents, whose pursuit needs a way there, keep to the known.
-export function wantCandidates(s, actor, api, previous = null, wide = false) {
+export function wantCandidates(
+  s,
+  actor,
+  api,
+  previous = null,
+  wide = false,
+  anywhere = false,
+) {
   const a = s.actors[actor];
   const held = api.carried(actor);
   // Something valued at the minimum is never wanted.
@@ -331,10 +478,15 @@ export function wantCandidates(s, actor, api, previous = null, wide = false) {
   );
   // Only what can be reached from here: the open routes, or this place for
   // a resident who keeps to its scene.
-  const reach = travels(actor, s) ? api.reachable(actor) : [];
+  // A resident kept to a range (rules 100) reaches what lies within it.
+  const reach =
+    travels(actor, s) || api.wanders?.(actor) ? api.reachable(actor) : [];
   const near = new Set([a.place, ...reach]);
   const whole = wide && Boolean(api.player?.(actor));
-  const within = (place) => wide || near.has(place);
+  // A resident kept to a range wants within it (rules 100).
+  const inRange = anywhere ? null : api.rangeTest?.(actor);
+  const within = (place) =>
+    (wide || near.has(place)) && (!inRange || inRange(place));
   const items = Object.keys(s.items).filter((id) => {
     const owner = api.rootHolder(id);
     const person = Object.hasOwn(s.actors, owner);
@@ -400,7 +552,8 @@ export function nextWant(s, actor, api, previous = null) {
     pool = wantCandidates(s, actor, api, previous);
   }
   if (!pool.length) pool = wantCandidates(s, actor, api, previous, true);
-  if (!pool.length) pool = wantCandidates(s, actor, api, null, true);
+  // At last even the want just met, and out of range (rules 100).
+  if (!pool.length) pool = wantCandidates(s, actor, api, null, true, true);
   if (!pool.length) return null;
   const [kind, target] = pool[roll % pool.length].split(":");
   return newWant(kind, target, s.turn);
@@ -438,6 +591,12 @@ function stepMet(s, actor, want, action) {
         : action.target === want.target);
   if (verb === "find") return placeOfItem(s, want.target) === me.place;
   if (verb === "give") return by("give");
+  // A person brought, as Talk asks (rules 99): to a place in your company,
+  // or to the one they want to see.
+  if (verb === "bring" && want.kind === "person")
+    return at
+      ? together(s, actor, want.target) && me.place === at
+      : together(s, want.target, to);
   // Bring with no one to bring it to: home, as a homecoming wants.
   if (verb === "bring")
     return (
@@ -517,6 +676,7 @@ export function settleWants(s, actors, api, action = null) {
   for (const id of actors) {
     const a = s.actors[id];
     if (!a) continue;
+    const before = a.xp;
     if (!a.visited.includes(a.place))
       a.visited = [...a.visited, a.place].slice(-64);
     if (api.sanctuaries.includes(a.place)) a.sanctuary = a.place;
@@ -532,10 +692,11 @@ export function settleWants(s, actors, api, action = null) {
         i++;
         continue;
       }
-      const before = questsOf(s, id).length;
+      const held = questsOf(s, id).length;
       commitMet(s, id, api, met, i);
-      if (questsOf(s, id).length >= before) i++;
+      if (questsOf(s, id).length >= held) i++;
     }
+    if (a.xp > before) milestones(s, id, api, before);
   }
   return met;
 }
@@ -552,8 +713,10 @@ function commitMet(s, id, api, met, index = 0) {
   if (quest?.left > 1) list[index] = questStep(s, id, api, quest, want);
   else if (quest?.left === 1) list[index] = restStep(s, id, api, quest);
   else {
-    if (quest) a.level = quest.level;
-    else if (!api.player(id)) a.level = Math.max(a.level, levelFor(a.xp));
+    if (quest) {
+      a.level = quest.level;
+      delete a.glimpse;
+    } else if (!api.player(id)) a.level = Math.max(a.level, levelFor(a.xp));
     list.splice(index, 1);
   }
   setQuests(a, list);
@@ -567,7 +730,10 @@ function commitMet(s, id, api, met, index = 0) {
 // A refusal of the actor's own want counts; enough of them set it aside.
 export function refuseWant(s, actor, item, api) {
   const want = wantOf(s, actor);
-  if (want?.kind !== "item" || want.target !== item) return;
+  // A player's quest is never set aside by refusals, so refused Trades or
+  // Asks cannot redraw a level quest's step for free; Drop has its cost.
+  if (want?.kind !== "item" || want.target !== item || api.player(actor))
+    return;
   // A resident that keeps to its scene only tries while someone is there, so
   // its stall clock starts at the first real attempt, not when it was given.
   if (want.refusals === 0 && !travels(actor, s)) want.since = s.turn;
@@ -583,8 +749,20 @@ function giveUp(s, actor, api) {
   a.gaveUp = { target: want.target, turn: s.turn };
   // A level quest with no way forward becomes another of the same level;
   // its rest still waits at the sanctuary.
-  if (want.step?.verb === "rest") a.want = restStep(s, actor, api, want.quest);
-  else if (want.quest) a.want = questStep(s, actor, api, want.quest, want);
+  // A glimpsed first step keeps its aspect: the quest may wait.
+  if (want.step?.verb === "rest")
+    setQuests(
+      a,
+      mergeSanctuaryQuests([
+        restStep(s, actor, api, want.quest),
+        ...questsOf(s, actor).slice(1),
+      ]),
+    );
+  else if (want.quest)
+    a.want =
+      (want.quest.left === questSteps(want.quest.level) + 1 &&
+        glimpseStep(s, actor, api, want.quest)) ||
+      questStep(s, actor, api, want.quest, want);
   else {
     const aside = { ...want, since: s.turn, refusals: 0 },
       rest = questsOf(s, actor).slice(1);
@@ -606,7 +784,7 @@ export function reviseStalledWants(s, actors, api) {
     const want = wantOf(s, id);
     if (
       want &&
-      (travels(id, s) || want.refusals > 0) &&
+      (travels(id, s) || api.wanders?.(id) || want.refusals > 0) &&
       s.turn - want.since >= STALL_TURNS
     )
       giveUp(s, id, api);
@@ -659,18 +837,49 @@ function validStep(s, w) {
   const home = verb === "bring" && w.story && !cards.to;
   // A sealed gate's quest may ask for a gift (rules 95).
   const gift = verb === "give" && w.story && !w.quest;
+  // The quest to sleep at a sanctuary stands alone (rules 99).
+  const slept = verb === "rest" && !w.story;
+  // Talk's quests (rules 99): give an item, or bring a person to a place or
+  // to someone, never both.
+  const asked =
+    !w.quest &&
+    !w.story &&
+    ((verb === "give" && w.kind === "item") ||
+      (verb === "bring" && w.kind === "person"));
   const named = home
     ? ["at"]
-    : STEP_CARDS[verb] || (verb === "meet" && cards.at ? ["at"] : []);
+    : asked && w.kind === "person"
+      ? [cards.at === undefined ? "to" : "at"]
+      : STEP_CARDS[verb] || (verb === "meet" && cards.at ? ["at"] : []);
   return (
-    (Boolean(w.quest) || home || gift) &&
+    (Boolean(w.quest) || home || gift || slept || asked) &&
     [
       ...(STEP_VERBS[w.kind] || []),
       ...(w.kind === "person" ? SAVED_STEP_VERBS : []),
+      ...(asked ? [verb] : []),
     ].includes(verb) &&
     Object.keys(cards).length === named.length &&
     named.every((key) => typeof cards[key] === "string") &&
     (!cards.to || (Object.hasOwn(s.actors, cards.to) && cards.to !== w.target))
+  );
+}
+// The saved record of wants a player was told by Talk, by avatar
+// (talk-quest.mjs, rules 99).
+function validHeard(s, id) {
+  const heard = s.actors[id].heard;
+  if (heard === undefined) return true;
+  return Boolean(
+    heard &&
+      typeof heard === "object" &&
+      !Array.isArray(heard) &&
+      Object.entries(heard).every(
+        ([them, told]) =>
+          them !== id &&
+          Object.hasOwn(s.actors, them) &&
+          typeof told === "string" &&
+          told.length <= 160 &&
+          /^(item|place|person):./u.test(told),
+      ),
   );
 }
 export function validWant(s, id) {
@@ -696,12 +905,18 @@ export function validWant(s, id) {
     a.xp <= most &&
     (a.metTurn === undefined || whole(a.metTurn)) &&
     (a.content === undefined || a.content === true) &&
+    (a.glimpse === undefined || validGlimpse(a.glimpse, levelFor(most) + 1)) &&
+    (a.halfwayIssued === undefined ||
+      (Number.isSafeInteger(a.halfwayIssued) &&
+        a.halfwayIssued >= 2 &&
+        a.halfwayIssued <= levelFor(most) + 1)) &&
     (a.gaveUp === undefined ||
       (a.gaveUp &&
         Object.keys(a.gaveUp).length === 2 &&
         typeof a.gaveUp.target === "string" &&
         whole(a.gaveUp.turn))) &&
     list(a.talked, s.actors) &&
+    validHeard(s, id) &&
     !a.talked.includes(id) &&
     Array.isArray(a.visited) &&
     (a.want === null || validQuest(s, id, a.want)) &&

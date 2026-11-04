@@ -131,6 +131,7 @@ export function createRoomMusic({
     started = false,
     enabled = true,
     hidden = false,
+    quiet = false,
     returning = false,
     pending = false,
     generation = 0,
@@ -216,6 +217,7 @@ export function createRoomMusic({
       unlocked &&
       enabled &&
       !hidden &&
+      !quiet &&
       track() &&
       failures < roomTracks[trackRoom()].length
     );
@@ -360,6 +362,10 @@ export function createRoomMusic({
     sync();
   });
   return {
+    // Whether a cue song is still audible, fading out included.
+    get cueSounding() {
+      return Boolean(cues?.sounding);
+    },
     cue(name = null) {
       cues?.cue(name);
       if (cued === (cues?.current ?? null)) return;
@@ -434,6 +440,18 @@ export function createRoomMusic({
       hidden = Boolean(value);
       cues?.setHidden(hidden);
       if (!hidden) {
+        returning = true;
+        void wakeContext(context);
+      }
+      sync();
+    },
+    // Settings fades the song out and holds its place; closing it fades the
+    // song back in from there, as a returning tab does.
+    setQuiet(value) {
+      if (quiet === Boolean(value)) return;
+      quiet = Boolean(value);
+      cues?.setQuiet(quiet);
+      if (!quiet) {
         returning = true;
         void wakeContext(context);
       }

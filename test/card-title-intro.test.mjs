@@ -4,7 +4,7 @@ import {
   STANZA_MS,
   acknowledgementDelays,
   acknowledgementGlows,
-  acknowledgementHeld,
+  acknowledgementHighlights,
   acknowledgementPauses,
   titleIntroWanted,
 } from "../v2/card-game/title-intro.mjs";
@@ -102,7 +102,7 @@ test("the acknowledgement is the owner's six stanzas, line by line, and nothing 
       "its surface rippling with stories",
       "older than either of us.",
     ],
-    ["Open the box. The path is yours."],
+    ["Will you take it?"],
   ]);
   assert.doesNotMatch(JSON.stringify(acknowledgement.stanzas), /\[hold\]/);
   assert.equal(acknowledgement.credit, undefined);
@@ -126,9 +126,14 @@ test("the acknowledgement writes at the dialogue's beat, breathing after its wei
   assert.equal(after("were peoples"), 320);
   assert.equal(after("the keepers"), 300);
   assert.equal(after("Nothing"), 300);
+  // A lit stanza holds 200 + 450 per word + 250 ms, for its own break.
+  assert.equal(after("for them still."), 2250);
+  assert.equal(after("the machines we use."), 1800);
+  assert.equal(after("our machines."), 1800);
+  assert.equal(after("either of us."), 2250);
   // One long silence before "Before you sits", with no word shown for it.
   const silence = after("began with us.");
-  assert.ok(silence >= 1500 && silence <= 2000, String(silence));
+  assert.equal(silence, 1800, "Nothing lights inside it");
   // Other stanzas hold the same breath; nothing else rests past a word
   // hold, and between rests every letter keeps the dialogue's own beat.
   const ends = new Set();
@@ -136,16 +141,16 @@ test("the acknowledgement writes at the dialogue's beat, breathing after its wei
   for (const lines of acknowledgement.stanzas.slice(0, -1))
     ends.add((at += splitLetters(lines.join("")).length));
   delays.forEach((ms, i) => {
-    if (ends.has(i)) assert.ok(ms === STANZA_MS || ms === silence);
+    if (ends.has(i)) assert.ok([silence, 2250].includes(ms), `${i}: ${ms}`);
     else
       assert.ok(
-        ms === letterDelay(letters[i]) || (ms >= 300 && ms <= 350),
+        ms === letterDelay(letters[i]) || (ms >= 300 && ms <= 320),
         `${i}: ${ms}`,
       );
   });
   assert.ok(STANZA_MS >= 600 && STANZA_MS <= 700);
   const total = delays.slice(0, -1).reduce((sum, ms) => sum + ms, 28);
-  assert.ok(total > 19_000 && total < 22_000, `${total} ms`);
+  assert.ok(total > 24_000 && total < 26_000, `${total} ms`);
   // A letter fades in over less than three beats: at most three are soft.
   assert.ok(Math.ceil(REVEAL_FADE_MS / 28) <= 3);
   // Every pause finds its word, in the order the poem reads.
@@ -161,51 +166,54 @@ test("the acknowledgement writes at the dialogue's beat, breathing after its wei
     );
 });
 
-test("its held phrases light in rarity tiers that climb, and stay lit", () => {
-  const pauses = acknowledgementHeld(acknowledgement);
+test("single words light set by set after their stanzas, tiers climbing", () => {
+  const pauses = acknowledgementHighlights(acknowledgement);
+  const lines = acknowledgement.stanzas.flat();
   assert.deepEqual(
-    pauses.map(({ phrase }) => phrase),
+    pauses.map(({ word, tier, atMs }) => `${word} ${tier} ${atMs}`),
     [
-      "there was land",
-      "there were peoples",
-      "care for them still",
-      "the keepers",
-      "the voices old and living",
-      "Nothing here began with us.",
-      "an intricately carved wooden box",
-      "The path is yours.",
+      ...["peoples", "waters", "seasons", "lands"].map(
+        (word, i) => `${word} uncommon ${200 + 450 * i}`,
+      ),
+      ...["keepers", "homes", "machines"].map(
+        (word, i) => `${word} rare ${200 + 450 * i}`,
+      ),
+      ...["voices", "stories", "echo"].map(
+        (word, i) => `${word} epic ${200 + 450 * i}`,
+      ),
+      "Nothing legendary 600",
+      ...["intricately", "carved", "wooden", "box"].map(
+        (word, i) => `${word} mythic ${200 + 450 * i}`,
+      ),
     ],
   );
-  // Each phrase is set in the data and found around its held word.
-  assert.deepEqual(
-    pauses.map(({ phrase }) => phrase),
-    pauses.map(({ word }) => acknowledgement.phrases[word]),
-  );
+  // Only the named occurrence lights: "these lands", the first "machines"
+  // and "stories", never the last line.
+  const line = (word) => lines[pauses.find((p) => p.word === word).line];
+  assert.equal(line("lands"), "who cared for these lands—");
+  assert.equal(line("machines"), "and beneath the machines we use.");
+  assert.equal(line("stories"), "whose stories shaped us");
+  assert.ok(pauses.every((p) => p.phrase === p.word && p.line < 16));
   const rank = (id) => tiers.find((tier) => tier.id === id).rank;
   const ranks = pauses.map(({ tier }) => rank(tier));
   ranks.slice(1).forEach((r, i) => assert.ok(r >= ranks[i], "tiers climb"));
-  assert.equal(ranks[0], 0);
+  assert.equal(ranks[0], 1);
   assert.equal(ranks.at(-1), tiers.at(-1).rank);
-  // Each phrase lights from its last letter and stays lit; once whole, or
-  // after a tap that shows the rest, all of them are lit.
+  // Each set is due once its stanza's last letter is written, never while
+  // text writes, and stays lit; a tap that shows the rest lights them all.
   const lit = acknowledgementGlows(acknowledgement);
-  const total = splitLetters(acknowledgement.stanzas.flat().join("")).length;
+  const delays = acknowledgementDelays(acknowledgement);
+  const total = splitLetters(lines.join("")).length;
   pauses.forEach(({ written }, i) => {
     assert.equal(lit(written - 1, false)[i], false);
     assert.equal(lit(written, false)[i], true);
+    assert.equal(delays[written - 1], Math.max(1800, pauses[i].pauseMs));
   });
-  assert.ok(lit(pauses[1].written + 80, false)[0], "land stays lit");
-  assert.ok(
-    lit(total - 1, false)
-      .slice(0, -1)
-      .every(Boolean),
-  );
-  assert.deepEqual(
-    lit(total, true),
-    pauses.map(() => true),
-  );
+  assert.ok(lit(total - 1, false).every(Boolean));
   assert.deepEqual(lit(40, true), lit(total, true));
-  const { glowInMs } = acknowledgement;
-  assert.ok(glowInMs >= 300 && glowInMs <= 400);
-  assert.equal(acknowledgement.glowHoldMs, undefined);
+  const { settleMs, wordStepMs, glowInMs, tailMs } = acknowledgement;
+  assert.deepEqual(
+    [settleMs, wordStepMs, glowInMs, tailMs],
+    [200, 450, 600, 250],
+  );
 });

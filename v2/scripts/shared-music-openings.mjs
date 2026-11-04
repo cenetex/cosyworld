@@ -118,8 +118,10 @@ export async function checkSharedMusicOpenings(browser, origin) {
         return !a.paused && a.currentTime > 0;
       });
       assert(started.has(actor));
+      // Settings holds the song; it plays once Settings closes.
       await page.reload();
       await openSettings(page);
+      await closeSettings(page);
       await page.waitForFunction(() => {
         const a = document.querySelector("#room-music");
         return !a.paused && a.currentTime > 0;

@@ -39,17 +39,20 @@ first.
   no quest: it waits, and still answers threats, talk and its pack rules.
 - **Drop.** The player's `drop` play with no item names a quest index
   (`quest`). An ordinary quest costs nothing; its target goes into `gaveUp`.
-  A level quest also halves the experience, but never below `questXp` of
-  the current level: the level stays and only progress toward the next is
-  lost (rules 90; ordinary wants are rate-limited by contentment, so a
-  plain halving could cost hundreds of Sleeps at high level). Dropping
-  the last quest draws a new one at once.
+  A level quest costs `dropCost`: 1 XP for the first level quest, 2 for
+  the next, and so on, never below `questXp` of the current level, so the
+  level stays (owner, 2026-11-04; rules 98, which replaced rules 90's
+  halving). The Drop button says "Drop quest (−N XP)" from the same
+  function; at no cost it says "Drop quest". Dropping the last quest draws
+  a new one at once.
 - **Focus.** The player's `focus` play moves a quest from beneath to the
   top. Owner decision, 2026-11-01: choosing the card is the whole act, with no
   Pursue button. Local and shared play journal focus like any play, but it
   takes no turn: `play` bumps the revision, reorders the stack and logs it,
   and the world does not move on. Residents are never offered either play.
-- **Stall.** A resident's stalled or thrice-refused quest moves to the
+- **Stall.** A player's refused Asks and Trades never count against its
+  quest (rules 98), so they cannot redraw a level step for free.
+  A resident's stalled or thrice-refused quest moves to the
   bottom of the stack with `since` reset and refusals cleared. A lone quest
   gets a newly drawn one above it. A level quest still turns into another
   step of the same level.
@@ -62,6 +65,27 @@ first.
   this was tried, putting dropped items on the ground into residents' pools
   let them pick up story items from the scene.
 - **Talk.** `wantFact` says the top quest only and adds a count of the rest.
+- **Talk gives a quest** (#2196, rules 99, `talk-quest.mjs`). A player's Talk
+  that reveals the other avatar's top want gives the player one ordinary
+  quest for it, when that want is new to them: `actor.heard` keeps, per
+  avatar, the last want it told this player (`"kind:target"`), so re-hearing
+  it adds nothing. An item want X gives `give(X, them)` (an item quest with
+  step `give` to them); a place want P gives `bring(them, P)` (a person quest
+  with step `bring` at P, met when they are at P in the player's company);
+  a person want Q gives `introduce(them, Q)` (step `bring` to Q, met when
+  they are with Q). A connect want, or a want Talk does not say
+  (`revealed` in `want-talk.mjs`), gives nothing. The quest's own shape
+  names whom it serves (`talkQuestFrom`), so the stack holds no extra
+  record. It is pushed like any quest, so one with the same kind and target
+  already held moves up instead; under a level or story quest on top it goes
+  second. A level step that is the very same quest already asks it. After
+  every play and round, a Talk quest whose want they no longer hold on top
+  (met by someone else, set aside) leaves the stack, with no refusal and no
+  cost (`pruneTalkQuests`). Met, it is an ordinary want met: one point to
+  the player, and so a step toward the level's gap of ordinary wants.
+  Residents who keep to their scene are the ones a player brings: a
+  traveller often walks to its wanted place alone first, which meets its want
+  and lifts the player's quest.
 
 ## Client
 

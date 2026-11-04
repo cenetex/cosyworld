@@ -86,6 +86,30 @@ try {
           "cosyworld.room-music",
           JSON.stringify({ enabled: false }),
         );
+        // From the loss screen on: each frame's hand while the dock is up,
+        // and each card dealt in.
+        window.afterLoss = { up: [], dealt: [] };
+        let lost = false;
+        const look = () => {
+          lost ||= Boolean(document.querySelector(".defeat-reveal"));
+          const dock = document.querySelector(".play-dock");
+          if (lost && dock.getBoundingClientRect().top < innerHeight - 60)
+            window.afterLoss.up.push(
+              [...document.querySelectorAll("#hand > :not([hidden]) .card")]
+                .map((c) => c.dataset.card)
+                .join(),
+            );
+          requestAnimationFrame(look);
+        };
+        requestAnimationFrame(look);
+        const animate = Element.prototype.animate;
+        Element.prototype.animate = function (frames, options) {
+          if (lost && this.closest?.("#hand"))
+            window.afterLoss.dealt.push(
+              frames?.[0]?.opacity ?? frames?.opacity,
+            );
+          return animate.call(this, frames, options);
+        };
       },
       { key, save: encodeSave(fixture(opponent)) },
     );
@@ -348,6 +372,13 @@ try {
         trail.left >= -1 && trail.right <= width + 1,
         `The strike trail stays on screen ${JSON.stringify(trail)}`,
       );
+    // The painting has fallen back behind the fighters (cut with reduced
+    // motion).
+    await page.waitForFunction(
+      () =>
+        document.querySelector("#stage").dataset.recede === "true" &&
+        getComputedStyle(document.querySelector("#backdrop")).opacity < 0.5,
+    );
     // A hit lands: no target circle, a slim resolve bar under each fighter.
     await page.screenshot({
       path: new URL(`hit-${opponent}-${width}-${motion}.png`, output).pathname,
@@ -505,6 +536,21 @@ try {
       () => !document.querySelector("#travel.travelling"),
     );
     assert.equal(await page.locator("#travel.fainting").count(), 0);
+    // The old hand never shows again over the black: the dock comes back
+    // only with the new place's hand, dealt in.
+    await page.waitForTimeout(900);
+    const afterLoss = await page.evaluate(() => window.afterLoss);
+    const hand = await page.evaluate(() =>
+      [...document.querySelectorAll("#hand > :not([hidden]) .card")]
+        .map((c) => c.dataset.card)
+        .join(),
+    );
+    assert(afterLoss.up.length, "the dock comes back");
+    assert(
+      afterLoss.up.every((shown) => shown === hand),
+      `only the new hand shows: ${[...new Set(afterLoss.up)]} vs ${hand}`,
+    );
+    assert(afterLoss.dealt.length, "the new hand is dealt in");
     // Each fighter's step and the defeat join Memory as beats.
     await page.evaluate(() =>
       document.querySelector("#history-button").click(),
@@ -517,6 +563,14 @@ try {
     assert.match(log, /Vale was beaten and (sent home|fell back to )/);
     assert.match(log, /You came to at /);
     assert.equal(await page.locator(".combat-dim").count(), 0);
+    assert.deepEqual(
+      await page.$eval("#stage", (stage) => [
+        stage.dataset.recede,
+        getComputedStyle(stage.querySelector("#backdrop")).opacity,
+      ]),
+      [undefined, "1"],
+      "The new place's painting is whole after the lift",
+    );
     assert.equal(
       await page.locator('.play-dock[data-covered="false"]').count(),
       1,

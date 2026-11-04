@@ -4,24 +4,32 @@ import { RETURN_FADE_SECONDS, wakeContext } from "./audio-wake.mjs";
 
 // Songs that take over from the room song for a moment of play, through
 // music.cue(name) in music.mjs. Each file is a seamless loop: the song's last
-// second of decay is mixed over its first. Fades are in seconds.
+// second of decay is mixed over its first. Fades and waits are in seconds.
+
+// The battle song comes in over the second the room song takes to fade out.
+const battle = {
+  file: "battle-attic-lamp.mp3",
+  title: "The Attic Keeps Its Lamp",
+  fadeIn: 1,
+  fadeOut: 1.5,
+};
+// One beat of the battle song, measured from the file (about 95 a minute).
+export const BATTLE_BEAT_SECONDS = 60 / 95;
 export const CUE_TRACKS = {
-  // In over the second the room song takes to fade out.
-  battle: {
-    file: "battle-attic-lamp.mp3",
-    title: "The Attic Keeps Its Lamp",
-    fadeIn: 1,
-    fadeOut: 1.5,
-  },
-  // In under the defeat's 1.4-second fade to black as the battle song
-  // leaves; out as the room song returns.
+  battle,
+  // The loss screen's song waits for the battle song to fade under the fade
+  // to black, holds three of its beats of silence, then comes in slowly.
+  // Leaving the loss screen fades it out fully before the lift (app.mjs).
   "battle-loss": {
     file: "battle-loss-moonstone.mp3",
     title: "Moonstone Sanctuary",
-    fadeIn: 1.5,
-    fadeOut: 1,
+    wait: battle.fadeOut + 3 * BATTLE_BEAT_SECONDS,
+    fadeIn: 5,
+    fadeOut: 2,
   },
 };
+// Silence that still holds the room song back: a cue with no song.
+export const HUSH = "hush";
 
 // A battle is an open standoff (rules 84): from the threat until a round
 // without a Strike, the disputed item's release, or too few fighters. Its
@@ -47,15 +55,20 @@ export function createMusicCues({
   };
   return {
     cue(name) {
-      current = CUE_TRACKS[name] ? name : null;
+      current = CUE_TRACKS[name] || name === HUSH ? name : null;
       for (const [id, player] of players) player.setActive(id === current);
     },
     get current() {
       return current;
     },
+    // Whether a cue song is still audible, fading out included.
+    get sounding() {
+      return players.some(([, player]) => player.sounding);
+    },
     setStarted: each("setStarted"),
     setEnabled: each("setEnabled"),
     setHidden: each("setHidden"),
+    setQuiet: each("setQuiet"),
     setVolume: each("setVolume"),
     unlock: each("unlock"),
   };
@@ -71,7 +84,12 @@ function createCueTrack({
     new (globalThis.AudioContext || globalThis.webkitAudioContext)(),
   now = () => performance.now() / 1000,
 }) {
-  const flags = { active: false, started: false, unlocked: false };
+  const flags = {
+    active: false,
+    started: false,
+    unlocked: false,
+    quiet: false,
+  };
   flags.enabled = true;
   let hidden = false,
     returning = false,
@@ -82,6 +100,8 @@ function createCueTrack({
     context = null,
     gain = null,
     stopTimer = null,
+    waitTimer = null,
+    cuedAt = 0,
     envelope = { from: 0, to: 0, start: 0, seconds: 0 };
   audio.preload = "none";
   audio.loop = true;
@@ -118,13 +138,19 @@ function createCueTrack({
     void wakeContext(context || null);
   }
   const wanted = () =>
-    flags.active && flags.started && flags.unlocked && flags.enabled && !hidden;
+    flags.active &&
+    flags.started &&
+    flags.unlocked &&
+    flags.enabled &&
+    !flags.quiet &&
+    !hidden;
   function fadeIn() {
     fadeTo(volume, returning ? RETURN_FADE_SECONDS : track.fadeIn);
     returning = false;
   }
   function sync() {
     clearTimeout(stopTimer);
+    clearTimeout(waitTimer);
     const attempt = ++generation;
     if (!wanted()) {
       if (!flags.active) fresh = true;
@@ -141,6 +167,9 @@ function createCueTrack({
     unlockGraph();
     // A fade out under way turns back from where it is.
     if (!audio.paused) return fadeIn();
+    // A song that waits starts only once its wait from the cue has passed.
+    const left = fresh ? (track.wait || 0) - (now() - cuedAt) : 0;
+    if (left > 0) return void (waitTimer = setTimeout(sync, left * 1000));
     if (!loaded) {
       const original = `assets/music/${track.file}`;
       audio.src = mediaUrl(streams[original]?.file || original);
@@ -160,8 +189,15 @@ function createCueTrack({
     flags[key] = Boolean(value);
     sync();
   };
+  const setActive = set("active");
   return {
-    setActive: set("active"),
+    setActive(value) {
+      if (value && !flags.active) cuedAt = now();
+      setActive(value);
+    },
+    get sounding() {
+      return !audio.paused;
+    },
     setStarted: set("started"),
     // Each tap or key: a refused play() tries again here.
     unlock() {
@@ -183,6 +219,13 @@ function createCueTrack({
         returning = true;
         void wakeContext(context || null);
       }
+      sync();
+    },
+    // Settings fades the song out over its fade and resumes it in place.
+    setQuiet(value) {
+      if (flags.quiet === Boolean(value)) return;
+      flags.quiet = Boolean(value);
+      if (!flags.quiet) returning = true;
       sync();
     },
   };

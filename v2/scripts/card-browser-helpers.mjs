@@ -25,9 +25,10 @@ export async function tapCard(card) {
   await card.click({ position: { x: width / 2, y: 16 } });
 }
 
-// ☰ > Settings is a hand of cards (settings-cards.mjs). A setting is
-// chosen, then its context button (#setting-<card>) pressed `times` times:
-// a destructive one takes two. Escape unchooses, then closes.
+// ☰ > Settings is a hand of cards (settings-cards.mjs). A setting lies in
+// its group, as a thing lies in a place: the group is fanned open, the
+// setting chosen, then its context button (#setting-<card>) pressed `times`
+// times: a destructive one takes two. Escape unchooses, then closes.
 export async function openSettings(page) {
   await page.locator("#toolbar-menu-button").click();
   await page.locator("#menu-button").click();
@@ -35,6 +36,11 @@ export async function openSettings(page) {
 }
 export async function pressSetting(page, id, times = 1) {
   const card = page.locator(`#settings-hand [data-setting="${id}"]`);
+  const frame = card.locator("..");
+  if ((await frame.getAttribute("hidden")) !== null) {
+    const group = await frame.getAttribute("data-holder");
+    await tapCard(page.locator(`#settings-hand [data-setting="${group}"]`));
+  }
   if ((await card.getAttribute("aria-pressed")) !== "true") await tapCard(card);
   for (let i = 0; i < times; i++) await page.locator(`#setting-${id}`).click();
 }
@@ -110,6 +116,26 @@ export async function selectCard(page, id, { touch = false } = {}) {
     }
   }
 }
+// A new local world opens on Vale alone, the lit lamp and the attic face down
+// (opening.mjs). Its context button offers no play while either is down: the
+// lamp's tap turns it, the quiet Reveal turns the attic and chooses the lamp,
+// and only then does the rules' first play, Put out, douse it. Any play on
+// the revealed cards (a Wait) is a first play too.
+export async function revealOpening(page) {
+  await selectCard(page, "lamp");
+  await page
+    .locator('#card-actions [data-quiet="true"]', { hasText: "Reveal" })
+    .click();
+  await page
+    .locator("#card-actions .card-primary", { hasText: "Put out" })
+    .waitFor();
+}
+export async function putOutOpening(page) {
+  await revealOpening(page);
+  await page
+    .locator("#card-actions .card-primary", { hasText: "Put out" })
+    .click();
+}
 // The beat stack's cards take real pointer hits: the front card under its own
 // centre, and the card behind under its peeking top line (#1538).
 export async function stackHits(page) {
@@ -146,4 +172,91 @@ export async function wordsFellSilent(page, key) {
       return false;
     }
   }, key);
+}
+
+// Card labels (style.css): every shown card has one name label at its top,
+// in at most `lines` lines, broken only between words; a face-down or locked
+// box shows none. Pass to page.evaluate; it returns the problems found.
+export function labelProblems({
+  root = "#hand, #settings-hand",
+  lines = 2,
+} = {}) {
+  const problems = [];
+  for (const card of document.querySelectorAll(
+    `:is(${root}) .card-frame:not([hidden]) > .card`,
+  )) {
+    if (!card.checkVisibility()) continue;
+    const id = card.dataset.card || card.dataset.setting || "quest",
+      labels = [...card.querySelectorAll(":scope > :is(.name, .quest-head)")],
+      shown = labels.filter(
+        (el) =>
+          el.textContent.trim() &&
+          el.checkVisibility({ visibilityProperty: true }),
+      );
+    const box =
+      card.dataset.unrevealed === "true" || card.dataset.locked === "true";
+    if (box) {
+      if (shown.length) problems.push(`${id} box shows a label`);
+      continue;
+    }
+    if (shown.length !== 1) {
+      problems.push(`${id} has ${shown.length} labels`);
+      continue;
+    }
+    const label = shown[0],
+      text = label.querySelector(".quest-verb") || label,
+      style = getComputedStyle(text);
+    if (label.offsetParent !== card || label.offsetTop > 1)
+      problems.push(`${id} label not at the top`);
+    const height =
+      text.clientHeight -
+      parseFloat(style.paddingTop) -
+      parseFloat(style.paddingBottom);
+    const count = Math.round(height / parseFloat(style.lineHeight));
+    if (count > lines)
+      problems.push(`${id} "${text.textContent}" in ${count} lines`);
+    // A word's letters run left to right on one line; a wrap jumps back.
+    const range = document.createRange(),
+      walk = document.createTreeWalker(text, NodeFilter.SHOW_TEXT);
+    let last = null;
+    for (let node = walk.nextNode(); node; node = walk.nextNode())
+      for (let i = 0; i < node.length; i++) {
+        if (/\s/u.test(node.data[i])) {
+          last = null;
+          continue;
+        }
+        range.setStart(node, i);
+        range.setEnd(node, i + 1);
+        const left = range.getBoundingClientRect().left;
+        if (last !== null && left < last - 1)
+          problems.push(`${id} "${text.textContent}" breaks inside a word`);
+        last = left;
+      }
+  }
+  return problems;
+}
+
+// A card's name breaks only between words: every word of every shown name
+// lies on one line. Returns the words that a line break split (and where).
+export async function splitNameWords(page) {
+  return page.evaluate(() => {
+    const split = [];
+    for (const name of document.querySelectorAll(".card .name")) {
+      const text = name.firstChild;
+      if (text?.nodeType !== Node.TEXT_NODE || !name.getClientRects().length)
+        continue;
+      for (const word of text.data.matchAll(/[^\s\-–]+/gu)) {
+        const range = document.createRange();
+        range.setStart(text, word.index);
+        range.setEnd(text, word.index + word[0].length);
+        const lines = new Set(
+          [...range.getClientRects()]
+            .filter((rect) => rect.width > 0)
+            .map((rect) => Math.round(rect.top)),
+        );
+        if (lines.size > 1) split.push(`${word[0]} in ${text.data}`);
+      }
+    }
+    return split;
+  });
 }

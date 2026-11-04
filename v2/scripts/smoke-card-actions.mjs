@@ -184,6 +184,12 @@ try {
     );
     await card("vale").waitFor();
     await ready();
+    // The page deals its hand; measure once it has landed.
+    await page.waitForFunction(
+      () =>
+        !document.querySelector("#hand").getAnimations({ subtree: true })
+          .length,
+    );
     const before = await state();
     assert.equal(
       await page.evaluate(
@@ -224,10 +230,11 @@ try {
       page,
       '#card-actions [data-action="wait"]',
     );
+    // Its handlers read the live world, so it is refreshed in place.
     assert.equal(
       played.same,
-      false,
-      "a committed play refreshes the card contents and handlers",
+      true,
+      "a committed play keeps a card still in the hand (card-keep.mjs)",
     );
     // A play leaves the raised hand where the player left it (#1922); only
     // the played card's own lift settles.
@@ -391,7 +398,7 @@ try {
     await selectCard(page, "moth");
     // In battle the selection names the verb: yourself and Pip is Guard,
     // Pip alone is Strike, yourself alone is Brace.
-    assert.deepEqual(await labels(), ["Guard"]);
+    assert.deepEqual(await labels(), ["Cover"]);
     await page.keyboard.press("Escape");
     await selectCard(page, "moth");
     assert.deepEqual(await labels(), ["Strike"]);

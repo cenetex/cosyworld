@@ -1,3 +1,4 @@
+use crate::ai_bench::{AiBench, BenchConfig, BenchedModel, AI_MODEL_BENCHED};
 use serde::Serialize;
 use std::{
     collections::{BTreeMap, VecDeque},
@@ -132,6 +133,7 @@ impl AiReadinessState {
 #[derive(Clone, Debug)]
 pub(crate) struct AiReadiness {
     state: Arc<RwLock<AiReadinessState>>,
+    bench: AiBench,
 }
 
 impl Default for AiReadiness {
@@ -208,18 +210,34 @@ pub(crate) struct MetaAi {
     pub(crate) provider: &'static str,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) readiness: Option<AiReadinessSnapshot>,
+    pub(crate) benched: Vec<BenchedModel>,
+}
+
+impl MetaAi {
+    pub(crate) fn from_config(config: Option<&crate::ai_gateway::AiConfig>) -> Self {
+        Self {
+            configured: config.is_some(),
+            provider: crate::ai_gateway::ai_provider_name(config),
+            readiness: config.map(|config| config.readiness_snapshot()),
+            benched: config
+                .map(|config| config.readiness.benched())
+                .unwrap_or_default(),
+        }
+    }
 }
 
 impl AiReadiness {
     pub(crate) fn probing_with_low_credit_threshold(low_credit_threshold: f64) -> Self {
         Self {
             state: Arc::new(RwLock::new(AiReadinessState::probing(low_credit_threshold))),
+            bench: AiBench::new(BenchConfig::from_env()),
         }
     }
 
     pub(crate) fn ready_with_low_credit_threshold(low_credit_threshold: f64) -> Self {
         Self {
             state: Arc::new(RwLock::new(AiReadinessState::ready(low_credit_threshold))),
+            bench: AiBench::new(BenchConfig::from_env()),
         }
     }
 
@@ -242,6 +260,11 @@ impl AiReadiness {
                 None,
                 state.account != AccountReadiness::Probing,
             );
+        }
+        // A benched model fails at once, like an open route, until its
+        // bench ends; the route's own breaker state waits underneath.
+        if let Some(until) = self.bench.benched_until(&route.requested_model_id, now) {
+            return AiReadinessGate::blocked(AI_MODEL_BENCHED, Some(until), false);
         }
         let Some(failure) = state.routes.get(&route).cloned() else {
             return AiReadinessGate::ready();
@@ -419,6 +442,8 @@ impl AiReadiness {
             }
             state.faults.remove(&route);
         }
+        self.bench
+            .strike(&route.requested_model_id, 0, now, now_unix);
         self.record_route_failure(
             endpoint,
             requested_model_id,
@@ -428,6 +453,31 @@ impl AiReadiness {
             now,
             now_unix,
         );
+    }
+
+    /// A card voice on the model spoke, or ended with no usable line.
+    pub(crate) fn record_voice_outcome(&self, requested_model_id: &str, spoke: bool) {
+        match spoke {
+            true => self.bench.spoke(requested_model_id),
+            false => self
+                .bench
+                .strike(requested_model_id, 1, Instant::now(), now_unix()),
+        }
+    }
+
+    /// Whether the model is benched now; a voice's chain skips it.
+    pub(crate) fn is_benched(&self, requested_model_id: &str) -> bool {
+        self.bench
+            .benched_until(requested_model_id, Instant::now())
+            .is_some()
+    }
+
+    pub(crate) fn benched(&self) -> Vec<BenchedModel> {
+        self.bench.snapshot(Instant::now())
+    }
+
+    pub(crate) fn unbench(&self, requested_model_id: &str) -> bool {
+        self.bench.clear(requested_model_id)
     }
 
     #[cfg(test)]
@@ -835,6 +885,45 @@ mod tests {
         assert!(repeated
             .gate_at("chat/completions", "provider/voice", at(62), 162)
             .is_ready());
+    }
+
+    #[test]
+    fn half_open_reopens_bench_a_model_and_auth_or_rate_limits_never_do() {
+        let readiness = AiReadiness::default();
+        let t0 = Instant::now();
+        let at = |secs| t0 + Duration::from_secs(secs);
+        let fault = |status, secs| {
+            let retry = Some(Duration::from_secs(1));
+            readiness.record_http_failure_at("chat", "p/flaky", status, retry, at(secs), secs)
+        };
+        let gate = |secs| readiness.gate_at("chat", "p/flaky", at(secs), secs);
+        for status in [401, 402, 404, 429] {
+            (0..20).for_each(|secs| fault(status, secs * 2));
+            assert!(readiness.benched().is_empty(), "status {status}");
+            readiness.record_probe_success();
+            readiness.record_success("chat", "p/flaky");
+        }
+        // Three faults open the route; each half-open fault reopens it, and
+        // the third opening benches the model on every endpoint.
+        (100..103).for_each(|secs| fault(503, secs));
+        assert!(gate(112).is_ready());
+        fault(503, 113);
+        assert!(gate(123).is_ready() && readiness.benched().is_empty());
+        fault(503, 124);
+        let benched = gate(600);
+        assert_eq!(benched.reason_code(), Some(AI_MODEL_BENCHED));
+        assert!(benched.is_retryable_block());
+        assert_eq!(benched.retry_at_unix(), Some(124 + 6 * 3_600));
+        let other = readiness.gate_at("embeddings", "p/flaky", at(600), 600);
+        assert_eq!(other.reason_code(), Some(AI_MODEL_BENCHED));
+        assert_eq!(readiness.benched()[0].trips, 3);
+        // The bench ends on its own and the route is half-open again.
+        assert!(gate(124 + 6 * 3_600).is_ready());
+        (0..6).for_each(|_| readiness.record_voice_outcome("provider/quiet", false));
+        let quiet = readiness.gate("chat", "provider/quiet");
+        assert_eq!(quiet.reason_code(), Some(AI_MODEL_BENCHED));
+        assert!(readiness.unbench("provider/quiet"));
+        assert!(readiness.gate("chat", "provider/quiet").is_ready());
     }
 
     #[test]

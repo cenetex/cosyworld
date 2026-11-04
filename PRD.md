@@ -4,6 +4,49 @@ The current product is a world played through cards, with local saves and shared
 worlds. The player chooses an avatar, handles items, travels, meets residents,
 and pursues collected quests. Residents use the same world rules.
 
+## Vision
+
+The game's arc is that relationships deepen over time. There is no plot ending.
+Big content, such as the Odyssey return and Troy, adds places to go, not finish
+lines. A world is worth returning to because the people in it know you better
+each time.
+
+The pillars, as agreed with the owner (2026-11-04):
+
+- **The rules own the world; AI only talks.** Every outcome is a rule. A
+  character influences the world only by persuading a player.
+- **Characters remember what you did, not what you said.** Memory comes from
+  committed acts: gifts, refusals, threats, fights, help. Speech never creates an
+  obligation.
+- **A living world with wants, not quests.** Each avatar wants something, and
+  growth comes from wants met.
+- **Now, not a log.** Screens and character context show the present. Recalling
+  the past is a deliberate choice.
+- **Worlds as modules.** Each world pack declares its entries to Black pond or
+  to another pack, and can be switched on or off.
+- **Many minds.** Any model can voice any character.
+- **A cosy-uncanny threshold.** Warm on the surface, strange underneath.
+- **Open by design.** Packs, models and code stay open to contributors.
+
+**The core interaction is tapping a card to reveal it in the world.** New
+people, things and places arrive as face-down carved-box cards. A tap opens
+the box and reveals them into the scene, in any order the player likes. At
+Black pond a card appears, the player taps it, and Pip is released: opening
+the box let out a moth. Revealing is presentation and takes no turn. Only
+revealed figures and things stand on the stage, and each fades in as it is
+revealed. A *locked* card is different from a face-down one: it stays a box
+until its quest is done, then reveals once. The opening is the first
+instance: Vale alone on black, then the lit lantern and the lit attic,
+revealed in either order, then the first real play (put out the lamp), which
+brings a new card.
+
+How deepening shows is still being designed. It should show without a log or
+text on cards: in what characters say when you meet again, in how they greet
+you, and in what they offer, ask or refuse.
+
+Still open: whether solo or shared play is the heart of the game, who writes
+worlds, and whether players should notice which model voices a character.
+
 ## Current experience
 
 The reflected shore connects to the Steam Clock and the Wine-Dark Sea. Shared

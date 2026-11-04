@@ -1,9 +1,16 @@
 {
-  "about": "Browser smokes for the fast check (.github/workflows/fast-check.yml), chosen by changed paths in scripts/select-fast-smokes.mjs. Smokes in always run on every change, before the rest. A changed smoke script runs next, then the rules below in order, up to max more. Each smoke serves the static card game; smokes in needsRust start the Rust server and run only in the full suite (ci.yml).",
+  "about": "Browser smokes for the fast check (.github/workflows/fast-check.yml), chosen in scripts/select-fast-smokes.mjs. The core smokes run on every pull request and main push, each in its own parallel job, so a core journey cannot go red unnoticed. A changed smoke script runs next, then the rules below in order, up to max more; a core smoke a rule names runs once and takes no slot. Each smoke serves the static card game; smokes in needsRust start the Rust server and run only in the full suite (ci.yml).",
   "max": 3,
-  "always": ["smoke-card-boot"],
-  "default": ["smoke-card-beat-stack", "smoke-card-actions"],
+  "core": [
+    "smoke-card-boot",
+    "smoke-card-image-first",
+    "smoke-card-actions",
+    "smoke-card-beat-stack",
+    "smoke-card-unveil",
+    "check-card-awakening"
+  ],
   "needsRust": [
+    "smoke-card-local",
     "smoke-shared-cards",
     "smoke-card-greek-capacity",
     "smoke-card-narrative-contract"
@@ -18,6 +25,10 @@
       "smokes": ["smoke-card-combat"]
     },
     {
+      "paths": "^v2/card-game/card-(exit|ghost|swap|entry)\\.",
+      "smokes": ["smoke-card-swap", "smoke-card-exit", "smoke-card-beat-stack"]
+    },
+    {
       "paths": "^v2/card-game/(card-tiers|cards|rarity|images)\\.|covered",
       "smokes": ["smoke-card-unveil", "smoke-card-actions"]
     },
@@ -30,7 +41,7 @@
       "smokes": ["smoke-shared-play-status", "smoke-shared-snapshot-order"]
     },
     {
-      "paths": "^v2/card-game/(music|hum)|music-streams",
+      "paths": "^v2/card-game/(music|hum|opening)|music-streams|^v2/scripts/(music-reveal-check|shared-music-openings)\\.",
       "smokes": ["smoke-card-music"]
     },
     {
@@ -73,5 +84,24 @@
       "paths": "^v2/card-game/metrics",
       "smokes": ["smoke-card-play-counts"]
     }
-  ]
+  ],
+  "rust": {
+    "about": "The fast check's Rust job (scripts/select-rust-tests.mjs). It runs when a change touches the crate, a file the crate's sources name (include_str!, include_bytes!, a file or directory a test reads, a module a test imports through Node), or a path below. Each touched module or input adds the test filter of the modules that own or read it; crate-wide files (main.rs, build.rs, Cargo files, fixtures only main.rs reads) and paths with no rule add default. A parent module's filter covers its children; at most max filters run. ignoreInputs lists named inputs a fast check already covers.",
+    "paths": "^v2/(orchestrator-rust|ai-model-rust|core-c)/|^v2/scripts/check-rust\\.sh$",
+    "max": 6,
+    "default": ["card_shared.rs", "card_narrative.rs"],
+    "ignoreInputs": ["package.json"],
+    "rules": [
+      {
+        "about": "The C kernel and card session guards.",
+        "paths": "^v2/core-c/",
+        "modules": ["card_shared.rs", "kernel.rs"]
+      },
+      {
+        "about": "build.rs embeds the public card files this script lists.",
+        "paths": "^v2/scripts/build-card-assets\\.mjs$|^v2/card-game/public-assets\\.mjs$",
+        "modules": ["card_game.rs"]
+      }
+    ]
+  }
 }

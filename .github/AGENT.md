@@ -79,11 +79,23 @@ cache; a job that misses it fetches the whole tree from Git, so jobs allow 15
 minutes. It runs the change budget, version alignment,
 the engine-gate warning, eslint, a prettier warning on changed files,
 `docs:check`, `npm test`, `cargo fmt --check` for the Rust orchestrator (no
-build; run `cargo fmt` in `v2/orchestrator-rust` when it fails), the boot smoke (`smoke-card-boot`, a cold start and
-every early notice path), and two or three browser smokes chosen by changed
-paths (`scripts/fast-smokes.json`; a changed smoke script runs itself). Each
-smoke serves the static card game; smokes that start the Rust server run only
-in the full suite. A new PR run cancels the PR's older run; main runs are
+build; run `cargo fmt` in `v2/orchestrator-rust` when it fails), the core
+browser smokes, and up to three more chosen by changed paths
+(`scripts/fast-smokes.json`; a changed smoke script runs itself). The core
+smokes (the `core` list: the boot smoke `smoke-card-boot`, a cold start and
+every early notice path, plus the image-first, actions, beat-stack, and unveil
+journeys and the opening's Steam Clock walk, `check-card-awakening`) run on
+every pull request and main push, each in its own parallel job, and count in the `fast` result; a core smoke a path also selects runs
+once and takes no path slot. Each smoke serves the static card game; smokes
+that start the Rust server run only in the full suite. A change to the Rust crate, the C kernel, the AI model
+crate, or a file the crate reads (such as `v2/card-game/senses.json`,
+`packs.json`, or a test fixture) adds the `rust` job: the tests of the modules
+that own or read the changed files, from Cargo's restored cache.
+`scripts/select-rust-tests.mjs` derives those inputs from the
+crate's sources (`node scripts/select-rust-tests.mjs --inputs` lists them);
+the `rust` section of `scripts/fast-smokes.json` holds the default and the
+extra rules. Clippy and the full Rust suite stay on the .dev train's Rust gate
+and on tags. A new PR run cancels the PR's older run; main runs are
 never cancelled. Each job reads its runner label from the `FAST_CHECK_RUNNER`
 repository variable (default `ubuntu-latest`), so moving to the Fly runner
 (#1565) needs no workflow edit. While a production deploy (a `v*` tag or a
@@ -211,7 +223,9 @@ Do not edit or commit these directly:
 - released shared rules `v2/orchestrator-rust/src/card_shared/engine-v*.js`
   and their version wiring. After rebasing a branch that changes rule modules,
   run `npm run v2:card:shared:next`; it restores main's live rules and claims
-  the next version once. To land a prepared branch, `npm run land -- <branch>`
+  the next version once. The plain `npm run v2:card:shared:build` refuses to
+  rewrite a bundle that is pinned in `test/card-released-rules.test.mjs` or
+  already on main (`v2/scripts/released-bundles.mjs`). To land a prepared branch, `npm run land -- <branch>`
   applies its own work onto main at main's version, regenerates the rules
   bundle and asset manifest, and commits; it stops only on a conflict in the branch's work;
 - `v2/worlds/official/pack.lock.json` except through the lock command;

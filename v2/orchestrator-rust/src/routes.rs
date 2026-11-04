@@ -307,6 +307,10 @@ fn app_router_with_dependencies(
             "/moderation/card-policy/treasure-objectives",
             post(start_treasure_objective),
         )
+        .route(
+            "/moderation/ai/unbench",
+            post(crate::ai_bench::moderation_unbench),
+        )
         .route("/dev/reset", post(dev_reset))
         .route(
             "/avatar",
