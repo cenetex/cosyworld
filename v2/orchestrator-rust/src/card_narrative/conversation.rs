@@ -155,11 +155,15 @@ pub(super) fn frame(
     let (known, mut out): (Vec<_>, Vec<_>) = lines
         .into_iter()
         .partition(|(section, _)| matches!(section, Section::Facts | Section::Inner));
-    let known: Vec<_> = known
+    let known: Vec<_> = known.into_iter().filter_map(once).collect();
+    // A reserved fact I already witnessed ("I witnessed this just now at
+    // ...: Ships for ... leave ...") is not said twice.
+    let fresh: Vec<_> = mentions
         .into_iter()
-        .filter_map(once)
-        .chain(mentions.into_iter().map(|fact| (Section::Directions, fact)))
+        .filter(|fact| !known.iter().any(|(_, text)| text.contains(fact.as_str())))
+        .map(|fact| (Section::Directions, fact))
         .collect();
+    let known: Vec<_> = known.into_iter().chain(fresh).collect();
     let between = between.iter().map(|l| (Section::Conversation, l.clone()));
     let chat = chat(context, entity, part)
         .into_iter()

@@ -571,6 +571,8 @@ fn a_character_speaks_as_itself_in_the_assistant_turn() {
          I ask Vale for the Funeral Oil. Vale keeps it for now. Vale is holding the Funeral Oil. \
          I'm talking with Vale, the Lamplighter."
     ));
+    // A fact she witnessed is not told again as the fact she may share.
+    assert_eq!(view.matches("Ships for Piraeus Quays leave").count(), 1);
     assert!(prompt.assistant.contains("I want the Funeral Oil."));
     assert!(view.split("\n\n").all(|part| !part.contains('\n')));
     assert_eq!(
@@ -590,6 +592,12 @@ fn a_character_speaks_as_itself_in_the_assistant_turn() {
     );
     let echo = "My hands are empty Vale's Lamp is burning and uncovered.";
     assert_eq!(check.verdict(echo, true, false), Err("echoed brief"));
+    // The heard line said back first is dropped; her own words stay.
+    let reply = "Good evening, Dione! What are you baking? Bread for the rites, Vale.";
+    assert_eq!(
+        check.verdict(reply, true, false),
+        Ok(("Bread for the rites, Vale.".into(), vec![]))
+    );
     // Vale, with nobody heard, answers silence; who is with him is his view.
     let (_, wait, _) = cases
         .iter()

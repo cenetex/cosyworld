@@ -213,17 +213,13 @@
   animation: beat-fade 600ms ease backwards;
 }
 .defeat-card {
+  --card-height: 100cqh;
   height: 100%;
   aspect-ratio: 2 / 3;
   container-type: size;
 }
 .defeat-card .card[data-tier] {
   border-color: var(--tier-color);
-}
-.defeat-card .card .name {
-  bottom: 0;
-  padding: 28px 4px 10px;
-  font-size: clamp(9px, 7.5cqh, 18px);
 }
 .defeat-line {
   margin: 0;
