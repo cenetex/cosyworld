@@ -1,5 +1,6 @@
 import { setupLocalService } from "./local-service.mjs";
 import { showBuildInfo } from "./build-info.mjs";
+import { arrivePage } from "./page-fade.mjs";
 import { membersLock } from "./shared-auth.mjs";
 import { playTitleIntro, titleIntroWanted } from "./title-intro.mjs";
 import { logoSite, showToolbarLogo, worldLogo } from "./title-logo.mjs";
@@ -24,6 +25,8 @@ if (logoSite(page)) {
   showToolbarLogo(logo);
   if (introWanted) playTitleIntro({ storage, logo });
 }
+// A page another world or seat led to opens on its black and lifts it.
+arrivePage();
 const local = await setupLocalService();
 // A members-only test server shows its sign-in lock instead of the table.
 const locked = !local && (await membersLock());

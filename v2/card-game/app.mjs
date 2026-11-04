@@ -96,6 +96,7 @@ import {
   installScaresToggle,
 } from "./transitions.mjs";
 import { installSettingsCards } from "./settings-screen.mjs";
+import { leavePage } from "./page-fade.mjs";
 import { groupOn, packToggleBlock } from "./pack-toggle.mjs";
 import { installToolbar, renderPlayers } from "./toolbar.mjs";
 import { showWorldTier } from "./world-level.mjs";
@@ -4995,7 +4996,7 @@ function syncSharedLine() {
 }
 function adoptShared(value) {
   if (!value.actor || !value.world?.actors?.[value.actor]) {
-    location.reload();
+    leavePage(() => location.reload());
     return;
   }
   const key = JSON.stringify([value.world, value.present, value.claimed]);
