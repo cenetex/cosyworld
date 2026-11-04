@@ -4,6 +4,7 @@
 // everything from elsewhere in it comes out at its declared entries.
 // docs/design/rules-98-pack-toggle.md
 import {
+  crossings,
   entityActive,
   GROUPS,
   groupAwake,
@@ -15,7 +16,12 @@ import {
   transports,
 } from "./pack-registry.mjs";
 import { sendShipHome } from "./pack-transport.mjs";
-import { questsOf, restStep } from "./want.mjs";
+import {
+  mergeSanctuaryQuests,
+  questsOf,
+  restStep,
+  setQuests,
+} from "./want.mjs";
 
 const ORDER = Object.keys(GROUPS);
 const rank = (id) => (ORDER.indexOf(packGroup(id)) + 1 || 99) - 1;
@@ -127,6 +133,19 @@ function scatter(s, pack, api) {
       a.place = api.want.player(id) ? spots[0] : spot();
       delete a.sleeping;
     }
+  // A signal in progress breaks once no player is left where it is made, as
+  // walking away breaks it (rules 99).
+  for (const c of crossings) {
+    const state = s.crossings[c.id];
+    if (
+      c.signal &&
+      state.phase > 0 &&
+      !Object.keys(s.actors).some(
+        (id) => api.want.player(id) && s.actors[id].place === c.from,
+      )
+    )
+      state.phase = 0;
+  }
   // Things from elsewhere held in the pack: to whoever from elsewhere
   // carries the holder, or where its person stands outside it (F10), else
   // spread.
@@ -163,15 +182,15 @@ function scatter(s, pack, api) {
   for (const [id, a] of byId(s.actors)) {
     if (mine(id)) continue;
     if (mine(a.sanctuary)) delete a.sanctuary;
-    const list = questsOf(s, id).map((w) =>
-      w.step?.verb === "rest" && mine(w.target)
-        ? restStep(s, id, api.want, w.quest)
-        : w,
+    const list = mergeSanctuaryQuests(
+      questsOf(s, id).map((w) =>
+        w.step?.verb === "rest" && mine(w.target)
+          ? restStep(s, id, api.want, w.quest)
+          : w,
+      ),
     );
     const named = (w) => names(w).some(mine);
     const order = [...list.filter((w) => !named(w)), ...list.filter(named)];
-    if (!order.length) continue;
-    a.want = order[0];
-    if (order.length > 1) a.under = order.slice(1);
+    if (order.length) setQuests(a, order);
   }
 }

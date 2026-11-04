@@ -13,6 +13,7 @@ import {
 } from "../v2/card-game/narrative.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import { DAYLIGHT_TURNS } from "../v2/card-game/daylight.mjs";
+import { questXp } from "../v2/card-game/want.mjs";
 import {
   reflectionContext,
   applySharedReflections,
@@ -59,6 +60,7 @@ it("reads the same reflection context as the narrative", () => {
       turn: told.turn,
       resting: told.resting,
       ...(told.rest ? { rest: told.rest } : {}),
+      ...(told.dream ? { dream: told.dream } : {}),
       entities: told.entities.map(({ id, memories }) => ({ id, memories })),
     });
   }
@@ -120,7 +122,7 @@ it("dates a later shared reflection to its speech and refuses stale ones", () =>
   start.actors.keeper.place = "station";
   const world = dispatchShared({
     op: "create",
-    save: encodeSave(rest(start, { dream: true })),
+    save: encodeSave(rest(start)),
   }).world;
   const context = reflectionContext({
     ...world,
@@ -227,11 +229,19 @@ it("dates a later shared reflection to its speech and refuses stale ones", () =>
 it("accepts a later reflection after a real Sleep long rest at a sanctuary", () => {
   let s = enableMotives(createWorld());
   s.actors.vale.place = "attic";
+  // With the experience for level 2, the rest dreams the level quest: the
+  // only long rests that dream (rules 99).
+  Object.assign(s.actors.vale, { level: 1, xp: questXp(2) });
   const pick = (test) => (s = play(s, legalActions(s).find(test)).state);
   pick((a) => a.kind === "wait");
   pick((a) => a.sleep);
   const waking = s.log.at(-1);
-  expect(waking).toMatchObject({ actorId: "vale", verb: "wait", rest: "long" });
+  expect(waking).toMatchObject({
+    actorId: "vale",
+    verb: "wait",
+    rest: "long",
+    dream: "quest",
+  });
   const world = dispatchShared({ op: "create", save: encodeSave(s) }).world;
   const context = reflectionContext({
     ...world,
@@ -242,6 +252,7 @@ it("accepts a later reflection after a real Sleep long rest at a sanctuary", () 
     turn: waking.turn,
     resting: "vale",
     rest: "long",
+    dream: "quest",
   });
   const evidence = context.entities
     .find((e) => e.id === "vale")
@@ -276,6 +287,41 @@ it("accepts a later reflection after a real Sleep long rest at a sanctuary", () 
     turn: waking.turn,
     text: entry.reflection.dream,
   });
+  // An ordinary long rest brings a thought and no dream.
+  let plain = enableMotives(createWorld());
+  plain.actors.vale.place = "attic";
+  for (const test of [(a) => a.kind === "wait", (a) => a.sleep])
+    plain = play(plain, legalActions(plain).find(test)).state;
+  expect(plain.log.at(-1)).toMatchObject({ rest: "long" });
+  expect(plain.log.at(-1).dream).toBeUndefined();
+  const ordinary = dispatchShared({
+    op: "create",
+    save: encodeSave(plain),
+  }).world;
+  const later = (reflection) =>
+    dispatchShared({
+      op: "reflect",
+      world: ordinary,
+      actor: "vale",
+      ...shared,
+      turn: plain.log.at(-1).turn,
+      resting: "vale",
+      rest: "long",
+      entries: [{ ...entry, reflection }],
+    }).world;
+  const { dream: _dream, ...thought } = entry.reflection;
+  thought.evidence = reflectionContext({
+    ...ordinary,
+    playerActorId: "vale",
+    ...shared,
+  })
+    .entities.find((e) => e.id === "vale")
+    .memories.filter((m) => m.kind === "event")
+    .map((m) => m.seq);
+  expect(() => later({ ...thought, dream: entry.reflection.dream })).toThrow(
+    "Use a reflection grounded in the saved scene.",
+  );
+  expect(later(thought).memories.vale.innerLife.dreams).toEqual([]);
 });
 
 it("gives a shared sleeper woken by another seat's play its dream at its own next scene", () => {
@@ -286,6 +332,8 @@ it("gives a shared sleeper woken by another seat's play its dream at its own nex
   s.actors.moth.place = "station";
   s.actors.boardyai.place = "greek-palace";
   s.actors.moth.want = s.actors.boardyai.want = null;
+  // Due its level quest, so the long rest dreams (rules 99).
+  Object.assign(s.actors.vale, { level: 1, xp: questXp(2) });
   s.turn = s.revision = DAYLIGHT_TURNS + 1;
   const seats = { claimed: ["vale", "mara"], present: ["vale", "mara"] };
   let world = dispatchShared({ op: "create", save: encodeSave(s) }).world;

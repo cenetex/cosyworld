@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createWorld, legalActions, play } from "../v2/card-game/world.mjs";
 import { DAYLIGHT_TURNS, isNight } from "../v2/card-game/daylight.mjs";
+import { questXp } from "../v2/card-game/want.mjs";
 import {
   CONFIRM_MS,
   DREAM_WAIT_MS,
@@ -29,7 +30,7 @@ import {
 } from "../v2/card-game/stage-light.mjs";
 
 // Vale sleeps in the attic (a sanctuary) from `from` until the light changes.
-function sleepFrom(from, { xp = 1 } = {}) {
+function sleepFrom(from, { xp = questXp(2) } = {}) {
   let w = createWorld();
   w.actors.vale.place = "attic";
   w.turn = from;
@@ -92,7 +93,7 @@ function sequence(plan) {
   });
   return { s, c, beats, finished: () => finished };
 }
-const DREAM_PLAN = sleepPlan({ dream: true, crossed: true });
+const DREAM_PLAN = sleepPlan({ dream: true, crossed: true, quests: ["q"] });
 
 describe("waking from a sleep", () => {
   it("brings the dream flow only when a long rest deals a level quest", () => {

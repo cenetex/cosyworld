@@ -6,6 +6,7 @@
 // rules, saves, the journal or sync.
 import { riseIn } from "./card-entry.mjs";
 import { dreamBeat } from "./dream-card.mjs";
+import { glimpseCompanion } from "./glimpse-card.mjs";
 import {
   CROSSFADE_MS,
   DARK_BEATS,
@@ -212,6 +213,8 @@ export function createSleepView({
               ? null
               : (state.text ?? "…"),
           armed: state.armed,
+          // The halfway glimpse shows its aspect beside the card.
+          companion: glimpseCompanion(dreamt.glimpse),
         }),
         front: Boolean(sequence) && DARK_BEATS.has(beat),
       };

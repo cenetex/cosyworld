@@ -29,17 +29,22 @@ switch, the Shore too, one stays on; local worlds only; the attic stays.
   Everyone else, and every thing from elsewhere lying there or held by its
   people, is dealt round the ways out from a start drawn from the run seed
   and revision; one held by its person standing outside it is set down
-  there. A sleeper wakes.
+  there. A sleeper wakes. A crossing signal in progress breaks once no
+  player is left where it is made, as walking away breaks it (rules 99).
 - **Fights** there or with its people end, with three turns of peace.
   **Quests** naming it go to the bottom of the stack, nothing redrawn. A
   sanctuary in it is forgotten, and a rest step there turns to an awake
-  sanctuary or home (`restStep`).
+  sanctuary or home (`restStep`). From rules 99 a quest to sleep at a
+  sanctuary rebuilt this way takes the place of an ordinary quest for the
+  same place, as `pushQuest` does (`mergeSanctuaryQuests`); setting one
+  aside does the same. Level quests are never merged away.
 - **Ships.** Its own ship lies still with its own crew, no course or
   summons.
   Another pack's ship at or bound for its docks puts in at home (rules 95).
 - **On.** Its content returns as it was; scattered things stay put. A
   rescue whose place sleeps goes to the start of the first pack on.
 
-Tests: `test/card-pack-toggle.test.mjs`, including rules 96 and 97 accepting a
+Tests: `test/card-pack-toggle.test.mjs` and the seeded toggle fuzz in
+`test/card-quest-loop-redirect.test.mjs`, including rules 96 and 97 accepting a
 player in a pack switched off, which rules 98 refuses. Earlier released rules are
 byte-identical and hash-pinned (`test/card-released-rules.test.mjs`).

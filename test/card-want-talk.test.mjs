@@ -63,6 +63,8 @@ describe("a want in Talk context", () => {
     const world = atStation();
     world.items.lamp.holder = "vale";
     world.actors.vale.want = { kind: "place", target: "pond", since: 0, refusals: 0 };
+    // Told before, Pip's want gives Vale no quest above her own (rules 99).
+    world.actors.vale.heard = { moth: "item:lamp" };
     const context = talkTo(world, "moth");
     const pip = factsOf(context, "moth");
     expect(pip.filter((f) => f === "I want the Lamp.")).toHaveLength(1);

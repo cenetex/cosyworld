@@ -525,6 +525,10 @@ struct Context {
     /// "long" when the resting avatar wakes from a long rest at a sanctuary.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     rest: Option<String>,
+    /// What that long rest dreamed by the rules (rules 99): "glimpse" or
+    /// "quest". Only then is a dream due.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    dream: Option<String>,
     #[serde(default)]
     action: Option<String>,
     entities: Vec<Entity>,
@@ -608,6 +612,9 @@ fn valid(context: &Context) -> bool {
             .rest
             .as_deref()
             .is_none_or(|rest| rest == "long" && context.resting.is_some())
+        && context.dream.as_deref().is_none_or(|dream| {
+            DREAMS.contains(&dream) && context.rest.as_deref() == Some("long")
+        })
         && context.entities.iter().all(|e| {
             profiles().get(&e.id).is_some()
                 && recital::valid(&e.id, e.poem.as_ref(), context.turn)
@@ -1468,12 +1475,13 @@ pub(super) fn client_budget_ms() -> u128 {
 }
 
 const THOUGHT_GAP: u64 = 6;
-const DREAM_GAP: u64 = 24;
-const THOUGHTS_PER_DREAM: usize = 2;
+/// The dreams a long rest may bring by the rules: the halfway glimpse and the
+/// level quest, one or two a level (rules 99).
+const DREAMS: [&str; 2] = ["glimpse", "quest"];
 
 /// Mirrors `reflectionDue` in the card rules: only the avatar who waited
-/// thinks, after something new happened to them. A dream also needs two
-/// thoughts since the last dream.
+/// thinks, after something new happened to them. A dream is due only when a
+/// long rest dreamed by the rules.
 fn reflection_due(context: &Context, entity: &Entity) -> (bool, bool) {
     if !kind(&entity.id, "avatar")
         || context.turn == 0
@@ -1481,9 +1489,10 @@ fn reflection_due(context: &Context, entity: &Entity) -> (bool, bool) {
     {
         return (false, false);
     }
-    // Waking from a long rest always brings a thought and a dream.
+    // Waking from a long rest always brings a thought; a dream only when the
+    // rest dreamed.
     if context.rest.as_deref() == Some("long") {
-        return (true, true);
+        return (true, context.dream.is_some());
     }
     let life = entity.inner_life.as_ref();
     let last = life.and_then(|l| l.thoughts.last()).map(|m| m.turn);
@@ -1493,17 +1502,7 @@ fn reflection_due(context: &Context, entity: &Entity) -> (bool, bool) {
         .any(|m| m.kind == "event" && last.is_none_or(|turn| m.turn > turn));
     let reflect =
         changed && last.is_none_or(|turn| context.turn >= turn.saturating_add(THOUGHT_GAP));
-    let dreamt = life.and_then(|l| l.dreams.last()).map(|m| m.turn);
-    let settled = life.map_or(0, |l| {
-        l.thoughts
-            .iter()
-            .filter(|m| dreamt.is_none_or(|turn| m.turn > turn))
-            .count()
-    });
-    let dream = reflect
-        && settled >= THOUGHTS_PER_DREAM
-        && dreamt.is_none_or(|turn| context.turn >= turn.saturating_add(DREAM_GAP));
-    (reflect, dream)
+    (reflect, false)
 }
 
 /// The speakers, then the place, then the item in play. Everyone else keeps
@@ -3031,8 +3030,12 @@ pub(crate) mod tests {
 
     /// Vale waited with two thoughts settled since any dream, so a thought
     /// and a dream are both due. Earlier events count as new since then.
+    /// A dream is due only on waking from a long rest that dreamed by the
+    /// rules (rules 99): here the level quest's.
     pub(super) fn dream_due(c: &mut Context) {
         resting(c);
+        c.rest = Some("long".into());
+        c.dream = Some("quest".into());
         c.turn = c.turn.max(20);
         c.revision = c.revision.max(c.turn);
         let vale = &mut c.entities[0];
@@ -3553,7 +3556,7 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn waking_from_a_long_rest_brings_a_thought_and_a_dream() {
+    fn waking_from_a_long_rest_brings_a_thought_and_a_dream_only_by_the_rules() {
         let mut c = context();
         c.turn = 24;
         c.revision = 24;
@@ -3562,8 +3565,20 @@ pub(crate) mod tests {
         assert!(!valid(&c));
         c.resting = Some(c.entities[0].id.clone());
         assert!(valid(&c));
-        assert_eq!(reflection_due(&c, &c.entities[0]), (true, true));
+        // An ordinary long rest brings a thought and no dream (rules 99).
+        assert_eq!(reflection_due(&c, &c.entities[0]), (true, false));
+        for dream in ["glimpse", "quest"] {
+            c.dream = Some(dream.into());
+            assert!(valid(&c));
+            assert_eq!(reflection_due(&c, &c.entities[0]), (true, true));
+        }
+        c.dream = Some("nightmare".into());
+        assert!(!valid(&c));
+        c.dream = Some("quest".into());
         c.rest = Some("short".into());
+        assert!(!valid(&c));
+        // A dream belongs to a long rest.
+        c.rest = None;
         assert!(!valid(&c));
     }
 
@@ -3583,7 +3598,7 @@ pub(crate) mod tests {
         assert_eq!(reflection_due(&c, &c.entities[0]), (false, false));
         c.resting = Some(vale.clone());
         assert!(valid(&c));
-        // A first thought never arrives with a dream: two must settle first.
+        // A Wait brings a thought and never a dream (rules 99).
         assert_eq!(reflection_due(&c, &c.entities[0]), (true, false));
         c.entities[0].inner_life = Some(InnerLife {
             persona_signed: None,
@@ -3621,8 +3636,8 @@ pub(crate) mod tests {
             kind: "event".into(),
             text: "Vale crossed the pond.".into(),
         });
-        assert_eq!(reflection_due(&c, &c.entities[0]), (true, true));
-        // After a dream, two more thoughts and a long night must pass.
+        // However many thoughts settle, a Wait does not dream.
+        assert_eq!(reflection_due(&c, &c.entities[0]), (true, false));
         let life = c.entities[0].inner_life.as_mut().unwrap();
         life.dreams.push(InnerMoment {
             signed: None,
@@ -3651,7 +3666,6 @@ pub(crate) mod tests {
         c.turn = 25;
         c.revision = 25;
         c.entities[0].memories.last_mut().unwrap().turn = 24;
-        // Two thoughts since the dream, but the night is not over yet.
         assert_eq!(reflection_due(&c, &c.entities[0]), (true, false));
         c.entities[0]
             .inner_life
@@ -3673,7 +3687,7 @@ pub(crate) mod tests {
         c.turn = 37;
         c.revision = 37;
         c.entities[0].memories.last_mut().unwrap().turn = 36;
-        assert_eq!(reflection_due(&c, &c.entities[0]), (true, true));
+        assert_eq!(reflection_due(&c, &c.entities[0]), (true, false));
         // Another avatar's Wait does not make Vale think.
         c.resting = Some("moth".into());
         assert_eq!(reflection_due(&c, &c.entities[0]), (false, false));
