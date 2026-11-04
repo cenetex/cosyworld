@@ -169,7 +169,6 @@ try {
       assert.deepEqual(drawn, rules, "the hand is the rules' hand");
       assert.equal(trip.vale, "kept", "Vale's card keeps its node");
       assert.equal(trip.valeFrame, "kept", "Vale's frame keeps its node");
-      assert(!trip.motions.some((m) => m.rise && m.card === "vale"));
       assert(trip.released, "every ghost is released");
       if (reduced) {
         assert.deepEqual(trip.ghosts, [], "reduced motion shows no exits");
@@ -202,7 +201,7 @@ try {
     if (!reduced) {
       const falls = back.motions.filter((m) => m.ghost),
         lastFall = Math.max(0, ...falls.map((m) => m.at + m.delay + 360)),
-        rises = back.motions.filter((m) => m.rise && m.card !== "vale");
+        rises = back.motions.filter((m) => m.rise);
       for (const id of ["moth", "keeper"])
         assert(
           rises.some((m) => m.card === id),

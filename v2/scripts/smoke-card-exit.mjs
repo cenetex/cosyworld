@@ -87,7 +87,7 @@ try {
           Object.fromEntries(
             [...hand.querySelectorAll(".card[data-card]")].map((c) => [
               c.dataset.card,
-              c.parentElement.getBoundingClientRect().toJSON(),
+              c.parentElement.getBoundingClientRect(),
             ]),
           );
         window.exitWatch = { observer, seen, boxes, shown: {}, redrawn: {} };
@@ -151,15 +151,10 @@ try {
     const { shown, redrawn } = await page.evaluate(() => window.exitWatch);
     for (const ghost of await seen()) {
       assert.deepEqual(ghost.looks, [true, "true"]);
-      assert(
-        [shown, redrawn].some(
-          (at) =>
-            at[ghost.card] &&
-            Math.abs(ghost.box.left - at[ghost.card].left) < 4 &&
-            Math.abs(ghost.box.top - at[ghost.card].top) < 4,
-        ),
-        `${ghost.card} falls from where it lay`,
-      );
+      const at = (box) =>
+        Math.abs(ghost.box.left - box?.left) < 4 &&
+        Math.abs(ghost.box.top - box?.top) < 4;
+      assert(at(shown[ghost.card]) || at(redrawn[ghost.card]), ghost.card);
     }
     await page.evaluate(() => window.exitMotions.forEach((m) => m.play()));
     await settled();
