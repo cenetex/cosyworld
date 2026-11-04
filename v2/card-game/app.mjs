@@ -1415,7 +1415,12 @@ function syncAvatarStack(frame, id) {
     delete frame.dataset.expanded;
     button.removeAttribute("aria-expanded");
   }
-  for (let i = Math.min(part.under, 3); i > 0; i--) {
+  stackEdges(frame, part.under);
+}
+// Face-down cards behind a stack's top card, up to three: how many, not
+// what they are.
+function stackEdges(frame, count) {
+  for (let i = Math.min(count, 3); i > 0; i--) {
     const edge = node("span", undefined, "place-edge");
     edge.style.setProperty("--i", String(i));
     edge.style.setProperty("--card-back", cardBackImage());
@@ -2717,12 +2722,7 @@ function card(id) {
     el.setAttribute("aria-expanded", String(expandedHolders.has(id)));
     if (!hidden) observation.textContent += stackLabel(stack);
     // Face-down cards: how many ways on, not where they lead.
-    for (let i = Math.min(stack.length, 3); i > 0; i--) {
-      const edge = node("span", undefined, "place-edge");
-      edge.style.setProperty("--i", String(i));
-      edge.style.setProperty("--card-back", cardBackImage());
-      frame.prepend(edge);
-    }
+    stackEdges(frame, stack.length);
   }
   syncAvatarStack(frame, id);
   if (foldQuest()?.actor === id) frame.prepend(questFold(foldQuest()));
