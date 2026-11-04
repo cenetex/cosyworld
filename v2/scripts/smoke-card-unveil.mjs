@@ -253,8 +253,11 @@ try {
       // with no layers or animations left, takes the next click itself. A
       // place widens first as it opens; tap once it holds still. The card's
       // own reveal holds meanwhile, so a slow runner still taps mid-reveal.
+      // Its name label's glide to the top just ends.
       await pond.evaluate((el) => {
-        for (const a of el.getAnimations({ subtree: true })) a.pause();
+        for (const a of el.getAnimations({ subtree: true }))
+          if (a.effect?.target?.classList.contains("name")) a.finish();
+          else a.pause();
         return Promise.all(
           el
             .closest(".card-frame")
