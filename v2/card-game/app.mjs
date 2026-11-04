@@ -54,7 +54,18 @@ import { locationWeather } from "./weather.mjs";
 import { DAYLIGHT_TURNS, isNight, locationDaylight } from "./daylight.mjs";
 import { renderWeather } from "./weather-view.mjs";
 import { renderStageLight } from "./stage-light-view.mjs";
-import { GENTLE, placeLight } from "./stage-light.mjs";
+import {
+  UNPAINTED_NIGHT_TINT,
+  gradeStrength,
+  placeLight,
+} from "./stage-light.mjs";
+import { createSleepView } from "./sleep-view.mjs";
+import {
+  DREAM_TIER,
+  dreamingAria,
+  dreamingLabel,
+  withDream,
+} from "./dream-card.mjs";
 import {
   CHANGE_FADE_MS,
   CROSSFADE_MS,
@@ -814,6 +825,21 @@ function updateSpeechControls(complete) {
     : "Tap to reveal";
 }
 const speechPainter = createRevealPainter($("dialogue-text"), { rest: true });
+// A wake plays on the table: dusk or dawn through a held black, and a level
+// quest's dream before it (sleep-view.mjs).
+const sleepView = createSleepView({
+  stage: $("stage"),
+  speechRow: $("speech-row"),
+  hand: $("hand"),
+  reducedMotion,
+  render: () => render(),
+  finishReveal: () => {
+    if (reveal.complete) return;
+    reveal.finish();
+    speechSounds.stop();
+  },
+  dealQuests: () => showQuests(false),
+});
 const reveal = createTextReveal({
   reduced: () => reducedMotion.matches,
   sound: (...args) => {
@@ -881,6 +907,7 @@ const reveal = createTextReveal({
     if (value.complete) {
       updateSpeechControls(true);
       completedSpeech.add(value.key);
+      sleepView.revealed(value.key);
       if (completedSpeech.size > 100)
         completedSpeech.delete(completedSpeech.values().next().value);
       completedSpokenLine = { ...value, seq: shownSceneLine?.seq };
@@ -1131,8 +1158,11 @@ const narrator = createNarrator({
       : requestNarrative,
   ),
   // Thoughts, persona and dreams come after the line, so they never delay it.
-  reflect: signedRequest((context, signal) =>
-    requestNarrative(context, signal, () => {}, "/card-game/reflections"),
+  // A level quest's dream waits on it (sleep-view.mjs).
+  reflect: sleepView.reflect(
+    signedRequest((context, signal) =>
+      requestNarrative(context, signal, () => {}, "/card-game/reflections"),
+    ),
   ),
   // A silent play ends its exchange at once; the beat is its caption.
   silent: () => {
@@ -1169,6 +1199,7 @@ const narrator = createNarrator({
     loadTurnLines({ pending });
   },
   status: (value, error) => {
+    sleepView.words(value);
     // Words that failed are this scene's silence: each speaker due shows
     // "…", like a line that came, and play goes on. There is no failed state.
     storyStatus = value === "failed" ? "ready" : value;
@@ -1194,7 +1225,9 @@ function loadTurnLines({ pending = false } = {}) {
       entry.generated &&
       entry.kind === "dialogue" &&
       entry.turn === world.turn &&
-      entry.locationId === world.actors[currentActor(world)].place,
+      entry.locationId === world.actors[currentActor(world)].place &&
+      // The dreamer says nothing on waking: the dream is the beat.
+      !sleepView.hidesLine(entry),
   );
   const voiced = lines.filter((entry) => !entry.silent);
   if (localRuntime() && voiced.length) {
@@ -2182,7 +2215,10 @@ const entryKey = (frame) =>
 // it stays in the hand, folded or fanned. A tap still plays it at once.
 function showQuests(opening) {
   const cards = [...$("hand").querySelectorAll(".want-card")],
-    seen = (card) => !card.closest(".want-frame").hidden;
+    // A quest a dream deals stays face down until the dream is done.
+    seen = (card) =>
+      !card.closest(".want-frame").hidden &&
+      !sleepView.holdsQuest(card.dataset.questEntry);
   questsInView
     .show(
       cards.map((card) => card.dataset.questEntry),
@@ -2836,6 +2872,7 @@ function renderFloorItems(items) {
 function renderScene() {
   // Every path to this renderer keeps the source visible until the veil covers it.
   if (covering) return;
+  sleepView.observe(world, currentActor(world));
   const view = shownWorld();
   const scene = currentScene(view, null, {
     seq: lineSeq,
@@ -2859,14 +2896,17 @@ function renderScene() {
   img.dataset.phase = phase;
   img.dataset.source = scene.background;
   $("stage").dataset.settled = String(stayed);
-  crossfadeImage(img, background, {
-    duration:
-      !stayed || reducedMotion.matches
-        ? 0
-        : nightfall
-          ? CROSSFADE_MS
-          : CHANGE_FADE_MS,
-  });
+  // A wake fades on the old light and cuts to the new one under the black.
+  const sleepLight = sleepView.light(view.turn);
+  if (!sleepLight.hold)
+    crossfadeImage(img, background, {
+      duration:
+        !stayed || sleepLight.cut || reducedMotion.matches
+          ? 0
+          : nightfall
+            ? CROSSFADE_MS
+            : CHANGE_FADE_MS,
+    });
   img.alt = coveredCards.has(scene.locationId)
     ? ""
     : stageOf(world, scene.locationId).alt ||
@@ -2876,17 +2916,23 @@ function renderScene() {
   img.dataset.locationVariant = scene.variant;
   $("stage").dataset.timeOfDay = scene.daylight?.phase || "day";
   // A painted night already carries its own dark; stage-light.json gives a
-  // place its own share and lights, such as the attic's lamp.
+  // place its own share and lights, such as the attic's lamp. A place with
+  // no night painting takes the full night grade, cooled.
   const authored = placeLight(scene.locationId);
   renderStageLight($("stage"), {
-    turn: view.turn,
-    strength: authored.grade ?? (phase === "night" ? GENTLE : 1),
+    turn: sleepLight.turn,
+    strength: gradeStrength({
+      grade: authored.grade,
+      painted: Boolean(scene.daylight),
+      night: isNight({ turn: sleepLight.turn }),
+    }),
+    tint: scene.daylight ? null : UNPAINTED_NIGHT_TINT,
     pools: (authored.lights || []).map((pool) => ({
       ...pool,
       on: !pool.item || lampLitHere(view, scene.locationId),
     })),
     sky: authored,
-    ease: stayed,
+    ease: stayed && !sleepLight.cut,
   });
   renderWeather($("stage"), scene.weather, { ease: stayed });
   let overlay = $("location-overlay");
@@ -3093,7 +3139,8 @@ function renderScene() {
       ? (exchange.current?.seq ?? -Infinity)
       : Infinity;
   const hiddenSpeech = (line) =>
-    line.seq > liveThrough && (shared || line.turn === world.turn);
+    sleepView.hidesLine(line) ||
+    (line.seq > liveThrough && (shared || line.turn === world.turn));
   // Queued shared plays commit before their words. While the room clock still
   // has lines to read, later turns' actions wait for their own scene.
   const shownTurn = sharedSession
@@ -3144,12 +3191,18 @@ function renderScene() {
         : null,
     turn: world.turn,
   });
-  const beats = stack.beats;
-  const pendingCard = stack.pending && {
-    ...stack.pending,
-    // Its two taps cancel the player's own play.
-    own: stack.pending.speakerId === viewer || !sharedSession ? own : null,
-  };
+  // A level quest's dream is a beat after the wake, in front while it plays.
+  const dreaming = sleepView.dream();
+  const dreamt = withDream(stack.beats, dreaming?.beat, {
+    front: dreaming?.front,
+  });
+  const beats = dreamt.beats;
+  const pendingCard = !dreaming?.front &&
+    stack.pending && {
+      ...stack.pending,
+      // Its two taps cancel the player's own play.
+      own: stack.pending.speakerId === viewer || !sharedSession ? own : null,
+    };
   const liveIndex = pendingCard ? beats.length : beats.length - 1;
   let frontIndex = -1;
   if (reviewing) {
@@ -3157,7 +3210,7 @@ function renderScene() {
     if (frontIndex < 0 && lineSeq !== null)
       frontIndex = beats.findIndex((beat) => beat.line?.seq === lineSeq);
   }
-  if (frontIndex < 0) frontIndex = liveIndex;
+  if (frontIndex < 0) frontIndex = dreamt.front >= 0 ? dreamt.front : liveIndex;
   const front =
     frontIndex === beats.length ? pendingCard : beats[frontIndex] || null;
   const behind = frontIndex > 0 ? beats[frontIndex - 1] : null;
@@ -3201,21 +3254,30 @@ function renderScene() {
   shownSceneLine = line;
   const text = line ? line.text : "";
   $("speaker").textContent = front
-    ? line?.speaker || (front.speakerId ? nameOf(front.speakerId) : "")
+    ? line?.speaker ||
+      front.label ||
+      (front.speakerId ? nameOf(front.speakerId) : "")
     : "";
   const ownFront = behindLive ? null : front?.own || null;
   if (!ownFront?.cancel) disarmThinking(false);
   // The Thinking chip belongs to the Thinking card, never to a line.
   $("story-status").hidden = !front?.pending || behindLive;
-  $("story-status").lastElementChild.textContent = thinkingArmed
-    ? "Tap again to cancel"
-    : "Thinking…";
-  $("story-status").dataset.armed = String(thinkingArmed);
+  // A dream being written is the same card, "Dreaming…" (dream-card.mjs).
+  $("story-status").lastElementChild.textContent = front?.dream
+    ? dreamingLabel(front.armed)
+    : thinkingArmed
+      ? "Tap again to cancel"
+      : "Thinking…";
+  $("story-status").dataset.armed = String(
+    front?.dream ? front.armed : thinkingArmed,
+  );
   $("story-status").setAttribute(
     "aria-label",
-    thinkingArmed
-      ? "Tap again to cancel this play"
-      : "Thinking about this scene",
+    front?.dream
+      ? dreamingAria(front.armed)
+      : thinkingArmed
+        ? "Tap again to cancel this play"
+        : "Thinking about this scene",
   );
   $("speech-row").setAttribute("aria-busy", String(!$("story-status").hidden));
   const portraitId = front?.speakerId || null;
@@ -3266,13 +3328,18 @@ function renderScene() {
   document.querySelector(".dialogue").dataset.behind = String(Boolean(behind));
   $("speech-row").hidden = !showFront;
   syncDialogueShown();
-  $("speech-row").dataset.beat = front?.line
-    ? front.silent
-      ? "silent"
-      : "speech"
-    : front?.pending
-      ? "pending"
-      : "action";
+  if (front?.dream)
+    $("speech-row").style.setProperty("--tier-color", DREAM_TIER.color);
+  else $("speech-row").style.removeProperty("--tier-color");
+  $("speech-row").dataset.beat = front?.dream
+    ? "dream"
+    : front?.line
+      ? front.silent
+        ? "silent"
+        : "speech"
+      : front?.pending
+        ? "pending"
+        : "action";
   $("dialogue-text").hidden = !text;
   // The Thinking card of a play that can be cancelled takes taps.
   $("dialogue-advance").hidden =
@@ -3841,6 +3908,7 @@ function render() {
   ringHeard();
   // While the travel veil comes down, the old place stays drawn.
   if (covering) return;
+  sleepView.observe(world, currentActor(world));
   music.setRoom(
     world.actors[currentActor(world)].place,
     locationDaylight(world, world.actors[currentActor(world)].place)?.phase ||
