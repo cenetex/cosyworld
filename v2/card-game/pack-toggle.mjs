@@ -56,9 +56,8 @@ export function firstStart(s) {
 export function packToggleBlock(s, id, actor) {
   if (s.sharedVersion) return "Shared worlds keep every pack for now";
   if (!GROUPS[id]) return "Only a world pack switches off";
-  if (
-    (s.standoffs || []).some((c) => [c.challenger, c.defender].includes(actor))
-  )
+  // Anyone in a fight's `resolve` is in it, joiners too (as standoffFor).
+  if ((s.standoffs || []).some((c) => Object.hasOwn(c.resolve || {}, actor)))
     return "Not during a fight";
   const off = s.disabledPacks || [],
     via = GROUPS[id].reachedBy;

@@ -9,6 +9,7 @@ import {
   encodeSave,
   legalActions,
   play,
+  validateWorld,
 } from "../v2/card-game/world.mjs";
 import { entityActive } from "../v2/card-game/pack-registry.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
@@ -79,9 +80,12 @@ describe("switching a pack off and on (rules 98)", () => {
     const want = (target) => ({ kind: "item", target, refusals: 0, since: 0 });
     w.actors.moth.want = want("greek-water-jar");
     w.actors.moth.under = [want("lamp")];
-    const vale = { ...w.standoffs[0], challenger: "vale" };
-    const busy = reload({ ...w, standoffs: [vale] });
-    expect(play(busy, off(SEA)).error).toMatch(/Not during a fight/);
+    // Vale, who joined the fight on arriving, may not switch out of it.
+    const busy = structuredClone(w);
+    for (const field of ["guarding", "struck", "steppedBack", "resolve"])
+      busy.standoffs[0][field].vale = field === "resolve" ? 4 : false;
+    busy.peaceUntil.vale = 0;
+    expect(play(reload(busy), off(SEA)).error).toMatch(/Not during a fight/);
     const after = ok(play(reload(w), off(SEA)));
     expect(after.standoffs).toEqual([]);
     expect(questsOf(after, "moth").map((q) => q.target)).toEqual([
@@ -172,6 +176,38 @@ describe("switching a pack off and on (rules 98)", () => {
       action: off(SEA),
     });
     expect(asked.error).toMatch(/Shared worlds keep every/);
+  });
+
+  it("keeps the default world valid through random play, switches and reloads", () => {
+    // The real pack scopes (Greek at its opening release), not "full".
+    let rnd = 999;
+    const next = () => (rnd = (rnd * 1103515245 + 12345) >>> 0) / 2 ** 32;
+    const step = (s, n) => {
+      for (let i = 0; i < n; i++) {
+        const acts = legalActions(s).filter((a) => a.kind !== "drop");
+        const r =
+          acts.length && play(s, acts[Math.floor(next() * acts.length)]);
+        if (r?.ok) s = r.state;
+      }
+      return s;
+    };
+    const plans = [[SEA], [HOPPY], [COTTAGE], [SHORE, COTTAGE], [SEA, SHORE]];
+    let switched = 0;
+    for (let seed = 1; seed <= 4; seed++) {
+      const base = step(createWorld({ seed }), 25);
+      for (const plan of plans) {
+        let s = base;
+        for (const g of plan) {
+          const r = play(s, off(g));
+          if (r.ok) [s, switched] = [r.state, switched + 1];
+        }
+        s = reload(step(s, 15));
+        for (const g of [...plan].reverse())
+          if (s.disabledPacks?.includes(g)) s = play(s, on(g)).state;
+        expect(validateWorld(reload(step(s, 5)))).toBeTruthy();
+      }
+    }
+    expect(switched).toBeGreaterThan(10);
   });
 
   it("is a rules 98 rule: rules 96 and 97 keep the pack awake", () => {

@@ -378,7 +378,7 @@ export function entityEnabled(world, id, saved = false) {
   if (pack.recital?.actor === id)
     return (
       (roamingQuestActor(id) || !!recitalVisit(world, pack)) &&
-      entityEnabled(world, world.actors[id].place)
+      entityEnabled(world, world.actors[id].place, saved)
     );
   return (
     pack.release.places.includes(id) ||
