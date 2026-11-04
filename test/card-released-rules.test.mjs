@@ -4,6 +4,7 @@ import { expect, it } from "vitest";
 
 // Rules 2–18 were released at be94af7b. Rules 19 were qualified at 1be7794b.
 // Rules 20 shipped in v1.2.4, 21 in v1.2.5, 22 in v1.2.7 and 23 in v1.2.8.
+// Rules 96 shipped in v1.2.121 and run on Lonely Forest.
 // Journal commands keep these exact rules.
 const released = {
   2: "c494fb944d97cd8e214f09382add1501e98c93ab8f8d29b5c13f77caa59c3fef",

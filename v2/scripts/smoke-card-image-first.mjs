@@ -235,27 +235,27 @@ try {
         for (const lowered of ids) {
           for (const id of ids) await tapCard(id);
           await assertHeldItem(ids.at(-1));
-          const scene = page.locator("#stage");
-          const outside = { position: { x: 20, y: 80 } };
-          if (width === 390) await scene.tap(outside);
-          else await scene.click(outside);
-          await assertHeldItem(ids.at(-1));
-          for (const id of ids)
-            assert.equal(
-              await card(id).getAttribute("aria-pressed"),
-              "true",
-              "clicking the scene keeps the carried item selected",
-            );
           assert.equal(
             await page.locator(".card-primary").count(),
             ids[0] === "vale" ? 0 : 1,
           );
-          // The first tap raises the folded hand as it was; the next lowers.
-          await tapCard(lowered);
-          assert.equal(
-            await card(lowered).getAttribute("aria-pressed"),
-            "true",
-          );
+          // A click on the scene folds the hand and clears the choice, held
+          // item included (#2055): Vale holds up his lamp again.
+          const scene = page.locator("#stage");
+          const outside = { position: { x: 20, y: 80 } };
+          if (width === 390) await scene.tap(outside);
+          else await scene.click(outside);
+          await assertHeldItem(null);
+          for (const id of ids)
+            assert.equal(
+              await card(id).getAttribute("aria-pressed"),
+              "false",
+              "clicking the scene clears the choice",
+            );
+          assert.equal(await page.locator(".card-primary").count(), 0);
+          // Choosing the pair again raises the hand; a tap on one lowers it.
+          for (const id of ids) await tapCard(id);
+          await assertHeldItem(ids.at(-1));
           await tapCard(lowered);
           assert.equal(
             await card(lowered).getAttribute("aria-pressed"),
