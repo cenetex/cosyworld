@@ -81,9 +81,11 @@ git(
   ),
 );
 
+// Build into the live path only to compare with main; it is restored next.
 execFileSync("node", ["v2/scripts/build-card-shared-engine.mjs"], {
   cwd: root,
   stdio: "inherit",
+  env: { ...process.env, COSYWORLD_MINT_PROBE: "1" },
 });
 const livePath = `${dir}/engine-v${live}.js`;
 const built = read(livePath);

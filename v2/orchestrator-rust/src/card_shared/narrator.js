@@ -15867,7 +15867,7 @@
       return false;
     if (!pack.release || state.scope === "full") return true;
     if (pack.recital?.actor === id)
-      return (roamingQuestActor(id) || !!recitalVisit(world, pack)) && entityEnabled(world, world.actors[id].place);
+      return (roamingQuestActor(id) || !!recitalVisit(world, pack)) && entityEnabled(world, world.actors[id].place, saved);
     return pack.release.places.includes(id) || pack.release.avatars.includes(id) || pack.release.items.includes(id);
   }
   var routeKey = (r) => `${r.from}>${r.to}`;
@@ -17951,7 +17951,9 @@
   ].join(" ");
   function localGateResource(s, place, item, actor) {
     return Boolean(
-      s.items[item] && entityActive(s, item) && itemPlace2(s, item) === place && (canUse(s, actor, item) || controlledByHuman(s, rootHolder(s, item)) && humanPresent(s, rootHolder(s, item)) || knownActors2(s).includes(rootHolder(s, item)) && (willingToGive(s, rootHolder(s, item), item, actor) || carried(s, actor).some(
+      s.items[item] && entityActive(s, item) && itemPlace2(s, item) === place && (canUse(s, actor, item) || controlledByHuman(s, rootHolder(s, item)) && humanPresent(s, rootHolder(s, item)) || // An away traveler's lamp still lights here, though no one may
+      // take it from them (rules 98).
+      residentAvatar(s, rootHolder(s, item)) || knownActors2(s).includes(rootHolder(s, item)) && (willingToGive(s, rootHolder(s, item), item, actor) || carried(s, actor).some(
         (payment) => canTrade(s, actor, payment, item)
       )))
     );
@@ -18506,7 +18508,7 @@
         actorIds,
         installPacks,
         laneText: laneFactText,
-        setAside: (world, id) => !controlledByHuman(world, id) && setAsideWant(world, id, wantAPI(world))
+        setAside: (world, id) => !humanHeld(world, id) && setAsideWant(world, id, wantAPI(world))
       });
       latchRoutes(s);
       validateWorld(s);

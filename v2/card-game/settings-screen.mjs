@@ -19,13 +19,32 @@ const $ = (id) => document.getElementById(id);
 const words = (id) =>
   ($(id) && !$(id).hidden && $(id).textContent.trim()) || "";
 const open = (href) => window.open(href, "_blank", "noopener");
+// While Settings is open the scene fades to black under the world's logo,
+// set where the title sets it over its card (style.css; app.mjs fades the
+// music). The logo is the one the toolbar shows (title-logo.mjs).
+function showVeil() {
+  const stage = $("stage"),
+    logo = document.querySelector(".brand strong")?.dataset.logo;
+  let veil = stage.querySelector(".settings-veil");
+  if (!veil) {
+    veil = Object.assign(document.createElement("div"), {
+      className: "settings-veil",
+    });
+    veil.setAttribute("aria-hidden", "true");
+    stage.append(veil);
+  }
+  if (!logo) return veil.replaceChildren();
+  const image = veil.querySelector("img") || document.createElement("img");
+  Object.assign(image, { alt: "", decoding: "async", src: imageUrl(logo) });
+  veil.replaceChildren(image);
+}
 // Shared play's passkey buttons sit in #menu-dialog by their names.
 const named = (text) =>
   [...$("menu-dialog").querySelectorAll("button")].find(
     (b) => b.textContent === text,
   );
 
-function readSettings(avatar, tip, packs) {
+function readSettings(tip, packs) {
   const credits = playerCredits().state;
   const toggles = Object.fromEntries(
     TOGGLES.map(([id, control, , , status]) => {
@@ -45,7 +64,6 @@ function readSettings(avatar, tip, packs) {
     hosted: !localRuntime(),
     signedIn: Boolean(credits.signed_in),
     shared: Boolean(named("Sign out")),
-    avatar: avatar(),
     credits: words("credits-status"),
     checkout: !$("buy-speech-pack").hidden,
     pool: $("credit-pool").hidden ? null : words("credit-pool-status"),
@@ -82,7 +100,7 @@ const runs = {
 // The context button is #setting-<card>, then #setting-<card>-1.
 const buttonId = (card, i) => `setting-${card || "close"}${i ? `-${i}` : ""}`;
 
-export function installSettingsCards({ actionBeat, avatar, packs }) {
+export function installSettingsCards({ actionBeat, packs }) {
   const screen = $("settings-screen"),
     hand = $("settings-hand");
   let chosen = null,
@@ -126,8 +144,9 @@ export function installSettingsCards({ actionBeat, avatar, packs }) {
   }
   const make = (tag, className, props) =>
     Object.assign(document.createElement(tag), { className, ...props });
-  // A place card (a world pack) is the quest card's place: its painting
-  // feathered into the card, with its name where the quest names its verb.
+  // A place card (a world pack or a workbench painting) is the quest card's
+  // place: its painting feathered into the card, with its name where the
+  // quest names its verb.
   function placeFace(el, c) {
     el.style.setProperty("--tier-color", levelTier(0).color);
     const head = make("span", "quest-head");
@@ -170,7 +189,7 @@ export function installSettingsCards({ actionBeat, avatar, packs }) {
     return holder;
   }
   function render() {
-    const cards = settingsCards(readSettings(avatar, tip, packs));
+    const cards = settingsCards(readSettings(tip, packs));
     if (!cards.some((c) => c.id === chosen)) chosen = null;
     const focused = document.activeElement?.dataset?.setting;
     hand.replaceChildren(...cards.map((c, i) => frame(c, i, cards.length)));
@@ -198,6 +217,7 @@ export function installSettingsCards({ actionBeat, avatar, packs }) {
   return {
     open() {
       if (!screen.open) screen.show();
+      showVeil();
       changed();
       render();
       hand.querySelector(".card")?.focus();

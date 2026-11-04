@@ -452,6 +452,9 @@ function localGateResource(s, place, item, actor) {
       (canUse(s, actor, item) ||
         (controlledByHuman(s, rootHolder(s, item)) &&
           humanPresent(s, rootHolder(s, item))) ||
+        // An away traveler's lamp still lights here, though no one may
+        // take it from them (rules 98).
+        residentAvatar(s, rootHolder(s, item)) ||
         (knownActors(s).includes(rootHolder(s, item)) &&
           (willingToGive(s, rootHolder(s, item), item, actor) ||
             carried(s, actor).some((payment) =>
@@ -3459,8 +3462,7 @@ export function decodeSave(text) {
       installPacks,
       laneText: laneFactText,
       setAside: (world, id) =>
-        !controlledByHuman(world, id) &&
-        setAsideWant(world, id, wantAPI(world)),
+        !humanHeld(world, id) && setAsideWant(world, id, wantAPI(world)),
     });
     // An earlier save records the gates already open as it loads.
     latchRoutes(s);
