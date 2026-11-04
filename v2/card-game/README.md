@@ -142,6 +142,11 @@ Pack residents can set `expression` to `speech`, `movement`, or `emoji`.
 Speech is the default. Movement replies describe a small visible gesture and
 appear as narration. Emoji replies use two to five symbols from
 `emoji-symbols.json`; their English names supply the accessible reading.
+The service reduces an emoji voice's reply to those symbols in code rather
+than by prompt: words, punctuation and emoji the table cannot name fall away,
+a skin-toned symbol reads as its authored one, a ZWJ sequence stays whole or
+falls away whole, the first five stay, and a reply with fewer than two left
+is silent ("…"). A reduced reply publishes flagged `emoji reduced`.
 The server reads the expression type from the authored character profile.
 Spoken audio and letter sounds follow speech replies.
 A committed ring at your place strikes a synthesized bell (`sfx.mjs`), softer from next door; it follows the music switch and volume.
@@ -241,7 +246,9 @@ first, and is absent while the stack holds one. Player-facing text says quest.
   ordinary quest costs nothing, and its target stays out of mind a while;
   dropping a level quest costs 1 XP for the first, 2 for the next, and so
   on, never below the experience its level took (`questXp`), so the level
-  stays; its button reads "Drop quest (−N XP)".
+  stays; its button reads "Drop quest (−N XP)". It is a secondary,
+  destructive choice: red words with no panel, and a play box holding only
+  it keeps no box of its own.
   Dropping the last quest draws another at once, and a drop takes a turn.
 
 - **First quest.** A player holds no quest at the start: the attic opening
@@ -342,10 +349,15 @@ that place. The place's painting fades softly into the card, with no frame,
 and appears only for the place itself or when the step happens where the
 player stands; elsewhere the figures stand on the card's dark ground. An
 unknown target shows a small carved card back in its slot, and an unknown
-place shows the back alone. The card names
-nothing: only one short verb (Hold, Talk, Go to, Discover, Introduce, or a
-step's own: Find, Give, Bring, Meet), the level numeral of a level quest and
-its tier colour, the tier of the level it leads to. It never
+place shows the back alone. A step that gives to
+someone shows all three: the player, the thing and the recipient. Its label
+reads "Quest" in small capitals, then the quest as a plain sentence ("Give the
+Burial Decree to the Gate Guard") in the label's face, as written, on at most
+two lines, with a level quest's numeral on the right. Its tier colour is the
+highest tier among the things it names that the player has found (its target,
+a step's recipient and place), from their levels (`questTier`), and at least
+the tier of the level a level quest leads to; face down, and folded until it
+has first turned, it shows only the common tier. It never
 shows who holds the target or how far it is; it glows softly and steadily
 while the target is within two moves. Steps still to come lie face down behind
 the card, showing the card back. It plays nothing. The top quest folds behind the player's avatar card as
@@ -443,7 +455,9 @@ moves again on a redraw, a card seen moving keeps that move, and reduced
 motion just shows it. An entering card takes taps at once; the motion is this
 browser's alone and never waits on the rules or the shared room.
 A card locked behind a quest (a sealed card, the far side of a shut gate) is
-a locked wooden box: the darker locked lid, with no painting and no name.
+a locked wooden box: the darker locked lid on a red edge, labelled only
+"Locked" (the owner's one exception to words on a card), with no painting and
+no name.
 Tapping it chooses it, and the context button gives its quest. When the quest
 opens the way, the box turns over once, with the same lift as an uncovered
 card (a crossfade under reduced motion), and the card shows as itself from
@@ -508,8 +522,24 @@ without selecting it or spending a turn; subsequent taps select it normally.
 A place widens from the upright cover to its wider card as the lid lifts;
 with reduced motion it crossfades.
 An uncovered new card glows in its tier colour and carries no text badge.
-Covered cards cannot be dragged or paired. Each browser remembers which cards
-are still covered, including after a reload.
+Covered cards cannot be dragged or paired; a tap on one reveals it first.
+Each browser remembers which cards are still covered, including after a
+reload, per table and per shared world and seat.
+The stage shows only what its player has revealed (`stage-reveal.mjs`): a
+covered person, resident or thing lying there, and a covered light someone
+carries, are not in the scene, and a covered current place is black behind
+whoever is revealed. A new world therefore opens on Vale alone, on black; the
+lamp and the attic come in as their cards are tapped, in either order. A tap
+fades the figure or item in over 900 ms and brings the place's painting up
+out of the black; reduced motion shows it at once. A covered person who
+speaks is revealed with the line, there at once, so the words never wait.
+The rules' world and knowledge are unchanged.
+The opening of a new local world (`opening.mjs`) offers no play while the
+lamp or the attic is still face down: the context button reads a quiet
+Reveal and turns the next one. Once both are revealed the lamp is chosen, so
+the button offers the rules' own first play, Put out; it darkens the attic
+and the pond arrives face down behind it. A reload or a shared world has no
+opening beyond the reveals its player has kept.
 
 The player's avatar knows only what its player has uncovered (#1575). Until a
 card is uncovered, the screen never names it: the place heading, world name
@@ -1130,13 +1160,15 @@ When the loser is the current player, the entry also sets `world.arrival`. A los
 
 ### Seeing a fight
 
-A standoff play is shown beat by beat before the new world is drawn. Each beat opens with a telegraph above the actor (a warning sign for Threaten, a shield for Brace, crossed blades for Strike) and a stage caption such as "Pip strikes Vale…". Before the first frame the two fighters turn to face each other, whoever they were watching, and fighters in an open standoff keep facing each other between plays. The stage pushes in and dims (on phones it only dims, since the step into the wider two-shot is already a camera move). The fighter a strike aims at takes a soft gold rim light over the telegraph. An attacker lunges, the target holds for a short hit-stop, recoils and shakes once, the scene shakes by the recorded damage (2, 4 or 7 pixels), and the stage shader brightens the whole scene once toward warm white, more for a harder hit (no red; without WebGL the target's body brightens instead). A slim four-part resolve bar under each fighter drains with a lagging ghost, its fill cooling from gold toward moon blue and pulsing slowly at the last point, an outcome word ("−2 resolve", "Braced −1", "Yields") rises over the target and replaces that fighter's last word, and the step joins the beat stack and Memory as that fighter's beat. Fighters in an open standoff keep their pips between plays. In a battle every combatant shows pips. Each exchange steps forward in turn: the actor, the one it aims at and any guard taking the hit (standing between them) move into the scene's front slots facing each other, while the other combatants step back and dim; between plays the latest exchange keeps the front (`scene.mjs`). On phones each combatant takes its own mark instead of the scene's three-person spots: the exchange at the two sides, any guard between them, and the others smaller and further back in the middle. The exchange's marks keep each fighter on screen, and fighters ease into them over 0.6 seconds. Reduced motion swaps the places without the slide. A Cover telegraphs a shield with an arrow and the caption "Pip sides with Vale"; its redirected hit recoils, drains and floats its word on the guard. A strike at someone the striker had guarded, or who had guarded it, reads "Pip turns on Vale". Nothing about sides is stored: these captions read only the latest plays. Telegraphs carry `data-verb` (`threaten`, `guard`, `intercept`, `attack`) and figures carry `data-battle-row` (`front`, `back`) for the art pack (#1920). Its painted stills overlay the fighters: a `hit-1`/`hit-2`/`hit-3` burst by the recorded damage at impact, `brace-absorb` when a brace soaks a point, `brace-raise` when a Brace commits, and a `swipe` trail that starts at the attacker and runs toward the target, so it stays on screen; the target recoils away from its attacker's centre (a `jab` for a short reach or a fighter without strike art). They fade in and out and, with motion and "Flashes and scares" on, scale; reduced motion shows the still. The brightness flash stays as before. While the beats play, the locked hand tucks straight down to a strip of card tops, so it covers neither the fighters' feet nor the impact, and it rises back to where the player left it, raised or resting, as the beats end. It cannot be tapped until the new scene is drawn; only the player lowers it. The stage caption reads below the top bar, never over the place name or, on phones, the logo and menu button; phones cap it at three lines. It keeps one width at each breakpoint and its words crossfade over 160 ms from beat to beat, so the box never jumps or re-centres (instant with reduced motion). In shared play another player's strike or move locks it only while those beats lock the hand anyway. The dialogue steps out of the fighters' way and returns for the speech that follows: above a raised hand it fades out in place, beside a resting desktop hand it sinks to a strip at its foot, and on phones and tablets it stays in its box over the hand's foot. During a fight's beats it fades out at every width, so the beat from before the fight never covers the fighters' feet. Captions lowercase a name's leading article mid-sentence ("Vale strikes the keeper…").
+A standoff play is shown beat by beat before the new world is drawn. Each beat opens with a telegraph above the actor (a warning sign for Threaten, a shield for Brace, crossed blades for Strike) and a stage caption such as "Pip strikes Vale…". Before the first frame the two fighters turn to face each other, whoever they were watching, and fighters in an open standoff keep facing each other between plays. The stage pushes in and dims (on phones it only dims, since the step into the wider two-shot is already a camera move), and the place's painting recedes behind the fighters: it fades to 45% over the telegraph (360 ms) and pushes in less than the cast, so the fighters and cards stand forward (`combat-backdrop.mjs`). It stays back while a standoff is open in the player's room and eases back in over 0.9 seconds when the fight ends; after a loss it returns at once under the black, so the lift shows the new place whole. It is an opacity change, cheap on phones, since the painting's filter carries the weather's light; reduced motion cuts to the same dim. The fighter a strike aims at takes a soft gold rim light over the telegraph. An attacker lunges, the target holds for a short hit-stop, recoils and shakes once, the scene shakes by the recorded damage (2, 4 or 7 pixels), and the stage shader brightens the whole scene once toward warm white, more for a harder hit (no red; without WebGL the target's body brightens instead). A slim four-part resolve bar under each fighter drains with a lagging ghost, its fill cooling from gold toward moon blue and pulsing slowly at the last point, an outcome word ("−2 resolve", "Braced −1", "Yields") rises over the target and replaces that fighter's last word, and the step joins the beat stack and Memory as that fighter's beat. Fighters in an open standoff keep their pips between plays. In a battle every combatant shows pips. Each exchange steps forward in turn: the actor, the one it aims at and any guard taking the hit (standing between them) move into the scene's front slots facing each other, while the other combatants step back and dim; between plays the latest exchange keeps the front (`scene.mjs`). On phones each combatant takes its own mark instead of the scene's three-person spots: the exchange at the two sides, any guard between them, and the others smaller and further back in the middle. The exchange's marks keep each fighter on screen, and fighters ease into them over 0.6 seconds. Reduced motion swaps the places without the slide. A Cover telegraphs a shield with an arrow and the caption "Pip sides with Vale"; its redirected hit recoils, drains and floats its word on the guard. A strike at someone the striker had guarded, or who had guarded it, reads "Pip turns on Vale". Nothing about sides is stored: these captions read only the latest plays. Telegraphs carry `data-verb` (`threaten`, `guard`, `intercept`, `attack`) and figures carry `data-battle-row` (`front`, `back`) for the art pack (#1920). Its painted stills overlay the fighters: a `hit-1`/`hit-2`/`hit-3` burst by the recorded damage at impact, `brace-absorb` when a brace soaks a point, `brace-raise` when a Brace commits, and a `swipe` trail that starts at the attacker and runs toward the target, so it stays on screen; the target recoils away from its attacker's centre (a `jab` for a short reach or a fighter without strike art). They fade in and out and, with motion and "Flashes and scares" on, scale; reduced motion shows the still. The brightness flash stays as before. While the beats play, the locked hand tucks straight down to a strip of card tops, so it covers neither the fighters' feet nor the impact, and it rises back to where the player left it, raised or resting, as the beats end. It cannot be tapped until the new scene is drawn; only the player lowers it. The stage caption reads below the top bar, never over the place name or, on phones, the logo and menu button; phones cap it at three lines. It keeps one width at each breakpoint and its words crossfade over 160 ms from beat to beat, so the box never jumps or re-centres (instant with reduced motion). In shared play another player's strike or move locks it only while those beats lock the hand anyway. The dialogue steps out of the fighters' way and returns for the speech that follows: above a raised hand it fades out in place, beside a resting desktop hand it sinks to a strip at its foot, and on phones and tablets it stays in its box over the hand's foot. During a fight's beats it fades out at every width, so the beat from before the fight never covers the fighters' feet. Captions lowercase a name's leading article mid-sentence ("Vale strikes the keeper…").
 
 Published brace (`guard`), strike (`attack`) and hit paintings follow those beats and preserve the player's plain or scarf wardrobe. A committed brace keeps its raised-arm portrait until consumed or cleared. Beat images preload before playback; unavailable art keeps the existing portrait. A cast painting whose canvas pads its figure differently from the plain portrait drops and scales by its measured fit in `assets/combat/pose-fit.json`, so its feet stay on the floor and its figure keeps the plain portrait's size; run `node v2/scripts/build-combat-pose-fit.mjs` after adding or replacing paintings. The Keeper uses his unmirrored right-facing neutral portrait when the scene faces him right, since his combat paintings face left. Combatants fit inside the phone frame throughout a beat: each figure keeps its own painting's framing, and on phones the two fighters of the exchange share one scale, so a strike painting swapping in never resizes its fighter. Those behind the exchange turn to face it; Pip and the Keeper keep that framing between plays too. Carried props stay in their cards while combat arms are raised, and the normal portrait and framing return when playback ends or is cancelled.
 
 When the player loses, their figure slumps and greys, and the scene fades slowly to black, like losing consciousness (1.4 seconds at 1×, half that at 2×; reduced motion cuts to black). On the black, the loss screen (`defeat-view.mjs`) shows who drove the player off and what they lost as full-art cards, the winner first, as the hand draws them. Under the cards, never on them, the dialogue's reveal writes "Pip drove you off." with its caret, then inscribes each change as a plain caption, with no icon: dropped items, "Sent home." on the third loss, and "You wake at <place>." It is worded from the rules' committed fields, never by AI, and announced once. It has no buttons and no modal. A tap, Enter, Space or Escape shows the words whole, and the next moves on; left alone, it moves on 2.6 seconds after the words are whole. The words fade, black holds a breath, and the black lifts slowly and wordless (2.5 seconds at 1×) onto wherever the rules put the player. There the hand plays on as usual, and the player's beat repeats "You came to at <place>." The arrival line comes from one voice: a resident at the new place, or the player's avatar when nobody else is there. Its brief is one short fact: "Vale was beaten by Pip and came to at Empty station." Its song, Moonstone Sanctuary, comes in after three beats of silence and fades out fully before the lift (see the music section). Local and shared tables show the same screen from the same committed beats.
 
 Tapping the stage finishes the current beat; its outcome text still shows. Settings › Fight speed switches between 1× and 2×. A full fight stays under three seconds at 1×. Reduced motion replaces the cut, lunge and shake with outlines and fades and keeps all text. The flash follows "Flashes and scares". Local and shared tables play the same beats from the committed log (`combat-beats.mjs` reads the rules' structured attack and retreat fields, falling back to standoff state and the rules' lines; `combat-view.mjs` draws them).
+
+Each beat has a light, storybook sound made in the browser (`combat-sfx.mjs`; no sample files): a whoosh when a fighter swings, squares up or steps in to guard someone, a bam when a hit lands, a bigger pow for a hit of 2 or more, a wooden block when a brace commits or soaks the blow, and a low thud when someone is beaten. Each is a few Web Audio voices: filtered noise sweeps and pitched thumps. Pitch varies by up to 5% and filter by up to 10%, seeded by the beat's sequence number and phase, so the same beat always sounds alike. They play through the bell's player (`sfx.mjs`) only after a gesture unlocks audio. They follow the Voices switch, like the letters' blips, and the shared volume, at 0.4 of it, under the battle song. A hidden tab or open Settings silences them, and a beat tapped through lands silently.
 
 Run `node v2/scripts/smoke-card-combat.mjs` for a lost battle at desktop, phone and reduced motion, two-handed against Pip and three-way against Antigone with Pip behind the exchange; it checks that the two fighters stand apart, the strike trail stays on screen, and the loss screen has no buttons and moves on to the new place.
 

@@ -102,6 +102,8 @@ const files = [
   "sleep-view.mjs",
   "sleep.css",
   "locked-box.mjs",
+  "stage-reveal.mjs",
+  "opening.mjs",
   "card-level-up.mjs",
   // Willows sign alternates chosen by the willows pack.
   ...[
@@ -220,6 +222,7 @@ const files = [
   "beats.mjs",
   "combat-beats.mjs",
   "combat-view.mjs",
+  "combat-backdrop.mjs",
   "defeat-view.mjs",
   "combat-portraits.mjs",
   "app.mjs",
@@ -292,6 +295,7 @@ const files = [
   ...Object.values(CUE_TRACKS).map(({ file }) => `assets/music/${file}`),
   "hum.mjs",
   "sfx.mjs",
+  "combat-sfx.mjs",
   "entity-profiles.json",
   ...new Set(
     Object.values(roomTracks)

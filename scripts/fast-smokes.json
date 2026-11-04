@@ -73,5 +73,24 @@
       "paths": "^v2/card-game/metrics",
       "smokes": ["smoke-card-play-counts"]
     }
-  ]
+  ],
+  "rust": {
+    "about": "The fast check's Rust job (scripts/select-rust-tests.mjs). It runs when a change touches the crate, a file the crate's sources name (include_str!, include_bytes!, a file or directory a test reads, a module a test imports through Node), or a path below. Each touched module or input adds the test filter of the modules that own or read it; crate-wide files (main.rs, build.rs, Cargo files, fixtures only main.rs reads) and paths with no rule add default. A parent module's filter covers its children; at most max filters run. ignoreInputs lists named inputs a fast check already covers.",
+    "paths": "^v2/(orchestrator-rust|ai-model-rust|core-c)/|^v2/scripts/check-rust\\.sh$",
+    "max": 6,
+    "default": ["card_shared.rs", "card_narrative.rs"],
+    "ignoreInputs": ["package.json"],
+    "rules": [
+      {
+        "about": "The C kernel and card session guards.",
+        "paths": "^v2/core-c/",
+        "modules": ["card_shared.rs", "kernel.rs"]
+      },
+      {
+        "about": "build.rs embeds the public card files this script lists.",
+        "paths": "^v2/scripts/build-card-assets\\.mjs$|^v2/card-game/public-assets\\.mjs$",
+        "modules": ["card_game.rs"]
+      }
+    ]
+  }
 }

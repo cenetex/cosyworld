@@ -122,12 +122,10 @@ try {
   assert.equal((await state()).actors.vale.place, "clearing");
   assert.equal((await state()).items.bell.holder, "vale");
   const sprite = page.locator(".stage-figure");
-  assert.equal(await sprite.getAttribute("data-resident"), "badger");
-  assert.equal(await sprite.getAttribute("data-state"), "asleep");
   assert.equal(requests.at(-1).location, "clearing");
   assert.ok(!requests.at(-1).speakers.includes("badger"));
-  await decode();
-  await page.screenshot({ path: "output/badger-check/desktop-asleep.png" });
+  // Face down, the badger is not on stage yet (stage-reveal.mjs).
+  assert.equal(await sprite.count(), 0);
   const before = (await state()).turn;
   await page.locator('[data-card="badger"]').focus();
   // The badger arrives covered: the first press uncovers it, and a press
@@ -139,6 +137,11 @@ try {
         "false" &&
       !document.querySelector('[data-card="badger"]')?.dataset.revealing,
   );
+  // Revealed, the sleeping badger is on stage.
+  assert.equal(await sprite.getAttribute("data-resident"), "badger");
+  assert.equal(await sprite.getAttribute("data-state"), "asleep");
+  await decode();
+  await page.screenshot({ path: "output/badger-check/desktop-asleep.png" });
   await page.locator('[data-card="badger"]').focus();
   await page.keyboard.press("Enter");
   assert.equal(

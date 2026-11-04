@@ -87,6 +87,17 @@ try {
             .unrevealed === "true",
         id,
       );
+    // The opening offers no play while the attic is down: its quiet Reveal
+    // turns it and chooses the lamp, whose Put out comes next (opening.mjs).
+    const putOut = async () => {
+      await selectCard(page, "lamp");
+      await page
+        .locator('#card-actions [data-quiet="true"]', { hasText: "Reveal" })
+        .click();
+      await page
+        .locator("#card-actions .card-primary", { hasText: "Put out" })
+        .click();
+    };
     // A ready play or a notice is an action beat in front of the dialogue
     // (#1945): it is then the stack's front card. Null when none shows.
     const beatHit = () =>
@@ -164,8 +175,7 @@ try {
       await page.reload();
       await ready();
       assert.deepEqual(await covered(), ["attic", "lamp"]);
-      await selectCard(page, "lamp");
-      await page.locator("#card-actions .card-primary").click();
+      await putOut();
       await unveil("pond");
       await finish();
       assert.equal((await state()).actors.vale.place, "attic");
@@ -253,8 +263,11 @@ try {
       // with no layers or animations left, takes the next click itself. A
       // place widens first as it opens; tap once it holds still. The card's
       // own reveal holds meanwhile, so a slow runner still taps mid-reveal.
+      // Its name label's glide to the top just ends.
       await pond.evaluate((el) => {
-        for (const a of el.getAnimations({ subtree: true })) a.pause();
+        for (const a of el.getAnimations({ subtree: true }))
+          if (a.effect?.target?.classList.contains("name")) a.finish();
+          else a.pause();
         return Promise.all(
           el
             .closest(".card-frame")
@@ -354,7 +367,10 @@ try {
         await page.waitForTimeout(2400);
         await closeSettings(page);
       }
-      await unveil("keeper");
+      // The keeper arrives face down, until his line reveals him.
+      await page
+        .locator('#hand [data-card="keeper"]')
+        .waitFor({ state: "attached" });
       assert.equal(
         await page
           .locator("#travel")
@@ -367,6 +383,11 @@ try {
       assert.equal(
         await page.locator('#hand [data-card="oil"]').isVisible(),
         false,
+      );
+      // His first line, even "…", reveals him with it (stage-reveal.mjs).
+      await page.waitForSelector(
+        '#hand [data-card="keeper"][data-unrevealed="false"]:not([data-revealing])',
+        { state: "attached" },
       );
       await selectCard(page, "keeper");
       await page.locator('#hand [data-card="oil"]').click();
@@ -415,8 +436,7 @@ try {
       assert.equal((await state()).actors.vale.place, "attic");
       assert.equal((await state()).items.lamp.lit, true);
       assert.deepEqual(await covered(), opening);
-      await selectCard(page, "lamp");
-      await page.locator("#card-actions .card-primary").click();
+      await putOut();
       await unveil("pond");
       await page.evaluate(
         ({ key, save }) => {
