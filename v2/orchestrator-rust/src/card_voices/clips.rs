@@ -1,13 +1,13 @@
-//! A shared world's voiced lines (#1924). The world's pool pays for a line
-//! once; its clip is kept here so every player hears the same audio free.
-//! The newest clips stay; an evicted line replays on the server's key.
+//! A shared world's voiced lines. A line is made once and its clip is kept
+//! here so every player hears the same audio. The newest clips stay; an
+//! evicted line is spoken again.
 use rusqlite::{params, Connection, OptionalExtension};
 
 const KEEP: i64 = 256;
 
 fn schema(c: &Connection) -> rusqlite::Result<()> {
     c.execute_batch(
-        "CREATE TABLE IF NOT EXISTS credit_world_clips (
+        "CREATE TABLE IF NOT EXISTS card_voice_clips (
             world_id TEXT NOT NULL,
             request_id TEXT NOT NULL,
             audio BLOB NOT NULL,
@@ -30,7 +30,7 @@ pub(crate) fn plays_in(c: &Connection, world: &str, user: &str) -> rusqlite::Res
 pub(crate) fn clip(c: &Connection, world: &str, id: &str) -> rusqlite::Result<Option<Vec<u8>>> {
     schema(c)?;
     c.query_row(
-        "SELECT audio FROM credit_world_clips WHERE world_id = ?1 AND request_id = ?2",
+        "SELECT audio FROM card_voice_clips WHERE world_id = ?1 AND request_id = ?2",
         params![world, id],
         |row| row.get(0),
     )
@@ -40,12 +40,12 @@ pub(crate) fn clip(c: &Connection, world: &str, id: &str) -> rusqlite::Result<Op
 pub(crate) fn keep(c: &Connection, world: &str, id: &str, audio: &[u8]) -> rusqlite::Result<()> {
     schema(c)?;
     c.execute(
-        "INSERT OR IGNORE INTO credit_world_clips VALUES (?1, ?2, ?3, ?4)",
+        "INSERT OR IGNORE INTO card_voice_clips VALUES (?1, ?2, ?3, ?4)",
         params![world, id, audio, crate::util::now_unix_secs() as i64],
     )?;
     c.execute(
-        "DELETE FROM credit_world_clips WHERE world_id = ?1 AND rowid NOT IN
-            (SELECT rowid FROM credit_world_clips WHERE world_id = ?1
+        "DELETE FROM card_voice_clips WHERE world_id = ?1 AND rowid NOT IN
+            (SELECT rowid FROM card_voice_clips WHERE world_id = ?1
              ORDER BY rowid DESC LIMIT ?2)",
         params![world, KEEP],
     )?;

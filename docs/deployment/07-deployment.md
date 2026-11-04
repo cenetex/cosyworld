@@ -59,13 +59,6 @@ secret values through Fly's secret store for the selected app.
 
 - `COSYWORLD_DEPLOY_PROFILE=production` enables the deployed runtime checks.
 - `COSYWORLD_MODERATION_TOKEN` protects moderation operations.
-- `COSYWORLD_CREDITS_OPERATOR_TOKEN` (at least 16 characters) turns on the
-  operator credit grant; unset, `/internal/credits/grant` answers 404. See
-  [credits](#credits).
-- `COSYWORLD_STRIPE_SECRET_KEY`, `COSYWORLD_STRIPE_PRICE_SPEECH_PACK` and
-  `COSYWORLD_STRIPE_WEBHOOK_SECRET` together turn on buying speech packs with
-  Stripe Checkout; with any unset, checkout and its webhook answer 404. See
-  [credits](#credits).
 - `COSYWORLD_V2_EVENT_DB_PATH` names the SQLite journal;
   `COSYWORLD_V2_SNAPSHOT_PATH` names its snapshot file.
 - `COSYWORLD_PROCESS_ID` names the process. The compatibility setting
@@ -183,64 +176,23 @@ liveness, and `/meta` for version and bundle identity. The
 [production logs guide](production-logs.md) covers retained logs, incident
 queries, and the cross-app ingestion check.
 
-## Credits
+## Voices
 
-Credits belong to a passkey account. A speech pack is 100 credits; a spoken
-line costs 1
-([#1924](https://github.com/cenetex/cosyworld/issues/1924)). The append-only
-`credit_events` table in the event store holds every grant, spend and refund;
-an account's balance is their sum. `GET /card-game/credits` shows the
-signed-in balance and prices.
+Hosted character voices are free to a signed-in passkey
+([#2276](https://github.com/cenetex/cosyworld/issues/2276)). `POST
+/card-game/speech` voices one line on the server's OpenRouter key, bounded by
+a per-account rate limit (30 lines a minute) and the server's daily paid
+voice budget (`card_voice`). A player of a shared world (seated or bound)
+sends `{world, play, line}`; the server voices each committed line once and
+keeps its clip in `card_voice_clips` (newest 256 per world).
 
-A shared world has a credit pool in the same ledger. `POST
-/card-game/credits/commit` (`{world, credits, request_id}`) writes a `commit`
-row that moves credits from the account to the world, once per request id;
-there is no withdrawal. A pool is its commits less its spends plus refunds. A
-player of the world (seated or bound) who sends `world` with
-`/card-game/speech` spends the pool; a voiced line is
-spent once per world and its clip is kept in `credit_world_clips` (newest 256
-per world), and a failed call is refunded to the pool.
-
-Scene videos were retired ([#2064](https://github.com/cenetex/cosyworld/issues/2064)).
-`/card-game/video*` and `/internal/video/callback/*` are gone and no worker
-polls the video provider. Older `video` spends and refunds stay in
-`credit_events` and still count toward balances; `credit_video_requests`,
-`credit_video_jobs` and `credit_video_callbacks` stay in the store, unused.
-
-Until payments exist, an operator hands out packs. Each grant is a ledger row
-with its note and an `operator granted credits` log line; a repeated
-`request_id` grants once.
-
-```sh
-TOKEN="$(openssl rand -hex 24)"   # keep it in your password manager
-fly secrets set COSYWORLD_CREDITS_OPERATOR_TOKEN="$TOKEN" --app cosyworld
-curl -s -X POST https://cosyworld.fly.dev/internal/credits/grant \
-  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
-  -d '{"user":"USERNAME","credits":100,"request_id":"pack-USERNAME-1","note":"speech pack"}'
-```
-
-`user` takes an account id or username. The reply gives the new balance and
-whether this call granted (`granted: false` for a repeated `request_id`).
-
-### Stripe speech packs
-
-With the three Stripe settings, Settings and an unaffordable camera show "Get a
-speech pack". `POST /card-game/credits/checkout` starts a Checkout session for
-one pack (the price id, quantity 1, `client_reference_id` = the passkey
-account) and returns its `url`. Stripe's `checkout.session.completed` event at
-`POST /internal/credits/stripe-webhook` is verified against the
-`Stripe-Signature` header (HMAC-SHA256, five-minute tolerance) and, when
-`payment_status` is `paid`, grants 100 credits with the Checkout session id as
-the request id, so Stripe's retries grant once. `/internal/` is outside the
-members-only gate, so the webhook needs no passkey session.
-
-In the Stripe dashboard, create a one-time price for the pack and a webhook
-endpoint at `https://<host>/internal/credits/stripe-webhook` for the
-`checkout.session.completed` event, then:
-
-```sh
-fly secrets set --app cosyworld \
-  COSYWORLD_STRIPE_SECRET_KEY="sk_live_..." \
-  COSYWORLD_STRIPE_PRICE_SPEECH_PACK="price_..." \
-  COSYWORLD_STRIPE_WEBHOOK_SECRET="whsec_..."
-```
+Credits, speech packs, world pools and Stripe Checkout were removed. Their
+tables stay in the event store, unread: `credit_events`,
+`credit_speech_attempts`, `credit_world_clips`, and the older
+`credit_video_requests`, `credit_video_jobs` and `credit_video_callbacks`.
+`/card-game/credits*`, `/internal/credits/grant` and
+`/internal/credits/stripe-webhook` are gone. The secrets
+`COSYWORLD_CREDITS_OPERATOR_TOKEN`, `COSYWORLD_STRIPE_SECRET_KEY`,
+`COSYWORLD_STRIPE_PRICE_SPEECH_PACK` and `COSYWORLD_STRIPE_WEBHOOK_SECRET` are
+no longer read; an operator may unset them and remove the Stripe webhook
+endpoint and product.

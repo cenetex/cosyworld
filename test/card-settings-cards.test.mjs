@@ -16,8 +16,7 @@ const table = (more = {}) => ({
     counts: toggle(true),
   },
   ...{ tip: 0, volume: 30, hosted: false, signedIn: false, shared: false },
-  ...{ avatar: "./assets/vale.png", credits: "", checkout: false },
-  ...{ pool: null, balance: 0, backup: null, newGame: true, table: "" },
+  ...{ avatar: "./assets/vale.png", backup: null, newGame: true, table: "" },
   build: "",
   packs: Object.fromEntries(PACKS.map(([id]) => [id, { on: true }])),
   ...more,
@@ -102,18 +101,11 @@ describe("settings as a hand of cards", () => {
     expect(labels(out, "account")).toEqual(["Sign in with your passkey"]);
     expect(out.find((c) => c.id === "account").lit).toBe(false);
     const shared = table({ hosted: true, signedIn: true, shared: true });
-    const cards = settingsCards({ ...shared, newGame: false, pool: "" });
-    expect(ids(cards)).toEqual(
-      expect.arrayContaining(["account", "passkey", "credits", "pool"]),
-    );
+    const cards = settingsCards({ ...shared, newGame: false });
     expect(ids(cards.filter((c) => c.holder === "you"))).toEqual([
-      ...["privacy", "account", "passkey", "credits", "counts"],
+      ...["privacy", "account", "passkey", "counts"],
     ]);
     expect(ids(cards)).not.toContain("new-game");
-    expect(labels(cards, "pool")).toEqual([
-      "Commit 10: you hold 0",
-      "Commit 100: you hold 0",
-    ]);
   });
 
   it("asks a second press before a destructive action", () => {

@@ -3089,7 +3089,6 @@ main > .dialogue {
     --cast-bottom: var(--dock-height);
   }
 }
-#credits a,
 #privacy-link {
   color: #e5cb92;
   font-size: 14px;

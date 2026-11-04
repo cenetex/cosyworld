@@ -57,8 +57,8 @@
       "smokes": ["smoke-card-reduced-fades", "smoke-card-combat"]
     },
     {
-      "paths": "^v2/card-game/credits",
-      "smokes": ["smoke-card-credits"]
+      "paths": "^v2/card-game/hosted-voices",
+      "smokes": ["smoke-card-hosted-voices"]
     },
     {
       "paths": "^v2/card-game/(weather|stage-light)",

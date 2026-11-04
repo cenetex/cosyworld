@@ -5,7 +5,7 @@
 // The controls behind the cards are the buttons in #menu-dialog, which no
 // longer opens.
 import { imageUrl } from "./images.mjs";
-import { playerCredits } from "./credits.mjs";
+import { hostedVoices } from "./hosted-voices.mjs";
 import { localRuntime } from "./local-service.mjs";
 import { levelTier } from "./level-tiers.mjs";
 import { questScreen } from "./quest-screen.mjs";
@@ -55,7 +55,6 @@ const named = (text) =>
   );
 
 function readSettings(tip, packs) {
-  const credits = playerCredits().state;
   const toggles = Object.fromEntries(
     TOGGLES.map(([id, control, , , status]) => {
       const button = $(control);
@@ -72,12 +71,8 @@ function readSettings(tip, packs) {
     tip,
     volume: Number($("music-volume").value),
     hosted: !localRuntime(),
-    signedIn: Boolean(credits.signed_in),
+    signedIn: Boolean(hostedVoices().state.signed_in),
     shared: Boolean(named("Sign out")),
-    credits: words("credits-status"),
-    checkout: !$("buy-speech-pack").hidden,
-    pool: $("credit-pool").hidden ? null : words("credit-pool-status"),
-    balance: credits.balance ?? 0,
     backup: $("local-settings").hidden ? null : words("local-save-status"),
     newGame: !$("new-game").hidden,
     table: words("table-slot"),
@@ -91,7 +86,6 @@ function readSettings(tip, packs) {
 const runs = {
   privacy: () => open("/privacy"),
   download: () => open("/download"),
-  speechPack: () => open($("speech-pack").href),
   volume: ({ value }) => {
     $("music-volume").value = String(value);
     $("music-volume").dispatchEvent(new Event("input"));
@@ -276,7 +270,7 @@ export function installSettingsCards({ actionBeat, packs, playHand }) {
     if (chosen) choose(chosen);
     else close();
   });
-  playerCredits().subscribe(() => screen.open && render());
+  hostedVoices().subscribe(() => screen.open && render());
   return {
     open() {
       if (!screen.open) {

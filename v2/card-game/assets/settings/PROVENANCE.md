@@ -29,8 +29,8 @@ painting has no alpha and a cut-out would halo.
 | `dice-cup` | Fight speed |
 | `dice` | Play counts |
 | `moth` | Account |
-| `old-books` | Credits |
-| `mug` | World pool |
+| `old-books` | (spare) |
+| `mug` | (spare) |
 | `scroll` | Backup |
 | `moon` | New game |
 | `armillary` | Controls |

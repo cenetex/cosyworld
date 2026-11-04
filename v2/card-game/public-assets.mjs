@@ -283,7 +283,7 @@ const files = [
   "dialogue.mjs",
   "card-names.mjs",
   "character-speech.mjs",
-  "credits.mjs",
+  "hosted-voices.mjs",
   "voices.json",
   ...Object.values(voiceCast.voices).map(({ file }) => file),
   "pack-schema.mjs",
