@@ -25,7 +25,12 @@ BASE_URL="${COSYWORLD_V2_BASE_URL:-http://${HOST}:${PORT}}"
 SESSION="${COSYWORLD_V2_SCREEN_SESSION:-cosyworld-v2}"
 LOG="${COSYWORLD_V2_LOG:-/tmp/cosyworld-v2-web.log}"
 DETACHED_SHELL="${COSYWORLD_V2_DETACHED_SHELL:-$(command -v bash)}"
-SMOKE_BINARY="${COSYWORLD_SMOKE_BINARY:-$ROOT/orchestrator-rust/target/debug/cosyworld-orchestrator}"
+cargo_target_dir() {
+  cargo metadata --no-deps --format-version 1 --manifest-path "$1/Cargo.toml" 2>/dev/null \
+    | sed -nE 's/.*"target_directory":"([^"]*)".*/\1/p' \
+    | grep . || echo "$1/target"
+}
+SMOKE_BINARY="${COSYWORLD_SMOKE_BINARY:-$(cargo_target_dir "$ROOT/orchestrator-rust")/debug/cosyworld-orchestrator}"
 URL="${BASE_URL}/"
 
 usage() {

@@ -13,7 +13,12 @@ SETUP_ACTION_SEQUENCE="${COSYWORLD_CARD_POLICY_COLLECT_SETUP_ACTIONS:-notice_act
 ACTION_SEQUENCE="${COSYWORLD_CARD_POLICY_COLLECT_ACTIONS:-chat,pick_up}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ORCHESTRATOR_DIR="$(cd "${SCRIPT_DIR}/../orchestrator-rust" && pwd)"
-LAB_BIN="${COSYWORLD_CARD_POLICY_LAB_BIN:-${ORCHESTRATOR_DIR}/target/debug/card-policy-lab}"
+cargo_target_dir() {
+  cargo metadata --no-deps --format-version 1 --manifest-path "$1/Cargo.toml" 2>/dev/null \
+    | sed -nE 's/.*"target_directory":"([^"]*)".*/\1/p' \
+    | grep . || echo "$1/target"
+}
+LAB_BIN="${COSYWORLD_CARD_POLICY_LAB_BIN:-$(cargo_target_dir "${ORCHESTRATOR_DIR}")/debug/card-policy-lab}"
 OUTPUT_DIR="${COSYWORLD_CARD_POLICY_COLLECT_OUTPUT_DIR:-${ORCHESTRATOR_DIR}/.runtime/card-policy-shadow/collection-${RUN_ID}}"
 OBSERVATIONS="${OUTPUT_DIR}/observations.ndjson"
 DATASET="${OUTPUT_DIR}/real-replay.tsv"
