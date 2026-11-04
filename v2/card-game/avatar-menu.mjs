@@ -9,6 +9,7 @@ import { nameOf } from "./world.mjs";
 import { avatarImage } from "./scarves.mjs";
 import { levelTier, romanLevel } from "./rarity.mjs";
 import { hiddenFor } from "./unlock-view.mjs";
+import { cachedWorldTier, tintByTier, worldLevel } from "./world-level.mjs";
 
 // ☰ lists the passkey's worlds, each with the avatars that have entered it
 // and "+" for an open seat, then + New world. A chosen avatar and its
@@ -553,6 +554,12 @@ export function installAvatarMenu({
         title.append(mark);
       }
       const world = slot.current ? session?.state.world || getWorld() : null;
+      // Its edge is the world's tier, as a card's rarity edge: the one
+      // played now from its state, another as it was when last opened.
+      tintByTier(
+        row,
+        world ? worldLevel(world).tier : cachedWorldTier(`world:${slot.key}`),
+      );
       const seats = el("ul", "slot-seats");
       for (const seat of slot.seats)
         if (seat.kind !== "resident")

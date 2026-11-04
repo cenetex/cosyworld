@@ -282,6 +282,8 @@ export function narrativeContext(world, action = null) {
     ...(occasion ? { occasion } : {}),
     resting,
     ...(rest ? { rest } : {}),
+    // What the long rest dreamed by the rules, the only time a dream is due.
+    ...(rest && cast.dream ? { dream: cast.dream } : {}),
     ...(disclosures.length ? { disclosures } : {}),
     action:
       played?.text ||
@@ -313,11 +315,18 @@ export function narrativeContext(world, action = null) {
         quest.since === world.turn
           ? `In a dream, the quest for level ${quest.quest.level}: ${wantText(quest)}.`
           : null;
+      // Halfway there, the dream shows one part of the coming quest.
+      const glimpse = world.actors[id]?.glimpse;
+      const glimpsed =
+        cast.dream === "glimpse" && id === resting && glimpse
+          ? `In a dream, a glimpse of the quest for level ${glimpse.level}: ${glimpse.kind === "verb" ? glimpse.id : nameOf(glimpse.id)}.`
+          : null;
       const between = beforeFirstLight
         ? { entries: [], retold: [] }
         : betweenUs(world, id, speakers, nameOf);
       const facts = [
         ...(dreamt ? [dreamt] : []),
+        ...(glimpsed ? [glimpsed] : []),
         ...(want ? [want] : []),
         ...knowledgeFacts(
           pastDeedsAside(world, id, told(id), between.retold),
@@ -1104,8 +1113,6 @@ export { speechMemories } from "./scene-cast.mjs";
 export { SPEECH_OCCASIONS, speechOccasions } from "./speech-occasions.mjs";
 export {
   THOUGHT_GAP,
-  DREAM_GAP,
-  THOUGHTS_PER_DREAM,
   reflectionDue,
   applySharedReflections,
 } from "./reflections.mjs";

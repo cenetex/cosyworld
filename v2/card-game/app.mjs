@@ -71,6 +71,7 @@ import {
   dreamingLabel,
   withDream,
 } from "./dream-card.mjs";
+import { paintGlimpse } from "./glimpse-card.mjs";
 import {
   CHANGE_FADE_MS,
   CROSSFADE_MS,
@@ -82,6 +83,8 @@ import {
 import { installSettingsCards } from "./settings-screen.mjs";
 import { groupOn, packToggleBlock } from "./pack-toggle.mjs";
 import { installToolbar, renderPlayers } from "./toolbar.mjs";
+import { showWorldTier } from "./world-level.mjs";
+import { worldLogoKey } from "./title-logo.mjs";
 import { innerLifeChain, innerLifeSection } from "./inner-life.mjs";
 import { combatBeats, lastSeq, theName } from "./combat-beats.mjs";
 import {
@@ -3442,6 +3445,11 @@ function renderScene() {
   if (front?.dream)
     $("speech-row").style.setProperty("--tier-color", DREAM_TIER.color);
   else $("speech-row").style.removeProperty("--tier-color");
+  paintGlimpse($("speech-row").parentElement, front?.companion ?? null, {
+    artOf: beatPortrait,
+    nameOf,
+    icon: beatIcon,
+  });
   $("speech-row").dataset.beat = front?.dream
     ? "dream"
     : front?.line
@@ -4012,6 +4020,7 @@ function renderLog(open = $("history-dialog").open) {
 }
 
 function render() {
+  showWorldTier(world, worldLogoKey(location.href));
   renderPlayers();
   music.setStarted(musicHasStarted());
   syncMusicCue();

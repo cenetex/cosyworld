@@ -85,6 +85,7 @@ import {
   WANT_KINDS,
   CONNECT_TARGET,
 } from "./want.mjs";
+import { pruneTalkQuests, talkQuest } from "./talk-quest.mjs";
 import {
   keepReason,
   installLife,
@@ -670,6 +671,9 @@ export function wantText(want) {
     // Players see Strike for the attack play.
     verb = step?.verb === "attack" ? "strike" : step?.verb;
   if (step?.verb === "give") return `give ${what} to ${nameOf(step.to)}`;
+  // Talk's quest to bring a person somewhere, or to someone (rules 99).
+  if (step?.verb === "bring" && want.kind === "person")
+    return `bring ${what} to ${nameOf(step.at ?? step.to)}`;
   if (step?.verb === "bring")
     return step.to
       ? `bring ${what} to ${nameOf(step.to)} at ${nameOf(step.at)}`
@@ -784,7 +788,8 @@ function reachable(s, actor) {
 const homeOf = (id) => tastes[id]?.home || humanAvatar(id)?.home?.id || null;
 // Avatars that became residents of a shared world (#1846) take a want at once.
 export const fillSeatWants = (s) => fillWants(s, wantAPI(s), true);
-function wantAPI(s) {
+// The world reads the want rules use, exported for their tests.
+export function wantAPI(s) {
   return {
     carried: (actor) => carried(s, actor),
     rootHolder: (item) => rootHolder(s, item),
@@ -1884,6 +1889,9 @@ const WAKE_REASONS = [
   "rested",
 ];
 const SLEEP_TURNS = 24;
+// What a long rest may dream (rules 99): the halfway glimpse, or the level
+// quest it brings.
+const DREAMS = ["glimpse", "quest"];
 // Sleep always ends by the next light change, so no sleep is longer than one
 // light period. A long rest needs half of one: two cannot both begin and end
 // within one light period, so a sanctuary dreams at most once per period.
@@ -1899,7 +1907,8 @@ function wakeUp(s, id, woke, text) {
     long = sanctuary && s.turn - z.since >= LONG_SLEEP_TURNS;
   if (sanctuary && s.defeats?.[id]) delete s.defeats[id];
   renewWant(s, id, wantAPI(s));
-  if (long) wake(s, id, wantAPI(s));
+  // A long rest may bring one dream: the halfway glimpse or the level quest.
+  const dream = long ? wake(s, id, wantAPI(s)) : null;
   addLog(s, "World", text, {
     kind: "action",
     actorId: id,
@@ -1908,6 +1917,7 @@ function wakeUp(s, id, woke, text) {
     witnesses: witnessesAt(s, here),
     woke,
     ...(long ? { rest: "long" } : {}),
+    ...(dream ? { dream } : {}),
   });
 }
 // After the lamp burns each round, every sleeper wakes at the first change
@@ -2350,6 +2360,10 @@ function performPlay(s, a, round = null, settle = []) {
       ? { ...a, accepted: requestAccepted }
       : a,
   );
+  // A Talk quest whose want has changed leaves; a player's Talk that
+  // reveals a want new to them gives one (#2196, rules 99).
+  pruneTalkQuests(s, wantAPI(s));
+  if (a.kind === "talk") talkQuest(s, a.actor, a.target, wantAPI(s));
   // Resolved plays, and only those, can advance a crossing's signal.
   if (round)
     noteAct(s, a, here, holder, round, sensesFor(s), (line, locationId) =>
@@ -2911,6 +2925,7 @@ export function play(
     ),
     wantAPI(next),
   );
+  pruneTalkQuests(next, wantAPI(next));
   fillWants(next, wantAPI(next));
   // A round of waits still ends a standoff nobody would carry on.
   settleStandoffs(next);
@@ -3384,6 +3399,8 @@ export function validateWorld(s) {
     if (
       (e.rest !== undefined && (e.rest !== "long" || e.verb !== "wait")) ||
       (e.sleep !== undefined && (e.sleep !== true || e.verb !== "wait")) ||
+      (e.dream !== undefined &&
+        (!DREAMS.includes(e.dream) || e.rest !== "long")) ||
       (e.woke !== undefined &&
         (!WAKE_REASONS.includes(e.woke) || e.verb !== "wait"))
     )

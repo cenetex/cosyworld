@@ -49,6 +49,12 @@ describe("fast check smoke selection", () => {
       ...config.core,
       "smoke-card-music",
     ]);
+    // The music smoke drives the opening's Put out and its helper checks.
+    for (const file of [
+      "v2/card-game/opening.mjs",
+      "v2/scripts/music-reveal-check.mjs",
+    ])
+      expect(pick(file)).toContain("smoke-card-music");
   });
 
   it("gives a core smoke a path selects no slot of the cap", () => {

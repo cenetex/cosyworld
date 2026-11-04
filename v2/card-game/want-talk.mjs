@@ -36,6 +36,20 @@ function met(world, id, want) {
   return world.actors[want.target]?.place === here;
 }
 
+// Whether Talk says this want of theirs: one still to meet, of a thing,
+// place or person in the world. The rules give a quest for the same want
+// (talk-quest.mjs), so the caption and the quest always agree.
+export function revealed(world, id, want) {
+  return Boolean(
+    want &&
+      world.actors?.[id] &&
+      entityActive(world, want.target) &&
+      !(want.kind === "item" && !world.items[want.target]) &&
+      !(want.kind === "person" && !world.actors[want.target]) &&
+      !met(world, id, want),
+  );
+}
+
 export function wantFact(world, id, nameOf) {
   const want = wantOf(world, id);
   if (want?.kind === "connect" && world.actors?.[id])
@@ -49,11 +63,7 @@ export function wantFact(world, id, nameOf) {
     );
     return `I want ${article(nameOf(want.target))}: ${set.slice(0, -1).join(", ")}${set.length > 1 ? " and " : ""}${set.at(-1)}.`;
   }
-  if (!want || !world.actors?.[id] || !entityActive(world, want.target))
-    return null;
-  if (want.kind === "item" && !world.items[want.target]) return null;
-  if (want.kind === "person" && !world.actors[want.target]) return null;
-  if (met(world, id, want)) return null;
+  if (!revealed(world, id, want)) return null;
   const name = nameOf(want.target);
   const line =
     want.kind === "item"

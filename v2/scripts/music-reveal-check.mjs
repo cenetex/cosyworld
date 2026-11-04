@@ -6,6 +6,8 @@ import {
   openSettings,
   closeSettings,
   pressSetting,
+  putOutOpening,
+  revealOpening,
 } from "./card-browser-helpers.mjs";
 import { roomTracks } from "../card-game/music.mjs";
 
@@ -78,7 +80,9 @@ export async function checkMusicReveal(browser, origin) {
   }
   try {
     await page.goto(`${origin}/?table=music-reveal`);
-    // A Wait in the lamplit attic is a first play, but the music waits.
+    // A Wait in the lamplit attic is a first play, but the music waits. The
+    // opening offers no play until the lamp and attic are revealed.
+    await revealOpening(page);
     await playCard("attic");
     await page.waitForTimeout(1200);
     assert(await audio((a) => a.paused), "The lit attic stays silent");
@@ -126,7 +130,11 @@ export async function checkMusicReveal(browser, origin) {
     );
     await closeSettings(page);
     await page.evaluate(() => (window.musicPlays = []));
-    await playCard("lamp");
+    // The new world opens on its reveals, then Put out (opening.mjs).
+    await page.waitForFunction(
+      () => document.querySelector("#hand").dataset.cooling === "false",
+    );
+    await putOutOpening(page);
     await page
       .locator('#hand [data-card="pond"]')
       .waitFor({ state: "attached" });

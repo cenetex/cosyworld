@@ -115,6 +115,17 @@ describe("switching a pack off and on (rules 98)", () => {
     expect(play(sea, off(SEA)).error).toMatch(/One world pack/);
   });
 
+  it("breaks a signal in progress where no player is left (rules 99)", () => {
+    const s = world((w) => {
+      w.actors.vale.place = "pond";
+      w.crossings["pond-clearing"].phase = 1;
+    });
+    const quiet = ok(play(s, off(SHORE)));
+    expect(quiet.actors.vale.place).not.toBe("pond");
+    expect(quiet.crossings["pond-clearing"]).toMatchObject({ phase: 0 });
+    expect(validateWorld(quiet)).toBe(quiet);
+  });
+
   it("waits for the first crossing to switch the shore off", () => {
     const opening = createWorld({ opening: true, seed: 3 });
     expect(play(opening, off(SHORE)).error).toMatch(/first crossing/);

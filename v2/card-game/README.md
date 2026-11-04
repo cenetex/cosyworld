@@ -334,6 +334,12 @@ first, and is absent while the stack holds one. Player-facing text says quest.
   on the way to a place may be met there. A step already true where the
   avatar stands is not drawn. Steps come one at a time in order; nothing is
   authored ahead.
+- **Talk gives a quest** (rules 99, #2196). A player's Talk that reveals
+  someone's top want, new to the player, gives an ordinary quest: give them
+  the item they want, bring them to the place they want, or bring them to
+  the person they want to see. It goes second under a level or story quest,
+  leaves when their want changes first, and counts toward the level's gap of
+  ordinary wants ([quest stack](../../docs/design/quest-stack.md)).
 - **Pursuit.** Residents use the fixed verbs: travel along routes (travellers
   who learn the roads keep to the routes they know), then ask, trade their
   least valued spare, and threaten when bold enough by resentment, a higher level tier or
@@ -985,6 +991,16 @@ supplied The Black Pond borrows the teal bell-and-lantern lettering
 desktop and phone widths (`TOOLBAR_LOGO_SHOTS=<dir>` saves screenshots).
 Other sites' landings and the local CosyWorld app keep
 the COSYWORLD wordmark.
+A world levels up as it grows (`world-level.mjs`): its level is 1 plus the
+levels its residents have gained over their authored start and the ways it
+has opened (latched gate routes, opened sections, discovered crossings),
+read in the browser from the same projected world in local and shared play.
+Players' levels are left out, and nothing is stored or journaled. Past
+Common, its tier colour (`level-tiers.mjs`) glows softly behind the toolbar
+logo and the Settings logo, frames the title's logo, and edges the world's
+entry in ☰ like a card's rarity edge; there is no numeral or label. The
+browser remembers each world's tier in `cosyworld.world-tier`, so ☰ edges a
+world not being played as it was when last opened.
 Automated browsers skip it unless the address has `intro=1`;
 `v2/scripts/smoke-card-title-intro.mjs` plays it at desktop and phone width,
 including after New game, music off, reduced motion and the keyboard, and
