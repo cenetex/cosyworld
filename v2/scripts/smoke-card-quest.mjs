@@ -508,7 +508,7 @@ try {
       top,
       "quest",
       "vale+ quest:0* greek-funeral-cloth quest:1+ quest:2",
-      ["Drop quest"],
+      ["Travel to Theban Palace Forecourt", "Discard"],
     );
     await play(
       top,
