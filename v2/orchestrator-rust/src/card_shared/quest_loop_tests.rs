@@ -116,7 +116,7 @@ fn rules_99_quest_loop_commits_and_replays_in_the_c_host() {
 
     let wait = |w: &World| play(w, |a| a["kind"] == "wait" && a["sleep"] != true);
     let sleep = |w: &World| play(w, |a| a["sleep"] == true);
-    let mut long_rest = |w: &mut World| {
+    let long_rest = |w: &mut World| {
         let waited = wait(w);
         commit(w, waited);
         for _ in 0..24 {
