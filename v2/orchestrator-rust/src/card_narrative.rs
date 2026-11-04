@@ -1,5 +1,5 @@
 use crate::ai_gateway::ModelCapability;
-use crate::ai_gateway::{request_chat_completion, AiConfig, ChatCompletionRequest};
+use crate::ai_gateway::{request_voice_completion, AiConfig, ChatCompletionRequest};
 use crate::rate_limit::{RateLimit, RateLimiter};
 use crate::routes::signed_envelope::Envelope;
 use axum::{
@@ -2162,24 +2162,23 @@ async fn speak(
                     response_format: None,
                     room_id: None,
                 };
-                let completion =
-                    request_chat_completion(config, request)
-                        .await
-                        .map_err(|error| {
-                            if error.code() == "inference_invalid_response" {
-                                tier.fetch_max(1, Ordering::Relaxed);
-                            }
-                            call.reject_provider(error.code());
-                            tracing::info!(
-                                feature = "card_voice",
-                                entity = id,
-                                attempt = attempt + 1,
-                                escalated,
-                                reason = "provider",
-                                failure = error.code(),
-                                "card voice rejected"
-                            );
-                        })?;
+                let completion = request_voice_completion(config, request, "")
+                    .await
+                    .map_err(|error| {
+                        if error.code() == "inference_invalid_response" {
+                            tier.fetch_max(1, Ordering::Relaxed);
+                        }
+                        call.reject_provider(error.code());
+                        tracing::info!(
+                            feature = "card_voice",
+                            entity = id,
+                            attempt = attempt + 1,
+                            escalated,
+                            reason = "provider",
+                            failure = error.code(),
+                            "card voice rejected"
+                        );
+                    })?;
                 let finished = matches!(completion.finish_reason.as_str(), "stop" | "end_turn");
                 // A reply that only missed its fact is published at once
                 // (owner, 2026-11-02): the fact stays for another Talk and
