@@ -359,15 +359,15 @@ const placeArt = (id) => placeCardArt(world, id);
 const cardIsCovered = (id) => !encountered.has(id) || coveredCards.has(id);
 // The scene's uncovered cards, so text writes their names in their card's
 // colour (card-names.mjs).
+const cardColours = (ids) =>
+  ids.map((id) => ({
+    id,
+    name: nameOf(id),
+    person: Boolean(people[id]),
+    color: levelTier(cardLevel(world, id)).color,
+  }));
 const sceneCards = () =>
-  availableCards(world)
-    .filter((id) => !cardIsCovered(id))
-    .map((id) => ({
-      id,
-      name: nameOf(id),
-      person: Boolean(people[id]),
-      color: levelTier(cardLevel(world, id)).color,
-    }));
+  cardColours(availableCards(world).filter((id) => !cardIsCovered(id)));
 const namedSpan = (text) => {
   const span = document.createElement("span");
   span.append(...namedText(text, sceneCards()));
@@ -1488,6 +1488,7 @@ function combatStage() {
     announce: $("combat-announcement"),
     veil: $("travel"),
     // The loss screen's full-art cards: the hand's card faces, inert.
+    cardColours,
     cardFace: (id) => {
       const face = card(id).querySelector(".card").cloneNode(true);
       face.disabled = false;
