@@ -347,8 +347,8 @@ try {
           });
         }
         const road = packDefinition("greek-drama").places[target]?.road;
-        // On a road, the end it came from lies under it on the left and
-        // the other end waits at the row's right end (#2272).
+        // On a road, the end it came from lies on top of it at the left and
+        // the other end waits at the row's right end (#2272, #2286).
         if (road) {
           await selectCard(page, target, { touch: width === 390 });
           const back = (await state()).arrival.fromLocationId,
@@ -362,8 +362,8 @@ try {
                 ["mara", road[0], target, road[1]],
               );
           assert.deepEqual(visibleOrder, [
-            target,
             back,
+            target,
             "mara",
             road.find((end) => end !== back),
           ]);

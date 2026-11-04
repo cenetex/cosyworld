@@ -1329,9 +1329,10 @@ function keepHeldSelection(before, action = null) {
   expandedHolders.clear();
   if (expanded) expandedHolders.add(actor);
 }
-// The current place leads the row, with the place the player came from
-// face down beneath it; the other ways on stack at the row's right end, so
-// exploring is a choice of left or right (#2272).
+// The place the player came from leads the row, face up, with the current
+// place beneath it (#2286); the other ways on stack at the row's right end,
+// so exploring is a choice of left or right (#2272). Without a way back the
+// current place leads alone.
 const placeHere = () => world.actors[currentActor(world)].place;
 const stackedPlace = (id) => Boolean(places[id]) && id !== placeHere();
 const MOVES = ["move", "retreat", "sent-home"];
@@ -1352,6 +1353,9 @@ function cameFrom() {
   return from && availableCards(world).includes(from) ? from : null;
 }
 const wayOn = (id) => stackedPlace(id) && id !== cameFrom();
+const atHere = (id) =>
+  id === placeHere() ||
+  Boolean(things[id] && rootHolder(world, id) === placeHere());
 function stackPlaces(cards) {
   const here = placeHere(),
     back = cameFrom(),
@@ -1360,8 +1364,8 @@ function stackPlaces(cards) {
     );
   if (!left.length) return cards;
   return [
-    ...left,
     ...(back ? [back] : []),
+    ...left,
     ...cards.filter((id) => !left.includes(id) && !stackedPlace(id)),
     ...cards.filter(wayOn),
   ];
@@ -1472,7 +1476,7 @@ function selectCards(cards, { keepOpen = false } = {}) {
       places[id] &&
       !cards.includes(id) &&
       !cards.some((card) => things[card] && rootHolder(world, card) === id) &&
-      !(id === placeHere() && cards.includes(cameFrom()))
+      !(id === cameFrom() && cards.some(atHere))
     )
       expandedHolders.delete(id);
   selected = cards;
@@ -1569,11 +1573,11 @@ function choose(id) {
       selected.filter(
         (cardId) =>
           cardId !== id &&
-          !(id === placeHere() && cardId === cameFrom()) &&
+          !(id === cameFrom() && atHere(cardId)) &&
           (!things[cardId] || rootHolder(world, cardId) !== id),
       ),
-      // Only the current place's own tap folds its ways on.
-      { keepOpen: id !== placeHere() },
+      // Only the left stack's top card folds the stack.
+      { keepOpen: id !== (cameFrom() ?? placeHere()) },
     );
   } else {
     const holder = things[id] ? rootHolder(world, id) : null;
@@ -2433,7 +2437,7 @@ function updateCardSelection(frame) {
             (item) => things[item] && rootHolder(world, item) === id,
           )
         : [],
-    stack = id === placeHere() && cameFrom() ? [cameFrom()] : [];
+    stack = id === cameFrom() ? [placeHere()] : [];
   frame.dataset.raised = String(raised);
   button.setAttribute("aria-pressed", String(raised));
   button.dataset.selected = String(selected.includes(id));
@@ -2742,10 +2746,10 @@ function card(id) {
   frame.append(el);
   const holder = things[id]
     ? rootHolder(world, id)
-    : id === cameFrom()
-      ? placeHere()
+    : id === placeHere()
+      ? cameFrom()
       : null;
-  if (id === cameFrom()) {
+  if (id === placeHere() && holder) {
     frame.dataset.holder = holder;
     frame.hidden = !expandedHolders.has(holder);
   } else if (people[holder] || places[holder]) {
@@ -2786,13 +2790,13 @@ function card(id) {
       }
     }
   }
-  const stack = id === placeHere() && cameFrom() ? [cameFrom()] : [];
+  const stack = id === cameFrom() ? [placeHere()] : [];
   if (stack.length) {
     frame.dataset.places = String(stack.length);
     frame.dataset.expanded = String(expandedHolders.has(id));
     el.setAttribute("aria-expanded", String(expandedHolders.has(id)));
     if (!hidden) observation.textContent += stackLabel(stack);
-    // The way back lies face down beneath the current place.
+    // The current place lies face down beneath the way back.
     stackEdges(frame, stack.length);
   }
   syncAvatarStack(frame, id);
@@ -2819,7 +2823,9 @@ function card(id) {
 const cardBackImage = () =>
   `url("${imageUrl("./assets/card-back.webp", "card")}")`;
 const stackLabel = (stack) =>
-  stack.length ? " The way back lies beneath. Select to show it." : "";
+  stack.length
+    ? " The way back. Where you are lies beneath; select to show it."
+    : "";
 // The quest card: a small screen showing the player doing the quest's verb
 // with its target, with only the verb, the level and the tier colour as
 // words. It glows while the target is near. The card itself plays nothing:
