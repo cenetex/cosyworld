@@ -9,7 +9,12 @@ import {
   applyGeneratedText,
   voicesNobody,
 } from "../../v2/card-game/narrative.mjs";
-import { narrativeContractCases } from "./card-narrative-contexts.mjs";
+import {
+  narrativeContractCases,
+  playCard,
+} from "./card-narrative-contexts.mjs";
+import { atticOpening } from "./card-attic-opening.mjs";
+import { sailTo } from "../helpers/voyage.mjs";
 
 // Recorded lines, one per speaker and turn, standing in for model replies.
 const recorded = {
@@ -141,6 +146,69 @@ function beforeReturn() {
   return { before, world };
 }
 
+// Two scenes from .dev where a character answered its own context back as
+// "you" (2026-11-03): Myrto at the harbor beside Vale (who holds the black
+// cloth and the uncovered, burning Lamp) and Pip, and Dione, who wants the
+// Funeral Oil that Vale carries.
+export function assistantRoleScenes() {
+  let world = playCard(enableMotives(atticOpening()), "snuff", "lamp");
+  world = playCard(playCard(world, "move", null, "pond"), "light", "lamp");
+  world.items.cloth.holder = "vale";
+  world.items.lamp.fuel = 12;
+  world = playCard(playCard(world, "cover", "cloth", "lamp"), "take", "cloth");
+  world = sailTo(playCard(world, "move", null, "greek-ship"), "greek-harbor");
+  world.actors.moth.place = "greek-harbor";
+  const harbor = (kind, target, i) => step(world, kind, target, i).context;
+  const road = playCard(world, "move", null, "greek-road-thebes");
+  const bakery = playCard(road, "move", null, "greek-courtyard");
+  bakery.items["greek-oil-flask"].holder = "vale";
+  bakery.actors["greek-baker"].want = {
+    kind: "item",
+    target: "greek-oil-flask",
+    since: bakery.turn,
+    refusals: 0,
+  };
+  const dione = step(bakery, "talk", "greek-baker", 0);
+  // Antigone at the city gate, who read back "Vale and Antigone are both at
+  // Theban City Gate".
+  const gate = playCard(road, "move", null, "greek-courtyard");
+  const antigone = playCard(gate, "move", null, "greek-gate");
+  // The reflected shore: Vale at Black pond with Pip, holding the unlit Lamp.
+  const shore = enableMotives(createWorld());
+  shore.items.cloth.holder = "vale";
+  shore.items.lamp.holder = "vale";
+  shore.items.lamp.lit = false;
+  const pond = step(shore, "move", "pond", 0).world;
+  return [
+    { name: "Black pond wait", context: step(pond, "wait", null, 0).context },
+    {
+      name: "Black pond talk",
+      context: step(pond, "talk", "moth", 0).context,
+      lines: { vale: "The pond is very still tonight, Pip." },
+    },
+    { name: "harbor wait with Myrto", context: harbor("wait", null, 0) },
+    {
+      name: "harbor talk with Myrto",
+      context: harbor("talk", "greek-shipmaster", 1),
+      lines: { vale: "Are you sailing tonight?" },
+    },
+    {
+      name: "Dione wants the Funeral Oil",
+      context: dione.context,
+      lines: { vale: "Good evening, Dione. What are you baking?" },
+    },
+    {
+      name: "Antigone at the gate",
+      context: step(antigone, "talk", "greek-antigone", 0).context,
+      lines: { vale: "Antigone? What are you doing out here?" },
+    },
+    {
+      name: "Dione waits for the Funeral Oil",
+      context: step(dione.world, "wait", null, 2).context,
+    },
+  ].map(({ name, context, lines = {} }) => ({ name, context, lines }));
+}
+
 // A silent play (Light, Put down, Take, ...) sends no voice request, so only
 // scenes that voice someone are measured.
 export function voiceEvalCases() {
@@ -152,5 +220,6 @@ export function voiceEvalCases() {
     })),
     ...stationConversation(),
     ...returnVisit(),
+    ...assistantRoleScenes(),
   ].filter(({ context }) => !voicesNobody(context));
 }

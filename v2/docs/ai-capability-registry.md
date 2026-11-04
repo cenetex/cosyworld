@@ -163,6 +163,33 @@ caller ([#2016](https://github.com/cenetex/cosyworld/issues/2016)). A final
 400 or 404 after the documented request-shape fallbacks marks only that exact
 route incompatible.
 
+### The model bench
+
+A model that keeps failing is benched, a tier above the route breaker
+(`ai_bench.rs`). Its route opening three times within thirty minutes after 5xx
+or transport faults, half-open reopens included, benches it. So do six card
+voices on it within thirty minutes that end with no usable line: an empty
+reply, or one the validator blocks on every attempt. A usable line clears
+those strikes, so a busy model is not benched for being busy. HTTP 401, 402,
+404 and 429 never bench a model.
+
+A bench lasts six hours. Every call on the exact model then fails at once with
+the retryable `ai_model_benched` code and no provider call, on every endpoint,
+so the card voice's escalation model speaks. Benches are process-wide per
+exact model, like the breaker, and live in memory: a restart clears them.
+`COSYWORLD_AI_BENCH_ROUTE_OPENS` (default `3`),
+`COSYWORLD_AI_BENCH_SILENT_VOICES` (`6`), `COSYWORLD_AI_BENCH_WINDOW_MINUTES`
+(`30`) and `COSYWORLD_AI_BENCH_HOURS` (`6`) tune it; `0` turns a trigger, or
+the bench, off, and an unreadable value keeps its default.
+
+A bench ends on its own, then the model starts with no strikes. An operator
+ends one early with `POST /moderation/ai/unbench` and body `{"model": "<id>"}`,
+behind the moderation bearer token. `/meta.ai.benched` lists
+`{model, since, until, reason, trips}` in unix seconds, with reason
+`route_opens` or `silent_voices`; `/meta.card_voice.benches` counts benches.
+Logs carry one `ai_model_benched` line per bench and one `ai_model_unbenched`
+line per end, with cause `expired` (logged on the next read) or `operator`.
+
 Readiness is revalidated both when offers are composed and when Chat or a model
 interaction is submitted. Probing, account blocks, and route cooldowns withhold
 affected AI offers without rerouting them; deterministic cards and `/health`

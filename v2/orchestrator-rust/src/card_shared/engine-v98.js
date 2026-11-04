@@ -6626,6 +6626,12 @@
     story: true,
     ...to ? { step: { verb: "give", to } } : {}
   });
+  var openingPlace = (place) => Object.entries(homeGates).some(
+    ([home, gate]) => gate.opening && [home, gate.rescue, "station"].includes(place)
+  );
+  var leftHome = (s) => crossings.some(
+    (c) => homeGates[c.from]?.opening && s.crossings?.[c.id]?.discovered
+  );
   function meetCast(s) {
     const player = currentActor(s);
     for (const [id, a] of Object.entries(packPeople))
@@ -6634,7 +6640,7 @@
     if (controlledByHuman(s, player))
       applyMeetingChoices(s, player, Object.keys(places));
     if (!s.opening || player !== "vale" && !s.opening.crossed) return;
-    if (player === "vale" && s.actors.vale.place === "pond")
+    if (player === "vale" && (s.actors.vale.place === "pond" || !openingPlace(s.actors.vale.place)))
       s.opening.crossed = true;
     if (!s.opening.crossed) {
       for (const id of roamingActors)
@@ -8368,11 +8374,9 @@
       const o = s.opening;
       if (!o || ![1, 2].includes(o.version) || typeof o.crossed !== "boolean" || !o.met || o.met.vale !== 0 || Object.keys(o.met).some((id) => !actorIds.includes(id)) || Object.values(o.met).some(
         (turn) => !Number.isSafeInteger(turn) || turn < 0 || turn > s.turn
-      ) || !sharedEnabled(s) && o.met.keeper !== void 0 && o.met.moth === void 0 || !o.crossed && (!Object.entries(homeGates).some(
-        ([place, gate]) => gate.opening && [place, gate.rescue, "station"].includes(s.actors?.vale?.place)
-      ) || Object.keys(o.met).some(
+      ) || !sharedEnabled(s) && o.met.keeper !== void 0 && o.met.moth === void 0 && !leftHome(s) || !o.crossed && (!openingPlace(s.actors?.vale?.place) || Object.keys(o.met).some(
         (id) => id !== "vale" && !roamingActors.includes(id)
-      )) || o.version === 1 && o.crossed && !s.locations?.attic.anchored || o.crossed && o.met.moth === void 0 || o.version === 2 && !o.crossed)
+      )) || o.version === 1 && o.crossed && !s.locations?.attic.anchored || o.crossed && o.met.moth === void 0 && !leftHome(s) || o.version === 2 && !o.crossed)
         fail();
     }
     if (Object.keys(s.actors || {}).sort().join() !== sortedActorKeys || Object.keys(s.items || {}).sort().join() !== sortedItemKeys)

@@ -10,6 +10,7 @@ mod actor_jobs;
 mod actor_practice;
 mod actor_presence;
 mod actor_rules_facets;
+mod ai_bench;
 mod ai_context;
 mod ai_gateway;
 mod ai_publication;
@@ -16947,15 +16948,7 @@ async fn meta(State(state): State<AppState>) -> Json<MetaResponse> {
                 .as_deref()
                 .map(|rollout| format!("{:016x}", rollout.model_hash)),
         },
-        ai: MetaAi {
-            configured: state.ai_config.as_ref().is_some(),
-            provider: ai_provider_name(state.ai_config.as_ref().as_ref()),
-            readiness: state
-                .ai_config
-                .as_ref()
-                .as_ref()
-                .map(AiConfig::readiness_snapshot),
-        },
+        ai: MetaAi::from_config(state.ai_config.as_ref().as_ref()),
         persistence: MetaPersistence {
             snapshot_enabled: state.snapshot_path.is_some(),
             event_store_enabled: state.event_store_path.is_some(),

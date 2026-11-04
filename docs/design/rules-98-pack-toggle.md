@@ -40,6 +40,6 @@ switch, the Shore too, one stays on; local worlds only; the attic stays.
 - **On.** Its content returns as it was; scattered things stay put. A
   rescue whose place sleeps goes to the start of the first pack on.
 
-Tests: `test/card-pack-toggle.test.mjs`, including rules 96 accepting a
+Tests: `test/card-pack-toggle.test.mjs`, including rules 96 and 97 accepting a
 player in a pack switched off, which rules 98 refuses. Earlier released rules are
 byte-identical and hash-pinned (`test/card-released-rules.test.mjs`).

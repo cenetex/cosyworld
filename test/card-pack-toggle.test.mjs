@@ -114,6 +114,9 @@ describe("switching a pack off and on (rules 98)", () => {
   it("waits for the first crossing to switch the shore off", () => {
     const opening = createWorld({ opening: true, seed: 3 });
     expect(play(opening, off(SHORE)).error).toMatch(/first crossing/);
+    // Other packs switch during the opening, which stays uncrossed.
+    const quiet = ok(play(ok(play(opening, off(SEA))), off(COTTAGE)));
+    expect(reload(quiet).opening).toEqual(opening.opening);
   });
 
   it("turns a rest step from its sanctuary and keeps its ship's crew", () => {
@@ -171,8 +174,9 @@ describe("switching a pack off and on (rules 98)", () => {
     expect(asked.error).toMatch(/Shared worlds keep every/);
   });
 
-  it("is a rules 98 rule: rules 96 keeps the pack awake", () => {
-    // Vale in a pack switched off: rules 98 refuses the world, 96 ignores it.
+  it("is a rules 98 rule: rules 96 and 97 keep the pack awake", () => {
+    // Vale in a pack switched off: rules 98 refuses the world; 96 and 97
+    // ignore the switch.
     const quiet = JSON.parse(encodeSave(world()));
     quiet.disabledPacks = [SEA];
     const file = (f) =>
@@ -184,7 +188,8 @@ describe("switching a pack off and on (rules 98)", () => {
       const request = { op: "create", save: JSON.stringify(quiet) };
       return JSON.parse(context.cardShared(JSON.stringify(request)));
     };
-    expect(create(96).ok).not.toBe(false);
+    for (const released of [96, 97])
+      expect(create(released).ok).not.toBe(false);
     expect(create(98).ok).toBe(false);
   });
 });

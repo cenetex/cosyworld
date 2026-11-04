@@ -34,13 +34,13 @@ account controls into Settings, #1215 collapsed the toolbar into ☰ and 👥.
   of each (#1846). Iris, Cass and Sage were Nell, Orin and Ada; their ids
   (`nell`, `orin`, `ada`), art and seat indices are unchanged.
 - **Each of a player's avatars is played in one world at a time**, local or
-  shared. Moving to another shared world keeps the avatar the person took in
-  the old one: their passkey is bound to it there, and they return as it
-  (#1825).
+  shared. A player may bring any found avatar to a world they have played
+  (owner, 2026-11-03); the avatar they had there stays as a resident with
+  its state and level and is no longer theirs.
 - **Nobody takes over an avatar.** In a shared world an avatar belongs to the
   passkey that took it, even after it leaves. Its seat there
-  shows in colour for everyone else, and the person bound to it sees it free
-  for that avatar only. With all eight taken nobody new can join. The world's
+  shows in colour for everyone else, and the person bound to it sees it
+  free. With all eight taken nobody new can join. The world's
   owner can **Free** another person's avatar, which starts it over as a
   fresh level-1 starter that leaves everything where it stood
   ([avatar bindings](../../../docs/design/avatar-bindings.md)). The menu has
@@ -105,14 +105,16 @@ only the tools. ☰ opens a list of **world slots**:
   "*Mara* remembers you" and opens Mara's own world. With nobody hidden here,
   **+ New world** starts a fresh world, which hides the next, for the card's
   avatar when it is in no world, else the first found avatar in no world.
-  Once all eight are found the row is gone.
+  Once all eight are found it stays, and the new world hides nobody.
 - **Your avatars** are one row under it (owner, 2026-11-02): each avatar
   this passkey has found, face up in R·A·T·V·M·I·C·S order, in colour while
   it is free and grey while it is in a world ("Tavi, free", "Vale, in
   *Silverhook*" to screen readers), then a card back for each not yet
   found ("Your avatars, 6 still to find"), with no hint of where they are.
-  A tap on a free avatar chooses it for + New world; a tap on a placed one
-  acts as its portrait in its world's row.
+  A tap on a free avatar chooses it for + New world and shows **Bring to
+  *world*** for each world whose seat for it is free; with none, one dim
+  button says why ("No world yet", "Taken in *world*"). A tap on a placed
+  one acts as its portrait in its world's row.
 - **+** is a seat-sized dashed card with its glyph centred, level with the
   row's portraits, in every state, including a row with no portrait (a
   world your avatar left).
@@ -180,7 +182,7 @@ to say what happened.
 **A friend's link** (`/?world=…`) signs the person in, then opens their own
 table with ☰ open and the linked world as an extra slot marked ✉
 ("Invited"), with its avatars and +. Tapping + there offers an avatar that
-may come in (a person bound there is offered their own avatar). There are no separate
+may come in. There are no separate
 join, "Return as", full-world or full-room panels. A full room waits at the
 table: "Your room is full. Your avatar and belongings are saved."
 

@@ -122,3 +122,67 @@ fn released_pond_opening_keeps_its_place_through_upgrade_and_journal_rebuild() {
     assert_eq!(full_store::world(&c, &id, now()).unwrap(), world);
     let _ = std::fs::remove_file(path);
 }
+
+// A scarf opens the attic stair from the first turn. Rules 96 offered it and
+// then refused the play as an invalid save ("waiting for an update"). A rules
+// 96 world mid-opening upgrades to 97, where the stair crosses the opening:
+// Vale meets only who is at the cottage, and the journal replays it.
+#[test]
+fn scarf_stair_refused_by_rules_96_crosses_the_opening_after_upgrade() {
+    let created = engine::reduce_version(engine::NINETY_SIXTH_VERSION, json!({"op":"create"}));
+    let mut world = World {
+        version: engine::NINETY_SIXTH_VERSION.into(),
+        game: created.unwrap()["world"].clone(),
+        claimed: [0; 8],
+        present: [0; 8],
+        pack: Some(super::content::current().into()),
+    };
+    let path = std::env::temp_dir().join(format!("scarf-stair-{}.sqlite", crate::random_hex(12)));
+    let c = store::open(&path).unwrap();
+    full_store::schema(&c).unwrap();
+    let id = "f".repeat(48);
+    store::create(&c, &id, "owner", now()).unwrap();
+    full_store::seed(&c, &id, &world, "scarf-stair", now()).unwrap();
+    for command in [
+        json!({"op":"claim","actor":"vale","progress":{"upgrades":["scarf"]}}),
+        json!({"op":"enter","actor":"vale"}),
+    ] {
+        full_store::commit(&c, &id, &mut world, command, now()).unwrap();
+    }
+    assert_eq!(world.game["opening"]["crossed"], false);
+    let stair = |world: &World| {
+        let view = world.project(0).unwrap();
+        let down = view["actions"].as_array().unwrap().iter().find(|a| {
+            a["kind"] == "move" && a["target"] == "forest-cottage" && a["item"] == "lamp"
+        });
+        json!({"op":"play","actor":"vale","action":down.unwrap()})
+    };
+    assert!(world.clone().apply(&stair(&world)).is_err());
+    let upgrade = json!({"op":"upgrade","from":engine::NINETY_SIXTH_VERSION,
+        "to":engine::VERSION,"pack":super::content::current()});
+    full_store::commit(&c, &id, &mut world, upgrade, now()).unwrap();
+    let play = stair(&world);
+    full_store::commit(&c, &id, &mut world, play, now()).unwrap();
+    assert_eq!(world.game["actors"]["vale"]["place"], "forest-cottage");
+    assert_eq!(world.game["opening"]["crossed"], true);
+    let actors = world.game["actors"].as_object().unwrap();
+    let mut here: Vec<&str> = actors
+        .iter()
+        .filter(|(_, a)| a["place"] == "forest-cottage")
+        .map(|(id, _)| id.as_str())
+        .collect();
+    let mut met: Vec<&str> = world.game["opening"]["met"]
+        .as_object()
+        .unwrap()
+        .keys()
+        .map(String::as_str)
+        .collect();
+    here.sort();
+    met.sort();
+    assert_eq!(met, here);
+    assert!(met.len() < actors.len());
+    c.execute("DELETE FROM card_full_checkpoints WHERE world=?", [&id])
+        .unwrap();
+    assert_eq!(full_store::world(&c, &id, now()).unwrap(), world);
+    let _ = std::fs::remove_file(path);
+}

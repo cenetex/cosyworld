@@ -9,8 +9,9 @@ import { createWorld, encodeSave } from "../card-game/world.mjs";
 // avatars: the found ones face up, grey while in a world and in colour while
 // free, then a card back for each still to find (#1936). "+" is a
 // seat-sized card, its glyph centred, level with the row's portraits, even
-// when the row has no portrait (a world your avatar left, with everyone
-// found, where + New world is gone).
+// when the row has no portrait (a world your avatar left). With everyone
+// found + New world stays, and a free avatar offers Bring to that world
+// whoever you had there (owner, 2026-11-03).
 const server = createServer();
 await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
 const origin = `http://127.0.0.1:${server.address().port}`;
@@ -52,7 +53,7 @@ const states = {
     ],
     unlocked: ["vale", "tavi"],
   },
-  // At the local table, Vale left the attic, and everyone is found.
+  // At the local table, Tavi left the attic, and everyone is found.
   "all-found-left": {
     at: "/",
     worlds: [
@@ -60,8 +61,8 @@ const states = {
         id: "attic",
         owner: true,
         actor: null,
-        bound: "vale",
-        held: seats(1),
+        bound: "tavi",
+        held: seats(0, 0, 0, 0, 1),
         seed: 4,
       },
     ],
@@ -184,10 +185,15 @@ try {
         );
       }
       if (name === "all-found-left") {
-        assert.equal(seen.newWorld, false);
+        assert.equal(seen.newWorld, true);
         assert.equal(seen.cast.length, 8);
         assert(seen.cast.every((c) => c.avatar && c.lit === "true"));
         assert.equal(seen.castLabel, "Your avatars");
+        // Vale may go where Tavi was; Tavi would stay as a resident.
+        await menu.locator('.slot-cast [data-avatar="vale"] button').click();
+        const bring = page.locator("#avatar-bring");
+        assert.match(await bring.innerText(), /^Bring to \S/);
+        assert.equal(await bring.isEnabled(), true);
       }
       await page.screenshot({
         path: `output/card-world-menu-${name}-${width}.png`,

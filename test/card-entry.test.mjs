@@ -7,6 +7,7 @@ import {
   createQuestEntries,
   enteringKeys,
   entryDelays,
+  questEntryKey,
 } from "../v2/card-game/card-entry.mjs";
 import { revealPlan } from "../v2/card-game/card-reveal.mjs";
 
@@ -92,28 +93,106 @@ describe("card entry", () => {
   });
 });
 
-describe("quests enter face down", () => {
-  it("lies face down on every entry until it turns", () => {
-    const quests = createQuestEntries();
-    expect(quests.show(["vale:item:lamp:0:"])).toEqual(["vale:item:lamp:0:"]);
-    expect(quests.down("vale:item:lamp:0:")).toBe(true);
-    expect(quests.turned("vale:item:lamp:0:")).toBe(true);
-    expect(quests.down("vale:item:lamp:0:")).toBe(false);
-    // Still in view: it stays face up across redraws.
-    expect(quests.show(["vale:item:lamp:0:"])).toEqual([]);
-    expect(quests.down("vale:item:lamp:0:")).toBe(false);
-    // Folded away and opened again, it enters face down again.
-    quests.show([]);
-    expect(quests.show(["vale:item:lamp:0:"])).toEqual(["vale:item:lamp:0:"]);
-    expect(quests.down("vale:item:lamp:0:")).toBe(true);
+describe("quests are dealt face down and turn once", () => {
+  const lamp = { actor: "vale", kind: "item", target: "lamp" };
+  const key = questEntryKey(lamp);
+
+  it("names a quest by whose it is, its kind and its target", () => {
+    expect(key).toBe("vale:item:lamp");
+    // Progress on the same quest is the same card.
+    expect(
+      questEntryKey({ ...lamp, left: 1, step: { verb: "rest" }, index: 2 }),
+    ).toBe(key);
+    expect(questEntryKey({ actor: "vale", kind: "place", target: null })).toBe(
+      "vale:place:",
+    );
   });
 
-  it("deals a quest that moves on a step face down", () => {
+  it("lies face down until seen, then turns once", () => {
     const quests = createQuestEntries();
-    quests.show(["vale:item:lamp:0:2"]);
-    quests.turned("vale:item:lamp:0:2");
-    expect(quests.show(["vale:item:lamp:0:1"])).toEqual(["vale:item:lamp:0:1"]);
-    expect(quests.down("vale:item:lamp:0:1")).toBe(true);
+    // Dealt into the fold: face down, nothing to turn yet.
+    expect(quests.show([key], [])).toEqual([]);
+    expect(quests.down(key)).toBe(true);
+    // Seen: due to turn, and only once however often it is drawn.
+    expect(quests.show([key], [key])).toEqual([key]);
+    expect(quests.show([key], [key])).toEqual([]);
+    expect(quests.turned(key)).toBe(true);
+    expect(quests.down(key)).toBe(false);
+    expect(quests.turned(key)).toBe(false);
+  });
+
+  it("stays face up across redraws, plays, folds, progress and revisions", () => {
+    const quests = createQuestEntries();
+    quests.show([key], [key]);
+    quests.turned(key);
+    const other = questEntryKey({
+      actor: "vale",
+      kind: "person",
+      target: "mara",
+    });
+    const draws = [
+      // several hand redraws
+      [[key], [key]],
+      [[key], [key]],
+      // several plays: the fan folds behind the avatar and opens again
+      [[key], []],
+      [[key], [key]],
+      [[key], []],
+      [[key], [key]],
+      // a want update: another quest joins, the stack reorders
+      [
+        [other, key],
+        [other, key],
+      ],
+      [
+        [key, other],
+        [key, other],
+      ],
+      // quest progress and a revision bump: the same key is drawn again
+      [
+        [key, other],
+        [key, other],
+      ],
+    ];
+    for (const [keys, seen] of draws) {
+      expect(quests.show(keys, seen)).not.toContain(key);
+      expect(quests.down(key)).toBe(false);
+    }
+    // The newcomer was dealt face down and turns on its own.
+    expect(quests.down(other)).toBe(true);
+  });
+
+  it("deals a quest again when it truly leaves and comes back", () => {
+    const quests = createQuestEntries();
+    quests.show([key], [key]);
+    quests.turned(key);
+    quests.show([], []);
+    expect(quests.show([key], [key])).toEqual([key]);
+    expect(quests.down(key)).toBe(true);
+  });
+
+  it("puts back a turn that finds the quest folded again", () => {
+    const quests = createQuestEntries();
+    expect(quests.show([key], [key])).toEqual([key]);
+    quests.unseen(key);
+    expect(quests.down(key)).toBe(true);
+    expect(quests.show([key], [])).toEqual([]);
+    expect(quests.show([key], [key])).toEqual([key]);
+  });
+
+  it("opens a page or a new game on quests already dealt", () => {
+    const quests = createQuestEntries();
+    const folded = questEntryKey({
+      actor: "vale",
+      kind: "place",
+      target: "pond",
+    });
+    // In view as the page opens: face up at once, no turn.
+    expect(quests.show([key, folded], [key], { opening: true })).toEqual([]);
+    expect(quests.down(key)).toBe(false);
+    // Folded away as it opens: it turns when first seen, and only then.
+    expect(quests.down(folded)).toBe(true);
+    expect(quests.show([key, folded], [key, folded])).toEqual([folded]);
   });
 
   it("turns with a crossfade and no movement under reduced motion", () => {

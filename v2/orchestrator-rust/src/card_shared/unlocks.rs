@@ -83,20 +83,6 @@ pub(super) fn require(c: &Connection, user: &str, a: usize) -> Result<()> {
         "{name} is still hidden from you. Find them in one of your worlds first."
     ))
 }
-// Once nobody is left to find, a passkey that has a world makes no more.
-pub(super) fn may_create(c: &Connection, user: &str) -> Result<()> {
-    let owned: i64 = c
-        .query_row(
-            "SELECT count(*) FROM card_tables WHERE owner=? AND retired_at IS NULL",
-            [user],
-            |r| r.get(0),
-        )
-        .map_err(sql_error)?;
-    if enforced() && owned > 0 && unlocked(c, user)?.iter().all(|a| *a) {
-        return Err("Everyone is found. Send an avatar to one of your worlds.".into());
-    }
-    Ok(())
-}
 // The new world's pick from its creator's locked avatars, by a hash of the
 // passkey and the world: `hidden` and the rest `absent`. Empty once all are
 // unlocked. `a` is the avatar the creator takes there.
