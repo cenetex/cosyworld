@@ -132,10 +132,7 @@ describe("the quest stack", () => {
     expect(drop(3, questXp(3))).toEqual([0, "Discard"]);
     const s = createWorld();
     const plain = legalActions(s).find((a) => a.kind === "drop" && !a.item);
-    expect([dropCost(s, "vale"), playLabel(plain, s)]).toEqual([
-      0,
-      "Discard",
-    ]);
+    expect([dropCost(s, "vale"), playLabel(plain, s)]).toEqual([0, "Discard"]);
   });
 
   it("brings a chosen quest to the top without taking a turn", () => {

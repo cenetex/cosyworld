@@ -387,8 +387,10 @@ the player's own stack (`quest-card.mjs`, client only). The card shows a small 4
 target on the right, from the images the stage already uses, with attack and
 guard poses for Strike and Threaten. A place quest shows the player small in
 that place. The place's painting fades softly into the card, with no frame,
-and appears only for the place itself or when the step happens where the
-player stands; elsewhere the figures stand on the card's dark ground. An
+and appears only for the place itself, a step's own place (`step.at`), or
+when the target is where the player stands; elsewhere the figures stand on
+the card's dark ground (`questGround`). A Give shows a place only when its
+step binds the gift to one; the rules draw none, so a Give shows none. An
 unknown target shows a small carved card back in its slot, and an unknown
 place shows the back alone. A step that gives to
 someone shows all three: the player, the thing and the recipient. Its label is

@@ -58,6 +58,7 @@ import {
   metQuests,
   questCards,
   questCaption,
+  questGround,
   questHand,
   questId,
   questNear,
@@ -2262,41 +2263,42 @@ function renderActions() {
     : next?.action
       ? [next.action]
       : [];
-  for (const action of steps) {
-    const label =
-      action.kind === "move"
-        ? `Travel to ${nameOf(action.target)}`
-        : playLabel(action, world);
-    const button = node("button", label, "card-primary");
+  // One context button each: the step's plays, or its reason (disabled),
+  // then Discard.
+  const questButtons = [
+    ...steps.map((action) => ({
+      action,
+      label:
+        action.kind === "move"
+          ? `Travel to ${nameOf(action.target)}`
+          : playLabel(action, world),
+    })),
+    ...(next?.reason ? [{ action: null, label: next.reason }] : []),
+    ...legal
+      .filter((a) => a.kind === "drop" && !a.item && a.quest === 0)
+      .map((action) => ({ action, label: playLabel(action, world) })),
+  ];
+  for (const { action, label } of questButtons) {
+    const discard = action?.kind === "drop",
+      button = node(
+        "button",
+        label,
+        action && !discard ? "card-primary" : "card-action",
+      );
     button.type = "button";
-    button.dataset.action = action.kind;
-    button.dataset.questStep = "";
-    button.title = playText(action);
-    button.disabled = selectionBlocked();
-    button.onclick = () => {
-      questOpen = false;
-      questPick = 0;
-      commitAction(action, revision);
-    };
-    row.append(button);
-  }
-  if (next?.reason) {
-    const why = node("button", next.reason, "card-action");
-    why.type = "button";
-    why.dataset.questStep = "";
-    why.disabled = true;
-    why.dataset.blocked = "quest";
-    why.title = next.reason;
-    row.append(why);
-  }
-  for (const action of legal.filter(
-    (a) => a.kind === "drop" && !a.item && a.quest === 0,
-  )) {
-    const button = node("button", playLabel(action, world), "card-action");
-    button.type = "button";
-    button.dataset.dropQuest = String(picked.index);
-    button.dataset.destructive = "";
-    button.title = "Give up this quest";
+    if (discard) {
+      button.dataset.dropQuest = String(picked.index);
+      button.dataset.destructive = "";
+    } else button.dataset.questStep = "";
+    if (!action) {
+      button.disabled = true;
+      button.dataset.blocked = "quest";
+      button.title = label;
+      row.append(button);
+      continue;
+    }
+    if (!discard) button.dataset.action = action.kind;
+    button.title = discard ? "Give up this quest" : playText(action);
     button.disabled = selectionBlocked();
     button.onclick = () => {
       questOpen = false;
@@ -2843,11 +2845,7 @@ function questFrame({ id, quest, met }) {
     setCardLabel(node("span", undefined, "quest-verb"), verb),
     node("span", quest.level ? romanLevel(quest.level) : "", "quest-level"),
   );
-  const target = quest.target,
-    targetPlace =
-      quest.kind === "item"
-        ? itemPlace(world, target)
-        : world.actors[target]?.place;
+  const target = quest.target;
   el.append(
     // Face down, it shows the carved lid until it turns.
     Object.assign(node("img", undefined, "card-back"), {
@@ -2862,9 +2860,7 @@ function questFrame({ id, quest, met }) {
         kind: quest.kind,
         target,
         covered: hidden,
-        here:
-          (quest.step?.at && known(quest.step.at) ? quest.step.at : null) ||
-          (!hidden && targetPlace === here ? here : null),
+        here: questGround(world, quest, hidden, known),
         to: quest.step?.to,
         toCovered: Boolean(quest.step?.to && !known(quest.step.to)),
       },

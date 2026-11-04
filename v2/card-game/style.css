@@ -3018,9 +3018,10 @@ main > .dialogue {
     flex: 0 1 auto;
     max-width: 50%;
   }
-  /* Three verbs (a quest's step, a reason and Discard) still fit. */
+  /* Its verbs wrap between words but never clip: a quest's step and
+     Discard both fit. */
   body[data-dialogue-over="true"] .beat-action #card-actions button {
-    min-width: 0;
+    min-width: min-content;
     padding-inline: 10px;
   }
   body[data-dialogue-over="true"] .action-beat-cards {
