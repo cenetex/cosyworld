@@ -327,19 +327,26 @@ try {
           });
         }
         const road = packDefinition("greek-drama").places[target]?.road;
-        // A road's two ends stack behind it and fan out in road order.
+        // On a road, the end it came from lies under it on the left and
+        // the other end waits at the row's right end (#2272).
         if (road) {
           await selectCard(page, target, { touch: width === 390 });
-          const visibleOrder = await page
-            .locator("#hand [data-card]")
-            .evaluateAll(
-              (cards, ids) =>
-                cards
-                  .map((card) => card.dataset.card)
-                  .filter((id) => ids.includes(id)),
-              ["mara", road[0], target, road[1]],
-            );
-          assert.deepEqual(visibleOrder, ["mara", target, road[0], road[1]]);
+          const back = (await state()).arrival.fromLocationId,
+            visibleOrder = await page
+              .locator("#hand [data-card]")
+              .evaluateAll(
+                (cards, ids) =>
+                  cards
+                    .map((card) => card.dataset.card)
+                    .filter((id) => ids.includes(id)),
+                ["mara", road[0], target, road[1]],
+              );
+          assert.deepEqual(visibleOrder, [
+            target,
+            back,
+            "mara",
+            road.find((end) => end !== back),
+          ]);
           await page.screenshot({
             path: new URL(`road-${journey.name}-${target}-${width}.png`, output)
               .pathname,

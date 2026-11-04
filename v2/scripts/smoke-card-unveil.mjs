@@ -3,7 +3,6 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
 import {
-  revealCard,
   selectCard,
   stackHits,
   wordsFellSilent,
@@ -41,17 +40,6 @@ try {
         "cosyworld.room-music",
         JSON.stringify({ enabled: false }),
       );
-      window.arrivals = [];
-      const animate = Element.prototype.animate;
-      Element.prototype.animate = function (...args) {
-        if (
-          this.matches?.("#hand .card") &&
-          args[0][0]?.opacity === 0 &&
-          !args[1].pseudoElement
-        )
-          window.arrivals.push(this.dataset.card);
-        return animate.apply(this, args);
-      };
     });
     await page.route("**/card-game/text", (route) => {
       const input = route.request().postDataJSON();
@@ -189,21 +177,18 @@ try {
         false,
       );
       const pond = page.locator('#hand [data-card="pond"]');
-      // The pond stacks face down behind the attic (#1780): it adds an edge
-      // to the location stack instead of arriving, and opening the stack
-      // brings it into the hand.
+      // The attic has no way back, so the pond, its only way on, lies face
+      // down and alone at the row's right end (#2272).
+      await pond.waitFor();
       assert.equal(
-        await pond.isVisible(),
-        false,
-        "the pond waits behind the attic",
+        await page
+          .locator("#hand > .card-frame:not([hidden]) > .card")
+          .last()
+          .getAttribute("data-card"),
+        "pond",
+        "the pond waits at the row's right end",
       );
-      await page
-        .locator('#hand .card-frame[data-places="1"] > [data-card="attic"]')
-        .waitFor();
-      assert(
-        !(await page.evaluate(() => window.arrivals.includes("pond"))),
-        "a folded place does not arrive",
-      );
+      assert.equal(await pond.getAttribute("data-unrevealed"), "true");
       // The doused lamp stays in hand and offers Light until it is lowered;
       // the play rests its beat, so the reply comes to the front, and a tap
       // on the raised hand brings Light back.
@@ -211,10 +196,6 @@ try {
       assert.equal(await light.count(), 0, "the beat rests after the play");
       await page.locator(".play-dock").dispatchEvent("click");
       assert.equal(await light.count(), 1, "the lamp still offers Light");
-      await (await revealCard(page, "attic")).click();
-      await page
-        .locator('#hand [data-card="attic"][aria-expanded="true"]')
-        .waitFor();
       const pressed = () =>
         page.evaluate(() =>
           [
@@ -222,7 +203,7 @@ try {
           ].map((card) => card.dataset.card),
         );
       const held = await pressed();
-      assert(held.includes("lamp"), "opening the stack keeps the lamp raised");
+      assert(held.includes("lamp"), "the lamp stays raised");
       const before = await state();
       assert.equal(await pond.locator(".card-back").isVisible(), true);
       assert(

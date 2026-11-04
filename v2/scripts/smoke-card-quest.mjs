@@ -473,7 +473,11 @@ try {
         .locator(`#hand ${selector}`)
         .click({ position: { x: 40, y: 16 } });
       await page.waitForTimeout(500);
-      assert.equal(await row(), `${cards} greek-ismene greek-sanctuary`, name);
+      assert.equal(
+        await row(),
+        `greek-sanctuary ${cards} greek-ismene greek-palace`,
+        name,
+      );
       if (actions)
         assert.deepEqual(
           await page.locator("#card-actions button").allInnerTexts(),

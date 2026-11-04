@@ -62,7 +62,8 @@ export async function revealCard(page, id) {
   const frame = card.locator("..");
   const holder = await frame.getAttribute("data-holder");
   if ((await frame.getAttribute("hidden")) !== null) {
-    if (!(await fanAvatarStack(page, holder))) {
+    if (!holder) await fanWays(page, frame);
+    else if (!(await fanAvatarStack(page, holder))) {
       await tapCard(await revealCard(page, holder));
       await fanAvatarStack(page, holder);
     }
@@ -82,7 +83,33 @@ export async function revealCard(page, id) {
       id,
     );
   }
+  // The folded top of the ways on fans them before it can be chosen.
+  if (!holder && (await wayTop(page).count()) && (await isWayTop(card)))
+    await fanWays(page, frame);
   return card;
+}
+// The ways on stack at the row's right end; the current place leads it, so
+// its first card is never one of them (#2272).
+const wayTop = (page) =>
+  page.locator(
+    '#hand > .card-frame:not([hidden], :first-child) > .card.location[aria-expanded="false"]',
+  );
+const isWayTop = (card) =>
+  card.evaluate(
+    (el) =>
+      el.getAttribute("aria-expanded") === "false" &&
+      el.classList.contains("location") &&
+      el.parentElement !== el.parentElement.parentElement.firstElementChild,
+  );
+// A covered top card is uncovered by its first tap, so tap until they fan.
+async function fanWays(page, frame) {
+  for (let i = 0; i < 3 && (await wayTop(page).count()); i++) {
+    await tapCard(wayTop(page).last());
+    await page.waitForFunction(
+      () => !document.querySelector("#hand [data-revealing]"),
+    );
+  }
+  return (await frame.getAttribute("hidden")) === null;
 }
 // The avatar's things lie in a stack beside it, its quests in another; a
 // folded stack's top card fans it out (#2256).

@@ -401,7 +401,9 @@ let shownQuests = [],
   questOpen = false,
   questFresh = false,
   // The avatar's fanned stack, "items" or "quests" (#2256).
-  avatarFan = null;
+  avatarFan = null,
+  // The place whose ways on are fanned at the row's right end (#2272).
+  waysOpen = null;
 // The folded card behind the avatar shows the top quest.
 const foldQuest = () => shownQuests[0] ?? sealedQuests[0] ?? null;
 const questEntries = () => [
@@ -1345,23 +1347,56 @@ function keepHeldSelection(before, action = null) {
   expandedHolders.clear();
   if (expanded) expandedHolders.add(actor);
 }
-// The places you can go from here stack face down behind the current place,
-// as held things stack behind their holder; opening the stack fans them out.
+// The current place leads the row, with the place the player came from
+// face down beneath it; the other ways on stack at the row's right end, so
+// exploring is a choice of left or right (#2272).
 const placeHere = () => world.actors[currentActor(world)].place;
 const stackedPlace = (id) => Boolean(places[id]) && id !== placeHere();
+const MOVES = ["move", "retreat", "sent-home"];
+// Display only: the player's latest arrival, from the log or, once trimmed,
+// the world's kept arrival, while it was here and still leads back.
+function cameFrom() {
+  const here = placeHere(),
+    last =
+      world.log.findLast(
+        (e) =>
+          !e.generated &&
+          e.actorId === currentActor(world) &&
+          e.fromLocationId &&
+          e.fromLocationId !== e.locationId &&
+          (MOVES.includes(e.verb) || (e.verb === "accompany" && e.accepted)),
+      ) ?? world.arrival,
+    from = last?.locationId === here ? last.fromLocationId : null;
+  return from && availableCards(world).includes(from) ? from : null;
+}
+const wayOn = (id) => stackedPlace(id) && id !== cameFrom();
 function stackPlaces(cards) {
   const here = placeHere(),
-    hand = cards.filter((id) => !stackedPlace(id));
-  let at = hand.indexOf(here) + 1;
-  while (
-    at > 0 &&
-    at < hand.length &&
-    things[hand[at]] &&
-    rootHolder(world, hand[at]) === here
-  )
-    at++;
-  hand.splice(at || hand.length, 0, ...cards.filter(stackedPlace));
-  return hand;
+    back = cameFrom(),
+    left = cards.filter(
+      (id) => id === here || (things[id] && rootHolder(world, id) === here),
+    );
+  if (!left.length) return cards;
+  return [
+    ...left,
+    ...(back ? [back] : []),
+    ...cards.filter((id) => !left.includes(id) && !stackedPlace(id)),
+    ...cards.filter(wayOn),
+  ];
+}
+// The ways on: the first face up, the rest face down behind it until its
+// tap fans them, as the avatar's stacks do; one alone is chosen at once.
+function wayStack(id) {
+  if (!wayOn(id)) return null;
+  const ways = availableCards(world).filter(wayOn),
+    open = waysOpen === placeHere(),
+    top = ways[0] === id;
+  return {
+    open,
+    top,
+    under: top && !open ? ways.length - 1 : 0,
+    shown: open || top || selected.includes(id),
+  };
 }
 // The avatar's things and quests lie in two stacks beside it, as the ways
 // on lie behind the current place (#2256); an empty stack is left out.
@@ -1400,7 +1435,7 @@ function avatarStack(id) {
   };
 }
 function syncAvatarStack(frame, id) {
-  const part = avatarStack(id);
+  const part = avatarStack(id) ?? wayStack(id);
   if (!part) return;
   frame.hidden = !part.shown;
   frame
@@ -1455,7 +1490,7 @@ function selectCards(cards, { keepOpen = false } = {}) {
       places[id] &&
       !cards.includes(id) &&
       !cards.some((card) => things[card] && rootHolder(world, card) === id) &&
-      !(id === placeHere() && cards.some(stackedPlace))
+      !(id === placeHere() && cards.includes(cameFrom()))
     )
       expandedHolders.delete(id);
   selected = cards;
@@ -1506,6 +1541,9 @@ function choose(id) {
   questOpen = false;
   // Any tap opens a folded row again; the held item is still raised.
   rowCollapsed = false;
+  // Any tap but one on the ways on folds them: one fan at a time.
+  const way = wayStack(id);
+  if (!way) waysOpen = null;
   // While the avatar's stacks show, tapping it folds them back, then lowers
   // it; tapping a folded stack fans it, folding the other; tapping a card in
   // the fan, or the only card in a stack, chooses it (#2256).
@@ -1517,7 +1555,20 @@ function choose(id) {
     if (settled) expandedHolders.delete(actor);
     selectCards(settled ? [] : [actor], { keepOpen: true });
   } else if (part?.under) avatarFan = part.kind;
-  else if (part) {
+  else if (way?.under) {
+    // Fanning the ways on folds the avatar's fan and the place's stack.
+    const here = placeHere();
+    waysOpen = here;
+    avatarFan = null;
+    selectCards(
+      selected.filter(
+        (cardId) =>
+          cardId !== here &&
+          cardId !== cameFrom() &&
+          !(things[cardId] && rootHolder(world, cardId) === here),
+      ),
+    );
+  } else if (part) {
     // A thing chosen takes the avatar's place in the choice, so it pairs
     // with another card as it did; tapped again, it is only lowered.
     const others = selected.filter((cardId) => cardId !== actor);
@@ -1536,7 +1587,7 @@ function choose(id) {
       selected.filter(
         (cardId) =>
           cardId !== id &&
-          !(id === placeHere() && stackedPlace(cardId)) &&
+          !(id === placeHere() && cardId === cameFrom()) &&
           (!things[cardId] || rootHolder(world, cardId) !== id),
       ),
       // Only the current place's own tap folds its ways on.
@@ -2400,8 +2451,7 @@ function updateCardSelection(frame) {
             (item) => things[item] && rootHolder(world, item) === id,
           )
         : [],
-    stack =
-      id === placeHere() ? availableCards(world).filter(stackedPlace) : [];
+    stack = id === placeHere() && cameFrom() ? [cameFrom()] : [];
   frame.dataset.raised = String(raised);
   button.setAttribute("aria-pressed", String(raised));
   button.dataset.selected = String(selected.includes(id));
@@ -2710,10 +2760,10 @@ function card(id) {
   frame.append(el);
   const holder = things[id]
     ? rootHolder(world, id)
-    : stackedPlace(id)
+    : id === cameFrom()
       ? placeHere()
       : null;
-  if (stackedPlace(id)) {
+  if (id === cameFrom()) {
     frame.dataset.holder = holder;
     frame.hidden = !expandedHolders.has(holder);
   } else if (people[holder] || places[holder]) {
@@ -2754,14 +2804,13 @@ function card(id) {
       }
     }
   }
-  const stack =
-    id === placeHere() ? availableCards(world).filter(stackedPlace) : [];
+  const stack = id === placeHere() && cameFrom() ? [cameFrom()] : [];
   if (stack.length) {
     frame.dataset.places = String(stack.length);
     frame.dataset.expanded = String(expandedHolders.has(id));
     el.setAttribute("aria-expanded", String(expandedHolders.has(id)));
     if (!hidden) observation.textContent += stackLabel(stack);
-    // Face-down cards: how many ways on, not where they lead.
+    // The way back lies face down beneath the current place.
     stackEdges(frame, stack.length);
   }
   syncAvatarStack(frame, id);
@@ -2788,9 +2837,7 @@ function card(id) {
 const cardBackImage = () =>
   `url("${imageUrl("./assets/card-back.webp", "card")}")`;
 const stackLabel = (stack) =>
-  stack.length
-    ? ` ${stack.length} ${stack.length === 1 ? "way" : "ways"} on. Select to show ${stack.length === 1 ? "it" : "them"}.`
-    : "";
+  stack.length ? " The way back lies beneath. Select to show it." : "";
 // The quest card: a small screen showing the player doing the quest's verb
 // with its target, with only the verb, the level and the tier colour as
 // words. It glows while the target is near. The card itself plays nothing:
@@ -4291,6 +4338,7 @@ function render() {
     for (const id of selected) {
       if (people[id] || places[id]) expandedHolders.add(id);
     }
+  if (rowCollapsed || waysOpen !== placeHere()) waysOpen = null;
   // Folding the avatar's stacks folds its fan and lowers a chosen quest.
   if (!expandedHolders.has(currentActor(world))) {
     avatarFan = null;
@@ -4343,6 +4391,7 @@ function render() {
     questOpen,
     questFresh,
     avatarFan,
+    waysOpen,
   ]);
   if (handKey !== renderedHand) {
     // The hand a page or a new game opens on is already dealt.
