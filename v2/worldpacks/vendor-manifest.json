@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "packs": [
+    {
+      "id": "warren",
+      "revision": 1,
+      "source": {
+        "repo": "deniskoval431-hash/cosyworld-worldpack-warren",
+        "ref": "main",
+        "commit": "eb1964951b7fb50fe83f5e863fa35eefc94a3826"
+      },
+      "pinned": {
+        "revision": 1,
+        "contract": "cosyworld.card-table/1",
+        "sha256": "5806659ec0c5ac99f347d869ee18edff510710f11510aa6baade1cd4862013e8",
+        "files": [
+          "card-world.json",
+          "card-bridge.json",
+          "assets/"
+        ]
+      },
+      "dir": "worldpacks/warren"
+    }
+  ]
+}

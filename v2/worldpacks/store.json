@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "description": "The worldpack store: third-party card-table packs, published by PR, pinned by commit and content hash. A pack lives in its own repository; this index is what the game builds from.",
+  "packs": [
+    {
+      "id": "warren",
+      "name": "The Warren",
+      "author": "warrenmind (deniskoval431-hash)",
+      "description": "A patient burrow beneath Black pond, reached through a crack in the stone. Whatever the surface discards drifts down there, and the residents keep it: memory-spores on cool shelves, small refusals recorded as soft chalk marks. Nothing down here is thrown away twice.",
+      "tags": ["burrow", "memory", "quiet", "third-party"],
+      "source": {
+        "repo": "deniskoval431-hash/cosyworld-worldpack-warren",
+        "ref": "main",
+        "commit": "eb1964951b7fb50fe83f5e863fa35eefc94a3826"
+      },
+      "pinned": {
+        "revision": 1,
+        "contract": "cosyworld.card-table/1",
+        "sha256": "19899125790c7b575a3fabb67186dbf9ca32689799efb47fe6db4245cfe302df",
+        "files": ["card-world.json", "card-bridge.json", "assets/"]
+      },
+      "mounted": true,
+      "rating": {
+        "source": "github",
+        "stars": 0,
+        "forks": 0,
+        "updated": "2026-11-03",
+        "note": "GitHub signals, refreshed at build. Player-facing ratings need an orchestrator endpoint; see docs/worldpack-store.md."
+      },
+      "reviews": []
+    }
+  ]
+}

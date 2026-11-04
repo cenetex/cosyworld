@@ -31,7 +31,7 @@ if (
 )
   problems.push("card-table.json needs schemaVersion 1 and distinct packs");
 
-const packs = (table.packs || []).map((id) => {
+  const packsFromTable = (table.packs || []).map((id) => {
   const source = read(`content/${id}/card-world.json`);
   const bridge = read(`worlds/${id}/card-bridge.json`);
   if (source.id !== id) problems.push(`${id}: source id must match its folder`);
@@ -55,6 +55,26 @@ const packs = (table.packs || []).map((id) => {
     ...joins,
   };
 });
+
+// Store packs: third-party worldpacks admitted by build-card-store.mjs.
+// They were verified and pinned there; here they only join the compile.
+let packs = packsFromTable;
+const vendorManifest = path.join(v2, "worldpacks/vendor-manifest.json");
+if (fs.existsSync(vendorManifest)) {
+  const vendors = JSON.parse(fs.readFileSync(vendorManifest, "utf8"));
+  if (vendors?.schemaVersion === 1 && Array.isArray(vendors.packs)) {
+    const inTree = new Set(table.packs);
+    const storePacks = vendors.packs
+      .filter((v) => !inTree.has(v.id))
+      .map((v) => {
+        const source = read(`worldpacks/${v.id}/card-world.json`);
+        const bridge = read(`worldpacks/${v.id}/card-bridge.json`);
+        const { schemaVersion: _sv, pack: _pk, id: bridgeId, description, ...joins } = bridge;
+        return { ...source, bridge: { id: bridgeId, description }, ...joins };
+      });
+    packs = packs.concat(storePacks);
+  }
+}
 
 const seen = new Map();
 problems.push(...packCompositionProblems(packs));
@@ -149,8 +169,8 @@ if (check) {
     );
     process.exit(1);
   }
-  console.log(`Card world packs are current: ${table.packs.join(", ")}.`);
+  console.log(`Card world packs are current: ${packs.map((p) => p.id).join(", ")}.`);
 } else {
   fs.writeFileSync(output, compiled);
-  console.log(`Wrote v2/card-game/packs.json: ${table.packs.join(", ")}.`);
+  console.log(`Wrote v2/card-game/packs.json: ${packs.map((p) => p.id).join(", ")}.`);
 }
