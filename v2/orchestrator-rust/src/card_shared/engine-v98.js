@@ -1472,8 +1472,12 @@
     ) && entityActive(s, t.at);
   }
   function sendShipHome(s, id) {
-    const t = transports[id], state = own(s, id), from = state.dock, ashore = passengerIds(s, id);
-    for (const actor of ashore) s.actors[actor].place = t.at;
+    const t = transports[id], state = own(s, id), from = state.dock, ashore = [];
+    for (const actor of passengerIds(s, id))
+      if (humanRoomAvailable(s, actor, t.at)) {
+        s.actors[actor].place = t.at;
+        ashore.push(actor);
+      }
     Object.assign(state, {
       phase: "docked",
       dock: t.at,
@@ -2072,7 +2076,9 @@
   var restStep = (s, actor, api, quest) => ({
     ...newWant(
       "place",
-      s.actors[actor].sanctuary ?? api.home(actor) ?? s.actors[actor].place,
+      [s.actors[actor].sanctuary, api.home(actor)].find(
+        (p) => p && (api.active?.(p) ?? true)
+      ) ?? s.actors[actor].place,
       s.turn
     ),
     quest,
@@ -2087,11 +2093,16 @@
     if (rest2 >= 0) return commitMet(s, actor, api, [], rest2);
     return offerLevelQuest(s, actor, api);
   }
+  function dropCost(s, actor, index = 0) {
+    const a = s.actors[actor], want = questsOf(s, actor)[index];
+    if (!want?.quest) return 0;
+    const floor = questXp(a.level ?? levelFor(a.xp));
+    return Math.max(0, Math.min(want.quest.level - 1, a.xp - floor));
+  }
   function dropQuest(s, actor, api, index = 0) {
     const a = s.actors[actor], list = questsOf(s, actor), want = list[index];
     if (!want) return;
-    if (want.quest)
-      a.xp = Math.max(questXp(a.level ?? levelFor(a.xp)), Math.floor(a.xp / 2));
+    a.xp -= dropCost(s, actor, index);
     a.gaveUp = { target: want.target, turn: s.turn };
     list.splice(index, 1);
     setQuests(a, list);
@@ -2269,7 +2280,8 @@
   }
   function refuseWant(s, actor, item, api) {
     const want = wantOf(s, actor);
-    if (want?.kind !== "item" || want.target !== item) return;
+    if (want?.kind !== "item" || want.target !== item || api.player(actor))
+      return;
     if (want.refusals === 0 && !travels(actor, s)) want.since = s.turn;
     want.refusals += 1;
     if (want.refusals >= REFUSAL_LIMIT) giveUp(s, actor, api);
@@ -3871,7 +3883,8 @@
     )
   );
   var packIdOf = (id) => packEntity(id)?.packId ?? (hubIds.has(id) ? "hub" : null);
-  var packOn = (world, packId) => !world.disabledPacks?.includes(packGroup(packId));
+  var groupAwake = (off, g) => !off?.includes(g) && !off?.includes(GROUPS[g]?.reachedBy);
+  var packOn = (world, packId) => groupAwake(world.disabledPacks, packGroup(packId));
   function conditionsMet(world, packId, conditions = [], actor = null) {
     if (!world.packs?.[packId]) return false;
     for (const condition of conditions)
@@ -4114,7 +4127,7 @@
     for (const e of choice.effects) {
       if (e.kind === "retire_item") {
         const root = rootOf2(world, e.item);
-        if (root === action.actor || (world.actors[root]?.place ?? root) === choice.at)
+        if (root === action.actor || root === choice.at)
           useUp(world, e.item, pack.items[e.item].holder);
       }
       if (e.kind === "drop_item") {
@@ -6225,7 +6238,7 @@
     ])
   );
   var startOf = (packId) => packId === "hub" ? hub.start : packDefinition(packId).entry;
-  var validDisabledPacks = (list) => list === void 0 || Array.isArray(list) && list.length > 0 && list.length < ORDER.length && list.every((g, i) => ORDER.includes(g) && (!i || list[i - 1] < g));
+  var validDisabledPacks = (list) => list === void 0 || Array.isArray(list) && list.length > 0 && ORDER.some((g) => groupAwake(list, g)) && list.every((g, i) => ORDER.includes(g) && (!i || list[i - 1] < g));
   function firstStart(s) {
     for (const g of ORDER)
       for (const p of GROUPS[g].packs)
@@ -6237,9 +6250,11 @@
     if (!GROUPS[id]) return "Only a world pack switches off";
     if ((s.standoffs || []).some((c) => [c.challenger, c.defender].includes(actor)))
       return "Not during a fight";
-    const off = s.disabledPacks || [];
+    const off = s.disabledPacks || [], via = GROUPS[id].reachedBy;
+    if (off.includes(via)) return `Reached by ${GROUPS[via].name}`;
     if (off.includes(id)) return null;
-    if (off.length === ORDER.length - 1) return "One world pack stays on";
+    if (!ORDER.some((g) => groupAwake([...off, id], g)))
+      return "One world pack stays on";
     if (GROUPS[id].packs.includes("hub") && s.opening && !s.opening.crossed)
       return "Not before the first crossing";
     return null;
@@ -6255,7 +6270,9 @@
     if (next.length) s.disabledPacks = next;
     else delete s.disabledPacks;
     if (action.enable) return { text: `${name} returns as it was.` };
-    for (const pack of GROUPS[id].packs) scatter(s, pack, api);
+    for (const g of ORDER)
+      if (groupAwake(off, g) && !groupAwake(next, g))
+        for (const pack of GROUPS[g].packs) scatter(s, pack, api);
     return {
       text: `${name} goes quiet. Everyone and everything from elsewhere there is scattered.`
     };
@@ -6267,33 +6284,46 @@
     const spots = at.length ? [...new Set(at)] : [firstStart(s)];
     let next = api.hash(`scatter:${pack}:${s.revision}`) % spots.length;
     const spot = () => spots[next++ % spots.length];
+    const root = (id) => {
+      let top = s.items[id].holder;
+      for (let i = 0; i < 32 && s.items[top]; i++) top = s.items[top].holder;
+      return top;
+    };
+    for (const [id, item] of byId(s.items)) {
+      const top = root(id);
+      if (mine(id) && s.actors[top] && !mine(top))
+        item.holder = s.actors[top].place;
+    }
     for (const [id, a] of byId(s.actors))
       if (!mine(id) && mine(a.place)) {
         a.place = api.want.player(id) ? spots[0] : spot();
         delete a.sleeping;
       }
-    for (const [id, item] of byId(s.items))
-      if (!mine(id) && mine(item.holder)) {
-        let top = item.holder;
-        for (let i = 0; i < 32 && s.items[top]; i++) top = s.items[top].holder;
-        item.holder = s.actors[top] && !mine(top) ? top : spot();
-      }
+    for (const [id, item] of byId(s.items)) {
+      if (mine(id) || !mine(item.holder)) continue;
+      const top = root(id), place = s.actors[top]?.place;
+      item.holder = s.actors[top] && !mine(top) ? top : place && !mine(place) && entityActive(s, place) ? place : spot();
+    }
     for (const c of [...s.standoffs || []])
       if (mine(c.location) || mine(c.challenger) || mine(c.defender))
         api.closeStandoff(s, c);
     for (const [ship, t] of Object.entries(transports)) {
       const state = s.transports[ship];
-      if (t.packId === pack)
+      if (t.packId === pack) {
+        const crew = state.riders.filter(mine);
         Object.assign(state, {
-          phase: "docked",
-          ...{ destination: null, riders: [], recall: null, since: s.turn }
+          phase: crew.length ? "arrived" : "docked",
+          ...{ destination: null, riders: crew, recall: null, since: s.turn }
         });
-      else if ((mine(state.dock) || mine(state.destination)) && !mine(t.at))
+      } else if ((mine(state.dock) || mine(state.destination)) && !mine(t.at))
         sendShipHome(s, ship);
     }
     for (const [id, a] of byId(s.actors)) {
       if (mine(id)) continue;
-      const list = questsOf(s, id);
+      if (mine(a.sanctuary)) delete a.sanctuary;
+      const list = questsOf(s, id).map(
+        (w) => w.step?.verb === "rest" && mine(w.target) ? restStep(s, id, api.want, w.quest) : w
+      );
       const named = (w) => names2(w).some(mine);
       const order = [...list.filter((w) => !named(w)), ...list.filter(named)];
       if (!order.length) continue;
@@ -6538,7 +6568,10 @@
   function homeRescueExit(s, place, actor = currentActor(s), previous = null) {
     const gate = homeGates[place];
     actor ||= currentActor(s);
-    return gate && (controlledByHuman(s, actor) || homeOf2(actor) === place || gate.opening && knownActors2(s).includes(actor)) && s.actors[actor]?.place === place && !ordinaryRouteHome(s, place, gate.rescue, actor, previous) && !homeGateRecoverable(s, place, gate, actor) ? gate.rescue : null;
+    return gate && (controlledByHuman(s, actor) || homeOf2(actor) === place || gate.opening && knownActors2(s).includes(actor)) && s.actors[actor]?.place === place && !ordinaryRouteHome(s, place, gate.rescue, actor, previous) && !homeGateRecoverable(s, place, gate, actor) ? (
+      // With its rescue place asleep, the first pack on takes them in (rules 98).
+      entityActive(s, gate.rescue) ? gate.rescue : firstStart(s)
+    ) : null;
   }
   function insideLampRemedy(s, actor) {
     const here = s.actors[actor].place, lamp = itemPlace2(s, "lamp"), oil = itemPlace2(s, "oil");
@@ -6639,8 +6672,9 @@
   var needed = (s, actor, item) => questsOf(s, actor).some(
     (want) => want.kind === "item" && bundle(s, item).includes(want.target)
   );
+  var humanHeld = (s, id) => controlledByHuman(s, id) || residentAvatar(s, id);
   function willingToGive(s, owner2, item, recipient = null) {
-    return !controlledByHuman(s, owner2) && recipient !== null && !resentment(s, owner2, recipient) && !needed(s, owner2, item) && giftDecision(s, owner2, item, recipient).accepted;
+    return !humanHeld(s, owner2) && recipient !== null && !resentment(s, owner2, recipient) && !needed(s, owner2, item) && giftDecision(s, owner2, item, recipient).accepted;
   }
   function tradePossible(s, actor, give, receive) {
     const other = s.items[receive]?.holder;
@@ -6702,6 +6736,7 @@
       reachable: (actor) => reachable(s, actor),
       places: () => Object.keys(places),
       home: homeOf2,
+      active: (id) => entityActive(s, id),
       sanctuaries,
       player: (id) => id === currentActor(s) || heldByHuman(s, id),
       questsBeginAt: forest_default.questsBeginAt,
@@ -6962,7 +6997,7 @@
         if (key === id || value === id) delete map[key];
     s.peaceUntil[id] = s.turn + 3;
   }
-  var fightsHere = (s, c, id) => [c.challenger, c.defender].includes(id) || !avoidsStandoffs(id) && !(sharedEnabled(s) && controlledByHuman(s, id));
+  var fightsHere = (s, c, id) => [c.challenger, c.defender].includes(id) || !avoidsStandoffs(id) && !(sharedEnabled(s) && humanHeld(s, id));
   var DEFEATS_TO_SEND_HOME = 3;
   function defeatInStandoff(s, c, winner, loser, here) {
     const defeats = s.defeats ??= {};
@@ -7170,7 +7205,7 @@
               [other]
             )
           );
-      } else if (!(sharedEnabled(s) && controlledByHuman(s, other)) && !avoidsStandoffs(other) && !conflict && !standoffFor(s, other) && s.peaceUntil[actor] <= s.turn && s.peaceUntil[other] <= s.turn) {
+      } else if (!(sharedEnabled(s) && humanHeld(s, other)) && !avoidsStandoffs(other) && !conflict && !standoffFor(s, other) && s.peaceUntil[actor] <= s.turn && s.peaceUntil[other] <= s.turn) {
         const stake = ids.find(
           (id) => s.items[id].holder === other && needed(s, actor, id)
         ) || ids.find((id) => s.items[id].holder === other) || null;
@@ -7319,7 +7354,7 @@
     const payments = ids.filter((id) => s.items[id].holder === actor);
     const tradePartners = new Set(
       payments.length ? knownActors2(s).filter(
-        (other) => other !== actor && !controlledByHuman(s, other) && s.actors[other].place === here
+        (other) => other !== actor && !humanHeld(s, other) && s.actors[other].place === here
       ) : []
     );
     const tradeGoods = ids.filter((id) => tradePartners.has(s.items[id].holder));
@@ -8256,7 +8291,7 @@
       );
       if (voyage.kind === "home") {
         for (const id of voyage.ashore)
-          if (!controlledByHuman(next, id)) setAsideWant(next, id, wantAPI(next));
+          if (!humanHeld(next, id)) setAsideWant(next, id, wantAPI(next));
       }
     }
     const worldLine = (text2, locationId) => addLog(next, "World", text2, { kind: "narration", locationId });
