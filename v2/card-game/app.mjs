@@ -4310,7 +4310,25 @@ function renderLog(open = $("history-dialog").open) {
   );
 }
 
+// A card responds to a moved pointer. A new deal clears that hover so a
+// resting mouse leaves the newly centred hand settled.
+const hoverCard = (event) => {
+  if (event.pointerType !== "mouse") return;
+  for (const card of document.querySelectorAll('.card[data-hovered="true"]'))
+    delete card.dataset.hovered;
+  const card = event.target.closest(".card");
+  if (card) card.dataset.hovered = "true";
+};
+for (const id of ["hand", "settings-hand"]) {
+  $(id)?.addEventListener("pointermove", hoverCard);
+  $(id)?.addEventListener("pointerleave", () => {
+    for (const card of $(id).querySelectorAll('.card[data-hovered="true"]'))
+      delete card.dataset.hovered;
+  });
+}
 function render() {
+  for (const card of document.querySelectorAll('.card[data-hovered="true"]'))
+    delete card.dataset.hovered;
   showWorldTier(world, worldLogoKey(location.href));
   renderPlayers();
   music.setStarted(musicHasStarted());
