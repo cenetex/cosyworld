@@ -53,9 +53,33 @@ only the route and status. `GET /moderation/play-metrics` (moderation token)
 returns the last seven days. Nothing reads the counts back into play.
 
 `metrics.mjs` counts in memory and sends one `sendBeacon` batch a minute and on
-`pagehide`. Settings has "Share anonymous play counts". With it off, under
+`pagehide`. Settings has a Play counts card. With it off, under
 Global Privacy Control, or in the desktop app until turned on, nothing is
 counted or sent. `smoke-card-play-counts.mjs` checks all three.
+
+## Settings
+
+☰ › Settings is a hand of cards in place of the play hand
+(`settings-cards.mjs` deals it, `settings-screen.mjs` draws it). Choosing a
+card puts its action in the context button ("Turn voices off", "Open
+privacy"); pressing the button does it. With no card chosen the button is
+Close settings, and Escape unchooses, then closes. A card shows only its name
+and art. Its face is its state: lit while on, dim while off. State words and
+reasons are in the button and the beat's info line, and in each card's
+accessible name ("Music, off"). Sign out, New game and Restore a backup ask a
+second press ("Tap again to sign out"); a credit commit asks in its own beat.
+
+Privacy comes first, then Music, Volume, Voices, Flashes and scares, Fight
+speed and Play counts. Hosted play adds Account (Sign in with your passkey, or
+Sign out) and Credits; a shared world adds Another passkey and World pool; the
+local table adds New game, and the desktop app Backup. Controls steps through
+tips, and Download opens `/download`. Four pack cards close the hand: Cosy
+Cottage (`lonely-forest`), The Reflected Shore (the hub), The Wine-Dark Sea
+(`greek-drama`) and Hoppy Cat Universe (`hoppycat-archive`). Every pack is
+mounted in every world (`installPacks`), so a pack card is lit and its button
+says so. The cards drive the controls in `#menu-dialog`, which no longer
+opens. `smoke-card-settings.mjs` checks choosing, pressing, the second press
+and closing at three widths.
 
 ## Public assets
 
@@ -134,7 +158,7 @@ Queued, missing and scene-only legacy records cannot spend the pool. Old
 shared clients must refresh. Personal local speech still sends speaker/text,
 and local Chatterbox stays free.
 
-The Settings footer and the brand tooltip name the build from the
+The Download card in Settings and the brand tooltip name the build from the
 server's `/meta` (`v1.2.104 · 94ff0b8 · rules 57`, commit linked); a static
 server shows none.
 

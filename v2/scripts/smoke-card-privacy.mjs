@@ -4,6 +4,7 @@
 import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
 import { chromium } from "playwright";
+import { openSettings, pressSetting } from "./card-browser-helpers.mjs";
 import { createServer } from "../card-game/serve.mjs";
 import { createWorld, encodeSave } from "../card-game/world.mjs";
 
@@ -72,10 +73,10 @@ try {
     await page.screenshot({ path: `${output}/passkey-${width}x${height}.png` });
     await lobby.getByRole("button", { name: "Close" }).click();
 
-    // Settings links the Privacy page.
-    await page.locator("#toolbar-menu-button").click();
-    await page.locator("#menu-button").click();
-    await page.locator("#privacy-link").waitFor();
+    // Settings deals the Privacy card first; its button opens the page.
+    await openSettings(page);
+    await pressSetting(page, "privacy", 0);
+    assert.equal(await page.textContent("#setting-privacy"), "Open privacy");
     await page.screenshot({ path: `${output}/settings-${width}.png` });
 
     // A members-only server's sign-in lock shows the one-line notice.

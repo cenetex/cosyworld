@@ -62,6 +62,10 @@
       ]
     },
     {
+      "paths": "^v2/card-game/settings-",
+      "smokes": ["smoke-card-settings"]
+    },
+    {
       "paths": "^v2/card-game/(privacy|shared-auth)",
       "smokes": ["smoke-card-privacy"]
     },

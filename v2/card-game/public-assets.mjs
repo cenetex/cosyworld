@@ -212,6 +212,8 @@ const files = [
   "pack-landings.json",
   "world.mjs",
   "scene-cast.mjs",
+  "settings-cards.mjs",
+  "settings-screen.mjs",
   "scene.mjs",
   "weather.mjs",
   "weather.json",

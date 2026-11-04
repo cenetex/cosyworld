@@ -7,6 +7,9 @@ import {
   selectCard,
   stackHits,
   wordsFellSilent,
+  openSettings,
+  closeSettings,
+  startNewGame,
 } from "./card-browser-helpers.mjs";
 
 const server = createServer();
@@ -347,10 +350,9 @@ try {
       await selectCard(page, "station");
       await page.locator("#card-actions .card-primary").click();
       if (motion !== "reduce") {
-        await page.locator("#toolbar-menu-button").click();
-        await page.locator("#menu-button").click();
+        await openSettings(page);
         await page.waitForTimeout(2400);
-        await page.locator('[data-close="menu-dialog"]').click();
+        await closeSettings(page);
       }
       await unveil("keeper");
       assert.equal(
@@ -407,11 +409,8 @@ try {
       );
       assert.deepEqual(await state(), saved);
       // Reset through the real menu, then cancel a live reveal with a save update.
-      await page.locator("#toolbar-menu-button").click();
       // Signed out, Settings holds New game (#1892).
-      await page.locator("#menu-button").click();
-      await page.locator("#new-game").click();
-      await page.locator("#confirm-reset").click();
+      await startNewGame(page);
       await ready();
       assert.equal((await state()).actors.vale.place, "attic");
       assert.equal((await state()).items.lamp.lit, true);

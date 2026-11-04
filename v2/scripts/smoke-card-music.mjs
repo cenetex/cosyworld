@@ -4,6 +4,9 @@ import {
   clearSelection,
   selectCard,
   startNewGame,
+  openSettings,
+  pressSetting,
+  closeSettings,
 } from "./card-browser-helpers.mjs";
 import assert from "node:assert/strict";
 import { chromium } from "playwright";
@@ -69,11 +72,10 @@ try {
     await page.locator("#card-actions .card-primary").click();
   }
   // A new game stays quiet, menu included, until its first accepted card play.
-  await page.locator("#toolbar-menu-button").click();
-  await page.locator("#menu-button").click();
+  await openSettings(page);
   await page.waitForTimeout(500);
   assert(await page.locator("#room-music").evaluate((audio) => audio.paused));
-  await page.locator('[data-close="menu-dialog"]').click();
+  await closeSettings(page);
   // Dousing the lit lamp reveals the pond path and starts the first music.
   await playCard("lamp");
   await page.waitForFunction(() =>
@@ -98,8 +100,7 @@ try {
     const audio = document.querySelector("#room-music");
     return new URL(audio.src).pathname.endsWith(file) && audio.currentTime > 0;
   }, roomTracks.pond[0].file);
-  await page.locator("#toolbar-menu-button").click();
-  await page.locator("#menu-button").click();
+  await openSettings(page);
   let volume = 0.3;
   const fullVolume = () =>
     page.waitForFunction(
@@ -175,7 +176,7 @@ try {
   });
   volume = 0.18;
   await fullVolume();
-  await page.locator('[data-close="menu-dialog"]').click();
+  await closeSettings(page);
 
   async function travel(room, card = room, check = () => checkPlaylist(room)) {
     await fullVolume();
@@ -239,10 +240,9 @@ try {
   await page.waitForFunction(
     () => !document.querySelector("#room-music").paused,
   );
-  await page.locator("#toolbar-menu-button").click();
-  await page.locator("#menu-button").click();
+  await openSettings(page);
   await fullVolume();
-  await page.locator("#music-toggle").click();
+  await pressSetting(page, "music");
   assert(await page.locator("#room-music").evaluate((audio) => !audio.paused));
   await page.waitForFunction(
     () => document.querySelector("#room-music").paused,
@@ -253,29 +253,27 @@ try {
     "Active songs fade before a pause",
   );
   await page.reload();
-  await page.locator("#toolbar-menu-button").click();
-  await page.locator("#menu-button").click();
+  await openSettings(page);
   assert.equal(
     await page.locator("#music-toggle").getAttribute("aria-pressed"),
     "false",
   );
   assert.equal(await page.locator("#music-volume").inputValue(), "18");
   assert(await page.locator("#room-music").evaluate((audio) => audio.paused));
-  await page.locator("#music-toggle").click();
+  await pressSetting(page, "music");
   await page.waitForFunction(
     () => !document.querySelector("#room-music").paused,
   );
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.locator("#music-volume").scrollIntoViewIfNeeded();
-  assert(await page.locator("#music-volume").isVisible());
-  assert(await page.locator("#music-toggle").isVisible());
+  for (const id of ["music", "volume"])
+    assert(await page.locator(`[data-setting="${id}"]`).isVisible());
   await fullVolume();
-  await page.locator("#music-toggle").click();
+  await pressSetting(page, "music");
   assert(await page.locator("#room-music").evaluate((audio) => !audio.paused));
   await page.waitForFunction(
     () => document.querySelector("#room-music").paused,
   );
-  await page.locator("#music-toggle").click();
+  await pressSetting(page, "music");
   await fullVolume();
   await page.screenshot({ path: "output/music/shore-room-mobile.png" });
 
@@ -301,11 +299,10 @@ try {
     localStorage.setItem("cosyworld.reflected-shore.v1.music-smoke", save);
   }, encodeSave(ship));
   await page.reload();
-  await page.locator("#toolbar-menu-button").click();
-  await page.locator("#menu-button").click();
+  await openSettings(page);
   await fullVolume();
   assert.equal(await page.locator("#music-volume").inputValue(), "18");
-  await page.locator('[data-close="menu-dialog"]').click();
+  await closeSettings(page);
 
   async function checkCrossingSong() {
     await page.waitForFunction((tracks) => {
@@ -392,10 +389,9 @@ try {
   await startNewGame(page);
   assert(await page.locator("#room-music").evaluate((audio) => audio.paused));
   await page.reload();
-  await page.locator("#toolbar-menu-button").click();
-  await page.locator("#menu-button").click();
-  await page.locator("#music-toggle").click();
-  await page.locator("#music-toggle").click();
+  await openSettings(page);
+  await pressSetting(page, "music");
+  await pressSetting(page, "music");
   await page.waitForTimeout(1200);
   assert(await page.locator("#room-music").evaluate((audio) => audio.paused));
   assert.deepEqual(errors, []);

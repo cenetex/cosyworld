@@ -164,6 +164,10 @@
       <section class="play-dock" aria-label="Card hand">
         <div class="hand-wrap">
           <div id="hand" class="hand" aria-label="Playable cards"></div>
+          <!-- Settings: a hand of cards that stands in for this one. -->
+          <dialog id="settings-screen" aria-label="Settings">
+            <div id="settings-hand" class="hand" role="group"></div>
+          </dialog>
         </div>
         <p id="play-readout" class="sr-only" aria-live="polite"></p>
       </section>

@@ -44,6 +44,7 @@ import {
   hauntScene,
   installScaresToggle,
 } from "./transitions.mjs";
+import { installSettingsCards } from "./settings-screen.mjs";
 import { installToolbar, renderPlayers } from "./toolbar.mjs";
 import { innerLifeChain, innerLifeSection } from "./inner-life.mjs";
 import { combatBeats, lastSeq, theName } from "./combat-beats.mjs";
@@ -1810,7 +1811,7 @@ function showBorrowedBeat(row, heading) {
   note.textContent = note.title = beat.note || "";
   note.hidden = !beat.note;
   row.replaceChildren(
-    ...beat.buttons.map(({ label, id, run }, index) => {
+    ...beat.buttons.map(({ label, id, run, disabled }, index) => {
       const button = node(
         "button",
         label,
@@ -1819,6 +1820,7 @@ function showBorrowedBeat(row, heading) {
       button.type = "button";
       button.id = id;
       button.dataset.keepMenu = "true";
+      button.disabled = Boolean(disabled);
       button.onclick = run;
       return button;
     }),
@@ -1914,8 +1916,9 @@ function renderActions() {
   document.querySelector(".play-dock").dataset.selected = String(
     selected.length > 0 && !rowCollapsed,
   );
+  // Settings' hand of cards stands raised (settings-cards.mjs).
   document.body.dataset.handExpanded = String(
-    dragging.length > 0 || !rowCollapsed,
+    dragging.length > 0 || !rowCollapsed || $("settings-screen").open,
   );
   syncLayering();
   if (borrowedBeat) return showBorrowedBeat(row, heading);
@@ -4162,10 +4165,7 @@ $("history-button").onclick = () => {
   $("messages").scrollTop = 0;
 };
 startMetrics($("metrics-toggle"));
-$("menu-button").onclick = () => {
-  $("menu-dialog").showModal();
-  pauseSpeech();
-};
+$("menu-button").onclick = () => settingsCards.open();
 document
   .querySelectorAll("[data-close]")
   .forEach(
@@ -4674,9 +4674,13 @@ installToolbar({
   // ☰'s seat actions are a beat in front of the dialogue.
   actionBeat: { show: showActionBeat, clear: clearActionBeat },
 });
+const settingsCards = installSettingsCards({
+  actionBeat: { show: showActionBeat, clear: clearActionBeat },
+  avatar: () => portrait(currentActor(world), null, world),
+});
 installCreditPool({
   actionBeat: { show: showActionBeat, clear: clearActionBeat },
-  closeSettings: () => $("menu-dialog").close(),
+  closeSettings: () => settingsCards.close(),
 });
 // The root page resumes whichever avatar was played last.
 if (!tableName && !startingPack)

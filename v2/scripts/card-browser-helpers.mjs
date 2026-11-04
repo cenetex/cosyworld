@@ -25,13 +25,29 @@ export async function tapCard(card) {
   await card.click({ position: { x: width / 2, y: 16 } });
 }
 
-// Signed out, ☰ > Settings holds New game, which asks before Vale's local
-// table starts over (#1892).
-export async function startNewGame(page) {
+// ☰ > Settings is a hand of cards (settings-cards.mjs). A setting is
+// chosen, then its context button (#setting-<card>) pressed `times` times:
+// a destructive one takes two. Escape unchooses, then closes.
+export async function openSettings(page) {
   await page.locator("#toolbar-menu-button").click();
   await page.locator("#menu-button").click();
-  await page.locator("#new-game").click();
-  await page.locator("#confirm-reset").click();
+  await page.locator("#settings-hand .card").first().waitFor();
+}
+export async function pressSetting(page, id, times = 1) {
+  const card = page.locator(`#settings-hand [data-setting="${id}"]`);
+  if ((await card.getAttribute("aria-pressed")) !== "true") await tapCard(card);
+  for (let i = 0; i < times; i++) await page.locator(`#setting-${id}`).click();
+}
+export async function closeSettings(page) {
+  while (await page.locator("#settings-screen[open]").count())
+    await page.keyboard.press("Escape");
+}
+
+// Signed out, Settings holds New game, which asks again before Vale's local
+// table starts over (#1892).
+export async function startNewGame(page) {
+  await openSettings(page);
+  await pressSetting(page, "new-game", 2);
 }
 
 // Use the same holder reveal and selection gestures as a player.
