@@ -395,7 +395,10 @@ the card's dark ground (`questGround`). A Give shows a place only when its
 step binds the gift to one; the rules draw none, so a Give shows none. An
 unknown target shows a small carved card back in its slot, and an unknown
 place shows the back alone. A step that gives to
-someone shows all three: the player, the thing and the recipient. Its label is
+someone shows all three: the player, the thing and the recipient. A step bound
+to a place not yet found (Bring the board home to a pavilion not yet
+discovered) shows the carved back in the recipient's slot and no ground, never
+the place where the player stands (`questBox`, #2280). Its label is
 its verb alone, on one line, in the standard card label (Talk, Give, Find,
 Bring, Meet, Hold, Go to, Discover, Introduce; a level or story quest shows its
 current step's verb; a quest to rest at a sanctuary reads Go to on the way and
