@@ -323,12 +323,11 @@ try {
     await selectCard(page, "moth");
     assert.deepEqual(await chosen(), ["pond"]);
     assert.deepEqual(await labels(), ["Travel"]);
-    // Tapping the chosen way on again only lowers it: the stack stays fanned
-    // (#2247).
+    // Tapping the chosen way on again only lowers it (#2247); a lone way on
+    // stays in view at the row's right end (#2272).
     await selectCard(page, "pond");
     assert.deepEqual(await chosen(), []);
     assert.deepEqual(await labels(), []);
-    assert.equal(await card("station").getAttribute("aria-expanded"), "true");
     assert.equal(await card("pond").isVisible(), true);
     await page.keyboard.press("Escape");
     await selectCard(page, "moth", { touch: width < 700 });
@@ -337,8 +336,9 @@ try {
     const order = await page
       .locator("#hand .card")
       .evaluateAll((cards) => cards.map((c) => c.dataset.card));
-    assert.equal(order[0], "vale");
-    assert(order.indexOf("station") > order.indexOf("moth"));
+    // The current place leads the row (#2272).
+    assert.equal(order[0], "station");
+    assert(order.indexOf("vale") < order.indexOf("moth"));
     assert.deepEqual(order.slice(-1), ["pond"]);
     assert.equal(order[order.indexOf("moth") + 1], "cloth");
     await shot("pip-items");

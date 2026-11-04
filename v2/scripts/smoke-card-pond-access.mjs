@@ -267,11 +267,13 @@ try {
     await card("forest-cottage").waitFor({ state: "attached" });
     await ready();
     assert.equal(await card("pond").count(), 0);
+    // The one way on waits at the row's right end (#2272).
     assert.equal(
       await page
-        .locator("#hand .card-frame[data-places]")
-        .getAttribute("data-places"),
-      "1",
+        .locator("#hand > .card-frame:not([hidden]) > .card")
+        .last()
+        .getAttribute("data-card"),
+      "forest-cottage",
     );
     await painted("attic-lit-cottage");
     await page.reload();

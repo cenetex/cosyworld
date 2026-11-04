@@ -139,13 +139,10 @@ try {
       await page.waitForFunction(
         () => document.body.dataset.lamplit === "false",
       );
-      // The pond lies face down behind the attic, an edge on its stack.
+      // The pond, the attic's one way on, lies face down at the row's right
+      // end (#2272).
       await page.waitForSelector(
-        '#hand .card[data-card="pond"][data-unrevealed="true"]',
-        { state: "attached" },
-      );
-      await page.waitForSelector(
-        '#hand .card-frame[data-places="1"] > [data-card="attic"]',
+        '#hand > .card-frame:last-child > .card[data-card="pond"][data-unrevealed="true"]',
       );
       seen = await view();
       assert.deepEqual(seen.cast, ["vale"]);

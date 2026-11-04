@@ -21,6 +21,27 @@ courtyard. The courtyard keeps the Harbor Road, the palace and the gate, plus
 the well within it. A saved step between the courtyard and the sanctuary is
 re-walked through the palace (`upgradeGreekThreeLinksSave`).
 
+## The row (#2272)
+
+The card row makes the cap a left-or-right choice. The current place leads
+the row at the left, with the place the player came from face down beneath
+it; tapping the current place fans that stack (and the things lying there),
+and choosing the way back offers **Travel** back. The avatar, its two stacks
+and the cast follow. The other ways on stack at the right end: the first
+face up, the rest face down behind it, fanned by tapping it; a lone way is
+chosen at the first tap. Normally that is two ways under the cap.
+
+- With no way back (a new world, a fresh load, a one-way crossing), every way
+  on goes in the right stack.
+- At a dead end whose only way is back, there is no right stack.
+- A place still in `OVER_CAP_FOR_NOW` puts all its other ways in the right
+  stack.
+
+"Came from" is presentation only (`cameFrom` in `app.mjs`): the player's
+latest arrival in the log, or `world.arrival` once that entry is trimmed,
+counted only while it arrived here and the place is still a way on. No rule
+or bundle changes.
+
 ## Engine
 
 The save upgrade lives in `legacy-saves.mjs`, which the shared bundle

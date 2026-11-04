@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
 import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
-import { encodeSave, legalActions } from "../card-game/world.mjs";
+import { encodeSave, legalActions, sealedWays } from "../card-game/world.mjs";
 import { profiles } from "../card-game/memory.mjs";
 import { packDefinition } from "../card-game/pack-registry.mjs";
 import { openDoorAction, openSeas } from "../../test/helpers/open-door.mjs";
@@ -273,9 +273,10 @@ try {
               (a) => a.kind === "move" && a.target === "greek-gate",
             ),
           );
+          // A guarded way shows only its shut card (rules 100).
           assert.equal(
             await page.locator('#hand [data-card="greek-gate"]').count(),
-            0,
+            sealedWays(here, "mara").some((r) => r.to === "greek-gate") ? 1 : 0,
           );
           await page.screenshot({
             path: new URL(`battlefield-gate-shut-${width}.png`, output)
@@ -327,19 +328,26 @@ try {
           });
         }
         const road = packDefinition("greek-drama").places[target]?.road;
-        // A road's two ends stack behind it and fan out in road order.
+        // On a road, the end it came from lies under it on the left and
+        // the other end waits at the row's right end (#2272).
         if (road) {
           await selectCard(page, target, { touch: width === 390 });
-          const visibleOrder = await page
-            .locator("#hand [data-card]")
-            .evaluateAll(
-              (cards, ids) =>
-                cards
-                  .map((card) => card.dataset.card)
-                  .filter((id) => ids.includes(id)),
-              ["mara", road[0], target, road[1]],
-            );
-          assert.deepEqual(visibleOrder, ["mara", target, road[0], road[1]]);
+          const back = (await state()).arrival.fromLocationId,
+            visibleOrder = await page
+              .locator("#hand [data-card]")
+              .evaluateAll(
+                (cards, ids) =>
+                  cards
+                    .map((card) => card.dataset.card)
+                    .filter((id) => ids.includes(id)),
+                ["mara", road[0], target, road[1]],
+              );
+          assert.deepEqual(visibleOrder, [
+            target,
+            back,
+            "mara",
+            road.find((end) => end !== back),
+          ]);
           await page.screenshot({
             path: new URL(`road-${journey.name}-${target}-${width}.png`, output)
               .pathname,
@@ -384,7 +392,7 @@ try {
       }
       assert.deepEqual(errors, []);
       console.log(
-        `Greek travel (${journey.name}): ${width}px, Mara first, roads with their ends stacked behind, the gates, reload, and return passed.`,
+        `Greek travel (${journey.name}): ${width}px, Mara first, roads with the way back left and the way on right, the gates, reload, and return passed.`,
       );
       await page.close();
     }
