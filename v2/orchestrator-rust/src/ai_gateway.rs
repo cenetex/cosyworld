@@ -3474,25 +3474,14 @@ pub(crate) fn chat_messages(system: &str, assistant: &str, user: Value, quote: b
     Value::Array(turns)
 }
 
-/// Speech after an opening quote is its quoted spans, joined, and is
-/// finished once a quote closes: `Mind the oil," he says. "And the wick."`
-/// is `Mind the oil, And the wick.`; a span left open is dropped.
-pub(crate) fn unquote(text: &str) -> (String, bool) {
+/// A reply that continued its opening quote, as its speaker wrote it, and
+/// whether a quote closed: the voice check keeps the speaker's own quoted
+/// words (`card_narrative::speech`), so a tag naming someone else
+/// (`Then stay,” Pip says`) still shows whose they were.
+pub(crate) fn prefilled(text: &str) -> (String, bool) {
     let text = text.trim_start().trim_start_matches(['\u{201c}', '"']);
-    let mut parts: Vec<&str> = text.split(['\u{201c}', '\u{201d}', '"']).collect();
-    let closed = parts.len() > 1;
-    if closed && parts.len() % 2 == 1 {
-        parts.pop();
-    }
-    let spans = parts.iter().step_by(2).map(|span| span.trim());
-    let said = spans
-        .filter(|span| !span.is_empty())
-        .collect::<Vec<_>>()
-        .join(" ");
-    match said.strip_suffix(',') {
-        Some(head) if closed => (format!("{head}."), true),
-        _ => (said, closed),
-    }
+    let closed = text.contains(['\u{201d}', '"']);
+    (format!("{OPEN_QUOTE}{text}"), closed)
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -3867,7 +3856,7 @@ async fn request_completion(
         config
             .readiness
             .record_success(CHAT_COMPLETIONS_ENDPOINT, model);
-        let (text, finish_reason) = match quote.then(|| unquote(&text)) {
+        let (text, finish_reason) = match quote.then(|| prefilled(&text)) {
             Some((said, true)) => (said, "stop".to_string()),
             Some((said, false)) => (said, finish_reason),
             None => (text, finish_reason),
@@ -4689,15 +4678,13 @@ mod tests {
             json!({"role": "assistant", "content": "\u{201c}", "prefix": true})
         );
         assert_eq!(
-            unquote("Mind the oil,\u{201d} he says"),
-            ("Mind the oil.".into(), true)
+            prefilled("Mind the oil,\u{201d} he says"),
+            ("\u{201c}Mind the oil,\u{201d} he says".into(), true)
         );
         assert_eq!(
-            unquote("Mind the oil, and"),
-            ("Mind the oil, and".into(), false)
+            prefilled("\u{201c}Mind the oil, and"),
+            ("\u{201c}Mind the oil, and".into(), false)
         );
-        let spans = "Mind it,\u{201d} he says. \u{201c}And the wick.\u{201d} He \u{201c}Then";
-        assert_eq!(unquote(spans), ("Mind it, And the wick.".into(), true));
     }
 
     #[test]

@@ -253,7 +253,8 @@ an empty reply; one over its size cap or unfinished (`shape`); an
 instruction aimed at a model (`instruction`); system talk (`assistant`); a
 run of ten or more words from the prompt's own instructions (`echoed
 brief`); and a false world claim (`observable_state`, `custody`,
-`story_outcome`). A blocked reply is retried once, and the retry's system
+`story_outcome`); and an answer whose quoted words are all someone else's
+(`other speaker`). A blocked reply is retried once, and the retry's system
 message ends with a short first-person correction for that reason, such as
 "I stay in this moment and speak as myself." (`CORRECTIONS` in
 `framing.rs`). Everything else is **flagged**: self-narration, stage
@@ -270,7 +271,13 @@ passed over, and a stage direction inside a line goes; both flag `stage
 action`. A character whose reply opens in narration speaks from its first
 line, then its first sentence, that talks to someone ("The rain has begun.
 Come in, Pip." publishes "Come in, Pip."), unless the narration tells its
-fact. The heard line said back first goes too. Narration that never talks
+fact. The heard line said back first goes too. An answer in quotes, as the
+local model and Mistral continue an opening quote after a heard line, keeps
+only the speaker's own spans (`speech.rs`), without their tags or the
+narration between them. A span tagged to someone else ("Then stay,” Pip
+says), a span that says the heard line back, and the untagged spans after
+them until the speaker acts again ("I nod.") are theirs; a reply that keeps
+some words of its own publishes them flagged `other speaker`. Narration that never talks
 (two or more sentences to no one, or a gesture such as "I shift my weight")
 is published flagged `self-narration`. A fact the speaker already
 witnessed is not added to its view again as the fact it may tell.
