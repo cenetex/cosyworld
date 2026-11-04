@@ -2,12 +2,15 @@
 // attic, pond, station, Steam Clock, Greek, Hoppycat, Willows and Lonely
 // Forest places), the painted backdrop fills the stage and every figure stands
 // whole on it: the floor cast, and a resident anchored to the painting itself.
+// On a phone, while a beat shows, every figure also stands clear of the
+// resting cards' tops.
 import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
 import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
 import { encodeSave, places, validateWorld } from "../card-game/world.mjs";
 import { openDoorStart } from "../../test/helpers/open-door.mjs";
+import { selectCard } from "./card-browser-helpers.mjs";
 
 const output = new URL("../../output/stage-fill/", import.meta.url);
 await mkdir(output, { recursive: true });
@@ -189,11 +192,78 @@ try {
         assert(!m.vale, `${where}: Vale stays off the Steam Clock stage`);
       } else assert.equal(m.anchored.length, 0, where);
     }
+    // A beat's dialogue box lies over the phone hand's foot and lifts its
+    // cards (#1897). The place card's Wait brings a beat where none shows.
+    if (await page.locator(".dialogue").evaluate((el) => el.hidden)) {
+      await page.setViewportSize({ width: 390, height: 844 });
+      await selectCard(page, place);
+      await page.locator("#card-actions .card-primary").click();
+      const waited = Date.now() + 20000;
+      while (
+        Date.now() < waited &&
+        (await page.locator("#hand").getAttribute("data-cooling")) !== "false"
+      ) {
+        if (await page.locator("#dialogue-advance").isVisible())
+          await page.locator("#dialogue-advance").click();
+        await page.waitForTimeout(30);
+      }
+      await page.keyboard.press("Escape");
+    }
+    for (const [width, height] of [
+      [390, 844],
+      [320, 568],
+    ]) {
+      await page.setViewportSize({ width, height });
+      await page.waitForTimeout(150);
+      const where = `${place} at ${width}x${height} during a beat`;
+      const m = await page.evaluate(() => {
+        const shown = (el) =>
+          el.getClientRects().length > 0 &&
+          getComputedStyle(el).visibility !== "hidden";
+        return {
+          beat:
+            !document.querySelector(".dialogue").hidden &&
+            document.body.dataset.dialogueOver === "true",
+          resting:
+            document.body.dataset.handExpanded !== "true" &&
+            document.querySelector(".play-dock").dataset.selected !== "true",
+          // The resting cards' tops, leaning outer cards included.
+          hand: Math.min(
+            ...[...document.querySelectorAll("#hand .card")]
+              .filter(shown)
+              .map((card) => card.getBoundingClientRect().top),
+          ),
+          figures: [
+            ...document.querySelectorAll("#cast .portrait img, .stage-figure"),
+          ]
+            .filter(shown)
+            .map((image) => ({
+              id:
+                image.dataset.resident ||
+                image.closest(".portrait").dataset.avatar,
+              bottom: image.getBoundingClientRect().bottom,
+            })),
+        };
+      });
+      assert(m.beat, `${where}: a beat shows over the hand`);
+      assert(m.resting, `${where}: the hand rests`);
+      assert(m.figures.length > 0, `${where}: someone stands on the stage`);
+      for (const { id, bottom } of m.figures)
+        assert(
+          bottom <= m.hand + 1,
+          `${where}: ${id}'s feet at ${bottom}, cards at ${m.hand}`,
+        );
+      if (width === 390)
+        await page.screenshot({
+          path: new URL(`${place}-beat-${width}x${height}.png`, output)
+            .pathname,
+        });
+    }
     assert.deepEqual(errors, [], place);
     await page.close();
   }
   console.log(
-    `Stage fill smoke passed: ${seeds.length} places fill one stage with whole figures at 1440x900, 390x844 and 844x390.`,
+    `Stage fill smoke passed: ${seeds.length} places fill one stage with whole figures at 1440x900, 390x844 and 844x390, and keep them above the resting hand during a beat at 390x844 and 320x568.`,
   );
 } finally {
   await browser.close();

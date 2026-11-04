@@ -434,6 +434,10 @@ above it with each card's foot still tucked behind it. A tap on the scene
 drops the hand again; there the dialogue never moves. Before the first beat there is no dialogue, and the hand leaves no hole for
 it: raised cards show whole, name and all, and the first beat lifts the row
 under its box. Short landscape screens keep the dialogue above the hand.
+While a beat shows on a phone, no figure stands behind the resting cards'
+tops: the cast stands on the dock's top edge, and a resident painted into the
+backdrop, such as Badger at the Steam Clock, steps up off its spot where a
+portrait screen's painting cannot rise far enough.
 A resting hand, and one tucked down for a fight, shows only its cards' art:
 each name and its shade fade out (120 ms; reduced motion switches at once)
 and fade back when the hand rises, a card is chosen, or a pointer or keyboard
