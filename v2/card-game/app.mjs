@@ -117,7 +117,12 @@ import {
 } from "./speech-knowledge.mjs";
 import { packMedia } from "./pack-registry.mjs";
 import { createRoomMusic, openingRevealed } from "./music.mjs";
-import { battleMusicDue, createMusicCues } from "./music-cues.mjs";
+import {
+  CUE_TRACKS,
+  HUSH,
+  battleMusicDue,
+  createMusicCues,
+} from "./music-cues.mjs";
 import { createHum } from "./hum.mjs";
 import { createSfx } from "./sfx.mjs";
 import { createCharacterSpeech } from "./character-speech.mjs";
@@ -1419,11 +1424,6 @@ function commitAction(action, revision, renderedAt = -Infinity) {
   if (selectionBlocked()) return;
   if (renderedAt >= lastPlayAt && performance.now() - lastPlayAt < SETTLE_MS)
     return;
-  // The player's next move ends the loss screen's song.
-  if (lossCue) {
-    lossCue = false;
-    syncMusicCue();
-  }
   // The drone falls silent just before a discovery is revealed.
   if (action.choiceId) hum.hush();
   // The same play chosen again keeps it; its Thinking card cancels it.
@@ -1557,6 +1557,10 @@ function combatStage() {
 function endCombat() {
   combatRun++;
   combatCue = false;
+  if (lossCue) {
+    lossCue = false;
+    syncMusicCue();
+  }
   combatView?.cleanup();
   $("travel").classList.remove("fainting");
   combatHeld.clear();
@@ -1583,11 +1587,19 @@ async function presentCombat(beats, land) {
     (beat) => beat.kind === "defeat" && beat.viewerLost,
   );
   if (defeat) {
-    // The loss screen's song plays from its fade to black, over the slow
-    // lift, until the player's next move (commitAction).
+    // The loss screen's song comes in on the black after three beats of
+    // silence (music-cues.mjs). Leaving the loss screen fades it out fully
+    // before the lift onto the next scene and its room song.
     lossCue = true;
     music.cue("battle-loss");
     await view.defeat(defeat);
+    if (mine !== combatRun) return;
+    music.cue(HUSH);
+    if (music.cueSounding)
+      await new Promise((done) =>
+        setTimeout(done, CUE_TRACKS["battle-loss"].fadeOut * 1000),
+      );
+    lossCue = false;
   }
   if (mine !== combatRun) return;
   await view.release();
