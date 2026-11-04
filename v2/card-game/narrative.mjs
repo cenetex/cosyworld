@@ -376,18 +376,8 @@ export function narrativeContext(world, action = null) {
           facts.unshift(
             `${nameOf(played.targetId)} ${played.accepted ? "agreed to" : "declined"} ${nameOf(played.actorId)}'s invitation to ${nameOf(played.destinationId)}. This is the recorded answer for this play.`,
           );
-        const company = Object.keys(world.actors).filter(
-          (other) =>
-            other !== id &&
-            known.includes(other) &&
-            entityActive(world, other) &&
-            world.actors[other].place === world.actors[id].place &&
-            (!world.controlledActors?.includes(other) ||
-              world.presentActors?.includes(other)),
-        );
-        facts.push(
-          `Location now: ${nameOf(world.actors[id].place)}. Company now: ${company.map(nameOf).join(", ") || "alone"}.`,
-        );
+        // Where it is and who is with it come from the resolved turn
+        // (`outcome`), which the story service words itself.
         const movement = changes.find((change) => change.actorId === id);
         if (defeated && id === speakers[0]) facts.unshift(defeated);
         else if (movement && speakers.includes(id))
@@ -436,22 +426,8 @@ export function narrativeContext(world, action = null) {
           facts.push(
             `Owes a favour to ${helpers.join(" and ")}; willing to share a spare or take a detour with them.`,
           );
-        for (const item of desire.items)
-          facts.push(
-            carried(world, id).includes(item)
-              ? `Already holds the wanted ${nameOf(item)}.`
-              : itemPlace(world, item) === world.actors[id].place
-                ? `Wants ${nameOf(item)}, currently with ${nameOf(rootHolder(world, item))}.`
-                : `Wants ${nameOf(item)}.`,
-          );
-        if (desire.location)
-          facts.push(
-            `Wants to be at ${nameOf(desire.location)}; currently at ${nameOf(world.actors[id].place)}.`,
-          );
-        if (desire.avatars.length)
-          facts.push(
-            `Wants the company of ${desire.avatars.map(nameOf).join(", ")}.`,
-          );
+        // The want is said once, by its own first-person line; `desire`
+        // carries its ids.
       } else if (kind === "item") {
         const item = world.items[id];
         facts.push(`Held by or resting at: ${nameOf(rootHolder(world, id))}.`);
@@ -486,9 +462,11 @@ export function narrativeContext(world, action = null) {
         if (id === "pond" && world.locations.pond.answer === "hush")
           facts.push("The wrapped bell rests beside the quiet water.");
       }
-      facts.push(
-        `At the dialogue scene: ${present.map(nameOf).join(", ")}. Items here: ${localItems.map(nameOf).join(", ") || "none"}.`,
-      );
+      // An avatar's view of the scene comes from the resolved turn.
+      if (kind !== "avatar")
+        facts.push(
+          `At the dialogue scene: ${present.map(nameOf).join(", ")}. Items here: ${localItems.map(nameOf).join(", ") || "none"}.`,
+        );
       return {
         id,
         poem: recitalContext(world, packDefinitions, id),

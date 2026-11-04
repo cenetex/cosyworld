@@ -905,8 +905,10 @@ describe("witnessed departures and conversation continuity", () => {
     expect(
       context.events.some((text) => text.includes("Pip goes to Black pond")),
     ).toBe(true);
-    const pip = context.entities.find((e) => e.id === "moth");
-    expect(pip.facts.join(" ")).toContain("Location now: Black pond");
+    // Where Pip is comes from the resolved turn, not a worded fact.
+    expect(
+      context.outcome.avatars.find((a) => a.id === "moth").location,
+    ).toBe("pond");
     const next = applyGeneratedText(world, context, response(context));
     const lines = next.log.filter(
       (e) => e.turn === next.turn && e.generated && e.kind === "dialogue",
@@ -1158,7 +1160,7 @@ describe("speech grounding in resolved card plays", () => {
     );
     expect(
       next.entities.find((e) => e.id === "moth").facts.join(" "),
-    ).toContain("Location now: Black pond. Company now: alone.");
+    ).not.toContain("Location now:");
     expect(narrativeContext(decodeSave(encodeSave(world))).outcome).toEqual(
       outcome,
     );
