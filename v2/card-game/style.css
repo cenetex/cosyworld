@@ -495,6 +495,10 @@ main {
   visibility: visible;
   color: inherit;
 }
+/* A card named in text takes its card's colour (card-names.mjs). */
+.card-name {
+  color: var(--tier-color);
+}
 [data-reveal="finish"] .speech-letter {
   transition: color 150ms ease;
 }

@@ -244,6 +244,7 @@ const files = [
   "expression.mjs",
   "emoji-symbols.json",
   "dialogue.mjs",
+  "card-names.mjs",
   "character-speech.mjs",
   "credits.mjs",
   "voices.json",

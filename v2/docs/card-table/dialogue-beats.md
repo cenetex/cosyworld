@@ -39,6 +39,18 @@ Each glyph is the caption's data key. The table draws it as a line-art SVG in
 the toolbar's style (`beatIcons` in `app.mjs`): a hand for take, a smoking
 candle for snuff, a bell for ring, a drop over a lamp for refuelling.
 
+A card the scene holds is written in its card's colour wherever a line or
+a caption names it: the tier colour of its level, the same token as its
+edge (`level-tiers.mjs`). "Pip" and "the Lamp" in a line take Pip's and
+the Lamp's colours. It is a text colour only, with no underline, tooltip
+or marker. Names match whole words and exactly: a person's name as
+written, so avatars called Ash, Oak, Rue or Sage never light "ash" or
+"oak", and a thing or place in any case ("the Lamp", "lamp"). Covered
+cards and cards elsewhere stay plain. Every tier colour reads at least
+4.5:1 on the beat card and on black. The reveal writes the coloured
+letters like any other (`card-names.mjs` wraps its own letter spans), so
+its timing, caret and inscriptions are unchanged.
+
 A play's effect never makes a card of its own: it is inscribed onto the card
 current when it happened, under its line, writing in letter by letter with
 the dialogue's reveal at a quicker beat, 300 to 900 ms a caption (instant

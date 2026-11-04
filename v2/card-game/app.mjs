@@ -105,6 +105,7 @@ import {
   createPlayQueue,
   waitForScene,
 } from "./dialogue.mjs";
+import { nameLetters, namedText } from "./card-names.mjs";
 import {
   currentActor,
   places,
@@ -351,6 +352,22 @@ const cardArt = (id) =>
 // going (the ship's deck from its berth), lit for the hour and weather.
 const placeArt = (id) => placeCardArt(world, id);
 const cardIsCovered = (id) => !encountered.has(id) || coveredCards.has(id);
+// The scene's uncovered cards, so text writes their names in their card's
+// colour (card-names.mjs).
+const sceneCards = () =>
+  availableCards(world)
+    .filter((id) => !cardIsCovered(id))
+    .map((id) => ({
+      id,
+      name: nameOf(id),
+      person: Boolean(people[id]),
+      color: levelTier(cardLevel(world, id)).color,
+    }));
+const namedSpan = (text) => {
+  const span = document.createElement("span");
+  span.append(...namedText(text, sceneCards()));
+  return span;
+};
 // The screen names a card only once its player has uncovered it (#1575),
 // and the world's hidden avatar only once this avatar has met it (#1936).
 const knownName = (id, unknown = "…") =>
@@ -806,6 +823,7 @@ const reveal = createTextReveal({
         );
       speechGlyphs = letterSpans(value.text);
       text.replaceChildren(...speechGlyphs);
+      nameLetters(speechGlyphs, value.text, sceneCards());
       speechPainter.start(speechGlyphs);
       measureSpeech();
       $("speech-announcement").textContent = "";
@@ -3065,7 +3083,7 @@ function renderScene() {
       ...(front?.actions || []).map((action, index) => {
         const item = node("span", undefined, "beat-caption");
         item.dataset.kind = action.kind;
-        item.append(beatIcon(action.icon), node("span", action.text));
+        item.append(beatIcon(action.icon), namedSpan(action.text));
         if (index >= kept) inscribe(item, action.text);
         return item;
       }),
@@ -3139,14 +3157,18 @@ function renderScene() {
       const words = behindButton.querySelector(".beat-behind-text");
       const first = behind.actions.at(-1);
       const caption = node("span", undefined, "beat-behind-caption");
-      if (first) caption.append(beatIcon(first.icon), first.text);
+      if (first) caption.append(beatIcon(first.icon), namedSpan(first.text));
       if (first && behindButton.dataset.beatKey === behind.key)
         inscribe(caption, first.text);
       behindButton.dataset.beatKey = behind.key;
       words.replaceChildren(
         node("strong", summary.speaker),
         ...(summary.speech
-          ? [node("span", summary.speech, "beat-behind-speech")]
+          ? [
+              Object.assign(namedSpan(summary.speech), {
+                className: "beat-behind-speech",
+              }),
+            ]
           : []),
         ...(first ? [caption] : []),
       );
@@ -3182,6 +3204,7 @@ function inscribe(item, text) {
   const words = node("span"),
     glyphs = letterSpans(text);
   words.append(...glyphs);
+  nameLetters(glyphs, text, sceneCards());
   item.lastChild.replaceWith(words);
   const beat = Math.min(900, Math.max(300, text.length * 20)) / glyphs.length;
   const painter = createRevealPainter(words, { caret: false });
