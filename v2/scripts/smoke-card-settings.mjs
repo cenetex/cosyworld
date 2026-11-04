@@ -5,7 +5,9 @@
 // context button, a press does it and folds the group back, a destructive one
 // only on a second press; with nothing chosen the button closes Settings.
 // Signed out, then signed in; desktop and phone widths, without a sideways
-// scroll. SETTINGS_SHOTS=<dir> saves screenshots.
+// scroll. Opening, the play hand falls away and the settings are dealt
+// after it; closing deals the play hand back. SETTINGS_SHOTS=<dir> saves
+// screenshots.
 import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
 import { chromium } from "playwright";
@@ -37,15 +39,39 @@ try {
     const page = await browser.newPage({ viewport: { width, height } });
     const errors = [];
     page.on("pageerror", (error) => errors.push(error.message));
+    // Every card that rises into a hand, and every ghost that falls.
+    await page.addInitScript(() => {
+      window.dealt = [];
+      const animate = Element.prototype.animate;
+      Element.prototype.animate = function (frames, options) {
+        const delay = options?.delay ?? 0;
+        if (frames?.[0]?.opacity === 0 && this.matches(".hand > .card-frame"))
+          window.dealt.push([this.parentElement.id, delay]);
+        if (this.matches(".beat-ghost")) window.dealt.push(["ghost", delay]);
+        return animate.call(this, frames, options);
+      };
+    });
+    const dealt = () => page.evaluate(() => window.dealt.splice(0));
     await page.route("**/card-game/credits", (route) =>
       route.fulfill({ json: { signed_in: signedIn, balance: 3 } }),
     );
     await page.goto(`${origin}/?table=settings-${width}`);
     await page.locator("#hand .card").first().waitFor();
+    await page.waitForTimeout(300);
     await page.locator("#toolbar-menu-button").click();
+    await dealt();
     await page.locator("#menu-button").click();
     await page.locator("#settings-hand .card").first().waitFor();
     assert.equal(await page.locator("#hand").isVisible(), false);
+    const opened = await dealt(),
+      fell = opened.filter(([where]) => where === "ghost"),
+      rose = opened.filter(([where]) => where === "settings-hand");
+    assert(fell.length && rose.length, `open: ${JSON.stringify(opened)}`);
+    assert(
+      Math.min(...rose.map(([, d]) => d)) >=
+        Math.max(...fell.map(([, d]) => d)),
+      "the settings are dealt after the play hand falls",
+    );
     // The hand runs You, Sound, Play, World, You fanned with Privacy first.
     const groups = await page
       .locator("#settings-hand .card-frame:not([data-holder]) > .card")
@@ -161,8 +187,13 @@ try {
     // Escape unchooses; Close settings brings the play hand back.
     await page.keyboard.press("Escape");
     assert.equal(await button(page).textContent(), "Close settings");
+    await dealt();
     await button(page).click();
     await page.locator("#hand .card").first().waitFor();
+    assert(
+      (await dealt()).some(([where]) => where === "hand"),
+      "the play hand is dealt back",
+    );
     assert.equal(await page.locator("#settings-hand").isVisible(), false);
     assert.deepEqual(errors, []);
     await page.close();
