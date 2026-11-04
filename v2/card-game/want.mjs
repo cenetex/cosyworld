@@ -14,7 +14,8 @@ import {
   packOf,
   packPeople,
 } from "./pack-registry.mjs";
-import { packDiscovered } from "./pack-rules.mjs";
+import { packDiscovered, runHash } from "./pack-rules.mjs";
+import { drawGlimpse, glimpseAspect, validGlimpse } from "./glimpse.mjs";
 import { authoredWant } from "./want-talk.mjs";
 
 export const WANT_KINDS = ["item", "place", "person", "connect"];
@@ -238,11 +239,67 @@ export function offerLevelQuest(s, actor, api) {
   a.level ??= levelFor(a.xp);
   if (questsOf(s, actor).some((w) => w.quest) || a.xp < questXp(a.level + 1))
     return null;
-  const level = a.level + 1;
+  const level = a.level + 1,
+    quest = { level, left: questSteps(level) + 1 };
   return pushQuest(
     s,
     actor,
-    questStep(s, actor, api, { level, left: questSteps(level) + 1 }),
+    glimpseStep(s, actor, api, quest) ?? questStep(s, actor, api, quest),
+  );
+}
+// The first step of a level quest glimpsed at halfway uses the glimpse's
+// aspect (glimpse.mjs): an item is found, given, brought or held; a person
+// met or talked with; a place visited. A verb is the step's own verb, on a
+// target drawn from the whole world: an item to find, give or bring, or a
+// person to meet. Giving and bringing go to one who wants the item, else to
+// someone known. Null when the aspect cannot make a step.
+function glimpseStep(s, actor, api, quest) {
+  const g = s.actors[actor].glimpse,
+    aspect = g?.level === quest.level && glimpseAspect(s, actor, api, g);
+  if (!aspect) return null;
+  const roll = runHash(s, `glimpse-step:${actor}:${quest.level}`),
+    here = s.actors[actor].place;
+  const want = (kind, target, step) => ({
+    ...newWant(kind, target, s.turn),
+    quest,
+    ...(step ? { step } : {}),
+  });
+  if (aspect.kind === "place") return want("place", aspect.id);
+  if (aspect.kind !== "verb")
+    return want(
+      aspect.kind,
+      aspect.id,
+      drawStep(s, actor, api, aspect.kind, aspect.id, quest.level, roll),
+    );
+  const verb = aspect.id,
+    kind = verb === "meet" ? "person" : "item";
+  const pool = wantCandidates(s, actor, api, null, true)
+    .filter((entry) => entry.startsWith(`${kind}:`))
+    .map((entry) => entry.slice(kind.length + 1))
+    .filter((id) =>
+      kind === "person"
+        ? s.actors[id].place !== here
+        : verb !== "find" || placeOfItem(s, id) !== here,
+    );
+  if (!pool.length) return null;
+  const target = pool[roll % pool.length];
+  if (verb === "find" || verb === "meet") return want(kind, target, { verb });
+  const others = knownActors(s)
+    .filter((id) => id !== actor && id !== rootOf(s, target))
+    .sort();
+  const to =
+    others.find((id) =>
+      questsOf(s, id).some(
+        (w) => w.kind === "item" && !w.step && w.target === target,
+      ),
+    ) ?? others[Math.floor(roll / 7) % others.length];
+  if (!to) return null;
+  return want(
+    "item",
+    target,
+    verb === "give"
+      ? { verb, to }
+      : { verb, to, at: api.home(to) || s.actors[to].place },
   );
 }
 // The way back to the sanctuary the avatar last slept in, or, for one that
@@ -272,14 +329,28 @@ export function wake(s, actor, api) {
   if (api.sanctuaries.includes(a.place)) a.sanctuary = a.place;
   a.level ??= levelFor(a.xp);
   const full = a.xp >= questXp(a.level + 1);
+  let dream = null;
+  // Met short of full experience, the sanctuary quest brings the glimpse.
   const slept = questsOf(s, actor).findIndex(sanctuaryQuest);
-  if (slept >= 0) commitMet(s, actor, api, [], slept);
+  if (slept >= 0) {
+    commitMet(s, actor, api, [], slept);
+    if (
+      !full &&
+      api.player(actor) &&
+      !questsOf(s, actor).some((w) => w.quest) &&
+      a.glimpse?.level !== a.level + 1
+    ) {
+      a.glimpse = drawGlimpse(s, actor, api, a.level + 1);
+      dream = "glimpse";
+    }
+  }
   const rest = questsOf(s, actor).findIndex(
     (w) => w.quest && w.step?.verb === "rest" && w.target === a.place,
   );
   if (rest >= 0) commitMet(s, actor, api, [], rest);
   else if (full) offerLevelQuest(s, actor, api);
   milestones(s, actor, api, before);
+  return dream;
 }
 // At halfway to the next level quest, and again at full experience as a
 // pointer, a player is given the ordinary quest to sleep at a sanctuary
@@ -609,8 +680,10 @@ function commitMet(s, id, api, met, index = 0) {
   if (quest?.left > 1) list[index] = questStep(s, id, api, quest, want);
   else if (quest?.left === 1) list[index] = restStep(s, id, api, quest);
   else {
-    if (quest) a.level = quest.level;
-    else if (!api.player(id)) a.level = Math.max(a.level, levelFor(a.xp));
+    if (quest) {
+      a.level = quest.level;
+      delete a.glimpse;
+    } else if (!api.player(id)) a.level = Math.max(a.level, levelFor(a.xp));
     list.splice(index, 1);
   }
   setQuests(a, list);
@@ -643,8 +716,13 @@ function giveUp(s, actor, api) {
   a.gaveUp = { target: want.target, turn: s.turn };
   // A level quest with no way forward becomes another of the same level;
   // its rest still waits at the sanctuary.
+  // A glimpsed first step keeps its aspect: the quest may wait.
   if (want.step?.verb === "rest") a.want = restStep(s, actor, api, want.quest);
-  else if (want.quest) a.want = questStep(s, actor, api, want.quest, want);
+  else if (want.quest)
+    a.want =
+      (want.quest.left === questSteps(want.quest.level) + 1 &&
+        glimpseStep(s, actor, api, want.quest)) ||
+      questStep(s, actor, api, want.quest, want);
   else {
     const aside = { ...want, since: s.turn, refusals: 0 },
       rest = questsOf(s, actor).slice(1);
@@ -758,6 +836,7 @@ export function validWant(s, id) {
     a.xp <= most &&
     (a.metTurn === undefined || whole(a.metTurn)) &&
     (a.content === undefined || a.content === true) &&
+    (a.glimpse === undefined || validGlimpse(a.glimpse, levelFor(most) + 1)) &&
     (a.halfwayIssued === undefined ||
       (Number.isSafeInteger(a.halfwayIssued) &&
         a.halfwayIssued >= 2 &&

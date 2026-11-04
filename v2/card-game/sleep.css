@@ -115,3 +115,60 @@ body[data-sleep="quest"] #hand > :has(> .quest-fold:not([hidden])) {
   font-style: italic;
   color: #dfe6f4;
 }
+/* The halfway glimpse: one aspect card beside the DREAM card, partly out of
+   the dark (glimpse-card.mjs). It stands above the card's corner so it fits
+   at phone width. */
+.glimpse-card {
+  position: absolute;
+  right: 12px;
+  bottom: calc(100% + 8px);
+  width: 76px;
+  margin: 0;
+  pointer-events: none;
+  animation: glimpse-in 600ms ease-out both;
+}
+.glimpse-face {
+  position: relative;
+  display: grid;
+  place-items: center;
+  aspect-ratio: 3 / 4;
+  overflow: hidden;
+  border: 1px solid var(--tier-color, #c9c3b4);
+  border-radius: 8px;
+  background: #07080d;
+  color: #e9e3d4;
+  font-size: 1.6rem;
+}
+.glimpse-face img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+/* The dark, or the cloth, over the part not yet shown. */
+.glimpse-face::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to top,
+    #07080d calc((1 - var(--revealed, 0.5)) * 100%),
+    transparent
+  );
+}
+.glimpse-name {
+  margin-top: 4px;
+  font-size: 0.72rem;
+  line-height: 1.2;
+  text-align: center;
+  color: var(--tier-color, #c9c3b4);
+}
+@keyframes glimpse-in {
+  from {
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .glimpse-card {
+    animation-duration: 300ms;
+  }
+}

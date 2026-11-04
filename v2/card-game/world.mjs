@@ -784,7 +784,8 @@ function reachable(s, actor) {
 const homeOf = (id) => tastes[id]?.home || humanAvatar(id)?.home?.id || null;
 // Avatars that became residents of a shared world (#1846) take a want at once.
 export const fillSeatWants = (s) => fillWants(s, wantAPI(s), true);
-function wantAPI(s) {
+// The world reads the want rules use, exported for their tests.
+export function wantAPI(s) {
   return {
     carried: (actor) => carried(s, actor),
     rootHolder: (item) => rootHolder(s, item),
@@ -1884,6 +1885,9 @@ const WAKE_REASONS = [
   "rested",
 ];
 const SLEEP_TURNS = 24;
+// What a long rest may dream (rules 99): the halfway glimpse, or the level
+// quest it brings.
+const DREAMS = ["glimpse", "quest"];
 // Sleep always ends by the next light change, so no sleep is longer than one
 // light period. A long rest needs half of one: two cannot both begin and end
 // within one light period, so a sanctuary dreams at most once per period.
@@ -1899,7 +1903,8 @@ function wakeUp(s, id, woke, text) {
     long = sanctuary && s.turn - z.since >= LONG_SLEEP_TURNS;
   if (sanctuary && s.defeats?.[id]) delete s.defeats[id];
   renewWant(s, id, wantAPI(s));
-  if (long) wake(s, id, wantAPI(s));
+  // A long rest may bring one dream: the halfway glimpse or the level quest.
+  const dream = long ? wake(s, id, wantAPI(s)) : null;
   addLog(s, "World", text, {
     kind: "action",
     actorId: id,
@@ -1908,6 +1913,7 @@ function wakeUp(s, id, woke, text) {
     witnesses: witnessesAt(s, here),
     woke,
     ...(long ? { rest: "long" } : {}),
+    ...(dream ? { dream } : {}),
   });
 }
 // After the lamp burns each round, every sleeper wakes at the first change
@@ -3384,6 +3390,8 @@ export function validateWorld(s) {
     if (
       (e.rest !== undefined && (e.rest !== "long" || e.verb !== "wait")) ||
       (e.sleep !== undefined && (e.sleep !== true || e.verb !== "wait")) ||
+      (e.dream !== undefined &&
+        (!DREAMS.includes(e.dream) || e.rest !== "long")) ||
       (e.woke !== undefined &&
         (!WAKE_REASONS.includes(e.woke) || e.verb !== "wait"))
     )

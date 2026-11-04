@@ -66,6 +66,7 @@ import {
   dreamingLabel,
   withDream,
 } from "./dream-card.mjs";
+import { paintGlimpse } from "./glimpse-card.mjs";
 import {
   CHANGE_FADE_MS,
   CROSSFADE_MS,
@@ -3331,6 +3332,11 @@ function renderScene() {
   if (front?.dream)
     $("speech-row").style.setProperty("--tier-color", DREAM_TIER.color);
   else $("speech-row").style.removeProperty("--tier-color");
+  paintGlimpse($("speech-row").parentElement, front?.companion ?? null, {
+    artOf: beatPortrait,
+    nameOf,
+    icon: beatIcon,
+  });
   $("speech-row").dataset.beat = front?.dream
     ? "dream"
     : front?.line

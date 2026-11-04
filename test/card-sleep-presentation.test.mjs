@@ -93,7 +93,7 @@ function sequence(plan) {
   });
   return { s, c, beats, finished: () => finished };
 }
-const DREAM_PLAN = sleepPlan({ dream: true, crossed: true });
+const DREAM_PLAN = sleepPlan({ dream: true, crossed: true, quests: ["q"] });
 
 describe("waking from a sleep", () => {
   it("brings the dream flow only when a long rest deals a level quest", () => {

@@ -52,7 +52,13 @@ export function sleepWake(world, viewer, fromTurn = null) {
       ? isNight({ turn: fromTurn }) !== isNight(world)
       : entry.woke === "dawn" || entry.woke === "dusk";
   // Only a level quest dealt by this long rest brings a dream (owner,
-  // 2026-11-04); an ordinary rest's reflection is not shown as one.
+  // 2026-11-04); an ordinary rest's reflection is not shown as one. The
+  // halfway glimpse is the level's other dream (rules 99): the DREAM card
+  // with the one aspect it locked beside it, partly shown.
+  const glimpse =
+    long && entry.dream === "glimpse"
+      ? (world.actors[viewer]?.glimpse ?? null)
+      : null;
   const cards = questCards(world, viewer);
   const quests = long
     ? questsOf(world, viewer)
@@ -71,7 +77,8 @@ export function sleepWake(world, viewer, fromTurn = null) {
     crossed,
     night: isNight(world),
     quests,
-    dream: quests.length > 0,
+    glimpse,
+    dream: quests.length > 0 || Boolean(glimpse),
   };
 }
 
@@ -87,7 +94,8 @@ export function sleepPlan(wake) {
   return [
     "fade",
     "held",
-    ...(wake.dream ? ["enter", "dreaming", "dream", "quest"] : []),
+    ...(wake.dream ? ["enter", "dreaming", "dream"] : []),
+    ...(wake.quests?.length ? ["quest"] : []),
     "light",
     "done",
   ];
