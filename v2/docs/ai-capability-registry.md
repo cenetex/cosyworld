@@ -175,7 +175,10 @@ those strikes, so a busy model is not benched for being busy. HTTP 401, 402,
 
 A bench lasts six hours. Every call on the exact model then fails at once with
 the retryable `ai_model_benched` code and no provider call, on every endpoint,
-so the card voice's escalation model speaks. Benches are process-wide per
+so the card voice's fallback chain skips it and its next model speaks
+([card voices](../card-game/README.md)). Each model in that chain,
+`COSYWORLD_CARD_FALLBACK_MODELS`, must be pinned in the registry for world
+content, or card scenes are refused until it is. Benches are process-wide per
 exact model, like the breaker, and live in memory: a restart clears them.
 `COSYWORLD_AI_BENCH_ROUTE_OPENS` (default `3`),
 `COSYWORLD_AI_BENCH_SILENT_VOICES` (`6`), `COSYWORLD_AI_BENCH_WINDOW_MINUTES`
