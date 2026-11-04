@@ -12,6 +12,7 @@ export function reflectionContext(world, action = null) {
     turn: world.turn,
     resting: cast.resting,
     ...(cast.rest ? { rest: cast.rest } : {}),
+    ...(cast.dream ? { dream: cast.dream } : {}),
     entities: cast.ids.map((id) => ({
       id,
       memories: speechMemories(world.memories[id], {
@@ -22,18 +23,18 @@ export function reflectionContext(world, action = null) {
 }
 
 // Thoughts come only to the avatar who waited, after something new happened
-// to them. Dreams are rarer: two thoughts must settle since the last one.
-// The server's reflection_due applies the same gate.
+// to them. A dream comes only with a long rest that dreamed by the rules:
+// the halfway glimpse or the level quest, one or two a level and never more
+// (rules 99, sleep spec §5). The server's reflection_due applies the same
+// gate.
 export const THOUGHT_GAP = 6;
-export const DREAM_GAP = 24;
-export const THOUGHTS_PER_DREAM = 2;
+export const DREAMS = ["glimpse", "quest"];
 export function reflectionDue(context, id, life) {
-  // Waking from a long rest always brings a thought and a dream.
+  // Waking from a long rest always brings a thought; a dream only when the
+  // rest dreamed.
   if (context.rest === "long" && context.resting === id && context.turn > 0)
-    return { thought: true, dream: true };
-  const thoughts = life?.thoughts || [];
-  const dreams = life?.dreams || [];
-  const last = thoughts.at(-1)?.turn;
+    return { thought: true, dream: DREAMS.includes(context.dream) };
+  const last = life?.thoughts?.at(-1)?.turn;
   const changed = context.entities
     .find((e) => e.id === id)
     ?.memories.some(
@@ -45,17 +46,7 @@ export function reflectionDue(context, id, life) {
       changed &&
       (last === undefined || context.turn >= last + THOUGHT_GAP),
   );
-  const dreamt = dreams.at(-1)?.turn;
-  const settled = thoughts.filter(
-    (m) => dreamt === undefined || m.turn > dreamt,
-  ).length;
-  return {
-    thought,
-    dream:
-      thought &&
-      settled >= THOUGHTS_PER_DREAM &&
-      (dreamt === undefined || context.turn >= dreamt + DREAM_GAP),
-  };
+  return { thought, dream: false };
 }
 
 export function validReflection(entry, world, context) {
@@ -178,16 +169,19 @@ export function saveReflection(
 // Each avatar's thoughts move forward: an older reflection arriving after a
 // newer one is no longer due. The op journals the scene's resting avatar and
 // rest kind; only the op's own actor can be resting, and only by a Wait the
-// log still holds for that turn, so a long rest wakes that one avatar.
-const restedAt = (world, actor, turn, rest) =>
-  world.log.some(
+// log still holds for that turn, so a long rest wakes that one avatar. What
+// that long rest dreamed by the rules is read from the same log entry.
+const waitedAt = (world, actor, turn, long) =>
+  world.log.findLast(
     (e) =>
       e.verb === "wait" &&
       e.actorId === actor &&
       e.turn === turn &&
-      (rest !== "long" || e.rest === "long"),
-  ) ||
-  (rest === "long" && restingWake(world.log, actor, turn)?.rest === "long");
+      (!long || e.rest === "long"),
+  ) ??
+  (long && restingWake(world.log, actor, turn)?.rest === "long"
+    ? restingWake(world.log, actor, turn)
+    : null);
 export function applyLaterReflections(world, request) {
   const { turn, entries } = request;
   const resting = request.resting ?? null;
@@ -199,13 +193,18 @@ export function applyLaterReflections(world, request) {
     (rest !== null && rest !== "long") ||
     (rest === "long" && resting === null) ||
     (resting !== null &&
-      (resting !== request.actor || !restedAt(world, resting, turn, rest))) ||
+      (resting !== request.actor ||
+        !waitedAt(world, resting, turn, rest === "long"))) ||
     !Array.isArray(entries) ||
     !entries.length ||
     entries.length > 2 ||
     new Set(entries.map((e) => e?.id)).size !== entries.length
   )
     throw new Error("Use the saved scene's character reflections.");
+  const dream =
+    rest === "long"
+      ? (waitedAt(world, resting, turn, true).dream ?? null)
+      : null;
   for (const entry of entries) {
     const memory = world.memories[entry.id];
     const saved = memory ? [...memory.events, ...(memory.landmarks || [])] : [];
@@ -221,6 +220,7 @@ export function applyLaterReflections(world, request) {
       turn,
       resting,
       ...(rest ? { rest } : {}),
+      ...(dream ? { dream } : {}),
       entities: [
         {
           id: entry.id,

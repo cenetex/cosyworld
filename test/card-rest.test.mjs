@@ -382,12 +382,18 @@ describe("rest and sanctuary", () => {
     expect(loaded.actors.vale.sleeping).toBeUndefined();
   });
 
-  it("brings a thought and a dream on waking from a long rest", () => {
+  it("brings a thought on waking from a long rest, and a dream only by the rules", () => {
     const context = { turn: 24, resting: "vale", rest: "long", entities: [] };
+    // An ordinary long rest dreams no more (rules 99).
     expect(reflectionDue(context, "vale", null)).toEqual({
       thought: true,
-      dream: true,
+      dream: false,
     });
+    for (const dream of ["glimpse", "quest"])
+      expect(reflectionDue({ ...context, dream }, "vale", null)).toEqual({
+        thought: true,
+        dream: true,
+      });
     expect(reflectionDue({ ...context, resting: null }, "vale", null)).toEqual({
       thought: false,
       dream: false,

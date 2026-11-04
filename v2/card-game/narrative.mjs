@@ -282,6 +282,8 @@ export function narrativeContext(world, action = null) {
     ...(occasion ? { occasion } : {}),
     resting,
     ...(rest ? { rest } : {}),
+    // What the long rest dreamed by the rules, the only time a dream is due.
+    ...(rest && cast.dream ? { dream: cast.dream } : {}),
     ...(disclosures.length ? { disclosures } : {}),
     action:
       played?.text ||
@@ -1111,8 +1113,6 @@ export { speechMemories } from "./scene-cast.mjs";
 export { SPEECH_OCCASIONS, speechOccasions } from "./speech-occasions.mjs";
 export {
   THOUGHT_GAP,
-  DREAM_GAP,
-  THOUGHTS_PER_DREAM,
   reflectionDue,
   applySharedReflections,
 } from "./reflections.mjs";

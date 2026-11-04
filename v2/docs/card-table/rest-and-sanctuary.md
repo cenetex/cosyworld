@@ -127,8 +127,11 @@ changes the count. A Wait anywhere else leaves the count as it is.
 Thoughts and dreams still come only to the avatar who waited
 (`reflections.mjs`, mirrored by `reflection_due` in `card_narrative.rs`).
 Waking from a long rest (`rest: "long"` in the scene context) makes a thought
-and a dream due at once, without the usual gaps. The model writes the dream
-from the scene's facts. There are no authored dream lines. A failed dream call
+due at once, without the usual gap. Since rules 99 a dream is due only when
+that rest dreamed by the rules (`dream: "glimpse"` or `"quest"` in the scene
+context): the halfway glimpse or the level quest, one or two a level. An
+ordinary long rest brings no dream, and a Wait never does. The model writes
+the dream from the scene's facts. There are no authored dream lines. A failed dream call
 shows "…", like any failed voice.
 
 ## Level quest

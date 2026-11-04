@@ -322,7 +322,8 @@ const sanctuaryQuest = (w) => w.step?.verb === "rest" && !w.quest;
 // level quest's rest step there, or, with the experience for the next level
 // before it woke, brings that level quest. One long rest brings one of them
 // at most: a sanctuary quest met short of full experience brings no level
-// quest until the next long rest.
+// quest until the next long rest. It returns the rest's dream, if any: the
+// halfway glimpse or the level quest, the only two a level has (rules 99).
 export function wake(s, actor, api) {
   const a = s.actors[actor],
     before = a.xp;
@@ -348,7 +349,7 @@ export function wake(s, actor, api) {
     (w) => w.quest && w.step?.verb === "rest" && w.target === a.place,
   );
   if (rest >= 0) commitMet(s, actor, api, [], rest);
-  else if (full) offerLevelQuest(s, actor, api);
+  else if (full && offerLevelQuest(s, actor, api)) dream = "quest";
   milestones(s, actor, api, before);
   return dream;
 }

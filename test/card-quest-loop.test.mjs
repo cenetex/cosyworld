@@ -26,6 +26,10 @@ import {
   honours,
 } from "../v2/card-game/glimpse.mjs";
 import { sleepPlan, sleepWake } from "../v2/card-game/sleep-presentation.mjs";
+import {
+  reflectionContext,
+  reflectionDue,
+} from "../v2/card-game/reflections.mjs";
 import { glimpseCompanion } from "../v2/card-game/glimpse-card.mjs";
 
 export const act = (s, pick, actor = "vale") =>
@@ -228,5 +232,61 @@ describe("the halfway glimpse", () => {
     s = longRest(s);
     expect(s.actors.vale.glimpse).toBeUndefined();
     expect(levelQuest(s).quest.level).toBe(11);
+  });
+});
+
+// Each level dreams once or twice, never more (sleep spec §5): the dreams
+// a long rest's wake records, and the only ones a reflection may write.
+const dreamsSince = (s, seq) =>
+  s.log
+    .filter((e) => e.seq > seq && e.actorId === "vale" && e.dream)
+    .map((e) => e.dream);
+// A long rest, checking that a dream is due exactly when the rules dreamed.
+function restAndReflect(s) {
+  s = longRest(s);
+  const due = reflectionDue(reflectionContext(s), "vale", null);
+  expect(due).toEqual({ thought: true, dream: Boolean(wake(s).dream) });
+  return s;
+}
+
+describe("dreams per level", () => {
+  it("are two with a long rest after halfway, never a third", () => {
+    let s = halfway();
+    const from = s.log.at(-1).seq;
+    s = restAndReflect(s);
+    // More long rests between halfway and full bring no dream.
+    s = restAndReflect(restAndReflect(s));
+    while (s.actors.vale.xp < questXp(11)) s = meetOne(s);
+    s = restAndReflect(s);
+    expect(dreamsSince(s, from)).toEqual(["glimpse", "quest"]);
+  });
+
+  it("is one when full experience comes before a long rest, or the halfway quest is dropped", () => {
+    let s = halfway();
+    let from = s.log.at(-1).seq;
+    while (s.actors.vale.xp < questXp(11)) s = meetOne(s);
+    s = restAndReflect(restAndReflect(s));
+    expect(dreamsSince(s, from)).toEqual(["quest"]);
+    s = halfway();
+    from = s.log.at(-1).seq;
+    const i = questsOf(s, "vale").findIndex((w) => w.step?.verb === "rest");
+    s = act(s, (a) => a.kind === "drop" && !a.item && a.quest === i);
+    s = restAndReflect(s);
+    while (s.actors.vale.xp < questXp(11)) s = meetOne(s);
+    s = restAndReflect(s);
+    expect(dreamsSince(s, from)).toEqual(["quest"]);
+  });
+
+  it("never comes to an ordinary long rest or a Wait", () => {
+    let s = at(10, levelXp(10));
+    s = restAndReflect(s);
+    expect(wake(s).dream).toBeUndefined();
+    const context = { ...reflectionContext(s), rest: undefined };
+    const life = {
+      persona: null,
+      thoughts: [1, 2, 3].map((turn) => ({ turn, text: "A thought." })),
+      dreams: [],
+    };
+    expect(reflectionDue(context, "vale", life).dream).toBe(false);
   });
 });
