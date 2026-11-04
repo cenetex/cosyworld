@@ -125,6 +125,10 @@ Beats are cards in depth, not rows in a scroll:
   pointer hits, use Web Animations, and they rest invisible and are removed
   when their fade ends. `v2/scripts/smoke-card-beat-stack.mjs` checks both
   directions frame by frame and that the front card takes clicks afterwards.
+- When the stack clears (a new game), it fades out over 200 ms instead of
+  vanishing: a copy fixed over the page (`fixedGhost`) of the whole panel,
+  or of the front card when a ready play keeps the panel, fades and is
+  released while the real panel hides at once.
 - The copies come from `card-ghost.mjs`, which other leaving cards reuse:
   `pinGhost(card, zIndex)` pins a copy over the card's box with a short list
   of its computed looks (`lookAlike` makes the copy unplaced, for a layer,

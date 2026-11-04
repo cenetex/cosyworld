@@ -12,6 +12,7 @@ import { finishCardReveal, revealCard } from "./card-reveal.mjs";
 import { setCardLabel } from "./card-label.mjs";
 import {
   fadeGhost,
+  fixedGhost,
   ghostOf,
   pinGhost,
   releaseGhost,
@@ -3407,6 +3408,18 @@ function renderScene() {
         : null,
     front: stepping && !$("speech-row").hidden ? frontGhost(direction) : null,
   };
+  // The stack clearing fades out over 200 ms: the whole panel when nothing
+  // else stays in it, else the front card.
+  if (!front && !$("speech-row").hidden)
+    fadeGhost(
+      fixedGhost(
+        document.querySelector(".action-panel").hidden
+          ? document.querySelector(".dialogue")
+          : $("speech-row"),
+      ),
+      {},
+      STACK_CLEAR_MS,
+    );
   stackRendered = {
     key: frontKey,
     speaker: front?.speakerId ?? null,
@@ -3686,6 +3699,7 @@ function stackGhost(card) {
 // The old front card keeps its exact box, so its words do not reflow. Going
 // forward it settles behind the new card; going back, or crossfading for
 // reduced motion, it leaves over it.
+const STACK_CLEAR_MS = 200;
 function frontGhost(direction) {
   const under = direction === "forward" && !reducedMotion.matches;
   return pinGhost($("speech-row"), under ? "1" : "3");
