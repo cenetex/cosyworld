@@ -116,6 +116,26 @@ export async function selectCard(page, id, { touch = false } = {}) {
     }
   }
 }
+// A new local world opens on Vale alone, the lit lamp and the attic face down
+// (opening.mjs). Its context button offers no play while either is down: the
+// lamp's tap turns it, the quiet Reveal turns the attic and chooses the lamp,
+// and only then does the rules' first play, Put out, douse it. Any play on
+// the revealed cards (a Wait) is a first play too.
+export async function revealOpening(page) {
+  await selectCard(page, "lamp");
+  await page
+    .locator('#card-actions [data-quiet="true"]', { hasText: "Reveal" })
+    .click();
+  await page
+    .locator("#card-actions .card-primary", { hasText: "Put out" })
+    .waitFor();
+}
+export async function putOutOpening(page) {
+  await revealOpening(page);
+  await page
+    .locator("#card-actions .card-primary", { hasText: "Put out" })
+    .click();
+}
 // The beat stack's cards take real pointer hits: the front card under its own
 // centre, and the card behind under its peeking top line (#1538).
 export async function stackHits(page) {

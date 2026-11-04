@@ -1,5 +1,6 @@
 import {
   endStandoff,
+  putOutOpening,
   selectCard,
   openSettings,
   closeSettings,
@@ -85,7 +86,11 @@ try {
   await page.goto(`${origin}/?table=badger-check`);
   await page.locator('[data-card="lamp"]').waitFor({ state: "attached" });
   assert.equal((await state()).actors.vale.place, "attic");
-  await play("lamp");
+  // The opening reveals the lamp and attic before its first play, Put out.
+  await ready();
+  await putOutOpening(page);
+  await ready();
+  assert.equal((await state()).items.lamp.lit, false);
   assert.equal((await state()).actors.vale.place, "attic");
   assert.ok(await page.locator('[data-card="pond"]').count());
   await play("pond");

@@ -84,8 +84,8 @@ browser smokes, and up to three more chosen by changed paths
 (`scripts/fast-smokes.json`; a changed smoke script runs itself). The core
 smokes (the `core` list: the boot smoke `smoke-card-boot`, a cold start and
 every early notice path, plus the image-first, actions, beat-stack, and unveil
-journeys) run on every pull request and main push, each in its own parallel
-job, and count in the `fast` result; a core smoke a path also selects runs
+journeys and the opening's Steam Clock walk, `check-card-awakening`) run on
+every pull request and main push, each in its own parallel job, and count in the `fast` result; a core smoke a path also selects runs
 once and takes no path slot. Each smoke serves the static card game; smokes
 that start the Rust server run only in the full suite. A change to the Rust crate, the C kernel, the AI model
 crate, or a file the crate reads (such as `v2/card-game/senses.json`,

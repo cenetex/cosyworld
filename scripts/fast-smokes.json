@@ -6,7 +6,8 @@
     "smoke-card-image-first",
     "smoke-card-actions",
     "smoke-card-beat-stack",
-    "smoke-card-unveil"
+    "smoke-card-unveil",
+    "check-card-awakening"
   ],
   "needsRust": [
     "smoke-card-local",
@@ -40,7 +41,7 @@
       "smokes": ["smoke-shared-play-status", "smoke-shared-snapshot-order"]
     },
     {
-      "paths": "^v2/card-game/(music|hum)|music-streams",
+      "paths": "^v2/card-game/(music|hum|opening)|music-streams|^v2/scripts/(music-reveal-check|shared-music-openings)\\.",
       "smokes": ["smoke-card-music"]
     },
     {
