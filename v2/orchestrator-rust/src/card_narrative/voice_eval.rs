@@ -563,6 +563,8 @@ fn a_character_speaks_as_itself_in_the_assistant_turn() {
     assert_eq!(prompt.system, "You are Dione the Baker.");
     let view = prose(&prompt.assistant);
     assert!(view.starts_with("I am Dione the Baker.\n\nI'm at Theban Courtyard. "));
+    // A fact she witnessed is not told again as the fact she may share.
+    assert_eq!(view.matches("Ships for Piraeus Quays leave").count(), 1);
     assert!(prompt
         .assistant
         .contains("Vale is holding the Lamp, the Black cloth and the Funeral Oil."));
@@ -585,6 +587,12 @@ fn a_character_speaks_as_itself_in_the_assistant_turn() {
     );
     let echo = "I am Dione the Baker I'm at Theban Courtyard Vale and The Bard are here with me.";
     assert_eq!(check.verdict(echo, true, false), Err("echoed brief"));
+    // The heard line said back first is dropped; her own words stay.
+    let reply = "Good evening, Dione! What are you baking? Bread for the rites, Vale.";
+    assert_eq!(
+        check.verdict(reply, true, false),
+        Ok(("Bread for the rites, Vale.".into(), vec![]))
+    );
     // Vale, with nobody heard, answers silence; who is with him is his view.
     let (_, wait, _) = cases
         .iter()
