@@ -214,37 +214,44 @@ try {
     const label = name.getBoundingClientRect();
     return {
       dialogHeight: dialog.height,
-      gap: card.top - dialog.bottom,
-      visibleCard: (innerHeight - card.top) / card.height,
+      footGap: innerHeight - dialog.bottom,
+      topsShown: dialog.top - card.top,
       labelBottom: label.bottom,
+      dialogTop: dialog.top,
       height: innerHeight,
       actionsHidden: document.querySelector(".action-panel").hidden,
     };
   });
-  assert(compact.dialogHeight <= 80, "A short reply fits its words");
-  assert(compact.gap <= 16, "Cards sit close to the speech box");
+  // On phones the dialogue is one fixed, compact box at the foot of the
+  // screen, over the resting hand's feet (#1897): the cards' tops and names
+  // show above it.
+  assert(compact.dialogHeight <= 100, "A short reply keeps the compact box");
+  assert(compact.footGap <= 40, "The speech box sits at the foot");
+  assert(compact.topsShown >= 60, "Resting cards show their tops above it");
   assert(
-    compact.visibleCard >= 0.72 && compact.visibleCard <= 0.78,
-    "Resting cards show three quarters",
-  );
-  assert(
-    compact.labelBottom <= compact.height,
-    "Resting card names stay visible",
+    compact.labelBottom <= compact.dialogTop + 1,
+    "Resting card names sit above the speech box",
   );
   assert(compact.actionsHidden, "The idle hand uses only the cards");
   console.log("Phone space:", compact);
 
-  // Badger stays whole on the one stage and stands above the hand; like every
-  // figure on a phone, the speech box may pass in front of him.
+  // Badger stays whole on the one stage and stands above the speech box. On
+  // a phone the resting cards' tops show above that box (#1897), so like
+  // every figure there they may pass in front of his feet; at rest, with no
+  // beat, smoke-card-stage-fill keeps his feet above the hand.
   const bounds = await sprite.boundingBox();
   assert.ok(
     bounds.x >= -1 && bounds.x + bounds.width <= 391,
     "Badger is whole",
   );
   assert.ok(
-    bounds.y + bounds.height * 0.92 <=
-      (await page.locator(".play-dock").boundingBox()).y + 4,
-    "Badger stands above the hand",
+    bounds.y + bounds.height * 0.92 <= compact.dialogTop,
+    "Badger stands above the speech box",
+  );
+  const dockTop = (await page.locator(".play-dock").boundingBox()).y;
+  assert.ok(
+    (dockTop - bounds.y) / bounds.height >= 0.75,
+    "Most of Badger shows above the hand",
   );
   await page.setViewportSize({ width: 320, height: 568 });
   await page.screenshot({
