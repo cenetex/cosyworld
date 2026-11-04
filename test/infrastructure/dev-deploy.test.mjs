@@ -63,7 +63,7 @@ describe("a .dev train compares with the commit .dev runs", () => {
       },
     });
     expect(base).toBe("7".repeat(40));
-    expect(seen).toEqual([8, 7]);
+    expect(seen).toEqual([9, 8, 7, 6]);
   });
 
   it("counts a running train once its rollout job finished", async () => {
