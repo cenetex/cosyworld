@@ -2229,6 +2229,10 @@ function residentRound(s, acted) {
       );
   }
   if (!moved.length) return;
+  // Walking in where the player is, a resident is met there and then, as a
+  // player's own arrival meets who is there (rules 101, #2248).
+  const by = s.actors[currentActor(s)].place;
+  if (moved.some((id) => s.actors[id].place === by)) meetCast(s);
   // Arriving meets a want for a place; two who meet off-stage meet a want
   // to talk, as a rules fact without speech.
   const api = wantAPI(s);
