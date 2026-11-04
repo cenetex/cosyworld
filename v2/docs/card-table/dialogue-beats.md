@@ -315,3 +315,6 @@ The live region announces only the newest beat when it arrives, never a beat
 the player stepped back to. The behind card and the front card are buttons, so
 earlier beats are reachable by keyboard. ↑ and ↓ work while focus is in the
 stack. A play leaves focus on the hand card that made it.
+
+A chosen play waits for the hand's swap deadline. If the timer wakes early,
+it checks the clock again and stays due until the hand has settled.
