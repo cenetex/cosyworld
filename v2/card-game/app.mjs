@@ -4145,9 +4145,10 @@ function render() {
         renderedHandRevision === world.revision &&
         renderedHandState === handState,
       // A redraw from a shared update or another tab is no arrival: the
-      // hand keeps its scroll unless the player's avatar changed place.
+      // hand keeps its scroll unless the player's avatar changed place,
+      // and its cards still slide to their new places.
       stayed = renderedHandPlace === world.actors[currentActor(world)].place,
-      samePlace = renderedHand && stayed,
+      samePlace = stayed,
       arriving = renderedHandPlace !== null && !stayed,
       here = world.actors[currentActor(world)].place,
       scene = `${here}:${lampLitHere(world, here)}`,
@@ -4264,7 +4265,8 @@ function render() {
             frame.hidden ||
             before.has(frame.querySelector(".card").dataset.card),
         })),
-      { reduced: reducedMotion.matches || opening, after: swap ? entering : 0 },
+      // The hand a page, a resumed save or a new game opens on is dealt.
+      { reduced: reducedMotion.matches, after: swap ? entering : 0 },
     );
     showQuests(opening);
     openLockedBoxes();
