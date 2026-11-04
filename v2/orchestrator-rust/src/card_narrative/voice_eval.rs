@@ -314,19 +314,18 @@ fn conversation_turns_answer_one_line_with_the_talk_here() {
     // The opener: never the caption, and no cue.
     let (system, user) = conversation::messages(context, entity(context, "vale"));
     assert!(!system.contains(&action) && !user.contains(&action));
-    assert!(!system.contains("Just now:"));
     assert!(!user.ends_with(':'));
     // The reply answers Vale's line from this turn, the second Talk with Pip.
     let heard = scene_for(context, lines, "moth").unwrap();
     let (system, user) = conversation::messages(&heard, entity(&heard, "moth"));
     assert_eq!(user, "Tell me again what the pond wants.");
     // The group chat: earlier lines here, by both speakers, oldest first.
-    let talk = system.split_once("Recent talk here:\n").unwrap().1;
+    let talk = system.rsplit_once("\n\n").unwrap().1;
     let vale = talk
-        .find("Vale: I could carry the lamp for you a while.")
+        .find("Vale said: \"I could carry the lamp for you a while.\"")
         .unwrap();
     let pip = talk
-        .find("Pip: The lamp would help, if you trust me with it.")
+        .find("I said: \"The lamp would help, if you trust me with it.\"")
         .unwrap();
     assert!(vale < pip);
     assert!(talk.lines().count() <= conversation::CHAT_LINES + 2);
@@ -355,23 +354,23 @@ fn a_return_visit_remembers_what_is_between_us() {
         conversation::messages(context, entity(context, id)).0
     };
     for id in ["vale", "moth"] {
-        assert!(!prompt("return visit before", id).contains("Between us:"));
+        assert!(!prompt("return visit before", id).contains(" over the Lamp, "));
     }
     let vale = prompt("return visit after", "vale");
-    let between = vale.split_once("Between us:\n").unwrap().1;
-    assert!(between.starts_with(
+    let between = vale.split_once("\n\nPip threatened").unwrap().1;
+    assert!(format!("Pip threatened{between}").starts_with(
         "Pip threatened me over the Lamp, a little while ago.\n\
          I threatened Pip over the Black cloth, some time ago.\n\
          Pip gave me this Black cloth. I'm keeping it."
     ));
     assert!(
-        !vale.contains("last said"),
+        !vale.contains("said to me"),
         "the talk here already shows it"
     );
     // Pip sees his own newer threat first, then Vale's older one.
     let pip = prompt("return visit after", "moth");
     assert!(pip.contains(
-        "Between us:\nI threatened Vale over the Lamp, a little while ago.\n\
+        "\n\nI threatened Vale over the Lamp, a little while ago.\n\
          Vale threatened me over the Black cloth, some time ago."
     ));
     // The rules' third-person account is not told twice.
@@ -380,12 +379,12 @@ fn a_return_visit_remembers_what_is_between_us() {
     }
     // At the pond the talk here is new, so the last words between them show.
     let vale = prompt("return visit pond", "vale");
-    assert!(!vale.contains("Recent talk here"), "{vale}");
-    let between = vale.split_once("Between us:\n").unwrap().1;
+    assert!(!vale.contains("Pip said: "), "{vale}");
+    let between = vale.rsplit_once("\n\n").unwrap().1;
     assert!(
         between.starts_with(
             "Pip threatened me over the Lamp, some time ago.\n\
-             Pip last said to me, a little while ago: Then stay. I like company in the dark."
+             A little while ago, Pip said to me: \"Then stay. I like company in the dark.\""
         ),
         "{between}"
     );

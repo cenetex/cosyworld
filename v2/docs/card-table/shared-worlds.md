@@ -442,10 +442,10 @@ scene the browser built, so the service checks every field
   An unsigned, edited or moved one is refused with 400. One signed by an
   unlisted key, or for a later turn or revision than the scene, is left out. Older saves' words carry none, so the browser
   leaves them out (`signed-words.mjs`).
-  The "Recent talk here" lines and the line a speaker answers (its user
+  The remembered talk ("Pip said: "…"") and the line a speaker answers (its user
   message) come only from these verified heard lines. A Talk target's
   answer to this turn's actor line uses the line the service just wrote and
-  checked, so it never leaves the server unsigned. "Between us" lines
+  checked, so it never leaves the server unsigned. The history lines
   (`entities[].between[].said`) are signed lines too, and their envelope's
   turn must be the line's; its facts are matched as facts
   ([Talk is a conversation](../../../docs/design/talk-conversation.md#between-us)).

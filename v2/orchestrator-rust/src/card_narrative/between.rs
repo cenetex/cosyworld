@@ -11,7 +11,6 @@ use serde::{Deserialize, Serialize};
 /// 350 tokens.
 const LINES: usize = 3;
 const CHARS: usize = 240;
-pub(super) const LABEL: &str = "Between us:";
 
 /// What the speaker shares with one other voice in the scene.
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -104,11 +103,11 @@ pub(super) fn lines(context: &Context, entity: &Entity) -> Vec<String> {
             .iter()
             .filter(move |s| (s.actor_id == entity.id) == mine && !heard(&s.text))
             .map(move |s| {
-                let when = ago(context.turn.saturating_sub(s.turn));
+                let when = super::sentence(ago(context.turn.saturating_sub(s.turn)).into());
                 if mine {
-                    format!("I last said to {}, {when}: {}", other, s.text)
+                    format!("{when}, I said to {other}: \"{}\"", s.text)
                 } else {
-                    format!("{} last said to me, {when}: {}", other, s.text)
+                    format!("{when}, {other} said to me: \"{}\"", s.text)
                 }
             })
     };
@@ -156,11 +155,14 @@ mod tests {
         c
     }
 
-    /// The system message's "Between us" section, or `None`.
+    /// Our history, its own paragraph of the system message, or `None`.
     fn section(c: &Context) -> Option<String> {
         let (system, _) = conversation::messages(c, &c.entities[0]);
-        let (_, rest) = system.split_once("Between us:\n")?;
-        Some(rest.split("\n\n").next().unwrap().to_string())
+        let block = lines(c, &c.entities[0]).join("\n");
+        (!block.is_empty()).then(|| {
+            assert!(system.contains(&format!("\n\n{block}")), "{system}");
+            block
+        })
     }
 
     // Vale's side of the return-visit fixture (card-voice-eval-cases.mjs):
@@ -180,7 +182,7 @@ mod tests {
         let c = facing(json!([{"with": "moth", "facts": [INCIDENT]}]));
         assert_eq!(section(&c).unwrap(), INCIDENT);
         let (system, _) = conversation::messages(&c, &c.entities[0]);
-        assert!(system.find("What I know:").unwrap() < system.find("Between us:").unwrap());
+        assert!(system.ends_with(&format!("\n\n{INCIDENT}")));
         // A keepsake and the last words each way; words the talk here
         // already shows are left out.
         let c = facing(json!([{"with": "moth",
@@ -193,8 +195,8 @@ mod tests {
         assert_eq!(
             section(&c).unwrap(),
             "Pip gave me this Black cloth. I'm keeping it.\n\
-             Pip last said to me, just now: Bring the lamp next time.\n\
-             I last said to Pip, a little while ago: I'll be back before dark."
+             Just now, Pip said to me: \"Bring the lamp next time.\"\n\
+             A little while ago, I said to Pip: \"I'll be back before dark.\""
         );
         c.conversation.push(super::super::SpokenLine {
             witnesses: None,
@@ -202,7 +204,7 @@ mod tests {
             text: "Bring the lamp next time.".into(),
             signed: None,
         });
-        assert!(!section(&c).unwrap().contains("Pip last said"));
+        assert!(!section(&c).unwrap().contains("Pip said"));
         // Someone Vale is not facing has no say.
         let c = facing(json!([{"with": "keeper", "facts": [INCIDENT]}]));
         assert_eq!(section(&c), None);
@@ -229,7 +231,7 @@ mod tests {
                      {"actorId": "vale", "text": "Later.", "turn": 3}]}]));
         assert_eq!(
             section(&c).unwrap(),
-            format!("{INCIDENT}\nPip last said to me, just now: Soon.\n{MINE}")
+            format!("{INCIDENT}\nJust now, Pip said to me: \"Soon.\"\n{MINE}")
         );
         // Too many entries or facts, a quote from a third person, two last
         // lines from one side, or a later turn is not a valid scene.

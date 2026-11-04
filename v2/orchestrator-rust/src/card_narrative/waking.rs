@@ -24,20 +24,15 @@ pub(super) fn system(context: &Context, entity: &Entity, part: Part) -> String {
     idiolect(entity, part)
 }
 
-/// The transcript tag: the speaker's name once known, else "Me".
-pub(super) fn own(context: &Context, id: &str) -> String {
-    if knows_self(context, id) {
-        name(id)
-    } else {
-        "Me".into()
-    }
-}
-
 /// The waking frame: one line of waking, then each uncovered thing.
 pub(super) fn transcript(context: &Context, entity: &Entity) -> String {
     let mut lines = vec!["I'm waking up.".to_string()];
+    // Once its card is uncovered, the speaker knows its own name.
+    if knows_self(context, &entity.id) {
+        lines.push(format!("My name is {}.", name(&entity.id)));
+    }
     if !context.covered.contains(&context.location) {
-        lines.push(format!("Here: {}.", name(&context.location)));
+        lines.push(format!("I'm at {}.", name(&context.location)));
     }
     let held: Vec<_> = context
         .outcome
@@ -46,13 +41,11 @@ pub(super) fn transcript(context: &Context, entity: &Entity) -> String {
         .filter(|a| a.id == entity.id)
         .flat_map(|a| a.holding.iter())
         .filter(|item| !context.covered.contains(item))
-        .map(|item| name(item))
+        .map(|item| person::the(&name(item)))
         .collect();
     if !held.is_empty() {
-        lines.push(format!("In my hands: {}.", held.join(", ")));
+        lines.push(format!("I'm holding {}.", person::list(&held)));
     }
-    lines.push(String::new());
-    lines.push(format!("{}:", own(context, &entity.id)));
     lines.join("\n")
 }
 
@@ -81,7 +74,7 @@ mod tests {
             .map(|(_, line)| line)
             .collect::<Vec<_>>()
             .join("\n");
-        assert_eq!(prompt, "I'm waking up.\n\nMe:");
+        assert_eq!(prompt, "I'm waking up.");
         for word in ["Vale", "Empty station", "Lamp", "lamp", "oil"] {
             assert!(!prompt.contains(word), "{word} in {prompt}");
         }
@@ -93,13 +86,16 @@ mod tests {
         let vale = entity(&c, "vale");
         assert_eq!(
             transcript(&c, vale),
-            "I'm waking up.\nHere: Empty station.\n\nMe:"
+            "I'm waking up.\nI'm at Empty station."
         );
         assert_eq!(system(&c, vale, Part::Line), "");
         let c = waking(&[]);
         let vale = entity(&c, "vale");
-        assert!(transcript(&c, vale).ends_with("Here: Empty station.\n\nVale:"));
-        // His name joins the cue, but his persona waits past waking (#1665).
+        assert_eq!(
+            transcript(&c, vale),
+            "I'm waking up.\nMy name is Vale.\nI'm at Empty station."
+        );
+        // He knows his name, but his persona waits past waking (#1665).
         assert_eq!(system(&c, vale, Part::Line), "");
         assert!(!system(&c, vale, Part::Thought).is_empty());
         // Outside the opening, the full conversation frame.

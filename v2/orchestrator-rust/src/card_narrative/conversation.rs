@@ -1,6 +1,6 @@
 //! A spoken line is a turn in a conversation (owner, 2026-11-02). The system
-//! message holds who I am, my voice, where I am and who is here, what I know,
-//! the recent talk at this place and an optional fact to mention. The user
+//! message is my own first-person view, with no instructions: who I am, where
+//! I am, what I hold and know, and the talk I remember. The user
 //! message is only the line I answer. No cue ("Vale:") and no scene scaffold
 //! reach the user turn, so a chat-tuned model answers a person, the scaffold
 //! stays out of the reply, and the system text is stable across attempts.
@@ -15,10 +15,12 @@ pub(super) const CHAT_LINES: usize = 6;
 /// conversation prompt stays near #1537's 350 tokens.
 const CHAT_CHARS: usize = 400;
 
-/// Avatars' spoken lines use this shape. Places, reflections and a player's
-/// avatar still waking unnamed keep their own transcripts.
+/// Characters' and things' spoken lines use this shape. Places,
+/// reflections and a player's avatar still waking unnamed keep their own.
 pub(super) fn applies(context: &Context, entity: &Entity, part: Part) -> bool {
-    part == Part::Line && kind(&entity.id, "avatar") && !waking::applies(context, &entity.id, part)
+    part == Part::Line
+        && !kind(&entity.id, "location")
+        && !waking::applies(context, &entity.id, part)
 }
 
 /// The line this speaker answers: in a Talk, the actor's line for its
@@ -54,8 +56,7 @@ pub(super) fn presence(context: &Context, id: &str) -> String {
 
 /// The user message: what I just heard, verbatim. When nobody has spoken
 /// (a Wait, or the first words of a Talk), it is who is with me, which is
-/// what I answer: a cue in my own first person, never a request or the
-/// play's caption.
+/// what I answer: a cue in my own first person, never a request.
 pub(super) fn user(context: &Context, entity: &Entity) -> String {
     match heard(context, entity) {
         Some(line) => line.text.clone(),
@@ -63,18 +64,33 @@ pub(super) fn user(context: &Context, entity: &Entity) -> String {
     }
 }
 
-/// The recent talk at this place that the speaker heard, oldest first, as
-/// "Name: words", bounded by lines and characters. The answered line is the
-/// user message, so it is not repeated here.
-pub(super) fn chat(context: &Context, entity: &Entity) -> Vec<String> {
-    let skip = heard(context, entity);
+/// A remembered line, "Name: words", as "Pip said: "words"" or, for my
+/// own, "I said: "words"".
+pub(super) fn said(text: &str, own: &str) -> String {
+    match text.split_once(": ") {
+        Some((who, words)) if who == own => format!("I said: \"{words}\""),
+        Some((who, words)) => format!("{who} said: \"{words}\""),
+        None => text.to_string(),
+    }
+}
+
+/// The talk at this place that the speaker heard, oldest first, as
+/// remembered lines. A line keeps the last few, bounded by lines and
+/// characters; the answered line is the user message, so it is not
+/// repeated here. Reflection remembers the whole talk.
+pub(super) fn chat(context: &Context, entity: &Entity, part: Part) -> Vec<String> {
+    let skip = heard(context, entity).filter(|_| part == Part::Line);
+    let own = name(&entity.id);
     let mut lines: Vec<String> = context
         .conversation
         .iter()
         .filter(|line| witnessed(entity, line))
         .filter(|line| !skip.is_some_and(|heard| std::ptr::eq(*line, heard)))
-        .map(|line| format!("{}: {}", name(&line.actor_id), line.text))
+        .map(|line| said(&format!("{}: {}", name(&line.actor_id), line.text), &own))
         .collect();
+    if part != Part::Line {
+        return lines;
+    }
     let start = lines.len().saturating_sub(CHAT_LINES);
     lines.drain(..start);
     while lines.len() > 1 && lines.iter().map(|l| l.chars().count() + 1).sum::<usize>() > CHAT_CHARS
@@ -99,17 +115,22 @@ pub(super) fn others_lines(context: &Context, entity: &Entity) -> Vec<String> {
         .collect()
 }
 
-/// Arrange the scene lines for the system message: here and now, then what I
-/// know, what is between me and the person I face, and the talk here.
+/// Arrange the view for the system message: here and now, then what I know
+/// and want, what is between me and the person I face, and the talk I
+/// remember, each as its own paragraph. No labels.
 pub(super) fn frame(
     context: &Context,
     entity: &Entity,
+    part: Part,
     lines: Vec<(Section, String)>,
     mentions: Vec<String>,
 ) -> Vec<(Section, String)> {
-    let mut out = Vec::new();
-    let between = super::between::lines(context, entity);
-    // A fact shown under "Between us" is not said twice.
+    let between = if part == Part::Line {
+        super::between::lines(context, entity)
+    } else {
+        Vec::new()
+    };
+    // A fact shown in our history is not said twice.
     let once = |(section, text): (Section, String)| {
         let text = between
             .iter()
@@ -117,37 +138,29 @@ pub(super) fn frame(
         let text = text.split_whitespace().collect::<Vec<_>>().join(" ");
         (!text.is_empty()).then_some((section, text))
     };
-    let (known, now): (Vec<_>, Vec<_>) = lines
+    let (known, mut out): (Vec<_>, Vec<_>) = lines
         .into_iter()
         .partition(|(section, _)| matches!(section, Section::Facts | Section::Inner));
-    // A fact the rules reserved for this Talk is one more thing I know.
     let known: Vec<_> = known
         .into_iter()
         .filter_map(once)
         .chain(mentions.into_iter().map(|fact| (Section::Directions, fact)))
         .collect();
-    out.extend(now);
-    if !known.is_empty() {
-        out.push((Section::Now, String::new()));
-        out.push((Section::Facts, "What I know:".into()));
-        out.extend(known);
-    }
-    if !between.is_empty() {
-        out.push((Section::Now, String::new()));
-        out.push((Section::Facts, super::between::LABEL.into()));
-        out.extend(between.into_iter().map(|line| (Section::Facts, line)));
-    }
-    let chat = chat(context, entity);
-    if !chat.is_empty() {
-        out.push((Section::Now, String::new()));
-        out.push((Section::Conversation, "Recent talk here:".into()));
-        out.extend(chat.into_iter().map(|line| (Section::Conversation, line)));
+    let between = between.iter().map(|l| (Section::Conversation, l.clone()));
+    let chat = chat(context, entity, part)
+        .into_iter()
+        .map(|l| (Section::Conversation, l));
+    for block in [known, between.collect(), chat.collect()] {
+        if !block.is_empty() {
+            out.push((Section::Now, String::new()));
+            out.extend(block);
+        }
     }
     out
 }
 
-/// The prompt's own wording, lowercased: a reply holding one reads the
-/// scaffold back, whatever its case.
+/// Words no prompt holds any more, or mechanics a learning fact holds,
+/// lowercased: a reply holding one reads a scaffold back, whatever its case.
 pub(super) const SCAFFOLD: &[&str] = &[
     "if it fits the conversation",
     "what i know:",
@@ -159,14 +172,8 @@ pub(super) const SCAFFOLD: &[&str] = &[
 ];
 
 /// Whether a lowercased reply reads back a prompt label, in any case.
-/// "Here:" is a label only at the start; "come here: now" is speech.
 pub(super) fn reads_label(lower: &str, label: &str) -> bool {
-    let label = label.to_lowercase();
-    if label == "here:" {
-        lower.trim_start().starts_with(&label)
-    } else {
-        lower.contains(&label)
-    }
+    lower.contains(&label.to_lowercase())
 }
 
 /// Whether a fact is what the speaker learned about its own approaches
@@ -180,11 +187,13 @@ pub(super) fn strategy(fact: &str) -> bool {
             && (fact.contains(" to agree. ") || fact.contains(" to decline. ")))
 }
 
-/// The system and user messages. Every attempt sends the same words.
+/// The system and user messages: my own view and what I just heard.
 pub(super) fn messages(context: &Context, entity: &Entity) -> (String, String) {
-    let mut system = idiolect(entity, Part::Line);
-    system.push_str("\n\n");
-    system.push_str(&super::transcript(context, entity, Part::Line));
+    let system = [
+        idiolect(entity, Part::Line),
+        super::transcript(context, entity, Part::Line),
+    ]
+    .join("\n\n");
     (system, user(context, entity))
 }
 
@@ -401,8 +410,8 @@ mod tests {
         );
     }
 
-    /// The scaffold's own words, in any case, are a read-back; "here" in
-    /// speech is not.
+    /// A scaffold's words, in any case, are a read-back; "here" in speech
+    /// is not.
     #[test]
     fn scaffold_words_in_any_case_are_read_back() {
         let c = talk();

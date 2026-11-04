@@ -38,7 +38,6 @@ fn sketch(id: &str) -> String {
 
 pub(super) fn transcript(context: &Context, entity: &Entity) -> String {
     let id = entity.id.as_str();
-    let own = name(id);
     let turn = context.turn;
     let life = entity.inner_life.as_ref();
     let mut lines = Vec::new();
@@ -50,14 +49,14 @@ pub(super) fn transcript(context: &Context, entity: &Entity) -> String {
         .flat_map(|l| &l.dreams)
         .filter(|d| grounded(&d.text, &known))
     {
-        lines.push(format!("{own}, an earlier dream: {}", dream.text));
+        lines.push(format!("I dreamed: {}", dream.text));
     }
     let mut drift = Vec::new();
     if let Some(thought) = life
         .and_then(|l| l.thoughts.last())
         .filter(|t| roll(id, turn, 1).is_multiple_of(2) && grounded(&t.text, &known))
     {
-        drift.push(format!("{own}, to myself: {}", thought.text));
+        drift.push(format!("I thought: {}", thought.text));
     }
     let memories: Vec<_> = entity.memories.iter().collect();
     for salt in 0..roll(id, turn, 2) % 3 {
@@ -67,7 +66,7 @@ pub(super) fn transcript(context: &Context, entity: &Entity) -> String {
         let seed = roll(id, turn, 10 + salt);
         let memory = memories[seed as usize % memories.len()];
         // A scrap of the day, in the dreamer's own first person.
-        let text = person::shift(&memory.text, &own);
+        let text = person::shift(&memory.text, &name(id));
         if let Some(scrap) = fragment(&text, seed >> 4) {
             if !drift.iter().any(|d: &String| d.contains(&scrap)) {
                 drift.push(format!("… {scrap} …"));
@@ -86,7 +85,7 @@ pub(super) fn transcript(context: &Context, entity: &Entity) -> String {
     // Drifting material arrives in no particular order.
     drift.sort_by_key(|line| roll(line, turn, 4));
     lines.extend(drift);
-    lines.push(cue(&own, Part::Dream));
+    lines.push(cue(Part::Dream).into());
     lines.join("\n")
 }
 
@@ -142,7 +141,7 @@ mod tests {
             transcript(&c, &c.entities[vale]),
             "seeded, not random per call"
         );
-        assert!(prompt.ends_with("Vale, last night's dream:"));
+        assert!(prompt.ends_with("\nLast night I dreamed:"));
         let staircase = prompt.find("A staircase grew feathers.").unwrap();
         assert!(staircase < prompt.find("The feathers became trains.").unwrap());
         for absent in [
