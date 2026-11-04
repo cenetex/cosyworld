@@ -92,6 +92,9 @@ jobs:
         run: node scripts/check-change-budget.mjs --base "$PR_BASE" --head "$PR_HEAD"
       - name: Check version alignment
         run: npm run check:version
+      # New card-table UI needs the owner's approval in ui-inventory.json.
+      - name: Check UI inventory
+        run: npm run check:ui
       - name: Check shared rules engine policy (warning only)
         if: github.event_name == 'pull_request'
         env:

@@ -63,7 +63,7 @@ Then run every row that matches the change:
 | Surface | Required checks |
 | --- | --- |
 | Markdown-only docs | inspect links/commands; `npm run check:version` |
-| Card table (`v2/card-game/`) | `npm test`; `npm run play:cards` and play the changed path at desktop and phone width; a new public file joins `public-assets.mjs`; run `npm run v2:card:assets:build` to refresh `media-manifest.json` (Cargo builds the Rust asset module itself) |
+| Card table (`v2/card-game/`) | `npm run check:ui` (new UI or a core restyle needs the owner's review of `ui-inventory.json` or `ui-styles.json`); `npm test`; `npm run play:cards` and play the changed path at desktop and phone width; a new public file joins `public-assets.mjs`; run `npm run v2:card:assets:build` to refresh `media-manifest.json` (Cargo builds the Rust asset module itself) |
 | Cross-surface tests (`test/`) | `npm test` |
 | Pack/content/compiler | `npm run v2:worldpack` |
 | C kernel or ABI | `npm run v2:kernel`; `npm run v2:rust:test` |
@@ -76,7 +76,7 @@ Then run every row that matches the change:
 `fast-check.yml` runs on every pull request and every push to main, in about
 five minutes. Each checkout borrows the tree's Git objects from an Actions
 cache; a job that misses it fetches the whole tree from Git, so jobs allow 15
-minutes. It runs the change budget, version alignment,
+minutes. It runs the change budget, version alignment, the UI inventory,
 the engine-gate warning, eslint, a prettier warning on changed files,
 `docs:check`, `npm test`, `cargo fmt --check` for the Rust orchestrator (no
 build; run `cargo fmt` in `v2/orchestrator-rust` when it fails), the core

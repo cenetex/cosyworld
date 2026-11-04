@@ -11,6 +11,10 @@ the dialogue/descriptor bar, the single context action button, and the cards
 and stacks. A variant is a label, colour or state on those systems. Never
 delete a working piece of UI and build a new widget, overlay or panel in its
 place. If a request seems to need a new UI system, stop and ask the owner.
+`npm run check:ui` (in the fast check) fails on a new component class, id or
+element in `v2/card-game/`, or on any restyle of the context button, dialogue
+bar, cards or hand. Only the owner approves one, by reviewing
+`v2/card-game/ui-inventory.json` or `ui-styles.json` (CODEOWNERS).
 
 Before feature work:
 
