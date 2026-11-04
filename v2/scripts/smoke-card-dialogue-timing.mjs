@@ -175,6 +175,15 @@ try {
             .querySelector("#dialogue-text")
             .textContent.startsWith("Vale has a full reply."),
         );
+        // Vale's name is written in Vale's card colour, through the same
+        // reveal (card-names.mjs).
+        assert.deepEqual(
+          await page.$eval("#dialogue-text .card-name", (run) => [
+            run.textContent,
+            run.style.getPropertyValue("--tier-color"),
+          ]),
+          ["Vale", "#c8dce6"],
+        );
         assert.equal(await card("vale").isDisabled(), false);
         await page.waitForTimeout(2800);
         assert.equal(await card("vale").isDisabled(), false);

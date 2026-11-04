@@ -105,6 +105,7 @@ import {
   createPlayQueue,
   waitForScene,
 } from "./dialogue.mjs";
+import { nameLetters, namedText } from "./card-names.mjs";
 import {
   currentActor,
   places,
@@ -351,6 +352,22 @@ const cardArt = (id) =>
 // going (the ship's deck from its berth), lit for the hour and weather.
 const placeArt = (id) => placeCardArt(world, id);
 const cardIsCovered = (id) => !encountered.has(id) || coveredCards.has(id);
+// The scene's uncovered cards, so text writes their names in their card's
+// colour (card-names.mjs).
+const sceneCards = () =>
+  availableCards(world)
+    .filter((id) => !cardIsCovered(id))
+    .map((id) => ({
+      id,
+      name: nameOf(id),
+      person: Boolean(people[id]),
+      color: levelTier(cardLevel(world, id)).color,
+    }));
+const namedSpan = (text) => {
+  const span = document.createElement("span");
+  span.append(...namedText(text, sceneCards()));
+  return span;
+};
 // The screen names a card only once its player has uncovered it (#1575),
 // and the world's hidden avatar only once this avatar has met it (#1936).
 const knownName = (id, unknown = "…") =>
@@ -806,6 +823,7 @@ const reveal = createTextReveal({
         );
       speechGlyphs = letterSpans(value.text);
       text.replaceChildren(...speechGlyphs);
+      nameLetters(speechGlyphs, value.text, sceneCards());
       speechPainter.start(speechGlyphs);
       measureSpeech();
       $("speech-announcement").textContent = "";
@@ -996,10 +1014,12 @@ music.setVolume(musicVolume);
 music.setHidden(document.hidden);
 music.setStarted(musicHasStarted());
 // The battle song plays while the player's room holds an open battle. While a
-// fight's beats or its loss screen play, presentCombat sets the cue instead.
-let combatCue = false;
+// fight's beats play, and from a loss screen until the player's next move,
+// presentCombat sets the cue instead.
+let combatCue = false,
+  lossCue = false;
 function syncMusicCue() {
-  if (!combatCue)
+  if (!combatCue && !lossCue)
     music.cue(battleMusicDue(world, currentActor(world)) ? "battle" : null);
 }
 // The island's drone follows the same switch and volume as the music.
@@ -1341,6 +1361,11 @@ function commitAction(action, revision, renderedAt = -Infinity) {
   if (selectionBlocked()) return;
   if (renderedAt >= lastPlayAt && performance.now() - lastPlayAt < SETTLE_MS)
     return;
+  // The player's next move ends the loss screen's song.
+  if (lossCue) {
+    lossCue = false;
+    syncMusicCue();
+  }
   // The drone falls silent just before a discovery is revealed.
   if (action.choiceId) hum.hush();
   // The same play chosen again keeps it; its Thinking card cancels it.
@@ -1414,9 +1439,7 @@ function performAction(action, revision) {
           render();
           done();
         },
-        beats.some((beat) => beat.kind === "defeat" && beat.viewerLost)
-          ? "You come to at"
-          : undefined,
+        beats.some((beat) => beat.kind === "defeat" && beat.viewerLost),
       );
     else {
       render();
@@ -1448,7 +1471,7 @@ function restoreHandFocus() {
 }
 
 // Standoff beats play over the scene the player saw before the play. The new
-// world is drawn only after the last beat (and any defeat card) is done.
+// world is drawn only after the last beat (and any loss screen) is done.
 let combatView = null,
   combatRun = 0,
   combatRelease = null;
@@ -1458,8 +1481,14 @@ function combatStage() {
     stage: $("stage"),
     caption: $("combat-caption"),
     announce: $("combat-announcement"),
-    dialog: $("defeat-dialog"),
     veil: $("travel"),
+    // The loss screen's full-art cards: the hand's card faces, inert.
+    cardFace: (id) => {
+      const face = card(id).querySelector(".card").cloneNode(true);
+      face.disabled = false;
+      face.dataset.selected = "false";
+      return face;
+    },
     reducedMotion,
     revealLine: (seq) => {
       if (combatHeld.delete(seq)) renderLog();
@@ -1495,10 +1524,11 @@ async function presentCombat(beats, land) {
     (beat) => beat.kind === "defeat" && beat.viewerLost,
   );
   if (defeat) {
-    // The loss screen's song, from its fade to black until Continue.
+    // The loss screen's song plays from its fade to black, over the slow
+    // lift, until the player's next move (commitAction).
+    lossCue = true;
     music.cue("battle-loss");
     await view.defeat(defeat);
-    if (mine === combatRun) music.cue(null);
   }
   if (mine !== combatRun) return;
   await view.release();
@@ -1510,8 +1540,10 @@ async function presentCombat(beats, land) {
   covering = false;
   combatCue = false;
   renderLog();
+  // The black lifts slowly onto wherever the rules put the player; the
+  // travel veil (already down) takes over from it.
+  $("travel").classList.toggle("waking", Boolean(defeat));
   land(release);
-  // The travel veil (already down) takes over from a defeat's black.
   $("travel").classList.remove("fainting");
 }
 
@@ -1550,10 +1582,12 @@ function cancelTravel() {
   for (const animation of $("speech-row").getAnimations()) animation.cancel();
 }
 // Cards met at the new place are unveiled once the veil has fully lifted.
-async function travel(place, arrive, landed, kicker = "Travelling to") {
+// After a loss the veil is already black and lifts slowly, wordless: the
+// loss screen said where the player comes to.
+async function travel(place, arrive, landed, lost = false) {
   count("travel");
   const veil = $("travel");
-  $("travel-kicker").textContent = kicker;
+  veil.classList.toggle("waking", lost);
   $("travel-name").textContent = nameOf(place);
   if (reducedMotion.matches) {
     arrive();
@@ -3065,7 +3099,7 @@ function renderScene() {
       ...(front?.actions || []).map((action, index) => {
         const item = node("span", undefined, "beat-caption");
         item.dataset.kind = action.kind;
-        item.append(beatIcon(action.icon), node("span", action.text));
+        item.append(beatIcon(action.icon), namedSpan(action.text));
         if (index >= kept) inscribe(item, action.text);
         return item;
       }),
@@ -3139,14 +3173,18 @@ function renderScene() {
       const words = behindButton.querySelector(".beat-behind-text");
       const first = behind.actions.at(-1);
       const caption = node("span", undefined, "beat-behind-caption");
-      if (first) caption.append(beatIcon(first.icon), first.text);
+      if (first) caption.append(beatIcon(first.icon), namedSpan(first.text));
       if (first && behindButton.dataset.beatKey === behind.key)
         inscribe(caption, first.text);
       behindButton.dataset.beatKey = behind.key;
       words.replaceChildren(
         node("strong", summary.speaker),
         ...(summary.speech
-          ? [node("span", summary.speech, "beat-behind-speech")]
+          ? [
+              Object.assign(namedSpan(summary.speech), {
+                className: "beat-behind-speech",
+              }),
+            ]
           : []),
         ...(first ? [caption] : []),
       );
@@ -3182,6 +3220,7 @@ function inscribe(item, text) {
   const words = node("span"),
     glyphs = letterSpans(text);
   words.append(...glyphs);
+  nameLetters(glyphs, text, sceneCards());
   item.lastChild.replaceWith(words);
   const beat = Math.min(900, Math.max(300, text.length * 20)) / glyphs.length;
   const painter = createRevealPainter(words, { caret: false });
@@ -4581,9 +4620,7 @@ function adoptShared(value) {
             syncSharedLine();
             done();
           },
-          beats.some((beat) => beat.kind === "defeat" && beat.viewerLost)
-            ? "You come to at"
-            : undefined,
+          beats.some((beat) => beat.kind === "defeat" && beat.viewerLost),
         );
       else {
         render();

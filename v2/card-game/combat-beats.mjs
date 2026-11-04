@@ -205,25 +205,51 @@ function defeatBeat(before, after, attack, fresh, { viewer, here }) {
   };
 }
 
-// What the defeat card says. Second person for the viewer.
+// What the loss screen says, worded from the viewer's defeat beat with no
+// AI: who drove them off, then each change the rules made as a plain
+// caption (kind, sentence). Its cards are the winner and what was lost.
 export function defeatSummary(beat) {
-  const winner = nameOf(beat.winnerId);
-  const you = beat.viewerLost;
-  const loser = you ? "You" : nameOf(beat.loserId);
-  const changes = beat.droppedItemIds.map(
-    (id) => `${loser} dropped ${theName(id)}.`,
-  );
-  if (beat.lossCount) changes.push(`Standoffs lost: ${beat.lossCount} of 3.`);
-  if (beat.sentHome) changes.push("Sent home.");
-  else if (beat.moved)
-    changes.push(`${loser} fell back from ${inSentence(beat.fromLocationId)}.`);
   return {
-    title: you
-      ? `${winner} drove you off`
-      : `${winner} drove ${inSentence(beat.loserId)} off`,
-    changes,
-    arrival: `You come to at ${inSentence(beat.locationId)}`,
+    title: `${nameOf(beat.winnerId)} drove you off.`,
+    changes: [
+      ...beat.droppedItemIds.map((id) => ({
+        kind: "drop",
+        text: `You dropped ${theName(id)}.`,
+      })),
+      ...(beat.sentHome ? [{ kind: "sent-home", text: "Sent home." }] : []),
+      {
+        kind: "retreat",
+        text: `You wake at ${inSentence(beat.locationId)}.`,
+      },
+    ],
+    cards: [beat.winnerId, ...beat.droppedItemIds].slice(0, 4),
   };
+}
+
+// The loss screen in ms at 1×: the fade to black, the read once the words
+// are whole, the words leaving (and a breath after), and the slow lift onto
+// wherever the rules put the player. 2× halves it; reduced motion cuts the
+// fades but keeps the read.
+export const LOSS_MS = Object.freeze({
+  faint: 1400,
+  read: 2600,
+  out: 400,
+  wake: 2500,
+});
+export const lossTimes = ({ speed = 1, reduced = false } = {}) =>
+  Object.fromEntries(
+    Object.entries(LOSS_MS).map(([step, ms]) => [
+      step,
+      reduced && step !== "read" ? 0 : Math.round(ms / speed),
+    ]),
+  );
+// Its steps. Nothing waits on a button: a tap (or Enter, Space, Escape)
+// shows the words whole, the next moves on, and the read moves on alone.
+export function lossStep(step, event) {
+  if (event === "cancel") return "done";
+  if (step === "writing" && ["tap", "written"].includes(event)) return "read";
+  if (step === "read" && ["tap", "read"].includes(event)) return "leaving";
+  return step === "leaving" && event === "left" ? "done" : step;
 }
 
 // Timing. Each beat lists its phases in ms from the beat's start at 1×.

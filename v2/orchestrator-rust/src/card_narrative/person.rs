@@ -1,13 +1,35 @@
 //! A voice prompt is the speaker's own first-person view, with no
 //! instructions (owner, 2026-11-03): "We aren't asking llms to do anything
 //! except speak as themselves." Rules and browser text name everyone in the
-//! third person ("Vale waits one turn.", "Pip threatens Vale."); this
-//! rewords it as the speaker knows it ("I wait a moment.", "Pip threatens
-//! me."),
+//! third person ("Vale waits one turn.", "Holding: Lamp."); this rewords it
+//! as the speaker knows it ("I wait a moment.", "I'm holding the Lamp."),
 //! and a play's turns are moments ("in the prompting lets call them moments
 //! instead of turns"). Which facts reach a prompt is decided elsewhere; the
 //! captions the table shows keep their own words.
-use super::profiles;
+use super::{name, profiles};
+
+/// A thing as a speaker names it: "the Lamp", "The Egyptian Witness
+/// Tablet", "something I can't make out".
+pub(super) fn the(thing: &str) -> String {
+    let lower = thing.to_lowercase();
+    if ["the ", "a ", "an ", "something ", "someone "]
+        .iter()
+        .any(|lead| lower.starts_with(lead))
+    {
+        thing.to_string()
+    } else {
+        format!("the {thing}")
+    }
+}
+
+/// "A", "A and B", "A, B and C".
+pub(super) fn list(parts: &[String]) -> String {
+    match parts {
+        [] => String::new(),
+        [one] => one.clone(),
+        [rest @ .., last] => format!("{} and {last}", rest.join(", ")),
+    }
+}
 
 /// Words that count a turn of play rather than turn something.
 const COUNTED: &[&str] = &[
@@ -169,6 +191,75 @@ pub(super) fn shift(text: &str, own: &str) -> String {
     out
 }
 
+/// A browser fact as the speaker knows it, or `None` when the prompt says
+/// it already: where I am and who is here (`scene`), the scene list, and
+/// the want's restatements ("Wants Lamp, currently with Vale."), which the
+/// want's own first-person line and the holdings cover.
+pub(super) fn fact(text: &str, id: &str, scene: bool) -> Option<String> {
+    let own = name(id);
+    if text.starts_with("At the dialogue scene: ")
+        || text.starts_with("Wants ")
+        || text.starts_with("Already holds the wanted ")
+        || (scene && text.starts_with("Location now: "))
+    {
+        return None;
+    }
+    if let Some(held) = text.strip_prefix("Holding: ") {
+        let held = held.trim_end_matches('.');
+        if held == "empty hands" {
+            return Some("My hands are empty.".into());
+        }
+        let things: Vec<String> = held.split(", ").map(the).collect();
+        return Some(format!("I'm holding {}.", list(&things)));
+    }
+    if let Some(place) = text.strip_prefix("Location now: ") {
+        let place = place.split(". Company now:").next().unwrap_or(place);
+        return Some(format!("I'm at {}.", place.trim_end_matches('.')));
+    }
+    if let Some(reason) = text.strip_prefix("Remembered grievance: ") {
+        return Some(format!("{} I haven't forgotten.", shift(reason, &own)));
+    }
+    if let Some(rest) = text.strip_prefix("Owes a favour to ") {
+        let (who, _) = rest.split_once(';').unwrap_or((rest, ""));
+        return Some(format!(
+            "I owe {} a favour; I'd share a spare or take a detour with them.",
+            shift(who, &own)
+        ));
+    }
+    if let Some(rest) = text.strip_prefix("In a battle with ") {
+        let (with, stance) = rest.split_once(": ").unwrap_or((rest, ""));
+        let stance = if stance.starts_with("braced") {
+            " I'm braced."
+        } else {
+            " My guard is open."
+        };
+        return Some(format!(
+            "I'm in a battle with {}.{stance}",
+            shift(with, &own)
+        ));
+    }
+    if let Some(rest) = text.strip_prefix("Your completed exchange: you ") {
+        let gave = rest.split(". The item you gained").next().unwrap_or(rest);
+        return Some(format!("I {}.", shift(gave.trim_end_matches('.'), &own)));
+    }
+    let mut text = text
+        .replace(
+            "This is your first meeting with ",
+            "This is my first meeting with ",
+        )
+        .replace(" You were already here when ", " I was already here when ")
+        .replace(" This is the recorded answer for this play.", "");
+    if let Some(open) = text.find(" (refusal: ") {
+        if let Some(close) = text[open..].find(')') {
+            text.replace_range(open..open + close + 1, "");
+        }
+    }
+    if let Some(rest) = text.strip_prefix("Awake.") {
+        text = format!("I'm awake.{rest}");
+    }
+    Some(shift(&text, &own))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -224,5 +315,39 @@ mod tests {
         );
         assert_eq!(moments("One turn later."), "A moment later.");
         assert_eq!(moments("I would turn away."), "I would turn away.");
+    }
+
+    #[test]
+    fn browser_facts_read_as_the_speaker_knows_them() {
+        for (text, mine) in [
+            ("Holding: Lamp, Black cloth.", Some("I'm holding the Lamp and the Black cloth.")),
+            ("Holding: empty hands.", Some("My hands are empty.")),
+            (
+                "Holding: something shining I can't make out.",
+                Some("I'm holding something shining I can't make out."),
+            ),
+            ("Location now: Black pond. Company now: Pip.", None),
+            ("At the dialogue scene: Vale, Pip. Items here: Lamp.", None),
+            ("Wants Lamp, currently with Vale.", None),
+            ("Remembered grievance: Pip picked a fight.", Some("Pip picked a fight. I haven't forgotten.")),
+            (
+                "In a battle with The keeper over Bell: open stance. Brace, guard, strike or wait are available.",
+                Some("I'm in a battle with The keeper over Bell. My guard is open."),
+            ),
+            (
+                "The Gate Guard refused Vale's offer of Burial Shovel (refusal: wants-something-else). Nothing changed.",
+                Some("The Gate Guard refused my offer of Burial Shovel. Nothing changed."),
+            ),
+            (
+                "This is your first meeting with Pip. You were already here when Pip arrived.",
+                Some("This is my first meeting with Pip. I was already here when Pip arrived."),
+            ),
+            (
+                "Owes a favour to Pip; willing to share a spare or take a detour with them.",
+                Some("I owe Pip a favour; I'd share a spare or take a detour with them."),
+            ),
+        ] {
+            assert_eq!(fact(text, "vale", true).as_deref(), mine, "{text}");
+        }
     }
 }
