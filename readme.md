@@ -1,3 +1,6 @@
+<img width="1511" height="799" alt="image" src="https://github.com/user-attachments/assets/d89a913b-8d18-4077-addf-7e5a824585f0" />
+*gameplay*
+
 # CosyWorld
 
 CosyWorld is a small, strange world played through avatar, item, and location
