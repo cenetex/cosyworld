@@ -318,6 +318,19 @@ export const restStep = (s, actor, api, quest) => ({
   step: { verb: "rest" },
 });
 const sanctuaryQuest = (w) => w.step?.verb === "rest" && !w.quest;
+// A sanctuary quest rebuilt for another place (its sanctuary gone quiet, or
+// set aside) takes the place of an ordinary quest for that place, as
+// `pushQuest` does, and of a later sanctuary quest; level quests stay as they
+// are. Nothing else is held twice (rules 99).
+export function mergeSanctuaryQuests(list) {
+  const key = (w) => `${w.kind}:${w.target}`;
+  const keeps = (k) => {
+    const same = (w) => !w.quest && key(w) === k;
+    const rest = list.findIndex((w) => same(w) && sanctuaryQuest(w));
+    return rest >= 0 ? rest : list.findIndex(same);
+  };
+  return list.filter((w, i) => w.quest || keeps(key(w)) === i);
+}
 // Waking from a long rest meets a quest to sleep at a sanctuary, completes a
 // level quest's rest step there, or, with the experience for the next level
 // before it woke, brings that level quest. One long rest brings one of them
@@ -724,7 +737,14 @@ function giveUp(s, actor, api) {
   // A level quest with no way forward becomes another of the same level;
   // its rest still waits at the sanctuary.
   // A glimpsed first step keeps its aspect: the quest may wait.
-  if (want.step?.verb === "rest") a.want = restStep(s, actor, api, want.quest);
+  if (want.step?.verb === "rest")
+    setQuests(
+      a,
+      mergeSanctuaryQuests([
+        restStep(s, actor, api, want.quest),
+        ...questsOf(s, actor).slice(1),
+      ]),
+    );
   else if (want.quest)
     a.want =
       (want.quest.left === questSteps(want.quest.level) + 1 &&

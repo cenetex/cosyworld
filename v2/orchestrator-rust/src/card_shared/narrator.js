@@ -2412,6 +2412,16 @@
     ...quest ? { quest } : {},
     step: { verb: "rest" }
   });
+  var sanctuaryQuest = (w) => w.step?.verb === "rest" && !w.quest;
+  function mergeSanctuaryQuests(list) {
+    const key = (w) => `${w.kind}:${w.target}`;
+    const keeps = (k) => {
+      const same2 = (w) => !w.quest && key(w) === k;
+      const rest = list.findIndex((w) => same2(w) && sanctuaryQuest(w));
+      return rest >= 0 ? rest : list.findIndex(same2);
+    };
+    return list.filter((w, i) => w.quest || keeps(key(w)) === i);
+  }
   var newWant = (kind, target, turn) => ({
     kind,
     target,
@@ -2498,7 +2508,14 @@
   function giveUp(s, actor, api) {
     const a = s.actors[actor], want = a.want;
     a.gaveUp = { target: want.target, turn: s.turn };
-    if (want.step?.verb === "rest") a.want = restStep(s, actor, api, want.quest);
+    if (want.step?.verb === "rest")
+      setQuests(
+        a,
+        mergeSanctuaryQuests([
+          restStep(s, actor, api, want.quest),
+          ...questsOf(s, actor).slice(1)
+        ])
+      );
     else if (want.quest)
       a.want = want.quest.left === questSteps(want.quest.level) + 1 && glimpseStep(s, actor, api, want.quest) || questStep(s, actor, api, want.quest, want);
     else {

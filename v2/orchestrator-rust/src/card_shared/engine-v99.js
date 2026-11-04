@@ -2199,6 +2199,15 @@
     step: { verb: "rest" }
   });
   var sanctuaryQuest = (w) => w.step?.verb === "rest" && !w.quest;
+  function mergeSanctuaryQuests(list) {
+    const key2 = (w) => `${w.kind}:${w.target}`;
+    const keeps = (k) => {
+      const same2 = (w) => !w.quest && key2(w) === k;
+      const rest2 = list.findIndex((w) => same2(w) && sanctuaryQuest(w));
+      return rest2 >= 0 ? rest2 : list.findIndex(same2);
+    };
+    return list.filter((w, i) => w.quest || keeps(key2(w)) === i);
+  }
   function wake(s, actor, api) {
     const a = s.actors[actor], before = a.xp;
     if (api.sanctuaries.includes(a.place)) a.sanctuary = a.place;
@@ -2432,7 +2441,14 @@
   function giveUp(s, actor, api) {
     const a = s.actors[actor], want = a.want;
     a.gaveUp = { target: want.target, turn: s.turn };
-    if (want.step?.verb === "rest") a.want = restStep(s, actor, api, want.quest);
+    if (want.step?.verb === "rest")
+      setQuests(
+        a,
+        mergeSanctuaryQuests([
+          restStep(s, actor, api, want.quest),
+          ...questsOf(s, actor).slice(1)
+        ])
+      );
     else if (want.quest)
       a.want = want.quest.left === questSteps(want.quest.level) + 1 && glimpseStep(s, actor, api, want.quest) || questStep(s, actor, api, want.quest, want);
     else {
@@ -6527,6 +6543,13 @@
         a.place = api.want.player(id) ? spots[0] : spot();
         delete a.sleeping;
       }
+    for (const c of crossings) {
+      const state = s.crossings[c.id];
+      if (c.signal && state.phase > 0 && !Object.keys(s.actors).some(
+        (id) => api.want.player(id) && s.actors[id].place === c.from
+      ))
+        state.phase = 0;
+    }
     for (const [id, item] of byId(s.items)) {
       if (mine(id) || !mine(item.holder)) continue;
       const top = root(id), place = s.actors[top]?.place;
@@ -6549,14 +6572,14 @@
     for (const [id, a] of byId(s.actors)) {
       if (mine(id)) continue;
       if (mine(a.sanctuary)) delete a.sanctuary;
-      const list = questsOf(s, id).map(
-        (w) => w.step?.verb === "rest" && mine(w.target) ? restStep(s, id, api.want, w.quest) : w
+      const list = mergeSanctuaryQuests(
+        questsOf(s, id).map(
+          (w) => w.step?.verb === "rest" && mine(w.target) ? restStep(s, id, api.want, w.quest) : w
+        )
       );
       const named = (w) => names2(w).some(mine);
       const order = [...list.filter((w) => !named(w)), ...list.filter(named)];
-      if (!order.length) continue;
-      a.want = order[0];
-      if (order.length > 1) a.under = order.slice(1);
+      if (order.length) setQuests(a, order);
     }
   }
 
