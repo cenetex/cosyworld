@@ -106,6 +106,9 @@ impl World {
     // Every journal command is reduced through the same C guard and C-hosted
     // authored rules. AI text is appended by the authored speech reducer.
     pub fn apply(&mut self, command: &Value) -> Result<Value> {
+        if engine::newer(&self.version) {
+            return Err(engine::UPDATING.into());
+        }
         if command["op"] == "repack" {
             return self.repack(command);
         }
@@ -217,6 +220,9 @@ impl World {
                 .position(|v| *v == self.version)
                 .zip(versions.iter().position(|v| *v == target))
                 .is_some_and(|(from, to)| from < to);
+            if engine::newer(target) {
+                return Err(engine::UPDATING.into());
+            }
             if command["from"] != self.version || !allowed {
                 return Err("This world's rules upgrade needs its original version.".into());
             }

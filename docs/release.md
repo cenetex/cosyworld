@@ -57,6 +57,9 @@ the tag rollout would leave `.dev` on that older commit, so the
 `Return .dev to the main commit it ran` job then rolls `.dev` back to the
 last train's commit, from that commit's existing `deploy-<sha>` image, and
 runs the same readiness and card-game smokes. It deploys nothing new.
+Until it does, `.dev` runs the tag's older rules, so a world already on main's
+newer rules answers "updating" and its players wait, untouched, until the
+return lands ([shared worlds](../v2/docs/card-table/shared-worlds.md)).
 
 `Create GitHub release` and the `.dev` return run on a tag even though
 `Deploy main to .dev` is always skipped there (an implicit `success()` skipped

@@ -24,8 +24,12 @@ export async function request(path, body, headers = {}) {
   const result = await response.json();
   if (!response.ok || result.error)
     // No cause: a cause marks a play whose fate is uncertain (app.mjs).
-    throw new Error(
-      playerText(result.error) || "The world is taking a moment. Try again.",
+    // The code names a refusal that passes on its own ("updating").
+    throw Object.assign(
+      new Error(
+        playerText(result.error) || "The world is taking a moment. Try again.",
+      ),
+      result.code ? { code: result.code } : {},
     );
   return result;
 }

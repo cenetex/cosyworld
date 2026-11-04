@@ -212,6 +212,15 @@ const FOURTH_SOURCE: &str = include_str!("engine-v4.js");
 // Released rule bundles retain the exact semantics of their journal entries.
 const PREVIOUS_SOURCE: &str = include_str!("engine-v3.js");
 const LEGACY_SOURCE: &str = include_str!("engine-v2.js");
+// A world saved by rules newer than this server's: a release swap briefly
+// runs the older build (docs/release.md), so the world waits, unchanged.
+pub(super) const UPDATING: &str = "This world is updating. Back in a moment.";
+pub(super) fn newer(version: &str) -> bool {
+    let number = |v: &str| v.strip_prefix("full-card-world/")?.parse::<u32>().ok();
+    number(version)
+        .zip(number(VERSION))
+        .is_some_and(|(v, ours)| v > ours)
+}
 pub(super) fn historical(version: &str) -> bool {
     matches!(
         version,
