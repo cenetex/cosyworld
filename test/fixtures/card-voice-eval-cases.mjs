@@ -258,6 +258,38 @@ export function perceptionScenes() {
   ].map(({ name, context, lines = {} }) => ({ name, context, lines }));
 }
 
+// The Theban City Gate shut, open, and open after the decree has gone: Vale
+// asks the Gate Guard to open it. Each speaker hears the way as the rules
+// have it.
+export function gateScenes() {
+  let world = playCard(enableMotives(atticOpening()), "snuff", "lamp");
+  world = playCard(playCard(world, "move", null, "pond"), "light", "lamp");
+  world.items.cloth.holder = "vale";
+  world = playCard(playCard(world, "cover", "cloth", "lamp"), "take", "cloth");
+  world = sailTo(playCard(world, "move", null, "greek-ship"), "greek-harbor");
+  const court = playCard(
+    playCard(world, "move", null, "greek-road-thebes"),
+    "move",
+    null,
+    "greek-courtyard",
+  );
+  const opened = structuredClone(court);
+  opened.items["greek-decree"].holder = "greek-guard";
+  const open = playCard(opened, "move", null, "greek-gate");
+  const latched = structuredClone(open);
+  latched.items["greek-decree"].holder = "greek-palace";
+  const lines = { vale: "Will you open the gate for us?" };
+  return [
+    ["gate shut", playCard(court, "move", null, "greek-gate")],
+    ["gate open", open],
+    ["gate open, decree gone", latched],
+  ].map(([name, w]) => ({
+    name,
+    context: step(w, "talk", "greek-guard", 0).context,
+    lines,
+  }));
+}
+
 // A silent play (Light, Put down, Take, ...) sends no voice request, so only
 // scenes that voice someone are measured.
 export function voiceEvalCases() {
@@ -271,5 +303,6 @@ export function voiceEvalCases() {
     ...returnVisit(),
     ...assistantRoleScenes(),
     ...perceptionScenes(),
+    ...gateScenes(),
   ].filter(({ context }) => !voicesNobody(context));
 }

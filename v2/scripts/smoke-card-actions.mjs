@@ -184,6 +184,12 @@ try {
     );
     await card("vale").waitFor();
     await ready();
+    // The page deals its hand; measure once it has landed.
+    await page.waitForFunction(
+      () =>
+        !document.querySelector("#hand").getAnimations({ subtree: true })
+          .length,
+    );
     const before = await state();
     assert.equal(
       await page.evaluate(

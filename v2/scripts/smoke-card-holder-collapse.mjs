@@ -58,6 +58,14 @@ try {
             "cosyworld.room-music",
             JSON.stringify({ enabled: false }),
           );
+          // Every card folding away, as a ghost over the hand.
+          window.folded = [];
+          new MutationObserver((records) => {
+            for (const r of records)
+              for (const g of r.addedNodes)
+                if (g.classList?.contains("beat-ghost"))
+                  window.folded.push(g.querySelector(".card")?.dataset.card);
+          }).observe(document, { childList: true, subtree: true });
         },
         {
           key,
@@ -194,8 +202,15 @@ try {
         );
         await tap("vale");
         assert.equal(await frame("cloth").getAttribute("hidden"), null);
+        await page.evaluate(() => window.folded.splice(0));
         await tap("vale");
         await collapsed();
+        // The stack's cards fold away as ghosts, which are released.
+        const folded = await page.evaluate(() => window.folded.splice(0));
+        assert(folded.includes("cloth"), `cloth folds away: ${folded}`);
+        await page.waitForFunction(
+          () => !document.querySelector(".beat-ghost"),
+        );
         assert.equal(await frame("lamp").getAttribute("hidden"), "");
         // Before the first beat, with no play chosen, there is no dialogue,
         // and the raised hand leaves no hole for it: each card shows whole.

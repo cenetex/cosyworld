@@ -10,6 +10,7 @@ import { localRuntime } from "./local-service.mjs";
 import { levelTier } from "./level-tiers.mjs";
 import { questScreen } from "./quest-screen.mjs";
 import { setCardLabel } from "./card-label.mjs";
+import { createCardEntries } from "./card-entry.mjs";
 import { passkey, request } from "./shared-auth.mjs";
 import {
   PACKS,
@@ -109,9 +110,15 @@ const runs = {
 // The context button is #setting-<card>, then #setting-<card>-1.
 const buttonId = (card, i) => `setting-${card || "close"}${i ? `-${i}` : ""}`;
 
-export function installSettingsCards({ actionBeat, packs }) {
+// Opening, the play hand's cards fall away and the settings are dealt after
+// a beat (`playHand.leave()` gives when); closing deals the play hand back
+// (`playHand.back()`). Redraws deal only a setting new to the hand.
+export function installSettingsCards({ actionBeat, packs, playHand }) {
   const screen = $("settings-screen"),
-    hand = $("settings-hand");
+    hand = $("settings-hand"),
+    entries = createCardEntries(),
+    reduced = matchMedia("(prefers-reduced-motion: reduce)");
+  let lead = 0;
   let chosen = null,
     fanned = null,
     cards = [],
@@ -124,6 +131,8 @@ export function installSettingsCards({ actionBeat, packs }) {
   function close() {
     if (!screen.open) return;
     screen.close();
+    entries.draw([]);
+    playHand?.back();
     chosen = fanned = armed = null;
     actionBeat.clear(beat);
     changed();
@@ -237,6 +246,15 @@ export function installSettingsCards({ actionBeat, packs }) {
     shown.forEach((f, i) =>
       f.style.setProperty("--fan-at", String(i - (shown.length - 1) / 2)),
     );
+    entries.draw(
+      [...hand.children].map((f) => ({
+        key: `${f.firstElementChild.dataset.setting}@${f.dataset.holder}`,
+        element: f,
+        still: f.hidden,
+      })),
+      { reduced: reduced.matches, after: lead },
+    );
+    lead = 0;
     if (focused) hand.querySelector(`[data-setting="${focused}"]`)?.focus();
     const view = settingsBeat(cards, chosen, armed),
       face = cards.find((c) => c.id === chosen);
@@ -260,7 +278,10 @@ export function installSettingsCards({ actionBeat, packs }) {
   playerCredits().subscribe(() => screen.open && render());
   return {
     open() {
-      if (!screen.open) screen.show();
+      if (!screen.open) {
+        lead = playHand?.leave() ?? 0;
+        screen.show();
+      }
       // You opens fanned, so Privacy is one tap away.
       fanned = "you";
       showVeil();
