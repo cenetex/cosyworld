@@ -330,7 +330,11 @@ try {
     assert.deepEqual(await labels(), []);
     assert.equal(await card("pond").isVisible(), true);
     await page.keyboard.press("Escape");
-    await selectCard(page, "moth", { touch: width < 700 });
+    const beforePersonScroll = await page
+      .locator("#hand")
+      .evaluate((hand) => hand.scrollLeft);
+    if (width < 700) await card("moth").dispatchEvent("click");
+    else await selectCard(page, "moth");
     assert.deepEqual(await labels(), ["Talk"]);
     assert.equal(await card("cloth").isVisible(), true);
     const order = await page
@@ -341,6 +345,36 @@ try {
     assert(order.indexOf("vale") < order.indexOf("moth"));
     assert.deepEqual(order.slice(-1), ["pond"]);
     assert.equal(order[order.indexOf("moth") + 1], "cloth");
+    if (width < 700) {
+      await page.waitForTimeout(350);
+      const scroll = await page.evaluate((beforeScroll) => {
+        const hand = document.querySelector("#hand"),
+          frame = hand
+            .querySelector('[data-card="moth"]')
+            .closest(".card-frame"),
+          margin = Math.max(
+            16,
+            parseFloat(
+              getComputedStyle(hand).getPropertyValue("--hand-fade"),
+            ) || 0,
+          ),
+          right = frame.offsetLeft - hand.offsetLeft + frame.offsetWidth;
+        return {
+          actual: hand.scrollLeft,
+          needed: Math.max(
+            0,
+            Math.min(
+              frame.offsetLeft - hand.offsetLeft - margin,
+              Math.max(beforeScroll, right - hand.clientWidth + margin),
+            ),
+          ),
+        };
+      }, beforePersonScroll);
+      assert(
+        Math.abs(scroll.actual - scroll.needed) <= 2,
+        "opening Pip scrolls only far enough to show Pip",
+      );
+    }
     await shot("pip-items");
     await selectCard(page, "moth");
     await selectCard(page, "cloth");
@@ -355,6 +389,13 @@ try {
     // The received cloth is raised in the hand, chosen from Vale's stacks;
     // tapping Vale folds them back to Vale alone (#2256).
     assert.deepEqual(await pressed(), ["cloth"]);
+    await page.waitForFunction(() => {
+      const hand = document.querySelector("#hand").getBoundingClientRect(),
+        card = document
+          .querySelector('#hand [data-card="cloth"]')
+          .getBoundingClientRect();
+      return card.left >= hand.left - 1 && card.right <= hand.right + 1;
+    });
     await card("vale").dispatchEvent("click");
     assert.deepEqual(await pressed(), ["vale"]);
     await ready();

@@ -1606,7 +1606,7 @@ function choose(id) {
   $("hand")
     .querySelector(`[data-card="${id}"]`)
     ?.focus({ preventScroll: true });
-  revealHandCard(id, Boolean(people[id]));
+  revealHandCard(id);
 }
 function commit(cards, revision) {
   if (selectionBlocked()) return;
@@ -4352,6 +4352,9 @@ function render() {
   }
   // The quests the rules met since the last look stay, sealed, until cleared.
   const liveQuests = questCards(world);
+  const dealtQuest = liveQuests.find(
+    (quest) => !shownQuests.some((shown) => shown.key === quest.key),
+  );
   if (questSeq !== null && world.eventSeq > questSeq)
     sealedQuests = [
       ...metQuests(shownQuests, world, questSeq),
@@ -4545,6 +4548,9 @@ function render() {
       { reduced: reducedMotion.matches, after: swap ? entering : 0 },
     );
     showQuests(opening);
+    // A new quest rises where the player can see its slot in the hand.
+    if (dealtQuest && !opening)
+      revealHandCard(`quest:${dealtQuest.index}`, false, true);
     openLockedBoxes();
     // Every new place is measured before any card starts moving, so the
     // row is laid out once rather than once per card.
@@ -4631,7 +4637,9 @@ function playLevelUps() {
 }
 function revealHandCard(id, alignStart = false, instant = false) {
   const hand = $("hand"),
-    frame = hand.querySelector(`[data-card="${id}"]`)?.closest(".card-frame");
+    frame = hand
+      .querySelector(`[data-card="${id}"], [data-quest-id="${id}"]`)
+      ?.closest(".card-frame");
   if (!frame || frame.hidden) return;
   const left = frame.offsetLeft - hand.offsetLeft,
     right = left + frame.offsetWidth,
