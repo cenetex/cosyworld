@@ -87,6 +87,15 @@ try {
     const pack = page.locator('[data-setting="pack-sea"]');
     assert.equal(await pack.locator(".quest-screen .quest-ground").count(), 1);
     assert.equal(await pack.locator(".quest-figure").count(), 0);
+    // So is every other card: a region of the workbench, which is the scene.
+    assert.equal(
+      await page.locator("#settings-hand .card:not(.want-card)").count(),
+      0,
+    );
+    assert.match(
+      await page.locator(".settings-scene").getAttribute("src"),
+      /moonlit-cozy-fantasy-workbench/,
+    );
     assert.equal(
       await pack.locator(".quest-head .quest-verb").textContent(),
       "The Wine-Dark Sea",

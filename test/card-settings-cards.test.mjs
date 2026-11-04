@@ -37,14 +37,9 @@ describe("settings as a hand of cards", () => {
       "The Wine-Dark Sea",
       "Hoppy Cat Universe",
     ]);
-    // Workbench paintings and packs are place cards; the rest are figures.
-    expect(cards.filter((c) => !c.place).map((c) => c.id)).toEqual([
-      "music",
-      "voices",
-      "scares",
-    ]);
-    expect(cards.filter((c) => c.place).map((c) => c.id)).toEqual(
-      expect.arrayContaining(PACKS.map(([id]) => `pack-${id}`)),
+    // Every card is a full-bleed painting: a workbench crop or a pack's.
+    expect(ids(cards.filter((c) => !c.art.includes("/settings/")))).toEqual(
+      PACKS.map(([id]) => `pack-${id}`),
     );
     for (const c of cards)
       expect(existsSync(`v2/card-game/${c.art.replace("./", "")}`)).toBe(true);

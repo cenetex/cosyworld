@@ -11,6 +11,7 @@ import { setCardLabel } from "./card-label.mjs";
 import { passkey, request } from "./shared-auth.mjs";
 import {
   PACKS,
+  SCENE,
   TOGGLES,
   settingsBeat,
   settingsCards,
@@ -22,7 +23,8 @@ const words = (id) =>
 const open = (href) => window.open(href, "_blank", "noopener");
 // While Settings is open the scene fades to black under the world's logo,
 // set where the title sets it over its card (style.css; app.mjs fades the
-// music). The logo is the one the toolbar shows (title-logo.mjs).
+// music). The logo is the one the toolbar shows (title-logo.mjs). Then the
+// owner's workbench comes up as Settings' own scene.
 function showVeil() {
   const stage = $("stage"),
     logo = document.querySelector(".brand strong")?.dataset.logo;
@@ -34,10 +36,14 @@ function showVeil() {
     veil.setAttribute("aria-hidden", "true");
     stage.append(veil);
   }
-  if (!logo) return veil.replaceChildren();
-  const image = veil.querySelector("img") || document.createElement("img");
-  Object.assign(image, { alt: "", decoding: "async", src: imageUrl(logo) });
-  veil.replaceChildren(image);
+  const scene = veil.querySelector(".settings-scene") || new Image();
+  Object.assign(scene, { alt: "", className: "settings-scene" });
+  scene.src = imageUrl(`assets/${SCENE}`);
+  if (!logo) return veil.replaceChildren(scene);
+  const image = veil.querySelector(".settings-logo") || new Image();
+  Object.assign(image, { alt: "", className: "settings-logo" });
+  image.src = imageUrl(logo);
+  veil.replaceChildren(image, scene);
 }
 // Shared play's passkey buttons sit in #menu-dialog by their names.
 const named = (text) =>
@@ -145,7 +151,7 @@ export function installSettingsCards({ actionBeat, packs }) {
   }
   const make = (tag, className, props) =>
     Object.assign(document.createElement(tag), { className, ...props });
-  // A place card (a world pack or a workbench painting) is the quest card's
+  // Every card (a world pack or a workbench painting) is the quest card's
   // place: its painting feathered into the card, with its name where the
   // quest names its verb.
   function placeFace(el, c) {
@@ -161,7 +167,7 @@ export function installSettingsCards({ actionBeat, packs }) {
     );
   }
   function frame(c, index, count) {
-    const el = make("button", c.place ? "card want-card" : "card item", {
+    const el = make("button", "card want-card", {
       type: "button",
       onclick: () => choose(c.id),
     });
@@ -172,18 +178,7 @@ export function installSettingsCards({ actionBeat, packs }) {
     });
     el.setAttribute("aria-pressed", String(chosen === c.id));
     el.setAttribute("aria-label", [c.name, c.state].filter(Boolean).join(", "));
-    if (c.place) placeFace(el, c);
-    else {
-      const art = make("span", "art");
-      art.append(
-        make("img", "", {
-          src: imageUrl(c.art, "card"),
-          alt: "",
-          draggable: false,
-        }),
-      );
-      el.append(art, setCardLabel(make("span", "name"), c.name));
-    }
+    placeFace(el, c);
     const holder = make("div", "card-frame");
     holder.style.setProperty("--fan-at", String(index - (count - 1) / 2));
     holder.append(el);
