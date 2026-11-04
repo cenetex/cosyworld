@@ -1,0 +1,124 @@
+{
+  "date": "2026-11-04",
+  "tool": "built-in image_gen",
+  "issue": "https://github.com/cenetex/cosyworld/issues/2290",
+  "status": "design studies",
+  "assets": [
+    {
+      "key": "burial_hollow_day",
+      "prompt": "Use case: stylized-concept. Asset type: master environment design study for Polynices' Hollow in CosyWorld.\nInput image 1 is the existing battlefield at dusk. Use it as a geographic and painterly style reference. Image 2 is Antigone, used only to define the family resemblance of her fallen brother.\nMake one complete edge-to-edge wide 16:9 landscape painting. The new location is a small sheltered dry hollow just BELOW and BEHIND the battlefield slope, in the same valley. Thebes' walls are small on the far RIGHT horizon. One bent leafless olive frames the upper LEFT with a distinctive low elbow-shaped trunk. Three crows rest high in its branches. A trodden path curves in from the RIGHT edge. A few broken spear shafts and one fallen round bronze shield sit near the side edges.\nComposition: the low hollow has an upper-middle shelf of level trodden ochre earth. Polynices lies small and peaceful on this shelf, slightly left of centre, at about 55% of canvas height. His head is toward the left and his feet toward the right. He is an adult man in his twenties with warm olive skin and black curls, kin to Antigone, in a dust-dulled bronze cuirass and greaves with a red cloak half under him. Eyes closed, serene intact face and body, fully clothed. A plain bronze crested helmet rests beside his head. His one visible hand lies gently open.\nKeep the LOWER MIDDLE THIRD as clear flat foreground earth for three separate standing game figures. Make the foreground broad and quiet, with the body further back. The subject is the secluded place and its cared-for dignity. The atmosphere is quiet grief and stillness.\nPalette: burial umber, dust ochre, sage-grey dry grass, tarnished bronze, a small oxblood cloak accent. A low AMBER sun under bruise-violet clouds gives warm side light and cool sage shadows. Rich oil-painted old-master realism and deep material texture, as in the reference. The distinct olive silhouette and the pale small body area should read at thumbnail size. This image establishes the master camera and layout for all later edits. Opaque background.",
+      "refs": [
+        "assets/greek-drama/burial-ground-dusk.webp",
+        "assets/greek-drama/chthonic-antigone.png"
+      ],
+      "transparent": false,
+      "file": "hollow-day-study.png",
+      "source": "exec-0230dd6c-5066-4b6b-a271-086e814ede04.png",
+      "generation_id": "exec-0230dd6c-5066-4b6b-a271-086e814ede04"
+    },
+    {
+      "key": "burial_fallen_card",
+      "prompt": "Use case: stylized-concept. Asset type: master card painting for Polynices in CosyWorld, state 1 FALLEN.\nInput image 1 is Antigone, his sister: use her face and the chthonic Greek painting style as a family reference. Image 2 is the battlefield dusk environment: use its earth, stones, old bronze, and quiet light as material references.\nOne tall 2:3 portrait painting, 1024 by 1536. This card is a COMPLETE LITTLE SCENE, with painted earth extending to every edge and a soft dark vignette. A gentle high camera looks down at the fully visible young adult man on a slight diagonal, feet toward LOWER LEFT, head toward UPPER RIGHT. His whole head, body, feet, resting hand, and nearby helmet fit within comfortable margins.\nPolynices is a man in his twenties: warm olive skin, thick short black curls, strong brows and straight nose resembling Antigone, clean-shaven or very light stubble, peaceful closed eyes. He lies on his back in a dust-dulled bronze cuirass over a bone linen chiton, bronze greaves, and sandals. A muted oxblood cloak lies half beneath his body. His face and body are intact and fully clothed. One hand lies gently open by his side.\nLock these props for all four states: his distinctive plain bronze helmet with a short dark horsehair crest at the UPPER RIGHT beside his head; a shallow weathered round bronze shield near the LEFT border; one short broken spear shaft at the FAR LEFT edge; three small pale stones near the LOWER RIGHT corner. One crow perches on the shield rim. The body rests on fine ochre dust, with sage dry grass at the edges.\nLight: a soft warm amber key from the upper left, cool mineral-green shadow, tactile oil-painted brushwork. Palette: umber, ochre, dull bronze, muted oxblood, bone linen. Tone: human grief, dignity, stillness. This exact painting will anchor the anointed, veiled and grave state edits.",
+      "refs": [
+        "assets/greek-drama/chthonic-antigone.png",
+        "assets/greek-drama/burial-ground-dusk.webp"
+      ],
+      "transparent": false,
+      "file": "fallen-card-study.png",
+      "source": "exec-dbd5004c-7475-4c7d-ab03-b70c188a12ad.png",
+      "generation_id": "exec-dbd5004c-7475-4c7d-ab03-b70c188a12ad"
+    },
+    {
+      "key": "burial_anointed_card",
+      "refs": [
+        "fallen-card-study.png",
+        "assets/greek-drama/oil-flask.png"
+      ],
+      "transparent": false,
+      "prompt": "Use case: precise-object-edit. Image 1 is the exact master Polynices fallen card. Image 2 is the exact existing funeral oil vessel as a prop reference. Create state 2, ANOINTED, as a careful edit of image 1.\nLOCK the full 1024 by 1536 canvas, high camera, body's diagonal position, face, black curls, body size, limbs, open hand, sandalled feet, surrounding earth, stones, shield, broken spear shaft, helmet with its dark crest, colour family and light direction.\nChange the care state: his face and hands are now clean with a subtle soft sheen of oil. His peaceful eyes stay closed. The bronze cuirass and greaves have been carefully removed and placed together against the existing shield along the left edge. He wears a plain bone-linen knee-length chiton that keeps his body fully covered, with complete bare lower legs and his sandals. The cloth is simple and clean. The crow has flown away, leaving the shield clear. A small version of the exact oil jug from image 2 lies on its side near his open hand at lower right, its stopper set beside it. Keep it small enough to read as a hand-carried oil vessel. His red cloak is folded near the armour at the left, so cream linen becomes the main body colour. The rest of the earth stays unchanged.\nKeep the quiet dignified mood, intact fully clothed body, serene face, rich tactile oil-paint surface, warm amber key and cool mineral-green shadows. A slight warmth touches his cared-for face. The painting fills the whole canvas with the same soft edge vignette. This is the same person and exact same card camera after anointing.",
+      "file": "anointed-card-study.png",
+      "source": "exec-7f1d67fd-3542-40c9-a579-3383b4abc2d0.png",
+      "generation_id": "exec-7f1d67fd-3542-40c9-a579-3383b4abc2d0"
+    },
+    {
+      "key": "burial_shade",
+      "refs": [
+        "fallen-card-study.png",
+        "assets/greek-drama/chthonic-antigone.png"
+      ],
+      "transparent": true,
+      "prompt": "Use case: identity-preserve. Image 1 is Polynices' approved fallen-body design. Image 2 is his sister Antigone and the Greek cast paint style. Make the SAME young adult man from image 1 as a standing shade.\nKeep his exact black curls, strong brows, straight nose, cheekbones, young adult face, bronze cuirass with its small leaf decoration and two round shoulder fittings, plain linen chiton, greaves, sandals, and muted red cloak. His uncovered head turns gently toward SCREEN LEFT in a natural eye-level three-quarter view. His eyes are open and sorrowful, mouth relaxed. One hand lifts halfway with its palm open in a quiet plea; the other rests low by his side. His body is intact and fully clothed. Calm grief, tenderness, human longing.\nMake him pale and genuinely partly translucent. Use actual alpha values through the figure: face and hands around 75% opacity for readability, torso, armour and cloak around 50–60% opacity so a backdrop can show through, shins fading smoothly to zero, and the lowest foot edges completely clear. His lower legs and feet dissolve above the ground. Transparent space surrounds the whole figure and every gap. Keep his recognisable anatomy, with the feet faintly suggested before the fade.\nPalette: cool moonlit blue-grey, pale mineral green, dim tarnished bronze, and the cloak's red faded to a dusty rose. Tactile oil-painted detail and soft painted edges. His sorrowful face is the focus. All illumination stays within his silhouette.\nOne full-body portrait, exactly 1024 by 1536 RGBA PNG, generous margins, top of head near y100, feet fading out by y1420. The canvas consists of this single transparent character. This is the gentle midnight quest-giving shade.",
+      "file": "shade-study.png",
+      "source": "exec-91c00b3d-5f52-4adb-be20-fde7ecf0f34f.png",
+      "generation_id": "exec-91c00b3d-5f52-4adb-be20-fde7ecf0f34f"
+    },
+    {
+      "key": "burial_hollow_day_refined",
+      "refs": [
+        "hollow-day-study.png",
+        "fallen-card-study.png"
+      ],
+      "transparent": false,
+      "prompt": "Use case: precise-object-edit. Image 1 is the exact master daytime painting of Polynices' Hollow. Image 2 is the canonical fallen-body card.\nMake one SMALL consistency correction: the helmet beside the body's head in image 1 must match the helmet in image 2, with a DARK BLACK-BROWN horsehair crest, dull warm bronze, the same plain eye openings, and the same rounded shape. Preserve the helmet's current size and position beside his head.\nLOCK EVERYTHING ELSE in image 1: exact full canvas, camera, tree and every branch, all four birds, body position and size, body face, armour, red cloak, open hand, open foreground, grass, rocks, shield, spears, path, distant walls, sky, sunlight, palette, all textures and shadows. Keep the complete same opaque scene. This is a small local helmet correction for a cohesive art set.",
+      "file": "hollow-day-refined-study.png",
+      "source": "exec-d08d051d-a2a6-48ee-a369-e9de1e5a87a3.png",
+      "generation_id": "exec-d08d051d-a2a6-48ee-a369-e9de1e5a87a3"
+    },
+    {
+      "key": "burial_veiled_card",
+      "refs": [
+        "anointed-card-study.png"
+      ],
+      "transparent": false,
+      "prompt": "Use case: precise-object-edit. The input is the exact ANOINTED card of Polynices. Create state 3, VEILED, as one careful local edit.\nLOCK the 1024 by 1536 canvas, high camera, diagonal body location, size, surrounding earth, shield and removed armour at the left, folded red cloak beneath the armour, helmet with dark crest beside the head at upper right, empty oil jug and stopper near the right hand position, broken spear shaft and pale stones, light direction, vignette and painterly detail.\nCover the entire man from crown to sandal soles in a single clean bone-white linen shroud. It follows the gentle shape of the body beneath, with careful folds and a small tucked fold at the face. The shroud covers the hands and feet too. Add one small olive sprig resting on the cloth over the chest. Keep the original body's angle and size exactly. The helmet remains clearly visible beside the covered head as the future grave marker. Every surrounding object stays where it was.\nUse soft late gold on the linen, earth-brown shadows, restrained cool mineral-green edges, the same warm high-angle key. This is quiet care and dignity. The card is the same complete earth vignette extending to all edges.",
+      "file": "veiled-card-study.png",
+      "source": "exec-a3375f0f-4ff4-4ac7-a778-e7b182338b10.png",
+      "generation_id": "exec-a3375f0f-4ff4-4ac7-a778-e7b182338b10"
+    },
+    {
+      "key": "burial_hollow_night",
+      "refs": [
+        "hollow-day-refined-study.png"
+      ],
+      "transparent": false,
+      "prompt": "Use case: lighting-weather. The input is the exact daytime master of Polynices' Hollow. Make the matching NIGHT view of the FALLEN state.\nLOCK the full original canvas and camera, every olive branch and all four crows, the brother's body and face and costume and position, helmet's dark crest, shield, broken spears, stones, dry grass, distant walls, mountain ridges, path, and clear foreground. Keep every object exactly where it is. Preserve the rich fine oil-paint texture.\nChange the sky and illumination to deep midnight indigo and moonlit blue-grey. A restrained silver moonlight from the upper-left picks out the bent olive bark, the far wall, and the bronze. The body and its red cloak remain legible in soft cold light. Let the horizon keep a faint violet haze. The open foreground remains readable for the separately drawn cast. The image's light comes entirely from moon and sky. This is the fallen state before the grave lamp is placed.\nMood: quiet, sheltered, humane. The result is the complete same opaque 16:9 place painting at night.",
+      "file": "hollow-night-study.png",
+      "source": "exec-bc269248-32ee-4b02-b4ff-8c364cf67450.png",
+      "generation_id": "exec-bc269248-32ee-4b02-b4ff-8c364cf67450"
+    },
+    {
+      "key": "burial_grave_card",
+      "transparent": false,
+      "refs": [
+        "exec-a3375f0f-4ff4-4ac7-a778-e7b182338b10.png"
+      ],
+      "prompt": "Use case: precise-object-edit. The input is the exact VEILED card of Polynices. Create state 4, BURIED, as a careful local edit.\nLOCK the full 1024 by 1536 canvas, high camera, diagonal arrangement, surrounding earth, shield and removed armour at the left, folded red cloak beneath the armour, dark-crested bronze helmet at the UPPER RIGHT beside the former head, small empty oil jug and stopper at the right, broken spear shaft at the left, three pale stones at lower right, edge grasses, light direction, soft vignette and rich paint texture.\nReplace ONLY the shrouded body with a LOW LONG MOUND of freshly laid burial earth. Follow the same diagonal footprint, from lower-left feet to upper-right head. Keep the mound shallow and modest, a gently raised layer of warm umber earth, clearly different from the pale shroud. All of the body and shroud rest beneath the earth. The mound tapers softly into the surrounding dust.\nKeep the exact bronze helmet in its existing upper-right position, now reading as his grave marker. Place the existing olive sprig on the middle of the mound. Add one small simple clay libation cup at the lower-left foot of the grave. All other props stay exactly as in the input.\nSoft evening amber light rests on the earth and bronze, with quiet cool shadows. Mood: care, peace, a completed act of burial. The scene is humble and still. The entire card remains a full painted earth vignette.",
+      "file": "grave-card-study.png",
+      "source": "exec-d531738f-b4ab-4765-b725-f500919a688d.png",
+      "generation_id": "exec-d531738f-b4ab-4765-b725-f500919a688d"
+    },
+    {
+      "key": "burial_veiled_feather",
+      "file": "veiled-feather-study.png",
+      "refs": [
+        "veiled-card-study.png"
+      ],
+      "transparent": false,
+      "prompt": "Use case: precise-object-edit. The input is the complete veiled Polynices card. Make one precise local change requested by the owner.\nReplace the small olive sprig lying over the shrouded chest with ONE single, perfectly formed RAVEN FEATHER. It is an intact elegant long flight feather, with a smooth gently tapered pointed tip, a slender clean dark quill, and continuous symmetrical well-formed barbs on both sides. Deep black with a very subtle natural blue-green sheen in the warm light. A beautiful complete feather placed with care, about the same overall length and in the exact same diagonal position as the former sprig. It lies naturally flat on the linen and casts a small soft contact shadow.\nRestore the linen beneath the former leaves with the exact surrounding texture and folds.\nLOCK EVERYTHING ELSE: the entire 1024 by 1536 canvas, camera, shrouded body's shape and position, every linen fold outside this tiny edit, helmet and crest, armour, shield, red cloth, spear, flask, stopper, stones, grass, earth, lighting, palette, vignette and oil-painted texture. Keep the full painting exactly as supplied. The sole object on the shrouded chest is the single beautiful raven feather.",
+      "source": "exec-e49e8ff2-959f-4aa6-a6c4-9e0a7c7146a6.png",
+      "generation_id": "exec-e49e8ff2-959f-4aa6-a6c4-9e0a7c7146a6"
+    },
+    {
+      "key": "burial_grave_feather",
+      "file": "grave-feather-study.png",
+      "refs": [
+        "grave-card-study.png"
+      ],
+      "transparent": false,
+      "prompt": "Use case: precise-object-edit. The input is the complete buried Polynices card. Make one precise local change requested by the owner.\nReplace the small olive sprig resting on the centre of the low burial mound with ONE single, perfectly formed RAVEN FEATHER. It is an intact elegant long flight feather, with a smooth gently tapered pointed tip, a slender clean dark quill, and continuous symmetrical well-formed barbs on both sides. Deep black with a very subtle natural blue-green sheen in the warm light. A beautiful complete feather placed with care, about the same overall length and in the exact same diagonal position as the former sprig. It lies naturally flat on the earth and casts a small soft contact shadow.\nRestore the earth beneath the former leaves with the exact surrounding fine soil texture.\nLOCK EVERYTHING ELSE: the entire 1024 by 1536 canvas, camera, low mound shape and position, helmet and crest, armour, shield, red cloth, spear, flask, stopper, libation cup, stones, grass, earth, lighting, palette, vignette and oil-painted texture. Keep the full painting exactly as supplied. The sole object resting on the centre of the mound is the single beautiful raven feather.",
+      "source": "exec-d229436b-d93b-4942-9c31-efe072fcef07.png",
+      "generation_id": "exec-d229436b-d93b-4942-9c31-efe072fcef07"
+    }
+  ],
+  "owner_refinement": "Use one single perfectly formed raven feather on the shroud and grave."
+}
