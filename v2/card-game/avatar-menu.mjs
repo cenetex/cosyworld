@@ -1,5 +1,6 @@
 import { imageUrl } from "./images.mjs";
 import { humanAvatars, currentActor } from "./human-cast.mjs";
+import { leavePage } from "./page-fade.mjs";
 import { request } from "./shared-auth.mjs";
 import { worldName, worldNameOf } from "./world-name.mjs";
 import { INVITE_KEY, PLAYING_KEY } from "./avatar-world.mjs";
@@ -271,7 +272,7 @@ export function installAvatarMenu({
       localStorage.removeItem(PLAYING_KEY);
     } catch {}
     stored(MENU_KEY, "1");
-    location.href = "/";
+    leavePage(() => (location.href = "/"));
   };
   const leave = async (from) => {
     if (from.current) stopSaving();
@@ -285,7 +286,7 @@ export function installAvatarMenu({
     await command(slot.shared, { op: "claim", avatar: avatar.id });
     stored(INVITE_KEY, null);
     queueTitleIntro(slot.shared);
-    location.href = sharedLink(slot.shared);
+    await leavePage(() => (location.href = sharedLink(slot.shared)));
   };
   // A new world hides the next avatar this passkey has not found.
   async function create(avatar) {
@@ -293,7 +294,7 @@ export function installAvatarMenu({
       avatar: avatar.id,
     });
     queueTitleIntro(made.id);
-    location.href = sharedLink(made.id);
+    await leavePage(() => (location.href = sharedLink(made.id)));
   }
   // "+ Find Mara": the quest to talk to the avatar hidden here (#1936).
   async function seek(avatar) {
@@ -308,7 +309,7 @@ export function installAvatarMenu({
       if (!slot.owner || !armed) return {};
       const free = async () => {
         await command(slot.shared, { op: "reset", avatar: seat.id });
-        location.reload();
+        await leavePage(() => location.reload());
       };
       return {
         note: `Removes ${seat.holder}'s hold and resets ${seat.name}.`,
@@ -361,7 +362,7 @@ export function installAvatarMenu({
     if (seat.kind === "you" && !slot.current) {
       stored(INVITE_KEY, null);
       stored(MENU_KEY, seat.id);
-      location.href = sharedLink(slot.shared);
+      leavePage(() => (location.href = sharedLink(slot.shared)));
       return;
     }
     armed = picked && seat.kind === "human";

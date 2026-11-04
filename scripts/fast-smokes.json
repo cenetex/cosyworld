@@ -49,6 +49,10 @@
       "smokes": ["smoke-card-music"]
     },
     {
+      "paths": "^v2/card-game/(page-fade|avatar-menu|entry)\\.",
+      "smokes": ["smoke-card-page-fade"]
+    },
+    {
       "paths": "^v2/card-game/credits",
       "smokes": ["smoke-card-credits"]
     },
