@@ -16,6 +16,7 @@ const step = (name, minute, conclusion = "success") => ({
 const train = (minute) => ({
   name: "Deploy main to .dev",
   status: "completed",
+  completed_at: `2026-11-04T10:${minute}:00Z`,
   steps: [step("Roll out .dev", minute)],
 });
 const primary = (minute) => ({
@@ -95,10 +96,10 @@ describe("the commit left live by a .dev return", () => {
           primary("10"),
           restore("b", "12"),
           primary("16"),
-          restore("d", "18"),
+          restore("b", "18"),
         ],
       }),
-    ).toBe(sha("d"));
+    ).toBe(sha("b"));
   });
 
   it("retains a successful return from an earlier run attempt", async () => {
@@ -110,6 +111,16 @@ describe("the commit left live by a .dev return", () => {
     ).toBe(sha("b"));
   });
 
+  it("counts completed primary and restore jobs while other tag jobs run", async () => {
+    const active = runs.map((r) =>
+      r.id === 20 ? { ...r, status: "in_progress" } : r,
+    );
+    expect(await lookup(active, jobs)).toBe(sha("b"));
+    expect(await lookup(active, { ...jobs, 20: [primary("10")] })).toBe(
+      sha("a"),
+    );
+  });
+
   it("reads the target selected by an older restore step", async () => {
     const legacy = {
       ...restore("b", "12"),
@@ -118,6 +129,30 @@ describe("the commit left live by a .dev return", () => {
     expect(await lookup(runs, { ...jobs, 20: [primary("10"), legacy] })).toBe(
       sha("b"),
     );
+  });
+
+  it("orders later rollouts and keeps uncertain legacy targets unknown", async () => {
+    const legacy = {
+      ...restore("b", "12"),
+      steps: [step("Roll .dev forward", "12")],
+    };
+    const laterRerun = run(15, "d", { updated_at: "2026-11-04T10:19:00Z" });
+    const history = [runs[0], runs[1], laterRerun, runs[2]];
+    expect(
+      await lookup(history, {
+        ...jobs,
+        20: [primary("10"), legacy],
+        15: [primary("18")],
+      }),
+    ).toBe(sha("d"));
+    // A rollout before the return with a later run update has uncertain history.
+    expect(
+      await lookup(history, {
+        ...jobs,
+        20: [primary("10"), legacy],
+        15: [primary("08")],
+      }),
+    ).toBe("");
   });
 
   it("uses an empty base when an older restore's source record has expired", async () => {

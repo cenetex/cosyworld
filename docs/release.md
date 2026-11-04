@@ -62,8 +62,9 @@ runs the same readiness and card-game smokes. It deploys nothing new.
 The restore step's name records the exact commit it returned to. Later trains
 and tags read that SHA and the successful step's completion time, including
 earlier run attempts. This keeps a second tag's return pointed at the train
-that `.dev` actually ran. Older restore steps use the earlier rollout record
-that selected their commit.
+that `.dev` actually ran. Completed rollout jobs also count while other jobs
+in their run continue. Older restore steps use rollout evidence from the time
+of the return. An unclear older record gives the next train a fresh rollout.
 Until it does, `.dev` runs the tag's older rules, so a world already on main's
 newer rules answers "updating" and its players wait, untouched, until the
 return lands ([shared worlds](../v2/docs/card-table/shared-worlds.md)).

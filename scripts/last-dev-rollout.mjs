@@ -30,6 +30,43 @@ export function rolledOut(jobs) {
   );
 }
 
+function legacyTarget(history, index, step) {
+  const at = step.started_at ?? step.completed_at;
+  if (!at) return "";
+  for (const { run, jobs } of history.slice(index + 1)) {
+    const rolloutJobs = jobs.filter((job) => rolledOut([job]));
+    const before = rolloutJobs.filter((job) =>
+      (job.steps ?? []).some(
+        (s) =>
+          ROLLOUT_STEPS.some((r) => r.job === job.name && r.step === s.name) &&
+          s.conclusion === "success" &&
+          s.completed_at &&
+          s.completed_at <= at,
+      ),
+    );
+    if (!before.length) {
+      if (
+        rolloutJobs.some((job) =>
+          job.steps.some((s) => s.conclusion === "success" && !s.completed_at),
+        )
+      )
+        return "";
+      continue;
+    }
+    const finished =
+      run.status === "completed" && run.updated_at && run.updated_at <= at;
+    const trainFinished = before.some(
+      (job) =>
+        job.name === ROLLOUT_STEPS[0].job &&
+        job.completed_at &&
+        job.completed_at <= at,
+    );
+    // A later rerun or unfinished production run makes the old choice unclear.
+    return finished || trainFinished ? run.head_sha : "";
+  }
+  return "";
+}
+
 // A restore step records its exact commit in its name. Its completion time
 // orders it with train and tag rollouts, including reruns of older runs.
 // A running train counts once its rollout job is done.
@@ -37,18 +74,13 @@ export async function lastRollout({ runs, jobsFor, currentRunId }) {
   const eligible = runs.filter(
     (run) =>
       String(run.id) !== String(currentRunId) &&
-      /^[0-9a-f]{40}$/.test(run.head_sha ?? "") &&
-      (run.status === "completed" ||
-        String(run.display_title ?? "").startsWith(".dev train ")),
+      /^[0-9a-f]{40}$/.test(run.head_sha ?? ""),
   );
   const history = await Promise.all(
     eligible.map(async (run) => {
       let jobs = (await jobsFor(run.id)) ?? [];
       if (run.status !== "completed") {
-        jobs = jobs.filter(
-          (job) =>
-            job.name === ROLLOUT_STEPS[0].job && job.status === "completed",
-        );
+        jobs = jobs.filter((job) => job.status === "completed");
       }
       return { run, jobs };
     }),
@@ -69,9 +101,7 @@ export async function lastRollout({ runs, jobsFor, currentRunId }) {
           if (step.name === RESTORE_STEP) {
             // Older workflows restored the first earlier rollout's head SHA.
             // Preserve that recorded behavior while their runs remain in view.
-            sha =
-              history.slice(index + 1).find((entry) => rolledOut(entry.jobs))
-                ?.run.head_sha ?? "";
+            sha = legacyTarget(history, index, step);
           }
         }
         if (sha === undefined) return [];
@@ -121,12 +151,18 @@ async function main() {
   const sha = await lastRollout({
     runs,
     currentRunId: process.env.GITHUB_RUN_ID,
-    jobsFor: async (id) =>
-      (
-        await api(
-          `/repos/${repo}/actions/runs/${id}/jobs?per_page=100&filter=all`,
-        )
-      ).jobs,
+    jobsFor: async (id) => {
+      const jobs = [];
+      for (let page = 1; ; page += 1) {
+        const batch = (
+          await api(
+            `/repos/${repo}/actions/runs/${id}/jobs?per_page=100&filter=all&page=${page}`,
+          )
+        ).jobs;
+        jobs.push(...batch);
+        if (batch.length < 100) return jobs;
+      }
+    },
   });
   if (sha) console.log(sha);
   else console.error("[last-dev-rollout] no earlier rollout found; deploying");
