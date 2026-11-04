@@ -1,5 +1,4 @@
-<img width="1511" height="799" alt="image" src="https://github.com/user-attachments/assets/d89a913b-8d18-4077-addf-7e5a824585f0" />
-*gameplay*
+<img width="1511" height="799" alt="image" src="https://github.com/user-attachments/assets/8e1e5c91-746d-4263-8bb3-619d5ad71dd6" />
 
 # CosyWorld
 
