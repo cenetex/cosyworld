@@ -55,10 +55,13 @@ pub(super) fn presence(context: &Context, id: &str) -> String {
     }
 }
 
-/// The user turn: what I just heard, verbatim, as `Pip says, "…"`, or
-/// silence when nobody has spoken (a Wait, or the first words of a Talk).
-/// My own view, who is with me included, is my assistant turn, so no "I"
-/// reaches the user turn. A bare line or `Pip: …` drew `Vale: …` back.
+/// The user turn: what I just heard, verbatim, as `Pip says, "…"`. When
+/// nobody has spoken (a Wait, or the first words of a Talk) it is the person
+/// I'm talking with, there ("Pip is here."), and silence when I face nobody:
+/// on gemma-3-4b, silence drew scene narration ("The rain is coming down
+/// harder now…") where the listener's presence drew speech (P3 eval). My own
+/// view is my assistant turn, so no "I" reaches the user turn. A bare line
+/// or `Pip: …` drew `Vale: …` back.
 pub(super) fn user(context: &Context, entity: &Entity) -> String {
     match heard(context, entity) {
         Some(line) => format!(
@@ -66,7 +69,12 @@ pub(super) fn user(context: &Context, entity: &Entity) -> String {
             name(&line.actor_id),
             line.text
         ),
-        None => crate::ai_gateway::SILENCE.into(),
+        None => super::listener(context, &entity.id)
+            .filter(|_| entity.perception.is_some())
+            .map_or_else(
+                || crate::ai_gateway::SILENCE.into(),
+                |l| format!("{} is here.", name(&l)),
+            ),
     }
 }
 
