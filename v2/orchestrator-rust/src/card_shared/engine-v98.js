@@ -4123,7 +4123,7 @@
     for (const e of choice.effects) {
       if (e.kind === "retire_item") {
         const root = rootOf2(world, e.item);
-        if (root === action.actor || (world.actors[root]?.place ?? root) === choice.at)
+        if (root === action.actor || root === choice.at)
           useUp(world, e.item, pack.items[e.item].holder);
       }
       if (e.kind === "drop_item") {

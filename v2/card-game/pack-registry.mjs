@@ -700,13 +700,12 @@ export function applyPackChoice(
   for (const e of choice.effects) {
     // A retired item is used up: it leaves play and waits, unseen, at its
     // authored holder until it regrows or a choice drops it again.
-    // An alternative a set slot did not use stays where it is.
+    // An alternative a set slot did not use stays where it is. Only the
+    // actor's own things or things lying at the place are used, never what
+    // another person holds (rules 98).
     if (e.kind === "retire_item") {
       const root = rootOf(world, e.item);
-      if (
-        root === action.actor ||
-        (world.actors[root]?.place ?? root) === choice.at
-      )
+      if (root === action.actor || root === choice.at)
         useUp(world, e.item, pack.items[e.item].holder);
     }
     // The subject sets a used-up thing down at the choice's place.

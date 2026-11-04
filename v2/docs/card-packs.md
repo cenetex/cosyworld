@@ -258,7 +258,9 @@ for the acting avatar's name; ordinary `text` remains literal.
 Effects are choose, set_flag, custody-checked place_item, and four item
 moves. `give_item` hands a pack item to the acting avatar. `retire_item`
 uses an item up (below); the actor must hold it, or the choice must require
-it `item_near` or `item_at` its own place. `drop_item` brings a used-up item
+it `item_near` or `item_at` its own place. From rules 98 it uses only the
+actor's own item or one lying at the place, never one another person holds.
+`drop_item` brings a used-up item
 back at the choice's place. `hide_item` belongs only to a
 meeting choice. `{"kind":"upgrade","upgrade":"scarf"}`, on a choice with
 `for`, adds a one-way cosmetic upgrade to the acting traveler's `upgrades`
