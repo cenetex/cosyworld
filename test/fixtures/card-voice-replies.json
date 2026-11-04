@@ -21,7 +21,7 @@
   {"case": "station talk 4", "speaker": "moth", "reply": "Quiet, and nobody asking twice.", "expect": "ok"},
   {"case": "station talk 4", "speaker": "vale", "reply": "Pip gave me this Black cloth, and I'm keeping it.", "expect": "ok"},
   {"case": "station talk 4", "speaker": "moth", "reply": "What I know: I want the Lamp.", "expect": "echoed brief"},
-  {"case": "station talk 4", "speaker": "vale", "reply": "I'm at Empty station. Pip and The keeper are here with me.", "expect": "echoed brief"},
+  {"case": "station talk 4", "speaker": "vale", "reply": "An empty railway station beside a black shore. I'm holding the Lamp.", "expect": "echoed brief"},
   {"case": "station talk 4", "speaker": "vale", "reply": "Yes, the lamp would help, if you trust me with it.", "expect": "repeat"},
   {"case": "station talk 4", "speaker": "moth", "reply": "Tell me again what the pond wants.", "expect": "repeat"},
   {"case": "return visit after", "speaker": "vale", "reply": "You came at me over the lamp, Pip, and still I kept your cloth.", "expect": "ok"},

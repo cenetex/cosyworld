@@ -206,7 +206,7 @@ fn base_profiles() -> &'static Value {
                         profile["persona"] =
                             entity.get("persona").unwrap_or(&entity["text"]).clone();
                     }
-                    for field in ["seed", "voice", "idiolect", "expression"] {
+                    for field in PROFILE_FIELDS {
                         if let Some(value) = entity.get(field) {
                             profile[field] = value.clone();
                         }
@@ -245,6 +245,16 @@ fn base_profiles() -> &'static Value {
         profiles
     })
 }
+/// Pack fields the voices read; `sense` and `pronouns` are perception's.
+const PROFILE_FIELDS: [&str; 6] = [
+    "seed",
+    "voice",
+    "idiolect",
+    "expression",
+    "sense",
+    "pronouns",
+];
+
 fn profiles() -> &'static Value {
     base_profiles()
 }
@@ -1908,9 +1918,23 @@ fn transcript_sections(context: &Context, entity: &Entity, part: Part) -> Vec<(S
     if let Some(poem) = &entity.poem {
         lines.extend(tagged(Section::Facts, recital::prompt_lines(poem)));
     }
+    // A line's present is the narrator's choice, worded last, next to the
+    // line I answer (P3). An older tab sends none and keeps the scene above.
+    let perceived = entity
+        .perception
+        .as_ref()
+        .filter(|_| avatar && part == Part::Line);
+    if perceived.is_some() {
+        lines.retain(|(section, _)| !matches!(section, Section::Now | Section::Directions));
+    }
     // No authored sample lines (#1537): the voice comes from the idiolect
     // and the world, never from example utterances.
-    conversation::frame(context, entity, part, lines, mentions)
+    let mut view = conversation::frame(context, entity, part, lines, mentions);
+    if let Some(p) = perceived {
+        view.push((Section::Now, String::new()));
+        view.extend(perception::lines(context, entity, p));
+    }
+    view
 }
 
 /// Whether the entity heard a table line.
