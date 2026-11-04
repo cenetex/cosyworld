@@ -161,6 +161,7 @@ import {
   createSpeechSounds,
   createExchange,
   createPlayQueue,
+  afterDeadline,
   waitForScene,
 } from "./dialogue.mjs";
 import { nameLetters, namedText } from "./card-names.mjs";
@@ -4546,7 +4547,10 @@ function render() {
     const entering = (count) => {
       const timing = swapTiming(swap.left, count, swap.fallen);
       swapEnd = swap.at + timing.end;
-      setTimeout(() => playQueue.flush(), swapEnd - performance.now());
+      afterDeadline(
+        () => swapEnd,
+        () => playQueue.flush(),
+      );
       return Math.max(0, swap.at + timing.entryAt - performance.now());
     };
     if (sceneChanged && reducedMotion.matches)
