@@ -54,7 +54,8 @@ export const TOGGLES = [
 ];
 // The owner's four packs. Every compiled pack is mounted in every world
 // (`installPacks` in world.mjs; `validatePackStates` refuses a save without
-// one), so none can be switched off, and the button says so.
+// one), so none can be switched off, and the button says so. Each is a
+// place card, drawn as the quest card draws its place (`place`).
 export const PACKS = [
   ["cottage", "Cosy Cottage", "lonely-forest/cottage.png"],
   ["shore", "The Reflected Shore", "pond.png"],
@@ -195,13 +196,21 @@ export function settingsCards(s) {
       { info: s.build },
     ),
     ...PACKS.map(([id, name, art]) =>
-      card(`pack-${id}`, name, art, true, "mounted", [
-        reason(
-          id === "shore"
-            ? "Every world starts on The Reflected Shore"
-            : `Every world holds ${name}`,
-        ),
-      ]),
+      card(
+        `pack-${id}`,
+        name,
+        art,
+        true,
+        "mounted",
+        [
+          reason(
+            id === "shore"
+              ? "Every world starts on The Reflected Shore"
+              : `Every world holds ${name}`,
+          ),
+        ],
+        { place: true },
+      ),
     ),
   ].filter(Boolean);
 }

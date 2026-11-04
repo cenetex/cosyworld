@@ -75,8 +75,10 @@ Sign out) and Credits; a shared world adds Another passkey and World pool; the
 local table adds New game, and the desktop app Backup. Controls steps through
 tips, and Download opens `/download`. Four pack cards close the hand: Cosy
 Cottage (`lonely-forest`), The Reflected Shore (the hub), The Wine-Dark Sea
-(`greek-drama`) and Hoppy Cat Universe (`hoppycat-archive`). Every pack is
-mounted in every world (`installPacks`), so a pack card is lit and its button
+(`greek-drama`) and Hoppy Cat Universe (`hoppycat-archive`). A pack card is
+a place card drawn as the quest card draws its place (`questScreen`): the
+painting feathered into the card, its name where the quest names its verb.
+Every pack is mounted in every world (`installPacks`), so a pack card is lit and its button
 says so. The cards drive the controls in `#menu-dialog`, which no longer
 opens. `smoke-card-settings.mjs` checks choosing, pressing, the second press
 and closing at three widths.
