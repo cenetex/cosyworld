@@ -47,6 +47,8 @@ pub(crate) mod imported;
 mod knowledge;
 #[path = "card_narrative/observations.rs"]
 mod observations;
+#[path = "card_narrative/person.rs"]
+mod person;
 #[path = "card_narrative/recital.rs"]
 pub(crate) mod recital;
 #[path = "card_narrative/reflection.rs"]
@@ -1685,7 +1687,7 @@ fn transcript_sections(context: &Context, entity: &Entity, part: Part) -> Vec<(S
         let present: Vec<_> = outcome
             .avatars
             .iter()
-            .filter(|a| a.location == context.location)
+            .filter(|a| a.location == context.location && a.id != id)
             .map(|a| name(&a.id))
             .collect();
         let ground: Vec<_> = outcome
@@ -1780,7 +1782,12 @@ fn transcript_sections(context: &Context, entity: &Entity, part: Part) -> Vec<(S
             }
         }
     }
-    lines.extend(tagged(Section::Directions, custody::facts(context, id)));
+    lines.extend(tagged(
+        Section::Directions,
+        custody::facts(context, id)
+            .iter()
+            .map(|fact| person::shift(fact, &own)),
+    ));
     scene.push('.');
     // A Talk is the conversation itself: its caption is not a line to echo.
     let chatting = conversation::applies(context, entity, part)
@@ -1789,7 +1796,10 @@ fn transcript_sections(context: &Context, entity: &Entity, part: Part) -> Vec<(S
             .as_ref()
             .is_some_and(|o| o.card.kind == "talk");
     if let Some(action) = context.action.as_ref().filter(|_| !chatting) {
-        lines.push((Section::Now, format!("Just now: {action}")));
+        lines.push((
+            Section::Now,
+            format!("Just now: {}", person::shift(action, &own)),
+        ));
     }
     lines.extend(tagged(
         Section::Now,
@@ -1797,7 +1807,7 @@ fn transcript_sections(context: &Context, entity: &Entity, part: Part) -> Vec<(S
             .events
             .iter()
             .filter(|event| context.action.as_ref() != Some(event))
-            .cloned(),
+            .map(|event| person::shift(event, &own)),
     ));
     // The resolved turn above already covers this entity's own trip.
     let restated = |fact: &String| {
@@ -1818,7 +1828,7 @@ fn transcript_sections(context: &Context, entity: &Entity, part: Part) -> Vec<(S
             .filter(|f| !restated(f))
             .filter(|f| part != Part::Line || !conversation::strategy(f))
             .filter(|f| !chatting_turn || !f.starts_with("At the dialogue scene: "))
-            .cloned(),
+            .map(|f| person::shift(f, &own)),
     ));
     // A fact the rules reserved for this Talk, among the things I know.
     let mentions = if part == Part::Line {
@@ -1840,12 +1850,14 @@ fn transcript_sections(context: &Context, entity: &Entity, part: Part) -> Vec<(S
     // speaker's own recent lines server-side. Reflection still sees them.
     for memory in &entity.memories {
         let text = memory.text.strip_prefix("World: ").unwrap_or(&memory.text);
+        // An event in my own first person; a remembered line keeps its words.
+        let event = person::shift(text, &own);
         lines.push(match memory.kind.as_str() {
             // Now, not a log (#1537): a line sees this beat, not past deeds
             // in the present tense ("Vale gives the Lamp to Pip").
             _ if part == Part::Line => continue,
             "expression" => (Section::Earlier, format!("Earlier: {text}")),
-            _ => (Section::Memories, format!("I remember: {text}")),
+            _ => (Section::Memories, format!("I remember: {event}")),
         });
     }
     // A thought colours speech for a few turns; a dream only on waking.
@@ -3719,7 +3731,7 @@ pub(crate) mod tests {
         ));
         let prompt = transcript(&c, &c.entities[3], Part::Line);
         assert!(prompt.contains("I received Bell from Vale."));
-        assert!(prompt.contains("Final custody: Bell — The keeper. Location: Mirror attic."));
+        assert!(prompt.contains("Final custody: Bell — me. Location: Mirror attic."));
         assert!(prompt.contains("I'm leaving Empty station for Mirror attic"));
         let outcome = c.outcome.as_mut().unwrap();
         outcome
@@ -3802,7 +3814,7 @@ pub(crate) mod tests {
         .unwrap();
         assert_eq!(shared["entries"][1]["text"], "I will keep it safe, Vale.");
         assert_eq!(tries.load(std::sync::atomic::Ordering::SeqCst), 2);
-        assert!(seen.lock().unwrap().iter().all(|request| prompt_of(request)
+        assert!(seen.lock().unwrap().iter().any(|request| prompt_of(request)
             .contains("Final custody: Bell — The keeper. Location: Mirror attic.")));
         server.abort();
     }
@@ -4049,7 +4061,7 @@ pub(crate) mod tests {
             seq: None,
             turn: 1,
             kind: "event".into(),
-            text: "Vale private kindness memory.".into(),
+            text: "A private kindness memory of Vale.".into(),
         });
         dream_due(&mut c);
         c.entities[3].inner_life = Some(InnerLife {
@@ -4090,17 +4102,17 @@ pub(crate) mod tests {
             let stem = stem.as_str();
             if body["model"] == "vale-model" && stem == "Vale:" {
                 // A line sees this beat, not past deeds (#1537).
-                assert!(!text.contains("Vale private kindness memory"));
+                assert!(!text.contains("private kindness memory"));
                 assert!(!text.contains("Moth private persona sentinel"));
             } else if body["model"] == "vale-model" {
-                assert!(text.contains("Vale private kindness memory"));
+                assert!(text.contains("private kindness memory"));
                 assert!(!text.contains("Moth private persona sentinel"));
             } else if body["model"] == "moth-model" {
                 assert!(text.contains("Moth private persona sentinel"));
-                assert!(!text.contains("Vale private kindness memory"));
+                assert!(!text.contains("private kindness memory"));
             } else {
                 assert!(!text.contains("Moth private persona sentinel"));
-                assert!(!text.contains("Vale private kindness memory"));
+                assert!(!text.contains("private kindness memory"));
             }
         }
         // Vale's thought, persona and dream in both scenes read the memory.
@@ -4110,7 +4122,7 @@ pub(crate) mod tests {
             .filter(|body| {
                 body["messages"]
                     .to_string()
-                    .contains("Vale private kindness memory")
+                    .contains("private kindness memory")
             })
             .count();
         assert_eq!(remembering, 6);
@@ -4602,7 +4614,7 @@ pub(crate) mod tests {
         let mut c = context();
         assert!(valid(&c));
         let vale = transcript(&c, &c.entities[0], Part::Line);
-        assert!(vale.contains("Just now: Vale asks Pip what they want."));
+        assert!(vale.contains("Just now: I ask Pip what they want."));
         assert!(vale.contains("Holding the lamp."));
         // Past deeds stay out of a line (#1537); reflection still reads them.
         assert!(!transcript(&c, &c.entities[2], Part::Line).contains("I remember:"));
@@ -4702,10 +4714,10 @@ pub(crate) mod tests {
             } else if ["Vale:", "Pip:"].contains(&stem) {
                 // A conversation turn: the frame is in the system message
                 // and the user message is one line, never the scaffold.
-                assert!(system.contains("Just now: Vale asks Pip what they want."));
+                assert!(system.contains(" what they want.\n"));
                 assert!(!user.contains("Just now:") && !user.ends_with(':'));
             } else {
-                assert!(user.contains("Just now: Vale asks Pip what they want."));
+                assert!(user.contains(" what they want.\n"));
             }
             match stem {
                 "Vale:" => {

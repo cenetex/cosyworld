@@ -96,7 +96,7 @@ pub(super) fn lines(context: &Context, entity: &Entity) -> Vec<String> {
         return Vec::new();
     };
     let heard = |text: &str| context.conversation.iter().any(|l| l.text == text);
-    let other = name(&other);
+    let (other, own) = (name(&other), name(&entity.id));
     let (other, heard) = (&other, &heard);
     let said = |mine: bool| {
         between
@@ -120,9 +120,15 @@ pub(super) fn lines(context: &Context, entity: &Entity) -> Vec<String> {
         .facts
         .iter()
         .take(1)
-        .cloned()
+        .map(|fact| super::person::shift(fact, &own))
         .chain(said(false))
-        .chain(between.facts.iter().skip(1).cloned())
+        .chain(
+            between
+                .facts
+                .iter()
+                .skip(1)
+                .map(|fact| super::person::shift(fact, &own)),
+        )
         .chain(said(true))
     {
         let size = line.chars().count();
