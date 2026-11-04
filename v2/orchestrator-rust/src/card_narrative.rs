@@ -1596,6 +1596,17 @@ fn idiolect(entity: &Entity, part: Part) -> String {
     text
 }
 
+/// My own words at the head of my view. Its "I am …" goes when the system
+/// turn already says who I am ("You are Vale, the Lamplighter.").
+fn own_view(entity: &Entity, part: Part) -> String {
+    let own = idiolect(entity, part);
+    if !system_voice(entity, part).starts_with("You are ") {
+        return own;
+    }
+    own.strip_prefix(&i_am(&entity.id))
+        .map_or(own.clone(), |rest| rest.trim_start().to_string())
+}
+
 /// The system turn: who an avatar is ("You are Vale, the Lamplighter."),
 /// identity rather than direction (owner, 2026-11-03). A body-language or
 /// emoji voice keeps the shape its own check reads instead.
@@ -2349,7 +2360,7 @@ fn messages(context: &Context, entity: &Entity, part: Part) -> Prompt {
     // A thought, a persona, a dream or waking words: nobody spoke, and
     // the view ends where my own words begin ("I think to myself:").
     let own = (part != Part::Dream && !waking::applies(context, &entity.id, part))
-        .then(|| idiolect(entity, part));
+        .then(|| own_view(entity, part));
     let view = [
         own.clone().unwrap_or_default(),
         transcript(context, entity, part),
@@ -3058,7 +3069,11 @@ pub(crate) mod tests {
             .iter()
             .find(|call| call["id"] == "vale" && call["part"] == "line")
             .unwrap();
-        assert!(turn_of(&call["request"], "assistant").contains("Vale"));
+        assert_eq!(
+            turn_of(&call["request"], "system"),
+            "You are Vale, the Lamplighter."
+        );
+        assert!(!turn_of(&call["request"], "assistant").is_empty());
         // Prepared calls carry no provider routing of their own.
         for call in prepared["calls"].as_array().unwrap() {
             assert!(call["request"].get("provider").is_none());
@@ -5064,13 +5079,15 @@ pub(crate) mod tests {
             }
             match stem {
                 "Vale:" => {
-                    // An avatar's system voice is its seed sentence (#1673).
-                    assert!(system.starts_with("I am Vale, the Lamplighter."));
+                    // An avatar's system voice is its seed sentence (#1673),
+                    // and its own view does not say it again.
+                    assert_eq!(turn_of(body, "system"), "You are Vale, the Lamplighter.");
+                    assert!(!system.contains("I am Vale"));
                     assert!(system.contains("Holding the lamp."));
                     "Vale: What would you trade for this lamp, Pip?".into()
                 }
                 "Pip:" => {
-                    assert!(system.starts_with("I am Pip, a moth."));
+                    assert_eq!(turn_of(body, "system"), "You are Pip, a moth.");
                     "\"Bring that lamp to the pond, Vale. I will carry the cloth.\"".into()
                 }
                 _ => stem_reply(stem),
@@ -5621,12 +5638,18 @@ pub(crate) mod tests {
         let last = cue.filter(|_| user == crate::ai_gateway::SILENCE);
         let last = last.unwrap_or(user.lines().last().unwrap_or_default());
         let first = system.lines().next().unwrap_or_default();
+        // A speaking avatar is named by its system turn ("You are Pip, a
+        // moth."), a gesture voice by its own view ("I am Pip, a moth.").
+        let identity = view("system")
+            .and_then(|m| m["content"].as_str())
+            .unwrap_or_default();
         let speaker = profiles()
             .as_object()
             .unwrap()
             .iter()
             .find(|(id, p)| {
-                (p["kind"] == "avatar" && i_am(id) == first)
+                (p["kind"] == "avatar"
+                    && (i_am(id) == first || i_am(id).replacen("I am ", "You are ", 1) == identity))
                     || p["idiolect"]
                         .as_str()
                         .is_some_and(|i| system.starts_with(i))

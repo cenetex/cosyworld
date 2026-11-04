@@ -1,11 +1,12 @@
 # Seed sentences
 
 Each avatar has one authored sentence: a name and a role. It has no tone
-adjectives, speech habits or goals. A speech prompt's assistant turn, the
-avatar's own view, opens with `I am <seed>`; the rest of it is the scene,
-what it knows and wants, and the talk it heard at this place, and the user
-turn after it is the line being answered (see the card guide's character
-voices).
+adjectives, speech habits or goals. A speaking avatar's system turn is
+`You are <seed>`, so its assistant turn, the avatar's own view, does not say
+it again: it is the scene, what it knows and wants, and the talk it heard at
+this place. The user turn after it is the line being answered (see the card
+guide's character voices). A gesture or emoji voice keeps its shape in the
+system turn, and its own view opens with `I am <seed>`.
 Everything else comes from play: committed events, holdings, place, want and
 relationships, and the avatar's own inner life ("I'm", "I'm becoming", "I
 dream"). That inner life is how an avatar discovers itself over time
