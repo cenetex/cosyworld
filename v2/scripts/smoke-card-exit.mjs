@@ -81,13 +81,18 @@ try {
           childList: true,
           subtree: true,
         });
-        window.exitWatch = { observer, seen, shown: {} };
-        // Each card's box as the hand redraws.
+        // Each card's box at the tap (a change of place lets cards fall
+        // from there) and as the hand redraws.
+        const boxes = () =>
+          Object.fromEntries(
+            [...hand.querySelectorAll(".card[data-card]")].map((c) => [
+              c.dataset.card,
+              c.parentElement.getBoundingClientRect().toJSON(),
+            ]),
+          );
+        window.exitWatch = { observer, seen, boxes, shown: {}, redrawn: {} };
         hand.replaceChildren = function (...frames) {
-          for (const c of hand.querySelectorAll(".card[data-card]"))
-            window.exitWatch.shown[c.dataset.card] = c.parentElement
-              .getBoundingClientRect()
-              .toJSON();
+          window.exitWatch.redrawn = boxes();
           Element.prototype.replaceChildren.apply(hand, frames);
         };
       });
@@ -98,6 +103,9 @@ try {
       );
     const travel = async (place) => {
       await selectCard(page, place);
+      await page.evaluate(() => {
+        if (window.exitWatch) window.exitWatch.shown = window.exitWatch.boxes();
+      });
       await page.locator("#card-actions button").click();
     };
     await page.goto(
@@ -108,6 +116,10 @@ try {
     // Walking away from the station leaves Pip, the keeper and the station
     // behind: each falls from where it lay, inert, a moment apart.
     await watch();
+    // Vale goes along and keeps his node (card-keep.mjs).
+    await page.evaluate(() => {
+      document.querySelector('#hand [data-card="vale"]').exitMark = "kept";
+    });
     await travel("pond");
     await page.waitForFunction(() => window.exitWatch.seen.length);
     const falling = await page.evaluate(() =>
@@ -124,23 +136,36 @@ try {
     await page.screenshot({
       path: new URL(`falling-${width}.png`, output).pathname,
     });
+    // The station folds under the pond as the hand redraws under the veil.
+    await page.waitForFunction(() =>
+      window.exitWatch.seen.some((g) => g.card === "station"),
+    );
     const gone = (await seen()).map((g) => g.card);
     for (const card of ["moth", "keeper", "station"])
       assert(gone.includes(card), `${card} falls: ${gone}`);
     assert(!gone.includes("vale"), "Vale goes along");
+    // A change of place lets them go 50 ms apart (card-swap.mjs).
     falling.forEach((looks, i) =>
-      assert.deepEqual(looks, [Math.min(i * 70, 350), 360, "none"]),
+      assert.deepEqual(looks, [i * 50, 360, "none"]),
     );
-    const { shown } = await page.evaluate(() => window.exitWatch);
+    const { shown, redrawn } = await page.evaluate(() => window.exitWatch);
     for (const ghost of await seen()) {
-      const was = shown[ghost.card];
       assert.deepEqual(ghost.looks, [true, "true"]);
-      assert(Math.abs(ghost.box.left - was.left) < 4, ghost.card);
-      assert(Math.abs(ghost.box.top - was.top) < 4, ghost.card);
+      const at = (box) =>
+        Math.abs(ghost.box.left - box?.left) < 4 &&
+        Math.abs(ghost.box.top - box?.top) < 4;
+      assert(at(shown[ghost.card]) || at(redrawn[ghost.card]), ghost.card);
     }
     await page.evaluate(() => window.exitMotions.forEach((m) => m.play()));
     await settled();
     await ready();
+    assert.equal(
+      await page.evaluate(
+        () => document.querySelector('#hand [data-card="vale"]').exitMark,
+      ),
+      "kept",
+      "Vale keeps his node",
+    );
     // Ghosts are released: many plays keep no more nodes than a few.
     const cdp = await page.context().newCDPSession(page);
     await cdp.send("Performance.enable");

@@ -25,8 +25,8 @@
       "smokes": ["smoke-card-combat"]
     },
     {
-      "paths": "^v2/card-game/card-(exit|ghost)\\.",
-      "smokes": ["smoke-card-exit", "smoke-card-beat-stack"]
+      "paths": "^v2/card-game/card-(exit|ghost|swap|entry)\\.",
+      "smokes": ["smoke-card-swap", "smoke-card-exit", "smoke-card-beat-stack"]
     },
     {
       "paths": "^v2/card-game/(card-tiers|cards|rarity|images)\\.|covered",
