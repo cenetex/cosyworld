@@ -139,12 +139,12 @@
       "sourceName": "exec-8f81adce-24ed-4a14-bd66-3ebb706ec3ac.png",
       "generationId": "exec-8f81adce-24ed-4a14-bd66-3ebb706ec3ac",
       "sourceSha256": "525f46767b9d64cd2d339daefbf142bfe04317c25e8789c73c35d8ab4b80b8ce",
-      "sha256": "c0b61fb49af9c98adbdf9fe7ac386f3611e13b23342a10791673871473928769",
+      "sha256": "74c027a1cce51ec2f4c16098d30ab5bc2f90a6a5ee57c950d964fbf622ee5f54",
       "size": [
         1672,
         941
       ],
-      "processing": "Regenerated with built-in image_gen from the archive review sheet and existing game art; encoded as WebP at quality 94.",
+      "processing": "Regenerated with built-in image_gen from the archive review sheet and existing game art; encoded as WebP at quality 94. Then mirrored horizontally, owner request 2026-11-04; re-encoded as WebP at quality 94 and effort 6 (previous sha256 c0b61fb49af9c98adbdf9fe7ac386f3611e13b23342a10791673871473928769).",
       "archiveSource": {
         "place": "greek-palace",
         "file": "palace-day.webp",

@@ -59,7 +59,8 @@
       "prompt": "Use case: lighting-weather.\nAsset type: a complete painted night backdrop for CosyWorld, The Wine-Dark Sea.\nInput image: the edit target. Change this exact setting from its current light to NIGHT.\nKeep the original wide 16:9 camera, crop, perspective, landscape, architecture, all object positions and shapes, and the open foreground for game characters. Preserve the painterly style and fine detail. Keep the broad palace stairs, closed bronze doors, floor mosaic, columns, braziers, pots, cypress trees and distant citadel exactly where they are. Light the existing braziers with restrained warm fire.\nUse a deep indigo sky, soft silver moonlight, a few small stars, and restrained warm light from the named lamps or fires. Keep the scene calm, clearly nighttime, and rich in readable detail. Preserve the scene's clear weather so the game can add its shared rain or mist layer. The artwork fills the whole canvas. It is a complete setting with an opaque background and an empty stage for the game's cast.",
       "width": 1672,
       "height": 941,
-      "sha256": "6fef7d5cfcbd3c95f5f05395d95213a2b5760875487e37b98d2ffe5841abab06"
+      "sha256": "e98d5ce5538672b3420ae4a406f4b2cc5819e635feef42b75432f9a8f41866a3",
+      "processing": "Mirrored horizontally with the day painting, owner request 2026-11-04; re-encoded as WebP at quality 94 and effort 6 (previous sha256 6fef7d5cfcbd3c95f5f05395d95213a2b5760875487e37b98d2ffe5841abab06)."
     },
     {
       "file": "burial-ground-night.webp",
