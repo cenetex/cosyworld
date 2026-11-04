@@ -172,7 +172,7 @@ describe("the level quest", () => {
     expect(validateWorld(s)).toBe(s);
   });
 
-  it("can be dropped for half the experience, keeping the level", () => {
+  it("can be dropped for its cost in experience, keeping the level", () => {
     let s = ready(6);
     s.actors.vale.level = 3;
     s = sleep(s);
@@ -204,13 +204,13 @@ describe("the level quest", () => {
     s = act(s, dropQuest);
     expect(s.actors.vale.xp).toBe(questXp(50));
     expect(levelOf(s, "vale")).toBe(50);
-    // Experience well past the level, from the old curve, still halves.
+    // Experience well past the level, from the old curve, costs the same.
     s = ready(1000);
     s.turn = s.revision = 200;
     s.actors.vale.level = 6;
     s = sleep(s);
     s = act(s, dropQuest);
-    expect(s.actors.vale.xp).toBe(500);
+    expect(s.actors.vale.xp).toBe(994);
     expect(levelOf(s, "vale")).toBe(6);
     expect(validateWorld(s)).toBe(s);
   });

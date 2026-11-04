@@ -267,6 +267,7 @@ const files = [
   "pack-journeys.mjs",
   "pack-recital.mjs",
   "pack-rules.mjs",
+  "pack-toggle.mjs",
   "pack-transport.mjs",
   "item-use.mjs",
   "pack-items.mjs",

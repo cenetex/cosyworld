@@ -175,7 +175,10 @@ try {
         target: "station",
         since: s.turn,
         refusals: 0,
+        // A level quest: its Drop names the cost (rules 98).
+        quest: { level: 2, left: 2 },
       };
+      Object.assign(vale, { xp: 1, level: 1 });
       vale.under = [
         { kind: "person", target: "keeper", since: s.turn, refusals: 0 },
       ];
@@ -203,8 +206,8 @@ try {
     const picked = page.locator('#hand .want-card[data-picked="true"]');
     assert.equal(await picked.getAttribute("data-quest-id"), "quest:0");
     assert.equal(
-      await page.locator('#card-actions [data-drop-quest="0"]').count(),
-      1,
+      await page.locator('#card-actions [data-drop-quest="0"]').textContent(),
+      "Drop quest (−1 XP)",
     );
     assert.equal(
       await page.locator("#card-actions [data-focus-quest]").count(),

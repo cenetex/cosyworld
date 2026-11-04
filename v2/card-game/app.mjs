@@ -1977,7 +1977,7 @@ function renderActions() {
       const refused = refusedPlay(action);
       const button = node(
         "button",
-        refused ? refusalLabel(refused) : playLabel(action),
+        refused ? refusalLabel(refused) : playLabel(action, world),
         index === 0 ? "card-primary" : "card-action",
       );
       button.type = "button";
@@ -2004,19 +2004,17 @@ function renderActions() {
     row.append(nudge);
   }
   // The top quest, chosen in the open fan, can be dropped (a level quest
-  // costs half the experience). Choosing a card beneath brings it to the top.
+  // costs experience, named on its button). Choosing a card beneath brings it to the top.
   const picked = questOpen && !rested ? shownQuests[questPick] : null;
   for (const action of picked?.index === 0
     ? legalActions(world).filter(
         (a) => a.kind === "drop" && !a.item && a.quest === 0,
       )
     : []) {
-    const button = node("button", playLabel(action), "card-action");
+    const button = node("button", playLabel(action, world), "card-action");
     button.type = "button";
     button.dataset.dropQuest = String(picked.index);
-    button.title = picked.level
-      ? "Give up this level quest; it costs half your experience"
-      : "Give up this quest";
+    button.title = "Give up this quest";
     button.disabled = selectionBlocked();
     button.onclick = () => {
       questOpen = false;
@@ -4610,7 +4608,7 @@ async function submitSharedPlay(action) {
     key: crypto.randomUUID(),
     action: current,
     choice: selected.join("+"),
-    label: playLabel(action),
+    label: playLabel(action, world),
     notice: sharedSession.state.notice || "",
   };
   showSharedPlay("sending");

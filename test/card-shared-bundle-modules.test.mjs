@@ -34,6 +34,7 @@ const RULES = [
   "pack-schema.mjs",
   "pack-sections.mjs",
   "pack-specials.mjs",
+  "pack-toggle.mjs",
   "pack-transport.mjs",
   "reflections.mjs",
   "roaming-routes.mjs",
