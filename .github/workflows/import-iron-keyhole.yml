@@ -1,0 +1,64 @@
+name: Import approved iron keyhole artwork
+
+on:
+  push:
+    branches: [codex/locked-card-recessed-iron-keyhole]
+    paths: [.github/workflows/import-iron-keyhole.yml]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: import-iron-keyhole-artwork
+  cancel-in-progress: false
+
+jobs:
+  import:
+    if: github.repository == 'cenetex/cosyworld' && github.ref == 'refs/heads/codex/locked-card-recessed-iron-keyhole'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          sparse-checkout: v2/card-game/assets/locked-card
+          fetch-depth: 1
+      - name: Download and verify only the approved original
+        run: |
+          python3 - <<'PY'
+          import hashlib, json, pathlib, struct, urllib.request
+          from urllib.parse import urlparse
+          root = pathlib.Path('v2/card-game/assets/locked-card')
+          record = json.loads((root / 'iron-keyhole-source.json').read_text())
+          request = urllib.request.Request('https://api.github.com/repos/cenetex/cosyworld/issues/comments/6632724317', headers={'Accept': 'application/vnd.github+json', 'User-Agent': 'cosyworld-art-import'})
+          with urllib.request.urlopen(request, timeout=30) as response:
+              transfer = json.loads(json.load(response)['body'])
+          url = transfer['url']
+          parts = urlparse(url)
+          assert parts.scheme == 'https' and parts.hostname == 'oaisdmntprnorthcentralus.blob.core.windows.net'
+          assert transfer['sha256'] == record['sha256'] == 'e74213b059921642d2af213df18071db0dfa70dce3c6b510e14b1fa46898d139'
+          try:
+              with urllib.request.urlopen(url, timeout=60) as response:
+                  data = response.read(record['bytes'] + 1)
+          except Exception as exc:
+              raise SystemExit('Artwork transfer failed: ' + type(exc).__name__) from None
+          assert len(data) == record['bytes'] == 3624798
+          assert hashlib.sha256(data).hexdigest() == record['sha256']
+          assert data[:8] == b'\x89PNG\r\n\x1a\n' and data[12:16] == b'IHDR'
+          assert struct.unpack('>II', data[16:24]) == (1024, 1536) and data[25] == 2
+          target = root / 'iron-keyhole-master.png'
+          if target.exists():
+              assert target.read_bytes() == data, 'Refusing to overwrite different art'
+          else:
+              target.write_bytes(data)
+          print('Approved RGB PNG verified: 1024x1536, 3624798 bytes, SHA-256 matches.')
+          PY
+      - name: Commit the exact native PNG
+        run: |
+          git status --short --branch
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -f -- v2/card-game/assets/locked-card/iron-keyhole-master.png
+          git diff --cached --check
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m 'Add the exact approved recessed iron-keyhole PNG master'
+          git push origin HEAD:refs/heads/codex/locked-card-recessed-iron-keyhole
