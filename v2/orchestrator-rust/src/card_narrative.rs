@@ -39,6 +39,8 @@ mod custody;
 mod dream;
 #[path = "card_narrative/expression.rs"]
 mod expression;
+#[path = "card_narrative/fallback.rs"]
+mod fallback;
 #[path = "card_narrative/framing.rs"]
 mod framing;
 #[path = "card_narrative/grounding.rs"]
@@ -2070,51 +2072,8 @@ fn tier_config(config: &AiConfig, model: Option<&str>) -> AiConfig {
     config
 }
 
-/// Reserve time for an escalation before running the voice's own attempts.
-/// The timeout includes gateway readiness and queue waits as well as HTTP.
-async fn voice_attempts<T, F, Fut>(
-    settings: &VoiceSettings,
-    deadline: tokio::time::Instant,
-    escalate: bool,
-    mut request: F,
-) -> Result<T, ()>
-where
-    F: FnMut(bool, u8, Duration) -> Fut,
-    Fut: std::future::Future<Output = Result<T, ()>>,
-{
-    let remaining = deadline.saturating_duration_since(tokio::time::Instant::now());
-    let reserve = if escalate {
-        settings.call_timeout.min(remaining / 2)
-    } else {
-        Duration::ZERO
-    };
-    let own_deadline = deadline - reserve;
-    let own_attempts = settings.attempts.max(1);
-    for attempt in 0..own_attempts + u8::from(escalate) {
-        let escalation = attempt == own_attempts;
-        let until = if escalation { deadline } else { own_deadline };
-        let now = tokio::time::Instant::now();
-        let remaining = until.saturating_duration_since(now);
-        let budget = if escalate && !escalation {
-            remaining / u32::from(own_attempts - attempt)
-        } else {
-            remaining
-        }
-        .min(settings.call_timeout);
-        if budget.is_zero() {
-            continue;
-        }
-        if let Ok(Ok(result)) =
-            tokio::time::timeout_at(now + budget, request(escalation, attempt, budget)).await
-        {
-            return Ok(result);
-        }
-    }
-    Err(())
-}
-
-/// Generate a validated part on its selected model, then use the optional
-/// escalation model once when the earlier attempts need more help.
+/// Generate a validated part on its selected model, then on the optional
+/// escalation model when those attempts fail (`fallback::run`).
 async fn speak(
     config: &AiConfig,
     context: &Context,
@@ -2184,11 +2143,12 @@ async fn speak(
     .labelled(context);
     // Per tier, for the bench: 1 an empty or blocked reply, 2 a usable line.
     let tiers = [AtomicU8::new(0), AtomicU8::new(0)];
-    let spoken = voice_attempts(
+    let spoken = fallback::run(
         settings,
         deadline,
-        escalation.is_some(),
-        |escalated, attempt, timeout| {
+        1 + usize::from(escalation.is_some()),
+        |n: usize, attempt: u8, timeout: Duration| {
+            let escalated = n == 1;
             let config = if escalated {
                 escalation.as_ref().unwrap()
             } else {
@@ -2240,6 +2200,7 @@ async fn speak(
                             failure = error.code(),
                             "card voice rejected"
                         );
+                        fallback::Miss::Failed
                     })?;
                 let finished = matches!(completion.finish_reason.as_str(), "stop" | "end_turn");
                 // A reply that only missed its fact is published at once
@@ -2282,6 +2243,7 @@ async fn speak(
                         excerpt = %excerpt(&completion.text),
                         "card voice rejected"
                     );
+                    fallback::Miss::of(reason)
                 })
             }
         },
@@ -5787,7 +5749,7 @@ pub(crate) mod tests {
             models_for(&requests, "Vale, who I am now:"),
             ["reflection-model", "reflection-model"]
         );
-        // A different escalation model gets the persona's one more attempt.
+        // A different escalation model gets the persona's next attempt.
         let bigger = VoiceSettings {
             escalation_model: Some("escalation-model".into()),
             ..reflective
@@ -5799,10 +5761,10 @@ pub(crate) mod tests {
         assert_eq!(result["entries"][0]["model"], "vale-model");
         assert_eq!(result["entries"][0]["reflection"]["persona"], persona);
         let requests = seen.lock().unwrap().clone();
-        assert_eq!(requests.len(), 9);
+        assert_eq!(requests.len(), 8);
         assert_eq!(
             models_for(&requests, "Vale, who I am now:"),
-            ["reflection-model", "reflection-model", "escalation-model"]
+            ["reflection-model", "escalation-model"]
         );
         server.abort();
     }
@@ -5840,7 +5802,7 @@ pub(crate) mod tests {
         // Mixed models leave the scene under the shared label.
         assert_eq!(result["model"], "card-voices-v1");
         let requests = seen.lock().unwrap().clone();
-        assert_eq!(requests.len(), 6);
+        assert_eq!(requests.len(), 5);
         let prompts: Vec<_> = requests
             .iter()
             .filter(|body| stem_of(body) == "Pip:")
@@ -5866,12 +5828,12 @@ pub(crate) mod tests {
                 )
             })
             .collect();
-        assert_eq!(pip.len(), 3);
-        for ((model, temperature), (expected, cooled)) in pip.iter().zip([
-            ("moth-model", 1.0),
-            ("moth-model", 0.9),
-            ("escalation-model", 0.8),
-        ]) {
+        // An empty reply moves straight on to the next model.
+        assert_eq!(pip.len(), 2);
+        for ((model, temperature), (expected, cooled)) in pip
+            .iter()
+            .zip([("moth-model", 1.0), ("escalation-model", 0.9)])
+        {
             assert_eq!(model, expected);
             assert!(
                 (temperature - cooled).abs() < 1e-9,
@@ -5913,10 +5875,10 @@ pub(crate) mod tests {
             .collect();
         assert_eq!(ids, ["vale", "moth", "lamp"]);
         let requests = seen.lock().unwrap().clone();
-        assert_eq!(requests.len(), 6);
+        assert_eq!(requests.len(), 5);
         assert_eq!(
             models_for(&requests, "Empty station:"),
-            ["test-entity-model", "test-entity-model", "escalation-model"]
+            ["test-entity-model", "escalation-model"]
         );
         // When the table's own world-content model is the escalation model,
         // scenery that fails on it is not sent there a third time.
@@ -6005,33 +5967,30 @@ pub(crate) mod tests {
         let started = tokio::time::Instant::now();
         let deadline = started + settings.scene_timeout;
         let mut seen = Vec::new();
-        let result = voice_attempts(&settings, deadline, true, |escalated, attempt, budget| {
+        let result = fallback::run(&settings, deadline, 2, |link, attempt, budget| {
             seen.push((
-                escalated,
+                link == 1,
                 attempt,
                 tokio::time::Instant::now() - started,
                 budget,
             ));
             async move {
-                if escalated {
+                if link == 1 {
                     tokio::time::sleep(Duration::from_secs(10)).await;
                     Ok("recovered")
                 } else {
                     // Includes a gateway future waiting for readiness or a slot.
-                    std::future::pending::<Result<&str, ()>>().await
+                    std::future::pending::<Result<&str, fallback::Miss>>().await
                 }
             }
         })
         .await;
         assert_eq!(result, Ok("recovered"));
-        assert_eq!(seen.len(), 3);
-        assert_eq!(
-            seen[0],
-            (false, 0, Duration::ZERO, Duration::from_millis(5500))
-        );
-        assert!(seen[1].2 >= Duration::from_millis(5500));
-        assert!(seen[2].0);
-        assert!(seen[2].2 >= Duration::from_secs(11));
+        assert_eq!(seen.len(), 2);
+        // Each model's share is the remaining time over the models left.
+        assert_eq!(seen[0], (false, 0, Duration::ZERO, Duration::from_secs(11)));
+        assert!(seen[1].0);
+        assert!(seen[1].3 >= Duration::from_secs(11));
         assert!(tokio::time::Instant::now() < deadline);
     }
 
@@ -6042,23 +6001,23 @@ pub(crate) mod tests {
         let deadline = started + settings.scene_timeout;
         tokio::time::sleep(Duration::from_secs(14)).await;
         let mut seen = Vec::new();
-        let result = voice_attempts(&settings, deadline, true, |escalated, _, budget| {
-            seen.push((escalated, tokio::time::Instant::now() - started, budget));
+        let result = fallback::run(&settings, deadline, 2, |link, _, budget| {
+            seen.push((link == 1, tokio::time::Instant::now() - started, budget));
             async move {
-                if escalated {
+                if link == 1 {
                     tokio::time::sleep(Duration::from_secs(3)).await;
                     Ok(())
                 } else {
-                    std::future::pending::<Result<(), ()>>().await
+                    std::future::pending::<Result<(), fallback::Miss>>().await
                 }
             }
         })
         .await;
         assert_eq!(result, Ok(()));
-        assert_eq!(seen.len(), 3);
-        assert!(seen[0].2 <= Duration::from_secs(2));
-        assert!(seen[2].0);
-        assert!(seen[2].1 >= Duration::from_secs(18));
+        assert_eq!(seen.len(), 2);
+        assert!(seen[0].2 <= Duration::from_secs(4));
+        assert!(seen[1].0);
+        assert!(seen[1].1 >= Duration::from_secs(18));
         assert!(tokio::time::Instant::now() < deadline);
     }
 
@@ -6067,18 +6026,18 @@ pub(crate) mod tests {
         let settings = VoiceSettings::hosted();
         let deadline = tokio::time::Instant::now() + settings.scene_timeout;
         let mut seen = 0;
-        let result = voice_attempts(&settings, deadline, true, |_, _, _| {
+        let result = fallback::run(&settings, deadline, 2, |_, _, _| {
             seen += 1;
-            std::future::pending::<Result<(), ()>>()
+            std::future::pending::<Result<(), fallback::Miss>>()
         })
         .await;
         assert_eq!(result, Err(()));
-        assert_eq!(seen, 3);
+        assert_eq!(seen, 2);
         assert!(tokio::time::Instant::now() >= deadline);
-        let result = voice_attempts(&settings, deadline, true, |_, _, _| {
+        let result = fallback::run(&settings, deadline, 2, |_, _, _| {
             panic!("expired scenes have no request budget");
             #[allow(unreachable_code)]
-            std::future::ready(Ok::<(), ()>(()))
+            std::future::ready(Ok::<(), fallback::Miss>(()))
         })
         .await;
         assert_eq!(result, Err(()));
