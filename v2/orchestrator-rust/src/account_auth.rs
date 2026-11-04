@@ -1269,7 +1269,9 @@ pub(super) async fn wallet_claim_status(
             None,
         );
     };
-    if claim.user_id != current.user_id || claim.poll_token != poll_token {
+    if claim.user_id != current.user_id
+        || !crate::config::token_matches(&poll_token, &claim.poll_token)
+    {
         return no_store_json(
             StatusCode::FORBIDDEN,
             &WalletClaimStatusResponse {

@@ -298,8 +298,8 @@ pub(crate) fn canonical_routing_config(
 }
 
 /// Compare fixed-length digests byte by byte so the time taken says nothing
-/// about how much of the router token, or its length, a caller guessed.
-pub(crate) fn router_token_matches(provided: &str, expected: &str) -> bool {
+/// about how much of a secret token, or its length, a caller guessed.
+pub(crate) fn token_matches(provided: &str, expected: &str) -> bool {
     use sha2::{Digest, Sha256};
     let provided = Sha256::digest(provided.as_bytes());
     let expected = Sha256::digest(expected.as_bytes());
@@ -339,15 +339,15 @@ pub(crate) struct DeploymentConfig {
 
 #[cfg(test)]
 mod tests {
-    use super::router_token_matches;
+    use super::token_matches;
 
     #[test]
-    fn router_token_matches_only_the_exact_token() {
+    fn token_matches_only_the_exact_token() {
         let token = "router-token-0123456789";
-        assert!(router_token_matches(token, token));
-        assert!(!router_token_matches("router-token-0123456788", token));
-        assert!(!router_token_matches("router-token", token));
-        assert!(!router_token_matches("router-token-0123456789x", token));
-        assert!(!router_token_matches("", token));
+        assert!(token_matches(token, token));
+        assert!(!token_matches("router-token-0123456788", token));
+        assert!(!token_matches("router-token", token));
+        assert!(!token_matches("router-token-0123456789x", token));
+        assert!(!token_matches("", token));
     }
 }

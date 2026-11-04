@@ -1289,7 +1289,10 @@ pub(crate) fn moderation_authorized_token(expected: Option<&str>, headers: &Head
     let Ok(value) = value.to_str() else {
         return false;
     };
-    value.trim() == format!("Bearer {expected}")
+    value
+        .trim()
+        .strip_prefix("Bearer ")
+        .is_some_and(|provided| crate::config::token_matches(provided, expected))
 }
 
 pub(crate) fn normalize_moderation_reason(reason: Option<&str>) -> String {
