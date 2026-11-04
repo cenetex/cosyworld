@@ -563,7 +563,10 @@ fn a_character_speaks_as_itself_in_the_assistant_turn() {
     let heard = scene_for(context, lines, "greek-baker").unwrap();
     let dione = entity(&heard, "greek-baker");
     let prompt = messages(&heard, dione, Part::Line);
-    assert_eq!(prompt.system, "You are Dione the Baker.");
+    assert_eq!(
+        prompt.system,
+        "You are Dione the Baker. Reply with only what you say aloud."
+    );
     let view = prose(&prompt.assistant);
     // The system turn says who she is; her own view does not repeat it.
     assert!(view.starts_with("I want the Funeral Oil. "));

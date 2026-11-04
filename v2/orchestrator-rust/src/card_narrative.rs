@@ -2155,7 +2155,7 @@ async fn speak(
             async move {
                 let request = ChatCompletionRequest {
                     feature: "card_voice",
-                    prompt_version: "card-voice-v5",
+                    prompt_version: "card-voice-v6",
                     capability: ModelCapability::WorldContent,
                     system: &prompt.system,
                     user: &prompt.user,
@@ -3024,7 +3024,7 @@ pub(crate) mod tests {
             .unwrap();
         assert_eq!(
             turn_of(&call["request"], "system"),
-            "You are Vale, the Lamplighter."
+            "You are Vale, the Lamplighter. Reply with only what you say aloud."
         );
         assert!(!turn_of(&call["request"], "assistant").is_empty());
         // Prepared calls carry no provider routing of their own.
@@ -5053,15 +5053,21 @@ pub(crate) mod tests {
             }
             match stem {
                 "Vale:" => {
-                    // An avatar's system voice is its seed sentence (#1673),
-                    // and its own view does not say it again.
-                    assert_eq!(turn_of(body, "system"), "You are Vale, the Lamplighter.");
+                    // An avatar's system voice is its seed sentence (#1673)
+                    // and the one command, and its view does not say it again.
+                    assert_eq!(
+                        turn_of(body, "system"),
+                        "You are Vale, the Lamplighter. Reply with only what you say aloud."
+                    );
                     assert!(!system.contains("I am Vale"));
                     assert!(system.contains("Holding the lamp."));
                     "Vale: What would you trade for this lamp, Pip?".into()
                 }
                 "Pip:" => {
-                    assert_eq!(turn_of(body, "system"), "You are Pip, a moth.");
+                    assert_eq!(
+                        turn_of(body, "system"),
+                        "You are Pip, a moth. Reply with only what you say aloud."
+                    );
                     "\"Bring that lamp to the pond, Vale. I will carry the cloth.\"".into()
                 }
                 _ => stem_reply(stem),
@@ -5623,7 +5629,12 @@ pub(crate) mod tests {
             .iter()
             .find(|(id, p)| {
                 (p["kind"] == "avatar"
-                    && (i_am(id) == first || i_am(id).replacen("I am ", "You are ", 1) == identity))
+                    && (i_am(id) == first
+                        || i_am(id).replacen("I am ", "You are ", 1)
+                            == identity
+                                .strip_suffix(conversation::SAY_ALOUD)
+                                .unwrap_or(identity)
+                                .trim_end()))
                     || p["idiolect"]
                         .as_str()
                         .is_some_and(|i| system.starts_with(i))
