@@ -775,8 +775,9 @@ A road card shows the road, because the road is the next place.
 The ship sails authored sea lanes, at most four from each port. Black Pond
 has one lane, to the Wine-Dark Harbor. The Wine-Dark Harbor has
 lanes to Piraeus and the Trojan camp landing. The Piraeus lane opens only
-while the Travel Provisions are aboard, carried by anyone on deck or resting
-there. Two one-way lanes keep the way home from Piraeus always open. Aboard a docked ship, the other place cards are course cards. The
+while the Travel Provisions lie on deck (rules 102); carried aboard they are
+not enough, and Piraeus shows as a locked card whose context button reads
+"Put the Travel Provisions down on deck". The voyage leaves them aboard. Two one-way lanes keep the way home from Piraeus always open. Aboard a docked ship, the other place cards are course cards. The
 first course played sets the voyage for everyone aboard; the ship then spends
 one world round at sea. On arrival the only Disembark card is that port, and
 someone who boarded there cannot step straight back. Passengers who stay

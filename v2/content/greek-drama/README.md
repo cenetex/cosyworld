@@ -18,17 +18,24 @@ Dione and the chorus elder. Each place has distinct painted scenery.
 
 Thebes has no story buttons. Its deeds are the ordinary verbs:
 
-- **Give** Dione the water jar to return it.
-- Meeting the guard at the gate tells the decree. He bars the battlefield
-  (rules 100) until he holds the decree or Creon's writ; beaten, he is
-  knocked through and bars it again once he walks back. Meeting the elder at
+- **Give** Dione the water jar to return it. With her Sack of Wheat she
+  bakes the Courtyard Bread (rules 102); the jar goes home to the well and
+  the wheat to Piraeus.
+- The guard holds the Burial Decree and guards the battlefield both ways
+  (rules 100, revision 20) until he holds Creon's writ; the card beyond reads
+  "The Gate Guard is guarding this card". He wants to eat the bread and
+  trades the decree for it. Creon holds his writ and wants the decree back.
+  Beaten, the guard is knocked through and bars the way again once he walks
+  back. See the [Greek redesign](../../docs/card-table/greek-redesign.md#the-theban-gate-greek-revision-20). Meeting the elder at
   the well after it gives the household a witness.
 - **Wait** on the battlefield with the shovel to dig the grave, then with the
-  cloth and oil laid there to bury the brother. The rite uses up the cloth and
-  oil; the shovel is a tool and stays. The **Burial Account** then lies on
+  cloth and oil laid there to bury the brother. The rite sends the cloth and
+  oil home (Eleusis and Colonus, or where they started while those are not
+  yet in the world); the shovel is a tool and stays. The **Burial Account** then lies on
   the battlefield.
-- **Give** Creon the decree, with the household token in hand and the elder's
-  witness, to petition. **Creon's Writ** then lies at the palace.
+- **Trade** Creon the decree for his writ, with the household token in hand
+  and the elder's witness, to petition (revision 20: Creon holds the writ and
+  wants the decree back). Given the writ, the guard stands aside.
 - **Give** the guard the shovel with the funeral cloth in hand, the tools of
   the burial, to report the plan. **The Guard's Tablet** then lies at the
   gate. The shovel alone is no report: the guard declines it, so handing it
@@ -36,28 +43,23 @@ Thebes has no story buttons. Its deeds are the ordinary verbs:
 - **Give** Dione the account, the writ or the tablet. It stays on her table,
   and her road to Eleusis opens.
 
-### The provisions loop (rules 95)
+### The provisions loop (rules 95, 102)
 
-Myrto will not sail her crew out of Thebes without bread, figs and wine. Her
-want names the set in Talk: "I want the Travel Provisions: the Courtyard
-Bread, the Dried Figs and the Wine Skin." The three come from three
-quarters: the bread from Dione's oven after the water jar (`home`: the
-courtyard), the figs from the Hillside Sanctuary and the wine skin from the
-guard's ration at the City Gate. **Give** Myrto any of them while holding all
-three, and she packs the Travel Provisions on the landing (a repeating give,
-`greek-pack-provisions`). Wine only: the water jar is no substitute, and a
-lone ingredient is an ordinary gift she declines. The provisions start used
-up, and the voyage from the Wine-Dark Harbor to Piraeus uses them up on
-arrival (`spends`); the way home is free. Each ingredient regrows at its
-home at dawn once it has been used, so there is only ever one of each, and
-Myrto packs again whenever the last load is gone. She declines the
-provisions as payment, so carrying them to her never takes them off the
-ship's way.
+Myrto will not sail her crew out of Thebes without bread, figs and wine. She
+wants to eat the Travel Provisions at Piraeus. The provisions are made
+(`locked`): they wait locked at the Wine-Dark Harbor, and Myrto makes them
+when given, or when laid on her quay, the Courtyard Bread, the Dried Figs
+and the Wine Skin. The figs come from the Hillside Sanctuary and the wine
+skin from the guard's ration at the City Gate. Each ingredient goes home
+when used (the bread home locked, to be baked again); nothing regrows at
+dawn, so there is only ever one of each. Laid on deck, the provisions open
+the voyage to Piraeus, which leaves them aboard; eaten, they go home locked.
+The way home is free.
 
 The funeral cloth and oil start in Thebes but come from Attica: the cloth's
 `home` is the Eleusinian Sanctuary and the oil's is Colonus Grove. A Theban
-rite uses them up, and each regrows at its home at dawn once the Open Door
-makes it live. The same cloth and oil are meant for Ajax's grave when Troy
+rite sends them home at once, or back where they started while the Open
+Door is shut. The same cloth and oil are meant for Ajax's grave when Troy
 opens again. The Libation Wine (`greek-libation`) is a separate cup of wine
 on the Cithaeron road, distinct from the provisions' wine skin; no rite needs
 it yet.
@@ -174,12 +176,12 @@ Black Pond route. Its lanes are in `v2/worlds/greek-drama/card-bridge.json`:
 - Black Pond and the Wine-Dark Harbor, both ways, with no cargo. The ship
   always comes home this way.
 - Out from the harbor to Piraeus Quays and from Piraeus to the Hoppy Cat
-  jetty only while the Travel Provisions (`greek-provisions`, first at the
-  harbor) or a Hoppy Cat thing are aboard: one `any` condition of an
-  `item_present` and a `pack_item_present`. The Willows mist beside the rail
-  needs the same cargo aboard. The voyage to Piraeus `spends` the
-  provisions (a Hoppy Cat thing is not homed and stays); the others use
-  nothing up.
+  jetty only while the Travel Provisions (`greek-provisions`, made at the
+  harbor) or a Hoppy Cat thing are aboard: one `any` condition. To Piraeus
+  the provisions must lie on deck (`item_at`), and the lane's `reason`
+  labels the locked Piraeus card; the Hoppy Cat jetty lane still counts
+  them carried (`item_present`; Hoppy Cat is paused). The Willows mist
+  beside the rail needs the same cargo aboard. No voyage uses anything up.
 - Every way back toward Black Pond, jetty to Piraeus and Piraeus to the
   harbor, is free.
 - The cargo rule binds only a voyage with riders. Called away empty, the
@@ -286,8 +288,8 @@ single saved cover and starts any longer partial signal again.
 
 Completing the signal summons the Charybdis. Its saved discovery keeps the
 boarding shores open through lamp changes, reloads and later voyages. It
-sails the Black Pond route described above; arriving at Piraeus uses up
-the Travel Provisions (`greek-provisions`, packed by Myrto). Boarding the ship is a dock's
+sails the Black Pond route described above; the Travel Provisions
+(`greek-provisions`, made by Myrto) laid on deck open the lane to Piraeus. Boarding the ship is a dock's
 one link to the sea. Giving Theseus the mothers' petition brings the
 herald's truce (`greek-olive-branch`, the Open Door's Agora outcome) into the
 Agora. While it is in the Agora, the Long Walls open from both ends.

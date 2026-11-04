@@ -13,7 +13,11 @@ for the Theban data.
 2. **A consumed thing goes home.** Eating, drinking or making something out
    of a thing takes it from whoever had it and puts it back at its `home`,
    at once, with no history, ready to fetch again. There is no dawn refill:
-   the water jar is back at the well the moment Dione uses it.
+   the water jar is back at the well the moment Dione uses it. A thing a
+   pack choice uses up goes home the same way: the burial's funeral cloth
+   and oil are back at Eleusis and Colonus after the rite, or where they
+   started while their home is not yet in the world. The libation wine
+   does not regrow at dawn either.
 3. **Crafting is a locked thing and its unlock quest.** A made thing has
    `locked: { by, consumes }`. Consumed, it goes home **locked**: the hand
    shows it there as the carved box with the iron keyhole, and the context
@@ -74,7 +78,10 @@ wants to eat the provisions at Piraeus, and you take that quest. The Travel
 Provisions wait locked at the Wine-Dark Harbor; Myrto makes them from the
 three, given to her or laid down on the quay. The figs go home to the
 sanctuary, the wine skin to the gate, and the bread home locked. Take the
-provisions aboard and the Charybdis sails to Piraeus. Sailing uses nothing:
+provisions aboard and lay them down on deck, and the Charybdis sails to
+Piraeus. Carried aboard they are not enough: Piraeus shows as a locked card,
+and its context button reads "Put the Travel Provisions down on deck"
+(the lane's `reason`). Sailing uses nothing:
 the provisions stay aboard until someone eats them, by choice or for a
 quest, and then go home locked to the harbour.
 

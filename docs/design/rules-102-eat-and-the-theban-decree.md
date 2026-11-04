@@ -45,6 +45,18 @@ Only these are engine code; everything Greek is pack data (revision 20).
    reason reads "<guard> is guarding this card", and it gives no quest; Talk
    with the guard gives his.
 
+7. **A shut sea lane can say why.** A gated lane may carry a `reason`.
+   Aboard a docked ship whose gated lane is shut, the port shows as a locked
+   card and the context button reads the reason (`shutLanes` in
+   `pack-transport.mjs`, read by `sealedReason`). The Charybdis's lane to
+   Piraeus reads "Put the Travel Provisions down on deck". A lane that
+   `spends` its cargo now also counts cargo lying on deck (`item_at`).
+8. **Used things go home.** A pack choice's `retire_item` sends a homed
+   thing that neither regrows nor is made again straight to its home, or to
+   where it started while its home is not in the world. The funeral cloth,
+   oil and libation lose `regrow: dawn`. The revision 20 upgrade puts any
+   such thing that was waiting for a dawn back at its home.
+
 No new condition kind: the gate is a live route open while the guard holds
 Creon's writ (`holding`). A guard bars both ways, and only at his post, so
 beating him in a standoff still gets you through (rules 100).
@@ -52,6 +64,10 @@ beating him in a standoff still gets you through (rules 100).
 ## Pack schema
 
 - `tags: ["food" | "drink"]` need a `home`.
+- A transport lane may carry a `reason` (text, at most 240 characters) only
+  with `opensWith`.
+- Any homed thing counts as renewing, for a repeating give or a thing
+  another choice still needs.
 - `locked` needs a maker of the pack, a home, and one to three homed things.
 - A thing may start in someone's hands and be homed elsewhere (`holder`
   plus `home`), unless it regrows, starts used up or is locked.
@@ -70,4 +86,9 @@ route. Alpha local saves may be dropped.
 `test/card-thebes-bread.test.mjs`: baking, eating, the guard's chain
 (bread, decree, writ), guarding after the trade, losing the writ, combat
 past the guard, eat and drink quests with and without a companion and a
-place, the provisions loop, both orders of the two routes, and the upgrade.
+place, the provisions loop and its locked Piraeus card, both orders of the
+two routes, and the upgrade. `test/card-thebes-provisions.test.mjs`: the
+burial supplies going home. Older tests and the Rust card_shared tests now
+walk the new chain; tests that seed a world on released rules read the
+content rules 101 shipped with (`test/fixtures/card-content-rules-101.json`,
+`content::released_101` in Rust).
