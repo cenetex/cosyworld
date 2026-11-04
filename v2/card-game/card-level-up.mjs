@@ -74,8 +74,9 @@ export function transformPortrait(
     .finally(() => {
       for (const motion of motions) motion.cancel();
       image.style.opacity = "";
-      old.remove();
+      // Let go before it leaves, or Chromium keeps it (card-ghost.mjs).
       old.removeAttribute("src");
+      old.remove();
     });
 }
 

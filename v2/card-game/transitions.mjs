@@ -46,9 +46,10 @@ export function crossfadeImage(img, source, { duration = CROSSFADE_MS } = {}) {
     })
     .catch(() => {})
     .finally(() => {
-      ghost.remove();
-      // The faded painting's decoded pixels go now, not at collection.
+      // The faded painting's decoded pixels go now, not at collection. The
+      // address goes before the node, or Chromium keeps it (card-ghost.mjs).
       ghost.removeAttribute("src");
+      ghost.remove();
       if (fading.get(img) === ghost) fading.delete(img);
     });
 }

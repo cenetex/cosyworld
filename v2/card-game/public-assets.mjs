@@ -96,6 +96,7 @@ const files = [
   "card-label.mjs",
   "card-reveal.mjs",
   "card-entry.mjs",
+  "card-ghost.mjs",
   "locked-box.mjs",
   "card-level-up.mjs",
   // Willows sign alternates chosen by the willows pack.
@@ -250,6 +251,7 @@ const files = [
   "adaptive-learning.mjs",
   "reflections.mjs",
   "narrative.mjs",
+  "perception.mjs",
   "between-us.mjs",
   "signed-words.mjs",
   "speech-knowledge.mjs",

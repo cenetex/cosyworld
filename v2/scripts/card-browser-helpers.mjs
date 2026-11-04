@@ -209,3 +209,28 @@ export function labelProblems({
   }
   return problems;
 }
+
+// A card's name breaks only between words: every word of every shown name
+// lies on one line. Returns the words that a line break split (and where).
+export async function splitNameWords(page) {
+  return page.evaluate(() => {
+    const split = [];
+    for (const name of document.querySelectorAll(".card .name")) {
+      const text = name.firstChild;
+      if (text?.nodeType !== Node.TEXT_NODE || !name.getClientRects().length)
+        continue;
+      for (const word of text.data.matchAll(/[^\s\-–]+/gu)) {
+        const range = document.createRange();
+        range.setStart(text, word.index);
+        range.setEnd(text, word.index + word[0].length);
+        const lines = new Set(
+          [...range.getClientRects()]
+            .filter((rect) => rect.width > 0)
+            .map((rect) => Math.round(rect.top)),
+        );
+        if (lines.size > 1) split.push(`${word[0]} in ${text.data}`);
+      }
+    }
+    return split;
+  });
+}

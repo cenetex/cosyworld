@@ -223,6 +223,10 @@ export function forgetUnfound(world, context, isCovered = () => false) {
           facts: b.facts.map(blur),
         })),
       }),
+      ...(entity.perception?.pull &&
+        !kept(entity.perception.pull) && {
+          perception: { ...entity.perception, pull: undefined },
+        }),
       desire: {
         items: entity.desire.items.filter(kept),
         location: kept(entity.desire.location) ? entity.desire.location : null,
