@@ -3034,14 +3034,13 @@ main > .dialogue {
     width: 15px;
     height: 15px;
   }
-  /* The fixed box has no room for a strip: its buttons stay on the
-     right, and their words wrap there. */
+  /* On a phone the action uses its full width beneath the caption. */
   body[data-dialogue-over="true"] .beat-stack > .action-panel:not([hidden]) {
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
   }
   body[data-dialogue-over="true"] .beat-action #card-actions {
-    flex: 0 1 auto;
-    max-width: 50%;
+    flex: 1 1 100%;
+    max-width: none;
   }
   /* Its verbs wrap between words but never clip: a quest's step and
      Discard both fit. */
