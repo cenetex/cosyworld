@@ -398,8 +398,7 @@ let shownQuests = [],
   questPick = 0,
   questOpen = false,
   questFresh = false,
-  // Which of the avatar's two stacks, "items" or "quests", is fanned while
-  // its stacks show (#2256).
+  // The avatar's fanned stack, "items" or "quests" (#2256).
   avatarFan = null;
 // The folded card behind the avatar shows the top quest.
 const foldQuest = () => shownQuests[0] ?? sealedQuests[0] ?? null;
@@ -1362,10 +1361,8 @@ function stackPlaces(cards) {
   hand.splice(at || hand.length, 0, ...cards.filter(stackedPlace));
   return hand;
 }
-// While the avatar's stacks show, the things it carries and its quests lie
-// in two stacks beside it, as the ways on lie behind the current place
-// (#2256). Each shows its top card with the rest face down behind it until
-// it fans; the chosen card moves left of both. An empty stack is left out.
+// The avatar's things and quests lie in two stacks beside it, as the ways
+// on lie behind the current place (#2256); an empty stack is left out.
 function avatarStack(id) {
   const actor = currentActor(world),
     kind = isQuestId(id)
@@ -1417,8 +1414,7 @@ function syncAvatarStack(frame, id) {
   }
   stackEdges(frame, part.under);
 }
-// Face-down cards behind a stack's top card, up to three: how many, not
-// what they are.
+// Face-down cards behind a stack's top card, up to three.
 function stackEdges(frame, count) {
   for (let i = Math.min(count, 3); i > 0; i--) {
     const edge = node("span", undefined, "place-edge");
@@ -2832,8 +2828,8 @@ function questFrame({ id, quest, met }) {
     ),
     head,
   );
-  // A folded stack fans out. In the fan, or alone, a met quest clears, and choosing
-  // a quest moves it left; choosing it again only lowers it (#2256).
+  // A folded stack fans; a quest in the fan, or alone, clears if met, or is
+  // chosen, and moves left; tapped again it is only lowered (#2256).
   el.addEventListener("click", () => {
     if (selectionBlocked()) return;
     if (picked) questOpen = false;
