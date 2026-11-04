@@ -46,6 +46,10 @@ whose cards were let go reads it briefly on the action beat's status line. Nudge
 can sit quietly while the scene runs. Presence has a 60-second reconnect grace;
 the avatar claim remains saved.
 
+Moving an avatar to another world waits for its current scene to finish.
+Its seat, level, and experience stay together while it waits. The next move
+carries its level and experience to the chosen world in one saved transaction.
+
 A card presentation or open dialog pauses that viewer's speech clock. Closing
 it resumes the same line. The live portrait follows the room's common clock;
 selecting it catches up immediately. A new play by that viewer starts a fresh reading clock. Incoming scenes wait
