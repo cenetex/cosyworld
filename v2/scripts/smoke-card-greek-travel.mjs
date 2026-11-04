@@ -2,7 +2,12 @@ import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
 import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
-import { encodeSave, legalActions, sealedWays } from "../card-game/world.mjs";
+import {
+  encodeSave,
+  legalActions,
+  sealedWays,
+  seedRun,
+} from "../card-game/world.mjs";
 import { profiles } from "../card-game/memory.mjs";
 import { packDefinition } from "../card-game/pack-registry.mjs";
 import { openDoorAction, openSeas } from "../../test/helpers/open-door.mjs";
@@ -126,7 +131,7 @@ try {
     for (const journey of journeys) {
       const table = `greek-travel-${journey.name}-${width}`;
       const key = `cosyworld.reflected-shore.v1.${table}`;
-      const fixture = journey.make();
+      const fixture = seedRun(journey.make(), 1);
       fixture.playerActorId = "mara";
       fixture.sharedVersion = 1;
       fixture.controlledActors = ["vale", "mara"];
@@ -227,13 +232,27 @@ try {
         await selectCard(page, action.cards[0] || "mara", {
           touch: width === 390,
         });
-        await page
-          .locator(`#card-actions [data-action="${kind}"]`)
-          .first()
-          .click();
+        if (kind === "wait") {
+          const wait = page
+            .locator("#card-actions")
+            .getByRole("button", { name: "Wait", exact: true });
+          // Choosing the same cards after Wait offers Sleep. Choose Mara
+          // afresh so each wait calls the ship and keeps the voyage moving.
+          if (!(await wait.count())) {
+            await selectCard(page, "mara", { touch: width === 390 });
+            await selectCard(page, "mara", { touch: width === 390 });
+          }
+          await wait.click();
+        } else
+          await page
+            .locator(`#card-actions [data-action="${kind}"]`)
+            .first()
+            .click();
         await settle();
         const after = await state();
         assert.equal(after.turn, before.turn + 1);
+        if (kind === "wait")
+          assert.equal(Boolean(after.actors.mara.sleeping), false);
         if (kind === "move") assert.equal(after.actors.mara.place, target);
         assert.ok(
           await page.evaluate(
