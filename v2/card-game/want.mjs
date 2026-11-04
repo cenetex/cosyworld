@@ -129,7 +129,8 @@ const lastIndex = (list, test) => {
   return -1;
 };
 // A new quest goes on top. One the avatar already holds comes to the top
-// instead of being held twice. Past the limit the oldest ordinary quest
+// instead of being held twice; a sanctuary quest takes the place of another
+// quest for the same place. Past the limit the oldest ordinary quest
 // leaves; a level quest never does, and a story quest (`story`, set by pack
 // content) only when everything beneath the top is a level or story quest.
 export function pushQuest(s, actor, want) {
@@ -138,7 +139,13 @@ export function pushQuest(s, actor, want) {
     !w.quest && !want.quest && w.kind === want.kind && w.target === want.target;
   const held = questsOf(s, actor);
   const old = held.find(same);
-  const top = old ? { ...old, ...(want.story ? { story: true } : {}) } : want;
+  const shape = (w) => JSON.stringify([w.step ?? null]);
+  const replaces =
+    old && shape(old) !== shape(want) && want.step?.verb === "rest";
+  const top =
+    old && !replaces
+      ? { ...old, ...(want.story ? { story: true } : {}) }
+      : want;
   const list = [top, ...held.filter((w) => !same(w))];
   while (list.length > QUEST_LIMIT) {
     const at = lastIndex(list, (w) => !w.quest && !w.story);
@@ -239,7 +246,9 @@ export function offerLevelQuest(s, actor, api) {
   );
 }
 // The way back to the sanctuary the avatar last slept in, or, for one that
-// never reached a sanctuary or whose sanctuary sleeps, its home.
+// never reached a sanctuary or whose sanctuary sleeps, its home. Without a
+// level quest it is the ordinary quest to sleep at a sanctuary, met by a
+// long rest in any of them (rules 99).
 export const restStep = (s, actor, api, quest) => ({
   ...newWant(
     "place",
@@ -248,19 +257,45 @@ export const restStep = (s, actor, api, quest) => ({
     ) ?? s.actors[actor].place,
     s.turn,
   ),
-  quest,
+  ...(quest ? { quest } : {}),
   step: { verb: "rest" },
 });
-// Waking from a long rest completes a level quest's rest step there, or
-// brings the level quest when experience is enough for the next level.
+const sanctuaryQuest = (w) => w.step?.verb === "rest" && !w.quest;
+// Waking from a long rest meets a quest to sleep at a sanctuary, completes a
+// level quest's rest step there, or, with the experience for the next level
+// before it woke, brings that level quest. One long rest brings one of them
+// at most: a sanctuary quest met short of full experience brings no level
+// quest until the next long rest.
 export function wake(s, actor, api) {
-  const a = s.actors[actor];
+  const a = s.actors[actor],
+    before = a.xp;
   if (api.sanctuaries.includes(a.place)) a.sanctuary = a.place;
+  a.level ??= levelFor(a.xp);
+  const full = a.xp >= questXp(a.level + 1);
+  const slept = questsOf(s, actor).findIndex(sanctuaryQuest);
+  if (slept >= 0) commitMet(s, actor, api, [], slept);
   const rest = questsOf(s, actor).findIndex(
-    (w) => w.step?.verb === "rest" && w.target === a.place,
+    (w) => w.quest && w.step?.verb === "rest" && w.target === a.place,
   );
-  if (rest >= 0) return commitMet(s, actor, api, [], rest);
-  return offerLevelQuest(s, actor, api);
+  if (rest >= 0) commitMet(s, actor, api, [], rest);
+  else if (full) offerLevelQuest(s, actor, api);
+  milestones(s, actor, api, before);
+}
+// At halfway to the next level quest, and again at full experience as a
+// pointer, a player is given the ordinary quest to sleep at a sanctuary
+// (rules 99). It comes once per level at halfway, recorded as
+// `halfwayIssued`, so a dropped one never returns; the pointer comes only as
+// experience reaches full. A held level quest needs neither.
+function milestones(s, id, api, before) {
+  const a = s.actors[id];
+  if (!api.player(id) || questsOf(s, id).some((w) => w.quest)) return;
+  const level = a.level ?? levelFor(a.xp),
+    full = questXp(level + 1);
+  const halfway =
+    a.xp >= halfwayXp(level) && a.xp < full && a.halfwayIssued !== level + 1;
+  if (!halfway && !(before < full && a.xp >= full)) return;
+  a.halfwayIssued = level + 1;
+  pushQuest(s, id, restStep(s, id, api));
 }
 // Dropping a level quest costs one experience for the first (the quest to
 // level 2), two for the next, and so on, never below the experience of the
@@ -537,6 +572,7 @@ export function settleWants(s, actors, api, action = null) {
   for (const id of actors) {
     const a = s.actors[id];
     if (!a) continue;
+    const before = a.xp;
     if (!a.visited.includes(a.place))
       a.visited = [...a.visited, a.place].slice(-64);
     if (api.sanctuaries.includes(a.place)) a.sanctuary = a.place;
@@ -552,10 +588,11 @@ export function settleWants(s, actors, api, action = null) {
         i++;
         continue;
       }
-      const before = questsOf(s, id).length;
+      const held = questsOf(s, id).length;
       commitMet(s, id, api, met, i);
-      if (questsOf(s, id).length >= before) i++;
+      if (questsOf(s, id).length >= held) i++;
     }
+    if (a.xp > before) milestones(s, id, api, before);
   }
   return met;
 }
@@ -682,11 +719,13 @@ function validStep(s, w) {
   const home = verb === "bring" && w.story && !cards.to;
   // A sealed gate's quest may ask for a gift (rules 95).
   const gift = verb === "give" && w.story && !w.quest;
+  // The quest to sleep at a sanctuary stands alone (rules 99).
+  const slept = verb === "rest" && !w.story;
   const named = home
     ? ["at"]
     : STEP_CARDS[verb] || (verb === "meet" && cards.at ? ["at"] : []);
   return (
-    (Boolean(w.quest) || home || gift) &&
+    (Boolean(w.quest) || home || gift || slept) &&
     [
       ...(STEP_VERBS[w.kind] || []),
       ...(w.kind === "person" ? SAVED_STEP_VERBS : []),
@@ -719,6 +758,10 @@ export function validWant(s, id) {
     a.xp <= most &&
     (a.metTurn === undefined || whole(a.metTurn)) &&
     (a.content === undefined || a.content === true) &&
+    (a.halfwayIssued === undefined ||
+      (Number.isSafeInteger(a.halfwayIssued) &&
+        a.halfwayIssued >= 2 &&
+        a.halfwayIssued <= levelFor(most) + 1)) &&
     (a.gaveUp === undefined ||
       (a.gaveUp &&
         Object.keys(a.gaveUp).length === 2 &&
