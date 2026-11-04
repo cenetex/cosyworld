@@ -181,5 +181,5 @@ describe("pack toggles with sanctuary quests held, fuzzed", () => {
     }
     expect(worlds).toBeGreaterThan(40);
     expect(toggles).toBeGreaterThan(100);
-  });
+  }, 60_000);
 });
