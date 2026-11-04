@@ -173,23 +173,38 @@ try {
       const styleChecks = await page.evaluate(() => {
         const cards = [...document.querySelectorAll("#hand .card")];
         const controls = [...document.querySelectorAll("#card-actions button")];
-        const captions = [...document.querySelectorAll(
-          ".action-beat-text, .action-beat-note",
-        )].filter((node) => node.getClientRects().length && node.textContent.trim());
+        const captions = [
+          ...document.querySelectorAll(".action-beat-text, .action-beat-note"),
+        ].filter(
+          (node) => node.getClientRects().length && node.textContent.trim(),
+        );
         return {
-          tapClear: [...cards, ...controls].every((node) =>
-            getComputedStyle(node).webkitTapHighlightColor === "rgba(0, 0, 0, 0)"),
-          captionsFit: innerWidth >= 700 || captions.every((node) => {
-            const range = document.createRange();
-            range.selectNodeContents(node);
-            return range.getBoundingClientRect().height <=
-              node.getBoundingClientRect().height + 1 &&
-              node.scrollWidth <= node.clientWidth + 1;
-          }),
+          tapClear: [...cards, ...controls].every(
+            (node) =>
+              getComputedStyle(node).webkitTapHighlightColor ===
+              "rgba(0, 0, 0, 0)",
+          ),
+          captionsFit:
+            innerWidth >= 700 ||
+            captions.every((node) => {
+              const range = document.createRange();
+              range.selectNodeContents(node);
+              return (
+                range.getBoundingClientRect().height <=
+                  node.getBoundingClientRect().height + 1 &&
+                node.scrollWidth <= node.clientWidth + 1
+              );
+            }),
         };
       });
-      assert(styleChecks.tapClear, "cards and context actions keep tap highlights clear");
-      assert(styleChecks.captionsFit, "phone action captions show their full words");
+      assert(
+        styleChecks.tapClear,
+        "cards and context actions keep tap highlights clear",
+      );
+      assert(
+        styleChecks.captionsFit,
+        "phone action captions show their full words",
+      );
       const sizes = await page
         .locator("#card-actions button")
         .evaluateAll((buttons) =>
