@@ -169,6 +169,12 @@ them; old full-scope worlds keep the region.
 under the branch's rules and content, so the fast check fails such a change
 before it merges.
 
+From rules 97 a world may switch the hub's `switchable` packs off and on
+mid-world (`enabledPacks`, `pack-toggle.mjs`). A pack switched off sleeps
+with its state kept, and everyone and everything from elsewhere in its places
+is scattered to the shore ([rules 97](../../docs/design/rules-97-pack-toggle.md)).
+A new pack is always on unless the hub names it there.
+
 ## Rules the engine keeps
 
 - No engine module names a pack, place, resident, fixture or crossing id.

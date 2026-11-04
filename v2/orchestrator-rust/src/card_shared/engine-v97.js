@@ -3860,7 +3860,7 @@
     )
   ].filter(Boolean);
   var packState = (world, id) => world.packs?.[id];
-  var SWITCHED = ["greek-drama", "hoppycat-archive", "lonely-forest"];
+  var SWITCHED = Object.keys(hub.switchable || {});
   var packOn = (world, id) => !SWITCHED.includes(id) || world.enabledPacks.includes(id);
   function conditionsMet(world, packId, conditions = [], actor = null) {
     if (!world.packs?.[packId]) return false;
@@ -6202,11 +6202,7 @@
 
   // v2/card-game/pack-toggle.mjs
   var TOGGLE_PACKS = SWITCHED;
-  var PACK_NAMES = {
-    "greek-drama": "The Wine-Dark Sea",
-    "hoppycat-archive": "Hoppy Cat Universe",
-    "lonely-forest": "Cosy Cottage"
-  };
+  var PACK_NAMES = hub.switchable;
   function installEnabledPacks(s) {
     if (!Array.isArray(s.enabledPacks)) s.enabledPacks = [...TOGGLE_PACKS];
   }

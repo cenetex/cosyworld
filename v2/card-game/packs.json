@@ -2,6 +2,11 @@
   "schemaVersion": 1,
   "hub": {
     "player": "vale",
+    "switchable": {
+      "greek-drama": "The Wine-Dark Sea",
+      "hoppycat-archive": "Hoppy Cat Universe",
+      "lonely-forest": "Cosy Cottage"
+    },
     "places": [
       "station",
       "attic",

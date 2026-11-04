@@ -283,8 +283,9 @@ export const packMediaFiles = [
 ].filter(Boolean);
 
 export const packState = (world, id) => world.packs?.[id];
-// Packs a world may switch off (pack-toggle.mjs); the rest are always on.
-export const SWITCHED = ["greek-drama", "hoppycat-archive", "lonely-forest"];
+// Packs a world may switch off, by name (the hub's `switchable`,
+// pack-toggle.mjs); the rest are always on.
+export const SWITCHED = Object.keys(hub.switchable || {});
 export const packOn = (world, id) =>
   !SWITCHED.includes(id) || world.enabledPacks.includes(id);
 export function conditionsMet(world, packId, conditions = [], actor = null) {

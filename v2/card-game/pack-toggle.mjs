@@ -16,11 +16,7 @@ import {
 import { sendShipHome } from "./pack-transport.mjs";
 
 export const TOGGLE_PACKS = SWITCHED;
-export const PACK_NAMES = {
-  "greek-drama": "The Wine-Dark Sea",
-  "hoppycat-archive": "Hoppy Cat Universe",
-  "lonely-forest": "Cosy Cottage",
-};
+export const PACK_NAMES = hub.switchable;
 
 // Every world gets the field, all packs on; a save keeps its own.
 export function installEnabledPacks(s) {
