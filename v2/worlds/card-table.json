@@ -1,8 +1,35 @@
 {
   "schemaVersion": 1,
-  "description": "The card table's hub and the world packs mounted on it. Black pond is the hub's crossing point; each pack joins it through its own bridge.",
+  "description": "The card table's hub and the world packs mounted on it. Each pack declares its entries in its bridge: the existing crossings that join it to the hub or to another pack.",
   "hub": {
     "player": "vale",
+    "start": "pond",
+    "switchable": {
+      "shore": {
+        "name": "The Reflected Shore",
+        "packs": [
+          "hub"
+        ]
+      },
+      "cottage": {
+        "name": "Cosy Cottage",
+        "packs": [
+          "lonely-forest"
+        ]
+      },
+      "sea": {
+        "name": "The Wine-Dark Sea",
+        "packs": [
+          "greek-drama"
+        ]
+      },
+      "hoppy": {
+        "name": "Hoppy Cat Universe",
+        "packs": [
+          "hoppycat-archive"
+        ]
+      }
+    },
     "places": [
       "station",
       "attic",

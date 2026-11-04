@@ -2459,6 +2459,33 @@
     schemaVersion: 1,
     hub: {
       player: "vale",
+      start: "pond",
+      switchable: {
+        shore: {
+          name: "The Reflected Shore",
+          packs: [
+            "hub"
+          ]
+        },
+        cottage: {
+          name: "Cosy Cottage",
+          packs: [
+            "lonely-forest"
+          ]
+        },
+        sea: {
+          name: "The Wine-Dark Sea",
+          packs: [
+            "greek-drama"
+          ]
+        },
+        hoppy: {
+          name: "Hoppy Cat Universe",
+          packs: [
+            "hoppycat-archive"
+          ]
+        }
+      },
       places: [
         "station",
         "attic",
@@ -2549,7 +2576,67 @@
             }
           }
         }
-      ]
+      ],
+      packEntries: {
+        "badger-forest": [
+          {
+            joins: "hub",
+            at: "pond",
+            arrive: "clearing",
+            via: "pond-clearing"
+          }
+        ],
+        "greek-drama": [
+          {
+            joins: "hub",
+            at: "pond",
+            arrive: "greek-harbor",
+            via: "pond-greek-harbor"
+          },
+          {
+            joins: "hoppycat-archive",
+            at: "hoppycat-signal-jetty",
+            arrive: "greek-piraeus",
+            via: "hoppycat-signal-jetty-ship"
+          }
+        ],
+        "hoppycat-archive": [
+          {
+            joins: "hub",
+            at: "pond",
+            arrive: "hoppycat-halfway-tea-garden",
+            via: "hoppycat-garden-pond"
+          },
+          {
+            joins: "greek-drama",
+            at: "greek-piraeus",
+            arrive: "hoppycat-signal-jetty",
+            via: "hoppycat-signal-jetty-ship"
+          }
+        ],
+        willows: [
+          {
+            joins: "hub",
+            at: "pond",
+            arrive: "willows-landing",
+            via: "pond-willows-landing"
+          },
+          {
+            joins: "greek-drama",
+            at: "greek-ship",
+            arrive: "willows-landing",
+            via: "greek-ship-willows-landing"
+          }
+        ],
+        "lonely-forest": [
+          {
+            joins: "hub",
+            at: "attic",
+            arrive: "forest-cottage",
+            via: "attic-forest-cottage"
+          }
+        ]
+      }
     },
     packs: [
       {

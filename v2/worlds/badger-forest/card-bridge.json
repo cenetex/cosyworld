@@ -3,6 +3,14 @@
   "id": "shore-badger-forest",
   "pack": "badger-forest",
   "description": "Two bell rings at Black pond fold its reflection onto the Steam Clock clearing. A bell sounding at either end keeps the way back open.",
+  "entries": [
+    {
+      "joins": "hub",
+      "at": "pond",
+      "arrive": "clearing",
+      "via": "pond-clearing"
+    }
+  ],
   "values": {
     "badger": {
       "lamp": 3,
