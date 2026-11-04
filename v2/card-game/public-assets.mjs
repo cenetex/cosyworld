@@ -9,7 +9,7 @@ import { daylightAssets } from "./daylight.mjs";
 import { rarityPortraitAssets } from "./rarity-portraits.mjs";
 import { castCombatAssets } from "./cast-combat-art.mjs";
 import { sleepPortraitAssets } from "./sleep-portraits.mjs";
-import { BENCH } from "./settings-cards.mjs";
+import { BENCH, SCENE } from "./settings-cards.mjs";
 
 // The local server, release smoke, and Rust asset generator use this list.
 const files = [
@@ -38,7 +38,7 @@ const files = [
   "boardyai.mjs",
   "boardyai.json",
   "assets/card-back.webp",
-  // The locked box (locked-box.mjs); a stand-in until its own painting.
+  // The locked box lid with its recessed iron keyhole (locked-box.mjs).
   "assets/card-back-locked.webp",
   // The new-world title (title-intro.mjs); logos may share toolbar art.
   ...new Set(
@@ -49,6 +49,8 @@ const files = [
   "assets/music/title-attic-lamp.mp3",
   // Settings cards cut from the owner's workbench (settings-cards.mjs).
   ...BENCH.map((name) => `assets/settings/workbench-${name}.png`),
+  // The workbench itself is Settings' scene.
+  `assets/${SCENE}`,
   // Rest card paintings for issue #1849; the rest-card feature follows.
   "assets/rest/short-rest.webp",
   "assets/rest/long-rest.webp",
@@ -96,8 +98,12 @@ const files = [
   "card-label.mjs",
   "card-reveal.mjs",
   "card-entry.mjs",
+  "card-exit.mjs",
   "card-ghost.mjs",
+  "card-keep.mjs",
+  "card-swap.mjs",
   "dream-card.mjs",
+  "glimpse-card.mjs",
   "sleep-presentation.mjs",
   "sleep-view.mjs",
   "sleep.css",
@@ -213,6 +219,7 @@ const files = [
   "title-intro.mjs",
   "title-logo.mjs",
   "title-logos.json",
+  "world-level.mjs",
   "acknowledgement.json",
   "title-song.mjs",
   "audio-wake.mjs",
@@ -235,6 +242,7 @@ const files = [
   "scene.mjs",
   "weather.mjs",
   "weather.json",
+  "world-life.json",
   "daylight.mjs",
   ...daylightAssets,
   "weather-view.mjs",
@@ -251,8 +259,13 @@ const files = [
   "life.mjs",
   "knowledge.mjs",
   "roaming-routes.mjs",
+  "resident-home.mjs",
+  "resident-sleep.mjs",
+  "resident-guard.mjs",
   "want-talk.mjs",
   "want.mjs",
+  "glimpse.mjs",
+  "talk-quest.mjs",
   "memory.mjs",
   "learning.mjs",
   "adaptive-learning.mjs",

@@ -31,8 +31,13 @@ export function sailTo(
     if (ashore) return step(world, ashore);
     let lane = courseToward(world, here, dock, actor);
     // These journeys test other stories: a voyage out of Thebes that needs
-    // provisions takes a packed load, as Myrto would make (rules 95).
-    if (!lane && world.usedUp?.includes("greek-provisions")) {
+    // provisions takes a packed load, as Myrto would make (rules 95). Under
+    // rules 100 residents' sleep and wants can leave the load ashore.
+    if (
+      !lane &&
+      (world.usedUp?.includes("greek-provisions") ||
+        ![here, actor].includes(world.items["greek-provisions"]?.holder))
+    ) {
       world = stowProvisions(structuredClone(world), here);
       lane = courseToward(world, here, dock, actor);
     }

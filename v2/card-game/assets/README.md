@@ -43,18 +43,27 @@ this check.
 
 ## The locked box lid
 
-`card-back-locked.webp` is the lid of a card locked behind a quest
-(`locked-box.mjs`). Until its own painting exists it is a stand-in: the card
-back darkened (brightness 0.6, saturation 0.7) with sharp and saved at the card
-back's encode settings, with no other change. New art drops in at the same
-path with no code change; rebuild the images and the asset list as above,
-then update `card-back-locked-provenance.json`.
+`card-back-locked.webp` is the approved carved-oak lid for a card locked
+behind a quest (`locked-box.mjs`). A fixed, recessed blackened-iron
+keyhole plate replaces the earlier darkened stand-in. There is no
+padlock shackle. The surrounding moths, acorns, bells and carving remain
+part of the painting. Quest, reveal and unlock behavior are unchanged.
 
-The painting needs:
+The runtime image is opaque, full bleed and 1024 by 1536 pixels, with
+no cropping or lettering, at most 300,000 bytes. Its native PNG is kept
+byte for byte at `locked-card/iron-keyhole-master.png`; the adjacent
+`iron-keyhole-source.json` pins the approved generation and SHA-256.
+The master is authoring material, not an additional public download.
 
-- 1024 by 1536 pixels (2:3), opaque and full bleed;
-- the same carved-box lid as `card-back.webp`, seen straight down, so the two
-  read as one box face down and locked;
-- a lock or clasp, clearly shut;
-- the same palette: worn wood, old brass, amber light and indigo shadow;
-- no lettering.
+To encode the master and run the existing image/media builders:
+
+```sh
+node v2/card-game/assets/locked-card/build.mjs
+npm run v2:card:images:check
+npm run v2:card:assets:check
+```
+
+`card-back-locked-provenance.json` records the source identity, chosen
+encoder settings and hashes for the full-size, card and phone files.
+The existing runtime URL is preserved; the media manifest changes its
+cache key so the new painting is fetched. `card-back.webp` is unchanged.

@@ -19,7 +19,6 @@ import {
   questHand,
   questId,
   questNear,
-  questSentence,
   questTier,
   questVerb,
 } from "../v2/card-game/quest-card.mjs";
@@ -27,7 +26,7 @@ import { cardLevel, levelTier } from "../v2/card-game/rarity.mjs";
 import { QUEST_LIMIT } from "../v2/card-game/want.mjs";
 
 describe("the quest card", () => {
-  it("names a gift as a sentence and takes its parts' highest tier", () => {
+  it("names a gift by its verb and takes its parts' highest tier", () => {
     const s = createWorld();
     const quest = {
       actor: "vale",
@@ -35,8 +34,10 @@ describe("the quest card", () => {
       target: "greek-decree",
       step: { verb: "give", to: "greek-guard" },
     };
-    expect(questSentence(quest)).toBe(
-      "Give the Burial Decree to the Gate Guard",
+    // The label is the verb; the caption is the card's accessible name.
+    expect(questVerb(s, quest)).toBe("Give");
+    expect(questCaption(quest)).toBe(
+      "Give The Burial Decree to The Gate Guard",
     );
     const top = Math.max(
       cardLevel(s, "greek-decree"),

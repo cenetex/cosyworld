@@ -95,18 +95,26 @@ try {
       await fold.evaluate((el) => getComputedStyle(el).backgroundImage),
       /card-back/,
     );
-    // Its face names it "Quest", then the quest as a plain sentence.
+    // Its label is the quest's verb alone, on one line; the whole quest is
+    // its accessible name.
     const head = (scope) =>
       page
         .locator(
           `#hand .want-frame:not([hidden]) .want-card${scope} .quest-head`,
         )
         .first()
-        .evaluate((el) => ({
-          kicker: el.querySelector(".quest-kicker").textContent,
-          name: el.querySelector(".quest-verb").textContent,
-          color: getComputedStyle(el).color,
-        }));
+        .evaluate((el) => {
+          const verb = el.querySelector(".quest-verb");
+          return {
+            name: verb.textContent,
+            lines: Math.round(
+              verb.getBoundingClientRect().height /
+                parseFloat(getComputedStyle(verb).lineHeight),
+            ),
+            kicker: el.querySelectorAll(".quest-kicker").length,
+            color: getComputedStyle(el).color,
+          };
+        });
     await page.screenshot({
       path: new URL(`folded-${width}.png`, output).pathname,
     });
@@ -142,8 +150,8 @@ try {
     assert.equal(await sawFaceDown(), true, "the quest is dealt face down");
     assert.deepEqual(
       await head(""),
-      { kicker: "Quest", name: "Hold Lamp", color: "rgb(255, 240, 130)" },
-      "the kicker, the sentence and the Legendary lamp's tier",
+      { name: "Hold", lines: 1, kicker: 0, color: "rgb(255, 240, 130)" },
+      "the verb alone, in the Legendary lamp's tier",
     );
     // It turns once: folding Vale's stack and opening it again, redraw after
     // redraw, never deals it face down again.
@@ -184,7 +192,15 @@ try {
     await page.screenshot({
       path: new URL(`met-${width}.png`, output).pathname,
     });
-    await card.click();
+    // Cleared, it falls away as an inert ghost; reduced motion lets it go.
+    await card.hover();
+    const falling = await card.evaluate((el) => {
+      el.click();
+      return [...document.querySelectorAll(".card-exits > .beat-ghost")].map(
+        (g) => [g.inert, getComputedStyle(g).pointerEvents],
+      );
+    });
+    assert.deepEqual(falling, motion === "reduce" ? [] : [[true, "none"]]);
     const gain = page.locator(".quest-xp");
     await gain.waitFor();
     assert.match(await gain.textContent(), /^\+\d+ XP$/);
@@ -285,6 +301,17 @@ try {
     assert.equal(await facedDown.count(), 0, "no quest turns back over");
     assert.equal(await sawFaceDown(), false, "no quest turns back over");
     assert.equal(await picked.getAttribute("data-quest-id"), "quest:0");
+    // A Talk quest's label reads "Talk" on one line; the sentence is only
+    // its accessible name.
+    const talk = page.locator('#hand .want-card[data-quest-id="quest:0"]');
+    assert.deepEqual(
+      await head('[data-quest-id="quest:0"]').then(({ name, lines }) => ({
+        name,
+        lines,
+      })),
+      { name: "Talk", lines: 1 },
+    );
+    assert.match(await talk.getAttribute("aria-label"), /^Quest: Talk with /);
     const drop = page.locator('#card-actions [data-drop-quest="0"]');
     await drop.waitFor();
     assert.equal(
@@ -320,22 +347,17 @@ try {
     await openFold();
     await page.locator('#hand .want-card[data-unrevealed="false"]').waitFor();
     assert.deepEqual(await head(""), {
-      kicker: "Quest",
-      name: "Give the Burial Decree to the Gate Guard",
+      name: "Give",
+      lines: 1,
+      kicker: 0,
       color: "rgb(255, 240, 130)",
     });
-    // The sentence takes at most two lines, broken only between words.
-    assert.ok(
+    assert.equal(
       await page
-        .locator("#hand .want-frame:not([hidden]) .want-card .quest-verb")
+        .locator("#hand .want-frame:not([hidden]) .want-card")
         .first()
-        .evaluate(
-          (el) =>
-            el.getBoundingClientRect().height /
-              parseFloat(getComputedStyle(el).lineHeight) <
-            2.5,
-        ),
-      "the quest's sentence fits two lines",
+        .getAttribute("aria-label"),
+      "Quest: Give The Burial Decree to The Gate Guard, near",
     );
     // Drop quest alone keeps no box: red words over the table.
     assert.equal(

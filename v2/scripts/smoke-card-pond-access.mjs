@@ -107,7 +107,7 @@ try {
     await card("attic").waitFor({ state: "attached" });
     await ready();
     assert.equal(
-      await card("attic").locator(".name").innerText(),
+      await card("attic").locator(".name").textContent(),
       "Mirror attic",
     );
     // Pip wants the lamp and keeps it at home on the pond. A lit lamp on the
@@ -123,10 +123,13 @@ try {
     assert.equal(kept.items.lamp.holder, "moth");
     assert.equal(kept.items.lamp.lit, true);
     assert.equal(
-      await card("attic").locator(".name").innerText(),
+      await card("attic").locator(".name").textContent(),
       "Mirror attic",
     );
-    assert.equal(await card("pond").locator(".name").innerText(), "Black pond");
+    assert.equal(
+      (await card("pond").locator(".name").textContent()).trim(),
+      "Black pond",
+    );
     assert.equal(requests.length, 1);
     assert.deepEqual(
       kept.log
@@ -139,7 +142,7 @@ try {
     await page.reload();
     await ready();
     assert.equal(
-      await card("attic").locator(".name").innerText(),
+      await card("attic").locator(".name").textContent(),
       "Mirror attic",
     );
     // The lamp burns down in Pip's hands; once it goes out the mirror closes.
@@ -212,7 +215,7 @@ try {
     // Held lit at the pond, the lamp brought Vale back into its light.
     assert.equal((await state()).actors.vale.place, "attic");
     assert.equal(
-      await card("attic").locator(".name").innerText(),
+      await card("attic").locator(".name").textContent(),
       "Mirror attic",
     );
     assert.equal(await card("pond").count(), 0);

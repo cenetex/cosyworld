@@ -3,6 +3,7 @@
     {
       "src": "assets/title/lonely-forest-1.webp",
       "name": "Lonely Forest",
+      "rarity": "epic",
       "width": 1312,
       "height": 512,
       "background": "dark",
@@ -15,6 +16,7 @@
     {
       "src": "assets/title/lonely-forest-2.webp",
       "name": "Lonely Forest, with Pip and the lantern",
+      "rarity": "uncommon",
       "width": 2000,
       "height": 800,
       "background": "dark",
@@ -27,6 +29,7 @@
     {
       "src": "assets/title/lonely-forest-hearth-and-oak.webp",
       "name": "Lonely Forest — Hearth and Oak",
+      "rarity": "common",
       "width": 1672,
       "height": 941,
       "background": "dark",
@@ -39,6 +42,7 @@
     {
       "src": "assets/title/lonely-forest-listening-wood.webp",
       "name": "Lonely Forest — The Listening Wood",
+      "rarity": "common",
       "width": 1672,
       "height": 941,
       "background": "dark",
@@ -51,6 +55,7 @@
     {
       "src": "assets/title/lonely-forest-black-pond.webp",
       "name": "Lonely Forest — The Black Pond",
+      "rarity": "rare",
       "width": 1672,
       "height": 941,
       "background": "dark",

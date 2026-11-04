@@ -465,6 +465,13 @@ impl AiReadiness {
         }
     }
 
+    /// Whether the model is benched now; a voice's chain skips it.
+    pub(crate) fn is_benched(&self, requested_model_id: &str) -> bool {
+        self.bench
+            .benched_until(requested_model_id, Instant::now())
+            .is_some()
+    }
+
     pub(crate) fn benched(&self) -> Vec<BenchedModel> {
         self.bench.snapshot(Instant::now())
     }

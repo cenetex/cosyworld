@@ -37,9 +37,11 @@ import {
   things,
   publishKnowledgeSpeech,
   laneTalkFacts,
+  sealedWays,
   REFUSED_VERBS,
 } from "./world.mjs";
 import { knownActors, wantOf } from "./want.mjs";
+import { guardedFrom } from "./resident-guard.mjs";
 import { forgetUnfound, groundedInner } from "./speech-knowledge.mjs";
 import { hasTemperament, variantOf, signalEcho } from "./pack-rules.mjs";
 import { reflectionDue } from "./reflections.mjs";
@@ -190,6 +192,32 @@ function groundedLife(world, id) {
   return { ...life, persona: null };
 }
 
+// A sealed way (rules 95) is open or shut by the rules alone. Everyone in
+// the scene hears which, as the player finds it, so no authored line or sense
+// keeps a gate shut once it opens, or opens one still shut.
+function wayFacts(world, place) {
+  const actor = currentActor(world);
+  if (world.actors[actor]?.place !== place) return [];
+  const shut = sealedWays(world, actor).map((r) => r.to);
+  const open = exits(world, place, actor);
+  // A guarded way (rules 100) is told the same way from both sides: shut
+  // while its guard bars it, open once lifted or while he is away.
+  const ways = [
+    ...packDefinitions
+      .flatMap((pack) => pack.routes || [])
+      .filter((r) => r.sealed && r.from === place)
+      .map((r) => r.to),
+    ...guardedFrom(place),
+  ];
+  return [...new Set(ways)]
+    .filter((to) => shut.includes(to) || open.includes(to))
+    .map((to) =>
+      shut.includes(to)
+        ? `The way to ${nameOf(to)} is shut.`
+        : `The way to ${nameOf(to)} is open.`,
+    );
+}
+
 export function narrativeContext(world, action = null) {
   const cast = dialogueCast(world, action);
   const {
@@ -249,6 +277,7 @@ export function narrativeContext(world, action = null) {
       ? `The Bell made no sound this turn: it is ${covered(world, "bell") ? "wrapped in the Black cloth and " : ""}silent. Nobody rang it.`
       : null;
   const mindsNoise = (id) => /noise|ringing/i.test(tastes[id]?.sore || "");
+  const ways = wayFacts(world, location);
   // Authored sounds such as the clock's echo stay in the scene/history, but
   // the speech API's conversation contains only registered avatar voices:
   // the recent talk at this place, which each speaker reads as a group chat.
@@ -282,6 +311,8 @@ export function narrativeContext(world, action = null) {
     ...(occasion ? { occasion } : {}),
     resting,
     ...(rest ? { rest } : {}),
+    // What the long rest dreamed by the rules, the only time a dream is due.
+    ...(rest && cast.dream ? { dream: cast.dream } : {}),
     ...(disclosures.length ? { disclosures } : {}),
     action:
       played?.text ||
@@ -313,11 +344,18 @@ export function narrativeContext(world, action = null) {
         quest.since === world.turn
           ? `In a dream, the quest for level ${quest.quest.level}: ${wantText(quest)}.`
           : null;
+      // Halfway there, the dream shows one part of the coming quest.
+      const glimpse = world.actors[id]?.glimpse;
+      const glimpsed =
+        cast.dream === "glimpse" && id === resting && glimpse
+          ? `In a dream, a glimpse of the quest for level ${glimpse.level}: ${glimpse.kind === "verb" ? glimpse.id : nameOf(glimpse.id)}.`
+          : null;
       const between = beforeFirstLight
         ? { entries: [], retold: [] }
         : betweenUs(world, id, speakers, nameOf);
       const facts = [
         ...(dreamt ? [dreamt] : []),
+        ...(glimpsed ? [glimpsed] : []),
         ...(want ? [want] : []),
         ...knowledgeFacts(
           pastDeedsAside(world, id, told(id), between.retold),
@@ -389,6 +427,7 @@ export function narrativeContext(world, action = null) {
         facts.push(
           `Location now: ${nameOf(world.actors[id].place)}. Company now: ${company.map(nameOf).join(", ") || "alone"}.`,
         );
+        if (world.actors[id].place === location) facts.push(...ways);
         const movement = changes.find((change) => change.actorId === id);
         if (defeated && id === speakers[0]) facts.unshift(defeated);
         else if (movement && speakers.includes(id))
@@ -479,6 +518,7 @@ export function narrativeContext(world, action = null) {
         facts.push(
           `Paths visible now: ${exits(world, id, currentActor(world)).map(nameOf).join(", ") || "none"}.`,
         );
+        if (id === location) facts.push(...ways);
         if (
           (id === "attic" || id === "pond") &&
           exits(world, id).includes(id === "attic" ? "pond" : "attic")
@@ -1104,8 +1144,6 @@ export { speechMemories } from "./scene-cast.mjs";
 export { SPEECH_OCCASIONS, speechOccasions } from "./speech-occasions.mjs";
 export {
   THOUGHT_GAP,
-  DREAM_GAP,
-  THOUGHTS_PER_DREAM,
   reflectionDue,
   applySharedReflections,
 } from "./reflections.mjs";

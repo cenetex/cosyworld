@@ -12,17 +12,35 @@ import { finishCardReveal, revealCard } from "./card-reveal.mjs";
 import { setCardLabel } from "./card-label.mjs";
 import {
   fadeGhost,
+  fixedGhost,
   ghostOf,
   pinGhost,
   releaseGhost,
   releaseGhosts,
 } from "./card-ghost.mjs";
 import {
+  EXIT_MAX,
+  EXIT_MS,
+  cardOf,
+  dropCards,
+  foldCards,
+  leavingFrames,
+} from "./card-exit.mjs";
+import { keepFrames, morphFrame } from "./card-keep.mjs";
+import {
+  SWAP_REDUCED_MS,
+  fadeFaces,
+  nearestFirst,
+  swapTiming,
+} from "./card-swap.mjs";
+import {
   ENTRY_STAGGER_MS,
   QUEST_DOWN_MS,
   createCardEntries,
   createQuestEntries,
+  entryDelays,
   questEntryKey,
+  riseIn,
 } from "./card-entry.mjs";
 import { LOCKED_BACK, createLockedBoxes, isLockedBox } from "./locked-box.mjs";
 import { fadeInRevealed, revealedStage } from "./stage-reveal.mjs";
@@ -43,7 +61,6 @@ import {
   questHand,
   questId,
   questNear,
-  questSentence,
   questTier,
   questVerb,
 } from "./quest-card.mjs";
@@ -70,6 +87,7 @@ import {
   dreamingLabel,
   withDream,
 } from "./dream-card.mjs";
+import { paintGlimpse } from "./glimpse-card.mjs";
 import {
   CHANGE_FADE_MS,
   CROSSFADE_MS,
@@ -81,6 +99,8 @@ import {
 import { installSettingsCards } from "./settings-screen.mjs";
 import { groupOn, packToggleBlock } from "./pack-toggle.mjs";
 import { installToolbar, renderPlayers } from "./toolbar.mjs";
+import { showWorldTier } from "./world-level.mjs";
+import { worldLogoKey } from "./title-logo.mjs";
 import { innerLifeChain, innerLifeSection } from "./inner-life.mjs";
 import { combatBeats, lastSeq, theName } from "./combat-beats.mjs";
 import {
@@ -193,6 +213,7 @@ import {
   cardObservation,
   TOO_MANY_ITEMS,
   sealedReason,
+  asleepReason,
 } from "./cards.mjs";
 // A person's want reaches the player through Talk context (want-talk.mjs).
 // The hand holds people, items and places, and the player's quest cards.
@@ -609,6 +630,7 @@ const localWordsPending = () =>
 const playQueue = createPlayQueue({
   ready: (action) =>
     !cardsCooling &&
+    performance.now() >= swapEnd &&
     (action.kind === "focus" || !localWordsPending()) &&
     reveal.complete &&
     (!sharedSession ||
@@ -1587,6 +1609,7 @@ function combatStage() {
 }
 function endCombat() {
   combatRun++;
+  delete document.body.dataset.handAway;
   combatCue = false;
   if (lossCue) {
     lossCue = false;
@@ -1618,6 +1641,8 @@ async function presentCombat(beats, land) {
     (beat) => beat.kind === "defeat" && beat.viewerLost,
   );
   if (defeat) {
+    // The hand stays away until the new place's hand is dealt (render).
+    document.body.dataset.handAway = "true";
     // The loss screen's song comes in on the black after three beats of
     // silence (music-cues.mjs). Leaving the loss screen fades it out fully
     // before the lift onto the next scene and its room song.
@@ -1662,6 +1687,7 @@ let covering = false,
 function cancelTravel() {
   endCombat();
   trip++;
+  swapFrom = null;
   covering = false;
   syncHandDrop();
   revealTravel();
@@ -1700,6 +1726,7 @@ async function travel(place, arrive, landed, lost = false) {
   travelShown = new Promise((resolve) => {
     revealTravel = resolve;
   });
+  departHand();
   covering = true;
   syncHandDrop();
   veil.classList.add("travelling");
@@ -2149,6 +2176,16 @@ function renderActions() {
     why.title = sealed;
     row.append(why);
   }
+  // An Ask, Trade or Invite of a sleeping resident says so (rules 100).
+  const asleep = !rested && !actions.length && asleepReason(world, selected);
+  if (asleep) {
+    const blocked = node("button", asleep, "card-primary");
+    blocked.type = "button";
+    blocked.disabled = true;
+    blocked.dataset.blocked = "asleep";
+    blocked.title = asleep;
+    row.append(blocked);
+  }
   // A Take refused for space says why in the context button (#2018). It
   // plays nothing; the cards stay as they are.
   const crowded =
@@ -2271,6 +2308,58 @@ function openingLid(button, lid) {
 }
 const entryKey = (frame) =>
   `${frame.querySelector(".card").dataset.card}@${frame.dataset.holder ?? ""}`;
+// Cards leaving the hand fall as ghosts over it (card-exit.mjs). A world
+// loaded in its place (another tab's save) shows none.
+let quietExits = false;
+// A scene change (a new place, the light here going out or coming on) swaps
+// the hand in beats (card-swap.mjs). Travel starts it at the tap: the cards
+// left behind fall as the veil comes down, and the rest of the swap plays
+// when the hand redraws under it. Plays wait until it ends.
+let renderedScene = null,
+  swapFrom = null,
+  swapEnd = 0;
+function departHand() {
+  if (document.body.dataset.handAway) return;
+  const row = [...$("hand").children],
+    staying = new Set(availableCards(world)),
+    leaving = row.filter(
+      (frame) =>
+        !frame.hidden &&
+        frame.querySelector(".card[data-card]") &&
+        !staying.has(cardOf(frame)),
+    ),
+    { exits } = swapTiming(leaving.length);
+  swapFrom = {
+    at: performance.now(),
+    left: leaving.length,
+    fallen: leaving.length ? exits.at(-1) + EXIT_MS : 0,
+  };
+  dropCards(
+    nearestFirst(leaving, row, currentActor(world)),
+    handExits(),
+    exits,
+  );
+  for (const frame of leaving) {
+    frame.dataset.gone = "true";
+    frame.style.visibility = "hidden";
+  }
+}
+// Deals the shown hand afresh, 70 ms apart; reduced motion fades it in.
+function dealHand() {
+  const row = [...$("hand").children].filter((f) => !f.hidden);
+  if (reducedMotion.matches)
+    $("hand").animate({ opacity: [0, 1] }, { duration: SWAP_REDUCED_MS });
+  else entryDelays(row.length).forEach((delay, i) => riseIn(row[i], { delay }));
+}
+function handExits() {
+  let layer = $("hand").parentElement.querySelector(":scope > .card-exits");
+  if (!layer) {
+    layer = node("div", undefined, "card-exits");
+    layer.setAttribute("aria-hidden", "true");
+    $("hand").after(layer);
+  }
+  return layer;
+}
 // Each quest newly dealt lies face down until it is seen, then turns a beat
 // later; the next turns a little after. Once turned it stays face up while
 // it stays in the hand, folded or fanned. A tap still plays it at once.
@@ -2595,13 +2684,11 @@ function questFrame({ id, quest, met }) {
     el.append(node("span", "✓", "quest-seal"));
   }
   const head = node("span", undefined, "quest-head");
+  // The label is the quest's verb alone; the whole quest is its accessible
+  // name (aria-label above).
   head.append(
-    node("span", "Quest", "quest-kicker"),
+    setCardLabel(node("span", undefined, "quest-verb"), verb),
     node("span", quest.level ? romanLevel(quest.level) : "", "quest-level"),
-    setCardLabel(
-      node("span", undefined, "quest-verb"),
-      questSentence(quest, hidden, verb),
-    ),
   );
   const target = quest.target,
     targetPlace =
@@ -3343,6 +3430,18 @@ function renderScene() {
         : null,
     front: stepping && !$("speech-row").hidden ? frontGhost(direction) : null,
   };
+  // The stack clearing fades out over 200 ms: the whole panel when nothing
+  // else stays in it, else the front card.
+  if (!front && !$("speech-row").hidden)
+    fadeGhost(
+      fixedGhost(
+        document.querySelector(".action-panel").hidden
+          ? document.querySelector(".dialogue")
+          : $("speech-row"),
+      ),
+      {},
+      STACK_CLEAR_MS,
+    );
   stackRendered = {
     key: frontKey,
     speaker: front?.speakerId ?? null,
@@ -3429,6 +3528,11 @@ function renderScene() {
   if (front?.dream)
     $("speech-row").style.setProperty("--tier-color", DREAM_TIER.color);
   else $("speech-row").style.removeProperty("--tier-color");
+  paintGlimpse($("speech-row").parentElement, front?.companion ?? null, {
+    artOf: beatPortrait,
+    nameOf,
+    icon: beatIcon,
+  });
   $("speech-row").dataset.beat = front?.dream
     ? "dream"
     : front?.line
@@ -3617,6 +3721,7 @@ function stackGhost(card) {
 // The old front card keeps its exact box, so its words do not reflow. Going
 // forward it settles behind the new card; going back, or crossfading for
 // reduced motion, it leaves over it.
+const STACK_CLEAR_MS = 200;
 function frontGhost(direction) {
   const under = direction === "forward" && !reducedMotion.matches;
   return pinGhost($("speech-row"), under ? "1" : "3");
@@ -3999,6 +4104,7 @@ function renderLog(open = $("history-dialog").open) {
 }
 
 function render() {
+  showWorldTier(world, worldLogoKey(location.href));
   renderPlayers();
   music.setStarted(musicHasStarted());
   syncMusicCue();
@@ -4078,18 +4184,32 @@ function render() {
   ]);
   if (handKey !== renderedHand) {
     // The hand a page or a new game opens on is already dealt.
+    // A hand away after a loss lets the old cards go unseen.
+    if (document.body.dataset.handAway) quietExits = true;
     const opening = renderedHandPlace === null;
     const sameWorld =
         renderedHand &&
         renderedHandRevision === world.revision &&
         renderedHandState === handState,
       // A redraw from a shared update or another tab is no arrival: the
-      // hand keeps its scroll unless the player's avatar changed place.
+      // hand keeps its scroll unless the player's avatar changed place,
+      // and its cards still slide to their new places.
       stayed = renderedHandPlace === world.actors[currentActor(world)].place,
-      samePlace = renderedHand && stayed,
+      samePlace = stayed,
       arriving = renderedHandPlace !== null && !stayed,
-      animate = samePlace && !reducedMotion.matches,
-      before = new Map();
+      here = world.actors[currentActor(world)].place,
+      scene = `${here}:${lampLitHere(world, here)}`,
+      sceneChanged = !opening && !quietExits && renderedScene !== scene,
+      swapping = sceneChanged && !reducedMotion.matches,
+      animate = (samePlace || swapping) && !reducedMotion.matches,
+      exits = !opening && !quietExits && !reducedMotion.matches,
+      before = new Map(),
+      swap = swapping
+        ? (swapFrom ?? { at: performance.now(), left: 0, fallen: 0 })
+        : null;
+    quietExits = false;
+    renderedScene = scene;
+    swapFrom = null;
     if (animate)
       for (const frame of $("hand").children)
         if (!frame.hidden) {
@@ -4106,14 +4226,52 @@ function render() {
     renderedHandRevision = world.revision;
     renderedHandPlace = world.actors[currentActor(world)].place;
     renderedHandState = handState;
-    if (sameWorld)
+    if (sameWorld) {
+      const shown = [...$("hand").children].filter((frame) => !frame.hidden);
       for (const frame of $("hand").children) updateCardSelection(frame);
-    else
-      $("hand").replaceChildren(
-        ...handCards.map((id) =>
-          isQuestId(id) ? questFrame(questEntry(id)) : card(id),
-        ),
+      // A stack folding shows its cards folding away (card-exit.mjs).
+      foldCards(
+        shown.filter((frame) => frame.hidden && frame.isConnected),
+        handExits(),
+        reducedMotion.matches,
       );
+    } else {
+      // A card still in the hand keeps its node (card-keep.mjs).
+      const row = [...$("hand").children],
+        { frames, changed, faces } = keepFrames(
+          row,
+          handCards.map((id) =>
+            isQuestId(id) ? questFrame(questEntry(id)) : card(id),
+          ),
+        ),
+        leaving = exits
+          ? leavingFrames(
+              row.filter((frame) => !frame.dataset.gone),
+              frames,
+            )
+          : [];
+      // A card gone from view falls from where it lay, while the hand
+      // redraws at once; a reveal keeps its card, so it never falls.
+      if (swap) {
+        const since = performance.now() - swap.at,
+          { exits: steps, faceAt } = swapTiming(swap.left + leaving.length),
+          wait = (ms) => Math.max(0, ms - since),
+          late = steps.slice(swap.left).map(wait);
+        dropCards(
+          nearestFirst(leaving, row, currentActor(world)),
+          handExits(),
+          late,
+        );
+        // Exits the redraw starts late end late; entries wait for them.
+        if (late.length)
+          swap.fallen = Math.max(swap.fallen, since + late.at(-1) + EXIT_MS);
+        // A face changed with the light fades; one that moves just moves.
+        if (stayed && faces.length) fadeFaces(faces, handExits(), wait(faceAt));
+      } else if (leaving.length) dropCards(leaving, handExits());
+      for (const [was, now] of changed) morphFrame(was, now);
+      $("hand").replaceChildren(...frames);
+      if (swap) swap.left += leaving.length;
+    }
     // Lean the new row before measuring it, so each card moves from where
     // it was to its fanned place.
     fanHand();
@@ -4141,6 +4299,15 @@ function render() {
           .animate({ opacity: [0, 1] }, { duration: LAYOUT_MS });
     if (!sameWorld) playLevelUps();
     if (arriving) revealHandCard(renderedHandPlace, true, true);
+    // A scene change's new cards rise after the old ones fall and a beat.
+    const entering = (count) => {
+      const timing = swapTiming(swap.left, count, swap.fallen);
+      swapEnd = swap.at + timing.end;
+      setTimeout(() => playQueue.flush(), swapEnd - performance.now());
+      return Math.max(0, swap.at + timing.entryAt - performance.now());
+    };
+    if (sceneChanged && reducedMotion.matches)
+      $("hand").animate({ opacity: [0, 1] }, { duration: SWAP_REDUCED_MS });
     // A card new to the view rises in; one seen moving keeps that move.
     const rising = handEntries.draw(
       [...$("hand").children]
@@ -4152,7 +4319,8 @@ function render() {
             frame.hidden ||
             before.has(frame.querySelector(".card").dataset.card),
         })),
-      { reduced: reducedMotion.matches || opening },
+      // The hand a page, a resumed save or a new game opens on is dealt.
+      { reduced: reducedMotion.matches, after: swap ? entering : 0 },
     );
     showQuests(opening);
     openLockedBoxes();
@@ -4190,6 +4358,12 @@ function render() {
           reshaped ? LAYOUT_MS : undefined,
         );
     }
+  }
+  // After a loss the new hand is dealt in as the black lifts; the old one
+  // never shows again.
+  if (document.body.dataset.handAway && !covering) {
+    delete document.body.dataset.handAway;
+    dealHand();
   }
   renderScene();
   renderLog();
@@ -4523,6 +4697,7 @@ window.addEventListener("storage", (event) => {
     world = enableMotives(decodeSave(event.newValue));
     loadSeen();
     renderedHand = "";
+    quietExits = true;
     lineSeq = null;
     // Another tab's play is not this player's: the hand stays as it was,
     // less any card that has left the table.
@@ -4976,6 +5151,21 @@ installToolbar({
 });
 const settingsCards = installSettingsCards({
   actionBeat: { show: showActionBeat, clear: clearActionBeat },
+  // The play hand gives way to the settings and comes back dealt.
+  playHand: {
+    leave() {
+      const row = [...$("hand").children].filter((f) => !f.hidden),
+        leaving = nearestFirst(row, row, currentActor(world)).slice(
+          0,
+          EXIT_MAX,
+        );
+      if (reducedMotion.matches || !row.length) return 0;
+      const { exits, entryAt } = swapTiming(leaving.length, 1);
+      dropCards(leaving, handExits(), exits);
+      return entryAt;
+    },
+    back: dealHand,
+  },
   // Switching a pack is a play that passes no turn (pack-toggle.mjs).
   packs: {
     on: (id) => groupOn(world, id),

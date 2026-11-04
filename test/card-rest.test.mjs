@@ -15,7 +15,7 @@ import {
   packDefinitions,
   packOf,
 } from "../v2/card-game/pack-registry.mjs";
-import { knownActors } from "../v2/card-game/want.mjs";
+import { knownActors, questXp } from "../v2/card-game/want.mjs";
 import { DAYLIGHT_TURNS } from "../v2/card-game/daylight.mjs";
 import { reflectionDue } from "../v2/card-game/reflections.mjs";
 import { narrativeContext } from "../v2/card-game/narrative.mjs";
@@ -83,7 +83,7 @@ describe("rest and sanctuary", () => {
   it("keeps a sanctuary Wait to one turn: losses clear, but no long rest or dream", () => {
     let s = createWorld();
     s.actors.vale.place = "attic";
-    s.actors.vale.xp = 1;
+    s.actors.vale.xp = questXp(2);
     s.defeats = { vale: 2 };
     s = wait(s);
     expect(s.turn).toBe(1);
@@ -98,7 +98,7 @@ describe("rest and sanctuary", () => {
   it("dreams only after a long sanctuary Sleep; short ones just clear losses", () => {
     let s = createWorld();
     s.actors.vale.place = "attic";
-    s.actors.vale.xp = 1;
+    s.actors.vale.xp = questXp(2);
     s.actors.vale.level = 1;
     // Each short Sleep starts four turns before the light changes.
     for (const light of [2, 3, 4]) {
@@ -382,12 +382,18 @@ describe("rest and sanctuary", () => {
     expect(loaded.actors.vale.sleeping).toBeUndefined();
   });
 
-  it("brings a thought and a dream on waking from a long rest", () => {
+  it("brings a thought on waking from a long rest, and a dream only by the rules", () => {
     const context = { turn: 24, resting: "vale", rest: "long", entities: [] };
+    // An ordinary long rest dreams no more (rules 99).
     expect(reflectionDue(context, "vale", null)).toEqual({
       thought: true,
-      dream: true,
+      dream: false,
     });
+    for (const dream of ["glimpse", "quest"])
+      expect(reflectionDue({ ...context, dream }, "vale", null)).toEqual({
+        thought: true,
+        dream: true,
+      });
     expect(reflectionDue({ ...context, resting: null }, "vale", null)).toEqual({
       thought: false,
       dream: false,

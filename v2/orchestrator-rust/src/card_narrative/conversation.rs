@@ -6,8 +6,7 @@
 //! reach it, so a chat-tuned model answers a person, the view stays out of
 //! the reply, and the words are stable across attempts.
 use super::{
-    answered, idiolect, kind, name, names, waking, witnessed, Context, Entity, Part, Section,
-    SpokenLine,
+    answered, kind, name, names, waking, witnessed, Context, Entity, Part, Section, SpokenLine,
 };
 
 /// The recent talk here: at most this many lines, oldest dropped first.
@@ -208,7 +207,7 @@ pub(super) fn strategy(fact: &str) -> bool {
 /// My own view as my turn, then what I just heard.
 pub(super) fn messages(context: &Context, entity: &Entity) -> super::Prompt {
     let assistant = [
-        idiolect(entity, Part::Line),
+        super::own_view(entity, Part::Line),
         super::transcript(context, entity, Part::Line),
     ]
     .join("\n\n");

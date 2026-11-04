@@ -39,6 +39,8 @@ mod custody;
 mod dream;
 #[path = "card_narrative/expression.rs"]
 mod expression;
+#[path = "card_narrative/fallback.rs"]
+mod fallback;
 #[path = "card_narrative/framing.rs"]
 mod framing;
 #[path = "card_narrative/grounding.rs"]
@@ -65,6 +67,8 @@ mod reflections;
 pub(crate) use reflections::shared as shared_reflections;
 #[path = "card_narrative/instruction.rs"]
 mod instruction;
+#[path = "card_narrative/speech.rs"]
+mod speech;
 #[path = "card_narrative/untrusted.rs"]
 mod untrusted;
 #[cfg(test)]
@@ -528,6 +532,10 @@ struct Context {
     /// "long" when the resting avatar wakes from a long rest at a sanctuary.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     rest: Option<String>,
+    /// What that long rest dreamed by the rules (rules 99): "glimpse" or
+    /// "quest". Only then is a dream due.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    dream: Option<String>,
     #[serde(default)]
     action: Option<String>,
     entities: Vec<Entity>,
@@ -611,6 +619,9 @@ fn valid(context: &Context) -> bool {
             .rest
             .as_deref()
             .is_none_or(|rest| rest == "long" && context.resting.is_some())
+        && context.dream.as_deref().is_none_or(|dream| {
+            DREAMS.contains(&dream) && context.rest.as_deref() == Some("long")
+        })
         && context.entities.iter().all(|e| {
             profiles().get(&e.id).is_some()
                 && recital::valid(&e.id, e.poem.as_ref(), context.turn)
@@ -1021,10 +1032,7 @@ async fn complete_selected(
     reflections: bool,
     on_delta: Option<&(dyn Fn(&str) -> bool + Send + Sync)>,
 ) -> Result<Value, Response> {
-    for model in [&settings.reflection_model, &settings.escalation_model]
-        .into_iter()
-        .flatten()
-    {
+    for model in settings.reflection_model.iter().chain(settings.fallbacks()) {
         if let Err(failure) =
             tier_config(config, Some(model)).pin_model(ModelCapability::WorldContent)
         {
@@ -1368,6 +1376,8 @@ struct VoiceSettings {
     line_limit: usize,
     reflection_model: Option<String>,
     escalation_model: Option<String>,
+    /// `COSYWORLD_CARD_FALLBACK_MODELS`, in order (`fallback::models`).
+    fallback_models: Vec<String>,
 }
 
 impl VoiceSettings {
@@ -1380,6 +1390,7 @@ impl VoiceSettings {
             line_limit: 400,
             reflection_model: None,
             escalation_model: None,
+            fallback_models: Vec::new(),
         }
     }
 
@@ -1392,6 +1403,7 @@ impl VoiceSettings {
             line_limit: 400,
             reflection_model: None,
             escalation_model: None,
+            fallback_models: Vec::new(),
         }
     }
 
@@ -1445,12 +1457,22 @@ impl VoiceSettings {
         };
         settings.reflection_model = model("COSYWORLD_CARD_REFLECTION_MODEL")?;
         settings.escalation_model = model("COSYWORLD_CARD_ESCALATION_MODEL")?;
+        let list = get("COSYWORLD_CARD_FALLBACK_MODELS");
+        settings.fallback_models = fallback::models(list, settings.escalation_model.is_some())?;
         if settings.call_timeout > settings.scene_timeout {
             return Err(
                 "COSYWORLD_CARD_TEXT_CALL_TIMEOUT_SECS must not exceed the scene timeout".into(),
             );
         }
         Ok(settings)
+    }
+
+    /// The fallback chain; the escalation model is a one-model chain.
+    fn fallbacks(&self) -> &[String] {
+        match &self.escalation_model {
+            Some(model) if self.fallback_models.is_empty() => std::slice::from_ref(model),
+            _ => &self.fallback_models,
+        }
     }
 
     /// The browser's budget for one scene, including its own single retry.
@@ -1474,12 +1496,13 @@ pub(super) fn client_budget_ms() -> u128 {
 }
 
 const THOUGHT_GAP: u64 = 6;
-const DREAM_GAP: u64 = 24;
-const THOUGHTS_PER_DREAM: usize = 2;
+/// The dreams a long rest may bring by the rules: the halfway glimpse and the
+/// level quest, one or two a level (rules 99).
+const DREAMS: [&str; 2] = ["glimpse", "quest"];
 
 /// Mirrors `reflectionDue` in the card rules: only the avatar who waited
-/// thinks, after something new happened to them. A dream also needs two
-/// thoughts since the last dream.
+/// thinks, after something new happened to them. A dream is due only when a
+/// long rest dreamed by the rules.
 fn reflection_due(context: &Context, entity: &Entity) -> (bool, bool) {
     if !kind(&entity.id, "avatar")
         || context.turn == 0
@@ -1487,9 +1510,10 @@ fn reflection_due(context: &Context, entity: &Entity) -> (bool, bool) {
     {
         return (false, false);
     }
-    // Waking from a long rest always brings a thought and a dream.
+    // Waking from a long rest always brings a thought; a dream only when the
+    // rest dreamed.
     if context.rest.as_deref() == Some("long") {
-        return (true, true);
+        return (true, context.dream.is_some());
     }
     let life = entity.inner_life.as_ref();
     let last = life.and_then(|l| l.thoughts.last()).map(|m| m.turn);
@@ -1499,17 +1523,7 @@ fn reflection_due(context: &Context, entity: &Entity) -> (bool, bool) {
         .any(|m| m.kind == "event" && last.is_none_or(|turn| m.turn > turn));
     let reflect =
         changed && last.is_none_or(|turn| context.turn >= turn.saturating_add(THOUGHT_GAP));
-    let dreamt = life.and_then(|l| l.dreams.last()).map(|m| m.turn);
-    let settled = life.map_or(0, |l| {
-        l.thoughts
-            .iter()
-            .filter(|m| dreamt.is_none_or(|turn| m.turn > turn))
-            .count()
-    });
-    let dream = reflect
-        && settled >= THOUGHTS_PER_DREAM
-        && dreamt.is_none_or(|turn| context.turn >= turn.saturating_add(DREAM_GAP));
-    (reflect, dream)
+    (reflect, false)
 }
 
 /// The speakers, then the place, then the item in play. Everyone else keeps
@@ -1600,6 +1614,17 @@ fn idiolect(entity: &Entity, part: Part) -> String {
         text.push_str(persona);
     }
     text
+}
+
+/// My own words at the head of my view. Its "I am …" goes when the system
+/// turn already says who I am ("You are Vale, the Lamplighter.").
+fn own_view(entity: &Entity, part: Part) -> String {
+    let own = idiolect(entity, part);
+    if !system_voice(entity, part).starts_with("You are ") {
+        return own;
+    }
+    own.strip_prefix(&i_am(&entity.id))
+        .map_or(own.clone(), |rest| rest.trim_start().to_string())
 }
 
 /// The system turn: who an avatar is ("You are Vale, the Lamplighter."),
@@ -2078,51 +2103,8 @@ fn tier_config(config: &AiConfig, model: Option<&str>) -> AiConfig {
     config
 }
 
-/// Reserve time for an escalation before running the voice's own attempts.
-/// The timeout includes gateway readiness and queue waits as well as HTTP.
-async fn voice_attempts<T, F, Fut>(
-    settings: &VoiceSettings,
-    deadline: tokio::time::Instant,
-    escalate: bool,
-    mut request: F,
-) -> Result<T, ()>
-where
-    F: FnMut(bool, u8, Duration) -> Fut,
-    Fut: std::future::Future<Output = Result<T, ()>>,
-{
-    let remaining = deadline.saturating_duration_since(tokio::time::Instant::now());
-    let reserve = if escalate {
-        settings.call_timeout.min(remaining / 2)
-    } else {
-        Duration::ZERO
-    };
-    let own_deadline = deadline - reserve;
-    let own_attempts = settings.attempts.max(1);
-    for attempt in 0..own_attempts + u8::from(escalate) {
-        let escalation = attempt == own_attempts;
-        let until = if escalation { deadline } else { own_deadline };
-        let now = tokio::time::Instant::now();
-        let remaining = until.saturating_duration_since(now);
-        let budget = if escalate && !escalation {
-            remaining / u32::from(own_attempts - attempt)
-        } else {
-            remaining
-        }
-        .min(settings.call_timeout);
-        if budget.is_zero() {
-            continue;
-        }
-        if let Ok(Ok(result)) =
-            tokio::time::timeout_at(now + budget, request(escalation, attempt, budget)).await
-        {
-            return Ok(result);
-        }
-    }
-    Err(())
-}
-
-/// Generate a validated part on its selected model, then use the optional
-/// escalation model once when the earlier attempts need more help.
+/// Generate a validated part on its selected model, then on each fallback
+/// model in turn while the earlier ones fail (`fallback::run`).
 async fn speak(
     config: &AiConfig,
     context: &Context,
@@ -2138,27 +2120,7 @@ async fn speak(
         .flatten()
         .or_else(|| character_models.get(id).map(String::as_str));
     let own = tier_config(config, own_model);
-    let selected = own
-        .pin_model(ModelCapability::WorldContent)
-        .map_err(|_| ())?;
-    let escalation = settings
-        .escalation_model
-        .as_deref()
-        .map(|model| tier_config(config, Some(model)))
-        .filter(|candidate| {
-            candidate
-                .pin_model(ModelCapability::WorldContent)
-                .is_ok_and(|other| {
-                    selected.requested_model_id() != other.requested_model_id()
-                        && match (
-                            selected.candidate().concrete_model(),
-                            other.candidate().concrete_model(),
-                        ) {
-                            (Some(left), Some(right)) => left != right,
-                            _ => true,
-                        }
-                })
-        });
+    let links = fallback::chain(config, own, settings.fallbacks()).ok_or(())?;
     let system = waking::system(context, entity, part);
     let mut check = Check::new(context, entity, part);
     if part == Part::Line {
@@ -2169,50 +2131,27 @@ async fn speak(
             check.sentences = if atmosphere::narrator(id) { 3 } else { 1 };
         }
     }
-    // Registry labels only, so the counters stay bounded.
-    let route_of = |selected: &crate::ai_gateway::PinnedModelSelection| {
-        let candidate = selected.candidate();
-        (
-            candidate.requested_model_id().to_string(),
-            candidate.provider().to_string(),
-        )
-    };
-    let own_route = route_of(&selected);
-    let escalation_route = escalation.as_ref().and_then(|config| {
-        config
-            .pin_model(ModelCapability::WorldContent)
-            .ok()
-            .map(|selected| route_of(&selected))
-    });
     let call = voice_metrics::Call::new(
         id,
         part,
         voice_metrics::Budget::measure(&system, context, entity, part),
     )
     .labelled(context);
-    // Per tier, for the bench: 1 an empty or blocked reply, 2 a usable line.
-    let tiers = [AtomicU8::new(0), AtomicU8::new(0)];
-    let spoken = voice_attempts(
+    // Per model, for the bench: 1 an empty or blocked reply, 2 a usable line.
+    let tiers: Vec<_> = links.iter().map(|_| AtomicU8::new(0)).collect();
+    let spoken = fallback::run(
         settings,
         deadline,
-        escalation.is_some(),
-        |escalated, attempt, timeout| {
-            let config = if escalated {
-                escalation.as_ref().unwrap()
-            } else {
-                &own
-            };
+        links.len(),
+        |n: usize, attempt: u8, timeout: Duration| {
+            let link = &links[n];
             // A retry resamples the same prompt; code, not words, shapes it.
             let prompt = messages(context, entity, part);
             let view = prose(&prompt.assistant);
             let check = &check;
             let call = &call;
-            let tier = &tiers[usize::from(escalated)];
-            let (model, provider) = match &escalation_route {
-                Some(route) if escalated => route,
-                _ => &own_route,
-            };
-            call.attempt(model, provider);
+            let tier = &tiers[n];
+            call.attempt(&link.model, &link.provider, n > 0);
             async move {
                 let request = ChatCompletionRequest {
                     feature: "card_voice",
@@ -2223,7 +2162,7 @@ async fn speak(
                     temperature: if part == Part::Dream {
                         1.2
                     } else {
-                        1.0 - 0.1 * f64::from(attempt)
+                        (1.0 - 0.1 * f64::from(attempt)).max(0.7)
                     },
                     max_tokens: if part == Part::Persona { 160 } else { 96 },
                     timeout,
@@ -2232,7 +2171,7 @@ async fn speak(
                     response_format: None,
                     room_id: None,
                 };
-                let completion = request_voice_completion(config, request, &view)
+                let completion = request_voice_completion(&link.config, request, &view)
                     .await
                     .map_err(|error| {
                         if error.code() == "inference_invalid_response" {
@@ -2243,11 +2182,12 @@ async fn speak(
                             feature = "card_voice",
                             entity = id,
                             attempt = attempt + 1,
-                            escalated,
+                            fallback = n,
                             reason = "provider",
                             failure = error.code(),
                             "card voice rejected"
                         );
+                        fallback::Miss::Failed
                     })?;
                 let finished = matches!(completion.finish_reason.as_str(), "stop" | "end_turn");
                 // A reply that only missed its fact is published at once
@@ -2285,22 +2225,20 @@ async fn speak(
                         feature = "card_voice",
                         entity = id,
                         attempt = attempt + 1,
-                        escalated,
+                        fallback = n,
                         reason,
                         excerpt = %excerpt(&completion.text),
                         "card voice rejected"
                     );
+                    fallback::Miss::of(reason)
                 })
             }
         },
     )
     .await;
-    for (route, tier) in [Some(&own_route), escalation_route.as_ref()]
-        .iter()
-        .zip(&tiers)
-    {
-        if let (Some((model, _)), seen @ 1..) = (route, tier.load(Ordering::Relaxed)) {
-            own.readiness.record_voice_outcome(model, seen == 2);
+    for (fallback::Link { model, .. }, tier) in links.iter().zip(&tiers) {
+        if let seen @ 1.. = tier.load(Ordering::Relaxed) {
+            config.readiness.record_voice_outcome(model, seen == 2);
         }
     }
     match spoken {
@@ -2367,7 +2305,7 @@ fn messages(context: &Context, entity: &Entity, part: Part) -> Prompt {
     // A thought, a persona, a dream or waking words: nobody spoke, and
     // the view ends where my own words begin ("I think to myself:").
     let own = (part != Part::Dream && !waking::applies(context, &entity.id, part))
-        .then(|| idiolect(entity, part));
+        .then(|| own_view(entity, part));
     let view = [
         own.clone().unwrap_or_default(),
         transcript(context, entity, part),
@@ -2423,6 +2361,8 @@ struct Check<'a> {
     recent: Vec<String>,
     /// The line this reply answers, when there is one.
     answered: Option<String>,
+    /// Everyone else's names, for a quoted reply's dialogue tags.
+    speakers: Vec<String>,
     /// Other speakers' recent lines here: a six-word run from one is a
     /// parroted line ("Ships for Signal Jetty leave from ..."), not speech.
     others: Vec<String>,
@@ -2497,6 +2437,14 @@ impl<'a> Check<'a> {
                     .then(|| answered(context, entity).map(|line| line.text.clone()))
                     .flatten()
             },
+            speakers: profiles()
+                .as_object()
+                .expect("profiles")
+                .values()
+                .filter_map(|p| p["name"].as_str())
+                .filter(|n| *n != own)
+                .map(str::to_string)
+                .collect(),
             others: if chatting {
                 let mut others = conversation::others_lines(context, entity);
                 others.extend(between::quoted(context, entity));
@@ -2636,9 +2584,32 @@ impl<'a> Check<'a> {
             _ => first,
         };
         let line = staged[at].0;
-        let cut_line = staged.len() > at + 1;
+        let mut cut_line = staged.len() > at + 1;
         flag(avatar && staged[..=at].iter().any(|s| s.2), "stage action");
         let mut text = staged[at].1.clone();
+        // An answer in quotes, as a prefilled reply continues it after a
+        // heard line: my own spans, without their tags or the narration
+        // between them. A span tagged to someone else ("Then stay,” Pip
+        // says) is theirs. Speaking first, quoted words are prose only
+        // when a tag follows them (`“Menelaus,” I say, my voice low.`),
+        // which is counted; "Keep it lit," my mother said is speech.
+        let mut finished = finished;
+        let said = (avatar && speech::opens(&text)).then(|| {
+            let rest: Vec<&str> = staged[at..].iter().map(|s| s.1.as_str()).collect();
+            speech::own_words(&rest.join("\n"), &self.speakers, self.answered.as_deref())
+        });
+        if let Some(said) = said.filter(|s| self.answered.is_some() || s.tagged) {
+            flag(self.answered.is_none(), "narration tag");
+            flag(said.other, "other speaker");
+            if said.text.trim().is_empty() && said.other {
+                return Err("other speaker");
+            }
+            if !said.text.trim().is_empty() {
+                text = said.text;
+                cut_line = false;
+                finished |= said.closed;
+            }
+        }
         if instruction::instructs(&text) {
             return Err("instruction");
         }
@@ -3005,8 +2976,12 @@ pub(crate) mod tests {
 
     /// Vale waited with two thoughts settled since any dream, so a thought
     /// and a dream are both due. Earlier events count as new since then.
+    /// A dream is due only on waking from a long rest that dreamed by the
+    /// rules (rules 99): here the level quest's.
     pub(super) fn dream_due(c: &mut Context) {
         resting(c);
+        c.rest = Some("long".into());
+        c.dream = Some("quest".into());
         c.turn = c.turn.max(20);
         c.revision = c.revision.max(c.turn);
         let vale = &mut c.entities[0];
@@ -3047,7 +3022,11 @@ pub(crate) mod tests {
             .iter()
             .find(|call| call["id"] == "vale" && call["part"] == "line")
             .unwrap();
-        assert!(turn_of(&call["request"], "assistant").contains("Vale"));
+        assert_eq!(
+            turn_of(&call["request"], "system"),
+            "You are Vale, the Lamplighter."
+        );
+        assert!(!turn_of(&call["request"], "assistant").is_empty());
         // Prepared calls carry no provider routing of their own.
         for call in prepared["calls"].as_array().unwrap() {
             assert!(call["request"].get("provider").is_none());
@@ -3280,6 +3259,16 @@ pub(crate) mod tests {
         // A stage direction goes and is counted.
         let staged = check.verdict(&format!("*shifts a little* {line}"), true, true);
         assert_eq!(staged, Ok((line.into(), vec!["stage action"])));
+        // Speaking first, a quoted reply with a tag keeps its own words,
+        // counted as a narration tag.
+        let quoted = "(I sigh.)\n\n\u{201c}Vale,\u{201d} I say, my voice low. \u{201c}You\u{2019}re here.\u{201d}";
+        assert_eq!(
+            check.verdict(quoted, false, true),
+            Ok((
+                "Vale. You\u{2019}re here.".into(),
+                vec!["stage action", "narration tag"]
+            ))
+        );
         assert_eq!(clean("Hold it higher").as_deref(), Ok("Hold it higher"));
         assert!(check.clean("Hold it higher", false).is_err());
         for (raw, reason) in [
@@ -3513,7 +3502,7 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn waking_from_a_long_rest_brings_a_thought_and_a_dream() {
+    fn waking_from_a_long_rest_brings_a_thought_and_a_dream_only_by_the_rules() {
         let mut c = context();
         c.turn = 24;
         c.revision = 24;
@@ -3522,8 +3511,20 @@ pub(crate) mod tests {
         assert!(!valid(&c));
         c.resting = Some(c.entities[0].id.clone());
         assert!(valid(&c));
-        assert_eq!(reflection_due(&c, &c.entities[0]), (true, true));
+        // An ordinary long rest brings a thought and no dream (rules 99).
+        assert_eq!(reflection_due(&c, &c.entities[0]), (true, false));
+        for dream in ["glimpse", "quest"] {
+            c.dream = Some(dream.into());
+            assert!(valid(&c));
+            assert_eq!(reflection_due(&c, &c.entities[0]), (true, true));
+        }
+        c.dream = Some("nightmare".into());
+        assert!(!valid(&c));
+        c.dream = Some("quest".into());
         c.rest = Some("short".into());
+        assert!(!valid(&c));
+        // A dream belongs to a long rest.
+        c.rest = None;
         assert!(!valid(&c));
     }
 
@@ -3543,7 +3544,7 @@ pub(crate) mod tests {
         assert_eq!(reflection_due(&c, &c.entities[0]), (false, false));
         c.resting = Some(vale.clone());
         assert!(valid(&c));
-        // A first thought never arrives with a dream: two must settle first.
+        // A Wait brings a thought and never a dream (rules 99).
         assert_eq!(reflection_due(&c, &c.entities[0]), (true, false));
         c.entities[0].inner_life = Some(InnerLife {
             persona_signed: None,
@@ -3581,8 +3582,8 @@ pub(crate) mod tests {
             kind: "event".into(),
             text: "Vale crossed the pond.".into(),
         });
-        assert_eq!(reflection_due(&c, &c.entities[0]), (true, true));
-        // After a dream, two more thoughts and a long night must pass.
+        // However many thoughts settle, a Wait does not dream.
+        assert_eq!(reflection_due(&c, &c.entities[0]), (true, false));
         let life = c.entities[0].inner_life.as_mut().unwrap();
         life.dreams.push(InnerMoment {
             signed: None,
@@ -3611,7 +3612,6 @@ pub(crate) mod tests {
         c.turn = 25;
         c.revision = 25;
         c.entities[0].memories.last_mut().unwrap().turn = 24;
-        // Two thoughts since the dream, but the night is not over yet.
         assert_eq!(reflection_due(&c, &c.entities[0]), (true, false));
         c.entities[0]
             .inner_life
@@ -3633,7 +3633,7 @@ pub(crate) mod tests {
         c.turn = 37;
         c.revision = 37;
         c.entities[0].memories.last_mut().unwrap().turn = 36;
-        assert_eq!(reflection_due(&c, &c.entities[0]), (true, true));
+        assert_eq!(reflection_due(&c, &c.entities[0]), (true, false));
         // Another avatar's Wait does not make Vale think.
         c.resting = Some("moth".into());
         assert_eq!(reflection_due(&c, &c.entities[0]), (false, false));
@@ -5053,13 +5053,15 @@ pub(crate) mod tests {
             }
             match stem {
                 "Vale:" => {
-                    // An avatar's system voice is its seed sentence (#1673).
-                    assert!(system.starts_with("I am Vale, the Lamplighter."));
+                    // An avatar's system voice is its seed sentence (#1673),
+                    // and its own view does not say it again.
+                    assert_eq!(turn_of(body, "system"), "You are Vale, the Lamplighter.");
+                    assert!(!system.contains("I am Vale"));
                     assert!(system.contains("Holding the lamp."));
                     "Vale: What would you trade for this lamp, Pip?".into()
                 }
                 "Pip:" => {
-                    assert!(system.starts_with("I am Pip, a moth."));
+                    assert_eq!(turn_of(body, "system"), "You are Pip, a moth.");
                     "\"Bring that lamp to the pond, Vale. I will carry the cloth.\"".into()
                 }
                 _ => stem_reply(stem),
@@ -5505,7 +5507,7 @@ pub(crate) mod tests {
     /// entity model and the given tier models for world content; `true`
     /// marks a tier model that thinks by default. The table's own
     /// world-content model is pinned as `COSYWORLD_CARD_TEXT_MODEL` pins it.
-    fn tiered_config(address: SocketAddr, tiers: &[(&str, bool)]) -> AiConfig {
+    pub(crate) fn tiered_config(address: SocketAddr, tiers: &[(&str, bool)]) -> AiConfig {
         let mut config = test_config(address);
         config
             .capability_models
@@ -5610,12 +5612,18 @@ pub(crate) mod tests {
         let last = cue.filter(|_| user == crate::ai_gateway::SILENCE);
         let last = last.unwrap_or(user.lines().last().unwrap_or_default());
         let first = system.lines().next().unwrap_or_default();
+        // A speaking avatar is named by its system turn ("You are Pip, a
+        // moth."), a gesture voice by its own view ("I am Pip, a moth.").
+        let identity = view("system")
+            .and_then(|m| m["content"].as_str())
+            .unwrap_or_default();
         let speaker = profiles()
             .as_object()
             .unwrap()
             .iter()
             .find(|(id, p)| {
-                (p["kind"] == "avatar" && i_am(id) == first)
+                (p["kind"] == "avatar"
+                    && (i_am(id) == first || i_am(id).replacen("I am ", "You are ", 1) == identity))
                     || p["idiolect"]
                         .as_str()
                         .is_some_and(|i| system.starts_with(i))
@@ -5630,7 +5638,7 @@ pub(crate) mod tests {
         }
     }
 
-    fn models_for(requests: &[Value], stem: &str) -> Vec<String> {
+    pub(crate) fn models_for(requests: &[Value], stem: &str) -> Vec<String> {
         requests
             .iter()
             .filter(|body| stem_of(body) == stem)
@@ -5725,7 +5733,7 @@ pub(crate) mod tests {
             models_for(&requests, "Vale, who I am now:"),
             ["reflection-model", "reflection-model"]
         );
-        // A different escalation model gets the persona's one more attempt.
+        // A different escalation model gets the persona's next attempt.
         let bigger = VoiceSettings {
             escalation_model: Some("escalation-model".into()),
             ..reflective
@@ -5737,10 +5745,10 @@ pub(crate) mod tests {
         assert_eq!(result["entries"][0]["model"], "vale-model");
         assert_eq!(result["entries"][0]["reflection"]["persona"], persona);
         let requests = seen.lock().unwrap().clone();
-        assert_eq!(requests.len(), 9);
+        assert_eq!(requests.len(), 8);
         assert_eq!(
             models_for(&requests, "Vale, who I am now:"),
-            ["reflection-model", "reflection-model", "escalation-model"]
+            ["reflection-model", "escalation-model"]
         );
         server.abort();
     }
@@ -5778,7 +5786,7 @@ pub(crate) mod tests {
         // Mixed models leave the scene under the shared label.
         assert_eq!(result["model"], "card-voices-v1");
         let requests = seen.lock().unwrap().clone();
-        assert_eq!(requests.len(), 6);
+        assert_eq!(requests.len(), 5);
         let prompts: Vec<_> = requests
             .iter()
             .filter(|body| stem_of(body) == "Pip:")
@@ -5804,12 +5812,12 @@ pub(crate) mod tests {
                 )
             })
             .collect();
-        assert_eq!(pip.len(), 3);
-        for ((model, temperature), (expected, cooled)) in pip.iter().zip([
-            ("moth-model", 1.0),
-            ("moth-model", 0.9),
-            ("escalation-model", 0.8),
-        ]) {
+        // An empty reply moves straight on to the next model.
+        assert_eq!(pip.len(), 2);
+        for ((model, temperature), (expected, cooled)) in pip
+            .iter()
+            .zip([("moth-model", 1.0), ("escalation-model", 0.9)])
+        {
             assert_eq!(model, expected);
             assert!(
                 (temperature - cooled).abs() < 1e-9,
@@ -5851,10 +5859,10 @@ pub(crate) mod tests {
             .collect();
         assert_eq!(ids, ["vale", "moth", "lamp"]);
         let requests = seen.lock().unwrap().clone();
-        assert_eq!(requests.len(), 6);
+        assert_eq!(requests.len(), 5);
         assert_eq!(
             models_for(&requests, "Empty station:"),
-            ["test-entity-model", "test-entity-model", "escalation-model"]
+            ["test-entity-model", "escalation-model"]
         );
         // When the table's own world-content model is the escalation model,
         // scenery that fails on it is not sent there a third time.
@@ -5943,33 +5951,30 @@ pub(crate) mod tests {
         let started = tokio::time::Instant::now();
         let deadline = started + settings.scene_timeout;
         let mut seen = Vec::new();
-        let result = voice_attempts(&settings, deadline, true, |escalated, attempt, budget| {
+        let result = fallback::run(&settings, deadline, 2, |link, attempt, budget| {
             seen.push((
-                escalated,
+                link == 1,
                 attempt,
                 tokio::time::Instant::now() - started,
                 budget,
             ));
             async move {
-                if escalated {
+                if link == 1 {
                     tokio::time::sleep(Duration::from_secs(10)).await;
                     Ok("recovered")
                 } else {
                     // Includes a gateway future waiting for readiness or a slot.
-                    std::future::pending::<Result<&str, ()>>().await
+                    std::future::pending::<Result<&str, fallback::Miss>>().await
                 }
             }
         })
         .await;
         assert_eq!(result, Ok("recovered"));
-        assert_eq!(seen.len(), 3);
-        assert_eq!(
-            seen[0],
-            (false, 0, Duration::ZERO, Duration::from_millis(5500))
-        );
-        assert!(seen[1].2 >= Duration::from_millis(5500));
-        assert!(seen[2].0);
-        assert!(seen[2].2 >= Duration::from_secs(11));
+        assert_eq!(seen.len(), 2);
+        // Each model's share is the remaining time over the models left.
+        assert_eq!(seen[0], (false, 0, Duration::ZERO, Duration::from_secs(11)));
+        assert!(seen[1].0);
+        assert!(seen[1].3 >= Duration::from_secs(11));
         assert!(tokio::time::Instant::now() < deadline);
     }
 
@@ -5980,23 +5985,23 @@ pub(crate) mod tests {
         let deadline = started + settings.scene_timeout;
         tokio::time::sleep(Duration::from_secs(14)).await;
         let mut seen = Vec::new();
-        let result = voice_attempts(&settings, deadline, true, |escalated, _, budget| {
-            seen.push((escalated, tokio::time::Instant::now() - started, budget));
+        let result = fallback::run(&settings, deadline, 2, |link, _, budget| {
+            seen.push((link == 1, tokio::time::Instant::now() - started, budget));
             async move {
-                if escalated {
+                if link == 1 {
                     tokio::time::sleep(Duration::from_secs(3)).await;
                     Ok(())
                 } else {
-                    std::future::pending::<Result<(), ()>>().await
+                    std::future::pending::<Result<(), fallback::Miss>>().await
                 }
             }
         })
         .await;
         assert_eq!(result, Ok(()));
-        assert_eq!(seen.len(), 3);
-        assert!(seen[0].2 <= Duration::from_secs(2));
-        assert!(seen[2].0);
-        assert!(seen[2].1 >= Duration::from_secs(18));
+        assert_eq!(seen.len(), 2);
+        assert!(seen[0].2 <= Duration::from_secs(4));
+        assert!(seen[1].0);
+        assert!(seen[1].1 >= Duration::from_secs(18));
         assert!(tokio::time::Instant::now() < deadline);
     }
 
@@ -6005,18 +6010,18 @@ pub(crate) mod tests {
         let settings = VoiceSettings::hosted();
         let deadline = tokio::time::Instant::now() + settings.scene_timeout;
         let mut seen = 0;
-        let result = voice_attempts(&settings, deadline, true, |_, _, _| {
+        let result = fallback::run(&settings, deadline, 2, |_, _, _| {
             seen += 1;
-            std::future::pending::<Result<(), ()>>()
+            std::future::pending::<Result<(), fallback::Miss>>()
         })
         .await;
         assert_eq!(result, Err(()));
-        assert_eq!(seen, 3);
+        assert_eq!(seen, 2);
         assert!(tokio::time::Instant::now() >= deadline);
-        let result = voice_attempts(&settings, deadline, true, |_, _, _| {
+        let result = fallback::run(&settings, deadline, 2, |_, _, _| {
             panic!("expired scenes have no request budget");
             #[allow(unreachable_code)]
-            std::future::ready(Ok::<(), ()>(()))
+            std::future::ready(Ok::<(), fallback::Miss>(()))
         })
         .await;
         assert_eq!(result, Err(()));
@@ -6080,7 +6085,7 @@ pub(crate) mod tests {
         for reflection in [false, true] {
             let settings = VoiceSettings {
                 reflection_model: reflection.then(|| "missing-model".into()),
-                escalation_model: (!reflection).then(|| "missing-model".into()),
+                fallback_models: vec!["test-entity-model".into(), "missing-model".into()],
                 ..VoiceSettings::hosted()
             };
             let app = router_with_models::<()>(

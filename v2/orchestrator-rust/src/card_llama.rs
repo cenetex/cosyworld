@@ -136,7 +136,7 @@ pub(crate) async fn complete(
     );
     Ok(AiCompletion {
         text: match quoted(request.system, assistant, request.user) {
-            true => super::unquote(&output.text).0,
+            true => super::prefilled(&output.text).0,
             false => output.text,
         },
         reasoning_trace: None,

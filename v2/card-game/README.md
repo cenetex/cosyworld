@@ -60,32 +60,42 @@ counted or sent. `smoke-card-play-counts.mjs` checks all three.
 ## Settings
 
 ☰ › Settings is a hand of cards in place of the play hand
-(`settings-cards.mjs` deals it, `settings-screen.mjs` draws it). Choosing a
-card puts its action in the context button ("Turn voices off", "Open
-privacy"); pressing the button does it. With no card chosen the button is
-Close settings, and Escape unchooses, then closes. A card shows only its name
-and art. Its face is its state: lit while on, dim while off. State words and
-reasons are in the button and the beat's info line, and in each card's
-accessible name ("Music, off"). Sign out, New game and Restore a backup ask a
-second press ("Tap again to sign out"); a credit commit asks in its own beat.
+(`settings-cards.mjs` deals it, `settings-screen.mjs` draws it), dealt the
+way the play hand deals a place and the things in it. Four group cards, You,
+Sound, Play and World, hold their settings as a place holds its items: a
+folded group shows its first setting peeking out behind it, a tap fans it
+open and folds any other, another tap folds it, and a pointer lifts the
+group with its peek (the play hand's 180 ms shuffle; reduced motion only
+brightens it). Choosing a setting puts its action in the context button
+("Turn voices off", "Open privacy"); pressing the button does it and folds
+the group back. With no card chosen the button is Close settings, and Escape
+unchooses, then closes. A card shows only its name and art. Its face is its
+state: lit while on, dim while off. State words and reasons are in the button
+and the beat's info line, and in each card's accessible name ("Music, off").
+Sign out, New game and Restore a backup ask a second press ("Tap again to
+sign out"); a credit commit asks in its own beat.
 
-Privacy comes first, then Music, Volume, Voices, Flashes and scares, Fight
-speed and Play counts. Hosted play adds Account (Sign in with your passkey, or
-Sign out) and Credits; a shared world adds Another passkey and World pool; the
-local table adds New game, and the desktop app Backup. Controls steps through
-tips, and Download opens `/download`. Four pack cards close the hand: Cosy
+Settings opens with You fanned, and Privacy is the first thing it holds, so
+Privacy is one tap away. You then holds Account and Credits (hosted play),
+Another passkey (a shared world, signed in) and Play counts. Sound holds
+Music, Voices and Volume. Play holds Fight speed, Flashes and scares and
+Controls, which steps through tips. World holds the four pack cards, Cosy
 Cottage (`lonely-forest`), The Reflected Shore (the hub), The Wine-Dark Sea
-(`greek-drama`) and Hoppy Cat Universe (`hoppycat-archive`). A pack card is
+(`greek-drama`) and Hoppy Cat Universe (`hoppycat-archive`), then New game
+(the local table), Backup (the desktop app), World pool (a shared world) and
+Download, which opens `/download`. A pack card is
 a place card drawn as the quest card draws its place (`questScreen`): the
 painting feathered into the card, its name where the quest names its verb.
-Most other cards are place cards too, each a region of the owner's moonlit
-workbench (`assets/settings/PROVENANCE.md`): the sealed letter for Privacy,
-the candle for Volume, the dice cup for Fight speed, the dice for Play counts,
-Pip at the table for Account, the old books for Credits, the brass mug for
-World pool, the scroll for Backup, the round window for New game, the
-armillary for Controls and the book stack for Download. Music, Voices,
-Flashes and scares and Another passkey keep their transparent figures. A
-card lifted over the next by pointer or focus moves that card's name clear.
+Every other card is a place card too, each a region of the owner's moonlit
+workbench (`assets/settings/PROVENANCE.md`): the letter and dice for You,
+the candle for Sound, the dice cup and mug for Play, the window for World,
+the sealed letter for Privacy,
+lamplight on the bench for Music, Pip's ears for Voices, the candle flame for
+Volume, a moth's wing for Flashes and scares, the dice cup for Fight speed,
+the dice for Play counts, Pip at the table for Account, the gear for Another
+passkey, the old books for Credits, the brass mug for World pool, the scroll
+for Backup, the moon for New game, the armillary for Controls and the book
+stack for Download. A card lifted over the next by pointer or focus moves that card's name clear.
 A pack card is lit while its pack is on, and dims when it is off. Its button
 switches it (rules 98, `pack-toggle.mjs`; no turn passes) or names why it
 can't: one pack stays on, not during a fight, the shore not before the first
@@ -96,9 +106,15 @@ logo (the toolbar's, set where the title lifts it over its card) and the
 room or battle song fades out and holds its place; closing Settings fades
 both back in, the song from where it stopped (`setQuiet` in `music.mjs` and
 `music-cues.mjs`). The island hum and world sounds rest with it. Reduced
-motion swaps the scene at once. `smoke-card-settings.mjs` checks choosing,
-pressing, the second press and closing at three widths; `smoke-card-music.mjs`
-checks the held song.
+motion swaps the scene at once. A moment later the workbench painting comes
+up whole as Settings' own scene, as a place's painting is a scene's
+(`SCENE`). Opening, the play hand's cards fall away (`card-exit.mjs`) and the
+settings are dealt after a beat (`card-swap.mjs`); closing deals the play
+hand back, and reduced motion fades it in. `smoke-card-settings.mjs` checks
+the deal both ways, the groups, Privacy one tap
+away, the peek, the hover lift, fanning, choosing, pressing, the fold, the
+second press and closing at three widths; `smoke-card-music.mjs` checks the
+held song.
 
 ## Public assets
 
@@ -321,6 +337,12 @@ first, and is absent while the stack holds one. Player-facing text says quest.
   on the way to a place may be met there. A step already true where the
   avatar stands is not drawn. Steps come one at a time in order; nothing is
   authored ahead.
+- **Talk gives a quest** (rules 99, #2196). A player's Talk that reveals
+  someone's top want, new to the player, gives an ordinary quest: give them
+  the item they want, bring them to the place they want, or bring them to
+  the person they want to see. It goes second under a level or story quest,
+  leaves when their want changes first, and counts toward the level's gap of
+  ordinary wants ([quest stack](../../docs/design/quest-stack.md)).
 - **Pursuit.** Residents use the fixed verbs: travel along routes (travellers
   who learn the roads keep to the routes they know), then ask, trade their
   least valued spare, and threaten when bold enough by resentment, a higher level tier or
@@ -332,6 +354,14 @@ first, and is absent while the stack holds one. Player-facing text says quest.
   Residents pursue their top quest. A resident that keeps to its scene acts only while someone is
   there, so its quest can stall only after a first refused attempt, and the
   stall clock starts at that attempt.
+- **Home, range and sleep** (rules 100, `world-life.json`). Each resident has
+  a home and a range in hops (default 2; Oak and the Gate Guard 0). With a
+  player it acts as before; away from players it walks home one step a turn
+  after a push-back, beyond its range or at bedtime, and at dawn and dusk it
+  takes one step toward a want in range. It sleeps on its schedule, scattered
+  by the seed (Pip and Nix are nocturnal), and wakes for a Talk, a threat or
+  a ring; Ask, Trade and Invite wait until then. See the
+  [design note](../../docs/design/rules-100-world-life.md).
 - **Trust** has one source: someone gave me the item my quest wanted.
 - **Connect.** BoardyAI's starter quest is `{ "kind": "connect", "target":
 "humans" }` in `boardyai.json`. It is met by any Talk in his room while two
@@ -350,10 +380,11 @@ and appears only for the place itself or when the step happens where the
 player stands; elsewhere the figures stand on the card's dark ground. An
 unknown target shows a small carved card back in its slot, and an unknown
 place shows the back alone. A step that gives to
-someone shows all three: the player, the thing and the recipient. Its label
-reads "Quest" in small capitals, then the quest as a plain sentence ("Give the
-Burial Decree to the Gate Guard") in the label's face, as written, on at most
-two lines, with a level quest's numeral on the right. Its tier colour is the
+someone shows all three: the player, the thing and the recipient. Its label is
+its verb alone, on one line, in the standard card label (Talk, Give, Find,
+Bring, Meet, Hold, Go to, Discover, Introduce; a level or story quest shows its
+current step's verb), with a level quest's numeral on the right. The whole quest
+("Give The Burial Decree to The Gate Guard") is only its accessible name. Its tier colour is the
 highest tier among the things it names that the player has found (its target,
 a step's recipient and place), from their levels (`questTier`), and at least
 the tier of the level a level quest leads to; face down, and folded until it
@@ -452,8 +483,28 @@ A card new to the view (an avatar arriving, a thing picked up or put down, a
 place found, the hand at a new place) rises into its slot over 460 ms, cards
 entering together 70 ms apart (`card-entry.mjs`). A card already there never
 moves again on a redraw, a card seen moving keeps that move, and reduced
-motion just shows it. An entering card takes taps at once; the motion is this
+motion just shows it. The hand a page, a resumed save or a new game opens on
+is dealt the same way, and a shared update or another tab's play slides the
+cards that moved. An entering card takes taps at once; the motion is this
 browser's alone and never waits on the rules or the shared room.
+A card that leaves the view (a thing given or put down into a folded stack,
+an avatar walking away, a place left behind, a quest cleared or set aside)
+falls 24 px and fades over 360 ms, staggered as entries are, at most six at
+once (`card-exit.mjs`). The hand redraws at once; an inert, aria-hidden copy
+from `card-ghost.mjs` plays the fall where the card lay and is released when
+it ends. Cards folding into their holder's stack shrink and fade where they
+lay over 220 ms, 30 ms apart (reduced motion only fades them). A card shown
+under another holder moves there instead, and a reveal
+keeps its card, so it never falls. A page opening, a new game, another tab's
+world and reduced motion show no exit (`v2/scripts/smoke-card-exit.mjs`).
+A card still in the hand after a redraw keeps its node and stays put; when
+only its words or pictures changed it takes its new look in place
+(`card-keep.mjs`). A quest card is always drawn anew.
+Travel, or a light put out or lit here, swaps the hand in beats
+(`card-swap.mjs`): left-behind cards fall 50 ms apart, nearest the player's
+card first, from the tap; a 160 ms beat; then new cards rise. A changed face
+(the lamp put out) fades over 600 ms. It ends within 1.2 s, plays wait for
+it, and reduced motion fades the hand (`v2/scripts/smoke-card-swap.mjs`).
 A card locked behind a quest (a sealed card, the far side of a shut gate) is
 a locked wooden box: the darker locked lid on a red edge, labelled only
 "Locked" (the owner's one exception to words on a card), with no painting and
@@ -646,8 +697,14 @@ end's exit, opens the first time its condition holds and stays open after,
 and the way back stays open (see the
 [Open Door guide](../content/greek-drama/OPEN-DOOR.md)). The Theban Harbor Road is the only way
 between the Wine-Dark Harbor and Thebes. The battlefield is a Theban place
-outside the walls; the City Gate opens onto it once the gate guard holds the
-Burial Decree there and stays open, and the way back in is always open. The
+outside the walls; the Gate Guard bars the way to it (rules 100) until he
+holds the Burial Decree or Creon's writ, wherever he stands, and then it stays
+open. Beaten, he is knocked onto the battlefield and bars it again once he
+walks back. He bars the gate from the battlefield side too (the locked box,
+with the same reason), and only he may pass; the battlefield's other way out
+is the Cithaeron road, shown locked until it opens. A player may stand guard
+there too: yourself and the way
+reads "Guard", barring residents until your next play. The
 Cithaeron road leads on from the battlefield to Eleusis once a Theban account
 of the burial is there or on Dione's table. The Road to Delphi joins the Agora and
 Delphi, the Oeta Road joins Delphi and Trachis, the Royal Road joins Troy and
@@ -805,11 +862,11 @@ are saved in `output/badger-check/`.
 
 ## Shore text and memory
 
-Every avatar, item, and location has a profile in `entity-profiles.json` and a saved memory in the browser world. `senses.json` gives each place one first-person sense line (what a visitor feels, hears or sees there, without the place's name) and each avatar its pronouns. Only the server's voice context reads it; the rules and the browser do not. A memory holds the latest 16 witnessed events, six lasting encounters, and the latest generated text. Gifts, trades, threats, shared trips and quest effects can become lasting encounters. Card plays record events for the actors and objects present, the item used, and both places during travel. Generated speech and descriptions are marked as expressions, so the next prompt can distinguish them from game events. Speech receives recent facts and a few lasting encounters. Each avatar's memories, beliefs and fears give its request or response a personal reason.
+Every avatar, item, and location has a profile in `entity-profiles.json` and a saved memory in the browser world. `senses.json` gives each place one first-person sense line (what a visitor feels, hears or sees there, without the place's name) and each avatar its pronouns. Only the server's voice context reads it; the rules and the browser do not. A sense line never states something the rules can change, such as a gate shut or open: everyone in a scene at a place with a sealed way hears from the rules whether that way is open or shut now ("The way to The Exposed Battlefield is open."). A memory holds the latest 16 witnessed events, six lasting encounters, and the latest generated text. Gifts, trades, threats, shared trips and quest effects can become lasting encounters. Card plays record events for the actors and objects present, the item used, and both places during travel. Generated speech and descriptions are marked as expressions, so the next prompt can distinguish them from game events. Speech receives recent facts and a few lasting encounters. Each avatar's memories, beliefs and fears give its request or response a personal reason.
 
 Speech receives visible facts, current wants, and witnessed results. Item and place profiles describe appearance; an avatar profile is one seed sentence. Hidden interaction rules stay in the simulation; each avatar's facts can include the quest line described in [A quest stack per avatar](#a-quest-stack-per-avatar). A revealed path joins the location cards; travel happens when its card is played. Earlier opening expressions stay in saved history while fresh speech uses observations until Vale first douses or relights the lamp in the attic, or leaves it.
 
-When a play calls for speech, the browser sends the current local entities and departing avatars, their facts, avatar interests, and eight recent memories, witnessed events, and the six latest spoken lines at this place to `POST /card-game/text`. An avatar's spoken line is one moment of a conversation, and it speaks as itself (owner, 2026-11-03: "Prompts should be in FIRST person exclusively, with ZERO instructions."; "ai are interpreting the 'I' as a user message, put it in the assistant block keep system block clear"). Every call sends the same turns: a system turn that is only who it is ("You are Vale, the Lamplighter.", from its seed sentence; owner: "Perhaps our system prompts need 'You are Vale…'"), a user turn of silence ("…"), then the avatar's own view as its own assistant turn, then the user turn it answers. A body-language or emoji voice has its reply shape as its system turn instead. The view is short prose, a paragraph per part rather than a fact per line, and holds no instructions: the seed sentence ("I am Vale, the Lamplighter."), then, as its own paragraph with no label, what it knows and wants (its facts, as background rather than a script; what it learned about its own approaches stays out, as planning rather than speech, and so do the browser's "At the dialogue scene", "Location now" and "Wants …" restatements of what the view already says; the fact the rules reserved for this Talk is one of them), its history with the person it faces, and the talk it heard here as its own memory ("Pip said: "…"", "I said: "…"", at most six lines and about 400 characters, read from committed speech). Last, next to the line it answers, comes what it perceives now, in about 70 tokens at most. `perception.mjs` chooses it from existing state and sends only ids and event indices, which the server checks and words. In order: its trip ("I've just come to Black pond from Empty station."); on its first word after arriving, how the place differs from its last visit ("I've never been here before.", "Pip was here last time I came."); one line of the place (its pack `sense`, or for now the first sentence of its description); what it holds, and the state of what it or its listener holds ("My Lamp is unlit and uncovered."); the one or two events of this moment that most involve it, ranked about me, then my listener, then the thing I want, then anyone here; who holds the thing it wants; a wanted place one path away ("The way to Black pond starts here."); and the person it is talking with, by seed sentence ("I'm talking with Pip, a moth."), or who is with it when it addresses nobody. It never lists everyone here or every exit, and never says "I'm at …". A tab from an older release sends no perception and keeps the earlier view. `person.rs` rewords the rules' captions, events, facts and memories in the speaker's own first person ("Vale waits one turn." is "I wait a moment."; "Pip threatens Vale over the Lamp." is "Pip threatens me over the Lamp."), and a play's turns are moments in every prompt ("in the prompting lets call them moments instead of turns", owner, 2026-11-03), while the table's captions keep their words. The final user turn is only the line it answers, as `Pip says, “…”` (a bare line or `Pip: …` drew `Vale: …` back): in a Talk, the target answers the actor's line from this turn, so the target speaks after the actor, and is silent when the actor has no line this turn; the actor speaks within the first 55% of the scene, so the reply always keeps the rest; the actor answers the latest line someone else said to it here; when nobody has spoken (a Wait, an opener), the turn is the person it is talking with, there ("Pip is here."), because on gemma-3-4b silence drew scene narration where the listener's presence drew speech, and it is silence ("…") when it faces nobody. Its own "I" never reaches a user turn, where a model read it as the other person's and answered "You are at The Wine-Dark Harbor…". Where the route continues a final assistant turn (Mistral, and llama.cpp locally) a call that heard a line ends on the opening quote `“` of the reply, sent as a prefix, and the reply is its quoted spans; Claude rejects a prefill and OpenAI starts a new turn, so neither gets one, and no route ever gets the view as a trailing turn to continue. `prompt_version` is `card-voice-v5`. There is no speaker cue and no scene scaffold in a user turn, and a Talk's caption is not in the prompt. Its own earlier lines from memory stay out of a line ([#1537](https://github.com/cenetex/cosyworld/issues/1537), [#2016](https://github.com/cenetex/cosyworld/issues/2016)). A character's voice comes from its seed sentence, its facts and its own inner life; prompts carry no authored description or example lines. The `repeat` check compares a reply with the speaker's last three spoken lines, which the service reads from its memories, its previous reply and the request's table lines without putting them in the prompt. A reply that repeats six words in a row from another speaker's recent line is a `repeat` too, so a heard rule is not parroted; an answer may echo the line it answers, unless it says that whole line again. `echoed brief` fires only on scaffold leakage: one of the prompt's labels in any case ("I remember:", "Pip said:"), a retired label ("what i know:", "between us:"), the prompt's own wording ("recent talk here", "measured attempt"), and, blocking the reply, ten words in a row that run from one fact of the assistant view (its seed sentence included) into the next, three or more on each side, which read the view back. A fact said, even word for word, is speech. A retry resamples the same words with no correction: `max_tokens`, the post-trim and the validator shape a reply, not prompt text. A body-language or emoji voice keeps the reply shape its own check reads. A reply that is otherwise valid but leaves out its reserved fact is published at once as `untold`, with no retry; the rules' own check finds no fact in it, so the fact stays for another Talk. A thought or persona call sends the same view with its memories and all the talk it heard, ending on its own first words ("I think to myself:", "Who I am now:"); a dream's view is only its scraps and "Last night I dreamed:"; a waking avatar's view is "I'm waking up." and what it has uncovered. Each is the assistant turn, answered by silence. Thought, persona and dream calls still read remembered speech ([#1537](https://github.com/cenetex/cosyworld/issues/1537)). Facts name only what the speaker has found: a quest or trial target it has not talked with, visited, or (in the browser) uncovered reads as "someone I haven't met yet", an avatar does not retell its own earlier deed unless this Talk tells it, and a persona naming an item kind the avatar was never near is left out. The Rust service adds the authored profiles and uses the existing AI gateway. The deployed character map sends each avatar to its own exact OpenRouter model. Items and places each have their own voice call. These calls run together inside one bounded scene request, except that a Talk's target waits for the actor's line. Each call returns a brief plain-text reply, which the service validates before publication. A short unpunctuated reply can pass when the provider confirms it finished. A trailing continuation mark or an unfinished first line triggers the usual retry. Complete sentences and voluntary quotations keep their wording. Each entry carries its own model attribution. Raising a card prepares a play and keeps the current conversation. Playing a card commits the action. Talk and Ask always speak: the player's avatar and the target's reply, and a resident who sought the player out with Talk is answered the same way. Every other play is silent unless the rules meet a speech occasion, and a silent play sends no `/card-game/text` request: its beat is the portrait and the action caption, and the hand is ready at once. `SPEECH_OCCASIONS` in `narrative.mjs` checks the occasions in a fixed order from committed state, and `speech.json` names who speaks on each: a refusal (the refuser), a want met for the actor or the target (that avatar; level-ups ride on it), a first meeting (the newcomer), a threat (the target reacts), a defeat (one host line), an agreed companion arriving with the player, a Wait in a battle (the player and the opponents), waking from a long rest, a due thought on Wait (about one in six), the opening, the player's first arrival at a place (the place's caption) and a crossing's echo (the authored line, with no request). Residents' own arrivals and departures, item voices and routine travel stay silent. The request names its `occasion`, which the server's voice metrics count. The place and chosen speakers receive scene beats. The departure action stays in the source scene. Words are written after the move commits, so a departed avatar's line is recorded at the destination with that place's cast; a player left at the source never sees it, and the waiting portrait does not name them there. The prompt includes the completed card play (except Talk, which is the conversation itself) so their lines form an exchange or a shared reaction. A separate resolved-turn record gives the played verb and outcome, every avatar's final location and holdings, exact travel companions, and final item ownership. Accepted accompany plays record both travellers; independent trips record an empty companion list. Current results take priority over desires and remembered speech. When Vale speaks on a wait play, the words stay at the place where Vale stayed. A solo farewell frames desired company as a hope for later.
+When a play calls for speech, the browser sends the current local entities and departing avatars, their facts, avatar interests, and eight recent memories, witnessed events, and the six latest spoken lines at this place to `POST /card-game/text`. An avatar's spoken line is one moment of a conversation, and it speaks as itself (owner, 2026-11-03: "Prompts should be in FIRST person exclusively, with ZERO instructions."; "ai are interpreting the 'I' as a user message, put it in the assistant block keep system block clear"). Every call sends the same turns: a system turn that is only who it is ("You are Vale, the Lamplighter.", from its seed sentence; owner: "Perhaps our system prompts need 'You are Vale…'"), a user turn of silence ("…"), then the avatar's own view as its own assistant turn, then the user turn it answers. A body-language or emoji voice has its reply shape as its system turn instead. The view is short prose, a paragraph per part rather than a fact per line, and holds no instructions. It does not repeat the seed sentence the system turn already gives (a gesture or emoji voice's view opens with "I am Vale, the Lamplighter."). First, as its own paragraph with no label, comes what it knows and wants (its facts, as background rather than a script; what it learned about its own approaches stays out, as planning rather than speech, and so do the browser's "At the dialogue scene", "Location now" and "Wants …" restatements of what the view already says; the fact the rules reserved for this Talk is one of them), its history with the person it faces, and the talk it heard here as its own memory ("Pip said: "…"", "I said: "…"", at most six lines and about 400 characters, read from committed speech). Last, next to the line it answers, comes what it perceives now, in about 70 tokens at most. `perception.mjs` chooses it from existing state and sends only ids and event indices, which the server checks and words. In order: its trip ("I've just come to Black pond from Empty station."); on its first word after arriving, how the place differs from its last visit ("I've never been here before.", "Pip was here last time I came."); one line of the place (its pack `sense`, or for now the first sentence of its description); what it holds, and the state of what it or its listener holds ("My Lamp is unlit and uncovered."); the one or two events of this moment that most involve it, ranked about me, then my listener, then the thing I want, then anyone here; who holds the thing it wants; a wanted place one path away ("The way to Black pond starts here."); and the person it is talking with, by seed sentence ("I'm talking with Pip, a moth."), or who is with it when it addresses nobody. It never lists everyone here or every exit, and never says "I'm at …". A tab from an older release sends no perception and keeps the earlier view. `person.rs` rewords the rules' captions, events, facts and memories in the speaker's own first person ("Vale waits one turn." is "I wait a moment."; "Pip threatens Vale over the Lamp." is "Pip threatens me over the Lamp."), and a play's turns are moments in every prompt ("in the prompting lets call them moments instead of turns", owner, 2026-11-03), while the table's captions keep their words. The final user turn is only the line it answers, as `Pip says, “…”` (a bare line or `Pip: …` drew `Vale: …` back): in a Talk, the target answers the actor's line from this turn, so the target speaks after the actor, and is silent when the actor has no line this turn; the actor speaks within the first 55% of the scene, so the reply always keeps the rest; the actor answers the latest line someone else said to it here; when nobody has spoken (a Wait, an opener), the turn is the person it is talking with, there ("Pip is here."), because on gemma-3-4b silence drew scene narration where the listener's presence drew speech, and it is silence ("…") when it faces nobody. Its own "I" never reaches a user turn, where a model read it as the other person's and answered "You are at The Wine-Dark Harbor…". Where the route continues a final assistant turn (Mistral, and llama.cpp locally) a call that heard a line ends on the opening quote `“` of the reply, sent as a prefix, and the reply is the speaker's own quoted spans (`speech.rs`; a span tagged to someone else is theirs); Claude rejects a prefill and OpenAI starts a new turn, so neither gets one, and no route ever gets the view as a trailing turn to continue. `prompt_version` is `card-voice-v5`. There is no speaker cue and no scene scaffold in a user turn, and a Talk's caption is not in the prompt. Its own earlier lines from memory stay out of a line ([#1537](https://github.com/cenetex/cosyworld/issues/1537), [#2016](https://github.com/cenetex/cosyworld/issues/2016)). A character's voice comes from its seed sentence, its facts and its own inner life; prompts carry no authored description or example lines. The `repeat` check compares a reply with the speaker's last three spoken lines, which the service reads from its memories, its previous reply and the request's table lines without putting them in the prompt. A reply that repeats six words in a row from another speaker's recent line is a `repeat` too, so a heard rule is not parroted; an answer may echo the line it answers, unless it says that whole line again. `echoed brief` fires only on scaffold leakage: one of the prompt's labels in any case ("I remember:", "Pip said:"), a retired label ("what i know:", "between us:"), the prompt's own wording ("recent talk here", "measured attempt"), and, blocking the reply, ten words in a row that run from one fact of the assistant view (its seed sentence included) into the next, three or more on each side, which read the view back. A fact said, even word for word, is speech. A retry resamples the same words with no correction: `max_tokens`, the post-trim and the validator shape a reply, not prompt text. A body-language or emoji voice keeps the reply shape its own check reads. A reply that is otherwise valid but leaves out its reserved fact is published at once as `untold`, with no retry; the rules' own check finds no fact in it, so the fact stays for another Talk. A thought or persona call sends the same view with its memories and all the talk it heard, ending on its own first words ("I think to myself:", "Who I am now:"); a dream's view is only its scraps and "Last night I dreamed:"; a waking avatar's view is "I'm waking up." and what it has uncovered. Each is the assistant turn, answered by silence. Thought, persona and dream calls still read remembered speech ([#1537](https://github.com/cenetex/cosyworld/issues/1537)). Facts name only what the speaker has found: a quest or trial target it has not talked with, visited, or (in the browser) uncovered reads as "someone I haven't met yet", an avatar does not retell its own earlier deed unless this Talk tells it, and a persona naming an item kind the avatar was never near is left out. The Rust service adds the authored profiles and uses the existing AI gateway. The deployed character map sends each avatar to its own exact OpenRouter model. Items and places each have their own voice call. These calls run together inside one bounded scene request, except that a Talk's target waits for the actor's line. Each call returns a brief plain-text reply, which the service validates before publication. A short unpunctuated reply can pass when the provider confirms it finished. A trailing continuation mark or an unfinished first line triggers the usual retry. Complete sentences and voluntary quotations keep their wording. Each entry carries its own model attribution. Raising a card prepares a play and keeps the current conversation. Playing a card commits the action. Talk and Ask always speak: the player's avatar and the target's reply, and a resident who sought the player out with Talk is answered the same way. Every other play is silent unless the rules meet a speech occasion, and a silent play sends no `/card-game/text` request: its beat is the portrait and the action caption, and the hand is ready at once. `SPEECH_OCCASIONS` in `narrative.mjs` checks the occasions in a fixed order from committed state, and `speech.json` names who speaks on each: a refusal (the refuser), a want met for the actor or the target (that avatar; level-ups ride on it), a first meeting (the newcomer), a threat (the target reacts), a defeat (one host line), an agreed companion arriving with the player, a Wait in a battle (the player and the opponents), waking from a long rest, a due thought on Wait (about one in six), the opening, the player's first arrival at a place (the place's caption) and a crossing's echo (the authored line, with no request). Residents' own arrivals and departures, item voices and routine travel stay silent. The request names its `occasion`, which the server's voice metrics count. The place and chosen speakers receive scene beats. The departure action stays in the source scene. Words are written after the move commits, so a departed avatar's line is recorded at the destination with that place's cast; a player left at the source never sees it, and the waiting portrait does not name them there. The prompt includes the completed card play (except Talk, which is the conversation itself) so their lines form an exchange or a shared reaction. A separate resolved-turn record gives the played verb and outcome, every avatar's final location and holdings, exact travel companions, and final item ownership. Accepted accompany plays record both travellers; independent trips record an empty companion list. Current results take priority over desires and remembered speech. When Vale speaks on a wait play, the words stay at the place where Vale stayed. A solo farewell frames desired company as a hope for later.
 
 Each server voice call writes one `card voice call` log record with the entity, part, attempt count, outcome (`spoken`, `untold`, `silent` or `cancelled`), each attempt's rejection reason, the registry `model` and `provider` it last tried, each gateway failure code (`failures`), its latency (`ms`), and approximate prompt tokens (characters / 4) for every section: `system`, `now`, `facts`, `directions`, `memories`, `earlier`, `conversation` and `inner`. It never records prompt or reply text. Each record also names the `play` (the resolved card kind, `opening` at turn 0) and the scene's speech `occasion` (from a fixed list, or `none`). `GET /meta` reports the same counters since the process started under `card_voice`, with calls and spoken replies per play under `by_play` and per occasion under `by_occasion`. `by_model` and `by_provider` count calls, attempts and each outcome per registry model and provider (at most 24 labels each; the rest share `other`), and `provider_failures` counts gateway failure codes such as `inference_timeout` or `ai_provider_unavailable` behind each `provider` rejection. An attempt that ran out of its own time is a `timeout` rejection; the attempt still running when the scene deadline or a closed viewer dropped the call is `cancelled`. An `untold` line is published, so it adds no rejection. `rejections` are blocked reasons: the reply was not published. `flagged` counts reasons on lines that were published anyway; a flagged line counts as spoken, and its log record lists them under `flags`.
 
@@ -838,22 +895,30 @@ line wraps under a hanging indent. The
 text writes in with the dialogue's own reveal (`dialogue.mjs`) at the
 dialogue's pace: a letter every 28 ms behind a gold caret, each letter's ink
 fading in over 60 ms, the same rests after punctuation, and 650 ms between
-stanzas (`STANZA_MS`). Eight held words keep a breath of their own
-(300–350 ms after "land", "peoples", "still", "keepers", "living", "Nothing",
-"box" and "yours"), and one long silence (1.8 s) falls after "Nothing here
-began with us." before "Before you sits": `pauses` in `acknowledgement.json`
-names each word, which time it appears, its `pauseMs` and, for a held word,
-its card rarity `tier` (`level-tiers.mjs`), with the phrase around it that
-lights in `phrases`; the larger of that and any punctuation or
-stanza breath wins. About 20 seconds in all. The tiers climb as the poem goes:
-Common "there was land" and "there were peoples", Uncommon "care for them
-still" and "the keepers", Rare "the voices old and living", Epic "Nothing here
-began with us.", Legendary "an intricately carved wooden box" and Mythic "The
-path is yours.". Each phrase, once its last letter is written, takes a gentle
-tint of its tier's colour (45% of the tier over the text's cream) with a soft
-5 px glow (the tier at 30%) that rises over `glowInMs` and stays, so the
-finished poem shows all eight, calm and well above AA contrast; a tap that
-shows the rest lights them all at once. While it writes, every other letter
+stanzas (`STANZA_MS`). A few words keep a silence of their own (300–320 ms
+after "land", "peoples", "still", "keepers", "living", "Nothing" and "box"),
+and one long silence (1.8 s) falls after "Nothing here began with us." before
+"Before you sits": `pauses` in `acknowledgement.json` names each word, which
+time it appears and its `pauseMs`; the larger of that and any punctuation or
+stanza breath wins. Fifteen single words light, in five sets
+(`highlights`), each in a held pause after its own stanza ends, so nothing
+lights while text is writing: Uncommon "peoples", "waters", "seasons",
+"lands"; Rare "keepers", "homes", "machines"; Epic "voices", "stories",
+"echo"; Legendary "Nothing"; Mythic "intricately", "carved", "wooden", "box"
+(`level-tiers.mjs`). Each word names which time it appears, so only "these
+lands", the first "machines" and the first "stories" light. The pen settles
+200 ms (`settleMs`), the words light in reading order one every 450 ms
+(`wordStepMs`), each glow rising over 600 ms (`glowInMs`) with no motion,
+then 250 ms (`tailMs`) before the next stanza: 2.25 s after stanzas 1 and 5,
+1.8 s after stanzas 2 and 3. "Nothing" lights 600 ms into the 1.8 s silence
+and stands alone before the box. About 25 seconds in all. The last line,
+"Will you take it?", stays plain cream. A lit word takes a gentle tint of its
+tier's colour (45% of the tier over the text's cream), a soft 5 px glow (the
+tier at 30%) and a little weight, a 0.03em stroke under the fill, so colour is
+never the only cue and no glyph moves; all fifteen stay lit, well above AA
+contrast. A tap that shows the rest lights them all at once, and at a large
+text size a set with a word scrolled out of view lights the rest at once. The
+highlight is styling only: the words stay plain text, announced nowhere. While it writes, every other letter
 blips in the dialogue's own voice (`createSpeechSounds`, the neutral 145 Hz
 voice of a speaker with no pitch of their own), with the table's Voices
 setting, none on rests, under reduced motion or in a hidden tab. The blips
@@ -862,7 +927,7 @@ first letter; a first visit, before any gesture, is silent, and the first
 tap shows the rest and starts the song, which stops the blips. Every
 letter is laid out from the start, so nothing reflows and screen readers have
 the whole text at once; written whole, it folds back into plain text. Reduced
-motion shows it all at once, with every phrase's tint still and no glow, and a
+motion shows it all at once, with every word's tint and weight still and no glow, and a
 hidden tab pauses it. A quiet "click to
 continue" line ("tap to continue" on touch screens) fades in once the words
 are whole; the panel scrolls when it does not fit. At a large text size
@@ -876,12 +941,12 @@ goes on.
 After it, the world's logo fades in (with the song, if it has not begun)
 and lifts over one face-down
 card, the game's own card back, with a small Privacy link (`/privacy`) under
-it. The card is a button named "Open the box", the poem's last words (the
-card back is the carved box's lid), and takes focus, with
+it. The card is a button named "Take the box", answering the poem's last
+line (the card back is the carved box's lid), and takes focus, with
 a ring only from the keyboard; like a hand card it lifts under a pointer
 (brightens under reduced motion), and Privacy is a 24 px tap target. Left
 alone for 3 seconds, the card breathes a faint warm glow on a slow 3.6-second
-cycle; at 6 seconds a quiet "open the box" line, the same on every screen,
+cycle; at 6 seconds a quiet "take it" line, the same on every screen,
 fades in under it, styled like the acknowledgement's line, never on
 the card. On a short screen or at a large text size the card gives up height
 so the line and Privacy stay on screen. The line is hidden from screen readers, which hear the card's name,
@@ -931,9 +996,16 @@ sites' landings (`pack-landings.json`) and the local CosyWorld app never show
 it. Storage that cannot be read shows it once per load of the bare address.
 The logos are data in `title-logos.json` (file, name, size; all suit a
 dark ground): the two wordmarks, then three hand-lettered 16:9 artworks
-appended so saved picks keep their indices. `title-logo.mjs` picks one per world: first from the world's
-id (`?world=`, `?table=`, `?pack=` or the bare local table), never the logo
-shown last when another exists, then remembered in `cosyworld.title-logo` so
+appended so saved picks keep their indices. Each logo has a hidden `rarity`,
+a game tier id that only weights the draw by the card tier weights
+(`RARITY_WEIGHTS` in `pack-specials.mjs`): the two teal artworks are common,
+Pip and the lantern uncommon, the Black Pond rare and the gold ornate emblem
+epic. It is never shown. A legendary logo is never drawn, and a logo marked
+`retired: true` is drawn no more but still shows where it was remembered;
+append new logos and never reorder or remove one. `title-logo.mjs` picks one
+per world: first a weighted draw seeded by the world's id (`?world=`,
+`?table=`, `?pack=` or the bare local table), the same for every player,
+then the next drawable logo if that was the one shown last, then remembered in `cosyworld.title-logo` so
 a reload or a return shows the same one; New game picks afresh. The same
 logo replaces the COSYWORLD wordmark in the toolbar, at its own aspect ratio
 and as tall as the toolbar buttons (46 px, 40 px at phone width), named by its
@@ -949,6 +1021,16 @@ supplied The Black Pond borrows the teal bell-and-lantern lettering
 desktop and phone widths (`TOOLBAR_LOGO_SHOTS=<dir>` saves screenshots).
 Other sites' landings and the local CosyWorld app keep
 the COSYWORLD wordmark.
+A world levels up as it grows (`world-level.mjs`): its level is 1 plus the
+levels its residents have gained over their authored start and the ways it
+has opened (latched gate routes, opened sections, discovered crossings),
+read in the browser from the same projected world in local and shared play.
+Players' levels are left out, and nothing is stored or journaled. Past
+Common, its tier colour (`level-tiers.mjs`) glows softly behind the toolbar
+logo and the Settings logo, frames the title's logo, and edges the world's
+entry in ☰ like a card's rarity edge; there is no numeral or label. The
+browser remembers each world's tier in `cosyworld.world-tier`, so ☰ edges a
+world not being played as it was when last opened.
 Automated browsers skip it unless the address has `intro=1`;
 `v2/scripts/smoke-card-title-intro.mjs` plays it at desktop and phone width,
 including after New game, music off, reduced motion and the keyboard, and
@@ -1164,13 +1246,15 @@ A standoff play is shown beat by beat before the new world is drawn. Each beat o
 
 Published brace (`guard`), strike (`attack`) and hit paintings follow those beats and preserve the player's plain or scarf wardrobe. A committed brace keeps its raised-arm portrait until consumed or cleared. Beat images preload before playback; unavailable art keeps the existing portrait. A cast painting whose canvas pads its figure differently from the plain portrait drops and scales by its measured fit in `assets/combat/pose-fit.json`, so its feet stay on the floor and its figure keeps the plain portrait's size; run `node v2/scripts/build-combat-pose-fit.mjs` after adding or replacing paintings. The Keeper uses his unmirrored right-facing neutral portrait when the scene faces him right, since his combat paintings face left. Combatants fit inside the phone frame throughout a beat: each figure keeps its own painting's framing, and on phones the two fighters of the exchange share one scale, so a strike painting swapping in never resizes its fighter. Those behind the exchange turn to face it; Pip and the Keeper keep that framing between plays too. Carried props stay in their cards while combat arms are raised, and the normal portrait and framing return when playback ends or is cancelled.
 
-When the player loses, their figure slumps and greys, and the scene fades slowly to black, like losing consciousness (1.4 seconds at 1×, half that at 2×; reduced motion cuts to black). On the black, the loss screen (`defeat-view.mjs`) shows who drove the player off and what they lost as full-art cards, the winner first, as the hand draws them. Under the cards, never on them, the dialogue's reveal writes "Pip drove you off." with its caret, then inscribes each change as a plain caption, with no icon: dropped items, "Sent home." on the third loss, and "You wake at <place>." It is worded from the rules' committed fields, never by AI, and announced once. It has no buttons and no modal. A tap, Enter, Space or Escape shows the words whole, and the next moves on; left alone, it moves on 2.6 seconds after the words are whole. The words fade, black holds a breath, and the black lifts slowly and wordless (2.5 seconds at 1×) onto wherever the rules put the player. There the hand plays on as usual, and the player's beat repeats "You came to at <place>." The arrival line comes from one voice: a resident at the new place, or the player's avatar when nobody else is there. Its brief is one short fact: "Vale was beaten by Pip and came to at Empty station." Its song, Moonstone Sanctuary, comes in after three beats of silence and fades out fully before the lift (see the music section). Local and shared tables show the same screen from the same committed beats.
+When the player loses, their figure slumps and greys, and the scene fades slowly to black, like losing consciousness (1.4 seconds at 1×, half that at 2×; reduced motion cuts to black). On the black, the loss screen (`defeat-view.mjs`) shows who drove the player off and what they lost as full-art cards, the winner first, as the hand draws them. Under the cards, never on them, the dialogue's reveal writes "Pip drove you off." with its caret, then inscribes each change as a plain caption, with no icon: dropped items, "Sent home." on the third loss, and "You wake at <place>." It is worded from the rules' committed fields, never by AI, and announced once. It has no buttons and no modal. A tap, Enter, Space or Escape shows the words whole, and the next moves on; left alone, it moves on 2.6 seconds after the words are whole. The words fade, black holds a breath, and the black lifts slowly and wordless (2.5 seconds at 1×) onto wherever the rules put the player. The hand stays away until that
+place's hand is drawn, then is dealt in as the black lifts (reduced motion
+fades it in), so the old hand never shows again. There the hand plays on as usual, and the player's beat repeats "You came to at <place>." The arrival line comes from one voice: a resident at the new place, or the player's avatar when nobody else is there. Its brief is one short fact: "Vale was beaten by Pip and came to at Empty station." Its song, Moonstone Sanctuary, comes in after three beats of silence and fades out fully before the lift (see the music section). Local and shared tables show the same screen from the same committed beats.
 
 Tapping the stage finishes the current beat; its outcome text still shows. Settings › Fight speed switches between 1× and 2×. A full fight stays under three seconds at 1×. Reduced motion replaces the cut, lunge and shake with outlines and fades and keeps all text. The flash follows "Flashes and scares". Local and shared tables play the same beats from the committed log (`combat-beats.mjs` reads the rules' structured attack and retreat fields, falling back to standoff state and the rules' lines; `combat-view.mjs` draws them).
 
 Each beat has a light, storybook sound made in the browser (`combat-sfx.mjs`; no sample files): a whoosh when a fighter swings, squares up or steps in to guard someone, a bam when a hit lands, a bigger pow for a hit of 2 or more, a wooden block when a brace commits or soaks the blow, and a low thud when someone is beaten. Each is a few Web Audio voices: filtered noise sweeps and pitched thumps. Pitch varies by up to 5% and filter by up to 10%, seeded by the beat's sequence number and phase, so the same beat always sounds alike. They play through the bell's player (`sfx.mjs`) only after a gesture unlocks audio. They follow the Voices switch, like the letters' blips, and the shared volume, at 0.4 of it, under the battle song. A hidden tab or open Settings silences them, and a beat tapped through lands silently.
 
-Run `node v2/scripts/smoke-card-combat.mjs` for a lost battle at desktop, phone and reduced motion, two-handed against Pip and three-way against Antigone with Pip behind the exchange; it checks that the two fighters stand apart, the strike trail stays on screen, and the loss screen has no buttons and moves on to the new place.
+Run `node v2/scripts/smoke-card-combat.mjs` for a lost battle at desktop, phone and reduced motion, two-handed against Pip and three-way against Antigone with Pip behind the exchange; it checks that the two fighters stand apart, the strike trail stays on screen, and the loss screen has no buttons and moves on to the new place, with only the new hand dealt in.
 
 Card selection keeps the current card elements in place and leaves keyboard focus on the tapped card. The hand opens over 220 milliseconds; held items slide out from their owner. A play leaves the hand where it is: a raised hand stays raised and keeps its scroll, and a play in the same place refreshes the cards in place. A thing the player's own play puts in their hands (a Take, or the other side of a trade) is in the hand at once, face up: the row scrolls just far enough to show it beside its new holder, without waiting for the play's words (`node v2/scripts/smoke-card-reply-wait.mjs`). Travel changes the cards while the scene veil is down. Rapid taps reverse the current motion. Reduced motion applies the final layout at once. Menu and Memory keep the selected cards and open items, and Escape closes the active panel before lowering the hand. Only a click on empty table space (the stage, outside the cards and the dialogue; not the toolbar or action beat) or Escape folds the hand to its resting row; a play never does. Both clear the selection, held items included, so the action beat fades and the full dialogue card comes back; a play already chosen keeps its Thinking card. A tap on the dialogue steps its beat and leaves a raised hand raised. Nothing but the player's own action moves the hand: new beats, shared updates and another tab's save leave it, and its scroll, as they were (a card that leaves the table drops out of the selection). Selecting, changing the pair and deselecting keep it open, as does a tap on empty hand space. The hand has no scroll arrows: a swipe, drag or wheel reaches cards past its faded edges. A held item stays raised with its plays, and any tap on the folded hand opens it again. Short landscape screens keep the hand inside the viewport.
 
@@ -1359,28 +1443,34 @@ delay or fail the line
 ([shared worlds](../docs/card-table/shared-worlds.md#learning-and-private-reflection)).
 
 Optional voice tiers are enabled with exact model IDs in
-`COSYWORLD_CARD_REFLECTION_MODEL` and `COSYWORLD_CARD_ESCALATION_MODEL`.
-Both settings start unset. The reflection tier writes an avatar's lasting
-persona in local play. Public speech, thoughts, and dreams use the character's
-own model. The escalation tier gets one cooler attempt after the selected
-model's attempts fail validation or time out. It is also the voice's fallback
-while the character's own model route is open after repeated provider faults
-([runtime readiness](../docs/ai-capability-registry.md#runtime-readiness-and-account-probes)):
-the own attempts fail at once without a provider call, and the escalation
-attempt runs with up to one call timeout. A model whose route keeps opening, or
-whose voices keep ending with no usable line, is benched for six hours and is
-treated the same way
-([model bench](../docs/ai-capability-registry.md#the-model-bench)).
-Neither Fly site sets an escalation model today, so an open route or a bench
-still leaves that voice "…". All tier models must qualify for
-world content in the current registry and data policy. Equal selected models,
-including two IDs for the same concrete model, share the original attempts.
+`COSYWORLD_CARD_REFLECTION_MODEL` and `COSYWORLD_CARD_FALLBACK_MODELS`, a JSON
+array of up to six models such as
+`["openai/gpt-6-luna","anthropic/claude-haiku-5.5"]`. Both start unset. The
+older `COSYWORLD_CARD_ESCALATION_MODEL` is a one-model list; setting both is
+refused. The reflection tier writes an avatar's lasting persona in local play.
+Public speech, thoughts, and dreams use the character's own model.
 
-An enabled escalation receives a reserved part of the scene's remaining time:
-half the remaining time, up to one call timeout. Earlier attempts share the
-rest. A voice starting at the beginning of the hosted twenty-two-second scene
-therefore has about 5.5 seconds for each of its two own attempts and eleven
-seconds for escalation. Queue waits use the same deadline. Every returned line
+A part tries its own model, then each fallback in order
+(`card_narrative/fallback.rs`), leaving out repeats, two IDs for one concrete
+model, and benched models
+([model bench](../docs/ai-capability-registry.md#the-model-bench)). A provider
+error, an empty reply, or a timeout moves to the next model at once; a reply
+the validator blocks moves on after the voice's attempts (two by default). A
+lone model keeps all its attempts. While a route is open after repeated
+provider faults
+([runtime readiness](../docs/ai-capability-registry.md#runtime-readiness-and-account-probes)),
+its attempt fails at once without a provider call. Each attempt uses its own
+provider's layout, so a Mistral fallback continues an opening quote and a
+Claude one does not. Neither Fly site sets a fallback today, so an open route
+or a bench still leaves that voice "…". Every tier model must qualify for world
+content in the current registry and data policy, or scenes are refused.
+
+Each model gets the scene's remaining time split over the models still to try,
+up to one call timeout per attempt, and a quick failure passes its share on. A
+voice starting the hosted twenty-two-second scene with one fallback has eleven
+seconds on each. Queue waits use the same deadline. The line records the model
+that spoke; `/meta.card_voice.by_model` counts, as `fallbacks`, calls that
+reached a model after an earlier one failed. Every returned line
 and reflection passes the same checks before it can enter the saved world.
 The browser retains the avatar's public model attribution beside its private
 persona, thoughts, and dreams across reloads.

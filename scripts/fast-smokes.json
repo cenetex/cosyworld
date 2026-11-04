@@ -1,9 +1,16 @@
 {
-  "about": "Browser smokes for the fast check (.github/workflows/fast-check.yml), chosen by changed paths in scripts/select-fast-smokes.mjs. Smokes in always run on every change, before the rest. A changed smoke script runs next, then the rules below in order, up to max more. Each smoke serves the static card game; smokes in needsRust start the Rust server and run only in the full suite (ci.yml).",
+  "about": "Browser smokes for the fast check (.github/workflows/fast-check.yml), chosen in scripts/select-fast-smokes.mjs. The core smokes run on every pull request and main push, each in its own parallel job, so a core journey cannot go red unnoticed. A changed smoke script runs next, then the rules below in order, up to max more; a core smoke a rule names runs once and takes no slot. Each smoke serves the static card game; smokes in needsRust start the Rust server and run only in the full suite (ci.yml).",
   "max": 3,
-  "always": ["smoke-card-boot"],
-  "default": ["smoke-card-beat-stack", "smoke-card-actions"],
+  "core": [
+    "smoke-card-boot",
+    "smoke-card-image-first",
+    "smoke-card-actions",
+    "smoke-card-beat-stack",
+    "smoke-card-unveil",
+    "check-card-awakening"
+  ],
   "needsRust": [
+    "smoke-card-local",
     "smoke-shared-cards",
     "smoke-card-greek-capacity",
     "smoke-card-narrative-contract"
@@ -18,6 +25,10 @@
       "smokes": ["smoke-card-combat"]
     },
     {
+      "paths": "^v2/card-game/card-(exit|ghost|swap|entry)\\.",
+      "smokes": ["smoke-card-swap", "smoke-card-exit", "smoke-card-beat-stack"]
+    },
+    {
       "paths": "^v2/card-game/(card-tiers|cards|rarity|images)\\.|covered",
       "smokes": ["smoke-card-unveil", "smoke-card-actions"]
     },
@@ -27,10 +38,14 @@
     },
     {
       "paths": "^v2/card-game/shared|^v2/orchestrator-rust/|^v2/core-c/",
-      "smokes": ["smoke-shared-play-status", "smoke-shared-snapshot-order"]
+      "smokes": [
+        "smoke-card-shared-updating",
+        "smoke-shared-play-status",
+        "smoke-shared-snapshot-order"
+      ]
     },
     {
-      "paths": "^v2/card-game/(music|hum)|music-streams",
+      "paths": "^v2/card-game/(music|hum|opening)|music-streams|^v2/scripts/(music-reveal-check|shared-music-openings)\\.",
       "smokes": ["smoke-card-music"]
     },
     {

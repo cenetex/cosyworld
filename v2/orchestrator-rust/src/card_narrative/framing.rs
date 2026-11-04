@@ -249,13 +249,6 @@ mod tests {
         ("Vale smiles and lifts the lamp.", "self-narration"),
         ("Vale nods slowly.", "self-narration"),
         ("\"Come closer,\" Vale whispers.", "self-narration"),
-        ("\"Stay,\" I say, \"and listen.\"", "narration tag"),
-        (
-            "\"You hit me and I hit back,\" I say, keeping my hand near the door.",
-            "narration tag",
-        ),
-        ("\"Come closer,\" Pip says.", "narration tag"),
-        ("\"Stay here,\" I tell Pip.", "narration tag"),
         ("I give the Lamp to Pip.", "stage action"),
         ("What I know: the clock stopped.", "echoed brief"),
         (
@@ -305,6 +298,22 @@ mod tests {
             assert!(flags.contains(reason), "{line}: {flags:?}");
             assert_eq!(text, line.trim_matches('"'), "{line}");
         }
+        // A quoted reply with a tag keeps its own words, flagged.
+        for (line, said) in [
+            ("\"Stay,\" I say, \"and listen.\"", "Stay, and listen."),
+            (
+                "\"You hit me and I hit back,\" I say, keeping my hand near the door.",
+                "You hit me and I hit back.",
+            ),
+        ] {
+            let want = Ok((said.into(), vec!["narration tag"]));
+            assert_eq!(check.verdict(line, true, true), want, "{line}");
+        }
+        let told = check.verdict("\"Stay here,\" I tell Pip.", true, true);
+        assert_eq!(told, Ok(("Stay here.".into(), vec!["narration tag"])));
+        // Pip's words written for Pip are not mine to say.
+        let voiced = check.verdict("\"Come closer,\" Pip says.", true, true);
+        assert_eq!(voiced, Err("other speaker"));
         for (line, reason) in BLOCKED {
             assert_eq!(check.verdict(line, true, true), Err(*reason), "{line}");
         }

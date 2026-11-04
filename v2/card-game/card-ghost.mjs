@@ -49,6 +49,14 @@ export function ghostOf(card) {
 // A copy pinned over the card's box, with the look the card had, placed
 // after the card so lookups by class still find the real one first.
 export function pinGhost(card, zIndex) {
+  const ghost = lookAlike(card, zIndex);
+  card.after(ghost);
+  return ghost;
+}
+
+// The same copy, not yet placed, for a layer over the card's offset parent:
+// copies read together and placed together cost one layout, not one each.
+export function lookAlike(card, zIndex) {
   const ghost = ghostOf(card);
   const parts = [card, ...card.querySelectorAll("*")],
     copies = [ghost, ...ghost.querySelectorAll("*")];
@@ -66,7 +74,22 @@ export function pinGhost(card, zIndex) {
     height: `${card.offsetHeight}px`,
     zIndex,
   });
-  card.after(ghost);
+  return ghost;
+}
+
+// The same copy fixed where the element shows on screen, over the page, so
+// it stays seen while the element and what holds it are hidden.
+export function fixedGhost(el) {
+  const box = el.getBoundingClientRect(),
+    ghost = lookAlike(el, getComputedStyle(el).zIndex);
+  Object.assign(ghost.style, {
+    position: "fixed",
+    left: `${box.left}px`,
+    top: `${box.top}px`,
+    transform: "none",
+    translate: "none",
+  });
+  document.body.append(ghost);
   return ghost;
 }
 
@@ -86,13 +109,16 @@ export function releaseGhosts(root = document) {
 }
 
 // Plays the ghost out to the keyframe `to` and releases it when the motion
-// ends or is cancelled. It rests invisible, so it never shows again.
-export function fadeGhost(ghost, to, duration) {
+// ends or is cancelled. It rests invisible, so it never shows again; one
+// that waits `delay` holds its look until it moves.
+export function fadeGhost(ghost, to, duration, delay = 0) {
   if (!ghost) return null;
   const from = getComputedStyle(ghost).opacity;
   ghost.style.opacity = "0";
   const motion = ghost.animate([{ opacity: from }, { opacity: 0, ...to }], {
     duration,
+    delay,
+    fill: "backwards",
     easing: "cubic-bezier(.22,.61,.36,1)",
   });
   const done = () => releaseGhost(ghost);

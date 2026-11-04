@@ -2,11 +2,13 @@ import { checkSharedMusicOpenings } from "./shared-music-openings.mjs";
 import { checkMusicReveal } from "./music-reveal-check.mjs";
 import {
   clearSelection,
+  putOutOpening,
   selectCard,
   startNewGame,
   openSettings,
   pressSetting,
   closeSettings,
+  tapCard,
 } from "./card-browser-helpers.mjs";
 import assert from "node:assert/strict";
 import { chromium } from "playwright";
@@ -77,7 +79,11 @@ try {
   assert(await page.locator("#room-music").evaluate((audio) => audio.paused));
   await closeSettings(page);
   // Dousing the lit lamp reveals the pond path and starts the first music.
-  await playCard("lamp");
+  // The opening reveals the lamp and attic first; Put out is its first play.
+  await page.waitForFunction(
+    () => document.querySelector("#hand").dataset.cooling === "false",
+  );
+  await putOutOpening(page);
   await page.waitForFunction(() =>
     document.querySelector('#hand [data-card="pond"]'),
   );
@@ -280,6 +286,11 @@ try {
   );
   await page.setViewportSize({ width: 390, height: 844 });
   await openSettings(page);
+  // Settings is a hand (settings-cards.mjs): the music and volume cards lie in
+  // the Sound group, so the phone player taps Sound to fan them out.
+  const sound = page.locator('#settings-hand [data-setting="sound"]');
+  if ((await sound.getAttribute("aria-expanded")) !== "true")
+    await tapCard(sound);
   for (const id of ["music", "volume"])
     assert(await page.locator(`[data-setting="${id}"]`).isVisible());
   await page.waitForFunction(

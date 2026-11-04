@@ -50,13 +50,15 @@ export const entryDelays = (count) =>
 // the cards in view now and starts each new card's rise, except a still one
 // (a card seen moving from where it was); a card redrawn mid-rise (a fresh
 // element for the same key) carries on where it was.
-// Under reduced motion cards just appear. Reusable by any card row.
+// Under reduced motion cards just appear. A scene change holds the new
+// cards back `after` ms (or `after(count)` for that many), so they enter
+// once the old ones are gone (card-swap.mjs). Reusable by any card row.
 export function createCardEntries() {
   let drawn = new Set();
   const starts = new Map(),
     playing = new WeakMap();
   return {
-    draw(cards, { now = performance.now(), reduced = false } = {}) {
+    draw(cards, { now = performance.now(), reduced = false, after = 0 } = {}) {
       const fresh = new Set(
         enteringKeys(
           drawn,
@@ -68,8 +70,13 @@ export function createCardEntries() {
       const rising = cards.filter(
         (c) => !reduced && !c.still && (fresh.has(c.key) || starts.has(c.key)),
       );
+      const lead =
+        typeof after === "function"
+          ? after(rising.filter((c) => fresh.has(c.key)).length)
+          : after;
       entryDelays(rising.length).forEach((delay, i) => {
-        if (fresh.has(rising[i].key)) starts.set(rising[i].key, now + delay);
+        if (fresh.has(rising[i].key))
+          starts.set(rising[i].key, now + lead + delay);
       });
       for (const { key, element } of rising) {
         const at = starts.get(key);

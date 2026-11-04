@@ -450,6 +450,18 @@ try {
         path: `${output}/memory-${width}-${motion}.png`,
       });
       await page.locator('[data-close="history-dialog"]').click();
+      // A new game clears the stack: the panel fades out as a copy over
+      // 200 ms, which is then released, instead of vanishing.
+      assert.equal(await page.locator(".dialogue").isHidden(), false);
+      const cleared = await page.evaluate(async () => {
+        document.querySelector("#confirm-reset").click();
+        const ghost = document.querySelector("body > .beat-ghost");
+        const fade = ghost?.getAnimations()[0];
+        await fade?.finished;
+        return [fade?.effect.getTiming().duration, ghost?.isConnected];
+      });
+      assert.deepEqual(cleared, [200, false], "the cleared stack fades");
+      assert.equal(await page.locator(".dialogue").isHidden(), true);
       assert.deepEqual(errors, []);
       await page.close();
       console.log(`beat stack ok at ${width} (${motion})`);

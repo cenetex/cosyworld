@@ -1043,7 +1043,8 @@ body .dialogue[data-dropped="true"] {
     --hand-fade: 28px;
   }
 }
-/* Settings is a hand of cards in place of the play hand (settings-cards.mjs). */
+/* Settings is a hand of cards in place of the play hand, its groups and
+   their settings drawn as places and their things (settings-cards.mjs). */
 #settings-screen {
   position: static;
   width: auto;
@@ -1055,7 +1056,8 @@ body .dialogue[data-dropped="true"] {
   box-shadow: none;
 }
 /* Behind it the scene fades to black under the world's logo, lifted and
-   scaled as the title lifts it over its card (title-intro.mjs). */
+   scaled as the title lifts it over its card (title-intro.mjs). Then the
+   owner's workbench comes up as Settings' own scene. */
 .settings-veil {
   position: absolute;
   inset: 0;
@@ -1075,14 +1077,38 @@ body:has(#settings-screen[open]) .settings-veil {
   visibility: visible;
   transition: opacity 0.6s ease;
 }
-.settings-veil > img {
+.settings-scene {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  /* It stays while the veil fades out. */
+  animation: settings-scene-hold 0.6s;
+}
+body:has(#settings-screen[open]) .settings-scene {
+  animation: settings-scene 0.8s ease 1.2s both;
+}
+@keyframes settings-scene {
+  to {
+    opacity: 1;
+  }
+}
+@keyframes settings-scene-hold {
+  from,
+  to {
+    opacity: 1;
+  }
+}
+.settings-logo {
   width: min(76vw, 1400px);
   max-height: 80dvh;
   object-fit: contain;
   transform: translateY(-14dvh) scale(0.8);
 }
 @media (max-width: 640px) {
-  .settings-veil > img {
+  .settings-logo {
     width: calc(100vw - 32px);
   }
 }
@@ -1090,6 +1116,10 @@ body:has(#settings-screen[open]) .settings-veil {
   .settings-veil,
   body:has(#settings-screen[open]) .settings-veil {
     transition: none;
+  }
+  .settings-scene,
+  body:has(#settings-screen[open]) .settings-scene {
+    animation-duration: 0s;
   }
 }
 .hand-wrap:has(> #settings-screen[open]) > #hand,
@@ -1151,6 +1181,14 @@ body .hand > .card-frame:hover,
 body .hand > .card-frame:focus-within {
   z-index: 2;
 }
+/* Cards leaving the hand fall here as inert ghosts (card-exit.mjs). */
+.card-exits {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  /* A card at the row's edge never widens the page as it goes. */
+  overflow: clip;
+}
 body .card-frame[data-raised="true"] {
   z-index: 3;
   transform: translateY(-10px);
@@ -1196,21 +1234,24 @@ body .card[data-selected="true"] {
       translate 180ms ease-out;
   }
   /* A chosen card is already up. */
-  #hand:not([aria-busy="true"])
+  :is(#hand, #settings-hand):not([aria-busy="true"])
     > .card-frame:has(> .card:hover:not([data-selected="true"])) {
     translate: 0 -8px;
   }
   /* The fan parts around it: cards after it slide right, cards before it
      slide left. */
-  #hand:not([aria-busy="true"]) > .card-frame:has(> .card:hover) ~ .card-frame {
+  :is(#hand, #settings-hand):not([aria-busy="true"])
+    > .card-frame:has(> .card:hover)
+    ~ .card-frame {
     translate: 12px 0;
   }
-  #hand:not([aria-busy="true"]) > .card-frame:has(~ .card-frame > .card:hover) {
+  :is(#hand, #settings-hand):not([aria-busy="true"])
+    > .card-frame:has(~ .card-frame > .card:hover) {
     translate: -12px 0;
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  #hand:not([aria-busy="true"]) .card:hover {
+  :is(#hand, #settings-hand):not([aria-busy="true"]) .card:hover {
     filter: brightness(1.12);
   }
 }
@@ -1409,9 +1450,8 @@ body .card-frame[hidden] {
    It holds steady while the target is near: a soft halo, unlike the brief
    met glow. */
 body .card.want-card {
-  /* The scene sits low in the top 75% the hand shows, leaving the label
-     room for its sentence. */
-  --screen-top: 26%;
+  /* The scene sits centred in the top 75% the hand shows. */
+  --screen-top: 17.5%;
   background:
     radial-gradient(
       ellipse 90% 55% at 50% 0%,
@@ -1426,24 +1466,15 @@ body .card.want-card[data-near="true"] {
     0 0 18px 3px color-mix(in srgb, var(--tier-color) 45%, transparent),
     0 6px 20px #0006;
 }
-/* "Quest" and a level quest's numeral, then the quest as a sentence. */
+/* The quest's verb on one line, and a level quest's numeral on the right. */
 .quest-head {
   display: flex;
-  flex-wrap: wrap;
   justify-content: space-between;
   align-items: baseline;
-  gap: 0 6px;
+  gap: 6px;
 }
-.quest-kicker {
-  font-size: 0.85em;
-  opacity: 0.8;
-}
-/* The sentence reads as written, in the label's face, on at most two
-   lines. */
-.quest-head > .quest-verb {
-  flex: 1 0 100%;
-  text-transform: none;
-  letter-spacing: 0.01em;
+.want-card > .quest-head > .quest-verb {
+  white-space: nowrap;
 }
 /* A face-down quest keeps its tier until it turns. */
 body .card.want-card[data-unrevealed="true"] {
@@ -3090,6 +3121,12 @@ main > .dialogue {
     width: calc(100vw - 32px);
   }
 }
+/* The title's logo is framed in the world's tier, as a card's edge glow. */
+:root[data-world-tier] .title-intro > img {
+  box-shadow:
+    0 0 0 1px var(--world-tier),
+    0 0 14px color-mix(in srgb, var(--world-tier) 35%, transparent);
+}
 .title-intro[data-phase="wake"] {
   cursor: default;
 }
@@ -3147,18 +3184,23 @@ main > .dialogue {
   text-indent: -1.2em;
   text-wrap: balance;
 }
-/* The phrases it pauses on take a gentle tint of their rarity tier's colour
-   (level-tiers.mjs), climbing as the poem goes, with a soft, low glow. The
-   tint rises as a phrase's last letter writes, and stays: all eight light the
-   finished poem, so it is kept calm, well above AA contrast on the black.
-   Reduced motion shows the tint still, with no glow. */
+/* Its highlighted words take a gentle tint of their set's rarity tier colour
+   (level-tiers.mjs), climbing as the poem goes, with a soft, low glow and a
+   little weight: a stroke under the fill, so no glyph widens and nothing
+   reflows. The tint rises in the pause after a word's stanza, with no motion,
+   and stays: all fifteen light the finished poem, well above AA contrast on
+   the black. Reduced motion shows the tint and weight still, with no glow. */
 .title-ack-glow {
+  -webkit-text-stroke: 0.03em transparent;
+  paint-order: stroke fill;
   transition:
-    color var(--glow-in, 350ms) ease,
-    text-shadow var(--glow-in, 350ms) ease;
+    color var(--glow-in, 600ms) ease,
+    -webkit-text-stroke-color var(--glow-in, 600ms) ease,
+    text-shadow var(--glow-in, 600ms) ease;
 }
 .title-ack-glow[data-lit] {
   color: color-mix(in srgb, var(--tier-color) 45%, #fff4dc);
+  -webkit-text-stroke-color: currentColor;
   text-shadow: 0 0 5px color-mix(in srgb, var(--tier-color) 30%, transparent);
 }
 @media (prefers-reduced-motion: reduce) {

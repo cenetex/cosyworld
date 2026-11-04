@@ -23,6 +23,15 @@ export const CROPS = {
   "book-stack": [1383, 235, 364, 260],
   window: [1528, 0, 644, 460],
   moth: [116, 60, 728, 520],
+  // The Settings hand's groups (You, Play) and the cards that were figures.
+  you: [470, 280, 504, 360],
+  play: [590, 190, 476, 340],
+  lamplight: [880, 300, 504, 360],
+  flame: [930, 90, 280, 200],
+  ears: [360, 70, 336, 240],
+  wing: [150, 330, 392, 280],
+  gear: [1150, 270, 336, 240],
+  moon: [1820, 30, 336, 240],
 };
 
 const hash = (body) => createHash("sha256").update(body).digest("hex");

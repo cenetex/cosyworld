@@ -209,6 +209,13 @@ export function dialogueCast(world, action = null) {
     restingWake(world.log, currentActor(world), world.turn)?.rest === "long";
   const resting = waited || rested ? currentActor(world) : null;
   const rest = waited?.rest === "long" || rested ? "long" : null;
+  // What the long rest dreamed, if anything (rules 99).
+  const dream = rest
+    ? ((
+        (waited?.rest === "long" ? waited : null) ||
+        restingWake(world.log, currentActor(world), world.turn)
+      )?.dream ?? null)
+    : null;
   return {
     location,
     beforeFirstLight,
@@ -225,5 +232,6 @@ export function dialogueCast(world, action = null) {
     ids,
     resting,
     rest,
+    dream,
   };
 }

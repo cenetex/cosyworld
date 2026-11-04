@@ -25,9 +25,10 @@ export async function tapCard(card) {
   await card.click({ position: { x: width / 2, y: 16 } });
 }
 
-// ☰ > Settings is a hand of cards (settings-cards.mjs). A setting is
-// chosen, then its context button (#setting-<card>) pressed `times` times:
-// a destructive one takes two. Escape unchooses, then closes.
+// ☰ > Settings is a hand of cards (settings-cards.mjs). A setting lies in
+// its group, as a thing lies in a place: the group is fanned open, the
+// setting chosen, then its context button (#setting-<card>) pressed `times`
+// times: a destructive one takes two. Escape unchooses, then closes.
 export async function openSettings(page) {
   await page.locator("#toolbar-menu-button").click();
   await page.locator("#menu-button").click();
@@ -35,6 +36,11 @@ export async function openSettings(page) {
 }
 export async function pressSetting(page, id, times = 1) {
   const card = page.locator(`#settings-hand [data-setting="${id}"]`);
+  const frame = card.locator("..");
+  if ((await frame.getAttribute("hidden")) !== null) {
+    const group = await frame.getAttribute("data-holder");
+    await tapCard(page.locator(`#settings-hand [data-setting="${group}"]`));
+  }
   if ((await card.getAttribute("aria-pressed")) !== "true") await tapCard(card);
   for (let i = 0; i < times; i++) await page.locator(`#setting-${id}`).click();
 }
@@ -109,6 +115,26 @@ export async function selectCard(page, id, { touch = false } = {}) {
       else await owner.click();
     }
   }
+}
+// A new local world opens on Vale alone, the lit lamp and the attic face down
+// (opening.mjs). Its context button offers no play while either is down: the
+// lamp's tap turns it, the quiet Reveal turns the attic and chooses the lamp,
+// and only then does the rules' first play, Put out, douse it. Any play on
+// the revealed cards (a Wait) is a first play too.
+export async function revealOpening(page) {
+  await selectCard(page, "lamp");
+  await page
+    .locator('#card-actions [data-quiet="true"]', { hasText: "Reveal" })
+    .click();
+  await page
+    .locator("#card-actions .card-primary", { hasText: "Put out" })
+    .waitFor();
+}
+export async function putOutOpening(page) {
+  await revealOpening(page);
+  await page
+    .locator("#card-actions .card-primary", { hasText: "Put out" })
+    .click();
 }
 // The beat stack's cards take real pointer hits: the front card under its own
 // centre, and the card behind under its peeking top line (#1538).
