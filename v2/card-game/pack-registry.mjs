@@ -400,6 +400,14 @@ const latchKeys = new Set(latching.map(({ route }) => routeKey(route)));
 const routeOpen = (world, packId, r) =>
   (!r.live && Boolean(world.openedRoutes?.includes(routeKey(r)))) ||
   conditionsMet(world, packId, r.requires);
+// Whether a pack route between two places is open now, latched or live
+// (rules 102): a live gate reads its condition as it stands.
+export const packRouteOpen = (world, from, to) =>
+  packDefinitions.some((pack) =>
+    (pack.routes || []).some(
+      (r) => r.from === from && r.to === to && routeOpen(world, pack.id, r),
+    ),
+  );
 export function latchRoutes(world) {
   for (const { pack, route } of latching) {
     const key = routeKey(route);

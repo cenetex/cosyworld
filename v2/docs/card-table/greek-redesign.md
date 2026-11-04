@@ -46,7 +46,7 @@ Today's place ids are in backticks.
 | Lower Town | Market Well `well` | courtyard, palace | The elder and the water jar |
 | The Cadmeia | Palace Forecourt `palace` | well, sanctuary | Creon; the decree starts here |
 | The Ismenion | Hillside Sanctuary `sanctuary` | palace | The Greek rest place (#1713) |
-| The Gate | City Gate `gate` | courtyard, battlefield (gated, #1728) | The guard and the decree |
+| The Gate | City Gate `gate` | courtyard, battlefield (gated, #1728) | The guard, holding the decree |
 
 Thebes has two roads:
 
@@ -67,7 +67,7 @@ way the Theban gate does today. No step is a button.
 
 | Step | Opens | Condition |
 | --- | --- | --- |
-| Thebes to the battlefield | The City Gate route | The guard holds the decree at the gate (#1728) |
+| Thebes to the battlefield | The City Gate route | The guard no longer holds the decree (revision 20) |
 | Battlefield to the Cithaeron road | The battlefield's far route | The dead have burial rights: the rite that yields the Burial Account is done, or the Herald's Truce has reached the battlefield |
 | Cithaeron road to Eleusis | The road's far end | Open to anyone on the road |
 | Eleusis to the city | The Sacred Way through the Dipylon | The Suppliants' petition is delivered: the Dipylon's warden holds it |
@@ -365,6 +365,76 @@ homecoming:
 - The save upgrade passes a deleted fork's receipt to the step that took it
   in (for example the open berth to the family berth, and a reading to the
   return-list gift), drops the rest, and counts the story's flags again.
+
+## The Theban gate (Greek revision 20)
+
+Owner design, 2026-11-04 ([rules 102](../../../docs/design/rules-102-eat-and-the-theban-decree.md)).
+It replaces the gate that opened once the guard was handed the decree.
+
+> **Pending the crafting and items design discussion (owner, 2026-11-04).**
+> Not approved for building. The food-reset rule (eaten food returns to its
+> home) is likely to change to crafting, for example Dione bakes bread from
+> flour and water.
+
+
+**Starting state.**
+
+- The Gate Guard holds the Burial Decree, his order forbidding the burial.
+  He wants to eat Dione's bread (`want: { kind: "item", target:
+  "greek-bread", step: { verb: "eat" } }`).
+- Creon holds Creon's Writ, which permits Antigone's household to bury her
+  brother under witness. He wants the Burial Decree.
+- The Courtyard Bread is food (`tags: ["food"]`) with its home at the Theban
+  Courtyard. It appears once the water jar is back on Dione's table, as
+  before.
+
+**Rules, all generic.**
+
+- The guard bars the gate while he holds the decree: a live route from the
+  gate to the battlefield, open while `not holding greek-decree` by the
+  guard. The same rule always applies.
+- Eat: eaten food leaves the eater and returns to its home at once.
+- Trade and Ask as ever: a resident trades away anything it does not want
+  for the thing its quest wants, and gives a modest thing on Ask to someone
+  it trusts.
+- A resident eats a food it holds when one of its quests wants it eaten.
+
+**Play-through.** Return the jar; Dione's bread appears. Talk with the guard
+to learn he wants to eat the bread. Trade him the bread for the decree (or
+give the bread, then ask for the decree). He eats it: the bread is back in
+the courtyard and, without the decree, he no longer bars the road. Take the
+decree up to Creon and trade it for his writ. With the writ in hand and the
+decree back with Creon, Creon's grant commits (`greek-petition-burial`, now
+`on: "meet"`): the concession path, the permitted burial and Dione's
+reports follow as before. The defiant burial and the guard's report need the
+open gate too, so every Theban ending starts with the bread.
+
+**What follows.** The guard is content once fed, then draws ordinary wants
+like any resident. He may come to want the decree again; if he gets it back,
+he bars the gate again.
+
+**Edge cases.**
+
+- The player eats the bread: it goes home to Dione's courtyard, ready to
+  take again.
+- Anyone gives the guard bread: he eats it and is met; whatever he holds is
+  his to trade.
+- The guard regains the decree by any route: the gate bars again. Without
+  it, it is open, even to residents.
+- A guard knocked from his post in a standoff bars nothing, as in rules 100;
+  the painted gate still follows the decree.
+- Shared worlds: every rule is in the shared rules, so every seat sees the
+  same gate. Journals before rules 102 replay on their own bundles; the
+  revision 20 upgrade then forgets the old latch and hands the guard the
+  decree, and Creon the writ, where each lies untouched.
+
+**Data versus rules.** Eat, eat quests and the live read of a gate are the
+rules changes. The starting holdings, both wants, the food tag, the live
+route, the persona lines and Creon's grant are pack data.
+
+**Dropped.** Creon's grant no longer needs the household token or the
+elder's witness; both stay in the world as lore. The writ route that also
+opened the gate goes, since only the decree matters at the gate.
 
 ## Owner decisions
 

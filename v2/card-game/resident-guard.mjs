@@ -2,7 +2,7 @@
 // Guard guards by default from world-life.json; a player guards with a Wait
 // aimed at the way. The far card shows as the locked box, and the button
 // names the guard (sealedWays in world.mjs).
-import { packPeople, entityActive } from "./pack-registry.mjs";
+import { packPeople, entityActive, packRouteOpen } from "./pack-registry.mjs";
 import {
   humanAvatar,
   humanAvatarIds,
@@ -48,9 +48,9 @@ export const guardPost = (id) =>
   lifeField(id, "guards") && !humanAvatar(id)
     ? { from: lifeHome(id), to: lifeField(id, "guards") }
     : null;
-// The order lifts a guard for good: the way's gate has latched open.
-export const wayLifted = (s, from, to) =>
-  Boolean(s.openedRoutes?.includes(`${from}>${to}`));
+// The way's gate is open: latched for good, or a live gate whose condition
+// holds now (rules 102), such as a guard who no longer holds his order.
+export const wayLifted = (s, from, to) => packRouteOpen(s, from, to);
 // The ways a guard adds to a place: a guardable way is one way, both
 // directions, open but for its guard. The rest is the pack's own routes.
 export function guardedExits(_s, place) {
