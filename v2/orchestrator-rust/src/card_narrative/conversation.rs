@@ -1,9 +1,10 @@
-//! A spoken line is a turn in a conversation (owner, 2026-11-02). The system
-//! message is my own first-person view, with no instructions: who I am, where
-//! I am, what I hold and know, and the talk I remember. The user
-//! message is only the line I answer. No cue ("Vale:") and no scene scaffold
-//! reach the user turn, so a chat-tuned model answers a person, the scaffold
-//! stays out of the reply, and the system text is stable across attempts.
+//! A spoken line is a moment in a conversation (owner, 2026-11-02). My own
+//! first-person view is my assistant turn, with no instructions: who I am,
+//! where I am, what I hold and know, and the talk I remember (2026-11-03: a
+//! view in the system or user turn read as someone else's "I"). The user
+//! turn is only the line I answer. No cue ("Vale:") and no scene scaffold
+//! reach it, so a chat-tuned model answers a person, the view stays out of
+//! the reply, and the words are stable across attempts.
 use super::{
     answered, idiolect, kind, name, names, waking, witnessed, Context, Entity, Part, Section,
     SpokenLine,
@@ -54,13 +55,18 @@ pub(super) fn presence(context: &Context, id: &str) -> String {
     }
 }
 
-/// The user message: what I just heard, verbatim. When nobody has spoken
-/// (a Wait, or the first words of a Talk), it is who is with me, which is
-/// what I answer: a cue in my own first person, never a request.
+/// The user turn: what I just heard, verbatim, as `Pip says, "…"`, or
+/// silence when nobody has spoken (a Wait, or the first words of a Talk).
+/// My own view, who is with me included, is my assistant turn, so no "I"
+/// reaches the user turn. A bare line or `Pip: …` drew `Vale: …` back.
 pub(super) fn user(context: &Context, entity: &Entity) -> String {
     match heard(context, entity) {
-        Some(line) => line.text.clone(),
-        None => presence(context, &entity.id),
+        Some(line) => format!(
+            "{} says, \u{201c}{}\u{201d}",
+            name(&line.actor_id),
+            line.text
+        ),
+        None => crate::ai_gateway::SILENCE.into(),
     }
 }
 
@@ -187,14 +193,18 @@ pub(super) fn strategy(fact: &str) -> bool {
             && (fact.contains(" to agree. ") || fact.contains(" to decline. ")))
 }
 
-/// The system and user messages: my own view and what I just heard.
-pub(super) fn messages(context: &Context, entity: &Entity) -> (String, String) {
-    let system = [
+/// My own view as my turn, then what I just heard.
+pub(super) fn messages(context: &Context, entity: &Entity) -> super::Prompt {
+    let assistant = [
         idiolect(entity, Part::Line),
         super::transcript(context, entity, Part::Line),
     ]
     .join("\n\n");
-    (system, user(context, entity))
+    super::Prompt {
+        system: super::system_voice(entity, Part::Line),
+        assistant,
+        user: user(context, entity),
+    }
 }
 
 /// The context with the actor's fresh line added to the table talk, so the
@@ -338,9 +348,10 @@ mod tests {
         assert_eq!(spoke, ["vale", "moth"]);
         let pip = pip_requests(&seen);
         assert_eq!(pip.len(), 1);
+        let heard = super::super::tests::turn_of(&pip[0], "user");
         assert_eq!(
-            pip[0]["messages"][1]["content"],
-            "The clock stopped again, Pip."
+            heard,
+            "Vale says, \u{201c}The clock stopped again, Pip.\u{201d}"
         );
         server.abort();
     }
