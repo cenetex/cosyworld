@@ -30,3 +30,13 @@ it("connects the linked shared world before choosing its actor's slot", async ()
   expect(session.sharedSession).toBe(shared);
   expect(session.saveKey).toBe(`${SAVE_BASE}.shared.friend world.mara`);
 });
+
+it("keeps a pack landing's save separate and gives a named table priority", async () => {
+  const pack = await openTableSession("https://example.test/?pack=greek-drama");
+  expect(pack.startingPack.id).toBe("greek-drama");
+  expect(pack.saveKey).toBe(`${SAVE_BASE}.pack.greek-drama`);
+  const table = await openTableSession(
+    "https://example.test/?pack=greek-drama&table=night",
+  );
+  expect(table.saveKey).toBe(`${SAVE_BASE}.night`);
+});
