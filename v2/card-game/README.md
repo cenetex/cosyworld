@@ -88,8 +88,14 @@ Flashes and scares and Another passkey keep their transparent figures. A
 card lifted over the next by pointer or focus moves that card's name clear.
 Every pack is mounted in every world (`installPacks`), so a pack card is lit and its button
 says so. The cards drive the controls in `#menu-dialog`, which no longer
-opens. `smoke-card-settings.mjs` checks choosing, pressing, the second press
-and closing at three widths.
+opens. While Settings is open the scene fades to black under the world's
+logo (the toolbar's, set where the title lifts it over its card) and the
+room or battle song fades out and holds its place; closing Settings fades
+both back in, the song from where it stopped (`setQuiet` in `music.mjs` and
+`music-cues.mjs`). The island hum and world sounds rest with it. Reduced
+motion swaps the scene at once. `smoke-card-settings.mjs` checks choosing,
+pressing, the second press and closing at three widths; `smoke-card-music.mjs`
+checks the held song.
 
 ## Public assets
 
