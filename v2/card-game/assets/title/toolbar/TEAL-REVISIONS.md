@@ -21,7 +21,8 @@ right. `teal-revisions.provenance.json` records the generation IDs and hashes.
 
 `title-logos.json` names the lantern-and-moth file as the toolbar lettering
 of Hearth and Oak, and the bell-and-lantern file as that of The Listening
-Wood. The Black Pond keeps its crop. Saved logo indices are unchanged.
+Wood. Until its own transparent art is supplied, The Black Pond borrows
+the bell-and-lantern file. Saved logo indices are unchanged.
 
 ## Original integration boundary
 

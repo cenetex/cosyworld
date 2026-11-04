@@ -34,23 +34,26 @@ Hearth and Oak shows the transparent teal `toolbar/lonely-forest-teal-lantern-le
 (its lantern, moth and acorns), and The Listening Wood shows
 `toolbar/lonely-forest-teal-bell-and-lantern.webp` (its tied bell); both are
 supplied 288 x 96 files with no `crop` (see `toolbar/TEAL-REVISIONS.md`).
-The Black Pond keeps a `crop` of its artwork, which the image build writes
-to `toolbar/` at 160 px tall. The earlier Hearth and Oak and Listening Wood
-crops stay in `toolbar/`, published but unused. Existing music, Wake,
+The Black Pond's opaque crop and the earlier Hearth and Oak and Listening
+Wood crops stay in `toolbar/`, published but unused. Existing music, Wake,
 skip, reduced-motion and new-world behavior are unchanged.
 
 ## Transparent toolbar copies
 
 Every intro painting is opaque on black; the intro's own black ground hides
-that. The toolbar is not black, so an opaque toolbar image shows as a dark box.
+that. The toolbar is not black, so an opaque toolbar image shows as a dark
+box. The toolbar therefore shows only transparent images: a logo without
+its own transparent lettering borrows the nearest one until the owner
+supplies it, and `test/card-title-alternates.test.mjs` fails on any toolbar
+image without clear corners.
 
 | Logo (index) | Toolbar image | Transparent |
 | --- | --- | --- |
 | Lonely Forest (0) | `transparent/lonely-forest-1-toolbar.webp`, 320 x 125 | yes |
-| Pip and the lantern (1) | the whole `lonely-forest-2.webp` | no |
+| Pip and the lantern (1) | borrows `transparent/lonely-forest-1-toolbar.webp` (the same gold lettering and moth) | borrowed |
 | Hearth and Oak (2) | `toolbar/lonely-forest-teal-lantern-left.webp` | yes |
 | The Listening Wood (3) | `toolbar/lonely-forest-teal-bell-and-lantern.webp` | yes |
-| The Black Pond (4) | `toolbar/lonely-forest-black-pond.webp`, a crop | no |
+| The Black Pond (4) | borrows `toolbar/lonely-forest-teal-bell-and-lantern.webp` (cold teal) | borrowed |
 
 `transparent/lonely-forest-1-toolbar.webp` comes from #2119: a 320 px wide
 export of the owner's recovered RGBA original of the first wordmark, whose

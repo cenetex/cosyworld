@@ -5346,7 +5346,5 @@
       "phoneHash": "1afb03661eb3af33fcde7183f480814c21051c8eaf33c7a7fdd95f91614543b0"
     }
   },
-  "crops": {
-    "assets/title/toolbar/lonely-forest-black-pond.webp": "8dbae0ee36df2ce6690609514a60731722d82544942bb5ef657fabe92d879729"
-  }
+  "crops": {}
 }

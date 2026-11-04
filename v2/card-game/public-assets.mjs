@@ -37,9 +37,11 @@ const files = [
   "boardyai.mjs",
   "boardyai.json",
   "assets/card-back.webp",
-  // The new-world title (title-intro.mjs).
-  ...titleLogos.logos.flatMap(({ src, toolbar }) =>
-    toolbar ? [src, toolbar.src] : [src],
+  // The new-world title (title-intro.mjs); logos may share toolbar art.
+  ...new Set(
+    titleLogos.logos.flatMap(({ src, toolbar }) =>
+      toolbar ? [src, toolbar.src] : [src],
+    ),
   ),
   "assets/music/title-attic-lamp.mp3",
   // Rest card paintings for issue #1849; the rest-card feature follows.
