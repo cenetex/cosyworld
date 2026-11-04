@@ -15706,6 +15706,8 @@
     )
   ].filter(Boolean);
   var packState = (world, id) => world.packs?.[id];
+  var SWITCHED = ["greek-drama", "hoppycat-archive", "lonely-forest"];
+  var packOn = (world, id) => !SWITCHED.includes(id) || world.enabledPacks.includes(id);
   function conditionsMet(world, packId, conditions = [], actor = null) {
     if (!world.packs?.[packId]) return false;
     for (const condition of conditions)
@@ -15748,6 +15750,7 @@
       return false;
     const e = packEntity(id);
     if (!e) return true;
+    if (!saved && world.enabledPacks && !packOn(world, e.packId)) return false;
     const pack = packDefinition(e.packId), state = packState(world, e.packId);
     if (!state || !conditionsMet(
       world,
@@ -17655,6 +17658,15 @@
     saved.revision = 16;
   }
 
+  // v2/card-game/pack-toggle.mjs
+  var TOGGLE_PACKS = SWITCHED;
+  function installEnabledPacks(s) {
+    if (!Array.isArray(s.enabledPacks)) s.enabledPacks = [...TOGGLE_PACKS];
+  }
+  var validEnabledPacks = (list) => list === void 0 || Array.isArray(list) && list.length > 0 && list.every(
+    (id, i) => TOGGLE_PACKS.includes(id) && (!i || list[i - 1] < id)
+  );
+
   // v2/card-game/world.mjs
   var places = { ...forest_default.places, ...packPlaces };
   var homeGates = { ...forest_default.homeGates, ...humanHomeGates };
@@ -17716,6 +17728,7 @@
   function installPacks(s) {
     const added = [];
     installTransports(s);
+    installEnabledPacks(s);
     s.crossings ??= {};
     s.packs ??= {};
     const fresh = newMemories();
@@ -18274,6 +18287,7 @@
       fail();
     if (s.arrival !== void 0 && (!s.arrival || !Number.isSafeInteger(s.arrival.seq) || s.arrival.seq < 1 || s.arrival.seq > s.eventSeq || !Object.hasOwn(places, s.arrival.fromLocationId) || !Object.hasOwn(places, s.arrival.locationId) || s.arrival.fromLocationId === s.arrival.locationId))
       fail();
+    if (!validEnabledPacks(s.enabledPacks)) fail();
     let seq = 0;
     const verbs = [
       "want_met",
@@ -18290,6 +18304,7 @@
       "drop",
       "focus",
       "gate",
+      "pack",
       "give",
       "ask",
       "light",
