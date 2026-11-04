@@ -10,6 +10,13 @@ import { imageUrl } from "./images.mjs";
 import { cardLevel, levelTier, romanLevel } from "./rarity.mjs";
 import { finishCardReveal, revealCard } from "./card-reveal.mjs";
 import {
+  fadeGhost,
+  ghostOf,
+  pinGhost,
+  releaseGhost,
+  releaseGhosts,
+} from "./card-ghost.mjs";
+import {
   ENTRY_STAGGER_MS,
   QUEST_DOWN_MS,
   createCardEntries,
@@ -2696,8 +2703,9 @@ function renderStage(locationId) {
     : mood?.alt || nameOf(stage.resident);
 }
 function dropFigure(figure) {
-  figure.remove();
+  // An image let go after it left the page is never freed (card-ghost.mjs).
   releaseImages(figure);
+  figure.remove();
 }
 function leaveFigure(figure, remove = false) {
   if (exits.has(figure)) return;
@@ -3174,7 +3182,7 @@ function renderScene() {
             : "back";
   }
   // The leaving cards are copies, so the real cards can change at once.
-  for (const old of document.querySelectorAll(".beat-ghost")) old.remove();
+  releaseGhosts($("speech-row").parentElement);
   const stepping = direction === "forward" || direction === "back";
   const ghost = {
     behind:
@@ -3435,20 +3443,7 @@ const STACK_MS = 300,
   STACK_LEAVE_MS = 200,
   STACK_FADE_MS = 160,
   STACK_NEARER = "translateY(8px) scale(1.015)";
-// A leaving card is an inert copy that never takes pointer hits.
-function ghostOf(card) {
-  const ghost = card.cloneNode(true);
-  for (const part of [ghost, ...ghost.querySelectorAll("[id], [aria-live]")]) {
-    part.removeAttribute("id");
-    part.removeAttribute("aria-live");
-  }
-  ghost.classList.add("beat-ghost");
-  delete ghost.dataset.motion;
-  ghost.setAttribute("aria-hidden", "true");
-  ghost.inert = true;
-  for (const image of ghost.querySelectorAll("img")) image.decoding = "sync";
-  return ghost;
-}
+// A leaving card is an inert copy (card-ghost.mjs).
 function stackGhost(card) {
   const ghost = ghostOf(card);
   card.after(ghost);
@@ -3459,32 +3454,7 @@ function stackGhost(card) {
 // reduced motion, it leaves over it.
 function frontGhost(direction) {
   const under = direction === "forward" && !reducedMotion.matches;
-  return pinnedGhost($("speech-row"), under ? "1" : "3");
-}
-// A copy pinned to the card's box, with the look the card had.
-function pinnedGhost(card, zIndex) {
-  const ghost = ghostOf(card);
-  // The card's styles hang on its ids, which the copy cannot share, so the
-  // copy keeps the look it had.
-  const copies = [ghost, ...ghost.querySelectorAll("*")];
-  [card, ...card.querySelectorAll("*")].forEach((part, index) => {
-    const look = getComputedStyle(part);
-    for (const name of look)
-      if (!/^(animation|transition|pointer-events)/.test(name))
-        copies[index].style.setProperty(name, look.getPropertyValue(name));
-  });
-  Object.assign(ghost.style, {
-    position: "absolute",
-    margin: "0",
-    left: `${card.offsetLeft}px`,
-    top: `${card.offsetTop}px`,
-    width: `${card.offsetWidth}px`,
-    height: `${card.offsetHeight}px`,
-    zIndex,
-  });
-  // After the card, so lookups by class still find the real one first.
-  card.after(ghost);
-  return ghost;
+  return pinGhost($("speech-row"), under ? "1" : "3");
 }
 // Cards move in depth with transform and opacity; reduced motion crossfades.
 // The front and behind cards are hit-tested buttons, so their motion is a CSS
@@ -3494,7 +3464,8 @@ function pinnedGhost(card, zIndex) {
 function playMotion(card, motion) {
   delete card.dataset.motion;
   if (!motion) return;
-  void card.offsetWidth;
+  // Restyling the card ends the old motion; no layout is needed for that.
+  void getComputedStyle(card).animationName;
   card.dataset.motion = motion;
 }
 for (const id of ["speech-row", "beat-behind", "action-beat"]) {
@@ -3504,22 +3475,6 @@ for (const id of ["speech-row", "beat-behind", "action-beat"]) {
     };
   card.addEventListener("animationend", settle);
   card.addEventListener("animationcancel", settle);
-}
-// A ghost rests invisible, so it never shows again after its fade ends.
-function fadeGhost(ghost, to, duration) {
-  if (!ghost) return;
-  const from = getComputedStyle(ghost).opacity;
-  ghost.style.opacity = "0";
-  const done = () => {
-    ghost.remove();
-    releaseImages(ghost);
-  };
-  ghost
-    .animate([{ opacity: from }, { opacity: 0, ...to }], {
-      duration,
-      easing: "cubic-bezier(.22,.61,.36,1)",
-    })
-    .finished.then(done, done);
 }
 // A ready or pending play, or words the player must see, are a beat in
 // front of the dialogue. The spoken beat settles behind it and comes back
@@ -3549,7 +3504,7 @@ function syncActionBeat() {
     moves = panel.parentElement.dataset.dropped !== "true";
   const ghost =
     moves && (show ? still && !front.hidden && front : panel)
-      ? pinnedGhost(show ? front : panel, "4")
+      ? pinGhost(show ? front : panel, "4")
       : null;
   if (ghost && !show) {
     // The stack keeps its foot as it shrinks, and the leaving copy must
@@ -3590,10 +3545,8 @@ function animateStack(direction, ghost) {
   const front = $("speech-row"),
     behind = $("beat-behind");
   if (!direction || front.hidden) {
-    for (const copy of [ghost.front, ghost.behind]) {
-      copy?.remove();
-      releaseImages(copy);
-    }
+    releaseGhost(ghost.front);
+    releaseGhost(ghost.behind);
     return;
   }
   const showBehind = !behind.hidden;
@@ -4027,6 +3980,9 @@ function render() {
     );
     showQuests(opening);
     openLockedBoxes();
+    // Every new place is measured before any card starts moving, so the
+    // row is laid out once rather than once per card.
+    const moves = [];
     if (animate)
       for (const frame of $("hand").children) {
         if (frame.hidden) continue;
@@ -4035,29 +3991,37 @@ function render() {
           previous = before.get(id) || before.get(frame.dataset.holder);
         if (!previous || (!frame.dataset.want && rising.has(entryKey(frame))))
           continue;
-        const next = frame.getBoundingClientRect(),
-          dx = previous.left - next.left,
-          dy = previous.top - next.top;
-        if (Math.abs(dx) >= 1 || Math.abs(dy) >= 1 || !before.has(id))
-          moveHandPart(
-            `frame:${id}`,
-            frame,
-            {
-              translate: [`${dx}px ${dy}px`, "0 0"],
-              opacity: [before.has(id) ? 1 : 0.3, 1],
-            },
-            reshaped ? LAYOUT_MS : undefined,
-          );
-        const name = frame.querySelector(".name"),
-          nameBottom = name && getComputedStyle(name).bottom;
-        if (name && before.has(id) && previous.nameBottom !== nameBottom)
-          moveHandPart(
-            `name:${id}`,
-            name,
-            { bottom: [previous.nameBottom, nameBottom] },
-            reshaped ? LAYOUT_MS : undefined,
-          );
+        const name = frame.querySelector(".name");
+        moves.push({
+          id,
+          frame,
+          previous,
+          next: frame.getBoundingClientRect(),
+          name,
+          nameBottom: name && getComputedStyle(name).bottom,
+        });
       }
+    for (const { id, frame, previous, next, name, nameBottom } of moves) {
+      const dx = previous.left - next.left,
+        dy = previous.top - next.top;
+      if (Math.abs(dx) >= 1 || Math.abs(dy) >= 1 || !before.has(id))
+        moveHandPart(
+          `frame:${id}`,
+          frame,
+          {
+            translate: [`${dx}px ${dy}px`, "0 0"],
+            opacity: [before.has(id) ? 1 : 0.3, 1],
+          },
+          reshaped ? LAYOUT_MS : undefined,
+        );
+      if (name && before.has(id) && previous.nameBottom !== nameBottom)
+        moveHandPart(
+          `name:${id}`,
+          name,
+          { bottom: [previous.nameBottom, nameBottom] },
+          reshaped ? LAYOUT_MS : undefined,
+        );
+    }
   }
   renderScene();
   renderLog();
@@ -4120,8 +4084,15 @@ function revealHandCard(id, alignStart = false, instant = false) {
 function fanHand() {
   const shown = [...$("hand").children].filter((frame) => !frame.hidden);
   shown.forEach((frame, i) =>
-    frame.style.setProperty("--fan-at", String(i - (shown.length - 1) / 2)),
+    setStyle(frame.style, "--fan-at", String(i - (shown.length - 1) / 2)),
   );
+}
+// A style set only when it changes, so an unchanged hand needs no new layout.
+function setStyle(style, name, value) {
+  if (value === null) {
+    if (style.getPropertyValue(name)) style.removeProperty(name);
+  } else if (style.getPropertyValue(name) !== value)
+    style.setProperty(name, value);
 }
 // A resting hand on a wide screen is as wide as its fanned cards, so none
 // is cut at the screen edge (#2017). Past the dialogue's room the cards
@@ -4130,8 +4101,8 @@ function fitRestingHand() {
   const root = document.documentElement.style;
   const shown = [...$("hand").children].filter((frame) => !frame.hidden);
   if (!wideLayout.matches || !shown.length) {
-    root.removeProperty("--resting-hand-fit");
-    root.removeProperty("--resting-fan-overlap");
+    setStyle(root, "--resting-hand-fit", null);
+    setStyle(root, "--resting-fan-overlap", null);
     return;
   }
   const hand = getComputedStyle($("hand")),
@@ -4142,13 +4113,12 @@ function fitRestingHand() {
     room = Math.max(innerWidth - 540, shown[0].offsetWidth * 2),
     natural = cards - gaps * overlap + padding + 14,
     width = Math.min(natural, room);
-  root.setProperty("--resting-hand-fit", `${Math.ceil(width)}px`);
-  if (natural > room && gaps)
-    root.setProperty(
-      "--resting-fan-overlap",
-      `${overlap + (natural - room) / gaps}px`,
-    );
-  else root.removeProperty("--resting-fan-overlap");
+  setStyle(root, "--resting-hand-fit", `${Math.ceil(width)}px`);
+  setStyle(
+    root,
+    "--resting-fan-overlap",
+    natural > room && gaps ? `${overlap + (natural - room) / gaps}px` : null,
+  );
 }
 // Fade only the hand's edges that hide more cards.
 function updateHandEdges() {
@@ -4169,8 +4139,9 @@ function updateHandEdges() {
       hand.scrollLeft + hand.clientWidth < hand.scrollWidth - 2 &&
       "end",
   ].filter(Boolean);
-  if (fade.length) hand.dataset.fade = fade.join(" ");
-  else delete hand.dataset.fade;
+  if (!fade.length) delete hand.dataset.fade;
+  else if (hand.dataset.fade !== fade.join(" "))
+    hand.dataset.fade = fade.join(" ");
 }
 $("hand").addEventListener("scroll", updateHandEdges, { passive: true });
 new ResizeObserver(updateHandEdges).observe($("hand"));
@@ -4336,6 +4307,7 @@ $("new-game").onclick = () => {
 $("cancel-reset").onclick = () => $("reset-dialog").close();
 $("confirm-reset").onclick = () => {
   playQueue.clear();
+  releaseGhosts();
   // Archive the outgoing save: starting fresh must be reversible, because
   // a confirm click is not enough consent to destroy a whole run.
   try {
@@ -4372,6 +4344,7 @@ $("confirm-reset").onclick = () => {
 window.addEventListener("storage", (event) => {
   if (sharedSession || event.key !== SAVE_KEY || !event.newValue) return;
   playQueue.clear();
+  releaseGhosts();
   cancelTravel();
   narrator.invalidate();
   exchange.cancel();

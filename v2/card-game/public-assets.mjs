@@ -95,6 +95,7 @@ const files = [
   "card-tiers.css",
   "card-reveal.mjs",
   "card-entry.mjs",
+  "card-ghost.mjs",
   "locked-box.mjs",
   "card-level-up.mjs",
   // Willows sign alternates chosen by the willows pack.
