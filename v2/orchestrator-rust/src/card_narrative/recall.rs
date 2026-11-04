@@ -77,11 +77,16 @@ pub(super) fn named(r: &Recall) -> impl Iterator<Item = &String> {
 /// About this many tokens (chars / 4) at most.
 pub(super) const TOKENS: usize = 60;
 
-/// "the Lamp" for a thing, a name for anyone or anywhere else.
+/// A name inside a sentence: "the Lamp" for a thing, "the Bard" or "Pip"
+/// for anyone, "the Wine-Dark Harbor" for a place.
 fn thing(id: &str) -> String {
-    match kind(id, "item") {
+    let n = match kind(id, "item") {
         true => the(&name(id)),
         false => name(id),
+    };
+    match ["The ", "A ", "An "].iter().find(|a| n.starts_with(**a)) {
+        Some(a) => format!("{}{}", a.to_lowercase(), &n[a.len()..]),
+        None => n,
     }
 }
 
@@ -128,18 +133,18 @@ pub(super) fn lines(context: &Context, entity: &Entity, r: &Recall) -> Vec<Strin
     let Some(other) = listener(context, &entity.id) else {
         return Vec::new();
     };
-    let x = name(&other);
+    let x = thing(&other);
     let when = |turn: u64| ago(context.turn.saturating_sub(turn));
     let mut out = Vec::new();
     if let Some(m) = &r.reunion {
         if m.visits >= 3 {
             out.push(format!("I've met {x} a few times."));
         }
-        out.push(format!(
-            "I last saw {x} at {}, {}.",
-            name(&m.place),
-            when(m.turn)
-        ));
+        let place = match m.place == context.location {
+            true => "here".to_string(),
+            false => format!("at {}", thing(&m.place)),
+        };
+        out.push(format!("I last saw {x} {place}, {}.", when(m.turn)));
     }
     for a in &r.acts {
         out.push(sentence(format!(
@@ -162,9 +167,57 @@ pub(super) fn lines(context: &Context, entity: &Entity, r: &Recall) -> Vec<Strin
 
 #[cfg(test)]
 mod tests {
-    use super::super::{tests::context, valid};
+    use super::super::{entity, messages, prose, tests::context, valid, voice_eval, Part};
     use super::*;
     use serde_json::json;
+
+    /// M1: Vale meets Pip again after keeping the Lamp from them. The memory
+    /// sits just before the present, with no raw lines and no recent talk;
+    /// a moment later (C1) it rests.
+    #[test]
+    fn a_reunion_remembers_the_last_meeting_then_rests() {
+        let cases = voice_eval::cases();
+        let view = |case: &str, id: &str| {
+            let (_, c, said) = cases.iter().find(|(name, ..)| name == case).unwrap();
+            let heard = voice_eval::scene_for(c, said, id);
+            let c = heard.as_ref().unwrap_or(c);
+            let e = entity(c, id);
+            if let Some(r) = &e.recall {
+                let chars: usize = lines(c, e, r).iter().map(|l| l.chars().count() + 1).sum();
+                assert!(chars.div_ceil(4) <= TOKENS, "{case} {id}");
+            }
+            prose(&messages(c, e, Part::Line).assistant)
+        };
+        let vale = view("M1 Pip again at the pond", "vale");
+        assert!(
+            vale.contains(
+                "\n\nI last saw Pip here, a little while ago. A little while ago, \
+                 Pip asked me for the Lamp, and I kept it.\n\n"
+            ),
+            "{vale}"
+        );
+        assert!(vale.ends_with("I'm talking with them."), "{vale}");
+        let pip = view("M1 Pip again at the pond", "moth");
+        assert!(
+            pip.contains("I asked Vale for the Lamp, and Vale said no."),
+            "{pip}"
+        );
+        for view in [&vale, &pip] {
+            assert!(
+                !view.contains(" said: ") && !view.contains(" said to me"),
+                "{view}"
+            );
+        }
+        assert!(view("M2 Pip after many visits", "vale").contains("I've met Pip a few times."));
+        assert!(view("M3 Pip after the gift", "vale").contains("I gave Pip the Black cloth."));
+        for id in ["vale", "moth"] {
+            let next = view("C1 the next moment", id);
+            assert!(
+                !next.contains("I last saw") && !next.contains(", and "),
+                "{next}"
+            );
+        }
+    }
 
     #[test]
     fn a_memory_names_only_real_deeds_places_and_things() {

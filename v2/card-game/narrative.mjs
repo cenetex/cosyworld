@@ -49,7 +49,7 @@ import { perception, listenerOf } from "./perception.mjs";
 import { recall } from "./recall.mjs";
 
 // What a speaker remembers of the one it faces, touching this scene (P4).
-function remembered(world, id, speakers, desire, localItems) {
+function remembered(world, id, speakers, desire, localItems, facts) {
   const other = listenerOf(speakers, id, currentActor(world));
   if (!other) return {};
   const frame = [
@@ -59,7 +59,7 @@ function remembered(world, id, speakers, desire, localItems) {
     ...carried(world, id),
     ...carried(world, other),
   ];
-  const memory = recall(world, id, other, frame);
+  const memory = recall(world, id, other, frame, facts);
   return memory ? { recall: memory } : {};
 }
 
@@ -532,7 +532,7 @@ export function narrativeContext(world, action = null) {
                 desire,
                 location,
               }),
-              ...remembered(world, id, speakers, desire, localItems),
+              ...remembered(world, id, speakers, desire, localItems, facts),
             }
           : {}),
       };

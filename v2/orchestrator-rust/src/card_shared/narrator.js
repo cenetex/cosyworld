@@ -16821,12 +16821,12 @@
       )
     );
     for (const [id, fact] of Object.entries(k.facts)) {
-      const told = fact?.source?.kind === "topic" && fact.source.topic;
-      if (!told || !reworked.has(told.packId)) continue;
-      const topic = topics.get(`${told.packId}:${told.id}`);
+      const told2 = fact?.source?.kind === "topic" && fact.source.topic;
+      if (!told2 || !reworked.has(told2.packId)) continue;
+      const topic = topics.get(`${told2.packId}:${told2.id}`);
       if (topic?.id === id && topic.speaker === fact.source.actorId && topic.at === fact.source.locationId) {
         fact.text = topic.text;
-        told.choiceId = topic.choiceId ?? null;
+        told2.choiceId = topic.choiceId ?? null;
         continue;
       }
       forgetFact(k, id);
@@ -17680,9 +17680,9 @@
       (e) => !(e.packId === pack.id && THEBAN_RETIRED_CHOICES.includes(e.choiceId))
     );
     for (const fact of Object.values(s.knowledge?.facts || {})) {
-      const told = fact?.source?.kind === "topic" && fact.source.topic;
-      const topic = told?.packId === pack.id && (pack.topics || []).find((t) => t.id === told.id);
-      if (topic) told.choiceId = topic.choiceId ?? null;
+      const told2 = fact?.source?.kind === "topic" && fact.source.topic;
+      const topic = told2?.packId === pack.id && (pack.topics || []).find((t) => t.id === told2.id);
+      if (topic) told2.choiceId = topic.choiceId ?? null;
     }
     saved.revision = 11;
   }
@@ -19051,11 +19051,11 @@
     if (!speakers.includes(id)) return { entries: [], retold: [] };
     const covers2 = [];
     const entries = speakers.filter((other) => other !== id).map((other) => {
-      const told = incidents(world, id, other, nameOf2);
-      covers2.push(...told.flatMap((t) => t.covers));
+      const told2 = incidents(world, id, other, nameOf2);
+      covers2.push(...told2.flatMap((t) => t.covers));
       return {
         with: other,
-        facts: [...told.map((t) => t.text), keepsake(world, id, other)].filter(Boolean).map((text2) => text2.slice(0, 240)),
+        facts: [...told2.map((t) => t.text), keepsake(world, id, other)].filter(Boolean).map((text2) => text2.slice(0, 240)),
         said: [lastSaid(world, other, id), lastSaid(world, id, other)].filter(
           Boolean
         )
@@ -19135,6 +19135,11 @@
   var both = (e, a, b) => [a, b].every(
     (id) => [...e.cast || [], ...e.witnesses || []].includes(id)
   );
+  var topicsOf = /* @__PURE__ */ new WeakMap();
+  function topicsIn(e, pair) {
+    if (!topicsOf.has(e)) topicsOf.set(e, named(e.text || "", []));
+    return topicsOf.get(e).filter((id) => !pair.includes(id));
+  }
   function named(text2, pair) {
     const low = text2.toLowerCase();
     return Object.keys(profiles).filter((id) => {
@@ -19144,16 +19149,24 @@
       return name.length > 2 && low.includes(name);
     });
   }
-  function candidates(log, id, other, turn) {
+  function told(world, id, e, shown) {
+    const said = (e.text || "").split(". ")[0].replace(/\.$/u, "");
+    return Boolean(
+      said && shown.some((fact) => fact.includes(said)) || e.verb === "give" && e.targetId === id && rootHolder(world, e.itemId) === id
+    );
+  }
+  function candidates(world, id, other, turn, shown) {
+    const log = world.log;
     const deeds = /* @__PURE__ */ new Map();
     let talk = null;
     for (const e of log) {
       if (e.turn >= turn) break;
       const pair = [e.actorId, e.targetId];
-      if (!e.generated && DEEDS.has(e.verb) && pair.includes(id) && pair.includes(other))
-        deeds.set(`${e.verb}|${e.actorId}|${e.itemId || ""}`, e);
-      else if (e.generated && e.kind === "dialogue" && [id, other].includes(e.actorId) && both(e, id, other)) {
-        const topics = named(e.text || "", [id, other]);
+      if (!e.generated && DEEDS.has(e.verb) && pair.includes(id) && pair.includes(other)) {
+        if (!told(world, id, e, shown))
+          deeds.set(`${e.verb}|${e.actorId}|${e.itemId || ""}`, e);
+      } else if (e.generated && e.kind === "dialogue" && [id, other].includes(e.actorId) && both(e, id, other)) {
+        const topics = topicsIn(e, [id, other]);
         if (topics.length)
           talk = {
             verb: "talk",
@@ -19172,11 +19185,24 @@
     const ids3 = [c.itemId, c.locationId, ...c.topics || []].filter(Boolean);
     return (WEIGHT[c.verb] ?? (c.verb === "talk" ? 20 : 40)) + (open ? 40 : 0) + 20 * ids3.filter((x) => frame.includes(x)).length + (c.locationId === frame[0] ? 10 : 0);
   }
-  var moments = (log, id, other) => log.filter((e) => e.generated && e.actorId === id && both(e, id, other)).map((e) => e.turn).filter((t, i, all) => all.indexOf(t) === i).reverse();
-  function choose(world, id, other, frame, turn, depth) {
-    const before = moments(world.log, id, other).find((t) => t < turn);
-    const rested = depth > 0 && before !== void 0 ? choose(world, id, other, frame, before, depth - 1).map(keyOf2) : [];
-    return candidates(world.log, id, other, turn).filter((c) => !rested.includes(keyOf2(c))).map((c) => ({ c, s: score(world, c, id, frame) })).sort((a, b) => b.s - a.s || b.c.seq - a.c.seq).slice(0, 2).map(({ c }) => c);
+  var moments = (log, id, other, turn) => [
+    ...new Set(
+      log.filter(
+        (e) => e.generated && e.actorId === id && e.turn < turn && both(e, id, other)
+      ).map((e) => e.turn)
+    )
+  ];
+  function choose(world, id, other, frame, shown) {
+    let rested = [];
+    let picked = [];
+    for (const turn of [
+      ...moments(world.log, id, other, world.turn),
+      world.turn
+    ]) {
+      picked = candidates(world, id, other, turn, shown).filter((c) => !rested.includes(keyOf2(c))).map((c) => ({ c, s: score(world, c, id, frame) })).sort((a, b) => b.s - a.s || b.c.seq - a.c.seq).slice(0, 2).map(({ c }) => c);
+      rested = picked.map(keyOf2);
+    }
+    return picked;
   }
   function reunion(world, id, other) {
     const log = world.log;
@@ -19185,22 +19211,28 @@
     if (parted < 0) return null;
     if (log.slice(parted).some((e) => e.generated && e.actorId === id && both(e, id, other)))
       return null;
-    const shared = log.slice(0, parted).filter((e) => both(e, id, other));
-    const last = shared.at(-1);
+    const last = log.slice(0, parted).findLast((e) => both(e, id, other));
     if (!last) return null;
-    const visits = shared.filter(
-      (e, i) => i === 0 || e.locationId !== shared[i - 1].locationId || e.turn > shared[i - 1].turn + 1
-    ).length;
+    const left = last.fromLocationId && last.fromLocationId !== last.locationId && !(last.cast || []).includes(id === last.actorId ? other : id);
+    let visits = 0;
+    let together = false;
+    for (const e of log) {
+      if (apart(e)) together = false;
+      else if (!together && both(e, id, other)) {
+        together = true;
+        visits++;
+      }
+    }
     return {
-      place: last.locationId,
+      place: left ? last.fromLocationId : last.locationId,
       turn: last.turn,
-      visits: Math.min(visits + 1, 99)
+      visits: Math.min(visits + (together ? 0 : 1), 99)
     };
   }
-  function recall(world, id, other, frame) {
+  function recall(world, id, other, frame, shown = []) {
     if (!other || profiles[other]?.kind !== "avatar") return null;
     const met2 = reunion(world, id, other);
-    const chosen = choose(world, id, other, frame, world.turn, 2);
+    const chosen = choose(world, id, other, frame, shown);
     const items2 = chosen.map((c) => c.itemId).filter(Boolean);
     const acts = chosen.map(
       (c) => c.topics ? { ...c, topics: c.topics.filter((t) => !items2.includes(t)) } : c
@@ -19216,7 +19248,7 @@
   }
 
   // v2/card-game/narrative.mjs
-  function remembered(world, id, speakers, desire, localItems) {
+  function remembered(world, id, speakers, desire, localItems, facts) {
     const other = listenerOf(speakers, id, currentActor(world));
     if (!other) return {};
     const frame = [
@@ -19226,7 +19258,7 @@
       ...carried(world, id),
       ...carried(world, other)
     ];
-    const memory = recall(world, id, other, frame);
+    const memory = recall(world, id, other, frame, facts);
     return memory ? { recall: memory } : {};
   }
   function refusalFact(played) {
@@ -19350,7 +19382,7 @@
       location,
       playedEntry(world)?.seq
     );
-    const told = (id) => disclosures.filter((d) => d.speaker === id).map((d) => d.factId);
+    const told2 = (id) => disclosures.filter((d) => d.speaker === id).map((d) => d.factId);
     const eventEntries = world.log.filter(
       (entry) => entry.turn === world.turn && !entry.generated && (entry.locationId === location || entry.fromLocationId === location || entry.witnesses?.includes(currentActor(world)))
     ).slice(-8);
@@ -19396,10 +19428,10 @@
           ...dreamt ? [dreamt] : [],
           ...want ? [want] : [],
           ...knowledgeFacts(
-            pastDeedsAside(world, id, told(id), between.retold),
+            pastDeedsAside(world, id, told2(id), between.retold),
             id,
             nameOf,
-            told(id)
+            told2(id)
           ),
           ...id === BOARDY ? boardyFacts(world, nameOf) : [],
           ...recitalFacts(world, packDefinitions, id),
@@ -19542,7 +19574,7 @@
               desire,
               location
             }),
-            ...remembered(world, id, speakers, desire, localItems)
+            ...remembered(world, id, speakers, desire, localItems, facts)
           } : {}
         };
       })

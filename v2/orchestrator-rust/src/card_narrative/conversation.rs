@@ -170,7 +170,7 @@ pub(super) fn frame(
     let between = between.iter().map(|l| (Section::Conversation, l.clone()));
     let chat = chat(context, entity, part)
         .into_iter()
-        .filter(|_| !recalled || std::env::var("FP_KEEP_CHAT").is_ok())
+        .filter(|_| !recalled)
         .map(|l| (Section::Conversation, l));
     for block in [known, between.collect(), chat.collect()] {
         if !block.is_empty() {

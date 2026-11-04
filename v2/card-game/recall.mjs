@@ -33,17 +33,19 @@ function named(text, pair) {
 }
 
 // The pair's deeds and the topics of their last talk, before `turn`.
-// A deed my knowledge or a keepsake already tells is not told twice.
-function told(world, id, e) {
+// A deed one of my facts already tells, or a keepsake I hold, is not told
+// twice.
+function told(world, id, e, shown) {
+  const said = (e.text || "").split(". ")[0].replace(/\.$/u, "");
   return Boolean(
-    world.knowledge?.known?.[id]?.[`event:${e.seq}`] ||
+    (said && shown.some((fact) => fact.includes(said))) ||
       (e.verb === "give" &&
         e.targetId === id &&
         rootHolder(world, e.itemId) === id),
   );
 }
 
-function candidates(world, id, other, turn) {
+function candidates(world, id, other, turn, shown) {
   const log = world.log;
   const deeds = new Map();
   let talk = null;
@@ -56,7 +58,7 @@ function candidates(world, id, other, turn) {
       pair.includes(id) &&
       pair.includes(other)
     ) {
-      if (!told(world, id, e))
+      if (!told(world, id, e, shown))
         deeds.set(`${e.verb}|${e.actorId}|${e.itemId || ""}`, e);
     } else if (
       e.generated &&
@@ -114,14 +116,14 @@ const moments = (log, id, other, turn) => [
 // The two best memories now. Replaying my earlier moments with the other
 // in order, each leaves out what the moment before it chose, so a memory
 // never surfaces on two moments in a row.
-function choose(world, id, other, frame) {
+function choose(world, id, other, frame, shown) {
   let rested = [];
   let picked = [];
   for (const turn of [
     ...moments(world.log, id, other, world.turn),
     world.turn,
   ]) {
-    picked = candidates(world, id, other, turn)
+    picked = candidates(world, id, other, turn, shown)
       .filter((c) => !rested.includes(keyOf(c)))
       .map((c) => ({ c, s: score(world, c, id, frame) }))
       .sort((a, b) => b.s - a.s || b.c.seq - a.c.seq)
@@ -133,8 +135,8 @@ function choose(world, id, other, frame) {
 }
 
 // The last time the pair were together before they parted, and how many
-// visits they have shared; nothing if they never parted, or once I have
-// spoken since they met again.
+// times they have come together; nothing if they never parted, or once I
+// have spoken since they met again.
 function reunion(world, id, other) {
   const log = world.log;
   // A trip's own entries do not part a pair travelling together.
@@ -149,26 +151,33 @@ function reunion(world, id, other) {
       .some((e) => e.generated && e.actorId === id && both(e, id, other))
   )
     return null;
-  const shared = log.slice(0, parted).filter((e) => both(e, id, other));
-  const last = shared.at(-1);
+  const last = log.slice(0, parted).findLast((e) => both(e, id, other));
   if (!last) return null;
-  const visits = shared.filter(
-    (e, i) =>
-      i === 0 ||
-      e.locationId !== shared[i - 1].locationId ||
-      e.turn > shared[i - 1].turn + 1,
-  ).length;
+  // One who watched the other set off saw them where the trip began.
+  const left =
+    last.fromLocationId &&
+    last.fromLocationId !== last.locationId &&
+    !(last.cast || []).includes(id === last.actorId ? other : id);
+  let visits = 0;
+  let together = false;
+  for (const e of log) {
+    if (apart(e)) together = false;
+    else if (!together && both(e, id, other)) {
+      together = true;
+      visits++;
+    }
+  }
   return {
-    place: last.locationId,
+    place: left ? last.fromLocationId : last.locationId,
     turn: last.turn,
-    visits: Math.min(visits + 1, 99),
+    visits: Math.min(visits + (together ? 0 : 1), 99),
   };
 }
 
-export function recall(world, id, other, frame) {
+export function recall(world, id, other, frame, shown = []) {
   if (!other || profiles[other]?.kind !== "avatar") return null;
   const met = reunion(world, id, other);
-  const chosen = choose(world, id, other, frame);
+  const chosen = choose(world, id, other, frame, shown);
   // A talk's topic that a chosen deed already names is not said twice.
   const items = chosen.map((c) => c.itemId).filter(Boolean);
   const acts = chosen

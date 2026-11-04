@@ -59,6 +59,7 @@ function step(world, kind, target, turnIndex) {
   }));
   return {
     context,
+    state: result.state,
     // This turn's recorded lines: a Talk's target answers the actor's line.
     lines: Object.fromEntries(entries.map(({ id, text }) => [id, text])),
     world: applyGeneratedText(result.state, context, {
@@ -293,28 +294,23 @@ export function memoryScenes() {
     (a) => a.kind === "give" && a.target === "moth" && a.item === "cloth",
   );
   const m3 = apart(play(gift, given).state, 1);
+  // Each scene keeps its committed state, so the shared narrator can be
+  // checked against the browser on it.
   return [
-    {
-      name: "M1 Pip again at the pond",
-      context: talk.context,
-      lines: { vale: "You found me." },
-    },
-    {
-      name: "C1 the next moment",
-      context: step(talk.world, "talk", "moth", 3).context,
-      lines: { vale: "Still here?" },
-    },
-    {
-      name: "M2 Pip after many visits",
-      context: step(many, "talk", "moth", 4).context,
-      lines: { vale: "Back again, Pip." },
-    },
-    {
-      name: "M3 Pip after the gift",
-      context: step(m3, "talk", "moth", 5).context,
-      lines: { vale: "How is the cloth?" },
-    },
-  ];
+    ["M1 Pip again at the pond", talk, "You found me."],
+    ["C1 the next moment", step(talk.world, "talk", "moth", 3), "Still here?"],
+    [
+      "M2 Pip after many visits",
+      step(many, "talk", "moth", 4),
+      "Back again, Pip.",
+    ],
+    ["M3 Pip after the gift", step(m3, "talk", "moth", 5), "How is the cloth?"],
+  ].map(([name, { context, state }, vale]) => ({
+    name,
+    context,
+    state,
+    lines: { vale },
+  }));
 }
 
 // A silent play (Light, Put down, Take, ...) sends no voice request, so only
@@ -330,6 +326,10 @@ export function voiceEvalCases() {
     ...returnVisit(),
     ...assistantRoleScenes(),
     ...perceptionScenes(),
-    ...memoryScenes(),
+    ...memoryScenes().map(({ name, context, lines }) => ({
+      name,
+      context,
+      lines,
+    })),
   ].filter(({ context }) => !voicesNobody(context));
 }

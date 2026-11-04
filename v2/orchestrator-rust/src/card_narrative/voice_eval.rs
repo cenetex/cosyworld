@@ -16,7 +16,11 @@ type Case = (String, Context, BTreeMap<String, String>);
 
 /// The scene a speaker answers in, as `complete_selected` builds it: a Talk's
 /// target hears the actor's line from this turn.
-fn scene_for(context: &Context, lines: &BTreeMap<String, String>, id: &str) -> Option<Context> {
+pub(super) fn scene_for(
+    context: &Context,
+    lines: &BTreeMap<String, String>,
+    id: &str,
+) -> Option<Context> {
     let voiced = voiced(context);
     let (actor, target) = conversation::reply_target(context, &voiced)?;
     (target == id)
