@@ -1151,6 +1151,12 @@ body .hand > .card-frame:hover,
 body .hand > .card-frame:focus-within {
   z-index: 2;
 }
+/* Cards leaving the hand fall here as inert ghosts (card-exit.mjs). */
+.card-exits {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
 body .card-frame[data-raised="true"] {
   z-index: 3;
   transform: translateY(-10px);
