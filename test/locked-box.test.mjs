@@ -6,6 +6,7 @@ import { seatActors } from "../v2/card-game/human-cast.mjs";
 import { greekTravelTargets } from "./helpers/greek-travel.mjs";
 import { openingFixture } from "./helpers/greek-opening.mjs";
 import { settleGate } from "./helpers/world-life.mjs";
+import { questsOf } from "../v2/card-game/want.mjs";
 
 function act(s, kind, fields = {}) {
   const action = legalActions(s).find(
@@ -28,11 +29,28 @@ describe("locked boxes", () => {
     expect(availableCards(s).filter((id) => isLockedBox(s, id))).toEqual([
       "greek-battlefield",
     ]);
-    s = act(s, "gate", { target: "greek-battlefield" });
+    // A guarded card gives no quest of its own; Talk with the guard gives
+    // his (rules 102).
+    expect(legalActions(s).some((a) => a.kind === "gate")).toBe(false);
+    s = act(s, "talk", { target: "greek-guard" });
+    expect(questsOf(s, "vale")).toContainEqual(
+      expect.objectContaining({ kind: "item", target: "greek-bread" }),
+    );
     expect(isLockedBox(s, "greek-battlefield")).toBe(true);
-    s = act(walk(s, "palace"), "take", { item: "greek-decree" });
-    s = act(walk(s, "gate"), "give", {
+    // The bread buys the decree, the decree Creon's writ, and the writ in
+    // the guard's hands opens the way.
+    s = act(walk(s, "courtyard"), "take", { item: "greek-bread" });
+    s = act(walk(s, "gate"), "trade", {
+      item: "greek-bread",
+      receive: "greek-decree",
+    });
+    expect(isLockedBox(s, "greek-battlefield")).toBe(true);
+    s = act(walk(s, "palace"), "trade", {
       item: "greek-decree",
+      receive: "greek-creon-writ",
+    });
+    s = act(walk(s, "gate"), "give", {
+      item: "greek-creon-writ",
       target: "greek-guard",
     });
     expect(isLockedBox(s, "greek-battlefield")).toBe(false);
@@ -50,7 +68,7 @@ describe("locked boxes", () => {
     shared.actors.mara.place = "greek-gate";
     expect(isLockedBox(shared, "greek-battlefield")).toBe(true);
     expect(availableCards(shared)).toContain("greek-battlefield");
-    shared.items["greek-decree"].holder = "greek-guard";
+    shared.items["greek-creon-writ"].holder = "greek-guard";
     expect(isLockedBox(settleGate(shared), "greek-battlefield")).toBe(false);
   });
 

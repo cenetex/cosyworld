@@ -124,6 +124,7 @@ import {
   roamingQuestActor,
   avoidsStandoffs,
   transports,
+  consumable,
 } from "./pack-registry.mjs";
 import {
   newCrossingState,
@@ -175,6 +176,8 @@ import {
 import { upgradeSave } from "./legacy-saves.mjs";
 import { firstStart, togglePack, validDisabledPacks } from "./pack-toggle.mjs";
 import {
+  consume,
+  settleCrafting,
   installItemCycle,
   settleItemCycle,
   settleVoyageCargo,
@@ -645,8 +648,10 @@ export function sealedWays(s, actor = currentActor(s)) {
     .flatMap((r) => {
       const guard = guardOf(s, here, r.to, actor);
       if (!guard) return r.sealed ? [r] : [];
-      const reason = `${nameOf(guard)} bars the way`;
-      return [{ ...r, sealed: { ...r.sealed, reason }, guardedBy: guard }];
+      // The card beyond a guarded way is locked; its reason names the guard
+      // and gives no quest (rules 102). Talk with him gives his.
+      const reason = `${nameOf(guard)} is guarding this card`;
+      return [{ ...r, sealed: { reason }, guardedBy: guard }];
     })
     .filter((r) => !seen.has(r.to) && seen.add(r.to));
 }
@@ -720,6 +725,9 @@ export function wantText(want) {
     // Players see Strike for the attack play.
     verb = step?.verb === "attack" ? "strike" : step?.verb;
   if (step?.verb === "give") return `give ${what} to ${nameOf(step.to)}`;
+  // Eat or drink one, with someone, somewhere (rules 102).
+  if (step?.verb === "eat")
+    return `${consumable(want.target) === "drink" ? "drink" : "eat"} ${what}${step.with ? ` with ${nameOf(step.with)}` : ""}${step.at ? ` at ${nameOf(step.at)}` : ""}`;
   // Talk's quest to bring a person somewhere, or to someone (rules 99).
   if (step?.verb === "bring" && want.kind === "person")
     return `bring ${what} to ${nameOf(step.at ?? step.to)}`;
@@ -802,7 +810,24 @@ function giftWilling(s, item, recipient) {
 }
 // Refusals commit a code on the play; the refuser's own line voices it.
 export const REFUSAL_REASONS = ["grudge", "needs-it", "wants-something-else"];
-export const REFUSED_VERBS = ["give", "trade", "ask", "accompany"];
+export const REFUSED_VERBS = ["give", "trade", "ask", "accompany", "eat"];
+// A companion shares a meal or a drink (rules 102) as it consents to other
+// social plays: awake, out of any fight, at peace, with no grudge, and
+// either trusting the host or wanting this very meal with them.
+function shareDecision(s, actor, companion) {
+  if (controlledByHuman(s, companion)) return true;
+  return (
+    !residentAsleep(s, companion) &&
+    !standoffFor(s, actor) &&
+    !standoffFor(s, companion) &&
+    s.peaceUntil[companion] <= s.turn &&
+    !resentment(s, companion, actor) &&
+    ((s.actors[companion].trust?.[actor] || 0) > 0 ||
+      questsOf(s, companion).some(
+        (w) => w.step?.verb === "eat" && w.step.with === actor,
+      ))
+  );
+}
 function refusalReason(s, a) {
   const other = a.kind === "trade" ? s.items[a.receive].holder : a.target;
   if (resentment(s, other, a.actor)) return "grudge";
@@ -1677,6 +1702,35 @@ export function legalActions(s, actor = currentActor(s)) {
       );
     }
     if (item.holder === actor) {
+      // Food and drink are eaten or drunk by whoever holds them, alone or
+      // with someone here (rules 102).
+      const meal = consumable(id);
+      if (meal) {
+        const verb = meal === "drink" ? "drinks" : "eats";
+        out.push(
+          offer(
+            "eat",
+            actor,
+            id,
+            null,
+            `${nameOf(actor)} ${verb} the ${nameOf(id)}.`,
+            [id],
+          ),
+        );
+        for (const other of knownActors(s).filter(
+          (p) => p !== actor && s.actors[p].place === here,
+        ))
+          out.push(
+            offer(
+              "eat",
+              actor,
+              id,
+              other,
+              `${nameOf(actor)} ${verb} the ${nameOf(id)} with ${nameOf(other)}.`,
+              [id, other],
+            ),
+          );
+      }
       out.push(
         offer(
           "drop",
@@ -1883,6 +1937,7 @@ export function legalActions(s, actor = currentActor(s)) {
 // it ends. Arrivals are locked in too. Wait and the battle's own plays stay,
 // and the threatened side may still hand over the demanded item.
 const ROOM_LOCKED = new Set([
+  "eat",
   "talk",
   "threaten",
   "move",
@@ -2460,6 +2515,21 @@ function performPlay(s, a, round = null, settle = []) {
     case "drop":
       transfer(s, a.item, here, a.text);
       break;
+    // Eaten or drunk, a thing goes home: locked if it is made, else ready
+    // again. A companion shares it only if it agrees (rules 102).
+    case "eat":
+      if (a.target) {
+        requestAccepted = shareDecision(s, a.actor, a.target);
+        if (!requestAccepted) {
+          refusal = resentment(s, a.target, a.actor)
+            ? "grudge"
+            : "wants-something-else";
+          text = `${text.replace(/\.$/u, "")}? ${nameOf(a.target)} declines.`;
+          break;
+        }
+      }
+      consume(s, a.item);
+      break;
     case "give":
     case "trade": {
       // A pack can make a gift the trigger of one authored choice.
@@ -2574,7 +2644,8 @@ function performPlay(s, a, round = null, settle = []) {
     ...(affected ? { entityId: affected } : {}),
     targetId: a.target,
     ...(a.receive ? { receiveId: a.receive } : {}),
-    ...(["ask", "give", "trade"].includes(a.kind)
+    ...(["ask", "give", "trade"].includes(a.kind) ||
+    (a.kind === "eat" && a.target)
       ? { accepted: requestAccepted }
       : {}),
     ...(refusal ? { reason: refusal } : {}),
@@ -2643,8 +2714,8 @@ function performPlay(s, a, round = null, settle = []) {
       ...settle,
     ]),
     wantAPI(s),
-    ["ask", "give", "trade"].includes(a.kind)
-      ? { ...a, accepted: requestAccepted }
+    ["ask", "give", "trade", "eat"].includes(a.kind)
+      ? { ...a, accepted: !a.target || requestAccepted }
       : a,
   );
   // A Talk quest whose want has changed leaves; a player's Talk that
@@ -2658,6 +2729,10 @@ function performPlay(s, a, round = null, settle = []) {
     );
   // A flask and an empty lamp in one avatar's hands refuel after the play.
   refuelCarried(s);
+  // Giving a maker the last of a locked thing's set makes it (rules 102).
+  settleCrafting(s, a, nameOf, (text, locationId) =>
+    addLog(s, "World", text, { kind: "narration", locationId }),
+  );
   // A traveler who comes to hold an item made for them uses it up (#1873).
   for (const held of applyHoldChoices(s))
     addLog(s, "World", held.text, {
@@ -2916,7 +2991,29 @@ function wantPlan(s, actor) {
   };
   const drift = () => (ranged && worldLife.on ? homeStep() : idle());
   if (walksHome(s, actor)) return homeStep();
+  // A resident eats what it holds when a quest of its wants it eaten, there
+  // and with that companion if named.
+  const meal = acts.find(
+    (a) =>
+      a.kind === "eat" &&
+      questsOf(s, actor).some(
+        (w) =>
+          w.step?.verb === "eat" &&
+          w.target === a.item &&
+          (w.step.with ?? null) === (a.target ?? null) &&
+          (!w.step.at || w.step.at === here),
+      ),
+  );
+  if (meal) return { action: meal };
   if (!want) return drift();
+  // A meal it can only have somewhere it cannot go is left where it lies.
+  if (
+    want.step?.verb === "eat" &&
+    want.step.at &&
+    want.step.at !== here &&
+    (!travels(actor, s) || staysPut(actor, s) || keepsHome(s, actor))
+  )
+    return drift();
   if (resting(s, actor)) return idle();
   // A maker leaves what it makes for others to carry.
   if (want.kind === "item" && makerChoice(actor, want.target)) return idle();
@@ -3660,6 +3757,7 @@ export function validateWorld(s) {
     "snuff",
     "ring",
     "refuel",
+    "eat",
     "cover",
     "talk",
     "wait",

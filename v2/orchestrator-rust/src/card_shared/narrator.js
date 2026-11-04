@@ -2045,7 +2045,7 @@
       case "shared_world":
         return sharedEnabled(s);
       case "gate_open":
-        return Boolean(s.openedRoutes?.includes(`${c.from}>${c.to}`));
+        return packRouteOpen(s, c.from, c.to);
       case "home_door":
         return s.doors?.[c.home] === c.place;
       case "connected_humans":
@@ -2259,13 +2259,15 @@
   function met(world, id, want) {
     if (want.kind === "connect") return false;
     const here = world.actors[id].place;
-    if (want.kind === "item") return rootOf(world, want.target) === id;
+    if (want.kind === "item")
+      return want.step?.verb !== "eat" && rootOf(world, want.target) === id;
     if (want.kind === "place") return here === want.target;
     return world.actors[want.target]?.place === here;
   }
   function revealed(world, id, want) {
     return Boolean(
-      want && world.actors?.[id] && entityActive(world, want.target) && !(want.kind === "item" && !world.items[want.target]) && !(want.kind === "person" && !world.actors[want.target]) && !met(world, id, want)
+      want && world.actors?.[id] && // A made thing still locked is wanted all the same (rules 102).
+      (entityActive(world, want.target) || Boolean(packThings[want.target]?.locked)) && !(want.kind === "item" && !world.items[want.target]) && !(want.kind === "person" && !world.actors[want.target]) && !met(world, id, want)
     );
   }
   function wantFact(world, id, nameOf2) {
@@ -2281,7 +2283,7 @@
     }
     if (!revealed(world, id, want)) return null;
     const name = nameOf2(want.target);
-    const line = want.kind === "item" ? `I want ${article(name)}.` : want.kind === "place" ? `I want to be at ${name}.` : `I want to see ${name}.`;
+    const line = want.kind === "item" ? want.step?.verb === "eat" ? `I want to ${consumable(want.target) === "drink" ? "drink" : "eat"} ${article(name)}${want.step.at ? ` at ${nameOf2(want.step.at)}` : ""}.` : `I want ${article(name)}.` : want.kind === "place" ? `I want to be at ${name}.` : `I want to see ${name}.`;
     const more = world.actors[id].under?.length || 0;
     return more ? `${line} I have ${more === 1 ? "one other quest" : `${more} other quests`} too.` : line;
   }
@@ -2349,7 +2351,7 @@
       );
     });
     const going = kind === "person" && s.actors[target]?.want;
-    const verbs = kind === "item" ? wanting ? ["give", "bring", "find"] : ["", "find"] : kind === "person" ? ["", "meet"] : [""];
+    const verbs = kind === "item" ? wanting ? ["give", "bring", "find"] : isFood(target) ? ["", "find", "eat"] : ["", "find"] : kind === "person" ? ["", "meet"] : [""];
     const verb = verbs[Math.floor(roll / 7) % verbs.length];
     const here = s.actors[actor].place;
     if (!verb || verb === "find" && placeOfItem(s, target) === here || verb === "meet" && s.actors[target]?.place === here)
@@ -2435,7 +2437,8 @@
         const w = authoredWant(id);
         a.want = w && validTarget(s, w.kind, w.target) ? {
           ...newWant(w.kind, w.target, s.turn),
-          ...w.kind === "item" && typeof w.lit === "boolean" ? { lit: w.lit } : {}
+          ...w.kind === "item" && typeof w.lit === "boolean" ? { lit: w.lit } : {},
+          ...w.step ? { step: { ...w.step } } : {}
         } : null;
       }
       a.xp ??= startXp(id);
@@ -2529,18 +2532,20 @@
     if (s.actors[actor]?.want) giveUp(s, actor, api);
   }
   var STEP_CARDS = { give: ["to"], bring: ["to", "at"] };
-  function validStep(s, w) {
+  function validStep(s, w, id) {
     const { verb, ...cards } = w.step;
     const home = verb === "bring" && w.story && !cards.to;
     const gift = verb === "give" && w.story && !w.quest;
     const slept = verb === "rest" && !w.story;
+    const eaten = verb === "eat" && w.kind === "item" && isFood(w.target);
     const asked = !w.quest && !w.story && (verb === "give" && w.kind === "item" || verb === "bring" && w.kind === "person");
-    const named = home ? ["at"] : asked && w.kind === "person" ? [cards.at === void 0 ? "to" : "at"] : STEP_CARDS[verb] || (verb === "meet" && cards.at ? ["at"] : []);
-    return (Boolean(w.quest) || home || gift || slept || asked) && [
+    const named = eaten ? ["at", "with"].filter((key) => cards[key] !== void 0) : home ? ["at"] : asked && w.kind === "person" ? [cards.at === void 0 ? "to" : "at"] : STEP_CARDS[verb] || (verb === "meet" && cards.at ? ["at"] : []);
+    return (Boolean(w.quest) || home || gift || slept || asked || eaten) && [
       ...STEP_VERBS[w.kind] || [],
+      ...eaten ? ["eat"] : [],
       ...w.kind === "person" ? SAVED_STEP_VERBS : [],
       ...asked ? [verb] : []
-    ].includes(verb) && Object.keys(cards).length === named.length && named.every((key) => typeof cards[key] === "string") && (!cards.to || Object.hasOwn(s.actors, cards.to) && cards.to !== w.target);
+    ].includes(verb) && Object.keys(cards).length === named.length && named.every((key) => typeof cards[key] === "string") && (!cards.to || Object.hasOwn(s.actors, cards.to) && cards.to !== w.target) && (!cards.with || Object.hasOwn(s.actors, cards.with) && cards.with !== id);
   }
   function validHeard(s, id) {
     const heard = s.actors[id].heard;
@@ -2562,7 +2567,7 @@
   function validQuest(s, id, w) {
     const whole6 = (n) => Number.isSafeInteger(n) && n >= 0 && n <= s.turn;
     return Boolean(
-      w && typeof w === "object" && Object.keys(w).length === 4 + (w.quest === void 0 ? 0 : 1) + (w.step === void 0 ? 0 : 1) + (w.lit === void 0 ? 0 : 1) + (w.story === void 0 ? 0 : 1) && (w.step === void 0 || validStep(s, w)) && (w.lit === void 0 || w.kind === "item" && typeof w.lit === "boolean") && (w.story === void 0 || w.story === true && !w.quest) && (w.quest === void 0 || Object.keys(w.quest).length === 2 && Number.isSafeInteger(w.quest.level) && w.quest.level >= 2 && Number.isSafeInteger(w.quest.left) && w.quest.left >= 1 && w.quest.left <= questSteps(w.quest.level) + 1) && WANT_KINDS.includes(w.kind) && typeof w.target === "string" && validTarget(s, w.kind, w.target) && !(w.kind === "person" && w.target === id) && whole6(w.since) && Number.isInteger(w.refusals) && w.refusals >= 0 && w.refusals < REFUSAL_LIMIT
+      w && typeof w === "object" && Object.keys(w).length === 4 + (w.quest === void 0 ? 0 : 1) + (w.step === void 0 ? 0 : 1) + (w.lit === void 0 ? 0 : 1) + (w.story === void 0 ? 0 : 1) && (w.step === void 0 || validStep(s, w, id)) && (w.lit === void 0 || w.kind === "item" && typeof w.lit === "boolean") && (w.story === void 0 || w.story === true && !w.quest) && (w.quest === void 0 || Object.keys(w.quest).length === 2 && Number.isSafeInteger(w.quest.level) && w.quest.level >= 2 && Number.isSafeInteger(w.quest.left) && w.quest.left >= 1 && w.quest.left <= questSteps(w.quest.level) + 1) && WANT_KINDS.includes(w.kind) && typeof w.target === "string" && validTarget(s, w.kind, w.target) && !(w.kind === "person" && w.target === id) && whole6(w.since) && Number.isInteger(w.refusals) && w.refusals >= 0 && w.refusals < REFUSAL_LIMIT
     );
   }
 
@@ -2979,7 +2984,7 @@
         schemaVersion: 1,
         id: "greek-drama",
         packId: "cosyworld.greek-drama",
-        revision: 19,
+        revision: 20,
         name: "The Wine-Dark Sea",
         description: "A branching Greek drama world. A shared ship visits the Wine-Dark Harbor, Athens Harbor and Piraeus. One road joins Athens and Piraeus, and short paths lead to the Attic places where welcome becomes a growing poem.",
         tone: "Concrete Greek domestic and civic life: bread, work, desire, grief, argument, irreverence, and hospitality. Dialogue expresses committed actions. A tragic ending is never required.",
@@ -3099,7 +3104,7 @@
                 ]
               }
             ],
-            persona: "Fresh repairs cover the gate. A guard keeps the road to the fallen soldiers. He opens it once he holds an order from the palace, the Burial Decree or Creon's writ, and it stays open after."
+            persona: "Fresh repairs cover the gate. A guard keeps the road to the fallen soldiers. He guards it until Creon's writ is in his hands."
           },
           "greek-battlefield": {
             name: "The Exposed Battlefield",
@@ -4066,18 +4071,19 @@
           "greek-creon": {
             name: "Creon",
             startLevel: 50,
-            text: "He receives petitions beside the posted decree. His attendants wait for clear instructions.",
+            text: "He receives petitions beside the palace door. He wants his decree back in his own hands.",
             place: "greek-palace",
             home: "greek-palace",
             values: {
               "greek-decree": 5,
+              "greek-creon-writ": 5,
               "greek-household-token": 2
             },
             seed: "Creon, King of Thebes.",
             portrait: "assets/greek-drama/chthonic-creon.png",
             want: {
-              kind: "place",
-              target: "greek-palace"
+              kind: "item",
+              target: "greek-decree"
             },
             desire: {
               items: [],
@@ -4087,26 +4093,33 @@
             tastes: {
               likes: "public procedure, named witnesses",
               sore: "private defiance presented as settled law",
-              reason: "He receives petitions beside the posted decree. His attendants wait for clear instructions."
+              reason: "He receives petitions beside the palace door. He wants his decree back in his own hands."
             }
           },
           "greek-guard": {
             name: "The Gate Guard",
-            text: "He has read the decree several times. He lifts the bar for a written order from the palace.",
+            text: "He guards the road to the battlefield and will not stand aside without Creon's writ. He keeps glancing toward the smell of Dione's oven.",
             place: "greek-gate",
             home: "greek-gate",
             values: {
               "greek-provisions": 1,
-              "greek-decree": 3,
+              "greek-decree": 5,
               "greek-bread": 2,
-              "greek-creon-writ": 2
+              "greek-creon-writ": 7
             },
             seed: "The Gate Guard of Thebes.",
             portrait: "assets/greek-drama/chthonic-guard.png",
             tastes: {
               likes: "an unambiguous instruction, returning alive",
               sore: "being blamed for things outside his sight",
-              reason: "He has read the decree several times. He lifts the bar for a written order from the palace."
+              reason: "He guards the road to the battlefield and will not stand aside without Creon's writ. He keeps glancing toward the smell of Dione's oven."
+            },
+            want: {
+              kind: "item",
+              target: "greek-bread",
+              step: {
+                verb: "eat"
+              }
             }
           },
           "greek-baker": {
@@ -4116,6 +4129,7 @@
             home: "greek-courtyard",
             values: {
               "greek-water-jar": 5,
+              "greek-wheat": 3,
               "greek-bread": 2
             },
             seed: "Dione the Baker.",
@@ -4158,7 +4172,10 @@
             place: "greek-harbor",
             home: "greek-harbor",
             values: {
-              "greek-provisions": 1
+              "greek-provisions": 1,
+              "greek-bread": 2,
+              "greek-figs": 2,
+              "greek-wine-skin": 2
             },
             seed: "Myrto the Shipmaster.",
             portrait: "assets/greek-drama/chthonic-shipmaster.png",
@@ -4169,7 +4186,11 @@
             },
             want: {
               kind: "item",
-              target: "greek-provisions"
+              target: "greek-provisions",
+              step: {
+                verb: "eat",
+                at: "greek-piraeus"
+              }
             }
           },
           "greek-rhapsode": {
@@ -4779,23 +4800,38 @@
             text: "A filled clay jar with a repaired handle. Dione needs it back at the common table.",
             holder: "greek-well",
             persona: "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
-            art: "assets/greek-drama/water-jar.png"
+            art: "assets/greek-drama/water-jar.png",
+            home: "greek-well",
+            absentReturn: true
           },
           "greek-bread": {
             name: "Courtyard Bread",
-            text: "A round loaf from Dione's oven, set aside for Myrto's crew.",
+            text: "A round loaf from Dione's oven, baked from well water and wheat.",
             holder: "greek-courtyard",
             persona: "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
             art: "assets/greek-drama/bread.png",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-water-returned",
-                value: true
-              }
-            ],
             home: "greek-courtyard",
-            regrow: "dawn"
+            tags: [
+              "food"
+            ],
+            startsUsed: true,
+            locked: {
+              by: "greek-baker",
+              consumes: [
+                "greek-water-jar",
+                "greek-wheat"
+              ]
+            },
+            absentReturn: true
+          },
+          "greek-wheat": {
+            name: "Sack of Wheat",
+            text: "Threshed wheat in a coarse sack, carried up from the grain quays at Piraeus.",
+            holder: "greek-baker",
+            persona: "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
+            art: "assets/greek-drama/provision-basket.png",
+            home: "greek-piraeus",
+            absentReturn: true
           },
           "greek-figs": {
             name: "Dried Figs",
@@ -4804,7 +4840,10 @@
             persona: "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
             art: "assets/greek-drama/figs.png",
             home: "greek-sanctuary",
-            regrow: "dawn"
+            tags: [
+              "food"
+            ],
+            absentReturn: true
           },
           "greek-wine-skin": {
             name: "Wine Skin",
@@ -4813,7 +4852,10 @@
             persona: "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
             art: "assets/greek-drama/wine-skin.png",
             home: "greek-gate",
-            regrow: "dawn"
+            tags: [
+              "drink"
+            ],
+            absentReturn: true
           },
           "greek-funeral-cloth": {
             name: "Funeral Cloth",
@@ -4821,8 +4863,7 @@
             holder: "greek-sanctuary",
             persona: "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
             art: "assets/greek-drama/funeral-cloth.png",
-            home: "greek-eleusis",
-            regrow: "dawn"
+            home: "greek-eleusis"
           },
           "greek-oil-flask": {
             name: "Funeral Oil",
@@ -4830,8 +4871,7 @@
             holder: "greek-courtyard",
             persona: "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
             art: "assets/greek-drama/oil-flask.png",
-            home: "greek-colonus",
-            regrow: "dawn"
+            home: "greek-colonus"
           },
           "greek-libation": {
             name: "Libation Wine",
@@ -4839,8 +4879,7 @@
             holder: "greek-cithaeron",
             persona: "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
             art: "assets/greek-drama/libation-cup.png",
-            home: "greek-cithaeron",
-            regrow: "dawn"
+            home: "greek-cithaeron"
           },
           "greek-shovel": {
             name: "Burial Shovel",
@@ -4854,7 +4893,7 @@
             name: "The Burial Decree",
             startLevel: 50,
             text: "A public copy forbids burial of the brother left outside the city.",
-            holder: "greek-palace",
+            holder: "greek-guard",
             persona: "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
             art: "assets/greek-drama/decree.png"
           },
@@ -4867,12 +4906,24 @@
           },
           "greek-provisions": {
             name: "Travel Provisions",
-            text: "Bread, dried figs and a wine skin, packed for the voyage out of Thebes.",
+            text: "Bread, dried figs and a wine skin, packed by Myrto for a voyage out of Thebes.",
             holder: "greek-harbor",
             persona: "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
             art: "assets/greek-drama/provisions.png",
             home: "greek-harbor",
-            startsUsed: true
+            startsUsed: true,
+            tags: [
+              "food"
+            ],
+            locked: {
+              by: "greek-shipmaster",
+              consumes: [
+                "greek-bread",
+                "greek-figs",
+                "greek-wine-skin"
+              ]
+            },
+            absentReturn: true
           },
           "greek-olive-branch": {
             name: "The Herald\u2019s Truce",
@@ -5186,17 +5237,10 @@
           },
           "greek-creon-writ": {
             name: "Creon's Writ",
-            text: "A sealed writ from the palace. It grants the household a burial under witness.",
+            text: "A sealed writ from the palace. With it, Creon permits the household to bury the brother, and the gate guard to stand aside.",
             persona: "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
-            holder: "greek-palace",
-            art: "assets/greek-drama/creon-writ.webp",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-burial-permitted",
-                value: true
-              }
-            ]
+            holder: "greek-creon",
+            art: "assets/greek-drama/creon-writ.webp"
           },
           "greek-guard-tablet": {
             name: "The Guard's Tablet",
@@ -5255,25 +5299,7 @@
           {
             from: "greek-gate",
             to: "greek-battlefield",
-            requires: [
-              {
-                kind: "holding",
-                item: "greek-decree",
-                actor: "greek-guard"
-              }
-            ],
-            sealed: {
-              reason: "The guard lifts the bar for an order from the palace: the Burial Decree or Creon's writ.",
-              quest: {
-                kind: "item",
-                target: "greek-decree",
-                to: "greek-guard"
-              }
-            }
-          },
-          {
-            from: "greek-gate",
-            to: "greek-battlefield",
+            live: true,
             requires: [
               {
                 kind: "holding",
@@ -5536,51 +5562,6 @@
             on: "give"
           },
           {
-            id: "greek-pack-provisions",
-            subject: "greek-shipmaster",
-            at: "greek-harbor",
-            label: "Give Myrto the provisions for her crew",
-            text: "Vale gives Myrto the bread, the figs and the wine skin. She packs them and sets the Travel Provisions on the landing.",
-            textTemplate: "{actor} gives Myrto the bread, the figs and the wine skin. She packs them and sets the Travel Provisions on the landing.",
-            on: "give",
-            repeats: true,
-            requires: [
-              {
-                kind: "holding",
-                item: "greek-bread",
-                role: "actor"
-              },
-              {
-                kind: "holding",
-                item: "greek-figs",
-                role: "actor"
-              },
-              {
-                kind: "holding",
-                item: "greek-wine-skin",
-                role: "actor"
-              }
-            ],
-            effects: [
-              {
-                kind: "retire_item",
-                item: "greek-bread"
-              },
-              {
-                kind: "retire_item",
-                item: "greek-figs"
-              },
-              {
-                kind: "retire_item",
-                item: "greek-wine-skin"
-              },
-              {
-                kind: "drop_item",
-                item: "greek-provisions"
-              }
-            ]
-          },
-          {
             id: "greek-hear-decree",
             subject: "greek-guard",
             at: "greek-gate",
@@ -5712,40 +5693,21 @@
             id: "greek-petition-burial",
             subject: "greek-creon",
             at: "greek-palace",
-            label: "Petition for burial",
-            text: "Vale presents the decree and household token with the elder's support. Creon grants a public exception for burial under witness.",
+            label: "Receive Creon\u2019s writ",
+            text: "Creon holds his decree again. With his writ, Vale may see the brother buried under witness.",
             requires: [
               {
-                kind: "flag",
-                key: "greek-decree-known",
-                value: true
-              },
-              {
-                kind: "flag",
-                key: "greek-witness-support",
-                value: true
+                kind: "holding",
+                item: "greek-creon-writ",
+                role: "actor"
               },
               {
                 kind: "holding",
                 item: "greek-decree",
-                role: "actor"
-              },
-              {
-                kind: "holding",
-                item: "greek-household-token",
-                role: "actor"
-              },
-              {
-                kind: "choice_unset",
-                key: "greek-theban-response"
+                actor: "greek-creon"
               }
             ],
             effects: [
-              {
-                kind: "place_item",
-                item: "greek-decree",
-                place: "greek-palace"
-              },
               {
                 kind: "choose",
                 key: "greek-theban-response",
@@ -5758,8 +5720,8 @@
               }
             ],
             summary: "Creon granted a witnessed exception for the family to arrange a lawful burial. The petition itself did not perform the rite.",
-            textTemplate: "{actor} presents the decree and household token with the elder's support. Creon grants a public exception for burial under witness.",
-            on: "give"
+            textTemplate: "Creon holds his decree again. With his writ, {actor} may see the brother buried under witness.",
+            on: "meet"
           },
           {
             id: "greek-perform-permitted-burial",
@@ -5972,6 +5934,11 @@
               {
                 kind: "set_flag",
                 key: "greek-permitted-burial-public",
+                value: true
+              },
+              {
+                kind: "set_flag",
+                key: "greek-open-door-open",
                 value: true
               }
             ],
@@ -9647,7 +9614,8 @@
             "greek-pyre-account",
             "greek-figs",
             "greek-wine-skin",
-            "greek-libation"
+            "greek-libation",
+            "greek-wheat"
           ],
           choices: [
             "greek-return-water-jar",
@@ -9683,8 +9651,7 @@
             "greek-homecoming-report-piraeus-family",
             "greek-homecoming-report-colonus-custom",
             "greek-homecoming-agree-journey",
-            "greek-homecoming-receive-family",
-            "greek-pack-provisions"
+            "greek-homecoming-receive-family"
           ]
         },
         recital: {
@@ -10617,12 +10584,13 @@
                 from: "greek-harbor",
                 to: "greek-piraeus",
                 oneWay: true,
+                reason: "Put the Travel Provisions down on deck",
                 opensWith: [
                   {
                     kind: "any",
                     conditions: [
                       {
-                        kind: "item_present",
+                        kind: "item_at",
                         item: "greek-provisions",
                         place: "greek-ship"
                       },
@@ -10633,8 +10601,7 @@
                       }
                     ]
                   }
-                ],
-                spends: true
+                ]
               },
               {
                 from: "greek-piraeus",
@@ -14393,20 +14360,32 @@
     const renews = (id, seen = /* @__PURE__ */ new Set()) => {
       const thing = items2[id];
       if (!thing || seen.has(id)) return false;
-      if (thing.home && thing.regrow) return true;
+      if (thing.home) return true;
       return drops(id).some(
         (c) => c.repeats && c.effects.filter((e) => e.kind === "retire_item").every((e) => renews(e.item, /* @__PURE__ */ new Set([...seen, id])))
       );
     };
     for (const [id, i] of Object.entries(items2)) {
-      if (i.home === void 0 && i.regrow === void 0 && !i.startsUsed && i.absentReturn === void 0)
+      check(
+        !["food", "drink"].some((tag) => i.tags?.includes(tag)) || owns2(places2, i.home),
+        `item ${id} is food or drink, so it needs a home to go back to`
+      );
+      const lock = i.locked;
+      if (lock !== void 0)
+        check(
+          record2(lock) && Object.keys(lock).length === 2 && owns2(pack.avatars, lock.by) && owns2(places2, i.home) && Array.isArray(lock.consumes) && lock.consumes.length >= 1 && lock.consumes.length <= 3 && new Set(lock.consumes).size === lock.consumes.length && lock.consumes.every((c) => c !== id && owns2(places2, items2[c]?.home)),
+          `item ${id} locked needs a maker of the pack, a home and homed things it consumes`
+        );
+      if (i.home === void 0 && i.regrow === void 0 && !i.startsUsed && !i.locked && i.absentReturn === void 0)
         continue;
       check(
-        (i.home === void 0 || owns2(places2, i.home)) && (i.regrow === void 0 || REGROW_EVENTS.includes(i.regrow) && i.home !== void 0) && (i.startsUsed === void 0 || i.startsUsed === true) && (i.absentReturn === void 0 || i.absentReturn === true && i.home !== void 0) && owns2(places2, i.holder),
+        (i.home === void 0 || owns2(places2, i.home)) && (i.regrow === void 0 || REGROW_EVENTS.includes(i.regrow) && i.home !== void 0) && (i.startsUsed === void 0 || i.startsUsed === true) && (i.absentReturn === void 0 || i.absentReturn === true && i.home !== void 0) && // A thing may start in someone's hands and be homed elsewhere
+        // (rules 102); one that rests used up rests in a place.
+        (owns2(places2, i.holder) || owns2(pack.avatars, i.holder) && !i.regrow && !i.startsUsed && !i.locked),
         `item ${id} home, regrow and startsUsed need a place of the pack to rest at`
       );
       check(
-        !i.startsUsed || i.regrow !== void 0 || drops(id).length > 0,
+        !i.startsUsed || i.regrow !== void 0 || i.locked !== void 0 || drops(id).length > 0,
         `item ${id} starts used up but nothing brings it into play`
       );
     }
@@ -14581,7 +14560,14 @@
     const docks = Array.isArray(t.docks) ? t.docks : [];
     const seen = /* @__PURE__ */ new Set(), neighbours = new Map(docks.map((d) => [d, /* @__PURE__ */ new Set()])), leaving = /* @__PURE__ */ new Set();
     for (const lane of t.lanes) {
-      if (!keysOk(lane, ["from", "to", "oneWay", "opensWith", "spends"]) || !docks.includes(lane.from) || !docks.includes(lane.to) || lane.from === lane.to || lane.oneWay !== void 0 && lane.oneWay !== true) {
+      if (!keysOk(lane, [
+        "from",
+        "to",
+        "oneWay",
+        "opensWith",
+        "spends",
+        "reason"
+      ]) || lane.reason !== void 0 && (!lane.opensWith || typeof lane.reason !== "string" || !lane.reason.trim() || lane.reason.length > 240) || !docks.includes(lane.from) || !docks.includes(lane.to) || lane.from === lane.to || lane.oneWay !== void 0 && lane.oneWay !== true) {
         out.push("has a lane that does not join two of its docks");
         continue;
       }
@@ -14977,7 +14963,10 @@
         `avatar ${id} tastes need likes, sore and reason`
       );
       check(
-        a.want === void 0 || keysOk(a.want, ["kind", "target"]) && (a.want.kind === "item" ? owns3(items2, a.want.target) || hub2.items.includes(a.want.target) : a.want.kind === "place" ? owns3(places2, a.want.target) || hub2.places.includes(a.want.target) : a.want.kind === "connect" ? a.want.target === "humans" : a.want.kind === "person" && a.want.target !== id && (owns3(avatars, a.want.target) || hub2.avatars.includes(a.want.target))),
+        a.want === void 0 || keysOk(a.want, ["kind", "target", "step"]) && // An eat quest (rules 102): eat or drink one, somewhere, with someone.
+        (a.want.step === void 0 || a.want.kind === "item" && keysOk(a.want.step, ["verb", "at", "with"]) && a.want.step.verb === "eat" && ["food", "drink"].some(
+          (tag) => items2[a.want.target]?.tags?.includes(tag)
+        ) && (a.want.step.with === void 0 || a.want.step.with !== id && (owns3(avatars, a.want.step.with) || hub2.avatars.includes(a.want.step.with))) && (a.want.step.at === void 0 || owns3(places2, a.want.step.at))) && (a.want.kind === "item" ? owns3(items2, a.want.target) || hub2.items.includes(a.want.target) : a.want.kind === "place" ? owns3(places2, a.want.target) || hub2.places.includes(a.want.target) : a.want.kind === "connect" ? a.want.target === "humans" : a.want.kind === "person" && a.want.target !== id && (owns3(avatars, a.want.target) || hub2.avatars.includes(a.want.target))),
         `avatar ${id} want needs an item, place or person target, or connects humans`
       );
       const t = a.temperament;
@@ -15223,7 +15212,8 @@
           "home",
           "regrow",
           "startsUsed",
-          "absentReturn"
+          "absentReturn",
+          "locked"
         ]) && (i.tags === void 0 || Array.isArray(i.tags) && i.tags.length >= 1 && i.tags.length <= 4 && i.tags.every(idOk2)) && textOk(i.name, 120) && textOk(i.text) && textOk(i.persona) && (owns3(places2, i.holder) || owns3(avatars, i.holder) || hub2?.places?.includes(i.holder)),
         `item ${id} is invalid`
       );
@@ -15784,6 +15774,8 @@
   var packPeople = merge("avatars");
   var packFixtures = merge("fixtures");
   var packThings = merge("items");
+  var consumable = (id) => packThings[id]?.home ? ["food", "drink"].find((tag) => packThings[id].tags?.includes(tag)) ?? null : null;
+  var isFood = (id) => consumable(id) !== null;
   var entities = {
     ...packPlaces,
     ...packPeople,
@@ -15955,6 +15947,11 @@
   );
   var latchKeys = new Set(latching.map(({ route }) => routeKey(route)));
   var routeOpen = (world, packId, r) => !r.live && Boolean(world.openedRoutes?.includes(routeKey(r))) || conditionsMet(world, packId, r.requires);
+  var packRouteOpen = (world, from, to) => packDefinitions.some(
+    (pack) => (pack.routes || []).some(
+      (r) => r.from === from && r.to === to && routeOpen(world, pack.id, r)
+    )
+  );
   function latchRoutes(world) {
     for (const { pack, route } of latching) {
       const key = routeKey(route);
@@ -16642,6 +16639,8 @@
     (pack) => (pack.kits || []).map((kit) => ({ ...kit, packId: pack.id }))
   );
   var kitThings = new Set(packKits.flatMap((kit) => kit.items));
+  var restOf = (id) => packThings[id].home ?? packThings[id].holder;
+  var lockedThings = Object.keys(packThings).filter((id) => packThings[id].locked).sort();
   function installItemCycle(s, added = []) {
     const starts = (id) => packThings[id]?.startsUsed === true && s.items[id]?.holder === packThings[id].holder && !s.items[id].history.length;
     const fresh = Array.isArray(s.usedUp) ? added : Object.keys(s.items);
@@ -16651,7 +16650,7 @@
   }
   var whole4 = (n) => Number.isSafeInteger(n) && n > 0;
   var validItemCycle = (s) => Array.isArray(s.usedUp) && s.usedUp.every(
-    (id, i) => Boolean(packThings[id]) && (!i || s.usedUp[i - 1] < id) && s.items[id]?.holder === packThings[id].holder && s.items[id].history.length === 0
+    (id, i) => Boolean(packThings[id]) && (!i || s.usedUp[i - 1] < id) && [packThings[id].holder, restOf(id)].includes(s.items[id]?.holder) && s.items[id].history.length === 0
   ) && (s.astray === void 0 || Boolean(s.astray) && typeof s.astray === "object" && !Array.isArray(s.astray) && Object.keys(s.astray).length > 0 && Object.entries(s.astray).every(
     ([id, place]) => homed.includes(id) && typeof place === "string"
   )) && (s.scatters === void 0 || Boolean(s.scatters) && typeof s.scatters === "object" && !Array.isArray(s.scatters) && Object.entries(s.scatters).every(
@@ -16739,6 +16738,7 @@
       upgradeGreekThreeLinksSave(s);
       upgradeGreekLandRouteSave(s);
       upgradeGreekForecourtSave(s);
+      upgradeGreekDecreeSave(s);
       upgradeRecitals(s, packDefinitions);
     }
     upgradeSightings(s);
@@ -17160,6 +17160,21 @@
     if (!pack || pack.revision < 19 || saved?.revision !== 18) return;
     foldRetiredRoads(s);
     saved.revision = 19;
+  }
+  function upgradeGreekDecreeSave(s) {
+    const pack = packDefinitions.find((p) => p.id === "greek-drama");
+    const saved = s.packs?.[pack?.id];
+    if (!pack || pack.revision < 20 || saved?.revision !== 19) return;
+    if (Array.isArray(s.openedRoutes)) {
+      s.openedRoutes = s.openedRoutes.filter(latchingRoute);
+      if (!s.openedRoutes.length) delete s.openedRoutes;
+    }
+    for (const [id, item] of Object.entries(pack.items))
+      if (item.home && !item.regrow && !item.locked && s.usedUp?.includes(id)) {
+        s.usedUp = s.usedUp.filter((used) => used !== id);
+        s.items[id].holder = item.home;
+      }
+    saved.revision = 20;
   }
   var RUMOURS = {
     "greek-marathon": "greek-piraeus",
@@ -18002,7 +18017,7 @@
     return Boolean(guardable.get(from)?.has(to));
   };
   var guardPost = (id) => lifeField(id, "guards") && !humanAvatar(id) ? { from: lifeHome(id), to: lifeField(id, "guards") } : null;
-  var wayLifted = (s, from, to) => Boolean(s.openedRoutes?.includes(`${from}>${to}`));
+  var wayLifted = (s, from, to) => packRouteOpen(s, from, to);
   function guardedExits(_s, place) {
     guardData();
     return [...guardable.get(place) || [], ...returns2.get(place) || []];
@@ -18315,8 +18330,8 @@
     return ways.filter((r) => !open.includes(r.to)).flatMap((r) => {
       const guard = guardOf(s, here, r.to, actor);
       if (!guard) return r.sealed ? [r] : [];
-      const reason = `${nameOf(guard)} bars the way`;
-      return [{ ...r, sealed: { ...r.sealed, reason }, guardedBy: guard }];
+      const reason = `${nameOf(guard)} is guarding this card`;
+      return [{ ...r, sealed: { reason }, guardedBy: guard }];
     }).filter((r) => !seen.has(r.to) && seen.add(r.to));
   }
   var openingPlace = (place) => Object.entries(homeGates).some(
@@ -18332,6 +18347,8 @@
     if (!want) return "nothing in particular";
     const step = want.step, what = nameOf(want.target), verb = step?.verb === "attack" ? "strike" : step?.verb;
     if (step?.verb === "give") return `give ${what} to ${nameOf(step.to)}`;
+    if (step?.verb === "eat")
+      return `${consumable(want.target) === "drink" ? "drink" : "eat"} ${what}${step.with ? ` with ${nameOf(step.with)}` : ""}${step.at ? ` at ${nameOf(step.at)}` : ""}`;
     if (step?.verb === "bring" && want.kind === "person")
       return `bring ${what} to ${nameOf(step.at ?? step.to)}`;
     if (step?.verb === "bring")
@@ -18371,7 +18388,7 @@
     return tradePossible(s, actor, give, receive) && tradeWilling(s, actor, give, receive);
   }
   var REFUSAL_REASONS = ["grudge", "needs-it", "wants-something-else"];
-  var REFUSED_VERBS = ["give", "trade", "ask", "accompany"];
+  var REFUSED_VERBS = ["give", "trade", "ask", "accompany", "eat"];
   function reachable(s, actor, within = null) {
     const from = s.actors[actor].place, seen = /* @__PURE__ */ new Set([from]), queue = [from];
     for (let i = 0; i < queue.length; i++)
@@ -18732,6 +18749,7 @@
       "snuff",
       "ring",
       "refuel",
+      "eat",
       "cover",
       "talk",
       "wait",

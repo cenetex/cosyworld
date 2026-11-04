@@ -5,10 +5,10 @@ const ELDER: &str = "greek-elder";
 const COURT: &str = "greek-courtyard";
 
 fn created(version: &str) -> World {
-    let pack = engine::takes_content(version).then(|| content::current().into());
+    let pack = engine::takes_content(version).then(|| content::seeded(version).into());
     let mut game = engine::reduce_pack(
         version,
-        Some(content::current()),
+        Some(content::seeded(version)),
         json!({"op":"create","seed":9}),
     )
     .unwrap()["world"]

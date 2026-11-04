@@ -550,7 +550,7 @@ async fn each_voice_call_counts_its_attempts_reasons_and_tokens() {
 }
 
 /// Dione wants the Funeral Oil Vale carries (.dev, 2026-11-03: "Ask Vale to
-/// hand you the Funeral Oil."). Her view is her own assistant turn after
+/// hand you the Funeral Oil."). Under rules 102 she holds her Sack of Wheat. Her view is her own assistant turn after
 /// silence, the line she answers is the user turn, and the checks still read
 /// the structured facts and the view.
 #[test]
@@ -571,10 +571,9 @@ fn a_character_speaks_as_itself_in_the_assistant_turn() {
     // The system turn says who she is; her own view does not repeat it.
     assert!(view.starts_with("I want the Funeral Oil. "));
     assert!(view.ends_with(
-        "I smell bread cooling under a cloth; one place at the table is empty. My hands are \
-         empty. Vale's Lamp is burning and uncovered. I ask Vale for the Funeral Oil. Vale keeps \
-         it for now. Vale is holding the Funeral Oil. Vale, the Lamplighter is right here; I'm \
-         talking with them."
+        "I smell bread cooling under a cloth; one place at the table is empty. I'm holding the \
+         Sack of Wheat. Vale's Lamp is burning and uncovered. I ask Vale for the Funeral Oil. \
+         Vale keeps it for now. Vale, the Lamplighter is right here; I'm talking with them."
     ));
     // A fact she witnessed is not told again as the fact she may share.
     assert_eq!(view.matches("Ships for Piraeus Quays leave").count(), 1);
@@ -595,7 +594,7 @@ fn a_character_speaks_as_itself_in_the_assistant_turn() {
         check.verdict("The Funeral Oil is mine.", true, false),
         Err("custody")
     );
-    let echo = "My hands are empty Vale's Lamp is burning and uncovered.";
+    let echo = "I'm holding the Sack of Wheat Vale's Lamp is burning and uncovered.";
     assert_eq!(check.verdict(echo, true, false), Err("echoed brief"));
     // The heard line said back first is dropped; her own words stay.
     let reply = "Good evening, Dione! What are you baking? Bread for the rites, Vale.";
@@ -660,8 +659,8 @@ fn a_line_ends_on_what_the_speaker_perceives() {
     let antigone = view("Antigone at the gate", "greek-antigone");
     assert!(antigone.ends_with(
         "Fresh mortar smells damp on the gate; dust blows in from the road. My hands are empty. \
-         Vale's Lamp is burning and uncovered. The Gate Guard and Vale talk at last. \
-         Vale, the Lamplighter is right here; I'm talking with them."
+         Vale's Lamp is burning and uncovered. Vale, the Lamplighter is right here; I'm talking \
+         with them."
     ));
     // P2 and P4: a return compared with the visit before it.
     assert!(view("P2 back at the pond", "vale").contains("The Bell wasn't here last time I came."));

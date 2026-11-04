@@ -112,3 +112,18 @@ export function itemCycleFixture(compiled) {
       };
   return original;
 }
+
+// The same loop for the server agreement, whose sealed card is the forest
+// garden's way to the trail: the City Gate is guarded (rules 100, 102), and
+// a guarded way gives no quest.
+export function sealedGardenFixture(compiled) {
+  const out = itemCycleFixture(compiled);
+  const forest = out.packs.find((p) => p.id === "lonely-forest");
+  for (const r of forest.routes)
+    if (r.from === "forest-garden" && r.to === "forest-trail")
+      r.sealed = {
+        reason: "The path stays shut until Oak holds the charm.",
+        quest: { kind: "item", target: "forest-wolfprint-charm", to: "oak" },
+      };
+  return out;
+}

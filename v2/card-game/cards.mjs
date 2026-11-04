@@ -1,10 +1,14 @@
 import {
+  consumable,
   entityActive,
   packPlaces,
   packDefinitions,
+  packThings,
   transports,
 } from "./pack-registry.mjs";
 import { dropCost } from "./want.mjs";
+import { lockedAt } from "./pack-items.mjs";
+import { shutLanes } from "./pack-transport.mjs";
 import {
   currentActor,
   places,
@@ -57,6 +61,14 @@ export function availableCards(world) {
   const sealed = sealedWays(world, player)
     .map((r) => r.to)
     .filter((id) => !destinations.includes(id));
+  // A made thing waits locked at its home until its maker makes it again.
+  sealed.push(...lockedAt(world, here));
+  // A port its ship cannot sail to yet, and why (rules 102).
+  sealed.push(
+    ...shutLanes(world, here)
+      .map((lane) => lane.to)
+      .filter((id) => !destinations.includes(id)),
+  );
   return [
     ...cast.flatMap((id) => [id, ...after(id)]),
     ...(road && destinations.includes(road[0]) ? [road[0]] : []),
@@ -138,10 +150,28 @@ export function asleepReason(world, selected) {
     );
   return sleeper ? `${nameOf(sleeper)} is asleep` : null;
 }
-// Why a sealed card's way is shut, from its pack data, or null.
-export const sealedReason = (world, id) =>
-  sealedWays(world, currentActor(world)).find((r) => r.to === id)?.sealed
-    .reason ?? null;
+// Why a sealed card's way is shut, from its pack data, or null. A locked
+// made thing names who makes it from what (rules 102).
+export const sealedReason = (world, id) => {
+  const lock = things[id] && packThings[id]?.locked;
+  if (lock)
+    return lockedAt(world, packThings[id].home).includes(id)
+      ? `${nameOf(lock.by)} consumes ${listOf(lock.consumes.map((c) => theThing(c)))}`
+      : null;
+  const player = currentActor(world);
+  return (
+    sealedWays(world, player).find((r) => r.to === id)?.sealed.reason ??
+    shutLanes(world, world.actors[player]?.place).find((l) => l.to === id)
+      ?.reason ??
+    null
+  );
+};
+const theThing = (id) =>
+  /^(the|a|an) /iu.test(nameOf(id)) ? nameOf(id) : `the ${nameOf(id)}`;
+const listOf = (names) =>
+  names.length > 1
+    ? `${names.slice(0, -1).join(", ")} and ${names.at(-1)}`
+    : names[0];
 
 // Resolve the primary play for drag gestures and other shortcuts.
 // cardActions adds every named choice for the shared row.
@@ -191,6 +221,7 @@ export function cardPlay(world, selected) {
         find("talk", null, id) || find("attack", null, id),
         `Meet ${nameOf(id)} here.`,
       );
+    if (sealedReason(world, id)) return result(null, sealedReason(world, id));
     const holder = world.items[id].holder;
     if (
       people[rootHolder(world, id)] &&
@@ -209,6 +240,11 @@ export function cardPlay(world, selected) {
           ? TOO_MANY_ITEMS
           : "Pair a carried item with this place to make room.",
       );
+    // Food and drink held alone are eaten or drunk (rules 102).
+    const meal = actions.find(
+      (a) => a.kind === "eat" && a.item === id && !a.target,
+    );
+    if (meal) return result(meal);
     if (id === "lamp") return result(use(id), "Pair the Lamp with Oil flask.");
     if (id === "bell")
       return result(
@@ -340,6 +376,16 @@ export function cardActions(world, selected) {
             : "";
     }
     actions.push(...cardChoices(world, id));
+  } else if (!cards.includes(currentActor(world))) {
+    // Food or drink paired with a person here is shared with them.
+    const shared = legalActions(world).find(
+      (a) =>
+        a.kind === "eat" &&
+        a.target &&
+        cards.includes(a.item) &&
+        cards.includes(a.target),
+    );
+    if (shared) actions.push(shared);
   } else if (cards.includes(currentActor(world))) {
     const other = cards.find((id) => id !== currentActor(world));
     // Guard leads at a guardable way; Travel stays beside it.
@@ -419,6 +465,8 @@ export function playLabel(action, world = null) {
   if (action?.kind === "threaten")
     return `Threaten ${nameOf(action.target)}${action.item ? ` for ${nameOf(action.item)}` : ""}`;
   if (action?.kind === "give") return `Give to ${nameOf(action.target)}`;
+  if (action?.kind === "eat")
+    return `${consumable(action.item) === "drink" ? "Drink" : "Eat"}${action.target ? ` with ${nameOf(action.target)}` : ""}`;
   if (action?.kind === "ask")
     return `Ask ${nameOf(action.target)} for ${nameOf(action.item)}`;
   if (action?.kind === "accompany")

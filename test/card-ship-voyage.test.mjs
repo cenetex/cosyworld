@@ -167,14 +167,24 @@ describe("a real voyage", () => {
     stowProvisions(s, "greek-harbor");
     s = reload(s);
     expect(targets(s, "vale", "course")).toEqual(["pond"]);
-    // Ash carries the Travel Provisions aboard, which opens the Piraeus lane
-    // for everyone on deck. The Trojan camp landing stays closed until
-    // Myrto's invitation.
+    // Ash carries the Travel Provisions aboard. Carried, they open nothing
+    // (rules 102); laid on deck they open the Piraeus lane for everyone
+    // aboard. The Trojan camp landing stays closed until Myrto's invitation.
     s = act(s, "ash", "take", undefined);
     expect(s.items["greek-provisions"].holder).toBe("ash");
     s = act(s, "ash", "move", "greek-ship");
     expect(targets(s, "ash", "move")).toEqual([]);
     expect(targets(s, "vale", "move")).toEqual(["greek-harbor"]);
+    expect(targets(s, "ash", "course")).toEqual(["pond"]);
+    expect(targets(s, "vale", "course")).toEqual(["pond"]);
+    const drop = ask(s, "ash").actions.find(
+      (a) => a.kind === "drop" && a.item === "greek-provisions",
+    );
+    expect(drop, "ash can drop the provisions").toBeDefined();
+    const dropped = ask(s, "ash", "play", { action: drop });
+    expect(dropped.ok, dropped.error).toBe(true);
+    s = reload(dropped.world);
+    expect(s.items["greek-provisions"].holder).toBe("greek-ship");
     expect(targets(s, "ash", "course")).toEqual(["greek-piraeus", "pond"]);
     expect(targets(s, "vale", "course")).toEqual(["greek-piraeus", "pond"]);
     s = act(s, "ash", "course", "greek-piraeus");
@@ -182,9 +192,10 @@ describe("a real voyage", () => {
     s = act(s, "vale", "wait");
     expect(state(s)).toMatchObject({ phase: "arrived", dock: "greek-piraeus" });
     expect(targets(s, "vale", "move")).toEqual(["greek-piraeus"]);
-    // The voyage out of Thebes used the provisions up (rules 95); Ash steps
-    // off empty-handed.
-    expect(s.usedUp).toContain("greek-provisions");
+    // Sailing uses nothing (rules 102): the provisions still lie whole on
+    // deck, and Ash steps off without them.
+    expect(s.usedUp).not.toContain("greek-provisions");
+    expect(s.items["greek-provisions"].holder).toBe("greek-ship");
     expect(targets(s, "ash", "move")).toEqual(["greek-piraeus"]);
   });
 

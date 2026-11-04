@@ -2,11 +2,13 @@ import { describe, expect, it, vi } from "vitest";
 
 // The server hosts the shared rules bundle with content from the host; the
 // browser runs the same modules directly. Through a whole item cycle (the
-// set give, a spending voyage, regrowth, the dawn safeguard, a kit scatter
+// set give, a spending voyage with the cargo on deck, regrowth, the dawn safeguard, a kit scatter
 // and a sealed gate's quest) both must commit the same world, step by step.
 vi.mock("../v2/card-game/packs.json", async (importOriginal) => {
-  const { itemCycleFixture } = await import("./helpers/item-cycle-fixture.mjs");
-  return { default: itemCycleFixture((await importOriginal()).default) };
+  const { sealedGardenFixture } = await import(
+    "./helpers/item-cycle-fixture.mjs"
+  );
+  return { default: sealedGardenFixture((await importOriginal()).default) };
 });
 
 import { build } from "esbuild";
@@ -14,7 +16,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import vm from "node:vm";
 import { sharedContentInput } from "../v2/scripts/shared-content-input.mjs";
-import { itemCycleFixture } from "./helpers/item-cycle-fixture.mjs";
+import { sealedGardenFixture } from "./helpers/item-cycle-fixture.mjs";
 import {
   createWorld,
   decodeSave,
@@ -49,7 +51,7 @@ async function hosted() {
     ),
   );
   const packs = "v2/card-game/packs.json";
-  content.files[packs] = itemCycleFixture(content.files[packs]);
+  content.files[packs] = sealedGardenFixture(content.files[packs]);
   const runtime = vm.createContext({ structuredClone, cardContent: content });
   vm.runInContext(result.outputFiles[0].text, runtime);
   return (request) => JSON.parse(runtime.cardShared(JSON.stringify(request)));
@@ -108,19 +110,24 @@ describe("rules 95 item cycle on the server", () => {
         present,
       }).world;
     };
-    world.actors.mara.place = "greek-gate";
-    doing("mara", "gate", (a) => a.target === "greek-battlefield");
+    // The City Gate is guarded (rules 102), so the sealed card is the
+    // garden's way to the trail.
+    world.actors.mara.place = "forest-garden";
+    doing("mara", "gate", (a) => a.target === "forest-trail");
     expect(world.actors.mara.want.step).toEqual({
       verb: "give",
-      to: "greek-guard",
+      to: "oak",
     });
     world.actors.mara.place = "greek-harbor";
     doing("vale", "give", (a) => a.target === "greek-shipmaster");
     expect(world.items["greek-provisions"].holder).toBe("greek-harbor");
     doing("vale", "take", (a) => a.item === "greek-provisions");
     doing("vale", "move", (a) => a.target === "greek-ship");
+    // The lane opens on the provisions lying on deck (rules 102).
+    doing("vale", "drop", (a) => a.item === "greek-provisions");
     doing("vale", "course", (a) => a.target === "greek-piraeus");
     doing("vale", "wait");
+    // The test's lane still spends the cargo lying on deck.
     expect(world.usedUp).toContain("greek-provisions");
     // Mara holds the figs and leaves; at dawn they go home.
     world.turn = DAYLIGHT_TURNS * 2 - 1;

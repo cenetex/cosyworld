@@ -47,11 +47,9 @@ describe("the Gate Guard", () => {
     expect(exits(s, GATE, "vale")).not.toContain(FIELD);
     expect(exits(s, GATE, "greek-antigone")).not.toContain(FIELD);
     expect(exits(s, GATE, GUARD)).toContain(FIELD);
-    expect(sealedReason(s, FIELD)).toBe("The Gate Guard bars the way");
-    // Seeking the way still gives the decree's quest.
-    expect(legalActions(s).find((a) => a.kind === "gate")?.text).toBe(
-      "The Gate Guard bars the way",
-    );
+    expect(sealedReason(s, FIELD)).toBe("The Gate Guard is guarding this card");
+    // The locked card gives no quest: Talk with him gives his (rules 102).
+    expect(legalActions(s).some((a) => a.kind === "gate")).toBe(false);
     // He bars the gate from the battlefield side too: there it is the
     // locked box with the same reason, and only he may pass.
     const far = structuredClone(s);
@@ -59,7 +57,9 @@ describe("the Gate Guard", () => {
     far.actors.vale.visited.push(GATE);
     const field = reload(far);
     expect(exits(field, FIELD, "vale")).not.toContain(GATE);
-    expect(sealedReason(field, GATE)).toBe("The Gate Guard bars the way");
+    expect(sealedReason(field, GATE)).toBe(
+      "The Gate Guard is guarding this card",
+    );
     expect(exits(field, FIELD, GUARD)).toContain(GATE);
   });
 
@@ -67,7 +67,7 @@ describe("the Gate Guard", () => {
     let s = lifeWorld({ place: GATE });
     s = act(s, "talk", { target: GUARD });
     expect(s.actors[GUARD].guarding).toBe(FIELD);
-    expect(sealedReason(s, FIELD)).toBe("The Gate Guard bars the way");
+    expect(sealedReason(s, FIELD)).toBe("The Gate Guard is guarding this card");
   });
 
   it("is knocked through on defeat, holds a grudge, walks back and bars again", () => {
@@ -88,16 +88,15 @@ describe("the Gate Guard", () => {
     expect(s.actors[GUARD].guarding).toBe(FIELD);
     s = act(s, "move", { target: GATE });
     expect(exits(s, GATE, "vale")).not.toContain(FIELD);
-    expect(sealedReason(s, FIELD)).toBe("The Gate Guard bars the way");
+    expect(sealedReason(s, FIELD)).toBe("The Gate Guard is guarding this card");
   });
 
-  it("lifts the bar for good when he holds the decree, wherever he stands", () => {
+  it("stands aside while he holds Creon's writ, wherever he stands", () => {
     let s = lifeWorld({ place: "greek-courtyard" });
     s.actors[GUARD].place = "greek-courtyard";
     s.actors[GUARD].homeward = true;
-    s.items["greek-decree"].holder = GUARD;
+    s.items["greek-creon-writ"].holder = GUARD;
     s = wait(reload(s));
-    expect(s.openedRoutes).toContain(`${GATE}>${FIELD}`);
     for (let i = 0; i < 4 && s.actors[GUARD].place !== GATE; i++) s = wait(s);
     expect(s.actors[GUARD].place).toBe(GATE);
     expect(s.actors[GUARD].guarding).toBeUndefined();
@@ -110,7 +109,7 @@ describe("the Gate Guard", () => {
 describe("a player's guard", () => {
   const opened = () => {
     const s = lifeWorld({ place: GATE });
-    s.items["greek-decree"].holder = GUARD;
+    s.items["greek-creon-writ"].holder = GUARD;
     return wait(reload(s));
   };
   it("stands as a Wait on a guardable way and bars residents only", () => {
@@ -200,11 +199,11 @@ describe("the Exposed Battlefield", () => {
   it("has two ways out, the gate and the road, in a new full world", () => {
     let s = lifeWorld({ place: FIELD });
     expect(waysOut(s)).toEqual([ROAD, GATE]);
-    expect(sealedReason(s, GATE)).toBe("The Gate Guard bars the way");
+    expect(sealedReason(s, GATE)).toBe("The Gate Guard is guarding this card");
     expect(sealedReason(s, ROAD)).toMatch(/Theban account of the burial/u);
     // The decree lifts the bar on both sides for good, and a road once
     // opened by a Theban account stays open.
-    s.items["greek-decree"].holder = GUARD;
+    s.items["greek-creon-writ"].holder = GUARD;
     s.openedRoutes = [...(s.openedRoutes || []), `${FIELD}>${ROAD}`].sort();
     s = settleGate(reload(s));
     expect(exits(s, FIELD, "vale").sort()).toEqual([ROAD, GATE]);
@@ -217,7 +216,10 @@ describe("the Exposed Battlefield", () => {
       readFileSync(`v2/orchestrator-rust/src/card_shared/${f}`, "utf8");
     const context = vm.createContext({
       structuredClone,
-      cardContent: JSON.parse(file("content.json")),
+      // Released rules read the content they shipped with.
+      cardContent: JSON.parse(
+        readFileSync("test/fixtures/card-content-rules-101.json", "utf8"),
+      ),
     });
     vm.runInContext(file("engine-v99.js"), context);
     const old = JSON.parse(

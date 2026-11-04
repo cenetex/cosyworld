@@ -9,6 +9,7 @@ import { BOARDY, connectedHumans } from "./boardyai.mjs";
 import { humanAvatarIds, sharedEnabled } from "./human-cast.mjs";
 import {
   entityActive,
+  isFood,
   freed,
   isPackActor,
   packOf,
@@ -208,7 +209,9 @@ export function drawStep(s, actor, api, kind, target, level, roll) {
     kind === "item"
       ? wanting
         ? ["give", "bring", "find"]
-        : ["", "find"]
+        : isFood(target)
+          ? ["", "find", "eat"]
+          : ["", "find"]
       : kind === "person"
         ? ["", "meet"]
         : [""];
@@ -434,6 +437,7 @@ export function installWants(s) {
               ...(w.kind === "item" && typeof w.lit === "boolean"
                 ? { lit: w.lit }
                 : {}),
+              ...(w.step ? { step: { ...w.step } } : {}),
             }
           : null;
     }
@@ -590,6 +594,21 @@ function stepMet(s, actor, want, action) {
         ? action.item === want.target && action.target === to && action.accepted
         : action.target === want.target);
   if (verb === "find") return placeOfItem(s, want.target) === me.place;
+  // Eat (rules 102): this avatar eats the food, there and with that
+  // companion if named, once the companion agrees; or the companion it
+  // named eats it with this avatar.
+  if (verb === "eat")
+    return Boolean(
+      action?.kind === "eat" &&
+        action.item === want.target &&
+        action.accepted !== false &&
+        (!at || me.place === at) &&
+        ((action.actor === actor &&
+          (!want.step.with || action.target === want.step.with)) ||
+          (want.step.with &&
+            action.actor === want.step.with &&
+            action.target === actor)),
+    );
   if (verb === "give") return by("give");
   // A person brought, as Talk asks (rules 99): to a place in your company,
   // or to the one they want to see.
@@ -832,13 +851,15 @@ export function renewWant(s, id, api) {
 }
 
 const STEP_CARDS = { give: ["to"], bring: ["to", "at"] };
-function validStep(s, w) {
+function validStep(s, w, id) {
   const { verb, ...cards } = w.step;
   const home = verb === "bring" && w.story && !cards.to;
   // A sealed gate's quest may ask for a gift (rules 95).
   const gift = verb === "give" && w.story && !w.quest;
   // The quest to sleep at a sanctuary stands alone (rules 99).
   const slept = verb === "rest" && !w.story;
+  // An eat quest, authored or drawn, names a food (rules 102).
+  const eaten = verb === "eat" && w.kind === "item" && isFood(w.target);
   // Talk's quests (rules 99): give an item, or bring a person to a place or
   // to someone, never both.
   const asked =
@@ -846,21 +867,26 @@ function validStep(s, w) {
     !w.story &&
     ((verb === "give" && w.kind === "item") ||
       (verb === "bring" && w.kind === "person"));
-  const named = home
-    ? ["at"]
-    : asked && w.kind === "person"
-      ? [cards.at === undefined ? "to" : "at"]
-      : STEP_CARDS[verb] || (verb === "meet" && cards.at ? ["at"] : []);
+  const named = eaten
+    ? ["at", "with"].filter((key) => cards[key] !== undefined)
+    : home
+      ? ["at"]
+      : asked && w.kind === "person"
+        ? [cards.at === undefined ? "to" : "at"]
+        : STEP_CARDS[verb] || (verb === "meet" && cards.at ? ["at"] : []);
   return (
-    (Boolean(w.quest) || home || gift || slept || asked) &&
+    (Boolean(w.quest) || home || gift || slept || asked || eaten) &&
     [
       ...(STEP_VERBS[w.kind] || []),
+      ...(eaten ? ["eat"] : []),
       ...(w.kind === "person" ? SAVED_STEP_VERBS : []),
       ...(asked ? [verb] : []),
     ].includes(verb) &&
     Object.keys(cards).length === named.length &&
     named.every((key) => typeof cards[key] === "string") &&
-    (!cards.to || (Object.hasOwn(s.actors, cards.to) && cards.to !== w.target))
+    (!cards.to ||
+      (Object.hasOwn(s.actors, cards.to) && cards.to !== w.target)) &&
+    (!cards.with || (Object.hasOwn(s.actors, cards.with) && cards.with !== id))
   );
 }
 // The saved record of wants a player was told by Talk, by avatar
@@ -942,7 +968,7 @@ function validQuest(s, id, w) {
           (w.step === undefined ? 0 : 1) +
           (w.lit === undefined ? 0 : 1) +
           (w.story === undefined ? 0 : 1) &&
-      (w.step === undefined || validStep(s, w)) &&
+      (w.step === undefined || validStep(s, w, id)) &&
       (w.lit === undefined ||
         (w.kind === "item" && typeof w.lit === "boolean")) &&
       (w.story === undefined || (w.story === true && !w.quest)) &&

@@ -46,7 +46,7 @@ Today's place ids are in backticks.
 | Lower Town | Market Well `well` | courtyard, palace | The elder and the water jar |
 | The Cadmeia | Palace Forecourt `palace` | well, sanctuary | Creon; the decree starts here |
 | The Ismenion | Hillside Sanctuary `sanctuary` | palace | The Greek rest place (#1713) |
-| The Gate | City Gate `gate` | courtyard, battlefield (gated, #1728) | The guard and the decree |
+| The Gate | City Gate `gate` | courtyard, battlefield (gated, #1728) | The guard, holding the decree |
 
 Thebes has two roads:
 
@@ -67,7 +67,7 @@ way the Theban gate does today. No step is a button.
 
 | Step | Opens | Condition |
 | --- | --- | --- |
-| Thebes to the battlefield | The City Gate route | The guard holds the decree at the gate (#1728) |
+| Thebes to the battlefield | The City Gate route | The guard holds Creon's writ (revision 20) |
 | Battlefield to the Cithaeron road | The battlefield's far route | The dead have burial rights: the rite that yields the Burial Account is done, or the Herald's Truce has reached the battlefield |
 | Cithaeron road to Eleusis | The road's far end | Open to anyone on the road |
 | Eleusis to the city | The Sacred Way through the Dipylon | The Suppliants' petition is delivered: the Dipylon's warden holds it |
@@ -365,6 +365,42 @@ homecoming:
 - The save upgrade passes a deleted fork's receipt to the step that took it
   in (for example the open berth to the family berth, and a reading to the
   return-list gift), drops the rest, and counts the story's flags again.
+
+## The Theban gate (Greek revision 20)
+
+Owner design, 2026-11-04 ([rules 102](../../../docs/design/rules-102-eat-and-the-theban-decree.md),
+[items and crafting](../../../docs/design/items-and-crafting.md)). It
+replaces the gate that latched open once the guard was handed the decree.
+
+**Starting state.**
+
+- The Gate Guard guards the road to the battlefield and holds the Burial
+  Decree. He wants to eat Dione's bread.
+- Creon holds Creon's Writ and wants the Burial Decree.
+- The Courtyard Bread (`food`) starts locked at the courtyard; Dione makes
+  it from the Water Jar (home: the well) and the Sack of Wheat, which she
+  starts holding but whose home is Piraeus Quays.
+- The Travel Provisions (`food`) start locked at the harbour; Myrto makes
+  them from the bread, the Dried Figs (`food`, home: the sanctuary) and the
+  Wine Skin (`drink`, home: the gate). She wants to eat them at Piraeus.
+
+**Data.** One live route from the gate to the battlefield, open while the
+guard holds the writ. `greek-petition-burial` commits `on: "meet"` once the
+player holds the writ and Creon the decree, so the concession ending keeps
+its id and verses. The permitted burial's account on Dione's table now opens
+the road to Eleusis too, since the writ stays with the guard. The Charybdis
+no longer spends the provisions on the voyage to Piraeus. The bread, figs and
+wine no longer regrow at dawn. The loops' things are `absentReturn`.
+
+**Play-through.** Return the jar: Dione bakes. Talk with the guard; trade
+him the bread for the decree. He eats it and still guards. Trade the decree
+to Creon for the writ (the concession commits), give the guard the writ, and
+the battlefield opens. The defiant burial now goes through the guard in a
+fight. The exposure ending is unchanged.
+
+**Dropped.** Creon's grant no longer needs the household token or the
+elder's witness (both stay as lore). The writ given to Dione first still
+makes the concession public, but then it must go back to the guard.
 
 ## Owner decisions
 

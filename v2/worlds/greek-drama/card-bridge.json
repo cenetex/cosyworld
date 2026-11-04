@@ -276,12 +276,13 @@
           "from": "greek-harbor",
           "to": "greek-piraeus",
           "oneWay": true,
+          "reason": "Put the Travel Provisions down on deck",
           "opensWith": [
             {
               "kind": "any",
               "conditions": [
                 {
-                  "kind": "item_present",
+                  "kind": "item_at",
                   "item": "greek-provisions",
                   "place": "greek-ship"
                 },
@@ -292,8 +293,7 @@
                 }
               ]
             }
-          ],
-          "spends": true
+          ]
         },
         {
           "from": "greek-piraeus",

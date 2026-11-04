@@ -224,16 +224,27 @@ describe("switching a pack off and on (rules 98)", () => {
   it("is a rules 98 rule: rules 96 and 97 keep the pack awake", () => {
     // Vale in a pack switched off: rules 98 refuses the world; 96 and 97
     // ignore the switch.
-    const quiet = JSON.parse(encodeSave(world()));
-    quiet.disabledPacks = [SEA];
     const file = (f) =>
       readFileSync(`v2/orchestrator-rust/src/card_shared/${f}`, "utf8");
     const create = (version) => {
-      const cardContent = JSON.parse(file("content.json"));
+      // Released rules read the content they shipped with.
+      const cardContent = JSON.parse(
+        readFileSync("test/fixtures/card-content-rules-101.json", "utf8"),
+      );
       const context = vm.createContext({ structuredClone, cardContent });
       vm.runInContext(file(`engine-v${version}.js`), context);
-      const request = { op: "create", save: JSON.stringify(quiet) };
-      return JSON.parse(context.cardShared(JSON.stringify(request)));
+      const shared = (request) =>
+        JSON.parse(context.cardShared(JSON.stringify(request)));
+      // world(), made from that release's own fresh world and content.
+      const quiet = shared({ op: "create", seed: 7 }).world;
+      delete quiet.opening;
+      quiet.packs["greek-drama"].scope = "full";
+      quiet.actors.vale.place = "greek-well";
+      quiet.actors.keeper.place = quiet.actors.moth.place = "greek-well";
+      quiet.items.lamp.holder = "vale";
+      quiet.items.oil.holder = quiet.items.bell.holder = "greek-well";
+      quiet.disabledPacks = [SEA];
+      return shared({ op: "create", save: JSON.stringify(quiet) });
     };
     for (const released of [96, 97])
       expect(create(released).ok).not.toBe(false);

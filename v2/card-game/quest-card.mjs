@@ -3,6 +3,7 @@
 // Nothing here is authored or decides anything; the rules own the stack
 // (want.mjs).
 import { CONNECT_TARGET, questsOf } from "./want.mjs";
+import { consumable } from "./pack-registry.mjs";
 import { cardLevel, levelTier, romanLevel } from "./rarity.mjs";
 import {
   currentActor,
@@ -148,6 +149,8 @@ const STEP_LABELS = {
   attack: "Strike",
 };
 export function questVerb(world, quest, covered = false) {
+  if (quest.step?.verb === "eat")
+    return consumable(quest.target) === "drink" ? "Drink" : "Eat";
   if (STEP_LABELS[quest.step?.verb]) return STEP_LABELS[quest.step.verb];
   if (quest.kind === "item") return "Hold";
   if (quest.kind === "person") return "Talk";

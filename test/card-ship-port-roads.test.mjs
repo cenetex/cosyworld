@@ -24,6 +24,7 @@ import {
   packDefinition,
   packDefinitions,
   packPeople,
+  packThings,
   transports,
 } from "../v2/card-game/pack-registry.mjs";
 import {
@@ -147,10 +148,14 @@ function callable(world, dock) {
 // could meet joins its docks. A lane counts only from a dock the traveler can
 // call the empty ship to, wherever it lies.
 // Every key not `pinned` that lies in a place already reached can be carried
-// to any reached place, set down there, put aboard, or handed to a resident
-// there; each hand-over that opens a gate latches it, as play does. So the
-// search is generous to the traveler: a gated place it never reaches cannot
-// be reached by any order of walking, carrying and giving.
+// to any reached place, set down there, laid on deck, or handed to a
+// resident there; each hand-over that opens a gate latches it, as play does.
+// Keys come by trade and by making too (rules 102): a resident in a reached
+// place who wants a thing the traveler can bring hands over what it holds,
+// and a maker at home with each of its makings to hand makes its locked
+// thing. So the search is generous to the traveler: a gated place it never
+// reaches cannot be reached by any order of walking, carrying, trading,
+// making and giving.
 function reach(
   world,
   from,
@@ -160,8 +165,28 @@ function reach(
   const seen = new Set([from]);
   const keep = (to) =>
     !ships.has(to) && (!local || to.startsWith("greek-")) && !seen.has(to);
+  const wanted = (id) =>
+    s.actors[id]?.want?.kind === "item" ? s.actors[id].want.target : null;
+  // The keys, the things residents want and hold for trade, and the locked
+  // things with their makings.
+  const goods = [
+    ...new Set([
+      ...KEYS,
+      ...Object.keys(packPeople).flatMap((id) =>
+        wanted(id)
+          ? [
+              wanted(id),
+              ...Object.keys(s.items).filter((i) => s.items[i].holder === id),
+            ]
+          : [],
+      ),
+      ...Object.keys(packThings).flatMap((id) =>
+        packThings[id].locked ? [id, ...packThings[id].locked.consumes] : [],
+      ),
+    ]),
+  ];
   const carriable = () =>
-    KEYS.filter(
+    goods.filter(
       (id) =>
         s.items[id] &&
         !pinned.includes(id) &&
@@ -185,6 +210,35 @@ function reach(
       const residents = Object.keys(packPeople).filter(
         (id) => entityActive(s, id) && s.actors[id]?.place === place,
       );
+      // A trade: what a resident holds, for the thing it wants.
+      for (const id of residents)
+        if (carriable().includes(wanted(id)))
+          for (const item of goods)
+            if (s.items[item]?.holder === id && !pinned.includes(item)) {
+              s.items[item].holder = place;
+              grew = true;
+            }
+      // A making: the maker at home, each thing it consumes in its hands or
+      // to hand, makes the locked thing where it waits.
+      for (const id of goods) {
+        const lock = packThings[id]?.locked,
+          home = packThings[id]?.home;
+        if (
+          lock &&
+          home === place &&
+          s.usedUp?.includes(id) &&
+          !pinned.includes(id) &&
+          s.actors[lock.by]?.place === home &&
+          lock.consumes.every(
+            (c) =>
+              s.items[c]?.holder === lock.by || carriable().includes(c),
+          )
+        ) {
+          s.usedUp = s.usedUp.filter((u) => u !== id);
+          s.items[id].holder = home;
+          grew = true;
+        }
+      }
       const options = [[null, null]];
       for (const item of carriable())
         for (const holder of [place, "vale", ...residents, ...ships])
@@ -294,16 +348,30 @@ describe("ports reachable on foot or by a free leg home", () => {
     expect(reach(worstCase(s), "greek-harbor", bare).has("greek-piraeus")).toBe(
       false,
     );
-    // The provisions or something from Hoppy Cat: one cargo rule for every
-    // leg out beyond the harbor. The leg home to Black Pond is free.
+    // Carried aboard, the provisions open nothing: they must lie on deck
+    // (rules 102).
+    const carried = structuredClone(s);
+    carried.items["greek-provisions"].holder = "vale";
+    carried.actors.vale.place = "greek-ship";
+    expect(
+      reach(carried, "greek-harbor", {
+        pinned: ["greek-provisions"],
+        ship: true,
+      }).has("greek-piraeus"),
+    ).toBe(false);
+    // The provisions on deck or something from Hoppy Cat aboard: the cargo
+    // rule for each leg out beyond the harbor. The leg home to Black Pond
+    // is free.
     const cargo = laneConditions("greek-harbor", "greek-piraeus");
-    expect(cargo).toEqual(
-      laneConditions("greek-piraeus", "hoppycat-signal-jetty"),
-    );
-    expect(cargo[0].conditions.map((c) => c.kind)).toEqual([
-      "item_present",
-      "pack_item_present",
+    expect(cargo[0].conditions).toEqual([
+      { kind: "item_at", item: "greek-provisions", place: "greek-ship" },
+      { kind: "pack_item_present", pack: "hoppycat-archive", place: "greek-ship" },
     ]);
+    expect(
+      laneConditions("greek-piraeus", "hoppycat-signal-jetty")[0].conditions.map(
+        (c) => c.item ?? c.pack,
+      ),
+    ).toEqual(["greek-provisions", "hoppycat-archive"]);
     expect(laneConditions("pond", "greek-harbor")).toBe(null);
     expect(laneConditions("greek-harbor", "pond")).toBe(null);
   });
@@ -367,10 +435,13 @@ describe("ports reachable on foot or by a free leg home", () => {
     // After the invitation: Vale ashore at Piraeus, the ship called to the
     // harbor and the provisions carried ashore there. Until the herald's
     // truce the quays have no road (the call brings the ship back, above).
-    // With the truce the Long Walls open, and the burial opened the City
-    // Gate, so the land route leads home.
+    // With the truce the Long Walls open, and the guard holding Creon's
+    // writ opens the City Gate, so the land route leads home.
     let s = openDoorStart("burial");
-    expect(s.openedRoutes).toContain(CITY_GATE);
+    // The defiant burial went through the guard; the live gate never
+    // latches (rules 102), so it opens only while he holds the writ.
+    expect(s.openedRoutes || []).not.toContain(CITY_GATE);
+    s = holding(s, "greek-creon-writ", "greek-guard");
     // Roaming residents aboard go ashore: the ship is empty.
     for (const a of Object.values(s.actors))
       if (a.place === "greek-ship") a.place = "greek-piraeus";
@@ -452,19 +523,27 @@ describe("the roads home keep the Greek story gates", () => {
       const s = stages[stage]();
       const starts = ["greek-harbor"];
       for (const from of starts) {
-        // Carrying anything else anywhere, without the guard holding the
-        // decree no walker from the city passes the gate.
-        const before = reach(s, from, { pinned: ["greek-decree"] });
+        // Carrying, trading and making anything else anywhere, without the
+        // guard holding Creon's writ no walker from the city passes the gate.
+        const before = reach(s, from, { pinned: ["greek-creon-writ"] });
         expect(has(before, BATTLEFIELD), from).toEqual([]);
-        // The guard holding the decree at the gate opens it.
+        // Nor with the decree alone: the guard holds it from the start.
+        const decree = reach(s, from, {
+          pinned: ["greek-creon-writ", "greek-bread"],
+        });
+        expect(has(decree, BATTLEFIELD), from).toEqual([]);
+        // The guard holding the writ at the gate opens it.
         const after = reach(
-          holding(structuredClone(s), "greek-decree", "greek-guard"),
+          holding(structuredClone(s), "greek-creon-writ", "greek-guard"),
           from,
         );
         expect(after.has("greek-battlefield"), from).toBe(true);
         expect(has(after, RUMOURS), from).toEqual([]);
       }
-      // The search itself finds the gate's key: the decree from the palace.
+      // The search itself finds the gate's key by the chain of rules 102:
+      // Dione bakes the bread from the water jar and her wheat, the bread
+      // buys the guard's decree, and the decree buys Creon's writ.
+      expect(s.usedUp).toContain("greek-bread");
       expect(reach(s, "greek-harbor").has("greek-battlefield")).toBe(true);
     });
 
@@ -478,16 +557,17 @@ describe("the roads home keep the Greek story gates", () => {
         "greek-courtyard",
       );
       for (const from of [...OUTSIDE_WALLS, "greek-cithaeron"]) {
-        // Without the guard holding the decree, a walker from Attica reaches
-        // the battlefield but never the city.
-        const before = reach(s, from, { pinned: ["greek-decree"] });
+        // Without the guard holding Creon's writ, a walker from Attica
+        // reaches the battlefield but never the city: the guard bars his
+        // gate both ways.
+        const before = reach(s, from, { pinned: ["greek-creon-writ"] });
         expect(before.has("greek-battlefield"), from).toBe(true);
         expect(has(before, THEBES), from).toEqual([]);
         // The guard holding it at the gate opens the city to the land route.
         const after = reach(
-          holding(structuredClone(s), "greek-decree", "greek-guard"),
+          holding(structuredClone(s), "greek-creon-writ", "greek-guard"),
           from,
-          { pinned: ["greek-decree"] },
+          { pinned: ["greek-creon-writ"] },
         );
         expect(has(after, THEBES), from).toEqual(THEBES);
       }
@@ -495,7 +575,7 @@ describe("the roads home keep the Greek story gates", () => {
 
   for (const stage of ["open door", "ajax"])
     it(`keeps the countryside behind a Theban outcome: ${stage}`, () => {
-      const s = holding(stages[stage](), "greek-decree", "greek-guard");
+      const s = holding(stages[stage](), "greek-creon-writ", "greek-guard");
       const outcomes = [
         "greek-burial-account",
         "greek-creon-writ",
@@ -524,7 +604,7 @@ describe("the roads home keep the Greek story gates", () => {
       const s = holding(
         holding(
           stowProvisions(stages[stage](), "greek-harbor"),
-          "greek-decree",
+          "greek-creon-writ",
           "greek-guard",
         ),
         "greek-guard-tablet",
@@ -588,7 +668,7 @@ describe("the exposure ending with the City Gate shut", () => {
     );
     expect(s.openedRoutes).not.toContain(CITY_GATE);
     const reached = reach(s, "greek-harbor", {
-      pinned: ["greek-decree"],
+      pinned: ["greek-creon-writ"],
       ship: true,
       local: false,
     });
@@ -618,9 +698,11 @@ describe("a rules 93 save on the Coast Road", () => {
     s.packs["greek-drama"].revision = 17;
     s.actors.vale.place = "greek-road-coast";
     s.items["greek-water-jar"].holder = "greek-road-coast";
-    // The herald's truce had opened the Long Walls from the Agora.
+    // The herald's truce had opened the Long Walls from the Agora, and the
+    // decree had latched the City Gate open.
     s.openedRoutes = [
-      ...s.openedRoutes,
+      ...(s.openedRoutes || []),
+      CITY_GATE,
       "greek-athens>greek-road-athens-piraeus",
       "greek-harbor>greek-road-coast",
       "greek-sanctuary>greek-road-north",
@@ -631,11 +713,14 @@ describe("a rules 93 save on the Coast Road", () => {
       ["greek-road-north", "greek-sanctuary"],
     ];
     const w = decodeSave(JSON.stringify(s));
-    // Revision 19 follows: the forecourt through the well.
-    expect(w.packs["greek-drama"].revision).toBe(19);
+    // Revisions 19 and 20 follow: the forecourt through the well, then the
+    // live City Gate.
+    expect(w.packs["greek-drama"].revision).toBe(20);
     expect(w.actors.vale.place).toBe("greek-piraeus");
     expect(w.items["greek-water-jar"].holder).toBe("greek-piraeus");
-    expect(w.openedRoutes).toContain(CITY_GATE);
+    // Revision 20 forgets the City Gate's old latch: the gate reads live,
+    // open only while the guard holds Creon's writ.
+    expect(w.openedRoutes).not.toContain(CITY_GATE);
     // Rules 94 opens the Long Walls from both ends with the truce.
     expect(w.openedRoutes).toContain("greek-piraeus>greek-road-athens-piraeus");
     expect(w.openedRoutes).not.toContain("greek-harbor>greek-road-coast");

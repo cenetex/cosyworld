@@ -12,10 +12,10 @@ fn fixture(name: &str, world: &World) -> (std::path::PathBuf, rusqlite::Connecti
 }
 
 fn created(version: &str) -> World {
-    let pack = engine::takes_content(version).then(|| content::current().into());
+    let pack = engine::takes_content(version).then(|| content::seeded(version).into());
     let game = engine::reduce_pack(
         version,
-        Some(content::current()),
+        Some(content::seeded(version)),
         json!({"op":"create","seed":9}),
     )
     .unwrap()["world"]
@@ -183,6 +183,8 @@ fn rules_98_world_upgrades_to_99_keeping_its_opening_and_packs() {
 
     let upgraded = full_store::world(&c, &id, now()).unwrap();
     assert_eq!(upgraded.version, engine::VERSION);
+    // Greek revision 20 (rules 102) is the only change.
+    let old = super::saved_items::greek_revision_20(&old, &upgraded.game);
     for field in ["opening", "packs", "items", "turn", "log"] {
         assert_eq!(upgraded.game[field], old[field], "Keep {field}");
     }

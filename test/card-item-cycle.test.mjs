@@ -4,9 +4,28 @@ import "./helpers/still-cast.mjs";
 // Rules 95: things used up and coming back, on a test copy of the Greek pack.
 // The fixture adds a homed loop (bread, figs and wine regrow; Myrto makes the
 // provisions from them; the Piraeus voyage spends them) and a two-thing kit.
+// The shipped pack no longer spends the provisions (rules 102), so this copy
+// keeps the spending lane of rules 95 to test the engine's `spends`: the
+// cargo it spends is the provisions present on deck. Travellers still lay
+// them down aboard, as the shipped lane needs.
 vi.mock("../v2/card-game/packs.json", async (importOriginal) => {
   const { itemCycleFixture } = await import("./helpers/item-cycle-fixture.mjs");
-  return { default: itemCycleFixture((await importOriginal()).default) };
+  const compiled = itemCycleFixture((await importOriginal()).default);
+  const lane = compiled.packs
+    .find((p) => p.id === "greek-drama")
+    .transports["greek-ship"].lanes.find(
+      (l) => l.from === "greek-harbor" && l.to === "greek-piraeus",
+    );
+  lane.opensWith = [
+    {
+      kind: "any",
+      conditions: [
+        { kind: "item_present", item: "greek-provisions", place: "greek-ship" },
+        { kind: "pack_item_present", pack: "hoppycat-archive", place: "greek-ship" },
+      ],
+    },
+  ];
+  return { default: compiled };
 });
 
 import {
@@ -113,9 +132,14 @@ describe("rules 95 item cycle", () => {
     expect(broken((p) => delete p.items["greek-test-figs"].home)).toMatch(
       /regrow need|must renew/u,
     );
-    expect(broken((p) => delete p.items["greek-test-wine"].regrow)).toMatch(
-      /greek-test-wine must renew/u,
-    );
+    // A homed thing renews by going home once used (rules 102); without a
+    // home it cannot.
+    expect(
+      broken((p) => {
+        delete p.items["greek-test-wine"].regrow;
+        delete p.items["greek-test-wine"].home;
+      }),
+    ).toMatch(/greek-test-wine must renew/u);
     expect(
       broken((p) => {
         const lanes = p.transports["greek-ship"].lanes;
@@ -130,9 +154,12 @@ describe("rules 95 item cycle", () => {
     expect(broken((p) => (p.kits[0].items = ["greek-decree"]))).toMatch(
       /kit greek-test-kit/u,
     );
-    // A thing used up by one choice and needed by another must renew.
+    // A thing used up by one choice and needed by another must renew: here
+    // an unhomed jar, which could never go home.
     expect(
       broken((p) => {
+        delete p.items["greek-water-jar"].home;
+        delete p.items["greek-water-jar"].absentReturn;
         p.choices.find((c) => c.id === "greek-return-water-jar").effects[0] = {
           kind: "retire_item",
           item: "greek-water-jar",
@@ -156,10 +183,17 @@ describe("rules 95 item cycle", () => {
     // leave play, and a carried copy would have stayed.
     const old = JSON.parse(encodeSave(s));
     delete old.usedUp;
+    // Dione's fresh bread lies where it starts with no history, so it folds
+    // like an untouched loaf (rules 102 bread starts used up too).
     expect(decodeSave(JSON.stringify(old)).usedUp).toEqual([
+      "greek-bread",
       "greek-provisions",
     ]);
     old.items["greek-provisions"] = { holder: "vale", history: ["Turn 1: x"] };
+    old.items["greek-bread"] = {
+      holder: "greek-courtyard",
+      history: ["Turn 1: x"],
+    };
     expect(decodeSave(JSON.stringify(old)).usedUp).toEqual([]);
   });
 
@@ -224,6 +258,7 @@ describe("rules 95 item cycle", () => {
     s = act(s, "give", { item: "greek-test-wine", target: "greek-shipmaster" });
     s = act(s, "take", { item: "greek-provisions" });
     s = act(s, "move", { target: "greek-ship" });
+    s = act(s, "drop", { item: "greek-provisions", target: "greek-ship" });
     s = act(s, "course", { target: "greek-piraeus" });
     s = wait(s);
     expect(usedUp(s, "greek-provisions")).toBe(true);
@@ -322,35 +357,19 @@ describe("rules 95 item cycle", () => {
     ).toBeUndefined();
   });
 
-  it("shows a sealed gate card that gives the quest to open it", () => {
+  it("shows the guarded card locked, with no quest, until the writ", () => {
     let s = harbor();
     s.actors.vale.place = "greek-gate";
-    s.items["greek-decree"].holder = "vale";
+    s.items["greek-creon-writ"].holder = "vale";
     s = reload(s);
     expect(exits(s, "greek-gate", "vale")).not.toContain("greek-battlefield");
     expect(availableCards(s)).toContain("greek-battlefield");
     expect(sealedReason(s, "greek-battlefield")).toBe(
-      "The Gate Guard bars the way",
+      "The Gate Guard is guarding this card",
     );
-    const row = cardActions(s, ["greek-battlefield"]).actions;
-    expect(row.map((a) => a.kind)).toEqual(["gate"]);
-    const turn = s.turn;
-    s = act(s, "gate", { target: "greek-battlefield" });
-    expect(s.turn).toBe(turn);
-    expect(s.actors.vale.want).toMatchObject({
-      kind: "item",
-      target: "greek-decree",
-      step: { verb: "give", to: "greek-guard" },
-      story: true,
-    });
-    expect(s.log.at(-1).text).toBe(
-      "Vale takes up a quest: give the Burial Decree to the Gate Guard.",
-    );
-    // The quest is on top, so the card only says why.
+    // The locked card only says why (rules 102); Talk gives his quest.
     expect(cardActions(s, ["greek-battlefield"]).actions).toEqual([]);
-    const xp = s.actors.vale.xp;
-    s = act(s, "give", { item: "greek-decree", target: "greek-guard" });
-    expect(s.actors.vale.xp).toBe(xp + 1);
+    s = act(s, "give", { item: "greek-creon-writ", target: "greek-guard" });
     expect(sealedReason(s, "greek-battlefield")).toBe(null);
     expect(exits(s, "greek-gate", "vale")).toContain("greek-battlefield");
   });
@@ -380,6 +399,7 @@ describe("rules 95 item cycle", () => {
       unique(s);
       s = act(s, "take", { item: "greek-provisions" });
       s = act(s, "move", { target: "greek-ship" });
+      s = act(s, "drop", { item: "greek-provisions", target: "greek-ship" });
       s = act(s, "course", { target: "greek-piraeus" });
       s = wait(s);
       unique(s);

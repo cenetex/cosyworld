@@ -131,7 +131,7 @@ impl Outcome {
 }
 
 /// The play kinds a scene can name; anything else counts as "other".
-const PLAYS: [&str; 19] = [
+const PLAYS: [&str; 20] = [
     "arrive",
     "wait",
     "move",
@@ -143,6 +143,7 @@ const PLAYS: [&str; 19] = [
     "drop",
     "give",
     "trade",
+    "eat",
     "light",
     "snuff",
     "ring",

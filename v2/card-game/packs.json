@@ -410,7 +410,7 @@
       "schemaVersion": 1,
       "id": "greek-drama",
       "packId": "cosyworld.greek-drama",
-      "revision": 19,
+      "revision": 20,
       "name": "The Wine-Dark Sea",
       "description": "A branching Greek drama world. A shared ship visits the Wine-Dark Harbor, Athens Harbor and Piraeus. One road joins Athens and Piraeus, and short paths lead to the Attic places where welcome becomes a growing poem.",
       "tone": "Concrete Greek domestic and civic life: bread, work, desire, grief, argument, irreverence, and hospitality. Dialogue expresses committed actions. A tragic ending is never required.",
@@ -530,7 +530,7 @@
               ]
             }
           ],
-          "persona": "Fresh repairs cover the gate. A guard keeps the road to the fallen soldiers. He opens it once he holds an order from the palace, the Burial Decree or Creon's writ, and it stays open after."
+          "persona": "Fresh repairs cover the gate. A guard keeps the road to the fallen soldiers. He guards it until Creon's writ is in his hands."
         },
         "greek-battlefield": {
           "name": "The Exposed Battlefield",
@@ -1497,18 +1497,19 @@
         "greek-creon": {
           "name": "Creon",
           "startLevel": 50,
-          "text": "He receives petitions beside the posted decree. His attendants wait for clear instructions.",
+          "text": "He receives petitions beside the palace door. He wants his decree back in his own hands.",
           "place": "greek-palace",
           "home": "greek-palace",
           "values": {
             "greek-decree": 5,
+            "greek-creon-writ": 5,
             "greek-household-token": 2
           },
           "seed": "Creon, King of Thebes.",
           "portrait": "assets/greek-drama/chthonic-creon.png",
           "want": {
-            "kind": "place",
-            "target": "greek-palace"
+            "kind": "item",
+            "target": "greek-decree"
           },
           "desire": {
             "items": [],
@@ -1518,26 +1519,33 @@
           "tastes": {
             "likes": "public procedure, named witnesses",
             "sore": "private defiance presented as settled law",
-            "reason": "He receives petitions beside the posted decree. His attendants wait for clear instructions."
+            "reason": "He receives petitions beside the palace door. He wants his decree back in his own hands."
           }
         },
         "greek-guard": {
           "name": "The Gate Guard",
-          "text": "He has read the decree several times. He lifts the bar for a written order from the palace.",
+          "text": "He guards the road to the battlefield and will not stand aside without Creon's writ. He keeps glancing toward the smell of Dione's oven.",
           "place": "greek-gate",
           "home": "greek-gate",
           "values": {
             "greek-provisions": 1,
-            "greek-decree": 3,
+            "greek-decree": 5,
             "greek-bread": 2,
-            "greek-creon-writ": 2
+            "greek-creon-writ": 7
           },
           "seed": "The Gate Guard of Thebes.",
           "portrait": "assets/greek-drama/chthonic-guard.png",
           "tastes": {
             "likes": "an unambiguous instruction, returning alive",
             "sore": "being blamed for things outside his sight",
-            "reason": "He has read the decree several times. He lifts the bar for a written order from the palace."
+            "reason": "He guards the road to the battlefield and will not stand aside without Creon's writ. He keeps glancing toward the smell of Dione's oven."
+          },
+          "want": {
+            "kind": "item",
+            "target": "greek-bread",
+            "step": {
+              "verb": "eat"
+            }
           }
         },
         "greek-baker": {
@@ -1547,6 +1555,7 @@
           "home": "greek-courtyard",
           "values": {
             "greek-water-jar": 5,
+            "greek-wheat": 3,
             "greek-bread": 2
           },
           "seed": "Dione the Baker.",
@@ -1589,7 +1598,10 @@
           "place": "greek-harbor",
           "home": "greek-harbor",
           "values": {
-            "greek-provisions": 1
+            "greek-provisions": 1,
+            "greek-bread": 2,
+            "greek-figs": 2,
+            "greek-wine-skin": 2
           },
           "seed": "Myrto the Shipmaster.",
           "portrait": "assets/greek-drama/chthonic-shipmaster.png",
@@ -1600,7 +1612,11 @@
           },
           "want": {
             "kind": "item",
-            "target": "greek-provisions"
+            "target": "greek-provisions",
+            "step": {
+              "verb": "eat",
+              "at": "greek-piraeus"
+            }
           }
         },
         "greek-rhapsode": {
@@ -2210,23 +2226,38 @@
           "text": "A filled clay jar with a repaired handle. Dione needs it back at the common table.",
           "holder": "greek-well",
           "persona": "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
-          "art": "assets/greek-drama/water-jar.png"
+          "art": "assets/greek-drama/water-jar.png",
+          "home": "greek-well",
+          "absentReturn": true
         },
         "greek-bread": {
           "name": "Courtyard Bread",
-          "text": "A round loaf from Dione's oven, set aside for Myrto's crew.",
+          "text": "A round loaf from Dione's oven, baked from well water and wheat.",
           "holder": "greek-courtyard",
           "persona": "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
           "art": "assets/greek-drama/bread.png",
-          "requires": [
-            {
-              "kind": "flag",
-              "key": "greek-water-returned",
-              "value": true
-            }
-          ],
           "home": "greek-courtyard",
-          "regrow": "dawn"
+          "tags": [
+            "food"
+          ],
+          "startsUsed": true,
+          "locked": {
+            "by": "greek-baker",
+            "consumes": [
+              "greek-water-jar",
+              "greek-wheat"
+            ]
+          },
+          "absentReturn": true
+        },
+        "greek-wheat": {
+          "name": "Sack of Wheat",
+          "text": "Threshed wheat in a coarse sack, carried up from the grain quays at Piraeus.",
+          "holder": "greek-baker",
+          "persona": "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
+          "art": "assets/greek-drama/provision-basket.png",
+          "home": "greek-piraeus",
+          "absentReturn": true
         },
         "greek-figs": {
           "name": "Dried Figs",
@@ -2235,7 +2266,10 @@
           "persona": "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
           "art": "assets/greek-drama/figs.png",
           "home": "greek-sanctuary",
-          "regrow": "dawn"
+          "tags": [
+            "food"
+          ],
+          "absentReturn": true
         },
         "greek-wine-skin": {
           "name": "Wine Skin",
@@ -2244,7 +2278,10 @@
           "persona": "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
           "art": "assets/greek-drama/wine-skin.png",
           "home": "greek-gate",
-          "regrow": "dawn"
+          "tags": [
+            "drink"
+          ],
+          "absentReturn": true
         },
         "greek-funeral-cloth": {
           "name": "Funeral Cloth",
@@ -2252,8 +2289,7 @@
           "holder": "greek-sanctuary",
           "persona": "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
           "art": "assets/greek-drama/funeral-cloth.png",
-          "home": "greek-eleusis",
-          "regrow": "dawn"
+          "home": "greek-eleusis"
         },
         "greek-oil-flask": {
           "name": "Funeral Oil",
@@ -2261,8 +2297,7 @@
           "holder": "greek-courtyard",
           "persona": "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
           "art": "assets/greek-drama/oil-flask.png",
-          "home": "greek-colonus",
-          "regrow": "dawn"
+          "home": "greek-colonus"
         },
         "greek-libation": {
           "name": "Libation Wine",
@@ -2270,8 +2305,7 @@
           "holder": "greek-cithaeron",
           "persona": "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
           "art": "assets/greek-drama/libation-cup.png",
-          "home": "greek-cithaeron",
-          "regrow": "dawn"
+          "home": "greek-cithaeron"
         },
         "greek-shovel": {
           "name": "Burial Shovel",
@@ -2285,7 +2319,7 @@
           "name": "The Burial Decree",
           "startLevel": 50,
           "text": "A public copy forbids burial of the brother left outside the city.",
-          "holder": "greek-palace",
+          "holder": "greek-guard",
           "persona": "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
           "art": "assets/greek-drama/decree.png"
         },
@@ -2298,12 +2332,24 @@
         },
         "greek-provisions": {
           "name": "Travel Provisions",
-          "text": "Bread, dried figs and a wine skin, packed for the voyage out of Thebes.",
+          "text": "Bread, dried figs and a wine skin, packed by Myrto for a voyage out of Thebes.",
           "holder": "greek-harbor",
           "persona": "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
           "art": "assets/greek-drama/provisions.png",
           "home": "greek-harbor",
-          "startsUsed": true
+          "startsUsed": true,
+          "tags": [
+            "food"
+          ],
+          "locked": {
+            "by": "greek-shipmaster",
+            "consumes": [
+              "greek-bread",
+              "greek-figs",
+              "greek-wine-skin"
+            ]
+          },
+          "absentReturn": true
         },
         "greek-olive-branch": {
           "name": "The Herald’s Truce",
@@ -2617,17 +2663,10 @@
         },
         "greek-creon-writ": {
           "name": "Creon's Writ",
-          "text": "A sealed writ from the palace. It grants the household a burial under witness.",
+          "text": "A sealed writ from the palace. With it, Creon permits the household to bury the brother, and the gate guard to stand aside.",
           "persona": "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
-          "holder": "greek-palace",
-          "art": "assets/greek-drama/creon-writ.webp",
-          "requires": [
-            {
-              "kind": "flag",
-              "key": "greek-burial-permitted",
-              "value": true
-            }
-          ]
+          "holder": "greek-creon",
+          "art": "assets/greek-drama/creon-writ.webp"
         },
         "greek-guard-tablet": {
           "name": "The Guard's Tablet",
@@ -2686,25 +2725,7 @@
         {
           "from": "greek-gate",
           "to": "greek-battlefield",
-          "requires": [
-            {
-              "kind": "holding",
-              "item": "greek-decree",
-              "actor": "greek-guard"
-            }
-          ],
-          "sealed": {
-            "reason": "The guard lifts the bar for an order from the palace: the Burial Decree or Creon's writ.",
-            "quest": {
-              "kind": "item",
-              "target": "greek-decree",
-              "to": "greek-guard"
-            }
-          }
-        },
-        {
-          "from": "greek-gate",
-          "to": "greek-battlefield",
+          "live": true,
           "requires": [
             {
               "kind": "holding",
@@ -2967,51 +2988,6 @@
           "on": "give"
         },
         {
-          "id": "greek-pack-provisions",
-          "subject": "greek-shipmaster",
-          "at": "greek-harbor",
-          "label": "Give Myrto the provisions for her crew",
-          "text": "Vale gives Myrto the bread, the figs and the wine skin. She packs them and sets the Travel Provisions on the landing.",
-          "textTemplate": "{actor} gives Myrto the bread, the figs and the wine skin. She packs them and sets the Travel Provisions on the landing.",
-          "on": "give",
-          "repeats": true,
-          "requires": [
-            {
-              "kind": "holding",
-              "item": "greek-bread",
-              "role": "actor"
-            },
-            {
-              "kind": "holding",
-              "item": "greek-figs",
-              "role": "actor"
-            },
-            {
-              "kind": "holding",
-              "item": "greek-wine-skin",
-              "role": "actor"
-            }
-          ],
-          "effects": [
-            {
-              "kind": "retire_item",
-              "item": "greek-bread"
-            },
-            {
-              "kind": "retire_item",
-              "item": "greek-figs"
-            },
-            {
-              "kind": "retire_item",
-              "item": "greek-wine-skin"
-            },
-            {
-              "kind": "drop_item",
-              "item": "greek-provisions"
-            }
-          ]
-        },
-        {
           "id": "greek-hear-decree",
           "subject": "greek-guard",
           "at": "greek-gate",
@@ -3143,40 +3119,21 @@
           "id": "greek-petition-burial",
           "subject": "greek-creon",
           "at": "greek-palace",
-          "label": "Petition for burial",
-          "text": "Vale presents the decree and household token with the elder's support. Creon grants a public exception for burial under witness.",
+          "label": "Receive Creon’s writ",
+          "text": "Creon holds his decree again. With his writ, Vale may see the brother buried under witness.",
           "requires": [
             {
-              "kind": "flag",
-              "key": "greek-decree-known",
-              "value": true
-            },
-            {
-              "kind": "flag",
-              "key": "greek-witness-support",
-              "value": true
+              "kind": "holding",
+              "item": "greek-creon-writ",
+              "role": "actor"
             },
             {
               "kind": "holding",
               "item": "greek-decree",
-              "role": "actor"
-            },
-            {
-              "kind": "holding",
-              "item": "greek-household-token",
-              "role": "actor"
-            },
-            {
-              "kind": "choice_unset",
-              "key": "greek-theban-response"
+              "actor": "greek-creon"
             }
           ],
           "effects": [
-            {
-              "kind": "place_item",
-              "item": "greek-decree",
-              "place": "greek-palace"
-            },
             {
               "kind": "choose",
               "key": "greek-theban-response",
@@ -3189,8 +3146,8 @@
             }
           ],
           "summary": "Creon granted a witnessed exception for the family to arrange a lawful burial. The petition itself did not perform the rite.",
-          "textTemplate": "{actor} presents the decree and household token with the elder's support. Creon grants a public exception for burial under witness.",
-          "on": "give"
+          "textTemplate": "Creon holds his decree again. With his writ, {actor} may see the brother buried under witness.",
+          "on": "meet"
         },
         {
           "id": "greek-perform-permitted-burial",
@@ -3403,6 +3360,11 @@
             {
               "kind": "set_flag",
               "key": "greek-permitted-burial-public",
+              "value": true
+            },
+            {
+              "kind": "set_flag",
+              "key": "greek-open-door-open",
               "value": true
             }
           ],
@@ -7078,7 +7040,8 @@
           "greek-pyre-account",
           "greek-figs",
           "greek-wine-skin",
-          "greek-libation"
+          "greek-libation",
+          "greek-wheat"
         ],
         "choices": [
           "greek-return-water-jar",
@@ -7114,8 +7077,7 @@
           "greek-homecoming-report-piraeus-family",
           "greek-homecoming-report-colonus-custom",
           "greek-homecoming-agree-journey",
-          "greek-homecoming-receive-family",
-          "greek-pack-provisions"
+          "greek-homecoming-receive-family"
         ]
       },
       "recital": {
@@ -8048,12 +8010,13 @@
               "from": "greek-harbor",
               "to": "greek-piraeus",
               "oneWay": true,
+              "reason": "Put the Travel Provisions down on deck",
               "opensWith": [
                 {
                   "kind": "any",
                   "conditions": [
                     {
-                      "kind": "item_present",
+                      "kind": "item_at",
                       "item": "greek-provisions",
                       "place": "greek-ship"
                     },
@@ -8064,8 +8027,7 @@
                     }
                   ]
                 }
-              ],
-              "spends": true
+              ]
             },
             {
               "from": "greek-piraeus",

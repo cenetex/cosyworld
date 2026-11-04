@@ -88,21 +88,17 @@ try {
     "greek-ship",
     "greek-piraeus",
   ];
-  // The Open Door fixture opened the City Gate with the decree; this one
-  // shuts it again, as after an exposure the gate never opened.
+  // The Open Door fixture left Creon's writ with the Gate Guard, who stands
+  // aside while he holds it (rules 102); this one gives it back to Creon, so
+  // the guard bars the gate both ways, as after an exposure.
   const gateShut = () => {
     const world = openSeas();
-    world.items["greek-decree"].holder = "greek-palace";
-    world.openedRoutes = world.openedRoutes.filter(
-      (key) => key !== "greek-gate>greek-battlefield",
-    );
+    world.items["greek-creon-writ"].holder = "greek-creon";
     return world;
   };
   const gateOpen = () => {
     const world = openSeas();
-    world.openedRoutes = [
-      ...new Set([...world.openedRoutes, "greek-gate>greek-battlefield"]),
-    ].sort();
+    world.items["greek-creon-writ"].holder = "greek-guard";
     return world;
   };
   const journeys = [
@@ -139,15 +135,14 @@ try {
       fixture.actors.mara.place = journey.start;
       // Black Pond sails only to the Wine-Dark Harbor. The Travel Provisions
       // on deck open the lane between Piraeus and the Wine-Dark Harbor:
-      // Myrto has packed a load (rules 95). The free leg home carries no
+      // Myrto has packed a load (rules 102). The free leg home carries no
       // cargo: the provisions stay ashore.
       fixture.usedUp = (fixture.usedUp || []).filter(
         (id) => id !== "greek-provisions",
       );
       fixture.items["greek-provisions"].holder =
         journey.cargo === false ? "greek-athens" : "greek-ship";
-      // The voyage to Piraeus uses the provisions up (rules 95); a Hoppy
-      // Cat thing aboard carries the ship on to the jetty.
+      // A Hoppy Cat thing aboard carries the ship on to the jetty.
       if (journey.hoppy)
         fixture.items["hoppycat-halfway-cup"].holder = "greek-ship";
       const page = await browser.newPage({
@@ -282,7 +277,7 @@ try {
             await page.locator('#hand [data-card="greek-road-coast"]').count(),
             0,
           );
-        // Without the decree the City Gate keeps Thebes shut to the land
+        // Without Creon's writ the guard keeps Thebes shut to the land
         // route: the battlefield offers no way in.
         if (journey.shut && target === "greek-battlefield" && !shutSeen) {
           shutSeen = true;

@@ -150,6 +150,15 @@ export const transports = merge("transports");
 export const packPeople = merge("avatars");
 export const packFixtures = merge("fixtures");
 export const packThings = merge("items");
+// Food and drink (rules 102): a thing tagged food or drink, with a home it
+// goes back to once eaten or drunk. Any holder may eat or drink it, alone or
+// with someone. One verb, Eat; a drink reads Drink.
+export const consumable = (id) =>
+  packThings[id]?.home
+    ? (["food", "drink"].find((tag) => packThings[id].tags?.includes(tag)) ??
+      null)
+    : null;
+export const isFood = (id) => consumable(id) !== null;
 const entities = {
   ...packPlaces,
   ...packPeople,
@@ -400,6 +409,14 @@ const latchKeys = new Set(latching.map(({ route }) => routeKey(route)));
 const routeOpen = (world, packId, r) =>
   (!r.live && Boolean(world.openedRoutes?.includes(routeKey(r)))) ||
   conditionsMet(world, packId, r.requires);
+// Whether a pack route between two places is open now, latched or live
+// (rules 102): a live gate reads its condition as it stands.
+export const packRouteOpen = (world, from, to) =>
+  packDefinitions.some((pack) =>
+    (pack.routes || []).some(
+      (r) => r.from === from && r.to === to && routeOpen(world, pack.id, r),
+    ),
+  );
 export function latchRoutes(world) {
   for (const { pack, route } of latching) {
     const key = routeKey(route);
@@ -703,10 +720,23 @@ export function applyPackChoice(
     // An alternative a set slot did not use stays where it is. Only the
     // actor's own things or things lying at the place are used, never what
     // another person holds (rules 98).
+    // Rules 102: a homed thing that neither regrows nor is made again goes
+    // straight back to its home, ready to fetch, as eaten food does; while
+    // its home is out of this world's reach, back where it started.
     if (e.kind === "retire_item") {
-      const root = rootOf(world, e.item);
-      if (root === action.actor || root === choice.at)
-        useUp(world, e.item, pack.items[e.item].holder);
+      const root = rootOf(world, e.item),
+        thing = pack.items[e.item];
+      if (root === action.actor || root === choice.at) {
+        useUp(world, e.item, thing.holder);
+        if (thing.home && !thing.regrow && !thing.locked) {
+          bringBack(
+            world,
+            e.item,
+            entityActive(world, thing.home) ? thing.home : thing.holder,
+          );
+          if (!entityEnabled(world, e.item)) useUp(world, e.item, thing.holder);
+        }
+      }
     }
     // The subject sets a used-up thing down at the choice's place.
     if (e.kind === "drop_item") {

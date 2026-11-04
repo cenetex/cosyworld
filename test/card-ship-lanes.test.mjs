@@ -62,6 +62,16 @@ function act(world, actor, kind, target) {
   expect(result.ok, result.error).toBe(true);
   return reload(result.world);
 }
+// Lay a carried thing down where the actor stands.
+function drop(world, actor, item) {
+  const action = ask(world, actor).actions.find(
+    (a) => a.kind === "drop" && a.item === item,
+  );
+  expect(action, `${actor} drop ${item}`).toBeDefined();
+  const result = ask(world, actor, "play", { action });
+  expect(result.ok, result.error).toBe(true);
+  return reload(result.world);
+}
 const courses = (s, actor) =>
   ask(s, actor)
     .actions.filter((a) => a.kind === "course")
@@ -134,13 +144,18 @@ describe("knowing a lane is personal", () => {
     stowProvisions(s, "greek-ship");
     s = act(reload(s), "vale", "move", "greek-ship");
     expect(courses(s, "vale")).toEqual(["greek-piraeus", "pond"]);
-    // After it, Mara carries the provisions aboard. Neither has heard the
-    // lane; the thing aboard opens it for both.
+    // After it, Mara carries the provisions aboard. Carried, they open
+    // nothing (rules 102); laid on deck they open the lane for both, though
+    // neither has heard it.
     s = fresh("greek-harbor", openDoorStart());
     stowProvisions(s, "mara");
     s = act(reload(s), "vale", "move", "greek-ship");
     expect(courses(s, "vale")).toEqual(["pond"]);
     s = act(s, "mara", "move", "greek-ship");
+    expect(courses(s, "vale")).toEqual(["pond"]);
+    expect(courses(s, "mara")).toEqual(["pond"]);
+    s = drop(s, "mara", "greek-provisions");
+    expect(s.items["greek-provisions"].holder).toBe("greek-ship");
     expect(courses(s, "vale")).toEqual(["greek-piraeus", "pond"]);
     expect(courses(s, "mara")).toEqual(["greek-piraeus", "pond"]);
     expect(knowsLane(s, "vale", "greek-harbor", "greek-piraeus")).toBe(false);
@@ -152,10 +167,12 @@ describe("knowing a lane is personal", () => {
     // The quay opens with the Open Door; the Long Walls inland wait for the
     // herald's truce.
     expect(ask(s, "vale").exits).not.toContain("greek-road-athens-piraeus");
-    // The lane home from Piraeus stays open, even with the provisions
-    // left on the quay: the voyage used them up, so the ship no longer sails
-    // on to the Hoppy Cat jetty.
-    expect(courses(s, "mara")).toEqual(["greek-harbor"]);
+    // The voyage leaves the provisions whole on deck (rules 102), so the
+    // ship may sail on to the Hoppy Cat jetty as well as home.
+    expect(s.items["greek-provisions"].holder).toBe("greek-ship");
+    expect(courses(s, "mara")).toEqual(["greek-harbor", "hoppycat-signal-jetty"]);
+    // The lane home stays open with the provisions left on the quay; only
+    // the onward lane closes.
     stowProvisions(s, "greek-piraeus");
     s = reload(s);
     expect(courses(s, "mara")).toEqual(["greek-harbor"]);

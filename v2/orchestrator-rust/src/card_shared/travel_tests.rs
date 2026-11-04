@@ -20,9 +20,9 @@ fn greek_ports_and_roads_upgrade_from_each_released_version() {
 fn greek_ports_roads_and_waiting_replay_after_the_version_eighteen_upgrade() {
     let (path, c, id, mut w) = upgraded_ports(engine::EIGHTEENTH_VERSION);
     // Black Pond sails only to the Wine-Dark Harbor. Vale carries a load of
-    // Travel Provisions from before rules 95, so it stays in play. It opens
-    // the lane to Piraeus, and the voyage there uses it up; the way home is
-    // free. The Long Walls open from either end only with the herald's
+    // Travel Provisions from before rules 95, so it stays in play. Laid on
+    // deck, it opens the lane to Piraeus (rules 102) and stays aboard; the
+    // way home is free. The Long Walls open from either end only with the herald's
     // truce, so she waits at the quays beside the ship.
     assert_eq!(w.game["items"]["greek-provisions"]["holder"], "vale");
     for target in [
@@ -55,6 +55,25 @@ fn greek_ports_roads_and_waiting_replay_after_the_version_eighteen_upgrade() {
             .unwrap();
         }
         assert_eq!(w.game["actors"]["vale"]["place"], target);
+        if target == "greek-ship" && w.game["transports"]["greek-ship"]["dock"] == "greek-harbor" {
+            let view = w.project(0).unwrap();
+            let lay = view["actions"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|a| a["kind"] == "drop" && a["item"] == "greek-provisions")
+                .cloned()
+                .expect("the provisions can be laid on deck");
+            full_store::commit(
+                &c,
+                &id,
+                &mut w,
+                json!({"op":"play","actor":"vale","action":lay}),
+                now(),
+            )
+            .unwrap();
+            assert_eq!(w.game["items"]["greek-provisions"]["holder"], "greek-ship");
+        }
         if target == "greek-piraeus" {
             assert!(!w.project(0).unwrap()["exits"]
                 .as_array()

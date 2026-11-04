@@ -63,6 +63,56 @@ function tryBack(s, id, holder) {
   return false;
 }
 
+// A thing consumed (rules 102), eaten or made into something: it leaves
+// whoever held it and goes back to its home, as the one thing it always was.
+// A crafted thing (`locked`) waits there locked, used up, until its maker
+// makes it again; any other comes back at once, ready to fetch again.
+export const restOf = (id) => packThings[id].home ?? packThings[id].holder;
+export function consume(s, id) {
+  const thing = packThings[id];
+  useUp(s, id, restOf(id));
+  if (!thing.locked && thing.home) tryBack(s, id, thing.home);
+}
+const lockedThings = Object.keys(packThings)
+  .filter((id) => packThings[id].locked)
+  .sort();
+// A crafted thing still locked at its home, waiting for its maker.
+export const lockedAt = (s, place) =>
+  lockedThings.filter(
+    (id) =>
+      usedUp(s, id) &&
+      packThings[id].home === place &&
+      entityActive(s, packThings[id].locked.by),
+  );
+// Its maker, standing at its home, makes it on the play that gives her, or
+// lays down there, the last thing it consumes, once every one is in her
+// hands or lying loose there: those are consumed, and it unlocks. Unlocking
+// is a play, as eating is a choice (owner, 2026-11-04; reversible).
+export function settleCrafting(s, a, nameOf, log) {
+  for (const id of lockedThings) {
+    const { home, locked } = packThings[id],
+      maker = s.actors[locked.by];
+    if (!usedUp(s, id) || !maker || maker.place !== home) continue;
+    const handed =
+      locked.consumes.includes(a.item) &&
+      ((["give", "trade"].includes(a.kind) && a.target === locked.by) ||
+        (a.kind === "drop" && a.target === home));
+    if (!handed) continue;
+    const ready =
+      entityActive(s, locked.by) &&
+      locked.consumes.every(
+        (c) => entityActive(s, c) && [locked.by, home].includes(rootOf(s, c)),
+      );
+    if (!ready || !tryBack(s, id, home)) continue;
+    for (const c of locked.consumes) consume(s, c);
+    const used = locked.consumes.map((c) => the(nameOf(c)));
+    log(
+      `${nameOf(locked.by)} uses ${used.slice(0, -1).join(", ")}${used.length > 1 ? " and " : ""}${used.at(-1)}. ${capital(the(nameOf(id)))} is ready.`,
+      home,
+    );
+  }
+}
+
 // The light change and long rests this round brought.
 export function itemEvents(s) {
   const events = [];
@@ -78,7 +128,7 @@ export function itemEvents(s) {
 function cargo(s, t, conditions) {
   const out = [];
   for (const c of conditions) {
-    if (c.kind === "item_present" && c.place === t.place)
+    if (["item_present", "item_at"].includes(c.kind) && c.place === t.place)
       if (packThings[c.item] && conditionMet(s, c, null, t.packId))
         out.push(c.item);
     if (c.kind === "pack_item_present" && c.place === t.place) {
@@ -229,7 +279,7 @@ export const validItemCycle = (s) =>
     (id, i) =>
       Boolean(packThings[id]) &&
       (!i || s.usedUp[i - 1] < id) &&
-      s.items[id]?.holder === packThings[id].holder &&
+      [packThings[id].holder, restOf(id)].includes(s.items[id]?.holder) &&
       s.items[id].history.length === 0,
   ) &&
   (s.astray === undefined ||

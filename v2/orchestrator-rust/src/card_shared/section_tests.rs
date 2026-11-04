@@ -156,6 +156,8 @@ fn earlier_greek_worlds_upgrade_once_with_original_history_and_new_entities() {
                         // The Thebes provisions loop: the Dried Figs, the
                         // Wine Skin and the Libation Wine.
                         + 3
+                        // Greek revision 20: the Sack of Wheat.
+                        + 1
                         + if version == engine::ELEVENTH_VERSION {
                             9
                         } else {
@@ -239,8 +241,9 @@ fn a_shared_section_opens_from_an_accepted_invitation_and_replays_for_both_peopl
         true
     );
     // Until the herald's truce opens the Long Walls, the Open Door is walked
-    // through the City Gate: Mara opens it with the decree and walks the
-    // land route to Eleusis with the guard's tablet.
+    // through the City Gate: Mara trades the decree to Creon for his writ,
+    // which the guard lets her through for (rules 102), and walks the land
+    // route to Eleusis with the guard's tablet.
     let act = |world: &mut World, kind: &str, field: &str, value: &str| {
         let action = world.project(1).unwrap()["actions"]
             .as_array()
@@ -268,6 +271,7 @@ fn a_shared_section_opens_from_an_accepted_invitation_and_replays_for_both_peopl
         act(&mut world, "move", "target", target);
     }
     act(&mut world, "take", "item", "greek-decree");
+    act(&mut world, "trade", "target", "greek-creon");
     for target in ["greek-well", "greek-courtyard", "greek-gate"] {
         act(&mut world, "move", "target", target);
     }

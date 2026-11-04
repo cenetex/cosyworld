@@ -23,12 +23,12 @@ const SHIP = "greek-ship",
 const players = ["vale", "mara"];
 
 // After the plea: no cargo aboard, the ship empty at the harbor with the
-// Bard just aboard and bound for Piraeus, Mara waiting at Piraeus.
-function start() {
-  const s = dispatchShared({
-    op: "create",
-    save: encodeSave(openSeas()),
-  }).world;
+// Bard just aboard and bound for Piraeus, Mara waiting at Piraeus. A released
+// bundle reads only saves of its own rules and content, so it starts from a
+// world it made itself, shaped the same way.
+function start(
+  s = dispatchShared({ op: "create", save: encodeSave(openSeas()) }).world,
+) {
   s.items["greek-provisions"].holder = HARBOR;
   for (const a of Object.values(s.actors))
     if (a.place === SHIP) a.place = HARBOR;
@@ -50,8 +50,9 @@ function start() {
     since: s.turn,
     recall: null,
   });
-  return JSON.parse(encodeSave(decodeSave(encodeSave(s))));
+  return s;
 }
+const startSave = () => JSON.parse(encodeSave(decodeSave(encodeSave(start()))));
 
 // Mara waits at Piraeus until she can board, through a shared-rules entry
 // point: today's rules, or a released bundle.
@@ -67,13 +68,29 @@ function released(version) {
     );
   const context = vm.createContext({
     structuredClone,
-    cardContent: JSON.parse(file("content.json")),
+    // Released rules read the content they shipped with.
+    cardContent: JSON.parse(
+      readFileSync(
+        new URL("./fixtures/card-content-rules-101.json", import.meta.url),
+        "utf8",
+      ),
+    ),
   });
   vm.runInContext(file(`engine-v${version}.js`), context);
-  return (request) => JSON.parse(context.cardShared(JSON.stringify(request)));
+  const rules = (request) =>
+    JSON.parse(context.cardShared(JSON.stringify(request)));
+  // Its own new world, past the opening and with the full Greek map.
+  const own = rules({ op: "create", seed: 9 }).world;
+  delete own.opening;
+  own.packs["greek-drama"].scope = "full";
+  rules.start = () => start(own);
+  return rules;
 }
 function wait(rules, rounds = 16) {
-  let world = rules({ op: "create", save: JSON.stringify(start()) }).world;
+  const saved = rules.start ? rules.start() : startSave();
+  const created = rules({ op: "create", save: JSON.stringify(saved) });
+  expect(created.ok, created.error).toBe(true);
+  let world = created.world;
   const seen = { bardAt: [], boarded: false };
   const ask = (op, extra = {}) =>
     rules({
@@ -121,6 +138,8 @@ describe("residents embark to their own destination", () => {
 
   it("fails under rules 95, which keep the Bard short of Piraeus", () => {
     const run = wait(released(95));
+    // He waits aboard at the harbour, but the ship never takes him there.
+    expect(run.bardAt).toContain(SHIP);
     expect(run.bardAt).not.toContain(PIRAEUS);
   });
 
@@ -131,7 +150,7 @@ describe("residents embark to their own destination", () => {
   });
 
   it("leaves the course to a human aboard, under the cargo rule", () => {
-    const s = decodeSave(JSON.stringify(start()));
+    const s = decodeSave(JSON.stringify(startSave()));
     expect(courseOptions(s, SHIP, BARD)).toContain(PIRAEUS);
     s.actors.vale.place = SHIP;
     expect(courseOptions(s, SHIP, BARD)).toEqual([]);
@@ -143,7 +162,7 @@ describe("residents embark to their own destination", () => {
     // still rides by the cargo rule, so the Bard cannot sail them both to
     // Piraeus; the stuck ship goes home, everyone goes ashore, and the Bard
     // sets that pursuit aside, so he does not board again for it at once.
-    const saved = start();
+    const saved = startSave();
     saved.actors.vale.place = SHIP;
     let world = current({ op: "create", save: JSON.stringify(saved) }).world;
     const ask = (op, extra = {}) =>
@@ -173,7 +192,7 @@ describe("residents embark to their own destination", () => {
   });
 
   it("sets a resident bound for its own dock ashore instead of sailing", () => {
-    const s = decodeSave(JSON.stringify(start()));
+    const s = decodeSave(JSON.stringify(startSave()));
     s.actors[BARD].want = { ...s.actors[BARD].want, target: HARBOR };
     expect(courseToward(s, SHIP, HARBOR, BARD)).toBe(null);
   });

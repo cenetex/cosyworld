@@ -328,7 +328,8 @@ first, and is absent while the stack holds one. Player-facing text says quest.
   by standing where it is, whoever holds it; **meet** a person by being
   together, without a Talk; **bring** an item to a person at a place by
   holding it there together. Act verbs are met when the avatar's own play
-  resolves: **give** only when accepted. No step is violent: a person step
+  resolves: **give** only when accepted, and **eat** a food (rules 102) when
+  the avatar eats it, at the step's place if it names one. No step is violent: a person step
   is Talk or **meet** at every level (Threaten and Strike steps saved before
   rules 90 are still met). Steps interlock with other
   avatars' quests: an item another known avatar wants to hold may be given
@@ -350,7 +351,8 @@ first, and is absent while the stack holds one. Player-facing text says quest.
   and after three, or a long spell with no way forward, the quest is set aside
   for a while: it moves to the bottom of the stack, fresh, and the quest
   beneath comes to the top (a lone quest gets a newly drawn one above it).
-  Residents pursue their top quest. A resident that keeps to its scene acts only while someone is
+  Residents pursue their top quest, and eat a food they hold at once when a
+  quest of theirs wants it eaten (rules 102). A resident that keeps to its scene acts only while someone is
   there, so its quest can stall only after a first refused attempt, and the
   stall clock starts at that attempt.
 - **Home, range and sleep** (rules 100, `world-life.json`). Each resident has
@@ -778,8 +780,9 @@ A road card shows the road, because the road is the next place.
 The ship sails authored sea lanes, at most four from each port. Black Pond
 has one lane, to the Wine-Dark Harbor. The Wine-Dark Harbor has
 lanes to Piraeus and the Trojan camp landing. The Piraeus lane opens only
-while the Travel Provisions are aboard, carried by anyone on deck or resting
-there. Two one-way lanes keep the way home from Piraeus always open. Aboard a docked ship, the other place cards are course cards. The
+while the Travel Provisions lie on deck (rules 102); carried aboard they are
+not enough, and Piraeus shows as a locked card whose context button reads
+"Put the Travel Provisions down on deck". The voyage leaves them aboard. Two one-way lanes keep the way home from Piraeus always open. Aboard a docked ship, the other place cards are course cards. The
 first course played sets the voyage for everyone aboard; the ship then spends
 one world round at sea. On arrival the only Disembark card is that port, and
 someone who boarded there cannot step straight back. Passengers who stay

@@ -16,6 +16,17 @@ const ajaxItems = Object.fromEntries(
     )
     .map(([id, item]) => [id, { holder: item.holder, history: [] }]),
 );
+// Greek revision 20: Creon holds his writ, and Dione her wheat, when an
+// earlier world first gains them.
+const decreeItems = Object.fromEntries(
+  ["greek-creon-writ", "greek-wheat"].map((id) => [
+    id,
+    {
+      holder: currentPackDefinition("greek-drama").items[id].holder,
+      history: [],
+    },
+  ]),
+);
 import { readFileSync } from "node:fs";
 import vm from "node:vm";
 import { describe, expect, it } from "vitest";
@@ -86,6 +97,7 @@ describe("the household save upgrade", () => {
         ...branchItems,
         ...willowsItems,
         ...ajaxItems,
+        ...decreeItems,
         "boardyai-calling-card": { holder: "station", history: [] },
         ...Object.fromEntries(
           Object.entries(hoppycat.items).map(([id, item]) => [

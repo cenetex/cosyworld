@@ -142,6 +142,7 @@ export function upgradeSave(
     upgradeGreekThreeLinksSave(s);
     upgradeGreekLandRouteSave(s);
     upgradeGreekForecourtSave(s);
+    upgradeGreekDecreeSave(s);
     upgradeRecitals(s, packDefinitions);
   }
   upgradeSightings(s);
@@ -705,6 +706,26 @@ export function upgradeGreekForecourtSave(s) {
   if (!pack || pack.revision < 19 || saved?.revision !== 18) return;
   foldRetiredRoads(s);
   saved.revision = 19;
+}
+
+// Revision 20 (rules 102): the guard bars the gate while he holds the
+// decree, live, so a shared world's old latch on that gate goes.
+export function upgradeGreekDecreeSave(s) {
+  const pack = packDefinitions.find((p) => p.id === "greek-drama");
+  const saved = s.packs?.[pack?.id];
+  if (!pack || pack.revision < 20 || saved?.revision !== 19) return;
+  if (Array.isArray(s.openedRoutes)) {
+    s.openedRoutes = s.openedRoutes.filter(latchingRoute);
+    if (!s.openedRoutes.length) delete s.openedRoutes;
+  }
+  // Nothing regrows at dawn now: a homed thing that was waiting to regrow
+  // is back at its home.
+  for (const [id, item] of Object.entries(pack.items))
+    if (item.home && !item.regrow && !item.locked && s.usedUp?.includes(id)) {
+      s.usedUp = s.usedUp.filter((used) => used !== id);
+      s.items[id].holder = item.home;
+    }
+  saved.revision = 20;
 }
 
 // Each rumoured place and the reachable place its visitors return to. Troy

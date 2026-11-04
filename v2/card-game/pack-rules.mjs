@@ -29,6 +29,7 @@ import {
   validatePackStates,
   entityActive,
   roamingQuestActor,
+  packRouteOpen,
 } from "./pack-registry.mjs";
 
 import {
@@ -131,7 +132,7 @@ export function conditionMet(s, c, senses, packId = null, actor = null) {
     case "shared_world":
       return sharedEnabled(s);
     case "gate_open":
-      return Boolean(s.openedRoutes?.includes(`${c.from}>${c.to}`));
+      return packRouteOpen(s, c.from, c.to);
     case "home_door":
       return s.doors?.[c.home] === c.place;
     case "connected_humans":

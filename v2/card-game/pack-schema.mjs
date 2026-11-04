@@ -129,7 +129,19 @@ export function laneProblems(t) {
     leaving = new Set();
   for (const lane of t.lanes) {
     if (
-      !keysOk(lane, ["from", "to", "oneWay", "opensWith", "spends"]) ||
+      !keysOk(lane, [
+        "from",
+        "to",
+        "oneWay",
+        "opensWith",
+        "spends",
+        "reason",
+      ]) ||
+      (lane.reason !== undefined &&
+        (!lane.opensWith ||
+          typeof lane.reason !== "string" ||
+          !lane.reason.trim() ||
+          lane.reason.length > 240)) ||
       !docks.includes(lane.from) ||
       !docks.includes(lane.to) ||
       lane.from === lane.to ||
@@ -735,7 +747,21 @@ export function packProblems(pack, hub, mountedPlaces = [], mountedItems = []) {
     // (BoardyAI) connecting humans.
     check(
       a.want === undefined ||
-        (keysOk(a.want, ["kind", "target"]) &&
+        (keysOk(a.want, ["kind", "target", "step"]) &&
+          // An eat quest (rules 102): eat or drink one, somewhere, with someone.
+          (a.want.step === undefined ||
+            (a.want.kind === "item" &&
+              keysOk(a.want.step, ["verb", "at", "with"]) &&
+              a.want.step.verb === "eat" &&
+              ["food", "drink"].some((tag) =>
+                items[a.want.target]?.tags?.includes(tag),
+              ) &&
+              (a.want.step.with === undefined ||
+                (a.want.step.with !== id &&
+                  (owns(avatars, a.want.step.with) ||
+                    hub.avatars.includes(a.want.step.with)))) &&
+              (a.want.step.at === undefined ||
+                owns(places, a.want.step.at)))) &&
           (a.want.kind === "item"
             ? owns(items, a.want.target) || hub.items.includes(a.want.target)
             : a.want.kind === "place"
@@ -1141,6 +1167,7 @@ export function packProblems(pack, hub, mountedPlaces = [], mountedItems = []) {
         "regrow",
         "startsUsed",
         "absentReturn",
+        "locked",
       ]) &&
         (i.tags === undefined ||
           (Array.isArray(i.tags) &&

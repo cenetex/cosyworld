@@ -119,6 +119,32 @@ pub(super) fn released() -> &'static str {
     })
 }
 
+/// The content rules 101 shipped with: released rules before 102 cannot read
+/// rules 102's packs (crafted items, food and lane reasons), so a test that
+/// seeds a world on those rules reads this.
+#[cfg(test)]
+pub(super) fn released_101() -> &'static str {
+    static HASH: OnceLock<String> = OnceLock::new();
+    HASH.get_or_init(|| {
+        const RULES_101: &str =
+            include_str!("../../../../test/fixtures/card-content-rules-101.json");
+        let name = hash(RULES_101);
+        if let Ok(mut loaded) = loaded().lock() {
+            loaded.insert(name.clone(), Arc::from(RULES_101));
+        }
+        name
+    })
+}
+/// The content a world on `version` is seeded with in tests.
+#[cfg(test)]
+pub(super) fn seeded(version: &str) -> &'static str {
+    if version == super::engine::VERSION {
+        current()
+    } else {
+        released_101()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
