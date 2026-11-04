@@ -1204,6 +1204,17 @@ body .card.item .art img {
 .hand > .card-frame:has(> .card[data-selected="true"]) .card .name {
   padding-right: 8px;
 }
+/* So does a Settings pack's name, set where the quest card sets its verb. */
+.hand
+  > .card-frame:has(~ .card-frame:not([hidden])):not(
+    :hover,
+    :focus-within,
+    :has(> .card[data-selected="true"])
+  )
+  > .card[data-setting]
+  > .quest-head {
+  padding-right: var(--fan-overlap);
+}
 /* Carry the label's shade to the card's edge, wherever the hand clips it. */
 body .card .name::after {
   content: "";

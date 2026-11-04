@@ -34,7 +34,8 @@ export function questScreen(view, art) {
   // The place where the step happens shows when it is the place itself or
   // the place the player stands in; elsewhere stays a dark ground.
   const ground = kind === "place" ? target : view.here;
-  if (ground) screen.append(picture(art.place(ground), "quest-ground", art.url));
+  if (ground)
+    screen.append(picture(art.place(ground), "quest-ground", art.url));
   const [ownPose, theirPose] = POSES[verb] || [];
   const figure = (id, pose, facing, slot) => {
     const base = art.portrait(id),
@@ -43,9 +44,11 @@ export function questScreen(view, art) {
     img.dataset.flip = String(flipStagePortrait(src, facing));
     return img;
   };
-  screen.append(
-    figure(actor, ownPose, "right", kind === "place" ? "alone" : "left"),
-  );
+  // A place with no one in it is the painting alone (Settings' pack cards).
+  if (actor)
+    screen.append(
+      figure(actor, ownPose, "right", kind === "place" ? "alone" : "left"),
+    );
   if (kind === "place") return screen;
   if (!target || covered)
     screen.append(picture(BACK, "quest-back quest-right", art.url));
