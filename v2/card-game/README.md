@@ -335,11 +335,15 @@ the card, showing the card back. It plays nothing. The top quest folds behind th
 a full-size card in its stack: face down, showing the carved card back, leaning
 out to the top left with a glowing line in its tier colour along its edge.
 Choosing the folded card fans the whole stack out, top first, and so does
-opening the avatar's stack. Each quest card enters face down, showing the carved
-lid, every time it comes into view (the fan opening, or a quest moving on a
-step), and turns to its face 520 ms later with the hand's reveal
-(`card-reveal.mjs`), the next quest a moment after; reduced motion crossfades.
-It takes taps while face down. In the open fan the top quest is chosen and
+opening the avatar's stack. Each quest card is dealt face down, showing the
+carved lid, and turns to its face 520 ms after it is first seen, with the
+hand's reveal (`card-reveal.mjs`), the next quest a moment after; reduced
+motion crossfades. It turns once: folding and opening the fan, plays, redraws
+and progress on the quest (its steps, its place in the stack) leave it face
+up. Its identity is whose quest it is, its kind and its target, so only a
+quest that leaves the hand and later comes back is dealt face down again. The
+hand a page or a new game opens on is already dealt: a quest in view then is
+face up at once. It takes taps while face down. In the open fan the top quest is chosen and
 offers Drop quest. Tapping a quest beneath brings it to the top, with no turn
 taken, and tapping the chosen one folds the fan. The rules remove a met quest at once; the browser keeps its card,
 sealed, in the fan, and the folded line glows until its player taps the card
