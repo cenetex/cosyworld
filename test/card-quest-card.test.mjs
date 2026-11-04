@@ -185,6 +185,28 @@ describe("the quest card", () => {
     expect(questVerb(s, here, true)).toBe("Discover");
   });
 
+  it("names a rest step Rest once the player stands at its sanctuary (#2255)", () => {
+    const s = createWorld();
+    s.actors.vale.place = "greek-sanctuary";
+    s.actors.vale.visited = ["greek-sanctuary"];
+    const rest = {
+      ...questCard(s),
+      kind: "place",
+      target: "greek-sanctuary",
+      step: { verb: "rest" },
+    };
+    expect(questVerb(s, rest)).toBe("Rest");
+    expect(questCaption(rest, false, questVerb(s, rest))).toBe(
+      "Rest at The Hillside Sanctuary",
+    );
+    // Away from it, the card still shows the way there.
+    s.actors.vale.place = "greek-palace";
+    expect(questVerb(s, rest)).toBe("Go to");
+    expect(questCaption(rest, false, questVerb(s, rest))).toBe(
+      "Go to The Hillside Sanctuary and rest there",
+    );
+  });
+
   it("places the quest cards after the player's avatar and belongings", () => {
     const s = createWorld();
     const ids = [questId(0, true), questId(0), questId(1)];
