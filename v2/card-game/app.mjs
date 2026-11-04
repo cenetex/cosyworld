@@ -982,6 +982,7 @@ $("speech-sound").onclick = () => {
   soundEnabled = !soundEnabled;
   speechSounds.setEnabled(soundEnabled);
   characterSpeech.setEnabled(soundEnabled);
+  sfx.setVoices(soundEnabled);
   if (soundEnabled) unlockSpeech();
   try {
     localStorage.setItem(
@@ -1087,6 +1088,7 @@ hum.setStarted(musicHasStarted());
 // The bell and later world effects use the same switch and volume.
 const sfx = createSfx();
 sfx.setEnabled(musicEnabled);
+sfx.setVoices(soundEnabled);
 sfx.setVolume(musicVolume);
 sfx.setHidden(document.hidden);
 function ringHeard() {
@@ -1558,6 +1560,7 @@ function combatStage() {
     revealLine: (seq) => {
       if (combatHeld.delete(seq)) renderLog();
     },
+    sound: (name, seed) => name && sfx.fight(name, seed),
   }));
 }
 function endCombat() {

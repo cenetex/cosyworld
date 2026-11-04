@@ -1,8 +1,11 @@
 import { wakeContext } from "./audio-wake.mjs";
+import { COMBAT_SOUNDS, shapeCombatSound } from "./combat-sfx.mjs";
 
-// World sound effects made in the browser: today a struck bell. They follow
-// the music switch and volume, wait for a user gesture, and keep their own
-// gain. Later effects (doors, card reveals) can add a voice beside the bell.
+// World sound effects made in the browser: a struck bell and the fight's
+// sounds (combat-sfx.mjs). They wait for a user gesture, follow the volume
+// and keep their own gain. The bell follows the music switch; fight sounds
+// follow the Voices switch, like the letters' blips, and sit under the
+// battle song.
 
 // Inharmonic partials of a small hand bell: ratio, level, decay seconds.
 const BELL = [
@@ -15,9 +18,10 @@ const BELL = [
 const BELL_ROOT = 523;
 const BELL_SECONDS = 3;
 const PEAK = 0.6;
+const FIGHT_PEAK = 0.4;
 
 // A small seeded generator so each ring has its own slight detune.
-function seeded(seed) {
+export function seeded(seed) {
   let a = seed >>> 0 || 1;
   return () => {
     a = (a + 0x6d2b79f5) >>> 0;
@@ -47,6 +51,7 @@ export function createSfx({
     failed = false,
     unlocked = false,
     enabled = true,
+    voices = true,
     hidden = false,
     volume = 0.3,
     ringingUntil = 0,
@@ -94,8 +99,20 @@ export function createSfx({
     return true;
   }
 
+  // One fight sound by name; the seed fixes its pitch and filter jitter.
+  function fight(name, seed = 1) {
+    if (!COMBAT_SOUNDS.includes(name)) return false;
+    if (!unlocked || !voices || hidden || volume <= 0 || !build()) return false;
+    void wakeContext(context);
+    const out = context.createGain();
+    out.gain.value = volume * FIGHT_PEAK;
+    out.connect(context.destination);
+    return shapeCombatSound(context, out, name, seeded(seed));
+  }
+
   return {
     bell,
+    fight,
     // Ring for a new committed ring event; the first look only sets the mark.
     watch(log, place, nearby) {
       const since = cursor;
@@ -108,6 +125,9 @@ export function createSfx({
     setEnabled(value) {
       enabled = Boolean(value);
     },
+    setVoices(value) {
+      voices = Boolean(value);
+    },
     setVolume(value) {
       volume = Math.max(0, Math.min(1, Number(value) || 0));
     },
@@ -117,7 +137,7 @@ export function createSfx({
     // Browsers allow audio only after a gesture.
     unlock() {
       unlocked = true;
-      if (enabled && build()) void wakeContext(context);
+      if ((enabled || voices) && build()) void wakeContext(context);
     },
   };
 }

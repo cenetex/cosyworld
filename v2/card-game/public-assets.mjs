@@ -292,6 +292,7 @@ const files = [
   ...Object.values(CUE_TRACKS).map(({ file }) => `assets/music/${file}`),
   "hum.mjs",
   "sfx.mjs",
+  "combat-sfx.mjs",
   "entity-profiles.json",
   ...new Set(
     Object.values(roomTracks)
