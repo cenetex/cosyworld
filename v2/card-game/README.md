@@ -1289,8 +1289,12 @@ model's attempts fail validation or time out. It is also the voice's fallback
 while the character's own model route is open after repeated provider faults
 ([runtime readiness](../docs/ai-capability-registry.md#runtime-readiness-and-account-probes)):
 the own attempts fail at once without a provider call, and the escalation
-attempt runs with up to one call timeout. Neither Fly site sets an escalation model
-today, so an open route still leaves that voice "…". All tier models must qualify for
+attempt runs with up to one call timeout. A model whose route keeps opening, or
+whose voices keep ending with no usable line, is benched for six hours and is
+treated the same way
+([model bench](../docs/ai-capability-registry.md#the-model-bench)).
+Neither Fly site sets an escalation model today, so an open route or a bench
+still leaves that voice "…". All tier models must qualify for
 world content in the current registry and data policy. Equal selected models,
 including two IDs for the same concrete model, share the original attempts.
 

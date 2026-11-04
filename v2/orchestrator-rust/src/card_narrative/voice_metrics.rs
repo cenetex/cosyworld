@@ -332,6 +332,7 @@ impl Totals {
             "by_provider": self.providers,
             "provider_failures": self.provider_failures,
             "flagged": self.flagged,
+            "benches": crate::ai_bench::bench_count(),
             "scenes": super::voice_scenes::snapshot(),
             "prompt_tokens": {
                 "approximate": true,
