@@ -1398,8 +1398,10 @@ Optional voice tiers are enabled with exact model IDs in
 `COSYWORLD_CARD_REFLECTION_MODEL` and `COSYWORLD_CARD_ESCALATION_MODEL`.
 Both settings start unset. The reflection tier writes an avatar's lasting
 persona in local play. Public speech, thoughts, and dreams use the character's
-own model. The escalation tier gets one cooler attempt after the selected
-model's attempts fail validation or time out. It is also the voice's fallback
+own model. The escalation tier speaks when the selected model fails
+(`card_narrative/fallback.rs`): a provider error, an empty reply, or a timeout
+moves to it at once, and a reply the validator blocks moves on after the
+voice's attempts (two by default). It is also the voice's fallback
 while the character's own model route is open after repeated provider faults
 ([runtime readiness](../docs/ai-capability-registry.md#runtime-readiness-and-account-probes)):
 the own attempts fail at once without a provider call, and the escalation
@@ -1412,11 +1414,10 @@ still leaves that voice "…". All tier models must qualify for
 world content in the current registry and data policy. Equal selected models,
 including two IDs for the same concrete model, share the original attempts.
 
-An enabled escalation receives a reserved part of the scene's remaining time:
-half the remaining time, up to one call timeout. Earlier attempts share the
-rest. A voice starting at the beginning of the hosted twenty-two-second scene
-therefore has about 5.5 seconds for each of its two own attempts and eleven
-seconds for escalation. Queue waits use the same deadline. Every returned line
+Each model gets the scene's remaining time split over the models still to try,
+up to one call timeout per attempt, and a quick failure passes its share on. A
+voice starting the hosted twenty-two-second scene with an escalation model has
+eleven seconds on each. A lone model keeps all its attempts. Queue waits use the same deadline. Every returned line
 and reflection passes the same checks before it can enter the saved world.
 The browser retains the avatar's public model attribution beside its private
 persona, thoughts, and dreams across reloads.
