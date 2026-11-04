@@ -17267,7 +17267,7 @@ async fn wallet_qr_status(
             error: Some("QR login expired".to_string()),
         });
     };
-    if login.poll_token != poll_token {
+    if !config::token_matches(&poll_token, &login.poll_token) {
         return Json(WalletQrStatusResponse {
             ok: false,
             status: 403,
@@ -20818,7 +20818,7 @@ fn canonical_internal_authorized(state: &AppState, headers: &HeaderMap) -> bool 
         .get(header::AUTHORIZATION)
         .and_then(|value| value.to_str().ok())
         .and_then(|value| value.strip_prefix("Bearer "))
-        .is_some_and(|provided| provided == expected)
+        .is_some_and(|provided| config::token_matches(provided, expected))
 }
 
 async fn internal_canonical_command(

@@ -297,6 +297,19 @@ pub(crate) fn canonical_routing_config(
     Ok(CanonicalRoutingConfig { base_url, token })
 }
 
+/// Compare fixed-length digests byte by byte so the time taken says nothing
+/// about how much of a secret token, or its length, a caller guessed.
+pub(crate) fn token_matches(provided: &str, expected: &str) -> bool {
+    use sha2::{Digest, Sha256};
+    let provided = Sha256::digest(provided.as_bytes());
+    let expected = Sha256::digest(expected.as_bytes());
+    provided
+        .iter()
+        .zip(expected.iter())
+        .fold(0, |d, (a, b)| d | (a ^ b))
+        == 0
+}
+
 pub(crate) fn canonical_route_heartbeat_expiry(now_ms: u64, lease_ttl: Duration) -> u64 {
     let ttl_ms = u64::try_from(lease_ttl.as_millis()).unwrap_or(u64::MAX);
     now_ms.saturating_add(ttl_ms.saturating_mul(u64::from(CANONICAL_ROUTE_HEARTBEAT_MULTIPLIER)))
@@ -322,4 +335,19 @@ pub(crate) struct DeploymentConfig {
     pub(crate) profile: DeploymentProfile,
     pub(crate) world_id: String,
     pub(crate) process_id: String,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::token_matches;
+
+    #[test]
+    fn token_matches_only_the_exact_token() {
+        let token = "router-token-0123456789";
+        assert!(token_matches(token, token));
+        assert!(!token_matches("router-token-0123456788", token));
+        assert!(!token_matches("router-token", token));
+        assert!(!token_matches("router-token-0123456789x", token));
+        assert!(!token_matches("", token));
+    }
 }
