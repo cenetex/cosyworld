@@ -468,20 +468,24 @@ A selected card lifts and wears one white edge over its tier border, apart from
 the level-up glow, and the rest of the hand dims. At most one place is
 selected: choosing another place replaces it and keeps the selected person or
 item, so Pip + Station, then Pond, offers **Invite Pip along** to the Pond.
-Tapping an action button plays it. The current place leads the hand at the
-left, followed by items lying there, avatars with their carried items, and,
-at the right end, the ways on, so exploring is a choice of left or right
-(#2272, [three links per place](../../docs/design/three-link-map.md)). The
-place the player came from lies face down beneath the current place, showing
-the carved card back. Tapping the current place fans that stack (and the
-items lying there) out like the hand; tapping the way back selects it for
-**Travel**, and the stack folds back after the play. Tapping a chosen card in
-the fan again only lowers it, and the stack stays open; tapping the current
-place folds it (#2247). The other ways on stack at the right end, the first
-face up and the rest face down behind it, up to three; tapping the top card
-fans them, and a lone way is chosen at the first tap. Any other tap folds
-them, so one stack is fanned at a time. With no way back (a new world or a
-fresh load) every way on is in the right stack; a dead end has none.
+Tapping an action button plays it. The left end of the hand holds where you
+are, followed by avatars with their carried items and, at the right end, the
+ways on, so exploring is a choice of left or right (#2272,
+[three links per place](../../docs/design/three-link-map.md)). The place the
+player came from leads, face up, with the current place face down beneath
+it, showing the carved card back (#2286). Tapping the way back chooses it
+for **Travel** and fans the stack, showing the current place; tapping the
+current place chooses it and shows the items lying there. The stack folds
+back after the play. Tapping a chosen card in the fan again only lowers it,
+and the stack stays open; tapping the top card again folds it (#2247). The
+scene's painting stays the current place's, so a way back on top never
+reads as where you are. With no way back (a new world or a fresh load) the
+current place leads alone, and tapping it fans the items lying there. The
+other ways on stack at the right end, the first face up and the rest face
+down behind it, up to three; tapping the top card fans them, and a lone way
+is chosen at the first tap. Any other tap folds them, so one stack is fanned
+at a time. With no way back every way on is in the right stack; a dead end
+has none.
 Choosing the player's avatar shows two stacks beside it, in the same way: the
 things it carries, then its quests (#2256). An empty stack is left out. Each
 shows its top card face up with the rest face down behind it, up to three;
