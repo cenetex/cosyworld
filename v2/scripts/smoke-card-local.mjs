@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
 import { chromium } from "playwright";
+import { openSettings, pressSetting } from "./card-browser-helpers.mjs";
 import { createWorld } from "../card-game/world.mjs";
 import {
   narrativeContext,
@@ -112,13 +113,12 @@ try {
       slot,
     );
     await page.keyboard.press("Escape");
-    await page.locator("#toolbar-menu-button").click();
-    await page.locator("#menu-button").click();
-    await page.locator("#local-settings").waitFor({ state: "visible" });
+    await openSettings(page);
+    await page.locator('[data-setting="backup"]').waitFor();
     assert.equal(await page.locator(".openrouter-settings").isVisible(), false);
     assert.equal(await page.locator("#owned-worlds-button").isVisible(), false);
     const download = page.waitForEvent("download");
-    await page.locator("#local-export").click();
+    await pressSetting(page, "backup");
     const backup = await download;
     assert(backup.suggestedFilename().endsWith(".json"));
     const saved = await page.evaluate(

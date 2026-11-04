@@ -1,5 +1,10 @@
 import assert from "node:assert/strict";
-import { selectCard } from "./card-browser-helpers.mjs";
+import {
+  selectCard,
+  openSettings,
+  closeSettings,
+  pressSetting,
+} from "./card-browser-helpers.mjs";
 import { dispatchShared } from "../card-game/shared-world.mjs";
 import { humanAvatars, humanAvatarIds } from "../card-game/human-cast.mjs";
 import { places, things, people } from "../card-game/world.mjs";
@@ -86,10 +91,9 @@ export async function checkSharedMusicOpenings(browser, origin) {
       await page
         .locator(`#hand [data-card="${avatar.item.id}"]`)
         .waitFor({ state: "attached" });
-      await page.locator("#toolbar-menu-button").click();
-      await page.locator("#menu-button").click();
-      await page.locator("#music-toggle").click();
-      await page.locator("#music-toggle").click();
+      await openSettings(page);
+      await pressSetting(page, "music");
+      await pressSetting(page, "music");
       await page.evaluate(() => window.dispatchEvent(new Event("pageshow")));
       await page.waitForTimeout(1200);
       assert(
@@ -102,7 +106,7 @@ export async function checkSharedMusicOpenings(browser, origin) {
         await page.locator("#music-status").textContent(),
         /first card/,
       );
-      await page.locator('[data-close="menu-dialog"]').click();
+      await closeSettings(page);
       await selectCard(page, avatar.item.id);
       assert(
         await page.locator("#room-music").evaluate((a) => a.paused),
@@ -115,8 +119,7 @@ export async function checkSharedMusicOpenings(browser, origin) {
       });
       assert(started.has(actor));
       await page.reload();
-      await page.locator("#toolbar-menu-button").click();
-      await page.locator("#menu-button").click();
+      await openSettings(page);
       await page.waitForFunction(() => {
         const a = document.querySelector("#room-music");
         return !a.paused && a.currentTime > 0;

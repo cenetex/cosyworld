@@ -89,6 +89,7 @@ const files = [
   "quest-screen.mjs",
   "card-tiers.css",
   "card-reveal.mjs",
+  "card-entry.mjs",
   "card-level-up.mjs",
   // Willows sign alternates chosen by the willows pack.
   ...[
@@ -214,6 +215,8 @@ const files = [
   "pack-landings.json",
   "world.mjs",
   "scene-cast.mjs",
+  "settings-cards.mjs",
+  "settings-screen.mjs",
   "scene.mjs",
   "weather.mjs",
   "weather.json",

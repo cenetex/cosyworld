@@ -2,6 +2,7 @@
 // off or under Global Privacy Control, no request is sent at all.
 import assert from "node:assert/strict";
 import { chromium } from "playwright";
+import { openSettings, pressSetting } from "./card-browser-helpers.mjs";
 import { createServer } from "../card-game/serve.mjs";
 import { createWorld, encodeSave } from "../card-game/world.mjs";
 
@@ -46,11 +47,9 @@ async function open(name, width, { gpc = false } = {}) {
 }
 
 async function toggle(page) {
-  await page.locator("#toolbar-menu-button").click();
-  await page.locator("#menu-button").click();
-  const button = page.locator("#metrics-toggle");
-  await button.waitFor();
-  return button;
+  await openSettings(page);
+  await pressSetting(page, "counts", 0);
+  return page.locator("#setting-counts");
 }
 
 async function leave({ page, context, errors }) {
@@ -66,7 +65,7 @@ try {
     // On by default: one batch, a day number and allowlisted totals only.
     const shown = await open("counts-on", width);
     const on = await toggle(shown.page);
-    assert.equal(await on.getAttribute("aria-pressed"), "true");
+    assert.equal(await on.textContent(), "Stop sharing play counts");
     batches.length = 0;
     await leave(shown);
     assert.equal(batches.length, 1, `one batch at ${width}px`);
@@ -79,8 +78,7 @@ try {
     const off = await open("counts-off", width);
     const button = await toggle(off.page);
     await button.click();
-    assert.equal(await button.getAttribute("aria-pressed"), "false");
-    assert.match(await button.textContent(), /play counts: off$/u);
+    assert.equal(await button.textContent(), "Share play counts");
     batches.length = 0;
     await leave(off);
     assert.equal(batches.length, 0, `opt-out sends nothing at ${width}px`);

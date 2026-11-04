@@ -998,6 +998,21 @@ body .dialogue[data-dropped="true"] {
     --hand-fade: 28px;
   }
 }
+/* Settings is a hand of cards in place of the play hand (settings-cards.mjs). */
+#settings-screen {
+  position: static;
+  width: auto;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+}
+.hand-wrap:has(> #settings-screen[open]) > #hand,
+body:has(#settings-screen[open]) .dialogue .beat-card {
+  display: none;
+}
 /* Keep the chosen card at the position set by revealHandCard. */
 .hand:has(.card-frame[data-raised="true"]) {
   scroll-snap-type: none;

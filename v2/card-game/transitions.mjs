@@ -6,9 +6,8 @@ import variants from "./image-variants.json" with { type: "json" };
 
 // A painting that changes while the place stays fades out over the new one:
 // slowly as night falls or lifts, briefly for anything else (a lamp, a crossing
-// opening). Travel keeps its veil and cuts. A card that joins the hand where
-// the player stays (the ship docking) fades in.
-export const CARD_ARRIVE_MS = 700;
+// opening). Travel keeps its veil and cuts. A card that joins the hand rises
+// in (card-entry.mjs).
 export const CROSSFADE_MS = 4000;
 export const CHANGE_FADE_MS = 900;
 

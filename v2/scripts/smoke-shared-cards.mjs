@@ -3,6 +3,8 @@ import {
   clearSelection,
   revealCard,
   selectCard,
+  openSettings,
+  closeSettings,
 } from "./card-browser-helpers.mjs";
 import { mkdtemp, mkdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -1000,12 +1002,11 @@ try {
   // Closing it must reveal Vale, Mara and the third visitor in order, with
   // partial letters.
   const speakers = ["Vale", "Mara", avatarOf(nellId).name];
-  await mara.locator("#toolbar-menu-button").click();
-  await mara.locator("#menu-button").click();
+  await openSettings(mara);
   holdReplies = false;
   for (const resolve of waitingReplies.splice(0)) resolve();
   await Promise.all([vale, mara, nell].map(idle));
-  await mara.locator('[data-close="menu-dialog"]').click();
+  await closeSettings(mara);
   // Check after playback ends: a busy driver still proves each line animated in order.
   for (const page of [vale, mara]) {
     const expected = await Promise.all(

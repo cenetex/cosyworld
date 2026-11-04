@@ -1,4 +1,9 @@
-import { selectCard, revealCard } from "./card-browser-helpers.mjs";
+import {
+  selectCard,
+  revealCard,
+  openSettings,
+  closeSettings,
+} from "./card-browser-helpers.mjs";
 import assert from "node:assert/strict";
 import { mkdir, writeFile } from "node:fs/promises";
 import { chromium } from "playwright";
@@ -392,13 +397,12 @@ try {
         "touch targets",
       );
       await page.keyboard.press("Escape");
-      await page.locator("#toolbar-menu-button").click();
-      await page.locator("#menu-button").click();
+      await openSettings(page);
       assert.doesNotMatch(
-        await page.locator("#menu-dialog").innerText(),
+        await page.locator("#settings-screen").innerText(),
         /inspiration|ring.*twice|cloth.*lamp|ritual|milestones|quest|points/i,
       );
-      await page.locator('[data-close="menu-dialog"]').click();
+      await closeSettings(page);
       await selectCard(page, "greek-ship");
       await page.locator(".card-primary").click();
       await ready();

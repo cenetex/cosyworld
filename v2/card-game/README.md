@@ -53,9 +53,33 @@ only the route and status. `GET /moderation/play-metrics` (moderation token)
 returns the last seven days. Nothing reads the counts back into play.
 
 `metrics.mjs` counts in memory and sends one `sendBeacon` batch a minute and on
-`pagehide`. Settings has "Share anonymous play counts". With it off, under
+`pagehide`. Settings has a Play counts card. With it off, under
 Global Privacy Control, or in the desktop app until turned on, nothing is
 counted or sent. `smoke-card-play-counts.mjs` checks all three.
+
+## Settings
+
+☰ › Settings is a hand of cards in place of the play hand
+(`settings-cards.mjs` deals it, `settings-screen.mjs` draws it). Choosing a
+card puts its action in the context button ("Turn voices off", "Open
+privacy"); pressing the button does it. With no card chosen the button is
+Close settings, and Escape unchooses, then closes. A card shows only its name
+and art. Its face is its state: lit while on, dim while off. State words and
+reasons are in the button and the beat's info line, and in each card's
+accessible name ("Music, off"). Sign out, New game and Restore a backup ask a
+second press ("Tap again to sign out"); a credit commit asks in its own beat.
+
+Privacy comes first, then Music, Volume, Voices, Flashes and scares, Fight
+speed and Play counts. Hosted play adds Account (Sign in with your passkey, or
+Sign out) and Credits; a shared world adds Another passkey and World pool; the
+local table adds New game, and the desktop app Backup. Controls steps through
+tips, and Download opens `/download`. Four pack cards close the hand: Cosy
+Cottage (`lonely-forest`), The Reflected Shore (the hub), The Wine-Dark Sea
+(`greek-drama`) and Hoppy Cat Universe (`hoppycat-archive`). Every pack is
+mounted in every world (`installPacks`), so a pack card is lit and its button
+says so. The cards drive the controls in `#menu-dialog`, which no longer
+opens. `smoke-card-settings.mjs` checks choosing, pressing, the second press
+and closing at three widths.
 
 ## Public assets
 
@@ -134,7 +158,7 @@ Queued, missing and scene-only legacy records cannot spend the pool. Old
 shared clients must refresh. Personal local speech still sends speaker/text,
 and local Chatterbox stays free.
 
-The Settings footer and the brand tooltip name the build from the
+The Download card in Settings and the brand tooltip name the build from the
 server's `/meta` (`v1.2.104 · 94ff0b8 · rules 57`, commit linked); a static
 server shows none.
 
@@ -309,7 +333,11 @@ the card, showing the card back. It plays nothing. The top quest folds behind th
 a full-size card in its stack: face down, showing the carved card back, leaning
 out to the top left with a glowing line in its tier colour along its edge.
 Choosing the folded card fans the whole stack out, top first, and so does
-opening the avatar's stack. In the open fan the top quest is chosen and
+opening the avatar's stack. Each quest card enters face down, showing the carved
+lid, every time it comes into view (the fan opening, or a quest moving on a
+step), and turns to its face 520 ms later with the hand's reveal
+(`card-reveal.mjs`), the next quest a moment after; reduced motion crossfades.
+It takes taps while face down. In the open fan the top quest is chosen and
 offers Drop quest. Tapping a quest beneath brings it to the top, with no turn
 taken, and tapping the chosen one folds the fan. The rules remove a met quest at once; the browser keeps its card,
 sealed, in the fan, and the folded line glows until its player taps the card
@@ -379,6 +407,12 @@ folds back after the play.
 A person or place holding things shows the first of them peeking out behind
 its card. A pointer over a card shuffles it: the card and its preview stack lift together while the rest of the fan parts around it (180 ms; touch has no hover, reduced motion only brightens it). The name shade reaches the
 card edge, so a raised card clipped by the folded row shows no stray art.
+A card new to the view (an avatar arriving, a thing picked up or put down, a
+place found, the hand at a new place) rises into its slot over 460 ms, cards
+entering together 70 ms apart (`card-entry.mjs`). A card already there never
+moves again on a redraw, a card seen moving keeps that move, and reduced
+motion just shows it. An entering card takes taps at once; the motion is this
+browser's alone and never waits on the rules or the shared room.
 Arrival starts the hand at the new current place. Selection keeps its scroll position.
 On wide screens, the resting hand is a fanned deck at the right, as wide as
 its cards so none is cut at the screen edge; once it would crowd the dialogue

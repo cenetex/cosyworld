@@ -247,6 +247,8 @@ export function installAvatarMenu({
     // What a seat action did, said when ☰ next opens.
     result = "",
     drawn = "",
+    // The beat ☰ shows; Settings borrows the same place.
+    beat = null,
     // The avatar a switch from another world chose, or "1" after Leave.
     arrived = stored(MENU_KEY);
   const here = () => {
@@ -574,8 +576,8 @@ export function installAvatarMenu({
       box.append(fresh);
     }
     box.append(castRow(view));
-    if (chosen) actionBeat.show(chosenBeat(view, chosen));
-    else actionBeat.clear();
+    if (chosen) actionBeat.show((beat = chosenBeat(view, chosen)));
+    else if (beat) actionBeat.clear(beat);
   }
   // A tap anywhere but a portrait disarms.
   menu.addEventListener("click", (event) => {
@@ -586,7 +588,7 @@ export function installAvatarMenu({
   menu.addEventListener("toggle", () => {
     if (!menu.matches(":popover-open")) {
       // The seat's beat leaves with ☰, after a tap on its button has run.
-      setTimeout(() => actionBeat.clear(), 0);
+      setTimeout(() => beat && actionBeat.clear(beat), 0);
       // A friend's world shows once, until ☰ closes or an avatar goes there.
       if (invite) stored(INVITE_KEY, null);
       invite = null;

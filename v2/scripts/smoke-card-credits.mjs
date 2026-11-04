@@ -7,7 +7,11 @@ import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
 import { dispatchShared } from "../card-game/shared-world.mjs";
 import { addLog, createWorld, encodeSave } from "../card-game/world.mjs";
-import { revealCard } from "./card-browser-helpers.mjs";
+import {
+  revealCard,
+  openSettings,
+  pressSetting,
+} from "./card-browser-helpers.mjs";
 
 const world = createWorld({ opening: true });
 addLog(world, "Vale", "The lamp is steady.", {
@@ -110,8 +114,7 @@ async function checkPool(width) {
   await page.waitForFunction(() => document.body.inert === false);
   await revealCard(page, "vale");
   await revealCard(page, room);
-  await page.locator("#toolbar-menu-button").click();
-  await page.locator("#menu-button").click();
+  await openSettings(page);
   const status = page.locator("#credit-pool-status");
   await page.waitForFunction(() =>
     /pool: 0 credits/u.test(
@@ -120,7 +123,7 @@ async function checkPool(width) {
   );
   assert.match(await status.textContent(), /Nobody has committed/u);
   await page.screenshot({ path: `output/credits/pool-settings-${width}.png` });
-  await page.locator('[data-commit="10"]').click();
+  await pressSetting(page, "pool");
   assert.match(
     await page.textContent(".action-beat-heading"),
     /Commit 10 credits to this world\?/u,
@@ -193,21 +196,25 @@ try {
     assert.ok(await page.getAttribute(".brand-logo", "alt"));
     assert.equal(await page.locator(".brand button").count(), 0);
     assert.equal(await page.locator("#scene-video-button").count(), 0);
-    await page.locator("#toolbar-menu-button").click();
-    await page.locator("#menu-button").click();
-    await page.locator("#credits-status").waitFor({ state: "visible" });
+    await openSettings(page);
+    await page.waitForFunction(() =>
+      document.querySelector("#credits-status").textContent.trim(),
+    );
     const text = await page.textContent("#credits-status");
     if (signedIn) assert.match(text, /Credits: 142\. A spoken line costs 1/u);
     else assert.match(text, /Sign in with your passkey/u);
     // With Stripe on, a signed-in passkey buys the pack through Checkout.
-    assert.equal(await page.locator("#speech-pack").isVisible(), !signedIn);
-    assert.equal(await page.locator("#buy-speech-pack").isVisible(), signedIn);
+    await pressSetting(page, "credits", 0);
+    assert.equal(
+      await page.textContent("#setting-credits"),
+      signedIn ? "Get a speech pack: 100 credits" : "Get a speech pack",
+    );
     await page.screenshot({ path: `output/credits/settings-${width}.png` });
     if (signedIn) {
       await page.route("**/card-game/credits/checkout", (route) =>
         route.fulfill({ json: { url: `${origin()}/?credits=bought` } }),
       );
-      await page.locator("#buy-speech-pack").click();
+      await pressSetting(page, "credits");
       await page.waitForURL(/credits=bought/u);
     }
     assert.deepEqual(errors, []);

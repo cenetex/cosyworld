@@ -8,7 +8,13 @@ import {
 import { count, lineCounter, playCounter, startMetrics } from "./metrics.mjs";
 import { imageUrl } from "./images.mjs";
 import { cardLevel, levelTier, romanLevel } from "./rarity.mjs";
-import { arriveCard, finishCardReveal, revealCard } from "./card-reveal.mjs";
+import { finishCardReveal, revealCard } from "./card-reveal.mjs";
+import {
+  ENTRY_STAGGER_MS,
+  QUEST_DOWN_MS,
+  createCardEntries,
+  createQuestEntries,
+} from "./card-entry.mjs";
 import { phase, THINKING_GRACE_MS } from "./presentation.mjs";
 import { glowCard, levelUpCard, transformPortrait } from "./card-level-up.mjs";
 import { crossedPortraitTier } from "./rarity-portraits.mjs";
@@ -37,13 +43,13 @@ import { renderStageLight } from "./stage-light-view.mjs";
 import { GENTLE, placeLight } from "./stage-light.mjs";
 import {
   CHANGE_FADE_MS,
-  CARD_ARRIVE_MS,
   CROSSFADE_MS,
   crossfadeImage,
   fadeLayer,
   hauntScene,
   installScaresToggle,
 } from "./transitions.mjs";
+import { installSettingsCards } from "./settings-screen.mjs";
 import { installToolbar, renderPlayers } from "./toolbar.mjs";
 import { innerLifeChain, innerLifeSection } from "./inner-life.mjs";
 import { combatBeats, lastSeq, theName } from "./combat-beats.mjs";
@@ -354,15 +360,15 @@ const placeArt = (id) => placeCardArt(world, id);
 const cardIsCovered = (id) => !encountered.has(id) || coveredCards.has(id);
 // The scene's uncovered cards, so text writes their names in their card's
 // colour (card-names.mjs).
+const cardColours = (ids) =>
+  ids.map((id) => ({
+    id,
+    name: nameOf(id),
+    person: Boolean(people[id]),
+    color: levelTier(cardLevel(world, id)).color,
+  }));
 const sceneCards = () =>
-  availableCards(world)
-    .filter((id) => !cardIsCovered(id))
-    .map((id) => ({
-      id,
-      name: nameOf(id),
-      person: Boolean(people[id]),
-      color: levelTier(cardLevel(world, id)).color,
-    }));
+  cardColours(availableCards(world).filter((id) => !cardIsCovered(id)));
 const namedSpan = (text) => {
   const span = document.createElement("span");
   span.append(...namedText(text, sceneCards()));
@@ -1483,6 +1489,7 @@ function combatStage() {
     announce: $("combat-announcement"),
     veil: $("travel"),
     // The loss screen's full-art cards: the hand's card faces, inert.
+    cardColours,
     cardFace: (id) => {
       const face = card(id).querySelector(".card").cloneNode(true);
       face.disabled = false;
@@ -1669,11 +1676,6 @@ function queueDiscoveries() {
       }
       rememberCards();
       render();
-      for (const id of found) {
-        const shown = $("hand").querySelector(`.card[data-card="${id}"]`);
-        if (shown && !shown.closest(".card-frame").hidden)
-          void arriveCard(shown);
-      }
     });
 }
 
@@ -1810,7 +1812,7 @@ function showBorrowedBeat(row, heading) {
   note.textContent = note.title = beat.note || "";
   note.hidden = !beat.note;
   row.replaceChildren(
-    ...beat.buttons.map(({ label, id, run }, index) => {
+    ...beat.buttons.map(({ label, id, run, disabled }, index) => {
       const button = node(
         "button",
         label,
@@ -1819,6 +1821,7 @@ function showBorrowedBeat(row, heading) {
       button.type = "button";
       button.id = id;
       button.dataset.keepMenu = "true";
+      button.disabled = Boolean(disabled);
       button.onclick = run;
       return button;
     }),
@@ -1914,8 +1917,9 @@ function renderActions() {
   document.querySelector(".play-dock").dataset.selected = String(
     selected.length > 0 && !rowCollapsed,
   );
+  // Settings' hand of cards stands raised (settings-cards.mjs).
   document.body.dataset.handExpanded = String(
-    dragging.length > 0 || !rowCollapsed,
+    dragging.length > 0 || !rowCollapsed || $("settings-screen").open,
   );
   syncLayering();
   if (borrowedBeat) return showBorrowedBeat(row, heading);
@@ -2068,6 +2072,37 @@ function updateCardSelection(frame) {
     stackLabel(stack);
 }
 const handMotions = new Map();
+// Cards new to the hand rise in, and quests enter face down (card-entry.mjs).
+const handEntries = createCardEntries(),
+  questsInView = createQuestEntries();
+const entryKey = (frame) =>
+  `${frame.querySelector(".card").dataset.card}@${frame.dataset.holder ?? ""}`;
+// Each quest newly in view lies face down a beat, then turns; the next turns
+// a little after. A tap still plays it at once.
+function showQuests() {
+  const cards = [
+    ...$("hand").querySelectorAll(".want-frame:not([hidden]) > .want-card"),
+  ];
+  questsInView
+    .show(cards.map((card) => card.dataset.questKey))
+    .forEach((key, i) =>
+      setTimeout(
+        () => turnQuest(key),
+        QUEST_DOWN_MS + i * 2 * ENTRY_STAGGER_MS,
+      ),
+    );
+  for (const card of cards)
+    card.dataset.unrevealed = String(questsInView.down(card.dataset.questKey));
+}
+function turnQuest(key) {
+  if (!questsInView.turned(key)) return;
+  const card = [...$("hand").querySelectorAll(".want-card")].find(
+    (el) => el.dataset.questKey === key,
+  );
+  if (!card) return;
+  card.dataset.unrevealed = "false";
+  void revealCard(card);
+}
 function moveHandPart(key, element, frames, duration = 220) {
   const motion = element.animate(frames, { duration, easing: "ease-out" });
   handMotions.set(key, motion);
@@ -2324,6 +2359,8 @@ function questFrame({ id, quest, met }) {
   el.style.setProperty("--tier-color", tier.color);
   el.disabled = selectionBlocked();
   el.dataset.questId = id;
+  el.dataset.questKey = quest.key;
+  el.dataset.unrevealed = String(questsInView.down(quest.key));
   el.dataset.picked = String(picked);
   el.setAttribute("aria-pressed", String(picked));
   el.setAttribute(
@@ -2347,6 +2384,12 @@ function questFrame({ id, quest, met }) {
         ? itemPlace(world, target)
         : world.actors[target]?.place;
   el.append(
+    // Face down, it shows the carved lid until it turns.
+    Object.assign(node("img", undefined, "card-back"), {
+      src: imageUrl("./assets/card-back.webp", "card"),
+      alt: "",
+      draggable: false,
+    }),
     questScreen(
       {
         verb,
@@ -3803,6 +3846,8 @@ function render() {
     questFresh,
   ]);
   if (handKey !== renderedHand) {
+    // The hand a page or a new game opens on is already dealt.
+    const opening = renderedHandPlace === null;
     const sameWorld =
         renderedHand &&
         renderedHandRevision === world.revision &&
@@ -3862,23 +3907,28 @@ function render() {
           .animate({ opacity: [0, 1] }, { duration: LAYOUT_MS });
     if (!sameWorld) playLevelUps();
     if (arriving) revealHandCard(renderedHandPlace, true, true);
+    // A card new to the view rises in; one seen moving keeps that move.
+    const rising = handEntries.draw(
+      [...$("hand").children]
+        .filter((frame) => !frame.dataset.want)
+        .map((frame) => ({
+          key: entryKey(frame),
+          element: frame,
+          still:
+            frame.hidden ||
+            before.has(frame.querySelector(".card").dataset.card),
+        })),
+      { reduced: reducedMotion.matches || opening },
+    );
+    showQuests();
     if (animate)
       for (const frame of $("hand").children) {
         if (frame.hidden) continue;
         const id =
             frame.querySelector(".card").dataset.card ?? frame.dataset.questId,
           previous = before.get(id) || before.get(frame.dataset.holder);
-        if (!previous) {
-          // A card that joins the hand here (the ship docking) fades in.
-          if (before.size)
-            moveHandPart(
-              `frame:${id}`,
-              frame,
-              { opacity: [0, 1] },
-              CARD_ARRIVE_MS,
-            );
+        if (!previous || (!frame.dataset.want && rising.has(entryKey(frame))))
           continue;
-        }
         const next = frame.getBoundingClientRect(),
           dx = previous.left - next.left,
           dy = previous.top - next.top;
@@ -4162,10 +4212,7 @@ $("history-button").onclick = () => {
   $("messages").scrollTop = 0;
 };
 startMetrics($("metrics-toggle"));
-$("menu-button").onclick = () => {
-  $("menu-dialog").showModal();
-  pauseSpeech();
-};
+$("menu-button").onclick = () => settingsCards.open();
 document
   .querySelectorAll("[data-close]")
   .forEach(
@@ -4674,9 +4721,13 @@ installToolbar({
   // ☰'s seat actions are a beat in front of the dialogue.
   actionBeat: { show: showActionBeat, clear: clearActionBeat },
 });
+const settingsCards = installSettingsCards({
+  actionBeat: { show: showActionBeat, clear: clearActionBeat },
+  avatar: () => portrait(currentActor(world), null, world),
+});
 installCreditPool({
   actionBeat: { show: showActionBeat, clear: clearActionBeat },
-  closeSettings: () => $("menu-dialog").close(),
+  closeSettings: () => settingsCards.close(),
 });
 // The root page resumes whichever avatar was played last.
 if (!tableName && !startingPack)

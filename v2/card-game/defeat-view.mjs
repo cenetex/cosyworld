@@ -12,11 +12,19 @@ import {
   splitLetters,
 } from "./dialogue.mjs";
 import { defeatSummary, lossStep, lossTimes } from "./combat-beats.mjs";
+import { nameLetters } from "./card-names.mjs";
 
 const element = (tag, className) =>
   Object.assign(document.createElement(tag), { className });
 
-export function playLoss({ veil, beat, cardFace, speed, reduced }) {
+export function playLoss({
+  veil,
+  beat,
+  cardFace,
+  cardColours,
+  speed,
+  reduced,
+}) {
   const { title, changes, cards } = defeatSummary(beat);
   const times = lossTimes({ speed, reduced });
   const layer = element("div", "defeat-reveal");
@@ -38,6 +46,12 @@ export function playLoss({ veil, beat, cardFace, speed, reduced }) {
     captions.append(item);
   }
   layer.append(row, line, captions);
+  // The fight's cards and the place keep their card colours in the words.
+  const named = cardColours([...cards, beat.locationId]);
+  nameLetters([...line.children], title, named);
+  changes.forEach(({ text }, i) =>
+    nameLetters([...captions.children[i].lastChild.children], text, named),
+  );
   veil.append(layer);
 
   let step = "writing",
