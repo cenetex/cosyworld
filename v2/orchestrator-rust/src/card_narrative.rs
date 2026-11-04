@@ -50,6 +50,8 @@ pub(crate) mod imported;
 mod knowledge;
 #[path = "card_narrative/observations.rs"]
 mod observations;
+#[path = "card_narrative/perception.rs"]
+mod perception;
 #[path = "card_narrative/person.rs"]
 mod person;
 #[path = "card_narrative/recital.rs"]
@@ -204,7 +206,7 @@ fn base_profiles() -> &'static Value {
                         profile["persona"] =
                             entity.get("persona").unwrap_or(&entity["text"]).clone();
                     }
-                    for field in ["seed", "voice", "idiolect", "expression"] {
+                    for field in PROFILE_FIELDS {
                         if let Some(value) = entity.get(field) {
                             profile[field] = value.clone();
                         }
@@ -243,6 +245,16 @@ fn base_profiles() -> &'static Value {
         profiles
     })
 }
+/// Pack fields the voices read; `sense` and `pronouns` are perception's.
+const PROFILE_FIELDS: [&str; 6] = [
+    "seed",
+    "voice",
+    "idiolect",
+    "expression",
+    "sense",
+    "pronouns",
+];
+
 fn profiles() -> &'static Value {
     base_profiles()
 }
@@ -373,6 +385,9 @@ struct Entity {
     /// What this speaker shares with each other voice here (between.rs).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     between: Vec<between::Between>,
+    /// What this speaker notices now, chosen by the narrator (P3).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    perception: Option<perception::Perception>,
 }
 
 /// The avatar's rule-owned hope, in their own words.
@@ -585,6 +600,9 @@ fn valid(context: &Context) -> bool {
                 && e.facts.len() <= 16
                 && e.facts.iter().all(|s| bounded(s, 240))
                 && between::valid(context, e)
+                && e.perception.as_ref().is_none_or(|p| {
+                    kind(&e.id, "avatar") && perception::valid(context, p)
+                })
                 && e.previous.as_ref().is_none_or(|s| bounded(s, 400))
                 && e.hope.as_ref().is_none_or(|hope| {
                     kind(&e.id, "avatar") && bounded(&hope.wish, 240) && bounded(&hope.next, 240)
@@ -1572,10 +1590,11 @@ fn system_voice(entity: &Entity, part: Part) -> String {
     if part == Part::Line && mode != expression::Mode::Speech {
         return expression::direction(mode, &name(&entity.id));
     }
-    let avatar = kind(&entity.id, "avatar");
-    avatar
-        .then(|| i_am(&entity.id).replacen("I am ", "You are ", 1))
-        .unwrap_or_default()
+    if kind(&entity.id, "avatar") {
+        i_am(&entity.id).replacen("I am ", "You are ", 1)
+    } else {
+        String::new()
+    }
 }
 
 /// Every entity this scene knows of: those present, their belongings, their
@@ -1599,6 +1618,7 @@ fn known(context: &Context) -> BTreeSet<String> {
             ids.extend(desire.avatars.iter().cloned());
             ids.extend(desire.location.iter().cloned());
         }
+        ids.extend(e.perception.iter().flat_map(perception::named).cloned());
     }
     if let Some(outcome) = &context.outcome {
         for avatar in &outcome.avatars {
@@ -1898,9 +1918,23 @@ fn transcript_sections(context: &Context, entity: &Entity, part: Part) -> Vec<(S
     if let Some(poem) = &entity.poem {
         lines.extend(tagged(Section::Facts, recital::prompt_lines(poem)));
     }
+    // A line's present is the narrator's choice, worded last, next to the
+    // line I answer (P3). An older tab sends none and keeps the scene above.
+    let perceived = entity
+        .perception
+        .as_ref()
+        .filter(|_| avatar && part == Part::Line);
+    if perceived.is_some() {
+        lines.retain(|(section, _)| !matches!(section, Section::Now | Section::Directions));
+    }
     // No authored sample lines (#1537): the voice comes from the idiolect
     // and the world, never from example utterances.
-    conversation::frame(context, entity, part, lines, mentions)
+    let mut view = conversation::frame(context, entity, part, lines, mentions);
+    if let Some(p) = perceived {
+        view.push((Section::Now, String::new()));
+        view.extend(perception::lines(context, entity, p));
+    }
+    view
 }
 
 /// Whether the entity heard a table line.

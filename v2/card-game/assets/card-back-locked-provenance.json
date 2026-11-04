@@ -1,0 +1,52 @@
+{
+  "asset": "assets/card-back-locked.webp",
+  "created": "2026-11-03",
+  "status": "stand-in",
+  "requirements": "1024 by 1536 (2:3), opaque full bleed; the same carved-box lid as assets/card-back.webp seen straight down; a lock or clasp clearly shut; worn wood, old brass, amber light and indigo shadow; no lettering.",
+  "generation": {
+    "tool": null,
+    "id": null,
+    "transparent_background": false,
+    "prompt_summary": null,
+    "prompt_file": null
+  },
+  "source": {
+    "file": "assets/card-back.webp",
+    "sha256": "8acc1349faa332899cf4123c2c308489c3c3ffe9b0c9c528f46d76d81caec29f",
+    "width": 1024,
+    "height": 1536,
+    "has_alpha": false
+  },
+  "runtime": {
+    "file": "assets/card-back-locked.webp",
+    "sha256": "0fb3993730387814ebe5486483d7894528d6ee9ae107b71eaf2968156fc233ee",
+    "bytes": 201060,
+    "width": 1024,
+    "height": 1536,
+    "has_alpha": false,
+    "encoding": {
+      "format": "webp",
+      "quality": 57,
+      "alphaQuality": 100,
+      "effort": 6,
+      "smartSubsample": true
+    }
+  },
+  "card": {
+    "file": "assets/optimized/card/webp/card-back-locked.webp",
+    "sha256": "48049efb8234790e576cfa2da67926a45bcb8d1b689226cae2a30bc43c45cb55",
+    "bytes": 137952,
+    "width": 512,
+    "height": 768,
+    "has_alpha": false,
+    "encoding": {
+      "format": "webp",
+      "quality": 88,
+      "alphaQuality": 100,
+      "effort": 6,
+      "cardWidth": 512
+    }
+  },
+  "derivation": "Stand-in until the owner's painting: assets/card-back.webp darkened with sharp modulate({ brightness: 0.6, saturation: 0.7 }) and linear(1.08, -6), no crop or other change. When the painting arrives, fill generation (tool, id, prompt summary and prompt file) as in card-back-provenance.json, set status to final, and record the new hashes.",
+  "references": ["assets/card-back-provenance.json"]
+}

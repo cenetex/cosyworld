@@ -45,6 +45,7 @@ import { hasTemperament, variantOf, signalEcho } from "./pack-rules.mjs";
 import { reflectionDue } from "./reflections.mjs";
 import { betweenUs } from "./between-us.mjs";
 import { playedEntry, speechOccasions } from "./speech-occasions.mjs";
+import { perception } from "./perception.mjs";
 
 // A refusal reaches the brief as its committed code; the refuser's line
 // says why in its own words.
@@ -220,7 +221,7 @@ export function narrativeContext(world, action = null) {
   );
   const told = (id) =>
     disclosures.filter((d) => d.speaker === id).map((d) => d.factId);
-  const events = world.log
+  const eventEntries = world.log
     .filter(
       (entry) =>
         entry.turn === world.turn &&
@@ -229,8 +230,8 @@ export function narrativeContext(world, action = null) {
           entry.fromLocationId === location ||
           entry.witnesses?.includes(currentActor(world))),
     )
-    .slice(-8)
-    .map((entry) => entry.text);
+    .slice(-8);
+  const events = eventEntries.map((entry) => entry.text);
   // A persona that minds noise reads a handled bell as a ring unless told
   // otherwise. Name the silence for those speakers when nothing rang.
   const bellHandled =
@@ -505,6 +506,18 @@ export function narrativeContext(world, action = null) {
             }
           : {}),
         ...(between.entries.length ? { between: between.entries } : {}),
+        ...(kind === "avatar" && speakers.includes(id)
+          ? {
+              perception: perception(world, id, {
+                speakers,
+                entries: eventEntries,
+                actor: currentActor(world),
+                present,
+                desire,
+                location,
+              }),
+            }
+          : {}),
       };
     }),
   });

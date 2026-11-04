@@ -107,6 +107,15 @@
       "phone": "assets/optimized/phone/png/boardyai/parlour.webp",
       "phoneHash": "260c12297365aa79427b4f27f2bb630da268d1095977a112fa17280099aa5def"
     },
+    "assets/card-back-locked.webp": {
+      "sourceHash": "0fb3993730387814ebe5486483d7894528d6ee9ae107b71eaf2968156fc233ee",
+      "stage": "assets/card-back-locked.webp",
+      "stageHash": "0fb3993730387814ebe5486483d7894528d6ee9ae107b71eaf2968156fc233ee",
+      "card": "assets/optimized/card/webp/card-back-locked.webp",
+      "cardHash": "48049efb8234790e576cfa2da67926a45bcb8d1b689226cae2a30bc43c45cb55",
+      "phone": "assets/optimized/phone/webp/card-back-locked.webp",
+      "phoneHash": "39f080b97ebf9e1dea7717f096fb885ffa14c0c546738790e00424b0b21c4f88"
+    },
     "assets/card-back.webp": {
       "sourceHash": "8acc1349faa332899cf4123c2c308489c3c3ffe9b0c9c528f46d76d81caec29f",
       "stage": "assets/card-back.webp",
@@ -4327,6 +4336,105 @@
       "cardHash": "08cfa9f67a3eec18007a5ecd7e93344963c44e2f5c0820e70be9af9083a9890f",
       "phone": "assets/optimized/phone/webp/rest/short-rest.webp",
       "phoneHash": "0d2b50defdcb3098af2b821292be9bf6ee38e340470a2c304f06c922abe6c5fb"
+    },
+    "assets/settings/workbench-armillary.png": {
+      "sourceHash": "3d2f38b00f6b8315a7f0b0e0636ed8c136d2f86b2fda464205d3403c49b10186",
+      "stage": "assets/optimized/stage/png/settings/workbench-armillary.webp",
+      "stageHash": "34e97824bcfd6b889a8a4c5139d76eebd2840cd5adaa94812314b1ceed44e290",
+      "card": "assets/optimized/card/png/settings/workbench-armillary.webp",
+      "cardHash": "b3cd07c7187e490e67c779c6cf9418ba4ffad1d2069508946371be03cf250a3f",
+      "phone": "assets/optimized/stage/png/settings/workbench-armillary.webp",
+      "phoneHash": "34e97824bcfd6b889a8a4c5139d76eebd2840cd5adaa94812314b1ceed44e290"
+    },
+    "assets/settings/workbench-book-stack.png": {
+      "sourceHash": "5aceebc64c43b011e93a557c6322698fcbfb3f6619121e040d8f89d690e33fce",
+      "stage": "assets/optimized/stage/png/settings/workbench-book-stack.webp",
+      "stageHash": "f873429ab9d3489c16620f2d5eada9e1f9e0179c8a7ad39245a9021207edd106",
+      "card": "assets/optimized/stage/png/settings/workbench-book-stack.webp",
+      "cardHash": "f873429ab9d3489c16620f2d5eada9e1f9e0179c8a7ad39245a9021207edd106",
+      "phone": "assets/optimized/stage/png/settings/workbench-book-stack.webp",
+      "phoneHash": "f873429ab9d3489c16620f2d5eada9e1f9e0179c8a7ad39245a9021207edd106"
+    },
+    "assets/settings/workbench-candle.png": {
+      "sourceHash": "edf557a96c3e7ae6da08fff75e0834441c2c5d626d59e9968daadaebfd1be7fa",
+      "stage": "assets/optimized/stage/png/settings/workbench-candle.webp",
+      "stageHash": "1ba677e76c346204a6634f36f8841f624f9fa0f96d6d041fbd7f0613b9a9438c",
+      "card": "assets/optimized/card/png/settings/workbench-candle.webp",
+      "cardHash": "c924c5c1a13840dcb32a1bdd6cdb3b1bd1005097dd49a1ec0546bb794c88e311",
+      "phone": "assets/optimized/stage/png/settings/workbench-candle.webp",
+      "phoneHash": "1ba677e76c346204a6634f36f8841f624f9fa0f96d6d041fbd7f0613b9a9438c"
+    },
+    "assets/settings/workbench-dice-cup.png": {
+      "sourceHash": "5d2f4ba93ab4236b9d67673740373143b8779fd33e603b59a0733ac5beffab11",
+      "stage": "assets/optimized/stage/png/settings/workbench-dice-cup.webp",
+      "stageHash": "88e75f8775e035d5e41544dcb02fb44e28115a3559bd0fa9ff88d2f89af799f0",
+      "card": "assets/optimized/stage/png/settings/workbench-dice-cup.webp",
+      "cardHash": "88e75f8775e035d5e41544dcb02fb44e28115a3559bd0fa9ff88d2f89af799f0",
+      "phone": "assets/optimized/stage/png/settings/workbench-dice-cup.webp",
+      "phoneHash": "88e75f8775e035d5e41544dcb02fb44e28115a3559bd0fa9ff88d2f89af799f0"
+    },
+    "assets/settings/workbench-dice.png": {
+      "sourceHash": "ade22eb93d9b3de12f4ac979dc8a263897e84eb4ac101c71ccfd2bb66ffb4f32",
+      "stage": "assets/optimized/stage/png/settings/workbench-dice.webp",
+      "stageHash": "5ea43642fa308b9992ac4bc62948e272169e605cfcd58cfbed374b888f101b5b",
+      "card": "assets/optimized/stage/png/settings/workbench-dice.webp",
+      "cardHash": "5ea43642fa308b9992ac4bc62948e272169e605cfcd58cfbed374b888f101b5b",
+      "phone": "assets/optimized/stage/png/settings/workbench-dice.webp",
+      "phoneHash": "5ea43642fa308b9992ac4bc62948e272169e605cfcd58cfbed374b888f101b5b"
+    },
+    "assets/settings/workbench-letter.png": {
+      "sourceHash": "aa832f5e59dc6768628a2630aa298fd267f81265d55f1004ee6dc99ed0c566ea",
+      "stage": "assets/optimized/stage/png/settings/workbench-letter.webp",
+      "stageHash": "4b9c32dd746293f6e78cf5559794d91125461931c8b9a2583e8618d3f04891b7",
+      "card": "assets/optimized/stage/png/settings/workbench-letter.webp",
+      "cardHash": "4b9c32dd746293f6e78cf5559794d91125461931c8b9a2583e8618d3f04891b7",
+      "phone": "assets/optimized/stage/png/settings/workbench-letter.webp",
+      "phoneHash": "4b9c32dd746293f6e78cf5559794d91125461931c8b9a2583e8618d3f04891b7"
+    },
+    "assets/settings/workbench-moth.png": {
+      "sourceHash": "f98655a0f01f56e5fd5fff7a69f0ab1b5b315a5dad464e3ff3bde8878564af10",
+      "stage": "assets/optimized/stage/png/settings/workbench-moth.webp",
+      "stageHash": "44d0021f50aeb06ace3d3166bb2c7cfdaa4448f164c48f15b9ba8094689c56b1",
+      "card": "assets/optimized/card/png/settings/workbench-moth.webp",
+      "cardHash": "facdee2c8f8bff54ba9650547efd9421bddde615aeda45f5d275fafbd6921624",
+      "phone": "assets/optimized/stage/png/settings/workbench-moth.webp",
+      "phoneHash": "44d0021f50aeb06ace3d3166bb2c7cfdaa4448f164c48f15b9ba8094689c56b1"
+    },
+    "assets/settings/workbench-mug.png": {
+      "sourceHash": "50a7b20632d81779240f862ece94a8046b0cb8cd0a04e2dab52d64f3fdd5d613",
+      "stage": "assets/optimized/stage/png/settings/workbench-mug.webp",
+      "stageHash": "a92363907d2ae7615945493a857880f36ba59a0d50258edb5c29a0ee571637c3",
+      "card": "assets/optimized/stage/png/settings/workbench-mug.webp",
+      "cardHash": "a92363907d2ae7615945493a857880f36ba59a0d50258edb5c29a0ee571637c3",
+      "phone": "assets/optimized/stage/png/settings/workbench-mug.webp",
+      "phoneHash": "a92363907d2ae7615945493a857880f36ba59a0d50258edb5c29a0ee571637c3"
+    },
+    "assets/settings/workbench-old-books.png": {
+      "sourceHash": "d5c44af2b9a3d765ba27efa226bc42581624e19c3c28f09168d9bc0963b0e581",
+      "stage": "assets/optimized/stage/png/settings/workbench-old-books.webp",
+      "stageHash": "2efc96ddaaa64657216a555dd5e0571a380ac55843458f1ac04cf26293d183df",
+      "card": "assets/optimized/stage/png/settings/workbench-old-books.webp",
+      "cardHash": "2efc96ddaaa64657216a555dd5e0571a380ac55843458f1ac04cf26293d183df",
+      "phone": "assets/optimized/stage/png/settings/workbench-old-books.webp",
+      "phoneHash": "2efc96ddaaa64657216a555dd5e0571a380ac55843458f1ac04cf26293d183df"
+    },
+    "assets/settings/workbench-scroll.png": {
+      "sourceHash": "55cfcb8ca696e27bdc2e195a3abea8951d2147aed1f0e3e3ad4b0d45ab29a5db",
+      "stage": "assets/optimized/stage/png/settings/workbench-scroll.webp",
+      "stageHash": "b0117053e1e90fe9ede3f406edf93f773aacbc3961f734dd9e55fd452bec2c12",
+      "card": "assets/optimized/stage/png/settings/workbench-scroll.webp",
+      "cardHash": "b0117053e1e90fe9ede3f406edf93f773aacbc3961f734dd9e55fd452bec2c12",
+      "phone": "assets/optimized/stage/png/settings/workbench-scroll.webp",
+      "phoneHash": "b0117053e1e90fe9ede3f406edf93f773aacbc3961f734dd9e55fd452bec2c12"
+    },
+    "assets/settings/workbench-window.png": {
+      "sourceHash": "8cf688f365f2fd8cee3866f8b4347987561a969c0a71348663cc2c3f4a70461d",
+      "stage": "assets/optimized/stage/png/settings/workbench-window.webp",
+      "stageHash": "60dfa1c949cd4cd0f97de76b62793da07b2957f97210f951e184820278b29692",
+      "card": "assets/optimized/card/png/settings/workbench-window.webp",
+      "cardHash": "29abd4abf9a5139d52f85a78f067ca53a6c111399618e804fe03b0b3b596ed38",
+      "phone": "assets/optimized/stage/png/settings/workbench-window.webp",
+      "phoneHash": "60dfa1c949cd4cd0f97de76b62793da07b2957f97210f951e184820278b29692"
     },
     "assets/shared/characters/ada-scarf.png": {
       "sourceHash": "401bf9cc37ba4bb8ebcfaae2fa45b9e3126e197d1a6e482da7bf006b63b98c8f",

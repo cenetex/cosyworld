@@ -125,6 +125,14 @@ Beats are cards in depth, not rows in a scroll:
   pointer hits, use Web Animations, and they rest invisible and are removed
   when their fade ends. `v2/scripts/smoke-card-beat-stack.mjs` checks both
   directions frame by frame and that the front card takes clicks afterwards.
+- The copies come from `card-ghost.mjs`, which other leaving cards reuse:
+  `pinGhost(card, zIndex)` pins a copy over the card's box with a short list
+  of its computed looks, `fadeGhost(ghost, keyframe, ms)` plays it out and
+  releases it, and `releaseGhost`/`releaseGhosts` drop copies at once, as a
+  new game or another tab's save does. A release lets go of the copy's
+  pictures before the copy leaves the page, because Chromium never frees an
+  image let go after it left. The beat-stack smoke steps back and forward a
+  dozen times and checks that the page holds no more nodes than before.
 
 ## The action beat
 

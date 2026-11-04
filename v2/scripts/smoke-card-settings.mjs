@@ -7,7 +7,7 @@ import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
 import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
-import { tapCard } from "./card-browser-helpers.mjs";
+import { splitNameWords, tapCard } from "./card-browser-helpers.mjs";
 
 const shots = process.env.SETTINGS_SHOTS;
 if (shots) await mkdir(shots, { recursive: true });
@@ -42,8 +42,13 @@ try {
       "Close settings",
     );
     assert.equal(await label(page, "music"), "Music, on");
+    // A card lifted over the next narrows that card's name, which still
+    // breaks only between words ("Mus / ic" did).
+    await tapCard(page.locator('[data-setting="privacy"]'));
+    assert.deepEqual(await splitNameWords(page), [], `${width}px names`);
     // Choose, read the button, press it: the card's face and name follow.
     await tapCard(page.locator('[data-setting="music"]'));
+    assert.deepEqual(await splitNameWords(page), [], `${width}px names`);
     const press = page.locator("#setting-music");
     assert.equal(await press.textContent(), "Turn music off");
     if (shots) await page.screenshot({ path: `${shots}/music-${width}.png` });
@@ -54,14 +59,25 @@ try {
       "false",
     );
     assert.equal(await press.textContent(), "Turn music on");
-    // A pack names why it stays.
+    // A pack switches off and dims, and on again.
     await tapCard(page.locator('[data-setting="pack-sea"]'));
     const sea = page.locator("#setting-pack-sea");
+    assert.equal(await sea.textContent(), "Turn The Wine-Dark Sea off");
+    await sea.click();
+    const dim = page.locator('[data-setting="pack-sea"][data-lit="false"]');
+    await dim.waitFor();
+    assert.equal(await sea.textContent(), "Turn The Wine-Dark Sea on");
+    // Hoppy Cat, reached only by the Sea, dims with it and says why.
+    const hoppy = '[data-setting="pack-hoppy"]';
+    assert.equal(await page.locator(hoppy).getAttribute("data-lit"), "false");
+    await tapCard(page.locator(hoppy));
     assert.equal(
-      await sea.textContent(),
-      "Every world holds The Wine-Dark Sea",
+      await page.locator("#setting-pack-hoppy").textContent(),
+      "Reached by The Wine-Dark Sea",
     );
-    assert.equal(await sea.isDisabled(), true);
+    await tapCard(page.locator('[data-setting="pack-sea"]'));
+    await sea.click();
+    await page.locator('[data-setting="pack-sea"][data-lit="true"]').waitFor();
     // A pack is a place card: the quest card's place painting and its name
     // where the quest sets its verb.
     const pack = page.locator('[data-setting="pack-sea"]');

@@ -19,6 +19,7 @@ const table = (more = {}) => ({
   ...{ avatar: "./assets/vale.png", credits: "", checkout: false },
   ...{ pool: null, balance: 0, backup: null, newGame: true, table: "" },
   build: "",
+  packs: Object.fromEntries(PACKS.map(([id]) => [id, { on: true }])),
   ...more,
 });
 const ids = (cards) => cards.map((c) => c.id);
@@ -36,9 +37,14 @@ describe("settings as a hand of cards", () => {
       "The Wine-Dark Sea",
       "Hoppy Cat Universe",
     ]);
-    // The packs are place cards; the rest keep their item faces.
+    // Workbench paintings and packs are place cards; the rest are figures.
+    expect(cards.filter((c) => !c.place).map((c) => c.id)).toEqual([
+      "music",
+      "voices",
+      "scares",
+    ]);
     expect(cards.filter((c) => c.place).map((c) => c.id)).toEqual(
-      PACKS.map(([id]) => `pack-${id}`),
+      expect.arrayContaining(PACKS.map(([id]) => `pack-${id}`)),
     );
     for (const c of cards)
       expect(existsSync(`v2/card-game/${c.art.replace("./", "")}`)).toBe(true);
@@ -70,16 +76,18 @@ describe("settings as a hand of cards", () => {
     });
   });
 
-  it("cannot switch a pack off, and says why", () => {
-    const cards = settingsCards(table());
-    for (const [id] of PACKS) {
-      const pack = cards.find((c) => c.id === `pack-${id}`);
-      expect(pack.lit).toBe(true);
-      expect(pack.actions[0].disabled).toBe(true);
-    }
-    expect(labels(cards, "pack-sea")).toEqual([
-      "Every world holds The Wine-Dark Sea",
-    ]);
+  it("switches a pack, or says why it can't", () => {
+    const packs = { ...table().packs, sea: { on: false } };
+    packs.shore = { on: true, block: "One world pack stays on" };
+    const cards = settingsCards(table({ packs }));
+    const sea = cards.find((c) => c.id === "pack-sea");
+    expect(sea.lit).toBe(false);
+    expect(sea.actions).toMatchObject([{ run: "pack", enable: true }]);
+    expect(labels(cards, "pack-sea")).toEqual(["Turn The Wine-Dark Sea on"]);
+    expect(labels(cards, "pack-cottage")).toEqual(["Turn Cosy Cottage off"]);
+    const shore = cards.find((c) => c.id === "pack-shore");
+    expect(shore.actions[0]).toMatchObject({ disabled: true, run: null });
+    expect(labels(cards, "pack-shore")).toEqual(["One world pack stays on"]);
   });
 
   it("deals account cards by sign-in and world", () => {

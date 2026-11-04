@@ -209,6 +209,55 @@ export function assistantRoleScenes() {
   ].map(({ name, context, lines = {} }) => ({ name, context, lines }));
 }
 
+// Perception scenes (P3): a crowded place, a return visit after a change,
+// a want that points through an exit, and a moment alone.
+export function perceptionScenes() {
+  const crowd = enableMotives(createWorld());
+  for (const id of ["moth", "keeper"]) crowd.actors[id].place = "station";
+  for (const id of ["bell", "oil", "cloth"]) crowd.items[id].holder = "station";
+  crowd.items.lamp.holder = "vale";
+  // The keeper wants the pond, one path away.
+  const pull = enableMotives(createWorld());
+  pull.actors.keeper.place = "station";
+  pull.actors.keeper.want = {
+    kind: "place",
+    target: "pond",
+    since: pull.turn,
+    refusals: 0,
+  };
+  // Vale leaves the pond with Pip there and comes back to find the Bell.
+  let back = enableMotives(createWorld());
+  back.items.lamp.holder = "vale";
+  back = step(back, "move", "pond", 0).world;
+  back = step(back, "move", "station", 0).world;
+  back.items.bell.holder = "pond";
+  back = step(back, "move", "pond", 0).world;
+  const alone = structuredClone(back);
+  for (const id of ["moth", "keeper"])
+    alone.actors[id].place = "greek-courtyard";
+  return [
+    {
+      name: "P1 crowded station",
+      context: step(crowd, "talk", "moth", 0).context,
+      lines: { vale: "Busy tonight, isn't it?" },
+    },
+    {
+      name: "P2 back at the pond",
+      context: step(back, "talk", "moth", 0).context,
+      lines: { vale: "Did you ring that bell?" },
+    },
+    {
+      name: "P3 the pond pulls",
+      context: step(pull, "talk", "keeper", 0).context,
+      lines: { vale: "You look restless tonight." },
+    },
+    {
+      name: "P4 alone at the pond",
+      context: step(alone, "wait", null, 0).context,
+    },
+  ].map(({ name, context, lines = {} }) => ({ name, context, lines }));
+}
+
 // A silent play (Light, Put down, Take, ...) sends no voice request, so only
 // scenes that voice someone are measured.
 export function voiceEvalCases() {
@@ -221,5 +270,6 @@ export function voiceEvalCases() {
     ...stationConversation(),
     ...returnVisit(),
     ...assistantRoleScenes(),
+    ...perceptionScenes(),
   ].filter(({ context }) => !voicesNobody(context));
 }

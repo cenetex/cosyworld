@@ -47,10 +47,16 @@ body .card[data-tier].new {
   pointer-events: none;
   display: none;
 }
-:is(body, :where(.title-intro)) .card[data-unrevealed="true"] > :not(.card-back) {
+/* A face-down card, and a card locked behind a quest (locked-box.mjs), show
+   only the carved lid. */
+:is(body, :where(.title-intro))
+  .card:is([data-unrevealed="true"], [data-locked="true"])
+  > :not(.card-back) {
   visibility: hidden;
 }
-:is(body, :where(.title-intro)) .card[data-unrevealed="true"] .card-back {
+:is(body, :where(.title-intro))
+  .card:is([data-unrevealed="true"], [data-locked="true"])
+  .card-back {
   display: block;
 }
 /* The lid of a card opening on its first tap; see card-reveal.mjs. */

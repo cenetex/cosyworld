@@ -37,7 +37,7 @@ export const TOGGLES = [
     "fight",
     "combat-speed",
     "Fight speed",
-    "combat/vale-attack.webp",
+    bench("dice-cup"),
     "",
     "Fight at 1×",
     "Fight at 2×",
@@ -46,16 +46,26 @@ export const TOGGLES = [
     "counts",
     "metrics-toggle",
     "Play counts",
-    "lonely-forest/watch-bell.webp",
+    bench("dice"),
     "",
     "Stop sharing play counts",
     "Share play counts",
   ],
 ];
-// The owner's four packs. Every compiled pack is mounted in every world
-// (`installPacks` in world.mjs; `validatePackStates` refuses a save without
-// one), so none can be switched off, and the button says so. Each is a
-// place card, drawn as the quest card draws its place (`place`).
+// The owner's moonlit workbench, cut into the cards' paintings
+// (assets/settings/PROVENANCE.md). Each is a place card, drawn as the quest
+// card draws its place, like the packs below; the rest stand as figures.
+export const BENCH = [
+  ...["letter", "dice", "dice-cup", "candle", "old-books", "mug"],
+  ...["armillary", "scroll", "book-stack", "window", "moth"],
+];
+function bench(name) {
+  return `settings/workbench-${name}.png`;
+}
+// The owner's four packs, by their switchable groups (rules 98,
+// pack-toggle.mjs). A pack card is lit while it is on; its button switches
+// it, or says why it can't. Each is a place card, drawn as the quest card
+// draws its place (`place`).
 export const PACKS = [
   ["cottage", "Cosy Cottage", "lonely-forest/cottage.png"],
   ["shore", "The Reflected Shore", "pond.png"],
@@ -78,6 +88,7 @@ const reason = (label) => act(label, null, { disabled: true });
 const card = (id, name, art, lit, state, actions, more) => ({
   ...{ id, name, lit, state, actions, ...more },
   art: /^(\.|\/|assets\/)/.test(art) ? art : `assets/${art}`,
+  place: more?.place || art.startsWith("settings/"),
 });
 
 // The hand for what the table knows now (`readSettings`), Privacy first.
@@ -97,16 +108,16 @@ export function settingsCards(s) {
       : act(`Commit ${n} credits`, `[data-commit="${n}"]`, { closes: true });
   const signedIn = s.signedIn ? "signed in" : "signed out";
   return [
-    card("privacy", "Privacy", "cloth-card.png", true, "", [
+    card("privacy", "Privacy", bench("letter"), true, "", [
       act("Open privacy", "privacy"),
     ]),
     toggles[0],
-    card("volume", "Volume", "oil-card.png", s.volume > 0, `${s.volume}%`, [
+    card("volume", "Volume", bench("candle"), s.volume > 0, `${s.volume}%`, [
       act(`Set volume to ${next}%`, "volume", { value: next }),
     ]),
     ...toggles.slice(1),
     s.hosted &&
-      card("account", "Account", s.avatar, s.signedIn, signedIn, [
+      card("account", "Account", bench("moth"), s.signedIn, signedIn, [
         s.signedIn
           ? act("Sign out", "signOut", { confirm: "Tap again to sign out" })
           : act("Sign in with your passkey", "signIn"),
@@ -125,7 +136,7 @@ export function settingsCards(s) {
       card(
         "credits",
         "Credits",
-        "lonely-forest/story-button.webp",
+        bench("old-books"),
         s.signedIn,
         s.credits,
         [
@@ -139,7 +150,7 @@ export function settingsCards(s) {
       card(
         "pool",
         "World pool",
-        "lonely-forest/dewbright-button.webp",
+        bench("mug"),
         true,
         s.pool,
         s.signedIn
@@ -151,7 +162,7 @@ export function settingsCards(s) {
       card(
         "backup",
         "Backup",
-        "attic.png",
+        bench("scroll"),
         true,
         "",
         [
@@ -166,7 +177,7 @@ export function settingsCards(s) {
       card(
         "new-game",
         "New game",
-        "rest/long-rest.webp",
+        bench("window"),
         true,
         "",
         [
@@ -180,7 +191,7 @@ export function settingsCards(s) {
     card(
       "controls",
       "Controls",
-      "keeper.png",
+      bench("armillary"),
       true,
       "",
       [act("Next tip", "tip")],
@@ -189,29 +200,28 @@ export function settingsCards(s) {
     card(
       "download",
       "Download",
-      "station.png",
+      bench("book-stack"),
       true,
       "",
       [act("Download the game", "download")],
       { info: s.build },
     ),
-    ...PACKS.map(([id, name, art]) =>
-      card(
+    ...PACKS.map(([id, name, art]) => {
+      const { on, block } = s.packs[id];
+      const turn = act(`Turn ${name} ${on ? "off" : "on"}`, "pack", {
+        ...{ pack: id, enable: !on },
+      });
+      const state = on ? "on" : "off";
+      return card(
         `pack-${id}`,
         name,
         art,
-        true,
-        "mounted",
-        [
-          reason(
-            id === "shore"
-              ? "Every world starts on The Reflected Shore"
-              : `Every world holds ${name}`,
-          ),
-        ],
+        on,
+        state,
+        [block ? reason(block) : turn],
         { place: true },
-      ),
-    ),
+      );
+    }),
   ].filter(Boolean);
 }
 

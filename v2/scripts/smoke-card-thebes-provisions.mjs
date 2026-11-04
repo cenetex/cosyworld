@@ -1,8 +1,8 @@
 // The Thebes provisions loop in the browser (rules 95): Dione's bread, the
 // sanctuary's figs and the gate's wine skin go to Myrto, who packs the Travel
 // Provisions; the voyage to Piraeus uses them up; at dawn each ingredient is
-// back at home. On the way, the shut City Gate shows its sealed card, whose
-// play gives the quest that opens it.
+// back at home. On the way, the shut City Gate shows its sealed card as a
+// locked wooden box, whose play gives the quest that opens it.
 //
 //   node v2/scripts/smoke-card-thebes-provisions.mjs [screenshot-dir]
 import assert from "node:assert/strict";
@@ -121,11 +121,15 @@ try {
     await shot("02-figs-at-the-sanctuary");
     await go("greek-palace", "greek-courtyard", "greek-gate");
 
-    // The shut gate shows the battlefield as a sealed card.
+    // The shut gate shows the battlefield as a locked wooden box: the
+    // carved lid, no painting and no name.
     const sealed = card("greek-battlefield");
     await sealed.waitFor({ state: "attached" });
-    assert.equal(await sealed.getAttribute("data-sealed"), "true");
+    assert.equal(await sealed.getAttribute("data-locked"), "true");
     await revealCard(page, "greek-battlefield");
+    assert.equal(await sealed.locator(".name").textContent(), "");
+    assert.equal(await sealed.locator(".card-back").isVisible(), true);
+    assert.equal(await sealed.locator(".art img").first().isVisible(), false);
     await shot("03-sealed-gate-card");
     await page.keyboard.press("Escape");
     await selectCard(page, "greek-battlefield");

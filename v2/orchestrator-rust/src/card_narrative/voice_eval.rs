@@ -325,8 +325,10 @@ fn conversation_turns_answer_one_line_with_the_talk_here() {
         user,
         "Vale says, \u{201c}Tell me again what the pond wants.\u{201d}"
     );
-    // The group chat: earlier lines here, by both speakers, oldest first.
-    let talk = system.rsplit_once("\n\n").unwrap().1;
+    // The group chat: earlier lines here, by both speakers, oldest first,
+    // just before what Pip perceives now.
+    let talk = system.rsplit_once("\n\n").unwrap().0;
+    let talk = talk.rsplit_once("\n\n").unwrap().1;
     let vale = talk
         .find("Vale said: \"I could carry the lamp for you a while.\"")
         .unwrap();
@@ -386,7 +388,8 @@ fn a_return_visit_remembers_what_is_between_us() {
     // At the pond the talk here is new, so the last words between them show.
     let vale = prompt("return visit pond", "vale");
     assert!(!vale.contains("Pip said: "), "{vale}");
-    let between = vale.rsplit_once("\n\n").unwrap().1;
+    let between = vale.rsplit_once("\n\n").unwrap().0;
+    let between = between.rsplit_once("\n\n").unwrap().1;
     assert!(
         between.starts_with(
             "Pip threatened me over the Lamp, some time ago.\n\
@@ -562,12 +565,14 @@ fn a_character_speaks_as_itself_in_the_assistant_turn() {
     let prompt = messages(&heard, dione, Part::Line);
     assert_eq!(prompt.system, "You are Dione the Baker.");
     let view = prose(&prompt.assistant);
-    assert!(view.starts_with("I am Dione the Baker.\n\nI'm at Theban Courtyard. "));
+    assert!(view.starts_with("I am Dione the Baker.\n\nI want the Funeral Oil. "));
+    assert!(view.ends_with(
+        "Bread cools beneath a cloth. My hands are empty. Vale's Lamp is burning and uncovered. \
+         I ask Vale for the Funeral Oil. Vale keeps it for now. Vale is holding the Funeral Oil. \
+         I'm talking with Vale, the Lamplighter."
+    ));
     // A fact she witnessed is not told again as the fact she may share.
     assert_eq!(view.matches("Ships for Piraeus Quays leave").count(), 1);
-    assert!(prompt
-        .assistant
-        .contains("Vale is holding the Lamp, the Black cloth and the Funeral Oil."));
     assert!(prompt.assistant.contains("I want the Funeral Oil."));
     assert!(view.split("\n\n").all(|part| !part.contains('\n')));
     assert_eq!(
@@ -585,7 +590,7 @@ fn a_character_speaks_as_itself_in_the_assistant_turn() {
         check.verdict("The Funeral Oil is mine.", true, false),
         Err("custody")
     );
-    let echo = "I am Dione the Baker I'm at Theban Courtyard Vale and The Bard are here with me.";
+    let echo = "My hands are empty Vale's Lamp is burning and uncovered.";
     assert_eq!(check.verdict(echo, true, false), Err("echoed brief"));
     // The heard line said back first is dropped; her own words stay.
     let reply = "Good evening, Dione! What are you baking? Bread for the rites, Vale.";
@@ -601,4 +606,72 @@ fn a_character_speaks_as_itself_in_the_assistant_turn() {
     let vale = messages(wait, entity(wait, "vale"), Part::Line);
     assert_eq!(vale.user, crate::ai_gateway::SILENCE);
     assert!(vale.assistant.contains("Pip is here with me."));
+}
+
+/// P3: a line ends on what the speaker perceives now, worded from the
+/// narrator's choice (L1-L4, P1-P4): no "I'm at", no roster of everyone
+/// here, the listener named last, at most 70 tokens. A scene from an older
+/// tab carries no perception and keeps the earlier view.
+#[test]
+fn a_line_ends_on_what_the_speaker_perceives() {
+    let cases = cases();
+    let mut views = 0;
+    for (case, context, lines) in &cases {
+        for id in voiced(context).into_iter().filter(|id| kind(id, "avatar")) {
+            let heard = scene_for(context, lines, &id);
+            let c = heard.as_ref().unwrap_or(context);
+            let e = entity(c, &id);
+            let Some(p) = &e.perception else { continue };
+            views += 1;
+            let now: Vec<_> = perception::lines(c, e, p)
+                .into_iter()
+                .map(|(_, l)| l)
+                .collect();
+            let chars: usize = now.iter().map(|l| l.chars().count() + 1).sum();
+            assert!(
+                chars.div_ceil(4) <= perception::TOKENS,
+                "{case} {id}: {now:?}"
+            );
+            let view = prose(&messages(c, e, Part::Line).assistant);
+            assert!(view.ends_with(&now.join(" ")), "{case} {id}: {view}");
+            assert!(!view.contains("I'm at "), "{case} {id}: {view}");
+        }
+    }
+    assert!(views >= 40, "{views}");
+    let view = |case: &str, id: &str| {
+        let (_, context, lines) = cases.iter().find(|(name, ..)| name == case).unwrap();
+        let heard = scene_for(context, lines, id);
+        let c = heard.as_ref().unwrap_or(context);
+        prose(&messages(c, entity(c, id), Part::Line).assistant)
+    };
+    // L1: Myrto sees the flame Vale holds and the threat, not who holds what.
+    let myrto = view("harbor wait with Myrto", "greek-shipmaster");
+    assert!(myrto.ends_with(
+        "Worn steps climb from the stone landing toward the town. My hands are empty. \
+         Vale's Lamp is burning and uncovered. Pip threatens Vale over the Lamp. \
+         I'm talking with Vale, the Lamplighter."
+    ));
+    // L4: Antigone at the gate, no "Vale and Antigone are both at…".
+    let antigone = view("Antigone at the gate", "greek-antigone");
+    assert!(antigone.ends_with(
+        "Fresh repairs cover the gate. My hands are empty. Vale's Lamp is burning and uncovered. \
+         The Gate Guard and Vale talk at last. I'm talking with Vale, the Lamplighter."
+    ));
+    // P2 and P4: a return compared with the visit before it.
+    assert!(view("P2 back at the pond", "vale").contains("The Bell wasn't here last time I came."));
+    assert!(view("P4 alone at the pond", "vale").ends_with(
+        "Pip was here last time I came. A still pond beside the station. \
+         I'm holding the Lamp. My Lamp is unlit and uncovered. I'm alone here."
+    ));
+    // An older tab sends no perception: the earlier view, unchanged.
+    let (_, harbor, _) = cases
+        .iter()
+        .find(|(name, ..)| name == "harbor wait with Myrto")
+        .unwrap();
+    let mut old: Context = serde_json::from_value(serde_json::to_value(harbor).unwrap()).unwrap();
+    for e in &mut old.entities {
+        e.perception = None;
+    }
+    let myrto = prose(&messages(&old, entity(&old, "greek-shipmaster"), Part::Line).assistant);
+    assert!(myrto.contains("I'm at The Wine-Dark Harbor. Vale and Pip are here with me."));
 }

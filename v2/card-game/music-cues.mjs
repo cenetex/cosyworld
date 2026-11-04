@@ -56,6 +56,7 @@ export function createMusicCues({
     setStarted: each("setStarted"),
     setEnabled: each("setEnabled"),
     setHidden: each("setHidden"),
+    setQuiet: each("setQuiet"),
     setVolume: each("setVolume"),
     unlock: each("unlock"),
   };
@@ -71,7 +72,12 @@ function createCueTrack({
     new (globalThis.AudioContext || globalThis.webkitAudioContext)(),
   now = () => performance.now() / 1000,
 }) {
-  const flags = { active: false, started: false, unlocked: false };
+  const flags = {
+    active: false,
+    started: false,
+    unlocked: false,
+    quiet: false,
+  };
   flags.enabled = true;
   let hidden = false,
     returning = false,
@@ -118,7 +124,12 @@ function createCueTrack({
     void wakeContext(context || null);
   }
   const wanted = () =>
-    flags.active && flags.started && flags.unlocked && flags.enabled && !hidden;
+    flags.active &&
+    flags.started &&
+    flags.unlocked &&
+    flags.enabled &&
+    !flags.quiet &&
+    !hidden;
   function fadeIn() {
     fadeTo(volume, returning ? RETURN_FADE_SECONDS : track.fadeIn);
     returning = false;
@@ -183,6 +194,13 @@ function createCueTrack({
         returning = true;
         void wakeContext(context || null);
       }
+      sync();
+    },
+    // Settings fades the song out over its fade and resumes it in place.
+    setQuiet(value) {
+      if (flags.quiet === Boolean(value)) return;
+      flags.quiet = Boolean(value);
+      if (!flags.quiet) returning = true;
       sync();
     },
   };

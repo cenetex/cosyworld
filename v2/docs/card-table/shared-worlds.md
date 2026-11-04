@@ -40,8 +40,9 @@ stops waiting for its line. Words that fail never hold the seat: the play
 finishes at once as a silent scene, each due avatar shows "…", and nothing is
 journaled for the words ([words that fail](dialogue-beats.md#words-that-fail)).
 There is no Retry command. Once the room plays it, the reply types into the
-full-size front card. A refusal names the
-server's reason on the action beat's status line. Nudge asks a present human for attention. People
+full-size front card. A refused play's
+button reads the server's reason, disabled ("Waiting for an update"); one
+whose cards were let go reads it briefly on the action beat's status line. Nudge asks a present human for attention. People
 can sit quietly while the scene runs. Presence has a 60-second reconnect grace;
 the avatar claim remains saved.
 
@@ -571,6 +572,8 @@ lit or uncovered; a dry lamp fills itself when someone holds it with an Oil
 flask available in the room. A belonging
 carried away leaves the pond path available. Since rules 80 an away
 player's avatar stays as a resident, so what it holds still counts.
+From rules 98 nobody threatens, trades with, takes by Ask from or draws into
+a fight an away player's avatar, and a stuck ship never sets its quest aside.
 Room capacity still applies to the destination.
 
 The same home-gate rule serves the attic and all seven visitor homes. Shared

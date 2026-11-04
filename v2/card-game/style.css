@@ -1029,6 +1029,44 @@ body .dialogue[data-dropped="true"] {
   background: none;
   box-shadow: none;
 }
+/* Behind it the scene fades to black under the world's logo, lifted and
+   scaled as the title lifts it over its card (title-intro.mjs). */
+.settings-veil {
+  position: absolute;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  background: #000;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition:
+    opacity 0.6s ease,
+    visibility 0s 0.6s;
+}
+body:has(#settings-screen[open]) .settings-veil {
+  opacity: 1;
+  visibility: visible;
+  transition: opacity 0.6s ease;
+}
+.settings-veil > img {
+  width: min(76vw, 1400px);
+  max-height: 80dvh;
+  object-fit: contain;
+  transform: translateY(-14dvh) scale(0.8);
+}
+@media (max-width: 640px) {
+  .settings-veil > img {
+    width: calc(100vw - 32px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .settings-veil,
+  body:has(#settings-screen[open]) .settings-veil {
+    transition: none;
+  }
+}
 .hand-wrap:has(> #settings-screen[open]) > #hand,
 body:has(#settings-screen[open]) .dialogue .beat-card {
   display: none;
@@ -1055,7 +1093,10 @@ body .card-frame {
     transform 0.22s ease-out,
     filter 0.22s ease-out;
 }
-body .card-frame:has(> .card.location:not([data-unrevealed="true"])) {
+body
+  .card-frame:has(
+    > .card.location:not([data-unrevealed="true"], [data-locked="true"])
+  ) {
   --frame-width: max(var(--card-width), calc(var(--card-height) * 0.8));
 }
 /* The hand fans: each card overlaps the one before it and leans with its
@@ -1161,6 +1202,8 @@ body .card[data-selected="true"] {
   background: #181b22;
   touch-action: pan-x;
   box-shadow: 0 6px 20px #0006;
+  /* Its name sizes to the card's width (cqi). */
+  container-type: inline-size;
 }
 body .card:hover {
   background: #181b22;
@@ -1204,13 +1247,18 @@ body .card.item .art img {
   margin: 0;
   padding: 36px 8px 14px;
   background: linear-gradient(transparent, #080b12eb 65%);
+  /* A name breaks only between words. On a narrow card it shrinks from
+     --name-size until the game's longest word (Agamemnon's, about 6.3em)
+     fits the card's width. */
   font:
-    18px/1.2 Georgia,
+    clamp(10px, (100cqi - 16px) / 6.4, var(--name-size, 18px)) / 1.2 Georgia,
     serif;
   color: #f2e3c4;
   white-space: normal;
   text-wrap: balance;
-  overflow-wrap: anywhere;
+  word-break: normal;
+  overflow-wrap: normal;
+  hyphens: manual;
   text-shadow: 0 2px 5px #000;
 }
 /* A name stays clear of the next card's overlap in the fan. */
@@ -1235,6 +1283,18 @@ body .card.item .art img {
   > .quest-head {
   padding-right: var(--fan-overlap);
 }
+/* A card lifted over the next (pointer or focus) covers its left edge, so
+   that card's name moves clear of it. An unlit Settings place dims. */
+.hand
+  > .card-frame:is(:hover, :focus-within)
+  + .card-frame
+  > .card[data-setting]
+  > :is(.quest-head, .name) {
+  padding-left: calc(var(--fan-overlap) + 8px);
+}
+body .card[data-setting][data-lit="false"] .quest-ground {
+  filter: saturate(0.35) brightness(0.48);
+}
 /* Carry the label's shade to the card's edge, wherever the hand clips it. */
 body .card .name::after {
   content: "";
@@ -1246,7 +1306,8 @@ body .card .name::after {
 body .card[data-lit="true"] .art {
   background: radial-gradient(ellipse at 50% 60%, #e0a94a66, #151b24 76%);
 }
-body .card[data-lit="false"] .art > img:first-child {
+body .card[data-lit="false"] .art > img:first-child,
+body .card.want-card[data-lit="false"] .quest-ground {
   filter: saturate(0.35) brightness(0.48);
 }
 body .card[data-covered="true"] .art > img:first-child {
@@ -1607,7 +1668,7 @@ body .cast[data-count] {
     --fan-overlap: calc(var(--card-height) * 0.2);
   }
   body .card .name {
-    font-size: 16px;
+    --name-size: 16px;
     padding-bottom: 12px;
   }
   body .cast {
@@ -1943,7 +2004,7 @@ body[data-dim="true"] .card {
     padding-block: 2px;
   }
   body .card .name {
-    font-size: 14px;
+    --name-size: 14px;
     padding-bottom: 8px;
   }
   body .cast {
@@ -2549,7 +2610,9 @@ body .beat-live {
   display: grid;
   flex: 1000 1 120px;
   grid-template-columns: minmax(0, 1fr);
-  align-self: center;
+  /* Centred while it fits; longer words run down into the scrolling box
+     instead of past its top. */
+  margin-block: auto;
   align-content: start;
   gap: 4px;
   min-width: 0;
@@ -2682,7 +2745,8 @@ body .beat-live {
   font-size: 13px;
 }
 .beat-action #card-actions {
-  flex: 1 0 auto;
+  /* A strip wider than a very narrow box (200% text) wraps its words. */
+  flex: 1 1 auto;
   gap: 0;
   padding: 0;
   overflow: visible;
@@ -3152,31 +3216,6 @@ main > .dialogue {
   outline-offset: 3px;
 }
 
-/* A sealed card is the far side of a shut gate (rules 95): its painting is
-   dimmed behind two crossed bars. Tapping it gives the quest that opens it;
-   the reason is in the context button, never on the card. */
-.card.location[data-sealed="true"] .art img {
-  filter: grayscale(0.7) brightness(0.55);
-}
-.card.location[data-sealed="true"] .art::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background:
-    linear-gradient(
-      90deg,
-      transparent 44%,
-      rgb(58 42 26 / 0.92) 44% 56%,
-      transparent 56%
-    ),
-    linear-gradient(
-      0deg,
-      transparent 40%,
-      rgb(58 42 26 / 0.92) 40% 50%,
-      transparent 50%
-    );
-}
 /* Left alone, the face-down card breathes a faint warm light, slowly, then a
    quiet line under it says how to turn it (REVEAL_HINT in title-intro.mjs).
    Reduced motion holds the glow still and shows the line at once. */

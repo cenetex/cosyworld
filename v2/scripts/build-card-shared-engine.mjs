@@ -3,9 +3,10 @@ import { build } from "esbuild";
 import { readFile, writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { sharedContentInput } from "./shared-content-input.mjs";
+import { releasedBundleRefusal } from "./released-bundles.mjs";
 const root = fileURLToPath(new URL("../../", import.meta.url));
 const output = new URL(
-  "../orchestrator-rust/src/card_shared/engine-v96.js",
+  "../orchestrator-rust/src/card_shared/engine-v98.js",
   import.meta.url,
 );
 const result = await build({
@@ -28,4 +29,12 @@ if (process.argv.includes("--check")) {
     throw new Error(
       "Rebuild the shared card rules with node v2/scripts/build-card-shared-engine.mjs.",
     );
-} else await writeFile(output, text);
+} else {
+  // The mint script probes the live path and restores it straight after.
+  const refusal =
+    process.env.COSYWORLD_MINT_PROBE === "1"
+      ? null
+      : await releasedBundleRefusal(output, text, root);
+  if (refusal) throw new Error(refusal);
+  await writeFile(output, text);
+}

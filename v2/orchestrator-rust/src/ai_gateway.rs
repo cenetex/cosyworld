@@ -3437,6 +3437,12 @@ fn readable_reasoning_trace(message: &Value) -> Option<String> {
 /// instruction.
 pub(crate) const SILENCE: &str = "…";
 
+/// Whether a user turn is a line someone said (`Pip says, “…”`), which a
+/// prefilled reply answers; silence or a presence ("Pip is here.") is not.
+pub(crate) fn heard_line(user: &str) -> bool {
+    user.contains(" says, \u{201c}") && user.ends_with('\u{201d}')
+}
+
 /// How a gesture or emoji voice's system turn opens (`expression::direction`):
 /// its check reads that shape, so its reply gets no opening quote.
 pub(crate) const SHAPE: &str = "My next reply";
@@ -3516,7 +3522,7 @@ async fn request_completion(
     // opening quote; speaking first, a prefill voiced the listener instead.
     let quote = !assistant.is_empty()
         && !system.starts_with(SHAPE)
-        && user_content.as_str() != Some(SILENCE)
+        && user_content.as_str().is_some_and(heard_line)
         && model.starts_with("mistralai/");
     let context_hash = {
         let mut hasher = Sha256::new();
