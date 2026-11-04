@@ -19,8 +19,10 @@ Dione and the chorus elder. Each place has distinct painted scenery.
 Thebes has no story buttons. Its deeds are the ordinary verbs:
 
 - **Give** Dione the water jar to return it.
-- Meeting the guard at the gate tells the decree. Meeting the elder at the
-  well after it gives the household a witness.
+- Meeting the guard at the gate tells the decree. He bars the battlefield
+  (rules 100) until he holds the decree or Creon's writ; beaten, he is
+  knocked through and bars it again once he walks back. Meeting the elder at
+  the well after it gives the household a witness.
 - **Wait** on the battlefield with the shovel to dig the grave, then with the
   cloth and oil laid there to bury the brother. The rite uses up the cloth and
   oil; the shovel is a tool and stays. The **Burial Account** then lies on
