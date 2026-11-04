@@ -93,6 +93,26 @@ describe("authored character expression", () => {
       expect(validExpression(profile, text)).toBe(false);
   });
 
+  it("reads skin tones and joined emoji whole (rules 100)", () => {
+    const profile = { name: "Whiskerwind", expression: "emoji" };
+    // A tone or a missing presentation selector keeps the symbol it marks.
+    expect(emojiParts("👋🏽 🙏🏿")).toEqual(["👋🏽", "🙏🏿"]);
+    expect(emojiParts("🌧🐾")).toEqual(["🌧", "🐾"]);
+    expect(expressionLabel(profile, "👋🏽🙏🏿")).toBe(
+      "Whiskerwind shows a waving hand, folded hands.",
+    );
+    // Authored symbols joined by zero-width joiners are one symbol.
+    expect(emojiParts("🐈\u200d🐭 🌙")).toEqual(["🐈\u200d🐭", "🌙"]);
+    expect(expressionLabel(profile, "🐈\u200d🐭🌙")).toBe(
+      "Whiskerwind shows a cat with a mouse, a crescent moon.",
+    );
+    expect(validExpression(profile, "🤝🏻\u200d👋🏾 ⭐")).toBe(true);
+    // A joined part off the authored list, a dangling joiner, or a sixth
+    // symbol is still refused.
+    for (const text of ["👩\u200d🚀 ⭐", "🐾\u200d 🌙", "👋🏽🙏🏿🌳👀🏠☕"])
+      expect(validExpression(profile, text)).toBe(false);
+  });
+
   it("keeps a physical reply as narration through local generation and reload", () => {
     profiles.moth.expression = people.moth.expression = "movement";
     const world = createWorld();
