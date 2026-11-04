@@ -121,6 +121,23 @@ describe("a stuck ship goes home", () => {
     expect(s.actors.mara.place).toBe(SHIP);
   });
 
+  it("leaves aboard a player the full harbor has no room for", () => {
+    const five = ["vale", "mara", "ash", "nell", "tavi"];
+    const s = dispatchShared({
+      op: "create",
+      save: encodeSave(openSeas()),
+    }).world;
+    for (const id of five) s.actors[id].place = HOME;
+    s.actors.vale.place = SHIP;
+    Object.assign(s, { controlledActors: five, presentActors: five });
+    Object.assign(s.transports[SHIP], { phase: "docked", dock: HOME });
+    // The harbor holds four players, so Vale stays aboard (rules 98).
+    expect(sendShipHome(s, SHIP).ashore).not.toContain("vale");
+    expect(s.actors.vale.place).toBe(SHIP);
+    const ashore = five.filter((id) => s.actors[id].place === HOME);
+    expect(ashore).toHaveLength(4);
+  });
+
   it("sends a ship already stuck in a save from before rules 95 home", () => {
     const saved = JSON.parse(encodeSave(stuck(BARD)));
     delete saved.usedUp;

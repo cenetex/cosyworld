@@ -266,6 +266,7 @@ describe("the full world shared by human avatars", () => {
   it("lets an away human live on as a resident who keeps their belongings", () => {
     const world = shared();
     world.items.mask.holder = "mara";
+    world.items.lamp.holder = "vale";
     world.actors.mara.place = "pond";
     world.actors.vale.place = "pond";
     // A want one move away: residents content after a met want only wait.
@@ -282,10 +283,22 @@ describe("the full world shared by human avatars", () => {
     expect(
       view.actions.some((a) => a.kind === "take" && a.item === "mask"),
     ).toBe(false);
+    // An away traveler is no one's to threaten or trade with, and an Ask
+    // takes nothing from her (rules 98).
+    const aimed = (a) =>
+      ["threaten", "trade"].includes(a.kind) &&
+      (a.target === "mara" || a.receive === "mask");
+    expect(view.actions.filter(aimed).map((a) => a.key)).toEqual([]);
+    const plea = view.actions.find((a) => a.kind === "ask");
+    const asked = ask(world, "play", "vale", {
+      present: ["vale"],
+      action: plea,
+    });
+    expect(asked.world.items.mask.holder).toBe("mara");
     for (const npc of ["moth", "keeper"])
       expect(
         legalActions(view.world, npc).some(
-          (a) => a.kind === "take" && a.item === "mask",
+          (a) => (a.kind === "take" && a.item === "mask") || aimed(a),
         ),
       ).toBe(false);
     // Vale's plays let the resident Mara act on her own wants.

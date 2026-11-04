@@ -172,6 +172,7 @@ import {
   laneOfEdge,
 } from "./pack-transport.mjs";
 import { upgradeSave } from "./legacy-saves.mjs";
+import { firstStart, togglePack, validDisabledPacks } from "./pack-toggle.mjs";
 import {
   installItemCycle,
   settleItemCycle,
@@ -451,6 +452,9 @@ function localGateResource(s, place, item, actor) {
       (canUse(s, actor, item) ||
         (controlledByHuman(s, rootHolder(s, item)) &&
           humanPresent(s, rootHolder(s, item))) ||
+        // An away traveler's lamp still lights here, though no one may
+        // take it from them (rules 98).
+        residentAvatar(s, rootHolder(s, item)) ||
         (knownActors(s).includes(rootHolder(s, item)) &&
           (willingToGive(s, rootHolder(s, item), item, actor) ||
             carried(s, actor).some((payment) =>
@@ -506,7 +510,10 @@ function homeRescueExit(s, place, actor = currentActor(s), previous = null) {
     s.actors[actor]?.place === place &&
     !ordinaryRouteHome(s, place, gate.rescue, actor, previous) &&
     !homeGateRecoverable(s, place, gate, actor)
-    ? gate.rescue
+    ? // With its rescue place asleep, the first pack on takes them in (rules 98).
+      entityActive(s, gate.rescue)
+      ? gate.rescue
+      : firstStart(s)
     : null;
 }
 function insideLampRemedy(s, actor) {
@@ -685,9 +692,12 @@ const needed = (s, actor, item) =>
   questsOf(s, actor).some(
     (want) => want.kind === "item" && bundle(s, item).includes(want.target),
   );
+// An away traveler's avatar, played as a resident, is no one's to ask,
+// threaten, trade with or draw into a fight (rules 98).
+const humanHeld = (s, id) => controlledByHuman(s, id) || residentAvatar(s, id);
 export function willingToGive(s, owner, item, recipient = null) {
   return (
-    !controlledByHuman(s, owner) &&
+    !humanHeld(s, owner) &&
     recipient !== null &&
     !resentment(s, owner, recipient) &&
     !needed(s, owner, item) &&
@@ -795,6 +805,7 @@ function wantAPI(s) {
     reachable: (actor) => reachable(s, actor),
     places: () => Object.keys(places),
     home: homeOf,
+    active: (id) => entityActive(s, id),
     sanctuaries,
     player: (id) => id === currentActor(s) || heldByHuman(s, id),
     questsBeginAt: forest.questsBeginAt,
@@ -1185,7 +1196,7 @@ function leaveBattle(s, c, id) {
 }
 const fightsHere = (s, c, id) =>
   [c.challenger, c.defender].includes(id) ||
-  (!avoidsStandoffs(id) && !(sharedEnabled(s) && controlledByHuman(s, id)));
+  (!avoidsStandoffs(id) && !(sharedEnabled(s) && humanHeld(s, id)));
 // Consecutive defeats per avatar. A win or a rest at a sanctuary clears it;
 // the third defeat sends the loser home with empty hands.
 export const DEFEATS_TO_SEND_HOME = 3;
@@ -1497,7 +1508,7 @@ export function legalActions(s, actor = currentActor(s)) {
           ),
         );
     } else if (
-      !(sharedEnabled(s) && controlledByHuman(s, other)) &&
+      !(sharedEnabled(s) && humanHeld(s, other)) &&
       !avoidsStandoffs(other) &&
       !conflict &&
       !standoffFor(s, other) &&
@@ -1681,7 +1692,7 @@ export function legalActions(s, actor = currentActor(s)) {
       ? knownActors(s).filter(
           (other) =>
             other !== actor &&
-            !controlledByHuman(s, other) &&
+            !humanHeld(s, other) &&
             s.actors[other].place === here,
         )
       : [],
@@ -1704,8 +1715,8 @@ export function legalActions(s, actor = currentActor(s)) {
       out.push(action);
     }
   out.push(...fixtureOffers(s, actor, sensesFor(s)), ...packChoices(s, actor));
-  // A player may drop any quest in its stack (a level quest costs half the
-  // experience), or choose one from beneath, which brings it to the top
+  // A player may drop any quest in its stack (a level quest costs
+  // experience, `dropCost`), or choose one from beneath, which brings it to the top
   // without taking a turn.
   // A sealed card gives its quest, unless that quest is already on top.
   if (controlledByHuman(s, actor))
@@ -2702,6 +2713,25 @@ export function play(
       state: s,
       error: "The world changed. Choose a current play.",
     };
+  // Switching a pack is journaled; no turn passes (rules 98, pack-toggle.mjs).
+  if (action?.kind === "pack") {
+    const next = structuredClone(s);
+    const done = togglePack(next, action, actor, {
+      closeStandoff,
+      want: wantAPI(next),
+      hash: (key) => runHash(next, key),
+    });
+    if (done.error) return { ok: false, state: s, error: done.error };
+    next.revision += 1;
+    addLog(next, "World", done.text, {
+      kind: "action",
+      actorId: actor,
+      verb: "pack",
+      witnesses: [actor],
+    });
+    validateWorld(next);
+    return { ok: true, state: next };
+  }
   const exact = legalActions(s, actor).find((a) => a.key === action?.key);
   if (!exact)
     return {
@@ -2866,7 +2896,7 @@ export function play(
     // Residents put ashore set that pursuit aside.
     if (voyage.kind === "home")
       for (const id of voyage.ashore)
-        if (!controlledByHuman(next, id)) setAsideWant(next, id, wantAPI(next));
+        if (!humanHeld(next, id)) setAsideWant(next, id, wantAPI(next));
   }
   const worldLine = (text, locationId) =>
     addLog(next, "World", text, { kind: "narration", locationId });
@@ -3264,6 +3294,7 @@ export function validateWorld(s) {
       s.arrival.fromLocationId === s.arrival.locationId)
   )
     fail();
+  if (!validDisabledPacks(s.disabledPacks)) fail();
   let seq = 0;
   const verbs = [
     "want_met",
@@ -3280,6 +3311,7 @@ export function validateWorld(s) {
     "drop",
     "focus",
     "gate",
+    "pack",
     "give",
     "ask",
     "light",
@@ -3430,8 +3462,7 @@ export function decodeSave(text) {
       installPacks,
       laneText: laneFactText,
       setAside: (world, id) =>
-        !controlledByHuman(world, id) &&
-        setAsideWant(world, id, wantAPI(world)),
+        !humanHeld(world, id) && setAsideWant(world, id, wantAPI(world)),
     });
     // An earlier save records the gates already open as it loads.
     latchRoutes(s);

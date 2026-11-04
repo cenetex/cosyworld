@@ -236,9 +236,9 @@ first, and is absent while the stack holds one. Player-facing text says quest.
   move on. The top quest offers **Drop quest**, the `drop` play with that
   index and no item; the rules accept a drop at any index. Dropping an
   ordinary quest costs nothing, and its target stays out of mind a while;
-  dropping a level quest halves the experience but keeps the level and
-  never falls below the experience that level took (`questXp`), so it costs
-  only progress toward the next level.
+  dropping a level quest costs 1 XP for the first, 2 for the next, and so
+  on, never below the experience its level took (`questXp`), so the level
+  stays; its button reads "Drop quest (−N XP)".
   Dropping the last quest draws another at once, and a drop takes a turn.
 
 - **First quest.** A player holds no quest at the start: the attic opening
@@ -433,6 +433,13 @@ entering together 70 ms apart (`card-entry.mjs`). A card already there never
 moves again on a redraw, a card seen moving keeps that move, and reduced
 motion just shows it. An entering card takes taps at once; the motion is this
 browser's alone and never waits on the rules or the shared room.
+A card locked behind a quest (a sealed card, the far side of a shut gate) is
+a locked wooden box: the darker locked lid, with no painting and no name.
+Tapping it chooses it, and the context button gives its quest. When the quest
+opens the way, the box turns over once, with the same lift as an uncovered
+card (a crossfade under reduced motion), and the card shows as itself from
+then on; a redraw never covers it again (`locked-box.mjs`). In a shared world
+each browser reads its own player's view of the gate.
 Arrival starts the hand at the new current place. Selection keeps its scroll position.
 On wide screens, the resting hand is a fanned deck at the right, as wide as
 its cards so none is cut at the screen edge; once it would crowd the dialogue

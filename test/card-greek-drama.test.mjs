@@ -385,12 +385,18 @@ describe("Before the Burial", () => {
     expect(done(world, "prepare-burial-ground")).toBeTruthy();
     noButtons(world);
     expect(availableCards(world)).not.toContain("greek-burial-account");
-    for (const item of ["greek-shovel", "greek-funeral-cloth"])
-      world = act(world, "drop", { item, target: BATTLEFIELD });
-    world = act(world, "wait");
+    world = act(world, "drop", { item: "greek-shovel", target: BATTLEFIELD });
+    // The cloth in another's hands serves, but only the oil lying there is
+    // used up: a burial never takes what someone else holds (rules 98).
+    world.items["greek-funeral-cloth"].holder = "keeper";
+    world.actors.keeper.place = BATTLEFIELD;
+    world = act(reload(world), "wait");
     expect(stateOf(world).choices["greek-theban-response"]).toBe("burial");
     const receipt = done(world, "perform-burial");
     expect(receipt).toBeTruthy();
+    expect(world.items["greek-funeral-cloth"].holder).toBe("keeper");
+    expect(world.usedUp).toContain("greek-oil-flask");
+    expect(world.usedUp).not.toContain("greek-funeral-cloth");
     expect(world.log.some((e) => e.text?.includes("is buried"))).toBe(true);
     world = take(reload(world), "greek-burial-account");
     world = walk(world, GATE, COURTYARD, HARBOR, "pond", HARBOR, COURTYARD);

@@ -179,6 +179,8 @@ if (
   !groups.every(
     (g) =>
       typeof g?.name === "string" &&
+      (g.reachedBy === undefined ||
+        (hub.switchable[g.reachedBy] && hub.switchable[g.reachedBy] !== g)) &&
       g.packs?.length &&
       g.packs.every((id) => sides[id]),
   ) ||

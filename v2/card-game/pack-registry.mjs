@@ -283,6 +283,25 @@ export const packMediaFiles = [
 ].filter(Boolean);
 
 export const packState = (world, id) => world.packs?.[id];
+// The hub's `switchable` groups of packs, in order (pack-toggle.mjs); a pack
+// in none is always on. The hub's own content is the pack `hub`.
+export const GROUPS = hub.switchable || {};
+const groupOf = new Map(
+  Object.entries(GROUPS).flatMap(([g, { packs }]) => packs.map((p) => [p, g])),
+);
+export const packGroup = (packId) => groupOf.get(packId) ?? null;
+const hubIds = new Set(
+  [...hub.places, ...hub.avatars, ...hub.items].filter(
+    (id) => !humanAvatar(id),
+  ),
+);
+export const packIdOf = (id) =>
+  packEntity(id)?.packId ?? (hubIds.has(id) ? "hub" : null);
+// A group is awake unless it, or the group it is reached by, is off.
+export const groupAwake = (off, g) =>
+  !off?.includes(g) && !off?.includes(GROUPS[g]?.reachedBy);
+export const packOn = (world, packId) =>
+  groupAwake(world.disabledPacks, packGroup(packId));
 export function conditionsMet(world, packId, conditions = [], actor = null) {
   if (!world.packs?.[packId]) return false;
   for (const condition of conditions)
@@ -334,6 +353,9 @@ export function entityActive(world, id) {
 export function entityEnabled(world, id, saved = false) {
   if (localRoads.has(id) || retiredPlaces.has(id) || usedUp(world, id))
     return false;
+  // A pack switched off sleeps where it stands (rules 98, pack-toggle.mjs).
+  if (!saved && world.disabledPacks && !packOn(world, packIdOf(id)))
+    return false;
   const e = packEntity(id);
   if (!e) return true;
   const pack = packDefinition(e.packId),
@@ -356,7 +378,7 @@ export function entityEnabled(world, id, saved = false) {
   if (pack.recital?.actor === id)
     return (
       (roamingQuestActor(id) || !!recitalVisit(world, pack)) &&
-      entityEnabled(world, world.actors[id].place)
+      entityEnabled(world, world.actors[id].place, saved)
     );
   return (
     pack.release.places.includes(id) ||
@@ -678,13 +700,12 @@ export function applyPackChoice(
   for (const e of choice.effects) {
     // A retired item is used up: it leaves play and waits, unseen, at its
     // authored holder until it regrows or a choice drops it again.
-    // An alternative a set slot did not use stays where it is.
+    // An alternative a set slot did not use stays where it is. Only the
+    // actor's own things or things lying at the place are used, never what
+    // another person holds (rules 98).
     if (e.kind === "retire_item") {
       const root = rootOf(world, e.item);
-      if (
-        root === action.actor ||
-        (world.actors[root]?.place ?? root) === choice.at
-      )
+      if (root === action.actor || root === choice.at)
         useUp(world, e.item, pack.items[e.item].holder);
     }
     // The subject sets a used-up thing down at the choice's place.
