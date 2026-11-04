@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
 import { chromium } from "playwright";
+import { pressSetting, closeSettings } from "./card-browser-helpers.mjs";
 import { createServer } from "../card-game/serve.mjs";
 import { dispatchShared } from "../card-game/shared-world.mjs";
 import { createWorld, encodeSave } from "../card-game/world.mjs";
@@ -273,7 +274,7 @@ try {
     await page.keyboard.press("Escape");
     await waitForMenu(page, false);
     for (const [button, target] of [
-      ["menu-button", "menu-dialog"],
+      ["menu-button", "settings-screen"],
       ["history-button", "history-dialog"],
     ]) {
       await menuToggle.click();
@@ -315,9 +316,12 @@ try {
     /on this device|New world/,
   );
   await page.locator("#menu-button").click();
-  await page.locator("#new-game").click();
-  await page.locator("#reset-dialog").waitFor({ state: "visible" });
-  await page.locator("#cancel-reset").click();
+  await pressSetting(page, "new-game");
+  assert.equal(
+    await page.textContent("#setting-new-game"),
+    "Tap again to replace this world",
+  );
+  await closeSettings(page);
   console.log(
     "Toolbar: five screen sizes, keyboard, the world slots, presence, the owner's Free, and solo play passed.",
   );

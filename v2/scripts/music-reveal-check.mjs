@@ -3,6 +3,9 @@ import {
   clearSelection,
   selectCard,
   startNewGame,
+  openSettings,
+  closeSettings,
+  pressSetting,
 } from "./card-browser-helpers.mjs";
 import { roomTracks } from "../card-game/music.mjs";
 
@@ -68,10 +71,9 @@ export async function checkMusicReveal(browser, origin) {
     );
   }
   async function menuStatus() {
-    await page.locator("#toolbar-menu-button").click();
-    await page.locator("#menu-button").click();
+    await openSettings(page);
     const text = await page.locator("#music-status").textContent();
-    await page.locator('[data-close="menu-dialog"]').click();
+    await closeSettings(page);
     return text;
   }
   try {
@@ -107,23 +109,21 @@ export async function checkMusicReveal(browser, origin) {
     // Relit, the mirror closes, but the reveal has happened: a reload plays.
     await playCard("lamp");
     await page.reload();
-    await page.locator("#toolbar-menu-button").click();
-    await page.locator("#menu-button").click();
+    await openSettings(page);
     await playing();
-    await page.locator('[data-close="menu-dialog"]').click();
+    await closeSettings(page);
     console.log("Music: a reload after the reveal keeps music");
     // A new world wakes in the silent attic again.
     await startNewGame(page);
     await page.reload();
-    await page.locator("#toolbar-menu-button").click();
-    await page.locator("#menu-button").click();
+    await openSettings(page);
     // Music off: the reveal is recorded and nothing plays.
-    await page.locator("#music-toggle").click();
+    await pressSetting(page, "music");
     assert.equal(
       await page.locator("#music-toggle").getAttribute("aria-pressed"),
       "false",
     );
-    await page.locator('[data-close="menu-dialog"]').click();
+    await closeSettings(page);
     await page.evaluate(() => (window.musicPlays = []));
     await playCard("lamp");
     await page
@@ -137,9 +137,8 @@ export async function checkMusicReveal(browser, origin) {
       secondWorld && secondWorld !== firstWorld,
       "A new world reveals anew",
     );
-    await page.locator("#toolbar-menu-button").click();
-    await page.locator("#menu-button").click();
-    await page.locator("#music-toggle").click();
+    await openSettings(page);
+    await pressSetting(page, "music");
     await playing();
     assert.deepEqual(errors, []);
     console.log("Music: a new world is silent again and music off stays off");

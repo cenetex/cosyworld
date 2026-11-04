@@ -1,4 +1,9 @@
-import { endStandoff, selectCard } from "./card-browser-helpers.mjs";
+import {
+  endStandoff,
+  selectCard,
+  openSettings,
+  closeSettings,
+} from "./card-browser-helpers.mjs";
 import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
 import { chromium } from "playwright";
@@ -158,9 +163,8 @@ try {
   assert.ok(requests.at(-1).speakers.includes("badger"));
   await decode();
   await page.screenshot({ path: "output/badger-check/desktop-awake.png" });
-  await page.locator("#toolbar-menu-button").click();
-  await page.locator("#menu-button").click();
-  await page.locator('[data-close="menu-dialog"]').click();
+  await openSettings(page);
+  await closeSettings(page);
   // Vale's level waits for her level quest (#1583), so Pip, a level up, would
   // pick a fight over the lamp as soon as she reaches the pond. Level her with
   // her experience so the walk there stays peaceful.
