@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Polynices' Hollow layer study</title>
+<style>
+* { box-sizing: border-box; }
+body { margin: 0; padding: 24px; background: #ebe4d8; color: #352c28; font: 18px Georgia, serif; }
+main { max-width: 1672px; margin: auto; }
+h1 { margin: 0 0 12px; font-size: 30px; }
+p { max-width: 800px; line-height: 1.5; }
+nav { display: flex; flex-wrap: wrap; gap: 10px; margin: 18px 0; }
+button { padding: 10px 18px; font: inherit; border: 1px solid #75604e; border-radius: 6px; background: #faf6ee; color: #352c28; cursor: pointer; }
+button[aria-pressed="true"] { background: #564333; color: #fff8ef; }
+.scene { position: relative; aspect-ratio: 1672 / 941; overflow: hidden; }
+.scene img { display: block; width: 100%; height: 100%; }
+#layer { position: absolute; inset: 0; }
+</style>
+<main>
+<h1>Polynices' Hollow</h1>
+<p>One backdrop holds each burial state. The body and grave are separate transparent images. Choose a state and light to compare them.</p>
+<nav aria-label="Burial state">
+<button data-state="empty" aria-pressed="false">Empty</button>
+<button data-state="fallen" aria-pressed="false">Fallen</button>
+<button data-state="grave" aria-pressed="true">Buried</button>
+</nav>
+<nav aria-label="Light">
+<button data-light="day" aria-pressed="true">Day</button>
+<button data-light="night" aria-pressed="false">Night</button>
+</nav>
+<div class="scene"><img id="place" src="hollow-empty-day-study.png" alt="The sheltered Hollow"><img id="layer" src="polynices-grave-cutout.png" alt="Polynices' grave"></div>
+<p>Design review. The generated layers keep their full canvas and fit the same frame. Game placement and final exports are future work.</p>
+</main>
+<script>
+let state = 'grave', light = 'day';
+function render() {
+  document.querySelector('#place').src = `hollow-empty-${light}-study.png`;
+  const layer = document.querySelector('#layer');
+  layer.style.visibility = state === 'empty' ? 'hidden' : 'visible';
+  if (state !== 'empty') layer.src = `polynices-${state}${light === 'night' ? '-night' : ''}-cutout.png`;
+  layer.alt = state === 'grave' ? "Polynices' grave" : 'Polynices resting on his cloak';
+  for (const button of document.querySelectorAll('[data-state]')) button.setAttribute('aria-pressed', String(button.dataset.state === state));
+  for (const button of document.querySelectorAll('[data-light]')) button.setAttribute('aria-pressed', String(button.dataset.light === light));
+}
+for (const button of document.querySelectorAll('[data-state]')) button.addEventListener('click', () => { state = button.dataset.state; render(); });
+for (const button of document.querySelectorAll('[data-light]')) button.addEventListener('click', () => { light = button.dataset.light; render(); });
+</script>
+</html>

@@ -51,14 +51,13 @@ if selected.
 
 ## Production plan
 
-Use the selected day view as the master for the four Hollow states. Make every
-night view from its matching day state. Keep the body on its shelf and the
-standing space in the lower middle. The helmet is the grave marker throughout.
-Use the card studies as the references for each change of body state.
+Use one empty Hollow for each light, then place a transparent burial layer on
+its shelf. Each state shares the same backdrop. The lower middle stays open
+for the cast. Use the card studies as references for the care states.
 
 | Group | Final files | Target |
 | --- | --- | --- |
-| Hollow | fallen, anointed, veiled, grave; each day and night | 8 opaque WebPs, 1672 × 941, quality 94 |
+| Hollow | empty day and night; matching body-state layers | 2 opaque WebPs and 8 RGBA layers, common 1672 × 941 canvas |
 | Body cards | fallen, anointed, veiled, grave | 4 RGBA WebPs, 1024 × 1536, full painted vignette |
 | Shade | polynices-shade.png | 1 RGBA PNG, 1024 × 1536 |
 | Optional vessel | oil-lekythos.png | 1254 × 1254 RGBA PNG |
@@ -78,10 +77,10 @@ source at 65% opacity to show the intended translucent look. Production needs
 to put that see-through treatment into the final asset or its existing figure
 rendering. The full alpha measurements are in the file checks.
 
-These are design studies. Production finishing covers the remaining six Hollow
-state views, close registration between state edits, the shade's body opacity,
-final exports, and game asset registration. The generated edits preserve the
-composition visually; fine texture varies between images.
+These are design studies. Production finishing covers the anointed and veiled
+scene layers, final alignment, the shade's body opacity, exports, and game asset
+registration. The generated edits preserve the composition visually; fine
+texture varies between images.
 
 The source PNGs are preserved byte for byte. All generation used the built-in
 image tool. Earlier olive-sprig studies and the first day study remain as source
@@ -89,3 +88,34 @@ history. The selected versions above carry the owner's raven-feather change.
 
 Checks: PNG sizes and hashes, shade alpha samples, visual full-width and phone
 reviews, `git diff --check`, and `npm run check:version`.
+
+## Buried Hollow and transparent layers
+
+The owner asked for the Hollow after burial and a body/grave cutout option.
+The completed day and night paintings show the shallow mound beneath the bent
+olive. His helmet marks the head. The armour rests on his folded red cloak,
+one perfect raven feather lies on the mound, and a small cup stands at its foot.
+At night, a small clay lamp lights that end of the grave.
+
+![Buried Hollow and layer review](hollow-layer-review.png)
+
+- [Buried day painting](hollow-buried-day-study.png) and
+  [buried night painting](hollow-buried-night-study.png).
+- [Empty day Hollow](hollow-empty-day-study.png) and
+  [empty night Hollow](hollow-empty-night-study.png).
+- Fallen cutouts: [day](polynices-fallen-cutout.png) and
+  [night](polynices-fallen-night-cutout.png).
+- Grave cutouts: [day](polynices-grave-cutout.png) and
+  [night](polynices-grave-night-cutout.png).
+- [Interactive layer review](layers.html), [prompts](layer-prompts.json), and
+  [source and alpha checks](layer-validation.json).
+
+The four cutouts have true alpha and over 90% fully clear pixels. Their full
+landscape padding keeps the objects on the burial shelf. The review stretches
+each full canvas over one common 1672 × 941 frame. Source sizes vary by up to
+two pixels in width and one in height; final exports should use the common canvas. Each day/night
+pair keeps its visual placement. Final stage placement still needs review in
+the game. The separate opaque paintings show the intended light and mood.
+
+The layer review was checked with both body states in both lights. Source PNGs
+are preserved byte for byte. All eight additions used the built-in image tool.
