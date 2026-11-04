@@ -131,19 +131,29 @@ test("the toolbar shows the logo the title chose, for every logo", () => {
   }
 });
 
-test("wide artworks show their own lettering, never another logo", async () => {
-  // Only the Pip-and-lantern wordmark still shows its whole (opaque) artwork.
-  assert.equal(toolbarLogo(LOGOS[1]), LOGOS[1]);
-  const lettered = [original[0], ...alternatives];
-  assert.deepEqual(
-    LOGOS.filter(({ toolbar }) => toolbar).map(({ src }) => src),
-    lettered,
-  );
-  for (const src of lettered) {
-    const logo = LOGOS.find((entry) => entry.src === src);
-    const { toolbar } = logo;
+// The toolbar is not black, so an opaque image there shows as a dark box.
+// Until the owner supplies transparent art for a logo, it borrows the
+// nearest transparent lettering (assets/title/PROVENANCE.md).
+// The two gold wordmarks have the owner's own transparent toolbar exports
+// (assets/title/TRANSPARENT-LOGOS.md).
+const own = {
+  [original[0]]: "assets/title/toolbar/lonely-forest-1-transparent.webp",
+  [original[1]]: "assets/title/toolbar/lonely-forest-2-transparent.webp",
+};
+const borrowed = {
+  "assets/title/lonely-forest-black-pond.webp":
+    "assets/title/toolbar/lonely-forest-teal-bell-and-lantern.webp",
+};
+
+test("every logo names transparent toolbar lettering, never another logo", () => {
+  for (const logo of LOGOS) {
+    const { src, toolbar } = logo;
     assert.ok(toolbar?.src, src);
+    // A crop of an opaque artwork would bring its black ground with it.
+    assert.equal(toolbar.crop, undefined, src);
     assert.ok(!LOGOS.some((other) => other.src === toolbar.src), src);
+    if (own[src] || borrowed[src])
+      assert.equal(toolbar.src, own[src] || borrowed[src], src);
     assert.ok(
       publicAssets.some(({ file }) => file === toolbar.src),
       src,
@@ -152,46 +162,40 @@ test("wide artworks show their own lettering, never another logo", async () => {
     assert.ok(ratio >= 2 && ratio <= 3.2, src);
     // Sharp at 2x the 46 px toolbar height.
     assert.ok(toolbar.height >= 92, src);
-    const { crop } = toolbar;
-    if (crop) {
-      assert.ok(variants.crops[toolbar.src], `Build the crop of ${src}`);
-      assert.ok(crop.left + crop.width <= logo.width, src);
-      assert.ok(crop.top + crop.height <= logo.height, src);
-      // The crop keeps the artwork's proportions.
-      assert.ok(Math.abs(ratio - crop.width / crop.height) < 0.02, src);
-    } else {
-      // A supplied lettering file is published as is, at its stated size.
-      assert.ok(!variants.crops[toolbar.src], src);
-      const record = variants.images[toolbar.src];
-      assert.ok(record, `Build the variants of ${toolbar.src}`);
-      assert.equal(record.card, toolbar.src, src);
-      const image = sharp(
-        readFileSync(
-          new URL(`../v2/card-game/${toolbar.src}`, import.meta.url),
-        ),
-      );
-      const { width, height, hasAlpha } = await image.metadata();
-      assert.deepEqual([width, height], [toolbar.width, toolbar.height], src);
-      // Supplied lettering is transparent: no box around it in the toolbar.
-      assert.ok(hasAlpha, toolbar.src);
-      const { data, info } = await image
-        .ensureAlpha()
-        .raw()
-        .toBuffer({ resolveWithObject: true });
-      const alpha = (x, y) => data[(y * info.width + x) * info.channels + 3];
-      for (const [x, y] of [
-        [0, 0],
-        [width - 1, 0],
-        [0, height - 1],
-        [width - 1, height - 1],
-      ])
-        assert.equal(alpha(x, y), 0, `${toolbar.src} corner ${x},${y}`);
-    }
+    // A supplied lettering file is published as is, at its stated size.
+    assert.ok(!variants.crops[toolbar.src], src);
+    assert.equal(variants.images[toolbar.src]?.card, toolbar.src, src);
     assert.deepEqual(toolbarLogo(logo), {
       name: logo.name,
       src: toolbar.src,
       width: toolbar.width,
       height: toolbar.height,
     });
+  }
+});
+
+test("every image the toolbar can show is transparent at its corners", async () => {
+  for (const logo of LOGOS) {
+    const shown = toolbarLogo(logo);
+    // The file the browser loads: imageUrl(src, "card") in showToolbarLogo.
+    const file = variants.images[shown.src]?.card || shown.src;
+    const image = sharp(
+      readFileSync(new URL(`../v2/card-game/${file}`, import.meta.url)),
+    );
+    const { width, height, hasAlpha } = await image.metadata();
+    assert.deepEqual([width, height], [shown.width, shown.height], file);
+    assert.ok(hasAlpha, `${file} has no alpha channel`);
+    const { data, info } = await image
+      .ensureAlpha()
+      .raw()
+      .toBuffer({ resolveWithObject: true });
+    const alpha = (x, y) => data[(y * info.width + x) * info.channels + 3];
+    for (const [x, y] of [
+      [0, 0],
+      [width - 1, 0],
+      [0, height - 1],
+      [width - 1, height - 1],
+    ])
+      assert.equal(alpha(x, y), 0, `${file} corner ${x},${y}`);
   }
 });

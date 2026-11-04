@@ -7,9 +7,9 @@
       "height": 512,
       "background": "dark",
       "toolbar": {
-        "src": "assets/title/transparent/lonely-forest-1-toolbar.webp",
-        "width": 320,
-        "height": 125
+        "src": "assets/title/toolbar/lonely-forest-1-transparent.webp",
+        "width": 417,
+        "height": 160
       }
     },
     {
@@ -17,7 +17,12 @@
       "name": "Lonely Forest, with Pip and the lantern",
       "width": 2000,
       "height": 800,
-      "background": "dark"
+      "background": "dark",
+      "toolbar": {
+        "src": "assets/title/toolbar/lonely-forest-2-transparent.webp",
+        "width": 407,
+        "height": 160
+      }
     },
     {
       "src": "assets/title/lonely-forest-hearth-and-oak.webp",
@@ -50,15 +55,9 @@
       "height": 941,
       "background": "dark",
       "toolbar": {
-        "src": "assets/title/toolbar/lonely-forest-black-pond.webp",
-        "width": 476,
-        "height": 160,
-        "crop": {
-          "left": 68,
-          "top": 180,
-          "width": 1554,
-          "height": 522
-        }
+        "src": "assets/title/toolbar/lonely-forest-teal-bell-and-lantern.webp",
+        "width": 288,
+        "height": 96
       }
     }
   ]

@@ -78,10 +78,10 @@ export function worldLogo({ href, storage, fresh = false }) {
   return LOGOS[index];
 }
 
-// The toolbar shows the same logo the title showed. A wide artwork whose
-// whole frame is unreadable at toolbar height names its lettering instead
+// The toolbar shows the same logo the title showed, by transparent lettering
 // (`toolbar`: a supplied file, or a `crop` of the artwork the image build
-// writes); it keeps the logo's name.
+// writes): the toolbar is not black, so an opaque artwork would show as a
+// box. Every logo names one; it keeps the logo's name.
 export function toolbarLogo(logo) {
   const art = logo?.toolbar;
   if (!art?.src) return logo;

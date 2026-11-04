@@ -4,8 +4,8 @@ import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
 import { LOGO_KEY, LOGOS, toolbarLogo } from "../card-game/title-logo.mjs";
 
-// The toolbar shows the logo the title showed, for every logo: the
-// wordmarks whole, the wide artworks by their lettering. A reload keeps it,
+// The toolbar shows the logo the title showed, for every logo, by its
+// transparent toolbar lettering. A reload keeps it,
 // and at phone widths it never overlaps the world name or the buttons.
 // `TOOLBAR_LOGO_SHOTS=<dir>` saves a toolbar screenshot per logo and size.
 const server = createServer();

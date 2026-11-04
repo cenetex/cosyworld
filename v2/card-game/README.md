@@ -835,10 +835,11 @@ and as tall as the toolbar buttons (46 px, 40 px at phone width), named by its
 lettering there (`toolbar`: a file, size and optional `crop` of the artwork;
 `npm run v2:card:images:build` writes a cropped one under
 `assets/title/toolbar/`, and a supplied file, such as transparent lettering,
-needs no `crop`). The first wordmark uses its transparent toolbar copy; the
-Pip-and-lantern wordmark and The Black Pond crop are still opaque, so they
-show their black ground until transparent masters are supplied
-(`assets/title/PROVENANCE.md`). `v2/scripts/smoke-card-toolbar-logo.mjs` checks each logo at
+needs no `crop`). The toolbar shows only transparent images: both gold
+wordmarks use the owner's transparent toolbar exports
+(`assets/title/TRANSPARENT-LOGOS.md`), and until its transparent art is
+supplied The Black Pond borrows the teal bell-and-lantern lettering
+(`assets/title/PROVENANCE.md`); every intro keeps its own art. `v2/scripts/smoke-card-toolbar-logo.mjs` checks each logo at
 desktop and phone widths (`TOOLBAR_LOGO_SHOTS=<dir>` saves screenshots).
 Other sites' landings and the local CosyWorld app keep
 the COSYWORLD wordmark.

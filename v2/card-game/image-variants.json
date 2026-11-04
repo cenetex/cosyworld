@@ -4868,6 +4868,24 @@
       "phone": "assets/optimized/phone/webp/title/lonely-forest-listening-wood.webp",
       "phoneHash": "36ffcc0e144000e9ca290053bbe695fad01a05214049da1256e6fcc34221c93a"
     },
+    "assets/title/toolbar/lonely-forest-1-transparent.webp": {
+      "sourceHash": "d66c4e90e7e1d1be50544cfd78cc052403f93b77b042a0fed896e54ff05bba64",
+      "stage": "assets/title/toolbar/lonely-forest-1-transparent.webp",
+      "stageHash": "d66c4e90e7e1d1be50544cfd78cc052403f93b77b042a0fed896e54ff05bba64",
+      "card": "assets/title/toolbar/lonely-forest-1-transparent.webp",
+      "cardHash": "d66c4e90e7e1d1be50544cfd78cc052403f93b77b042a0fed896e54ff05bba64",
+      "phone": "assets/title/toolbar/lonely-forest-1-transparent.webp",
+      "phoneHash": "d66c4e90e7e1d1be50544cfd78cc052403f93b77b042a0fed896e54ff05bba64"
+    },
+    "assets/title/toolbar/lonely-forest-2-transparent.webp": {
+      "sourceHash": "be7d0435e68c24c9595cc69044b91643a4123ec41938fa8d2f3823d3f0bbb8a2",
+      "stage": "assets/title/toolbar/lonely-forest-2-transparent.webp",
+      "stageHash": "be7d0435e68c24c9595cc69044b91643a4123ec41938fa8d2f3823d3f0bbb8a2",
+      "card": "assets/title/toolbar/lonely-forest-2-transparent.webp",
+      "cardHash": "be7d0435e68c24c9595cc69044b91643a4123ec41938fa8d2f3823d3f0bbb8a2",
+      "phone": "assets/title/toolbar/lonely-forest-2-transparent.webp",
+      "phoneHash": "be7d0435e68c24c9595cc69044b91643a4123ec41938fa8d2f3823d3f0bbb8a2"
+    },
     "assets/title/toolbar/lonely-forest-black-pond.webp": {
       "sourceHash": "46bfb5dc26c40cdcc01e0279e56ecd28db7b7bf3a36976ff47862a1e91d80c7e",
       "stage": "assets/title/toolbar/lonely-forest-black-pond.webp",
@@ -5346,7 +5364,5 @@
       "phoneHash": "1afb03661eb3af33fcde7183f480814c21051c8eaf33c7a7fdd95f91614543b0"
     }
   },
-  "crops": {
-    "assets/title/toolbar/lonely-forest-black-pond.webp": "8dbae0ee36df2ce6690609514a60731722d82544942bb5ef657fabe92d879729"
-  }
+  "crops": {}
 }
