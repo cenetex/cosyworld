@@ -1004,7 +1004,13 @@ fn full_world_claims_queue_authority_and_request_ids() {
     b.key = "full-world-action-0002".into();
     b.action["actor"] = json!("mara");
     assert!(full::run(&tx, &id, "user0", &b, now()).is_err());
-    assert!(full::run(&tx, &id, "user0", &body("claim", Some("mara")), now()).is_err());
+    // Bringing Mara leaves Vale as a resident and cancels Vale's queued play
+    // (owner, 2026-11-03).
+    full::run(&tx, &id, "user0", &body("claim", Some("mara")), now()).unwrap();
+    let left: String = tx
+        .query_row("SELECT status FROM card_full_plays", [], |r| r.get(0))
+        .unwrap();
+    assert_eq!(left, "cancelled");
     tx.commit().unwrap();
 }
 #[test]

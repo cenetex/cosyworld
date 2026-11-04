@@ -202,7 +202,7 @@ mod tests {
         assert_eq!(persona.clean(line, true), Ok(line.into()));
         let recited = "The station clock stopped at half past nine last night, I tell you.";
         assert_eq!(persona.clean(recited, true), Ok(recited.into()));
-        let (system, _) = super::super::messages(&c, &c.entities[3], Part::Persona);
+        let system = super::super::messages(&c, &c.entities[3], Part::Persona).assistant;
         let lines: Vec<_> = system.lines().filter(|l| !l.is_empty()).collect();
         let at = lines.iter().position(|l| *l == clock).unwrap();
         let dump = format!("{} {}", lines[at - 1], clock);

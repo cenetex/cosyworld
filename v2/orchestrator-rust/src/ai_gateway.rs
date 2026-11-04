@@ -1371,12 +1371,23 @@ pub(crate) async fn request_chat_completion(
     config: &AiConfig,
     request: ChatCompletionRequest<'_>,
 ) -> Result<AiCompletion, AiGatewayError> {
-    request_chat_completion_progress(config, request, None).await
+    request_chat_completion_progress(config, request, "", None).await
+}
+
+/// A character's line: `assistant` is its own first-person view, sent as
+/// its own turn before what it heard (`request.user`); see `chat_messages`.
+pub(crate) async fn request_voice_completion(
+    config: &AiConfig,
+    request: ChatCompletionRequest<'_>,
+    assistant: &str,
+) -> Result<AiCompletion, AiGatewayError> {
+    request_chat_completion_progress(config, request, assistant, None).await
 }
 
 async fn request_chat_completion_progress(
     config: &AiConfig,
     request: ChatCompletionRequest<'_>,
+    assistant: &str,
     on_delta: Option<&(dyn Fn(&str) -> bool + Send + Sync)>,
 ) -> Result<AiCompletion, AiGatewayError> {
     let selection = config
@@ -1385,13 +1396,14 @@ async fn request_chat_completion_progress(
     let raw_mode = selection.uses_raw_prompt_adapter();
     #[cfg(feature = "embedded-llama")]
     if config.base_url == "embedded://llama" {
-        return llama::complete(request, selection.requested_model_id()).await;
+        return llama::complete(request, assistant, selection.requested_model_id()).await;
     }
     request_completion(
         config,
         request.feature,
         request.prompt_version,
         request.system,
+        assistant,
         Value::String(request.user.to_string()),
         (!raw_mode).then_some(request.temperature),
         request.max_tokens,
@@ -1440,6 +1452,7 @@ pub(crate) async fn request_chat_completion_with_selection(
         request.feature,
         request.prompt_version,
         request.system,
+        "",
         Value::String(request.user.to_string()),
         (!raw_mode).then_some(request.temperature),
         request.max_tokens,
@@ -1488,6 +1501,7 @@ pub(crate) async fn request_routed_chat_completion(
         request.feature,
         request.prompt_version,
         request.system,
+        "",
         Value::String(request.user.to_string()),
         Some(request.temperature),
         request.max_tokens,
@@ -3203,6 +3217,7 @@ pub(crate) async fn request_image_policy_decision(
         request.feature,
         "image-policy-v1",
         "You are a strict image publication gate. Inspect only visible pixels. Return the required JSON and no prose.",
+        "",
         user_content,
         None,
         IMAGE_POLICY_MAX_TOKENS,
@@ -3416,12 +3431,71 @@ fn readable_reasoning_trace(message: &Value) -> Option<String> {
         .and_then(bounded_reasoning_trace)
 }
 
+/// The user turn before a character's own view, and its words when it has
+/// heard nothing. Claude and Gemma's template refuse a chat that opens on an
+/// assistant turn; silence opens every call the same way. It is no
+/// instruction.
+pub(crate) const SILENCE: &str = "…";
+
+/// How a gesture or emoji voice's system turn opens (`expression::direction`):
+/// its check reads that shape, so its reply gets no opening quote.
+pub(crate) const SHAPE: &str = "My next reply";
+
+/// The opening quote a speaking voice's reply continues, where a provider
+/// continues a final assistant turn: Mistral, and the desktop's embedded
+/// llama.cpp (`card_llama`). Claude 4.6+ and Haiku 5.5 reject one (400) and
+/// OpenAI starts a new turn instead.
+const OPEN_QUOTE: &str = "\u{201c}";
+
+/// The chat turns for a call (owner, 2026-11-03). An empty system voice is
+/// left out. A character's own view (`assistant`) is its own earlier turn
+/// after silence, and the call ends on what it heard, or, where the route
+/// continues it, on the opening quote of its reply.
+pub(crate) fn chat_messages(system: &str, assistant: &str, user: Value, quote: bool) -> Value {
+    let mut turns = Vec::new();
+    if !system.trim().is_empty() {
+        turns.push(json!({ "role": "system", "content": system }));
+    }
+    if !assistant.is_empty() {
+        turns.push(json!({ "role": "user", "content": SILENCE }));
+        turns.push(json!({ "role": "assistant", "content": assistant }));
+    }
+    turns.push(json!({ "role": "user", "content": user }));
+    if quote {
+        // Mistral continues an assistant turn only when it is a prefix.
+        turns.push(json!({ "role": "assistant", "content": OPEN_QUOTE, "prefix": true }));
+    }
+    Value::Array(turns)
+}
+
+/// Speech after an opening quote is its quoted spans, joined, and is
+/// finished once a quote closes: `Mind the oil," he says. "And the wick."`
+/// is `Mind the oil, And the wick.`; a span left open is dropped.
+pub(crate) fn unquote(text: &str) -> (String, bool) {
+    let text = text.trim_start().trim_start_matches(['\u{201c}', '"']);
+    let mut parts: Vec<&str> = text.split(['\u{201c}', '\u{201d}', '"']).collect();
+    let closed = parts.len() > 1;
+    if closed && parts.len() % 2 == 1 {
+        parts.pop();
+    }
+    let spans = parts.iter().step_by(2).map(|span| span.trim());
+    let said = spans
+        .filter(|span| !span.is_empty())
+        .collect::<Vec<_>>()
+        .join(" ");
+    match said.strip_suffix(',') {
+        Some(head) if closed => (format!("{head}."), true),
+        _ => (said, closed),
+    }
+}
+
 #[allow(clippy::too_many_arguments)]
 async fn request_completion(
     config: &AiConfig,
     feature: &'static str,
     prompt_version: &'static str,
     system: &str,
+    assistant: &str,
     user_content: Value,
     temperature: Option<f64>,
     max_tokens: u32,
@@ -3438,6 +3512,12 @@ async fn request_completion(
     on_delta: Option<&(dyn Fn(&str) -> bool + Send + Sync)>,
 ) -> Result<AiCompletion, AiGatewayError> {
     let started_at = Instant::now();
+    // A speaking voice (no system shape) that heard a line continues its
+    // opening quote; speaking first, a prefill voiced the listener instead.
+    let quote = !assistant.is_empty()
+        && !system.starts_with(SHAPE)
+        && user_content.as_str() != Some(SILENCE)
+        && model.starts_with("mistralai/");
     let context_hash = {
         let mut hasher = Sha256::new();
         hasher.update(feature.as_bytes());
@@ -3446,6 +3526,10 @@ async fn request_completion(
         hasher.update([0]);
         hasher.update(system.as_bytes());
         hasher.update([0]);
+        if !assistant.is_empty() {
+            hasher.update(assistant.as_bytes());
+            hasher.update([0]);
+        }
         hasher.update(user_content.to_string().as_bytes());
         format!("{:x}", hasher.finalize())
     };
@@ -3509,18 +3593,9 @@ async fn request_completion(
         let max_tokens = max_tokens.min(candidate_output_cap);
         let mut provider_managed_reasoning =
             raw_mode && reasoning_effort == Some(RAW_DIALOGUE_REASONING_MODE);
-        // An empty system voice (a raw dream) sends the user turn alone.
-        let messages = if system.trim().is_empty() {
-            json!([{ "role": "user", "content": user_content }])
-        } else {
-            json!([
-                { "role": "system", "content": system },
-                { "role": "user", "content": user_content }
-            ])
-        };
         let mut payload = json!({
             "model": model,
-            "messages": messages
+            "messages": chat_messages(system, assistant, user_content.clone(), quote)
         });
         if on_delta.is_some() {
             payload["stream"] = json!(true);
@@ -3786,6 +3861,11 @@ async fn request_completion(
         config
             .readiness
             .record_success(CHAT_COMPLETIONS_ENDPOINT, model);
+        let (text, finish_reason) = match quote.then(|| unquote(&text)) {
+            Some((said, true)) => (said, "stop".to_string()),
+            Some((said, false)) => (said, finish_reason),
+            None => (text, finish_reason),
+        };
         return Ok(AiCompletion {
             text,
             reasoning_trace,
@@ -4571,6 +4651,48 @@ mod tests {
         Arc,
     };
     use tokio::net::TcpListener;
+
+    /// A character's view is its own assistant turn after silence; only a
+    /// route that continues a final assistant turn gets the opening quote.
+    #[test]
+    fn a_view_is_its_own_turn_and_a_quote_closes_the_speech() {
+        let roles = |turns: Value| -> Vec<String> {
+            let turns = turns.as_array().unwrap().iter();
+            turns.map(|t| t["role"].as_str().unwrap().into()).collect()
+        };
+        assert_eq!(
+            roles(chat_messages("Voice.", "", "Scene".into(), false)),
+            ["system", "user"]
+        );
+        let view = chat_messages(
+            "",
+            "I am Pip.",
+            "Vale says, \u{201c}Hi.\u{201d}".into(),
+            false,
+        );
+        assert_eq!(view[0]["content"], SILENCE);
+        assert_eq!(roles(view), ["user", "assistant", "user"]);
+        let quoted = chat_messages(
+            "",
+            "I am Pip.",
+            "Vale says, \u{201c}Hi.\u{201d}".into(),
+            true,
+        );
+        assert_eq!(
+            quoted[3],
+            json!({"role": "assistant", "content": "\u{201c}", "prefix": true})
+        );
+        assert_eq!(
+            unquote("Mind the oil,\u{201d} he says"),
+            ("Mind the oil.".into(), true)
+        );
+        assert_eq!(
+            unquote("Mind the oil, and"),
+            ("Mind the oil, and".into(), false)
+        );
+        let spans = "Mind it,\u{201d} he says. \u{201c}And the wick.\u{201d} He \u{201c}Then";
+        assert_eq!(unquote(spans), ("Mind it, And the wick.".into(), true));
+    }
 
     #[test]
     fn server_budget_closes_at_twenty_dollars_and_resets_on_utc_boundary() {

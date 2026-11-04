@@ -38,3 +38,9 @@ from before rules 81 still shows it while its traveler holds their scarf.
 
 Not covered: a traveler seated in another world gets a new upgrade there at
 its next claim.
+
+Rules 97: a scarf's attic stair, open from the first turn, crosses Vale's
+opening when taken before the pond. Discovery stays gradual: `opening.met`
+holds only who Vale has met, and Moth may be unmet. Rules 96 offered the
+stair, then failed their own save check, so shared play refused it as
+"waiting for an update".

@@ -14,8 +14,14 @@ import {
   QUEST_DOWN_MS,
   createCardEntries,
   createQuestEntries,
+  questEntryKey,
 } from "./card-entry.mjs";
-import { phase, THINKING_GRACE_MS } from "./presentation.mjs";
+import {
+  phase,
+  refusalLabel,
+  refusalSentence,
+  THINKING_GRACE_MS,
+} from "./presentation.mjs";
 import { glowCard, levelUpCard, transformPortrait } from "./card-level-up.mjs";
 import { crossedPortraitTier } from "./rarity-portraits.mjs";
 import {
@@ -1890,8 +1896,18 @@ function presentPhase() {
 function syncPhase() {
   if (presentPhase() !== shownPhase) renderActions();
 }
+// The server's reason for refusing this play, while its cards stay chosen
+// and the world has not moved on.
+const refusedPlay = (action) =>
+  sharedRefusal?.key === action.key ? sharedRefusal.reason : "";
 function renderActions() {
   const row = $("card-actions");
+  if (
+    sharedRefusal &&
+    (sharedRefusal.choice !== selected.join("+") ||
+      sharedRefusal.revision !== world.revision)
+  )
+    sharedRefusal = null;
   shownPhase = presentPhase();
   const rested = shownPhase !== "choosing";
   const { actions: offered, hint } = cardActions(world, selected);
@@ -1956,15 +1972,17 @@ function renderActions() {
     );
   row.replaceChildren(
     ...actions.map((action, index) => {
+      const refused = refusedPlay(action);
       const button = node(
         "button",
-        playLabel(action),
+        refused ? refusalLabel(refused) : playLabel(action),
         index === 0 ? "card-primary" : "card-action",
       );
       button.type = "button";
       button.dataset.action = action.kind;
-      button.title = playText(action);
-      button.disabled = selectionBlocked();
+      button.title = refused || playText(action);
+      button.disabled = Boolean(refused) || selectionBlocked();
+      if (refused) button.dataset.blocked = "refused";
       if (action.choiceId) {
         button.dataset.choice = action.choiceId;
         button.dataset.pack = action.packId;
@@ -2045,9 +2063,24 @@ function renderActions() {
   note.textContent = "";
   note.hidden = true;
   delete $("action-beat").dataset.avatar;
+  // A refused play whose cards are no longer chosen says so on the status
+  // line, briefly, as its button would.
+  const aside =
+    sharedRefusal && !actions.some((a) => a.key === sharedRefusal.key);
+  if (aside)
+    notice(
+      `Not played: ${sharedRefusal.label}. ${refusalSentence(sharedRefusal.reason)}`,
+      "rejected",
+    );
+  else if ($("play-status").dataset.playStatus === "rejected") notice("");
   syncActionBeat();
+  // A refused play reads its reason to a screen reader, as its button shows.
+  const readout = (a) =>
+    refusedPlay(a)
+      ? `Not played: ${playLabel(a)}. ${refusedPlay(a)}`
+      : playLabel(a);
   $("play-readout").textContent = selected.length
-    ? `${selectionName}. ${ready.map(playLabel).join(". ") || hint}`
+    ? `${selectionName}. ${ready.map(readout).join(". ") || hint}`
     : questOpen && (shownQuests[questPick] || sealedQuests[0])
       ? shownQuestCaption(shownQuests[questPick] || sealedQuests[0])
       : "";
@@ -2094,19 +2127,24 @@ function updateCardSelection(frame) {
     stackLabel(stack);
 }
 const handMotions = new Map();
-// Cards new to the hand rise in, and quests enter face down (card-entry.mjs).
+// Cards new to the hand rise in, and quests are dealt face down
+// (card-entry.mjs).
 const handEntries = createCardEntries(),
   questsInView = createQuestEntries();
 const entryKey = (frame) =>
   `${frame.querySelector(".card").dataset.card}@${frame.dataset.holder ?? ""}`;
-// Each quest newly in view lies face down a beat, then turns; the next turns
-// a little after. A tap still plays it at once.
-function showQuests() {
-  const cards = [
-    ...$("hand").querySelectorAll(".want-frame:not([hidden]) > .want-card"),
-  ];
+// Each quest newly dealt lies face down until it is seen, then turns a beat
+// later; the next turns a little after. Once turned it stays face up while
+// it stays in the hand, folded or fanned. A tap still plays it at once.
+function showQuests(opening) {
+  const cards = [...$("hand").querySelectorAll(".want-card")],
+    seen = (card) => !card.closest(".want-frame").hidden;
   questsInView
-    .show(cards.map((card) => card.dataset.questKey))
+    .show(
+      cards.map((card) => card.dataset.questEntry),
+      cards.filter(seen).map((card) => card.dataset.questEntry),
+      { opening },
+    )
     .forEach((key, i) =>
       setTimeout(
         () => turnQuest(key),
@@ -2114,14 +2152,17 @@ function showQuests() {
       ),
     );
   for (const card of cards)
-    card.dataset.unrevealed = String(questsInView.down(card.dataset.questKey));
+    card.dataset.unrevealed = String(
+      questsInView.down(card.dataset.questEntry),
+    );
 }
 function turnQuest(key) {
+  const card = [
+    ...$("hand").querySelectorAll(".want-frame:not([hidden]) > .want-card"),
+  ].find((el) => el.dataset.questEntry === key);
+  // Folded away before its turn, it turns when it is next seen.
+  if (!card) return questsInView.unseen(key);
   if (!questsInView.turned(key)) return;
-  const card = [...$("hand").querySelectorAll(".want-card")].find(
-    (el) => el.dataset.questKey === key,
-  );
-  if (!card) return;
   card.dataset.unrevealed = "false";
   void revealCard(card);
 }
@@ -2382,7 +2423,8 @@ function questFrame({ id, quest, met }) {
   el.disabled = selectionBlocked();
   el.dataset.questId = id;
   el.dataset.questKey = quest.key;
-  el.dataset.unrevealed = String(questsInView.down(quest.key));
+  el.dataset.questEntry = questEntryKey(quest);
+  el.dataset.unrevealed = String(questsInView.down(questEntryKey(quest)));
   el.dataset.picked = String(picked);
   el.setAttribute("aria-pressed", String(picked));
   el.setAttribute(
@@ -3942,7 +3984,7 @@ function render() {
         })),
       { reduced: reducedMotion.matches || opening },
     );
-    showQuests();
+    showQuests(opening);
     if (animate)
       for (const frame of $("hand").children) {
         if (frame.hidden) continue;
@@ -4406,8 +4448,9 @@ function resumeScene({ otherTab = false } = {}) {
   } else render();
 }
 // Until it resolves, the player's own play reads on its button as what their
-// avatar is doing. Only a refusal or an unconfirmed send needs words.
-const refusalText = ({ label }, reason) => `Not played: ${label}. ${reason}`;
+// avatar is doing. Only a refusal or an unconfirmed send needs words. A
+// refusal is its play's button label (refusalLabel) until the selection or
+// the world changes.
 function showSharedPlay(state, reason = "") {
   if (!sharedPlay) return;
   const play = sharedPlay,
@@ -4415,8 +4458,8 @@ function showSharedPlay(state, reason = "") {
   sharedPlay.state = state;
   if (state === "played" || state === "rejected") sharedPlay = null;
   if (state === "sending") sharedRefusal = null;
-  // A play the server did not take wakes its rested beat, so the player
-  // can play it again from the beat.
+  // A play the server did not take wakes its rested beat: a refused one
+  // says why there, and choosing its cards again offers it again.
   if (["rejected", "uncertain"].includes(state)) restedChoice = null;
   if (
     ["playing", "played"].includes(state) &&
@@ -4424,11 +4467,16 @@ function showSharedPlay(state, reason = "") {
   )
     rememberWait(play.action, play.choice);
   const shown = $("play-status").dataset.playStatus;
-  if (state === "rejected") {
-    sharedRefusal = { reason, text: refusalText(play, reason) };
-    notice(sharedRefusal.text, state);
-  } else if (state === "uncertain") notice(reason, state);
-  else if (["rejected", "uncertain"].includes(shown)) notice("");
+  if (state === "rejected")
+    sharedRefusal = {
+      reason,
+      key: play.action.key,
+      label: play.label,
+      choice: selected.join("+"),
+      revision: world.revision,
+    };
+  if (state === "uncertain") notice(reason, state);
+  else if (shown === "uncertain") notice("");
   renderActions();
 }
 // Follow the play's key through the room queue into the committed history.
@@ -4773,10 +4821,9 @@ if (sharedSession) {
   world = sharedWorld(sharedSession.state);
   sharedSession.subscribe(adoptShared, (message, recoveredFrom) => {
     if (!recoveredFrom || $("play-status").textContent === recoveredFrom) {
-      // A recovered connection restores a refusal with its play name.
-      if (message && message === sharedRefusal?.reason)
-        notice(sharedRefusal.text, "rejected");
-      else notice(message);
+      // A refusal stays on its play's button (renderActions).
+      notice(message === sharedRefusal?.reason ? "" : message);
+      if (message && message === sharedRefusal?.reason) renderActions();
     }
   });
   adoptShared(sharedSession.state);

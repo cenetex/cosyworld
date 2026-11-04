@@ -703,18 +703,14 @@ async fn talk_lines_in_a_prompt_are_only_signed_words() {
     assert_eq!(response.status(), StatusCode::OK);
     {
         let requests = seen.lock().unwrap();
-        let system = |r: &Value| {
-            r["messages"][0]["content"]
-                .as_str()
-                .unwrap_or("")
-                .to_string()
-        };
+        let turn = super::super::tests::turn_of;
         assert!(requests
             .iter()
-            .any(|r| system(r).contains("\n\nVale said: \"Where does the dark path go?\"")));
+            .any(|r| turn(r, "assistant")
+                .contains("\n\nVale said: \"Where does the dark path go?\"")));
         assert!(requests
             .iter()
-            .any(|r| r["messages"][1]["content"] == "I offered my cloth."));
+            .any(|r| turn(r, "user") == "Pip says, \u{201c}I offered my cloth.\u{201d}"));
     }
     let cases: Vec<(&str, Change)> = vec![
         (

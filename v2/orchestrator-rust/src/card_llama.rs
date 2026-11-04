@@ -23,6 +23,7 @@ static ENGINE: OnceLock<mpsc::SyncSender<Job>> = OnceLock::new();
 
 struct Job {
     system: String,
+    assistant: String,
     user: String,
     max_tokens: u32,
     temperature: f32,
@@ -86,6 +87,7 @@ pub(crate) async fn start() -> Result<(), String> {
 
 pub(crate) async fn complete(
     request: ChatCompletionRequest<'_>,
+    assistant: &str,
     model: &str,
 ) -> Result<AiCompletion, AiGatewayError> {
     let started = Instant::now();
@@ -109,6 +111,7 @@ pub(crate) async fn complete(
     sender
         .try_send(Job {
             system: request.system.into(),
+            assistant: assistant.into(),
             user: request.user.into(),
             max_tokens: request.max_tokens,
             temperature: request.temperature as f32,
@@ -132,7 +135,10 @@ pub(crate) async fn complete(
         "Local reply ready"
     );
     Ok(AiCompletion {
-        text: output.text,
+        text: match quoted(request.system, assistant, request.user) {
+            true => super::unquote(&output.text).0,
+            false => output.text,
+        },
         reasoning_trace: None,
         attempts: 1,
         latency: started.elapsed(),
@@ -148,7 +154,7 @@ pub(crate) async fn complete(
             request.feature,
             request.prompt_version,
             None,
-            &[request.system.into(), request.user.into()],
+            &[request.system.into(), assistant.into(), request.user.into()],
         ),
         prompt_version: request.prompt_version.into(),
     })
@@ -182,6 +188,7 @@ fn worker(
     let (reply, _) = oneshot::channel();
     let warm = Job {
         system: "Speak briefly.".into(),
+        assistant: String::new(),
         user: "Hello.".into(),
         max_tokens: 1,
         temperature: 0.0,
@@ -221,6 +228,11 @@ fn alive(job: &Job) -> Result<(), String> {
     }
 }
 
+/// A speaking voice that heard a line continues its opening quote.
+fn quoted(system: &str, assistant: &str, user: &str) -> bool {
+    !assistant.is_empty() && !system.starts_with(super::SHAPE) && user != super::SILENCE
+}
+
 fn generate(
     model: &LlamaModel,
     ctx: &mut LlamaContext<'_>,
@@ -229,13 +241,21 @@ fn generate(
 ) -> Result<Output, String> {
     alive(job)?;
     let template = model.chat_template(None).map_err(|e| e.to_string())?;
-    let chat = [
-        LlamaChatMessage::new("system".into(), job.system.clone()).map_err(|e| e.to_string())?,
-        LlamaChatMessage::new("user".into(), job.user.clone()).map_err(|e| e.to_string())?,
-    ];
+    let turns = super::chat_messages(&job.system, &job.assistant, job.user.as_str().into(), false);
+    let words = |turn: &serde_json::Value, key| turn[key].as_str().unwrap_or_default().to_string();
+    let chat = (turns.as_array().into_iter().flatten())
+        .map(|turn| LlamaChatMessage::new(words(turn, "role"), words(turn, "content")))
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+    // A speaking voice's reply continues its opening quote.
     let prompt = model
         .apply_chat_template(&template, &chat, true)
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| e.to_string())?
+        + if quoted(&job.system, &job.assistant, &job.user) {
+            "\u{201c}"
+        } else {
+            ""
+        };
     let vocab = model.vocab();
     let tokens = vocab.tokenize(prompt.as_bytes(), true, true);
     if tokens.is_empty() || tokens.len() + job.max_tokens as usize > ctx.n_ctx() as usize {

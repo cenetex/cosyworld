@@ -31,7 +31,6 @@ fn found(c: &mut Connection, user: &str, avatar: &str) -> Result<String, String>
     let tx = c
         .transaction_with_behavior(TransactionBehavior::Immediate)
         .unwrap();
-    unlocks::may_create(&tx, user)?;
     let id = full::found(&tx, user, actor_index(avatar)?, None, now())?;
     tx.commit().unwrap();
     Ok(id)
@@ -301,7 +300,7 @@ fn seek_gives_the_quest_to_talk_to_the_hidden_avatar() {
 }
 
 #[test]
-fn once_everyone_is_found_no_new_world_opens() {
+fn once_everyone_is_found_a_new_world_hides_nobody() {
     let (_path, mut c) = open();
     found(&mut c, "ann", "vale").unwrap();
     for a in 0..8 {
@@ -312,9 +311,10 @@ fn once_everyone_is_found_no_new_world_opens() {
         .unwrap();
     }
     assert_eq!(unlocks::pick(&c, "ann", "z", 3).unwrap(), json!({}));
-    assert!(found(&mut c, "ann", actor_id(0))
-        .unwrap_err()
-        .contains("Everyone is found"));
+    // + New world stays (owner, 2026-11-03): the world hides nobody.
+    let id = found(&mut c, "ann", actor_id(0)).unwrap();
+    let w = full_store::world(&c, &id, now()).unwrap();
+    assert!(w.game["hidden"].is_null(), "{}", w.game["hidden"]);
 }
 
 #[test]

@@ -24,3 +24,20 @@ export function phase({
   if (reviewing) return "reviewing";
   return "idle";
 }
+// A refused play says why on its own button, as a blocked Take does (#2026):
+// the server's first sentence, short enough for the action beat on a phone.
+// The full reason stays in the button's title and the screen-reader readout.
+export function refusalLabel(reason = "") {
+  const first = String(reason)
+    .trim()
+    .split(/(?<=[.!?…])\s/u)[0];
+  return (first || "Not played")
+    .replace(/^This world is waiting/u, "Waiting")
+    .replace(/[.!]$/u, "");
+}
+// The label as a sentence for the status line: a question or a trailing
+// ellipsis keeps its own mark.
+export const refusalSentence = (reason) => {
+  const label = refusalLabel(reason);
+  return /[?…]$/u.test(label) ? label : `${label}.`;
+};
