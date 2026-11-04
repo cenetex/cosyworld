@@ -7,7 +7,8 @@ import { availableCards } from "../card-game/cards.mjs";
 
 // The quest folds behind the player's avatar. A met quest stays, sealed,
 // until its player clears it; clearing shows the experience it brought. The
-// fold opens into the whole stack, where a quest can be pursued or dropped.
+// fold opens into the whole stack, where a quest can be chosen, pursued or
+// dropped.
 const server = createServer();
 await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
 const browser = await chromium.launch({ headless: true });
@@ -25,6 +26,18 @@ gate.actors.vale.want = {
   refusals: 0,
   story: true,
 };
+// Vale at the sanctuary with three things and three quests (#2256).
+const shrine = createWorld();
+shrine.actors.vale.place = "greek-sanctuary";
+shrine.actors.vale.visited.push("pond");
+shrine.crossings["pond-greek-harbor"].discovered = true;
+for (const id of ["greek-funeral-cloth", "greek-decree", "lamp"])
+  shrine.items[id].holder = "vale";
+shrine.actors.vale.want = { ...gate.actors.vale.want };
+shrine.actors.vale.under = [
+  { kind: "item", target: "lamp", step: { verb: "give", to: "greek-ismene" } },
+  { kind: "place", target: "greek-gate" },
+].map((want) => ({ ...want, since: 0, refusals: 0 }));
 await mkdir(output, { recursive: true });
 try {
   for (const [width, height, motion] of [
@@ -251,8 +264,21 @@ try {
     await openFold();
     const fan = page.locator("#hand .want-frame:not([hidden])");
     assert.equal(await fan.count(), 2, "the open fold fans out the stack");
+    // Nothing is chosen until a quest in the fan is, and it moves left,
+    // beside Vale (#2256).
     const picked = page.locator('#hand .want-card[data-picked="true"]');
+    assert.equal(await picked.count(), 0);
+    await page.locator('#hand .want-card[data-quest-id="quest:0"]').click();
     assert.equal(await picked.getAttribute("data-quest-id"), "quest:0");
+    assert.equal(
+      await page.evaluate(
+        () =>
+          document
+            .querySelector("#hand > .card-frame:not([hidden]) + .want-frame")
+            ?.previousElementSibling.querySelector(".card").dataset.card,
+      ),
+      "vale",
+    );
     assert.equal(
       await page.locator('#card-actions [data-drop-quest="0"]').textContent(),
       "Drop quest (−1 XP)",
@@ -369,7 +395,9 @@ try {
         .getAttribute("aria-label"),
       "Quest: Give The Burial Decree to The Gate Guard, near",
     );
-    // The beat keeps its box and names the quest above Drop quest.
+    // Chosen, the beat keeps its box and names the quest above Drop quest.
+    await page.locator('#hand .want-card[data-quest-id="quest:0"]').click();
+    await page.locator('#card-actions [data-drop-quest="0"]').waitFor();
     assert.equal(
       await page.locator(".action-beat-heading:not([hidden])").innerText(),
       "Give The Burial Decree to The Gate Guard",
@@ -394,9 +422,83 @@ try {
     await page.screenshot({
       path: new URL(`give-${width}.png`, output).pathname,
     });
+    // Choosing Vale shows its things and its quests as two stacks; a top
+    // card fans its stack, a card chosen moves left, and Vale folds them
+    // back, then lowers (#2256). + marks an open stack, * a raised card.
+    const shrineKey = `cosyworld.reflected-shore.v1.quest-shrine-${width}`;
+    await page.evaluate(
+      ({ shrineKey, save, seen }) => {
+        localStorage.setItem(shrineKey, save);
+        localStorage.setItem(`${shrineKey}.seen`, JSON.stringify(seen));
+      },
+      { shrineKey, save: encodeSave(shrine), seen: availableCards(shrine) },
+    );
+    await page.goto(
+      `http://127.0.0.1:${server.address().port}/?table=quest-shrine-${width}`,
+    );
+    await ready();
+    const row = () =>
+      page.evaluate(() =>
+        [...document.querySelectorAll("#hand > .card-frame:not([hidden])")]
+          .map((frame) => {
+            const card = frame.querySelector(".card");
+            return `${card.dataset.card ?? card.dataset.questId}${frame.dataset.raised === "true" ? "*" : ""}${card.getAttribute("aria-expanded") === "true" ? "+" : ""}`;
+          })
+          .join(" "),
+      );
+    let shot = 0;
+    const play = async (selector, name, cards, actions) => {
+      await page
+        .locator(`#hand ${selector}`)
+        .click({ position: { x: 40, y: 16 } });
+      await page.waitForTimeout(500);
+      assert.equal(await row(), `${cards} greek-ismene greek-sanctuary`, name);
+      if (actions)
+        assert.deepEqual(
+          await page.locator("#card-actions button").allInnerTexts(),
+          actions,
+          name,
+        );
+      await page.screenshot({
+        path: new URL(`stacks-${width}-${++shot}-${name}.png`, output).pathname,
+      });
+    };
+    const vale = '[data-card="vale"]',
+      top = '.want-card[data-quest-id="quest:0"]',
+      lamp = "vale+ lamp* greek-funeral-cloth";
+    await play(vale, "stacks", "vale*+ greek-funeral-cloth quest:0", ["Wait"]);
+    assert.equal(
+      await page
+        .locator('#hand [data-holder="vale"]:not([hidden]) > .place-edge')
+        .count(),
+      4,
+      "the rest lie face down behind each top card",
+    );
+    await play(
+      '[data-card="greek-funeral-cloth"]',
+      "items",
+      "vale*+ greek-funeral-cloth+ greek-decree lamp quest:0",
+    );
+    await play('[data-card="lamp"]', "item", `${lamp}+ greek-decree quest:0`, [
+      "Light",
+    ]);
+    await play(top, "quests", `${lamp} quest:0+ quest:1 quest:2`);
+    await play(
+      top,
+      "quest",
+      "vale+ quest:0* greek-funeral-cloth quest:1+ quest:2",
+      ["Drop quest"],
+    );
+    await play(
+      top,
+      "lower",
+      "vale+ greek-funeral-cloth quest:0+ quest:1 quest:2",
+    );
+    await play(vale, "fold", "vale*+ greek-funeral-cloth quest:0");
+    await play(vale, "deselect", "vale", []);
     assert.deepEqual(errors, []);
     console.log(
-      `Quest fold, met seal, click to clear and +XP, stack fan, choose and drop passed at ${width}px (${motion}).`,
+      `Quest fold, met seal, click to clear and +XP, stack fan, choose and drop, avatar stacks passed at ${width}px (${motion}).`,
     );
     await page.close();
   }

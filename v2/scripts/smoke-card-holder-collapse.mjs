@@ -80,6 +80,13 @@ try {
         if (width === 390) await card(id).tap();
         else await card(id).click();
       }
+      // Vale's things lie in a stack beside it; its top card fans it (#2256).
+      const fanVale = async () => {
+        const top = page.locator(
+          '#hand .card-frame[data-holder="vale"]:not([hidden]) > .card[aria-expanded="false"]',
+        );
+        if (await top.count()) await tap(await top.getAttribute("data-card"));
+      };
       const selected = () =>
         page
           .locator('#hand .card[aria-pressed="true"]')
@@ -201,8 +208,11 @@ try {
           "vale",
         );
         await tap("vale");
+        await fanVale();
         assert.equal(await frame("cloth").getAttribute("hidden"), null);
         await page.evaluate(() => window.folded.splice(0));
+        // Vale folds its stacks back, then lowers.
+        await tap("vale");
         await tap("vale");
         await collapsed();
         // The stack's cards fold away as ghosts, which are released.
@@ -239,9 +249,8 @@ try {
           path: new URL(`${table}-stack.png`, output).pathname,
         });
         await tap("vale");
+        await fanVale();
         await tap("lamp");
-        await tap("vale");
-        await collapsed();
         assert.equal(await frame("lamp").getAttribute("hidden"), null);
         assert.deepEqual(await selected(), ["lamp"]);
         assert(
@@ -359,8 +368,9 @@ try {
             };
           });
         await tap("vale");
+        await fanVale();
         await tap("lamp");
-        assert.deepEqual(await selected(), ["lamp", "vale"]);
+        assert.deepEqual(await selected(), ["lamp"]);
         await settleHand();
         const beforePlay = await handRect();
         // The first beat brings the dialogue, which lies over the raised
@@ -386,7 +396,7 @@ try {
         });
         assert.deepEqual(
           await selected(),
-          ["lamp", "vale"],
+          ["lamp"],
           "lighting the lamp keeps it in hand",
         );
         // Raising the hand again brings the held lamp's plays back.
@@ -398,19 +408,20 @@ try {
         await settled();
         await raise();
         await action("light").waitFor();
-        assert.deepEqual(await selected(), ["lamp", "vale"]);
+        assert.deepEqual(await selected(), ["lamp"]);
         await page.waitForTimeout(600);
         await action("light").click();
         await settled();
         await raise();
         assert.equal(await action("snuff").count(), 1, "the lamp stays lit");
         assert.equal(await action("light").count(), 0);
-        assert.deepEqual(await selected(), ["lamp", "vale"]);
+        assert.deepEqual(await selected(), ["lamp"]);
         await page.keyboard.press("Escape");
         assert.deepEqual(await selected(), []);
         // An outside click clears a held item too: its panel fades and the
         // full dialogue card comes back.
         await tap("vale");
+        await fanVale();
         await tap("lamp");
         await page.locator("#stage").click({ position: { x: 20, y: 200 } });
         assert.deepEqual(await selected(), []);
@@ -425,9 +436,10 @@ try {
         });
         // Choosing it again opens the row with Put out.
         await tap("vale");
+        await fanVale();
         await tap("lamp");
         assert.equal(await handExpanded(), "true", "the row opens again");
-        assert.deepEqual(await selected(), ["lamp", "vale"]);
+        assert.deepEqual(await selected(), ["lamp"]);
         assert.equal(await frame("lamp").getAttribute("hidden"), null);
         assert.equal(await action("snuff").count(), 1, "Put out is offered");
         await page.screenshot({
@@ -436,9 +448,10 @@ try {
         await page.locator("#stage").click({ position: { x: 20, y: 200 } });
         assert.equal(await handExpanded(), "false");
         await tap("vale");
+        await fanVale();
         await tap("lamp");
         assert.equal(await handExpanded(), "true");
-        assert.deepEqual(await selected(), ["lamp", "vale"]);
+        assert.deepEqual(await selected(), ["lamp"]);
         // A tap on the dialogue (the ready play's beat) leaves the raised
         // hand, its cards and its scroll where they were (#1883).
         const actionBeat = page.locator(".action-beat-heading");
@@ -454,7 +467,7 @@ try {
           "true",
           "a dialogue tap keeps it up",
         );
-        assert.deepEqual(await selected(), ["lamp", "vale"]);
+        assert.deepEqual(await selected(), ["lamp"]);
         await settleHand();
         assert.deepEqual(
           await handLayout(),
@@ -465,19 +478,22 @@ try {
         await page.locator("#stage").click({ position: { x: 20, y: 200 } });
         assert.equal(await handExpanded(), "false", "the table lowers it");
         await tap("vale");
+        await fanVale();
         await tap("lamp");
         assert.equal(await handExpanded(), "true");
         // With the hand up, a tap lowers the lamp, and Escape still clears.
         await tap("lamp");
-        assert.deepEqual(await selected(), ["vale"]);
+        assert.deepEqual(await selected(), []);
         await page.keyboard.press("Escape");
         assert.deepEqual(await selected(), []);
         await tap("vale");
+        await fanVale();
         await tap("lamp");
         await page.locator("#stage").click({ position: { x: 20, y: 200 } });
         await page.keyboard.press("Escape");
         assert.deepEqual(await selected(), []);
         await tap("vale");
+        await fanVale();
         await tap("lamp");
         await page.locator("#stage").click({ position: { x: 20, y: 200 } });
         await page.keyboard.press("Escape");
@@ -486,6 +502,7 @@ try {
         assert.deepEqual(await selected(), []);
         await page.keyboard.press("Escape");
         await tap("vale");
+        await fanVale();
         await tap("lamp");
         await tap("moth");
         assert.deepEqual(
@@ -503,6 +520,7 @@ try {
         );
         await page.keyboard.press("Escape");
         await tap("vale");
+        await fanVale();
         await tap("cloth");
         await tap("pond");
         assert.deepEqual(await selected(), ["cloth", "pond"]);

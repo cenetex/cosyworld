@@ -227,18 +227,13 @@ try {
         );
       }
       await assertHeldItem(null);
-      // Either member of a pair can be lowered, with or without a play.
-      for (const ids of [
-        ["vale", "cloth"],
-        ["cloth", "lamp"],
-      ]) {
+      // Either member of a pair can be lowered, with or without a play. A
+      // thing chosen from Vale's stack takes Vale's place (#2256).
+      for (const ids of [["cloth", "lamp"]]) {
         for (const lowered of ids) {
           for (const id of ids) await tapCard(id);
           await assertHeldItem(ids.at(-1));
-          assert.equal(
-            await page.locator(".card-primary").count(),
-            ids[0] === "vale" ? 0 : 1,
-          );
+          assert.equal(await page.locator(".card-primary").count(), 1);
           // A click on the scene folds the hand and clears the choice, held
           // item included (#2055): Vale holds up his lamp again.
           const scene = page.locator("#stage");
@@ -262,7 +257,7 @@ try {
             "false",
           );
           const remaining = ids.find((id) => id !== lowered);
-          await assertHeldItem(remaining === "vale" ? null : remaining);
+          await assertHeldItem(remaining);
           assert.equal(
             await card(remaining).getAttribute("aria-pressed"),
             "true",

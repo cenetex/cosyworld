@@ -395,8 +395,8 @@ while the target is within two moves. Steps still to come lie face down behind
 the card, showing the card back. It plays nothing. The top quest folds behind the player's avatar card as
 a full-size card in its stack: face down, showing the carved card back, leaning
 out to the top left with a glowing line in its tier colour along its edge.
-Choosing the folded card fans the whole stack out, top first, and so does
-opening the avatar's stack. Each quest card is dealt face down, showing the
+Choosing the folded card opens the avatar's stacks with its quests fanned out,
+top first. Each quest card is dealt face down, showing the
 carved lid, and turns to its face 520 ms after it is first seen, with the
 hand's reveal (`card-reveal.mjs`), the next quest a moment after; reduced
 motion crossfades. It turns once: folding and opening the fan, plays, redraws
@@ -470,7 +470,17 @@ The places you can go from here form one location stack: the current place
 lies face up on top, and each reachable place adds a face-down card, showing
 the carved card back, behind it, up to three. Tapping the current place fans the stack (and the items lying there)
 out like the hand; tapping a place selects it for **Travel**, and the stack
-folds back after the play.
+folds back after the play. Tapping a chosen card in the fan again only lowers
+it, and the stack stays open; tapping the current place folds it (#2247).
+Choosing the player's avatar shows two stacks beside it, in the same way: the
+things it carries, then its quests (#2256). An empty stack is left out. Each
+shows its top card face up with the rest face down behind it, up to three;
+tapping the top card fans that stack and folds the other. Tapping a card in a
+fan chooses it, and it moves left, next to the avatar: a thing takes the
+avatar's place in the choice, so it pairs with the next card, and a quest is
+the choice alone, offering **Drop quest**. A stack of one card hides nothing,
+so its card is chosen at the first tap. Tapping the avatar again folds both
+stacks back to the avatar, and tapping it once more lowers it.
 A person or place holding things shows the first of them peeking out behind
 its card. Reduced motion means nothing moves, not that nothing changes: keyframe motion stops and every transition left is an opacity fade of at most 300 ms (`style.css`, checked element by element by `v2/scripts/smoke-card-reduced-fades.mjs`). A pointer over a card shuffles it: the card and its preview stack lift together while the rest of the fan parts around it (180 ms; touch has no hover, reduced motion only brightens it).
 Every card names itself at its top in one label, for avatars, items, places,
