@@ -17,6 +17,7 @@ import {
   questEntryKey,
 } from "./card-entry.mjs";
 import { LOCKED_BACK, createLockedBoxes, isLockedBox } from "./locked-box.mjs";
+import { fadeInRevealed, revealedStage } from "./stage-reveal.mjs";
 import {
   phase,
   refusalLabel,
@@ -328,6 +329,8 @@ function wordsOnLoad() {
 }
 let encountered = new Set(),
   discoveryDone = Promise.resolve();
+// Cards just revealed whose figure or item has yet to fade into the scene.
+const stageReveals = new Set();
 const fresh = new Set();
 // The level each card last showed, so a rise plays on the card itself.
 const shownLevels = new Map();
@@ -637,6 +640,8 @@ const exchange = createExchange({
     pendingSpeaker = null;
     awaitingNext = false;
     const speakerId = line.entityId || line.actorId;
+    // An unrevealed person who speaks is revealed with the line.
+    if (people[speakerId] && cardIsCovered(speakerId)) uncover(speakerId);
     if (speakerId && !shownSpeakers.includes(speakerId))
       shownSpeakers.push(speakerId);
     lineSeq = line.seq;
@@ -1307,6 +1312,8 @@ function uncover(id, { flip = true, lid = null } = {}) {
   encountered.add(id);
   coveredCards.delete(id);
   rememberCards();
+  // Its figure or item fades into the scene (stage-reveal.mjs).
+  stageReveals.add(id);
   render();
   const shown = $("hand").querySelector(`.card[data-card="${id}"]`);
   if (shown && flip) void revealCard(openingLid(shown, lid));
@@ -2671,7 +2678,7 @@ function renderStage(locationId) {
     else view.style.removeProperty(name);
   const figures = $("stage-figures");
   let figure = figures.querySelector(".stage-figure");
-  if (!stage.resident) {
+  if (!stage.resident || cardIsCovered(stage.resident)) {
     figure?.remove();
     return;
   }
@@ -2738,7 +2745,10 @@ function returnToLive() {
 }
 const litCarried = (actor) =>
   Object.keys(world.items).find(
-    (id) => world.items[id].lit && rootHolder(world, id) === actor,
+    (id) =>
+      world.items[id].lit &&
+      rootHolder(world, id) === actor &&
+      !cardIsCovered(id),
   ) || null;
 function renderHeldItem(figure, actor, itemId) {
   let preview = figure.querySelector(".portrait-held-item");
@@ -2795,6 +2805,8 @@ function renderFloorItems(items) {
       if (!prop) {
         prop = node("span", undefined, "floor-item");
         prop.dataset.item = id;
+        if (stageReveals.delete(id))
+          fadeInRevealed(prop, { reduced: reducedMotion.matches });
       }
       const key = JSON.stringify([id, cover]);
       if (prop.dataset.key !== key) {
@@ -2837,7 +2849,9 @@ function renderScene() {
   // The hand and physical stage always show this same committed world.
   // Reviewing a line changes the words while present people keep their places.
   const resolvedBeat = exchange.preparing || scene.line?.turn !== world.turn;
-  scene.slots = sceneCast(world);
+  scene.slots = revealedStage({ cast: sceneCast(world) }, cardIsCovered).cast;
+  // A place still face down is black behind whoever is revealed.
+  $("stage").dataset.placeCovered = String(cardIsCovered(scene.locationId));
   $("stage").dataset.presentedRevision = String(world.revision);
   shownSceneLine = scene.line;
   const img = $("backdrop");
@@ -2906,7 +2920,7 @@ function renderScene() {
     currentState: true,
     sharedPlays: sharedSession?.state.history,
   });
-  renderFloorItems(staging.floorItems);
+  renderFloorItems(revealedStage(staging, cardIsCovered).floorItems);
   $("cast").dataset.layout = staging.layout;
   $("cast").dataset.count = String(staging.actors.length);
   $("cast").dataset.shared = String(Boolean(sharedSession));
@@ -2927,6 +2941,8 @@ function renderScene() {
         if (existing.has(id)) return existing.get(id);
         const figure = node("div", undefined, "portrait");
         figure.dataset.avatar = id;
+        if (stageReveals.delete(id))
+          fadeInRevealed(figure, { reduced: reducedMotion.matches });
         figure.setAttribute("aria-label", nameOf(id));
         const body = node("div", undefined, "portrait-body");
         const image = node("img");
@@ -3052,6 +3068,8 @@ function renderScene() {
       });
     }
   });
+  // A reveal off stage (a place card, someone elsewhere) fades nothing later.
+  stageReveals.clear();
   hauntScene($("stage"), scene.locationId, {
     reduced: reducedMotion.matches,
     url: (source) => imageUrl(source),

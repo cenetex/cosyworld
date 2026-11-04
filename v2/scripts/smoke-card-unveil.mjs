@@ -354,7 +354,10 @@ try {
         await page.waitForTimeout(2400);
         await closeSettings(page);
       }
-      await unveil("keeper");
+      // The keeper arrives face down, until his line reveals him.
+      await page
+        .locator('#hand [data-card="keeper"]')
+        .waitFor({ state: "attached" });
       assert.equal(
         await page
           .locator("#travel")
@@ -367,6 +370,11 @@ try {
       assert.equal(
         await page.locator('#hand [data-card="oil"]').isVisible(),
         false,
+      );
+      // His first line, even "…", reveals him with it (stage-reveal.mjs).
+      await page.waitForSelector(
+        '#hand [data-card="keeper"][data-unrevealed="false"]:not([data-revealing])',
+        { state: "attached" },
       );
       await selectCard(page, "keeper");
       await page.locator('#hand [data-card="oil"]').click();

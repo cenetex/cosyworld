@@ -96,6 +96,7 @@ const files = [
   "card-reveal.mjs",
   "card-entry.mjs",
   "locked-box.mjs",
+  "stage-reveal.mjs",
   "card-level-up.mjs",
   // Willows sign alternates chosen by the willows pack.
   ...[
