@@ -391,6 +391,37 @@ fn a_return_visit_remembers_what_is_between_us() {
     );
 }
 
+/// "In the prompting lets call them moments instead of turns" (owner,
+/// 2026-11-03): no prompt these scenes build says "turn", while the table's
+/// own captions keep their words.
+#[test]
+fn prompts_say_moments_not_turns() {
+    let cases = cases();
+    assert!(cases.iter().any(|(_, c, _)| c
+        .action
+        .as_deref()
+        .is_some_and(|a| a.contains(" one turn."))));
+    for (case, context, lines) in &cases {
+        for id in voiced(context) {
+            let heard = scene_for(context, lines, &id);
+            let context = heard.as_ref().unwrap_or(context);
+            let parts: &[Part] = if kind(&id, "avatar") {
+                &[Part::Line, Part::Thought, Part::Persona, Part::Dream]
+            } else {
+                &[Part::Line]
+            };
+            for part in parts {
+                let (system, user) = messages(context, entity(context, &id), *part);
+                let text = format!("{system}\n{user}").to_lowercase();
+                let turn = text
+                    .split(|c: char| !c.is_alphanumeric())
+                    .any(|w| w == "turn" || w == "turns");
+                assert!(!turn, "{case} {id} {part:?}: {text}");
+            }
+        }
+    }
+}
+
 #[test]
 fn voice_eval_measures_contract_prompts_and_recorded_replies() {
     let report = report();

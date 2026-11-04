@@ -66,7 +66,9 @@ pub(super) fn transcript(context: &Context, entity: &Entity) -> String {
         }
         let seed = roll(id, turn, 10 + salt);
         let memory = memories[seed as usize % memories.len()];
-        if let Some(scrap) = fragment(&memory.text, seed >> 4) {
+        // A scrap of the day, in the dreamer's own first person.
+        let text = person::shift(&memory.text, &own);
+        if let Some(scrap) = fragment(&text, seed >> 4) {
             if !drift.iter().any(|d: &String| d.contains(&scrap)) {
                 drift.push(format!("… {scrap} …"));
             }

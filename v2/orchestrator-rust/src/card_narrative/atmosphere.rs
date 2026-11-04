@@ -46,7 +46,7 @@ pub(super) fn transcript(context: &Context, entity: &Entity) -> String {
         lines.push(format!("Earlier atmosphere: {previous}"));
     }
     lines.push(format!("{own}:"));
-    lines.join("\n")
+    super::person::moments(&lines.join("\n"))
 }
 
 pub(super) fn consistent(text: &str, id: &str) -> bool {
