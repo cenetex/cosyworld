@@ -631,7 +631,8 @@ describe("a rules 93 save on the Coast Road", () => {
       ["greek-road-north", "greek-sanctuary"],
     ];
     const w = decodeSave(JSON.stringify(s));
-    expect(w.packs["greek-drama"].revision).toBe(18);
+    // Revision 19 follows: the forecourt through the well.
+    expect(w.packs["greek-drama"].revision).toBe(19);
     expect(w.actors.vale.place).toBe("greek-piraeus");
     expect(w.items["greek-water-jar"].holder).toBe("greek-piraeus");
     expect(w.openedRoutes).toContain(CITY_GATE);

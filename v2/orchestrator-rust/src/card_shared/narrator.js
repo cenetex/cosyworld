@@ -2979,7 +2979,7 @@
         schemaVersion: 1,
         id: "greek-drama",
         packId: "cosyworld.greek-drama",
-        revision: 18,
+        revision: 19,
         name: "The Wine-Dark Sea",
         description: "A branching Greek drama world. A shared ship visits the Wine-Dark Harbor, Athens Harbor and Piraeus. One road joins Athens and Piraeus, and short paths lead to the Attic places where welcome becomes a growing poem.",
         tone: "Concrete Greek domestic and civic life: bread, work, desire, grief, argument, irreverence, and hospitality. Dialogue expresses committed actions. A tragic ending is never required.",
@@ -3036,7 +3036,6 @@
             exits: [
               "greek-road-thebes",
               "greek-well",
-              "greek-palace",
               "greek-gate"
             ],
             backdrop: "assets/greek-drama/courtyard-day.webp",
@@ -3046,9 +3045,9 @@
             name: "Theban Market Well",
             text: "Water jars stand beside the well. Neighbors lower their voices when palace servants pass.",
             exits: [
-              "greek-courtyard"
+              "greek-courtyard",
+              "greek-palace"
             ],
-            within: "greek-courtyard",
             backdrop: "assets/greek-drama/market-well-day.webp",
             persona: "Water jars stand beside the well. Neighbors lower their voices when palace servants pass."
           },
@@ -3056,7 +3055,7 @@
             name: "Theban Palace Forecourt",
             text: "The king receives petitions beneath a painted portico. A space beside the door is kept for public orders.",
             exits: [
-              "greek-courtyard",
+              "greek-well",
               "greek-sanctuary"
             ],
             backdrop: "assets/greek-drama/palace-day.webp",
@@ -16753,6 +16752,7 @@
       upgradeGreekEastSeaSave(s);
       upgradeGreekThreeLinksSave(s);
       upgradeGreekLandRouteSave(s);
+      upgradeGreekForecourtSave(s);
       upgradeRecitals(s, packDefinitions);
     }
     upgradeSightings(s);
@@ -17167,6 +17167,13 @@
           (edge) => !laneOfEdge(edge) || sailed.has(JSON.stringify(edge))
         );
     saved.revision = 18;
+  }
+  function upgradeGreekForecourtSave(s) {
+    const pack = packDefinitions.find((p) => p.id === "greek-drama");
+    const saved = s.packs?.[pack?.id];
+    if (!pack || pack.revision < 19 || saved?.revision !== 18) return;
+    foldRetiredRoads(s);
+    saved.revision = 19;
   }
   var RUMOURS = {
     "greek-marathon": "greek-piraeus",

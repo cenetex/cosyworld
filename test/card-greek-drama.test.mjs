@@ -354,14 +354,36 @@ describe("Before the Burial", () => {
     expect(reload(world)).toEqual(world);
   });
 
-  it("links the Market Well only to the courtyard", () => {
+  it("reaches the palace forecourt through the Market Well", () => {
     const world = courtyard();
-    expect(exits(world, WELL, "vale")).toEqual([COURTYARD]);
+    // Greek revision 19: courtyard, well, forecourt, sanctuary in a line.
     expect(exits(world, COURTYARD, "vale")).toEqual(
-      expect.arrayContaining([WELL, PALACE, GATE]),
+      expect.arrayContaining([WELL, GATE]),
     );
-    // The sanctuary lies beyond the palace: three links each.
-    expect(exits(world, PALACE, "vale")).toEqual([COURTYARD, SANCTUARY]);
+    expect(exits(world, COURTYARD, "vale")).not.toContain(PALACE);
+    expect(exits(world, WELL, "vale")).toEqual([COURTYARD, PALACE]);
+    expect(exits(world, PALACE, "vale")).toEqual([WELL, SANCTUARY]);
+    expect(availableCards(world)).not.toContain(PALACE);
+    const there = walk(world, WELL, PALACE, SANCTUARY);
+    expect(there.actors.vale.place).toBe(SANCTUARY);
+  });
+
+  it("walks a revision 18 step from the courtyard to the forecourt through the well", () => {
+    const old = JSON.parse(encodeSave(courtyard()));
+    old.packs[PACK].revision = 18;
+    old.routeKnowledge["greek-rhapsode"] = [
+      [COURTYARD, PALACE],
+      [PALACE, COURTYARD],
+    ];
+    const world = decodeSave(JSON.stringify(old));
+    expect(world.packs[PACK].revision).toBe(19);
+    expect(world.routeKnowledge["greek-rhapsode"]).toEqual([
+      [COURTYARD, WELL],
+      [WELL, PALACE],
+      [PALACE, WELL],
+      [WELL, COURTYARD],
+    ]);
+    expect(reload(world)).toEqual(world);
   });
 
   it("buries with a shovel, cloth and oil on the battlefield, then yields the account", () => {
@@ -410,9 +432,11 @@ describe("Before the Burial", () => {
     let world = courtyard();
     world = take(move(world, SANCTUARY), "greek-household-token");
     world = walk(world, COURTYARD, GATE);
-    world = walk(world, COURTYARD, WELL);
+    // The elder may come back to the well just after Vale: the meeting
+    // then lands on Vale's next play there.
+    world = act(walk(world, COURTYARD, WELL), "wait");
     expect(done(world, "gather-witness")).toBeTruthy();
-    world = take(walk(world, COURTYARD, PALACE), "greek-decree");
+    world = take(move(world, PALACE), "greek-decree");
     world = give(world, "greek-decree", "greek-creon");
     expect(stateOf(world).choices["greek-theban-response"]).toBe("concession");
     expect(world.items["greek-decree"].holder).toBe(PALACE);

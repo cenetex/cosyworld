@@ -92,7 +92,7 @@ const TOWNS = {
 };
 
 // A place within another links only to its parent and does not count toward
-// its district's four places. The well and other places name it in `within`.
+// its district's four places. Pack places name their parent in `within`.
 const INTERIORS = {
   "greek-acharnae": "greek-attic-farm",
   "greek-demos-house": "greek-assembly",

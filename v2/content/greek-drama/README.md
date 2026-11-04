@@ -62,8 +62,12 @@ opens again. The Libation Wine (`greek-libation`) is a separate cup of wine
 on the Cithaeron road, distinct from the provisions' wine skin; no rite needs
 it yet.
 
-The Market Well lies within the courtyard and opens only onto it. Objects
-keep their actual holders. The quiet sanctuary and the homeward road remain
+Thebes runs Courtyard, Market Well, Palace Forecourt, Hillside Sanctuary in
+a line, with the City Gate off the courtyard: the forecourt is reached
+through the well (revision 19), not straight from the courtyard. Its save
+upgrade (`upgradeGreekForecourtSave`) turns a known step between the
+courtyard and the forecourt into the walk through the well. Objects keep
+their actual holders. The quiet sanctuary and the homeward road remain
 available throughout. See the [Greek redesign](../../docs/card-table/greek-redesign.md).
 
 The City Gate opens onto the battlefield once the gate guard

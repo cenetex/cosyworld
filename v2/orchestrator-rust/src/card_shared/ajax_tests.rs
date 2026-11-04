@@ -335,19 +335,24 @@ fn ajax_upgrade_brings_an_uninvited_nineteen_camp_visitor_home_and_replays_it() 
                 _ => None,
             }
         };
-        // Greek revision 11 sets the Market Well within the courtyard, so a
-        // step the well lost walks through the courtyard.
-        let within = |from: &str, to: &str| -> Option<&str> {
+        // A Theban step the map lost walks the places between, in order
+        // from the courtyard: Greek revision 11 took the gate off the well,
+        // revision 17 put the sanctuary beyond the palace and revision 19 put
+        // the palace beyond the well.
+        let within = |from: &str, to: &str| -> Option<Vec<&str>> {
             let mut pair = [from, to];
             pair.sort();
-            match pair {
-                ["greek-gate", "greek-well"] | ["greek-palace", "greek-well"] => {
-                    Some("greek-courtyard")
-                }
-                // Greek revision 17 reaches the sanctuary through the palace.
-                ["greek-courtyard", "greek-sanctuary"] => Some("greek-palace"),
-                _ => None,
-            }
+            let via = match pair {
+                ["greek-gate", "greek-well"] => vec!["greek-courtyard"],
+                ["greek-courtyard", "greek-palace"] => vec!["greek-well"],
+                ["greek-courtyard", "greek-sanctuary"] => vec!["greek-well", "greek-palace"],
+                _ => return None,
+            };
+            Some(if from == pair[0] {
+                via
+            } else {
+                via.into_iter().rev().collect()
+            })
         };
         let cut = [
             ["greek-piraeus", "greek-tauris"],
@@ -390,7 +395,8 @@ fn ajax_upgrade_brings_an_uninvited_nineteen_camp_visitor_home_and_replays_it() 
                 } else if let Some(road) = along(from, to) {
                     vec![json!([from, road]), json!([road, to])]
                 } else if let Some(via) = within(from, to) {
-                    vec![json!([from, via]), json!([via, to])]
+                    let path: Vec<&str> = [vec![from], via, vec![to]].concat();
+                    path.windows(2).map(|w| json!([w[0], w[1]])).collect()
                 } else if from.starts_with("greek-road-") || to.starts_with("greek-road-") {
                     vec![]
                 } else {

@@ -97,11 +97,12 @@ describe("home and range", () => {
 
   it("walks a pushed resident home one step a turn, even off-stage", () => {
     let s = lifeWorld({ place: "greek-palace" });
-    s.actors["greek-creon"].place = "greek-well";
+    s.actors["greek-creon"].place = "greek-courtyard";
     s.actors["greek-creon"].homeward = true;
     s = reload(s);
     s = wait(s);
-    expect(s.actors["greek-creon"].place).toBe("greek-courtyard");
+    // The forecourt lies beyond the well (Greek revision 19).
+    expect(s.actors["greek-creon"].place).toBe("greek-well");
     expect(s.actors["greek-creon"].homeward).toBe(true);
     s = wait(s);
     expect(s.actors["greek-creon"].place).toBe("greek-palace");

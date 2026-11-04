@@ -40,10 +40,10 @@ Today's place ids are in backticks.
 
 | Quarter | Place | Links | Who and what |
 | --- | --- | --- | --- |
-| Lower Town | Theban Courtyard `courtyard` | Harbor Road, palace, sanctuary, gate, well | Dione's table, the homecoming frame |
-| (within Lower Town) | Market Well `well` | courtyard only | *Interior*; the elder and the water jar |
-| The Cadmeia | Palace Forecourt `palace` | courtyard | Creon; the decree starts here |
-| The Ismenion | Hillside Sanctuary `sanctuary` | courtyard | The Greek rest place (#1713) |
+| Lower Town | Theban Courtyard `courtyard` | Harbor Road, well, gate | Dione's table, the homecoming frame |
+| Lower Town | Market Well `well` | courtyard, palace | The elder and the water jar |
+| The Cadmeia | Palace Forecourt `palace` | well, sanctuary | Creon; the decree starts here |
+| The Ismenion | Hillside Sanctuary `sanctuary` | palace | The Greek rest place (#1713) |
 | The Gate | City Gate `gate` | courtyard, battlefield (gated, #1728) | The guard and the decree |
 
 Thebes has two roads:
@@ -53,8 +53,9 @@ Thebes has two roads:
   road-like place you stand in. It leads on over the **Cithaeron road**
   (today's Cithaeron Slopes `cithaeron`, as a road place) toward Attica.
 
-The well's links to the palace and gate go; the palace links to the
-courtyard. Aulis leaves the gate and becomes a ship stop. Cithaeron leaves the
+The well's link to the gate goes. The sanctuary lies beyond the palace
+(revision 17), and the palace beyond the well (revision 19, #2264): the
+well is no longer an interior. Aulis leaves the gate and becomes a ship stop. Cithaeron leaves the
 sanctuary and becomes the road beyond the battlefield.
 
 ### The unlock chain
