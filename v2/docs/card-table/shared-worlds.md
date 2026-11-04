@@ -40,8 +40,9 @@ stops waiting for its line. Words that fail never hold the seat: the play
 finishes at once as a silent scene, each due avatar shows "…", and nothing is
 journaled for the words ([words that fail](dialogue-beats.md#words-that-fail)).
 There is no Retry command. Once the room plays it, the reply types into the
-full-size front card. A refusal names the
-server's reason on the action beat's status line. Nudge asks a present human for attention. People
+full-size front card. A refused play's
+button reads the server's reason, disabled ("Waiting for an update"); one
+whose cards were let go reads it briefly on the action beat's status line. Nudge asks a present human for attention. People
 can sit quietly while the scene runs. Presence has a 60-second reconnect grace;
 the avatar claim remains saved.
 

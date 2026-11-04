@@ -1,5 +1,11 @@
 import { expect, it } from "vitest";
-import { phase, THINKING_GRACE_MS } from "../v2/card-game/presentation.mjs";
+import {
+  phase,
+  refusalLabel,
+  refusalSentence,
+  THINKING_GRACE_MS,
+} from "../v2/card-game/presentation.mjs";
+import { WORLD_UPDATE } from "../v2/card-game/shared-auth.mjs";
 
 const choosing = { raised: true, chosen: true };
 
@@ -40,4 +46,26 @@ it("has no failed phase: words that fail are a silent line", () => {
 it("gives slow words only a short grace", () => {
   expect(THINKING_GRACE_MS).toBeGreaterThanOrEqual(4000);
   expect(THINKING_GRACE_MS).toBeLessThanOrEqual(6000);
+});
+
+it("labels a refused play's button with the reason's first sentence", () => {
+  expect(refusalLabel(WORLD_UPDATE)).toBe("Waiting for an update");
+  expect(
+    refusalLabel("That play has changed. Check the cards and choose again."),
+  ).toBe("That play has changed");
+  expect(refusalLabel("The room filled just now. Wait for a place.")).toBe(
+    "The room filled just now",
+  );
+  expect(refusalLabel("")).toBe("Not played");
+});
+
+it("ends a refusal's status sentence with one mark", () => {
+  expect(refusalSentence("Choose a current play.")).toBe(
+    "Choose a current play.",
+  );
+  expect(refusalSentence("Is anyone there? Try again.")).toBe(
+    "Is anyone there?",
+  );
+  expect(refusalSentence("Wait… then try again.")).toBe("Wait…");
+  expect(refusalSentence("Not now!")).toBe("Not now.");
 });

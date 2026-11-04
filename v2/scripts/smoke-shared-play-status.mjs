@@ -1,6 +1,8 @@
 // The player's own shared play is one Thinking card while it waits, which
 // cancels in two taps. Once it commits the reply types into the full-size
-// front card. A refusal names its reason on the action bar's status line.
+// front card. A refused play says why on its own button while its cards stay
+// chosen (#2026), or briefly on the status line once they are not, and the
+// action beat fits a phone at 390x844, 320x568 and 200% text.
 import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
 import { resolve } from "node:path";
@@ -258,7 +260,8 @@ async function check(width) {
     assert.equal((await status()).text, "");
     assert.equal(world.turn, 1);
 
-    // A refused play names its reason and stays until the next play.
+    // A play refused at the table after its cards were let go says so
+    // briefly, and stays until the next choice.
     await chooseWait();
     const sentBefore = keys.length;
     await wait.click();
@@ -266,10 +269,11 @@ async function check(width) {
     await until(() => keys.length > sentBefore && queue.length > 0);
     queue = [];
     notice = refusal;
-    await waitFor(`Not played: Wait. ${refusal}`);
+    const aside = "Not played: Wait. That play has changed.";
+    await waitFor(aside);
     assert.equal((await status()).state, "rejected");
     await page.waitForTimeout(2200);
-    assert.equal((await status()).text, `Not played: Wait. ${refusal}`);
+    assert.equal((await status()).text, aside);
     await page.screenshot({
       path: resolve(output, `refused-${width}.png`),
     });
@@ -330,8 +334,123 @@ async function check(width) {
   }
 }
 
+// The rules refuse a play outright: its button reads the reason, disabled,
+// and nothing in the action beat spills out of it.
+async function checkRefusalFits(width, height, zoom = 1) {
+  const seat = { claimed: ["vale"], present: ["vale"] };
+  let world = dispatchShared({ op: "create", seed: 7 }).world;
+  world = dispatchShared({
+    world,
+    op: "join",
+    actor: "vale",
+    ...seat,
+    progress: { upgrades: ["scarf"] },
+  }).world;
+  const page = await browser.newPage({
+    viewport: { width, height },
+    deviceScaleFactor: zoom,
+    reducedMotion: "reduce",
+    isMobile: true,
+    hasTouch: true,
+  });
+  await page.route("**/auth/account", (route) =>
+    route.fulfill({ json: { authenticated: true } }),
+  );
+  await page.route(
+    /\/card-game\/shared\/worlds\/fits(?:\/command)?$/,
+    (route) =>
+      route.request().postDataJSON()?.op === "play"
+        ? route.fulfill({
+            status: 422,
+            json: { error: "This save needs a fresh start. (validateWorld:1)" },
+          })
+        : route.fulfill({
+            json: {
+              ...dispatchShared({ op: "view", world, actor: "vale", ...seat }),
+              id: "fits",
+              version: "full-card-world/96",
+              claimed: [1, 0, 0, 0, 0, 0, 0, 0],
+              present: [1, 0, 0, 0, 0, 0, 0, 0],
+              now: Date.now(),
+              queue: [],
+              history: [],
+              notice: null,
+            },
+          }),
+  );
+  try {
+    await page.goto(`${origin}/?world=fits`);
+    await page.waitForFunction(() => document.body.inert === false);
+    await selectCard(page, "forest-cottage", { touch: true });
+    const primary = page.locator("#card-actions .card-primary");
+    assert.equal(await primary.innerText(), "Down to the cottage");
+    await primary.tap();
+    await page.waitForFunction(() =>
+      document.querySelector("#card-actions [data-blocked=refused]"),
+    );
+    const beat = await page.evaluate(() => {
+      const panel = document
+        .querySelector(".action-panel")
+        .getBoundingClientRect();
+      const spills = [
+        ...document.querySelectorAll(
+          ".action-beat-body > :not([hidden]), #card-actions button",
+        ),
+      ].filter((el) => {
+        const box = el.getBoundingClientRect();
+        return (
+          box.top < panel.top - 1 ||
+          box.bottom > panel.bottom + 1 ||
+          box.left < panel.left - 1 ||
+          box.right > panel.right + 1 ||
+          el.scrollHeight > el.clientHeight + 1 ||
+          el.scrollWidth > el.clientWidth + 1
+        );
+      });
+      const button = document.querySelector("#card-actions .card-primary");
+      // The beat says each thing once: the play's name is not repeated
+      // beside a button that already names it or its reason.
+      const said = document.querySelector(".action-panel").innerText;
+      const once = (text) => said.split(text).length - 1;
+      return {
+        label: button.textContent,
+        disabled: button.disabled,
+        status: document.querySelector("#play-status").hidden,
+        spills: spills.map((el) => el.className || el.id),
+        inView: panel.left >= 0 && panel.right <= innerWidth,
+        repeats: ["Down to the cottage", "Waiting for an update"].filter(
+          (text) => once(text) > 1,
+        ),
+        update: once("This world is waiting"),
+      };
+    });
+    await page.screenshot({
+      path: resolve(output, `refused-fits-${width}x${height}@${zoom}.png`),
+    });
+    assert.deepEqual(beat, {
+      label: "Waiting for an update",
+      disabled: true,
+      status: true,
+      spills: [],
+      inView: true,
+      repeats: [],
+      update: 0,
+    });
+    console.log(`A refused play fits at ${width}x${height}@${zoom}x.`);
+  } finally {
+    await page.close();
+  }
+}
+
 try {
   for (const width of [1440, 390]) await check(width);
+  // 195x422 at 2x is 390x844 at 200% text.
+  for (const [width, height, zoom] of [
+    [390, 844, 1],
+    [320, 568, 1],
+    [195, 422, 2],
+  ])
+    await checkRefusalFits(width, height, zoom);
 } finally {
   await browser.close();
   server.close();
