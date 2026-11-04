@@ -6,6 +6,7 @@ import { scaresEnabled } from "./transitions.mjs";
 import { imageUrl } from "./images.mjs";
 import { flashStage } from "./weather-view.mjs";
 import { playLoss } from "./defeat-view.mjs";
+import { combatSound, combatSoundSeed } from "./combat-sfx.mjs";
 import {
   combatPortrait,
   createCombatPortraits,
@@ -137,6 +138,8 @@ export function createCombatView({
   veil,
   cardFace,
   cardColours,
+  // Plays a fight sound by name and seed (sfx.mjs).
+  sound = () => {},
 }) {
   let animations = [],
     added = [],
@@ -524,7 +527,9 @@ export function createCombatView({
       } catch {}
     }
   };
-  const apply = (beat, phase) => {
+  const apply = (beat, phase, { skipped = false } = {}) => {
+    // A tapped-through beat lands silently.
+    if (!skipped) sound(combatSound(beat, phase), combatSoundSeed(beat, phase));
     if (phase === "telegraph") {
       pushIn();
       const actor = fighter(beat.actorId);
