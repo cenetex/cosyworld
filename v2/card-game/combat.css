@@ -40,6 +40,20 @@
 .stage[data-combat="true"] .cast {
   transform-origin: 50% 62%;
 }
+/* The painting recedes behind a fight (combat-backdrop.mjs sets the
+   attribute and --recede-ms). weather.css keeps the opacity in its eased
+   light. Reduced motion cuts to the same dim. */
+.stage > .backdrop {
+  transition: opacity var(--recede-ms, 0ms) ease-in-out;
+}
+.stage[data-recede] > .backdrop {
+  opacity: 0.45;
+}
+@media (prefers-reduced-motion: reduce) {
+  .stage > .backdrop {
+    transition: none;
+  }
+}
 
 /* The caption reads under the top bar, never over the place name. It keeps
    one width at each breakpoint, so a new beat never resizes or re-centres

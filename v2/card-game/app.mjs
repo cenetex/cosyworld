@@ -108,6 +108,7 @@ import { createRoomMusic, openingRevealed } from "./music.mjs";
 import { battleMusicDue, createMusicCues } from "./music-cues.mjs";
 import { createHum } from "./hum.mjs";
 import { createSfx } from "./sfx.mjs";
+import { recedeBackdrop } from "./combat-backdrop.mjs";
 import { createCharacterSpeech } from "./character-speech.mjs";
 import { localRuntime } from "./local-service.mjs";
 import {
@@ -3837,6 +3838,13 @@ function render() {
   renderPlayers();
   music.setStarted(musicHasStarted());
   syncMusicCue();
+  // An open standoff in the player's room holds the painting back too.
+  recedeBackdrop(
+    $("stage"),
+    "standoff",
+    battleMusicDue(world, currentActor(world)),
+    { instant: covering },
+  );
   hum.setStarted(musicHasStarted());
   ringHeard();
   // While the travel veil comes down, the old place stays drawn.
