@@ -224,7 +224,7 @@ function dealt(s) {
       bench("armillary"),
       true,
       "",
-      [act("Next tip", "tip")],
+      [act("Next tip", "tip", { stays: true })],
       { info: TIPS[s.tip % TIPS.length] },
     ),
     card(

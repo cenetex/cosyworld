@@ -145,8 +145,9 @@ export function installSettingsCards({ actionBeat, packs, playHand }) {
     }
     armed = null;
     problem = "";
-    // Playing a setting folds its group back, as a play folds a place.
-    chosen = fanned = null;
+    // Playing a setting folds its group back, as a play folds a place;
+    // Next tip stays on Controls to show the next tip in place.
+    if (!action.stays) chosen = fanned = null;
     if (action.run === "close" || action.closes) close();
     if (action.run === "tip") tip += 1;
     if (action.run === "pack") packs.play(action.pack, action.enable);

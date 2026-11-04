@@ -125,6 +125,20 @@ try {
     assert.equal(await expanded(page, "sound"), "false");
     assert.equal(await shown(page, "music"), false);
     assert.equal(await button(page).textContent(), "Close settings");
+    // Next tip shows the next tip in place: Controls stays chosen.
+    await pressSetting(page, "controls");
+    const tipText = () => page.locator(".action-beat-heading").textContent();
+    const tips = [await tipText()];
+    for (let i = 0; i < 2; i++) {
+      await page.locator("#setting-controls").click();
+      tips.push(await tipText());
+      assert.equal(await button(page).textContent(), "Next tip");
+      assert.equal(await expanded(page, "play"), "true");
+    }
+    assert.equal(new Set(tips).size, 3, `three tips: ${tips}`);
+    await tapCard(setting(page, "controls"));
+    await tapCard(setting(page, "play"));
+    assert.equal(await button(page).textContent(), "Close settings");
     // A pack switches off and dims, and on again.
     await pressSetting(page, "pack-sea");
     await page.locator('[data-setting="pack-sea"][data-lit="false"]').waitFor({
