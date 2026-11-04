@@ -327,11 +327,17 @@ export function cardActions(world, selected) {
       hint = "Select a person or place to make a pair.";
     } else if (people[id]) {
       const offers = legalActions(world).filter((a) => a.target === id);
-      hint = offers.some((a) => a.kind === "threaten")
-        ? "Pair with Vale to threaten, or select a carried item to ask for it."
-        : offers.some((a) => a.kind === "accompany")
+      const offered = (kind) => offers.some((a) => a.kind === kind);
+      // Each hint names only a play the rules offer for this person now.
+      hint = offered("threaten")
+        ? offered("ask")
+          ? "Pair with Vale to threaten, or select a carried item to ask for it."
+          : "Pair with Vale to threaten."
+        : offered("accompany")
           ? `Pair with a place to invite ${nameOf(id)} along.`
-          : "Select a carried item to ask for it.";
+          : offered("ask")
+            ? "Select a carried item to ask for it."
+            : "";
     }
     actions.push(...cardChoices(world, id));
   } else if (cards.includes(currentActor(world))) {
