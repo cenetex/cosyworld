@@ -8,7 +8,6 @@ import { tiers } from "./level-tiers.mjs";
 import { LOGOS, logoSite, showToolbarLogo, worldLogo } from "./title-logo.mjs";
 import { createTitleSong } from "./title-song.mjs";
 import {
-  REVEAL_FADE_MS,
   createRevealPainter,
   createTextReveal,
   letterDelay,
@@ -26,7 +25,7 @@ export const TITLES = LOGOS.map((logo) => logo.src);
 const BLACK_MS = 350,
   LOAD_LIMIT_MS = 2500;
 // Left alone, the face-down card glows faintly (style.css) after idleGlowMs,
-// then "open the box" shows under it at hintMs. A tap, a key or a pointer
+// then "take it" shows under it at hintMs. A tap, a key or a pointer
 // over the card starts the wait again.
 export const REVEAL_HINT = { idleGlowMs: 3000, hintMs: 6000 };
 // Leaving: the turned face holds, the song fades as the title goes to black,
@@ -147,9 +146,10 @@ const link = (text, href) => {
 // (`pauses` in acknowledgement.json: the word, which time it appears,
 // counting from 1, and the ms to hold after it and any punctuation touching
 // it, a spaced dash too; the larger breath wins; one long silence falls
-// before "Before you sits"). Each line is set as
-// written, wrapping under a hanging indent on a narrow screen. About 20
-// seconds; a tap shows the rest, and the cue follows.
+// before "Before you sits"). After a stanza with `highlights` the pen holds
+// while their words light. Each line is set as written, wrapping under a
+// hanging indent on a narrow screen. About 25 seconds; a tap shows the rest,
+// lit, and the cue follows.
 export const STANZA_MS = 650;
 const escape = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 // Where each pause falls: its line, the span that lights (a held word's
@@ -206,7 +206,7 @@ export function acknowledgementDelays(acknowledgement) {
   let last = -1;
   for (const stanza of acknowledgement.stanzas.slice(0, -1))
     stanzaEnds.add((last += stanza.length));
-  return lines.flatMap((text, line) => {
+  const delays = lines.flatMap((text, line) => {
     let offset = 0;
     const letters = splitLetters(text);
     return letters.map((letter, i) => {
@@ -219,14 +219,32 @@ export function acknowledgementDelays(acknowledgement) {
       );
     });
   });
+  for (const { written, pauseMs } of acknowledgementHighlights(acknowledgement))
+    delays[written - 1] = Math.max(delays[written - 1], pauseMs);
+  return delays;
 }
-// The held words: the pauses with a rarity tier (the rest are silences).
-export const acknowledgementHeld = (acknowledgement) =>
-  acknowledgementPauses(acknowledgement).filter(({ tier }) => tier);
-// Which held phrases glow once `shown` letters are written: each from its
-// last letter on, and it stays lit. A tap that shows the rest lights them all.
+// The single words that light, set by set (`highlights`), each in the pause
+// after its stanza (`written`, the letters then written): `atMs` into it, in
+// reading order, one every wordStepMs after settleMs. The pause holds
+// tailMs past the last. Only the named occurrence of a word lights.
+export function acknowledgementHighlights(acknowledgement) {
+  const { stanzas, highlights = [], wordStepMs, tailMs } = acknowledgement;
+  let written = 0;
+  const ends = stanzas.map((s) => (written += splitLetters(s.join("")).length));
+  return highlights.flatMap(({ stanza, tier, words, settleMs }, set) => {
+    const settle = settleMs ?? acknowledgement.settleMs;
+    const pauseMs = settle + wordStepMs * words.length + tailMs;
+    return acknowledgementPauses({ stanzas, pauses: words }).map((word, i) => {
+      const atMs = settle + i * wordStepMs;
+      return { ...word, tier, set, written: ends[stanza - 1], atMs, pauseMs };
+    });
+  });
+}
+// Which words are due once `shown` letters are written: each from its
+// stanza's end, lighting atMs later, and it stays lit. A tap that shows the
+// rest lights them all at once.
 export function acknowledgementGlows(acknowledgement) {
-  const pauses = acknowledgementHeld(acknowledgement);
+  const pauses = acknowledgementHighlights(acknowledgement);
   return (shown, done) => pauses.map(({ written }) => done || shown >= written);
 }
 // The title's letters blip in the dialogue's own voice (createSpeechSounds in
@@ -239,8 +257,9 @@ export function voiceTitle(sounds) {
   voice = sounds;
 }
 // Real text from acknowledgement.json, set like a film's opening card. Each
-// held phrase takes on its rarity tier's colour as its last letter writes,
-// and keeps it.
+// highlighted word takes on its set's rarity tier colour and weight in the
+// pause after its stanza, and keeps them; it stays plain text, announced
+// nowhere.
 function acknowledgementPanel() {
   const glyphs = [];
   // A spaced dash keeps to the word before it, never alone on a row.
@@ -255,7 +274,7 @@ function acknowledgementPanel() {
   text.tabIndex = 0;
   text.setAttribute("role", "region");
   text.setAttribute("aria-label", acknowledgement.title);
-  const pauses = acknowledgementHeld(acknowledgement);
+  const pauses = acknowledgementHighlights(acknowledgement);
   const glowing = acknowledgementGlows(acknowledgement);
   const glows = [],
     lighting = new Map();
@@ -312,6 +331,18 @@ function acknowledgementPanel() {
     target = text.scrollTop + below;
     text.scrollTo({ top: target, behavior: "smooth" });
   };
+  // A set with a word scrolled out of view (at a large text size) lights
+  // the rest at once; the pause still holds.
+  const outOfView = (glow) => {
+    const box = glow.getBoundingClientRect(),
+      view = text.getBoundingClientRect();
+    return box.bottom <= view.top || box.top >= view.bottom;
+  };
+  const lightSet = (i) => {
+    const set = glows.filter((_, j) => pauses[j].set === pauses[i].set);
+    for (const glow of set.some(outOfView) ? set : [glows[i]])
+      if (!("lit" in glow.dataset)) glow.dataset.lit = "";
+  };
   const delays = acknowledgementDelays(acknowledgement);
   const painter = createRevealPainter(text);
   const reveal = createTextReveal({
@@ -325,8 +356,7 @@ function acknowledgementPanel() {
     frame: (value) => {
       painter.paint(value);
       follow(value);
-      // A phrase lights once its last letter's ink is whole: its letters
-      // take their colour from it, and a change mid-ink would slow theirs.
+      // A word lights atMs into the pause after its stanza.
       const lit = glowing(value.shown, value.complete);
       glows.forEach((glow, i) => {
         const pending = lighting.get(glow);
@@ -338,7 +368,7 @@ function acknowledgementPanel() {
         } else if (!pending && !("lit" in glow.dataset))
           lighting.set(
             glow,
-            setTimeout(() => (glow.dataset.lit = ""), REVEAL_FADE_MS + 40),
+            setTimeout(() => lightSet(i), pauses[i].atMs),
           );
       });
       if (!value.complete || !("stream" in panel.dataset)) return;
@@ -439,8 +469,8 @@ export function playTitleIntro({
   card.type = "button";
   card.dataset.unrevealed = "true";
   card.dataset.card = "title-traveller";
-  // The acknowledgement ends "Open the box", and the card back is its lid.
-  card.setAttribute("aria-label", "Open the box");
+  // The acknowledgement asks "Will you take it?"; the card back is the box.
+  card.setAttribute("aria-label", "Take the box");
   const back = element("img", "card-back");
   back.alt = "";
   back.src = imageUrl("./assets/card-back.webp", "card");
@@ -450,7 +480,7 @@ export function playTitleIntro({
   // The way to turn it, under the card (never on it), in the poem's own
   // words. The card's name says it to screen readers, so this line is
   // hidden from them.
-  const hint = element("p", "title-hint", "open the box");
+  const hint = element("p", "title-hint", "take it");
   hint.setAttribute("aria-hidden", "true");
   const row = element("div", "title-reveal");
   row.append(frame, hint, link("Privacy", "/privacy"));
