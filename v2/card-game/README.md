@@ -475,7 +475,9 @@ A card new to the view (an avatar arriving, a thing picked up or put down, a
 place found, the hand at a new place) rises into its slot over 460 ms, cards
 entering together 70 ms apart (`card-entry.mjs`). A card already there never
 moves again on a redraw, a card seen moving keeps that move, and reduced
-motion just shows it. An entering card takes taps at once; the motion is this
+motion just shows it. The hand a page, a resumed save or a new game opens on
+is dealt the same way, and a shared update or another tab's play slides the
+cards that moved. An entering card takes taps at once; the motion is this
 browser's alone and never waits on the rules or the shared room.
 A card that leaves the view (a thing given or put down into a folded stack,
 an avatar walking away, a place left behind, a quest cleared or set aside)
