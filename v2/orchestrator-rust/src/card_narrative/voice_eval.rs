@@ -567,9 +567,10 @@ fn a_character_speaks_as_itself_in_the_assistant_turn() {
     let view = prose(&prompt.assistant);
     assert!(view.starts_with("I am Dione the Baker.\n\nI want the Funeral Oil. "));
     assert!(view.ends_with(
-        "Bread cools beneath a cloth. My hands are empty. Vale's Lamp is burning and uncovered. \
-         I ask Vale for the Funeral Oil. Vale keeps it for now. Vale is holding the Funeral Oil. \
-         I'm talking with Vale, the Lamplighter."
+        "I smell bread cooling under a cloth; one place at the table is empty. My hands are \
+         empty. Vale's Lamp is burning and uncovered. I ask Vale for the Funeral Oil. Vale keeps \
+         it for now. Vale is holding the Funeral Oil. Vale, the Lamplighter is right here; I'm \
+         talking with them."
     ));
     // A fact she witnessed is not told again as the fact she may share.
     assert_eq!(view.matches("Ships for Piraeus Quays leave").count(), 1);
@@ -647,21 +648,22 @@ fn a_line_ends_on_what_the_speaker_perceives() {
     // L1: Myrto sees the flame Vale holds and the threat, not who holds what.
     let myrto = view("harbor wait with Myrto", "greek-shipmaster");
     assert!(myrto.ends_with(
-        "Worn steps climb from the stone landing toward the town. My hands are empty. \
+        "Worn stone steps rise under my sandals; water slaps the landing. My hands are empty. \
          Vale's Lamp is burning and uncovered. Pip threatens Vale over the Lamp. \
-         I'm talking with Vale, the Lamplighter."
+         Vale, the Lamplighter is right here; I'm talking with them."
     ));
     // L4: Antigone at the gate, no "Vale and Antigone are both at…".
     let antigone = view("Antigone at the gate", "greek-antigone");
     assert!(antigone.ends_with(
-        "Fresh repairs cover the gate. My hands are empty. Vale's Lamp is burning and uncovered. \
-         The Gate Guard and Vale talk at last. I'm talking with Vale, the Lamplighter."
+        "Fresh mortar smells damp on the gate; the bar sits heavy across it. My hands are empty. \
+         Vale's Lamp is burning and uncovered. The Gate Guard and Vale talk at last. \
+         Vale, the Lamplighter is right here; I'm talking with them."
     ));
     // P2 and P4: a return compared with the visit before it.
     assert!(view("P2 back at the pond", "vale").contains("The Bell wasn't here last time I came."));
     assert!(view("P4 alone at the pond", "vale").ends_with(
-        "Pip was here last time I came. A still pond beside the station. \
-         I'm holding the Lamp. My Lamp is unlit and uncovered. I'm alone here."
+        "Pip was here last time I came. The water lies black and still; something breathes \
+         under it. I'm holding the Lamp. My Lamp is unlit and uncovered. I'm alone here."
     ));
     // An older tab sends no perception: the earlier view, unchanged.
     let (_, harbor, _) = cases
