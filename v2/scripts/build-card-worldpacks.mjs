@@ -18,6 +18,7 @@ import {
 
 const v2 = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const output = path.join(v2, "card-game/packs.json");
+const owns = (o, key) => Object.hasOwn(o || {}, key);
 const read = (file) => JSON.parse(fs.readFileSync(path.join(v2, file), "utf8"));
 const check = process.argv.includes("--check");
 
@@ -31,6 +32,7 @@ if (
 )
   problems.push("card-table.json needs schemaVersion 1 and distinct packs");
 
+const bridgeEntries = {};
 const packs = (table.packs || []).map((id) => {
   const source = read(`content/${id}/card-world.json`);
   const bridge = read(`worlds/${id}/card-bridge.json`);
@@ -42,8 +44,10 @@ const packs = (table.packs || []).map((id) => {
     pack: _p,
     id: bridgeId,
     description,
+    entries,
     ...joins
   } = bridge;
+  bridgeEntries[id] = entries;
   const unknown = Object.keys(joins).filter(
     (key) => !["values", "crossings", "transports"].includes(key),
   );
@@ -126,12 +130,71 @@ for (const pack of packs) {
   }
 }
 
+// Entries: how each pack is entered, by an existing crossing or ship lane
+// (`by`) from a place outside it. The hub's own entries are where its packs
+// and homes join it. The rules read them from the hub (`packEntries`), so a
+// pack's own schema is unchanged (v2/docs/card-packs.md, Entries).
+const hubPlaces = table.hub?.places || [];
+const link = (e) =>
+  packs.some((p) =>
+    (p.crossings || []).some(
+      (c) => c.id === e.by && c.from === e.from && c.to === e.to && !c.retired,
+    ),
+  ) ||
+  packs.some((p) =>
+    (p.transports?.[e.by]?.lanes || []).some(
+      (l) => l.from === e.from && l.to === e.to,
+    ),
+  );
+const placeOf = (place) =>
+  hubPlaces.includes(place)
+    ? table.hub.id
+    : packs.find((p) => p.places[place])?.id;
+for (const pack of packs) {
+  const list = bridgeEntries[pack.id];
+  if (
+    !Array.isArray(list) ||
+    !list.length ||
+    !list.every(
+      (e) =>
+        Object.keys(e).join() === "from,to,by" &&
+        owns(pack.places, e.to) &&
+        placeOf(e.from) &&
+        placeOf(e.from) !== pack.id &&
+        link(e),
+    )
+  )
+    problems.push(
+      `${pack.id}: bridge entries must name existing links into its places`,
+    );
+}
+const shore = table.hub?.entries;
+if (
+  typeof table.hub?.id !== "string" ||
+  !Array.isArray(shore) ||
+  !shore.length ||
+  !shore.every(
+    (e) => Object.keys(e).join() === "to" && hubPlaces.includes(e.to),
+  )
+)
+  problems.push("the hub needs an id and entries that name its places");
+const switchable = Object.keys(table.hub?.switchable || {});
+if (
+  !switchable.length ||
+  !switchable.every((id) => id === table.hub.id || table.packs.includes(id))
+)
+  problems.push("the hub's switchable packs must be the hub or mounted packs");
+
 if (problems.length) {
   console.error(`Card world packs are invalid:\n- ${problems.join("\n- ")}`);
   process.exit(1);
 }
 const compiled = `${JSON.stringify(
-  { schemaVersion: 1, hub: table.hub, packs },
+  {
+    schemaVersion: 1,
+    hub: { ...table.hub, packEntries: bridgeEntries },
+    packs,
+  },
   null,
   2,
 )}\n`;

@@ -10,13 +10,13 @@ shape for the next spoke.
 
 ## Files
 
-| File                                | Owns                                                                                                      |
-| ----------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| `v2/worlds/card-table.json`         | The hub's own places, avatars and items, the player id, and the list of mounted packs.                    |
-| `v2/content/<pack>/card-world.json` | The reusable world: places, residents, fixtures. It never names the hub or another pack.                  |
-| `v2/worlds/<pack>/card-bridge.json` | How the pack meets the hub: crossings, their conditions and signals, and how residents value hub objects. |
-| `v2/card-game/assets/<pack>/*.png`  | The pack's art. Every media path in the source must point here.                                           |
-| `v2/card-game/packs.json`           | Generated. All mounted packs with their bridges, validated. Do not edit by hand.                          |
+| File                                | Owns                                                                                                                     |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `v2/worlds/card-table.json`         | The hub's own places, avatars and items, the player id, its entries and switchable packs, and the list of mounted packs. |
+| `v2/content/<pack>/card-world.json` | The reusable world: places, residents, fixtures. It never names the hub or another pack.                                 |
+| `v2/worlds/<pack>/card-bridge.json` | How the pack meets the hub: entries, crossings, their conditions and signals, and how residents value hub objects.       |
+| `v2/card-game/assets/<pack>/*.png`  | The pack's art. Every media path in the source must point here.                                                          |
+| `v2/card-game/packs.json`           | Generated. All mounted packs with their bridges, validated. Do not edit by hand.                                         |
 
 ```sh
 npm run v2:card:pack:build   # regenerate v2/card-game/packs.json
@@ -129,6 +129,30 @@ at the crossing's `from` place count. Inspection, reloads, rejected offers and
 generated speech never advance a signal. Leaving the place resets progress.
 With `"consecutive": false`, other plays leave progress alone. A refresh
 play counts from anyone at the place while the crossing is open.
+
+### Entries
+
+Each bridge declares `entries`: how the pack is entered, as `{"from", "to",
+"by"}`. `to` is one of the pack's places, `from` a place outside it, and `by`
+the existing crossing or ship lane between them, whose own conditions apply.
+The hub declares its own `entries` (where its packs and homes join it), its
+`id`, and `switchable`: the packs a world may switch off, in a fixed order,
+by their card names. The build checks that every entry names a live link and
+gathers the bridges' entries into the hub as `packEntries`, so a pack's own
+schema is unchanged. Pack switching (rules 97) is to read them; earlier rules
+ignore them.
+
+| Pack                                    | Entered                                                                              | Condition (the link's own)                                                                                                   |
+| --------------------------------------- | ------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------- |
+| The Reflected Shore (hub)               | Black pond, the attic, the station                                                   | none: the hub                                                                                                                |
+| Cosy Cottage (`lonely-forest`)          | attic to the cottage                                                                 | the lamp lit and uncovered in the attic, with the black cloth or a scarf there                                               |
+| The Wine-Dark Sea (`greek-drama`)       | the pond to the harbour by the Charybdis; the Hoppy Cat jetty to Piraeus by its lane | none                                                                                                                         |
+| Hoppy Cat Universe (`hoppycat-archive`) | Piraeus to the Signal Jetty, by the Charybdis's lane                                 | provisions or a Hoppy Cat thing aboard                                                                                       |
+| The Steam Clock (`badger-forest`)       | the pond to the clearing                                                             | the bell sounding at the pond                                                                                                |
+| The Willows (`willows`)                 | the pond to the landing by canoe; the Charybdis's rail to the landing                | the Swede's kit back at camp; a misty night with the Charybdis at the pond or at sea, provisions or a Hoppy Cat thing aboard |
+
+Hoppy Cat has no entry of its own: the pond's thread into the tea garden is
+retired, so its only live entry is the Charybdis, from the Wine-Dark Sea.
 
 ## Saves
 
