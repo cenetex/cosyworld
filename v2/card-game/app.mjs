@@ -22,6 +22,7 @@ import {
   EXIT_MS,
   cardOf,
   dropCards,
+  foldCards,
   leavingFrames,
 } from "./card-exit.mjs";
 import { keepFrames, morphFrame } from "./card-keep.mjs";
@@ -4186,9 +4187,16 @@ function render() {
     renderedHandRevision = world.revision;
     renderedHandPlace = world.actors[currentActor(world)].place;
     renderedHandState = handState;
-    if (sameWorld)
+    if (sameWorld) {
+      const shown = [...$("hand").children].filter((frame) => !frame.hidden);
       for (const frame of $("hand").children) updateCardSelection(frame);
-    else {
+      // A stack folding shows its cards folding away (card-exit.mjs).
+      foldCards(
+        shown.filter((frame) => frame.hidden && frame.isConnected),
+        handExits(),
+        reducedMotion.matches,
+      );
+    } else {
       // A card still in the hand keeps its node (card-keep.mjs).
       const row = [...$("hand").children],
         { frames, changed, faces } = keepFrames(

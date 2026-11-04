@@ -482,7 +482,9 @@ an avatar walking away, a place left behind, a quest cleared or set aside)
 falls 24 px and fades over 360 ms, staggered as entries are, at most six at
 once (`card-exit.mjs`). The hand redraws at once; an inert, aria-hidden copy
 from `card-ghost.mjs` plays the fall where the card lay and is released when
-it ends. A card shown under another holder moves there instead, and a reveal
+it ends. Cards folding into their holder's stack shrink and fade where they
+lay over 220 ms, 30 ms apart (reduced motion only fades them). A card shown
+under another holder moves there instead, and a reveal
 keeps its card, so it never falls. A page opening, a new game, another tab's
 world and reduced motion show no exit (`v2/scripts/smoke-card-exit.mjs`).
 A card still in the hand after a redraw keeps its node and stays put; when
