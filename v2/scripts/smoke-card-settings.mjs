@@ -134,11 +134,10 @@ try {
       await page.locator(".settings-scene").getAttribute("src"),
       /moonlit-cozy-fantasy-workbench/,
     );
+    // A pack name under the next card's overlap may take three lines
+    // where system-ui runs wide (Linux), as on phones.
     assert.deepEqual(
-      await page.evaluate(labelProblems, {
-        root: "#settings-hand",
-        lines: width > 700 ? 2 : 3,
-      }),
+      await page.evaluate(labelProblems, { root: "#settings-hand", lines: 3 }),
       [],
       `${width} labels`,
     );
