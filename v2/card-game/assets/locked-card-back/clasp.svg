@@ -1,0 +1,69 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1536" viewBox="0 0 1024 1536">
+<defs>
+  <linearGradient id="brass" x1="0" y1="0" x2="0.85" y2="1">
+    <stop offset="0" stop-color="#e5c17e"/><stop offset=".16" stop-color="#97703b"/><stop offset=".35" stop-color="#bda068"/><stop offset=".64" stop-color="#725332"/><stop offset=".84" stop-color="#b18a4a"/><stop offset="1" stop-color="#443328"/>
+  </linearGradient>
+  <linearGradient id="edge" x1="0" y1="0" x2="1" y2="1">
+    <stop stop-color="#f3d297"/><stop offset=".24" stop-color="#b29358"/><stop offset=".6" stop-color="#5d4327"/><stop offset=".8" stop-color="#ae8346"/><stop offset="1" stop-color="#33261c"/>
+  </linearGradient>
+  <linearGradient id="iron" x1="0" y1="0" x2="1" y2="0">
+    <stop stop-color="#3b3227"/><stop offset=".18" stop-color="#b89b68"/><stop offset=".4" stop-color="#705c3b"/><stop offset=".7" stop-color="#aa8b56"/><stop offset="1" stop-color="#322b25"/>
+  </linearGradient>
+  <radialGradient id="boss" cx=".28" cy=".2" r=".85">
+    <stop stop-color="#e8ca8a"/><stop offset=".3" stop-color="#b98f4c"/><stop offset=".8" stop-color="#69502e"/><stop offset="1" stop-color="#352a1e"/>
+  </radialGradient>
+  <radialGradient id="face" cx=".32" cy=".19" r=".95">
+    <stop stop-color="#ba985e"/><stop offset=".38" stop-color="#9d7b48"/><stop offset=".78" stop-color="#715333"/><stop offset="1" stop-color="#4d3a28"/>
+  </radialGradient>
+  <g id="screw">
+    <circle r="13" fill="#34271d" stroke="#d3af6e" stroke-width="1.4"/>
+    <circle cy="-1" r="10.8" fill="url(#boss)"/>
+    <path d="M-7 3 L7 -5" stroke="#241e19" stroke-width="2.8"/>
+    <path d="M-7 4 L7 -4" stroke="#e1bd7f" stroke-width=".9" opacity=".55"/>
+  </g>
+  <g id="leaf">
+    <path d="M0 0 C-16 -5 -20 -18 -13 -24 C-26 -32 -18 -42 -12 -42 C-21 -54 -9 -64 0 -72 C9 -64 21 -54 12 -42 C18 -42 26 -32 13 -24 C20 -18 16 -5 0 0Z" fill="url(#brass)" stroke="#4c3823" stroke-width="2"/>
+    <path d="M0 -4 L0 -65 M0 -15 L-10 -25 M0 -32 L-11 -42 M0 -45 L-7 -54 M0 -15 L10 -25 M0 -32 L11 -42 M0 -45 L7 -54" fill="none" stroke="#ddba78" stroke-width="1.1" opacity=".7"/>
+  </g>
+</defs>
+<!-- Two bolted keeper plates make the clasp a physical part of the lid. -->
+<path d="M472 531 Q512 508 552 531 L552 611 Q512 636 472 611Z" fill="#30291f" stroke="#231e18" stroke-width="6"/>
+<path d="M478 532 Q512 516 546 532 L546 606 Q512 626 478 606Z" fill="url(#brass)" stroke="url(#edge)" stroke-width="5"/>
+<use href="#screw" transform="translate(512 547)"/>
+<path d="M489 575 Q512 562 535 575 L535 650 Q512 665 489 650Z" fill="url(#iron)" stroke="#392d20" stroke-width="5"/>
+<path d="M498 579 L498 645" stroke="#e2c384" stroke-width="2.2" opacity=".6"/>
+<path d="M473 856 Q512 840 551 856 L551 939 Q512 958 473 939Z" fill="url(#brass)" stroke="#35291f" stroke-width="6"/>
+<path d="M479 858 L479 933 Q512 948 545 933 L545 858" fill="none" stroke="url(#edge)" stroke-width="3"/>
+<use href="#screw" transform="translate(512 930)"/>
+<!-- CLOSED shackle, with both ends entering the lock body. -->
+<path d="M422 693 L422 638 C422 521 602 521 602 638 L602 693" fill="none" stroke="#2f291f" stroke-width="41"/>
+<path d="M422 693 L422 638 C422 521 602 521 602 638 L602 693" fill="none" stroke="url(#iron)" stroke-width="31"/>
+<path d="M412 683 L412 638 C412 536 588 525 593 638 L593 681" fill="none" stroke="#d6bb80" stroke-width="4" opacity=".72"/>
+<path d="M432 683 L432 638 C432 550 589 550 589 638 L589 683" fill="none" stroke="#382d20" stroke-width="4" opacity=".8"/>
+<!-- Hand-forged, shouldered lock case. -->
+<path d="M389 668 Q410 651 434 659 Q465 667 477 650 Q512 633 547 650 Q559 667 590 659 Q614 651 635 668 L652 718 L647 823 Q641 867 608 881 L549 896 Q512 930 475 896 L416 881 Q383 867 377 823 L372 718Z" fill="#32271d" stroke="#211c16" stroke-width="7"/>
+<path d="M395 673 Q412 663 436 670 Q467 676 482 660 Q512 647 542 660 Q557 676 588 670 Q612 663 629 673 L640 721 L635 820 Q630 858 603 869 L543 884 Q512 915 481 884 L421 869 Q394 858 389 820 L384 721Z" fill="url(#brass)" stroke="url(#edge)" stroke-width="6"/>
+<path d="M411 694 Q445 701 474 688 Q512 666 550 688 Q579 701 613 694 L621 728 L617 814 Q613 843 593 853 L537 870 Q512 892 487 870 L431 853 Q411 843 407 814 L403 728Z" fill="url(#face)" stroke="#4d3824" stroke-width="3"/>
+<path d="M416 697 Q446 704 477 692 Q512 672 547 692 Q577 704 608 697" fill="none" stroke="#e0bb77" stroke-width="1.6" opacity=".76"/>
+<path d="M409 810 Q414 840 434 849 L491 867 Q512 887 533 867 L590 849" fill="none" stroke="#302a21" stroke-width="2.1" opacity=".7"/>
+<!-- Rivets and chased oak ornament. -->
+<use href="#screw" transform="translate(407 722) scale(.67)"/>
+<use href="#screw" transform="translate(617 722) scale(.67)"/>
+<use href="#screw" transform="translate(425 851) scale(.67)"/>
+<use href="#screw" transform="translate(599 851) scale(.67)"/>
+<g opacity=".85">
+  <use href="#leaf" transform="translate(451 816) rotate(-20) scale(.53)"/>
+  <use href="#leaf" transform="translate(573 816) rotate(20) scale(.53)"/>
+  <path d="M451 825 Q446 794 438 772 Q430 744 453 727 M573 825 Q578 794 586 772 Q594 744 571 727" fill="none" stroke="#493823" stroke-width="2.6"/>
+  <path d="M454 824 Q449 794 441 772 Q433 745 456 728 M576 825 Q581 794 589 772" fill="none" stroke="#cfaa69" stroke-width="1.1"/>
+  <path d="M470 717 Q512 735 554 717 M475 851 Q512 838 549 851" fill="none" stroke="#4a3723" stroke-width="3"/>
+  <path d="M470 715 Q512 733 554 715 M475 849 Q512 836 549 849" fill="none" stroke="#ccac71" stroke-width="1.5"/>
+  <path d="M494 702 Q512 681 530 702 Q512 717 494 702Z" fill="url(#edge)" stroke="#4c3825" stroke-width="1.7"/>
+</g>
+<!-- Deep, unmistakable keyhole; no floating UI glyph. -->
+<path d="M491 775 A27 27 0 1 1 533 775 L548 823 Q512 834 476 823Z" fill="#3d3023" stroke="#d5b479" stroke-width="2"/>
+<path d="M500 773 A20 20 0 1 1 524 773 L535 815 Q512 822 489 815Z" fill="#171917"/>
+<path d="M500 773 L489 815 Q512 822 535 815" fill="none" stroke="#dfbc79" stroke-width="2.2" opacity=".7"/>
+<path d="M500 773 A20 20 0 1 1 524 773" fill="none" stroke="#080f11" stroke-width="3.7"/>
+<circle cx="512" cy="886" r="7" fill="url(#boss)" stroke="#4d3925" stroke-width="1.8"/>
+</svg>
