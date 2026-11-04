@@ -322,6 +322,12 @@ try {
     await selectCard(page, "moth");
     assert.deepEqual(await chosen(), ["pond"]);
     assert.deepEqual(await labels(), ["Travel"]);
+    // Tapping the chosen way on again only lowers it: the stack stays fanned.
+    await selectCard(page, "pond");
+    assert.deepEqual(await chosen(), []);
+    assert.deepEqual(await labels(), []);
+    assert.equal(await card("station").getAttribute("aria-expanded"), "true");
+    assert.equal(await card("pond").isVisible(), true);
     await page.keyboard.press("Escape");
     await selectCard(page, "moth", { touch: width < 700 });
     assert.deepEqual(await labels(), ["Talk"]);

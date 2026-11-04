@@ -1367,13 +1367,15 @@ function rememberWait(action, key) {
       ? { key, revision: world.revision }
       : null;
 }
-function selectCards(cards) {
+function selectCards(cards, { keepOpen = false } = {}) {
   for (const id of selected)
     if (people[id] && !cards.includes(id)) expandedHolders.delete(id);
   // A place stays open, and raised, only while it is chosen or holds a
-  // chosen thing.
+  // chosen thing. Tapping a chosen card again only lowers that card, so the
+  // stack it lies in stays fanned.
   for (const id of expandedHolders)
     if (
+      !keepOpen &&
       places[id] &&
       !cards.includes(id) &&
       !cards.some((card) => things[card] && rootHolder(world, card) === id) &&
@@ -1436,6 +1438,8 @@ function choose(id) {
           !(id === placeHere() && stackedPlace(cardId)) &&
           (!things[cardId] || rootHolder(world, cardId) !== id),
       ),
+      // Only the current place's own tap folds its ways on.
+      { keepOpen: id !== placeHere() },
     );
   } else {
     const holder = things[id] ? rootHolder(world, id) : null;
@@ -1445,8 +1449,9 @@ function choose(id) {
     // keeps its partner: Pip + Station, then Pond, invites Pip to the Pond.
     if (places[id] && !selected.includes(id))
       selected = selected.filter((cardId) => !places[cardId]);
+    const lowering = selected.includes(id);
     selectCards(
-      selected.includes(id)
+      lowering
         ? selected.filter((cardId) => cardId !== id)
         : selected.length >= 2
           ? selected.includes(holder)
@@ -1455,6 +1460,7 @@ function choose(id) {
               ? [selectedHandItem(world, selected), id]
               : [id]
           : [...selected, id],
+      { keepOpen: lowering },
     );
   }
   selectionRevision = world.revision;

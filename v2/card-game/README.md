@@ -469,7 +469,8 @@ The places you can go from here form one location stack: the current place
 lies face up on top, and each reachable place adds a face-down card, showing
 the carved card back, behind it, up to three. Tapping the current place fans the stack (and the items lying there)
 out like the hand; tapping a place selects it for **Travel**, and the stack
-folds back after the play.
+folds back after the play. Tapping a chosen card in the fan again only lowers
+it, and the stack stays open; tapping the current place folds it.
 A person or place holding things shows the first of them peeking out behind
 its card. A pointer over a card shuffles it: the card and its preview stack lift together while the rest of the fan parts around it (180 ms; touch has no hover, reduced motion only brightens it).
 Every card names itself at its top in one label, for avatars, items, places,
