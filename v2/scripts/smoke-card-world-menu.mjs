@@ -11,7 +11,9 @@ import { createWorld, encodeSave } from "../card-game/world.mjs";
 // seat-sized card, its glyph centred, level with the row's portraits, even
 // when the row has no portrait (a world your avatar left). With everyone
 // found + New world stays, and a free avatar offers Bring to that world
-// whoever you had there (owner, 2026-11-03).
+// whoever you had there (owner, 2026-11-03). Each world's edge, and the
+// toolbar logo's glow, is the world's tier (world-level.mjs): the one played
+// from its state, another as this browser last saw it.
 const server = createServer();
 await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
 const origin = `http://127.0.0.1:${server.address().port}`;
@@ -21,6 +23,9 @@ const world = dispatchShared({
   save: encodeSave(createWorld()),
 }).world;
 delete world.opening;
+// A resident at level 20 makes this world Rare (world-level.mjs).
+world.actors.moth.xp = 190;
+world.turn = world.revision = 24;
 // Seat order: vale, mara, ash, nell, tavi, rue, orin, ada.
 const seats = (...held) => held.concat(Array(8 - held.length).fill(0));
 const everyone = ["vale", "mara", "ash", "nell", "tavi", "rue", "orin", "ada"];
@@ -52,6 +57,7 @@ const states = {
       { id: "here", owner: true, actor: "vale", held: seats(1), seed: 1 },
     ],
     unlocked: ["vale", "tavi"],
+    tiers: { here: "rare", root: "rare" },
   },
   // At the local table, Tavi left the attic, and everyone is found.
   "all-found-left": {
@@ -67,6 +73,8 @@ const states = {
       },
     ],
     unlocked: everyone,
+    cached: { "world:attic": "epic" },
+    tiers: { attic: "epic", root: null },
   },
 };
 const geometry = () => {
@@ -100,6 +108,21 @@ const geometry = () => {
     newWorld: Boolean(document.querySelector("#avatar-new-world")),
     cast,
     castLabel: document.querySelector(".slot-cast")?.getAttribute("aria-label"),
+    tiers: {
+      root: document.documentElement.dataset.worldTier || null,
+      ...Object.fromEntries(
+        [...document.querySelectorAll(".world-slot")].map((slot) => [
+          slot.dataset.slot,
+          slot.dataset.worldTier || null,
+        ]),
+      ),
+    },
+    edge: getComputedStyle(
+      document.querySelector(".world-slot") || document.body,
+    ).boxShadow,
+    logoGlow: getComputedStyle(
+      document.querySelector(".brand-logo") || document.body,
+    ).filter,
   };
 };
 try {
@@ -117,6 +140,10 @@ try {
       page.setDefaultTimeout(10000);
       const errors = [];
       page.on("pageerror", (error) => errors.push(error.message));
+      if (state.cached)
+        await page.addInitScript((cached) => {
+          localStorage.setItem("cosyworld.world-tier", JSON.stringify(cached));
+        }, state.cached);
       if (state.worlds) {
         await page.route("**/auth/account", (route) =>
           route.fulfill({ json: { authenticated: true } }),
@@ -162,6 +189,19 @@ try {
           `${name}: + glyph centred`,
         );
       }
+      if (state.tiers) {
+        assert.deepEqual(seen.tiers, state.tiers, `${name}: world tiers`);
+        const color = { rare: "rgb(190, 130, 255)", epic: "rgb(255, 200, 90)" };
+        assert(
+          seen.edge.includes(color[state.tiers.here || state.tiers.attic]),
+          `${name}: the world's edge is its tier (${seen.edge})`,
+        );
+        assert.equal(
+          seen.logoGlow.includes("drop-shadow"),
+          Boolean(state.tiers.root),
+          `${name}: the toolbar logo glows past Common (${seen.logoGlow})`,
+        );
+      }
       if (name === "two-found") {
         assert.equal(seen.newWorld, true);
         assert.deepEqual(
@@ -203,7 +243,7 @@ try {
     }
   }
   console.log(
-    "World menu: tools only signed out; signed in, a centred seat-sized + and your avatars face up (grey in a world) before card backs, at 390 and 1440.",
+    "World menu: tools only signed out; signed in, a centred seat-sized + and your avatars face up (grey in a world) before card backs, and each world edged in its tier, at 390 and 1440.",
   );
 } finally {
   await browser.close();

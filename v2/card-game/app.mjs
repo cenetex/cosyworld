@@ -82,6 +82,8 @@ import {
 import { installSettingsCards } from "./settings-screen.mjs";
 import { groupOn, packToggleBlock } from "./pack-toggle.mjs";
 import { installToolbar, renderPlayers } from "./toolbar.mjs";
+import { showWorldTier } from "./world-level.mjs";
+import { worldLogoKey } from "./title-logo.mjs";
 import { innerLifeChain, innerLifeSection } from "./inner-life.mjs";
 import { combatBeats, lastSeq, theName } from "./combat-beats.mjs";
 import {
@@ -4012,6 +4014,7 @@ function renderLog(open = $("history-dialog").open) {
 }
 
 function render() {
+  showWorldTier(world, worldLogoKey(location.href));
   renderPlayers();
   music.setStarted(musicHasStarted());
   syncMusicCue();

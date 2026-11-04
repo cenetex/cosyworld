@@ -3129,6 +3129,12 @@ main > .dialogue {
     width: calc(100vw - 32px);
   }
 }
+/* The title's logo is framed in the world's tier, as a card's edge glow. */
+:root[data-world-tier] .title-intro > img {
+  box-shadow:
+    0 0 0 1px var(--world-tier),
+    0 0 14px color-mix(in srgb, var(--world-tier) 35%, transparent);
+}
 .title-intro[data-phase="wake"] {
   cursor: default;
 }
