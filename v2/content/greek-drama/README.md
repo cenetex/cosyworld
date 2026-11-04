@@ -81,10 +81,12 @@ the world records the gate in `openedRoutes`. The gate's open paintings
 require `gate_open` for that route, and `test/card-theban-gate.test.mjs`
 checks it, so the painting and the passage cannot disagree. While the gate is
 closed the only card toward the battlefield is the sealed one. The gate guards the city both ways (rules 94): the
-`greek-battlefield` → `greek-gate` route is `live` and `requires`
-`gate_open` for the way out, so the battlefield has no plain exits. A
-traveler who comes over Cithaeron reaches the battlefield on foot, but enters
-Thebes only once the gate has opened. If the guard later gives the decree
+battlefield's exits are the gate and the Cithaeron road (rules 100). The
+Gate Guard bars the gate from both sides while he stands at his post: from
+the battlefield it shows as the locked box, "The Gate Guard bars the way",
+and only he may pass, so knocked through he always walks home. A traveler
+who comes over Cithaeron reaches the battlefield on foot, but enters Thebes
+only once the gate has opened or while the guard is away from his post. If the guard later gives the decree
 away or leaves his post, the gate stays open. A petition needs the decree in hand and
 returns it to the palace, so a petitioner carries it back to the guard
 afterwards. The battlefield is a Theban place just outside the walls, so by

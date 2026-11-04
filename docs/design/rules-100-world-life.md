@@ -94,10 +94,17 @@ still keeps a resident home, as range 0 does.
   After the three moments of peace he walks home and guards again. This
   re-lock is the one exception to flip-once (#2186): the client draws the box
   from the rules' gate state, so a re-locked way covers again.
-- **Never a trap**: the way back through a guardable way is open to anyone
-  who has been on the guarded side (or lives there), and to everyone once the
-  gate has opened. Travellers from Cithaeron who never passed the gate still
-  cannot walk into Thebes.
+- **Both sides** (owner, #2233): the guard bars his way in both directions.
+  The battlefield's exits are the gate and the Cithaeron Road; from the
+  battlefield the guarded gate is the locked box with the same reason, and
+  only the guard may pass, so a guard knocked through always walks home. The
+  decree or writ opens it both ways for good; while the guard is away from
+  his post it is open both ways. Travellers from Cithaeron enter Thebes only
+  then. The road shows as a locked box ("The road over Cithaeron opens once a
+  Theban account of the burial is here or on Dione's table") until its own
+  latch opens it, as before, and appears with its section of the release.
+  The battlefield's old `live` `gate_open` route is gone: the gate is its
+  plain exit.
 - **A player's guard** is offered as "Guard" for yourself and an open
   guardable way. It lasts until the player's next other play, bars residents
   only (never another player), and lapses when the player leaves.

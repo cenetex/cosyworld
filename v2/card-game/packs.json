@@ -536,7 +536,9 @@
         "greek-battlefield": {
           "name": "The Exposed Battlefield",
           "text": "Broken spear shafts lie in the dust. A strip of earth outside the city is set apart for the fallen brother.",
-          "exits": [],
+          "exits": [
+            "greek-gate"
+          ],
           "backdrop": "assets/greek-drama/burial-ground-dusk.webp",
           "persona": "Broken spear shafts lie in the dust. A strip of earth outside the city is set apart for the fallen brother."
         },
@@ -2713,18 +2715,6 @@
           ]
         },
         {
-          "from": "greek-battlefield",
-          "to": "greek-gate",
-          "live": true,
-          "requires": [
-            {
-              "kind": "gate_open",
-              "from": "greek-gate",
-              "to": "greek-battlefield"
-            }
-          ]
-        },
-        {
           "from": "greek-harbor",
           "to": "greek-egypt-tomb",
           "requires": [
@@ -2838,7 +2828,14 @@
                 }
               ]
             }
-          ]
+          ],
+          "sealed": {
+            "reason": "The road over Cithaeron opens once a Theban account of the burial is here or on Dione's table.",
+            "quest": {
+              "kind": "item",
+              "target": "greek-burial-account"
+            }
+          }
         },
         {
           "from": "greek-battlefield",

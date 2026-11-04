@@ -685,8 +685,10 @@ between the Wine-Dark Harbor and Thebes. The battlefield is a Theban place
 outside the walls; the Gate Guard bars the way to it (rules 100) until he
 holds the Burial Decree or Creon's writ, wherever he stands, and then it stays
 open. Beaten, he is knocked onto the battlefield and bars it again once he
-walks back. The way back in is open once the gate is, or to anyone who has
-been at the gate. A player may stand guard there too: yourself and the way
+walks back. He bars the gate from the battlefield side too (the locked box,
+with the same reason), and only he may pass; the battlefield's other way out
+is the Cithaeron road, shown locked until it opens. A player may stand guard
+there too: yourself and the way
 reads "Guard", barring residents until your next play. The
 Cithaeron road leads on from the battlefield to Eleusis once a Theban account
 of the burial is there or on Dione's table. The Road to Delphi joins the Agora and

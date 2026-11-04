@@ -47,18 +47,14 @@ const walk = (s, ...ids) =>
 describe("the Theban City Gate", () => {
   it("paints the gate open once the road has opened", () => {
     expect(pack.places["greek-gate"].exits).not.toContain("greek-battlefield");
-    // The way in from the battlefield is a route that follows the gate.
-    expect(pack.places["greek-battlefield"].exits).toEqual([]);
+    // The way in from the battlefield is the gate itself, which its guard
+    // bars from both sides until it opens (rules 100).
+    expect(pack.places["greek-battlefield"].exits).toEqual(["greek-gate"]);
     expect(
       pack.routes.find(
         (r) => r.from === "greek-battlefield" && r.to === "greek-gate",
       ),
-    ).toEqual({
-      from: "greek-battlefield",
-      to: "greek-gate",
-      live: true,
-      requires: [{ kind: "gate_open", from: route.from, to: route.to }],
-    });
+    ).toBeUndefined();
     for (const b of pack.places["greek-gate"].backdrops)
       expect(b.requires.filter((r) => r.kind !== "daylight")).toEqual([
         { kind: "gate_open", from: route.from, to: route.to },

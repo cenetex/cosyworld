@@ -201,6 +201,7 @@ import { bedtime, residentAsleep, validSleep } from "./resident-sleep.mjs";
 import {
   guardableWays,
   guardedExits,
+  guardedFrom,
   isGuardable,
   guardPost,
   guardOf,
@@ -610,7 +611,7 @@ export function exits(s, place, actor = null, previous = null) {
     ...(returnPath ? [returnPath] : []),
   ];
   // A guardable way, and the way back through it (rules 100).
-  for (const to of guardedExits(s, place, actor))
+  for (const to of guardedExits(s, place))
     if (!ways.includes(to)) ways.push(to);
   return ways.filter(
     (to) =>
@@ -631,9 +632,11 @@ export function sealedWays(s, actor = currentActor(s)) {
     (pack.routes || []).filter((r) => r.sealed || isGuardable(r.from, r.to)),
   );
   const here = s.actors[actor]?.place,
-    ways = sealedRoutes.filter(
-      (r) => r.from === here && entityActive(s, r.to) && entityActive(s, here),
-    );
+    ways = [
+      ...sealedRoutes.filter((r) => r.from === here),
+      // A guard bars his way from both sides (rules 100).
+      ...guardedFrom(here).map((to) => ({ from: here, to })),
+    ].filter((r) => entityActive(s, r.to) && entityActive(s, here));
   if (!ways.length) return [];
   const open = exits(s, here, actor),
     seen = new Set();

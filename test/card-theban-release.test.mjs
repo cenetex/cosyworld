@@ -218,8 +218,10 @@ describe("the Theban release and its ship", () => {
   it("keeps a route from every opening place back to the pond after the signal", () => {
     const s = createWorld();
     s.crossings["pond-greek-harbor"].discovered = true;
-    // The battlefield is reached only through the opened City Gate.
+    // The battlefield is reached only through the opened City Gate, and
+    // its guard stands aside for good.
     s.openedRoutes = ["greek-gate>greek-battlefield"];
+    settleGate(s);
     for (const start of openingPlaces.filter((id) => id !== "greek-ship")) {
       const seen = new Set([start]);
       for (const id of seen)

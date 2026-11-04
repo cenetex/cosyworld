@@ -51,31 +51,35 @@ export const guardPost = (id) =>
 // The order lifts a guard for good: the way's gate has latched open.
 export const wayLifted = (s, from, to) =>
   Boolean(s.openedRoutes?.includes(`${from}>${to}`));
-// The ways a guard adds to a place: a guardable way is open but for its
-// guard, and the way back through it is open to anyone who has been on the
-// guarded side, so it never traps them. The rest is the pack's own routes.
-export function guardedExits(s, place, actor) {
+// The ways a guard adds to a place: a guardable way is one way, both
+// directions, open but for its guard. The rest is the pack's own routes.
+export function guardedExits(_s, place) {
   guardData();
-  const back = [...(returns.get(place) || [])].filter(
-    (from) =>
-      actor &&
-      (lifeHome(actor) === from ||
-        packPeople[actor]?.place === from ||
-        s.actors[actor]?.visited?.includes(from)),
-  );
-  return [...(guardable.get(place) || []), ...back];
+  return [...(guardable.get(place) || []), ...(returns.get(place) || [])];
 }
-// Who bars the way from `from` to `to` for `traveller`, or null. A resident
-// guard bars everyone; a player's guard bars residents only, and only while
-// its player is here. Nobody is barred by their own guard.
+// The guarded way between `from` and `to`, either way round, as the guard's
+// own [post, beyond], or null.
+const guardedWay = (from, to) =>
+  isGuardable(from, to)
+    ? [from, to]
+    : isGuardable(to, from)
+      ? [to, from]
+      : null;
+// Who bars the way from `from` to `to`, in either direction, for
+// `traveller`, or null. The guard stands at his post and bars both entry and
+// return. A resident guard bars everyone; a player's guard bars residents
+// only, and only while its player is here. Nobody is barred by their own
+// guard, so a guard knocked through always walks home.
 export function guardOf(s, from, to, traveller = null) {
-  if (!isGuardable(from, to)) return null;
+  const way = guardedWay(from, to);
+  if (!way) return null;
+  const [post, beyond] = way;
   for (const id of guardians) {
     const a = s.actors[id];
     if (
       id === traveller ||
-      a?.guarding !== to ||
-      a.place !== from ||
+      a?.guarding !== beyond ||
+      a.place !== post ||
       !entityActive(s, id)
     )
       continue;
@@ -85,6 +89,9 @@ export function guardOf(s, from, to, traveller = null) {
   }
   return null;
 }
+// The ways shut by a guard from where a traveller stands, for the locked
+// box: both directions of each guardable way at that place.
+export const guardedFrom = (place) => guardedExits(null, place);
 const inStandoff = (s, id) =>
   (s.standoffs || []).some((c) => Object.hasOwn(c.resolve || {}, id));
 // After every round: a resident guard stands at its post unless lifted or
