@@ -14,7 +14,7 @@ export const EXIT_MAX = 6;
 
 // The card a hand frame shows: its entity, or its quest (whose place in the
 // stack another quest can take).
-const cardOf = (frame) => {
+export const cardOf = (frame) => {
   const card = frame.querySelector(".card");
   return card?.dataset.card ?? card?.dataset.questEntry;
 };
@@ -35,10 +35,10 @@ export function leavingFrames(before, after) {
     .slice(0, EXIT_MAX);
 }
 
-// Copies each leaving frame, still drawn, into `layer` (laid over the
-// frames' offset parent) and lets it fall. Every copy is read before any is
-// placed, so the page lays out once however many leave.
-export function dropCards(frames, layer) {
+// Copies of the frames, still drawn, laid in `layer` (over the frames'
+// offset parent) where each card shows. Every copy is read before any is
+// placed, so the page lays out once however many there are.
+export function ghostsOver(frames, layer) {
   const ghosts = frames.map((frame) => {
     const ghost = lookAlike(frame, "1"),
       row = frame.parentElement;
@@ -50,7 +50,13 @@ export function dropCards(frames, layer) {
     return ghost;
   });
   layer.append(...ghosts);
-  const delays = entryDelays(ghosts.length);
+  return ghosts;
+}
+
+// Lets each leaving frame fall as a copy, by default staggered as entries
+// are; a scene change gives its own `delays` (card-swap.mjs).
+export function dropCards(frames, layer, delays = entryDelays(frames.length)) {
+  const ghosts = ghostsOver(frames, layer);
   ghosts.forEach((ghost, i) => fadeGhost(ghost, EXIT_FALL, EXIT_MS, delays[i]));
   return ghosts;
 }
