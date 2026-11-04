@@ -1,6 +1,9 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { createRoomMusic } from "../v2/card-game/music.mjs";
 import {
+  BATTLE_BEAT_SECONDS,
+  CUE_TRACKS,
+  HUSH,
   battleMusicDue,
   createMusicCues,
 } from "../v2/card-game/music-cues.mjs";
@@ -39,7 +42,11 @@ async function table() {
   };
   const [battle, loss, room] = [element(), element(), element()];
   const queue = [battle, loss];
-  const cues = createMusicCues({ makeAudio: () => queue.shift(), makeContext });
+  const cues = createMusicCues({
+    makeAudio: () => queue.shift(),
+    makeContext,
+    now,
+  });
   const music = createRoomMusic({ audio: room, cues, makeContext, now });
   music.setStarted(true);
   music.setRoom("pond");
@@ -79,21 +86,64 @@ it("crossfades from the room song into a looping battle song and back", async ()
   expect([battle.paused, battle.currentTime]).toEqual([false, 0]);
 });
 
-it("hands the battle song to the loss screen's song, then to the room", async () => {
+it("times the loss screen's song: three beats of silence, a slow fade in", () => {
+  const loss = CUE_TRACKS["battle-loss"];
+  // Three beats of the battle song at about 95 a minute, after its fade out.
+  expect(BATTLE_BEAT_SECONDS).toBeCloseTo(0.632, 3);
+  expect(loss.wait).toBeCloseTo(CUE_TRACKS.battle.fadeOut + 1.895, 3);
+  expect(loss.fadeIn).toBeGreaterThanOrEqual(4);
+  expect(loss.fadeIn).toBeLessThanOrEqual(6);
+});
+
+it("hands the battle song to silence, then the loss song, then the room", async () => {
   const { music, room, battle, loss, level } = await table();
+  const wait = CUE_TRACKS["battle-loss"].wait * 1000;
   music.cue("battle");
   await advance(1000);
   music.cue("battle-loss");
   expect(loss.loop).toBe(true);
   await advance(750);
   expect(level(battle)).toBeCloseTo(0.15);
-  expect(level(loss)).toBeCloseTo(0.15);
   await advance(750);
-  expect([battle.paused, room.paused]).toEqual([true, true]);
+  // The battle song has gone; three beats of silence follow.
+  expect([battle.paused, room.paused, loss.paused]).toEqual([true, true, true]);
+  await advance(wait - 1500 - 10);
+  expect(loss.paused).toBe(true);
+  await advance(20);
+  expect(loss.paused).toBe(false);
+  expect(loss.currentTime).toBe(0);
+  // In slowly over five seconds.
+  await advance(2490);
+  expect(level(loss)).toBeCloseTo(0.15);
+  await advance(2500);
+  expect(level(loss)).toBeCloseTo(0.3);
+  // Leaving the loss screen: out fully over two seconds while the room
+  // song still waits; then the room song returns in place.
+  music.cue(HUSH);
+  expect(music.cueSounding).toBe(true);
+  await advance(1000);
+  expect(level(loss)).toBeCloseTo(0.15);
+  expect(room.paused).toBe(true);
+  await advance(1000);
+  expect([loss.paused, room.paused, music.cueSounding]).toEqual([
+    true,
+    true,
+    false,
+  ]);
   music.cue(null);
   await advance(1000);
-  expect(loss.paused).toBe(true);
   expect([room.paused, room.currentTime]).toEqual([false, 42]);
+  expect(level(room)).toBeCloseTo(0.3);
+});
+
+it("leaves the loss song unplayed when its screen ends inside the silence", async () => {
+  const { music, room, loss } = await table();
+  music.cue("battle-loss");
+  await advance(1000);
+  music.cue(HUSH);
+  expect(music.cueSounding).toBe(false);
+  await advance(10000);
+  expect([loss.paused, room.paused]).toEqual([true, true]);
 });
 
 it("follows the music switch, the volume and a hidden tab", async () => {

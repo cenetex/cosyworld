@@ -118,7 +118,12 @@ import {
 } from "./speech-knowledge.mjs";
 import { packMedia } from "./pack-registry.mjs";
 import { createRoomMusic, openingRevealed } from "./music.mjs";
-import { battleMusicDue, createMusicCues } from "./music-cues.mjs";
+import {
+  CUE_TRACKS,
+  HUSH,
+  battleMusicDue,
+  createMusicCues,
+} from "./music-cues.mjs";
 import { createHum } from "./hum.mjs";
 import { createSfx } from "./sfx.mjs";
 import { createCharacterSpeech } from "./character-speech.mjs";
@@ -1277,12 +1282,16 @@ function handItems() {
     (id) => world.items[id].holder === actor && selectedHandItem(world, [id]),
   );
 }
+// A thing the player's own play just put in their hands, until the hand's
+// next redraw brings its card into view.
+let receivedCard = null;
 function keepHeldSelection(before, action = null) {
   const actor = currentActor(world);
   const arrived = handItems().filter((id) => !before.hands.includes(id));
   const received =
     [action?.receive, action?.item].find((id) => arrived.includes(id)) ||
     arrived.at(-1);
+  receivedCard = received ?? null;
   // A standoff locks the room and takes the held things out of the hand
   // (#1775), so a raised item leaves the selection with its card.
   const shown = availableCards(world);
@@ -1420,11 +1429,6 @@ function commitAction(action, revision, renderedAt = -Infinity) {
   if (selectionBlocked()) return;
   if (renderedAt >= lastPlayAt && performance.now() - lastPlayAt < SETTLE_MS)
     return;
-  // The player's next move ends the loss screen's song.
-  if (lossCue) {
-    lossCue = false;
-    syncMusicCue();
-  }
   // The drone falls silent just before a discovery is revealed.
   if (action.choiceId) hum.hush();
   // The same play chosen again keeps it; its Thinking card cancels it.
@@ -1558,6 +1562,10 @@ function combatStage() {
 function endCombat() {
   combatRun++;
   combatCue = false;
+  if (lossCue) {
+    lossCue = false;
+    syncMusicCue();
+  }
   combatView?.cleanup();
   $("travel").classList.remove("fainting");
   combatHeld.clear();
@@ -1584,11 +1592,19 @@ async function presentCombat(beats, land) {
     (beat) => beat.kind === "defeat" && beat.viewerLost,
   );
   if (defeat) {
-    // The loss screen's song plays from its fade to black, over the slow
-    // lift, until the player's next move (commitAction).
+    // The loss screen's song comes in on the black after three beats of
+    // silence (music-cues.mjs). Leaving the loss screen fades it out fully
+    // before the lift onto the next scene and its room song.
     lossCue = true;
     music.cue("battle-loss");
     await view.defeat(defeat);
+    if (mine !== combatRun) return;
+    music.cue(HUSH);
+    if (music.cueSounding)
+      await new Promise((done) =>
+        setTimeout(done, CUE_TRACKS["battle-loss"].fadeOut * 1000),
+      );
+    lossCue = false;
   }
   if (mine !== combatRun) return;
   await view.release();
@@ -4037,6 +4053,14 @@ function render() {
     // it was to its fanned place.
     fanHand();
     $("hand").scrollLeft = stayed ? scroll : 0;
+    // A thing taken or received by the player's own play is in their hand
+    // at once: the row keeps its scroll, so the card would land out of view
+    // beside its new holder. Scrolled now, before the row's moves are
+    // measured, it slides from where it lay into view.
+    if (receivedCard) {
+      revealHandCard(receivedCard, false, true);
+      receivedCard = null;
+    }
     renderActions();
     // On wide screens raising or lowering the hand is one motion: the deck
     // grows from its corner into the row while the dialogue slides from

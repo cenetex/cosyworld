@@ -326,7 +326,7 @@ describe("battle beats", () => {
     };
     const [guard, hit] = combatBeats(before, after, { viewer: "vale" });
     expect(telegraphText(guard)).toBe("The keeper sides with Pip");
-    expect(outcomeWord(guard)).toBe("Guarding");
+    expect(outcomeWord(guard)).toBe("Covering");
     // Vale had been guarding Pip, so striking at Pip is turning on Pip; the
     // keeper steps between and takes the hit.
     expect(hit).toMatchObject({
