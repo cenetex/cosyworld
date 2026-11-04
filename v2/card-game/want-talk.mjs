@@ -3,6 +3,8 @@
 // player only through a Talk play with that avatar.
 import forest from "./forest.json" with { type: "json" };
 import {
+  consumable,
+  packThings,
   entityActive,
   heldSlots,
   makerChoice,
@@ -31,7 +33,9 @@ function met(world, id, want) {
   // An introduction is met only by a Talk, so it is always still to come.
   if (want.kind === "connect") return false;
   const here = world.actors[id].place;
-  if (want.kind === "item") return rootOf(world, want.target) === id;
+  // Holding a food it wants to eat is not eating it (rules 102).
+  if (want.kind === "item")
+    return want.step?.verb !== "eat" && rootOf(world, want.target) === id;
   if (want.kind === "place") return here === want.target;
   return world.actors[want.target]?.place === here;
 }
@@ -43,7 +47,9 @@ export function revealed(world, id, want) {
   return Boolean(
     want &&
       world.actors?.[id] &&
-      entityActive(world, want.target) &&
+      // A made thing still locked is wanted all the same (rules 102).
+      (entityActive(world, want.target) ||
+        Boolean(packThings[want.target]?.locked)) &&
       !(want.kind === "item" && !world.items[want.target]) &&
       !(want.kind === "person" && !world.actors[want.target]) &&
       !met(world, id, want),
@@ -67,7 +73,9 @@ export function wantFact(world, id, nameOf) {
   const name = nameOf(want.target);
   const line =
     want.kind === "item"
-      ? `I want ${article(name)}.`
+      ? want.step?.verb === "eat"
+        ? `I want to ${consumable(want.target) === "drink" ? "drink" : "eat"} ${article(name)}${want.step.at ? ` at ${nameOf(want.step.at)}` : ""}.`
+        : `I want ${article(name)}.`
       : want.kind === "place"
         ? `I want to be at ${name}.`
         : `I want to see ${name}.`;

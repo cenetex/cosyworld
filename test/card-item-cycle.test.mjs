@@ -156,6 +156,7 @@ describe("rules 95 item cycle", () => {
     // leave play, and a carried copy would have stayed.
     const old = JSON.parse(encodeSave(s));
     delete old.usedUp;
+    // The fixture's bread has a history, so only the provisions fold.
     expect(decodeSave(JSON.stringify(old)).usedUp).toEqual([
       "greek-provisions",
     ]);
@@ -322,35 +323,19 @@ describe("rules 95 item cycle", () => {
     ).toBeUndefined();
   });
 
-  it("shows a sealed gate card that gives the quest to open it", () => {
+  it("shows the guarded card locked, with no quest, until the writ", () => {
     let s = harbor();
     s.actors.vale.place = "greek-gate";
-    s.items["greek-decree"].holder = "vale";
+    s.items["greek-creon-writ"].holder = "vale";
     s = reload(s);
     expect(exits(s, "greek-gate", "vale")).not.toContain("greek-battlefield");
     expect(availableCards(s)).toContain("greek-battlefield");
     expect(sealedReason(s, "greek-battlefield")).toBe(
-      "The Gate Guard bars the way",
+      "The Gate Guard is guarding this card",
     );
-    const row = cardActions(s, ["greek-battlefield"]).actions;
-    expect(row.map((a) => a.kind)).toEqual(["gate"]);
-    const turn = s.turn;
-    s = act(s, "gate", { target: "greek-battlefield" });
-    expect(s.turn).toBe(turn);
-    expect(s.actors.vale.want).toMatchObject({
-      kind: "item",
-      target: "greek-decree",
-      step: { verb: "give", to: "greek-guard" },
-      story: true,
-    });
-    expect(s.log.at(-1).text).toBe(
-      "Vale takes up a quest: give the Burial Decree to the Gate Guard.",
-    );
-    // The quest is on top, so the card only says why.
+    // The locked card only says why (rules 102); Talk gives his quest.
     expect(cardActions(s, ["greek-battlefield"]).actions).toEqual([]);
-    const xp = s.actors.vale.xp;
-    s = act(s, "give", { item: "greek-decree", target: "greek-guard" });
-    expect(s.actors.vale.xp).toBe(xp + 1);
+    s = act(s, "give", { item: "greek-creon-writ", target: "greek-guard" });
     expect(sealedReason(s, "greek-battlefield")).toBe(null);
     expect(exits(s, "greek-gate", "vale")).toContain("greek-battlefield");
   });

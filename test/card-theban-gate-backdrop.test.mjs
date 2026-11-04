@@ -29,7 +29,7 @@ describe("the Theban City Gate backdrop", () => {
     s.actors.vale.place = "greek-gate";
     expect(gate(s)).toBe(art("city-gate-closed-day"));
     // The guard holds it at his post: the gate opens, day and night.
-    s.items["greek-decree"].holder = "greek-guard";
+    s.items["greek-creon-writ"].holder = "greek-guard";
     expect(s.actors["greek-guard"].place).toBe("greek-gate");
     expect(gate(s)).toBe(art("city-gate-closed-day"));
     latchRoutes(s);

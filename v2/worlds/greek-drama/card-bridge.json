@@ -281,7 +281,7 @@
               "kind": "any",
               "conditions": [
                 {
-                  "kind": "item_present",
+                  "kind": "item_at",
                   "item": "greek-provisions",
                   "place": "greek-ship"
                 },
@@ -292,8 +292,7 @@
                 }
               ]
             }
-          ],
-          "spends": true
+          ]
         },
         {
           "from": "greek-piraeus",

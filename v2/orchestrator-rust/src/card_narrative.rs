@@ -689,6 +689,7 @@ fn valid_outcome(outcome: &TurnOutcome) -> bool {
             | "drop"
             | "give"
             | "trade"
+            | "eat"
             | "light"
             | "snuff"
             | "ring"
@@ -721,7 +722,7 @@ fn valid_outcome(outcome: &TurnOutcome) -> bool {
                     .as_ref()
                     .is_some_and(|id| kind(id, "avatar") && id != "vale")
                 && card.item.is_some()
-        } else if matches!(card.kind.as_str(), "give" | "trade") {
+        } else if matches!(card.kind.as_str(), "give" | "trade" | "eat") {
             // Every offer carries its recorded answer. A refusal moves
             // nothing, and the cast says why.
             card.destination.is_none()

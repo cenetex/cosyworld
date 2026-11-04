@@ -150,6 +150,15 @@ export const transports = merge("transports");
 export const packPeople = merge("avatars");
 export const packFixtures = merge("fixtures");
 export const packThings = merge("items");
+// Food and drink (rules 102): a thing tagged food or drink, with a home it
+// goes back to once eaten or drunk. Any holder may eat or drink it, alone or
+// with someone. One verb, Eat; a drink reads Drink.
+export const consumable = (id) =>
+  packThings[id]?.home
+    ? (["food", "drink"].find((tag) => packThings[id].tags?.includes(tag)) ??
+      null)
+    : null;
+export const isFood = (id) => consumable(id) !== null;
 const entities = {
   ...packPlaces,
   ...packPeople,

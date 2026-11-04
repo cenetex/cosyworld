@@ -28,7 +28,7 @@ function scene(state, place) {
     s.actors[GUARD].place = "greek-courtyard";
     s.actors[GUARD].homeward = true;
   }
-  if (state === "lifted") s.items["greek-decree"].holder = GUARD;
+  if (state === "lifted") s.items["greek-creon-writ"].holder = GUARD;
   return settleGate(reload(s));
 }
 // Every fact told to someone in the scene, but the room listings.

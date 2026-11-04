@@ -4,11 +4,7 @@ import {
   moveTransport,
 } from "../../v2/card-game/pack-transport.mjs";
 import { atticOpening } from "../fixtures/card-attic-opening.mjs";
-import {
-  currentActor,
-  legalActions,
-  play,
-} from "../../v2/card-game/world.mjs";
+import { currentActor, legalActions, play } from "../../v2/card-game/world.mjs";
 import { needsVoyage, sailTo } from "./voyage.mjs";
 import { enableMotives } from "../../v2/card-game/motives.mjs";
 import { greekTravelTargets } from "./greek-travel.mjs";
@@ -42,10 +38,34 @@ export function openingFixture(
     if (!result.ok) throw Error(result.error);
     world = result.state;
   };
-  const move = (target) =>
-    needsVoyage(world, currentActor(world), target)
-      ? (world = sailTo(world, target))
-      : act("move", { target });
+  // The guard guards the gate until he holds Creon's writ. Defiance goes
+  // through him: beaten, he leaves his post a while (rules 100, 102).
+  const beatGuard = () => {
+    act("threaten", { target: "greek-guard" });
+    for (let i = 0; i < 24 && world.standoffs.length; i++) {
+      const strike = legalActions(world).find(
+        (a) => a.kind === "attack" && a.target === "greek-guard",
+      );
+      const result = play(
+        world,
+        strike || legalActions(world).find((a) => a.kind === "wait"),
+        world.revision,
+      );
+      if (!result.ok) throw Error(result.error);
+      world = result.state;
+    }
+  };
+  const move = (target) => {
+    if (needsVoyage(world, currentActor(world), target))
+      return (world = sailTo(world, target));
+    const guarded =
+      ["greek-gate", "greek-battlefield"].includes(target) &&
+      !legalActions(world).some(
+        (a) => a.kind === "move" && a.target === target,
+      );
+    if (guarded) beatGuard();
+    return act("move", { target });
+  };
   const take = (item) => act("take", { item });
   const walk = (...places) =>
     places.forEach((p) =>
@@ -101,34 +121,33 @@ export function openingFixture(
     states.returning = world;
     give("greek-guard-tablet", "greek-baker");
   } else {
+    // Dione's bread buys the decree from the guard, who eats it but keeps
+    // guarding the gate (rules 102).
+    walk("courtyard");
+    take("greek-bread");
+    walk("gate");
+    act("trade", { item: "greek-bread", receive: "greek-decree" });
+    states.traded = world;
     if (branch === "concession") {
-      // The elder stands witness when met after the decree.
-      walk("well");
-      walk("sanctuary");
-      take("greek-household-token");
+      // Creon wants his decree back and trades his writ for it.
       walk("palace");
-      take("greek-decree");
-      give("greek-decree", "greek-creon");
+      act("trade", { item: "greek-decree", receive: "greek-creon-writ" });
       states.permission = world;
-      // Creon's writ appears; the decree lies at the palace again. The token
-      // has done its work.
-      act("drop", { item: "greek-household-token", target: "greek-palace" });
-      take("greek-decree");
-      take("greek-creon-writ");
       walk("courtyard");
       if (reportFirst) {
         give("greek-creon-writ", "greek-baker");
         states.permissionShared = world;
+        take("greek-creon-writ");
       }
+      // The writ in his hands, the guard stands aside.
       walk("gate");
+      give("greek-creon-writ", "greek-guard");
+      states.opened = world;
     } else {
-      walk("palace");
-      take("greek-decree");
-      walk("gate");
+      // Without the writ, the defiant go through the guard.
+      act("drop", { item: "greek-decree", target: "greek-gate" });
+      states.opened = world;
     }
-    // The road out to the battlefield is open while the guard at the gate
-    // holds the decree.
-    give("greek-decree", "greek-guard");
     take("greek-shovel");
     // Waiting on the battlefield with the shovel prepares the grave.
     walk("battlefield");
@@ -150,10 +169,7 @@ export function openingFixture(
     walk("gate", "courtyard");
     states.returning = world;
     if (branch === "concession") {
-      if (!reportFirst) {
-        give("greek-creon-writ", "greek-baker");
-        states.permissionShared = world;
-      }
+      // The writ stays with the guard: the grave's account is the report.
       states.beforeGraveReport = world;
     }
     give("greek-burial-account", "greek-baker");

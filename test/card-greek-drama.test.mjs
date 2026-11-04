@@ -394,7 +394,7 @@ describe("Before the Burial", () => {
     expect(done(world, "hear-decree")).toBeTruthy();
     // The road out is closed until the guard at the gate holds the decree.
     expect(exits(world, GATE, "vale")).not.toContain(BATTLEFIELD);
-    world.items["greek-decree"].holder = "greek-guard";
+    world.items["greek-creon-writ"].holder = "greek-guard";
     // Cloth and oil without a dug grave bury no one.
     world = act(move(reload(world), BATTLEFIELD), "wait");
     expect(done(world, "perform-burial")).toBeUndefined();
@@ -482,7 +482,7 @@ describe("Before the Burial", () => {
     world = take(reload(world), "greek-shovel");
     world = give(world, "greek-shovel", "greek-guard");
     expect(stateOf(world).choices["greek-theban-response"]).toBe("exposure");
-    world.items["greek-decree"].holder = "greek-guard";
+    world.items["greek-creon-writ"].holder = "greek-guard";
     world = act(move(take(reload(world), "greek-shovel"), BATTLEFIELD), "wait");
     expect(done(world, "perform-burial")).toBeUndefined();
     world = walk(reload(world), GATE, COURTYARD, HARBOR, "pond");

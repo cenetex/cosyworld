@@ -93,7 +93,12 @@ describe("meeting on arrival on the server (rules 101)", () => {
     );
     const runtime = vm.createContext({
       structuredClone,
-      cardContent: JSON.parse(readFileSync(new URL("content.json", dir))),
+      // Released rules read the content they shipped with.
+      cardContent: JSON.parse(
+        readFileSync(
+          new URL("./fixtures/card-content-rules-101.json", import.meta.url),
+        ),
+      ),
     });
     vm.runInContext(
       readFileSync(new URL("engine-v100.js", dir), "utf8"),

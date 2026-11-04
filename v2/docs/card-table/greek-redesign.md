@@ -67,7 +67,7 @@ way the Theban gate does today. No step is a button.
 
 | Step | Opens | Condition |
 | --- | --- | --- |
-| Thebes to the battlefield | The City Gate route | The guard no longer holds the decree (revision 20) |
+| Thebes to the battlefield | The City Gate route | The guard holds Creon's writ (revision 20) |
 | Battlefield to the Cithaeron road | The battlefield's far route | The dead have burial rights: the rite that yields the Burial Account is done, or the Herald's Truce has reached the battlefield |
 | Cithaeron road to Eleusis | The road's far end | Open to anyone on the road |
 | Eleusis to the city | The Sacred Way through the Dipylon | The Suppliants' petition is delivered: the Dipylon's warden holds it |
@@ -368,73 +368,39 @@ homecoming:
 
 ## The Theban gate (Greek revision 20)
 
-Owner design, 2026-11-04 ([rules 102](../../../docs/design/rules-102-eat-and-the-theban-decree.md)).
-It replaces the gate that opened once the guard was handed the decree.
-
-> **Pending the crafting and items design discussion (owner, 2026-11-04).**
-> Not approved for building. The food-reset rule (eaten food returns to its
-> home) is likely to change to crafting, for example Dione bakes bread from
-> flour and water.
-
+Owner design, 2026-11-04 ([rules 102](../../../docs/design/rules-102-eat-and-the-theban-decree.md),
+[items and crafting](../../../docs/design/items-and-crafting.md)). It
+replaces the gate that latched open once the guard was handed the decree.
 
 **Starting state.**
 
-- The Gate Guard holds the Burial Decree, his order forbidding the burial.
-  He wants to eat Dione's bread (`want: { kind: "item", target:
-  "greek-bread", step: { verb: "eat" } }`).
-- Creon holds Creon's Writ, which permits Antigone's household to bury her
-  brother under witness. He wants the Burial Decree.
-- The Courtyard Bread is food (`tags: ["food"]`) with its home at the Theban
-  Courtyard. It appears once the water jar is back on Dione's table, as
-  before.
+- The Gate Guard guards the road to the battlefield and holds the Burial
+  Decree. He wants to eat Dione's bread.
+- Creon holds Creon's Writ and wants the Burial Decree.
+- The Courtyard Bread (`food`) starts locked at the courtyard; Dione makes
+  it from the Water Jar (home: the well) and the Sack of Wheat, which she
+  starts holding but whose home is Piraeus Quays.
+- The Travel Provisions (`food`) start locked at the harbour; Myrto makes
+  them from the bread, the Dried Figs (`food`, home: the sanctuary) and the
+  Wine Skin (`drink`, home: the gate). She wants to eat them at Piraeus.
 
-**Rules, all generic.**
+**Data.** One live route from the gate to the battlefield, open while the
+guard holds the writ. `greek-petition-burial` commits `on: "meet"` once the
+player holds the writ and Creon the decree, so the concession ending keeps
+its id and verses. The permitted burial's account on Dione's table now opens
+the road to Eleusis too, since the writ stays with the guard. The Charybdis
+no longer spends the provisions on the voyage to Piraeus. The bread, figs and
+wine no longer regrow at dawn. The loops' things are `absentReturn`.
 
-- The guard bars the gate while he holds the decree: a live route from the
-  gate to the battlefield, open while `not holding greek-decree` by the
-  guard. The same rule always applies.
-- Eat: eaten food leaves the eater and returns to its home at once.
-- Trade and Ask as ever: a resident trades away anything it does not want
-  for the thing its quest wants, and gives a modest thing on Ask to someone
-  it trusts.
-- A resident eats a food it holds when one of its quests wants it eaten.
-
-**Play-through.** Return the jar; Dione's bread appears. Talk with the guard
-to learn he wants to eat the bread. Trade him the bread for the decree (or
-give the bread, then ask for the decree). He eats it: the bread is back in
-the courtyard and, without the decree, he no longer bars the road. Take the
-decree up to Creon and trade it for his writ. With the writ in hand and the
-decree back with Creon, Creon's grant commits (`greek-petition-burial`, now
-`on: "meet"`): the concession path, the permitted burial and Dione's
-reports follow as before. The defiant burial and the guard's report need the
-open gate too, so every Theban ending starts with the bread.
-
-**What follows.** The guard is content once fed, then draws ordinary wants
-like any resident. He may come to want the decree again; if he gets it back,
-he bars the gate again.
-
-**Edge cases.**
-
-- The player eats the bread: it goes home to Dione's courtyard, ready to
-  take again.
-- Anyone gives the guard bread: he eats it and is met; whatever he holds is
-  his to trade.
-- The guard regains the decree by any route: the gate bars again. Without
-  it, it is open, even to residents.
-- A guard knocked from his post in a standoff bars nothing, as in rules 100;
-  the painted gate still follows the decree.
-- Shared worlds: every rule is in the shared rules, so every seat sees the
-  same gate. Journals before rules 102 replay on their own bundles; the
-  revision 20 upgrade then forgets the old latch and hands the guard the
-  decree, and Creon the writ, where each lies untouched.
-
-**Data versus rules.** Eat, eat quests and the live read of a gate are the
-rules changes. The starting holdings, both wants, the food tag, the live
-route, the persona lines and Creon's grant are pack data.
+**Play-through.** Return the jar: Dione bakes. Talk with the guard; trade
+him the bread for the decree. He eats it and still guards. Trade the decree
+to Creon for the writ (the concession commits), give the guard the writ, and
+the battlefield opens. The defiant burial now goes through the guard in a
+fight. The exposure ending is unchanged.
 
 **Dropped.** Creon's grant no longer needs the household token or the
-elder's witness; both stay in the world as lore. The writ route that also
-opened the gate goes, since only the decree matters at the gate.
+elder's witness (both stay as lore). The writ given to Dione first still
+makes the concession public, but then it must go back to the guard.
 
 ## Owner decisions
 

@@ -37,7 +37,7 @@ export function itemCycleProblems(pack, mountedPlaces = [], hubPlaces = []) {
   const renews = (id, seen = new Set()) => {
     const thing = items[id];
     if (!thing || seen.has(id)) return false;
-    if (thing.home && thing.regrow) return true;
+    if (thing.home && (thing.regrow || thing.locked)) return true;
     return drops(id).some(
       (c) =>
         c.repeats &&
@@ -48,10 +48,32 @@ export function itemCycleProblems(pack, mountedPlaces = [], hubPlaces = []) {
   };
 
   for (const [id, i] of Object.entries(items)) {
+    // Rules 102: a food goes home once eaten; a crafted thing waits there
+    // locked until its maker, a resident of the pack, consumes its set.
+    check(
+      !["food", "drink"].some((tag) => i.tags?.includes(tag)) ||
+        owns(places, i.home),
+      `item ${id} is food or drink, so it needs a home to go back to`,
+    );
+    const lock = i.locked;
+    if (lock !== undefined)
+      check(
+        record(lock) &&
+          Object.keys(lock).length === 2 &&
+          owns(pack.avatars, lock.by) &&
+          owns(places, i.home) &&
+          Array.isArray(lock.consumes) &&
+          lock.consumes.length >= 1 &&
+          lock.consumes.length <= 3 &&
+          new Set(lock.consumes).size === lock.consumes.length &&
+          lock.consumes.every((c) => c !== id && owns(places, items[c]?.home)),
+        `item ${id} locked needs a maker of the pack, a home and homed things it consumes`,
+      );
     if (
       i.home === undefined &&
       i.regrow === undefined &&
       !i.startsUsed &&
+      !i.locked &&
       i.absentReturn === undefined
     )
       continue;
@@ -62,11 +84,20 @@ export function itemCycleProblems(pack, mountedPlaces = [], hubPlaces = []) {
         (i.startsUsed === undefined || i.startsUsed === true) &&
         (i.absentReturn === undefined ||
           (i.absentReturn === true && i.home !== undefined)) &&
-        owns(places, i.holder),
+        // A thing may start in someone's hands and be homed elsewhere
+        // (rules 102); one that rests used up rests in a place.
+        (owns(places, i.holder) ||
+          (owns(pack.avatars, i.holder) &&
+            !i.regrow &&
+            !i.startsUsed &&
+            !i.locked)),
       `item ${id} home, regrow and startsUsed need a place of the pack to rest at`,
     );
     check(
-      !i.startsUsed || i.regrow !== undefined || drops(id).length > 0,
+      !i.startsUsed ||
+        i.regrow !== undefined ||
+        i.locked !== undefined ||
+        drops(id).length > 0,
       `item ${id} starts used up but nothing brings it into play`,
     );
   }

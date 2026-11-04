@@ -72,17 +72,21 @@ export const openDoorWalk = (world, ...places) =>
     world,
   );
 
-// After the exposure the City Gate is shut. Until the herald's truce opens
-// the Long Walls, Eleusis and Athens are walked through it, so the traveler
-// opens it with the decree.
+// After the exposure the City Gate is guarded. Until the herald's truce
+// opens the Long Walls, Eleusis and Athens are walked through it, so the
+// traveler buys the decree with Dione's bread, Creon's writ with the
+// decree, and gives the guard the writ (rules 102).
 export function cityGateSteps() {
-  const move = greekMoveSteps("greek-courtyard");
+  const from = (start) => greekMoveSteps(start);
   return [
-    ...move("palace"),
-    { kind: "take", item: "greek-decree" },
-    ...move("gate"),
-    { kind: "give", item: "greek-decree", target: "greek-guard" },
-    ...move("courtyard"),
+    { kind: "take", item: "greek-bread" },
+    ...from("greek-courtyard")("gate"),
+    { kind: "trade", item: "greek-bread", receive: "greek-decree" },
+    ...from("greek-gate")("palace"),
+    { kind: "trade", item: "greek-decree", receive: "greek-creon-writ" },
+    ...from("greek-palace")("gate"),
+    { kind: "give", item: "greek-creon-writ", target: "greek-guard" },
+    ...from("greek-gate")("courtyard"),
   ];
 }
 

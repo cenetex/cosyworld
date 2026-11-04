@@ -98,7 +98,7 @@ const act = (s, kind, fields = {}) => {
 // The battlefield road is open once the guard holds the decree.
 const reachable = (world) => {
   const s = structuredClone(world);
-  s.items["greek-decree"].holder = "greek-guard";
+  s.items["greek-creon-writ"].holder = "greek-guard";
   settleGate(s);
   const seen = new Set([pack.entry]);
   for (const id of seen)

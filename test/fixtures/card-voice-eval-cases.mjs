@@ -274,7 +274,7 @@ export function gateScenes() {
     "greek-courtyard",
   );
   const opened = structuredClone(court);
-  opened.items["greek-decree"].holder = "greek-guard";
+  opened.items["greek-creon-writ"].holder = "greek-guard";
   const open = playCard(opened, "move", null, "greek-gate");
   const latched = structuredClone(open);
   latched.items["greek-decree"].holder = "greek-palace";

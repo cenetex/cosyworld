@@ -8,6 +8,7 @@
 // is ever saved. See v2/docs/card-table/dialogue-beats.md.
 import { currentActor, nameOf as fullName } from "./world.mjs";
 import { isSceneText } from "./scene.mjs";
+import { consumable } from "./pack-registry.mjs";
 import { inSentence, theName } from "./combat-beats.mjs";
 
 const QUIET_VERBS = new Set(["talk"]);
@@ -221,6 +222,13 @@ export function actionCaption(entry, { viewer, here, arrival = null }) {
         : caption("⇄", `${a} got ${the(entry.itemId)} from ${t}.`);
     case "take":
       return caption("✋", `${a} took ${the(entry.itemId)}.`);
+    case "eat":
+      return entry.accepted === false
+        ? caption("✋", entry.text)
+        : caption(
+            "✦",
+            `${a} ${consumable(entry.itemId) === "drink" ? "drank" : "ate"} ${the(entry.itemId)}${entry.targetId ? ` with ${t}` : ""}.`,
+          );
     case "drop":
       return entry.itemId
         ? caption("✋", `${a} put down ${the(entry.itemId)}.`)

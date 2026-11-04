@@ -50,7 +50,7 @@ describe("locked boxes", () => {
     shared.actors.mara.place = "greek-gate";
     expect(isLockedBox(shared, "greek-battlefield")).toBe(true);
     expect(availableCards(shared)).toContain("greek-battlefield");
-    shared.items["greek-decree"].holder = "greek-guard";
+    shared.items["greek-creon-writ"].holder = "greek-guard";
     expect(isLockedBox(settleGate(shared), "greek-battlefield")).toBe(false);
   });
 

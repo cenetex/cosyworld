@@ -32,6 +32,16 @@ function served(w) {
 // no quest for.
 export function questFor(s, them, want) {
   const base = { since: s.turn, refusals: 0 };
+  // Their wish to eat or drink something somewhere is the player's to meet
+  // there too (rules 102): "eat the Travel Provisions at Piraeus Quays".
+  // A wish to eat with no place asks for the thing, as any item want.
+  if (want.kind === "item" && want.step?.verb === "eat" && want.step.at)
+    return {
+      kind: "item",
+      target: want.target,
+      ...base,
+      step: { verb: "eat", at: want.step.at },
+    };
   if (want.kind === "item")
     return {
       kind: "item",

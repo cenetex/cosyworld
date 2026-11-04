@@ -67,7 +67,13 @@ function released(version) {
     );
   const context = vm.createContext({
     structuredClone,
-    cardContent: JSON.parse(file("content.json")),
+    // Released rules read the content they shipped with.
+    cardContent: JSON.parse(
+      readFileSync(
+        new URL("./fixtures/card-content-rules-101.json", import.meta.url),
+        "utf8",
+      ),
+    ),
   });
   vm.runInContext(file(`engine-v${version}.js`), context);
   return (request) => JSON.parse(context.cardShared(JSON.stringify(request)));
