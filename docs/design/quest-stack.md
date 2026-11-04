@@ -65,6 +65,27 @@ first.
   this was tried, putting dropped items on the ground into residents' pools
   let them pick up story items from the scene.
 - **Talk.** `wantFact` says the top quest only and adds a count of the rest.
+- **Talk gives a quest** (#2196, rules 99, `talk-quest.mjs`). A player's Talk
+  that reveals the other avatar's top want gives the player one ordinary
+  quest for it, when that want is new to them: `actor.heard` keeps, per
+  avatar, the last want it told this player (`"kind:target"`), so re-hearing
+  it adds nothing. An item want X gives `give(X, them)` (an item quest with
+  step `give` to them); a place want P gives `bring(them, P)` (a person quest
+  with step `bring` at P, met when they are at P in the player's company);
+  a person want Q gives `introduce(them, Q)` (step `bring` to Q, met when
+  they are with Q). A connect want, or a want Talk does not say
+  (`revealed` in `want-talk.mjs`), gives nothing. The quest's own shape
+  names whom it serves (`talkQuestFrom`), so the stack holds no extra
+  record. It is pushed like any quest, so one with the same kind and target
+  already held moves up instead; under a level or story quest on top it goes
+  second. A level step that is the very same quest already asks it. After
+  every play and round, a Talk quest whose want they no longer hold on top
+  (met by someone else, set aside) leaves the stack, with no refusal and no
+  cost (`pruneTalkQuests`). Met, it is an ordinary want met: one point to
+  the player, and so a step toward the level's gap of ordinary wants.
+  Residents who keep to their scene are the ones a player brings: a
+  traveller often walks to its wanted place alone first, which meets its want
+  and lifts the player's quest.
 
 ## Client
 

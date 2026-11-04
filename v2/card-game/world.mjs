@@ -85,6 +85,7 @@ import {
   WANT_KINDS,
   CONNECT_TARGET,
 } from "./want.mjs";
+import { pruneTalkQuests, talkQuest } from "./talk-quest.mjs";
 import {
   keepReason,
   installLife,
@@ -670,6 +671,9 @@ export function wantText(want) {
     // Players see Strike for the attack play.
     verb = step?.verb === "attack" ? "strike" : step?.verb;
   if (step?.verb === "give") return `give ${what} to ${nameOf(step.to)}`;
+  // Talk's quest to bring a person somewhere, or to someone (rules 99).
+  if (step?.verb === "bring" && want.kind === "person")
+    return `bring ${what} to ${nameOf(step.at ?? step.to)}`;
   if (step?.verb === "bring")
     return step.to
       ? `bring ${what} to ${nameOf(step.to)} at ${nameOf(step.at)}`
@@ -2356,6 +2360,10 @@ function performPlay(s, a, round = null, settle = []) {
       ? { ...a, accepted: requestAccepted }
       : a,
   );
+  // A Talk quest whose want has changed leaves; a player's Talk that
+  // reveals a want new to them gives one (#2196, rules 99).
+  pruneTalkQuests(s, wantAPI(s));
+  if (a.kind === "talk") talkQuest(s, a.actor, a.target, wantAPI(s));
   // Resolved plays, and only those, can advance a crossing's signal.
   if (round)
     noteAct(s, a, here, holder, round, sensesFor(s), (line, locationId) =>
@@ -2917,6 +2925,7 @@ export function play(
     ),
     wantAPI(next),
   );
+  pruneTalkQuests(next, wantAPI(next));
   fillWants(next, wantAPI(next));
   // A round of waits still ends a standoff nobody would carry on.
   settleStandoffs(next);

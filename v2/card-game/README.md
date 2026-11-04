@@ -314,6 +314,12 @@ first, and is absent while the stack holds one. Player-facing text says quest.
   on the way to a place may be met there. A step already true where the
   avatar stands is not drawn. Steps come one at a time in order; nothing is
   authored ahead.
+- **Talk gives a quest** (rules 99, #2196). A player's Talk that reveals
+  someone's top want, new to the player, gives an ordinary quest: give them
+  the item they want, bring them to the place they want, or bring them to
+  the person they want to see. It goes second under a level or story quest,
+  leaves when their want changes first, and counts toward the level's gap of
+  ordinary wants ([quest stack](../../docs/design/quest-stack.md)).
 - **Pursuit.** Residents use the fixed verbs: travel along routes (travellers
   who learn the roads keep to the routes they know), then ask, trade their
   least valued spare, and threaten when bold enough by resentment, a higher level tier or

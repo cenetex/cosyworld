@@ -119,7 +119,7 @@ export const questsOf = (s, id) => {
 // ends that.
 export const contentOf = (s, id) =>
   Boolean(s.actors[id]?.content && !s.actors[id].want);
-function setQuests(a, list) {
+export function setQuests(a, list) {
   a.want = list[0] ?? null;
   if (a.want) delete a.content;
   if (list.length > 1) a.under = list.slice(1);
@@ -565,6 +565,12 @@ function stepMet(s, actor, want, action) {
         : action.target === want.target);
   if (verb === "find") return placeOfItem(s, want.target) === me.place;
   if (verb === "give") return by("give");
+  // A person brought, as Talk asks (rules 99): to a place in your company,
+  // or to the one they want to see.
+  if (verb === "bring" && want.kind === "person")
+    return at
+      ? together(s, actor, want.target) && me.place === at
+      : together(s, want.target, to);
   // Bring with no one to bring it to: home, as a homecoming wants.
   if (verb === "bring")
     return (
@@ -800,18 +806,47 @@ function validStep(s, w) {
   const gift = verb === "give" && w.story && !w.quest;
   // The quest to sleep at a sanctuary stands alone (rules 99).
   const slept = verb === "rest" && !w.story;
+  // Talk's quests (rules 99): give an item, or bring a person to a place or
+  // to someone, never both.
+  const asked =
+    !w.quest &&
+    !w.story &&
+    ((verb === "give" && w.kind === "item") ||
+      (verb === "bring" && w.kind === "person"));
   const named = home
     ? ["at"]
-    : STEP_CARDS[verb] || (verb === "meet" && cards.at ? ["at"] : []);
+    : asked && w.kind === "person"
+      ? [cards.at === undefined ? "to" : "at"]
+      : STEP_CARDS[verb] || (verb === "meet" && cards.at ? ["at"] : []);
   return (
-    (Boolean(w.quest) || home || gift || slept) &&
+    (Boolean(w.quest) || home || gift || slept || asked) &&
     [
       ...(STEP_VERBS[w.kind] || []),
       ...(w.kind === "person" ? SAVED_STEP_VERBS : []),
+      ...(asked ? [verb] : []),
     ].includes(verb) &&
     Object.keys(cards).length === named.length &&
     named.every((key) => typeof cards[key] === "string") &&
     (!cards.to || (Object.hasOwn(s.actors, cards.to) && cards.to !== w.target))
+  );
+}
+// The saved record of wants a player was told by Talk, by avatar
+// (talk-quest.mjs, rules 99).
+function validHeard(s, id) {
+  const heard = s.actors[id].heard;
+  if (heard === undefined) return true;
+  return Boolean(
+    heard &&
+      typeof heard === "object" &&
+      !Array.isArray(heard) &&
+      Object.entries(heard).every(
+        ([them, told]) =>
+          them !== id &&
+          Object.hasOwn(s.actors, them) &&
+          typeof told === "string" &&
+          told.length <= 160 &&
+          /^(item|place|person):./u.test(told),
+      ),
   );
 }
 export function validWant(s, id) {
@@ -848,6 +883,7 @@ export function validWant(s, id) {
         typeof a.gaveUp.target === "string" &&
         whole(a.gaveUp.turn))) &&
     list(a.talked, s.actors) &&
+    validHeard(s, id) &&
     !a.talked.includes(id) &&
     Array.isArray(a.visited) &&
     (a.want === null || validQuest(s, id, a.want)) &&

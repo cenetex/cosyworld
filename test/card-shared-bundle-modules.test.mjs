@@ -44,6 +44,7 @@ const RULES = [
   "speech-occasions.mjs",
   "shared-world-entry.mjs",
   "shared-world.mjs",
+  "talk-quest.mjs",
   "want-talk.mjs",
   "want.mjs",
   "weather.mjs",
