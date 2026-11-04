@@ -182,6 +182,7 @@ import {
 } from "./pack-items.mjs";
 import { installSpecials, validSeed } from "./pack-specials.mjs";
 import forest from "./forest.json" with { type: "json" };
+import { offstageTick } from "./offstage-probe.mjs";
 import { BOARDY, connectedHumans } from "./boardyai.mjs";
 
 // Authored forest data and mounted packs share the same rule path.
@@ -2891,6 +2892,18 @@ export function play(
     if (next.actors[id].place !== from)
       arriveRoamingRecitals(next, packDefinitions, id);
   }
+  // v100 speed probe: the off-stage walk home and dawn/dusk step.
+  const probe = offstageTick(next, round, [...residents, actor], {
+    staysPut,
+    wantOf,
+    itemPlace,
+    exits,
+    perform,
+    stepToward,
+    controlledByHuman,
+    entityActive,
+  });
+  if (globalThis.probeStats) globalThis.probeStats.push(probe);
   // Sleeping at a dock calls no ship: only the Wait before it does.
   if (exact.kind === "wait" && !exact.sleep)
     waitForTransport(next, next.actors[actor].place, actor);
