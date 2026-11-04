@@ -8,8 +8,7 @@
 // never touches rules, saves, the journal or sync.
 import { sealedReason } from "./cards.mjs";
 
-// The locked lid. A stand-in darkened from the card back until its own
-// painting drops in at this path (assets/README.md).
+// The locked carved lid has a recessed iron keyhole (assets/README.md).
 export const LOCKED_BACK = "./assets/card-back-locked.webp";
 
 // Whether the card is still locked behind its quest for this player.

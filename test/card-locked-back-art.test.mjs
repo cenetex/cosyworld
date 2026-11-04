@@ -11,11 +11,15 @@ import media from "../v2/card-game/media-manifest.json" with { type: "json" };
 
 const root = new URL("../v2/card-game/", import.meta.url);
 const hash = (bytes) => createHash("sha256").update(bytes).digest("hex");
-const sourceHash = "e74213b059921642d2af213df18071db0dfa70dce3c6b510e14b1fa46898d139";
+const sourceHash =
+  "e74213b059921642d2af213df18071db0dfa70dce3c6b510e14b1fa46898d139";
 
 test("the locked lid uses the approved recessed iron keyhole, not a padlock or stand-in", async () => {
   assert.equal(provenance.status, "final");
-  assert.equal(provenance.generation.id, "25e0f356-5634-479b-9c89-fd35760f9dc3");
+  assert.equal(
+    provenance.generation.id,
+    "25e0f356-5634-479b-9c89-fd35760f9dc3",
+  );
   assert.equal(provenance.source.sha256, sourceHash);
   const source = await readFile(new URL(provenance.source.file, root));
   assert.equal(source.length, 3624798);
@@ -28,7 +32,10 @@ test("the locked lid uses the approved recessed iron keyhole, not a padlock or s
   await sharp(source).raw().toBuffer();
   assert.equal(LOCKED_BACK, "./assets/card-back-locked.webp");
   const originalBack = await readFile(new URL("assets/card-back.webp", root));
-  assert.equal(hash(originalBack), "8acc1349faa332899cf4123c2c308489c3c3ffe9b0c9c528f46d76d81caec29f");
+  assert.equal(
+    hash(originalBack),
+    "8acc1349faa332899cf4123c2c308489c3c3ffe9b0c9c528f46d76d81caec29f",
+  );
 });
 
 test("the native locked lid and both responsive copies have current published hashes", async () => {
@@ -51,14 +58,24 @@ test("the native locked lid and both responsive copies have current published ha
     assert.equal(digest, record.sha256);
     assert.equal(digest, entry[`${size}Hash`]);
     assert.equal(digest, media[record.file]);
-    assert.equal(publicAssets.filter(({ file }) => file === record.file).length, 1);
+    assert.equal(
+      publicAssets.filter(({ file }) => file === record.file).length,
+      1,
+    );
     const info = await sharp(bytes).metadata();
     assert.equal(info.format, "webp");
     assert.equal(info.width, record.width);
     assert.equal(info.height, record.height);
     assert.equal(info.hasAlpha, false);
-    const alpha = await sharp(bytes).ensureAlpha().extractChannel("alpha").raw().toBuffer();
-    assert.ok(alpha.every((value) => value === 255), `${size} must stay opaque`);
+    const alpha = await sharp(bytes)
+      .ensureAlpha()
+      .extractChannel("alpha")
+      .raw()
+      .toBuffer();
+    assert.ok(
+      alpha.every((value) => value === 255),
+      `${size} must stay opaque`,
+    );
   }
   assert.equal(provenance.runtime.width, 1024);
   assert.equal(provenance.runtime.height, 1536);

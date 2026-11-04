@@ -63,7 +63,8 @@ const provenance = {
   created: "2026-11-03",
   updated: "2026-11-04",
   status: "final",
-  requirements: "1024 by 1536, opaque full bleed. Carved oak lid with a recessed fixed iron keyhole plate, no padlock shackle and no lettering.",
+  requirements:
+    "1024 by 1536, opaque full bleed. Carved oak lid with a recessed fixed iron keyhole plate, no padlock shackle and no lettering.",
   generation: {
     tool: source.tool,
     id: source.generation_id,
@@ -90,16 +91,24 @@ const provenance = {
   }),
   card: await describe(variant.card, variants.settings),
   phone: await describe(variant.phone, variants.settings),
-  derivation: "The owner's exact final iron-keyhole PNG, encoded without resizing or cropping. Card and phone derivatives and both runtime manifests come from the existing project builders. No gameplay change.",
+  derivation:
+    "The owner's exact final iron-keyhole PNG, encoded without resizing or cropping. Card and phone derivatives and both runtime manifests come from the existing project builders. No gameplay change.",
   replaces: {
     status: "stand-in",
-    runtime_sha256: "0fb3993730387814ebe5486483d7894528d6ee9ae107b71eaf2968156fc233ee",
-    derivation: "Earlier darkened copy of the unlocked card back; not the approved lock painting.",
+    runtime_sha256:
+      "0fb3993730387814ebe5486483d7894528d6ee9ae107b71eaf2968156fc233ee",
+    derivation:
+      "Earlier darkened copy of the unlocked card back; not the approved lock painting.",
   },
-  references: ["assets/card-back-provenance.json", "assets/locked-card/iron-keyhole-source.json"],
+  references: [
+    "assets/card-back-provenance.json",
+    "assets/locked-card/iron-keyhole-source.json",
+  ],
 };
 await writeFile(
   new URL("assets/card-back-locked-provenance.json", game),
   `${JSON.stringify(provenance, null, 2)}\n`,
 );
-console.log(`Locked lid: ${encoded.length} bytes at quality ${quality}; native canvas preserved.`);
+console.log(
+  `Locked lid: ${encoded.length} bytes at quality ${quality}; native canvas preserved.`,
+);
