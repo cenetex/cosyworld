@@ -63,7 +63,7 @@ pub(super) fn valid(context: &Context, entity: &Entity) -> bool {
 }
 
 /// How long ago, in the words knowledge facts use (`ageText`).
-fn ago(turns: u64) -> &'static str {
+pub(super) fn ago(turns: u64) -> &'static str {
     match turns {
         0..=1 => "just now",
         2..=5 => "a little while ago",

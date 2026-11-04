@@ -54,6 +54,8 @@ mod observations;
 mod perception;
 #[path = "card_narrative/person.rs"]
 mod person;
+#[path = "card_narrative/recall.rs"]
+mod recall;
 #[path = "card_narrative/recital.rs"]
 pub(crate) mod recital;
 #[path = "card_narrative/reflection.rs"]
@@ -400,6 +402,9 @@ struct Entity {
     /// What this speaker notices now, chosen by the narrator (P3).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     perception: Option<perception::Perception>,
+    /// What this speaker remembers of the one it faces (P4).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    recall: Option<recall::Recall>,
 }
 
 /// The avatar's rule-owned hope, in their own words.
@@ -614,6 +619,9 @@ fn valid(context: &Context) -> bool {
                 && between::valid(context, e)
                 && e.perception.as_ref().is_none_or(|p| {
                     kind(&e.id, "avatar") && perception::valid(context, p)
+                })
+                && e.recall.as_ref().is_none_or(|r| {
+                    kind(&e.id, "avatar") && recall::valid(context, &e.id, r)
                 })
                 && e.previous.as_ref().is_none_or(|s| bounded(s, 400))
                 && e.hope.as_ref().is_none_or(|hope| {
@@ -1631,6 +1639,7 @@ fn known(context: &Context) -> BTreeSet<String> {
             ids.extend(desire.location.iter().cloned());
         }
         ids.extend(e.perception.iter().flat_map(perception::named).cloned());
+        ids.extend(e.recall.iter().flat_map(recall::named).cloned());
     }
     if let Some(outcome) = &context.outcome {
         for avatar in &outcome.avatars {
@@ -1943,8 +1952,19 @@ fn transcript_sections(context: &Context, entity: &Entity, part: Part) -> Vec<(S
     // and the world, never from example utterances.
     let mut view = conversation::frame(context, entity, part, lines, mentions);
     if let Some(p) = perceived {
-        view.push((Section::Now, String::new()));
-        view.extend(perception::lines(context, entity, p));
+        // What I remember of the one I face, then what I perceive now.
+        let memory = entity.recall.as_ref().map_or_else(Vec::new, |r| {
+            recall::lines(context, entity, r)
+                .into_iter()
+                .map(|l| (Section::Memories, l))
+                .collect()
+        });
+        for block in [memory, perception::lines(context, entity, p)] {
+            if !block.is_empty() {
+                view.push((Section::Now, String::new()));
+                view.extend(block);
+            }
+        }
     }
     view
 }
