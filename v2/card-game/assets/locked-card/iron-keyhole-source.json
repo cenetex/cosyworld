@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "file": "iron-keyhole-master.png",
+  "source_filename": "victorian_oak_carving_with_antique_keyhole.png",
+  "generation_id": "25e0f356-5634-479b-9c89-fd35760f9dc3",
+  "tool": "image_gen",
+  "width": 1024,
+  "height": 1536,
+  "mode": "RGB",
+  "bytes": 3624798,
+  "sha256": "e74213b059921642d2af213df18071db0dfa70dce3c6b510e14b1fa46898d139",
+  "git_blob_sha": "d06f9f1fbaf52cf28c890464bb7a996e91dd1a66",
+  "processing": "The original generated PNG is retained byte for byte, without cropping or resizing.",
+  "prompt_summary": "Preserve the carved oak, moths, acorns, bells, border and straight-down view. Replace the projecting padlock with a small, fixed blackened-iron keyhole plate recessed into the central tree-ring medallion. Forged edges, leaf ornament, believable fasteners and a narrow dark keyhole; no shackle, hanging lock or shield-shaped padlock. The working mechanism is concealed beneath the lid.",
+  "prompt_note": "This is a summary of the approved edit direction, not a recovered verbatim tool prompt; the generation metadata did not expose one.",
+  "selection": "Owner requested this exact final recessed-keyhole revision for the PR. Earlier brass and iron padlock versions are not selected.",
+  "runtime_asset": "assets/card-back-locked.webp"
+}
