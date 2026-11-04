@@ -184,7 +184,15 @@ try {
     await page.screenshot({
       path: new URL(`met-${width}.png`, output).pathname,
     });
-    await card.click();
+    // Cleared, it falls away as an inert ghost; reduced motion lets it go.
+    await card.hover();
+    const falling = await card.evaluate((el) => {
+      el.click();
+      return [...document.querySelectorAll(".card-exits > .beat-ghost")].map(
+        (g) => [g.inert, getComputedStyle(g).pointerEvents],
+      );
+    });
+    assert.deepEqual(falling, motion === "reduce" ? [] : [[true, "none"]]);
     const gain = page.locator(".quest-xp");
     await gain.waitFor();
     assert.match(await gain.textContent(), /^\+\d+ XP$/);

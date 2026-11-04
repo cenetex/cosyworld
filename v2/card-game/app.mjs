@@ -17,6 +17,7 @@ import {
   releaseGhost,
   releaseGhosts,
 } from "./card-ghost.mjs";
+import { dropCards, leavingFrames } from "./card-exit.mjs";
 import {
   ENTRY_STAGGER_MS,
   QUEST_DOWN_MS,
@@ -2271,6 +2272,18 @@ function openingLid(button, lid) {
 }
 const entryKey = (frame) =>
   `${frame.querySelector(".card").dataset.card}@${frame.dataset.holder ?? ""}`;
+// Cards leaving the hand fall as ghosts over it (card-exit.mjs). A world
+// loaded in its place (another tab's save) shows none.
+let quietExits = false;
+function handExits() {
+  let layer = $("hand").parentElement.querySelector(":scope > .card-exits");
+  if (!layer) {
+    layer = node("div", undefined, "card-exits");
+    layer.setAttribute("aria-hidden", "true");
+    $("hand").after(layer);
+  }
+  return layer;
+}
 // Each quest newly dealt lies face down until it is seen, then turns a beat
 // later; the next turns a little after. Once turned it stays face up while
 // it stays in the hand, folded or fanned. A tap still plays it at once.
@@ -4089,7 +4102,9 @@ function render() {
       samePlace = renderedHand && stayed,
       arriving = renderedHandPlace !== null && !stayed,
       animate = samePlace && !reducedMotion.matches,
+      exits = !opening && !quietExits && !reducedMotion.matches,
       before = new Map();
+    quietExits = false;
     if (animate)
       for (const frame of $("hand").children)
         if (!frame.hidden) {
@@ -4108,12 +4123,16 @@ function render() {
     renderedHandState = handState;
     if (sameWorld)
       for (const frame of $("hand").children) updateCardSelection(frame);
-    else
-      $("hand").replaceChildren(
-        ...handCards.map((id) =>
+    else {
+      const frames = handCards.map((id) =>
           isQuestId(id) ? questFrame(questEntry(id)) : card(id),
         ),
-      );
+        leaving = exits ? leavingFrames([...$("hand").children], frames) : [];
+      // A card gone from view falls from where it lay, while the hand
+      // redraws at once; a reveal keeps its card, so it never falls.
+      if (leaving.length) dropCards(leaving, handExits());
+      $("hand").replaceChildren(...frames);
+    }
     // Lean the new row before measuring it, so each card moves from where
     // it was to its fanned place.
     fanHand();
@@ -4523,6 +4542,7 @@ window.addEventListener("storage", (event) => {
     world = enableMotives(decodeSave(event.newValue));
     loadSeen();
     renderedHand = "";
+    quietExits = true;
     lineSeq = null;
     // Another tab's play is not this player's: the hand stays as it was,
     // less any card that has left the table.

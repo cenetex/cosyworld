@@ -49,6 +49,14 @@ export function ghostOf(card) {
 // A copy pinned over the card's box, with the look the card had, placed
 // after the card so lookups by class still find the real one first.
 export function pinGhost(card, zIndex) {
+  const ghost = lookAlike(card, zIndex);
+  card.after(ghost);
+  return ghost;
+}
+
+// The same copy, not yet placed, for a layer over the card's offset parent:
+// copies read together and placed together cost one layout, not one each.
+export function lookAlike(card, zIndex) {
   const ghost = ghostOf(card);
   const parts = [card, ...card.querySelectorAll("*")],
     copies = [ghost, ...ghost.querySelectorAll("*")];
@@ -66,7 +74,6 @@ export function pinGhost(card, zIndex) {
     height: `${card.offsetHeight}px`,
     zIndex,
   });
-  card.after(ghost);
   return ghost;
 }
 
@@ -86,13 +93,16 @@ export function releaseGhosts(root = document) {
 }
 
 // Plays the ghost out to the keyframe `to` and releases it when the motion
-// ends or is cancelled. It rests invisible, so it never shows again.
-export function fadeGhost(ghost, to, duration) {
+// ends or is cancelled. It rests invisible, so it never shows again; one
+// that waits `delay` holds its look until it moves.
+export function fadeGhost(ghost, to, duration, delay = 0) {
   if (!ghost) return null;
   const from = getComputedStyle(ghost).opacity;
   ghost.style.opacity = "0";
   const motion = ghost.animate([{ opacity: from }, { opacity: 0, ...to }], {
     duration,
+    delay,
+    fill: "backwards",
     easing: "cubic-bezier(.22,.61,.36,1)",
   });
   const done = () => releaseGhost(ghost);
