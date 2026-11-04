@@ -39,10 +39,11 @@ The source map distinguishes the card pack compiler from the classic compiler.
 6. Commit and push the branch and open a draft PR. Many PRs may be open at
    once; rebase yours when main moves. Merge once local targeted tests and the
    PR's fast check pass and the change is reviewed, in batches of 2-3 (see
-   `.github/AGENT.md`). Main deploys `.dev` without gates as soon as its image is
-   built, and the pre-push hook runs only the change budget and
-   `npm run check:version`. Lonely
-   Forest production releases stay a manual trigger.
+   `.github/AGENT.md`). A scheduled train ships main to `.dev` at `:07` and `:37` each hour.
+   The train runs its production gates after rollout. The pre-push hook runs
+   the change budget and `npm run check:version`. A version tag ships a
+   deliberate Lonely Forest release; see the release guide for recovery
+   dispatches.
 
 ## Commands
 

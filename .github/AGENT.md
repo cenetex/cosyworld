@@ -187,8 +187,9 @@ when either is missing; it will block once content versioning lands.
   - migration, generated-file, deployment, or compatibility notes when relevant;
   - a short review checklist confirming tests and generated artifacts.
 - Merge when local targeted tests and the PR's fast check pass and the change
-  is reviewed, following the landing rules above. The deploy workflow runs its
-  own gates, so a red main keeps .dev on the last good build.
+  is reviewed, following the landing rules above. The next scheduled train ships main
+  to `.dev`, then runs the production gates. Review those results before
+  choosing a production release commit.
 - Leave the release version alone; only a release PR runs `npm run version:bump`.
 
 ## Known traps
@@ -212,10 +213,10 @@ when either is missing; it will block once content versioning lands.
   unrelated baseline churn.
 - Full V2 smoke checks start local processes and use fixed runtime files; stop
   stale instances before diagnosing product failures.
-- Pushes to `main` deploy only the primary Fly app, as soon as its image is
-  built, without the production gate or a primary backup.
-  Release tags deploy both the primary and Lonely Forest Fly apps, then create
-  a GitHub release. AWS retains DNS, static-site, and rollback infrastructure;
+- Scheduled trains deploy main to the primary Fly app (`.dev`) every 30
+  minutes when production inputs changed, then run the production gates.
+  Release tags run the production gates, deploy both the primary and Lonely
+  Forest Fly apps, then create a GitHub release. AWS retains DNS, static-site, and rollback infrastructure;
   feature branches never target production.
 
 ## Files requiring special handling
@@ -227,7 +228,7 @@ Do not edit or commit these directly:
 - `v2/content/official/**` except as output from the worldpack compiler;
 - released shared rules `v2/orchestrator-rust/src/card_shared/engine-v*.js`
   and their version wiring. After rebasing a branch that changes rule modules,
-  run `npm run v2:card:shared:next`; it restores main's live rules and claims
+  run `npm run v2:card:shared:next`; it restores main's recorded rules and claims
   the next version once. The plain `npm run v2:card:shared:build` refuses to
   rewrite a bundle that is pinned in `test/card-released-rules.test.mjs` or
   already on main (`v2/scripts/released-bundles.mjs`). To land a prepared branch, `npm run land -- <branch>`
@@ -242,8 +243,8 @@ Treat these as review-sensitive rather than forbidden:
 
 - `v2/core-c/include/cosy_kernel.h` and journal action codes, because ABI or
   replay changes can invalidate history;
-- production profiles, workflows, `Dockerfile`, and `fly.toml`, because a merge
-  to `main` deploys to Fly;
+- production profiles, workflows, `Dockerfile`, and `fly.toml`, because main supplies
+  the next scheduled `.dev` train;
 - authored IDs, entitlement authorities, attributions, and pack dependencies,
   because they are persisted or externally meaningful.
 
