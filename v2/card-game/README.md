@@ -485,15 +485,11 @@ world and reduced motion show no exit (`v2/scripts/smoke-card-exit.mjs`).
 A card still in the hand after a redraw keeps its node and stays put; when
 only its words or pictures changed it takes its new look in place
 (`card-keep.mjs`). A quest card is always drawn anew.
-A scene change (Travel, or a light put out or lit where the player stands)
-swaps the hand in beats rather than one cut (`card-swap.mjs`): the cards left
-behind fall 50 ms apart, nearest the player's own card first (from the tap,
-as the travel veil comes down); a 160 ms beat holds while the backdrop
-changes; then the new cards rise, face down when not yet seen. A card there
-before and after stays put, and one whose face changed with the light (the
-lamp put out) fades to its new face over 600 ms. The whole swap ends within
-1.2 s, and a play chosen meanwhile waits for it.
-Reduced motion fades the hand in over 200 ms (`v2/scripts/smoke-card-swap.mjs`).
+Travel, or a light put out or lit here, swaps the hand in beats
+(`card-swap.mjs`): left-behind cards fall 50 ms apart, nearest the player's
+card first, from the tap; a 160 ms beat; then new cards rise. A changed face
+(the lamp put out) fades over 600 ms. It ends within 1.2 s, plays wait for
+it, and reduced motion fades the hand (`v2/scripts/smoke-card-swap.mjs`).
 A card locked behind a quest (a sealed card, the far side of a shut gate) is
 a locked wooden box: the darker locked lid on a red edge, labelled only
 "Locked" (the owner's one exception to words on a card), with no painting and

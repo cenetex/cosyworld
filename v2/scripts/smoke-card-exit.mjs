@@ -87,7 +87,7 @@ try {
           Object.fromEntries(
             [...hand.querySelectorAll(".card[data-card]")].map((c) => [
               c.dataset.card,
-              c.parentElement.getBoundingClientRect(),
+              c.parentElement.getBoundingClientRect().toJSON(),
             ]),
           );
         window.exitWatch = { observer, seen, boxes, shown: {}, redrawn: {} };
