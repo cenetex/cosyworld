@@ -1,0 +1,110 @@
+{
+  "date": "2026-11-04",
+  "tool": "built-in image_gen",
+  "assets": [
+    {
+      "pose": "idle",
+      "label": "Idle",
+      "file": "patroclus-idle.png",
+      "source": "exec-a1de0b92-daad-4004-91e3-419d25c8f958.png",
+      "prompt": "Use case: identity-preserve.\nMake one finished transparent full-body pose for the exact Patroclus in the two reference images. Image 1 is his approved face and paint-style reference. Image 2 is his approved full-body costume and proportion reference.\nPreserve his adult age around thirty, softly square face, warm olive skin, chestnut curls, warm brown eyes, light stubble, kind expression, lean athletic build, and natural proportions. Preserve his teal knee-length linen chiton with cream leaf-patterned hem and neck trim, saffron-gold wool cloak, round bronze cloak pin, coral woven belt with hanging ends, brown leather sandals, and short sheathed sword at his hip. Keep the approved warm painterly finish, rich woven texture, fine face detail, and soft natural light.\nThis pose has empty hands. His sword stays sheathed as a worn costume detail. Paint the character alone.\nFull-body portrait canvas, exactly 1024 by 1536 pixels. Keep the complete head, both hands, clothing, both legs and both sandalled feet inside the image. Use generous clear margins of about 60 pixels around all extremities. For standing poses, keep natural scale with head near y90 and soles near y1440. For seated sleep, preserve that same head and body scale while placing the compact pose in the lower part of the canvas.\nThe native direction is a three-quarter turn toward SCREEN LEFT. Keep the face readable and the complete silhouette clear for a small game stage.\nBackground: genuine RGBA transparency throughout every area outside the character and inside gaps between limbs and cloth. All lighting and shading stay inside the body and costume. Transparent empty space surrounds the figure. Deliver one isolated finished PNG pose.\n\nPOSE: IDLE. A relaxed standing pose for his everyday presence. His weight rests naturally on one leg. Both empty hands rest loosely at his sides, fingers relaxed and visible. He looks slightly toward screen left with his approved affectionate warm smile. His gold cloak hangs naturally and his shoulders are at ease. He feels approachable, patient, and loyal.",
+      "transparent_background": true,
+      "references": [
+        "patroclus-portrait.png",
+        "patroclus-stage.png"
+      ],
+      "generation_id": "exec-a1de0b92-daad-4004-91e3-419d25c8f958"
+    },
+    {
+      "pose": "talking",
+      "label": "Talking",
+      "file": "patroclus-talking.png",
+      "source": "exec-a0f88bb3-5d61-4c7c-b6aa-9a640b05c276.png",
+      "prompt": "Use case: identity-preserve.\nMake one finished transparent full-body pose for the exact Patroclus in the two reference images. Image 1 is his approved face and paint-style reference. Image 2 is his approved full-body costume and proportion reference.\nPreserve his adult age around thirty, softly square face, warm olive skin, chestnut curls, warm brown eyes, light stubble, kind expression, lean athletic build, and natural proportions. Preserve his teal knee-length linen chiton with cream leaf-patterned hem and neck trim, saffron-gold wool cloak, round bronze cloak pin, coral woven belt with hanging ends, brown leather sandals, and short sheathed sword at his hip. Keep the approved warm painterly finish, rich woven texture, fine face detail, and soft natural light.\nThis pose has empty hands. His sword stays sheathed as a worn costume detail. Paint the character alone.\nFull-body portrait canvas, exactly 1024 by 1536 pixels. Keep the complete head, both hands, clothing, both legs and both sandalled feet inside the image. Use generous clear margins of about 60 pixels around all extremities. For standing poses, keep natural scale with head near y90 and soles near y1440. For seated sleep, preserve that same head and body scale while placing the compact pose in the lower part of the canvas.\nThe native direction is a three-quarter turn toward SCREEN LEFT. Keep the face readable and the complete silhouette clear for a small game stage.\nBackground: genuine RGBA transparency throughout every area outside the character and inside gaps between limbs and cloth. All lighting and shading stay inside the body and costume. Transparent empty space surrounds the figure. Deliver one isolated finished PNG pose.\n\nPOSE: TALKING. A friendly speaking pose. His mouth is slightly open in a warm conversational smile, his eyes engaged with someone toward screen left. One empty hand opens palm upward at waist-to-chest height in a gentle explanatory gesture. The other empty hand rests naturally by his hip. His feet stay planted. Preserve his friendly adult face and natural anatomy.",
+      "transparent_background": true,
+      "references": [
+        "patroclus-portrait.png",
+        "patroclus-stage.png"
+      ],
+      "generation_id": "exec-a0f88bb3-5d61-4c7c-b6aa-9a640b05c276"
+    },
+    {
+      "pose": "sleeping",
+      "label": "Sleeping",
+      "file": "patroclus-sleeping.png",
+      "source": "exec-50f654a3-5824-4317-aae3-2ca9bfbcd66d.png",
+      "prompt": "Use case: identity-preserve.\nMake one finished transparent full-body pose for the exact Patroclus in the two reference images. Image 1 is his approved face and paint-style reference. Image 2 is his approved full-body costume and proportion reference.\nPreserve his adult age around thirty, softly square face, warm olive skin, chestnut curls, warm brown eyes, light stubble, kind expression, lean athletic build, and natural proportions. Preserve his teal knee-length linen chiton with cream leaf-patterned hem and neck trim, saffron-gold wool cloak, round bronze cloak pin, coral woven belt with hanging ends, brown leather sandals, and short sheathed sword at his hip. Keep the approved warm painterly finish, rich woven texture, fine face detail, and soft natural light.\nThis pose has empty hands. His sword stays sheathed as a worn costume detail. Paint the character alone.\nFull-body portrait canvas, exactly 1024 by 1536 pixels. Keep the complete head, both hands, clothing, both legs and both sandalled feet inside the image. Use generous clear margins of about 60 pixels around all extremities. For standing poses, keep natural scale with head near y90 and soles near y1440. For seated sleep, preserve that same head and body scale while placing the compact pose in the lower part of the canvas.\nThe native direction is a three-quarter turn toward SCREEN LEFT. Keep the face readable and the complete silhouette clear for a small game stage.\nBackground: genuine RGBA transparency throughout every area outside the character and inside gaps between limbs and cloth. All lighting and shading stay inside the body and costume. Transparent empty space surrounds the figure. Deliver one isolated finished PNG pose.\n\nPOSE: SLEEPING. Peaceful seated sleep on an implied flat surface. He sits with knees gently drawn up, forearms resting loosely over his knees, and cheek resting naturally against one forearm. Eyes fully closed, brow relaxed, mouth softly at rest, safe and comfortable. His gold cloak wraps around his shoulders and loosely pools around his seated hips. Both sandal-clad feet are fully visible. Keep his original adult head scale. The compact seated body occupies roughly the lower sixty percent of the tall transparent canvas, with its lowest sandal near y1440.",
+      "transparent_background": true,
+      "references": [
+        "patroclus-portrait.png",
+        "patroclus-stage.png"
+      ],
+      "generation_id": "exec-50f654a3-5824-4317-aae3-2ca9bfbcd66d"
+    },
+    {
+      "pose": "listening",
+      "label": "Listening",
+      "file": "patroclus-listening.png",
+      "source": "exec-5a105c1a-6b24-4e9a-9e55-a7e44587d357.png",
+      "prompt": "Use case: identity-preserve.\nMake one finished transparent full-body pose for the exact Patroclus in the two reference images. Image 1 is his approved face and paint-style reference. Image 2 is his approved full-body costume and proportion reference.\nPreserve his adult age around thirty, softly square face, warm olive skin, chestnut curls, warm brown eyes, light stubble, kind expression, lean athletic build, and natural proportions. Preserve his teal knee-length linen chiton with cream leaf-patterned hem and neck trim, saffron-gold wool cloak, round bronze cloak pin, coral woven belt with hanging ends, brown leather sandals, and short sheathed sword at his hip. Keep the approved warm painterly finish, rich woven texture, fine face detail, and soft natural light.\nThis pose has empty hands. His sword stays sheathed as a worn costume detail. Paint the character alone.\nFull-body portrait canvas, exactly 1024 by 1536 pixels. Keep the complete head, both hands, clothing, both legs and both sandalled feet inside the image. Use generous clear margins of about 60 pixels around all extremities. For standing poses, keep natural scale with head near y90 and soles near y1440. For seated sleep, preserve that same head and body scale while placing the compact pose in the lower part of the canvas.\nThe native direction is a three-quarter turn toward SCREEN LEFT. Keep the face readable and the complete silhouette clear for a small game stage.\nBackground: genuine RGBA transparency throughout every area outside the character and inside gaps between limbs and cloth. All lighting and shading stay inside the body and costume. Transparent empty space surrounds the figure. Deliver one isolated finished PNG pose.\n\nPOSE: LISTENING. An attentive listening pose. He stands comfortably, head tipped just a little toward screen left, eyebrows gently lifted, lips together in a small warm smile. His empty hands rest loosely together at his waist, with clear natural fingers. His shoulders are relaxed and his weight slightly shifts toward the person he is listening to. Preserve his kind adult face.",
+      "transparent_background": true,
+      "references": [
+        "patroclus-portrait.png",
+        "patroclus-stage.png"
+      ],
+      "generation_id": "exec-5a105c1a-6b24-4e9a-9e55-a7e44587d357"
+    },
+    {
+      "pose": "walking",
+      "label": "Walking",
+      "file": "patroclus-walking.png",
+      "source": "exec-86b00543-be19-4dd5-afe6-d5bd696eb1df.png",
+      "prompt": "Use case: identity-preserve.\nMake one finished transparent full-body pose for the exact Patroclus in the two reference images. Image 1 is his approved face and paint-style reference. Image 2 is his approved full-body costume and proportion reference.\nPreserve his adult age around thirty, softly square face, warm olive skin, chestnut curls, warm brown eyes, light stubble, kind expression, lean athletic build, and natural proportions. Preserve his teal knee-length linen chiton with cream leaf-patterned hem and neck trim, saffron-gold wool cloak, round bronze cloak pin, coral woven belt with hanging ends, brown leather sandals, and short sheathed sword at his hip. Keep the approved warm painterly finish, rich woven texture, fine face detail, and soft natural light.\nThis pose has empty hands. His sword stays sheathed as a worn costume detail. Paint the character alone.\nFull-body portrait canvas, exactly 1024 by 1536 pixels. Keep the complete head, both hands, clothing, both legs and both sandalled feet inside the image. Use generous clear margins of about 60 pixels around all extremities. For standing poses, keep natural scale with head near y90 and soles near y1440. For seated sleep, preserve that same head and body scale while placing the compact pose in the lower part of the canvas.\nThe native direction is a three-quarter turn toward SCREEN LEFT. Keep the face readable and the complete silhouette clear for a small game stage.\nBackground: genuine RGBA transparency throughout every area outside the character and inside gaps between limbs and cloth. All lighting and shading stay inside the body and costume. Transparent empty space surrounds the figure. Deliver one isolated finished PNG pose.\n\nPOSE: WALKING. A calm walking pose for accompanying his friend toward screen left. One sandal steps forward and the other heel lifts naturally. His empty arms swing gently at his sides. The gold cloak follows the movement with a slight soft curve. His face turns slightly toward his companion with the approved warm smile. Show a clear natural single walking step, with both complete feet and every part of the cloak inside the canvas.",
+      "transparent_background": true,
+      "references": [
+        "patroclus-portrait.png",
+        "patroclus-stage.png"
+      ],
+      "generation_id": "exec-86b00543-be19-4dd5-afe6-d5bd696eb1df"
+    },
+    {
+      "pose": "guard",
+      "label": "Guard",
+      "file": "patroclus-guard.png",
+      "source": "exec-6cb8f096-95d3-48ef-9306-5fb61f4f4b75.png",
+      "prompt": "Use case: identity-preserve.\nMake one finished transparent full-body pose for the exact Patroclus in the two reference images. Image 1 is his approved face and paint-style reference. Image 2 is his approved full-body costume and proportion reference.\nPreserve his adult age around thirty, softly square face, warm olive skin, chestnut curls, warm brown eyes, light stubble, kind expression, lean athletic build, and natural proportions. Preserve his teal knee-length linen chiton with cream leaf-patterned hem and neck trim, saffron-gold wool cloak, round bronze cloak pin, coral woven belt with hanging ends, brown leather sandals, and short sheathed sword at his hip. Keep the approved warm painterly finish, rich woven texture, fine face detail, and soft natural light.\nThis pose has empty hands. His sword stays sheathed as a worn costume detail. Paint the character alone.\nFull-body portrait canvas, exactly 1024 by 1536 pixels. Keep the complete head, both hands, clothing, both legs and both sandalled feet inside the image. Use generous clear margins of about 60 pixels around all extremities. For standing poses, keep natural scale with head near y90 and soles near y1440. For seated sleep, preserve that same head and body scale while placing the compact pose in the lower part of the canvas.\nThe native direction is a three-quarter turn toward SCREEN LEFT. Keep the face readable and the complete silhouette clear for a small game stage.\nBackground: genuine RGBA transparency throughout every area outside the character and inside gaps between limbs and cloth. All lighting and shading stay inside the body and costume. Transparent empty space surrounds the figure. Deliver one isolated finished PNG pose.\n\nPOSE: GUARD. A protective guard or brace pose in a standoff. He faces screen left, both knees slightly bent, feet firmly planted. Both empty hands and forearms lift defensively in front of his chest, elbows bent and palms naturally open. His face stays visible, alert and calmly resolute, with the same gentle identity. His body conveys readiness to stand between a friend and danger. His sword remains securely sheathed.",
+      "transparent_background": true,
+      "references": [
+        "patroclus-portrait.png",
+        "patroclus-stage.png"
+      ],
+      "generation_id": "exec-6cb8f096-95d3-48ef-9306-5fb61f4f4b75"
+    },
+    {
+      "pose": "attack",
+      "label": "Attack",
+      "file": "patroclus-attack.png",
+      "source": "exec-e0c44376-7dae-4127-a6da-5de3eda71a34.png",
+      "prompt": "Use case: identity-preserve.\nMake one finished transparent full-body pose for the exact Patroclus in the two reference images. Image 1 is his approved face and paint-style reference. Image 2 is his approved full-body costume and proportion reference.\nPreserve his adult age around thirty, softly square face, warm olive skin, chestnut curls, warm brown eyes, light stubble, kind expression, lean athletic build, and natural proportions. Preserve his teal knee-length linen chiton with cream leaf-patterned hem and neck trim, saffron-gold wool cloak, round bronze cloak pin, coral woven belt with hanging ends, brown leather sandals, and short sheathed sword at his hip. Keep the approved warm painterly finish, rich woven texture, fine face detail, and soft natural light.\nThis pose has empty hands. His sword stays sheathed as a worn costume detail. Paint the character alone.\nFull-body portrait canvas, exactly 1024 by 1536 pixels. Keep the complete head, both hands, clothing, both legs and both sandalled feet inside the image. Use generous clear margins of about 60 pixels around all extremities. For standing poses, keep natural scale with head near y90 and soles near y1440. For seated sleep, preserve that same head and body scale while placing the compact pose in the lower part of the canvas.\nThe native direction is a three-quarter turn toward SCREEN LEFT. Keep the face readable and the complete silhouette clear for a small game stage.\nBackground: genuine RGBA transparency throughout every area outside the character and inside gaps between limbs and cloth. All lighting and shading stay inside the body and costume. Transparent empty space surrounds the figure. Deliver one isolated finished PNG pose.\n\nPOSE: ATTACK. One clear controlled strike in a standoff toward screen left. He steps forward with a balanced base and turns his torso, extending one empty fist in a readable straight punch at chest height; the other hand stays bent near his ribs. The entire fist fits comfortably inside the frame. His eyes look toward the unseen opponent at screen left, expression focused and steady. Keep his exact adult face, costume, and sheathed sword. The gold cloak moves naturally with the step. Show the isolated fighter during the striking beat.",
+      "transparent_background": true,
+      "references": [
+        "patroclus-portrait.png",
+        "patroclus-stage.png"
+      ],
+      "generation_id": "exec-e0c44376-7dae-4127-a6da-5de3eda71a34"
+    },
+    {
+      "pose": "hit",
+      "label": "Hit",
+      "file": "patroclus-hit.png",
+      "source": "exec-fb6c39a9-2065-4717-9114-d8b736537df1.png",
+      "prompt": "Use case: identity-preserve.\nMake one finished transparent full-body pose for the exact Patroclus in the two reference images. Image 1 is his approved face and paint-style reference. Image 2 is his approved full-body costume and proportion reference.\nPreserve his adult age around thirty, softly square face, warm olive skin, chestnut curls, warm brown eyes, light stubble, kind expression, lean athletic build, and natural proportions. Preserve his teal knee-length linen chiton with cream leaf-patterned hem and neck trim, saffron-gold wool cloak, round bronze cloak pin, coral woven belt with hanging ends, brown leather sandals, and short sheathed sword at his hip. Keep the approved warm painterly finish, rich woven texture, fine face detail, and soft natural light.\nThis pose has empty hands. His sword stays sheathed as a worn costume detail. Paint the character alone.\nFull-body portrait canvas, exactly 1024 by 1536 pixels. Keep the complete head, both hands, clothing, both legs and both sandalled feet inside the image. Use generous clear margins of about 60 pixels around all extremities. For standing poses, keep natural scale with head near y90 and soles near y1440. For seated sleep, preserve that same head and body scale while placing the compact pose in the lower part of the canvas.\nThe native direction is a three-quarter turn toward SCREEN LEFT. Keep the face readable and the complete silhouette clear for a small game stage.\nBackground: genuine RGBA transparency throughout every area outside the character and inside gaps between limbs and cloth. All lighting and shading stay inside the body and costume. Transparent empty space surrounds the figure. Deliver one isolated finished PNG pose.\n\nPOSE: HIT. A readable brief hit reaction during a standoff. He recoils a little toward screen right from an impact arriving from screen left. His shoulders lean back, his head turns slightly, eyes briefly squeezed shut and mouth tightened in a restrained wince. Both empty hands lift close to his chest for balance. One leg supports his weight and the other foot adjusts. His full body stays upright and entirely visible. His clothes remain intact, his sword stays sheathed, and the warm kind face remains recognisably Patroclus.",
+      "transparent_background": true,
+      "references": [
+        "patroclus-portrait.png",
+        "patroclus-stage.png"
+      ],
+      "generation_id": "exec-fb6c39a9-2065-4717-9114-d8b736537df1"
+    }
+  ]
+}
