@@ -14,6 +14,10 @@
       "smokes": ["smoke-card-beat-stack", "smoke-card-dialogue-timing"]
     },
     {
+      "paths": "^v2/card-game/(combat|defeat-view)",
+      "smokes": ["smoke-card-combat"]
+    },
+    {
       "paths": "^v2/card-game/(card-tiers|cards|rarity|images)\\.|covered",
       "smokes": ["smoke-card-unveil", "smoke-card-actions"]
     },
