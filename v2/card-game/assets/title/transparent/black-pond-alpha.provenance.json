@@ -1,0 +1,46 @@
+{
+  "version": 1,
+  "kind": "background-removed derivative of the existing opaque Black Pond title",
+  "title_text": "Lonely Forest",
+  "treatment": "The Black Pond",
+  "source": "assets/title/lonely-forest-black-pond.webp",
+  "source_sha256": "02886521d54c97435fc132abe8253d124db7bbcf5bacf165ba3c2ee923385cbf",
+  "recipe": "build-black-pond-alpha.py",
+  "master": {
+    "file": "lonely-forest-black-pond.png",
+    "width": 1672,
+    "height": 941,
+    "bytes": 1192325,
+    "sha256": "93f4d38174f6e243406751312948ceed4b8e3be80335a832ed57e2c5bceb0063"
+  },
+  "toolbar": {
+    "file": "lonely-forest-black-pond-toolbar.webp",
+    "width": 476,
+    "height": 160,
+    "bytes": 125844,
+    "sha256": "99f44eb1303da190f170a2ea1e1c69ae2119a8419b5ccd17305b3724d99c0f7a",
+    "crop": [
+      68,
+      180,
+      1554,
+      522
+    ]
+  },
+  "alpha": {
+    "minimum": 0,
+    "maximum": 255,
+    "transparent_pixels": 1181306,
+    "partial_pixels": 95592,
+    "sha256": "194922287890c8db9fafc97d9838105f3ea8284fea771171d733d3bfc40bf29a"
+  },
+  "black_reconstruction": {
+    "maximum_channel_error": 3,
+    "mean_channel_error": 0.11107898
+  },
+  "notes": [
+    "Full-size canvas unchanged; no upscaling or painted replacement letters.",
+    "Preserves silver/teal letters, extinguished lamp, dark glass, doorway and reflection.",
+    "Black-ground extraction is approximate; it is not a recovered native alpha channel.",
+    "The unrelated generated THE BLACK POND plaques were rejected and are not used."
+  ]
+}

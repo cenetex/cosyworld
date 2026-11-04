@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "title": "Lonely Forest - waterline revision",
+  "generation_id": "0233e449-8cce-438e-948b-a8a87b99f5f8",
+  "source_filename": "a_high_detail_png_style_illustration_of_the_same.png",
+  "source_note": "The latest user-requested generated transparent Lonely Forest wordmark. Not either rejected THE BLACK POND plaque, not the earlier 1672x941 cutout, and not a reconstruction from the white-background JPEG.",
+  "master": {
+    "file": "lonely-forest-waterline.png",
+    "width": 1774,
+    "height": 887,
+    "bytes": 2209213,
+    "sha256": "4d7feeede8f4830f3e8bd6c9ea5602bb42cac46c0dd99264234ac4f1464470e5",
+    "git_blob_sha": "72df93ae7b2aac21e2cea9b0c1177b5ee19a6f29"
+  },
+  "master_processing": "None. Original PNG bytes, dimensions, framing and alpha preserved.",
+  "alpha": {
+    "minimum": 0,
+    "maximum": 255,
+    "clear_pixels": 747063,
+    "opaque_pixels": 154
+  },
+  "toolbar": {
+    "file": "lonely-forest-waterline-toolbar.webp",
+    "width": 320,
+    "height": 160,
+    "bytes": 71018,
+    "sha256": "91127e4d06a33859e760d143564435f013c0a9150520659d18de351022370281",
+    "git_blob_sha": "f9e2c552b44f5a3b273be07a6c85b364459e23ca"
+  },
+  "toolbar_processing": {
+    "tool": "Pillow 12.3.0",
+    "libwebp": "1.6.0",
+    "resize": "Lanczos to 320x160",
+    "crop": false,
+    "lossless": true,
+    "method": 6,
+    "exact": true,
+    "resized_alpha_preserved": true
+  },
+  "integration": "Supplied assets only. Select and register these files through the existing title/toolbar catalogue and image builders. Do not pair this master with the earlier black-pond-toolbar cutout."
+}

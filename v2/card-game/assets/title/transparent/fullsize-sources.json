@@ -1,0 +1,46 @@
+{
+  "version": 1,
+  "description": "Native transparent PNG originals. Import each file byte-for-byte; do not upscale the 288-pixel toolbar derivatives or remove backgrounds from the opaque intro paintings.",
+  "artworks": [
+    {
+      "file": "lonely-forest-1.png",
+      "title": "Lonely Forest — ornate gold wordmark",
+      "source_filename": "Lonely Forest ornate gold emblem.png",
+      "width": 2007,
+      "height": 783,
+      "bytes": 2285564,
+      "sha256": "6aec0b5ad68e963a722fa4f8242e4c5c261980b85bb54164d5d3b9ebbf401aa5"
+    },
+    {
+      "file": "lonely-forest-2.png",
+      "title": "Lonely Forest — Pip and lantern",
+      "source_filename": "Lonely Forest Logo with Pip and Lantern.png",
+      "width": 1983,
+      "height": 793,
+      "bytes": 2553241,
+      "sha256": "0e7654425135d67139f4ef543b2b835c4afa66cff14c6f5cc33956b7adf2ae6e"
+    },
+    {
+      "file": "lonely-forest-teal-lantern-left.png",
+      "title": "Lonely Forest — teal lantern left",
+      "source_filename": "lonely_forest_lantern_calligraphy.png",
+      "generation_id": "b8d5ecac-ba6b-4d0e-9823-0810255c56c1",
+      "width": 2172,
+      "height": 724,
+      "bytes": 2233531,
+      "sha256": "19ad8609bb72b775b10023f9a01de5a10436f9a652e3e91d08b51a25eb7b96b2"
+    },
+    {
+      "file": "lonely-forest-teal-bell-and-lantern.png",
+      "title": "Lonely Forest — teal bell and lantern",
+      "source_filename": "ornate_lonely_forest_logo.png",
+      "generation_id": "63ed567d-5691-48c1-bcdf-88f6d75de419",
+      "width": 2172,
+      "height": 724,
+      "bytes": 2394763,
+      "sha256": "0546f9ed18484ae80364d5d3ff5bf3e800e272672d3035c9852c4a19be093478"
+    }
+  ],
+  "unavailable": ["The proposed teal lantern-right revision did not finish generating; no source is claimed for it."],
+  "alpha": "All four sources have genuine RGBA transparency. Keep the enclosed navy illustrations inside the gold emblems. Preserve each original alpha channel without matting, cropping or resizing the masters."
+}
