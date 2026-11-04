@@ -128,12 +128,17 @@ try {
     await page.screenshot({
       path: new URL(`falling-${width}.png`, output).pathname,
     });
+    // The station folds under the pond as the hand redraws under the veil.
+    await page.waitForFunction(() =>
+      window.exitWatch.seen.some((g) => g.card === "station"),
+    );
     const gone = (await seen()).map((g) => g.card);
     for (const card of ["moth", "keeper", "station"])
       assert(gone.includes(card), `${card} falls: ${gone}`);
     assert(!gone.includes("vale"), "Vale goes along");
+    // A change of place lets them go 50 ms apart (card-swap.mjs).
     falling.forEach((looks, i) =>
-      assert.deepEqual(looks, [Math.min(i * 70, 350), 360, "none"]),
+      assert.deepEqual(looks, [i * 50, 360, "none"]),
     );
     const { shown } = await page.evaluate(() => window.exitWatch);
     for (const ghost of await seen()) {
