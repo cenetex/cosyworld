@@ -139,12 +139,12 @@
       "sourceName": "exec-8f81adce-24ed-4a14-bd66-3ebb706ec3ac.png",
       "generationId": "exec-8f81adce-24ed-4a14-bd66-3ebb706ec3ac",
       "sourceSha256": "525f46767b9d64cd2d339daefbf142bfe04317c25e8789c73c35d8ab4b80b8ce",
-      "sha256": "d146a8f25e0fc9ff83377fe8c87ef3642bf8b89bedb89c2b6c66d353f15817d5",
+      "sha256": "7a0833e176d430ef96f44fc492ca751a9375a4d25d4dbd9523517fec7404a598",
       "size": [
         1672,
         941
       ],
-      "processing": "Regenerated with built-in image_gen from the archive review sheet and existing game art; encoded as WebP at quality 94. Then mirrored horizontally, owner request 2026-11-04; re-encoded as WebP at quality 94 and effort 6 (previous sha256 c0b61fb49af9c98adbdf9fe7ac386f3611e13b23342a10791673871473928769). Mirrored back to its original orientation, owner request 2026-11-04, so the gate and forecourt doors face the new card row (current place and way back on the left, exits on the right); re-encoded as WebP at quality 94 and effort 6 (previous sha256 74c027a1cce51ec2f4c16098d30ab5bc2f90a6a5ee57c950d964fbf622ee5f54).",
+      "processing": "Regenerated with built-in image_gen from the archive review sheet and existing game art; encoded as WebP at quality 94. Then mirrored horizontally, owner request 2026-11-04; re-encoded as WebP at quality 94 and effort 6 (previous sha256 c0b61fb49af9c98adbdf9fe7ac386f3611e13b23342a10791673871473928769). Mirrored back to its original orientation, owner request 2026-11-04, so the gate and forecourt doors face the new card row (current place and way back on the left, exits on the right); re-encoded as WebP at quality 94 and effort 6 (previous sha256 74c027a1cce51ec2f4c16098d30ab5bc2f90a6a5ee57c950d964fbf622ee5f54). Mirrored horizontally again, owner request 2026-11-04 (\"flip the palace again\"); re-encoded as WebP at quality 94 and effort 6 (previous sha256 d146a8f25e0fc9ff83377fe8c87ef3642bf8b89bedb89c2b6c66d353f15817d5).",
       "archiveSource": {
         "place": "greek-palace",
         "file": "palace-day.webp",
