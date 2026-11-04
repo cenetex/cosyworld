@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
 import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
-import { encodeSave, legalActions } from "../card-game/world.mjs";
+import { encodeSave, legalActions, sealedWays } from "../card-game/world.mjs";
 import { profiles } from "../card-game/memory.mjs";
 import { packDefinition } from "../card-game/pack-registry.mjs";
 import { openDoorAction, openSeas } from "../../test/helpers/open-door.mjs";
@@ -273,9 +273,10 @@ try {
               (a) => a.kind === "move" && a.target === "greek-gate",
             ),
           );
+          // A guarded way shows only its shut card (rules 100).
           assert.equal(
             await page.locator('#hand [data-card="greek-gate"]').count(),
-            0,
+            sealedWays(here, "mara").some((r) => r.to === "greek-gate") ? 1 : 0,
           );
           await page.screenshot({
             path: new URL(`battlefield-gate-shut-${width}.png`, output)
@@ -391,7 +392,7 @@ try {
       }
       assert.deepEqual(errors, []);
       console.log(
-        `Greek travel (${journey.name}): ${width}px, Mara first, roads with their ends stacked behind, the gates, reload, and return passed.`,
+        `Greek travel (${journey.name}): ${width}px, Mara first, roads with the way back left and the way on right, the gates, reload, and return passed.`,
       );
       await page.close();
     }

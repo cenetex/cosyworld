@@ -103,6 +103,15 @@ try {
       );
     const travel = async (place) => {
       await selectCard(page, place);
+      // A lone way on is chosen at one tap, so the hand may still be rising.
+      await page.evaluate(() =>
+        Promise.all(
+          document
+            .getAnimations()
+            .filter((a) => a.effect?.getTiming().iterations !== Infinity)
+            .map((a) => a.finished.catch(() => {})),
+        ),
+      );
       await page.evaluate(() => {
         if (window.exitWatch) window.exitWatch.shown = window.exitWatch.boxes();
       });

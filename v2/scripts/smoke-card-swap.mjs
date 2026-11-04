@@ -189,17 +189,17 @@ try {
       return trip;
     };
     // Leaving the station: each card left behind falls, nearest Vale first,
-    // 50 ms apart, from the tap; one folded under the new place falls as
-    // the hand redraws.
+    // 50 ms apart, from the tap, and the station as the hand redraws. The
+    // lamp and bell lie folded under it at the row's left end (#2272).
     const away = await go("pond", "travel-away");
     if (!reduced) {
-      for (const id of ["keeper", "lamp", "bell", "station"])
+      for (const id of ["keeper", "station"])
         assert(away.ghosts.includes(id), `${id} falls: ${away.ghosts}`);
       assert(!away.ghosts.includes("vale"), "Vale goes along");
       const atTap = away.motions.filter((m) => m.ghost && m.at < 100);
       assert.deepEqual(
         atTap.map((m) => m.card),
-        ["keeper", "lamp", "bell"],
+        ["keeper"],
         "nearest first",
       );
       atTap.forEach((m, i) => assert.equal(m.delay, i * 50, "50 ms apart"));
@@ -247,7 +247,8 @@ try {
       const card = document.querySelector('#hand [data-card="pond"]');
       return [card.parentElement.hidden, card.dataset.unrevealed];
     });
-    assert.deepEqual(pond, [true, "true"], "the pond is dealt face down");
+    // The attic's lone way on is dealt face down at the row's right end.
+    assert.deepEqual(pond, [false, "true"], "the pond is dealt face down");
     if (reduced) assert.deepEqual(douse.ghosts, []);
     else {
       assert.deepEqual(douse.ghosts.sort(), ["attic", "lamp"]);
