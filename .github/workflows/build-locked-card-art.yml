@@ -1,0 +1,67 @@
+name: Build locked card artwork
+
+on:
+  push:
+    branches: [codex/locked-card-back-art]
+    paths: [.github/workflows/build-locked-card-art.yml]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: locked-card-art-authoring
+  cancel-in-progress: false
+
+jobs:
+  artwork:
+    if: github.repository == 'cenetex/cosyworld' && github.ref == 'refs/heads/codex/locked-card-back-art'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 1
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+      - name: Read checkout identity
+        run: |
+          git status --short --branch
+          git rev-parse HEAD
+          node -p "require('./package.json').version"
+      - name: Install authoring tools
+        run: |
+          python3 -m pip install 'Pillow==12.3.0' 'numpy==2.3.5' 'CairoSVG==2.8.2'
+          npm ci
+      - name: Render and rebuild only changed image outputs
+        run: |
+          python3 v2/card-game/assets/locked-card-back/build.py
+          npm run v2:card:images:build
+          npm run v2:card:assets:build
+      - name: Verify artwork and repository checks
+        run: |
+          npm run v2:card:images:check
+          npm run v2:card:assets:check
+          npx vitest run test/card-locked-back-art.test.mjs test/card-assets.test.mjs
+          npm run check:version
+          npm run docs:check
+          git diff --check
+      - name: Commit actual artwork and official generated outputs
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -f -- v2/card-game/assets/locked-card-back/card-back-locked.png v2/card-game/assets/card-back-locked.webp v2/card-game/assets/card-back-locked-provenance.json v2/card-game/assets/optimized/card/webp/card-back-locked.webp v2/card-game/assets/optimized/phone/webp/card-back-locked.webp v2/card-game/image-variants.json v2/card-game/media-manifest.json
+          git diff --cached --check
+          if ! git diff --cached --quiet; then
+            git commit -m 'Replace the darkened card back with the closed brass lock artwork'
+            git push origin HEAD:refs/heads/codex/locked-card-back-art
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: locked-card-back-review
+          path: |
+            v2/card-game/assets/locked-card-back/card-back-locked.png
+            v2/card-game/assets/card-back-locked.webp
+            v2/card-game/assets/card-back-locked-provenance.json
+          if-no-files-found: warn
