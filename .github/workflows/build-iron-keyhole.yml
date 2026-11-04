@@ -22,13 +22,14 @@ jobs:
         with:
           ref: main
           path: source
-          fetch-depth: 1
+          fetch-depth: 0
       - name: Use an isolated artwork worktree
         run: |
-          git -C source fetch origin refs/heads/codex/locked-card-recessed-iron-keyhole:refs/remotes/origin/codex/locked-card-recessed-iron-keyhole
+          git -C source fetch --no-tags origin refs/heads/codex/locked-card-recessed-iron-keyhole:refs/remotes/origin/codex/locked-card-recessed-iron-keyhole
           git -C source worktree add ../artwork -b codex/locked-card-recessed-iron-keyhole origin/codex/locked-card-recessed-iron-keyhole
           git -C artwork status --short --branch
           git -C artwork rev-parse HEAD
+          git -C artwork merge-base origin/main HEAD
           node -p 'require("./artwork/package.json").version'
       - uses: actions/setup-node@v7
         with:
