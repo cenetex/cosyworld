@@ -3,7 +3,7 @@
 // Nothing here is authored or decides anything; the rules own the stack
 // (want.mjs).
 import { CONNECT_TARGET, questsOf } from "./want.mjs";
-import { levelTier, romanLevel } from "./rarity.mjs";
+import { cardLevel, levelTier, romanLevel } from "./rarity.mjs";
 import {
   currentActor,
   exits,
@@ -127,8 +127,24 @@ export function questVerb(world, quest, covered = false) {
   return covered || !seen.includes(quest.target) ? "Discover" : "Go to";
 }
 
-// A level quest's colour is the tier of the level it leads to.
-export const questTier = (quest) => levelTier(quest.level ?? 0);
+// The card's name: the quest as a plain sentence ("Give The Burial Decree
+// to The Gate Guard"), under its "Quest" kicker; a level quest's numeral
+// sits apart.
+export const questSentence = (quest, covered = false, verb = null) =>
+  questCaption({ ...quest, level: null }, covered, verb);
+
+// A quest's colour is the tier of the highest-level thing it names (its
+// target, a step's recipient and place), as other cards take theirs, and a
+// level quest's at least the level it leads to. What the player has not
+// found (`known` is false) stays unknown. Presentation only, from levels in
+// the world.
+export function questTier(quest, world = null, known = () => true) {
+  const named = [quest.target, quest.step?.to, quest.step?.at];
+  const levels = world
+    ? named.filter((id) => id && known(id)).map((id) => cardLevel(world, id))
+    : [];
+  return levelTier(Math.max(quest.level ?? 0, ...levels));
+}
 
 // The quests shown before that the rules have since met: each left the
 // stack, or moved on a step, with a `want_met` event after `seq`.

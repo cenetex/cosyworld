@@ -6,6 +6,7 @@
   --edge: #55505c;
   --panel: #191a25;
   --focus: #e8cf97;
+  --danger: #ff8f84;
   font-family: ui-sans-serif, system-ui, sans-serif;
   background: #101119;
   color: var(--ink);
@@ -1382,8 +1383,9 @@ body .card-frame[hidden] {
    It holds steady while the target is near: a soft halo, unlike the brief
    met glow. */
 body .card.want-card {
-  /* The scene sits centred in the top 75% the hand shows. */
-  --screen-top: 17.5%;
+  /* The scene sits low in the top 75% the hand shows, leaving the label
+     room for its sentence. */
+  --screen-top: 26%;
   background:
     radial-gradient(
       ellipse 90% 55% at 50% 0%,
@@ -1398,11 +1400,24 @@ body .card.want-card[data-near="true"] {
     0 0 18px 3px color-mix(in srgb, var(--tier-color) 45%, transparent),
     0 6px 20px #0006;
 }
+/* "Quest" and a level quest's numeral, then the quest as a sentence. */
 .quest-head {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   align-items: baseline;
-  gap: 6px;
+  gap: 0 6px;
+}
+.quest-kicker {
+  font-size: 0.85em;
+  opacity: 0.8;
+}
+.quest-head > .quest-verb {
+  flex: 1 0 100%;
+}
+/* A face-down quest keeps its tier until it turns. */
+body .card.want-card[data-unrevealed="true"] {
+  --tier-color: #c8dce6 !important;
 }
 .quest-level {
   font:
@@ -1552,6 +1567,23 @@ body .card.want-card[data-met="true"] {
   bottom: 30%;
   height: 34%;
 }
+/* A gift's step shows the giver, the thing and its recipient. */
+.quest-screen[data-parts="3"] :is(.quest-left, .quest-right) {
+  height: 80%;
+}
+.quest-screen[data-parts="3"] .quest-left {
+  left: 20%;
+}
+.quest-screen[data-parts="3"] .quest-thing {
+  left: 50%;
+  height: 28%;
+}
+.quest-screen[data-parts="3"] .quest-to {
+  left: 80%;
+}
+.quest-screen[data-parts="3"] .quest-back:not(.quest-to) {
+  left: 50%;
+}
 .quest-back.quest-right {
   bottom: 12%;
   height: 64%;
@@ -1592,6 +1624,15 @@ body .card.want-card[data-met="true"] {
 }
 #card-actions button:hover {
   background: #3c3325;
+}
+/* Dropping a quest is a secondary, destructive choice: red words, no panel. */
+body #card-actions button[data-destructive] {
+  background: transparent;
+  border-color: transparent;
+  color: var(--danger);
+}
+body #card-actions button[data-destructive]:is(:hover, :focus-visible) {
+  background: color-mix(in srgb, var(--danger) 14%, transparent);
 }
 body .card.drag-over {
   outline: 2px solid var(--gold);

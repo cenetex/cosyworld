@@ -41,6 +41,7 @@ import {
   questHand,
   questId,
   questNear,
+  questSentence,
   questTier,
   questVerb,
 } from "./quest-card.mjs";
@@ -2026,6 +2027,9 @@ function renderActions() {
       );
       button.type = "button";
       button.dataset.action = action.kind;
+      // Dropping a quest is destructive: red words (style.css).
+      if (action.kind === "drop" && !action.item)
+        button.dataset.destructive = "";
       button.title = refused || playText(action);
       button.disabled = Boolean(refused) || selectionBlocked();
       if (refused) button.dataset.blocked = "refused";
@@ -2058,6 +2062,7 @@ function renderActions() {
     const button = node("button", playLabel(action, world), "card-action");
     button.type = "button";
     button.dataset.dropQuest = String(picked.index);
+    button.dataset.destructive = "";
     button.title = "Give up this quest";
     button.disabled = selectionBlocked();
     button.onclick = () => {
@@ -2486,6 +2491,7 @@ const stackLabel = (stack) =>
 // with its target, with only the verb, the level and the tier colour as
 // words. It glows while the target is near and plays nothing.
 const questCovered = (quest) => !quest.target || cardIsCovered(quest.target);
+const known = (id) => !cardIsCovered(id);
 function shownQuestCaption(quest) {
   const hidden = questCovered(quest);
   return questCaption(quest, hidden, questVerb(world, quest, hidden));
@@ -2499,7 +2505,7 @@ const questArt = {
 function questFrame({ id, quest, met }) {
   const picked = !met && questOpen && quest.index === questPick;
   const hidden = questCovered(quest),
-    tier = questTier(quest),
+    tier = questTier(quest, world, known),
     verb = questVerb(world, quest, hidden),
     near = !hidden && questNear(world, quest),
     here = world.actors[quest.actor].place;
@@ -2528,8 +2534,12 @@ function questFrame({ id, quest, met }) {
   }
   const head = node("span", undefined, "quest-head");
   head.append(
-    setCardLabel(node("span", undefined, "quest-verb"), verb),
+    node("span", "Quest", "quest-kicker"),
     node("span", quest.level ? romanLevel(quest.level) : "", "quest-level"),
+    setCardLabel(
+      node("span", undefined, "quest-verb"),
+      questSentence(quest, hidden, verb),
+    ),
   );
   const target = quest.target,
     targetPlace =
@@ -2550,7 +2560,11 @@ function questFrame({ id, quest, met }) {
         kind: quest.kind,
         target,
         covered: hidden,
-        here: !hidden && targetPlace === here ? here : null,
+        here:
+          (quest.step?.at && known(quest.step.at) ? quest.step.at : null) ||
+          (!hidden && targetPlace === here ? here : null),
+        to: quest.step?.to,
+        toCovered: Boolean(quest.step?.to && !known(quest.step.to)),
       },
       questArt,
     ),
@@ -2636,7 +2650,7 @@ function syncQuestFold(fold) {
 function questFold(quest) {
   const fold = node("button", undefined, "quest-fold");
   fold.type = "button";
-  fold.style.setProperty("--tier-color", questTier(quest).color);
+  fold.style.setProperty("--tier-color", questTier(quest, world, known).color);
   fold.style.setProperty("--card-back", cardBackImage());
   syncQuestFold(fold);
   fold.addEventListener("click", (event) => {

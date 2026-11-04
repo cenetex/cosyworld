@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
 import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
+import { createWorld, encodeSave } from "../card-game/world.mjs";
+import { availableCards } from "../card-game/cards.mjs";
 
 // The quest folds behind the player's avatar. A met quest stays, sealed,
 // until its player clears it; clearing shows the experience it brought. The
@@ -10,6 +12,19 @@ const server = createServer();
 await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
 const browser = await chromium.launch({ headless: true });
 const output = new URL("../../output/quest/", import.meta.url);
+const gate = createWorld();
+gate.actors.vale.place = "greek-gate";
+gate.actors.vale.visited.push("pond");
+gate.crossings["pond-greek-harbor"].discovered = true;
+gate.items["greek-decree"].holder = "vale";
+gate.actors.vale.want = {
+  kind: "item",
+  target: "greek-decree",
+  step: { verb: "give", to: "greek-guard" },
+  since: 0,
+  refusals: 0,
+  story: true,
+};
 await mkdir(output, { recursive: true });
 try {
   for (const [width, height, motion] of [
@@ -80,6 +95,18 @@ try {
       await fold.evaluate((el) => getComputedStyle(el).backgroundImage),
       /card-back/,
     );
+    // Its face names it "Quest", then the quest as a plain sentence.
+    const head = (scope) =>
+      page
+        .locator(
+          `#hand .want-frame:not([hidden]) .want-card${scope} .quest-head`,
+        )
+        .first()
+        .evaluate((el) => ({
+          kicker: el.querySelector(".quest-kicker").textContent,
+          name: el.querySelector(".quest-verb").textContent,
+          color: getComputedStyle(el).color,
+        }));
     await page.screenshot({
       path: new URL(`folded-${width}.png`, output).pathname,
     });
@@ -113,6 +140,11 @@ try {
     const entered = page.locator("#hand .want-frame:not([hidden]) .want-card");
     await page.locator('#hand .want-card[data-unrevealed="false"]').waitFor();
     assert.equal(await sawFaceDown(), true, "the quest is dealt face down");
+    assert.deepEqual(
+      await head(""),
+      { kicker: "Quest", name: "Hold Lamp", color: "rgb(255, 240, 130)" },
+      "the kicker, the sentence and the Legendary lamp's tier",
+    );
     // It turns once: folding Vale's stack and opening it again, redraw after
     // redraw, never deals it face down again.
     await watchFaceDown();
@@ -209,6 +241,16 @@ try {
       await page.locator('#card-actions [data-drop-quest="0"]').textContent(),
       "Drop quest (−1 XP)",
     );
+    // Drop is a secondary, destructive choice: red words with no panel.
+    assert.deepEqual(
+      await page
+        .locator('#card-actions [data-drop-quest="0"]')
+        .evaluate((el) => {
+          const style = getComputedStyle(el);
+          return [style.color, style.backgroundColor, style.borderTopColor];
+        }),
+      ["rgb(255, 143, 132)", "rgba(0, 0, 0, 0)", "rgba(0, 0, 0, 0)"],
+    );
     assert.equal(
       await page.locator("#card-actions [data-focus-quest]").count(),
       0,
@@ -260,6 +302,42 @@ try {
       ["station"],
       "the top quest dropped",
     );
+    // At the Theban City Gate, giving the Decree to the guard shows all
+    // three, Vale, the scroll and the guard, and takes the Legendary scroll's
+    // tier.
+    const gateKey = `cosyworld.reflected-shore.v1.quest-give-${width}`;
+    await page.evaluate(
+      ({ gateKey, save, seen }) => {
+        localStorage.setItem(gateKey, save);
+        localStorage.setItem(`${gateKey}.seen`, JSON.stringify(seen));
+      },
+      { gateKey, save: encodeSave(gate), seen: availableCards(gate) },
+    );
+    await page.goto(
+      `http://127.0.0.1:${server.address().port}/?table=quest-give-${width}`,
+    );
+    await ready();
+    await openFold();
+    await page.locator('#hand .want-card[data-unrevealed="false"]').waitFor();
+    assert.deepEqual(await head(""), {
+      kicker: "Quest",
+      name: "Give The Burial Decree to The Gate Guard",
+      color: "rgb(255, 240, 130)",
+    });
+    assert.equal(
+      await page
+        .locator('#hand .want-card .quest-screen[data-parts="3"] > img')
+        .evaluateAll((imgs) =>
+          imgs
+            .filter((img) => !img.matches(".quest-ground"))
+            .map((img) => img.className)
+            .join(" | "),
+        ),
+      "quest-figure quest-left | quest-thing | quest-figure quest-right quest-to",
+    );
+    await page.screenshot({
+      path: new URL(`give-${width}.png`, output).pathname,
+    });
     assert.deepEqual(errors, []);
     console.log(
       `Quest fold, met seal, click to clear and +XP, stack fan, choose and drop passed at ${width}px (${motion}).`,
