@@ -520,6 +520,12 @@ fades the figure or item in over 900 ms and brings the place's painting up
 out of the black; reduced motion shows it at once. A covered person who
 speaks is revealed with the line, there at once, so the words never wait.
 The rules' world and knowledge are unchanged.
+The opening of a new local world (`opening.mjs`) offers no play while the
+lamp or the attic is still face down: the context button reads a quiet
+Reveal and turns the next one. Once both are revealed the lamp is chosen, so
+the button offers the rules' own first play, Put out; it darkens the attic
+and the pond arrives face down behind it. A reload or a shared world has no
+opening beyond the reveals its player has kept.
 
 The player's avatar knows only what its player has uncovered (#1575). Until a
 card is uncovered, the screen never names it: the place heading, world name

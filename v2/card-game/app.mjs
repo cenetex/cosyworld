@@ -26,6 +26,7 @@ import {
 } from "./card-entry.mjs";
 import { LOCKED_BACK, createLockedBoxes, isLockedBox } from "./locked-box.mjs";
 import { fadeInRevealed, revealedStage } from "./stage-reveal.mjs";
+import { OPENING_REVEAL, openingStep } from "./opening.mjs";
 import {
   phase,
   refusalLabel,
@@ -1362,17 +1363,29 @@ function selectCards(cards) {
 // a second flip.
 function uncover(id, { flip = true, lid = null, fade = true } = {}) {
   if (!cardIsCovered(id)) return;
+  const was = opening()?.step;
   encountered.add(id);
   coveredCards.delete(id);
   rememberCards();
   // Its figure or item fades into the scene (stage-reveal.mjs).
   if (fade) stageReveals.add(id);
+  // The opening's last card down raises its first play, Put out (opening.mjs).
+  const step = opening();
+  if (was === "reveal" && step?.step === "play" && step.choice.length) {
+    selectCards(step.choice);
+    rowCollapsed = false;
+  }
   render();
   const shown = $("hand").querySelector(`.card[data-card="${id}"]`);
   if (shown && flip) void revealCard(openingLid(shown, lid));
   $("discovery-announcement").textContent = `New card: ${nameOf(id)}.`;
   if (openingHeld && openingWordsDue() && selfKnown()) resumeScene();
   if (sharedSession) syncSharedLine();
+}
+// A new local world's opening, while it lasts (opening.mjs).
+function opening() {
+  if (sharedSession) return null;
+  return openingStep(world, currentActor(world), cardIsCovered);
 }
 function choose(id) {
   if (finishCardReveal(id) || selectionBlocked()) return;
@@ -1991,7 +2004,9 @@ function renderActions() {
   );
   // A chosen play leaves the beat: the Thinking card stands for it, and its
   // reply types into the full-size front card.
-  const actions = rested ? [] : ready;
+  // While the opening has a card down, the button only reveals the next.
+  const quiet = !rested && opening()?.step === "reveal";
+  const actions = rested || quiet ? [] : ready;
   const selectionName = selected.map(nameOf).join(" + ");
   $("selection-name").textContent = selected.length
     ? selectionName
@@ -2071,6 +2086,14 @@ function renderActions() {
         .command({ op: "nudge", target: nudgeTarget })
         .catch((error) => notice(error.message));
     row.append(nudge);
+  }
+  if (quiet) {
+    const reveal = node("button", OPENING_REVEAL, "card-primary");
+    reveal.type = "button";
+    reveal.dataset.quiet = "true";
+    reveal.disabled = selectionBlocked();
+    reveal.onclick = () => uncover(opening()?.next);
+    row.append(reveal);
   }
   // The top quest, chosen in the open fan, can be dropped (a level quest
   // costs experience, named on its button). Choosing a card beneath brings it to the top.
