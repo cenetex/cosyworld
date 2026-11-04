@@ -15,7 +15,8 @@ export function phase({
   chosen = false,
   rested = false,
 } = {}) {
-  if (raised && chosen && !rested && (!inFlight || lingering)) return "choosing";
+  if (raised && chosen && !rested && (!inFlight || lingering))
+    return "choosing";
   if (revealing) return "revealing";
   if (inFlight && !lingering) return "thinking";
   // Stepping back never hides a choice: the earlier beat steps behind it.
