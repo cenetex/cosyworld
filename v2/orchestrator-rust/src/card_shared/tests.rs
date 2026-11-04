@@ -402,3 +402,10 @@ fn queued_item_race_rechecks_custody_and_commits_once() {
     assert!(view["notice"].as_str().unwrap().contains("item has moved"));
     assert_eq!(view["history"].as_array().unwrap().len(), 1);
 }
+#[test]
+fn a_world_on_newer_rules_is_updating_not_a_conflict() {
+    let updating = reply(Err(engine::UPDATING.into()));
+    assert_eq!(updating.status(), StatusCode::SERVICE_UNAVAILABLE);
+    let migration = reply(Err("This world's rules need a saved migration.".into()));
+    assert_eq!(migration.status(), StatusCode::CONFLICT);
+}

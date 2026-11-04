@@ -108,6 +108,11 @@ pub(super) fn router() -> Router<AppState> {
 fn reply(r: Result<Value>) -> Response {
     let (status, body) = match r {
         Ok(v) => (StatusCode::OK, v),
+        // The client waits and retries on its own (shared.mjs).
+        Err(e) if e == engine::UPDATING => (
+            StatusCode::SERVICE_UNAVAILABLE,
+            json!({"error":e, "code":"updating"}),
+        ),
         Err(e) => (
             if e == "Sign in with your passkey." {
                 StatusCode::UNAUTHORIZED
