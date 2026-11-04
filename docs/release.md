@@ -17,10 +17,11 @@ rather than once per merge:
    rollout, and only when production inputs changed. Its run summary names
    the train's commit and lists the pull requests it carries, so each drop
    is labelled.
-3. **Production.** When the owner says "tag it from `.dev`", release the
-   commit the last train shipped ([Cutting a Release](#cutting-a-release)).
-   Between trains, [production promotion](#production-promotion) deploys
-   the newest train that soaked on `.dev` and passed its gates.
+3. **Production.** Lonely Forest changes only on a release tag. When the
+   owner says "tag it from `.dev`", release the commit the last train
+   shipped ([Cutting a Release](#cutting-a-release)). Nothing promotes a
+   train to production on a schedule
+   ([Production releases](#production-releases)).
 
 Owner controls:
 
@@ -78,10 +79,9 @@ The train job:
    commit: the **Production Node and content gate**, the **Production Rust
    gate**, and **Production Rust architecture and lint**. Tests run after
    `.dev` deploys and before production: `.dev` does not wait for them and
-   their result does not change it, but only a train whose three gates all
-   passed can be promoted, and the promotion of that train, and a release
-   that only bumps its version, reuse its passed Rust gate instead of
-   running it again (about 5 to 8 minutes each). The run stays open while
+   their result does not change it, but a release that only bumps that
+   train's version reuses its passed Rust gate instead of running it again
+   (about 5 to 8 minutes). The run stays open while
    they run, so a manual `dev` dispatch meanwhile waits up to about 8
    minutes for them.
 
@@ -123,9 +123,10 @@ older promotion (run 41341734000). Now every production run starts at once,
 and `scripts/supersede-production-deploy.mjs` orders them:
 
 - **Which run wins.** The later run supersedes the earlier one, so the
-  owner's last tag or dispatch is what ships. A promotion (a `promote/*`
-  dispatch) is the exception: it never supersedes a run whose commit it does
-  not contain, so a tag always beats a scheduled promotion. The run name ends
+  owner's last tag or dispatch is what ships. A dispatch from a `promote/*`
+  branch (left from the retired scheduled promotion) is the exception: it
+  never supersedes a run whose commit it does not contain, so a tag always
+  beats it. The run name ends
   with its target (`Deploy v1.2.114 to both`); a run supersedes another only
   for the apps it deploys.
 - **At the start** (`Confirm committed release still owns production`), a run
@@ -388,62 +389,29 @@ git push origin vX.Y.Z
 
 The workflow deploys both Fly apps, then creates GitHub release notes.
 
-## Production promotion
+## Production releases
 
-Lonely Forest (production) follows `.dev` by about one train.
-`.github/workflows/promote.yml` runs at `:22` and `:52`, between `.dev`
-trains, and `scripts/promote-train.mjs` picks what to promote:
+Lonely Forest (production) deploys only from a version tag (`vX.Y.Z`, see
+[Cutting a Release](#cutting-a-release)). The owner decided on 2026-11-04
+that only tagged versions reach production, so the scheduled promotion of
+soaked `.dev` trains (`promote.yml` and `scripts/promote-train.mjs`, run at
+`:22` and `:52`) was removed. `.dev` keeps its own train schedule.
 
-- the newest `.dev` train (a `Deploy main to .dev` job) that rolled out,
-  passed its readiness and card-game smokes on `cosyworld.fly.dev`, and then
-  passed all three post-rollout gates (Node and content, Rust, Rust lint) in
-  the same run. A train whose gates are still running is skipped, not
-  counted as a failure;
-- that stayed live on `.dev` for `COSYWORLD_PROMOTE_SOAK_MINUTES` (repository
-  variable, default 20), until the next train replaced it or until now;
-- only when the newest finished train also passed: a train whose smokes or
-  gates failed holds promotion until a newer train passes;
-- only when it is ahead of the commit Lonely Forest's `/meta` reports, so a
-  train deploys to production at most once and never rolls a release back;
-- never a commit whose production run already failed, and never while
-  another production run is queued or running; it checks again just before
-  dispatching, so a tag pushed meanwhile goes first. A tag pushed after the
-  dispatch supersedes the promotion run, which yields before its rollout.
+A tag run keeps every production gate: the Node, Rust (`check-rust.sh test`,
+#1743), and lint gates, worldpack compatibility, volume space, and the
+Lonely Forest backup. A failed gate stops the deploy and opens the usual
+tracking issue. When the tagged commit is one a `.dev` train already ran,
+the tag reuses that train's passed Rust gate and lint. A tag pushed while an
+older production run is still in its gates supersedes it
+([Superseding production deploys](#superseding-production-deploys)).
 
-The primary app is `.dev`, so it already runs every train; promotion deploys
-only Lonely Forest. It creates a `promote/<sha>` branch at the train's commit
-and dispatches `deploy.yml` with `target=lonelyforest` on it. That run keeps
-every production gate: the Node, Rust (`check-rust.sh test`, #1743), and lint
-gates, worldpack compatibility, volume space, and the Lonely Forest backup. A
-failed gate stops the deploy and opens the usual tracking issue. The run does
-not compile the image again: it copies the `deploy-<sha>` image the `.dev`
-train built for that commit (the image `.dev` ran during the soak) into the
-Lonely Forest registry by digest, and builds only when no such image exists.
-That cuts a promotion from about 13 minutes to about 10. The train already
-ran the Rust gate and lint on that commit (see [.dev trains](#dev-trains)), so
-the promotion reuses them, and its longest path becomes the Lonely Forest
-backup (about 3 minutes) and rollout (about 2.5). Each
-promotion clears the earlier `promote/*` branches.
+Lonely Forest's `/meta` reports the tag's `version` and `commit`, and the
+tag run creates the GitHub release.
 
-Promotion needs no new secret. The workflow's `GITHUB_TOKEN` creates the
-branch (`contents: write`) and dispatches the deploy (`actions: write`);
-GitHub lets `GITHUB_TOKEN` start `workflow_dispatch` runs, unlike pushes and
-tags. If a branch ruleset ever blocks creating `promote/*`, exempt that
-pattern for GitHub Actions.
-
-Promotions are not versioned releases. Lonely Forest's `/meta` then reports
-the last released `version` and the promoted `commit`, and no GitHub release
-is created. Versioned releases still come from tags.
-
-Owner controls:
-
-- **Pause:** `gh variable set COSYWORLD_HOLD_PRODUCTION --body on`; delete
-  the variable to resume. A manual run still promotes while paused.
-- **Promote now:** `gh workflow run promote.yml --ref main` promotes the
-  newest passing train without the soak (`-f now=false` keeps it;
-  `-f dry_run=true` only reports).
-- **Tag it from `.dev`:** a versioned release works as before; see
-  [Cutting a Release](#cutting-a-release).
+A manual production dispatch (`gh workflow run deploy.yml -f
+target=lonelyforest`) still exists, with the same gates, for the owner's
+word or a recovery. It is not a versioned release, and nothing runs it on a
+schedule.
 
 ## Upgrade and recovery
 

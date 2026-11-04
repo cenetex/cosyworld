@@ -207,7 +207,7 @@ try {
     await settled();
     assert(await panel.isVisible(), `${name}: the borrowed beat arrives`);
     assert.equal(await panel.getAttribute("data-avatar"), "mara");
-    assert.match(await panel.innerText(), /Mara · Someone · offline/);
+    assert.match(await panel.innerText(), /Mara\nSomeone · Exploring /);
     assert.deepEqual(errors, [], `${name}: borrowing after play is safe`);
     await page.locator("#toolbar-menu-button").click();
     await panel.waitFor({ state: "hidden" });

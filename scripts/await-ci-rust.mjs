@@ -9,8 +9,8 @@ import { fileURLToPath } from 'node:url';
 
 export const CI_RUST_CHECKS = ['Rust build and tests', 'Rust architecture and lint'];
 // The Deploy workflow's own gate jobs run the same commands. A .dev train
-// runs them after its rollout, so a promotion of that train, or a tag that
-// only bumps its version, reuses them.
+// runs them after its rollout, so a tag that only bumps its version reuses
+// them.
 export const GATE_CHECKS = {
   'Production Rust gate': CI_RUST_CHECKS[0],
   'Production Rust architecture and lint': CI_RUST_CHECKS[1]

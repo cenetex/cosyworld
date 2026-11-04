@@ -62,6 +62,15 @@ try {
       "Every world holds The Wine-Dark Sea",
     );
     assert.equal(await sea.isDisabled(), true);
+    // A pack is a place card: the quest card's place painting and its name
+    // where the quest sets its verb.
+    const pack = page.locator('[data-setting="pack-sea"]');
+    assert.equal(await pack.locator(".quest-screen .quest-ground").count(), 1);
+    assert.equal(await pack.locator(".quest-figure").count(), 0);
+    assert.equal(
+      await pack.locator(".quest-head .quest-verb").textContent(),
+      "The Wine-Dark Sea",
+    );
     // Sign out, signed in, or New game, signed out, waits for a second press.
     const [risky, confirm] = signedIn
       ? ["account", "Tap again to sign out"]

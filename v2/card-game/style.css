@@ -1204,6 +1204,17 @@ body .card.item .art img {
 .hand > .card-frame:has(> .card[data-selected="true"]) .card .name {
   padding-right: 8px;
 }
+/* So does a Settings pack's name, set where the quest card sets its verb. */
+.hand
+  > .card-frame:has(~ .card-frame:not([hidden])):not(
+    :hover,
+    :focus-within,
+    :has(> .card[data-selected="true"])
+  )
+  > .card[data-setting]
+  > .quest-head {
+  padding-right: var(--fan-overlap);
+}
 /* Carry the label's shade to the card's edge, wherever the hand clips it. */
 body .card .name::after {
   content: "";
@@ -2554,8 +2565,7 @@ body .beat-live {
   -webkit-mask-image: radial-gradient(ellipse 50% 50%, #000 55%, transparent);
   mask-image: radial-gradient(ellipse 50% 50%, #000 55%, transparent);
 }
-/* A chosen avatar's small card: its tier's edge and level numeral, grey
-   while nobody is online in it. */
+/* A borrowed beat's small card (a setting's art), grey while off. */
 .beat-face {
   position: relative;
   display: block;
@@ -2582,6 +2592,65 @@ body .beat-live {
   font-size: 10px;
   visibility: visible;
   opacity: 0.8;
+}
+/* A chosen avatar is a small quest screen: it stands untiled with a drop
+   shadow in its place's feathered painting, under its tier's glow and
+   level numeral. */
+.action-beat-cards .beat-face.quest-screen {
+  position: relative;
+  top: auto;
+  left: auto;
+  width: auto;
+  height: 60px;
+  background: radial-gradient(
+    ellipse 90% 55% at 50% 0%,
+    color-mix(in srgb, var(--tier-color, #a48d63) 20%, transparent),
+    transparent 70%
+  );
+}
+.beat-face.quest-screen img {
+  aspect-ratio: auto;
+  border: 0;
+  border-radius: 0;
+  background: none;
+}
+.beat-face.quest-screen .quest-ground {
+  width: 118%;
+  height: 112%;
+}
+.action-beat-cards .beat-face.quest-screen .quest-figure {
+  left: 50%;
+  width: auto;
+  height: 92%;
+  filter: drop-shadow(0 3px 4px #000a);
+}
+.beat-face.quest-screen[data-lit="false"] .quest-figure {
+  filter: drop-shadow(0 3px 4px #000a) saturate(0.35) brightness(0.6);
+}
+.beat-face .quest-level {
+  position: absolute;
+  z-index: 3;
+  top: 2px;
+  right: 4px;
+  color: var(--tier-color, #a48d63);
+  font:
+    12px/1 Georgia,
+    serif;
+}
+/* A chosen avatar's beat has no border, and its two lines, name and
+   place, wrap rather than end in an ellipsis. */
+.beat-stack > .action-panel[data-avatar] {
+  border: 0;
+}
+.action-panel[data-avatar] .action-beat-text {
+  display: block;
+  overflow: visible;
+  -webkit-line-clamp: none;
+  line-clamp: none;
+}
+.action-beat-info {
+  display: block;
+  color: #cfc3ab;
 }
 /* The note reads under the heading. */
 .action-beat-heading {
@@ -2793,6 +2862,20 @@ main > .dialogue {
   }
   body[data-dialogue-over="true"] .action-beat-cards .beat-face img {
     width: 36px;
+  }
+  body[data-dialogue-over="true"]
+    .action-beat-cards
+    .beat-face.quest-screen
+    img {
+    width: auto;
+  }
+  /* A chosen avatar's beat grows up over the hand to fit its two lines. */
+  body[data-dialogue-over="true"] .beat-stack > .action-panel[data-avatar] {
+    position: absolute;
+    inset: auto 0 0;
+    height: auto;
+    min-height: calc(100% - var(--beat-peek));
+    max-height: 60dvh;
   }
   body[data-dialogue-over="true"] .action-beat-note {
     overflow: hidden;

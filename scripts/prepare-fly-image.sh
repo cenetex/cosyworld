@@ -65,7 +65,7 @@ source_login() {
   DOCKER_CONFIG="$credentials/source" FLY_API_TOKEN="$FLY_SOURCE_API_TOKEN" flyctl auth docker
 }
 
-# A Lonely Forest-only deploy (a promotion) has no primary build in this run,
+# A Lonely Forest-only dispatch has no primary build in this run,
 # but the .dev train already built this commit's image for the primary app.
 # Copy that commit-addressed image instead of compiling it again.
 if [ -z "$source_image" ] && [[ "$app" == cosyworld-lonelyforest ]] &&

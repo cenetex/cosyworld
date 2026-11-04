@@ -5,6 +5,8 @@
 import { imageUrl } from "./images.mjs";
 import { playerCredits } from "./credits.mjs";
 import { localRuntime } from "./local-service.mjs";
+import { levelTier } from "./level-tiers.mjs";
+import { questScreen } from "./quest-screen.mjs";
 import { passkey, request } from "./shared-auth.mjs";
 import { TOGGLES, settingsBeat, settingsCards } from "./settings-cards.mjs";
 
@@ -115,8 +117,22 @@ export function installSettingsCards({ actionBeat, avatar }) {
   }
   const make = (tag, className, props) =>
     Object.assign(document.createElement(tag), { className, ...props });
+  // A place card (a world pack) is the quest card's place: its painting
+  // feathered into the card, with its name where the quest names its verb.
+  function placeFace(el, c) {
+    el.style.setProperty("--tier-color", levelTier(0).color);
+    const head = make("span", "quest-head");
+    head.append(make("span", "quest-verb", { textContent: c.name }));
+    el.append(
+      questScreen(
+        { kind: "place", target: c.art },
+        { url: (src) => imageUrl(src, "card"), place: (src) => src },
+      ),
+      head,
+    );
+  }
   function frame(c, index, count) {
-    const el = make("button", "card item", {
+    const el = make("button", c.place ? "card want-card" : "card item", {
       type: "button",
       onclick: () => choose(c.id),
     });
@@ -127,15 +143,18 @@ export function installSettingsCards({ actionBeat, avatar }) {
     });
     el.setAttribute("aria-pressed", String(chosen === c.id));
     el.setAttribute("aria-label", [c.name, c.state].filter(Boolean).join(", "));
-    const art = make("span", "art");
-    art.append(
-      make("img", "", {
-        src: imageUrl(c.art, "card"),
-        alt: "",
-        draggable: false,
-      }),
-    );
-    el.append(art, make("span", "name", { textContent: c.name }));
+    if (c.place) placeFace(el, c);
+    else {
+      const art = make("span", "art");
+      art.append(
+        make("img", "", {
+          src: imageUrl(c.art, "card"),
+          alt: "",
+          draggable: false,
+        }),
+      );
+      el.append(art, make("span", "name", { textContent: c.name }));
+    }
     const holder = make("div", "card-frame");
     holder.style.setProperty("--fan-at", String(index - (count - 1) / 2));
     holder.append(el);
