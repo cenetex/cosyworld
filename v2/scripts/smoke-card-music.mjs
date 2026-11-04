@@ -66,12 +66,17 @@ try {
     `http://127.0.0.1:${server.address().port}/?table=music-smoke`,
   );
   console.log("Loaded card table");
-  async function playCard(card) {
+  async function playCard(card, kind = null) {
     await page.waitForFunction(
       () => document.querySelector("#hand").dataset.cooling === "false",
     );
     await selectCard(page, card);
-    await page.locator("#card-actions .card-primary").click();
+    const action = page.locator(
+      kind
+        ? `#card-actions [data-action="${kind}"]`
+        : "#card-actions .card-primary",
+    );
+    await action.click();
   }
   // A new game stays quiet, menu included, until its first accepted card play.
   await openSettings(page);
@@ -186,16 +191,52 @@ try {
   async function travel(room, card = room, check = () => checkPlaylist(room)) {
     await fullVolume();
     const oldSource = await page.locator("#room-music").getAttribute("src");
-    await playCard(card);
-    assert.equal(
-      await page.locator("#room-music").getAttribute("src"),
-      oldSource,
-    );
-    assert(await page.evaluate(() => window.musicGain.gain.value > 0));
-    await page.waitForFunction(
-      (room) => document.body.dataset.place === room,
-      room,
-    );
+    const from = await page.locator("body").getAttribute("data-place");
+    // Board and Disembark are both authored move actions.
+    const kind = "move";
+    try {
+      await playCard(card, kind);
+      assert.equal(
+        await page.locator("#room-music").getAttribute("src"),
+        oldSource,
+      );
+      assert(await page.evaluate(() => window.musicGain.gain.value > 0));
+      await page.waitForFunction(
+        (room) => document.body.dataset.place === room,
+        room,
+      );
+    } catch (error) {
+      const state = await page.evaluate(() => {
+        const saved = JSON.parse(
+          localStorage.getItem("cosyworld.reflected-shore.v1.music-smoke") ||
+            "null",
+        );
+        return {
+          shown: document.body.dataset.place,
+          saved: saved?.actors?.vale?.place,
+          revision: saved?.revision,
+          selected: [
+            ...document.querySelectorAll('#hand [aria-pressed="true"]'),
+          ].map((card) => card.dataset.card),
+          actions: [...document.querySelectorAll("#card-actions button")].map(
+            (button) => ({
+              kind: button.dataset.action,
+              text: button.textContent,
+              disabled: button.disabled,
+            }),
+          ),
+          cooling: document.querySelector("#hand").dataset.cooling,
+        };
+      });
+      console.error("Music travel failed", {
+        from,
+        room,
+        card,
+        kind,
+        ...state,
+      });
+      throw error;
+    }
     await fullVolume();
     assert.equal(
       await page.locator("#room-music").getAttribute("src"),
@@ -223,12 +264,12 @@ try {
   // lit at the pond opens the way up, and dousing it opens the way down.
   // The doused lamp stays raised after its play; lower it before each step.
   await clearSelection(page);
-  await playCard("lamp");
+  await playCard("lamp", "light");
   await clearSelection(page);
   await travel("attic");
   console.log("Attic tracks played");
   await clearSelection(page);
-  await playCard("lamp");
+  await playCard("lamp", "snuff");
   await clearSelection(page);
   await travel("pond");
   console.log("Pond tracks played");
