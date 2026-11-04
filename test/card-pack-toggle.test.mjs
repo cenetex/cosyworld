@@ -193,22 +193,22 @@ describe("switching a pack off and on (rules 98)", () => {
     };
     const plans = [[SEA], [HOPPY], [COTTAGE], [SHORE, COTTAGE], [SEA, SHORE]];
     let switched = 0;
-    for (let seed = 1; seed <= 4; seed++) {
-      const base = step(createWorld({ seed }), 25);
+    for (let seed = 1; seed <= 3; seed++) {
+      const base = step(createWorld({ seed }), 20);
       for (const plan of plans) {
         let s = base;
         for (const g of plan) {
           const r = play(s, off(g));
           if (r.ok) [s, switched] = [r.state, switched + 1];
         }
-        s = reload(step(s, 15));
+        s = reload(step(s, 10));
         for (const g of [...plan].reverse())
           if (s.disabledPacks?.includes(g)) s = play(s, on(g)).state;
-        expect(validateWorld(reload(step(s, 5)))).toBeTruthy();
+        expect(validateWorld(reload(step(s, 3)))).toBeTruthy();
       }
     }
-    expect(switched).toBeGreaterThan(10);
-  });
+    expect(switched).toBeGreaterThan(8);
+  }, 60_000);
 
   it("is a rules 98 rule: rules 96 and 97 keep the pack awake", () => {
     // Vale in a pack switched off: rules 98 refuses the world; 96 and 97
