@@ -4795,7 +4795,6 @@ installToolbar({
 });
 const settingsCards = installSettingsCards({
   actionBeat: { show: showActionBeat, clear: clearActionBeat },
-  avatar: () => portrait(currentActor(world), null, world),
 });
 installCreditPool({
   actionBeat: { show: showActionBeat, clear: clearActionBeat },

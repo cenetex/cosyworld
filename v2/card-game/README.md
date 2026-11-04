@@ -78,6 +78,14 @@ Cottage (`lonely-forest`), The Reflected Shore (the hub), The Wine-Dark Sea
 (`greek-drama`) and Hoppy Cat Universe (`hoppycat-archive`). A pack card is
 a place card drawn as the quest card draws its place (`questScreen`): the
 painting feathered into the card, its name where the quest names its verb.
+Most other cards are place cards too, each a region of the owner's moonlit
+workbench (`assets/settings/PROVENANCE.md`): the sealed letter for Privacy,
+the candle for Volume, the dice cup for Fight speed, the dice for Play counts,
+Pip at the table for Account, the old books for Credits, the brass mug for
+World pool, the scroll for Backup, the round window for New game, the
+armillary for Controls and the book stack for Download. Music, Voices,
+Flashes and scares and Another passkey keep their transparent figures. A
+card lifted over the next by pointer or focus moves that card's name clear.
 Every pack is mounted in every world (`installPacks`), so a pack card is lit and its button
 says so. The cards drive the controls in `#menu-dialog`, which no longer
 opens. `smoke-card-settings.mjs` checks choosing, pressing, the second press
