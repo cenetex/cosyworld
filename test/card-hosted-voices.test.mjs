@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { createHostedVoices } from "../v2/card-game/hosted-voices.mjs";
+import { createVoiceClips } from "../v2/card-game/character-speech.mjs";
 
 const json = (body, status = 200) =>
   new Response(JSON.stringify(body), {
@@ -12,6 +13,68 @@ const audio = () =>
   });
 
 describe("hosted voices in the browser", () => {
+  it.each(["", "saved-world"])(
+    "loads saved speech with an empty browser cache in %s",
+    async (world) => {
+      const fetcher = vi.fn(async (path) =>
+        path === "/auth/account" ? json({ authenticated: true }) : audio(),
+      );
+      const hosted = createHostedVoices({ fetcher, world });
+      const options = { client: hosted.voices, storage: null };
+      const load = createVoiceClips(options);
+      const signal = new AbortController().signal;
+      const reference = world ? { play: "saved-play", line: 0 } : undefined;
+      await expect(
+        load("vale", "The lamp is steady.", signal, reference),
+      ).rejects.toThrow("Sign in with your passkey");
+      expect(fetcher).not.toHaveBeenCalled();
+
+      await hosted.refresh();
+      const clip = await load("vale", "The lamp is steady.", signal, reference);
+      expect(clip.type).toBe("audio/mpeg");
+      await load("vale", "The lamp is steady.", signal, reference);
+      const calls = () =>
+        fetcher.mock.calls.filter(([p]) => p.endsWith("speech"));
+      expect(calls()).toHaveLength(1);
+      expect(JSON.parse(calls()[0][1].body)).toEqual(
+        world
+          ? { world, ...reference }
+          : { speaker: "vale", text: "The lamp is steady." },
+      );
+      // A new browser can fetch the same saved line from the server.
+      await createVoiceClips(options)(
+        "vale",
+        "The lamp is steady.",
+        signal,
+        reference,
+      );
+      expect(calls()).toHaveLength(2);
+    },
+  );
+
+  it("allows a fresh attempt after the server rate limit clears", async () => {
+    let limited = true;
+    const fetcher = vi.fn(async (path) =>
+      path === "/auth/account"
+        ? json({ authenticated: true })
+        : limited
+          ? json({ error: "Give the voices a moment." }, 429)
+          : audio(),
+    );
+    const hosted = createHostedVoices({ fetcher });
+    await hosted.refresh();
+    const load = createVoiceClips({ client: hosted.voices, storage: null });
+    const signal = new AbortController().signal;
+    await expect(load("vale", "Hello.", signal)).rejects.toThrow(
+      "Give the voices a moment.",
+    );
+    limited = false;
+    await expect(load("vale", "Hello.", signal)).resolves.toBeInstanceOf(Blob);
+    expect(
+      fetcher.mock.calls.filter(([p]) => p.endsWith("speech")),
+    ).toHaveLength(2);
+  });
+
   it("offers free voices to a signed-in passkey", async () => {
     let authenticated = true;
     const fetcher = vi.fn(async (path) =>

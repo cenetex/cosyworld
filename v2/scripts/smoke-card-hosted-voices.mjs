@@ -6,13 +6,54 @@ import { mkdir, readFile } from "node:fs/promises";
 import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
 import { dispatchShared } from "../card-game/shared-world.mjs";
-import { createWorld, encodeSave } from "../card-game/world.mjs";
+import { addLog, createWorld, encodeSave } from "../card-game/world.mjs";
 import { revealCard, openSettings } from "./card-browser-helpers.mjs";
 
 const settingIds = (page) =>
   page
     .locator("#settings-hand [data-setting]")
     .evaluateAll((cards) => cards.map((c) => c.dataset.setting));
+
+// Count voice clips through the browser's real audio API. Generated letter
+// sounds are shorter than three seconds; room music is off for this check.
+async function trackVoices(page) {
+  await page.addInitScript(() => {
+    localStorage.setItem(
+      "cosyworld.room-music",
+      JSON.stringify({ enabled: false }),
+    );
+    window.voicePlayback = { starts: 0, stops: 0 };
+    const start = AudioBufferSourceNode.prototype.start,
+      stop = AudioBufferSourceNode.prototype.stop;
+    AudioBufferSourceNode.prototype.start = function (...args) {
+      this.isVoiceClip = this.buffer?.duration > 3;
+      if (this.isVoiceClip) window.voicePlayback.starts++;
+      return start.apply(this, args);
+    };
+    AudioBufferSourceNode.prototype.stop = function (...args) {
+      if (this.isVoiceClip) window.voicePlayback.stops++;
+      return stop.apply(this, args);
+    };
+  });
+}
+
+async function checkAccountRefresh(page) {
+  assert.deepEqual(await page.evaluate(() => window.voicePlayback), {
+    starts: 1,
+    stops: 0,
+  });
+  await page.evaluate(async () => {
+    const { hostedVoices } = await import("./hosted-voices.mjs");
+    await hostedVoices().refresh();
+    await hostedVoices().refresh();
+  });
+  assert.equal(await page.getAttribute("#speech-row", "data-voice"), "playing");
+  assert.deepEqual(
+    await page.evaluate(() => window.voicePlayback),
+    { starts: 1, stops: 0 },
+    "Refreshing the same account keeps the current voice in place",
+  );
+}
 
 async function checkSharedVoice(width) {
   const page = await browser.newPage({
@@ -21,6 +62,7 @@ async function checkSharedVoice(width) {
   });
   const errors = [],
     voices = [];
+  await trackVoices(page);
   page.on("pageerror", (error) => errors.push(error.message));
   let shared = dispatchShared({
     op: "create",
@@ -86,6 +128,7 @@ async function checkSharedVoice(width) {
   assert.deepEqual(voices, [
     { world: "voice-w", play: "saved-voice-play", line: 0 },
   ]);
+  await checkAccountRefresh(page);
   await page.screenshot({ path: `output/voices/shared-voice-${width}.png` });
   await openSettings(page);
   const ids = await settingIds(page);
@@ -94,6 +137,64 @@ async function checkSharedVoice(width) {
   assert.deepEqual(errors, []);
   console.log(`Voiced a saved shared scene line free at ${width}px.`);
   await page.close();
+}
+
+async function checkPersonalReplay(width) {
+  const page = await browser.newPage({
+    viewport: { width, height: 900 },
+    reducedMotion: "reduce",
+  });
+  const voices = [],
+    errors = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  await trackVoices(page);
+  const world = createWorld({ opening: true });
+  addLog(world, "Vale", "The lamp is steady.", {
+    actorId: "vale",
+    entityId: "vale",
+    kind: "dialogue",
+    generated: true,
+    locationId: world.actors.vale.place,
+  });
+  const table = `voice-replay-${width}`;
+  await page.addInitScript(({ key, save }) => localStorage.setItem(key, save), {
+    key: `cosyworld.reflected-shore.v1.${table}`,
+    save: encodeSave(world),
+  });
+  await page.route("**/auth/account", (route) =>
+    route.fulfill({ json: { authenticated: true } }),
+  );
+  const audio = await readFile(
+    new URL("../card-game/assets/voices/vale.mp3", import.meta.url),
+  );
+  await page.route("**/card-game/speech", (route) => {
+    voices.push(route.request().postDataJSON());
+    return route.fulfill({ contentType: "audio/mpeg", body: audio });
+  });
+  try {
+    await page.goto(`${origin()}/?table=${table}`);
+    for (let replay = 0; replay < 2; replay++) {
+      await page.waitForFunction(() => document.body.inert === false);
+      await page.locator("#speaker").click();
+      await page.waitForFunction(
+        () => document.querySelector("#speech-row").dataset.voice === "playing",
+      );
+      await checkAccountRefresh(page);
+      assert.deepEqual(voices, [
+        { speaker: "vale", text: "The lamp is steady." },
+      ]);
+      if (replay === 0) await page.reload();
+    }
+    await page.screenshot({
+      path: `output/voices/personal-replay-${width}.png`,
+    });
+    assert.deepEqual(errors, []);
+    console.log(
+      `Replayed personal speech across reload and account refresh at ${width}px.`,
+    );
+  } finally {
+    await page.close();
+  }
 }
 
 const server = createServer();
@@ -129,7 +230,10 @@ try {
     console.log(`Settings showed no credits at ${width}px.`);
     await page.close();
   }
-  for (const width of [1440, 390]) await checkSharedVoice(width);
+  for (const width of [1440, 390]) {
+    await checkSharedVoice(width);
+    await checkPersonalReplay(width);
+  }
 } finally {
   await browser?.close();
   await new Promise((resolve) => server.close(resolve));
