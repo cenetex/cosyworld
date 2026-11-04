@@ -4,6 +4,7 @@
   "always": ["smoke-card-boot"],
   "default": ["smoke-card-beat-stack", "smoke-card-actions"],
   "needsRust": [
+    "smoke-card-local",
     "smoke-shared-cards",
     "smoke-card-greek-capacity",
     "smoke-card-narrative-contract"
