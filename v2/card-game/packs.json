@@ -3030,7 +3030,7 @@
           "subject": "greek-guard",
           "at": "greek-gate",
           "label": "Hear the burial order",
-          "text": "The guard reads the burial prohibition aloud. He keeps the road shut until an order from the palace is in his hand.",
+          "text": "The guard reads the burial prohibition aloud.",
           "requires": [],
           "effects": [
             {
@@ -3039,7 +3039,7 @@
               "value": true
             }
           ],
-          "textTemplate": "The guard reads the burial prohibition aloud. He keeps the road shut until an order from the palace is in his hand.",
+          "textTemplate": "The guard reads the burial prohibition aloud.",
           "on": "meet"
         },
         {
