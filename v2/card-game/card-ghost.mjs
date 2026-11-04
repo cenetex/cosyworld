@@ -77,6 +77,22 @@ export function lookAlike(card, zIndex) {
   return ghost;
 }
 
+// The same copy fixed where the element shows on screen, over the page, so
+// it stays seen while the element and what holds it are hidden.
+export function fixedGhost(el) {
+  const box = el.getBoundingClientRect(),
+    ghost = lookAlike(el, getComputedStyle(el).zIndex);
+  Object.assign(ghost.style, {
+    position: "fixed",
+    left: `${box.left}px`,
+    top: `${box.top}px`,
+    transform: "none",
+    translate: "none",
+  });
+  document.body.append(ghost);
+  return ghost;
+}
+
 // Drops the ghost and its pictures. Chromium keeps an image whose address
 // is dropped after it left the page, with everything around it, so the
 // address goes first.
