@@ -52,8 +52,8 @@ try {
       };
     });
     const dealt = () => page.evaluate(() => window.dealt.splice(0));
-    await page.route("**/card-game/credits", (route) =>
-      route.fulfill({ json: { signed_in: signedIn, balance: 3 } }),
+    await page.route("**/auth/account", (route) =>
+      route.fulfill({ json: { authenticated: signedIn } }),
     );
     await page.goto(`${origin}/?table=settings-${width}`);
     await page.locator("#hand .card").first().waitFor();

@@ -24,8 +24,6 @@ pub(crate) mod card_game;
 mod card_voices;
 #[cfg(test)]
 pub(crate) use card_voices::authority::line as shared_voice_line;
-#[path = "credits.rs"]
-pub(crate) mod credits;
 #[path = "play_metrics.rs"]
 pub(crate) mod play_metrics;
 #[path = "signed_envelope.rs"]
@@ -144,7 +142,6 @@ fn app_router_with_dependencies(
     let request_log_context = RequestLogContext::from_state(&state);
     Router::new()
         .merge(crate::card_shared::router())
-        .merge(credits::router())
         .merge(card_voices::router())
         .merge(card_game::router())
         .merge(play_metrics::router())

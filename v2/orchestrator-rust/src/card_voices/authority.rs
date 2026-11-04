@@ -1,4 +1,4 @@
-//! Only completed shared scenes can spend a world's speech pool. Their
+//! Only completed shared scenes can be voiced in a shared world. Their
 //! normalized lines and speech journal entry commit in one transaction.
 use rusqlite::{params, Connection, OptionalExtension};
 use serde_json::Value;

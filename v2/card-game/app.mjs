@@ -155,12 +155,7 @@ import { createSfx } from "./sfx.mjs";
 import { recedeBackdrop } from "./combat-backdrop.mjs";
 import { createCharacterSpeech } from "./character-speech.mjs";
 import { localRuntime } from "./local-service.mjs";
-import {
-  buySpeechPack,
-  creditsText,
-  installCreditPool,
-  playerCredits,
-} from "./credits.mjs";
+import { hostedVoices } from "./hosted-voices.mjs";
 import { createLocalBackups, installBackupControls } from "./local-saves.mjs";
 import {
   createTextReveal,
@@ -799,11 +794,7 @@ const characterSpeech = createCharacterSpeech({
     $("voice-retry").hidden = state !== "error";
     $("voice-status").textContent =
       state === "connect"
-        ? playerCredits().world
-          ? "This world's pool is out of credits for voices. Commit credits below."
-          : playerCredits().state.signed_in
-            ? "Out of credits for voices. Get a speech pack below."
-            : "Sign in with your passkey to hear character voices."
+        ? "Sign in with your passkey to hear character voices."
         : state === "error"
           ? message
           : state === "loading"
@@ -815,24 +806,14 @@ const characterSpeech = createCharacterSpeech({
     });
   },
 });
-// Hosted voices spend the passkey's credits (#1924).
-$("credits").hidden = Boolean(localRuntime());
-let creditsSeen;
-playerCredits().subscribe((credits) => {
-  $("credits-status").textContent = creditsText(credits);
-  // With Stripe on, the pack is bought here instead of asked for.
-  $("speech-pack").hidden = Boolean(credits.checkout);
-  $("buy-speech-pack").hidden = !credits.checkout || !credits.signed_in;
-  const key = `${credits.signed_in}:${playerCredits().affords("tts")}`;
-  if (creditsSeen !== undefined && key !== creditsSeen)
+// Hosted voices are free to a signed-in passkey.
+let signedInSeen;
+hostedVoices().subscribe(({ signed_in }) => {
+  if (signedInSeen !== undefined && signed_in !== signedInSeen)
     characterSpeech.connectionChanged();
-  creditsSeen = key;
+  signedInSeen = signed_in;
 });
-if (!localRuntime()) void playerCredits().refresh();
-$("buy-speech-pack").onclick = () =>
-  buySpeechPack().catch((error) => {
-    $("credits-status").textContent = error.message;
-  });
+if (!localRuntime()) void hostedVoices().refresh();
 let soundEnabled = true;
 try {
   soundEnabled = localStorage.getItem("cosyworld.dialogue.sound") !== "off";
@@ -5337,10 +5318,6 @@ const settingsCards = installSettingsCards({
     play: (pack, enable) =>
       performAction({ kind: "pack", pack, enable }, world.revision),
   },
-});
-installCreditPool({
-  actionBeat: { show: showActionBeat, clear: clearActionBeat },
-  closeSettings: () => settingsCards.close(),
 });
 // The root page resumes whichever avatar was played last.
 if (!tableName && !startingPack)

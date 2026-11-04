@@ -73,17 +73,17 @@ unchooses, then closes. A card shows only its name and art. Its face is its
 state: lit while on, dim while off. State words and reasons are in the button
 and the beat's info line, and in each card's accessible name ("Music, off").
 Sign out, New game and Restore a backup ask a second press ("Tap again to
-sign out"); a credit commit asks in its own beat.
+sign out").
 
 Settings opens with You fanned, and Privacy is the first thing it holds, so
-Privacy is one tap away. You then holds Account and Credits (hosted play),
+Privacy is one tap away. You then holds Account (hosted play),
 Another passkey (a shared world, signed in) and Play counts. Sound holds
 Music, Voices and Volume. Play holds Fight speed, Flashes and scares and
 Controls, whose Next tip shows the next tip in place and keeps Controls
 chosen. World holds the four pack cards, Cosy
 Cottage (`lonely-forest`), The Reflected Shore (the hub), The Wine-Dark Sea
 (`greek-drama`) and Hoppy Cat Universe (`hoppycat-archive`), then New game
-(the local table), Backup (the desktop app), World pool (a shared world) and
+(the local table), Backup (the desktop app) and
 Download, which opens `/download`. A pack card is
 a place card drawn as the quest card draws its place (`questScreen`): the
 painting feathered into the card, its name where the quest names its verb.
@@ -94,7 +94,7 @@ the sealed letter for Privacy,
 lamplight on the bench for Music, Pip's ears for Voices, the candle flame for
 Volume, a moth's wing for Flashes and scares, the dice cup for Fight speed,
 the dice for Play counts, Pip at the table for Account, the gear for Another
-passkey, the old books for Credits, the brass mug for World pool, the scroll
+passkey, the scroll
 for Backup, the moon for New game, the armillary for Controls and the book
 stack for Download. A card lifted over the next by pointer or focus moves that card's name clear.
 A pack card is lit while its pack is on, and dims when it is off. Its button
@@ -169,36 +169,22 @@ The server reads the expression type from the authored character profile.
 Spoken audio and letter sounds follow speech replies.
 A committed ring at your place strikes a synthesized bell (`sfx.mjs`), softer from next door; it follows the music switch and volume.
 
-Players do not connect an OpenRouter account. Written dialogue uses the game's
-account and stays free. Spoken voices spend the signed-in passkey's credits
-([#1924](https://github.com/cenetex/cosyworld/issues/1924)): a new spoken line
-costs 1 credit and a speech pack is 100 credits. Settings shows the balance from `GET /card-game/credits` and a "Get a
-speech pack" link. `credits.mjs` asks `POST /card-game/speech` for each new
-line; the server spends the credit, voices the line on its own OpenRouter key
-and refunds a failed new purchase. A line already bought plays again for free;
-a failed replay keeps its original purchase charged. Requests for the same line
-wait for the active attempt to settle; saved completion survives clip eviction. Signed
-out or out of credits, lines are simply not voiced. The Mac app keeps its
-local voices without credits.
-
-When the server has Stripe set up, `GET /card-game/credits` says `checkout:
-true` and "Get a speech pack" in Settings (and on the camera when a film is
-out of reach) opens Stripe Checkout; Stripe's webhook adds the pack.
-
-In a shared world the world's credit pool pays instead. Any passkey can commit
-credits to it from Settings ("Commit 10 credits" / "Commit 100 credits"); the
-action beat confirms, since a commit is never taken back. Settings shows the
-pool and its largest contributors (`GET /card-game/credits/pool?world=`). The
-server spends each voiced line once for the whole world and keeps the clip, so
-every player hears the same audio; the camera films on the pool. An empty pool
-leaves lines unvoiced and greys out the camera.
+Players do not connect an OpenRouter account. Written dialogue and spoken
+voices both use the game's account and are free. A signed-in passkey hears
+hosted voices: `hosted-voices.mjs` reads sign-in from `GET /auth/account` and
+asks `POST /card-game/speech` for each new line, which the server voices on its
+own OpenRouter key. The per-account voice rate limit and the server's daily
+voice budget still apply. Signed out, or when a voice fails, the line is
+shown unvoiced. In a shared world the server voices
+each line once and keeps the clip, so every player hears the same audio. The
+Mac app keeps its local voices.
 
 Shared speech sends `{world, play, line}`, with a zero-based line index into
 the completed play's saved scene. The server checks seated or bound access
-and resolves the recorded speaker and words before cache lookup or spending.
-Queued, missing and scene-only legacy records cannot spend the pool. Old
-shared clients must refresh. Personal local speech still sends speaker/text,
-and local Chatterbox stays free.
+and resolves the recorded speaker and words before cache lookup or the
+provider call. Queued, missing and scene-only legacy records are not voiced.
+Personal local speech still sends speaker/text, and local Chatterbox stays
+free.
 
 The Download card in Settings and the brand tooltip name the build from the
 server's `/meta` (`v1.2.104 · 94ff0b8 · rules 57`, commit linked); a static

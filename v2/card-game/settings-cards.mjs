@@ -82,20 +82,14 @@ export const PACKS = [
 // The groups in hand order, [card, name, painting, the settings it holds].
 // Privacy is the first thing You holds, and You opens fanned.
 export const GROUPS = [
-  ["you", "You", "you", ["privacy", "account", "passkey", "credits", "counts"]],
+  ["you", "You", "you", ["privacy", "account", "passkey", "counts"]],
   ["sound", "Sound", "candle", ["music", "voices", "volume"]],
   ["play", "Play", "play", ["fight", "scares", "controls"]],
   [
     "world",
     "World",
     "window",
-    [
-      ...PACKS.map(([id]) => `pack-${id}`),
-      "new-game",
-      "backup",
-      "pool",
-      "download",
-    ],
+    [...PACKS.map(([id]) => `pack-${id}`), "new-game", "backup", "download"],
   ],
 ];
 export const VOLUMES = [15, 30, 60, 100];
@@ -137,10 +131,6 @@ function dealt(s) {
     return card(id, name, art, t.on, t.state, [run], { info: t.info });
   });
   const next = VOLUMES.find((v) => v > s.volume) ?? VOLUMES[0];
-  const commit = (n) =>
-    s.balance < n
-      ? reason(`Commit ${n}: you hold ${s.balance}`)
-      : act(`Commit ${n} credits`, `[data-commit="${n}"]`, { closes: true });
   const signedIn = s.signedIn ? "signed in" : "signed out";
   return [
     card("privacy", "Privacy", bench("letter"), true, "", [
@@ -162,32 +152,6 @@ function dealt(s) {
       card("passkey", "Another passkey", bench("gear"), true, "", [
         act("Add a passkey", "addPasskey"),
       ]),
-    s.hosted &&
-      card(
-        "credits",
-        "Credits",
-        bench("old-books"),
-        s.signedIn,
-        s.credits,
-        [
-          s.checkout
-            ? act("Get a speech pack: 100 credits", "#buy-speech-pack")
-            : act("Get a speech pack", "speechPack"),
-        ],
-        { info: s.credits },
-      ),
-    s.pool !== null &&
-      card(
-        "pool",
-        "World pool",
-        bench("mug"),
-        true,
-        s.pool,
-        s.signedIn
-          ? [commit(10), commit(100)]
-          : [reason("Sign in to commit credits")],
-        { info: s.pool },
-      ),
     s.backup !== null &&
       card(
         "backup",

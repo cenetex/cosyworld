@@ -1,9 +1,8 @@
-//! Spoken card lines on the server's OpenRouter key, paid with credits
-//! (#1924). A line spends one credit before the provider call and is
-//! refunded if that new attempt fails. Its request id is the account, cast
-//! revision, speaker and words, so a line already bought never costs again.
-//! In a shared world the world's pool pays, once per line for every player,
-//! and the world keeps the clip (`credits::clips`).
+//! Spoken card lines on the server's OpenRouter key. A signed-in passkey
+//! hears them free; the per-account rate limit and the server's daily voice
+//! budget bound the provider calls. In a shared world only a committed scene
+//! line is spoken, and the world keeps its clip (`clips`) so every player
+//! hears the same audio.
 
 use std::{
     path::Path,
@@ -23,12 +22,12 @@ use serde::Deserialize;
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 
-use super::credits::{self, clips, speech as purchases, Payer, Spend};
 use crate::{ai_gateway::AiConfig, AppState};
-use purchases::Start;
 
 #[path = "card_voices/authority.rs"]
 pub(super) mod authority;
+#[path = "card_voices/clips.rs"]
+mod clips;
 
 const VOICES: &str = include_str!("../../card-game/voices.json");
 const MAX_TEXT: usize = 1200;
@@ -45,7 +44,7 @@ struct Line {
     speaker: String,
     #[serde(default)]
     text: String,
-    /// The shared world whose pool pays; absent for the player's own.
+    /// The shared world the line was said in; absent for the player's own.
     #[serde(default)]
     world: Option<String>,
     /// A committed shared scene and its zero-based line position.
@@ -57,11 +56,6 @@ struct Line {
 enum Failure {
     Unknown,
     Outsider,
-    Credits {
-        balance: i64,
-        price: i64,
-        pool: bool,
-    },
     Provider(String),
     Store(String),
 }
@@ -70,9 +64,10 @@ fn reply(status: StatusCode, body: Value) -> Response {
     (status, [(header::CACHE_CONTROL, "no-store")], Json(body)).into_response()
 }
 
-fn request_id(owner: &str, cast: &Value, speaker: &str, text: &str) -> String {
+/// A shared world's clip key: the cast revision, speaker and words.
+fn clip_id(cast: &Value, speaker: &str, text: &str) -> String {
     let digest =
-        Sha256::digest(json!([owner, cast["revision"], cast["model"], speaker, text]).to_string());
+        Sha256::digest(json!([cast["revision"], cast["model"], speaker, text]).to_string());
     format!("tts:{}", hex(&digest))
 }
 
@@ -137,7 +132,7 @@ async fn store<T: Send + 'static>(
 ) -> Result<T, Failure> {
     let path = path.to_owned();
     tokio::task::spawn_blocking(move || {
-        let mut c = credits::open(&path).map_err(|e| e.to_string())?;
+        let mut c = crate::canonical_journal::open_event_store(&path).map_err(|e| e.to_string())?;
         step(&mut c).map_err(|e| e.to_string())
     })
     .await
@@ -145,8 +140,8 @@ async fn store<T: Send + 'static>(
     .map_err(Failure::Store)
 }
 
-/// Reserve, speak, and settle only this attempt's fresh charge. A world's
-/// line is spent from its pool and kept for its other players.
+/// Speak one line. A shared world's line must be a committed scene line of
+/// a world the account plays in; its clip is kept for the other players.
 async fn speak(
     path: &Path,
     config: &AiConfig,
@@ -174,51 +169,19 @@ async fn speak(
         return Err(Failure::Unknown);
     }
     let body = payload(&cast, &speaker, text).ok_or(Failure::Unknown)?;
-    let owner = match world.as_str() {
-        "" => user.to_owned(),
-        world => format!("world:{world}"),
-    };
-    let id = request_id(&owner, &cast, &speaker, text);
-    let token = crate::random_hex(16);
-    let waiting = Instant::now();
-    loop {
-        let (w, u, i, t) = (world.clone(), user.to_owned(), id.clone(), token.clone());
-        match store(path, move |c| {
-            purchases::start(c, Payer::of(&w, &u), &i, &t)
-        })
-        .await?
-        {
-            Start::Outsider => return Err(Failure::Outsider),
-            Start::Cached(audio) => return Ok(audio),
-            Start::Spent(Spend::Insufficient { balance, price }) => {
-                return Err(Failure::Credits {
-                    balance,
-                    price,
-                    pool: !world.is_empty(),
-                });
-            }
-            Start::Spent(_) => break,
-            Start::Busy if waiting.elapsed() < Duration::from_secs(75) => {
-                tokio::time::sleep(Duration::from_millis(50)).await;
-            }
-            Start::Busy => return Err(Failure::Store("This voice is still being made.".into())),
-        }
+    if world.is_empty() {
+        return synthesize(config, &body).await.map_err(Failure::Provider);
     }
-    let synthesized = synthesize(config, &body).await;
-    let (w, u, audio) = (world, user.to_owned(), synthesized.as_ref().ok().cloned());
-    let finished = store(path, move |c| {
-        purchases::finish(c, Payer::of(&w, &u), &id, &token, audio.as_deref())
-    })
-    .await?;
-    if !finished {
-        return Err(Failure::Store("This voice was restarted.".into()));
+    let id = clip_id(&cast, &speaker, text);
+    let (w, i) = (world.clone(), id.clone());
+    if let Some(audio) = store(path, move |c| clips::clip(c, &w, &i)).await? {
+        return Ok(audio);
     }
-    synthesized.map_err(Failure::Provider)
+    let audio = synthesize(config, &body).await.map_err(Failure::Provider)?;
+    let kept = audio.clone();
+    store(path, move |c| clips::keep(c, &world, &id, &kept)).await?;
+    Ok(audio)
 }
-
-#[cfg(test)]
-#[path = "card_voices/accounting_tests.rs"]
-mod accounting_tests;
 
 fn admit(user: &str) -> bool {
     use crate::rate_limit::{RateLimit, RateLimiter};
@@ -295,24 +258,15 @@ async fn speech(
             StatusCode::FORBIDDEN,
             json!({"error": "Join this world to hear its voices."}),
         ),
-        Err(Failure::Credits {
-            balance,
-            price,
-            pool,
-        }) => reply(
-            StatusCode::PAYMENT_REQUIRED,
-            json!({"error": if pool { "This world's pool is out of credits for voices." } else { "Out of credits for voices." },
-                "reason": if pool { "pool" } else { "credits" }, "balance": balance, "price": price}),
-        ),
         Err(Failure::Provider(reason)) => reply(
             StatusCode::BAD_GATEWAY,
             json!({"error": "This voice needs another try.", "detail": reason}),
         ),
         Err(Failure::Store(reason)) => {
-            tracing::warn!(%reason, "card voice credits unavailable");
+            tracing::warn!(%reason, "card voice store unavailable");
             reply(
                 StatusCode::SERVICE_UNAVAILABLE,
-                json!({"error": "Credits need another moment."}),
+                json!({"error": "Voices need another moment."}),
             )
         }
     }
@@ -355,8 +309,12 @@ mod tests {
         }
     }
 
+    fn open(path: &Path) -> rusqlite::Connection {
+        crate::canonical_journal::open_event_store(path).unwrap()
+    }
+
     #[tokio::test]
-    async fn a_line_spends_one_credit_once_and_a_failed_voice_is_refunded() {
+    async fn a_signed_in_line_is_spoken_free_and_a_failed_voice_is_reported() {
         let path =
             std::env::temp_dir().join(format!("cosyworld-voices-{}.sqlite", crate::random_hex(8)));
         let (fail, seen) = (
@@ -370,25 +328,9 @@ mod tests {
             world: None,
             ..Default::default()
         };
-        let balance = || credits::balance(&credits::open(&path).unwrap(), "u1").unwrap();
-        // No credits: nothing reaches the provider.
-        assert_eq!(
-            speak(&path, &config, "u1", &line("vale", "A fair trade.")).await,
-            Err(Failure::Credits {
-                balance: 0,
-                price: 1,
-                pool: false
-            })
-        );
-        assert!(seen.lock().unwrap().is_empty());
-        credits::grant(&mut credits::open(&path).unwrap(), "u1", 2, "pack", "test").unwrap();
         assert!(speak(&path, &config, "u1", &line("vale", "A fair trade."))
             .await
             .is_ok());
-        assert!(speak(&path, &config, "u1", &line("vale", "A fair trade."))
-            .await
-            .is_ok());
-        assert_eq!(balance(), 1, "the same line is bought once");
         let body = seen.lock().unwrap()[0].clone();
         assert_eq!(
             (body["model"].as_str(), body["input"].as_str()),
@@ -403,7 +345,6 @@ mod tests {
             speak(&path, &config, "u1", &line("mara", "Hello.")).await,
             Err(Failure::Provider(_))
         ));
-        assert_eq!(balance(), 1, "a failed voice is refunded");
         assert_eq!(
             speak(&path, &config, "u1", &line("echo", "bong")).await,
             Err(Failure::Unknown)
@@ -412,18 +353,19 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn a_world_pool_pays_each_line_once_and_every_player_hears_its_clip() {
+    async fn a_world_voices_only_its_committed_lines_and_every_player_hears_one_clip() {
         let path =
-            std::env::temp_dir().join(format!("cosyworld-pool-{}.sqlite", crate::random_hex(8)));
-        credits::open(&path)
-            .unwrap()
-            .execute_batch(
-                "CREATE TABLE card_members(world TEXT, actor INTEGER, user TEXT, seen INTEGER);
-                 CREATE TABLE card_bindings(world TEXT, actor INTEGER, user TEXT);
-                 INSERT INTO card_members VALUES ('w1', 0, 'u1', 0);
-                 INSERT INTO card_bindings VALUES ('w1', 1, 'u2');",
-            )
-            .unwrap();
+            std::env::temp_dir().join(format!("cosyworld-clips-{}.sqlite", crate::random_hex(8)));
+        let c = open(&path);
+        c.execute_batch(
+            "CREATE TABLE card_members(world TEXT, actor INTEGER, user TEXT, seen INTEGER);
+             CREATE TABLE card_bindings(world TEXT, actor INTEGER, user TEXT);
+             INSERT INTO card_members VALUES ('w1', 0, 'u1', 0);
+             INSERT INTO card_members VALUES ('w2', 0, 'u1', 0);
+             INSERT INTO card_bindings VALUES ('w1', 1, 'u2');",
+        )
+        .unwrap();
+        authority::seed(&c, "Again?");
         let (fail, seen) = (
             Arc::new(AtomicBool::new(false)),
             Arc::new(Mutex::new(Vec::new())),
@@ -436,30 +378,8 @@ mod tests {
             play: Some("play-1".into()),
             line: Some(usize::from(text == "Again?")),
         };
-        authority::seed(&credits::open(&path).unwrap(), "Again?");
-        let pool = || {
-            let by = "";
-            credits::balance(
-                &credits::open(&path).unwrap(),
-                Payer::World { world: "w1", by },
-            )
-            .unwrap()
-        };
-        assert_eq!(
-            speak(&path, &config, "u1", &line("Hello.")).await,
-            Err(Failure::Credits {
-                balance: 0,
-                price: 1,
-                pool: true
-            })
-        );
-        let mut c = credits::open(&path).unwrap();
-        credits::grant(&mut c, "u3", 3, "pack", "test").unwrap();
-        credits::pool::commit(&mut c, "u3", "w1", 3, "c-1").unwrap();
-        c.execute("INSERT INTO card_members VALUES ('w2', 0, 'u1', 0)", [])
-            .unwrap();
         // Missing references, another world's play, and indices outside the
-        // recorded exchange never reach the cache, debit, or provider.
+        // recorded exchange never reach the cache or provider.
         for body in [
             json!({"world":"w1","speaker":"vale","text":"Uncommitted words."}),
             json!({"world":"w1","play":"missing","line":0}),
@@ -476,12 +396,11 @@ mod tests {
             serde_json::from_value::<Line>(json!({"world":"w1","play":"play-1","line":-1}))
                 .is_err()
         );
-        assert_eq!(pool(), 3);
         assert!(seen.lock().unwrap().is_empty());
         assert_eq!(
             speak(&path, &config, "u3", &line("Hello.")).await,
             Err(Failure::Outsider),
-            "a committer who does not play there cannot spend the pool"
+            "only a world's players hear its voices"
         );
         let mut forged = line("Hello.");
         forged.speaker = "mara".into();
@@ -491,63 +410,38 @@ mod tests {
             seen.lock().unwrap()[0],
             payload(&serde_json::from_str(VOICES).unwrap(), "vale", "Hello.").unwrap()
         );
-        forged.speaker = "unknown".into();
-        forged.text = "x".repeat(MAX_TEXT + 1);
-        let second = speak(&path, &config, "u2", &forged).await.unwrap();
-        assert_eq!((first, pool()), (second, 2));
+        let second = speak(&path, &config, "u2", &line("Hello.")).await.unwrap();
+        assert_eq!(first, second);
         assert_eq!(seen.lock().unwrap().len(), 1, "the clip is made once");
-        assert_eq!(credits::balance(&c, "u2").unwrap(), 0);
-        // A cached purchase still needs a current member and a completed scene.
-        forged = line("Hello.");
+        // A kept clip still needs a current member and a completed scene.
         c.execute("DELETE FROM card_bindings", []).unwrap();
         assert_eq!(
-            speak(&path, &config, "u2", &forged).await,
+            speak(&path, &config, "u2", &line("Hello.")).await,
             Err(Failure::Outsider)
         );
-        c.execute("INSERT INTO card_bindings VALUES ('w1', 1, 'u2')", [])
-            .unwrap();
         for status in ["waiting", "working", "failed", "cancelled"] {
             c.execute("UPDATE card_full_plays SET status=?", [status])
                 .unwrap();
             assert_eq!(
-                speak(&path, &config, "u1", &forged).await,
+                speak(&path, &config, "u1", &line("Hello.")).await,
                 Err(Failure::Unknown)
             );
         }
-        c.execute("UPDATE card_full_plays SET status='done',world='w2'", [])
+        c.execute("UPDATE card_full_plays SET status='done'", [])
             .unwrap();
-        assert_eq!(
-            speak(&path, &config, "u1", &forged).await,
-            Err(Failure::Unknown)
-        );
-        c.execute("UPDATE card_full_plays SET world='w1'", [])
-            .unwrap();
-        assert!(speak(&path, &config, "u2", &forged).await.is_ok());
+        assert!(speak(&path, &config, "u1", &line("Hello.")).await.is_ok());
         assert_eq!(seen.lock().unwrap().len(), 1);
         fail.store(true, Ordering::SeqCst);
         assert!(matches!(
-            speak(&path, &config, "u2", &line("Again?")).await,
+            speak(&path, &config, "u1", &line("Again?")).await,
             Err(Failure::Provider(_))
         ));
-        assert_eq!(pool(), 2, "a failed voice is refunded to the pool");
-        c.execute("DELETE FROM card_full_plays", []).unwrap();
-        assert_eq!(
-            speak(&path, &config, "u1", &forged).await,
-            Err(Failure::Unknown),
-            "legacy scene-only rows cannot spend"
-        );
-        c.execute(
-            "INSERT INTO card_full_plays VALUES ('play-1','w1','done')",
-            [],
-        )
-        .unwrap();
         c.execute("DELETE FROM card_full_scenes", []).unwrap();
         assert_eq!(
-            speak(&path, &config, "u1", &forged).await,
+            speak(&path, &config, "u1", &line("Hello.")).await,
             Err(Failure::Unknown),
-            "deleted lines cannot return cached clips"
+            "deleted lines cannot return kept clips"
         );
-        assert_eq!(pool(), 2);
         let _ = std::fs::remove_file(&path);
     }
 }
