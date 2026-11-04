@@ -2325,7 +2325,9 @@
   var restStep = (s, actor, api, quest) => ({
     ...newWant(
       "place",
-      s.actors[actor].sanctuary ?? api.home(actor) ?? s.actors[actor].place,
+      [s.actors[actor].sanctuary, api.home(actor)].find(
+        (p) => p && (api.active?.(p) ?? true)
+      ) ?? s.actors[actor].place,
       s.turn
     ),
     quest,
@@ -17769,7 +17771,14 @@
       [...list].sort((a, b) => rank(a.joins) - rank(b.joins))
     ])
   );
+  var startOf = (packId) => packId === "hub" ? hub.start : packDefinition(packId).entry;
   var validDisabledPacks = (list) => list === void 0 || Array.isArray(list) && list.length > 0 && list.length < ORDER.length && list.every((g, i) => ORDER.includes(g) && (!i || list[i - 1] < g));
+  function firstStart(s) {
+    for (const g of ORDER)
+      for (const p of GROUPS[g].packs)
+        if (packOn(s, p) && entityActive(s, startOf(p))) return startOf(p);
+    return null;
+  }
 
   // v2/card-game/world.mjs
   var places = { ...forest_default.places, ...packPlaces };
@@ -17974,7 +17983,10 @@
   function homeRescueExit(s, place, actor = currentActor(s), previous = null) {
     const gate = homeGates[place];
     actor ||= currentActor(s);
-    return gate && (controlledByHuman(s, actor) || homeOf2(actor) === place || gate.opening && knownActors2(s).includes(actor)) && s.actors[actor]?.place === place && !ordinaryRouteHome(s, place, gate.rescue, actor, previous) && !homeGateRecoverable(s, place, gate, actor) ? gate.rescue : null;
+    return gate && (controlledByHuman(s, actor) || homeOf2(actor) === place || gate.opening && knownActors2(s).includes(actor)) && s.actors[actor]?.place === place && !ordinaryRouteHome(s, place, gate.rescue, actor, previous) && !homeGateRecoverable(s, place, gate, actor) ? (
+      // With its rescue place asleep, the first pack on takes them in (rules 98).
+      entityActive(s, gate.rescue) ? gate.rescue : firstStart(s)
+    ) : null;
   }
   function insideLampRemedy(s, actor) {
     const here = s.actors[actor].place, lamp = itemPlace2(s, "lamp"), oil = itemPlace2(s, "oil");
@@ -18084,6 +18096,7 @@
       reachable: (actor) => reachable(s, actor),
       places: () => Object.keys(places),
       home: homeOf2,
+      active: (id) => entityActive(s, id),
       sanctuaries,
       player: (id) => id === currentActor(s) || heldByHuman(s, id),
       questsBeginAt: forest_default.questsBeginAt,

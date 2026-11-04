@@ -14,7 +14,8 @@ switch, the Shore too, one stays on; local worlds only; the attic stays.
   player's fight, for the last group on, and for the shore before the first
   crossing.
 - **Off.** Its packs sleep (`entityEnabled`), keeping their state. Players
-  never sleep; its things they carry stay with them, unseen.
+  never sleep. Its things carried by people from elsewhere are set down
+  where they stand, so they take no carry slot, and return there.
 - **Ways out.** The `at` of each declared entry
   ([card packs](../../v2/docs/card-packs.md#entries)) that joins a pack still
   on, in group order; with none, the start of the first pack on (the hub's
@@ -24,12 +25,17 @@ switch, the Shore too, one stays on; local worlds only; the attic stays.
 - **Scatter.** Players from elsewhere come out at the first way out.
   Everyone else, and every thing from elsewhere lying there or held by its
   people, is dealt round the ways out from a start drawn from the run seed
-  and revision. A sleeper wakes.
+  and revision; one held by its person standing outside it is set down
+  there. A sleeper wakes.
 - **Fights** there or with its people end, with three turns of peace.
-  **Quests** naming it go to the bottom of the stack, nothing redrawn.
-- **Ships.** Its own ship lies docked, empty of course and summons.
+  **Quests** naming it go to the bottom of the stack, nothing redrawn. A
+  sanctuary in it is forgotten, and a rest step there turns to an awake
+  sanctuary or home (`restStep`).
+- **Ships.** Its own ship lies still with its own crew, no course or
+  summons.
   Another pack's ship at or bound for its docks puts in at home (rules 95).
-- **On.** Its content returns as it was; scattered things stay put.
+- **On.** Its content returns as it was; scattered things stay put. A
+  rescue whose place sleeps goes to the start of the first pack on.
 
 Tests: `test/card-pack-toggle.test.mjs`, including rules 96 accepting a
 player in a pack switched off, which rules 98 refuses. Earlier released rules are

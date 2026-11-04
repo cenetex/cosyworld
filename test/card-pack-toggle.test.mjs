@@ -53,7 +53,8 @@ describe("switching a pack off and on (rules 98)", () => {
     const quiet = ok(play(s, off(SEA)));
     expect(entityActive(quiet, "greek-well")).toBe(false);
     expect(entityActive(quiet, "greek-elder")).toBe(false);
-    expect(quiet.items["greek-water-jar"].holder).toBe("vale");
+    // Carried, its thing is set down to sleep where its carrier stood.
+    expect(quiet.items["greek-water-jar"].holder).toBe("greek-well");
     expect(entityActive(quiet, "greek-water-jar")).toBe(false);
     const back = ok(play(reload(quiet), on(SEA)));
     expect(back.actors["greek-elder"]).toEqual(before);
@@ -111,6 +112,30 @@ describe("switching a pack off and on (rules 98)", () => {
   it("waits for the first crossing to switch the shore off", () => {
     const opening = createWorld({ opening: true, seed: 3 });
     expect(play(opening, off(SHORE)).error).toMatch(/first crossing/);
+  });
+
+  it("turns a rest step from its sanctuary and keeps its ship's crew", () => {
+    const garden = "hoppycat-halfway-tea-garden";
+    const s = world((w) => {
+      w.actors.vale.sanctuary = garden;
+      const rest = { kind: "place", target: garden, since: 0, refusals: 0 };
+      const quest = { level: 2, left: 1 };
+      w.actors.vale.want = { ...rest, quest, step: { verb: "rest" } };
+    });
+    const after = ok(play(s, off(HOPPY)));
+    expect(after.actors.vale.sanctuary).toBeUndefined();
+    expect(after.actors.vale.want.step.verb).toBe("rest");
+    expect(entityActive(after, after.actors.vale.want.target)).toBe(true);
+    const crew = world((w) => {
+      w.actors.vale.place = w.actors["greek-elder"].place = "greek-ship";
+      Object.assign(w.transports["greek-ship"], {
+        phase: "arrived",
+        riders: ["greek-elder", "vale"],
+      });
+    });
+    expect(ok(play(crew, off(SEA))).transports["greek-ship"].riders).toEqual([
+      "greek-elder",
+    ]);
   });
 
   it("keeps one pack on, and shared worlds as they are", () => {

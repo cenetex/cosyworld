@@ -14,7 +14,7 @@ import {
   transports,
 } from "./pack-registry.mjs";
 import { sendShipHome } from "./pack-transport.mjs";
-import { questsOf } from "./want.mjs";
+import { questsOf, restStep } from "./want.mjs";
 
 const ORDER = Object.keys(GROUPS);
 const rank = (id) => (ORDER.indexOf(packGroup(id)) + 1 || 99) - 1;
@@ -102,6 +102,18 @@ function scatter(s, pack, api) {
   const spots = at.length ? [...new Set(at)] : [firstStart(s)];
   let next = api.hash(`scatter:${pack}:${s.revision}`) % spots.length;
   const spot = () => spots[next++ % spots.length];
+  const root = (id) => {
+    let top = s.items[id].holder;
+    for (let i = 0; i < 32 && s.items[top]; i++) top = s.items[top].holder;
+    return top;
+  };
+  // Its things carried by people from elsewhere are set down where they
+  // stand, to sleep there and take no carry slot (F6).
+  for (const [id, item] of byId(s.items)) {
+    const top = root(id);
+    if (mine(id) && s.actors[top] && !mine(top))
+      item.holder = s.actors[top].place;
+  }
   // People from elsewhere: players to the first way out, the rest spread.
   for (const [id, a] of byId(s.actors))
     if (!mine(id) && mine(a.place)) {
@@ -109,33 +121,46 @@ function scatter(s, pack, api) {
       delete a.sleeping;
     }
   // Things from elsewhere held in the pack: to whoever from elsewhere
-  // carries the holder, else spread.
-  for (const [id, item] of byId(s.items))
-    if (!mine(id) && mine(item.holder)) {
-      let top = item.holder;
-      for (let i = 0; i < 32 && s.items[top]; i++) top = s.items[top].holder;
-      item.holder = s.actors[top] && !mine(top) ? top : spot();
-    }
+  // carries the holder, or where its person stands outside it (F10), else
+  // spread.
+  for (const [id, item] of byId(s.items)) {
+    if (mine(id) || !mine(item.holder)) continue;
+    const top = root(id),
+      place = s.actors[top]?.place;
+    item.holder =
+      s.actors[top] && !mine(top)
+        ? top
+        : place && !mine(place) && entityActive(s, place)
+          ? place
+          : spot();
+  }
   // Fights there, or with its people, end; everyone keeps the peace a while.
   for (const c of [...(s.standoffs || [])])
     if (mine(c.location) || mine(c.challenger) || mine(c.defender))
       api.closeStandoff(s, c);
-  // Its own ships lie still; another ship at or bound for one of its docks
-  // puts in at home, everyone aboard ashore (rules 95).
+  // Its own ships lie still, keeping their own crew (F9); another ship at
+  // or bound for one of its docks puts in at home, everyone ashore (rules 95).
   for (const [ship, t] of Object.entries(transports)) {
     const state = s.transports[ship];
-    if (t.packId === pack)
+    if (t.packId === pack) {
+      const crew = state.riders.filter(mine);
       Object.assign(state, {
-        phase: "docked",
-        ...{ destination: null, riders: [], recall: null, since: s.turn },
+        phase: crew.length ? "arrived" : "docked",
+        ...{ destination: null, riders: crew, recall: null, since: s.turn },
       });
-    else if ((mine(state.dock) || mine(state.destination)) && !mine(t.at))
+    } else if ((mine(state.dock) || mine(state.destination)) && !mine(t.at))
       sendShipHome(s, ship);
   }
-  // Quests naming it go to the bottom of the stack as they are.
+  // Quests naming it go to the bottom of the stack as they are; a sanctuary
+  // in it is forgotten, and a rest step there turns to an awake one (F5).
   for (const [id, a] of byId(s.actors)) {
     if (mine(id)) continue;
-    const list = questsOf(s, id);
+    if (mine(a.sanctuary)) delete a.sanctuary;
+    const list = questsOf(s, id).map((w) =>
+      w.step?.verb === "rest" && mine(w.target)
+        ? restStep(s, id, api.want, w.quest)
+        : w,
+    );
     const named = (w) => names(w).some(mine);
     const order = [...list.filter((w) => !named(w)), ...list.filter(named)];
     if (!order.length) continue;

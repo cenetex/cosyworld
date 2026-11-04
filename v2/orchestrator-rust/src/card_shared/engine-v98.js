@@ -2072,7 +2072,9 @@
   var restStep = (s, actor, api, quest) => ({
     ...newWant(
       "place",
-      s.actors[actor].sanctuary ?? api.home(actor) ?? s.actors[actor].place,
+      [s.actors[actor].sanctuary, api.home(actor)].find(
+        (p) => p && (api.active?.(p) ?? true)
+      ) ?? s.actors[actor].place,
       s.turn
     ),
     quest,
@@ -6267,33 +6269,46 @@
     const spots = at.length ? [...new Set(at)] : [firstStart(s)];
     let next = api.hash(`scatter:${pack}:${s.revision}`) % spots.length;
     const spot = () => spots[next++ % spots.length];
+    const root = (id) => {
+      let top = s.items[id].holder;
+      for (let i = 0; i < 32 && s.items[top]; i++) top = s.items[top].holder;
+      return top;
+    };
+    for (const [id, item] of byId(s.items)) {
+      const top = root(id);
+      if (mine(id) && s.actors[top] && !mine(top))
+        item.holder = s.actors[top].place;
+    }
     for (const [id, a] of byId(s.actors))
       if (!mine(id) && mine(a.place)) {
         a.place = api.want.player(id) ? spots[0] : spot();
         delete a.sleeping;
       }
-    for (const [id, item] of byId(s.items))
-      if (!mine(id) && mine(item.holder)) {
-        let top = item.holder;
-        for (let i = 0; i < 32 && s.items[top]; i++) top = s.items[top].holder;
-        item.holder = s.actors[top] && !mine(top) ? top : spot();
-      }
+    for (const [id, item] of byId(s.items)) {
+      if (mine(id) || !mine(item.holder)) continue;
+      const top = root(id), place = s.actors[top]?.place;
+      item.holder = s.actors[top] && !mine(top) ? top : place && !mine(place) && entityActive(s, place) ? place : spot();
+    }
     for (const c of [...s.standoffs || []])
       if (mine(c.location) || mine(c.challenger) || mine(c.defender))
         api.closeStandoff(s, c);
     for (const [ship, t] of Object.entries(transports)) {
       const state = s.transports[ship];
-      if (t.packId === pack)
+      if (t.packId === pack) {
+        const crew = state.riders.filter(mine);
         Object.assign(state, {
-          phase: "docked",
-          ...{ destination: null, riders: [], recall: null, since: s.turn }
+          phase: crew.length ? "arrived" : "docked",
+          ...{ destination: null, riders: crew, recall: null, since: s.turn }
         });
-      else if ((mine(state.dock) || mine(state.destination)) && !mine(t.at))
+      } else if ((mine(state.dock) || mine(state.destination)) && !mine(t.at))
         sendShipHome(s, ship);
     }
     for (const [id, a] of byId(s.actors)) {
       if (mine(id)) continue;
-      const list = questsOf(s, id);
+      if (mine(a.sanctuary)) delete a.sanctuary;
+      const list = questsOf(s, id).map(
+        (w) => w.step?.verb === "rest" && mine(w.target) ? restStep(s, id, api.want, w.quest) : w
+      );
       const named = (w) => names2(w).some(mine);
       const order = [...list.filter((w) => !named(w)), ...list.filter(named)];
       if (!order.length) continue;
@@ -6538,7 +6553,10 @@
   function homeRescueExit(s, place, actor = currentActor(s), previous = null) {
     const gate = homeGates[place];
     actor ||= currentActor(s);
-    return gate && (controlledByHuman(s, actor) || homeOf2(actor) === place || gate.opening && knownActors2(s).includes(actor)) && s.actors[actor]?.place === place && !ordinaryRouteHome(s, place, gate.rescue, actor, previous) && !homeGateRecoverable(s, place, gate, actor) ? gate.rescue : null;
+    return gate && (controlledByHuman(s, actor) || homeOf2(actor) === place || gate.opening && knownActors2(s).includes(actor)) && s.actors[actor]?.place === place && !ordinaryRouteHome(s, place, gate.rescue, actor, previous) && !homeGateRecoverable(s, place, gate, actor) ? (
+      // With its rescue place asleep, the first pack on takes them in (rules 98).
+      entityActive(s, gate.rescue) ? gate.rescue : firstStart(s)
+    ) : null;
   }
   function insideLampRemedy(s, actor) {
     const here = s.actors[actor].place, lamp = itemPlace2(s, "lamp"), oil = itemPlace2(s, "oil");
@@ -6702,6 +6720,7 @@
       reachable: (actor) => reachable(s, actor),
       places: () => Object.keys(places),
       home: homeOf2,
+      active: (id) => entityActive(s, id),
       sanctuaries,
       player: (id) => id === currentActor(s) || heldByHuman(s, id),
       questsBeginAt: forest_default.questsBeginAt,

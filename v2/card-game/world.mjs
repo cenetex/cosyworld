@@ -172,7 +172,7 @@ import {
   laneOfEdge,
 } from "./pack-transport.mjs";
 import { upgradeSave } from "./legacy-saves.mjs";
-import { togglePack, validDisabledPacks } from "./pack-toggle.mjs";
+import { firstStart, togglePack, validDisabledPacks } from "./pack-toggle.mjs";
 import {
   installItemCycle,
   settleItemCycle,
@@ -507,7 +507,10 @@ function homeRescueExit(s, place, actor = currentActor(s), previous = null) {
     s.actors[actor]?.place === place &&
     !ordinaryRouteHome(s, place, gate.rescue, actor, previous) &&
     !homeGateRecoverable(s, place, gate, actor)
-    ? gate.rescue
+    ? // With its rescue place asleep, the first pack on takes them in (rules 98).
+      entityActive(s, gate.rescue)
+      ? gate.rescue
+      : firstStart(s)
     : null;
 }
 function insideLampRemedy(s, actor) {
@@ -778,6 +781,7 @@ function wantAPI(s) {
     reachable: (actor) => reachable(s, actor),
     places: () => Object.keys(places),
     home: homeOf,
+    active: (id) => entityActive(s, id),
     sanctuaries,
     player: (id) => id === currentActor(s) || heldByHuman(s, id),
     questsBeginAt: forest.questsBeginAt,
