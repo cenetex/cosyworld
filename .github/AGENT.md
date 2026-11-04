@@ -73,6 +73,11 @@ Then run every row that matches the change:
 
 ### Fast check
 
+The UI style guard follows CSS variables used by core surfaces across CSS
+files, through other variables and responsive overrides. Its snapshot includes
+those definitions. Refreshing the snapshot for a guard change records the
+current styles; an actual restyle still needs the owner's review.
+
 `fast-check.yml` runs on every pull request and every push to main, in about
 five minutes. Each checkout borrows the tree's Git objects from an Actions
 cache; a job that misses it fetches the whole tree from Git, so jobs allow 15

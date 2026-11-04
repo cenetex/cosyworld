@@ -181,21 +181,56 @@ const surface = (patterns) =>
     `(?<![\\w-])(?:${patterns.join("|").replace(/[.*]/g, (c) => (c === "." ? "\\." : "[\\w-]*"))})(?![\\w-])`,
   );
 
-// Rules whose selector names a core surface, as "context | selector { a: b }"
-// with sorted declarations, mapped to file:line.
-export function styleRules(file, source, patterns, rules = new Map()) {
+const declarations = (text) =>
+  text
+    .split(/;(?![^(]*\))/)
+    .map((d) => squash(d).replace(/\s*:\s*/, ": "))
+    .filter(Boolean);
+const references = (text) =>
+  [...unquote(text).matchAll(/var\(\s*(--[\w-]+)/g)].map((m) => m[1]);
+
+// Core rules and every CSS variable they use, including chains and overrides
+// in other files. Keep unrelated declarations outside core selectors separate.
+function collectStyles(entries, patterns, rules = new Map()) {
   const targets = surface(patterns);
-  for (const { raw, at, outer, decls, text } of cssRules(source)) {
-    if (!targets.test(unquote(raw))) continue;
+  const variables = new Set();
+  const records = entries.flatMap(([file, source]) =>
+    cssRules(source).map((r) => {
+      const core = targets.test(unquote(r.raw));
+      const decls = declarations(r.decls);
+      if (core) for (const name of references(r.decls)) variables.add(name);
+      return { ...r, file, core, decls };
+    }),
+  );
+  const property = (decl) => /^(--[\w-]+):/.exec(decl)?.[1];
+  let size;
+  do {
+    size = variables.size;
+    for (const { decls } of records)
+      for (const decl of decls)
+        if (variables.has(property(decl)))
+          for (const name of references(decl)) variables.add(name);
+  } while (size !== variables.size);
+  for (const { raw, at, outer, decls, text, file, core } of records) {
     const sorted = decls
-      .split(/;(?![^(]*\))/)
-      .map((d) => squash(d).replace(/\s*:\s*/, ": "))
-      .filter(Boolean)
+      .filter((d) => core || variables.has(property(d)))
       .sort();
+    if (!sorted.length) continue;
     const key = `${[...outer, squash(raw)].join(" | ")} { ${sorted.join("; ")} }`;
     rules.set(key, `${file}:${lineAt(text, at + raw.search(/\S/))}`);
   }
   return rules;
+}
+
+export function styleRules(file, source, patterns, rules = new Map()) {
+  return collectStyles([[file, source]], patterns, rules);
+}
+
+export function styleTree(files, read, patterns) {
+  return collectStyles(
+    files.filter((f) => f.endsWith(".css")).map((f) => [f, read(f)]),
+    patterns,
+  );
 }
 
 export function compareStyles(rules, snapshot) {
@@ -278,9 +313,7 @@ function main(args) {
   const inventory = JSON.parse(read(INVENTORY));
   const snapshot = JSON.parse(read(STYLES));
   const files = uiFiles();
-  const rules = new Map();
-  for (const file of files.filter((f) => f.endsWith(".css")))
-    styleRules(file, read(file), snapshot.surfaces, rules);
+  const rules = styleTree(files, read, snapshot.surfaces);
   if (args.includes("--styles")) {
     const next = { ...snapshot, rules: [...rules.keys()].sort() };
     const json = JSON.stringify(next, null, 2);
