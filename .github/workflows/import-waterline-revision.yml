@@ -1,0 +1,103 @@
+name: Import approved Lonely Forest waterline revision
+
+on:
+  push:
+    branches: [codex/fullsize-transparent-logos]
+    paths: [.github/workflows/import-waterline-revision.yml]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: import-lonely-forest-waterline-revision
+  cancel-in-progress: false
+
+jobs:
+  import:
+    if: github.repository == 'cenetex/cosyworld' && github.ref == 'refs/heads/codex/fullsize-transparent-logos'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          sparse-checkout: v2/card-game/assets/title/transparent
+          fetch-depth: 1
+      - name: Download only the requested hash-pinned PNG
+        run: |
+          python3 - <<'PY'
+          import hashlib, json, pathlib, struct, urllib.request
+          from urllib.parse import urlparse
+          expected = '4d7feeede8f4830f3e8bd6c9ea5602bb42cac46c0dd99264234ac4f1464470e5'
+          request = urllib.request.Request('https://api.github.com/repos/cenetex/cosyworld/issues/comments/6620000657', headers={'Accept': 'application/vnd.github+json', 'User-Agent': 'cosyworld-waterline-import'})
+          with urllib.request.urlopen(request, timeout=30) as response:
+              transfer = json.loads(json.load(response)['body'])
+          assert transfer['sha256'] == expected
+          url = transfer['url']
+          parts = urlparse(url)
+          assert parts.scheme == 'https' and parts.hostname == 'oaisdmntprwestcentralus.blob.core.windows.net'
+          try:
+              with urllib.request.urlopen(url, timeout=60) as response:
+                  body = response.read(2209214)
+          except Exception as exc:
+              raise SystemExit('PNG transfer failed: ' + type(exc).__name__) from None
+          assert len(body) == 2209213
+          assert hashlib.sha256(body).hexdigest() == expected
+          assert body[:8] == b'\x89PNG\r\n\x1a\n' and body[12:16] == b'IHDR'
+          assert struct.unpack('>II', body[16:24]) == (1774, 887) and body[25] == 6
+          target = pathlib.Path('v2/card-game/assets/title/transparent/lonely-forest-waterline.png')
+          if target.exists():
+              assert target.read_bytes() == body, 'Refusing to replace different artwork'
+          else:
+              target.write_bytes(body)
+          print('Native PNG verified: 1774x887 RGBA, 2209213 bytes, SHA-256 ' + expected)
+          PY
+      - name: Install pinned image validation tool
+        run: python3 -m pip install 'Pillow==12.3.0'
+      - name: Verify decoded alpha and build its own toolbar derivative
+        run: |
+          python3 - <<'PY'
+          import hashlib, json, pathlib
+          from PIL import Image, features
+          root = pathlib.Path('v2/card-game/assets/title/transparent')
+          source = root / 'lonely-forest-waterline.png'
+          image = Image.open(source)
+          image.load()
+          assert image.mode == 'RGBA' and image.size == (1774, 887)
+          alpha = image.getchannel('A')
+          assert alpha.getextrema() == (0, 255)
+          assert alpha.histogram()[0] == 747063 and alpha.histogram()[255] == 154
+          toolbar = root / 'lonely-forest-waterline-toolbar.webp'
+          resized = image.resize((320, 160), Image.Resampling.LANCZOS)
+          resized.save(toolbar, format='WEBP', lossless=True, method=6, exact=True)
+          decoded = Image.open(toolbar).convert('RGBA')
+          assert decoded.size == (320, 160)
+          assert decoded.getchannel('A').tobytes() == resized.getchannel('A').tobytes()
+          assert hashlib.sha256(toolbar.read_bytes()).hexdigest() == '91127e4d06a33859e760d143564435f013c0a9150520659d18de351022370281'
+          def record(path, size):
+              body = path.read_bytes()
+              return {'file': path.name, 'width': size[0], 'height': size[1], 'bytes': len(body), 'sha256': hashlib.sha256(body).hexdigest(), 'git_blob_sha': hashlib.sha1(b'blob ' + str(len(body)).encode() + b'\0' + body).hexdigest()}
+          manifest = {
+              'version': 1,
+              'title': 'Lonely Forest - waterline revision',
+              'generation_id': '0233e449-8cce-438e-948b-a8a87b99f5f8',
+              'source_filename': 'a_high_detail_png_style_illustration_of_the_same.png',
+              'source_note': 'The latest user-requested generated transparent Lonely Forest wordmark. Not either rejected THE BLACK POND plaque, not the earlier 1672x941 cutout, and not a reconstruction from the white-background JPEG.',
+              'master': record(source, image.size),
+              'master_processing': 'None. Original PNG bytes, dimensions, framing and alpha preserved.',
+              'alpha': {'minimum': 0, 'maximum': 255, 'clear_pixels': alpha.histogram()[0], 'opaque_pixels': alpha.histogram()[255]},
+              'toolbar': record(toolbar, decoded.size),
+              'toolbar_processing': {'tool': 'Pillow ' + Image.__version__, 'libwebp': features.version('webp'), 'resize': 'Lanczos to 320x160', 'crop': False, 'lossless': True, 'method': 6, 'exact': True, 'resized_alpha_preserved': True},
+              'integration': 'Supplied assets only. Select and register these files through the existing title/toolbar catalogue and image builders. Do not pair this master with the earlier black-pond-toolbar cutout.'
+          }
+          (root / 'waterline-revision.provenance.json').write_text(json.dumps(manifest, indent=2) + '\n')
+          print(json.dumps(manifest, indent=2))
+          PY
+      - name: Commit only the two verified images and their provenance
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -f -- v2/card-game/assets/title/transparent/lonely-forest-waterline.png v2/card-game/assets/title/transparent/lonely-forest-waterline-toolbar.webp v2/card-game/assets/title/transparent/waterline-revision.provenance.json
+          git diff --cached --check
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m 'Add latest transparent Lonely Forest waterline master and matching toolbar art'
+          git push origin HEAD:refs/heads/codex/fullsize-transparent-logos
