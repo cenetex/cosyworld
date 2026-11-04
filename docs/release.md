@@ -36,8 +36,11 @@ Owner controls:
 
 CI follows the same budget. The fast check (`fast-check.yml`, about five
 minutes) runs on each pull request and each main push, including the boot
-smoke and `cargo fmt --check` for the Rust orchestrator; clippy and the Rust
-tests stay on the .dev train's Rust gate. The full suite
+smoke and `cargo fmt --check` for the Rust orchestrator. A pull request that
+touches Rust inputs (the crate, the C kernel, or a file the crate reads, such
+as `v2/card-game/senses.json`) also runs the focused Rust tests of the modules
+involved; clippy and the full Rust suite stay on the .dev train's Rust gate and
+on tags. The full suite
 (`ci.yml`) runs only by hand; run it on a train's commit, not per pull
 request, when a release needs it.
 

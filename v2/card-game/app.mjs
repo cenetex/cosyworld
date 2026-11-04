@@ -43,6 +43,7 @@ import {
   questHand,
   questId,
   questNear,
+  questSentence,
   questTier,
   questVerb,
 } from "./quest-card.mjs";
@@ -127,6 +128,7 @@ import {
 } from "./music-cues.mjs";
 import { createHum } from "./hum.mjs";
 import { createSfx } from "./sfx.mjs";
+import { recedeBackdrop } from "./combat-backdrop.mjs";
 import { createCharacterSpeech } from "./character-speech.mjs";
 import { localRuntime } from "./local-service.mjs";
 import {
@@ -988,6 +990,7 @@ $("speech-sound").onclick = () => {
   soundEnabled = !soundEnabled;
   speechSounds.setEnabled(soundEnabled);
   characterSpeech.setEnabled(soundEnabled);
+  sfx.setVoices(soundEnabled);
   if (soundEnabled) unlockSpeech();
   try {
     localStorage.setItem(
@@ -1093,6 +1096,7 @@ hum.setStarted(musicHasStarted());
 // The bell and later world effects use the same switch and volume.
 const sfx = createSfx();
 sfx.setEnabled(musicEnabled);
+sfx.setVoices(soundEnabled);
 sfx.setVolume(musicVolume);
 sfx.setHidden(document.hidden);
 function ringHeard() {
@@ -1578,6 +1582,7 @@ function combatStage() {
     revealLine: (seq) => {
       if (combatHeld.delete(seq)) renderLog();
     },
+    sound: (name, seed) => name && sfx.fight(name, seed),
   }));
 }
 function endCombat() {
@@ -2066,6 +2071,9 @@ function renderActions() {
       );
       button.type = "button";
       button.dataset.action = action.kind;
+      // Dropping a quest is destructive: red words (style.css).
+      if (action.kind === "drop" && !action.item)
+        button.dataset.destructive = "";
       button.title = refused || playText(action);
       button.disabled = Boolean(refused) || selectionBlocked();
       if (refused) button.dataset.blocked = "refused";
@@ -2106,6 +2114,7 @@ function renderActions() {
     const button = node("button", playLabel(action, world), "card-action");
     button.type = "button";
     button.dataset.dropQuest = String(picked.index);
+    button.dataset.destructive = "";
     button.title = "Give up this quest";
     button.disabled = selectionBlocked();
     button.onclick = () => {
@@ -2227,6 +2236,9 @@ const handMotions = new Map();
 const handEntries = createCardEntries(),
   questsInView = createQuestEntries(),
   lockedBoxes = createLockedBoxes();
+// Quests turned face up at least once: only these show their parts' tier
+// while folded.
+const revealedQuests = new Set();
 // A box whose quest is done turns over once, the next time it is in view. A
 // box never uncovered opens as a newly found card does, with its name.
 function openLockedBoxes() {
@@ -2280,10 +2292,11 @@ function showQuests(opening) {
         QUEST_DOWN_MS + i * 2 * ENTRY_STAGGER_MS,
       ),
     );
-  for (const card of cards)
-    card.dataset.unrevealed = String(
-      questsInView.down(card.dataset.questEntry),
-    );
+  for (const card of cards) {
+    const down = questsInView.down(card.dataset.questEntry);
+    card.dataset.unrevealed = String(down);
+    if (!down && seen(card)) revealedQuests.add(card.dataset.questEntry);
+  }
 }
 function turnQuest(key) {
   const card = [
@@ -2292,6 +2305,7 @@ function turnQuest(key) {
   // Folded away before its turn, it turns when it is next seen.
   if (!card) return questsInView.unseen(key);
   if (!questsInView.turned(key)) return;
+  revealedQuests.add(key);
   card.dataset.unrevealed = "false";
   void revealCard(card);
 }
@@ -2383,9 +2397,14 @@ function card(id) {
   if (raised && label) observation.textContent += ` ${label}.`;
   const hidden = cardIsCovered(id) || locked;
   if (hidden) observation.textContent = "";
+  // A locked box is labelled "Locked" (the owner's exception); its reason
+  // is in the context button.
   el.append(
     graphic,
-    setCardLabel(node("span", undefined, "name"), hidden ? "" : def.name),
+    setCardLabel(
+      node("span", undefined, "name"),
+      locked ? "Locked" : hidden ? "" : def.name,
+    ),
     observation,
   );
   // One faint numeral shows a selected person's or thing's level. Places
@@ -2534,6 +2553,7 @@ const stackLabel = (stack) =>
 // with its target, with only the verb, the level and the tier colour as
 // words. It glows while the target is near and plays nothing.
 const questCovered = (quest) => !quest.target || cardIsCovered(quest.target);
+const known = (id) => !cardIsCovered(id);
 function shownQuestCaption(quest) {
   const hidden = questCovered(quest);
   return questCaption(quest, hidden, questVerb(world, quest, hidden));
@@ -2547,7 +2567,7 @@ const questArt = {
 function questFrame({ id, quest, met }) {
   const picked = !met && questOpen && quest.index === questPick;
   const hidden = questCovered(quest),
-    tier = questTier(quest),
+    tier = questTier(quest, world, known),
     verb = questVerb(world, quest, hidden),
     near = !hidden && questNear(world, quest),
     here = world.actors[quest.actor].place;
@@ -2576,8 +2596,12 @@ function questFrame({ id, quest, met }) {
   }
   const head = node("span", undefined, "quest-head");
   head.append(
-    setCardLabel(node("span", undefined, "quest-verb"), verb),
+    node("span", "Quest", "quest-kicker"),
     node("span", quest.level ? romanLevel(quest.level) : "", "quest-level"),
+    setCardLabel(
+      node("span", undefined, "quest-verb"),
+      questSentence(quest, hidden, verb),
+    ),
   );
   const target = quest.target,
     targetPlace =
@@ -2598,7 +2622,11 @@ function questFrame({ id, quest, met }) {
         kind: quest.kind,
         target,
         covered: hidden,
-        here: !hidden && targetPlace === here ? here : null,
+        here:
+          (quest.step?.at && known(quest.step.at) ? quest.step.at : null) ||
+          (!hidden && targetPlace === here ? here : null),
+        to: quest.step?.to,
+        toCovered: Boolean(quest.step?.to && !known(quest.step.to)),
       },
       questArt,
     ),
@@ -2663,6 +2691,13 @@ const questShown = (quest) =>
 function syncQuestFold(fold) {
   const quest = foldQuest();
   fold.hidden = questShown(quest);
+  fold.style.setProperty(
+    "--tier-color",
+    (revealedQuests.has(questEntryKey(quest))
+      ? questTier(quest, world, known)
+      : questTier(quest)
+    ).color,
+  );
   fold.dataset.glow =
     sealedQuests.length || questFresh
       ? "invite"
@@ -2684,7 +2719,6 @@ function syncQuestFold(fold) {
 function questFold(quest) {
   const fold = node("button", undefined, "quest-fold");
   fold.type = "button";
-  fold.style.setProperty("--tier-color", questTier(quest).color);
   fold.style.setProperty("--card-back", cardBackImage());
   syncQuestFold(fold);
   fold.addEventListener("click", (event) => {
@@ -3968,6 +4002,13 @@ function render() {
   renderPlayers();
   music.setStarted(musicHasStarted());
   syncMusicCue();
+  // An open standoff in the player's room holds the painting back too.
+  recedeBackdrop(
+    $("stage"),
+    "standoff",
+    battleMusicDue(world, currentActor(world)),
+    { instant: covering },
+  );
   hum.setStarted(musicHasStarted());
   ringHeard();
   // While the travel veil comes down, the old place stays drawn.
@@ -4052,15 +4093,10 @@ function render() {
     if (animate)
       for (const frame of $("hand").children)
         if (!frame.hidden) {
-          const rect = frame.getBoundingClientRect(),
-            name = frame.querySelector(".name"); // the quest card has none
+          const rect = frame.getBoundingClientRect();
           before.set(
             frame.querySelector(".card").dataset.card ?? frame.dataset.questId,
-            {
-              left: rect.left,
-              top: rect.top,
-              nameBottom: name && getComputedStyle(name).bottom,
-            },
+            { left: rect.left, top: rect.top },
           );
         }
     for (const motion of handMotions.values()) motion.cancel();
@@ -4131,17 +4167,16 @@ function render() {
           previous = before.get(id) || before.get(frame.dataset.holder);
         if (!previous || (!frame.dataset.want && rising.has(entryKey(frame))))
           continue;
-        const name = frame.querySelector(".name");
         moves.push({
           id,
           frame,
           previous,
           next: frame.getBoundingClientRect(),
-          name,
-          nameBottom: name && getComputedStyle(name).bottom,
         });
       }
-    for (const { id, frame, previous, next, name, nameBottom } of moves) {
+    // A card's name label sits at its top (card-label.mjs), so it moves
+    // with its card and never slides on its own.
+    for (const { id, frame, previous, next } of moves) {
       const dx = previous.left - next.left,
         dy = previous.top - next.top;
       if (Math.abs(dx) >= 1 || Math.abs(dy) >= 1 || !before.has(id))
@@ -4152,13 +4187,6 @@ function render() {
             translate: [`${dx}px ${dy}px`, "0 0"],
             opacity: [before.has(id) ? 1 : 0.3, 1],
           },
-          reshaped ? LAYOUT_MS : undefined,
-        );
-      if (name && before.has(id) && previous.nameBottom !== nameBottom)
-        moveHandPart(
-          `name:${id}`,
-          name,
-          { bottom: [previous.nameBottom, nameBottom] },
           reshaped ? LAYOUT_MS : undefined,
         );
     }

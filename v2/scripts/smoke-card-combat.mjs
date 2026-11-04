@@ -348,6 +348,13 @@ try {
         trail.left >= -1 && trail.right <= width + 1,
         `The strike trail stays on screen ${JSON.stringify(trail)}`,
       );
+    // The painting has fallen back behind the fighters (cut with reduced
+    // motion).
+    await page.waitForFunction(
+      () =>
+        document.querySelector("#stage").dataset.recede === "true" &&
+        getComputedStyle(document.querySelector("#backdrop")).opacity < 0.5,
+    );
     // A hit lands: no target circle, a slim resolve bar under each fighter.
     await page.screenshot({
       path: new URL(`hit-${opponent}-${width}-${motion}.png`, output).pathname,
@@ -517,6 +524,14 @@ try {
     assert.match(log, /Vale was beaten and (sent home|fell back to )/);
     assert.match(log, /You came to at /);
     assert.equal(await page.locator(".combat-dim").count(), 0);
+    assert.deepEqual(
+      await page.$eval("#stage", (stage) => [
+        stage.dataset.recede,
+        getComputedStyle(stage.querySelector("#backdrop")).opacity,
+      ]),
+      [undefined, "1"],
+      "The new place's painting is whole after the lift",
+    );
     assert.equal(
       await page.locator('.play-dock[data-covered="false"]').count(),
       1,

@@ -127,7 +127,7 @@ try {
     await sealed.waitFor({ state: "attached" });
     assert.equal(await sealed.getAttribute("data-locked"), "true");
     await revealCard(page, "greek-battlefield");
-    assert.equal(await sealed.locator(".name").textContent(), "");
+    assert.equal(await sealed.locator(".name").textContent(), "Locked");
     assert.equal(await sealed.locator(".card-back").isVisible(), true);
     assert.equal(await sealed.locator(".art img").first().isVisible(), false);
     await shot("03-sealed-gate-card");

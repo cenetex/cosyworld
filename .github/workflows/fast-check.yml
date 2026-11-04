@@ -1,7 +1,9 @@
 name: Fast check
 
 # Runs on every pull request and every push to main, in about five minutes.
-# The full suite (ci.yml) runs only by hand before a production release.
+# A change to Rust inputs adds the focused Rust tests (the rust job). The full
+# suite (ci.yml) runs only by hand before a production release, and the full
+# Rust gate runs on the .dev train and on tags (deploy.yml).
 on:
   pull_request:
   push:
@@ -35,6 +37,7 @@ jobs:
       actions: read
     outputs:
       smokes: ${{ steps.smokes.outputs.smokes }}
+      rust-tests: ${{ steps.rust.outputs.tests }}
     steps:
       - &restore-git-objects
         name: Restore cached Git objects
@@ -99,6 +102,12 @@ jobs:
         run: |
           smokes="$(node scripts/select-fast-smokes.mjs "$RUNNER_TEMP/changed.txt")"
           echo "smokes=$smokes" | tee -a "$GITHUB_OUTPUT" >> "$GITHUB_STEP_SUMMARY"
+      - name: Choose Rust tests
+        id: rust
+        run: |
+          tests="$(node scripts/select-rust-tests.mjs "$RUNNER_TEMP/changed.txt")"
+          echo "tests=$tests" >> "$GITHUB_OUTPUT"
+          echo "Rust tests: ${tests:-none, no Rust input changed}" | tee -a "$GITHUB_STEP_SUMMARY"
       - name: Check formatting of changed files (warning only)
         run: |
           mapfile -t files < <(grep -E '\.(m?js|json|css|html|ya?ml)$' "$RUNNER_TEMP/changed.txt" | while read -r f; do [ -f "$f" ] && echo "$f"; done)
@@ -245,15 +254,67 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
-  # One stable context for branch protection.
+  # Runs only when the change touches the crate or a file it reads, and only
+  # the tests of the modules involved (scripts/select-rust-tests.mjs and the
+  # rust section of scripts/fast-smokes.json). It restores the Cargo cache
+  # that ci.yml saves and never saves one, so the repository's 10 GB of
+  # caches holds no extra Cargo copy. The full gate stays on the train.
+  rust:
+    name: Rust tests (${{ needs.plan.outputs.rust-tests }})
+    needs: plan
+    if: needs.plan.outputs.rust-tests != ''
+    runs-on: ${{ vars.FAST_CHECK_RUNNER || 'ubuntu-latest' }}
+    timeout-minutes: 20
+    env:
+      CI: true
+      RUST_TEST_THREADS: "2"
+      # Match ci.yml so the restored cache's fingerprints still apply.
+      CARGO_PROFILE_DEV_DEBUG: "0"
+      CARGO_PROFILE_TEST_DEBUG: "0"
+    steps:
+      - *restore-git-objects
+      - *borrow-git-objects
+      # build.rs hashes the card game's public files, art included.
+      - *checkout
+      - uses: dtolnay/rust-toolchain@stable
+      # build.rs and the narrative tests run Node.
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+      - name: Restore Cargo build cache
+        uses: actions/cache/restore@v6
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+            v2/orchestrator-rust/target
+          key: ${{ runner.os }}-cargo-compact-v1-day-restore-only
+          restore-keys: |
+            ${{ runner.os }}-cargo-compact-v1-day-
+            ${{ runner.os }}-cargo-compact-v1-
+      - name: Run focused Rust tests
+        env:
+          FILTERS: ${{ needs.plan.outputs.rust-tests }}
+        run: |
+          read -ra filters <<< "$FILTERS"
+          bash v2/scripts/check-rust.sh focused "${filters[@]}"
+
+  # One stable context for branch protection. The Rust job counts when it
+  # runs; it is skipped when no Rust input changed.
   fast:
     name: fast
     if: ${{ always() }}
-    needs: [plan, lint, unit, rustfmt, smoke]
+    needs: [plan, lint, unit, rustfmt, smoke, rust]
     runs-on: ${{ vars.FAST_CHECK_RUNNER || 'ubuntu-latest' }}
     steps:
       - name: Verify all fast-check jobs passed
         env:
-          RESULTS: ${{ join(needs.*.result, ' ') }}
+          REQUIRED: >-
+            ${{ needs.plan.result }} ${{ needs.lint.result }}
+            ${{ needs.unit.result }} ${{ needs.rustfmt.result }}
+            ${{ needs.smoke.result }}
+          RUST: ${{ needs.rust.result }}
         run: |
-          for result in $RESULTS; do test "$result" = success; done
+          for result in $REQUIRED; do test "$result" = success; done
+          case "$RUST" in success | skipped) ;; *) exit 1 ;; esac

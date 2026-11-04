@@ -1,7 +1,8 @@
 // A card locked behind a quest is a carved wooden box (locked-box.mjs). At
-// the shut City Gate the battlefield is the locked lid alone; its play gives
-// the quest through the context button. Giving the guard the Burial Decree
-// opens the way: the box turns over once and stays open through redraws.
+// the shut City Gate the battlefield is the locked lid, labelled "Locked" on
+// a red edge; its play gives the quest through the context button. Giving
+// the guard the Burial Decree opens the way: the box turns over once and
+// stays open through redraws.
 //
 //   node v2/scripts/smoke-card-locked-box.mjs [screenshot-dir]
 import assert from "node:assert/strict";
@@ -96,7 +97,13 @@ try {
       const boxed = async () => {
         await revealCard(page, FIELD);
         assert.equal(await attr("data-locked"), "true");
-        assert.equal(await field.locator(".name").textContent(), "");
+        // Its only words are "Locked", on a red edge.
+        assert.equal(await field.locator(".name").textContent(), "Locked");
+        assert.ok(await field.locator(".name").isVisible());
+        assert.equal(
+          await field.evaluate((el) => getComputedStyle(el).borderTopColor),
+          "rgb(226, 72, 58)",
+        );
         assert.ok(await field.locator(".card-back").isVisible());
         assert.ok(!(await field.locator(".art img").first().isVisible()));
         assert.doesNotMatch(await attr("aria-label"), /Battlefield/u);
