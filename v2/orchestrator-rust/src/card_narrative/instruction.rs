@@ -391,6 +391,7 @@ mod tests {
             "src/card_narrative/authored-text.json",
             "../card-game/packs.json",
             "../card-game/entity-profiles.json",
+            "../card-game/senses.json",
             "../card-game/forest.json",
             "../../test/fixtures/card-voice-replies.json",
         ] {

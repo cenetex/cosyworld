@@ -16,6 +16,7 @@ The Mac package embeds the same card files and uses the same release version.
 | Shared human avatars and homes | `v2/card-game/shared-cast.json`, used by `human-cast.mjs` |
 | BoardyAI, his home, and calling card | `v2/card-game/boardyai.json` and `boardyai.mjs` |
 | Base character writing profiles | `v2/card-game/entity-profiles.json` |
+| Place sense lines and avatar pronouns (server voice only) | `v2/card-game/senses.json` |
 | Mounted card pack selection | `v2/worlds/card-table.json` |
 | Authored card pack data | `v2/content/<selected-pack>/card-world.json` |
 | Pack connections to the shore | `v2/worlds/<selected-pack>/card-bridge.json` |

@@ -242,6 +242,18 @@ fn base_profiles() -> &'static Value {
                 }
             }
         }
+        // Each place's first-person sense line and each avatar's pronouns,
+        // for the speaker's own view (P3). The rules never read this file.
+        let senses: Value = serde_json::from_str(include_str!("../../card-game/senses.json"))
+            .expect("embedded senses");
+        for (key, field) in [("places", "sense"), ("pronouns", "pronouns")] {
+            for (id, value) in senses[key].as_object().expect("sense entries") {
+                let profile = map
+                    .get_mut(id)
+                    .unwrap_or_else(|| panic!("senses.json names unknown {id}"));
+                profile[field] = value.clone();
+            }
+        }
         profiles
     })
 }
@@ -2973,6 +2985,32 @@ pub(crate) mod tests {
             assert!(
                 !IMPERATIVES.contains(&first),
                 "{first:?} opens {sentence:?}"
+            );
+        }
+    }
+
+    /// senses.json names only real places and avatars, in short lines
+    /// that leave out the place's own name.
+    #[test]
+    fn senses_name_real_places_and_avatars() {
+        let senses: Value =
+            serde_json::from_str(include_str!("../../card-game/senses.json")).unwrap();
+        for (id, line) in senses["places"].as_object().unwrap() {
+            let profile = &profiles()[id];
+            let line = line.as_str().unwrap();
+            let name = profile["name"].as_str().unwrap().to_lowercase();
+            let name = name.strip_prefix("the ").unwrap_or(&name);
+            assert_eq!(profile["kind"], "location", "{id}");
+            assert!(bounded(line, 90), "{id}");
+            assert!(!line.to_lowercase().contains(name), "{id} names itself");
+            assert_no_instructions(line);
+        }
+        for (id, pronouns) in senses["pronouns"].as_object().unwrap() {
+            assert_eq!(profiles()[id]["kind"], "avatar", "{id}");
+            let pronouns = pronouns.as_str().unwrap();
+            assert!(
+                ["she/her", "he/him", "they/them", "it/its"].contains(&pronouns),
+                "{id} {pronouns}"
             );
         }
     }
