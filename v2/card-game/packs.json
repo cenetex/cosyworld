@@ -1,25 +1,34 @@
 {
   "schemaVersion": 1,
   "hub": {
-    "id": "reflected-shore",
     "player": "vale",
+    "start": "pond",
     "switchable": {
-      "reflected-shore": "The Reflected Shore",
-      "lonely-forest": "Cosy Cottage",
-      "greek-drama": "The Wine-Dark Sea",
-      "hoppycat-archive": "Hoppy Cat Universe"
-    },
-    "entries": [
-      {
-        "to": "pond"
+      "shore": {
+        "name": "The Reflected Shore",
+        "packs": [
+          "hub"
+        ]
       },
-      {
-        "to": "attic"
+      "cottage": {
+        "name": "Cosy Cottage",
+        "packs": [
+          "lonely-forest"
+        ]
       },
-      {
-        "to": "station"
+      "sea": {
+        "name": "The Wine-Dark Sea",
+        "packs": [
+          "greek-drama"
+        ]
+      },
+      "hoppy": {
+        "name": "Hoppy Cat Universe",
+        "packs": [
+          "hoppycat-archive"
+        ]
       }
-    ],
+    },
     "places": [
       "station",
       "attic",
@@ -114,47 +123,60 @@
     "packEntries": {
       "badger-forest": [
         {
-          "from": "pond",
-          "to": "clearing",
-          "by": "pond-clearing"
+          "joins": "hub",
+          "at": "pond",
+          "arrive": "clearing",
+          "via": "pond-clearing"
         }
       ],
       "greek-drama": [
         {
-          "from": "pond",
-          "to": "greek-harbor",
-          "by": "pond-greek-harbor"
+          "joins": "hub",
+          "at": "pond",
+          "arrive": "greek-harbor",
+          "via": "pond-greek-harbor"
         },
         {
-          "from": "hoppycat-signal-jetty",
-          "to": "greek-piraeus",
-          "by": "greek-ship"
+          "joins": "hoppycat-archive",
+          "at": "hoppycat-signal-jetty",
+          "arrive": "greek-piraeus",
+          "via": "hoppycat-signal-jetty-ship"
         }
       ],
       "hoppycat-archive": [
         {
-          "from": "greek-piraeus",
-          "to": "hoppycat-signal-jetty",
-          "by": "greek-ship"
+          "joins": "hub",
+          "at": "pond",
+          "arrive": "hoppycat-halfway-tea-garden",
+          "via": "hoppycat-garden-pond"
+        },
+        {
+          "joins": "greek-drama",
+          "at": "greek-piraeus",
+          "arrive": "hoppycat-signal-jetty",
+          "via": "hoppycat-signal-jetty-ship"
         }
       ],
       "willows": [
         {
-          "from": "pond",
-          "to": "willows-landing",
-          "by": "pond-willows-landing"
+          "joins": "hub",
+          "at": "pond",
+          "arrive": "willows-landing",
+          "via": "pond-willows-landing"
         },
         {
-          "from": "greek-ship",
-          "to": "willows-landing",
-          "by": "greek-ship-willows-landing"
+          "joins": "greek-drama",
+          "at": "greek-ship",
+          "arrive": "willows-landing",
+          "via": "greek-ship-willows-landing"
         }
       ],
       "lonely-forest": [
         {
-          "from": "attic",
-          "to": "forest-cottage",
-          "by": "attic-forest-cottage"
+          "joins": "hub",
+          "at": "attic",
+          "arrive": "forest-cottage",
+          "via": "attic-forest-cottage"
         }
       ]
     }

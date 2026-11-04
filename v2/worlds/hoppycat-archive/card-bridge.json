@@ -5,9 +5,16 @@
   "description": "A red thread from the Halfway Tea Garden leads back to Black pond. Ships for the Signal Jetty leave from Piraeus. The pond's own thread into the garden stays open only where it was already found.",
   "entries": [
     {
-      "from": "greek-piraeus",
-      "to": "hoppycat-signal-jetty",
-      "by": "greek-ship"
+      "joins": "hub",
+      "at": "pond",
+      "arrive": "hoppycat-halfway-tea-garden",
+      "via": "hoppycat-garden-pond"
+    },
+    {
+      "joins": "greek-drama",
+      "at": "greek-piraeus",
+      "arrive": "hoppycat-signal-jetty",
+      "via": "hoppycat-signal-jetty-ship"
     }
   ],
   "values": {},

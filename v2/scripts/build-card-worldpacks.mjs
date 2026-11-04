@@ -130,26 +130,30 @@ for (const pack of packs) {
   }
 }
 
-// Entries: how each pack is entered, by an existing crossing or ship lane
-// (`by`) from a place outside it. The hub's own entries are where its packs
-// and homes join it. The rules read them from the hub (`packEntries`), so a
-// pack's own schema is unchanged (v2/docs/card-packs.md, Entries).
-const hubPlaces = table.hub?.places || [];
-const link = (e) =>
+// Entries: each pack's ways in, as `{joins, at, arrive, via}`. `joins` is
+// the hub or another pack, `at` its place where this pack's travelers come
+// out, `arrive` this pack's place where they enter, and `via` the existing
+// crossing between the two, so passage keeps one source of truth. Every
+// place is in the pack's release. The hub declares its `start` and the
+// switchable groups. The rules read the entries from the hub
+// (`packEntries`), so no pack schema changes (v2/docs/card-packs.md).
+const hub = table.hub || {};
+const sides = {
+  hub: { places: Object.fromEntries((hub.places || []).map((id) => [id, {}])) },
+};
+for (const pack of packs) sides[pack.id] = pack;
+const released = (side, place) =>
+  owns(side?.places, place) &&
+  (!side.release || side.release.places.includes(place));
+const crossing = (e) =>
   packs.some((p) =>
     (p.crossings || []).some(
-      (c) => c.id === e.by && c.from === e.from && c.to === e.to && !c.retired,
-    ),
-  ) ||
-  packs.some((p) =>
-    (p.transports?.[e.by]?.lanes || []).some(
-      (l) => l.from === e.from && l.to === e.to,
+      (c) =>
+        c.id === e.via &&
+        !c.retired &&
+        [c.from, c.to].sort().join() === [e.at, e.arrive].sort().join(),
     ),
   );
-const placeOf = (place) =>
-  hubPlaces.includes(place)
-    ? table.hub.id
-    : packs.find((p) => p.places[place])?.id;
 for (const pack of packs) {
   const list = bridgeEntries[pack.id];
   if (
@@ -157,33 +161,31 @@ for (const pack of packs) {
     !list.length ||
     !list.every(
       (e) =>
-        Object.keys(e).join() === "from,to,by" &&
-        owns(pack.places, e.to) &&
-        placeOf(e.from) &&
-        placeOf(e.from) !== pack.id &&
-        link(e),
+        Object.keys(e).join() === "joins,at,arrive,via" &&
+        e.joins !== pack.id &&
+        released(sides[e.joins], e.at) &&
+        released(pack, e.arrive) &&
+        crossing(e),
     )
   )
     problems.push(
-      `${pack.id}: bridge entries must name existing links into its places`,
+      `${pack.id}: entries must name released places and a live crossing`,
     );
 }
-const shore = table.hub?.entries;
+const groups = Object.values(hub.switchable || {});
 if (
-  typeof table.hub?.id !== "string" ||
-  !Array.isArray(shore) ||
-  !shore.length ||
-  !shore.every(
-    (e) => Object.keys(e).join() === "to" && hubPlaces.includes(e.to),
-  )
+  !released(sides.hub, hub.start) ||
+  !groups.length ||
+  !groups.every(
+    (g) =>
+      typeof g?.name === "string" &&
+      g.packs?.length &&
+      g.packs.every((id) => sides[id]),
+  ) ||
+  new Set(groups.flatMap((g) => g.packs)).size !==
+    groups.flatMap((g) => g.packs).length
 )
-  problems.push("the hub needs an id and entries that name its places");
-const switchable = Object.keys(table.hub?.switchable || {});
-if (
-  !switchable.length ||
-  !switchable.every((id) => id === table.hub.id || table.packs.includes(id))
-)
-  problems.push("the hub's switchable packs must be the hub or mounted packs");
+  problems.push("the hub needs a start and switchable groups of known packs");
 
 if (problems.length) {
   console.error(`Card world packs are invalid:\n- ${problems.join("\n- ")}`);
