@@ -8,7 +8,12 @@ import { localRuntime } from "./local-service.mjs";
 import { levelTier } from "./level-tiers.mjs";
 import { questScreen } from "./quest-screen.mjs";
 import { passkey, request } from "./shared-auth.mjs";
-import { TOGGLES, settingsBeat, settingsCards } from "./settings-cards.mjs";
+import {
+  PACKS,
+  TOGGLES,
+  settingsBeat,
+  settingsCards,
+} from "./settings-cards.mjs";
 
 const $ = (id) => document.getElementById(id);
 const words = (id) =>
@@ -20,7 +25,7 @@ const named = (text) =>
     (b) => b.textContent === text,
   );
 
-function readSettings(avatar, tip) {
+function readSettings(avatar, tip, packs) {
   const credits = playerCredits().state;
   const toggles = Object.fromEntries(
     TOGGLES.map(([id, control, , , status]) => {
@@ -49,6 +54,9 @@ function readSettings(avatar, tip) {
     newGame: !$("new-game").hidden,
     table: words("table-slot"),
     build: words("build-info"),
+    packs: Object.fromEntries(
+      PACKS.map(([id]) => [id, { on: packs.on(id), block: packs.block(id) }]),
+    ),
   };
 }
 
@@ -74,7 +82,7 @@ const runs = {
 // The context button is #setting-<card>, then #setting-<card>-1.
 const buttonId = (card, i) => `setting-${card || "close"}${i ? `-${i}` : ""}`;
 
-export function installSettingsCards({ actionBeat, avatar }) {
+export function installSettingsCards({ actionBeat, avatar, packs }) {
   const screen = $("settings-screen"),
     hand = $("settings-hand");
   let chosen = null,
@@ -101,6 +109,7 @@ export function installSettingsCards({ actionBeat, avatar }) {
     problem = "";
     if (action.run === "close" || action.closes) close();
     if (action.run === "tip") tip += 1;
+    if (action.run === "pack") packs.play(action.pack, action.enable);
     try {
       if (/^[#[]/.test(action.run)) document.querySelector(action.run).click();
       else await runs[action.run]?.(action);
@@ -161,7 +170,7 @@ export function installSettingsCards({ actionBeat, avatar }) {
     return holder;
   }
   function render() {
-    const cards = settingsCards(readSettings(avatar, tip));
+    const cards = settingsCards(readSettings(avatar, tip, packs));
     if (!cards.some((c) => c.id === chosen)) chosen = null;
     const focused = document.activeElement?.dataset?.setting;
     hand.replaceChildren(...cards.map((c, i) => frame(c, i, cards.length)));

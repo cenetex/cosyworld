@@ -54,14 +54,16 @@ try {
       "false",
     );
     assert.equal(await press.textContent(), "Turn music on");
-    // A pack names why it stays.
+    // A pack switches off and dims, and on again.
     await tapCard(page.locator('[data-setting="pack-sea"]'));
     const sea = page.locator("#setting-pack-sea");
-    assert.equal(
-      await sea.textContent(),
-      "Every world holds The Wine-Dark Sea",
-    );
-    assert.equal(await sea.isDisabled(), true);
+    assert.equal(await sea.textContent(), "Turn The Wine-Dark Sea off");
+    await sea.click();
+    const dim = page.locator('[data-setting="pack-sea"][data-lit="false"]');
+    await dim.waitFor();
+    assert.equal(await sea.textContent(), "Turn The Wine-Dark Sea on");
+    await sea.click();
+    await page.locator('[data-setting="pack-sea"][data-lit="true"]').waitFor();
     // A pack is a place card: the quest card's place painting and its name
     // where the quest sets its verb.
     const pack = page.locator('[data-setting="pack-sea"]');

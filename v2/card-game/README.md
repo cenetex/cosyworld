@@ -78,8 +78,10 @@ Cottage (`lonely-forest`), The Reflected Shore (the hub), The Wine-Dark Sea
 (`greek-drama`) and Hoppy Cat Universe (`hoppycat-archive`). A pack card is
 a place card drawn as the quest card draws its place (`questScreen`): the
 painting feathered into the card, its name where the quest names its verb.
-Every pack is mounted in every world (`installPacks`), so a pack card is lit and its button
-says so. The cards drive the controls in `#menu-dialog`, which no longer
+A pack card is lit while its pack is on, and dims when it is off. Its button
+switches it (rules 98, `pack-toggle.mjs`; no turn passes) or names why it
+can't: one pack stays on, not during a fight, the shore not before the first
+crossing, and shared worlds keep every pack for now. The cards drive the controls in `#menu-dialog`, which no longer
 opens. `smoke-card-settings.mjs` checks choosing, pressing, the second press
 and closing at three widths.
 
