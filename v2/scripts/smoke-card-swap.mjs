@@ -11,8 +11,8 @@ import { revealOpening, selectCard } from "./card-browser-helpers.mjs";
 // veil comes down; the new place's cards rise after a beat. Put out: the
 // lamp's and the attic's faces fade to their dark ones as the light goes
 // down. Vale keeps his nodes, the hand drawn is the rules' hand, every
-// ghost is released, many trips keep the page's node count flat, and
-// reduced motion only fades the hand.
+// ghost is released, and reduced motion only fades the hand. Node counts
+// over many trips are smoke-card-exit.mjs's.
 const output = new URL(
   process.env.CARD_SWAP_OUTPUT || "../../output/card-swap/",
   import.meta.url,
@@ -76,13 +76,7 @@ try {
       },
       { key, save: encodeSave(meeting()) },
     );
-    await page.route("**/card-game/text", (route) =>
-      route.fulfill({
-        status: 400,
-        contentType: "application/json",
-        body: "{}",
-      }),
-    );
+    await page.route("**/card-game/text", (r) => r.fulfill({ status: 400 }));
     const ready = async () => {
       for (let i = 0; i < 200; i++) {
         if (
@@ -220,30 +214,6 @@ try {
         assert(start + rise.duration <= SWAP_MS + slack, `in time: ${start}`);
       }
     }
-    // Many trips keep no more nodes than a few.
-    const cdp = await page.context().newCDPSession(page);
-    await cdp.send("Performance.enable");
-    const nodes = async () => {
-      await cdp.send("HeapProfiler.collectGarbage");
-      const { metrics } = await cdp.send("Performance.getMetrics");
-      return metrics.find((metric) => metric.name === "Nodes").value;
-    };
-    const travel = async (place) => {
-      await selectCard(page, place);
-      await page.locator("#card-actions button").click();
-      await settled();
-      await ready();
-    };
-    await travel("station");
-    await travel("pond");
-    const start = await nodes();
-    for (let i = 0; i < 4; i++) {
-      await travel("station");
-      await travel("pond");
-    }
-    const grown = (await nodes()) - start;
-    await cdp.detach();
-    assert(grown < 60, `Swaps release their nodes: ${grown} kept`);
     // Put out in a new world's attic: the lamp and the attic turn to their
     // dark faces as the light goes down, keeping their nodes, and the pond
     // is dealt face down behind the attic.
@@ -282,7 +252,7 @@ try {
     assert.deepEqual(hand, offered, "the hand is the rules' hand");
     assert.deepEqual(errors, []);
     console.log(
-      `Travel and Put out swapped the hand ${reduced ? "with a quick fade" : "in beats (exits, a beat, entries)"} at ${tag}; Vale kept his nodes and ${grown} nodes stayed after eight trips.`,
+      `Travel and Put out swapped the hand ${reduced ? "with a quick fade" : "in beats (exits, a beat, entries)"} at ${tag}; Vale kept his nodes.`,
     );
     await page.close();
   }
