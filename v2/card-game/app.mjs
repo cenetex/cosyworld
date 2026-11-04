@@ -2048,18 +2048,24 @@ function renderActions() {
   const heading = document.querySelector(".action-beat-heading"),
     actor = currentActor(world),
     name = nameOf(actor),
+    // The quest chosen in the open fan names itself, as a play does.
+    questShown =
+      !selected.length && questOpen && !rested ? shownQuests[questPick] : null,
     // Rule texts can double a name's article ("the The Burial Decree").
-    sentence = ((actions[0] && playText(actions[0])) || "").replace(
-      /\b(the|an?) (?:the|an?) /giu,
-      "$1 ",
-    );
+    sentence = questShown
+      ? shownQuestCaption(questShown)
+      : ((actions[0] && playText(actions[0])) || "").replace(
+          /\b(the|an?) (?:the|an?) /giu,
+          "$1 ",
+        );
   heading.hidden = !sentence;
   // Who acts, then what it acts on: the chosen cards, or the place it
   // waits in.
   const others = selected.filter((id) => id !== actor);
-  const involved = sentence
-    ? [actor, ...(others.length ? others : [world.actors[actor].place])]
-    : [];
+  const involved =
+    sentence && !questShown
+      ? [actor, ...(others.length ? others : [world.actors[actor].place])]
+      : [];
   showBeatCards(involved);
   // The box's edge takes the rarest card's tier colour; Common stays plain.
   const rarest = involved
@@ -2099,7 +2105,7 @@ function renderActions() {
       );
       button.type = "button";
       button.dataset.action = action.kind;
-      // Dropping a quest is destructive: red words (style.css).
+      // Dropping a quest is destructive: the usual button, red words.
       if (action.kind === "drop" && !action.item)
         button.dataset.destructive = "";
       button.title = refused || playText(action);

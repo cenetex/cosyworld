@@ -1692,31 +1692,9 @@ body .card.want-card[data-met="true"] {
 #card-actions button:hover {
   background: #3c3325;
 }
-/* Dropping a quest is a secondary, destructive choice: red words, no panel. */
+/* Dropping a quest is destructive: the usual button with red words. */
 body #card-actions button[data-destructive] {
-  background: transparent;
-  border-color: transparent;
   color: var(--danger);
-}
-body #card-actions button[data-destructive],
-body #card-actions button[data-destructive]:active {
-  color: var(--danger);
-  text-shadow:
-    0 1px 2px #000,
-    0 0 8px #000c;
-}
-body #card-actions button[data-destructive]:is(:hover, :focus-visible) {
-  background: color-mix(in srgb, var(--danger) 14%, transparent);
-}
-/* A play box holding only Drop quest keeps no box of its own. */
-.beat-stack
-  > .action-panel:has(> #card-actions > [data-destructive]:only-child):not(
-    :has(> .action-beat-cards > *, > .action-beat-body > :not([hidden]))
-  ) {
-  border-color: transparent;
-  background: transparent;
-  box-shadow: none;
-  backdrop-filter: none;
 }
 body .card.drag-over {
   outline: 2px solid var(--gold);

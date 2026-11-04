@@ -257,15 +257,25 @@ try {
       await page.locator('#card-actions [data-drop-quest="0"]').textContent(),
       "Drop quest (−1 XP)",
     );
-    // Drop is a secondary, destructive choice: red words with no panel.
+    // Drop is the beat's usual context button, its words red.
     assert.deepEqual(
       await page
         .locator('#card-actions [data-drop-quest="0"]')
         .evaluate((el) => {
           const style = getComputedStyle(el);
-          return [style.color, style.backgroundColor, style.borderTopColor];
+          return [style.color, style.textShadow, style.borderTopWidth];
         }),
-      ["rgb(255, 143, 132)", "rgba(0, 0, 0, 0)", "rgba(0, 0, 0, 0)"],
+      ["rgb(255, 143, 132)", "none", "0px"],
+    );
+    // The beat above it names the chosen quest.
+    const described = await page
+      .locator(".action-beat-heading:not([hidden])")
+      .innerText();
+    assert.ok(
+      (await picked.getAttribute("aria-label")).startsWith(
+        `Quest: ${described}`,
+      ),
+      `the beat names the quest: ${described}`,
     );
     assert.equal(
       await page.locator("#card-actions [data-focus-quest]").count(),
@@ -359,8 +369,12 @@ try {
         .getAttribute("aria-label"),
       "Quest: Give The Burial Decree to The Gate Guard, near",
     );
-    // Drop quest alone keeps no box: red words over the table.
+    // The beat keeps its box and names the quest above Drop quest.
     assert.equal(
+      await page.locator(".action-beat-heading:not([hidden])").innerText(),
+      "Give The Burial Decree to The Gate Guard",
+    );
+    assert.notEqual(
       await page
         .locator("#action-beat")
         .evaluate((el) => getComputedStyle(el).backgroundColor),
