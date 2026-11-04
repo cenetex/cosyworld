@@ -1,11 +1,16 @@
 import titleLogos from "./title-logos.json" with { type: "json" };
 import landings from "./pack-landings.json" with { type: "json" };
 import { imageUrl } from "./images.mjs";
+import { RARITY_WEIGHTS } from "./pack-specials.mjs";
 
 // Each world shows one Lonely Forest logo from `title-logos.json`, in its
-// title and in the toolbar. The first pick for a world comes from its id;
-// a new world never repeats the logo shown last when another one exists.
-// The browser remembers the pick, so a reload shows the same logo.
+// title and in the toolbar. The first pick for a world is a weighted draw
+// seeded by its id, so every player of a world draws the same logo; a new
+// world never repeats the logo shown last when another one exists. The
+// browser remembers the pick, so a reload shows the same logo.
+// Each logo's `rarity` is a game tier id; it only weights the draw (the card
+// tier weights) and is never shown. A legendary logo is never drawn, and a
+// `retired` one is drawn no more but still shows where it was remembered.
 export const LOGOS = titleLogos.logos;
 export const LOGO_KEY = "cosyworld.title-logo";
 const REMEMBERED = 40;
@@ -34,12 +39,27 @@ function hash(text) {
 const valid = (index, count) =>
   Number.isInteger(index) && index >= 0 && index < count;
 
+export const logoWeight = (logo) =>
+  logo?.retired || !Object.hasOwn(RARITY_WEIGHTS, logo?.rarity ?? "")
+    ? 0
+    : RARITY_WEIGHTS[logo.rarity];
+
 // The logo index for a world, given what this browser showed before.
-export function chooseLogo(key, memory = {}, count = LOGOS.length) {
+export function chooseLogo(key, memory = {}, logos = LOGOS) {
   const known = memory.worlds?.[key];
-  if (valid(known, count)) return known;
-  const index = hash(key) % count;
-  return count > 1 && index === memory.last ? (index + 1) % count : index;
+  if (valid(known, logos.length)) return known;
+  const weights = logos.map(logoWeight);
+  const total = weights.reduce((sum, weight) => sum + weight, 0);
+  if (!total) return 0;
+  let roll = hash(key) % total;
+  let index = 0;
+  while (roll >= weights[index]) roll -= weights[index++];
+  if (index !== memory.last) return index;
+  for (let step = 1; step < logos.length; step++) {
+    const next = (index + step) % logos.length;
+    if (weights[next]) return next;
+  }
+  return index;
 }
 
 export function rememberLogo(memory = {}, key, index) {
