@@ -2241,7 +2241,11 @@ fn messages(context: &Context, entity: &Entity, part: Part) -> (String, String) 
     if conversation::applies(context, entity, part) {
         return conversation::messages(context, entity);
     }
-    let inner = matches!(part, Part::Thought | Part::Persona) && !kind(&entity.id, "location");
+    if kind(&entity.id, "location") {
+        let system = [idiolect(entity, part), transcript(context, entity, part)].join("\n\n");
+        return (system, atmosphere::here(context));
+    }
+    let inner = matches!(part, Part::Thought | Part::Persona);
     if inner {
         let system = [idiolect(entity, part), transcript(context, entity, part)].join("\n\n");
         return (system, cue(part).to_string());
@@ -2534,7 +2538,7 @@ impl<'a> Check<'a> {
             kept = text.trim_matches(quotes).to_string();
         }
         flag(
-            kind(&self.entity.id, "location") && !atmosphere::consistent(&kept, &self.entity.id),
+            kind(&self.entity.id, "location") && !atmosphere::consistent(&kept),
             "atmosphere",
         );
         if !bounded(&kept, self.limit) {
@@ -3996,10 +4000,7 @@ pub(crate) mod tests {
     async fn character_models_keep_their_own_memories_and_return_private_growth() {
         let seen = Arc::new(Mutex::new(Vec::<Value>::new()));
         let provider = plain_provider(seen.clone(), |body, stem| {
-            let user = body["messages"].as_array().unwrap().last().unwrap()["content"]
-                .as_str()
-                .unwrap();
-            if user.contains("Fail this place") && stem == "Empty station:" {
+            if prompt_of(body).contains("Fail this place") && stem == "Empty station:" {
                 return String::new();
             }
             stem_reply(stem)
@@ -4139,7 +4140,7 @@ pub(crate) mod tests {
                     let stem = &*stem_of(&body);
                     let mute = (user.contains("Mute speaker")
                         && (stem == "Vale:" || stem == "Pip:"))
-                        || (stem == "Empty station:" && user.contains("Paths visible"));
+                        || (stem == "Empty station:" && user.contains("Paths lead from me"));
                     let text = if mute {
                         String::new()
                     } else if stem == "Vale:" && tries == 1 {
@@ -4300,8 +4301,9 @@ pub(crate) mod tests {
         c.location = "attic".into();
         c.entities[1].id = "attic".into();
         let attic = idiolect(&c.entities[1], Part::Line);
-        assert!(attic.contains("atmospheric caption"));
-        assert!(transcript(&c, &c.entities[1], Part::Line)
+        assert!(attic.starts_with("I am Mirror attic, "));
+        assert!(messages(&c, &c.entities[1], Part::Line)
+            .0
             .contains("tall mirror reflecting a black shore"));
         assert!(idiolect(&c.entities[2], Part::Line).contains("soot-dark"));
         let all = profiles().to_string();
@@ -4491,8 +4493,9 @@ pub(crate) mod tests {
         assert!(!vale.contains("The keeper"));
         let pond = transcript(&c, &c.entities[1], Part::Line);
         assert!(!pond.contains("Vale has just come"));
-        assert!(pond.contains("Current scene:\nBlack pond."));
-        assert!(pond.ends_with("\nBlack pond:"));
+        assert!(!pond.contains("Black pond:"));
+        let (_, here) = messages(&c, &c.entities[1], Part::Line);
+        assert!(here.contains("Pip has just come from Empty station."));
         let o = c.outcome.as_mut().unwrap();
         o.avatars[0]
             .travel
@@ -4684,9 +4687,9 @@ pub(crate) mod tests {
                 .as_str()
                 .unwrap();
             if stem == "Empty station:" {
-                assert!(system.contains("atmospheric caption"));
-                assert!(!user.contains("Just now:"));
-                assert!(!user.contains("I remember:"));
+                assert!(system.starts_with("I am Empty station"));
+                assert!(!system.contains("I remember:"));
+                assert!(user.ends_with(" here."));
             } else if ["Vale:", "Pip:"].contains(&stem) {
                 // A conversation turn: the frame is in the system message
                 // and the user message is one line, never the scaffold.
@@ -5238,13 +5241,15 @@ pub(crate) mod tests {
             .as_object()
             .unwrap()
             .iter()
-            .find(|(id, p)| {
+            .filter(|(id, p)| {
                 (p["kind"] == "avatar" && i_am(id) == first)
+                    || (p["kind"] == "location" && first.starts_with(&format!("I am {}", name(id))))
                     || p["idiolect"]
                         .as_str()
                         .is_some_and(|i| system.starts_with(i))
             })
-            .map(|(id, _)| name(id));
+            .map(|(id, _)| name(id))
+            .max_by_key(String::len);
         // The speaker's own first words name the part, as the old cues did.
         match (messages.len() > 1, speaker, user) {
             (true, Some(who), "I think to myself:") => format!("{who}, to myself:"),
