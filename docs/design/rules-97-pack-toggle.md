@@ -1,57 +1,51 @@
 # Rules 97: switching a world pack off and on
 
-Owner decisions (2026-11-03, 2026-11-04): packs switch "mid world and all
-avatars and items from other worldpacks in the worldpack's locations are
-scattered"; all four packs switch, the Shore too, and one stays on; local
-worlds only; the attic stays where it is.
+Owner decisions (2026-11-03, 2026-11-04): packs switch mid-world, and
+"all avatars and items from other worldpacks in the worldpack's locations
+are scattered"; all four packs switch, the Shore too, and one stays on;
+local worlds only; the attic stays where it is.
 
-- **Which packs.** The hub's `switchable` (`v2/worlds/card-table.json`), in
-  its fixed order: The Reflected Shore (`reflected-shore`, the hub's own
-  places, residents and things), Cosy Cottage (`lonely-forest`), The
-  Wine-Dark Sea (`greek-drama`) and Hoppy Cat Universe (`hoppycat-archive`).
-  The Steam Clock and the Willows have no switch.
-- **Entries.** Each pack's declared entries (bridge `entries`, gathered into
-  the hub as `packEntries`; the hub's own `entries`) name how it is entered,
-  by an existing link with that link's own condition
-  ([card packs](../../v2/docs/card-packs.md#entries)). A pack switched on
-  brings its entries back; switched off, its places sleep, so no entry leads
-  in or out.
-- **The record.** `world.enabledPacks`, sorted. Every world gets it with all
-  on as it is created or loaded (`installPacks`). New worlds start with
-  every pack on, so starts are unchanged.
-- **The play.** `{ kind: "pack", pack, enable }` through `play()`, logged as a
-  `pack` action; no turn passes. Settings plays it.
-- **Off.** The pack sleeps: `entityEnabled` is false for its places, people,
-  things and ship, which keep their state. Players' avatars never sleep.
-- **Landing.** Arrivals and scattered things go to the awake entry places of
-  the first pack on, in the fixed order: the Shore's pond, attic and station
-  while it is on, else the cottage, else the harbour and Piraeus, else the
-  Signal Jetty. A rescue whose place sleeps goes to the first of them.
-- **A pack entered only through a pack switched off** stays on. It is entered
-  only from inside until that pack returns, and its entry places still take
-  arrivals. No fallback link is made: Hoppy Cat with the Sea off keeps its
-  jetty, and the Willows and the Steam Clock with the Shore off keep theirs.
-- **Scatter.** From its places, players' avatars come out where its first
-  awake entry comes from (the attic for Cosy Cottage, the pond for the Sea),
-  else at the first landing place. Everyone else, and every thing from
-  elsewhere lying there or held by its people, is dealt round the landing
-  places from a start drawn from the run seed and revision (`runHash`). A
-  thing inside one of its things goes to whoever carries that thing. A
-  sleeper wakes.
-- **Its things carried away** stay with their holder, unseen, until it is on.
+- **Groups.** The hub's `switchable` (`v2/worlds/card-table.json`) names the
+  groups in a fixed order: shore (the pack `hub`: the hub's own places,
+  residents and things), cottage (`lonely-forest`), sea (`greek-drama`) and
+  hoppy (`hoppycat-archive`). A pack in no group is always on. The Cottage
+  and Badger can later share a group with no id change.
+- **The record.** `disabledPacks`: the groups off, sorted; absent when all
+  are on, so a group added later is on in every old save.
+- **The play.** `{ kind: "pack", pack: group, enable }` through `play()`,
+  logged as a `pack` action; no turn passes. It is refused, with the reason
+  for the button, in shared worlds, during the player's fight, for the last
+  group on, and for the shore before the first crossing.
+- **Off.** Its packs sleep: `entityEnabled` is false for their places,
+  people, things and ship, which keep their state. Players never sleep.
+- **Entries.** Each pack's declared entries (bridge `entries`, gathered as
+  `hub.packEntries`; [card packs](../../v2/docs/card-packs.md#entries)) say
+  where its travelers come out: the `at` of each entry that joins a pack
+  still on, in group order. With none, the start of the first pack on (the
+  hub's `start`, else the pack's `entry`). The hub's entries are its packs'
+  hub entries from the other side. So: the attic for the Cottage; the pond
+  and the jetty for the Sea; the pond and Piraeus for Hoppy Cat; the
+  cottage, harbour, tea garden, clearing and landing for the shore.
+- **Entered only through a pack that is off,** a pack stays on and is
+  entered only from inside until that pack returns. No fallback link is
+  made.
+- **Scatter.** Its things carried by people from elsewhere are set down
+  where they stand, to sleep there. Players from elsewhere come out at the
+  first way out; everyone else, and every thing from elsewhere lying there
+  or held by its people, is dealt round the ways out from a start drawn
+  from the run seed and revision. A thing from elsewhere held by one of its
+  people standing outside it is set down there. A sleeper wakes.
 - **Fights** in its places or with its people end; the fighters keep the
-  peace three turns (`closeStandoff`).
-- **Quests** naming its places, people or things are set aside, as a stalled
-  want is (`setAsideWant`).
-- **Ships.** Its own ship lies docked where it is, with no riders, course or
+  peace three turns.
+- **Quests** naming its places, people or things go to the bottom of the
+  stack as they are, with nothing redrawn. A sanctuary in it is forgotten,
+  and a rest step there turns to an awake sanctuary or home.
+- **Ships.** Its own ship lies where it is with its own crew, no course or
   summons. Another pack's ship at or bound for one of its docks puts in at
-  home with everyone ashore (rules 95's stuck-ship rule); lanes to sleeping
-  docks close.
-- **On.** Its content returns as it was; scattered things stay put.
-- **Shared worlds** keep every pack for now; the play is refused with that
-  reason. Creator-only switching needs a host check later.
+  home with everyone ashore (rules 95); lanes to sleeping docks close.
+- **On.** Its content returns as it was; scattered things stay put. A
+  rescue whose place sleeps goes to the start of the first pack on.
 
-Tests: `test/card-pack-toggle.test.mjs`, including the released rules 96
-bundle accepting a player in a pack switched off, which rules 97 refuses.
-Rules 93 to 96 are byte-identical and hash-pinned
-(`test/card-released-rules.test.mjs`).
+Tests: `test/card-pack-toggle.test.mjs`, including rules 96 accepting a
+player in a pack switched off, which rules 97 refuses. Rules 93 to 96 are
+byte-identical and hash-pinned (`test/card-released-rules.test.mjs`).

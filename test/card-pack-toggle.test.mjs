@@ -1,6 +1,5 @@
-// A pack switches off and on mid-world (rules 97): its own content goes
-// dormant as it is, and everyone and everything from elsewhere standing in it
-// is scattered to the shore, deterministically.
+// A pack switches off and on mid-world (rules 97): its own content sleeps
+// as it is, and everyone and everything from elsewhere in it is scattered.
 import { readFileSync } from "node:fs";
 import vm from "node:vm";
 import { describe, expect, it } from "vitest";
@@ -15,17 +14,12 @@ import { entityActive } from "../v2/card-game/pack-registry.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import { questsOf } from "../v2/card-game/want.mjs";
 
-const [GREEK, HOPPY, COTTAGE, SHORE] = [
-  "greek-drama",
-  "hoppycat-archive",
-  "lonely-forest",
-  "reflected-shore",
-];
+const [SEA, HOPPY, COTTAGE, SHORE] = ["sea", "hoppy", "cottage", "shore"];
 const off = (pack) => ({ kind: "pack", pack, enable: false });
 const on = (pack) => ({ kind: "pack", pack, enable: true });
 const reload = (s) => decodeSave(encodeSave(s));
 function world(edit = () => {}) {
-  const s = createWorld({ seed: 7, packScopes: { [GREEK]: "full" } });
+  const s = createWorld({ seed: 7, packScopes: { "greek-drama": "full" } });
   Object.assign(s.actors.vale, { place: "greek-well" });
   s.actors.keeper.place = s.actors.moth.place = "greek-well";
   s.items.lamp.holder = "vale";
@@ -39,43 +33,34 @@ const ok = (result) => {
 };
 
 describe("switching a pack off and on (rules 97)", () => {
-  it("starts every world with every pack on", () => {
-    const s = createWorld({ seed: 1 });
-    expect(s.enabledPacks).toEqual([GREEK, HOPPY, COTTAGE, SHORE]);
-    const old = JSON.parse(encodeSave(s));
-    delete old.enabledPacks;
-    expect(reload(old).enabledPacks).toEqual(s.enabledPacks);
-  });
-
   it("scatters others from its places, the same way every time", () => {
     const s = world();
-    const after = ok(play(s, off(GREEK)));
-    expect(after.enabledPacks).toEqual([HOPPY, COTTAGE, SHORE]);
+    expect(s.disabledPacks).toBeUndefined();
+    const after = ok(play(s, off(SEA)));
+    expect(after.disabledPacks).toEqual([SEA]);
     // The player comes out where the pack's way opens; the rest spread.
     expect(after.actors.vale.place).toBe("pond");
     expect(after.items.lamp.holder).toBe("vale");
-    const spots = ["pond", "station", "attic"];
-    for (const id of ["keeper", "moth"])
-      expect(spots).toContain(after.actors[id].place);
-    for (const id of ["oil", "bell"])
-      expect(spots).toContain(after.items[id].holder);
+    const spots = ["pond", "hoppycat-signal-jetty"];
+    for (const at of [after.actors.keeper.place, after.items.oil.holder])
+      expect(spots).toContain(at);
     expect(
       new Set(["keeper", "moth"].map((id) => after.actors[id].place)).size,
     ).toBe(2);
-    expect(play(world(), off(GREEK)).state).toEqual(after);
+    expect(play(world(), off(SEA)).state).toEqual(after);
     expect(reload(after)).toEqual(after);
   });
 
   it("keeps its own content dormant and returns it as it was", () => {
     const s = world((w) => (w.items["greek-water-jar"].holder = "vale"));
     const before = structuredClone(s.actors["greek-elder"]);
-    const quiet = ok(play(s, off(GREEK)));
+    const quiet = ok(play(s, off(SEA)));
     expect(entityActive(quiet, "greek-well")).toBe(false);
     expect(entityActive(quiet, "greek-elder")).toBe(false);
-    // Carried away, its thing stays with its holder, unseen.
-    expect(quiet.items["greek-water-jar"].holder).toBe("vale");
+    // Carried, its thing is set down to sleep where its carrier stood.
+    expect(quiet.items["greek-water-jar"].holder).toBe("greek-well");
     expect(entityActive(quiet, "greek-water-jar")).toBe(false);
-    const back = ok(play(reload(quiet), on(GREEK)));
+    const back = ok(play(reload(quiet), on(SEA)));
     expect(back.actors["greek-elder"]).toEqual(before);
     expect(entityActive(back, "greek-water-jar")).toBe(true);
     // Scattered things stay where they were scattered.
@@ -93,14 +78,21 @@ describe("switching a pack off and on (rules 97)", () => {
     for (const field of ["guarding", "struck", "steppedBack"])
       w.standoffs[0][field] = each(false);
     w.standoffs[0].resolve = each(4);
-    const jar = { kind: "item", target: "greek-water-jar", refusals: 0 };
-    w.actors.moth.want = { ...jar, since: w.turn };
-    const after = ok(play(reload(w), off(GREEK)));
+    const want = (target) => ({ kind: "item", target, refusals: 0, since: 0 });
+    w.actors.moth.want = want("greek-water-jar");
+    w.actors.moth.under = [want("lamp")];
+    // Vale in the fight may not switch; once out of it, the fight ends.
+    const vale = { ...w.standoffs[0], challenger: "vale" };
+    const busy = reload({ ...w, standoffs: [vale] });
+    expect(play(busy, off(SEA)).error).toMatch(/Not during a fight/);
+    const after = ok(play(reload(w), off(SEA)));
     expect(after.standoffs).toEqual([]);
-    expect(after.actors.moth.want?.target).not.toBe("greek-water-jar");
-    expect(questsOf(after, "moth").map((w) => w.target)).toContain(
+    // Set aside as it is, with nothing redrawn.
+    expect(questsOf(after, "moth").map((q) => q.target)).toEqual([
+      "lamp",
       "greek-water-jar",
-    );
+    ]);
+    expect(after.actors.moth.gaveUp).toBeUndefined();
   });
 
   it("puts another pack's ship in at home when its dock goes quiet", () => {
@@ -123,14 +115,10 @@ describe("switching a pack off and on (rules 97)", () => {
 
   it("switches the shore off: the first pack on takes everyone in", () => {
     const s = world((w) => {
-      Object.assign(w.actors.vale, { place: "attic" });
+      w.actors.vale.place = w.items.cloth.holder = "attic";
       Object.assign(w.items.lamp, { holder: "attic", lit: true });
-      w.items.cloth.holder = "attic";
     });
-    const moves = (w) =>
-      legalActions(w)
-        .filter((a) => a.kind === "move")
-        .map((a) => a.target);
+    const moves = (w) => legalActions(w).map((a) => a.target);
     // Cosy Cottage's entry, the lit attic, goes with it.
     expect(moves(s)).toContain("forest-cottage");
     expect(moves(ok(play(s, off(COTTAGE))))).not.toContain("forest-cottage");
@@ -139,38 +127,64 @@ describe("switching a pack off and on (rules 97)", () => {
     for (const id of ["keeper", "lamp", "attic"])
       expect(entityActive(quiet, id)).toBe(false);
     expect(moves(quiet)).not.toContain("attic");
-    // Then the Sea: its ship puts in at home; Hoppy Cat, entered only from
-    // the Sea, stays on and takes in the last arrivals at its jetty.
+    // Then the Sea; Hoppy Cat, entered only from the Sea, stays on and
+    // takes in the last arrivals at its jetty.
     const sea = ok(play(reload(quiet), off(COTTAGE)));
     expect(sea.actors.vale.place).toBe("greek-harbor");
-    expect(sea.transports["greek-ship"].dock).toBe("greek-harbor");
-    expect(ok(play(sea, off(GREEK))).actors.vale.place).toBe(
-      "hoppycat-signal-jetty",
-    );
+    const last = ok(play(sea, off(SEA)));
+    expect(last.actors.vale.place).toBe("hoppycat-signal-jetty");
+  });
+
+  it("turns a rest step from its sanctuary and keeps its ship's crew", () => {
+    const garden = "hoppycat-halfway-tea-garden";
+    const s = world((w) => {
+      w.actors.vale.sanctuary = garden;
+      const rest = { kind: "place", target: garden, since: 0, refusals: 0 };
+      const quest = { level: 2, left: 1 };
+      w.actors.vale.want = { ...rest, quest, step: { verb: "rest" } };
+    });
+    const after = ok(play(s, off(HOPPY)));
+    expect(after.actors.vale.sanctuary).toBeUndefined();
+    expect(after.actors.vale.want.step.verb).toBe("rest");
+    expect(entityActive(after, after.actors.vale.want.target)).toBe(true);
+    const crew = world((w) => {
+      w.actors.vale.place = w.actors["greek-elder"].place = "greek-ship";
+      Object.assign(w.transports["greek-ship"], {
+        phase: "arrived",
+        riders: ["greek-elder", "vale"],
+      });
+    });
+    expect(ok(play(crew, off(SEA))).transports["greek-ship"].riders).toEqual([
+      "greek-elder",
+    ]);
+    const opening = createWorld({ opening: true, seed: 3 });
+    expect(play(opening, off(SHORE)).error).toMatch(/first crossing/);
   });
 
   it("keeps one pack on, and shared worlds as they are", () => {
     const s = world();
     expect(play(s, off("badger-forest")).error).toMatch(/Only a world pack/);
-    let w = ok(play(s, off(GREEK)));
+    let w = ok(play(s, off(SEA)));
     for (const id of [HOPPY, SHORE]) w = ok(play(w, off(id)));
     expect(play(w, off(COTTAGE)).error).toMatch(/One world pack/);
-    expect(play(w, off(GREEK)).error).toMatch(/off already/);
-    const shared = dispatchShared({ op: "create", save: encodeSave(s) });
-    const asked = dispatchShared({
-      op: "play",
-      world: shared.world,
-      actor: "vale",
-      action: off(GREEK),
+    expect(play(w, off(SEA)).error).toMatch(/off already/);
+    const { world: shared } = dispatchShared({
+      op: "create",
+      save: encodeSave(s),
     });
-    expect(asked.error).toMatch(/Shared worlds keep every pack/);
+    const asked = {
+      op: "play",
+      world: shared,
+      actor: "vale",
+      action: off(SEA),
+    };
+    expect(dispatchShared(asked).error).toMatch(/Shared worlds keep every/);
   });
 
   it("is a rules 97 rule: rules 96 keeps the pack awake", () => {
-    // Vale at the well of a pack switched off: rules 97 refuses the world,
-    // rules 96 ignores the switch.
+    // Vale in a pack switched off: rules 97 refuses the world, 96 ignores it.
     const quiet = JSON.parse(encodeSave(world()));
-    quiet.enabledPacks = [HOPPY, COTTAGE, SHORE];
+    quiet.disabledPacks = [SEA];
     const dir = "v2/orchestrator-rust/src/card_shared";
     const file = (path) => readFileSync(`${dir}/${path}`, "utf8");
     const rules = (version) => {

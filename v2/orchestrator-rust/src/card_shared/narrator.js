@@ -59,10 +59,10 @@
     for (const f of Object.values(facts).sort(compareFacts))
       if (f.source.kind === "event")
         (byPlay[`${f.source.actorId}|${f.source.turn}`] ??= []).push(f);
-    const rank = (g) => g.repaired ? 2 : grievanceActive(world, g) ? 0 : 1;
+    const rank2 = (g) => g.repaired ? 2 : grievanceActive(world, g) ? 0 : 1;
     const grievances = world.motives?.grievances || {};
     const standing = Object.keys(grievances).sort().flatMap((holder) => grievances[holder].map((g, i) => ({ holder, g, i }))).sort(
-      (a, b) => rank(a.g) - rank(b.g) || (b.g.lastTouched ?? b.g.turn) - (a.g.lastTouched ?? a.g.turn) || a.holder.localeCompare(b.holder) || a.i - b.i
+      (a, b) => rank2(a.g) - rank2(b.g) || (b.g.lastTouched ?? b.g.turn) - (a.g.lastTouched ?? a.g.turn) || a.holder.localeCompare(b.holder) || a.i - b.i
     );
     const pinned = /* @__PURE__ */ new Set();
     for (const { holder, g } of standing) {
@@ -152,9 +152,9 @@
     }));
   }
   function knowledgeFacts(world, actor, nameOf2 = (id) => id, priority = [], relevant = []) {
-    const rank = (id) => priority.includes(id) ? 2 : relevant.includes(id) ? 1 : 0;
+    const rank2 = (id) => priority.includes(id) ? 2 : relevant.includes(id) ? 1 : 0;
     const known = world.knowledge?.known?.[actor] || {};
-    return Object.keys(known).map((id) => world.knowledge.facts[id]).filter(Boolean).sort((a, b) => rank(b.id) - rank(a.id) || compareFacts(a, b)).slice(0, 2).map((fact) => {
+    return Object.keys(known).map((id) => world.knowledge.facts[id]).filter(Boolean).sort((a, b) => rank2(b.id) - rank2(a.id) || compareFacts(a, b)).slice(0, 2).map((fact) => {
       const memory = known[fact.id];
       const origin = memory.kind === "witnessed" ? "I witnessed" : `${nameOf2(memory.teller)} told me`;
       const age = world.turn - (memory.learnedTurn ?? fact.source.turn);
@@ -522,12 +522,12 @@
     [30, "Epic", "#ffc85a"],
     [50, "Legendary", "#fff082"],
     [100, "Mythic", "#ff9ce6"]
-  ].map(([minLevel, label, color], rank) => ({
+  ].map(([minLevel, label, color], rank2) => ({
     id: label.toLowerCase(),
     label,
     color,
     minLevel,
-    rank
+    rank: rank2
   }));
 
   // v2/card-game/forest.json
@@ -2325,7 +2325,9 @@
   var restStep = (s, actor, api, quest) => ({
     ...newWant(
       "place",
-      s.actors[actor].sanctuary ?? api.home(actor) ?? s.actors[actor].place,
+      [s.actors[actor].sanctuary, api.home(actor)].find(
+        (p) => p && (api.active?.(p) ?? true)
+      ) ?? s.actors[actor].place,
       s.turn
     ),
     quest,
@@ -14699,7 +14701,7 @@
       ...Object.keys(fixtures),
       ...Object.keys(items2)
     ];
-    const hubIds = [
+    const hubIds2 = [
       ...hub2?.places || [],
       ...hub2?.avatars || [],
       ...hub2?.items || []
@@ -14709,7 +14711,7 @@
       "entity ids must be distinct, lowercase and hyphenated"
     );
     check(
-      own2.every((id) => !hubIds.includes(id)),
+      own2.every((id) => !hubIds2.includes(id)),
       "entity ids must not reuse hub ids"
     );
     check(owns3(places2, pack.entry), "entry must name one of the pack's places");
@@ -14955,7 +14957,7 @@
       "bridge values map pack avatars to hub item values from 0 to 20"
     );
     const anyPlace = (id) => owns3(places2, id) || hub2?.places?.includes(id) || mountedPlaces.includes(id);
-    const entity = (id) => owns3(places2, id) || owns3(avatars, id) || owns3(items2, id) || hubIds.includes(id);
+    const entity = (id) => owns3(places2, id) || owns3(avatars, id) || owns3(items2, id) || hubIds2.includes(id);
     const pattern = (p, what) => check(
       keysOk(p, ["verb", "item", "target", "from"]) && SIGNAL_VERBS.includes(p?.verb) && (p.item === void 0 || hub2?.items?.includes(p.item) || owns3(items2, p.item)) && (p.target === void 0 || entity(p.target)) && (p.from === void 0 || entity(p.from)),
       `${what} must match a known verb with hub items or entities`
@@ -15793,14 +15795,18 @@
     )
   ].filter(Boolean);
   var packState = (world, id) => world.packs?.[id];
-  var SWITCHED = Object.keys(hub.switchable || {});
-  var shoreIds = new Set(
+  var GROUPS = hub.switchable || {};
+  var groupOf = new Map(
+    Object.entries(GROUPS).flatMap(([g, { packs }]) => packs.map((p) => [p, g]))
+  );
+  var packGroup = (packId) => groupOf.get(packId) ?? null;
+  var hubIds = new Set(
     [...hub.places, ...hub.avatars, ...hub.items].filter(
       (id) => !humanAvatar(id)
     )
   );
-  var packIdOf = (id) => packEntity(id)?.packId ?? (shoreIds.has(id) ? hub.id : null);
-  var packOn = (world, id) => !world.enabledPacks || !SWITCHED.includes(id) || world.enabledPacks.includes(id);
+  var packIdOf = (id) => packEntity(id)?.packId ?? (hubIds.has(id) ? "hub" : null);
+  var packOn = (world, packId) => !world.disabledPacks?.includes(packGroup(packId));
   function conditionsMet(world, packId, conditions = [], actor = null) {
     if (!world.packs?.[packId]) return false;
     for (const condition of conditions)
@@ -15841,7 +15847,8 @@
   function entityEnabled(world, id, saved = false) {
     if (localRoads.has(id) || retiredPlaces.has(id) || usedUp(world, id))
       return false;
-    if (!saved && !packOn(world, packIdOf(id))) return false;
+    if (!saved && world.disabledPacks && !packOn(world, packIdOf(id)))
+      return false;
     const e = packEntity(id);
     if (!e) return true;
     const pack = packDefinition(e.packId), state = packState(world, e.packId);
@@ -17752,24 +17759,33 @@
   }
 
   // v2/card-game/pack-toggle.mjs
-  var NAMES = hub.switchable;
-  var ALL = [...SWITCHED].sort();
-  var ENTRIES = { ...hub.packEntries, [hub.id]: hub.entries };
-  var WAYS = Object.fromEntries(
-    Object.entries(hub.packEntries).map(([id, l]) => [id, l.map((e) => e.from)])
+  var ORDER = Object.keys(GROUPS);
+  var rank = (packId) => {
+    const g = ORDER.indexOf(packGroup(packId));
+    return g < 0 ? ORDER.length : g;
+  };
+  var sides = Object.entries(hub.packEntries);
+  var ENTRIES = Object.fromEntries(
+    [
+      ...sides,
+      [
+        "hub",
+        sides.flatMap(
+          ([id, list]) => list.filter((e) => e.joins === "hub").map((e) => ({ joins: id, at: e.arrive }))
+        )
+      ]
+    ].map(([id, list]) => [
+      id,
+      list.map((e, i) => [e, i]).sort(([a, i], [b, j]) => rank(a.joins) - rank(b.joins) || i - j).map(([e]) => e)
+    ])
   );
-  function installEnabledPacks(s) {
-    if (!Array.isArray(s.enabledPacks)) s.enabledPacks = [...ALL];
-  }
-  var validEnabledPacks = (list) => list === void 0 || Array.isArray(list) && list.length > 0 && list.every((id, i) => ALL.includes(id) && (!i || list[i - 1] < id));
-  function landingPlaces(s) {
-    for (const id of SWITCHED) {
-      const spots = packOn(s, id) ? [...new Set(ENTRIES[id].map((e) => e.to))].filter(
-        (p) => entityActive(s, p)
-      ) : [];
-      if (spots.length) return spots;
-    }
-    return [];
+  var startOf = (packId) => packId === "hub" ? hub.start : packDefinition(packId).entry;
+  var validDisabledPacks = (list) => list === void 0 || Array.isArray(list) && list.length > 0 && list.length < ORDER.length && list.every((g, i) => ORDER.includes(g) && (!i || list[i - 1] < g));
+  function firstStart(s) {
+    for (const g of ORDER)
+      for (const p of GROUPS[g].packs)
+        if (packOn(s, p) && entityActive(s, startOf(p))) return startOf(p);
+    return null;
   }
 
   // v2/card-game/world.mjs
@@ -17833,7 +17849,6 @@
   function installPacks(s) {
     const added = [];
     installTransports(s);
-    installEnabledPacks(s);
     s.crossings ??= {};
     s.packs ??= {};
     const fresh = newMemories();
@@ -17978,7 +17993,7 @@
     actor ||= currentActor(s);
     return gate && (controlledByHuman(s, actor) || homeOf2(actor) === place || gate.opening && knownActors2(s).includes(actor)) && s.actors[actor]?.place === place && !ordinaryRouteHome(s, place, gate.rescue, actor, previous) && !homeGateRecoverable(s, place, gate, actor) ? (
       // With its rescue place asleep, the first pack on takes them in (rules 97).
-      entityActive(s, gate.rescue) ? gate.rescue : landingPlaces(s)[0] ?? null
+      entityActive(s, gate.rescue) ? gate.rescue : firstStart(s)
     ) : null;
   }
   function insideLampRemedy(s, actor) {
@@ -18089,6 +18104,7 @@
       reachable: (actor) => reachable(s, actor),
       places: () => Object.keys(places),
       home: homeOf2,
+      active: (id) => entityActive(s, id),
       sanctuaries,
       player: (id) => id === currentActor(s) || heldByHuman(s, id),
       questsBeginAt: forest_default.questsBeginAt,
@@ -18395,7 +18411,7 @@
       fail();
     if (s.arrival !== void 0 && (!s.arrival || !Number.isSafeInteger(s.arrival.seq) || s.arrival.seq < 1 || s.arrival.seq > s.eventSeq || !Object.hasOwn(places, s.arrival.fromLocationId) || !Object.hasOwn(places, s.arrival.locationId) || s.arrival.fromLocationId === s.arrival.locationId))
       fail();
-    if (!validEnabledPacks(s.enabledPacks)) fail();
+    if (!validDisabledPacks(s.disabledPacks)) fail();
     let seq = 0;
     const verbs = [
       "want_met",

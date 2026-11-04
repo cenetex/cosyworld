@@ -99,10 +99,10 @@
     for (const f of Object.values(facts).sort(compareFacts))
       if (f.source.kind === "event")
         (byPlay[`${f.source.actorId}|${f.source.turn}`] ??= []).push(f);
-    const rank = (g) => g.repaired ? 2 : grievanceActive(world, g) ? 0 : 1;
+    const rank2 = (g) => g.repaired ? 2 : grievanceActive(world, g) ? 0 : 1;
     const grievances = world.motives?.grievances || {};
     const standing = Object.keys(grievances).sort().flatMap((holder2) => grievances[holder2].map((g, i) => ({ holder: holder2, g, i }))).sort(
-      (a, b) => rank(a.g) - rank(b.g) || (b.g.lastTouched ?? b.g.turn) - (a.g.lastTouched ?? a.g.turn) || a.holder.localeCompare(b.holder) || a.i - b.i
+      (a, b) => rank2(a.g) - rank2(b.g) || (b.g.lastTouched ?? b.g.turn) - (a.g.lastTouched ?? a.g.turn) || a.holder.localeCompare(b.holder) || a.i - b.i
     );
     const pinned = /* @__PURE__ */ new Set();
     for (const { holder: holder2, g } of standing) {
@@ -791,12 +791,12 @@
     [30, "Epic", "#ffc85a"],
     [50, "Legendary", "#fff082"],
     [100, "Mythic", "#ff9ce6"]
-  ].map(([minLevel, label, color], rank) => ({
+  ].map(([minLevel, label, color], rank2) => ({
     id: label.toLowerCase(),
     label,
     color,
     minLevel,
-    rank
+    rank: rank2
   }));
   var levelTier = (level) => tiers.findLast((tier) => level >= tier.minLevel) || tiers[0];
 
@@ -2072,7 +2072,9 @@
   var restStep = (s, actor, api, quest) => ({
     ...newWant(
       "place",
-      s.actors[actor].sanctuary ?? api.home(actor) ?? s.actors[actor].place,
+      [s.actors[actor].sanctuary, api.home(actor)].find(
+        (p) => p && (api.active?.(p) ?? true)
+      ) ?? s.actors[actor].place,
       s.turn
     ),
     quest,
@@ -2774,7 +2776,7 @@
       ...Object.keys(fixtures),
       ...Object.keys(items2)
     ];
-    const hubIds = [
+    const hubIds2 = [
       ...hub2?.places || [],
       ...hub2?.avatars || [],
       ...hub2?.items || []
@@ -2784,7 +2786,7 @@
       "entity ids must be distinct, lowercase and hyphenated"
     );
     check(
-      own2.every((id) => !hubIds.includes(id)),
+      own2.every((id) => !hubIds2.includes(id)),
       "entity ids must not reuse hub ids"
     );
     check(owns3(places2, pack.entry), "entry must name one of the pack's places");
@@ -3030,7 +3032,7 @@
       "bridge values map pack avatars to hub item values from 0 to 20"
     );
     const anyPlace = (id) => owns3(places2, id) || hub2?.places?.includes(id) || mountedPlaces.includes(id);
-    const entity = (id) => owns3(places2, id) || owns3(avatars, id) || owns3(items2, id) || hubIds.includes(id);
+    const entity = (id) => owns3(places2, id) || owns3(avatars, id) || owns3(items2, id) || hubIds2.includes(id);
     const pattern = (p, what) => check(
       keysOk(p, ["verb", "item", "target", "from"]) && SIGNAL_VERBS.includes(p?.verb) && (p.item === void 0 || hub2?.items?.includes(p.item) || owns3(items2, p.item)) && (p.target === void 0 || entity(p.target)) && (p.from === void 0 || entity(p.from)),
       `${what} must match a known verb with hub items or entities`
@@ -3860,14 +3862,18 @@
     )
   ].filter(Boolean);
   var packState = (world, id) => world.packs?.[id];
-  var SWITCHED = Object.keys(hub.switchable || {});
-  var shoreIds = new Set(
+  var GROUPS = hub.switchable || {};
+  var groupOf = new Map(
+    Object.entries(GROUPS).flatMap(([g, { packs }]) => packs.map((p) => [p, g]))
+  );
+  var packGroup = (packId) => groupOf.get(packId) ?? null;
+  var hubIds = new Set(
     [...hub.places, ...hub.avatars, ...hub.items].filter(
       (id) => !humanAvatar(id)
     )
   );
-  var packIdOf = (id) => packEntity(id)?.packId ?? (shoreIds.has(id) ? hub.id : null);
-  var packOn = (world, id) => !world.enabledPacks || !SWITCHED.includes(id) || world.enabledPacks.includes(id);
+  var packIdOf = (id) => packEntity(id)?.packId ?? (hubIds.has(id) ? "hub" : null);
+  var packOn = (world, packId) => !world.disabledPacks?.includes(packGroup(packId));
   function conditionsMet(world, packId, conditions = [], actor = null) {
     if (!world.packs?.[packId]) return false;
     for (const condition of conditions)
@@ -3908,7 +3914,8 @@
   function entityEnabled(world, id, saved = false) {
     if (localRoads.has(id) || retiredPlaces.has(id) || usedUp(world, id))
       return false;
-    if (!saved && !packOn(world, packIdOf(id))) return false;
+    if (!saved && world.disabledPacks && !packOn(world, packIdOf(id)))
+      return false;
     const e = packEntity(id);
     if (!e) return true;
     const pack = packDefinition(e.packId), state = packState(world, e.packId);
@@ -6207,98 +6214,119 @@
   }
 
   // v2/card-game/pack-toggle.mjs
-  var NAMES = hub.switchable;
-  var ALL = [...SWITCHED].sort();
-  var ENTRIES = { ...hub.packEntries, [hub.id]: hub.entries };
-  var WAYS = Object.fromEntries(
-    Object.entries(hub.packEntries).map(([id, l]) => [id, l.map((e) => e.from)])
+  var ORDER = Object.keys(GROUPS);
+  var rank = (packId) => {
+    const g = ORDER.indexOf(packGroup(packId));
+    return g < 0 ? ORDER.length : g;
+  };
+  var sides = Object.entries(hub.packEntries);
+  var ENTRIES = Object.fromEntries(
+    [
+      ...sides,
+      [
+        "hub",
+        sides.flatMap(
+          ([id, list]) => list.filter((e) => e.joins === "hub").map((e) => ({ joins: id, at: e.arrive }))
+        )
+      ]
+    ].map(([id, list]) => [
+      id,
+      list.map((e, i) => [e, i]).sort(([a, i], [b, j]) => rank(a.joins) - rank(b.joins) || i - j).map(([e]) => e)
+    ])
   );
-  function installEnabledPacks(s) {
-    if (!Array.isArray(s.enabledPacks)) s.enabledPacks = [...ALL];
+  var startOf = (packId) => packId === "hub" ? hub.start : packDefinition(packId).entry;
+  var validDisabledPacks = (list) => list === void 0 || Array.isArray(list) && list.length > 0 && list.length < ORDER.length && list.every((g, i) => ORDER.includes(g) && (!i || list[i - 1] < g));
+  function firstStart(s) {
+    for (const g of ORDER)
+      for (const p of GROUPS[g].packs)
+        if (packOn(s, p) && entityActive(s, startOf(p))) return startOf(p);
+    return null;
   }
-  var validEnabledPacks = (list) => list === void 0 || Array.isArray(list) && list.length > 0 && list.every((id, i) => ALL.includes(id) && (!i || list[i - 1] < id));
-  function landingPlaces(s) {
-    for (const id of SWITCHED) {
-      const spots = packOn(s, id) ? [...new Set(ENTRIES[id].map((e) => e.to))].filter(
-        (p) => entityActive(s, p)
-      ) : [];
-      if (spots.length) return spots;
-    }
-    return [];
-  }
-  function packToggleBlock(s, id) {
+  function packToggleBlock(s, id, actor) {
     if (s.sharedVersion) return "Shared worlds keep every pack for now";
-    if (!SWITCHED.includes(id)) return "Only a world pack switches off";
-    const on = s.enabledPacks?.includes(id) ?? true;
-    if (on && (s.enabledPacks ?? ALL).length === 1)
-      return "One world pack stays on";
+    if (!GROUPS[id]) return "Only a world pack switches off";
+    if ((s.standoffs || []).some((c) => [c.challenger, c.defender].includes(actor)))
+      return "Not during a fight";
+    const off = s.disabledPacks || [];
+    if (off.includes(id)) return null;
+    if (off.length === ORDER.length - 1) return "One world pack stays on";
+    if (GROUPS[id].packs.includes("hub") && s.opening && !s.opening.crossed)
+      return "Not before the first crossing";
     return null;
   }
   var names2 = (w) => [w?.target, w?.step?.to, w?.step?.at].filter(Boolean);
-  function togglePack(s, action, api) {
-    const id = action?.pack, block = packToggleBlock(s, id);
+  function togglePack(s, action, actor, api) {
+    const id = action?.pack, block = packToggleBlock(s, id, actor);
     if (block) return { error: `${block}.` };
-    installEnabledPacks(s);
-    const on = s.enabledPacks.includes(id);
-    if (action.enable === on)
-      return { error: `${NAMES[id]} is ${on ? "on" : "off"} already.` };
-    if (!on) {
-      s.enabledPacks = [...s.enabledPacks, id].sort();
-      return { text: `${NAMES[id]} returns as it was.` };
-    }
-    s.enabledPacks = s.enabledPacks.filter((p) => p !== id);
-    const spots = landingPlaces(s);
-    if (!spots.length)
-      return { error: "No other pack is awake to take them in." };
-    scatter(s, id, spots, api);
+    const off = s.disabledPacks || [], name = GROUPS[id].name;
+    if (action.enable === !off.includes(id))
+      return { error: `${name} is ${action.enable ? "on" : "off"} already.` };
+    const next = action.enable ? off.filter((g) => g !== id) : [...off, id].sort();
+    if (next.length) s.disabledPacks = next;
+    else delete s.disabledPacks;
+    if (action.enable) return { text: `${name} returns as it was.` };
+    for (const pack of GROUPS[id].packs) scatter(s, pack, api);
     return {
-      text: `${NAMES[id]} goes quiet. Everyone and everything from elsewhere there is scattered.`
+      text: `${name} goes quiet. Everyone and everything from elsewhere there is scattered.`
     };
   }
-  function scatter(s, pack, spots, api) {
+  var byId = (o) => Object.entries(o).sort(([x], [y]) => x < y ? -1 : 1);
+  function scatter(s, pack, api) {
     const mine = (x) => packIdOf(x) === pack;
-    const back = (WAYS[pack] || []).find((p) => entityActive(s, p)) ?? spots[0];
+    const at = ENTRIES[pack].filter((e) => packOn(s, e.joins) && entityActive(s, e.at)).map((e) => e.at);
+    const spots = at.length ? [...new Set(at)] : [firstStart(s)];
     let next = api.hash(`scatter:${pack}:${s.revision}`) % spots.length;
     const spot = () => spots[next++ % spots.length];
-    for (const [id, a] of Object.entries(s.actors).sort(
-      ([x], [y]) => x < y ? -1 : 1
-    ))
-      if (!mine(id) && mine(a.place)) {
-        a.place = api.player(id) ? back : spot();
-        delete a.sleeping;
-      }
     const root = (id) => {
       let holder2 = s.items[id].holder;
       for (let i = 0; i < 32 && s.items[holder2]; i++)
         holder2 = s.items[holder2].holder;
       return holder2;
     };
-    for (const [id, item] of Object.entries(s.items).sort(
-      ([x], [y]) => x < y ? -1 : 1
-    ))
-      if (!mine(id) && mine(item.holder)) {
-        const top = root(id);
-        item.holder = !mine(top) && s.actors[top] ? top : spot();
+    for (const [id, item] of byId(s.items)) {
+      const top = root(id);
+      if (mine(id) && s.actors[top] && !mine(top))
+        item.holder = s.actors[top].place;
+    }
+    for (const [id, a] of byId(s.actors))
+      if (!mine(id) && mine(a.place)) {
+        a.place = api.want.player(id) ? spots[0] : spot();
+        delete a.sleeping;
       }
+    for (const [id, item] of byId(s.items)) {
+      if (mine(id) || !mine(item.holder)) continue;
+      const top = root(id), place = s.actors[top]?.place;
+      item.holder = s.actors[top] && !mine(top) ? top : place && !mine(place) && entityActive(s, place) ? place : spot();
+    }
     for (const c of [...s.standoffs || []])
       if (mine(c.location) || mine(c.challenger) || mine(c.defender))
         api.closeStandoff(s, c);
     for (const [ship, t] of Object.entries(transports)) {
       const state = s.transports[ship];
-      if (t.packId === pack)
+      if (t.packId === pack) {
+        const crew = state.riders.filter(mine);
         Object.assign(state, {
-          phase: "docked",
+          phase: crew.length ? "arrived" : "docked",
           destination: null,
-          riders: [],
+          riders: crew,
           recall: null,
           since: s.turn
         });
-      else if ((mine(state.dock) || mine(state.destination)) && !mine(t.at))
+      } else if ((mine(state.dock) || mine(state.destination)) && !mine(t.at))
         sendShipHome(s, ship);
     }
-    for (const id of Object.keys(s.actors))
-      for (let n = mine(id) ? 0 : api.questsOf(s, id).length; n > 0; n--)
-        if (names2(s.actors[id].want).some(mine)) api.setAside(s, id);
+    for (const [id, a] of byId(s.actors)) {
+      if (mine(id)) continue;
+      if (mine(a.sanctuary)) delete a.sanctuary;
+      const list = questsOf(s, id).map(
+        (w) => w.step?.verb === "rest" && mine(w.target) ? restStep(s, id, api.want, w.quest) : w
+      );
+      const named = (w) => names2(w).some(mine);
+      const order = [...list.filter((w) => !named(w)), ...list.filter(named)];
+      if (!order.length) continue;
+      a.want = order[0];
+      if (order.length > 1) a.under = order.slice(1);
+    }
   }
 
   // v2/card-game/world.mjs
@@ -6396,7 +6424,6 @@
   function installPacks(s) {
     const added = [];
     installTransports(s);
-    installEnabledPacks(s);
     s.crossings ??= {};
     s.packs ??= {};
     const fresh = newMemories();
@@ -6540,7 +6567,7 @@
     actor ||= currentActor(s);
     return gate && (controlledByHuman(s, actor) || homeOf2(actor) === place || gate.opening && knownActors2(s).includes(actor)) && s.actors[actor]?.place === place && !ordinaryRouteHome(s, place, gate.rescue, actor, previous) && !homeGateRecoverable(s, place, gate, actor) ? (
       // With its rescue place asleep, the first pack on takes them in (rules 97).
-      entityActive(s, gate.rescue) ? gate.rescue : landingPlaces(s)[0] ?? null
+      entityActive(s, gate.rescue) ? gate.rescue : firstStart(s)
     ) : null;
   }
   function insideLampRemedy(s, actor) {
@@ -6705,6 +6732,7 @@
       reachable: (actor) => reachable(s, actor),
       places: () => Object.keys(places),
       home: homeOf2,
+      active: (id) => entityActive(s, id),
       sanctuaries,
       player: (id) => id === currentActor(s) || heldByHuman(s, id),
       questsBeginAt: forest_default.questsBeginAt,
@@ -8118,12 +8146,10 @@
       };
     if (action?.kind === "pack") {
       const next2 = structuredClone(s);
-      const done = togglePack(next2, action, {
+      const done = togglePack(next2, action, actor, {
         closeStandoff,
-        questsOf,
-        player: (id) => controlledByHuman(next2, id) || humanAvatar(id),
-        hash: (key) => runHash(next2, key),
-        setAside: (world, id) => setAsideWant(world, id, wantAPI(world))
+        want: wantAPI(next2),
+        hash: (key) => runHash(next2, key)
       });
       if (done.error) return { ok: false, state: s, error: done.error };
       next2.revision += 1;
@@ -8434,7 +8460,7 @@
       fail();
     if (s.arrival !== void 0 && (!s.arrival || !Number.isSafeInteger(s.arrival.seq) || s.arrival.seq < 1 || s.arrival.seq > s.eventSeq || !Object.hasOwn(places, s.arrival.fromLocationId) || !Object.hasOwn(places, s.arrival.locationId) || s.arrival.fromLocationId === s.arrival.locationId))
       fail();
-    if (!validEnabledPacks(s.enabledPacks)) fail();
+    if (!validDisabledPacks(s.disabledPacks)) fail();
     let seq = 0;
     const verbs = [
       "want_met",

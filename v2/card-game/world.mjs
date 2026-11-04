@@ -172,12 +172,7 @@ import {
   laneOfEdge,
 } from "./pack-transport.mjs";
 import { upgradeSave } from "./legacy-saves.mjs";
-import {
-  installEnabledPacks,
-  landingPlaces,
-  togglePack,
-  validEnabledPacks,
-} from "./pack-toggle.mjs";
+import { firstStart, togglePack, validDisabledPacks } from "./pack-toggle.mjs";
 import {
   installItemCycle,
   settleItemCycle,
@@ -302,7 +297,6 @@ export function createWorld({ opening = false, packScopes = {}, seed } = {}) {
 function installPacks(s) {
   const added = [];
   installTransports(s);
-  installEnabledPacks(s);
   s.crossings ??= {};
   s.packs ??= {};
   const fresh = newMemories();
@@ -516,7 +510,7 @@ function homeRescueExit(s, place, actor = currentActor(s), previous = null) {
     ? // With its rescue place asleep, the first pack on takes them in (rules 97).
       entityActive(s, gate.rescue)
       ? gate.rescue
-      : (landingPlaces(s)[0] ?? null)
+      : firstStart(s)
     : null;
 }
 function insideLampRemedy(s, actor) {
@@ -787,6 +781,7 @@ function wantAPI(s) {
     reachable: (actor) => reachable(s, actor),
     places: () => Object.keys(places),
     home: homeOf,
+    active: (id) => entityActive(s, id),
     sanctuaries,
     player: (id) => id === currentActor(s) || heldByHuman(s, id),
     questsBeginAt: forest.questsBeginAt,
@@ -2698,12 +2693,10 @@ export function play(
   // (rules 97, pack-toggle.mjs).
   if (action?.kind === "pack") {
     const next = structuredClone(s);
-    const done = togglePack(next, action, {
+    const done = togglePack(next, action, actor, {
       closeStandoff,
-      questsOf,
-      player: (id) => controlledByHuman(next, id) || humanAvatar(id),
+      want: wantAPI(next),
       hash: (key) => runHash(next, key),
-      setAside: (world, id) => setAsideWant(world, id, wantAPI(world)),
     });
     if (done.error) return { ok: false, state: s, error: done.error };
     next.revision += 1;
@@ -3281,7 +3274,7 @@ export function validateWorld(s) {
       s.arrival.fromLocationId === s.arrival.locationId)
   )
     fail();
-  if (!validEnabledPacks(s.enabledPacks)) fail();
+  if (!validDisabledPacks(s.disabledPacks)) fail();
   let seq = 0;
   const verbs = [
     "want_met",

@@ -140,7 +140,7 @@ passage. A pack's `entry` is its start. The hub declares its `start` and
 `switchable`, the named groups of packs a world may switch off, in a fixed
 order. The build checks that every place is in its pack's release and every
 crossing is live, and gathers the entries into the hub as `packEntries`, so
-no pack schema changes. Earlier rules ignore them.
+no pack schema changes. [Rules 97](../../docs/design/rules-97-pack-toggle.md) reads them; earlier rules ignore them.
 
 | Pack                                    | Joins: at → arrive (via)                                                                |
 | --------------------------------------- | --------------------------------------------------------------------------------------- |
