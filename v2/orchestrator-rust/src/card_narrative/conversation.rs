@@ -204,6 +204,24 @@ pub(super) fn strategy(fact: &str) -> bool {
             && (fact.contains(" to agree. ") || fact.contains(" to decline. ")))
 }
 
+/// The one command a spoken line's system turn carries (owner, 2026-11-04).
+/// Without it a chat model continues my first-person view as narration
+/// ("I tilt the Lamp…"); with it Luna's clean speech rose from 5 to 14 of
+/// 20 lines, with no assistant voice or echo. It must stay a command: "What
+/// you write is what you say aloud." did not work.
+pub(super) const SAY_ALOUD: &str = "Reply with only what you say aloud.";
+
+/// Who I am, then the one command, for a speaking voice. A body-language or
+/// emoji voice keeps its own reply shape.
+fn system(entity: &Entity) -> String {
+    let voice = super::system_voice(entity, Part::Line);
+    if voice.starts_with("You are ") {
+        format!("{voice} {SAY_ALOUD}")
+    } else {
+        voice
+    }
+}
+
 /// My own view as my turn, then what I just heard.
 pub(super) fn messages(context: &Context, entity: &Entity) -> super::Prompt {
     let assistant = [
@@ -212,7 +230,7 @@ pub(super) fn messages(context: &Context, entity: &Entity) -> super::Prompt {
     ]
     .join("\n\n");
     super::Prompt {
-        system: super::system_voice(entity, Part::Line),
+        system: system(entity),
         assistant,
         user: user(context, entity),
     }
