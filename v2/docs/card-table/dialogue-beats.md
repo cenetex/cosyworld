@@ -277,7 +277,11 @@ only the speaker's own spans (`speech.rs`), without their tags or the
 narration between them. A span tagged to someone else ("Then stay,” Pip
 says), a span that says the heard line back, and the untagged spans after
 them until the speaker acts again ("I nod.") are theirs; a reply that keeps
-some words of its own publishes them flagged `other speaker`. Narration that never talks
+some words of its own publishes them flagged `other speaker`. Speaking first,
+a reply in quotes gets the same trim when a dialogue tag follows its words
+(`“Menelaus,” I say, my voice low. “You’re here.”` publishes "Menelaus.
+You’re here."), flagged `narration tag`; a quotation with no tag ("Keep it
+lit," my mother said) is speech and keeps its words. Narration that never talks
 (two or more sentences to no one, or a gesture such as "I shift my weight")
 is published flagged `self-narration`. A fact the speaker already
 witnessed is not added to its view again as the fact it may tell.

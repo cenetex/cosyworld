@@ -12,6 +12,8 @@ pub(super) struct Speech {
     pub(super) closed: bool,
     /// A span was tagged to someone else ("…,” Pip says).
     pub(super) other: bool,
+    /// A dialogue tag followed a span ("…,” I say): the reply is prose.
+    pub(super) tagged: bool,
 }
 
 #[derive(Clone, Copy, PartialEq)]
@@ -56,10 +58,11 @@ pub(super) fn own_words(text: &str, others: &[String], heard: Option<&str>) -> S
     };
     let mut speaker = Who::Me;
     let mut mine = Vec::new();
-    let mut other = false;
+    let (mut other, mut tagged) = (false, false);
     for (i, span) in parts.iter().enumerate().step_by(2) {
         let before = (i > 0).then(|| last_sentence(parts[i - 1]));
         let after = parts.get(i + 1).and_then(|n| tag(span, n, &forms));
+        tagged |= after.is_some();
         // Narration before a span says who goes on ("I nod. “Yes.”").
         speaker = match before.and_then(|s| subject(s, &forms)) {
             Some(Who::Me) => Who::Me,
@@ -92,6 +95,7 @@ pub(super) fn own_words(text: &str, others: &[String], heard: Option<&str>) -> S
         text: join(&mine, closed),
         closed,
         other,
+        tagged,
     }
 }
 
@@ -276,7 +280,9 @@ mod tests {
         let tagged = "Mind it,\u{201d} I say, \u{201c}and the wick.\u{201d} He \u{201c}Then";
         let speech = speak(tagged, "Hm?");
         assert_eq!(speech.text, "Mind it, and the wick.");
-        assert!(speech.closed && !speech.other);
+        assert!(speech.closed && speech.tagged && !speech.other);
+        // A quotation inside speech has no tag.
+        assert!(!speak("Keep it lit,\u{201d} my mother said.", "Hm?").tagged);
         // Never closed: the open words are all there is.
         let open = speak("Mind the oil, and", "Hm?");
         assert_eq!(

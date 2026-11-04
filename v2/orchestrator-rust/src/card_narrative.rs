@@ -2645,12 +2645,16 @@ impl<'a> Check<'a> {
         // An answer in quotes, as a prefilled reply continues it after a
         // heard line: my own spans, without their tags or the narration
         // between them. A span tagged to someone else ("Then stay,” Pip
-        // says) is theirs.
+        // says) is theirs. Speaking first, quoted words are prose only
+        // when a tag follows them (`“Menelaus,” I say, my voice low.`),
+        // which is counted; "Keep it lit," my mother said is speech.
         let mut finished = finished;
-        if avatar && self.answered.is_some() && speech::opens(&text) {
+        let said = (avatar && speech::opens(&text)).then(|| {
             let rest: Vec<&str> = staged[at..].iter().map(|s| s.1.as_str()).collect();
-            let said =
-                speech::own_words(&rest.join("\n"), &self.speakers, self.answered.as_deref());
+            speech::own_words(&rest.join("\n"), &self.speakers, self.answered.as_deref())
+        });
+        if let Some(said) = said.filter(|s| self.answered.is_some() || s.tagged) {
+            flag(self.answered.is_none(), "narration tag");
             flag(said.other, "other speaker");
             if said.text.trim().is_empty() && said.other {
                 return Err("other speaker");
@@ -3306,6 +3310,16 @@ pub(crate) mod tests {
         // A stage direction goes and is counted.
         let staged = check.verdict(&format!("*shifts a little* {line}"), true, true);
         assert_eq!(staged, Ok((line.into(), vec!["stage action"])));
+        // Speaking first, a quoted reply with a tag keeps its own words,
+        // counted as a narration tag.
+        let quoted = "(I sigh.)\n\n\u{201c}Vale,\u{201d} I say, my voice low. \u{201c}You\u{2019}re here.\u{201d}";
+        assert_eq!(
+            check.verdict(quoted, false, true),
+            Ok((
+                "Vale. You\u{2019}re here.".into(),
+                vec!["stage action", "narration tag"]
+            ))
+        );
         assert_eq!(clean("Hold it higher").as_deref(), Ok("Hold it higher"));
         assert!(check.clean("Hold it higher", false).is_err());
         for (raw, reason) in [
