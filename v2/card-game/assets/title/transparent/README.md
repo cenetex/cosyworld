@@ -1,7 +1,7 @@
 # Full-size transparent Lonely Forest logos
 
-These four PNGs are the native originals, committed byte for byte. They are
-not enlarged toolbar exports and were not reconstructed from JPEG previews.
+The first four PNGs are the native originals, committed byte for byte. They
+are not enlarged toolbar exports or reconstructed JPEG previews.
 `fullsize-sources.json` records their dimensions, byte counts, SHA-256 hashes,
 source filenames and the two available teal generation IDs.
 
@@ -17,26 +17,59 @@ pixel counts are respectively 654,539; 603,586; 748,877; and 722,055. The gold
 emblems retain their enclosed navy illustrations; only the surrounding area
 is transparent. Preserve the masters' exact alpha, dimensions and framing.
 
+## Black Pond transparent artwork
+
+`lonely-forest-black-pond.png` is the fifth full-size transparent logo:
+1672 × 941, with the existing **Lonely Forest** silver/teal lettering,
+extinguished lamp, dark glass, doorway and broken reflection. Black Pond
+names the treatment, not replacement words for the logo. Neither teal
+revision is used as its stand-in. The unrelated generated plaques reading
+THE BLACK POND were rejected and are not committed.
+
+Unlike the first four originals, this is a **background-removed derivative**
+of `../lonely-forest-black-pond.webp`, not a recovered native alpha channel.
+`build-black-pond-alpha.py` records the pinned-source recipe; its authoring
+dependencies are listed in the file. It removes the black matte, protects
+small pigment pockets and the dark lens, and unpremultiplies soft edges.
+The full-size canvas and lettering geometry are unchanged. Compositing onto
+black differs from the source by at most 3/255 per channel. Light/dark visual
+inspection and full decode passed; there are 1,181,306 fully clear pixels.
+`black-pond-alpha.provenance.json` records exact source/output hashes and alpha.
+
+A supplied toolbar export is also committed:
+
+```json
+{
+  "src": "assets/title/transparent/lonely-forest-black-pond-toolbar.webp",
+  "width": 476,
+  "height": 160
+}
+```
+
+This is a lossless transparent WebP with the existing toolbar crop's framing.
+Use it without a `crop` field. Do not enlarge it into an intro; use the
+1672 × 941 PNG for the full-size input. The PNG Git blob is
+`fff06921be2db9274d73d1fadd0d6940ff3ea708`; the toolbar blob is
+`3b92439d2f5649fcaabc49a9c8164ba90980bd51`. Both match the locally reviewed bytes.
+
 ## Delivery and integration boundary
 
-PR #2145 supplies the masters. The image-only delivery commit is
-`72baf4e78fd82a6e94c891d7fac6454c13bebf5d`; all four remote Git blob hashes
-match the locally inspected source PNGs. A one-off transfer workflow completed
-successfully and was removed afterwards. No temporary transfer service is
-needed to read these committed files.
+PR #2145 supplies the masters. The original-four image-only delivery commit
+is `72baf4e78fd82a6e94c891d7fac6454c13bebf5d`. The completed temporary transfer
+and Black Pond build workflows were removed; no transfer service is needed
+to read these committed files.
 
 This PR does **not** switch the live title catalogue or toolbar. It does not
 register these masters as public assets or change the image/media manifests.
 It leaves the toolbar agent's work, title order, saved indices, music, taps,
 acknowledgement and highlighting untouched. Do not describe this asset commit
-as deployment or as replacement of the existing opaque intro paintings.
+as deployment or as replacement of the existing opaque intro selections.
 
 The toolbar agent can use the PNGs at `assets/title/transparent/<file>` as
-full-resolution inputs for the existing title/toolbar pipeline. Use the gold
-pair for their matching wordmarks. The teal pair are the masters of the
-compact artwork supplied by #2134 and wired in #2136. The Black Pond remains
-a different painting: neither teal revision is a transparent Black Pond
-replacement. The attempted lantern-right revision did not finish generating.
+full-resolution inputs for the title/toolbar pipeline. Use the gold pair for
+their matching wordmarks, the teal pair for the artwork supplied by #2134 and
+wired in #2136, and the new Black Pond cutout for catalogue index 4. The
+attempted lantern-right teal revision did not finish generating.
 
 For a runtime change, select and register the intended new paths without
 reordering the catalogue; retain the old public paths for cached clients.
@@ -47,7 +80,7 @@ npm run v2:card:images:build
 npm run v2:card:assets:build
 npm run v2:card:images:check
 npm run v2:card:assets:check
-npx vitest run test/card-title-fullsize.test.mjs test/card-title-logo.test.mjs test/card-title-alternates.test.mjs
+npx vitest run test/card-title-fullsize.test.mjs test/card-title-black-pond-alpha.test.mjs test/card-title-logo.test.mjs test/card-title-alternates.test.mjs
 node v2/scripts/smoke-card-toolbar-logo.mjs
 node v2/scripts/smoke-card-title-intro.mjs
 npm run check:version
@@ -56,10 +89,11 @@ git diff --check
 
 ## Checks on this asset delivery
 
-The import verified each PNG's byte count, SHA-256, RGBA header and native
-size before committing. Full Pillow decode of the matching original bytes
-verified actual transparency. `test/card-title-fullsize.test.mjs` checks the
-committed hashes, native size, decoded alpha and the four-file source set.
-The test file passed a local syntax check; repository Vitest and browser
-results must be read from CI or the integrating checkout, not assumed from
-that syntax check. No generated image output was edited by hand.
+The import verified each original PNG's byte count, SHA-256, RGBA header and
+native size before committing. Full Pillow decode verified transparency.
+`test/card-title-fullsize.test.mjs` checks the four unmodified native sources;
+`test/card-title-black-pond-alpha.test.mjs` separately checks the processed
+Black Pond source, toolbar export and near-exact black reconstruction.
+Repository Vitest and browser results must be read from CI or the integrating
+checkout, not assumed from the local image checks. No runtime manifest was
+edited by hand.
