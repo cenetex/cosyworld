@@ -123,6 +123,44 @@ The owner settled this on 2026-11-02.
 An earlier save forgets its pond doors and the ways it knew through them, and
 gets its doors from its seed as it loads.
 
+## Proposed rules 102: finding a home earns a world slot (#2282)
+
+**Not built.** It waits for the owner's go-ahead. Owner (2026-11-04):
+"When Cass enters the Games pavilion you get a New World slot, and in that
+new world Mara (or whomever) is lost." Lost characters are lost in the four
+core world packs. They are not moved when their pack is off: the player
+turns that pack on and goes there.
+
+- **The quest is the homecoming.** "Find Cass's home" means the item (Game
+  board), the avatar (Cass) and the location (Games pavilion). The rules 87
+  homecoming already meets at exactly that moment. The card may say "Find
+  Cass's home" as a client caption.
+- **The reward is a world slot.** On a committed `want_met` for a world's
+  homecoming avatar and its own item, the host grants that passkey one world
+  slot (Rust, `full_store.rs`). Earned slots replace the fixed eight
+  (`store.rs`). An unlock no longer opens a world by itself. "+ New world"
+  stays a carved box until a slot is earned.
+- **The new world's story is the next character, lost.** The host picks the
+  next locked avatar as in rules 86. That avatar stands at its own authored
+  `lost` place in `shared-cast.json`, a place in one of the four switchable
+  groups (shore, cottage, sea, hoppy). This place replaces the seeded
+  `hiding.pool` draw in `hideAvatar`, which is a rules change. Its first Talk
+  still unlocks it.
+- **Lost stays lost.** Today `scatter` (`pack-toggle.mjs`) moves every actor
+  from elsewhere out of a pack that goes quiet. A hidden avatar is from
+  elsewhere, so it would be moved. It is not live yet: toggles are local-only
+  and hiding is shared-only. Rules 102 skips the unmet hidden avatar in
+  `scatter`, so it sleeps with the pack. It also keeps the avatar from
+  walking home under rules 100 before it is found. There is no fallback
+  relocation, and an unreachable lost character is not a bug.
+- **Cost.** Data: `lost` per avatar and its schema check. Rules 102:
+  `hideAvatar`, `scatter`, walking home. Rust: slot grant and earned cap.
+  Client: caption, the box on "+ New world", and the new-world beat through
+  the unlock beat. Released rules stay byte-identical.
+- **Open.** Who plays the new world; whether the next-avatar order stays
+  hashed; which `lost` place each avatar gets; whether signed-out play
+  earns slots.
+
 ## Phases
 
 0. Holder names, Free and Release, the Table (#1844, #1845).
