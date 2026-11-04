@@ -194,46 +194,49 @@ try {
     const from = await page.locator("body").getAttribute("data-place");
     // Board and Disembark are both authored move actions.
     const kind = "move";
-    await playCard(card, kind);
-    assert.equal(
-      await page.locator("#room-music").getAttribute("src"),
-      oldSource,
-    );
-    assert(await page.evaluate(() => window.musicGain.gain.value > 0));
-    await page
-      .waitForFunction((room) => document.body.dataset.place === room, room)
-      .catch(async (error) => {
-        const state = await page.evaluate(() => {
-          const saved = JSON.parse(
-            localStorage.getItem("cosyworld.reflected-shore.v1.music-smoke") ||
-              "null",
-          );
-          return {
-            shown: document.body.dataset.place,
-            saved: saved?.actors?.vale?.place,
-            revision: saved?.revision,
-            selected: [
-              ...document.querySelectorAll('#hand [aria-pressed="true"]'),
-            ].map((card) => card.dataset.card),
-            actions: [...document.querySelectorAll("#card-actions button")].map(
-              (button) => ({
-                kind: button.dataset.action,
-                text: button.textContent,
-                disabled: button.disabled,
-              }),
-            ),
-            cooling: document.querySelector("#hand").dataset.cooling,
-          };
-        });
-        console.error("Music travel failed", {
-          from,
-          room,
-          card,
-          kind,
-          ...state,
-        });
-        throw error;
+    try {
+      await playCard(card, kind);
+      assert.equal(
+        await page.locator("#room-music").getAttribute("src"),
+        oldSource,
+      );
+      assert(await page.evaluate(() => window.musicGain.gain.value > 0));
+      await page.waitForFunction(
+        (room) => document.body.dataset.place === room,
+        room,
+      );
+    } catch (error) {
+      const state = await page.evaluate(() => {
+        const saved = JSON.parse(
+          localStorage.getItem("cosyworld.reflected-shore.v1.music-smoke") ||
+            "null",
+        );
+        return {
+          shown: document.body.dataset.place,
+          saved: saved?.actors?.vale?.place,
+          revision: saved?.revision,
+          selected: [
+            ...document.querySelectorAll('#hand [aria-pressed="true"]'),
+          ].map((card) => card.dataset.card),
+          actions: [...document.querySelectorAll("#card-actions button")].map(
+            (button) => ({
+              kind: button.dataset.action,
+              text: button.textContent,
+              disabled: button.disabled,
+            }),
+          ),
+          cooling: document.querySelector("#hand").dataset.cooling,
+        };
       });
+      console.error("Music travel failed", {
+        from,
+        room,
+        card,
+        kind,
+        ...state,
+      });
+      throw error;
+    }
     await fullVolume();
     assert.equal(
       await page.locator("#room-music").getAttribute("src"),
