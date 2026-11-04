@@ -290,7 +290,7 @@
     "@media (min-width: 1100px) and (min-aspect-ratio: 3/2) | @media (prefers-reduced-motion: reduce) | :root body[data-hand-expanded] .dialogue { transition: opacity 280ms ease-in-out }",
     "@media (min-width: 1100px) and (min-aspect-ratio: 3/2) | body[data-hand-expanded=\"false\"] .dialogue { bottom: max(22px,env(safe-area-inset-bottom)); left: 22px; max-width: 620px; transform: none; width: calc(100% - var(--resting-hand-width) - 110px) }",
     "@media (min-width: 1100px) and (min-aspect-ratio: 3/2) | body[data-hand-expanded=\"false\"] .dialogue[data-dropped=\"true\"] { opacity: 0.85; translate: 0 calc(100% - 38px) }",
-    "@media (min-width: 1100px) and (min-aspect-ratio: 3/2) | body[data-hand-expanded=\"false\"] .play-dock { left: auto; mask-image: linear-gradient(to right,transparent,#000 64px); width: calc(var(--resting-hand-width)+44px) }",
+    "@media (min-width: 1100px) and (min-aspect-ratio: 3/2) | body[data-hand-expanded=\"false\"] .play-dock { background: radial-gradient(ellipse at bottom right,#090d12f5,#090d12bd 45%,#090d1200 75%); left: auto; width: calc(var(--resting-hand-width)+44px) }",
     "@media (min-width: 1100px) and (min-aspect-ratio: 3/2) | body[data-hand-expanded=\"false\"] .play-dock:not([data-selected=\"true\"]) .hand { --fan-overlap: var(--resting-fan-overlap,calc(var(--card-height) * 0.14)) }",
     "@media (prefers-color-scheme: light) | :root { --gold: #6d5017; --muted: #4f4a40 }",
     "@media (prefers-reduced-motion: reduce) | .beat-behind { transition: none }",

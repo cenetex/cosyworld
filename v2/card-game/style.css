@@ -1965,7 +1965,12 @@ body[data-hand-expanded="false"]
     --fan-overlap: var(--resting-fan-overlap, calc(var(--card-height) * 0.14));
   }
   body[data-hand-expanded="false"] .play-dock {
-    mask-image: linear-gradient(to right, transparent, #000 64px);
+    background: radial-gradient(
+      ellipse at bottom right,
+      #090d12f5,
+      #090d12bd 45%,
+      #090d1200 75%
+    );
     left: auto;
     width: calc(var(--resting-hand-width) + 44px);
   }
