@@ -1199,6 +1199,8 @@ body .card[data-selected="true"] {
   background: #181b22;
   touch-action: pan-x;
   box-shadow: 0 6px 20px #0006;
+  /* Its name sizes to the card's width (cqi). */
+  container-type: inline-size;
 }
 body .card:hover {
   background: #181b22;
@@ -1242,13 +1244,18 @@ body .card.item .art img {
   margin: 0;
   padding: 36px 8px 14px;
   background: linear-gradient(transparent, #080b12eb 65%);
+  /* A name breaks only between words. On a narrow card it shrinks from
+     --name-size until the game's longest word (Agamemnon's, about 6.3em)
+     fits the card's width. */
   font:
-    18px/1.2 Georgia,
+    clamp(10px, (100cqi - 16px) / 6.4, var(--name-size, 18px)) / 1.2 Georgia,
     serif;
   color: #f2e3c4;
   white-space: normal;
   text-wrap: balance;
-  overflow-wrap: anywhere;
+  word-break: normal;
+  overflow-wrap: normal;
+  hyphens: manual;
   text-shadow: 0 2px 5px #000;
 }
 /* A name stays clear of the next card's overlap in the fan. */
@@ -1657,7 +1664,7 @@ body .cast[data-count] {
     --fan-overlap: calc(var(--card-height) * 0.2);
   }
   body .card .name {
-    font-size: 16px;
+    --name-size: 16px;
     padding-bottom: 12px;
   }
   body .cast {
@@ -1993,7 +2000,7 @@ body[data-dim="true"] .card {
     padding-block: 2px;
   }
   body .card .name {
-    font-size: 14px;
+    --name-size: 14px;
     padding-bottom: 8px;
   }
   body .cast {
