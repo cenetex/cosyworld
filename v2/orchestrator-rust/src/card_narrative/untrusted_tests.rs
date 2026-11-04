@@ -711,7 +711,7 @@ async fn talk_lines_in_a_prompt_are_only_signed_words() {
         };
         assert!(requests
             .iter()
-            .any(|r| system(r).contains("Recent talk here:\nVale: Where does the dark path go?")));
+            .any(|r| system(r).contains("\n\nVale said: \"Where does the dark path go?\"")));
         assert!(requests
             .iter()
             .any(|r| r["messages"][1]["content"] == "I offered my cloth."));
