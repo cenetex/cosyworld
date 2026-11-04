@@ -157,7 +157,8 @@ fn a_rules_93_world_on_the_coast_road_takes_the_land_route() {
     assert_eq!(w.version, engine::VERSION);
     assert_eq!(w.pack.as_deref(), Some(content::current()));
     let g = &w.game;
-    assert_eq!(g["packs"]["greek-drama"]["revision"], 18);
+    // Revision 19 follows: the forecourt through the well.
+    assert_eq!(g["packs"]["greek-drama"]["revision"], 19);
     assert_eq!(g["actors"]["vale"]["place"], "greek-piraeus");
     assert_eq!(g["items"]["greek-water-jar"]["holder"], "greek-piraeus");
     assert_eq!(g["transports"]["greek-ship"]["dock"], "greek-piraeus");
