@@ -1,0 +1,96 @@
+// Cards entering the player's view. A card that newly joins the hand (an
+// avatar arriving, a thing picked up or put down, a place found, the hand
+// dealt on arrival) rises into its slot; one already there never moves again
+// on a redraw. Quest cards enter face down, every time, and turn after a
+// short beat. Presentation only: it reads what the renderer drew from the
+// committed world and never touches rules, saves, the journal or sync, and an
+// entering card takes taps at once, so nothing waits on it.
+
+// The rise of a newly met card: 460 ms, a short overshoot, as before.
+export const ENTRY_MS = 460;
+// Cards that enter together follow each other closely, a few letters apart
+// at the dialogue's 28 ms a letter, and the last waits at most this long.
+export const ENTRY_STAGGER_MS = 70;
+export const ENTRY_STAGGER_MAX_MS = 350;
+// A quest lies face down this long after it enters, then turns.
+export const QUEST_DOWN_MS = 520;
+const EASE = "cubic-bezier(.2,.7,.25,1)";
+const RISE = [
+  { opacity: 0, translate: "0 28px", scale: 0.96 },
+  { opacity: 1, translate: "0 -3px", scale: 1, offset: 0.75 },
+  { opacity: 1, translate: "0 0", scale: 1 },
+];
+
+// The keys drawn now that were not drawn before, in drawing order.
+export const enteringKeys = (before, now) =>
+  now.filter((key, i) => !before.has(key) && now.indexOf(key) === i);
+
+// Each entering card's start, after the one before it.
+export const entryDelays = (count) =>
+  Array.from({ length: count }, (_, i) =>
+    Math.min(i * ENTRY_STAGGER_MS, ENTRY_STAGGER_MAX_MS),
+  );
+
+// Tracks what one view has drawn. `draw` takes [{ key, element, still }] for
+// the cards in view now and starts each new card's rise, except a still one
+// (a card seen moving from where it was); a card redrawn mid-rise (a fresh
+// element for the same key) carries on where it was.
+// Under reduced motion cards just appear. Reusable by any card row.
+export function createCardEntries() {
+  let drawn = new Set();
+  const starts = new Map(),
+    playing = new WeakMap();
+  return {
+    draw(cards, { now = performance.now(), reduced = false } = {}) {
+      const fresh = new Set(
+        enteringKeys(
+          drawn,
+          cards.map((c) => c.key),
+        ),
+      );
+      drawn = new Set(cards.map((c) => c.key));
+      for (const key of starts.keys()) if (!drawn.has(key)) starts.delete(key);
+      const rising = cards.filter(
+        (c) => !reduced && !c.still && (fresh.has(c.key) || starts.has(c.key)),
+      );
+      entryDelays(rising.length).forEach((delay, i) => {
+        if (fresh.has(rising[i].key)) starts.set(rising[i].key, now + delay);
+      });
+      for (const { key, element } of rising) {
+        const at = starts.get(key);
+        if (now - at >= ENTRY_MS) starts.delete(key);
+        if (now - at >= ENTRY_MS || playing.get(element) === at) continue;
+        playing.set(element, at);
+        const rise = element.animate(RISE, {
+          duration: ENTRY_MS,
+          delay: at - now,
+          easing: EASE,
+          fill: "backwards",
+        });
+        rise.finished.then(() => rise.cancel()).catch(() => {});
+      }
+      for (const c of cards) if (reduced || c.still) starts.delete(c.key);
+      return new Set(rising.map((c) => c.key).filter((key) => starts.has(key)));
+    },
+  };
+}
+
+// Quests in view: each one newly shown lies face down until its turn. `show`
+// takes the quest keys in view now and returns the ones that just entered;
+// `down(key)` says whether a quest is still face down, and `turned(key)`
+// marks it face up. A quest that leaves view enters face down again.
+export function createQuestEntries() {
+  let shown = new Set();
+  const lying = new Set();
+  return {
+    show(keys) {
+      const fresh = enteringKeys(shown, keys);
+      shown = new Set(keys);
+      for (const key of lying) if (!shown.has(key)) lying.delete(key);
+      for (const key of fresh) lying.add(key);
+      return fresh;
+    },
+    down: (key) => lying.has(key),
+    turned: (key) => lying.delete(key),
+  };
+}

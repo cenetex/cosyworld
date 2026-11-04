@@ -309,7 +309,11 @@ the card, showing the card back. It plays nothing. The top quest folds behind th
 a full-size card in its stack: face down, showing the carved card back, leaning
 out to the top left with a glowing line in its tier colour along its edge.
 Choosing the folded card fans the whole stack out, top first, and so does
-opening the avatar's stack. In the open fan the top quest is chosen and
+opening the avatar's stack. Each quest card enters face down, showing the carved
+lid, every time it comes into view (the fan opening, or a quest moving on a
+step), and turns to its face 520 ms later with the hand's reveal
+(`card-reveal.mjs`), the next quest a moment after; reduced motion crossfades.
+It takes taps while face down. In the open fan the top quest is chosen and
 offers Drop quest. Tapping a quest beneath brings it to the top, with no turn
 taken, and tapping the chosen one folds the fan. The rules remove a met quest at once; the browser keeps its card,
 sealed, in the fan, and the folded line glows until its player taps the card
@@ -379,6 +383,12 @@ folds back after the play.
 A person or place holding things shows the first of them peeking out behind
 its card. A pointer over a card shuffles it: the card and its preview stack lift together while the rest of the fan parts around it (180 ms; touch has no hover, reduced motion only brightens it). The name shade reaches the
 card edge, so a raised card clipped by the folded row shows no stray art.
+A card new to the view (an avatar arriving, a thing picked up or put down, a
+place found, the hand at a new place) rises into its slot over 460 ms, cards
+entering together 70 ms apart (`card-entry.mjs`). A card already there never
+moves again on a redraw, a card seen moving keeps that move, and reduced
+motion just shows it. An entering card takes taps at once; the motion is this
+browser's alone and never waits on the rules or the shared room.
 Arrival starts the hand at the new current place. Selection keeps its scroll position.
 On wide screens, the resting hand is a fanned deck at the right, as wide as
 its cards so none is cut at the screen edge; once it would crowd the dialogue

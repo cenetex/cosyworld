@@ -87,6 +87,11 @@ try {
     // behind Vale hides, so Vale's card carries no quest glow.
     await page.locator('#hand [data-card="vale"]').click();
     await quest.waitFor();
+    // It enters face down, the carved lid showing, then turns to its face.
+    const entered = page.locator("#hand .want-frame:not([hidden]) .want-card");
+    assert.equal(await entered.getAttribute("data-unrevealed"), "true");
+    assert.equal(await entered.locator(".card-back").isVisible(), true);
+    await page.locator('#hand .want-card[data-unrevealed="false"]').waitFor();
     assert.equal(await page.locator("#hand .quest-fold").isHidden(), true);
     assert.equal(
       await page.locator('#hand .want-card[data-near="true"]').isVisible(),
