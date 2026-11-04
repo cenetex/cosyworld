@@ -93,6 +93,7 @@ const files = [
   "rarity-portraits.mjs",
   ...rarityPortraitAssets,
   "quest-card.mjs",
+  "quest-step.mjs",
   "quest-screen.mjs",
   "card-tiers.css",
   "card-label.mjs",

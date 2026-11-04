@@ -3016,10 +3016,12 @@ main > .dialogue {
   }
   body[data-dialogue-over="true"] .beat-action #card-actions {
     flex: 0 1 auto;
-    max-width: 42%;
+    max-width: 50%;
   }
+  /* Three verbs (a quest's step, a reason and Discard) still fit. */
   body[data-dialogue-over="true"] .beat-action #card-actions button {
     min-width: 0;
+    padding-inline: 10px;
   }
   body[data-dialogue-over="true"] .action-beat-cards {
     padding: 2px 0 0 8px;

@@ -64,6 +64,7 @@ import {
   questTier,
   questVerb,
 } from "./quest-card.mjs";
+import { questStep } from "./quest-step.mjs";
 import { questScreen } from "./quest-screen.mjs";
 import {
   landingPack,
@@ -646,7 +647,7 @@ const playQueue = createPlayQueue({
     !document.querySelector("dialog[open], .world-menu:popover-open"),
   play: (action, revision) => {
     // Choosing a quest takes no turn and brings no reply, so its beat stays
-    // awake: the chosen quest's Drop quest is still offered.
+    // awake: the chosen quest's next step and Discard are still offered.
     if (action.kind !== "focus") restedChoice = choiceKey();
     count(playCounter(action));
     if (sharedSession) void submitSharedPlay(action);
@@ -2210,7 +2211,7 @@ function renderActions() {
       );
       button.type = "button";
       button.dataset.action = action.kind;
-      // Dropping a quest is destructive: the usual button, red words.
+      // Discarding a quest is destructive: the usual button, red words.
       if (action.kind === "drop" && !action.item)
         button.dataset.destructive = "";
       button.title = refused || playText(action);
@@ -2242,14 +2243,55 @@ function renderActions() {
     reveal.onclick = () => uncover(opening()?.next);
     row.append(reveal);
   }
-  // The top quest, chosen in the open fan, can be dropped (a level quest
-  // costs experience, named on its button). Choosing a card beneath brings it to the top.
+  // The top quest, chosen in the open fan, offers its next step (a play the
+  // rules already offer, or why there is none) and Discard (a level quest
+  // costs experience, named on its button). Choosing a card beneath brings
+  // it to the top.
   const picked = questOpen && !rested ? shownQuests[questPick] : null;
-  for (const action of picked?.index === 0
-    ? legalActions(world).filter(
-        (a) => a.kind === "drop" && !a.item && a.quest === 0,
+  const legal = picked?.index === 0 ? legalActions(world) : [];
+  const next =
+    picked?.index === 0 &&
+    questStep(world, picked, questCovered(picked), legal);
+  const steps = next?.rest
+    ? restPlays(
+        world,
+        legal.filter((a) => a.kind === "wait" && !a.sleep && !a.guards),
+        lastWait?.key === selected.join("+") &&
+          lastWait.revision === world.revision,
       )
-    : []) {
+    : next?.action
+      ? [next.action]
+      : [];
+  for (const action of steps) {
+    const label =
+      action.kind === "move"
+        ? `Travel to ${nameOf(action.target)}`
+        : playLabel(action, world);
+    const button = node("button", label, "card-primary");
+    button.type = "button";
+    button.dataset.action = action.kind;
+    button.dataset.questStep = "";
+    button.title = playText(action);
+    button.disabled = selectionBlocked();
+    button.onclick = () => {
+      questOpen = false;
+      questPick = 0;
+      commitAction(action, revision);
+    };
+    row.append(button);
+  }
+  if (next?.reason) {
+    const why = node("button", next.reason, "card-action");
+    why.type = "button";
+    why.dataset.questStep = "";
+    why.disabled = true;
+    why.dataset.blocked = "quest";
+    why.title = next.reason;
+    row.append(why);
+  }
+  for (const action of legal.filter(
+    (a) => a.kind === "drop" && !a.item && a.quest === 0,
+  )) {
     const button = node("button", playLabel(action, world), "card-action");
     button.type = "button";
     button.dataset.dropQuest = String(picked.index);
@@ -2749,7 +2791,9 @@ const stackLabel = (stack) =>
     : "";
 // The quest card: a small screen showing the player doing the quest's verb
 // with its target, with only the verb, the level and the tier colour as
-// words. It glows while the target is near and plays nothing.
+// words. It glows while the target is near. The card itself plays nothing:
+// chosen on top, the context button offers its next step and Discard
+// (quest-step.mjs).
 const questCovered = (quest) => !quest.target || cardIsCovered(quest.target);
 const known = (id) => !cardIsCovered(id);
 function shownQuestCaption(quest) {

@@ -227,7 +227,7 @@ try {
     await gain.waitFor({ state: "detached" });
     // A stack (#1831): the fold shows the top quest; opening it fans them all
     // out; choosing a quest beneath brings it to the top without a turn, and
-    // only the top quest offers Drop quest.
+    // only the top quest offers Discard.
     await page.evaluate((key) => {
       const s = JSON.parse(localStorage.getItem(key));
       const vale = s.actors.vale;
@@ -281,7 +281,7 @@ try {
     );
     assert.equal(
       await page.locator('#card-actions [data-drop-quest="0"]').textContent(),
-      "Drop quest (−1 XP)",
+      "Discard (−1 XP)",
     );
     // Drop is the beat's usual context button, its words red.
     assert.deepEqual(
@@ -350,6 +350,15 @@ try {
     assert.match(await talk.getAttribute("aria-label"), /^Quest: Talk with /);
     const drop = page.locator('#card-actions [data-drop-quest="0"]');
     await drop.waitFor();
+    // Its keeper not yet met, the Talk quest's step says why on the button.
+    assert.deepEqual(
+      await page
+        .locator("#card-actions [data-quest-step]")
+        .evaluateAll((buttons) =>
+          buttons.map((b) => [b.textContent, b.disabled]),
+        ),
+      [["Not found yet", true]],
+    );
     assert.equal(
       await page.locator("#card-actions [data-drop-quest]").count(),
       1,
@@ -395,12 +404,24 @@ try {
         .getAttribute("aria-label"),
       "Quest: Give The Burial Decree to The Gate Guard, near",
     );
-    // Chosen, the beat keeps its box and names the quest above Drop quest.
+    // Chosen, the beat keeps its box and names the quest; its next step,
+    // the rules' own Give, stands beside Discard.
     await page.locator('#hand .want-card[data-quest-id="quest:0"]').click();
     await page.locator('#card-actions [data-drop-quest="0"]').waitFor();
     assert.equal(
       await page.locator(".action-beat-heading:not([hidden])").innerText(),
       "Give The Burial Decree to The Gate Guard",
+    );
+    assert.deepEqual(
+      await page
+        .locator("#card-actions button")
+        .evaluateAll((buttons) =>
+          buttons.map((b) => [b.textContent, b.disabled]),
+        ),
+      [
+        ["Give to The Gate Guard", false],
+        ["Discard", false],
+      ],
     );
     assert.notEqual(
       await page

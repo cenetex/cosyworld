@@ -124,17 +124,17 @@ describe("the quest stack", () => {
       const after = act(s, (a) => a.key === action.key);
       return [s.actors.vale.xp - after.actors.vale.xp, playLabel(action, s)];
     };
-    expect(drop(1, 1)).toEqual([1, "Drop quest (−1 XP)"]);
-    expect(drop(2, questXp(3))).toEqual([2, "Drop quest (−2 XP)"]);
-    expect(drop(3, questXp(4) + 1)).toEqual([3, "Drop quest (−3 XP)"]);
+    expect(drop(1, 1)).toEqual([1, "Discard (−1 XP)"]);
+    expect(drop(2, questXp(3))).toEqual([2, "Discard (−2 XP)"]);
+    expect(drop(3, questXp(4) + 1)).toEqual([3, "Discard (−3 XP)"]);
     // Clamped at the level held: never below its experience.
-    expect(drop(3, questXp(3) + 1)).toEqual([1, "Drop quest (−1 XP)"]);
-    expect(drop(3, questXp(3))).toEqual([0, "Drop quest"]);
+    expect(drop(3, questXp(3) + 1)).toEqual([1, "Discard (−1 XP)"]);
+    expect(drop(3, questXp(3))).toEqual([0, "Discard"]);
     const s = createWorld();
     const plain = legalActions(s).find((a) => a.kind === "drop" && !a.item);
     expect([dropCost(s, "vale"), playLabel(plain, s)]).toEqual([
       0,
-      "Drop quest",
+      "Discard",
     ]);
   });
 
