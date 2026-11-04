@@ -196,6 +196,7 @@ import {
   cardObservation,
   TOO_MANY_ITEMS,
   sealedReason,
+  asleepReason,
 } from "./cards.mjs";
 // A person's want reaches the player through Talk context (want-talk.mjs).
 // The hand holds people, items and places, and the player's quest cards.
@@ -2151,6 +2152,16 @@ function renderActions() {
     why.dataset.blocked = "gate";
     why.title = sealed;
     row.append(why);
+  }
+  // An Ask, Trade or Invite of a sleeping resident says so (rules 100).
+  const asleep = !rested && !actions.length && asleepReason(world, selected);
+  if (asleep) {
+    const blocked = node("button", asleep, "card-primary");
+    blocked.type = "button";
+    blocked.disabled = true;
+    blocked.dataset.blocked = "asleep";
+    blocked.title = asleep;
+    row.append(blocked);
   }
   // A Take refused for space says why in the context button (#2018). It
   // plays nothing; the cards stay as they are.

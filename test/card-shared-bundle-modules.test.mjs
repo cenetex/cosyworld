@@ -39,6 +39,7 @@ const RULES = [
   "pack-transport.mjs",
   "reflections.mjs",
   "resident-home.mjs",
+  "resident-sleep.mjs",
   "roaming-routes.mjs",
   "scene-cast.mjs",
   "shared-rules.mjs",

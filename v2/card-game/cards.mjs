@@ -125,6 +125,19 @@ function carryFull(world, id) {
   );
 }
 
+// Why an Ask, Trade or Invite is missing: the resident it needs is asleep
+// (rules 100), for the context button. Talk wakes it; a Give it keeps.
+export function asleepReason(world, selected) {
+  const sleeper = selected
+    .map((id) => (people[id] ? id : things[id] ? rootHolder(world, id) : null))
+    .find(
+      (id) =>
+        id &&
+        id !== currentActor(world) &&
+        world.actors[id]?.sleeping?.until !== undefined,
+    );
+  return sleeper ? `${nameOf(sleeper)} is asleep` : null;
+}
 // Why a sealed card's way is shut, from its pack data, or null.
 export const sealedReason = (world, id) =>
   sealedWays(world, currentActor(world)).find((r) => r.to === id)?.sealed
@@ -470,7 +483,9 @@ export function cardObservation(world, id) {
     return observations.join(". ") + ".";
   }
   if (world.actors[id])
-    return world.actors[id].awake === false ? "Asleep." : "Here.";
+    return world.actors[id].awake === false || world.actors[id].sleeping
+      ? "Asleep."
+      : "Here.";
   return id === world.actors[currentActor(world)].place
     ? "Here."
     : "A way onward.";

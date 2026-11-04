@@ -197,6 +197,7 @@ import {
   OFFSTAGE_STEPS,
   worldLife,
 } from "./resident-home.mjs";
+import { bedtime, residentAsleep, validSleep } from "./resident-sleep.mjs";
 
 // Authored forest data and mounted packs share the same rule path.
 export const places = { ...forest.places, ...packPlaces };
@@ -785,7 +786,8 @@ function refusalReason(s, a) {
 // What the other side will say to a Give or Trade. The residents' planner
 // reads this to avoid some offers it expects to be refused.
 export function expects(s, a) {
-  if (a.kind === "give") return giftWilling(s, a.item, a.target);
+  if (a.kind === "give")
+    return residentAsleep(s, a.target) || giftWilling(s, a.item, a.target);
   if (a.kind === "trade") return tradeWilling(s, a.actor, a.item, a.receive);
   return true;
 }
@@ -1798,7 +1800,13 @@ export function legalActions(s, actor = currentActor(s)) {
       if (crossing?.travelLabel) action.label = crossing.travelLabel;
     }
   }
-  const open = roomLocked(s, here, actor, out);
+  // A sleeping resident is asked, traded with and invited only once awake;
+  // a Give it keeps for waking (rules 100).
+  const open = roomLocked(s, here, actor, out).filter(
+    (a) =>
+      !["ask", "trade", "accompany"].includes(a.kind) ||
+      !residentAsleep(s, a.target),
+  );
   // Every Give and Trade is offered. While planning, residents only consider
   // the offers they expect the other side to accept.
   return planReads ? open.filter((a) => expects(s, a)) : open;
@@ -1958,7 +1966,8 @@ function wakeUp(s, id, woke, text) {
 function wakeSleepers(s, before, voyages) {
   for (const id of actorIds) {
     const z = s.actors[id].sleeping;
-    if (!z) continue;
+    // A resident's sleep keeps its schedule (residentRound).
+    if (!z || z.until !== undefined) continue;
     // A traveller arriving or leaving is named before a resident.
     const first = (list) =>
       list.find((x) => controlledByHuman(s, x)) ?? list[0];
@@ -2007,7 +2016,14 @@ function wakeSleepers(s, before, voyages) {
     if (woke) wakeUp(s, id, woke, `${who} ${text}.`);
   }
 }
-// --- Rules 100: world life (resident-home.mjs) ---------------------------
+// --- Rules 100: world life (resident-home, resident-sleep) ---------------
+// A resident asleep on its schedule wakes, at once, for a Talk, a threat, a
+// ring where it sleeps or being moved. It stays awake until its next bedtime.
+function wakeResident(s, id) {
+  if (!residentAsleep(s, id)) return false;
+  delete s.actors[id].sleeping;
+  return true;
+}
 // Where a resident's want would take it, or null.
 function wantPlace(s, id) {
   const want = wantOf(s, id);
@@ -2018,8 +2034,8 @@ function wantPlace(s, id) {
     return itemPlace(s, want.target);
   return null;
 }
-// After the cast has acted: the walk home and, at dawn and dusk, one step
-// for each resident where no player is.
+// After the cast has acted: who falls asleep or rises, then the walk home
+// and, at dawn and dusk, one step for each resident where no player is.
 // Sorted ids, at most OFFSTAGE_STEPS steps, starting further on each turn.
 function residentRound(s, acted) {
   if (!worldLife.on) return;
@@ -2039,8 +2055,50 @@ function residentRound(s, acted) {
     )
     .sort();
   for (const id of life) {
-    const a = s.actors[id];
+    const a = s.actors[id],
+      z = a.sleeping;
     if (a.homeward && a.place === lifeHome(id)) delete a.homeward;
+    if (z?.until !== undefined) {
+      if (s.turn >= z.until || a.place !== z.place || standoffFor(s, id)) {
+        wakeResident(s, id);
+        if (seen(a.place))
+          addLog(s, "World", `${nameOf(id)} wakes.`, {
+            kind: "narration",
+            actorId: id,
+            locationId: a.place,
+          });
+      }
+      continue;
+    }
+    const w = bedtime(s, id);
+    if (
+      z ||
+      !w ||
+      a.slept === w.start ||
+      standoffFor(s, id) ||
+      transportPlace(a.place)
+    )
+      continue;
+    // A resident sleeps at home: away, it walks home first if it can.
+    const home = lifeHome(id);
+    if (
+      rangeOf(s, id) !== null &&
+      home &&
+      a.place !== home &&
+      entityActive(s, home) &&
+      stepToward(s, id, home).action?.kind === "move"
+    ) {
+      a.homeward = true;
+      continue;
+    }
+    a.slept = w.start;
+    a.sleeping = { since: s.turn, place: a.place, until: w.end };
+    if (seen(a.place))
+      addLog(s, "World", `${nameOf(id)} falls asleep.`, {
+        kind: "narration",
+        actorId: id,
+        locationId: a.place,
+      });
   }
   const dawnOrDusk = s.turn % DAYLIGHT_TURNS === 0;
   const walkers = life.filter(
@@ -2245,6 +2303,7 @@ function performPlay(s, a, round = null, settle = []) {
       break;
     }
     case "threaten":
+      if (wakeResident(s, a.target)) text += ` ${nameOf(a.target)} wakes.`;
       if (here === "pond") s.locations.pond.answer = null;
       s.standoffs.push({
         challenger: a.actor,
@@ -2371,6 +2430,9 @@ function performPlay(s, a, round = null, settle = []) {
     case "ring":
       // Any sound made here disturbs the residents resting here.
       for (const line of disturb(s, here)) text += ` ${line}`;
+      for (const id of actorIds)
+        if (s.actors[id].place === here && wakeResident(s, id))
+          text += ` ${nameOf(id)} wakes.`;
       if (a.fixture) {
         soundFixture(s, a.fixture);
         break;
@@ -2391,8 +2453,10 @@ function performPlay(s, a, round = null, settle = []) {
       const told = packTalkChoice(s, a);
       if (told)
         text = choiceText(applyPackChoice(s, told, { mode: "talk" }), a.actor);
-      const woken = wakeByVoice(s, a.target);
+      const woken = wakeByVoice(s, a.target),
+        roused = wakeResident(s, a.target);
       if (woken) text += ` ${woken}`;
+      else if (roused) text += ` ${nameOf(a.target)} wakes.`;
       s.actors[a.actor].lastTalk = s.turn;
       break;
     }
@@ -2955,6 +3019,15 @@ export function play(
     validateWorld(next);
     return { ok: true, state: next };
   }
+  // An away avatar's resident sleep becomes its returning player's own
+  // (rules 100).
+  const dozing = next.actors[actor].sleeping;
+  if (dozing?.until !== undefined)
+    next.actors[actor].sleeping = {
+      since: dozing.since,
+      place: dozing.place,
+      present: bodiesAt(next, dozing.place),
+    };
   // Crossings open before the play decide whether a signal refreshes them.
   const round = beginRound(s, sensesFor(s));
   next.turn += 1;
@@ -3001,6 +3074,9 @@ export function play(
       controlledByHuman(next, id)
     )
       continue;
+    // A sleeper makes no play unless a fight wakes it (rules 100).
+    if (residentAsleep(next, id) && !standoffFor(next, id)) continue;
+    wakeResident(next, id);
     perform(next, plan(next, id).action, round, residents);
   }
   if (next.items.lamp.lit) {
@@ -3265,7 +3341,8 @@ export function validateWorld(s) {
     !validMemories(s) ||
     !validMotives(s) ||
     !validLife(s, Object.keys(places)) ||
-    !validHome(s)
+    !validHome(s) ||
+    !validSleep(s, places)
   )
     fail();
   if (
@@ -3376,6 +3453,7 @@ export function validateWorld(s) {
       a.lastTalk > s.turn ||
       (a.sanctuary !== undefined && !sanctuaries.includes(a.sanctuary)) ||
       (a.sleeping !== undefined &&
+        a.sleeping?.until === undefined &&
         (!a.sleeping ||
           Object.keys(a.sleeping).sort().join() !== "place,present,since" ||
           !Number.isSafeInteger(a.sleeping.since) ||

@@ -1,8 +1,21 @@
 {
-  "defaults": { "range": 2, "sails": false },
+  "defaults": {
+    "range": 2,
+    "sails": false,
+    "sleep": { "from": 32, "to": 0 }
+  },
+  "packs": {
+    "greek-drama": { "sleep": { "from": 30, "to": 47 } }
+  },
   "residents": {
+    "moth": { "sleep": { "from": 0, "to": 20 } },
+    "keeper": { "sleep": { "from": 35, "to": 2 } },
+    "badger": { "sleep": { "from": 28, "to": 46 } },
     "oak": { "range": 0 },
-    "greek-guard": { "range": 0 },
-    "greek-shipmaster": { "sails": true }
+    "hoppycat-nix-fermata": { "sleep": { "from": 46, "to": 22 } },
+    "greek-guard": { "range": 0, "sleep": null },
+    "greek-shipmaster": { "sails": true, "sleep": { "from": 30, "to": 45 } },
+    "greek-rhapsode": { "sleep": null },
+    "boardyai": { "sleep": null }
   }
 }
