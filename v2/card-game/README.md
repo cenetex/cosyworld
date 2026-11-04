@@ -354,6 +354,14 @@ first, and is absent while the stack holds one. Player-facing text says quest.
   Residents pursue their top quest. A resident that keeps to its scene acts only while someone is
   there, so its quest can stall only after a first refused attempt, and the
   stall clock starts at that attempt.
+- **Home, range and sleep** (rules 100, `world-life.json`). Each resident has
+  a home and a range in hops (default 2; Oak and the Gate Guard 0). With a
+  player it acts as before; away from players it walks home one step a turn
+  after a push-back, beyond its range or at bedtime, and at dawn and dusk it
+  takes one step toward a want in range. It sleeps on its schedule, scattered
+  by the seed (Pip and Nix are nocturnal), and wakes for a Talk, a threat or
+  a ring; Ask, Trade and Invite wait until then. See the
+  [design note](../../docs/design/rules-100-world-life.md).
 - **Trust** has one source: someone gave me the item my quest wanted.
 - **Connect.** BoardyAI's starter quest is `{ "kind": "connect", "target":
 "humans" }` in `boardyai.json`. It is met by any Talk in his room while two
@@ -475,14 +483,18 @@ A card new to the view (an avatar arriving, a thing picked up or put down, a
 place found, the hand at a new place) rises into its slot over 460 ms, cards
 entering together 70 ms apart (`card-entry.mjs`). A card already there never
 moves again on a redraw, a card seen moving keeps that move, and reduced
-motion just shows it. An entering card takes taps at once; the motion is this
+motion just shows it. The hand a page, a resumed save or a new game opens on
+is dealt the same way, and a shared update or another tab's play slides the
+cards that moved. An entering card takes taps at once; the motion is this
 browser's alone and never waits on the rules or the shared room.
 A card that leaves the view (a thing given or put down into a folded stack,
 an avatar walking away, a place left behind, a quest cleared or set aside)
 falls 24 px and fades over 360 ms, staggered as entries are, at most six at
 once (`card-exit.mjs`). The hand redraws at once; an inert, aria-hidden copy
 from `card-ghost.mjs` plays the fall where the card lay and is released when
-it ends. A card shown under another holder moves there instead, and a reveal
+it ends. Cards folding into their holder's stack shrink and fade where they
+lay over 220 ms, 30 ms apart (reduced motion only fades them). A card shown
+under another holder moves there instead, and a reveal
 keeps its card, so it never falls. A page opening, a new game, another tab's
 world and reduced motion show no exit (`v2/scripts/smoke-card-exit.mjs`).
 A card still in the hand after a redraw keeps its node and stays put; when
@@ -685,8 +697,14 @@ end's exit, opens the first time its condition holds and stays open after,
 and the way back stays open (see the
 [Open Door guide](../content/greek-drama/OPEN-DOOR.md)). The Theban Harbor Road is the only way
 between the Wine-Dark Harbor and Thebes. The battlefield is a Theban place
-outside the walls; the City Gate opens onto it once the gate guard holds the
-Burial Decree there and stays open, and the way back in is always open. The
+outside the walls; the Gate Guard bars the way to it (rules 100) until he
+holds the Burial Decree or Creon's writ, wherever he stands, and then it stays
+open. Beaten, he is knocked onto the battlefield and bars it again once he
+walks back. He bars the gate from the battlefield side too (the locked box,
+with the same reason), and only he may pass; the battlefield's other way out
+is the Cithaeron road, shown locked until it opens. A player may stand guard
+there too: yourself and the way
+reads "Guard", barring residents until your next play. The
 Cithaeron road leads on from the battlefield to Eleusis once a Theban account
 of the burial is there or on Dione's table. The Road to Delphi joins the Agora and
 Delphi, the Oeta Road joins Delphi and Trachis, the Royal Road joins Troy and
@@ -844,7 +862,7 @@ are saved in `output/badger-check/`.
 
 ## Shore text and memory
 
-Every avatar, item, and location has a profile in `entity-profiles.json` and a saved memory in the browser world. `senses.json` gives each place one first-person sense line (what a visitor feels, hears or sees there, without the place's name) and each avatar its pronouns. Only the server's voice context reads it; the rules and the browser do not. A memory holds the latest 16 witnessed events, six lasting encounters, and the latest generated text. Gifts, trades, threats, shared trips and quest effects can become lasting encounters. Card plays record events for the actors and objects present, the item used, and both places during travel. Generated speech and descriptions are marked as expressions, so the next prompt can distinguish them from game events. Speech receives recent facts and a few lasting encounters. Each avatar's memories, beliefs and fears give its request or response a personal reason.
+Every avatar, item, and location has a profile in `entity-profiles.json` and a saved memory in the browser world. `senses.json` gives each place one first-person sense line (what a visitor feels, hears or sees there, without the place's name) and each avatar its pronouns. Only the server's voice context reads it; the rules and the browser do not. A sense line never states something the rules can change, such as a gate shut or open: everyone in a scene at a place with a sealed way hears from the rules whether that way is open or shut now ("The way to The Exposed Battlefield is open."). A memory holds the latest 16 witnessed events, six lasting encounters, and the latest generated text. Gifts, trades, threats, shared trips and quest effects can become lasting encounters. Card plays record events for the actors and objects present, the item used, and both places during travel. Generated speech and descriptions are marked as expressions, so the next prompt can distinguish them from game events. Speech receives recent facts and a few lasting encounters. Each avatar's memories, beliefs and fears give its request or response a personal reason.
 
 Speech receives visible facts, current wants, and witnessed results. Item and place profiles describe appearance; an avatar profile is one seed sentence. Hidden interaction rules stay in the simulation; each avatar's facts can include the quest line described in [A quest stack per avatar](#a-quest-stack-per-avatar). A revealed path joins the location cards; travel happens when its card is played. Earlier opening expressions stay in saved history while fresh speech uses observations until Vale first douses or relights the lamp in the attic, or leaves it.
 

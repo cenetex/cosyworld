@@ -157,6 +157,16 @@ try {
       `http://127.0.0.1:${server.address().port}/?table=swap-${tag}`,
     );
     await ready();
+    // The page deals its hand: each card rises, 70 ms apart.
+    const dealt = await page.evaluate(() =>
+      window.swapWatch.motions.filter((m) => m.rise).map((m) => m.delay),
+    );
+    if (reduced) assert.deepEqual(dealt, [], "reduced motion just shows it");
+    else
+      assert(
+        dealt.length >= 3 && dealt.every((d, i) => d === Math.min(i * 70, 350)),
+        `the page deals its hand: ${dealt}`,
+      );
     const go = async (place, name) => {
       await selectCard(page, place);
       await tap("#card-actions button");

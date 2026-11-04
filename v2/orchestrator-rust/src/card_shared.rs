@@ -67,6 +67,8 @@ mod unlocks_tests;
 mod weather_tests;
 #[cfg(test)]
 mod willows_tests;
+#[cfg(test)]
+mod world_life_tests;
 mod world_list;
 
 use crate::AppState;

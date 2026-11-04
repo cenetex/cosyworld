@@ -469,7 +469,10 @@ fn ajax_upgrade_brings_an_uninvited_nineteen_camp_visitor_home_and_replays_it() 
                     saved[field] = json!("greek-colonus");
                 }
             }
-            for field in ["want", "xp", "visited", "talked", "metTurn", "gaveUp"] {
+            // Rules 100: the Gate Guard takes his post.
+            for field in [
+                "want", "xp", "visited", "talked", "metTurn", "gaveUp", "guarding",
+            ] {
                 retained.as_object_mut().unwrap().remove(field);
                 saved.as_object_mut().unwrap().remove(field);
             }

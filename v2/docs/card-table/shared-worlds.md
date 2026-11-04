@@ -174,6 +174,15 @@ someone plays in its room. There is no server tick, so in a world where
 nobody is playing, nothing acts. A claim can carry the avatar's level and
 experience from its last seat (`progress` on the journaled `claim`).
 
+Rules 100 ([world life](../../../docs/design/rules-100-world-life.md)): every
+accepted play, by any seat, also runs the residents' round on the shared
+clock. Residents and away avatars fall asleep and rise on their scattered
+schedules; residents walk home after a push-back, and at dawn and dusk take
+one step where no seat is present, at most 24 steps a play, in sorted id
+order. A seat may stand guard at a guardable way: its guard bars residents
+only, never another seat, and lapses at its next other play or when it
+leaves. The journal replays all of it exactly.
+
 ### Open question: whose conduct
 
 Other players need to tell whether an away avatar's conduct came from its

@@ -22,6 +22,7 @@ import {
   EXIT_MS,
   cardOf,
   dropCards,
+  foldCards,
   leavingFrames,
 } from "./card-exit.mjs";
 import { keepFrames, morphFrame } from "./card-keep.mjs";
@@ -211,6 +212,7 @@ import {
   cardObservation,
   TOO_MANY_ITEMS,
   sealedReason,
+  asleepReason,
 } from "./cards.mjs";
 // A person's want reaches the player through Talk context (want-talk.mjs).
 // The hand holds people, items and places, and the player's quest cards.
@@ -2169,6 +2171,16 @@ function renderActions() {
     why.dataset.blocked = "gate";
     why.title = sealed;
     row.append(why);
+  }
+  // An Ask, Trade or Invite of a sleeping resident says so (rules 100).
+  const asleep = !rested && !actions.length && asleepReason(world, selected);
+  if (asleep) {
+    const blocked = node("button", asleep, "card-primary");
+    blocked.type = "button";
+    blocked.disabled = true;
+    blocked.dataset.blocked = "asleep";
+    blocked.title = asleep;
+    row.append(blocked);
   }
   // A Take refused for space says why in the context button (#2018). It
   // plays nothing; the cards stay as they are.
@@ -4153,9 +4165,10 @@ function render() {
         renderedHandRevision === world.revision &&
         renderedHandState === handState,
       // A redraw from a shared update or another tab is no arrival: the
-      // hand keeps its scroll unless the player's avatar changed place.
+      // hand keeps its scroll unless the player's avatar changed place,
+      // and its cards still slide to their new places.
       stayed = renderedHandPlace === world.actors[currentActor(world)].place,
-      samePlace = renderedHand && stayed,
+      samePlace = stayed,
       arriving = renderedHandPlace !== null && !stayed,
       here = world.actors[currentActor(world)].place,
       scene = `${here}:${lampLitHere(world, here)}`,
@@ -4186,9 +4199,16 @@ function render() {
     renderedHandRevision = world.revision;
     renderedHandPlace = world.actors[currentActor(world)].place;
     renderedHandState = handState;
-    if (sameWorld)
+    if (sameWorld) {
+      const shown = [...$("hand").children].filter((frame) => !frame.hidden);
       for (const frame of $("hand").children) updateCardSelection(frame);
-    else {
+      // A stack folding shows its cards folding away (card-exit.mjs).
+      foldCards(
+        shown.filter((frame) => frame.hidden && frame.isConnected),
+        handExits(),
+        reducedMotion.matches,
+      );
+    } else {
       // A card still in the hand keeps its node (card-keep.mjs).
       const row = [...$("hand").children],
         { frames, changed, faces } = keepFrames(
@@ -4272,7 +4292,8 @@ function render() {
             frame.hidden ||
             before.has(frame.querySelector(".card").dataset.card),
         })),
-      { reduced: reducedMotion.matches || opening, after: swap ? entering : 0 },
+      // The hand a page, a resumed save or a new game opens on is dealt.
+      { reduced: reducedMotion.matches, after: swap ? entering : 0 },
     );
     showQuests(opening);
     openLockedBoxes();

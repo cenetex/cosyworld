@@ -656,7 +656,7 @@ fn a_line_ends_on_what_the_speaker_perceives() {
     // L4: Antigone at the gate, no "Vale and Antigone are both at…".
     let antigone = view("Antigone at the gate", "greek-antigone");
     assert!(antigone.ends_with(
-        "Fresh mortar smells damp on the gate; the bar sits heavy across it. My hands are empty. \
+        "Fresh mortar smells damp on the gate; dust blows in from the road. My hands are empty. \
          Vale's Lamp is burning and uncovered. The Gate Guard and Vale talk at last. \
          Vale, the Lamplighter is right here; I'm talking with them."
     ));
@@ -677,4 +677,34 @@ fn a_line_ends_on_what_the_speaker_perceives() {
     }
     let myrto = prose(&messages(&old, entity(&old, "greek-shipmaster"), Part::Line).assistant);
     assert!(myrto.contains("I'm at The Wine-Dark Harbor. Vale and Pip are here with me."));
+}
+
+/// The Theban City Gate as the rules have it: every speaker there hears the
+/// way shut while it is shut and open once it opens, even after the decree
+/// that opened it has gone. No sense line, meeting or fact says otherwise.
+#[test]
+fn speakers_at_the_gate_hear_it_as_the_rules_have_it() {
+    let cases = cases();
+    for (case, open) in [
+        ("gate shut", false),
+        ("gate open", true),
+        ("gate open, decree gone", true),
+    ] {
+        let (_, context, lines) = cases.iter().find(|(name, ..)| name == case).unwrap();
+        for id in ["greek-guard", "vale"] {
+            let heard = scene_for(context, lines, id);
+            let c = heard.as_ref().unwrap_or(context);
+            let p = messages(c, entity(c, id), Part::Line);
+            let view = prose(&p.assistant);
+            let (said, never) = match open {
+                true => ("open", ["shut", "bar sits", "barred"]),
+                false => ("shut", ["is open", "lifted", "stands open"]),
+            };
+            let way = format!("The way to The Exposed Battlefield is {said}.");
+            assert!(view.contains(&way), "{case} {id}: {view}");
+            for word in never {
+                assert!(!view.contains(word), "{case} {id} says {word}: {view}");
+            }
+        }
+    }
 }

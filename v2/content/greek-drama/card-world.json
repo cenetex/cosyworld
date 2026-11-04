@@ -109,7 +109,7 @@
     "greek-battlefield": {
       "name": "The Exposed Battlefield",
       "text": "Broken spear shafts lie in the dust. A strip of earth outside the city is set apart for the fallen brother.",
-      "exits": [],
+      "exits": ["greek-gate"],
       "backdrop": "assets/greek-drama/burial-ground-dusk.webp",
       "persona": "Broken spear shafts lie in the dust. A strip of earth outside the city is set apart for the fallen brother."
     },
@@ -2069,11 +2069,6 @@
           "kind": "holding",
           "item": "greek-decree",
           "actor": "greek-guard"
-        },
-        {
-          "kind": "item_near",
-          "item": "greek-decree",
-          "place": "greek-gate"
         }
       ],
       "sealed": {
@@ -2093,23 +2088,6 @@
           "kind": "holding",
           "item": "greek-creon-writ",
           "actor": "greek-guard"
-        },
-        {
-          "kind": "item_near",
-          "item": "greek-creon-writ",
-          "place": "greek-gate"
-        }
-      ]
-    },
-    {
-      "from": "greek-battlefield",
-      "to": "greek-gate",
-      "live": true,
-      "requires": [
-        {
-          "kind": "gate_open",
-          "from": "greek-gate",
-          "to": "greek-battlefield"
         }
       ]
     },
@@ -2227,7 +2205,14 @@
             }
           ]
         }
-      ]
+      ],
+      "sealed": {
+        "reason": "The road over Cithaeron opens once a Theban account of the burial is here or on Dione's table.",
+        "quest": {
+          "kind": "item",
+          "target": "greek-burial-account"
+        }
+      }
     },
     {
       "from": "greek-battlefield",
@@ -2410,7 +2395,7 @@
       "subject": "greek-guard",
       "at": "greek-gate",
       "label": "Hear the burial order",
-      "text": "The guard reads the burial prohibition aloud. He keeps the road shut until an order from the palace is in his hand.",
+      "text": "The guard reads the burial prohibition aloud.",
       "requires": [],
       "effects": [
         {
@@ -2419,7 +2404,7 @@
           "value": true
         }
       ],
-      "textTemplate": "The guard reads the burial prohibition aloud. He keeps the road shut until an order from the palace is in his hand.",
+      "textTemplate": "The guard reads the burial prohibition aloud.",
       "on": "meet"
     },
     {
