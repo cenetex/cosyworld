@@ -155,6 +155,25 @@ describe("a stuck ship goes home", () => {
     expect(stuckShip(w, SHIP)).toBe(false);
   });
 
+  it("spares an away traveler's quest when a pre-95 save puts the ship in", () => {
+    const s = stuck("ash");
+    s.actors.ash.want = {
+      kind: "place",
+      target: NOWHERE,
+      since: s.turn,
+      refusals: 0,
+    };
+    s.controlledActors = s.presentActors = players;
+    const saved = JSON.parse(encodeSave(s));
+    delete saved.usedUp;
+    saved.turn += IDLE_ROUNDS;
+    saved.revision = Math.max(saved.revision, saved.turn);
+    const w = decodeSave(JSON.stringify(saved));
+    expect(w.actors.ash.place).toBe(HOME);
+    // Ash plays as a resident while away: no set-aside (rules 98).
+    expect(w.actors.ash.want?.target).toBe(NOWHERE);
+  });
+
   it("keeps a ship with a standoff aboard, in play and in a save from before rules 95", () => {
     // Vale threatens Myrto aboard at the harbor; the fight holds the ship.
     let s = stuck("vale");
