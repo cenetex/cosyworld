@@ -369,10 +369,11 @@ and appears only for the place itself or when the step happens where the
 player stands; elsewhere the figures stand on the card's dark ground. An
 unknown target shows a small carved card back in its slot, and an unknown
 place shows the back alone. A step that gives to
-someone shows all three: the player, the thing and the recipient. Its label
-reads "Quest" in small capitals, then the quest as a plain sentence ("Give the
-Burial Decree to the Gate Guard") in the label's face, as written, on at most
-two lines, with a level quest's numeral on the right. Its tier colour is the
+someone shows all three: the player, the thing and the recipient. Its label is
+its verb alone, on one line, in the standard card label (Talk, Give, Find,
+Bring, Meet, Hold, Go to, Discover, Introduce; a level or story quest shows its
+current step's verb), with a level quest's numeral on the right. The whole quest
+("Give The Burial Decree to The Gate Guard") is only its accessible name. Its tier colour is the
 highest tier among the things it names that the player has found (its target,
 a step's recipient and place), from their levels (`questTier`), and at least
 the tier of the level a level quest leads to; face down, and folded until it
