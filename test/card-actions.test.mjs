@@ -51,7 +51,7 @@ describe("named card actions", () => {
     expect(kinds(world, ["vale"])).toEqual(["guard"]);
     const here = world.actors.vale.place;
     expect(kinds(world, [here])).toEqual(["wait"]);
-    expect(playLabel(primary(world, ["vale", "moth"]))).toBe("Guard");
+    expect(playLabel(primary(world, ["vale", "moth"]))).toBe("Cover");
   });
   it("names the recipient, owner, trade items and invited person", () => {
     const world = meeting();
@@ -105,7 +105,7 @@ describe("named card actions", () => {
     expect(playLabel(brace)).toBe("Brace");
     expect(playText(strike)).toBe("Vale strikes the keeper.");
     expect(playText(brace)).toBe("Pip braces.");
-    expect(playText(guard)).toBe("Pip guards Vale.");
+    expect(playText(guard)).toBe("Pip covers Vale.");
   });
   it("lists local fixtures and carries spoken clues through Talk", () => {
     const world = createWorld();
