@@ -189,11 +189,12 @@ try {
       return trip;
     };
     // Leaving the station: each card left behind falls, nearest Vale first,
-    // 50 ms apart, from the tap, and the station as the hand redraws. The
-    // lamp and bell lie folded under it at the row's left end (#2272).
+    // 50 ms apart, from the tap, and the way back, the pond, on top of the
+    // row's left stack as the hand redraws. The station, its lamp and bell
+    // lie folded under it (#2272, #2286).
     const away = await go("pond", "travel-away");
     if (!reduced) {
-      for (const id of ["keeper", "station"])
+      for (const id of ["keeper", "pond"])
         assert(away.ghosts.includes(id), `${id} falls: ${away.ghosts}`);
       assert(!away.ghosts.includes("vale"), "Vale goes along");
       const atTap = away.motions.filter((m) => m.ghost && m.at < 100);
