@@ -5,7 +5,8 @@
 `world.mjs` owns the card game's state, legal actions, resident turns, and save
 format. `forest.json` holds the forest catalog, starting state, and each hub
 avatar's starter quest. `createWorld()` copies that data for each game.
-`app.mjs` uses the engine in the browser. The modules beside it provide quests
+`app.mjs` uses the engine in the browser. `table-session.mjs` resolves the
+page's world, shared connection, and save slot before the table starts. The modules beside it provide quests
 (`want.mjs`), motives, life, memory, pack rules, and presentation. Both the local server and
 the Rust asset server publish this same game.
 

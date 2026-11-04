@@ -238,6 +238,7 @@ const files = [
   "combat-backdrop.mjs",
   "defeat-view.mjs",
   "combat-portraits.mjs",
+  "table-session.mjs",
   "app.mjs",
   "pack-landing.mjs",
   "pack-landings.json",
