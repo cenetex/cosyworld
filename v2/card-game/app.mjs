@@ -1606,7 +1606,7 @@ function choose(id) {
   $("hand")
     .querySelector(`[data-card="${id}"]`)
     ?.focus({ preventScroll: true });
-  revealHandCard(id, Boolean(people[id]));
+  revealHandCard(id);
 }
 function commit(cards, revision) {
   if (selectionBlocked()) return;
