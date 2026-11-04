@@ -136,6 +136,22 @@ describe("named card actions", () => {
     }
     expect(encodeSave(world)).toBe(before);
   });
+  it("hints at Ask only when an Ask for that person is legal", () => {
+    const ask = /ask for it/u;
+    const world = meeting();
+    expect(legalActions(world).some((a) => a.kind === "ask")).toBe(true);
+    expect(cardActions(world, ["moth"]).hint).toMatch(ask);
+    // Pip carries nothing, so nothing can be asked for.
+    world.items.cloth.holder = "station";
+    expect(legalActions(world).some((a) => a.kind === "ask")).toBe(false);
+    expect(cardActions(world, ["moth"]).hint).not.toMatch(ask);
+    // A present resident not yet met has no plays, so no hint names one.
+    const unmet = createWorld({ opening: true });
+    unmet.actors.moth.place = unmet.actors.vale.place;
+    delete unmet.opening.met.moth;
+    expect(availableCards(unmet)).toContain("moth");
+    expect(cardActions(unmet, ["moth"])).toEqual({ actions: [], hint: "" });
+  });
   it("says why Take is missing when the avatar's hands are full", () => {
     const world = createWorld({ opening: false });
     world.items.oil.holder = "station";
