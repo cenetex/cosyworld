@@ -1,4 +1,4 @@
-# Rules 97: switching a world pack off and on
+# Rules 98: switching a world pack off and on
 
 Owner (2026-11-03/04): packs switch mid-world and "all avatars and items
 from other worldpacks in the worldpack's locations are scattered"; all four
@@ -32,5 +32,5 @@ switch, the Shore too, one stays on; local worlds only; the attic stays.
 - **On.** Its content returns as it was; scattered things stay put.
 
 Tests: `test/card-pack-toggle.test.mjs`, including rules 96 accepting a
-player in a pack switched off, which rules 97 refuses. Rules 93 to 96 are
+player in a pack switched off, which rules 98 refuses. Earlier released rules are
 byte-identical and hash-pinned (`test/card-released-rules.test.mjs`).

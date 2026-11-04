@@ -13,7 +13,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-pub(super) const VERSION: &str = "full-card-world/97";
+pub(super) const VERSION: &str = "full-card-world/98";
 pub(super) const NINETY_SIXTH_VERSION: &str = "full-card-world/96";
 pub(super) const NINETY_FIFTH_VERSION: &str = "full-card-world/95";
 pub(super) const NINETY_FOURTH_VERSION: &str = "full-card-world/94";
@@ -109,7 +109,7 @@ pub(super) const FIFTH_VERSION: &str = "full-card-world/5";
 pub(super) const PREVIOUS_VERSION: &str = "full-card-world/3";
 pub(super) const LEGACY_VERSION: &str = "full-card-world/2";
 pub(super) const FOURTH_VERSION: &str = "full-card-world/4";
-const SOURCE: &str = include_str!("engine-v97.js");
+const SOURCE: &str = include_str!("engine-v98.js");
 const NINETY_SIXTH_SOURCE: &str = include_str!("engine-v96.js");
 const NINETY_FIFTH_SOURCE: &str = include_str!("engine-v95.js");
 const NINETY_FOURTH_SOURCE: &str = include_str!("engine-v94.js");

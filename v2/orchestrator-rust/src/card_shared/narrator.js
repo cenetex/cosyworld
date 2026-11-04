@@ -17758,10 +17758,7 @@
 
   // v2/card-game/pack-toggle.mjs
   var ORDER = Object.keys(GROUPS);
-  var rank = (packId) => {
-    const g = ORDER.indexOf(packGroup(packId));
-    return g < 0 ? ORDER.length : g;
-  };
+  var rank = (id) => (ORDER.indexOf(packGroup(id)) + 1 || 99) - 1;
   var sides = Object.entries(hub.packEntries);
   var mirror = sides.flatMap(
     ([id, list]) => list.filter((e) => e.joins === "hub").map((e) => ({ joins: id, at: e.arrive }))

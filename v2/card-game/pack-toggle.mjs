@@ -2,7 +2,7 @@
 // groups; `disabledPacks` names the groups off, and one stays on. A pack
 // off sleeps with its state kept (`entityEnabled`), and everyone and
 // everything from elsewhere in it comes out at its declared entries.
-// docs/design/rules-97-pack-toggle.md
+// docs/design/rules-98-pack-toggle.md
 import {
   entityActive,
   GROUPS,

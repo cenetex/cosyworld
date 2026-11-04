@@ -1,4 +1,4 @@
-// A pack switches off and on mid-world (rules 97): its own content sleeps
+// A pack switches off and on mid-world (rules 98): its own content sleeps
 // as it is, and everyone and everything from elsewhere in it is scattered.
 import { readFileSync } from "node:fs";
 import vm from "node:vm";
@@ -32,7 +32,7 @@ const ok = (result) => {
   return result.state;
 };
 
-describe("switching a pack off and on (rules 97)", () => {
+describe("switching a pack off and on (rules 98)", () => {
   it("scatters others from its places, the same way every time", () => {
     const s = world();
     expect(s.disabledPacks).toBeUndefined();
@@ -147,8 +147,8 @@ describe("switching a pack off and on (rules 97)", () => {
     expect(asked.error).toMatch(/Shared worlds keep every/);
   });
 
-  it("is a rules 97 rule: rules 96 keeps the pack awake", () => {
-    // Vale in a pack switched off: rules 97 refuses the world, 96 ignores it.
+  it("is a rules 98 rule: rules 96 keeps the pack awake", () => {
+    // Vale in a pack switched off: rules 98 refuses the world, 96 ignores it.
     const quiet = JSON.parse(encodeSave(world()));
     quiet.disabledPacks = [SEA];
     const file = (f) =>
@@ -161,6 +161,6 @@ describe("switching a pack off and on (rules 97)", () => {
       return JSON.parse(context.cardShared(JSON.stringify(request)));
     };
     expect(create(96).ok).not.toBe(false);
-    expect(create(97).ok).toBe(false);
+    expect(create(98).ok).toBe(false);
   });
 });

@@ -350,7 +350,7 @@ export function entityActive(world, id) {
 export function entityEnabled(world, id, saved = false) {
   if (localRoads.has(id) || retiredPlaces.has(id) || usedUp(world, id))
     return false;
-  // A pack switched off sleeps where it stands (rules 97, pack-toggle.mjs).
+  // A pack switched off sleeps where it stands (rules 98, pack-toggle.mjs).
   if (!saved && world.disabledPacks && !packOn(world, packIdOf(id)))
     return false;
   const e = packEntity(id);
