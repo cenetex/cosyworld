@@ -140,7 +140,7 @@ passage. A pack's `entry` is its start. The hub declares its `start` and
 `switchable`, the named groups of packs a world may switch off, in a fixed
 order. The build checks that every place is in its pack's release and every
 crossing is live, and gathers the entries into the hub as `packEntries`, so
-no pack schema changes. Earlier rules ignore them.
+no pack schema changes. [Rules 98](../../docs/design/rules-98-pack-toggle.md) reads them; earlier rules ignore them.
 
 | Pack                                    | Joins: at → arrive (via)                                                                |
 | --------------------------------------- | --------------------------------------------------------------------------------------- |
@@ -153,7 +153,9 @@ no pack schema changes. Earlier rules ignore them.
 
 The hub's entries are its packs' hub entries seen from the other side.
 Hoppy Cat has no live way in of its own: the pond's thread into the tea
-garden is retired, so travelers enter by the Charybdis from Piraeus. Boardy's
+garden is retired, so travelers enter by the Charybdis from Piraeus. It
+stays ship-only: its switchable group is `reachedBy` the Sea's, so it
+sleeps while the Sea is off. Boardy's
 parlour and the shared homes are mounted outside `packs.json` and declare no
 entries.
 
@@ -256,7 +258,9 @@ for the acting avatar's name; ordinary `text` remains literal.
 Effects are choose, set_flag, custody-checked place_item, and four item
 moves. `give_item` hands a pack item to the acting avatar. `retire_item`
 uses an item up (below); the actor must hold it, or the choice must require
-it `item_near` or `item_at` its own place. `drop_item` brings a used-up item
+it `item_near` or `item_at` its own place. From rules 98 it uses only the
+actor's own item or one lying at the place, never one another person holds.
+`drop_item` brings a used-up item
 back at the choice's place. `hide_item` belongs only to a
 meeting choice. `{"kind":"upgrade","upgrade":"scarf"}`, on a choice with
 `for`, adds a one-way cosmetic upgrade to the acting traveler's `upgrades`
@@ -522,7 +526,8 @@ resident aboard sets the course to its own destination along any lane
 (rules 96), and an empty ship called to a dock
 sails any lane between active docks. A ship idle for `IDLE_ROUNDS` with
 someone aboard, at a dock whose cargo lanes are all shut, is stuck: it puts
-in at its home port (`at`) and everyone aboard goes ashore (rules 95). A ship route should give every dock a
+in at its home port (`at`) and everyone aboard goes ashore (rules 95),
+except a player the port has no room for, who stays aboard (rules 98). A ship route should give every dock a
 free lane toward home, so a traveler ashore there is never stranded:
 `test/card-ship-port-roads.test.mjs` searches every walk, carry and free lane
 from every dock the empty ship can be called to. Myrto knows every lane; through

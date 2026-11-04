@@ -144,10 +144,10 @@ quest at a sanctuary, so the fallback to its home for one that never stood in
 a sanctuary only covers states from before #1824. Ordinary quests never send
 anyone home. The dream that comes with
 the waking gets the quest as facts, so the model voices it; no line is
-authored. Dropping a level quest halves the avatar's XP but never below
-the XP its current level took, so only progress toward the next level is
-lost; dropping an
-ordinary quest costs nothing.
+authored. From rules 98, dropping a level quest
+costs 1 XP for the first (the quest to level 2), 2 for the next, and so on,
+never below the XP its current level took, so the level stays; the Drop
+button names the cost. Dropping an ordinary quest costs nothing.
 
 ## Later: a visit's length
 

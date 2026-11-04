@@ -39,17 +39,20 @@ first.
   no quest: it waits, and still answers threats, talk and its pack rules.
 - **Drop.** The player's `drop` play with no item names a quest index
   (`quest`). An ordinary quest costs nothing; its target goes into `gaveUp`.
-  A level quest also halves the experience, but never below `questXp` of
-  the current level: the level stays and only progress toward the next is
-  lost (rules 90; ordinary wants are rate-limited by contentment, so a
-  plain halving could cost hundreds of Sleeps at high level). Dropping
-  the last quest draws a new one at once.
+  A level quest costs `dropCost`: 1 XP for the first level quest, 2 for
+  the next, and so on, never below `questXp` of the current level, so the
+  level stays (owner, 2026-11-04; rules 98, which replaced rules 90's
+  halving). The Drop button says "Drop quest (−N XP)" from the same
+  function; at no cost it says "Drop quest". Dropping the last quest draws
+  a new one at once.
 - **Focus.** The player's `focus` play moves a quest from beneath to the
   top. Owner decision, 2026-11-01: choosing the card is the whole act, with no
   Pursue button. Local and shared play journal focus like any play, but it
   takes no turn: `play` bumps the revision, reorders the stack and logs it,
   and the world does not move on. Residents are never offered either play.
-- **Stall.** A resident's stalled or thrice-refused quest moves to the
+- **Stall.** A player's refused Asks and Trades never count against its
+  quest (rules 98), so they cannot redraw a level step for free.
+  A resident's stalled or thrice-refused quest moves to the
   bottom of the stack with `since` reset and refusals cleared. A lone quest
   gets a newly drawn one above it. A level quest still turns into another
   step of the same level.

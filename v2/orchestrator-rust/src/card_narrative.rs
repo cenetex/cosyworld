@@ -1580,10 +1580,11 @@ fn system_voice(entity: &Entity, part: Part) -> String {
     if part == Part::Line && mode != expression::Mode::Speech {
         return expression::direction(mode, &name(&entity.id));
     }
-    let avatar = kind(&entity.id, "avatar");
-    avatar
-        .then(|| i_am(&entity.id).replacen("I am ", "You are ", 1))
-        .unwrap_or_default()
+    if kind(&entity.id, "avatar") {
+        i_am(&entity.id).replacen("I am ", "You are ", 1)
+    } else {
+        String::new()
+    }
 }
 
 /// Every entity this scene knows of: those present, their belongings, their

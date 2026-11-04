@@ -78,10 +78,24 @@ Cottage (`lonely-forest`), The Reflected Shore (the hub), The Wine-Dark Sea
 (`greek-drama`) and Hoppy Cat Universe (`hoppycat-archive`). A pack card is
 a place card drawn as the quest card draws its place (`questScreen`): the
 painting feathered into the card, its name where the quest names its verb.
+Most other cards are place cards too, each a region of the owner's moonlit
+workbench (`assets/settings/PROVENANCE.md`): the sealed letter for Privacy,
+the candle for Volume, the dice cup for Fight speed, the dice for Play counts,
+Pip at the table for Account, the old books for Credits, the brass mug for
+World pool, the scroll for Backup, the round window for New game, the
+armillary for Controls and the book stack for Download. Music, Voices,
+Flashes and scares and Another passkey keep their transparent figures. A
+card lifted over the next by pointer or focus moves that card's name clear.
 Every pack is mounted in every world (`installPacks`), so a pack card is lit and its button
 says so. The cards drive the controls in `#menu-dialog`, which no longer
-opens. `smoke-card-settings.mjs` checks choosing, pressing, the second press
-and closing at three widths.
+opens. While Settings is open the scene fades to black under the world's
+logo (the toolbar's, set where the title lifts it over its card) and the
+room or battle song fades out and holds its place; closing Settings fades
+both back in, the song from where it stopped (`setQuiet` in `music.mjs` and
+`music-cues.mjs`). The island hum and world sounds rest with it. Reduced
+motion swaps the scene at once. `smoke-card-settings.mjs` checks choosing,
+pressing, the second press and closing at three widths; `smoke-card-music.mjs`
+checks the held song.
 
 ## Public assets
 
@@ -222,9 +236,9 @@ first, and is absent while the stack holds one. Player-facing text says quest.
   move on. The top quest offers **Drop quest**, the `drop` play with that
   index and no item; the rules accept a drop at any index. Dropping an
   ordinary quest costs nothing, and its target stays out of mind a while;
-  dropping a level quest halves the experience but keeps the level and
-  never falls below the experience that level took (`questXp`), so it costs
-  only progress toward the next level.
+  dropping a level quest costs 1 XP for the first, 2 for the next, and so
+  on, never below the experience its level took (`questXp`), so the level
+  stays; its button reads "Drop quest (−N XP)".
   Dropping the last quest draws another at once, and a drop takes a turn.
 
 - **First quest.** A player holds no quest at the start: the attic opening

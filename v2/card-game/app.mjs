@@ -1088,21 +1088,23 @@ const unlockAudio = () => {
 for (const type of ["pointerdown", "pointerup"])
   document.addEventListener(type, unlockAudio, { capture: true });
 document.addEventListener("keydown", unlockAudio, { capture: true });
-document.addEventListener("visibilitychange", () => {
+// Settings fades the scene's sound out and holds the song's place
+// (settings-screen.mjs); a hidden tab silences it too.
+function hideAudio() {
+  const quiet = $("settings-screen").open;
   music.setHidden(document.hidden);
-  hum.setHidden(document.hidden);
-  sfx.setHidden(document.hidden);
-});
+  music.setQuiet(quiet);
+  hum.setHidden(document.hidden || quiet);
+  sfx.setHidden(document.hidden || quiet);
+}
+document.addEventListener("visibilitychange", hideAudio);
+document.addEventListener("shared-dialog-change", hideAudio);
 window.addEventListener("pagehide", () => {
   music.setHidden(true);
   hum.setHidden(true);
   sfx.setHidden(true);
 });
-window.addEventListener("pageshow", () => {
-  music.setHidden(document.hidden);
-  hum.setHidden(document.hidden);
-  sfx.setHidden(document.hidden);
-});
+window.addEventListener("pageshow", hideAudio);
 const narrator = createNarrator({
   getWorld: () => world,
   early: Boolean(localRuntime()),
@@ -1975,7 +1977,7 @@ function renderActions() {
       const refused = refusedPlay(action);
       const button = node(
         "button",
-        refused ? refusalLabel(refused) : playLabel(action),
+        refused ? refusalLabel(refused) : playLabel(action, world),
         index === 0 ? "card-primary" : "card-action",
       );
       button.type = "button";
@@ -2002,19 +2004,17 @@ function renderActions() {
     row.append(nudge);
   }
   // The top quest, chosen in the open fan, can be dropped (a level quest
-  // costs half the experience). Choosing a card beneath brings it to the top.
+  // costs experience, named on its button). Choosing a card beneath brings it to the top.
   const picked = questOpen && !rested ? shownQuests[questPick] : null;
   for (const action of picked?.index === 0
     ? legalActions(world).filter(
         (a) => a.kind === "drop" && !a.item && a.quest === 0,
       )
     : []) {
-    const button = node("button", playLabel(action), "card-action");
+    const button = node("button", playLabel(action, world), "card-action");
     button.type = "button";
     button.dataset.dropQuest = String(picked.index);
-    button.title = picked.level
-      ? "Give up this level quest; it costs half your experience"
-      : "Give up this quest";
+    button.title = "Give up this quest";
     button.disabled = selectionBlocked();
     button.onclick = () => {
       questOpen = false;
@@ -4608,7 +4608,7 @@ async function submitSharedPlay(action) {
     key: crypto.randomUUID(),
     action: current,
     choice: selected.join("+"),
-    label: playLabel(action),
+    label: playLabel(action, world),
     notice: sharedSession.state.notice || "",
   };
   showSharedPlay("sending");
@@ -4795,7 +4795,6 @@ installToolbar({
 });
 const settingsCards = installSettingsCards({
   actionBeat: { show: showActionBeat, clear: clearActionBeat },
-  avatar: () => portrait(currentActor(world), null, world),
 });
 installCreditPool({
   actionBeat: { show: showActionBeat, clear: clearActionBeat },

@@ -108,10 +108,11 @@ export async function checkMusicReveal(browser, origin) {
     console.log("Music: silent lit attic, the pond reveal fades it in");
     // Relit, the mirror closes, but the reveal has happened: a reload plays.
     await playCard("lamp");
+    // Settings holds the song, so it plays once Settings closes.
     await page.reload();
     await openSettings(page);
-    await playing();
     await closeSettings(page);
+    await playing();
     console.log("Music: a reload after the reveal keeps music");
     // A new world wakes in the silent attic again.
     await startNewGame(page);
@@ -139,6 +140,7 @@ export async function checkMusicReveal(browser, origin) {
     );
     await openSettings(page);
     await pressSetting(page, "music");
+    await closeSettings(page);
     await playing();
     assert.deepEqual(errors, []);
     console.log("Music: a new world is silent again and music off stays off");

@@ -27,7 +27,8 @@
         "name": "Hoppy Cat Universe",
         "packs": [
           "hoppycat-archive"
-        ]
+        ],
+        "reachedBy": "sea"
       }
     },
     "places": [

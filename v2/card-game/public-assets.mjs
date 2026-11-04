@@ -9,6 +9,7 @@ import { daylightAssets } from "./daylight.mjs";
 import { rarityPortraitAssets } from "./rarity-portraits.mjs";
 import { castCombatAssets } from "./cast-combat-art.mjs";
 import { sleepPortraitAssets } from "./sleep-portraits.mjs";
+import { BENCH } from "./settings-cards.mjs";
 
 // The local server, release smoke, and Rust asset generator use this list.
 const files = [
@@ -44,6 +45,8 @@ const files = [
     ),
   ),
   "assets/music/title-attic-lamp.mp3",
+  // Settings cards cut from the owner's workbench (settings-cards.mjs).
+  ...BENCH.map((name) => `assets/settings/workbench-${name}.png`),
   // Rest card paintings for issue #1849; the rest-card feature follows.
   "assets/rest/short-rest.webp",
   "assets/rest/long-rest.webp",
@@ -265,6 +268,7 @@ const files = [
   "pack-journeys.mjs",
   "pack-recital.mjs",
   "pack-rules.mjs",
+  "pack-toggle.mjs",
   "pack-transport.mjs",
   "item-use.mjs",
   "pack-items.mjs",

@@ -100,7 +100,7 @@ try {
     const audio = document.querySelector("#room-music");
     return new URL(audio.src).pathname.endsWith(file) && audio.currentTime > 0;
   }, roomTracks.pond[0].file);
-  await openSettings(page);
+  // Settings holds the song (below), so the playlist plays with it closed.
   let volume = 0.3;
   const fullVolume = () =>
     page.waitForFunction(
@@ -176,7 +176,6 @@ try {
   });
   volume = 0.18;
   await fullVolume();
-  await closeSettings(page);
 
   async function travel(room, card = room, check = () => checkPlaylist(room)) {
     await fullVolume();
@@ -240,13 +239,27 @@ try {
   await page.waitForFunction(
     () => !document.querySelector("#room-music").paused,
   );
+  // Settings fades the song out over a black screen and holds its place;
+  // closing it fades the song back in from there.
   await openSettings(page);
-  await fullVolume();
-  await pressSetting(page, "music");
-  assert(await page.locator("#room-music").evaluate((audio) => !audio.paused));
+  assert.equal(await page.locator(".settings-veil").isVisible(), true);
   await page.waitForFunction(
     () => document.querySelector("#room-music").paused,
   );
+  const held = await page
+    .locator("#room-music")
+    .evaluate((audio) => audio.currentTime);
+  await closeSettings(page);
+  await page.waitForFunction((at) => {
+    const audio = document.querySelector("#room-music");
+    return !audio.paused && audio.currentTime >= at;
+  }, held);
+  assert(held > 0, "the song held its place");
+  await openSettings(page);
+  await pressSetting(page, "music");
+  await closeSettings(page);
+  await page.waitForTimeout(1500);
+  assert(await page.locator("#room-music").evaluate((audio) => audio.paused));
   assert.deepEqual(
     await unexpectedStops(),
     [],
@@ -261,19 +274,20 @@ try {
   assert.equal(await page.locator("#music-volume").inputValue(), "18");
   assert(await page.locator("#room-music").evaluate((audio) => audio.paused));
   await pressSetting(page, "music");
+  await closeSettings(page);
   await page.waitForFunction(
     () => !document.querySelector("#room-music").paused,
   );
   await page.setViewportSize({ width: 390, height: 844 });
+  await openSettings(page);
   for (const id of ["music", "volume"])
     assert(await page.locator(`[data-setting="${id}"]`).isVisible());
-  await fullVolume();
-  await pressSetting(page, "music");
-  assert(await page.locator("#room-music").evaluate((audio) => !audio.paused));
   await page.waitForFunction(
     () => document.querySelector("#room-music").paused,
   );
   await pressSetting(page, "music");
+  await pressSetting(page, "music");
+  await closeSettings(page);
   await fullVolume();
   await page.screenshot({ path: "output/music/shore-room-mobile.png" });
 
@@ -300,9 +314,9 @@ try {
   }, encodeSave(ship));
   await page.reload();
   await openSettings(page);
-  await fullVolume();
   assert.equal(await page.locator("#music-volume").inputValue(), "18");
   await closeSettings(page);
+  await fullVolume();
 
   async function checkCrossingSong() {
     await page.waitForFunction((tracks) => {
