@@ -187,8 +187,8 @@ when either is missing; it will block once content versioning lands.
   - migration, generated-file, deployment, or compatibility notes when relevant;
   - a short review checklist confirming tests and generated artifacts.
 - Merge when local targeted tests and the PR's fast check pass and the change
-  is reviewed, following the landing rules above. The next scheduled train ships main
-  to `.dev`, then runs the production gates. Review those results before
+  is reviewed, following the landing rules above. The next scheduled train
+  ships main to `.dev`, then runs the production gates. Review those results before
   choosing a production release commit.
 - Leave the release version alone; only a release PR runs `npm run version:bump`.
 
@@ -216,7 +216,8 @@ when either is missing; it will block once content versioning lands.
 - Scheduled trains deploy main to the primary Fly app (`.dev`) every 30
   minutes when production inputs changed, then run the production gates.
   Release tags run the production gates, deploy both the primary and Lonely
-  Forest Fly apps, then create a GitHub release. AWS retains DNS, static-site, and rollback infrastructure;
+  Forest Fly apps, then create a GitHub release. AWS retains DNS, static-site,
+  and rollback infrastructure;
   feature branches never target production.
 
 ## Files requiring special handling
@@ -243,8 +244,8 @@ Treat these as review-sensitive rather than forbidden:
 
 - `v2/core-c/include/cosy_kernel.h` and journal action codes, because ABI or
   replay changes can invalidate history;
-- production profiles, workflows, `Dockerfile`, and `fly.toml`, because main supplies
-  the next scheduled `.dev` train;
+- production profiles, workflows, `Dockerfile`, and `fly.toml`, because main
+  supplies the next scheduled `.dev` train;
 - authored IDs, entitlement authorities, attributions, and pack dependencies,
   because they are persisted or externally meaningful.
 

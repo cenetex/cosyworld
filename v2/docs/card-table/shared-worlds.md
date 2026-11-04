@@ -113,7 +113,8 @@ and version wiring, rebuilds the rules, and adds the next version only when
 the bytes differ from main's. It pins the prior bundle's hash in
 `test/card-released-rules.test.mjs`. Run it again after each later rebase;
 it gives the same result. Then rebuild the card assets. Keep the package
-version for feature PRs; a release runs `npm run version:bump` once.
+version for feature PRs; a release runs `npm run version:bump` once. Resolve
+bundle conflicts through the generator so recorded bytes stay exact.
 
 `test/card-shared-bundle-modules.test.mjs` lists the modules the bundle may
 contain. A new import into the shared rules fails it. Pack content and
