@@ -85,8 +85,6 @@ mod tests {
         for word in ["Vale", "Empty station", "Lamp", "lamp", "oil"] {
             assert!(!prompt.contains(word), "{word} in {prompt}");
         }
-        // A retry keeps the same raw frame rather than adding a direction.
-        assert_eq!(attempt_transcript(&c, vale, Part::Line, 1), prompt);
     }
 
     #[test]

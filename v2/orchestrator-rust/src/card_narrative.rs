@@ -1556,12 +1556,13 @@ fn idiolect(entity: &Entity, part: Part) -> String {
         text.push_str("\n\n");
         text.push_str(persona);
     }
-    text.push_str("\n\n");
-    text.push_str(&if part == Part::Line {
-        expression::line_direction(expression::mode(profile), &name(&entity.id))
-    } else {
-        expression::direction(expression::Mode::Speech, &name(&entity.id))
-    });
+    // Speech carries no direction: the speaker only speaks as itself. A
+    // body-language or emoji voice keeps the shape its own check reads.
+    let mode = expression::mode(profile);
+    if part == Part::Line && mode != expression::Mode::Speech {
+        text.push_str("\n\n");
+        text.push_str(&expression::direction(mode, &name(&entity.id)));
+    }
     text
 }
 
@@ -1819,7 +1820,7 @@ fn transcript_sections(context: &Context, entity: &Entity, part: Part) -> Vec<(S
             .filter(|f| !chatting_turn || !f.starts_with("At the dialogue scene: "))
             .cloned(),
     ));
-    // A fact the rules reserved for this Talk: background to weave in.
+    // A fact the rules reserved for this Talk, among the things I know.
     let mentions = if part == Part::Line {
         knowledge::directions(context, id)
     } else {
@@ -1892,12 +1893,7 @@ fn transcript_sections(context: &Context, entity: &Entity, part: Part) -> Vec<(S
     if conversation::applies(context, entity, part) {
         return conversation::frame(context, entity, scene, lines, mentions);
     }
-    lines.extend(mentions.into_iter().map(|fact| {
-        (
-            Section::Directions,
-            format!("{} {fact}", conversation::MENTION),
-        )
-    }));
+    lines.extend(tagged(Section::Directions, mentions));
     let mut out: Vec<(Section, String)> = tagged(
         Section::Now,
         ["Current scene:".to_string(), scene, String::new()],
@@ -1983,24 +1979,6 @@ fn recent_own_lines(context: &Context, entity: &Entity) -> Vec<String> {
     }
     let start = lines.len().saturating_sub(3);
     lines.split_off(start)
-}
-
-const RETRY: &str = "My next words are fresh and describe this moment.";
-
-/// A rejected reply gets fresh wording grounded in the scene.
-fn attempt_transcript(context: &Context, entity: &Entity, part: Part, attempt: u8) -> String {
-    let prompt = transcript(context, entity, part);
-    if attempt == 0
-        || kind(&entity.id, "location")
-        || part == Part::Dream
-        || waking::applies(context, &entity.id, part)
-    {
-        return prompt;
-    }
-    let current = prompt
-        .split_once("Current scene:\n")
-        .map_or(prompt.as_str(), |(_, scene)| scene);
-    format!("{RETRY}\n\nCurrent scene:\n{current}")
 }
 
 /// The transcript tag the reply continues from.
@@ -2168,8 +2146,6 @@ async fn speak(
         voice_metrics::Budget::measure(&system, context, entity, part),
     )
     .labelled(context);
-    // Why the last attempt was refused, so the retry can be told.
-    let refused = Mutex::new(None::<&'static str>);
     let spoken = voice_attempts(
         settings,
         deadline,
@@ -2180,17 +2156,9 @@ async fn speak(
             } else {
                 &own
             };
-            let fix = refused
-                .lock()
-                .ok()
-                .and_then(|r| *r)
-                .and_then(framing::correction);
-            let (mut system, user) = messages(context, entity, part, attempt);
-            // A retry ends with the short correction for the last block.
-            if let Some(fix) = fix {
-                system = [system.as_str(), fix].join("\n\n").trim().to_string();
-            }
-            let (check, refused) = (&check, &refused);
+            // A retry resamples the same prompt; code, not words, shapes it.
+            let (system, user) = messages(context, entity, part);
+            let check = &check;
             let call = &call;
             let (model, provider) = match &escalation_route {
                 Some(route) if escalated => route,
@@ -2200,7 +2168,7 @@ async fn speak(
             async move {
                 let request = ChatCompletionRequest {
                     feature: "card_voice",
-                    prompt_version: "card-voice-v3",
+                    prompt_version: "card-voice-v4",
                     capability: ModelCapability::WorldContent,
                     system: &system,
                     user: &user,
@@ -2257,9 +2225,6 @@ async fn speak(
                     (text, completion.resolved_model_id.clone(), untold)
                 })
                 .map_err(|reason| {
-                    if let Ok(mut last) = refused.lock() {
-                        *last = Some(reason);
-                    }
                     call.reject(reason);
                     tracing::info!(
                         feature = "card_voice",
@@ -2297,15 +2262,16 @@ async fn speak(
     }
 }
 
-/// The system and user messages for one attempt. An avatar's line is a
-/// conversation turn (`conversation.rs`); other calls keep their transcript.
-fn messages(context: &Context, entity: &Entity, part: Part, attempt: u8) -> (String, String) {
+/// The system and user messages for a call. An avatar's line is a
+/// conversation turn (`conversation.rs`); other calls keep their
+/// transcript. Every attempt sends the same words.
+fn messages(context: &Context, entity: &Entity, part: Part) -> (String, String) {
     if conversation::applies(context, entity, part) {
-        return conversation::messages(context, entity, attempt);
+        return conversation::messages(context, entity);
     }
     (
         waking::system(context, entity, part),
-        attempt_transcript(context, entity, part, attempt),
+        transcript(context, entity, part),
     )
 }
 
@@ -2339,9 +2305,10 @@ struct Check<'a> {
     limit: usize,
     sentences: usize,
     known: BTreeSet<String>,
-    /// The prompt's instructions (`framing::instructions`). A reply that
-    /// repeats a run of them, or one of the transcript's labels ("I
-    /// remember:", "Holding:"), is a read-back of the brief, not speech.
+    /// The speaker's own view, line by line, without the talk it remembers.
+    /// Saying a fact is speech; a reply that runs from one of these lines
+    /// into the next reads the prompt back, as does a transcript label ("I
+    /// remember:", "Holding:").
     brief: Vec<String>,
     labels: Vec<String>,
     /// The speaker's last three lines, from memory; never in the prompt.
@@ -2392,7 +2359,18 @@ impl<'a> Check<'a> {
             limit,
             sentences,
             known: known(context),
-            brief: framing::instructions(entity),
+            brief: if kind(&entity.id, "location") {
+                vec![atmosphere::voice(&entity.id)]
+            } else {
+                transcript_sections(context, entity, part)
+                    .into_iter()
+                    .filter(|(section, _)| {
+                        !matches!(section, Section::Conversation | Section::Earlier)
+                    })
+                    .flat_map(|(_, line)| line.lines().map(str::to_string).collect::<Vec<_>>())
+                    .filter(|line| !line.is_empty())
+                    .collect()
+            },
             labels,
             recent: recent_own_lines(context, entity),
             answered: if chatting {
@@ -2657,8 +2635,25 @@ impl<'a> Check<'a> {
                 .any(|run| line.windows(n).any(|other| other == run))
         };
         let run = |line: &String| runs(line, 6);
-        // A long verbatim run of the instructions is a prompt leak.
-        if self.brief.iter().any(|line| runs(line, 10)) {
+        // Saying a fact is speech. Ten words running from one line of the
+        // view into the next, three or more on each side, is the prompt
+        // read back.
+        let (mut view, mut line_of) = (Vec::new(), Vec::new());
+        for (i, line) in self.brief.iter().enumerate() {
+            for word in words(line) {
+                view.push(word);
+                line_of.push(i);
+            }
+        }
+        let spans = |at: usize| {
+            let head = (at..at + 10).filter(|&k| line_of[k] == line_of[at]).count();
+            (3..=7).contains(&head)
+        };
+        if spoken.windows(10).any(|run| {
+            view.windows(10)
+                .enumerate()
+                .any(|(at, window)| window == run && spans(at))
+        }) {
             return Err("echoed brief");
         }
         flag(
@@ -2692,7 +2687,6 @@ impl<'a> Check<'a> {
             || conversation::SCAFFOLD
                 .iter()
                 .any(|phrase| lower.contains(phrase))
-            || self.brief.iter().any(run)
             || self.recital.iter().any(restates);
         flag(echoes, "echoed brief");
         // Inner life is the avatar's own first person, about things the
@@ -2881,7 +2875,7 @@ pub(crate) mod tests {
         // A conversation turn has no cue; with nobody to answer, the user
         // message names the place.
         assert!(!transcript(&c, vale, Part::Line).contains("Vale:"));
-        assert_eq!(conversation::messages(&c, vale, 0).1, "Mirror attic.");
+        assert_eq!(conversation::messages(&c, vale).1, "Mirror attic.");
     }
     #[test]
     fn farewell_speakers_do_not_require_a_vale_reply() {
@@ -3390,10 +3384,9 @@ pub(crate) mod tests {
             ),
             Err("story_outcome")
         );
-        let retry = attempt_transcript(&c, &c.entities[3], Part::Line, 1);
-        assert!(retry.starts_with("My next words are fresh"));
-        assert!(retry.contains(POEM_FACT));
-        assert!(!retry.contains("Her brother waited by the wall."));
+        let prompt = transcript(&c, &c.entities[3], Part::Line);
+        assert!(prompt.contains(POEM_FACT));
+        assert!(!prompt.contains("Her brother waited by the wall."));
         assert!(recital::valid(
             "greek-rhapsode",
             c.entities[3].poem.as_ref(),
@@ -3565,11 +3558,8 @@ pub(crate) mod tests {
         assert!(bard.iter().all(
             |r| r["temperature"].as_f64().unwrap() > 0.0 && r.get("response_format").is_none()
         ));
-        // The retry is told why the first reply was refused (#2016).
-        assert!(bard[1]["messages"][0]["content"]
-            .as_str()
-            .unwrap()
-            .ends_with("My next words are fresh.\n\nI stay in this moment and speak as myself."));
+        // The retry resamples the same words (owner, 2026-11-03).
+        assert_eq!(bard[1]["messages"], bard[0]["messages"]);
         assert!(bard
             .iter()
             .all(|request| prompt_of(request).contains(POEM_FACT)));
@@ -3622,7 +3612,7 @@ pub(crate) mod tests {
             .unwrap()
             .to_string();
         assert!(
-            system.contains("If it fits the conversation, I mention: I took the Lamp."),
+            system.contains("\nI took the Lamp.") && !system.contains("I mention"),
             "{system}"
         );
         server.abort();
@@ -3881,14 +3871,8 @@ pub(crate) mod tests {
             .map(|request| request["messages"][0]["content"].as_str().unwrap())
             .collect();
         assert!(prompts.iter().all(|prompt| prompt.contains(POEM_FACT)));
-        assert_eq!(
-            format!(
-                "{}\n\nMy next words are fresh.\n\n{}",
-                prompts[0],
-                framing::correction("assistant").unwrap()
-            ),
-            prompts[1]
-        );
+        // A retry resamples the same words.
+        assert_eq!(prompts[0], prompts[1]);
         server.abort();
     }
 
@@ -4629,7 +4613,8 @@ pub(crate) mod tests {
         assert!(!pip.contains("I offered my cloth."));
         assert!(transcript(&c, &c.entities[3], Part::Thought)
             .contains("Earlier: Pip: I offered my cloth."));
-        assert!(idiolect(&c.entities[3], Part::Line).starts_with("I am Pip, a moth.\n"));
+        // Who I am, and no direction (owner, 2026-11-03).
+        assert_eq!(idiolect(&c.entities[3], Part::Line), "I am Pip, a moth.");
         c.action = Some("x".repeat(651));
         assert!(!valid(&c));
         c = context();
@@ -5085,8 +5070,8 @@ pub(crate) mod tests {
             .filter(|request| stem_of(request) == "Vale:")
             .filter_map(|request| request["messages"][0]["content"].as_str())
             .collect();
-        assert!(!vale[0].contains("My next words are fresh"));
-        assert!(vale[1].ends_with("My next words are fresh.\n\nOnly what is true here now."));
+        // The retry resamples the same words.
+        assert_eq!(vale[0], vale[1]);
         assert!(vale[1].contains("unlit"));
         server.abort();
     }
@@ -5438,12 +5423,9 @@ pub(crate) mod tests {
                 )
             })
             .collect();
-        // A retry keeps the same frame and line, and asks for fresh words.
-        let (system, user) = prompts[0];
-        assert!(!system.contains("My next words are fresh"));
-        for (retry, answered) in &prompts[1..] {
-            assert_eq!(*retry, format!("{system}\n\nMy next words are fresh."));
-            assert_eq!(*answered, user);
+        // A retry resamples the same frame and line.
+        for retry in &prompts[1..] {
+            assert_eq!(*retry, prompts[0]);
         }
         let pip: Vec<_> = requests
             .iter()
@@ -5889,13 +5871,6 @@ pub(crate) mod tests {
             Err("echoed brief")
         );
         assert_eq!(
-            check.clean(
-                "I answer in one or two short sentences, in my own voice.",
-                true
-            ),
-            Err("echoed brief")
-        );
-        assert_eq!(
             check.clean("Antigone left her oil here.", true),
             Err("unknown entity")
         );
@@ -5936,7 +5911,7 @@ pub(crate) mod tests {
             text: "Vale: I keep my own counsel.".into(),
         });
         c.entities[0].previous = Some("Will you show me the far shore?".into());
-        let (system, user) = conversation::messages(&c, &c.entities[0], 0);
+        let (system, user) = conversation::messages(&c, &c.entities[0]);
         // Vale opens from the latest line said to them, not from the caption.
         assert_eq!(user, "Only if you bring the lamp.");
         assert!(!system.contains("Just now:"));
@@ -5948,7 +5923,7 @@ pub(crate) mod tests {
         assert!(!system.contains("I keep my own counsel."));
         assert!(!system.contains("Earlier:"));
         // Pip answers the line Vale's Talk put to them.
-        let (system, user) = conversation::messages(&c, &c.entities[3], 0);
+        let (system, user) = conversation::messages(&c, &c.entities[3]);
         assert_eq!(user, "Will you show me the far shore?");
         assert!(system.contains("Pip: Only if you bring the lamp."));
         assert!(!system.ends_with(':'));

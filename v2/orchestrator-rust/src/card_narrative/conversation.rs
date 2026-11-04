@@ -13,10 +13,6 @@ pub(super) const CHAT_LINES: usize = 6;
 /// And at most about this many characters (about 100 tokens), so a
 /// conversation prompt stays near #1537's 350 tokens.
 const CHAT_CHARS: usize = 400;
-/// The disclosure, worded as background the speaker may weave in.
-pub(super) const MENTION: &str = "If it fits the conversation, I mention:";
-/// What a retry adds to the system message.
-const FRESH: &str = "My next words are fresh.";
 
 /// Avatars' spoken lines use this shape. Places, reflections and a player's
 /// avatar still waking unnamed keep their own transcripts.
@@ -107,7 +103,12 @@ pub(super) fn frame(
     let (known, now): (Vec<_>, Vec<_>) = lines
         .into_iter()
         .partition(|(section, _)| matches!(section, Section::Facts | Section::Inner));
-    let known: Vec<_> = known.into_iter().filter_map(once).collect();
+    // A fact the rules reserved for this Talk is one more thing I know.
+    let known: Vec<_> = known
+        .into_iter()
+        .filter_map(once)
+        .chain(mentions.into_iter().map(|fact| (Section::Directions, fact)))
+        .collect();
     out.extend(now);
     if !known.is_empty() {
         out.push((Section::Now, String::new()));
@@ -124,10 +125,6 @@ pub(super) fn frame(
         out.push((Section::Now, String::new()));
         out.push((Section::Conversation, "Recent talk here:".into()));
         out.extend(chat.into_iter().map(|line| (Section::Conversation, line)));
-    }
-    for fact in mentions {
-        out.push((Section::Now, String::new()));
-        out.push((Section::Directions, format!("{MENTION} {fact}")));
     }
     out
 }
@@ -166,28 +163,12 @@ pub(super) fn strategy(fact: &str) -> bool {
             && (fact.contains(" to agree. ") || fact.contains(" to decline. ")))
 }
 
-/// The system and user messages for one attempt.
-pub(super) fn messages(context: &Context, entity: &Entity, attempt: u8) -> (String, String) {
+/// The system and user messages. Every attempt sends the same words.
+pub(super) fn messages(context: &Context, entity: &Entity) -> (String, String) {
     let mut system = idiolect(entity, Part::Line);
     system.push_str("\n\n");
     system.push_str(&super::transcript(context, entity, Part::Line));
-    if attempt > 0 {
-        system.push_str("\n\n");
-        system.push_str(FRESH);
-    }
     (system, user(context, entity))
-}
-
-/// The scaffold a reply must not read back: the voice direction and the
-/// disclosure's own wording. Facts, the scene and the talk are background a
-/// speaker may use in its own words.
-pub(super) fn meta(entity: &Entity) -> Vec<String> {
-    let profile = &super::profiles()[&entity.id];
-    vec![
-        super::expression::line_direction(super::expression::mode(profile), &name(&entity.id)),
-        MENTION.into(),
-        FRESH.into(),
-    ]
 }
 
 /// The context with the actor's fresh line added to the table talk, so the
