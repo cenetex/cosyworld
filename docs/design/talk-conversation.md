@@ -27,6 +27,10 @@ logs.
 Status: built for [#2078](https://github.com/cenetex/cosyworld/issues/2078),
 with no rules version.
 
+A current tab's line remembers through `recall` instead (P4, see the
+[card guide](../../v2/card-game/README.md)); this paragraph remains only for
+tabs from older releases.
+
 On a return visit, a speaker sees a little of its history with the person it
 faces, as its own first-person paragraph after what it knows. It decides nothing; it only
 shapes what is said.

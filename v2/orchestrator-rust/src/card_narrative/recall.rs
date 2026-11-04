@@ -247,4 +247,31 @@ mod tests {
             &mut c
         ));
     }
+
+    /// Vale remembers Pip in its own words, in about 60 tokens at most.
+    #[test]
+    fn a_memory_is_told_in_my_own_words() {
+        let mut c = context();
+        let memory = json!({
+            "reunion": {"place": "station", "turn": 4, "visits": 3},
+            "acts": [
+                {"verb": "ask", "by": "moth", "item": "lamp", "refused": true, "turn": 1},
+                {"verb": "give", "by": "vale", "item": "cloth", "turn": 4},
+            ],
+        });
+        c.entities[0].recall = Some(serde_json::from_value(memory).unwrap());
+        assert!(valid(&c));
+        let told = lines(&c, &c.entities[0], c.entities[0].recall.as_ref().unwrap());
+        assert_eq!(
+            told,
+            [
+                "I've met Pip a few times.",
+                "I last saw Pip here, just now.",
+                "A little while ago, Pip asked me for the Lamp, and I kept it.",
+                "Just now, I gave Pip the Black cloth.",
+            ]
+        );
+        let chars: usize = told.iter().map(|l| l.chars().count() + 1).sum();
+        assert!(chars.div_ceil(4) <= TOKENS);
+    }
 }

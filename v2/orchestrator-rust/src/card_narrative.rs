@@ -1952,23 +1952,17 @@ fn transcript_sections(context: &Context, entity: &Entity, part: Part) -> Vec<(S
     // and the world, never from example utterances.
     let mut view = conversation::frame(context, entity, part, lines, mentions);
     if let Some(p) = perceived {
-        let memory = entity
-            .recall
-            .as_ref()
-            .map(|r| recall::lines(context, entity, r));
-        for (section, block) in [
-            (Section::Memories, memory.unwrap_or_default()),
-            (
-                Section::Now,
-                perception::lines(context, entity, p)
-                    .into_iter()
-                    .map(|(_, l)| l)
-                    .collect(),
-            ),
-        ] {
+        // What I remember of the one I face, then what I perceive now.
+        let memory = entity.recall.as_ref().map_or_else(Vec::new, |r| {
+            recall::lines(context, entity, r)
+                .into_iter()
+                .map(|l| (Section::Memories, l))
+                .collect()
+        });
+        for block in [memory, perception::lines(context, entity, p)] {
             if !block.is_empty() {
                 view.push((Section::Now, String::new()));
-                view.extend(block.into_iter().map(|line| (section, line)));
+                view.extend(block);
             }
         }
     }
