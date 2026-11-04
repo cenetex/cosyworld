@@ -290,8 +290,7 @@ jobs:
     needs: [dev-deploy, deployment-impact, release-owner]
     # Tags and production dispatches run it before their rollouts. A train
     # that rolled out runs it after, off the .dev path, with the Rust gate
-    # and lint: promotion takes only a train whose three gates all passed
-    # (scripts/promote-train.mjs).
+    # and lint, so a tag of that train's commit can reuse their results.
     if: >-
       !cancelled() &&
       ((needs.deployment-impact.outputs.deploy == 'true' &&
@@ -335,8 +334,8 @@ jobs:
     needs: [dev-deploy, deployment-impact, release-owner]
     # The .dev train deploys without this gate; the fast check still checks
     # main. Tags and production dispatches keep it. A train that rolled out
-    # runs it after its rollout, off the .dev path, so the promotion of that
-    # train and a tag that only bumps its version reuse the result
+    # runs it after its rollout, off the .dev path, so a tag that only bumps
+    # that train's version reuses the result
     # (scripts/await-ci-rust.mjs) instead of running it again.
     if: >-
       !cancelled() &&

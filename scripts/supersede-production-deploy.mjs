@@ -20,8 +20,6 @@ import { appendFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { isProductionRun } from "./promote-train.mjs";
-
 // The jobs that replace a running app. Cancelling one mid-step could leave
 // the app half rolled out, so a run with any of them started is never
 // cancelled; newer runs wait for them instead.
@@ -43,13 +41,27 @@ export function runTargets(run) {
   return target === "both" ? ["primary", "lonelyforest"] : [target];
 }
 
+// A tag push or a non-.dev dispatch: a run that can deploy Lonely Forest.
+// Scheduled runs and `.dev train` dispatches only deploy .dev.
+export function isProductionRun(run) {
+  if (run.event === "schedule") return false;
+  if (String(run.display_title ?? "").startsWith(".dev train ")) return false;
+  return (
+    run.event === "workflow_dispatch" ||
+    (run.event === "push" && /^v/.test(run.head_branch ?? ""))
+  );
+}
+
+// A dispatch from a `promote/*` branch. Production no longer promotes
+// trains (it ships only tags), but the rule stays so a leftover promotion
+// run can never beat a tag.
 export const isPromotion = (run) =>
   run.event === "workflow_dispatch" &&
   String(run.head_branch ?? "").startsWith("promote/");
 
 // Whether run `a` supersedes run `b`. The later run wins, so the owner's last
 // tag or dispatch is what ships, except that a promotion never supersedes a
-// run whose commit it does not contain: a scheduled promotion yields to a tag.
+// run whose commit it does not contain: a promotion yields to a tag.
 // `contains(x, y)` is true when x's commit is y's or a descendant of it.
 export function supersedes(a, b, contains) {
   const later =
@@ -171,7 +183,7 @@ async function snapshot(repo, selfId) {
     runs.find((run) => String(run.id) === selfId) ??
     (await api(`/repos/${repo}/actions/runs/${selfId}`));
   // Runs that finished before this one started are already live or failed;
-  // the promoter compares with the live /meta commit for those.
+  // the release-owner gate compares tags with the live commit for those.
   const others = runs.filter(
     (run) =>
       String(run.id) !== selfId &&

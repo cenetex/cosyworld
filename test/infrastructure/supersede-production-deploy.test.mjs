@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  isProductionRun,
   planClaim,
   planStart,
   rolloutInFlight,
@@ -246,5 +247,27 @@ describe("before a rollout", () => {
       "success",
     );
     expect(rolloutInFlight(tag, [deployed, restored], "primary")).toBe(false);
+  });
+});
+
+describe("production runs", () => {
+  it("tells trains from production runs", () => {
+    expect(isProductionRun({ event: "schedule" })).toBe(false);
+    expect(isProductionRun({ event: "push", head_branch: "main" })).toBe(false);
+    expect(
+      isProductionRun({
+        event: "workflow_dispatch",
+        display_title: ".dev train 0123456789abcdef",
+      }),
+    ).toBe(false);
+    expect(
+      isProductionRun({
+        event: "workflow_dispatch",
+        display_title: "Deploy main to lonelyforest",
+      }),
+    ).toBe(true);
+    expect(isProductionRun({ event: "push", head_branch: "v1.2.3" })).toBe(
+      true,
+    );
   });
 });
