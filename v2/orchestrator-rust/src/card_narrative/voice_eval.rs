@@ -565,7 +565,8 @@ fn a_character_speaks_as_itself_in_the_assistant_turn() {
     let prompt = messages(&heard, dione, Part::Line);
     assert_eq!(prompt.system, "You are Dione the Baker.");
     let view = prose(&prompt.assistant);
-    assert!(view.starts_with("I am Dione the Baker.\n\nI want the Funeral Oil. "));
+    // The system turn says who she is; her own view does not repeat it.
+    assert!(view.starts_with("I want the Funeral Oil. "));
     assert!(view.ends_with(
         "I smell bread cooling under a cloth; one place at the table is empty. My hands are \
          empty. Vale's Lamp is burning and uncovered. I ask Vale for the Funeral Oil. Vale keeps \
