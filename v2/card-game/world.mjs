@@ -2685,8 +2685,7 @@ export function play(
       state: s,
       error: "The world changed. Choose a current play.",
     };
-  // Switching a pack off or on is journaled like a play; no turn passes
-  // (rules 98, pack-toggle.mjs).
+  // Switching a pack is journaled; no turn passes (rules 98, pack-toggle.mjs).
   if (action?.kind === "pack") {
     const next = structuredClone(s);
     const done = togglePack(next, action, actor, {

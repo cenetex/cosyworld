@@ -38,7 +38,6 @@ describe("switching a pack off and on (rules 98)", () => {
     expect(s.disabledPacks).toBeUndefined();
     const after = ok(play(s, off(SEA)));
     expect(after.disabledPacks).toEqual([SEA]);
-    // The player comes out where the pack's way opens; the rest spread.
     expect(after.actors.vale.place).toBe("pond");
     expect(after.items.lamp.holder).toBe("vale");
     // Dealt round the Sea's ways out: the pond and the Hoppy Cat jetty.
@@ -54,7 +53,6 @@ describe("switching a pack off and on (rules 98)", () => {
     const quiet = ok(play(s, off(SEA)));
     expect(entityActive(quiet, "greek-well")).toBe(false);
     expect(entityActive(quiet, "greek-elder")).toBe(false);
-    // Carried away, its thing stays with its holder, unseen.
     expect(quiet.items["greek-water-jar"].holder).toBe("vale");
     expect(entityActive(quiet, "greek-water-jar")).toBe(false);
     const back = ok(play(reload(quiet), on(SEA)));
@@ -77,13 +75,11 @@ describe("switching a pack off and on (rules 98)", () => {
     const want = (target) => ({ kind: "item", target, refusals: 0, since: 0 });
     w.actors.moth.want = want("greek-water-jar");
     w.actors.moth.under = [want("lamp")];
-    // Vale in the fight may not switch; once out of it, the fight ends.
     const vale = { ...w.standoffs[0], challenger: "vale" };
     const busy = reload({ ...w, standoffs: [vale] });
     expect(play(busy, off(SEA)).error).toMatch(/Not during a fight/);
     const after = ok(play(reload(w), off(SEA)));
     expect(after.standoffs).toEqual([]);
-    // Set aside as it is, with nothing redrawn.
     expect(questsOf(after, "moth").map((q) => q.target)).toEqual([
       "lamp",
       "greek-water-jar",
@@ -97,7 +93,6 @@ describe("switching a pack off and on (rules 98)", () => {
       Object.assign(w.items.lamp, { holder: "attic", lit: true });
     });
     const moves = (w) => legalActions(w).map((a) => a.target);
-    // Cosy Cottage's entry, the lit attic, goes with it.
     expect(moves(s)).toContain("forest-cottage");
     expect(moves(ok(play(s, off(COTTAGE))))).not.toContain("forest-cottage");
     const quiet = ok(play(s, off(SHORE)));
