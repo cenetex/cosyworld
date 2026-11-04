@@ -3,6 +3,8 @@
 // else new lie face down in the hand and nowhere in the scene, and no
 // unrevealed name shows. Tapping a card reveals it: the lamp fades into
 // Vale's hand and the attic comes up out of the black, in either order.
+// Then the opening's first play, Put out, darkens the room and the pond
+// arrives face down (opening.mjs).
 //
 //   node v2/scripts/smoke-card-stage-reveal.mjs [screenshot-dir]
 import assert from "node:assert/strict";
@@ -10,7 +12,11 @@ import { mkdir } from "node:fs/promises";
 import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
 import { profiles } from "../card-game/memory.mjs";
-import { revealCard, smokeWidths } from "./card-browser-helpers.mjs";
+import {
+  revealCard,
+  selectCard,
+  smokeWidths,
+} from "./card-browser-helpers.mjs";
 
 const output = new URL(
   process.argv[2]
@@ -67,6 +73,9 @@ try {
               .filter((el) => el.dataset.unrevealed === "true")
               .map((el) => el.dataset.card),
             text: document.body.innerText,
+            buttons: [...document.querySelectorAll("#card-actions button")]
+              .filter((el) => el.checkVisibility())
+              .map((el) => el.textContent),
           };
         });
       const noLeaks = ({ down, text }) => {
@@ -99,7 +108,14 @@ try {
 
       // Either order: each tap reveals one thing into the scene.
       for (const [step, id] of order.entries()) {
-        await revealCard(page, id);
+        // The quiet Reveal button turns the last card down as a tap does.
+        if (step === 1 && reduced) {
+          if ((await page.locator("#hand [aria-pressed=true]").count()) === 0)
+            await selectCard(page, "vale");
+          await page
+            .locator('#card-actions [data-quiet="true"]', { hasText: "Reveal" })
+            .click();
+        } else await revealCard(page, id);
         await page.waitForSelector(
           `#hand .card[data-card="${id}"][data-unrevealed="false"]`,
         );
@@ -107,9 +123,35 @@ try {
         assert.deepEqual(seen.cast, ["vale"]);
         if (id === "lamp") assert.equal(seen.held, 1, "the lamp in his hand");
         if (id === "attic") assert.equal(seen.black, "false");
+        // The opening offers no play while a card is down (opening.mjs).
+        if (step === 0) assert.ok(!seen.buttons.some((b) => b !== "Reveal"));
         noLeaks(seen);
         await shot(`0${step + 2}-revealed-${id}`);
       }
+      // Then its first real play: Put out darkens the room, and the card
+      // the rules bring arrives face down, nowhere on stage.
+      const putOut = page.locator("#card-actions .card-primary", {
+        hasText: "Put out",
+      });
+      await putOut.waitFor();
+      await shot("04-put-out-offered");
+      await putOut.click();
+      await page.waitForFunction(
+        () => document.body.dataset.lamplit === "false",
+      );
+      // The pond lies face down behind the attic, an edge on its stack.
+      await page.waitForSelector(
+        '#hand .card[data-card="pond"][data-unrevealed="true"]',
+        { state: "attached" },
+      );
+      await page.waitForSelector(
+        '#hand .card-frame[data-places="1"] > [data-card="attic"]',
+      );
+      seen = await view();
+      assert.deepEqual(seen.cast, ["vale"]);
+      assert.equal(seen.floor, 0);
+      noLeaks(seen);
+      await shot("05-room-dark-new-card");
       assert.deepEqual(errors, []);
       await page.close();
       console.log(`Stage reveal: ${width}px, ${order.join(" then ")} passed.`);
