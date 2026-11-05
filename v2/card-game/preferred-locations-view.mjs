@@ -28,6 +28,9 @@ export function createPreferredLocationsView(stage, art, cast) {
     }
     const castBox = cast.getBoundingClientRect();
     const floor = stageBox.bottom - 12;
+    const dockTop = document
+      .querySelector(".play-dock")
+      .getBoundingClientRect().top;
     const placed = [];
     for (const figure of cast.children) {
       const spot = spots.get(figure.dataset.avatar);
@@ -35,11 +38,17 @@ export function createPreferredLocationsView(stage, art, cast) {
         figure.style.removeProperty("left");
         figure.style.removeProperty("bottom");
         figure.style.removeProperty("max-height");
+        figure.style.removeProperty("min-height");
         continue;
       }
       figure.style.maxHeight = `${Math.max(1, Math.min((stageBox.width * 1.5) / (stageBox.width < 701 ? Math.min(spots.size, 3) : 1), floor - stageBox.top))}px`;
+      figure.style.minHeight = `${Math.min(stageBox.height * 0.4, 140)}px`;
       const { width, height } = figure.getBoundingClientRect();
       const point = projectPaintedSpot(spot, artBox, castBox, stageBox, floor);
+      point.bottom = Math.max(
+        point.bottom,
+        castBox.bottom - dockTop + 12 - height * 0.7,
+      );
       point.bottom = Math.min(
         point.bottom,
         castBox.bottom - stageBox.top - height,
