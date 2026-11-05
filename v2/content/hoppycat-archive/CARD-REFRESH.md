@@ -69,7 +69,8 @@ Every pair can reach the shared evening and Invitation Home.
 
 The Garden links to the Jetty, Loft and Glasshouse. The Jetty links to the
 Garden, Water Garden and Bell Theatre. Each side room has one route back.
-Every active place has at most three exits. The pack's own landing opens all
+Every active place has at most three local paths. The Pond return and Jetty
+boat keep their existing map-cap exceptions. The pack's own landing opens all
 six places. Earlier saves fold their drawn rooms and lone residents or items
 into the new rooms, so their existing stories remain reachable.
 

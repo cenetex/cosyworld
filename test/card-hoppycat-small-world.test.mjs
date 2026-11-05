@@ -62,7 +62,7 @@ describe("Hoppy Cat as a small world", () => {
       expect(world.actors[id].place).toBe(a.place);
   });
 
-  it("keeps every active place within three links", () => {
+  it("keeps every active place within three local links", () => {
     for (const place of Object.values(pack.places).filter((p) => !p.retired))
       expect(place.exits.length).toBeLessThanOrEqual(3);
   });
