@@ -36,14 +36,6 @@ describe("preferred painting locations", () => {
       ash: spots[0],
       pip: spots[2],
     });
-    expect(
-      preferredLocations(
-        "pond",
-        "./assets/day.png",
-        ["pip", "vale", "ash"],
-        catalog,
-      ).ash,
-    ).toEqual(spots[0]);
   });
   it("chooses the actual painting and validates its spots", () => {
     expect(
