@@ -27,6 +27,7 @@ import { sleepingPortrait } from "./sleep-portraits.mjs";
 import { rarityForm } from "./rarity-portraits.mjs";
 import { flipStagePortrait, nativePortraitFacing } from "./portrait-facing.mjs";
 import { sceneChanges } from "./scene-cast.mjs";
+import { preferredLocations } from "./preferred-locations.mjs";
 export { sceneChanges };
 
 // The lamp lights a place only while it shines there: held by someone in that
@@ -370,6 +371,7 @@ export function sceneStaging(
     review = false,
     sharedPlays = [],
     currentState = false,
+    preferredCatalog = {},
   } = {},
 ) {
   // Residents painted into the backdrop, and a player the place leaves off
@@ -417,6 +419,14 @@ export function sceneStaging(
   // In a battle the latest exchange (striker, any guard, the one aimed at)
   // keeps the front between plays; the other combatants stand behind.
   const fight = world.standoffs?.find((c) => c.location === locationId);
+  const preferred = fight
+    ? {}
+    : preferredLocations(
+        locationId,
+        backdrop(locationId, world),
+        ids,
+        preferredCatalog,
+      );
   const last = fight
     ? world.log.findLast(
         (e) =>
@@ -510,11 +520,12 @@ export function sceneStaging(
   const at = new Map(
     order.map((id, i) => [
       id,
-      order.length === 1 && stage.mark !== undefined
-        ? stage.mark
-        : mirror
-          ? 100 - positions[i][0]
-          : positions[i][0],
+      preferred[id]?.[0] ??
+        (order.length === 1 && stage.mark !== undefined
+          ? stage.mark
+          : mirror
+            ? 100 - positions[i][0]
+            : positions[i][0]),
     ]),
   );
   const events = history.filter(
@@ -652,7 +663,11 @@ export function sceneStaging(
             : "back"
           : ["foreground", "middle", "back"][Math.min(index, 2)],
         x: at.get(id),
-        scale: positions[index][1] * (residentPose(world, id)?.scale ?? 1),
+        paintedSpot: preferred[id] || null,
+        scale:
+          positions[index][1] *
+          (residentPose(world, id)?.scale ?? 1) *
+          (preferred[id]?.[2] ?? 1),
         floor: positions[index][2],
         facing,
         gazeTargetId,
