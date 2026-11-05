@@ -247,6 +247,7 @@ const files = [
   "settings-cards.mjs",
   "settings-screen.mjs",
   "scene.mjs",
+  "preferred-locations.mjs",
   "weather.mjs",
   "weather.json",
   "world-life.json",
