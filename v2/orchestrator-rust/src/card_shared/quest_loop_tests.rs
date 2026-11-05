@@ -183,8 +183,8 @@ fn rules_98_world_upgrades_to_99_keeping_its_opening_and_packs() {
 
     let upgraded = full_store::world(&c, &id, now()).unwrap();
     assert_eq!(upgraded.version, engine::VERSION);
-    // Greek revision 20 (rules 102) is the only change.
-    let old = super::saved_items::greek_revision_20(&old, &upgraded.game);
+    // Greek revision 20 and Hoppy revision 4 update their rooms and things.
+    let old = super::saved_items::current_pack_changes(&old, &upgraded.game);
     for field in ["opening", "packs", "items", "turn", "log"] {
         assert_eq!(upgraded.game[field], old[field], "Keep {field}");
     }

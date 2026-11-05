@@ -21,60 +21,57 @@ managed separately from this browser setting.
 
 ## What returns
 
-All 10 places, 16 residents, and 10 objects use their existing `cards.json`
-IDs. The 36 generated WebP images are copied byte for byte into
-`v2/card-game/assets/hoppycat-archive/`. The card game uses 26 new transparent
-PNG cutouts for its characters and objects. Each cutout comes from its original
-portrait or item image through the built-in image generator. The exact prompts
-and file paths are in `cutout-prompts.json`. Fable now works beside Mira in the
-Atelier. Residents keep their homes so every story step has a steady host.
-The card game uses the authored voices through its shared dialogue service.
-
-The card pack starts at revision 1. The earlier numeric IDs, classic journals,
-model bindings, source index, and compiled classic packs retain their existing
-contracts. The new card catalog enters shared play under rules version 18.
-Versions 15 and 16 remain available for earlier journal records. Existing card saves
-receive the new pack through the normal pack installer.
+The six active places keep their original IDs and art. Four earlier rooms
+fold into them: Cathedral into the Makers' Loft, Greenhouse into the
+Glasshouse, Tidelands into the Water Garden, and Belfry into the Bell Theatre.
+All 16 residents and 10 earlier objects keep their identities. Three paper
+items use the existing paper art: Mira's Draft, Evening Programme, and Sol's
+Reading. Old saves keep carried objects, trust, receipts and known rooms.
 
 ## Stories
 
 Arc earns a new portrait at Epic level 30, and Hoppy earns hers at Mythic
-level 100. Their cards, scene cutouts and combat poses follow the same saved
-progress. See [rarity portraits](RARITY-PORTRAITS.md) for the art and transition
-contract.
+level 100. See [rarity portraits](RARITY-PORTRAITS.md).
 
-- **February Third:** keep a correction, plant a memory seed, find the last facet,
-  trace a reflection, hear Nix's pause, tie the thread, and fit the clapper.
-- **The shared evening:** share the cup, paint a playbill, credit the performers,
-  and stage a new forest play.
-- **The invitation:** rehearse a second attempt, fill in a return card, and send
-  an invitation after the bell and the performance.
+- **Glim's place:** carry his Place Ring from the Garden to the Water Garden.
+  Talk to Phase Two, give Glim the ring, and talk to Glim. Accompany him
+  through the Jetty to the Garden. Talk, then give him the Two-Handled Cup.
+- **Mira's work:** talk to Mira in the Makers' Loft. Give her Worn Brush to
+  Mira for a painted playbill, or give Mira's Draft to Fable for a reading.
+  Wait and take the Evening Programme. Talk to Ledger Opus, take the Maker's
+  Label, and give it to Penny for a credit. Take it back. Talk to Mira and
+  accompany her to the Garden. Give the programme and label to Hoppy.
+- **Lumen's light:** give the Crooked Prism to Lumen in the Glasshouse. Wait
+  and take it from the bench. After Hoppy's welcome, give the Visit Seed to
+  Patch. Talk to Lumen and accompany them to the Garden. Give Hoppy the prism.
+- **Rill's route:** talk to Phase Two to meet Rill and Arc. Take Rill's Compass,
+  talk to Rill, and carry it to Static at the Jetty and Hoppy at the Garden.
+  Talk to each, then return to Arc. Give the signed compass to Hoppy.
+- **Sol's reading:** talk to Sol in the Bell Theatre, wait, and take Sol's
+  Reading. Give it to Hoppy at the Garden.
+- **The shared evening:** talk to Hoppy. Finish any contribution above and
+  wait at the Garden. Hoppy thanks each maker as their work arrives.
+- **February Third:** talk to Nix at the Bell Theatre and wait for his pause.
+  After the shared evening, give him the Bell's Heart.
+- **Invitation Home:** after the shared evening, talk to Static. Take the
+  Invitation Home, give it to Static to sign, and take it home.
 
-Carry each tool to the person who uses it. Each story step records a saved
-receipt. Later steps read those receipts. The seed, spool, clapper, and launch
-card stay where the player places them. The performer credits include Piper
-on flute and drums.
+Talk, Give, Take, Wait, travel and Accompany carry every story. Each deed has
+a saved receipt. Glim, Mira and Lumen arrive as people at the tea table.
+Contributions rest there. Static's signed invitation can travel home.
 
 ## A small world
 
-Hoppy Cat is a small world (#1622). Its core is the Halfway Tea Garden and
-the Signal Jetty, joined directly. Hoppy Cat and Tapi Lilt live in the garden;
-staticwashere keeps the jetty. The Red-Thread Spool starts at the empty station and
-is never drawn.
+Revision 4 keeps the Halfway Tea Garden and Signal Jetty as the core. Each
+run draws two of four complete rooms: Makers' Loft, Glasshouse, Water Garden,
+and Bell Theatre. Each room brings its people, tools and a finished story.
+Every pair can reach the shared evening and Invitation Home.
 
-Each run draws two of the other eight places, one resident and one thing.
-A drawn place brings its residents and things. Each of the eight links only
-to the garden or the jetty: the Cathedral, the Greenhouse, the Foundry and the
-Atelier to the garden; the Belfry, the Tidelands, the Theatre and the Goldfish
-Tank to the jetty. Every link counts toward the three-link map rule, so the
-garden and the jetty stay over the cap until their map is redrawn (#1785).
-Hoppy Cat revision 3 re-walks a known step between two of the eight through
-the garden or the jetty. The drawn resident and
-thing come from undrawn places and wait in the garden. Every place, resident
-and thing is common. A story whose steps need undrawn places waits for a run
-that draws them. The pack's own landing (`?pack=hoppycat-archive`,
-`hoppy.lonelyforest.com`) opens the whole archive, so all three stories can
-be finished there.
+The Garden links to the Jetty, Loft and Glasshouse. The Jetty links to the
+Garden, Water Garden and Bell Theatre. Each side room has one route back.
+Every active place has at most three exits. The pack's own landing opens all
+six places. Earlier saves fold their drawn rooms and lone residents or items
+into the new rooms, so their existing stories remain reachable.
 
 ## Research checked on 28 October 2026
 

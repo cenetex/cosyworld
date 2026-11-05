@@ -9,18 +9,18 @@ import {
   RARITY_WEIGHTS,
 } from "../v2/card-game/pack-specials.mjs";
 import { packProblems } from "../v2/card-game/pack-schema.mjs";
-import {
-  hub,
-  packDefinition,
-  packDefinitions,
-} from "../v2/card-game/pack-registry.mjs";
+import { hub, packDefinitions } from "../v2/card-game/pack-registry.mjs";
 import { createWorld, decodeSave, encodeSave } from "../v2/card-game/world.mjs";
 import { sharedContentInput } from "../v2/scripts/shared-content-input.mjs";
 
-// A test pool over the Hoppy Cat archive: the garden is core, the rest is drawn.
-const hoppy = packDefinition("hoppycat-archive");
+// A fixed Hoppy revision 3 cast keeps these draw tests independent of stories.
+const hoppy = JSON.parse(
+  readFileSync(new URL("./fixtures/hoppycat-v3/pack.json", import.meta.url)),
+);
 const garden = "hoppycat-halfway-tea-garden";
-const places = Object.keys(hoppy.places).filter((id) => id !== garden);
+const places = Object.keys(hoppy.places).filter(
+  (id) => id !== garden && !hoppy.places[id].retired,
+);
 const residents = Object.entries(hoppy.avatars)
   .filter(([, a]) => a.place !== garden)
   .map(([id]) => id);
@@ -94,8 +94,8 @@ describe("seeded specials", () => {
   it("validates the pool", () => {
     const mounted = packDefinitions.flatMap((p) => Object.keys(p.places));
     const problems = (s) =>
-      packProblems({ ...hoppy, routes: [], specials: s }, hub, mounted).filter((p) =>
-        p.startsWith("specials"),
+      packProblems({ ...hoppy, routes: [], specials: s }, hub, mounted).filter(
+        (p) => p.startsWith("specials"),
       );
     expect(problems(specials)).toEqual([]);
     // The entry stays core, tiers are card tiers, and the human cast is never pooled.
@@ -136,7 +136,7 @@ async function sharedEngine() {
   const content = JSON.parse(readFileSync(new URL(file, import.meta.url)));
   const packs = content.files["v2/card-game/packs.json"];
   packs.packs = packs.packs.map((p) =>
-    p.id === hoppy.id ? { ...p, specials } : p,
+    p.id === hoppy.id ? { ...hoppy, specials } : p,
   );
   const context = vm.createContext({ cardContent: content });
   vm.runInContext(result.outputFiles[0].text, context);

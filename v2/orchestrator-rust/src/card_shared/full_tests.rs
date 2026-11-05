@@ -3021,11 +3021,10 @@ fn hoppycat_upgrade_keeps_released_history_and_replays_new_story_choices() {
         full_store::seed(&c, &id, &world, "hoppycat-garden-visitor", now()).unwrap();
         let mut world = full_store::world(&c, &id, now()).unwrap();
 
-        // Use the pack's custody rule (taking the cup beside Hoppy Cat commits
-        // the welcome), then return through the bridge using the current
-        // C-hosted rules.
+        // Take the cup, greet Hoppy, then return through the bridge.
         for (kind, field, value) in [
             ("take", "item", "hoppycat-halfway-cup"),
+            ("talk", "target", "hoppycat-hoppy-cat"),
             ("move", "target", "pond"),
         ] {
             let action = world.project(0).unwrap()["actions"]
@@ -3046,10 +3045,12 @@ fn hoppycat_upgrade_keeps_released_history_and_replays_new_story_choices() {
         }
         assert_eq!(world.game["actors"]["vale"]["place"], "pond");
         assert_eq!(
-            world.game["packs"]["hoppycat-archive"]["flags"]["hoppycat-welcome"],
+            world.game["packs"]["hoppycat-archive"]["flags"]["hoppycat-table-welcome"],
             true
         );
-        assert!(world.game["packs"]["hoppycat-archive"]["receipts"]["hoppycat-welcome"].is_u64());
+        assert!(
+            world.game["packs"]["hoppycat-archive"]["receipts"]["hoppycat-table-welcome"].is_u64()
+        );
         assert_eq!(
             world.game["items"]["hoppycat-halfway-cup"]["holder"],
             "vale"

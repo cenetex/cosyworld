@@ -71,6 +71,7 @@ export function upgradeSave(
       .filter((p) => (s.packs?.[p.id]?.revision ?? p.revision) < p.revision)
       .map((p) => p.id),
   );
+  upgradeHoppyTableSave(s);
   forgetQuests(s);
   if (s?.schema === 6) {
     // Schema 7 moved the Steam Clock into the world-pack state.
@@ -557,6 +558,70 @@ export function upgradeHoppyCatInteriorsSave(s) {
     ];
   }
   saved.revision = 3;
+}
+
+// Revision 4 joins the archive rooms and keeps each earlier draw available.
+// Run before installSpecials filters IDs which have left the pool.
+export function upgradeHoppyTableSave(s) {
+  const pack = packDefinitions.find((p) => p.id === "hoppycat-archive");
+  const saved = s.packs?.[pack?.id];
+  if (!pack || pack.revision < 4 || !saved || saved.revision >= 4) return;
+  upgradeHoppyCatSeaSave(s);
+  upgradeHoppyCatInteriorsSave(s);
+  if (Array.isArray(saved.specials)) {
+    const pool = new Set(pack.specials.pool.map((e) => e.id));
+    saved.specials = [
+      ...new Set(
+        saved.specials
+          .map((id) => {
+            if (id === "hoppycat-loop-token") return "hoppycat-goldfish-tank";
+            const entity = pack.avatars[id] || pack.items[id];
+            const place = entity?.place || entity?.holder || id;
+            return canonicalPlace(pack.avatars[place]?.place || place);
+          })
+          .filter((id) => pool.has(id)),
+      ),
+    ];
+  }
+  const home = (id) => Object.hasOwn(pack.places, id);
+  for (const actor of Object.values(s.actors || {})) {
+    for (const key of ["place", "home"])
+      if (home(actor[key])) actor[key] = canonicalPlace(actor[key]);
+    for (const want of [actor.want, ...(actor.under || [])])
+      if (want?.kind === "place" && home(want.target))
+        want.target = canonicalPlace(want.target);
+  }
+  for (const item of Object.values(s.items || {}))
+    if (home(item.holder)) item.holder = canonicalPlace(item.holder);
+  for (const [actor, edges] of Object.entries(s.routeKnowledge || {}))
+    s.routeKnowledge[actor] = [
+      ...new Map(
+        edges
+          .flatMap((edge) => {
+            if (!edge.every(home)) return [edge];
+            const [from, to] = edge.map(canonicalPlace);
+            const path = walkablePath(from, to);
+            return path ? path.slice(1).map((end, i) => [path[i], end]) : [];
+          })
+          .map((edge) => [JSON.stringify(edge), edge]),
+      ).values(),
+    ];
+  for (const [id, avatar] of Object.entries(pack.avatars)) {
+    if (!s.actors?.[id]) continue;
+    s.actors[id].place = avatar.place;
+    if (s.actors[id].home) s.actors[id].home = avatar.place;
+  }
+  // Untouched tools join their new hosts; carried gifts keep their owners.
+  for (const [id, oldHome] of [
+    ["hoppycat-loop-token", "hoppycat-goldfish-tank"],
+    ["hoppycat-context-seed", "hoppycat-meraki-atelier"],
+    ["hoppycat-return-path-checklist", "hoppycat-signal-jetty"],
+  ]) {
+    const item = s.items?.[id];
+    if (item?.holder === oldHome && !item.history?.length)
+      item.holder = pack.items[id].holder;
+  }
+  saved.revision = 4;
 }
 
 // Revision 5 adds port and road memories. Every earlier position and deed
