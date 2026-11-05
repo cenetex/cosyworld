@@ -166,6 +166,8 @@ than by prompt: words, punctuation and emoji the table cannot name fall away,
 a skin-toned symbol reads as its authored one, a ZWJ sequence stays whole or
 falls away whole, the first five stay, and a reply with fewer than two left
 is silent ("…"). A reduced reply publishes flagged `emoji reduced`.
+Emoji presentation marks keep each symbol's intended shape. The text safety
+check treats those marks as part of known symbols.
 The server reads the expression type from the authored character profile.
 Spoken audio and letter sounds follow speech replies.
 A committed ring at your place strikes a synthesized bell (`sfx.mjs`), softer from next door; it follows the music switch and volume.
