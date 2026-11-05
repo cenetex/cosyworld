@@ -9,8 +9,8 @@ import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
 import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
-import { createWorld, encodeSave } from "../card-game/world.mjs";
-import { enableMotives } from "../card-game/motives.mjs";
+import { encodeSave } from "../card-game/world.mjs";
+import { openingFixture } from "../../test/helpers/greek-opening.mjs";
 import { profiles } from "../card-game/memory.mjs";
 import {
   revealCard,
@@ -26,30 +26,37 @@ const output = new URL(
   import.meta.url,
 );
 await mkdir(output, { recursive: true });
-const world = enableMotives(createWorld());
+const world = structuredClone(openingFixture("burial").decree);
 world.actors.vale.place = "greek-gate";
 world.crossings["pond-greek-harbor"].discovered = true;
 for (const id of ["lamp", "cloth"]) world.items[id].holder = "pond";
 world.items["greek-creon-writ"].holder = "vale";
 const save = encodeSave(world);
 // Holds the lifting lid mid-turn for its picture.
-const holdLid = ({ id, at }) =>
-  new Promise((resolve) => {
+const holdLid = ({ id, at, reduced }) =>
+  new Promise((resolve, reject) => {
     const watch = new MutationObserver(() => {
       const card = document.querySelector(`#hand [data-card="${id}"]`);
       if (!card?.dataset.revealing) return;
-      watch.disconnect();
       globalThis.lid = card
         .getAnimations({ subtree: true })
         .filter((motion) => motion.effect.target.matches(".reveal-lid"));
+      if (!reduced && !globalThis.lid.length) return;
+      watch.disconnect();
+      clearTimeout(deadline);
       for (const motion of globalThis.lid) {
         motion.pause();
         motion.currentTime = at;
       }
       resolve();
     });
+    const deadline = setTimeout(() => {
+      watch.disconnect();
+      reject(new Error("The locked lid did not turn"));
+    }, 15000);
     watch.observe(document.getElementById("hand"), {
       subtree: true,
+      childList: true,
       attributeFilter: ["data-revealing"],
     });
   });
@@ -151,7 +158,13 @@ try {
       assert.equal(await lock.isDisabled(), true);
       await page.keyboard.press("Escape");
       await selectCard(page, "greek-guard");
-      await page.locator("#card-actions .card-primary").click();
+      if (await page.locator('#card-actions [data-action="meet"]').count()) {
+        await page.locator('#card-actions [data-action="meet"]').click();
+        await ready();
+        await page.keyboard.press("Escape");
+        await selectCard(page, "greek-guard");
+      }
+      await page.locator('#card-actions [data-action="talk"]').click();
       await ready();
       const state = () =>
         page.evaluate((key) => JSON.parse(localStorage.getItem(key)), key);
@@ -163,18 +176,19 @@ try {
       await page.keyboard.press("Escape");
       await selectCard(page, "greek-creon-writ");
       await selectCard(page, "greek-guard");
+      const turning = page.evaluate(holdLid, { id: FIELD, at: 60, reduced });
       await page.locator("#card-actions .card-primary").click();
-      await ready();
       assert.equal(
         (await state()).items["greek-creon-writ"].holder,
         "greek-guard",
       );
       await page.keyboard.press("Escape");
-      const turning = page.evaluate(holdLid, { id: FIELD, at: 60 });
-      await revealCard(page, FIELD);
+      const revealing = revealCard(page, FIELD);
       await turning;
       await shot("02-box-turning", 1200);
       await page.evaluate(() => globalThis.lid.forEach((m) => m.play()));
+      await revealing;
+      await ready();
       await open();
       await shot("03-box-open");
       // Redraws and a reload keep it open and never turn it again.
