@@ -20,8 +20,8 @@ try {
     [360, 740],
   ]) {
     for (const [id, place, count] of [
-      ["greek-provisions", "greek-harbor", 3],
-      ["greek-bread", "greek-courtyard", 2],
+      ["greek-provisions", "greek-harbor", 5],
+      ["greek-bread", "greek-courtyard", 4],
       ["greek-cithaeron", "greek-battlefield", 1],
     ]) {
       const world = createWorld();

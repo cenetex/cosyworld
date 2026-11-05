@@ -25,7 +25,7 @@ export function lockedQuest(world, id) {
         : names[0];
     return {
       text: `Bring ${ingredients} to ${nameOf(item.locked.by)} at ${nameOf(item.home)}.`,
-      cards,
+      cards: [...cards, item.locked.by, item.home],
     };
   }
   const way = sealedWays(world, currentActor(world)).find((r) => r.to === id);

@@ -2016,17 +2016,17 @@ function frameFigure(img) {
   if (img.complete && img.naturalWidth) measure();
   else img.addEventListener("load", measure, { once: true });
 }
-// The action beat's figures, at most three, as the quest card pairs them:
+// The action beat's figures, three for plays and five for a recipe, as the quest card pairs them:
 // borderless cut-outs side by side, the actor facing the others; an item or
 // place a small picture beside them.
-function showBeatCards(ids) {
+function showBeatCards(ids, limit = 3) {
   const cards = document.querySelector(".action-beat-cards"),
-    key = ids.slice(0, 3).join("+");
+    key = ids.slice(0, limit).join("+");
   if (cards.dataset.cards === key) return;
   cards.dataset.cards = key;
   releaseImages(cards);
   cards.replaceChildren(
-    ...ids.slice(0, 3).map((id, index) => {
+    ...ids.slice(0, limit).map((id, index) => {
       const image = node("img");
       image.alt = "";
       image.decoding = "async";
@@ -2230,7 +2230,7 @@ function renderActions() {
     : sentence && !questShown
       ? [actor, ...(others.length ? others : [world.actors[actor].place])]
       : [];
-  showBeatCards(involved);
+  showBeatCards(involved, lockShown ? 5 : 3);
   // The box's edge takes the rarest card's tier colour; Common stays plain.
   const rarest = involved
     .map((id) => levelTier(cardLevel(world, id)))
