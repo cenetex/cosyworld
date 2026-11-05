@@ -280,7 +280,7 @@ try {
     await page.close();
   }
   console.log(
-    `Stage fill smoke passed: ${seeds.length} places fill one stage with whole figures at 1440x900, 390x844 and 844x390, and keep them above the resting hand during a beat at 390x844 and 320x568.`,
+    `Stage fill smoke passed: ${seeds.length} places fill one stage with whole figures at 1440x900, 390x844 and 844x390, and fit cast to the stage during a beat at 390x844 and 320x568.`,
   );
 } finally {
   await browser.close();
