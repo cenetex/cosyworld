@@ -43,7 +43,9 @@ export function createPreferredLocationsView(stage, art, cast) {
         1,
         Math.min(
           (stageBox.width * 1.5) /
-            (stageBox.width < 701 ? Math.min(spots.size, 3) : 1),
+            (stageBox.width < 701
+              ? Math.min(spots.size, 3)
+              : Math.max(1, spots.size)),
           floor - stageBox.top,
         ),
       );
