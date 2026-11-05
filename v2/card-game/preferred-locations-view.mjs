@@ -105,6 +105,7 @@ export function createPreferredLocationsView(stage, art, cast) {
   observer.observe(stage);
   observer.observe(art);
   observer.observe(cast);
+  observer.observe(document.querySelector(".play-dock"));
   return (actors) => {
     originalFocus = stage.style.getPropertyValue("--focus-x") || "0.5";
     spots = new Map(
