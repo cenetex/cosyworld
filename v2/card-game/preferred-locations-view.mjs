@@ -41,8 +41,16 @@ export function createPreferredLocationsView(stage, art, cast) {
         figure.style.removeProperty("min-height");
         continue;
       }
-      figure.style.maxHeight = `${Math.max(1, Math.min((stageBox.width * 1.5) / (stageBox.width < 701 ? Math.min(spots.size, 3) : 1), floor - stageBox.top))}px`;
-      figure.style.minHeight = `${Math.min(stageBox.height * 0.4, 140)}px`;
+      const maxHeight = Math.max(
+        1,
+        Math.min(
+          (stageBox.width * 1.5) /
+            (stageBox.width < 701 ? Math.min(spots.size, 3) : 1),
+          floor - stageBox.top,
+        ),
+      );
+      figure.style.maxHeight = `${maxHeight}px`;
+      figure.style.minHeight = `${Math.min(maxHeight, stageBox.height * 0.4, 140)}px`;
       const { width, height } = figure.getBoundingClientRect();
       const point = projectPaintedSpot(spot, artBox, castBox, stageBox, floor);
       point.bottom = Math.max(
