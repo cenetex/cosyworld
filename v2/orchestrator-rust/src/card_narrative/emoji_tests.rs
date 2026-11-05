@@ -17,7 +17,8 @@ fn whiskerwind() -> Context {
     scene.entities[3].id = "whiskerwind".into();
     scene.entities[3].facts = vec!["Beside the broad leaves.".into()];
     scene.entities[3].memories.clear();
-    scene.entities[3].desire = None;
+    scene.entities[3].desire =
+        Some(serde_json::from_value(json!({"items":[],"location":null,"avatars":[]})).unwrap());
     scene
 }
 
