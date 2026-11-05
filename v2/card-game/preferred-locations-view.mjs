@@ -28,9 +28,7 @@ export function createPreferredLocationsView(stage, art, cast) {
     }
     const castBox = cast.getBoundingClientRect();
     const floor = stageBox.bottom - 12;
-    const dockTop = document
-      .querySelector(".play-dock")
-      .getBoundingClientRect().top;
+    const dock = document.querySelector(".play-dock").getBoundingClientRect();
     const placed = [];
     for (const figure of cast.children) {
       const spot = spots.get(figure.dataset.avatar);
@@ -53,10 +51,6 @@ export function createPreferredLocationsView(stage, art, cast) {
       figure.style.minHeight = `${Math.min(maxHeight, stageBox.height * 0.4, 140)}px`;
       const { width, height } = figure.getBoundingClientRect();
       const point = projectPaintedSpot(spot, artBox, castBox, stageBox, floor);
-      point.bottom = Math.max(
-        point.bottom,
-        castBox.bottom - dockTop + 12 - height * 0.7,
-      );
       point.bottom = Math.min(
         point.bottom,
         castBox.bottom - stageBox.top - height,
@@ -64,7 +58,7 @@ export function createPreferredLocationsView(stage, art, cast) {
       const half = Math.min(width / 2, stageBox.width / 2);
       const min = stageBox.left - castBox.left + half;
       const max = stageBox.right - castBox.left - half;
-      placed.push({ figure, point, min, max });
+      placed.push({ figure, point, min, max, width, height });
     }
     // Cropped points can converge at an edge on a phone. Share the available
     // width in painting order so each person remains visible.
@@ -84,7 +78,17 @@ export function createPreferredLocationsView(stage, art, cast) {
         Math.min(placed[i].left, placed[i + 1].left - gap),
       );
     }
-    for (const { figure, point, left } of placed) {
+    for (const { figure, point, left, width, height } of placed) {
+      const center = castBox.left + left;
+      if (center + width / 2 > dock.left && center - width / 2 < dock.right)
+        point.bottom = Math.max(
+          point.bottom,
+          castBox.bottom - dock.top + 12 - height * 0.7,
+        );
+      point.bottom = Math.min(
+        point.bottom,
+        castBox.bottom - stageBox.top - height,
+      );
       figure.style.left = `${left}px`;
       figure.style.bottom = `${point.bottom}px`;
     }
