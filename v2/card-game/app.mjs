@@ -2026,7 +2026,16 @@ function showBeatCards(ids, recipe = false) {
   cards.dataset.cards = key;
   releaseImages(cards);
   if (recipe) {
-    const scene = questScreen({ kind: "item", actor: ids.at(-2), here: ids.at(-1), target: ids[0], items: ids.slice(0, -2) }, questArt);
+    const scene = questScreen(
+      {
+        kind: "item",
+        actor: ids.at(-2),
+        here: ids.at(-1),
+        target: ids[0],
+        items: ids.slice(0, -2),
+      },
+      questArt,
+    );
     scene.dataset.recipe = "true";
     cards.replaceChildren(scene);
     return;

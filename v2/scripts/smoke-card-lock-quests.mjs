@@ -64,20 +64,16 @@ try {
       await tapCard(await revealCard(page, id));
       const text = page.locator(".action-beat-text");
       assert.equal(await text.textContent(), expected.text);
-      assert.equal(await page.locator(".action-beat-cards img").count(), count);
+      const images = page.locator(".action-beat-cards img");
+      assert.equal(await images.count(), count);
       assert.deepEqual(
-        await page
-          .locator(".action-beat-cards img")
-          .evaluateAll((nodes) =>
-            nodes.map((node) => node.dataset.entity).sort(),
-          ),
+        await images.evaluateAll((nodes) =>
+          nodes.map((node) => node.dataset.entity).sort(),
+        ),
         [...expected.cards].sort(),
-        "ingredients, maker and home keep their identities in the quest picture",
       );
       assert.equal(
-        await page
-          .locator('.action-beat-cards > .quest-screen[data-recipe="true"]')
-          .count(),
+        await page.locator(".action-beat-cards [data-recipe]").count(),
         expected.recipe ? 1 : 0,
       );
       const button = page.locator('#card-actions [data-blocked="gate"]');
@@ -100,17 +96,11 @@ try {
         ),
       );
       await page.waitForTimeout(900);
-      const pictures = await page
-        .locator(".action-beat-cards img")
-        .evaluateAll((nodes) =>
-          nodes.map((n) => ({
-            width: n.getBoundingClientRect().width,
-            height: n.getBoundingClientRect().height,
-          })),
-        );
       assert(
-        pictures.every((p) => p.width > 0 && p.height >= 25),
-        "ingredient pictures are drawn",
+        await images.evaluateAll((nodes) =>
+          nodes.every((n) => n.clientWidth > 0 && n.clientHeight >= 25),
+        ),
+        "quest pictures are drawn",
       );
       await page.screenshot({
         path: new URL(`${id}-scene-${width}.png`, output).pathname,

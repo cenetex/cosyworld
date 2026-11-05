@@ -10,8 +10,6 @@ import { sealedReason } from "./cards.mjs";
 import { packThings } from "./pack-registry.mjs";
 import { currentActor, nameOf, sealedWays, wantText } from "./world.mjs";
 
-// A locked card shows the quest that opens it in the existing action beat.
-// Recipe ingredients stay in authored order, as they do in the pack.
 export function lockedQuest(world, id) {
   const reason = sealedReason(world, id);
   if (!reason) return null;

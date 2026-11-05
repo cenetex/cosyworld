@@ -32,26 +32,17 @@ describe("locked boxes", () => {
     const s = createWorld();
     s.actors.vale.place = "greek-harbor";
     const before = JSON.stringify(s);
+    const ingredients = ["greek-bread", "greek-figs", "greek-wine-skin"];
+    const baking = ["greek-water-jar", "greek-wheat"];
     expect(lockedQuest(s, "greek-provisions")).toEqual({
       recipe: true,
       text: "Bring Courtyard Bread, Dried Figs and Wine Skin to Myrto the Shipmaster at The Wine-Dark Harbor.",
-      cards: [
-        "greek-bread",
-        "greek-figs",
-        "greek-wine-skin",
-        "greek-shipmaster",
-        "greek-harbor",
-      ],
+      cards: ingredients.concat("greek-shipmaster", "greek-harbor"),
     });
     expect(lockedQuest(s, "greek-bread")).toEqual({
       recipe: true,
       text: "Bring Water Jar and Sack of Wheat to Dione the Baker at Theban Courtyard.",
-      cards: [
-        "greek-water-jar",
-        "greek-wheat",
-        "greek-baker",
-        "greek-courtyard",
-      ],
+      cards: baking.concat("greek-baker", "greek-courtyard"),
     });
     expect(JSON.stringify(s)).toBe(before);
     s.usedUp = s.usedUp.filter((id) => id !== "greek-provisions");
