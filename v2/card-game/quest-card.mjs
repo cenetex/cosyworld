@@ -218,7 +218,10 @@ export function metQuests(before, world, seq) {
           q.kind === e.wantMet?.kind &&
           (q.target ?? CONNECT_TARGET) === e.wantMet.target,
       );
-      if (i >= 0) met.push(gone.splice(i, 1)[0]);
+      if (i >= 0) {
+        const [quest] = gone.splice(i, 1);
+        met.push({ ...quest, ...burial(world, quest) });
+      }
     }
   return met;
 }
