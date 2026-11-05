@@ -87,6 +87,21 @@ try {
           (i) => i.complete && i.naturalWidth > 0,
         ),
       );
+      await page.waitForTimeout(900);
+      const pictures = await page
+        .locator(".action-beat-cards > img")
+        .evaluateAll((nodes) =>
+          nodes.map((n) => ({
+            src: n.src.split("/").at(-1),
+            width: n.getBoundingClientRect().width,
+            height: n.getBoundingClientRect().height,
+            display: getComputedStyle(n).display,
+          })),
+        );
+      assert(
+        pictures.every((p) => p.width > 0 && p.height >= 30),
+        "ingredient pictures are drawn",
+      );
       await page.screenshot({
         path: new URL(`${id}-${width}.png`, output).pathname,
       });

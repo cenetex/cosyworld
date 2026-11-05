@@ -42,7 +42,12 @@ import {
   questEntryKey,
   riseIn,
 } from "./card-entry.mjs";
-import { LOCKED_BACK, createLockedBoxes, isLockedBox, lockedQuest } from "./locked-box.mjs";
+import {
+  LOCKED_BACK,
+  createLockedBoxes,
+  isLockedBox,
+  lockedQuest,
+} from "./locked-box.mjs";
 import { fadeInRevealed, revealedStage } from "./stage-reveal.mjs";
 import { OPENING_REVEAL, openingStep } from "./opening.mjs";
 import {
@@ -2205,11 +2210,13 @@ function renderActions() {
     // The quest chosen in the open fan names itself, as a play does.
     questShown =
       !selected.length && questOpen && !rested ? shownQuests[questPick] : null,
-    lockShown = !rested && selected.length === 1
-      ? lockedQuest(world, selected[0]) : null,
+    lockShown =
+      !rested && selected.length === 1 ? lockedQuest(world, selected[0]) : null,
     // Rule texts can double a name's article ("the The Burial Decree").
-    sentence = lockShown ? lockShown.text : questShown
-      ? shownQuestCaption(questShown)
+    sentence = lockShown
+      ? lockShown.text
+      : questShown
+        ? shownQuestCaption(questShown)
       : ((actions[0] && playText(actions[0])) || "").replace(
           /\b(the|an?) (?:the|an?) /giu,
           "$1 ",
@@ -2218,8 +2225,9 @@ function renderActions() {
   // Who acts, then what it acts on: the chosen cards, or the place it
   // waits in.
   const others = selected.filter((id) => id !== actor);
-  const involved = lockShown ? lockShown.cards :
-    sentence && !questShown
+  const involved = lockShown
+    ? lockShown.cards
+    : sentence && !questShown
       ? [actor, ...(others.length ? others : [world.actors[actor].place])]
       : [];
   showBeatCards(involved);

@@ -119,11 +119,6 @@ away, the peek, the hover lift, fanning, choosing, pressing, the fold, the
 second press and closing at three widths; `smoke-card-music.mjs` checks the
 held song.
 
-A selected locked card describes its quest in the existing action beat.
-A recipe lock shows each ingredient and names its maker and home; a sealed
-route shows its authored quest. The Locked button keeps the rule's full reason
-in its title. The rules still decide when a card opens.
-
 ## Public assets
 
 `public-assets.mjs` defines the public files and their content types. It includes
@@ -554,8 +549,11 @@ A card locked behind a quest (a sealed card, the far side of a shut gate) is
 a locked wooden box: the darker locked lid on a red edge, labelled only
 "Locked" (the owner's one exception to words on a card), with no painting and
 no name.
-Tapping it chooses it, and the context button gives its quest. When the quest
-opens the way, the box turns over once, with the same lift as an uncovered
+Tapping it chooses it and shows its quest in the existing action beat. A recipe
+lock shows its ingredients and names its maker and home; a sealed route shows
+its authored quest. A guarded way names its guard, whose Talk gives the quest.
+The Locked button keeps the rule's full reason in its title. When the rules
+open the way, the box turns over once, with the same lift as an uncovered
 card (a crossfade under reduced motion), and the card shows as itself from
 then on; a redraw never covers it again (`locked-box.mjs`). In a shared world
 each browser reads its own player's view of the gate.

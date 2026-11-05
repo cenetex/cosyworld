@@ -1,7 +1,7 @@
 // A card locked behind a quest is a carved wooden box (locked-box.mjs). At
 // the shut City Gate the battlefield is the locked lid, labelled "Locked" on
-// a red edge; its play gives the quest through the context button. Giving
-// the guard the Burial Decree opens the way: the box turns over once and
+// a red edge; its descriptor names the guard. Talk gives his quest. Giving
+// the guard Creon's Writ opens the way: the box turns over once and
 // stays open through redraws.
 //
 //   node v2/scripts/smoke-card-locked-box.mjs [screenshot-dir]
@@ -30,7 +30,7 @@ const world = enableMotives(createWorld());
 world.actors.vale.place = "greek-gate";
 world.crossings["pond-greek-harbor"].discovered = true;
 for (const id of ["lamp", "cloth"]) world.items[id].holder = "pond";
-world.items["greek-decree"].holder = "vale";
+world.items["greek-creon-writ"].holder = "vale";
 const save = encodeSave(world);
 // Holds the lifting lid mid-turn for its picture.
 const holdLid = ({ id, at }) =>
@@ -75,6 +75,21 @@ try {
         },
         { key, save, seen: Object.keys(profiles) },
       );
+      await page.route("**/card-game/text", (route) => {
+        const context = route.request().postDataJSON();
+        return route.fulfill({
+          json: {
+            revision: context.revision,
+            model: "locked-box-fixture",
+            entries: context.entities.map(({ id }) => ({
+              id,
+              text:
+                context.disclosures?.find((fact) => fact.speaker === id)
+                  ?.text || "Let us consider this.",
+            })),
+          },
+        });
+      });
       const field = page.locator(`#hand [data-card="${FIELD}"]`);
       const attr = (name) => field.getAttribute(name);
       const ready = () =>
@@ -125,26 +140,35 @@ try {
       await ready();
       await boxed();
       await shot("01-locked-box");
-      // Tapping the box chooses it; the context button gives its quest.
+      // The guarded lock describes its guard; Talk gives his quest.
       await selectCard(page, FIELD);
-      const seek = page.locator("#card-actions .card-primary");
-      assert.equal(await seek.textContent(), "Seek the way");
-      await seek.click();
-      await ready();
-      const state = () =>
-        page.evaluate((key) => JSON.parse(localStorage.getItem(key)), key);
-      assert.equal((await state()).actors.vale.want.target, "greek-decree");
+      const lock = page.locator('#card-actions [data-blocked="gate"]');
+      assert.equal(await lock.textContent(), "Locked");
+      assert.equal(
+        await page.locator(".action-beat-text").textContent(),
+        "The Gate Guard is guarding this card",
+      );
+      assert.equal(await lock.isDisabled(), true);
       await page.keyboard.press("Escape");
-      await boxed();
-
-      // The decree to the guard opens the way; the box turns over once.
-      await page.keyboard.press("Escape");
-      await selectCard(page, "greek-decree");
       await selectCard(page, "greek-guard");
       await page.locator("#card-actions .card-primary").click();
       await ready();
-      const route = "greek-gate>greek-battlefield";
-      assert.ok((await state()).openedRoutes.includes(route));
+      const state = () =>
+        page.evaluate((key) => JSON.parse(localStorage.getItem(key)), key);
+      assert.equal((await state()).actors.vale.want.target, "greek-bread");
+      await page.keyboard.press("Escape");
+      await boxed();
+
+      // The writ to the guard opens the way; the box turns over once.
+      await page.keyboard.press("Escape");
+      await selectCard(page, "greek-creon-writ");
+      await selectCard(page, "greek-guard");
+      await page.locator("#card-actions .card-primary").click();
+      await ready();
+      assert.equal(
+        (await state()).items["greek-creon-writ"].holder,
+        "greek-guard",
+      );
       await page.keyboard.press("Escape");
       const turning = page.evaluate(holdLid, { id: FIELD, at: 60 });
       await revealCard(page, FIELD);
