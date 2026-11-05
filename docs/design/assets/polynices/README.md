@@ -133,3 +133,19 @@ The next layer covers him fully in linen and puts one raven feather on his chest
 The viewer shows all four states in both lights, plus the empty backdrops.
 All ten selections were checked. All twelve layer-set additions used the built-in
 image tool. Source PNGs are preserved byte for byte.
+
+## Hand-card exports
+
+The burial sequence uses the selected studies in the hand as well as the
+wide Hollow paintings on the stage. The card files live in
+`v2/card-game/assets/greek-drama/`.
+
+| Burial state | Hand-card image |
+| --- | --- |
+| Fallen | `polynices-fallen.webp` |
+| Anointed | `polynices-anointed.webp` |
+| Veiled | `polynices-veiled.webp` |
+| Buried | `polynices-grave.webp` |
+
+Use the same saved burial state for the hand card and the Hollow backdrop
+when the burial pack lands. The Funeral Oil item uses `oil-lekythos.png`.
