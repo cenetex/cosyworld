@@ -27,7 +27,8 @@ fn whiskerwind_selectors_keep_the_authored_emoji_reply() {
     let scene = whiskerwind();
     let check = Check::new(&scene, &scene.entities[3], Part::Line);
     assert_eq!(check.expression, expression::Mode::Emoji);
-    for raw in ["🌧️🐾❤️", "🌧 🐾 ❤", "🌧️ 🐾 ❤️"] {
+    for raw in ["🌧️🐾❤️", "🌧 🐾 ❤", "🌧️ 🐾 ❤️", "🌧\u{FE0E}🐾❤\u{FE0E}"]
+    {
         assert_eq!(
             check.verdict(raw, true, true),
             Ok(("🌧️🐾❤️".into(), vec![])),
