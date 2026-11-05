@@ -2962,6 +2962,10 @@ fn mentions(text: &str, name: &str) -> bool {
 }
 
 #[cfg(test)]
+#[path = "card_narrative/emoji_tests.rs"]
+mod emoji_tests;
+
+#[cfg(test)]
 pub(crate) mod tests {
     use super::*;
     use axum::{
