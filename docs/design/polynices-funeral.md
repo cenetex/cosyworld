@@ -309,3 +309,10 @@ The owner settled the open questions on 2026-11-04:
    in the Hollow. Recommended: the player brings her (Accompany), and the
    burial flag keeps her home in the Hollow afterwards. The pack-data PR
    tests that she can follow; if not, the owner decides.
+
+## Quest card and saved progress
+
+The existing Talk quest uses the four hand paintings as its stage art. It
+keeps the quest active through Bury, when the grave painting appears. Bury
+opens the Open Door. The pack keeps the old choice records so existing saves
+can keep their prior outcomes and recitals.

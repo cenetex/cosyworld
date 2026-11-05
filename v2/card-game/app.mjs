@@ -1097,7 +1097,15 @@ let combatCue = false,
   lossCue = false;
 function syncMusicCue() {
   if (!combatCue && !lossCue)
-    music.cue(battleMusicDue(world, currentActor(world)) ? "battle" : null);
+    music.cue(
+      battleMusicDue(world, currentActor(world))
+        ? "battle"
+        : world.actors[currentActor(world)].place ===
+              "greek-polynices-hollow" &&
+            world.packs["greek-drama"]?.flags?.["greek-burial-performed"]
+          ? "funeral"
+          : null,
+    );
 }
 // The island's drone follows the same switch and volume as the music.
 const hum = createHum();
@@ -2237,10 +2245,10 @@ function renderActions() {
       ? lockShown.text
       : questShown
         ? shownQuestCaption(questShown)
-      : ((actions[0] && playText(actions[0])) || "").replace(
-          /\b(the|an?) (?:the|an?) /giu,
-          "$1 ",
-        );
+        : ((actions[0] && playText(actions[0])) || "").replace(
+            /\b(the|an?) (?:the|an?) /giu,
+            "$1 ",
+          );
   heading.hidden = !sentence;
   // Who acts, then what it acts on: the chosen cards, or the place it
   // waits in.
@@ -2877,7 +2885,8 @@ const stackLabel = (stack) =>
 // words. It glows while the target is near. The card itself plays nothing:
 // chosen on top, the context button offers its next step and Discard
 // (quest-step.mjs).
-const questCovered = (quest) => !quest.target || cardIsCovered(quest.target);
+const questCovered = (quest) =>
+  !quest.art && (!quest.target || cardIsCovered(quest.target));
 const known = (id) => !cardIsCovered(id);
 function shownQuestCaption(quest) {
   const hidden = questCovered(quest);
@@ -2937,7 +2946,7 @@ function questFrame({ id, quest, met }) {
     questScreen(
       {
         verb,
-        actor: quest.actor,
+        actor: quest.art ? null : quest.actor,
         kind: quest.kind,
         target,
         covered: hidden,
@@ -2946,7 +2955,7 @@ function questFrame({ id, quest, met }) {
         toCovered: Boolean(quest.step?.to && !known(quest.step.to)),
         atCovered: questBox(quest, known),
       },
-      questArt,
+      quest.art ? { ...questArt, place: () => quest.art } : questArt,
     ),
     head,
   );

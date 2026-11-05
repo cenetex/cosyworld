@@ -410,7 +410,7 @@
       "schemaVersion": 1,
       "id": "greek-drama",
       "packId": "cosyworld.greek-drama",
-      "revision": 20,
+      "revision": 21,
       "name": "The Wine-Dark Sea",
       "description": "A branching Greek drama world. A shared ship visits the Wine-Dark Harbor, Athens Harbor and Piraeus. One road joins Athens and Piraeus, and short paths lead to the Attic places where welcome becomes a growing poem.",
       "tone": "Concrete Greek domestic and civic life: bread, work, desire, grief, argument, irreverence, and hospitality. Dialogue expresses committed actions. A tragic ending is never required.",
@@ -536,7 +536,8 @@
           "name": "The Exposed Battlefield",
           "text": "Broken spear shafts lie in the dust. A strip of earth outside the city is set apart for the fallen brother.",
           "exits": [
-            "greek-gate"
+            "greek-gate",
+            "greek-polynices-hollow"
           ],
           "backdrop": "assets/greek-drama/burial-ground-dusk.webp",
           "persona": "Broken spear shafts lie in the dust. A strip of earth outside the city is set apart for the fallen brother."
@@ -1428,6 +1429,119 @@
               "value": true
             }
           ]
+        },
+        "greek-polynices-hollow": {
+          "name": "Polynices' Hollow",
+          "text": "A bent olive shelters the shelf below the battlefield.",
+          "persona": "A bent olive shelters the shelf below the battlefield. There is room to kneel beside the earth.",
+          "exits": [
+            "greek-battlefield"
+          ],
+          "backdrop": "assets/greek-drama/polynices-hollow-fallen-day.webp",
+          "backdrops": [
+            {
+              "backdrop": "assets/greek-drama/polynices-hollow-buried-day.webp",
+              "requires": [
+                {
+                  "kind": "daylight",
+                  "phase": "day"
+                },
+                {
+                  "kind": "flag",
+                  "key": "greek-burial-performed",
+                  "value": true
+                }
+              ]
+            },
+            {
+              "backdrop": "assets/greek-drama/polynices-hollow-buried-night.webp",
+              "requires": [
+                {
+                  "kind": "daylight",
+                  "phase": "night"
+                },
+                {
+                  "kind": "flag",
+                  "key": "greek-burial-performed",
+                  "value": true
+                }
+              ]
+            },
+            {
+              "backdrop": "assets/greek-drama/polynices-hollow-veiled-day.webp",
+              "requires": [
+                {
+                  "kind": "daylight",
+                  "phase": "day"
+                },
+                {
+                  "kind": "flag",
+                  "key": "greek-polynices-veiled",
+                  "value": true
+                }
+              ]
+            },
+            {
+              "backdrop": "assets/greek-drama/polynices-hollow-veiled-night.webp",
+              "requires": [
+                {
+                  "kind": "daylight",
+                  "phase": "night"
+                },
+                {
+                  "kind": "flag",
+                  "key": "greek-polynices-veiled",
+                  "value": true
+                }
+              ]
+            },
+            {
+              "backdrop": "assets/greek-drama/polynices-hollow-anointed-day.webp",
+              "requires": [
+                {
+                  "kind": "daylight",
+                  "phase": "day"
+                },
+                {
+                  "kind": "flag",
+                  "key": "greek-polynices-anointed",
+                  "value": true
+                }
+              ]
+            },
+            {
+              "backdrop": "assets/greek-drama/polynices-hollow-anointed-night.webp",
+              "requires": [
+                {
+                  "kind": "daylight",
+                  "phase": "night"
+                },
+                {
+                  "kind": "flag",
+                  "key": "greek-polynices-anointed",
+                  "value": true
+                }
+              ]
+            },
+            {
+              "backdrop": "assets/greek-drama/polynices-hollow-fallen-day.webp",
+              "requires": [
+                {
+                  "kind": "daylight",
+                  "phase": "day"
+                }
+              ]
+            },
+            {
+              "backdrop": "assets/greek-drama/polynices-hollow-fallen-night.webp",
+              "requires": [
+                {
+                  "kind": "daylight",
+                  "phase": "night"
+                }
+              ]
+            }
+          ]
         }
       },
       "avatars": {
@@ -1445,27 +1559,42 @@
           "seed": "Antigone, daughter of Oedipus.",
           "portrait": "assets/greek-drama/chthonic-antigone.png",
           "want": {
-            "kind": "item",
-            "target": "greek-funeral-cloth"
-          },
-          "desire": {
-            "items": [
-              "greek-funeral-cloth",
-              "greek-oil-flask"
-            ],
-            "location": "greek-battlefield",
-            "avatars": [],
-            "requires": [
-              {
-                "kind": "choice_unset",
-                "key": "greek-theban-response"
-              }
-            ]
+            "kind": "place",
+            "target": "greek-polynices-hollow",
+            "step": {
+              "verb": "lay",
+              "items": [
+                "greek-oil-flask",
+                "greek-funeral-cloth",
+                "greek-shovel"
+              ],
+              "finish": "greek-burial-performed"
+            }
           },
           "tastes": {
             "likes": "practical help, care for the dead",
             "sore": "being told that family grief is an inconvenience",
             "reason": "Dust marks the hem of her dress. She keeps looking toward the battlefield."
+          },
+          "homeWhen": {
+            "place": "greek-polynices-hollow",
+            "requires": [
+              {
+                "kind": "any",
+                "conditions": [
+                  {
+                    "kind": "holding",
+                    "item": "greek-creon-writ",
+                    "actor": "greek-guard"
+                  },
+                  {
+                    "kind": "flag",
+                    "key": "greek-burial-performed",
+                    "value": true
+                  }
+                ]
+              }
+            ]
           }
         },
         "greek-ismene": {
@@ -2218,6 +2347,45 @@
             "sore": "a promise called a finished burial",
             "reason": "Ajax’s household and burial are at issue in this named Trojan account."
           }
+        },
+        "greek-polynices-shade": {
+          "name": "Polynices' Shade",
+          "text": "A pale figure stands beside the broken spears.",
+          "seed": "Polynices, brother of Antigone.",
+          "place": "greek-battlefield",
+          "portrait": "assets/greek-drama/polynices-shade.webp",
+          "travels": false,
+          "standoffs": false,
+          "requires": [
+            {
+              "kind": "clock",
+              "from": 36,
+              "to": 0
+            },
+            {
+              "kind": "flag",
+              "key": "greek-burial-performed",
+              "value": false
+            }
+          ],
+          "want": {
+            "kind": "place",
+            "target": "greek-polynices-hollow",
+            "step": {
+              "verb": "lay",
+              "items": [
+                "greek-oil-flask",
+                "greek-funeral-cloth",
+                "greek-shovel"
+              ],
+              "finish": "greek-burial-performed"
+            }
+          },
+          "tastes": {
+            "likes": "care for his kin",
+            "sore": "the neglect of the dead",
+            "reason": "He asks that his sister be allowed to lay him to rest."
+          }
         }
       },
       "items": {
@@ -2313,7 +2481,8 @@
           "text": "A short iron shovel with soil caught beneath the blade.",
           "holder": "greek-gate",
           "persona": "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
-          "art": "assets/greek-drama/shovel.png"
+          "art": "assets/greek-drama/shovel.png",
+          "home": "greek-gate"
         },
         "greek-decree": {
           "name": "The Burial Decree",
@@ -3057,7 +3226,8 @@
             }
           ],
           "textTemplate": "{actor} digs a grave beside the fallen brother.",
-          "on": "wait"
+          "on": "wait",
+          "archived": true
         },
         {
           "id": "greek-perform-burial",
@@ -3113,7 +3283,8 @@
           ],
           "summary": "The brother was buried. The decree remains in force, and the household must answer for the defiance.",
           "textTemplate": "{actor} lays cloth and oil at the grave. The brother is buried against the decree.",
-          "on": "wait"
+          "on": "wait",
+          "archived": true
         },
         {
           "id": "greek-petition-burial",
@@ -3147,7 +3318,8 @@
           ],
           "summary": "Creon granted a witnessed exception for the family to arrange a lawful burial. The petition itself did not perform the rite.",
           "textTemplate": "Creon holds his decree again. With his writ, {actor} may see the brother buried under witness.",
-          "on": "meet"
+          "on": "meet",
+          "archived": true
         },
         {
           "id": "greek-perform-permitted-burial",
@@ -3198,7 +3370,8 @@
             }
           ],
           "textTemplate": "{actor} lays cloth and oil at the grave. The brother is buried under Creon's writ.",
-          "on": "wait"
+          "on": "wait",
+          "archived": true
         },
         {
           "id": "greek-report-plan",
@@ -3250,7 +3423,8 @@
             }
           ],
           "textTemplate": "{actor} hands the guard the shovel and the funeral cloth, the tools of the burial. He records a warning on a tablet.",
-          "on": "give"
+          "on": "give",
+          "archived": true
         },
         {
           "id": "greek-courtyard-burial",
@@ -3288,7 +3462,8 @@
             }
           ],
           "textTemplate": "{actor} sets the Burial Account on Dione's table. She speaks of the Argive mothers at Eleusis.",
-          "on": "give"
+          "on": "give",
+          "archived": true
         },
         {
           "id": "greek-courtyard-concession",
@@ -3326,7 +3501,8 @@
             }
           ],
           "textTemplate": "{actor} sets Creon's Writ on Dione's table. She speaks of the Argive mothers at Eleusis.",
-          "on": "give"
+          "on": "give",
+          "archived": true
         },
         {
           "id": "greek-courtyard-permitted-burial",
@@ -3369,7 +3545,8 @@
             }
           ],
           "textTemplate": "{actor} sets the Burial Account on Dione's table.",
-          "on": "give"
+          "on": "give",
+          "archived": true
         },
         {
           "id": "greek-courtyard-exposure",
@@ -3407,7 +3584,8 @@
             }
           ],
           "textTemplate": "{actor} sets the Guard's Tablet on Dione's table. She speaks of the Argive mothers at Eleusis.",
-          "on": "give"
+          "on": "give",
+          "archived": true
         },
         {
           "id": "greek-helen-egypt",
@@ -6066,6 +6244,122 @@
             }
           ],
           "workId": "sophocles-ajax"
+        },
+        {
+          "id": "greek-anoint-polynices",
+          "at": "greek-polynices-hollow",
+          "subject": "greek-antigone",
+          "label": "Hand Antigone the oil",
+          "text": "Antigone cleans the dust from her brother and anoints him.",
+          "requires": [
+            {
+              "kind": "item_at",
+              "item": "greek-oil-flask",
+              "place": "greek-polynices-hollow"
+            },
+            {
+              "kind": "item_at",
+              "item": "greek-funeral-cloth",
+              "place": "greek-polynices-hollow"
+            },
+            {
+              "kind": "item_at",
+              "item": "greek-shovel",
+              "place": "greek-polynices-hollow"
+            },
+            {
+              "kind": "flag",
+              "key": "greek-polynices-anointed",
+              "value": false
+            }
+          ],
+          "effects": [
+            {
+              "kind": "retire_item",
+              "item": "greek-oil-flask"
+            },
+            {
+              "kind": "set_flag",
+              "key": "greek-polynices-anointed",
+              "value": true
+            }
+          ]
+        },
+        {
+          "id": "greek-shroud-polynices",
+          "at": "greek-polynices-hollow",
+          "subject": "greek-antigone",
+          "label": "Hand Antigone the cloth",
+          "text": "Antigone draws the linen over her brother and lays a raven feather on it.",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "greek-polynices-anointed",
+              "value": true
+            },
+            {
+              "kind": "item_at",
+              "item": "greek-funeral-cloth",
+              "place": "greek-polynices-hollow"
+            },
+            {
+              "kind": "item_at",
+              "item": "greek-shovel",
+              "place": "greek-polynices-hollow"
+            },
+            {
+              "kind": "flag",
+              "key": "greek-polynices-veiled",
+              "value": false
+            }
+          ],
+          "effects": [
+            {
+              "kind": "retire_item",
+              "item": "greek-funeral-cloth"
+            },
+            {
+              "kind": "set_flag",
+              "key": "greek-polynices-veiled",
+              "value": true
+            }
+          ]
+        },
+        {
+          "id": "greek-bury-polynices",
+          "at": "greek-polynices-hollow",
+          "subject": "greek-antigone",
+          "label": "Hand Antigone the shovel",
+          "text": "Antigone covers her brother with earth and leaves the raven feather on the mound.",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "greek-polynices-veiled",
+              "value": true
+            },
+            {
+              "kind": "item_at",
+              "item": "greek-shovel",
+              "place": "greek-polynices-hollow"
+            },
+            {
+              "kind": "flag",
+              "key": "greek-burial-performed",
+              "value": false
+            }
+          ],
+          "effects": [
+            {
+              "kind": "set_flag",
+              "key": "greek-burial-performed",
+              "value": true
+            },
+            {
+              "kind": "set_flag",
+              "key": "greek-open-door-open",
+              "value": true
+            }
+          ]
         }
       ],
       "works": [
@@ -6994,7 +7288,8 @@
           "greek-road-colonus-eleusis",
           "greek-road-colonus-marathon",
           "greek-athens-harbor",
-          "greek-cithaeron"
+          "greek-cithaeron",
+          "greek-polynices-hollow"
         ],
         "avatars": [
           "greek-antigone",
@@ -7013,7 +7308,8 @@
           "greek-quay-host",
           "greek-colonus-keeper",
           "greek-market-neighbor",
-          "greek-household-witness"
+          "greek-household-witness",
+          "greek-polynices-shade"
         ],
         "items": [
           "greek-water-jar",
@@ -7077,7 +7373,10 @@
           "greek-homecoming-report-piraeus-family",
           "greek-homecoming-report-colonus-custom",
           "greek-homecoming-agree-journey",
-          "greek-homecoming-receive-family"
+          "greek-homecoming-receive-family",
+          "greek-anoint-polynices",
+          "greek-shroud-polynices",
+          "greek-bury-polynices"
         ]
       },
       "recital": {
@@ -7331,6 +7630,11 @@
           {
             "choice": "greek-ajax-return-appeal",
             "quest": "story-quest-greek-ajax-return",
+            "summons": true
+          },
+          {
+            "choice": "greek-bury-polynices",
+            "quest": "theban-burial",
             "summons": true
           }
         ]

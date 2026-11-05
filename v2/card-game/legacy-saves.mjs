@@ -14,6 +14,7 @@ import {
   entityEnabled,
   latchingRoute,
   packEntity,
+  packOf,
 } from "./pack-registry.mjs";
 import { sectionAllows } from "./pack-sections.mjs";
 import { authoredRouteEdges } from "./roaming-routes.mjs";
@@ -143,6 +144,14 @@ export function upgradeSave(
     upgradeGreekLandRouteSave(s);
     upgradeGreekForecourtSave(s);
     upgradeGreekDecreeSave(s);
+    if (reworked.has("greek-drama") && packOf("greek-polynices-hollow")) {
+      const antigone = s.actors?.["greek-antigone"];
+      if (
+        antigone &&
+        !s.packs?.["greek-drama"]?.flags?.["greek-burial-performed"]
+      )
+        delete antigone.want;
+    }
     upgradeRecitals(s, packDefinitions);
   }
   upgradeSightings(s);

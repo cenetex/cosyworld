@@ -13,6 +13,7 @@ import forest from "./forest.json" with { type: "json" };
 import life from "./world-life.json" with { type: "json" };
 import {
   packPeople,
+  conditionsMet,
   packDefinitions,
   freed,
   roamingQuestActor,
@@ -83,12 +84,19 @@ export const lifeField = (id, key) =>
 
 // --- Home and range ------------------------------------------------------
 
-export const lifeHome = (id) =>
-  packPeople[id]?.home ??
-  forest.people[id]?.home ??
-  humanAvatar(id)?.home?.id ??
-  packPeople[id]?.place ??
-  null;
+export function lifeHome(id, world) {
+  const resident = packPeople[id];
+  const next = resident?.homeWhen;
+  if (world && next && conditionsMet(world, resident.packId, next.requires, id))
+    return next.place;
+  return (
+    resident?.home ??
+    forest.people[id]?.home ??
+    humanAvatar(id)?.home?.id ??
+    resident?.place ??
+    null
+  );
+}
 // The hops a resident may stray from home for its wants: 0 keeps it home,
 // Infinity is no limit (the hub's residents). null is no home life at all:
 // players and their away avatars, roamers, journeys and freed residents.
@@ -151,7 +159,7 @@ export const hops = (from, to) => hopsFrom(from).get(to) ?? Infinity;
 // A test of places against a resident's range, or null for no limit.
 export function rangeTest(s, id) {
   const range = rangeOf(s, id),
-    home = lifeHome(id);
+    home = lifeHome(id, s);
   if (range === null || range === Infinity || !home) return null;
   const table = hopsFrom(home);
   return (place) => (table.get(place) ?? Infinity) <= range;
@@ -160,13 +168,13 @@ export function rangeTest(s, id) {
 export function inRange(s, id, place) {
   const range = rangeOf(s, id);
   if (range === null || range === Infinity) return true;
-  const home = lifeHome(id);
+  const home = lifeHome(id, s);
   return !home || hops(home, place) <= range;
 }
 // Away from home and beyond its range: pushed, sent, scattered or knocked.
 export function displaced(s, id) {
   const range = rangeOf(s, id),
-    home = lifeHome(id),
+    home = lifeHome(id, s),
     here = s.actors[id]?.place;
   return (
     range !== null &&
@@ -180,7 +188,7 @@ export function displaced(s, id) {
 export const walksHome = (s, id) =>
   worldLife.on &&
   rangeOf(s, id) !== null &&
-  s.actors[id].place !== lifeHome(id) &&
+  s.actors[id].place !== lifeHome(id, s) &&
   (Boolean(s.actors[id].homeward) || displaced(s, id));
 
 // A resident marked walking home holds `homeward: true`.

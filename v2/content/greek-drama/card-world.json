@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "greek-drama",
   "packId": "cosyworld.greek-drama",
-  "revision": 20,
+  "revision": 21,
   "name": "The Wine-Dark Sea",
   "description": "A branching Greek drama world. A shared ship visits the Wine-Dark Harbor, Athens Harbor and Piraeus. One road joins Athens and Piraeus, and short paths lead to the Attic places where welcome becomes a growing poem.",
   "tone": "Concrete Greek domestic and civic life: bread, work, desire, grief, argument, irreverence, and hospitality. Dialogue expresses committed actions. A tragic ending is never required.",
@@ -13,12 +13,19 @@
     "groups": [
       {
         "key": "greek-helen-account",
-        "options": ["egypt", "troy"],
+        "options": [
+          "egypt",
+          "troy"
+        ],
         "initial": "uncommitted"
       },
       {
         "key": "greek-atreid-account",
-        "options": ["aeschylus", "sophocles", "euripides"],
+        "options": [
+          "aeschylus",
+          "sophocles",
+          "euripides"
+        ],
         "initial": "uncommitted"
       }
     ]
@@ -38,35 +45,52 @@
     "greek-harbor": {
       "name": "The Wine-Dark Harbor",
       "text": "Worn steps climb from the stone landing toward the town.",
-      "exits": ["greek-road-thebes", "greek-argolid-road", "greek-road-north"],
+      "exits": [
+        "greek-road-thebes",
+        "greek-argolid-road",
+        "greek-road-north"
+      ],
       "backdrop": "assets/greek-drama/harbor-open-berth.webp",
       "persona": "Worn steps climb from the stone landing toward the town."
     },
     "greek-courtyard": {
       "name": "Theban Courtyard",
       "text": "Bread cools beneath a cloth. An empty place remains at the common table.",
-      "exits": ["greek-road-thebes", "greek-well", "greek-gate"],
+      "exits": [
+        "greek-road-thebes",
+        "greek-well",
+        "greek-gate"
+      ],
       "backdrop": "assets/greek-drama/courtyard-day.webp",
       "persona": "Bread cools beneath a cloth. An empty place remains at the common table."
     },
     "greek-well": {
       "name": "Theban Market Well",
       "text": "Water jars stand beside the well. Neighbors lower their voices when palace servants pass.",
-      "exits": ["greek-courtyard", "greek-palace"],
+      "exits": [
+        "greek-courtyard",
+        "greek-palace"
+      ],
       "backdrop": "assets/greek-drama/market-well-day.webp",
       "persona": "Water jars stand beside the well. Neighbors lower their voices when palace servants pass."
     },
     "greek-palace": {
       "name": "Theban Palace Forecourt",
       "text": "The king receives petitions beneath a painted portico. A space beside the door is kept for public orders.",
-      "exits": ["greek-well", "greek-sanctuary"],
+      "exits": [
+        "greek-well",
+        "greek-sanctuary"
+      ],
       "backdrop": "assets/greek-drama/palace-day.webp",
       "persona": "The king receives petitions beneath a painted portico. A space beside the door is kept for public orders."
     },
     "greek-gate": {
       "name": "Theban City Gate",
       "text": "Fresh repairs cover the gate. A guard keeps the road to the fallen soldiers clear.",
-      "exits": ["greek-courtyard", "greek-aulis"],
+      "exits": [
+        "greek-courtyard",
+        "greek-aulis"
+      ],
       "backdrop": "assets/greek-drama/city-gate-closed-day.webp",
       "backdrops": [
         {
@@ -103,7 +127,10 @@
     "greek-battlefield": {
       "name": "The Exposed Battlefield",
       "text": "Broken spear shafts lie in the dust. A strip of earth outside the city is set apart for the fallen brother.",
-      "exits": ["greek-gate"],
+      "exits": [
+        "greek-gate",
+        "greek-polynices-hollow"
+      ],
       "backdrop": "assets/greek-drama/burial-ground-dusk.webp",
       "persona": "Broken spear shafts lie in the dust. A strip of earth outside the city is set apart for the fallen brother."
     },
@@ -111,22 +138,32 @@
       "sanctuary": true,
       "name": "The Hillside Sanctuary",
       "text": "Olive trees shade a small altar. A stone basin stands beneath its roof.",
-      "exits": ["greek-palace"],
+      "exits": [
+        "greek-palace"
+      ],
       "backdrop": "assets/greek-drama/sanctuary-dawn.webp",
       "persona": "Olive trees shade a small altar. A stone basin stands beneath its roof."
     },
     "greek-cithaeron": {
       "name": "The Cithaeron Road",
       "text": "Goat paths cross the wooded slope of Cithaeron. One end leads to The Exposed Battlefield; the other leads to Eleusinian Sanctuary. A distant drum carries between the trees.",
-      "exits": ["greek-battlefield", "greek-eleusis"],
+      "exits": [
+        "greek-battlefield",
+        "greek-eleusis"
+      ],
       "backdrop": "assets/greek-drama/bacchae-cithaeron-day.webp",
       "persona": "A shared road over Cithaeron between The Exposed Battlefield and Eleusinian Sanctuary. The left end always leads to The Exposed Battlefield. The right end always leads to Eleusinian Sanctuary. From the battlefield it opens only while a Theban account of the burial is there or on Dione’s table: the Burial Account, Creon’s Writ or the Guard’s Tablet. Travelers can meet, talk, rest and carry their belongings here.",
-      "road": ["greek-battlefield", "greek-eleusis"]
+      "road": [
+        "greek-battlefield",
+        "greek-eleusis"
+      ]
     },
     "greek-aulis": {
       "name": "Aulis Anchorage",
       "text": "The ships lie motionless beside the shore. Soldiers wait outside the command tents.",
-      "exits": ["greek-gate"],
+      "exits": [
+        "greek-gate"
+      ],
       "backdrop": "assets/greek-drama/aulis-anchorage-day.webp",
       "persona": "The ships lie motionless beside the shore. Soldiers wait outside the command tents."
     },
@@ -169,35 +206,47 @@
     "greek-assembly": {
       "name": "The Assembly Hill",
       "text": "Stone benches face the speaker's platform. Citizens gather beside a list of proposals.",
-      "exits": ["greek-athens", "greek-demos-house"],
+      "exits": [
+        "greek-athens",
+        "greek-demos-house"
+      ],
       "backdrop": "assets/greek-drama/palace.svg",
       "persona": "Stone benches face the speaker's platform. Citizens gather beside a list of proposals."
     },
     "greek-acropolis": {
       "name": "Acropolis Treasury",
       "text": "A barred door separates the treasury from the courtyard. Women keep watch on the steps.",
-      "exits": ["greek-athens", "greek-festival"],
+      "exits": [
+        "greek-athens",
+        "greek-festival"
+      ],
       "backdrop": "assets/greek-drama/palace.svg",
       "persona": "A barred door separates the treasury from the courtyard. Women keep watch on the steps."
     },
     "greek-demos-house": {
       "name": "House of Demos",
       "text": "Serving dishes crowd a kitchen table. Two servants quarrel over who will carry dinner inside.",
-      "exits": ["greek-assembly"],
+      "exits": [
+        "greek-assembly"
+      ],
       "backdrop": "assets/greek-drama/courtyard.svg",
       "persona": "Serving dishes crowd a kitchen table. Two servants quarrel over who will carry dinner inside."
     },
     "greek-thinkery": {
       "name": "The Thinkery",
       "text": "Writing tablets lie beside a narrow bed. A student practices both sides of an argument.",
-      "exits": ["greek-athens"],
+      "exits": [
+        "greek-athens"
+      ],
       "backdrop": "assets/greek-drama/courtyard.svg",
       "persona": "Writing tablets lie beside a narrow bed. A student practices both sides of an argument."
     },
     "greek-jury-house": {
       "name": "The Juror's House",
       "text": "A jury token hangs beside the door. The household has arranged a small court in the yard.",
-      "exits": ["greek-athens"],
+      "exits": [
+        "greek-athens"
+      ],
       "backdrop": "assets/greek-drama/courtyard.svg",
       "persona": "A jury token hangs beside the door. The household has arranged a small court in the yard.",
       "retired": true
@@ -205,7 +254,9 @@
     "greek-festival": {
       "name": "The Women's Festival",
       "text": "Garlands mark the sanctuary entrance. The women at the door check each arriving guest.",
-      "exits": ["greek-acropolis"],
+      "exits": [
+        "greek-acropolis"
+      ],
       "backdrop": "assets/greek-drama/grove.svg",
       "persona": "Garlands mark the sanctuary entrance. The women at the door check each arriving guest."
     },
@@ -224,14 +275,20 @@
     "greek-acharnae": {
       "name": "Acharnae Market",
       "text": "Charcoal baskets line the lane. A farmer has marked a separate trading ground with stones.",
-      "exits": ["greek-attic-farm"],
+      "exits": [
+        "greek-attic-farm"
+      ],
       "backdrop": "assets/greek-drama/courtyard.svg",
       "persona": "Charcoal baskets line the lane. A farmer has marked a separate trading ground with stones."
     },
     "greek-colonus": {
       "name": "Colonus Grove",
       "text": "A cup and a small pot of honey stand at the grove’s edge. A keeper rests beside a smooth stone. Country paths lead to Eleusis and the farm. Travelers speak of an altar at Marathon beyond the hills.",
-      "exits": ["greek-eleusis", "greek-marathon", "greek-attic-farm"],
+      "exits": [
+        "greek-eleusis",
+        "greek-marathon",
+        "greek-attic-farm"
+      ],
       "backdrop": "assets/greek-drama/open-door-colonus.webp",
       "persona": "The keeper tells Sophocles’s Oedipus at Colonus as an earlier tale, before the brothers died at Thebes. Oedipus and his daughters belong to that named tale. The traveler’s offerings and refuge tablet belong to the present grove."
     },
@@ -250,21 +307,31 @@
     "greek-marathon": {
       "name": "Marathon Altar",
       "text": "A folded cloth lies beside the altar of Zeus. A keeper watches the road where families once sought shelter. Country paths lead to Eleusis, Colonus and the farm. Ships call in the bay below.",
-      "exits": ["greek-eleusis", "greek-colonus", "greek-attic-farm"],
+      "exits": [
+        "greek-eleusis",
+        "greek-colonus",
+        "greek-attic-farm"
+      ],
       "backdrop": "assets/greek-drama/open-door-marathon.webp",
       "persona": "The keeper tells Euripides’s Children of Heracles as a separate tale under Demophon, son of Theseus, after Heracles’s death. The daughter, battle and captive king belong to that tale. The traveler’s blanket stays at the present altar for guests."
     },
     "greek-argolid-road": {
       "name": "The Argolid Crossroads",
       "text": "Three roads leave a shaded meeting place. A singer asks which household's testimony should guide the journey.",
-      "exits": ["greek-harbor", "greek-argos-sanctuary", "greek-corinth"],
+      "exits": [
+        "greek-harbor",
+        "greek-argos-sanctuary",
+        "greek-corinth"
+      ],
       "backdrop": "assets/greek-drama/grove.svg",
       "persona": "Three roads leave a shaded meeting place. A singer asks which household's testimony should guide the journey."
     },
     "greek-argos-sanctuary": {
       "name": "Argive Shore Sanctuary",
       "text": "Suppliant branches rest beside a coastal altar. A lookout watches an approaching ship.",
-      "exits": ["greek-argolid-road"],
+      "exits": [
+        "greek-argolid-road"
+      ],
       "backdrop": "assets/greek-drama/suppliants-argive-shore-day.webp",
       "persona": "Suppliant branches rest beside a coastal altar. A lookout watches an approaching ship."
     },
@@ -395,57 +462,82 @@
     "greek-corinth": {
       "name": "Corinthian Courtyard",
       "text": "A rented household opens onto the harbor road. Bundles stand ready beside the door.",
-      "exits": ["greek-argolid-road", "greek-troezen"],
+      "exits": [
+        "greek-argolid-road",
+        "greek-troezen"
+      ],
       "backdrop": "assets/greek-drama/courtyard.svg",
       "persona": "A rented household opens onto the harbor road. Bundles stand ready beside the door."
     },
     "greek-troezen": {
       "name": "Troezen Palace",
       "text": "Two shrines flank the palace approach. A hunting party has left its equipment under the portico.",
-      "exits": ["greek-corinth"],
+      "exits": [
+        "greek-corinth"
+      ],
       "backdrop": "assets/greek-drama/palace.svg",
       "persona": "Two shrines flank the palace approach. A hunting party has left its equipment under the portico."
     },
     "greek-delphi": {
       "name": "Delphic Temple",
       "text": "Travelers queue beneath Apollo's columns. An attendant sweeps leaves from the sanctuary steps.",
-      "exits": ["greek-road-sacred-way", "greek-oeta"],
+      "exits": [
+        "greek-road-sacred-way",
+        "greek-oeta"
+      ],
       "backdrop": "assets/greek-drama/palace.svg",
       "persona": "Travelers queue beneath Apollo's columns. An attendant sweeps leaves from the sanctuary steps."
     },
     "greek-trachis": {
       "name": "House at Trachis",
       "text": "A messenger's sandals dry beside the doorway. A folded garment waits on a workbench.",
-      "exits": ["greek-oeta", "greek-pherae"],
+      "exits": [
+        "greek-oeta",
+        "greek-pherae"
+      ],
       "backdrop": "assets/greek-drama/book-two-trachis-day.webp",
       "persona": "A messenger's sandals dry beside the doorway. A folded garment waits on a workbench."
     },
     "greek-oeta": {
       "name": "The Oeta Road",
       "text": "A steep road climbs above the trees on Mount Oeta. One end leads to Delphic Temple; the other leads to House at Trachis. Bearers have set a litter beside a level patch of stone.",
-      "exits": ["greek-delphi", "greek-trachis"],
+      "exits": [
+        "greek-delphi",
+        "greek-trachis"
+      ],
       "backdrop": "assets/greek-drama/oeta-road.svg",
       "persona": "A shared road between Delphic Temple and House at Trachis. The left end always leads to Delphic Temple. The right end always leads to House at Trachis. Bearers have set a litter beside a level patch of stone. Travelers can meet, talk, rest and carry their belongings here.",
-      "road": ["greek-delphi", "greek-trachis"]
+      "road": [
+        "greek-delphi",
+        "greek-trachis"
+      ]
     },
     "greek-pherae": {
       "name": "Palace of Pherae",
       "text": "Guests arrive at a house in mourning. A servant hesitates before opening the inner door.",
-      "exits": ["greek-trachis", "greek-thetis"],
+      "exits": [
+        "greek-trachis",
+        "greek-thetis"
+      ],
       "backdrop": "assets/greek-drama/book-two-pherae-day.webp",
       "persona": "Guests arrive at a house in mourning. A servant hesitates before opening the inner door."
     },
     "greek-thetis": {
       "name": "Thetis's Sanctuary",
       "text": "The sanctuary stands beside a great household. A woman has taken refuge near the altar.",
-      "exits": ["greek-pherae"],
+      "exits": [
+        "greek-pherae"
+      ],
       "backdrop": "assets/greek-drama/book-three-thrace-day.webp",
       "persona": "The sanctuary stands beside a great household. A woman has taken refuge near the altar."
     },
     "greek-troy": {
       "name": "The Trojan Walls",
       "text": "The city road runs between battered walls. Soldiers and displaced households share the remaining wells.",
-      "exits": ["greek-greek-camp", "greek-trojan-camp"],
+      "exits": [
+        "greek-greek-camp",
+        "greek-trojan-camp"
+      ],
       "backdrop": "assets/greek-drama/trojan-walls-day.webp",
       "persona": "The city road runs between battered walls. Soldiers and displaced households share the remaining wells."
     },
@@ -464,7 +556,9 @@
     "greek-trojan-camp": {
       "name": "The Trojan Night Camp",
       "text": "Watch fires mark the edge of the camp. A newly arrived ally waits for a guide.",
-      "exits": ["greek-troy"],
+      "exits": [
+        "greek-troy"
+      ],
       "backdrop": "assets/greek-drama/trojan-night-camp-day.webp",
       "persona": "Watch fires mark the edge of the camp. A newly arrived ally waits for a guide."
     },
@@ -485,7 +579,9 @@
     "greek-lemnos": {
       "name": "The Lemnian Cave",
       "text": "A rough bed lies inside the cave. Footprints lead toward a bow wrapped against the salt air.",
-      "exits": ["greek-piraeus"],
+      "exits": [
+        "greek-piraeus"
+      ],
       "retired": true,
       "backdrop": "assets/greek-drama/lemnian-cave-day.webp",
       "persona": "A rough bed lies inside the cave. Footprints lead toward a bow wrapped against the salt air."
@@ -493,7 +589,9 @@
     "greek-thrace": {
       "name": "The Thracian Shore",
       "text": "A fleet waits beyond the breakers. Captive households search among the new arrivals.",
-      "exits": ["greek-piraeus"],
+      "exits": [
+        "greek-piraeus"
+      ],
       "retired": true,
       "backdrop": "assets/greek-drama/thracian-shore-day.webp",
       "persona": "A fleet waits beyond the breakers. Captive households search among the new arrivals."
@@ -515,7 +613,9 @@
     "greek-tauris": {
       "name": "The Taurian Temple",
       "text": "A walled temple overlooks the landing place. An attendant counts the people brought ashore.",
-      "exits": ["greek-piraeus"],
+      "exits": [
+        "greek-piraeus"
+      ],
       "retired": true,
       "backdrop": "assets/greek-drama/tauris-shore-scene.webp",
       "persona": "A walled temple overlooks the landing place. An attendant counts the people brought ashore."
@@ -523,7 +623,9 @@
     "greek-sicily": {
       "name": "The Sicilian Cave",
       "text": "Sheep crowd a stone enclosure beside the cave. Wine jars stand beyond the shepherds' reach.",
-      "exits": ["greek-piraeus"],
+      "exits": [
+        "greek-piraeus"
+      ],
       "retired": true,
       "backdrop": "assets/greek-drama/book-three-lemnos-day.webp",
       "persona": "Sheep crowd a stone enclosure beside the cave. Wine jars stand beyond the shepherds' reach."
@@ -531,7 +633,9 @@
     "greek-susa": {
       "name": "The Court at Susa",
       "text": "Officials wait beside the royal tomb. The last dispatch from the fleet lies unopened.",
-      "exits": ["greek-troy"],
+      "exits": [
+        "greek-troy"
+      ],
       "backdrop": "assets/greek-drama/book-three-susa-day.webp",
       "persona": "Officials wait beside the royal tomb. The last dispatch from the fleet lies unopened.",
       "retired": true
@@ -539,7 +643,9 @@
     "greek-scythian-crag": {
       "name": "The Scythian Crag",
       "text": "Iron bonds fix a figure to the rock. A narrow ledge allows visitors to approach.",
-      "exits": ["greek-piraeus"],
+      "exits": [
+        "greek-piraeus"
+      ],
       "backdrop": "assets/greek-drama/grove.svg",
       "persona": "Iron bonds fix a figure to the rock. A narrow ledge allows visitors to approach.",
       "retired": true
@@ -547,7 +653,9 @@
     "greek-divine-heights": {
       "name": "The Divine Heights",
       "text": "A steep stair ends above the clouds. Broken farming tools have been carried to the landing.",
-      "exits": ["greek-attic-farm"],
+      "exits": [
+        "greek-attic-farm"
+      ],
       "backdrop": "assets/greek-drama/sea.svg",
       "persona": "A steep stair ends above the clouds. Broken farming tools have been carried to the landing.",
       "retired": true
@@ -555,7 +663,9 @@
     "greek-bird-wilderness": {
       "name": "The Hoopoe's Thicket",
       "text": "A nest hangs above a rocky clearing. Two travelers have laid out a basket, a pot, and a plan for a city.",
-      "exits": ["greek-attic-farm"],
+      "exits": [
+        "greek-attic-farm"
+      ],
       "backdrop": "assets/greek-drama/grove.svg",
       "persona": "A nest hangs above a rocky clearing. Two travelers have laid out a basket, a pot, and a plan for a city.",
       "retired": true
@@ -563,7 +673,9 @@
     "greek-underworld": {
       "name": "The Underworld Landing",
       "text": "A ferry rests beside dark water. The keeper of the landing asks the purpose of each crossing.",
-      "exits": ["greek-colonus"],
+      "exits": [
+        "greek-colonus"
+      ],
       "backdrop": "assets/greek-drama/harbor.svg",
       "persona": "A ferry rests beside dark water. The keeper of the landing asks the purpose of each crossing.",
       "retired": true
@@ -629,7 +741,9 @@
       "name": "Athens Harbor",
       "text": "Stone quays run beneath long warehouses. Beyond the harbor gate, city streets and steps climb toward the walls and the Acropolis of Athens.",
       "persona": "Athens Harbor is the ship’s landing for the great city. City streets lead inland to the Agora. Piraeus Quays is a separate town with its own host and work of welcome.",
-      "exits": ["greek-piraeus"],
+      "exits": [
+        "greek-piraeus"
+      ],
       "backdrop": "assets/greek-drama/athens-harbor-open-berth.webp",
       "retired": true
     },
@@ -637,16 +751,28 @@
       "name": "Theban Harbor Road",
       "text": "A broad road crosses the olive hills. One end leads to The Wine-Dark Harbor; the other leads to Theban Courtyard. A stone bench rests beside the verge.",
       "persona": "A shared road between The Wine-Dark Harbor and Theban Courtyard. The left end always leads to The Wine-Dark Harbor. The right end always leads to Theban Courtyard. Travelers can meet, talk, rest and carry their belongings here.",
-      "exits": ["greek-harbor", "greek-courtyard"],
-      "road": ["greek-harbor", "greek-courtyard"],
+      "exits": [
+        "greek-harbor",
+        "greek-courtyard"
+      ],
+      "road": [
+        "greek-harbor",
+        "greek-courtyard"
+      ],
       "backdrop": "assets/greek-drama/theban-harbor-road.webp"
     },
     "greek-road-athens-harbor": {
       "name": "Athens Harbor Road",
       "text": "A broad road crosses the olive hills. One end leads to Athens Harbor; the other leads to Athenian Agora. A stone bench rests beside the verge.",
       "persona": "A shared road between Athens Harbor and Athenian Agora. The left end always leads to Athens Harbor. The right end always leads to Athenian Agora. Travelers can meet, talk, rest and carry their belongings here.",
-      "exits": ["greek-athens-harbor", "greek-athens"],
-      "road": ["greek-athens-harbor", "greek-athens"],
+      "exits": [
+        "greek-athens-harbor",
+        "greek-athens"
+      ],
+      "road": [
+        "greek-athens-harbor",
+        "greek-athens"
+      ],
       "backdrop": "assets/greek-drama/attic-road.webp",
       "retired": true
     },
@@ -654,16 +780,28 @@
       "name": "The Long Walls",
       "text": "A road runs between two long walls from the city to its port. One end leads to Piraeus Quays; the other leads to Athenian Agora. A stone bench rests beside the verge.",
       "persona": "A shared road between Piraeus Quays and Athenian Agora. The left end always leads to Piraeus Quays. The right end always leads to Athenian Agora. The walls open from either end once the herald has registered the mothers’ plea with the Suppliant’s Olive Branch in the Agora. Travelers can meet, talk, rest and carry their belongings here.",
-      "exits": ["greek-piraeus", "greek-athens"],
-      "road": ["greek-piraeus", "greek-athens"],
+      "exits": [
+        "greek-piraeus",
+        "greek-athens"
+      ],
+      "road": [
+        "greek-piraeus",
+        "greek-athens"
+      ],
       "backdrop": "assets/greek-drama/attic-road.webp"
     },
     "greek-road-athens-colonus": {
       "name": "Colonus Road",
       "text": "A broad road crosses the olive hills. One end leads to Athenian Agora; the other leads to Colonus Grove. A stone bench rests beside the verge.",
       "persona": "A shared road between Athenian Agora and Colonus Grove. The left end always leads to Athenian Agora. The right end always leads to Colonus Grove. Travelers can meet, talk, rest and carry their belongings here.",
-      "exits": ["greek-athens", "greek-colonus"],
-      "road": ["greek-athens", "greek-colonus"],
+      "exits": [
+        "greek-athens",
+        "greek-colonus"
+      ],
+      "road": [
+        "greek-athens",
+        "greek-colonus"
+      ],
       "retired": true,
       "backdrop": "assets/greek-drama/attic-road.webp"
     },
@@ -671,16 +809,28 @@
       "name": "The Sacred Way",
       "text": "A paved road runs from Demeter’s sanctuary to the Dipylon, the double gate of Athens. One end leads to Athenian Agora; the other leads to Eleusinian Sanctuary. Small shrines stand along the verge.",
       "persona": "A shared road between Athenian Agora and Eleusinian Sanctuary. The left end always leads to Athenian Agora. The right end always leads to Eleusinian Sanctuary. From Eleusis the road opens only while the mothers’ petition is at Eleusis or in the Agora. Travelers can meet, talk, rest and carry their belongings here.",
-      "exits": ["greek-athens", "greek-eleusis"],
-      "road": ["greek-athens", "greek-eleusis"],
+      "exits": [
+        "greek-athens",
+        "greek-eleusis"
+      ],
+      "road": [
+        "greek-athens",
+        "greek-eleusis"
+      ],
       "backdrop": "assets/greek-drama/dipylon-road.svg"
     },
     "greek-road-athens-marathon": {
       "name": "Marathon Road",
       "text": "A broad road crosses the olive hills. One end leads to Athenian Agora; the other leads to Marathon Altar. A stone bench rests beside the verge.",
       "persona": "A shared road between Athenian Agora and Marathon Altar. The left end always leads to Athenian Agora. The right end always leads to Marathon Altar. Travelers can meet, talk, rest and carry their belongings here.",
-      "exits": ["greek-athens", "greek-marathon"],
-      "road": ["greek-athens", "greek-marathon"],
+      "exits": [
+        "greek-athens",
+        "greek-marathon"
+      ],
+      "road": [
+        "greek-athens",
+        "greek-marathon"
+      ],
       "retired": true,
       "backdrop": "assets/greek-drama/attic-road.webp"
     },
@@ -688,8 +838,14 @@
       "name": "Eleusis Coast Road",
       "text": "A broad road crosses the olive hills. One end leads to Piraeus Quays; the other leads to Eleusinian Sanctuary. A stone bench rests beside the verge.",
       "persona": "A shared road between Piraeus Quays and Eleusinian Sanctuary. The left end always leads to Piraeus Quays. The right end always leads to Eleusinian Sanctuary. Travelers can meet, talk, rest and carry their belongings here.",
-      "exits": ["greek-piraeus", "greek-eleusis"],
-      "road": ["greek-piraeus", "greek-eleusis"],
+      "exits": [
+        "greek-piraeus",
+        "greek-eleusis"
+      ],
+      "road": [
+        "greek-piraeus",
+        "greek-eleusis"
+      ],
       "retired": true,
       "backdrop": "assets/greek-drama/attic-road.webp"
     },
@@ -697,8 +853,14 @@
       "name": "Colonus–Eleusis Road",
       "text": "A broad road crosses the olive hills. One end leads to Colonus Grove; the other leads to Eleusinian Sanctuary. A stone bench rests beside the verge.",
       "persona": "A shared road between Colonus Grove and Eleusinian Sanctuary. The left end always leads to Colonus Grove. The right end always leads to Eleusinian Sanctuary. Travelers can meet, talk, rest and carry their belongings here.",
-      "exits": ["greek-colonus", "greek-eleusis"],
-      "road": ["greek-colonus", "greek-eleusis"],
+      "exits": [
+        "greek-colonus",
+        "greek-eleusis"
+      ],
+      "road": [
+        "greek-colonus",
+        "greek-eleusis"
+      ],
       "retired": true,
       "backdrop": "assets/greek-drama/attic-road.webp"
     },
@@ -706,8 +868,14 @@
       "name": "Colonus–Marathon Road",
       "text": "A broad road crosses the olive hills. One end leads to Colonus Grove; the other leads to Marathon Altar. A stone bench rests beside the verge.",
       "persona": "A shared road between Colonus Grove and Marathon Altar. The left end always leads to Colonus Grove. The right end always leads to Marathon Altar. Travelers can meet, talk, rest and carry their belongings here.",
-      "exits": ["greek-colonus", "greek-marathon"],
-      "road": ["greek-colonus", "greek-marathon"],
+      "exits": [
+        "greek-colonus",
+        "greek-marathon"
+      ],
+      "road": [
+        "greek-colonus",
+        "greek-marathon"
+      ],
       "retired": true,
       "backdrop": "assets/greek-drama/attic-road.webp"
     },
@@ -715,16 +883,28 @@
       "name": "The Road to Delphi",
       "text": "A paved pilgrim road climbs through the hills toward Mount Parnassus. One end leads to Athenian Agora; the other leads to Delphic Temple. Small shrines stand along the verge.",
       "persona": "A shared road between Athenian Agora and Delphic Temple. The left end always leads to Athenian Agora. The right end always leads to Delphic Temple. Pilgrims carry questions and gifts for Apollo along this road. Travelers can meet, talk, rest and carry their belongings here.",
-      "exits": ["greek-athens", "greek-delphi"],
-      "road": ["greek-athens", "greek-delphi"],
+      "exits": [
+        "greek-athens",
+        "greek-delphi"
+      ],
+      "road": [
+        "greek-athens",
+        "greek-delphi"
+      ],
       "backdrop": "assets/greek-drama/sacred-way.svg"
     },
     "greek-road-royal": {
       "name": "The Royal Road",
       "text": "A long royal road runs east across dry plains. One end leads to The Trojan Walls; the other leads to The Court at Susa. A post station keeps fresh horses by the road.",
       "persona": "A shared road between The Trojan Walls and The Court at Susa. The left end always leads to The Trojan Walls. The right end always leads to The Court at Susa. Royal messengers ride this road between the sea and the Persian court. Travelers can meet, talk, rest and carry their belongings here.",
-      "exits": ["greek-troy", "greek-susa"],
-      "road": ["greek-troy", "greek-susa"],
+      "exits": [
+        "greek-troy",
+        "greek-susa"
+      ],
+      "road": [
+        "greek-troy",
+        "greek-susa"
+      ],
       "backdrop": "assets/greek-drama/royal-road.svg",
       "retired": true
     },
@@ -732,8 +912,14 @@
       "name": "The Black Sea Road",
       "text": "A windy coast road follows the cliffs above the Black Sea. One end leads to The Thracian Shore; the other leads to The Taurian Temple. Fishing boats lie pulled up on the stones below.",
       "persona": "A shared road between The Thracian Shore and The Taurian Temple. The left end always leads to The Thracian Shore. The right end always leads to The Taurian Temple. The road follows the cold northern coast. Travelers can meet, talk, rest and carry their belongings here.",
-      "exits": ["greek-thrace", "greek-tauris"],
-      "road": ["greek-thrace", "greek-tauris"],
+      "exits": [
+        "greek-thrace",
+        "greek-tauris"
+      ],
+      "road": [
+        "greek-thrace",
+        "greek-tauris"
+      ],
       "backdrop": "assets/greek-drama/black-sea-road.svg",
       "retired": true
     },
@@ -741,8 +927,14 @@
       "name": "The Colonists' Road",
       "text": "A long road runs west with the settlers of Corinth. One end leads to Corinthian Courtyard; the other leads to The Sicilian Cave. Carts carry seed, tools and household pots.",
       "persona": "A shared road between Corinthian Courtyard and The Sicilian Cave. The left end always leads to Corinthian Courtyard. The right end always leads to The Sicilian Cave. Corinthian settlers took this way west when they founded Syracuse. Travelers can meet, talk, rest and carry their belongings here.",
-      "exits": ["greek-corinth", "greek-sicily"],
-      "road": ["greek-corinth", "greek-sicily"],
+      "exits": [
+        "greek-corinth",
+        "greek-sicily"
+      ],
+      "road": [
+        "greek-corinth",
+        "greek-sicily"
+      ],
       "backdrop": "assets/greek-drama/colonists-road.svg",
       "retired": true
     },
@@ -750,8 +942,14 @@
       "name": "The Coast Road",
       "text": "A long coast road winds west over the cliffs above the gulf. One end leads to Piraeus Quays; the other leads to The Wine-Dark Harbor. The ship makes the same passage sooner.",
       "persona": "A shared road between Piraeus Quays and The Wine-Dark Harbor. The left end always leads to Piraeus Quays. The right end always leads to The Wine-Dark Harbor. From Piraeus the road is always open. From the harbor it opens only once the herald’s truce rests in the Agora, as the Long Walls do; until then the ship with the Travel Provisions is the way to Piraeus. Travelers can meet, talk, rest and carry their belongings here.",
-      "exits": ["greek-piraeus", "greek-harbor"],
-      "road": ["greek-piraeus", "greek-harbor"],
+      "exits": [
+        "greek-piraeus",
+        "greek-harbor"
+      ],
+      "road": [
+        "greek-piraeus",
+        "greek-harbor"
+      ],
       "backdrop": "assets/greek-drama/black-sea-road.svg",
       "retired": true
     },
@@ -759,8 +957,14 @@
       "name": "The Northern Road",
       "text": "A long road runs north through Thessaly and Thrace and crosses the strait to Troy. One end leads to The Trojan Camp Landing; the other comes down to The Wine-Dark Harbor. The ship makes the same passage sooner.",
       "persona": "A shared road between The Trojan Camp Landing and The Wine-Dark Harbor. The left end always leads to The Trojan Camp Landing. The right end always leads to The Wine-Dark Harbor, outside the city; it never passes the City Gate. The road is open both ways. The ship is the quicker way. Travelers can meet, talk, rest and carry their belongings here.",
-      "exits": ["greek-ajax-landing", "greek-harbor"],
-      "road": ["greek-ajax-landing", "greek-harbor"],
+      "exits": [
+        "greek-ajax-landing",
+        "greek-harbor"
+      ],
+      "road": [
+        "greek-ajax-landing",
+        "greek-harbor"
+      ],
       "backdrop": "assets/greek-drama/royal-road.svg"
     },
     "greek-ajax-landing": {
@@ -773,7 +977,10 @@
       "name": "The Trojan Camp Landing",
       "text": "A wooden landing meets the ships below the tents. The Greek ship calls here for the named Trojan burial account.",
       "persona": "This is a named Trojan account, beginning after Ajax’s death. Its deeds belong to that telling. The Theban opening keeps its own time. A wooden landing meets the ships below the tents. The Greek ship calls here for the named Trojan burial account.",
-      "exits": ["greek-greek-camp", "greek-road-north"],
+      "exits": [
+        "greek-greek-camp",
+        "greek-road-north"
+      ],
       "backdrop": "assets/greek-drama/ajax-camp-day.webp",
       "requires": [
         {
@@ -787,7 +994,9 @@
       "name": "Ajax’s Household Tent",
       "text": "Tecmessa keeps a place for Eurysaces beside the tent. The child’s father has died. His shield can be set safely with the household.",
       "persona": "This is a named Trojan account, beginning after Ajax’s death. Its deeds belong to that telling. The Theban opening keeps its own time. Tecmessa keeps a place for Eurysaces beside the tent. The child’s father has died. His shield can be set safely with the household.",
-      "exits": ["greek-greek-camp"],
+      "exits": [
+        "greek-greek-camp"
+      ],
       "backdrop": "assets/greek-drama/ajax-camp-day.webp",
       "requires": [
         {
@@ -801,13 +1010,128 @@
       "name": "Ajax’s Grave",
       "text": "A patch of earth waits above the ships. Cloth and grave tools must reach this place before Ajax’s burial can be completed.",
       "persona": "This is a named Trojan account, beginning after Ajax’s death. Its deeds belong to that telling. The Theban opening keeps its own time. A patch of earth waits above the ships. Cloth and grave tools must reach this place before Ajax’s burial can be completed.",
-      "exits": ["greek-greek-camp"],
+      "exits": [
+        "greek-greek-camp"
+      ],
       "backdrop": "assets/greek-drama/ajax-camp-day.webp",
       "requires": [
         {
           "kind": "flag",
           "key": "greek-ajax-open",
           "value": true
+        }
+      ]
+    },
+    "greek-polynices-hollow": {
+      "name": "Polynices' Hollow",
+      "text": "A bent olive shelters the shelf below the battlefield.",
+      "persona": "A bent olive shelters the shelf below the battlefield. There is room to kneel beside the earth.",
+      "exits": [
+        "greek-battlefield"
+      ],
+      "backdrop": "assets/greek-drama/polynices-hollow-fallen-day.webp",
+      "backdrops": [
+        {
+          "backdrop": "assets/greek-drama/polynices-hollow-buried-day.webp",
+          "requires": [
+            {
+              "kind": "daylight",
+              "phase": "day"
+            },
+            {
+              "kind": "flag",
+              "key": "greek-burial-performed",
+              "value": true
+            }
+          ]
+        },
+        {
+          "backdrop": "assets/greek-drama/polynices-hollow-buried-night.webp",
+          "requires": [
+            {
+              "kind": "daylight",
+              "phase": "night"
+            },
+            {
+              "kind": "flag",
+              "key": "greek-burial-performed",
+              "value": true
+            }
+          ]
+        },
+        {
+          "backdrop": "assets/greek-drama/polynices-hollow-veiled-day.webp",
+          "requires": [
+            {
+              "kind": "daylight",
+              "phase": "day"
+            },
+            {
+              "kind": "flag",
+              "key": "greek-polynices-veiled",
+              "value": true
+            }
+          ]
+        },
+        {
+          "backdrop": "assets/greek-drama/polynices-hollow-veiled-night.webp",
+          "requires": [
+            {
+              "kind": "daylight",
+              "phase": "night"
+            },
+            {
+              "kind": "flag",
+              "key": "greek-polynices-veiled",
+              "value": true
+            }
+          ]
+        },
+        {
+          "backdrop": "assets/greek-drama/polynices-hollow-anointed-day.webp",
+          "requires": [
+            {
+              "kind": "daylight",
+              "phase": "day"
+            },
+            {
+              "kind": "flag",
+              "key": "greek-polynices-anointed",
+              "value": true
+            }
+          ]
+        },
+        {
+          "backdrop": "assets/greek-drama/polynices-hollow-anointed-night.webp",
+          "requires": [
+            {
+              "kind": "daylight",
+              "phase": "night"
+            },
+            {
+              "kind": "flag",
+              "key": "greek-polynices-anointed",
+              "value": true
+            }
+          ]
+        },
+        {
+          "backdrop": "assets/greek-drama/polynices-hollow-fallen-day.webp",
+          "requires": [
+            {
+              "kind": "daylight",
+              "phase": "day"
+            }
+          ]
+        },
+        {
+          "backdrop": "assets/greek-drama/polynices-hollow-fallen-night.webp",
+          "requires": [
+            {
+              "kind": "daylight",
+              "phase": "night"
+            }
+          ]
         }
       ]
     }
@@ -827,24 +1151,42 @@
       "seed": "Antigone, daughter of Oedipus.",
       "portrait": "assets/greek-drama/chthonic-antigone.png",
       "want": {
-        "kind": "item",
-        "target": "greek-funeral-cloth"
-      },
-      "desire": {
-        "items": ["greek-funeral-cloth", "greek-oil-flask"],
-        "location": "greek-battlefield",
-        "avatars": [],
-        "requires": [
-          {
-            "kind": "choice_unset",
-            "key": "greek-theban-response"
-          }
-        ]
+        "kind": "place",
+        "target": "greek-polynices-hollow",
+        "step": {
+          "verb": "lay",
+          "items": [
+            "greek-oil-flask",
+            "greek-funeral-cloth",
+            "greek-shovel"
+          ],
+          "finish": "greek-burial-performed"
+        }
       },
       "tastes": {
         "likes": "practical help, care for the dead",
         "sore": "being told that family grief is an inconvenience",
         "reason": "Dust marks the hem of her dress. She keeps looking toward the battlefield."
+      },
+      "homeWhen": {
+        "place": "greek-polynices-hollow",
+        "requires": [
+          {
+            "kind": "any",
+            "conditions": [
+              {
+                "kind": "holding",
+                "item": "greek-creon-writ",
+                "actor": "greek-guard"
+              },
+              {
+                "kind": "flag",
+                "key": "greek-burial-performed",
+                "value": true
+              }
+            ]
+          }
+        ]
       }
     },
     "greek-ismene": {
@@ -1003,7 +1345,9 @@
       "text": "He keeps the words of the journey in a song.",
       "place": "greek-harbor",
       "home": "greek-harbor",
-      "previousHomes": ["greek-argolid-road"],
+      "previousHomes": [
+        "greek-argolid-road"
+      ],
       "values": {
         "greek-provisions": 1
       },
@@ -1595,6 +1939,45 @@
         "sore": "a promise called a finished burial",
         "reason": "Ajax’s household and burial are at issue in this named Trojan account."
       }
+    },
+    "greek-polynices-shade": {
+      "name": "Polynices' Shade",
+      "text": "A pale figure stands beside the broken spears.",
+      "seed": "Polynices, brother of Antigone.",
+      "place": "greek-battlefield",
+      "portrait": "assets/greek-drama/polynices-shade.webp",
+      "travels": false,
+      "standoffs": false,
+      "requires": [
+        {
+          "kind": "clock",
+          "from": 36,
+          "to": 0
+        },
+        {
+          "kind": "flag",
+          "key": "greek-burial-performed",
+          "value": false
+        }
+      ],
+      "want": {
+        "kind": "place",
+        "target": "greek-polynices-hollow",
+        "step": {
+          "verb": "lay",
+          "items": [
+            "greek-oil-flask",
+            "greek-funeral-cloth",
+            "greek-shovel"
+          ],
+          "finish": "greek-burial-performed"
+        }
+      },
+      "tastes": {
+        "likes": "care for his kin",
+        "sore": "the neglect of the dead",
+        "reason": "He asks that his sister be allowed to lay him to rest."
+      }
     }
   },
   "items": {
@@ -1614,11 +1997,16 @@
       "persona": "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
       "art": "assets/greek-drama/bread.png",
       "home": "greek-courtyard",
-      "tags": ["food"],
+      "tags": [
+        "food"
+      ],
       "startsUsed": true,
       "locked": {
         "by": "greek-baker",
-        "consumes": ["greek-water-jar", "greek-wheat"]
+        "consumes": [
+          "greek-water-jar",
+          "greek-wheat"
+        ]
       },
       "absentReturn": true
     },
@@ -1638,7 +2026,9 @@
       "persona": "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
       "art": "assets/greek-drama/figs.png",
       "home": "greek-sanctuary",
-      "tags": ["food"],
+      "tags": [
+        "food"
+      ],
       "absentReturn": true
     },
     "greek-wine-skin": {
@@ -1648,7 +2038,9 @@
       "persona": "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
       "art": "assets/greek-drama/wine-skin.png",
       "home": "greek-gate",
-      "tags": ["drink"],
+      "tags": [
+        "drink"
+      ],
       "absentReturn": true
     },
     "greek-funeral-cloth": {
@@ -1681,7 +2073,8 @@
       "text": "A short iron shovel with soil caught beneath the blade.",
       "holder": "greek-gate",
       "persona": "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
-      "art": "assets/greek-drama/shovel.png"
+      "art": "assets/greek-drama/shovel.png",
+      "home": "greek-gate"
     },
     "greek-decree": {
       "name": "The Burial Decree",
@@ -1706,10 +2099,16 @@
       "art": "assets/greek-drama/provisions.png",
       "home": "greek-harbor",
       "startsUsed": true,
-      "tags": ["food"],
+      "tags": [
+        "food"
+      ],
       "locked": {
         "by": "greek-shipmaster",
-        "consumes": ["greek-bread", "greek-figs", "greek-wine-skin"]
+        "consumes": [
+          "greek-bread",
+          "greek-figs",
+          "greek-wine-skin"
+        ]
       },
       "absentReturn": true
     },
@@ -2419,7 +2818,8 @@
         }
       ],
       "textTemplate": "{actor} digs a grave beside the fallen brother.",
-      "on": "wait"
+      "on": "wait",
+      "archived": true
     },
     {
       "id": "greek-perform-burial",
@@ -2475,7 +2875,8 @@
       ],
       "summary": "The brother was buried. The decree remains in force, and the household must answer for the defiance.",
       "textTemplate": "{actor} lays cloth and oil at the grave. The brother is buried against the decree.",
-      "on": "wait"
+      "on": "wait",
+      "archived": true
     },
     {
       "id": "greek-petition-burial",
@@ -2509,7 +2910,8 @@
       ],
       "summary": "Creon granted a witnessed exception for the family to arrange a lawful burial. The petition itself did not perform the rite.",
       "textTemplate": "Creon holds his decree again. With his writ, {actor} may see the brother buried under witness.",
-      "on": "meet"
+      "on": "meet",
+      "archived": true
     },
     {
       "id": "greek-perform-permitted-burial",
@@ -2560,7 +2962,8 @@
         }
       ],
       "textTemplate": "{actor} lays cloth and oil at the grave. The brother is buried under Creon's writ.",
-      "on": "wait"
+      "on": "wait",
+      "archived": true
     },
     {
       "id": "greek-report-plan",
@@ -2612,7 +3015,8 @@
         }
       ],
       "textTemplate": "{actor} hands the guard the shovel and the funeral cloth, the tools of the burial. He records a warning on a tablet.",
-      "on": "give"
+      "on": "give",
+      "archived": true
     },
     {
       "id": "greek-courtyard-burial",
@@ -2650,7 +3054,8 @@
         }
       ],
       "textTemplate": "{actor} sets the Burial Account on Dione's table. She speaks of the Argive mothers at Eleusis.",
-      "on": "give"
+      "on": "give",
+      "archived": true
     },
     {
       "id": "greek-courtyard-concession",
@@ -2688,7 +3093,8 @@
         }
       ],
       "textTemplate": "{actor} sets Creon's Writ on Dione's table. She speaks of the Argive mothers at Eleusis.",
-      "on": "give"
+      "on": "give",
+      "archived": true
     },
     {
       "id": "greek-courtyard-permitted-burial",
@@ -2731,7 +3137,8 @@
         }
       ],
       "textTemplate": "{actor} sets the Burial Account on Dione's table.",
-      "on": "give"
+      "on": "give",
+      "archived": true
     },
     {
       "id": "greek-courtyard-exposure",
@@ -2769,7 +3176,8 @@
         }
       ],
       "textTemplate": "{actor} sets the Guard's Tablet on Dione's table. She speaks of the Argive mothers at Eleusis.",
-      "on": "give"
+      "on": "give",
+      "archived": true
     },
     {
       "id": "greek-helen-egypt",
@@ -5428,6 +5836,122 @@
         }
       ],
       "workId": "sophocles-ajax"
+    },
+    {
+      "id": "greek-anoint-polynices",
+      "at": "greek-polynices-hollow",
+      "subject": "greek-antigone",
+      "label": "Hand Antigone the oil",
+      "text": "Antigone cleans the dust from her brother and anoints him.",
+      "requires": [
+        {
+          "kind": "item_at",
+          "item": "greek-oil-flask",
+          "place": "greek-polynices-hollow"
+        },
+        {
+          "kind": "item_at",
+          "item": "greek-funeral-cloth",
+          "place": "greek-polynices-hollow"
+        },
+        {
+          "kind": "item_at",
+          "item": "greek-shovel",
+          "place": "greek-polynices-hollow"
+        },
+        {
+          "kind": "flag",
+          "key": "greek-polynices-anointed",
+          "value": false
+        }
+      ],
+      "effects": [
+        {
+          "kind": "retire_item",
+          "item": "greek-oil-flask"
+        },
+        {
+          "kind": "set_flag",
+          "key": "greek-polynices-anointed",
+          "value": true
+        }
+      ]
+    },
+    {
+      "id": "greek-shroud-polynices",
+      "at": "greek-polynices-hollow",
+      "subject": "greek-antigone",
+      "label": "Hand Antigone the cloth",
+      "text": "Antigone draws the linen over her brother and lays a raven feather on it.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-polynices-anointed",
+          "value": true
+        },
+        {
+          "kind": "item_at",
+          "item": "greek-funeral-cloth",
+          "place": "greek-polynices-hollow"
+        },
+        {
+          "kind": "item_at",
+          "item": "greek-shovel",
+          "place": "greek-polynices-hollow"
+        },
+        {
+          "kind": "flag",
+          "key": "greek-polynices-veiled",
+          "value": false
+        }
+      ],
+      "effects": [
+        {
+          "kind": "retire_item",
+          "item": "greek-funeral-cloth"
+        },
+        {
+          "kind": "set_flag",
+          "key": "greek-polynices-veiled",
+          "value": true
+        }
+      ]
+    },
+    {
+      "id": "greek-bury-polynices",
+      "at": "greek-polynices-hollow",
+      "subject": "greek-antigone",
+      "label": "Hand Antigone the shovel",
+      "text": "Antigone covers her brother with earth and leaves the raven feather on the mound.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-polynices-veiled",
+          "value": true
+        },
+        {
+          "kind": "item_at",
+          "item": "greek-shovel",
+          "place": "greek-polynices-hollow"
+        },
+        {
+          "kind": "flag",
+          "key": "greek-burial-performed",
+          "value": false
+        }
+      ],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "greek-burial-performed",
+          "value": true
+        },
+        {
+          "kind": "set_flag",
+          "key": "greek-open-door-open",
+          "value": true
+        }
+      ]
     }
   ],
   "works": [
@@ -5436,7 +5960,9 @@
       "author": "Aeschylus",
       "title": "Persians",
       "era": "imperial-aftermath",
-      "placeIds": ["greek-susa"],
+      "placeIds": [
+        "greek-susa"
+      ],
       "premise": "A messenger's account of defeat must reach the grieving court without losing its source.",
       "status": "situated-hook",
       "hookChoiceIds": [],
@@ -5452,7 +5978,9 @@
       "author": "Aeschylus",
       "title": "Seven Against Thebes",
       "era": "theban-war",
-      "placeIds": ["greek-gate"],
+      "placeIds": [
+        "greek-gate"
+      ],
       "premise": "The city's defenders must answer rival claims to command while households seek protection.",
       "status": "situated-hook",
       "hookChoiceIds": [],
@@ -5468,7 +5996,9 @@
       "author": "Aeschylus",
       "title": "Suppliant Women",
       "era": "heroic-households",
-      "placeIds": ["greek-argos-sanctuary"],
+      "placeIds": [
+        "greek-argos-sanctuary"
+      ],
       "premise": "The Danaids seek protection against forced marriage, and the receiving city must decide what protection entails.",
       "status": "situated-hook",
       "hookChoiceIds": [],
@@ -5484,7 +6014,9 @@
       "author": "Aeschylus",
       "title": "Prometheus Bound",
       "era": "divine-frontier",
-      "placeIds": ["greek-scythian-crag"],
+      "placeIds": [
+        "greek-scythian-crag"
+      ],
       "premise": "A punished benefactor can be approached, but neither prophecy nor release follows from a visitor's words alone.",
       "status": "situated-hook",
       "hookChoiceIds": [],
@@ -5500,7 +6032,9 @@
       "author": "Aeschylus",
       "title": "Agamemnon",
       "era": "homecomings",
-      "placeIds": ["greek-argos-palace"],
+      "placeIds": [
+        "greek-argos-palace"
+      ],
       "premise": "A returning commander enters a household divided by the costs of the expedition.",
       "status": "situated-hook",
       "hookChoiceIds": [],
@@ -5520,7 +6054,9 @@
       "author": "Aeschylus",
       "title": "Libation Bearers",
       "era": "homecomings",
-      "placeIds": ["greek-argos-tomb"],
+      "placeIds": [
+        "greek-argos-tomb"
+      ],
       "premise": "A meeting at a tomb raises claims of kinship and a demand for revenge.",
       "status": "branching-episode",
       "hookChoiceIds": [],
@@ -5540,7 +6076,9 @@
       "author": "Aeschylus",
       "title": "Eumenides",
       "era": "homecomings",
-      "placeIds": ["greek-delphi"],
+      "placeIds": [
+        "greek-delphi"
+      ],
       "premise": "Sanctuary and public judgment offer different answers to a pursuing claim of vengeance.",
       "status": "situated-hook",
       "hookChoiceIds": [],
@@ -5599,7 +6137,9 @@
       "author": "Sophocles",
       "title": "Antigone",
       "era": "theban-aftermath",
-      "placeIds": ["greek-gate"],
+      "placeIds": [
+        "greek-gate"
+      ],
       "premise": "A sister seeks burial for the brother whom a public decree leaves exposed.",
       "status": "opening-episode",
       "hookChoiceIds": [],
@@ -5615,7 +6155,9 @@
       "author": "Sophocles",
       "title": "Women of Trachis",
       "era": "heroic-households",
-      "placeIds": ["greek-trachis"],
+      "placeIds": [
+        "greek-trachis"
+      ],
       "premise": "A household prepares a gift without agreeing about its history or effects.",
       "status": "situated-hook",
       "hookChoiceIds": [],
@@ -5631,7 +6173,9 @@
       "author": "Sophocles",
       "title": "Oedipus Tyrannus",
       "era": "theban-households",
-      "placeIds": ["greek-palace"],
+      "placeIds": [
+        "greek-palace"
+      ],
       "premise": "An inquiry into a public disaster turns toward the ruler's own origins.",
       "status": "situated-hook",
       "hookChoiceIds": [],
@@ -5647,7 +6191,9 @@
       "author": "Sophocles",
       "title": "Electra",
       "era": "homecomings",
-      "placeIds": ["greek-mycenae-palace"],
+      "placeIds": [
+        "greek-mycenae-palace"
+      ],
       "premise": "An excluded daughter demands an answer to her father's murder from the palace approach.",
       "status": "branching-episode",
       "hookChoiceIds": [],
@@ -5667,7 +6213,9 @@
       "author": "Sophocles",
       "title": "Philoctetes",
       "era": "trojan-war",
-      "placeIds": ["greek-lemnos"],
+      "placeIds": [
+        "greek-lemnos"
+      ],
       "premise": "An army needs the help of a man it abandoned, and the request need not be honest.",
       "status": "situated-hook",
       "hookChoiceIds": [],
@@ -5683,7 +6231,9 @@
       "author": "Sophocles",
       "title": "Oedipus at Colonus",
       "era": "theban-exile",
-      "placeIds": ["greek-colonus"],
+      "placeIds": [
+        "greek-colonus"
+      ],
       "premise": "An old exile seeks a resting place while rival powers contest his presence.",
       "status": "branching-episode",
       "hookChoiceIds": [
@@ -5705,7 +6255,9 @@
       "author": "Euripides",
       "title": "Alcestis",
       "era": "heroic-households",
-      "placeIds": ["greek-pherae"],
+      "placeIds": [
+        "greek-pherae"
+      ],
       "premise": "Hospitality continues in a household mourning the person who paid for another's life.",
       "status": "situated-hook",
       "hookChoiceIds": [],
@@ -5721,7 +6273,9 @@
       "author": "Euripides",
       "title": "Medea",
       "era": "heroic-households",
-      "placeIds": ["greek-corinth"],
+      "placeIds": [
+        "greek-corinth"
+      ],
       "premise": "A betrayed foreign household faces expulsion while its members seek time, refuge, and a response.",
       "status": "situated-hook",
       "hookChoiceIds": [],
@@ -5737,7 +6291,9 @@
       "author": "Euripides",
       "title": "Children of Heracles",
       "era": "heroic-aftermath",
-      "placeIds": ["greek-marathon"],
+      "placeIds": [
+        "greek-marathon"
+      ],
       "premise": "Pursued children seek protection at Zeus's altar against a powerful ruler's demands.",
       "status": "branching-episode",
       "hookChoiceIds": [
@@ -5759,7 +6315,9 @@
       "author": "Euripides",
       "title": "Hippolytus",
       "era": "heroic-households",
-      "placeIds": ["greek-troezen"],
+      "placeIds": [
+        "greek-troezen"
+      ],
       "premise": "A household confronts desire, shame, an accusation, and a father's power to punish.",
       "status": "situated-hook",
       "hookChoiceIds": [],
@@ -5775,7 +6333,9 @@
       "author": "Euripides",
       "title": "Andromache",
       "era": "homecomings",
-      "placeIds": ["greek-thetis"],
+      "placeIds": [
+        "greek-thetis"
+      ],
       "premise": "A captive mother and her child seek protection inside a hostile dynastic household.",
       "status": "situated-hook",
       "hookChoiceIds": [],
@@ -5791,7 +6351,9 @@
       "author": "Euripides",
       "title": "Hecuba",
       "era": "trojan-aftermath",
-      "placeIds": ["greek-thrace"],
+      "placeIds": [
+        "greek-thrace"
+      ],
       "premise": "A captive queen searches for reliable news of her children and a betrayed trust.",
       "status": "situated-hook",
       "hookChoiceIds": [],
@@ -5807,7 +6369,9 @@
       "author": "Euripides",
       "title": "Suppliant Women",
       "era": "theban-aftermath",
-      "placeIds": ["greek-eleusis"],
+      "placeIds": [
+        "greek-eleusis"
+      ],
       "premise": "Bereaved mothers seek help recovering their sons' remains from a defeated expedition.",
       "status": "branching-episode",
       "hookChoiceIds": [
@@ -5831,7 +6395,9 @@
       "author": "Euripides",
       "title": "Electra",
       "era": "homecomings",
-      "placeIds": ["greek-argive-farm"],
+      "placeIds": [
+        "greek-argive-farm"
+      ],
       "premise": "The revenge claim is heard in a poor household beyond the royal city.",
       "status": "branching-episode",
       "hookChoiceIds": [],
@@ -5851,7 +6417,9 @@
       "author": "Euripides",
       "title": "Heracles",
       "era": "heroic-households",
-      "placeIds": ["greek-courtyard"],
+      "placeIds": [
+        "greek-courtyard"
+      ],
       "premise": "A household needs protection from tyranny and support after destructive divine interference.",
       "status": "situated-hook",
       "hookChoiceIds": [],
@@ -5867,7 +6435,9 @@
       "author": "Euripides",
       "title": "Trojan Women",
       "era": "trojan-aftermath",
-      "placeIds": ["greek-troy"],
+      "placeIds": [
+        "greek-troy"
+      ],
       "premise": "The conquered community struggles to preserve lives and relationships before dispersal.",
       "status": "situated-hook",
       "hookChoiceIds": [],
@@ -5883,7 +6453,9 @@
       "author": "Euripides",
       "title": "Iphigenia in Tauris",
       "era": "homecomings",
-      "placeIds": ["greek-tauris"],
+      "placeIds": [
+        "greek-tauris"
+      ],
       "premise": "A ritual killing rule threatens travelers whose identities may change the priestess's obligations.",
       "status": "situated-hook",
       "hookChoiceIds": [],
@@ -5899,7 +6471,9 @@
       "author": "Euripides",
       "title": "Ion",
       "era": "heroic-households",
-      "placeIds": ["greek-delphi"],
+      "placeIds": [
+        "greek-delphi"
+      ],
       "premise": "Competing claims to a young attendant's parentage meet inside Apollo's sanctuary.",
       "status": "situated-hook",
       "hookChoiceIds": [],
@@ -5915,7 +6489,9 @@
       "author": "Euripides",
       "title": "Helen",
       "era": "homecomings",
-      "placeIds": ["greek-egypt-tomb"],
+      "placeIds": [
+        "greek-egypt-tomb"
+      ],
       "premise": "Helen's testimony distinguishes her own life from the phantom blamed for the war.",
       "status": "branching-episode",
       "hookChoiceIds": [],
@@ -5935,7 +6511,9 @@
       "author": "Euripides",
       "title": "Phoenician Women",
       "era": "theban-war",
-      "placeIds": ["greek-palace"],
+      "placeIds": [
+        "greek-palace"
+      ],
       "premise": "A divided family tries to act while rival brothers bring armed claims to the city.",
       "status": "situated-hook",
       "hookChoiceIds": [],
@@ -5951,7 +6529,9 @@
       "author": "Euripides",
       "title": "Orestes",
       "era": "homecomings",
-      "placeIds": ["greek-argos-palace"],
+      "placeIds": [
+        "greek-argos-palace"
+      ],
       "premise": "A household facing judgment after matricide considers further desperate action.",
       "status": "situated-hook",
       "hookChoiceIds": [],
@@ -5971,7 +6551,9 @@
       "author": "Euripides",
       "title": "Bacchae",
       "era": "early-thebes",
-      "placeIds": ["greek-cithaeron"],
+      "placeIds": [
+        "greek-cithaeron"
+      ],
       "premise": "Suppressed worship and a ruler's surveillance bring human authority against a disguised god.",
       "status": "situated-hook",
       "hookChoiceIds": [],
@@ -5987,7 +6569,9 @@
       "author": "Euripides",
       "title": "Iphigenia at Aulis",
       "era": "trojan-departure",
-      "placeIds": ["greek-aulis"],
+      "placeIds": [
+        "greek-aulis"
+      ],
       "premise": "Commanders and soldiers press for a sacrifice that a father has the power to resist.",
       "status": "situated-hook",
       "hookChoiceIds": [],
@@ -6003,7 +6587,9 @@
       "author": "Euripides",
       "title": "Rhesus",
       "era": "trojan-war",
-      "placeIds": ["greek-trojan-camp"],
+      "placeIds": [
+        "greek-trojan-camp"
+      ],
       "premise": "An ally arrives at night while infiltrators and uncertain reports cross the camp.",
       "status": "situated-hook",
       "hookChoiceIds": [],
@@ -6019,7 +6605,9 @@
       "author": "Euripides",
       "title": "Cyclops",
       "era": "homecomings",
-      "placeIds": ["greek-sicily"],
+      "placeIds": [
+        "greek-sicily"
+      ],
       "premise": "Captive satyrs and stranded travelers seek a way past a predatory host.",
       "status": "situated-hook",
       "hookChoiceIds": [],
@@ -6035,7 +6623,9 @@
       "author": "Aristophanes",
       "title": "Acharnians",
       "era": "civic-athens",
-      "placeIds": ["greek-acharnae"],
+      "placeIds": [
+        "greek-acharnae"
+      ],
       "premise": "A farmer's separate peace creates a market inside a community still at war.",
       "status": "situated-hook",
       "hookChoiceIds": [],
@@ -6051,7 +6641,9 @@
       "author": "Aristophanes",
       "title": "Knights",
       "era": "civic-athens",
-      "placeIds": ["greek-demos-house"],
+      "placeIds": [
+        "greek-demos-house"
+      ],
       "premise": "Rival household servants compete to flatter and exploit the person who holds political power.",
       "status": "situated-hook",
       "hookChoiceIds": [],
@@ -6067,7 +6659,9 @@
       "author": "Aristophanes",
       "title": "Clouds",
       "era": "civic-athens",
-      "placeIds": ["greek-thinkery"],
+      "placeIds": [
+        "greek-thinkery"
+      ],
       "premise": "A debtor seeks an education that may overturn the balance of authority in his own family.",
       "status": "situated-hook",
       "hookChoiceIds": [],
@@ -6083,7 +6677,9 @@
       "author": "Aristophanes",
       "title": "Wasps",
       "era": "civic-athens",
-      "placeIds": ["greek-jury-house"],
+      "placeIds": [
+        "greek-jury-house"
+      ],
       "premise": "A juror's pleasure and income collide with his household's attempt to restrain him.",
       "status": "situated-hook",
       "hookChoiceIds": [],
@@ -6099,7 +6695,9 @@
       "author": "Aristophanes",
       "title": "Peace",
       "era": "civic-athens",
-      "placeIds": ["greek-divine-heights"],
+      "placeIds": [
+        "greek-divine-heights"
+      ],
       "premise": "A farmer seeks peace while trades built on war face losing their customers.",
       "status": "situated-hook",
       "hookChoiceIds": [],
@@ -6115,7 +6713,9 @@
       "author": "Aristophanes",
       "title": "Birds",
       "era": "civic-athens",
-      "placeIds": ["greek-bird-wilderness"],
+      "placeIds": [
+        "greek-bird-wilderness"
+      ],
       "premise": "A refuge from civic life could become a new power controlling passage between gods and mortals.",
       "status": "situated-hook",
       "hookChoiceIds": [],
@@ -6131,7 +6731,9 @@
       "author": "Aristophanes",
       "title": "Lysistrata",
       "era": "civic-athens",
-      "placeIds": ["greek-acropolis"],
+      "placeIds": [
+        "greek-acropolis"
+      ],
       "premise": "A coalition uses control of the treasury and intimacy to put pressure on the war.",
       "status": "situated-hook",
       "hookChoiceIds": [],
@@ -6147,7 +6749,9 @@
       "author": "Aristophanes",
       "title": "Women at the Thesmophoria",
       "era": "civic-athens",
-      "placeIds": ["greek-festival"],
+      "placeIds": [
+        "greek-festival"
+      ],
       "premise": "Women contest a playwright's portrayal while a disguised visitor risks exposure.",
       "status": "situated-hook",
       "hookChoiceIds": [],
@@ -6163,7 +6767,9 @@
       "author": "Aristophanes",
       "title": "Frogs",
       "era": "civic-athens",
-      "placeIds": ["greek-underworld"],
+      "placeIds": [
+        "greek-underworld"
+      ],
       "premise": "A divine visitor seeks a poet whose art can answer the city's troubles.",
       "status": "situated-hook",
       "hookChoiceIds": [],
@@ -6179,7 +6785,9 @@
       "author": "Aristophanes",
       "title": "Assemblywomen",
       "era": "civic-athens",
-      "placeIds": ["greek-assembly"],
+      "placeIds": [
+        "greek-assembly"
+      ],
       "premise": "A political takeover promises shared property and leaves households to work through its consequences.",
       "status": "situated-hook",
       "hookChoiceIds": [],
@@ -6195,7 +6803,9 @@
       "author": "Aristophanes",
       "title": "Wealth",
       "era": "civic-athens",
-      "placeIds": ["greek-attic-farm"],
+      "placeIds": [
+        "greek-attic-farm"
+      ],
       "premise": "Restoring Wealth's sight would change who receives prosperity and who benefits from the old distribution.",
       "status": "situated-hook",
       "hookChoiceIds": [],
@@ -6270,7 +6880,8 @@
       "greek-road-colonus-eleusis",
       "greek-road-colonus-marathon",
       "greek-athens-harbor",
-      "greek-cithaeron"
+      "greek-cithaeron",
+      "greek-polynices-hollow"
     ],
     "avatars": [
       "greek-antigone",
@@ -6289,7 +6900,8 @@
       "greek-quay-host",
       "greek-colonus-keeper",
       "greek-market-neighbor",
-      "greek-household-witness"
+      "greek-household-witness",
+      "greek-polynices-shade"
     ],
     "items": [
       "greek-water-jar",
@@ -6353,7 +6965,10 @@
       "greek-homecoming-report-piraeus-family",
       "greek-homecoming-report-colonus-custom",
       "greek-homecoming-agree-journey",
-      "greek-homecoming-receive-family"
+      "greek-homecoming-receive-family",
+      "greek-anoint-polynices",
+      "greek-shroud-polynices",
+      "greek-bury-polynices"
     ]
   },
   "recital": {
@@ -6367,7 +6982,10 @@
           "buried him",
           "his body lies in the grave"
         ],
-        "anyChoices": ["greek-perform-burial", "greek-perform-permitted-burial"]
+        "anyChoices": [
+          "greek-perform-burial",
+          "greek-perform-permitted-burial"
+        ]
       },
       {
         "phrases": [
@@ -6387,7 +7005,9 @@
           "the argive dead returned",
           "the bodies were recovered"
         ],
-        "anyChoices": ["greek-open-door-hear-truce-report"]
+        "anyChoices": [
+          "greek-open-door-hear-truce-report"
+        ]
       },
       {
         "phrases": [
@@ -6395,15 +7015,27 @@
           "the ashes were placed",
           "the urn was placed"
         ],
-        "anyChoices": ["greek-open-door-lay-ashes"]
+        "anyChoices": [
+          "greek-open-door-lay-ashes"
+        ]
       },
       {
-        "phrases": ["the berth was prepared", "a berth was reserved"],
-        "anyChoices": ["greek-open-door-family-berth"]
+        "phrases": [
+          "the berth was prepared",
+          "a berth was reserved"
+        ],
+        "anyChoices": [
+          "greek-open-door-family-berth"
+        ]
       },
       {
-        "phrases": ["i laid a blanket", "the blanket was laid"],
-        "anyChoices": ["greek-open-door-marathon-blanket"]
+        "phrases": [
+          "i laid a blanket",
+          "the blanket was laid"
+        ],
+        "anyChoices": [
+          "greek-open-door-marathon-blanket"
+        ]
       }
     ],
     "verses": [
@@ -6590,6 +7222,11 @@
       {
         "choice": "greek-ajax-return-appeal",
         "quest": "story-quest-greek-ajax-return",
+        "summons": true
+      },
+      {
+        "choice": "greek-bury-polynices",
+        "quest": "theban-burial",
         "summons": true
       }
     ]

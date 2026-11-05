@@ -2031,6 +2031,10 @@
         return state?.choices?.[c.key] === c.value;
       case "choice_unset":
         return !!state && !Object.hasOwn(state.choices || {}, c.key);
+      case "clock": {
+        const hour = s.turn % (2 * DAYLIGHT_TURNS);
+        return c.from < c.to ? hour >= c.from && hour < c.to : hour >= c.from || hour < c.to;
+      }
       case "flag":
         return (state?.flags?.[c.key] ?? false) === c.value;
       case "knows": {
@@ -2261,6 +2265,7 @@
     const here = world.actors[id].place;
     if (want.kind === "item")
       return want.step?.verb !== "eat" && rootOf(world, want.target) === id;
+    if (want.step?.verb === "lay") return layMet(world, want);
     if (want.kind === "place") return here === want.target;
     return world.actors[want.target]?.place === here;
   }
@@ -2283,6 +2288,8 @@
     }
     if (!revealed(world, id, want)) return null;
     const name = nameOf2(want.target);
+    if (want.step?.verb === "lay")
+      return `I want ${want.step.items.map((item) => article(nameOf2(item))).join(", ")} laid in ${name}.`;
     const line = want.kind === "item" ? want.step?.verb === "eat" ? `I want to ${consumable(want.target) === "drink" ? "drink" : "eat"} ${article(name)}${want.step.at ? ` at ${nameOf2(want.step.at)}` : ""}.` : `I want ${article(name)}.` : want.kind === "place" ? `I want to be at ${name}.` : `I want to see ${name}.`;
     const more = world.actors[id].under?.length || 0;
     return more ? `${line} I have ${more === 1 ? "one other quest" : `${more} other quests`} too.` : line;
@@ -2500,6 +2507,11 @@
     const root = rootOf2(s, item);
     return s.actors[root]?.place ?? root;
   };
+  function layMet(world, { target, step }) {
+    if (step.finish)
+      return world.packs?.[packOf(target)?.id]?.flags?.[step.finish] === true;
+    return step.items.every((item) => world.items[item]?.holder === target);
+  }
   function rootOf2(s, id) {
     let holder = s.items[id].holder;
     const seen = /* @__PURE__ */ new Set([id]);
@@ -2534,6 +2546,10 @@
   var STEP_CARDS = { give: ["to"], bring: ["to", "at"] };
   function validStep(s, w, id) {
     const { verb, ...cards } = w.step;
+    if (verb === "lay")
+      return w.kind === "place" && !w.quest && Object.keys(cards).every((key) => ["items", "finish"].includes(key)) && Array.isArray(cards.items) && cards.items.length >= 1 && cards.items.length <= 3 && new Set(cards.items).size === cards.items.length && cards.items.every((item) => Object.hasOwn(s.items, item)) && (cards.finish === void 0 || packOf(w.target)?.avatars && Object.values(packOf(w.target).avatars).some(
+        (resident) => resident.want?.target === w.target && resident.want?.step?.verb === "lay" && resident.want.step.finish === cards.finish && JSON.stringify(resident.want.step.items) === JSON.stringify(cards.items)
+      ));
     const home = verb === "bring" && w.story && !cards.to;
     const gift = verb === "give" && w.story && !w.quest;
     const slept = verb === "rest" && !w.story;
@@ -2984,7 +3000,7 @@
         schemaVersion: 1,
         id: "greek-drama",
         packId: "cosyworld.greek-drama",
-        revision: 20,
+        revision: 21,
         name: "The Wine-Dark Sea",
         description: "A branching Greek drama world. A shared ship visits the Wine-Dark Harbor, Athens Harbor and Piraeus. One road joins Athens and Piraeus, and short paths lead to the Attic places where welcome becomes a growing poem.",
         tone: "Concrete Greek domestic and civic life: bread, work, desire, grief, argument, irreverence, and hospitality. Dialogue expresses committed actions. A tragic ending is never required.",
@@ -3110,7 +3126,8 @@
             name: "The Exposed Battlefield",
             text: "Broken spear shafts lie in the dust. A strip of earth outside the city is set apart for the fallen brother.",
             exits: [
-              "greek-gate"
+              "greek-gate",
+              "greek-polynices-hollow"
             ],
             backdrop: "assets/greek-drama/burial-ground-dusk.webp",
             persona: "Broken spear shafts lie in the dust. A strip of earth outside the city is set apart for the fallen brother."
@@ -4002,6 +4019,119 @@
                 value: true
               }
             ]
+          },
+          "greek-polynices-hollow": {
+            name: "Polynices' Hollow",
+            text: "A bent olive shelters the shelf below the battlefield.",
+            persona: "A bent olive shelters the shelf below the battlefield. There is room to kneel beside the earth.",
+            exits: [
+              "greek-battlefield"
+            ],
+            backdrop: "assets/greek-drama/polynices-hollow-fallen-day.webp",
+            backdrops: [
+              {
+                backdrop: "assets/greek-drama/polynices-hollow-buried-day.webp",
+                requires: [
+                  {
+                    kind: "daylight",
+                    phase: "day"
+                  },
+                  {
+                    kind: "flag",
+                    key: "greek-burial-performed",
+                    value: true
+                  }
+                ]
+              },
+              {
+                backdrop: "assets/greek-drama/polynices-hollow-buried-night.webp",
+                requires: [
+                  {
+                    kind: "daylight",
+                    phase: "night"
+                  },
+                  {
+                    kind: "flag",
+                    key: "greek-burial-performed",
+                    value: true
+                  }
+                ]
+              },
+              {
+                backdrop: "assets/greek-drama/polynices-hollow-veiled-day.webp",
+                requires: [
+                  {
+                    kind: "daylight",
+                    phase: "day"
+                  },
+                  {
+                    kind: "flag",
+                    key: "greek-polynices-veiled",
+                    value: true
+                  }
+                ]
+              },
+              {
+                backdrop: "assets/greek-drama/polynices-hollow-veiled-night.webp",
+                requires: [
+                  {
+                    kind: "daylight",
+                    phase: "night"
+                  },
+                  {
+                    kind: "flag",
+                    key: "greek-polynices-veiled",
+                    value: true
+                  }
+                ]
+              },
+              {
+                backdrop: "assets/greek-drama/polynices-hollow-anointed-day.webp",
+                requires: [
+                  {
+                    kind: "daylight",
+                    phase: "day"
+                  },
+                  {
+                    kind: "flag",
+                    key: "greek-polynices-anointed",
+                    value: true
+                  }
+                ]
+              },
+              {
+                backdrop: "assets/greek-drama/polynices-hollow-anointed-night.webp",
+                requires: [
+                  {
+                    kind: "daylight",
+                    phase: "night"
+                  },
+                  {
+                    kind: "flag",
+                    key: "greek-polynices-anointed",
+                    value: true
+                  }
+                ]
+              },
+              {
+                backdrop: "assets/greek-drama/polynices-hollow-fallen-day.webp",
+                requires: [
+                  {
+                    kind: "daylight",
+                    phase: "day"
+                  }
+                ]
+              },
+              {
+                backdrop: "assets/greek-drama/polynices-hollow-fallen-night.webp",
+                requires: [
+                  {
+                    kind: "daylight",
+                    phase: "night"
+                  }
+                ]
+              }
+            ]
           }
         },
         avatars: {
@@ -4019,27 +4149,42 @@
             seed: "Antigone, daughter of Oedipus.",
             portrait: "assets/greek-drama/chthonic-antigone.png",
             want: {
-              kind: "item",
-              target: "greek-funeral-cloth"
-            },
-            desire: {
-              items: [
-                "greek-funeral-cloth",
-                "greek-oil-flask"
-              ],
-              location: "greek-battlefield",
-              avatars: [],
-              requires: [
-                {
-                  kind: "choice_unset",
-                  key: "greek-theban-response"
-                }
-              ]
+              kind: "place",
+              target: "greek-polynices-hollow",
+              step: {
+                verb: "lay",
+                items: [
+                  "greek-oil-flask",
+                  "greek-funeral-cloth",
+                  "greek-shovel"
+                ],
+                finish: "greek-burial-performed"
+              }
             },
             tastes: {
               likes: "practical help, care for the dead",
               sore: "being told that family grief is an inconvenience",
               reason: "Dust marks the hem of her dress. She keeps looking toward the battlefield."
+            },
+            homeWhen: {
+              place: "greek-polynices-hollow",
+              requires: [
+                {
+                  kind: "any",
+                  conditions: [
+                    {
+                      kind: "holding",
+                      item: "greek-creon-writ",
+                      actor: "greek-guard"
+                    },
+                    {
+                      kind: "flag",
+                      key: "greek-burial-performed",
+                      value: true
+                    }
+                  ]
+                }
+              ]
             }
           },
           "greek-ismene": {
@@ -4792,6 +4937,45 @@
               sore: "a promise called a finished burial",
               reason: "Ajax\u2019s household and burial are at issue in this named Trojan account."
             }
+          },
+          "greek-polynices-shade": {
+            name: "Polynices' Shade",
+            text: "A pale figure stands beside the broken spears.",
+            seed: "Polynices, brother of Antigone.",
+            place: "greek-battlefield",
+            portrait: "assets/greek-drama/polynices-shade.webp",
+            travels: false,
+            standoffs: false,
+            requires: [
+              {
+                kind: "clock",
+                from: 36,
+                to: 0
+              },
+              {
+                kind: "flag",
+                key: "greek-burial-performed",
+                value: false
+              }
+            ],
+            want: {
+              kind: "place",
+              target: "greek-polynices-hollow",
+              step: {
+                verb: "lay",
+                items: [
+                  "greek-oil-flask",
+                  "greek-funeral-cloth",
+                  "greek-shovel"
+                ],
+                finish: "greek-burial-performed"
+              }
+            },
+            tastes: {
+              likes: "care for his kin",
+              sore: "the neglect of the dead",
+              reason: "He asks that his sister be allowed to lay him to rest."
+            }
           }
         },
         items: {
@@ -4887,7 +5071,8 @@
             text: "A short iron shovel with soil caught beneath the blade.",
             holder: "greek-gate",
             persona: "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
-            art: "assets/greek-drama/shovel.png"
+            art: "assets/greek-drama/shovel.png",
+            home: "greek-gate"
           },
           "greek-decree": {
             name: "The Burial Decree",
@@ -5631,7 +5816,8 @@
               }
             ],
             textTemplate: "{actor} digs a grave beside the fallen brother.",
-            on: "wait"
+            on: "wait",
+            archived: true
           },
           {
             id: "greek-perform-burial",
@@ -5687,7 +5873,8 @@
             ],
             summary: "The brother was buried. The decree remains in force, and the household must answer for the defiance.",
             textTemplate: "{actor} lays cloth and oil at the grave. The brother is buried against the decree.",
-            on: "wait"
+            on: "wait",
+            archived: true
           },
           {
             id: "greek-petition-burial",
@@ -5721,7 +5908,8 @@
             ],
             summary: "Creon granted a witnessed exception for the family to arrange a lawful burial. The petition itself did not perform the rite.",
             textTemplate: "Creon holds his decree again. With his writ, {actor} may see the brother buried under witness.",
-            on: "meet"
+            on: "meet",
+            archived: true
           },
           {
             id: "greek-perform-permitted-burial",
@@ -5772,7 +5960,8 @@
               }
             ],
             textTemplate: "{actor} lays cloth and oil at the grave. The brother is buried under Creon's writ.",
-            on: "wait"
+            on: "wait",
+            archived: true
           },
           {
             id: "greek-report-plan",
@@ -5824,7 +6013,8 @@
               }
             ],
             textTemplate: "{actor} hands the guard the shovel and the funeral cloth, the tools of the burial. He records a warning on a tablet.",
-            on: "give"
+            on: "give",
+            archived: true
           },
           {
             id: "greek-courtyard-burial",
@@ -5862,7 +6052,8 @@
               }
             ],
             textTemplate: "{actor} sets the Burial Account on Dione's table. She speaks of the Argive mothers at Eleusis.",
-            on: "give"
+            on: "give",
+            archived: true
           },
           {
             id: "greek-courtyard-concession",
@@ -5900,7 +6091,8 @@
               }
             ],
             textTemplate: "{actor} sets Creon's Writ on Dione's table. She speaks of the Argive mothers at Eleusis.",
-            on: "give"
+            on: "give",
+            archived: true
           },
           {
             id: "greek-courtyard-permitted-burial",
@@ -5943,7 +6135,8 @@
               }
             ],
             textTemplate: "{actor} sets the Burial Account on Dione's table.",
-            on: "give"
+            on: "give",
+            archived: true
           },
           {
             id: "greek-courtyard-exposure",
@@ -5981,7 +6174,8 @@
               }
             ],
             textTemplate: "{actor} sets the Guard's Tablet on Dione's table. She speaks of the Argive mothers at Eleusis.",
-            on: "give"
+            on: "give",
+            archived: true
           },
           {
             id: "greek-helen-egypt",
@@ -8640,6 +8834,122 @@
               }
             ],
             workId: "sophocles-ajax"
+          },
+          {
+            id: "greek-anoint-polynices",
+            at: "greek-polynices-hollow",
+            subject: "greek-antigone",
+            label: "Hand Antigone the oil",
+            text: "Antigone cleans the dust from her brother and anoints him.",
+            requires: [
+              {
+                kind: "item_at",
+                item: "greek-oil-flask",
+                place: "greek-polynices-hollow"
+              },
+              {
+                kind: "item_at",
+                item: "greek-funeral-cloth",
+                place: "greek-polynices-hollow"
+              },
+              {
+                kind: "item_at",
+                item: "greek-shovel",
+                place: "greek-polynices-hollow"
+              },
+              {
+                kind: "flag",
+                key: "greek-polynices-anointed",
+                value: false
+              }
+            ],
+            effects: [
+              {
+                kind: "retire_item",
+                item: "greek-oil-flask"
+              },
+              {
+                kind: "set_flag",
+                key: "greek-polynices-anointed",
+                value: true
+              }
+            ]
+          },
+          {
+            id: "greek-shroud-polynices",
+            at: "greek-polynices-hollow",
+            subject: "greek-antigone",
+            label: "Hand Antigone the cloth",
+            text: "Antigone draws the linen over her brother and lays a raven feather on it.",
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-polynices-anointed",
+                value: true
+              },
+              {
+                kind: "item_at",
+                item: "greek-funeral-cloth",
+                place: "greek-polynices-hollow"
+              },
+              {
+                kind: "item_at",
+                item: "greek-shovel",
+                place: "greek-polynices-hollow"
+              },
+              {
+                kind: "flag",
+                key: "greek-polynices-veiled",
+                value: false
+              }
+            ],
+            effects: [
+              {
+                kind: "retire_item",
+                item: "greek-funeral-cloth"
+              },
+              {
+                kind: "set_flag",
+                key: "greek-polynices-veiled",
+                value: true
+              }
+            ]
+          },
+          {
+            id: "greek-bury-polynices",
+            at: "greek-polynices-hollow",
+            subject: "greek-antigone",
+            label: "Hand Antigone the shovel",
+            text: "Antigone covers her brother with earth and leaves the raven feather on the mound.",
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-polynices-veiled",
+                value: true
+              },
+              {
+                kind: "item_at",
+                item: "greek-shovel",
+                place: "greek-polynices-hollow"
+              },
+              {
+                kind: "flag",
+                key: "greek-burial-performed",
+                value: false
+              }
+            ],
+            effects: [
+              {
+                kind: "set_flag",
+                key: "greek-burial-performed",
+                value: true
+              },
+              {
+                kind: "set_flag",
+                key: "greek-open-door-open",
+                value: true
+              }
+            ]
           }
         ],
         works: [
@@ -9568,7 +9878,8 @@
             "greek-road-colonus-eleusis",
             "greek-road-colonus-marathon",
             "greek-athens-harbor",
-            "greek-cithaeron"
+            "greek-cithaeron",
+            "greek-polynices-hollow"
           ],
           avatars: [
             "greek-antigone",
@@ -9587,7 +9898,8 @@
             "greek-quay-host",
             "greek-colonus-keeper",
             "greek-market-neighbor",
-            "greek-household-witness"
+            "greek-household-witness",
+            "greek-polynices-shade"
           ],
           items: [
             "greek-water-jar",
@@ -9651,7 +9963,10 @@
             "greek-homecoming-report-piraeus-family",
             "greek-homecoming-report-colonus-custom",
             "greek-homecoming-agree-journey",
-            "greek-homecoming-receive-family"
+            "greek-homecoming-receive-family",
+            "greek-anoint-polynices",
+            "greek-shroud-polynices",
+            "greek-bury-polynices"
           ]
         },
         recital: {
@@ -9905,6 +10220,11 @@
             {
               choice: "greek-ajax-return-appeal",
               quest: "story-quest-greek-ajax-return",
+              summons: true
+            },
+            {
+              choice: "greek-bury-polynices",
+              quest: "theban-burial",
               summons: true
             }
           ]
@@ -14531,6 +14851,7 @@
     "met",
     "knows",
     "pack_item_present",
+    "clock",
     "daylight",
     "weather",
     "ship_at",
@@ -14918,6 +15239,7 @@
           "temperament",
           "variants",
           "home",
+          "homeWhen",
           "values",
           "desire",
           "want",
@@ -14964,7 +15286,7 @@
       );
       check(
         a.want === void 0 || keysOk(a.want, ["kind", "target", "step"]) && // An eat quest (rules 102): eat or drink one, somewhere, with someone.
-        (a.want.step === void 0 || a.want.kind === "item" && keysOk(a.want.step, ["verb", "at", "with"]) && a.want.step.verb === "eat" && ["food", "drink"].some(
+        (a.want.step === void 0 || a.want.kind === "place" && a.want.step.verb === "lay" && keysOk(a.want.step, ["verb", "items", "finish"]) && Array.isArray(a.want.step.items) && intOk(a.want.step.items.length, 1, 3) && new Set(a.want.step.items).size === a.want.step.items.length && a.want.step.items.every((item) => owns3(items2, item)) && (a.want.step.finish === void 0 || idOk2(a.want.step.finish)) || a.want.kind === "item" && keysOk(a.want.step, ["verb", "at", "with"]) && a.want.step.verb === "eat" && ["food", "drink"].some(
           (tag) => items2[a.want.target]?.tags?.includes(tag)
         ) && (a.want.step.with === void 0 || a.want.step.with !== id && (owns3(avatars, a.want.step.with) || hub2.avatars.includes(a.want.step.with))) && (a.want.step.at === void 0 || owns3(places2, a.want.step.at))) && (a.want.kind === "item" ? owns3(items2, a.want.target) || hub2.items.includes(a.want.target) : a.want.kind === "place" ? owns3(places2, a.want.target) || hub2.places.includes(a.want.target) : a.want.kind === "connect" ? a.want.target === "humans" : a.want.kind === "person" && a.want.target !== id && (owns3(avatars, a.want.target) || hub2.avatars.includes(a.want.target))),
         `avatar ${id} want needs an item, place or person target, or connects humans`
@@ -15060,6 +15382,9 @@
           case "daylight":
             ok = keysOk(c, ["kind", "phase"]) && ["day", "night"].includes(c.phase);
             break;
+          case "clock":
+            ok = keysOk(c, ["kind", "from", "to"]) && intOk(c.from, 0, 47) && intOk(c.to, 0, 47) && c.from !== c.to;
+            break;
           case "flag":
             ok = keysOk(c, ["kind", "key", "value"]) && idOk2(c.key) && typeof c.value === "boolean";
             break;
@@ -15143,6 +15468,7 @@
       "connected_humans",
       "met",
       "knows",
+      "clock",
       "daylight",
       "drawn",
       "chance",
@@ -15181,6 +15507,13 @@
         );
       if (a.home !== void 0)
         check(owns3(places2, a.home), `avatar ${id} home is invalid`);
+      if (a.homeWhen !== void 0) {
+        check(
+          keysOk(a.homeWhen, ["place", "requires"]) && owns3(places2, a.homeWhen?.place) && Array.isArray(a.homeWhen?.requires) && a.homeWhen.requires.length >= 1 && a.homeWhen.requires.length <= 4,
+          `avatar ${id} needs a conditional home with one to four requirements`
+        );
+        requirements(a.homeWhen?.requires, `avatar ${id} home requires`);
+      }
       if (a.values !== void 0)
         check(
           record3(a.values) && Object.entries(a.values).every(
@@ -15257,13 +15590,14 @@
           "workId",
           "on",
           "for",
-          "repeats"
+          "repeats",
+          "archived"
         ]) && idOk2(c.id) && (c.on === void 0 || c.on === "meet" || c.on === "wait" || c.on === "depart" && Boolean(avatars[c.subject]) || c.on === "talk" && Boolean(avatars[c.subject]) || // A hold choice is for the one traveler its item belongs to.
         c.on === "hold" && Boolean(items2[c.subject]) && c.for !== void 0 && (c.requires || []).some(
           (r) => r.kind === "holding" && r.role === "actor" && r.item === c.subject
         ) || c.on === "give" && (c.requires || []).some(
           (r) => r.kind === "holding" && r.role === "actor"
-        ) && Boolean(avatars[c.subject])) && (c.for === void 0 || humanAvatarIds.includes(c.for)) && !choiceIds.has(c.id) && own3.includes(c.subject) && owns3(places2, c.at) && textOk(c.label, 120) && textOk(c.text, 600) && (c.textTemplate === void 0 || templateOk(c.textTemplate, 600, ["actor"])) && (c.summary === void 0 || textOk(c.summary, 600)),
+        ) && Boolean(avatars[c.subject])) && (c.for === void 0 || humanAvatarIds.includes(c.for)) && (c.archived === void 0 || c.archived === true) && !choiceIds.has(c.id) && own3.includes(c.subject) && owns3(places2, c.at) && textOk(c.label, 120) && textOk(c.text, 600) && (c.textTemplate === void 0 || templateOk(c.textTemplate, 600, ["actor"])) && (c.summary === void 0 || textOk(c.summary, 600)),
         `choice ${c.id} is invalid`
       );
       choiceIds.add(c.id);
@@ -16739,6 +17073,11 @@
       upgradeGreekLandRouteSave(s);
       upgradeGreekForecourtSave(s);
       upgradeGreekDecreeSave(s);
+      if (reworked.has("greek-drama") && packOf("greek-polynices-hollow")) {
+        const antigone = s.actors?.["greek-antigone"];
+        if (antigone && !s.packs?.["greek-drama"]?.flags?.["greek-burial-performed"])
+          delete antigone.want;
+      }
       upgradeRecitals(s, packDefinitions);
     }
     upgradeSightings(s);
@@ -17899,6 +18238,8 @@
       "greek-drama": { sleep: { from: 30, to: 47 } }
     },
     residents: {
+      "greek-antigone": { range: 0 },
+      "greek-polynices-shade": { range: 0, sleep: null },
       moth: { sleep: { from: 0, to: 20 } },
       keeper: { sleep: { from: 35, to: 2 } },
       badger: { sleep: { from: 28, to: 46 } },
@@ -17935,7 +18276,13 @@
     return problems2;
   }
   var lifeField = (id, key) => own2(world_life_default.residents?.[id], key) ? world_life_default.residents[id][key] : void 0;
-  var lifeHome = (id) => packPeople[id]?.home ?? forest_default.people[id]?.home ?? humanAvatar(id)?.home?.id ?? packPeople[id]?.place ?? null;
+  function lifeHome(id, world) {
+    const resident = packPeople[id];
+    const next = resident?.homeWhen;
+    if (world && next && conditionsMet(world, resident.packId, next.requires, id))
+      return next.place;
+    return resident?.home ?? forest_default.people[id]?.home ?? humanAvatar(id)?.home?.id ?? resident?.place ?? null;
+  }
   function rangeOf(s, id) {
     if (own2(forest_default.people, id)) return id === "vale" ? null : Infinity;
     const a = packPeople[id];
@@ -17968,7 +18315,7 @@
     return found2;
   }
   function rangeTest(s, id) {
-    const range = rangeOf(s, id), home = lifeHome(id);
+    const range = rangeOf(s, id), home = lifeHome(id, s);
     if (range === null || range === Infinity || !home) return null;
     const table = hopsFrom(home);
     return (place) => (table.get(place) ?? Infinity) <= range;
@@ -18346,6 +18693,8 @@
   function wantText(want) {
     if (!want) return "nothing in particular";
     const step = want.step, what = nameOf(want.target), verb = step?.verb === "attack" ? "strike" : step?.verb;
+    if (step?.verb === "lay")
+      return `lay ${step.items.map(nameOf).join(", ")} in ${what}`;
     if (step?.verb === "give") return `give ${what} to ${nameOf(step.to)}`;
     if (step?.verb === "eat")
       return `${consumable(want.target) === "drink" ? "drink" : "eat"} ${what}${step.with ? ` with ${nameOf(step.with)}` : ""}${step.at ? ` at ${nameOf(step.at)}` : ""}`;

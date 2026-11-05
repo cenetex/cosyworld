@@ -485,6 +485,7 @@ function choiceFeasible(world, pack, choice, actor, mode = null) {
   const state = packState(world, pack.id);
   if (
     !state ||
+    choice.archived ||
     // A repeating give fires again once its output is used up (rules 95).
     (owns(state.receipts, choice.id) && !choice.repeats) ||
     (choice.on ?? null) !== mode ||
