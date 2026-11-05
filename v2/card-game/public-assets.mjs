@@ -255,6 +255,7 @@ const files = [
   "weather-view.mjs",
   "stage-light.mjs",
   "stage-light.json",
+  "assets/staging/core.json",
   "stage-light-view.mjs",
   "transitions.mjs",
   "weather-shader.mjs",
