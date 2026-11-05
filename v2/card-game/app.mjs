@@ -7,6 +7,9 @@ import {
 } from "./title-intro.mjs";
 import { count, lineCounter, playCounter, startMetrics } from "./metrics.mjs";
 import { imageUrl } from "./images.mjs";
+import coreLocations from "./assets/staging/core.json" with { type: "json" };
+import greekLocations from "./assets/staging/greek.json" with { type: "json" };
+import worldLocations from "./assets/staging/worlds.json" with { type: "json" };
 import { createPreferredLocationsView } from "./preferred-locations-view.mjs";
 import { cardLevel, levelTier, romanLevel } from "./rarity.mjs";
 import { finishCardReveal, revealCard } from "./card-reveal.mjs";
@@ -3354,6 +3357,11 @@ function renderScene() {
     review: true,
     currentState: true,
     sharedPlays: sharedSession?.state.history,
+    preferredCatalog: {
+      ...coreLocations.places,
+      ...greekLocations.places,
+      ...worldLocations.places,
+    },
   });
   renderFloorItems(revealedStage(staging, cardIsCovered).floorItems);
   $("cast").dataset.layout = staging.layout;
