@@ -165,7 +165,7 @@ try {
     await selectCard(page, "greek-battlefield");
     const guarded = page.locator('#card-actions [data-blocked="gate"]');
     assert.equal(
-      (await guarded.textContent()).trim(),
+      await guarded.getAttribute("title"),
       "The Gate Guard is guarding this card",
     );
     assert.equal(await guarded.isDisabled(), true);
@@ -212,7 +212,7 @@ try {
     await selectCard(page, "greek-piraeus");
     const shut = page.locator('#card-actions [data-blocked="gate"]');
     assert.equal(
-      (await shut.textContent()).trim(),
+      await shut.getAttribute("title"),
       "Put the Travel Provisions down on deck",
     );
     assert.equal(await shut.isDisabled(), true);

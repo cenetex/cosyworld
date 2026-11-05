@@ -1,7 +1,7 @@
 // A card locked behind a quest is a carved wooden box (locked-box.mjs). At
 // the shut City Gate the battlefield is the locked lid, labelled "Locked" on
-// a red edge; its play gives the quest through the context button. Giving
-// the guard the Burial Decree opens the way: the box turns over once and
+// a red edge; its descriptor names the guard. Talk gives his quest. Giving
+// the guard Creon's Writ opens the way: the box turns over once and
 // stays open through redraws.
 //
 //   node v2/scripts/smoke-card-locked-box.mjs [screenshot-dir]
@@ -9,8 +9,8 @@ import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
 import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
-import { createWorld, encodeSave } from "../card-game/world.mjs";
-import { enableMotives } from "../card-game/motives.mjs";
+import { encodeSave } from "../card-game/world.mjs";
+import { openingFixture } from "../../test/helpers/greek-opening.mjs";
 import { profiles } from "../card-game/memory.mjs";
 import {
   revealCard,
@@ -26,30 +26,37 @@ const output = new URL(
   import.meta.url,
 );
 await mkdir(output, { recursive: true });
-const world = enableMotives(createWorld());
+const world = structuredClone(openingFixture("burial").decree);
 world.actors.vale.place = "greek-gate";
 world.crossings["pond-greek-harbor"].discovered = true;
 for (const id of ["lamp", "cloth"]) world.items[id].holder = "pond";
-world.items["greek-decree"].holder = "vale";
+world.items["greek-creon-writ"].holder = "vale";
 const save = encodeSave(world);
 // Holds the lifting lid mid-turn for its picture.
-const holdLid = ({ id, at }) =>
-  new Promise((resolve) => {
+const holdLid = ({ id, at, reduced }) =>
+  new Promise((resolve, reject) => {
     const watch = new MutationObserver(() => {
       const card = document.querySelector(`#hand [data-card="${id}"]`);
       if (!card?.dataset.revealing) return;
-      watch.disconnect();
       globalThis.lid = card
         .getAnimations({ subtree: true })
         .filter((motion) => motion.effect.target.matches(".reveal-lid"));
+      if (!reduced && !globalThis.lid.length) return;
+      watch.disconnect();
+      clearTimeout(deadline);
       for (const motion of globalThis.lid) {
         motion.pause();
         motion.currentTime = at;
       }
       resolve();
     });
+    const deadline = setTimeout(() => {
+      watch.disconnect();
+      reject(new Error("The locked lid did not turn"));
+    }, 15000);
     watch.observe(document.getElementById("hand"), {
       subtree: true,
+      childList: true,
       attributeFilter: ["data-revealing"],
     });
   });
@@ -75,6 +82,21 @@ try {
         },
         { key, save, seen: Object.keys(profiles) },
       );
+      await page.route("**/card-game/text", (route) => {
+        const context = route.request().postDataJSON();
+        return route.fulfill({
+          json: {
+            revision: context.revision,
+            model: "locked-box-fixture",
+            entries: context.entities.map(({ id }) => ({
+              id,
+              text:
+                context.disclosures?.find((fact) => fact.speaker === id)
+                  ?.text || "Let us consider this.",
+            })),
+          },
+        });
+      });
       const field = page.locator(`#hand [data-card="${FIELD}"]`);
       const attr = (name) => field.getAttribute(name);
       const ready = () =>
@@ -125,32 +147,48 @@ try {
       await ready();
       await boxed();
       await shot("01-locked-box");
-      // Tapping the box chooses it; the context button gives its quest.
+      // The guarded lock describes its guard; Talk gives his quest.
       await selectCard(page, FIELD);
-      const seek = page.locator("#card-actions .card-primary");
-      assert.equal(await seek.textContent(), "Seek the way");
-      await seek.click();
+      const lock = page.locator('#card-actions [data-blocked="gate"]');
+      assert.equal(await lock.textContent(), "Locked");
+      assert.equal(
+        await page.locator(".action-beat-text").textContent(),
+        "The Gate Guard is guarding this card",
+      );
+      assert.equal(await lock.isDisabled(), true);
+      await page.keyboard.press("Escape");
+      await selectCard(page, "greek-guard");
+      if (await page.locator('#card-actions [data-action="meet"]').count()) {
+        await page.locator('#card-actions [data-action="meet"]').click();
+        await ready();
+        await page.keyboard.press("Escape");
+        await selectCard(page, "greek-guard");
+      }
+      await page.locator('#card-actions [data-action="talk"]').click();
       await ready();
       const state = () =>
         page.evaluate((key) => JSON.parse(localStorage.getItem(key)), key);
-      assert.equal((await state()).actors.vale.want.target, "greek-decree");
+      assert.equal((await state()).actors.vale.want.target, "greek-bread");
       await page.keyboard.press("Escape");
       await boxed();
 
-      // The decree to the guard opens the way; the box turns over once.
+      // The writ to the guard opens the way; the box turns over once.
       await page.keyboard.press("Escape");
-      await selectCard(page, "greek-decree");
+      await selectCard(page, "greek-creon-writ");
       await selectCard(page, "greek-guard");
+      const turning = page.evaluate(holdLid, { id: FIELD, at: 60, reduced });
       await page.locator("#card-actions .card-primary").click();
-      await ready();
-      const route = "greek-gate>greek-battlefield";
-      assert.ok((await state()).openedRoutes.includes(route));
+      assert.equal(
+        (await state()).items["greek-creon-writ"].holder,
+        "greek-guard",
+      );
       await page.keyboard.press("Escape");
-      const turning = page.evaluate(holdLid, { id: FIELD, at: 60 });
-      await revealCard(page, FIELD);
+      const revealing = revealCard(page, FIELD);
       await turning;
       await shot("02-box-turning", 1200);
       await page.evaluate(() => globalThis.lid.forEach((m) => m.play()));
+      await revealing;
+      await ready();
       await open();
       await shot("03-box-open");
       // Redraws and a reload keep it open and never turn it again.

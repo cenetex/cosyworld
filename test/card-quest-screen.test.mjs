@@ -51,6 +51,24 @@ describe("the quest card's screen", () => {
     expect(parts(screen)[0]).toBe("quest-ground:pavilion.webp");
   });
 
+  it("places a recipe's maker and ingredients within its home", () => {
+    const screen = questScreen(
+      {
+        ...bring,
+        actor: "myrto",
+        here: "dock",
+        items: ["bread", "figs", "wine"],
+      },
+      art,
+    );
+    expect(screen.children.map((img) => img.dataset.entity)).toEqual([
+      "dock",
+      "myrto",
+      "bread",
+      "figs",
+      "wine",
+    ]);
+  });
   it("shows the box for an unknown recipient, as before", () => {
     const screen = questScreen(
       { ...bring, verb: "Give", to: "moth", toCovered: true },
