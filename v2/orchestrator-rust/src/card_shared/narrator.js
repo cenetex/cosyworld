@@ -4829,7 +4829,7 @@
             text: "Threshed wheat in a coarse sack, carried up from the grain quays at Piraeus.",
             holder: "greek-baker",
             persona: "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
-            art: "assets/greek-drama/provision-basket.png",
+            art: "assets/greek-drama/wheat.png",
             home: "greek-piraeus",
             absentReturn: true
           },
@@ -4870,7 +4870,7 @@
             text: "Oil pressed from the Colonus olives, stoppered for the funeral rite.",
             holder: "greek-courtyard",
             persona: "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
-            art: "assets/greek-drama/oil-flask.png",
+            art: "assets/greek-drama/oil-lekythos.png",
             home: "greek-colonus"
           },
           "greek-libation": {
@@ -20590,6 +20590,7 @@
         )
       ),
       "assets/greek-drama/myrine.webp",
+      "assets/greek-drama/polynices-shade.webp",
       ...["tecmessa", "teucer", "odysseus"].map(
         (name) => `assets/greek-drama/ajax-${name}.png`
       ),

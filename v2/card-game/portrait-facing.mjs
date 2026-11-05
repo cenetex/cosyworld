@@ -44,6 +44,7 @@ const groups = {
       ),
     ),
     "assets/greek-drama/myrine.webp",
+    "assets/greek-drama/polynices-shade.webp",
     ...["tecmessa", "teucer", "odysseus"].map(
       (name) => `assets/greek-drama/ajax-${name}.png`,
     ),

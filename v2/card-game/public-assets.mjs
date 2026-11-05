@@ -148,11 +148,22 @@ const files = [
   "assets/greek-drama/house-atreus-mycenae-night.webp",
   "assets/greek-drama/house-atreus-farmhouse-night.webp",
   "assets/greek-drama/olive-branch.webp",
+  "assets/greek-drama/polynices-fallen.webp",
+  "assets/greek-drama/polynices-anointed.webp",
+  "assets/greek-drama/polynices-veiled.webp",
+  "assets/greek-drama/polynices-grave.webp",
   // Argos commissioned art: end
   "assets/greek-drama/harbor-day.webp",
   "assets/greek-drama/ship-deck-twilight.webp",
   "assets/greek-drama/ship-deck-at-sea-day.webp",
   "assets/greek-drama/ship-deck-at-sea-night.webp",
+  // Polynices' Hollow and his shade (#2301); Greek revision 21 wires them.
+  ...["fallen", "anointed", "veiled", "buried"].flatMap((state) =>
+    ["day", "night"].map(
+      (light) => `assets/greek-drama/polynices-hollow-${state}-${light}.webp`,
+    ),
+  ),
+  "assets/greek-drama/polynices-shade.webp",
   // Keep alternate scenery referenced by released shared rules available.
   "assets/greek-drama/book-three-lemnos-day.webp",
   "assets/greek-drama/book-three-thrace-day.webp",
