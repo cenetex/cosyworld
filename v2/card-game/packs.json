@@ -2255,7 +2255,7 @@
           "text": "Threshed wheat in a coarse sack, carried up from the grain quays at Piraeus.",
           "holder": "greek-baker",
           "persona": "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
-          "art": "assets/greek-drama/provision-basket.png",
+          "art": "assets/greek-drama/wheat.png",
           "home": "greek-piraeus",
           "absentReturn": true
         },
