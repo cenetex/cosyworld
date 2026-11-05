@@ -3393,3 +3393,19 @@ main > .dialogue {
 .title-intro[data-phase="out"] {
   pointer-events: none;
 }
+
+/* A recipe uses the quest scene: maker and ingredients within its home. */
+.action-beat-cards .quest-screen[data-recipe="true"] {
+  position: relative;
+  top: auto;
+  left: auto;
+  width: 144px;
+  height: 88px;
+  aspect-ratio: auto;
+}
+.quest-screen[data-recipe="true"] img { margin-left: 0; }
+.quest-screen[data-recipe="true"] .quest-ground { width: 118%; height: 112%; }
+.quest-screen[data-recipe="true"] .quest-figure { left: 25%; height: 96%; }
+.quest-screen[data-recipe="true"] .quest-thing { left: 84%; bottom: 4%; height: 32%; }
+.quest-screen[data-recipe="true"] .quest-thing:nth-last-child(2) { left: 66%; }
+.quest-screen[data-recipe="true"] .quest-thing:nth-last-child(3) { left: 48%; }

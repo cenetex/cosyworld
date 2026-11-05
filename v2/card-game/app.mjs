@@ -2019,14 +2019,20 @@ function frameFigure(img) {
 // The action beat's figures, three for plays and five for a recipe, as the quest card pairs them:
 // borderless cut-outs side by side, the actor facing the others; an item or
 // place a small picture beside them.
-function showBeatCards(ids, limit = 3) {
+function showBeatCards(ids, recipe = false) {
   const cards = document.querySelector(".action-beat-cards"),
-    key = ids.slice(0, limit).join("+");
+    key = `${recipe}:${ids.join("+")}`;
   if (cards.dataset.cards === key) return;
   cards.dataset.cards = key;
   releaseImages(cards);
+  if (recipe) {
+    const scene = questScreen({ kind: "item", actor: ids.at(-2), here: ids.at(-1), target: ids[0], items: ids.slice(0, -2) }, questArt);
+    scene.dataset.recipe = "true";
+    cards.replaceChildren(scene);
+    return;
+  }
   cards.replaceChildren(
-    ...ids.slice(0, limit).map((id, index) => {
+    ...ids.slice(0, 3).map((id, index) => {
       const image = node("img");
       image.alt = "";
       image.dataset.entity = id;
@@ -2231,7 +2237,7 @@ function renderActions() {
     : sentence && !questShown
       ? [actor, ...(others.length ? others : [world.actors[actor].place])]
       : [];
-  showBeatCards(involved, lockShown ? 5 : 3);
+  showBeatCards(involved, lockShown?.recipe);
   // The box's edge takes the rarest card's tier colour; Common stays plain.
   const rarest = involved
     .map((id) => levelTier(cardLevel(world, id)))

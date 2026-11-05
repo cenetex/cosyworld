@@ -64,16 +64,21 @@ try {
       await tapCard(await revealCard(page, id));
       const text = page.locator(".action-beat-text");
       assert.equal(await text.textContent(), expected.text);
-      assert.equal(
-        await page.locator(".action-beat-cards > img").count(),
-        count,
-      );
+      assert.equal(await page.locator(".action-beat-cards img").count(), count);
       assert.deepEqual(
         await page
-          .locator(".action-beat-cards > img")
-          .evaluateAll((nodes) => nodes.map((node) => node.dataset.entity)),
-        expected.cards,
+          .locator(".action-beat-cards img")
+          .evaluateAll((nodes) =>
+            nodes.map((node) => node.dataset.entity).sort(),
+          ),
+        [...expected.cards].sort(),
         "ingredients, maker and home keep their identities in the quest picture",
+      );
+      assert.equal(
+        await page
+          .locator('.action-beat-cards > .quest-screen[data-recipe="true"]')
+          .count(),
+        expected.recipe ? 1 : 0,
       );
       const button = page.locator('#card-actions [data-blocked="gate"]');
       if (await button.count()) {
@@ -96,21 +101,19 @@ try {
       );
       await page.waitForTimeout(900);
       const pictures = await page
-        .locator(".action-beat-cards > img")
+        .locator(".action-beat-cards img")
         .evaluateAll((nodes) =>
           nodes.map((n) => ({
-            src: n.src.split("/").at(-1),
             width: n.getBoundingClientRect().width,
             height: n.getBoundingClientRect().height,
-            display: getComputedStyle(n).display,
           })),
         );
       assert(
-        pictures.every((p) => p.width > 0 && p.height >= 30),
+        pictures.every((p) => p.width > 0 && p.height >= 25),
         "ingredient pictures are drawn",
       );
       await page.screenshot({
-        path: new URL(`${id}-${width}.png`, output).pathname,
+        path: new URL(`${id}-scene-${width}.png`, output).pathname,
       });
       assert.equal(
         await page.evaluate(

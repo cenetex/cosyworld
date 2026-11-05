@@ -33,6 +33,7 @@ describe("locked boxes", () => {
     s.actors.vale.place = "greek-harbor";
     const before = JSON.stringify(s);
     expect(lockedQuest(s, "greek-provisions")).toEqual({
+      recipe: true,
       text: "Bring Courtyard Bread, Dried Figs and Wine Skin to Myrto the Shipmaster at The Wine-Dark Harbor.",
       cards: [
         "greek-bread",
@@ -43,6 +44,7 @@ describe("locked boxes", () => {
       ],
     });
     expect(lockedQuest(s, "greek-bread")).toEqual({
+      recipe: true,
       text: "Bring Water Jar and Sack of Wheat to Dione the Baker at Theban Courtyard.",
       cards: [
         "greek-water-jar",

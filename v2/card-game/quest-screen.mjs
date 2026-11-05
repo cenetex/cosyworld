@@ -8,9 +8,10 @@ const BACK = "./assets/card-back.webp";
 // Poses for verbs that have them; others use the speaking portraits.
 const POSES = { Strike: ["attack", "guard"], Threaten: ["attack", null] };
 
-const picture = (src, className, url) => {
+const picture = (src, className, url, entity) => {
   const img = document.createElement("img");
   img.className = className;
+  if (entity) img.dataset.entity = entity;
   img.src = url(src);
   img.alt = "";
   img.decoding = "async";
@@ -40,12 +41,13 @@ export function questScreen(view, art) {
   // the place the player stands in; elsewhere stays a dark ground.
   const ground = kind === "place" ? target : view.here;
   if (ground)
-    screen.append(picture(art.place(ground), "quest-ground", art.url));
+    screen.append(picture(art.place(ground), "quest-ground", art.url, ground));
   const [ownPose, theirPose] = POSES[verb] || [];
   const figure = (id, pose, facing, slot) => {
     const base = art.portrait(id),
       src = (pose && combatPortrait(id, pose, base, facing)) || base,
       img = picture(src, `quest-figure quest-${slot}`, art.url);
+    img.dataset.entity = id;
     img.dataset.flip = String(flipStagePortrait(src, facing));
     return img;
   };
@@ -58,7 +60,8 @@ export function questScreen(view, art) {
   if (!target || covered)
     screen.append(picture(BACK, "quest-back quest-right", art.url));
   else if (kind === "item")
-    screen.append(picture(art.thing(target), "quest-thing", art.url));
+    for (const item of view.items || [target])
+      screen.append(picture(art.thing(item), "quest-thing", art.url, item));
   else screen.append(figure(target, theirPose, "left", "right"));
   if (to && !view.toCovered)
     screen.append(figure(to, theirPose, "left", "right quest-to"));

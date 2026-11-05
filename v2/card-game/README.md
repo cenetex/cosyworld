@@ -550,7 +550,7 @@ a locked wooden box: the darker locked lid on a red edge, labelled only
 "Locked" (the owner's one exception to words on a card), with no painting and
 no name.
 Tapping it chooses it and shows its quest in the existing action beat. A recipe
-lock shows its ingredients, maker and home together and names them; a sealed route shows
+lock shows its ingredients with its maker inside the home scene and names them; a sealed route shows
 its authored quest. A guarded way names its guard, whose Talk gives the quest.
 The Locked button keeps the rule's full reason in its title. When the rules
 open the way, the box turns over once, with the same lift as an uncovered
