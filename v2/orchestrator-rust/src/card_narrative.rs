@@ -2500,8 +2500,17 @@ impl<'a> Check<'a> {
                 flags.push(reason);
             }
         };
+        // Emoji presentation selectors belong to known symbols; hidden
+        // marks in words and all speech keep the full instruction check.
+        let instructs = |text: &str| {
+            if self.expression == expression::Mode::Emoji {
+                instruction::instructs(&expression::instruction_text(text))
+            } else {
+                instruction::instructs(text)
+            }
+        };
         // Checked raw, then again once markup and spacing are cleaned away.
-        if instruction::instructs(raw) {
+        if instructs(raw) {
             return Err("instruction");
         }
         if self.expression != expression::Mode::Speech {
@@ -2519,7 +2528,7 @@ impl<'a> Check<'a> {
             } else {
                 expression::clean(self.expression, raw, &own, self.limit, finished)?
             };
-            if instruction::instructs(&text) {
+            if instructs(&text) {
                 return Err("instruction");
             }
             if !observations::consistent(&text, self.context) {
@@ -2960,6 +2969,10 @@ fn mentions(text: &str, name: &str) -> bool {
         !before.is_some_and(char::is_alphanumeric) && !after.is_some_and(char::is_alphanumeric)
     })
 }
+
+#[cfg(test)]
+#[path = "card_narrative/emoji_tests.rs"]
+mod emoji_tests;
 
 #[cfg(test)]
 pub(crate) mod tests {

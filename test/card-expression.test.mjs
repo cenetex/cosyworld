@@ -156,6 +156,10 @@ describe("authored character expression", () => {
       text: "🌳👀",
       kind: "dialogue",
     });
+    request.lines[1].text = "🌧️🐾❤️";
+    expect(dispatchShared(request).lines[1].text).toBe("🌧️🐾❤️");
+    expect(profiles.whiskerwind.expression).toBe("emoji");
+    expect(validExpression(profiles.whiskerwind, "🌧️🐾❤️")).toBe(true);
     request.lines[1].text = "I see it too.";
     expect(() => dispatchShared(request)).toThrow("clear text");
     profiles.moth.expression = "movement";

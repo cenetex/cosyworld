@@ -87,6 +87,20 @@ fn authored(cluster: &str) -> Option<&'static str> {
         .map(String::as_str)
 }
 
+/// The instruction scan reads presentation marks as syntax only inside an
+/// authored emoji cluster. Hidden marks in words stay visible to its guard.
+pub(super) fn instruction_text(text: &str) -> String {
+    clusters(text)
+        .into_iter()
+        .flat_map(|cluster| {
+            let symbol = authored(cluster).is_some();
+            cluster
+                .chars()
+                .filter(move |c| !symbol || !matches!(c, '\u{FE0E}' | '\u{FE0F}'))
+        })
+        .collect()
+}
+
 /// An emoji voice's reply (Whiskerwind) as the rules accept it: two to five
 /// authored symbols. Code, not the prompt, keeps that shape: words,
 /// punctuation and symbols the table cannot name fall away, the first five

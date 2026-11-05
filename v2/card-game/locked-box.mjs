@@ -7,6 +7,41 @@
 // itself from then on. Presentation only: it reads the committed world and
 // never touches rules, saves, the journal or sync.
 import { sealedReason } from "./cards.mjs";
+import { packThings } from "./pack-registry.mjs";
+import { currentActor, nameOf, sealedWays, wantText } from "./world.mjs";
+
+export function lockedQuest(world, id) {
+  const reason = sealedReason(world, id);
+  if (!reason) return null;
+  const item = packThings[id];
+  if (item?.locked) {
+    const cards = item.locked.consumes;
+    const names = cards.map(nameOf);
+    const ingredients =
+      names.length > 1
+        ? `${names.slice(0, -1).join(", ")} and ${names.at(-1)}`
+        : names[0];
+    return {
+      text: `Bring ${ingredients} to ${nameOf(item.locked.by)} at ${nameOf(item.home)}.`,
+      cards: [...cards, item.locked.by, item.home],
+      recipe: true,
+    };
+  }
+  const way = sealedWays(world, currentActor(world)).find((r) => r.to === id);
+  if (way?.sealed.quest) {
+    const { kind, target, to } = way.sealed.quest;
+    const words = wantText({
+      kind,
+      target,
+      ...(to ? { step: { verb: "give", to } } : {}),
+    });
+    return {
+      text: `${words[0].toUpperCase()}${words.slice(1)}.`,
+      cards: [target, to].filter(Boolean),
+    };
+  }
+  return { text: reason, cards: way?.guardedBy ? [way.guardedBy] : [] };
+}
 
 // The locked carved lid has a recessed iron keyhole (assets/README.md).
 export const LOCKED_BACK = "./assets/card-back-locked.webp";

@@ -166,6 +166,8 @@ than by prompt: words, punctuation and emoji the table cannot name fall away,
 a skin-toned symbol reads as its authored one, a ZWJ sequence stays whole or
 falls away whole, the first five stay, and a reply with fewer than two left
 is silent ("…"). A reduced reply publishes flagged `emoji reduced`.
+Emoji presentation marks keep each symbol's intended shape. The text safety
+check treats those marks as part of known symbols.
 The server reads the expression type from the authored character profile.
 Spoken audio and letter sounds follow speech replies.
 A committed ring at your place strikes a synthesized bell (`sfx.mjs`), softer from next door; it follows the music switch and volume.
@@ -549,8 +551,11 @@ A card locked behind a quest (a sealed card, the far side of a shut gate) is
 a locked wooden box: the darker locked lid on a red edge, labelled only
 "Locked" (the owner's one exception to words on a card), with no painting and
 no name.
-Tapping it chooses it, and the context button gives its quest. When the quest
-opens the way, the box turns over once, with the same lift as an uncovered
+Tapping it chooses it and shows its quest in the existing action beat. A recipe
+lock shows its ingredients with its maker inside the home scene and names them; a sealed route shows
+its authored quest. A guarded way names its guard, whose Talk gives the quest.
+The Locked button keeps the rule's full reason in its title. When the rules
+open the way, the box turns over once, with the same lift as an uncovered
 card (a crossfade under reduced motion), and the card shows as itself from
 then on; a redraw never covers it again (`locked-box.mjs`). In a shared world
 each browser reads its own player's view of the gate.
