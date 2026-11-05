@@ -150,3 +150,19 @@ toward moonlit grey. It faces left.
 fails on any difference.
 
 ![Shipping backdrops and shade](hollow-shipping-review.webp)
+
+## Hand-card exports
+
+The burial sequence uses the selected studies in the hand as well as the
+wide Hollow paintings on the stage. The card files live in
+`v2/card-game/assets/greek-drama/`.
+
+| Burial state | Hand-card image |
+| --- | --- |
+| Fallen | `polynices-fallen.webp` |
+| Anointed | `polynices-anointed.webp` |
+| Veiled | `polynices-veiled.webp` |
+| Buried | `polynices-grave.webp` |
+
+Use the same saved burial state for the hand card and the Hollow backdrop
+when the burial pack lands. The Funeral Oil item uses `oil-lekythos.png`.

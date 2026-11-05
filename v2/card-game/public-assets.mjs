@@ -148,6 +148,10 @@ const files = [
   "assets/greek-drama/house-atreus-mycenae-night.webp",
   "assets/greek-drama/house-atreus-farmhouse-night.webp",
   "assets/greek-drama/olive-branch.webp",
+  "assets/greek-drama/polynices-fallen.webp",
+  "assets/greek-drama/polynices-anointed.webp",
+  "assets/greek-drama/polynices-veiled.webp",
+  "assets/greek-drama/polynices-grave.webp",
   // Argos commissioned art: end
   "assets/greek-drama/harbor-day.webp",
   "assets/greek-drama/ship-deck-twilight.webp",

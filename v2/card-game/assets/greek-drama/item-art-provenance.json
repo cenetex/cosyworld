@@ -127,6 +127,19 @@
       "sha256": "985d4a663d96ee4d64a30ef667641a7f5a7edb7348c3f40c2738cde60fec4324",
       "processing": "Original generated PNG copied with its alpha channel.",
       "prompt": "Create a square transparent PNG game item sprite for CosyWorld Greek drama inventory. Single coarse oatmeal linen sack of wheat, full and round, tied at the neck with twine. A small sheaf of golden wheat tucked into the tie, ears fan above the sack and make the item readable at 40px. A few loose grains near the base. Small faded painted anchor pictogram on the sack. Three-quarter view. Painterly old-master realism, richly textured linen, muted straw gold, soft warm amber light from upper left. Centered silhouette with small transparent margins. True transparent background, no floor, stand, typography, border, or scene."
+    },
+    {
+      "file": "oil-lekythos.png",
+      "sourceName": "exec-0b9ea3ac-acf1-4791-8576-896fb2279652.png",
+      "generationId": "exec-0b9ea3ac-acf1-4791-8576-896fb2279652",
+      "tool": "built-in image_gen",
+      "size": [
+        1254,
+        1254
+      ],
+      "sha256": "a6bb18d15d0e4079e877d0a0cf808a6680207b6a7ab8cd600dc067eb4c6f6b1a",
+      "processing": "Original generated PNG copied with its alpha channel.",
+      "prompt": "CosyWorld inventory sprite, square PNG on genuine transparent background. One ancient Greek funerary white-ground lekythos, tall slender single-handled ceramic oil flask, narrow neck and cup-shaped mouth with small wax and linen stopper. Cream slip with faint, worn matte red and black painted figures of a mourning woman at a grave stele, clear silhouette at card size. Three-quarter view, gentle warm amber light from upper left, tactile fine painterly realism, aged natural materials, earthy muted colors. Entire object centered with clear transparent margins, no floor, no stand, no text, no border."
     }
   ]
 }

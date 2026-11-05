@@ -1,0 +1,48 @@
+{
+  "assets": [
+    {
+      "file": "polynices-fallen.webp",
+      "source": "docs/design/assets/polynices/fallen-card-study.png",
+      "sourceSha256": "bf5f63b9692f40e8c4c6ae3b78e9b30e7573b3bce225c431877766f343a5a415",
+      "size": [
+        1024,
+        1536
+      ],
+      "sha256": "e10a7844d321552c968e6765a01b2010a8bfd017eca6c3216f449c2dad61c8f5",
+      "processing": "Lossless WebP export of the selected card study."
+    },
+    {
+      "file": "polynices-anointed.webp",
+      "source": "docs/design/assets/polynices/anointed-card-study.png",
+      "sourceSha256": "ca7cb38c83bcabfa3a0782e478cccac3d01278c0130c2ee0408dcad8c6d20b29",
+      "size": [
+        1024,
+        1536
+      ],
+      "sha256": "aaf112c203842525981eacd1471f65d7e2fccd627ab830b4767365ad560dd635",
+      "processing": "Lossless WebP export of the selected card study."
+    },
+    {
+      "file": "polynices-veiled.webp",
+      "source": "docs/design/assets/polynices/veiled-feather-study.png",
+      "sourceSha256": "38dd78b13adfe780d5cef650d1688a9ead9f5856ef60ed670e6d4985f2567c3e",
+      "size": [
+        1024,
+        1536
+      ],
+      "sha256": "df41b04fd68231100d1c70ec7649f6bcca0ac6d3e8f80bd7b12bfbfb0fbb3e6a",
+      "processing": "Lossless WebP export of the selected card study."
+    },
+    {
+      "file": "polynices-grave.webp",
+      "source": "docs/design/assets/polynices/grave-feather-study.png",
+      "sourceSha256": "2232c295d991f7f358def793350fc6d7ede6a60cca7e995dd10fb6a0b59e1beb",
+      "size": [
+        1024,
+        1536
+      ],
+      "sha256": "af31924faa19d5c19085f73d22f65a91b5d072ee0a8d03598081a51fc95791b4",
+      "processing": "Lossless WebP export of the selected card study."
+    }
+  ]
+}
