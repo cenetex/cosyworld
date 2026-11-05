@@ -63,7 +63,10 @@ export function createPreferredLocationsView(stage, art, cast) {
     // Cropped points can converge at an edge on a phone. Share the available
     // width in painting order so each person remains visible.
     placed.sort((a, b) => a.point.left - b.point.left);
-    const gap = placed.length > 1 ? stageBox.width / (placed.length + 1) : 0;
+    const gap =
+      stageBox.width < 701 && placed.length > 1
+        ? stageBox.width / (placed.length + 1)
+        : 0;
     for (let i = 0; i < placed.length; i++) {
       const { figure, point, min, max } = placed[i];
       const prior = i ? placed[i - 1].left + gap : min;
