@@ -9,8 +9,7 @@ export function createPreferredLocationsView(stage, art, cast) {
     const artBox = art.getBoundingClientRect();
     const castBox = cast.getBoundingClientRect();
     const stageBox = stage.getBoundingClientRect();
-    const dock = document.querySelector(".play-dock").getBoundingClientRect();
-    const floor = Math.min(stageBox.bottom - 12, dock.top - 6);
+    const floor = stageBox.bottom - 12;
     const placed = [];
     for (const figure of cast.children) {
       const spot = spots.get(figure.dataset.avatar);
