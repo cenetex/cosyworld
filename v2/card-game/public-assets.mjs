@@ -63,6 +63,7 @@ const files = [
     (part) => `assets/greek-drama/ship-layers/pond-ship-${part}.webp`,
   ),
   "assets/greek-drama/ship-layers/recipe.json",
+  "assets/staging/greek.json",
   // Standoff effect art for issue #1920; runtime overlays follow.
   ...[
     "hit-1",
