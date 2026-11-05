@@ -3509,6 +3509,15 @@
       "phone": "assets/optimized/phone/png/greek-drama/water-jar.webp",
       "phoneHash": "1de958209159be337e4c500da7d22b89ab590498a332ecef9d1f32bc161db1f4"
     },
+    "assets/greek-drama/wheat.png": {
+      "sourceHash": "985d4a663d96ee4d64a30ef667641a7f5a7edb7348c3f40c2738cde60fec4324",
+      "stage": "assets/optimized/stage/png/greek-drama/wheat.webp",
+      "stageHash": "f94bd92c0cce0a76b60c69d0f44c5d7130bce024ccc3a26b9c59b659f76f93eb",
+      "card": "assets/optimized/card/png/greek-drama/wheat.webp",
+      "cardHash": "45636b8e187ff61a81af67ca730cb9cc17fde9e92abcb00bff37a15b737607ed",
+      "phone": "assets/optimized/phone/png/greek-drama/wheat.webp",
+      "phoneHash": "d071d19b691ec50ef644c1b9f9a3d4a961f942d864b9fa81233e116cd8ee5f48"
+    },
     "assets/greek-drama/wine-skin.png": {
       "sourceHash": "07d0e485f4b142aa6031eb9561718465769cb1285bb526cd816294d1df177678",
       "stage": "assets/optimized/stage/png/greek-drama/wine-skin.webp",
