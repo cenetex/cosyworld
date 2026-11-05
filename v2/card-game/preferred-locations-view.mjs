@@ -1,6 +1,5 @@
 import { projectPaintedSpot } from "./preferred-locations.mjs";
 
-// The existing painting box follows focus, aspect ratio, and cover cropping.
 export function createPreferredLocationsView(stage, art, cast) {
   let spots = new Map();
   let frame = 0;
@@ -62,8 +61,6 @@ export function createPreferredLocationsView(stage, art, cast) {
       const max = stageBox.right - castBox.left - half;
       placed.push({ figure, point, min, max, width, height });
     }
-    // Cropped points can converge at an edge on a phone. Share the available
-    // width in painting order so each person remains visible.
     placed.sort((a, b) => a.point.left - b.point.left);
     const gap =
       stageBox.width < 701 && placed.length > 1
