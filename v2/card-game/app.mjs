@@ -7,6 +7,10 @@ import {
 } from "./title-intro.mjs";
 import { count, lineCounter, playCounter, startMetrics } from "./metrics.mjs";
 import { imageUrl } from "./images.mjs";
+import coreLocations from "./assets/staging/core.json" with { type: "json" };
+import greekLocations from "./assets/staging/greek.json" with { type: "json" };
+import worldLocations from "./assets/staging/worlds.json" with { type: "json" };
+import { createPreferredLocationsView } from "./preferred-locations-view.mjs";
 import { cardLevel, levelTier, romanLevel } from "./rarity.mjs";
 import { finishCardReveal, revealCard } from "./card-reveal.mjs";
 import { setCardLabel } from "./card-label.mjs";
@@ -3051,6 +3055,11 @@ function clearQuest(button, quest) {
   const avatar = $("hand").querySelector(`.card[data-card="${quest.actor}"]`);
   if (quest.level && quest.left <= 1 && avatar) void glowCard(avatar, color);
 }
+const showPreferredLocations = createPreferredLocationsView(
+  $("stage"),
+  $("stage-figures"),
+  $("cast"),
+);
 // The stage frames each painting with its measured shape, so a resident
 // anchored to it stands on the same spot at every screen size.
 $("backdrop").addEventListener("load", (event) => {
@@ -3348,6 +3357,11 @@ function renderScene() {
     review: true,
     currentState: true,
     sharedPlays: sharedSession?.state.history,
+    preferredCatalog: {
+      ...coreLocations.places,
+      ...greekLocations.places,
+      ...worldLocations.places,
+    },
   });
   renderFloorItems(revealedStage(staging, cardIsCovered).floorItems);
   $("cast").dataset.layout = staging.layout;
@@ -3498,6 +3512,7 @@ function renderScene() {
       });
     }
   });
+  showPreferredLocations(staging.actors);
   // A reveal off stage (a place card, someone elsewhere) fades nothing later.
   stageReveals.clear();
   hauntScene($("stage"), scene.locationId, {
