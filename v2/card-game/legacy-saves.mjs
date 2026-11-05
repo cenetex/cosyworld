@@ -566,12 +566,15 @@ export function upgradeHoppyTableSave(s) {
   const pack = packDefinitions.find((p) => p.id === "hoppycat-archive");
   const saved = s.packs?.[pack?.id];
   if (!pack || pack.revision < 4 || !saved || saved.revision >= 4) return;
+  upgradeHoppyCatSeaSave(s);
+  upgradeHoppyCatInteriorsSave(s);
   if (Array.isArray(saved.specials)) {
     const pool = new Set(pack.specials.pool.map((e) => e.id));
     saved.specials = [
       ...new Set(
         saved.specials
           .map((id) => {
+            if (id === "hoppycat-loop-token") return "hoppycat-goldfish-tank";
             const entity = pack.avatars[id] || pack.items[id];
             const place = entity?.place || entity?.holder || id;
             return canonicalPlace(pack.avatars[place]?.place || place);
@@ -580,7 +583,29 @@ export function upgradeHoppyTableSave(s) {
       ),
     ];
   }
-  foldRetiredRoads(s);
+  const home = (id) => Object.hasOwn(pack.places, id);
+  for (const actor of Object.values(s.actors || {})) {
+    for (const key of ["place", "home"])
+      if (home(actor[key])) actor[key] = canonicalPlace(actor[key]);
+    for (const want of [actor.want, ...(actor.under || [])])
+      if (want?.kind === "place" && home(want.target))
+        want.target = canonicalPlace(want.target);
+  }
+  for (const item of Object.values(s.items || {}))
+    if (home(item.holder)) item.holder = canonicalPlace(item.holder);
+  for (const [actor, edges] of Object.entries(s.routeKnowledge || {}))
+    s.routeKnowledge[actor] = [
+      ...new Map(
+        edges
+          .flatMap((edge) => {
+            if (!edge.every(home)) return [edge];
+            const [from, to] = edge.map(canonicalPlace);
+            const path = walkablePath(from, to);
+            return path ? path.slice(1).map((end, i) => [path[i], end]) : [];
+          })
+          .map((edge) => [JSON.stringify(edge), edge]),
+      ).values(),
+    ];
   for (const [id, avatar] of Object.entries(pack.avatars)) {
     if (!s.actors?.[id]) continue;
     s.actors[id].place = avatar.place;

@@ -29,3 +29,7 @@ and the context action show them.
 Save upgrades preserve held objects, relationships, earlier completed deeds
 and the places a small world already drew. Retired room IDs stay in history.
 The rules change is limited to that upgrade; gameplay uses existing rules.
+
+Earlier story definitions remain under a retired room for receipt validation.
+The current rooms offer the new scenes. A ring at the table appears when
+Glim's room is drawn; a carried ring keeps its owner.

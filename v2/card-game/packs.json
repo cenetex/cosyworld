@@ -8603,7 +8603,26 @@
           "text": "A little brass ring holds Glim's name. Hoppy has kept a place for him at the tea table.",
           "persona": "A little brass ring holds Glim's name. Hoppy has kept a place for him at the tea table.",
           "holder": "hoppycat-halfway-tea-garden",
-          "art": "assets/hoppycat-archive/hoppycat-loop-token-cutout.png"
+          "art": "assets/hoppycat-archive/hoppycat-loop-token-cutout.png",
+          "requires": [
+            {
+              "kind": "any",
+              "conditions": [
+                {
+                  "kind": "drawn",
+                  "id": "hoppycat-goldfish-tank"
+                },
+                {
+                  "kind": "not",
+                  "condition": {
+                    "kind": "item_at",
+                    "item": "hoppycat-loop-token",
+                    "place": "hoppycat-halfway-tea-garden"
+                  }
+                }
+              ]
+            }
+          ]
         },
         "hoppycat-fermata-clapper": {
           "name": "The Bell's Heart",
@@ -9135,14 +9154,19 @@
           "at": "hoppycat-halfway-tea-garden",
           "subject": "hoppycat-hoppy-cat",
           "label": "Hoppy points to Glim's Place Ring",
-          "text": "Hoppy points to Glim's Place Ring. Take it to Glim in the Water Garden; Phase has drawn the way to tea.",
-          "textTemplate": "Hoppy points to Glim's Place Ring. Take it to Glim in the Water Garden; Phase has drawn the way to tea.",
+          "text": "Hoppy points to Glim's name on the ring. Give it to Glim in the Water Garden; Phase has drawn the way to tea.",
+          "textTemplate": "Hoppy points to Glim's name on the ring. Give it to Glim in the Water Garden; Phase has drawn the way to tea.",
           "on": "talk",
           "requires": [
             {
               "kind": "flag",
               "key": "hoppycat-table-welcome",
               "value": true
+            },
+            {
+              "kind": "holding",
+              "item": "hoppycat-loop-token",
+              "role": "actor"
             }
           ],
           "effects": [
@@ -9809,8 +9833,8 @@
           "at": "hoppycat-halfway-tea-garden",
           "subject": "hoppycat-hoppy-cat",
           "label": "Hoppy sets the guest's work on the table and names its maker",
-          "text": "Hoppy sets the guest's work on the table and names its maker. Tapi stays after the broadcast to hear the story.",
-          "textTemplate": "Hoppy sets the guest's work on the table and names its maker. Tapi stays after the broadcast to hear the story.",
+          "text": "Hoppy sets the work on the table and thanks Glim and Phase Two by name. Tapi stays after the broadcast to hear the story.",
+          "textTemplate": "Hoppy sets the work on the table and thanks Glim and Phase Two by name. Tapi stays after the broadcast to hear the story.",
           "on": "give",
           "requires": [
             {
@@ -9842,8 +9866,8 @@
           "at": "hoppycat-halfway-tea-garden",
           "subject": "hoppycat-hoppy-cat",
           "label": "Hoppy sets the guest's work on the table and names its maker",
-          "text": "Hoppy sets the guest's work on the table and names its maker. Tapi stays after the broadcast to hear the story.",
-          "textTemplate": "Hoppy sets the guest's work on the table and names its maker. Tapi stays after the broadcast to hear the story.",
+          "text": "Hoppy sets the work on the table and thanks Mira and Fable by name. Tapi stays after the broadcast to hear the story.",
+          "textTemplate": "Hoppy sets the work on the table and thanks Mira and Fable by name. Tapi stays after the broadcast to hear the story.",
           "on": "give",
           "requires": [
             {
@@ -9885,8 +9909,8 @@
           "at": "hoppycat-halfway-tea-garden",
           "subject": "hoppycat-hoppy-cat",
           "label": "Hoppy sets the guest's work on the table and names its maker",
-          "text": "Hoppy sets the guest's work on the table and names its maker. Tapi stays after the broadcast to hear the story.",
-          "textTemplate": "Hoppy sets the guest's work on the table and names its maker. Tapi stays after the broadcast to hear the story.",
+          "text": "Hoppy sets the work on the table and thanks Ledger by name. Tapi stays after the broadcast to hear the story.",
+          "textTemplate": "Hoppy sets the work on the table and thanks Ledger by name. Tapi stays after the broadcast to hear the story.",
           "on": "give",
           "requires": [
             {
@@ -9918,8 +9942,8 @@
           "at": "hoppycat-halfway-tea-garden",
           "subject": "hoppycat-hoppy-cat",
           "label": "Hoppy sets the guest's work on the table and names its maker",
-          "text": "Hoppy sets the guest's work on the table and names its maker. Tapi stays after the broadcast to hear the story.",
-          "textTemplate": "Hoppy sets the guest's work on the table and names its maker. Tapi stays after the broadcast to hear the story.",
+          "text": "Hoppy sets the work on the table and thanks Lumen by name. Tapi stays after the broadcast to hear the story.",
+          "textTemplate": "Hoppy sets the work on the table and thanks Lumen by name. Tapi stays after the broadcast to hear the story.",
           "on": "give",
           "requires": [
             {
@@ -9951,8 +9975,8 @@
           "at": "hoppycat-halfway-tea-garden",
           "subject": "hoppycat-hoppy-cat",
           "label": "Hoppy sets the guest's work on the table and names its maker",
-          "text": "Hoppy sets the guest's work on the table and names its maker. Tapi stays after the broadcast to hear the story.",
-          "textTemplate": "Hoppy sets the guest's work on the table and names its maker. Tapi stays after the broadcast to hear the story.",
+          "text": "Hoppy sets the work on the table and thanks Rill and Arc by name. Tapi stays after the broadcast to hear the story.",
+          "textTemplate": "Hoppy sets the work on the table and thanks Rill and Arc by name. Tapi stays after the broadcast to hear the story.",
           "on": "give",
           "requires": [
             {
@@ -9984,8 +10008,8 @@
           "at": "hoppycat-halfway-tea-garden",
           "subject": "hoppycat-hoppy-cat",
           "label": "Hoppy sets the guest's work on the table and names its maker",
-          "text": "Hoppy sets the guest's work on the table and names its maker. Tapi stays after the broadcast to hear the story.",
-          "textTemplate": "Hoppy sets the guest's work on the table and names its maker. Tapi stays after the broadcast to hear the story.",
+          "text": "Hoppy sets the work on the table and thanks Sol by name. Tapi stays after the broadcast to hear the story.",
+          "textTemplate": "Hoppy sets the work on the table and thanks Sol by name. Tapi stays after the broadcast to hear the story.",
           "on": "give",
           "requires": [
             {

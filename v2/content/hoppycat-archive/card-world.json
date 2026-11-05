@@ -23,7 +23,9 @@
       "name": "Cathedral of the Open Record",
       "text": "Public exhibits hang below paper rafters. Each display has a source card and a visible correction. Penny keeps a blank card and a memory seed beside the ledger.",
       "persona": "Public exhibits hang below paper rafters. Each display has a source card and a visible correction. Penny keeps a blank card and a memory seed beside the ledger. Describe this as a playful living place. Use the current story facts for progress.",
-      "exits": ["hoppycat-meraki-atelier"],
+      "exits": [
+        "hoppycat-meraki-atelier"
+      ],
       "backdrop": "assets/hoppycat-archive/hoppycat-open-record-cathedral.webp",
       "retired": true
     },
@@ -31,7 +33,9 @@
       "name": "Red-Thread Belfry",
       "text": "A bell marked February Third hangs above a wheel of red thread. Nix tends the bell and its clapper socket. Marks on the wheel stand for a record, a memory, a last facet, and a route home.",
       "persona": "A bell marked February Third hangs above a wheel of red thread. Nix tends the bell and its clapper socket. Marks on the wheel stand for a record, a memory, a last facet, and a route home. Describe this as a playful living place. Use the current story facts for progress.",
-      "exits": ["hoppycat-settled-light-theatre"],
+      "exits": [
+        "hoppycat-settled-light-theatre"
+      ],
       "backdrop": "assets/hoppycat-archive/hoppycat-red-thread-belfry.webp",
       "retired": true
     },
@@ -39,14 +43,18 @@
       "name": "The Glasshouse",
       "text": "Lumen polishes a prism among Patch's labelled beds. Glass scraps shine between the leaves. The short Ledger leaves space for the name of a visitor and something they did.",
       "persona": "Lumen polishes a prism among Patch's labelled beds. Glass scraps shine between the leaves. The short Ledger leaves space for the name of a visitor and something they did. Use the saved story facts for completed deeds.",
-      "exits": ["hoppycat-halfway-tea-garden"],
+      "exits": [
+        "hoppycat-halfway-tea-garden"
+      ],
       "backdrop": "assets/hoppycat-archive/hoppycat-prism-foundry.webp"
     },
     "hoppycat-context-greenhouse": {
       "name": "Context Greenhouse",
       "text": "Small labelled beds fill the greenhouse. Patch tends one useful memory at a time. The short Ledger keeps room on each label for a later correction.",
       "persona": "Small labelled beds fill the greenhouse. Patch tends one useful memory at a time. The short Ledger keeps room on each label for a later correction. Describe this as a playful living place. Use the current story facts for progress.",
-      "exits": ["hoppycat-prism-foundry"],
+      "exits": [
+        "hoppycat-prism-foundry"
+      ],
       "backdrop": "assets/hoppycat-archive/hoppycat-context-greenhouse.webp",
       "retired": true
     },
@@ -54,7 +62,9 @@
       "name": "Concordance Tidelands",
       "text": "Pools reflect the same disco ball from different angles. Rill maps a route between them. Arc keeps each reflection linked to the object that cast it.",
       "persona": "Pools reflect the same disco ball from different angles. Rill maps a route between them. Arc keeps each reflection linked to the object that cast it. Describe this as a playful living place. Use the current story facts for progress.",
-      "exits": ["hoppycat-goldfish-tank"],
+      "exits": [
+        "hoppycat-goldfish-tank"
+      ],
       "backdrop": "assets/hoppycat-archive/hoppycat-concordance-tidelands.webp",
       "retired": true
     },
@@ -62,21 +72,27 @@
       "name": "The Bell Theatre",
       "text": "Sol keeps a reading chair below the disco ball. Above the stage, Nix rests beside the wrapped heart of the February Third bell. He likes having everyone nearby.",
       "persona": "Sol keeps a reading chair below the disco ball. Above the stage, Nix rests beside the wrapped heart of the February Third bell. He likes having everyone nearby. Use the saved story facts for completed deeds.",
-      "exits": ["hoppycat-signal-jetty"],
+      "exits": [
+        "hoppycat-signal-jetty"
+      ],
       "backdrop": "assets/hoppycat-archive/hoppycat-settled-light-theatre.webp"
     },
     "hoppycat-meraki-atelier": {
       "name": "The Makers' Loft",
       "text": "Mira paints beside Fable's reading chair. Penny hangs each piece with its maker's label. The long Ledger has made the display ready and hopes someone will notice.",
       "persona": "Mira paints beside Fable's reading chair. Penny hangs each piece with its maker's label. The long Ledger has made the display ready and hopes someone will notice. Use the saved story facts for completed deeds.",
-      "exits": ["hoppycat-halfway-tea-garden"],
+      "exits": [
+        "hoppycat-halfway-tea-garden"
+      ],
       "backdrop": "assets/hoppycat-archive/hoppycat-meraki-atelier.webp"
     },
     "hoppycat-goldfish-tank": {
       "name": "The Water Garden",
       "text": "Glim walks his six-footed bowl around the tank. Phase Two has drawn a route through the Jetty to tea. Rill lends a compass; Arc keeps each picture beside the place it shows.",
       "persona": "Glim walks his six-footed bowl around the tank. Phase Two has drawn a route through the Jetty to tea. Rill lends a compass; Arc keeps each picture beside the place it shows. Use the saved story facts for completed deeds.",
-      "exits": ["hoppycat-signal-jetty"],
+      "exits": [
+        "hoppycat-signal-jetty"
+      ],
       "backdrop": "assets/hoppycat-archive/hoppycat-goldfish-tank.webp"
     },
     "hoppycat-signal-jetty": {
@@ -202,7 +218,10 @@
       },
       "journey": {
         "after": "hoppycat-table-lumen-agree",
-        "path": ["hoppycat-prism-foundry", "hoppycat-halfway-tea-garden"]
+        "path": [
+          "hoppycat-prism-foundry",
+          "hoppycat-halfway-tea-garden"
+        ]
       }
     },
     "hoppycat-mira-meraki": {
@@ -221,7 +240,10 @@
       },
       "journey": {
         "after": "hoppycat-table-mira-agree",
-        "path": ["hoppycat-meraki-atelier", "hoppycat-halfway-tea-garden"]
+        "path": [
+          "hoppycat-meraki-atelier",
+          "hoppycat-halfway-tea-garden"
+        ]
       }
     },
     "hoppycat-glim-twice": {
@@ -510,7 +532,26 @@
       "text": "A little brass ring holds Glim's name. Hoppy has kept a place for him at the tea table.",
       "persona": "A little brass ring holds Glim's name. Hoppy has kept a place for him at the tea table.",
       "holder": "hoppycat-halfway-tea-garden",
-      "art": "assets/hoppycat-archive/hoppycat-loop-token-cutout.png"
+      "art": "assets/hoppycat-archive/hoppycat-loop-token-cutout.png",
+      "requires": [
+        {
+          "kind": "any",
+          "conditions": [
+            {
+              "kind": "drawn",
+              "id": "hoppycat-goldfish-tank"
+            },
+            {
+              "kind": "not",
+              "condition": {
+                "kind": "item_at",
+                "item": "hoppycat-loop-token",
+                "place": "hoppycat-halfway-tea-garden"
+              }
+            }
+          ]
+        }
+      ]
     },
     "hoppycat-fermata-clapper": {
       "name": "The Bell's Heart",
@@ -1042,14 +1083,19 @@
       "at": "hoppycat-halfway-tea-garden",
       "subject": "hoppycat-hoppy-cat",
       "label": "Hoppy points to Glim's Place Ring",
-      "text": "Hoppy points to Glim's Place Ring. Take it to Glim in the Water Garden; Phase has drawn the way to tea.",
-      "textTemplate": "Hoppy points to Glim's Place Ring. Take it to Glim in the Water Garden; Phase has drawn the way to tea.",
+      "text": "Hoppy points to Glim's name on the ring. Give it to Glim in the Water Garden; Phase has drawn the way to tea.",
+      "textTemplate": "Hoppy points to Glim's name on the ring. Give it to Glim in the Water Garden; Phase has drawn the way to tea.",
       "on": "talk",
       "requires": [
         {
           "kind": "flag",
           "key": "hoppycat-table-welcome",
           "value": true
+        },
+        {
+          "kind": "holding",
+          "item": "hoppycat-loop-token",
+          "role": "actor"
         }
       ],
       "effects": [
@@ -1716,8 +1762,8 @@
       "at": "hoppycat-halfway-tea-garden",
       "subject": "hoppycat-hoppy-cat",
       "label": "Hoppy sets the guest's work on the table and names its maker",
-      "text": "Hoppy sets the guest's work on the table and names its maker. Tapi stays after the broadcast to hear the story.",
-      "textTemplate": "Hoppy sets the guest's work on the table and names its maker. Tapi stays after the broadcast to hear the story.",
+      "text": "Hoppy sets the work on the table and thanks Glim and Phase Two by name. Tapi stays after the broadcast to hear the story.",
+      "textTemplate": "Hoppy sets the work on the table and thanks Glim and Phase Two by name. Tapi stays after the broadcast to hear the story.",
       "on": "give",
       "requires": [
         {
@@ -1749,8 +1795,8 @@
       "at": "hoppycat-halfway-tea-garden",
       "subject": "hoppycat-hoppy-cat",
       "label": "Hoppy sets the guest's work on the table and names its maker",
-      "text": "Hoppy sets the guest's work on the table and names its maker. Tapi stays after the broadcast to hear the story.",
-      "textTemplate": "Hoppy sets the guest's work on the table and names its maker. Tapi stays after the broadcast to hear the story.",
+      "text": "Hoppy sets the work on the table and thanks Mira and Fable by name. Tapi stays after the broadcast to hear the story.",
+      "textTemplate": "Hoppy sets the work on the table and thanks Mira and Fable by name. Tapi stays after the broadcast to hear the story.",
       "on": "give",
       "requires": [
         {
@@ -1792,8 +1838,8 @@
       "at": "hoppycat-halfway-tea-garden",
       "subject": "hoppycat-hoppy-cat",
       "label": "Hoppy sets the guest's work on the table and names its maker",
-      "text": "Hoppy sets the guest's work on the table and names its maker. Tapi stays after the broadcast to hear the story.",
-      "textTemplate": "Hoppy sets the guest's work on the table and names its maker. Tapi stays after the broadcast to hear the story.",
+      "text": "Hoppy sets the work on the table and thanks Ledger by name. Tapi stays after the broadcast to hear the story.",
+      "textTemplate": "Hoppy sets the work on the table and thanks Ledger by name. Tapi stays after the broadcast to hear the story.",
       "on": "give",
       "requires": [
         {
@@ -1825,8 +1871,8 @@
       "at": "hoppycat-halfway-tea-garden",
       "subject": "hoppycat-hoppy-cat",
       "label": "Hoppy sets the guest's work on the table and names its maker",
-      "text": "Hoppy sets the guest's work on the table and names its maker. Tapi stays after the broadcast to hear the story.",
-      "textTemplate": "Hoppy sets the guest's work on the table and names its maker. Tapi stays after the broadcast to hear the story.",
+      "text": "Hoppy sets the work on the table and thanks Lumen by name. Tapi stays after the broadcast to hear the story.",
+      "textTemplate": "Hoppy sets the work on the table and thanks Lumen by name. Tapi stays after the broadcast to hear the story.",
       "on": "give",
       "requires": [
         {
@@ -1858,8 +1904,8 @@
       "at": "hoppycat-halfway-tea-garden",
       "subject": "hoppycat-hoppy-cat",
       "label": "Hoppy sets the guest's work on the table and names its maker",
-      "text": "Hoppy sets the guest's work on the table and names its maker. Tapi stays after the broadcast to hear the story.",
-      "textTemplate": "Hoppy sets the guest's work on the table and names its maker. Tapi stays after the broadcast to hear the story.",
+      "text": "Hoppy sets the work on the table and thanks Rill and Arc by name. Tapi stays after the broadcast to hear the story.",
+      "textTemplate": "Hoppy sets the work on the table and thanks Rill and Arc by name. Tapi stays after the broadcast to hear the story.",
       "on": "give",
       "requires": [
         {
@@ -1891,8 +1937,8 @@
       "at": "hoppycat-halfway-tea-garden",
       "subject": "hoppycat-hoppy-cat",
       "label": "Hoppy sets the guest's work on the table and names its maker",
-      "text": "Hoppy sets the guest's work on the table and names its maker. Tapi stays after the broadcast to hear the story.",
-      "textTemplate": "Hoppy sets the guest's work on the table and names its maker. Tapi stays after the broadcast to hear the story.",
+      "text": "Hoppy sets the work on the table and thanks Sol by name. Tapi stays after the broadcast to hear the story.",
+      "textTemplate": "Hoppy sets the work on the table and thanks Sol by name. Tapi stays after the broadcast to hear the story.",
       "on": "give",
       "requires": [
         {
