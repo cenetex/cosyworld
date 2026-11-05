@@ -105,6 +105,7 @@ fn released_pond_opening_keeps_its_place_through_upgrade_and_journal_rebuild() {
     ] {
         items.insert(id.into(), json!({"holder": holder, "history": []}));
     }
+    expected = super::saved_items::hoppy_revision_4(&expected, &world.game);
     for field in ["items", "opening", "turn"] {
         assert_eq!(world.game[field], expected[field], "{field}");
     }

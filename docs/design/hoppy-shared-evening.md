@@ -1,35 +1,24 @@
 # Hoppy Cat: a place at the table
 
-Owner approved in chat on 2026-11-05. The shared evening changes who joins
-the table, whose work is shown, and what the visitor takes home.
+Owner approved in chat on 2026-11-05. The shared evening brings people and
+credited work to the tea table. Static gives the visitor an invitation home.
 
-Six active places keep the existing IDs and art: Tea Garden, Signal Jetty,
-Makers' Loft (Atelier), Glasshouse (Foundry), Water Garden (Tank), and Bell
-Theatre (Theatre). The Cathedral, Greenhouse, Tidelands and Belfry fold into
-those shared rooms. Every active place has at most three exits.
+Six places keep their IDs and art: Garden, Jetty, Makers' Loft (Atelier),
+Glasshouse (Foundry), Water Garden (Tank), and Bell Theatre (Theatre).
+Cathedral, Greenhouse, Tidelands and Belfry fold into those shared rooms.
+Every active place has at most three exits. Garden and Jetty stay core.
+A small world draws two complete rooms; the Hoppy opening has all four.
 
-The Garden and Jetty stay core. A small world draws two complete rooms.
-The dedicated Hoppy opening contains all four. Each room supplies its own
-people, tools and ending; the tea-table ending accepts any finished tale.
+Glim receives his ring, agrees to Phase's route, and walks through the Jetty
+to tea. Mira shares a draft reading or painted playbill. Penny credits Ledger.
+Lumen finishes a prism; Patch plants a memory. Rill and Arc check a route.
+Sol gives a reading. Nix receives a pause before the February Third bell.
+Any finished contribution can start the shared evening.
 
-- Glim receives his Place Ring, agrees to Phase's route, and walks with the
-  player through the Jetty to tea. His saved place proves the journey.
-- Mira chooses a draft reading or a finished playbill. Fable shares the
-  chosen work. Penny and Ledger put the maker's name beside it.
-- Lumen finishes a prism. Patch plants a Visit Seed with a named memory.
-- Rill checks the Garden and Jetty route with the player. Arc signs it.
-- Sol holds the evening. Nix receives a quiet pause before the Bell's Heart.
-- Hoppy welcomes the people and work that arrived. Static returns an
-  Invitation Home for the visitor to carry away.
+Talk, Give, Take, Wait, travel and Accompany carry every scene. Guests' saved
+places and gifts at the table show the result. Full steps are in the pack's
+[CARD-REFRESH.md](../../v2/content/hoppycat-archive/CARD-REFRESH.md).
 
-Use existing Talk, Give, Take, Wait, travel and Accompany. New scenes are
-pack data. Saved flags and objects hold outcomes. Existing cards, dialogue
-and the context action show them.
-
-Save upgrades preserve held objects, relationships, earlier completed deeds
-and the places a small world already drew. Retired room IDs stay in history.
-The rules change is limited to that upgrade; gameplay uses existing rules.
-
-Earlier story definitions remain under a retired room for receipt validation.
-The current rooms offer the new scenes. A ring at the table appears when
-Glim's room is drawn; a carried ring keeps its owner.
+The rules change upgrades saves. It keeps carried items, trust, deeds and
+known rooms. Earlier scenes stay under a retired room for receipt validation.
+Glim's ring appears at the table when his room is drawn; a carried ring stays.

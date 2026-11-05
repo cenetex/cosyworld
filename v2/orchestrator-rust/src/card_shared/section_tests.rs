@@ -137,7 +137,7 @@ fn earlier_greek_worlds_upgrade_once_with_original_history_and_new_entities() {
                 assert_eq!(
                     upgraded.game["items"].as_object().unwrap().len(),
                     old.game["items"].as_object().unwrap().len()
-                        + 10
+                        + 13
                         + 4
                         // Greek revision 9: the Suppliant's Olive Branch.
                         + 1
