@@ -378,6 +378,7 @@ export function entityEnabled(world, id, saved = false) {
         ? (e.requires || []).filter((c) => c.kind !== "connected_humans")
         : e.requires,
     ) ||
+    (!saved && !conditionsMet(world, e.packId, e.appearsWhen)) ||
     !sectionAllows(world, pack, id, conditionsMet) ||
     // Saved custody of an undrawn special stays as it was.
     (!saved && !specialsAllow(state, pack, id))

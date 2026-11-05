@@ -4946,7 +4946,7 @@
             portrait: "assets/greek-drama/polynices-shade.webp",
             travels: false,
             standoffs: false,
-            requires: [
+            appearsWhen: [
               {
                 kind: "clock",
                 from: 36,
@@ -15240,6 +15240,7 @@
           "variants",
           "home",
           "homeWhen",
+          "appearsWhen",
           "values",
           "desire",
           "want",
@@ -15468,7 +15469,6 @@
       "connected_humans",
       "met",
       "knows",
-      "clock",
       "daylight",
       "drawn",
       "chance",
@@ -15507,6 +15507,7 @@
         );
       if (a.home !== void 0)
         check(owns3(places2, a.home), `avatar ${id} home is invalid`);
+      requirements(a.appearsWhen, `avatar ${id} appearance`, false);
       if (a.homeWhen !== void 0) {
         check(
           keysOk(a.homeWhen, ["place", "requires"]) && owns3(places2, a.homeWhen?.place) && Array.isArray(a.homeWhen?.requires) && a.homeWhen.requires.length >= 1 && a.homeWhen.requires.length <= 4,
@@ -16267,7 +16268,7 @@
       world,
       e.packId,
       saved ? (e.requires || []).filter((c) => c.kind !== "connected_humans") : e.requires
-    ) || !sectionAllows(world, pack, id, conditionsMet) || // Saved custody of an undrawn special stays as it was.
+    ) || !saved && !conditionsMet(world, e.packId, e.appearsWhen) || !sectionAllows(world, pack, id, conditionsMet) || // Saved custody of an undrawn special stays as it was.
     !saved && !specialsAllow(state, pack, id))
       return false;
     if (!pack.release || state.scope === "full") return true;
@@ -17074,6 +17075,8 @@
       upgradeGreekForecourtSave(s);
       upgradeGreekDecreeSave(s);
       if (reworked.has("greek-drama") && packOf("greek-polynices-hollow")) {
+        const greek = s.packs["greek-drama"];
+        if (greek.revision === 20) greek.revision = 21;
         const antigone = s.actors?.["greek-antigone"];
         if (antigone && !s.packs?.["greek-drama"]?.flags?.["greek-burial-performed"])
           delete antigone.want;

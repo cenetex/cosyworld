@@ -684,6 +684,7 @@ export function packProblems(pack, hub, mountedPlaces = [], mountedItems = []) {
         "variants",
         "home",
         "homeWhen",
+        "appearsWhen",
         "values",
         "desire",
         "want",
@@ -1106,7 +1107,6 @@ export function packProblems(pack, hub, mountedPlaces = [], mountedItems = []) {
           "connected_humans",
           "met",
           "knows",
-          "clock",
           "daylight",
           "drawn",
           "chance",
@@ -1145,6 +1145,7 @@ export function packProblems(pack, hub, mountedPlaces = [], mountedItems = []) {
       );
     if (a.home !== undefined)
       check(owns(places, a.home), `avatar ${id} home is invalid`);
+    requirements(a.appearsWhen, `avatar ${id} appearance`, false);
     if (a.homeWhen !== undefined) {
       check(
         keysOk(a.homeWhen, ["place", "requires"]) &&

@@ -34,12 +34,14 @@ it("plays one burial quest through the three ordered rites", () => {
   };
   world.turn = world.revision = 20;
   world.crossings["pond-greek-harbor"].discovered = true;
-  world.actors.vale.place = hollow;
-  world.actors.vale.visited.push("pond", hollow);
-  world.actors[antigone].place = hollow;
+  world.actors.vale.place = "greek-gate";
+  world.actors.vale.visited.push("pond", "greek-gate");
   world.items["greek-creon-writ"].holder = "greek-guard";
   act({ kind: "talk", target: antigone });
   expect(questCard(world)?.art).toContain("polynices-fallen");
+  act({ kind: "move", target: "greek-battlefield" });
+  act({ kind: "move", target: hollow });
+  expect(world.actors[antigone].place).toBe(hollow);
   const available = () =>
     actions().flatMap((a) => (rites.includes(a.choiceId) ? [a.choiceId] : []));
   expect(available()).toEqual([]);
@@ -57,4 +59,25 @@ it("plays one burial quest through the three ordered rites", () => {
     "greek-burial-performed": true,
     "greek-open-door-open": true,
   });
+});
+
+it("keeps a meeting with the shade after dawn", () => {
+  const world = createWorld();
+  const shade = "greek-polynices-shade";
+  const battlefield = "greek-battlefield";
+  world.crossings["pond-greek-harbor"].discovered = true;
+  world.actors.vale.place = battlefield;
+  world.actors.vale.visited.push("pond", battlefield);
+  world.items["greek-creon-writ"].holder = "greek-guard";
+  const talk = (state) =>
+    legalActions(state).find((a) => a.kind === "talk" && a.target === shade);
+  world.turn = world.revision = 35;
+  expect(talk(world)).toBeUndefined();
+  world.turn = world.revision = 36;
+  const result = play(world, talk(world));
+  expect(result.ok, result.error).toBe(true);
+  result.state.turn = result.state.revision = 48;
+  const dawn = decodeSave(encodeSave(result.state));
+  expect(talk(dawn)).toBeUndefined();
+  expect(questCard(dawn)?.target).toBe(hollow);
 });

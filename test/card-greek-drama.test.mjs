@@ -385,7 +385,7 @@ describe("Before the Burial", () => {
       [PALACE, COURTYARD],
     ];
     const world = decodeSave(JSON.stringify(old));
-    expect(world.packs[PACK].revision).toBe(20);
+    expect(world.packs[PACK].revision).toBe(21);
     expect(world.routeKnowledge["greek-rhapsode"]).toEqual([
       [COURTYARD, WELL],
       [WELL, PALACE],

@@ -145,6 +145,8 @@ export function upgradeSave(
     upgradeGreekForecourtSave(s);
     upgradeGreekDecreeSave(s);
     if (reworked.has("greek-drama") && packOf("greek-polynices-hollow")) {
+      const greek = s.packs["greek-drama"];
+      if (greek.revision === 20) greek.revision = 21;
       const antigone = s.actors?.["greek-antigone"];
       if (
         antigone &&

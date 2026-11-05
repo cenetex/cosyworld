@@ -2356,7 +2356,7 @@
           "portrait": "assets/greek-drama/polynices-shade.webp",
           "travels": false,
           "standoffs": false,
-          "requires": [
+          "appearsWhen": [
             {
               "kind": "clock",
               "from": 36,
