@@ -4,11 +4,29 @@ import { projectPaintedSpot } from "./preferred-locations.mjs";
 export function createPreferredLocationsView(stage, art, cast) {
   let spots = new Map();
   let frame = 0;
+  let originalFocus = "0.5";
   function draw() {
     frame = 0;
-    const artBox = art.getBoundingClientRect();
-    const castBox = cast.getBoundingClientRect();
     const stageBox = stage.getBoundingClientRect();
+    let artBox = art.getBoundingClientRect();
+    if (spots.size && stageBox.width < 701 && artBox.width > stageBox.width) {
+      const middle =
+        [...spots.values()].reduce((sum, spot) => sum + spot[0], 0) /
+        spots.size /
+        100;
+      const focus =
+        (stageBox.width / 2 - artBox.width * middle) /
+        (stageBox.width - artBox.width);
+      stage.style.setProperty(
+        "--focus-x",
+        String(Math.max(0, Math.min(1, focus))),
+      );
+      artBox = art.getBoundingClientRect();
+    } else {
+      stage.style.setProperty("--focus-x", originalFocus);
+      artBox = art.getBoundingClientRect();
+    }
+    const castBox = cast.getBoundingClientRect();
     const floor = stageBox.bottom - 12;
     const placed = [];
     for (const figure of cast.children) {
@@ -19,7 +37,7 @@ export function createPreferredLocationsView(stage, art, cast) {
         figure.style.removeProperty("max-height");
         continue;
       }
-      figure.style.maxHeight = `${Math.max(1, Math.min(stageBox.width * 1.5, floor - stageBox.top))}px`;
+      figure.style.maxHeight = `${Math.max(1, Math.min((stageBox.width * 1.5) / (stageBox.width < 701 ? Math.min(spots.size, 3) : 1), floor - stageBox.top))}px`;
       const { width, height } = figure.getBoundingClientRect();
       const point = projectPaintedSpot(spot, artBox, castBox, stageBox, floor);
       point.bottom = Math.min(
@@ -62,6 +80,7 @@ export function createPreferredLocationsView(stage, art, cast) {
   observer.observe(art);
   observer.observe(cast);
   return (actors) => {
+    originalFocus = stage.style.getPropertyValue("--focus-x") || "0.5";
     spots = new Map(
       actors
         .filter((actor) => actor.paintedSpot)
