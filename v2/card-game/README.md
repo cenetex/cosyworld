@@ -119,6 +119,11 @@ away, the peek, the hover lift, fanning, choosing, pressing, the fold, the
 second press and closing at three widths; `smoke-card-music.mjs` checks the
 held song.
 
+A selected locked card describes its quest in the existing action beat.
+A recipe lock shows each ingredient and names its maker and home; a sealed
+route shows its authored quest. The Locked button keeps the rule's full reason
+in its title. The rules still decide when a card opens.
+
 ## Public assets
 
 `public-assets.mjs` defines the public files and their content types. It includes
