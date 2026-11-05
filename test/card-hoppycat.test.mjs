@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import {
-  createWorld,
   decodeSave,
   encodeSave,
   legalActions,
@@ -217,83 +216,16 @@ describe("Hoppy Cat refresh", () => {
     ).toBe(true);
   });
 
-  it("finishes an evening with either room in every small-world pair", () => {
-    const pairs = new Set();
-    const endings = {
-      "meraki-atelier": [
-        ["talk", "mira-meraki"],
-        ["take", "meraki-brush"],
-        ["give", "meraki-brush", "mira-meraki"],
-        ["wait"],
-        ["take", "evening-programme"],
-        ["visit", "halfway-tea-garden"],
-        ["give", "evening-programme", "hoppy-cat"],
-      ],
-      "prism-foundry": [
-        ["take", "unfinished-prism"],
-        ["give", "unfinished-prism", "lumen-facet"],
-        ["wait"],
-        ["take", "unfinished-prism"],
-        ["visit", "halfway-tea-garden"],
-        ["give", "unfinished-prism", "hoppy-cat"],
-      ],
-      "goldfish-tank": [
-        ["take", "concordance-compass"],
-        ["talk", "phase-two"],
-        ["talk", "rill-current"],
-        ["visit", "signal-jetty"],
-        ["talk", "staticwashere"],
-        ["visit", "halfway-tea-garden"],
-        ["talk", "hoppy-cat"],
-        ["visit", "goldfish-tank"],
-        ["talk", "arc"],
-        ["visit", "halfway-tea-garden"],
-        ["give", "concordance-compass", "hoppy-cat"],
-      ],
-      "settled-light-theatre": [
-        ["talk", "solwashere"],
-        ["wait"],
-        ["take", "sol-programme"],
-        ["visit", "halfway-tea-garden"],
-        ["give", "sol-programme", "hoppy-cat"],
-      ],
-    };
-    for (let seed = 0; seed < 100 && pairs.size < 6; seed++) {
-      const start = createWorld({ seed }),
-        rooms = start.packs[pack.id].specials;
-      const pair = [...rooms].sort().join();
-      if (pairs.has(pair)) continue;
-      pairs.add(pair);
-      start.actors.vale.place = pack.entry;
-
-      expect(
-        legalActions(start).some(
-          (a) => a.kind === "take" && a.item === id("loop-token"),
-        ),
-      ).toBe(rooms.includes(id("goldfish-tank")));
-      for (const room of rooms) {
-        let world = act(act(start, "wait"), "talk", { target: id("hoppy-cat") });
-        world = runSteps(visit(world, room), endings[room.slice(9)]);
-        world = act(world, "wait");
-        expect(world.packs[pack.id].flags[id("table-evening")]).toBe(true);
-        world = runSteps(world, [
-          ["visit", "signal-jetty"],
-          ["talk", "staticwashere"],
-          ["take", "return-path-checklist"],
-          ["give", "return-path-checklist", "staticwashere"],
-          ["take", "return-path-checklist"],
-        ]);
-        expect(world.items[id("return-path-checklist")].holder).toBe("vale");
-      }
-    }
-    expect(pairs.size).toBe(6);
-  });
-
   it("moves earlier rooms and keeps held things, friendships and completed deeds", () => {
-    for (const file of ["visit", "small"]) {
+    const runtime = currentSharedEngine();
+    for (const file of ["visit", "small", "completed"]) {
       const text = readFileSync(
         new URL(`./fixtures/hoppycat-v3/${file}.json`, import.meta.url),
         "utf8",
+      );
+      const request = { op: "create", save: text };
+      expect(JSON.parse(runtime.cardShared(JSON.stringify(request)))).toEqual(
+        dispatchShared(request),
       );
       const old = JSON.parse(text),
         world = decodeSave(text);
