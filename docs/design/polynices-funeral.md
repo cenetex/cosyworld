@@ -40,8 +40,9 @@ visible states, matching the art:
 | Veiled   | Shroud | the full shroud and the raven feather | `greek-polynices-veiled`   |
 | Buried   | Bury   | the mound, helmet marker and feather  | `greek-burial-performed`   |
 
-The body is not a card. It is painted into the Hollow's backdrop, so it
-never offers Talk. The shade is the only voice of the dead.
+The Hollow backdrop and Polynices' hand card show the same burial state.
+The hand card shows the care given and offers no Talk action. The shade is
+the only voice of the dead.
 
 ## Time
 
@@ -210,7 +211,7 @@ build. The Ajax data is dark today.
 | Buried reference                                                       | `hollow-buried-{day,night}-study.png`                                            | reference only; not shipped                                                                                                                                                   |
 | Shade portrait                                                         | `shade-study.png`                                                                | 1024 × 1536 RGBA with its translucency baked in (README: body near opaque now); register its facing in `portrait-facing.mjs`                                                  |
 | Antigone asleep                                                        | resident sleep art (#2294)                                                       | her existing sleep pose                                                                                                                                                       |
-| Body card studies                                                      | `*-card-study.png`                                                               | not used (the body has no card)                                                                                                                                               |
+| Body hand cards | Four selected card studies | Use the fallen, anointed, veiled and grave exports listed in the [art guide](assets/polynices/README.md) for the corresponding burial state. |
 
 The night Hollow already has its own paintings, so the place needs no entry
 in `daylight.mjs`. The authored `daylight` backdrops are enough.
