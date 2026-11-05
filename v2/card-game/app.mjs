@@ -2029,6 +2029,7 @@ function showBeatCards(ids, limit = 3) {
     ...ids.slice(0, limit).map((id, index) => {
       const image = node("img");
       image.alt = "";
+      image.dataset.entity = id;
       image.decoding = "async";
       image.draggable = false;
       image.src = beatPortrait(id);

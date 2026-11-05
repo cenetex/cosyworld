@@ -68,6 +68,13 @@ try {
         await page.locator(".action-beat-cards > img").count(),
         count,
       );
+      assert.deepEqual(
+        await page
+          .locator(".action-beat-cards > img")
+          .evaluateAll((nodes) => nodes.map((node) => node.dataset.entity)),
+        expected.cards,
+        "ingredients, maker and home keep their identities in the quest picture",
+      );
       const button = page.locator('#card-actions [data-blocked="gate"]');
       if (await button.count()) {
         assert.equal(await button.textContent(), "Locked");
