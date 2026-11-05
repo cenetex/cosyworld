@@ -7,6 +7,10 @@ import {
 } from "./title-intro.mjs";
 import { count, lineCounter, playCounter, startMetrics } from "./metrics.mjs";
 import { imageUrl } from "./images.mjs";
+import coreLocations from "./assets/staging/core.json" with { type: "json" };
+import greekLocations from "./assets/staging/greek.json" with { type: "json" };
+import worldLocations from "./assets/staging/worlds.json" with { type: "json" };
+import { createPreferredLocationsView } from "./preferred-locations-view.mjs";
 import { cardLevel, levelTier, romanLevel } from "./rarity.mjs";
 import { finishCardReveal, revealCard } from "./card-reveal.mjs";
 import { setCardLabel } from "./card-label.mjs";
@@ -68,11 +72,7 @@ import {
 } from "./quest-card.mjs";
 import { questStep } from "./quest-step.mjs";
 import { questScreen } from "./quest-screen.mjs";
-import {
-  landingPack,
-  createLandingWorld,
-  newRunSeed,
-} from "./pack-landing.mjs";
+import { createLandingWorld, newRunSeed } from "./pack-landing.mjs";
 import { flipStagePortrait, portraitFraming } from "./portrait-facing.mjs";
 import { locationWeather } from "./weather.mjs";
 import { DAYLIGHT_TURNS, isNight, locationDaylight } from "./daylight.mjs";
@@ -121,7 +121,6 @@ import {
 } from "./combat-view.mjs";
 import { expressionLabel, expressionOf } from "./expression.mjs";
 import {
-  connectSharedWorld,
   createSharedPlaybackClock,
   installSharedControls,
   renderRoomStatus,
@@ -134,7 +133,8 @@ import {
 } from "./shared.mjs";
 import { enableMotives } from "./motives.mjs";
 import { seatActors } from "./human-cast.mjs";
-import { PLAYING_KEY, SAVE_BASE } from "./avatar-world.mjs";
+import { PLAYING_KEY } from "./avatar-world.mjs";
+import { openTableSession } from "./table-session.mjs";
 import { createNarrator, requestNarrative, silentLines } from "./narrative.mjs";
 import { signedRequest } from "./signed-words.mjs";
 import { rememberLocalUpgrades, wearLocalUpgrades } from "./scarves.mjs";
@@ -165,6 +165,7 @@ import {
   createSpeechSounds,
   createExchange,
   createPlayQueue,
+  afterDeadline,
   waitForScene,
 } from "./dialogue.mjs";
 import { nameLetters, namedText } from "./card-names.mjs";
@@ -218,20 +219,14 @@ import {
 // A person's want reaches the player through Talk context (want-talk.mjs).
 // The hand holds people, items and places, and the player's quest cards.
 const $ = (id) => document.getElementById(id);
-const tableName = new URLSearchParams(window.location.search).get("table");
-const startingPack = landingPack(window.location.href);
-const sharedWorldId = new URLSearchParams(location.search).get("world");
-const sharedSession = sharedWorldId
-  ? await connectSharedWorld(sharedWorldId)
-  : null;
+const {
+  tableName,
+  startingPack,
+  sharedWorldId,
+  sharedSession,
+  saveKey: SAVE_KEY,
+} = await openTableSession(window.location.href);
 const sharedPlayback = createSharedPlaybackClock();
-const SAVE_KEY = sharedSession
-  ? `${SAVE_BASE}.shared.${sharedWorldId}.${sharedSession.state.actor}`
-  : tableName && /^[a-z0-9-]{1,40}$/i.test(tableName)
-    ? `${SAVE_BASE}.${tableName}`
-    : startingPack
-      ? `${SAVE_BASE}.pack.${startingPack.id}`
-      : SAVE_BASE;
 // A new local world: Vale wakes in the attic, the only avatar played locally
 // (#1892). Its travelers wear the local passkey's cosmetic upgrades (#1873).
 const freshWorld = () =>
@@ -1616,7 +1611,7 @@ function choose(id) {
   $("hand")
     .querySelector(`[data-card="${id}"]`)
     ?.focus({ preventScroll: true });
-  revealHandCard(id, Boolean(people[id]));
+  revealHandCard(id);
 }
 function commit(cards, revision) {
   if (selectionBlocked()) return;
@@ -3060,6 +3055,11 @@ function clearQuest(button, quest) {
   const avatar = $("hand").querySelector(`.card[data-card="${quest.actor}"]`);
   if (quest.level && quest.left <= 1 && avatar) void glowCard(avatar, color);
 }
+const showPreferredLocations = createPreferredLocationsView(
+  $("stage"),
+  $("stage-figures"),
+  $("cast"),
+);
 // The stage frames each painting with its measured shape, so a resident
 // anchored to it stands on the same spot at every screen size.
 $("backdrop").addEventListener("load", (event) => {
@@ -3357,6 +3357,11 @@ function renderScene() {
     review: true,
     currentState: true,
     sharedPlays: sharedSession?.state.history,
+    preferredCatalog: {
+      ...coreLocations.places,
+      ...greekLocations.places,
+      ...worldLocations.places,
+    },
   });
   renderFloorItems(revealedStage(staging, cardIsCovered).floorItems);
   $("cast").dataset.layout = staging.layout;
@@ -3507,6 +3512,7 @@ function renderScene() {
       });
     }
   });
+  showPreferredLocations(staging.actors);
   // A reveal off stage (a place card, someone elsewhere) fades nothing later.
   stageReveals.clear();
   hauntScene($("stage"), scene.locationId, {
@@ -4320,7 +4326,25 @@ function renderLog(open = $("history-dialog").open) {
   );
 }
 
+// A card responds to a moved pointer. A new deal clears that hover so a
+// resting mouse leaves the newly centred hand settled.
+const hoverCard = (event) => {
+  if (event.pointerType !== "mouse") return;
+  for (const card of document.querySelectorAll('.card[data-hovered="true"]'))
+    delete card.dataset.hovered;
+  const card = event.target.closest(".card");
+  if (card) card.dataset.hovered = "true";
+};
+for (const id of ["hand", "settings-hand"]) {
+  $(id)?.addEventListener("pointermove", hoverCard);
+  $(id)?.addEventListener("pointerleave", () => {
+    for (const card of $(id).querySelectorAll('.card[data-hovered="true"]'))
+      delete card.dataset.hovered;
+  });
+}
 function render() {
+  for (const card of document.querySelectorAll('.card[data-hovered="true"]'))
+    delete card.dataset.hovered;
   showWorldTier(world, worldLogoKey(location.href));
   renderPlayers();
   music.setStarted(musicHasStarted());
@@ -4362,6 +4386,9 @@ function render() {
   }
   // The quests the rules met since the last look stay, sealed, until cleared.
   const liveQuests = questCards(world);
+  const dealtQuest = liveQuests.find(
+    (quest) => !shownQuests.some((shown) => shown.key === quest.key),
+  );
   if (questSeq !== null && world.eventSeq > questSeq)
     sealedQuests = [
       ...metQuests(shownQuests, world, questSeq),
@@ -4535,7 +4562,10 @@ function render() {
     const entering = (count) => {
       const timing = swapTiming(swap.left, count, swap.fallen);
       swapEnd = swap.at + timing.end;
-      setTimeout(() => playQueue.flush(), swapEnd - performance.now());
+      afterDeadline(
+        () => swapEnd,
+        () => playQueue.flush(),
+      );
       return Math.max(0, swap.at + timing.entryAt - performance.now());
     };
     if (sceneChanged && reducedMotion.matches)
@@ -4555,6 +4585,9 @@ function render() {
       { reduced: reducedMotion.matches, after: swap ? entering : 0 },
     );
     showQuests(opening);
+    // A new quest rises where the player can see its slot in the hand.
+    if (dealtQuest && !opening)
+      revealHandCard(`quest:${dealtQuest.index}`, false, true);
     openLockedBoxes();
     // Every new place is measured before any card starts moving, so the
     // row is laid out once rather than once per card.
@@ -4641,7 +4674,9 @@ function playLevelUps() {
 }
 function revealHandCard(id, alignStart = false, instant = false) {
   const hand = $("hand"),
-    frame = hand.querySelector(`[data-card="${id}"]`)?.closest(".card-frame");
+    frame = hand
+      .querySelector(`[data-card="${id}"], [data-quest-id="${id}"]`)
+      ?.closest(".card-frame");
   if (!frame || frame.hidden) return;
   const left = frame.offsetLeft - hand.offsetLeft,
     right = left + frame.offsetWidth,

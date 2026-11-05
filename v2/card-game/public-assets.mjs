@@ -54,6 +54,9 @@ const files = [
   // Rest card paintings for issue #1849; the rest-card feature follows.
   "assets/rest/short-rest.webp",
   "assets/rest/long-rest.webp",
+  // The song for the end of Polynices' burial (issue #2290); its cue follows
+  // when the burial is built.
+  "assets/music/hillside-sanctuary.mp3",
   "sleep-portraits.mjs",
   ...sleepPortraitAssets,
   ...["body", "reflection", "contact", "still"].map(
@@ -235,6 +238,7 @@ const files = [
   "combat-backdrop.mjs",
   "defeat-view.mjs",
   "combat-portraits.mjs",
+  "table-session.mjs",
   "app.mjs",
   "pack-landing.mjs",
   "pack-landings.json",
@@ -243,6 +247,11 @@ const files = [
   "settings-cards.mjs",
   "settings-screen.mjs",
   "scene.mjs",
+  "preferred-locations.mjs",
+  "preferred-locations-view.mjs",
+  "assets/staging/core.json",
+  "assets/staging/greek.json",
+  "assets/staging/worlds.json",
   "weather.mjs",
   "weather.json",
   "world-life.json",

@@ -18,18 +18,17 @@ it("decides what the dialogue box shows", () => {
     [{ chosen: true }, "idle"],
     // A play rests its choice until the player touches the hand again.
     [{ ...choosing, rested: true }, "idle"],
-    // A typing line keeps its full card; the choice waits for it.
-    [{ ...choosing, revealing: true }, "revealing"],
+    // A chosen action stays in front while speech keeps writing.
+    [{ ...choosing, revealing: true }, "choosing"],
     [{ ...choosing, inFlight: true }, "thinking"],
     [{ revealing: true, inFlight: true }, "revealing"],
     // Words past the grace for a committed play stop holding the hand: the
-    // Thinking card stays, and a choice comes forward (a typing line still
-    // keeps its card).
+    // Thinking card stays, and a choice comes forward.
     [{ ...choosing, inFlight: true, lingering: true }, "choosing"],
     [{ inFlight: true, lingering: true }, "idle"],
     [
       { ...choosing, inFlight: true, lingering: true, revealing: true },
-      "revealing",
+      "choosing",
     ],
     [{ reviewing: true }, "reviewing"],
     [{ ...choosing, reviewing: true }, "choosing"],

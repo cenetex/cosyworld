@@ -734,3 +734,41 @@ describe("JRPG scenes", () => {
     expect(staging.actors.every((a) => a.presence === "present")).toBe(true);
   });
 });
+
+describe("painted standing spots", () => {
+  it("keeps named spots through dialogue and leaves combat staging in charge", () => {
+    const world = gathered();
+    const cast = ["vale", "moth"];
+    const preferredCatalog = {
+      station: {
+        spots: [
+          [25, 88, 0.8],
+          [72, 90, 0.9],
+          [50, 80, 0.7],
+        ],
+        avatars: { moth: 1 },
+      },
+    };
+    const staging = (activeSpeaker) =>
+      sceneStaging(world, { cast, activeSpeaker, preferredCatalog });
+    const first = staging("vale").actors;
+    const next = staging("moth").actors;
+    expect(first.find((actor) => actor.id === "moth").paintedSpot).toEqual([
+      72, 90, 0.9,
+    ]);
+    expect(next.map(({ id, paintedSpot }) => [id, paintedSpot]).sort()).toEqual(
+      first.map(({ id, paintedSpot }) => [id, paintedSpot]).sort(),
+    );
+    const afterArrival = sceneStaging(world, {
+      cast: [...cast, "keeper"],
+      preferredCatalog,
+    });
+    expect(
+      afterArrival.actors.find((actor) => actor.id === "moth").paintedSpot,
+    ).toEqual([72, 90, 0.9]);
+    world.standoffs = [{ location: "station", resolve: {} }];
+    expect(
+      staging("vale").actors.every((actor) => actor.paintedSpot === null),
+    ).toBe(true);
+  });
+});

@@ -4,7 +4,11 @@ import { chromium, webkit } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
 import { createWorld, encodeSave } from "../card-game/world.mjs";
 import { knowsFact } from "../card-game/knowledge.mjs";
-import { selectCard } from "./card-browser-helpers.mjs";
+import {
+  selectCard as selectDesktopCard,
+  revealCard,
+  tapCard,
+} from "./card-browser-helpers.mjs";
 
 const browserName = process.env.CARD_BROWSER || "chromium";
 const browserType = { chromium, webkit }[browserName];
@@ -80,6 +84,7 @@ try {
   for (const [width, height] of [
     [1440, 900],
     [390, 844],
+    [360, 740],
     [320, 568],
     [667, 375],
   ]) {
@@ -120,6 +125,25 @@ try {
       });
     });
     const card = (id) => page.locator(`#hand [data-card="${id}"]`);
+    // Phone play uses the exposed card top above the dialogue, including
+    // after a new scene or a storage refresh changes the hand's layout.
+    const selectCard = async (page, id, options) => {
+      if (width >= 700) return selectDesktopCard(page, id, options);
+      const frame = card(id).locator("..");
+      const holder =
+        (await frame.getAttribute("hidden")) !== null
+          ? await frame.getAttribute("data-holder")
+          : null;
+      await tapCard(await revealCard(page, id));
+      if (
+        holder &&
+        (await card(holder).getAttribute("aria-pressed")) === "true" &&
+        !(await card(holder).evaluate((node) =>
+          node.classList.contains("location"),
+        ))
+      )
+        await tapCard(card(holder));
+    };
     const state = () =>
       page.evaluate((key) => JSON.parse(localStorage.getItem(key)), key);
     const ready = async () => {
@@ -128,7 +152,10 @@ try {
           (await page.locator("#hand").getAttribute("data-cooling")) === "false"
         )
           return;
-        if (await page.locator("#dialogue-advance").isVisible())
+        if (
+          (await page.locator("#dialogue-advance").isVisible()) &&
+          !(await page.locator("#action-beat").isVisible())
+        )
           await page.locator("#dialogue-advance").click();
         await page.waitForTimeout(40);
       }
@@ -168,6 +195,41 @@ try {
           () => document.documentElement.scrollWidth <= innerWidth + 1,
         ),
         true,
+      );
+      const styleChecks = await page.evaluate(() => {
+        const cards = [...document.querySelectorAll("#hand .card")];
+        const controls = [...document.querySelectorAll("#card-actions button")];
+        const captions = [
+          ...document.querySelectorAll(".action-beat-text, .action-beat-note"),
+        ].filter(
+          (node) => node.getClientRects().length && node.textContent.trim(),
+        );
+        return {
+          tapClear: [...cards, ...controls].every(
+            (node) =>
+              getComputedStyle(node).webkitTapHighlightColor ===
+              "rgba(0, 0, 0, 0)",
+          ),
+          captionsFit:
+            innerWidth >= 700 ||
+            captions.every((node) => {
+              const range = document.createRange();
+              range.selectNodeContents(node);
+              return (
+                range.getBoundingClientRect().height <=
+                  node.getBoundingClientRect().height + 1 &&
+                node.scrollWidth <= node.clientWidth + 1
+              );
+            }),
+        };
+      });
+      assert(
+        styleChecks.tapClear,
+        "cards and context actions keep tap highlights clear",
+      );
+      assert(
+        styleChecks.captionsFit,
+        "phone action captions show their full words",
       );
       const sizes = await page
         .locator("#card-actions button")
@@ -302,7 +364,9 @@ try {
       { key, save: encodeSave(remote) },
     );
     await ready();
-    await selectCard(page, "keeper");
+    // A phone's dialogue covers the hand's foot; tap the exposed card top.
+    if (width < 700) await tapCard(await revealCard(page, "keeper"));
+    else await selectCard(page, "keeper");
     assert.equal(
       await card("lamp").isVisible(),
       true,
@@ -330,7 +394,11 @@ try {
     assert.deepEqual(await labels(), []);
     assert.equal(await card("pond").isVisible(), true);
     await page.keyboard.press("Escape");
-    await selectCard(page, "moth", { touch: width < 700 });
+    const beforePersonScroll = await page
+      .locator("#hand")
+      .evaluate((hand) => hand.scrollLeft);
+    if (width < 700) await card("moth").dispatchEvent("click");
+    else await selectCard(page, "moth");
     assert.deepEqual(await labels(), ["Talk"]);
     assert.equal(await card("cloth").isVisible(), true);
     const order = await page
@@ -341,6 +409,36 @@ try {
     assert(order.indexOf("vale") < order.indexOf("moth"));
     assert.deepEqual(order.slice(-1), ["pond"]);
     assert.equal(order[order.indexOf("moth") + 1], "cloth");
+    if (width < 700) {
+      await page.waitForTimeout(350);
+      const scroll = await page.evaluate((beforeScroll) => {
+        const hand = document.querySelector("#hand"),
+          frame = hand
+            .querySelector('[data-card="moth"]')
+            .closest(".card-frame"),
+          margin = Math.max(
+            16,
+            parseFloat(
+              getComputedStyle(hand).getPropertyValue("--hand-fade"),
+            ) || 0,
+          ),
+          right = frame.offsetLeft - hand.offsetLeft + frame.offsetWidth;
+        return {
+          actual: hand.scrollLeft,
+          needed: Math.max(
+            0,
+            Math.min(
+              frame.offsetLeft - hand.offsetLeft - margin,
+              Math.max(beforeScroll, right - hand.clientWidth + margin),
+            ),
+          ),
+        };
+      }, beforePersonScroll);
+      assert(
+        Math.abs(scroll.actual - scroll.needed) <= 2,
+        "opening Pip scrolls only far enough to show Pip",
+      );
+    }
     await shot("pip-items");
     await selectCard(page, "moth");
     await selectCard(page, "cloth");
@@ -355,6 +453,13 @@ try {
     // The received cloth is raised in the hand, chosen from Vale's stacks;
     // tapping Vale folds them back to Vale alone (#2256).
     assert.deepEqual(await pressed(), ["cloth"]);
+    await page.waitForFunction(() => {
+      const hand = document.querySelector("#hand").getBoundingClientRect(),
+        card = document
+          .querySelector('#hand [data-card="cloth"]')
+          .getBoundingClientRect();
+      return card.left >= hand.left - 1 && card.right <= hand.right + 1;
+    });
     await card("vale").dispatchEvent("click");
     assert.deepEqual(await pressed(), ["vale"]);
     await ready();

@@ -2,6 +2,8 @@ import { describe, it, expect, vi, afterEach } from "vitest";
 import {
   createTextReveal,
   createExchange,
+  createPlayQueue,
+  afterDeadline,
   waitForScene,
   splitLetters,
   createSpeechSounds,
@@ -512,4 +514,49 @@ describe("one exchange per card play", () => {
     vi.advanceTimersByTime(200);
     expect(show).toHaveBeenCalledTimes(2);
   });
+});
+
+it("flushes a queued play after an early swap timer wakes", () => {
+  let clock = 0;
+  let deadline = 10.5;
+  const timers = [];
+  const play = vi.fn();
+  const queue = createPlayQueue({ ready: () => clock >= deadline, play });
+  queue.submit({ kind: "move" }, 3);
+  afterDeadline(
+    () => deadline,
+    () => queue.flush(),
+    {
+      now: () => clock,
+      schedule: (callback) => timers.push(callback),
+    },
+  );
+  // A timer rounded to whole milliseconds can wake before 10.5.
+  clock = 10;
+  timers.shift()();
+  expect(play).not.toHaveBeenCalled();
+  expect(queue.pending).not.toBeNull();
+  // A later redraw may extend the current swap while this timer waits.
+  deadline = 11.5;
+  clock = 11;
+  timers.shift()();
+  expect(play).not.toHaveBeenCalled();
+  clock = 12;
+  timers.shift()();
+  expect(play).toHaveBeenCalledTimes(1);
+  expect(queue.pending).toBeNull();
+  expect(timers).toHaveLength(0);
+});
+
+it("keeps an expired deadline callback asynchronous during a render", () => {
+  const callback = vi.fn();
+  const timers = [];
+  afterDeadline(() => 1, callback, {
+    now: () => 2,
+    schedule: (run, delay) => timers.push({ run, delay }),
+  });
+  expect(callback).not.toHaveBeenCalled();
+  expect(timers[0].delay).toBe(0);
+  timers.shift().run();
+  expect(callback).toHaveBeenCalledTimes(1);
 });

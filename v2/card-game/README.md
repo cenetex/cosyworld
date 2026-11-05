@@ -5,7 +5,8 @@
 `world.mjs` owns the card game's state, legal actions, resident turns, and save
 format. `forest.json` holds the forest catalog, starting state, and each hub
 avatar's starter quest. `createWorld()` copies that data for each game.
-`app.mjs` uses the engine in the browser. The modules beside it provide quests
+`app.mjs` uses the engine in the browser. `table-session.mjs` resolves the
+page's world, shared connection, and save slot before the table starts. The modules beside it provide quests
 (`want.mjs`), motives, life, memory, pack rules, and presentation. Both the local server and
 the Rust asset server publish this same game.
 
@@ -553,7 +554,9 @@ opens the way, the box turns over once, with the same lift as an uncovered
 card (a crossfade under reduced motion), and the card shows as itself from
 then on; a redraw never covers it again (`locked-box.mjs`). In a shared world
 each browser reads its own player's view of the gate.
-Arrival starts the hand at the new current place. Selection keeps its scroll position.
+Arrival starts the hand at the new current place. Selection scrolls only far
+enough to bring the chosen card into view, including when a person opens a stack.
+A newly dealt quest brings its slot into view before it rises.
 On wide screens, the resting hand is a fanned deck at the right, as wide as
 its cards so none is cut at the screen edge; once it would crowd the dialogue
 the cards overlap more instead. The dialogue sits at the left with the
@@ -568,10 +571,19 @@ above it with each card's foot still tucked behind it. A tap on the scene
 drops the hand again; there the dialogue never moves. Before the first beat there is no dialogue, and the hand leaves no hole for
 it: raised cards show whole, name and all, and the first beat lifts the row
 under its box. Short landscape screens keep the dialogue above the hand.
-While a beat shows on a phone, no figure stands behind the resting cards'
-tops: the cast stands on the dock's top edge, and a resident painted into the
-backdrop, such as Badger at the Steam Clock, steps up off its spot where a
-portrait screen's painting cannot rise far enough.
+The cast stands on spots authored for each painting. The hand can cover the
+lower part of a figure. The phone view frames the cast and gives each person
+room. A resident anchored to the painting, such as Badger at the Steam Clock,
+steps up where a portrait screen's painting cannot rise far enough to clear the
+resting cards.
+
+Standing spots live in `assets/staging/core.json`, `greek.json`, and
+`worlds.json`. Each place has six ordered `spots`, each `[x, y, scale]`: x and
+the feet y are percentages of the full painting, and scale multiplies portrait
+size. An optional `avatars` map reserves a spot index for a person. A
+`backdrops` map can supply spots for an exact painting path. The scene picks
+spots from the current painting and keeps a named spot when someone arrives.
+Combat keeps its own staging.
 A resting hand, and one tucked down for a fight, shows only its cards' art:
 each name and its shade fade out (120 ms; reduced motion switches at once)
 and fade back when the hand rises, a card is chosen, or a pointer or keyboard

@@ -449,3 +449,18 @@ export function createPlayQueue({ ready, play, changed = () => {} }) {
     },
   };
 }
+
+// A timer may wake just before a fractional animation deadline. Keep its
+// callback due until the clock reaches the latest deadline.
+export function afterDeadline(
+  deadline,
+  callback,
+  { now = () => performance.now(), schedule = setTimeout } = {},
+) {
+  const check = () => {
+    const remaining = deadline() - now();
+    if (remaining > 0) schedule(check, Math.ceil(remaining));
+    else callback();
+  };
+  schedule(check, Math.max(0, Math.ceil(deadline() - now())));
+}

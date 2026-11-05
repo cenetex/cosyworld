@@ -1191,8 +1191,8 @@ body .hand > .card-frame {
   top: calc(min(var(--fan-at) * var(--fan-at), 16) * 0.5px);
   transform-origin: 50% 120%;
 }
-body .hand > .card-frame:hover,
-body .hand > .card-frame:focus-within {
+body .hand > .card-frame:has(> .card[data-hovered="true"]),
+body .hand > .card-frame:has(> .card:focus-visible) {
   z-index: 2;
 }
 /* Cards leaving the hand fall here as inert ghosts (card-exit.mjs). */
@@ -1249,18 +1249,18 @@ body .card[data-selected="true"] {
   }
   /* A chosen card is already up. */
   :is(#hand, #settings-hand):not([aria-busy="true"])
-    > .card-frame:has(> .card:hover:not([data-selected="true"])) {
+    > .card-frame:has(> .card[data-hovered="true"]:not([data-selected="true"])) {
     translate: 0 -8px;
   }
   /* The fan parts around it: cards after it slide right, cards before it
      slide left. */
   :is(#hand, #settings-hand):not([aria-busy="true"])
-    > .card-frame:has(> .card:hover)
+    > .card-frame:has(> .card[data-hovered="true"])
     ~ .card-frame {
     translate: 12px 0;
   }
   :is(#hand, #settings-hand):not([aria-busy="true"])
-    > .card-frame:has(~ .card-frame > .card:hover) {
+    > .card-frame:has(~ .card-frame > .card[data-hovered="true"]) {
     translate: -12px 0;
   }
 }
@@ -1281,6 +1281,7 @@ body .card[data-selected="true"] {
   text-align: center;
   background: #181b22;
   touch-action: pan-x;
+  -webkit-tap-highlight-color: transparent;
   box-shadow: 0 6px 20px #0006;
   /* Its name sizes to the card's width (cqi). */
   container-type: inline-size;
@@ -1366,7 +1367,7 @@ body .card.item .art img {
   padding-right: calc(var(--fan-overlap) + 8px);
 }
 .hand
-  > .card-frame:has(~ .card-frame:not([hidden])):is(:hover, :focus-within)
+  > .card-frame:has(~ .card-frame:not([hidden])):has(> .card:is([data-hovered="true"], :focus-visible))
   .card
   :is(.name, .quest-head),
 .hand
@@ -1380,7 +1381,7 @@ body .card.item .art img {
 /* A card lifted over the next (pointer or focus) covers its left edge, so
    that card's name moves clear of it. An unlit Settings place dims. */
 .hand
-  > .card-frame:is(:hover, :focus-within)
+  > .card-frame:has(> .card:is([data-hovered="true"], :focus-visible))
   + .card-frame
   > .card[data-setting]
   > :is(.quest-head, .name) {
@@ -1964,6 +1965,12 @@ body[data-hand-expanded="false"]
     --fan-overlap: var(--resting-fan-overlap, calc(var(--card-height) * 0.14));
   }
   body[data-hand-expanded="false"] .play-dock {
+    background: radial-gradient(
+      ellipse at bottom right,
+      #090d12f5,
+      #090d12bd 45%,
+      #090d1200 75%
+    );
     left: auto;
     width: calc(var(--resting-hand-width) + 44px);
   }
@@ -2860,6 +2867,7 @@ body .beat-live {
   border: 0;
   border-radius: 0;
   background: transparent;
+  -webkit-tap-highlight-color: transparent;
   color: #f2e3c4;
   font:
     15px/1.25 Georgia,
@@ -2909,6 +2917,15 @@ body .beat-live {
 .action-beat-text strong {
   color: var(--gold);
   font-weight: 600;
+}
+
+@media (max-width: 700px) {
+  .action-beat-text {
+    display: block;
+    overflow: visible;
+    -webkit-line-clamp: none;
+    line-clamp: none;
+  }
 }
 
 /* The dialogue lies over the hand (option D). It is a sibling of the stage,
@@ -3017,14 +3034,13 @@ main > .dialogue {
     width: 15px;
     height: 15px;
   }
-  /* The fixed box has no room for a strip: its buttons stay on the
-     right, and their words wrap there. */
+  /* On a phone the action uses its full width beneath the caption. */
   body[data-dialogue-over="true"] .beat-stack > .action-panel:not([hidden]) {
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
   }
   body[data-dialogue-over="true"] .beat-action #card-actions {
-    flex: 0 1 auto;
-    max-width: 50%;
+    flex: 1 1 100%;
+    max-width: none;
   }
   /* Its verbs wrap between words but never clip: a quest's step and
      Discard both fit. */
@@ -3051,8 +3067,8 @@ main > .dialogue {
     img {
     width: auto;
   }
-  /* A chosen avatar's beat grows up over the hand to fit its two lines. */
-  body[data-dialogue-over="true"] .beat-stack > .action-panel[data-avatar] {
+  /* A chosen play grows up over the hand to show its complete caption. */
+  body[data-dialogue-over="true"] .beat-stack > .action-panel {
     position: absolute;
     inset: auto 0 0;
     height: auto;
@@ -3062,8 +3078,14 @@ main > .dialogue {
   body[data-dialogue-over="true"] .action-beat-note {
     overflow: hidden;
     font-size: 12px;
-    white-space: nowrap;
-    text-overflow: ellipsis;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+  body[data-dialogue-over="true"] .action-beat-text {
+    display: block;
+    overflow: visible;
+    -webkit-line-clamp: none;
+    line-clamp: none;
   }
   body[data-dialogue-over="true"] .hand {
     height: calc(
