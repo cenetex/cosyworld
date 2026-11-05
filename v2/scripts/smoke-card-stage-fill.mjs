@@ -2,8 +2,8 @@
 // attic, pond, station, Steam Clock, Greek, Hoppycat, Willows and Lonely
 // Forest places), the painted backdrop fills the stage and every figure stands
 // whole on it: the floor cast, and a resident anchored to the painting itself.
-// On a phone, while a beat shows, every figure also stands clear of the
-// resting cards' tops.
+// On a phone, anchored residents clear the resting cards. Authored cast
+// spots keep figures within the stage while the hand may cover their feet.
 import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
 import { chromium } from "playwright";
@@ -233,6 +233,10 @@ try {
               .filter(shown)
               .map((card) => card.getBoundingClientRect().top),
           ),
+          stage: document
+            .querySelector("#stage")
+            .getBoundingClientRect()
+            .toJSON(),
           figures: [
             ...document.querySelectorAll("#cast .portrait img, .stage-figure"),
           ]
@@ -241,18 +245,31 @@ try {
               id:
                 image.dataset.resident ||
                 image.closest(".portrait").dataset.avatar,
-              bottom: image.getBoundingClientRect().bottom,
+              ...image.getBoundingClientRect().toJSON(),
+              painted: Boolean(image.closest(".portrait")?.style.left),
             })),
         };
       });
       assert(m.beat, `${where}: a beat shows over the hand`);
       assert(m.resting, `${where}: the hand rests`);
       assert(m.figures.length > 0, `${where}: someone stands on the stage`);
-      for (const { id, bottom } of m.figures)
-        assert(
-          bottom <= m.hand + 1,
-          `${where}: ${id}'s feet at ${bottom}, cards at ${m.hand}`,
-        );
+      for (const { id, bottom, left, right, painted } of m.figures) {
+        if (painted) {
+          assert(
+            bottom <= m.stage.bottom + 1,
+            `${where}: ${id}'s feet fit the stage`,
+          );
+          assert(
+            left >= m.stage.left - 1 && right <= m.stage.right + 1,
+            `${where}: ${id} fits the stage width`,
+          );
+        } else {
+          assert(
+            bottom <= m.hand + 1,
+            `${where}: ${id}'s feet at ${bottom}, cards at ${m.hand}`,
+          );
+        }
+      }
       if (width === 390)
         await page.screenshot({
           path: new URL(`${place}-beat-${width}x${height}.png`, output)
@@ -263,7 +280,7 @@ try {
     await page.close();
   }
   console.log(
-    `Stage fill smoke passed: ${seeds.length} places fill one stage with whole figures at 1440x900, 390x844 and 844x390, and keep them above the resting hand during a beat at 390x844 and 320x568.`,
+    `Stage fill smoke passed: ${seeds.length} places fill one stage with whole figures at 1440x900, 390x844 and 844x390, and fit cast to the stage during a beat at 390x844 and 320x568.`,
   );
 } finally {
   await browser.close();
