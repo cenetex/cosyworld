@@ -38,6 +38,7 @@ const files = [
   "boardyai.mjs",
   "boardyai.json",
   "assets/card-back.webp",
+  "assets/staging/worlds.json",
   // The locked box lid with its recessed iron keyhole (locked-box.mjs).
   "assets/card-back-locked.webp",
   // The new-world title (title-intro.mjs); logos may share toolbar art.
