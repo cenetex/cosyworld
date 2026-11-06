@@ -652,7 +652,10 @@ try {
       );
     });
     await shot(page, `logo-${width}`);
-    const box = await page.locator(".title-intro > img").boundingBox();
+    const logoWidth = await page.$eval(
+      ".title-intro > img",
+      (img) => img.offsetWidth,
+    );
     assert.ok(
       await page.$eval(
         ".title-intro > img",
@@ -662,8 +665,8 @@ try {
     );
     // About three quarters of a desktop, the full phone width less margins.
     if (desktop)
-      assert.ok(box.width > width * 0.65 && box.width < width * 0.85);
-    else assert.ok(Math.abs(box.width - (width - 32)) < 2, String(box.width));
+      assert.ok(logoWidth > width * 0.65 && logoWidth < width * 0.85);
+    else assert.equal(logoWidth, width - 32);
     // Then the logo lifts over the face-down card.
     await cardShown(page);
     assert.equal(await titlePlays(page), 1);
