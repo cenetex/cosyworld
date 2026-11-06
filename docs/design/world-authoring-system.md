@@ -25,7 +25,7 @@ owner, revision and timestamps. Its storage identity is separate from the
 authored pack identity. Imported pack and bridge fields stay intact while
 being edited. The original prose stays with the private draft.
 
-Draft metadata is bounded to 2 MiB and prose to 256 KiB. Asset metadata uses
+Draft JSON is bounded to 10 MiB and prose to 8 MiB. Asset metadata uses
 `{path, mime, sha256, size}`. Asset bytes are stored separately by digest and
 uploaded one file at a time. Each file is bounded to 16 MiB; a pack may carry
 up to 512 files and 256 MiB. File paths are relative and normalized. The
@@ -71,13 +71,36 @@ and offers a retry. Text and references pass the pack schema before use.
 Starting quests use the existing resident `want` fields. Places and item
 holders refer to stable IDs from the proposed or imported pack.
 
+## Six characters from a text
+
+A single entry accepts pasted source text or a link to a `.txt` or `.md`
+file. The author can paste a book. The reader divides the source into up to
+six sections and samples one bounded chunk from each. Long sections use a
+random chunk within that section. A saved random seed makes a draw repeatable;
+Reroll uses a fresh seed. Paragraph boundaries keep the samples readable.
+
+Haiku proposes one character from each sample. Each card carries a name,
+a short special ability or epithet, and a source location. The face reads
+`Name // Special Ability`, for example `Vale // The Lightbearer`. Candidate
+names and aliases are normalized for deduplication. Each later extraction
+receives the accepted identities; repeated identities get another sample.
+A source with fewer distinct people returns the available distinct cast.
+
+The author selects characters to keep, rerolls the remaining slots from the
+source, and chooses which characters receive portraits. The author edits
+the source material. The LLM's extraction and image prompts stay internal.
+Selected cards and their images survive a reroll of the other slots.
+
 ## Character design and poses
 
 Avatar cards use GPT Image 2.6 Flare in two steps. Design your character
-creates a transparent full-body reference. The author can revise it, keep
-variants, and choose the design. Generate poses uses that chosen image as
-its reference for happy, sad, strike, brace, hit and sleep. Each pose joins
-that avatar's stack and can be reviewed or retried on its own.
+creates a transparent full-body reference from the chosen character. The
+author can reroll its design, keep variants, and choose one. Generate poses
+uses that chosen image as its reference for happy, sad, strike, brace, hit
+and sleep. Each pose joins that avatar's stack and can be reviewed or
+retried on its own. The supplied dinosaur portrait and six-pose sheet
+illustrate these steps in the designer's instructions. The source PNGs and
+credit are kept in `v2/card-game/assets/authoring-guide/`.
 
 The selected design keeps its digest and revision. Each generation records
 the source digest, prompt version and exact model. A changed design asks
