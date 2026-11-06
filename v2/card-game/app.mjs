@@ -2194,7 +2194,9 @@ function renderActions() {
   const others = selected.filter((id) => id !== actor);
   const here = world.actors[actor].place;
   const involved = lockShown
-    ? lockShown.cards
+    ? lockShown.recipe
+      ? lockShown.cards
+      : [actor, ...lockShown.cards]
     : questShown
       ? [actor, questShown.target].filter((id) => id && !cardIsCovered(id))
       : sentence
