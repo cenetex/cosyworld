@@ -41,6 +41,8 @@ pub(crate) fn narrator_context(request: &Value) -> Result<Value> {
 #[cfg(test)]
 mod opening_tests;
 #[cfg(test)]
+mod polynices_tests;
+#[cfg(test)]
 mod quest_core_tests;
 #[cfg(test)]
 mod quest_loop_tests;

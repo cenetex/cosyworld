@@ -128,6 +128,8 @@ fn earlier_greek_worlds_upgrade_once_with_original_history_and_new_entities() {
                         + 16
                         + 3
                         + 4
+                        // Greek revision 21: Polynices' shade.
+                        + 1
                         + if version == engine::ELEVENTH_VERSION {
                             3
                         } else {
