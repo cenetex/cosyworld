@@ -101,6 +101,7 @@ const files = [
   "quest-screen.mjs",
   "card-tiers.css",
   "card-label.mjs",
+  "card-descriptor.mjs",
   "card-reveal.mjs",
   "card-entry.mjs",
   "card-exit.mjs",
