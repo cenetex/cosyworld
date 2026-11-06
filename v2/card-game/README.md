@@ -988,16 +988,10 @@ newest words stay in view, until the reader scrolls it themselves. The line is a
 only from the keyboard. A tap or click anywhere, or a key (the arrows scroll),
 completes the current stanza over 150 ms. Reading resumes after that stanza's
 pause. The finished poem waits for Continue.
-Continue starts the title song with its 250 ms volume rise. The poem holds
-for 200 ms, then plain words fade in reading order, 20 ms apart, each over
-300 ms. Highlighted words begin at 1.8 seconds and fade over 360 ms. "Care",
-"still", and "living" linger with the Epic words. The complete sentence
-"Nothing here began with us." fades together, followed by the carved-box
-words. `linger` and `fadeTogether` in `acknowledgement.json` select these holds.
-The logo stays at or below 10% opacity through two seconds, then reaches
-full brightness as the last word leaves at 2.95 seconds. It holds for
-750 ms before its lift. Reduced motion uses a 250 ms opacity crossfade
-with the logo fixed in its raised position. The logo sits over one face-down
+When the player continues, the plain words fade one by one in reading order.
+The lit words linger as the world's logo fades in with the title song. They
+fade from Uncommon through Mythic, with the carved box's words last. Reduced
+motion switches straight to the short logo fade. The logo lifts over one face-down
 card, the game's own card back, with a small Privacy link (`/privacy`) under
 it. The card is a button named "Take the box", answering the poem's last
 line (the card back is the carved box's lid), and takes focus, with
@@ -1034,6 +1028,17 @@ card waits for its own tap as before.
 Reduced motion crossfades each step, keeps the logo raised and swaps the
 card's face in. If the logo does not load within 2.5 seconds, the
 card shows without it.
+
+Continue starts the title song with its 250 ms volume rise. The poem holds
+for 200 ms, then plain words fade in reading order, 20 ms apart, each over
+300 ms. Highlighted words begin at 1.8 seconds and fade over 360 ms. "Care",
+"still", and "living" linger with the Epic words. The complete sentence
+"Nothing here began with us." fades together, followed by the carved-box
+words. `linger` and `fadeTogether` in `acknowledgement.json` select these holds.
+The logo stays at or below 10% opacity through two seconds, then reaches
+full brightness as the last word leaves at 2.95 seconds. It holds for
+750 ms before its lift. Reduced motion uses a 250 ms opacity crossfade
+with the logo fixed in its raised position.
 
 The song is _The Attic Keeps Its Lamp × Moonstone Sanctum_
 (`assets/music/title-attic-lamp.mp3`, `title-song.mjs`). It follows the saved
