@@ -62,6 +62,8 @@ describe("GitHub authoring source", () => {
       });
   });
   it.each([
+    null,
+    {},
     "http://github.com/o/r",
     "https://github.com.evil/o/r",
     "https://user@github.com/o/r",
@@ -170,5 +172,27 @@ describe("GitHub authoring source", () => {
       }),
     ).rejects.toThrow(/abort/iu);
     expect(fetch).toHaveBeenCalledTimes(1);
+  });
+  it("keeps the timeout active while selected bytes are streaming", async () => {
+    const f = fixture(),
+      { files } = await f.load();
+    vi.useFakeTimers();
+    f.fetch.mockImplementationOnce(
+      async (_url, { signal }) =>
+        new Response(
+          new ReadableStream({
+            start(controller) {
+              signal.addEventListener("abort", () =>
+                controller.error(signal.reason),
+              );
+            },
+          }),
+        ),
+    );
+    const pending = expect(files[0].file.arrayBuffer()).rejects.toThrow(
+      "too long",
+    );
+    await vi.advanceTimersByTimeAsync(15_000);
+    await pending;
   });
 });

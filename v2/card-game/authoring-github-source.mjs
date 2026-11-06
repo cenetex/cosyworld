@@ -64,7 +64,7 @@ export async function loadGitHubSource(
     /^https:\/\/github\.com\/([A-Za-z\d][A-Za-z\d-]{0,38})\/([A-Za-z\d_.-]{1,104})\/?$/u.exec(
       repoUrl,
     );
-  const repo = match?.[2].replace(/\.git$/u, "");
+  const repo = match?.[2]?.replace(/\.git$/u, "");
   need(
     match && repo.length <= 100 && !["", ".", ".."].includes(repo),
     "Enter a public repository URL such as https://github.com/owner/repo.",
