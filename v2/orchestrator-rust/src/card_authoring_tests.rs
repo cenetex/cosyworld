@@ -31,7 +31,9 @@ fn fixture() -> (AppState, PathBuf) {
 
 fn draft() -> Value {
     json!({"schemaVersion":1,"title":"Lantern Marsh","document":"A quiet marsh.\nAn old lantern.",
-        "pack":{"id":"lantern-marsh"},"bridge":null,"assets":[],"sources":[]})
+        "pack":{"id":"lantern-marsh"},"bridge":null,
+        "assets":[{"path":"assets/lantern-marsh/guide.png","mime":"image/png","sha256":"a".repeat(64),"size":4096}],
+        "sources":[{"kind":"github","repo":"writer/marsh","commit":"b".repeat(40)}]})
 }
 
 async fn send(
@@ -61,7 +63,7 @@ async fn send(
         .unwrap();
     assert_eq!(response.headers()[header::CACHE_CONTROL], "no-store");
     let status = response.status().as_u16();
-    let bytes = to_bytes(response.into_body(), 3 * 1024 * 1024)
+    let bytes = to_bytes(response.into_body(), 10 * 1024 * 1024)
         .await
         .unwrap();
     (
@@ -82,6 +84,8 @@ async fn private_packs_follow_the_passkey_account_and_survive_reopen() {
     assert_eq!(status, 200);
     assert_eq!(created["revision"], 1);
     assert_eq!(created["document"], draft()["document"]);
+    assert_eq!(created["assets"], draft()["assets"]);
+    assert_eq!(created["sources"], draft()["sources"]);
     let id = created["id"].as_str().unwrap();
     assert_eq!(id.len(), 48);
     let route = format!("{BASE}/{id}");
@@ -153,4 +157,7 @@ async fn create_checks_origin_size_schema_and_server_owned_fields() {
         send(&state, "GET", BASE, &owner, Value::Null, None).await.1,
         json!({"packs":[]})
     );
+    let mut book = draft();
+    book["document"] = json!("x".repeat(8 * 1024 * 1024));
+    assert_eq!(send(&state, "POST", BASE, &owner, book, None).await.0, 200);
 }
