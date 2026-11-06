@@ -576,6 +576,7 @@ export function playTitleIntro({
     lastWhisper = hint.textContent;
     hint.dataset.tier = tier.id;
     const box = card.getBoundingClientRect(),
+      crest = image.getBoundingClientRect(),
       origin = row.getBoundingClientRect(),
       foot = privacy.getBoundingClientRect().top - 8;
     const w = hint.offsetWidth,
@@ -594,15 +595,25 @@ export function playTitleIntro({
           below,
         ];
     const first = place++ % places.length;
-    const candidates = [...places.slice(first), ...places.slice(0, first), above]
-      .map(([x, y]) => [
-        Math.max(16, Math.min(innerWidth - w - 16, x)),
-        Math.max(16, Math.min(foot - h, y)),
-      ]);
-    const [x, y] = candidates.find(([x, y]) =>
-      y + h <= box.top - 8 || y >= box.bottom + 8 ||
-      x + w <= box.left - 8 || x >= box.right + 8,
-    ) || candidates[0];
+    const candidates = [
+      ...places.slice(first),
+      ...places.slice(0, first),
+      above,
+      [below[0], crest.top - h - 12],
+    ].map(([x, y]) => [
+      Math.max(16, Math.min(innerWidth - w - 16, x)),
+      Math.max(16, Math.min(foot - h, y)),
+    ]);
+    const [x, y] =
+      candidates.find(([x, y]) =>
+        [box, crest].every(
+          (part) =>
+            y + h <= part.top - 8 ||
+            y >= part.bottom + 8 ||
+            x + w <= part.left - 8 ||
+            x >= part.right + 8,
+        ),
+      ) || candidates[0];
     Object.assign(hint.style, {
       left: `${x - origin.left}px`,
       top: `${y - origin.top}px`,

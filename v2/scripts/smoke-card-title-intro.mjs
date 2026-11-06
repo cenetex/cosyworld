@@ -313,6 +313,9 @@ async function idleCue(page, width, { reduced = false } = {}) {
         const card = document
           .querySelector(".title-card .card")
           .getBoundingClientRect();
+        const logo = document
+          .querySelector(".title-intro > img")
+          .getBoundingClientRect();
         return {
           x: rect.x,
           y: rect.y,
@@ -326,11 +329,13 @@ async function idleCue(page, width, { reduced = false } = {}) {
             rect.right <= innerWidth &&
             rect.top >= 0 &&
             rect.bottom < privacy.top,
-          clear:
-            rect.right < card.left ||
-            rect.left > card.right ||
-            rect.bottom < card.top ||
-            rect.top > card.bottom,
+          clear: [card, logo].every(
+            (part) =>
+              rect.right < part.left ||
+              rect.left > part.right ||
+              rect.bottom < part.top ||
+              rect.top > part.bottom,
+          ),
           whole: hint.scrollWidth <= hint.clientWidth,
         };
       });
@@ -531,7 +536,9 @@ async function checkLargeText() {
     await page.waitForTimeout(reducedMotion === "reduce" ? 100 : 1300);
     if (zoom) {
       // Give wrapped lines the taller metrics of a different system serif.
-      await page.$eval(".title-hint", (hint) => { hint.style.lineHeight = "1.5"; });
+      await page.$eval(".title-hint", (hint) => {
+        hint.style.lineHeight = "1.5";
+      });
       await nextWhisper(page, 0.32);
       await nextWhisper(page, 0.999, 0.75);
       await page.waitForTimeout(1300);
@@ -551,16 +558,22 @@ async function checkLargeText() {
         const privacy = document
           .querySelector(".title-privacy")
           .getBoundingClientRect();
+        const logo = document
+          .querySelector(".title-intro > img")
+          .getBoundingClientRect();
         return (
           text.bottom <= privacy.top - 8 &&
           hint.scrollWidth <= hint.clientWidth &&
-          (text.bottom <= box.top - 6 ||
-            text.top >= box.bottom + 6 ||
-            text.right <= box.left - 6 ||
-            text.left >= box.right + 6)
+          [box, logo].every(
+            (part) =>
+              text.bottom <= part.top - 6 ||
+              text.top >= part.bottom + 6 ||
+              text.right <= part.left - 6 ||
+              text.left >= part.right + 6,
+          )
         );
       }),
-      `${name}: the words clear the box and Privacy`,
+      `${name}: the words clear the logo, box and Privacy`,
     );
     const card = await page.locator(traveller).boundingBox();
     assert.ok(card.height > 40, JSON.stringify(card));
