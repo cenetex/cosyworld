@@ -22,7 +22,10 @@ function editor(note) {
     state.dirty = false;
     const changed = value !== state.value || value !== state.edit.value;
     state.value = value;
-    if (changed) state.edit.onInput(value);
+    if (changed) {
+      state.edit = { ...state.edit, value };
+      state.edit.onInput(value);
+    }
   };
   note.addEventListener("input", (event) => {
     if (!state.edit) return;

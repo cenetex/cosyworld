@@ -152,6 +152,36 @@ try {
       path: `${output}/source-${width}.png`,
       fullPage: true,
     });
+    await page.evaluate(() =>
+      window.drawSource(
+        "The fox crossed the old bridge.\n".repeat(200),
+        "draft:book",
+      ),
+    );
+    assert.equal(
+      await field.evaluate((note) => note.scrollHeight > note.clientHeight),
+      true,
+    );
+    const bounds = await page.locator("#setting-create").boundingBox();
+    assert.ok(
+      bounds.y >= 0 &&
+        bounds.y + bounds.height <= (await page.viewportSize()).height,
+      "Long source keeps Create visible above the keyboard",
+    );
+    await page.screenshot({ path: `${output}/long-source-${width}.png` });
+    if (width === 1440) {
+      await field.focus();
+      await page.keyboard.press(
+        process.platform === "darwin" ? "Meta+a" : "Control+a",
+      );
+      await page.keyboard.insertText("A".repeat(8 * 1024 * 1024));
+      await page.locator("#setting-create").click();
+      assert.equal(
+        await page.evaluate(() => window.createdSource.length),
+        8 * 1024 * 1024,
+        "A whole 8 MiB paste reaches Create",
+      );
+    }
     await page.evaluate(() => window.closeSource());
     assert.equal(
       await page.locator('[contenteditable="plaintext-only"]').count(),
