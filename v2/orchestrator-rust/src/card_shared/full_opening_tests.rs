@@ -25,6 +25,7 @@ fn command(op: &str) -> full::Command {
         target: None,
         key: String::new(),
         moving: false,
+        revealed: None,
     }
 }
 fn words(a: usize) -> Value {
