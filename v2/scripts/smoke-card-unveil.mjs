@@ -5,6 +5,7 @@ import { createServer } from "../card-game/serve.mjs";
 import {
   putOutOpening,
   readyActionButton,
+  revealCard,
   selectCard,
   stackHits,
   wordsFellSilent,
@@ -33,6 +34,7 @@ try {
     });
     page.setDefaultTimeout(20000);
     const errors = [],
+      requests = [],
       table = `unveil-${width}`,
       key = `cosyworld.reflected-shore.v1.${table}`;
     page.on("pageerror", (error) => errors.push(error.message));
@@ -45,6 +47,7 @@ try {
     });
     await page.route("**/card-game/text", (route) => {
       const input = route.request().postDataJSON();
+      requests.push(input);
       if (motion === "reduce")
         return route.fulfill({
           status: 400,
@@ -339,7 +342,7 @@ try {
         await page.waitForTimeout(2400);
         await closeSettings(page);
       }
-      // The keeper arrives face down, until his line reveals him.
+      // The keeper arrives face down, ready for the player's first tap.
       await page
         .locator('#hand [data-card="keeper"]')
         .waitFor({ state: "attached" });
@@ -356,7 +359,13 @@ try {
         await page.locator('#hand [data-card="oil"]').isVisible(),
         false,
       );
-      // His first line, even "…", reveals him with it (stage-reveal.mjs).
+      assert(requests.every((input) =>
+        !input.speakers.includes("keeper") &&
+        !input.entities.some(({ id }) => id === "keeper")),
+      "A face-down Keeper stays out of narration");
+      const beforeKeeper = (await state()).turn;
+      await revealCard(page, "keeper");
+      assert.equal((await state()).turn, beforeKeeper, "Revealing a person takes no turn");
       await page.waitForSelector(
         '#hand [data-card="keeper"][data-unrevealed="false"]:not([data-revealing])',
         { state: "attached" },

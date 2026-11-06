@@ -547,7 +547,7 @@ try {
       });
       assert.deepEqual(cleared, [200, false], "the cleared stack fades");
       assert.equal(await page.locator(".dialogue").isHidden(), true);
-      // An NPC action card uses the same main type, with added effects below it.
+      // An NPC action uses the same main type and keeps face-down items unnamed.
       await page.evaluate(({ key, save }) => localStorage.setItem(key, save), {
         key,
         save: npcSave,
@@ -558,7 +558,7 @@ try {
       assert.equal(await front(), "Pip");
       assert.equal(
         await npcCaption.textContent(),
-        "Pip squared up to Vale over the Lamp.",
+        "Pip squared up to Vale over something.",
       );
       assert.equal(
         await page.locator("#beat-captions .beat-caption").count(),
@@ -583,7 +583,7 @@ try {
       await page.locator("#live-line").click();
       assert.equal(
         await npcCaption.textContent(),
-        "Pip squared up to Vale over the Lamp.",
+        "Pip squared up to Vale over something.",
       );
       assert.equal(await page.locator("#beat-captions .inscribe").count(), 0);
       assert.deepEqual(errors, []);
