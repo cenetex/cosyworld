@@ -77,12 +77,44 @@ try {
         response.headers()["content-security-policy"],
         /img-src[^;]*blob:/u,
       );
+      await scene();
+      assert.equal(
+        await page.locator("#place-title").innerText(),
+        "Lantern Shore",
+      );
+      assert.equal(new URL(page.url()).searchParams.has("draft"), false);
+      await page
+        .locator(".card img")
+        .evaluateAll((images) =>
+          Promise.all(images.map((image) => image.decode())),
+        );
+      await page.screenshot({ path: `${output}/${width}-sample.png` });
+      await choose(["pack", "places", "sample-shore"], "entity");
+      await choose(["pack", "places", "sample-shore"], "contents");
+      await choose(["pack", "avatars", "sample-vale"], "entity");
+      await choose(["pack", "avatars", "sample-vale", "text"], "field");
+      await note.fill("Vale carries a lantern and follows the shore path.");
+      await press(action);
+      await press(page.locator("#history-button"));
       await page.getByRole("textbox", { name: "World source" }).waitFor();
       await note.fill("A quiet shore.\n雪");
       await press(action);
       await saved();
-      assert.equal((await read()).draft.document, "A quiet shore.\n雪");
+      const sample = await read();
+      assert.equal(sample.draft.document, "A quiet shore.\n雪");
+      assert.equal(
+        sample.draft.pack.avatars["sample-vale"].text,
+        "Vale carries a lantern and follows the shore path.",
+      );
+      assert.equal(sample.assets.length, 8);
+      assert.deepEqual(sample.launch, {
+        schemaVersion: 1,
+        place: "sample-shore",
+      });
       await page.reload();
+      await scene();
+      assert.deepEqual(await read(), sample);
+      await press(page.locator("#history-button"));
       await page.getByRole("textbox", { name: "World source" }).waitFor();
       assert.equal(await note.innerText(), "A quiet shore.\n雪");
       await press(page.locator("#menu-button"));
@@ -145,8 +177,29 @@ try {
       assert(!requests.some((url) => /\/app\.mjs(?:\?|$)/u.test(url)));
       assert.deepEqual(await page.evaluate(() => window.cspErrors || []), []);
       assert.deepEqual(errors, []);
+      const savedUrl = page.url();
+      await page.goto(
+        new URL("/make?draft=missing-local-draft", savedUrl).href,
+      );
+      await action.getByText("Open sample world").waitFor();
+      assert.match(await note.innerText(), /draft is unavailable/);
+      await press(action);
+      await scene();
+      assert.equal(
+        await page.locator("#place-title").innerText(),
+        "Lantern Shore",
+      );
+      await press(page.locator("#history-button"));
+      await note.fill("A separate sample draft");
+      await press(action);
+      await saved();
+      assert.match(new URL(page.url()).searchParams.get("draft"), /^sample-/);
+      assert.equal(new URL(page.url()).searchParams.has("sample"), false);
+      await page.goto(savedUrl);
+      await scene();
+      assert.equal((await read()).draft.pack.entry, "beach");
       console.log(
-        `Authoring entry ${width}: source, import, scene, exact reload and play save passed`,
+        `Authoring entry ${width}: sample edit, eight assets, source, import, exact reload, missing-link recovery and play save passed`,
       );
     } finally {
       await page.close();
