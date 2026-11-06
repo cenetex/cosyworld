@@ -269,6 +269,7 @@ const files = [
   "scene-cast.mjs",
   "settings-cards.mjs",
   "settings-screen.mjs",
+  "authoring-cast.mjs",
   "authoring-edits.mjs",
   "authoring-quests.mjs",
   "scene.mjs",
