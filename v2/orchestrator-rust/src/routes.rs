@@ -679,7 +679,17 @@ async fn command_response_json_contract(request: Request, next: Next) -> Respons
     replacement
 }
 
+#[derive(Clone)]
+pub(super) struct ExplicitResponseStatus;
+
 pub(super) async fn action_response_http_status(response: Response) -> Response {
+    if response
+        .extensions()
+        .get::<ExplicitResponseStatus>()
+        .is_some()
+    {
+        return response;
+    }
     let (mut parts, body) = response.into_parts();
     let is_json = parts
         .headers

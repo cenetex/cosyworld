@@ -87,6 +87,9 @@ pub(super) fn router() -> Router<AppState> {
         .layer(middleware::map_response(
             |mut response: Response| async move {
                 response
+                    .extensions_mut()
+                    .insert(crate::routes::ExplicitResponseStatus);
+                response
                     .headers_mut()
                     .insert(header::CACHE_CONTROL, "no-store".parse().unwrap());
                 response
