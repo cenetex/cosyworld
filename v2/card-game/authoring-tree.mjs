@@ -43,7 +43,10 @@ const referenceKeys = new Set([
   "shipmaster",
   "consumes",
   "exits",
+  "entry",
 ]);
+const questFields = ["requires", "appearsWhen", "want", "locked", "journey"];
+const placementFields = { place: "exits", avatar: "place", item: "holder" };
 const lockedKeys = new Set([
   "requires",
   "opensWith",
@@ -165,7 +168,7 @@ export function buildAuthoringTree({ pack, bridge } = {}) {
           card.id,
         );
     }
-    for (const key of ["requires", "appearsWhen", "want", "locked", "journey"])
+    for (const key of questFields)
       if (value[key] !== undefined)
         visit(
           value[key],
@@ -173,6 +176,9 @@ export function buildAuthoringTree({ pack, bridge } = {}) {
           quests.get(card.canonicalId)?.id || card.id,
           key === "requires" ? "Appears when" : words(key),
         );
+    for (const [key, child] of Object.entries(value))
+      if (!questFields.includes(key) && key !== placementFields[card.kind])
+        visit(child, [...card.source, key], card.id, words(key));
     if (card.kind === "place")
       for (const [i, target] of list(value.exits).entries())
         link(
@@ -203,6 +209,9 @@ export function buildAuthoringTree({ pack, bridge } = {}) {
       rootQuests.id,
       choice?.label || "Quest",
     );
+  for (const [key, value] of Object.entries(pack))
+    if (!["places", "avatars", "items", "routes", "choices"].includes(key))
+      visit(value, ["pack", key], root.id, words(key));
   for (const key of ["entries", "crossings", "transports"])
     if (record(bridge) && bridge[key] !== undefined)
       visit(bridge[key], ["bridge", key], root.id, words(key));

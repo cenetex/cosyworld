@@ -17,6 +17,9 @@ Quest, road, and transport records retain their source order and nested paths.
 Each place and avatar has Contents and Quests boxes. Incoming road conditions
 live under the destination's Quests box; outgoing links stay in Contents.
 The index leaves the source intact. Edit commands use those paths separately.
+Names, text, art paths and custom fields sit below their entity or world card.
+Nested objects and arrays keep their branches. Identity fields use the field
+editor's read-only rules, and generated paths keep their hidden markers.
 
 `authoring-controller.mjs` owns local selection, box targeting, edit sequence,
 and the last 50 inverse edits. `createAuthoringState(source)` copies the source;
