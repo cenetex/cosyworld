@@ -10,7 +10,7 @@ import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
 import { dispatchShared } from "../card-game/shared-world.mjs";
 import { addLog, createWorld, encodeSave } from "../card-game/world.mjs";
-import { selectCard } from "./card-browser-helpers.mjs";
+import { readyActionButton, selectCard } from "./card-browser-helpers.mjs";
 
 const server = createServer();
 await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
@@ -162,10 +162,11 @@ async function check(width) {
       await selectCard(page, "vale", { touch: width === 390 });
     await wait.waitFor();
     // Vale again after a Wait offers Sleep; letting go brings back Wait.
-    if ((await wait.innerText()) === "Sleep") {
+    if ((await wait.getAttribute("aria-label")) === "Sleep") {
       await selectCard(page, "vale", { touch: width === 390 });
       await selectCard(page, "vale", { touch: width === 390 });
     }
+    await readyActionButton(page, "wait").waitFor();
     assert.equal(await wait.getAttribute("aria-label"), "Wait");
   };
   try {
@@ -388,8 +389,12 @@ async function checkRefusalFits(width, height, zoom = 1) {
     await page.goto(`${origin}/?world=fits`);
     await page.waitForFunction(() => document.body.inert === false);
     await selectCard(page, "forest-cottage", { touch: true });
-    const primary = page.locator("#card-actions .card-primary");
-    assert.equal(await primary.innerText(), "Down to the cottage");
+    const primary = readyActionButton(page);
+    await primary.waitFor();
+    assert.equal(
+      await primary.getAttribute("aria-label"),
+      "Down to the cottage",
+    );
     await primary.tap();
     await page.waitForFunction(() =>
       document.querySelector("#card-actions [data-blocked=refused]"),

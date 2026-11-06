@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   createWorld,
   decodeSave,
+  encodeSave,
   legalActions,
   play,
   validateWorld,
@@ -21,6 +22,8 @@ import { narrativeContext } from "../v2/card-game/narrative.mjs";
 import {
   questCaption,
   questCard,
+  questCards,
+  metQuests,
   questTier,
 } from "../v2/card-game/quest-card.mjs";
 
@@ -176,6 +179,59 @@ describe("the level quest", () => {
     expect(s.actors.vale.want?.quest).toBeUndefined();
     expect(validateWorld(s)).toBe(s);
   });
+
+  it.each([
+    [5, 1],
+    [10, 2],
+    [50, 5],
+    [100, 6],
+  ])("awards the level %i final rest %i XP", (level, xp) => {
+    const s = ready(questXp(level) + questSteps(level));
+    s.turn = s.revision = 24 * (level + 1);
+    s.actors.vale.level = level - 1;
+    s.actors.vale.want = {
+      kind: "place",
+      target: "attic",
+      since: s.turn,
+      refusals: 0,
+      step: { verb: "rest" },
+      quest: { level, left: 1 },
+    };
+    const after = decodeSave(encodeSave(sleep(s)));
+    expect(after.actors.vale.level).toBe(level);
+    expect(after.actors.vale.xp - s.actors.vale.xp).toBe(xp);
+    expect(metQuests([questCard(s)], after, s.eventSeq)).toMatchObject([
+      { earnedXp: xp },
+    ]);
+  });
+
+  it.each([true, false])(
+    "keeps each attic rest reward in completion order, level quest on top: %s",
+    (levelOnTop) => {
+      const s = ready(questXp(50) + questSteps(50));
+      s.turn = s.revision = 24 * 51;
+      const rest = {
+        kind: "place",
+        target: "attic",
+        since: s.turn,
+        refusals: 0,
+        step: { verb: "rest" },
+      };
+      const levelRest = { ...rest, quest: { level: 50, left: 1 } };
+      Object.assign(s.actors.vale, {
+        level: 49,
+        want: levelOnTop ? levelRest : rest,
+        under: [levelOnTop ? rest : levelRest],
+      });
+      const before = questCards(s);
+      const after = decodeSave(encodeSave(sleep(decodeSave(encodeSave(s)))));
+      expect(after.actors.vale.xp - s.actors.vale.xp).toBe(6);
+      expect(metQuests(before, after, s.eventSeq)).toMatchObject([
+        { key: before.find((q) => !q.level).key, level: null, earnedXp: 1 },
+        { key: before.find((q) => q.level).key, level: 50, earnedXp: 5 },
+      ]);
+    },
+  );
 
   it("can be dropped for its cost in experience, keeping the level", () => {
     let s = ready(questXp(4));

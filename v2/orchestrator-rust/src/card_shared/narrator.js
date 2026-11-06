@@ -529,6 +529,7 @@
     minLevel,
     rank: rank2
   }));
+  var levelTier = (level) => tiers.findLast((tier) => level >= tier.minLevel) || tiers[0];
 
   // v2/card-game/forest.json
   var forest_default = {
@@ -2326,6 +2327,7 @@
     return level * (level - 1) / 2;
   };
   var wantOf2 = (s, id) => s.actors[id]?.want ?? null;
+  var wantKey = (id, want) => `${id}:${want.kind}:${want.target}:${want.since}:${want.quest?.left ?? ""}`;
   var questsOf = (s, id) => {
     const a = s.actors[id];
     return a?.want ? [a.want, ...a.under || []] : [];
@@ -20128,7 +20130,7 @@
       questsBeginAt: forest_default.questsBeginAt,
       placeOf: (item) => itemPlace2(s, item),
       distance: (from, to, actor) => from === to ? 0 : (routeBetween(s, from, to, actor)?.length ?? 0) - 1,
-      log: (actor, want) => addLog(
+      log: (actor, want, xp) => addLog(
         s,
         "World",
         want.kind === "item" ? `${nameOf(actor)} has the ${nameOf(want.target)} at last.` : want.kind === "place" ? `${nameOf(actor)} reaches ${nameOf(want.target)}.` : want.kind === "connect" ? `${nameOf(actor)} makes an introduction at last.` : `${nameOf(actor)} and ${nameOf(want.target)} talk at last.`,
@@ -20137,6 +20139,8 @@
           actorId: actor,
           verb: "want_met",
           wantMet: { kind: want.kind, target: want.target },
+          wantKey: wantKey(actor, want),
+          ...xp > 1 ? { questXp: xp } : {},
           ...want.kind === "item" ? { itemId: want.target } : {},
           ...want.kind === "person" ? { targetId: want.target } : {}
         }
@@ -20499,7 +20503,9 @@
         fail();
       if (e.itemId != null && !ids.includes(e.itemId)) fail();
       if (e.receiveId != null && !ids.includes(e.receiveId)) fail();
-      if (e.verb === "want_met" !== (e.wantMet !== void 0) || e.wantMet !== void 0 && (!e.wantMet || Object.keys(e.wantMet).length !== 2 || !WANT_KINDS.includes(e.wantMet.kind) || !actorIds.includes(e.actorId) || (e.wantMet.kind === "connect" ? e.wantMet.target !== CONNECT_TARGET : !entities2.has(e.wantMet.target))))
+      if (e.verb === "want_met" !== (e.wantMet !== void 0) || e.wantKey !== void 0 && (e.verb !== "want_met" || typeof e.wantKey !== "string" || e.wantKey.length > 600 || !e.wantKey.startsWith(
+        `${e.actorId}:${e.wantMet?.kind}:${e.wantMet?.target}:`
+      )) || e.questXp !== void 0 && (e.verb !== "want_met" || !Number.isInteger(e.questXp) || e.questXp < 2 || e.questXp > levelTier(Infinity).rank + 1) || e.wantMet !== void 0 && (!e.wantMet || Object.keys(e.wantMet).length !== 2 || !WANT_KINDS.includes(e.wantMet.kind) || !actorIds.includes(e.actorId) || (e.wantMet.kind === "connect" ? e.wantMet.target !== CONNECT_TARGET : !entities2.has(e.wantMet.target))))
         fail();
       if (e.targetId != null && !entities2.has(e.targetId)) fail();
       if (e.light !== void 0 && typeof e.light !== "boolean") fail();

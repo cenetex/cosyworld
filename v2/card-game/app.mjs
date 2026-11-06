@@ -3076,12 +3076,12 @@ function questFold(quest) {
 }
 // Clearing a met quest shows the experience it brought rising from the card
 // and glows the avatar when it ends a level quest. The rules granted that
-// experience, one point, when the quest was met.
+// experience when the quest was met.
 function clearQuest(button, quest) {
   if (selectionBlocked()) return;
   const color = button.style.getPropertyValue("--tier-color"),
     box = button.getBoundingClientRect(),
-    gain = node("span", "+1 XP", "quest-xp");
+    gain = node("span", `+${quest.earnedXp} XP`, "quest-xp");
   gain.style.setProperty("--tier-color", color);
   gain.style.left = `${box.left + box.width / 2}px`;
   gain.style.top = `${box.top + box.height / 4}px`;
