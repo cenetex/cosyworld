@@ -51,6 +51,30 @@ describe("the quest card's screen", () => {
     expect(parts(screen)[0]).toBe("quest-ground:pavilion.webp");
   });
 
+  it.each([
+    { ...bring, here: null, atCovered: true },
+    { actor: "orin", kind: "place", target: "pavilion", covered: true },
+    { ...bring, to: "moth", hereCovered: true },
+  ])("keeps an unknown action destination behind the wooden box", (view) => {
+    const screen = questScreen(
+      view,
+      {
+        ...art,
+        place: () => {
+          throw new Error("The hidden place's image was requested");
+        },
+      },
+      true,
+    );
+    expect(parts(screen)[0]).toBe("quest-ground:./assets/card-back.webp");
+    expect(screen.children.some((img) => img.dataset.entity === "orin")).toBe(
+      true,
+    );
+    expect(
+      screen.children.some((img) => img.dataset.entity === "pavilion"),
+    ).toBe(false);
+  });
+
   it("places a recipe's maker and ingredients within its home", () => {
     const screen = questScreen(
       {

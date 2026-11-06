@@ -689,6 +689,84 @@ try {
     await page.locator(".dialogue").screenshot({
       path: new URL(`hidden-quest-${width}.png`, output).pathname,
     });
+    for (const [kind, target, step] of [
+      ["item", "routes", { verb: "bring", at: "train" }],
+      ["place", "greek-palace", null],
+    ]) {
+      const sceneWorld = createWorld();
+      sceneWorld.actors.vale.visited.push("pond");
+      sceneWorld.actors.vale.want = {
+        kind,
+        target,
+        ...(step ? { step } : {}),
+        story: true,
+        since: sceneWorld.turn,
+        refusals: 0,
+      };
+      const place = step?.at ?? target;
+      const sceneTable = `quest-scene-${kind}-${width}`;
+      const sceneKey = `cosyworld.reflected-shore.v1.${sceneTable}`;
+      const seen = availableCards(sceneWorld).filter(
+        (id) => id !== place && id !== target,
+      );
+      for (const revealed of [false, true]) {
+        await page.evaluate(
+          ({ sceneKey, save, seen }) => {
+            localStorage.setItem(sceneKey, save);
+            localStorage.setItem(`${sceneKey}.seen`, JSON.stringify(seen));
+          },
+          {
+            sceneKey,
+            save: encodeSave(sceneWorld),
+            seen: revealed ? [...seen, place] : seen,
+          },
+        );
+        await page.goto(
+          `http://127.0.0.1:${server.address().port}/?table=${sceneTable}`,
+        );
+        await ready();
+        await page.locator("#hand .quest-fold").focus();
+        await page.keyboard.press("Enter");
+        await page.locator('#hand .want-card[data-quest-id="quest:0"]').click();
+        const scene = page.locator(".action-beat-cards .quest-screen");
+        const ground = scene.locator(".quest-ground");
+        await ground.waitFor();
+        assert.equal(await scene.locator('[data-entity="vale"]').count(), 1);
+        assert.equal(
+          await ground.getAttribute("data-entity"),
+          revealed ? place : null,
+        );
+        assert.equal(
+          /card-back/u.test(await ground.getAttribute("src")),
+          !revealed,
+        );
+        assert(
+          !/Not found yet/u.test(
+            await page.locator("#action-beat").innerText(),
+          ),
+        );
+        if (!revealed) {
+          assert(await page.locator(".action-beat-note").isHidden());
+          if (kind === "item")
+            assert.equal(
+              (await page.locator(".action-beat-heading").textContent()).trim(),
+              "Find something and bring it somewhere",
+            );
+        }
+        await page.waitForFunction(
+          () =>
+            document.querySelector("#action-beat button")?.dataset.revealing ===
+            "false",
+        );
+        await page.locator(".dialogue").screenshot({
+          path: new URL(
+            `scene-${kind}-${revealed ? "revealed" : "hidden"}-${width}.png`,
+            output,
+          ).pathname,
+          animations: "disabled",
+        });
+      }
+    }
     assert.deepEqual(errors, []);
     console.log(
       `Quest fold, met seal, click to clear and +XP, stack fan, choose and drop, avatar stacks passed at ${width}px (${motion}).`,
