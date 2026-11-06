@@ -1078,11 +1078,11 @@ body:has(#settings-screen[data-layout="tree"][open]) .settings-scene {
   --card-height: 180px;
   --fan-overlap: 0px;
   display: grid;
-  grid-template-columns: repeat(var(--tree-columns), minmax(124px, 1fr));
+  grid-template-columns: repeat(var(--tree-columns), minmax(124px, 156px));
   grid-auto-rows: max-content;
   gap: 28px 12px;
   align-content: start;
-  justify-content: start;
+  justify-content: safe center;
   height: 100%;
   margin: 0;
   padding: 14px 10px;

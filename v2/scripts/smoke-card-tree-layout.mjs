@@ -12,6 +12,7 @@ const browser = await chromium.launch({ headless: true });
 try {
   for (const [width, height] of [
     [1440, 900],
+    [800, 900],
     [390, 844],
     [320, 568],
   ]) {
@@ -135,12 +136,11 @@ try {
               art,
             });
         expanded.clear();
-        ["clearing", "clearing-contents", "badger"].forEach((id) =>
-          expanded.add(id),
-        );
-        active = "badger";
+        ["clearing", "clearing-contents"].forEach((id) => expanded.add(id));
+        active = "clearing-contents";
         window.treeRender();
         window.treeDraw();
+        hand.scrollTo(0, 0);
       };
     });
     await page.waitForFunction(() =>
@@ -149,6 +149,13 @@ try {
       ),
     );
     await page.waitForTimeout(1400);
+    if (width === 800)
+      assert(
+        await page
+          .locator("#settings-hand")
+          .evaluate((hand) => hand.scrollWidth > hand.clientWidth),
+        "wide branches keep horizontal scroll",
+      );
     const card = (id) => page.locator(`[data-setting="${id}"]`);
     const oil = card("oil"),
       contents = card("contents");
@@ -190,17 +197,21 @@ try {
     await page.locator("#card-actions button").click();
     assert(await page.evaluate(() => window.treePreview));
     await page.evaluate(() => window.treeUseBadger());
-    await card("badger-quests").click();
-    assert(
-      await card("badger-quests").isVisible(),
-      "empty quest box stays selectable",
-    );
     await page.waitForFunction(() =>
       [...document.querySelectorAll("#settings-hand img")].every(
         (image) => image.complete && image.naturalWidth,
       ),
     );
+    const root = await card("clearing").boundingBox();
+    assert(root.y >= 64 && root.y + root.height <= height - 150);
     await page.screenshot({ path: `${output}/badger-${width}.png` });
+    await card("badger").click();
+    await card("badger-quests").click();
+    assert(
+      await card("badger-quests").isVisible(),
+      "empty quest box stays selectable",
+    );
+    await page.screenshot({ path: `${output}/badger-selected-${width}.png` });
     assert(
       await page
         .locator("#settings-hand")
