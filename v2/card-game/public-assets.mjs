@@ -245,6 +245,8 @@ const files = [
   "style.css",
   "entry.mjs",
   "authoring-entry.mjs",
+  "authoring-sample.mjs",
+  "assets/authoring-lantern-shore.json",
   "title-intro.mjs",
   "title-logo.mjs",
   "title-logos.json",

@@ -1,0 +1,147 @@
+{
+  "pack": {
+    "schemaVersion": 1,
+    "id": "lantern-shore",
+    "packId": "cosyworld.lantern-shore",
+    "revision": 1,
+    "name": "Lantern Shore",
+    "description": "A lantern, a lost bell and a garden waiting for its keeper. Change a card and make this small world your own.",
+    "entry": "sample-shore",
+    "places": {
+      "sample-shore": {
+        "name": "Lantern Shore",
+        "text": "The keeper's bell rests beside the water. A path leads to the old station.",
+        "persona": "Still water reflects a pale sky. Reeds bend beside the shore path. The old station stands a short walk away.",
+        "exits": ["sample-station"],
+        "backdrop": "assets/lantern-shore/shore.webp"
+      },
+      "sample-station": {
+        "name": "The Keeper's Station",
+        "text": "The keeper waits by a closed garden path. A blue scarf hangs over the bench.",
+        "persona": "A quiet wooden station stands between the shore and a garden. The keeper watches the garden path and waits for the lost bell.",
+        "exits": ["sample-shore"],
+        "backdrop": "assets/lantern-shore/station.webp"
+      },
+      "sample-garden": {
+        "name": "Rain Garden",
+        "text": "Rain beads on broad leaves. The path leads back to the keeper's station.",
+        "persona": "Green leaves shelter a small garden. Wet stepping stones lead back to the station.",
+        "exits": ["sample-station"],
+        "backdrop": "assets/lantern-shore/garden.webp"
+      }
+    },
+    "avatars": {
+      "sample-vale": {
+        "name": "Vale",
+        "text": "A traveller carries a lantern along the shore. There is room in the coat pockets for a small discovery.",
+        "seed": "Vale is a curious traveller with a lantern and a coat full of pockets.",
+        "tastes": {
+          "likes": "A new path",
+          "sore": "A broken promise",
+          "reason": "Vale enjoys a journey with a useful errand."
+        },
+        "place": "sample-shore",
+        "travels": false,
+        "standoffs": false,
+        "portrait": "assets/lantern-shore/vale.webp"
+      },
+      "sample-keeper": {
+        "name": "The keeper",
+        "text": "A tall figure with a clock for a face. Returning the lost bell opens the garden path.",
+        "seed": "The keeper cares for the station and waits for the lost bell.",
+        "tastes": {
+          "likes": "Properly returned things",
+          "sore": "A lost bell",
+          "reason": "The keeper keeps the garden ready for visitors."
+        },
+        "place": "sample-station",
+        "travels": false,
+        "standoffs": false,
+        "portrait": "assets/lantern-shore/keeper.webp",
+        "want": { "kind": "item", "target": "sample-bell" }
+      }
+    },
+    "items": {
+      "sample-lantern": {
+        "name": "Lantern",
+        "text": "A small brass lantern with warm glass and a sturdy handle.",
+        "persona": "A small brass lantern with warm glass and a sturdy handle. Vale carries it along the shore.",
+        "holder": "sample-vale",
+        "art": "assets/lantern-shore/lantern.webp"
+      },
+      "sample-bell": {
+        "name": "The keeper's bell",
+        "text": "A hand bell with a worn handle. The keeper at the station is waiting for it.",
+        "persona": "A small hand bell with a worn handle. Returning it to the keeper opens the garden path.",
+        "holder": "sample-shore",
+        "art": "assets/lantern-shore/bell.webp"
+      },
+      "sample-scarf": {
+        "name": "Blue scarf",
+        "text": "A soft blue scarf lies across the station bench.",
+        "persona": "A soft blue scarf lies across the station bench, ready for a cold journey.",
+        "holder": "sample-station",
+        "art": "assets/lantern-shore/scarf.webp"
+      }
+    },
+    "routes": [
+      {
+        "from": "sample-station",
+        "to": "sample-garden",
+        "requires": [
+          { "kind": "holding", "item": "sample-bell", "actor": "sample-keeper" }
+        ],
+        "sealed": {
+          "reason": "Return the lost bell to the keeper to open the garden path.",
+          "quest": {
+            "kind": "item",
+            "target": "sample-bell",
+            "to": "sample-keeper"
+          }
+        }
+      }
+    ]
+  },
+  "bridge": {
+    "schemaVersion": 1,
+    "id": "shore-lantern-shore",
+    "pack": "lantern-shore",
+    "description": "A quiet path joins the Black pond and Lantern Shore.",
+    "entries": [
+      {
+        "joins": "hub",
+        "at": "pond",
+        "arrive": "sample-shore",
+        "via": "pond-sample-shore"
+      }
+    ],
+    "crossings": [
+      {
+        "id": "pond-sample-shore",
+        "from": "pond",
+        "to": "sample-shore",
+        "travelers": "player",
+        "travel": "along the shore path",
+        "requires": []
+      },
+      {
+        "id": "sample-shore-pond",
+        "from": "sample-shore",
+        "to": "pond",
+        "travelers": "player",
+        "travel": "back to the Black pond",
+        "requires": []
+      }
+    ]
+  },
+  "images": {
+    "shore": "pond",
+    "station": "station",
+    "garden": "lonely-forest/garden",
+    "vale": "shared/characters/vale",
+    "keeper": "keeper",
+    "lantern": "lamp-card",
+    "bell": "bell-card",
+    "scarf": "lonely-forest/scarf-blue"
+  }
+}

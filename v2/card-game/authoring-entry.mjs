@@ -1,5 +1,5 @@
 import { openAuthoringStore } from "./authoring-local-store.mjs";
-import { importPack } from "./authoring-draft.mjs";
+import { createSampleWorld } from "./authoring-sample.mjs";
 import { installWorldDesigner } from "./authoring-designer.mjs";
 import { authoringImportTools } from "./authoring-import-tools.mjs";
 import { renderCardDescriptor } from "./card-descriptor.mjs";
@@ -9,7 +9,8 @@ const $ = (id) => document.getElementById(id);
 const panel = $("action-beat"),
   descriptor = document.querySelector(".dialogue"),
   style = document.documentElement.style;
-let designer;
+let designer,
+  missingDraft = false;
 function measure() {
   style.setProperty(
     "--tree-descriptor-height",
@@ -118,6 +119,8 @@ async function start() {
       return record;
     },
     async write(key, value, generation, assets) {
+      if (generation === 0 && assets === undefined)
+        assets = cache.get(assetKey({ key, generation }))?.assets;
       const saved = await database.write(key, value, generation, assets);
       if (assets) cacheAssets(key, saved, value.draft, assets);
       else {
@@ -131,11 +134,17 @@ async function start() {
   const key = params.get("draft") || "first-world";
   if (!/^[A-Za-z0-9_-]{1,100}$/u.test(key))
     throw new Error("Open a valid draft link.");
-  const record = (await store.read(key)) || {
-    draft: importPack({ pack: null, title: "Your world" }),
-    launch: null,
-    generation: 0,
-  };
+  let record = await store.read(key);
+  if (!record && params.has("draft")) {
+    missingDraft = true;
+    throw new Error(
+      "This local draft is unavailable. Open the sample world to start a new draft.",
+    );
+  }
+  if (!record) {
+    record = { ...(await createSampleWorld()), generation: 0 };
+    cacheAssets(key, 0, record.draft, record.assets);
+  }
   const imports = authoringImportTools({ store, chooseFiles });
   const source = {
     id: "source",
@@ -164,7 +173,7 @@ async function start() {
       activeAssets = cache.get(assetKey(status));
       pruneAssets();
       const next = new URL(location.href);
-      next.searchParams.set("draft", status.key);
+      if (status.generation > 0) next.searchParams.set("draft", status.key);
       history.replaceState(null, "", next);
       const locationCard = source.pack?.places?.[place];
       const art = resolveArt(
@@ -206,6 +215,12 @@ try {
     name: "World editor",
     note: error.message,
     cards: [],
-    buttons: [{ label: "Try again", run: () => location.reload() }],
+    buttons: [
+      {
+        label: missingDraft ? "Open sample world" : "Try again",
+        run: () =>
+          missingDraft ? location.assign("/make") : location.reload(),
+      },
+    ],
   });
 }
