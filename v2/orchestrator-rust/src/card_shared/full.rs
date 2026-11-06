@@ -29,6 +29,8 @@ use std::{
 mod browser;
 #[path = "full_dedupe.rs"]
 mod dedupe;
+#[path = "full_opening.rs"]
+mod opening;
 #[path = "full_reflect.rs"]
 pub(super) mod reflect;
 #[path = "full_retire.rs"]
@@ -238,6 +240,7 @@ pub(super) fn found(
     )
     .map_err(sql_error)?;
     bindings::claim(tx, &id, u, a)?;
+    opening::enqueue(tx, &id, u, &w, a, time)?;
     Ok(id)
 }
 async fn view(State(state): State<AppState>, Path(id): Path<String>, h: HeaderMap) -> Response {
@@ -557,6 +560,9 @@ pub(super) fn run(
                         store::commit(c, id, &mut w, cmd, time)?;
                     }
                 }
+                if b.op == "enter" {
+                    opening::resume(c, id, &w, a)?;
+                }
             }
             "leave" => leave(c, id, &mut w, a, &b.op, time)?,
             "release" => {
@@ -667,7 +673,7 @@ pub(super) fn take_work(state: &AppState, id: &str) -> Result<Option<Work>> {
         return Ok(None);
     }
     let rows = {
-        let mut q=tx.prepare("SELECT id,actor,room,command,user,status,narrative,retries FROM card_full_plays WHERE world=? AND status IN ('waiting','retry') ORDER BY created,id LIMIT 32").map_err(sql_error)?;
+        let mut q=tx.prepare("SELECT id,actor,room,command,user,status,narrative,retries FROM card_full_plays WHERE world=? AND status IN ('waiting','retry') ORDER BY created,CASE WHEN json_extract(narrative,'$.opening')=1 THEN 0 ELSE 1 END,id LIMIT 32").map_err(sql_error)?;
         let rows = q
             .query_map([id], |r| {
                 Ok((

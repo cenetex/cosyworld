@@ -1,5 +1,11 @@
 # Shared worlds
 
+A fresh shared world queues its avatar's first waking line before the first
+play. The line knows the avatar's name; the other cards remain covered in its
+prompt. The existing speech queue saves the line and holds the first play while
+it is pending. Entering again resumes an interrupted opening with the same job
+key. Saved first lines stay in the world's history.
+
 Open **Share** in the current game. Sign in with a passkey and choose **Share this
 world**. Friends enter that saved world through its invitation. The host keeps
 Vale, the current place, belongings, resident state, quests, and conversation.
