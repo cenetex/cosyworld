@@ -261,20 +261,16 @@ first, and is absent while the stack holds one. Player-facing text says quest.
   dropping a level quest costs 1 XP for the first, 2 for the next, and so
   on, never below the experience its level took (`questXp`), so the level
   stays; its button reads "Discard (−N XP)". The chosen quest shows in
-  the usual play beat: its sentence on the left, then its next step, then
-  Discard as the ordinary context button, its words red (`--danger`).
-- **Next step.** Beside Discard, the chosen top quest offers one play the
-  rules already list (`quest-step.mjs`; nothing new is legal). Where the
-  step can happen here, it is that play: Talk with a person quest's
-  target, Take or Ask for a wanted item, Give to a give step's recipient.
-  A sanctuary quest at its sanctuary offers the hand's own Wait, then
-  Sleep. Otherwise it is the first Travel along the shortest route to
-  where the step happens (the place, the person, the item, or a step's
-  recipient or place), labelled "Travel to <place>". A target not yet found
-  reads "Not found yet", and one with no route "No way there yet", on a
-  disabled button; the card itself shows nothing more. Introduce quests
-  offer only Discard.
-  Dropping the last quest draws another at once, and a drop takes a turn.
+  the usual play beat: its goal and the single context action.
+- **Complete here.** The chosen top quest offers a legal action that completes
+  its goal or current authored stage (`quest-step.mjs`): Talk with its person,
+  Take or Ask for its wanted item, Give the carried gift, or Travel directly
+  to its destination. Anoint, Veil and Bury each offer their ready gift to
+  Antigone. A sanctuary quest at its sanctuary offers Wait, then Sleep.
+  The player chooses how to gather supplies and travel to distant goals.
+  While preparation remains, the context action is Discard. Its confirmation
+  names any XP cost. Dropping the last quest draws another at once, and a
+  drop takes a turn.
 
 - **First quest.** A player holds no quest at the start: the attic opening
   has no quest card. The hub's `questsBeginAt` (`forest.json`,

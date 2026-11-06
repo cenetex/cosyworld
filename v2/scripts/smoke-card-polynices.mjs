@@ -227,10 +227,11 @@ try {
           } else await pickQuest();
         }
       }
-      const take = page.locator(
-        '#card-actions [data-quest-step][data-action="take"]',
-      );
-      await take.click();
+      assert.equal(await page.locator("[data-quest-step]").count(), 0);
+      assert.equal(await page.locator("[data-drop-quest]").count(), 1);
+      await clearSelection(page);
+      await selectCard(page, kit[0]);
+      await readyActionButton(page, "take").click();
       await settle();
       assert.equal((await state()).items[kit[0]].holder, "vale");
       for (const [index, stage] of ["fallen", "anointed", "veiled"].entries()) {
