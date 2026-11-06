@@ -342,13 +342,12 @@ try {
           });
         }
         const road = packDefinition("greek-drama").places[target]?.road;
-        // On a road, the end it came from lies on top of it at the left and
-        // the other end waits at the row's right end (#2272, #2286).
+        // On a road, the way back sits left of the road card and the other
+        // end waits on the right.
         if (road) {
-          await selectCard(page, target, { touch: width === 390 });
           const back = (await state()).arrival.fromLocationId,
             visibleOrder = await page
-              .locator("#hand [data-card]")
+              .locator("#hand > .card-frame:not([hidden]) > [data-card]")
               .evaluateAll(
                 (cards, ids) =>
                   cards

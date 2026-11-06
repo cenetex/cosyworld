@@ -4,7 +4,7 @@ import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
 import { createWorld, encodeSave } from "../card-game/world.mjs";
 import { SWAP_MS } from "../card-game/card-swap.mjs";
-import { revealOpening, selectCard } from "./card-browser-helpers.mjs";
+import { revealOpening, selectCard, tapCard } from "./card-browser-helpers.mjs";
 
 // A scene change swaps the hand in beats, not one cut (card-swap.mjs).
 // Travel: the cards left behind fall as ghosts, nearest Vale first, as the
@@ -189,13 +189,21 @@ try {
       return trip;
     };
     // Leaving the station: each card left behind falls, nearest Vale first,
-    // 50 ms apart, from the tap, and the way back, the pond, on top of the
-    // row's left stack as the hand redraws. The station, its lamp and bell
-    // lie folded under it (#2272, #2286).
+    // 50 ms apart, from the tap. Both places stay in the hand. The station
+    // moves to the left of the pond as the way back.
     const away = await go("pond", "travel-away");
+    const visibleCards = () =>
+      page
+        .locator("#hand > .card-frame:not([hidden]) > [data-card]")
+        .evaluateAll((cards) => cards.map((card) => card.dataset.card));
+    assert.deepEqual((await visibleCards()).slice(0, 2), ["station", "pond"]);
     if (!reduced) {
-      for (const id of ["keeper", "pond"])
-        assert(away.ghosts.includes(id), `${id} falls: ${away.ghosts}`);
+      assert(away.ghosts.includes("keeper"), "the keeper stays at the station");
+      assert(!away.ghosts.includes("pond"), "the pond keeps its place card");
+      assert(
+        !away.ghosts.includes("station"),
+        "the station becomes the way back",
+      );
       assert(!away.ghosts.includes("vale"), "Vale goes along");
       const atTap = away.motions.filter((m) => m.ghost && m.at < 100);
       assert.deepEqual(
@@ -208,6 +216,22 @@ try {
     // Coming back: the station's cards rise after the falls and a beat, and
     // the whole swap ends in time.
     const back = await go("station", "travel-back");
+    const station = page.locator('#hand [data-card="station"]');
+    const placeItems = async () =>
+      (await visibleCards()).filter((id) =>
+        ["pond", "station", "lamp", "bell", "vale"].includes(id),
+      );
+    assert.deepEqual(await placeItems(), ["pond", "station", "vale"]);
+    await tapCard(station);
+    assert.deepEqual(await placeItems(), [
+      "pond",
+      "station",
+      "lamp",
+      "bell",
+      "vale",
+    ]);
+    await tapCard(station);
+    assert.deepEqual(await placeItems(), ["pond", "station", "vale"]);
     if (!reduced) {
       const falls = back.motions.filter((m) => m.ghost),
         lastFall = Math.max(0, ...falls.map((m) => m.at + m.delay + 360)),
