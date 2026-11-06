@@ -89,8 +89,8 @@ try {
           Promise.all(images.map((image) => image.decode())),
         );
       await page.screenshot({ path: `${output}/${width}-sample.png` });
-      await choose(["pack", "places", "sample-shore"], "entity");
-      await choose(["pack", "places", "sample-shore"], "contents");
+      await choose(["pack"], "root");
+      await choose(["pack", "avatars"], "collection");
       await choose(["pack", "avatars", "sample-vale"], "entity");
       await choose(["pack", "avatars", "sample-vale", "text"], "field");
       await note.fill("Vale carries a lantern and follows the shore path.");
@@ -138,6 +138,8 @@ try {
         () =>
           new URL(location.href).searchParams.get("draft") !== "first-world",
       );
+      await choose(["pack"], "root");
+      await choose(["pack", "places"], "collection");
       await choose(["pack", "places", "beach"], "entity");
       await scene();
       assert(
@@ -145,7 +147,7 @@ try {
           "blob:",
         ),
       );
-      await choose(["pack"], "root");
+      await press(page.locator("#history-button"));
       await press(page.locator('[data-setting="designer-save"]'));
       await press(action);
       await saved();

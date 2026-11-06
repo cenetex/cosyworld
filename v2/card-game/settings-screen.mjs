@@ -202,7 +202,7 @@ export function installCardWorkspace({
   }
   // A group opens as a place does, and folds on a second tap; opening
   // another folds the first. A setting is chosen, and unchosen on a second.
-  function choose(id) {
+  function choose(id, { expand = false } = {}) {
     armed = null;
     if (layout) {
       const card = cards.find((c) => c.id === id);
@@ -215,7 +215,7 @@ export function installCardWorkspace({
         parent = cards.find((c) => c.id === parent)?.holder;
       }
       if (card.group) {
-        if (expanded.has(id)) expanded.delete(id);
+        if (!expand && expanded.has(id)) expanded.delete(id);
         else expanded.add(id);
       }
       chosen = id;

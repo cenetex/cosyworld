@@ -26,6 +26,12 @@ Quest, road, and transport records retain their source order and nested paths.
 Each place and avatar has Contents and Quests boxes. Incoming road conditions
 live under the destination's Quests box; outgoing links stay in Contents.
 The index leaves the source intact. Edit commands use those paths separately.
+The designer projects this index through `authoring-collections.mjs`: World
+opens Items, Avatars and Locations. Contents references lead to canonical cards.
+`chooseWorld()` and `chooseTools()` expose the two views to existing header controls;
+Tools holds source details and maintenance cards. Collection navigation keeps an armed box.
+Each entity keeps its common fields and operation boxes in view; a Details stack
+holds its further source fields with their original IDs and paths.
 Names, text, art paths and custom fields sit below their entity or world card.
 Nested objects and arrays keep their branches. Identity fields use the field
 editor's read-only rules, and generated paths keep their hidden markers.
