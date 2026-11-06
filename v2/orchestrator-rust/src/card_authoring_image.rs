@@ -272,9 +272,8 @@ fn raster(bytes: &[u8], mime: &str, sheet: bool) -> Result<image::DynamicImage, 
 }
 
 fn png_output(bytes: &[u8], mime: &str, sheet: bool) -> Result<Vec<u8>, &'static str> {
-    let image = raster(bytes, mime, sheet)?;
     let mut output = Cursor::new(Vec::new());
-    image
+    raster(bytes, mime, sheet)?
         .write_to(&mut output, image::ImageFormat::Png)
         .map_err(|_| IMAGE_INVALID)?;
     if output.get_ref().len() > MAX_IMAGE {

@@ -132,6 +132,7 @@ async fn authoring_auth_grounding_and_gateway_use_transient_source() {
         );
     }
     assert_eq!(seen.lock().unwrap().len(), 5); // Each paid action attempts once.
+    let before_images = seen.lock().unwrap().len();
     use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
     use sha2::{Digest, Sha256};
     let pixels = image::RgbaImage::from_pixel(6, 4, image::Rgba([10, 100, 40, 128]));
@@ -184,7 +185,7 @@ async fn authoring_auth_grounding_and_gateway_use_transient_source() {
     let mut unknown = picture.clone();
     unknown["apiKey"] = json!("caller-key");
     assert_eq!(image_request(unknown).await.0, 422);
-    assert_eq!(seen.lock().unwrap().len(), 5);
+    assert_eq!(seen.lock().unwrap().len(), before_images);
     let (status, result) = image_request(picture.clone()).await;
     assert_eq!((status, result["model"].as_str()), (200, Some(model)));
     assert_eq!(result["basis"], picture["basis"]);
@@ -223,7 +224,7 @@ async fn authoring_auth_grounding_and_gateway_use_transient_source() {
         *outcome.lock().unwrap() = (status, output, "stop");
         assert_eq!(image_request(picture.clone()).await.0, expected);
     }
-    assert_eq!(seen.lock().unwrap().len(), 9); // Image failures keep one provider attempt.
+    assert_eq!(seen.lock().unwrap().len(), before_images + 4); // Each image attempts once.
     for suffix in ["", "-wal"] {
         let bytes = std::fs::read(format!("{}{suffix}", path.display())).unwrap_or_default();
         assert!(!String::from_utf8_lossy(&bytes).contains("blue lantern"));
