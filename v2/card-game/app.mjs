@@ -147,7 +147,7 @@ import { openTableSession } from "./table-session.mjs";
 import { createNarrator, requestNarrative, silentLines } from "./narrative.mjs";
 import { signedRequest } from "./signed-words.mjs";
 import { rememberLocalUpgrades, wearLocalUpgrades } from "./scarves.mjs";
-import { coveredText, markWaking } from "./speech-knowledge.mjs";
+import { coveredText, coveredTextReader, markWaking } from "./speech-knowledge.mjs";
 import { packMedia } from "./pack-registry.mjs";
 import { createRoomMusic, openingRevealed } from "./music.mjs";
 import {
@@ -3403,6 +3403,7 @@ function renderFloorItems(items) {
 function renderScene() {
   // Every path to this renderer keeps the source visible until the veil covers it.
   if (covering) return;
+  const visibleText = coveredTextReader(world, cardIsCovered);
   sleepView.observe(world, currentActor(world));
   const view = shownWorld();
   const scene = currentScene(view, null, {
@@ -4471,6 +4472,7 @@ function renderLog(open = $("history-dialog").open) {
     renderedMemory = "";
     return;
   }
+  const visibleText = coveredTextReader(world, cardIsCovered);
   const visits = memoryVisits(shownWorld(), {
     viewer: currentActor(world),
     shared: Boolean(sharedSession),

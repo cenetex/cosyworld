@@ -4,6 +4,7 @@ import { enableMotives } from "../v2/card-game/motives.mjs";
 import { narrativeContext } from "../v2/card-game/narrative.mjs";
 import {
   coveredText,
+  coveredTextReader,
   forgetCovered,
   forgetUnfound,
   inventsItem,
@@ -15,6 +16,15 @@ const fresh = () => enableMotives(createWorld({ opening: true }));
 const visible = ({ concealed, ...context }) => JSON.stringify(context);
 
 describe("speech knows only uncovered cards (#1575)", () => {
+  it("refreshes the text reader for the next revealed-card batch", () => {
+    const s = fresh(), shown = new Set(["vale"]);
+    const covered = (id) => !shown.has(id);
+    const before = coveredTextReader(s, covered);
+    expect(before("Vale took the Lamp.")).toBe("Vale took something.");
+    shown.add("lamp");
+    expect(coveredTextReader(s, covered)("Vale took the Lamp.")).toBe("Vale took the Lamp.");
+    expect(before("Vale took the Lamp.")).toBe("Vale took something.");
+  });
   it("keeps a covered lamp out of Vale's opening request", () => {
     const s = fresh();
     const full = narrativeContext(s);
