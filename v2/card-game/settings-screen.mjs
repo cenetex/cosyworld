@@ -103,11 +103,46 @@ const runs = {
 };
 // The context button is #setting-<card>, then #setting-<card>-1.
 const buttonId = (card, i) => `setting-${card || "close"}${i ? `-${i}` : ""}`;
+let activeWorkspace = null;
+
+export function installSettingsCards({ actionBeat, packs, playHand }) {
+  let tip = 0;
+  const workspace = installCardWorkspace({
+    actionBeat,
+    playHand,
+    label: "Settings",
+    initialGroup: "you",
+    cards: () => settingsCards(readSettings(tip, packs)),
+    describe: settingsBeat,
+    async run(action) {
+      if (action.run === "tip") tip += 1;
+      if (action.run === "pack") packs.play(action.pack, action.enable);
+      if (/^[#[]/.test(action.run)) document.querySelector(action.run).click();
+      else await runs[action.run]?.(action);
+    },
+    onClose: () => $("toolbar-menu-button")?.focus(),
+  });
+  hostedVoices().subscribe(workspace.refresh);
+  return workspace;
+}
 
 // Opening, the play hand's cards fall away and the settings are dealt after
 // a beat (`playHand.leave()` gives when); closing deals the play hand back
 // (`playHand.back()`). Redraws deal only a setting new to the hand.
-export function installSettingsCards({ actionBeat, packs, playHand }) {
+// cards() supplies {id, name, art, lit, state, group?, holder?} records.
+// describe(cards, chosen, armed) supplies {name, info, note?, actions}; run
+// receives the action and {cardId}. Actions may stay selected or ask for a
+// second press through their existing stays and confirm fields.
+export function installCardWorkspace({
+  actionBeat,
+  playHand,
+  cards: readCards,
+  describe,
+  run,
+  onClose = () => {},
+  label = "Settings",
+  initialGroup = null,
+}) {
   const screen = $("settings-screen"),
     hand = $("settings-hand"),
     entries = createCardEntries(),
@@ -118,19 +153,19 @@ export function installSettingsCards({ actionBeat, packs, playHand }) {
     cards = [],
     armed = null,
     problem = "",
-    tip = 0,
     beat = null;
   const changed = () =>
     document.dispatchEvent(new Event("shared-dialog-change"));
   function close() {
-    if (!screen.open) return;
+    if (activeWorkspace !== workspace) return;
+    activeWorkspace = null;
     screen.close();
     entries.draw([]);
     playHand?.back();
     chosen = fanned = armed = null;
     actionBeat.clear(beat);
     changed();
-    $("toolbar-menu-button")?.focus();
+    onClose();
   }
   async function press(action, index) {
     if (action.confirm && armed !== `${chosen}:${index}`) {
@@ -139,27 +174,29 @@ export function installSettingsCards({ actionBeat, packs, playHand }) {
     }
     armed = null;
     problem = "";
+    const cardId = chosen;
     // Playing a setting folds its group back, as a play folds a place;
     // Next tip stays on Controls to show the next tip in place.
     if (!action.stays) chosen = fanned = null;
     if (action.run === "close" || action.closes) close();
-    if (action.run === "tip") tip += 1;
-    if (action.run === "pack") packs.play(action.pack, action.enable);
     try {
-      if (/^[#[]/.test(action.run)) document.querySelector(action.run).click();
-      else await runs[action.run]?.(action);
+      await run(action, { cardId });
     } catch (error) {
       problem = error.message;
     }
-    if (screen.open) render();
+    workspace.refresh();
   }
   // A group opens as a place does, and folds on a second tap; opening
   // another folds the first. A setting is chosen, and unchosen on a second.
   function choose(id) {
     const group = cards.find((c) => c.id === id)?.group;
     if (group) fanned = fanned === id ? null : id;
-    else chosen = chosen === id ? null : id;
-    if (cards.find((c) => c.id === chosen)?.holder !== fanned) chosen = null;
+    else {
+      chosen = chosen === id ? null : id;
+      if (chosen) fanned = cards.find((c) => c.id === chosen)?.holder ?? null;
+    }
+    if ((cards.find((c) => c.id === chosen)?.holder ?? null) !== fanned)
+      chosen = null;
     armed = null;
     problem = "";
     render();
@@ -232,7 +269,7 @@ export function installSettingsCards({ actionBeat, packs, playHand }) {
     return holder;
   }
   function render() {
-    cards = settingsCards(readSettings(tip, packs));
+    cards = readCards();
     if (!cards.some((c) => c.id === chosen)) chosen = null;
     const focused = document.activeElement?.dataset?.setting;
     hand.replaceChildren(...cards.map(frame));
@@ -251,12 +288,13 @@ export function installSettingsCards({ actionBeat, packs, playHand }) {
     );
     lead = 0;
     if (focused) hand.querySelector(`[data-setting="${focused}"]`)?.focus();
-    const view = settingsBeat(cards, chosen, armed),
+    const view = describe(cards, chosen, armed),
       face = cards.find((c) => c.id === chosen);
     beat = {
       cards: face ? [{ src: imageUrl(face.art, "card"), lit: face.lit }] : [],
       name: view.name,
       info: problem || view.info,
+      note: view.note,
       buttons: view.actions.map((a, i) => ({
         ...{ label: a.label, id: buttonId(chosen, i), disabled: a.disabled },
         run: () => press(a, i),
@@ -265,25 +303,30 @@ export function installSettingsCards({ actionBeat, packs, playHand }) {
     actionBeat.show(beat);
   }
   document.addEventListener("keydown", (event) => {
-    if (event.key !== "Escape" || !screen.open) return;
+    if (event.key !== "Escape" || activeWorkspace !== workspace) return;
     event.preventDefault();
     if (chosen) choose(chosen);
     else close();
   });
-  hostedVoices().subscribe(() => screen.open && render());
-  return {
+  const workspace = {
     open() {
+      if (activeWorkspace !== workspace) activeWorkspace?.close();
+      activeWorkspace = workspace;
       if (!screen.open) {
         lead = playHand?.leave() ?? 0;
         screen.show();
       }
-      // You opens fanned, so Privacy is one tap away.
-      fanned = "you";
+      screen.setAttribute("aria-label", label);
+      fanned = initialGroup;
       showVeil();
       changed();
       render();
       hand.querySelector(".card")?.focus();
     },
     close,
+    refresh() {
+      if (activeWorkspace === workspace) render();
+    },
   };
+  return workspace;
 }

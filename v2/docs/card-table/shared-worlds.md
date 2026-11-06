@@ -50,14 +50,9 @@ Moving an avatar to another world waits for its current scene to finish.
 Its seat, level, and experience stay together while it waits. The next move
 carries its level and experience to the chosen world in one saved transaction.
 
-A card presentation or open dialog pauses that viewer's speech clock. Closing
-it resumes the same line. The live portrait follows the room's common clock;
-selecting it catches up immediately. A new play by that viewer starts a fresh reading clock. Incoming scenes wait
-for that viewer's current scene and then play in order. A late update can bring
-several scenes together; each receives its own reading time. The same rule
-applies when the reader first sees replies in an empty room. Entering a room,
-selecting the live portrait, or losing an old scene from the bounded history
-joins the room's latest scene.
+An open dialog pauses the text and voice. Each reader advances through the
+room’s published lines in order. The live control returns to that reader’s
+current line after they look back through the stack.
 
 Each accepted play advances the existing world clock. Lamp fuel, temporary
 sounds, and crossing sequences keep their current turn rules for everyone.
@@ -422,8 +417,8 @@ and their reading times so people in the room see the same exchange. The
 Memory panel shows the beats this player witnessed, newest visit first.
 
 Shared lines reveal letter by letter with the same voice sounds as solo play.
-Each line arrives in front of the [beat stack](dialogue-beats.md) on the room's
-reading clock. Tapping the card behind steps back; ● live, which shows only
+Tap the front of the [beat stack](dialogue-beats.md) to finish a line or
+advance to the next one. Tapping the card behind steps back; ● live, which shows only
 while behind, counts the newer beats and returns. The voice setting and
 reduced-motion setting apply to shared play. A thinking animation marks speech
 preparation. The hand, avatars, and held props use the same presented world

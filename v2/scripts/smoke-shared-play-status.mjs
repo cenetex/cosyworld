@@ -70,6 +70,12 @@ async function check(width) {
     isMobile: width === 390,
     hasTouch: width === 390,
   });
+  await page.addInitScript(() =>
+    localStorage.setItem(
+      "cosyworld.reflected-shore.v1.shared.status.vale.seen",
+      JSON.stringify(["vale", "station"]),
+    ),
+  );
   page.on("pageerror", (error) => errors.push(error.message));
   await page.route("**/auth/account", (route) =>
     route.fulfill({ json: { authenticated: true } }),
@@ -160,7 +166,7 @@ async function check(width) {
       await selectCard(page, "vale", { touch: width === 390 });
       await selectCard(page, "vale", { touch: width === 390 });
     }
-    assert.equal(await wait.innerText(), "Wait");
+    assert.equal(await wait.getAttribute("aria-label"), "Wait");
   };
   try {
     await page.goto(`${origin}/?world=status`);

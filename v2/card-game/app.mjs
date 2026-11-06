@@ -126,10 +126,10 @@ import {
 } from "./combat-view.mjs";
 import { expressionLabel, expressionOf } from "./expression.mjs";
 import {
-  createSharedPlaybackClock,
   installSharedControls,
   renderRoomStatus,
   sharedLiveLine,
+  sharedNextLine,
   sharedSilentLines,
   sharedSpeechState,
   sharedVoiceReference,
@@ -168,12 +168,14 @@ import {
   createTextReveal,
   createRevealPainter,
   letterSpans,
+  splitLetters,
   createSpeechSounds,
   createExchange,
   createPlayQueue,
   afterDeadline,
   waitForScene,
 } from "./dialogue.mjs";
+import { dropCost } from "./want.mjs";
 import { nameLetters, namedText } from "./card-names.mjs";
 import {
   currentActor,
@@ -232,7 +234,6 @@ const {
   sharedSession,
   saveKey: SAVE_KEY,
 } = await openTableSession(window.location.href);
-const sharedPlayback = createSharedPlaybackClock();
 // A new local world: Vale wakes in the attic, the only avatar played locally
 // (#1892). Its travelers wear the local passkey's cosmetic upgrades (#1873).
 const freshWorld = () =>
@@ -521,8 +522,10 @@ if (localBackups) {
 // Effect captions being written onto a card (inscribe()), with their pens.
 const inscribing = new Map();
 let shownCaptions = { key: null, count: 0 };
-// Whether a shared room line has shown since this page opened.
-let sharedLineSeen = false;
+// Each shared reader keeps their own place in the room’s dialogue.
+let sharedLineSeq = null;
+let sharedAdvanceRequested = false;
+let sharedLineStart = null;
 let storyStatus = "ready",
   renderedCast = "",
   renderedHand = "",
@@ -543,10 +546,7 @@ let storyStatus = "ready",
   announcedBeat = null,
   frontCaptions = [],
   pendingSpeaker = null,
-  // This play's speakers in order, and those whose lines have been shown.
-  sceneSpeakers = [],
-  shownSpeakers = [],
-  awaitingNext = false;
+  sceneSpeakers = [];
 // Release the hand if words are still on the way after this. A new play
 // replaces the request, and words that arrive still play.
 const HAND_WAIT = 2500;
@@ -636,7 +636,7 @@ const playQueue = createPlayQueue({
   ready: (action) =>
     !cardsCooling &&
     performance.now() >= swapEnd &&
-    (action.kind === "focus" || !localWordsPending()) &&
+    (action.kind === "focus" || (!localWordsPending() && !exchange.current)) &&
     reveal.complete &&
     (!sharedSession ||
       (!sharedSending &&
@@ -693,41 +693,20 @@ const exchange = createExchange({
   prepare: prepareScene,
   show: (line) => {
     pendingSpeaker = null;
-    awaitingNext = false;
     const speakerId = line.entityId || line.actorId;
     // An unrevealed person who speaks is revealed with the line, there at
     // once so the words never wait on a fade.
     if (people[speakerId] && cardIsCovered(speakerId))
       uncover(speakerId, { fade: false });
-    if (speakerId && !shownSpeakers.includes(speakerId))
-      shownSpeakers.push(speakerId);
     lineSeq = line.seq;
     // The stack brings the new beat in front as it renders. A player who
     // stepped back stays there: the line raises the live count and types
     // when they return (#2017).
     renderScene();
   },
-  settled: () => {
-    renderScene();
-  },
-  waiting: () => {
-    const next = nextSpeaker(world, {
-      speakers: sceneSpeakers,
-      shown: shownSpeakers,
-    });
-    if (!next) return;
-    pendingSpeaker = next;
-    awaitingNext = true;
-    renderScene();
-  },
-  transition: (previous, next) => {
-    if (reducedMotion.matches) return;
-    const version = trip;
-    // The finished beat recedes behind the next one instead of fading out.
-    return waitForScene([...exits.values()]).then(() => {
-      if (version !== trip || !exchange.active || !next) return;
-    });
-  },
+  // Let a departing speaker finish moving before their reply steps back.
+  transition: () =>
+    reducedMotion.matches ? undefined : waitForScene([...exits.values()]),
   busy: (value) => {
     clearTimeout(handTimer);
     cardsCooling = value;
@@ -737,7 +716,6 @@ const exchange = createExchange({
     // A failed request releases the hand as well.
     if (!value) {
       pendingSpeaker = null;
-      awaitingNext = false;
       renderScene();
       queueMicrotask(() => {
         if (availableCards(world).some((id) => !encountered.has(id)))
@@ -788,9 +766,7 @@ function finishSpokenLine() {
     line.seq === shownSceneLine?.seq &&
     !characterSpeech.busy
   )
-    exchange.revealed(line.seq, line.text, line.instant);
-  // A chosen play waits for no reading pause.
-  if (playQueue.pending) exchange.advance();
+    exchange.revealed(line.seq);
 }
 const characterSpeech = createCharacterSpeech({
   changed: ({ state, message }) => {
@@ -835,23 +811,26 @@ function measureSpeech() {
 }
 new ResizeObserver(measureSpeech).observe($("dialogue-text"));
 function updateSpeechControls(complete) {
-  const forward = reviewing || Boolean(exchange.current);
+  const waiting =
+    exchange.waiting || (sharedAdvanceRequested && storyStatus === "pending");
+  const sharedForward =
+    sharedSession && shownSceneLine && (!sharedAdvanceRequested || waiting);
+  const forward = reviewing || exchange.hasNext || sharedForward;
   $("dialogue-advance").dataset.revealing = String(!complete);
   $("dialogue-advance").setAttribute(
     "aria-label",
     complete
       ? reviewing
         ? "Step forward to a later beat"
-        : exchange.current
+        : forward
           ? "Continue to the next beat"
           : "The latest beat"
       : "Reveal the full line",
   );
-  $("speech-hint").textContent = complete
-    ? forward
-      ? "Continue"
-      : ""
-    : "Tap to reveal";
+  $("speech-hint").hidden = !complete || !forward || !shownSceneLine;
+  $("speech-hint").textContent = waiting
+    ? "Waiting for the next line…"
+    : "Continue";
 }
 const speechPainter = createRevealPainter($("dialogue-text"), { rest: true });
 // A wake plays on the table: dusk or dawn through a held black, and a level
@@ -869,6 +848,37 @@ const sleepView = createSleepView({
   },
   dealQuests: () => showQuests(false),
 });
+let actionMessage;
+const actionReveal = createTextReveal({
+  reduced: () => reducedMotion.matches,
+  frame(value) {
+    actionMessage.frame = value;
+    actionMessage.painter.paint(value);
+  },
+});
+function writeActionMessage(root, text, key, name) {
+  if (!text) {
+    actionReveal.cancel();
+    actionMessage = null;
+    delete root.dataset.revealing;
+    root.textContent = "";
+    return;
+  }
+  const frame = actionMessage?.frame;
+  if (actionMessage?.root === root && frame?.key === key) return;
+  const glyphs = letterSpans(text);
+  root.replaceChildren(...glyphs);
+  if (text.startsWith(`${name} `)) {
+    const speaker = node("strong");
+    root.prepend(speaker);
+    speaker.append(...glyphs.slice(0, splitLetters(name).length));
+  }
+  const painter = createRevealPainter(root);
+  painter.start(glyphs);
+  actionMessage = { root, painter, frame };
+  if (frame?.key === key) painter.paint(frame);
+  else actionReveal.show(key, text, currentActor(world));
+}
 const reveal = createTextReveal({
   reduced: () => reducedMotion.matches,
   sound: (...args) => {
@@ -940,13 +950,16 @@ const reveal = createTextReveal({
       if (completedSpeech.size > 100)
         completedSpeech.delete(completedSpeech.values().next().value);
       completedSpokenLine = { ...value, seq: shownSceneLine?.seq };
-      finishSpokenLine();
-      queueMicrotask(() => playQueue.flush());
+      queueMicrotask(() => {
+        finishSpokenLine();
+        playQueue.flush();
+      });
     }
   },
 });
 reducedMotion.addEventListener("change", () => {
   if (reducedMotion.matches) {
+    actionReveal.finish();
     reveal.finish();
     speechSounds.stop();
     for (const motion of handMotions.values()) motion.finish();
@@ -956,20 +969,14 @@ function syncSpeechPlayback() {
   const paused =
     document.hidden ||
     Boolean(document.querySelector("dialog[open], .world-menu:popover-open"));
-  if (sharedSession)
-    sharedPlayback.now(
-      sharedSession.state,
-      sharedSession.now(),
-      world.actors[currentActor(world)].place,
-      paused || (reveal.complete && characterSpeech.busy),
-    );
   reveal.pause(paused);
   characterSpeech.pause(paused);
-  exchange.pause(paused || characterSpeech.busy);
+  exchange.pause(paused || reviewing || characterSpeech.busy);
   return paused;
 }
 function pauseSpeech() {
   const paused = syncSpeechPlayback();
+  actionReveal.pause(paused || reviewing);
   for (const animation of [
     ...$("cast").getAnimations({ subtree: true }),
     ...$("speech-row").getAnimations(),
@@ -1212,9 +1219,7 @@ const narrator = createNarrator({
     sceneSpeakers = context.speakers.filter(
       (id) => world.actors[id]?.place === context.location,
     );
-    shownSpeakers = [];
     silence = { turn: -1, lines: [] };
-    awaitingNext = false;
     pendingSpeaker = nextSpeaker(world, { speakers: sceneSpeakers });
     renderScene();
   },
@@ -1528,6 +1533,7 @@ function opening() {
 }
 function choose(id) {
   if (finishCardReveal(id) || selectionBlocked()) return;
+  if (reviewing) returnToLive();
   // A locked box is chosen, not uncovered: it opens with its quest.
   if (cardIsCovered(id) && !isLockedBox(world, id)) {
     uncover(id);
@@ -1633,7 +1639,6 @@ function commitAction(action, revision, renderedAt = -Infinity) {
   // A new play earns its own grace before the hand returns.
   thinkingSince = null;
   playQueue.submit(action, revision);
-  if (playQueue.pending) exchange.advance();
 }
 function performAction(action, revision) {
   if (saveBlocked || sharedSession) return;
@@ -2182,12 +2187,28 @@ function presentPhase() {
   });
 }
 function syncPhase() {
+  if (reviewing && abandonQuest) {
+    abandonQuest = null;
+    renderActions();
+  }
+  actionReveal.pause(
+    reviewing ||
+      document.hidden ||
+      Boolean(document.querySelector("dialog[open], .world-menu:popover-open")),
+  );
   if (presentPhase() !== shownPhase) renderActions();
+  else syncActionBeat();
 }
 // The server's reason for refusing this play, while its cards stay chosen
 // and the world has not moved on.
 const refusedPlay = (action) =>
   sharedRefusal?.key === action.key ? sharedRefusal.reason : "";
+let abandonQuest = null;
+function cancelAbandon() {
+  abandonQuest = null;
+  renderActions();
+  $("card-actions").querySelector("[data-drop-quest]")?.focus();
+}
 function renderActions() {
   const row = $("card-actions");
   if (
@@ -2249,11 +2270,6 @@ function renderActions() {
     .reduce((top, tier) => (tier.rank > top.rank ? tier : top), levelTier(0));
   $("action-beat").dataset.tier = rarest.id;
   $("action-beat").style.setProperty("--tier-color", rarest.color);
-  heading.lastElementChild.replaceChildren(
-    ...(sentence.startsWith(`${name} `)
-      ? [node("strong", name), sentence.slice(name.length)]
-      : [sentence]),
-  );
   // A folded row lies low even with a choice in it.
   document.querySelector(".play-dock").dataset.selected = String(
     selected.length > 0 && !rowCollapsed,
@@ -2263,7 +2279,10 @@ function renderActions() {
     dragging.length > 0 || !rowCollapsed || $("settings-screen").open,
   );
   syncLayering();
-  if (borrowedBeat) return showBorrowedBeat(row, heading);
+  if (borrowedBeat) {
+    writeActionMessage(heading.lastElementChild, "");
+    return showBorrowedBeat(row, heading);
+  }
   const revision = world.revision;
   const nudgeTarget =
     !rested &&
@@ -2332,22 +2351,31 @@ function renderActions() {
     : next?.action
       ? [next.action]
       : [];
-  // One context button each: the step's plays, or its reason (disabled),
-  // then Discard.
-  const questButtons = [
-    ...steps.map((action) => ({
-      action,
-      label:
-        action.kind === "move"
-          ? `Travel to ${nameOf(action.target)}`
-          : playLabel(action, world),
-    })),
-    ...(next?.reason ? [{ action: null, label: next.reason }] : []),
-    ...legal
-      .filter((a) => a.kind === "drop" && !a.item && a.quest === 0)
-      .map((action) => ({ action, label: playLabel(action, world) })),
-  ];
-  for (const { action, label } of questButtons) {
+  const step = steps[0];
+  const drop =
+    !step && legal.find((a) => a.kind === "drop" && !a.item && a.quest === 0);
+  const confirmKey = drop ? `${revision}:${picked.key}` : null;
+  if (abandonQuest !== confirmKey) abandonQuest = null;
+  const dropLabel = drop && playLabel(drop, world);
+  const questButtons = abandonQuest
+    ? [
+        { action: drop, label: "Confirm?" },
+        { action: null, label: "Cancel", cancel: true },
+      ]
+    : step
+      ? [
+          {
+            action: step,
+            label:
+              step.kind === "move"
+                ? `Travel to ${nameOf(step.target)}`
+                : playLabel(step, world),
+          },
+        ]
+      : drop
+        ? [{ action: drop, label: dropLabel }]
+        : [];
+  for (const { action, label, cancel } of questButtons) {
     const discard = action?.kind === "drop",
       button = node(
         "button",
@@ -2355,21 +2383,27 @@ function renderActions() {
         action && !discard ? "card-primary" : "card-action",
       );
     button.type = "button";
+    if (cancel) {
+      button.onclick = cancelAbandon;
+      row.append(button);
+      continue;
+    }
     if (discard) {
       button.dataset.dropQuest = String(picked.index);
       button.dataset.destructive = "";
     } else button.dataset.questStep = "";
-    if (!action) {
-      button.disabled = true;
-      button.dataset.blocked = "quest";
-      button.title = label;
-      row.append(button);
-      continue;
-    }
     if (!discard) button.dataset.action = action.kind;
-    button.title = discard ? "Give up this quest" : playText(action);
+    button.title =
+      discard && questCovered(picked) ? "Abandon this quest" : playText(action);
     button.disabled = selectionBlocked();
     button.onclick = () => {
+      if (discard && !abandonQuest) {
+        abandonQuest = confirmKey;
+        renderActions();
+        row.lastElementChild?.focus();
+        return;
+      }
+      abandonQuest = null;
       questOpen = false;
       questPick = 0;
       commitAction(action, revision);
@@ -2424,9 +2458,40 @@ function renderActions() {
     blocked.title = reason;
     row.append(blocked);
   }
+  let message = heading.lastElementChild;
+  const only = actions.length === 1 ? actions[0] : null;
+  if (
+    only?.kind === "wait" &&
+    !only.sleep &&
+    !only.guards &&
+    !only.label &&
+    !refusedPlay(only) &&
+    !world.actors[actor].sleeping &&
+    row.childElementCount === 1
+  ) {
+    const button = row.firstElementChild;
+    button.dataset.waitSentence = "";
+    button.setAttribute("aria-label", button.textContent);
+    message = button;
+    heading.hidden = true;
+  }
   const note = document.querySelector(".action-beat-note");
-  note.textContent = "";
-  note.hidden = true;
+  note.textContent = next?.reason || "";
+  note.hidden = !next?.reason;
+  if (abandonQuest) {
+    const panel = $("action-beat");
+    panel.dataset.tier = "danger";
+    panel.style.setProperty("--tier-color", "var(--danger)");
+    note.textContent = `${shownQuestCaption(picked)}. Cost ${dropCost(world, actor, picked.index)} XP.`;
+    note.hidden = false;
+  }
+  const text = abandonQuest ? "Abandon this quest?" : sentence;
+  writeActionMessage(
+    message,
+    text,
+    JSON.stringify([choiceKey(), picked?.key, text]),
+    name,
+  );
   delete $("action-beat").dataset.avatar;
   // A refused play whose cards are no longer chosen says so on the status
   // line, briefly, as its button would.
@@ -2450,6 +2515,26 @@ function renderActions() {
       ? shownQuestCaption(shownQuests[questPick] || sealedQuests[0])
       : "";
 }
+$("action-beat").addEventListener(
+  "click",
+  (event) => {
+    const button = event.target.closest("button");
+    if (
+      borrowedBeat ||
+      !actionMessage ||
+      (button && !button.hasAttribute("data-wait-sentence"))
+    )
+      return;
+    if (!actionReveal.complete) {
+      event.stopPropagation();
+      actionReveal.finish();
+      return;
+    }
+    if (!button && !abandonQuest)
+      $("card-actions").querySelector(".card-primary:enabled")?.click();
+  },
+  true,
+);
 function updateCardSelection(frame) {
   if (frame.dataset.want) {
     const entry = questEntry(frame.dataset.questId);
@@ -2954,6 +3039,7 @@ function questFrame({ id, quest, met }) {
 // turn; the fan stays open on it while the play settles.
 function pickQuest(quest) {
   if (selectionBlocked()) return;
+  if (reviewing) returnToLive();
   const focus = legalActions(world).find(
     (a) => a.kind === "focus" && a.quest === quest.index,
   );
@@ -3159,11 +3245,10 @@ function leaveFigure(figure, remove = false) {
   exits.set(figure, task);
 }
 function returnToLive() {
-  sharedPlayback.reset();
   reviewing = false;
   reviewBeat = null;
-  lineSeq = null;
-  sharedLineKey = "";
+  lineSeq = sharedSession ? sharedLineSeq : (exchange.current?.seq ?? null);
+  syncSpeechPlayback();
   syncSharedLine();
   renderScene();
   if (!$("dialogue-advance").hidden) $("dialogue-advance").focus();
@@ -3531,15 +3616,9 @@ function renderScene() {
       : pendingSpeaker;
   const shared = Boolean(sharedSession);
   const viewer = currentActor(world);
-  const sharedLive = sharedSession
-    ? sharedLiveLine(sharedSession.state, sharedSession.now(), scene.locationId)
-    : null;
-  // Speech the exchange or the room's reading clock has not reached stays
-  // unseen; a beat arrives in front when its line is shown.
+  // Only show shared lines this reader has reached.
   const liveThrough = sharedSession
-    ? reviewing
-      ? (sharedLive?.seq ?? Infinity)
-      : (lineSeq ?? Infinity)
+    ? (sharedLineSeq ?? sharedLineStart ?? -Infinity)
     : exchange.active
       ? (exchange.current?.seq ?? -Infinity)
       : Infinity;
@@ -3561,16 +3640,9 @@ function renderScene() {
     );
   const hiddenAction = (entry) => moreToRead && entry.turn > shownTurn;
   const waiting = sharedSession
-    ? sharedSpeech.status === "pending" &&
-      !(
-        scene.line &&
-        scene.line.turn === world.turn &&
-        scene.line.seq <= liveThrough
-      )
+    ? sharedSpeech.status === "pending" && sharedLineSeq === null
     : Boolean(
-        exchange.preparing ||
-          awaitingNext ||
-          (storyStatus === "pending" && !exchange.current),
+        exchange.preparing || (storyStatus === "pending" && !exchange.current),
       );
   const scened = sceneBeats(view, {
     viewer,
@@ -3583,9 +3655,7 @@ function renderScene() {
   // are read: a line being written stays in front.
   const last = scened.findLast((beat) => beat.line)?.line;
   const lineFirst = sharedSession
-    ? moreToRead ||
-      (last?.seq === lineSeq &&
-        !completedSpeech.has(lineKey(last, scene.locationId)))
+    ? moreToRead || (last?.seq === sharedLineSeq && !sharedAdvanceRequested)
     : Boolean(exchange.current) && (!exchange.read || exchange.hasNext);
   const own = ownPlayInFlight();
   const stack = withPending(scened, {
@@ -3619,7 +3689,7 @@ function renderScene() {
   const front =
     frontIndex === beats.length ? pendingCard : beats[frontIndex] || null;
   const behind = frontIndex > 0 ? beats[frontIndex - 1] : null;
-  const behindLive = reviewing && frontIndex < liveIndex;
+  const behindLive = reviewing && (frontIndex < liveIndex || choiceInStack());
   stackView = { beats, frontIndex, liveIndex, pending: pendingCard };
   // A new front beat moves the stack: forward when it is later, back when
   // earlier. Measured before the cards change.
@@ -3840,19 +3910,6 @@ function renderScene() {
       `Step back to ${summary.speaker}: ${summary.speech || behind.actions.at(-1)?.text || ""}`,
     );
   }
-  // One live control, only while behind live, counting the newer beats.
-  const newer = Math.max(0, liveIndex - frontIndex);
-  const liveButton = $("live-line");
-  liveButton.hidden = !behindLive;
-  liveButton.dataset.live = String(!behindLive);
-  liveButton.querySelector(".beat-live-count").textContent = newer
-    ? ` · ${newer}`
-    : "";
-  liveButton.title = newer
-    ? `Return to live dialogue · ${newer} newer`
-    : "Return to live dialogue";
-  liveButton.setAttribute("aria-label", liveButton.title);
-  liveButton.onclick = returnToLive;
   if (sharedSession) renderRoomStatus(sharedSession);
   animateStack(direction, ghost);
   syncPhase();
@@ -3974,16 +4031,78 @@ function syncDialogueShown() {
     $("speech-row").hidden && document.querySelector(".action-panel").hidden;
   syncLayering();
 }
+function choiceInStack() {
+  return (
+    !borrowedBeat &&
+    shownPhase === "choosing" &&
+    $("card-actions").childElementCount > 0
+  );
+}
+function choiceInFront() {
+  return choiceInStack() && !reviewing && !$("action-beat").hidden;
+}
+function syncLiveBeat() {
+  const { liveIndex, frontIndex } = stackView;
+  // One live control, only while behind live, counting the newer beats.
+  const newer = Math.max(0, liveIndex + Number(choiceInStack()) - frontIndex);
+  const liveButton = $("live-line");
+  liveButton.hidden = !reviewing || !newer;
+  liveButton.dataset.live = String(liveButton.hidden);
+  liveButton.querySelector(".beat-live-count").textContent = newer
+    ? ` · ${newer}`
+    : "";
+  liveButton.title = newer
+    ? `Return to live dialogue · ${newer} newer`
+    : "Return to live dialogue";
+  liveButton.setAttribute("aria-label", liveButton.title);
+}
+function showLiveChoice() {
+  returnToLive();
+  renderActions();
+  if (choiceInStack())
+    $("card-actions").querySelector("button:enabled")?.focus();
+}
+$("live-line").onclick = showLiveChoice;
+document.querySelector(".dialogue").addEventListener(
+  "click",
+  (event) => {
+    if (!choiceInFront() || !event.target.closest("#speech-row")) return;
+    event.stopPropagation();
+    stepBack();
+  },
+  true,
+);
+// A tall action can reach above the stack's fixed box. Keep the previous
+// card one peek above the action's actual top so it can still take taps.
+function placePreviousBeat() {
+  const panel = $("action-beat"),
+    front = $("speech-row");
+  front.style.removeProperty("--beat-slot");
+  if (panel.hidden || front.hidden) return;
+  const overlap = front.offsetTop - panel.offsetTop;
+  if (overlap > 0)
+    front.style.setProperty(
+      "--beat-slot",
+      `translateY(calc(-1 * var(--beat-peek) - ${overlap}px)) scale(var(--beat-behind-scale))`,
+    );
+}
+new ResizeObserver(placePreviousBeat).observe($("action-beat"));
 function syncActionBeat() {
   const panel = document.querySelector(".action-panel"),
     front = $("speech-row"),
     show =
       Boolean(borrowedBeat) ||
-      $("card-actions").children.length > 0 ||
+      ($("card-actions").childElementCount > 0 && !reviewing) ||
       (!$("play-status").hidden && shownPhase !== "revealing");
-  if (panel.hidden !== show) return;
   // A notice before the first render (storage refused) only shows the beat.
   const drawn = Boolean(document.body.dataset.handExpanded);
+  if (drawn) {
+    syncLiveBeat();
+    if (show && choiceInStack())
+      $("dialogue-advance").setAttribute("aria-label", "Step back in dialogue");
+    else if (!panel.hidden) updateSpeechControls(reveal.complete);
+  }
+  if (panel.hidden !== show) return;
   if (!drawn) {
     panel.hidden = !show;
     panel.parentElement.dataset.action = String(show);
@@ -4006,6 +4125,7 @@ function syncActionBeat() {
   panel.hidden = !show;
   panel.parentElement.dataset.action = String(show);
   syncDialogueShown();
+  placePreviousBeat();
   if (!moves) return;
   if (still) return fadeGhost(ghost, {}, STACK_FADE_MS);
   playMotion(panel, show ? "arrive" : null);
@@ -4080,20 +4200,27 @@ function animateStack(direction, ghost) {
   fadeGhost(ghost.front, { transform: nearer }, STACK_LEAVE_MS);
 }
 function stepBack() {
-  const beat = stackView.beats[stackView.frontIndex - 1];
+  const { beats, frontIndex } = stackView;
+  const beat =
+    beats[Math.min(beats.length - 1, frontIndex - Number(!choiceInFront()))];
   if (!beat) return false;
   count("scrollback.open");
   reviewing = true;
+  syncSpeechPlayback();
   reviewBeat = beat.key;
   if (beat.line) lineSeq = beat.line.seq;
   renderScene();
   return true;
 }
 function stepForward() {
-  if (!reviewing || stackView.frontIndex >= stackView.liveIndex) return false;
+  if (!reviewing) return false;
   const next = stackView.frontIndex + 1;
-  if (next >= stackView.liveIndex) {
-    returnToLive();
+  if (
+    next > stackView.liveIndex ||
+    (next === stackView.liveIndex &&
+      (!choiceInStack() || !stackView.beats[next]))
+  ) {
+    showLiveChoice();
     return true;
   }
   const beat = stackView.beats[next];
@@ -4112,15 +4239,19 @@ function advanceFront() {
     return;
   }
   if (stepForward()) return;
-  if (exchange.current) {
+  if (exchange.current || (sharedSession && shownSceneLine)) {
+    if (exchange.waiting || sharedAdvanceRequested) return;
     count("line.skip");
     characterSpeech.stop();
     syncSpeechPlayback();
     finishSpokenLine();
-    exchange.advance();
+    if (sharedSession) {
+      sharedAdvanceRequested = true;
+      syncSharedLine();
+    } else exchange.advance();
+    updateSpeechControls(reveal.complete);
   }
 }
-$("dialogue-advance").onclick = advanceFront;
 $("speech-row").addEventListener(
   "click",
   (event) => {
@@ -4143,7 +4274,7 @@ $("beat-behind").onclick = () => {
   if (inscribing.size) finishInscribing();
   else stepBack();
 };
-// A tap anywhere on a typing card, portrait and name included, finishes it.
+// The portrait, name and words share the same advance control.
 $("speech-row").addEventListener(
   "click",
   (event) => {
@@ -4151,9 +4282,7 @@ $("speech-row").addEventListener(
       event.stopPropagation();
       return finishInscribing();
     }
-    if (reveal.complete || $("dialogue-text").hidden) return;
     if (event.target.closest("#voice-retry")) return;
-    event.stopPropagation();
     advanceFront();
   },
   true,
@@ -4841,6 +4970,15 @@ for (const zone of [$("stage"), document.querySelector(".dialogue")]) {
   });
 }
 document.addEventListener("keydown", (e) => {
+  if (
+    e.key === "Escape" &&
+    abandonQuest &&
+    !$("action-beat").hidden &&
+    !document.querySelector("dialog[open], .world-menu:popover-open")
+  ) {
+    cancelAbandon();
+    return;
+  }
   if (e.key === "Escape" && thinkingArmed) {
     disarmThinking();
     return;
@@ -5205,7 +5343,6 @@ function withdrawSharedPlay(key) {
     .command({ op: "cancel", key })
     .catch((error) => notice(error.message));
 }
-let sharedLineKey = "";
 let sharedWorldKey = "";
 let sharedNudgeKey = "";
 function sharedWorld(value) {
@@ -5233,7 +5370,14 @@ async function submitSharedPlay(action) {
   }
   const selection = JSON.stringify(selected);
   const heldBefore = heldSelection();
-  sharedPlayback.reset();
+  if (
+    !sharedNextLine(
+      sharedSession.state,
+      world.actors[currentActor(world)].place,
+      sharedLineSeq,
+    )
+  )
+    sharedAdvanceRequested = true;
   sharedSending = true;
   sharedPlay = {
     key: crypto.randomUUID(),
@@ -5250,6 +5394,7 @@ async function submitSharedPlay(action) {
       keepHeldSelection(heldBefore, current);
       reviewing = false;
       reviewBeat = null;
+      lineSeq = sharedLineSeq;
     }
     if (sharedPlay) {
       sharedPlay.state = "accepted";
@@ -5272,42 +5417,34 @@ function syncSharedLine() {
   // A viewer hears the room once they have uncovered themselves and it.
   if (!selfKnown()) return;
   const room = world.actors[currentActor(world)].place;
-  const playbackTime = sharedPlayback.now(
-    sharedSession.state,
-    sharedSession.now(),
-    room,
-    document.hidden ||
-      (reveal.complete && characterSpeech.busy) ||
-      Boolean(document.querySelector("dialog[open], .world-menu:popover-open")),
-  );
-  const live = sharedLiveLine(sharedSession.state, playbackTime, room);
-  if (!live) return;
-  // A long spoken line can outlast the room's normal reading interval.
   if (
-    characterSpeech.busy &&
-    (live.seq
-      ? live.seq !== shownSceneLine?.seq
-      : live.text !== shownSceneLine?.text)
-  ) {
-    sharedPlayback.now(sharedSession.state, sharedSession.now(), room, true);
+    document.hidden ||
+    document.querySelector("dialog[open], .world-menu:popover-open")
+  )
     return;
-  }
+  if (sharedLineSeq !== null && !sharedAdvanceRequested) return;
+  const after = sharedLineSeq ?? sharedLineStart;
+  const live =
+    after === null
+      ? sharedLiveLine(sharedSession.state, sharedSession.now(), room)
+      : sharedNextLine(sharedSession.state, room, after);
+  sharedLineStart ??= -Infinity;
+  if (!live && after !== null) return;
   const entry = shownWorld().log.findLast(
     (entry) =>
       entry.generated &&
       entry.locationId === room &&
-      (live.seq
+      (live?.seq
         ? entry.seq === live.seq
-        : entry.text === live.text && entry.speaker === live.speaker),
+        : live
+          ? entry.text === live.text && entry.speaker === live.speaker
+          : entry.kind === "dialogue"),
   );
-  // A reader can advance ahead of the clock. Keep that line until it catches up.
-  if (!entry || (lineSeq !== null && entry.seq < lineSeq)) return;
-  const key = `${room}:${entry.seq}`;
-  if (key === sharedLineKey) return;
-  // The room's line when this page opens began before it: it shows whole.
-  if (!sharedLineSeen) completedSpeech.add(lineKey(entry, room));
-  sharedLineSeen = true;
-  sharedLineKey = key;
+  if (!entry) return;
+  // A line that was already in the room on open shows whole.
+  if (after === null) completedSpeech.add(lineKey(entry, room));
+  sharedLineSeq = entry.seq;
+  sharedAdvanceRequested = false;
   lineSeq = entry.seq;
   storyStatus = "ready";
   renderScene();
@@ -5320,6 +5457,7 @@ function adoptShared(value) {
   const key = JSON.stringify([value.world, value.present, value.claimed]);
   if (key !== sharedWorldKey) {
     const from = world.actors[currentActor(world)].place;
+    const before = lastSeq(world);
     const next = sharedWorld(value);
     const alreadyOpen = Boolean(sharedWorldKey);
     // A table that is already open shows the standoff beats it receives.
@@ -5357,7 +5495,9 @@ function adoptShared(value) {
     if (moved) {
       cancelTravel();
       reviewing = false;
-      sharedLineKey = "";
+      sharedLineSeq = null;
+      sharedLineStart = before;
+      sharedAdvanceRequested = false;
       lineSeq = null;
     }
     const land = (done = () => {}) => {

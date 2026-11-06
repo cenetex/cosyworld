@@ -156,13 +156,14 @@ tinting the whole segment on hover, focus and press, with a focus ring for
 the keyboard. Where the row is too narrow the buttons wrap into a strip
 along the foot under the same divider; the fixed box over the hand on a
 phone keeps them on the right and wraps their words instead. ☰ borrows the
-same beat for a chosen avatar ([avatar menu](avatar-menu.md)). The spoken beat settles behind it as one dimmed line: the card behind. With
-a card chosen the player still steps through the stack: use ↑ and ↓ (from
-the hand too), the wheel or a swipe anywhere on the stack, and "● live"
-returns. The line crossfades as it steps. A tap on the dimmed line
-moves the lines on; it never steps back. Nothing steps back in time without
-the player's input. The action beat shows only while choosing
-([what is in front](#what-is-in-front)).
+same beat for a chosen avatar ([avatar menu](avatar-menu.md)). The previous spoken beat peeks
+out above the ready action. Tap it to bring it forward. The cards stay chosen
+and ● live returns to their action. The arrow keys, wheel and swipes also
+step through the stack.
+
+When Wait is the only plain play on offer, its sentence is the button label.
+Tap anywhere on that action beat to wait one turn. The button also works with
+Enter or Space.
 
 When a play commits, its box folds into the stream: it eases down onto the
 front card, the beat the play became (its caption line, or the Thinking card
@@ -178,10 +179,10 @@ play resuming on the server, or a local play awaiting its words) stays saved:
 its caption shows with no line, never "undone". Once a
 play commits (a local play, or a shared play the room is playing) the beat
 leaves and its reply types into the full-size front card. After a play the
-beat rests until the player chooses a card or taps the raised hand. Choosing a quest in the open fan takes no
-turn, so it does not rest the beat: the chosen top quest still offers Drop
-quest. A shared play the server refused or did not
-confirm brings the beat back with its button, so the player can try again.
+beat rests until the player chooses a card or taps the raised hand. The top
+quest offers its next playable step. A blocked quest explains why and offers
+Abandon. Abandon opens a red confirmation in the same box. A shared play the
+server refuses brings back the action with its button.
 The hand never moves for it.
 
 Combat keeps its stage animations. Each fighter's step also becomes a beat as
@@ -203,7 +204,8 @@ One phase decides what the dialogue box shows (`phase()` in
 
 The action beat shows while choosing. Choosing cards brings their action
 forward while speech keeps writing behind it. The same rule applies to a shared
-refusal. A tap on the spoken card finishes its current line.
+refusal. Tap anywhere on the spoken card to finish its text, then tap again to
+advance. The line stays visible while the next reply is on its way.
 A reload shows a line already begun in full, and a play whose words were
 still on the way asks again, quietly, with its Thinking card. Words that
 failed are not asked again. Clicking off the cards, like Escape, clears the choice: the action beat
@@ -211,8 +213,8 @@ fades and the full dialogue card comes back.
 
 Every play in flight is one Thinking card with the speaker's portrait: queued
 here, sent or waiting at a shared table, or committed with its words still on
-the way. A play chosen in an exchange's last reading pause skips the pause,
-so its Thinking card comes at once. Cards chosen meanwhile wait behind it.
+the way. A local play chosen during an exchange waits until its last reply
+is fully shown.
 The Thinking chip shows only on that card, never on a line. Dialogue never
 holds play for long: five seconds after a play commits, its slow words stop
 holding the hand. The Thinking card stays, a choice comes forward over it,

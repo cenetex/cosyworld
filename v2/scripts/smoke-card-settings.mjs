@@ -209,6 +209,93 @@ try {
       "the play hand is dealt back",
     );
     assert.equal(await page.locator("#settings-hand").isVisible(), false);
+    // The same hand accepts an author's root card and a group of cards.
+    // Its supplied beat adapter records the actions for this contract check.
+    await page.evaluate(async () => {
+      const { installCardWorkspace } = await import(
+        "/card-game/settings-screen.mjs"
+      );
+      const art = "assets/settings/workbench-letter.png";
+      window.workspaceEvents = [];
+      window.workspaceName = "World idea";
+      window.authorWorkspace = installCardWorkspace({
+        label: "Authoring",
+        cards: () => [
+          { id: "idea", name: window.workspaceName, art, lit: true },
+          { id: "avatars", name: "Avatars", art, lit: true, group: true },
+          {
+            id: "character",
+            name: "Character",
+            art,
+            lit: true,
+            holder: "avatars",
+          },
+        ],
+        describe: (cards, chosen) => ({
+          name: cards.find((c) => c.id === chosen)?.name || "Authoring",
+          note: chosen
+            ? "Write the world in your own words."
+            : "Choose a card.",
+          actions: chosen
+            ? [{ label: "Create", run: "create", stays: true }]
+            : [],
+        }),
+        actionBeat: {
+          show: (beat) => {
+            window.workspaceBeat = beat;
+          },
+          clear: () => window.workspaceEvents.push("cleared"),
+        },
+        run: async (action, context) => {
+          window.workspaceEvents.push([action.run, context.cardId]);
+          if (context.cardId === "character")
+            throw new Error("Try this character again.");
+          window.workspaceName = "Private world";
+        },
+        onClose: () => window.workspaceEvents.push("closed"),
+      });
+      window.authorWorkspace.open();
+    });
+    assert.equal(
+      await page.locator("#settings-screen").getAttribute("aria-label"),
+      "Authoring",
+    );
+    await tapCard(setting(page, "idea"));
+    assert.equal(await label(page, "idea"), "World idea");
+    assert.equal(
+      await setting(page, "idea").getAttribute("aria-pressed"),
+      "true",
+    );
+    assert.equal(
+      await page.evaluate(() => window.workspaceBeat.note),
+      "Write the world in your own words.",
+    );
+    await page.evaluate(() => window.workspaceBeat.buttons[0].run());
+    assert.equal(await label(page, "idea"), "Private world");
+    assert.deepEqual(await page.evaluate(() => window.workspaceEvents), [
+      ["create", "idea"],
+    ]);
+    await tapCard(setting(page, "avatars"));
+    await tapCard(setting(page, "character"));
+    await page.evaluate(() => window.workspaceBeat.buttons[0].run());
+    assert.equal(
+      await page.evaluate(() => window.workspaceBeat.info),
+      "Try this character again.",
+    );
+    // The earlier settings controller also receives Escape; ownership keeps
+    // the active hand open while its selected card is lowered.
+    await page.keyboard.press("Escape");
+    assert.equal(await page.locator("#settings-screen").isVisible(), true);
+    await page.keyboard.press("Escape");
+    assert.equal(await page.locator("#settings-screen").isVisible(), false);
+    assert.deepEqual(await page.evaluate(() => window.workspaceEvents), [
+      ["create", "idea"],
+      ["create", "character"],
+      "cleared",
+      "closed",
+    ]);
+    await page.evaluate(() => window.authorWorkspace.refresh());
+    assert.equal(await page.locator("#settings-screen").isVisible(), false);
     assert.deepEqual(errors, []);
     await page.close();
   }
