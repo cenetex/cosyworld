@@ -142,6 +142,7 @@ fn app_router_with_dependencies(
     let request_log_context = RequestLogContext::from_state(&state);
     Router::new()
         .merge(crate::card_authoring::router())
+        .merge(crate::card_authoring_generation::router())
         .merge(crate::card_shared::router())
         .merge(card_voices::router())
         .merge(card_game::router())

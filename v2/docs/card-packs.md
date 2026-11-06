@@ -79,6 +79,12 @@ paths or a GitHub repository, exact commit and path. Drafts accept unfinished
 cards; publication checks the compiled pack with the shared pack validator.
 
 Private drafts use `/card-game/authoring/packs` under the passkey account.
+`POST /card-game/authoring/generate/avatars` uses that account and same-origin guard.
+Send `{sample:{section,start,end,text},excluded:[names]}` from `sampleSource`.
+The configured Haiku route returns `{candidate,model,usage}`; candidate is one
+`readCharacter` record or `null`. Passages, evidence and prompts stay transient.
+Each request gets one provider attempt; the client reviews and saves approved
+output fields. The service allows one active request per account, two globally.
 Create accepts the seven content fields and optional `launch`; the server supplies
 `id` and `revision`. PUT `/:id` accepts the same content plus `expectedRevision`.
 It saves source and launch together and returns the nine-field draft. A stale

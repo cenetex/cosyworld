@@ -28,6 +28,7 @@ mod avatar_rescue;
 #[cfg(test)]
 mod beliefs_tests;
 mod card_authoring;
+mod card_authoring_generation;
 mod card_shared;
 // The closed-vocabulary Calling Forge and event-derived Bond scripting.
 // Its candidate/proposal entry points power the client surface in a follow-up;
