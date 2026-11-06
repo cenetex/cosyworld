@@ -156,7 +156,7 @@ try {
       await press(proposed);
       await press(page.locator('[data-setting^="designer-tool-seed-"]').filter({hasText:"Pip"}));
       assert.equal(await action.innerText(), "Keep 2 avatars");
-      await page.locator("#settings-hand img").evaluateAll(images=>Promise.all(images.map(image=>image.decode())));
+      await page.locator("#settings-hand img, #action-beat img").evaluateAll(images=>Promise.all(images.map(image=>image.decode())));
       await page.screenshot({path:`${output}/${width}-proposed.png`});
       await press(action);
       await page.waitForFunction(() => !document.querySelector('[data-setting^="designer-tool-seed-"][aria-label^="Lumi"]'));
