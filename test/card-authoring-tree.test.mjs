@@ -1,6 +1,12 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { buildAuthoringTree } from "../v2/card-game/authoring-tree.mjs";
+import {
+  authoringField,
+  authoringFieldEdit,
+  authoringFieldHidden,
+} from "../v2/card-game/authoring-fields.mjs";
+import { applySourceEdit } from "../v2/card-game/authoring-edits.mjs";
 
 const load = (name) => ({
   pack: JSON.parse(readFileSync(`v2/content/${name}/card-world.json`, "utf8")),
@@ -54,6 +60,25 @@ describe("the authored world card tree", () => {
         if (Object.hasOwn(card, "value")) expect(card.value).toEqual(source);
         if (card.ref) expect(ids).toContain(card.ref);
       }
+      const paths = new Set(
+        tree.cards.map((card) => JSON.stringify(card.source)),
+      );
+      for (const collection of ["places", "avatars", "items"])
+        for (const [id, entity] of Object.entries(input.pack[collection] || {}))
+          for (const key of Object.keys(entity)) {
+            if (
+              { places: "exits", avatars: "place", items: "holder" }[
+                collection
+              ] === key
+            )
+              continue;
+            expect(
+              paths.has(JSON.stringify(["pack", collection, id, key])),
+            ).toBe(true);
+          }
+      for (const key of Object.keys(input.pack))
+        if (!["places", "avatars", "items", "routes", "choices"].includes(key))
+          expect(paths.has(JSON.stringify(["pack", key]))).toBe(true);
       expect(JSON.stringify(input)).toBe(before);
       expect(buildAuthoringTree(input)).toEqual(tree);
     },
@@ -153,5 +178,99 @@ describe("the authored world card tree", () => {
       "places",
       load("greek-drama").pack.routes[0].to,
     ]);
+  });
+
+  it("edits ordinary imported fields and restores every other authored value", () => {
+    const input = freeze(load("badger-forest")),
+      before = JSON.stringify(input);
+    let source = input;
+    const undo = [];
+    for (const [path, text] of [
+      [["pack", "name"], "My forest"],
+      [["pack", "places", "clearing", "text"], "An open glade.\n雪"],
+      [["pack", "avatars", "badger", "name"], "Bramble"],
+      [
+        ["pack", "avatars", "badger", "variants", "asleep", "portrait"],
+        "images/rest.webp",
+      ],
+    ]) {
+      const card = at(buildAuthoringTree(source), path);
+      const field = authoringField(source, card);
+      expect(field.editable).toBe(true);
+      const expected = structuredClone(source);
+      const parent = path
+        .slice(0, -1)
+        .reduce((value, key) => value[key], expected);
+      parent[path.at(-1)] = text;
+      const result = applySourceEdit(
+        source,
+        authoringFieldEdit(source, field, text),
+      );
+      expect(result.source).toEqual(expected);
+      source = result.source;
+      undo.push(result.undo);
+    }
+    for (const edit of undo.reverse())
+      source = applySourceEdit(source, edit).source;
+    expect(JSON.stringify(source)).toBe(before);
+    expect(JSON.stringify(input)).toBe(before);
+  });
+
+  it("keeps custom branches, identity fields and hidden generation paths intact", () => {
+    const input = freeze({
+      pack: {
+        id: "my-world",
+        namespace: "my-world",
+        schemaVersion: 1,
+        entry: "a",
+        custom: { enabled: true, values: [0, null, "雪"] },
+        places: {
+          a: {
+            name: "Yard",
+            exits: [],
+            generation: { systemPrompt: "Internal" },
+          },
+        },
+        avatars: { person: { name: "Person", place: "a", home: "a" } },
+        items: {
+          lamp: { name: "Lamp", art: "images/lamp.webp", holder: "person" },
+        },
+      },
+    });
+    const tree = buildAuthoringTree(input);
+    for (const key of ["id", "namespace", "schemaVersion"])
+      expect(authoringField(input, at(tree, ["pack", key])).editable).toBe(
+        false,
+      );
+    for (const path of [
+      ["custom", "enabled"],
+      ["custom", "values", 0],
+      ["custom", "values", 2],
+      ["items", "lamp", "art"],
+    ])
+      expect(authoringField(input, at(tree, ["pack", ...path])).editable).toBe(
+        true,
+      );
+    const generated = tree.cards.filter((card) =>
+      card.source.includes("generation"),
+    );
+    expect(generated).toHaveLength(2);
+    expect(generated.every(authoringFieldHidden)).toBe(true);
+    for (const path of [["entry"], ["avatars", "person", "home"]]) {
+      const card = tree.cards.find(
+        (card) =>
+          JSON.stringify(card.source) === JSON.stringify(["pack", ...path]),
+      );
+      expect(card).toMatchObject({ kind: "link", canonicalId: "a" });
+      expect(authoringField(input, card)).toBeNull();
+    }
+    expect(
+      tree.cards.filter(
+        (card) => card.source.join("/") === "pack/items/lamp/holder",
+      ),
+    ).toEqual([]);
+    expect(new Set(tree.cards.map((card) => card.id)).size).toBe(
+      tree.cards.length,
+    );
   });
 });

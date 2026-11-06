@@ -6,6 +6,15 @@ import { pipeline } from "node:stream/promises";
 import { fileURLToPath } from "node:url";
 import { publicAssets } from "./public-assets.mjs";
 
+const playPolicy =
+  "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; media-src 'self' blob:; object-src 'none'; base-uri 'self'; frame-ancestors 'self'; form-action 'self'";
+const authoringPolicy = playPolicy
+  .replace("img-src 'self' data:", "img-src 'self' data: blob:")
+  .replace(
+    "connect-src 'self'",
+    "connect-src 'self' https://api.github.com https://raw.githubusercontent.com",
+  );
+
 function storyBudget() {
   const value = Number(process.env.COSYWORLD_CARD_STORY_BUDGET_MS || 30_000);
   return Number.isFinite(value)
@@ -91,9 +100,12 @@ export function createServer({
   return http.createServer(async (req, res) => {
     const url = new URL(req.url, "http://localhost");
     const pathname = url.pathname;
-    const path = pathname.startsWith("/card-game/")
-      ? pathname.slice("/card-game".length)
-      : pathname;
+    const authoring = pathname === "/make" || pathname === "/make/";
+    const path = authoring
+      ? "/index.html"
+      : pathname.startsWith("/card-game/")
+        ? pathname.slice("/card-game".length)
+        : pathname;
     if (pathname === "/card-game/metrics" && req.method === "POST") {
       req.resume();
       res.writeHead(204);
@@ -176,8 +188,7 @@ export function createServer({
         "Content-Type": asset.contentType,
         "Cache-Control": "no-store",
         "X-Content-Type-Options": "nosniff",
-        "Content-Security-Policy":
-          "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; media-src 'self' blob:; object-src 'none'; base-uri 'self'; frame-ancestors 'self'; form-action 'self'",
+        "Content-Security-Policy": authoring ? authoringPolicy : playPolicy,
         "Referrer-Policy": "no-referrer",
       };
       if (asset.file === "index.html") {

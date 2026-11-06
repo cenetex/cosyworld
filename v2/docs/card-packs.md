@@ -17,6 +17,9 @@ Quest, road, and transport records retain their source order and nested paths.
 Each place and avatar has Contents and Quests boxes. Incoming road conditions
 live under the destination's Quests box; outgoing links stay in Contents.
 The index leaves the source intact. Edit commands use those paths separately.
+Names, text, art paths and custom fields sit below their entity or world card.
+Nested objects and arrays keep their branches. Identity fields use the field
+editor's read-only rules, and generated paths keep their hidden markers.
 
 `authoring-controller.mjs` owns local selection, box targeting, edit sequence,
 and the last 50 inverse edits. `createAuthoringState(source)` copies the source;
@@ -40,6 +43,12 @@ Internal generation fields also have `hidden: true`. The controller applies the
 returned command and records its inverse. Pack compilation checks game meaning.
 
 ## Files
+
+The `/make` and `/make/` authoring URLs serve the card-table document with its
+`/card-game/` asset base. Those page responses permit GitHub API and raw-file
+requests, plus local blob images for imported art. Play URLs retain their
+current content security policy. Both the local JavaScript server and the
+Rust server use these routes.
 
 Authoring drafts keep the original pack and bridge together with the writer's
 document. `card-game/authoring-draft.mjs` reads and exports their version 1
@@ -703,3 +712,6 @@ to turn into readable books and inscriptions found in play. Rules 60 removed
 the older `readings` field, which handed revealed passages to a resident's
 dialogue; the Willows choices, flags and receipts that revealed them are
 unchanged.
+
+Import cards list local or GitHub sources, then save the chosen world and its
+assets as a fresh local draft. Portable files keep their source document.
