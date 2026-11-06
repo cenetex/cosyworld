@@ -727,7 +727,9 @@ try {
       const seen = availableCards(sceneWorld).filter(
         (id) => id !== place && id !== target,
       );
-      for (const revealed of [false, true]) {
+      // A rite appears only in the Hollow where Vale already stands.
+      const visibility = step?.verb === "lay" ? [true] : [false, true];
+      for (const revealed of visibility) {
         await page.evaluate(
           ({ sceneKey, save, seen }) => {
             localStorage.setItem(sceneKey, save);
