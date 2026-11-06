@@ -11,10 +11,7 @@ import { levelTier } from "./level-tiers.mjs";
 
 export const DREAM_LABEL = "Dream";
 export const DREAM_TIER = levelTier(0);
-export const dreamingLabel = (armed = false) =>
-  armed ? "Tap again to cancel" : "Dreaming…";
-export const dreamingAria = (armed = false) =>
-  armed ? "Tap again to stop dreaming" : "Dreaming";
+export const DREAMING_LABEL = "Dreaming…";
 
 // A DREAM card beat for the stack.
 // - key: the beat's identity, stable for one dream.

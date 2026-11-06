@@ -21,8 +21,6 @@ export const FADE_MS = 900;
 export const HELD_MS = 700;
 // The DREAM card's entrance, as a card rises into the hand.
 export const ENTER_MS = ENTRY_MS;
-// A read dream stays a silence before the quest comes.
-export const READ_MS = 2200;
 // The quest rises, lies face down and turns over (card-entry.mjs).
 export const QUEST_MS = ENTRY_MS + QUEST_DOWN_MS + 700;
 // The stage opens onto the new light, the longest fade.
@@ -246,12 +244,10 @@ export function createSleepSequence({
     dreamed: (text) =>
       text ? settle("ready", String(text)) : settle("failed"),
     failed: () => settle("failed"),
-    // The dialogue finished writing the dream: a silence, then the quest.
+    // The finished dream holds until the player taps to continue.
     revealed() {
       if (beat() !== "dream" || revealed) return;
       revealed = true;
-      cancel(timer);
-      timer = schedule(advance, READ_MS);
       changed(state());
     },
     stop() {

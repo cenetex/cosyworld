@@ -9,8 +9,13 @@ import { resolve } from "node:path";
 import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
 import { createWorld, encodeSave } from "../card-game/world.mjs";
+import { questXp } from "../card-game/want.mjs";
 import { availableCards } from "../card-game/cards.mjs";
-import { selectCard, smokeWidths } from "./card-browser-helpers.mjs";
+import {
+  readyActionButton,
+  selectCard,
+  smokeWidths,
+} from "./card-browser-helpers.mjs";
 
 const server = createServer();
 await new Promise((done) => server.listen(0, "127.0.0.1", done));
@@ -38,7 +43,7 @@ async function wake(width, { quest, reduced = false }) {
   world.actors.vale.place = "attic";
   world.turn = quest ? 30 : 5;
   world.revision = Math.max(world.revision, world.turn);
-  world.actors.vale.xp = quest ? 1 : 0;
+  world.actors.vale.xp = quest ? questXp(2) : 0;
   world.actors.vale.level = 1;
   world.actors.moth.want = null;
   world.actors.keeper.want = null;
@@ -64,10 +69,11 @@ async function wake(width, { quest, reduced = false }) {
       },
     });
   });
-  // The dream's words take a moment, so "Dreaming…" is seen.
+  // Keep Dreaming… in front until the pending cues have been checked.
+  const { promise: dreamWords, resolve: showDream } = Promise.withResolvers();
   await page.route("**/card-game/reflections", async (route) => {
     const c = JSON.parse(route.request().postData());
-    await new Promise((done) => setTimeout(done, 1600));
+    if (quest && c.rest === "long") await dreamWords;
     route.fulfill({
       json: {
         revision: c.revision,
@@ -135,7 +141,30 @@ async function wake(width, { quest, reduced = false }) {
     });
   const beat = (value) =>
     page.waitForFunction((v) => document.body.dataset.sleep === v, value);
-  const play = page.locator("#card-actions .card-primary");
+  const play = readyActionButton(page, "wait");
+  const advance = page.locator("#dialogue-advance");
+  const catcher = page.locator(".sleep-catcher");
+  const savedTurn = () =>
+    page.evaluate(() =>
+      JSON.parse(localStorage.getItem("cosyworld.reflected-shore.v1.dream")).turn,
+    );
+  const cue = async (hint, label) => {
+    await page.waitForFunction(
+      (value) => {
+        const el = document.querySelector("#speech-hint");
+        return !el.hidden && el.textContent === value;
+      },
+      hint,
+    );
+    assert.equal(await advance.getAttribute("aria-label"), label);
+    const aboveHand = await page.locator("#speech-hint").evaluate((el) => {
+      const { right, top, height } = el.getBoundingClientRect();
+      const panel = document.elementsFromPoint(right - 6, top + height / 2)
+        .find((node) => node.closest(".dialogue, .play-dock"));
+      return Boolean(panel?.closest(".dialogue"));
+    });
+    assert(aboveHand, "the hand does not cover the Dream cue");
+  };
   const settled = () =>
     page.waitForFunction(
       () => document.querySelector("#hand").dataset.cooling === "false",
@@ -149,12 +178,8 @@ async function wake(width, { quest, reduced = false }) {
     await page.waitForFunction(() => !document.body.dataset.sleep);
     await shot("before");
     await selectCard(page, "vale", { touch });
-    assert.deepEqual(
-      await page
-        .locator("#card-actions button")
-        .evaluateAll((all) => all.map((b) => b.textContent.trim())),
-      ["Sleep"],
-    );
+    await play.waitFor();
+    assert.equal(await play.getAttribute("aria-label"), "Sleep");
     await play.click();
     if (!reduced) {
       await page.waitForTimeout(450);
@@ -163,11 +188,8 @@ async function wake(width, { quest, reduced = false }) {
     await beat("held");
     await shot("held");
     if (quest) {
-      await page.waitForFunction(
-        () =>
-          document.querySelector("#speech-row").dataset.beat === "dream" &&
-          !document.querySelector("#story-status").hidden,
-      );
+      await beat("dreaming");
+      await cue("Tap to stop waiting", "Stop waiting");
       assert.equal(await page.locator("#speaker").textContent(), "Dream");
       assert.match(
         await page.locator("#story-status").textContent(),
@@ -183,15 +205,35 @@ async function wake(width, { quest, reduced = false }) {
         ["vale"],
       );
       await shot("dreaming");
-      await page.waitForFunction(
-        (text) => document.querySelector("#dialogue-text").textContent === text,
-        DREAM,
-      );
+      if (touch) await catcher.tap();
+      else await catcher.click();
+      await cue("Tap to confirm", "Confirm");
+      assert.match(await page.locator("#story-status").textContent(), /Dreaming…/);
+      await page.keyboard.press("Escape");
+      await cue("Tap to stop waiting", "Stop waiting");
+      showDream();
+      await beat("dream");
+      if (!reduced) {
+        await cue("Tap to finish", "Finish reading");
+        await page.keyboard.press("Enter");
+      }
+      await cue("Tap to continue", "Continue the dream");
+      const turn = await savedTurn();
+      await page.waitForTimeout(2300);
+      assert.equal(await page.evaluate(() => document.body.dataset.sleep), "dream");
+      assert.equal(await savedTurn(), turn);
+      assert.equal(await page.locator("#dialogue-text").textContent(), DREAM);
+      await cue("Tap to continue", "Continue the dream");
       await shot("dream");
+      // Activate the same button a screen reader uses, without the catcher.
+      await advance.evaluate((button) => button.click());
       await beat("quest");
+      assert.equal(await page.locator("#speech-hint").isHidden(), true);
+      assert.equal(await advance.getAttribute("aria-disabled"), "true");
+      assert.equal(await page.locator("#dialogue-text").isVisible(), true);
       // A tap never skips the quest's arrival.
-      await page.locator(".sleep-catcher").click();
-      await page.locator(".sleep-catcher").click();
+      await catcher.click();
+      await catcher.click();
       assert.equal(
         await page.evaluate(() => document.body.dataset.sleep),
         "quest",
@@ -259,6 +301,7 @@ async function wake(width, { quest, reduced = false }) {
     }
     assert.deepEqual(errors, []);
   } finally {
+    showDream();
     await page.close();
   }
 }

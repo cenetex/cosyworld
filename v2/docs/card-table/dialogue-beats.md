@@ -218,6 +218,12 @@ while the next reply is on its way. Its lower-right cue reads **Thinking…**
 until that reply is ready, then **Tap to continue**. Taps during the wait keep
 the visible line; reading the reply takes a fresh tap. Typing still offers
 **Tap to finish**, and history keeps its own forward control.
+
+The Dream card says **Tap to stop waiting**
+while it waits for words, then **Tap to confirm** after the first tap. When
+the dream arrives, **Tap to finish** completes its text. The completed dream
+holds until the player uses **Tap to continue**.
+
 A reload shows a line already begun in full, and a play whose words were
 still on the way asks again, quietly, with its Thinking card. Words that
 failed are not asked again. Clicking off the cards, like Escape, clears the choice: the action beat
