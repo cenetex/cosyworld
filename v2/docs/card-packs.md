@@ -49,6 +49,13 @@ File bytes go through a separate upload. Source records keep local relative
 paths or a GitHub repository, exact commit and path. Drafts accept unfinished
 cards; publication checks the compiled pack with the shared pack validator.
 
+`authoring-session.mjs` keeps pending field text, Undo, local save generations,
+and async tool state together. `createAuthoringSession({store,onChange})` owns
+one editor session. Tools can `stage({document,title})` and read `snapshot({pending:false})`;
+the run context offers cloned `snapshot`, `save`, and guarded `open`. Failed writes retain
+the edited source; newer edits stay dirty while an earlier save finishes.
+Selection, typing and `touch()` protect the current editor from a delayed import.
+
 | File                                | Owns                                                                                                                    |
 | ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
 | `v2/worlds/card-table.json`         | The hub's own places, avatars and items, the player id, its start and switchable groups, and the list of mounted packs. |

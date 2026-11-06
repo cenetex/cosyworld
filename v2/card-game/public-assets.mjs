@@ -26,6 +26,7 @@ const files = [
   "shared.css",
   "toolbar.mjs",
   "world-name.mjs",
+  "authoring-session.mjs",
   "avatar-world.mjs",
   "authoring-fields.mjs",
   "authoring-draft.mjs",
