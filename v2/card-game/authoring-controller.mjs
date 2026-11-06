@@ -1,3 +1,4 @@
+import { addItemOpening } from "./authoring-quests.mjs";
 import { authoringCardId, buildAuthoringTree } from "./authoring-tree.mjs";
 import {
   applySourceEdit,
@@ -60,11 +61,44 @@ export function authoringAction(state) {
     label: "Choose a target",
   };
   try {
-    need(host && card, "Choose a location, avatar or item for this box.");
+    need(host, "Choose a location or avatar box.");
     const from = host.canonicalId,
-      to = card.canonicalId;
+      to = card?.canonicalId;
+    need(
+      card || (box.role === "quests" && host.kind === "place"),
+      "Choose a location, avatar or item for this box.",
+    );
     let edit, label;
-    if (
+    if (box.role === "quests" && host.kind === "place") {
+      need(
+        !Object.values(state.source.bridge?.transports || {}).some(
+          (ship) => ship.place === from || ship.place === to,
+        ),
+        "Open the ship's dock and lane cards for this quest.",
+      );
+      need(
+        card?.kind === "place",
+        `Choose the location used to approach ${host.name}.`,
+      );
+      need(from !== to, "Choose two different locations.");
+      need(
+        !(state.source.pack.routes || []).some(
+          (route) => route.from === to && route.to === from,
+        ),
+        "Choose the existing opening quest to edit this approach.",
+      );
+      const item = target(cards, cards.get(state.selected[2]));
+      need(
+        item?.kind === "item",
+        `Choose an item that opens ${host.name} from ${card.name}.`,
+      );
+      edit = addItemOpening(state.source, {
+        from: to,
+        to: from,
+        item: item.canonicalId,
+      });
+      label = `Open ${host.name} from ${card.name} with ${item.name}`;
+    } else if (
       box.role === "contents" &&
       host.kind === "place" &&
       card.kind === "place"
@@ -140,8 +174,18 @@ export function reduceAuthoring(state, event) {
     return { ...state, armed: card.id, selected: [card.id] };
   }
   const entity = target(cards, card);
-  if (state.armed)
+  if (state.armed) {
+    const box = cards.get(state.armed);
+    if (box?.role === "quests" && owner(cards, box)?.kind === "place") {
+      if (entity?.kind === "place")
+        return { ...state, selected: [state.armed, card.id] };
+      const approach = target(cards, cards.get(state.selected[1]));
+      return entity?.kind === "item" && approach?.kind === "place"
+        ? { ...state, selected: [state.armed, state.selected[1], card.id] }
+        : state;
+    }
     return entity ? { ...state, selected: [state.armed, card.id] } : state;
+  }
   const selection = { selected: [card.id] };
   return entity?.kind === "place"
     ? commit(
