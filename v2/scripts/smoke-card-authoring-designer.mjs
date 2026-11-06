@@ -189,6 +189,7 @@ try {
     const candidate = page.locator('[data-setting="designer-tool-candidate"]');
     assert.equal(await candidate.getAttribute("aria-pressed"), "true");
     assert.match(await candidate.getAttribute("aria-label"), /Suggested/);
+    assert.equal(await note.innerText(), "Suggested");
     await candidate.locator("img").evaluate((img) => img.decode());
     await press(action);
     assert.equal(

@@ -112,7 +112,7 @@ export function installWorldDesigner({
     let view = {
       name: card?.name || status.title,
       info: status.writing ? "Saving" : status.dirty ? "Unsaved" : "Saved",
-      note: "Open a box or choose a field.",
+      note: card?.state || "Open a box or choose a field.",
       actions: [],
     };
     if (tool && !(tool.anchor && authoringAction(session.state))) {
