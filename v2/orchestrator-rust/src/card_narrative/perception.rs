@@ -192,7 +192,9 @@ pub(super) fn lines(context: &Context, entity: &Entity, p: &Perception) -> Vec<(
                 _ => None,
             }),
     );
-    pinned.extend(anchor(&context.location));
+    if !context.concealed.contains(&context.location) {
+        pinned.extend(anchor(&context.location));
+    }
     let held = entity.facts.iter().find(|f| f.starts_with("Holding: "));
     pinned.extend(held.and_then(|f| person::fact(f, id, true)));
     pinned.extend(

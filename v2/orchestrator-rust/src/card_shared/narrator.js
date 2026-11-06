@@ -21454,7 +21454,9 @@
       conversation,
       entities: ids3.map((id) => {
         const kind = profiles[id].kind;
-        const continuity = kind === "location" || id === currentActor(world) ? packSceneFacts(world, location) : [];
+        if (kind === "location" && isCovered?.(id))
+          return { id, facts: [], desire: null, memories: [], previous: null };
+        const continuity = !isCovered?.(location) && (kind === "location" || id === currentActor(world)) ? packSceneFacts(world, location) : [];
         const want = kind === "avatar" && wantHeard(world, played, id, currentActor(world)) ? wantFact(world, id, nameOf) : null;
         const quest = world.actors[id]?.want;
         const dreamt = rest === "long" && id === resting2 && quest?.quest?.left && quest.since === world.turn ? `In a dream, the quest for level ${quest.quest.level}: ${wantText(quest)}.` : null;

@@ -323,10 +323,12 @@ export function narrativeContext(world, action = null, isCovered = null) {
     conversation,
     entities: ids.map((id) => {
       const kind = profiles[id].kind;
+      if (kind === "location" && isCovered?.(id))
+        return { id, facts: [], desire: null, memories: [], previous: null };
       // The place and player retain the route's established history. Another
       // resident knows only their own recorded interactions and memories.
       const continuity =
-        kind === "location" || id === currentActor(world)
+        !isCovered?.(location) && (kind === "location" || id === currentActor(world))
           ? packSceneFacts(world, location)
           : [];
       // A want reaches the player through Talk: one first-person line for

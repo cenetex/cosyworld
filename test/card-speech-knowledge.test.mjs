@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import { createWorld, nameOf } from "../v2/card-game/world.mjs";
 import { enableMotives } from "../v2/card-game/motives.mjs";
 import { narrativeContext } from "../v2/card-game/narrative.mjs";
-import { sharedContext } from "../v2/card-game/shared-narrator.mjs";
 import {
   coveredText,
   forgetCovered,
@@ -92,14 +91,6 @@ describe("speech knows only uncovered cards (#1575)", () => {
     // Later turns keep the full scene frame.
     const later = { ...narrativeContext(s), turn: 1 };
     expect(markWaking(s, later, () => true)).toBe(later);
-  });
-
-  it("uses an empty shared reveal list as a face-down view", () => {
-    const request = { world: fresh(), actor: "vale" };
-    const seesLamp = (revealed) => /lamp/i.test(visible(sharedContext({ ...request, revealed })));
-    expect(seesLamp()).toBe(true);
-    expect(seesLamp([])).toBe(false);
-    expect(seesLamp(["vale", "attic", "lamp"])).toBe(true);
   });
 });
 

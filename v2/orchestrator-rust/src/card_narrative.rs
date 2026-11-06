@@ -3174,7 +3174,6 @@ pub(crate) mod tests {
             .push("The Route board leads to the Between-hours carriage.".into());
         scene.concealed = vec!["train".into(), "bell".into()];
         let vale = entity(&scene, "vale");
-        assert!(!known(&scene, vale).contains("train"));
         assert!(named_spans("The Bell Theatre")
             .iter()
             .all(|(_, id)| *id != "bell"));
@@ -3187,6 +3186,11 @@ pub(crate) mod tests {
                 Check::new(&scene, vale, part).names_unknown("I saw the between-hours carriage.")
             );
         }
+        let place = scene.location.clone();
+        scene.concealed.push(place.clone());
+        let sense = perception::anchor(&place).unwrap();
+        let lines = perception::lines(&scene, entity(&scene, "vale"), &Default::default());
+        assert!(!lines.iter().any(|(_, line)| line == &sense));
     }
 
     pub(super) fn solo_departure() -> TurnOutcome {

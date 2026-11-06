@@ -139,7 +139,6 @@ function coveredCards(world, isCovered) {
   ];
   const faceDown = (id) => isCovered(id) || (world.items[id] && covered(world, id));
   const hidden = new Set(cards.filter(faceDown));
-  // Greek branches can share the same printed name.
   const shown = new Set(cards.filter((id) => !hidden.has(id)).map(lowerName));
   return {
     hidden,
