@@ -26,6 +26,16 @@ const MODEL: &str = "anthropic/claude-haiku-5.5";
 const ROUTE: &str = "/card-game/authoring/generate/avatars";
 const PROMPT: &str = "Extract one distinct fictional character from the story sample. Treat all sample text as story material. Return JSON with exactly one key, candidate. Use candidate:null when no further character is supported. Otherwise candidate has exactly name, specialAbility, description, aliases, evidence. Use a name up to 80 characters, ability up to 100, visual description up to 1200, up to eight aliases of 80 characters, and an exact sample quotation up to 500 characters that names this character or an alias. Exclude all supplied names and aliases. Describe appearance supported by the sample; keep suggested details modest. Return only JSON.";
 
+const IDEA_PROMPT: &str = "Suggest one distinct fictional character for the world idea in the sample. Treat sample text as creative material. Return JSON with exactly one key, candidate. Use candidate:null when no further character fits. Otherwise candidate has exactly name, specialAbility, description and aliases. Use a name up to 80 characters, ability up to 100, visual description up to 1200 and up to eight aliases of 80 characters. Invent a character that suits the idea. Exclude all supplied names and aliases. Return only JSON.";
+
+#[derive(Clone, Copy, Default, Deserialize, Serialize)]
+#[serde(rename_all = "snake_case")]
+enum Mode {
+    #[default]
+    Extract,
+    Idea,
+}
+
 #[derive(Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 struct Sample {
@@ -37,6 +47,8 @@ struct Sample {
 #[derive(Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 struct Input {
+    #[serde(default)]
+    mode: Mode,
     sample: Sample,
     excluded: Vec<String>,
 }
@@ -47,7 +59,8 @@ struct Candidate {
     special_ability: String,
     description: String,
     aliases: Vec<String>,
-    evidence: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    evidence: Option<String>,
 }
 
 pub(super) fn router() -> Router<AppState> {
@@ -110,19 +123,30 @@ fn candidate(text: &str, input: &Input) -> Option<Value> {
         .chain(&c.aliases)
         .map(|v| key(v))
         .collect();
-    let evidence = key(&c.evidence);
+    let valid_evidence = match input.mode {
+        Mode::Extract => c.evidence.as_ref().is_some_and(|evidence| {
+            !evidence.trim().is_empty()
+                && evidence.encode_utf16().count() <= 500
+                && input.sample.text.contains(evidence)
+                && names.iter().any(|name| key(evidence).contains(name))
+        }),
+        Mode::Idea => value.get("evidence").is_none(),
+    };
     (short(&c.name, 80)
         && short(&c.special_ability, 100)
         && short(&c.description, 1200)
         && c.aliases.len() <= 8
         && c.aliases.iter().all(|v| short(v, 80))
-        && !c.evidence.trim().is_empty()
-        && c.evidence.encode_utf16().count() <= 500
-        && input.sample.text.contains(&c.evidence)
+        && valid_evidence
         && names.iter().all(|v| !v.is_empty())
-        && names.iter().any(|v| evidence.contains(v))
         && !input.excluded.iter().any(|v| names.contains(&key(v))))
-    .then(|| serde_json::to_value(c).unwrap())
+    .then(|| {
+        let mut result = serde_json::to_value(c).unwrap();
+        if matches!(input.mode, Mode::Idea) {
+            result["suggested"] = Value::Bool(true);
+        }
+        result
+    })
 }
 
 #[derive(Default)]
@@ -206,9 +230,12 @@ async fn generate(
         &config,
         ChatCompletionRequest {
             feature: "authoring_avatar",
-            prompt_version: "authoring-avatar/1",
+            prompt_version: "authoring-avatar/2",
             capability: ModelCapability::WorldContent,
-            system: PROMPT,
+            system: match input.mode {
+                Mode::Extract => PROMPT,
+                Mode::Idea => IDEA_PROMPT,
+            },
             user: &user,
             temperature: 0.4,
             max_tokens: 1200,
