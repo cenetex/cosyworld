@@ -47,7 +47,10 @@ names and aliases remain available after field edits and Undo.
 World-idea candidates use `readSuggestedCharacter` in `authoring-cast.mjs`.
 Their accepted fields include `suggested: true`. Story candidates use
 `readCharacter`, which checks a source quotation while the draw is in memory.
-Both paths share the name, ability, description and alias limits.
+Both paths share the name, ability, description and alias limits. Set the draw
+mode to `idea` for suggestions; `extract` is the default for story text.
+`prepareAcceptedAvatars` prepares up to six chosen outputs for one session
+`accept` call. The whole choice shares one save and one Undo step.
 
 The authoring card index is `buildAuthoringTree({pack, bridge})` in
 `authoring-tree.mjs`. It returns ordered `cards`, `roots`, and `children`.
