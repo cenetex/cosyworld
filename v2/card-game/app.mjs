@@ -808,8 +808,11 @@ function measureSpeech() {
 }
 new ResizeObserver(measureSpeech).observe($("dialogue-text"));
 function updateSpeechControls(complete) {
-  const forward =
-    reviewing || exchange.hasNext || Boolean(sharedSession && shownSceneLine);
+  const waiting =
+    exchange.waiting || (sharedAdvanceRequested && storyStatus === "pending");
+  const sharedForward =
+    sharedSession && shownSceneLine && (!sharedAdvanceRequested || waiting);
+  const forward = reviewing || exchange.hasNext || sharedForward;
   $("dialogue-advance").dataset.revealing = String(!complete);
   $("dialogue-advance").setAttribute(
     "aria-label",
@@ -822,13 +825,9 @@ function updateSpeechControls(complete) {
       : "Reveal the full line",
   );
   $("speech-hint").hidden = !complete || !forward || !shownSceneLine;
-  $("speech-hint").textContent = complete
-    ? forward
-      ? exchange.waiting || sharedAdvanceRequested
-        ? "Waiting for the next line…"
-        : "Continue"
-      : ""
-    : "Tap to reveal";
+  $("speech-hint").textContent = waiting
+    ? "Waiting for the next line…"
+    : "Continue";
 }
 const speechPainter = createRevealPainter($("dialogue-text"), { rest: true });
 // A wake plays on the table: dusk or dawn through a held black, and a level
