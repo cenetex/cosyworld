@@ -187,8 +187,9 @@ try {
     });
     // Any play meets it; it stays sealed and the fold glows.
     await page
-      .getByRole("button", { name: "Wait", exact: true })
-      .first()
+      .locator(
+        '#card-actions [data-action="wait"]:not([data-revealing="true"])',
+      )
       .click();
     await ready();
     const tab = page.locator('#hand .quest-fold[data-glow="invite"]');

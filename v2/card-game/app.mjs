@@ -883,6 +883,7 @@ function writeActionMessage(root, text, key, name) {
   if (!text) {
     actionReveal.cancel();
     actionMessage = null;
+    delete root.dataset.revealing;
     root.textContent = "";
     return;
   }
