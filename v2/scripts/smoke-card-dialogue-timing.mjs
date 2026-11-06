@@ -12,6 +12,7 @@ import {
   play,
 } from "../card-game/world.mjs";
 import { enableMotives } from "../card-game/motives.mjs";
+import { SPEECH_OCCASIONS } from "../card-game/speech-occasions.mjs";
 
 function fixture(kind) {
   let world = enableMotives(createWorld({ opening: true }));
@@ -109,8 +110,8 @@ try {
           '#card-actions .card-primary:not([data-revealing="true"])',
         );
         await action.waitFor();
-        if (kind === "light") {
-          // An ordinary play is silent: no request, and the hand frees at once.
+        if (kind === "light" && !SPEECH_OCCASIONS.includes("action")) {
+          // The earlier speech rules keep this item action quiet.
           await action.click();
           await page.waitForFunction(
             () => document.querySelector("#hand").dataset.cooling === "false",
@@ -240,6 +241,13 @@ try {
         // A speaker who left this turn speaks at the destination (#1437), so
         // only the speakers still in this room take a turn here.
         const committed = await state();
+        if (kind === "light") {
+          assert.equal(committed.items.lamp.lit, true);
+          assert.equal(committed.actors.moth.want?.target, "lamp");
+          assert.equal(committed.actors.keeper.place, "station");
+          assert.equal(await card("keeper").count(), 0);
+          assert.deepEqual(request.input.speakers, ["vale"]);
+        }
         const speakers = request.input.speakers.filter(
           (id) => committed.actors[id]?.place === request.input.location,
         );
