@@ -151,6 +151,8 @@ lower right.
 Unknown goals read “Find something”, “Find someone to talk to”, or “Find a
 place”. Compound goals use the same plain words, such as “Find something
 and bring it somewhere”. Revealed parts use their card names.
+The action card uses the quest card's rarity colour and glow. An open
+abandonment confirmation uses the red warning outline.
 
 A ready play is a beat too: the action beat, in front of the
 stack. With labelled controls, it is one row, vertically centred: on the left who acts and what it

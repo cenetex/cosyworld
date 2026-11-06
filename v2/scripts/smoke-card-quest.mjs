@@ -692,9 +692,9 @@ try {
     await page.locator(".dialogue").screenshot({
       path: new URL(`hidden-quest-${width}.png`, output).pathname,
     });
-    for (const [kind, target, step] of [
+    for (const [kind, target, step, level] of [
       ["item", "routes", { verb: "bring", at: "train" }],
-      ["place", "greek-palace", null],
+      ["place", "greek-palace", null, 20],
       [
         "place",
         "greek-polynices-hollow",
@@ -710,7 +710,7 @@ try {
         kind,
         target,
         ...(step ? { step } : {}),
-        story: true,
+        ...(level ? { quest: { level, left: 4 } } : { story: true }),
         since: sceneWorld.turn,
         refusals: 0,
       };
@@ -777,6 +777,25 @@ try {
           ).pathname,
           animations: "disabled",
         });
+        if (level) {
+          const action = page.locator("#action-beat");
+          assert.equal(await action.getAttribute("data-tier"), "rare");
+          assert.equal(
+            await page.locator('#hand .want-card[data-quest-id="quest:0"]')
+              .getAttribute("data-tier"),
+            "rare",
+          );
+          const style = await action.evaluate((el) => ({
+            border: getComputedStyle(el).borderTopColor,
+            shadow: getComputedStyle(el).boxShadow,
+          }));
+          assert.equal(style.border, "rgb(190, 130, 255)");
+          assert.match(style.shadow, /14px/u, "rare quests glow");
+          await action.locator("button").click();
+          assert.equal(await action.getAttribute("data-tier"), "danger");
+          await page.keyboard.press("Escape");
+          assert.equal(await action.getAttribute("data-tier"), "rare");
+        }
       }
     }
     assert.deepEqual(errors, []);

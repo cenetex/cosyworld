@@ -2355,10 +2355,12 @@ function renderActions() {
           )
         : null,
   );
-  // The box's edge takes the rarest card's tier colour; Common stays plain.
-  const rarest = involved
-    .map((id) => levelTier(cardLevel(world, id)))
-    .reduce((top, tier) => (tier.rank > top.rank ? tier : top), levelTier(0));
+  // A quest keeps its own tier; other plays take the rarest selected card.
+  const rarest = questShown
+    ? questTier(questShown, world, known)
+    : involved
+        .map((id) => levelTier(cardLevel(world, id)))
+        .reduce((top, tier) => (tier.rank > top.rank ? tier : top), levelTier(0));
   $("action-beat").dataset.tier = rarest.id;
   $("action-beat").style.setProperty("--tier-color", rarest.color);
   // A folded row lies low even with a choice in it.
