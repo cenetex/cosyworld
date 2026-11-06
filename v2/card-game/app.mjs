@@ -2101,13 +2101,41 @@ function showBeatCards(ids, here, verb, recipe = false) {
 // declared before notice(), which a refused save calls during boot.
 export function showActionBeat(beat) {
   borrowedBeat = beat;
+  keptBorrowedBeat = null;
   renderActions();
 }
+let keptBorrowedBeat = null;
 export function clearActionBeat(beat) {
+  if (beat && beat === keptBorrowedBeat) return;
   if (!borrowedBeat || (beat && borrowedBeat !== beat)) return;
   borrowedBeat = null;
+  keptBorrowedBeat = null;
   renderActions();
 }
+// The menu light-dismisses on a card tap. Keep its chosen message for the
+// second tap; another card or Back returns to the table.
+$("action-beat").addEventListener("pointerdown", () => {
+  if (borrowedBeat) keptBorrowedBeat = borrowedBeat;
+});
+document.addEventListener(
+  "click",
+  (event) => {
+    if (!keptBorrowedBeat || event.target.closest("#action-beat")) return;
+    clearActionBeat();
+    if (event.target.closest(".dialogue")) event.stopPropagation();
+  },
+  true,
+);
+document.addEventListener(
+  "keydown",
+  (event) => {
+    if (!keptBorrowedBeat || !["Escape", "ArrowUp"].includes(event.key)) return;
+    clearActionBeat();
+    event.preventDefault();
+    event.stopPropagation();
+  },
+  true,
+);
 function showBorrowedBeat() {
   const combined = !borrowedBeat.edit && borrowedBeat.buttons.length === 1;
   renderCardDescriptor(borrowedBeat, {
@@ -2220,6 +2248,14 @@ function renderActions() {
   // While the opening has a card down, the button only reveals the next.
   const quiet = !rested && opening()?.step === "reveal";
   const actions = rested || quiet ? [] : ready;
+  const clientText = quiet
+    ? "Turn over the next card."
+    : !rested &&
+        selected.length === 1 &&
+        things[selected[0]]?.view &&
+        !cardIsCovered(selected[0])
+      ? `Look at ${theName(selected[0])} up close.`
+      : "";
   const selectionName = selected.map(nameOf).join(" + ");
   $("selection-name").textContent = selected.length
     ? selectionName
@@ -2238,7 +2274,7 @@ function renderActions() {
       ? lockShown.text
       : questShown
         ? shownQuestCaption(questShown)
-        : ((actions[0] && playText(actions[0])) || "").replace(
+        : ((actions[0] && playText(actions[0])) || clientText).replace(
             /\b(the|an?) (?:the|an?) /giu,
             "$1 ",
           );
@@ -2443,14 +2479,19 @@ function renderActions() {
   }
   let message = heading.lastElementChild;
   const only = actions.length === 1 ? actions[0] : null;
-  if (only && sentence && !refusedPlay(only) && row.childElementCount === 1) {
+  if (
+    sentence &&
+    row.childElementCount === 1 &&
+    !row.firstElementChild.disabled &&
+    (only || quiet || row.firstElementChild.dataset.look)
+  ) {
     const button = row.firstElementChild;
     panel.setAttribute("data-card-tap", "");
-    if (only.kind === "wait" && !only.label && !only.guards)
+    if (only?.kind === "wait" && !only.label && !only.guards)
       button.dataset.waitSentence = "";
     button.setAttribute(
       "aria-label",
-      only.label === "Wake" ? sentence : button.textContent,
+      only?.label === "Wake" ? sentence : button.textContent,
     );
     message = button;
     heading.hidden = true;

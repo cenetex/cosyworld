@@ -3268,8 +3268,8 @@ body .beat-stack > .action-panel[data-card-tap]:not([hidden]) {
   background: transparent;
 }
 /* Quest and menu cards keep their note above the same full-card button. */
-.beat-stack > .action-panel[data-card-tap="hint"] {
-  border: 1px solid var(--tier-color, var(--beat-divider));
+.beat-stack > .action-panel[data-avatar][data-card-tap="hint"] {
+  border: 1px solid var(--beat-divider);
 }
 .action-panel[data-card-tap="hint"] .action-beat-body {
   padding-bottom: 22px;

@@ -141,7 +141,9 @@ try {
           if ((await page.locator("#hand [aria-pressed=true]").count()) === 0)
             await selectCard(page, "vale");
           await page
-            .locator('#card-actions [data-quiet="true"]', { hasText: "Reveal" })
+            .locator(
+              '#card-actions [data-quiet="true"]:not([data-revealing="true"])',
+            )
             .click();
         } else await revealCard(page, id);
         await page.waitForSelector(

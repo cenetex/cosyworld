@@ -139,6 +139,7 @@ try {
       });
       page.setDefaultTimeout(10000);
       const errors = [];
+      let releases = 0;
       page.on("pageerror", (error) => errors.push(error.message));
       if (state.cached)
         await page.addInitScript((cached) => {
@@ -155,7 +156,10 @@ try {
         );
         await page.route(
           /\/card-game\/shared\/worlds\/here(\/command)?$/,
-          (route) => route.fulfill({ json: snapshot() }),
+          (route) => {
+            if (route.request().postDataJSON()?.op === "release") releases++;
+            return route.fulfill({ json: snapshot() });
+          },
         );
       }
       await page.goto(`${origin}${state.at}`);
@@ -223,6 +227,29 @@ try {
             .getAttribute("aria-pressed"),
           "true",
         );
+        await page.emulateMedia({ reducedMotion: "no-preference" });
+        await menu.locator('.world-slot [data-avatar="vale"] button').click();
+        const leave = page.locator("#avatar-leave");
+        assert.equal(await leave.textContent(), "Tap to leave");
+        const panel = page.locator('#action-beat[data-card-tap="hint"]');
+        await leave.click();
+        assert.equal(releases, 0, "the first tap finishes the avatar message");
+        assert.equal(await leave.getAttribute("data-revealing"), "false");
+        const size = await panel.evaluate((el) => ({
+          height: el.getBoundingClientRect().height,
+          font: getComputedStyle(el.querySelector(".action-beat-text"))
+            .fontSize,
+          scenes: el.querySelectorAll(".quest-ground").length,
+        }));
+        assert(size.height <= 96, JSON.stringify(size));
+        assert.equal(size.font, "16px");
+        assert.equal(size.scenes, 1);
+        await page.screenshot({
+          path: `output/card-world-menu-leave-${width}.png`,
+        });
+        await leave.click();
+        await page.waitForURL(origin + "/");
+        assert.equal(releases, 1, "the second tap leaves once");
       }
       if (name === "all-found-left") {
         assert.equal(seen.newWorld, true);
@@ -234,7 +261,7 @@ try {
         const bring = page.locator("#avatar-bring");
         assert.equal(await bring.count(), 0);
         await menu.locator(".seat-open:enabled").first().click();
-        assert.match(await bring.innerText(), /^Bring to \S/);
+        assert.match(await bring.getAttribute("aria-label"), /^Bring to \S/);
         assert.equal(await bring.isEnabled(), true);
       }
       await page.screenshot({
