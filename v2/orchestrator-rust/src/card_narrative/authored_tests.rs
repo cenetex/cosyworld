@@ -12,6 +12,9 @@ fn ok(text: &str, limit: usize, field: Field) -> bool {
 #[test]
 fn rules_sentences_are_authored_and_instructions_are_not() {
     for (field, text) in [
+        (Field::Events, "Vale drops the quest."),
+        (Field::Events, "Vale abandons their quest to meet Pip."),
+        (Field::Events, "Vale abandons their quest to go to Black pond."),
         (Field::Facts, "Holding: Lamp, Black cloth."),
         (
             Field::Events,
