@@ -135,9 +135,11 @@ async function shared(width) {
   try {
     await page.goto(`${origin}/?world=asleep`);
     await page.waitForFunction(() => document.body.inert === false);
-    // A sleeper sleeps on or wakes by choosing another play.
-    await selectCard(page, "vale", { touch: width === 390 });
-    assert.deepEqual(await labels(page), ["Sleep", "Wait"]);
+    const touch = width === 390;
+    await selectCard(page, "vale", { touch });
+    assert.deepEqual(await labels(page), ["Wake"]);
+    await selectCard(page, world.actors.vale.place, { touch });
+    assert.deepEqual(await labels(page), ["Sleep on"]);
     await page.screenshot({ path: resolve(output, `asleep-${width}.png`) });
     await page.keyboard.press("Escape");
     // Its play in flight is a Thinking card with the sleeping art.

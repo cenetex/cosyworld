@@ -111,7 +111,7 @@ describe("named card actions", () => {
     const world = createWorld();
     world.actors.vale.place = "clearing";
     const local = cardActions(world, ["clearing"]).actions;
-    expect(local.map(playLabel)).toEqual(["Wait", "Ring the Steam Clock"]);
+    expect(local.map(playLabel)).toEqual(["Ring the Steam Clock"]);
     world.actors.vale.place = "greek-gate";
     world.crossings["pond-greek-harbor"].discovered = true;
     const story = cardActions(world, ["greek-guard"]).actions;
@@ -215,8 +215,8 @@ describe("Sleep after a Wait (#2028)", () => {
     const wait = legalActions(world).find((a) => a.kind === "wait");
     return play(world, wait, world.revision).state;
   };
-  const labels = (world, again) =>
-    restPlays(world, cardActions(world, ["vale"]).actions, again).map(
+  const labels = (world, again, cards = ["vale"]) =>
+    restPlays(world, cardActions(world, cards).actions, again, cards).map(
       playLabel,
     );
   it("offers Sleep only for the same cards chosen again", () => {
@@ -226,47 +226,43 @@ describe("Sleep after a Wait (#2028)", () => {
     expect(labels(world, false)).toEqual(["Wait"]);
     expect(labels(createWorld(), true)).toEqual(["Wait"]);
   });
-  it("lets a sleeper sleep on or wake by waiting", () => {
+  it("gives Wake and Sleep on their own selections", () => {
     const world = waited();
-    world.actors.vale.sleeping = {
-      since: world.turn,
-      place: "attic",
-      present: [],
-    };
-    expect(labels(world, false)).toEqual(["Sleep", "Wait"]);
+    const place = world.actors.vale.place;
+    world.actors.vale.sleeping = { since: world.turn, place, present: [] };
+    expect(labels(world, false)).toEqual(["Wake"]);
+    expect(labels(world, true)).toEqual(["Wake"]);
+    expect(labels(world, false, ["vale", place])).toEqual(["Sleep on"]);
+    expect(playLabel(cardPlay(world, [place, "vale"]).action)).toBe("Sleep on");
   });
 });
 
 describe("Wait gives way; a wait at sea is Sail (#2027)", () => {
   const shown = (world, cards, again = false) =>
     restPlays(world, cardActions(world, cards).actions, again, cards);
-  it("drops the plain Wait beside another play but never Sleep", () => {
+  it("separates the Steam Clock from resting in the clearing", () => {
     const world = createWorld();
     world.actors.vale.place = "clearing";
-    for (const cards of [["clearing"], ["vale", "clearing"]])
-      expect(shown(world, cards).map(playLabel)).toEqual([
-        "Ring the Steam Clock",
-      ]);
-    expect(cardPlay(world, ["clearing"]).hint).not.toMatch(/waits/u);
-    // Vale's own card still waits, so time can always pass.
-    expect(shown(world, ["vale"]).map(playLabel)).toEqual(["Wait"]);
-    const waited = play(
-      world,
-      legalActions(world).find((a) => a.kind === "wait"),
-    ).state;
-    expect(shown(waited, ["clearing"], true).map(playLabel)).toEqual([
-      "Sleep",
+    const clock = ["clearing"],
+      rest = ["vale", "clearing"];
+    expect(shown(world, clock).map(playLabel)).toEqual([
       "Ring the Steam Clock",
     ]);
+    expect(shown(world, rest).map(playLabel)).toEqual(["Wait"]);
+    const waited = play(world, shown(world, rest)[0]).state;
+    expect(shown(waited, clock, true).map(playLabel)).toEqual([
+      "Ring the Steam Clock",
+    ]);
+    expect(shown(waited, rest, true).map(playLabel)).toEqual(["Sleep"]);
     waited.actors.vale.sleeping = {
       since: waited.turn,
       place: "clearing",
       present: [],
     };
-    expect(shown(waited, ["clearing"]).map(playLabel)).toEqual([
-      "Sleep",
+    expect(shown(waited, clock).map(playLabel)).toEqual([
       "Ring the Steam Clock",
     ]);
+    expect(shown(waited, rest).map(playLabel)).toEqual(["Sleep on"]);
   });
   it("names the Wait aboard a ship at sea Sail and carries the voyage on", () => {
     let world = createWorld();

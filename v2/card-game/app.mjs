@@ -1530,6 +1530,9 @@ function opening() {
   if (sharedSession) return null;
   return openingStep(world, currentActor(world), cardIsCovered);
 }
+function sharingMeal(cards) {
+  return cards.length === 3 && cardPlay(world, cards).action?.kind === "eat";
+}
 function choose(id) {
   if (finishCardReveal(id) || selectionBlocked()) return;
   // A locked box is chosen, not uncovered: it opens with its quest.
@@ -1552,7 +1555,9 @@ function choose(id) {
   // the fan, or the only card in a stack, chooses it (#2256).
   const actor = currentActor(world),
     part = expandedHolders.has(actor) ? avatarStack(id) : null;
-  if (id === actor && expandedHolders.has(actor)) {
+  const withCard = [...selected, id];
+  if (sharingMeal(withCard)) selectCards(withCard, { keepOpen: true });
+  else if (id === actor && expandedHolders.has(actor)) {
     const settled = !avatarFan && !questPicked && selected.join("+") === actor;
     avatarFan = null;
     if (settled) expandedHolders.delete(actor);
@@ -1632,7 +1637,13 @@ function commit(cards, revision) {
     $("play-readout").textContent = "That cannot be used here.";
     return;
   }
-  commitAction(resolved.action, revision);
+  const [action] = restPlays(
+    world,
+    [resolved.action],
+    lastWait?.key === cards.join("+") && lastWait.revision === world.revision,
+    cards,
+  );
+  commitAction(action, revision);
 }
 function commitAction(action, revision, renderedAt = -Infinity) {
   if (selectionBlocked()) return;
@@ -2391,16 +2402,6 @@ function renderActions() {
     };
     row.append(button);
   }
-  // An item with its own view offers a client-only Look; it plays nothing.
-  const viewed = selected.length === 1 && selected[0];
-  if (!rested && viewed && things[viewed]?.view && !cardIsCovered(viewed)) {
-    const look = node("button", "Look", "card-action");
-    look.type = "button";
-    look.dataset.look = viewed;
-    look.title = `Look at ${theName(viewed)} up close`;
-    look.onclick = () => showItemView(viewed);
-    row.append(look);
-  }
   // A sealed card says why its way is shut in the context button once its
   // quest is taken; until then Seek the way carries the reason.
   const sealed =
@@ -2438,6 +2439,22 @@ function renderActions() {
     blocked.dataset.blocked = "carry";
     blocked.title = reason;
     row.append(blocked);
+  }
+  // An item with its own view offers a client-only Look; it plays nothing.
+  const viewed = selected.length === 1 && selected[0];
+  if (
+    !rested &&
+    !row.children.length &&
+    viewed &&
+    things[viewed]?.view &&
+    !cardIsCovered(viewed)
+  ) {
+    const look = node("button", "Look", "card-action");
+    look.type = "button";
+    look.dataset.look = viewed;
+    look.title = `Look at ${theName(viewed)} up close`;
+    look.onclick = () => showItemView(viewed);
+    row.append(look);
   }
   const note = document.querySelector(".action-beat-note");
   note.textContent = "";
@@ -2787,7 +2804,14 @@ function card(id) {
     ) {
       playQueue.clear();
       rowCollapsed = false;
-      selectCards(places[dragging[0]] && places[id] ? [id] : [dragging[0], id]);
+      const withCard = [...dragging, id];
+      selectCards(
+        sharingMeal(withCard)
+          ? withCard
+          : places[dragging[0]] && places[id]
+            ? [id]
+            : [dragging[0], id],
+      );
       selectionRevision = world.revision;
       render();
     }
