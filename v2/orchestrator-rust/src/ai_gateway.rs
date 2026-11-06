@@ -1,3 +1,6 @@
+#[path = "ai_image_options.rs"]
+pub(crate) mod image_options;
+
 #[path = "ai_gateway_stream.rs"]
 mod streaming;
 
@@ -1164,6 +1167,7 @@ pub(crate) struct ImageGenerationRequest<'a> {
     pub(crate) prompt_version: &'static str,
     pub(crate) prompt: &'a str,
     pub(crate) reference: Option<ImageGenerationReference<'a>>,
+    pub(crate) options: image_options::ImageGenerationOptions,
     pub(crate) timeout: Duration,
     pub(crate) max_attempts: u8,
     pub(crate) referer: &'a str,
@@ -2795,7 +2799,10 @@ pub(crate) async fn request_image_generation_for_key(
     let selection = config
         .pin_model_for_key(ModelCapability::ImageGeneration, routing_key)
         .map_err(|error| AiGatewayError::registry(request.feature, error))?;
-    let result = request_image_generation_with_selection(config, &selection, request, false).await;
+    let accepts_reference = selection.candidate().accepts_image_input();
+    let result =
+        request_image_generation_with_selection(config, &selection, request, accepts_reference)
+            .await;
     if result.as_ref().is_err_and(|error| {
         error.affects_provider_health() && error.provider_http_status().is_none()
     }) {
@@ -2825,6 +2832,12 @@ async fn request_image_generation_with_selection(
             latency: started_at.elapsed(),
         });
     }
+    let option_fields = request.options.fields().map_err(|message| AiGatewayError {
+        kind: AiFailureKind::Client,
+        message: format!("{} {message}", request.feature),
+        attempts: 0,
+        latency: started_at.elapsed(),
+    })?;
     let reference_content_type = request
         .reference
         .map(|reference| normalize_generated_image_content_type(reference.content_type))
@@ -2842,6 +2855,8 @@ async fn request_image_generation_with_selection(
         reference.bytes.is_empty()
             || reference.bytes.len() > IMAGE_GENERATION_MAX_BYTES
             || !accepts_image_reference
+            || infer_generated_image_content_type(reference.bytes).as_deref()
+                != reference_content_type.as_deref()
     }) {
         return Err(AiGatewayError {
             kind: AiFailureKind::Client,
@@ -2865,6 +2880,10 @@ async fn request_image_generation_with_selection(
         hasher.update(request.prompt_version.as_bytes());
         hasher.update([0]);
         hasher.update(request.prompt.as_bytes());
+        if request.options != image_options::ImageGenerationOptions::default() {
+            hasher.update([0]);
+            hasher.update(option_fields.to_string().as_bytes());
+        }
         if let Some(reference) = request.reference {
             hasher.update([0]);
             hasher.update(Sha256::digest(reference.bytes));
@@ -2888,6 +2907,15 @@ async fn request_image_generation_with_selection(
             "prompt": request.prompt,
             "n": 1,
         });
+        payload
+            .as_object_mut()
+            .expect("image payload object")
+            .extend(
+                option_fields
+                    .as_object()
+                    .expect("image options object")
+                    .clone(),
+            );
         if let (Some(reference), Some(content_type)) =
             (request.reference, reference_content_type.as_deref())
         {
@@ -3085,6 +3113,21 @@ async fn request_image_generation_with_selection(
             });
         }
         let content_type = declared_content_type.unwrap_or(inferred_content_type);
+        if request
+            .options
+            .content_type()
+            .is_some_and(|expected| expected != content_type)
+        {
+            return Err(AiGatewayError {
+                kind: AiFailureKind::InvalidResponse,
+                message: format!(
+                    "{} image format differed from its requested format",
+                    request.feature
+                ),
+                attempts: attempt,
+                latency: started_at.elapsed(),
+            });
+        }
         let provider_model = body.get("model").and_then(Value::as_str);
         let model_attribution = selection
             .attribute_response(provider_model)
@@ -5114,6 +5157,7 @@ mod tests {
             &config,
             &image_actor_model_binding(false),
             ImageGenerationRequest {
+                options: Default::default(),
                 feature: "image_test",
                 prompt_version: "image-test-v1",
                 prompt: "a tiny lantern",
@@ -5213,6 +5257,7 @@ mod tests {
         let generated = request_image_generation_for_key(
             &config,
             ImageGenerationRequest {
+                options: Default::default(),
                 feature: "journal_image_test",
                 prompt_version: "journal-image-test-v1",
                 prompt: "one painted journal page",
@@ -7690,3 +7735,7 @@ mod tests {
         .is_err());
     }
 }
+
+#[cfg(test)]
+#[path = "ai_gateway_image_tests.rs"]
+mod image_tests;

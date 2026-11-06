@@ -306,6 +306,7 @@ pub(super) async fn generate_moderated_resident_image(
                             config,
                             binding,
                             ImageGenerationRequest {
+                                options: Default::default(),
                                 feature,
                                 prompt_version: RESIDENT_IMAGE_PROMPT_VERSION,
                                 prompt,
