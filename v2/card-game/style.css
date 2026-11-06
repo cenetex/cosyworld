@@ -2392,6 +2392,7 @@ body .beat-live {
 /* An action with no speech is one line, as a play folds into the stream:
    the figure, then the caption, which names who acted. */
 #speech-row[data-beat="action"] {
+  min-height: var(--beat-full-height);
   grid-template-areas: "portrait line heading";
   grid-template-columns: auto minmax(0, 1fr) auto;
   grid-template-rows: auto;
