@@ -363,6 +363,7 @@ try {
         !input.speakers.includes("keeper") &&
         !input.entities.some(({ id }) => id === "keeper")),
       "A face-down Keeper stays out of narration");
+      await finish();
       const beforeKeeper = (await state()).turn;
       await revealCard(page, "keeper");
       assert.equal((await state()).turn, beforeKeeper, "Revealing a person takes no turn");
