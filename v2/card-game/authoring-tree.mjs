@@ -122,7 +122,7 @@ export function buildAuthoringTree({ pack, bridge } = {}) {
       canonicalId: target,
       ref: found?.id || null,
       art: found?.art || BOX,
-      state: found ? "" : "Outside this world",
+      state: found ? "" : "Referenced card",
     });
   };
   const visit = (value, source, holder, name, key = source.at(-1)) => {

@@ -142,7 +142,9 @@ describe("the authored world card tree", () => {
     const greek = buildAuthoringTree(load("greek-drama"));
     const starter = at(greek, ["pack", "avatars", "greek-antigone", "want"]);
     expect(starter.name).toBe("Starting quest");
-    expect(greek.cards.find((c) => c.id === starter.holder).role).toBe("quests");
+    expect(greek.cards.find((c) => c.id === starter.holder).role).toBe(
+      "quests",
+    );
     const road = at(greek, ["pack", "routes", 0]);
     const owner = greek.cards.find((c) => c.id === road.holder);
     expect(owner.role).toBe("quests");
