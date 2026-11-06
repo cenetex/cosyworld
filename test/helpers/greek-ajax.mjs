@@ -5,10 +5,25 @@ import {
 } from "../../v2/card-game/narrative.mjs";
 import { openDoorJourney, openDoorSteps, playOpenDoor } from "./open-door.mjs";
 import { greekTravelTargets } from "./greek-travel.mjs";
+import { packDefinition } from "../../v2/card-game/pack-registry.mjs";
 
 export const ajaxState = (world) => world.packs["greek-drama"];
-export const ajaxChoice = (world, id) =>
-  playOpenDoor(world, "choose", { choiceId: `greek-ajax-${id}` });
+export function ajaxChoice(world, id) {
+  const choiceId = `greek-ajax-${id}`;
+  const {
+    on,
+    subject: target,
+    requires,
+  } = packDefinition("greek-drama").choices.find((c) => c.id === choiceId);
+  const item =
+    on === "give" ? requires.find((c) => c.kind === "holding").item : null;
+  const fields =
+    on === "give" ? { item, target } : on === "talk" ? { target } : {};
+  const next = playOpenDoor(world, on, fields);
+  if (ajaxState(next).receipts[choiceId] !== next.turn)
+    throw new Error(`Missing Ajax receipt for ${choiceId}`);
+  return next;
+}
 export const ajaxMove = (world, ...places) =>
   places.reduce(
     (state, place) =>
@@ -83,7 +98,9 @@ export function ajaxPlea(route = "public") {
   world = ajaxChoice(world, "deliver-plea");
   if (route === "household") world = ajaxMove(world, "greek-ajax-household");
   world = ajaxChoice(world, `choose-${route}`);
-  return route === "household" ? ajaxMove(world, "greek-greek-camp") : world;
+  if (route !== "household") return world;
+  world = playOpenDoor(world, "take", { item: "greek-ajax-plea" });
+  return ajaxMove(world, "greek-greek-camp");
 }
 
 export function ajaxGrave(route = "public", witness = true) {
@@ -93,6 +110,8 @@ export function ajaxGrave(route = "public", witness = true) {
   for (const item of ["greek-ajax-tools", "greek-ajax-cloth"])
     world = playOpenDoor(world, "take", { item });
   world = ajaxMove(world, "greek-ajax-grave");
+  for (const item of ["greek-ajax-tools", "greek-ajax-cloth"])
+    world = playOpenDoor(world, "drop", { item, target: "greek-ajax-grave" });
   world = ajaxChoice(world, "prepare-grave");
   return ajaxChoice(world, "lay-cloth");
 }
@@ -103,7 +122,8 @@ export function ajaxBuried(route = "public") {
 
 export function ajaxAccount(route = "public") {
   let world = ajaxMove(ajaxBuried(route), "greek-greek-camp");
-  world = playOpenDoor(world, "take", { item: "greek-ajax-plea" });
+  if (world.items["greek-ajax-plea"].holder !== "vale")
+    world = playOpenDoor(world, "take", { item: "greek-ajax-plea" });
   return ajaxTalk(world, `greek-ajax-account-${route}`);
 }
 

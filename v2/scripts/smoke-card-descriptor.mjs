@@ -32,6 +32,15 @@ try {
       const { installCardWorkspace } = await import(
         "/card-game/settings-screen.mjs"
       );
+      const beat = { cards: [], buttons: [{ label: "Save", run() {} }] };
+      renderCardDescriptor(beat);
+      const button = document.querySelector("#card-actions button");
+      renderCardDescriptor(beat);
+      if (
+        button !== document.querySelector("#card-actions button") ||
+        button.id !== ""
+      )
+        throw new Error("An unnamed context button must stay through redraws.");
       localStorage.setItem("cosyworld.playing", "saved-play");
       new ResizeObserver(([entry]) => {
         document.documentElement.style.setProperty(

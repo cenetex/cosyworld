@@ -44,15 +44,21 @@ it.each(["opening", "full"])(
     act({ kind: "move", target: "greek-battlefield" });
     act({ kind: "move", target: hollow });
     expect(world.actors[antigone].place).toBe(hollow);
-    const available = () =>
-      actions().flatMap((a) =>
-        rites.includes(a.choiceId) ? [a.choiceId] : [],
-      );
-    expect(available()).toEqual([]);
+    expect(actions().filter((a) => a.kind === "choose")).toEqual([]);
+    // Old saves can have the whole kit laid out on the floor.
     for (const item of [oil, cloth, shovel]) world.items[item].holder = hollow;
-    for (const [i, art] of ["anointed", "veiled", null].entries()) {
-      expect(available()).toEqual([rites[i]]);
-      act({ kind: "choose", choiceId: rites[i] });
+    act({ kind: "take", item: shovel });
+    act({ kind: "give", item: shovel, target: antigone });
+    expect(world.items[shovel].holder).toBe("vale");
+    expect(world.packs[pack].receipts[rites[2]]).toBeUndefined();
+    for (const [i, [item, art]] of [
+      [oil, "anointed"],
+      [cloth, "veiled"],
+      [shovel, null],
+    ].entries()) {
+      if (world.items[item].holder === hollow) act({ kind: "take", item });
+      act({ kind: "give", item, target: antigone });
+      expect(world.packs[pack].receipts[rites[i]]).toBe(world.turn);
       if (art) expect(questCard(world)?.art).toContain(`polynices-${art}`);
     }
     expect(questCard(world)?.target).not.toBe(hollow);
