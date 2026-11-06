@@ -29,6 +29,7 @@ const files = [
   "avatar-world.mjs",
   "authoring-draft.mjs",
   "authoring-tree.mjs",
+  "authoring-fields.mjs",
   "avatar-menu.mjs",
   "unlock-view.mjs",
   "world-names.json",

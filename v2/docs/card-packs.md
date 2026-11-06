@@ -18,6 +18,15 @@ Each place and avatar has Contents and Quests boxes. Incoming road conditions
 live under the destination's Quests box; outgoing links stay in Contents.
 The index leaves the source intact. Edit commands use those paths separately.
 
+`authoring-fields.mjs` adapts scalar field cards for the descriptor.
+`authoringField(source, card)` captures its path, type, displayed value and
+action label. `authoringFieldEdit(source, field, text)` returns one expected-value
+source edit for Save; a boolean uses the same call with no text for Enable or
+Disable. Integer fields keep safe whole numbers; decimal fields keep finite
+numbers. Nulls, identities, type tags and reference lists stay read-only.
+Internal generation fields have `hidden: true`. The controller applies the
+returned command and records its inverse. Pack compilation checks game meaning.
+
 ## Files
 
 Authoring drafts keep the original pack and bridge together with the writer's
