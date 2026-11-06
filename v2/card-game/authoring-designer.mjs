@@ -2,10 +2,14 @@ import { installCardWorkspace } from "./settings-screen.mjs";
 import { cardTreeLayout, placeCardTree } from "./card-tree-layout.mjs";
 import { createAuthoringSession } from "./authoring-session.mjs";
 import { authoringAction } from "./authoring-controller.mjs";
-import { authoringCardId, buildAuthoringTree } from "./authoring-tree.mjs";
+import { buildAuthoringTree } from "./authoring-tree.mjs";
 import { authoringFieldHidden } from "./authoring-fields.mjs";
-const BOX = "assets/card-back.webp",
-  ROOT = authoringCardId(["pack"], "root");
+import {
+  authoringCollections,
+  WORLD,
+  TOOLS,
+} from "./authoring-collections.mjs";
+const BOX = "assets/card-back.webp";
 const actions = ["Save", "Undo", "Reload", "Cancel"];
 export function installWorldDesigner({
   store,
@@ -17,7 +21,8 @@ export function installWorldDesigner({
 }) {
   let workspace,
     previous,
-    base = [],
+    mode = "world",
+    base = { world: [], tools: [] },
     byId = new Map(),
     toolMap = new Map();
   const session = createAuthoringSession({
@@ -28,9 +33,14 @@ export function installWorldDesigner({
       const stamp = JSON.stringify([key, generation, title]);
       if (source !== previous?.source || stamp !== previous?.stamp) {
         previous = { source, stamp };
-        base = buildAuthoringTree(source)
-          .cards.filter((card) => !authoringFieldHidden(card))
-          .map((card) => ({
+        base = authoringCollections(
+          buildAuthoringTree(source).cards.filter(
+            (card) => !authoringFieldHidden(card),
+          ),
+          source,
+        );
+        for (const group of Object.keys(base))
+          base[group] = base[group].map((card) => ({
             ...card,
             art:
               resolveArt(card.art, session.status) ||
@@ -49,7 +59,7 @@ export function installWorldDesigner({
   const utility = (id, name) => ({
     id,
     name,
-    holder: ROOT,
+    holder: TOOLS,
     kind: "box",
     role: "utility",
     art: BOX,
@@ -64,9 +74,15 @@ export function installWorldDesigner({
       toolMap.set(id, tool);
     }
     const cards = [
-      ...base,
-      ...actions.map((name) => utility(`designer-${name.toLowerCase()}`, name)),
-      ...[...toolMap].map(([id, tool]) => utility(id, tool.name)),
+      ...base[mode],
+      ...(mode === "tools"
+        ? [
+            ...actions.map((name) =>
+              utility(`designer-${name.toLowerCase()}`, name),
+            ),
+            ...[...toolMap].map(([id, tool]) => utility(id, tool.name)),
+          ]
+        : []),
     ];
     byId = new Map(cards.map((card) => [card.id, card]));
     return cards;
@@ -136,7 +152,6 @@ export function installWorldDesigner({
   }
   workspace = installCardWorkspace({
     label: "World editor",
-    initialGroup: ROOT,
     cards: readCards,
     actionBeat,
     describe,
@@ -155,13 +170,15 @@ export function installWorldDesigner({
     },
     onSelect(id) {
       const card = byId.get(id);
+      if (card.role === "navigation") return session.touch();
+      if (card.ref) return chooseView("world", card.ref);
       if (card.role === "field" && !card.group && session.state.armed)
         session.dispatch({ type: "cancel" });
       if (card.role === "utility" || session.state.armed === id)
         return session.dispatch({ type: "cancel" });
-      let parent = card.holder;
+      let parent = card.sourceHolder;
       while (parent && parent !== session.state.armed)
-        parent = byId.get(parent)?.holder;
+        parent = byId.get(parent)?.sourceHolder;
       const nested =
         parent &&
         ["contents", "quests"].includes(card.role) &&
@@ -179,6 +196,7 @@ export function installWorldDesigner({
       return session.run(async (ctx) => {
         const open = (value) => {
           document.activeElement?.blur();
+          mode = "world";
           ctx.open(value);
         };
         if (action.tool) await tool.run(action, { ...ctx, open });
@@ -197,10 +215,18 @@ export function installWorldDesigner({
     .querySelector(".action-beat-note")
     .addEventListener("input", session.touch);
   addEventListener("resize", workspace.refresh);
+  function chooseView(view, id) {
+    mode = view;
+    workspace.refresh();
+    workspace.choose(id, { expand: true });
+  }
   return {
     open(value) {
       document.activeElement?.blur();
-      if (value) session.open(value);
+      if (value) {
+        mode = "world";
+        session.open(value);
+      }
       workspace.open();
       showScene();
     },
@@ -209,9 +235,10 @@ export function installWorldDesigner({
       workspace.close();
     },
     refresh: workspace.refresh,
+    chooseWorld: () => chooseView("world", WORLD),
+    chooseTools: () => chooseView("tools", TOOLS),
     chooseTool(id) {
-      workspace.refresh();
-      workspace.choose(`designer-tool-${id}`);
+      chooseView("tools", `designer-tool-${id}`);
     },
   };
 }

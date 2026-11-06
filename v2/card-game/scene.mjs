@@ -24,6 +24,7 @@ import { expressionOf } from "./expression.mjs";
 import { daylightBackdrop, locationDaylight } from "./daylight.mjs";
 import { avatarImage } from "./scarves.mjs";
 import { sleepingPortrait } from "./sleep-portraits.mjs";
+import { residentPortrait } from "./resident-portrait.mjs";
 import { rarityForm } from "./rarity-portraits.mjs";
 import { flipStagePortrait, nativePortraitFacing } from "./portrait-facing.mjs";
 import { sceneChanges } from "./scene-cast.mjs";
@@ -89,9 +90,11 @@ export function portrait(id, facing = null, world = null) {
   if (resident)
     return `./${
       (world && rarityForm(id, levelOf(world, id))?.portrait) ||
-      residentPose(world, id)?.portrait ||
-      resident.portrait ||
-      (world ? variantOf(world, id) : resident.variants.awake).portrait
+      residentPortrait(
+        resident,
+        world && variantOf(world, id),
+        residentPose(world, id),
+      )
     }`;
   return `./assets/${id === "keeper" && facing === "right" ? "keeper-right" : id}.png`;
 }
