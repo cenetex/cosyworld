@@ -92,6 +92,15 @@ try {
       await choose(["pack"], "root");
       await choose(["pack", "avatars"], "collection");
       await choose(["pack", "avatars", "sample-vale"], "entity");
+      const dino = page.locator(
+        `[data-setting="${authoringCardId(["pack", "avatars", "sample-vale"], "entity")}"] .art img`,
+      );
+      await dino.evaluate((image) => image.decode());
+      assert.equal(
+        await dino.evaluate((image) => getComputedStyle(image).objectFit),
+        "contain",
+      );
+      await page.screenshot({ path: `${output}/${width}-dino.png` });
       await choose(["pack", "avatars", "sample-vale", "text"], "field");
       await note.fill("Dino carries a lantern and follows the shore path.");
       await press(action);
