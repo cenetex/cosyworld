@@ -66,17 +66,21 @@ fn storage(error: Error) -> Failure {
 }
 async fn owner(state: AppState, headers: HeaderMap, mutation: bool) -> Result<String, Failure> {
     tokio::task::spawn_blocking(move || {
-        crate::card_shared::user(&state, &headers, mutation).map_err(|message| {
-            match message.as_str() {
-                "Sign in with your passkey." => {
-                    (StatusCode::UNAUTHORIZED, "Sign in with your passkey.")
-                }
-                "Open this world on its own site." => {
-                    (StatusCode::FORBIDDEN, "Open your files on this site.")
-                }
-                _ => UNAVAILABLE,
-            }
-        })
+        let owner =
+            crate::card_shared::user(&state, &headers, mutation).map_err(
+                |message| match message.as_str() {
+                    "Sign in with your passkey." => {
+                        (StatusCode::UNAUTHORIZED, "Sign in with your passkey.")
+                    }
+                    "Open this world on its own site." => {
+                        (StatusCode::FORBIDDEN, "Open your files on this site.")
+                    }
+                    _ => UNAVAILABLE,
+                },
+            )?;
+        super::receipts::owner(&headers, &owner)
+            .map_err(|(status, message, _)| (status, message))?;
+        Ok(owner)
     })
     .await
     .map_err(|_| UNAVAILABLE)?

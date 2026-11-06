@@ -157,8 +157,11 @@ The private byte pipeline starts in Rust's `authoring_asset_store.rs`.
 asset guard also counts these bytes against its 512 MiB physical budget.
 Authenticated PUT/GET/HEAD `/card-game/authoring/assets/{sha256}` serve each
 owner's verified bytes. SQLite records each ready file after its durable write.
-Manifest references and stable Create retries form the next layer.
-The current private draft API stores the manifest and launch metadata.
+Pack Create and Save require each manifest file to be ready for its owner.
+Create accepts a UUID `Idempotency-Key`; the same key, content and launch
+return the first saved receipt, including after restart or later draft edits.
+A changed request with that key returns 409. `X-Authoring-Owner` binds a pack
+or file request to the account that started it; a changed account returns 409.
 
 `authoring-session.mjs` owns fields, source text, Undo, saves and guarded tools.
 The designer's `transientState()` hook returns a stable revision token while

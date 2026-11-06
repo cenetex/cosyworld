@@ -3,6 +3,8 @@
 mod asset_routes;
 #[path = "authoring_asset_store.rs"]
 mod assets;
+#[path = "authoring_create_receipt.rs"]
+mod receipts;
 use crate::AppState;
 use axum::{
     extract::{DefaultBodyLimit, Path, State},
@@ -73,6 +75,7 @@ async fn run(
                 }
                 _ => UNAVAILABLE,
             })?;
+        receipts::owner(&headers, &owner)?;
         let path = state.event_store_path.as_deref().ok_or(UNAVAILABLE)?;
         let c = crate::open_event_store(path).map_err(|_| UNAVAILABLE)?;
         c.execute_batch(
@@ -83,6 +86,7 @@ async fn run(
             id TEXT PRIMARY KEY REFERENCES authoring_packs(id) ON DELETE CASCADE, content TEXT NOT NULL);",
         )
         .map_err(|_| UNAVAILABLE)?;
+        receipts::schema(&c)?;
         work(c, owner)
     })
     .await;
@@ -117,14 +121,21 @@ async fn create(
     headers: HeaderMap,
     Json(input): Json<Value>,
 ) -> Response {
-    run(state, headers, true, |mut c, owner| {
+    let key = receipts::key(&headers);
+    run(state, headers, true, move |mut c, owner| {
+        let key = key?;
         let id = crate::random_hex(24);
         let (input, launch) = payload(input, &id, 1)?;
         let launch = launch.unwrap_or(Value::Null);
         validate_launch(&input, &launch)?;
+        let digest = receipts::digest(&input, &launch);
         let tx = c
             .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
             .map_err(|_| UNAVAILABLE)?;
+        if let Some(receipt) = receipts::previous(&tx, &owner, key.as_deref(), &digest)? {
+            return Ok(receipt);
+        }
+        receipts::check_assets(&tx, &owner, &input)?;
         let count: u64 = tx
             .query_row(
                 "SELECT count(*) FROM authoring_packs WHERE owner=?",
@@ -145,6 +156,7 @@ async fn create(
         )
         .map_err(|_| UNAVAILABLE)?;
         write_launch(&tx, &id, &launch)?;
+        receipts::remember(&tx, &owner, key.as_deref(), &digest, &input)?;
         tx.commit().map_err(|_| UNAVAILABLE)?;
         Ok(input)
     })
@@ -269,6 +281,7 @@ async fn save(
         let (input, launch) = payload(input, &id, revision + 1)?;
         let launch = launch.unwrap_or(previous_launch);
         validate_launch(&input, &launch)?;
+        receipts::check_assets(&tx, &owner, &input)?;
         tx.execute(
             "UPDATE authoring_packs SET content=? WHERE id=? AND owner=?",
             params![input.to_string(), id, owner],
