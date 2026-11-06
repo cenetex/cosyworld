@@ -21,6 +21,7 @@ export function installWorldDesigner({
   onOpen = () => {},
   onClose = () => {},
   transientState = () => null,
+  project = (cards) => cards,
 }) {
   let workspace,
     previous,
@@ -73,7 +74,7 @@ export function installWorldDesigner({
   });
   function readCards() {
     projected = authoringTools(
-      base,
+      project(base),
       typeof tools === "function" ? tools() : tools,
     );
     toolMap = projected.byId;
