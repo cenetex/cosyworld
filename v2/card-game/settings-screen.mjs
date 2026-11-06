@@ -134,6 +134,7 @@ export function installSettingsCards({ actionBeat, packs, playHand }) {
 // receives the action and {cardId}. Actions may stay selected or ask for a
 // second press through their existing stays and confirm fields.
 // Optional layout(cards,{expanded,active}) returns {nodes:[{id}],place(screen)}.
+// Nodes name viewport-visible cards; the callback filters phone branches.
 // Only those nodes get frames. onSelect/selected/onCancel connect a controller;
 // public choose(id) selects a card, while focus(id) only moves keyboard focus.
 export function installCardWorkspace({
@@ -287,7 +288,7 @@ export function installCardWorkspace({
     const el = holder.querySelector(".card");
     const picked = selected ? selected().includes(c.id) : chosen === c.id;
     const open = layout ? expanded.has(c.id) : fanned === c.id;
-    const face = `${c.kind || ""}\0${c.art}`;
+    const face = JSON.stringify([c.kind, c.art]);
     if (holder.dataset.face !== face) {
       el.replaceChildren();
       placeFace(el, c);
@@ -310,7 +311,7 @@ export function installCardWorkspace({
       holder.dataset.inventory = String(held.length);
       holder.dataset.expanded = String(open);
       el.setAttribute("aria-expanded", String(open));
-      if (!preview) {
+      if (!preview && !layout) {
         preview = make("img", "held-preview", {
           alt: "",
           decoding: "async",
@@ -318,8 +319,10 @@ export function installCardWorkspace({
         });
         holder.prepend(preview);
       }
-      const src = imageUrl(held[0].art, "card");
-      if (preview.getAttribute("src") !== src) preview.src = src;
+      if (preview) {
+        const src = imageUrl(held[0].art, "card");
+        if (preview.getAttribute("src") !== src) preview.src = src;
+      }
     } else {
       preview?.remove();
       delete holder.dataset.inventory;
