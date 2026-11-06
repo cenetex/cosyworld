@@ -1,7 +1,8 @@
 import { atticOpening } from "./fixtures/card-attic-opening.mjs";
 import { describe, it, expect } from "vitest";
-import { legalActions, play } from "../v2/card-game/world.mjs";
+import { createWorld, legalActions, play } from "../v2/card-game/world.mjs";
 import { enableMotives } from "../v2/card-game/motives.mjs";
+import { summonTransport } from "../v2/card-game/pack-transport.mjs";
 import {
   actionCaption,
   beatSummary,
@@ -355,6 +356,52 @@ describe("shared reading clock", () => {
       hiddenAction: (entry) => entry.turn > 1,
     });
     expect(beats.map((b) => b.key)).toEqual(["s:1"]);
+  });
+});
+
+describe("action captions from the rules", () => {
+  it("keeps the Steam Clock's own bell and its sound in the result", () => {
+    const world = createWorld();
+    world.actors.vale.place = "clearing";
+    const action = legalActions(world).find((play) => play.fixture);
+    expect(action?.kind).toBe("ring");
+    const result = play(world, action);
+    expect(result.ok).toBe(true);
+    const entry = result.state.log.find((event) => event.verb === "ring");
+    expect(entry.itemId).toBeNull();
+    const caption = actionCaption(entry, { viewer: "vale", here: "clearing" });
+    expect(caption.text).toBe(entry.text);
+    expect(caption.text).toContain("Steam Clock's bell");
+    expect(
+      actionCaption({ ...entry, itemId: "bell" }, { here: "clearing" }).text,
+    ).toBe("Vale rang the Bell.");
+  });
+
+  it("gives setting a course its own card while the avatar stays aboard", () => {
+    let world = createWorld();
+    world.actors.vale.place = "pond";
+    summonTransport(world, "greek-ship", "pond");
+    world.crossings["pond-greek-harbor"].discovered = true;
+    for (const [kind, target] of [
+      ["move", "greek-ship"],
+      ["course", "greek-harbor"],
+    ]) {
+      const action = legalActions(world).find(
+        (play) => play.kind === kind && play.target === target,
+      );
+      expect(action, kind).toBeTruthy();
+      const result = play(world, action);
+      expect(result.ok, result.error).toBe(true);
+      world = result.state;
+    }
+    const entry = world.log.find((event) => event.verb === "course");
+    expect(entry.fromLocationId).toBe("greek-ship");
+    expect(entry.locationId).toBe("greek-ship");
+    const beat = sceneBeats(world).find((beat) => beat.anchor === entry.seq);
+    expect(beat.committed).toBe(true);
+    expect(beat.actions[0].text).toBe(
+      "Vale set the ship's course for the Wine-Dark Harbor.",
+    );
   });
 });
 

@@ -524,6 +524,7 @@ if (localBackups) {
 }
 // Effect captions being written onto a card (inscribe()), with their pens.
 const inscribing = new Map();
+const seenCaptions = new Set();
 let shownCaptions = { key: null, count: 0 };
 // Each shared reader keeps their own place in the room’s dialogue.
 let sharedLineSeq = null;
@@ -814,6 +815,7 @@ function measureSpeech() {
 }
 new ResizeObserver(measureSpeech).observe($("dialogue-text"));
 function updateSpeechControls(complete) {
+  complete &&= inscribing.size === 0;
   const waiting =
     exchange.waiting || (sharedAdvanceRequested && storyStatus === "pending");
   const sharedForward =
@@ -976,6 +978,7 @@ reducedMotion.addEventListener("change", () => {
   if (reducedMotion.matches) {
     actionReveal.finish();
     reveal.finish();
+    finishInscribing();
     speechSounds.stop();
     for (const motion of handMotions.values()) motion.finish();
   }
@@ -3788,7 +3791,7 @@ function renderScene() {
   }
   frontCaptions = (front?.actions || []).map((action) => action.text);
   const captions = $("beat-captions");
-  const captionKey = JSON.stringify(front?.actions || []);
+  const captionKey = JSON.stringify([front?.key, front?.actions || []]);
   // Effects added to the same card are inscribed onto it, even when a
   // Thinking card stood in front for a moment.
   const kept =
@@ -3797,23 +3800,35 @@ function renderScene() {
     shownCaptions = { key: front.key, count: front.actions.length };
   if (captions.dataset.key !== captionKey) {
     captions.dataset.key = captionKey;
+    for (const item of captions.children) finishInscribing(item);
     captions.replaceChildren(
       ...(front?.actions || []).map((action, index) => {
         const item = node("span", undefined, "beat-caption");
         item.dataset.kind = action.kind;
         item.toggleAttribute(
           "data-primary",
-          front.committed === true && action.seq === front.anchor,
+          !front.line &&
+            !front.pending &&
+            !front.dream &&
+            action.seq === front.anchor,
         );
         item.toggleAttribute(
           "data-named",
           action.text.startsWith(`${nameOf(front.speakerId)} `),
         );
         item.append(beatIcon(action.icon), namedSpan(action.text));
-        if (index >= kept) inscribe(item, action.text);
+        const key = JSON.stringify([action.seq, action.text]);
+        if (
+          index >= kept ||
+          (!text && !front.pending && !reviewing && !seenCaptions.has(key))
+        )
+          inscribe(item, action.text);
+        seenCaptions.add(key);
         return item;
       }),
     );
+    while (seenCaptions.size > 200)
+      seenCaptions.delete(seenCaptions.values().next().value);
   }
   captions.hidden = !front?.actions.length;
   const showFront = Boolean(front);
@@ -3919,9 +3934,8 @@ function renderScene() {
   animateStack(direction, ghost);
   syncPhase();
 }
-// An effect is written onto a card with the dialogue's reveal, at a quicker
-// beat: a caption takes 300 to 900 ms. It counts as revealing until it is
-// done; a tap finishes it. Reduced motion shows it at once.
+// The main action uses the dialogue's pace. Added effects write in 300 to
+// 900 ms. A tap finishes the card; reduced motion shows it at once.
 function inscribe(item, text) {
   if (reducedMotion.matches) return;
   const words = node("span"),
@@ -3932,12 +3946,13 @@ function inscribe(item, text) {
   const beat = Math.min(900, Math.max(300, text.length * 20)) / glyphs.length;
   const painter = createRevealPainter(words, { caret: false });
   const pen = createTextReveal({
-    delay: () => beat,
+    delay: item.hasAttribute("data-primary") ? undefined : () => beat,
     frame(value) {
       painter.paint(value);
       if (!value.complete || !inscribing.has(item)) return;
       item.classList.remove("inscribe");
       inscribing.delete(item);
+      updateSpeechControls(reveal.complete);
       syncPhase();
     },
   });
@@ -4211,6 +4226,7 @@ function animateStack(direction, ghost) {
   fadeGhost(ghost.front, { transform: nearer }, STACK_LEAVE_MS);
 }
 function stepBack() {
+  finishInscribing();
   const { beats, frontIndex } = stackView;
   const beat =
     beats[Math.min(beats.length - 1, frontIndex - Number(!choiceInFront()))];
@@ -4281,10 +4297,7 @@ document.addEventListener(
   },
   true,
 );
-$("beat-behind").onclick = () => {
-  if (inscribing.size) finishInscribing();
-  else stepBack();
-};
+$("beat-behind").onclick = stepBack;
 // The portrait, name and words share the same advance control.
 $("speech-row").addEventListener(
   "click",
@@ -5055,6 +5068,7 @@ $("confirm-reset").onclick = () => {
   rememberWords(null);
   loadSeen(true);
   completedSpeech.clear();
+  seenCaptions.clear();
   reviewing = false;
   reviewBeat = null;
   renderedHand = "";
