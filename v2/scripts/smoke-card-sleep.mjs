@@ -73,7 +73,15 @@ async function local(width) {
     await play.click();
     await settled();
     await selectCard(page, "vale", { touch });
-    await play.click();
+    if (touch) await play.click();
+    else {
+      const card = page.locator('#hand [data-card="vale"]');
+      const stage = page.locator("#stage");
+      const dataTransfer = await page.evaluateHandle(() => new DataTransfer());
+      await card.dispatchEvent("dragstart", { dataTransfer });
+      assert.equal(await stage.getAttribute("data-play"), "Sleep");
+      await stage.dispatchEvent("drop", { dataTransfer });
+    }
     await settled();
     // The wake gives its reason in the past, after the Sleep.
     await page.waitForFunction(() =>

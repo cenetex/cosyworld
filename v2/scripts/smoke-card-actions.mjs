@@ -561,7 +561,13 @@ try {
       assert.deepEqual(await labels(), ["Drink with The Gate Guard"]);
       await selectCard(page, "vale");
       assert.deepEqual(await labels(), ["Give to The Gate Guard"]);
-      await selectCard(page, "vale");
+      if (width === 1440) {
+        const dataTransfer = await page.evaluateHandle(
+          () => new DataTransfer(),
+        );
+        await card("greek-guard").dispatchEvent("dragstart", { dataTransfer });
+        await card("vale").dispatchEvent("drop", { dataTransfer });
+      } else await selectCard(page, "vale");
       assert.deepEqual(await labels(), ["Drink with The Gate Guard"]);
       await page.locator('#card-actions [data-action="eat"]').click();
       await ready();
