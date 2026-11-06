@@ -2315,7 +2315,7 @@ function renderActions() {
     sentence = lockShown
       ? lockShown.text
       : questShown
-        ? shownQuestCaption(questShown)
+        ? shownQuestCaption(questShown, false)
         : ((actions[0] && playText(actions[0])) || clientText).replace(
             /\b(the|an?) (?:the|an?) /giu,
             "$1 ",
@@ -2447,7 +2447,7 @@ function renderActions() {
       ? [
           {
             action: step,
-            label: shownQuestCaption(picked),
+            label: shownQuestCaption(picked, false),
           },
         ]
       : drop
@@ -2466,7 +2466,7 @@ function renderActions() {
       button.dataset.destructive = "";
     } else button.dataset.questStep = "";
     if (!discard) button.dataset.action = action.kind;
-    button.title = discard ? "Abandon this quest" : shownQuestCaption(picked);
+    button.title = discard ? "Abandon this quest" : shownQuestCaption(picked, false);
     button.disabled = selectionBlocked();
     button.onclick = () => {
       if (discard && !abandonQuest) {
@@ -2571,7 +2571,7 @@ function renderActions() {
   if (abandonQuest) {
     panel.dataset.tier = "danger";
     panel.style.setProperty("--tier-color", "var(--danger)");
-    noteText = `${shownQuestCaption(picked)}. Cost ${dropCost(world, actor, picked.index)} XP.`;
+    noteText = `${shownQuestCaption(picked, false)}. Cost ${dropCost(world, actor, picked.index)} XP.`;
   }
   showActionBeatNote(note, { note: noteText });
   const text = abandonQuest ? "Abandon this quest?" : sentence;
@@ -2601,7 +2601,7 @@ function renderActions() {
   $("play-readout").textContent = selected.length
     ? `${selectionName}. ${lockShown?.text || ready.map(readout).join(". ") || hint}`
     : questOpen && (shownQuests[questPick] || sealedQuests[0])
-      ? shownQuestCaption(shownQuests[questPick] || sealedQuests[0])
+      ? shownQuestCaption(shownQuests[questPick] || sealedQuests[0], false)
       : "";
 }
 $("action-beat").addEventListener(
@@ -3030,9 +3030,10 @@ const cardBackImage = () =>
 const questCovered = (quest) =>
   !quest.target || cardIsCovered(quest.target);
 const known = (id) => !cardIsCovered(id);
-function shownQuestCaption(quest) {
+function shownQuestCaption(quest, includeLevel = true) {
   const hidden = questCovered(quest);
-  return questCaption(quest, hidden, questVerb(world, quest, hidden), known);
+  const shown = includeLevel ? quest : { ...quest, level: null };
+  return questCaption(shown, hidden, questVerb(world, quest, hidden), known);
 }
 const questArt = {
   url: (src) => imageUrl(src, "card"),

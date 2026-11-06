@@ -151,6 +151,7 @@ lower right.
 Unknown goals read “Find something”, “Find someone to talk to”, or “Find a
 place”. Compound goals use the same plain words, such as “Find something
 and bring it somewhere”. Revealed parts use their card names.
+The quest card keeps its level label; the action card shows the goal alone.
 The action card uses the quest card's rarity colour and glow. An open
 abandonment confirmation uses the red warning outline.
 

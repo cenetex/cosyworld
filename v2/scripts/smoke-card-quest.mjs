@@ -779,6 +779,12 @@ try {
         });
         if (level) {
           const action = page.locator("#action-beat");
+          assert.doesNotMatch(await action.innerText(), /Level XX/u);
+          assert.match(
+            await page.locator('#hand .want-card[data-quest-id="quest:0"]')
+              .getAttribute("aria-label"),
+            /Level XX:/u,
+          );
           assert.equal(await action.getAttribute("data-tier"), "rare");
           assert.equal(
             await page.locator('#hand .want-card[data-quest-id="quest:0"]')
@@ -793,6 +799,7 @@ try {
           assert.match(style.shadow, /14px/u, "rare quests glow");
           await action.locator("button").click();
           assert.equal(await action.getAttribute("data-tier"), "danger");
+          assert.doesNotMatch(await action.innerText(), /Level XX/u);
           await page.keyboard.press("Escape");
           assert.equal(await action.getAttribute("data-tier"), "rare");
         }
