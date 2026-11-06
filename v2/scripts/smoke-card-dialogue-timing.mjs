@@ -77,8 +77,10 @@ try {
         },
         { key, save: encodeSave(fixture(kind)) },
       );
-      let request;
+      let request,
+        requestCount = 0;
       await page.route("**/card-game/text", (route) => {
+        requestCount += 1;
         request = { route, input: route.request().postDataJSON() };
       });
       const state = () =>
@@ -270,13 +272,31 @@ try {
           assert.equal(await card("vale").isDisabled(), false);
           if (kind === "wait" && i === speakers.length - 1) {
             queuedTurn = (await state()).turn;
+            const asked = requestCount;
             await selectCard(page, "vale");
             await action.click();
-            // The play skips the last reading pause for its Thinking card.
             assert.equal(await page.locator("#card-actions button").count(), 0);
-            await page.waitForFunction(
-              () => document.querySelector("#story-status").hidden === false,
-            );
+            if (SPEECH_OCCASIONS.includes("first_wait")) {
+              await page.waitForFunction(
+                ({ key, turn }) =>
+                  JSON.parse(localStorage.getItem(key)).turn === turn,
+                { key, turn: queuedTurn + 1 },
+              );
+              assert.equal(
+                requestCount,
+                asked,
+                "The visit's second Wait keeps its action card",
+              );
+              assert.match(
+                await page.locator("#beat-captions").textContent(),
+                /wait/u,
+              );
+            } else {
+              // Earlier speech rules ask again while reflection is still due.
+              await page.waitForFunction(
+                () => document.querySelector("#story-status").hidden === false,
+              );
+            }
             break;
           }
           await page.locator("#dialogue-advance").click();
