@@ -57,7 +57,7 @@ function sourceOk(source) {
     fields(source, ["kind", "repo", "commit", "path"]) &&
     source.kind === "github" &&
     typeof source.repo === "string" &&
-    /^[a-z0-9][a-z0-9-]{0,38}\/[a-z0-9_.-]{1,100}$/iu.test(source.repo) &&
+    /^[A-Za-z\d][A-Za-z\d-]{0,38}\/[A-Za-z\d_.-]{1,100}$/u.test(source.repo) &&
     ![".", ".."].includes(source.repo.split("/")[1]) &&
     typeof source.commit === "string" &&
     /^[a-f0-9]{40}$/u.test(source.commit) &&
@@ -109,7 +109,7 @@ function checked(value) {
   need(value.schemaVersion === 1, "Choose a version 1 authoring draft.");
   need(
     value.id === null ||
-      (typeof value.id === "string" && /^[a-z0-9_-]{1,128}$/iu.test(value.id)),
+      (typeof value.id === "string" && /^[A-Za-z\d_-]{1,128}$/u.test(value.id)),
     "Use the draft ID supplied by the server.",
   );
   need(
