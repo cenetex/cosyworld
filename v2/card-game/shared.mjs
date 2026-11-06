@@ -540,6 +540,12 @@ export function sharedLiveLine(state, now, room) {
   return scene.lines.at(-1);
 }
 
+export function sharedNextLine(state, room, seq) {
+  return roomScenes(state, room)
+    .flatMap((scene) => scene.lines)
+    .find((line) => line.seq > seq);
+}
+
 // Select a saved scene's line; imported local log entries have no such record.
 export function sharedVoiceReference(state, line) {
   if (!Number.isInteger(line?.seq) || line.silent) return;

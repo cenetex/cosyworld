@@ -126,10 +126,10 @@ import {
 } from "./combat-view.mjs";
 import { expressionLabel, expressionOf } from "./expression.mjs";
 import {
-  createSharedPlaybackClock,
   installSharedControls,
   renderRoomStatus,
   sharedLiveLine,
+  sharedNextLine,
   sharedSilentLines,
   sharedSpeechState,
   sharedVoiceReference,
@@ -231,7 +231,6 @@ const {
   sharedSession,
   saveKey: SAVE_KEY,
 } = await openTableSession(window.location.href);
-const sharedPlayback = createSharedPlaybackClock();
 // A new local world: Vale wakes in the attic, the only avatar played locally
 // (#1892). Its travelers wear the local passkey's cosmetic upgrades (#1873).
 const freshWorld = () =>
@@ -522,6 +521,9 @@ const inscribing = new Map();
 let shownCaptions = { key: null, count: 0 };
 // Whether a shared room line has shown since this page opened.
 let sharedLineSeen = false;
+let sharedLineSeq = null;
+let sharedAdvanceRequested = false;
+let sharedLineStart = null;
 let storyStatus = "ready",
   renderedCast = "",
   renderedHand = "",
@@ -542,10 +544,7 @@ let storyStatus = "ready",
   announcedBeat = null,
   frontCaptions = [],
   pendingSpeaker = null,
-  // This play's speakers in order, and those whose lines have been shown.
-  sceneSpeakers = [],
-  shownSpeakers = [],
-  awaitingNext = false;
+  sceneSpeakers = [];
 // Release the hand if words are still on the way after this. A new play
 // replaces the request, and words that arrive still play.
 const HAND_WAIT = 2500;
@@ -635,7 +634,7 @@ const playQueue = createPlayQueue({
   ready: (action) =>
     !cardsCooling &&
     performance.now() >= swapEnd &&
-    (action.kind === "focus" || !localWordsPending()) &&
+    (action.kind === "focus" || (!localWordsPending() && !exchange.current)) &&
     reveal.complete &&
     (!sharedSession ||
       (!sharedSending &&
@@ -692,31 +691,15 @@ const exchange = createExchange({
   prepare: prepareScene,
   show: (line) => {
     pendingSpeaker = null;
-    awaitingNext = false;
     const speakerId = line.entityId || line.actorId;
     // An unrevealed person who speaks is revealed with the line, there at
     // once so the words never wait on a fade.
     if (people[speakerId] && cardIsCovered(speakerId))
       uncover(speakerId, { fade: false });
-    if (speakerId && !shownSpeakers.includes(speakerId))
-      shownSpeakers.push(speakerId);
     lineSeq = line.seq;
     // The stack brings the new beat in front as it renders. A player who
     // stepped back stays there: the line raises the live count and types
     // when they return (#2017).
-    renderScene();
-  },
-  settled: () => {
-    renderScene();
-  },
-  waiting: () => {
-    const next = nextSpeaker(world, {
-      speakers: sceneSpeakers,
-      shown: shownSpeakers,
-    });
-    if (!next) return;
-    pendingSpeaker = next;
-    awaitingNext = true;
     renderScene();
   },
   transition: (previous, next) => {
@@ -736,7 +719,6 @@ const exchange = createExchange({
     // A failed request releases the hand as well.
     if (!value) {
       pendingSpeaker = null;
-      awaitingNext = false;
       renderScene();
       queueMicrotask(() => {
         if (availableCards(world).some((id) => !encountered.has(id)))
@@ -787,9 +769,7 @@ function finishSpokenLine() {
     line.seq === shownSceneLine?.seq &&
     !characterSpeech.busy
   )
-    exchange.revealed(line.seq, line.text, line.instant);
-  // A chosen play waits for no reading pause.
-  if (playQueue.pending) exchange.advance();
+    exchange.revealed(line.seq);
 }
 const characterSpeech = createCharacterSpeech({
   changed: ({ state, message }) => {
@@ -834,21 +814,25 @@ function measureSpeech() {
 }
 new ResizeObserver(measureSpeech).observe($("dialogue-text"));
 function updateSpeechControls(complete) {
-  const forward = reviewing || Boolean(exchange.current);
+  const forward =
+    reviewing || exchange.hasNext || Boolean(sharedSession && shownSceneLine);
   $("dialogue-advance").dataset.revealing = String(!complete);
   $("dialogue-advance").setAttribute(
     "aria-label",
     complete
       ? reviewing
         ? "Step forward to a later beat"
-        : exchange.current
+        : forward
           ? "Continue to the next beat"
           : "The latest beat"
       : "Reveal the full line",
   );
+  $("speech-hint").hidden = !complete || !forward || !shownSceneLine;
   $("speech-hint").textContent = complete
     ? forward
-      ? "Continue"
+      ? exchange.waiting || sharedAdvanceRequested
+        ? "Waiting for the next line…"
+        : "Continue"
       : ""
     : "Tap to reveal";
 }
@@ -939,8 +923,10 @@ const reveal = createTextReveal({
       if (completedSpeech.size > 100)
         completedSpeech.delete(completedSpeech.values().next().value);
       completedSpokenLine = { ...value, seq: shownSceneLine?.seq };
-      finishSpokenLine();
-      queueMicrotask(() => playQueue.flush());
+      queueMicrotask(() => {
+        finishSpokenLine();
+        playQueue.flush();
+      });
     }
   },
 });
@@ -955,16 +941,9 @@ function syncSpeechPlayback() {
   const paused =
     document.hidden ||
     Boolean(document.querySelector("dialog[open], .world-menu:popover-open"));
-  if (sharedSession)
-    sharedPlayback.now(
-      sharedSession.state,
-      sharedSession.now(),
-      world.actors[currentActor(world)].place,
-      paused || (reveal.complete && characterSpeech.busy),
-    );
   reveal.pause(paused);
   characterSpeech.pause(paused);
-  exchange.pause(paused || characterSpeech.busy);
+  exchange.pause(paused || reviewing || characterSpeech.busy);
   return paused;
 }
 function pauseSpeech() {
@@ -1205,9 +1184,7 @@ const narrator = createNarrator({
     sceneSpeakers = context.speakers.filter(
       (id) => world.actors[id]?.place === context.location,
     );
-    shownSpeakers = [];
     silence = { turn: -1, lines: [] };
-    awaitingNext = false;
     pendingSpeaker = nextSpeaker(world, { speakers: sceneSpeakers });
     renderScene();
   },
@@ -1641,7 +1618,6 @@ function commitAction(action, revision, renderedAt = -Infinity) {
   // A new play earns its own grace before the hand returns.
   thinkingSince = null;
   playQueue.submit(action, revision);
-  if (playQueue.pending) exchange.advance();
 }
 function performAction(action, revision) {
   if (saveBlocked || sharedSession) return;
@@ -2237,10 +2213,10 @@ function renderActions() {
       ? lockShown.text
       : questShown
         ? shownQuestCaption(questShown)
-      : ((actions[0] && playText(actions[0])) || "").replace(
-          /\b(the|an?) (?:the|an?) /giu,
-          "$1 ",
-        );
+        : ((actions[0] && playText(actions[0])) || "").replace(
+            /\b(the|an?) (?:the|an?) /giu,
+            "$1 ",
+          );
   heading.hidden = !sentence;
   // Who acts, then what it acts on: the chosen cards, or the place it
   // waits in.
@@ -3188,11 +3164,10 @@ function leaveFigure(figure, remove = false) {
   exits.set(figure, task);
 }
 function returnToLive() {
-  sharedPlayback.reset();
   reviewing = false;
   reviewBeat = null;
-  lineSeq = null;
-  sharedLineKey = "";
+  lineSeq = sharedSession ? sharedLineSeq : (exchange.current?.seq ?? null);
+  syncSpeechPlayback();
   syncSharedLine();
   renderScene();
   if (!$("dialogue-advance").hidden) $("dialogue-advance").focus();
@@ -3560,15 +3535,9 @@ function renderScene() {
       : pendingSpeaker;
   const shared = Boolean(sharedSession);
   const viewer = currentActor(world);
-  const sharedLive = sharedSession
-    ? sharedLiveLine(sharedSession.state, sharedSession.now(), scene.locationId)
-    : null;
-  // Speech the exchange or the room's reading clock has not reached stays
-  // unseen; a beat arrives in front when its line is shown.
+  // Only show shared lines this reader has reached.
   const liveThrough = sharedSession
-    ? reviewing
-      ? (sharedLive?.seq ?? Infinity)
-      : (lineSeq ?? Infinity)
+    ? (sharedLineSeq ?? sharedLineStart ?? -Infinity)
     : exchange.active
       ? (exchange.current?.seq ?? -Infinity)
       : Infinity;
@@ -3590,16 +3559,9 @@ function renderScene() {
     );
   const hiddenAction = (entry) => moreToRead && entry.turn > shownTurn;
   const waiting = sharedSession
-    ? sharedSpeech.status === "pending" &&
-      !(
-        scene.line &&
-        scene.line.turn === world.turn &&
-        scene.line.seq <= liveThrough
-      )
+    ? sharedSpeech.status === "pending" && sharedLineSeq === null
     : Boolean(
-        exchange.preparing ||
-          awaitingNext ||
-          (storyStatus === "pending" && !exchange.current),
+        exchange.preparing || (storyStatus === "pending" && !exchange.current),
       );
   const scened = sceneBeats(view, {
     viewer,
@@ -3612,9 +3574,7 @@ function renderScene() {
   // are read: a line being written stays in front.
   const last = scened.findLast((beat) => beat.line)?.line;
   const lineFirst = sharedSession
-    ? moreToRead ||
-      (last?.seq === lineSeq &&
-        !completedSpeech.has(lineKey(last, scene.locationId)))
+    ? moreToRead || (last?.seq === sharedLineSeq && !sharedAdvanceRequested)
     : Boolean(exchange.current) && (!exchange.read || exchange.hasNext);
   const own = ownPlayInFlight();
   const stack = withPending(scened, {
@@ -4113,6 +4073,7 @@ function stepBack() {
   if (!beat) return false;
   count("scrollback.open");
   reviewing = true;
+  syncSpeechPlayback();
   reviewBeat = beat.key;
   if (beat.line) lineSeq = beat.line.seq;
   renderScene();
@@ -4141,15 +4102,19 @@ function advanceFront() {
     return;
   }
   if (stepForward()) return;
-  if (exchange.current) {
+  if (exchange.current || (sharedSession && shownSceneLine)) {
+    if (exchange.waiting || sharedAdvanceRequested) return;
     count("line.skip");
     characterSpeech.stop();
     syncSpeechPlayback();
     finishSpokenLine();
-    exchange.advance();
+    if (sharedSession) {
+      sharedAdvanceRequested = true;
+      syncSharedLine();
+    } else exchange.advance();
+    updateSpeechControls(reveal.complete);
   }
 }
-$("dialogue-advance").onclick = advanceFront;
 $("speech-row").addEventListener(
   "click",
   (event) => {
@@ -4172,7 +4137,7 @@ $("beat-behind").onclick = () => {
   if (inscribing.size) finishInscribing();
   else stepBack();
 };
-// A tap anywhere on a typing card, portrait and name included, finishes it.
+// The portrait, name and words share the same advance control.
 $("speech-row").addEventListener(
   "click",
   (event) => {
@@ -4180,9 +4145,7 @@ $("speech-row").addEventListener(
       event.stopPropagation();
       return finishInscribing();
     }
-    if (reveal.complete || $("dialogue-text").hidden) return;
     if (event.target.closest("#voice-retry")) return;
-    event.stopPropagation();
     advanceFront();
   },
   true,
@@ -5232,7 +5195,6 @@ function withdrawSharedPlay(key) {
     .command({ op: "cancel", key })
     .catch((error) => notice(error.message));
 }
-let sharedLineKey = "";
 let sharedWorldKey = "";
 let sharedNudgeKey = "";
 function sharedWorld(value) {
@@ -5260,7 +5222,14 @@ async function submitSharedPlay(action) {
   }
   const selection = JSON.stringify(selected);
   const heldBefore = heldSelection();
-  sharedPlayback.reset();
+  if (
+    !sharedNextLine(
+      sharedSession.state,
+      world.actors[currentActor(world)].place,
+      sharedLineSeq,
+    )
+  )
+    sharedAdvanceRequested = true;
   sharedSending = true;
   sharedPlay = {
     key: crypto.randomUUID(),
@@ -5277,6 +5246,7 @@ async function submitSharedPlay(action) {
       keepHeldSelection(heldBefore, current);
       reviewing = false;
       reviewBeat = null;
+      lineSeq = sharedLineSeq;
     }
     if (sharedPlay) {
       sharedPlay.state = "accepted";
@@ -5299,26 +5269,19 @@ function syncSharedLine() {
   // A viewer hears the room once they have uncovered themselves and it.
   if (!selfKnown()) return;
   const room = world.actors[currentActor(world)].place;
-  const playbackTime = sharedPlayback.now(
-    sharedSession.state,
-    sharedSession.now(),
-    room,
-    document.hidden ||
-      (reveal.complete && characterSpeech.busy) ||
-      Boolean(document.querySelector("dialog[open], .world-menu:popover-open")),
-  );
-  const live = sharedLiveLine(sharedSession.state, playbackTime, room);
-  if (!live) return;
-  // A long spoken line can outlast the room's normal reading interval.
   if (
-    characterSpeech.busy &&
-    (live.seq
-      ? live.seq !== shownSceneLine?.seq
-      : live.text !== shownSceneLine?.text)
-  ) {
-    sharedPlayback.now(sharedSession.state, sharedSession.now(), room, true);
+    document.hidden ||
+    document.querySelector("dialog[open], .world-menu:popover-open")
+  )
     return;
-  }
+  if (sharedLineSeq !== null && !sharedAdvanceRequested) return;
+  const after = sharedLineSeq ?? sharedLineStart;
+  const live =
+    after === null
+      ? sharedLiveLine(sharedSession.state, sharedSession.now(), room)
+      : sharedNextLine(sharedSession.state, room, after);
+  sharedLineStart ??= -Infinity;
+  if (!live) return;
   const entry = shownWorld().log.findLast(
     (entry) =>
       entry.generated &&
@@ -5327,14 +5290,12 @@ function syncSharedLine() {
         ? entry.seq === live.seq
         : entry.text === live.text && entry.speaker === live.speaker),
   );
-  // A reader can advance ahead of the clock. Keep that line until it catches up.
-  if (!entry || (lineSeq !== null && entry.seq < lineSeq)) return;
-  const key = `${room}:${entry.seq}`;
-  if (key === sharedLineKey) return;
+  if (!entry) return;
   // The room's line when this page opens began before it: it shows whole.
   if (!sharedLineSeen) completedSpeech.add(lineKey(entry, room));
   sharedLineSeen = true;
-  sharedLineKey = key;
+  sharedLineSeq = entry.seq;
+  sharedAdvanceRequested = false;
   lineSeq = entry.seq;
   storyStatus = "ready";
   renderScene();
@@ -5347,6 +5308,7 @@ function adoptShared(value) {
   const key = JSON.stringify([value.world, value.present, value.claimed]);
   if (key !== sharedWorldKey) {
     const from = world.actors[currentActor(world)].place;
+    const before = lastSeq(world);
     const next = sharedWorld(value);
     const alreadyOpen = Boolean(sharedWorldKey);
     // A table that is already open shows the standoff beats it receives.
@@ -5384,7 +5346,9 @@ function adoptShared(value) {
     if (moved) {
       cancelTravel();
       reviewing = false;
-      sharedLineKey = "";
+      sharedLineSeq = null;
+      sharedLineStart = before;
+      sharedAdvanceRequested = false;
       lineSeq = null;
     }
     const land = (done = () => {}) => {
