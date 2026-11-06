@@ -45,16 +45,18 @@ const source = (record) => ({
   launch: record.launch ?? null,
 });
 const baseline = (record) =>
-  JSON.stringify([record.key, record.generation, record.launch]) +
-  exportManifest(record.draft);
+  JSON.stringify([
+    record.key,
+    record.generation,
+    record.draft,
+    record.launch ?? null,
+  ]);
 const digest = async (value) =>
   (await assetMetadata("output.json", "application/json", jsonBytes(value)))
     .sha256;
 const prefix = (record, id) =>
   `assets/${record.draft.pack.id}/authoring/avatars/${id}/`;
 
-// The entity digest finds the accepted output that matches the current source,
-// including a source restored by Undo. Earlier immutable files stay available.
 export async function acceptedAvatarOutput(record, id) {
   const entity = record.draft.pack?.avatars?.[id];
   if (!entity) return null;
@@ -236,8 +238,6 @@ export async function prepareAcceptedAvatar(record, request) {
   return prepared;
 }
 
-// The caller stages this record and its source edit together, then writes the
-// full asset Map in the same IndexedDB transaction as the manifest and launch.
 export function adoptAcceptedAvatar(record, prepared) {
   need(
     baseline(record) === prepared.baseline,
