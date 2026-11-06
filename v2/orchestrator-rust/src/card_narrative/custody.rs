@@ -162,7 +162,7 @@ pub(super) fn consistent(text: &str, context: &Context, speaker: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::super::{conversation, entity, known, messages, tests, ItemOutcome, Part};
+    use super::super::{conversation, entity, known, messages, tests, Context, ItemOutcome, Part};
 
     #[test]
     fn held_item_story_follows_the_gift_in_talk_thoughts_and_dreams() {
@@ -182,7 +182,7 @@ mod tests {
         });
         context.outcome = Some(outcome);
 
-        let sees_story = |context, speaker, part| {
+        let sees_story = |context: &Context, speaker: &str, part| {
             messages(context, entity(context, speaker), part)
                 .assistant
                 .contains(passage)
