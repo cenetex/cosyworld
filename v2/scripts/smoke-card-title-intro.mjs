@@ -11,6 +11,7 @@ const phrases = held.map(({ word }) => word);
 import {
   cardShown,
   checkTitleMusicAlone,
+  finishAcknowledgement,
   revealed,
   traveller,
 } from "./title-music-alone.mjs";
@@ -69,11 +70,12 @@ async function open(context) {
 async function newContext(
   width,
   height,
-  { reducedMotion, music = true, sound = false } = {},
+  { reducedMotion, music = true, sound = false, hasTouch = false } = {},
 ) {
   const context = await browser.newContext({
     viewport: { width, height },
     reducedMotion: reducedMotion || "no-preference",
+    hasTouch,
   });
   await context.addInitScript((music) => {
     if (!sessionStorage.getItem("seeded")) {
@@ -293,43 +295,56 @@ async function valeShown(page, id = "vale") {
   assert.equal(await page.locator("#hand .reveal-lid").count(), 0);
 }
 // The letters blip in the dialogue's voice once audio is unlocked. A first
-// visit is silent before its gesture, and that gesture shows the rest and
-// starts the song. A new world from the menu, after a gesture, hears them
-// from the first letters, until a key shows the rest and the song takes over.
+// gesture completes a stanza; its next stanza resumes with the voice.
+// A new world from the menu hears it from the first letters.
 async function checkBlips() {
-  const context = await newContext(1440, 900, { sound: true });
-  const page = await open(context);
-  await page.goto(`${origin}/?intro=1`);
-  await titlePhase(page);
-  await page.waitForSelector("#hand .card");
-  await page.waitForTimeout(1500);
-  assert.equal(await blips(page), 0, "silent before a gesture");
-  await page.keyboard.press("Enter");
-  await page.waitForTimeout(300);
-  assert.equal(await blips(page), 0, "the first key ends the stream");
-  await page.keyboard.press("Escape");
-  await gone(page, 2500);
-  await startNewGame(page);
-  await titlePhase(page);
-  await page.waitForTimeout(1500);
-  const heard = await blips(page);
-  assert.ok(heard >= 10, `${heard} blips in the first 1.5 s`);
-  const songs = await titlePlays(page);
-  await page.keyboard.press("Enter");
-  const stopped = await blips(page);
-  await page.waitForTimeout(600);
-  assert.equal(await blips(page), stopped, "a key shows the rest, silently");
-  assert.equal(await titlePlays(page), songs + 1, "the song takes over");
-  await page.keyboard.press("Escape");
-  await gone(page, 2500);
-  assert.deepEqual(page.errors, []);
-  await context.close();
+  for (const width of [1440, 390]) {
+    const context = await newContext(width, 900, {
+      sound: true,
+      hasTouch: width === 390,
+    });
+    const page = await open(context);
+    await page.goto(`${origin}/?intro=1`);
+    await titlePhase(page);
+    await page.waitForSelector("#hand .card");
+    await page.waitForTimeout(1500);
+    assert.equal(await blips(page), 0, "silent before a gesture");
+    if (width === 390) await page.touchscreen.tap(width / 2, 10);
+    else await page.mouse.click(width / 2, 10);
+    const end = acknowledgement.stanzas[0].join("").length;
+    const stanza = await streamState(page);
+    assert.equal(stanza.letters - stanza.dark, end);
+    assert.equal(await titlePlays(page), 0);
+    await page.waitForFunction(() => window.__blips >= 5);
+    assert.equal(await titlePlays(page), 0, "the second stanza has the voice");
+    await page.keyboard.press("Escape");
+    await gone(page, 2500);
+    await startNewGame(page);
+    await titlePhase(page);
+    await page.waitForTimeout(1500);
+    const heard = await blips(page);
+    assert.ok(heard >= 10, `${heard} blips in the first 1.5 s`);
+    const songs = await titlePlays(page);
+    await page.keyboard.press("Enter");
+    const stopped = await blips(page);
+    await page.waitForTimeout(600);
+    assert.equal(await blips(page), stopped, "the stanza holds its pause");
+    assert.equal(await titlePlays(page), songs);
+    await finishAcknowledgement(page);
+    assert.equal(await titlePlays(page), songs);
+    await page.keyboard.press("Enter");
+    assert.equal(await titlePlays(page), songs + 1, "Continue starts the song");
+    await page.keyboard.press("Escape");
+    await gone(page, 2500);
+    assert.deepEqual(page.errors, []);
+    await context.close();
+  }
 }
 
 // Large text: 320x568 at 200% browser zoom, and 390x844 with the root font
 // at 200% under reduced motion. The poem wraps in its panel with no sideways
-// scroll; while it writes, the panel follows the pen; a key shows it whole
-// and the next goes on. The card gives up height so its hint and Privacy
+// scroll; while it writes, the panel follows the pen; keys complete each
+// stanza, then continue. The card gives up height so its hint and Privacy
 // stay on screen.
 async function checkLargeText() {
   const inView = (page, selector) =>
@@ -386,8 +401,8 @@ async function checkLargeText() {
       await page.waitForSelector(set, { timeout: 15000 });
       await page.waitForTimeout(100);
       assert.equal(await page.locator(set).count(), 4, "lit at once");
-      await page.keyboard.press("a");
-      assert.equal((await streamState(page)).dark, 0, "a key shows it whole");
+      await finishAcknowledgement(page);
+      assert.equal((await streamState(page)).dark, 0, "the stanzas are whole");
       await page.waitForTimeout(1000);
       assert.ok(whole(await streamState(page)));
     }
@@ -505,14 +520,19 @@ try {
     const unlit = await layout();
     await page.waitForSelector("#hand .card");
     assert.equal(await titlePlays(page), 0, "silent before the first tap");
-    // The first tap (desktop) or key (phone) shows it whole, the rest
-    // fading in together rather than at once, and starts the song; the
-    // acknowledgement stays.
+    // A tap or key fills the current stanza with a soft fade.
     await page.evaluate(() => {
       window.__soft = 0;
       const until = () => performance.now() + 300;
       const watch = (end = until()) => {
-        window.__soft = Math.max(window.__soft, window.softLetters());
+        const fading = [
+          ...document.querySelectorAll(".title-ack .speech-letter.revealed"),
+        ].filter((letter) =>
+          letter
+            .getAnimations()
+            .some((animation) => animation.effect.getTiming().duration === 150),
+        ).length;
+        window.__soft = Math.max(window.__soft, fading);
         if (performance.now() < end) requestAnimationFrame(() => watch(end));
       };
       for (const type of ["click", "keydown"])
@@ -523,12 +543,19 @@ try {
     });
     if (desktop) await page.mouse.click(width / 2, 10);
     else await page.keyboard.press("a");
-    assert.equal((await streamState(page)).dark, 0);
+    const first = await streamState(page);
+    assert.equal(
+      first.letters - first.dark,
+      acknowledgement.stanzas[0].join("").length,
+    );
+    assert.deepEqual((await glowState(page)).lit, phrases.slice(0, 4));
     await page.waitForTimeout(1000);
     const moved = (await layout()).map((v, i) => Math.abs(v - unlit[i]));
     assert.ok(Math.max(...moved) < 1, `words moved ${Math.max(...moved)} px`);
     const soft = await page.evaluate(() => window.__soft);
-    assert.ok(soft > 50, `${soft} letters fading after the tap`);
+    assert.ok(soft > 50, `${soft} letters share the stanza fade`);
+    await finishAcknowledgement(page);
+    await page.waitForTimeout(1000);
     const tapped = await streamState(page);
     assert.ok(whole(tapped), JSON.stringify({ ...tapped, words: "" }));
     assert.equal(tapped.letters, 0, "the spans fold into plain text");
@@ -536,8 +563,7 @@ try {
       await page.locator(".title-intro").getAttribute("data-phase"),
       "ack",
     );
-    assert.equal(await titlePlays(page), 1);
-    await heard(page);
+    assert.equal(await titlePlays(page), 0);
     // The acknowledgement is real text, readable, and scrolls in its panel.
     // Its lines break as written, each one line wide on a desktop and
     // never wider than the panel on a phone.
@@ -580,8 +606,7 @@ try {
       JSON.stringify(ack.lines),
     );
     assert.ok(ack.overflow <= 0, `${ack.overflow}px wider than the panel`);
-    // A tap that shows the rest lights every held phrase at once, each in
-    // its climbing tier.
+    // Completing all stanzas lights every held phrase in its climbing tier.
     assert.deepEqual(await glowState(page), {
       tiers: held.map(({ tier }) => tier),
       lit: phrases,
@@ -609,7 +634,7 @@ try {
     });
     await shot(page, `ack-${width}`);
 
-    // The second brings the logo and fades the words. The song plays on.
+    // Continue brings the logo, fades the words, and starts the song.
     if (desktop) await page.mouse.click(width / 2, 10);
     else await page.keyboard.press("a");
     await page.waitForSelector('.title-intro[data-phase="title"]');
@@ -622,23 +647,42 @@ try {
     const fades = await page.$$eval(".title-ack-line > span", (words) =>
       words.map((word) => ({
         text: word.textContent,
-        tier: word.querySelector(".title-ack-glow")?.dataset.tier || "common",
-        delay: word.getAnimations()[0].effect.getTiming().delay,
+        tier: word.parentElement.getAnimations().length
+          ? "legendary"
+          : ["care", "still.", "living"].includes(word.textContent)
+            ? "epic"
+            : word.querySelector(".title-ack-glow")?.dataset.tier || "common",
+        delay: (
+          word.getAnimations()[0] || word.parentElement.getAnimations()[0]
+        ).effect.getTiming().delay,
       })),
     );
     assert.equal(fades[0].text, "Before");
     assert.equal(fades.findLast(({ tier }) => tier === "mythic").text, "box,");
-    let last = -1;
     for (const tier of ["common", ...new Set(held.map(({ tier }) => tier))]) {
+      let last = -1;
       for (const { delay } of fades.filter((word) => word.tier === tier)) {
-        assert.ok(delay > last, `${tier} words fade one at a time`);
+        assert.ok(delay >= last, `${tier} words fade in reading order`);
         last = delay;
       }
     }
+    assert.equal(
+      new Set(
+        fades
+          .filter(({ tier }) => tier === "legendary")
+          .map(({ delay }) => delay),
+      ).size,
+      1,
+    );
     await page.waitForFunction(() => {
       const plain = [
         ...document.querySelectorAll(".title-ack-line > span"),
-      ].filter((word) => !word.querySelector(".title-ack-glow"));
+      ].filter(
+        (word) =>
+          !word.querySelector(".title-ack-glow") &&
+          !["care", "still.", "living"].includes(word.textContent) &&
+          !word.parentElement.getAnimations().length,
+      );
       const box = [
         ...document.querySelectorAll('[data-tier="mythic"].title-ack-glow'),
       ].at(-1);
@@ -648,10 +692,12 @@ try {
         plain.every((word) => getComputedStyle(word).opacity === "0") &&
         box &&
         getComputedStyle(box.parentElement).opacity === "1" &&
-        Number(getComputedStyle(logo).opacity) > 0
+        Number(getComputedStyle(logo).opacity) > 0 &&
+        Number(getComputedStyle(logo).opacity) <= 0.1
       );
     });
     await shot(page, `logo-${width}`);
+    await heard(page);
     const logoWidth = await page.$eval(
       ".title-intro > img",
       (img) => img.offsetWidth,
@@ -785,8 +831,8 @@ try {
     await titlePhase(later);
     await later.waitForTimeout(400);
     assert.equal(await titlePlays(later), 0);
-    await later.keyboard.press("Enter");
-    assert.equal(await titlePlays(later), 1);
+    await finishAcknowledgement(later);
+    assert.equal(await titlePlays(later), 0);
     await later.keyboard.press("Enter");
     await later.waitForSelector('.title-intro[data-phase="title"]');
     assert.equal(await titlePlays(later), 1);
@@ -955,23 +1001,20 @@ try {
   );
   await quiet.mouse.click(195, 10);
   await quiet.waitForSelector('.title-intro[data-phase="title"]');
-  assert.equal(await quiet.locator(".title-ack").count(), 0);
+  await quiet.waitForSelector(".title-ack", { state: "detached" });
+  const stillLogo = await quiet.$eval(
+    ".title-intro > img",
+    (img) => getComputedStyle(img).transform,
+  );
+  assert.notEqual(stillLogo, "none");
+  await cardShown(quiet);
   await quiet.waitForTimeout(300);
   assert.equal(
     await quiet.$eval(
       ".title-intro > img",
       (img) => getComputedStyle(img).transform,
     ),
-    "none",
-  );
-  await cardShown(quiet);
-  await quiet.waitForTimeout(300);
-  assert.notEqual(
-    await quiet.$eval(
-      ".title-intro > img",
-      (img) => getComputedStyle(img).transform,
-    ),
-    "none",
+    stillLogo,
   );
   assert.equal(
     await quiet.$eval(".title-reveal", (b) => getComputedStyle(b).opacity),

@@ -148,8 +148,8 @@ const link = (text, href) => {
 // it, a spaced dash too; the larger breath wins; one long silence falls
 // before "Before you sits"). After a stanza with `highlights` the pen holds
 // while their words light. Each line is set as written, wrapping under a
-// hanging indent on a narrow screen. About 25 seconds; a tap shows the rest,
-// lit, and the cue follows.
+// hanging indent on a narrow screen. About 25 seconds; a tap completes its stanza
+// and lights that stanza. The cue follows the completed poem.
 export const STANZA_MS = 650;
 const escape = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 // Where each pause falls: its line, the span that lights (a held word's
@@ -282,12 +282,18 @@ function acknowledgementPanel() {
   const glows = [],
     lighting = new Map();
   const fadeGroups = tiers.map(() => []);
+  let shown = 0,
+    total = 0;
+  const stanzaEnds = acknowledgement.stanzas.map(
+    (stanza) => (total += splitLetters(stanza.join("")).length),
+  );
   text.style.setProperty("--glow-in", `${acknowledgement.glowInMs}ms`);
   let at = 0;
   for (const stanza of acknowledgement.stanzas) {
     const paragraph = element("p");
     for (const words of stanza) {
       const row = element("span", "title-ack-line");
+      const together = acknowledgement.fadeTogether.includes(words);
       const highlights = pauses.filter(({ line }) => line === at);
       // Keep punctuation with its word as it fades, including a spaced dash.
       const line = words.replace(/ (?=—)/gu, "\u00a0");
@@ -316,9 +322,13 @@ function acknowledgementPanel() {
           letters = [...prefix, glow, ...streamed(line.slice(last, end))];
         } else letters = streamed(part);
         const word = inline(letters);
-        fadeGroups[rarity.rank].push(word);
+        const lingering = acknowledgement.linger.includes(
+          part.replace(/[^\p{L}\p{N}]/gu, ""),
+        );
+        if (!together) fadeGroups[lingering ? 3 : rarity.rank].push(word);
         row.append(word);
       }
+      if (together) fadeGroups[4].push(row);
       paragraph.append(row);
       at++;
     }
@@ -373,6 +383,7 @@ function acknowledgementPanel() {
       if (!document.hidden) voice?.syllable(speaker, letter, index);
     },
     frame: (value) => {
+      shown = value.shown;
       painter.paint(value);
       follow(value);
       // A word lights atMs into the pause after its stanza.
@@ -402,26 +413,32 @@ function acknowledgementPanel() {
     const words = acknowledgement.stanzas.flat().join("");
     reveal.show("acknowledgement", words, null, { instant });
   };
-  const fadeOut = () => {
-    const fade = (node, delay) =>
+  const finishStanza = () =>
+    reveal.finish(stanzaEnds.find((end) => end > shown));
+  const fadeOut = (reduced) => {
+    const fade = (node, delay, duration) =>
       node.animate([{ opacity: 0 }], {
-        duration: 240,
+        duration,
         delay,
-        easing: "ease-out",
+        easing: "ease-in-out",
         fill: "forwards",
       }).finished;
     // Sweep the plain words in reading order, then leave more time for each tier.
-    const fades = fadeGroups.flatMap((words, rank) => {
-      const start = rank ? 680 + (rank - 1) * 155 : 0;
-      const step = rank ? 45 : 480 / Math.max(1, words.length - 1);
-      return words.map((word, index) => fade(word, start + index * step));
-    });
-    Promise.all([fade(next, 0), ...fades]).then(
+    const fades = reduced
+      ? [fade(panel, 0, 250)]
+      : fadeGroups.flatMap((words, rank) => {
+          const start = rank ? 1800 + (rank - 1) * 160 : 200;
+          const step = rank ? 50 : 20;
+          return words.map((word, index) =>
+            fade(word, start + index * step, rank ? 360 : 300),
+          );
+        });
+    Promise.all([fade(next, 0, 200), ...fades]).then(
       () => panel.remove(),
       () => {},
     );
   };
-  return { panel, next, reveal, write, unfollow, fadeOut };
+  return { panel, next, reveal, write, unfollow, fadeOut, finishStanza };
 }
 
 const SCROLL_KEYS = [
@@ -463,12 +480,14 @@ export function playTitleIntro({
     write,
     unfollow,
     fadeOut,
+    finishStanza,
   } = acknowledgementPanel();
-  // The first gesture while it writes shows it whole (and starts the song,
-  // as browsers ask); the next one continues. A hidden tab holds the pen.
+  // A gesture completes the current stanza and unlocks its typing voice.
+  // The next stanza follows its held breath. A hidden tab holds the pen.
   const hidden = () => words.pause(document.hidden);
   document.addEventListener("visibilitychange", hidden);
   const image = element("img");
+  if (reduced) image.style.transform = "translateY(-14dvh) scale(0.8)";
   image.alt = "";
   image.decoding = "async";
   const source = logo.src;
@@ -598,41 +617,45 @@ export function playTitleIntro({
   const showTitle = async () => {
     if (phase !== "ack" || leaving) return;
     phase = layer.dataset.phase = "title";
+    voice?.stop();
     song.start();
     layer.focus({ preventScroll: true });
     panel.inert = true;
-    if (reduced) panel.remove();
     if (!(await race(loaded)) || leaving) return showWake();
     const crossfade = !reduced && phase === "title";
-    if (crossfade) fadeOut();
+    if (phase === "title") fadeOut(reduced);
     image.alt = logo.name;
     await race(
       image
         .animate(
           crossfade
             ? [
-                { opacity: 0, transform: "scale(0.97)" },
+                { opacity: 0, transform: "scale(0.97)", easing: "ease-in-out" },
+                {
+                  opacity: 0.1,
+                  transform: "scale(0.98)",
+                  offset: 2000 / 2950,
+                  easing: "ease-in-out",
+                },
                 { opacity: 1, transform: "scale(1)" },
               ]
             : [{ opacity: 0 }, { opacity: 1 }],
           {
-            duration: reduced ? 250 : 1500,
-            delay: crossfade ? 150 : 0,
-            easing: crossfade ? "ease-in" : "ease",
+            duration: reduced ? 250 : 2950,
+            easing: crossfade ? "linear" : "ease",
             fill: "both",
           },
         )
         .finished.catch(() => {}),
     );
-    await race(wait(reduced ? 600 : 1200));
+    await race(wait(reduced ? 600 : 750));
     showWake();
   };
   const advance = () => {
     if (phase === "ack" && !words.complete) {
-      // The song takes over from the letters' blips.
+      voice?.unlock();
       voice?.stop();
-      song.start();
-      words.finish();
+      finishStanza();
       return;
     }
     return phase === "ack" ? showTitle() : showWake();
