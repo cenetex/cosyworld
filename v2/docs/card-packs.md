@@ -123,9 +123,12 @@ cards; publication checks the compiled pack with the shared pack validator.
 
 Private drafts use `/card-game/authoring/packs` under the passkey account.
 `POST /card-game/authoring/generate/avatars` uses that account and same-origin guard.
-Send `{sample:{section,start,end,text},excluded:[names]}` from `sampleSource`.
-The configured Haiku route returns `{candidate,model,usage}`; candidate is one
-`readCharacter` record or `null`. Passages, evidence and prompts stay transient.
+Send `{mode,sample:{section,start,end,text},excluded:[names]}` from `sampleSource`.
+Use `mode:"extract"` for story text or `mode:"idea"` for a world idea; omission
+keeps extraction. Haiku returns `{candidate,model,usage}`. Extracted candidates
+include a verified source quote. Idea candidates carry `suggested:true` and
+omit evidence. Either mode can return `candidate:null`. Passages, evidence and
+prompts stay transient.
 Each request gets one provider attempt; the client reviews and saves approved
 output fields. The service allows one active request per account, two globally.
 `POST /card-game/authoring/generate/image` takes `{kind,role,description,instruction?,reference?,basis}`.

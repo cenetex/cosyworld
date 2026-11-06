@@ -112,6 +112,31 @@ async fn authoring_auth_grounding_and_gateway_use_transient_source() {
         .as_str()
         .unwrap()
         .contains("blue lantern"));
+    let mut idea = input();
+    idea["mode"] = json!("idea");
+    idea["sample"]["text"] = json!("A city floating above the clouds.");
+    idea["sample"]["end"] = json!(33);
+    let mut proposed = reply();
+    proposed["candidate"]
+        .as_object_mut()
+        .unwrap()
+        .remove("evidence");
+    *outcome.lock().unwrap() = (StatusCode::OK, proposed, "stop");
+    let (status, suggested) = send(&state, &cookie, idea.clone(), "http://localhost:3102").await;
+    assert_eq!(status, 200);
+    assert_eq!(suggested["candidate"]["suggested"], true);
+    assert!(suggested["candidate"].get("evidence").is_none());
+    assert!(
+        seen.lock().unwrap().last().unwrap()["messages"][0]["content"]
+            .as_str()
+            .unwrap()
+            .contains("world idea")
+    );
+    *outcome.lock().unwrap() = (StatusCode::OK, reply(), "stop");
+    assert_eq!(
+        send(&state, &cookie, idea, "http://localhost:3102").await.0,
+        502
+    );
     for (value, finish, status, expected) in [
         (json!({"candidate":null}), "stop", StatusCode::OK, 200),
         (
@@ -131,7 +156,7 @@ async fn authoring_auth_grounding_and_gateway_use_transient_source() {
             expected
         );
     }
-    assert_eq!(seen.lock().unwrap().len(), 5); // Each paid action attempts once.
+    assert_eq!(seen.lock().unwrap().len(), 7); // Each paid action attempts once.
     let before_images = seen.lock().unwrap().len();
     use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
     use sha2::{Digest, Sha256};
@@ -228,6 +253,7 @@ async fn authoring_auth_grounding_and_gateway_use_transient_source() {
     for suffix in ["", "-wal"] {
         let bytes = std::fs::read(format!("{}{suffix}", path.display())).unwrap_or_default();
         assert!(!String::from_utf8_lossy(&bytes).contains("blue lantern"));
+        assert!(!String::from_utf8_lossy(&bytes).contains("floating above the clouds"));
     }
     server.abort();
 }
@@ -257,4 +283,40 @@ fn authoring_rejects_duplicate_ungrounded_and_unbounded_candidates() {
     assert!(admit(owner.clone()).is_none());
     drop(permit);
     assert!(admit(owner).is_some());
+}
+
+#[test]
+fn idea_candidates_are_suggestions_and_extraction_keeps_its_evidence_contract() {
+    let mut input: Input = serde_json::from_value(input()).unwrap();
+    let mut output = reply();
+    output["candidate"]
+        .as_object_mut()
+        .unwrap()
+        .remove("evidence");
+    assert!(candidate(&output.to_string(), &input).is_none());
+    input.mode = Mode::Idea;
+    input.sample.text = "A city floating above the clouds.".into();
+    input.sample.end = input.sample.text.encode_utf16().count();
+    assert!(valid_input(&input));
+    assert_eq!(
+        candidate(&output.to_string(), &input).unwrap()["suggested"],
+        true
+    );
+    for value in [
+        Value::Null,
+        json!(""),
+        json!("A city floating above the clouds."),
+    ] {
+        output["candidate"]["evidence"] = value;
+        assert!(candidate(&output.to_string(), &input).is_none());
+    }
+    output["candidate"]
+        .as_object_mut()
+        .unwrap()
+        .remove("evidence");
+    input.excluded.push("Vále".into());
+    assert!(candidate(&output.to_string(), &input).is_none());
+    input.excluded.clear();
+    output["candidate"]["suggested"] = json!(true);
+    assert!(candidate(&output.to_string(), &input).is_none());
 }
