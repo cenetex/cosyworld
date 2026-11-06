@@ -161,8 +161,8 @@ describe("authoring draft files", () => {
     const bytes = new TextEncoder().encode("xabcx").subarray(1, 4);
     const result = await assetMetadata("notes/source.txt", "text/plain", bytes);
     expect(result).toEqual({
-      path: "notes/source.txt",
-      mime: "text/plain",
+      path: "notes/source.md",
+      mime: "text/markdown",
       size: 3,
       sha256:
         "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",

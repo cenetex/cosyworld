@@ -35,6 +35,7 @@ const mimes = {
   wav: "audio/wav",
   json: "application/json",
   txt: "text/plain",
+  md: "text/markdown",
 };
 const sizeOk = (size, max) =>
   Number.isSafeInteger(size) && size >= 0 && size <= max;
