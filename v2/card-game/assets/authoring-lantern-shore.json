@@ -32,18 +32,18 @@
     },
     "avatars": {
       "sample-vale": {
-        "name": "Vale",
-        "text": "A traveller carries a lantern along the shore. There is room in the coat pockets for a small discovery.",
-        "seed": "Vale is a curious traveller with a lantern and a coat full of pockets.",
+        "name": "Dino",
+        "text": "A cheerful green dinosaur with blue spots and orange spines. Dino lights the shore path and helps friends find their courage.",
+        "seed": "Dino is the Braveheart, a small dinosaur who brings courage to every journey.",
         "tastes": {
-          "likes": "A new path",
-          "sore": "A broken promise",
-          "reason": "Vale enjoys a journey with a useful errand."
+          "likes": "Helping a friend",
+          "sore": "A friend left behind",
+          "reason": "Dino shares courage with anyone who needs it."
         },
         "place": "sample-shore",
         "travels": false,
         "standoffs": false,
-        "portrait": "assets/lantern-shore/vale.webp"
+        "portrait": "assets/lantern-shore/dino.png"
       },
       "sample-keeper": {
         "name": "The keeper",
@@ -65,7 +65,7 @@
       "sample-lantern": {
         "name": "Lantern",
         "text": "A small brass lantern with warm glass and a sturdy handle.",
-        "persona": "A small brass lantern with warm glass and a sturdy handle. Vale carries it along the shore.",
+        "persona": "A small brass lantern with warm glass and a sturdy handle. Dino carries it along the shore.",
         "holder": "sample-vale",
         "art": "assets/lantern-shore/lantern.webp"
       },
@@ -138,10 +138,24 @@
     "shore": "pond",
     "station": "station",
     "garden": "lonely-forest/garden",
-    "vale": "shared/characters/vale",
+    "dino": {
+      "source": "assets/authoring-guide/dino-design.png",
+      "mime": "image/png"
+    },
+    "dino-poses": {
+      "source": "assets/authoring-guide/dino-poses.png",
+      "mime": "image/png"
+    },
     "keeper": "keeper",
     "lantern": "lamp-card",
     "bell": "bell-card",
     "scarf": "lonely-forest/scarf-blue"
+  },
+  "example": {
+    "avatar": "sample-vale",
+    "specialAbility": "The Braveheart",
+    "portrait": "assets/lantern-shore/dino.png",
+    "sheet": "assets/lantern-shore/dino-poses.png",
+    "roles": ["happy", "sad", "strike", "brace", "hit", "sleep"]
   }
 }
