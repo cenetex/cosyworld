@@ -29,6 +29,7 @@ const files = [
   "avatar-world.mjs",
   "authoring-fields.mjs",
   "authoring-draft.mjs",
+  "authoring-source-import.mjs",
   "authoring-tree.mjs",
   "authoring-controller.mjs",
   "avatar-menu.mjs",
