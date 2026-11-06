@@ -70,19 +70,25 @@ export function renderCardDescriptor(
   );
   const note = document.querySelector(".action-beat-note");
   showNote(note, beat);
-  row.replaceChildren(
-    ...beat.buttons.map(({ label, id, run, disabled }, index) => {
-      const button = node(
-        "button",
-        label,
-        index ? "card-action" : "card-primary",
-      );
-      button.type = "button";
-      button.id = id;
-      button.dataset.keepMenu = "true";
-      button.disabled = Boolean(disabled);
-      button.onclick = run;
-      return button;
-    }),
-  );
+  const buttons = beat.buttons.map(({ label, id, run, disabled }, index) => {
+    const previous = row.children[index];
+    const button =
+      previous?.id === id && previous.dataset.keepMenu === "true"
+        ? previous
+        : node("button", label, index ? "card-action" : "card-primary");
+    button.textContent = label;
+    button.type = "button";
+    button.id = id;
+    button.dataset.keepMenu = "true";
+    button.disabled = Boolean(disabled);
+    button.onclick = run;
+    return button;
+  });
+  // A blur may save source text during a button press. Keep that button in
+  // place through the redraw so the same press reaches its click handler.
+  if (
+    buttons.length !== row.children.length ||
+    buttons.some((button, i) => row.children[i] !== button)
+  )
+    row.replaceChildren(...buttons);
 }

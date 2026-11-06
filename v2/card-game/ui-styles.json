@@ -18,6 +18,7 @@
     ".play-dock"
   ],
   "rules": [
+    "#action-beat .action-beat-note[contenteditable=\"plaintext-only\"] { font-size: 16px; line-height: 1.4; max-height: min(12rem,24dvh); min-height: 1.4em; overflow-wrap: anywhere; overflow-y: auto; white-space: pre-wrap }",
     "#card-actions button { background: #171920ee; border-radius: 24px; border: 1px solid #baa37c; color: #f2e3c4; flex: 0 0 auto; font: 15px/1.25 Georgia,serif; max-width: min(260px,85vw); min-height: 44px; padding: 8px 16px; white-space: normal }",
     "#card-actions button:hover { background: #3c3325 }",
     "#card-actions { display: flex; gap: 8px; overflow-x: auto; padding: 3px 1px; scrollbar-width: thin }",
@@ -234,6 +235,7 @@
     "@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) | body .hand>.card-frame { transition: transform 0.22s ease-out,filter 0.22s ease-out,translate 180ms ease-out }",
     "@media (hover: hover) and (pointer: fine) | body[data-hand-expanded=\"false\"] .stage:not([data-combat=\"true\"])~.play-dock:not([data-selected=\"true\"]) .hand .card:hover .name { opacity: 1 }",
     "@media (hover: hover) and (prefers-reduced-motion: reduce) | .title-card .card[data-unrevealed=\"true\"]:hover { filter: brightness(1.12) }",
+    "@media (max-height: 400px) | #action-beat .action-beat-note[contenteditable=\"plaintext-only\"] { max-height: 3rem }",
     "@media (max-height: 440px) | :root { --card-height: 140px; --card-width: 112px }",
     "@media (max-height: 640px) and (min-width: 701px) | :root { --card-height: clamp(126px,37dvh,176px); --card-width: clamp(100px,28dvh,128px); --dock-height: calc(var(--card-height)+82px) }",
     "@media (max-height: 640px) and (min-width: 701px) | body .dialogue { bottom: calc(var(--dock-height)+4px); padding: 4px 10px }",

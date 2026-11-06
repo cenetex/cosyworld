@@ -36,7 +36,7 @@
     "smoke-card-hosted-voices": 16,
     "smoke-card-privacy": 12,
     "smoke-card-settings": 15,
-    "smoke-card-descriptor": 10,
+    "smoke-card-source-edit": 20,
     "smoke-card-play-counts": 12,
     "smoke-card-narrative-contract": 2,
     "smoke-card-home-rescue": 15,
@@ -81,6 +81,7 @@
     "smoke-card-boot": 8,
     "smoke-card-shared-discovery": 13,
     "smoke-card-bard-travel": 30,
-    "smoke-card-voice": 43
+    "smoke-card-voice": 43,
+    "smoke-card-descriptor": 10
   }
 }

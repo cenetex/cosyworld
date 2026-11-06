@@ -15,6 +15,7 @@ import { createPreferredLocationsView } from "./preferred-locations-view.mjs";
 import { cardLevel, levelTier, romanLevel } from "./rarity.mjs";
 import { finishCardReveal, revealCard } from "./card-reveal.mjs";
 import { setCardLabel } from "./card-label.mjs";
+import { showActionBeatNote } from "./action-beat-note.mjs";
 import {
   fadeGhost,
   fixedGhost,
@@ -1532,6 +1533,9 @@ function opening() {
   if (sharedSession) return null;
   return openingStep(world, currentActor(world), cardIsCovered);
 }
+function sharingMeal(cards) {
+  return cards.length === 3 && cardPlay(world, cards).action?.kind === "eat";
+}
 function choose(id) {
   if (finishCardReveal(id) || selectionBlocked()) return;
   if (reviewing) returnToLive();
@@ -1555,7 +1559,14 @@ function choose(id) {
   // the fan, or the only card in a stack, chooses it (#2256).
   const actor = currentActor(world),
     part = expandedHolders.has(actor) ? avatarStack(id) : null;
-  if (id === actor && expandedHolders.has(actor)) {
+  const withCard = [...selected, id];
+  if (selected.length === 3 && selected.includes(id))
+    selectCards(
+      selected.filter((cardId) => cardId !== id),
+      { keepOpen: true },
+    );
+  else if (sharingMeal(withCard)) selectCards(withCard, { keepOpen: true });
+  else if (id === actor && expandedHolders.has(actor)) {
     const settled = !avatarFan && !questPicked && selected.join("+") === actor;
     avatarFan = null;
     if (settled) expandedHolders.delete(actor);
@@ -1617,14 +1628,24 @@ function choose(id) {
       : null;
   revealHandCard(id, { nextFrame: firstItem });
 }
+function dragPlay(cards) {
+  const { action } = cardPlay(world, cards);
+  if (!action) return null;
+  return restPlays(
+    world,
+    [action],
+    lastWait?.key === cards.join("+") && lastWait.revision === world.revision,
+    cards,
+  )[0];
+}
 function commit(cards, revision) {
   if (selectionBlocked()) return;
-  const resolved = cardPlay(world, cards);
-  if (!resolved.action) {
+  const action = dragPlay(cards);
+  if (!action) {
     $("play-readout").textContent = "That cannot be used here.";
     return;
   }
-  commitAction(resolved.action, revision);
+  commitAction(action, revision);
 }
 function commitAction(action, revision, renderedAt = -Infinity) {
   if (selectionBlocked()) return;
@@ -2068,21 +2089,25 @@ function showBeatCards(ids, recipe = false) {
 }
 // Another part of the table, such as the ☰ menu, can borrow the action
 // beat: { avatar, cards: [{ src, level, color, lit, ground }], name, info,
-// note, buttons: [{ label, id, run }] }. The name and its info line read in
+// note, edit?: { key, label, value, onInput }, buttons: [{ label, id, run }] }.
+// The name and its info line read in
 // the middle, then the note; the buttons sit on the right, and a beat may
 // have none. It replaces the play's beat until cleared. `borrowedBeat` is
 // declared before notice(), which a refused save calls during boot.
-function showActionBeat(beat) {
+export function showActionBeat(beat) {
   borrowedBeat = beat;
   renderActions();
 }
-function clearActionBeat(beat) {
+export function clearActionBeat(beat) {
   if (!borrowedBeat || (beat && borrowedBeat !== beat)) return;
   borrowedBeat = null;
   renderActions();
 }
 function showBorrowedBeat() {
-  renderCardDescriptor(borrowedBeat, { placeArt });
+  renderCardDescriptor(borrowedBeat, {
+    placeArt,
+    showNote: showActionBeatNote,
+  });
   syncActionBeat();
 }
 
@@ -2347,7 +2372,16 @@ function renderActions() {
   }
   // An item with its own view offers a client-only Look; it plays nothing.
   const viewed = selected.length === 1 && selected[0];
-  if (!rested && viewed && things[viewed]?.view && !cardIsCovered(viewed)) {
+  if (
+    !rested &&
+    !row.children.length &&
+    viewed &&
+    things[viewed]?.view &&
+    !cardIsCovered(viewed) &&
+    !sealedReason(world, viewed) &&
+    !asleepReason(world, selected) &&
+    hint !== TOO_MANY_ITEMS
+  ) {
     const look = node("button", "Look", "card-action");
     look.type = "button";
     look.dataset.look = viewed;
@@ -2411,15 +2445,14 @@ function renderActions() {
     heading.hidden = true;
   }
   const note = document.querySelector(".action-beat-note");
-  note.textContent = next?.reason || "";
-  note.hidden = !next?.reason;
+  let noteText = next?.reason || "";
   if (abandonQuest) {
     const panel = $("action-beat");
     panel.dataset.tier = "danger";
     panel.style.setProperty("--tier-color", "var(--danger)");
-    note.textContent = `${shownQuestCaption(picked)}. Cost ${dropCost(world, actor, picked.index)} XP.`;
-    note.hidden = false;
+    noteText = `${shownQuestCaption(picked)}. Cost ${dropCost(world, actor, picked.index)} XP.`;
   }
+  showActionBeatNote(note, { note: noteText });
   const text = abandonQuest ? "Abandon this quest?" : sentence;
   writeActionMessage(
     message,
@@ -2764,7 +2797,7 @@ function card(id) {
     selectionRevision = world.revision;
     e.dataTransfer.setData("text/plain", JSON.stringify(dragging));
     e.dataTransfer.effectAllowed = "move";
-    $("stage").dataset.play = playLabel(cardPlay(world, dragging).action) || "";
+    $("stage").dataset.play = playLabel(dragPlay(dragging)) || "";
     $("stage").classList.add("ready");
   });
   el.addEventListener("dragend", () => {
@@ -2790,7 +2823,14 @@ function card(id) {
     ) {
       playQueue.clear();
       rowCollapsed = false;
-      selectCards(places[dragging[0]] && places[id] ? [id] : [dragging[0], id]);
+      const withCard = [...dragging, id];
+      selectCards(
+        sharingMeal(withCard)
+          ? withCard
+          : places[dragging[0]] && places[id]
+            ? [id]
+            : [dragging[0], id],
+      );
       selectionRevision = world.revision;
       render();
     }
