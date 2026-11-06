@@ -4,7 +4,8 @@ import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
 import { createWorld, encodeSave, nameOf } from "../card-game/world.mjs";
 import { availableCards } from "../card-game/cards.mjs";
-import { selectCard } from "./card-browser-helpers.mjs";
+import { readyActionButton, selectCard } from "./card-browser-helpers.mjs";
+import { SPEECH_OCCASIONS } from "../card-game/speech-occasions.mjs";
 
 const output = new URL("../../output/card-thinking/", import.meta.url);
 await mkdir(output, { recursive: true });
@@ -66,7 +67,7 @@ try {
     );
     await selectCard(page, "vale");
     const requested = page.waitForRequest("**/card-game/text");
-    await page.locator('#card-actions [data-action="wait"]').click();
+    await readyActionButton(page, "wait").click();
     await requested;
     await page.waitForTimeout(2700);
     const pending = await snapshot();
@@ -106,8 +107,9 @@ try {
       key,
     );
     const requestedNext = page.waitForRequest("**/card-game/text");
-    await selectCard(page, "vale");
-    await page.locator('#card-actions [data-action="wait"]').click();
+    // Talk gives the next pending request a voice after the first Wait.
+    await selectCard(page, "moth");
+    await readyActionButton(page, "talk").click();
     await requestedNext;
     await page.waitForTimeout(100);
     const retrying = await snapshot();
@@ -156,11 +158,11 @@ try {
       await page.waitForTimeout(50);
     }
     // A Talk asks for words. Its Thinking card holds the panel back; two
-    // taps stop waiting, the play stays saved, and a silent move made then
-    // sends no request of its own and never shows the late words.
+    // taps stop waiting, and the next move keeps its own speech policy.
+    // The replaced Talk stays out of the new room.
     const talkRequest = page.waitForRequest("**/card-game/text");
     await selectCard(page, "moth");
-    await page.locator('#card-actions [data-action="talk"]').click();
+    await readyActionButton(page, "talk").click();
     await talkRequest;
     const replaced = requests.at(-1);
     const asked = requests.length;
@@ -168,11 +170,35 @@ try {
     assert.equal(await page.locator("#card-actions button").count(), 0);
     await page.locator("#speech-row").click();
     await page.locator("#speech-row").click();
-    await page.locator('#card-actions [data-action="move"]').click();
+    const returnSpeaks = SPEECH_OCCASIONS.includes("action");
+    const movedRequest = returnSpeaks
+      ? page.waitForRequest("**/card-game/text")
+      : null;
+    await readyActionButton(page, "move").click();
     await page.waitForFunction(
       (title) => document.querySelector("#place-title").textContent === title,
       nameOf("station"),
     );
+    if (returnSpeaks) {
+      await movedRequest;
+      const current = requests.at(-1);
+      assert(current.input.revision > replaced.input.revision);
+      await current.route.fulfill({
+        json: {
+          revision: current.input.revision,
+          model: "current-thinking-fixture",
+          entries: current.input.entities.map(({ id }) => ({
+            id,
+            text: "I have reached the station.",
+          })),
+        },
+      });
+      await page.waitForFunction(() =>
+        document
+          .querySelector("#dialogue-text")
+          .textContent.includes("I have reached the station."),
+      );
+    }
     await replaced.route
       .fulfill({
         json: {
@@ -189,7 +215,7 @@ try {
       () => document.querySelector("#hand").dataset.cooling === "false",
     );
     const superseded = await snapshot();
-    assert.equal(requests.length, asked);
+    assert.equal(requests.length, asked + Number(returnSpeaks));
     assert.deepEqual(superseded.cast, superseded.hand);
     assert.equal(superseded.stageRevision, superseded.handRevision);
     assert.doesNotMatch(
