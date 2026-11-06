@@ -141,3 +141,15 @@ it("pins the original Dino PNG bytes and loads the bundled example", async () =>
   expect(design.example.sha256).toBe(sampleExample().sheetSha256);
   expect(design.accepted.specialAbility).toBe("The Braveheart");
 });
+
+it("opens an imported JPEG avatar for a fresh roll while keeping its authored portrait", async () => {
+  const r = record();
+  r.draft.pack.avatars["sample-vale"].portrait = "portrait.jpg";
+  await add(r, "portrait.jpg", 1);
+  r.draft.assets[0].mime = "image/jpeg";
+  const before = JSON.stringify(r.draft);
+  const design = await readAvatarDesign(r, "sample-vale", empty);
+  expect(design.value.base).toBeUndefined();
+  expect(design.value.description).toBe("A green dinosaur.");
+  expect(JSON.stringify(r.draft)).toBe(before);
+});

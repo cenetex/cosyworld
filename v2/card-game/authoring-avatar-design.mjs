@@ -43,10 +43,7 @@ export async function readAvatarDesign(
   async function image(path) {
     const meta = record.draft.assets.find((asset) => asset.path === path);
     if (!meta) return null;
-    need(
-      ["image/png", "image/webp"].includes(meta.mime),
-      "Use a PNG or WebP portrait.",
-    );
+    if (!["image/png", "image/webp"].includes(meta.mime)) return null;
     const bytes = record.assets.get(path);
     need(bytes instanceof Uint8Array, "Open this avatar's saved artwork.");
     const actual = await assetMetadata(path, meta.mime, bytes);
