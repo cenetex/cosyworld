@@ -19,6 +19,8 @@ use std::{
     time::{Duration, Instant},
 };
 use unicode_normalization::UnicodeNormalization;
+#[path = "card_authoring_image.rs"]
+mod images;
 
 const MODEL: &str = "anthropic/claude-haiku-5.5";
 const ROUTE: &str = "/card-game/authoring/generate/avatars";
@@ -52,6 +54,7 @@ pub(super) fn router() -> Router<AppState> {
     Router::new()
         .route(ROUTE, post(generate))
         .layer(DefaultBodyLimit::max(64 * 1024))
+        .merge(images::router())
         .layer(middleware::map_response(
             |mut response: Response| async move {
                 response
