@@ -23,6 +23,12 @@
           "cost": 1,
           "text": "First",
           "unknown": ["kept"]
+        },
+        {
+          "id": "other",
+          "cost": 1,
+          "text": "Pending field",
+          "unknown": ["kept"]
         }
       ]
     },

@@ -1,17 +1,15 @@
 import { it } from "vitest";
 import assert from "node:assert/strict";
 import { createAuthoringSession } from "../v2/card-game/authoring-session.mjs";
+import { sourceEdit } from "../v2/card-game/authoring-edits.mjs";
 import fixture from "./fixtures/authoring-session.json" with { type: "json" };
-import {
-  authoringCardId,
-  buildAuthoringTree,
-} from "../v2/card-game/authoring-tree.mjs";
+import * as tree from "../v2/card-game/authoring-tree.mjs";
+const fail = (message) => Promise.reject(new Error(message));
 function setup() {
   let record = structuredClone(fixture);
   const store = {
     async write(_key, value, generation) {
-      if (generation !== record.generation)
-        throw new Error("This draft changed in another tab.");
+      assert.equal(generation, record.generation);
       record = { ...structuredClone(value), generation: generation + 1 };
       return record.generation;
     },
@@ -20,19 +18,19 @@ function setup() {
   session.open({ key: "local", record });
   const field = (name) =>
     session.field(
-      buildAuthoringTree(session.state.source).cards.find(
-        (c) => c.id === authoringCardId(["pack", "choices", 0, name], "field"),
-      ),
+      tree
+        .buildAuthoringTree(session.state.source)
+        .cards.find((c) => c.source?.join("/") === `pack/choices/0/${name}`),
     ).field;
   const select = (place) =>
     session.dispatch({
       type: "select",
-      id: authoringCardId(["pack", "places", place], "entity"),
+      id: tree.authoringCardId(["pack", "places", place], "entity"),
     });
   return { session, store, field, select };
 }
 
-it("validates pending fields as one candidate and gives tools a detached snapshot", async () => {
+it("validates pending fields and keeps their identity through Undo", async () => {
   const { session, field } = setup(),
     before = JSON.stringify(session.state);
   session.input(field("text"), "Second\n雪");
@@ -65,16 +63,27 @@ it("validates pending fields as one candidate and gives tools a detached snapsho
   const pending = session.snapshot().draft.pack.choices[0];
   assert.deepEqual([pending.text, pending.cost], ["Pending field", 4]);
   session.saveField(field("text"));
-  assert.equal((await session.save()).draft.pack.choices[0].cost, 4);
+  const current = (await session.save()).draft.pack.choices;
+  assert.equal(current[0].cost, 4);
+  assert.equal(current[0].text, current[1].text);
+  const path = ["pack", "choices"],
+    value = current.slice(1);
+  const edit = sourceEdit(session.state.source, "Shift", [{ path, value }]);
+  session.dispatch({ type: "edit", edit });
+  session.input(field("text"), "For B");
+  session.dispatch({ type: "undo" });
+  assert.throws(() => session.saveField(field("text")), /moved/);
+  await assert.rejects(session.save(), /moved/);
+  assert.equal(session.state.source.pack.choices[0].text, current[0].text);
+  session.input(field("text"), "For A");
+  assert.equal(session.snapshot().draft.pack.choices[0].text, "For A");
 });
 
 it("retains failed field and document saves, then retries with the same generation", async () => {
   const { session, store, field } = setup(),
     write = store.write;
   session.input(field("text"), "Keep this field");
-  store.write = async () => {
-    throw new Error("Storage full");
-  };
+  store.write = () => fail("Storage full");
   session.stage({ document: "Keep this book", title: "New title" });
   await assert.rejects(session.save(), /Storage full/);
   assert.equal(session.status.generation, 1);
@@ -119,15 +128,12 @@ it("runs tools in the original gesture and guards completed imports after intera
   const running = session.run(async (ctx) => {
     started = true;
     await wait.promise;
-    assert.throws(
-      () => ctx.stage({ document: "Stale book" }),
-      /editor changed/,
-    );
+    assert.throws(() => ctx.stage({ document: "Old" }), /editor changed/);
     ctx.open({ key: "imported", record: incoming });
   });
   assert.equal(started, true);
   await assert.rejects(
-    session.run(() => {}),
+    session.run(() => null),
     /current action/,
   );
   session.input(field("text"), "New typing");
@@ -141,9 +147,7 @@ it("preserves the old session on failed reload and accepts a saved import explic
   const { session, store, select } = setup();
   select("a");
   const before = session.snapshot();
-  store.read = async () => {
-    throw new Error("Read failed");
-  };
+  store.read = () => fail("Read failed");
   await assert.rejects(
     session.run(async (ctx) =>
       ctx.open({ key: "local", record: await store.read() }),
@@ -152,10 +156,7 @@ it("preserves the old session on failed reload and accepts a saved import explic
   );
   assert.deepEqual(session.snapshot(), before);
   before.launch.place = "absent";
-  assert.throws(
-    () => session.open({ key: "bad", record: before }),
-    /starting location/,
-  );
+  assert.throws(() => session.open({ key: "bad", record: before }), /starting/);
   await session.run(async (ctx) => {
     ctx.stage({ document: "Context book" });
     const record = await ctx.save();
@@ -163,10 +164,8 @@ it("preserves the old session on failed reload and accepts a saved import explic
   });
   const retained = await session.run((ctx) => ctx);
   assert.throws(() => retained.stage({ document: "Late" }), /editor changed/);
-  assert.throws(
-    () => retained.open({ key: "late", record: before }),
-    /editor changed/,
-  );
+  const replacement = { key: "late", record: before };
+  assert.throws(() => retained.open(replacement), /editor changed/);
   assert.equal(session.state.undo.length, 0);
   assert.equal(session.snapshot().draft.document, "Context book");
 });

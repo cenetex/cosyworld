@@ -5,6 +5,7 @@ import { parseDraft, exportManifest } from "./authoring-draft.mjs";
 const need = (ok, message) => {
   if (!ok) throw new Error(message);
 };
+const conflict = "This field moved. Review it and edit its text.";
 const copyDraft = (draft) => parseDraft(exportManifest(draft));
 const changeField = (state, field, text) =>
   controller.reduceAuthoring(state, {
@@ -31,18 +32,18 @@ export function createAuthoringSession({ store, onChange = () => {} }) {
   }
   function candidate() {
     let next = state;
-    for (const { field, text } of pending.values())
-      next = changeField(next, field, text);
+    for (const entry of pending.values()) {
+      need(!entry.conflict, conflict);
+      next = changeField(next, entry.field, entry.text);
+    }
     return next;
   }
   function snapshot(next = candidate(), patch = {}, base = manifest, raw) {
-    need(
-      Object.entries(patch).every(
-        ([name, value]) =>
-          ["document", "title"].includes(name) && typeof value === "string",
-      ),
-      "Enter source text or title as text.",
-    );
+    for (const [name, value] of Object.entries(patch))
+      need(
+        ["document", "title"].includes(name) && typeof value === "string",
+        "Enter source text or title as text.",
+      );
     const draft = {
       ...base,
       ...patch,
@@ -147,12 +148,16 @@ export function createAuthoringSession({ store, onChange = () => {} }) {
     },
     dispatch(event) {
       epoch++;
+      const undo = event.type === "undo" ? state.undo.at(-1) : null;
       const next = controller.reduceAuthoring(state, event);
-      if (event.type === "undo")
-        for (const entry of pending.values()) {
+      for (const entry of pending.values())
+        for (const { path } of undo?.changes || []) {
           const field = entry.field;
+          if (!path.every((part, i) => part === field.path[i])) continue;
           const value = field.path.reduce((v, key) => v?.[key], next.source);
-          if (typeof value === field.type)
+          entry.conflict ||=
+            path.length !== field.path.length || typeof value !== field.type;
+          if (!entry.conflict)
             entry.field = { ...field, value, text: String(value) };
         }
       set(next);
@@ -160,6 +165,7 @@ export function createAuthoringSession({ store, onChange = () => {} }) {
     field(card) {
       const current = authoringField(state.source, card);
       if (!current) return null;
+      if (pending.get(current.key)?.conflict) current.reason = conflict;
       return {
         field: current,
         text: pending.get(current.key)?.text ?? current.text,
@@ -173,6 +179,7 @@ export function createAuthoringSession({ store, onChange = () => {} }) {
     },
     saveField(field) {
       const entry = pending.get(field.key);
+      need(!entry?.conflict, conflict);
       const next = changeField(
         state,
         entry?.field || field,
@@ -187,31 +194,25 @@ export function createAuthoringSession({ store, onChange = () => {} }) {
       busy = true;
       let at = epoch;
       const token = session;
-      const guard = () =>
-        need(
-          at === epoch && token === session,
-          "This editor changed. Save it, then open the prepared draft.",
-        );
+      const guard =
+        (fn) =>
+        (...args) => {
+          need(
+            at === epoch && token === session,
+            "This editor changed. Save it, then open the prepared draft.",
+          );
+          return fn(...args);
+        };
       try {
         onChange();
         return await callback({
-          snapshot() {
-            guard();
-            return api.snapshot();
-          },
-          stage(patch) {
-            guard();
+          snapshot: guard(() => api.snapshot()),
+          stage: guard((patch) => {
             api.stage(patch);
             at = epoch;
-          },
-          save(patch) {
-            guard();
-            return save(patch);
-          },
-          open(value) {
-            guard();
-            open(value);
-          },
+          }),
+          save: guard(save),
+          open: guard(open),
         });
       } finally {
         busy = false;
