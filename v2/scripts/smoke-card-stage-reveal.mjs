@@ -160,7 +160,9 @@ try {
       }
       // Then its first real play: Put out darkens the room, and the card
       // the rules bring arrives face down, nowhere on stage.
-      const putOut = page.locator('#card-actions [data-action="snuff"]');
+      const putOut = page.locator(
+        '#card-actions [data-action="snuff"]:not([data-revealing="true"])',
+      );
       await putOut.waitFor();
       await shot("04-put-out-offered");
       await putOut.click();
