@@ -156,8 +156,8 @@ const link = (text, href) => {
 // it, a spaced dash too; the larger breath wins; one long silence falls
 // before "Before you sits"). After a stanza with `highlights` the pen holds
 // while their words light. Each line is set as written, wrapping under a
-// hanging indent on a narrow screen. About 25 seconds; a tap completes its stanza
-// and lights that stanza. The cue follows the completed poem.
+// hanging indent on a narrow screen. A tap quickens its stanza, then lets the
+// next stanza write while the earlier words light.
 export const STANZA_MS = 650;
 const escape = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 // Where each pause falls: its line, the span that lights (a held word's
@@ -291,7 +291,8 @@ function acknowledgementPanel() {
     lighting = new Map();
   const fadeGroups = tiers.map(() => []);
   let shown = 0,
-    total = 0;
+    total = 0,
+    lastSound = -Infinity;
   const stanzaEnds = acknowledgement.stanzas.map(
     (stanza) => (total += splitLetters(stanza.join("")).length),
   );
@@ -347,9 +348,10 @@ function acknowledgementPanel() {
   const next = element(
     "button",
     "title-continue",
-    `${tap ? "tap" : "click"} to continue`,
+    `${tap ? "tap" : "click"} to read faster`,
   );
   next.type = "button";
+  next.setAttribute("aria-label", "Speed up this section");
   panel.append(text, next);
   // At a large text size the poem outgrows its panel. While it writes, the
   // panel scrolls on as the pen reaches its foot, so the newest words stay
@@ -388,7 +390,11 @@ function acknowledgementPanel() {
     // under reduced motion or in a hidden tab, the narrator's neutral voice.
     reduced: () => matchMedia("(prefers-reduced-motion: reduce)").matches,
     sound: (speaker, letter, index) => {
-      if (!document.hidden) voice?.syllable(speaker, letter, index);
+      const time = performance.now();
+      if (!document.hidden && time - lastSound >= 45) {
+        voice?.syllable(speaker, letter, index);
+        lastSound = time;
+      }
     },
     frame: (value) => {
       shown = value.shown;
@@ -409,20 +415,25 @@ function acknowledgementPanel() {
             setTimeout(() => lightSet(i), pauses[i].atMs),
           );
       });
-      if (!value.complete || !("stream" in panel.dataset)) return;
+      if (!value.complete) return;
+      next.textContent = `${tap ? "tap" : "click"} to continue`;
+      next.setAttribute("aria-label", "Continue to the title");
       delete panel.dataset.stream;
       panel.dataset.written = "";
     },
   });
-  // Visible by default: the cue waits only while the words write in.
+  // The hand cue stays available as the words write.
   const write = (instant) => {
     if (!instant) panel.dataset.stream = "";
     painter.start(glyphs);
     const words = acknowledgement.stanzas.flat().join("");
     reveal.show("acknowledgement", words, null, { instant });
   };
-  const finishStanza = () =>
-    reveal.finish(stanzaEnds.find((end) => end > shown));
+  const quickenStanza = () => {
+    following = true;
+    target = text.scrollTop;
+    reveal.accelerate(stanzaEnds.find((end) => end > shown));
+  };
   const fadeOut = (reduced) => {
     const fade = (node, delay, duration) =>
       node.animate([{ opacity: 0 }], {
@@ -446,7 +457,7 @@ function acknowledgementPanel() {
       () => {},
     );
   };
-  return { panel, next, reveal, write, unfollow, fadeOut, finishStanza };
+  return { panel, next, reveal, write, unfollow, fadeOut, quickenStanza };
 }
 
 const SCROLL_KEYS = [
@@ -488,10 +499,10 @@ export function playTitleIntro({
     write,
     unfollow,
     fadeOut,
-    finishStanza,
+    quickenStanza,
   } = acknowledgementPanel();
-  // A gesture completes the current stanza and unlocks its typing voice.
-  // The next stanza follows its held breath. A hidden tab holds the pen.
+  // A gesture quickens this stanza and unlocks its typing voice. Its glow can
+  // overlap the next stanza's first words. A hidden tab holds the pen.
   const hidden = () => words.pause(document.hidden);
   document.addEventListener("visibilitychange", hidden);
   const image = element("img");
@@ -710,8 +721,7 @@ export function playTitleIntro({
   const advance = () => {
     if (phase === "ack" && !words.complete) {
       voice?.unlock();
-      voice?.stop();
-      finishStanza();
+      quickenStanza();
       return;
     }
     return phase === "ack" ? showTitle() : showWake();

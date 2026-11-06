@@ -137,6 +137,46 @@ describe("paced conversation", () => {
     vi.advanceTimersByTime(1);
     expect(last().shown).toBe(4);
   });
+  it("quickens a section letter by letter, then starts the next through its pause", () => {
+    const { reveal, last, frames, sound } = player({
+      delay: (_, i) => (i === 3 ? 2000 : 28),
+    });
+    reveal.show("poem", "One.Two.", null);
+    vi.advanceTimersByTime(28);
+    reveal.accelerate(4);
+    expect(last().shown).toBe(1);
+    vi.advanceTimersByTime(8);
+    expect(last()).toMatchObject({ shown: 2, instant: false });
+    reveal.accelerate(8);
+    vi.advanceTimersByTime(16);
+    expect(last().shown).toBe(4);
+    vi.advanceTimersByTime(1);
+    expect(last()).toMatchObject({ shown: 5, complete: false });
+    expect(frames.some(({ shown }) => shown === 4)).toBe(true);
+    expect(sound).toHaveBeenCalledWith(null, "T", 5);
+    vi.advanceTimersByTime(26);
+    expect(last().shown).toBe(5);
+    vi.advanceTimersByTime(1);
+    expect(last().shown).toBe(6);
+    reveal.cancel();
+    expect(vi.getTimerCount()).toBe(0);
+  });
+  it("holds quickened letters while hidden and resumes the same section", () => {
+    const { reveal, last } = player();
+    reveal.show("poem", "One.Two.", null);
+    vi.advanceTimersByTime(28);
+    reveal.accelerate(4);
+    reveal.pause(true);
+    vi.advanceTimersByTime(10000);
+    expect(last().shown).toBe(1);
+    reveal.pause(false);
+    vi.advanceTimersByTime(8);
+    expect(last().shown).toBe(2);
+    reveal.cancel();
+    reveal.show("new", "Quiet words", null);
+    vi.advanceTimersByTime(28);
+    expect(last().shown).toBe(1);
+  });
   it("uses paint frames and reveals one letter after a slow frame", () => {
     let time = 0,
       callback = null;

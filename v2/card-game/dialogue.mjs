@@ -28,7 +28,8 @@ export function createTextReveal({
     timer = null,
     paused = false,
     due = 0,
-    remaining = 28;
+    remaining = 28,
+    quickUntil = 0;
   const stop = () => {
     if (requestFrame) cancelFrame(timer);
     else clearTimeout(timer);
@@ -54,21 +55,34 @@ export function createTextReveal({
       queue();
       return;
     }
-    const letter = current.letters[current.shown++];
-    if (!reduced() && /[\p{L}\p{N}]/u.test(letter) && current.shown % 2 === 1)
-      sound(current.speaker, letter, current.shown);
+    // A quickened section still paints in order, at most four letters per frame.
+    const steps = quickUntil
+      ? Math.min(4, 1 + Math.floor((time - due) / 8))
+      : 1;
+    for (let i = 0; i < steps; i++) {
+      const letter = current.letters[current.shown++];
+      if (!reduced() && /[\p{L}\p{N}]/u.test(letter) && current.shown % 2 === 1)
+        sound(current.speaker, letter, current.shown);
+      if (quickUntil && current.shown === quickUntil) {
+        quickUntil = 0;
+        due = time;
+        break;
+      }
+      const pause = quickUntil ? 8 : delay(letter, current.shown - 1);
+      due = quickUntil ? due + pause : Math.max(due + pause, time + pause / 2);
+    }
+    if (quickUntil) due = Math.max(due, time + 4);
     emit();
     // Keep the cadence through small frame delays. A slow frame reveals one
     // letter, and the clock never catches up faster than twice the beat, so
     // returning from a busy frame keeps a steady beat rather than a burst.
-    const pause = delay(letter, current.shown - 1);
-    due = Math.max(due + pause, time + pause / 2);
     queue();
   }
   return {
     show(key, text, speaker, { instant = false } = {}) {
       if (current?.key === key) return;
       stop();
+      quickUntil = 0;
       const letters = splitLetters(text);
       current = {
         key,
@@ -84,6 +98,7 @@ export function createTextReveal({
     },
     finish(until = current?.letters.length) {
       stop();
+      quickUntil = 0;
       if (!current || current.shown === current.letters.length) return;
       current.instant = true;
       current.shown = Math.max(
@@ -100,6 +115,16 @@ export function createTextReveal({
         schedule(remaining);
       }
     },
+    accelerate(until = current?.letters.length) {
+      if (!current || current.shown === current.letters.length || quickUntil)
+        return;
+      const end = Math.min(current.letters.length, until);
+      if (end <= current.shown) return;
+      quickUntil = end;
+      stop();
+      remaining = 8;
+      schedule(remaining);
+    },
     pause(value) {
       if (paused === value) return;
       if (value) remaining = Math.max(0, due - now());
@@ -109,6 +134,7 @@ export function createTextReveal({
     },
     cancel() {
       stop();
+      quickUntil = 0;
       current = null;
     },
     get complete() {
