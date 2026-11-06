@@ -6,7 +6,6 @@ import {
   CONFIRM_MS,
   DREAM_WAIT_MS,
   QUEST_MS,
-  READ_MS,
   beatMs,
   createSleepSequence,
   dreamText,
@@ -14,10 +13,10 @@ import {
   sleepWake,
 } from "../v2/card-game/sleep-presentation.mjs";
 import {
+  DREAMING_LABEL,
   DREAM_LABEL,
   DREAM_TIER,
   dreamBeat,
-  dreamingLabel,
   withDream,
 } from "../v2/card-game/dream-card.mjs";
 import {
@@ -178,7 +177,9 @@ describe("the dream sequence", () => {
       text: "I dreamt of the cottage.",
     });
     s.revealed();
-    c.tick(READ_MS);
+    c.tick(10_000);
+    expect(s.beat).toBe("dream");
+    expect(s.tap()).toBe("next");
     expect(s.beat).toBe("quest");
     c.tick(QUEST_MS);
     expect(s.beat).toBe("light");
@@ -272,8 +273,7 @@ describe("the DREAM card", () => {
       anchor: 9.5,
     });
     expect(pending).toMatchObject({ pending: true, line: null, dream: true });
-    expect(dreamingLabel()).toBe("Dreaming…");
-    expect(dreamingLabel(true)).toBe("Tap again to cancel");
+    expect(DREAMING_LABEL).toBe("Dreaming…");
     const read = dreamBeat({
       key: "dream:9",
       dreamerId: "vale",

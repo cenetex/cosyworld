@@ -166,6 +166,14 @@ export function createSleepView({
     get active() {
       return Boolean(sequence);
     },
+    // The catcher and the dialogue button take the same next tap.
+    get dreamTap() {
+      if (!wake?.dream) return null;
+      if (shown.beat === "dreaming") return shown.armed ? "Confirm" : "Stop waiting";
+      if (shown.beat === "dream") return shown.revealed ? "Continue" : "Finish";
+      return shown.beat === "enter" ? "Continue" : "";
+    },
+    tap,
     // The turn the stage light shows, and whether it cuts: under the fade
     // the old light holds; under the black it cuts to the new one.
     light(turn) {

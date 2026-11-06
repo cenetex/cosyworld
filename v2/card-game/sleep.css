@@ -78,6 +78,11 @@ body[data-sleep="quest"] #hand > .want-frame:not([hidden]),
 body[data-sleep="quest"] #hand > :has(> .quest-fold:not([hidden])) {
   filter: none;
 }
+/* Keep the Dream cue above the hand while its card takes taps. */
+body:is([data-sleep="enter"], [data-sleep="dreaming"], [data-sleep="dream"])
+  main > .dialogue {
+  z-index: 6;
+}
 /* While a wake plays, a tap anywhere finishes its beat. */
 .sleep-catcher {
   position: fixed;

@@ -94,12 +94,7 @@ import {
   placeLight,
 } from "./stage-light.mjs";
 import { createSleepView } from "./sleep-view.mjs";
-import {
-  DREAM_TIER,
-  dreamingAria,
-  dreamingLabel,
-  withDream,
-} from "./dream-card.mjs";
+import { DREAMING_LABEL, DREAM_TIER, withDream } from "./dream-card.mjs";
 import { paintGlimpse } from "./glimpse-card.mjs";
 import {
   CHANGE_FADE_MS,
@@ -831,12 +826,17 @@ function updateSpeechControls(complete) {
   const forward = (reviewing && (frontIndex < liveIndex || choiceInStack())) ||
     exchange.hasNext || sharedForward;
   const label = reviewing ? "Step forward to a later beat" : "Continue to the next beat";
-  const cue = cancel
-    ? tapPrompt(cancel, true, cancel === "Cancel" ? "Cancel play" : cancel)
-    : tapPrompt(forward && !waiting ? "Continue" : "", complete, forward ? label : "The latest beat");
+  const dreamTap = sleepView.dreamTap;
+  const cue = dreamTap !== null
+    ? tapPrompt(dreamTap, dreamTap !== "Finish", dreamTap === "Continue" ? "Continue the dream" : dreamTap || "Dream")
+    : cancel
+      ? tapPrompt(cancel, true, cancel === "Cancel" ? "Cancel play" : cancel)
+      : tapPrompt(forward && !waiting ? "Continue" : "", complete, forward ? label : "The latest beat");
   const button = $("dialogue-advance"), hint = $("speech-hint");
-  button.dataset.revealing = String(!complete && !cancel);
-  const waitingLine = complete && waiting && !cancel;
+  button.dataset.revealing = String(dreamTap === null ? !complete && !cancel : dreamTap === "Finish");
+  const waitingLine = dreamTap === null && complete && waiting && !cancel;
+  if (dreamTap === "") button.setAttribute("aria-disabled", "true");
+  else button.removeAttribute("aria-disabled");
   button.setAttribute("aria-label", waitingLine ? "Thinking about the next reply" : cue.label);
   hint.textContent = waitingLine ? "Thinking…" : cue.hint;
   hint.hidden = button.hidden || !hint.textContent;
@@ -3839,16 +3839,14 @@ function renderScene() {
   $("story-status").hidden = !front?.pending || behindLive;
   // A dream being written is the same card, "Dreaming…" (dream-card.mjs).
   $("story-status").lastElementChild.textContent = front?.dream
-    ? dreamingLabel(front.armed)
+    ? DREAMING_LABEL
     : "Thinking…";
   $("story-status").dataset.armed = String(
     front?.dream ? front.armed : thinkingArmed,
   );
   $("story-status").setAttribute(
     "aria-label",
-    front?.dream
-      ? dreamingAria(front.armed)
-      : "Thinking about this scene",
+    front?.dream ? "Dreaming" : "Thinking about this scene",
   );
   $("speech-row").setAttribute("aria-busy", String(!$("story-status").hidden));
   const ownAction =
@@ -3968,9 +3966,8 @@ function renderScene() {
         ? "pending"
         : "action";
   $("dialogue-text").hidden = !text;
-  // The Thinking card of a play that can be cancelled takes taps.
   $("dialogue-advance").hidden =
-    !text && !front?.actions.length && !ownFront?.cancel;
+    !text && !front?.actions.length && !ownFront?.cancel && !sleepView.dreamTap;
   $("speech-hint").hidden = true;
   if (text) {
     const speaker = line.entityId || line.actorId || scene.locationId;
@@ -4204,7 +4201,13 @@ $("live-line").onclick = showLiveChoice;
 document.querySelector(".dialogue").addEventListener(
   "click",
   (event) => {
-    if (!choiceInFront() || !event.target.closest("#speech-row")) return;
+    if (!event.target.closest("#speech-row")) return;
+    if (sleepView.dreamTap !== null) {
+      event.stopPropagation();
+      if (sleepView.dreamTap) sleepView.tap();
+      return;
+    }
+    if (!choiceInFront()) return;
     event.stopPropagation();
     stepBack();
   },
