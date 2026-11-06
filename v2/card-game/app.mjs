@@ -78,7 +78,7 @@ import {
   questVerb,
 } from "./quest-card.mjs";
 import { questStep } from "./quest-step.mjs";
-import { questScreen } from "./quest-screen.mjs";
+import { actionScene, questScreen } from "./quest-screen.mjs";
 import { createLandingWorld, newRunSeed } from "./pack-landing.mjs";
 import { flipStagePortrait, portraitFraming } from "./portrait-facing.mjs";
 import { locationWeather } from "./weather.mjs";
@@ -3733,13 +3733,38 @@ function renderScene() {
         : "Thinking about this scene",
   );
   $("speech-row").setAttribute("aria-busy", String(!$("story-status").hidden));
-  const portraitId = front?.speakerId || null;
+  const ownAction =
+    front &&
+    !front.line &&
+    !front.pending &&
+    !front.dream &&
+    front.actions.some((action) => action.seq === front.anchor) &&
+    view.log.find(
+      (entry) =>
+        entry.seq === front.anchor &&
+        entry.kind === "action" &&
+        entry.actorId === front.speakerId,
+    );
+  const hiddenActor = ownAction && hiddenFor(world, viewer)?.id;
+  const actionView =
+    ownAction &&
+    actionScene(
+      ownAction,
+      (id) =>
+        id !== hiddenActor &&
+        !cardIsCovered(id) &&
+        !(things[id] && covered(world, id)),
+    );
+  const portraitId = (ownAction ? actionView?.actor : front?.speakerId) || null;
   const portraitBox = $("speaker-portrait");
-  const actionPlace =
-    front?.committed && people[portraitId] ? scene.locationId : null;
-  // Key on the resolved art too, so a scarf given or taken repaints it.
+  // Key on the resolved art too, so a changed pose, scarf or backdrop repaints.
   const portraitSource = beatPortrait(portraitId);
-  const portraitKey = JSON.stringify([portraitSource, actionPlace]);
+  const portraitKey = JSON.stringify([
+    portraitSource,
+    actionView,
+    actionView?.here && placeArt(actionView.here),
+    actionView && beatPortrait(actionView.to || actionView.target),
+  ]);
   if (
     portraitBox.dataset.entity !== (portraitId || "") ||
     portraitBox.dataset.source !== portraitKey
@@ -3748,14 +3773,9 @@ function renderScene() {
     portraitBox.dataset.source = portraitKey;
     releaseImages(portraitBox);
     portraitBox.replaceChildren();
-    if (actionPlace) {
+    if (actionView) {
       portraitBox.dataset.kind = "action";
-      portraitBox.append(
-        questScreen(
-          { actor: portraitId, kind: "place", target: actionPlace },
-          questArt,
-        ),
-      );
+      portraitBox.append(questScreen(actionView, questArt));
     } else if (portraitId) {
       const image = node("img");
       image.alt = "";
