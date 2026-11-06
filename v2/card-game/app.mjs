@@ -956,7 +956,7 @@ const reveal = createTextReveal({
       announcedBeat = value.key;
       $("speech-announcement").textContent = [
         expressionLabel(
-          { ...people[value.speaker], name: nameOf(value.speaker) },
+          { ...people[value.speaker], name: visibleText(nameOf(value.speaker)) },
           value.text,
         ),
         ...frontCaptions,
@@ -1287,7 +1287,9 @@ function loadTurnLines({ pending = false } = {}) {
       // The dreamer says nothing on waking: the dream is the beat.
       !sleepView.hidesLine(entry),
   );
-  const voiced = lines.filter((entry) => !entry.silent);
+  const voiced = lines.filter(
+    (entry) => !entry.silent && visibleText(entry.text) === entry.text,
+  );
   if (localRuntime() && voiced.length) {
     const line =
       voiced.find((entry) => entry.seq !== exchange.current?.seq) || voiced[0];
@@ -3924,7 +3926,7 @@ function renderScene() {
   else $("speech-row").style.removeProperty("--tier-color");
   paintGlimpse($("speech-row").parentElement, front?.companion ?? null, {
     artOf: beatPortrait,
-    nameOf,
+    nameOf: (id) => visibleText(nameOf(id)),
     icon: beatIcon,
   });
   $("speech-row").dataset.beat = front?.dream
