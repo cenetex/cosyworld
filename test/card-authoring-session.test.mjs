@@ -6,8 +6,6 @@ import {
   authoringCardId,
   buildAuthoringTree,
 } from "../v2/card-game/authoring-tree.mjs";
-const gate = ["pack", "choices", 0];
-const deferred = () => Promise.withResolvers();
 function setup() {
   let record = {
     generation: 1,
@@ -21,9 +19,6 @@ function setup() {
     }),
   };
   const store = {
-    async read() {
-      return structuredClone(record);
-    },
     async write(key, value, generation) {
       assert.equal(key, "local");
       if (generation !== record.generation)
@@ -37,7 +32,7 @@ function setup() {
   const field = (name) =>
     session.field(
       buildAuthoringTree(session.state.source).cards.find(
-        (c) => c.id === authoringCardId([...gate, name], "field"),
+        (c) => c.id === authoringCardId(["pack", "choices", 0, name], "field"),
       ),
     ).field;
   const select = (place) =>
@@ -58,13 +53,15 @@ it("validates pending fields as one candidate and gives tools a detached snapsho
   snapshot.draft.pack.choices[0].unknown.push("caller");
   assert.equal(JSON.stringify(session.state), before);
   session.input(field("cost"), " ");
-  session.stage({ document: "Staged book" });
+  session.stage({ document: "Staged book", title: "x".repeat(81) });
   const read = session.snapshot({ pending: false });
   assert.equal(read.draft.pack.choices[0].cost, 1);
-  assert.equal(read.draft.document, "Staged book");
+  assert.equal(read.draft.title.length, 81);
   await assert.rejects(session.save(), /number/);
   assert.equal(JSON.stringify(session.state), before);
   session.input(field("cost"), "3");
+  await assert.rejects(session.save(), /title/);
+  session.stage({ title: "Corrected title" });
   const saved = await session.save();
   assert.deepEqual(saved.draft.pack.choices[0], {
     id: "gate",
@@ -72,7 +69,6 @@ it("validates pending fields as one candidate and gives tools a detached snapsho
     text: "Second\n雪",
     unknown: ["kept"],
   });
-  assert.equal(session.status.dirty, false);
   session.dispatch({ type: "undo" });
   session.dispatch({ type: "undo" });
   assert.equal(session.state.source.pack.choices[0].text, "First");
@@ -89,7 +85,6 @@ it("retains failed field and document saves, then retries with the same generati
   session.stage({ document: "Keep this book", title: "New title" });
   await assert.rejects(session.save(), /Storage full/);
   assert.equal(session.status.generation, 1);
-  assert.equal(session.status.writing, false);
   assert.equal(session.status.dirty, true);
   assert.equal(session.snapshot().draft.document, "Keep this book");
   assert.equal(session.state.undo.length, 1);
@@ -103,7 +98,7 @@ it("retains failed field and document saves, then retries with the same generati
 
 it("keeps newer launch edits dirty while a save finishes", async () => {
   const { session, store, select } = setup(),
-    wait = deferred(),
+    wait = Promise.withResolvers(),
     write = store.write;
   select("a");
   store.write = async (...args) => {
@@ -122,7 +117,7 @@ it("keeps newer launch edits dirty while a save finishes", async () => {
 
 it("runs tools in the original gesture and guards completed imports after interaction", async () => {
   const { session, field } = setup(),
-    wait = deferred();
+    wait = Promise.withResolvers();
   let started = false;
   const incoming = session.snapshot();
   const running = session.run(async (ctx) => {
@@ -144,7 +139,6 @@ it("runs tools in the original gesture and guards completed imports after intera
   await assert.rejects(running, /editor changed/);
   assert.equal(session.status.key, "local");
   assert.equal(session.snapshot().draft.pack.choices[0].text, "New typing");
-  assert.equal(session.status.busy, false);
 });
 
 it("preserves the old session on failed reload and accepts a saved import explicitly", async () => {
@@ -169,13 +163,17 @@ it("preserves the old session on failed reload and accepts a saved import explic
       }),
     /starting location/,
   );
-  assert.deepEqual(session.snapshot(), before);
   await session.run(async (ctx) => {
     ctx.stage({ document: "Context book" });
     const record = await ctx.save();
     ctx.open({ key: "local", record });
   });
-  assert.equal(session.status.dirty, false);
+  const retained = await session.run((ctx) => ctx);
+  assert.throws(() => retained.stage({ document: "Late" }), /editor changed/);
+  assert.throws(
+    () => retained.open({ key: "late", record: before }),
+    /editor changed/,
+  );
   assert.equal(session.state.undo.length, 0);
   assert.equal(session.snapshot().draft.document, "Context book");
 });

@@ -35,17 +35,20 @@ export function createAuthoringSession({ store, onChange = () => {} }) {
       next = changeField(next, field, text);
     return next;
   }
-  function snapshot(next = candidate(), patch = {}, base = manifest) {
+  function snapshot(next = candidate(), patch = {}, base = manifest, raw) {
     need(
-      Object.keys(patch).every((name) => ["document", "title"].includes(name)),
-      "Save source text or title through this tool.",
+      Object.entries(patch).every(
+        ([name, value]) =>
+          ["document", "title"].includes(name) && typeof value === "string",
+      ),
+      "Enter source text or title as text.",
     );
-    const draft = copyDraft({
+    const draft = {
       ...base,
       ...patch,
       pack: next.source.pack,
       bridge: next.source.bridge,
-    });
+    };
     const launch = structuredClone(next.source.launch ?? null);
     need(
       launch === null ||
@@ -55,7 +58,8 @@ export function createAuthoringSession({ store, onChange = () => {} }) {
           Object.hasOwn(draft.pack?.places || {}, launch.place)),
       "Choose a starting location in this draft.",
     );
-    return { key, generation, draft, launch };
+    const clone = raw ? structuredClone(draft) : copyDraft(draft);
+    return { key, generation, draft: clone, launch };
   }
   function open(value) {
     const draft = copyDraft(value.record?.draft);
@@ -130,10 +134,11 @@ export function createAuthoringSession({ store, onChange = () => {} }) {
     open,
     save,
     snapshot(options = {}) {
-      return snapshot(options.pending === false ? state : candidate());
+      const raw = options.pending === false;
+      return snapshot(raw ? state : candidate(), {}, manifest, raw);
     },
     stage(patch) {
-      remember(snapshot(state, patch).draft);
+      remember(snapshot(state, patch, manifest, true).draft);
       epoch++;
       onChange();
     },
@@ -146,12 +151,11 @@ export function createAuthoringSession({ store, onChange = () => {} }) {
     },
     field(card) {
       const current = authoringField(state.source, card);
-      return current
-        ? {
-            field: current,
-            text: pending.get(current.key)?.text ?? current.text,
-          }
-        : null;
+      if (!current) return null;
+      return {
+        field: current,
+        text: pending.get(current.key)?.text ?? current.text,
+      };
     },
     input(field, text) {
       epoch++;
@@ -203,6 +207,7 @@ export function createAuthoringSession({ store, onChange = () => {} }) {
         });
       } finally {
         busy = false;
+        epoch++;
         onChange();
       }
     },
