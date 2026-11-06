@@ -4,6 +4,7 @@ import {
   exportManifest,
   parseDraft,
 } from "./authoring-draft.mjs";
+import { authoringCreateStore } from "./authoring-create-store.mjs";
 
 const need = (ok, message) => {
   if (!ok) throw new Error(message);
@@ -47,10 +48,13 @@ async function checkedAssets(draft, assets) {
 
 export async function openAuthoringStore() {
   const db = await new Promise((resolve, reject) => {
-    const request = indexedDB.open("cosyworld.authoring", 1);
+    const request = indexedDB.open("cosyworld.authoring", 2);
     let blocked = false;
-    request.onupgradeneeded = () =>
-      request.result.createObjectStore("drafts", { keyPath: "key" });
+    request.onupgradeneeded = () => {
+      for (const name of ["drafts", "creates"])
+        if (!request.result.objectStoreNames.contains(name))
+          request.result.createObjectStore(name, { keyPath: "key" });
+    };
     request.onerror = () => reject(request.error);
     request.onsuccess = () =>
       blocked ? request.result.close() : resolve(request.result);
@@ -83,6 +87,7 @@ export async function openAuthoringStore() {
     });
   }
   return {
+    ...authoringCreateStore(db),
     close: () => db.close(),
     read: (key) => transact(key, "readonly", (record) => record),
     async write(key, value, expectedGeneration = 0, assets) {

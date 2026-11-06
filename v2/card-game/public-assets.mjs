@@ -39,6 +39,7 @@ const files = [
   "authoring-fields.mjs",
   "authoring-draft.mjs",
   "authoring-local-store.mjs",
+  "authoring-create-store.mjs",
   "authoring-accepted.mjs",
   "authoring-source-import.mjs",
   "authoring-tree.mjs",
