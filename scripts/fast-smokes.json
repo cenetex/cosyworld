@@ -21,6 +21,10 @@
       "smokes": ["smoke-authoring-transient-discard"]
     },
     {
+      "paths": "^v2/card-game/authoring-avatar-design\\.mjs$",
+      "smokes": ["smoke-authoring-avatar-design"]
+    },
+    {
       "paths": "^v2/card-game/(beats|combat-beats|dialogue|character-speech|narrative)\\.",
       "smokes": ["smoke-card-beat-stack", "smoke-card-dialogue-timing"]
     },
@@ -112,6 +116,10 @@
     "default": ["card_shared.rs", "card_narrative.rs"],
     "ignoreInputs": ["package.json"],
     "rules": [
+    {
+      "paths": "^v2/card-game/authoring-avatar-design\\.mjs$",
+      "smokes": ["smoke-authoring-avatar-design"]
+    },
       {
         "about": "The C kernel and card session guards.",
         "paths": "^v2/core-c/",
