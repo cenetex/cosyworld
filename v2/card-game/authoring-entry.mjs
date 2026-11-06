@@ -2,6 +2,7 @@ import { openAuthoringStore } from "./authoring-local-store.mjs";
 import { createSampleWorld } from "./authoring-sample.mjs";
 import { installWorldDesigner } from "./authoring-designer.mjs";
 import { authoringImportTools } from "./authoring-import-tools.mjs";
+import { createAuthoringAccountTools } from "./authoring-account-tools.mjs";
 import { renderCardDescriptor } from "./card-descriptor.mjs";
 import { showActionBeatNote } from "./action-beat-note.mjs";
 
@@ -150,6 +151,10 @@ async function start() {
     cacheAssets(key, 0, record.draft, record.assets);
   }
   const imports = authoringImportTools({ store, chooseFiles });
+  const accounts = createAuthoringAccountTools({
+    onChange: () => designer?.refresh(),
+    onSignedIn: () => designer.chooseTool("sign-in"),
+  });
   const source = {
     id: "source",
     name: "World notes",
@@ -172,7 +177,7 @@ async function start() {
     store,
     actionBeat,
     resolveArt,
-    tools: () => [source, ...imports()],
+    tools: () => [source, ...imports(), ...accounts.tools()],
     onScene(place, source, status) {
       activeAssets = cache.get(assetKey(status));
       pruneAssets();
@@ -213,6 +218,7 @@ async function start() {
   }
   document.title = "Make a world · Lonely Forest";
   designer.open({ key, record });
+  void accounts.refresh();
   if (!record.draft.pack) designer.chooseTool("source");
 }
 try {

@@ -17,6 +17,10 @@ some art, not new engine rules.
 The Steam Clock clearing (`badger-forest`) is the reference pack. Copy its
 shape for the next spoke.
 
+The Tools cards include Sign in and Create passkey through
+`authoring-account-tools.mjs`. They use the shared passkey ceremony and account
+policy. Account state and errors stay in memory; the current draft stays open.
+
 Fresh `/make` visits open Lantern Shore from `authoring-sample.mjs`: three
 places, two avatars and three items. Returning the bell to its keeper opens
 the garden. Dino, the Braveheart, is the sample character. Its supplied portrait
