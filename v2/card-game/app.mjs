@@ -2083,11 +2083,11 @@ function showBeatCards(ids, recipe = false) {
 // the middle, then the note; the buttons sit on the right, and a beat may
 // have none. It replaces the play's beat until cleared. `borrowedBeat` is
 // declared before notice(), which a refused save calls during boot.
-function showActionBeat(beat) {
+export function showActionBeat(beat) {
   borrowedBeat = beat;
   renderActions();
 }
-function clearActionBeat(beat) {
+export function clearActionBeat(beat) {
   if (!borrowedBeat || (beat && borrowedBeat !== beat)) return;
   borrowedBeat = null;
   renderActions();
@@ -2145,21 +2145,27 @@ function showBorrowedBeat(row, heading) {
   );
   const note = document.querySelector(".action-beat-note");
   showActionBeatNote(note, beat);
-  row.replaceChildren(
-    ...beat.buttons.map(({ label, id, run, disabled }, index) => {
-      const button = node(
-        "button",
-        label,
-        index ? "card-action" : "card-primary",
-      );
-      button.type = "button";
-      button.id = id;
-      button.dataset.keepMenu = "true";
-      button.disabled = Boolean(disabled);
-      button.onclick = run;
-      return button;
-    }),
-  );
+  const buttons = beat.buttons.map(({ label, id, run, disabled }, index) => {
+    const previous = row.children[index];
+    const button =
+      previous?.id === id && previous.dataset.keepMenu === "true"
+        ? previous
+        : node("button", label, index ? "card-action" : "card-primary");
+    button.textContent = label;
+    button.type = "button";
+    button.id = id;
+    button.dataset.keepMenu = "true";
+    button.disabled = Boolean(disabled);
+    button.onclick = run;
+    return button;
+  });
+  // A blur may save source text during a button press. Keep that button in
+  // place through the redraw so the same press reaches its click handler.
+  if (
+    buttons.length !== row.children.length ||
+    buttons.some((button, i) => row.children[i] !== button)
+  )
+    row.replaceChildren(...buttons);
   syncActionBeat();
 }
 const choiceKey = () => `${selected.join("+")}:${rowCollapsed}`;
