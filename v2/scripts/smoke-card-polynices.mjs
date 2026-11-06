@@ -11,6 +11,7 @@ import {
 import { profiles } from "../card-game/memory.mjs";
 import {
   clearSelection,
+  readyActionButton,
   selectCard,
   smokeWidths,
   tapCard,
@@ -132,8 +133,40 @@ try {
         `http://127.0.0.1:${server.address().port}/?table=polynices-${width}`,
       );
       await settle();
+      const funeral = page.locator('button[data-quest-key*="greek-polynices-hollow"]');
+      const showState = async (world) => {
+        await page.evaluate(({ key, save }) => localStorage.setItem(key, save), {
+          key, save: encodeSave(world),
+        });
+        await page.reload();
+        await settle();
+      };
+      for (const missing of ["place", antigone, ...kit]) {
+        const world = structuredClone(fixture);
+        world.actors.vale.place = hollow;
+        world.actors[antigone].place = hollow;
+        for (const item of kit) world.items[item].holder = hollow;
+        if (missing === "place") world.actors.vale.place = "greek-courtyard";
+        else if (missing === antigone) world.actors[antigone].place = "greek-gate";
+        else world.items[missing].holder = "greek-courtyard";
+        world.actors.vale.under = [{ kind: "place", target: "pond", since: 0, refusals: 0 }];
+        await showState(world);
+        assert.equal(await funeral.count(), 0, `Rite waits for ${missing}`);
+        assert.equal(await page.locator('[data-quest-step]').count(), 0);
+        if (missing === "place") {
+          await selectCard(page, "vale", { touch: width === 390 });
+          const other = page.locator('#hand button[data-quest-id="quest:1"]');
+          await tapCard(other);
+          await page.waitForFunction(() => !document.querySelector("#hand [data-revealing]"));
+          if ((await state()).actors.vale.want.target !== "pond") await tapCard(other);
+          await page.waitForFunction((key) => JSON.parse(localStorage.getItem(key)).actors.vale.want.target === "pond", key);
+          assert.equal(await funeral.count(), 0, "Other quest focus keeps the funeral hidden");
+          await photograph("courtyard-quest");
+        }
+      }
+      await showState(fixture);
       await selectCard(page, hollow, { touch: width === 390 });
-      await page.locator('#card-actions [data-action="move"]').click();
+      await readyActionButton(page, "move").click();
       await settle();
       assert.equal((await state()).actors.vale.place, hollow);
       assert.equal((await state()).actors[antigone].place, hollow);
@@ -147,8 +180,28 @@ try {
         );
         if ((await quest.getAttribute("data-picked")) === "false")
           await tapCard(quest);
+        await page.locator('#hand button[data-quest-id="quest:0"][data-unrevealed="false"]').waitFor();
+        await page.waitForFunction(() => !document.querySelector("#hand [data-revealing]"));
       };
       await pickQuest();
+      const ready = await state();
+      for (const missing of [antigone, kit[1]]) {
+        const changed = structuredClone(ready);
+        if (missing === antigone) changed.actors[antigone].place = "greek-gate";
+        else changed.items[missing].holder = "greek-courtyard";
+        for (const saved of [changed, ready]) {
+          await page.evaluate(({ key, saved }) => {
+            const newValue = JSON.stringify(saved);
+            localStorage.setItem(key, newValue);
+            window.dispatchEvent(new StorageEvent("storage", { key, newValue }));
+          }, { key, saved });
+          await settle();
+          if (saved === changed) {
+            assert.equal(await funeral.count(), 0, `Selected rite clears when ${missing} leaves`);
+            assert.equal(await page.locator("[data-quest-step]").count(), 0);
+          } else await pickQuest();
+        }
+      }
       const take = page.locator(
         '#card-actions [data-quest-step][data-action="take"]',
       );
@@ -157,6 +210,7 @@ try {
       assert.equal((await state()).items[kit[0]].holder, "vale");
       for (const [index, stage] of ["fallen", "anointed", "veiled"].entries()) {
         await pickQuest();
+        assert.equal(await quest.locator(".quest-verb").textContent(), ["Anoint", "Veil", "Bury"][index]);
         assert.ok(
           await page.locator(`#hand img[src*="polynices-${stage}"]`).count(),
           `Quest art ${stage}`,
@@ -164,7 +218,7 @@ try {
         await photograph(stage);
         const before = await state();
         const button = page.locator(
-          '#card-actions [data-quest-step][data-action="give"]',
+          '#card-actions [data-quest-step][data-action="give"]:not([data-revealing="true"])',
         );
         await button.waitFor({ state: "visible" });
         const bounds = await button.boundingBox();

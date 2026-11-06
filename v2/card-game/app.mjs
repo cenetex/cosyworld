@@ -71,6 +71,7 @@ import {
   isQuestId,
   metQuests,
   questCards,
+  questVisible,
   questCaption,
   questBox,
   questGround,
@@ -406,14 +407,15 @@ let shownQuests = [],
   // The place whose ways on are fanned at the row's right end (#2272).
   waysOpen = null;
 // The folded card behind the avatar shows the top quest.
-const foldQuest = () => shownQuests[0] ?? sealedQuests[0] ?? null;
+const foldQuest = () => shownQuests.find((quest) => questVisible(world, quest)) ?? sealedQuests[0] ?? null;
 const questEntries = () => [
   ...sealedQuests.map((quest, i) => ({
     id: questId(i, true),
     quest,
     met: true,
   })),
-  ...shownQuests.map((quest, i) => ({ id: questId(i), quest, met: false })),
+  ...shownQuests.filter((quest) => questVisible(world, quest))
+    .map((quest) => ({ id: questId(quest.index), quest, met: false })),
 ];
 const questEntry = (id) => questEntries().find((entry) => entry.id === id);
 // Card art: a pack's own art, a hub item's authored art, or the forest card.
@@ -2261,6 +2263,7 @@ function cancelAbandon() {
   $("card-actions").querySelector("[data-drop-quest]")?.focus();
 }
 function renderActions() {
+  if (questOpen && !questVisible(world, shownQuests[questPick])) questOpen = false;
   const row = $("card-actions"),
     panel = $("action-beat");
   panel.removeAttribute("data-card-tap");
@@ -3171,7 +3174,7 @@ function syncQuestFold(fold) {
       : !questCovered(quest) && questNear(world, quest)
         ? "near"
         : "none";
-  const count = shownQuests.length + sealedQuests.length;
+  const count = questEntries().length;
   const caption = shownQuestCaption(sealedQuests[0] || quest);
   fold.dataset.count = String(count);
   fold.setAttribute(
@@ -4598,6 +4601,7 @@ for (const id of ["hand", "settings-hand"]) {
   });
 }
 function render() {
+  if (questOpen && !questVisible(world, shownQuests[questPick])) questOpen = false;
   for (const card of document.querySelectorAll('.card[data-hovered="true"]'))
     delete card.dataset.hovered;
   showWorldTier(world, worldLogoKey(location.href));
@@ -4642,7 +4646,7 @@ function render() {
   // The quests the rules met since the last look stay, sealed, until cleared.
   const liveQuests = questCards(world);
   const dealtQuest = liveQuests.find(
-    (quest) => !shownQuests.some((shown) => shown.key === quest.key),
+    (quest) => questVisible(world, quest) && !shownQuests.some((shown) => shown.key === quest.key),
   );
   if (questSeq !== null && world.eventSeq > questSeq)
     sealedQuests = [

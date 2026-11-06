@@ -3,7 +3,7 @@
 // Nothing here is authored or decides anything; the rules own the stack
 // (want.mjs).
 import { CONNECT_TARGET, questsOf, wantKey } from "./want.mjs";
-import { consumable } from "./pack-registry.mjs";
+import { conditionsMet, consumable } from "./pack-registry.mjs";
 import { cardLevel, levelTier, romanLevel } from "./rarity.mjs";
 import {
   currentActor,
@@ -36,9 +36,21 @@ function burial(world, want) {
       "Hand Antigone the shovel",
       "Polynices is buried",
     ][stage],
-    riteVerb: ["Anoint", "Shroud", "Bury", "Buried"][stage],
+    riteVerb: ["Anoint", "Veil", "Bury", "Buried"][stage],
     remaining: want.step.items.slice(stage),
   };
+}
+
+// The rite appears where the people and remaining supplies can perform it.
+// Keep the saved quest and its index while its card waits off the table.
+export function questVisible(world, quest) {
+  if (!quest) return false;
+  if (quest.target !== HOLLOW || quest.step?.verb !== "lay") return true;
+  return world.actors[quest.actor]?.place === HOLLOW &&
+    world.actors["greek-antigone"]?.place === HOLLOW &&
+    conditionsMet(world, "greek-drama", burial(world, quest).remaining.map(
+      (item) => ({ kind: "item_near", item, place: HOLLOW }),
+    ), quest.actor);
 }
 
 // Each quest in the player's stack, top first. A card's key changes when its

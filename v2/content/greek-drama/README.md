@@ -28,11 +28,12 @@ Thebes has no story buttons. Its deeds are the ordinary verbs:
   Beaten, the guard is knocked through and bars the way again once he walks
   back. See the [Greek redesign](../../docs/card-table/greek-redesign.md#the-theban-gate-greek-revision-20). Meeting the elder at
   the well after it gives the household a witness.
-- **Wait** on the battlefield with the shovel to dig the grave, then with the
-  cloth and oil laid there to bury the brother. The rite sends the cloth and
-  oil home (Eleusis and Colonus, or where they started while those are not
-  yet in the world); the shovel is a tool and stays. The **Burial Account** then lies on
-  the battlefield.
+- The funeral quest card appears in **Polynices’ Hollow** when the traveler,
+  Antigone and the remaining supplies are there. **Anoint** gives her the oil,
+  **Veil** gives her the cloth, and **Bury** gives her the shovel. Supplies may
+  be carried or laid in the Hollow; the card first offers Take or Ask when
+  needed. Used oil and cloth return home, while the next rite stays available
+  with its remaining materials. The shovel stays in the Hollow after burial.
 - **Trade** Creon the decree for his writ, with the household token in hand
   and the elder's witness, to petition (revision 20: Creon holds the writ and
   wants the decree back). Given the writ, the guard stands aside.

@@ -1,9 +1,11 @@
 import { expect, it } from "vitest";
-import { questCard } from "../v2/card-game/quest-card.mjs";
+import { questCard, questCards, questVisible, questVerb } from "../v2/card-game/quest-card.mjs";
+import { funeralJourney } from "./helpers/greek-funeral.mjs";
 import {
   createWorld,
   decodeSave,
   encodeSave,
+  itemPlace,
   legalActions,
   play,
 } from "../v2/card-game/world.mjs";
@@ -19,6 +21,48 @@ const rites = [
   "greek-shroud-polynices",
   "greek-bury-polynices",
 ];
+
+it.each([false, true])("shows each rite with its remaining kit in the Hollow (shared: %s)", (shared) => {
+  const states = funeralJourney();
+  for (const [phase, verb, used] of [
+    ["beforeAnoint", "Anoint", []],
+    ["anointed", "Veil", [oil]],
+    ["veiled", "Bury", [oil, cloth]],
+  ]) {
+    const world = decodeSave(encodeSave(states[phase]));
+    if (shared) {
+      world.sharedVersion = 1;
+      world.controlledActors = ["vale"];
+      world.presentActors = ["vale"];
+    }
+    const quest = questCard(world);
+    expect(questVerb(world, quest)).toBe(verb);
+    expect(questVisible(world, quest)).toBe(true);
+    for (const item of used) expect(itemPlace(world, item)).not.toBe(hollow);
+    const saved = encodeSave(world);
+    world.actors.vale.place = "greek-courtyard";
+    expect(questVisible(world, quest)).toBe(false);
+    world.actors.vale.place = hollow;
+    world.actors[antigone].place = "greek-battlefield";
+    expect(questVisible(world, quest)).toBe(false);
+    world.actors[antigone].place = hollow;
+    for (const item of quest.remaining) {
+      const holder = world.items[item].holder;
+      world.items[item].holder = "greek-courtyard";
+      expect(questVisible(world, quest)).toBe(false);
+      for (const present of ["vale", antigone, hollow]) {
+        world.items[item].holder = present;
+        expect(questVisible(world, quest)).toBe(true);
+      }
+      world.items[item].holder = holder;
+    }
+    expect(encodeSave(world)).toBe(saved);
+    expect(questVisible(decodeSave(saved), quest)).toBe(true);
+    expect(questCards(world).map((card) => card.index)).toEqual(
+      questCards(world).map((_, index) => index),
+    );
+  }
+});
 
 it.each(["opening", "full"])(
   "plays one burial quest through the three ordered rites in %s",

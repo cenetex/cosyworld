@@ -2,7 +2,7 @@
 // already offer (`legalActions`) that moves the quest on, or the reason
 // there is none. Presentation only; the rules decide nothing new here.
 import { packGiveChoice } from "./pack-registry.mjs";
-import { questDistance } from "./quest-card.mjs";
+import { questDistance, questVisible } from "./quest-card.mjs";
 import { itemPlace, legalActions, rootHolder } from "./world.mjs";
 
 export const NOT_FOUND = "Not found yet";
@@ -56,6 +56,7 @@ function directPlay(world, quest, legal) {
 // `{ action }`, `{ rest: true }` (Wait, then Sleep, as the hand offers
 // them), `{ reason }`, or null when the quest has no step to show.
 export function questStep(world, quest, covered, legal = legalActions(world)) {
+  if (!questVisible(world, quest)) return null;
   const { actor, kind, target, step } = quest;
   if (kind === "connect" || !target) return null;
   if (covered) return { reason: NOT_FOUND };
