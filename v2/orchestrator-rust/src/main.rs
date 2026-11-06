@@ -17,6 +17,7 @@ mod ai_publication;
 mod ai_readiness;
 mod ai_resident_planning;
 mod ai_voice_routing;
+mod authoring_draft;
 mod avatar_autonomy;
 mod avatar_context_spine;
 mod avatar_identity;
@@ -24,11 +25,9 @@ mod avatar_levels;
 mod avatar_links;
 mod avatar_reflections;
 mod avatar_rescue;
-// Shared draft checks for the private authoring API follow-up.
-#[allow(dead_code)]
-mod authoring_draft;
 #[cfg(test)]
 mod beliefs_tests;
+mod card_authoring;
 mod card_shared;
 // The closed-vocabulary Calling Forge and event-derived Bond scripting.
 // Its candidate/proposal entry points power the client surface in a follow-up;

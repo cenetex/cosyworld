@@ -2367,6 +2367,10 @@ pub(crate) mod passkey_access;
 mod avatar_tests;
 
 #[cfg(test)]
+#[path = "card_authoring_tests.rs"]
+mod card_authoring_tests;
+
+#[cfg(test)]
 #[path = "passkey_access_tests.rs"]
 mod passkey_access_tests;
 

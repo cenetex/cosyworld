@@ -482,4 +482,7 @@
 #
 # 58665 -> 58658: /meta builds its AI block with MetaAi::from_config in
 # ai_readiness.rs, which also reports the model bench (ai_bench.rs).
-58658
+# 58658 -> 58660: module declarations for the shared authoring draft contract
+# and private pack routes. Validation, storage, handlers and tests stay in
+# authoring_draft.rs, card_authoring.rs and card_authoring_tests.rs.
+58660
