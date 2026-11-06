@@ -6,7 +6,8 @@ export function createAuthoringAccountTools({
   onChange = () => {},
   onSignedIn = () => {},
 } = {}) {
-  let epoch = 0;
+  let epoch = 0,
+    recheck = false;
   const account = {
     known: false,
     authenticated: false,
@@ -38,6 +39,7 @@ export function createAuthoringAccountTools({
       display_name:
         typeof next.display_name === "string" ? next.display_name : "",
     });
+    recheck = false;
   }
   async function refresh() {
     if (account.busy) return state();
@@ -60,7 +62,7 @@ export function createAuthoringAccountTools({
     try {
       await ceremony(register);
       if (at !== epoch) return;
-      account.known = false;
+      recheck = true;
       await load(at);
       if (at === epoch && !account.authenticated)
         throw new Error("Sign in again to continue.");
@@ -88,18 +90,19 @@ export function createAuthoringAccountTools({
               : "Sign in with your passkey, then return to your world."),
         actions: [
           {
-            label: !account.known
-              ? "Check account"
-              : account.authenticated
-                ? "Refresh account"
-                : label,
+            label:
+              !account.known || recheck
+                ? "Check account"
+                : account.authenticated
+                  ? "Refresh account"
+                  : label,
             disabled: account.busy,
             stays: true,
           },
         ],
       }),
       async run() {
-        if (!account.known || account.authenticated) {
+        if (!account.known || recheck || account.authenticated) {
           await refresh();
           if (account.authenticated) onSignedIn(state());
         } else await signIn(register);

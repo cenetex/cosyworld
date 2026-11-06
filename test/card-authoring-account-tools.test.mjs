@@ -131,6 +131,7 @@ describe("authoring passkey tools", () => {
     await f.tools.refresh();
     f.request.mockRejectedValueOnce(new Error("Try again"));
     await get(f, "create-passkey").run();
+    expect(get(f, "create-passkey").describe().note).toBe("Try again");
     expect(get(f).describe().actions[0].label).toBe("Check account");
     f.request.mockResolvedValue({ authenticated: true });
     await get(f).run();
