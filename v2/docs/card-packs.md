@@ -41,6 +41,18 @@ npm run v2:card:pack:build   # regenerate v2/card-game/packs.json
 npm run v2:card:pack:check   # fail if it is stale or invalid (part of v2:worldpack)
 ```
 
+### Portable local drafts
+
+`authoring-local-import.mjs` reads selected browser Files or `{path, file}`
+entries from a local adapter. `importLocalDraft({files, manifestPath})` opens
+an exported authoring draft, with asset paths relative to its manifest folder.
+It returns a fresh local `draft`, an `assets` map of exact file bytes keyed by
+manifest path, and `sourceFiles` containing the original manifest bytes and
+digest. The helper checks every declared file's size and digest before returning.
+Pack and bridge IDs, extra source fields and earlier provenance remain intact.
+`localPackCandidates(files)` lists `card-world.json` paths for a later source
+pack resolver. The caller chooses an explicit manifest path for portable import.
+
 The browser imports `packs.json`, and the Rust text route embeds the same file
 for profiles, so ids and seeds cannot drift between them. Each avatar has one
 `seed` sentence, a name and a role such as "The Swede, a traveller on the
