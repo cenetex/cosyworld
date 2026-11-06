@@ -706,3 +706,6 @@ to turn into readable books and inscriptions found in play. Rules 60 removed
 the older `readings` field, which handed revealed passages to a resident's
 dialogue; the Willows choices, flags and receipts that revealed them are
 unchanged.
+
+Import cards list local or GitHub sources, then save the chosen world and its
+assets as a fresh local draft. Portable files keep their source document.
