@@ -8,7 +8,7 @@
 // is ever saved. See v2/docs/card-table/dialogue-beats.md.
 import { currentActor, nameOf as fullName } from "./world.mjs";
 import { isSceneText } from "./scene.mjs";
-import { consumable } from "./pack-registry.mjs";
+import { consumable, transports } from "./pack-registry.mjs";
 import { inSentence, theName } from "./combat-beats.mjs";
 
 const QUIET_VERBS = new Set(["talk"]);
@@ -78,7 +78,10 @@ function sentence(text) {
 
 // The caption for one committed event, from the place `here` and the
 // `viewer`'s point of view, or null when it is not shown as an action.
-export function actionCaption(entry, { viewer, here, arrival = null }) {
+export function actionCaption(
+  entry,
+  { viewer, here, arrival = null, sailed = false },
+) {
   if (!entry || entry.generated || !entry.actorId) return null;
   const verb =
     entry.verb ||
@@ -179,6 +182,14 @@ export function actionCaption(entry, { viewer, here, arrival = null }) {
           : `${a} squared up to ${t}.`,
       );
     case "wait":
+      if (
+        sailed &&
+        plainWaitEntry(entry) &&
+        !entry.sleep &&
+        !entry.woke &&
+        !entry.guards
+      )
+        return caption("➜", `${a} sailed on.`);
       // A wake gives its reason ("Vale woke as the lamp guttered."); a sign
       // noticed while waiting reads as its own words.
       return caption(
@@ -291,6 +302,35 @@ function isSpeech(entry, { here, shared }) {
   );
 }
 
+// A ship's saved cast-off or arrival proves which waits carried a voyage.
+// Its present phase may belong to a later journey, so history uses the log.
+function voyageTurns(entries) {
+  const ships = new Set(
+    Object.values(transports)
+      .filter((ship) => ship.waitVerb === "Sail")
+      .map((ship) => ship.place),
+  );
+  const turns = new Map();
+  for (const entry of entries) {
+    if (
+      entry.generated ||
+      entry.kind !== "narration" ||
+      entry.actorId ||
+      !ships.has(entry.locationId)
+    )
+      continue;
+    const ship = fullName(entry.locationId);
+    if (
+      !["casts off for", "sails on its own for", "docks at"].some((verb) =>
+        entry.text?.startsWith(`${ship} ${verb} `),
+      )
+    )
+      continue;
+    turns.set(`${entry.turn}|${entry.locationId}`, entry.seq);
+  }
+  return turns;
+}
+
 // Group a run of log entries at one place into beats, in time order.
 export function groupBeats(
   entries,
@@ -306,6 +346,7 @@ export function groupBeats(
 ) {
   const beats = [];
   const firstBeat = new Map();
+  const voyages = voyageTurns(entries);
   const arrival = entries.find(
     (entry) => arrivalOf(entry, viewer) && entry.locationId === here,
   );
@@ -354,7 +395,12 @@ export function groupBeats(
       !witnessedHere(entry, { viewer, here })
     )
       continue;
-    const caption = actionCaption(entry, { viewer, here, arrival });
+    const caption = actionCaption(entry, {
+      viewer,
+      here,
+      arrival,
+      sailed: voyages.get(`${entry.turn}|${entry.locationId}`) > entry.seq,
+    });
     if (!caption) continue;
     // A defeat lands after the blow that caused it, on the loser's own beat.
     const defeat = caption.kind === "retreat" || caption.kind === "sent-home";

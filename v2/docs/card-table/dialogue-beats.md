@@ -61,6 +61,11 @@ forward with its words whole. Other effects may be written on the card
 that was current when they happened, in 300 to 900 ms. Each card shows up
 to three effects and Memory keeps them all.
 
+A Wait aboard a ship reads “Vale sailed on.” when that turn's saved voyage
+event records a cast-off or arrival. Choosing the ship or the avatar has the
+same outcome. Dockside waits keep their wait caption. The current ship phase
+can belong to a later journey, so history and Memory use the saved events.
+
 Only events at the player's current place, during the current visit, become
 beats: what the player's avatar could witness. Beats are read from committed
 journal events and published speech. They add nothing to saves or the shared
