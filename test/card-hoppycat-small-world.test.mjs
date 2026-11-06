@@ -21,30 +21,33 @@ function reachable(world) {
 }
 
 describe("Hoppy Cat as a small world", () => {
-  it("keeps the garden and jetty core with each drawn place within one, for every seed", () => {
-    const pool = new Set(pack.specials.pool.map((e) => e.id));
-    expect(pool.has(garden) || pool.has(jetty)).toBe(false);
-    // The spool starts at the empty station and is never drawn.
-    expect(pool.has("hoppycat-red-thread-spool")).toBe(false);
-    for (let seed = 0; seed < 1000; seed++) {
-      const world = createWorld({ seed });
-      const drawn = world.packs[pack.id].specials;
-      expect(drawn).toEqual(drawSpecials(pack, seed));
-      expect(drawn).toHaveLength(2);
-      const places = drawn.filter((id) => pack.places[id]);
-      expect(places).toHaveLength(2);
-      expect([...reachable(world)].sort()).toEqual(
-        [garden, jetty, ...places].sort(),
-      );
-      // Each drawn place leads back to the garden or the jetty alone.
-      for (const id of places) {
-        world.actors.vale.place = id;
-        const back = exits(world, id, "vale");
-        expect(back).toHaveLength(1);
-        expect([garden, jetty]).toContain(back[0]);
+  it.each(Array.from({ length: 10 }, (_, batch) => batch * 100))(
+    "keeps the garden and jetty core with each drawn place within one, for 100 seeds from %i",
+    (firstSeed) => {
+      const pool = new Set(pack.specials.pool.map((e) => e.id));
+      expect(pool.has(garden) || pool.has(jetty)).toBe(false);
+      // The spool starts at the empty station and is never drawn.
+      expect(pool.has("hoppycat-red-thread-spool")).toBe(false);
+      for (let seed = firstSeed; seed < firstSeed + 100; seed++) {
+        const world = createWorld({ seed });
+        const drawn = world.packs[pack.id].specials;
+        expect(drawn).toEqual(drawSpecials(pack, seed));
+        expect(drawn).toHaveLength(2);
+        const places = drawn.filter((id) => pack.places[id]);
+        expect(places).toHaveLength(2);
+        expect([...reachable(world)].sort()).toEqual(
+          [garden, jetty, ...places].sort(),
+        );
+        // Each drawn place leads back to the garden or the jetty alone.
+        for (const id of places) {
+          world.actors.vale.place = id;
+          const back = exits(world, id, "vale");
+          expect(back).toHaveLength(1);
+          expect([garden, jetty]).toContain(back[0]);
+        }
       }
-    }
-  });
+    },
+  );
 
   it("draws the same run in a shared world and a local game", () => {
     for (const seed of [3, 1622, 4294967295]) {
