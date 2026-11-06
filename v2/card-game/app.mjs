@@ -1635,19 +1635,23 @@ function choose(id) {
     ?.focus({ preventScroll: true });
   revealHandCard(id);
 }
+function dragPlay(cards) {
+  const { action } = cardPlay(world, cards);
+  if (!action) return null;
+  return restPlays(
+    world,
+    [action],
+    lastWait?.key === cards.join("+") && lastWait.revision === world.revision,
+    cards,
+  )[0];
+}
 function commit(cards, revision) {
   if (selectionBlocked()) return;
-  const resolved = cardPlay(world, cards);
-  if (!resolved.action) {
+  const action = dragPlay(cards);
+  if (!action) {
     $("play-readout").textContent = "That cannot be used here.";
     return;
   }
-  const [action] = restPlays(
-    world,
-    [resolved.action],
-    lastWait?.key === cards.join("+") && lastWait.revision === world.revision,
-    cards,
-  );
   commitAction(action, revision);
 }
 function commitAction(action, revision, renderedAt = -Infinity) {
@@ -2786,7 +2790,7 @@ function card(id) {
     selectionRevision = world.revision;
     e.dataTransfer.setData("text/plain", JSON.stringify(dragging));
     e.dataTransfer.effectAllowed = "move";
-    $("stage").dataset.play = playLabel(cardPlay(world, dragging).action) || "";
+    $("stage").dataset.play = playLabel(dragPlay(dragging)) || "";
     $("stage").classList.add("ready");
   });
   el.addEventListener("dragend", () => {
