@@ -4020,15 +4020,23 @@ pub(crate) async fn enforce_server_paid_daily_limit(
     Ok(Some(guard))
 }
 
-async fn provider_error_detail(response: reqwest::Response) -> Option<String> {
+async fn provider_error_detail(mut response: reqwest::Response) -> Option<String> {
+    const LIMIT: usize = 64 * 1024;
+    let oversized = || Some("provider error body exceeded the diagnostic limit".to_string());
     if response
         .content_length()
-        .is_some_and(|length| length > 64 * 1024)
+        .is_some_and(|length| length > LIMIT as u64)
     {
-        return Some("provider error body exceeded the diagnostic limit".to_string());
+        return oversized();
     }
-    let body = response.text().await.ok()?;
-    let value = serde_json::from_str::<Value>(&body).ok()?;
+    let mut body = Vec::new();
+    while let Some(chunk) = response.chunk().await.ok()? {
+        if body.len().saturating_add(chunk.len()) > LIMIT {
+            return oversized();
+        }
+        body.extend_from_slice(&chunk);
+    }
+    let value = serde_json::from_slice::<Value>(&body).ok()?;
     let message = value
         .pointer("/error/message")
         .and_then(Value::as_str)
@@ -7451,6 +7459,56 @@ mod tests {
         assert_eq!(decision.violations, vec!["person"]);
         assert!(request_seen.load(Ordering::SeqCst));
         server.abort();
+    }
+
+    #[tokio::test]
+    async fn provider_diagnostics_bound_chunked_bodies_before_the_stream_ends() {
+        use futures_util::StreamExt;
+        for size in [64 * 1024, 64 * 1024 + 1] {
+            let overflow = size > 64 * 1024;
+            let app = Router::new().route(
+                "/error",
+                get(move || async move {
+                    let mut bytes = br#"{"error":{"message":"Try again later"}}"#.to_vec();
+                    bytes.resize(size, b' ');
+                    let chunks = bytes
+                        .chunks(4096)
+                        .map(|chunk| {
+                            Ok::<_, std::io::Error>(axum::body::Bytes::copy_from_slice(chunk))
+                        })
+                        .collect::<Vec<_>>();
+                    // An oversized stream stays open: the reader must stop at its bound.
+                    let stream = futures_util::stream::iter(chunks)
+                        .chain(futures_util::stream::pending().take(usize::from(overflow)));
+                    (
+                        StatusCode::TOO_MANY_REQUESTS,
+                        axum::body::Body::from_stream(stream),
+                    )
+                }),
+            );
+            let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+            let address = listener.local_addr().unwrap();
+            let server = tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
+            let response = reqwest::Client::new()
+                .get(format!("http://{address}/error"))
+                .send()
+                .await
+                .unwrap();
+            assert_eq!(response.content_length(), None);
+            let detail =
+                tokio::time::timeout(Duration::from_secs(2), provider_error_detail(response))
+                    .await
+                    .expect("read only the bounded diagnostic body");
+            server.abort();
+            assert_eq!(
+                detail.as_deref(),
+                Some(if overflow {
+                    "provider error body exceeded the diagnostic limit"
+                } else {
+                    "Try again later"
+                })
+            );
+        }
     }
 
     #[tokio::test]
