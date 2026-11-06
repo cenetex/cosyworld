@@ -80,19 +80,13 @@ describe("a chosen quest's next step", () => {
     }
   });
 
-  it("looks for missing kit and waits for Antigone when needed", () => {
+  it("holds the Hollow quest action until its supplies and Antigone are there", () => {
     const { beforeAnoint: world } = funeralJourney();
     world.items["greek-funeral-cloth"].holder = "greek-sanctuary";
-    expect(shown(questStep(world, questCard(world), false))).toEqual([
-      "move",
-      "greek-battlefield",
-      null,
-    ]);
+    expect(questStep(world, questCard(world), false)).toBe(null);
     world.items["greek-funeral-cloth"].holder = "vale";
     world.actors["greek-antigone"].place = "greek-gate";
-    expect(questStep(world, questCard(world), false)).toEqual({
-      reason: "Wait for Antigone to receive the supplies",
-    });
+    expect(questStep(world, questCard(world), false)).toBe(null);
   });
 
   it("rests at a sanctuary quest's place, and has no step to introduce", () => {
