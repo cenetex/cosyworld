@@ -1,3 +1,4 @@
+import { beforeFuneral } from "./fixtures/card-upgraded-items.mjs";
 import { atticOpening } from "./fixtures/card-attic-opening.mjs";
 import {
   summonTransport,
@@ -360,9 +361,13 @@ test("a revision 9 save keeps one cover and restarts longer marks", () => {
   ]) {
     const old = pond();
     old.packs["greek-drama"].revision = 9;
+    beforeFuneral(old);
     Object.assign(old.crossings["pond-greek-harbor"], { phase, discovered });
     const s = decodeSave(JSON.stringify(old));
-    assert.equal(s.packs["greek-drama"].revision, packDefinition("greek-drama").revision);
+    assert.equal(
+      s.packs["greek-drama"].revision,
+      packDefinition("greek-drama").revision,
+    );
     assert.equal(shipSignalPhase(s), kept);
     assert.equal(s.crossings["pond-greek-harbor"].discovered, discovered);
   }
@@ -454,7 +459,9 @@ test("Pip brings the signaled ship from Greece to a waiting player", () => {
   visible(s, true);
   s = act(s, "move", null, "greek-ship");
   assert.deepEqual(
-    legalActions(s).filter((a) => a.kind === "course").map((a) => a.target),
+    legalActions(s)
+      .filter((a) => a.kind === "course")
+      .map((a) => a.target),
     ["greek-harbor"],
   );
 });
@@ -574,7 +581,9 @@ test("older occupied ship saves regain the departure dock and wait there for a c
       recall: "pond",
     });
     assert.deepEqual(
-      legalActions(upgraded).filter((a) => a.kind === "course").map((a) => a.target),
+      legalActions(upgraded)
+        .filter((a) => a.kind === "course")
+        .map((a) => a.target),
       [destination],
     );
     assert.deepEqual(upgraded.actors, old.actors);
@@ -668,6 +677,7 @@ test("older completed signals become a waiting ship and retain their history", (
     delete old.opening;
     old.actors.vale.place = "pond";
     old.packs["greek-drama"].revision = 1;
+    beforeFuneral(old);
     old.crossings["pond-greek-harbor"] = {
       phase,
       until: 0,

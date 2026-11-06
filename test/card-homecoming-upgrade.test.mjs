@@ -152,6 +152,7 @@ describe("the household save upgrade", () => {
             "greek-ajax-tecmessa": 0,
             "greek-ajax-teucer": 0,
             "greek-ajax-odysseus": 0,
+            "greek-polynices-shade": 0,
           },
         });
       for (const [id, memory] of Object.entries(before.memories))

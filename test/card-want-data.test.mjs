@@ -52,7 +52,24 @@ describe("want data", () => {
           .map(([id, a]) => [id, a.want]),
       ),
     ).toEqual({
-      "greek-antigone": { kind: "item", target: "greek-funeral-cloth" },
+      "greek-antigone": {
+        kind: "place",
+        target: "greek-polynices-hollow",
+        step: {
+          verb: "lay",
+          items: ["greek-oil-flask", "greek-funeral-cloth", "greek-shovel"],
+          finish: "greek-burial-performed",
+        },
+      },
+      "greek-polynices-shade": {
+        kind: "place",
+        target: "greek-polynices-hollow",
+        step: {
+          verb: "lay",
+          items: ["greek-oil-flask", "greek-funeral-cloth", "greek-shovel"],
+          finish: "greek-burial-performed",
+        },
+      },
       "greek-ismene": { kind: "place", target: "greek-sanctuary" },
       // Creon wants the decree back; the guard wants to eat the bread
       // (Greek revision 20).
