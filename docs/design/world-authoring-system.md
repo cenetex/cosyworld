@@ -21,10 +21,17 @@ their own saved state. A later subdomain may redirect to this route.
 
 The editor hand includes every location, avatar and item in the draft,
 including cards whose play conditions are still locked. Existing stacks and
-scrolling keep a large world within the same hand. Selecting a location
-shows its scene and sets the pack's starting place. Its descriptor says
-`Starting location`. This writes `pack.entry`; bridge arrival points keep
-their separate meaning.
+scrolling keep a large world within the same hand. With no box armed,
+selecting a location shows its scene and sets the pack's starting place.
+Its descriptor says `Starting location`. This writes `pack.entry` in the
+private draft. Selecting a location as a link or quest target keeps the
+current starting place.
+
+An imported bridge must have an incoming crossing into the pack entry.
+Choosing another start shows the affected arrival card as `Update arrival`.
+That card previews the exact bridge repair before publication. The author
+keeps or adjusts the old approach through its own link card. Draft saving
+retains both source files while that repair is pending.
 
 A location has an open wooden box for its links and contents, and a locked
 wooden box for quests that open its approaches. An avatar has an open box
@@ -60,14 +67,14 @@ bar. Selection and the single context action carry every edit.
 
 The editor writes the same source structures as the hand-written packs:
 `avatars[].want`, `choices`, `routes`, entity `requires`, and bridge
-`crossings` and `signals`. A derived editor index joins their references
+`crossings` and their `signal` fields. A derived editor index joins their references
 into quest stacks. Each card keeps its source pointer and stable entity or
 choice ID. Routes use their source array position and expected subtree hash,
 since several route records can share the same endpoints. A draft revision
 check protects those pointers. The original source objects remain the saved data.
 
-An avatar's simple starting quest uses the supported item, place or person
-want. The existing Eat/Drink and Lay templates retain their extra step
+An avatar's simple starting quest uses its one authored item, place or
+person `want`. A second target offers `Replace starting quest`. The existing Eat/Drink and Lay templates retain their extra step
 fields. Rich authored quests use choice cards: their trigger, subject,
 place, ordered requirements, ordered effects and repeat behavior remain
 visible through nested stacks. Rewards use those existing effects. Quest
@@ -129,7 +136,9 @@ Intentional live gates and authored alternatives keep their exact semantics.
 
 Test world starts a fresh preview at `pack.entry` with the authored holders,
 resident positions and quest conditions. The editor retains its draft while
-the existing rules run the preview. Returning to edit restores the selected
+the existing rules run the preview. A validated private catalogue adapter
+provides its authored pack and chosen start to those rules. It shares the
+pack contract used by the Store's mount work. Returning to edit restores the selected
 location. A short quest journey verifies each imported example above before
 those templates are offered for publication. Import tests compare the same
 runtime journey before and after an unrelated card edit, including both
@@ -139,14 +148,15 @@ Hoppy branches and the funeral's consumed supplies and shade state.
 
 A draft contains `schemaVersion: 1`, `id`, `revision`, `title`, `document`,
 `pack`, `bridge`, `assets` and `sources`. The server assigns its identity,
-owner, revision and timestamps. Its storage identity is separate from the
+owner and revision. Server storage keeps timestamps outside this manifest.
+Its storage identity is separate from the
 authored pack identity. Imported pack and bridge fields stay intact while
 being edited. The original prose stays with the private draft.
 
 Draft JSON is bounded to 10 MiB and prose to 8 MiB. Asset metadata uses
 `{path, mime, sha256, size}`. Asset bytes are stored separately by digest and
 uploaded one file at a time. Each file is bounded to 16 MiB; a pack may carry
-up to 512 files and 256 MiB. File paths are relative and normalized. The
+up to 512 files, 512 source records and 256 MiB. File paths are relative and normalized. The
 server verifies byte counts, media types and digests. Every private read and
 write checks the signed-in account. Private responses use `no-store`.
 
@@ -166,9 +176,11 @@ remain outputs of the pack compiler.
 The local app also opens world files from disk. Its file picker grants
 access to the files selected by the author. An imported document remains
 editable before Create. Create copies it into an account-owned private
-pack. A new fork receives its own authored namespace with internal
-references remapped together. Source credit and source identity remain in
-provenance.
+pack. Create gives the private draft its own storage identity and preserves
+imported authored IDs. The preview uses an isolated catalogue for that draft.
+A named namespace migration is a separate reviewed operation: the funeral's
+art, actions and music still have fixed-ID consumers. That migration needs
+reference and runtime journey checks. Source credit stays in provenance.
 
 The local app can keep drafts on disk. Hosted Create and Publish use a
 browser passkey handoff with a short-lived, single-use upload claim bound
@@ -223,9 +235,14 @@ credit are kept in `v2/card-game/assets/authoring-guide/`.
 The selected design keeps its digest and revision. Each generation records
 the source digest, prompt version and exact model. A changed design asks
 for a fresh pose set. Accepted poses keep common framing, facing and scale.
-The image pipeline verifies alpha pixels, crop bounds and pose identity,
-then maps each file to the current avatar portrait and pose fields. Generated
-assets join the same private storage and immutable release manifest as imports.
+The image pipeline verifies alpha pixels, crop bounds and pose identity.
+Generation metadata keeps the proposed action images until a pack pose
+adapter accepts them. Current pack `poses` are conditional portraits;
+combat and sleep also use fixed cast mappings. A focused schema and renderer
+slice must support the generated pack cast: strike maps to attack, brace to
+guard, then hit and sleep; happy and sad use authored expression conditions.
+Its validation covers every generated character in play. Generated assets
+join the same private storage and immutable release manifest as imports.
 
 The production model is `openai/gpt-image-2.6-flare` through the configured
 provider. The direct OpenAI model ID is `gpt-image-2.6-flare`. Both generation
