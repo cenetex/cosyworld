@@ -1,23 +1,13 @@
 import { it } from "vitest";
 import assert from "node:assert/strict";
 import { createAuthoringSession } from "../v2/card-game/authoring-session.mjs";
-import { importPack } from "../v2/card-game/authoring-draft.mjs";
+import fixture from "./fixtures/authoring-session.json" with { type: "json" };
 import {
   authoringCardId,
   buildAuthoringTree,
 } from "../v2/card-game/authoring-tree.mjs";
 function setup() {
-  let record = {
-    generation: 1,
-    launch: null,
-    draft: importPack({
-      pack: {
-        name: "Crossing",
-        places: { a: { name: "Yard" }, b: { name: "Port" } },
-        choices: [{ id: "gate", cost: 1, text: "First", unknown: ["kept"] }],
-      },
-    }),
-  };
+  let record = structuredClone(fixture);
   const store = {
     async write(_key, value, generation) {
       if (generation !== record.generation)
@@ -67,10 +57,15 @@ it("validates pending fields as one candidate and gives tools a detached snapsho
     text: "Second\n雪",
     unknown: ["kept"],
   });
+  session.input(field("text"), "Saved field");
+  session.saveField(field("text"));
+  session.input(field("text"), "Pending field");
+  session.input(field("cost"), "4");
   session.dispatch({ type: "undo" });
-  session.dispatch({ type: "undo" });
-  assert.equal(session.state.source.pack.choices[0].text, "First");
-  assert.equal(session.status.dirty, true);
+  const pending = session.snapshot().draft.pack.choices[0];
+  assert.deepEqual([pending.text, pending.cost], ["Pending field", 4]);
+  session.saveField(field("text"));
+  assert.equal((await session.save()).draft.pack.choices[0].cost, 4);
 });
 
 it("retains failed field and document saves, then retries with the same generation", async () => {
@@ -156,12 +151,9 @@ it("preserves the old session on failed reload and accepts a saved import explic
     /Read failed/,
   );
   assert.deepEqual(session.snapshot(), before);
+  before.launch.place = "absent";
   assert.throws(
-    () =>
-      session.open({
-        key: "bad",
-        record: { ...before, launch: { schemaVersion: 1, place: "absent" } },
-      }),
+    () => session.open({ key: "bad", record: before }),
     /starting location/,
   );
   await session.run(async (ctx) => {

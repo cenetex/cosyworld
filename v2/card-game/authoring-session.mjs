@@ -147,7 +147,15 @@ export function createAuthoringSession({ store, onChange = () => {} }) {
     },
     dispatch(event) {
       epoch++;
-      set(controller.reduceAuthoring(state, event));
+      const next = controller.reduceAuthoring(state, event);
+      if (event.type === "undo")
+        for (const entry of pending.values()) {
+          const field = entry.field;
+          const value = field.path.reduce((v, key) => v?.[key], next.source);
+          if (typeof value === field.type)
+            entry.field = { ...field, value, text: String(value) };
+        }
+      set(next);
     },
     field(card) {
       const current = authoringField(state.source, card);
