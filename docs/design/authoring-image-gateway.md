@@ -19,9 +19,10 @@ and the selected registry entry must accept image input. The gateway sends
 the inline bytes through OpenRouter's
 [Image API](https://openrouter.ai/docs/guides/overview/multimodal/image-generation).
 
-The authoring route will use the accepted portrait as the pose reference.
-Each pose remains a separate output for review and retry. A new accepted
-portrait changes the reference identity and requires fresh pose review.
+The authoring route will use the accepted portrait as the reference for one
+transparent 3-by-2 pose sheet. The client slices six cells in fixed order:
+Happy, Sad, Strike, Brace, Hit and Sleep. Each cell receives its own review.
+A new accepted portrait changes the reference identity and requires fresh review.
 Reference images guide identity; the
 [image generation guide](https://developers.openai.com/api/docs/guides/image-generation)
 describes remaining character consistency limits.
