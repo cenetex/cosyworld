@@ -2126,7 +2126,7 @@ export function clearActionBeat(beat) {
 // The menu light-dismisses on a card tap. Keep its chosen message for the
 // second tap; another card or Back returns to the table.
 $("action-beat").addEventListener("pointerdown", () => {
-  if (borrowedBeat) keptBorrowedBeat = borrowedBeat;
+  if (borrowedBeat?.avatar) keptBorrowedBeat = borrowedBeat;
 });
 document.addEventListener(
   "click",
@@ -2148,7 +2148,8 @@ document.addEventListener(
   true,
 );
 function showBorrowedBeat() {
-  const combined = !borrowedBeat.edit && borrowedBeat.buttons.length === 1;
+  const combined = borrowedBeat.avatar &&
+    !borrowedBeat.edit && borrowedBeat.buttons.length === 1;
   renderCardDescriptor(borrowedBeat, {
     placeArt,
     showNote: showActionBeatNote,
