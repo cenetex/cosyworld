@@ -314,14 +314,14 @@ try {
         }),
       ["rgb(255, 143, 132)", "none", "0px"],
     );
-    // The beat above it names the chosen quest.
+    // The action names the goal; its quest card also keeps the level.
     const described = (
       await page.locator(".action-beat-heading:not([hidden])").textContent()
     ).trim();
     assert.ok(
-      (await picked.getAttribute("aria-label")).startsWith(
-        `Quest: ${described}`,
-      ),
+      (await picked.getAttribute("aria-label"))
+        .replace(/Level [IVXLCDM]+: /u, "")
+        .startsWith(`Quest: ${described}`),
       `the beat names the quest: ${described}`,
     );
     assert.equal(
