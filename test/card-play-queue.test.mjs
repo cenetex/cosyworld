@@ -16,8 +16,6 @@ describe("plays queued during dialogue", () => {
         busy = value;
         if (!value) queue.flush();
       },
-      setTimer: () => 1,
-      clearTimer: () => {},
     });
     exchange.begin();
     exchange.load([
@@ -27,11 +25,10 @@ describe("plays queued during dialogue", () => {
     const action = legalActions(world).find((a) => a.kind === "wait");
     queue.submit(action, world.revision);
     expect(world.turn).toBe(0);
-    exchange.revealed(1, "Vale speaks.");
+    exchange.revealed(1);
     exchange.advance();
     expect(perform).not.toHaveBeenCalled();
-    exchange.revealed(2, "Pip replies.");
-    exchange.advance();
+    exchange.revealed(2);
     expect(world.turn).toBe(1);
     expect(perform).toHaveBeenCalledTimes(1);
     expect(queue.flush()).toBe(false);

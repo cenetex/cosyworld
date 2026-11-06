@@ -541,9 +541,10 @@ export function sharedLiveLine(state, now, room) {
 }
 
 export function sharedNextLine(state, room, seq) {
+  const earliest = state.world?.log?.[0]?.seq ?? 0;
   return roomScenes(state, room)
     .flatMap((scene) => scene.lines)
-    .find((line) => line.seq > seq);
+    .find((line) => line.seq > seq && line.seq >= earliest);
 }
 
 // Select a saved scene's line; imported local log entries have no such record.

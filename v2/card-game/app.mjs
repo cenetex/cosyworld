@@ -519,8 +519,7 @@ if (localBackups) {
 // Effect captions being written onto a card (inscribe()), with their pens.
 const inscribing = new Map();
 let shownCaptions = { key: null, count: 0 };
-// Whether a shared room line has shown since this page opened.
-let sharedLineSeen = false;
+// Each shared reader keeps their own place in the room’s dialogue.
 let sharedLineSeq = null;
 let sharedAdvanceRequested = false;
 let sharedLineStart = null;
@@ -702,14 +701,9 @@ const exchange = createExchange({
     // when they return (#2017).
     renderScene();
   },
-  transition: (previous, next) => {
-    if (reducedMotion.matches) return;
-    const version = trip;
-    // The finished beat recedes behind the next one instead of fading out.
-    return waitForScene([...exits.values()]).then(() => {
-      if (version !== trip || !exchange.active || !next) return;
-    });
-  },
+  // Let a departing speaker finish moving before their reply steps back.
+  transition: () =>
+    reducedMotion.matches ? undefined : waitForScene([...exits.values()]),
   busy: (value) => {
     clearTimeout(handTimer);
     cardsCooling = value;
@@ -2213,10 +2207,10 @@ function renderActions() {
       ? lockShown.text
       : questShown
         ? shownQuestCaption(questShown)
-        : ((actions[0] && playText(actions[0])) || "").replace(
-            /\b(the|an?) (?:the|an?) /giu,
-            "$1 ",
-          );
+      : ((actions[0] && playText(actions[0])) || "").replace(
+          /\b(the|an?) (?:the|an?) /giu,
+          "$1 ",
+        );
   heading.hidden = !sentence;
   // Who acts, then what it acts on: the chosen cards, or the place it
   // waits in.
@@ -5281,19 +5275,20 @@ function syncSharedLine() {
       ? sharedLiveLine(sharedSession.state, sharedSession.now(), room)
       : sharedNextLine(sharedSession.state, room, after);
   sharedLineStart ??= -Infinity;
-  if (!live) return;
+  if (!live && after !== null) return;
   const entry = shownWorld().log.findLast(
     (entry) =>
       entry.generated &&
       entry.locationId === room &&
-      (live.seq
+      (live?.seq
         ? entry.seq === live.seq
-        : entry.text === live.text && entry.speaker === live.speaker),
+        : live
+          ? entry.text === live.text && entry.speaker === live.speaker
+          : entry.kind === "dialogue"),
   );
   if (!entry) return;
-  // The room's line when this page opens began before it: it shows whole.
-  if (!sharedLineSeen) completedSpeech.add(lineKey(entry, room));
-  sharedLineSeen = true;
+  // A line that was already in the room on open shows whole.
+  if (after === null) completedSpeech.add(lineKey(entry, room));
   sharedLineSeq = entry.seq;
   sharedAdvanceRequested = false;
   lineSeq = entry.seq;
