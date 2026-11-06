@@ -8,6 +8,12 @@ some art, not new engine rules.
 The Steam Clock clearing (`badger-forest`) is the reference pack. Copy its
 shape for the next spoke.
 
+Fresh `/make` visits open Lantern Shore from `authoring-sample.mjs`: three
+places, two avatars and three items. Returning the bell to its keeper opens
+the garden. The first draft save stores the eight existing paintings with
+the edited source and launch place. Saved local drafts reopen by their key;
+a missing explicit draft link offers the sample through the descriptor.
+
 `installWorldDesigner` in `authoring-designer.mjs` joins the card tree, fields,
 Undo and draft saves in one workspace. Inject tools, verified art and scene callbacks.
 

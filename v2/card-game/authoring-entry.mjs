@@ -131,7 +131,11 @@ async function start() {
     },
   };
   const params = new URLSearchParams(location.search);
-  const key = params.get("draft") || "first-world";
+  const key =
+    params.get("draft") ||
+    (params.get("sample") === "1"
+      ? `sample-${crypto.randomUUID()}`
+      : "first-world");
   if (!/^[A-Za-z0-9_-]{1,100}$/u.test(key))
     throw new Error("Open a valid draft link.");
   let record = await store.read(key);
@@ -173,7 +177,10 @@ async function start() {
       activeAssets = cache.get(assetKey(status));
       pruneAssets();
       const next = new URL(location.href);
-      if (status.generation > 0) next.searchParams.set("draft", status.key);
+      if (status.generation > 0) {
+        next.searchParams.set("draft", status.key);
+        next.searchParams.delete("sample");
+      }
       history.replaceState(null, "", next);
       const locationCard = source.pack?.places?.[place];
       const art = resolveArt(
@@ -219,7 +226,7 @@ try {
       {
         label: missingDraft ? "Open sample world" : "Try again",
         run: () =>
-          missingDraft ? location.assign("/make") : location.reload(),
+          missingDraft ? location.assign("/make?sample=1") : location.reload(),
       },
     ],
   });

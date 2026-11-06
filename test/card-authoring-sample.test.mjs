@@ -77,9 +77,9 @@ it("opens the garden after delivery to the keeper and keeps the return free", ()
   act("take", { item: "sample-bell" });
   act("move", { target: "sample-station" });
   expect(gardenOpen()).toBe(false);
-  act("drop", { item: "sample-bell" });
-  expect(gardenOpen()).toBe(false);
-  act("take", { item: "sample-bell" });
+  const nearby = structuredClone(world);
+  nearby.items["sample-bell"].holder = "sample-station";
+  expect(exits(nearby, "sample-station", actor)).not.toContain("sample-garden");
   act("give", { item: "sample-bell", target: "sample-keeper" });
   expect(gardenOpen()).toBe(true);
   expect(sampleSource().pack.routes[0].sealed.quest).toEqual({
