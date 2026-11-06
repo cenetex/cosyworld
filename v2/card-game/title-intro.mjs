@@ -552,9 +552,10 @@ export function playTitleIntro({
             ...pose,
             offset: (i + at) / poses.length,
             opacity: step === 1 || step === 2 ? 0.5 : 0,
+            easing: "ease-in-out",
           })),
         ),
-        { duration: 15000, iterations: Infinity, easing: "ease-in-out" },
+        { duration: 15000, iterations: Infinity },
       );
   };
   const idle = (again = true) => {

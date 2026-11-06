@@ -3407,7 +3407,7 @@ body .beat-stack > .action-panel[data-card-tap]:not([hidden]) {
 .title-reveal {
   position: absolute;
   top: 55%;
-  bottom: 8px;
+  bottom: calc(3rem + 48px);
   left: 50%;
   translate: -50% 0;
   display: flex;
@@ -3495,9 +3495,8 @@ body .beat-stack > .action-panel[data-card-tap]:not([hidden]) {
   outline-offset: 3px;
 }
 
-/* Left alone, the face-down card breathes a faint warm light, slowly, then a
-   quiet line under it says how to turn it (REVEAL_HINT in title-intro.mjs).
-   Reduced motion holds the glow still and shows the line at once. */
+/* Left alone, the box breathes a faint warm light. Its invitation whispers
+   around it (REVEAL_HINT in title-intro.mjs); reduced motion holds it still. */
 .title-card::before {
   content: "";
   position: absolute;
@@ -3531,6 +3530,8 @@ body .beat-stack > .action-panel[data-card-tap]:not([hidden]) {
 .title-hint {
   position: absolute;
   width: max-content;
+  max-width: calc(100vw - 32px);
+  white-space: nowrap;
   margin: 0;
   padding: 4px 8px;
   color: #fff4dc;
