@@ -159,7 +159,7 @@ describe("authoring draft files", () => {
   });
   it("hashes just the supplied file bytes for a separate upload", async () => {
     const bytes = new TextEncoder().encode("xabcx").subarray(1, 4);
-    const result = await assetMetadata("notes/source.txt", "text/plain", bytes);
+    const result = await assetMetadata("notes/source.md", "text/markdown", bytes);
     expect(result).toEqual({
       path: "notes/source.md",
       mime: "text/markdown",
