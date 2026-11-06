@@ -53,7 +53,7 @@ describe("combat art on the current stage", () => {
           const result = combatPortrait(id, pose, portrait(id, facing), facing);
           if (
             (id === "keeper" && facing === "right") ||
-            packPeople[id]?.presentation === "backdrop"
+            packPeople[id]?.presentation === "backdrop" || id === "greek-polynices-shade"
           ) {
             expect(result).toBeNull();
             continue;

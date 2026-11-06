@@ -78,6 +78,7 @@ export const CONDITION_KINDS = [
   "met",
   "knows",
   "pack_item_present",
+  "clock",
   "daylight",
   "weather",
   "ship_at",
@@ -682,6 +683,8 @@ export function packProblems(pack, hub, mountedPlaces = [], mountedItems = []) {
         "temperament",
         "variants",
         "home",
+        "homeWhen",
+        "appearsWhen",
         "values",
         "desire",
         "want",
@@ -750,6 +753,14 @@ export function packProblems(pack, hub, mountedPlaces = [], mountedItems = []) {
         (keysOk(a.want, ["kind", "target", "step"]) &&
           // An eat quest (rules 102): eat or drink one, somewhere, with someone.
           (a.want.step === undefined ||
+            (a.want.kind === "place" &&
+              a.want.step.verb === "lay" &&
+              keysOk(a.want.step, ["verb", "items", "finish"]) &&
+              Array.isArray(a.want.step.items) &&
+              intOk(a.want.step.items.length, 1, 3) &&
+              new Set(a.want.step.items).size === a.want.step.items.length &&
+              a.want.step.items.every((item) => owns(items, item)) &&
+              (a.want.step.finish === undefined || idOk(a.want.step.finish))) ||
             (a.want.kind === "item" &&
               keysOk(a.want.step, ["verb", "at", "with"]) &&
               a.want.step.verb === "eat" &&
@@ -940,6 +951,13 @@ export function packProblems(pack, hub, mountedPlaces = [], mountedItems = []) {
           ok =
             keysOk(c, ["kind", "phase"]) && ["day", "night"].includes(c.phase);
           break;
+        case "clock":
+          ok =
+            keysOk(c, ["kind", "from", "to"]) &&
+            intOk(c.from, 0, 47) &&
+            intOk(c.to, 0, 47) &&
+            c.from !== c.to;
+          break;
         case "flag":
           ok =
             keysOk(c, ["kind", "key", "value"]) &&
@@ -1127,6 +1145,18 @@ export function packProblems(pack, hub, mountedPlaces = [], mountedItems = []) {
       );
     if (a.home !== undefined)
       check(owns(places, a.home), `avatar ${id} home is invalid`);
+    requirements(a.appearsWhen, `avatar ${id} appearance`, false);
+    if (a.homeWhen !== undefined) {
+      check(
+        keysOk(a.homeWhen, ["place", "requires"]) &&
+          owns(places, a.homeWhen?.place) &&
+          Array.isArray(a.homeWhen?.requires) &&
+          a.homeWhen.requires.length >= 1 &&
+          a.homeWhen.requires.length <= 4,
+        `avatar ${id} needs a conditional home with one to four requirements`,
+      );
+      requirements(a.homeWhen?.requires, `avatar ${id} home requires`);
+    }
     if (a.values !== undefined)
       check(
         record(a.values) &&
@@ -1243,6 +1273,7 @@ export function packProblems(pack, hub, mountedPlaces = [], mountedItems = []) {
         "on",
         "for",
         "repeats",
+        "archived",
       ]) &&
         idOk(c.id) &&
         (c.on === undefined ||
@@ -1266,6 +1297,7 @@ export function packProblems(pack, hub, mountedPlaces = [], mountedItems = []) {
             ) &&
             Boolean(avatars[c.subject]))) &&
         (c.for === undefined || humanAvatarIds.includes(c.for)) &&
+        (c.archived === undefined || c.archived === true) &&
         !choiceIds.has(c.id) &&
         own.includes(c.subject) &&
         owns(places, c.at) &&
@@ -1321,8 +1353,13 @@ export function packProblems(pack, hub, mountedPlaces = [], mountedItems = []) {
       // (a rite uses up what lies on the grave).
       if (e.kind === "retire_item")
         valid =
-          keysOk(e, ["kind", "item"]) &&
+          keysOk(e, ["kind", "item", "waitAtHome"]) &&
           owns(items, e.item) &&
+          (e.waitAtHome === undefined ||
+            (e.waitAtHome === true &&
+              items[e.item].home &&
+              !items[e.item].regrow &&
+              !items[e.item].locked)) &&
           (c.requires || [])
             .flatMap((r) => (r.kind === "any" ? r.conditions : [r]))
             .some(

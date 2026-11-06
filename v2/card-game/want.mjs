@@ -584,6 +584,12 @@ const placeOfItem = (s, item) => {
 };
 const together = (s, a, b) =>
   Boolean(s.actors[b]) && s.actors[b].place === s.actors[a].place;
+export function layMet(world, { target, step }) {
+  if (step.finish)
+    return world.packs?.[packOf(target)?.id]?.flags?.[step.finish] === true;
+  return step.items.every((item) => world.items[item]?.holder === target);
+}
+
 function stepMet(s, actor, want, action) {
   const { verb, to, at } = want.step,
     me = s.actors[actor],
@@ -593,6 +599,7 @@ function stepMet(s, actor, want, action) {
       (kind === "give"
         ? action.item === want.target && action.target === to && action.accepted
         : action.target === want.target);
+  if (verb === "lay") return layMet(s, want);
   if (verb === "find") return placeOfItem(s, want.target) === me.place;
   // Eat (rules 102): this avatar eats the food, there and with that
   // companion if named, once the companion agrees; or the companion it
@@ -853,6 +860,27 @@ export function renewWant(s, id, api) {
 const STEP_CARDS = { give: ["to"], bring: ["to", "at"] };
 function validStep(s, w, id) {
   const { verb, ...cards } = w.step;
+  if (verb === "lay")
+    return (
+      w.kind === "place" &&
+      !w.quest &&
+      Object.keys(cards).every((key) => ["items", "finish"].includes(key)) &&
+      Array.isArray(cards.items) &&
+      cards.items.length >= 1 &&
+      cards.items.length <= 3 &&
+      new Set(cards.items).size === cards.items.length &&
+      cards.items.every((item) => Object.hasOwn(s.items, item)) &&
+      (cards.finish === undefined ||
+        (packOf(w.target)?.avatars &&
+          Object.values(packOf(w.target).avatars).some(
+            (resident) =>
+              resident.want?.target === w.target &&
+              resident.want?.step?.verb === "lay" &&
+              resident.want.step.finish === cards.finish &&
+              JSON.stringify(resident.want.step.items) ===
+                JSON.stringify(cards.items),
+          )))
+    );
   const home = verb === "bring" && w.story && !cards.to;
   // A sealed gate's quest may ask for a gift (rules 95).
   const gift = verb === "give" && w.story && !w.quest;

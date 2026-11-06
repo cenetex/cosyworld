@@ -59,6 +59,42 @@ export function questStep(world, quest, covered, legal = legalActions(world)) {
   if (kind === "connect" || !target) return null;
   if (covered) return { reason: NOT_FOUND };
   const here = world.actors[actor].place;
+  if (step?.verb === "lay") {
+    const missing = (quest.remaining ?? step.items).filter(
+      (id) => world.items[id]?.holder !== target,
+    );
+    const carried = missing.find((id) => rootHolder(world, id) === actor);
+    if (carried && here === target)
+      return {
+        action: legal.find((a) => a.kind === "drop" && a.item === carried),
+      };
+    if (!missing.length && here === target) {
+      const rite = legal.find(
+        (a) =>
+          a.kind === "choose" &&
+          [
+            "greek-anoint-polynices",
+            "greek-shroud-polynices",
+            "greek-bury-polynices",
+          ].includes(a.choiceId),
+      );
+      return rite ? { action: rite } : null;
+    }
+    if (!carried && missing.length) {
+      const nearest = missing
+        .map((id) => [id, questDistance(world, actor, itemPlace(world, id))])
+        .filter(([, distance]) => distance !== null)
+        .sort((a, b) => a[1] - b[1])[0]?.[0];
+      return nearest
+        ? questStep(
+            world,
+            { actor, kind: "item", target: nearest },
+            false,
+            legal,
+          )
+        : { reason: NO_WAY };
+    }
+  }
   if (kind === "place" && step?.verb === "rest" && here === target)
     return { rest: true };
   const action = directPlay(world, quest, legal);

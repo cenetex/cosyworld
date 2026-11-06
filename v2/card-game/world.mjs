@@ -724,6 +724,8 @@ export function wantText(want) {
     what = nameOf(want.target),
     // Players see Strike for the attack play.
     verb = step?.verb === "attack" ? "strike" : step?.verb;
+  if (step?.verb === "lay")
+    return `lay ${step.items.map(nameOf).join(", ")} in ${what}`;
   if (step?.verb === "give") return `give ${what} to ${nameOf(step.to)}`;
   // Eat or drink one, with someone, somewhere (rules 102).
   if (step?.verb === "eat")
@@ -1352,7 +1354,7 @@ function defeatInStandoff(s, c, winner, loser, here) {
   if (
     !humanHeld(s, loser) &&
     rangeOf(s, loser) !== null &&
-    to !== lifeHome(loser)
+    to !== lifeHome(loser, s)
   )
     s.actors[loser].homeward = true;
   for (const id of carried(s, loser))
@@ -2180,7 +2182,7 @@ function residentRound(s, acted) {
   for (const id of life) {
     const a = s.actors[id],
       z = a.sleeping;
-    if (a.homeward && a.place === lifeHome(id)) delete a.homeward;
+    if (a.homeward && a.place === lifeHome(id, s)) delete a.homeward;
     if (z?.until !== undefined) {
       if (s.turn >= z.until || a.place !== z.place || standoffFor(s, id)) {
         wakeResident(s, id);
@@ -2203,7 +2205,7 @@ function residentRound(s, acted) {
     )
       continue;
     // A resident sleeps at home: away, it walks home first if it can.
-    const home = lifeHome(id);
+    const home = lifeHome(id, s);
     if (
       rangeOf(s, id) !== null &&
       home &&
@@ -2241,7 +2243,7 @@ function residentRound(s, acted) {
     if (steps >= OFFSTAGE_STEPS) break;
     const a = s.actors[id],
       here = a.place,
-      home = lifeHome(id);
+      home = lifeHome(id, s);
     if (!home || !entityActive(s, home)) {
       delete a.homeward;
       continue;
@@ -2983,7 +2985,7 @@ function wantPlan(s, actor) {
   // range drifts home when it has nothing to pursue here. With a player it
   // acts as before; its wants take it walking only at dawn and dusk, away
   // from players (residentRound).
-  const home = lifeHome(actor),
+  const home = lifeHome(actor, s),
     ranged = Number.isFinite(rangeOf(s, actor) ?? Infinity);
   const homeStep = () => {
     const step = home && here !== home ? stepToward(s, actor, home) : null;

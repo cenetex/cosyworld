@@ -49,6 +49,8 @@ export function questFor(s, them, want) {
       ...base,
       step: { verb: "give", to: them },
     };
+  if (want.step?.verb === "lay")
+    return { ...base, kind: "place", target: want.target, step: want.step };
   if (want.kind === "place")
     return {
       kind: "person",

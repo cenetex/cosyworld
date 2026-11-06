@@ -13,15 +13,19 @@ vi.mock("../v2/card-game/packs.json", async (importOriginal) => {
   const compiled = itemCycleFixture((await importOriginal()).default);
   const lane = compiled.packs
     .find((p) => p.id === "greek-drama")
-    .transports["greek-ship"].lanes.find(
-      (l) => l.from === "greek-harbor" && l.to === "greek-piraeus",
-    );
+    .transports[
+      "greek-ship"
+    ].lanes.find((l) => l.from === "greek-harbor" && l.to === "greek-piraeus");
   lane.opensWith = [
     {
       kind: "any",
       conditions: [
         { kind: "item_present", item: "greek-provisions", place: "greek-ship" },
-        { kind: "pack_item_present", pack: "hoppycat-archive", place: "greek-ship" },
+        {
+          kind: "pack_item_present",
+          pack: "hoppycat-archive",
+          place: "greek-ship",
+        },
       ],
     },
   ];
@@ -129,6 +133,15 @@ describe("rules 95 item cycle", () => {
       edit(copy);
       return packProblems(copy, hub, places).join("; ");
     };
+    for (const edit of [
+      (p) => delete p.items["greek-oil-flask"].home,
+      (p) => (p.items["greek-oil-flask"].regrow = "dawn"),
+      (p) =>
+        (p.choices.find(
+          (c) => c.id === "greek-anoint-polynices",
+        ).effects[0].waitAtHome = "yes"),
+    ])
+      expect(broken(edit)).toMatch(/greek-anoint-polynices/);
     expect(broken((p) => delete p.items["greek-test-figs"].home)).toMatch(
       /regrow need|must renew/u,
     );

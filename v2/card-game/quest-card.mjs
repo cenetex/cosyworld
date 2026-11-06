@@ -15,6 +15,30 @@ import {
 } from "./world.mjs";
 
 export const QUEST_CARD = "quest";
+const HOLLOW = "greek-polynices-hollow";
+const stages = ["fallen", "anointed", "veiled", "grave"];
+function burial(world, want) {
+  if (want.target !== HOLLOW || want.step?.verb !== "lay") return {};
+  const flags = world.packs["greek-drama"].flags;
+  const stage = flags["greek-burial-performed"]
+    ? 3
+    : flags["greek-polynices-veiled"]
+      ? 2
+      : flags["greek-polynices-anointed"]
+        ? 1
+        : 0;
+  return {
+    art: `assets/greek-drama/polynices-${stages[stage]}.webp`,
+    rite: [
+      "Lay the funeral items in Polynices’ Hollow",
+      "Hand Antigone the cloth",
+      "Hand Antigone the shovel",
+      "Polynices is buried",
+    ][stage],
+    riteVerb: ["Lay", "Shroud", "Bury", "Buried"][stage],
+    remaining: want.step.items.slice(stage),
+  };
+}
 
 // Each quest in the player's stack, top first. A card's key changes when its
 // quest is met, set aside or moves on a step.
@@ -30,6 +54,7 @@ export const questCards = (world, actor = currentActor(world)) =>
     level: want.quest?.level ?? null,
     left: want.quest?.left ?? 0,
     step: want.step ?? null,
+    ...burial(world, want),
   }));
 // The top quest, the one the folded card shows, or null.
 export const questCard = (world, actor = currentActor(world)) =>
@@ -38,6 +63,7 @@ export const questCard = (world, actor = currentActor(world)) =>
 // The rules' action in words; an uncovered target gets its name, while a
 // covered target gets a clear description of what remains to be discovered.
 export function questCaption(quest, covered = false, verb = null) {
+  if (quest.rite && quest.riteVerb !== "Lay") return quest.rite;
   const words = wantText({
     kind: quest.kind,
     target: quest.target,
@@ -149,6 +175,7 @@ const STEP_LABELS = {
   attack: "Strike",
 };
 export function questVerb(world, quest, covered = false) {
+  if (quest.step?.verb === "lay") return quest.riteVerb ?? "Lay";
   if (quest.step?.verb === "eat")
     return consumable(quest.target) === "drink" ? "Drink" : "Eat";
   if (STEP_LABELS[quest.step?.verb]) return STEP_LABELS[quest.step.verb];
@@ -191,7 +218,10 @@ export function metQuests(before, world, seq) {
           q.kind === e.wantMet?.kind &&
           (q.target ?? CONNECT_TARGET) === e.wantMet.target,
       );
-      if (i >= 0) met.push(gone.splice(i, 1)[0]);
+      if (i >= 0) {
+        const [quest] = gone.splice(i, 1);
+        met.push({ ...quest, ...burial(world, quest) });
+      }
     }
   return met;
 }

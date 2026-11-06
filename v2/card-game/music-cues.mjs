@@ -17,6 +17,12 @@ const battle = {
 export const BATTLE_BEAT_SECONDS = 60 / 95;
 export const CUE_TRACKS = {
   battle,
+  funeral: {
+    file: "hillside-sanctuary.mp3",
+    title: "The Hillside Sanctuary",
+    fadeIn: 5,
+    fadeOut: 2,
+  },
   // The loss screen's song waits for the battle song to fade under the fade
   // to black, holds three of its beats of silence, then comes in slowly.
   // Leaving the loss screen fades it out fully before the lift (app.mjs).
@@ -39,6 +45,11 @@ export function battleMusicDue(world, actor) {
   return (world?.standoffs || []).some(
     (c) => Object.hasOwn(c.resolve || {}, actor) || c.location === place,
   );
+}
+
+export function funeralMusicDue(world, actor) {
+  return world?.actors?.[actor]?.place === "greek-polynices-hollow" &&
+    world.packs?.["greek-drama"]?.flags?.["greek-burial-performed"] === true;
 }
 
 export function createMusicCues({
