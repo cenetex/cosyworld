@@ -157,6 +157,48 @@ async fn authoring_auth_grounding_and_gateway_use_transient_source() {
         );
     }
     assert_eq!(seen.lock().unwrap().len(), 7); // Each paid action attempts once.
+    let seed_route = "/card-game/authoring/generate/seed";
+    let seed = json!({"seed":"private blue lantern", "kind":"world", "context":[]});
+    for (cookie, origin, expected) in [
+        ("", "http://localhost:3102", 401),
+        (cookie.as_str(), "https://other.example", 403),
+    ] {
+        assert_eq!(
+            send_to(&state, cookie, seed.clone(), origin, seed_route)
+                .await
+                .0,
+            expected
+        );
+    }
+    let own = "http://localhost:3102";
+    let world = json!({"cards":[
+        {"kind":"place","name":"Quay","text":"A sheltered landing."},
+        {"kind":"avatar","name":"Mara","text":"The keeper needs the blue lamp."},
+        {"kind":"item","name":"Lamp","text":"Blue glass holds a steady flame."}
+    ]});
+    *outcome.lock().unwrap() = (StatusCode::OK, world.clone(), "stop");
+    let (status, result) = send_to(&state, &cookie, seed.clone(), own, seed_route).await;
+    assert_eq!((status, result), (200, world));
+    let mut oversized = seed.clone();
+    oversized["seed"] = json!("x".repeat(6001));
+    assert_eq!(
+        send_to(&state, &cookie, oversized, own, seed_route).await.0,
+        400
+    );
+    for (status, output, finish, expected) in [
+        (StatusCode::OK, json!({"cards":[]}), "stop", 502),
+        (StatusCode::OK, json!({"cards":[]}), "length", 502),
+        (StatusCode::INTERNAL_SERVER_ERROR, json!({}), "stop", 503),
+    ] {
+        *outcome.lock().unwrap() = (status, output, finish);
+        assert_eq!(
+            send_to(&state, &cookie, seed.clone(), own, seed_route)
+                .await
+                .0,
+            expected
+        );
+    }
+    assert_eq!(seen.lock().unwrap().len(), 11);
     let before_images = seen.lock().unwrap().len();
     use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
     use sha2::{Digest, Sha256};
