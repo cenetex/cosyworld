@@ -19,19 +19,31 @@ their own saved state. A later subdomain may redirect to this route.
 
 ## World cards and wooden boxes
 
-The editor hand includes every location, avatar and item in the draft,
-including cards whose play conditions are still locked. Existing stacks and
-scrolling keep a large world within the same hand. With no box armed,
-selecting a location shows its scene and sets the pack's starting place.
-Its descriptor says `Starting location`. This writes `pack.entry` in the
-private draft. Selecting a location as a link or quest target keeps the
-current starting place.
+Designer mode looks down onto the existing card table. Locations form the
+main branches. Their open boxes fan out contents and linked places; locked
+boxes fan out quests, requirements, steps and rewards. Existing card faces,
+backs, frames, selection and the descriptor carry this view. Its layout
+will have an owner-reviewed UI inventory and style change before merging.
 
-An imported bridge must have an incoming crossing into the pack entry.
-Choosing another start shows the affected arrival card as `Update arrival`.
-That card previews the exact bridge repair before publication. The author
-keeps or adjusts the old approach through its own link card. Draft saving
-retains both source files while that repair is pending.
+The layout is a tree of expanded stacks with links between branches.
+Road loops, shared quest targets and a ship serving several ports keep one
+canonical entity each. A link card leads back to that entity. Opening a
+branch keeps its ancestors visible. On phones the active branch fills the
+hand and its parents remain available through the same cards.
+
+Every location, avatar and item is available, including cards whose play
+conditions are locked. With no box armed, selecting a location shows its
+scene preview and sets the world's proposed starting place. Choosing it as
+a link or quest target keeps that start. The descriptor says `Starting here`
+or `Starting aboard at [port]`. The overview remains the editing table;
+the selected location supplies its existing scene and card preview.
+
+Starting place belongs in a versioned launch record beside the pack and
+bridge. This is a planned extension to the current nine-field draft contract.
+The launch adapter starts a fresh world there with the authored conditions.
+`pack.entry` keeps its separate role as the pack's arrival point. An Arrival
+card edits it and shows any required incoming bridge repair before Publish.
+This separation also supports a player starting aboard the Charybdis.
 
 A location has an open wooden box for its links and contents, and a locked
 wooden box for quests that open its approaches. An avatar has an open box
@@ -53,7 +65,10 @@ Tapping the armed box again, Escape or the scene clears that selection.
 
 Each physical card has one initial holder. Moving it replaces that holder.
 Home, return, regrowth and appearance rules remain separate fields. Simple
-placement preserves them. Link places is reciprocal by default; a One way
+placement preserves them. An item with regrowth, a used-up start or a locked
+start follows the existing place-only starting rule; the bar names the
+required place when that item is selected for an avatar's inventory.
+Link places is reciprocal by default; a One way
 variant makes direction clear. Existing gated links open their quest stack.
 Repeated linking keeps the existing link once.
 
@@ -119,6 +134,52 @@ advanced record through its existing card and retains its source subtree.
 Changing one field patches that field. Array order, IDs, releases, archived
 choices, appearance rules and media variants survive the edit.
 
+## Moving locations: the Charybdis
+
+The Charybdis is a location card with a transport state. Its open box fans
+into Crew, Cargo, Docks and Sea Lanes. Its locked box exposes boarding
+signals, lane requirements and linked quests. Placing an avatar or item
+aboard writes the same initial place or holder as any other location.
+
+The deck's source place keeps its empty static exits. Its bridge owns
+`transports`, dock crossings and lanes. Linking a normal place to the ship
+offers Add dock, followed by the joining port and lane cards. One edit adds
+the dock, a valid boarding crossing and its lane. The existing return path
+and the order of lanes remain visible. A First dock / Home port card edits
+`transport.at`; that value is also the rescue home. The shipmaster role is
+separate from where that avatar starts.
+
+The tree shows the ship once, with port references on its docks branch.
+Selecting a lane opens its direction, cargo requirement and travel reason.
+Sea lanes, boarding crossings and side passages each keep their source type.
+The Willows passage is a separate cross-pack crossing from the deck.
+
+Charybdis examples anchor the transport adapter:
+
+- Harbor to Piraeus requires provisions laid on deck, or Hoppy Cat cargo.
+  Piraeus to the Jetty also accepts provisions carried aboard. Preserve
+  `item_at`, `item_present` and `pack_item_present` as distinct conditions.
+- Each outward cargo leg has its own free return lane. Lane order chooses
+  the first available idle course. Cargo spending follows `spends` when set.
+- The lamp signal preserves its ordered cover/take steps and maintained
+  light/quiet conditions. It recalls an empty ship or waits for passengers.
+- The locked provisions item keeps its recipe, ingredients, home and return
+  behavior. Its recipe and the lanes that use it appear as linked cards.
+- Dock, course, sea and arrived are runtime preview states. A chosen course
+  commits one destination for the shared riders. The author edits starting
+  conditions while the existing transport rules run each test voyage.
+- The deck retains its sea/day/night paintings, boarding art, weather and
+  music. The Willows' dark mist conditions remain on its own crossing.
+
+A start-aboard launch uses the deck and its authored first dock. It needs the
+explicit launch adapter above; boarding-crossing endpoints remain dock IDs.
+Validation uses `laneProblems`, transport schema checks and `validTransports`.
+Every dock needs an outgoing lane and a viable route home. Tests include
+partial-signal reload, occupied recall, a full home port, shared passengers,
+resident-only trips, cargo on deck versus carried, free returns, pack
+switching and the Willows side passage. The full-home plus pending-recall
+case found during this review is a runtime regression to repair and retest.
+
 ## Edit, test and save
 
 Every edit is a single command with its inverse: move, link, set start,
@@ -134,13 +195,15 @@ The designer also reports unreachable starts, absent return paths, an item
 needed behind its own gate, and a quest waiting on its own completion.
 Intentional live gates and authored alternatives keep their exact semantics.
 
-Test world starts a fresh preview at `pack.entry` with the authored holders,
+Test world starts a fresh preview at the launch place with the authored holders,
 resident positions and quest conditions. The editor retains its draft while
 the existing rules run the preview. A validated private catalogue adapter
 provides its authored pack and chosen start to those rules. It shares the
 pack contract used by the Store's mount work. Returning to edit restores the selected
 location. A short quest journey verifies each imported example above before
-those templates are offered for publication. Import tests compare the same
+those templates are offered for publication. Preview flags, receipts,
+favor and moved items belong to that fresh preview state. Draft revision
+and pack revision retain their separate meanings. Import tests compare the same
 runtime journey before and after an unrelated card edit, including both
 Hoppy branches and the funeral's consumed supplies and shade state.
 
