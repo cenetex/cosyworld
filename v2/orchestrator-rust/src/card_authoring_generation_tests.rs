@@ -119,8 +119,10 @@ async fn authoring_auth_grounding_and_gateway_use_transient_source() {
         );
     }
     assert_eq!(seen.lock().unwrap().len(), 5); // Each paid action attempts once.
-    let bytes = std::fs::read(&path).unwrap();
-    assert!(!String::from_utf8_lossy(&bytes).contains("blue lantern"));
+    for suffix in ["", "-wal"] {
+        let bytes = std::fs::read(format!("{}{suffix}", path.display())).unwrap_or_default();
+        assert!(!String::from_utf8_lossy(&bytes).contains("blue lantern"));
+    }
     server.abort();
 }
 
