@@ -33,7 +33,7 @@ fn valid_card(card: &Card) -> bool {
 fn valid(input: &Input) -> bool {
     ["world", "avatar", "item", "place"].contains(&input.kind.as_str())
         && input.seed.encode_utf16().count() <= 6000
-        && (!input.seed.trim().is_empty() || !input.context.is_empty())
+        && (!input.seed.trim().is_empty() || !input.context.is_empty() || input.replacing.is_some())
         && input.context.len() <= 24
         && input.context.iter().all(valid_card)
         && input
@@ -172,6 +172,11 @@ mod tests {
         }];
         assert!(read_output(&json!({"cards":[cards["cards"][0]]}).to_string(), &input).is_none());
         input.seed = "x".repeat(6001);
+        assert!(!valid(&input));
+        input.seed.clear();
+        input.replacing = input.context.pop();
+        assert!(valid(&input));
+        input.kind = "item".into();
         assert!(!valid(&input));
     }
 }
