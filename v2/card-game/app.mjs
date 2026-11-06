@@ -14,6 +14,7 @@ import { createPreferredLocationsView } from "./preferred-locations-view.mjs";
 import { cardLevel, levelTier, romanLevel } from "./rarity.mjs";
 import { finishCardReveal, revealCard } from "./card-reveal.mjs";
 import { setCardLabel } from "./card-label.mjs";
+import { showActionBeatNote } from "./action-beat-note.mjs";
 import {
   fadeGhost,
   fixedGhost,
@@ -2067,15 +2068,16 @@ function showBeatCards(ids, recipe = false) {
 }
 // Another part of the table, such as the ☰ menu, can borrow the action
 // beat: { avatar, cards: [{ src, level, color, lit, ground }], name, info,
-// note, buttons: [{ label, id, run }] }. The name and its info line read in
+// note, edit?: { key, label, value, onInput }, buttons: [{ label, id, run }] }.
+// The name and its info line read in
 // the middle, then the note; the buttons sit on the right, and a beat may
 // have none. It replaces the play's beat until cleared. `borrowedBeat` is
 // declared before notice(), which a refused save calls during boot.
-function showActionBeat(beat) {
+export function showActionBeat(beat) {
   borrowedBeat = beat;
   renderActions();
 }
-function clearActionBeat(beat) {
+export function clearActionBeat(beat) {
   if (!borrowedBeat || (beat && borrowedBeat !== beat)) return;
   borrowedBeat = null;
   renderActions();
@@ -2132,23 +2134,28 @@ function showBorrowedBeat(row, heading) {
       : "",
   );
   const note = document.querySelector(".action-beat-note");
-  note.textContent = note.title = beat.note || "";
-  note.hidden = !beat.note;
-  row.replaceChildren(
-    ...beat.buttons.map(({ label, id, run, disabled }, index) => {
-      const button = node(
-        "button",
-        label,
-        index ? "card-action" : "card-primary",
-      );
-      button.type = "button";
-      button.id = id;
-      button.dataset.keepMenu = "true";
-      button.disabled = Boolean(disabled);
-      button.onclick = run;
-      return button;
-    }),
-  );
+  showActionBeatNote(note, beat);
+  const buttons = beat.buttons.map(({ label, id, run, disabled }, index) => {
+    const previous = row.children[index];
+    const button =
+      previous?.id === id && previous.dataset.keepMenu === "true"
+        ? previous
+        : node("button", label, index ? "card-action" : "card-primary");
+    button.textContent = label;
+    button.type = "button";
+    button.id = id;
+    button.dataset.keepMenu = "true";
+    button.disabled = Boolean(disabled);
+    button.onclick = run;
+    return button;
+  });
+  // A blur may save source text during a button press. Keep that button in
+  // place through the redraw so the same press reaches its click handler.
+  if (
+    buttons.length !== row.children.length ||
+    buttons.some((button, i) => row.children[i] !== button)
+  )
+    row.replaceChildren(...buttons);
   syncActionBeat();
 }
 const choiceKey = () => `${selected.join("+")}:${rowCollapsed}`;
@@ -2476,15 +2483,14 @@ function renderActions() {
     heading.hidden = true;
   }
   const note = document.querySelector(".action-beat-note");
-  note.textContent = next?.reason || "";
-  note.hidden = !next?.reason;
+  let noteText = next?.reason || "";
   if (abandonQuest) {
     const panel = $("action-beat");
     panel.dataset.tier = "danger";
     panel.style.setProperty("--tier-color", "var(--danger)");
-    note.textContent = `${shownQuestCaption(picked)}. Cost ${dropCost(world, actor, picked.index)} XP.`;
-    note.hidden = false;
+    noteText = `${shownQuestCaption(picked)}. Cost ${dropCost(world, actor, picked.index)} XP.`;
   }
+  showActionBeatNote(note, { note: noteText });
   const text = abandonQuest ? "Abandon this quest?" : sentence;
   writeActionMessage(
     message,
