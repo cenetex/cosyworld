@@ -11,7 +11,7 @@ import {
   play,
   sealedWays,
 } from "../v2/card-game/world.mjs";
-import { sealedReason } from "../v2/card-game/cards.mjs";
+import { cardActions, sealedReason } from "../v2/card-game/cards.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import {
   act,
@@ -114,7 +114,12 @@ describe("a player's guard", () => {
   };
   it("stands as a Wait on a guardable way and bars residents only", () => {
     let s = opened();
-    const guard = legalActions(s).find((a) => a.guards === FIELD);
+    const { actions } = cardActions(s, ["vale", FIELD]);
+    expect(actions).toHaveLength(1);
+    expect(cardActions(s, [FIELD]).actions.map((a) => a.kind)).toEqual([
+      "move",
+    ]);
+    const [guard] = actions;
     expect(guard).toMatchObject({
       kind: "wait",
       label: "Guard",

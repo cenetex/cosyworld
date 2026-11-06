@@ -1061,6 +1061,83 @@ body .dialogue[data-dropped="true"] {
   background: none;
   box-shadow: none;
 }
+/* Authoring uses the same hand, seen from above as branches of open stacks. */
+#settings-screen[data-layout="tree"] {
+  position: fixed;
+  inset: 74px 22px var(--tree-descriptor-height, 150px);
+  height: calc(100dvh - 74px - var(--tree-descriptor-height, 150px));
+  width: auto;
+  max-width: none;
+  pointer-events: auto;
+}
+body:has(#settings-screen[data-layout="tree"][open]) .settings-scene {
+  opacity: 1;
+  animation: none;
+}
+#settings-screen[data-layout="tree"] #settings-hand {
+  --card-height: 180px;
+  --fan-overlap: 0px;
+  display: grid;
+  grid-template-columns: repeat(var(--tree-columns), minmax(124px, 156px));
+  grid-auto-rows: max-content;
+  gap: 28px 12px;
+  align-content: start;
+  justify-content: safe center;
+  height: 100%;
+  margin: 0;
+  padding: 14px 10px;
+  overflow: auto;
+  overscroll-behavior: contain;
+  scroll-padding: 14px;
+  scroll-snap-type: none;
+  mask-image: none;
+}
+#settings-screen[data-layout="tree"] .card-frame {
+  grid-row: var(--tree-row);
+  grid-column: var(--tree-column) / span var(--tree-span);
+  justify-self: center;
+  margin: 0;
+  top: 0;
+  rotate: none;
+  translate: none;
+  transform: none;
+  filter: none;
+}
+#settings-screen[data-layout="tree"] .card {
+  touch-action: pan-x pan-y;
+}
+#settings-screen[data-layout="tree"] .card :is(.name, .quest-head) {
+  padding-inline: 8px;
+}
+#settings-screen[data-layout="tree"] .quest-verb {
+  white-space: normal;
+}
+@media (max-width: 700px) {
+  #settings-screen[data-layout="tree"] {
+    inset: 64px 8px var(--tree-descriptor-height, 150px);
+    height: calc(100dvh - 64px - var(--tree-descriptor-height, 150px));
+  }
+  #settings-screen[data-layout="tree"] #settings-hand {
+    --card-height: 144px;
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    gap: 20px 4px;
+    padding: 12px 4px;
+  }
+  #settings-screen[data-layout="tree"] .card-frame {
+    grid-row: var(--tree-phone-row);
+    grid-column: var(--tree-phone-column) / span var(--tree-phone-span);
+  }
+  #settings-screen[data-layout="tree"] .card-frame[data-phone="false"] {
+    display: none;
+  }
+  #settings-screen[data-layout="tree"] .card-frame[data-ancestor="true"] {
+    --card-height: 106px;
+  }
+  #settings-screen[data-layout="tree"] [data-ancestor="true"] .quest-head {
+    padding-inline: 4px;
+    letter-spacing: 0.04em;
+  }
+}
 /* Behind it the scene fades to black under the world's logo, lifted and
    scaled as the title lifts it over its card (title-intro.mjs). Then the
    owner's workbench comes up as Settings' own scene. */
@@ -2842,6 +2919,21 @@ body .beat-live {
   order: -1;
   color: var(--muted);
   font-size: 13px;
+}
+/* Source editing scrolls inside the existing descriptor beside its action. */
+#action-beat .action-beat-note[contenteditable="plaintext-only"] {
+  min-height: 1.4em;
+  max-height: min(12rem, 24dvh);
+  overflow-y: auto;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  font-size: 16px;
+  line-height: 1.4;
+}
+@media (max-height: 400px) {
+  #action-beat .action-beat-note[contenteditable="plaintext-only"] {
+    max-height: 3rem;
+  }
 }
 .beat-action #card-actions {
   /* A strip wider than a very narrow box (200% text) wraps its words. */

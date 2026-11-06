@@ -36,9 +36,11 @@ export const athenianItems = {
 };
 
 // Revision 9 of the Greek pack adds the olive branch that became the
-// herald's truce; later revisions add the Theban and Athenian outcomes.
+// herald's truce; later content adds the outcomes and the two branch clues.
 export const branchItems = {
   "greek-olive-branch": { holder: "greek-athens", history: [] },
+  "greek-helen-accounts": { holder: "greek-harbor", history: [] },
+  "greek-atreid-record": { holder: "greek-argolid-road", history: [] },
   ...thebanItems,
   ...athenianItems,
 };

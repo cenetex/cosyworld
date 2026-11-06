@@ -107,7 +107,7 @@ fn fixture() -> (std::path::PathBuf, rusqlite::Connection, String, World) {
 fn ajax_appeal_custody_spoken_accounts_and_second_carrier_replay_from_the_journal() {
     let (path, c, id, mut world) = fixture();
     assert_eq!(world.version, engine::VERSION);
-    assert!(action(&world, 0, &[("choiceId", "greek-ajax-bury-appeal")]).is_none());
+    assert!(world.game["packs"]["greek-drama"]["receipts"]["greek-ajax-bury-appeal"].is_null());
     play(
         &c,
         &id,
@@ -120,7 +120,7 @@ fn ajax_appeal_custody_spoken_accounts_and_second_carrier_replay_from_the_journa
         &id,
         &mut world,
         0,
-        &[("choiceId", "greek-ajax-witness-appeal")],
+        &[("kind", "talk"), ("target", "greek-ajax-odysseus")],
     );
     play(
         &c,
@@ -129,7 +129,6 @@ fn ajax_appeal_custody_spoken_accounts_and_second_carrier_replay_from_the_journa
         0,
         &[("kind", "move"), ("target", "greek-ajax-grave")],
     );
-    let burial = action(&world, 0, &[("choiceId", "greek-ajax-bury-appeal")]).unwrap();
     play(
         &c,
         &id,
@@ -144,25 +143,9 @@ fn ajax_appeal_custody_spoken_accounts_and_second_carrier_replay_from_the_journa
         1,
         &[("kind", "take"), ("item", "greek-ajax-cloth")],
     );
-    let before = world.clone();
-    let count: i64 = c
-        .query_row("SELECT count(*) FROM card_full_log", [], |r| r.get(0))
-        .unwrap();
-    assert!(full_store::commit(
-        &c,
-        &id,
-        &mut world,
-        json!({"op":"play","actor":"vale","action":burial}),
-        now()
-    )
-    .is_err());
-    assert_eq!(world, before);
-    assert_eq!(
-        c.query_row("SELECT count(*) FROM card_full_log", [], |r| r
-            .get::<_, i64>(0))
-            .unwrap(),
-        count
-    );
+    play(&c, &id, &mut world, 0, &[("kind", "wait")]);
+    assert!(world.game["packs"]["greek-drama"]["receipts"]["greek-ajax-bury-appeal"].is_null());
+    assert_eq!(world.game["items"]["greek-ajax-cloth"]["holder"], "mara");
     play(
         &c,
         &id,
@@ -170,13 +153,7 @@ fn ajax_appeal_custody_spoken_accounts_and_second_carrier_replay_from_the_journa
         1,
         &[("kind", "drop"), ("item", "greek-ajax-cloth")],
     );
-    play(
-        &c,
-        &id,
-        &mut world,
-        0,
-        &[("choiceId", "greek-ajax-bury-appeal")],
-    );
+    play(&c, &id, &mut world, 0, &[("kind", "wait")]);
     assert_eq!(
         world.game["packs"]["greek-drama"]["choices"]["greek-ajax-ending"],
         "appeal"
@@ -239,7 +216,11 @@ fn ajax_appeal_custody_spoken_accounts_and_second_carrier_replay_from_the_journa
         &id,
         &mut world,
         1,
-        &[("choiceId", "greek-ajax-return-appeal")],
+        &[
+            ("kind", "give"),
+            ("item", "greek-ajax-plea"),
+            ("target", "greek-baker"),
+        ],
     );
     assert_eq!(
         world.game["items"]["greek-ajax-plea"]["holder"],
@@ -251,7 +232,11 @@ fn ajax_appeal_custody_spoken_accounts_and_second_carrier_replay_from_the_journa
         .as_array()
         .unwrap()
         .iter()
-        .find(|e| e["choiceId"] == "greek-ajax-return-appeal")
+        .find(|e| {
+            e["verb"] == "give"
+                && e["itemId"] == "greek-ajax-plea"
+                && e["targetId"] == "greek-baker"
+        })
         .unwrap();
     assert_eq!(returned["actorId"], "mara");
     assert_eq!(

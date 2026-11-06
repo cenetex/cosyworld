@@ -4142,11 +4142,6 @@
             text: "Dust marks the hem of her dress. She keeps looking toward the battlefield.",
             place: "greek-gate",
             home: "greek-gate",
-            values: {
-              "greek-funeral-cloth": 3,
-              "greek-oil-flask": 4,
-              "greek-shovel": 3
-            },
             seed: "Antigone, daughter of Oedipus.",
             portrait: "assets/greek-drama/chthonic-antigone.png",
             want: {
@@ -5362,7 +5357,7 @@
           },
           "greek-ajax-plea": {
             name: "Teucer\u2019s Written Plea",
-            text: "Teucer\u2019s burial plea has room for the witnesses\u2019 signed account of the completed rite.",
+            text: "Teucer asks for earth over his brother. Odysseus backs a public rite, Tecmessa wants a household rite, and Teucer asks for witnesses.",
             holder: "greek-greek-camp",
             persona: "This is a named Trojan account, beginning after Ajax\u2019s death. Its deeds belong to that telling. The Theban opening keeps its own time. Describe its actual holder and recorded use.",
             art: "assets/greek-drama/ajax-plea.png",
@@ -5395,7 +5390,7 @@
           },
           "greek-ajax-tools": {
             name: "The Camp\u2019s Grave Tools",
-            text: "A short shovel and grave tools wait beside the tents.",
+            text: "Take the tools and the linen to Ajax\u2019s grave. Set them down and stay for the burial.",
             holder: "greek-greek-camp",
             persona: "This is a named Trojan account, beginning after Ajax\u2019s death. Its deeds belong to that telling. The Theban opening keeps its own time. Describe its actual holder and recorded use.",
             art: "assets/greek-drama/ajax-tools.png",
@@ -5479,6 +5474,20 @@
                 value: true
               }
             ]
+          },
+          "greek-helen-accounts": {
+            name: "Helen\u2019s Account Tablet",
+            text: "A sailor copied two accounts of Helen. Myrto the Shipmaster knows the Egyptian account and The Chorus Elder knows the song about Troy.",
+            holder: "greek-harbor",
+            art: "assets/greek-drama/testimony.png",
+            persona: "A sailor copied two accounts of Helen. Myrto the Shipmaster knows the Egyptian account and The Chorus Elder knows the song about Troy."
+          },
+          "greek-atreid-record": {
+            name: "Record of the House of Atreus",
+            text: "Ismene knows the way to Agamemnon\u2019s tomb. Creon knows the palace road. Dione the Baker knows the farmer who gave Electra shelter.",
+            holder: "greek-argolid-road",
+            art: "assets/greek-drama/tomb-testimony.png",
+            persona: "Ismene knows the way to Agamemnon\u2019s tomb. Creon knows the palace road. Dione the Baker knows the farmer who gave Electra shelter."
           }
         },
         routes: [
@@ -6179,11 +6188,16 @@
             subject: "greek-shipmaster",
             at: "greek-harbor",
             label: "Follow Helen's Egyptian account",
-            text: "Vale commits to the Egyptian account: Helen remained with Proteus while a phantom went to Troy. Myrto opens the passage to the tomb.",
+            text: "Myrto names the tomb in Egypt where Helen waited.",
             requires: [
               {
                 kind: "choice_unset",
                 key: "greek-helen-account"
+              },
+              {
+                kind: "holding",
+                item: "greek-helen-accounts",
+                role: "actor"
               }
             ],
             effects: [
@@ -6191,21 +6205,32 @@
                 kind: "choose",
                 key: "greek-helen-account",
                 value: "egypt"
+              },
+              {
+                kind: "place_item",
+                item: "greek-helen-accounts",
+                place: "greek-harbor"
               }
             ],
             summary: "The Egyptian account governs Helen's whereabouts and testimony. The Trojan account remains an alternative story.",
-            textTemplate: "{actor} commits to the Egyptian account: Helen remained with Proteus while a phantom went to Troy. Myrto opens the passage to the tomb."
+            textTemplate: "{actor} commits to the Egyptian account: Helen remained with Proteus while a phantom went to Troy. Myrto opens the passage to the tomb.",
+            on: "give"
           },
           {
             id: "greek-helen-troy",
-            subject: "greek-shipmaster",
-            at: "greek-harbor",
+            subject: "greek-elder",
+            at: "greek-well",
             label: "Follow Helen's Trojan account",
-            text: "Vale commits to the Trojan account: Helen returns from Troy. Myrto opens the passage to the homecoming beach.",
+            text: "The Chorus Elder names the beach where Helen returned from Troy.",
             requires: [
               {
                 kind: "choice_unset",
                 key: "greek-helen-account"
+              },
+              {
+                kind: "holding",
+                item: "greek-helen-accounts",
+                role: "actor"
               }
             ],
             effects: [
@@ -6213,17 +6238,23 @@
                 kind: "choose",
                 key: "greek-helen-account",
                 value: "troy"
+              },
+              {
+                kind: "place_item",
+                item: "greek-helen-accounts",
+                place: "greek-well"
               }
             ],
             summary: "The Trojan account governs Helen's whereabouts and testimony. No phantom has been established in this history.",
-            textTemplate: "{actor} commits to the Trojan account: Helen returns from Troy. Myrto opens the passage to the homecoming beach."
+            textTemplate: "{actor} commits to the Trojan account: Helen returns from Troy. Myrto opens the passage to the homecoming beach.",
+            on: "give"
           },
           {
             id: "greek-hear-helen-egypt",
             subject: "greek-helen-egypt",
             at: "greek-egypt-tomb",
             label: "Hear Helen's testimony",
-            text: "Vale hears Helen give her own account and keeps its source separate from earlier reports.",
+            text: "Helen tells her own account.",
             requires: [
               {
                 kind: "choice",
@@ -6238,7 +6269,8 @@
                 value: true
               }
             ],
-            textTemplate: "{actor} hears Helen give her own account and keeps its source separate from earlier reports."
+            textTemplate: "{actor} hears Helen give her own account and keeps its source separate from earlier reports.",
+            on: "talk"
           },
           {
             id: "greek-helen-egypt-passage",
@@ -6293,7 +6325,8 @@
                 value: true
               }
             ],
-            textTemplate: "{actor} deposits provisions and the witness tablet beside the boat. Helen accepts a witnessed passage agreement."
+            textTemplate: "{actor} deposits provisions and the witness tablet beside the boat. Helen accepts a witnessed passage agreement.",
+            on: "give"
           },
           {
             id: "greek-helen-egypt-shelter",
@@ -6339,14 +6372,15 @@
                 value: true
               }
             ],
-            textTemplate: "{actor} records Helen's request to remain under protection while the competing claims are heard."
+            textTemplate: "{actor} records Helen's request to remain under protection while the competing claims are heard.",
+            on: "give"
           },
           {
             id: "greek-hear-helen-troy",
             subject: "greek-helen-troy",
             at: "greek-troy-beach",
             label: "Hear Helen's testimony",
-            text: "Vale hears Helen give her own account and keeps its source separate from earlier reports.",
+            text: "Helen tells her own account.",
             requires: [
               {
                 kind: "choice",
@@ -6361,7 +6395,8 @@
                 value: true
               }
             ],
-            textTemplate: "{actor} hears Helen give her own account and keeps its source separate from earlier reports."
+            textTemplate: "{actor} hears Helen give her own account and keeps its source separate from earlier reports.",
+            on: "talk"
           },
           {
             id: "greek-helen-troy-passage",
@@ -6416,7 +6451,8 @@
                 value: true
               }
             ],
-            textTemplate: "{actor} deposits provisions and the witness tablet beside the boat. Helen accepts a witnessed passage agreement."
+            textTemplate: "{actor} deposits provisions and the witness tablet beside the boat. Helen accepts a witnessed passage agreement.",
+            on: "give"
           },
           {
             id: "greek-helen-troy-shelter",
@@ -6462,18 +6498,24 @@
                 value: true
               }
             ],
-            textTemplate: "{actor} records Helen's request to remain under protection while the competing claims are heard."
+            textTemplate: "{actor} records Helen's request to remain under protection while the competing claims are heard.",
+            on: "give"
           },
           {
             id: "greek-atreid-aeschylus",
-            subject: "greek-rhapsode",
-            at: "greek-argolid-road",
+            subject: "greek-ismene",
+            at: "greek-sanctuary",
             label: "Follow the tomb account \xB7 Aeschylus",
-            text: "Vale follows the Aeschylus account. The singer points out the road to Agamemnon's Tomb.",
+            text: "Ismene names the road to Agamemnon\u2019s tomb.",
             requires: [
               {
                 kind: "choice_unset",
                 key: "greek-atreid-account"
+              },
+              {
+                kind: "holding",
+                item: "greek-atreid-record",
+                role: "actor"
               }
             ],
             effects: [
@@ -6481,17 +6523,23 @@
                 kind: "choose",
                 key: "greek-atreid-account",
                 value: "aeschylus"
+              },
+              {
+                kind: "place_item",
+                item: "greek-atreid-record",
+                place: "greek-sanctuary"
               }
             ],
             summary: "The Aeschylus account governs the Atreid household, beginning at Agamemnon\u2019s tomb. The other accounts remain alternative stories.",
-            textTemplate: "{actor} follows the Aeschylus account. The singer points out the road to Agamemnon's Tomb."
+            textTemplate: "{actor} follows the Aeschylus account. The singer points out the road to Agamemnon's Tomb.",
+            on: "give"
           },
           {
             id: "greek-hear-electra-aeschylus",
             subject: "greek-electra-aeschylus",
             at: "greek-argos-tomb",
             label: "Hear the household's testimony",
-            text: "Vale hears Electra name the household\u2019s losses before asking for a commitment.",
+            text: "Electra names what her family has lost.",
             requires: [
               {
                 kind: "choice",
@@ -6506,7 +6554,8 @@
                 value: true
               }
             ],
-            textTemplate: "{actor} hears Electra name the household\u2019s losses before asking for a commitment."
+            textTemplate: "{actor} hears Electra name the household\u2019s losses before asking for a commitment.",
+            on: "talk"
           },
           {
             id: "greek-atreid-aeschylus-hearing",
@@ -6552,7 +6601,8 @@
                 value: true
               }
             ],
-            textTemplate: "{actor} deposits the witness tablet and agrees to carry the household's claim to a public hearing. No killing is authorized or recorded."
+            textTemplate: "{actor} deposits the witness tablet and agrees to carry the household's claim to a public hearing. No killing is authorized or recorded.",
+            on: "give"
           },
           {
             id: "greek-atreid-aeschylus-refusal",
@@ -6598,18 +6648,24 @@
                 value: true
               }
             ],
-            textTemplate: "{actor} refuses to promise revenge while keeping the household\u2019s testimony on record. Electra knows the answer."
+            textTemplate: "{actor} refuses to promise revenge while keeping the household\u2019s testimony on record. Electra knows the answer.",
+            on: "give"
           },
           {
             id: "greek-atreid-sophocles",
-            subject: "greek-rhapsode",
-            at: "greek-argolid-road",
+            subject: "greek-creon",
+            at: "greek-palace",
             label: "Follow the palace account \xB7 Sophocles",
-            text: "Vale follows the Sophocles account. The singer points out the road to Mycenaean Palace.",
+            text: "Creon names the road to the palace at Mycenae.",
             requires: [
               {
                 kind: "choice_unset",
                 key: "greek-atreid-account"
+              },
+              {
+                kind: "holding",
+                item: "greek-atreid-record",
+                role: "actor"
               }
             ],
             effects: [
@@ -6617,17 +6673,23 @@
                 kind: "choose",
                 key: "greek-atreid-account",
                 value: "sophocles"
+              },
+              {
+                kind: "place_item",
+                item: "greek-atreid-record",
+                place: "greek-palace"
               }
             ],
             summary: "The Sophocles account governs the Atreid household, beginning at the Mycenaean palace. The other accounts remain alternative stories.",
-            textTemplate: "{actor} follows the Sophocles account. The singer points out the road to Mycenaean Palace."
+            textTemplate: "{actor} follows the Sophocles account. The singer points out the road to Mycenaean Palace.",
+            on: "give"
           },
           {
             id: "greek-hear-electra-sophocles",
             subject: "greek-electra-sophocles",
             at: "greek-mycenae-palace",
             label: "Hear the household's testimony",
-            text: "Vale hears Electra name the household\u2019s losses before asking for a commitment.",
+            text: "Electra names what her family has lost.",
             requires: [
               {
                 kind: "choice",
@@ -6642,7 +6704,8 @@
                 value: true
               }
             ],
-            textTemplate: "{actor} hears Electra name the household\u2019s losses before asking for a commitment."
+            textTemplate: "{actor} hears Electra name the household\u2019s losses before asking for a commitment.",
+            on: "talk"
           },
           {
             id: "greek-atreid-sophocles-hearing",
@@ -6688,7 +6751,8 @@
                 value: true
               }
             ],
-            textTemplate: "{actor} deposits the witness tablet and agrees to carry the household's claim to a public hearing. No killing is authorized or recorded."
+            textTemplate: "{actor} deposits the witness tablet and agrees to carry the household's claim to a public hearing. No killing is authorized or recorded.",
+            on: "give"
           },
           {
             id: "greek-atreid-sophocles-refusal",
@@ -6734,18 +6798,24 @@
                 value: true
               }
             ],
-            textTemplate: "{actor} refuses to promise revenge while keeping the household\u2019s testimony on record. Electra knows the answer."
+            textTemplate: "{actor} refuses to promise revenge while keeping the household\u2019s testimony on record. Electra knows the answer.",
+            on: "give"
           },
           {
             id: "greek-atreid-euripides",
-            subject: "greek-rhapsode",
-            at: "greek-argolid-road",
+            subject: "greek-baker",
+            at: "greek-courtyard",
             label: "Follow the farmhouse account \xB7 Euripides",
-            text: "Vale follows the Euripides account. The singer points out the road to The Argive Farmhouse.",
+            text: "Dione names the farm that gave Electra shelter.",
             requires: [
               {
                 kind: "choice_unset",
                 key: "greek-atreid-account"
+              },
+              {
+                kind: "holding",
+                item: "greek-atreid-record",
+                role: "actor"
               }
             ],
             effects: [
@@ -6753,17 +6823,23 @@
                 kind: "choose",
                 key: "greek-atreid-account",
                 value: "euripides"
+              },
+              {
+                kind: "place_item",
+                item: "greek-atreid-record",
+                place: "greek-courtyard"
               }
             ],
             summary: "The Euripides account governs the Atreid household, beginning at the Argive farmhouse. The other accounts remain alternative stories.",
-            textTemplate: "{actor} follows the Euripides account. The singer points out the road to The Argive Farmhouse."
+            textTemplate: "{actor} follows the Euripides account. The singer points out the road to The Argive Farmhouse.",
+            on: "give"
           },
           {
             id: "greek-hear-electra-euripides",
             subject: "greek-electra-euripides",
             at: "greek-argive-farm",
             label: "Hear the household's testimony",
-            text: "Vale hears Electra name the household\u2019s losses before asking for a commitment.",
+            text: "Electra names what her family has lost.",
             requires: [
               {
                 kind: "choice",
@@ -6778,7 +6854,8 @@
                 value: true
               }
             ],
-            textTemplate: "{actor} hears Electra name the household\u2019s losses before asking for a commitment."
+            textTemplate: "{actor} hears Electra name the household\u2019s losses before asking for a commitment.",
+            on: "talk"
           },
           {
             id: "greek-atreid-euripides-hearing",
@@ -6824,7 +6901,8 @@
                 value: true
               }
             ],
-            textTemplate: "{actor} deposits the witness tablet and agrees to carry the household's claim to a public hearing. No killing is authorized or recorded."
+            textTemplate: "{actor} deposits the witness tablet and agrees to carry the household's claim to a public hearing. No killing is authorized or recorded.",
+            on: "give"
           },
           {
             id: "greek-atreid-euripides-refusal",
@@ -6870,7 +6948,8 @@
                 value: true
               }
             ],
-            textTemplate: "{actor} refuses to promise revenge while keeping the household\u2019s testimony on record. Electra knows the answer."
+            textTemplate: "{actor} refuses to promise revenge while keeping the household\u2019s testimony on record. Electra knows the answer.",
+            on: "give"
           },
           {
             id: "greek-open-door-hear-mothers",
@@ -7905,7 +7984,7 @@
             subject: "greek-shipmaster",
             at: "greek-harbor",
             label: "Accept the Trojan camp\u2019s invitation",
-            text: "Vale accepts Myrto\u2019s lasting invitation to a named Trojan account. It begins after Ajax\u2019s death, where his household and Teucer seek burial. The Greek ship can now call at the camp landing. Dione\u2019s earlier account keeps its own time.",
+            text: "Myrto points out the Northern Road to Ajax\u2019s camp.",
             textTemplate: "{actor} accepts Myrto\u2019s lasting invitation to a named Trojan account. It begins after Ajax\u2019s death, where his household and Teucer seek burial. The Greek ship can now call at the camp landing. Dione\u2019s earlier account keeps its own time.",
             requires: [
               {
@@ -7955,7 +8034,8 @@
                 value: true
               }
             ],
-            workId: "sophocles-ajax"
+            workId: "sophocles-ajax",
+            on: "talk"
           },
           {
             id: "greek-ajax-learn-shield-teucer",
@@ -8061,7 +8141,7 @@
             subject: "greek-ajax-tecmessa",
             at: "greek-ajax-household",
             label: "Set the shield with Tecmessa for Eurysaces",
-            text: "Vale sets Ajax\u2019s shield beside Tecmessa\u2019s tent for Eurysaces. Tecmessa receives it into the household\u2019s care within the Trojan account.",
+            text: "Tecmessa sets Ajax\u2019s shield beside her tent for Eurysaces.",
             textTemplate: "{actor} sets Ajax\u2019s shield beside Tecmessa\u2019s tent for Eurysaces. Tecmessa receives it into the household\u2019s care within the Trojan account.",
             requires: [
               {
@@ -8096,7 +8176,8 @@
                 value: true
               }
             ],
-            workId: "sophocles-ajax"
+            workId: "sophocles-ajax",
+            on: "give"
           },
           {
             id: "greek-ajax-hear-plea",
@@ -8130,8 +8211,8 @@
             id: "greek-ajax-deliver-plea",
             subject: "greek-ajax-odysseus",
             at: "greek-greek-camp",
-            label: "Bring Teucer\u2019s plea to Odysseus",
-            text: "Vale sets Teucer\u2019s written plea before Odysseus and names its source. Odysseus hears the rival\u2019s claim to burial within the Trojan account.",
+            label: "Read Teucer\u2019s plea with Odysseus",
+            text: "Odysseus reads Teucer\u2019s plea aloud.",
             textTemplate: "{actor} sets Teucer\u2019s written plea before Odysseus and names its source. Odysseus hears the rival\u2019s claim to burial within the Trojan account.",
             requires: [
               {
@@ -8157,24 +8238,20 @@
             ],
             effects: [
               {
-                kind: "place_item",
-                item: "greek-ajax-plea",
-                place: "greek-greek-camp"
-              },
-              {
                 kind: "set_flag",
                 key: "greek-ajax-plea-delivered",
                 value: true
               }
             ],
-            workId: "sophocles-ajax"
+            workId: "sophocles-ajax",
+            on: "talk"
           },
           {
             id: "greek-ajax-choose-public",
             subject: "greek-ajax-odysseus",
             at: "greek-greek-camp",
             label: "Seek a public burial with Odysseus\u2019s support",
-            text: "Odysseus supports a public burial for his former rival. Vale undertakes the work of the rite. The burial still needs cloth, grave tools and earth.",
+            text: "Odysseus asks for a public burial.",
             textTemplate: "Odysseus supports a public burial for his former rival. {actor} undertakes the work of the rite. The burial still needs cloth, grave tools and earth.",
             requires: [
               {
@@ -8195,6 +8272,11 @@
               {
                 kind: "choice_unset",
                 key: "greek-ajax-route"
+              },
+              {
+                kind: "holding",
+                item: "greek-ajax-plea",
+                role: "actor"
               }
             ],
             effects: [
@@ -8202,16 +8284,22 @@
                 kind: "choose",
                 key: "greek-ajax-route",
                 value: "public"
+              },
+              {
+                kind: "place_item",
+                item: "greek-ajax-plea",
+                place: "greek-greek-camp"
               }
             ],
-            workId: "sophocles-ajax"
+            workId: "sophocles-ajax",
+            on: "give"
           },
           {
             id: "greek-ajax-choose-household",
             subject: "greek-ajax-tecmessa",
             at: "greek-ajax-household",
             label: "Keep the rite with Ajax\u2019s household",
-            text: "Tecmessa asks for a quiet household rite. Vale agrees to prepare it. Ajax still awaits the cloth, grave tools and earth.",
+            text: "Tecmessa asks for a quiet burial with the household.",
             textTemplate: "Tecmessa asks for a quiet household rite. {actor} agrees to prepare it. Ajax still awaits the cloth, grave tools and earth.",
             requires: [
               {
@@ -8232,6 +8320,11 @@
               {
                 kind: "choice_unset",
                 key: "greek-ajax-route"
+              },
+              {
+                kind: "holding",
+                item: "greek-ajax-plea",
+                role: "actor"
               }
             ],
             effects: [
@@ -8239,16 +8332,22 @@
                 kind: "choose",
                 key: "greek-ajax-route",
                 value: "household"
+              },
+              {
+                kind: "place_item",
+                item: "greek-ajax-plea",
+                place: "greek-ajax-household"
               }
             ],
-            workId: "sophocles-ajax"
+            workId: "sophocles-ajax",
+            on: "give"
           },
           {
             id: "greek-ajax-choose-appeal",
             subject: "greek-ajax-teucer",
             at: "greek-greek-camp",
             label: "Keep a vigil while the burial appeal is heard",
-            text: "Vale joins Teucer\u2019s vigil while witnesses press the burial appeal. This begins the appeal. The account will close when Ajax has received burial.",
+            text: "Teucer asks for witnesses to stand with him.",
             textTemplate: "{actor} joins Teucer\u2019s vigil while witnesses press the burial appeal. This begins the appeal. The account will close when Ajax has received burial.",
             requires: [
               {
@@ -8269,6 +8368,11 @@
               {
                 kind: "choice_unset",
                 key: "greek-ajax-route"
+              },
+              {
+                kind: "holding",
+                item: "greek-ajax-plea",
+                role: "actor"
               }
             ],
             effects: [
@@ -8276,16 +8380,22 @@
                 kind: "choose",
                 key: "greek-ajax-route",
                 value: "appeal"
+              },
+              {
+                kind: "place_item",
+                item: "greek-ajax-plea",
+                place: "greek-greek-camp"
               }
             ],
-            workId: "sophocles-ajax"
+            workId: "sophocles-ajax",
+            on: "give"
           },
           {
             id: "greek-ajax-witness-appeal",
             subject: "greek-ajax-odysseus",
             at: "greek-greek-camp",
             label: "Hear the witnessed appeal with Teucer and Odysseus",
-            text: "Before Teucer and Odysseus, Vale hears the witnessed appeal receive support. The vigil can become a rite. Ajax still awaits actual burial at the grave.",
+            text: "Odysseus adds his voice to Teucer\u2019s appeal.",
             textTemplate: "Before Teucer and Odysseus, {actor} hears the witnessed appeal receive support. The vigil can become a rite. Ajax still awaits actual burial at the grave.",
             requires: [
               {
@@ -8310,14 +8420,15 @@
                 value: true
               }
             ],
-            workId: "sophocles-ajax"
+            workId: "sophocles-ajax",
+            on: "talk"
           },
           {
             id: "greek-ajax-prepare-grave",
             subject: "greek-ajax-grave",
             at: "greek-ajax-grave",
             label: "Prepare Ajax\u2019s grave with the camp tools",
-            text: "Vale prepares Ajax\u2019s grave and sets the camp tools beside it. This is the work of preparation within the Trojan account.",
+            text: "Vale digs Ajax\u2019s grave with the camp tools.",
             textTemplate: "{actor} prepares Ajax\u2019s grave and sets the camp tools beside it. This is the work of preparation within the Trojan account.",
             requires: [
               {
@@ -8331,31 +8442,27 @@
                 value: true
               },
               {
-                kind: "holding",
+                kind: "item_at",
                 item: "greek-ajax-tools",
-                role: "actor"
+                place: "greek-ajax-grave"
               }
             ],
             effects: [
-              {
-                kind: "place_item",
-                item: "greek-ajax-tools",
-                place: "greek-ajax-grave"
-              },
               {
                 kind: "set_flag",
                 key: "greek-ajax-grave-prepared",
                 value: true
               }
             ],
-            workId: "sophocles-ajax"
+            workId: "sophocles-ajax",
+            on: "wait"
           },
           {
             id: "greek-ajax-lay-cloth",
             subject: "greek-ajax-grave",
             at: "greek-ajax-grave",
             label: "Lay the camp\u2019s cloth at Ajax\u2019s grave",
-            text: "Vale lays clean linen at Ajax\u2019s prepared grave. The cloth is ready for the chosen rite.",
+            text: "Vale spreads the linen inside Ajax\u2019s grave.",
             textTemplate: "{actor} lays clean linen at Ajax\u2019s prepared grave. The cloth is ready for the chosen rite.",
             requires: [
               {
@@ -8364,31 +8471,27 @@
                 value: true
               },
               {
-                kind: "holding",
+                kind: "item_at",
                 item: "greek-ajax-cloth",
-                role: "actor"
+                place: "greek-ajax-grave"
               }
             ],
             effects: [
-              {
-                kind: "place_item",
-                item: "greek-ajax-cloth",
-                place: "greek-ajax-grave"
-              },
               {
                 kind: "set_flag",
                 key: "greek-ajax-cloth-laid",
                 value: true
               }
             ],
-            workId: "sophocles-ajax"
+            workId: "sophocles-ajax",
+            on: "wait"
           },
           {
             id: "greek-ajax-bury-public",
             subject: "greek-ajax-grave",
             at: "greek-ajax-grave",
             label: "Complete Ajax\u2019s public burial",
-            text: "Vale uses the prepared grave, cloth and tools to complete Ajax\u2019s public burial. The account records Odysseus\u2019s support for his former rival and the earth given to Ajax.",
+            text: "Vale buries Ajax while the camp looks on.",
             textTemplate: "{actor} uses the prepared grave, cloth and tools to complete Ajax\u2019s public burial. The account records Odysseus\u2019s support for his former rival and the earth given to Ajax.",
             requires: [
               {
@@ -8439,7 +8542,8 @@
                 value: "public"
               }
             ],
-            workId: "sophocles-ajax"
+            workId: "sophocles-ajax",
+            on: "wait"
           },
           {
             id: "greek-ajax-record-public",
@@ -8484,7 +8588,7 @@
             subject: "greek-baker",
             at: "greek-courtyard",
             label: "Read Teucer\u2019s signed account to Dione",
-            text: "Vale lays Teucer\u2019s signed account beside Dione\u2019s bread. Dione hears how the public burial was completed in the Trojan telling. Its time and witnesses join the song beside the earlier Theban deeds.",
+            text: "Dione reads Teucer\u2019s account of Ajax\u2019s public burial.",
             textTemplate: "{actor} lays Teucer\u2019s signed account beside Dione\u2019s bread. Dione hears how the public burial was completed in the Trojan telling. Its time and witnesses join the song beside the earlier Theban deeds.",
             requires: [
               {
@@ -8529,14 +8633,15 @@
                 value: true
               }
             ],
-            workId: "sophocles-ajax"
+            workId: "sophocles-ajax",
+            on: "give"
           },
           {
             id: "greek-ajax-bury-household",
             subject: "greek-ajax-grave",
             at: "greek-ajax-grave",
             label: "Complete Ajax\u2019s household burial",
-            text: "Vale uses the prepared grave, cloth and tools to complete Ajax\u2019s household burial. The account keeps Tecmessa and Eurysaces\u2019s care beside the rite.",
+            text: "Vale buries Ajax beside Tecmessa and Eurysaces.",
             textTemplate: "{actor} uses the prepared grave, cloth and tools to complete Ajax\u2019s household burial. The account keeps Tecmessa and Eurysaces\u2019s care beside the rite.",
             requires: [
               {
@@ -8587,7 +8692,8 @@
                 value: "household"
               }
             ],
-            workId: "sophocles-ajax"
+            workId: "sophocles-ajax",
+            on: "wait"
           },
           {
             id: "greek-ajax-record-household",
@@ -8632,7 +8738,7 @@
             subject: "greek-baker",
             at: "greek-courtyard",
             label: "Read Teucer\u2019s signed account to Dione",
-            text: "Vale lays Teucer\u2019s signed account beside Dione\u2019s bread. Dione hears how the household burial was completed in the Trojan telling. Its time and witnesses join the song beside the earlier Theban deeds.",
+            text: "Dione reads Teucer\u2019s account of the household burial.",
             textTemplate: "{actor} lays Teucer\u2019s signed account beside Dione\u2019s bread. Dione hears how the household burial was completed in the Trojan telling. Its time and witnesses join the song beside the earlier Theban deeds.",
             requires: [
               {
@@ -8677,14 +8783,15 @@
                 value: true
               }
             ],
-            workId: "sophocles-ajax"
+            workId: "sophocles-ajax",
+            on: "give"
           },
           {
             id: "greek-ajax-bury-appeal",
             subject: "greek-ajax-grave",
             at: "greek-ajax-grave",
             label: "Complete Ajax\u2019s witnessed-appeal burial",
-            text: "After the witnessed appeal, Vale uses the prepared grave, cloth and tools to bury Ajax. The vigil closes with actual burial in the named Trojan account.",
+            text: "Vale buries Ajax after Teucer\u2019s appeal.",
             textTemplate: "After the witnessed appeal, {actor} uses the prepared grave, cloth and tools to bury Ajax. The vigil closes with actual burial in the named Trojan account.",
             requires: [
               {
@@ -8740,7 +8847,8 @@
                 value: "appeal"
               }
             ],
-            workId: "sophocles-ajax"
+            workId: "sophocles-ajax",
+            on: "wait"
           },
           {
             id: "greek-ajax-record-appeal",
@@ -8785,7 +8893,7 @@
             subject: "greek-baker",
             at: "greek-courtyard",
             label: "Read Teucer\u2019s signed account to Dione",
-            text: "Vale lays Teucer\u2019s signed account beside Dione\u2019s bread. Dione hears how the witnessed-appeal burial was completed in the Trojan telling. Its time and witnesses join the song beside the earlier Theban deeds.",
+            text: "Dione reads Teucer\u2019s account of the witnessed burial.",
             textTemplate: "{actor} lays Teucer\u2019s signed account beside Dione\u2019s bread. Dione hears how the witnessed-appeal burial was completed in the Trojan telling. Its time and witnesses join the song beside the earlier Theban deeds.",
             requires: [
               {
@@ -8830,7 +8938,8 @@
                 value: true
               }
             ],
-            workId: "sophocles-ajax"
+            workId: "sophocles-ajax",
+            on: "give"
           },
           {
             id: "greek-anoint-polynices",
@@ -8845,17 +8954,17 @@
                 value: false
               },
               {
-                kind: "item_at",
+                kind: "holding",
                 item: "greek-oil-flask",
-                place: "greek-polynices-hollow"
+                role: "actor"
               },
               {
-                kind: "item_at",
+                kind: "item_near",
                 item: "greek-funeral-cloth",
                 place: "greek-polynices-hollow"
               },
               {
-                kind: "item_at",
+                kind: "item_near",
                 item: "greek-shovel",
                 place: "greek-polynices-hollow"
               },
@@ -8876,7 +8985,8 @@
                 key: "greek-polynices-anointed",
                 value: true
               }
-            ]
+            ],
+            on: "give"
           },
           {
             id: "greek-shroud-polynices",
@@ -8891,12 +9001,12 @@
                 value: true
               },
               {
-                kind: "item_at",
+                kind: "holding",
                 item: "greek-funeral-cloth",
-                place: "greek-polynices-hollow"
+                role: "actor"
               },
               {
-                kind: "item_at",
+                kind: "item_near",
                 item: "greek-shovel",
                 place: "greek-polynices-hollow"
               },
@@ -8917,7 +9027,8 @@
                 key: "greek-polynices-veiled",
                 value: true
               }
-            ]
+            ],
+            on: "give"
           },
           {
             id: "greek-bury-polynices",
@@ -8932,9 +9043,9 @@
                 value: true
               },
               {
-                kind: "item_at",
+                kind: "holding",
                 item: "greek-shovel",
-                place: "greek-polynices-hollow"
+                role: "actor"
               },
               {
                 kind: "flag",
@@ -8943,6 +9054,11 @@
               }
             ],
             effects: [
+              {
+                kind: "place_item",
+                item: "greek-shovel",
+                place: "greek-polynices-hollow"
+              },
               {
                 kind: "set_flag",
                 key: "greek-burial-performed",
@@ -8953,7 +9069,8 @@
                 key: "greek-open-door-open",
                 value: true
               }
-            ]
+            ],
+            on: "give"
           }
         ],
         works: [

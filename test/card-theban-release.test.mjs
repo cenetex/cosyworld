@@ -250,6 +250,8 @@ describe("the Theban release and its ship", () => {
         "greek-burial-account",
         "greek-creon-writ",
         "greek-guard-tablet",
+        "greek-helen-accounts",
+        "greek-atreid-record",
         "float",
         "kite",
         "mask",
@@ -282,6 +284,8 @@ describe("the Theban release and its ship", () => {
     );
     expect(after.actors.vale.place).toBe("greek-egypt-tomb");
     expect(after.items["greek-egypt-testimony"].holder).toBe("vale");
+    expect(after.items["greek-helen-accounts"].holder).toBe("greek-harbor");
+    expect(after.items["greek-atreid-record"].holder).toBe("greek-argolid-road");
     expect(entityActive(after, "greek-athens")).toBe(true);
     expect(entityActive(after, "greek-helen-troy")).toBe(false);
     expect(decodeSave(encodeSave(after))).toEqual(after);

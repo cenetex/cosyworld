@@ -1,9 +1,5 @@
 import { greekTravelTargets } from "../../test/helpers/greek-travel.mjs";
-import {
-  endStandoff,
-  selectCard,
-  topicForChoice,
-} from "./card-browser-helpers.mjs";
+import { endStandoff, selectCard } from "./card-browser-helpers.mjs";
 import { checkOpeningPoem } from "./smoke-card-opening-poem.mjs";
 // Exercise the public card UI and its one saved history, at desktop and phone
 // widths. Text is a bounded fixture; the deterministic model owns every result.
@@ -45,6 +41,8 @@ fixture.items.cloth.holder = "vale";
 fixture.items.lamp.fuel = 12;
 fixture.items.oil.holder = "greek-harbor";
 fixture.actors.vale.trust.moth = 2;
+// Pip has already entrusted Vale with the signal kit for this journey.
+fixture.actors.moth.want = null;
 addLog(
   fixture,
   "Pip",
@@ -223,32 +221,6 @@ try {
       assert.equal(await page.textContent("#place-title"), places[id].name);
       if (boarding && (await state()).items.lamp.lit) await playCard("lamp");
     };
-    const choose = async (choiceId) => {
-      await ready();
-      const action = legalActions(await state()).find(
-        (a) => a.choiceId === choiceId,
-      );
-      assert.ok(action, `legal choice ${choiceId}`);
-      const topic = topicForChoice(choiceId);
-      const option = page.locator(
-        topic
-          ? `#card-actions [data-action="talk"]`
-          : `[data-choice="${choiceId}"][data-pack="greek-drama"]`,
-      );
-      if (!(await option.isVisible())) {
-        await selectCard(page, topic?.speaker || action.cards[0]);
-      }
-      if (["greek-helen-egypt", "greek-helen-troy"].includes(choiceId)) {
-        const bounds = await page.locator("#card-actions").boundingBox();
-        assert.ok(bounds && bounds.x >= 0 && bounds.x + bounds.width <= width);
-        await page.screenshot({
-          path: new URL(`history-choice-${width}.png`, output).pathname,
-          fullPage: true,
-        });
-      }
-      await option.click();
-      await ready();
-    };
     const artReady = async () => {
       await page.waitForFunction(() =>
         [...document.querySelectorAll("#backdrop, #cast img")].every(
@@ -286,40 +258,12 @@ try {
     await travel("greek-gate");
     assert.equal(await card("greek-antigone").count(), 1);
     assert.equal(await card("greek-guard").count(), 1);
-    // Meeting the guard tells the decree. Handing him the shovel with the
-    // funeral cloth in hand, the tools of the burial, reports the plan;
-    // Thebes has no story buttons.
+    // Meeting the guard records the decree before either Helen account.
     let current = await state();
-    assert.ok(current.packs["greek-drama"].receipts["greek-hear-decree"]);
+    const decreeTurn =
+      current.packs["greek-drama"].receipts["greek-hear-decree"];
+    assert.ok(decreeTurn);
     assert.ok(!legalActions(current).some((a) => a.kind === "choose"));
-    // The black cloth waits at the sanctuary while the hands carry the tools.
-    await travel("greek-courtyard");
-    await travel("greek-palace");
-    await travel("greek-sanctuary");
-    await pair("cloth", "greek-sanctuary");
-    await playCard("greek-funeral-cloth");
-    await travel("greek-palace");
-    await travel("greek-courtyard");
-    await travel("greek-gate");
-    await playCard("greek-shovel");
-    await pair("greek-shovel", "greek-guard");
-    await travel("greek-courtyard");
-    await travel("greek-palace");
-    await travel("greek-sanctuary");
-    await playCard("cloth");
-    await travel("greek-palace");
-    await travel("greek-courtyard");
-    await travel("greek-gate");
-    current = await state();
-    assert.equal(
-      current.packs["greek-drama"].choices["greek-theban-response"],
-      "exposure",
-    );
-    assert.equal(current.items.cloth.holder, "vale");
-    assert.equal(rootHolder(current, "lamp"), "vale");
-    assert.equal(rootHolder(current, "cloth"), "vale");
-    const reportTurn =
-      current.packs["greek-drama"].receipts["greek-report-plan"];
     await artReady();
     await page.screenshot({
       path: new URL(`thebes-${width}.png`, output).pathname,
@@ -332,12 +276,8 @@ try {
     current = await state();
     assert.equal(current.actors.vale.place, "greek-gate");
     assert.equal(
-      current.packs["greek-drama"].choices["greek-theban-response"],
-      "exposure",
-    );
-    assert.equal(
-      current.packs["greek-drama"].receipts["greek-report-plan"],
-      reportTurn,
+      current.packs["greek-drama"].receipts["greek-hear-decree"],
+      decreeTurn,
     );
     for (const destination of ["greek-courtyard", "greek-harbor", "pond"])
       await travel(destination);
@@ -358,7 +298,15 @@ try {
       branch === "egypt" ? "greek-troy-beach" : "greek-egypt-tomb";
     const evidence = `greek-${branch}-testimony`;
     await travel("greek-harbor");
-    await choose(`greek-helen-${branch}`);
+    const tablet = "greek-helen-accounts";
+    await playCard(tablet);
+    if (branch === "troy") await travel("greek-well");
+    await pair(tablet, branch === "egypt" ? "greek-shipmaster" : "greek-elder");
+    assert.equal(
+      (await state()).items[tablet].holder,
+      branch === "egypt" ? "greek-harbor" : "greek-well",
+    );
+    if (branch === "troy") await travel("greek-harbor");
     assert.equal(await card(opposite).count(), 0);
     await travel(destination);
     await playCard(evidence);
@@ -380,8 +328,8 @@ try {
       branch,
     );
     assert.equal(
-      current.packs["greek-drama"].choices["greek-theban-response"],
-      "exposure",
+      current.packs["greek-drama"].receipts["greek-hear-decree"],
+      decreeTurn,
     );
     assert.equal(rootHolder(current, evidence), "vale");
 
@@ -418,7 +366,7 @@ try {
     assert.deepEqual(failedAssets, []);
     assert.deepEqual(errors, []);
     console.log(
-      `Greek crossing, Theban report, ${branch} branch, custody, reload and return passed at ${width}px.`,
+      `Greek crossing, Theban decree, ${branch} branch, custody, reload and return passed at ${width}px.`,
     );
     await page.close();
   }

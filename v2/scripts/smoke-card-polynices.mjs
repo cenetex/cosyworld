@@ -18,6 +18,7 @@ import {
 
 const hollow = "greek-polynices-hollow",
   antigone = "greek-antigone";
+const kit = ["greek-oil-flask", "greek-funeral-cloth", "greek-shovel"];
 const rites = [
   "greek-anoint-polynices",
   "greek-shroud-polynices",
@@ -29,8 +30,8 @@ fixture.crossings["pond-greek-harbor"].discovered = true;
 fixture.actors.vale.place = "greek-gate";
 fixture.actors.vale.visited.push("pond", "greek-gate");
 fixture.items["greek-creon-writ"].holder = "greek-guard";
-for (const item of ["greek-oil-flask", "greek-funeral-cloth", "greek-shovel"])
-  fixture.items[item].holder = hollow;
+fixture.items.lamp.holder = "attic";
+for (const item of kit) fixture.items[item].holder = "vale";
 for (const match of [
   { kind: "talk", target: antigone },
   { kind: "move", target: "greek-battlefield" },
@@ -155,10 +156,9 @@ try {
         await photograph(stage);
         const before = await state();
         await clearSelection(page);
+        await selectCard(page, kit[index], { touch: width === 390 });
         await selectCard(page, antigone, { touch: width === 390 });
-        const button = page.locator(
-          `#card-actions [data-choice="${rites[index]}"]`,
-        );
+        const button = page.locator('#card-actions [data-action="give"]');
         await button.waitFor({ state: "visible" });
         const bounds = await button.boundingBox();
         assert.ok(
@@ -174,6 +174,7 @@ try {
           "Each rite takes one turn",
         );
         const saved = (await state()).packs["greek-drama"];
+        assert.equal(saved.receipts[rites[index]], before.turn + 1);
         await page.reload();
         await settle();
         assert.deepEqual(
