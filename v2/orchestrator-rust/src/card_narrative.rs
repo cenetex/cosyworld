@@ -3016,7 +3016,7 @@ fn word_boundaries(text: &str, start: usize, end: usize) -> bool {
 fn redact_name(text: &mut String, name: &str) {
     let lower = text.to_ascii_lowercase();
     let name = name.to_ascii_lowercase();
-    for (at, _) in lower.match_indices(&name).rev() {
+    for (at, _) in lower.rmatch_indices(&name) {
         let end = at + name.len();
         if word_boundaries(&lower, at, end) {
             text.replace_range(at..end, "something unnamed");
