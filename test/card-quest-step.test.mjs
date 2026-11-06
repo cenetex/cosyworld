@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { createWorld, legalActions } from "../v2/card-game/world.mjs";
 import { NO_WAY, NOT_FOUND, questStep } from "../v2/card-game/quest-step.mjs";
+import { questCard } from "../v2/card-game/quest-card.mjs";
+import { funeralJourney } from "./helpers/greek-funeral.mjs";
 
 const quest = (kind, target, step = null) => ({
   actor: "vale",
@@ -55,6 +57,42 @@ describe("a chosen quest's next step", () => {
       "keeper",
       "oil",
     ]);
+  });
+
+  it("offers each Hollow gift or picks up the next supply first", () => {
+    const { beforeAnoint, anointed, veiled } = funeralJourney();
+    for (const [world, item] of [
+      [beforeAnoint, "greek-oil-flask"],
+      [anointed, "greek-funeral-cloth"],
+      [veiled, "greek-shovel"],
+    ]) {
+      expect(shown(questStep(world, questCard(world), false))).toEqual([
+        "give",
+        "greek-antigone",
+        item,
+      ]);
+      world.items[item].holder = "greek-polynices-hollow";
+      expect(shown(questStep(world, questCard(world), false))).toEqual([
+        "take",
+        null,
+        item,
+      ]);
+    }
+  });
+
+  it("looks for missing kit and waits for Antigone when needed", () => {
+    const { beforeAnoint: world } = funeralJourney();
+    world.items["greek-funeral-cloth"].holder = "greek-sanctuary";
+    expect(shown(questStep(world, questCard(world), false))).toEqual([
+      "move",
+      "greek-battlefield",
+      null,
+    ]);
+    world.items["greek-funeral-cloth"].holder = "vale";
+    world.actors["greek-antigone"].place = "greek-gate";
+    expect(questStep(world, questCard(world), false)).toEqual({
+      reason: "Wait for Antigone to receive the supplies",
+    });
   });
 
   it("rests at a sanctuary quest's place, and has no step to introduce", () => {
