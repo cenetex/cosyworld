@@ -387,6 +387,10 @@ pub(crate) struct ModelCandidate {
 }
 
 impl ModelCandidate {
+    pub(crate) fn accepts_image_input(&self) -> bool {
+        self.input_modalities.contains(&ModelModality::Image)
+    }
+
     pub(crate) fn requested_model_id(&self) -> &str {
         &self.requested_model_id
     }

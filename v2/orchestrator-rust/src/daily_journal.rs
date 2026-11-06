@@ -650,6 +650,7 @@ async fn complete_daily_journal_page(
         request_image_generation_for_key(
             config,
             ImageGenerationRequest {
+                options: Default::default(),
                 feature: DAILY_JOURNAL_IMAGE_FEATURE,
                 prompt_version: DAILY_JOURNAL_IMAGE_PROMPT_VERSION,
                 prompt: &image_prompt,
