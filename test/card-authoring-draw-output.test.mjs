@@ -1,5 +1,10 @@
 import { expect, it, vi } from "vitest";
-import { prepareAcceptedAvatars } from "../v2/card-game/authoring-draw-output.mjs";
+import {
+  prepareAcceptedAvatars,
+  acceptedCharacterNames,
+} from "../v2/card-game/authoring-draw-output.mjs";
+import { adoptAcceptedAvatar } from "../v2/card-game/authoring-accepted.mjs";
+import { createCharacterDraw } from "../v2/card-game/authoring-draw.mjs";
 import { createAuthoringSession } from "../v2/card-game/authoring-session.mjs";
 import { importPack } from "../v2/card-game/authoring-draft.mjs";
 import { packDefinition } from "../v2/card-game/pack-registry.mjs";
@@ -22,6 +27,46 @@ const request = (n) => ({
     suggested: true,
   },
   images: [],
+});
+
+it("deduplicates current and saved aliases after edits and Undo", async () => {
+  const start = record(),
+    option = request(1);
+  option.accepted.aliases = ["Night Watch", "Guíde 1"];
+  const prepared = await prepareAcceptedAvatars(start, [option]),
+    id = prepared.ids[0];
+  const first = adoptAcceptedAvatar(start, prepared);
+  first.draft.pack.avatars[id].name = "Robin";
+  option.revision = 2;
+  option.accepted = { ...option.accepted, name: "Wren", aliases: [] };
+  const next = adoptAcceptedAvatar(
+    first,
+    await prepareAcceptedAvatars(first, [option]),
+  );
+  next.draft.pack = structuredClone(first.draft.pack);
+  const known = await acceptedCharacterNames(next);
+  for (const name of ["Robin", "Wren", "Guide 1", "Night Watch"])
+    expect(known).toContainEqual({ name, aliases: [] });
+  expect(known.some((card) => card.name === "Guíde 1")).toBe(false);
+  const draw = createCharacterDraw({
+    generate: async (input) => {
+      expect(input.excluded).toContain("Night Watch");
+      return {
+        ...option.accepted,
+        name: "Night Watch",
+      };
+    },
+  });
+  draw.setMode("idea");
+  draw.setText("Night Watch waits by the shore.");
+  await draw.find(known);
+  expect(draw.state).toMatchObject({ cards: [], error: "" });
+  delete next.draft.pack.avatars[id];
+  expect(
+    (await acceptedCharacterNames(next)).some(
+      (card) => card.name === "Night Watch",
+    ),
+  ).toBe(false);
 });
 
 it("keeps six avatars in one write and one Undo, with an exact retry after failure", async () => {

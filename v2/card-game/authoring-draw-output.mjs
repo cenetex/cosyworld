@@ -1,4 +1,8 @@
-import { prepareAcceptedAvatar } from "./authoring-accepted.mjs";
+import {
+  prepareAcceptedAvatar,
+  acceptedAvatarOutputs,
+} from "./authoring-accepted.mjs";
+import { nameKey } from "./authoring-cast.mjs";
 import { exportManifest, parseDraft } from "./authoring-draft.mjs";
 import { applySourceEdit, sourceEdit } from "./authoring-edits.mjs";
 
@@ -48,4 +52,21 @@ export async function prepareAcceptedAvatars(record, requests) {
     }),
   );
   return { ids, edit, assets, bytes, baseline };
+}
+
+export async function acceptedCharacterNames(record) {
+  const names = new Map();
+  const add = (name) => {
+    if (typeof name !== "string") return;
+    const key = nameKey(name);
+    if (key && !names.has(key)) names.set(key, name.trim());
+  };
+  for (const [id, avatar] of Object.entries(record.draft.pack?.avatars || {})) {
+    add(avatar.name);
+    for (const { accepted } of await acceptedAvatarOutputs(record, id)) {
+      add(accepted.name);
+      accepted.aliases.forEach(add);
+    }
+  }
+  return [...names.values()].map((name) => ({ name, aliases: [] }));
 }
