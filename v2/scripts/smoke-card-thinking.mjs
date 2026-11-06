@@ -15,15 +15,15 @@ const reports = [];
 try {
   for (const width of [1440, 390]) {
     let world = createWorld();
+    // Keep the pond residents home throughout the recorded visit.
+    world.actors.moth.want = null;
+    world.actors.keeper.want = null;
     // A later silent return needs an earlier committed arrival at the station.
     for (const target of ["pond", "station", "pond"]) {
       const moved = play(world, legalActions(world).find(action => action.kind === "move" && action.target === target));
       assert(moved.ok, moved.error);
       world = moved.state;
     }
-    world.actors.moth.place = "pond";
-    // Pip stays at the pond to be talked with.
-    world.actors.moth.want = null;
     world.items.lamp.holder = "station";
     const table = `thinking-${width}`;
     const key = `cosyworld.reflected-shore.v1.${table}`;
