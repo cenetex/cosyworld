@@ -368,7 +368,10 @@ try {
       })),
       { name: "Talk", lines: 1 },
     );
-    assert.match(await talk.getAttribute("aria-label"), /^Quest: Talk with /);
+    assert.equal(
+      await talk.getAttribute("aria-label"),
+      "Quest: Find someone to talk to",
+    );
     const drop = page.locator('#card-actions [data-drop-quest="0"]');
     await drop.waitFor();
     // The quest caption carries the unknown target; Abandon is its action.
