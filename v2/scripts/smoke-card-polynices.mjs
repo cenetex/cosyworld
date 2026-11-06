@@ -168,7 +168,8 @@ try {
       await selectCard(page, hollow, { touch: width === 390 });
       const locked = page.locator(`#hand [data-card="${hollow}"]`);
       assert.equal(await locked.getAttribute("data-locked"), "true");
-      assert.match(await page.locator(".action-beat-text").innerText(), /Polynices.*Shade/);
+      await readyActionButton(page, "gate").waitFor();
+      assert.match(await readyActionButton(page, "gate").innerText(), /Polynices.*Shade/);
       await photograph("locked");
       const turn = (await state()).turn;
       await readyActionButton(page, "gate").click();
