@@ -298,7 +298,7 @@ describe("the Wine-Dark Sea crossing", () => {
   });
 });
 
-// Thebes has no story buttons: its deeds are Give, Wait and meetings.
+// Give carries Thebes's errands and the reports kept in earlier saves.
 const give = (world, item, target) => act(world, "give", { item, target });
 const done = (world, id) => stateOf(world).receipts[`greek-${id}`];
 const noButtons = (world) =>
@@ -317,6 +317,71 @@ describe("Greek choices and their receipts", () => {
     expect(world.quests).toBeUndefined();
     expect(stateOf(world).scope).toBe("opening");
     expect(exits(world, HARBOR, "vale")).not.toContain("greek-argolid-road");
+  });
+
+  it.each([
+    ["burial", true, "courtyard-burial"],
+    ["concession", false, "courtyard-permitted-burial"],
+  ])(
+    "finishes a saved %s report at Dione's table",
+    (branch, reportFirst, report) => {
+      const returning = openingFixture(branch, { reportFirst }).returning;
+      expect(stateOf(returning).flags["greek-burial-performed"]).toBe(true);
+      expect(stateOf(returning).flags["greek-open-door-open"]).toBeUndefined();
+      expect(returning.items["greek-burial-account"].holder).toBe("vale");
+      const reported = give(returning, "greek-burial-account", "greek-baker");
+      expect(done(reported, report)).toBe(reported.turn);
+      expect(stateOf(reported).flags["greek-open-door-open"]).toBe(true);
+      expect(stateOf(reported).choices["greek-theban-response"]).toBe(branch);
+      expect(stateOf(reported).receipts).toMatchObject(
+        stateOf(returning).receipts,
+      );
+      expect(reported.items["greek-burial-account"].holder).toBe(COURTYARD);
+      expect(reload(reported)).toEqual(reported);
+    },
+  );
+
+  it("keeps a saved completed burial complete when supplies reach the Hollow", () => {
+    const world = openingFixture("burial").buried;
+    const hollow = "greek-polynices-hollow";
+    world.actors.vale.place = hollow;
+    world.actors["greek-antigone"].place = hollow;
+    for (const item of [
+      "greek-oil-flask",
+      "greek-funeral-cloth",
+      "greek-shovel",
+    ])
+      world.items[item].holder = hollow;
+    expect(stateOf(world).flags["greek-burial-performed"]).toBe(true);
+    expect(
+      legalActions(reload(world)).filter(
+        (a) => a.choiceId === "greek-anoint-polynices",
+      ),
+    ).toEqual([]);
+  });
+
+  it("keeps the Hollow funeral's own receipt when its account reaches Dione", () => {
+    const buried = funeralJourney().buried;
+    let world = take(move(buried, BATTLEFIELD), "greek-burial-account");
+    world = move(world, COURTYARD);
+    const reports = [
+      "burial",
+      "permitted-burial",
+      "concession",
+      "exposure",
+    ].map((id) => `greek-courtyard-${id}`);
+    expect(
+      cardChoices(world, "greek-baker").filter((a) =>
+        reports.includes(a.choiceId),
+      ),
+    ).toEqual([]);
+    world = give(world, "greek-burial-account", "greek-baker");
+    expect(
+      reports.filter((id) => stateOf(world).receipts[id] !== undefined),
+    ).toEqual([]);
+    expect(stateOf(world).choices["greek-theban-response"]).toBeUndefined();
+    expect(done(world, "bury-polynices")).toBe(buried.turn);
+    expect(stateOf(reload(world)).flags["greek-open-door-open"]).toBe(true);
   });
 
   it("keeps the earlier exposure report and its poem through reload", () => {
