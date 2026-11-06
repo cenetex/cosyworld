@@ -354,8 +354,12 @@ try {
         await page.locator("#backdrop").getAttribute("alt"),
         /flash|signal|twice|cover/i,
       );
-      // Cloth plays are silent; a signal's echo needs no request.
-      assert.equal(requests.length, 0, "cloth plays send no speech request");
+      // Item reactions, when the rules call for them, belong to Vale. The
+      // cast's face-down cards remain private throughout both cloth plays.
+      assert(requests.length <= 2, "Each cloth play requests words at most once");
+      assert.equal(new Set(requests.map(({ turn }) => turn)).size, requests.length);
+      for (const request of requests)
+        assert.deepEqual(request.speakers, ["vale"], "Only Vale reacts to the cloth");
       await page.reload();
       await card("cloth").waitFor({ state: "attached" });
       await assertHeldItem(null);

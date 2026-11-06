@@ -499,9 +499,9 @@ try {
           .getBoundingClientRect();
       return card.left >= hand.left - 1 && card.right <= hand.right + 1;
     });
+    await ready();
     await card("vale").dispatchEvent("click");
     assert.deepEqual(await pressed(), ["vale"]);
-    await ready();
     assert.equal((await state()).turn, before.turn + 1);
     assert.equal((await state()).items.cloth.holder, "vale");
     assert.equal((await state()).items.lamp.holder, "moth");

@@ -27,6 +27,10 @@ fixture.items.lamp.holder = "moth";
 fixture.items.lamp.lit = true;
 fixture.items.lamp.fuel = 8;
 fixture = act(fixture, "wait");
+// Start a fresh visit after Pip settles with the lamp. The browser's Wait
+// then tests this visit's first reply, using the same real travel rules.
+fixture = act(fixture, "move", "station");
+fixture = act(fixture, "move", "pond");
 const save = encodeSave(fixture);
 const key = "cosyworld.reflected-shore.v1.pond-access-check";
 const server = createServer();
