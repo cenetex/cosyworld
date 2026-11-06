@@ -593,10 +593,19 @@ export function playTitleIntro({
             : below,
           below,
         ];
-    const [x, y] = places[place++ % places.length];
+    const first = place++ % places.length;
+    const candidates = [...places.slice(first), ...places.slice(0, first), above]
+      .map(([x, y]) => [
+        Math.max(16, Math.min(innerWidth - w - 16, x)),
+        Math.max(16, Math.min(foot - h, y)),
+      ]);
+    const [x, y] = candidates.find(([x, y]) =>
+      y + h <= box.top - 8 || y >= box.bottom + 8 ||
+      x + w <= box.left - 8 || x >= box.right + 8,
+    ) || candidates[0];
     Object.assign(hint.style, {
-      left: `${Math.max(16, Math.min(innerWidth - w - 16, x)) - origin.left}px`,
-      top: `${Math.max(16, Math.min(foot - h, y)) - origin.top}px`,
+      left: `${x - origin.left}px`,
+      top: `${y - origin.top}px`,
       color: tier.color,
     });
     if (!reduced) {

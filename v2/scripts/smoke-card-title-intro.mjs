@@ -530,6 +530,8 @@ async function checkLargeText() {
     });
     await page.waitForTimeout(reducedMotion === "reduce" ? 100 : 1300);
     if (zoom) {
+      // Give wrapped lines the taller metrics of a different system serif.
+      await page.$eval(".title-hint", (hint) => { hint.style.lineHeight = "1.5"; });
       await nextWhisper(page, 0.32);
       await nextWhisper(page, 0.999, 0.75);
       await page.waitForTimeout(1300);
