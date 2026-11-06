@@ -111,8 +111,9 @@ export function actionCaption(entry, { viewer, here, arrival = null }) {
   }
   if (QUIET_VERBS.has(verb)) return null;
   switch (verb) {
-    case "move":
     case "course":
+      return caption("➜", `${a} set the ship's course for ${t}.`);
+    case "move":
       if (leaving)
         return caption("➜", `${a} left for ${nameOf(entry.locationId)}.`);
       if (arriving) {
@@ -243,7 +244,10 @@ export function actionCaption(entry, { viewer, here, arrival = null }) {
     case "snuff":
       return caption("◌", `${a} snuffed ${the(entry.itemId)}.`);
     case "ring":
-      return caption("♪", `${a} rang ${the(entry.itemId)}.`);
+      return caption(
+        "♪",
+        entry.itemId ? `${a} rang ${the(entry.itemId)}.` : entry.text,
+      );
     case "refuel":
       return caption(
         "⛽",

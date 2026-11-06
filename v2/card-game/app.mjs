@@ -3803,7 +3803,10 @@ function renderScene() {
         item.dataset.kind = action.kind;
         item.toggleAttribute(
           "data-primary",
-          front.committed === true && action.seq === front.anchor,
+          !front.line &&
+            !front.pending &&
+            !front.dream &&
+            action.seq === front.anchor,
         );
         item.toggleAttribute(
           "data-named",
@@ -4283,7 +4286,7 @@ document.addEventListener(
 );
 $("beat-behind").onclick = () => {
   if (inscribing.size) finishInscribing();
-  else stepBack();
+  stepBack();
 };
 // The portrait, name and words share the same advance control.
 $("speech-row").addEventListener(
