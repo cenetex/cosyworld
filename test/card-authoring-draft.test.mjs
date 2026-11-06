@@ -147,6 +147,9 @@ describe("authoring draft files", () => {
         size: DRAFT_LIMITS.assetBytes,
       }));
     });
+    rejects((d) => {
+      d.sources = Array(513).fill(source);
+    });
     expect(() => parseDraft(" ".repeat(DRAFT_LIMITS.metadata + 1))).toThrow();
   });
   it("checks values that JSON would change and deeply nested data", () => {
@@ -159,7 +162,11 @@ describe("authoring draft files", () => {
   });
   it("hashes just the supplied file bytes for a separate upload", async () => {
     const bytes = new TextEncoder().encode("xabcx").subarray(1, 4);
-    const result = await assetMetadata("notes/source.md", "text/markdown", bytes);
+    const result = await assetMetadata(
+      "notes/source.md",
+      "text/markdown",
+      bytes,
+    );
     expect(result).toEqual({
       path: "notes/source.md",
       mime: "text/markdown",

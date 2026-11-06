@@ -146,13 +146,12 @@ function checked(value) {
   );
   need(
     Array.isArray(value.sources) &&
-      value.sources.length <= 1024 &&
+      value.sources.length <= 512 &&
       value.sources.every(sourceOk),
     "Use local file paths or GitHub sources with an exact commit.",
   );
   return text;
 }
-
 export function parseDraft(text) {
   need(
     typeof text === "string" &&
@@ -163,11 +162,9 @@ export function parseDraft(text) {
   checked(draft);
   return draft;
 }
-
 export function exportManifest(draft) {
   return checked(draft);
 }
-
 export function importPack({
   pack,
   bridge = null,
@@ -190,7 +187,6 @@ export function importPack({
     }),
   );
 }
-
 // File bytes travel through the asset upload. The draft keeps this reference.
 export async function assetMetadata(path, mime, bytes) {
   const data = bytes instanceof ArrayBuffer ? new Uint8Array(bytes) : bytes;
