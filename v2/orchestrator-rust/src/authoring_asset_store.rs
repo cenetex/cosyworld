@@ -59,11 +59,13 @@ fn directory(path: &Path) -> Result<()> {
 }
 fn make_directory(path: &Path) -> Result<()> {
     match fs::create_dir(path) {
-        Ok(()) => fs::File::open(path.parent().ok_or(Error::Unavailable)?)?.sync_all()?,
+        Ok(()) => (),
         Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => (),
         Err(e) => return Err(e.into()),
     }
-    directory(path)
+    directory(path)?;
+    fs::File::open(path.parent().ok_or(Error::Unavailable)?)?.sync_all()?;
+    Ok(())
 }
 
 impl PrivateAssetStore {
@@ -150,22 +152,25 @@ impl PrivateAssetStore {
         if bytes.len() as u64 > MAX_FILE || sha(bytes) != digest {
             return Err(Error::Invalid);
         }
-        let receipt = || Receipt {
-            sha256: digest.into(),
-            size: bytes.len() as u64,
+        let receipt = || {
+            fs::File::open(&self.owner)?.sync_all()?;
+            Ok(Receipt {
+                sha256: digest.into(),
+                size: bytes.len() as u64,
+            })
         };
         if self.read(digest)?.is_some() {
-            return Ok(receipt());
+            return receipt();
         }
         let guard = GeneratedAssetWriteGuard::acquire(&self.root, bytes.len() as u64);
         let _guard = match guard {
             Ok(v) => v,
-            Err(_) if self.read(digest)?.is_some() => return Ok(receipt()),
+            Err(_) if self.read(digest)?.is_some() => return receipt(),
             Err(e) if e.starts_with(GENERATED_ASSET_LIMIT_CODE) => return Err(Error::Capacity),
             Err(_) => return Err(Error::Unavailable),
         };
         if self.read(digest)?.is_some() {
-            return Ok(receipt());
+            return receipt();
         }
         let used = self.usage()?;
         if used.objects >= self.limit.objects
@@ -185,13 +190,13 @@ impl PrivateAssetStore {
             file.sync_all()?;
             before_commit(&temporary)?;
             fs::rename(&temporary, &path)?;
-            fs::File::open(&self.owner)?.sync_all()
+            Ok(())
         })();
         if result.is_err() {
             let _ = fs::remove_file(&temporary);
         }
         result?;
-        Ok(receipt())
+        receipt()
     }
 }
 
