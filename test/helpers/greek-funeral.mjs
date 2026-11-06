@@ -61,26 +61,22 @@ export function funeralJourney(world = null) {
     act("take", { item: "greek-funeral-cloth" });
     states.supplied = world;
     move("polynices-hollow");
-    for (const item of [
-      "greek-oil-flask",
-      "greek-funeral-cloth",
-      "greek-shovel",
-    ])
-      act("drop", { item, target: "greek-polynices-hollow" });
-    for (
-      let turns = 0;
-      turns < 48 &&
-      !legalActions(world).some((a) => a.choiceId === "greek-anoint-polynices");
-      turns++
-    )
-      act("wait");
+    const target = "greek-antigone";
+    const canOfferOil = () =>
+      legalActions(world).some(
+        (a) =>
+          a.kind === "give" &&
+          a.target === target &&
+          a.item === "greek-oil-flask",
+      );
+    for (let turns = 0; turns < 48 && !canOfferOil(); turns++) act("wait");
     states.beforeAnoint = world;
-    for (const [state, choiceId] of [
-      ["anointed", "greek-anoint-polynices"],
-      ["veiled", "greek-shroud-polynices"],
-      ["buried", "greek-bury-polynices"],
+    for (const [state, item] of [
+      ["anointed", "greek-oil-flask"],
+      ["veiled", "greek-funeral-cloth"],
+      ["buried", "greek-shovel"],
     ]) {
-      act("choose", { choiceId });
+      act("give", { item, target });
       states[state] = world;
     }
     return states;

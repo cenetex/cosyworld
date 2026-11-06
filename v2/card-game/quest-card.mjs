@@ -30,12 +30,12 @@ function burial(world, want) {
   return {
     art: `assets/greek-drama/polynices-${stages[stage]}.webp`,
     rite: [
-      "Lay the funeral items in Polynices’ Hollow",
+      "Give Antigone the oil in Polynices’ Hollow",
       "Hand Antigone the cloth",
       "Hand Antigone the shovel",
       "Polynices is buried",
     ][stage],
-    riteVerb: ["Lay", "Shroud", "Bury", "Buried"][stage],
+    riteVerb: ["Anoint", "Shroud", "Bury", "Buried"][stage],
     remaining: want.step.items.slice(stage),
   };
 }

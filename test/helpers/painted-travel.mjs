@@ -1,6 +1,7 @@
 import { createWorld, legalActions, play } from "../../v2/card-game/world.mjs";
 import { summonTransport } from "../../v2/card-game/pack-transport.mjs";
 import { isNight } from "../../v2/card-game/daylight.mjs";
+import { packDefinition } from "../../v2/card-game/pack-registry.mjs";
 
 export const argosPaintings = [
   ["greek-argos-palace", "aeschylus", "house-atreus-palace"],
@@ -27,9 +28,14 @@ function atNight(world, night) {
 
 export function argosPaintingWorld(place, account, night) {
   let world = createWorld({ packScopes: { "greek-drama": "full" } });
-  world.actors.vale.place = "greek-argolid-road";
-  world.actors["greek-rhapsode"].place = "greek-argolid-road";
-  world = paintedStep(world, "choose", { choiceId: `greek-atreid-${account}` });
+  const choice = packDefinition("greek-drama").choices.find(
+    (c) => c.id === `greek-atreid-${account}`,
+  );
+  const item = "greek-atreid-record";
+  world.crossings["pond-greek-harbor"].discovered = true;
+  world.actors.vale.place = choice.at;
+  world.items[item].holder = "vale";
+  world = paintedStep(world, "give", { item, target: choice.subject });
   // The art fixture visits the selected account's place without releasing Argos.
   world.actors.vale.place = place;
   return atNight(world, night);

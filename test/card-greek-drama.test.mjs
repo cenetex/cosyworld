@@ -132,6 +132,20 @@ const walk = (world, ...route) => route.reduce(move, world);
 const take = (world, item) => act(world, "take", { item });
 
 function choose(world, choiceId) {
+  const choice = packDefinition(PACK).choices.find((c) => c.id === choiceId);
+  if (["give", "talk"].includes(choice?.on)) {
+    const { subject: target } = choice;
+    const kind = choice.on;
+    const item = choice.requires.find((r) => r.kind === "holding")?.item;
+    const cards = item ? [item, target] : [target];
+    expect(cardPlay(world, cards).action).toMatchObject({ kind, target });
+    expect(cardChoices(world, target).map((a) => a.choiceId)).not.toContain(
+      choiceId,
+    );
+    world = act(world, kind, item ? { item, target } : { target });
+    expect(stateOf(world).receipts[choiceId]).toBe(world.turn);
+    return world;
+  }
   const action = legalActions(world).find((a) => a.choiceId === choiceId);
   expect(action, `choice ${choiceId}`).toBeTruthy();
   const topic = packDefinition(PACK).topics?.find(
@@ -466,16 +480,10 @@ describe("Before the Burial", () => {
     expect(beforeAnoint.actors["greek-antigone"].place).toBe(
       "greek-polynices-hollow",
     );
-    for (const [world, choice] of [
-      [beforeAnoint, "anoint"],
-      [anointed, "shroud"],
-      [veiled, "bury"],
-    ]) {
-      expect(
-        legalActions(world)
-          .filter((a) => a.kind === "choose")
-          .map((a) => a.choiceId),
-      ).toEqual([`greek-${choice}-polynices`]);
+    for (const world of [beforeAnoint, anointed, veiled]) {
+      expect(legalActions(world).filter((a) => a.kind === "choose")).toEqual(
+        [],
+      );
       expect(stateOf(world).flags["greek-open-door-open"]).toBeUndefined();
       expect(entityActive(world, "greek-colonus")).toBe(false);
       expect(entityActive(world, "greek-eleusis")).toBe(false);
@@ -654,15 +662,17 @@ describe("incompatible histories become playable branches", () => {
   ])(
     "retains the %s Helen branch, its witness and physical evidence",
     (branch, destination, evidence, other, otherDestination) => {
-      let world = harbor();
-      const alternative = legalActions(world).find(
-        (a) => a.choiceId === `greek-helen-${other}`,
+      const tablet = "greek-helen-accounts";
+      let world = take(harbor(), tablet);
+      const choice = packDefinition(PACK).choices.find(
+        (c) => c.id === `greek-helen-${branch}`,
       );
-      expect(alternative).toBeTruthy();
-      world = choose(world, `greek-helen-${branch}`);
+      if (choice.at !== HARBOR) world = move(world, choice.at);
+      world = choose(world, choice.id);
+      expect(world.items[tablet].holder).toBe(choice.at);
+      if (choice.at !== HARBOR) world = move(world, HARBOR);
       expect(exits(world, HARBOR, "vale")).toContain(destination);
       expect(exits(world, HARBOR, "vale")).not.toContain(otherDestination);
-      expect(play(world, alternative, world.revision).ok).toBe(false);
       world = move(world, destination);
       expect(knownActors(world)).toContain(`greek-helen-${branch}`);
       expect(knownActors(world)).not.toContain(`greek-helen-${other}`);
@@ -675,7 +685,6 @@ describe("incompatible histories become playable branches", () => {
       expect(stateOf(world).choices["greek-helen-account"]).toBe(branch);
       expect(rootHolder(world, evidence)).toBe("vale");
       expect(exits(world, HARBOR, "vale")).not.toContain(otherDestination);
-      expect(play(world, alternative, world.revision).ok).toBe(false);
       expect(reload(world)).toEqual(world);
 
       const forged = structuredClone(world);
@@ -710,14 +719,14 @@ describe("incompatible histories become playable branches", () => {
   ])(
     "offers a separate %s Atreid history without opening the other two",
     (branch, destination, evidence, response) => {
-      let world = move(harbor(), "greek-argolid-road");
-      // This branch fixture begins with the bard at the meeting site.
-      world.actors["greek-rhapsode"].place = "greek-argolid-road";
-      const options = legalActions(world).filter((a) =>
-        a.choiceId?.startsWith("greek-atreid-"),
+      const choice = packDefinition(PACK).choices.find(
+        (c) => c.id === `greek-atreid-${branch}`,
       );
-      expect(options).toHaveLength(3);
-      world = choose(world, `greek-atreid-${branch}`);
+      const record = "greek-atreid-record";
+      let world = take(move(harbor(), "greek-argolid-road"), record);
+      world = choose(move(world, choice.at), choice.id);
+      expect(world.items[record].holder).toBe(choice.at);
+      world = move(world, "greek-argolid-road");
       const routes = [
         "greek-argos-tomb",
         "greek-mycenae-palace",
@@ -741,8 +750,6 @@ describe("incompatible histories become playable branches", () => {
       );
       expect(stateOf(world).choices["greek-atreid-account"]).toBe(branch);
       expect(rootHolder(world, evidence)).toBe("vale");
-      for (const option of options)
-        expect(play(world, option, world.revision).ok).toBe(false);
       world = choose(
         move(world, destination),
         `greek-atreid-${branch}-${response}`,

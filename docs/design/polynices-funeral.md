@@ -137,7 +137,14 @@ Hollow." Talk with either gives the player the same `lay` quest, not a
 "bring them there" quest. The kind stays `place`, so the Rust narrative
 check on a met want (`place` with a location target) is unchanged.
 
-## The rites (pack choices, data only)
+## Playing the rites
+
+Bring the three supplies to Antigone in the Hollow. Give her the oil, the
+cloth and the shovel in that order. Take any supplies already laid out on
+the ground before handing them over. Each gift takes one turn, and the
+quest card shows the next rite.
+
+## Original rite design
 
 These are three context-button choices whose subject is Antigone, at the
 Hollow. Each one is a single play of normal time: the rites do not darken
