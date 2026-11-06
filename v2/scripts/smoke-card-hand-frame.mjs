@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
-import { chromium } from "playwright";
+import { chromium, webkit } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
 import { createWorld, encodeSave } from "../card-game/world.mjs";
 import { enableMotives } from "../card-game/motives.mjs";
@@ -15,7 +15,11 @@ const output = new URL("../../output/card-hand-frame/", import.meta.url);
 await mkdir(output, { recursive: true });
 const server = createServer();
 await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
-const browser = await chromium.launch({ headless: true });
+const browserType = { chromium, webkit }[
+  process.env.CARD_BROWSER || "chromium"
+];
+assert(browserType, "CARD_BROWSER must be chromium or webkit");
+const browser = await browserType.launch({ headless: true });
 const world = enableMotives(createWorld());
 world.actors.moth.place = world.actors.keeper.place = "station";
 for (const item of ["cloth", "lamp", "oil"]) world.items[item].holder = "vale";
@@ -98,6 +102,45 @@ const inspect = (longName) => {
 };
 
 try {
+  // Revealing the first place changes the resting hand's width.
+  const opening = await browser.newPage({
+    viewport: { width: 1440, height: 900 },
+  });
+  const openingErrors = [];
+  opening.on("pageerror", (error) => openingErrors.push(error.message));
+  await opening.route("**/card-game/text", (route) => {
+    const input = route.request().postDataJSON();
+    return route.fulfill({
+      json: {
+        revision: input.revision,
+        model: "hand-fixture",
+        entries: input.entities.map(({ id }) => ({ id, text: "Awake." })),
+      },
+    });
+  });
+  await opening.goto(`http://127.0.0.1:${server.address().port}/?intro=1`);
+  await opening.waitForSelector(".title-ack");
+  await opening.keyboard.press("Escape");
+  await opening.waitForSelector(".title-intro", { state: "detached" });
+  await opening.locator('#hand .card[data-card="attic"]').click();
+  await opening.waitForSelector(
+    '#hand .card[data-card="attic"][data-unrevealed="false"]',
+  );
+  await opening.waitForTimeout(600);
+  const widths = await opening.$eval("#hand", async (hand) => {
+    const widths = [];
+    for (let i = 0; i < 12; i++) {
+      await new Promise(requestAnimationFrame);
+      widths.push(hand.getBoundingClientRect().width);
+    }
+    return widths;
+  });
+  assert.ok(
+    Math.max(...widths) - Math.min(...widths) < 1,
+    JSON.stringify(widths),
+  );
+  assert.deepEqual(openingErrors, []);
+  await opening.close();
   const sizes = { 390: 844, 765: 760, 1280: 720, 1440: 900, 1900: 960 };
   for (const [size, height] of Object.entries(sizes)) {
     const width = Number(size);

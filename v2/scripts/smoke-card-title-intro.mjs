@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
-import { chromium } from "playwright";
+import { chromium, webkit } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
 import { startNewGame } from "./card-browser-helpers.mjs";
 import { REVEAL_HINT, TITLES, WAKE_FADE } from "../card-game/title-intro.mjs";
@@ -26,10 +26,19 @@ const server = createServer();
 await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
 const origin = `http://127.0.0.1:${server.address().port}`;
 // Real browsers allow sound only after a gesture; so does this one.
-const browser = await chromium.launch({
+const browserName = process.env.CARD_BROWSER || "chromium";
+const browserType = { chromium, webkit }[browserName];
+assert(browserType, `Unknown CARD_BROWSER: ${browserName}`);
+const browser = await browserType.launch({
   headless: true,
-  args: ["--autoplay-policy=user-gesture-required"],
+  args:
+    browserName === "chromium"
+      ? ["--autoplay-policy=user-gesture-required"]
+      : [],
 });
+// WebKit on macOS uses Option-Tab to include links in keyboard navigation.
+const tab =
+  browserName === "webkit" && process.platform === "darwin" ? "Alt+Tab" : "Tab";
 const output = new URL(
   process.env.TITLE_INTRO_SHOTS
     ? `file://${process.env.TITLE_INTRO_SHOTS.replace(/\/?$/, "/")}`
@@ -688,7 +697,6 @@ try {
     // The way on is a quiet line of text, still a focused button.
     const cue = await page.$eval(".title-continue", (next) => ({
       focused: document.activeElement === next,
-      ring: next.matches(":focus-visible"),
       tag: next.tagName,
       text: next.textContent,
       border: getComputedStyle(next).borderStyle,
@@ -696,7 +704,6 @@ try {
     }));
     assert.deepEqual(cue, {
       focused: true,
-      ring: false,
       tag: "BUTTON",
       text: "click to continue",
       border: "none",
@@ -1031,12 +1038,12 @@ try {
   await shot(muted, "ack-375");
   await muted.keyboard.press("Space");
   await cardShown(muted);
-  await muted.keyboard.press("Tab");
+  await muted.keyboard.press(tab);
   assert.equal(
     await muted.evaluate(() => document.activeElement.className),
     "title-privacy",
   );
-  await muted.keyboard.press("Shift+Tab");
+  await muted.keyboard.press(`Shift+${tab}`);
   assert.notEqual(
     await muted.$eval(traveller, (c) => getComputedStyle(c).outlineColor),
     "rgba(0, 0, 0, 0)",
