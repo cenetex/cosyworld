@@ -45,6 +45,7 @@ const files = [
   "authoring-local-import.mjs",
   "authoring-controller.mjs",
   "authoring-images.mjs",
+  "authoring-visual-draft.mjs",
   "avatar-menu.mjs",
   "unlock-view.mjs",
   "world-names.json",
