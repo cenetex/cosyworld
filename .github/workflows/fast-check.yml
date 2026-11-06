@@ -237,6 +237,13 @@ jobs:
         with:
           path: ~/.cache/ms-playwright
           key: ${{ runner.os }}-${{ runner.arch }}-playwright-${{ hashFiles('node_modules/playwright-core/package.json') }}
+      - name: Use Ubuntu archive for browser dependencies
+        run: |
+          # The Azure mirror delivered browser fonts at 18.4 kB/s in CI.
+          if [ -f /etc/apt/apt-mirrors.txt ]; then
+            sudo sed -i 's|http://azure.archive.ubuntu.com/ubuntu|https://archive.ubuntu.com/ubuntu|g' /etc/apt/apt-mirrors.txt
+            cat /etc/apt/apt-mirrors.txt
+          fi
       - name: Install Chromium system dependencies
         run: npx playwright install-deps chromium
       - name: Install Chromium
