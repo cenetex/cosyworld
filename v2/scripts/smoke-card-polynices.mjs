@@ -26,7 +26,7 @@ const rites = [
   "greek-bury-polynices",
 ];
 let fixture = createWorld();
-fixture.turn = fixture.revision = 20;
+fixture.turn = fixture.revision = 36;
 fixture.crossings["pond-greek-harbor"].discovered = true;
 fixture.actors.vale.place = "greek-gate";
 fixture.actors.vale.visited.push("pond", "greek-gate");
@@ -166,6 +166,25 @@ try {
       }
       await showState(fixture);
       await selectCard(page, hollow, { touch: width === 390 });
+      const locked = page.locator(`#hand [data-card="${hollow}"]`);
+      assert.equal(await locked.getAttribute("data-locked"), "true");
+      assert.match(await page.locator(".action-beat-text").innerText(), /Polynices.*Shade/);
+      await photograph("locked");
+      const turn = (await state()).turn;
+      await readyActionButton(page, "gate").click();
+      await settle();
+      assert.equal((await state()).turn, turn, "Taking the Talk quest keeps the turn");
+      assert.equal((await state()).actors.vale.want.target, "greek-polynices-shade");
+      await clearSelection(page);
+      await selectCard(page, "greek-polynices-shade", { touch: width === 390 });
+      await readyActionButton(page, "talk").click();
+      await settle();
+      assert.equal((await state()).packs["greek-drama"].flags["greek-polynices-heard"], true);
+      await page.reload();
+      await settle();
+      await selectCard(page, hollow, { touch: width === 390 });
+      assert.equal(await locked.getAttribute("data-locked"), "false");
+      await photograph("opened");
       await readyActionButton(page, "move").click();
       await settle();
       assert.equal((await state()).actors.vale.place, hollow);
