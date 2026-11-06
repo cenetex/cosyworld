@@ -1,5 +1,6 @@
 import { atticOpening } from "../../test/fixtures/card-attic-opening.mjs";
 import {
+  readyActionButton,
   revealCard,
   selectCard,
   startNewGame,
@@ -169,7 +170,7 @@ try {
       });
       if (kind === "shared") await selectCard(page, "moth");
       await selectCard(page, "pond");
-      await page.locator("#card-actions .card-primary").click();
+      await readyActionButton(page).click();
       if (kind === "reset") {
         await startNewGame(page);
         // A new game opens on the attic without a quest reveal.
