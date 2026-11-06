@@ -152,18 +152,18 @@ async function start() {
   const imports = authoringImportTools({ store, chooseFiles });
   const source = {
     id: "source",
-    name: "Source",
+    name: "World notes",
     describe(context) {
       const { key, draft } = context.snapshot();
       return {
-        note: "Write or paste your world here.",
+        note: "These notes are saved with your world.",
         edit: {
           key: `${key}:document`,
-          label: "World source",
+          label: "World notes",
           value: draft.document,
           onInput: (document) => context.stage({ document }),
         },
-        actions: [{ label: "Save source", run: "save" }],
+        actions: [{ label: "Save notes", run: "save" }],
       };
     },
     run: (_action, context) => context.save(),
@@ -203,13 +203,13 @@ async function start() {
       designer.open();
     },
   });
-  for (const [id, label, tool] of [
-    ["history-button", "Source", "source"],
-    ["menu-button", "Import", "import-github"],
+  for (const [id, label, choose] of [
+    ["history-button", "World", designer.chooseWorld],
+    ["menu-button", "Tools", designer.chooseTools],
   ]) {
     const button = $(id);
     button.textContent = label;
-    button.onclick = () => designer.chooseTool(tool);
+    button.onclick = choose;
   }
   document.title = "Make a world · Lonely Forest";
   designer.open({ key, record });

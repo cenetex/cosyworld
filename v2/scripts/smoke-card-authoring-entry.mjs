@@ -27,6 +27,10 @@ try {
       });
     });
     const press = (target) => (width < 700 ? target.tap() : target.click());
+    const openNotes = async () => {
+      await press(page.locator("#menu-button"));
+      await press(page.locator('[data-setting="designer-tool-source"]'));
+    };
     const action = page.locator("#card-actions button"),
       note = page.locator(".action-beat-note");
     const choose = async (path, role) => {
@@ -78,6 +82,9 @@ try {
         /img-src[^;]*blob:/u,
       );
       await scene();
+      assert.equal(await page.locator("#history-button").innerText(), "World");
+      assert.equal(await page.locator("#menu-button").innerText(), "Tools");
+      await press(page.locator("#history-button"));
       assert.equal(
         await page.locator("#place-title").innerText(),
         "Lantern Shore",
@@ -104,8 +111,8 @@ try {
       await choose(["pack", "avatars", "sample-vale", "text"], "field");
       await note.fill("Dino carries a lantern and follows the shore path.");
       await press(action);
-      await press(page.locator("#history-button"));
-      await page.getByRole("textbox", { name: "World source" }).waitFor();
+      await openNotes();
+      await page.getByRole("textbox", { name: "World notes" }).waitFor();
       await note.fill("A quiet shore.\n雪");
       await press(action);
       await saved();
@@ -123,8 +130,8 @@ try {
       await page.reload();
       await scene();
       assert.deepEqual(await read(), sample);
-      await press(page.locator("#history-button"));
-      await page.getByRole("textbox", { name: "World source" }).waitFor();
+      await openNotes();
+      await page.getByRole("textbox", { name: "World notes" }).waitFor();
       assert.equal(await note.innerText(), "A quiet shore.\n雪");
       await press(page.locator("#menu-button"));
       await press(page.locator('[data-setting="designer-tool-import-folder"]'));
@@ -156,7 +163,7 @@ try {
           "blob:",
         ),
       );
-      await press(page.locator("#history-button"));
+      await openNotes();
       await press(page.locator('[data-setting="designer-save"]'));
       await press(action);
       await saved();
@@ -167,7 +174,7 @@ try {
       await page.reload();
       await scene();
       assert.deepEqual(await read(), record);
-      await press(page.locator("#history-button"));
+      await openNotes();
       await note.fill("Updated imported book");
       await press(action);
       await saved();
@@ -200,7 +207,7 @@ try {
         await page.locator("#place-title").innerText(),
         "Lantern Shore",
       );
-      await press(page.locator("#history-button"));
+      await openNotes();
       await note.fill("A separate sample draft");
       await press(action);
       await saved();

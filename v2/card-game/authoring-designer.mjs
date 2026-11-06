@@ -4,6 +4,7 @@ import { createAuthoringSession } from "./authoring-session.mjs";
 import { authoringAction } from "./authoring-controller.mjs";
 import { buildAuthoringTree } from "./authoring-tree.mjs";
 import { authoringFieldHidden } from "./authoring-fields.mjs";
+import { authoringTools } from "./authoring-tools.mjs";
 import {
   authoringCollections,
   WORLD,
@@ -17,14 +18,17 @@ export function installWorldDesigner({
   resolveArt = () => null,
   onScene = () => {},
   tools = [],
+  onOpen = () => {},
   onClose = () => {},
 }) {
   let workspace,
     previous,
+    opening = false,
     mode = "world",
     base = { world: [], tools: [] },
     byId = new Map(),
-    toolMap = new Map();
+    toolMap = new Map(),
+    projected;
   const session = createAuthoringSession({
     store,
     onChange() {
@@ -48,7 +52,7 @@ export function installWorldDesigner({
           }));
         showScene();
       }
-      workspace?.refresh();
+      if (!opening) workspace?.refresh();
     },
   });
   function showScene() {
@@ -66,21 +70,18 @@ export function installWorldDesigner({
     lit: true,
   });
   function readCards() {
-    toolMap = new Map();
-    for (const tool of typeof tools === "function" ? tools() : tools) {
-      const id = `designer-tool-${tool.id}`;
-      if (!/^[A-Za-z0-9_-]+$/u.test(tool.id) || toolMap.has(id))
-        throw new Error("Use unique tool names.");
-      toolMap.set(id, tool);
-    }
+    projected = authoringTools(
+      base,
+      typeof tools === "function" ? tools() : tools,
+    );
+    toolMap = projected.byId;
     const cards = [
-      ...base[mode],
+      ...projected.cards[mode],
       ...(mode === "tools"
         ? [
             ...actions.map((name) =>
               utility(`designer-${name.toLowerCase()}`, name),
             ),
-            ...[...toolMap].map(([id, tool]) => utility(id, tool.name)),
           ]
         : []),
     ];
@@ -88,22 +89,35 @@ export function installWorldDesigner({
     return cards;
   }
   const readContext = {
+    get status() {
+      return session.status;
+    },
     snapshot: () => session.snapshot({ pending: false }),
     stage: session.stage,
   };
+  function openDraft(value, open = session.open) {
+    opening = true;
+    try {
+      open(value);
+      onOpen(session.status);
+    } finally {
+      opening = false;
+    }
+  }
   function describe(_cards, chosen, armed) {
     const card = byId.get(chosen),
-      tool = toolMap.get(chosen),
+      toolId = toolMap.has(chosen) ? chosen : projected.anchors.get(chosen),
+      tool = toolMap.get(toolId),
       status = session.status;
     let view = {
       name: card?.name || status.title,
       info: status.writing ? "Saving" : status.dirty ? "Unsaved" : "Saved",
-      note: "Open a box or choose a field.",
+      note: card?.state || "Open a box or choose a field.",
       actions: [],
     };
-    if (tool) {
+    if (tool && !(tool.anchor && authoringAction(session.state))) {
       view = { ...view, ...tool.describe(readContext) };
-      view.actions = (view.actions || []).map((a) => ({ ...a, tool: chosen }));
+      view.actions = (view.actions || []).map((a) => ({ ...a, tool: toolId }));
     } else if (card?.role === "utility") {
       const run = chosen.replace("designer-", "");
       const label =
@@ -156,7 +170,7 @@ export function installWorldDesigner({
     cards: readCards,
     actionBeat,
     describe,
-    selected: () => session.state.selected,
+    selected: () => [...session.state.selected, ...(projected?.selected || [])],
     onClose() {
       session.touch();
       onClose();
@@ -172,6 +186,13 @@ export function installWorldDesigner({
     onSelect(id) {
       if (session.status.accepting) return;
       const card = byId.get(id);
+      const tool = toolMap.get(id);
+      if (tool) {
+        session.dispatch({ type: "cancel" });
+        tool.select?.(readContext);
+        workspace.refresh();
+        return;
+      }
       if (card.role === "navigation") return session.touch();
       if (card.ref) return chooseView("world", card.ref);
       if (card.role === "field" && !card.group && session.state.armed)
@@ -195,11 +216,14 @@ export function installWorldDesigner({
     run(action) {
       document.activeElement?.blur();
       const tool = toolMap.get(action.tool);
+      if (action.tool && !tool) throw new Error("Choose an available tool.");
+      if (tool && session.state.armed) session.dispatch({ type: "cancel" });
       return session.run(async (ctx) => {
         const open = (value) => {
           document.activeElement?.blur();
           mode = "world";
-          ctx.open(value);
+          openDraft(value, ctx.open);
+          workspace.refresh();
         };
         if (action.tool) await tool.run(action, { ...ctx, open });
         else if (action.run === "save") await ctx.save();
@@ -227,7 +251,7 @@ export function installWorldDesigner({
       document.activeElement?.blur();
       if (value) {
         mode = "world";
-        session.open(value);
+        openDraft(value);
       }
       workspace.open();
       showScene();
@@ -236,11 +260,16 @@ export function installWorldDesigner({
       document.activeElement?.blur();
       workspace.close();
     },
-    refresh: workspace.refresh,
+    refresh() {
+      if (!opening) workspace.refresh();
+    },
     chooseWorld: () => chooseView("world", WORLD),
     chooseTools: () => chooseView("tools", TOOLS),
     chooseTool(id) {
-      chooseView("tools", `designer-tool-${id}`);
+      readCards();
+      const target = projected.locations.get(`designer-tool-${id}`);
+      if (!target) throw new Error("Choose an available tool.");
+      chooseView(target.mode, target.cardId);
     },
   };
 }

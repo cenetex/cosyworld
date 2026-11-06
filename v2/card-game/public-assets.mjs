@@ -26,6 +26,7 @@ const files = [
   "authoring-github-source.mjs",
   "authoring-import-tools.mjs",
   "authoring-designer.mjs",
+  "authoring-tools.mjs",
   "authoring-collections.mjs",
   "shared-sync.mjs",
   "shared-rules.mjs",

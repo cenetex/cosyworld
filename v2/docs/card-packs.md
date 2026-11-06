@@ -1,5 +1,14 @@
 # Card-table world packs
 
+The editor header opens **World** or **Tools**. Tools includes **World notes**,
+the explicitly saved `draft.document` field. Generation seeds stay in memory.
+`authoring-tools.mjs` places tool cards under an existing `holder`, or attaches
+one tool to an existing card with `anchor`. Tool cards support `kind`, resolved
+`art`, `state`, `group`, `selected` and a `select` callback. `chooseTool(id)` opens
+their branch. Describe callbacks can read cheap `context.status`; guarded run
+callbacks retain the session's save/open operations. The designer's `onOpen`
+callback runs for a successful draft open, including reload of the same key.
+
 The card table's shore is a hub. Black pond is its crossing point, and each
 world the player can find from it is a **world pack** joined by a **bridge**.
 Finding a new path is the game, so a new path should cost a pack, a bridge and
