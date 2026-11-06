@@ -203,6 +203,7 @@ export function installCardWorkspace({
   // A group opens as a place does, and folds on a second tap; opening
   // another folds the first. A setting is chosen, and unchosen on a second.
   function choose(id) {
+    armed = null;
     if (layout) {
       const card = cards.find((c) => c.id === id);
       if (!card) return;
@@ -231,7 +232,6 @@ export function installCardWorkspace({
     }
     if ((cards.find((c) => c.id === chosen)?.holder ?? null) !== fanned)
       chosen = null;
-    armed = null;
     problem = "";
     render();
     // An opened group starts the row, so its settings fan into view.
@@ -393,6 +393,7 @@ export function installCardWorkspace({
   document.addEventListener("keydown", (event) => {
     if (event.key !== "Escape" || activeWorkspace !== workspace) return;
     event.preventDefault();
+    armed = null;
     if (layout && onCancel()) return render();
     if (layout && chosen) {
       expanded.delete(chosen);
