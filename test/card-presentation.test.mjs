@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import { cardObservation } from "../v2/card-game/cards.mjs";
 import { createWorld, encodeSave } from "../v2/card-game/world.mjs";
 import { revealedBeat } from "../v2/card-game/presentation.mjs";
+import { withPending } from "../v2/card-game/beats.mjs";
 
 describe("reading saved words with revealed cards", () => {
   const beat = {
@@ -26,6 +27,15 @@ describe("reading saved words with revealed cards", () => {
     expect(shown.line.sig).toBe("signed");
     expect(shown.actions).toEqual(beat.actions);
     expect(revealedBeat({ ...beat, line: null }, (text) => text).line).toBeNull();
+  });
+  it("masks an effect folded into the Thinking card", () => {
+    const { pending } = withPending([{ ...beat, line: null, turn: 2 }], {
+      speakerId: "vale", turn: 2,
+    });
+    const shown = revealedBeat(pending, (text) => text?.replace("Lamp", "something"));
+    expect(shown.pending).toBe(true);
+    expect(shown.actions[0].text).toBe("Vale took the something.");
+    expect(pending.actions[0].text).toBe("Vale took the Lamp.");
   });
 });
 

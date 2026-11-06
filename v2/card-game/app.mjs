@@ -3728,7 +3728,7 @@ function renderScene() {
   const beats = dreamt.beats.map((beat) => revealedBeat(beat, visibleText));
   const pendingCard = !dreaming?.front &&
     stack.pending && {
-      ...stack.pending,
+      ...revealedBeat(stack.pending, visibleText),
       // Its two taps cancel the player's own play.
       own: stack.pending.speakerId === viewer || !sharedSession ? own : null,
     };
