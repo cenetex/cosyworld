@@ -89,7 +89,13 @@ export const GROUPS = [
     "world",
     "World",
     "window",
-    [...PACKS.map(([id]) => `pack-${id}`), "new-game", "backup", "download"],
+    [
+      ...PACKS.map(([id]) => `pack-${id}`),
+      "new-game",
+      "backup",
+      "restore",
+      "download",
+    ],
   ],
 ];
 export const VOLUMES = [15, 30, 60, 100];
@@ -155,18 +161,19 @@ function dealt(s) {
     s.backup !== null &&
       card(
         "backup",
-        "Backup",
+        "Save backup",
         bench("scroll"),
         true,
         "",
-        [
-          act("Save backup", "#local-export"),
-          act("Restore a backup", "#local-import", {
-            confirm: "Tap again to replace this game",
-          }),
-        ],
+        [act("Save backup", "#local-export")],
         { info: s.backup },
       ),
+    s.backup !== null &&
+      card("restore", "Restore backup", bench("scroll"), true, "", [
+        act("Restore a backup", "#local-import", {
+          confirm: "Tap again to replace this game",
+        }),
+      ]),
     s.newGame &&
       card(
         "new-game",

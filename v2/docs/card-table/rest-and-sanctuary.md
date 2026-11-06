@@ -60,13 +60,12 @@ Sleep would sleep through the burnout, so the player gets a plain Wait, which
 burns the last oil and opens the mirror. Residents sleep on their own
 schedules (below).
 
-The client (`restPlays` in `cards.mjs`) shows Sleep in place of the Wait only
-when the same cards are chosen again after a committed Wait, at the same table
-revision; any other choice brings back the plain Wait. A sleeper sees Sleep
-first, then Wait. Beside any other play the plain Wait drops out and Sleep
-stays ([#2027](https://github.com/cenetex/cosyworld/issues/2027)). Its beat and Thinking cards use the sleeping art, and the
-wake reads in the past: "Vale slept.", then "Vale woke as the lamp
-guttered."
+Choose the same cards again after a Wait to sleep. Choose your own card
+while asleep to wake. Pair it with the current place to sleep on. At the
+Forest Clearing, choose the place alone to ring the Steam Clock. Pair it
+with your own card to wait or sleep. The sleep beat and Thinking card use
+the sleeping art, and the wake reads in the past: "Vale slept.", then
+"Vale woke as the lamp guttered."
 
 1. Sleep sets `actor.sleeping = {since, place, present}`, where `present` is
    the sorted set of avatars physically in the place (a seat counts while its

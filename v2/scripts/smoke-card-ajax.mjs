@@ -21,6 +21,11 @@ function steps(route) {
   const move = (target) => ({ kind: "move", target });
   const take = (item) => ({ kind: "take", item: `greek-ajax-${item}` });
   const choose = (id) => ({ kind: "choose", choiceId: `greek-ajax-${id}` });
+  const drop = (item) => ({
+    kind: "drop",
+    item: `greek-ajax-${item}`,
+    target: "greek-ajax-grave",
+  });
   return [
     move("greek-road-thebes"),
     move("greek-harbor"),
@@ -39,16 +44,18 @@ function steps(route) {
     choose("deliver-plea"),
     ...(route === "household" ? [move("greek-ajax-household")] : []),
     choose(`choose-${route}`),
-    ...(route === "household" ? [move("greek-greek-camp")] : []),
+    ...(route === "household" ? [take("plea"), move("greek-greek-camp")] : []),
     ...(route === "appeal" ? [choose("witness-appeal")] : []),
     take("tools"),
     take("cloth"),
     move("greek-ajax-grave"),
+    drop("tools"),
+    drop("cloth"),
     choose("prepare-grave"),
     choose("lay-cloth"),
     choose(`bury-${route}`),
     move("greek-greek-camp"),
-    take("plea"),
+    ...(route === "household" ? [] : [take("plea")]),
     choose(`record-${route}`),
     move("greek-ajax-landing"),
     move("greek-road-north"),
@@ -166,7 +173,19 @@ export async function checkAjax(browser, origin) {
             });
           }
         };
-        const step = async ({ kind, ...fields }) => {
+        const step = async ({ kind, choiceId, ...fields }) => {
+          const choice = packDefinition("greek-drama").choices.find(
+            (c) => c.id === choiceId,
+          );
+          if (choice?.on) {
+            kind = choice.on;
+            if (kind === "talk" || kind === "give")
+              fields.target = choice.subject;
+            if (kind === "give")
+              fields.item = choice.requires.find(
+                (c) => c.kind === "holding",
+              ).item;
+          }
           current = { kind, ...fields };
           await settle();
           // Aboard, a port is a voyage: the course card, a round at sea, Disembark.
@@ -192,7 +211,7 @@ export async function checkAjax(browser, origin) {
             )
               await step({ kind: "wait" });
           }
-          const topic = topicForChoice(fields.choiceId);
+          const topic = topicForChoice(choiceId);
           const offer = (world) =>
             legalActions(world).find((a) =>
               topic
@@ -205,7 +224,7 @@ export async function checkAjax(browser, origin) {
           // stepped out waits for them, as a player would.
           for (
             let wait = 0;
-            wait < 16 && kind === "choose" && !offer(await state());
+            wait < 16 && choiceId && !offer(await state());
             wait++
           )
             await step({ kind: "wait" });
@@ -219,11 +238,9 @@ export async function checkAjax(browser, origin) {
             action.cards?.[0] || action.item || action.target || "vale",
             { touch: width === 390 },
           );
-          const selector = topic
-            ? '[data-action="talk"]'
-            : fields.choiceId
-              ? `[data-choice="${fields.choiceId}"]`
-              : `[data-action="${kind}"]`;
+          if (kind === "give" || kind === "drop")
+            await selectCard(page, fields.target, { touch: width === 390 });
+          const selector = `[data-action="${topic ? "talk" : kind}"]`;
           // Choosing the same cards after Wait offers Sleep: choose them
           // afresh so each wait is one turn.
           const wait = page
@@ -239,11 +256,11 @@ export async function checkAjax(browser, origin) {
           await settle();
           const after = await state();
           assert.equal(after.turn, before.turn + 1, "Each action commits once");
-          if (fields.choiceId)
+          if (choiceId)
             assert.equal(
-              after.packs["greek-drama"].receipts[fields.choiceId],
+              after.packs["greek-drama"].receipts[choiceId],
               after.turn,
-              fields.choiceId,
+              choiceId,
             );
           if (kind === "move")
             assert.equal(after.actors.vale.place, fields.target);

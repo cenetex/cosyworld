@@ -311,9 +311,13 @@ it("keeps a pruned shared deed's author unknown when Vale loads Mara's saved dee
     return result;
   };
   // Mara completes the last rite in the shared world.
+  imported.items["greek-shovel"].holder = "mara";
   const result = marasPlay(
     imported,
-    (a) => a.choiceId === "greek-bury-polynices",
+    (a) =>
+      a.kind === "give" &&
+      a.item === "greek-shovel" &&
+      a.target === "greek-antigone",
   );
   expect(
     result.world.packs["greek-drama"].recitals["greek-bury-polynices"].actor,

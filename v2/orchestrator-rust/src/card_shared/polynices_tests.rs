@@ -21,15 +21,17 @@ fn polynices_rites_match_the_source_model_and_replay_from_the_journal() {
         s.actors.vale.place = s.actors['greek-antigone'].place = hollow;
         s.actors.vale.visited.push('pond', hollow);
         s.items['greek-creon-writ'].holder = 'greek-guard';
-        for (const id of ['greek-oil-flask', 'greek-funeral-cloth', 'greek-shovel'])
-            s.items[id].holder = hollow;
+        const kit = ['greek-oil-flask', 'greek-funeral-cloth', 'greek-shovel'];
+        s.items.lamp.holder = 'attic';
+        for (const id of kit) s.items[id].holder = 'vale';
         const save = encodeSave(s);
         let world = sorted(dispatchShared({ op: 'create', save }).world);
         const initial = world, steps = [];
-        for (const choiceId of ['greek-anoint-polynices', 'greek-shroud-polynices', 'greek-bury-polynices']) {
+        for (const item of kit) {
             const request = { world, actor: 'vale', claimed: ['vale'], present: ['vale'] };
-            const action = dispatchShared({ ...request, op: 'view' }).actions.find(a => a.choiceId === choiceId);
-            if (!action) throw new Error(`Missing rite ${choiceId}`);
+            const action = dispatchShared({ ...request, op: 'view' }).actions.find(
+                a => a.kind === 'give' && a.item === item && a.target === 'greek-antigone');
+            if (!action) throw new Error(`Missing gift of ${item}`);
             world = sorted(dispatchShared({ ...request, op: 'play', action }).world);
             steps.push({ action, world });
         }

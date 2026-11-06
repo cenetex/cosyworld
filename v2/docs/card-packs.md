@@ -8,7 +8,58 @@ some art, not new engine rules.
 The Steam Clock clearing (`badger-forest`) is the reference pack. Copy its
 shape for the next spoke.
 
+The authoring card index is `buildAuthoringTree({pack, bridge})` in
+`authoring-tree.mjs`. It returns ordered `cards`, `roots`, and `children`.
+Each card has its source array path, a parent `holder`, a `kind`, and a `role`. Reference
+cards point to a canonical card through `ref`; external targets keep their ID.
+Contents boxes show initial placement. Elsewhere keeps external holders in reach.
+Quest, road, and transport records retain their source order and nested paths.
+Each place and avatar has Contents and Quests boxes. Incoming road conditions
+live under the destination's Quests box; outgoing links stay in Contents.
+The index leaves the source intact. Edit commands use those paths separately.
+
+`authoring-controller.mjs` owns local selection, box targeting, edit sequence,
+and the last 50 inverse edits. `createAuthoringState(source)` copies the source;
+`reduceAuthoring(state, event)` accepts `select`, `arm`, `cancel`, `apply`,
+`edit`, `setLaunch`, and `undo`. `authoringAction(state)` supplies a label and
+an edit preview; pass its `sequence` and `key` with `apply`. Selecting a location
+sets the launch sidecar. While a box is armed, that selection becomes its target
+and branch navigation keeps the box armed. The workspace owns expansion.
+Source changes clear the pair; Undo restores the exact source and advances the
+local sequence. Server draft revisions stay with persistence.
+
+`authoring-fields.mjs` adapts scalar field cards for the descriptor.
+`authoringField(source, card)` captures its path, type, displayed value and
+action label. `authoringFieldEdit(source, field, text)` returns one expected-value
+source edit for Save; a boolean uses the same call with no text for Enable or
+Disable. Integer fields keep safe whole numbers; decimal fields keep finite
+numbers. Nulls, identities, type tags and reference lists stay read-only.
+Filter cards and branches with `authoringFieldHidden(card)` before rendering;
+this checks paths once and keeps internal text out of accessible names.
+Internal generation fields also have `hidden: true`. The controller applies the
+returned command and records its inverse. Pack compilation checks game meaning.
+
 ## Files
+
+Authoring drafts keep the original pack and bridge together with the writer's
+document. `card-game/authoring-draft.mjs` reads and exports their version 1
+manifest. A draft has its own server ID and revision; imported pack IDs stay
+intact. Asset records hold a relative path, MIME type, SHA-256 and byte size.
+File bytes go through a separate upload. Source records keep local relative
+paths or a GitHub repository, exact commit and path. Drafts accept unfinished
+cards; publication checks the compiled pack with the shared pack validator.
+
+`importSourcePack({files, packPath, bridgePath, cardRoot, extraPaths, origin})`
+in `authoring-source-import.mjs` reads selected raw repository files. It returns
+`{draft, assets, sourceFiles, assetSources}` with exact source bytes and digests.
+The card directory defaults to the sibling `card-game/` for `content/<pack>/`
+sources, or the pack directory. `cardRoot` selects another relative directory.
+`extraPaths` adds card-relative lore files. `origin` is `{kind:"file"}` or
+`{kind:"github",repo,commit}` with an exact commit. Media keeps its card path;
+`assetSources` records each repository path. `sourcePackCandidates(files)`
+indexes up to 100,000 file entries; each import reads up to 512 media files.
+Extra music files keep their bytes; portable playback also needs the catalog
+adapter's room-to-track mapping from `music.mjs`.
 
 | File                                | Owns                                                                                                                    |
 | ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
@@ -23,6 +74,18 @@ npm run v2:card:pack:build   # regenerate v2/card-game/packs.json
 npm run v2:card:pack:check   # fail if it is stale or invalid (part of v2:worldpack)
 ```
 
+### Portable local drafts
+
+`authoring-local-import.mjs` reads selected browser Files or `{path, file}`
+entries from a local adapter. `importLocalDraft({files, manifestPath})` opens
+an exported authoring draft, with asset paths relative to its manifest folder.
+It returns a fresh local `draft`, an `assets` map of exact file bytes keyed by
+manifest path, and `sourceFiles` containing the original manifest bytes and
+digest. The helper checks every declared file's size and digest before returning.
+Pack and bridge IDs, extra source fields and earlier provenance remain intact.
+`localPackCandidates(files)` lists `card-world.json` paths for a later source
+pack resolver. The caller chooses an explicit manifest path for portable import.
+
 The browser imports `packs.json`, and the Rust text route embeds the same file
 for profiles, so ids and seeds cannot drift between them. Each avatar has one
 `seed` sentence, a name and a role such as "The Swede, a traveller on the
@@ -32,6 +95,11 @@ loads. It rejects unknown fields, unknown condition kinds, dangling ids and
 missing art with a reason naming the field.
 
 Packs can also supply `topics`: facts a resident tells through Talk.
+
+An item's `text` can carry a piece of a story, such as the words scratched
+inside the Willows stew pot. The first 240 characters reach the item's holder
+in Talk, thoughts and dreams. Use a short passage that makes sense on its own.
+Giving the item passes the passage to the new holder.
 
 ### Starter quests
 
