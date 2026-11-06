@@ -1663,10 +1663,6 @@
         return state?.choices?.[c.key] === c.value;
       case "choice_unset":
         return !!state && !Object.hasOwn(state.choices || {}, c.key);
-      case "clock": {
-        const hour = s.turn % (2 * DAYLIGHT_TURNS);
-        return c.from < c.to ? hour >= c.from && hour < c.to : hour >= c.from || hour < c.to;
-      }
       case "flag":
         return (state?.flags?.[c.key] ?? false) === c.value;
       case "knows": {
@@ -2018,7 +2014,6 @@
     const here = world.actors[id].place;
     if (want.kind === "item")
       return want.step?.verb !== "eat" && rootOf(world, want.target) === id;
-    if (want.step?.verb === "lay") return layMet(world, want);
     if (want.kind === "place") return here === want.target;
     return world.actors[want.target]?.place === here;
   }
@@ -2344,14 +2339,8 @@
     return s.actors[root]?.place ?? root;
   };
   var together = (s, a, b) => Boolean(s.actors[b]) && s.actors[b].place === s.actors[a].place;
-  function layMet(world, { target, step }) {
-    if (step.finish)
-      return world.packs?.[packOf(target)?.id]?.flags?.[step.finish] === true;
-    return step.items.every((item) => world.items[item]?.holder === target);
-  }
   function stepMet(s, actor, want, action) {
     const { verb, to, at } = want.step, me = s.actors[actor], by = (kind) => action?.kind === kind && action.actor === actor && (kind === "give" ? action.item === want.target && action.target === to && action.accepted : action.target === want.target);
-    if (verb === "lay") return layMet(s, want);
     if (verb === "find") return placeOfItem(s, want.target) === me.place;
     if (verb === "eat")
       return Boolean(
@@ -2513,10 +2502,6 @@
   var STEP_CARDS = { give: ["to"], bring: ["to", "at"] };
   function validStep(s, w, id) {
     const { verb, ...cards } = w.step;
-    if (verb === "lay")
-      return w.kind === "place" && !w.quest && Object.keys(cards).every((key2) => ["items", "finish"].includes(key2)) && Array.isArray(cards.items) && cards.items.length >= 1 && cards.items.length <= 3 && new Set(cards.items).size === cards.items.length && cards.items.every((item) => Object.hasOwn(s.items, item)) && (cards.finish === void 0 || packOf(w.target)?.avatars && Object.values(packOf(w.target).avatars).some(
-        (resident) => resident.want?.target === w.target && resident.want?.step?.verb === "lay" && resident.want.step.finish === cards.finish && JSON.stringify(resident.want.step.items) === JSON.stringify(cards.items)
-      ));
     const home = verb === "bring" && w.story && !cards.to;
     const gift = verb === "give" && w.story && !w.quest;
     const slept = verb === "rest" && !w.story;
@@ -2757,7 +2742,6 @@
     "met",
     "knows",
     "pack_item_present",
-    "clock",
     "daylight",
     "weather",
     "ship_at",
@@ -3145,8 +3129,6 @@
           "temperament",
           "variants",
           "home",
-          "homeWhen",
-          "appearsWhen",
           "values",
           "desire",
           "want",
@@ -3193,7 +3175,7 @@
       );
       check(
         a.want === void 0 || keysOk(a.want, ["kind", "target", "step"]) && // An eat quest (rules 102): eat or drink one, somewhere, with someone.
-        (a.want.step === void 0 || a.want.kind === "place" && a.want.step.verb === "lay" && keysOk(a.want.step, ["verb", "items", "finish"]) && Array.isArray(a.want.step.items) && intOk(a.want.step.items.length, 1, 3) && new Set(a.want.step.items).size === a.want.step.items.length && a.want.step.items.every((item) => owns3(items2, item)) && (a.want.step.finish === void 0 || idOk2(a.want.step.finish)) || a.want.kind === "item" && keysOk(a.want.step, ["verb", "at", "with"]) && a.want.step.verb === "eat" && ["food", "drink"].some(
+        (a.want.step === void 0 || a.want.kind === "item" && keysOk(a.want.step, ["verb", "at", "with"]) && a.want.step.verb === "eat" && ["food", "drink"].some(
           (tag) => items2[a.want.target]?.tags?.includes(tag)
         ) && (a.want.step.with === void 0 || a.want.step.with !== id && (owns3(avatars, a.want.step.with) || hub2.avatars.includes(a.want.step.with))) && (a.want.step.at === void 0 || owns3(places2, a.want.step.at))) && (a.want.kind === "item" ? owns3(items2, a.want.target) || hub2.items.includes(a.want.target) : a.want.kind === "place" ? owns3(places2, a.want.target) || hub2.places.includes(a.want.target) : a.want.kind === "connect" ? a.want.target === "humans" : a.want.kind === "person" && a.want.target !== id && (owns3(avatars, a.want.target) || hub2.avatars.includes(a.want.target))),
         `avatar ${id} want needs an item, place or person target, or connects humans`
@@ -3288,9 +3270,6 @@
             break;
           case "daylight":
             ok = keysOk(c, ["kind", "phase"]) && ["day", "night"].includes(c.phase);
-            break;
-          case "clock":
-            ok = keysOk(c, ["kind", "from", "to"]) && intOk(c.from, 0, 47) && intOk(c.to, 0, 47) && c.from !== c.to;
             break;
           case "flag":
             ok = keysOk(c, ["kind", "key", "value"]) && idOk2(c.key) && typeof c.value === "boolean";
@@ -3413,14 +3392,6 @@
         );
       if (a.home !== void 0)
         check(owns3(places2, a.home), `avatar ${id} home is invalid`);
-      requirements(a.appearsWhen, `avatar ${id} appearance`, false);
-      if (a.homeWhen !== void 0) {
-        check(
-          keysOk(a.homeWhen, ["place", "requires"]) && owns3(places2, a.homeWhen?.place) && Array.isArray(a.homeWhen?.requires) && a.homeWhen.requires.length >= 1 && a.homeWhen.requires.length <= 4,
-          `avatar ${id} needs a conditional home with one to four requirements`
-        );
-        requirements(a.homeWhen?.requires, `avatar ${id} home requires`);
-      }
       if (a.values !== void 0)
         check(
           record3(a.values) && Object.entries(a.values).every(
@@ -3497,14 +3468,13 @@
           "workId",
           "on",
           "for",
-          "repeats",
-          "archived"
+          "repeats"
         ]) && idOk2(c.id) && (c.on === void 0 || c.on === "meet" || c.on === "wait" || c.on === "depart" && Boolean(avatars[c.subject]) || c.on === "talk" && Boolean(avatars[c.subject]) || // A hold choice is for the one traveler its item belongs to.
         c.on === "hold" && Boolean(items2[c.subject]) && c.for !== void 0 && (c.requires || []).some(
           (r) => r.kind === "holding" && r.role === "actor" && r.item === c.subject
         ) || c.on === "give" && (c.requires || []).some(
           (r) => r.kind === "holding" && r.role === "actor"
-        ) && Boolean(avatars[c.subject])) && (c.for === void 0 || humanAvatarIds.includes(c.for)) && (c.archived === void 0 || c.archived === true) && !choiceIds.has(c.id) && own3.includes(c.subject) && owns3(places2, c.at) && textOk(c.label, 120) && textOk(c.text, 600) && (c.textTemplate === void 0 || templateOk(c.textTemplate, 600, ["actor"])) && (c.summary === void 0 || textOk(c.summary, 600)),
+        ) && Boolean(avatars[c.subject])) && (c.for === void 0 || humanAvatarIds.includes(c.for)) && !choiceIds.has(c.id) && own3.includes(c.subject) && owns3(places2, c.at) && textOk(c.label, 120) && textOk(c.text, 600) && (c.textTemplate === void 0 || templateOk(c.textTemplate, 600, ["actor"])) && (c.summary === void 0 || textOk(c.summary, 600)),
         `choice ${c.id} is invalid`
       );
       choiceIds.add(c.id);
@@ -4165,7 +4135,7 @@
       world,
       e.packId,
       saved ? (e.requires || []).filter((c) => c.kind !== "connected_humans") : e.requires
-    ) || !saved && !conditionsMet(world, e.packId, e.appearsWhen) || !sectionAllows(world, pack, id, conditionsMet) || // Saved custody of an undrawn special stays as it was.
+    ) || !sectionAllows(world, pack, id, conditionsMet) || // Saved custody of an undrawn special stays as it was.
     !saved && !specialsAllow(state, pack, id))
       return false;
     if (!pack.release || state.scope === "full") return true;
@@ -4224,7 +4194,7 @@
   }
   function choiceFeasible(world, pack, choice, actor, mode = null) {
     const state = packState(world, pack.id);
-    if (!state || choice.archived || // A repeating give fires again once its output is used up (rules 95).
+    if (!state || // A repeating give fires again once its output is used up (rules 95).
     owns4(state.receipts, choice.id) && !choice.repeats || (choice.on ?? null) !== mode || choice.for !== void 0 && choice.for !== actor || pack.release && state.scope !== "full" && !pack.release.choices.includes(choice.id) || // A hold choice follows its item wherever its holder stands.
     mode !== "hold" && world.actors[actor]?.place !== choice.at || !entityActive(world, choice.at) || !entityActive(world, choice.subject) || !conditionsMet(world, pack.id, choice.requires, actor))
       return false;
@@ -5155,8 +5125,6 @@
         ...base,
         step: { verb: "give", to: them }
       };
-    if (want.step?.verb === "lay")
-      return { ...base, kind: "place", target: want.target, step: want.step };
     if (want.kind === "place")
       return {
         kind: "person",
@@ -5415,6 +5383,7 @@
     const reworked = new Set(
       packDefinitions.filter((p) => (s.packs?.[p.id]?.revision ?? p.revision) < p.revision).map((p) => p.id)
     );
+    upgradeHoppyTableSave(s);
     forgetQuests(s);
     if (s?.schema === 6) {
       upgradeSteamClockSave(s);
@@ -5472,13 +5441,6 @@
       upgradeGreekLandRouteSave(s);
       upgradeGreekForecourtSave(s);
       upgradeGreekDecreeSave(s);
-      if (reworked.has("greek-drama") && packOf("greek-polynices-hollow")) {
-        const greek = s.packs["greek-drama"];
-        if (greek.revision === 20) greek.revision = 21;
-        const antigone = s.actors?.["greek-antigone"];
-        if (antigone && !s.packs?.["greek-drama"]?.flags?.["greek-burial-performed"])
-          delete antigone.want;
-      }
       upgradeRecitals(s, packDefinitions);
     }
     upgradeSightings(s);
@@ -5791,6 +5753,62 @@
       ];
     }
     saved.revision = 3;
+  }
+  function upgradeHoppyTableSave(s) {
+    const pack = packDefinitions.find((p) => p.id === "hoppycat-archive");
+    const saved = s.packs?.[pack?.id];
+    if (!pack || pack.revision < 4 || !saved || saved.revision >= 4) return;
+    upgradeHoppyCatSeaSave(s);
+    upgradeHoppyCatInteriorsSave(s);
+    if (Array.isArray(saved.specials)) {
+      const pool = new Set(pack.specials.pool.map((e) => e.id));
+      saved.specials = [
+        ...new Set(
+          saved.specials.map((id) => {
+            if (id === "hoppycat-loop-token") return "hoppycat-goldfish-tank";
+            const entity = pack.avatars[id] || pack.items[id];
+            const place = entity?.place || entity?.holder || id;
+            return canonicalPlace(pack.avatars[place]?.place || place);
+          }).filter((id) => pool.has(id))
+        )
+      ];
+    }
+    const home = (id) => Object.hasOwn(pack.places, id);
+    for (const actor of Object.values(s.actors || {})) {
+      for (const key2 of ["place", "home"])
+        if (home(actor[key2])) actor[key2] = canonicalPlace(actor[key2]);
+      for (const want of [actor.want, ...actor.under || []])
+        if (want?.kind === "place" && home(want.target))
+          want.target = canonicalPlace(want.target);
+    }
+    for (const item of Object.values(s.items || {}))
+      if (home(item.holder)) item.holder = canonicalPlace(item.holder);
+    for (const [actor, edges] of Object.entries(s.routeKnowledge || {}))
+      s.routeKnowledge[actor] = [
+        ...new Map(
+          edges.flatMap((edge) => {
+            if (!edge.every(home)) return [edge];
+            const [from, to] = edge.map(canonicalPlace);
+            const path = walkablePath(from, to);
+            return path ? path.slice(1).map((end, i) => [path[i], end]) : [];
+          }).map((edge) => [JSON.stringify(edge), edge])
+        ).values()
+      ];
+    for (const [id, avatar] of Object.entries(pack.avatars)) {
+      if (!s.actors?.[id]) continue;
+      s.actors[id].place = avatar.place;
+      if (s.actors[id].home) s.actors[id].home = avatar.place;
+    }
+    for (const [id, oldHome] of [
+      ["hoppycat-loop-token", "hoppycat-goldfish-tank"],
+      ["hoppycat-context-seed", "hoppycat-meraki-atelier"],
+      ["hoppycat-return-path-checklist", "hoppycat-signal-jetty"]
+    ]) {
+      const item = s.items?.[id];
+      if (item?.holder === oldHome && !item.history?.length)
+        item.holder = pack.items[id].holder;
+    }
+    saved.revision = 4;
   }
   function upgradeGreekRoadSave(s) {
     const pack = packDefinitions.find((p) => p.id === "greek-drama");
@@ -6749,13 +6767,7 @@
     return problems2;
   }
   var lifeField = (id, key2) => own2(world_life_default.residents?.[id], key2) ? world_life_default.residents[id][key2] : void 0;
-  function lifeHome(id, world) {
-    const resident = packPeople[id];
-    const next = resident?.homeWhen;
-    if (world && next && conditionsMet(world, resident.packId, next.requires, id))
-      return next.place;
-    return resident?.home ?? forest_default.people[id]?.home ?? humanAvatar(id)?.home?.id ?? resident?.place ?? null;
-  }
+  var lifeHome = (id) => packPeople[id]?.home ?? forest_default.people[id]?.home ?? humanAvatar(id)?.home?.id ?? packPeople[id]?.place ?? null;
   function rangeOf(s, id) {
     if (own2(forest_default.people, id)) return id === "vale" ? null : Infinity;
     const a = packPeople[id];
@@ -6794,7 +6806,7 @@
   }
   var hops = (from, to) => hopsFrom(from).get(to) ?? Infinity;
   function rangeTest(s, id) {
-    const range = rangeOf(s, id), home = lifeHome(id, s);
+    const range = rangeOf(s, id), home = lifeHome(id);
     if (range === null || range === Infinity || !home) return null;
     const table = hopsFrom(home);
     return (place) => (table.get(place) ?? Infinity) <= range;
@@ -6802,14 +6814,14 @@
   function inRange(s, id, place) {
     const range = rangeOf(s, id);
     if (range === null || range === Infinity) return true;
-    const home = lifeHome(id, s);
+    const home = lifeHome(id);
     return !home || hops(home, place) <= range;
   }
   function displaced(s, id) {
-    const range = rangeOf(s, id), home = lifeHome(id, s), here = s.actors[id]?.place;
+    const range = rangeOf(s, id), home = lifeHome(id), here = s.actors[id]?.place;
     return range !== null && Boolean(home) && here !== home && entityActive(s, home) && !inRange(s, id, here);
   }
-  var walksHome = (s, id) => worldLife.on && rangeOf(s, id) !== null && s.actors[id].place !== lifeHome(id, s) && (Boolean(s.actors[id].homeward) || displaced(s, id));
+  var walksHome = (s, id) => worldLife.on && rangeOf(s, id) !== null && s.actors[id].place !== lifeHome(id) && (Boolean(s.actors[id].homeward) || displaced(s, id));
   var validHome = (s) => Object.values(s.actors).every(
     (a) => a.homeward === void 0 || a.homeward === true
   );
@@ -7048,11 +7060,9 @@
     if (!s.doors) placeDoors(s);
     for (const pack of packDefinitions) {
       for (const c of pack.crossings) s.crossings[c.id] ??= newCrossingState(c);
-      const mounted = s.packs[pack.id];
-      if (mounted && !(mounted.revision < pack.revision)) continue;
-      s.packs[pack.id] ??= newPackRecord(pack);
+      if (s.packs[pack.id]) continue;
+      s.packs[pack.id] = newPackRecord(pack);
       for (const [id, a] of Object.entries(pack.avatars)) {
-        if (s.actors[id] && mounted) continue;
         if (s.actors[id]) throw new Error("A pack resident is already present.");
         s.actors[id] = {
           place: a.place,
@@ -7067,7 +7077,7 @@
         s.memories[id] = fresh[id];
         if (s.motives) s.motives.grievances[id] = [];
       }
-      for (const [id, item] of Object.entries(mounted ? {} : pack.items || {})) {
+      for (const [id, item] of Object.entries(pack.items || {})) {
         if (s.items[id]) throw new Error("A pack item is already present.");
         s.items[id] = { holder: item.holder, history: [] };
         s.memories[id] = fresh[id];
@@ -7276,8 +7286,6 @@
   function wantText(want) {
     if (!want) return "nothing in particular";
     const step = want.step, what = nameOf(want.target), verb = step?.verb === "attack" ? "strike" : step?.verb;
-    if (step?.verb === "lay")
-      return `lay ${step.items.map(nameOf).join(", ")} in ${what}`;
     if (step?.verb === "give") return `give ${what} to ${nameOf(step.to)}`;
     if (step?.verb === "eat")
       return `${consumable(want.target) === "drink" ? "drink" : "eat"} ${what}${step.with ? ` with ${nameOf(step.with)}` : ""}${step.at ? ` at ${nameOf(step.at)}` : ""}`;
@@ -7671,7 +7679,7 @@
     if (!sentHome) markCrossed(s, here, to);
     s.actors[loser].place = to;
     moveTransport(s, here, to);
-    if (!humanHeld(s, loser) && rangeOf(s, loser) !== null && to !== lifeHome(loser, s))
+    if (!humanHeld(s, loser) && rangeOf(s, loser) !== null && to !== lifeHome(loser))
       s.actors[loser].homeward = true;
     for (const id of carried(s, loser))
       remember3(s, id, `${nameOf(loser)} retreated to ${nameOf(to)} with it.`);
@@ -8270,7 +8278,7 @@
     ).sort();
     for (const id of life) {
       const a = s.actors[id], z = a.sleeping;
-      if (a.homeward && a.place === lifeHome(id, s)) delete a.homeward;
+      if (a.homeward && a.place === lifeHome(id)) delete a.homeward;
       if (z?.until !== void 0) {
         if (s.turn >= z.until || a.place !== z.place || standoffFor(s, id)) {
           wakeResident(s, id);
@@ -8286,7 +8294,7 @@
       const w = bedtime(s, id);
       if (z || !w || a.slept === w.start || standoffFor(s, id) || transportPlace(a.place))
         continue;
-      const home = lifeHome(id, s);
+      const home = lifeHome(id);
       if (rangeOf(s, id) !== null && home && a.place !== home && entityActive(s, home) && stepToward(s, id, home).action?.kind === "move") {
         a.homeward = true;
         continue;
@@ -8309,7 +8317,7 @@
     let steps = 0;
     for (const id of [...walkers.slice(start), ...walkers.slice(0, start)]) {
       if (steps >= OFFSTAGE_STEPS) break;
-      const a = s.actors[id], here = a.place, home = lifeHome(id, s);
+      const a = s.actors[id], here = a.place, home = lifeHome(id);
       if (!home || !entityActive(s, home)) {
         delete a.homeward;
         continue;
@@ -8909,7 +8917,7 @@
       );
       return answer(friend && find("intercept", (a) => a.target === friend));
     }
-    const home = lifeHome(actor, s), ranged = Number.isFinite(rangeOf(s, actor) ?? Infinity);
+    const home = lifeHome(actor), ranged = Number.isFinite(rangeOf(s, actor) ?? Infinity);
     const homeStep = () => {
       const step = home && here !== home ? stepToward(s, actor, home) : null;
       return step?.action ? { action: step.action } : idle();

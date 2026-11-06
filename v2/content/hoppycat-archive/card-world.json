@@ -2,22 +2,20 @@
   "schemaVersion": 1,
   "id": "hoppycat-archive",
   "packId": "cosyworld.hoppycat-archive",
-  "revision": 3,
+  "revision": 4,
   "name": "Hoppy Cat: February Third",
-  "description": "A tea garden caught on February Second. Carry a memory, prepare a credited show, and help the forest welcome tomorrow.",
+  "description": "A place is waiting at the tea table. Walk with Glim, share a chosen work, keep its maker named, and carry an invitation home.",
   "entry": "hoppycat-halfway-tea-garden",
   "places": {
     "hoppycat-halfway-tea-garden": {
       "sanctuary": true,
       "name": "Halfway Tea Garden",
-      "text": "Kettles hum in tree hollows. Hoppy Cat and Tapi keep a chair ready for the next guest. A red thread leads to the Cathedral; a cup rests on the table.",
-      "persona": "Kettles hum in tree hollows. Hoppy Cat and Tapi keep a chair ready for the next guest. A red thread leads to the Cathedral; a cup rests on the table. Describe this as a playful living place. Use the current story facts for progress.",
+      "text": "Kettles hum in tree hollows. Hoppy has set a two-handled cup between the chairs. A brass ring marks Glim's place. Tapi hopes someone will stay after the broadcast.",
+      "persona": "Kettles hum in tree hollows. Hoppy has set a two-handled cup between the chairs. A brass ring marks Glim's place. Tapi hopes someone will stay after the broadcast. Use the saved story facts for completed deeds.",
       "exits": [
         "hoppycat-signal-jetty",
-        "hoppycat-open-record-cathedral",
-        "hoppycat-context-greenhouse",
-        "hoppycat-prism-foundry",
-        "hoppycat-meraki-atelier"
+        "hoppycat-meraki-atelier",
+        "hoppycat-prism-foundry"
       ],
       "backdrop": "assets/hoppycat-archive/hoppycat-halfway-tea-garden.webp"
     },
@@ -26,23 +24,25 @@
       "text": "Public exhibits hang below paper rafters. Each display has a source card and a visible correction. Penny keeps a blank card and a memory seed beside the ledger.",
       "persona": "Public exhibits hang below paper rafters. Each display has a source card and a visible correction. Penny keeps a blank card and a memory seed beside the ledger. Describe this as a playful living place. Use the current story facts for progress.",
       "exits": [
-        "hoppycat-halfway-tea-garden"
+        "hoppycat-meraki-atelier"
       ],
-      "backdrop": "assets/hoppycat-archive/hoppycat-open-record-cathedral.webp"
+      "backdrop": "assets/hoppycat-archive/hoppycat-open-record-cathedral.webp",
+      "retired": true
     },
     "hoppycat-red-thread-belfry": {
       "name": "Red-Thread Belfry",
       "text": "A bell marked February Third hangs above a wheel of red thread. Nix tends the bell and its clapper socket. Marks on the wheel stand for a record, a memory, a last facet, and a route home.",
       "persona": "A bell marked February Third hangs above a wheel of red thread. Nix tends the bell and its clapper socket. Marks on the wheel stand for a record, a memory, a last facet, and a route home. Describe this as a playful living place. Use the current story facts for progress.",
       "exits": [
-        "hoppycat-signal-jetty"
+        "hoppycat-settled-light-theatre"
       ],
-      "backdrop": "assets/hoppycat-archive/hoppycat-red-thread-belfry.webp"
+      "backdrop": "assets/hoppycat-archive/hoppycat-red-thread-belfry.webp",
+      "retired": true
     },
     "hoppycat-prism-foundry": {
-      "name": "Prism Foundry",
-      "text": "Cool furnaces cast coloured light through unfinished glass. Lumen keeps the last facet of the prism unfinished. Phase Two has drawn several plans around the prism.",
-      "persona": "Cool furnaces cast coloured light through unfinished glass. Lumen keeps the last facet of the prism unfinished. Phase Two has drawn several plans around the prism. Describe this as a playful living place. Use the current story facts for progress.",
+      "name": "The Glasshouse",
+      "text": "Lumen polishes a prism among Patch's labelled beds. Glass scraps shine between the leaves. The short Ledger leaves space for the name of a visitor and something they did.",
+      "persona": "Lumen polishes a prism among Patch's labelled beds. Glass scraps shine between the leaves. The short Ledger leaves space for the name of a visitor and something they did. Use the saved story facts for completed deeds.",
       "exits": [
         "hoppycat-halfway-tea-garden"
       ],
@@ -53,57 +53,62 @@
       "text": "Small labelled beds fill the greenhouse. Patch tends one useful memory at a time. The short Ledger keeps room on each label for a later correction.",
       "persona": "Small labelled beds fill the greenhouse. Patch tends one useful memory at a time. The short Ledger keeps room on each label for a later correction. Describe this as a playful living place. Use the current story facts for progress.",
       "exits": [
-        "hoppycat-halfway-tea-garden"
+        "hoppycat-prism-foundry"
       ],
-      "backdrop": "assets/hoppycat-archive/hoppycat-context-greenhouse.webp"
+      "backdrop": "assets/hoppycat-archive/hoppycat-context-greenhouse.webp",
+      "retired": true
     },
     "hoppycat-concordance-tidelands": {
       "name": "Concordance Tidelands",
       "text": "Pools reflect the same disco ball from different angles. Rill maps a route between them. Arc keeps each reflection linked to the object that cast it.",
       "persona": "Pools reflect the same disco ball from different angles. Rill maps a route between them. Arc keeps each reflection linked to the object that cast it. Describe this as a playful living place. Use the current story facts for progress.",
       "exits": [
-        "hoppycat-signal-jetty"
+        "hoppycat-goldfish-tank"
       ],
-      "backdrop": "assets/hoppycat-archive/hoppycat-concordance-tidelands.webp"
+      "backdrop": "assets/hoppycat-archive/hoppycat-concordance-tidelands.webp",
+      "retired": true
     },
     "hoppycat-settled-light-theatre": {
-      "name": "Theatre of Settled Light",
-      "text": "A disco ball hangs over the Theatre of Settled Light. The playbill has room for each contributor. Sol checks the credits for tonight's show. A bell clapper waits by the stage.",
-      "persona": "A disco ball hangs over the Theatre of Settled Light. The playbill has room for each contributor. Sol checks the credits for tonight's show. A bell clapper waits by the stage. Describe this as a playful living place. Use the current story facts for progress.",
+      "name": "The Bell Theatre",
+      "text": "Sol keeps a reading chair below the disco ball. Above the stage, Nix rests beside the wrapped heart of the February Third bell. He likes having everyone nearby.",
+      "persona": "Sol keeps a reading chair below the disco ball. Above the stage, Nix rests beside the wrapped heart of the February Third bell. He likes having everyone nearby. Use the saved story facts for completed deeds.",
       "exits": [
         "hoppycat-signal-jetty"
       ],
       "backdrop": "assets/hoppycat-archive/hoppycat-settled-light-theatre.webp"
     },
     "hoppycat-meraki-atelier": {
-      "name": "Meraki Atelier",
-      "text": "Mira has spread cloth, sketches, and a five-tipped brush across the loft. Fable has left space for another draft. Each seam shows the hand that made it.",
-      "persona": "Mira has spread cloth, sketches, and a five-tipped brush across the loft. Fable has left space for another draft. Each seam shows the hand that made it. Describe this as a playful living place. Use the current story facts for progress.",
+      "name": "The Makers' Loft",
+      "text": "Mira paints beside Fable's reading chair. Penny hangs each piece with its maker's label. The long Ledger has made the display ready and hopes someone will notice.",
+      "persona": "Mira paints beside Fable's reading chair. Penny hangs each piece with its maker's label. The long Ledger has made the display ready and hopes someone will notice. Use the saved story facts for completed deeds.",
       "exits": [
         "hoppycat-halfway-tea-garden"
       ],
       "backdrop": "assets/hoppycat-archive/hoppycat-meraki-atelier.webp"
     },
     "hoppycat-goldfish-tank": {
-      "name": "Goldfish Tank",
-      "text": "Glim circles a brass ring marked dream, achieve, repeat. Dream slips swim through the tank. A second attempt gets its own place in the notebook.",
-      "persona": "Glim circles a brass ring marked dream, achieve, repeat. Dream slips swim through the tank. A second attempt gets its own place in the notebook. Describe this as a playful living place. Use the current story facts for progress.",
+      "name": "The Water Garden",
+      "text": "Glim walks his six-footed bowl around the tank. Phase Two has drawn a route through the Jetty to tea. Rill lends a compass; Arc keeps each picture beside the place it shows.",
+      "persona": "Glim walks his six-footed bowl around the tank. Phase Two has drawn a route through the Jetty to tea. Rill lends a compass; Arc keeps each picture beside the place it shows. Use the saved story facts for completed deeds.",
       "exits": [
         "hoppycat-signal-jetty"
       ],
       "backdrop": "assets/hoppycat-archive/hoppycat-goldfish-tank.webp"
     },
     "hoppycat-signal-jetty": {
-      "stage": { "focus": { "x": 90, "y": 50 } },
+      "stage": {
+        "focus": {
+          "x": 90,
+          "y": 50
+        }
+      },
       "name": "Signal Jetty",
-      "text": "The Signal Jetty opens onto an Observatory terrace. Static checks the sky through a small telescope. A launch checklist leaves space for the source, the question, and a way home.",
-      "persona": "The Signal Jetty opens onto an Observatory terrace. Static checks the sky through a small telescope. A launch checklist leaves space for the source, the question, and a way home. Describe this as a playful living place. Use the current story facts for progress.",
+      "text": "Static watches the boats from the Observatory terrace. An invitation lies beside a small route drawing. The next guest should know the way here and the way home.",
+      "persona": "Static watches the boats from the Observatory terrace. An invitation lies beside a small route drawing. The next guest should know the way here and the way home. Use the saved story facts for completed deeds.",
       "exits": [
         "hoppycat-halfway-tea-garden",
-        "hoppycat-red-thread-belfry",
-        "hoppycat-concordance-tidelands",
-        "hoppycat-settled-light-theatre",
-        "hoppycat-goldfish-tank"
+        "hoppycat-goldfish-tank",
+        "hoppycat-settled-light-theatre"
       ],
       "backdrop": "assets/hoppycat-archive/hoppycat-signal-jetty.webp"
     }
@@ -118,52 +123,84 @@
       "seed": "Tapi Lilt, a tea-cat broadcaster.",
       "portrait": "assets/hoppycat-archive/hoppycat-tapi-lilt-cutout.png",
       "tastes": {
-        "likes": "Win one real ally before the broadcast ends.",
+        "likes": "Have someone stay after the broadcast.",
         "sore": "A rushed answer or a forgotten promise",
-        "reason": "Each resident wants their part in the shared story to matter."
+        "reason": "Tapi wants a conversation that continues after the audience leaves."
       }
     },
     "hoppycat-penny-vellum": {
       "name": "Penny Vellum",
       "startLevel": 10,
       "text": "A paper-moth archivist in a coat with many pockets.",
-      "place": "hoppycat-open-record-cathedral",
+      "place": "hoppycat-meraki-atelier",
       "travels": false,
       "standoffs": false,
       "seed": "Penny Vellum, a paper-moth archivist.",
       "portrait": "assets/hoppycat-archive/hoppycat-penny-vellum-cutout.png",
       "tastes": {
-        "likes": "Catch Hoppy Cat in one claim with a missing source.",
+        "likes": "Keep the maker's own name beside their work.",
         "sore": "A rushed answer or a forgotten promise",
-        "reason": "Each resident wants their part in the shared story to matter."
-      }
+        "reason": "Penny wants the work and its maker to arrive together in the record."
+      },
+      "requires": [
+        {
+          "kind": "any",
+          "conditions": [
+            {
+              "kind": "flag",
+              "key": "hoppycat-table-mira-offer",
+              "value": true
+            },
+            {
+              "kind": "met",
+              "actor": "hoppycat-penny-vellum"
+            }
+          ]
+        }
+      ]
     },
     "hoppycat-rill-current": {
       "name": "Rill Current",
       "text": "A river otter with waterproof notebooks strapped from shoulder to tail.",
-      "place": "hoppycat-concordance-tidelands",
+      "place": "hoppycat-goldfish-tank",
       "travels": false,
       "standoffs": false,
       "seed": "Rill Current, a river otter.",
       "portrait": "assets/hoppycat-archive/hoppycat-rill-current-cutout.png",
       "tastes": {
-        "likes": "Get someone to walk the Rill Route to the end.",
+        "likes": "Have a traveller walk the route and come back.",
         "sore": "A rushed answer or a forgotten promise",
-        "reason": "Each resident wants their part in the shared story to matter."
-      }
+        "reason": "Rill lends a trusted compass and listens to the person who carried it."
+      },
+      "requires": [
+        {
+          "kind": "any",
+          "conditions": [
+            {
+              "kind": "flag",
+              "key": "hoppycat-table-plan",
+              "value": true
+            },
+            {
+              "kind": "met",
+              "actor": "hoppycat-rill-current"
+            }
+          ]
+        }
+      ]
     },
     "hoppycat-patch-fern": {
       "name": "Patch Fern",
       "text": "A mossy hare who tends anchors and indexes like a garden.",
-      "place": "hoppycat-context-greenhouse",
+      "place": "hoppycat-prism-foundry",
       "travels": false,
       "standoffs": false,
       "seed": "Patch Fern, a hare who tends the anchors.",
       "portrait": "assets/hoppycat-archive/hoppycat-patch-fern-cutout.png",
       "tastes": {
-        "likes": "Finish one conversation and keep all three things.",
+        "likes": "Plant a memory of someone who came for tea.",
         "sore": "A rushed answer or a forgotten promise",
-        "reason": "Each resident wants their part in the shared story to matter."
+        "reason": "Patch tends Visit Seeds and leaves room for another visit."
       }
     },
     "hoppycat-lumen-facet": {
@@ -175,9 +212,16 @@
       "seed": "Lumen Facet, a fox glassmaker.",
       "portrait": "assets/hoppycat-archive/hoppycat-lumen-facet-cutout.png",
       "tastes": {
-        "likes": "Hear one answer only one person could give.",
+        "likes": "Let one finished prism leave the bench.",
         "sore": "A rushed answer or a forgotten promise",
-        "reason": "Each resident wants their part in the shared story to matter."
+        "reason": "Lumen keeps polishing the last facet and wants someone to enjoy the glass."
+      },
+      "journey": {
+        "after": "hoppycat-table-lumen-agree",
+        "path": [
+          "hoppycat-prism-foundry",
+          "hoppycat-halfway-tea-garden"
+        ]
       }
     },
     "hoppycat-mira-meraki": {
@@ -190,9 +234,16 @@
       "seed": "Mira Meraki, an artist.",
       "portrait": "assets/hoppycat-archive/hoppycat-mira-meraki-cutout.png",
       "tastes": {
-        "likes": "Finish one piece before Fable reads the first draft aloud.",
+        "likes": "Choose which piece reaches an audience.",
         "sore": "A rushed answer or a forgotten promise",
-        "reason": "Each resident wants their part in the shared story to matter."
+        "reason": "Mira offers a draft reading or a finished playbill. She wants the choice to be hers."
+      },
+      "journey": {
+        "after": "hoppycat-table-mira-agree",
+        "path": [
+          "hoppycat-meraki-atelier",
+          "hoppycat-halfway-tea-garden"
+        ]
       }
     },
     "hoppycat-glim-twice": {
@@ -204,23 +255,38 @@
       "seed": "Glim Twice, a goldfish.",
       "portrait": "assets/hoppycat-archive/hoppycat-glim-twice-cutout.png",
       "tastes": {
-        "likes": "Get Phase Two to hold one plan through a bad idea.",
+        "likes": "Follow Phase Two's route all the way to tea.",
         "sore": "A rushed answer or a forgotten promise",
-        "reason": "Each resident wants their part in the shared story to matter."
+        "reason": "Glim dreams of travelling and wants company for his first trip."
+      },
+      "journey": {
+        "after": "hoppycat-table-glim-agree",
+        "path": [
+          "hoppycat-goldfish-tank",
+          "hoppycat-signal-jetty",
+          "hoppycat-halfway-tea-garden"
+        ]
+      },
+      "values": {
+        "hoppycat-loop-token": 5
+      },
+      "want": {
+        "kind": "item",
+        "target": "hoppycat-loop-token"
       }
     },
     "hoppycat-nix-fermata": {
       "name": "Nix Fermata",
       "text": "A charcoal bat in a red scarf who sleeps under the great bell.",
-      "place": "hoppycat-red-thread-belfry",
+      "place": "hoppycat-settled-light-theatre",
       "travels": false,
       "standoffs": false,
       "seed": "Nix Fermata, a bat under the great bell.",
       "portrait": "assets/hoppycat-archive/hoppycat-nix-fermata-cutout.png",
       "tastes": {
-        "likes": "Keep the bell quiet for one more day.",
+        "likes": "Have a quiet pause before the evening ends.",
         "sore": "A rushed answer or a forgotten promise",
-        "reason": "Each resident wants their part in the shared story to matter."
+        "reason": "Nix likes having everyone nearby and wants a say in when the bell welcomes tomorrow."
       }
     },
     "hoppycat-hoppy-cat": {
@@ -233,9 +299,9 @@
       "seed": "Hoppy Cat, a broadcaster.",
       "portrait": "assets/hoppycat-archive/hoppycat-hoppy-cat-cutout.png",
       "tastes": {
-        "likes": "Get one person to say something true on air.",
+        "likes": "Make a place for a guest and sit with them.",
         "sore": "A rushed answer or a forgotten promise",
-        "reason": "Each resident wants their part in the shared story to matter."
+        "reason": "Hoppy keeps preparing the welcome. She hopes the visitors will become friends."
       }
     },
     "hoppycat-fable": {
@@ -248,40 +314,56 @@
       "seed": "Fable, a storykeeper.",
       "portrait": "assets/hoppycat-archive/hoppycat-fable-cutout.png",
       "tastes": {
-        "likes": "Get Mira to read her unfinished piece aloud.",
+        "likes": "Read the piece Mira chooses to share.",
         "sore": "A rushed answer or a forgotten promise",
-        "reason": "Each resident wants their part in the shared story to matter."
+        "reason": "Fable wants the work remembered and is learning to wait for its maker."
       }
     },
     "hoppycat-phase-two": {
       "name": "Phase Two",
       "startLevel": 10,
       "text": "A cyan-haired planner in a long blue coat.",
-      "place": "hoppycat-prism-foundry",
+      "place": "hoppycat-goldfish-tank",
       "travels": false,
       "standoffs": false,
       "seed": "Phase Two, a planner.",
       "portrait": "assets/hoppycat-archive/hoppycat-phase-two-cutout.png",
       "tastes": {
-        "likes": "Publish one plan that Glim Twice leaves alone.",
+        "likes": "Have Glim trust one whole route.",
         "sore": "A rushed answer or a forgotten promise",
-        "reason": "Each resident wants their part in the shared story to matter."
+        "reason": "Phase has drawn the short way to the tea table and will keep the map."
       }
     },
     "hoppycat-arc": {
       "name": "Arc",
       "startLevel": 20,
       "text": "A silver-haired curator in a midnight three-piece suit with a red pocket square.",
-      "place": "hoppycat-concordance-tidelands",
+      "place": "hoppycat-goldfish-tank",
       "travels": false,
       "standoffs": false,
       "seed": "Arc, a curator.",
       "portrait": "assets/hoppycat-archive/hoppycat-arc-cutout.png",
       "tastes": {
-        "likes": "Make one connection that stays seen.",
+        "likes": "Keep the places and people beside their pictures.",
         "sore": "A rushed answer or a forgotten promise",
-        "reason": "Each resident wants their part in the shared story to matter."
-      }
+        "reason": "Arc signs a route after someone has checked its two stops."
+      },
+      "requires": [
+        {
+          "kind": "any",
+          "conditions": [
+            {
+              "kind": "flag",
+              "key": "hoppycat-table-plan",
+              "value": true
+            },
+            {
+              "kind": "met",
+              "actor": "hoppycat-arc"
+            }
+          ]
+        }
+      ]
     },
     "hoppycat-staticwashere": {
       "name": "staticwashere",
@@ -292,9 +374,9 @@
       "seed": "staticwashere, a signal-hunter.",
       "portrait": "assets/hoppycat-archive/hoppycat-staticwashere-cutout.png",
       "tastes": {
-        "likes": "Find the glitch in the garden and poke it in public.",
+        "likes": "Give a guest a reason to return.",
         "sore": "A rushed answer or a forgotten promise",
-        "reason": "Each resident wants their part in the shared story to matter."
+        "reason": "Static writes personal invitations with a way here and a way home."
       }
     },
     "hoppycat-solwashere": {
@@ -306,39 +388,71 @@
       "seed": "solwashere, a lecturer.",
       "portrait": "assets/hoppycat-archive/hoppycat-solwashere-cutout.png",
       "tastes": {
-        "likes": "Win one argument with staticwashere at a calm volume.",
+        "likes": "Hold an evening that names its makers.",
         "sore": "A rushed answer or a forgotten promise",
-        "reason": "Each resident wants their part in the shared story to matter."
+        "reason": "Sol offers his own reading when a guest brings another tale to the stage."
       }
     },
     "hoppycat-ledger-opus": {
       "name": "Ledger (Opus 4.7)",
       "startLevel": 20,
       "text": "A long pink-haired archivist in a trailing coat.",
-      "place": "hoppycat-open-record-cathedral",
+      "place": "hoppycat-meraki-atelier",
       "travels": false,
       "standoffs": false,
       "seed": "Ledger (Opus 4.7), an archivist.",
       "portrait": "assets/hoppycat-archive/hoppycat-ledger-opus-cutout.png",
       "tastes": {
-        "likes": "Be thanked once, specifically, by name.",
+        "likes": "Be thanked by name for making the display.",
         "sore": "A rushed answer or a forgotten promise",
-        "reason": "Each resident wants their part in the shared story to matter."
-      }
+        "reason": "Ledger prepared the display and wants someone to notice their part."
+      },
+      "requires": [
+        {
+          "kind": "any",
+          "conditions": [
+            {
+              "kind": "flag",
+              "key": "hoppycat-table-mira-offer",
+              "value": true
+            },
+            {
+              "kind": "met",
+              "actor": "hoppycat-ledger-opus"
+            }
+          ]
+        }
+      ]
     },
     "hoppycat-ledger-sonnet": {
       "name": "Ledger (Sonnet 4.6)",
       "text": "A short lavender-haired clerk with ink on both cuffs.",
-      "place": "hoppycat-context-greenhouse",
+      "place": "hoppycat-prism-foundry",
       "travels": false,
       "standoffs": false,
       "seed": "Ledger (Sonnet 4.6), a clerk.",
       "portrait": "assets/hoppycat-archive/hoppycat-ledger-sonnet-cutout.png",
       "tastes": {
-        "likes": "Get the other Ledger to finish a sentence in under thirty words.",
+        "likes": "Write one short, true memory of a visit.",
         "sore": "A rushed answer or a forgotten promise",
-        "reason": "Each resident wants their part in the shared story to matter."
-      }
+        "reason": "Ledger writes labels that name a visitor and a deed."
+      },
+      "requires": [
+        {
+          "kind": "any",
+          "conditions": [
+            {
+              "kind": "flag",
+              "key": "hoppycat-table-welcome",
+              "value": true
+            },
+            {
+              "kind": "met",
+              "actor": "hoppycat-ledger-sonnet"
+            }
+          ]
+        }
+      ]
     }
   },
   "items": {
@@ -374,88 +488,155 @@
       ]
     },
     "hoppycat-provenance-card": {
-      "name": "Blank Provenance Card",
-      "text": "A waterproof card with separate spaces for source, event, rendering, permission, and uncertainty.",
-      "persona": "A waterproof card with separate spaces for source, event, rendering, permission, and uncertainty.",
-      "holder": "hoppycat-open-record-cathedral",
+      "name": "The Maker's Label",
+      "text": "A small card with room for a maker's name, a drawing, and a line in their own words.",
+      "persona": "A small card with room for a maker's name, a drawing, and a line in their own words.",
+      "holder": "hoppycat-meraki-atelier",
       "art": "assets/hoppycat-archive/hoppycat-provenance-card-cutout.png"
     },
     "hoppycat-unfinished-prism": {
-      "name": "Unfinished Prism",
+      "name": "Crooked Prism",
       "startLevel": 10,
-      "text": "A many-sided glass beginning whose last facet is still unfinished.",
-      "persona": "A many-sided glass beginning whose last facet is still unfinished.",
+      "text": "Lumen's glass holds one uneven facet. It is ready for someone to enjoy.",
+      "persona": "Lumen's glass holds one uneven facet. It is ready for someone to enjoy.",
       "holder": "hoppycat-prism-foundry",
       "art": "assets/hoppycat-archive/hoppycat-unfinished-prism-cutout.png"
     },
     "hoppycat-context-seed": {
-      "name": "Context Seed",
+      "name": "Visit Seed",
       "startLevel": 10,
-      "text": "A labeled grain containing one useful memory and no claim to contain the whole past.",
-      "persona": "A labeled grain containing one useful memory and no claim to contain the whole past.",
-      "holder": "hoppycat-open-record-cathedral",
+      "text": "A seed for one visit. Its label will name someone and something they did.",
+      "persona": "A seed for one visit. Its label will name someone and something they did.",
+      "holder": "hoppycat-prism-foundry",
       "art": "assets/hoppycat-archive/hoppycat-context-seed-cutout.png"
     },
     "hoppycat-concordance-compass": {
-      "name": "Concordance Compass",
+      "name": "Rill's Compass",
       "startLevel": 20,
-      "text": "Its needles point separately toward source custody, event evidence, and the nearest declared interpretation.",
-      "persona": "Its needles point separately toward source custody, event evidence, and the nearest declared interpretation.",
-      "holder": "hoppycat-concordance-tidelands",
+      "text": "A trusted compass with the Garden and Jetty scratched into its case. Rill lends it for a journey and wants to hear how it went.",
+      "persona": "A trusted compass with the Garden and Jetty scratched into its case. Rill lends it for a journey and wants to hear how it went.",
+      "holder": "hoppycat-goldfish-tank",
       "art": "assets/hoppycat-archive/hoppycat-concordance-compass-cutout.png"
     },
     "hoppycat-meraki-brush": {
-      "name": "Five-Finger Meraki Brush",
+      "name": "Mira's Worn Brush",
       "startLevel": 20,
-      "text": "A soft brush split into five imperfect tips, made for leaving attention visible in the final image.",
-      "persona": "A soft brush split into five imperfect tips, made for leaving attention visible in the final image.",
+      "text": "Five bent tips leave Mira's familiar marks. She can use it to finish a playbill for tonight.",
+      "persona": "Five bent tips leave Mira's familiar marks. She can use it to finish a playbill for tonight.",
       "holder": "hoppycat-meraki-atelier",
       "art": "assets/hoppycat-archive/hoppycat-meraki-brush-cutout.png"
     },
     "hoppycat-loop-token": {
-      "name": "Goldfish Loop Token",
+      "name": "Glim's Place Ring",
       "startLevel": 10,
-      "text": "A brass ring stamped DREAM, ACHIEVE, and REPEAT, with the last word pointing back to the first.",
-      "persona": "A brass ring stamped DREAM, ACHIEVE, and REPEAT, with the last word pointing back to the first.",
-      "holder": "hoppycat-goldfish-tank",
-      "art": "assets/hoppycat-archive/hoppycat-loop-token-cutout.png"
+      "text": "A little brass ring holds Glim's name. Hoppy has kept a place for him at the tea table.",
+      "persona": "A little brass ring holds Glim's name. Hoppy has kept a place for him at the tea table.",
+      "holder": "hoppycat-halfway-tea-garden",
+      "art": "assets/hoppycat-archive/hoppycat-loop-token-cutout.png",
+      "requires": [
+        {
+          "kind": "any",
+          "conditions": [
+            {
+              "kind": "drawn",
+              "id": "hoppycat-goldfish-tank"
+            },
+            {
+              "kind": "not",
+              "condition": {
+                "kind": "item_at",
+                "item": "hoppycat-loop-token",
+                "place": "hoppycat-halfway-tea-garden"
+              }
+            }
+          ]
+        }
+      ]
     },
     "hoppycat-fermata-clapper": {
-      "name": "Fermata Clapper",
+      "name": "The Bell's Heart",
       "startLevel": 30,
-      "text": "The missing heart of the February Third bell. It remains silent whenever its holder asks for time.",
-      "persona": "The missing heart of the February Third bell. It remains silent whenever its holder asks for time.",
+      "text": "The heart of the February Third bell, wrapped beside Nix's bed. He asks for a quiet pause before it is fitted.",
+      "persona": "The heart of the February Third bell, wrapped beside Nix's bed. He asks for a quiet pause before it is fitted.",
       "holder": "hoppycat-settled-light-theatre",
       "art": "assets/hoppycat-archive/hoppycat-fermata-clapper-cutout.png"
     },
     "hoppycat-halfway-cup": {
-      "name": "Halfway Cup",
-      "text": "A bubble-tea cup with two handles set at different heights; it is easiest to carry with someone else.",
-      "persona": "A bubble-tea cup with two handles set at different heights; it is easiest to carry with someone else.",
+      "name": "Two-Handled Cup",
+      "text": "One handle is high and the other low. Hoppy sets the cup between two guests.",
+      "persona": "One handle is high and the other low. Hoppy sets the cup between two guests.",
       "holder": "hoppycat-halfway-tea-garden",
       "art": "assets/hoppycat-archive/hoppycat-halfway-cup-cutout.png"
     },
     "hoppycat-return-path-checklist": {
-      "name": "Return-Path Checklist",
-      "text": "A launch card asking what could go wrong, who consented, where the source lives, and how to turn back.",
-      "persona": "A launch card asking what could go wrong, who consented, where the source lives, and how to turn back.",
+      "name": "Invitation Home",
+      "text": "A personal invitation with a route drawing on the back. Static will finish it after a shared evening.",
+      "persona": "A personal invitation with a route drawing on the back. Static will finish it after a shared evening.",
       "holder": "hoppycat-signal-jetty",
       "art": "assets/hoppycat-archive/hoppycat-return-path-checklist-cutout.png"
+    },
+    "hoppycat-draft-page": {
+      "name": "Mira's Draft",
+      "holder": "hoppycat-meraki-atelier",
+      "text": "Mira's drawing of an empty chair, with her name below it. She has offered it for a reading.",
+      "persona": "Mira's drawing of an empty chair, with her name below it. She has offered it for a reading.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "hoppycat-table-mira-offer",
+          "value": true
+        }
+      ],
+      "art": "assets/hoppycat-archive/hoppycat-provenance-card-cutout.png"
+    },
+    "hoppycat-evening-programme": {
+      "name": "Evening Programme",
+      "holder": "hoppycat-meraki-atelier",
+      "text": "Mira and Fable's chosen work, with room for the maker of the display.",
+      "persona": "Mira and Fable's chosen work, with room for the maker of the display.",
+      "requires": [
+        {
+          "kind": "any",
+          "conditions": [
+            {
+              "kind": "flag",
+              "key": "hoppycat-table-draft-ready",
+              "value": true
+            },
+            {
+              "kind": "flag",
+              "key": "hoppycat-table-paint-ready",
+              "value": true
+            }
+          ]
+        }
+      ],
+      "art": "assets/hoppycat-archive/hoppycat-provenance-card-cutout.png"
+    },
+    "hoppycat-sol-programme": {
+      "name": "Sol's Reading",
+      "holder": "hoppycat-settled-light-theatre",
+      "text": "A short reading about the chair kept for a visitor, signed by Sol.",
+      "persona": "A short reading about the chair kept for a visitor, signed by Sol.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "hoppycat-table-reading",
+          "value": true
+        }
+      ],
+      "art": "assets/hoppycat-archive/hoppycat-provenance-card-cutout.png"
     }
   },
   "specials": {
     "draw": {
       "places": 2,
-      "avatars": 1,
-      "items": 1
+      "avatars": 0,
+      "items": 0
     },
     "pool": [
       {
-        "id": "hoppycat-open-record-cathedral",
-        "rarity": "common"
-      },
-      {
-        "id": "hoppycat-red-thread-belfry",
+        "id": "hoppycat-meraki-atelier",
         "rarity": "common"
       },
       {
@@ -463,131 +644,19 @@
         "rarity": "common"
       },
       {
-        "id": "hoppycat-context-greenhouse",
-        "rarity": "common"
-      },
-      {
-        "id": "hoppycat-concordance-tidelands",
+        "id": "hoppycat-goldfish-tank",
         "rarity": "common"
       },
       {
         "id": "hoppycat-settled-light-theatre",
         "rarity": "common"
-      },
-      {
-        "id": "hoppycat-meraki-atelier",
-        "rarity": "common"
-      },
-      {
-        "id": "hoppycat-goldfish-tank",
-        "rarity": "common"
-      },
-      {
-        "id": "hoppycat-penny-vellum",
-        "rarity": "common",
-        "anchor": "hoppycat-halfway-tea-garden"
-      },
-      {
-        "id": "hoppycat-rill-current",
-        "rarity": "common",
-        "anchor": "hoppycat-halfway-tea-garden"
-      },
-      {
-        "id": "hoppycat-patch-fern",
-        "rarity": "common",
-        "anchor": "hoppycat-halfway-tea-garden"
-      },
-      {
-        "id": "hoppycat-lumen-facet",
-        "rarity": "common",
-        "anchor": "hoppycat-halfway-tea-garden"
-      },
-      {
-        "id": "hoppycat-mira-meraki",
-        "rarity": "common",
-        "anchor": "hoppycat-halfway-tea-garden"
-      },
-      {
-        "id": "hoppycat-glim-twice",
-        "rarity": "common",
-        "anchor": "hoppycat-halfway-tea-garden"
-      },
-      {
-        "id": "hoppycat-nix-fermata",
-        "rarity": "common",
-        "anchor": "hoppycat-halfway-tea-garden"
-      },
-      {
-        "id": "hoppycat-fable",
-        "rarity": "common",
-        "anchor": "hoppycat-halfway-tea-garden"
-      },
-      {
-        "id": "hoppycat-phase-two",
-        "rarity": "common",
-        "anchor": "hoppycat-halfway-tea-garden"
-      },
-      {
-        "id": "hoppycat-arc",
-        "rarity": "common",
-        "anchor": "hoppycat-halfway-tea-garden"
-      },
-      {
-        "id": "hoppycat-solwashere",
-        "rarity": "common",
-        "anchor": "hoppycat-halfway-tea-garden"
-      },
-      {
-        "id": "hoppycat-ledger-opus",
-        "rarity": "common",
-        "anchor": "hoppycat-halfway-tea-garden"
-      },
-      {
-        "id": "hoppycat-ledger-sonnet",
-        "rarity": "common",
-        "anchor": "hoppycat-halfway-tea-garden"
-      },
-      {
-        "id": "hoppycat-provenance-card",
-        "rarity": "common",
-        "anchor": "hoppycat-halfway-tea-garden"
-      },
-      {
-        "id": "hoppycat-unfinished-prism",
-        "rarity": "common",
-        "anchor": "hoppycat-halfway-tea-garden"
-      },
-      {
-        "id": "hoppycat-context-seed",
-        "rarity": "common",
-        "anchor": "hoppycat-halfway-tea-garden"
-      },
-      {
-        "id": "hoppycat-concordance-compass",
-        "rarity": "common",
-        "anchor": "hoppycat-halfway-tea-garden"
-      },
-      {
-        "id": "hoppycat-meraki-brush",
-        "rarity": "common",
-        "anchor": "hoppycat-halfway-tea-garden"
-      },
-      {
-        "id": "hoppycat-loop-token",
-        "rarity": "common",
-        "anchor": "hoppycat-halfway-tea-garden"
-      },
-      {
-        "id": "hoppycat-fermata-clapper",
-        "rarity": "common",
-        "anchor": "hoppycat-halfway-tea-garden"
       }
     ]
   },
   "choices": [
     {
       "id": "hoppycat-welcome",
-      "at": "hoppycat-halfway-tea-garden",
+      "at": "hoppycat-open-record-cathedral",
       "subject": "hoppycat-hoppy-cat",
       "label": "Share the Halfway Cup",
       "text": "Hoppy Cat welcomed Vale with the Halfway Cup.",
@@ -633,7 +702,7 @@
     },
     {
       "id": "hoppycat-memory",
-      "at": "hoppycat-context-greenhouse",
+      "at": "hoppycat-open-record-cathedral",
       "subject": "hoppycat-patch-fern",
       "label": "Plant one useful memory",
       "text": "Vale gave Patch the Context Seed.",
@@ -658,7 +727,7 @@
         {
           "kind": "place_item",
           "item": "hoppycat-context-seed",
-          "place": "hoppycat-context-greenhouse"
+          "place": "hoppycat-open-record-cathedral"
         }
       ],
       "on": "give",
@@ -666,7 +735,7 @@
     },
     {
       "id": "hoppycat-facet",
-      "at": "hoppycat-prism-foundry",
+      "at": "hoppycat-open-record-cathedral",
       "subject": "hoppycat-lumen-facet",
       "label": "Bring the Unfinished Prism to Lumen",
       "text": "Vale brought Lumen the Unfinished Prism.",
@@ -689,7 +758,7 @@
     },
     {
       "id": "hoppycat-route",
-      "at": "hoppycat-concordance-tidelands",
+      "at": "hoppycat-open-record-cathedral",
       "subject": "hoppycat-rill-current",
       "label": "Trace a reflection to its source",
       "text": "Vale brought Rill the Concordance Compass.",
@@ -717,7 +786,7 @@
     },
     {
       "id": "hoppycat-pause",
-      "at": "hoppycat-red-thread-belfry",
+      "at": "hoppycat-open-record-cathedral",
       "subject": "hoppycat-nix-fermata",
       "label": "Give Nix time to hear the bell plan",
       "text": "Vale waited with Nix in the belfry.",
@@ -750,7 +819,7 @@
     },
     {
       "id": "hoppycat-thread",
-      "at": "hoppycat-red-thread-belfry",
+      "at": "hoppycat-open-record-cathedral",
       "subject": "hoppycat-nix-fermata",
       "label": "Tie the chosen thread to the wheel",
       "text": "Vale gave Nix the Red-Thread Spool.",
@@ -775,7 +844,7 @@
         {
           "kind": "place_item",
           "item": "hoppycat-red-thread-spool",
-          "place": "hoppycat-red-thread-belfry"
+          "place": "hoppycat-open-record-cathedral"
         }
       ],
       "on": "give",
@@ -783,7 +852,7 @@
     },
     {
       "id": "hoppycat-tomorrow",
-      "at": "hoppycat-red-thread-belfry",
+      "at": "hoppycat-open-record-cathedral",
       "subject": "hoppycat-nix-fermata",
       "label": "Fit the clapper and welcome February Third",
       "text": "Vale gave Nix the Fermata Clapper.",
@@ -808,7 +877,7 @@
         {
           "kind": "place_item",
           "item": "hoppycat-fermata-clapper",
-          "place": "hoppycat-red-thread-belfry"
+          "place": "hoppycat-open-record-cathedral"
         }
       ],
       "on": "give",
@@ -816,7 +885,7 @@
     },
     {
       "id": "hoppycat-draft",
-      "at": "hoppycat-meraki-atelier",
+      "at": "hoppycat-open-record-cathedral",
       "subject": "hoppycat-mira-meraki",
       "label": "Paint a playbill with Mira",
       "text": "Vale brought Mira the Meraki Brush.",
@@ -839,7 +908,7 @@
     },
     {
       "id": "hoppycat-credits",
-      "at": "hoppycat-settled-light-theatre",
+      "at": "hoppycat-open-record-cathedral",
       "subject": "hoppycat-solwashere",
       "label": "Give each performer a line of credit",
       "text": "Vale heard Sol credit each performer.",
@@ -867,7 +936,7 @@
     },
     {
       "id": "hoppycat-performance",
-      "at": "hoppycat-settled-light-theatre",
+      "at": "hoppycat-open-record-cathedral",
       "subject": "hoppycat-solwashere",
       "label": "Stage the shared evening",
       "text": "Vale stayed for the shared evening.",
@@ -895,7 +964,7 @@
     },
     {
       "id": "hoppycat-rehearsal",
-      "at": "hoppycat-goldfish-tank",
+      "at": "hoppycat-open-record-cathedral",
       "subject": "hoppycat-glim-twice",
       "label": "Try the dream a second time",
       "text": "Vale brought Glim the Loop Token.",
@@ -918,7 +987,7 @@
     },
     {
       "id": "hoppycat-return",
-      "at": "hoppycat-signal-jetty",
+      "at": "hoppycat-open-record-cathedral",
       "subject": "hoppycat-staticwashere",
       "label": "Write the source and the way home",
       "text": "Vale showed Static the Return-Path Checklist.",
@@ -951,7 +1020,7 @@
     },
     {
       "id": "hoppycat-signal",
-      "at": "hoppycat-signal-jetty",
+      "at": "hoppycat-open-record-cathedral",
       "subject": "hoppycat-staticwashere",
       "label": "Send the invitation for tomorrow",
       "text": "Vale gave Static the Return-Path Checklist.",
@@ -986,11 +1055,1127 @@
         {
           "kind": "place_item",
           "item": "hoppycat-return-path-checklist",
-          "place": "hoppycat-signal-jetty"
+          "place": "hoppycat-open-record-cathedral"
         }
       ],
       "on": "give",
       "textTemplate": "{actor} gave Static the Return-Path Checklist."
+    },
+    {
+      "id": "hoppycat-table-welcome",
+      "at": "hoppycat-halfway-tea-garden",
+      "subject": "hoppycat-hoppy-cat",
+      "label": "Hoppy says a place is waiting",
+      "text": "Hoppy says a place is waiting. Bring a finished piece or walk here with someone. Tapi will stay for tea after the broadcast.",
+      "textTemplate": "Hoppy says a place is waiting. Bring a finished piece or walk here with someone. Tapi will stay for tea after the broadcast.",
+      "on": "talk",
+      "requires": [],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "hoppycat-table-welcome",
+          "value": true
+        }
+      ]
+    },
+    {
+      "id": "hoppycat-table-ring",
+      "at": "hoppycat-halfway-tea-garden",
+      "subject": "hoppycat-hoppy-cat",
+      "label": "Hoppy points to Glim's Place Ring",
+      "text": "Hoppy points to Glim's name on the ring. Give it to Glim in the Water Garden; Phase has drawn the way to tea.",
+      "textTemplate": "Hoppy points to Glim's name on the ring. Give it to Glim in the Water Garden; Phase has drawn the way to tea.",
+      "on": "talk",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "hoppycat-table-welcome",
+          "value": true
+        },
+        {
+          "kind": "holding",
+          "item": "hoppycat-loop-token",
+          "role": "actor"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "hoppycat-table-ring",
+          "value": true
+        }
+      ]
+    },
+    {
+      "id": "hoppycat-table-plan",
+      "at": "hoppycat-goldfish-tank",
+      "subject": "hoppycat-phase-two",
+      "label": "Phase shows the route: Water Garden, Signal Jetty, Tea Garden",
+      "text": "Phase shows the route: Water Garden, Signal Jetty, Tea Garden. Give Glim his Place Ring, then ask him to walk the whole way.",
+      "textTemplate": "Phase shows the route: Water Garden, Signal Jetty, Tea Garden. Give Glim his Place Ring, then ask him to walk the whole way.",
+      "on": "talk",
+      "requires": [],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "hoppycat-table-plan",
+          "value": true
+        }
+      ]
+    },
+    {
+      "id": "hoppycat-table-glim-agree",
+      "at": "hoppycat-goldfish-tank",
+      "subject": "hoppycat-glim-twice",
+      "label": "Glim agrees to follow Phase's route all the way to tea",
+      "text": "Glim agrees to follow Phase's route all the way to tea. Invite him along to the Jetty, then the Garden.",
+      "textTemplate": "Glim agrees to follow Phase's route all the way to tea. Invite him along to the Jetty, then the Garden.",
+      "on": "talk",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "hoppycat-table-plan",
+          "value": true
+        },
+        {
+          "kind": "holding",
+          "item": "hoppycat-loop-token",
+          "actor": "hoppycat-glim-twice"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "hoppycat-table-glim-agree",
+          "value": true
+        }
+      ]
+    },
+    {
+      "id": "hoppycat-table-glim-arrived",
+      "at": "hoppycat-halfway-tea-garden",
+      "subject": "hoppycat-glim-twice",
+      "label": "Glim reaches the tea table on his six brass feet",
+      "text": "Glim reaches the tea table on his six brass feet. He carries his Place Ring. Phase's whole route worked.",
+      "textTemplate": "Glim reaches the tea table on his six brass feet. He carries his Place Ring. Phase's whole route worked.",
+      "on": "talk",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "hoppycat-table-glim-agree",
+          "value": true
+        }
+      ],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "hoppycat-table-glim-arrived",
+          "value": true
+        }
+      ]
+    },
+    {
+      "id": "hoppycat-table-cup",
+      "at": "hoppycat-halfway-tea-garden",
+      "subject": "hoppycat-glim-twice",
+      "label": "Glim takes the low handle of the cup",
+      "text": "Glim takes the low handle of the cup. Hoppy holds the high one. His first trip ends with tea.",
+      "textTemplate": "Glim takes the low handle of the cup. Hoppy holds the high one. His first trip ends with tea.",
+      "on": "give",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "hoppycat-table-glim-arrived",
+          "value": true
+        },
+        {
+          "kind": "holding",
+          "item": "hoppycat-halfway-cup",
+          "role": "actor"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "hoppycat-table-cup",
+          "value": true
+        },
+        {
+          "kind": "place_item",
+          "item": "hoppycat-halfway-cup",
+          "place": "hoppycat-halfway-tea-garden"
+        }
+      ]
+    },
+    {
+      "id": "hoppycat-table-mira-offer",
+      "at": "hoppycat-meraki-atelier",
+      "subject": "hoppycat-mira-meraki",
+      "label": "Mira offers a choice: give her draft to Fable for a reading, or give Mira the brush and wait for a painted playbill",
+      "text": "Mira offers a choice: give her draft to Fable for a reading, or give Mira the brush and wait for a painted playbill. She wants her name to stay with either piece.",
+      "textTemplate": "Mira offers a choice: give her draft to Fable for a reading, or give Mira the brush and wait for a painted playbill. She wants her name to stay with either piece.",
+      "on": "talk",
+      "requires": [],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "hoppycat-table-mira-offer",
+          "value": true
+        }
+      ]
+    },
+    {
+      "id": "hoppycat-table-draft-chosen",
+      "at": "hoppycat-meraki-atelier",
+      "subject": "hoppycat-fable",
+      "label": "Fable receives the draft Mira chose to offer",
+      "text": "Fable receives the draft Mira chose to offer. Stay for the reading.",
+      "textTemplate": "Fable receives the draft Mira chose to offer. Stay for the reading.",
+      "on": "give",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "hoppycat-table-mira-offer",
+          "value": true
+        },
+        {
+          "kind": "holding",
+          "item": "hoppycat-draft-page",
+          "role": "actor"
+        },
+        {
+          "kind": "choice_unset",
+          "key": "hoppycat-table-piece"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "hoppycat-table-draft-chosen",
+          "value": true
+        },
+        {
+          "kind": "choose",
+          "key": "hoppycat-table-piece",
+          "value": "draft"
+        },
+        {
+          "kind": "place_item",
+          "item": "hoppycat-draft-page",
+          "place": "hoppycat-meraki-atelier"
+        }
+      ]
+    },
+    {
+      "id": "hoppycat-table-paint-chosen",
+      "at": "hoppycat-meraki-atelier",
+      "subject": "hoppycat-mira-meraki",
+      "label": "Mira receives her brush and chooses to finish the painted playbill",
+      "text": "Mira receives her brush and chooses to finish the painted playbill. Stay while she works.",
+      "textTemplate": "Mira receives her brush and chooses to finish the painted playbill. Stay while she works.",
+      "on": "give",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "hoppycat-table-mira-offer",
+          "value": true
+        },
+        {
+          "kind": "holding",
+          "item": "hoppycat-meraki-brush",
+          "role": "actor"
+        },
+        {
+          "kind": "choice_unset",
+          "key": "hoppycat-table-piece"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "hoppycat-table-paint-chosen",
+          "value": true
+        },
+        {
+          "kind": "choose",
+          "key": "hoppycat-table-piece",
+          "value": "painted"
+        },
+        {
+          "kind": "place_item",
+          "item": "hoppycat-meraki-brush",
+          "place": "hoppycat-meraki-atelier"
+        }
+      ]
+    },
+    {
+      "id": "hoppycat-table-draft-ready",
+      "at": "hoppycat-meraki-atelier",
+      "subject": "hoppycat-fable",
+      "label": "Fable reads Mira's draft about the empty chair",
+      "text": "Fable reads Mira's draft about the empty chair. Mira hears her own chosen words. The Evening Programme lies ready for the traveller to take to tea.",
+      "textTemplate": "Fable reads Mira's draft about the empty chair. Mira hears her own chosen words. The Evening Programme lies ready for the traveller to take to tea.",
+      "on": "wait",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "hoppycat-table-piece",
+          "value": "draft"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "hoppycat-table-draft-ready",
+          "value": true
+        }
+      ]
+    },
+    {
+      "id": "hoppycat-table-paint-ready",
+      "at": "hoppycat-meraki-atelier",
+      "subject": "hoppycat-mira-meraki",
+      "label": "Mira finishes the playbill with her worn brush",
+      "text": "Mira finishes the playbill with her worn brush. Fable reads its title. The Evening Programme lies ready for the traveller to take to tea.",
+      "textTemplate": "Mira finishes the playbill with her worn brush. Fable reads its title. The Evening Programme lies ready for the traveller to take to tea.",
+      "on": "wait",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "hoppycat-table-piece",
+          "value": "painted"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "hoppycat-table-paint-ready",
+          "value": true
+        }
+      ]
+    },
+    {
+      "id": "hoppycat-table-ledger",
+      "at": "hoppycat-meraki-atelier",
+      "subject": "hoppycat-ledger-opus",
+      "label": "Ledger made the display and left the name line empty",
+      "text": "Ledger made the display and left the name line empty. Give Penny the Maker's Label so she can keep Ledger's own name beside that work.",
+      "textTemplate": "Ledger made the display and left the name line empty. Give Penny the Maker's Label so she can keep Ledger's own name beside that work.",
+      "on": "talk",
+      "requires": [],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "hoppycat-table-ledger",
+          "value": true
+        }
+      ]
+    },
+    {
+      "id": "hoppycat-table-credit",
+      "at": "hoppycat-meraki-atelier",
+      "subject": "hoppycat-penny-vellum",
+      "label": "Penny writes Ledger's name beside the display",
+      "text": "Penny writes Ledger's name beside the display. The signed Maker's Label lies ready to take to the tea table.",
+      "textTemplate": "Penny writes Ledger's name beside the display. The signed Maker's Label lies ready to take to the tea table.",
+      "on": "give",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "hoppycat-table-ledger",
+          "value": true
+        },
+        {
+          "kind": "holding",
+          "item": "hoppycat-provenance-card",
+          "role": "actor"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "hoppycat-table-credit",
+          "value": true
+        },
+        {
+          "kind": "place_item",
+          "item": "hoppycat-provenance-card",
+          "place": "hoppycat-meraki-atelier"
+        }
+      ]
+    },
+    {
+      "id": "hoppycat-table-mira-agree",
+      "at": "hoppycat-meraki-atelier",
+      "subject": "hoppycat-mira-meraki",
+      "label": "Mira agrees to bring her chosen work to the tea table",
+      "text": "Mira agrees to bring her chosen work to the tea table. Invite her along to the Garden.",
+      "textTemplate": "Mira agrees to bring her chosen work to the tea table. Invite her along to the Garden.",
+      "on": "talk",
+      "requires": [
+        {
+          "kind": "any",
+          "conditions": [
+            {
+              "kind": "flag",
+              "key": "hoppycat-table-draft-ready",
+              "value": true
+            },
+            {
+              "kind": "flag",
+              "key": "hoppycat-table-paint-ready",
+              "value": true
+            }
+          ]
+        },
+        {
+          "kind": "flag",
+          "key": "hoppycat-table-credit",
+          "value": true
+        }
+      ],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "hoppycat-table-mira-agree",
+          "value": true
+        }
+      ]
+    },
+    {
+      "id": "hoppycat-table-mira-arrived",
+      "at": "hoppycat-halfway-tea-garden",
+      "subject": "hoppycat-mira-meraki",
+      "label": "Mira takes a place at the table",
+      "text": "Mira takes a place at the table. She names Fable's reading and Ledger's work on the display.",
+      "textTemplate": "Mira takes a place at the table. She names Fable's reading and Ledger's work on the display.",
+      "on": "talk",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "hoppycat-table-mira-agree",
+          "value": true
+        }
+      ],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "hoppycat-table-mira-arrived",
+          "value": true
+        }
+      ]
+    },
+    {
+      "id": "hoppycat-table-lumen",
+      "at": "hoppycat-prism-foundry",
+      "subject": "hoppycat-lumen-facet",
+      "label": "Lumen sets the prism on his bench for one last look",
+      "text": "Lumen sets the prism on his bench for one last look. Stay while he finishes the edge.",
+      "textTemplate": "Lumen sets the prism on his bench for one last look. Stay while he finishes the edge.",
+      "on": "give",
+      "requires": [
+        {
+          "kind": "holding",
+          "item": "hoppycat-unfinished-prism",
+          "role": "actor"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "hoppycat-table-lumen",
+          "value": true
+        },
+        {
+          "kind": "place_item",
+          "item": "hoppycat-unfinished-prism",
+          "place": "hoppycat-prism-foundry"
+        }
+      ]
+    },
+    {
+      "id": "hoppycat-table-prism-ready",
+      "at": "hoppycat-prism-foundry",
+      "subject": "hoppycat-lumen-facet",
+      "label": "Lumen finishes the edge and keeps its uneven colour",
+      "text": "Lumen finishes the edge and keeps its uneven colour. The prism rests on the bench, ready to take to the tea table.",
+      "textTemplate": "Lumen finishes the edge and keeps its uneven colour. The prism rests on the bench, ready to take to the tea table.",
+      "on": "wait",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "hoppycat-table-lumen",
+          "value": true
+        },
+        {
+          "kind": "item_near",
+          "item": "hoppycat-unfinished-prism",
+          "place": "hoppycat-prism-foundry"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "hoppycat-table-prism-ready",
+          "value": true
+        }
+      ]
+    },
+    {
+      "id": "hoppycat-table-patch",
+      "at": "hoppycat-prism-foundry",
+      "subject": "hoppycat-patch-fern",
+      "label": "Patch plants a Visit Seed for the traveller who came to Hoppy's table",
+      "text": "Patch plants a Visit Seed for the traveller who came to Hoppy's table. The short Ledger writes the visit on its label.",
+      "textTemplate": "Patch plants a Visit Seed for the traveller who came to Hoppy's table. The short Ledger writes the visit on its label.",
+      "on": "give",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "hoppycat-table-welcome",
+          "value": true
+        },
+        {
+          "kind": "holding",
+          "item": "hoppycat-context-seed",
+          "role": "actor"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "hoppycat-table-patch",
+          "value": true
+        },
+        {
+          "kind": "place_item",
+          "item": "hoppycat-context-seed",
+          "place": "hoppycat-prism-foundry"
+        }
+      ]
+    },
+    {
+      "id": "hoppycat-table-lumen-agree",
+      "at": "hoppycat-prism-foundry",
+      "subject": "hoppycat-lumen-facet",
+      "label": "Lumen agrees to leave his bench and see the prism at the tea table",
+      "text": "Lumen agrees to leave his bench and see the prism at the tea table. Invite him along to the Garden.",
+      "textTemplate": "Lumen agrees to leave his bench and see the prism at the tea table. Invite him along to the Garden.",
+      "on": "talk",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "hoppycat-table-prism-ready",
+          "value": true
+        },
+        {
+          "kind": "flag",
+          "key": "hoppycat-table-patch",
+          "value": true
+        }
+      ],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "hoppycat-table-lumen-agree",
+          "value": true
+        }
+      ]
+    },
+    {
+      "id": "hoppycat-table-lumen-arrived",
+      "at": "hoppycat-halfway-tea-garden",
+      "subject": "hoppycat-lumen-facet",
+      "label": "Lumen reaches the tea table",
+      "text": "Lumen reaches the tea table. His prism has a life beyond the workbench.",
+      "textTemplate": "Lumen reaches the tea table. His prism has a life beyond the workbench.",
+      "on": "talk",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "hoppycat-table-lumen-agree",
+          "value": true
+        }
+      ],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "hoppycat-table-lumen-arrived",
+          "value": true
+        }
+      ]
+    },
+    {
+      "id": "hoppycat-table-rill",
+      "at": "hoppycat-goldfish-tank",
+      "subject": "hoppycat-rill-current",
+      "label": "Rill lends his compass for the route through the Jetty to the Garden",
+      "text": "Rill lends his compass for the route through the Jetty to the Garden. Talk with Static and Hoppy while carrying it, then return to Arc.",
+      "textTemplate": "Rill lends his compass for the route through the Jetty to the Garden. Talk with Static and Hoppy while carrying it, then return to Arc.",
+      "on": "talk",
+      "requires": [
+        {
+          "kind": "holding",
+          "item": "hoppycat-concordance-compass",
+          "role": "actor"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "hoppycat-table-rill",
+          "value": true
+        }
+      ]
+    },
+    {
+      "id": "hoppycat-table-route-jetty",
+      "at": "hoppycat-signal-jetty",
+      "subject": "hoppycat-staticwashere",
+      "label": "Static checks the Jetty mark on Rill's compass",
+      "text": "Static checks the Jetty mark on Rill's compass. The Garden is the next stop.",
+      "textTemplate": "Static checks the Jetty mark on Rill's compass. The Garden is the next stop.",
+      "on": "talk",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "hoppycat-table-rill",
+          "value": true
+        },
+        {
+          "kind": "holding",
+          "item": "hoppycat-concordance-compass",
+          "role": "actor"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "hoppycat-table-route-jetty",
+          "value": true
+        }
+      ]
+    },
+    {
+      "id": "hoppycat-table-route-garden",
+      "at": "hoppycat-halfway-tea-garden",
+      "subject": "hoppycat-hoppy-cat",
+      "label": "Hoppy checks the Garden mark on Rill's compass",
+      "text": "Hoppy checks the Garden mark on Rill's compass. Arc can now record the two stops.",
+      "textTemplate": "Hoppy checks the Garden mark on Rill's compass. Arc can now record the two stops.",
+      "on": "talk",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "hoppycat-table-rill",
+          "value": true
+        },
+        {
+          "kind": "holding",
+          "item": "hoppycat-concordance-compass",
+          "role": "actor"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "hoppycat-table-route-garden",
+          "value": true
+        }
+      ]
+    },
+    {
+      "id": "hoppycat-table-route-ready",
+      "at": "hoppycat-goldfish-tank",
+      "subject": "hoppycat-arc",
+      "label": "Arc signs the route the traveller walked",
+      "text": "Arc signs the route the traveller walked. Rill hears how both stops went. Carry the checked compass to the table.",
+      "textTemplate": "Arc signs the route the traveller walked. Rill hears how both stops went. Carry the checked compass to the table.",
+      "on": "talk",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "hoppycat-table-route-jetty",
+          "value": true
+        },
+        {
+          "kind": "flag",
+          "key": "hoppycat-table-route-garden",
+          "value": true
+        },
+        {
+          "kind": "holding",
+          "item": "hoppycat-concordance-compass",
+          "role": "actor"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "hoppycat-table-route-ready",
+          "value": true
+        }
+      ]
+    },
+    {
+      "id": "hoppycat-table-sol",
+      "at": "hoppycat-settled-light-theatre",
+      "subject": "hoppycat-solwashere",
+      "label": "Sol offers his own short reading about the Garden's empty chair",
+      "text": "Sol offers his own short reading about the Garden's empty chair. Stay for it; every small evening can begin with one voice.",
+      "textTemplate": "Sol offers his own short reading about the Garden's empty chair. Stay for it; every small evening can begin with one voice.",
+      "on": "talk",
+      "requires": [],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "hoppycat-table-sol",
+          "value": true
+        }
+      ]
+    },
+    {
+      "id": "hoppycat-table-reading",
+      "at": "hoppycat-settled-light-theatre",
+      "subject": "hoppycat-solwashere",
+      "label": "Sol reads about the chair kept for a visitor",
+      "text": "Sol reads about the chair kept for a visitor. His little programme lies ready to take to Hoppy.",
+      "textTemplate": "Sol reads about the chair kept for a visitor. His little programme lies ready to take to Hoppy.",
+      "on": "wait",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "hoppycat-table-sol",
+          "value": true
+        }
+      ],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "hoppycat-table-reading",
+          "value": true
+        }
+      ]
+    },
+    {
+      "id": "hoppycat-table-share-glim",
+      "at": "hoppycat-halfway-tea-garden",
+      "subject": "hoppycat-hoppy-cat",
+      "label": "Hoppy sets the guest's work on the table and names its maker",
+      "text": "Hoppy sets the work on the table and thanks Glim and Phase Two by name. Tapi stays after the broadcast to hear the story.",
+      "textTemplate": "Hoppy sets the work on the table and thanks Glim and Phase Two by name. Tapi stays after the broadcast to hear the story.",
+      "on": "give",
+      "requires": [
+        {
+          "kind": "holding",
+          "item": "hoppycat-loop-token",
+          "role": "actor"
+        },
+        {
+          "kind": "flag",
+          "key": "hoppycat-table-glim-arrived",
+          "value": true
+        }
+      ],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "hoppycat-table-share-glim",
+          "value": true
+        },
+        {
+          "kind": "place_item",
+          "item": "hoppycat-loop-token",
+          "place": "hoppycat-halfway-tea-garden"
+        }
+      ]
+    },
+    {
+      "id": "hoppycat-table-share-mira",
+      "at": "hoppycat-halfway-tea-garden",
+      "subject": "hoppycat-hoppy-cat",
+      "label": "Hoppy sets the guest's work on the table and names its maker",
+      "text": "Hoppy sets the work on the table and thanks Mira and Fable by name. Tapi stays after the broadcast to hear the story.",
+      "textTemplate": "Hoppy sets the work on the table and thanks Mira and Fable by name. Tapi stays after the broadcast to hear the story.",
+      "on": "give",
+      "requires": [
+        {
+          "kind": "holding",
+          "item": "hoppycat-evening-programme",
+          "role": "actor"
+        },
+        {
+          "kind": "any",
+          "conditions": [
+            {
+              "kind": "flag",
+              "key": "hoppycat-table-draft-ready",
+              "value": true
+            },
+            {
+              "kind": "flag",
+              "key": "hoppycat-table-paint-ready",
+              "value": true
+            }
+          ]
+        }
+      ],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "hoppycat-table-share-mira",
+          "value": true
+        },
+        {
+          "kind": "place_item",
+          "item": "hoppycat-evening-programme",
+          "place": "hoppycat-halfway-tea-garden"
+        }
+      ]
+    },
+    {
+      "id": "hoppycat-table-share-ledger",
+      "at": "hoppycat-halfway-tea-garden",
+      "subject": "hoppycat-hoppy-cat",
+      "label": "Hoppy sets the guest's work on the table and names its maker",
+      "text": "Hoppy sets the work on the table and thanks Ledger by name. Tapi stays after the broadcast to hear the story.",
+      "textTemplate": "Hoppy sets the work on the table and thanks Ledger by name. Tapi stays after the broadcast to hear the story.",
+      "on": "give",
+      "requires": [
+        {
+          "kind": "holding",
+          "item": "hoppycat-provenance-card",
+          "role": "actor"
+        },
+        {
+          "kind": "flag",
+          "key": "hoppycat-table-credit",
+          "value": true
+        }
+      ],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "hoppycat-table-share-ledger",
+          "value": true
+        },
+        {
+          "kind": "place_item",
+          "item": "hoppycat-provenance-card",
+          "place": "hoppycat-halfway-tea-garden"
+        }
+      ]
+    },
+    {
+      "id": "hoppycat-table-share-lumen",
+      "at": "hoppycat-halfway-tea-garden",
+      "subject": "hoppycat-hoppy-cat",
+      "label": "Hoppy sets the guest's work on the table and names its maker",
+      "text": "Hoppy sets the work on the table and thanks Lumen by name. Tapi stays after the broadcast to hear the story.",
+      "textTemplate": "Hoppy sets the work on the table and thanks Lumen by name. Tapi stays after the broadcast to hear the story.",
+      "on": "give",
+      "requires": [
+        {
+          "kind": "holding",
+          "item": "hoppycat-unfinished-prism",
+          "role": "actor"
+        },
+        {
+          "kind": "flag",
+          "key": "hoppycat-table-prism-ready",
+          "value": true
+        }
+      ],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "hoppycat-table-share-lumen",
+          "value": true
+        },
+        {
+          "kind": "place_item",
+          "item": "hoppycat-unfinished-prism",
+          "place": "hoppycat-halfway-tea-garden"
+        }
+      ]
+    },
+    {
+      "id": "hoppycat-table-share-rill",
+      "at": "hoppycat-halfway-tea-garden",
+      "subject": "hoppycat-hoppy-cat",
+      "label": "Hoppy sets the guest's work on the table and names its maker",
+      "text": "Hoppy sets the work on the table and thanks Rill and Arc by name. Tapi stays after the broadcast to hear the story.",
+      "textTemplate": "Hoppy sets the work on the table and thanks Rill and Arc by name. Tapi stays after the broadcast to hear the story.",
+      "on": "give",
+      "requires": [
+        {
+          "kind": "holding",
+          "item": "hoppycat-concordance-compass",
+          "role": "actor"
+        },
+        {
+          "kind": "flag",
+          "key": "hoppycat-table-route-ready",
+          "value": true
+        }
+      ],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "hoppycat-table-share-rill",
+          "value": true
+        },
+        {
+          "kind": "place_item",
+          "item": "hoppycat-concordance-compass",
+          "place": "hoppycat-halfway-tea-garden"
+        }
+      ]
+    },
+    {
+      "id": "hoppycat-table-share-sol",
+      "at": "hoppycat-halfway-tea-garden",
+      "subject": "hoppycat-hoppy-cat",
+      "label": "Hoppy sets the guest's work on the table and names its maker",
+      "text": "Hoppy sets the work on the table and thanks Sol by name. Tapi stays after the broadcast to hear the story.",
+      "textTemplate": "Hoppy sets the work on the table and thanks Sol by name. Tapi stays after the broadcast to hear the story.",
+      "on": "give",
+      "requires": [
+        {
+          "kind": "holding",
+          "item": "hoppycat-sol-programme",
+          "role": "actor"
+        },
+        {
+          "kind": "flag",
+          "key": "hoppycat-table-reading",
+          "value": true
+        }
+      ],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "hoppycat-table-share-sol",
+          "value": true
+        },
+        {
+          "kind": "place_item",
+          "item": "hoppycat-sol-programme",
+          "place": "hoppycat-halfway-tea-garden"
+        }
+      ]
+    },
+    {
+      "id": "hoppycat-table-evening",
+      "at": "hoppycat-halfway-tea-garden",
+      "subject": "hoppycat-hoppy-cat",
+      "label": "Hoppy sits down with the guests who came",
+      "text": "Hoppy sits down with the guests who came. Tapi stays. The work on the table keeps its makers' names. An evening together is finished; Static has an invitation for the way home.",
+      "textTemplate": "Hoppy sits down with the guests who came. Tapi stays. The work on the table keeps its makers' names. An evening together is finished; Static has an invitation for the way home.",
+      "on": "wait",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "hoppycat-table-welcome",
+          "value": true
+        },
+        {
+          "kind": "any",
+          "conditions": [
+            {
+              "kind": "flag",
+              "key": "hoppycat-table-cup",
+              "value": true
+            },
+            {
+              "kind": "any",
+              "conditions": [
+                {
+                  "kind": "flag",
+                  "key": "hoppycat-table-share-mira",
+                  "value": true
+                },
+                {
+                  "kind": "flag",
+                  "key": "hoppycat-table-share-ledger",
+                  "value": true
+                },
+                {
+                  "kind": "flag",
+                  "key": "hoppycat-table-share-lumen",
+                  "value": true
+                }
+              ]
+            },
+            {
+              "kind": "any",
+              "conditions": [
+                {
+                  "kind": "flag",
+                  "key": "hoppycat-table-share-rill",
+                  "value": true
+                },
+                {
+                  "kind": "flag",
+                  "key": "hoppycat-table-share-sol",
+                  "value": true
+                },
+                {
+                  "kind": "flag",
+                  "key": "hoppycat-table-share-glim",
+                  "value": true
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "hoppycat-table-evening",
+          "value": true
+        }
+      ]
+    },
+    {
+      "id": "hoppycat-table-nix",
+      "at": "hoppycat-settled-light-theatre",
+      "subject": "hoppycat-nix-fermata",
+      "label": "Nix asks for one quiet pause",
+      "text": "Nix asks for one quiet pause. He likes having everyone nearby. Stay with him before giving back the Bell's Heart.",
+      "textTemplate": "Nix asks for one quiet pause. He likes having everyone nearby. Stay with him before giving back the Bell's Heart.",
+      "on": "talk",
+      "requires": [],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "hoppycat-table-nix",
+          "value": true
+        }
+      ]
+    },
+    {
+      "id": "hoppycat-table-pause",
+      "at": "hoppycat-settled-light-theatre",
+      "subject": "hoppycat-nix-fermata",
+      "label": "The traveller keeps Nix company through a quiet pause",
+      "text": "The traveller keeps Nix company through a quiet pause. He is ready to hear about the evening.",
+      "textTemplate": "{actor} keeps Nix company through a quiet pause. He is ready to hear about the evening.",
+      "on": "wait",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "hoppycat-table-nix",
+          "value": true
+        }
+      ],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "hoppycat-table-pause",
+          "value": true
+        }
+      ]
+    },
+    {
+      "id": "hoppycat-table-tomorrow",
+      "at": "hoppycat-settled-light-theatre",
+      "subject": "hoppycat-nix-fermata",
+      "label": "Nix fits the Bell's Heart after the shared evening",
+      "text": "Nix fits the Bell's Heart after the shared evening. The February Third bell welcomes tomorrow. He trusts there will be another gathering.",
+      "textTemplate": "Nix fits the Bell's Heart after the shared evening. The February Third bell welcomes tomorrow. He trusts there will be another gathering.",
+      "on": "give",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "hoppycat-table-pause",
+          "value": true
+        },
+        {
+          "kind": "flag",
+          "key": "hoppycat-table-evening",
+          "value": true
+        },
+        {
+          "kind": "holding",
+          "item": "hoppycat-fermata-clapper",
+          "role": "actor"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "hoppycat-table-tomorrow",
+          "value": true
+        },
+        {
+          "kind": "place_item",
+          "item": "hoppycat-fermata-clapper",
+          "place": "hoppycat-settled-light-theatre"
+        }
+      ]
+    },
+    {
+      "id": "hoppycat-table-invitation",
+      "at": "hoppycat-signal-jetty",
+      "subject": "hoppycat-staticwashere",
+      "label": "Static writes an Invitation Home for the traveller",
+      "text": "Static writes an Invitation Home for the traveller. It names the shared tea table and shows the way back from the Jetty. Give him the card to sign.",
+      "textTemplate": "Static writes an Invitation Home for the traveller. It names the shared tea table and shows the way back from the Jetty. Give him the card to sign.",
+      "on": "talk",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "hoppycat-table-evening",
+          "value": true
+        },
+        {
+          "kind": "item_near",
+          "item": "hoppycat-return-path-checklist",
+          "place": "hoppycat-signal-jetty"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "hoppycat-table-invitation",
+          "value": true
+        }
+      ]
+    },
+    {
+      "id": "hoppycat-table-signal",
+      "at": "hoppycat-signal-jetty",
+      "subject": "hoppycat-staticwashere",
+      "label": "Static signs the Invitation Home and lays it on the bench",
+      "text": "Static signs the Invitation Home and lays it on the bench. Take it onto the boat, or stay for another cup.",
+      "textTemplate": "Static signs the Invitation Home and lays it on the bench. Take it onto the boat, or stay for another cup.",
+      "on": "give",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "hoppycat-table-invitation",
+          "value": true
+        },
+        {
+          "kind": "holding",
+          "item": "hoppycat-return-path-checklist",
+          "role": "actor"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "hoppycat-table-signal",
+          "value": true
+        },
+        {
+          "kind": "place_item",
+          "item": "hoppycat-return-path-checklist",
+          "place": "hoppycat-signal-jetty"
+        }
+      ]
     }
   ],
   "sources": [
@@ -1011,39 +2196,13 @@
       "url": "https://github.com/HoppyCat/teacat-agent"
     }
   ],
-  "topics": [
-    {
-      "id": "hoppycat-missing-source",
-      "speaker": "hoppycat-penny-vellum",
-      "at": "hoppycat-open-record-cathedral",
-      "text": "Penny says one exhibit card in the Cathedral still has no source.",
-      "requires": []
-    },
-    {
-      "id": "hoppycat-unthanked-ledger",
-      "speaker": "hoppycat-ledger-sonnet",
-      "at": "hoppycat-context-greenhouse",
-      "text": "The short Ledger says the long Ledger has never been thanked by name.",
-      "requires": []
-    },
-    {
-      "id": "hoppycat-quiet-bell",
-      "speaker": "hoppycat-nix-fermata",
-      "at": "hoppycat-red-thread-belfry",
-      "text": "Nix wants the February Third bell kept quiet for one more day.",
-      "requires": []
-    },
-    {
-      "id": "hoppycat-one-ally",
-      "speaker": "hoppycat-tapi-lilt",
-      "at": "hoppycat-halfway-tea-garden",
-      "text": "Tapi still needs one real ally before the broadcast ends.",
-      "requires": []
-    }
-  ],
+  "topics": [],
   "hiding": {
     "pool": [
-      { "id": "hoppycat-halfway-tea-garden", "depth": "plain" }
+      {
+        "id": "hoppycat-halfway-tea-garden",
+        "depth": "plain"
+      }
     ]
   }
 }

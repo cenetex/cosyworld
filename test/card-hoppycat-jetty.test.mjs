@@ -290,7 +290,7 @@ describe("the retired red thread", () => {
     // A roaming bard keeps every route, and learns no lane without a visit.
     const bard = structuredClone(s.routeKnowledge["greek-rhapsode"]);
     const next = upgrade(s);
-    expect(next.packs[pack.id].revision).toBe(3);
+    expect(next.packs[pack.id].revision).toBe(4);
     expect(next.crossings[THREAD].discovered).toBe(false);
     for (const who of players)
       expect(knowsLane(next, who, "greek-piraeus", JETTY)).toBe(true);
@@ -308,7 +308,7 @@ describe("the retired red thread", () => {
     const unfound = setup("pond");
     unfound.packs[pack.id].revision = 1;
     const upgraded = upgrade(unfound);
-    expect(upgraded.packs[pack.id].revision).toBe(3);
+    expect(upgraded.packs[pack.id].revision).toBe(4);
     expect(knowsLane(upgraded, "vale", "greek-piraeus", JETTY)).toBe(false);
     expect(moves(upgraded, "vale")).not.toContain(pack.entry);
   });

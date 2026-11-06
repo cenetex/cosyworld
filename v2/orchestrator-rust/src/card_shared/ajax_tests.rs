@@ -424,6 +424,7 @@ fn ajax_upgrade_brings_an_uninvited_nineteen_camp_visitor_home_and_replays_it() 
         super::sea_steps::assert_upgraded_ship(&current.game, &old.game);
         // The upgrade draws Hoppy Cat's specials, and a drawn thing waits at
         // its anchor in the Hoppy Cat core (#1622).
+        saved = super::saved_items::hoppy_revision_4(&saved, &current.game);
         let drawn = current.game["packs"]["hoppycat-archive"]["specials"]
             .as_array()
             .cloned()

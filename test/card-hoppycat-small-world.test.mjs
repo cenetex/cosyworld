@@ -1,9 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  createWorld,
-  decodeSave,
-  exits,
-} from "../v2/card-game/world.mjs";
+import { createWorld, exits } from "../v2/card-game/world.mjs";
 import { packDefinition } from "../v2/card-game/pack-registry.mjs";
 import { drawSpecials } from "../v2/card-game/pack-specials.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
@@ -34,7 +30,7 @@ describe("Hoppy Cat as a small world", () => {
       const world = createWorld({ seed });
       const drawn = world.packs[pack.id].specials;
       expect(drawn).toEqual(drawSpecials(pack, seed));
-      expect(drawn).toHaveLength(4);
+      expect(drawn).toHaveLength(2);
       const places = drawn.filter((id) => pack.places[id]);
       expect(places).toHaveLength(2);
       expect([...reachable(world)].sort()).toEqual(
@@ -47,11 +43,6 @@ describe("Hoppy Cat as a small world", () => {
         expect(back).toHaveLength(1);
         expect([garden, jetty]).toContain(back[0]);
       }
-      // The resident and the thing come from undrawn places to the garden.
-      const [, , avatar, item] = drawn;
-      expect(places).not.toContain(pack.avatars[avatar].place);
-      expect(world.actors[avatar].place).toBe(garden);
-      expect(world.items[item].holder).toBe(garden);
     }
   });
 
@@ -66,23 +57,13 @@ describe("Hoppy Cat as a small world", () => {
 
   it("opens the whole archive on its own landing", () => {
     const world = createLandingWorld(pack, 7);
-    expect(reachable(world).size).toBe(Object.keys(pack.places).length);
+    expect(reachable(world).size).toBe(6);
     for (const [id, a] of Object.entries(pack.avatars))
       expect(world.actors[id].place).toBe(a.place);
   });
 
-  it("re-walks a known step between two drawn places through their parents", () => {
-    const world = createWorld({ seed: 1 });
-    world.packs[pack.id].revision = 2;
-    const cathedral = "hoppycat-open-record-cathedral",
-      belfry = "hoppycat-red-thread-belfry";
-    world.routeKnowledge.vale = [[cathedral, belfry]];
-    const next = decodeSave(JSON.stringify(world));
-    expect(next.packs[pack.id].revision).toBe(3);
-    expect(next.routeKnowledge.vale).toEqual([
-      [cathedral, garden],
-      [garden, jetty],
-      [jetty, belfry],
-    ]);
+  it("keeps every active place within three local links", () => {
+    for (const place of Object.values(pack.places).filter((p) => !p.retired))
+      expect(place.exits.length).toBeLessThanOrEqual(3);
   });
 });

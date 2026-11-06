@@ -38,8 +38,8 @@ pub(super) fn willows_kit_moved(items: &mut Value) {
 /// What Greek revision 20 (rules 102) changes in a world saved on earlier
 /// rules: the pack revision, the decree chain's things (the wheat joins, the
 /// writ and the decree change hands, the bread starts to be baked) and the
-/// wants of Creon, the guard and Myrto. Everything else is kept as saved.
-pub(super) fn greek_revision_20(old: &Value, upgraded: &Value) -> Value {
+/// wants of Creon, the guard and Myrto. Hoppy revision 4 follows below.
+pub(super) fn current_pack_changes(old: &Value, upgraded: &Value) -> Value {
     let mut expected = old.clone();
     expected["packs"]["greek-drama"]["revision"] =
         upgraded["packs"]["greek-drama"]["revision"].clone();
@@ -56,5 +56,31 @@ pub(super) fn greek_revision_20(old: &Value, upgraded: &Value) -> Value {
     }
     expected["usedUp"] = upgraded["usedUp"].clone();
     expected["memories"]["greek-wheat"] = upgraded["memories"]["greek-wheat"].clone();
+    hoppy_revision_4(&expected, upgraded)
+}
+
+// Hoppy revision 4 moves room contents and adds three papers. Other fields,
+// including custody history, trust and story receipts, stay in the comparison.
+pub(super) fn hoppy_revision_4(old: &Value, current: &Value) -> Value {
+    let mut expected = old.clone();
+    for field in ["revision", "specials"] {
+        expected["packs"]["hoppycat-archive"][field] =
+            current["packs"]["hoppycat-archive"][field].clone();
+    }
+    for (id, item) in current["items"].as_object().unwrap() {
+        if !id.starts_with("hoppycat-") {
+            continue;
+        }
+        if expected["items"].get(id).is_some() {
+            expected["items"][id]["holder"] = item["holder"].clone();
+        } else {
+            expected["items"][id] = item.clone();
+        }
+    }
+    for (id, actor) in current["actors"].as_object().unwrap() {
+        if id.starts_with("hoppycat-") {
+            expected["actors"][id]["place"] = actor["place"].clone();
+        }
+    }
     expected
 }

@@ -70,6 +70,7 @@ describe("want data", () => {
         step: { verb: "eat", at: "greek-piraeus" },
       },
       "willows-swede": { kind: "place", target: "willows-landing" },
+      "hoppycat-glim-twice": { kind: "item", target: "hoppycat-loop-token" },
       boardyai: { kind: "connect", target: "humans" },
     });
   });
