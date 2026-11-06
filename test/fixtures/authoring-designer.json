@@ -1,0 +1,37 @@
+{
+  "document": "First book",
+  "pack": {
+    "name": "Crossing",
+    "places": {
+      "a": {
+        "name": "Yard",
+        "art": "https://invalid.invalid/art.png"
+      },
+      "b": {
+        "name": "Port"
+      }
+    },
+    "items": {
+      "oil": {
+        "name": "Oil",
+        "holder": "a"
+      }
+    },
+    "choices": [
+      {
+        "id": "gate",
+        "cost": 1,
+        "text": "First",
+        "generation": {
+          "systemPrompt": "PRIVATE_TOKEN"
+        }
+      }
+    ],
+    "avatars": {
+      "person": {
+        "name": "Robin",
+        "place": "a"
+      }
+    }
+  }
+}
