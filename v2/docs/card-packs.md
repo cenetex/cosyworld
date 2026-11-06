@@ -28,6 +28,17 @@ and branch navigation keeps the box armed. The workspace owns expansion.
 Source changes clear the pair; Undo restores the exact source and advances the
 local sequence. Server draft revisions stay with persistence.
 
+`authoring-fields.mjs` adapts scalar field cards for the descriptor.
+`authoringField(source, card)` captures its path, type, displayed value and
+action label. `authoringFieldEdit(source, field, text)` returns one expected-value
+source edit for Save; a boolean uses the same call with no text for Enable or
+Disable. Integer fields keep safe whole numbers; decimal fields keep finite
+numbers. Nulls, identities, type tags and reference lists stay read-only.
+Filter cards and branches with `authoringFieldHidden(card)` before rendering;
+this checks paths once and keeps internal text out of accessible names.
+Internal generation fields also have `hidden: true`. The controller applies the
+returned command and records its inverse. Pack compilation checks game meaning.
+
 ## Files
 
 Authoring drafts keep the original pack and bridge together with the writer's
