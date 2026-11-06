@@ -116,10 +116,6 @@
     "default": ["card_shared.rs", "card_narrative.rs"],
     "ignoreInputs": ["package.json"],
     "rules": [
-    {
-      "paths": "^v2/card-game/authoring-avatar-design\\.mjs$",
-      "smokes": ["smoke-authoring-avatar-design"]
-    },
       {
         "about": "The C kernel and card session guards.",
         "paths": "^v2/core-c/",
