@@ -1895,12 +1895,16 @@ export function legalActions(s, actor = currentActor(s)) {
     }
   if (actor === currentActor(s) || controlledByHuman(s, actor))
     questsOf(s, actor).forEach((w, quest) => {
+      const goal =
+        w.kind === "person" && !w.step
+          ? `meet ${nameOf(w.target)}`
+          : wantText(w);
       const drop = offer(
         "drop",
         actor,
         null,
         null,
-        `${nameOf(actor)} drops the quest.`,
+        `${nameOf(actor)} abandons their quest to ${goal}.`,
         [],
       );
       out.push({ ...drop, quest, key: `${drop.key}:${quest}` });

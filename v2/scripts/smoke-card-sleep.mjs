@@ -20,7 +20,9 @@ await mkdir(output, { recursive: true });
 const labels = (page) =>
   page
     .locator("#card-actions button")
-    .evaluateAll((all) => all.map((b) => b.textContent.trim()));
+    .evaluateAll((all) =>
+      all.map((b) => b.getAttribute("aria-label") || b.textContent.trim()),
+    );
 
 async function local(width) {
   const page = await browser.newPage({
@@ -60,7 +62,8 @@ async function local(width) {
     await page.waitForFunction(() => document.body.inert === false);
     await selectCard(page, "vale", { touch });
     assert.deepEqual(await labels(page), ["Wait"]);
-    await play.click();
+    if (touch) await page.locator(".action-beat-cards").tap();
+    else await play.press("Enter");
     await settled();
     // The same card chosen again offers Sleep in place of Wait.
     await selectCard(page, "vale", { touch });
@@ -73,7 +76,15 @@ async function local(width) {
     await play.click();
     await settled();
     await selectCard(page, "vale", { touch });
-    await play.click();
+    if (touch) await play.click();
+    else {
+      const card = page.locator('#hand [data-card="vale"]');
+      const stage = page.locator("#stage");
+      const dataTransfer = await page.evaluateHandle(() => new DataTransfer());
+      await card.dispatchEvent("dragstart", { dataTransfer });
+      assert.equal(await stage.getAttribute("data-play"), "Sleep");
+      await stage.dispatchEvent("drop", { dataTransfer });
+    }
     await settled();
     // The wake gives its reason in the past, after the Sleep.
     await page.waitForFunction(() =>
@@ -135,9 +146,11 @@ async function shared(width) {
   try {
     await page.goto(`${origin}/?world=asleep`);
     await page.waitForFunction(() => document.body.inert === false);
-    // A sleeper sleeps on or wakes by choosing another play.
-    await selectCard(page, "vale", { touch: width === 390 });
-    assert.deepEqual(await labels(page), ["Sleep", "Wait"]);
+    const touch = width === 390;
+    await selectCard(page, "vale", { touch });
+    assert.deepEqual(await labels(page), ["Wake"]);
+    await selectCard(page, world.actors.vale.place, { touch });
+    assert.deepEqual(await labels(page), ["Sleep on"]);
     await page.screenshot({ path: resolve(output, `asleep-${width}.png`) });
     await page.keyboard.press("Escape");
     // Its play in flight is a Thinking card with the sleeping art.

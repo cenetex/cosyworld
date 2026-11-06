@@ -2920,6 +2920,21 @@ body .beat-live {
   color: var(--muted);
   font-size: 13px;
 }
+/* Source editing scrolls inside the existing descriptor beside its action. */
+#action-beat .action-beat-note[contenteditable="plaintext-only"] {
+  min-height: 1.4em;
+  max-height: min(12rem, 24dvh);
+  overflow-y: auto;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  font-size: 16px;
+  line-height: 1.4;
+}
+@media (max-height: 400px) {
+  #action-beat .action-beat-note[contenteditable="plaintext-only"] {
+    max-height: 3rem;
+  }
+}
 .beat-action #card-actions {
   /* A strip wider than a very narrow box (200% text) wraps its words. */
   flex: 1 1 auto;

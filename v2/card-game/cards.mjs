@@ -99,6 +99,9 @@ export function avatarPlays(world, id) {
 }
 export function cardChoices(world, id) {
   if (!availableCards(world).includes(id)) return [];
+  return choicesOn(id, legalActions(world));
+}
+function choicesOn(id, actions) {
   const spokenChoices = new Set(
     packDefinitions.flatMap((pack) =>
       (pack.topics || []).flatMap((topic) =>
@@ -106,7 +109,7 @@ export function cardChoices(world, id) {
       ),
     ),
   );
-  return legalActions(world).filter(
+  return actions.filter(
     (a) =>
       a.target === id &&
       (a.kind === "choose" || Boolean(a.fixture)) &&
@@ -173,8 +176,7 @@ const listOf = (names) =>
     ? `${names.slice(0, -1).join(", ")} and ${names.at(-1)}`
     : names[0];
 
-// Resolve the primary play for drag gestures and other shortcuts.
-// cardActions adds every named choice for the shared row.
+// Resolve one play for the context row and drag gestures.
 export function cardPlay(world, selected) {
   const cards = [...new Set(selected)];
   const available = availableCards(world);
@@ -184,8 +186,23 @@ export function cardPlay(world, selected) {
   };
   if (!cards.length || cards.some((id) => !available.includes(id)))
     return result(null, "Choose a card from this hand.");
-  if (cards.length > 2) return result(null, "Play one card or a pair.");
+  if (cards.length > 3) return result(null, "Choose one card or a pair.");
   const actions = legalActions(world);
+  const player = currentActor(world);
+  if (cards.length === 3)
+    return result(
+      cards.includes(player) &&
+        actions.find(
+          (a) =>
+            a.kind === "eat" &&
+            a.target &&
+            cards.includes(a.item) &&
+            cards.includes(a.target),
+        ),
+      "Choose yourself, a meal you hold, and a companion to share it.",
+    );
+  const here = world.actors[player].place;
+  const wait = actions.find((a) => a.kind === "wait" && !a.sleep && !a.guards);
   const find = (kind, item, target) =>
     actions.find(
       (a) =>
@@ -193,10 +210,6 @@ export function cardPlay(world, selected) {
         (item === undefined || a.item === item) &&
         (target === undefined || a.target === target),
     );
-  const here = world.actors[currentActor(world)].place;
-  // Staying here plays what the place offers (ringing its clock) before
-  // Wait; cardActions keeps the Wait only for Sleep (#2027).
-  const stay = () => cardChoices(world, here)[0] || find("wait");
   const use = (id) =>
     id === "lamp"
       ? find(world.items.lamp.lit ? "snuff" : "light", id)
@@ -205,36 +218,38 @@ export function cardPlay(world, selected) {
         : undefined;
   if (cards.length === 1) {
     const id = cards[0];
+    const authored = () => choicesOn(id, actions)[0];
+    const single = (found, hint) => result(found || authored(), hint);
+    // A local fixture takes the place of a plain Wait.
     if (places[id])
-      return result(
+      return single(
         id === here
-          ? stay()
+          ? authored() || wait
           : find("move", null, id) ||
               find("course", null, id) ||
               find("gate", null, id),
         sealedReason(world, id) || `Travel to ${nameOf(id)}.`,
       );
-    if (id === currentActor(world))
-      return result(find("guard") || find("wait"));
+    if (id === currentActor(world)) return single(find("guard") || wait);
     if (people[id])
-      return result(
+      return single(
         find("talk", null, id) || find("attack", null, id),
         `Meet ${nameOf(id)} here.`,
       );
-    if (sealedReason(world, id)) return result(null, sealedReason(world, id));
+    if (sealedReason(world, id)) return single(null, sealedReason(world, id));
     const holder = world.items[id].holder;
     if (
       people[rootHolder(world, id)] &&
       rootHolder(world, id) !== currentActor(world)
     )
-      return result(
+      return single(
         find("ask", id),
         things[holder]
           ? `Play ${nameOf(holder)} to ask for the covered pair.`
           : `Make room to ask for the ${nameOf(id)}.`,
       );
     if (holder !== currentActor(world))
-      return result(
+      return single(
         find("take", id),
         carryFull(world, id)
           ? TOO_MANY_ITEMS
@@ -245,15 +260,15 @@ export function cardPlay(world, selected) {
       (a) => a.kind === "eat" && a.item === id && !a.target,
     );
     if (meal) return result(meal);
-    if (id === "lamp") return result(use(id), "Pair the Lamp with Oil flask.");
+    if (id === "lamp") return single(use(id), "Pair the Lamp with Oil flask.");
     if (id === "bell")
-      return result(
+      return single(
         use(id),
         covered(world, id)
           ? "Play Black cloth to uncover the Bell."
           : "Ring the Bell.",
       );
-    return result(
+    return single(
       null,
       id !== "oil" && id !== "cloth"
         ? "Pair with a person to give it, or this place to put it down."
@@ -288,7 +303,8 @@ export function cardPlay(world, selected) {
     return result(
       avatar === currentActor(world)
         ? location === here
-          ? stay()
+          ? (world.actors[player].sleeping && actions.find((a) => a.sleep)) ||
+            wait
           : // Yourself and a guardable way stands guard (rules 100).
             actions.find((a) => a.guards === location) ||
             find("move", null, location)
@@ -344,22 +360,21 @@ export function cardPlay(world, selected) {
   }
   return result(action, "Try Oil flask + Lamp, or Black cloth + Lamp / Bell.");
 }
-// The row lists every play for this selection. The world owns legality.
+// The row shows one play for this selection. The world owns legality.
 export function cardActions(world, selected) {
   const cards = [...new Set(selected)];
   const primary = cardPlay(world, cards);
   if (
     !cards.length ||
-    cards.length > 2 ||
+    cards.length > 3 ||
     cards.some((id) => !availableCards(world).includes(id))
   )
     return { actions: [], hint: primary.hint };
-  let actions = primary.action ? [primary.action] : [];
+  const actions = primary.action ? [primary.action] : [];
   let hint = actions.length ? "" : primary.hint;
   if (cards.length === 1) {
     const id = cards[0];
     if (id === currentActor(world)) {
-      actions.push(...avatarPlays(world, id));
       hint = "Select a person or place to make a pair.";
     } else if (people[id]) {
       const offers = legalActions(world).filter((a) => a.target === id);
@@ -375,46 +390,8 @@ export function cardActions(world, selected) {
             ? "Select a carried item to ask for it."
             : "";
     }
-    actions.push(...cardChoices(world, id));
-  } else if (!cards.includes(currentActor(world))) {
-    // Food or drink paired with a person here is shared with them.
-    const shared = legalActions(world).find(
-      (a) =>
-        a.kind === "eat" &&
-        a.target &&
-        cards.includes(a.item) &&
-        cards.includes(a.target),
-    );
-    if (shared) actions.push(shared);
-  } else if (cards.includes(currentActor(world))) {
-    const other = cards.find((id) => id !== currentActor(world));
-    // Guard leads at a guardable way; Travel stays beside it.
-    const travel = legalActions(world).find(
-      (a) => a.kind === "move" && !a.item && a.target === other,
-    );
-    if (primary.action?.guards && travel) actions.push(travel);
-    if (people[other]) {
-      actions = avatarPlays(world, other).filter((a) =>
-        ["threaten", "intercept"].includes(a.kind),
-      );
-      hint = actions.length ? "" : primary.hint;
-    }
   }
-  // A stay offers the place's plays; its Wait stays for restPlays.
-  const here = world.actors[currentActor(world)].place,
-    wait = legalActions(world).find((a) => a.kind === "wait" && !a.sleep);
-  if (
-    wait &&
-    cards.includes(here) &&
-    cards.every((id) => id === here || id === currentActor(world))
-  )
-    actions.unshift(wait);
-  return {
-    actions: [
-      ...new Map(actions.map((action) => [action.key, action])).values(),
-    ],
-    hint,
-  };
+  return { actions, hint };
 }
 
 // Aboard a transport under way (course set or at sea), a Wait is the voyage:
@@ -433,6 +410,16 @@ function underWay(world, actor) {
   )?.[1];
 }
 function shownPlay(world, action, cards = []) {
+  if (
+    action?.kind === "wait" &&
+    !action.guards &&
+    world.actors[action.actor]?.sleeping
+  )
+    return {
+      ...action,
+      label: action.sleep ? "Sleep on" : "Wake",
+      shown: `${nameOf(action.actor)} ${action.sleep ? "sleeps on" : "wakes"}.`,
+    };
   const t =
     action?.kind === "wait" &&
     !action.sleep &&
@@ -471,11 +458,11 @@ export function playLabel(action, world = null) {
     return `Ask ${nameOf(action.target)} for ${nameOf(action.item)}`;
   if (action?.kind === "accompany")
     return `Invite ${nameOf(action.target)} along`;
-  // Dropping a quest reads Discard; a level quest's names its experience
+  // Dropping a quest reads Abandon; a level quest's names its experience
   // cost (`dropCost`), only here.
   if (action?.kind === "drop" && !action.item) {
     const cost = world ? dropCost(world, action.actor, action.quest) : 0;
-    return cost ? `Discard (−${cost} XP)` : "Discard";
+    return cost ? `Abandon (−${cost} XP)` : "Abandon";
   }
   if (action?.kind === "focus") return "Choose quest";
   if (action?.kind === "gate") return "Seek the way";
@@ -501,26 +488,18 @@ export function playLabel(action, world = null) {
   }[action?.kind];
 }
 
-// Sleep is the Wait played again with the same cards still chosen (#2028);
-// otherwise the plain Wait. A sleeper may sleep on or wake by waiting.
-// `cards` is the selection, which names a Wait aboard (shownPlay).
+// An awake player can sleep by choosing the same Wait again. A quest's
+// rest shortcut continues to offer Sleep on while its owner is asleep.
 export function restPlays(world, actions, again, cards = []) {
-  const legal = legalActions(world),
-    sleep = legal.find((a) => a.sleep),
-    wait = legal.find((a) => a.kind === "wait" && !a.sleep);
-  // A Guard is a Wait of its own and stays as it is (rules 100).
-  const plain = (a) => a.kind === "wait" && !a.guards;
-  const rested =
-    !sleep || !wait || !actions.some(plain)
-      ? actions
-      : world.actors[currentActor(world)].sleeping
-        ? [sleep, wait, ...actions.filter((a) => !plain(a))]
-        : actions.map((a) => (plain(a) ? (again ? sleep : wait) : a));
-  // The plain Wait gives way to any other play; Sleep never does (#2027).
-  const busy = rested.some((a) => !plain(a));
-  return rested
-    .filter((a) => !busy || !plain(a) || a.sleep)
-    .map((a) => shownPlay(world, a, cards));
+  const asleep = Boolean(world.actors[currentActor(world)].sleeping);
+  const plainWait = (a) => a.kind === "wait" && !a.sleep && !a.guards;
+  const sleep =
+    (asleep ? !cards.length : again) &&
+    actions.some(plainWait) &&
+    legalActions(world).find((a) => a.sleep);
+  return actions.map((a) =>
+    shownPlay(world, sleep && plainWait(a) ? sleep : a, cards),
+  );
 }
 
 export function cardObservation(world, id) {
