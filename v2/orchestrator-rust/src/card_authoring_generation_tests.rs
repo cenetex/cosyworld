@@ -63,7 +63,7 @@ async fn authoring_auth_grounding_and_gateway_use_transient_source() {
         async move {
             calls.lock().unwrap().push(body);
             let (status, result, finish) = result.lock().unwrap().clone();
-            let reply = if uri.path() == "/images/generations" { result } else {
+            let reply = if uri.path() == "/images" { result } else {
                 json!({"model":MODEL,"choices":[{"message":{"content":result.to_string()},"finish_reason":finish}],"usage":{"total_tokens":25}})
             };
             (status, Json(reply))
@@ -202,7 +202,7 @@ async fn authoring_auth_grounding_and_gateway_use_transient_source() {
     assert_eq!(sent["background"], "transparent");
     assert_eq!(sent["aspect_ratio"], "3:2");
     let reference = format!("data:image/png;base64,{}", BASE64.encode(&bytes));
-    assert_eq!(sent["input_references"][0], reference);
+    assert_eq!(sent["input_references"][0]["image_url"]["url"], reference);
     picture["role"] = json!("portrait");
     picture["reference"] = Value::Null;
     picture["basis"] = json!("[\"vale\",2,null,2]");
