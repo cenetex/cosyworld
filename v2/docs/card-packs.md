@@ -24,7 +24,9 @@ action label. `authoringFieldEdit(source, field, text)` returns one expected-val
 source edit for Save; a boolean uses the same call with no text for Enable or
 Disable. Integer fields keep safe whole numbers; decimal fields keep finite
 numbers. Nulls, identities, type tags and reference lists stay read-only.
-Internal generation fields have `hidden: true`. The controller applies the
+Filter cards and branches with `authoringFieldHidden(card)` before rendering;
+this checks paths once and keeps internal text out of accessible names.
+Internal generation fields also have `hidden: true`. The controller applies the
 returned command and records its inverse. Pack compilation checks game meaning.
 
 ## Files

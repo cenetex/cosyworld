@@ -20,8 +20,16 @@ const labels = {
 };
 const numberText = /^-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?$/u;
 
-// A field snapshot captures the value shown to the writer. Later saves check
-// this value again and patch only its exact source path.
+export const authoringFieldHidden = (card) =>
+  Array.isArray(card?.source) &&
+  card.source.some(
+    (part, i) =>
+      typeof part === "string" &&
+      !collections.has(card.source[i - 1]) &&
+      /prompt|model|provider|generation/iu.test(part),
+  );
+
+// A snapshot captures its displayed value and exact source path for Save.
 export function authoringField(source, card) {
   if (card?.role !== "field" || card.group || !Object.hasOwn(card, "value"))
     return null;
@@ -40,12 +48,7 @@ export function authoringField(source, card) {
   const type = value === null ? "null" : typeof value;
   if (!["string", "number", "boolean", "null"].includes(type)) return null;
   const name = path.findLast((part) => typeof part === "string");
-  const hidden = path.some(
-    (part, i) =>
-      typeof part === "string" &&
-      !collections.has(path[i - 1]) &&
-      /prompt|model|provider|generation/iu.test(part),
-  );
+  const hidden = authoringFieldHidden(current);
   const referenceList =
     typeof path.at(-1) === "number" && ["path", "topics"].includes(name);
   const editable =

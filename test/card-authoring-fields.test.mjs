@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import {
   authoringField,
   authoringFieldEdit,
+  authoringFieldHidden,
 } from "../v2/card-game/authoring-fields.mjs";
 import {
   authoringCardId,
@@ -203,6 +204,18 @@ it("keeps internal generation fields hidden, including nested arrays", () => {
     provider: "internal",
     generation: { samples: ["private"] },
   });
+  const cards = buildAuthoringTree(source).cards;
+  const shown = cards.filter((card) => !authoringFieldHidden(card));
+  assert.equal(
+    authoringFieldHidden(cardAt(source, [...future, "generation"])),
+    true,
+  );
+  assert.equal(cards.filter(authoringFieldHidden).length, 6);
+  assert.doesNotMatch(
+    shown.map((card) => `${card.name} ${card.state}`).join(" "),
+    /private|internal/u,
+  );
+  assert.equal(authoringFieldHidden({ id: "save" }), false);
   for (const path of [
     [...future, "systemPrompt"],
     [...future, "model"],
@@ -220,6 +233,10 @@ it("keeps internal generation fields hidden, including nested arrays", () => {
   };
   assert.equal(
     fieldAt(named, ["pack", "avatars", "model-maker", "want", "future"]).hidden,
+    false,
+  );
+  assert.equal(
+    buildAuthoringTree(named).cards.some(authoringFieldHidden),
     false,
   );
 });
