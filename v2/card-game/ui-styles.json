@@ -235,6 +235,7 @@
     "@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) | body .hand>.card-frame { transition: transform 0.22s ease-out,filter 0.22s ease-out,translate 180ms ease-out }",
     "@media (hover: hover) and (pointer: fine) | body[data-hand-expanded=\"false\"] .stage:not([data-combat=\"true\"])~.play-dock:not([data-selected=\"true\"]) .hand .card:hover .name { opacity: 1 }",
     "@media (hover: hover) and (prefers-reduced-motion: reduce) | .title-card .card[data-unrevealed=\"true\"]:hover { filter: brightness(1.12) }",
+    "@media (max-height: 400px) | #action-beat .action-beat-note[contenteditable=\"plaintext-only\"] { max-height: 3rem }",
     "@media (max-height: 440px) | :root { --card-height: 140px; --card-width: 112px }",
     "@media (max-height: 640px) and (min-width: 701px) | :root { --card-height: clamp(126px,37dvh,176px); --card-width: clamp(100px,28dvh,128px); --dock-height: calc(var(--card-height)+82px) }",
     "@media (max-height: 640px) and (min-width: 701px) | body .dialogue { bottom: calc(var(--dock-height)+4px); padding: 4px 10px }",
