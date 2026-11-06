@@ -148,6 +148,9 @@ Beats are cards in depth, not rows in a scroll:
 An unknown quest destination uses the faded wooden box behind the avatar.
 Its quest caption carries the missing detail; the action hint stays in the
 lower right.
+Unknown goals read “Find something”, “Find someone to talk to”, or “Find a
+place”. Compound goals use the same plain words, such as “Find something
+and bring it somewhere”. Revealed parts use their card names.
 
 A ready play is a beat too: the action beat, in front of the
 stack. With labelled controls, it is one row, vertically centred: on the left who acts and what it
