@@ -2237,10 +2237,10 @@ function renderActions() {
       ? lockShown.text
       : questShown
         ? shownQuestCaption(questShown)
-      : ((actions[0] && playText(actions[0])) || "").replace(
-          /\b(the|an?) (?:the|an?) /giu,
-          "$1 ",
-        );
+        : ((actions[0] && playText(actions[0])) || "").replace(
+            /\b(the|an?) (?:the|an?) /giu,
+            "$1 ",
+          );
   heading.hidden = !sentence;
   // Who acts, then what it acts on: the chosen cards, or the place it
   // waits in.
@@ -2375,7 +2375,8 @@ function renderActions() {
       continue;
     }
     if (!discard) button.dataset.action = action.kind;
-    button.title = discard ? "Give up this quest" : playText(action);
+    button.title =
+      discard && questCovered(picked) ? "Give up this quest" : playText(action);
     button.disabled = selectionBlocked();
     button.onclick = () => {
       questOpen = false;
@@ -2432,6 +2433,22 @@ function renderActions() {
     blocked.title = reason;
     row.append(blocked);
   }
+  const only = actions.length === 1 ? actions[0] : null;
+  if (
+    only?.kind === "wait" &&
+    !only.sleep &&
+    !only.guards &&
+    !only.label &&
+    !refusedPlay(only) &&
+    !world.actors[actor].sleeping &&
+    row.childElementCount === 1
+  ) {
+    const button = row.firstElementChild;
+    button.dataset.waitSentence = "";
+    button.setAttribute("aria-label", button.textContent);
+    button.textContent = sentence;
+    heading.hidden = true;
+  }
   const note = document.querySelector(".action-beat-note");
   note.textContent = "";
   note.hidden = true;
@@ -2458,6 +2475,10 @@ function renderActions() {
       ? shownQuestCaption(shownQuests[questPick] || sealedQuests[0])
       : "";
 }
+$("action-beat").addEventListener("click", (event) => {
+  if (event.target.closest("button")) return;
+  $("card-actions").querySelector("[data-wait-sentence]")?.click();
+});
 function updateCardSelection(frame) {
   if (frame.dataset.want) {
     const entry = questEntry(frame.dataset.questId);

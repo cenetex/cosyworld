@@ -110,6 +110,15 @@ describe("the quest stack", () => {
     expect(validateWorld(reload(s))).toBeTruthy();
   });
 
+  it("names the discarded goal in the play and saved log", () => {
+    const world = createWorld();
+    world.actors.vale.want = newWant("person", "moth", 0);
+    const drop = legalActions(world).find((a) => a.kind === "drop" && !a.item);
+    expect(drop.text).toBe("Vale abandons their quest to meet Pip.");
+    const saved = reload(play(world, drop).state);
+    expect(saved.log.find((entry) => entry.verb === "drop")?.text).toBe(drop.text);
+  });
+
   it("costs 1, 2, 3 XP by level quest, clamped, and says so on Drop", () => {
     const drop = (lvl, xp, quest = lvl + 1) => {
       const s = createWorld();

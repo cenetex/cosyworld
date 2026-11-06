@@ -164,6 +164,10 @@ moves the lines on; it never steps back. Nothing steps back in time without
 the player's input. The action beat shows only while choosing
 ([what is in front](#what-is-in-front)).
 
+When Wait is the only plain play on offer, its sentence is the button label.
+Tap anywhere on that action beat to wait one turn. The button also works with
+Enter or Space.
+
 When a play commits, its box folds into the stream: it eases down onto the
 front card, the beat the play became (its caption line, or the Thinking card
 when a reply is coming), and fades as that card arrives, in the stack's

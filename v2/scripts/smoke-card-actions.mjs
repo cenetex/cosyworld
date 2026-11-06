@@ -288,10 +288,11 @@ try {
         "the card passes through an intermediate position",
       );
     }
-    const played = await measureHand(
-      page,
-      '#card-actions [data-action="wait"]',
+    assert.equal(
+      await page.locator("#card-actions [data-wait-sentence]").textContent(),
+      "Vale waits one turn.",
     );
+    const played = await measureHand(page, ".action-beat-cards");
     // Its handlers read the live world, so it is refreshed in place.
     assert.equal(
       played.same,
