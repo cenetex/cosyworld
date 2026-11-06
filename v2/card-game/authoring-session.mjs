@@ -180,6 +180,7 @@ export function createAuthoringSession({ store, onChange = () => {} }) {
         key,
         title: manifest?.title,
         generation,
+        editEpoch: epoch,
         busy,
         writing,
         accepting,

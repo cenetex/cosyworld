@@ -129,6 +129,12 @@ source. Launch selects the initial location while `pack.entry` and transport
 home docks keep their authored meanings. A ship deck is a valid launch place.
 
 `authoring-session.mjs` owns fields, source text, Undo, saves and guarded tools.
+The designer's `transientState()` hook returns a stable revision token while
+temporary descriptions, requests or previews need review, and `null` otherwise.
+Tools that open another draft mark their action `opensDraft:true`. Reload and
+Import ask before discarding source edits or temporary work. A changed token
+keeps the current draft open during an asynchronous import. `onOpen` clears the
+temporary state only after a successful, approved open.
 Use `stage({document,title})` to keep text, `snapshot({pending:false})` to read it, and `save()` to check and persist the draft.
 
 `importSourcePack({files, packPath, bridgePath, cardRoot, extraPaths, origin})`

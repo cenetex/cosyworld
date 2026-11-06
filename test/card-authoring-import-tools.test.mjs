@@ -60,6 +60,7 @@ describe("authoring import tools", () => {
     expect(f.chooseFiles).toHaveBeenCalledWith({ directory: true });
     expect(f.context.save).not.toHaveBeenCalled();
     await pending;
+    expect(candidate(f).describe().actions[0].opensDraft).toBe(true);
     for (const entry of files)
       expect(entry.file.arrayBuffer).not.toHaveBeenCalled();
     await candidate(f).run({}, f.context);
