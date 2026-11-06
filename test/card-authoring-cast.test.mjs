@@ -1,4 +1,4 @@
-import { describe, it } from "node:test";
+import { describe, it } from "vitest";
 import assert from "node:assert/strict";
 import {
   sampleSource,
@@ -46,7 +46,13 @@ describe("authoring source draws", () => {
     );
   });
   it("checks source size and draw parameters", () => {
-    for (const source of [null, "", "  ", "é".repeat(4 * 1024 * 1024 + 1)])
+    for (const source of [
+      "\ud800",
+      null,
+      "",
+      "  ",
+      "é".repeat(4 * 1024 * 1024 + 1),
+    ])
       assert.throws(() => sampleSource(source, { seed: 0 }));
     for (const seed of [undefined, -1, 0.5, 4294967296])
       assert.throws(() => sampleSource("A story", { seed }));
@@ -69,6 +75,9 @@ describe("authoring characters", () => {
     assert.equal(value.name, "Vale");
     assert.throws(() => readCharacter({ ...result, evidence: "Ash" }, sample));
     assert.throws(() =>
+      readCharacter({ ...result, name: "Ash", aliases: [] }, sample),
+    );
+    assert.throws(() =>
       readCharacter({ ...result, prompt: "override" }, sample),
     );
     assert.throws(() => readCharacter({ ...result, name: "🌲" }, sample));
@@ -88,13 +97,40 @@ describe("authoring characters", () => {
       character("Pip"),
     ];
     const draw = addDistinctCharacters([kept], proposals);
-    assert.equal(draw.characters[0], kept);
+    assert.equal(draw.characters[0].portrait, kept.portrait);
+    assert.equal(draw.characters[0].poses, kept.poses);
     assert.deepEqual(
       draw.characters.map((c) => c.name),
       ["Vale", "Pip"],
     );
     assert.deepEqual(draw.rejected, proposals.slice(0, 2));
     assert.throws(() => addDistinctCharacters([kept, character("VALE")], []));
+  });
+  it("resolves alias chains across earlier and later proposals", () => {
+    const draw = addDistinctCharacters(
+      [],
+      [
+        character("Aragorn", ["Strider"]),
+        character("Strider", ["Estel"]),
+        character("Estel"),
+      ],
+    );
+    assert.equal(draw.characters.length, 1);
+    assert.ok(draw.characters[0].aliases.includes("Estel"));
+    assert.equal(
+      addDistinctCharacters(draw.characters, [character("Estel")]).characters
+        .length,
+      1,
+    );
+    const later = addDistinctCharacters(
+      [],
+      [
+        character("Aragorn"),
+        character("Strider"),
+        character("Aragorn", ["Strider"]),
+      ],
+    );
+    assert.equal(later.characters.length, 1);
   });
   it("fills six slots and returns excess or repeated proposals for retry", () => {
     const proposals = Array.from({ length: 9 }, (_, i) =>

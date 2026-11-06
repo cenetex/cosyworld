@@ -23,7 +23,9 @@ function randomDraw(seed) {
 
 export function sampleSource(source, { seed, chunkSize = 6000 } = {}) {
   need(
-    typeof source === "string" && source.trim().length > 0,
+    typeof source === "string" &&
+      source.trim().length > 0 &&
+      source.isWellFormed(),
     "Add source text for the characters.",
   );
   need(
@@ -113,6 +115,11 @@ export function readCharacter(value, sample) {
       sample.text.includes(value.evidence),
     "Choose a character supported by the source sample.",
   );
+  const evidence = nameKey(value.evidence);
+  need(
+    characterKeys(value).some((key) => evidence.includes(key)),
+    "Quote a passage that names the character or an alias.",
+  );
   return {
     name: value.name.trim(),
     specialAbility: value.specialAbility.trim(),
@@ -136,29 +143,43 @@ export function addDistinctCharacters(kept, proposals) {
     "Keep up to six characters.",
   );
   need(Array.isArray(proposals), "Supply the next character proposals.");
-  const characters = [...kept];
-  const used = new Set();
-  for (const character of kept) {
+  // Joining every alias first handles a later proposal that connects two
+  // earlier names. Its aliases also survive into the next draw.
+  const all = [...kept, ...proposals];
+  const parent = new Map();
+  const root = (key) => {
+    if (!parent.has(key)) parent.set(key, key);
+    while (parent.get(key) !== key) key = parent.get(key);
+    return key;
+  };
+  for (const character of all) {
     const keys = characterKeys(character);
-    need(
-      keys.length && !keys.some((key) => used.has(key)),
-      "Keep distinct characters.",
-    );
-    keys.forEach((key) => used.add(key));
+    need(keys.length > 0, "Use a character name with letters or numbers.");
+    for (const key of keys) parent.set(root(key), root(keys[0]));
   }
-  const rejected = [];
-  for (const character of proposals) {
-    const keys = characterKeys(character);
-    if (
-      characters.length === CAST_SIZE ||
-      !keys.length ||
-      keys.some((key) => used.has(key))
-    ) {
-      rejected.push(character);
+  const groups = new Map();
+  for (const character of all) {
+    const key = root(characterKeys(character)[0]);
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(character);
+  }
+  const characters = [],
+    rejected = [];
+  for (const group of groups.values()) {
+    need(
+      group.filter((c) => kept.includes(c)).length <= 1,
+      "Review kept characters with shared names or aliases.",
+    );
+    const chosen = group[0];
+    if (characters.length === CAST_SIZE) {
+      rejected.push(...group);
       continue;
     }
-    characters.push(character);
-    keys.forEach((key) => used.add(key));
+    const aliases = [
+      ...new Set(group.flatMap((c) => [c.name, ...(c.aliases || [])])),
+    ].filter((name) => nameKey(name) !== nameKey(chosen.name));
+    characters.push({ ...chosen, aliases });
+    rejected.push(...group.slice(1));
   }
   return { characters, rejected };
 }
