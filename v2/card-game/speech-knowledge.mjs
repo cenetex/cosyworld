@@ -129,13 +129,30 @@ export const groundedInner = (world, speaker, text) =>
   !/[,!?]["\u201d] [a-z]/.test(text) &&
   !inventsItem(world, speaker, text);
 
-export function forgetCovered(world, context, isCovered) {
-  const actor = currentActor(world);
-  const hidden = [
+function coveredIds(world, isCovered) {
+  return [
     ...Object.keys(world.actors),
     ...Object.keys(places),
     ...Object.keys(world.items),
   ].filter((id) => isCovered(id) || (world.items[id] && covered(world, id)));
+}
+
+export function coveredText(world, text, isCovered) {
+  const names = new Map(
+    coveredIds(world, isCovered).map((id) => [
+      nameOf(id).toLowerCase(),
+      world.actors[id] ? "someone" : world.items[id] ? "something" : "a place",
+    ]),
+  );
+  const shown = blurrer(names)(text);
+  return shown && /^[A-Z]/.test(text)
+    ? shown[0].toUpperCase() + shown.slice(1)
+    : shown;
+}
+
+export function forgetCovered(world, context, isCovered) {
+  const actor = currentActor(world);
+  const hidden = coveredIds(world, isCovered);
   if (!hidden.length) return context;
   const gone = new Set(hidden);
   const kept = (id) => !gone.has(id);

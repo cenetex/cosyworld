@@ -21000,13 +21000,16 @@
     );
   }
   var groundedInner = (world, speaker, text2) => /\b(i|i'm|i've|my|me|mine)\b/i.test(text2) && (text2.match(/["\u201c\u201d]/g) || []).length % 2 === 0 && !/[,!?]["\u201d] [a-z]/.test(text2) && !inventsItem(world, speaker, text2);
-  function forgetCovered(world, context, isCovered) {
-    const actor = currentActor(world);
-    const hidden = [
+  function coveredIds(world, isCovered) {
+    return [
       ...Object.keys(world.actors),
       ...Object.keys(places),
       ...Object.keys(world.items)
     ].filter((id) => isCovered(id) || world.items[id] && covered(world, id));
+  }
+  function forgetCovered(world, context, isCovered) {
+    const actor = currentActor(world);
+    const hidden = coveredIds(world, isCovered);
     if (!hidden.length) return context;
     const gone2 = new Set(hidden);
     const kept = (id) => !gone2.has(id);

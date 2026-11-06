@@ -4,6 +4,7 @@ import { enableMotives } from "../v2/card-game/motives.mjs";
 import { narrativeContext } from "../v2/card-game/narrative.mjs";
 import { sharedContext } from "../v2/card-game/shared-narrator.mjs";
 import {
+  coveredText,
   forgetCovered,
   forgetUnfound,
   inventsItem,
@@ -140,6 +141,14 @@ describe("speech names only what its speaker has found (#1850)", () => {
     // In the browser, a card its player never uncovered stays unnamed too.
     const shown = forgetUnfound(s, narrativeContext(s), (id) => id === host);
     expect(JSON.stringify(shown)).not.toContain(nameOf(host));
+  });
+
+  it("uses the same reveal check for the journal and keeps unrelated words", () => {
+    const text = "PIP carries the route board to the Between-hours carriage.";
+    const masked = coveredText(seeking(), text, (id) => id !== "train");
+    expect(masked).toBe(
+      "Someone carries something to the Between-hours carriage.",
+    );
   });
 
   it("uses a visit before naming a quest destination without a reveal list", () => {
