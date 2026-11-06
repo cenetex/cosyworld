@@ -121,6 +121,7 @@ try {
         tools: () => tools,
         onOpen() {
           window.test.opened = ++opened;
+          window.test.editor?.refresh();
           const old = tools.findIndex((tool) => tool.id === "old-portrait");
           if (old >= 0) tools.splice(old, 1);
         },

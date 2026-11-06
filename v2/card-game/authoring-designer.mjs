@@ -258,7 +258,9 @@ export function installWorldDesigner({
       document.activeElement?.blur();
       workspace.close();
     },
-    refresh: workspace.refresh,
+    refresh() {
+      if (!opening) workspace.refresh();
+    },
     chooseWorld: () => chooseView("world", WORLD),
     chooseTools: () => chooseView("tools", TOOLS),
     chooseTool(id) {
