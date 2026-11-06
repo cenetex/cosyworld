@@ -99,6 +99,9 @@ export function avatarPlays(world, id) {
 }
 export function cardChoices(world, id) {
   if (!availableCards(world).includes(id)) return [];
+  return choicesOn(id, legalActions(world));
+}
+function choicesOn(id, actions) {
   const spokenChoices = new Set(
     packDefinitions.flatMap((pack) =>
       (pack.topics || []).flatMap((topic) =>
@@ -106,7 +109,7 @@ export function cardChoices(world, id) {
       ),
     ),
   );
-  return legalActions(world).filter(
+  return actions.filter(
     (a) =>
       a.target === id &&
       (a.kind === "choose" || Boolean(a.fixture)) &&
@@ -173,8 +176,7 @@ const listOf = (names) =>
     ? `${names.slice(0, -1).join(", ")} and ${names.at(-1)}`
     : names[0];
 
-// Resolve the primary play for drag gestures and other shortcuts.
-// cardActions adds every named choice for the shared row.
+// Resolve one play for the context row and drag gestures.
 export function cardPlay(world, selected) {
   const cards = [...new Set(selected)];
   const available = availableCards(world);
@@ -208,8 +210,6 @@ export function cardPlay(world, selected) {
         (item === undefined || a.item === item) &&
         (target === undefined || a.target === target),
     );
-  // The place alone plays its fixture. With yourself, it passes time.
-  const stay = () => cardChoices(world, here)[0] || wait;
   const use = (id) =>
     id === "lamp"
       ? find(world.items.lamp.lit ? "snuff" : "light", id)
@@ -218,35 +218,38 @@ export function cardPlay(world, selected) {
         : undefined;
   if (cards.length === 1) {
     const id = cards[0];
+    const authored = () => choicesOn(id, actions)[0];
+    const single = (found, hint) => result(found || authored(), hint);
+    // A local fixture takes the place of a plain Wait.
     if (places[id])
-      return result(
+      return single(
         id === here
-          ? stay()
+          ? authored() || wait
           : find("move", null, id) ||
               find("course", null, id) ||
               find("gate", null, id),
         sealedReason(world, id) || `Travel to ${nameOf(id)}.`,
       );
-    if (id === currentActor(world)) return result(find("guard") || wait);
+    if (id === currentActor(world)) return single(find("guard") || wait);
     if (people[id])
-      return result(
+      return single(
         find("talk", null, id) || find("attack", null, id),
         `Meet ${nameOf(id)} here.`,
       );
-    if (sealedReason(world, id)) return result(null, sealedReason(world, id));
+    if (sealedReason(world, id)) return single(null, sealedReason(world, id));
     const holder = world.items[id].holder;
     if (
       people[rootHolder(world, id)] &&
       rootHolder(world, id) !== currentActor(world)
     )
-      return result(
+      return single(
         find("ask", id),
         things[holder]
           ? `Play ${nameOf(holder)} to ask for the covered pair.`
           : `Make room to ask for the ${nameOf(id)}.`,
       );
     if (holder !== currentActor(world))
-      return result(
+      return single(
         find("take", id),
         carryFull(world, id)
           ? TOO_MANY_ITEMS
@@ -257,15 +260,15 @@ export function cardPlay(world, selected) {
       (a) => a.kind === "eat" && a.item === id && !a.target,
     );
     if (meal) return result(meal);
-    if (id === "lamp") return result(use(id), "Pair the Lamp with Oil flask.");
+    if (id === "lamp") return single(use(id), "Pair the Lamp with Oil flask.");
     if (id === "bell")
-      return result(
+      return single(
         use(id),
         covered(world, id)
           ? "Play Black cloth to uncover the Bell."
           : "Ring the Bell.",
       );
-    return result(
+    return single(
       null,
       id !== "oil" && id !== "cloth"
         ? "Pair with a person to give it, or this place to put it down."
@@ -357,7 +360,7 @@ export function cardPlay(world, selected) {
   }
   return result(action, "Try Oil flask + Lamp, or Black cloth + Lamp / Bell.");
 }
-// The row lists every play for this selection. The world owns legality.
+// The row shows one play for this selection. The world owns legality.
 export function cardActions(world, selected) {
   const cards = [...new Set(selected)];
   const primary = cardPlay(world, cards);
@@ -387,14 +390,8 @@ export function cardActions(world, selected) {
             ? "Select a carried item to ask for it."
             : "";
     }
-    actions.push(...cardChoices(world, id));
   }
-  return {
-    actions: [
-      ...new Map(actions.map((action) => [action.key, action])).values(),
-    ],
-    hint,
-  };
+  return { actions, hint };
 }
 
 // Aboard a transport under way (course set or at sea), a Wait is the voyage:

@@ -3,12 +3,14 @@ import { describe, it, expect } from "vitest";
 import {
   availableCards,
   cardActions,
+  cardChoices,
   cardPlay,
   playLabel,
   TOO_MANY_ITEMS,
   playText,
   restPlays,
 } from "../v2/card-game/cards.mjs";
+import { packDefinitions } from "../v2/card-game/pack-registry.mjs";
 import {
   createWorld,
   encodeSave,
@@ -112,6 +114,7 @@ describe("named card actions", () => {
     world.actors.vale.place = "clearing";
     const local = cardActions(world, ["clearing"]).actions;
     expect(local.map(playLabel)).toEqual(["Ring the Steam Clock"]);
+    expect(local).toEqual([cardPlay(world, ["clearing"]).action]);
     world.actors.vale.place = "greek-gate";
     world.crossings["pond-greek-harbor"].discovered = true;
     const story = cardActions(world, ["greek-guard"]).actions;
@@ -120,6 +123,40 @@ describe("named card actions", () => {
     expect(legalActions(world).some((a) => a.kind === "choose")).toBe(false);
     for (const action of story)
       expect(legalActions(world)).toContainEqual(action);
+  });
+  it("offers an authored play when the item has no ordinary action", () => {
+    const pack = packDefinitions.find((p) => p.id === "badger-forest");
+    const { choices } = pack;
+    pack.choices = [
+      ...(choices ?? []),
+      {
+        id: "test-inspect-cloth",
+        at: "clearing",
+        subject: "cloth",
+        label: "Inspect the cloth",
+        text: "Vale inspects the cloth.",
+        effects: [],
+      },
+    ];
+    try {
+      const world = createWorld();
+      world.actors.vale.place = "clearing";
+      world.items.cloth.holder = "clearing";
+      expect(cardChoices(world, "cloth").map(playLabel)).toContain(
+        "Inspect the cloth",
+      );
+      expect(kinds(world, ["cloth"])).toEqual(["take"]);
+      world.items.cloth.holder = "vale";
+      const { action } = cardPlay(world, ["cloth"]);
+      expect(action).toMatchObject({
+        kind: "choose",
+        label: "Inspect the cloth",
+      });
+      expect(cardActions(world, ["cloth"]).actions).toEqual([action]);
+    } finally {
+      if (choices === undefined) delete pack.choices;
+      else pack.choices = choices;
+    }
   });
   it("keeps selections with no play free and provides a pairing hint", () => {
     const world = meeting(),
