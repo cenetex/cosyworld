@@ -5,6 +5,7 @@ import "./helpers/still-cast.mjs";
 import {
   createSampleWorld,
   sampleSource,
+  sampleExample,
 } from "../v2/card-game/authoring-sample.mjs";
 vi.mock("../v2/card-game/packs.json", async (original) => {
   const compiled = structuredClone((await original()).default);
@@ -44,15 +45,34 @@ it("loads a complete editable sample with exact portable artwork", async () => {
   expect(Object.keys(draft.pack.places)).toHaveLength(3);
   expect(Object.keys(draft.pack.avatars)).toHaveLength(2);
   expect(Object.keys(draft.pack.items)).toHaveLength(3);
-  expect(assets.size).toBe(8);
+  expect(assets.size).toBe(9);
   for (const meta of draft.assets) {
     const bytes = assets.get(meta.path);
     expect(bytes.byteLength).toBe(meta.size);
     expect(createHash("sha256").update(bytes).digest("hex")).toBe(meta.sha256);
-    expect(Buffer.from(bytes).toString("ascii", 8, 12)).toBe("WEBP");
+    if (meta.mime === "image/webp")
+      expect(Buffer.from(bytes).toString("ascii", 8, 12)).toBe("WEBP");
   }
+  const example = sampleExample();
+  expect(example.roles).toEqual([
+    "happy",
+    "sad",
+    "strike",
+    "brace",
+    "hit",
+    "sleep",
+  ]);
+  for (const [role, file] of [
+    ["portrait", "dino-design"],
+    ["sheet", "dino-poses"],
+  ])
+    expect(
+      Buffer.from(assets.get(example[role])).equals(
+        readFileSync(`v2/card-game/assets/authoring-guide/${file}.png`),
+      ),
+    ).toBe(true);
   draft.pack.avatars["sample-vale"].name = "Changed";
-  expect(sampleSource().pack.avatars["sample-vale"].name).toBe("Vale");
+  expect(sampleSource().pack.avatars["sample-vale"].name).toBe("Dino");
   expect(packProblems(packDefinition("lantern-shore"), hub)).toEqual([]);
 });
 

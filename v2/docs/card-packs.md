@@ -10,7 +10,9 @@ shape for the next spoke.
 
 Fresh `/make` visits open Lantern Shore from `authoring-sample.mjs`: three
 places, two avatars and three items. Returning the bell to its keeper opens
-the garden. The first draft save stores the eight existing paintings with
+the garden. Dino, the Braveheart, is the sample character. Its supplied portrait
+and six-pose sheet show the character design flow. The first draft save stores
+the nine images with
 the edited source and launch place. Saved local drafts reopen by their key;
 a missing explicit draft link offers the sample through the descriptor.
 

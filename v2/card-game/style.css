@@ -1118,6 +1118,9 @@ body:has(#settings-screen[data-layout="tree"][open]) .settings-scene {
 #settings-screen[data-layout="tree"] .card {
   touch-action: pan-x pan-y;
 }
+#settings-screen[data-layout="tree"] .art[data-kind="avatar"] img {
+  object-fit: contain;
+}
 #settings-screen[data-layout="tree"] .card :is(.name, .quest-head) {
   padding-inline: 8px;
 }

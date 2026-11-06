@@ -92,8 +92,17 @@ try {
       await choose(["pack"], "root");
       await choose(["pack", "avatars"], "collection");
       await choose(["pack", "avatars", "sample-vale"], "entity");
+      const dino = page.locator(
+        `[data-setting="${authoringCardId(["pack", "avatars", "sample-vale"], "entity")}"] .art img`,
+      );
+      await dino.evaluate((image) => image.decode());
+      assert.equal(
+        await dino.evaluate((image) => getComputedStyle(image).objectFit),
+        "contain",
+      );
+      await page.screenshot({ path: `${output}/${width}-dino.png` });
       await choose(["pack", "avatars", "sample-vale", "text"], "field");
-      await note.fill("Vale carries a lantern and follows the shore path.");
+      await note.fill("Dino carries a lantern and follows the shore path.");
       await press(action);
       await press(page.locator("#history-button"));
       await page.getByRole("textbox", { name: "World source" }).waitFor();
@@ -104,9 +113,9 @@ try {
       assert.equal(sample.draft.document, "A quiet shore.\n雪");
       assert.equal(
         sample.draft.pack.avatars["sample-vale"].text,
-        "Vale carries a lantern and follows the shore path.",
+        "Dino carries a lantern and follows the shore path.",
       );
-      assert.equal(sample.assets.length, 8);
+      assert.equal(sample.assets.length, 9);
       assert.deepEqual(sample.launch, {
         schemaVersion: 1,
         place: "sample-shore",
@@ -201,7 +210,7 @@ try {
       await scene();
       assert.equal((await read()).draft.pack.entry, "beach");
       console.log(
-        `Authoring entry ${width}: sample edit, eight assets, source, import, exact reload, missing-link recovery and play save passed`,
+        `Authoring entry ${width}: Dino, nine assets, source, import, exact reload, missing-link recovery and play save passed`,
       );
     } finally {
       await page.close();

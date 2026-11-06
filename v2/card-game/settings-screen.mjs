@@ -268,6 +268,7 @@ export function installCardWorkspace({
     );
     if (c.kind) {
       face.className = "art";
+      face.dataset.kind = c.kind;
       for (const image of face.children) image.className = "";
     }
     el.append(face, head);
