@@ -45,7 +45,7 @@ const worldOf = (log, place = "pond") => ({
 });
 
 describe("beat grouping", () => {
-  it("joins a speaker's line with their own actions that turn", () => {
+  it("keeps a played card in front of the lines it prompts", () => {
     seq = 0;
     const log = [
       did("vale", "give", {
@@ -59,50 +59,41 @@ describe("beat grouping", () => {
     ];
     const beats = sceneBeats(worldOf(log));
     expect(beats.map((b) => [b.speakerId, b.line?.text])).toEqual([
+      ["vale", undefined],
       ["moth", "I'm getting out of here."],
       ["vale", "Wait!"],
     ]);
     expect(beats[0].actions.map((a) => `${a.icon} ${a.text}`)).toEqual([
+      "⇄ Vale offered the Lamp to Pip, but Pip refused.",
       "➜ Pip left for Forest Clearing.",
     ]);
-    expect(beats[1].actions.map((a) => `${a.icon} ${a.text}`)).toEqual([
-      "⇄ Vale offered the Lamp to Pip, but Pip refused.",
-    ]);
+    expect(beats[1].actions).toEqual([]);
+    expect(beats[2].actions).toEqual([]);
   });
 
-  it("inscribes an effect on the card current when it happened", () => {
+  it("keeps both Waits and Sleep on their own cards after speech", () => {
     seq = 0;
     const log = [
-      did("moth", "move", { locationId: "clearing" }),
-      did("vale", "take", { itemId: "lamp" }),
-      said("vale", "Mine now."),
-    ];
-    const beats = sceneBeats(worldOf(log));
-    // Only the first effect, with no card before it, makes a card.
-    expect(beats.map((b) => b.key)).toEqual(["a:1:moth", "s:3"]);
-    expect(beats[0].line).toBeNull();
-    expect(beats[0].actions.map((a) => [a.text, Boolean(a.inscribed)])).toEqual(
-      [
-        ["Pip left for Forest Clearing.", false],
-        ["Vale took the Lamp.", true],
-      ],
-    );
-    expect(beatSummary(beats[1]).text).toBe("“Mine now.”");
-  });
-
-  it("never repeats an effect on a card of its own (owner, #2017)", () => {
-    seq = 0;
-    const log = [
-      did("vale", "wait", { text: "Vale waits one turn." }),
       said("vale", "I wait beneath the attic's dim light."),
       did("vale", "wait", { text: "Vale waits one turn.", turn: 2 }),
+      did("vale", "wait", { text: "Vale waits one turn.", turn: 3 }),
+      did("vale", "wait", { sleep: true, turn: 4 }),
     ];
-    const beats = sceneBeats(worldOf(log));
-    // A silent Wait writes onto the line's card; no caption-only card.
-    expect(beats.map((b) => b.key)).toEqual(["s:2"]);
-    const seqs = beats.flatMap((b) => b.actions.map((a) => a.seq));
-    expect(seqs).toEqual([1, 3]);
-    expect(new Set(seqs).size).toBe(seqs.length);
+    const world = worldOf(log);
+    const stack = sceneBeats(world);
+    expect(stack.map((beat) => beat.key)).toEqual(["s:1", "a:2", "a:3", "a:4"]);
+    expect(
+      stack.map((beat) => beat.actions.map((action) => action.text)),
+    ).toEqual([
+      [],
+      ["Vale waited a turn."],
+      ["Vale waited a turn."],
+      ["Vale slept."],
+    ]);
+    expect(memoryVisits(world)[0].beats).toEqual(stack);
+    expect(withPending(stack, { speakerId: "vale", turn: 4 }).beats).toEqual(
+      stack,
+    );
   });
 
   it("gives the end of a standoff to the place, not the last actor", () => {
@@ -161,7 +152,7 @@ describe("beat grouping", () => {
     const beats = sceneBeats(worldOf(log));
     // Earlier visits, other places and unwitnessed acts stay out of the stack.
     // The viewer's own arrival opens the visit's stream.
-    expect(beats.map((b) => b.key)).toEqual(["a:1:vale", "s:8"]);
+    expect(beats.map((b) => b.key)).toEqual(["a:4", "s:8"]);
     expect(beats[0].actions.map((a) => a.text)).toEqual([
       "Vale arrived from Mirror attic.",
       "Pip lit the Lamp.",
