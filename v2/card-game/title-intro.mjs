@@ -262,12 +262,15 @@ export function voiceTitle(sounds) {
 // nowhere.
 function acknowledgementPanel() {
   const glyphs = [];
-  // A spaced dash keeps to the word before it, never alone on a row.
-  const streamed = (words) => {
-    const part = document.createDocumentFragment();
-    part.append(...letterSpans(words.replace(/ (?=—)/gu, "\u00a0")));
-    glyphs.push(...part.children);
-    return part;
+  const streamed = (text) => {
+    const letters = letterSpans(text);
+    glyphs.push(...letters);
+    return letters;
+  };
+  const inline = (children, className) => {
+    const span = element("span", className);
+    span.append(...children);
+    return span;
   };
   const panel = element("section", "title-ack");
   const text = element("div", "title-ack-text");
@@ -278,28 +281,44 @@ function acknowledgementPanel() {
   const glowing = acknowledgementGlows(acknowledgement);
   const glows = [],
     lighting = new Map();
+  const fadeGroups = tiers.map(() => []);
   text.style.setProperty("--glow-in", `${acknowledgement.glowInMs}ms`);
   let at = 0;
   for (const stanza of acknowledgement.stanzas) {
     const paragraph = element("p");
     for (const words of stanza) {
       const row = element("span", "title-ack-line");
-      let from = 0;
-      for (const pause of pauses
-        .filter(({ line }) => line === at)
-        .sort((a, b) => a.start - b.start)) {
-        const { start, end, tier } = pause;
-        row.append(streamed(words.slice(from, start)));
-        const glow = element("span", "title-ack-glow");
-        const { color } = tiers.find(({ id }) => id === tier) || tiers[0];
-        glow.dataset.tier = tier;
-        glow.style.setProperty("--tier-color", color);
-        glow.append(streamed(words.slice(start, end)));
-        glows[pauses.indexOf(pause)] = glow;
-        row.append(glow);
-        from = end;
+      const highlights = pauses.filter(({ line }) => line === at);
+      // Keep punctuation with its word as it fades, including a spaced dash.
+      const line = words.replace(/ (?=—)/gu, "\u00a0");
+      for (const { 0: part, index } of line.matchAll(/[^ ]+| +/gu)) {
+        if (part.startsWith(" ")) {
+          row.append(...streamed(part));
+          continue;
+        }
+        const end = index + part.length;
+        const highlight = highlights.find(
+          ({ start }) => start >= index && start < end,
+        );
+        let rarity = tiers[0];
+        let letters;
+        if (highlight) {
+          const { start, end: last, tier } = highlight;
+          const prefix = streamed(line.slice(index, start));
+          const glow = inline(
+            streamed(line.slice(start, last)),
+            "title-ack-glow",
+          );
+          rarity = tiers.find(({ id }) => id === tier) || tiers[0];
+          glow.dataset.tier = tier;
+          glow.style.setProperty("--tier-color", rarity.color);
+          glows[pauses.indexOf(highlight)] = glow;
+          letters = [...prefix, glow, ...streamed(line.slice(last, end))];
+        } else letters = streamed(part);
+        const word = inline(letters);
+        fadeGroups[rarity.rank].push(word);
+        row.append(word);
       }
-      row.append(streamed(words.slice(from)));
       paragraph.append(row);
       at++;
     }
@@ -383,7 +402,26 @@ function acknowledgementPanel() {
     const words = acknowledgement.stanzas.flat().join("");
     reveal.show("acknowledgement", words, null, { instant });
   };
-  return { panel, next, reveal, write, unfollow };
+  const fadeOut = () => {
+    const fade = (node, delay) =>
+      node.animate([{ opacity: 0 }], {
+        duration: 240,
+        delay,
+        easing: "ease-out",
+        fill: "forwards",
+      }).finished;
+    // Sweep the plain words in reading order, then leave more time for each tier.
+    const fades = fadeGroups.flatMap((words, rank) => {
+      const start = rank ? 680 + (rank - 1) * 155 : 0;
+      const step = rank ? 45 : 480 / Math.max(1, words.length - 1);
+      return words.map((word, index) => fade(word, start + index * step));
+    });
+    Promise.all([fade(next, 0), ...fades]).then(
+      () => panel.remove(),
+      () => {},
+    );
+  };
+  return { panel, next, reveal, write, unfollow, fadeOut };
 }
 
 const SCROLL_KEYS = [
@@ -424,6 +462,7 @@ export function playTitleIntro({
     reveal: words,
     write,
     unfollow,
+    fadeOut,
   } = acknowledgementPanel();
   // The first gesture while it writes shows it whole (and starts the song,
   // as browsers ask); the next one continues. A hidden tab holds the pen.
@@ -540,6 +579,7 @@ export function playTitleIntro({
   const showWake = () => {
     if (phase !== "title" || leaving) return;
     phase = layer.dataset.phase = "card";
+    panel.remove();
     image.getAnimations().forEach((animation) => animation.finish());
     image.animate(
       [{ transform: "none" }, { transform: "translateY(-14dvh) scale(0.8)" }],
@@ -560,29 +600,25 @@ export function playTitleIntro({
     phase = layer.dataset.phase = "title";
     song.start();
     layer.focus({ preventScroll: true });
-    panel
-      .animate([{ opacity: 1 }, { opacity: 0 }], {
-        duration: reduced ? 0 : 400,
-        fill: "both",
-      })
-      .finished.then(
-        () => panel.remove(),
-        () => {},
-      );
+    panel.inert = true;
+    if (reduced) panel.remove();
     if (!(await race(loaded)) || leaving) return showWake();
+    const crossfade = !reduced && phase === "title";
+    if (crossfade) fadeOut();
     image.alt = logo.name;
     await race(
       image
         .animate(
-          reduced || phase !== "title"
-            ? [{ opacity: 0 }, { opacity: 1 }]
-            : [
+          crossfade
+            ? [
                 { opacity: 0, transform: "scale(0.97)" },
                 { opacity: 1, transform: "scale(1)" },
-              ],
+              ]
+            : [{ opacity: 0 }, { opacity: 1 }],
           {
-            duration: reduced ? 250 : 900,
-            easing: "ease",
+            duration: reduced ? 250 : 1500,
+            delay: crossfade ? 150 : 0,
+            easing: crossfade ? "ease-in" : "ease",
             fill: "both",
           },
         )

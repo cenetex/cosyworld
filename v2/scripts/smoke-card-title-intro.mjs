@@ -609,14 +609,53 @@ try {
     });
     await shot(page, `ack-${width}`);
 
-    // The second brings the logo; the song plays on, once.
+    // The second brings the logo and fades the words. The song plays on.
     if (desktop) await page.mouse.click(width / 2, 10);
     else await page.keyboard.press("a");
     await page.waitForSelector('.title-intro[data-phase="title"]');
     assert.equal(await titlePlays(page), 1);
-    await page.waitForTimeout(500);
+    await page.waitForFunction(
+      () =>
+        document.querySelector(".title-ack-line > span")?.getAnimations()
+          .length,
+    );
+    const fades = await page.$$eval(".title-ack-line > span", (words) =>
+      words.map((word) => ({
+        text: word.textContent,
+        tier: word.querySelector(".title-ack-glow")?.dataset.tier || "common",
+        delay: word.getAnimations()[0].effect.getTiming().delay,
+      })),
+    );
+    assert.equal(fades[0].text, "Before");
+    assert.equal(fades.findLast(({ tier }) => tier === "mythic").text, "box,");
+    let last = -1;
+    for (const tier of ["common", ...new Set(held.map(({ tier }) => tier))]) {
+      for (const { delay } of fades.filter((word) => word.tier === tier)) {
+        assert.ok(delay > last, `${tier} words fade one at a time`);
+        last = delay;
+      }
+    }
+    await page.waitForFunction(() => {
+      const plain = [
+        ...document.querySelectorAll(".title-ack-line > span"),
+      ].filter((word) => !word.querySelector(".title-ack-glow"));
+      const box = [
+        ...document.querySelectorAll('[data-tier="mythic"].title-ack-glow'),
+      ].at(-1);
+      const logo = document.querySelector(".title-intro > img");
+      return (
+        plain.length > 0 &&
+        plain.every((word) => getComputedStyle(word).opacity === "0") &&
+        box &&
+        getComputedStyle(box.parentElement).opacity === "1" &&
+        Number(getComputedStyle(logo).opacity) > 0
+      );
+    });
     await shot(page, `logo-${width}`);
-    const box = await page.locator(".title-intro > img").boundingBox();
+    const logoWidth = await page.$eval(
+      ".title-intro > img",
+      (img) => img.offsetWidth,
+    );
     assert.ok(
       await page.$eval(
         ".title-intro > img",
@@ -626,8 +665,8 @@ try {
     );
     // About three quarters of a desktop, the full phone width less margins.
     if (desktop)
-      assert.ok(box.width > width * 0.65 && box.width < width * 0.85);
-    else assert.ok(Math.abs(box.width - (width - 32)) < 2, String(box.width));
+      assert.ok(logoWidth > width * 0.65 && logoWidth < width * 0.85);
+    else assert.equal(logoWidth, width - 32);
     // Then the logo lifts over the face-down card.
     await cardShown(page);
     assert.equal(await titlePlays(page), 1);
@@ -916,6 +955,7 @@ try {
   );
   await quiet.mouse.click(195, 10);
   await quiet.waitForSelector('.title-intro[data-phase="title"]');
+  assert.equal(await quiet.locator(".title-ack").count(), 0);
   await quiet.waitForTimeout(300);
   assert.equal(
     await quiet.$eval(
