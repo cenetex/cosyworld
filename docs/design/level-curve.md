@@ -27,6 +27,10 @@ and no check that the fight was possible.
   ceil(levelGap(L) / 2)`, and the next quest comes at `questXp(L + 1) =
   levelXp(L) + levelGap(L)`. Ordinary wants met past the gap carry on to
   the next level. Residents still level on `levelFor` alone.
+- From rules 106, ordinary quests and each step before the final rest earn
+  1 XP. Finishing a level quest at its final rest earns XP by the quest's own
+  tier. Common earns 1, Uncommon 2, Rare 3, Epic 4, Legendary 5 and Mythic 6.
+  The extra XP counts toward the next quest at the same thresholds.
 - No step is violent. A person step is Talk (the person want itself) or
   Meet, at every level. Threaten and Attack steps saved before rules 90 stay
   valid and are met as before; none is drawn.

@@ -1,6 +1,6 @@
 // A stack of quests per avatar: each an item, a place or a person. The world
-// rules decide when one is met; meeting it is a recorded world fact worth one
-// experience point. New quests go on top and nothing replaces one already
+// rules decide when one is met and how much experience it earns.
+// New quests go on top and nothing replaces one already
 // held (#1831): `actor.want` is the top, the one pursued and shown, and
 // `actor.under` the quests beneath it, next first. The next want is drawn
 // from the world, deterministically, so a replayed journal makes the same
@@ -17,6 +17,7 @@ import {
 } from "./pack-registry.mjs";
 import { packDiscovered, runHash } from "./pack-rules.mjs";
 import { drawGlimpse, glimpseAspect, validGlimpse } from "./glimpse.mjs";
+import { levelTier } from "./level-tiers.mjs";
 import { authoredWant } from "./want-talk.mjs";
 
 export const WANT_KINDS = ["item", "place", "person", "connect"];
@@ -732,10 +733,11 @@ function commitMet(s, id, api, met, index = 0) {
     want = list[index],
     quest = want.quest && { ...want.quest, left: want.quest.left - 1 };
   a.level ??= levelFor(a.xp);
-  a.xp += 1;
+  const xp = quest?.left === 0 ? levelTier(quest.level).rank + 1 : 1;
+  a.xp += xp;
   a.metTurn = s.turn;
   met.push({ actorId: id, want });
-  api.log(id, want);
+  api.log(id, want, xp);
   if (quest?.left > 1) list[index] = questStep(s, id, api, quest, want);
   else if (quest?.left === 1) list[index] = restStep(s, id, api, quest);
   else {

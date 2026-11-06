@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   createWorld,
   decodeSave,
+  encodeSave,
   legalActions,
   play,
   validateWorld,
@@ -21,6 +22,7 @@ import { narrativeContext } from "../v2/card-game/narrative.mjs";
 import {
   questCaption,
   questCard,
+  metQuests,
   questTier,
 } from "../v2/card-game/quest-card.mjs";
 
@@ -175,6 +177,31 @@ describe("the level quest", () => {
     expect(levelOf(s, "vale")).toBe(6);
     expect(s.actors.vale.want?.quest).toBeUndefined();
     expect(validateWorld(s)).toBe(s);
+  });
+
+  it.each([
+    [5, 1],
+    [10, 2],
+    [50, 5],
+    [100, 6],
+  ])("awards the level %i final rest %i XP", (level, xp) => {
+    const s = ready(questXp(level) + questSteps(level));
+    s.turn = s.revision = 24 * (level + 1);
+    s.actors.vale.level = level - 1;
+    s.actors.vale.want = {
+      kind: "place",
+      target: "attic",
+      since: s.turn,
+      refusals: 0,
+      step: { verb: "rest" },
+      quest: { level, left: 1 },
+    };
+    const after = decodeSave(encodeSave(sleep(s)));
+    expect(after.actors.vale.level).toBe(level);
+    expect(after.actors.vale.xp - s.actors.vale.xp).toBe(xp);
+    expect(metQuests([questCard(s)], after, s.eventSeq)).toMatchObject([
+      { earnedXp: xp },
+    ]);
   });
 
   it("can be dropped for its cost in experience, keeping the level", () => {

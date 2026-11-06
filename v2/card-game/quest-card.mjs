@@ -220,7 +220,11 @@ export function metQuests(before, world, seq) {
       );
       if (i >= 0) {
         const [quest] = gone.splice(i, 1);
-        met.push({ ...quest, ...burial(world, quest) });
+        met.push({
+          ...quest,
+          ...burial(world, quest),
+          earnedXp: e.questXp ?? 1,
+        });
       }
     }
   return met;
