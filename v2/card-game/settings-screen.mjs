@@ -175,6 +175,7 @@ export function installCardWorkspace({
     chosen = fanned = armed = null;
     expanded.clear();
     frames.clear();
+    if (layout) hand.replaceChildren();
     delete screen.dataset.layout;
     actionBeat.clear(beat);
     changed();

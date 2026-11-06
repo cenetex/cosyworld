@@ -114,6 +114,7 @@ try {
     const ids = await page.evaluate(() => window.treeIds);
     const card = (id) => page.locator(`[data-setting="${id}"]`);
     const count = () => page.locator("#settings-hand > .card-frame").count();
+    const initialCount = await count();
     assert(await page.evaluate(() => window.treeCount > 3000));
     assert((await count()) < 150, "closed Greek details have no frames");
     assert(await page.evaluate(() => window.treeBeat.edit === window.treeEdit));
@@ -188,6 +189,11 @@ try {
     );
     await page.evaluate(() => window.treeWorkspace.close());
     assert.equal(await page.locator("#settings-screen").isVisible(), false);
+    assert.equal(await page.locator("#settings-hand > *").count(), 0);
+    await page.evaluate(() => window.treeWorkspace.open());
+    assert.equal(await count(), initialCount);
+    assert(await card(ids.place).isVisible());
+    await page.evaluate(() => window.treeWorkspace.close());
     assert.deepEqual(errors, []);
     await page.close();
     console.log(
