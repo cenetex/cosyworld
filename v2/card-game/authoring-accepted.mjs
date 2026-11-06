@@ -25,20 +25,28 @@ const roles = ["base", "happy", "sad", "strike", "brace", "hit", "sleep"];
 const extensions = {
   "image/png": "png",
   "image/webp": "webp",
-  "image/jpeg": "jpg",
 };
+const acceptedOk = (value) =>
+  fields(
+    value,
+    ["name", "specialAbility", "aliases", "description"],
+    ["suggested"],
+  ) &&
+  text(value.name, 80) &&
+  text(value.specialAbility, 100) &&
+  text(value.description, 1200) &&
+  Array.isArray(value.aliases) &&
+  value.aliases.length <= 8 &&
+  value.aliases.every((alias) => text(alias, 80)) &&
+  (value.suggested === undefined || typeof value.suggested === "boolean");
 const source = (record) => ({
   pack: record.draft.pack,
   bridge: record.draft.bridge,
   launch: record.launch ?? null,
 });
 const baseline = (record) =>
-  JSON.stringify([
-    record.key,
-    record.generation,
-    record.draft,
-    record.launch ?? null,
-  ]);
+  JSON.stringify([record.key, record.generation, record.launch]) +
+  exportManifest(record.draft);
 const digest = async (value) =>
   (await assetMetadata("output.json", "application/json", jsonBytes(value)))
     .sha256;
@@ -73,6 +81,7 @@ export async function acceptedAvatarOutput(record, id) {
         "visual",
       ]) &&
         output.schemaVersion === 1 &&
+        acceptedOk(output.accepted) &&
         Number.isSafeInteger(output.revision) &&
         output.revision > 0 &&
         (output.visual === null ||
@@ -119,19 +128,7 @@ export async function prepareAcceptedAvatar(record, request) {
     "Use a positive output revision.",
   );
   need(
-    fields(
-      accepted,
-      ["name", "specialAbility", "aliases", "description"],
-      ["suggested"],
-    ) &&
-      text(accepted.name, 80) &&
-      text(accepted.specialAbility, 100) &&
-      text(accepted.description, 1200) &&
-      Array.isArray(accepted.aliases) &&
-      accepted.aliases.length <= 8 &&
-      accepted.aliases.every((alias) => text(alias, 80)) &&
-      (accepted.suggested === undefined ||
-        typeof accepted.suggested === "boolean"),
+    acceptedOk(accepted),
     "Use accepted name, ability, aliases and description only.",
   );
   const draft = parseDraft(exportManifest(record.draft));
@@ -192,7 +189,7 @@ export async function prepareAcceptedAvatar(record, request) {
     return meta;
   }
   for (const image of images) {
-    const path = `${root}${revision}/${image.role}.${extensions[image.mime]}`;
+    const path = `assets/${draft.pack.id}/${id}-r${revision}-${image.role}.${extensions[image.mime]}`;
     const meta = await add(path, image.mime, image.bytes);
     visuals.push({ role: image.role, path, sha256: meta.sha256 });
   }

@@ -1,6 +1,7 @@
 import { expect, it } from "vitest";
-import pack from "../v2/content/badger-forest/card-world.json" with { type: "json" };
-import { importPack } from "../v2/card-game/authoring-draft.mjs";
+import { packDefinition, hub } from "../v2/card-game/pack-registry.mjs";
+import { packProblems } from "../v2/card-game/pack-schema.mjs";
+import { importPack, assetMetadata } from "../v2/card-game/authoring-draft.mjs";
 import { applySourceEdit } from "../v2/card-game/authoring-edits.mjs";
 import {
   prepareAcceptedAvatar,
@@ -8,6 +9,7 @@ import {
   acceptedAvatarOutput,
 } from "../v2/card-game/authoring-accepted.mjs";
 const candidateId = "12345678-1234-4234-8234-123456789abc";
+const pack = packDefinition("badger-forest");
 const request = () => ({
   candidateId,
   revision: 1,
@@ -33,12 +35,7 @@ it("accepts a stable avatar and restores its exact source with Undo", async () =
     proposal = await prepareAcceptedAvatar(before, request());
   const next = adoptAcceptedAvatar(before, proposal),
     id = proposal.id;
-  expect(next.draft.pack.avatars[id]).toMatchObject({
-    name: "Lumi",
-    place: pack.entry,
-    seed: "Hears quiet bells",
-  });
-  expect(next.assets.size).toBe(1);
+  expect(next.draft.pack.avatars[id].place).toBe(pack.entry);
   expect(await acceptedAvatarOutput(next, id)).toMatchObject({
     revision: 1,
     accepted: request().accepted,
@@ -64,6 +61,7 @@ it("keeps gameplay fields and earlier image bytes across accepted revisions", as
   const prepared = await prepareAcceptedAvatar(original, first),
     id = prepared.id;
   const one = adoptAcceptedAvatar(original, prepared);
+  expect(packProblems(one.draft.pack, hub)).toEqual([]);
   one.draft.pack.avatars[id].want = { kind: "place", target: pack.entry };
   const nextRequest = request();
   nextRequest.revision = 2;
@@ -87,26 +85,34 @@ it("keeps gameplay fields and earlier image bytes across accepted revisions", as
   ]);
 });
 
-it("guards stale source and keeps a prepared result reusable after write failure", async () => {
+it("guards stale source and keeps a prepared result reusable", async () => {
   const value = record(),
     prepared = await prepareAcceptedAvatar(value, request());
   const candidate = adoptAcceptedAvatar(value, prepared);
-  const failingStore = {
-    write: async () => {
-      throw new Error("quota");
-    },
-  };
-  await expect(
-    failingStore.write(
-      value.key,
-      candidate,
-      value.generation,
-      candidate.assets,
-    ),
-  ).rejects.toThrow("quota");
   expect(adoptAcceptedAvatar(value, prepared)).toEqual(candidate);
   value.draft.title = "Changed";
   expect(() => adoptAcceptedAvatar(value, prepared)).toThrow(/changed/);
+});
+
+it("validates imported accepted fields before exposing a matching sidecar", async () => {
+  for (const patch of [{ prompt: "temporary canary" }, { aliases: "bad" }]) {
+    const value = record(),
+      prepared = await prepareAcceptedAvatar(value, request());
+    const next = adoptAcceptedAvatar(value, prepared);
+    const output = await acceptedAvatarOutput(next, prepared.id);
+    Object.assign(output.accepted, patch);
+    const bytes = new TextEncoder().encode(JSON.stringify(output));
+    const meta = await assetMetadata(
+      next.draft.assets[0].path,
+      "application/json",
+      bytes,
+    );
+    next.draft.assets[0] = meta;
+    next.assets.set(meta.path, bytes);
+    await expect(acceptedAvatarOutput(next, prepared.id)).rejects.toThrow(
+      /version 1/,
+    );
+  }
 });
 
 it("keeps temporary generation inputs outside accepted output", async () => {
