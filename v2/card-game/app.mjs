@@ -2346,7 +2346,9 @@ function renderActions() {
     : next?.action
       ? [next.action]
       : [];
-  const drop = legal.find((a) => a.kind === "drop" && !a.item && a.quest === 0);
+  const step = steps[0];
+  const drop =
+    !step && legal.find((a) => a.kind === "drop" && !a.item && a.quest === 0);
   const confirmKey = drop ? `${revision}:${picked.key}` : null;
   if (abandonQuest !== confirmKey) abandonQuest = null;
   const dropLabel = drop && playLabel(drop, world);
@@ -2355,17 +2357,19 @@ function renderActions() {
         { action: drop, label: dropLabel.replace(/^Abandon/u, "Confirm") },
         { action: null, label: "Cancel", cancel: true },
       ]
-    : [
-        ...steps.map((action) => ({
-          action,
-          label:
-            action.kind === "move"
-              ? `Travel to ${nameOf(action.target)}`
-              : playLabel(action, world),
-        })),
-        ...(next?.reason ? [{ action: null, label: next.reason }] : []),
-        ...(drop ? [{ action: drop, label: dropLabel }] : []),
-      ];
+    : step
+      ? [
+          {
+            action: step,
+            label:
+              step.kind === "move"
+                ? `Travel to ${nameOf(step.target)}`
+                : playLabel(step, world),
+          },
+        ]
+      : drop
+        ? [{ action: drop, label: dropLabel }]
+        : [];
   for (const { action, label, cancel } of questButtons) {
     const discard = action?.kind === "drop",
       button = node(
@@ -2383,13 +2387,6 @@ function renderActions() {
       button.dataset.dropQuest = String(picked.index);
       button.dataset.destructive = "";
     } else button.dataset.questStep = "";
-    if (!action) {
-      button.disabled = true;
-      button.dataset.blocked = "quest";
-      button.title = label;
-      row.append(button);
-      continue;
-    }
     if (!discard) button.dataset.action = action.kind;
     button.title =
       discard && questCovered(picked) ? "Abandon this quest" : playText(action);
@@ -2473,8 +2470,8 @@ function renderActions() {
     heading.hidden = true;
   }
   const note = document.querySelector(".action-beat-note");
-  note.textContent = "";
-  note.hidden = true;
+  note.textContent = next?.reason || "";
+  note.hidden = !next?.reason;
   if (abandonQuest) {
     const panel = $("action-beat");
     panel.dataset.tier = "danger";

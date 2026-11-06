@@ -187,7 +187,7 @@ try {
     });
     // Any play meets it; it stays sealed and the fold glows.
     await page
-      .locator("#card-actions button", { hasText: "Wait" })
+      .getByRole("button", { name: "Wait", exact: true })
       .first()
       .click();
     await ready();
@@ -363,15 +363,12 @@ try {
     assert.match(await talk.getAttribute("aria-label"), /^Quest: Talk with /);
     const drop = page.locator('#card-actions [data-drop-quest="0"]');
     await drop.waitFor();
-    // Its keeper not yet met, the Talk quest's step says why on the button.
-    assert.deepEqual(
-      await page
-        .locator("#card-actions [data-quest-step]")
-        .evaluateAll((buttons) =>
-          buttons.map((b) => [b.textContent, b.disabled]),
-        ),
-      [["Not found yet", true]],
+    // The reason is plain text and Abandon is the only action.
+    assert.equal(
+      await page.locator(".action-beat-note").innerText(),
+      "Not found yet",
     );
+    assert.equal(await page.locator("#card-actions button").count(), 1);
     assert.equal(
       await page.locator("#card-actions [data-drop-quest]").count(),
       1,
@@ -428,9 +425,9 @@ try {
       "Quest: Give The Burial Decree to The Gate Guard, near",
     );
     // Chosen, the beat keeps its box and names the quest; its next step,
-    // the rules' own Give, stands beside Abandon.
+    // the rules' own Give, is the only action.
     await page.locator('#hand .want-card[data-quest-id="quest:0"]').click();
-    await page.locator('#card-actions [data-drop-quest="0"]').waitFor();
+    await page.locator("#card-actions [data-quest-step]").waitFor();
     assert.equal(
       await page.locator(".action-beat-heading:not([hidden])").innerText(),
       "Give The Burial Decree to The Gate Guard",
@@ -441,10 +438,7 @@ try {
         .evaluateAll((buttons) =>
           buttons.map((b) => [b.textContent, b.disabled]),
         ),
-      [
-        ["Give to The Gate Guard", false],
-        ["Abandon", false],
-      ],
+      [["Give to The Gate Guard", false]],
     );
     assert.notEqual(
       await page
@@ -535,7 +529,7 @@ try {
       top,
       "quest",
       "vale+ greek-funeral-cloth quest:0* quest:1+ quest:2",
-      ["Travel to Theban Palace Forecourt", "Abandon"],
+      ["Travel to Theban Palace Forecourt"],
     );
     await play(
       top,
