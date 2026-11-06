@@ -1,6 +1,19 @@
 // Released saves keep every item through an upgrade except the old flask's
 // dose count: one flask now fills one empty lamp and returns full (#1526).
-use serde_json::Value;
+use serde_json::{json, Value};
+
+pub(super) fn greek_story_items(items: &mut Value) {
+    for (id, holder) in [
+        ("greek-helen-accounts", "greek-harbor"),
+        ("greek-atreid-record", "greek-argolid-road"),
+    ] {
+        items
+            .as_object_mut()
+            .unwrap()
+            .entry(id)
+            .or_insert_with(|| json!({"holder": holder, "history": []}));
+    }
+}
 
 pub(super) fn upgraded(items: &Value) -> Value {
     let mut items = items.clone();
@@ -51,6 +64,7 @@ pub(super) fn current_pack_changes(old: &Value, upgraded: &Value) -> Value {
     ] {
         expected["items"][id] = upgraded["items"][id].clone();
     }
+    greek_story_items(&mut expected["items"]);
     for id in ["greek-creon", "greek-guard", "greek-shipmaster"] {
         expected["actors"][id]["want"] = upgraded["actors"][id]["want"].clone();
     }
