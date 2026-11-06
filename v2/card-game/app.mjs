@@ -1556,7 +1556,12 @@ function choose(id) {
   const actor = currentActor(world),
     part = expandedHolders.has(actor) ? avatarStack(id) : null;
   const withCard = [...selected, id];
-  if (sharingMeal(withCard)) selectCards(withCard, { keepOpen: true });
+  if (selected.length === 3 && selected.includes(id))
+    selectCards(
+      selected.filter((cardId) => cardId !== id),
+      { keepOpen: true },
+    );
+  else if (sharingMeal(withCard)) selectCards(withCard, { keepOpen: true });
   else if (id === actor && expandedHolders.has(actor)) {
     const settled = !avatarFan && !questPicked && selected.join("+") === actor;
     avatarFan = null;
@@ -2402,6 +2407,25 @@ function renderActions() {
     };
     row.append(button);
   }
+  // An item with its own view offers a client-only Look; it plays nothing.
+  const viewed = selected.length === 1 && selected[0];
+  if (
+    !rested &&
+    !row.children.length &&
+    viewed &&
+    things[viewed]?.view &&
+    !cardIsCovered(viewed) &&
+    !sealedReason(world, viewed) &&
+    !asleepReason(world, selected) &&
+    hint !== TOO_MANY_ITEMS
+  ) {
+    const look = node("button", "Look", "card-action");
+    look.type = "button";
+    look.dataset.look = viewed;
+    look.title = `Look at ${theName(viewed)} up close`;
+    look.onclick = () => showItemView(viewed);
+    row.append(look);
+  }
   // A sealed card says why its way is shut in the context button once its
   // quest is taken; until then Seek the way carries the reason.
   const sealed =
@@ -2439,22 +2463,6 @@ function renderActions() {
     blocked.dataset.blocked = "carry";
     blocked.title = reason;
     row.append(blocked);
-  }
-  // An item with its own view offers a client-only Look; it plays nothing.
-  const viewed = selected.length === 1 && selected[0];
-  if (
-    !rested &&
-    !row.children.length &&
-    viewed &&
-    things[viewed]?.view &&
-    !cardIsCovered(viewed)
-  ) {
-    const look = node("button", "Look", "card-action");
-    look.type = "button";
-    look.dataset.look = viewed;
-    look.title = `Look at ${theName(viewed)} up close`;
-    look.onclick = () => showItemView(viewed);
-    row.append(look);
   }
   const note = document.querySelector(".action-beat-note");
   note.textContent = "";
