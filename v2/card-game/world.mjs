@@ -68,6 +68,8 @@ import {
   wake,
   dropQuest,
   focusQuest,
+  claimQuestReward,
+  questRewardsOf,
   pushQuest,
   questsOf,
   levelOf,
@@ -1882,6 +1884,21 @@ export function legalActions(s, actor = currentActor(s)) {
       out.push(action);
     }
   out.push(...fixtureOffers(s, actor, sensesFor(s)), ...packChoices(s, actor));
+  if (actor === currentActor(s) || controlledByHuman(s, actor))
+    for (const reward of questRewardsOf(s, actor))
+      out.push({
+        ...offer(
+          "claim",
+          actor,
+          null,
+          null,
+          `${nameOf(actor)} collects a completed quest.`,
+          [],
+        ),
+        receipt: reward.id,
+        label: "Claim reward",
+        key: `claim:${actor}:${reward.id}`,
+      });
   // A player may drop any quest in its stack (a level quest costs
   // experience, `dropCost`), or choose one from beneath, which brings it to the top
   // without taking a turn.
@@ -3175,6 +3192,21 @@ export function play(
     };
   const next = structuredClone(s);
   if (actor !== "vale" || s.playerActorId) next.playerActorId = actor;
+  // Collecting a paid receipt only changes its card and the saved revision.
+  // Rest, combat and residents keep their current turn.
+  if (exact.kind === "claim") {
+    next.revision += 1;
+    claimQuestReward(next, actor, exact.receipt);
+    addLog(next, "World", exact.text, {
+      kind: "action",
+      actorId: actor,
+      verb: "claim",
+      receipt: exact.receipt,
+      witnesses: [actor],
+    });
+    validateWorld(next);
+    return { ok: true, state: next };
+  }
   // Choosing which quest is on top is only picking a card: it is journaled
   // like a play, but no turn passes and the world does not move on.
   if (exact.kind === "focus") {

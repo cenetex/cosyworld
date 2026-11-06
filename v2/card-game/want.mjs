@@ -111,6 +111,14 @@ export const startXp = (id) => {
 };
 
 export const wantOf = (s, id) => s.actors[id]?.want ?? null;
+// Completed player quests stay saved until their owner collects the card.
+// These first receipts record rewards already paid by commitMet.
+export const questRewardsOf = (s, id) => s.actors[id]?.questRewards ?? [];
+export function claimQuestReward(s, id, receipt) {
+  const a = s.actors[id];
+  a.questRewards = questRewardsOf(s, id).filter((r) => r.id !== receipt);
+  if (!a.questRewards.length) delete a.questRewards;
+}
 // The same quest step keeps its identity as the stack changes order.
 export const wantKey = (id, want) =>
   `${id}:${want.kind}:${want.target}:${want.since}:${want.quest?.left ?? ""}`;
@@ -741,6 +749,16 @@ function commitMet(s, id, api, met, index = 0) {
   a.metTurn = s.turn;
   met.push({ actorId: id, want });
   api.log(id, want, xp);
+  if (api.player(id))
+    (a.questRewards ??= []).push({
+      id: s.eventSeq,
+      actor: id,
+      turn: s.turn,
+      want: structuredClone(want),
+      xp,
+      level: quest?.left === 0 ? quest.level : null,
+      paid: true,
+    });
   if (quest?.left > 1) list[index] = questStep(s, id, api, quest, want);
   else if (quest?.left === 1) list[index] = restStep(s, id, api, quest);
   else {
@@ -963,6 +981,7 @@ export function validWant(s, id) {
         a.level <= levelFor(most))) &&
     a.xp <= most &&
     (a.metTurn === undefined || whole(a.metTurn)) &&
+    validQuestRewards(s, id) &&
     (a.content === undefined || a.content === true) &&
     (a.glimpse === undefined || validGlimpse(a.glimpse, levelFor(most) + 1)) &&
     (a.halfwayIssued === undefined ||
@@ -988,6 +1007,36 @@ export function validWant(s, id) {
     quests.filter((w) => w.quest).length <= 1 &&
     new Set(quests.filter((w) => !w.quest).map((w) => `${w.kind}:${w.target}`))
       .size === quests.filter((w) => !w.quest).length
+  );
+}
+function validQuestRewards(s, id) {
+  const receipts = s.actors[id].questRewards;
+  return (
+    receipts === undefined ||
+    (Array.isArray(receipts) &&
+      receipts.length > 0 &&
+      receipts.length <= s.eventSeq &&
+      receipts.every((r, i) => {
+        if (
+          !r ||
+          Object.keys(r).sort().join() !== "actor,id,level,paid,turn,want,xp" ||
+          r.actor !== id ||
+          r.paid !== true ||
+          !Number.isSafeInteger(r.id) ||
+          r.id <= (receipts[i - 1]?.id ?? 0) ||
+          r.id > s.eventSeq ||
+          !Number.isSafeInteger(r.turn) ||
+          r.turn < 0 ||
+          r.turn > s.turn ||
+          !validQuest(s, id, r.want) ||
+          r.want.since > r.turn
+        )
+          return false;
+        const level = r.want.quest?.left === 1 ? r.want.quest.level : null;
+        return (
+          r.level === level && r.xp === (level ? levelTier(level).rank + 1 : 1)
+        );
+      }))
   );
 }
 function validQuest(s, id, w) {
