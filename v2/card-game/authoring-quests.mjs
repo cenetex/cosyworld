@@ -79,9 +79,13 @@ export function changeOpeningRequirements(source, index, conditions) {
   place(source, route.from);
   place(source, route.to);
   const requires = requirements(conditions);
+  const openRoute = { ...route, requires };
+  if (!requires.length) delete openRoute.sealed;
   return sourceEdit(source, "Change opening conditions", [
     ...(requires.length ? removeWalk(source, route.from, route.to) : []),
-    { path: ["pack", "routes", index, "requires"], value: requires },
+    ...(requires.length
+      ? [{ path: ["pack", "routes", index, "requires"], value: requires }]
+      : [{ path: ["pack", "routes", index], value: openRoute }]),
   ]);
 }
 
@@ -99,7 +103,10 @@ export function changeLaneRequirements(source, ship, index, conditions) {
   const lanes = structuredClone(transport.lanes),
     requires = requirements(conditions, 4);
   if (requires.length) lanes[index].opensWith = requires;
-  else delete lanes[index].opensWith;
+  else {
+    delete lanes[index].opensWith;
+    delete lanes[index].reason;
+  }
   const problems = laneProblems({ ...transport, lanes });
   need(problems.length === 0, problems[0]);
   const home = new Set([transport.at]);

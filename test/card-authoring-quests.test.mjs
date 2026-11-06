@@ -151,4 +151,27 @@ describe("authored opening and voyage quests", () => {
       }),
     ).toThrow(/existing/);
   });
+  it("clears a voyage gate and restores its original hint with Undo", () => {
+    const source = greek(),
+      ship = source.bridge.transports["greek-ship"];
+    const index = ship.lanes.findIndex((lane) => lane.reason);
+    const next = apply(
+      source,
+      changeLaneRequirements(source, "greek-ship", index, []),
+    );
+    const rest = { ...ship.lanes[index] };
+    delete rest.opensWith;
+    delete rest.reason;
+    expect(next.bridge.transports["greek-ship"].lanes[index]).toEqual(rest);
+  });
+  it("clears an opening quest and restores the sealed card with Undo", () => {
+    const source = greek(),
+      index = source.pack.routes.findIndex((r) => r.sealed);
+    const next = apply(source, changeOpeningRequirements(source, index, []));
+    expect(next.pack.routes[index].requires).toEqual([]);
+    expect(next.pack.routes[index].sealed).toBeUndefined();
+    source.pack.routes.forEach((r, i) => {
+      if (i !== index) expect(next.pack.routes[i]).toEqual(r);
+    });
+  });
 });
