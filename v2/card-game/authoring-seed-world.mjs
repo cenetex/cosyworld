@@ -103,7 +103,7 @@ export function seedEdit(
   let launch = structuredClone(source.launch),
     selected;
   if (quest) {
-    need(pack.avatars[quest], "Choose an avatar in this world.");
+    need(Object.hasOwn(pack.avatars, quest), "Choose an avatar in this world.");
     if (discard) delete pack.avatars[quest].want;
     else {
       const choices = seedCards(pack).filter(
@@ -126,9 +126,10 @@ export function seedEdit(
       };
     }
   } else if (discard) {
+    need(Object.hasOwn(seedKinds, kind), "Choose a card kind.");
     const group = seedKinds[kind],
       old = pack[group]?.[discard];
-    need(old, "Choose a card in this world.");
+    need(Object.hasOwn(pack[group], discard), "Choose a card in this world.");
     delete pack[group][discard];
     const home =
       kind === "place"
@@ -165,7 +166,7 @@ export function seedEdit(
     checkedCards(cards, kind, source, replacing);
     if (replacing)
       need(
-        pack[seedKinds[kind]]?.[replacing],
+        kind !== "world" && Object.hasOwn(pack[seedKinds[kind]], replacing),
         "Choose the card to regenerate.",
       );
     for (const card of [...cards].sort(
@@ -222,7 +223,7 @@ export function seedEdit(
         "Move this card's linked rules before discarding it.",
       );
       if (value && typeof value === "object")
-        pending.push(...Object.values(value));
+        pending.push(...Object.entries(value).flat());
     }
   }
   const edit = sourceEdit(

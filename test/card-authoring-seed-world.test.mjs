@@ -115,6 +115,11 @@ it("respects a discarded quest and rejects stale or malformed proposals", async 
   );
   expect(seedContext(f.session.state.source, "made-2")).toHaveLength(4);
   const record = f.session.snapshot();
+  expect(() => seedEdit(record, { quest: "__proto__" })).toThrow("avatar");
+  record.draft.pack.avatars["made-2"].values = { "made-3": 5 };
+  expect(() => seedEdit(record, { kind: "item", discard: "made-3" })).toThrow(
+    "linked rules",
+  );
   record.draft.pack.routes = [{ from: "made-1", to: "made-1" }];
   expect(() => seedEdit(record, { kind: "place", discard: "made-1" })).toThrow(
     "linked rules",
