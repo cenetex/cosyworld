@@ -132,6 +132,8 @@ These are original sketches. Effects and values are proposed for play testing.
 Pilot the buckler and crook. They make support and counterplay visible through
 Cover and Brace. Test two- and three-person fights before adding healing or
 further saved effects. The buckler's expiry needs an explicit timing rule.
+Hook aside is offered while its target is covering someone. Answer is offered
+when its target hit the user since the user's last play.
 Each harmful ability resets the peaceful round. Each peaceful support action
 counts as that person stepping back.
 
