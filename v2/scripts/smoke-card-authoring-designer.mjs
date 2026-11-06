@@ -15,7 +15,9 @@ try {
     const page = await browser.newPage({
       viewport: { width, height: width === 320 ? 568 : 900 },
       reducedMotion: "reduce",
+      hasTouch: width < 700,
     });
+    const press = (card) => (width < 700 ? card.tap() : card.click());
     const errors = [],
       requests = [];
     page.on("pageerror", (error) => errors.push(error.message));
@@ -88,9 +90,9 @@ try {
       const card = page.locator(
         `[data-setting="${authoringCardId(path, role)}"]`,
       );
-      await card.click();
+      await press(card);
       if ((await card.getAttribute("aria-expanded")) === "false")
-        await card.click();
+        await press(card);
     };
     const tool = async (id) =>
       page.evaluate((id) => window.test.editor.chooseTool(id), id);
@@ -105,8 +107,8 @@ try {
     };
     const save = async () => {
       await page.evaluate(() => window.test.editor.chooseTools());
-      await page.locator('[data-setting="designer-save"]').click();
-      await action.click();
+      await press(page.locator('[data-setting="designer-save"]'));
+      await press(action);
       await info.filter({ hasText: "Saved" }).waitFor();
     };
     await choose(["pack"], "root");
@@ -123,12 +125,12 @@ try {
     await tool("source");
     assert.equal(await note.innerText(), "First book");
     await note.fill("Second book\n雪");
-    await action.click();
+    await press(action);
     await info.filter({ hasText: "number" }).waitFor();
     await gate();
     await choose(["pack", "choices", 0, "cost"], "field");
     await note.fill("2");
-    await action.click();
+    await press(action);
     await save();
     let saved = await page.evaluate(() => window.test.read());
     assert.equal(saved.draft.document, "Second book\n雪");
@@ -150,19 +152,19 @@ try {
     await choose(["pack"], "root");
     await choose(["pack", "places", "a"], "entity");
     await choose(["pack", "places", "a"], "contents");
-    await page
-      .locator(
+    await press(
+      page.locator(
         `[data-setting="${authoringCardId(["pack", "items", "oil"], "entity")}-contents"]`,
-      )
-      .click();
+      ),
+    );
     assert.equal(await action.innerText(), "Move Oil from Yard to Port");
-    await action.click();
+    await press(action);
     await save();
     saved = await page.evaluate(() => window.test.read());
     assert.equal(saved.draft.pack.items.oil.holder, "b");
     assert.equal(saved.launch.place, "b");
-    await page.locator('[data-setting="designer-undo"]').click();
-    await action.click();
+    await press(page.locator('[data-setting="designer-undo"]'));
+    await press(action);
     await save();
     saved = await page.evaluate(() => window.test.read());
     assert.equal(saved.draft.pack.items.oil.holder, "a");
@@ -181,7 +183,7 @@ try {
     await choose(["pack", "avatars", "person"], "entity");
     await choose(["pack", "avatars", "person", "name"], "field");
     await note.fill("Wren");
-    await action.click();
+    await press(action);
     await save();
     const renamed = await page.evaluate(() => window.test.read());
     assert.equal(renamed.draft.pack.avatars.person.name, "Wren");
