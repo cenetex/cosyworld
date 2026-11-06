@@ -49,9 +49,8 @@ File bytes go through a separate upload. Source records keep local relative
 paths or a GitHub repository, exact commit and path. Drafts accept unfinished
 cards; publication checks the compiled pack with the shared pack validator.
 
-`authoring-session.mjs` owns pending fields, Undo, local save generations and tools.
-Stage source text with `stage({document,title})`; read it with `snapshot({pending:false})`.
-Save checks the full draft. Failed writes retain edits. Completed tool contexts expire.
+`authoring-session.mjs` owns fields, source text, Undo, saves and guarded tools.
+Use `stage({document,title})` to keep text, `snapshot({pending:false})` to read it, and `save()` to check and persist the draft.
 
 | File                                | Owns                                                                                                                    |
 | ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |

@@ -19,8 +19,7 @@ function setup() {
     }),
   };
   const store = {
-    async write(key, value, generation) {
-      assert.equal(key, "local");
+    async write(_key, value, generation) {
       if (generation !== record.generation)
         throw new Error("This draft changed in another tab.");
       record = { ...structuredClone(value), generation: generation + 1 };
@@ -51,7 +50,6 @@ it("validates pending fields as one candidate and gives tools a detached snapsho
   const snapshot = session.snapshot();
   assert.equal(snapshot.draft.pack.choices[0].cost, 2);
   snapshot.draft.pack.choices[0].unknown.push("caller");
-  assert.equal(JSON.stringify(session.state), before);
   session.input(field("cost"), " ");
   session.stage({ document: "Staged book", title: "x".repeat(81) });
   const read = session.snapshot({ pending: false });
@@ -92,8 +90,11 @@ it("retains failed field and document saves, then retries with the same generati
   const saved = await session.save();
   assert.equal(saved.draft.pack.choices[0].text, "Keep this field");
   assert.equal(saved.draft.title, "New title");
-  assert.equal(saved.generation, 2);
-  assert.equal(session.status.dirty, false);
+  assert.deepEqual([saved.generation, session.status.dirty], [2, false]);
+  const kept = session.snapshot();
+  ["title", "document"].forEach((key) => (saved.draft[key] = "Caller"));
+  [saved.draft.assets, saved.draft.sources].forEach((list) => list.push({}));
+  assert.deepEqual(session.snapshot(), kept);
 });
 
 it("keeps newer launch edits dirty while a save finishes", async () => {

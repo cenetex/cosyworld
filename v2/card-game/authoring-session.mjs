@@ -87,7 +87,7 @@ export function createAuthoringSession({ store, onChange = () => {} }) {
     meta += Number(
       ["title", "document"].some((name) => manifest[name] !== draft[name]),
     );
-    manifest = draft;
+    manifest = structuredClone(draft);
   }
   async function save(patch = {}) {
     need(!writing, "Wait for the current save.");
