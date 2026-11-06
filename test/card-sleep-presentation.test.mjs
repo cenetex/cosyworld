@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createWorld, legalActions, play } from "../v2/card-game/world.mjs";
 import { DAYLIGHT_TURNS, isNight } from "../v2/card-game/daylight.mjs";
-import { questXp } from "../v2/card-game/want.mjs";
+import { questXp, questsOf } from "../v2/card-game/want.mjs";
 import {
   CONFIRM_MS,
   DREAM_WAIT_MS,
@@ -107,8 +107,12 @@ describe("waking from a sleep", () => {
       crossed: true,
       night: false,
       dream: true,
-      quests: ["vale:place:forest-cottage"],
+      quests: [expect.stringMatching(/^vale:place:/)],
     });
+    const dealt = questsOf(world, "vale").find(
+      (q) => q.quest && q.since === world.turn,
+    );
+    expect(wake.quests).toEqual([`vale:${dealt.kind}:${dealt.target}`]);
     expect(sleepPlan(wake)).toEqual([
       "fade",
       "held",

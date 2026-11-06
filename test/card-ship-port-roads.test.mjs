@@ -1,3 +1,4 @@
+import { beforeFuneral } from "./fixtures/card-upgraded-items.mjs";
 // A ship is the quick way to a port, never a trap (#2049). The Charybdis
 // sails the Black Pond route: Black Pond to the Wine-Dark Harbor and back
 // with no cargo, on to Piraeus and the Hoppy Cat jetty only with cargo
@@ -230,8 +231,7 @@ function reach(
           !pinned.includes(id) &&
           s.actors[lock.by]?.place === home &&
           lock.consumes.every(
-            (c) =>
-              s.items[c]?.holder === lock.by || carriable().includes(c),
+            (c) => s.items[c]?.holder === lock.by || carriable().includes(c),
           )
         ) {
           s.usedUp = s.usedUp.filter((u) => u !== id);
@@ -365,12 +365,17 @@ describe("ports reachable on foot or by a free leg home", () => {
     const cargo = laneConditions("greek-harbor", "greek-piraeus");
     expect(cargo[0].conditions).toEqual([
       { kind: "item_at", item: "greek-provisions", place: "greek-ship" },
-      { kind: "pack_item_present", pack: "hoppycat-archive", place: "greek-ship" },
+      {
+        kind: "pack_item_present",
+        pack: "hoppycat-archive",
+        place: "greek-ship",
+      },
     ]);
     expect(
-      laneConditions("greek-piraeus", "hoppycat-signal-jetty")[0].conditions.map(
-        (c) => c.item ?? c.pack,
-      ),
+      laneConditions(
+        "greek-piraeus",
+        "hoppycat-signal-jetty",
+      )[0].conditions.map((c) => c.item ?? c.pack),
     ).toEqual(["greek-provisions", "hoppycat-archive"]);
     expect(laneConditions("pond", "greek-harbor")).toBe(null);
     expect(laneConditions("greek-harbor", "pond")).toBe(null);
@@ -696,6 +701,7 @@ describe("a rules 93 save on the Coast Road", () => {
   it("comes ashore at Piraeus after the invitation", () => {
     const s = JSON.parse(encodeSave(openDoorStart("burial")));
     s.packs["greek-drama"].revision = 17;
+    beforeFuneral(s);
     s.actors.vale.place = "greek-road-coast";
     s.items["greek-water-jar"].holder = "greek-road-coast";
     // The herald's truce had opened the Long Walls from the Agora, and the
@@ -713,9 +719,8 @@ describe("a rules 93 save on the Coast Road", () => {
       ["greek-road-north", "greek-sanctuary"],
     ];
     const w = decodeSave(JSON.stringify(s));
-    // Revisions 19 and 20 follow: the forecourt through the well, then the
-    // live City Gate.
-    expect(w.packs["greek-drama"].revision).toBe(20);
+    // Later revisions add the forecourt, the live City Gate and the funeral.
+    expect(w.packs["greek-drama"].revision).toBe(21);
     expect(w.actors.vale.place).toBe("greek-piraeus");
     expect(w.items["greek-water-jar"].holder).toBe("greek-piraeus");
     // Revision 20 forgets the City Gate's old latch: the gate reads live,
@@ -751,6 +756,7 @@ describe("a rules 93 save at Marathon and Troy", () => {
       if (a.place === "greek-ship") a.place = "greek-harbor";
     edit(s);
     s.packs["greek-drama"].revision = 17;
+    beforeFuneral(s);
     s.actors.vale.place = vale;
     s.items["greek-water-jar"].holder = "greek-marathon";
     s.items["greek-ajax-shield"].holder = "greek-ajax-landing";

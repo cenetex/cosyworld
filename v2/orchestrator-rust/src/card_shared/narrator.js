@@ -9983,7 +9983,8 @@
               ],
               anyChoices: [
                 "greek-perform-burial",
-                "greek-perform-permitted-burial"
+                "greek-perform-permitted-burial",
+                "greek-bury-polynices"
               ]
             },
             {

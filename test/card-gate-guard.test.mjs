@@ -198,7 +198,7 @@ const ROAD = "greek-cithaeron";
 describe("the Exposed Battlefield", () => {
   it("has two ways out, the gate and the road, in a new full world", () => {
     let s = lifeWorld({ place: FIELD });
-    expect(waysOut(s)).toEqual([ROAD, GATE]);
+    expect(waysOut(s)).toEqual([ROAD, GATE, "greek-polynices-hollow"]);
     expect(sealedReason(s, GATE)).toBe("The Gate Guard is guarding this card");
     expect(sealedReason(s, ROAD)).toMatch(/Theban account of the burial/u);
     // The decree lifts the bar on both sides for good, and a road once
@@ -206,9 +206,13 @@ describe("the Exposed Battlefield", () => {
     s.items["greek-creon-writ"].holder = GUARD;
     s.openedRoutes = [...(s.openedRoutes || []), `${FIELD}>${ROAD}`].sort();
     s = settleGate(reload(s));
-    expect(exits(s, FIELD, "vale").sort()).toEqual([ROAD, GATE]);
+    expect(exits(s, FIELD, "vale").sort()).toEqual([
+      ROAD,
+      GATE,
+      "greek-polynices-hollow",
+    ]);
     expect(exits(s, GATE, "vale")).toContain(FIELD);
-    expect(waysOut(s)).toEqual([ROAD, GATE]);
+    expect(waysOut(s)).toEqual([ROAD, GATE, "greek-polynices-hollow"]);
   });
 
   it("has the same two ways out in a rules 99 world upgraded to 100", () => {
@@ -232,7 +236,7 @@ describe("the Exposed Battlefield", () => {
     old.actors.vale.place = FIELD;
     const upgraded = decodeSave(JSON.stringify(old));
     expect(upgraded.actors[GUARD].guarding).toBe(FIELD);
-    expect(waysOut(upgraded)).toEqual([ROAD, GATE]);
+    expect(waysOut(upgraded)).toEqual([ROAD, GATE, "greek-polynices-hollow"]);
     expect(exits(upgraded, FIELD, GUARD)).toContain(GATE);
   });
 });

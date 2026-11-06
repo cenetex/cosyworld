@@ -1,6 +1,20 @@
 import { visitors } from "../../v2/card-game/human-cast.mjs";
 import { canonicalPlace } from "../../v2/card-game/pack-registry.mjs";
 
+// A synthetic save from before Greek revision 21 predates the shade.
+export function beforeFuneral(world) {
+  const id = "greek-polynices-shade";
+  for (const records of [
+    world.actors,
+    world.memories,
+    world.peaceUntil,
+    world.motives?.grievances,
+  ])
+    if (records) delete records[id];
+  for (const actor of Object.values(world.actors)) delete actor.trust?.[id];
+  return world;
+}
+
 // Save upgrades drop the old flask's dose count; one flask now fills one lamp.
 export function upgradedItems(items) {
   const next = structuredClone(items);
