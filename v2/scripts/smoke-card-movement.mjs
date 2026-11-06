@@ -1,5 +1,6 @@
 import { atticOpening } from "../../test/fixtures/card-attic-opening.mjs";
 import {
+  readyActionButton,
   revealCard,
   selectCard,
   startNewGame,
@@ -85,7 +86,11 @@ try {
         window.movementCheck = { frames: [], animations: [] };
         const animate = Element.prototype.animate;
         Element.prototype.animate = function (...args) {
-          const avatar = this.closest("[data-avatar]")?.dataset.avatar;
+          // Only time the cast entrances. An avatar can have other motions.
+          const avatar =
+            this.matches(".portrait-body") &&
+            args[1]?.fill === "backwards" &&
+            this.closest("#cast [data-avatar]")?.dataset.avatar;
           if (avatar && window.movementCheck.active) {
             const entry = {
               avatar,
@@ -169,7 +174,7 @@ try {
       });
       if (kind === "shared") await selectCard(page, "moth");
       await selectCard(page, "pond");
-      await page.locator("#card-actions .card-primary").click();
+      await readyActionButton(page).click();
       if (kind === "reset") {
         await startNewGame(page);
         // A new game opens on the attic without a quest reveal.
