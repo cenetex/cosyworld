@@ -1,6 +1,7 @@
 // The shared card descriptor renders the same cards, words and context actions.
 // Its caller owns visibility and the current play or authoring selection.
 import { imageUrl } from "./images.mjs";
+import { showActionBeatNote } from "./action-beat-note.mjs";
 const $ = (id) => document.getElementById(id);
 function node(tag, text, className) {
   const el = document.createElement(tag);
@@ -8,13 +9,9 @@ function node(tag, text, className) {
   if (className) el.className = className;
   return el;
 }
-function plainNote(note, beat) {
-  note.textContent = note.title = beat.note || "";
-  note.hidden = !beat.note;
-}
 export function renderCardDescriptor(
   beat,
-  { placeArt = (path) => path, showNote = plainNote } = {},
+  { placeArt = (path) => path, showNote = showActionBeatNote } = {},
 ) {
   const row = $("card-actions"),
     heading = document.querySelector(".action-beat-heading"),

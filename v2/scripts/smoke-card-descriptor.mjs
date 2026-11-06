@@ -41,6 +41,25 @@ try {
         button.id !== ""
       )
         throw new Error("An unnamed context button must stay through redraws.");
+      let edits = 0;
+      renderCardDescriptor({
+        ...beat,
+        edit: {
+          key: "source",
+          label: "Source",
+          value: "Book",
+          onInput() {
+            edits++;
+          },
+        },
+      });
+      const note = document.querySelector(".action-beat-note");
+      renderCardDescriptor({ ...beat, note: "Saved" });
+      if (note.hasAttribute("contenteditable") || note.hasAttribute("role"))
+        throw new Error("A plain descriptor must finish its editor state.");
+      note.dispatchEvent(new Event("blur"));
+      if (edits || note.textContent !== "Saved")
+        throw new Error("A plain descriptor must keep its note and callbacks.");
       localStorage.setItem("cosyworld.playing", "saved-play");
       new ResizeObserver(([entry]) => {
         document.documentElement.style.setProperty(
