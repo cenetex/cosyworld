@@ -18,6 +18,16 @@ Each place and avatar has Contents and Quests boxes. Incoming road conditions
 live under the destination's Quests box; outgoing links stay in Contents.
 The index leaves the source intact. Edit commands use those paths separately.
 
+`authoring-controller.mjs` owns local selection, box targeting, edit sequence,
+and the last 50 inverse edits. `createAuthoringState(source)` copies the source;
+`reduceAuthoring(state, event)` accepts `select`, `arm`, `cancel`, `apply`,
+`edit`, `setLaunch`, and `undo`. `authoringAction(state)` supplies a label and
+an edit preview; pass its `sequence` and `key` with `apply`. Selecting a location
+sets the launch sidecar. While a box is armed, that selection becomes its target
+and branch navigation keeps the box armed. The workspace owns expansion.
+Source changes clear the pair; Undo restores the exact source and advances the
+local sequence. Server draft revisions stay with persistence.
+
 `authoring-fields.mjs` adapts scalar field cards for the descriptor.
 `authoringField(source, card)` captures its path, type, displayed value and
 action label. `authoringFieldEdit(source, field, text)` returns one expected-value
@@ -61,6 +71,11 @@ loads. It rejects unknown fields, unknown condition kinds, dangling ids and
 missing art with a reason naming the field.
 
 Packs can also supply `topics`: facts a resident tells through Talk.
+
+An item's `text` can carry a piece of a story, such as the words scratched
+inside the Willows stew pot. The first 240 characters reach the item's holder
+in Talk, thoughts and dreams. Use a short passage that makes sense on its own.
+Giving the item passes the passage to the new holder.
 
 ### Starter quests
 

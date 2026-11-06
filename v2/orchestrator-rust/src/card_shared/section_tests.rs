@@ -160,6 +160,8 @@ fn earlier_greek_worlds_upgrade_once_with_original_history_and_new_entities() {
                         + 3
                         // Greek revision 20: the Sack of Wheat.
                         + 1
+                        // The Helen and Atreid records.
+                        + 2
                         + if version == engine::ELEVENTH_VERSION {
                             9
                         } else {

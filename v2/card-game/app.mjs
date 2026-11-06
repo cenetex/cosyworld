@@ -2158,12 +2158,12 @@ function showBorrowedBeat(row, heading) {
   const buttons = beat.buttons.map(({ label, id, run, disabled }, index) => {
     const previous = row.children[index];
     const button =
-      previous?.id === id && previous.dataset.keepMenu === "true"
+      previous?.dataset.keepMenu === "true" && previous.id === (id ?? "")
         ? previous
         : node("button", label, index ? "card-action" : "card-primary");
     button.textContent = label;
     button.type = "button";
-    button.id = id;
+    button.id = id ?? "";
     button.dataset.keepMenu = "true";
     button.disabled = Boolean(disabled);
     button.onclick = run;
@@ -2311,12 +2311,6 @@ function renderActions() {
     return showBorrowedBeat(row, heading);
   }
   const revision = world.revision;
-  const nudgeTarget =
-    !rested &&
-    sharedSession &&
-    selected.find(
-      (id) => id !== currentActor(world) && world.presentActors?.includes(id),
-    );
   row.replaceChildren(
     ...actions.map((action, index) => {
       const refused = refusedPlay(action);
@@ -2342,15 +2336,6 @@ function renderActions() {
       return button;
     }),
   );
-  if (nudgeTarget) {
-    const nudge = node("button", "Nudge", "card-action");
-    nudge.type = "button";
-    nudge.onclick = () =>
-      sharedSession
-        .command({ op: "nudge", target: nudgeTarget })
-        .catch((error) => notice(error.message));
-    row.append(nudge);
-  }
   if (quiet) {
     const reveal = node("button", OPENING_REVEAL, "card-primary");
     reveal.type = "button";

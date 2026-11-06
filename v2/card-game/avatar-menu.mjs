@@ -303,10 +303,30 @@ export function installAvatarMenu({
     result = `Find ${avatar.name} here and talk to them.`;
   }
   // The chosen seat's action: Leave for yours, the owner's Free for
-  // another's once armed, with a one-line note; none otherwise.
+  // another's once armed, or Nudge for a player in the same room.
   function seatAction(slot, seat) {
     if (seat.kind === "human") {
-      if (!slot.owner || !armed) return {};
+      if (!slot.owner || !armed) {
+        const state = session?.state;
+        const actors = state?.world?.actors;
+        if (
+          !slot.current ||
+          !seat.online ||
+          !actors ||
+          actors[seat.id]?.place !== actors[state.actor]?.place
+        )
+          return {};
+        return {
+          buttons: [
+            {
+              label: "Nudge",
+              run: guard(() =>
+                session.command({ op: "nudge", target: seat.id }),
+              ),
+            },
+          ],
+        };
+      }
       const free = async () => {
         await command(slot.shared, { op: "reset", avatar: seat.id });
         await leavePage(() => location.reload());
@@ -482,9 +502,9 @@ export function installAvatarMenu({
       lit: Boolean(seat.online),
       ground: world?.actors?.[id]?.place || null,
     };
-    const bring = (target, index = 0) => ({
+    const bring = (target) => ({
       label: `Bring to ${target.name || "this world"}`,
-      id: index ? `avatar-bring-${index}` : "avatar-bring",
+      id: "avatar-bring",
       run: guard(() => toWorld(avatar, home, target)),
     });
     const target = to && view.slots.find((s) => s.key === to);
@@ -492,7 +512,7 @@ export function installAvatarMenu({
       ? { buttons: [bring(target)] }
       : slot
         ? seatAction(slot, seat)
-        : { buttons: bringButtons(avatar, view, bring) };
+        : freeSeatHint(avatar, view);
     return {
       avatar: id,
       cards: [card],
@@ -502,19 +522,17 @@ export function installAvatarMenu({
       ...action,
     };
   }
-  // A free avatar of yours: Bring to each world it can go to, else one
-  // dim button that says why not.
-  function bringButtons(avatar, view, bring) {
-    const keys = targetsFor(avatar, null, view).worlds;
-    const worlds = view.slots.filter((s) => keys.includes(s.key));
-    if (worlds.length) return worlds.map(bring);
+  function freeSeatHint(avatar, view) {
+    if (targetsFor(avatar, null, view).worlds.length)
+      return { note: "Choose an open seat to bring this avatar." };
     const shared = view.slots.filter((s) => s.shared);
-    const label = !shared.length
-      ? "No world yet"
-      : shared.length === 1
-        ? `Taken in ${shared[0].name || "your world"}`
-        : "Taken in every world";
-    return [{ label, id: "avatar-bring", disabled: true, run() {} }];
+    return {
+      note: !shared.length
+        ? "No world yet"
+        : shared.length === 1
+          ? `Taken in ${shared[0].name || "your world"}`
+          : "Taken in every world",
+    };
   }
   function render() {
     // Signed out, ☰ has no world UI at all (#1892).
