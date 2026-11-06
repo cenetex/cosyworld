@@ -466,16 +466,10 @@ describe("Before the Burial", () => {
     expect(beforeAnoint.actors["greek-antigone"].place).toBe(
       "greek-polynices-hollow",
     );
-    for (const [world, choice] of [
-      [beforeAnoint, "anoint"],
-      [anointed, "shroud"],
-      [veiled, "bury"],
-    ]) {
-      expect(
-        legalActions(world)
-          .filter((a) => a.kind === "choose")
-          .map((a) => a.choiceId),
-      ).toEqual([`greek-${choice}-polynices`]);
+    for (const world of [beforeAnoint, anointed, veiled]) {
+      expect(legalActions(world).filter((a) => a.kind === "choose")).toEqual(
+        [],
+      );
       expect(stateOf(world).flags["greek-open-door-open"]).toBeUndefined();
       expect(entityActive(world, "greek-colonus")).toBe(false);
       expect(entityActive(world, "greek-eleusis")).toBe(false);

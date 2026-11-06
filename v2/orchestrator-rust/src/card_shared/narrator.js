@@ -4142,11 +4142,6 @@
             text: "Dust marks the hem of her dress. She keeps looking toward the battlefield.",
             place: "greek-gate",
             home: "greek-gate",
-            values: {
-              "greek-funeral-cloth": 3,
-              "greek-oil-flask": 4,
-              "greek-shovel": 3
-            },
             seed: "Antigone, daughter of Oedipus.",
             portrait: "assets/greek-drama/chthonic-antigone.png",
             want: {
@@ -8845,17 +8840,17 @@
                 value: false
               },
               {
-                kind: "item_at",
+                kind: "holding",
                 item: "greek-oil-flask",
-                place: "greek-polynices-hollow"
+                role: "actor"
               },
               {
-                kind: "item_at",
+                kind: "item_near",
                 item: "greek-funeral-cloth",
                 place: "greek-polynices-hollow"
               },
               {
-                kind: "item_at",
+                kind: "item_near",
                 item: "greek-shovel",
                 place: "greek-polynices-hollow"
               },
@@ -8876,7 +8871,8 @@
                 key: "greek-polynices-anointed",
                 value: true
               }
-            ]
+            ],
+            on: "give"
           },
           {
             id: "greek-shroud-polynices",
@@ -8891,12 +8887,12 @@
                 value: true
               },
               {
-                kind: "item_at",
+                kind: "holding",
                 item: "greek-funeral-cloth",
-                place: "greek-polynices-hollow"
+                role: "actor"
               },
               {
-                kind: "item_at",
+                kind: "item_near",
                 item: "greek-shovel",
                 place: "greek-polynices-hollow"
               },
@@ -8917,7 +8913,8 @@
                 key: "greek-polynices-veiled",
                 value: true
               }
-            ]
+            ],
+            on: "give"
           },
           {
             id: "greek-bury-polynices",
@@ -8932,9 +8929,9 @@
                 value: true
               },
               {
-                kind: "item_at",
+                kind: "holding",
                 item: "greek-shovel",
-                place: "greek-polynices-hollow"
+                role: "actor"
               },
               {
                 kind: "flag",
@@ -8943,6 +8940,11 @@
               }
             ],
             effects: [
+              {
+                kind: "place_item",
+                item: "greek-shovel",
+                place: "greek-polynices-hollow"
+              },
               {
                 kind: "set_flag",
                 key: "greek-burial-performed",
@@ -8953,7 +8955,8 @@
                 key: "greek-open-door-open",
                 value: true
               }
-            ]
+            ],
+            on: "give"
           }
         ],
         works: [
