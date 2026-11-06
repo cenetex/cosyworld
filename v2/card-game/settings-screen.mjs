@@ -133,6 +133,10 @@ export function installSettingsCards({ actionBeat, packs, playHand }) {
 // describe(cards, chosen, armed) supplies {name, info, note?, actions}; run
 // receives the action and {cardId}. Actions may stay selected or ask for a
 // second press through their existing stays and confirm fields.
+// Optional layout(cards,{expanded,active}) returns {nodes:[{id}],place(screen)}.
+// Nodes name viewport-visible cards; the callback filters phone branches.
+// Only those nodes get frames. onSelect/selected/onCancel connect a controller;
+// public choose(id) selects a card, while focus(id) only moves keyboard focus.
 export function installCardWorkspace({
   actionBeat,
   playHand,
@@ -142,11 +146,17 @@ export function installCardWorkspace({
   onClose = () => {},
   label = "Settings",
   initialGroup = null,
+  layout = null,
+  onSelect = () => {},
+  selected = null,
+  onCancel = () => false,
 }) {
   const screen = $("settings-screen"),
     hand = $("settings-hand"),
     entries = createCardEntries(),
     reduced = matchMedia("(prefers-reduced-motion: reduce)");
+  const expanded = new Set(),
+    frames = new Map();
   let lead = 0;
   let chosen = null,
     fanned = null,
@@ -163,6 +173,10 @@ export function installCardWorkspace({
     entries.draw([]);
     playHand?.back();
     chosen = fanned = armed = null;
+    expanded.clear();
+    frames.clear();
+    if (layout) hand.replaceChildren();
+    delete screen.dataset.layout;
     actionBeat.clear(beat);
     changed();
     onClose();
@@ -177,7 +191,7 @@ export function installCardWorkspace({
     const cardId = chosen;
     // Playing a setting folds its group back, as a play folds a place;
     // Next tip stays on Controls to show the next tip in place.
-    if (!action.stays) chosen = fanned = null;
+    if (!action.stays && !layout) chosen = fanned = null;
     if (action.run === "close" || action.closes) close();
     try {
       await run(action, { cardId });
@@ -189,6 +203,26 @@ export function installCardWorkspace({
   // A group opens as a place does, and folds on a second tap; opening
   // another folds the first. A setting is chosen, and unchosen on a second.
   function choose(id) {
+    if (layout) {
+      const card = cards.find((c) => c.id === id);
+      if (!card) return;
+      const parents = new Set();
+      let parent = card.holder;
+      while (parent && !parents.has(parent)) {
+        parents.add(parent);
+        expanded.add(parent);
+        parent = cards.find((c) => c.id === parent)?.holder;
+      }
+      if (card.group) {
+        if (expanded.has(id)) expanded.delete(id);
+        else expanded.add(id);
+      }
+      chosen = id;
+      onSelect(id);
+      problem = "";
+      render();
+      return workspace.focus(id);
+    }
     const group = cards.find((c) => c.id === id)?.group;
     if (group) fanned = fanned === id ? null : id;
     else {
@@ -221,13 +255,22 @@ export function installCardWorkspace({
     el.style.setProperty("--tier-color", levelTier(0).color);
     const head = make("span", "quest-head");
     head.append(setCardLabel(make("span", "quest-verb"), c.name));
-    el.append(
-      questScreen(
-        { kind: "place", target: c.art },
-        { url: (src) => imageUrl(src, "card"), place: (src) => src },
-      ),
-      head,
+    const face = questScreen(
+      c.kind === "avatar"
+        ? { kind: "place", actor: c.art }
+        : { kind: c.kind === "item" ? "item" : "place", target: c.art },
+      {
+        url: (src) => imageUrl(src, "card"),
+        place: (src) => src,
+        portrait: (src) => src,
+        thing: (src) => src,
+      },
     );
+    if (c.kind) {
+      face.className = "art";
+      for (const image of face.children) image.className = "";
+    }
+    el.append(face, head);
   }
   // The play hand's card frame: a setting lies hidden in its group until the
   // group fans, and the group's first setting peeks out behind it.
@@ -236,43 +279,85 @@ export function installCardWorkspace({
       type: "button",
       onclick: () => choose(c.id),
     });
-    const raised = chosen === c.id || fanned === c.id;
-    Object.assign(el.dataset, {
-      setting: c.id,
-      lit: c.lit,
-      selected: chosen === c.id,
-    });
-    el.setAttribute("aria-pressed", String(raised));
-    el.setAttribute("aria-label", [c.name, c.state].filter(Boolean).join(", "));
-    placeFace(el, c);
+    el.dataset.setting = c.id;
     const holder = make("div", "card-frame");
-    holder.dataset.raised = String(raised);
     holder.append(el);
+    updateFrame(holder, c);
+    return holder;
+  }
+  function updateFrame(holder, c) {
+    const el = holder.querySelector(".card");
+    const picked = selected ? selected().includes(c.id) : chosen === c.id;
+    const open = layout ? expanded.has(c.id) : fanned === c.id;
+    const face = JSON.stringify([c.kind, c.art]);
+    if (holder.dataset.face !== face) {
+      el.replaceChildren();
+      placeFace(el, c);
+      holder.dataset.face = face;
+    }
+    const label = el.querySelector(".quest-verb");
+    if (label.textContent !== c.name) setCardLabel(label, c.name);
+    Object.assign(el.dataset, { lit: c.lit, selected: picked });
+    holder.dataset.raised = String(picked || open);
+    el.setAttribute("aria-pressed", String(picked || open));
+    el.setAttribute("aria-label", [c.name, c.state].filter(Boolean).join(", "));
+    el.classList.toggle("item", c.kind === "item");
+    holder.hidden = !layout && Boolean(c.holder && fanned !== c.holder);
     if (c.holder) {
       holder.dataset.holder = c.holder;
-      holder.hidden = fanned !== c.holder;
-    }
+    } else delete holder.dataset.holder;
     const held = cards.filter((item) => item.holder === c.id);
+    let preview = holder.querySelector(".held-preview");
     if (held.length) {
       holder.dataset.inventory = String(held.length);
-      holder.dataset.expanded = String(fanned === c.id);
-      el.setAttribute("aria-expanded", String(fanned === c.id));
-      holder.prepend(
-        make("img", "held-preview", {
-          src: imageUrl(held[0].art, "card"),
+      holder.dataset.expanded = String(open);
+      el.setAttribute("aria-expanded", String(open));
+      if (!preview && !layout) {
+        preview = make("img", "held-preview", {
           alt: "",
           decoding: "async",
           draggable: false,
-        }),
-      );
+        });
+        holder.prepend(preview);
+      }
+      if (preview) {
+        const src = imageUrl(held[0].art, "card");
+        if (preview.getAttribute("src") !== src) preview.src = src;
+      }
+    } else {
+      preview?.remove();
+      delete holder.dataset.inventory;
+      delete holder.dataset.expanded;
+      el.removeAttribute("aria-expanded");
     }
-    return holder;
   }
   function render() {
     cards = readCards();
     if (!cards.some((c) => c.id === chosen)) chosen = null;
     const focused = document.activeElement?.dataset?.setting;
-    hand.replaceChildren(...cards.map(frame));
+    const tree = layout?.(cards, {
+      expanded: [...expanded],
+      active: chosen ?? fanned,
+    });
+    if (tree) {
+      if (!frames.size) hand.replaceChildren();
+      const ids = new Set(tree.nodes.map((node) => node.id));
+      for (const [id, holder] of frames)
+        if (!ids.has(id)) {
+          holder.remove();
+          frames.delete(id);
+        }
+      let at = 0;
+      for (const c of cards.filter((c) => ids.has(c.id))) {
+        let holder = frames.get(c.id);
+        if (!holder) frames.set(c.id, (holder = frame(c)));
+        else updateFrame(holder, c);
+        if (hand.children[at] !== holder)
+          hand.insertBefore(holder, hand.children[at] || null);
+        at++;
+      }
+      tree.place?.(screen);
+    } else hand.replaceChildren(...cards.map(frame));
     // The fan leans each shown card by its place in the row (fanHand).
     const shown = [...hand.children].filter((f) => !f.hidden);
     shown.forEach((f, i) =>
@@ -280,7 +365,7 @@ export function installCardWorkspace({
     );
     entries.draw(
       [...hand.children].map((f) => ({
-        key: `${f.firstElementChild.dataset.setting}@${f.dataset.holder}`,
+        key: `${f.querySelector(".card").dataset.setting}@${f.dataset.holder}`,
         element: f,
         still: f.hidden,
       })),
@@ -291,10 +376,13 @@ export function installCardWorkspace({
     const view = describe(cards, chosen, armed),
       face = cards.find((c) => c.id === chosen);
     beat = {
-      cards: face ? [{ src: imageUrl(face.art, "card"), lit: face.lit }] : [],
+      cards:
+        view.cards ??
+        (face ? [{ src: imageUrl(face.art, "card"), lit: face.lit }] : []),
       name: view.name,
       info: problem || view.info,
       note: view.note,
+      edit: view.edit,
       buttons: view.actions.map((a, i) => ({
         ...{ label: a.label, id: buttonId(chosen, i), disabled: a.disabled },
         run: () => press(a, i),
@@ -305,8 +393,39 @@ export function installCardWorkspace({
   document.addEventListener("keydown", (event) => {
     if (event.key !== "Escape" || activeWorkspace !== workspace) return;
     event.preventDefault();
+    if (layout && onCancel()) return render();
+    if (layout && chosen) {
+      expanded.delete(chosen);
+      chosen = cards.find((c) => c.id === chosen)?.holder ?? null;
+      render();
+      return workspace.focus(chosen);
+    }
     if (chosen) choose(chosen);
     else close();
+  });
+  hand.addEventListener("keydown", (event) => {
+    if (activeWorkspace !== workspace || !layout) return;
+    const id = event.target.closest("[data-setting]")?.dataset.setting;
+    const card = cards.find((c) => c.id === id);
+    if (!card) return;
+    const siblings = cards.filter(
+      (c) => c.holder === card.holder && frames.has(c.id),
+    );
+    const index = siblings.indexOf(card);
+    const next =
+      event.key === "ArrowLeft"
+        ? siblings[index - 1]?.id
+        : event.key === "ArrowRight"
+          ? siblings[index + 1]?.id
+          : event.key === "ArrowUp"
+            ? card.holder
+            : event.key === "ArrowDown"
+              ? cards.find((c) => c.holder === id && frames.has(c.id))?.id
+              : null;
+    if (next) {
+      event.preventDefault();
+      workspace.focus(next);
+    }
   });
   const workspace = {
     open() {
@@ -318,12 +437,17 @@ export function installCardWorkspace({
       }
       screen.setAttribute("aria-label", label);
       fanned = initialGroup;
+      if (initialGroup) expanded.add(initialGroup);
       showVeil();
       changed();
       render();
       hand.querySelector(".card")?.focus();
     },
     close,
+    choose,
+    focus(id = chosen) {
+      hand.querySelector(id ? `[data-setting="${id}"]` : ".card")?.focus();
+    },
     refresh() {
       if (activeWorkspace === workspace) render();
     },

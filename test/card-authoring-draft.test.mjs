@@ -32,6 +32,15 @@ const rejects = (change) => {
   expect(() => parseDraft(JSON.stringify(value))).toThrow();
 };
 describe("authoring draft files", () => {
+  it("keeps the Willows M4A music MIME through an export", async () => {
+    const path = "assets/music/willows-keep-to-bank-1.m4a";
+    const bytes = readFileSync(`v2/card-game/${path}`);
+    const metadata = await assetMetadata(path, "audio/mp4", bytes);
+    const value = importPack({ pack, assets: [metadata] });
+    expect(parseDraft(exportManifest(value)).assets).toEqual([metadata]);
+    value.assets[0].mime = "audio/mpeg";
+    expect(() => exportManifest(value)).toThrow();
+  });
   it("keeps a real pack, bridge, sources and document through an export", () => {
     const value = draft();
     value.id = "draft-123";
