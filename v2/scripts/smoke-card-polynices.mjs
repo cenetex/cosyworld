@@ -32,6 +32,7 @@ fixture.actors.vale.visited.push("pond", "greek-gate");
 fixture.items["greek-creon-writ"].holder = "greek-guard";
 fixture.items.lamp.holder = "attic";
 for (const item of kit) fixture.items[item].holder = "vale";
+fixture.items[kit[0]].holder = hollow;
 for (const match of [
   { kind: "talk", target: antigone },
   { kind: "move", target: "greek-battlefield" },
@@ -136,29 +137,35 @@ try {
       await settle();
       assert.equal((await state()).actors.vale.place, hollow);
       assert.equal((await state()).actors[antigone].place, hollow);
-      for (const [index, stage] of ["fallen", "anointed", "veiled"].entries()) {
+      const quest = page.locator('#hand button[data-quest-id="quest:0"]');
+      const pickQuest = async () => {
         await clearSelection(page);
         await selectCard(page, "vale", { touch: width === 390 });
-        const quest = page.locator('#hand button[data-quest-id="quest:0"]');
         await tapCard(quest);
-        await page.waitForFunction(
-          () =>
-            document.querySelector('#hand button[data-quest-id="quest:0"]')
-              ?.dataset.unrevealed === "false",
-        );
         await page.waitForFunction(
           () => !document.querySelector("#hand [data-revealing]"),
         );
+        if ((await quest.getAttribute("data-picked")) === "false")
+          await tapCard(quest);
+      };
+      await pickQuest();
+      const take = page.locator(
+        '#card-actions [data-quest-step][data-action="take"]',
+      );
+      await take.click();
+      await settle();
+      assert.equal((await state()).items[kit[0]].holder, "vale");
+      for (const [index, stage] of ["fallen", "anointed", "veiled"].entries()) {
+        await pickQuest();
         assert.ok(
           await page.locator(`#hand img[src*="polynices-${stage}"]`).count(),
           `Quest art ${stage}`,
         );
         await photograph(stage);
         const before = await state();
-        await clearSelection(page);
-        await selectCard(page, kit[index], { touch: width === 390 });
-        await selectCard(page, antigone, { touch: width === 390 });
-        const button = page.locator('#card-actions [data-action="give"]');
+        const button = page.locator(
+          '#card-actions [data-quest-step][data-action="give"]',
+        );
         await button.waitFor({ state: "visible" });
         const bounds = await button.boundingBox();
         assert.ok(
