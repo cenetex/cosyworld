@@ -20,7 +20,9 @@ await mkdir(output, { recursive: true });
 const labels = (page) =>
   page
     .locator("#card-actions button")
-    .evaluateAll((all) => all.map((b) => b.textContent.trim()));
+    .evaluateAll((all) =>
+      all.map((b) => b.getAttribute("aria-label") || b.textContent.trim()),
+    );
 
 async function local(width) {
   const page = await browser.newPage({
@@ -60,7 +62,8 @@ async function local(width) {
     await page.waitForFunction(() => document.body.inert === false);
     await selectCard(page, "vale", { touch });
     assert.deepEqual(await labels(page), ["Wait"]);
-    await play.click();
+    if (touch) await page.locator(".action-beat-cards").tap();
+    else await play.press("Enter");
     await settled();
     // The same card chosen again offers Sleep in place of Wait.
     await selectCard(page, "vale", { touch });

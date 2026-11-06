@@ -166,7 +166,7 @@ async function check(width) {
       await selectCard(page, "vale", { touch: width === 390 });
       await selectCard(page, "vale", { touch: width === 390 });
     }
-    assert.equal(await wait.innerText(), "Wait");
+    assert.equal(await wait.getAttribute("aria-label"), "Wait");
   };
   try {
     await page.goto(`${origin}/?world=status`);

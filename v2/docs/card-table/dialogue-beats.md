@@ -161,6 +161,10 @@ out above the ready action. Tap it to bring it forward. The cards stay chosen
 and ● live returns to their action. The arrow keys, wheel and swipes also
 step through the stack.
 
+When Wait is the only plain play on offer, its sentence is the button label.
+Tap anywhere on that action beat to wait one turn. The button also works with
+Enter or Space.
+
 When a play commits, its box folds into the stream: it eases down onto the
 front card, the beat the play became (its caption line, or the Thinking card
 when a reply is coming), and fades as that card arrives, in the stack's
@@ -175,10 +179,10 @@ play resuming on the server, or a local play awaiting its words) stays saved:
 its caption shows with no line, never "undone". Once a
 play commits (a local play, or a shared play the room is playing) the beat
 leaves and its reply types into the full-size front card. After a play the
-beat rests until the player chooses a card or taps the raised hand. Choosing a quest in the open fan takes no
-turn, so it does not rest the beat: the chosen top quest still offers Drop
-quest. A shared play the server refused or did not
-confirm brings the beat back with its button, so the player can try again.
+beat rests until the player chooses a card or taps the raised hand. The top
+quest offers its next playable step. A blocked quest explains why and offers
+Abandon. Abandon opens a red confirmation in the same box. A shared play the
+server refuses brings back the action with its button.
 The hand never moves for it.
 
 Combat keeps its stage animations. Each fighter's step also becomes a beat as

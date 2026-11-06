@@ -288,10 +288,17 @@ try {
         "the card passes through an intermediate position",
       );
     }
-    const played = await measureHand(
-      page,
-      '#card-actions [data-action="wait"]',
+    assert.equal(
+      await page.locator("#card-actions [data-wait-sentence]").textContent(),
+      "Vale waits one turn.",
     );
+    const message = page.locator("#card-actions [data-wait-sentence]");
+    if ((await message.getAttribute("data-revealing")) === "true") {
+      await message.click();
+      assert.equal((await state()).turn, before.turn);
+      assert.equal(await message.getAttribute("data-revealing"), "false");
+    }
+    const played = await measureHand(page, ".action-beat-cards");
     // Its handlers read the live world, so it is refreshed in place.
     assert.equal(
       played.same,

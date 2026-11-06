@@ -448,6 +448,14 @@ KINDS.forEach((kind, bit) => {
   }
 });
 
+// Earlier rules wrote this sentence into saves that players still import.
+const earlierDrop = ["", " drops the quest."];
+catalog.templates.set(JSON.stringify([earlierDrop, "n"]), [
+  earlierDrop,
+  (1 << KINDS.length) - 1,
+  "n",
+]);
+
 const sources = inputs.filter((input) => !EXCLUDED_SOURCES.has(input));
 const sorted = (map) =>
   [...map.entries()].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));

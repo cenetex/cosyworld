@@ -168,12 +168,14 @@ import {
   createTextReveal,
   createRevealPainter,
   letterSpans,
+  splitLetters,
   createSpeechSounds,
   createExchange,
   createPlayQueue,
   afterDeadline,
   waitForScene,
 } from "./dialogue.mjs";
+import { dropCost } from "./want.mjs";
 import { nameLetters, namedText } from "./card-names.mjs";
 import {
   currentActor,
@@ -846,6 +848,37 @@ const sleepView = createSleepView({
   },
   dealQuests: () => showQuests(false),
 });
+let actionMessage;
+const actionReveal = createTextReveal({
+  reduced: () => reducedMotion.matches,
+  frame(value) {
+    actionMessage.frame = value;
+    actionMessage.painter.paint(value);
+  },
+});
+function writeActionMessage(root, text, key, name) {
+  if (!text) {
+    actionReveal.cancel();
+    actionMessage = null;
+    delete root.dataset.revealing;
+    root.textContent = "";
+    return;
+  }
+  const frame = actionMessage?.frame;
+  if (actionMessage?.root === root && frame?.key === key) return;
+  const glyphs = letterSpans(text);
+  root.replaceChildren(...glyphs);
+  if (text.startsWith(`${name} `)) {
+    const speaker = node("strong");
+    root.prepend(speaker);
+    speaker.append(...glyphs.slice(0, splitLetters(name).length));
+  }
+  const painter = createRevealPainter(root);
+  painter.start(glyphs);
+  actionMessage = { root, painter, frame };
+  if (frame?.key === key) painter.paint(frame);
+  else actionReveal.show(key, text, currentActor(world));
+}
 const reveal = createTextReveal({
   reduced: () => reducedMotion.matches,
   sound: (...args) => {
@@ -926,6 +959,7 @@ const reveal = createTextReveal({
 });
 reducedMotion.addEventListener("change", () => {
   if (reducedMotion.matches) {
+    actionReveal.finish();
     reveal.finish();
     speechSounds.stop();
     for (const motion of handMotions.values()) motion.finish();
@@ -942,6 +976,7 @@ function syncSpeechPlayback() {
 }
 function pauseSpeech() {
   const paused = syncSpeechPlayback();
+  actionReveal.pause(paused || reviewing);
   for (const animation of [
     ...$("cast").getAnimations({ subtree: true }),
     ...$("speech-row").getAnimations(),
@@ -2152,6 +2187,15 @@ function presentPhase() {
   });
 }
 function syncPhase() {
+  if (reviewing && abandonQuest) {
+    abandonQuest = null;
+    renderActions();
+  }
+  actionReveal.pause(
+    reviewing ||
+      document.hidden ||
+      Boolean(document.querySelector("dialog[open], .world-menu:popover-open")),
+  );
   if (presentPhase() !== shownPhase) renderActions();
   else syncActionBeat();
 }
@@ -2159,6 +2203,12 @@ function syncPhase() {
 // and the world has not moved on.
 const refusedPlay = (action) =>
   sharedRefusal?.key === action.key ? sharedRefusal.reason : "";
+let abandonQuest = null;
+function cancelAbandon() {
+  abandonQuest = null;
+  renderActions();
+  $("card-actions").querySelector("[data-drop-quest]")?.focus();
+}
 function renderActions() {
   const row = $("card-actions");
   if (
@@ -2220,11 +2270,6 @@ function renderActions() {
     .reduce((top, tier) => (tier.rank > top.rank ? tier : top), levelTier(0));
   $("action-beat").dataset.tier = rarest.id;
   $("action-beat").style.setProperty("--tier-color", rarest.color);
-  heading.lastElementChild.replaceChildren(
-    ...(sentence.startsWith(`${name} `)
-      ? [node("strong", name), sentence.slice(name.length)]
-      : [sentence]),
-  );
   // A folded row lies low even with a choice in it.
   document.querySelector(".play-dock").dataset.selected = String(
     selected.length > 0 && !rowCollapsed,
@@ -2234,7 +2279,10 @@ function renderActions() {
     dragging.length > 0 || !rowCollapsed || $("settings-screen").open,
   );
   syncLayering();
-  if (borrowedBeat) return showBorrowedBeat(row, heading);
+  if (borrowedBeat) {
+    writeActionMessage(heading.lastElementChild, "");
+    return showBorrowedBeat(row, heading);
+  }
   const revision = world.revision;
   const nudgeTarget =
     !rested &&
@@ -2303,22 +2351,31 @@ function renderActions() {
     : next?.action
       ? [next.action]
       : [];
-  // One context button each: the step's plays, or its reason (disabled),
-  // then Discard.
-  const questButtons = [
-    ...steps.map((action) => ({
-      action,
-      label:
-        action.kind === "move"
-          ? `Travel to ${nameOf(action.target)}`
-          : playLabel(action, world),
-    })),
-    ...(next?.reason ? [{ action: null, label: next.reason }] : []),
-    ...legal
-      .filter((a) => a.kind === "drop" && !a.item && a.quest === 0)
-      .map((action) => ({ action, label: playLabel(action, world) })),
-  ];
-  for (const { action, label } of questButtons) {
+  const step = steps[0];
+  const drop =
+    !step && legal.find((a) => a.kind === "drop" && !a.item && a.quest === 0);
+  const confirmKey = drop ? `${revision}:${picked.key}` : null;
+  if (abandonQuest !== confirmKey) abandonQuest = null;
+  const dropLabel = drop && playLabel(drop, world);
+  const questButtons = abandonQuest
+    ? [
+        { action: drop, label: "Confirm?" },
+        { action: null, label: "Cancel", cancel: true },
+      ]
+    : step
+      ? [
+          {
+            action: step,
+            label:
+              step.kind === "move"
+                ? `Travel to ${nameOf(step.target)}`
+                : playLabel(step, world),
+          },
+        ]
+      : drop
+        ? [{ action: drop, label: dropLabel }]
+        : [];
+  for (const { action, label, cancel } of questButtons) {
     const discard = action?.kind === "drop",
       button = node(
         "button",
@@ -2326,21 +2383,27 @@ function renderActions() {
         action && !discard ? "card-primary" : "card-action",
       );
     button.type = "button";
+    if (cancel) {
+      button.onclick = cancelAbandon;
+      row.append(button);
+      continue;
+    }
     if (discard) {
       button.dataset.dropQuest = String(picked.index);
       button.dataset.destructive = "";
     } else button.dataset.questStep = "";
-    if (!action) {
-      button.disabled = true;
-      button.dataset.blocked = "quest";
-      button.title = label;
-      row.append(button);
-      continue;
-    }
     if (!discard) button.dataset.action = action.kind;
-    button.title = discard ? "Give up this quest" : playText(action);
+    button.title =
+      discard && questCovered(picked) ? "Abandon this quest" : playText(action);
     button.disabled = selectionBlocked();
     button.onclick = () => {
+      if (discard && !abandonQuest) {
+        abandonQuest = confirmKey;
+        renderActions();
+        row.lastElementChild?.focus();
+        return;
+      }
+      abandonQuest = null;
       questOpen = false;
       questPick = 0;
       commitAction(action, revision);
@@ -2395,9 +2458,40 @@ function renderActions() {
     blocked.title = reason;
     row.append(blocked);
   }
+  let message = heading.lastElementChild;
+  const only = actions.length === 1 ? actions[0] : null;
+  if (
+    only?.kind === "wait" &&
+    !only.sleep &&
+    !only.guards &&
+    !only.label &&
+    !refusedPlay(only) &&
+    !world.actors[actor].sleeping &&
+    row.childElementCount === 1
+  ) {
+    const button = row.firstElementChild;
+    button.dataset.waitSentence = "";
+    button.setAttribute("aria-label", button.textContent);
+    message = button;
+    heading.hidden = true;
+  }
   const note = document.querySelector(".action-beat-note");
-  note.textContent = "";
-  note.hidden = true;
+  note.textContent = next?.reason || "";
+  note.hidden = !next?.reason;
+  if (abandonQuest) {
+    const panel = $("action-beat");
+    panel.dataset.tier = "danger";
+    panel.style.setProperty("--tier-color", "var(--danger)");
+    note.textContent = `${shownQuestCaption(picked)}. Cost ${dropCost(world, actor, picked.index)} XP.`;
+    note.hidden = false;
+  }
+  const text = abandonQuest ? "Abandon this quest?" : sentence;
+  writeActionMessage(
+    message,
+    text,
+    JSON.stringify([choiceKey(), picked?.key, text]),
+    name,
+  );
   delete $("action-beat").dataset.avatar;
   // A refused play whose cards are no longer chosen says so on the status
   // line, briefly, as its button would.
@@ -2421,6 +2515,26 @@ function renderActions() {
       ? shownQuestCaption(shownQuests[questPick] || sealedQuests[0])
       : "";
 }
+$("action-beat").addEventListener(
+  "click",
+  (event) => {
+    const button = event.target.closest("button");
+    if (
+      borrowedBeat ||
+      !actionMessage ||
+      (button && !button.hasAttribute("data-wait-sentence"))
+    )
+      return;
+    if (!actionReveal.complete) {
+      event.stopPropagation();
+      actionReveal.finish();
+      return;
+    }
+    if (!button && !abandonQuest)
+      $("card-actions").querySelector(".card-primary:enabled")?.click();
+  },
+  true,
+);
 function updateCardSelection(frame) {
   if (frame.dataset.want) {
     const entry = questEntry(frame.dataset.questId);
@@ -4856,6 +4970,15 @@ for (const zone of [$("stage"), document.querySelector(".dialogue")]) {
   });
 }
 document.addEventListener("keydown", (e) => {
+  if (
+    e.key === "Escape" &&
+    abandonQuest &&
+    !$("action-beat").hidden &&
+    !document.querySelector("dialog[open], .world-menu:popover-open")
+  ) {
+    cancelAbandon();
+    return;
+  }
   if (e.key === "Escape" && thinkingArmed) {
     disarmThinking();
     return;
