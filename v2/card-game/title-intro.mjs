@@ -28,6 +28,14 @@ const BLACK_MS = 350,
 // then "open it" whispers around it at hintMs. A tap, a key or a pointer
 // over the card starts the wait again.
 export const REVEAL_HINT = { idleGlowMs: 3000, hintMs: 6000 };
+// Visual whispers may show every tier; Legendary and Mythic share 1% of draws.
+export function whisperTier(random = Math.random()) {
+  let draw = random * 100;
+  return (
+    tiers.find(({ rank }) => (draw -= [64, 24, 8, 3, 0.8, 0.2][rank]) < 0) ||
+    tiers.at(-1)
+  );
+}
 // Leaving: the turned face holds, the song fades as the title goes to black,
 // black holds a breath, then slowly opens on the world's scene. Escape is the
 // short way; reduced motion cuts to black and crossfades quickly.
@@ -524,49 +532,61 @@ export function playTitleIntro({
   const privacy = link("Privacy", "/privacy");
   privacy.className = "title-privacy";
   let idleTimers = [],
-    whisper = null;
+    whisper = null,
+    place = 0;
   const invite = () => {
-    row.dataset.idle = "hint";
+    if (phase !== "card" || leaving || row.dataset.idle !== "hint") return;
+    whisper?.cancel();
     const box = card.getBoundingClientRect(),
       origin = row.getBoundingClientRect();
     const w = hint.offsetWidth,
       h = hint.offsetHeight;
-    const below = [box.left + (box.width - w) / 2, box.bottom + 12, 0];
+    const below = [box.left + (box.width - w) / 2, box.bottom + 12];
+    const above = [below[0], box.top - h - 12];
     const places = reduced
       ? [below]
       : [
-          [box.left - w - 16, box.top + box.height * 0.2, -7],
-          [box.right + 16, box.top + box.height * 0.6, 6],
+          box.left >= w + 32
+            ? [box.left - w - 16, box.top + box.height * 0.2]
+            : above,
+          innerWidth - box.right >= w + 32
+            ? [box.right + 16, box.top + box.height * 0.6]
+            : below,
           below,
         ];
-    const poses = places.map(([x, y, angle]) => ({
+    const [x, y] = places[place++ % places.length];
+    const tier = reduced ? tiers[0] : whisperTier();
+    hint.dataset.tier = tier.id;
+    Object.assign(hint.style, {
       left: `${Math.max(16, Math.min(innerWidth - w - 16, x)) - origin.left}px`,
       top: `${Math.max(16, Math.min(innerHeight - h - 64, y)) - origin.top}px`,
-      transform: `rotate(${angle}deg)`,
-    }));
-    Object.assign(hint.style, poses.at(-1));
-    if (!reduced)
+      color: tier.color,
+    });
+    if (!reduced) {
       whisper = hint.animate(
-        poses.flatMap((pose, i) =>
-          [0, 0.3, 0.55, 0.9, 1].map((at, step) => ({
-            ...pose,
-            offset: (i + at) / poses.length,
-            opacity: step === 1 || step === 2 ? 0.5 : 0,
-            easing: "ease-in-out",
-          })),
-        ),
-        { duration: 15000, iterations: Infinity },
+        [0, 0.3, 0.55, 0.9, 1].map((offset, step) => ({
+          offset,
+          opacity: step === 1 || step === 2 ? 0.5 : 0,
+          easing: "ease-in-out",
+        })),
+        { duration: 5000, fill: "both" },
       );
+      void whisper.finished.then(invite, () => {});
+    }
   };
   const idle = (again = true) => {
     idleTimers.forEach(clearTimeout);
     whisper?.cancel();
+    place = 0;
     delete row.dataset.idle;
     if (!again || phase !== "card" || leaving) return;
     const { idleGlowMs, hintMs } = REVEAL_HINT;
     idleTimers = [
       setTimeout(() => (row.dataset.idle = "glow"), idleGlowMs),
-      setTimeout(invite, hintMs),
+      setTimeout(() => {
+        row.dataset.idle = "hint";
+        invite();
+      }, hintMs),
     ];
   };
   window.addEventListener("resize", idle);

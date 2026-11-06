@@ -1001,7 +1001,10 @@ a ring only from the keyboard; like a hand card it lifts under a pointer
 alone for 3 seconds, the card breathes a faint warm glow on a slow 3.6-second
 cycle; at 6 seconds "open it" begins to whisper around the box. One phrase
 fades in and out over five seconds, then appears at the next of three places:
-left, right, and below. Each move happens while the phrase is transparent.
+left, right, and below, using the space above on a narrow screen. The words
+stay level. Each move and colour change happens while the phrase is transparent.
+Each appearance draws a fresh colour from the game's six tiers: 64% Common,
+24% Uncommon, 8% Rare, 3% Epic, 0.8% Legendary, and 0.2% Mythic.
 Its peak opacity is 50%; positions stay within the screen above Privacy. The line is hidden from screen readers, which hear the card's name,
 and a tap on it turns the card too. Any tap, key or pointer over the card
 starts the wait again. Resizing also resets the wait and places the next whisper

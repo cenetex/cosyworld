@@ -258,7 +258,13 @@ async function idleCue(page, width, { reduced = false } = {}) {
   assert.ok(hint.hint > 0.1 && hint.hint <= 0.6, JSON.stringify(hint));
   if (!reduced) {
     const positions = [];
-    for (const time of [1500, 4750, 6500, 11500]) {
+    for (const [index, time] of [1500, 4750, 1500, 1500].entries()) {
+      if (index > 1) {
+        await page.$eval(".title-hint", (hint) =>
+          hint.getAnimations()[0].finish(),
+        );
+        await page.waitForTimeout(50);
+      }
       await page.$eval(
         ".title-hint",
         (hint, time) => {
@@ -281,6 +287,9 @@ async function idleCue(page, width, { reduced = false } = {}) {
           x: rect.x,
           y: rect.y,
           opacity: +getComputedStyle(hint).opacity,
+          transform: getComputedStyle(hint).transform,
+          tier: hint.dataset.tier,
+          color: hint.style.color,
           fits:
             rect.left >= 0 &&
             rect.right <= innerWidth &&
@@ -295,12 +304,24 @@ async function idleCue(page, width, { reduced = false } = {}) {
       });
       assert.ok(pose.fits, JSON.stringify(pose));
       assert.ok(pose.clear && pose.whole, JSON.stringify(pose));
+      assert.equal(pose.transform, "none");
+      assert.ok(
+        pose.color &&
+          [
+            "common",
+            "uncommon",
+            "rare",
+            "epic",
+            "legendary",
+            "mythic",
+          ].includes(pose.tier),
+      );
       assert.ok(
         time === 4750 ? pose.opacity < 0.01 : pose.opacity === 0.5,
         JSON.stringify(pose),
       );
       if (time !== 4750) positions.push([pose.x, pose.y]);
-      await shot(page, `whisper-${width}-${time}`);
+      await shot(page, `whisper-${width}-${index}`);
     }
     assert.equal(new Set(positions.map(JSON.stringify)).size, 3);
     await page.$eval(".title-hint", (hint) => hint.getAnimations()[0].play());

@@ -7,6 +7,7 @@ import {
   acknowledgementHighlights,
   acknowledgementPauses,
   titleIntroWanted,
+  whisperTier,
 } from "../v2/card-game/title-intro.mjs";
 import { tiers } from "../v2/card-game/level-tiers.mjs";
 import {
@@ -18,6 +19,11 @@ import acknowledgement from "../v2/card-game/acknowledgement.json" with { type: 
 
 const storage = (entries = {}) => ({
   getItem: (key) => (key in entries ? entries[key] : null),
+});
+test("whispers show every colour, with the top tiers sharing one percent", () => {
+  const counts = tiers.map(() => 0);
+  for (let i = 0; i < 1000; i++) counts[whisperTier((i + 0.5) / 1000).rank]++;
+  assert.deepEqual(counts, [640, 240, 80, 30, 8, 2]);
 });
 const wanted = (overrides = {}) =>
   titleIntroWanted({
