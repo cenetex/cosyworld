@@ -258,6 +258,9 @@ mod tests {
             assert_eq!(s.read(bad), Err(Error::Invalid));
         }
         assert_eq!(s.put(&sha(b"a"), b"b"), Err(Error::Invalid));
+        let exact = vec![0; MAX_FILE as usize];
+        s.put(&sha(&exact), &exact).unwrap();
+        assert_eq!(s.read(&sha(&exact)).unwrap().unwrap(), exact);
         let large = vec![0; MAX_FILE as usize + 1];
         assert_eq!(s.put(&sha(&large), &large), Err(Error::Invalid));
         let digest = sha(b"original");
