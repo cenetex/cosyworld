@@ -1577,6 +1577,7 @@ function choose(id) {
   if (reviewing) returnToLive();
   if (things[id] && selected.includes(id) && restedChoice === choiceKey()) {
     restedChoice = null;
+    rowCollapsed = false;
     render();
     return;
   }
@@ -4689,11 +4690,11 @@ function render() {
   const dealtQuest = liveQuests.find(
     (quest) => questVisible(world, quest) && !shownQuests.some((shown) => shown.key === quest.key),
   );
-  if (questSeq !== null && world.eventSeq > questSeq)
-    sealedQuests = [
-      ...metQuests(shownQuests, world, questSeq),
-      ...sealedQuests,
-    ];
+  const met =
+    questSeq !== null && world.eventSeq > questSeq
+      ? metQuests(shownQuests, world, questSeq)
+      : [];
+  sealedQuests = [...met, ...sealedQuests];
   questSeq = world.eventSeq;
   // A quest where there was none, such as the first at the pond, is new.
   if (!shownQuests.length && liveQuests.length && renderedHand)
@@ -4886,7 +4887,8 @@ function render() {
     );
     showQuests(opening);
     // A new quest rises where the player can see its slot in the hand.
-    if (dealtQuest && !opening)
+    if (met.length) revealHandCard(questId(0, true), { instant: true });
+    else if (dealtQuest && !opening)
       revealHandCard(`quest:${dealtQuest.index}`, { instant: true });
     openLockedBoxes();
     // Every new place is measured before any card starts moving, so the

@@ -200,6 +200,12 @@ try {
       await page.locator("body").getAttribute("data-hand-expanded"),
       "true",
     );
+    await page.waitForFunction(() => {
+      const box = document
+        .querySelector('#hand .want-card[data-met="true"]')
+        .getBoundingClientRect();
+      return box.left >= 0 && box.right <= innerWidth;
+    });
     assert.equal(
       await page
         .locator('#hand [data-card="vale"]')
@@ -505,6 +511,12 @@ try {
       .click();
     const metGift = page.locator('#hand .want-card[data-met="true"]');
     await metGift.waitFor();
+    await page.waitForFunction(() => {
+      const box = document
+        .querySelector('#hand .want-card[data-met="true"]')
+        .getBoundingClientRect();
+      return box.left >= 0 && box.right <= innerWidth;
+    });
     await page.waitForFunction(
       () =>
         document.querySelector('#hand .want-card[data-met="true"]')
@@ -529,6 +541,7 @@ try {
     );
     await page.screenshot({
       path: new URL(`last-gift-${width}.png`, output).pathname,
+      animations: "disabled",
     });
     await metGift.click({ position: { x: 40, y: 16 } });
     await page.locator(".quest-xp").waitFor();
@@ -668,8 +681,16 @@ try {
     await page.waitForFunction(() =>
       document
         .querySelector("#action-beat")
-        .textContent.includes("Clean linen from the looms at Eleusis"),
+        .textContent.includes("Carried by Vale."),
     );
+    assert.match(
+      await page.locator("#action-beat").innerText(),
+      /Clean linen from the looms at Eleusis/,
+    );
+    await page.screenshot({
+      path: new URL(`details-${width}.png`, output).pathname,
+      animations: "disabled",
+    });
     await play(
       '[data-card="greek-funeral-cloth"]',
       "lower-item",
