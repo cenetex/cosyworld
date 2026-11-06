@@ -48,6 +48,9 @@ keep saved visual links when their verified base matches the current portrait.
 The sidecar retains the original pose sheet and its six reviewed cells.
 `acceptedAvatarOutputs` reads verified history for a current avatar, so accepted
 names and aliases remain available after field edits and Undo.
+`authoring-accepted-entity.mjs` prepares locations and items for session `accept`.
+Choose the exact image field or conditional backdrop; source hashes guard that choice.
+Accepted edits keep quests, custody, transport data and earlier bytes for Undo.
 
 World-idea candidates use `readSuggestedCharacter` in `authoring-cast.mjs`.
 Their accepted fields include `suggested: true`. Story candidates use

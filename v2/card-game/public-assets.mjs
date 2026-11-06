@@ -45,6 +45,7 @@ const files = [
   "authoring-local-store.mjs",
   "authoring-create-store.mjs",
   "authoring-accepted.mjs",
+  "authoring-accepted-entity.mjs",
   "authoring-source-import.mjs",
   "authoring-tree.mjs",
   "authoring-local-import.mjs",
