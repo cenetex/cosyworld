@@ -38,6 +38,9 @@ Both live sites select the card game at `/`. The testing site follows `main`;
 Lonely Forest follows a versioned release. See the
 [release guide](../docs/release.md) and [Fly operations](../docs/deployment/lonelyforest-fly.md).
 
+AI provider error diagnostics read at most 64 KiB, including streamed replies.
+The gateway keeps a short summary and redacts echoed image data or bearer tokens.
+
 ## Persistence and compatibility
 
 Use the [shared-world guide](docs/card-table/shared-worlds.md) for claims,
