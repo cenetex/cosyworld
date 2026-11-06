@@ -1001,12 +1001,18 @@ line (the card back is the carved box's lid), and takes focus, with
 a ring only from the keyboard; like a hand card it lifts under a pointer
 (brightens under reduced motion), and Privacy is a 24 px tap target. Left
 alone for 3 seconds, the card breathes a faint warm glow on a slow 3.6-second
-cycle; at 6 seconds "open it" begins to whisper around the box. One phrase
+cycle; at 6 seconds short invitations begin to whisper around the box. One phrase
 fades in and out over five seconds, then appears at the next of three places:
 left, right, and below, using the space above on a narrow screen. The words
 stay level. Each move and colour change happens while the phrase is transparent.
 Each appearance draws a fresh colour from the game's six tiers: 64% Common,
 24% Uncommon, 8% Rare, 3% Epic, 0.8% Legendary, and 0.2% Mythic.
+Each tier has two lines, chosen evenly, with an immediate repeat choosing its
+partner. Common: "open it", "take it"; Uncommon: "look inside", "come closer";
+Rare: "it waits", "just a little"; Epic: "something stirs", "it knows your name";
+Legendary: "it remembers you", "you left this here"; Mythic: "it dreamed of you",
+"you are already inside". The new words are measured before placing the line,
+and long lines wrap on a narrow screen. Reduced motion holds "open it" still.
 Its peak opacity is 50%; positions stay within the screen above Privacy. The line is hidden from screen readers, which hear the card's name,
 and a tap on it turns the card too. Any tap, key or pointer over the card
 starts the wait again. Resizing also resets the wait and places the next whisper

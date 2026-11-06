@@ -3605,7 +3605,7 @@ body .beat-stack > .action-panel[data-card-tap]:not([hidden]) {
   position: absolute;
   width: max-content;
   max-width: calc(100vw - 32px);
-  white-space: nowrap;
+  white-space: normal;
   margin: 0;
   padding: 4px 8px;
   color: #fff4dc;
