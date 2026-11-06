@@ -263,12 +263,12 @@ try {
           itemReply,
           "The first tap finishes the item reply",
         );
-        assert.match(await page.locator("#beat-behind").textContent(), action);
         await page.locator("#beat-behind").evaluate((button) => button.click());
         assert.equal(
           await page.locator("#speech-row").getAttribute("data-beat"),
           "action",
         );
+        assert.match(await page.locator("#beat-captions").textContent(), action);
       };
       // Talk to Pip: Vale's beat arrives in front, then Pip's in front of it.
       await page.locator('#hand [data-card="moth"]').click();
