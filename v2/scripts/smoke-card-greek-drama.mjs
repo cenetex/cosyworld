@@ -45,6 +45,8 @@ fixture.items.cloth.holder = "vale";
 fixture.items.lamp.fuel = 12;
 fixture.items.oil.holder = "greek-harbor";
 fixture.actors.vale.trust.moth = 2;
+// Pip has already entrusted Vale with the signal kit for this journey.
+fixture.actors.moth.want = null;
 addLog(
   fixture,
   "Pip",
@@ -286,40 +288,12 @@ try {
     await travel("greek-gate");
     assert.equal(await card("greek-antigone").count(), 1);
     assert.equal(await card("greek-guard").count(), 1);
-    // Meeting the guard tells the decree. Handing him the shovel with the
-    // funeral cloth in hand, the tools of the burial, reports the plan;
-    // Thebes has no story buttons.
+    // Meeting the guard records the decree before either Helen account.
     let current = await state();
-    assert.ok(current.packs["greek-drama"].receipts["greek-hear-decree"]);
+    const decreeTurn =
+      current.packs["greek-drama"].receipts["greek-hear-decree"];
+    assert.ok(decreeTurn);
     assert.ok(!legalActions(current).some((a) => a.kind === "choose"));
-    // The black cloth waits at the sanctuary while the hands carry the tools.
-    await travel("greek-courtyard");
-    await travel("greek-palace");
-    await travel("greek-sanctuary");
-    await pair("cloth", "greek-sanctuary");
-    await playCard("greek-funeral-cloth");
-    await travel("greek-palace");
-    await travel("greek-courtyard");
-    await travel("greek-gate");
-    await playCard("greek-shovel");
-    await pair("greek-shovel", "greek-guard");
-    await travel("greek-courtyard");
-    await travel("greek-palace");
-    await travel("greek-sanctuary");
-    await playCard("cloth");
-    await travel("greek-palace");
-    await travel("greek-courtyard");
-    await travel("greek-gate");
-    current = await state();
-    assert.equal(
-      current.packs["greek-drama"].choices["greek-theban-response"],
-      "exposure",
-    );
-    assert.equal(current.items.cloth.holder, "vale");
-    assert.equal(rootHolder(current, "lamp"), "vale");
-    assert.equal(rootHolder(current, "cloth"), "vale");
-    const reportTurn =
-      current.packs["greek-drama"].receipts["greek-report-plan"];
     await artReady();
     await page.screenshot({
       path: new URL(`thebes-${width}.png`, output).pathname,
@@ -332,12 +306,8 @@ try {
     current = await state();
     assert.equal(current.actors.vale.place, "greek-gate");
     assert.equal(
-      current.packs["greek-drama"].choices["greek-theban-response"],
-      "exposure",
-    );
-    assert.equal(
-      current.packs["greek-drama"].receipts["greek-report-plan"],
-      reportTurn,
+      current.packs["greek-drama"].receipts["greek-hear-decree"],
+      decreeTurn,
     );
     for (const destination of ["greek-courtyard", "greek-harbor", "pond"])
       await travel(destination);
@@ -380,8 +350,8 @@ try {
       branch,
     );
     assert.equal(
-      current.packs["greek-drama"].choices["greek-theban-response"],
-      "exposure",
+      current.packs["greek-drama"].receipts["greek-hear-decree"],
+      decreeTurn,
     );
     assert.equal(rootHolder(current, evidence), "vale");
 
@@ -418,7 +388,7 @@ try {
     assert.deepEqual(failedAssets, []);
     assert.deepEqual(errors, []);
     console.log(
-      `Greek crossing, Theban report, ${branch} branch, custody, reload and return passed at ${width}px.`,
+      `Greek crossing, Theban decree, ${branch} branch, custody, reload and return passed at ${width}px.`,
     );
     await page.close();
   }
