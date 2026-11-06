@@ -143,6 +143,7 @@ export function installWorldDesigner({
         } else view.note = card?.state || view.note;
       }
     }
+    if (status.accepting) view.edit = null;
     view.actions = view.actions.map((action) => ({
       ...action,
       stays: true,
@@ -169,6 +170,7 @@ export function installWorldDesigner({
       };
     },
     onSelect(id) {
+      if (session.status.accepting) return;
       const card = byId.get(id);
       if (card.role === "navigation") return session.touch();
       if (card.ref) return chooseView("world", card.ref);
