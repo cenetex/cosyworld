@@ -11,6 +11,7 @@ import {
 import {
   entityActive,
   packDefinition,
+  packWaitChoice,
 } from "../v2/card-game/pack-registry.mjs";
 import { knowsFact } from "../v2/card-game/knowledge.mjs";
 import { courseToward } from "../v2/card-game/pack-transport.mjs";
@@ -41,8 +42,7 @@ import {
 
 const pack = packDefinition("greek-drama");
 const reload = (world) => decodeSave(encodeSave(world));
-const offered = (world, choice) =>
-  legalActions(world).some((a) => a.choiceId === `greek-ajax-${choice}`);
+const graveRite = (world) => packWaitChoice(world, "vale")?.choiceId;
 // A deed is a committed pack choice: its receipt turn and its actor.
 const deed = (world, choice) => ({
   turn: ajaxState(world).receipts[`greek-ajax-${choice}`],
@@ -65,18 +65,24 @@ function shieldDelivered() {
 describe("Earth Beside the Ships", () => {
   it("offers the lasting ship invitation after the four local endings and return", () => {
     const early = openDoorWalk(openDoorStart(), "harbor");
-    expect(offered(early, "invitation")).toBe(false);
+    const talked = playOpenDoor(early, "talk", { target: "greek-shipmaster" });
+    expect(ajaxState(talked).receipts["greek-ajax-invitation"]).toBeUndefined();
     expect(entityActive(early, "greek-ajax-landing")).toBe(false);
     expect(entityActive(early, "greek-ajax-teucer")).toBe(false);
     expect(exits(early, "greek-ship")).not.toContain("greek-ajax-landing");
     let world = ajaxMove(ajaxStart(), "greek-harbor");
-    expect(offered(world, "invitation")).toBe(true);
+    expect(legalActions(world).filter((a) => a.kind === "choose")).toEqual([]);
     world = ajaxChoice(world, "invitation");
     expect(ajaxState(world).choices["greek-ajax-frame"]).toBe(
       "trojan-after-ajax",
     );
     expect(entityActive(reload(world), "greek-ajax-landing")).toBe(true);
-    expect(offered(reload(world), "invitation")).toBe(false);
+    const talkedAgain = playOpenDoor(world, "talk", {
+      target: "greek-shipmaster",
+    });
+    expect(ajaxState(talkedAgain).receipts["greek-ajax-invitation"]).toBe(
+      world.turn,
+    );
     expect(world.transports["greek-ship"].dock).toBeTruthy();
   });
 
@@ -120,7 +126,9 @@ describe("Earth Beside the Ships", () => {
         `greek-ajax-return-${route}`,
       ]);
       expect(reload(world)).toEqual(world);
-      expect(offered(world, `return-${route}`)).toBe(false);
+      expect(legalActions(world).filter((a) => a.kind === "choose")).toEqual(
+        [],
+      );
       expect(verses(playOpenDoor(world, "wait"))).toEqual(verses(world));
     },
   );
@@ -128,7 +136,7 @@ describe("Earth Beside the Ships", () => {
   it("keeps the appeal open through a saved vigil, witness, and prepared grave", () => {
     let world = ajaxGrave("appeal", false);
     expect(buried(world)).toBeUndefined();
-    expect(offered(world, "bury-appeal")).toBe(false);
+    expect(graveRite(world)).toBeUndefined();
     const before = encodeSave(world);
     world = reload(world);
     expect(encodeSave(world)).toBe(before);
@@ -137,7 +145,7 @@ describe("Earth Beside the Ships", () => {
     expect(buried(world)).toBeUndefined();
     expect(ajaxState(world).flags["greek-ajax-buried"]).toBeUndefined();
     world = ajaxMove(reload(world), "greek-ajax-grave");
-    expect(offered(world, "bury-appeal")).toBe(true);
+    expect(graveRite(world)).toBe("greek-ajax-bury-appeal");
     world = ajaxChoice(world, "bury-appeal");
     expect(deed(world, "bury-appeal").turn).toBe(world.turn);
     expect(verses(world).at(-1).id).toBe("greek-ajax-bury-appeal");
@@ -145,24 +153,21 @@ describe("Earth Beside the Ships", () => {
 
   it("requires the actual cloth and tools when the burial is performed", () => {
     let world = ajaxGrave();
-    const burial = legalActions(world).find(
-      (a) => a.choiceId === "greek-ajax-bury-public",
-    );
     world = playOpenDoor(world, "take", { item: "greek-ajax-cloth" });
-    expect(offered(world, "bury-public")).toBe(false);
-    expect(play(world, burial, world.revision).ok).toBe(false);
+    expect(graveRite(world)).toBeUndefined();
+    world = playOpenDoor(world, "wait");
     expect(buried(world)).toBeUndefined();
     world = playOpenDoor(world, "drop", {
       item: "greek-ajax-cloth",
       target: "greek-ajax-grave",
     });
     world = playOpenDoor(world, "take", { item: "greek-ajax-tools" });
-    expect(offered(world, "bury-public")).toBe(false);
+    expect(graveRite(world)).toBeUndefined();
     world = playOpenDoor(world, "drop", {
       item: "greek-ajax-tools",
       target: "greek-ajax-grave",
     });
-    expect(offered(world, "bury-public")).toBe(true);
+    expect(graveRite(world)).toBe("greek-ajax-bury-public");
   });
 
   it("records the plea at Teucer's Talk even when his words never arrive", () => {
@@ -336,7 +341,7 @@ describe("shared Ajax testimony", () => {
       "greek-courtyard",
     ])
       act("mara", "move", { target });
-    act("mara", "choose", { choiceId: "greek-ajax-return-public" });
+    act("mara", "give", { item: "greek-ajax-plea", target: "greek-baker" });
     expect(world.items["greek-ajax-plea"].holder).toBe("greek-courtyard");
     expect(ajaxState(world).receipts["greek-ajax-return-public"]).toBe(
       world.turn,

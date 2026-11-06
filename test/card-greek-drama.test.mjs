@@ -662,14 +662,14 @@ describe("incompatible histories become playable branches", () => {
   ])(
     "retains the %s Helen branch, its witness and physical evidence",
     (branch, destination, evidence, other, otherDestination) => {
-      const letter = "greek-helen-letter";
-      let world = take(harbor(), letter);
+      const tablet = "greek-helen-accounts";
+      let world = take(harbor(), tablet);
       const choice = packDefinition(PACK).choices.find(
         (c) => c.id === `greek-helen-${branch}`,
       );
       if (choice.at !== HARBOR) world = move(world, choice.at);
       world = choose(world, choice.id);
-      expect(world.items[letter].holder).toBe(choice.at);
+      expect(world.items[tablet].holder).toBe(choice.at);
       if (choice.at !== HARBOR) world = move(world, HARBOR);
       expect(exits(world, HARBOR, "vale")).toContain(destination);
       expect(exits(world, HARBOR, "vale")).not.toContain(otherDestination);

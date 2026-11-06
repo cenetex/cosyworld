@@ -86,11 +86,11 @@ export function narrativeContractCases() {
   );
   const legacyHarbor = structuredClone(harbor);
   legacyHarbor.packs["greek-drama"].scope = "full";
-  const letter = "greek-helen-letter";
+  const tablet = "greek-helen-accounts";
   const egypt = playCard(
-    playCard(legacyHarbor, "take", letter),
+    playCard(legacyHarbor, "take", tablet),
     "give",
-    letter,
+    tablet,
     "greek-shipmaster",
   );
   const helen = playCard(egypt, "move", null, "greek-egypt-tomb");

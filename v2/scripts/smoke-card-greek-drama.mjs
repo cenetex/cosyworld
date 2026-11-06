@@ -328,12 +328,12 @@ try {
       branch === "egypt" ? "greek-troy-beach" : "greek-egypt-tomb";
     const evidence = `greek-${branch}-testimony`;
     await travel("greek-harbor");
-    const letter = "greek-helen-letter";
-    await playCard(letter);
+    const tablet = "greek-helen-accounts";
+    await playCard(tablet);
     if (branch === "troy") await travel("greek-well");
-    await pair(letter, branch === "egypt" ? "greek-shipmaster" : "greek-elder");
+    await pair(tablet, branch === "egypt" ? "greek-shipmaster" : "greek-elder");
     assert.equal(
-      (await state()).items[letter].holder,
+      (await state()).items[tablet].holder,
       branch === "egypt" ? "greek-harbor" : "greek-well",
     );
     if (branch === "troy") await travel("greek-harbor");
