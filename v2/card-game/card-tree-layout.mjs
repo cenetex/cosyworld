@@ -40,11 +40,11 @@ export function cardTreeLayout(cards, { expanded = [], active = null } = {}) {
       phone: ancestor >= 0 || sibling >= 0,
       phoneRow:
         ancestor >= 0
-          ? Math.floor(ancestor / 6) + 1
-          : Math.ceil(path.length / 6) + Math.floor(sibling / 3) + 1,
+          ? Math.floor(ancestor / 4) + 1
+          : Math.ceil(path.length / 4) + Math.floor(sibling / 3) + 1,
       phoneColumn:
-        ancestor >= 0 ? (ancestor % 6) * 2 + 1 : (sibling % 3) * 4 + 1,
-      phoneSpan: ancestor >= 0 ? 2 : 4,
+        ancestor >= 0 ? (ancestor % 4) * 3 + 1 : (sibling % 3) * 4 + 1,
+      phoneSpan: ancestor >= 0 ? 3 : 4,
     });
   }
   for (const card of children.get(null) ?? []) visit(card, 0);

@@ -1065,9 +1065,14 @@ body .dialogue[data-dropped="true"] {
 #settings-screen[data-layout="tree"] {
   position: fixed;
   inset: 74px 22px 150px;
+  height: calc(100dvh - 224px);
   width: auto;
   max-width: none;
   pointer-events: auto;
+}
+body:has(#settings-screen[data-layout="tree"][open]) .settings-scene {
+  opacity: 1;
+  animation: none;
 }
 #settings-screen[data-layout="tree"] #settings-hand {
   --card-height: 180px;
@@ -1104,9 +1109,13 @@ body .dialogue[data-dropped="true"] {
 #settings-screen[data-layout="tree"] .card :is(.name, .quest-head) {
   padding-inline: 8px;
 }
+#settings-screen[data-layout="tree"] .quest-verb {
+  white-space: normal;
+}
 @media (max-width: 700px) {
   #settings-screen[data-layout="tree"] {
     inset: 64px 8px 150px;
+    height: calc(100dvh - 214px);
   }
   #settings-screen[data-layout="tree"] #settings-hand {
     --card-height: 144px;
@@ -1122,7 +1131,11 @@ body .dialogue[data-dropped="true"] {
     display: none;
   }
   #settings-screen[data-layout="tree"] .card-frame[data-ancestor="true"] {
-    --card-height: 72px;
+    --card-height: 106px;
+  }
+  #settings-screen[data-layout="tree"] [data-ancestor="true"] .quest-head {
+    padding-inline: 4px;
+    letter-spacing: 0.04em;
   }
 }
 /* Behind it the scene fades to black under the world's logo, lifted and
