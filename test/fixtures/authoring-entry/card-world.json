@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "id": "shore",
+  "name": "The Shore",
+  "entry": "beach",
+  "places": {
+    "beach": {
+      "name": "Beach",
+      "exits": [],
+      "backdrop": "assets/beach.svg"
+    }
+  },
+  "avatars": {},
+  "items": {}
+}

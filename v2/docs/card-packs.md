@@ -53,6 +53,9 @@ Condition and reward parent cards keep their readable labels.
 Internal generation fields also have `hidden: true`. The controller applies the
 returned command and records its inverse. Pack compilation checks game meaning.
 
+Open `/make` to edit a local draft, import a world, and choose its starting place.
+Source, Save, Undo and Reload use the card table and its descriptor.
+
 ## Files
 
 The `/make` and `/make/` authoring URLs serve the card-table document with its

@@ -244,6 +244,7 @@ const files = [
   "metrics.mjs",
   "style.css",
   "entry.mjs",
+  "authoring-entry.mjs",
   "title-intro.mjs",
   "title-logo.mjs",
   "title-logos.json",
