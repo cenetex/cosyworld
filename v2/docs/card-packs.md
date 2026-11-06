@@ -45,6 +45,12 @@ returned command and records its inverse. Pack compilation checks game meaning.
 
 ## Files
 
+The `/make` and `/make/` authoring URLs serve the card-table document with its
+`/card-game/` asset base. Those page responses permit GitHub API and raw-file
+requests, plus local blob images for imported art. Play URLs retain their
+current content security policy. Both the local JavaScript server and the
+Rust server use these routes.
+
 Authoring drafts keep the original pack and bridge together with the writer's
 document. `card-game/authoring-draft.mjs` reads and exports their version 1
 manifest. A draft has its own server ID and revision; imported pack IDs stay
@@ -704,3 +710,6 @@ to turn into readable books and inscriptions found in play. Rules 60 removed
 the older `readings` field, which handed revealed passages to a resident's
 dialogue; the Willows choices, flags and receipts that revealed them are
 unchanged.
+
+Import cards list local or GitHub sources, then save the chosen world and its
+assets as a fresh local draft. Portable files keep their source document.
