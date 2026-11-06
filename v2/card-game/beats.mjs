@@ -288,6 +288,7 @@ export function groupBeats(
   {
     viewer,
     here,
+    players = [viewer],
     shared = false,
     held = new Set(),
     hiddenSpeech = () => false,
@@ -316,7 +317,18 @@ export function groupBeats(
     beats.push(beat);
   }
   beats.sort((a, b) => a.anchor - b.anchor);
+  const sleeping = new Set();
   for (const entry of entries) {
+    const committed =
+      entry.kind === "action" && players.includes(entry.actorId);
+    // Local Sleep runs its remaining turns automatically. In a shared
+    // world each Sleep on is a separate play.
+    if (!shared && committed) {
+      if (entry.sleep) {
+        if (sleeping.has(entry.actorId)) continue;
+        sleeping.add(entry.actorId);
+      } else sleeping.delete(entry.actorId);
+    }
     if (
       held.has(entry.seq) ||
       hiddenAction(entry) ||
@@ -329,11 +341,16 @@ export function groupBeats(
     const defeat = caption.kind === "retreat" || caption.kind === "sent-home";
     // The end of a standoff is the place's caption, not the last actor's.
     const world = caption.kind === "standoff";
-    const own = defeat ? `d:${entry.seq}` : world ? `w:${entry.seq}` : null;
+    const own = defeat
+      ? `d:${entry.seq}`
+      : world
+        ? `w:${entry.seq}`
+        : committed
+          ? `a:${entry.seq}`
+          : null;
     const owner = own ?? `${entry.turn}|${entry.actorId}`;
-    // Any other effect is inscribed onto the card current when it
-    // happened; it makes a card of its own only when there is none yet.
-    // Fights keep a beat per step.
+    // An effect goes onto the card that was current when it happened.
+    // Player actions and fight steps keep their own cards.
     const current =
       !own &&
       caption.icon !== "⚔" &&
@@ -351,6 +368,7 @@ export function groupBeats(
         line: null,
         silent: false,
         actions: [],
+        ...(committed ? { committed: true } : {}),
         anchor: entry.seq,
       };
       firstBeat.set(owner, beat);
@@ -385,15 +403,24 @@ export function sceneBeats(world, options = {}) {
   const viewer = options.viewer ?? currentActor(world);
   const here = world.actors[viewer].place;
   const start = visitStartIndex(world.log, viewer, here);
-  return groupBeats(world.log.slice(start), { ...options, viewer, here });
+  return groupBeats(world.log.slice(start), {
+    players: [viewer, ...(world.controlledActors || [])],
+    ...options,
+    viewer,
+    here,
+  });
 }
 
-// While a reply is being written, the waiting speaker's front card carries
-// their committed actions from this turn; their action-only beat folds in.
+// Effects can fold into the waiting speaker's card. Player actions stay
+// on their own cards while the reply is being written.
 export function withPending(beats, { speakerId, turn }) {
   if (!speakerId) return { beats, pending: null };
   const folded = beats.find(
-    (beat) => !beat.line && beat.turn === turn && beat.speakerId === speakerId,
+    (beat) =>
+      !beat.committed &&
+      !beat.line &&
+      beat.turn === turn &&
+      beat.speakerId === speakerId,
   );
   return {
     beats: folded ? beats.filter((beat) => beat !== folded) : beats,
@@ -445,6 +472,7 @@ export function memoryVisits(world, options = {}) {
         : log[start].locationId;
     // A visit closes with how the viewer left it.
     const beats = groupBeats(log.slice(start, end + 1), {
+      players: [viewer, ...(world.controlledActors || [])],
       ...options,
       viewer,
       here,

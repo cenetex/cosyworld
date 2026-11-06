@@ -236,11 +236,11 @@ describe("eat and drink quests", () => {
       (a) => a.kind === "eat" && a.item === "greek-wine-skin" && !a.target,
     );
     expect(cardActions(s, ["greek-wine-skin"]).actions[0].key).toBe(alone.key);
+    const pair = ["greek-wine-skin", "greek-antigone"];
+    expect(cardActions(s, pair).actions.map((a) => a.kind)).toEqual(["give"]);
     expect(
-      cardActions(s, ["greek-wine-skin", "greek-antigone"]).actions.map(
-        (a) => a.kind,
-      ),
-    ).toContain("eat");
+      cardActions(s, ["vale", ...pair]).actions.map((a) => a.kind),
+    ).toEqual(["eat"]);
     // A stranger declines; nothing is drunk.
     s = act(s, "eat", { item: "greek-wine-skin", target: "greek-antigone" });
     expect(s.items["greek-wine-skin"].holder).toBe("vale");
