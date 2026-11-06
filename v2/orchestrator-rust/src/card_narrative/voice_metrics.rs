@@ -155,7 +155,7 @@ const PLAYS: [&str; 20] = [
 ];
 
 /// The narrator's fixed speech occasions (narrative.mjs `SPEECH_OCCASIONS`).
-const OCCASIONS: [&str; 13] = [
+const OCCASIONS: [&str; 15] = [
     "talk",
     "refused",
     "want_met",
@@ -166,6 +166,8 @@ const OCCASIONS: [&str; 13] = [
     "battle_wait",
     "long_rest",
     "thought_due",
+    "first_wait",
+    "action",
     "new_place",
     "signal_echo",
     "opening",

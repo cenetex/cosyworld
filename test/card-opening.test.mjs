@@ -266,7 +266,7 @@ describe("dousing the lamp in the attic", () => {
     // The newcomer greets; the first arrival also captions the station.
     expect(narrativeContext(s)).toMatchObject({
       occasion: "first_meeting",
-      speakers: ["keeper"],
+      speakers: ["vale", "keeper"],
       scenery: true,
     });
     expect(knownActors(s)).toEqual(["vale", "moth", "keeper"]);

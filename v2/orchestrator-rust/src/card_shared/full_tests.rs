@@ -2476,7 +2476,7 @@ fn released_shared_quest_receipts_drop_on_upgrade_and_replay() {
             )
             .unwrap();
         }
-        full_store::commit(&c, &id, &mut w, json!({"op":"speech","actor":"vale","room":"station","lines":[{"actorId":"vale","text":"The journey continues."},{"actorId":null,"entityId":"station","text":"A breeze crosses the platform."}]}), now()).unwrap();
+        full_store::commit(&c, &id, &mut w, json!({"op":"speech","actor":"vale","room":"station","lines":[{"actorId":null,"entityId":"station","text":"A breeze crosses the platform."}]}), now()).unwrap();
         c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
         assert_eq!(full_store::world(&c, &id, now()).unwrap(), w);
     }

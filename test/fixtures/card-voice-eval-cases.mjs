@@ -112,7 +112,7 @@ function pondVisit(world) {
   world = step(world, "accompany", "moth", 4).world;
   if (world.actors.moth.place !== world.actors.vale.place)
     throw new Error("Pip did not come along");
-  world = step(world, "move", "pond", 4).world;
+  world = playCard(world, "move", null, "pond");
   if (world.actors.moth.place !== "pond")
     throw new Error("Pip is not at the pond");
   const talk = step(world, "talk", "moth", 5);
@@ -231,7 +231,7 @@ export function perceptionScenes() {
   back = step(back, "move", "pond", 0).world;
   back = step(back, "move", "station", 0).world;
   back.items.bell.holder = "pond";
-  back = step(back, "move", "pond", 0).world;
+  back = playCard(back, "move", null, "pond");
   const alone = structuredClone(back);
   for (const id of ["moth", "keeper"])
     alone.actors[id].place = "greek-courtyard";

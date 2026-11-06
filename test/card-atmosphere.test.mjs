@@ -32,11 +32,11 @@ describe("occasional location atmosphere", () => {
     world = travel();
     const first = narrativeContext(world);
     expect(first).toMatchObject({ occasion: "new_place", scenery: true });
-    expect(first.speakers).toEqual([]);
+    expect(first.speakers).toEqual(["vale"]);
     world = travel(from);
-    // A return is routine travel: no caption and no request.
+    // A return gives the avatar a line about the familiar place.
     expect(narrativeContext(world).scenery).toBe(false);
-    expect(voicesNobody(narrativeContext(world))).toBe(true);
+    expect(voicesNobody(narrativeContext(world))).toBe(false);
   });
 
   it("keeps the same choice through repeat requests, saved copies and shared clients", () => {

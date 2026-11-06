@@ -138,7 +138,7 @@ fn refused_or_orphan_reflections_leave_the_world_whole() {
 // `spawn` asks the provider and journals one `reflect` row for the resting
 // speaker, dated to its speech, and a newer scene for the seat cancels it.
 #[tokio::test(flavor = "multi_thread")]
-async fn spawn_journals_the_reflection_after_its_line() {
+async fn quiet_wait_reflects_privately_and_replays() {
     use crate::routes::card_game::narrative::tests::{
         plain_provider, serve, stem_reply, test_config,
     };
@@ -148,6 +148,15 @@ async fn spawn_journals_the_reflection_after_its_line() {
     let snuff = home_action(&w, 0, "snuff");
     let snuff = json!({"op":"play","actor":"vale","action":snuff});
     full_store::commit(&c, &id, &mut w, snuff, now()).unwrap();
+    let wait = home_action(&w, 0, "wait");
+    full_store::commit(
+        &c,
+        &id,
+        &mut w,
+        json!({"op":"play","actor":"vale","action":wait}),
+        now(),
+    )
+    .unwrap();
     let mut queued = body("play", None);
     queued.key = "reflect-after-spawned-speech".into();
     queued.action = home_action(&full_store::world(&c, &id, now()).unwrap(), 0, "wait");
@@ -157,13 +166,8 @@ async fn spawn_journals_the_reflection_after_its_line() {
     let mut app = crate::test_app_state(crate::RuntimeWorld::seeded(), Some(path));
     app.ai_config = std::sync::Arc::new(Some(test_config(address)));
     let work = full::take_work(&app, &id).unwrap().unwrap();
-    let (_, ids) = full_speech::prepared(0, &work.context).unwrap();
-    let entries: Vec<_> = ids
-        .iter()
-        .map(|id| json!({"id":id,"text":if id=="vale" {"I can see the shore."} else {"Mist gathers."}}))
-        .collect();
-    let raw = json!({ "entries": entries }).to_string();
-    let lines = full_speech::parse(&raw, "stop", &work.context, 0, &ids).unwrap();
+    assert_eq!(work.context["context"]["speakers"], json!([]));
+    let lines = json!([]);
     full::finish_work(&app, &id, work.clone(), Ok(lines.clone())).unwrap();
     // A newer scene for the same seat drops a reflection still in flight.
     full::reflect::spawn(app.clone(), id.clone(), work.clone(), &lines);
@@ -186,5 +190,9 @@ async fn spawn_journals_the_reflection_after_its_line() {
     assert_eq!(row["turn"], work.context["turn"]);
     let life = &full_store::world(&c, &id, now()).unwrap().game["memories"]["vale"]["innerLife"];
     assert_eq!(life["thoughts"][0]["turn"], work.context["turn"]);
+    assert!(!full::reflect::commit(&app, &id, row).unwrap());
+    let saved = full_store::world(&c, &id, now()).unwrap();
+    c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
+    assert_eq!(full_store::world(&c, &id, now()).unwrap(), saved);
     server.abort();
 }

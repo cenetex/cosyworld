@@ -18678,14 +18678,14 @@
     });
   }
   function upgradeShoreRouteSave(s) {
-    const moved = /* @__PURE__ */ new Set(["attic"]);
+    const moved2 = /* @__PURE__ */ new Set(["attic"]);
     for (const [actor, known] of Object.entries(s.routeKnowledge || {})) {
       if (!Array.isArray(known)) continue;
       let changed = false;
       const expanded = known.flatMap((edge) => {
         if (!Array.isArray(edge) || edge.length !== 2) return [edge];
         const [from, to] = edge;
-        if (moved.has(from) && to === "station" || from === "station" && moved.has(to)) {
+        if (moved2.has(from) && to === "station" || from === "station" && moved2.has(to)) {
           changed = true;
           return [
             [from, "pond"],
@@ -19642,6 +19642,26 @@
     saved.revision = 16;
   }
 
+  // v2/card-game/visit-speech.mjs
+  var moved = (entry, id) => !entry.generated && entry.fromLocationId && entry.fromLocationId !== entry.locationId && (entry.actorId === id || entry.verb === "accompany" && entry.accepted && entry.targetId === id);
+  var ordinaryWait = (a) => (a.kind === "wait" || a.verb === "wait") && !a.sleep && !a.guards;
+  function visitSpeech(world, id) {
+    const actor = world.actors[id];
+    if (actor.waitSpeech?.place === actor.place) return actor.waitSpeech;
+    const arrival2 = world.log.findLast((e) => moved(e, id))?.seq ?? 0;
+    const waited = !actor.waitSpeech && world.log.find(
+      (e) => e.seq > arrival2 && e.actorId === id && e.locationId === actor.place && !e.generated && ordinaryWait(e)
+    );
+    return { place: actor.place, turn: waited ? waited.turn : null };
+  }
+  function validVisitSpeech(actor, turn) {
+    const saved = actor.waitSpeech;
+    if (saved === void 0) return true;
+    if (!saved || Object.keys(saved).sort().join() !== "place,turn") return false;
+    const validTurn = saved.turn === null || Number.isSafeInteger(saved.turn) && saved.turn >= 0 && saved.turn <= turn;
+    return typeof saved.place === "string" && saved.place.length <= 128 && validTurn;
+  }
+
   // v2/card-game/pack-toggle.mjs
   var ORDER = Object.keys(GROUPS);
   var rank = (id) => (ORDER.indexOf(packGroup(id)) + 1 || 99) - 1;
@@ -20473,6 +20493,7 @@
         fail();
     }
     for (const [id, a] of Object.entries(s.actors)) {
+      if (!validVisitSpeech(a, s.turn)) fail();
       if (!a.trust || Object.keys(a.trust).sort().join() !== expectedTrustKeys[id] || Object.values(a.trust).some((n) => !Number.isInteger(n) || n < 0 || n > 3))
         fail();
       if (!Object.hasOwn(places, a.place) || !actorCanVisit(id, a.place, s) || entityActive(s, id) && !entityActive(s, a.place) || !Number.isSafeInteger(a.crossed) || a.crossed < 0 || !Number.isSafeInteger(a.lastTalk) || a.lastTalk > s.turn || a.sanctuary !== void 0 && !sanctuaries.includes(a.sanctuary) || a.sleeping !== void 0 && a.sleeping?.until === void 0 && (!a.sleeping || Object.keys(a.sleeping).sort().join() !== "place,present,since" || !Number.isSafeInteger(a.sleeping.since) || a.sleeping.since < 0 || a.sleeping.since > s.turn || s.turn - a.sleeping.since >= SLEEP_TURNS || !Object.hasOwn(places, a.sleeping.place) || !Array.isArray(a.sleeping.present) || a.sleeping.present.some(
@@ -20642,11 +20663,11 @@
   }
   function defeatedBy(world, location) {
     const actor = currentActor(world);
-    const moved = world.log.findLast(
+    const moved2 = world.log.findLast(
       (e) => e.turn === world.turn && !e.generated && e.actorId === actor && e.locationId === location && e.fromLocationId && e.fromLocationId !== location && (["retreat", "sent-home"].includes(e.verb) || !e.verb && /after yielding to/u.test(e.text || ""))
     );
-    const blow = moved && world.log.findLast(
-      (e) => e.turn === world.turn && e.verb === "attack" && e.targetId === actor && e.seq < moved.seq
+    const blow = moved2 && world.log.findLast(
+      (e) => e.turn === world.turn && e.verb === "attack" && e.targetId === actor && e.seq < moved2.seq
     );
     return blow ? blow.actorId : null;
   }
@@ -20747,22 +20768,6 @@
     };
   }
 
-  // v2/card-game/reflections.mjs
-  var THOUGHT_GAP = 6;
-  var DREAMS2 = ["glimpse", "quest"];
-  function reflectionDue(context, id, life) {
-    if (context.rest === "long" && context.resting === id && context.turn > 0)
-      return { thought: true, dream: DREAMS2.includes(context.dream) };
-    const last = life?.thoughts?.at(-1)?.turn;
-    const changed = context.entities.find((e) => e.id === id)?.memories.some(
-      (m) => m.kind === "event" && (last === void 0 || m.turn > last)
-    );
-    const thought = Boolean(
-      context.resting === id && context.turn > 0 && changed && (last === void 0 || context.turn >= last + THOUGHT_GAP)
-    );
-    return { thought, dream: false };
-  }
-
   // v2/card-game/speech.json
   var speech_default = {
     opening: ["actor", "place"],
@@ -20775,9 +20780,10 @@
     first_meeting: ["newcomer"],
     want_met: ["met"],
     long_rest: ["actor"],
-    thought_due: ["actor"],
+    first_wait: ["actor"],
     signal_echo: [],
-    new_place: ["place"]
+    new_place: ["place"],
+    action: ["actor"]
   };
 
   // v2/card-game/speech-occasions.mjs
@@ -20802,16 +20808,17 @@
     "first_meeting",
     "want_met",
     "long_rest",
-    "thought_due",
+    "first_wait",
     "signal_echo",
-    "new_place"
+    "new_place",
+    "action"
   ];
   function firstArrival(world, location) {
     const actor = currentActor(world);
     const arrived = (entry) => !entry.generated && entry.locationId === location && entry.fromLocationId && entry.fromLocationId !== location && (entry.actorId === actor || entry.verb === "accompany" && entry.accepted && entry.targetId === actor);
     return world.log.some((entry) => entry.turn === world.turn && arrived(entry)) && !world.log.some((entry) => entry.turn < world.turn && arrived(entry)) && (world.actors[actor].visited?.at(-1) ?? location) === location;
   }
-  function speechOccasions(world, cast, echo = () => false) {
+  function speechOccasions(world, cast) {
     const actor = currentActor(world);
     const played = playedEntry(world);
     const verb = played?.verb;
@@ -20842,18 +20849,11 @@
       ),
       place: []
     };
-    const thought = () => reflectionDue(
-      {
-        rest: cast.rest,
-        resting: actor,
-        turn: world.turn,
-        entities: [
-          { id: actor, memories: speechMemories(world.memories[actor]) }
-        ]
-      },
-      actor,
-      world.memories[actor]?.innerLife
-    ).thought;
+    const echo = played && signalEcho(world, cast.location, {
+      kind: verb,
+      item: played.itemId,
+      target: played.targetId
+    });
     const meets = {
       opening: world.turn === 0,
       defeat: Boolean(cast.defeat),
@@ -20865,10 +20865,24 @@
       first_meeting: roles.newcomer.length > 0,
       want_met: roles.met.length > 0,
       long_rest: waited && cast.rest === "long",
-      thought_due: waited && thought(),
-      // Names no voices, so the rules check may leave it out.
-      signal_echo: Boolean(played && echo(world, cast)),
-      new_place: firstArrival(world, cast.location)
+      first_wait: verb === "wait" && !played.sleep && !played.guards && visitSpeech(world, actor).turn === world.turn,
+      signal_echo: Boolean(echo),
+      new_place: firstArrival(world, cast.location),
+      action: !echo && played?.accepted !== false && [
+        "light",
+        "snuff",
+        "take",
+        "drop",
+        "eat",
+        "use",
+        "cover",
+        "ring",
+        "give",
+        "trade",
+        "choose",
+        "course",
+        "move"
+      ].includes(verb)
     };
     const occasions = meets.defeat ? ["defeat"] : SPEECH_OCCASIONS.filter((name) => meets[name]);
     const named = occasions.flatMap((name) => speech_default[name] || []);
@@ -21480,12 +21494,8 @@
       played,
       ids: ids3
     } = cast;
-    const { occasion, speakers, scenery } = speechOccasions(
-      world,
-      cast,
-      (w, c) => signalEcho(w, c.location, turnOutcome(w).card)
-    );
-    const resting2 = cast.resting && speakers[0] === cast.resting ? cast.resting : null;
+    const { occasion, speakers, scenery } = speechOccasions(world, cast);
+    const resting2 = !speakers.length || speakers[0] === cast.resting ? cast.resting : null;
     const rest = resting2 ? cast.rest : null;
     const defeated = cast.defeat && `${nameOf(currentActor(world))} was beaten by ${nameOf(cast.defeat)} and came to at ${nameOf(location)}.`;
     const disclosures = knowledgeDisclosures(

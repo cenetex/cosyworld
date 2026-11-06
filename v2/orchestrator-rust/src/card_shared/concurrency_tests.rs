@@ -138,9 +138,17 @@ fn concurrent_writes_to_one_world_never_hit_the_lock_and_keep_each_play_once() {
                         idle = 0;
                         let a = work.actor;
                         let key = work.id.clone();
-                        let lines = json!([{"speaker":cast()["avatars"][a]["name"],
+                        let allowed = work.context["context"]["speakers"]
+                            .as_array()
+                            .unwrap()
+                            .contains(&json!(actor_id(a)));
+                        let lines = if allowed {
+                            json!([{"speaker":cast()["avatars"][a]["name"],
                             "actorId":actor_id(a),"entityId":actor_id(a),
-                            "text":format!("I wait for play {key}.")}]);
+                            "text":format!("I wait for play {key}.")}])
+                        } else {
+                            json!([])
+                        };
                         if let Err(e) = full::finish_work(&app, &id, work, Ok(lines)) {
                             errors.lock().unwrap().push(format!("finish {key}: {e}"));
                         }
@@ -184,7 +192,7 @@ fn concurrent_writes_to_one_world_never_hit_the_lock_and_keep_each_play_once() {
     );
 
     // Every accepted play was taken exactly once, in queue order, and each
-    // committed play has one journal record and one speech record.
+    // committed play has one journal record; voiced scenes have one speech.
     let rows: Vec<(String, usize, String)> = c
         .prepare("SELECT id,actor,status FROM card_full_plays WHERE world=? ORDER BY created,id")
         .unwrap()
@@ -228,10 +236,11 @@ fn concurrent_writes_to_one_world_never_hit_the_lock_and_keep_each_play_once() {
         played, committed,
         "one journal play per accepted play, in queue order"
     );
-    assert_eq!(
-        spoken, committed,
-        "one speech per committed play, in the same order"
-    );
+    let voiced: Vec<_> = c
+        .prepare("SELECT actor FROM card_full_plays WHERE world=? AND status!='failed' AND json_extract(narrative,'$.actor') IN (SELECT value FROM json_each(narrative,'$.context.speakers')) ORDER BY created,id")
+        .unwrap().query_map([&id], |r| r.get::<_, usize>(0)).unwrap()
+        .map(|a| actor_id(a.unwrap())).collect();
+    assert_eq!(spoken, voiced, "one speech per voiced play, in queue order");
 
     // The journal still replays to the cached checkpoint.
     let cached = full_store::world(&c, &id, now()).unwrap();

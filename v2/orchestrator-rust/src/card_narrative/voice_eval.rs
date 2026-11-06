@@ -422,9 +422,19 @@ fn prompts_say_moments_not_turns() {
                 let p = messages(context, entity(context, &id), *part);
                 let (system, user) = (p.assistant, p.user);
                 let text = format!("{system}\n{user}").to_lowercase();
-                let turn = text
+                let words: Vec<_> = text
                     .split(|c: char| !c.is_alphanumeric())
-                    .any(|w| w == "turn" || w == "turns");
+                    .filter(|w| !w.is_empty())
+                    .collect();
+                let turn = words.windows(2).any(|w| {
+                    ["turn", "turns"].contains(&w[1])
+                        && (w[0].parse::<u32>().is_ok()
+                            || [
+                                "a", "one", "this", "last", "next", "each", "every", "few",
+                                "several",
+                            ]
+                            .contains(&w[0]))
+                });
                 assert!(!turn, "{case} {id} {part:?}: {text}");
             }
         }

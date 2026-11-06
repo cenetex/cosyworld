@@ -1,9 +1,17 @@
 import { describe, expect, it, vi } from "vitest";
-import { createWorld, legalActions, play } from "../v2/card-game/world.mjs";
+import {
+  createWorld,
+  legalActions,
+  play,
+  encodeSave,
+  decodeSave,
+} from "../v2/card-game/world.mjs";
+import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import {
   SPEECH_OCCASIONS,
   createNarrator,
   speechOccasions,
+  narrativeContext,
   voicesNobody,
 } from "../v2/card-game/narrative.mjs";
 import { dialogueCast } from "../v2/card-game/scene-cast.mjs";
@@ -11,7 +19,11 @@ import speech from "../v2/card-game/speech.json" with { type: "json" };
 
 const act = (s, kind, target) => {
   const action = legalActions(s).find(
-    (a) => a.kind === kind && (!target || a.target === target),
+    (a) =>
+      a.kind === kind &&
+      !a.sleep &&
+      !a.guards &&
+      (!target || a.target === target),
   );
   expect(action, `${kind} ${target || ""}`).toBeTruthy();
   return play(s, action).state;
@@ -62,14 +74,77 @@ describe("speech occasions", () => {
     s = act(s, "move", "pond");
     expect(occasions(s)).toMatchObject({
       occasion: "new_place",
-      speakers: [],
+      speakers: ["vale"],
       scenery: true,
     });
     expect(occasions(act(s, "move", "station"))).toMatchObject({
-      occasion: null,
-      speakers: [],
+      occasion: "action",
+      speakers: ["vale"],
       scenery: false,
     });
+  });
+
+  it("speaks once per visit through other actions, reload and a short log", () => {
+    let s = act(createWorld({ opening: true }), "wait");
+    expect(occasions(s).speakers).toEqual(["vale"]);
+    delete s.actors.vale.waitSpeech;
+    s = decodeSave(encodeSave(s));
+    expect(occasions(act(s, "wait")).speakers).toEqual([]);
+    s = act(act(s, "snuff"), "light");
+    for (let i = 0; i < 110; i++) s = act(s, "wait");
+    s.log = s.log.slice(-10);
+    s = act(decodeSave(encodeSave(s)), "wait");
+    expect(occasions(s).speakers).toEqual([]);
+    s = act(createWorld(), "wait");
+    s = act(act(s, "move", "pond"), "move", "station");
+    expect(occasions(act(s, "wait")).speakers).toEqual(["vale"]);
+  });
+
+  it("shares the same Wait and lamp voices with the authority", () => {
+    let world = dispatchShared({ op: "create" }).world;
+    for (const [kind, speakers] of [
+      ["wait", ["vale"]],
+      ["snuff", ["vale"]],
+      ["wait", []],
+      ["light", ["vale"]],
+    ]) {
+      const action = legalActions(world).find(
+        (a) => a.kind === kind && !a.sleep,
+      );
+      const result = dispatchShared({
+        op: "play",
+        world,
+        actor: "vale",
+        claimed: ["vale"],
+        present: ["vale"],
+        action,
+      });
+      expect(result.ok).toBe(true);
+      world = result.world;
+      expect(world.speechVoices.vale).toEqual(speakers);
+      expect(occasions(world).speakers).toEqual(speakers);
+    }
+  });
+
+  it("asks for a private reflection after a quiet Wait", async () => {
+    const world = act(act(createWorld({ opening: true }), "wait"), "wait");
+    const request = vi.fn();
+    const reflect = vi.fn(async () => ({ reflections: [] }));
+    createNarrator({
+      getWorld: () => world,
+      request,
+      reflect,
+      apply: vi.fn(),
+      status: () => {},
+    }).changed();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(request).not.toHaveBeenCalled();
+    expect(reflect).toHaveBeenCalledTimes(1);
+    expect(reflect.mock.calls[0][0].resting).toBe("vale");
+    world.opening.crossed = true;
+    world.opening.met.moth = world.turn;
+    world.actors.moth.place = "attic";
+    expect(narrativeContext(world).resting).toBeNull();
   });
 
   it("sends no request for a silent scene and leaves the hand ready", async () => {
