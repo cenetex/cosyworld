@@ -638,6 +638,7 @@ try {
         kind: "item",
         target: "routes",
         step: { verb: "bring", at: "train" },
+        story: true,
         since: save.turn,
         refusals: 0,
       };
@@ -673,6 +674,11 @@ try {
         ].join(" "),
       );
     assert.doesNotMatch(labels, /Route board|Between-hours carriage/);
+    await page.waitForFunction(() =>
+      document.querySelector("#card-actions button").dataset.revealing === "false");
+    await page.locator(".dialogue").screenshot({
+      path: new URL(`hidden-quest-${width}.png`, output).pathname,
+    });
     assert.deepEqual(errors, []);
     console.log(
       `Quest fold, met seal, click to clear and +XP, stack fan, choose and drop, avatar stacks passed at ${width}px (${motion}).`,
