@@ -71,6 +71,11 @@ describe("temporary character draws", () => {
     await draw.find();
     expect(draw.state.cards.map((c) => c.name)).toEqual(["Mara", "Pip"]);
     expect(draw.chosen()).toEqual(saved);
+    const accepted = draw.state.selected;
+    draw.remove(accepted);
+    draw.remove(accepted);
+    expect(draw.state.cards.map((c) => c.name)).toEqual(["Pip"]);
+    expect(draw.text).toBe(seed);
     draw.clear();
     expect(draw.text).toBe("");
     expect(draw.state.cards).toEqual([]);

@@ -95,6 +95,13 @@ export function createCharacterDraw({
     chosen() {
       return cards.filter((card) => selected.has(card.id)).map(acceptedOutput);
     },
+    remove(ids) {
+      cancel();
+      const removed = new Set(ids);
+      cards = cards.filter((card) => !removed.has(card.id));
+      for (const key of removed) selected.delete(key);
+      notify();
+    },
     clear() {
       cancel();
       text = "";
