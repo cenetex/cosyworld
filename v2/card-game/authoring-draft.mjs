@@ -1,8 +1,8 @@
 // Editable source files and asset references. Publication checks the compiled
 // pack separately; a draft can keep unfinished cards and future author fields.
 export const DRAFT_LIMITS = Object.freeze({
-  metadata: 2 * 1024 * 1024,
-  document: 256 * 1024,
+  metadata: 10 * 1024 * 1024,
+  document: 8 * 1024 * 1024,
   assets: 512,
   assetBytes: 16 * 1024 * 1024,
   totalAssetBytes: 256 * 1024 * 1024,
@@ -85,7 +85,7 @@ function jsonText(value) {
   const text = JSON.stringify(value);
   need(
     utf8.encode(text).length <= DRAFT_LIMITS.metadata,
-    "Keep draft metadata under 2 MiB.",
+    "Keep draft metadata under 10 MiB.",
   );
   return text;
 }
@@ -122,7 +122,7 @@ function checked(value) {
   need(
     typeof value.document === "string" &&
       utf8.encode(value.document).length <= DRAFT_LIMITS.document,
-    "Keep the document under 256 KiB.",
+    "Keep the document under 8 MiB.",
   );
   need(
     [value.pack, value.bridge].every((v) => v === null || record(v)),
@@ -156,7 +156,7 @@ export function parseDraft(text) {
   need(
     typeof text === "string" &&
       utf8.encode(text).length <= DRAFT_LIMITS.metadata,
-    "Choose draft JSON under 2 MiB.",
+    "Choose draft JSON under 10 MiB.",
   );
   const draft = JSON.parse(text);
   checked(draft);
