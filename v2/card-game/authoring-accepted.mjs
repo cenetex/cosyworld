@@ -148,6 +148,7 @@ export async function acceptedAvatarOutput(record, id) {
 }
 
 async function retainedVisual(record, id, entity, targetVariant) {
+  let fallback = null;
   for (const { visual } of await acceptedAvatarOutputs(record, id)) {
     if (!visual || (targetVariant && visual.targetVariant !== targetVariant))
       continue;
@@ -161,9 +162,10 @@ async function retainedVisual(record, id, entity, targetVariant) {
     need(bytes instanceof Uint8Array, "Open the confirmed portrait file.");
     const actual = await assetMetadata(path, meta.mime, bytes);
     need(actual.sha256 === meta.sha256, "Check the confirmed portrait digest.");
-    return visual;
+    if (base.path === path) return visual;
+    fallback ??= visual;
   }
-  return null;
+  return fallback;
 }
 
 export async function prepareAcceptedAvatar(record, request) {
