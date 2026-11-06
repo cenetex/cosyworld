@@ -720,7 +720,7 @@ describe("a rules 93 save on the Coast Road", () => {
     ];
     const w = decodeSave(JSON.stringify(s));
     // Later revisions add the forecourt, the live City Gate and the funeral.
-    expect(w.packs["greek-drama"].revision).toBe(21);
+    expect(w.packs["greek-drama"].revision).toBe(packDefinition("greek-drama").revision);
     expect(w.actors.vale.place).toBe("greek-piraeus");
     expect(w.items["greek-water-jar"].holder).toBe("greek-piraeus");
     // Revision 20 forgets the City Gate's old latch: the gate reads live,

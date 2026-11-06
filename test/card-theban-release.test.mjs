@@ -109,15 +109,15 @@ const reachable = (world) => {
   return [...seen].sort();
 };
 describe("the Theban release and its ship", () => {
-  it("opens eight shore places and the harbor road, then the ship after its first signal", () => {
+  it("opens the shore roads and ship while the Hollow waits for its shade", () => {
     const s = createWorld();
     expect(s.packs[pack.id].scope).toBe("opening");
     expect(reachable(s)).toEqual(
-      openingPlaces.filter((id) => id !== "greek-ship").sort(),
+      openingPlaces.filter((id) => !["greek-ship", "greek-polynices-hollow"].includes(id)).sort(),
     );
     s.crossings["pond-greek-harbor"].discovered = true;
-    expect(reachable(s)).toEqual([...openingPlaces].sort());
-    expect(reachable(s)).toHaveLength(10);
+    expect(reachable(s)).toEqual(openingPlaces.filter((id) => id !== "greek-polynices-hollow").sort());
+    expect(reachable(s)).toHaveLength(9);
     expect(pack.release.places).toHaveLength(25);
     for (const id of rumours) expect(pack.release.places).not.toContain(id);
     expect(
@@ -144,7 +144,9 @@ describe("the Theban release and its ship", () => {
   it("opens the next countryside after Bury and keeps it through reload", () => {
     const journey = funeralJourney();
     let s = journey.buried;
-    expect(reachable(journey.veiled)).toHaveLength(10);
+    expect(reachable(journey.veiled).filter((id) => id !== "greek-ship")).toEqual(
+      openingPlaces.filter((id) => id !== "greek-ship").sort(),
+    );
     // Bury opens the Cithaeron road. The mothers' petition opens the Sacred
     // Way; the herald's truce opens the Long Walls from Piraeus.
     expect(reachable(s)).toContain("greek-eleusis");
@@ -204,7 +206,7 @@ describe("the Theban release and its ship", () => {
     let s = createWorld();
     s.crossings["pond-greek-harbor"].discovered = true;
     for (let i = 0; i < 3; i++) s = decodeSave(encodeSave(s));
-    expect(reachable(s)).toEqual([...openingPlaces].sort());
+    expect(reachable(s)).toEqual(openingPlaces.filter((id) => id !== "greek-polynices-hollow").sort());
   });
   it("keeps a route from every opening place back to the pond after the signal", () => {
     const s = createWorld();

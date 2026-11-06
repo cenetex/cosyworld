@@ -266,6 +266,10 @@ describe("the Open Door", () => {
     });
     world = playOpenDoor(world, "take", { item: "greek-shovel" });
     world = playOpenDoor(openDoorWalk(world, "battlefield"), "wait");
+    for (let turns = 0; turns < 48 && !legalActions(world).some(
+      (a) => a.kind === "talk" && a.target === "greek-polynices-shade",
+    ); turns++) world = playOpenDoor(world, "wait");
+    world = playOpenDoor(world, "talk", { target: "greek-polynices-shade" });
     world = openDoorWalk(world, "polynices-hollow");
     expect(world.actors.vale.place).toBe("greek-polynices-hollow");
     expect(state(world).receipts["greek-petition-burial"]).toBeTruthy();

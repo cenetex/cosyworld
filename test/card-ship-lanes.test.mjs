@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
+  addLog,
   createWorld,
   encodeSave,
   decodeSave,
@@ -208,17 +209,13 @@ describe("knowing a lane is personal", () => {
     const [from, to] = disclosure.factId.slice(5).split(">");
     expect(knowsLane(world, "vale", from, to)).toBe(false);
     // Speech without the fact teaches nothing.
-    world.log.push({
-      ...world.log.at(-1),
-      seq: world.eventSeq + 1,
+    addLog(world, "Myrto the Shipmaster", "The sea is wide tonight.", {
       kind: "dialogue",
       generated: true,
       actorId: "greek-shipmaster",
       locationId: "greek-harbor",
       cast: ["vale", "greek-shipmaster"],
-      text: "The sea is wide tonight.",
     });
-    world.eventSeq += 1;
     expect(
       publishKnowledgeSpeech(world, world.log.at(-1), [disclosure]),
     ).toEqual([]);

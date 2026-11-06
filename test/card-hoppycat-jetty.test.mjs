@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
+  addLog,
   createWorld,
   encodeSave,
   decodeSave,
@@ -150,17 +151,13 @@ describe("the Signal Jetty lane", () => {
       "Ships for Signal Jetty leave from Piraeus Quays only with Travel Provisions or something from Hoppy Cat aboard.",
     );
     const world = result.state;
-    world.log.push({
-      ...world.log.at(-1),
-      seq: world.eventSeq + 1,
+    addLog(world, "Myrto the Shipmaster", `Listen. ${disclosure.text}`, {
       kind: "dialogue",
       generated: true,
       actorId: "greek-shipmaster",
       locationId: "greek-piraeus",
       cast: ["vale", "greek-shipmaster"],
-      text: `Listen. ${disclosure.text}`,
     });
-    world.eventSeq += 1;
     expect(
       publishKnowledgeSpeech(world, world.log.at(-1), [disclosure]),
     ).toHaveLength(1);
