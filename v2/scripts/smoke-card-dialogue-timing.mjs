@@ -105,9 +105,13 @@ try {
           wait: "pond",
         }[kind];
         await selectCard(page, id);
+        const action = page.locator(
+          '#card-actions .card-primary:not([data-revealing="true"])',
+        );
+        await action.waitFor();
         if (kind === "light") {
           // An ordinary play is silent: no request, and the hand frees at once.
-          await page.locator("#card-actions .card-primary").click();
+          await action.click();
           await page.waitForFunction(
             () => document.querySelector("#hand").dataset.cooling === "false",
           );
@@ -132,7 +136,7 @@ try {
         }
         const requested = page.waitForRequest("**/card-game/text");
         const start = performance.now();
-        await page.locator("#card-actions .card-primary").click();
+        await action.click();
         await requested;
         // A newly revealed location completes its discovery before pairing.
         await page.waitForFunction(
@@ -210,7 +214,7 @@ try {
           };
         });
         // The name and portrait head the card; the speech runs the card's
-        // full width below them and grows to about seven lines (#1599).
+        // full width below them and grows to fit the whole reply.
         assert(
           layout.portraitBottom <= layout.textTop + 1,
           JSON.stringify(layout),
@@ -219,25 +223,16 @@ try {
           layout.textWidth > layout.cardWidth * 0.8,
           JSON.stringify(layout),
         );
-        assert(
-          layout.lines >= 3 && layout.lines <= 8,
-          `Speech shows three to seven lines: ${layout.lines}`,
-        );
+        assert(layout.lines >= 3, `Speech grows to fit: ${layout.lines}`);
         assert(layout.font >= (width < 700 ? 14 : 15));
         await page.locator("#dialogue-advance").focus();
         if (motion !== "reduce")
           await page.locator("#dialogue-advance").click();
-        await page.locator("#dialogue-advance").press("Home");
-        await page.locator("#dialogue-advance").press("ArrowDown");
-        // A line that fits is shown whole; a longer one scrolls by keyboard.
         assert(
           await page
             .locator("#dialogue-text")
-            .evaluate(
-              (el) =>
-                el.scrollHeight <= el.clientHeight + 1 || el.scrollTop > 0,
-            ),
-          "Keyboard scroll reads the full speech",
+            .evaluate((el) => el.scrollHeight <= el.clientHeight + 1),
+          "The card shows the whole reply",
         );
         await page.screenshot({
           path: new URL(`speech-${width}-${motion}.png`, output).pathname,
@@ -268,7 +263,7 @@ try {
           if (kind === "wait" && i === speakers.length - 1) {
             queuedTurn = (await state()).turn;
             await selectCard(page, "vale");
-            await page.locator("#card-actions .card-primary").click();
+            await action.click();
             // The play skips the last reading pause for its Thinking card.
             assert.equal(await page.locator("#card-actions button").count(), 0);
             await page.waitForFunction(

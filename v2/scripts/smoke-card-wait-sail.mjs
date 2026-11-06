@@ -77,14 +77,7 @@ async function check(width, name, world, cards, label, sentence) {
     const action = page.getByRole("button", { name: label, exact: true });
     await action.waitFor();
     assert.equal(await page.locator("#card-actions button").count(), 1);
-    assert.equal(
-      (
-        await (
-          label === "Wait" ? action : page.locator(".action-beat-heading")
-        ).textContent()
-      ).trim(),
-      sentence,
-    );
+    assert.equal((await action.textContent()).trim(), sentence);
     await page.waitForFunction(
       () =>
         getComputedStyle(document.querySelector("#action-beat")).opacity ===

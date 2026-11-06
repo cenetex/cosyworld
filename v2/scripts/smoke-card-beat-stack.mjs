@@ -221,7 +221,9 @@ try {
       const words = () => page.locator("#dialogue-text").textContent();
       // Talk to Pip: Vale's beat arrives in front, then Pip's in front of it.
       await page.locator('#hand [data-card="moth"]').click();
-      await page.locator("#card-actions .card-primary").click();
+      await page
+        .locator('#card-actions .card-primary:not([data-revealing="true"])')
+        .click();
       await page
         .waitForFunction(
           () => document.querySelector("#dialogue-text").textContent.length > 0,
@@ -436,7 +438,11 @@ try {
       // A silent play keeps its own card, with the previous line behind it.
       await page.locator('#hand [data-card="vale"]').click();
       await page.locator('#hand [data-card="lamp"]').click();
-      await page.locator('#card-actions [data-action="light"]').click();
+      await page
+        .locator(
+          '#card-actions [data-action="light"]:not([data-revealing="true"])',
+        )
+        .click();
       await page.keyboard.press("Escape");
       await page.waitForFunction(
         () =>

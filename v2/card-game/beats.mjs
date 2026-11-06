@@ -15,8 +15,10 @@ const QUIET_VERBS = new Set(["talk"]);
 const DAMAGE = /loses (\d+) resolve/u;
 const YIELDED = /after yielding to/u;
 const STANDOFF_ENDS = /(standoff|battle) ends/u;
-// The rules word a wake in the present ("Vale wakes as Pip arrives."); its
-// caption is past, like every other.
+export const plainWaitEntry = (entry) =>
+  entry.verb === "wait" &&
+  entry.text === `${fullName(entry.actorId)} waits one turn.`;
+// Wakes caused by a change in the scene read in the past.
 const WAKE_PAST = {
   wakes: "woke",
   arrives: "arrived",
@@ -180,13 +182,16 @@ export function actionCaption(entry, { viewer, here, arrival = null }) {
       // noticed while waiting reads as its own words.
       return caption(
         "⌛",
-        entry.woke
-          ? entry.text.replace(WAKE_VERBS, (verb) => WAKE_PAST[verb])
-          : entry.sleep
-            ? `${a} slept.`
-            : / waits one turn/u.test(entry.text || "")
-              ? `${a} waited a turn.`
-              : entry.text,
+        entry.woke === "chose"
+          ? entry.text
+          : entry.woke
+            ? entry.text.replace(WAKE_VERBS, (verb) => WAKE_PAST[verb])
+            : entry.sleep
+              ? `${a} slept.`
+              : / waits one turn/u.test(entry.text || "")
+                ? `${a} waited a turn.`
+                : entry.text,
+        entry.woke === "chose" ? "wake" : verb,
       );
     case "guard":
       return caption("⚔", `${a} braced.`);
@@ -318,9 +323,19 @@ export function groupBeats(
   }
   beats.sort((a, b) => a.anchor - b.anchor);
   const sleeping = new Set();
+  const waking = new Map();
   for (const entry of entries) {
     const committed =
       entry.kind === "action" && players.includes(entry.actorId);
+    if (committed && entry.woke === "chose")
+      waking.set(entry.actorId, entry.turn);
+    // The Wake play records both the wake and the turn it passed.
+    if (
+      committed &&
+      waking.get(entry.actorId) === entry.turn &&
+      plainWaitEntry(entry)
+    )
+      continue;
     // Local Sleep runs its remaining turns automatically. In a shared
     // world each Sleep on is a separate play.
     if (!shared && committed) {
@@ -355,7 +370,7 @@ export function groupBeats(
       !own &&
       caption.icon !== "⚔" &&
       beats.findLast((beat) => beat.anchor < entry.seq);
-    if (current) {
+    if (current && !current.actions.some((action) => action.kind === "wake")) {
       current.actions.push({ ...caption, inscribed: true });
       continue;
     }

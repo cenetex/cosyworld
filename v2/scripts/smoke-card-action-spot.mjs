@@ -1,5 +1,5 @@
 // A ready play is a beat in front of the dialogue: what the play will do,
-// with its buttons. The spoken beat fades behind it, nothing sits between
+// as one tap target. The spoken beat fades behind it, nothing sits between
 // the dialogue and the hand, and the hand never moves for it. Vale takes the
 // Burial Decree at the Theban Palace Forecourt (one "the" in the caption)
 // and offers it to Creon.
@@ -121,10 +121,12 @@ try {
         return {
           inDialogue: Boolean(panel.closest(".dialogue")),
           dockRow: document.querySelector(".play-dock .action-panel"),
-          heading: panel.querySelector(".action-beat-heading").textContent,
+          caption: button.textContent,
           tier: panel.dataset.tier,
           edge: getComputedStyle(panel).borderTopColor,
-          cards: panel.querySelectorAll(".action-beat-cards img").length,
+          cards: panel.querySelectorAll(
+            ".action-beat-cards img:not(.quest-ground)",
+          ).length,
           // Square-ish, as the beat cards are: no pill.
           corner: parseFloat(getComputedStyle(button).borderTopLeftRadius),
           buttonInside: b.top >= p.top && b.bottom <= p.bottom + 1,
@@ -173,7 +175,7 @@ try {
     const restHand = await box("#hand"),
       restDialogue = await box(".dialogue");
     const taking = await actionBeat("take");
-    assert.match(taking.heading, /^\s*Vale takes the Burial Decree/u);
+    assert.match(taking.caption, /^\s*Vale takes the Burial Decree/u);
     assert.equal(taking.cards, 2, "Vale and the decree");
     // The decree is the rarest card in the take, so its tier edges the box.
     assert.equal(taking.tier, levelTier(cardLevel(world, "greek-decree")).id);
@@ -183,7 +185,9 @@ try {
     assert.deepEqual(await box(".dialogue"), restDialogue, "dialogue stays");
     await handUncut();
     await shot("ready");
-    await page.locator("#card-actions .card-primary").click();
+    await page
+      .locator('#card-actions .card-primary:not([data-revealing="true"])')
+      .click();
     await page.waitForFunction(() =>
       [...document.querySelectorAll(".beat-caption, .dialogue")].some((e) =>
         /took the Burial Decree/.test(e.textContent),
@@ -217,14 +221,14 @@ try {
     await selectCard(page, "greek-decree");
     await selectCard(page, "greek-creon");
     const give = page.locator("#card-actions .card-primary");
-    assert.match(await give.innerText(), /Give/);
+    assert.match(await give.getAttribute("aria-label"), /Give/);
     const offering = await actionBeat("give");
     assert.equal(offering.cards, 3, "Vale, the decree and Creon");
     assert(offering.spoken, "the spoken beat waits behind the offer");
     assert.equal(offering.tier, taking.tier, "the decree outranks Rare Creon");
     await handUncut();
     await shot("ready-dialogue");
-    await give.click();
+    await give.and(page.locator(':not([data-revealing="true"])')).click();
     await page.waitForTimeout(150);
     await handUncut();
     await shot("pending");

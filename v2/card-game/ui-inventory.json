@@ -270,7 +270,7 @@
     "world-menu"
   ],
   "elements": {
-    "v2/card-game/app.mjs": 63,
+    "v2/card-game/app.mjs": 62,
     "v2/card-game/avatar-menu.mjs": 19,
     "v2/card-game/build-info.mjs": 2,
     "v2/card-game/card-label.mjs": 1,

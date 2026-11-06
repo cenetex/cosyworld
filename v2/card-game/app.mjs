@@ -118,6 +118,7 @@ import { combatBeats, lastSeq, theName } from "./combat-beats.mjs";
 import {
   beatSummary,
   memoryVisits,
+  plainWaitEntry,
   sceneBeats,
   withPending,
 } from "./beats.mjs";
@@ -849,6 +850,18 @@ const sleepView = createSleepView({
     speechSounds.stop();
   },
   dealQuests: () => showQuests(false),
+  showWake({ id, seq, woke, dream }) {
+    // Give the explicit Wake result its own tap before the reply.
+    if (reviewing || dream || woke !== "chose") return;
+    const waited = world.log.some(
+      (entry) =>
+        entry.seq > seq && entry.actorId === id && plainWaitEntry(entry),
+    );
+    if (!waited) return;
+    reviewing = true;
+    reviewBeat = `a:${seq}`;
+    syncSpeechPlayback();
+  },
 });
 let actionMessage;
 const actionReveal = createTextReveal({
@@ -2039,12 +2052,10 @@ function frameFigure(img) {
   if (img.complete && img.naturalWidth) measure();
   else img.addEventListener("load", measure, { once: true });
 }
-// The action beat's figures, three for plays and five for a recipe, as the quest card pairs them:
-// borderless cut-outs side by side, the actor facing the others; an item or
-// place a small picture beside them.
-function showBeatCards(ids, recipe = false) {
+// Compose the avatar and selected cards over the scene, as quest cards do.
+function showBeatCards(ids, here, verb, recipe = false) {
   const cards = document.querySelector(".action-beat-cards"),
-    key = `${recipe}:${ids.join("+")}`;
+    key = JSON.stringify([recipe, here, verb, ids, ids.map(beatPortrait)]);
   if (cards.dataset.cards === key) return;
   cards.dataset.cards = key;
   releaseImages(cards);
@@ -2063,28 +2074,15 @@ function showBeatCards(ids, recipe = false) {
     cards.replaceChildren(scene);
     return;
   }
+  const [actor, ...others] = ids;
+  const items = others.filter((id) => things[id]);
+  const other = others.find((id) => people[id]);
+  const target = items[0] || other || others.find((id) => places[id]) || here;
+  const kind = items.length ? "item" : other ? "person" : "place";
+  const to = items.length ? other : null;
+  if (!actor) return cards.replaceChildren();
   cards.replaceChildren(
-    ...ids.slice(0, 3).map((id, index) => {
-      const image = node("img");
-      image.alt = "";
-      image.dataset.entity = id;
-      image.decoding = "async";
-      image.draggable = false;
-      image.src = beatPortrait(id);
-      image.className = people[id]
-        ? "beat-figure"
-        : places[id]
-          ? "beat-place"
-          : "beat-thing";
-      if (people[id])
-        image.dataset.flip = String(
-          flipStagePortrait(
-            portrait(id, null, world),
-            index ? "left" : "right",
-          ),
-        );
-      return image;
-    }),
+    questScreen({ actor, kind, target, here, verb, items, to }, questArt),
   );
 }
 // Another part of the table, such as the ☰ menu, can borrow the action
@@ -2170,7 +2168,9 @@ function cancelAbandon() {
   $("card-actions").querySelector("[data-drop-quest]")?.focus();
 }
 function renderActions() {
-  const row = $("card-actions");
+  const row = $("card-actions"),
+    panel = $("action-beat");
+  panel.removeAttribute("data-card-tap");
   if (
     sharedRefusal &&
     (sharedRefusal.choice !== selected.join("+") ||
@@ -2218,12 +2218,22 @@ function renderActions() {
   // Who acts, then what it acts on: the chosen cards, or the place it
   // waits in.
   const others = selected.filter((id) => id !== actor);
+  const here = world.actors[actor].place;
   const involved = lockShown
-    ? lockShown.cards
-    : sentence && !questShown
-      ? [actor, ...(others.length ? others : [world.actors[actor].place])]
-      : [];
-  showBeatCards(involved, lockShown?.recipe);
+    ? lockShown.recipe
+      ? lockShown.cards
+      : [actor, ...lockShown.cards]
+    : questShown
+      ? [actor, questShown.target].filter((id) => id && !cardIsCovered(id))
+      : sentence
+        ? [actor, ...(others.length ? others : [here])]
+        : [];
+  showBeatCards(
+    involved,
+    here,
+    playLabel(actions[0], world),
+    lockShown?.recipe,
+  );
   // The box's edge takes the rarest card's tier colour; Common stays plain.
   const rarest = involved
     .map((id) => levelTier(cardLevel(world, id)))
@@ -2414,25 +2424,21 @@ function renderActions() {
   }
   let message = heading.lastElementChild;
   const only = actions.length === 1 ? actions[0] : null;
-  if (
-    only?.kind === "wait" &&
-    !only.sleep &&
-    !only.guards &&
-    !only.label &&
-    !refusedPlay(only) &&
-    !world.actors[actor].sleeping &&
-    row.childElementCount === 1
-  ) {
+  if (only && sentence && !refusedPlay(only) && row.childElementCount === 1) {
     const button = row.firstElementChild;
-    button.dataset.waitSentence = "";
-    button.setAttribute("aria-label", button.textContent);
+    panel.setAttribute("data-card-tap", "");
+    if (only.kind === "wait" && !only.label && !only.guards)
+      button.dataset.waitSentence = "";
+    button.setAttribute(
+      "aria-label",
+      only.label === "Wake" ? sentence : button.textContent,
+    );
     message = button;
     heading.hidden = true;
   }
   const note = document.querySelector(".action-beat-note");
   let noteText = next?.reason || "";
   if (abandonQuest) {
-    const panel = $("action-beat");
     panel.dataset.tier = "danger";
     panel.style.setProperty("--tier-color", "var(--danger)");
     noteText = `${shownQuestCaption(picked)}. Cost ${dropCost(world, actor, picked.index)} XP.`;
@@ -2475,7 +2481,7 @@ $("action-beat").addEventListener(
     if (
       borrowedBeat ||
       !actionMessage ||
-      (button && !button.hasAttribute("data-wait-sentence"))
+      (button && !event.currentTarget.hasAttribute("data-card-tap"))
     )
       return;
     if (!actionReveal.complete) {
@@ -3729,17 +3735,28 @@ function renderScene() {
   $("speech-row").setAttribute("aria-busy", String(!$("story-status").hidden));
   const portraitId = front?.speakerId || null;
   const portraitBox = $("speaker-portrait");
+  const actionPlace =
+    front?.committed && people[portraitId] ? scene.locationId : null;
   // Key on the resolved art too, so a scarf given or taken repaints it.
   const portraitSource = beatPortrait(portraitId);
+  const portraitKey = JSON.stringify([portraitSource, actionPlace]);
   if (
     portraitBox.dataset.entity !== (portraitId || "") ||
-    portraitBox.dataset.source !== portraitSource
+    portraitBox.dataset.source !== portraitKey
   ) {
     portraitBox.dataset.entity = portraitId || "";
-    portraitBox.dataset.source = portraitSource;
+    portraitBox.dataset.source = portraitKey;
     releaseImages(portraitBox);
     portraitBox.replaceChildren();
-    if (portraitId) {
+    if (actionPlace) {
+      portraitBox.dataset.kind = "action";
+      portraitBox.append(
+        questScreen(
+          { actor: portraitId, kind: "place", target: actionPlace },
+          questArt,
+        ),
+      );
+    } else if (portraitId) {
       const image = node("img");
       image.alt = "";
       image.decoding = "async";
@@ -3764,6 +3781,14 @@ function renderScene() {
       ...(front?.actions || []).map((action, index) => {
         const item = node("span", undefined, "beat-caption");
         item.dataset.kind = action.kind;
+        item.toggleAttribute(
+          "data-primary",
+          front.committed === true && action.seq === front.anchor,
+        );
+        item.toggleAttribute(
+          "data-named",
+          action.text.startsWith(`${nameOf(front.speakerId)} `),
+        );
         item.append(beatIcon(action.icon), namedSpan(action.text));
         if (index >= kept) inscribe(item, action.text);
         return item;
@@ -4047,6 +4072,12 @@ function placePreviousBeat() {
     );
 }
 new ResizeObserver(placePreviousBeat).observe($("action-beat"));
+new ResizeObserver(([entry]) => {
+  document.body.style.setProperty(
+    "--dialogue-size",
+    `${entry.contentRect.height}px`,
+  );
+}).observe(document.querySelector(".dialogue"));
 function syncActionBeat() {
   const panel = document.querySelector(".action-panel"),
     front = $("speech-row"),
@@ -4247,20 +4278,6 @@ $("speech-row").addEventListener(
   },
   true,
 );
-$("dialogue-advance").addEventListener("keydown", (event) => {
-  const amount = {
-    PageDown: speechHeight,
-    PageUp: -speechHeight,
-  }[event.key];
-  if (amount !== undefined) {
-    event.preventDefault();
-    $("dialogue-text").scrollTop += amount;
-  } else if (["Home", "End"].includes(event.key)) {
-    event.preventDefault();
-    $("dialogue-text").scrollTop =
-      event.key === "Home" ? 0 : $("dialogue-text").scrollHeight;
-  }
-});
 // ↑ steps back in time and ↓ toward live, from the stack or the open scene.
 document.addEventListener("keydown", (event) => {
   if (
@@ -4274,19 +4291,6 @@ document.addEventListener("keydown", (event) => {
   const target = event.target;
   // A chosen hand card or the action beat's buttons step the stack too.
   if (target !== document.body && !target.closest?.(".dialogue, #hand")) return;
-  // A long line scrolls first, then the arrows step through the beats.
-  const words = $("dialogue-text");
-  if (target === $("dialogue-advance") && !words.hidden) {
-    const room =
-      event.key === "ArrowUp"
-        ? words.scrollTop > 0
-        : words.scrollTop + words.clientHeight < words.scrollHeight - 1;
-    if (room) {
-      event.preventDefault();
-      words.scrollTop += event.key === "ArrowUp" ? -28 : 28;
-      return;
-    }
-  }
   const moved = event.key === "ArrowUp" ? stepBack() : stepForward();
   if (moved) event.preventDefault();
 });
@@ -4299,13 +4303,6 @@ document.addEventListener("keydown", (event) => {
       // A sideways scroll of the hand never steps the stack.
       if (Math.abs(event.deltaY) < 4) return;
       if (Math.abs(event.deltaX) >= Math.abs(event.deltaY)) return;
-      const words = $("dialogue-text");
-      const scrolls =
-        words.contains(event.target) &&
-        (event.deltaY < 0
-          ? words.scrollTop > 0
-          : words.scrollTop + words.clientHeight < words.scrollHeight - 1);
-      if (scrolls) return;
       event.preventDefault();
       if (performance.now() - wheelAt < STACK_MS + 100) return;
       wheelAt = performance.now();
