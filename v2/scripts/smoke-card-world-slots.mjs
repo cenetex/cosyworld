@@ -8,9 +8,9 @@ import { worldName } from "../card-game/world-name.mjs";
 // ☰'s world slots (#1877, #1891): a world shows the avatars that entered
 // it, in colour only while online, then "+" for an open seat. A tap shows
 // that avatar as a beat in front of the dialogue (☰ has no profile card):
-// it stands as on the quest card, borderless, with two lines (its name,
-// then "Exploring" its world), and on yours Leave on the right. One tap on yours in another world switches there, and ☰ opens
-// with it chosen; on the one being played a tap only chooses. On another's
+// it stands as on the quest card. Your chosen avatar's card names who
+// leaves and which world they leave. One tap on yours in another world
+// switches there, and ☰ opens with it chosen. On another's
 // a second tap arms it for the owner's Free. "+" offers your
 // avatar in the beat. A friend's world shows while your avatar sits
 // there; Leave releases it and keeps its level. A world nobody is in has
@@ -29,19 +29,16 @@ const seats = (...held) => held.concat(Array(8 - held.length).fill(0));
 // The friend's world is played as Tavi, in seat five.
 const snapshot = (id, nudgeReady) => {
   const actor = id === "friend" ? "tavi" : "vale";
+  const seed = { here: 1, spare: 2, friend: 3 }[id];
   const maraHere = nudgeReady && id === "here";
   const players = maraHere ? [actor, "mara"] : [actor];
   const seat =
-    id === "friend"
-      ? seats(0, 0, 0, 0, 1)
-      : maraHere
-        ? seats(1, 1)
-        : seats(1);
+    id === "friend" ? seats(0, 0, 0, 0, 1) : maraHere ? seats(1, 1) : seats(1);
   if (maraHere) world.actors.mara.place = world.actors.vale.place;
   return {
     ...dispatchShared({
       op: "view",
-      world,
+      world: { ...world, run: { seed } },
       actor,
       claimed: players,
       present: players,
@@ -173,30 +170,32 @@ try {
     await valeFace.click();
     assert.equal(await card.getAttribute("data-avatar"), "vale");
     assert.equal(await valeFace.getAttribute("aria-pressed"), "true");
-    assert.match(
-      await card.locator(".action-beat-heading").innerText(),
-      /^Vale\nExploring \S.+$/,
-    );
     assert.equal(
-      await card.evaluate((panel) => getComputedStyle(panel).borderTopWidth),
-      "0px",
+      await card.locator(".action-beat-heading").innerText(),
+      `Vale leaves ${worldName(1)}`,
     );
+    assert.equal(await card.getAttribute("data-card-tap"), "hint");
     assert.equal(await card.locator(".beat-face.quest-screen").count(), 1);
-    assert.deepEqual(await actions.allInnerTexts(), ["Leave"]);
-    // Portrait left, words in the middle, and Leave flush on the right.
-    // On phones Leave may wrap onto its own row.
-    const [art, words, leaveBox, beatBox] = await Promise.all(
-      [".action-beat-cards", ".action-beat-body", "#card-actions", ""].map(
-        (part) => card.locator(part ? part : ":scope").boundingBox(),
+    assert.equal(await actions.innerText(), "Tap to leave");
+    assert.equal(await actions.getAttribute("aria-label"), "Leave");
+    const [art, words] = await Promise.all(
+      [".action-beat-cards", ".action-beat-body"].map((part) =>
+        card.locator(part).boundingBox(),
       ),
     );
     assert(art.x < words.x);
-    const stacked = leaveBox.y >= words.y + words.height - 1;
-    if (stacked) assert(width <= 390);
-    else assert(words.x + words.width <= leaveBox.x + 1);
-    assert(
-      Math.abs(leaveBox.x + leaveBox.width - (beatBox.x + beatBox.width)) <= 2,
-    );
+    const hint = await actions.evaluate((button) => {
+      const range = document.createRange();
+      range.selectNodeContents(button);
+      const text = range.getBoundingClientRect();
+      const panel = button.closest("#action-beat").getBoundingClientRect();
+      return {
+        right: panel.right - text.right,
+        bottom: panel.bottom - text.bottom,
+      };
+    });
+    assert(hint.right > 0 && hint.right < 20);
+    assert(hint.bottom > 0 && hint.bottom < 20);
 
     assert(await note.isHidden());
     await shot(`output/card-world-slots-selected-${width}.png`);
@@ -204,7 +203,7 @@ try {
     assert(await menu.isVisible());
     assert.equal(await valeFace.getAttribute("aria-pressed"), "true");
     assert.equal(await valeFace.getAttribute("data-armed"), null);
-    assert.deepEqual(await actions.allInnerTexts(), ["Leave"]);
+    assert.equal(await actions.getAttribute("aria-label"), "Leave");
     // Your Tavi in the friend's world: one tap switches there at once, a
     // plain page change with no veil, and ☰ opens there with Tavi chosen,
     // Leave on the right.
@@ -220,11 +219,11 @@ try {
       "true",
     );
     assert.equal(await card.getAttribute("data-avatar"), "tavi");
-    assert.match(
+    assert.equal(
       await card.locator(".action-beat-heading").innerText(),
-      /^Tavi\nExploring \S.+$/,
+      `Tavi leaves ${worldName(3)}`,
     );
-    assert.deepEqual(await actions.allInnerTexts(), ["Leave"]);
+    assert.equal(await actions.innerText(), "Tap to leave");
     assert(await note.isHidden());
     await shot(`output/card-world-slots-arrived-${width}.png`);
     // Leave there frees her seat; the bare address opens with ☰.
@@ -251,14 +250,14 @@ try {
     );
     assert.equal(await actions.count(), 0);
     await spare.locator('[data-avatar="mara"] button').click();
-    assert.deepEqual(await actions.allInnerTexts(), ["Free"]);
+    assert.equal(await actions.getAttribute("aria-label"), "Free");
     // "+" in the spare world offers Vale on the card, and each tap the next
     // avatar that may go there, up to Tavi, who stepped away; she comes.
     const open = spare.locator(".seat-open");
     await open.click();
     assert.equal(await card.getAttribute("data-avatar"), "vale");
     const bring = page.locator("#avatar-bring");
-    assert.match(await bring.innerText(), /^Bring to /);
+    assert.match(await bring.getAttribute("aria-label"), /^Bring to /);
     await open.click();
     assert.equal(await card.getAttribute("data-avatar"), "rue");
     await open.click();
@@ -298,7 +297,7 @@ try {
     await menu
       .locator('.world-slot[data-current="true"] [data-avatar="mara"] button')
       .click();
-    assert.deepEqual(await actions.allInnerTexts(), ["Nudge"]);
+    assert.equal(await actions.getAttribute("aria-label"), "Nudge");
     await Promise.all([
       page.waitForResponse(
         (response) => response.request().postDataJSON()?.op === "nudge",
