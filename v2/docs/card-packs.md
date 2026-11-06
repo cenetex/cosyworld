@@ -31,6 +31,14 @@ Undo and draft saves in one workspace. Inject tools, verified art and scene call
 `authoring-accepted.mjs` prepares accepted avatars as guarded source edits plus
 immutable output JSON and image assets. Adopt the result, then pass its full asset
 Map to `store.write` with the expected generation. Earlier bytes support Undo.
+Pass an existing `targetId` to keep its placement, quests and item holders.
+Variant avatars require an explicit `targetVariant` (`awake` or `asleep`) when
+accepting a portrait. Their other variants and temperament stay intact.
+`nextAcceptedAvatarRevision` includes retained Undo versions. Text-only edits
+keep saved visual links when their verified base matches the current portrait.
+The sidecar retains the original pose sheet and its six reviewed cells.
+`acceptedAvatarOutputs` reads verified history for a current avatar, so accepted
+names and aliases remain available after field edits and Undo.
 
 The authoring card index is `buildAuthoringTree({pack, bridge})` in
 `authoring-tree.mjs`. It returns ordered `cards`, `roots`, and `children`.

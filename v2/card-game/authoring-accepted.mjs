@@ -57,11 +57,28 @@ const digest = async (value) =>
 const prefix = (record, id) =>
   `assets/${record.draft.pack.id}/authoring/avatars/${id}/`;
 
-export async function acceptedAvatarOutput(record, id) {
-  const entity = record.draft.pack?.avatars?.[id];
-  if (!entity) return null;
-  const hash = await digest(entity);
-  let match = null;
+export function nextAcceptedAvatarRevision(record, id) {
+  const root = prefix(record, id);
+  let latest = 0;
+  for (const asset of record.draft.assets) {
+    if (!asset.path.startsWith(root)) continue;
+    const version = asset.path.slice(root.length);
+    const revision = Number(version.split("/")[0]);
+    need(
+      Number.isSafeInteger(revision) &&
+        revision > 0 &&
+        version === `${revision}/output.json`,
+      "Open accepted outputs with their saved revision paths.",
+    );
+    latest = Math.max(latest, revision);
+  }
+  need(Number.isSafeInteger(latest + 1), "Start a new avatar output history.");
+  return latest + 1;
+}
+
+export async function acceptedAvatarOutputs(record, id) {
+  if (!own(record.draft.pack?.avatars, id)) return [];
+  const outputs = [];
   for (const meta of record.draft.assets) {
     if (
       !meta.path.startsWith(prefix(record, id)) ||
@@ -86,40 +103,83 @@ export async function acceptedAvatarOutput(record, id) {
         acceptedOk(output.accepted) &&
         Number.isSafeInteger(output.revision) &&
         output.revision > 0 &&
+        output.id === id &&
+        meta.path === `${prefix(record, id)}${output.revision}/output.json` &&
+        typeof output.entitySha256 === "string" &&
+        /^[a-f0-9]{64}$/u.test(output.entitySha256) &&
         (output.visual === null ||
-          (fields(output.visual, ["revision", "images"]) &&
+          (fields(output.visual, ["revision", "images"], ["targetVariant"]) &&
+            (output.visual.targetVariant === undefined ||
+              ["awake", "asleep"].includes(output.visual.targetVariant)) &&
             Number.isSafeInteger(output.visual.revision) &&
             output.visual.revision > 0 &&
             Array.isArray(output.visual.images) &&
             output.visual.images.length <= roles.length &&
+            output.visual.images.some((image) => image.role === "base") &&
+            new Set(output.visual.images.map((image) => image.role)).size ===
+              output.visual.images.length &&
             output.visual.images.every(
               (image) =>
                 fields(image, ["role", "path", "sha256"]) &&
                 roles.includes(image.role) &&
                 record.draft.assets.some(
                   (asset) =>
-                    asset.path === image.path && asset.sha256 === image.sha256,
+                    asset.path === image.path &&
+                    asset.sha256 === image.sha256 &&
+                    own(extensions, asset.mime),
                 ),
             ))),
       "Open a version 1 accepted output with named image roles.",
     );
-    if (
-      output.id === id &&
-      output.entitySha256 === hash &&
-      output.revision > (match?.revision ?? 0)
-    )
-      match = output;
+    outputs.push(output);
   }
-  return match;
+  return outputs.sort((a, b) => b.revision - a.revision);
+}
+
+export async function acceptedAvatarOutput(record, id) {
+  const entity = record.draft.pack?.avatars?.[id];
+  if (!own(record.draft.pack?.avatars, id)) return null;
+  const hash = await digest(entity);
+  return (
+    (await acceptedAvatarOutputs(record, id)).find(
+      (o) => o.entitySha256 === hash,
+    ) ?? null
+  );
+}
+
+async function retainedVisual(record, id, entity, targetVariant) {
+  let fallback = null;
+  for (const { visual } of await acceptedAvatarOutputs(record, id)) {
+    if (!visual || (targetVariant && visual.targetVariant !== targetVariant))
+      continue;
+    const path = visual.targetVariant
+      ? entity?.variants?.[visual.targetVariant]?.portrait
+      : entity?.portrait;
+    const base = visual.images.find((image) => image.role === "base");
+    const meta = record.draft.assets.find((asset) => asset.path === path);
+    if (!meta || meta.sha256 !== base.sha256) continue;
+    const bytes = record.assets.get(path);
+    need(bytes instanceof Uint8Array, "Open the confirmed portrait file.");
+    const actual = await assetMetadata(path, meta.mime, bytes);
+    need(actual.sha256 === meta.sha256, "Check the confirmed portrait digest.");
+    if (base.path === path) return visual;
+    fallback ??= visual;
+  }
+  return fallback;
 }
 
 export async function prepareAcceptedAvatar(record, request) {
   request = structuredClone(request);
   need(
-    fields(request, ["candidateId", "revision", "accepted", "images"]),
+    fields(
+      request,
+      ["candidateId", "revision", "accepted", "images"],
+      ["targetId", "targetVariant"],
+    ),
     "Choose an accepted avatar and its images.",
   );
-  const { candidateId, revision, accepted, images } = request;
+  const { candidateId, revision, accepted, images, targetId, targetVariant } =
+    request;
   need(
     typeof candidateId === "string" &&
       /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/u.test(candidateId),
@@ -140,26 +200,36 @@ export async function prepareAcceptedAvatar(record, request) {
   );
   need(
     typeof draft.pack?.id === "string" &&
-      /^[a-z][a-z0-9-]{0,63}$/u.test(draft.pack.id),
+      /^[a-z][a-z0-9-]{0,79}$/u.test(draft.pack.id),
     "Choose a pack with a safe ID.",
   );
-  const id = `author-${candidateId}`,
+  need(
+    targetId === undefined ||
+      (typeof targetId === "string" &&
+        /^[a-z][a-z0-9-]{0,79}$/u.test(targetId) &&
+        own(draft.pack.avatars, targetId)),
+    "Choose an existing avatar with a safe authored ID.",
+  );
+  const id = targetId ?? `author-${candidateId}`,
     root = prefix(record, id);
   need(
     !own(draft.pack.places, id) && !own(draft.pack.items, id),
     "Give this avatar its own stable ID.",
   );
-  for (const asset of draft.assets) {
-    if (!asset.path.startsWith(root)) continue;
-    const prior = Number(asset.path.slice(root.length).split("/")[0]);
-    need(
-      Number.isSafeInteger(prior) && prior < revision,
-      "Use a fresh output revision after the saved versions.",
-    );
-  }
+  need(
+    revision >= nextAcceptedAvatarRevision(record, id),
+    "Use a fresh output revision after the saved versions.",
+  );
   const before = baseline(record),
     previous = draft.pack.avatars?.[id];
-  const oldOutput = await acceptedAvatarOutput(record, id);
+  need(
+    targetVariant === undefined ||
+      (targetId &&
+        previous?.temperament &&
+        ["awake", "asleep"].includes(targetVariant) &&
+        own(previous.variants, targetVariant)),
+    "Choose an authored awake or asleep portrait variant.",
+  );
   const place = record.launch?.place ?? draft.pack.entry;
   need(
     previous || own(draft.pack.places, place),
@@ -180,6 +250,13 @@ export async function prepareAcceptedAvatar(record, request) {
       (!images.length || images.some((image) => image.role === "base")),
     "Choose one base image and named poses with unique roles.",
   );
+  need(
+    !images.length || !previous?.temperament || targetVariant,
+    "Choose which authored portrait variant to replace.",
+  );
+  const oldVisual = images.length
+    ? null
+    : await retainedVisual(record, id, previous, targetVariant);
   const assets = [],
     bytes = new Map(),
     visuals = [];
@@ -211,7 +288,17 @@ export async function prepareAcceptedAvatar(record, request) {
     text: accepted.description.trim(),
   };
   const portrait = visuals.find((image) => image.role === "base");
-  if (portrait) entity.portrait = portrait.path;
+  if (portrait) {
+    if (targetVariant)
+      entity.variants = {
+        ...entity.variants,
+        [targetVariant]: {
+          ...entity.variants[targetVariant],
+          portrait: portrait.path,
+        },
+      };
+    else entity.portrait = portrait.path;
+  }
   const output = {
     schemaVersion: 1,
     id,
@@ -219,8 +306,12 @@ export async function prepareAcceptedAvatar(record, request) {
     entitySha256: await digest(entity),
     accepted: structuredClone(accepted),
     visual: images.length
-      ? { revision, images: visuals }
-      : (oldOutput?.visual ?? null),
+      ? {
+          revision,
+          images: visuals,
+          ...(targetVariant ? { targetVariant } : {}),
+        }
+      : oldVisual,
   };
   await add(
     `${root}${revision}/output.json`,
@@ -234,11 +325,11 @@ export async function prepareAcceptedAvatar(record, request) {
       : { path: ["pack", "avatars"], value: { [id]: entity } },
   ]);
   const prepared = { id, edit, assets, bytes, baseline: before };
-  adoptAcceptedAvatar(record, prepared);
+  acceptedDraft(record, prepared);
   return prepared;
 }
 
-export function adoptAcceptedAvatar(record, prepared) {
+function acceptedDraft(record, prepared) {
   need(
     baseline(record) === prepared.baseline,
     "This draft changed. Review the accepted avatar again.",
@@ -252,11 +343,16 @@ export function adoptAcceptedAvatar(record, prepared) {
       assets: [...record.draft.assets, ...prepared.assets],
     }),
   );
+  return { ...record, draft, launch: next.launch };
+}
+
+export function adoptAcceptedAvatar(record, prepared) {
+  const next = acceptedDraft(record, prepared);
   const assets = new Map(
     [...record.assets, ...prepared.bytes].map(([path, bytes]) => [
       path,
       bytes.slice(),
     ]),
   );
-  return { ...record, draft, launch: next.launch, assets };
+  return { ...next, assets };
 }
