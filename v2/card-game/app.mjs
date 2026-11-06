@@ -1606,9 +1606,7 @@ function choose(id) {
   hand.querySelector(`[data-card="${id}"]`)?.focus({ preventScroll: true });
   const firstItem =
     id === placeHere()
-      ? hand.querySelector(
-          `.card-frame[data-holder="${id}"]:not([hidden])`,
-        )
+      ? hand.querySelector(`.card-frame[data-holder="${id}"]:not([hidden])`)
       : null;
   revealHandCard(id, { nextFrame: firstItem });
 }
