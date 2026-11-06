@@ -2280,12 +2280,6 @@ function renderActions() {
   syncLayering();
   if (borrowedBeat) return showBorrowedBeat(row, heading);
   const revision = world.revision;
-  const nudgeTarget =
-    !rested &&
-    sharedSession &&
-    selected.find(
-      (id) => id !== currentActor(world) && world.presentActors?.includes(id),
-    );
   row.replaceChildren(
     ...actions.map((action, index) => {
       const refused = refusedPlay(action);
@@ -2311,15 +2305,6 @@ function renderActions() {
       return button;
     }),
   );
-  if (nudgeTarget) {
-    const nudge = node("button", "Nudge", "card-action");
-    nudge.type = "button";
-    nudge.onclick = () =>
-      sharedSession
-        .command({ op: "nudge", target: nudgeTarget })
-        .catch((error) => notice(error.message));
-    row.append(nudge);
-  }
   if (quiet) {
     const reveal = node("button", OPENING_REVEAL, "card-primary");
     reveal.type = "button";
