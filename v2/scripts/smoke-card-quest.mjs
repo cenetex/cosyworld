@@ -655,7 +655,7 @@ try {
     await page.keyboard.press("Enter");
     await page.locator('#hand .want-card[data-quest-id="quest:0"]').click();
     assert.equal(
-      await page.locator(".action-beat-heading").textContent(),
+      (await page.locator(".action-beat-heading").textContent()).trim(),
       "Find something and bring it somewhere",
     );
     assert.equal(
