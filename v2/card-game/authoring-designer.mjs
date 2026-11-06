@@ -127,6 +127,7 @@ export function installWorldDesigner({
         } else view.note = card?.state || view.note;
       }
     }
+    if (status.accepting) view.edit = null;
     view.actions = view.actions.map((action) => ({
       ...action,
       stays: true,
@@ -154,6 +155,7 @@ export function installWorldDesigner({
       };
     },
     onSelect(id) {
+      if (session.status.accepting) return;
       const card = byId.get(id);
       if (card.role === "field" && !card.group && session.state.armed)
         session.dispatch({ type: "cancel" });

@@ -23,6 +23,8 @@ export function createAuthoringSession({ store, onChange = () => {} }) {
     meta = 0;
   let busy = false,
     writing = false,
+    accepting = false,
+    files = new Map(),
     epoch = 0,
     session = 0;
   const pending = new Map();
@@ -63,6 +65,7 @@ export function createAuthoringSession({ store, onChange = () => {} }) {
     return { key, generation, draft: clone, launch };
   }
   function open(value) {
+    need(!accepting, "Wait for the accepted card to save.");
     const draft = copyDraft(value.record?.draft);
     need(
       Number.isSafeInteger(value.record.generation) &&
@@ -77,6 +80,7 @@ export function createAuthoringSession({ store, onChange = () => {} }) {
     snapshot(next, {}, draft);
     key = value.key;
     manifest = draft;
+    files = structuredClone(value.record.assets ?? new Map());
     generation = value.record.generation;
     savedSequence = savedMeta = meta = 0;
     pending.clear();
@@ -113,6 +117,60 @@ export function createAuthoringSession({ store, onChange = () => {} }) {
       onChange();
     }
   }
+  async function accept(prepared) {
+    need(!writing, "Wait for the current save.");
+    const payload = structuredClone(prepared),
+      current = snapshot();
+    need(
+      payload.baseline ===
+        JSON.stringify([
+          current.key,
+          current.generation,
+          current.draft,
+          current.launch ?? null,
+        ]),
+      "This draft changed. Review the accepted card again.",
+    );
+    need(
+      Array.isArray(payload.assets) && payload.bytes instanceof Map,
+      "Choose the accepted output files.",
+    );
+    const next = controller.reduceAuthoring(candidate(), {
+      type: "edit",
+      edit: payload.edit,
+    });
+    const record = snapshot(
+      next,
+      {},
+      {
+        ...manifest,
+        assets: [...manifest.assets, ...payload.assets],
+      },
+    );
+    const savedFiles = new Map([...files, ...payload.bytes]);
+    accepting = writing = true;
+    try {
+      onChange();
+      record.generation = await store.write(
+        key,
+        record,
+        generation,
+        savedFiles,
+      );
+      manifest = structuredClone(record.draft);
+      files = savedFiles;
+      generation = record.generation;
+      pending.clear();
+      savedSequence = next.sequence;
+      savedMeta = meta;
+      epoch++;
+      set(next);
+      return record;
+    } finally {
+      accepting = writing = false;
+      onChange();
+    }
+  }
   const api = {
     get state() {
       return state;
@@ -124,6 +182,7 @@ export function createAuthoringSession({ store, onChange = () => {} }) {
         generation,
         busy,
         writing,
+        accepting,
         dirty: Boolean(
           state &&
             (state.sequence !== savedSequence ||
@@ -134,19 +193,25 @@ export function createAuthoringSession({ store, onChange = () => {} }) {
     },
     open,
     save,
+    accept,
     snapshot(options = {}) {
       const raw = options.pending === false;
-      return snapshot(raw ? state : candidate(), {}, manifest, raw);
+      const record = snapshot(raw ? state : candidate(), {}, manifest, raw);
+      if (options.assets) record.assets = structuredClone(files);
+      return record;
     },
     stage(patch) {
+      if (accepting) return;
       remember(snapshot(state, patch, manifest, true).draft);
       epoch++;
       onChange();
     },
     touch() {
+      if (accepting) return;
       epoch++;
     },
     dispatch(event) {
+      if (accepting) return;
       epoch++;
       const undo = event.type === "undo" ? state.undo.at(-1) : null;
       const next = controller.reduceAuthoring(state, event);
@@ -172,12 +237,14 @@ export function createAuthoringSession({ store, onChange = () => {} }) {
       };
     },
     input(field, text) {
+      if (accepting) return;
       epoch++;
       if (text === field.text) pending.delete(field.key);
       else pending.set(field.key, { field, text });
       onChange();
     },
     saveField(field) {
+      if (accepting) return;
       const entry = pending.get(field.key);
       need(!entry?.conflict, conflict);
       const next = changeField(
@@ -206,12 +273,13 @@ export function createAuthoringSession({ store, onChange = () => {} }) {
       try {
         onChange();
         return await callback({
-          snapshot: guard(() => api.snapshot()),
+          snapshot: guard((options) => api.snapshot(options)),
           stage: guard((patch) => {
             api.stage(patch);
             at = epoch;
           }),
           save: guard(save),
+          accept: guard(accept),
           open: guard(open),
         });
       } finally {
