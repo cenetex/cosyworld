@@ -1337,10 +1337,8 @@ function keepHeldSelection(before, action = null) {
   expandedHolders.clear();
   if (expanded) expandedHolders.add(actor);
 }
-// The place the player came from leads the row, face up, with the current
-// place beneath it (#2286); the other ways on stack at the row's right end,
-// so exploring is a choice of left or right (#2272). Without a way back the
-// current place leads alone.
+// The current place and its items sit on the left. The way back sits just
+// before them, and the other ways on stack at the row's right end.
 const placeHere = () => world.actors[currentActor(world)].place;
 const stackedPlace = (id) => Boolean(places[id]) && id !== placeHere();
 const MOVES = ["move", "retreat", "sent-home"];
@@ -1360,29 +1358,28 @@ function cameFrom() {
     from = last?.locationId === here ? last.fromLocationId : null;
   return from && availableCards(world).includes(from) ? from : null;
 }
-const wayOn = (id) => stackedPlace(id) && id !== cameFrom();
 const atHere = (id) =>
   id === placeHere() ||
   Boolean(things[id] && rootHolder(world, id) === placeHere());
 function stackPlaces(cards) {
-  const here = placeHere(),
-    back = cameFrom(),
-    left = cards.filter(
-      (id) => id === here || (things[id] && rootHolder(world, id) === here),
-    );
-  if (!left.length) return cards;
+  const back = cameFrom(),
+    local = cards.filter(atHere);
   return [
     ...(back ? [back] : []),
-    ...left,
-    ...cards.filter((id) => !left.includes(id) && !stackedPlace(id)),
-    ...cards.filter(wayOn),
+    ...local,
+    ...cards.filter((id) => !local.includes(id) && !stackedPlace(id)),
+    ...cards.filter((id) => stackedPlace(id) && id !== back),
   ];
 }
 // The ways on: the first face up, the rest face down behind it until its
 // tap fans them, as the avatar's stacks do; one alone is chosen at once.
 function wayStack(id) {
-  if (!wayOn(id)) return null;
-  const ways = availableCards(world).filter(wayOn),
+  if (!stackedPlace(id)) return null;
+  const back = cameFrom();
+  if (id === back) return null;
+  const ways = availableCards(world).filter(
+      (place) => stackedPlace(place) && place !== back,
+    ),
     open = waysOpen === placeHere(),
     top = ways[0] === id;
   return {
@@ -1492,8 +1489,7 @@ function selectCards(cards, { keepOpen = false } = {}) {
       !keepOpen &&
       places[id] &&
       !cards.includes(id) &&
-      !cards.some((card) => things[card] && rootHolder(world, card) === id) &&
-      !(id === cameFrom() && cards.some(atHere))
+      !cards.some((card) => things[card] && rootHolder(world, card) === id)
     )
       expandedHolders.delete(id);
   selected = cards;
@@ -1560,16 +1556,11 @@ function choose(id) {
   } else if (part?.under) avatarFan = part.kind;
   else if (way?.under) {
     // Fanning the ways on folds the avatar's fan and the place's stack.
-    const here = placeHere();
-    waysOpen = here;
+    const back = cameFrom();
+    waysOpen = placeHere();
     avatarFan = null;
     selectCards(
-      selected.filter(
-        (cardId) =>
-          cardId !== here &&
-          cardId !== cameFrom() &&
-          !(things[cardId] && rootHolder(world, cardId) === here),
-      ),
+      selected.filter((cardId) => cardId !== back && !atHere(cardId)),
     );
   } else if (part) {
     // A thing chosen takes the avatar's place in the choice, so it pairs
@@ -1584,18 +1575,9 @@ function choose(id) {
       { keepOpen: true },
     );
     expandedHolders.add(actor);
-  } else if (places[id] && expandedHolders.has(id)) {
+  } else if (id === placeHere() && expandedHolders.has(id)) {
     expandedHolders.delete(id);
-    selectCards(
-      selected.filter(
-        (cardId) =>
-          cardId !== id &&
-          !(id === cameFrom() && atHere(cardId)) &&
-          (!things[cardId] || rootHolder(world, cardId) !== id),
-      ),
-      // Only the left stack's top card folds the stack.
-      { keepOpen: id !== (cameFrom() ?? placeHere()) },
-    );
+    selectCards(selected.filter((cardId) => !atHere(cardId)));
   } else {
     const holder = things[id] ? rootHolder(world, id) : null;
     if (places[holder])
@@ -1620,10 +1602,13 @@ function choose(id) {
   }
   selectionRevision = world.revision;
   render();
-  $("hand")
-    .querySelector(`[data-card="${id}"]`)
-    ?.focus({ preventScroll: true });
-  revealHandCard(id);
+  const hand = $("hand");
+  hand.querySelector(`[data-card="${id}"]`)?.focus({ preventScroll: true });
+  const firstItem =
+    id === placeHere()
+      ? hand.querySelector(`.card-frame[data-holder="${id}"]:not([hidden])`)
+      : null;
+  revealHandCard(id, { nextFrame: firstItem });
 }
 function commit(cards, revision) {
   if (selectionBlocked()) return;
@@ -2483,8 +2468,7 @@ function updateCardSelection(frame) {
         ? availableCards(world).filter(
             (item) => things[item] && rootHolder(world, item) === id,
           )
-        : [],
-    stack = id === cameFrom() ? [placeHere()] : [];
+        : [];
   frame.dataset.raised = String(raised);
   button.setAttribute("aria-pressed", String(raised));
   button.dataset.selected = String(selected.includes(id));
@@ -2493,7 +2477,7 @@ function updateCardSelection(frame) {
     frame.hidden = places[frame.dataset.holder]
       ? !expandedHolders.has(frame.dataset.holder)
       : !raised && !expandedHolders.has(frame.dataset.holder);
-  if (held.length || stack.length) {
+  if (held.length) {
     frame.dataset.expanded = String(expandedHolders.has(id));
     button.setAttribute("aria-expanded", String(expandedHolders.has(id)));
   }
@@ -2504,8 +2488,7 @@ function updateCardSelection(frame) {
     (label ? ` ${label}.` : "") +
     (held.length
       ? ` ${places[id] ? "Contains" : "Carries"} ${held.map(nameOf).join(", ")}. Select to show these cards.`
-      : "") +
-    stackLabel(stack);
+      : "");
 }
 const handMotions = new Map();
 // Cards new to the hand rise in, and quests are dealt face down
@@ -2797,15 +2780,8 @@ function card(id) {
   const frame = node("div", undefined, "card-frame");
   frame.dataset.raised = String(raised);
   frame.append(el);
-  const holder = things[id]
-    ? rootHolder(world, id)
-    : id === placeHere()
-      ? cameFrom()
-      : null;
-  if (id === placeHere() && holder) {
-    frame.dataset.holder = holder;
-    frame.hidden = !expandedHolders.has(holder);
-  } else if (people[holder] || places[holder]) {
+  const holder = things[id] ? rootHolder(world, id) : null;
+  if (people[holder] || places[holder]) {
     frame.dataset.holder = holder;
     frame.hidden = places[holder]
       ? !expandedHolders.has(holder)
@@ -2843,15 +2819,6 @@ function card(id) {
       }
     }
   }
-  const stack = id === cameFrom() ? [placeHere()] : [];
-  if (stack.length) {
-    frame.dataset.places = String(stack.length);
-    frame.dataset.expanded = String(expandedHolders.has(id));
-    el.setAttribute("aria-expanded", String(expandedHolders.has(id)));
-    if (!hidden) observation.textContent += stackLabel(stack);
-    // The current place lies face down beneath the way back.
-    stackEdges(frame, stack.length);
-  }
   syncAvatarStack(frame, id);
   if (foldQuest()?.actor === id) frame.prepend(questFold(foldQuest()));
   // Its reason is in the context button, never on the box.
@@ -2875,10 +2842,6 @@ function card(id) {
 // to come) show the carved card back.
 const cardBackImage = () =>
   `url("${imageUrl("./assets/card-back.webp", "card")}")`;
-const stackLabel = (stack) =>
-  stack.length
-    ? " The way back. Where you are lies beneath; select to show it."
-    : "";
 // The quest card: a small screen showing the player doing the quest's verb
 // with its target, with only the verb, the level and the tier colour as
 // words. It glows while the target is near. The card itself plays nothing:
@@ -4410,7 +4373,7 @@ function render() {
   if (rowCollapsed) expandedHolders.clear();
   else
     for (const id of selected) {
-      if (people[id] || places[id]) expandedHolders.add(id);
+      if (people[id] || id === placeHere()) expandedHolders.add(id);
     }
   if (rowCollapsed || waysOpen !== placeHere()) waysOpen = null;
   // Folding the avatar's stacks folds its fan and lowers a chosen quest.
@@ -4574,7 +4537,7 @@ function render() {
     // beside its new holder. Scrolled now, before the row's moves are
     // measured, it slides from where it lay into view.
     if (receivedCard) {
-      revealHandCard(receivedCard, false, true);
+      revealHandCard(receivedCard, { instant: true });
       receivedCard = null;
     }
     renderActions();
@@ -4591,7 +4554,7 @@ function render() {
           .querySelector(part)
           .animate({ opacity: [0, 1] }, { duration: LAYOUT_MS });
     if (!sameWorld) playLevelUps();
-    if (arriving) revealHandCard(renderedHandPlace, true, true);
+    if (arriving) revealHandCard(renderedHandPlace, { instant: true });
     // A scene change's new cards rise after the old ones fall and a beat.
     const entering = (count) => {
       const timing = swapTiming(swap.left, count, swap.fallen);
@@ -4621,7 +4584,7 @@ function render() {
     showQuests(opening);
     // A new quest rises where the player can see its slot in the hand.
     if (dealtQuest && !opening)
-      revealHandCard(`quest:${dealtQuest.index}`, false, true);
+      revealHandCard(`quest:${dealtQuest.index}`, { instant: true });
     openLockedBoxes();
     // Every new place is measured before any card starts moving, so the
     // row is laid out once rather than once per card.
@@ -4706,14 +4669,15 @@ function playLevelUps() {
       });
   }
 }
-function revealHandCard(id, alignStart = false, instant = false) {
+function revealHandCard(id, { instant = false, nextFrame = null } = {}) {
   const hand = $("hand"),
     frame = hand
       .querySelector(`[data-card="${id}"], [data-quest-id="${id}"]`)
       ?.closest(".card-frame");
   if (!frame || frame.hidden) return;
-  const left = frame.offsetLeft - hand.offsetLeft,
-    right = left + frame.offsetWidth,
+  const last = nextFrame ?? frame,
+    left = frame.offsetLeft - hand.offsetLeft,
+    right = last.offsetLeft - hand.offsetLeft + last.offsetWidth,
     // Keep the revealed card clear of the faded edges.
     margin = Math.max(
       16,
@@ -4722,13 +4686,14 @@ function revealHandCard(id, alignStart = false, instant = false) {
     visibleLeft = hand.scrollLeft + margin,
     visibleRight = hand.scrollLeft + hand.clientWidth - margin;
   const target =
-    alignStart || left < visibleLeft
+    left < visibleLeft
       ? left - margin
       : right > visibleRight
         ? right - hand.clientWidth + margin
         : hand.scrollLeft;
   hand.scrollTo({
-    left: target,
+    // Keep the place in view when its first item cannot fully fit beside it.
+    left: nextFrame ? Math.min(target, left - margin) : target,
     behavior: instant || reducedMotion.matches ? "instant" : "smooth",
   });
 }
