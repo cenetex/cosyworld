@@ -1,6 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
 import { createAuthoringAccountTools } from "../v2/card-game/authoring-account-tools.mjs";
-
 const deferred = () => {
   let resolve;
   const promise = new Promise((done) => {

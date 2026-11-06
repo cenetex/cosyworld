@@ -57,8 +57,9 @@ try {
         width < 700 ? locator.tap() : locator.click();
       const action = page.locator("#card-actions button"),
         note = page.locator(".action-beat-note");
-      await press(page.locator("#history-button"));
-      await page.getByRole("textbox", { name: "World source" }).waitFor();
+      await press(page.locator("#menu-button"));
+      await press(page.locator("[data-setting=designer-tool-source]"));
+      await page.getByRole("textbox").waitFor();
       await note.fill("A world kept through the passkey step. 雪");
       await press(page.locator("#menu-button"));
       const register = width === 1440,
@@ -94,8 +95,9 @@ try {
         ceremony_id: "fixture",
         credential: { id: "fixture-key", type: "public-key" },
       });
-      await press(page.locator("#history-button"));
-      await page.getByRole("textbox", { name: "World source" }).waitFor();
+      await press(page.locator("#menu-button"));
+      await press(page.locator("[data-setting=designer-tool-source]"));
+      await page.getByRole("textbox").waitFor();
       assert.equal(
         await note.innerText(),
         "A world kept through the passkey step. 雪",
