@@ -280,6 +280,10 @@ fn profiles() -> &'static Value {
     base_profiles()
 }
 
+pub(crate) fn known_card(id: &str) -> bool {
+    profiles().get(id).is_some()
+}
+
 fn kind(id: &str, expected: &str) -> bool {
     profiles()[id]["kind"].as_str() == Some(expected)
 }

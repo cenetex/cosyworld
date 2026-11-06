@@ -102,6 +102,7 @@ mod tests {
             target: None,
             key: String::new(),
             moving: false,
+            revealed: None,
         }
     }
     fn count(c: &Connection, sql: &str, id: &str) -> i64 {
