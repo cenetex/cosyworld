@@ -180,6 +180,8 @@ try {
         );
         if ((await quest.getAttribute("data-picked")) === "false")
           await tapCard(quest);
+        await page.locator('#hand button[data-quest-id="quest:0"][data-unrevealed="false"]').waitFor();
+        await page.waitForFunction(() => !document.querySelector("#hand [data-revealing]"));
       };
       await pickQuest();
       const ready = await state();
