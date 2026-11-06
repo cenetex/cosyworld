@@ -2,9 +2,10 @@ import assert from "node:assert/strict";
 import { mkdir, writeFile } from "node:fs/promises";
 import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
-import { createWorld, encodeSave, legalActions, nameOf, play } from "../card-game/world.mjs";
+import { createWorld, encodeSave, nameOf } from "../card-game/world.mjs";
 import { availableCards } from "../card-game/cards.mjs";
 import { readyActionButton, selectCard } from "./card-browser-helpers.mjs";
+import speech from "../card-game/speech.json" with { type: "json" };
 
 const output = new URL("../../output/card-thinking/", import.meta.url);
 await mkdir(output, { recursive: true });
@@ -14,16 +15,11 @@ const browser = await chromium.launch({ headless: true });
 const reports = [];
 try {
   for (const width of [1440, 390]) {
-    let world = createWorld();
-    // Keep the pond residents home throughout the recorded visit.
+    const world = createWorld();
+    world.actors.vale.place = "pond";
+    world.actors.moth.place = "pond";
+    // Pip stays at the pond to be talked with.
     world.actors.moth.want = null;
-    world.actors.keeper.want = null;
-    // A later silent return needs an earlier committed arrival at the station.
-    for (const target of ["pond", "station", "pond"]) {
-      const moved = play(world, legalActions(world).find(action => action.kind === "move" && action.target === target));
-      assert(moved.ok, moved.error);
-      world = moved.state;
-    }
     world.items.lamp.holder = "station";
     const table = `thinking-${width}`;
     const key = `cosyworld.reflected-shore.v1.${table}`;
@@ -162,8 +158,8 @@ try {
       await page.waitForTimeout(50);
     }
     // A Talk asks for words. Its Thinking card holds the panel back; two
-    // taps stop waiting, the play stays saved, and a silent move made then
-    // sends no request of its own and never shows the late words.
+    // taps stop waiting, and the next move keeps its own speech policy.
+    // The replaced Talk stays out of the new room.
     const talkRequest = page.waitForRequest("**/card-game/text");
     await selectCard(page, "moth");
     await readyActionButton(page, "talk").click();
@@ -174,11 +170,23 @@ try {
     assert.equal(await page.locator("#card-actions button").count(), 0);
     await page.locator("#speech-row").click();
     await page.locator("#speech-row").click();
+    const returnSpeaks = speech.action?.includes("actor") === true;
+    const movedRequest = returnSpeaks ? page.waitForRequest("**/card-game/text") : null;
     await readyActionButton(page, "move").click();
     await page.waitForFunction(
       (title) => document.querySelector("#place-title").textContent === title,
       nameOf("station"),
     );
+    if (returnSpeaks) {
+      await movedRequest;
+      const current = requests.at(-1);
+      assert(current.input.revision > replaced.input.revision);
+      await current.route.fulfill({ json: {
+        revision: current.input.revision, model: "current-thinking-fixture",
+        entries: current.input.entities.map(({ id }) => ({ id, text: "I have reached the station." })),
+      } });
+      await page.waitForFunction(() => document.querySelector("#dialogue-text").textContent.includes("I have reached the station."));
+    }
     await replaced.route
       .fulfill({
         json: {
@@ -195,7 +203,7 @@ try {
       () => document.querySelector("#hand").dataset.cooling === "false",
     );
     const superseded = await snapshot();
-    assert.equal(requests.length, asked);
+    assert.equal(requests.length, asked + Number(returnSpeaks));
     assert.deepEqual(superseded.cast, superseded.hand);
     assert.equal(superseded.stageRevision, superseded.handRevision);
     assert.doesNotMatch(
