@@ -371,11 +371,8 @@ try {
     assert.match(await talk.getAttribute("aria-label"), /^Quest: Talk with /);
     const drop = page.locator('#card-actions [data-drop-quest="0"]');
     await drop.waitFor();
-    // The reason is plain text and Abandon is the only action.
-    assert.equal(
-      await page.locator(".action-beat-note").innerText(),
-      "Not found yet",
-    );
+    // The quest caption carries the unknown target; Abandon is its action.
+    assert(await page.locator(".action-beat-note").isHidden());
     assert.equal(await page.locator("#card-actions button").count(), 1);
     assert.equal(
       await page.locator("#card-actions [data-drop-quest]").count(),
