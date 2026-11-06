@@ -1525,7 +1525,7 @@ function opening() {
 }
 function choose(id) {
   if (finishCardReveal(id) || selectionBlocked()) return;
-  if (reviewing) returnToLive(false);
+  if (reviewing) returnToLive();
   // A locked box is chosen, not uncovered: it opens with its quest.
   if (cardIsCovered(id) && !isLockedBox(world, id)) {
     uncover(id);
@@ -2985,7 +2985,7 @@ function questFrame({ id, quest, met }) {
 // turn; the fan stays open on it while the play settles.
 function pickQuest(quest) {
   if (selectionBlocked()) return;
-  if (reviewing) returnToLive(false);
+  if (reviewing) returnToLive();
   const focus = legalActions(world).find(
     (a) => a.kind === "focus" && a.quest === quest.index,
   );
@@ -3190,7 +3190,7 @@ function leaveFigure(figure, remove = false) {
     });
   exits.set(figure, task);
 }
-function returnToLive(focus = true) {
+function returnToLive() {
   sharedPlayback.reset();
   reviewing = false;
   reviewBeat = null;
@@ -3198,10 +3198,7 @@ function returnToLive(focus = true) {
   sharedLineKey = "";
   syncSharedLine();
   renderScene();
-  if (!focus) return;
-  if (choiceInStack())
-    $("card-actions").querySelector("button:enabled")?.focus();
-  else if (!$("dialogue-advance").hidden) $("dialogue-advance").focus();
+  if (!$("dialogue-advance").hidden) $("dialogue-advance").focus();
 }
 const litCarried = (actor) =>
   Object.keys(world.items).find(
@@ -4021,7 +4018,36 @@ function syncLiveBeat() {
     : "Return to live dialogue";
   liveButton.setAttribute("aria-label", liveButton.title);
 }
-$("live-line").onclick = () => returnToLive();
+function showLiveChoice() {
+  returnToLive();
+  if (choiceInStack())
+    $("card-actions").querySelector("button:enabled")?.focus();
+}
+$("live-line").onclick = showLiveChoice;
+document.querySelector(".dialogue").addEventListener(
+  "click",
+  (event) => {
+    if (!choiceInFront() || !event.target.closest("#speech-row")) return;
+    event.stopPropagation();
+    stepBack();
+  },
+  true,
+);
+// A tall action can reach above the stack's fixed box. Keep the previous
+// card one peek above the action's actual top so it can still take taps.
+function placePreviousBeat() {
+  const panel = $("action-beat"),
+    front = $("speech-row");
+  front.style.removeProperty("--beat-slot");
+  if (panel.hidden || front.hidden) return;
+  const overlap = front.offsetTop - panel.offsetTop;
+  if (overlap > 0)
+    front.style.setProperty(
+      "--beat-slot",
+      `translateY(calc(-1 * var(--beat-peek) - ${overlap}px)) scale(var(--beat-behind-scale))`,
+    );
+}
+new ResizeObserver(placePreviousBeat).observe($("action-beat"));
 function syncActionBeat() {
   const panel = document.querySelector(".action-panel"),
     front = $("speech-row"),
@@ -4060,6 +4086,7 @@ function syncActionBeat() {
   panel.hidden = !show;
   panel.parentElement.dataset.action = String(show);
   syncDialogueShown();
+  placePreviousBeat();
   if (!moves) return;
   if (still) return fadeGhost(ghost, {}, STACK_FADE_MS);
   playMotion(panel, show ? "arrive" : null);
@@ -4153,7 +4180,7 @@ function stepForward() {
     (next === stackView.liveIndex &&
       (!choiceInStack() || !stackView.beats[next]))
   ) {
-    returnToLive();
+    showLiveChoice();
     return true;
   }
   const beat = stackView.beats[next];
@@ -4181,15 +4208,6 @@ function advanceFront() {
   }
 }
 $("dialogue-advance").onclick = advanceFront;
-document.querySelector(".dialogue").addEventListener(
-  "click",
-  (event) => {
-    if (!choiceInFront() || !event.target.closest("#speech-row")) return;
-    event.stopPropagation();
-    stepBack();
-  },
-  true,
-);
 $("speech-row").addEventListener(
   "click",
   (event) => {
