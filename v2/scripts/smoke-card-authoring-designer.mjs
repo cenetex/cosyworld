@@ -68,6 +68,12 @@ try {
         run: (_action, ctx) => ctx.save(),
       });
       window.test = { read: () => structuredClone(record) };
+      window.test.oldTool = () =>
+        tools.push({
+          id: "old-portrait",
+          anchor: cardId(["pack", "avatars", "person"], "entity"),
+          describe: () => ({ actions: [] }),
+        });
       tools.push({
         id: "seed",
         anchor: cardId(["pack"], "root"),
@@ -115,6 +121,8 @@ try {
         tools: () => tools,
         onOpen() {
           window.test.opened = ++opened;
+          const old = tools.findIndex((tool) => tool.id === "old-portrait");
+          if (old >= 0) tools.splice(old, 1);
         },
         resolveArt(path, { key, generation, title }) {
           window.test.art = [generation, title];
@@ -279,18 +287,18 @@ try {
       requests.some((url) => url.includes("invalid.invalid")),
       false,
     );
-    await page.evaluate(
-      (pack) =>
-        window.test.editor.open({
-          key: "local",
-          record: {
-            ...window.test.read(),
-            launch: null,
-            draft: { ...window.test.read().draft, pack, bridge: null },
-          },
-        }),
-      badger,
-    );
+    await page.evaluate((pack) => {
+      window.test.oldTool();
+      window.test.editor.refresh();
+      window.test.editor.open({
+        key: "local",
+        record: {
+          ...window.test.read(),
+          launch: null,
+          draft: { ...window.test.read().draft, pack, bridge: null },
+        },
+      });
+    }, badger);
     assert.equal(await page.evaluate(() => window.test.opened), 2);
     await choose(["pack", "avatars", "badger"], "entity");
     await page.waitForFunction(

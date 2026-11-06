@@ -23,6 +23,7 @@ export function installWorldDesigner({
 }) {
   let workspace,
     previous,
+    opening = false,
     mode = "world",
     base = { world: [], tools: [] },
     byId = new Map(),
@@ -51,7 +52,7 @@ export function installWorldDesigner({
           }));
         showScene();
       }
-      workspace?.refresh();
+      if (!opening) workspace?.refresh();
     },
   });
   function showScene() {
@@ -94,6 +95,15 @@ export function installWorldDesigner({
     snapshot: () => session.snapshot({ pending: false }),
     stage: session.stage,
   };
+  function openDraft(value, open = session.open) {
+    opening = true;
+    try {
+      open(value);
+      onOpen(session.status);
+    } finally {
+      opening = false;
+    }
+  }
   function describe(_cards, chosen, armed) {
     const card = byId.get(chosen),
       toolId = toolMap.has(chosen) ? chosen : projected.anchors.get(chosen),
@@ -204,13 +214,13 @@ export function installWorldDesigner({
     run(action) {
       document.activeElement?.blur();
       const tool = toolMap.get(action.tool);
+      if (action.tool && !tool) throw new Error("Choose an available tool.");
       if (tool && session.state.armed) session.dispatch({ type: "cancel" });
       return session.run(async (ctx) => {
         const open = (value) => {
           document.activeElement?.blur();
           mode = "world";
-          ctx.open(value);
-          onOpen(session.status);
+          openDraft(value, ctx.open);
           workspace.refresh();
         };
         if (action.tool) await tool.run(action, { ...ctx, open });
@@ -239,8 +249,7 @@ export function installWorldDesigner({
       document.activeElement?.blur();
       if (value) {
         mode = "world";
-        session.open(value);
-        onOpen(session.status);
+        openDraft(value);
       }
       workspace.open();
       showScene();
