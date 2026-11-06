@@ -77,13 +77,6 @@ export function narrativeContractCases() {
   const road = playCard(harbor, "move", null, "greek-road-thebes");
   const courtyard = playCard(road, "move", null, "greek-courtyard");
   const gate = playCard(courtyard, "move", null, "greek-gate");
-  const choose = (world, choiceId) => {
-    const action = legalActions(world).find((a) => a.choiceId === choiceId);
-    if (!action) throw new Error(`Missing contract choice: ${choiceId}`);
-    const result = play(world, action);
-    if (!result.ok) throw new Error(`Rejected contract choice: ${choiceId}`);
-    return result.state;
-  };
   // Meeting the guard tells the decree; handing him the shovel reports it.
   const reported = playCard(
     playCard(gate, "take", "greek-shovel"),
@@ -93,7 +86,13 @@ export function narrativeContractCases() {
   );
   const legacyHarbor = structuredClone(harbor);
   legacyHarbor.packs["greek-drama"].scope = "full";
-  const egypt = choose(legacyHarbor, "greek-helen-egypt");
+  const letter = "greek-helen-letter";
+  const egypt = playCard(
+    playCard(legacyHarbor, "take", letter),
+    "give",
+    letter,
+    "greek-shipmaster",
+  );
   const helen = playCard(egypt, "move", null, "greek-egypt-tomb");
   const worlds = [
     ["opening", opening],

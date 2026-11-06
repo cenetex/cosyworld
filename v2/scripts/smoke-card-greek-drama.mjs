@@ -1,9 +1,5 @@
 import { greekTravelTargets } from "../../test/helpers/greek-travel.mjs";
-import {
-  endStandoff,
-  selectCard,
-  topicForChoice,
-} from "./card-browser-helpers.mjs";
+import { endStandoff, selectCard } from "./card-browser-helpers.mjs";
 import { checkOpeningPoem } from "./smoke-card-opening-poem.mjs";
 // Exercise the public card UI and its one saved history, at desktop and phone
 // widths. Text is a bounded fixture; the deterministic model owns every result.
@@ -223,32 +219,6 @@ try {
       assert.equal(await page.textContent("#place-title"), places[id].name);
       if (boarding && (await state()).items.lamp.lit) await playCard("lamp");
     };
-    const choose = async (choiceId) => {
-      await ready();
-      const action = legalActions(await state()).find(
-        (a) => a.choiceId === choiceId,
-      );
-      assert.ok(action, `legal choice ${choiceId}`);
-      const topic = topicForChoice(choiceId);
-      const option = page.locator(
-        topic
-          ? `#card-actions [data-action="talk"]`
-          : `[data-choice="${choiceId}"][data-pack="greek-drama"]`,
-      );
-      if (!(await option.isVisible())) {
-        await selectCard(page, topic?.speaker || action.cards[0]);
-      }
-      if (["greek-helen-egypt", "greek-helen-troy"].includes(choiceId)) {
-        const bounds = await page.locator("#card-actions").boundingBox();
-        assert.ok(bounds && bounds.x >= 0 && bounds.x + bounds.width <= width);
-        await page.screenshot({
-          path: new URL(`history-choice-${width}.png`, output).pathname,
-          fullPage: true,
-        });
-      }
-      await option.click();
-      await ready();
-    };
     const artReady = async () => {
       await page.waitForFunction(() =>
         [...document.querySelectorAll("#backdrop, #cast img")].every(
@@ -358,7 +328,15 @@ try {
       branch === "egypt" ? "greek-troy-beach" : "greek-egypt-tomb";
     const evidence = `greek-${branch}-testimony`;
     await travel("greek-harbor");
-    await choose(`greek-helen-${branch}`);
+    const letter = "greek-helen-letter";
+    await playCard(letter);
+    if (branch === "troy") await travel("greek-well");
+    await pair(letter, branch === "egypt" ? "greek-shipmaster" : "greek-elder");
+    assert.equal(
+      (await state()).items[letter].holder,
+      branch === "egypt" ? "greek-harbor" : "greek-well",
+    );
+    if (branch === "troy") await travel("greek-harbor");
     assert.equal(await card(opposite).count(), 0);
     await travel(destination);
     await playCard(evidence);

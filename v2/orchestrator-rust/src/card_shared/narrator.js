@@ -5474,6 +5474,20 @@
                 value: true
               }
             ]
+          },
+          "greek-helen-letter": {
+            name: "Helen\u2019s Letter",
+            text: "A sailor copied two accounts of Helen. Myrto the Shipmaster knows the Egyptian account and The Chorus Elder knows the song about Troy.",
+            holder: "greek-harbor",
+            art: "assets/greek-drama/testimony.png",
+            persona: "A sailor copied two accounts of Helen. Myrto the Shipmaster knows the Egyptian account and The Chorus Elder knows the song about Troy."
+          },
+          "greek-atreid-record": {
+            name: "The House of Atreus Record",
+            text: "Ismene knows the way to Agamemnon\u2019s tomb. Creon knows the palace road. Dione the Baker knows the farmer who gave Electra shelter.",
+            holder: "greek-argolid-road",
+            art: "assets/greek-drama/tomb-testimony.png",
+            persona: "Ismene knows the way to Agamemnon\u2019s tomb. Creon knows the palace road. Dione the Baker knows the farmer who gave Electra shelter."
           }
         },
         routes: [
@@ -6174,11 +6188,16 @@
             subject: "greek-shipmaster",
             at: "greek-harbor",
             label: "Follow Helen's Egyptian account",
-            text: "Vale commits to the Egyptian account: Helen remained with Proteus while a phantom went to Troy. Myrto opens the passage to the tomb.",
+            text: "Myrto names the tomb in Egypt where Helen waited.",
             requires: [
               {
                 kind: "choice_unset",
                 key: "greek-helen-account"
+              },
+              {
+                kind: "holding",
+                item: "greek-helen-letter",
+                role: "actor"
               }
             ],
             effects: [
@@ -6186,21 +6205,32 @@
                 kind: "choose",
                 key: "greek-helen-account",
                 value: "egypt"
+              },
+              {
+                kind: "place_item",
+                item: "greek-helen-letter",
+                place: "greek-harbor"
               }
             ],
             summary: "The Egyptian account governs Helen's whereabouts and testimony. The Trojan account remains an alternative story.",
-            textTemplate: "{actor} commits to the Egyptian account: Helen remained with Proteus while a phantom went to Troy. Myrto opens the passage to the tomb."
+            textTemplate: "{actor} commits to the Egyptian account: Helen remained with Proteus while a phantom went to Troy. Myrto opens the passage to the tomb.",
+            on: "give"
           },
           {
             id: "greek-helen-troy",
-            subject: "greek-shipmaster",
-            at: "greek-harbor",
+            subject: "greek-elder",
+            at: "greek-well",
             label: "Follow Helen's Trojan account",
-            text: "Vale commits to the Trojan account: Helen returns from Troy. Myrto opens the passage to the homecoming beach.",
+            text: "The Chorus Elder names the beach where Helen returned from Troy.",
             requires: [
               {
                 kind: "choice_unset",
                 key: "greek-helen-account"
+              },
+              {
+                kind: "holding",
+                item: "greek-helen-letter",
+                role: "actor"
               }
             ],
             effects: [
@@ -6208,17 +6238,23 @@
                 kind: "choose",
                 key: "greek-helen-account",
                 value: "troy"
+              },
+              {
+                kind: "place_item",
+                item: "greek-helen-letter",
+                place: "greek-well"
               }
             ],
             summary: "The Trojan account governs Helen's whereabouts and testimony. No phantom has been established in this history.",
-            textTemplate: "{actor} commits to the Trojan account: Helen returns from Troy. Myrto opens the passage to the homecoming beach."
+            textTemplate: "{actor} commits to the Trojan account: Helen returns from Troy. Myrto opens the passage to the homecoming beach.",
+            on: "give"
           },
           {
             id: "greek-hear-helen-egypt",
             subject: "greek-helen-egypt",
             at: "greek-egypt-tomb",
             label: "Hear Helen's testimony",
-            text: "Vale hears Helen give her own account and keeps its source separate from earlier reports.",
+            text: "Helen tells her own account.",
             requires: [
               {
                 kind: "choice",
@@ -6233,7 +6269,8 @@
                 value: true
               }
             ],
-            textTemplate: "{actor} hears Helen give her own account and keeps its source separate from earlier reports."
+            textTemplate: "{actor} hears Helen give her own account and keeps its source separate from earlier reports.",
+            on: "talk"
           },
           {
             id: "greek-helen-egypt-passage",
@@ -6288,7 +6325,8 @@
                 value: true
               }
             ],
-            textTemplate: "{actor} deposits provisions and the witness tablet beside the boat. Helen accepts a witnessed passage agreement."
+            textTemplate: "{actor} deposits provisions and the witness tablet beside the boat. Helen accepts a witnessed passage agreement.",
+            on: "give"
           },
           {
             id: "greek-helen-egypt-shelter",
@@ -6334,14 +6372,15 @@
                 value: true
               }
             ],
-            textTemplate: "{actor} records Helen's request to remain under protection while the competing claims are heard."
+            textTemplate: "{actor} records Helen's request to remain under protection while the competing claims are heard.",
+            on: "give"
           },
           {
             id: "greek-hear-helen-troy",
             subject: "greek-helen-troy",
             at: "greek-troy-beach",
             label: "Hear Helen's testimony",
-            text: "Vale hears Helen give her own account and keeps its source separate from earlier reports.",
+            text: "Helen tells her own account.",
             requires: [
               {
                 kind: "choice",
@@ -6356,7 +6395,8 @@
                 value: true
               }
             ],
-            textTemplate: "{actor} hears Helen give her own account and keeps its source separate from earlier reports."
+            textTemplate: "{actor} hears Helen give her own account and keeps its source separate from earlier reports.",
+            on: "talk"
           },
           {
             id: "greek-helen-troy-passage",
@@ -6411,7 +6451,8 @@
                 value: true
               }
             ],
-            textTemplate: "{actor} deposits provisions and the witness tablet beside the boat. Helen accepts a witnessed passage agreement."
+            textTemplate: "{actor} deposits provisions and the witness tablet beside the boat. Helen accepts a witnessed passage agreement.",
+            on: "give"
           },
           {
             id: "greek-helen-troy-shelter",
@@ -6457,18 +6498,24 @@
                 value: true
               }
             ],
-            textTemplate: "{actor} records Helen's request to remain under protection while the competing claims are heard."
+            textTemplate: "{actor} records Helen's request to remain under protection while the competing claims are heard.",
+            on: "give"
           },
           {
             id: "greek-atreid-aeschylus",
-            subject: "greek-rhapsode",
-            at: "greek-argolid-road",
+            subject: "greek-ismene",
+            at: "greek-sanctuary",
             label: "Follow the tomb account \xB7 Aeschylus",
-            text: "Vale follows the Aeschylus account. The singer points out the road to Agamemnon's Tomb.",
+            text: "Ismene names the road to Agamemnon\u2019s tomb.",
             requires: [
               {
                 kind: "choice_unset",
                 key: "greek-atreid-account"
+              },
+              {
+                kind: "holding",
+                item: "greek-atreid-record",
+                role: "actor"
               }
             ],
             effects: [
@@ -6476,17 +6523,23 @@
                 kind: "choose",
                 key: "greek-atreid-account",
                 value: "aeschylus"
+              },
+              {
+                kind: "place_item",
+                item: "greek-atreid-record",
+                place: "greek-sanctuary"
               }
             ],
             summary: "The Aeschylus account governs the Atreid household, beginning at Agamemnon\u2019s tomb. The other accounts remain alternative stories.",
-            textTemplate: "{actor} follows the Aeschylus account. The singer points out the road to Agamemnon's Tomb."
+            textTemplate: "{actor} follows the Aeschylus account. The singer points out the road to Agamemnon's Tomb.",
+            on: "give"
           },
           {
             id: "greek-hear-electra-aeschylus",
             subject: "greek-electra-aeschylus",
             at: "greek-argos-tomb",
             label: "Hear the household's testimony",
-            text: "Vale hears Electra name the household\u2019s losses before asking for a commitment.",
+            text: "Electra names what her family has lost.",
             requires: [
               {
                 kind: "choice",
@@ -6501,7 +6554,8 @@
                 value: true
               }
             ],
-            textTemplate: "{actor} hears Electra name the household\u2019s losses before asking for a commitment."
+            textTemplate: "{actor} hears Electra name the household\u2019s losses before asking for a commitment.",
+            on: "talk"
           },
           {
             id: "greek-atreid-aeschylus-hearing",
@@ -6547,7 +6601,8 @@
                 value: true
               }
             ],
-            textTemplate: "{actor} deposits the witness tablet and agrees to carry the household's claim to a public hearing. No killing is authorized or recorded."
+            textTemplate: "{actor} deposits the witness tablet and agrees to carry the household's claim to a public hearing. No killing is authorized or recorded.",
+            on: "give"
           },
           {
             id: "greek-atreid-aeschylus-refusal",
@@ -6593,18 +6648,24 @@
                 value: true
               }
             ],
-            textTemplate: "{actor} refuses to promise revenge while keeping the household\u2019s testimony on record. Electra knows the answer."
+            textTemplate: "{actor} refuses to promise revenge while keeping the household\u2019s testimony on record. Electra knows the answer.",
+            on: "give"
           },
           {
             id: "greek-atreid-sophocles",
-            subject: "greek-rhapsode",
-            at: "greek-argolid-road",
+            subject: "greek-creon",
+            at: "greek-palace",
             label: "Follow the palace account \xB7 Sophocles",
-            text: "Vale follows the Sophocles account. The singer points out the road to Mycenaean Palace.",
+            text: "Creon names the road to the palace at Mycenae.",
             requires: [
               {
                 kind: "choice_unset",
                 key: "greek-atreid-account"
+              },
+              {
+                kind: "holding",
+                item: "greek-atreid-record",
+                role: "actor"
               }
             ],
             effects: [
@@ -6612,17 +6673,23 @@
                 kind: "choose",
                 key: "greek-atreid-account",
                 value: "sophocles"
+              },
+              {
+                kind: "place_item",
+                item: "greek-atreid-record",
+                place: "greek-palace"
               }
             ],
             summary: "The Sophocles account governs the Atreid household, beginning at the Mycenaean palace. The other accounts remain alternative stories.",
-            textTemplate: "{actor} follows the Sophocles account. The singer points out the road to Mycenaean Palace."
+            textTemplate: "{actor} follows the Sophocles account. The singer points out the road to Mycenaean Palace.",
+            on: "give"
           },
           {
             id: "greek-hear-electra-sophocles",
             subject: "greek-electra-sophocles",
             at: "greek-mycenae-palace",
             label: "Hear the household's testimony",
-            text: "Vale hears Electra name the household\u2019s losses before asking for a commitment.",
+            text: "Electra names what her family has lost.",
             requires: [
               {
                 kind: "choice",
@@ -6637,7 +6704,8 @@
                 value: true
               }
             ],
-            textTemplate: "{actor} hears Electra name the household\u2019s losses before asking for a commitment."
+            textTemplate: "{actor} hears Electra name the household\u2019s losses before asking for a commitment.",
+            on: "talk"
           },
           {
             id: "greek-atreid-sophocles-hearing",
@@ -6683,7 +6751,8 @@
                 value: true
               }
             ],
-            textTemplate: "{actor} deposits the witness tablet and agrees to carry the household's claim to a public hearing. No killing is authorized or recorded."
+            textTemplate: "{actor} deposits the witness tablet and agrees to carry the household's claim to a public hearing. No killing is authorized or recorded.",
+            on: "give"
           },
           {
             id: "greek-atreid-sophocles-refusal",
@@ -6729,18 +6798,24 @@
                 value: true
               }
             ],
-            textTemplate: "{actor} refuses to promise revenge while keeping the household\u2019s testimony on record. Electra knows the answer."
+            textTemplate: "{actor} refuses to promise revenge while keeping the household\u2019s testimony on record. Electra knows the answer.",
+            on: "give"
           },
           {
             id: "greek-atreid-euripides",
-            subject: "greek-rhapsode",
-            at: "greek-argolid-road",
+            subject: "greek-baker",
+            at: "greek-courtyard",
             label: "Follow the farmhouse account \xB7 Euripides",
-            text: "Vale follows the Euripides account. The singer points out the road to The Argive Farmhouse.",
+            text: "Dione names the farm that gave Electra shelter.",
             requires: [
               {
                 kind: "choice_unset",
                 key: "greek-atreid-account"
+              },
+              {
+                kind: "holding",
+                item: "greek-atreid-record",
+                role: "actor"
               }
             ],
             effects: [
@@ -6748,17 +6823,23 @@
                 kind: "choose",
                 key: "greek-atreid-account",
                 value: "euripides"
+              },
+              {
+                kind: "place_item",
+                item: "greek-atreid-record",
+                place: "greek-courtyard"
               }
             ],
             summary: "The Euripides account governs the Atreid household, beginning at the Argive farmhouse. The other accounts remain alternative stories.",
-            textTemplate: "{actor} follows the Euripides account. The singer points out the road to The Argive Farmhouse."
+            textTemplate: "{actor} follows the Euripides account. The singer points out the road to The Argive Farmhouse.",
+            on: "give"
           },
           {
             id: "greek-hear-electra-euripides",
             subject: "greek-electra-euripides",
             at: "greek-argive-farm",
             label: "Hear the household's testimony",
-            text: "Vale hears Electra name the household\u2019s losses before asking for a commitment.",
+            text: "Electra names what her family has lost.",
             requires: [
               {
                 kind: "choice",
@@ -6773,7 +6854,8 @@
                 value: true
               }
             ],
-            textTemplate: "{actor} hears Electra name the household\u2019s losses before asking for a commitment."
+            textTemplate: "{actor} hears Electra name the household\u2019s losses before asking for a commitment.",
+            on: "talk"
           },
           {
             id: "greek-atreid-euripides-hearing",
@@ -6819,7 +6901,8 @@
                 value: true
               }
             ],
-            textTemplate: "{actor} deposits the witness tablet and agrees to carry the household's claim to a public hearing. No killing is authorized or recorded."
+            textTemplate: "{actor} deposits the witness tablet and agrees to carry the household's claim to a public hearing. No killing is authorized or recorded.",
+            on: "give"
           },
           {
             id: "greek-atreid-euripides-refusal",
@@ -6865,7 +6948,8 @@
                 value: true
               }
             ],
-            textTemplate: "{actor} refuses to promise revenge while keeping the household\u2019s testimony on record. Electra knows the answer."
+            textTemplate: "{actor} refuses to promise revenge while keeping the household\u2019s testimony on record. Electra knows the answer.",
+            on: "give"
           },
           {
             id: "greek-open-door-hear-mothers",
