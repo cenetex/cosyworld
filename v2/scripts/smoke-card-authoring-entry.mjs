@@ -89,8 +89,8 @@ try {
           Promise.all(images.map((image) => image.decode())),
         );
       await page.screenshot({ path: `${output}/${width}-sample.png` });
-      await choose(["pack", "places", "sample-shore"], "entity");
-      await choose(["pack", "places", "sample-shore"], "contents");
+      await choose(["pack"], "root");
+      await choose(["pack", "avatars"], "collection");
       await choose(["pack", "avatars", "sample-vale"], "entity");
       await choose(["pack", "avatars", "sample-vale", "text"], "field");
       await note.fill("Vale carries a lantern and follows the shore path.");
