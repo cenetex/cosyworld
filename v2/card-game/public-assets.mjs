@@ -13,6 +13,7 @@ import { BENCH, SCENE } from "./settings-cards.mjs";
 
 // The local server, release smoke, and Rust asset generator use this list.
 const files = [
+  "authoring-seed-world.mjs",
   "assets/authoring-guide/dino-design.png",
   "assets/authoring-guide/dino-poses.png",
   "build-info.mjs",
