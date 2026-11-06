@@ -47,6 +47,11 @@ export function battleMusicDue(world, actor) {
   );
 }
 
+export function funeralMusicDue(world, actor) {
+  return world?.actors?.[actor]?.place === "greek-polynices-hollow" &&
+    world.packs?.["greek-drama"]?.flags?.["greek-burial-performed"] === true;
+}
+
 export function createMusicCues({
   makeAudio = () => new Audio(),
   ...options

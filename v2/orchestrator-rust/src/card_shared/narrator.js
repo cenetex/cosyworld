@@ -1529,6 +1529,7 @@
         open: [
           "greek-gate",
           "greek-battlefield",
+          "greek-polynices-hollow",
           "greek-road-thebes"
         ],
         grove: [
@@ -18181,6 +18182,7 @@
       upgradeGreekOneRoadSave(s);
       upgradeGreekPassSave(s);
       upgradeGreekShipSignalSave(s);
+      upgradeGreekFuneralSave(s);
       s.schema = 7;
       installPacks2(s);
     } else if (s?.schema === 7 && s.packs && typeof s.packs === "object" && s.crossings && typeof s.crossings === "object") {
@@ -18193,6 +18195,7 @@
       upgradeGreekOneRoadSave(s);
       upgradeGreekPassSave(s);
       upgradeGreekShipSignalSave(s);
+      upgradeGreekFuneralSave(s);
       installPacks2(s);
     }
     if (s?.schema === 7) {
@@ -18226,13 +18229,8 @@
       upgradeGreekLandRouteSave(s);
       upgradeGreekForecourtSave(s);
       upgradeGreekDecreeSave(s);
-      if (reworked.has("greek-drama") && packOf("greek-polynices-hollow")) {
-        const greek = s.packs["greek-drama"];
-        if (greek.revision === 20) greek.revision = 21;
-        const antigone = s.actors?.["greek-antigone"];
-        if (antigone && !s.packs?.["greek-drama"]?.flags?.["greek-burial-performed"])
-          delete antigone.want;
-      }
+      if (s.packs?.["greek-drama"]?.revision === 20)
+        s.packs["greek-drama"].revision = 21;
       upgradeRecitals(s, packDefinitions);
     }
     upgradeSightings(s);
@@ -19026,6 +19024,15 @@
     addGreekEntities(s, pack, ["greek-household-witness"], []);
     saved.revision = 4;
   }
+  function upgradeGreekFuneralSave(s) {
+    const pack = packDefinitions.find((p) => p.id === "greek-drama");
+    const saved = s.packs?.[pack?.id];
+    if (!pack?.avatars["greek-polynices-shade"] || !saved || saved.revision > 20) return;
+    addGreekEntities(s, pack, ["greek-polynices-shade"], []);
+    const antigone = s.actors["greek-antigone"];
+    if (antigone && !saved.flags?.["greek-burial-performed"])
+      delete antigone.want;
+  }
   function addGreekEntities(s, pack, avatars, items2) {
     const fresh = newMemories();
     if (!s.actors || !s.items || !s.memories || !s.peaceUntil || avatars.some(
@@ -19706,11 +19713,9 @@
     if (!s.doors) placeDoors(s);
     for (const pack of packDefinitions) {
       for (const c of pack.crossings) s.crossings[c.id] ??= newCrossingState(c);
-      const mounted = s.packs[pack.id];
-      if (mounted && !(mounted.revision < pack.revision)) continue;
-      s.packs[pack.id] ??= newPackRecord(pack);
+      if (s.packs[pack.id]) continue;
+      s.packs[pack.id] = newPackRecord(pack);
       for (const [id, a] of Object.entries(pack.avatars)) {
-        if (s.actors[id] && mounted) continue;
         if (s.actors[id]) throw new Error("A pack resident is already present.");
         s.actors[id] = {
           place: a.place,
@@ -19725,7 +19730,7 @@
         s.memories[id] = fresh[id];
         if (s.motives) s.motives.grievances[id] = [];
       }
-      for (const [id, item] of Object.entries(mounted ? {} : pack.items || {})) {
+      for (const [id, item] of Object.entries(pack.items || {})) {
         if (s.items[id]) throw new Error("A pack item is already present.");
         s.items[id] = { holder: item.holder, history: [] };
         s.memories[id] = fresh[id];

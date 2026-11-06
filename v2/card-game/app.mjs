@@ -154,6 +154,7 @@ import {
   CUE_TRACKS,
   HUSH,
   battleMusicDue,
+  funeralMusicDue,
   createMusicCues,
 } from "./music-cues.mjs";
 import { createHum } from "./hum.mjs";
@@ -1100,9 +1101,7 @@ function syncMusicCue() {
     music.cue(
       battleMusicDue(world, currentActor(world))
         ? "battle"
-        : world.actors[currentActor(world)].place ===
-              "greek-polynices-hollow" &&
-            world.packs["greek-drama"]?.flags?.["greek-burial-performed"]
+        : funeralMusicDue(world, currentActor(world))
           ? "funeral"
           : null,
     );

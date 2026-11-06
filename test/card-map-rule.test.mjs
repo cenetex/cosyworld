@@ -38,6 +38,7 @@ const TOWNS = {
     // Outside the walls but still Theban: the gate opens onto it directly,
     // by a route that needs the guard to hold the decree there. No road.
     "greek-battlefield",
+    "greek-polynices-hollow",
     "greek-aulis",
   ],
   // Athens has three districts. The Sacred Way joins the countryside to the

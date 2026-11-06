@@ -354,11 +354,9 @@ function installPacks(s) {
   if (!s.doors) placeDoors(s);
   for (const pack of packDefinitions) {
     for (const c of pack.crossings) s.crossings[c.id] ??= newCrossingState(c);
-    const mounted = s.packs[pack.id];
-    if (mounted && !(mounted.revision < pack.revision)) continue;
-    s.packs[pack.id] ??= newPackRecord(pack);
+    if (s.packs[pack.id]) continue;
+    s.packs[pack.id] = newPackRecord(pack);
     for (const [id, a] of Object.entries(pack.avatars)) {
-      if (s.actors[id] && mounted) continue;
       if (s.actors[id]) throw new Error("A pack resident is already present.");
       s.actors[id] = {
         place: a.place,
@@ -373,7 +371,7 @@ function installPacks(s) {
       s.memories[id] = fresh[id];
       if (s.motives) s.motives.grievances[id] = [];
     }
-    for (const [id, item] of Object.entries(mounted ? {} : pack.items || {})) {
+    for (const [id, item] of Object.entries(pack.items || {})) {
       if (s.items[id]) throw new Error("A pack item is already present.");
       s.items[id] = { holder: item.holder, history: [] };
       s.memories[id] = fresh[id];

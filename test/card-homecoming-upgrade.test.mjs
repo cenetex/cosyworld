@@ -89,7 +89,7 @@ describe("the household save upgrade", () => {
       });
       expect(Object.keys(after.actors).length).toBe(
         Object.keys(before.actors).length +
-          10 +
+          11 +
           Object.keys(hoppycat.avatars).length,
       );
       expect(after.items).toEqual({

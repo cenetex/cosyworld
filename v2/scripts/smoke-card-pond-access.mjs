@@ -150,7 +150,8 @@ try {
     // while its last fuel burns.
     const low = await state();
     low.items.lamp.fuel = 1;
-    low.actors.moth.metTurn = low.actors.moth.want.since = low.turn;
+    low.actors.moth.metTurn = low.turn;
+    if (low.actors.moth.want) low.actors.moth.want.since = low.turn;
     await page.evaluate(
       ({ key, value }) => {
         localStorage.setItem(key, value);

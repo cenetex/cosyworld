@@ -17,9 +17,10 @@ const night = (world) => ({ ...world, turn: DAYLIGHT_TURNS });
 
 describe("alternate place paintings", () => {
   it("shows today's painting everywhere no alternate condition holds", () => {
-    expect(paintings(createWorld())).toEqual(before.day);
+    expect(paintings(createWorld())).toEqual({...before.day, "greek-polynices-hollow": "./assets/greek-drama/polynices-hollow-fallen-day.webp"});
     expect(paintings(night(createWorld()))).toEqual({
       ...before.night,
+      "greek-polynices-hollow": "./assets/greek-drama/polynices-hollow-fallen-night.webp",
       "willows-landing": "./assets/willows/landing-night.webp",
       "willows-thicket": "./assets/willows/thicket-night.webp",
       "willows-bank": "./assets/willows/bank-night.webp",
