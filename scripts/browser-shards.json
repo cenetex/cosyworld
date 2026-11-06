@@ -3,6 +3,7 @@
   "targetSeconds": 400,
   "checks": {
     "smoke-authoring-create-transfer": 10,
+    "smoke-authoring-create-tools": 15,
     "smoke-shared-cards": 250,
     "smoke-card-greek-capacity": 80,
     "check-card-awakening": 20,

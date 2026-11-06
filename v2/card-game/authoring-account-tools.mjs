@@ -13,6 +13,7 @@ export function createAuthoringAccountTools({
     authenticated: false,
     members_only: false,
     display_name: "",
+    user_id: "",
     busy: false,
     error: "",
   };
@@ -35,6 +36,7 @@ export function createAuthoringAccountTools({
     Object.assign(account, {
       known: true,
       authenticated: next.authenticated,
+      user_id: next.authenticated && typeof next.user_id === "string" ? next.user_id : "",
       members_only: next.members_only === true,
       display_name:
         typeof next.display_name === "string" ? next.display_name : "",
@@ -118,6 +120,7 @@ export function createAuthoringAccountTools({
       account.authenticated = false;
       account.known = false;
       account.display_name = "";
+      account.user_id = "";
       account.error = "Sign in to continue with your world.";
       changed();
       void refresh();
