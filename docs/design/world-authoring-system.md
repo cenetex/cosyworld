@@ -2,6 +2,9 @@
 
 Owner request, 2026-11-05. The authoring surface is `/make` on Lonely Forest.
 The World Pack Store remains the work of PR #2129's author.
+This document describes the complete target. The card-pack guide and merged
+PRs record each delivered part. Private asset upload, AI generation and Store
+publication have separate delivery boundaries.
 
 ## Writing and cards
 
@@ -22,8 +25,8 @@ their own saved state. A later subdomain may redirect to this route.
 Designer mode looks down onto the existing card table. Locations form the
 main branches. Their open boxes fan out contents and linked places; locked
 boxes fan out quests, requirements, steps and rewards. Existing card faces,
-backs, frames, selection and the descriptor carry this view. Its layout
-will have an owner-reviewed UI inventory and style change before merging.
+backs, frames, selection and the descriptor carry this view. The owner
+approved the writing field in PR #2340 and the branching layout in PR #2341.
 
 The layout is a tree of expanded stacks with links between branches.
 Road loops, shared quest targets and a ship serving several ports keep one
@@ -53,15 +56,15 @@ Selecting a box arms that destination. Selecting another card names the
 change in the existing context button. A press applies one undoable edit.
 Tapping the armed box again, Escape or the scene clears that selection.
 
-| Selected box | Second card | Context action | Source edit |
-| --- | --- | --- | --- |
-| Location's open box | Another location | Link places | Add reciprocal `places[].exits` entries |
-| Location's open box | Avatar | Place [name] here | Set `avatars[].place` |
-| Location's open box | Item | Place [name] here | Set `items[].holder` |
-| Avatar's open box | Item | Give [item] to [name] | Set `items[].holder` |
-| Avatar's locked box | Item, place or person | Set starting quest | Set the resident's `want` |
-| Location's locked box | Linked approach | Edit opening quest | Open that route's quest stack |
-| Opening quest | A quest step or requirement | Add to opening quest | Patch its existing conditions and choices |
+| Selected box          | Second card                 | Context action        | Source edit                               |
+| --------------------- | --------------------------- | --------------------- | ----------------------------------------- |
+| Location's open box   | Another location            | Link places           | Add reciprocal `places[].exits` entries   |
+| Location's open box   | Avatar                      | Place [name] here     | Set `avatars[].place`                     |
+| Location's open box   | Item                        | Place [name] here     | Set `items[].holder`                      |
+| Avatar's open box     | Item                        | Give [item] to [name] | Set `items[].holder`                      |
+| Avatar's locked box   | Item, place or person       | Set starting quest    | Set the resident's `want`                 |
+| Location's locked box | Linked approach             | Edit opening quest    | Open that route's quest stack             |
+| Opening quest         | A quest step or requirement | Add to opening quest  | Patch its existing conditions and choices |
 
 Each physical card has one initial holder. Moving it replaces that holder.
 Home, return, regrowth and appearance rules remain separate fields. Simple
@@ -229,9 +232,10 @@ Drafts may be incomplete. Publication checks the complete playable schema.
 
 ## Import and Create
 
-Import opens a public GitHub source at one exact commit. The server resolves
-a repository reference once, then reads all pack files from that commit.
-It records the repository, commit and relative path. Git tree entries must
+Import opens a public GitHub source at one exact commit. The browser resolves
+the repository through the GitHub API, then reads the selected source files
+and their referenced media from that commit. It records the repository,
+commit and relative path. Git tree entries must
 be ordinary files. Import keeps source pack data, bridge entries, media,
 state backdrops, avatar poses and external lore. Existing compiled outputs
 remain outputs of the pack compiler.
