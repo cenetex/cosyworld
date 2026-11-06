@@ -145,8 +145,10 @@ export async function selectCard(page, id, { touch = false } = {}) {
       ? await frame.getAttribute("data-holder")
       : null;
   const card = await revealCard(page, id);
-  if (touch) await card.tap();
-  else await card.click();
+  if ((await card.getAttribute("aria-pressed")) !== "true") {
+    if (touch) await card.tap();
+    else await card.click();
+  }
   // Keep the chosen child raised while returning its browsing avatar to the stack.
   if (holder) {
     const owner = page.locator(`#hand [data-card="${holder}"]`);

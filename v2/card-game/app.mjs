@@ -1372,8 +1372,8 @@ function keepHeldSelection(before, action = null) {
       : before.held.filter((id) => selectedHandItem(world, [id]))
   ).filter((id) => shown.includes(id));
   const keepActor = held.length > 0 && selected.includes(actor);
-  // The avatar's stacks stay as they were while it holds the choice.
-  const expanded = (held.length > 0 || questOpen) && expandedHolders.has(actor);
+  // The avatar's open stacks stay open after a deed, including a last gift.
+  const expanded = expandedHolders.has(actor);
   selected = keepActor ? [actor, ...held] : held;
   expandedHolders.clear();
   if (expanded) expandedHolders.add(actor);
@@ -1589,8 +1589,8 @@ function choose(id) {
   const way = wayStack(id);
   if (!way) waysOpen = null;
   // While the avatar's stacks show, tapping it folds them back, then lowers
-  // it; tapping a folded stack fans it, folding the other; tapping a card in
-  // the fan, or the only card in a stack, chooses it (#2256).
+  // it; tapping a stack's top card fans it and chooses that card, so the
+  // first tap also shows its full details in the descriptor.
   const actor = currentActor(world),
     part = expandedHolders.has(actor) ? avatarStack(id) : null;
   const withCard = [...selected, id];
@@ -1605,8 +1605,7 @@ function choose(id) {
     avatarFan = null;
     if (settled) expandedHolders.delete(actor);
     selectCards(settled ? [] : [actor], { keepOpen: true });
-  } else if (part?.under) avatarFan = part.kind;
-  else if (way?.under) {
+  } else if (way?.under) {
     // Fanning the ways on folds the avatar's fan and the place's stack.
     const back = cameFrom();
     waysOpen = placeHere();
@@ -1615,6 +1614,7 @@ function choose(id) {
       selected.filter((cardId) => cardId !== back && !atHere(cardId)),
     );
   } else if (part) {
+    if (part.under) avatarFan = part.kind;
     // A thing chosen takes the avatar's place in the choice, so it pairs
     // with another card as it did; tapped again, it is only lowered.
     const others = selected.filter((cardId) => cardId !== actor);
@@ -3106,13 +3106,11 @@ function questFrame({ id, quest, met }) {
     ),
     head,
   );
-  // A folded stack fans; a quest in the fan, or alone, clears if met, or is
-  // chosen, and moves to the front of the quests; tapped again it is only
-  // lowered (#2256, #2295).
+  // A quest's first tap shows its details and fans the stack. A checked
+  // card clears on its first tap; tapping a chosen quest lowers it.
   el.addEventListener("click", () => {
     if (selectionBlocked()) return;
     if (picked) questOpen = false;
-    else if (avatarStack(id)?.under) avatarFan = "quests";
     else if (met) return clearQuest(el, quest);
     else return pickQuest(quest);
     render();
@@ -3147,15 +3145,20 @@ function pickQuest(quest) {
   // The chosen quest is the choice alone, beside its avatar's stacks.
   questOpen = true;
   selected = [];
+  avatarFan = "quests";
+  expandedHolders.add(currentActor(world));
+  rowCollapsed = false;
   if (focus) playQueue.submit(focus, world.revision);
   render();
 }
-// The fold behind the avatar opens its stacks with the quests fanned.
+// The fold opens the first quest's details with its stack fanned beside it.
 function toggleQuest() {
   if (selectionBlocked()) return;
   playQueue.clear();
   questOpen = false;
   questFresh = false;
+  const first = questEntries()[0];
+  if (first && !first.met) return pickQuest(first.quest);
   avatarFan = "quests";
   selectCards([currentActor(world)]);
   rowCollapsed = false;

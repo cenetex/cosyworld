@@ -228,6 +228,13 @@ and generated audio are checked through `test/card-character-speech.test.mjs`.
 
 ## A quest stack per avatar
 
+The first tap on a known item or quest shows its details in the descriptor.
+Tapping the top card of its folded stack also fans that stack. The quest fold
+behind the avatar opens the first quest's details. Unknown world cards keep
+their discovery reveal. An open avatar group stays open after a deed, so a
+completed quest's checked card remains within reach. Tapping the checked card
+shows its earned XP and clears it.
+
 Each avatar holds a stack of up to three quests (#1831). Each quest is an
 item to hold, a place to reach or a person to talk with. A world pack defines each resident's starter quest as its `want`
 (`{kind, target}`); `forest.json` does the same for Vale, Pip and the keeper.
