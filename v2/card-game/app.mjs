@@ -14,6 +14,7 @@ import { createPreferredLocationsView } from "./preferred-locations-view.mjs";
 import { cardLevel, levelTier, romanLevel } from "./rarity.mjs";
 import { finishCardReveal, revealCard } from "./card-reveal.mjs";
 import { setCardLabel } from "./card-label.mjs";
+import { showActionBeatNote } from "./action-beat-note.mjs";
 import {
   fadeGhost,
   fixedGhost,
@@ -2077,7 +2078,8 @@ function showBeatCards(ids, recipe = false) {
 }
 // Another part of the table, such as the ☰ menu, can borrow the action
 // beat: { avatar, cards: [{ src, level, color, lit, ground }], name, info,
-// note, buttons: [{ label, id, run }] }. The name and its info line read in
+// note, edit?: { key, label, value, onInput }, buttons: [{ label, id, run }] }.
+// The name and its info line read in
 // the middle, then the note; the buttons sit on the right, and a beat may
 // have none. It replaces the play's beat until cleared. `borrowedBeat` is
 // declared before notice(), which a refused save calls during boot.
@@ -2142,8 +2144,7 @@ function showBorrowedBeat(row, heading) {
       : "",
   );
   const note = document.querySelector(".action-beat-note");
-  note.textContent = note.title = beat.note || "";
-  note.hidden = !beat.note;
+  showActionBeatNote(note, beat);
   row.replaceChildren(
     ...beat.buttons.map(({ label, id, run, disabled }, index) => {
       const button = node(
@@ -2440,8 +2441,7 @@ function renderActions() {
     row.append(blocked);
   }
   const note = document.querySelector(".action-beat-note");
-  note.textContent = "";
-  note.hidden = true;
+  showActionBeatNote(note);
   delete $("action-beat").dataset.avatar;
   // A refused play whose cards are no longer chosen says so on the status
   // line, briefly, as its button would.

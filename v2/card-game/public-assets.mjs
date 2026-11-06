@@ -250,6 +250,7 @@ const files = [
   "combat-portraits.mjs",
   "table-session.mjs",
   "app.mjs",
+  "action-beat-note.mjs",
   "pack-landing.mjs",
   "pack-landings.json",
   "world.mjs",
