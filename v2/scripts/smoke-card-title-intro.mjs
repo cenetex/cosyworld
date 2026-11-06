@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
-import { chromium } from "playwright";
+import { chromium, webkit } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
 import { startNewGame } from "./card-browser-helpers.mjs";
 import { REVEAL_HINT, TITLES, WAKE_FADE } from "../card-game/title-intro.mjs";
@@ -26,9 +26,15 @@ const server = createServer();
 await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
 const origin = `http://127.0.0.1:${server.address().port}`;
 // Real browsers allow sound only after a gesture; so does this one.
-const browser = await chromium.launch({
+const browserName = process.env.CARD_BROWSER || "chromium";
+const browserType = { chromium, webkit }[browserName];
+assert(browserType, `Unknown CARD_BROWSER: ${browserName}`);
+const browser = await browserType.launch({
   headless: true,
-  args: ["--autoplay-policy=user-gesture-required"],
+  args:
+    browserName === "chromium"
+      ? ["--autoplay-policy=user-gesture-required"]
+      : [],
 });
 const output = new URL(
   process.env.TITLE_INTRO_SHOTS
