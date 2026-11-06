@@ -480,7 +480,8 @@ Tapping an action button plays it. The current place sits on the left of
 the hand. If the place you came from is still a way back, its card sits
 just to the left of the current place. Tap it to choose **Travel** back.
 Tap the current place to fan the items lying there immediately to its
-right, before the avatars. Tap the current place again to fold its items.
+right, before the avatars. The hand scrolls far enough to show the first
+item. Tap the current place again to fold its items.
 Tapping a chosen item again lowers it and leaves the fan open (#2247).
 The other ways on stack at the right end. The first is face up, with up to
 three face down behind it. Tap the top card to fan them. A lone way is

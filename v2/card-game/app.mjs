@@ -1602,10 +1602,15 @@ function choose(id) {
   }
   selectionRevision = world.revision;
   render();
-  $("hand")
-    .querySelector(`[data-card="${id}"]`)
-    ?.focus({ preventScroll: true });
-  revealHandCard(id);
+  const hand = $("hand");
+  hand.querySelector(`[data-card="${id}"]`)?.focus({ preventScroll: true });
+  const firstItem =
+    id === placeHere()
+      ? hand.querySelector(
+          `.card-frame[data-holder="${id}"]:not([hidden])`,
+        )
+      : null;
+  revealHandCard(id, { nextFrame: firstItem });
 }
 function commit(cards, revision) {
   if (selectionBlocked()) return;
@@ -4534,7 +4539,7 @@ function render() {
     // beside its new holder. Scrolled now, before the row's moves are
     // measured, it slides from where it lay into view.
     if (receivedCard) {
-      revealHandCard(receivedCard, true);
+      revealHandCard(receivedCard, { instant: true });
       receivedCard = null;
     }
     renderActions();
@@ -4551,7 +4556,7 @@ function render() {
           .querySelector(part)
           .animate({ opacity: [0, 1] }, { duration: LAYOUT_MS });
     if (!sameWorld) playLevelUps();
-    if (arriving) revealHandCard(renderedHandPlace, true);
+    if (arriving) revealHandCard(renderedHandPlace, { instant: true });
     // A scene change's new cards rise after the old ones fall and a beat.
     const entering = (count) => {
       const timing = swapTiming(swap.left, count, swap.fallen);
@@ -4581,7 +4586,7 @@ function render() {
     showQuests(opening);
     // A new quest rises where the player can see its slot in the hand.
     if (dealtQuest && !opening)
-      revealHandCard(`quest:${dealtQuest.index}`, true);
+      revealHandCard(`quest:${dealtQuest.index}`, { instant: true });
     openLockedBoxes();
     // Every new place is measured before any card starts moving, so the
     // row is laid out once rather than once per card.
@@ -4666,14 +4671,15 @@ function playLevelUps() {
       });
   }
 }
-function revealHandCard(id, instant = false) {
+function revealHandCard(id, { instant = false, nextFrame = null } = {}) {
   const hand = $("hand"),
     frame = hand
       .querySelector(`[data-card="${id}"], [data-quest-id="${id}"]`)
       ?.closest(".card-frame");
   if (!frame || frame.hidden) return;
-  const left = frame.offsetLeft - hand.offsetLeft,
-    right = left + frame.offsetWidth,
+  const last = nextFrame ?? frame,
+    left = frame.offsetLeft - hand.offsetLeft,
+    right = last.offsetLeft - hand.offsetLeft + last.offsetWidth,
     // Keep the revealed card clear of the faded edges.
     margin = Math.max(
       16,
@@ -4688,7 +4694,8 @@ function revealHandCard(id, instant = false) {
         ? right - hand.clientWidth + margin
         : hand.scrollLeft;
   hand.scrollTo({
-    left: target,
+    // Keep the place in view when its first item cannot fully fit beside it.
+    left: nextFrame ? Math.min(target, left - margin) : target,
     behavior: instant || reducedMotion.matches ? "instant" : "smooth",
   });
 }

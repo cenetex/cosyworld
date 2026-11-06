@@ -255,6 +255,21 @@ try {
       "bell",
       "vale",
     ]);
+    await page.waitForFunction(() => {
+      const hand = document.querySelector("#hand");
+      const place = hand.querySelector('[data-card="station"]').parentElement;
+      const item = hand.querySelector('.card-frame[data-holder="station"]');
+      const placeLeft = place.offsetLeft - hand.offsetLeft - hand.scrollLeft;
+      const itemCenter =
+        item.offsetLeft -
+        hand.offsetLeft -
+        hand.scrollLeft +
+        item.offsetWidth / 2;
+      const fade = parseFloat(
+        getComputedStyle(hand).getPropertyValue("--hand-fade"),
+      );
+      return placeLeft >= 0 && itemCenter < hand.clientWidth - fade;
+    });
     await tapCard(station);
     assert.deepEqual(await placeItems(), ["pond", "station", "vale"]);
     // Put out in a new world's attic: the lamp and the attic turn to their
