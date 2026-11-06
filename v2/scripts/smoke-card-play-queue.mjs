@@ -22,7 +22,7 @@ try {
         save: encodeSave(createWorld()),
       }).world;
       world.items.lamp.holder = "vale";
-      addLog(world, "Vale", "There is time to choose the next step.", {
+      addLog(world, "Vale", "I remember the Between-hours carriage.", {
         actorId: "vale",
         entityId: "vale",
         locationId: "station",
@@ -64,6 +64,11 @@ try {
         async (route) => {
           const body = route.request().postDataJSON();
           if (body?.op === "play") {
+            assert(Array.isArray(body.revealed));
+            assert(body.revealed.includes("vale"));
+            assert(body.revealed.includes("lamp"));
+            assert(!body.revealed.includes("train"));
+            assert(!body.revealed.includes("routes"));
             plays.push(body);
             const result = dispatchShared({
               op: "play",
@@ -96,7 +101,8 @@ try {
             JSON.stringify({ enabled: false }),
           );
         },
-        { seen: availableCards({ ...world, playerActorId: "vale" }) },
+        { seen: availableCards({ ...world, playerActorId: "vale" })
+          .filter((id) => !["train", "routes"].includes(id)) },
       );
       try {
         await page.goto(`${origin}/?world=play-queue`);
@@ -106,6 +112,15 @@ try {
             document.querySelector("#dialogue-advance").dataset.revealing ===
             "false",
         );
+        assert.match(await page.locator("#dialogue-text").innerText(), /a place/);
+        assert.doesNotMatch(
+          await page.locator(".dialogue").innerText(),
+          /Between-hours carriage/,
+        );
+        assert(world.log.some((entry) =>
+          entry.text === "I remember the Between-hours carriage."));
+        // Read the old line before the queued action comes forward.
+        await page.locator("#speech-row").click();
         await page.evaluate(async () => {
           await Promise.all(
             [...document.images]

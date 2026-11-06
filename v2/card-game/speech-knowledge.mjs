@@ -162,7 +162,7 @@ function privateWords(entity, blur) {
   };
 }
 
-export function coveredText(world, text, isCovered) {
+export function coveredTextReader(world, isCovered) {
   const { unnamedIds, shown } = coveredCards(world, isCovered);
   const names = new Map(
     unnamedIds.map((id) => [
@@ -170,11 +170,16 @@ export function coveredText(world, text, isCovered) {
       world.actors[id] ? "someone" : world.items[id] ? "something" : "a place",
     ]),
   );
-  const caption = blurrer(names, shown)(text);
-  return caption && /^[A-Z]/.test(text)
-    ? caption[0].toUpperCase() + caption.slice(1)
-    : caption;
+  const blur = blurrer(names, shown);
+  return (text) => {
+    const caption = blur(text);
+    return caption && /^[A-Z]/.test(text)
+      ? caption[0].toUpperCase() + caption.slice(1)
+      : caption;
+  };
 }
+export const coveredText = (world, text, isCovered) =>
+  coveredTextReader(world, isCovered)(text);
 
 export function forgetCovered(world, context, isCovered) {
   const actor = currentActor(world);

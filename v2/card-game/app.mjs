@@ -60,6 +60,7 @@ import {
   phase,
   refusalLabel,
   refusalSentence,
+  revealedBeat,
   THINKING_GRACE_MS,
 } from "./presentation.mjs";
 import { glowCard, levelUpCard, transformPortrait } from "./card-level-up.mjs";
@@ -146,11 +147,7 @@ import { openTableSession } from "./table-session.mjs";
 import { createNarrator, requestNarrative, silentLines } from "./narrative.mjs";
 import { signedRequest } from "./signed-words.mjs";
 import { rememberLocalUpgrades, wearLocalUpgrades } from "./scarves.mjs";
-import {
-  forgetCovered,
-  forgetUnfound,
-  markWaking,
-} from "./speech-knowledge.mjs";
+import { coveredText, coveredTextReader, markWaking } from "./speech-knowledge.mjs";
 import { packMedia } from "./pack-registry.mjs";
 import { createRoomMusic, openingRevealed } from "./music.mjs";
 import {
@@ -426,6 +423,7 @@ const cardArt = (id) =>
 // going (the ship's deck from its berth), lit for the hour and weather.
 const placeArt = (id) => placeCardArt(world, id);
 const cardIsCovered = (id) => !encountered.has(id) || coveredCards.has(id);
+const visibleText = (text) => coveredText(world, text, cardIsCovered);
 // The scene's uncovered cards, so text writes their names in their card's
 // colour (card-names.mjs).
 const cardColours = (ids) =>
@@ -958,7 +956,7 @@ const reveal = createTextReveal({
       announcedBeat = value.key;
       $("speech-announcement").textContent = [
         expressionLabel(
-          { ...people[value.speaker], name: nameOf(value.speaker) },
+          { ...people[value.speaker], name: visibleText(nameOf(value.speaker)) },
           value.text,
         ),
         ...frontCaptions,
@@ -1209,13 +1207,9 @@ window.addEventListener("pagehide", () => {
 window.addEventListener("pageshow", hideAudio);
 const narrator = createNarrator({
   getWorld: () => world,
+  isCovered: cardIsCovered,
   early: Boolean(localRuntime()),
-  limit: (context) => {
-    const covered = (id) => coveredCards.has(id);
-    // A quest target whose card this player never uncovered stays unnamed.
-    const unseen = forgetUnfound(world, context, cardIsCovered);
-    return markWaking(world, forgetCovered(world, unseen, covered), covered);
-  },
+  limit: (context) => markWaking(world, context, (id) => coveredCards.has(id)),
   // Remembered words go back with the envelopes the service signed them with.
   request: signedRequest(
     localRuntime()
@@ -1293,7 +1287,9 @@ function loadTurnLines({ pending = false } = {}) {
       // The dreamer says nothing on waking: the dream is the beat.
       !sleepView.hidesLine(entry),
   );
-  const voiced = lines.filter((entry) => !entry.silent);
+  const voiced = lines.filter(
+    (entry) => !entry.silent && visibleText(entry.text) === entry.text,
+  );
   if (localRuntime() && voiced.length) {
     const line =
       voiced.find((entry) => entry.seq !== exchange.current?.seq) || voiced[0];
@@ -2530,7 +2526,7 @@ function renderActions() {
     );
   }
   const note = document.querySelector(".action-beat-note");
-  let noteText = next?.reason || "";
+  let noteText = visibleText(next?.reason || "");
   if (abandonQuest) {
     panel.dataset.tier = "danger";
     panel.style.setProperty("--tier-color", "var(--danger)");
@@ -3407,6 +3403,7 @@ function renderFloorItems(items) {
 function renderScene() {
   // Every path to this renderer keeps the source visible until the veil covers it.
   if (covering) return;
+  const visibleText = coveredTextReader(world, cardIsCovered);
   sleepView.observe(world, currentActor(world));
   const view = shownWorld();
   const scene = currentScene(view, null, {
@@ -3729,10 +3726,10 @@ function renderScene() {
   const dreamt = withDream(stack.beats, dreaming?.beat, {
     front: dreaming?.front,
   });
-  const beats = dreamt.beats;
+  const beats = dreamt.beats.map((beat) => revealedBeat(beat, visibleText));
   const pendingCard = !dreaming?.front &&
     stack.pending && {
-      ...stack.pending,
+      ...revealedBeat(stack.pending, visibleText),
       // Its two taps cancel the player's own play.
       own: stack.pending.speakerId === viewer || !sharedSession ? own : null,
     };
@@ -3798,11 +3795,12 @@ function renderScene() {
   const line = front?.line || null;
   shownSceneLine = line;
   const text = line ? line.text : "";
-  $("speaker").textContent = front
-    ? line?.speaker ||
-      front.label ||
-      (front.speakerId ? nameOf(front.speakerId) : "")
-    : "";
+  $("speaker").textContent = visibleText(
+    front
+      ? line?.speaker || front.label ||
+        (front.speakerId ? nameOf(front.speakerId) : "")
+      : "",
+  );
   const ownFront = behindLive ? null : front?.own || null;
   if (!ownFront?.cancel) disarmThinking(false);
   // The Thinking chip belongs to the Thinking card, never to a line.
@@ -3929,7 +3927,7 @@ function renderScene() {
   else $("speech-row").style.removeProperty("--tier-color");
   paintGlimpse($("speech-row").parentElement, front?.companion ?? null, {
     artOf: beatPortrait,
-    nameOf,
+    nameOf: (id) => visibleText(nameOf(id)),
     icon: beatIcon,
   });
   $("speech-row").dataset.beat = front?.dream
@@ -3968,7 +3966,7 @@ function renderScene() {
     // An action beat is announced when it arrives live.
     const announce =
       !reviewing && front && !front.pending && front.actions.length
-        ? `${nameOf(front.speakerId)}: ${frontCaptions.join(" ")}`
+        ? `${visibleText(nameOf(front.speakerId))}: ${frontCaptions.join(" ")}`
         : "";
     if (announce && announcedBeat !== front.key) {
       announcedBeat = front.key;
@@ -3983,10 +3981,13 @@ function renderScene() {
   if (!behind) delete behindButton.dataset.motion;
   if (behind) {
     const summary = beatSummary(behind);
+    summary.speaker = visibleText(summary.speaker);
     const behindKey = JSON.stringify([
       behind.key,
       summary.text,
+      summary.speaker,
       behind.speakerId,
+      beatPortrait(behind.speakerId),
     ]);
     if (behindButton.dataset.key !== behindKey) {
       behindButton.dataset.key = behindKey;
@@ -4080,7 +4081,7 @@ function fillPortrait(face, id) {
   face.append(image);
 }
 function beatPortrait(id) {
-  if (!id) return "";
+  if (!id || cardIsCovered(id) || (things[id] && covered(world, id))) return "";
   return imageUrl(
     people[id]
       ? portrait(id, null, world)
@@ -4471,17 +4472,27 @@ function renderLog(open = $("history-dialog").open) {
     renderedMemory = "";
     return;
   }
+  const visibleText = coveredTextReader(world, cardIsCovered);
   const visits = memoryVisits(shownWorld(), {
     viewer: currentActor(world),
     shared: Boolean(sharedSession),
     held: combatHeld,
-  });
-  const inner = innerLifeChain(world);
+  }).map((visit) => ({
+    ...visit,
+    beats: visit.beats.map((beat) => revealedBeat(beat, visibleText)),
+  }));
+  const chain = innerLifeChain(world);
+  const inner = {
+    ...chain,
+    im: visibleText(chain.im),
+    becoming: chain.becoming.map(visibleText),
+    dreams: chain.dreams.map(visibleText),
+  };
   const key = JSON.stringify([
     inner,
     ...visits.map((visit) => [
       visit.key,
-      visit.placeId,
+      visibleText(nameOf(visit.placeId)),
       visit.beats.map((beat) => [
         beat.key,
         beat.line?.text,
@@ -4495,7 +4506,9 @@ function renderLog(open = $("history-dialog").open) {
     innerLifeSection(inner),
     ...visits.map((visit) => {
       const section = node("section", undefined, "memory-visit");
-      section.append(node("h3", nameOf(visit.placeId), "memory-place"));
+      section.append(
+        node("h3", visibleText(nameOf(visit.placeId)), "memory-place"),
+      );
       const list = node("ol", undefined, "memory-beats");
       for (const beat of visit.beats) {
         const item = node("li", undefined, "message memory-beat");
@@ -4518,7 +4531,11 @@ function renderLog(open = $("history-dialog").open) {
         }
         const body = node("div", undefined, "memory-body");
         body.append(
-          node("div", beat.line?.speaker || nameOf(beat.speakerId), "speaker"),
+          node(
+            "div",
+            visibleText(beat.line?.speaker || nameOf(beat.speakerId)),
+            "speaker",
+          ),
         );
         if (beat.line) body.append(node("p", beat.line.text));
         for (const action of beat.actions) {
@@ -5473,7 +5490,12 @@ async function submitSharedPlay(action) {
   };
   showSharedPlay("sending");
   try {
-    await sharedSession.play(current, sharedPlay.key);
+    const hidden = hiddenFor(world, currentActor(world))?.id;
+    await sharedSession.play(
+      current,
+      sharedPlay.key,
+      [...encountered].filter((id) => !cardIsCovered(id) && id !== hidden),
+    );
     lastPlayAt = performance.now();
     if (!playQueue.pending && JSON.stringify(selected) === selection) {
       keepHeldSelection(heldBefore, current);

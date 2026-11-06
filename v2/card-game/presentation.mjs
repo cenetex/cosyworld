@@ -6,6 +6,25 @@
 // stop holding the hand: the rules already ran, and dialogue never gates
 // play. The card stays and the late line types in when it comes.
 export const THINKING_GRACE_MS = 5000;
+// Read older words through the reader's revealed cards. Keep the saved beat
+// intact, including the signed line used by the voice service.
+export function revealedBeat(beat, textOf) {
+  const text = beat.line && textOf(beat.line.text);
+  return {
+    ...beat,
+    label: textOf(beat.label),
+    line: beat.line && {
+      ...beat.line,
+      text,
+      speaker: textOf(beat.line.speaker),
+      silent: beat.line.silent || text !== beat.line.text,
+    },
+    actions: beat.actions.map((action) => ({
+      ...action,
+      text: textOf(action.text),
+    })),
+  };
+}
 export function phase({
   reviewing = false,
   revealing = false,
