@@ -68,6 +68,7 @@ describe("authoring passkey tools", () => {
   it("keeps one ceremony active and supports cancellation and retry", async () => {
     const f = fixture(),
       waiting = deferred();
+    await f.tools.refresh();
     f.passkey.mockImplementationOnce(() => waiting.promise);
     const pending = get(f).run();
     await get(f).run();
@@ -119,8 +120,21 @@ describe("authoring passkey tools", () => {
     expect(get(f, "create-passkey")).toBeUndefined();
     await f.tools.refresh();
     expect(get(f, "create-passkey")).toBeDefined();
+    f.tools.requireSignIn();
+    await vi.waitFor(() => expect(get(f, "create-passkey")).toBeDefined());
     f.request.mockResolvedValue({});
     await f.tools.refresh();
     expect(get(f).describe().note).toBe("Check your account again.");
+  });
+  it("rechecks a completed ceremony after the account read fails", async () => {
+    const f = fixture();
+    await f.tools.refresh();
+    f.request.mockRejectedValueOnce(new Error("Try again"));
+    await get(f, "create-passkey").run();
+    expect(get(f).describe().actions[0].label).toBe("Check account");
+    f.request.mockResolvedValue({ authenticated: true });
+    await get(f).run();
+    expect(f.passkey).toHaveBeenCalledTimes(1);
+    expect(f.onSignedIn).toHaveBeenCalledTimes(1);
   });
 });

@@ -59,6 +59,8 @@ export function createAuthoringAccountTools({
     changed();
     try {
       await ceremony(register);
+      if (at !== epoch) return;
+      account.known = false;
       await load(at);
       if (at === epoch && !account.authenticated)
         throw new Error("Sign in again to continue.");
@@ -86,13 +88,22 @@ export function createAuthoringAccountTools({
               : "Sign in with your passkey, then return to your world."),
         actions: [
           {
-            label: account.authenticated ? "Refresh account" : label,
+            label: !account.known
+              ? "Check account"
+              : account.authenticated
+                ? "Refresh account"
+                : label,
             disabled: account.busy,
             stays: true,
           },
         ],
       }),
-      run: () => (account.authenticated ? refresh() : signIn(register)),
+      async run() {
+        if (!account.known || account.authenticated) {
+          await refresh();
+          if (account.authenticated) onSignedIn(state());
+        } else await signIn(register);
+      },
     };
   }
   return {
@@ -106,6 +117,7 @@ export function createAuthoringAccountTools({
       account.display_name = "";
       account.error = "Sign in to continue with your world.";
       changed();
+      void refresh();
       return "sign-in";
     },
   };

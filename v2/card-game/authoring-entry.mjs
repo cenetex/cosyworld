@@ -153,6 +153,7 @@ async function start() {
   const imports = authoringImportTools({ store, chooseFiles });
   const accounts = createAuthoringAccountTools({
     onChange: () => designer?.refresh(),
+    onSignedIn: () => designer.chooseTool("sign-in"),
   });
   const source = {
     id: "source",

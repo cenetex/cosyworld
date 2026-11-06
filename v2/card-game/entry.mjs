@@ -32,7 +32,7 @@ if (!authoring && logoSite(page)) {
 arrivePage();
 const local = await setupLocalService();
 // A members-only test server shows its sign-in lock instead of the table.
-const locked = !local && (await membersLock());
+const locked = !authoring && !local && (await membersLock());
 const params = new URLSearchParams(location.search);
 // The old "Your worlds" address (`?shared=1`) is ☰ now (#1877).
 if (!authoring && (params.has("shared") || (local && params.has("world")))) {
