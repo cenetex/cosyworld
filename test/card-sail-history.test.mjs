@@ -8,6 +8,10 @@ import {
 } from "../v2/card-game/world.mjs";
 import { cardActions, playLabel, restPlays } from "../v2/card-game/cards.mjs";
 import { memoryVisits, sceneBeats } from "../v2/card-game/beats.mjs";
+import {
+  IDLE_ROUNDS,
+  summonTransport,
+} from "../v2/card-game/pack-transport.mjs";
 
 const ship = "greek-ship";
 const act = (world, kind, target) => {
@@ -19,10 +23,11 @@ const act = (world, kind, target) => {
   expect(result.ok, result.error).toBe(true);
   return result.state;
 };
-function aboard() {
+function aboard(dock = "greek-harbor") {
   const world = createWorld();
   world.crossings["pond-greek-harbor"].discovered = true;
-  world.actors.vale.place = "greek-harbor";
+  world.actors.vale.place = dock;
+  summonTransport(world, ship, dock);
   return act(world, "move", ship);
 }
 const chosen = (world, cards) =>
@@ -40,6 +45,16 @@ describe("sailing action history", () => {
     expect(world.transports[ship].phase).toBe("docked");
     expect(caption(world)).toBe("Vale waited a turn.");
     expect(caption(decodeSave(encodeSave(world)))).toBe("Vale waited a turn.");
+  });
+
+  it("records the voyage when an idle ship carries its waiting passenger on", () => {
+    let world = aboard("pond");
+    for (let i = 0; i < IDLE_ROUNDS; i++) world = act(world, "wait");
+    expect(world.transports[ship].phase).toBe("sea");
+    expect(world.log.some((e) => e.text.includes("sails on its own"))).toBe(
+      true,
+    );
+    expect(caption(decodeSave(encodeSave(world)))).toBe("Vale sailed on.");
   });
 
   it("gives ship and avatar selections the same saved sailing outcome", () => {
@@ -64,6 +79,9 @@ describe("sailing action history", () => {
     // The action and its later voyage event are enough after earlier history expires.
     restored.log = restored.log.filter((e) => e.seq >= lastWait(restored).seq);
     expect(caption(restored)).toBe("Vale sailed on.");
+    // A partial old log keeps its recorded Wait when the voyage evidence is missing.
+    restored.log = restored.log.filter((e) => e.actorId);
+    expect(caption(restored)).toBe("Vale waited a turn.");
   });
 
   it("uses each turn's voyage while later waits remain at the dock", () => {
