@@ -308,9 +308,9 @@ try {
       ["rgb(255, 143, 132)", "none", "0px"],
     );
     // The beat above it names the chosen quest.
-    const described = await page
-      .locator(".action-beat-heading:not([hidden])")
-      .innerText();
+    const described = (
+      await page.locator(".action-beat-heading:not([hidden])").textContent()
+    ).trim();
     assert.ok(
       (await picked.getAttribute("aria-label")).startsWith(
         `Quest: ${described}`,
@@ -434,7 +434,9 @@ try {
     await page.locator('#hand .want-card[data-quest-id="quest:0"]').click();
     await page.locator("#card-actions [data-quest-step]").waitFor();
     assert.equal(
-      await page.locator(".action-beat-heading:not([hidden])").innerText(),
+      (
+        await page.locator(".action-beat-heading:not([hidden])").textContent()
+      ).trim(),
       "Give The Burial Decree to The Gate Guard",
     );
     assert.deepEqual(

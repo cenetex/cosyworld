@@ -81,7 +81,7 @@ async function check(width, name, world, cards, label, sentence) {
       (
         await (
           label === "Wait" ? action : page.locator(".action-beat-heading")
-        ).innerText()
+        ).textContent()
       ).trim(),
       sentence,
     );
