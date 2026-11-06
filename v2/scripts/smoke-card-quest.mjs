@@ -641,7 +641,7 @@ try {
         since: save.turn,
         refusals: 0,
       };
-      save.actors.vale.under = [];
+      delete save.actors.vale.under;
       localStorage.setItem(key, JSON.stringify(save));
       const seen = JSON.parse(localStorage.getItem(`${key}.seen`));
       localStorage.setItem(

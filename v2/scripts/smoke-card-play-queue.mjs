@@ -119,6 +119,8 @@ try {
         );
         assert(world.log.some((entry) =>
           entry.text === "I remember the Between-hours carriage."));
+        // Read the old line before the queued action comes forward.
+        await page.locator("#speech-row").click();
         await page.evaluate(async () => {
           await Promise.all(
             [...document.images]
