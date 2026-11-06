@@ -251,7 +251,7 @@ describe("beat grouping", () => {
     expect(say({ woke: "dry", text: "Vale wakes as the lamp runs dry." })).toBe(
       "Vale woke as the lamp ran dry.",
     );
-    expect(say({ woke: "chose", text: "Vale wakes." })).toBe("Vale woke.");
+    expect(say({ woke: "chose", text: "Vale wakes." })).toBe("Vale wakes.");
   });
 
   it("words every caption as a short sentence from the event fields", () => {

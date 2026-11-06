@@ -148,7 +148,12 @@ async function shared(width) {
     await page.waitForFunction(() => document.body.inert === false);
     const touch = width === 390;
     await selectCard(page, "vale", { touch });
-    assert.deepEqual(await labels(page), ["Wake"]);
+    assert.deepEqual(await labels(page), ["Wake Vale"]);
+    assert.equal(
+      await page.locator("#card-actions button").textContent(),
+      "Wake Vale",
+    );
+    assert.equal(await page.locator("#action-beat .quest-ground").count(), 1);
     await selectCard(page, world.actors.vale.place, { touch });
     assert.deepEqual(await labels(page), ["Sleep on"]);
     await page.screenshot({ path: resolve(output, `asleep-${width}.png`) });

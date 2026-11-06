@@ -418,7 +418,9 @@ function shownPlay(world, action, cards = []) {
     return {
       ...action,
       label: action.sleep ? "Sleep on" : "Wake",
-      shown: `${nameOf(action.actor)} ${action.sleep ? "sleeps on" : "wakes"}.`,
+      shown: action.sleep
+        ? `${nameOf(action.actor)} sleeps on.`
+        : `Wake ${nameOf(action.actor)}`,
     };
   const t =
     action?.kind === "wait" &&

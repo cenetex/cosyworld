@@ -221,7 +221,9 @@ try {
       const words = () => page.locator("#dialogue-text").textContent();
       // Talk to Pip: Vale's beat arrives in front, then Pip's in front of it.
       await page.locator('#hand [data-card="moth"]').click();
-      await page.locator("#card-actions .card-primary").click();
+      await page
+        .locator('#card-actions .card-primary:not([data-revealing="true"])')
+        .click();
       await page
         .waitForFunction(
           () => document.querySelector("#dialogue-text").textContent.length > 0,
