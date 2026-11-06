@@ -157,6 +157,23 @@ describe("local authoring import", () => {
     );
     await expect(load(input.files)).rejects.toThrow(/SHA-256/);
   });
+  it("checks the complete selection before reading asset bytes", async () => {
+    const input = await fixture();
+    let reads = 0;
+    const original = input.files[1].file;
+    input.files[1].file = {
+      size: original.size,
+      arrayBuffer: async () => {
+        reads++;
+        return original.arrayBuffer();
+      },
+    };
+    await expect(load(input.files.slice(0, -1))).rejects.toThrow(/asset file/);
+    expect(reads).toBe(0);
+    await expect(load(input.files.slice(1))).rejects.toThrow(/draft file/);
+    expect(input.draft.id).toBe("previous-draft");
+    expect(input.draft.revision).toBe(7);
+  });
   it("checks actual buffers and manifest encoding", async () => {
     const input = await fixture();
     input.files[1].file = {

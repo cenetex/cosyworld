@@ -63,6 +63,7 @@ export async function importLocalDraft({ files, manifestPath }) {
     "Choose the exported draft JSON file.",
   );
   const selected = selectedFiles(files);
+  need(selected.has(manifestPath), `Choose the draft file ${manifestPath}.`);
   const bytes = await read(
     selected.get(manifestPath),
     DRAFT_LIMITS.metadata,
