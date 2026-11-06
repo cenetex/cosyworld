@@ -258,37 +258,19 @@ export function createExchange({
   busy = () => {},
   // A streamed exchange has shown every line so far and awaits the next one.
   waiting: awaiting = () => {},
-  now = () => performance.now(),
-  setTimer = setTimeout,
-  clearTimer = clearTimeout,
 }) {
   let generation = 0,
     active = false,
     lines = [],
     index = -1,
-    timer = null,
-    due = 0,
-    remaining = null,
     paused = false,
     completed = null,
     handoff = null,
     streaming = false,
     waiting = false,
     transitioning = false;
-  function clear() {
-    if (timer !== null) clearTimer(timer);
-    timer = null;
-  }
-  function arm(delay) {
-    clear();
-    remaining = delay;
-    due = now() + delay;
-    if (!paused) timer = setTimer(advance, delay);
-  }
   function finish() {
     generation++;
-    clear();
-    remaining = null;
     active = false;
     lines = [];
     index = -1;
@@ -302,18 +284,18 @@ export function createExchange({
   function advance() {
     if (
       !active ||
+      paused ||
       transitioning ||
       index < 0 ||
       completed !== lines[index]?.seq
     )
       return;
-    clear();
-    remaining = null;
     if (streaming && index + 1 >= lines.length) {
+      if (!waiting) awaiting(lines[index]);
       waiting = true;
-      awaiting(lines[index]);
       return;
     }
+    waiting = false;
     transitioning = true;
     const previous = lines[index];
     completed = null;
@@ -339,8 +321,6 @@ export function createExchange({
   return {
     begin() {
       generation++;
-      clear();
-      remaining = null;
       lines = [];
       index = -1;
       completed = null;
@@ -356,10 +336,7 @@ export function createExchange({
       if (streaming) {
         lines = value;
         streaming = pending;
-        if (waiting) {
-          waiting = false;
-          advance();
-        }
+        if (waiting || (!streaming && index === lines.length - 1)) advance();
         return;
       }
       streaming = pending;
@@ -376,7 +353,7 @@ export function createExchange({
       if (prepare) void Promise.resolve().then(prepare).then(start, start);
       else start();
     },
-    revealed(seq, text, instant = false) {
+    revealed(seq) {
       if (
         !active ||
         transitioning ||
@@ -385,21 +362,19 @@ export function createExchange({
       )
         return;
       completed = seq;
-      arm(
-        instant
-          ? Math.min(9000, Math.max(2200, text.length * 25))
-          : Math.min(2800, Math.max(1200, text.length * 12)),
-      );
+      if (!streaming && index === lines.length - 1) advance();
     },
     advance,
     cancel: finish,
     pause(value) {
       if (paused === value) return;
-      if (value && timer !== null) remaining = Math.max(0, due - now());
       paused = value;
-      clear();
       if (!paused && handoff) handoff();
-      else if (!paused && remaining !== null) arm(remaining);
+      else if (
+        !paused &&
+        (waiting || (!streaming && index === lines.length - 1))
+      )
+        advance();
     },
     get active() {
       return active;
@@ -410,12 +385,15 @@ export function createExchange({
     get current() {
       return active ? lines[index] || null : null;
     },
-    // The current line has been read; its reading pause may still run.
+    // The full line is visible and its voice has finished.
     get read() {
       return active && index >= 0 && completed === lines[index]?.seq;
     },
     get hasNext() {
-      return active && index >= 0 && index < lines.length - 1;
+      return active && index >= 0 && (streaming || index < lines.length - 1);
+    },
+    get waiting() {
+      return waiting;
     },
   };
 }

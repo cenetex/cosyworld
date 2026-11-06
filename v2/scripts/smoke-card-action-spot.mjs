@@ -232,32 +232,26 @@ try {
     await page.waitForTimeout(600);
     release?.();
     await handUncut();
-    // With a card chosen, the stack behind the beat still steps back and
-    // forward in time: from the hand by the arrows, and by the wheel.
+    // The peeking beat is Back. Live returns to the same ready action.
     await page.keyboard.press("Escape");
     await selectCard(page, "greek-creon");
     await actionBeat("talk");
-    const strip = () => page.locator("#speech-row").innerText();
-    const live = await strip();
+    const speech = page.locator("#speech-row");
+    const words = await page.locator("#dialogue-text").textContent();
+    await speech.click({ position: { x: 36, y: 6 } });
+    await panel.waitFor({ state: "hidden" });
+    assert.equal(await page.locator("#dialogue-text").textContent(), words);
+    const live = page.locator("#live-line");
+    assert.match(await live.innerText(), /live\s*·\s*1/u);
+    await live.click();
+    await panel.waitFor();
+    assert(await give.isVisible());
+    await settled();
     await page.locator('#hand [data-card="greek-creon"]').focus();
     await page.keyboard.press("ArrowUp");
-    await settled();
-    assert.notEqual(await strip(), live, `${name}: ↑ steps back`);
-    assert(await page.locator("#live-line").isVisible(), "the live control");
+    await panel.waitFor({ state: "hidden" });
     await page.keyboard.press("ArrowDown");
-    await settled();
-    assert.equal(await strip(), live, `${name}: ↓ returns to live`);
-    const panelBox = await box(".action-panel");
-    await page.mouse.move(
-      panelBox.left + 40,
-      (panelBox.top + panelBox.bottom) / 2,
-    );
-    await page.mouse.wheel(0, -120);
-    await settled();
-    assert.notEqual(await strip(), live, `${name}: the wheel steps back`);
-    await page.locator("#live-line").click();
-    await settled();
-    assert.equal(await strip(), live, `${name}: live again`);
+    await panel.waitFor();
     assert.deepEqual(errors, []);
     await page.close();
   }

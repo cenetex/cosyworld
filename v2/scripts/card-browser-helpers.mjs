@@ -88,18 +88,18 @@ export async function revealCard(page, id) {
     await fanWays(page, frame);
   return card;
 }
-// The ways on stack at the row's right end; the current place leads it, so
-// its first card is never one of them (#2272).
+// The ways on stack at the row's right end. The current place has its own
+// stack for the things lying there.
 const wayTop = (page) =>
   page.locator(
-    '#hand > .card-frame:not([hidden], :first-child) > .card.location[aria-expanded="false"]',
+    '#hand > .card-frame:not([hidden], [data-inventory]) > .card.location[aria-expanded="false"]',
   );
 const isWayTop = (card) =>
   card.evaluate(
     (el) =>
       el.getAttribute("aria-expanded") === "false" &&
       el.classList.contains("location") &&
-      el.parentElement !== el.parentElement.parentElement.firstElementChild,
+      !el.parentElement.hasAttribute("data-inventory"),
   );
 // A covered top card is uncovered by its first tap, so tap until they fan.
 async function fanWays(page, frame) {

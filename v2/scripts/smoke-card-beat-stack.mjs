@@ -264,13 +264,17 @@ try {
         await page.locator("#dialogue-advance").click();
         assert.equal(await words(), lines.vale);
       }
-      // Tapping a finished front card moves the exchange on to Pip.
+      // Tapping the speaker portrait on a finished card moves the exchange on to Pip.
       await page.waitForFunction(
         () =>
           document.querySelector("#dialogue-advance").dataset.revealing ===
           "false",
       );
-      await page.locator("#dialogue-advance").click();
+      if (motion === "reduce") {
+        await page.waitForTimeout(3000);
+        assert.equal(await words(), lines.vale);
+      }
+      await page.locator("#speaker-portrait").click();
       await page.waitForFunction(
         () => document.querySelector("#speaker").textContent === "Pip",
       );
@@ -282,20 +286,8 @@ try {
       await page.waitForFunction(
         () => document.querySelector("#hand").dataset.cooling === "false",
       );
-      // A silent play inscribes its effect onto the front card, under the
-      // speech, and makes no card of its own.
-      await page.locator('#hand [data-card="vale"]').click();
-      await page.locator('#hand [data-card="lamp"]').click();
-      await page.locator('#card-actions [data-action="light"]').click();
-      await page.keyboard.press("Escape");
-      await page.waitForFunction(
-        () =>
-          /lit/u.test(document.querySelector("#beat-captions").textContent) &&
-          !document.querySelector(".inscribe"),
-      );
-      assert.equal(await front(), "Pip");
       // The earlier beat is a card behind, with the speech on one line
-      // peeking above the front card. The action sits under the speech.
+      // peeking above the front card.
       // Phones keep both inside the fixed box over the hand (#1897).
       const behind = page.locator("#beat-behind");
       const stepBack = () => behind.click({ position: { x: 80, y: 6 } });
@@ -309,7 +301,6 @@ try {
           card = box("#speech-row"),
           text = box("#dialogue-text"),
           name = box("#speaker"),
-          caption = box("#beat-captions"),
           words = document.querySelector("#dialogue-text");
         return {
           nameOnTop: name.height > 0 && name.bottom <= text.top + 1,
@@ -320,14 +311,6 @@ try {
           peek: card.top - back.top,
           narrower: back.width < card.width,
           stack: card.bottom - back.top,
-          captionBelow: caption.top >= text.bottom - 1,
-          captionLines: Math.round(
-            caption.height /
-              parseFloat(
-                getComputedStyle(document.querySelector(".beat-caption"))
-                  .lineHeight,
-              ),
-          ),
         };
       });
       assert(layout.narrower, "The card behind is smaller than the front.");
@@ -335,14 +318,11 @@ try {
         layout.peek > 12 && layout.peek <= 32,
         `One line of the card behind peeks out: ${layout.peek}`,
       );
-      assert(layout.captionBelow, "The action caption sits under the speech.");
       assert(layout.nameOnTop, "The speaker's name sits above the speech.");
       assert(layout.fullWidth, "The speech runs the card's full width.");
       assert(layout.wholeLine, "The front card shows the whole line.");
       if (width < 700) {
-        assert.equal(layout.captionLines, 1, "The phone caption is one line.");
-        // The peek, name row, a two-line reply and one caption line, in
-        // the fixed box.
+        // The peek, name row and two-line reply fit the fixed box.
         assert(
           layout.stack <= 100,
           `The phone stack stays compact: ${layout.stack}`,
@@ -453,6 +433,22 @@ try {
           motionFrames.some((step) => depth.includes(step)),
           "Cards move in depth.",
         );
+      // A silent play keeps its own card, with the previous line behind it.
+      await page.locator('#hand [data-card="vale"]').click();
+      await page.locator('#hand [data-card="lamp"]').click();
+      await page.locator('#card-actions [data-action="light"]').click();
+      await page.keyboard.press("Escape");
+      await page.waitForFunction(
+        () =>
+          /lit/u.test(document.querySelector("#beat-captions").textContent) &&
+          !document.querySelector(".inscribe"),
+      );
+      assert.equal(await front(), "Vale");
+      assert.equal(
+        await page.locator("#speech-row").getAttribute("data-beat"),
+        "action",
+      );
+      assert.match(await behind.textContent(), /getting out of here/u);
       // Memory holds the same beats, opened on purpose.
       await page.evaluate(() =>
         document.querySelector("#history-button").click(),

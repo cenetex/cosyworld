@@ -8,7 +8,25 @@ some art, not new engine rules.
 The Steam Clock clearing (`badger-forest`) is the reference pack. Copy its
 shape for the next spoke.
 
+The authoring card index is `buildAuthoringTree({pack, bridge})` in
+`authoring-tree.mjs`. It returns ordered `cards`, `roots`, and `children`.
+Each card has its source array path, a parent `holder`, a `kind`, and a `role`. Reference
+cards point to a canonical card through `ref`; external targets keep their ID.
+Contents boxes show initial placement. Elsewhere keeps external holders in reach.
+Quest, road, and transport records retain their source order and nested paths.
+Each place and avatar has Contents and Quests boxes. Incoming road conditions
+live under the destination's Quests box; outgoing links stay in Contents.
+The index leaves the source intact. Edit commands use those paths separately.
+
 ## Files
+
+Authoring drafts keep the original pack and bridge together with the writer's
+document. `card-game/authoring-draft.mjs` reads and exports their version 1
+manifest. A draft has its own server ID and revision; imported pack IDs stay
+intact. Asset records hold a relative path, MIME type, SHA-256 and byte size.
+File bytes go through a separate upload. Source records keep local relative
+paths or a GitHub repository, exact commit and path. Drafts accept unfinished
+cards; publication checks the compiled pack with the shared pack validator.
 
 | File                                | Owns                                                                                                                    |
 | ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |

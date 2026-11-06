@@ -476,24 +476,17 @@ A selected card lifts and wears one white edge over its tier border, apart from
 the level-up glow, and the rest of the hand dims. At most one place is
 selected: choosing another place replaces it and keeps the selected person or
 item, so Pip + Station, then Pond, offers **Invite Pip along** to the Pond.
-Tapping an action button plays it. The left end of the hand holds where you
-are, followed by avatars with their carried items and, at the right end, the
-ways on, so exploring is a choice of left or right (#2272,
-[three links per place](../../docs/design/three-link-map.md)). The place the
-player came from leads, face up, with the current place face down beneath
-it, showing the carved card back (#2286). Tapping the way back chooses it
-for **Travel** and fans the stack, showing the current place; tapping the
-current place chooses it and shows the items lying there. The stack folds
-back after the play. Tapping a chosen card in the fan again only lowers it,
-and the stack stays open; tapping the top card again folds it (#2247). The
-scene's painting stays the current place's, so a way back on top never
-reads as where you are. With no way back (a new world or a fresh load) the
-current place leads alone, and tapping it fans the items lying there. The
-other ways on stack at the right end, the first face up and the rest face
-down behind it, up to three; tapping the top card fans them, and a lone way
-is chosen at the first tap. Any other tap folds them, so one stack is fanned
-at a time. With no way back every way on is in the right stack; a dead end
-has none.
+Tapping an action button plays it. The current place sits on the left of
+the hand. If the place you came from is still a way back, its card sits
+just to the left of the current place. Tap it to choose **Travel** back.
+Tap the current place to fan the items lying there immediately to its
+right, before the avatars. The hand scrolls far enough to show the first
+item. Tap the current place again to fold its items.
+Tapping a chosen item again lowers it and leaves the fan open (#2247).
+The other ways on stack at the right end. The first is face up, with up to
+three face down behind it. Tap the top card to fan them. A lone way is
+chosen at the first tap. Tapping elsewhere folds the ways on. See
+[three links per place](../../docs/design/three-link-map.md).
 Choosing the player's avatar shows two stacks beside it, in the same way: the
 things it carries, then its quests (#2256). An empty stack is left out. Each
 shows its top card face up with the rest face down behind it, up to three;
@@ -559,8 +552,9 @@ open the way, the box turns over once, with the same lift as an uncovered
 card (a crossfade under reduced motion), and the card shows as itself from
 then on; a redraw never covers it again (`locked-box.mjs`). In a shared world
 each browser reads its own player's view of the gate.
-Arrival starts the hand at the new current place. Selection scrolls only far
-enough to bring the chosen card into view, including when a person opens a stack.
+On arrival, the hand scrolls just far enough to show the new current place.
+Selection scrolls just far enough to show the chosen card, including when a
+person opens a stack.
 A newly dealt quest brings its slot into view before it rises.
 On wide screens, the resting hand is a fanned deck at the right, as wide as
 its cards so none is cut at the screen edge; once it would crowd the dialogue
@@ -1317,7 +1311,7 @@ Run `node v2/scripts/smoke-card-combat.mjs` for a lost battle at desktop, phone 
 
 Card selection keeps the current card elements in place and leaves keyboard focus on the tapped card. The hand opens over 220 milliseconds; held items slide out from their owner. A play leaves the hand where it is: a raised hand stays raised and keeps its scroll, and a play in the same place refreshes the cards in place. A thing the player's own play puts in their hands (a Take, or the other side of a trade) is in the hand at once, face up: the row scrolls just far enough to show it beside its new holder, without waiting for the play's words (`node v2/scripts/smoke-card-reply-wait.mjs`). Travel changes the cards while the scene veil is down. Rapid taps reverse the current motion. Reduced motion applies the final layout at once. Menu and Memory keep the selected cards and open items, and Escape closes the active panel before lowering the hand. Only a click on empty table space (the stage, outside the cards and the dialogue; not the toolbar or action beat) or Escape folds the hand to its resting row; a play never does. Both clear the selection, held items included, so the action beat fades and the full dialogue card comes back; a play already chosen keeps its Thinking card. A tap on the dialogue steps its beat and leaves a raised hand raised. Nothing but the player's own action moves the hand: new beats, shared updates and another tab's save leave it, and its scroll, as they were (a card that leaves the table drops out of the selection). Selecting, changing the pair and deselecting keep it open, as does a tap on empty hand space. The hand has no scroll arrows: a swipe, drag or wheel reaches cards past its faded edges. A held item stays raised with its plays, and any tap on the folded hand opens it again. Short landscape screens keep the hand inside the viewport.
 
-A ready play is an action beat, shown only while the player is choosing (`presentation.mjs`, [dialogue beats](../docs/card-table/dialogue-beats.md#what-is-in-front)): never over a line still being written, which keeps its full-size card, and never over the rest of an exchange. A choice made meanwhile comes forward once the lines are read. A ready play's beat is a card in front of the dialogue with small cards of who acts and what it acts on (the chosen cards, or the place for Wait), what the play will do ("Vale gives the Burial Decree to Creon.") and its buttons, square-cornered like the beat cards, as on any screen width. The plain Wait is offered only when the selection has nothing else to do: the Forest Clearing's card rings the Steam Clock, Vale's own card still waits, and Sleep or "sleep on" is never dropped. Aboard a ship under way (course set or at sea), choosing the ship's card, alone or with Vale's, reads **Sail** ("Vale sails on."), the words the pack gives the transport (`waitVerb`, `waitSentence`), because each round passed carries the voyage on. Vale's card alone still reads Wait ("Vale waits one turn."), and Sleep is never offered aboard. A docked ship keeps Wait for every selection, and the rules action and journal stay `wait` either way ([#2027](https://github.com/cenetex/cosyworld/issues/2027)). The spoken beat fades into the slot behind it, one dimmed line, and comes back to the front when the play is chosen, which leaves the beat for its Thinking card; a held item's next plays return when the player raises the hand or chooses again. Nothing lies between the dialogue and the hand, and the hand never moves for the beat. A strike or journey hides it while the dialogue steps aside. The status line (#1725) sits in the action beat, above the buttons; a shared refusal that lands while a line is being written waits for the line. Captions name a thing with one article: "Vale took the Burial Decree". `node v2/scripts/smoke-card-action-spot.mjs` checks the beat at 1440, 1900, 765, 390 and 844 px, with reduced motion at 390 and 844.
+A ready play is an action beat, shown only while the player is choosing (`presentation.mjs`, [dialogue beats](../docs/card-table/dialogue-beats.md#what-is-in-front)): never over a line still being written, which keeps its full-size card, and never over the rest of an exchange. A choice made meanwhile comes forward once the lines are read. A ready play's beat is a card in front of the dialogue with small cards of who acts and what it acts on (the chosen cards, or the place for Wait), what the play will do ("Vale gives the Burial Decree to Creon.") and its buttons, square-cornered like the beat cards, as on any screen width. Choose a guardable destination alone to travel there. Pair it with your avatar to guard it. Choose a meal you hold and a companion to give it to them. Add your avatar's card to share the meal instead. The Forest Clearing alone rings the Steam Clock. Pair it with your avatar to wait. While asleep, choose your avatar to wake or pair it with the current place to sleep on. Aboard a ship under way (course set or at sea), choosing the ship's card, alone or with Vale's, reads **Sail** ("Vale sails on."), the words the pack gives the transport (`waitVerb`, `waitSentence`), because each round passed carries the voyage on. Vale's card alone still reads Wait ("Vale waits one turn."), and Sleep is never offered aboard. A docked ship keeps Wait for every selection, and the rules action and journal stay `wait` either way ([#2027](https://github.com/cenetex/cosyworld/issues/2027)). The spoken beat fades into the slot behind it, one dimmed line, and comes back to the front when the play is chosen, which leaves the beat for its Thinking card; a held item's next plays return when the player raises the hand or chooses again. Nothing lies between the dialogue and the hand, and the hand never moves for the beat. A strike or journey hides it while the dialogue steps aside. The status line (#1725) sits in the action beat, above the buttons; a shared refusal that lands while a line is being written waits for the line. Captions name a thing with one article: "Vale took the Burial Decree". `node v2/scripts/smoke-card-action-spot.mjs` checks the beat at 1440, 1900, 765, 390 and 844 px, with reduced motion at 390 and 844.
 
 Run `node v2/scripts/smoke-card-actions.mjs` for Chromium controls, or `CARD_BROWSER=webkit node v2/scripts/smoke-card-actions.mjs` for WebKit. The checks cover desktop, phone, short landscape, reduced motion, fast taps, panel dismissal, and save updates.
 

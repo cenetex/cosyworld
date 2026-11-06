@@ -170,7 +170,14 @@ try {
       await card("vale").waitFor();
       await ready();
     };
-    const labels = () => page.locator("#card-actions button").allTextContents();
+    const labels = () =>
+      page
+        .locator("#card-actions button")
+        .evaluateAll((buttons) =>
+          buttons.map(
+            (button) => button.getAttribute("aria-label") || button.textContent,
+          ),
+        );
     // Chosen cards, not the current place raised to show its ways on.
     const chosen = () =>
       page
@@ -288,10 +295,17 @@ try {
         "the card passes through an intermediate position",
       );
     }
-    const played = await measureHand(
-      page,
-      '#card-actions [data-action="wait"]',
+    assert.equal(
+      await page.locator("#card-actions [data-wait-sentence]").textContent(),
+      "Vale waits one turn.",
     );
+    const message = page.locator("#card-actions [data-wait-sentence]");
+    if ((await message.getAttribute("data-revealing")) === "true") {
+      await message.click();
+      assert.equal((await state()).turn, before.turn);
+      assert.equal(await message.getAttribute("data-revealing"), "false");
+    }
+    const played = await measureHand(page, ".action-beat-cards");
     // Its handlers read the live world, so it is refreshed in place.
     assert.equal(
       played.same,
@@ -535,6 +549,45 @@ try {
       knowsFact(await state(), "vale", "greek-hear-decree"),
       "Talk teaches the listener the guard's decree",
     );
+    if ([1440, 390].includes(width)) {
+      const meal = createWorld();
+      meal.actors.vale.place = "greek-gate";
+      meal.crossings["pond-greek-harbor"].discovered = true;
+      meal.items["greek-wine-skin"].holder = "vale";
+      meal.actors["greek-guard"].trust.vale = 1;
+      await load(meal);
+      await selectCard(page, "greek-wine-skin");
+      await selectCard(page, "greek-guard");
+      assert.deepEqual(await labels(), ["Give to The Gate Guard"]);
+      await selectCard(page, "vale");
+      assert.deepEqual(await chosen(), [
+        "greek-guard",
+        "greek-wine-skin",
+        "vale",
+      ]);
+      assert.deepEqual(await labels(), ["Drink with The Gate Guard"]);
+      await selectCard(page, "vale");
+      assert.deepEqual(await labels(), ["Give to The Gate Guard"]);
+      if (width === 1440) {
+        const dataTransfer = await page.evaluateHandle(
+          () => new DataTransfer(),
+        );
+        await card("greek-guard").dispatchEvent("dragstart", { dataTransfer });
+        await card("vale").dispatchEvent("drop", { dataTransfer });
+      } else await selectCard(page, "vale");
+      assert.deepEqual(await labels(), ["Drink with The Gate Guard"]);
+      await page.locator('#card-actions [data-action="eat"]').click();
+      await ready();
+      assert(
+        (await state()).log.some(
+          (e) =>
+            e.verb === "eat" &&
+            e.actorId === "vale" &&
+            e.targetId === "greek-guard" &&
+            e.accepted,
+        ),
+      );
+    }
     assert.deepEqual(errors, []);
     console.log(
       `Actions, item stacks, trade, standoff, story choices and keyboard passed in ${browserName} at ${width}px.`,
