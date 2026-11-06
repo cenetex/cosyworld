@@ -21,27 +21,30 @@ const browser = await chromium.launch({ headless: true });
 const world = dispatchShared({
   op: "create",
   save: encodeSave(createWorld()),
+  seed: 1868,
 }).world;
 delete world.opening;
+world.actors.rue.place = "pond";
 // A resident at level 20 makes this world Rare (world-level.mjs).
 world.actors.moth.xp = 190;
 world.turn = world.revision = 24;
 // Seat order: vale, mara, ash, nell, tavi, rue, orin, ada.
 const seats = (...held) => held.concat(Array(8 - held.length).fill(0));
 const everyone = ["vale", "mara", "ash", "nell", "tavi", "rue", "orin", "ada"];
+const playing = everyone.map((id) => Number(id === "rue"));
 const snapshot = () => ({
   ...dispatchShared({
     op: "view",
     world,
-    actor: "vale",
-    claimed: ["vale"],
-    present: ["vale"],
+    actor: "rue",
+    claimed: ["rue"],
+    present: ["rue"],
   }),
   id: "here",
   version: "full-card-world/3",
-  claimed: seats(1),
-  present: seats(1),
-  bound: seats(1),
+  claimed: playing,
+  present: playing,
+  bound: playing,
   holders: seats(null),
   owner: true,
   now: Date.now(),
@@ -50,13 +53,13 @@ const snapshot = () => ({
 });
 const states = {
   "signed-out": { at: "/" },
-  // Vale plays here; Tavi is found and free; six still to find.
+  // Rue plays here; Tavi is found and free; six still to find.
   "two-found": {
     at: "/?world=here",
     worlds: [
-      { id: "here", owner: true, actor: "vale", held: seats(1), seed: 1 },
+      { id: "here", owner: true, actor: "rue", held: playing, seed: 1868 },
     ],
-    unlocked: ["vale", "tavi"],
+    unlocked: ["rue", "tavi"],
     tiers: { here: "rare", root: "rare" },
   },
   // At the local table, Tavi left the attic, and everyone is found.
@@ -211,12 +214,12 @@ try {
         assert.deepEqual(
           seen.cast.slice(0, 2).map(({ avatar, lit }) => [avatar, lit]),
           [
+            ["rue", "false"],
             ["tavi", "true"],
-            ["vale", "false"],
           ],
         );
-        assert.match(seen.cast[0].label, /^Tavi, free$/);
-        assert.match(seen.cast[1].label, /^Vale, in /);
+        assert.equal(seen.cast[0].label, "Rue, in The Weeping Cellar");
+        assert.equal(seen.cast[1].label, "Tavi, free");
         assert.equal(seen.cast.filter((c) => !c.avatar).length, 6);
         assert.equal(seen.castLabel, "Your avatars, 6 still to find");
         // A free avatar is chosen for + New world.
@@ -228,10 +231,35 @@ try {
           "true",
         );
         await page.emulateMedia({ reducedMotion: "no-preference" });
-        await menu.locator('.world-slot [data-avatar="vale"] button').click();
+        const seat = menu.locator('.world-slot [data-avatar="rue"] button');
         const leave = page.locator("#avatar-leave");
-        assert.equal(await leave.textContent(), "Tap to leave");
         const panel = page.locator('#action-beat[data-card-tap="hint"]');
+        const message = panel.locator(".action-beat-text");
+        await seat.click();
+        assert.equal(await leave.textContent(), "Tap to leave");
+        assert.equal(await leave.getAttribute("aria-label"), "Leave");
+        await panel
+          .locator('.action-beat-text[data-revealing="false"]')
+          .waitFor();
+        assert.equal(
+          await message.textContent(),
+          "Rue leaves The Weeping Cellar",
+        );
+        assert.equal(releases, 0, "reading the message takes no action");
+        await page.keyboard.press("Escape");
+        await panel.waitFor({ state: "hidden" });
+        const showLeave = async () => {
+          await page.locator("#toolbar-menu-button").click();
+          await seat.click();
+        };
+        await showLeave();
+        await leave.click();
+        const handCard = page.locator('#hand [data-card="rue"]');
+        await handCard.focus();
+        await page.keyboard.press("Enter");
+        await panel.waitFor({ state: "hidden" });
+        assert.equal(releases, 0, "choosing another card clears Leave");
+        await showLeave();
         await leave.click();
         assert.equal(releases, 0, "the first tap finishes the avatar message");
         assert.equal(await leave.getAttribute("data-revealing"), "false");
