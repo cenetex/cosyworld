@@ -448,10 +448,12 @@ const knownName = (id, unknown = "…") =>
   coveredCards.has(id) || hiddenFor(world, currentActor(world))?.id === id
     ? unknown
     : nameOf(id);
-// An avatar wakes knowing nothing: it speaks once its player has uncovered
-// both its own card and the place it stands in.
+// The waking avatar speaks as soon as its own card is known. Its covered
+// surroundings stay unnamed in the waking request.
+const avatarKnown = () => !coveredCards.has(currentActor(world));
+// A shared viewer follows the room once their avatar and place are known.
 const selfKnown = () =>
-  !coveredCards.has(currentActor(world)) &&
+  avatarKnown() &&
   !coveredCards.has(world.actors[currentActor(world)].place);
 function rememberCards() {
   try {
@@ -635,7 +637,7 @@ function ownSharedEntry() {
 // behind those words: the late line types into its own beat first, as the
 // shared table's seat makes it do, and the next scene is asked after it.
 const localWordsPending = () =>
-  !sharedSession && storyStatus === "pending" && !openingWordsDue();
+  !sharedSession && storyStatus === "pending";
 const playQueue = createPlayQueue({
   ready: (action) =>
     !cardsCooling &&
@@ -1520,7 +1522,7 @@ function selectCards(cards, { keepOpen = false } = {}) {
   if (lastWait && cards.join("+") !== lastWait.key) lastWait = null;
 }
 // Uncovering a card names it, remembers it, and lets a held first line
-// begin once the avatar and its place are both known. The new-world title's
+// begin once the avatar is known. The new-world title's
 // turn has already shown the avatar's face, so it uncovers that card without
 // a second flip.
 function uncover(id, { flip = true, lid = null, fade = true } = {}) {
@@ -1541,7 +1543,7 @@ function uncover(id, { flip = true, lid = null, fade = true } = {}) {
   const shown = $("hand").querySelector(`.card[data-card="${id}"]`);
   if (shown && flip) void revealCard(openingLid(shown, lid));
   $("discovery-announcement").textContent = `New card: ${nameOf(id)}.`;
-  if (openingHeld && openingWordsDue() && selfKnown()) resumeScene();
+  if (openingHeld && openingWordsDue() && avatarKnown()) resumeScene();
   if (sharedSession) syncSharedLine();
 }
 // A new local world's opening, while it lasts (opening.mjs).
@@ -5157,9 +5159,9 @@ function resumeScene({ otherTab = false } = {}) {
     syncSharedLine();
     return;
   }
-  openingHeld = openingWordsDue() && !selfKnown();
+  openingHeld = openingWordsDue() && !avatarKnown();
   if (openingHeld) {
-    // Vale's first line waits until his player uncovers him and his place.
+    // Vale's first line starts with his own reveal, while the room is dark.
     storyStatus = "ready";
     save();
     render();
@@ -5277,7 +5279,7 @@ function ownPlayInFlight() {
     };
   // A committed local play stays saved: cancel only stops waiting for words.
   if (!sharedSession)
-    return storyStatus === "pending" && !openingWordsDue()
+    return storyStatus === "pending"
       ? { committed: true, cancel: stopWaiting }
       : null;
   const entry = ownSharedEntry();

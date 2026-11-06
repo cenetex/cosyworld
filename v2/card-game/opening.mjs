@@ -15,7 +15,7 @@ export function openingStep(world, actor, covered) {
   const light = Object.keys(world.items).find(
     (id) => world.items[id].lit && rootHolder(world, id) === actor,
   );
-  const down = [light, world.actors[actor].place].filter(
+  const down = [actor, light, world.actors[actor].place].filter(
     (id) => id && covered(id),
   );
   if (down.length) return { step: "reveal", next: down[0] };
