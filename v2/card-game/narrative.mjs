@@ -42,7 +42,7 @@ import {
 } from "./world.mjs";
 import { knownActors, wantOf } from "./want.mjs";
 import { guardedFrom } from "./resident-guard.mjs";
-import { forgetUnfound, groundedInner } from "./speech-knowledge.mjs";
+import { forgetCovered, forgetUnfound, groundedInner } from "./speech-knowledge.mjs";
 import { hasTemperament, variantOf, signalEcho } from "./pack-rules.mjs";
 import { reflectionDue } from "./reflections.mjs";
 import { betweenUs } from "./between-us.mjs";
@@ -218,7 +218,7 @@ function wayFacts(world, place) {
     );
 }
 
-export function narrativeContext(world, action = null) {
+export function narrativeContext(world, action = null, isCovered = null) {
   const cast = dialogueCast(world, action);
   const {
     location,
@@ -300,7 +300,7 @@ export function narrativeContext(world, action = null) {
             ...new Set([actorId, ...(witnesses || []), ...(cast || [])]),
           ],
         }));
-  return forgetUnfound(world, {
+  const context = {
     revision: world.revision,
     turn: world.turn,
     outcome: turnOutcome(world),
@@ -323,10 +323,12 @@ export function narrativeContext(world, action = null) {
     conversation,
     entities: ids.map((id) => {
       const kind = profiles[id].kind;
+      if (kind === "location" && isCovered?.(id))
+        return { id, facts: [], desire: null, memories: [], previous: null };
       // The place and player retain the route's established history. Another
       // resident knows only their own recorded interactions and memories.
       const continuity =
-        kind === "location" || id === currentActor(world)
+        !isCovered?.(location) && (kind === "location" || id === currentActor(world))
           ? packSceneFacts(world, location)
           : [];
       // A want reaches the player through Talk: one first-person line for
@@ -560,7 +562,8 @@ export function narrativeContext(world, action = null) {
           : {}),
       };
     }),
-  });
+  };
+  return isCovered ? forgetCovered(world, context, isCovered) : forgetUnfound(world, context);
 }
 
 export function applyGeneratedReflections(world, context, response) {
@@ -948,6 +951,7 @@ export function createNarrator({
   early = false,
   reflect = null,
   // Narrows a request to what the player's avatar knows (speech-knowledge.mjs).
+  isCovered = null,
   limit = (context) => context,
   budget = Number(
     globalThis.document?.querySelector('meta[name="cosy-story-budget-ms"]')
@@ -1080,7 +1084,7 @@ export function createNarrator({
       while (pending) {
         const { action, version } = pending;
         pending = null;
-        const quiet = limit(narrativeContext(getWorld(), action));
+        const quiet = limit(narrativeContext(getWorld(), action, isCovered));
         if (voicesNobody(quiet)) {
           started(quiet);
           preview(null);
@@ -1097,7 +1101,7 @@ export function createNarrator({
           if (Date.now() < holdUntil)
             await retryPause(controller.signal, holdUntil - Date.now());
           if (version !== ticket) continue;
-          const context = limit(narrativeContext(getWorld(), action));
+          const context = limit(narrativeContext(getWorld(), action, isCovered));
           started(context);
           await write(context, version, controller.signal);
         } catch (error) {

@@ -7,8 +7,10 @@ import { currentScene } from "./scene.mjs";
 
 export function sharedScene(request) {
   const world = load(request);
+  const revealed = Array.isArray(request.revealed) && new Set(request.revealed);
+  const isCovered = revealed ? (id) => !revealed.has(id) : null;
   return {
-    context: narrativeContext(world, request.action || null),
+    context: narrativeContext(world, request.action || null, isCovered),
     ...(request.scene ? { scene: currentScene(world) } : {}),
   };
 }

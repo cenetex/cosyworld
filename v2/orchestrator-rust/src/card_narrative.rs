@@ -557,6 +557,9 @@ struct Context {
     /// The speaker's own card or place, while its player has not uncovered it.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     covered: Vec<String>,
+    /// Cards the player has yet to reveal, including those outside the scene.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    concealed: Vec<String>,
     /// Why this play speaks (the narrator's speech occasion), for metrics.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     occasion: Option<String>,
@@ -584,6 +587,8 @@ fn valid(context: &Context) -> bool {
         && (1..=8).contains(&context.entities.len())
         && ids.len() == context.entities.len()
         && context.covered.iter().all(|id| ids.contains(id.as_str()))
+        && context.concealed.len() <= 512
+        && context.concealed.iter().all(|id| profiles().get(id).is_some())
         && context.outcome.as_ref().is_none_or(valid_outcome)
         && observations::valid(context)
         && knowledge::valid(context)
@@ -1726,6 +1731,7 @@ fn known(context: &Context, entity: &Entity) -> BTreeSet<String> {
             ids.insert(id.clone());
         }
     }
+    ids.retain(|id| !context.concealed.contains(id));
     ids
 }
 
@@ -2305,6 +2311,21 @@ pub(super) fn prose(view: &str) -> String {
 }
 
 fn messages(context: &Context, entity: &Entity, part: Part) -> Prompt {
+    let mut prompt = scene_messages(context, entity, part);
+    if !context.concealed.is_empty() {
+        // Profiles and held cards add words after the scene reaches Rust.
+        for text in [&mut prompt.system, &mut prompt.assistant, &mut prompt.user] {
+            for (span, id) in named_spans(text).into_iter().rev() {
+                if context.concealed.contains(id) {
+                    text.replace_range(span, "something unnamed");
+                }
+            }
+        }
+    }
+    prompt
+}
+
+fn scene_messages(context: &Context, entity: &Entity, part: Part) -> Prompt {
     if kind(&entity.id, "location") {
         return Prompt {
             system: idiolect(entity, part),
@@ -2902,13 +2923,15 @@ impl<'a> Check<'a> {
 
     /// Whether a text names someone or something the scene does not know.
     fn names_unknown(&self, text: &str) -> bool {
-        profiles()
-            .as_object()
-            .expect("profiles")
-            .iter()
-            .any(|(id, p)| {
-                p["name"].as_str().is_some_and(|n| mentions(text, n)) && !self.known.contains(id)
-            })
+        named_spans(text).into_iter().any(|(span, id)| {
+            let label = &profiles()[id]["name"];
+            self.context.concealed.contains(id)
+                || (label.as_str() == Some(&text[span])
+                    && !self
+                        .known
+                        .iter()
+                        .any(|known| profiles()[known]["name"] == *label))
+        })
     }
 }
 
@@ -2980,6 +3003,42 @@ fn mentions(text: &str, name: &str) -> bool {
         let after = text[at + name.len()..].chars().next();
         !before.is_some_and(char::is_alphanumeric) && !after.is_some_and(char::is_alphanumeric)
     })
+}
+
+fn named_spans(text: &str) -> Vec<(std::ops::Range<usize>, &'static String)> {
+    static NAMES: OnceLock<Vec<(String, String)>> = OnceLock::new();
+    let names = NAMES.get_or_init(|| {
+        let mut names: Vec<_> = profiles()
+            .as_object()
+            .unwrap()
+            .keys()
+            .map(|id| (name(id).to_ascii_lowercase(), id.clone()))
+            .collect();
+        names.sort_by_key(|(name, _)| std::cmp::Reverse(name.len()));
+        names
+    });
+    let lower = text.to_ascii_lowercase();
+    let mut spans = Vec::new();
+    let mut end = 0;
+    for (at, _) in lower.char_indices() {
+        if at < end
+            || lower[..at]
+                .chars()
+                .next_back()
+                .is_some_and(char::is_alphanumeric)
+        {
+            continue;
+        }
+        if let Some((name, id)) = names.iter().find(|(name, _)| {
+            lower[at..]
+                .strip_prefix(name)
+                .is_some_and(|after| !after.chars().next().is_some_and(char::is_alphanumeric))
+        }) {
+            end = at + name.len();
+            spans.push((at..end, id));
+        }
+    }
+    spans
 }
 
 #[cfg(test)]
@@ -3105,6 +3164,33 @@ pub(crate) mod tests {
         assert!(shared(&[("moth", "I hear you.")]).is_err());
         assert!(shared(&[]).is_err());
         assert!(shared(&[("vale", "Hold it higher")]).is_err());
+    }
+
+    #[test]
+    fn a_concealed_name_stays_out_of_each_prompt_and_its_reply_vocabulary() {
+        let mut scene = context();
+        let vale = scene.entities.iter_mut().find(|e| e.id == "vale").unwrap();
+        vale.facts
+            .push("The Route board leads to the Between-hours carriage.".into());
+        scene.concealed = vec!["train".into(), "bell".into()];
+        let vale = entity(&scene, "vale");
+        assert!(named_spans("The Bell Theatre")
+            .iter()
+            .all(|(_, id)| *id != "bell"));
+        for part in [Part::Line, Part::Thought, Part::Dream] {
+            let prompt = format!("{:?}", messages(&scene, vale, part));
+            assert!(!prompt
+                .to_ascii_lowercase()
+                .contains("between-hours carriage"));
+            assert!(
+                Check::new(&scene, vale, part).names_unknown("I saw the between-hours carriage.")
+            );
+        }
+        let place = scene.location.clone();
+        scene.concealed.push(place.clone());
+        let sense = perception::anchor(&place).unwrap();
+        let lines = perception::lines(&scene, entity(&scene, "vale"), &Default::default());
+        assert!(!lines.iter().any(|(_, line)| line == &sense));
     }
 
     pub(super) fn solo_departure() -> TurnOutcome {

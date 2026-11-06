@@ -3,6 +3,7 @@ import { createWorld, nameOf } from "../v2/card-game/world.mjs";
 import { enableMotives } from "../v2/card-game/motives.mjs";
 import { narrativeContext } from "../v2/card-game/narrative.mjs";
 import {
+  coveredText,
   forgetCovered,
   forgetUnfound,
   inventsItem,
@@ -11,6 +12,7 @@ import {
 } from "../v2/card-game/speech-knowledge.mjs";
 
 const fresh = () => enableMotives(createWorld({ opening: true }));
+const visible = ({ concealed, ...context }) => JSON.stringify(context);
 
 describe("speech knows only uncovered cards (#1575)", () => {
   it("keeps a covered lamp out of Vale's opening request", () => {
@@ -18,7 +20,7 @@ describe("speech knows only uncovered cards (#1575)", () => {
     const full = narrativeContext(s);
     expect(JSON.stringify(full)).toMatch(/lamp/i);
     const limited = forgetCovered(s, full, (id) => id === "lamp");
-    expect(JSON.stringify(limited)).not.toMatch(/lamp/i);
+    expect(visible(limited)).not.toMatch(/lamp/i);
     expect(limited.speakers).toEqual(["vale"]);
     expect(limited.entities.map(({ id }) => id)).toContain(limited.location);
     expect(limited.outcome.avatars[0].holding).toEqual([]);
@@ -40,13 +42,34 @@ describe("speech knows only uncovered cards (#1575)", () => {
     );
     const vale = limited.entities.find(({ id }) => id === "vale");
     expect(vale.facts[0]).toMatch(/^Holding: something I can't make out/);
-    expect(JSON.stringify(limited)).not.toMatch(/shining|lamp|cloth/i);
+    expect(visible(limited)).not.toMatch(/shining|lamp|cloth/i);
   });
 
   it("leaves the request untouched once the lamp is uncovered", () => {
     const s = fresh();
     const full = narrativeContext(s);
     expect(forgetCovered(s, full, () => false)).toBe(full);
+  });
+
+  it("keeps unrevealed names out of a quest, earlier talk and private memories", () => {
+    const s = fresh();
+    const text = "I can take the Route board into the Between-hours carriage.";
+    const full = narrativeContext(s);
+    const vale = full.entities.find(({ id }) => id === "vale");
+    vale.facts.push(text);
+    vale.inner_life = {
+      persona: text,
+      thoughts: [{ text }],
+      dreams: [{ text }],
+    };
+    full.conversation = [{ actorId: "vale", text, witnesses: ["vale"] }];
+    full.disclosures = [{ speaker: "vale", listener: "moth", text: "I have news." }];
+    const limited = forgetCovered(s, full, (id) =>
+      ["train", "routes", "moth"].includes(id),
+    );
+    expect(visible(limited)).not.toMatch(/Route board|Between-hours carriage/);
+    expect(limited.disclosures).toEqual([]);
+    expect(visible(forgetCovered(s, full, () => false))).toContain(text);
   });
 
   it("marks the first line waking and lists Vale and his place while covered (#1600)", () => {
@@ -89,6 +112,7 @@ describe("speech names only what its speaker has found (#1850)", () => {
 
   it("keeps an unrevealed quest target's name out of the prompt", () => {
     const s = seeking();
+    s.memories.vale.innerLife = { persona: `I hope to meet ${nameOf(host)}.`, thoughts: [], dreams: [] };
     const context = narrativeContext(s);
     expect(JSON.stringify(context)).not.toContain(nameOf(host));
     expect(vale(context).facts).toContain(`I want to see ${UNKNOWN_PERSON}.`);
@@ -97,6 +121,18 @@ describe("speech names only what its speaker has found (#1850)", () => {
     // In the browser, a card its player never uncovered stays unnamed too.
     const shown = forgetUnfound(s, narrativeContext(s), (id) => id === host);
     expect(JSON.stringify(shown)).not.toContain(nameOf(host));
+  });
+
+  it("uses the same reveal check for the journal and keeps unrelated words", () => {
+    const text = "PIP carries the bell past Helen to The Bell Theatre.";
+    const shown = new Set([
+      "greek-helen-troy",
+      "hoppycat-settled-light-theatre",
+    ]);
+    const masked = coveredText(seeking(), text, (id) => !shown.has(id));
+    expect(masked).toBe(
+      "Someone carries something past Helen to The Bell Theatre.",
+    );
   });
 
   it("does not retell the speaker's own earlier deed", () => {

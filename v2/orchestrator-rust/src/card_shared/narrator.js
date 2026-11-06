@@ -20938,25 +20938,36 @@
 
   // v2/card-game/speech-knowledge.mjs
   var UNKNOWN_THING = "something I can't make out";
+  var UNKNOWN_LIGHT = "something shining I can't make out";
   var UNKNOWN_PERSON = "someone I haven't met yet";
   var unnamed = (world, id) => world.actors[id] ? UNKNOWN_PERSON : world.items[id] ? UNKNOWN_THING : "a place I haven't found yet";
   var escape = (text2) => text2.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  function blurrer(unknown) {
+  function blurrer(unknown, shown = []) {
     if (!unknown.size) return (text2) => text2;
-    const names2 = [...unknown.keys()].sort((a, b) => b.length - a.length).map(escape);
+    const names2 = [...unknown.keys(), ...shown].sort((a, b) => b.length - a.length).map(escape);
     const pattern = new RegExp(
-      `\\b(?:(?:the|an?) )?(${names2.join("|")})\\b`,
+      `\\b(?:(?:the|an?) )??(${names2.join("|")})\\b`,
       "gi"
     );
-    return (text2) => text2?.replace(pattern, (_, name) => unknown.get(name.toLowerCase())) ?? text2;
+    return (text2) => text2?.replace(
+      pattern,
+      (word, name) => unknown.get(name.toLowerCase()) ?? word
+    ) ?? text2;
   }
   function questTargets(world, id) {
     const goal = world.memories[id]?.learning?.at(-1)?.goal;
     return [
-      ...questsOf(world, id).map((q) => q.target),
+      ...questsOf(world, id).flatMap(({ target, step }) => [
+        target,
+        step?.at,
+        step?.to,
+        step?.with,
+        ...step?.items || []
+      ]),
+      world.actors[id].glimpse?.id,
       goal?.item,
       goal?.destination
-    ].filter((t) => t && t !== id && nameOf(t) !== t);
+    ].filter((t) => t !== id && (world.items[t] || world.actors[t] || places[t]));
   }
   function found(world, speaker, id) {
     const a = world.actors[speaker];
@@ -20992,6 +21003,132 @@
     );
   }
   var groundedInner = (world, speaker, text2) => /\b(i|i'm|i've|my|me|mine)\b/i.test(text2) && (text2.match(/["\u201c\u201d]/g) || []).length % 2 === 0 && !/[,!?]["\u201d] [a-z]/.test(text2) && !inventsItem(world, speaker, text2);
+  function coveredCards(world, isCovered) {
+    const cards = [
+      ...Object.keys(world.actors),
+      ...Object.keys(places),
+      ...Object.keys(world.items)
+    ];
+    const faceDown = (id) => isCovered(id) || world.items[id] && covered(world, id);
+    const hidden = new Set(cards.filter(faceDown));
+    const shown = new Set(cards.filter((id) => !hidden.has(id)).map(lowerName));
+    return {
+      hidden,
+      shown,
+      unnamedIds: [...hidden].filter((id) => !shown.has(lowerName(id)))
+    };
+  }
+  var lowerName = (id) => nameOf(id).toLowerCase();
+  function privateWords(entity, blur) {
+    const kept = ({ text: text2 }) => blur(text2) === text2;
+    const { inner_life: life, previous } = entity;
+    return {
+      previous: blur(previous) === previous ? previous : null,
+      ...life && { inner_life: {
+        ...life,
+        persona: blur(life.persona) === life.persona ? life.persona : null,
+        thoughts: life.thoughts.filter(kept),
+        dreams: life.dreams.filter(kept)
+      } }
+    };
+  }
+  function forgetCovered(world, context, isCovered) {
+    const actor = currentActor(world);
+    const { hidden, shown, unnamedIds } = coveredCards(world, isCovered);
+    if (!hidden.size) return context;
+    const kept = (id) => !hidden.has(id);
+    const keepEntity = (id) => id === actor || id === context.location || kept(id);
+    const unknown = new Map(
+      unnamedIds.map((id) => [
+        lowerName(id),
+        world.items[id]?.lit && !covered(world, id) ? UNKNOWN_LIGHT : unnamed(world, id)
+      ])
+    );
+    const blur = blurrer(unknown, shown);
+    const keptLine = ({ text: text2 }) => blur(text2) === text2;
+    const outcome = context.outcome && revealedOutcome(world, context.outcome, actor, kept);
+    const speakers = context.speakers.filter(keepEntity);
+    return {
+      ...context,
+      speakers,
+      scenery: context.scenery && kept(context.location),
+      concealed: unnamedIds,
+      ...outcome ? { outcome } : {},
+      focus: kept(context.focus) ? context.focus : null,
+      action: blur(context.action)?.slice(0, 650) ?? null,
+      events: context.events.map((text2) => blur(text2).slice(0, 650)),
+      conversation: context.conversation.filter(
+        (line) => kept(line.actorId) && keptLine(line)
+      ),
+      ...context.disclosures && {
+        disclosures: context.disclosures.filter(
+          (fact) => speakers.includes(fact.speaker) && keepEntity(fact.listener) && keptLine(fact)
+        )
+      },
+      entities: context.entities.filter(({ id }) => keepEntity(id)).map((entity) => ({
+        ...entity,
+        facts: entity.facts.map((text2) => blur(text2).slice(0, 240)),
+        memories: entity.memories.flatMap((m) => {
+          const text2 = blur(m.text);
+          if (m.kind === "expression") return text2 === m.text ? [m] : [];
+          return [{ ...m, text: text2.slice(0, 650) }];
+        }),
+        ...privateWords(entity, blur),
+        ...entity.between && {
+          between: entity.between.filter((b) => speakers.includes(b.with)).map((b) => ({
+            ...b,
+            facts: b.facts.map((text2) => blur(text2).slice(0, 240)),
+            said: b.said.filter(keptLine)
+          })).filter((b) => b.facts.length || b.said.length)
+        },
+        ...entity.perception && {
+          perception: {
+            ...entity.perception,
+            pull: kept(entity.perception.pull) ? entity.perception.pull : null
+          }
+        },
+        desire: entity.desire && {
+          items: entity.desire.items.filter(kept),
+          avatars: entity.desire.avatars.filter(kept),
+          location: kept(entity.desire.location) ? entity.desire.location : null
+        }
+      }))
+    };
+  }
+  function revealedOutcome(world, outcome, actor, kept) {
+    const card = { ...outcome.card };
+    for (const key of ["target", "item", "receive", "destination"])
+      if (!kept(card[key])) card[key] = null;
+    if (card.wantMet && !kept(card.wantMet.target)) delete card.wantMet;
+    if (card.kind === "ask" && (!card.target || !card.item) || card.kind === "accompany" && (!card.target || !card.destination)) {
+      card.kind = "wait";
+      card.accepted = null;
+      card.destination = null;
+    }
+    const avatars = outcome.avatars.filter(
+      ({ id, location }) => id === actor || kept(id) && kept(location)
+    );
+    const avatarIds = new Set(avatars.map(({ id }) => id));
+    const items2 = outcome.items.filter(
+      ({ id, holder, location }) => kept(id) && kept(holder) && kept(location) && kept(rootHolder(world, id))
+    );
+    const itemIds = new Set(items2.map(({ id }) => id));
+    return {
+      card,
+      avatars: avatars.map((avatar) => ({
+        ...avatar,
+        holding: avatar.holding.filter((id) => itemIds.has(id)),
+        travel: avatar.travel && kept(avatar.travel.from) && kept(avatar.travel.to) ? {
+          ...avatar.travel,
+          companions: avatar.travel.companions.filter(
+            (id) => avatarIds.has(id)
+          )
+        } : null
+      })),
+      items: items2,
+      observations: observableStates(world, [...avatarIds, ...itemIds])
+    };
+  }
   function forgetUnfound(world, context, isCovered = () => false) {
     const scene = [
       context.location,
@@ -21007,6 +21144,7 @@
       const kept = (id) => !hidden.includes(id);
       return {
         ...entity,
+        ...privateWords(entity, blur),
         facts: entity.facts.map(blur),
         ...entity.between && {
           between: entity.between.map((b) => ({
@@ -21249,7 +21387,7 @@
       (to) => shut.includes(to) ? `The way to ${nameOf(to)} is shut.` : `The way to ${nameOf(to)} is open.`
     );
   }
-  function narrativeContext(world, action = null) {
+  function narrativeContext(world, action = null, isCovered = null) {
     const cast = dialogueCast(world, action);
     const {
       location,
@@ -21297,7 +21435,7 @@
         .../* @__PURE__ */ new Set([actorId, ...witnesses || [], ...cast2 || []])
       ]
     }));
-    return forgetUnfound(world, {
+    const context = {
       revision: world.revision,
       turn: world.turn,
       outcome: turnOutcome(world),
@@ -21316,7 +21454,9 @@
       conversation,
       entities: ids3.map((id) => {
         const kind = profiles[id].kind;
-        const continuity = kind === "location" || id === currentActor(world) ? packSceneFacts(world, location) : [];
+        if (kind === "location" && isCovered?.(id))
+          return { id, facts: [], desire: null, memories: [], previous: null };
+        const continuity = !isCovered?.(location) && (kind === "location" || id === currentActor(world)) ? packSceneFacts(world, location) : [];
         const want = kind === "avatar" && wantHeard(world, played, id, currentActor(world)) ? wantFact(world, id, nameOf) : null;
         const quest = world.actors[id]?.want;
         const dreamt = rest === "long" && id === resting2 && quest?.quest?.left && quest.since === world.turn ? `In a dream, the quest for level ${quest.quest.level}: ${wantText(quest)}.` : null;
@@ -21479,7 +21619,8 @@
           } : {}
         };
       })
-    });
+    };
+    return isCovered ? forgetCovered(world, context, isCovered) : forgetUnfound(world, context);
   }
 
   // v2/card-game/sleep-portraits.mjs
@@ -22479,8 +22620,10 @@
   // v2/card-game/shared-narrator.mjs
   function sharedScene(request) {
     const world = load(request);
+    const revealed2 = Array.isArray(request.revealed) && new Set(request.revealed);
+    const isCovered = revealed2 ? (id) => !revealed2.has(id) : null;
     return {
-      context: narrativeContext(world, request.action || null),
+      context: narrativeContext(world, request.action || null, isCovered),
       ...request.scene ? { scene: currentScene(world) } : {}
     };
   }
