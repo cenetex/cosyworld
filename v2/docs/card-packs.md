@@ -8,6 +8,9 @@ some art, not new engine rules.
 The Steam Clock clearing (`badger-forest`) is the reference pack. Copy its
 shape for the next spoke.
 
+`installWorldDesigner` in `authoring-designer.mjs` joins the card tree, fields,
+Undo and draft saves in one workspace. Inject tools, verified art and scene callbacks.
+
 The authoring card index is `buildAuthoringTree({pack, bridge})` in
 `authoring-tree.mjs`. It returns ordered `cards`, `roots`, and `children`.
 Each card has its source array path, a parent `holder`, a `kind`, and a `role`. Reference
