@@ -3448,6 +3448,9 @@ body .beat-stack > .action-panel[data-card-tap]:not([hidden]) {
   outline-color: transparent;
 }
 .title-privacy {
+  position: absolute;
+  right: max(16px, env(safe-area-inset-right));
+  bottom: max(12px, env(safe-area-inset-bottom));
   flex: none;
   padding: 6px 8px;
   color: #fff4dc;
@@ -3526,6 +3529,8 @@ body .beat-stack > .action-panel[data-card-tap]:not([hidden]) {
   }
 }
 .title-hint {
+  position: absolute;
+  width: max-content;
   margin: 0;
   padding: 4px 8px;
   color: #fff4dc;
@@ -3539,7 +3544,6 @@ body .beat-stack > .action-panel[data-card-tap]:not([hidden]) {
 .title-reveal[data-idle="hint"] .title-hint {
   opacity: 0.6;
   pointer-events: auto;
-  animation: beat-fade 1.2s ease backwards;
 }
 @media (prefers-reduced-motion: reduce) {
   .title-reveal[data-idle] .title-card::before {
