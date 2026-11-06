@@ -30,7 +30,7 @@ fn config(state: &AppState) -> Option<ai_gateway::AiConfig> {
     let registry = json!({"schema_version":1,"snapshot_version":"authoring-flare-2026-11-06",
         "declared":[{"requested_model_id":MODEL,"provider":"openrouter","concrete_model":{"model_id":MODEL},
         "input_modalities":["text","image"],"output_modalities":["image"],"capabilities":["image_generation"],
-        "data_policy":{"retention":"provider_default","training":"prohibited"},
+        "data_policy":{"retention":"provider_default","training":"unknown"},
         "prompt_adapter":{"id":"openrouter-image","version":"1"}}]});
     config.registry = Some(Arc::new(
         ai_gateway::CapabilityRegistrySnapshot::from_json(&registry.to_string()).ok()?,
@@ -277,9 +277,8 @@ fn png_output(bytes: &[u8], mime: &str, sheet: bool) -> Result<Vec<u8>, &'static
     image
         .write_to(&mut output, image::ImageFormat::Png)
         .map_err(|_| IMAGE_INVALID)?;
-    let bytes = output.into_inner();
-    if bytes.len() > MAX_IMAGE {
+    if output.get_ref().len() > MAX_IMAGE {
         return Err(IMAGE_INVALID);
     }
-    Ok(bytes)
+    Ok(output.into_inner())
 }

@@ -78,6 +78,7 @@ async fn authoring_auth_grounding_and_gateway_use_transient_source() {
         model: MODEL.into(),
         base_url: format!("http://{address}"),
         api_key: "fixture".into(),
+        data_policy_mode: ai_gateway::DataPolicyMode::Production,
         ..Default::default()
     }));
     for (cookie, origin, expected) in [
