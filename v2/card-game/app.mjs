@@ -5014,7 +5014,15 @@ function updateHandEdges() {
     hand.dataset.fade = fade.join(" ");
 }
 $("hand").addEventListener("scroll", updateHandEdges, { passive: true });
-new ResizeObserver(updateHandEdges).observe($("hand"));
+let handResizeFrame = 0;
+new ResizeObserver(() => {
+  if (handResizeFrame) return;
+  // Fitting the fan changes this hand's width; let its measurement finish.
+  handResizeFrame = requestAnimationFrame(() => {
+    handResizeFrame = 0;
+    updateHandEdges();
+  });
+}).observe($("hand"));
 new ResizeObserver(([entry]) => {
   document.documentElement.style.setProperty(
     "--dock-height",
