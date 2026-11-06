@@ -183,8 +183,7 @@ its caption shows with no line, never "undone". Once a
 play commits (a local play, or a shared play the room is playing) the beat
 leaves and its reply types into the full-size front card. After a play the
 beat rests until the player chooses a card or taps the raised hand. Choosing a quest in the open fan takes no
-turn, so it does not rest the beat: the chosen top quest still offers Drop
-quest. A shared play the server refused or did not
+turn, so it does not rest the beat: the chosen top quest still offers Abandon. It opens a red confirmation in the same box. A shared play the server refused or did not
 confirm brings the beat back with its button, so the player can try again.
 The hand never moves for it.
 

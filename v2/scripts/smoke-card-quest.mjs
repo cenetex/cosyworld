@@ -227,7 +227,7 @@ try {
     await gain.waitFor({ state: "detached" });
     // A stack (#1831): the fold shows the top quest; opening it fans them all
     // out; choosing a quest beneath brings it to the top without a turn, and
-    // only the top quest offers Discard.
+    // only the top quest offers Abandon.
     await page.evaluate((key) => {
       const s = JSON.parse(localStorage.getItem(key));
       const vale = s.actors.vale;
@@ -294,7 +294,7 @@ try {
     assert.equal(await groupOrdered(), true, "Vale, its things, its quests");
     assert.equal(
       await page.locator('#card-actions [data-drop-quest="0"]').textContent(),
-      "Discard (−1 XP)",
+      "Abandon (−1 XP)",
     );
     // Drop is the beat's usual context button, its words red.
     assert.deepEqual(
@@ -381,6 +381,16 @@ try {
       path: new URL(`stack-${width}.png`, output).pathname,
     });
     await drop.click();
+    assert.equal((await saved()).turn, turn);
+    const panel = page.locator("#action-beat");
+    assert.equal(
+      await panel.evaluate((el) => getComputedStyle(el).borderTopColor),
+      "rgb(255, 143, 132)",
+    );
+    await panel.getByRole("button", { name: "Cancel", exact: true }).click();
+    assert.equal((await saved()).turn, turn);
+    await drop.click();
+    await panel.getByRole("button", { name: "Confirm", exact: true }).click();
     await ready();
     assert.deepEqual(
       (await saved()).targets,
@@ -418,7 +428,7 @@ try {
       "Quest: Give The Burial Decree to The Gate Guard, near",
     );
     // Chosen, the beat keeps its box and names the quest; its next step,
-    // the rules' own Give, stands beside Discard.
+    // the rules' own Give, stands beside Abandon.
     await page.locator('#hand .want-card[data-quest-id="quest:0"]').click();
     await page.locator('#card-actions [data-drop-quest="0"]').waitFor();
     assert.equal(
@@ -433,7 +443,7 @@ try {
         ),
       [
         ["Give to The Gate Guard", false],
-        ["Discard", false],
+        ["Abandon", false],
       ],
     );
     assert.notEqual(
@@ -525,7 +535,7 @@ try {
       top,
       "quest",
       "vale+ greek-funeral-cloth quest:0* quest:1+ quest:2",
-      ["Travel to Theban Palace Forecourt", "Discard"],
+      ["Travel to Theban Palace Forecourt", "Abandon"],
     );
     await play(
       top,

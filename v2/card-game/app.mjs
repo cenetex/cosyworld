@@ -2196,6 +2196,12 @@ function syncPhase() {
 // and the world has not moved on.
 const refusedPlay = (action) =>
   sharedRefusal?.key === action.key ? sharedRefusal.reason : "";
+let abandonQuest = null;
+function cancelAbandon() {
+  abandonQuest = null;
+  renderActions();
+  $("card-actions").querySelector("[data-drop-quest]")?.focus();
+}
 function renderActions() {
   const row = $("card-actions");
   if (
@@ -2340,22 +2346,27 @@ function renderActions() {
     : next?.action
       ? [next.action]
       : [];
-  // One context button each: the step's plays, or its reason (disabled),
-  // then Discard.
-  const questButtons = [
-    ...steps.map((action) => ({
-      action,
-      label:
-        action.kind === "move"
-          ? `Travel to ${nameOf(action.target)}`
-          : playLabel(action, world),
-    })),
-    ...(next?.reason ? [{ action: null, label: next.reason }] : []),
-    ...legal
-      .filter((a) => a.kind === "drop" && !a.item && a.quest === 0)
-      .map((action) => ({ action, label: playLabel(action, world) })),
-  ];
-  for (const { action, label } of questButtons) {
+  const drop = legal.find((a) => a.kind === "drop" && !a.item && a.quest === 0);
+  const confirmKey = drop ? `${revision}:${picked.key}` : null;
+  if (abandonQuest !== confirmKey) abandonQuest = null;
+  const dropLabel = drop && playLabel(drop, world);
+  const questButtons = abandonQuest
+    ? [
+        { action: drop, label: dropLabel.replace(/^Abandon/u, "Confirm") },
+        { action: null, label: "Cancel", cancel: true },
+      ]
+    : [
+        ...steps.map((action) => ({
+          action,
+          label:
+            action.kind === "move"
+              ? `Travel to ${nameOf(action.target)}`
+              : playLabel(action, world),
+        })),
+        ...(next?.reason ? [{ action: null, label: next.reason }] : []),
+        ...(drop ? [{ action: drop, label: dropLabel }] : []),
+      ];
+  for (const { action, label, cancel } of questButtons) {
     const discard = action?.kind === "drop",
       button = node(
         "button",
@@ -2363,6 +2374,11 @@ function renderActions() {
         action && !discard ? "card-primary" : "card-action",
       );
     button.type = "button";
+    if (cancel) {
+      button.onclick = cancelAbandon;
+      row.append(button);
+      continue;
+    }
     if (discard) {
       button.dataset.dropQuest = String(picked.index);
       button.dataset.destructive = "";
@@ -2376,9 +2392,16 @@ function renderActions() {
     }
     if (!discard) button.dataset.action = action.kind;
     button.title =
-      discard && questCovered(picked) ? "Give up this quest" : playText(action);
+      discard && questCovered(picked) ? "Abandon this quest" : playText(action);
     button.disabled = selectionBlocked();
     button.onclick = () => {
+      if (discard && !abandonQuest) {
+        abandonQuest = confirmKey;
+        renderActions();
+        row.lastElementChild?.focus();
+        return;
+      }
+      abandonQuest = null;
       questOpen = false;
       questPick = 0;
       commitAction(action, revision);
@@ -2452,6 +2475,14 @@ function renderActions() {
   const note = document.querySelector(".action-beat-note");
   note.textContent = "";
   note.hidden = true;
+  if (abandonQuest) {
+    const panel = $("action-beat");
+    panel.dataset.tier = "danger";
+    panel.style.setProperty("--tier-color", "var(--danger)");
+    heading.lastElementChild.textContent = "Abandon this quest?";
+    note.textContent = shownQuestCaption(picked);
+    note.hidden = false;
+  }
   delete $("action-beat").dataset.avatar;
   // A refused play whose cards are no longer chosen says so on the status
   // line, briefly, as its button would.
@@ -4889,6 +4920,15 @@ for (const zone of [$("stage"), document.querySelector(".dialogue")]) {
   });
 }
 document.addEventListener("keydown", (e) => {
+  if (
+    e.key === "Escape" &&
+    abandonQuest &&
+    !$("action-beat").hidden &&
+    !document.querySelector("dialog[open], .world-menu:popover-open")
+  ) {
+    cancelAbandon();
+    return;
+  }
   if (e.key === "Escape" && thinkingArmed) {
     disarmThinking();
     return;
