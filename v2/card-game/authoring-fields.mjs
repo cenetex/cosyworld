@@ -26,7 +26,7 @@ export const authoringFieldHidden = (card) =>
     (part, i) =>
       typeof part === "string" &&
       !collections.has(card.source[i - 1]) &&
-      /prompt|model|provider|generation/iu.test(part),
+      (identity.has(part) || /prompt|model|provider|generation/iu.test(part)),
   );
 
 // A snapshot captures its displayed value and exact source path for Save.

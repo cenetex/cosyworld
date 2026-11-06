@@ -36,6 +36,10 @@ Disable. Integer fields keep safe whole numbers; decimal fields keep finite
 numbers. Nulls, identities, type tags and reference lists stay read-only.
 Filter cards and branches with `authoringFieldHidden(card)` before rendering;
 this checks paths once and keeps internal text out of accessible names.
+Identity and type fields (`id`, `namespace`, `packId`, `schemaVersion`, `kind`,
+and `type`) stay in the source while their field cards are hidden. Entity names
+in the places, avatars, items, and transports collections remain visible.
+Condition and reward parent cards keep their readable labels.
 Internal generation fields also have `hidden: true`. The controller applies the
 returned command and records its inverse. Pack compilation checks game meaning.
 
