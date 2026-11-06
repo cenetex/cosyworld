@@ -1525,6 +1525,7 @@ function opening() {
 }
 function choose(id) {
   if (finishCardReveal(id) || selectionBlocked()) return;
+  if (reviewing) returnToLive(false);
   // A locked box is chosen, not uncovered: it opens with its quest.
   if (cardIsCovered(id) && !isLockedBox(world, id)) {
     uncover(id);
@@ -2191,6 +2192,7 @@ function presentPhase() {
 }
 function syncPhase() {
   if (presentPhase() !== shownPhase) renderActions();
+  else syncActionBeat();
 }
 // The server's reason for refusing this play, while its cards stay chosen
 // and the world has not moved on.
@@ -2237,10 +2239,10 @@ function renderActions() {
       ? lockShown.text
       : questShown
         ? shownQuestCaption(questShown)
-      : ((actions[0] && playText(actions[0])) || "").replace(
-          /\b(the|an?) (?:the|an?) /giu,
-          "$1 ",
-        );
+        : ((actions[0] && playText(actions[0])) || "").replace(
+            /\b(the|an?) (?:the|an?) /giu,
+            "$1 ",
+          );
   heading.hidden = !sentence;
   // Who acts, then what it acts on: the chosen cards, or the place it
   // waits in.
@@ -2983,6 +2985,7 @@ function questFrame({ id, quest, met }) {
 // turn; the fan stays open on it while the play settles.
 function pickQuest(quest) {
   if (selectionBlocked()) return;
+  if (reviewing) returnToLive(false);
   const focus = legalActions(world).find(
     (a) => a.kind === "focus" && a.quest === quest.index,
   );
@@ -3187,7 +3190,7 @@ function leaveFigure(figure, remove = false) {
     });
   exits.set(figure, task);
 }
-function returnToLive() {
+function returnToLive(focus = true) {
   sharedPlayback.reset();
   reviewing = false;
   reviewBeat = null;
@@ -3195,7 +3198,10 @@ function returnToLive() {
   sharedLineKey = "";
   syncSharedLine();
   renderScene();
-  if (!$("dialogue-advance").hidden) $("dialogue-advance").focus();
+  if (!focus) return;
+  if (choiceInStack())
+    $("card-actions").querySelector("button:enabled")?.focus();
+  else if (!$("dialogue-advance").hidden) $("dialogue-advance").focus();
 }
 const litCarried = (actor) =>
   Object.keys(world.items).find(
@@ -3648,7 +3654,7 @@ function renderScene() {
   const front =
     frontIndex === beats.length ? pendingCard : beats[frontIndex] || null;
   const behind = frontIndex > 0 ? beats[frontIndex - 1] : null;
-  const behindLive = reviewing && frontIndex < liveIndex;
+  const behindLive = reviewing && (frontIndex < liveIndex || choiceInStack());
   stackView = { beats, frontIndex, liveIndex, pending: pendingCard };
   // A new front beat moves the stack: forward when it is later, back when
   // earlier. Measured before the cards change.
@@ -3869,19 +3875,6 @@ function renderScene() {
       `Step back to ${summary.speaker}: ${summary.speech || behind.actions.at(-1)?.text || ""}`,
     );
   }
-  // One live control, only while behind live, counting the newer beats.
-  const newer = Math.max(0, liveIndex - frontIndex);
-  const liveButton = $("live-line");
-  liveButton.hidden = !behindLive;
-  liveButton.dataset.live = String(!behindLive);
-  liveButton.querySelector(".beat-live-count").textContent = newer
-    ? ` · ${newer}`
-    : "";
-  liveButton.title = newer
-    ? `Return to live dialogue · ${newer} newer`
-    : "Return to live dialogue";
-  liveButton.setAttribute("aria-label", liveButton.title);
-  liveButton.onclick = returnToLive;
   if (sharedSession) renderRoomStatus(sharedSession);
   animateStack(direction, ghost);
   syncPhase();
@@ -4003,16 +3996,48 @@ function syncDialogueShown() {
     $("speech-row").hidden && document.querySelector(".action-panel").hidden;
   syncLayering();
 }
+function choiceInStack() {
+  return (
+    !borrowedBeat &&
+    shownPhase === "choosing" &&
+    $("card-actions").childElementCount > 0
+  );
+}
+function choiceInFront() {
+  return choiceInStack() && !reviewing && !$("action-beat").hidden;
+}
+function syncLiveBeat() {
+  const { liveIndex, frontIndex } = stackView;
+  // One live control, only while behind live, counting the newer beats.
+  const newer = Math.max(0, liveIndex + Number(choiceInStack()) - frontIndex);
+  const liveButton = $("live-line");
+  liveButton.hidden = !reviewing || !newer;
+  liveButton.dataset.live = String(liveButton.hidden);
+  liveButton.querySelector(".beat-live-count").textContent = newer
+    ? ` · ${newer}`
+    : "";
+  liveButton.title = newer
+    ? `Return to live dialogue · ${newer} newer`
+    : "Return to live dialogue";
+  liveButton.setAttribute("aria-label", liveButton.title);
+}
+$("live-line").onclick = () => returnToLive();
 function syncActionBeat() {
   const panel = document.querySelector(".action-panel"),
     front = $("speech-row"),
     show =
       Boolean(borrowedBeat) ||
-      $("card-actions").children.length > 0 ||
+      ($("card-actions").childElementCount > 0 && !reviewing) ||
       (!$("play-status").hidden && shownPhase !== "revealing");
-  if (panel.hidden !== show) return;
   // A notice before the first render (storage refused) only shows the beat.
   const drawn = Boolean(document.body.dataset.handExpanded);
+  if (drawn) {
+    syncLiveBeat();
+    if (show && choiceInStack())
+      $("dialogue-advance").setAttribute("aria-label", "Step back in dialogue");
+    else if (!panel.hidden) updateSpeechControls(reveal.complete);
+  }
+  if (panel.hidden !== show) return;
   if (!drawn) {
     panel.hidden = !show;
     panel.parentElement.dataset.action = String(show);
@@ -4109,7 +4134,9 @@ function animateStack(direction, ghost) {
   fadeGhost(ghost.front, { transform: nearer }, STACK_LEAVE_MS);
 }
 function stepBack() {
-  const beat = stackView.beats[stackView.frontIndex - 1];
+  const { beats, frontIndex } = stackView;
+  const beat =
+    beats[Math.min(beats.length - 1, frontIndex - Number(!choiceInFront()))];
   if (!beat) return false;
   count("scrollback.open");
   reviewing = true;
@@ -4119,9 +4146,13 @@ function stepBack() {
   return true;
 }
 function stepForward() {
-  if (!reviewing || stackView.frontIndex >= stackView.liveIndex) return false;
+  if (!reviewing) return false;
   const next = stackView.frontIndex + 1;
-  if (next >= stackView.liveIndex) {
+  if (
+    next > stackView.liveIndex ||
+    (next === stackView.liveIndex &&
+      (!choiceInStack() || !stackView.beats[next]))
+  ) {
     returnToLive();
     return true;
   }
@@ -4150,6 +4181,15 @@ function advanceFront() {
   }
 }
 $("dialogue-advance").onclick = advanceFront;
+document.querySelector(".dialogue").addEventListener(
+  "click",
+  (event) => {
+    if (!choiceInFront() || !event.target.closest("#speech-row")) return;
+    event.stopPropagation();
+    stepBack();
+  },
+  true,
+);
 $("speech-row").addEventListener(
   "click",
   (event) => {
