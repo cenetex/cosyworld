@@ -537,6 +537,10 @@ let storyStatus = "ready",
   renderedHandState = null,
   speechKey = null,
   speechGlyphs = [],
+  shownLetters = 0,
+  glyphLines = [],
+  speechHeight = 0,
+  speechScrollTarget = 0,
   speechComplete = null,
   cardsCooling = false,
   reviewing = false,
@@ -799,6 +803,16 @@ try {
 } catch {}
 speechSounds.setEnabled(soundEnabled);
 characterSpeech.setEnabled(soundEnabled);
+function measureSpeech() {
+  const text = $("dialogue-text");
+  glyphLines = speechGlyphs.map((glyph) => [
+    glyph.offsetTop,
+    glyph.offsetTop + glyph.offsetHeight,
+  ]);
+  speechHeight = text.clientHeight;
+  speechScrollTarget = text.scrollTop;
+}
+new ResizeObserver(measureSpeech).observe($("dialogue-text"));
 function updateSpeechControls(complete) {
   const waiting =
     exchange.waiting || (sharedAdvanceRequested && storyStatus === "pending");
@@ -896,7 +910,9 @@ const reveal = createTextReveal({
     if (speechKey !== value.key) {
       speechKey = value.key;
       completedSpokenLine = null;
+      shownLetters = 0;
       speechComplete = null;
+      text.scrollTop = 0;
       speechSounds.stop();
       if (shownSceneLine?.silent) characterSpeech.clear();
       else
@@ -910,9 +926,11 @@ const reveal = createTextReveal({
       text.replaceChildren(...speechGlyphs);
       nameLetters(speechGlyphs, value.text, sceneCards());
       speechPainter.start(speechGlyphs);
+      measureSpeech();
       $("speech-announcement").textContent = "";
     }
     speechPainter.paint(value);
+    shownLetters = value.shown;
     if (speechComplete !== value.complete) {
       speechComplete = value.complete;
       updateSpeechControls(value.complete);
@@ -920,6 +938,14 @@ const reveal = createTextReveal({
       queueMicrotask(() =>
         value.complete && ownPlayInFlight() ? renderScene() : syncPhase(),
       );
+    }
+    // Layout is measured once per line or resize, then reused for each
+    // letter. A line that outgrows the box turns a page: the new line starts
+    // at the top, and the words being read never slide.
+    const [top, bottom] = glyphLines[Math.max(0, shownLetters - 1)] || [0, 0];
+    if (!value.complete && bottom > speechScrollTarget + speechHeight) {
+      speechScrollTarget = top;
+      text.scrollTop = top;
     }
     // Only the newest beat is announced, never one stepped back to.
     if (value.complete && !reviewing && announcedBeat !== value.key) {
@@ -3755,6 +3781,14 @@ function renderScene() {
       ...(front?.actions || []).map((action, index) => {
         const item = node("span", undefined, "beat-caption");
         item.dataset.kind = action.kind;
+        item.toggleAttribute(
+          "data-primary",
+          front.committed && action.seq === front.anchor,
+        );
+        item.toggleAttribute(
+          "data-named",
+          action.text.startsWith(`${nameOf(front.speakerId)} `),
+        );
         item.append(beatIcon(action.icon), namedSpan(action.text));
         if (index >= kept) inscribe(item, action.text);
         return item;

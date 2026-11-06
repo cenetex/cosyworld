@@ -153,7 +153,7 @@ and ● live returns to their action. The arrow keys, wheel and swipes also
 step through the stack.
 
 A single plain play shows the avatar in the scene beside one caption, such
-as “Wake Vale”. The full-size card acts as the button. Tap it to finish
+as “Wake Vale”. The card acts as the button. Tap it to finish
 typing, then tap again to play. Enter and Space work on the focused button.
 
 When a play commits, its box folds into the stream: it eases down onto the
