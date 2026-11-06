@@ -676,6 +676,7 @@ try {
     assert.doesNotMatch(labels, /Route board|Between-hours carriage/);
     await page.waitForFunction(() =>
       document.querySelector("#card-actions button").dataset.revealing === "false");
+    await page.waitForTimeout(250);
     await page.locator(".dialogue").screenshot({
       path: new URL(`hidden-quest-${width}.png`, output).pathname,
     });
