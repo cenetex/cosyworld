@@ -242,6 +242,8 @@ async function nextWhisper(page, draw, word = 0.25) {
     },
     { draw, word },
   );
+  // Let the first frame paint before a check seeks or pauses this fade.
+  await page.waitForTimeout(50);
 }
 // Left alone from an interaction: nothing shows before idleGlowMs, the glow
 // by then, the hint from hintMs. Steps are timed in the page from `since`.
@@ -538,6 +540,26 @@ async function checkLargeText() {
     }
     for (const part of [traveller, ".title-hint", ".title-privacy"])
       assert.ok(await inView(page, part), `${name}: ${part} on screen`);
+    assert.ok(
+      await page.$eval(".title-hint", (hint) => {
+        const text = hint.getBoundingClientRect();
+        const box = document
+          .querySelector(".title-card .card")
+          .getBoundingClientRect();
+        const privacy = document
+          .querySelector(".title-privacy")
+          .getBoundingClientRect();
+        return (
+          text.bottom <= privacy.top - 8 &&
+          hint.scrollWidth <= hint.clientWidth &&
+          (text.bottom <= box.top - 6 ||
+            text.top >= box.bottom + 6 ||
+            text.right <= box.left - 6 ||
+            text.left >= box.right + 6)
+        );
+      }),
+      `${name}: the words clear the box and Privacy`,
+    );
     const card = await page.locator(traveller).boundingBox();
     assert.ok(card.height > 40, JSON.stringify(card));
     assert.ok(

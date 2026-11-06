@@ -576,7 +576,8 @@ export function playTitleIntro({
     lastWhisper = hint.textContent;
     hint.dataset.tier = tier.id;
     const box = card.getBoundingClientRect(),
-      origin = row.getBoundingClientRect();
+      origin = row.getBoundingClientRect(),
+      foot = privacy.getBoundingClientRect().top - 8;
     const w = hint.offsetWidth,
       h = hint.offsetHeight;
     const below = [box.left + (box.width - w) / 2, box.bottom + 12];
@@ -595,7 +596,7 @@ export function playTitleIntro({
     const [x, y] = places[place++ % places.length];
     Object.assign(hint.style, {
       left: `${Math.max(16, Math.min(innerWidth - w - 16, x)) - origin.left}px`,
-      top: `${Math.max(16, Math.min(innerHeight - h - 64, y)) - origin.top}px`,
+      top: `${Math.max(16, Math.min(foot - h, y)) - origin.top}px`,
       color: tier.color,
     });
     if (!reduced) {
