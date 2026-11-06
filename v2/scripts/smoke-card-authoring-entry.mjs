@@ -63,10 +63,16 @@ try {
           );
           return {
             ...record,
-            assets: [...record.assets].map(([path, bytes]) => [
-              path,
-              [...bytes],
-            ]),
+            assets: await Promise.all(
+              [...record.assets].map(async ([path, bytes]) => [
+                path,
+                bytes.byteLength,
+                Array.from(
+                  new Uint8Array(await crypto.subtle.digest("SHA-256", bytes)),
+                  (byte) => byte.toString(16).padStart(2, "0"),
+                ).join(""),
+              ]),
+            ),
           };
         } finally {
           db.close();
