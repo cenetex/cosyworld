@@ -210,7 +210,12 @@ it("keeps internal generation fields hidden, including nested arrays", () => {
     authoringFieldHidden(cardAt(source, [...future, "generation"])),
     true,
   );
-  assert.equal(cards.filter(authoringFieldHidden).length, 6);
+  assert.equal(
+    cards
+      .filter((card) => card.source.includes("future"))
+      .filter(authoringFieldHidden).length,
+    6,
+  );
   assert.doesNotMatch(
     shown.map((card) => `${card.name} ${card.state}`).join(" "),
     /private|internal/u,
@@ -265,4 +270,80 @@ it("rejects stale field cards, stale commands and changed paths atomically", () 
   );
   assert.equal(JSON.stringify(current), before);
   assert.equal({}.bad, undefined);
+});
+
+it("hides technical fields and their descendants while preserving quest labels and source", () => {
+  const source = small({
+    id: { child: ["IDENTITY_SECRET"] },
+    namespace: "technical",
+    packId: "technical",
+    schemaVersion: 1,
+    kind: "set_flag",
+    type: "technical",
+  });
+  Object.assign(source.pack.choices[0], {
+    label: "Open the gate",
+    requires: [{ kind: "flag", flag: "ready" }],
+    effects: [
+      { kind: "set_flag", flag: "opened" },
+      { kind: "retire_item", item: "oil" },
+    ],
+  });
+  const before = JSON.stringify(source),
+    tree = buildAuthoringTree(source);
+  const shown = tree.cards.filter((card) => !authoringFieldHidden(card));
+  for (const key of [
+    "id",
+    "namespace",
+    "packId",
+    "schemaVersion",
+    "kind",
+    "type",
+  ]) {
+    const prefix = [...future, key];
+    const technical = tree.cards.filter((card) =>
+      prefix.every((part, i) => card.source[i] === part),
+    );
+    assert(technical.length);
+    assert(technical.every(authoringFieldHidden));
+  }
+  for (const name of ["Open the gate", "flag", "Set flag", "Use item"])
+    assert(
+      shown.some((card) => card.name === name),
+      name,
+    );
+  assert.doesNotMatch(
+    shown.map((card) => `${card.name} ${card.state}`).join(" "),
+    /IDENTITY_SECRET|technical/u,
+  );
+  assert(tree.cards.some((card) => card.value === "IDENTITY_SECRET"));
+  assert.equal(JSON.stringify(source), before);
+});
+
+it("keeps entity IDs named id, kind and type visible in every collection", () => {
+  for (const collection of ["places", "avatars", "items", "transports"]) {
+    const root = collection === "transports" ? "bridge" : "pack";
+    const source = {
+      [root]: {
+        [collection]: Object.fromEntries(
+          ["id", "kind", "type"].map((name) => [
+            name,
+            { name: `Named ${name}`, text: "Visible detail", id: "stable" },
+          ]),
+        ),
+      },
+    };
+    const tree = buildAuthoringTree(source);
+    for (const name of ["id", "kind", "type"]) {
+      const path = [root, collection, name];
+      const entity = tree.cards.find(
+        (card) => JSON.stringify(card.source) === JSON.stringify(path),
+      );
+      assert(entity);
+      assert.equal(authoringFieldHidden(entity), false);
+      for (const field of ["name", "text", "want"])
+        assert.equal(authoringFieldHidden({ source: [...path, field] }), false);
+      assert.equal(authoringFieldHidden({ source: [...path, "id"] }), true);
+    }
+  }
 });

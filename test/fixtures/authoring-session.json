@@ -1,0 +1,39 @@
+{
+  "generation": 1,
+  "launch": null,
+  "draft": {
+    "schemaVersion": 1,
+    "id": null,
+    "revision": 0,
+    "title": "Crossing",
+    "document": "",
+    "pack": {
+      "name": "Crossing",
+      "places": {
+        "a": {
+          "name": "Yard"
+        },
+        "b": {
+          "name": "Port"
+        }
+      },
+      "choices": [
+        {
+          "id": "gate",
+          "cost": 1,
+          "text": "First",
+          "unknown": ["kept"]
+        },
+        {
+          "id": "other",
+          "cost": 1,
+          "text": "Pending field",
+          "unknown": ["kept"]
+        }
+      ]
+    },
+    "bridge": null,
+    "assets": [],
+    "sources": []
+  }
+}

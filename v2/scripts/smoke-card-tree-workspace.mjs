@@ -10,11 +10,20 @@ try {
     const page = await browser.newPage({
       viewport: { width, height: 900 },
       reducedMotion: "reduce",
+      hasTouch: width < 700,
     });
     const requests = [],
       errors = [];
     page.on("request", (request) => requests.push(request.url()));
     page.on("pageerror", (error) => errors.push(error.message));
+    await page.route("**/app.mjs", async (route) => {
+      const response = await route.fetch();
+      await route.fulfill({
+        response,
+        body: `${await response.text()}
+globalThis.workspaceSmokeBeat = {show: showActionBeat, clear: clearActionBeat};`,
+      });
+    });
     await page.goto(
       `http://127.0.0.1:${server.address().port}/?table=tree-workspace-${width}`,
     );
@@ -97,13 +106,38 @@ try {
         },
         selected: () => selected,
         onCancel() {
+          if (window.treeCancelHandles === false) return false;
           const had = selected.length > 0;
           selected = [];
           return had;
         },
-        describe: () => ({ name: "World", edit: window.treeEdit, actions: [] }),
-        actionBeat: { show: (beat) => (window.treeBeat = beat), clear() {} },
-        run() {},
+        describe: (_cards, chosen, armed) => ({
+          name: "World",
+          edit: window.treeConfirm ? undefined : window.treeEdit,
+          actions:
+            window.treeConfirm && chosen === item.id
+              ? [
+                  {
+                    label:
+                      armed === `${chosen}:0`
+                        ? "Discard changes and reload"
+                        : "Reload",
+                    confirm: true,
+                    stays: true,
+                  },
+                ]
+              : [],
+        }),
+        actionBeat: {
+          show(beat) {
+            window.treeBeat = beat;
+            if (window.treeConfirm) window.workspaceSmokeBeat.show(beat);
+          },
+          clear() {},
+        },
+        run() {
+          window.treeRuns = (window.treeRuns || 0) + 1;
+        },
       });
       window.renameTreeAvatar = () => {
         avatar.name = "Renamed resident";
@@ -193,6 +227,35 @@ try {
     await page.evaluate(() => window.treeWorkspace.open());
     assert.equal(await count(), initialCount);
     assert(await card(ids.place).isVisible());
+    await page.evaluate((id) => {
+      window.treeConfirm = true;
+      window.treeRuns = 0;
+      window.treeWorkspace.choose(id);
+    }, ids.item);
+    const action = page.locator("#card-actions button");
+    const press = () => (width < 700 ? action.tap() : action.click());
+    const label = () => action.textContent();
+    assert.equal(await label(), "Reload");
+    await press();
+    assert.equal(await label(), "Discard changes and reload");
+    await page.evaluate((id) => window.treeWorkspace.choose(id), ids.avatar);
+    await page.evaluate((id) => window.treeWorkspace.choose(id), ids.item);
+    assert.equal(await label(), "Reload", "selection resets confirmation");
+    for (const handled of [true, false]) {
+      await page.evaluate((value) => {
+        window.treeCancelHandles = value;
+      }, handled);
+      await press();
+      assert.equal(await label(), "Discard changes and reload");
+      await page.keyboard.press("Escape");
+      await page.evaluate((id) => window.treeWorkspace.choose(id), ids.item);
+      assert.equal(await label(), "Reload", "Escape resets confirmation");
+    }
+    assert.equal(await page.evaluate(() => window.treeRuns), 0);
+    await press();
+    assert.equal(await page.evaluate(() => window.treeRuns), 0);
+    await press();
+    assert.equal(await page.evaluate(() => window.treeRuns), 1);
     await page.evaluate(() => window.treeWorkspace.close());
     assert.deepEqual(errors, []);
     await page.close();
