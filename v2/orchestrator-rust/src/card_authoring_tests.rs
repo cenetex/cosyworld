@@ -267,7 +267,7 @@ async fn authoring_revision_conflicts_are_private_and_atomic() {
     let route = format!("{BASE}/{}", created["id"].as_str().unwrap());
     let launch_route = format!("{route}/launch");
     let input = save_body(created.clone(), 1);
-    for (account, status) in [(&other, 404), ("", 401)] {
+    for (account, status) in [(other.as_str(), 404), ("", 401)] {
         assert_eq!(
             send(&state, "GET", &launch_route, account, Value::Null, None)
                 .await
