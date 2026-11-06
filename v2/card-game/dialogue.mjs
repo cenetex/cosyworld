@@ -268,8 +268,6 @@ export function createExchange({
   settled = () => {},
   transition = () => {},
   busy = () => {},
-  // A streamed exchange has shown every line so far and awaits the next one.
-  waiting: awaiting = () => {},
 }) {
   let generation = 0,
     active = false,
@@ -279,7 +277,6 @@ export function createExchange({
     completed = null,
     handoff = null,
     streaming = false,
-    waiting = false,
     transitioning = false;
   function finish() {
     generation++;
@@ -290,7 +287,6 @@ export function createExchange({
     handoff = null;
     transitioning = false;
     streaming = false;
-    waiting = false;
     busy(false);
   }
   function advance() {
@@ -302,12 +298,8 @@ export function createExchange({
       completed !== lines[index]?.seq
     )
       return;
-    if (streaming && index + 1 >= lines.length) {
-      if (!waiting) awaiting(lines[index]);
-      waiting = true;
-      return;
-    }
-    waiting = false;
+    // A pending reply keeps this line until a fresh tap can advance it.
+    if (streaming && index + 1 >= lines.length) return;
     transitioning = true;
     const previous = lines[index];
     completed = null;
@@ -339,7 +331,6 @@ export function createExchange({
       handoff = null;
       transitioning = false;
       streaming = false;
-      waiting = false;
       active = true;
       busy(true);
     },
@@ -348,7 +339,7 @@ export function createExchange({
       if (streaming) {
         lines = value;
         streaming = pending;
-        if (waiting || (!streaming && index === lines.length - 1)) advance();
+        if (!streaming && index === lines.length - 1) advance();
         return;
       }
       streaming = pending;
@@ -382,11 +373,7 @@ export function createExchange({
       if (paused === value) return;
       paused = value;
       if (!paused && handoff) handoff();
-      else if (
-        !paused &&
-        (waiting || (!streaming && index === lines.length - 1))
-      )
-        advance();
+      else if (!paused && !streaming && index === lines.length - 1) advance();
     },
     get active() {
       return active;
@@ -405,7 +392,7 @@ export function createExchange({
       return active && index >= 0 && (streaming || index < lines.length - 1);
     },
     get waiting() {
-      return waiting;
+      return active && index >= 0 && streaming && index + 1 >= lines.length;
     },
   };
 }

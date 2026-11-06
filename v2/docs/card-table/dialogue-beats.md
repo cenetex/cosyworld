@@ -214,7 +214,10 @@ The action beat shows while choosing. Choosing cards brings their action
 forward while speech keeps writing behind it. The same rule applies to a shared
 refusal. Speech and action history show **Tap to finish** while typing and
 **Tap to continue** when another card follows. The latest card stays visible
-while the next reply is on its way.
+while the next reply is on its way. Its lower-right cue reads **Thinking…**
+until that reply is ready, then **Tap to continue**. Taps during the wait keep
+the visible line; reading the reply takes a fresh tap. Typing still offers
+**Tap to finish**, and history keeps its own forward control.
 A reload shows a line already begun in full, and a play whose words were
 still on the way asks again, quietly, with its Thinking card. Words that
 failed are not asked again. Clicking off the cards, like Escape, clears the choice: the action beat

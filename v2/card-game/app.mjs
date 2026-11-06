@@ -814,10 +814,15 @@ function measureSpeech() {
   speechScrollTarget = text.scrollTop;
 }
 new ResizeObserver(measureSpeech).observe($("dialogue-text"));
+function replyPending() {
+  return sharedSession
+    ? Boolean(shownSceneLine && storyStatus === "pending" &&
+        !sharedNextLine(sharedSession.state, shownSceneLine.locationId, shownSceneLine.seq))
+    : exchange.waiting;
+}
 function updateSpeechControls(complete) {
   complete &&= inscribing.size === 0;
-  const waiting = !reviewing &&
-    (exchange.waiting || (sharedAdvanceRequested && storyStatus === "pending"));
+  const waiting = !reviewing && replyPending();
   const { frontIndex, liveIndex, pending } = stackView;
   const own = frontIndex === liveIndex && pending?.own;
   const cancel = own?.cancel && (thinkingArmed ? "Confirm" : own.committed ? "Stop waiting" : "Cancel");
@@ -832,8 +837,8 @@ function updateSpeechControls(complete) {
   const button = $("dialogue-advance"), hint = $("speech-hint");
   button.dataset.revealing = String(!complete && !cancel);
   const waitingLine = complete && waiting && !cancel;
-  button.setAttribute("aria-label", waitingLine ? "Waiting for the next line" : cue.label);
-  hint.textContent = waitingLine ? "Waiting for the next line…" : cue.hint;
+  button.setAttribute("aria-label", waitingLine ? "Thinking about the next reply" : cue.label);
+  hint.textContent = waitingLine ? "Thinking…" : cue.hint;
   hint.hidden = button.hidden || !hint.textContent;
 }
 const speechPainter = createRevealPainter($("dialogue-text"), { rest: true });
@@ -4385,7 +4390,7 @@ function advanceFront() {
   }
   if (stepForward()) return;
   if (exchange.current || (sharedSession && shownSceneLine)) {
-    if (exchange.waiting || sharedAdvanceRequested) return;
+    if (replyPending() || sharedAdvanceRequested) return;
     count("line.skip");
     characterSpeech.stop();
     syncSpeechPlayback();

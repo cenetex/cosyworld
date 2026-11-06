@@ -277,34 +277,31 @@ describe("one exchange per card play", () => {
     ];
     return { exchange, lines, show, settled, busy };
   }
-  it("holds a streamed line through a slow reply after the player taps", async () => {
+  it.each([false, true])("keeps a pending reply for a fresh tap (early tap: %s)", async (earlyTap) => {
     vi.useFakeTimers();
-    const show = vi.fn(),
-      waiting = vi.fn();
-    const exchange = createExchange({ show, waiting });
+    const show = vi.fn();
+    const exchange = createExchange({ show });
+    const first = { seq: 1, text: "Hello, Moth." };
+    const next = { seq: 2, text: "Hello, Vale." };
     exchange.begin();
-    exchange.load([{ seq: 1, text: "Hello, Moth." }], { pending: true });
+    exchange.load([first], { pending: true });
     await vi.advanceTimersByTimeAsync(0);
     exchange.revealed(1);
+    expect(exchange.waiting).toBe(true);
+    if (earlyTap) {
+      exchange.advance();
+      exchange.advance();
+    }
+    expect(exchange.current).toEqual(first);
+    exchange.pause(true);
+    exchange.load([first, next], { pending: false });
+    expect(exchange.waiting).toBe(false);
+    exchange.pause(false);
     await vi.advanceTimersByTimeAsync(3000);
-    expect(waiting).not.toHaveBeenCalled();
+    expect(show).toHaveBeenCalledExactlyOnceWith(first);
     exchange.advance();
-    exchange.advance();
-    expect(show).toHaveBeenCalledTimes(1);
-    expect(waiting).toHaveBeenCalledExactlyOnceWith({
-      seq: 1,
-      text: "Hello, Moth.",
-    });
-    exchange.load(
-      [
-        { seq: 1, text: "Hello, Moth." },
-        { seq: 2, text: "Hello, Vale." },
-      ],
-      { pending: false },
-    );
-    await vi.advanceTimersByTimeAsync(0);
-    expect(show).toHaveBeenLastCalledWith({ seq: 2, text: "Hello, Vale." });
-    expect(waiting).toHaveBeenCalledTimes(1);
+    expect(show).toHaveBeenLastCalledWith(next);
+    expect(show).toHaveBeenCalledTimes(2);
   });
   it("waits for the portrait load and entrance before the first arrival line", async () => {
     vi.useFakeTimers();
