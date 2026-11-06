@@ -347,6 +347,7 @@ export function installAvatarMenu({
       menu.showPopover();
     };
     return {
+      message: `${seat.name} leaves ${slot.name || "the world"}`,
       buttons: [{ label: "Leave", id: "avatar-leave", run: guard(leaveSeat) }],
     };
   }

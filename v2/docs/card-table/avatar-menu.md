@@ -160,10 +160,10 @@ player picks what comes next.
 
 - **Leave** frees your seat and keeps the avatar's level and its binding
   there; the avatar is then in no world, ready for + New world or a move.
-  The beat has no note: consequences go in the action button, never as text
-  on the card (owner, 2026-11-03), and every avatar keeps its level between
-  seats anyway. After it the status reads "Mara left *Hollowmere*." It sends
-  the `release` command (was Step away, and Move to your deck before #1891).
+  The card names both the avatar and the world, as in "Rue leaves The
+  Weeping Cellar", with **Tap to leave** in the corner. A tap during typing
+  finishes the message. The next tap sends `release`, and the status reads
+  "Rue left The Weeping Cellar."
 - **Free** (owner) notes "Removes Amber Heron's hold and resets Ash." and
   sends `reset`.
 

@@ -994,9 +994,19 @@ function syncSpeechPlayback() {
   exchange.pause(paused || reviewing || characterSpeech.busy);
   return paused;
 }
+function syncActionReveal() {
+  const menu = Boolean(document.querySelector(".world-menu:popover-open"));
+  // The Leave message stays in front while its menu is open.
+  const inFront = menu && borrowedBeat?.message;
+  actionReveal.pause(
+    document.hidden ||
+      Boolean(document.querySelector("dialog[open]")) ||
+      (!inFront && (reviewing || menu)),
+  );
+}
 function pauseSpeech() {
   const paused = syncSpeechPlayback();
-  actionReveal.pause(paused || reviewing);
+  syncActionReveal();
   for (const animation of [
     ...$("cast").getAnimations({ subtree: true }),
     ...$("speech-row").getAnimations(),
@@ -2101,7 +2111,7 @@ function showBeatCards(ids, here, verb, recipe = false, actionView = null) {
 }
 // Another part of the table, such as the ☰ menu, can borrow the action
 // beat: { avatar, cards: [{ src, level, color, lit, ground }], name, info,
-// note, edit?: { key, label, value, onInput }, buttons: [{ label, id, run }] }.
+// message, note, edit?: { key, label, value, onInput }, buttons: [{ label, id, run }] }.
 // The name and its info line read in
 // the middle, then the note; the buttons sit on the right, and a beat may
 // have none. It replaces the play's beat until cleared. `borrowedBeat` is
@@ -2117,6 +2127,7 @@ export function clearActionBeat(beat) {
   if (!borrowedBeat || (beat && borrowedBeat !== beat)) return;
   borrowedBeat = null;
   keptBorrowedBeat = null;
+  syncActionReveal();
   renderActions();
 }
 // The menu light-dismisses on a card tap. Keep its chosen message for the
@@ -2153,7 +2164,8 @@ function showBorrowedBeat() {
       ? (root) =>
           writeActionMessage(
             root,
-            [borrowedBeat.name, borrowedBeat.info].filter(Boolean).join(" · "),
+            borrowedBeat.message ??
+              [borrowedBeat.name, borrowedBeat.info].filter(Boolean).join(" · "),
             JSON.stringify(borrowedBeat),
             borrowedBeat.name,
           )
@@ -2164,6 +2176,7 @@ function showBorrowedBeat() {
     actionReveal.cancel();
     actionMessage = null;
   }
+  syncActionReveal();
   syncActionBeat();
 }
 function cardTapHint(button, hint = button.textContent.toLowerCase()) {
@@ -2213,11 +2226,7 @@ function syncPhase() {
     abandonQuest = null;
     renderActions();
   }
-  actionReveal.pause(
-    reviewing ||
-      document.hidden ||
-      Boolean(document.querySelector("dialog[open], .world-menu:popover-open")),
-  );
+  syncActionReveal();
   if (presentPhase() !== shownPhase) renderActions();
   else syncActionBeat();
 }
