@@ -3,10 +3,40 @@
 // uses. Presentation only; the rules own the want (want.mjs).
 import { combatPortrait } from "./combat-portraits.mjs";
 import { flipStagePortrait } from "./portrait-facing.mjs";
+import { people, places, things } from "./world.mjs";
 
 const BACK = "./assets/card-back.webp";
 // Poses for verbs that have them; others use the speaking portraits.
 const POSES = { Strike: ["attack", "guard"], Threaten: ["attack", null] };
+const ACTION_POSES = { attack: "Strike", threaten: "Threaten" };
+
+// A resolved action carries its subjects even after an item changes hands.
+export function actionScene(event, visible) {
+  const { actorId, itemId, targetId, receiveId, locationId, fromLocationId } =
+    event;
+  if (!people[actorId] || !visible(actorId)) return null;
+
+  const items = [...new Set([itemId, receiveId, targetId])].filter(
+    (id) => things[id] && visible(id),
+  );
+  const other =
+    people[targetId] && targetId !== actorId && visible(targetId)
+      ? targetId
+      : null;
+  const course = event.verb === "course" ? targetId : null;
+  const here = [course, locationId, fromLocationId].find(
+    (id) => places[id] && visible(id),
+  );
+  return {
+    actor: actorId,
+    here,
+    verb: ACTION_POSES[event.verb],
+    kind: items.length ? "item" : other ? "person" : "place",
+    target: items[0] || other || here,
+    items,
+    to: items.length ? other : null,
+  };
+}
 
 const picture = (src, className, url, entity) => {
   const img = document.createElement("img");
