@@ -160,6 +160,12 @@ export async function selectCard(page, id, { touch = false } = {}) {
     }
   }
 }
+// A tap on a message that is still typing finishes the text. Wait for it
+// to finish before tapping to play.
+export function readyActionButton(page, kind) {
+  const action = kind ? `[data-action="${kind}"]` : ".card-primary";
+  return page.locator(`#card-actions ${action}:not([data-revealing="true"])`);
+}
 // A new local world opens on Vale alone, the lit lamp and the attic face down
 // (opening.mjs). Its context button offers no play while either is down: the
 // lamp's tap turns it, the quiet Reveal turns the attic and chooses the lamp,
@@ -170,15 +176,11 @@ export async function revealOpening(page) {
   await page
     .locator('#card-actions [data-quiet="true"]', { hasText: "Reveal" })
     .click();
-  await page
-    .locator("#card-actions .card-primary", { hasText: "Put out" })
-    .waitFor();
+  await readyActionButton(page, "snuff").waitFor();
 }
 export async function putOutOpening(page) {
   await revealOpening(page);
-  await page
-    .locator("#card-actions .card-primary", { hasText: "Put out" })
-    .click();
+  await readyActionButton(page, "snuff").click();
 }
 // The beat stack's cards take real pointer hits: the front card under its own
 // centre, and the card behind under its peeking top line (#1538).

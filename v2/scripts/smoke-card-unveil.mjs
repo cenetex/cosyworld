@@ -3,6 +3,8 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
 import {
+  putOutOpening,
+  readyActionButton,
   selectCard,
   stackHits,
   wordsFellSilent,
@@ -75,17 +77,6 @@ try {
             .unrevealed === "true",
         id,
       );
-    // The opening offers no play while the attic is down: its quiet Reveal
-    // turns it and chooses the lamp, whose Put out comes next (opening.mjs).
-    const putOut = async () => {
-      await selectCard(page, "lamp");
-      await page
-        .locator('#card-actions [data-quiet="true"]', { hasText: "Reveal" })
-        .click();
-      await page
-        .locator("#card-actions .card-primary", { hasText: "Put out" })
-        .click();
-    };
     // A ready play or a notice is an action beat in front of the dialogue
     // (#1945): it is then the stack's front card. Null when none shows.
     const beatHit = () =>
@@ -163,7 +154,7 @@ try {
       await page.reload();
       await ready();
       assert.deepEqual(await covered(), ["attic", "lamp"]);
-      await putOut();
+      await putOutOpening(page);
       await unveil("pond");
       await finish();
       assert.equal((await state()).actors.vale.place, "attic");
@@ -338,11 +329,11 @@ try {
       assert.equal(await pond.locator(".card-level").count(), 0);
       await page.keyboard.press("Escape");
       await selectCard(page, "pond");
-      await page.locator("#card-actions .card-primary").click();
+      await readyActionButton(page, "move").click();
       await finish();
       assert.equal((await state()).actors.vale.place, "pond");
       await selectCard(page, "station");
-      await page.locator("#card-actions .card-primary").click();
+      await readyActionButton(page, "move").click();
       if (motion !== "reduce") {
         await openSettings(page);
         await page.waitForTimeout(2400);
@@ -417,7 +408,7 @@ try {
       assert.equal((await state()).actors.vale.place, "attic");
       assert.equal((await state()).items.lamp.lit, true);
       assert.deepEqual(await covered(), opening);
-      await putOut();
+      await putOutOpening(page);
       await unveil("pond");
       await page.evaluate(
         ({ key, save }) => {

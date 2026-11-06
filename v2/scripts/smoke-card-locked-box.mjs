@@ -13,13 +13,13 @@ import { encodeSave } from "../card-game/world.mjs";
 import { openingFixture } from "../../test/helpers/greek-opening.mjs";
 import { profiles } from "../card-game/memory.mjs";
 import {
+  readyActionButton,
   revealCard,
   selectCard,
   smokeWidths,
 } from "./card-browser-helpers.mjs";
 
 const FIELD = "greek-battlefield";
-const readyAction = '#card-actions .card-primary:not([data-revealing="true"])';
 const output = new URL(
   process.argv[2]
     ? `file://${process.argv[2].replace(/\/?$/u, "/")}`
@@ -160,12 +160,12 @@ try {
       await page.keyboard.press("Escape");
       await selectCard(page, "greek-guard");
       if (await page.locator('#card-actions [data-action="meet"]').count()) {
-        await page.locator(`${readyAction}[data-action="meet"]`).click();
+        await readyActionButton(page, "meet").click();
         await ready();
         await page.keyboard.press("Escape");
         await selectCard(page, "greek-guard");
       }
-      await page.locator(`${readyAction}[data-action="talk"]`).click();
+      await readyActionButton(page, "talk").click();
       await ready();
       const state = () =>
         page.evaluate((key) => JSON.parse(localStorage.getItem(key)), key);
@@ -178,7 +178,7 @@ try {
       await selectCard(page, "greek-creon-writ");
       await selectCard(page, "greek-guard");
       const turning = page.evaluate(holdLid, { id: FIELD, at: 60, reduced });
-      await page.locator(readyAction).click();
+      await readyActionButton(page).click();
       assert.equal(
         (await state()).items["greek-creon-writ"].holder,
         "greek-guard",
