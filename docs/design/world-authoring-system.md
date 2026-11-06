@@ -6,6 +6,10 @@ This document describes the complete target. The card-pack guide and merged
 PRs record each delivered part. Private asset upload, AI generation and Store
 publication have separate delivery boundaries.
 
+The [2026-11-06 interaction study](world-authoring-play.md) updates the entry
+flow and generation storage policy. New generation keeps seed text and expanded
+prompts in the session; accepted card output and artwork form the saved world.
+
 ## Writing and cards
 
 The author works at the existing card table. A World Idea card opens a plain

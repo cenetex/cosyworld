@@ -1,0 +1,17 @@
+[
+  {
+    "width": 1440,
+    "passed": true,
+    "flow": "world, seed, candidates, description, image edit, confirm, poses, play return, placement, undo, items, locations"
+  },
+  {
+    "width": 390,
+    "passed": true,
+    "flow": "world, seed, candidates, description, image edit, confirm, poses, play return, placement, undo, items, locations"
+  },
+  {
+    "width": 320,
+    "passed": true,
+    "flow": "world, seed, candidates, description, image edit, confirm, poses, play return, placement, undo, items, locations"
+  }
+]
