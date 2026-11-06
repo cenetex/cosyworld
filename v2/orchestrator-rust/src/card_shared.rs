@@ -139,7 +139,7 @@ fn reply(r: Result<Value>) -> Response {
     )
         .into_response()
 }
-fn user(state: &AppState, h: &HeaderMap, mutation: bool) -> Result<String> {
+pub(super) fn user(state: &AppState, h: &HeaderMap, mutation: bool) -> Result<String> {
     if mutation {
         // JSON and same-origin requests keep the account cookie out of cross-site commands.
         if h.get("sec-fetch-site")
