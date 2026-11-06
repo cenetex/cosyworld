@@ -3026,7 +3026,7 @@ const cardBackImage = () =>
 // chosen on top, the context button offers its next step and Discard
 // (quest-step.mjs).
 const questCovered = (quest) =>
-  !quest.art && (!quest.target || cardIsCovered(quest.target));
+  !quest.target || cardIsCovered(quest.target);
 const known = (id) => !cardIsCovered(id);
 function shownQuestCaption(quest) {
   const hidden = questCovered(quest);

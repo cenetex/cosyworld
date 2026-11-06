@@ -125,6 +125,19 @@ describe("the quest card", () => {
     expect(questVerb(s, quest, true)).toBe("Discover");
   });
 
+  it("keeps a Find step short while naming its known place", () => {
+    const quest = {
+      ...questCard(createWorld()),
+      level: 3,
+      step: { verb: "find" },
+    };
+    expect(questCaption(quest, true)).toBe("Level III: Find something");
+    quest.step.at = "pond";
+    expect(questCaption(quest, true)).toBe(
+      "Level III: Find something at Black pond",
+    );
+  });
+
   it("uses the visible place verb for covered, known, and visited destinations", () => {
     const s = createWorld();
     const quest = { ...questCard(s), kind: "place", target: "clearing" };

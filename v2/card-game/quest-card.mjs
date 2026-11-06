@@ -152,7 +152,7 @@ export function questCaption(
           : `find ${unknown[quest.kind]}`;
     else if (quest.kind === "place" && quest.step.verb === "rest")
       shown = "find a place and rest there";
-    else if (quest.kind === "item")
+    else if (quest.kind === "item" && quest.step.verb !== "find")
       shown = shown.replace(/^(\w+) something/u, "find something and $1 it");
     else if (quest.kind === "person" && quest.step.verb === "bring")
       shown = shown.replace(/^bring someone/u, "find someone and bring them");

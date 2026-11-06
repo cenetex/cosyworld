@@ -695,6 +695,14 @@ try {
     for (const [kind, target, step] of [
       ["item", "routes", { verb: "bring", at: "train" }],
       ["place", "greek-palace", null],
+      [
+        "place",
+        "greek-polynices-hollow",
+        {
+          verb: "lay",
+          items: ["greek-oil-flask", "greek-funeral-cloth", "greek-shovel"],
+        },
+      ],
     ]) {
       const sceneWorld = createWorld();
       sceneWorld.actors.vale.visited.push("pond");
@@ -707,7 +715,8 @@ try {
         refusals: 0,
       };
       const place = step?.at ?? target;
-      const sceneTable = `quest-scene-${kind}-${width}`;
+      const label = step?.verb === "lay" ? "burial" : kind;
+      const sceneTable = `quest-scene-${label}-${width}`;
       const sceneKey = `cosyworld.reflected-shore.v1.${sceneTable}`;
       const seen = availableCards(sceneWorld).filter(
         (id) => id !== place && id !== target,
@@ -763,7 +772,7 @@ try {
         );
         await page.locator(".dialogue").screenshot({
           path: new URL(
-            `scene-${kind}-${revealed ? "revealed" : "hidden"}-${width}.png`,
+            `scene-${label}-${revealed ? "revealed" : "hidden"}-${width}.png`,
             output,
           ).pathname,
           animations: "disabled",
