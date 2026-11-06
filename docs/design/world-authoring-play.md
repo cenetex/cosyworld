@@ -15,6 +15,9 @@ The descriptor now offers **Enter world seed**. Every category has real contents
 The sample starts at the shore. Vale carries the lantern. The keeper waits
 beside a closed garden path. Returning the keeper's bell opens the garden;
 the return path stays available. The third item is a blue scarf.
+The opening uses `holding` with the keeper and bell, plus a sealed item quest
+whose recipient is the keeper. The existing simple opening helper uses
+`item_present` at the approach; this sample needs the delivery-specific adapter.
 Use the game's existing paintings and working quest grammar for this example.
 A separately named **First Voyage** example can teach Charybdis and cargo.
 
@@ -44,16 +47,16 @@ avatar appears in Avatars and through a location's Contents as the same entity.
 
 The source observations below are separate from our proposed use of them.
 
-| Primary source | Observed pattern | Application here |
-| --- | --- | --- |
-| [Dreams templates](https://docs.indreams.me/en/create/resources/mm-creator-content/templates) and [Tren](https://docs.indreams.me/en-US/create/resources/mm-creator-content/templates/tren/info/contents) | Editable examples and small task-specific collections teach creation. | A complete small world offers a first edit and an immediate result. |
-| [Dreams Tweak](https://docs.indreams.me/en/create/resources/edit-mode-guide/assembly/tools#tweak) and [Tabletop Simulator](https://kb.tabletopsimulator.com/player-guides/context-menu/) | Select an object to reach its properties and relevant actions. | Choose an avatar, place or item before revealing its configuration cards. |
-| [Spore Creature Creator](https://www.spore.com/creatureCreator) | Build, Paint and Play are separate activities; Play shows poses and emotions. | Keep description, portrait approval and pose review as clear stages of one card. |
-| [Super Mario Maker 2](https://www.nintendo.com/au/games/nintendo-switch/super-mario-maker-2/) | A work-in-progress course can be played during creation. | Try world starts a fresh preview and returns to the same editing card. |
-| [Magic Booster Draft](https://magic.wizards.com/en/formats/booster-draft) | Choices from a current pack build a growing collection. | A small candidate hand feeds the world collection. Six is our product limit. |
-| [Progressive disclosure](https://www.nngroup.com/articles/progressive-disclosure/) | Important choices come first; specialized choices appear when needed. | World opens three categories; each selected entity reveals its local tools. |
-| [Recognition and recall](https://www.nngroup.com/articles/recognition-and-recall/) | Familiar content, clear labels and contextual guidance support recognition. | Show artwork, names and concrete effects; explain the next action beside its card. |
-| [Apple generative AI guidance](https://developer.apple.com/design/human-interface-guidelines/generative-ai) | People need feedback and control over refining, retrying and reverting output. | Keep the accepted image visible during a roll and review its replacement before adoption. |
+| Primary source                                                                                                                                                                                            | Observed pattern                                                               | Application here                                                                          |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------- |
+| [Dreams templates](https://docs.indreams.me/en/create/resources/mm-creator-content/templates) and [Tren](https://docs.indreams.me/en-US/create/resources/mm-creator-content/templates/tren/info/contents) | Editable examples and small task-specific collections teach creation.          | A complete small world offers a first edit and an immediate result.                       |
+| [Dreams Tweak](https://docs.indreams.me/en/create/resources/edit-mode-guide/assembly/tools#tweak) and [Tabletop Simulator](https://kb.tabletopsimulator.com/player-guides/context-menu/)                  | Select an object to reach its properties and relevant actions.                 | Choose an avatar, place or item before revealing its configuration cards.                 |
+| [Spore Creature Creator](https://www.spore.com/creatureCreator)                                                                                                                                           | Build, Paint and Play are separate activities; Play shows poses and emotions.  | Keep description, portrait approval and pose review as clear stages of one card.          |
+| [Super Mario Maker 2](https://www.nintendo.com/au/games/nintendo-switch/super-mario-maker-2/)                                                                                                             | A work-in-progress course can be played during creation.                       | Try world starts a fresh preview and returns to the same editing card.                    |
+| [Magic Booster Draft](https://magic.wizards.com/en/formats/booster-draft)                                                                                                                                 | Choices from a current pack build a growing collection.                        | A small candidate hand feeds the world collection. Six is our product limit.              |
+| [Progressive disclosure](https://www.nngroup.com/articles/progressive-disclosure/)                                                                                                                        | Important choices come first; specialized choices appear when needed.          | World opens three categories; each selected entity reveals its local tools.               |
+| [Recognition and recall](https://www.nngroup.com/articles/recognition-and-recall/)                                                                                                                        | Familiar content, clear labels and contextual guidance support recognition.    | Show artwork, names and concrete effects; explain the next action beside its card.        |
+| [Apple generative AI guidance](https://developer.apple.com/design/human-interface-guidelines/generative-ai)                                                                                               | People need feedback and control over refining, retrying and reverting output. | Keep the accepted image visible during a roll and review its replacement before adoption. |
 
 The playful qualities to keep are a visible object, a clear next action,
 an immediate consequence and a reliable way back. Fast tapping matters more
@@ -67,12 +70,25 @@ local stack. Tap an operation card to choose a verb. The existing context
 action applies that verb. The descriptor names the exact result beforehand.
 Parent cards stay in reach, and tapping one returns to that collection.
 
-| Selected entity | Local cards | Example context action |
-| --- | --- | --- |
-| Avatar | Description, Image, Poses, Inventory, Quests, Starting place | Give the lantern to Vale |
-| Location | Description, Image, Scene variants, Contents, Paths, Quests | Open this path when the bell is returned |
-| Item | Description, Image, States, Holder, Uses | Place the bell beside the keeper |
-| World | Items, Avatars, Locations | Enter world seed |
+Contents and Inventory use open wooden boxes; Quests uses locked wooden boxes.
+Tapping a box arms it. Browsing categories keeps it armed. Selecting a target
+names the proposed relation in the descriptor; the context action applies one
+undoable edit. Tapping the armed box again or pressing Escape cancels it.
+Selecting an editing operation clears the armed box.
+
+| Selected entity | Local cards                                                  | Example context action                   |
+| --------------- | ------------------------------------------------------------ | ---------------------------------------- |
+| Avatar          | Description, Image, Poses, Inventory, Quests, Starting place | Give the lantern to Vale                 |
+| Location        | Description, Image, Scene variants, Contents, Paths, Quests  | Open this path when the bell is returned |
+| Item            | Description, Image, States, Holder, Uses                     | Place the bell beside the keeper         |
+| World           | Items, Avatars, Locations                                    | Enter world seed                         |
+
+A location's open box plus another location links those places; plus an avatar
+or item places it there. An avatar's open box plus an item gives it that item.
+Its locked box plus an item, location or avatar offers a starting quest. A
+location's locked box opens its approaches and their requirements. The action
+states the path direction and any return path. Existing rich quests retain
+their steps, branches and rewards.
 
 Names, abilities and descriptions use the descriptor's writing state. An
 avatar face shows its name; selection shows **Name // Special ability**.
@@ -80,10 +96,20 @@ An ability is descriptive until a supported rule has been chosen and tested.
 The same distinction applies to an item's suggested use.
 
 The existing header controls provide World and Tools. Tools opens cards for
-Import, Undo, Save status, Reload, Export and Publish. Import opens its source
+Import, Create private world, Undo, Save status, Reload, Export and Publish. Import opens its source
 choices. Each operation keeps its existing capabilities. Saved status lives
 in the descriptor. Explicitly confirmed edits save automatically; Undo returns
 to the previous accepted output. The manual Save path supports recovery.
+
+Import opens a GitHub world or local pack into a draft. Create private world
+ties accepted content and assets to the author's Lonely Forest passkey account.
+Publish selects an accepted version for the Store handoff after pack validation.
+Account or upload errors keep the local draft available for retry.
+
+Categories form the entry branches of the same top-down card table. Larger
+screens keep ancestors and other open branches visible. Reference cards connect
+branches and lead to one canonical entity. Returning through a category preserves
+the open boxes and selected relation target.
 
 On phones, one active hand and its ancestor cards share the screen with the
 descriptor. A two-row hand can hold six proposals; readable labels decide
@@ -118,16 +144,16 @@ An author can return to any category while a generation request runs.
 
 ## Design, image and confirmation
 
-| Stage | Card and descriptor | Main action |
-| --- | --- | --- |
-| Candidate selected | Name, ability and editable description | Roll image |
-| Image running | Current accepted card; generation state | Cancel roll |
-| Image ready | Proposed image beside the kept image in the same card stack | Confirm image |
-| Change description | Editable description in the bar | Apply description |
-| Edit image | Accepted or selected image plus temporary instruction | Roll changes |
-| Reroll image | Same accepted description and style | Roll again |
-| Portrait confirmed | Accepted image and pose readiness | Roll poses |
-| Pose review | Named pose cards, each with its result | Keep pose set |
+| Stage              | Card and descriptor                                         | Main action       |
+| ------------------ | ----------------------------------------------------------- | ----------------- |
+| Candidate selected | Name, ability and editable description                      | Roll image        |
+| Image running      | Current accepted card; generation state                     | Cancel roll       |
+| Image ready        | Proposed image beside the kept image in the same card stack | Confirm image     |
+| Change description | Editable description in the bar                             | Apply description |
+| Edit image         | Accepted or selected image plus temporary instruction       | Roll changes      |
+| Reroll image       | Same accepted description and style                         | Roll again        |
+| Portrait confirmed | Accepted image and pose readiness                           | Roll poses        |
+| Pose review        | Named pose cards, each with its result                      | Keep pose set     |
 
 Confirm, Edit description, Edit image and Roll again are local operation cards.
 Choosing one gives the existing context button its action. The chosen entity
@@ -142,7 +168,13 @@ description and supplies image changes through this deliberate writing state.
 Selecting an image only previews it. Confirming it saves the output. A fresh
 roll preserves the accepted version until a replacement is confirmed. Each
 accepted version has an Undo path. Saving the accepted card is distinct from
-approving a charge for generation.
+approving a charge for generation. A save failure keeps generated bytes in the
+session and the prior accepted version on disk. The descriptor says “Image
+ready; save failed” and offers Retry save or Download output through cards.
+Quota, network and revision conflicts share this recovery path. A save retry
+reuses the output. Cancellation prevents adoption; upstream work may still
+finish and incur cost. Credit/auth errors offer account recovery. Rejected or
+invalid images show the reason and allow a deliberate edit or retry.
 
 ## Poses and other visual states
 
@@ -150,6 +182,8 @@ For avatars, the proposed first set is **Happy, Sad, Strike, Brace, Hit, Sleep**
 The confirmed portrait is the reference for every output. Individual files
 allow one failed or unwanted pose to be rerolled while accepted poses remain.
 A contact sheet is a review view assembled from those files.
+The supplied dinosaur and sheet guide framing and consistency; each new
+character uses its own approved face, proportions, colours and silhouette.
 
 The authored pose names require explicit runtime mapping: Strike maps to
 attack, Brace to guard, Hit to hit, Sleep to the sleep portrait, and Happy/Sad
@@ -163,19 +197,26 @@ their world uses. The card previews its actual scene, transparent cutout or
 state art. State changes that affect play require a linked condition or action.
 
 Each confirmed portrait has an entity ID, visual revision and asset SHA.
-Each pose refers to that portrait SHA and its role. Applying a new visual
-description marks the image for review. Confirming a changed portrait marks
+Each pose refers to that entity, visual revision, portrait SHA and its role.
+Applying a new visual description marks the image for review. Confirming a changed portrait marks
 older poses for review; the accepted old set remains available through Undo.
-An unchanged portrait keeps its existing poses. Names and prose edits that
-preserve appearance keep the visual revision.
+An unchanged approved visual description and portrait keep their existing poses.
+Names and prose edits that preserve appearance keep the visual revision.
 
 ## Playing the changes
 
+In editing, selecting a location sets the scene and starting place in one
+undoable edit. Its card says **Start here**. With a box armed, the location tap
+chooses that relation's target and keeps the starting place. This preserves
+the current controller behavior and the owner's initial-condition gesture.
+
 Try world starts a fresh instance from accepted draft outputs and launch state.
+A preview-owned actor choice maps the selected authored avatar to the controlled
+actor. The current two-field launch contract continues to hold schema and place.
 Walking, giving items and completing a quest reveal the effect of edits.
 Return to editing restores the chosen card, branch and scroll position.
 Runtime inventory, flags and quest progress belong to the preview instance.
-“Use this scene as the start” is an explicit authoring command.
+Inside the preview, "Use this scene as the start" is an explicit authoring command.
 
 Location Contents retains the existing move/link gestures. Location Quests
 shows each approach and its requirements. Avatar Quests shows starter wants
@@ -196,16 +237,25 @@ are enough to edit or play a saved world. A later draw starts with a newly
 supplied seed. A later image edit uses the saved image and a new instruction.
 
 Generation input lives in request/session memory: original seed, fetched text,
-sampled passages, extraction evidence, image-edit instructions, hidden templates
+sampled passages, extraction evidence, image-edit instructions, expanded prompts
 and provider-revised prompts. Logs, analytics, exports, browser storage and
 durable job queues share this boundary. Operational receipts hold IDs, status,
 usage and hashes; they carry only the metadata needed for ownership and billing.
 
-Current `draft.document` persists Source text. New generation uses separate
-session state and writes `document:""`. Current `avatar.seed` is a short runtime
+Current `draft.document` persists Source text. A newly generated draft uses
+separate session state and writes `document:""`. Generating within an existing
+draft preserves its saved Source until the author chooses Clear source.
+This study supersedes the earlier design's retained generation prose and saved
+extraction seed policies. Current `avatar.seed` is a short runtime
 character brief and belongs to the accepted character output. Imported pack
 provenance remains in `sources`; input book passages remain temporary.
 Existing drafts keep a clear export/clear-source choice during migration.
+
+Accepted aliases, ability text, visual revisions and pose-role links belong in
+a versioned authoring-output sidecar keyed by entity ID. The current manifest,
+asset metadata and playable avatar schemas need an explicit adapter for these
+records. The sidecar stores approved output only. Retain earlier accepted bytes
+while Undo references them, then reclaim bytes when those references expire.
 
 Generated assets need one guarded transaction for output JSON and verified
 bytes. Capture draft key, entity ID, visual revision and request ID at dispatch.
@@ -259,3 +309,18 @@ workflow includes visual approval, alpha, dimensions and framing checks.
 This study uses primary documentation and code inspection. The proposed flow
 still needs the observed sessions above. Existing art in the interaction study
 illustrates state changes; image generation itself is a later implementation.
+
+## Interaction study evidence
+
+The scripted journey covers seed entry, candidate selection, description and
+image edits, image confirmation, poses, preview return, placement, Undo, item
+and location images, and review of two selected images in turn. Browser checks
+cover 1440, 390 and 320 pixel widths, touch targets, page errors and overflow.
+Native phone keyboard behavior and live generation are part of implementation
+validation. The retained captures use existing artwork:
+
+- [Desktop categories](assets/world-authoring-play/1440-world.png)
+- [Phone categories](assets/world-authoring-play/390-world.png)
+- [Small-phone image review](assets/world-authoring-play/320-image.png)
+- [Phone poses](assets/world-authoring-play/390-poses.png)
+- [Scripted check results](assets/world-authoring-play/review.json)
