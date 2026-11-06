@@ -1,6 +1,6 @@
 //! Private authoring drafts belong to the signed-in passkey account.
-// The authenticated upload routes will consume this storage boundary next.
-#[allow(dead_code)]
+#[path = "card_authoring_assets.rs"]
+mod asset_routes;
 #[path = "authoring_asset_store.rs"]
 mod assets;
 use crate::AppState;
@@ -16,6 +16,8 @@ use rusqlite::{params, Connection, OptionalExtension};
 use serde_json::{json, Value};
 
 type Failure = (StatusCode, &'static str, Option<u64>);
+#[cfg(test)]
+pub(crate) static ASSET_TEST_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
 const UNAVAILABLE: Failure = (
     StatusCode::SERVICE_UNAVAILABLE,
     "Your packs need another try.",
@@ -34,6 +36,7 @@ const INVALID: Failure = (
 
 pub(super) fn router() -> Router<AppState> {
     Router::new()
+        .merge(asset_routes::router())
         .route("/card-game/authoring/packs", get(list).post(create))
         .route("/card-game/authoring/packs/{id}", get(read).put(save))
         .route("/card-game/authoring/packs/{id}/launch", get(read_launch))
