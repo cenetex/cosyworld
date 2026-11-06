@@ -84,6 +84,7 @@
     "smoke-card-boot": 8,
     "smoke-card-shared-discovery": 13,
     "smoke-card-bard-travel": 30,
-    "smoke-card-voice": 43
+    "smoke-card-voice": 43,
+    "smoke-card-descriptor": 10
   }
 }
