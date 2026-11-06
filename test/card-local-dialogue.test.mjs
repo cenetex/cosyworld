@@ -184,14 +184,16 @@ describe("local dialogue arrives before private thoughts", () => {
       second = { seq: 2, text: "Come sit." };
     exchange.begin();
     exchange.load([first], { pending: true });
-    exchange.revealed(1, "Hello.", true);
+    exchange.revealed(1);
     vi.advanceTimersByTime(3000);
     expect(exchange.active).toBe(true);
     exchange.load([first, second], { pending: true });
+    expect(show.mock.calls.map(([line]) => line.seq)).toEqual([1]);
+    exchange.advance();
     expect(show.mock.calls.map(([line]) => line.seq)).toEqual([1, 2]);
     exchange.load([first, second]);
     expect(show).toHaveBeenCalledTimes(2);
-    exchange.revealed(2, "Come sit.", true);
+    exchange.revealed(2);
     vi.runAllTimers();
     expect(exchange.active).toBe(false);
   });
