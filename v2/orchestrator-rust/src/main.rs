@@ -17,6 +17,7 @@ mod ai_publication;
 mod ai_readiness;
 mod ai_resident_planning;
 mod ai_voice_routing;
+mod authoring_draft;
 mod avatar_autonomy;
 mod avatar_context_spine;
 mod avatar_identity;
@@ -24,7 +25,6 @@ mod avatar_levels;
 mod avatar_links;
 mod avatar_reflections;
 mod avatar_rescue;
-mod authoring_draft;
 #[cfg(test)]
 mod beliefs_tests;
 mod card_authoring;
