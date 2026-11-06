@@ -317,7 +317,18 @@ export function groupBeats(
     beats.push(beat);
   }
   beats.sort((a, b) => a.anchor - b.anchor);
+  const sleeping = new Set();
   for (const entry of entries) {
+    const committed =
+      entry.kind === "action" && players.includes(entry.actorId);
+    // Local Sleep runs its remaining turns automatically. In a shared
+    // world each Sleep on is a separate play.
+    if (!shared && committed) {
+      if (entry.sleep) {
+        if (sleeping.has(entry.actorId)) continue;
+        sleeping.add(entry.actorId);
+      } else sleeping.delete(entry.actorId);
+    }
     if (
       held.has(entry.seq) ||
       hiddenAction(entry) ||
@@ -330,8 +341,6 @@ export function groupBeats(
     const defeat = caption.kind === "retreat" || caption.kind === "sent-home";
     // The end of a standoff is the place's caption, not the last actor's.
     const world = caption.kind === "standoff";
-    const committed =
-      entry.kind === "action" && players.includes(entry.actorId);
     const own = defeat
       ? `d:${entry.seq}`
       : world
@@ -402,8 +411,8 @@ export function sceneBeats(world, options = {}) {
   });
 }
 
-// While a reply is being written, the waiting speaker's front card carries
-// their committed actions from this turn; their action-only beat folds in.
+// Effects can fold into the waiting speaker's card. Player actions stay
+// on their own cards while the reply is being written.
 export function withPending(beats, { speakerId, turn }) {
   if (!speakerId) return { beats, pending: null };
   const folded = beats.find(

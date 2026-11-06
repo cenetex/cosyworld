@@ -78,6 +78,7 @@ describe("beat grouping", () => {
       did("vale", "wait", { text: "Vale waits one turn.", turn: 2 }),
       did("vale", "wait", { text: "Vale waits one turn.", turn: 3 }),
       did("vale", "wait", { sleep: true, turn: 4 }),
+      did("vale", "wait", { sleep: true, turn: 5 }),
     ];
     const world = worldOf(log);
     const stack = sceneBeats(world);
@@ -93,6 +94,9 @@ describe("beat grouping", () => {
     expect(memoryVisits(world)[0].beats).toEqual(stack);
     expect(withPending(stack, { speakerId: "vale", turn: 4 }).beats).toEqual(
       stack,
+    );
+    expect(sceneBeats(world, { shared: true }).map((beat) => beat.key)).toEqual(
+      ["s:1", "a:2", "a:3", "a:4", "a:5"],
     );
   });
 

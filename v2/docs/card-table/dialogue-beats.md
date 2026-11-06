@@ -52,7 +52,8 @@ letters like any other (`card-names.mjs` wraps its own letter spans), so
 its timing, caret and inscriptions are unchanged.
 
 Each played action keeps its own card. Two Waits followed by Sleep make
-three cards. A reply gets a speech card of its own. Other effects may be
+three cards, even when Sleep passes several turns. A reply gets a speech
+card of its own. Other effects may be
 written on the card that was current when they happened. A caption takes
 300 to 900 ms to appear. A tap finishes it. Each card shows up to three
 effects and Memory keeps them all.
