@@ -4,6 +4,7 @@ import { openAuthoringStore } from "./authoring-local-store.mjs";
 import { createSampleWorld } from "./authoring-sample.mjs";
 import { emptySeedWorld } from "./authoring-seed-world.mjs";
 import { createSeedMaker } from "./authoring-seed-maker.mjs";
+import { authoringCreateTools } from "./authoring-create-tools.mjs";
 import { installWorldDesigner } from "./authoring-designer.mjs";
 import { authoringImportTools } from "./authoring-import-tools.mjs";
 import { renderCardDescriptor } from "./card-descriptor.mjs";
@@ -116,6 +117,9 @@ addEventListener("pagehide", (event) => {
 async function start() {
   const database = await openAuthoringStore();
   const store = {
+    readCreate: (...args) => database.readCreate(...args),
+    beginCreate: (...args) => database.beginCreate(...args),
+    finishCreate: (...args) => database.finishCreate(...args),
     async read(key) {
       const record = await database.read(key);
       if (record)
@@ -188,6 +192,15 @@ async function start() {
     choose: (id) =>
       id === "world" ? designer.chooseWorld() : designer.chooseTool(id),
   });
+  const creator = authoringCreateTools({
+    store,
+    accounts: { state: accounts.state, requireSignIn() {
+      resumeAccount = creator.signedIn;
+      return accounts.requireSignIn();
+    } },
+    changed: () => designer?.refresh(),
+    chooseTool: id => designer.chooseTool(id),
+  });
   const source = {
     id: "source",
     name: "World notes",
@@ -209,7 +222,7 @@ async function start() {
   designer = installWorldDesigner({
     store,
     transientState: () => {
-      const values = [seed.transientState(), maker.transient()];
+      const values = [seed.transientState(), maker.transient(), creator.transientState()];
       return values.some((value) => value !== null)
         ? JSON.stringify(values)
         : null;
@@ -222,11 +235,13 @@ async function start() {
       ...accounts.tools(),
       ...(maker.detailed() ? seed.tools() : []),
       ...maker.tools(),
+      ...creator.tools(),
     ],
     project: maker.project,
     onOpen(status) {
       seed.open(status);
       maker.clear();
+      creator.open(status);
       resumeAccount = accountHome;
     },
     onScene(place, source, status) {

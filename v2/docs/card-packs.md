@@ -22,6 +22,9 @@ shape for the next spoke.
 The Tools cards include Sign in and Create passkey through
 `authoring-account-tools.mjs`. They use the shared passkey ceremony and account
 policy. Account state and errors stay in memory; the current draft stays open.
+Create private world saves a copy under the current passkey account. Pause and
+Retry Create keep the saved request and original account. Later local edits
+stay in the draft; a reload resumes the saved copy through the same Tools card.
 
 Fresh `/make` visits start with a world seed. Create draws text cards for an
 avatar, item and location, with a starter quest. Regenerate, Discard and Uncover

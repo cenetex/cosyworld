@@ -36,6 +36,7 @@ describe("authoring passkey tools", () => {
     f.request.mockResolvedValue({
       authenticated: true,
       display_name: "Vale",
+      user_id: "first",
       wallet_session: "secret",
     });
     await f.tools.refresh();
@@ -44,6 +45,12 @@ describe("authoring passkey tools", () => {
     const copy = f.tools.state();
     copy.authenticated = false;
     expect(f.tools.state().authenticated).toBe(true);
+    expect(f.tools.state().user_id).toBe("first");
+    f.tools.requireSignIn();
+    expect(f.tools.state().user_id).toBe("");
+    f.request.mockResolvedValue({ authenticated: false, user_id: "stale" });
+    await f.tools.refresh();
+    expect(f.tools.state().user_id).toBe("");
   });
   it.each([false, true])(
     "completes the existing passkey ceremony (register=%s)",
