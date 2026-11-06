@@ -26,6 +26,7 @@ import {
 } from "../v2/card-game/narrative.mjs";
 import {
   conditionsMet,
+  entityActive,
   packDefinition,
 } from "../v2/card-game/pack-registry.mjs";
 
@@ -411,18 +412,25 @@ describe("Before the Burial", () => {
           .map((a) => a.choiceId),
       ).toEqual([`greek-${choice}-polynices`]);
       expect(stateOf(world).flags["greek-open-door-open"]).toBeUndefined();
+      expect(entityActive(world, "greek-colonus")).toBe(false);
+      expect(entityActive(world, "greek-eleusis")).toBe(false);
     }
     expect([anointed.turn, veiled.turn, buried.turn]).toEqual([
       beforeAnoint.turn + 1,
       beforeAnoint.turn + 2,
       beforeAnoint.turn + 3,
     ]);
-    expect(buried.items["greek-oil-flask"].holder).toBe(COURTYARD);
-    expect(buried.items["greek-funeral-cloth"].holder).toBe(SANCTUARY);
-    const oilAgain = take(move(buried, COURTYARD), "greek-oil-flask");
-    const clothAgain = take(move(oilAgain, SANCTUARY), "greek-funeral-cloth");
-    expect(clothAgain.items["greek-oil-flask"].holder).toBe("vale");
-    expect(clothAgain.items["greek-funeral-cloth"].holder).toBe("vale");
+    expect(anointed.items["greek-oil-flask"].holder).toBe("greek-colonus");
+    expect(veiled.items["greek-funeral-cloth"].holder).toBe("greek-eleusis");
+    expect(entityActive(buried, "greek-colonus")).toBe(true);
+    expect(entityActive(buried, "greek-eleusis")).toBe(true);
+    const clothAgain = take(
+      move(buried, "greek-eleusis"),
+      "greek-funeral-cloth",
+    );
+    const oilAgain = take(move(clothAgain, "greek-colonus"), "greek-oil-flask");
+    expect(oilAgain.items["greek-oil-flask"].holder).toBe("vale");
+    expect(oilAgain.items["greek-funeral-cloth"].holder).toBe("vale");
     expect(buried.items["greek-shovel"].holder).toBe("greek-polynices-hollow");
     expect(stateOf(buried).flags).toMatchObject({
       "greek-burial-performed": true,
