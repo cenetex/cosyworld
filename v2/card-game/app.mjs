@@ -816,8 +816,8 @@ function measureSpeech() {
 new ResizeObserver(measureSpeech).observe($("dialogue-text"));
 function updateSpeechControls(complete) {
   complete &&= inscribing.size === 0;
-  const waiting =
-    exchange.waiting || (sharedAdvanceRequested && storyStatus === "pending");
+  const waiting = !reviewing &&
+    (exchange.waiting || (sharedAdvanceRequested && storyStatus === "pending"));
   const { frontIndex, liveIndex, pending } = stackView;
   const own = frontIndex === liveIndex && pending?.own;
   const cancel = own?.cancel && (thinkingArmed ? "Confirm" : own.committed ? "Stop waiting" : "Cancel");
