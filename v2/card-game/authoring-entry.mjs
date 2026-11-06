@@ -1,8 +1,9 @@
+import { createAuthoringAccountTools } from "./authoring-account-tools.mjs";
+import { authoringSeedTools } from "./authoring-seed-tools.mjs";
 import { openAuthoringStore } from "./authoring-local-store.mjs";
 import { createSampleWorld } from "./authoring-sample.mjs";
 import { installWorldDesigner } from "./authoring-designer.mjs";
 import { authoringImportTools } from "./authoring-import-tools.mjs";
-import { createAuthoringAccountTools } from "./authoring-account-tools.mjs";
 import { renderCardDescriptor } from "./card-descriptor.mjs";
 import { showActionBeatNote } from "./action-beat-note.mjs";
 
@@ -151,9 +152,14 @@ async function start() {
     cacheAssets(key, 0, record.draft, record.assets);
   }
   const imports = authoringImportTools({ store, chooseFiles });
+  const accountHome = () => designer.chooseTool("sign-in");
   const accounts = createAuthoringAccountTools({
-    onChange: () => designer?.refresh(),
-    onSignedIn: () => designer.chooseTool("sign-in"),
+    onChange: () => designer?.refresh(), onSignedIn: () => { const resume = resumeAccount; resumeAccount = accountHome; resume(); },
+  });
+  let resumeAccount = accountHome;
+  const seed = authoringSeedTools({
+    requireSignIn() { resumeAccount = () => seed.signedIn(); return accounts.requireSignIn(); },
+    changed: () => designer?.refresh(), chooseTool: id => designer.chooseTool(id),
   });
   const source = {
     id: "source",
@@ -175,9 +181,11 @@ async function start() {
   };
   designer = installWorldDesigner({
     store,
+    transientState: seed.transientState,
     actionBeat,
     resolveArt,
-    tools: () => [source, ...imports(), ...accounts.tools()],
+    tools: () => [source, ...imports(), ...accounts.tools(), ...seed.tools()],
+    onOpen(status) { seed.open(status); resumeAccount = accountHome; },
     onScene(place, source, status) {
       activeAssets = cache.get(assetKey(status));
       pruneAssets();

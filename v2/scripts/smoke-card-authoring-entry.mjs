@@ -139,6 +139,44 @@ try {
       await openNotes();
       await page.getByRole("textbox", { name: "World notes" }).waitFor();
       assert.equal(await note.innerText(), "A quiet shore.\n雪");
+      let draws = 0;
+      await page.route("**/card-game/authoring/generate/avatars", async route => {
+        assert.equal(route.request().postDataJSON().mode, "idea");
+        await route.fulfill({json:{candidate:{name:["Lumi","Pip","Vela","Moss","Ora","Sol"][draws++ % 6],specialAbility:"The Lightkeeper",
+          description:"A patient traveller.",aliases:[],suggested:true}}});
+      });
+      await press(page.locator("#history-button"));
+      await action.getByText("Enter world seed").waitFor(); await press(action);
+      await page.getByRole("textbox", {name:"World idea"}).fill("PRIVATE world seed canary");
+      await press(action);
+      const proposed = page.locator('[data-setting^="designer-tool-seed-"]').filter({hasText:"Lumi"});
+      await proposed.waitFor();
+      await action.getByText("Enter world seed").waitFor();
+      assert.equal(draws, 6);
+      await press(proposed);
+      await press(page.locator('[data-setting^="designer-tool-seed-"]').filter({hasText:"Pip"}));
+      assert.equal(await action.innerText(), "Keep 2 avatars");
+      await page.locator("#settings-hand img, #action-beat img").evaluateAll(async images=>{ await Promise.all(images.map(image=>image.decode())); await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))); });
+      await page.screenshot({path:`${output}/${width}-proposed.png`});
+      await press(action);
+      await page.waitForFunction(() => !document.querySelector('[data-setting^="designer-tool-seed-"][aria-label^="Lumi"]'));
+      const accepted = await read();
+      assert(Object.values(accepted.draft.pack.avatars).some(avatar=>avatar.name === "Lumi"));
+      assert.equal(accepted.draft.document, sample.draft.document);
+      assert.equal(accepted.assets.length, sample.assets.length + 2);
+      assert(!JSON.stringify(accepted).includes("PRIVATE world seed canary"));
+      assert.deepEqual(accepted.draft.sources, sample.draft.sources);
+      assert.equal(await page.evaluate(async () => {
+        const {openAuthoringStore} = await import("/card-game/authoring-local-store.mjs");
+        const db = await openAuthoringStore();
+        try { const record = await db.read(new URL(location.href).searchParams.get("draft"));
+          return [...record.assets].filter(([path])=>path.endsWith("/output.json"))
+            .some(([,bytes])=>new TextDecoder().decode(bytes).includes("PRIVATE world seed canary"));
+        } finally { db.close(); }
+      }), false);
+      await page.reload(); await scene(); assert.deepEqual(await read(), accepted);
+      await press(page.locator("#history-button")); await press(action);
+      assert.equal(await page.getByRole("textbox", {name:"World idea"}).innerText(), "");
       await press(page.locator("#menu-button"));
       await press(page.locator('[data-setting="designer-tool-import-folder"]'));
       const picker = page.waitForEvent("filechooser");
@@ -223,7 +261,7 @@ try {
       await scene();
       assert.equal((await read()).draft.pack.entry, "beach");
       console.log(
-        `Authoring entry ${width}: Dino, nine assets, source, import, exact reload, missing-link recovery and play save passed`,
+        `Authoring entry ${width}: Dino, seed selection, accepted outputs, source, import, exact reload, missing-link recovery and play save passed`,
       );
     } finally {
       await page.close();

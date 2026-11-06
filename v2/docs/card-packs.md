@@ -1,5 +1,7 @@
 # Card-table world packs
 
+World → Enter world seed offers World idea and Story text. Select proposed avatar cards and choose Keep to save their accepted text together. Seed text stays in memory; World notes remains the saved document. Reload and Import ask before discarding a pending draw.
+
 The editor header opens **World** or **Tools**. Tools includes **World notes**,
 the explicitly saved `draft.document` field. Generation seeds stay in memory.
 `authoring-tools.mjs` places tool cards under an existing `holder`, or attaches
