@@ -82,18 +82,7 @@ const shortText = (text, max) =>
   text.length <= max &&
   !/[\u0000-\u001f\u007f]/u.test(text);
 
-// Parse model output before placing it in the hand. Evidence ties a proposal
-// to the sampled book, while the portrait description remains internal.
-export function readCharacter(value, sample) {
-  const keys = ["name", "specialAbility", "description", "aliases", "evidence"];
-  need(
-    value &&
-      typeof value === "object" &&
-      !Array.isArray(value) &&
-      Object.keys(value).length === keys.length &&
-      keys.every((key) => Object.hasOwn(value, key)),
-    "Choose a character with a name, ability, description, aliases and evidence.",
-  );
+function characterOutput(value) {
   need(
     shortText(value.name, 80) &&
       nameKey(value.name) &&
@@ -107,6 +96,29 @@ export function readCharacter(value, sample) {
       value.aliases.every((name) => shortText(name, 80) && nameKey(name)),
     "Use up to eight character aliases.",
   );
+  return {
+    name: value.name.trim(),
+    specialAbility: value.specialAbility.trim(),
+    description: value.description.trim(),
+    aliases: [...new Set(value.aliases.map((name) => name.trim()))],
+  };
+}
+function characterFields(value, last) {
+  const keys = ["name", "specialAbility", "description", "aliases", last];
+  need(
+    value &&
+      typeof value === "object" &&
+      !Array.isArray(value) &&
+      Object.keys(value).length === keys.length &&
+      keys.every((key) => Object.hasOwn(value, key)),
+    `Choose a character with a name, ability, description, aliases and ${last}.`,
+  );
+}
+
+// Story characters carry a source quote while the draw is in memory.
+export function readCharacter(value, sample) {
+  characterFields(value, "evidence");
+  const output = characterOutput(value);
   need(
     typeof value.evidence === "string" &&
       value.evidence.trim().length > 0 &&
@@ -121,13 +133,16 @@ export function readCharacter(value, sample) {
     "Quote a passage that names the character or an alias.",
   );
   return {
-    name: value.name.trim(),
-    specialAbility: value.specialAbility.trim(),
-    description: value.description.trim(),
-    aliases: [...new Set(value.aliases.map((name) => name.trim()))],
+    ...output,
     evidence: value.evidence,
     source: { section: sample.section, start: sample.start, end: sample.end },
   };
+}
+
+export function readSuggestedCharacter(value) {
+  characterFields(value, "suggested");
+  need(value.suggested === true, "Label a world-idea character as suggested.");
+  return { ...characterOutput(value), suggested: true };
 }
 
 export const characterLabel = (character) =>

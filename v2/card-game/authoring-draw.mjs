@@ -3,6 +3,7 @@ import {
   addDistinctCharacters,
   characterKeys,
   readCharacter,
+  readSuggestedCharacter,
   sampleSource,
 } from "./authoring-cast.mjs";
 
@@ -33,8 +34,20 @@ export async function generateCharacter(input, { signal } = {}) {
   return value.candidate;
 }
 
-export function acceptedOutput({ name, specialAbility, description, aliases }) {
-  return { name, specialAbility, description, aliases: [...aliases] };
+export function acceptedOutput({
+  name,
+  specialAbility,
+  description,
+  aliases,
+  suggested,
+}) {
+  return {
+    name,
+    specialAbility,
+    description,
+    aliases: [...aliases],
+    ...(suggested === true ? { suggested: true } : {}),
+  };
 }
 
 export function createCharacterDraw({
@@ -44,6 +57,7 @@ export function createCharacterDraw({
   id = () => crypto.randomUUID(),
 } = {}) {
   let text = "",
+    mode = "extract",
     cards = [],
     selected = new Set(),
     epoch = 0,
@@ -66,6 +80,7 @@ export function createCharacterDraw({
     },
     get state() {
       return {
+        mode,
         cards: structuredClone(cards),
         selected: [...selected],
         busy,
@@ -75,6 +90,17 @@ export function createCharacterDraw({
         code,
         retryAfterMs,
       };
+    },
+    setMode(value) {
+      if (!["extract", "idea"].includes(value))
+        throw new Error("Choose World idea or Story text.");
+      if (value === mode) return;
+      cancel();
+      mode = value;
+      error = "";
+      completed = status = retryAfterMs = 0;
+      code = "";
+      notify();
     },
     setText(value) {
       if (typeof value !== "string") throw new Error("Enter world seed text.");
@@ -105,6 +131,7 @@ export function createCharacterDraw({
     clear() {
       cancel();
       text = "";
+      mode = "extract";
       cards = [];
       selected.clear();
       error = "";
@@ -142,7 +169,11 @@ export function createCharacterDraw({
         ) {
           const sample = samples[attempt % samples.length];
           const value = await generate(
-            { sample, excluded: [...new Set(names)].slice(-54) },
+            {
+              sample,
+              excluded: [...new Set(names)].slice(-54),
+              ...(mode === "idea" ? { mode } : {}),
+            },
             { signal },
           );
           if (token !== epoch) return;
@@ -152,7 +183,10 @@ export function createCharacterDraw({
             if (samples.length === 1) break;
             continue;
           }
-          const checked = readCharacter(value, sample);
+          const checked =
+            mode === "idea"
+              ? readSuggestedCharacter(value)
+              : readCharacter(value, sample);
           names.push(checked.name, ...checked.aliases);
           if (!characterKeys(checked).some((key) => reserved.has(key))) {
             const candidate = { id: id(), ...acceptedOutput(checked) };
