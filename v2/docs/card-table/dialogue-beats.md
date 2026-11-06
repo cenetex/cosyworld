@@ -156,13 +156,10 @@ tinting the whole segment on hover, focus and press, with a focus ring for
 the keyboard. Where the row is too narrow the buttons wrap into a strip
 along the foot under the same divider; the fixed box over the hand on a
 phone keeps them on the right and wraps their words instead. ☰ borrows the
-same beat for a chosen avatar ([avatar menu](avatar-menu.md)). The spoken beat settles behind it as one dimmed line: the card behind. With
-a card chosen the player still steps through the stack: use ↑ and ↓ (from
-the hand too), the wheel or a swipe anywhere on the stack, and "● live"
-returns. The line crossfades as it steps. A tap on the dimmed line
-moves the lines on; it never steps back. Nothing steps back in time without
-the player's input. The action beat shows only while choosing
-([what is in front](#what-is-in-front)).
+same beat for a chosen avatar ([avatar menu](avatar-menu.md)). The previous spoken beat peeks
+out above the ready action. Tap it to bring it forward. The cards stay chosen
+and ● live returns to their action. The arrow keys, wheel and swipes also
+step through the stack.
 
 When a play commits, its box folds into the stream: it eases down onto the
 front card, the beat the play became (its caption line, or the Thinking card
