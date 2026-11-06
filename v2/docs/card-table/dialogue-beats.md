@@ -203,7 +203,8 @@ One phase decides what the dialogue box shows (`phase()` in
 
 The action beat shows while choosing. Choosing cards brings their action
 forward while speech keeps writing behind it. The same rule applies to a shared
-refusal. A tap on the spoken card finishes its current line.
+refusal. Tap anywhere on the spoken card to finish its text, then tap again to
+advance. The line stays visible while the next reply is on its way.
 A reload shows a line already begun in full, and a play whose words were
 still on the way asks again, quietly, with its Thinking card. Words that
 failed are not asked again. Clicking off the cards, like Escape, clears the choice: the action beat
@@ -211,8 +212,8 @@ fades and the full dialogue card comes back.
 
 Every play in flight is one Thinking card with the speaker's portrait: queued
 here, sent or waiting at a shared table, or committed with its words still on
-the way. A play chosen in an exchange's last reading pause skips the pause,
-so its Thinking card comes at once. Cards chosen meanwhile wait behind it.
+the way. A local play chosen during an exchange waits until its last reply
+is fully shown.
 The Thinking chip shows only on that card, never on a line. Dialogue never
 holds play for long: five seconds after a play commits, its slow words stop
 holding the hand. The Thinking card stays, a choice comes forward over it,
