@@ -114,6 +114,7 @@ export function sourceEdit(source, label, updates) {
     const before = { exists: own(parent, path.at(-1)) };
     if (before.exists) before.value = structuredClone(parent[path.at(-1)]);
     const after = { exists: true, value: jsonCopy(value) };
+    if (before.exists && equal(before.value, after.value)) continue;
     const change = { path: [...path], before, after };
     current = applySourceEdit(current, { label, changes: [change] }).source;
     changes.push(change);
@@ -197,7 +198,10 @@ export function setStarterQuest(source, avatar, kind, target) {
   return sourceEdit(source, `Set ${owner.name}'s starting quest`, [
     {
       path: ["pack", "avatars", avatar, "want"],
-      value: { kind, target },
+      value:
+        owner.want?.kind === kind && owner.want.target === target
+          ? owner.want
+          : { kind, target },
     },
   ]);
 }

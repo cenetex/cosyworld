@@ -88,6 +88,17 @@ describe("atomic authoring edits", () => {
     );
     assert.throws(() => linkPlaces(small(), "a", "a"));
   });
+  it("keeps an existing funeral goal and its complete lay step", () => {
+    const want = source.pack.avatars["greek-antigone"].want;
+    const edit = setStarterQuest(
+      source,
+      "greek-antigone",
+      want.kind,
+      want.target,
+    );
+    assert.deepEqual(edit.changes, []);
+    assert.deepEqual(applySourceEdit(source, edit).source, source);
+  });
   it("keeps richer starter quests through replacement and Undo", () => {
     const data = small();
     data.pack.avatars.vale.want = {
