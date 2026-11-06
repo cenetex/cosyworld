@@ -26,7 +26,8 @@ const rites = [
   "greek-bury-polynices",
 ];
 let fixture = createWorld();
-fixture.turn = fixture.revision = 36;
+// Reach the shade on the last night turn, then commit the Talk at dawn.
+fixture.turn = fixture.revision = 45;
 fixture.crossings["pond-greek-harbor"].discovered = true;
 fixture.actors.vale.place = "greek-gate";
 fixture.actors.vale.visited.push("pond", "greek-gate");

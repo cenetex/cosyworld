@@ -7,7 +7,9 @@ the quest keeps the turn unchanged. The shade appears at night on the battlefiel
 A legal Talk by a controlled player records `greek-polynices-heard` through the
 existing pack choice system. This opens the route for all travelers and residents.
 The route stays open after the shade leaves at dawn. Antigone uses the same route
-and waits for this record before choosing the Hollow as her home.
+and waits for this record before choosing the Hollow as her home. A Talk chosen
+on the last night turn checks the subject and conditions at that chosen clock;
+its effects and receipt belong to the committed turn, even as dawn arrives.
 
 The pack's old `met` record means being in the same place, so it is distinct from
 the committed Talk required here. NPC Talk uses the normal resident conversation

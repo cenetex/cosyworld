@@ -4239,11 +4239,12 @@
       return domains.includes(home) && domains.includes(target) && crossings.filter((c) => c.transport === id).every((c) => c.travelers === "any");
     });
   }
-  function choiceFeasible(world, pack, choice, actor, mode = null) {
+  function choiceFeasible(world, pack, choice, actor, mode = null, turn = world.turn) {
+    const atTurn = turn === world.turn ? world : { ...world, turn };
     const state = packState(world, pack.id);
     if (!state || choice.archived || // A repeating give fires again once its output is used up (rules 95).
     owns4(state.receipts, choice.id) && !choice.repeats || (choice.on ?? null) !== mode || choice.for !== void 0 && choice.for !== actor || pack.release && state.scope !== "full" && !pack.release.choices.includes(choice.id) || // A hold choice follows its item wherever its holder stands.
-    mode !== "hold" && world.actors[actor]?.place !== choice.at || !entityActive(world, choice.at) || !entityActive(world, choice.subject) || !conditionsMet(world, pack.id, choice.requires, actor))
+    mode !== "hold" && world.actors[actor]?.place !== choice.at || !entityActive(atTurn, choice.at) || !entityActive(atTurn, choice.subject) || !conditionsMet(atTurn, pack.id, choice.requires, actor))
       return false;
     const subject = choice.subject;
     if (world.actors[subject] && world.actors[subject].place !== choice.at)
@@ -4358,17 +4359,17 @@
     for (const item of Object.values(world.items))
       if (item.holder === actor) item.holder = world.actors[actor].place;
   }
-  function packTalkChoice(world, action) {
+  function packTalkChoice(world, action, turn = world.turn) {
     if (!controlledByHuman(world, action.actor)) return null;
     for (const pack of packDefinitions)
       for (const c of pack.choices || [])
-        if (c.on === "talk" && c.subject === action.target && choiceFeasible(world, pack, c, action.actor, "talk"))
+        if (c.on === "talk" && c.subject === action.target && choiceFeasible(world, pack, c, action.actor, "talk", turn))
           return { packId: pack.id, choiceId: c.id, actor: action.actor };
     return null;
   }
-  function applyPackChoice(world, action, { mode = null, placeIds: placeIds2 = [] } = {}) {
+  function applyPackChoice(world, action, { mode = null, placeIds: placeIds2 = [], turn = world.turn } = {}) {
     const pack = packDefinition(action.packId), choice = pack?.choices?.find((c) => c.id === action.choiceId);
-    if (!choice || !choiceFeasible(world, pack, choice, action.actor, mode))
+    if (!choice || !choiceFeasible(world, pack, choice, action.actor, mode, turn))
       throw new Error("That choice is no longer available.");
     const state = packState(world, pack.id);
     const note2 = (id) => {
@@ -8693,9 +8694,12 @@
         if (a.target === "bell") s.items.bell.ringing = 0;
         break;
       case "talk": {
-        const told = packTalkChoice(s, a);
+        const turn = s.turn - 1, told = packTalkChoice(s, a, turn);
         if (told)
-          text2 = choiceText(applyPackChoice(s, told, { mode: "talk" }), a.actor);
+          text2 = choiceText(
+            applyPackChoice(s, told, { mode: "talk", turn }),
+            a.actor
+          );
         const woken = wakeByVoice(s, a.target), roused = wakeResident(s, a.target);
         if (woken) text2 += ` ${woken}`;
         else if (roused) text2 += ` ${nameOf(a.target)} wakes.`;

@@ -505,7 +505,15 @@ export function actorCanVisit(actor, place, world = null) {
     );
   });
 }
-function choiceFeasible(world, pack, choice, actor, mode = null) {
+function choiceFeasible(
+  world,
+  pack,
+  choice,
+  actor,
+  mode = null,
+  turn = world.turn,
+) {
+  const atTurn = turn === world.turn ? world : { ...world, turn };
   const state = packState(world, pack.id);
   if (
     !state ||
@@ -519,9 +527,9 @@ function choiceFeasible(world, pack, choice, actor, mode = null) {
       !pack.release.choices.includes(choice.id)) ||
     // A hold choice follows its item wherever its holder stands.
     (mode !== "hold" && world.actors[actor]?.place !== choice.at) ||
-    !entityActive(world, choice.at) ||
-    !entityActive(world, choice.subject) ||
-    !conditionsMet(world, pack.id, choice.requires, actor)
+    !entityActive(atTurn, choice.at) ||
+    !entityActive(atTurn, choice.subject) ||
+    !conditionsMet(atTurn, pack.id, choice.requires, actor)
   )
     return false;
   const subject = choice.subject;
@@ -711,14 +719,14 @@ export function applyDeparture(world, actor, to) {
 }
 // Choices marked "on": "talk" are the effect of a traveler's Talk with their
 // subject. They are never offered as cards.
-export function packTalkChoice(world, action) {
+export function packTalkChoice(world, action, turn = world.turn) {
   if (!controlledByHuman(world, action.actor)) return null;
   for (const pack of packDefinitions)
     for (const c of pack.choices || [])
       if (
         c.on === "talk" &&
         c.subject === action.target &&
-        choiceFeasible(world, pack, c, action.actor, "talk")
+        choiceFeasible(world, pack, c, action.actor, "talk", turn)
       )
         return { packId: pack.id, choiceId: c.id, actor: action.actor };
   return null;
@@ -726,11 +734,11 @@ export function packTalkChoice(world, action) {
 export function applyPackChoice(
   world,
   action,
-  { mode = null, placeIds = [] } = {},
+  { mode = null, placeIds = [], turn = world.turn } = {},
 ) {
   const pack = packDefinition(action.packId),
     choice = pack?.choices?.find((c) => c.id === action.choiceId);
-  if (!choice || !choiceFeasible(world, pack, choice, action.actor, mode))
+  if (!choice || !choiceFeasible(world, pack, choice, action.actor, mode, turn))
     throw new Error("That choice is no longer available.");
   const state = packState(world, pack.id);
   const note = (id) => {

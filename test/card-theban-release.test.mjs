@@ -21,7 +21,7 @@ import {
 } from "../v2/card-game/pack-registry.mjs";
 import { packProblems } from "../v2/card-game/pack-schema.mjs";
 import { conditionMet } from "../v2/card-game/pack-rules.mjs";
-import { learnLane } from "../v2/card-game/pack-transport.mjs";
+import { learnLane, summonTransport } from "../v2/card-game/pack-transport.mjs";
 import {
   backdrop,
   locationOverlay,
@@ -153,6 +153,7 @@ describe("the Theban release and its ship", () => {
     expect(reachable(s)).not.toContain("greek-athens");
     expect(reachable(s)).not.toContain("greek-road-coast");
     stowProvisions(s, "greek-ship");
+    summonTransport(s, "greek-ship", "greek-harbor");
     const city = [
       "greek-athens",
       "greek-road-athens-eleusis",

@@ -36,9 +36,14 @@ function start(shared = false) {
   return world;
 }
 
-it.each([false, true])(
-  "opens the same route through a player's Talk (shared: %s)",
-  (shared) => {
+it.each([
+  [false, 36],
+  [true, 36],
+  [false, 47],
+  [true, 47],
+])(
+  "opens the same route through a player's Talk (shared: %s, turn: %s)",
+  (shared, turnOfNight) => {
     const engine = shared && currentSharedEngine();
     const requests = [];
     const both = (request) => {
@@ -46,10 +51,11 @@ it.each([false, true])(
       expect(JSON.parse(engine.cardShared(JSON.stringify(request)))).toEqual(
         local,
       );
-    requests.push(structuredClone([request, local]));
+      requests.push(structuredClone([request, local]));
       return local;
     };
     let world = start(shared);
+    world.turn = world.revision = turnOfNight;
     const act = (kind, target) => {
       const actions = shared
         ? both({ op: "view", world, ...seats }).actions
