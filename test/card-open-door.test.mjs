@@ -247,7 +247,7 @@ describe("the Open Door", () => {
     expect(accessible(reload(world))).toEqual(OPEN_DOOR_PLACES);
   });
 
-  it("opens the next journey after a public concession while its burial stays available", () => {
+  it("keeps an earlier public concession open with the new Hollow still reachable", () => {
     let world = openingFixture("concession").permissionShared;
     expect(state(world).flags["greek-burial-performed"]).toBeUndefined();
     expect(accessible(world)).toEqual(OPEN_DOOR_PLACES);
@@ -266,7 +266,9 @@ describe("the Open Door", () => {
     });
     world = playOpenDoor(world, "take", { item: "greek-shovel" });
     world = playOpenDoor(openDoorWalk(world, "battlefield"), "wait");
-    expect(state(world).receipts["greek-prepare-burial-ground"]).toBeTruthy();
+    world = openDoorWalk(world, "polynices-hollow");
+    expect(world.actors.vale.place).toBe("greek-polynices-hollow");
+    expect(state(world).receipts["greek-petition-burial"]).toBeTruthy();
     expect(accessible(reload(world))).toEqual(OPEN_DOOR_PLACES);
   });
 
