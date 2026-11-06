@@ -993,6 +993,8 @@ newest words stay in view, until the reader scrolls it themselves. The line is a
 only from the keyboard. A tap or click anywhere, or a key (the arrows scroll),
 quickens the current stanza. Repeated taps during that section keep the same
 pace. The finished poem waits for Continue.
+Holding a key keeps the current step. A tap during the logo transition runs
+its existing fades three times faster and shortens the final hold.
 When the player continues, the plain words fade one by one in reading order.
 The lit words linger as the world's logo fades in with the title song. They
 fade from Uncommon through Mythic, with the carved box's words last. Reduced

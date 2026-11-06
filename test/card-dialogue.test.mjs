@@ -218,6 +218,34 @@ describe("paced conversation", () => {
     expect(cancelFrame).toHaveBeenLastCalledWith(1);
     expect(frame.mock.lastCall[0].complete).toBe(true);
   });
+  it("starts the next section at normal pace when tapped during a rest", () => {
+    const { reveal, last } = player({ delay: (_, i) => (i === 3 ? 2000 : 28) });
+    reveal.show("poem", "One.Two.", null);
+    vi.advanceTimersByTime(112);
+    expect(last().shown).toBe(4);
+    reveal.accelerate(4);
+    vi.advanceTimersByTime(1);
+    expect(last().shown).toBe(5);
+    vi.advanceTimersByTime(27);
+    expect(last().shown).toBe(6);
+  });
+  it("bounds quickened text after a stalled paint frame", () => {
+    let time = 0,
+      tick;
+    const { reveal, last } = player({
+      now: () => time,
+      requestFrame: (next) => {
+        tick = next;
+        return 1;
+      },
+      cancelFrame: () => {},
+    });
+    reveal.show("poem", "a".repeat(80), null);
+    reveal.accelerate(40);
+    time = 1000;
+    tick();
+    expect(last()).toMatchObject({ shown: 4, instant: false });
+  });
   it("shows whole lines for reduced motion and existing lines while waiting", () => {
     for (const options of [{ reduced: () => true }, {}]) {
       const { reveal, last, sound } = player(options);

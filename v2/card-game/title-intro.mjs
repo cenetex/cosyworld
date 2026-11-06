@@ -432,7 +432,7 @@ function acknowledgementPanel() {
   const quickenStanza = () => {
     following = true;
     target = text.scrollTop;
-    reveal.accelerate(stanzaEnds.find((end) => end > shown));
+    reveal.accelerate(stanzaEnds.find((end) => end >= shown));
   };
   const fadeOut = (reduced) => {
     const fade = (node, delay, duration) =>
@@ -516,6 +516,7 @@ export function playTitleIntro({
 
   let phase = "black",
     leaving = false,
+    hurriedTitle = false,
     songDone = Promise.resolve(),
     fades = WAKE_FADE.turn,
     leave;
@@ -692,31 +693,34 @@ export function playTitleIntro({
     const crossfade = !reduced && phase === "title";
     if (phase === "title") fadeOut(reduced);
     image.alt = logo.name;
-    await race(
-      image
-        .animate(
-          crossfade
-            ? [
-                { opacity: 0, transform: "scale(0.97)", easing: "ease-in-out" },
-                {
-                  opacity: 0.1,
-                  transform: "scale(0.98)",
-                  offset: 2000 / 2950,
-                  easing: "ease-in-out",
-                },
-                { opacity: 1, transform: "scale(1)" },
-              ]
-            : [{ opacity: 0 }, { opacity: 1 }],
-          {
-            duration: reduced ? 250 : 2950,
-            easing: crossfade ? "linear" : "ease",
-            fill: "both",
-          },
-        )
-        .finished.catch(() => {}),
+    const appearance = image.animate(
+      crossfade
+        ? [
+            { opacity: 0, transform: "scale(0.97)", easing: "ease-in-out" },
+            {
+              opacity: 0.1,
+              transform: "scale(0.98)",
+              offset: 2000 / 2950,
+              easing: "ease-in-out",
+            },
+            { opacity: 1, transform: "scale(1)" },
+          ]
+        : [{ opacity: 0 }, { opacity: 1 }],
+      {
+        duration: reduced ? 250 : 2950,
+        easing: crossfade ? "linear" : "ease",
+        fill: "both",
+      },
     );
-    await race(wait(reduced ? 600 : 750));
+    if (hurriedTitle) quickenTitle();
+    await race(appearance.finished.catch(() => {}));
+    await race(wait(hurriedTitle ? 150 : reduced ? 600 : 750));
     showWake();
+  };
+  const quickenTitle = () => {
+    hurriedTitle = true;
+    for (const animation of layer.getAnimations({ subtree: true }))
+      animation.updatePlaybackRate(reduced ? 1 : 3);
   };
   const advance = () => {
     if (phase === "ack" && !words.complete) {
@@ -724,7 +728,11 @@ export function playTitleIntro({
       quickenStanza();
       return;
     }
-    return phase === "ack" ? showTitle() : showWake();
+    return phase === "ack"
+      ? showTitle()
+      : phase === "title"
+        ? quickenTitle()
+        : undefined;
   };
   next.addEventListener("click", advance);
   layer.addEventListener("click", (event) => {
@@ -743,6 +751,14 @@ export function playTitleIntro({
   const onKey = (event) => {
     if (["Shift", "Control", "Alt", "Meta"].includes(event.key)) return;
     event.stopPropagation();
+    if (
+      event.repeat &&
+      event.key !== "Tab" &&
+      !SCROLL_KEYS.includes(event.key)
+    ) {
+      event.preventDefault();
+      return;
+    }
     // The table's own unlock never hears this key; a scroll key lets the
     // letters' blips start while the poem still writes.
     voice?.unlock();

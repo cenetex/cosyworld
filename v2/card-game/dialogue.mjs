@@ -119,10 +119,10 @@ export function createTextReveal({
       if (!current || current.shown === current.letters.length || quickUntil)
         return;
       const end = Math.min(current.letters.length, until);
-      if (end <= current.shown) return;
-      quickUntil = end;
+      if (end < current.shown) return;
+      quickUntil = end === current.shown ? 0 : end;
       stop();
-      remaining = 8;
+      remaining = quickUntil ? 8 : 0;
       schedule(remaining);
     },
     pause(value) {
