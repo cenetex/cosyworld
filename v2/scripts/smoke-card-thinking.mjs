@@ -5,7 +5,7 @@ import { createServer } from "../card-game/serve.mjs";
 import { createWorld, encodeSave, nameOf } from "../card-game/world.mjs";
 import { availableCards } from "../card-game/cards.mjs";
 import { readyActionButton, selectCard } from "./card-browser-helpers.mjs";
-import speech from "../card-game/speech.json" with { type: "json" };
+import { SPEECH_OCCASIONS } from "../card-game/speech-occasions.mjs";
 
 const output = new URL("../../output/card-thinking/", import.meta.url);
 await mkdir(output, { recursive: true });
@@ -170,8 +170,10 @@ try {
     assert.equal(await page.locator("#card-actions button").count(), 0);
     await page.locator("#speech-row").click();
     await page.locator("#speech-row").click();
-    const returnSpeaks = speech.action?.includes("actor") === true;
-    const movedRequest = returnSpeaks ? page.waitForRequest("**/card-game/text") : null;
+    const returnSpeaks = SPEECH_OCCASIONS.includes("action");
+    const movedRequest = returnSpeaks
+      ? page.waitForRequest("**/card-game/text")
+      : null;
     await readyActionButton(page, "move").click();
     await page.waitForFunction(
       (title) => document.querySelector("#place-title").textContent === title,
@@ -181,11 +183,21 @@ try {
       await movedRequest;
       const current = requests.at(-1);
       assert(current.input.revision > replaced.input.revision);
-      await current.route.fulfill({ json: {
-        revision: current.input.revision, model: "current-thinking-fixture",
-        entries: current.input.entities.map(({ id }) => ({ id, text: "I have reached the station." })),
-      } });
-      await page.waitForFunction(() => document.querySelector("#dialogue-text").textContent.includes("I have reached the station."));
+      await current.route.fulfill({
+        json: {
+          revision: current.input.revision,
+          model: "current-thinking-fixture",
+          entries: current.input.entities.map(({ id }) => ({
+            id,
+            text: "I have reached the station.",
+          })),
+        },
+      });
+      await page.waitForFunction(() =>
+        document
+          .querySelector("#dialogue-text")
+          .textContent.includes("I have reached the station."),
+      );
     }
     await replaced.route
       .fulfill({
