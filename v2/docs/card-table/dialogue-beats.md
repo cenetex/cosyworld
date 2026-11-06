@@ -54,10 +54,12 @@ its timing, caret and inscriptions are unchanged.
 Each played action keeps its own card. Two Waits followed by Sleep make
 three cards, even when Sleep passes several turns. A reply gets a speech
 card of its own. A full action card draws its actor, items, and other person
-from the saved event. Covered cards stay hidden. Other effects may be
-written on the card that was current when they happened. A caption takes
-300 to 900 ms to appear. A tap finishes it. Each card shows up to three
-effects and Memory keeps them all.
+from the saved event. Covered cards stay hidden. Its main caption uses the
+same type as a ready play, for players and other people. New action cards type
+at the dialogue's pace. A tap finishes the text. Back brings the prior card
+forward with its words whole. Other effects may be written on the card
+that was current when they happened, in 300 to 900 ms. Each card shows up
+to three effects and Memory keeps them all.
 
 Only events at the player's current place, during the current visit, become
 beats: what the player's avatar could witness. Beats are read from committed

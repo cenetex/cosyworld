@@ -7,6 +7,7 @@ import { mkdir } from "node:fs/promises";
 import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
 import {
+  addLog,
   createWorld,
   encodeSave,
   legalActions,
@@ -151,6 +152,26 @@ for (const kind of ["snuff", "move"])
     ),
   ).state;
 const save = encodeSave(fixture);
+const npcFixture = structuredClone(fixture);
+addLog(npcFixture, "Vale", "The lantern swings.", {
+  actorId: "vale",
+  entityId: "vale",
+  locationId: "pond",
+  kind: "dialogue",
+  generated: true,
+});
+for (const verb of ["threaten", "guard"])
+  addLog(npcFixture, "World", `Pip ${verb}s.`, {
+    actorId: "moth",
+    targetId: "vale",
+    itemId: "lamp",
+    verb,
+    kind: "action",
+    locationId: "pond",
+    fromLocationId: "pond",
+    witnesses: ["vale", "moth"],
+  });
+const npcSave = encodeSave(npcFixture);
 const server = createServer();
 await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
 const lines = {
@@ -438,12 +459,23 @@ try {
       // A silent play keeps its own card, with the previous line behind it.
       await page.locator('#hand [data-card="vale"]').click();
       await page.locator('#hand [data-card="lamp"]').click();
+      const actionFont = await page
+        .locator('#card-actions [data-action="light"]')
+        .evaluate((button) => getComputedStyle(button).font);
       await page
         .locator(
           '#card-actions [data-action="light"]:not([data-revealing="true"])',
         )
         .click();
       await page.keyboard.press("Escape");
+      if (motion !== "reduce") {
+        await page.locator("#beat-captions [data-primary].inscribe").waitFor();
+        // A tap on the prior card goes Back even while the result is typing.
+        await behind.evaluate((button) => button.click());
+        assert.equal(await front(), "Pip");
+        assert.equal(await words(), lines.moth);
+        await page.locator("#live-line").click();
+      }
       await page.waitForFunction(
         () =>
           /lit/u.test(document.querySelector("#beat-captions").textContent) &&
@@ -455,6 +487,43 @@ try {
         "action",
       );
       assert.match(await behind.textContent(), /getting out of here/u);
+      assert.equal(
+        await page
+          .locator("#beat-captions [data-primary]")
+          .evaluate((caption) => getComputedStyle(caption).font),
+        actionFont,
+        "Ready and settled action captions share their font",
+      );
+      // The front target finishes a new result in place; rereading keeps it whole.
+      await page.locator('#hand [data-card="vale"]').click();
+      await page.locator('#hand [data-card="lamp"]').click();
+      await page
+        .locator(
+          '#card-actions [data-action="snuff"]:not([data-revealing="true"])',
+        )
+        .click();
+      await page.keyboard.press("Escape");
+      await page.waitForFunction(() =>
+        /squared up/u.test(
+          document.querySelector("#beat-captions").textContent,
+        ),
+      );
+      if (motion !== "reduce") {
+        await page.locator("#beat-captions [data-primary].inscribe").waitFor();
+        await page.locator("#speech-row").evaluate((card) => card.click());
+      }
+      assert.match(
+        await page.locator("#beat-captions").textContent(),
+        /Pip squared up to Vale/u,
+      );
+      assert.equal(await page.locator("#beat-captions .inscribe").count(), 0);
+      await behind.evaluate((button) => button.click());
+      assert.match(
+        await page.locator("#beat-captions").textContent(),
+        /snuffed/u,
+      );
+      assert.equal(await page.locator("#beat-captions .inscribe").count(), 0);
+      await page.locator("#live-line").click();
       // Memory holds the same beats, opened on purpose.
       await page.evaluate(() =>
         document.querySelector("#history-button").click(),
@@ -478,6 +547,45 @@ try {
       });
       assert.deepEqual(cleared, [200, false], "the cleared stack fades");
       assert.equal(await page.locator(".dialogue").isHidden(), true);
+      // An NPC action card uses the same main type, with added effects below it.
+      await page.evaluate(({ key, save }) => localStorage.setItem(key, save), {
+        key,
+        save: npcSave,
+      });
+      await page.reload();
+      const npcCaption = page.locator("#beat-captions [data-primary]");
+      await npcCaption.waitFor();
+      assert.equal(await front(), "Pip");
+      assert.equal(
+        await npcCaption.textContent(),
+        "Pip squared up to Vale over the Lamp.",
+      );
+      assert.equal(
+        await page.locator("#beat-captions .beat-caption").count(),
+        2,
+      );
+      assert.equal(
+        await npcCaption.evaluate((caption) => getComputedStyle(caption).font),
+        actionFont,
+      );
+      if (motion !== "reduce") {
+        assert.equal(
+          await page
+            .locator("#dialogue-advance")
+            .getAttribute("data-revealing"),
+          "true",
+        );
+        await page.locator("#speech-row").evaluate((card) => card.click());
+      }
+      assert.equal(await page.locator("#beat-captions .inscribe").count(), 0);
+      await behind.evaluate((button) => button.click());
+      assert.equal(await words(), "The lantern swings.");
+      await page.locator("#live-line").click();
+      assert.equal(
+        await npcCaption.textContent(),
+        "Pip squared up to Vale over the Lamp.",
+      );
+      assert.equal(await page.locator("#beat-captions .inscribe").count(), 0);
       assert.deepEqual(errors, []);
       await page.close();
       console.log(`beat stack ok at ${width} (${motion})`);
