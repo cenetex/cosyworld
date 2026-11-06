@@ -241,7 +241,7 @@ async function idleCue(page, width, { reduced = false } = {}) {
   assert.equal(none.glow, 0);
   assert.equal(none.hint, 0);
   assert.equal(none.hidden, "true", "screen readers hear the card's name");
-  assert.equal(none.words, "take it", "answering the poem's question");
+  assert.equal(none.words, "open it", "inviting the reader to open the box");
   if (!reduced) await shot(page, `reveal-0s-${width}`);
   await at(idleGlowMs - 400);
   assert.equal((await idleState(page)).step, "none", "no glow before idle");
@@ -257,7 +257,77 @@ async function idleCue(page, width, { reduced = false } = {}) {
   const hint = await idleState(page);
   assert.equal(hint.step, "hint");
   assert.ok(hint.glow > 0.1, JSON.stringify(hint));
-  assert.equal(hint.hint, 0.6, "the hint shows like the acknowledgement's cue");
+  assert.ok(hint.hint > 0.1 && hint.hint <= 0.6, JSON.stringify(hint));
+  if (!reduced) {
+    const positions = [];
+    for (const [index, time] of [1500, 4750, 1500, 1500].entries()) {
+      if (index > 1) {
+        await page.$eval(".title-hint", (hint) =>
+          hint.getAnimations()[0].finish(),
+        );
+        await page.waitForTimeout(50);
+      }
+      await page.$eval(
+        ".title-hint",
+        (hint, time) => {
+          const motion = hint.getAnimations()[0];
+          motion.pause();
+          motion.currentTime = time;
+        },
+        time,
+      );
+      await page.waitForTimeout(50);
+      const pose = await page.$eval(".title-hint", (hint) => {
+        const rect = hint.getBoundingClientRect();
+        const privacy = document
+          .querySelector(".title-privacy")
+          .getBoundingClientRect();
+        const card = document
+          .querySelector(".title-card .card")
+          .getBoundingClientRect();
+        return {
+          x: rect.x,
+          y: rect.y,
+          opacity: +getComputedStyle(hint).opacity,
+          transform: getComputedStyle(hint).transform,
+          tier: hint.dataset.tier,
+          color: hint.style.color,
+          fits:
+            rect.left >= 0 &&
+            rect.right <= innerWidth &&
+            rect.top >= 0 &&
+            rect.bottom < privacy.top,
+          clear:
+            rect.right < card.left ||
+            rect.left > card.right ||
+            rect.top > card.bottom,
+          whole: hint.scrollWidth <= hint.clientWidth,
+        };
+      });
+      assert.ok(pose.fits, JSON.stringify(pose));
+      assert.ok(pose.clear && pose.whole, JSON.stringify(pose));
+      assert.equal(pose.transform, "none");
+      assert.ok(
+        pose.color &&
+          [
+            "common",
+            "uncommon",
+            "rare",
+            "epic",
+            "legendary",
+            "mythic",
+          ].includes(pose.tier),
+      );
+      assert.ok(
+        time === 4750 ? pose.opacity < 0.01 : pose.opacity === 0.5,
+        JSON.stringify(pose),
+      );
+      if (time !== 4750) positions.push([pose.x, pose.y]);
+      await shot(page, `whisper-${width}-${index}`);
+    }
+    assert.equal(new Set(positions.map(JSON.stringify)).size, 3);
+    await page.$eval(".title-hint", (hint) => hint.getAnimations()[0].play());
+  }
   if (!reduced) await shot(page, `reveal-7s-${width}`);
   const times = await page.evaluate(() => window.__idleAt);
   assert.ok(
@@ -426,7 +496,7 @@ async function checkLargeText() {
       assert.ok(await inView(page, part), `${name}: ${part} on screen`);
     const card = await page.locator(traveller).boundingBox();
     assert.ok(card.height > 40, JSON.stringify(card));
-    assert.equal(await page.textContent(".title-hint"), "take it");
+    assert.equal(await page.textContent(".title-hint"), "open it");
     await shot(page, `${name}-card`);
     await page.keyboard.press("Enter");
     await revealed(page, "Vale");

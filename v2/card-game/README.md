@@ -992,19 +992,22 @@ When the player continues, the plain words fade one by one in reading order.
 The lit words linger as the world's logo fades in with the title song. They
 fade from Uncommon through Mythic, with the carved box's words last. Reduced
 motion switches straight to the short logo fade. The logo lifts over one face-down
-card, the game's own card back, with a small Privacy link (`/privacy`) under
-it. The card is a button named "Take the box", answering the poem's last
+card, the game's own card back, with a small Privacy link (`/privacy`) at the bottom right
+of the screen. The card is a button named "Open the box", answering the poem's last
 line (the card back is the carved box's lid), and takes focus, with
 a ring only from the keyboard; like a hand card it lifts under a pointer
 (brightens under reduced motion), and Privacy is a 24 px tap target. Left
 alone for 3 seconds, the card breathes a faint warm glow on a slow 3.6-second
-cycle; at 6 seconds a quiet "take it" line, the same on every screen,
-fades in under it, styled like the acknowledgement's line, never on
-the card. On a short screen or at a large text size the card gives up height
-so the line and Privacy stay on screen. The line is hidden from screen readers, which hear the card's name,
+cycle; at 6 seconds "open it" begins to whisper around the box. One phrase
+fades in and out over five seconds, then appears at the next of three places:
+left, right, and below, using the space above on a narrow screen. The words
+stay level. Each move and colour change happens while the phrase is transparent.
+Each appearance draws a fresh colour from the game's six tiers: 64% Common,
+24% Uncommon, 8% Rare, 3% Epic, 0.8% Legendary, and 0.2% Mythic.
+Its peak opacity is 50%; positions stay within the screen above Privacy. The line is hidden from screen readers, which hear the card's name,
 and a tap on it turns the card too. Any tap, key or pointer over the card
-starts the wait again. Reduced motion holds the glow still and shows the line
-without a fade. The times are `REVEAL_HINT` in `title-intro.mjs`. A
+starts the wait again. Resizing also resets the wait and places the next whisper
+for the new screen size. Reduced motion holds one line still below the box. The times are `REVEAL_HINT` in `title-intro.mjs`. A
 click, Enter or Space turns it with the hand's reveal (`card-reveal.mjs`) to
 the face of the avatar this world opens with (the joining avatar in a shared
 world), cloned from the hand and named for screen readers. The turn waits up to

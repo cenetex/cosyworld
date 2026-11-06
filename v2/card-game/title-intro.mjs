@@ -25,9 +25,17 @@ export const TITLES = LOGOS.map((logo) => logo.src);
 const BLACK_MS = 350,
   LOAD_LIMIT_MS = 2500;
 // Left alone, the face-down card glows faintly (style.css) after idleGlowMs,
-// then "take it" shows under it at hintMs. A tap, a key or a pointer
+// then "open it" whispers around it at hintMs. A tap, a key or a pointer
 // over the card starts the wait again.
 export const REVEAL_HINT = { idleGlowMs: 3000, hintMs: 6000 };
+// Visual whispers may show every tier; Legendary and Mythic share 1% of draws.
+export function whisperTier(random = Math.random()) {
+  let draw = random * 100;
+  return (
+    tiers.find(({ rank }) => (draw -= [64, 24, 8, 3, 0.8, 0.2][rank]) < 0) ||
+    tiers.at(-1)
+  );
+}
 // Leaving: the turned face holds, the song fades as the title goes to black,
 // black holds a breath, then slowly opens on the world's scene. Escape is the
 // short way; reduced motion cuts to black and crossfades quickly.
@@ -528,32 +536,80 @@ export function playTitleIntro({
   card.dataset.unrevealed = "true";
   card.dataset.card = "title-traveller";
   // The acknowledgement asks "Will you take it?"; the card back is the box.
-  card.setAttribute("aria-label", "Take the box");
+  card.setAttribute("aria-label", "Open the box");
   const back = element("img", "card-back");
   back.alt = "";
   back.src = imageUrl("./assets/card-back.webp", "card");
   card.append(back);
   const frame = element("div", "card-frame title-card");
   frame.append(card);
-  // The way to turn it, under the card (never on it), in the poem's own
-  // words. The card's name says it to screen readers, so this line is
-  // hidden from them.
-  const hint = element("p", "title-hint", "take it");
+  // A quiet invitation around the box. Its button carries the accessible name.
+  const hint = element("p", "title-hint", "open it");
   hint.setAttribute("aria-hidden", "true");
   const row = element("div", "title-reveal");
-  row.append(frame, hint, link("Privacy", "/privacy"));
-  row.lastChild.className = "title-privacy";
-  let idleTimers = [];
+  row.append(frame, hint);
+  const privacy = link("Privacy", "/privacy");
+  privacy.className = "title-privacy";
+  let idleTimers = [],
+    whisper = null,
+    place = 0;
+  const invite = () => {
+    if (phase !== "card" || leaving || row.dataset.idle !== "hint") return;
+    whisper?.cancel();
+    const box = card.getBoundingClientRect(),
+      origin = row.getBoundingClientRect();
+    const w = hint.offsetWidth,
+      h = hint.offsetHeight;
+    const below = [box.left + (box.width - w) / 2, box.bottom + 12];
+    const above = [below[0], box.top - h - 12];
+    const places = reduced
+      ? [below]
+      : [
+          box.left >= w + 32
+            ? [box.left - w - 16, box.top + box.height * 0.2]
+            : above,
+          innerWidth - box.right >= w + 32
+            ? [box.right + 16, box.top + box.height * 0.6]
+            : below,
+          below,
+        ];
+    const [x, y] = places[place++ % places.length];
+    const tier = reduced ? tiers[0] : whisperTier();
+    hint.dataset.tier = tier.id;
+    Object.assign(hint.style, {
+      left: `${Math.max(16, Math.min(innerWidth - w - 16, x)) - origin.left}px`,
+      top: `${Math.max(16, Math.min(innerHeight - h - 64, y)) - origin.top}px`,
+      color: tier.color,
+    });
+    if (!reduced) {
+      whisper = hint.animate(
+        [0, 0.3, 0.55, 0.9, 1].map((offset, step) => ({
+          offset,
+          opacity: step === 1 || step === 2 ? 0.5 : 0,
+          easing: "ease-in-out",
+        })),
+        { duration: 5000, fill: "both" },
+      );
+      void whisper.finished.then(invite, () => {});
+    }
+  };
   const idle = (again = true) => {
     idleTimers.forEach(clearTimeout);
+    whisper?.cancel();
+    place = 0;
     delete row.dataset.idle;
     if (!again || phase !== "card" || leaving) return;
     const { idleGlowMs, hintMs } = REVEAL_HINT;
     idleTimers = [
       setTimeout(() => (row.dataset.idle = "glow"), idleGlowMs),
-      setTimeout(() => (row.dataset.idle = "hint"), hintMs),
+      setTimeout(() => {
+        row.dataset.idle = "hint";
+        invite();
+      }, hintMs),
     ];
   };
+  window.addEventListener("resize", idle);
+  void left.then(() => window.removeEventListener("resize", idle));
 
   const loaded = new Promise((resolve) => {
     image.onload = () => resolve(true);
@@ -608,7 +664,7 @@ export function playTitleIntro({
         fill: "both",
       },
     );
-    layer.append(row);
+    layer.append(row, privacy);
     fade(row, reduced ? 250 : 600, reduced ? 0 : 300);
     card.focus({ preventScroll: true });
     idle();
