@@ -33,9 +33,13 @@ fn words(a: usize) -> Value {
 
 #[test]
 fn new_shared_avatars_open_once_and_keep_their_words_through_replay() {
-    for a in [0, 1] {
+    for a in 0..8 {
         let (app, c, id) = fresh(a);
         let before = full_store::world(&c, &id, now()).unwrap();
+        assert_eq!(
+            full_store::snapshot(&c, &id, "owner", now()).unwrap()["queue"][0]["opening"],
+            true
+        );
         enqueue(&c, &id, "owner", &before, a, now()).unwrap();
         assert_eq!(
             c.query_row(
@@ -124,4 +128,41 @@ fn returning_games_keep_their_saved_first_line() {
         .unwrap(),
         0
     );
+}
+
+#[test]
+fn cancelled_openings_resume_on_entry() {
+    let (app, _c, id) = fresh(0);
+    let mut cancel = command("cancel");
+    cancel.key = key(&id, 0);
+    full::command_as(&app, &id, "owner", &cancel, None).unwrap();
+    assert!(full::take_work(&app, &id).unwrap().is_none());
+    full::command_as(&app, &id, "owner", &command("enter"), None).unwrap();
+    assert_eq!(full::take_work(&app, &id).unwrap().unwrap().id, cancel.key);
+}
+
+#[test]
+fn opening_precedes_a_guest_play_queued_at_the_same_time() {
+    let (app, c, id) = fresh(0);
+    let mut claim = command("claim");
+    claim.avatar = Some("mara".into());
+    full::command_as(&app, &id, "guest", &claim, None).unwrap();
+    let mut play = command("play");
+    play.key = "0000000000000000".into();
+    let w = full_store::world(&c, &id, now()).unwrap();
+    play.action = w.project(1).unwrap()["actions"][0].clone();
+    full::command_as(&app, &id, "guest", &play, None).unwrap();
+    c.execute("UPDATE card_full_plays SET created=1 WHERE world=?", [&id])
+        .unwrap();
+    let first = full::take_work(&app, &id).unwrap().unwrap();
+    assert_eq!(first.id, key(&id, 0));
+    assert!(full::take_work(&app, &id).unwrap().is_none());
+    full::publish(&app, &id, first, Ok(words(0))).unwrap();
+    c.execute(
+        "UPDATE card_full_plays SET until_at=0 WHERE world=? AND status='playing'",
+        [&id],
+    )
+    .unwrap();
+    let next = full::take_work(&app, &id).unwrap().unwrap();
+    assert_eq!(next.id, play.key);
 }
