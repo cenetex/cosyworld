@@ -4,6 +4,7 @@ import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
 import { createWorld, encodeSave } from "../card-game/world.mjs";
 import { availableCards } from "../card-game/cards.mjs";
+import { selectCard, tapCard } from "./card-browser-helpers.mjs";
 
 // The quest folds behind the player's avatar. A met quest stays, sealed,
 // until its player clears it; clearing shows the experience it brought. The
@@ -539,6 +540,50 @@ try {
       ),
       xp + 1,
     );
+    // Taking an item raises it at rest. Its next tap opens its full details.
+    const pickup = structuredClone(gate);
+    pickup.items["greek-decree"].holder = "greek-gate";
+    pickup.actors.vale.want = null;
+    pickup.actors.vale.content = true;
+    await page.evaluate(({ key, save }) => localStorage.setItem(key, save), {
+      key: gateKey,
+      save: encodeSave(pickup),
+    });
+    await page.reload();
+    await ready();
+    await selectCard(page, "greek-decree");
+    await page
+      .locator(
+        '#card-actions [data-action="take"]:not([data-revealing="true"])',
+      )
+      .click();
+    const received = page.locator('#hand [data-card="greek-decree"]');
+    await page.waitForFunction(
+      () =>
+        document.querySelector('#hand [data-card="greek-decree"]')?.disabled ===
+          false &&
+        document
+          .querySelector('#hand [data-card="greek-decree"]')
+          ?.getAttribute("aria-pressed") === "true",
+    );
+    await tapCard(received);
+    assert.equal(
+      await received.getAttribute("aria-pressed"),
+      "true",
+      "the received item's first tap opens details",
+    );
+    await page.waitForFunction(() =>
+      document
+        .querySelector("#action-beat")
+        .textContent.includes("A public copy forbids burial"),
+    );
+    assert.equal(await page.locator("#action-beat").isVisible(), true);
+    await tapCard(received);
+    assert.equal(
+      await received.getAttribute("aria-pressed"),
+      "false",
+      "the next tap lowers it",
+    );
     // Choosing Vale shows its things and its quests as two stacks; a top
     // card fans its stack, a card chosen moves left, and Vale folds them
     // back, then lowers (#2256). + marks an open stack, * a raised card.
@@ -620,9 +665,10 @@ try {
       true,
       "the first item tap opens its details",
     );
-    assert.match(
-      await page.locator("#action-beat").innerText(),
-      /Clean linen from the looms at Eleusis/,
+    await page.waitForFunction(() =>
+      document
+        .querySelector("#action-beat")
+        .textContent.includes("Clean linen from the looms at Eleusis"),
     );
     await play(
       '[data-card="greek-funeral-cloth"]',

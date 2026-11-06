@@ -157,6 +157,11 @@ export async function selectCard(page, id, { touch = false } = {}) {
     if (touch) await card.tap();
     else await card.click();
   }
+  // A rested held card first opens its details; this helper's toggle lowers it.
+  if (wasSelected && (await card.getAttribute("aria-pressed")) === "true") {
+    if (touch) await card.tap();
+    else await card.click();
+  }
   // Keep the chosen child raised while returning its browsing avatar to the stack.
   if (holder) {
     const owner = page.locator(`#hand [data-card="${holder}"]`);

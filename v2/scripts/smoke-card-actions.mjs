@@ -130,11 +130,23 @@ try {
     const selectCard = async (page, id, options) => {
       if (width >= 700) return selectDesktopCard(page, id, options);
       const frame = card(id).locator("..");
+      const wasSelected =
+        (await card(id).getAttribute("aria-pressed")) === "true";
       const holder =
         (await frame.getAttribute("hidden")) !== null
           ? await frame.getAttribute("data-holder")
           : null;
-      await tapCard(await revealCard(page, id));
+      const revealed = await revealCard(page, id);
+      if (
+        wasSelected ||
+        (await revealed.getAttribute("aria-pressed")) !== "true"
+      )
+        await tapCard(revealed);
+      if (
+        wasSelected &&
+        (await revealed.getAttribute("aria-pressed")) === "true"
+      )
+        await tapCard(revealed);
       if (
         holder &&
         (await card(holder).getAttribute("aria-pressed")) === "true" &&
@@ -577,7 +589,10 @@ try {
     );
     await page.evaluate((key) => {
       const seen = JSON.parse(localStorage.getItem(`${key}.seen`) || "[]");
-      localStorage.setItem(`${key}.seen`, JSON.stringify([...seen, "greek-creon"]));
+      localStorage.setItem(
+        `${key}.seen`,
+        JSON.stringify([...seen, "greek-creon"]),
+      );
     }, key);
     await load(story);
     await selectCard(page, "greek-guard");
@@ -633,6 +648,12 @@ try {
     await page.close();
   }
 } finally {
+  for (const context of browser.contexts())
+    for (const page of context.pages())
+      await page.screenshot({
+        path: new URL(`failure-${page.viewportSize().width}.png`, output)
+          .pathname,
+      });
   await browser.close();
   await new Promise((resolve) => server.close(resolve));
 }

@@ -1575,6 +1575,11 @@ function sharingMeal(cards) {
 function choose(id) {
   if (finishCardReveal(id) || selectionBlocked()) return;
   if (reviewing) returnToLive();
+  if (things[id] && selected.includes(id) && restedChoice === choiceKey()) {
+    restedChoice = null;
+    render();
+    return;
+  }
   // A locked box is chosen, not uncovered: it opens with its quest.
   if (cardIsCovered(id) && !isLockedBox(world, id)) {
     uncover(id);
@@ -2302,7 +2307,9 @@ function renderActions() {
       : "";
   const selectionName = selected.map(nameOf).join(" + ");
   const itemDetails =
-    !rested && selected.length === 1 && things[selected[0]] &&
+    !rested &&
+    selected.length === 1 &&
+    things[selected[0]] &&
     !cardIsCovered(selected[0])
       ? `${nameOf(selected[0])}. ${things[selected[0]].text || ""} ${cardObservation(world, selected[0])}`.trim()
       : "";
@@ -2323,7 +2330,11 @@ function renderActions() {
       ? lockShown.text
       : questShown
         ? shownQuestCaption(questShown, false)
-        : ((actions[0] && playText(actions[0])) || clientText || itemDetails).replace(
+        : (
+            (actions[0] && playText(actions[0])) ||
+            clientText ||
+            itemDetails
+          ).replace(
             /\b(the|an?) (?:the|an?) /giu,
             "$1 ",
           );
@@ -2575,14 +2586,17 @@ function renderActions() {
   }
   const note = document.querySelector(".action-beat-note");
   let noteText = visibleText(next?.reason === NOT_FOUND ? "" : next?.reason || "");
-  if (!noteText && itemDetails && sentence !== itemDetails) noteText = itemDetails;
   if (abandonQuest) {
     panel.dataset.tier = "danger";
     panel.style.setProperty("--tier-color", "var(--danger)");
     noteText = `${shownQuestCaption(picked, false)}. Cost ${dropCost(world, actor, picked.index)} XP.`;
   }
   showActionBeatNote(note, { note: noteText });
-  const text = abandonQuest ? "Abandon this quest?" : sentence;
+  const text = abandonQuest
+    ? "Abandon this quest?"
+    : itemDetails && sentence !== itemDetails
+      ? `${sentence}\n${itemDetails}`
+      : sentence;
   writeActionMessage(
     message,
     text,
@@ -4270,7 +4284,8 @@ function syncActionBeat() {
     front = $("speech-row"),
     show =
       Boolean(borrowedBeat) ||
-      ((choiceInStack() || $("card-actions").childElementCount > 0) && !reviewing) ||
+      ((choiceInStack() || $("card-actions").childElementCount > 0) &&
+        !reviewing) ||
       (!$("play-status").hidden && shownPhase !== "revealing");
   // A notice before the first render (storage refused) only shows the beat.
   const drawn = Boolean(document.body.dataset.handExpanded);
