@@ -647,7 +647,8 @@ card is uncovered, the screen never names it: the place heading, world name
 and page title show "…" (beside a toolbar logo the covered world name is
 hidden instead), and card labels, screen-reader text and stage alt text
 leave it out. A new game's first line starts when its avatar is uncovered,
-while the room can still be black. The first play waits for that line. In
+while the room can still be black. On title-free tables, Reveal offers the
+avatar first. The first play waits for that line. In
 shared play, the avatar's own opening line starts with its reveal too; later
 room lines wait for the viewer's avatar and place to be uncovered.
 `speech-knowledge.mjs` removes covered items from every local
@@ -1027,7 +1028,7 @@ first line starts at that reveal (see the hand above), and the
 uncovered set is saved, so a reload neither covers the avatar again nor asks
 for its first line twice. A joining avatar in a shared world is uncovered the
 same way; with no title (a reload, other sites, the local app), the avatar's
-card is the first card offered by Reveal, and its own tap reveals it too.
+card waits for its own tap as before.
 Reduced motion crossfades each step, moves the logo up at once and swaps the
 face in without the flip. If the logo does not load within 2.5 seconds, the
 card shows without it.
