@@ -21,6 +21,7 @@ const files = [
   "music-streams.json",
   "shared.mjs",
   "shared-auth.mjs",
+  "authoring-account-tools.mjs",
   "authoring-github-source.mjs",
   "authoring-import-tools.mjs",
   "authoring-designer.mjs",
