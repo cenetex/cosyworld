@@ -93,6 +93,9 @@ fn reentering_resumes_an_interrupted_opening_and_fences_its_old_worker() {
         .unwrap();
     let mut w = full_store::world(&c, &id, now()).unwrap();
     full_store::expire(&c, &id, &mut w, now()).unwrap();
+    let expired = full_store::snapshot(&c, &id, "owner", now()).unwrap();
+    assert_eq!(expired["history"][0]["after"], w.game["eventSeq"]);
+    assert!(expired["history"][0]["after"].is_number());
     full::command_as(&app, &id, "owner", &command("enter"), None).unwrap();
     let next = full::take_work(&app, &id).unwrap().unwrap();
     assert_eq!(next.id, old.id);
@@ -139,6 +142,21 @@ fn cancelled_openings_resume_on_entry() {
     assert!(full::take_work(&app, &id).unwrap().is_none());
     full::command_as(&app, &id, "owner", &command("enter"), None).unwrap();
     assert_eq!(full::take_work(&app, &id).unwrap().unwrap().id, cancel.key);
+}
+
+#[test]
+fn failed_opening_has_an_anchor_for_its_silent_line() {
+    let (app, c, id) = fresh(0);
+    let w = full_store::world(&c, &id, now()).unwrap();
+    let work = full::take_work(&app, &id).unwrap().unwrap();
+    full::publish(&app, &id, work, Err("The voice needs another try.".into())).unwrap();
+    let snapshot = full_store::snapshot(&c, &id, "owner", now()).unwrap();
+    let scene = &snapshot["history"][0];
+    assert_eq!(scene["after"], w.game["eventSeq"]);
+    assert!(scene["after"].is_number());
+    assert_eq!(scene["lines"], json!([]));
+    assert_eq!(scene["silent"], json!(["vale"]));
+    assert_eq!(scene["opening"], true);
 }
 
 #[test]

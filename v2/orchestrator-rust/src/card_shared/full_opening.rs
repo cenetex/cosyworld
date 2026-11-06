@@ -44,7 +44,7 @@ pub(super) fn enqueue(
         .collect::<Vec<_>>());
     let view = w.project(a)?;
     let scene = json!({"play":key,"actor":actor_id(a),"room":room,"turn":0,"opening":true,
-        "context":context,"profiles":view["profiles"],"events":[],"lines":[],
+        "context":context,"profiles":view["profiles"],"events":[],"lines":[],"after":w.game["eventSeq"],
         "starts_at":now,"until_at":now,"error":null,"browser_chat":false});
     // A prepared retry already has its committed scene. Taking it asks for
     // words without spending a game turn. Its stable key keeps one opener.
