@@ -83,6 +83,11 @@ try {
         "Lantern Shore",
       );
       assert.equal(new URL(page.url()).searchParams.has("draft"), false);
+      await page
+        .locator(".card img")
+        .evaluateAll((images) =>
+          Promise.all(images.map((image) => image.decode())),
+        );
       await page.screenshot({ path: `${output}/${width}-sample.png` });
       await choose(["pack", "places", "sample-shore"], "entity");
       await choose(["pack", "places", "sample-shore"], "contents");

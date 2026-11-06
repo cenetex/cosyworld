@@ -27,6 +27,7 @@ import {
 } from "../v2/card-game/world.mjs";
 import { packDefinition, hub } from "../v2/card-game/pack-registry.mjs";
 import { packProblems } from "../v2/card-game/pack-schema.mjs";
+import { questsOf } from "../v2/card-game/want.mjs";
 import {
   exportManifest,
   parseDraft,
@@ -77,16 +78,17 @@ it("opens the garden after delivery to the keeper and keeps the return free", ()
   act("take", { item: "sample-bell" });
   act("move", { target: "sample-station" });
   expect(gardenOpen()).toBe(false);
+  act("gate", { target: "sample-garden" });
+  expect(questsOf(world, actor)[0]).toMatchObject({
+    kind: "item",
+    target: "sample-bell",
+    step: { verb: "give", to: "sample-keeper" },
+  });
   const nearby = structuredClone(world);
   nearby.items["sample-bell"].holder = "sample-station";
   expect(exits(nearby, "sample-station", actor)).not.toContain("sample-garden");
   act("give", { item: "sample-bell", target: "sample-keeper" });
   expect(gardenOpen()).toBe(true);
-  expect(sampleSource().pack.routes[0].sealed.quest).toEqual({
-    kind: "item",
-    target: "sample-bell",
-    to: "sample-keeper",
-  });
   act("move", { target: "sample-garden" });
   expect(exits(world, "sample-garden", actor)).toContain("sample-station");
   act("move", { target: "sample-station" });
