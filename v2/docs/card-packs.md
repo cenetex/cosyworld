@@ -809,3 +809,7 @@ unchanged.
 
 Import cards list local or GitHub sources, then save the chosen world and its
 assets as a fresh local draft. Portable files keep their source document.
+
+`readAvatarDesign` loads verified avatar artwork and its restored visual history.
+Its binding includes the draft, pack, active variant and full authored avatar.
+The Dino example requires the supplied pack, avatar and original portrait/sheet hashes.

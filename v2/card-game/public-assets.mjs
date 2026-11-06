@@ -254,6 +254,7 @@ const files = [
   "entry.mjs",
   "authoring-entry.mjs",
   "authoring-sample.mjs",
+  "authoring-avatar-design.mjs",
   "assets/authoring-lantern-shore.json",
   "title-intro.mjs",
   "title-logo.mjs",
