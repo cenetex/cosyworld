@@ -8,8 +8,21 @@ export async function finishAcknowledgement(page) {
     let i = 0;
     i < 6 && (await page.locator(".title-ack[data-stream]").count());
     i++
-  )
+  ) {
+    const section = await page.$$eval(".title-ack-text > p", (paragraphs) =>
+      paragraphs.findIndex((p) =>
+        p.querySelector(".speech-letter:not(.revealed)"),
+      ),
+    );
     await page.keyboard.press("Enter");
+    await page.waitForFunction(
+      (section) =>
+        !document
+          .querySelectorAll(".title-ack-text > p")
+          [section]?.querySelector(".speech-letter:not(.revealed)"),
+      section,
+    );
+  }
   await page.waitForSelector(".title-ack[data-written]");
 }
 export const cardShown = async (page) => {

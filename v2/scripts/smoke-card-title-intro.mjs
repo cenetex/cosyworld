@@ -374,7 +374,7 @@ async function valeShown(page, id = "vale") {
   assert.equal(await page.locator("#hand .reveal-lid").count(), 0);
 }
 // The letters blip in the dialogue's voice once audio is unlocked. A first
-// gesture completes a stanza; its next stanza resumes with the voice.
+// gesture quickens a stanza and its next stanza follows with the voice.
 // A new world from the menu hears it from the first letters.
 async function checkBlips() {
   for (const width of [1440, 390]) {
@@ -388,11 +388,12 @@ async function checkBlips() {
     await page.waitForSelector("#hand .card");
     await page.waitForTimeout(1500);
     assert.equal(await blips(page), 0, "silent before a gesture");
+    await shot(page, `hand-cue-${width}`);
     if (width === 390) await page.touchscreen.tap(width / 2, 10);
     else await page.mouse.click(width / 2, 10);
     const end = acknowledgement.stanzas[0].join("").length;
     const stanza = await streamState(page);
-    assert.equal(stanza.letters - stanza.dark, end);
+    assert.ok(stanza.letters - stanza.dark < end, "the section keeps writing");
     assert.equal(await titlePlays(page), 0);
     await page.waitForFunction(() => window.__blips >= 5);
     assert.equal(await titlePlays(page), 0, "the second stanza has the voice");
@@ -405,14 +406,45 @@ async function checkBlips() {
     assert.ok(heard >= 10, `${heard} blips in the first 1.5 s`);
     const songs = await titlePlays(page);
     await page.keyboard.press("Enter");
-    const stopped = await blips(page);
+    const beforeQuick = await blips(page);
     await page.waitForTimeout(600);
-    assert.equal(await blips(page), stopped, "the stanza holds its pause");
+    const quickBlips = (await blips(page)) - beforeQuick;
+    assert.ok(quickBlips > 3 && quickBlips <= 15, `${quickBlips} paced blips`);
     assert.equal(await titlePlays(page), songs);
     await finishAcknowledgement(page);
     assert.equal(await titlePlays(page), songs);
-    await page.keyboard.press("Enter");
+    await page.keyboard.down("Enter");
     assert.equal(await titlePlays(page), songs + 1, "Continue starts the song");
+    await page.waitForFunction(() =>
+      document
+        .querySelector(".title-intro > img")
+        .getAnimations()
+        .some((animation) => animation.playState === "running"),
+    );
+    await page.keyboard.down("Enter");
+    assert.ok(
+      await page.$eval(".title-intro > img", (image) =>
+        image
+          .getAnimations()
+          .every((animation) => animation.playbackRate === 1),
+      ),
+      "holding Enter keeps the current pace",
+    );
+    await page.keyboard.up("Enter");
+    if (width === 390)
+      await page.$eval(".title-intro > img", async (image) => {
+        await Promise.all(
+          image.getAnimations().map((animation) => animation.finished),
+        );
+      });
+    const hurriedAt = Date.now();
+    await page.keyboard.press("Enter");
+    assert.equal(
+      await page.locator(".title-intro").getAttribute("data-phase"),
+      "title",
+    );
+    await page.waitForSelector(traveller, { timeout: 2500 });
+    assert.ok(Date.now() - hurriedAt < (width === 390 ? 500 : 2500));
     await page.keyboard.press("Escape");
     await gone(page, 2500);
     assert.deepEqual(page.errors, []);
@@ -587,7 +619,16 @@ try {
       early.dark > early.letters / 2,
       JSON.stringify({ ...early, words: "" }),
     );
-    assert.equal(early.cue, "0");
+    assert.ok(
+      Number(early.cue) >= 0.5,
+      "the click cue is visible while writing",
+    );
+    const cueHint = await page.$eval(".title-continue", (button) => ({
+      hand: getComputedStyle(button, "::before").content,
+      height: button.getBoundingClientRect().height,
+    }));
+    assert.match(cueHint.hand, /☞/u);
+    assert.ok(cueHint.height >= 44);
     assert.match(early.words, /either of us\.Will you take it\?$/);
     // Every letter is laid out from the start: lighting moves no glyph.
     const layout = () =>
@@ -599,42 +640,57 @@ try {
     const unlit = await layout();
     await page.waitForSelector("#hand .card");
     assert.equal(await titlePlays(page), 0, "silent before the first tap");
-    // A tap or key fills the current stanza with a soft fade.
-    await page.evaluate(() => {
-      window.__soft = 0;
-      const until = () => performance.now() + 300;
-      const watch = (end = until()) => {
-        const fading = [
-          ...document.querySelectorAll(".title-ack .speech-letter.revealed"),
-        ].filter((letter) =>
-          letter
-            .getAnimations()
-            .some((animation) => animation.effect.getTiming().duration === 150),
+    // A tap speeds visible letters, then the next section starts in the same breath.
+    const sectionEnd = acknowledgement.stanzas[0].join("").length;
+    await page.evaluate((end) => {
+      window.__quickFrames = [];
+      const watch = (start = performance.now()) => {
+        const shown = document.querySelectorAll(
+          ".title-ack .speech-letter.revealed",
         ).length;
-        window.__soft = Math.max(window.__soft, fading);
-        if (performance.now() < end) requestAnimationFrame(() => watch(end));
+        const at = performance.now() - start;
+        window.__quickFrames.push({ shown, at });
+        if ((shown <= end || at < 100) && at < 3000)
+          requestAnimationFrame(() => watch(start));
+        else window.__quickDone = true;
       };
       for (const type of ["click", "keydown"])
         window.addEventListener(type, () => watch(), {
           capture: true,
           once: true,
         });
-    });
+    }, sectionEnd);
     if (desktop) await page.mouse.click(width / 2, 10);
     else await page.keyboard.press("a");
     const first = await streamState(page);
-    assert.equal(
-      first.letters - first.dark,
-      acknowledgement.stanzas[0].join("").length,
+    assert.ok(
+      first.letters - first.dark < sectionEnd,
+      "the tap preserves the reveal",
     );
-    assert.deepEqual((await glowState(page)).lit, phrases.slice(0, 4));
+    await shot(page, `quicken-start-${width}`);
+    await page.waitForFunction(() => window.__quickDone);
+    const frames = await page.evaluate(() => window.__quickFrames);
+    const ended = frames.find(({ shown }) => shown >= sectionEnd);
+    const nextSection = frames.find(({ shown }) => shown > sectionEnd);
+    assert.ok(ended.at > 100 && ended.at < 2200, JSON.stringify(ended));
+    assert.ok(
+      nextSection.at - ended.at < 100,
+      "the next section starts immediately",
+    );
+    assert.ok(
+      frames.length > 8,
+      "the section has several visible writing frames",
+    );
+    await shot(page, `quicken-handoff-${width}`);
     await page.waitForTimeout(1000);
     const moved = (await layout()).map((v, i) => Math.abs(v - unlit[i]));
     assert.ok(Math.max(...moved) < 1, `words moved ${Math.max(...moved)} px`);
-    const soft = await page.evaluate(() => window.__soft);
-    assert.ok(soft > 50, `${soft} letters share the stanza fade`);
     await finishAcknowledgement(page);
-    await page.waitForTimeout(1000);
+    await page.waitForFunction(
+      (count) =>
+        document.querySelectorAll(".title-ack-glow[data-lit]").length === count,
+      phrases.length,
+    );
     const tapped = await streamState(page);
     assert.ok(whole(tapped), JSON.stringify({ ...tapped, words: "" }));
     assert.equal(tapped.letters, 0, "the spans fold into plain text");

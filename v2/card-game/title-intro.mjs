@@ -156,8 +156,8 @@ const link = (text, href) => {
 // it, a spaced dash too; the larger breath wins; one long silence falls
 // before "Before you sits"). After a stanza with `highlights` the pen holds
 // while their words light. Each line is set as written, wrapping under a
-// hanging indent on a narrow screen. About 25 seconds; a tap completes its stanza
-// and lights that stanza. The cue follows the completed poem.
+// hanging indent on a narrow screen. A tap quickens its stanza, then lets the
+// next stanza write while the earlier words light.
 export const STANZA_MS = 650;
 const escape = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 // Where each pause falls: its line, the span that lights (a held word's
@@ -249,8 +249,8 @@ export function acknowledgementHighlights(acknowledgement) {
   });
 }
 // Which words are due once `shown` letters are written: each from its
-// stanza's end, lighting atMs later, and it stays lit. A tap that shows the
-// rest lights them all at once.
+// stanza's end, lighting atMs later, and it stays lit. Showing the whole poem
+// under reduced motion lights them all at once.
 export function acknowledgementGlows(acknowledgement) {
   const pauses = acknowledgementHighlights(acknowledgement);
   return (shown, done) => pauses.map(({ written }) => done || shown >= written);
@@ -291,7 +291,8 @@ function acknowledgementPanel() {
     lighting = new Map();
   const fadeGroups = tiers.map(() => []);
   let shown = 0,
-    total = 0;
+    total = 0,
+    lastSound = -Infinity;
   const stanzaEnds = acknowledgement.stanzas.map(
     (stanza) => (total += splitLetters(stanza.join("")).length),
   );
@@ -347,9 +348,10 @@ function acknowledgementPanel() {
   const next = element(
     "button",
     "title-continue",
-    `${tap ? "tap" : "click"} to continue`,
+    `${tap ? "tap" : "click"} to read faster`,
   );
   next.type = "button";
+  next.setAttribute("aria-label", "Speed up this section");
   panel.append(text, next);
   // At a large text size the poem outgrows its panel. While it writes, the
   // panel scrolls on as the pen reaches its foot, so the newest words stay
@@ -388,7 +390,11 @@ function acknowledgementPanel() {
     // under reduced motion or in a hidden tab, the narrator's neutral voice.
     reduced: () => matchMedia("(prefers-reduced-motion: reduce)").matches,
     sound: (speaker, letter, index) => {
-      if (!document.hidden) voice?.syllable(speaker, letter, index);
+      const time = performance.now();
+      if (!document.hidden && time - lastSound >= 45) {
+        voice?.syllable(speaker, letter, index);
+        lastSound = time;
+      }
     },
     frame: (value) => {
       shown = value.shown;
@@ -409,20 +415,25 @@ function acknowledgementPanel() {
             setTimeout(() => lightSet(i), pauses[i].atMs),
           );
       });
-      if (!value.complete || !("stream" in panel.dataset)) return;
+      if (!value.complete) return;
+      next.textContent = `${tap ? "tap" : "click"} to continue`;
+      next.setAttribute("aria-label", "Continue to the title");
       delete panel.dataset.stream;
       panel.dataset.written = "";
     },
   });
-  // Visible by default: the cue waits only while the words write in.
+  // The hand cue stays available as the words write.
   const write = (instant) => {
     if (!instant) panel.dataset.stream = "";
     painter.start(glyphs);
     const words = acknowledgement.stanzas.flat().join("");
     reveal.show("acknowledgement", words, null, { instant });
   };
-  const finishStanza = () =>
-    reveal.finish(stanzaEnds.find((end) => end > shown));
+  const quickenStanza = () => {
+    following = true;
+    target = text.scrollTop;
+    reveal.accelerate(stanzaEnds.find((end) => end >= shown));
+  };
   const fadeOut = (reduced) => {
     const fade = (node, delay, duration) =>
       node.animate([{ opacity: 0 }], {
@@ -446,7 +457,7 @@ function acknowledgementPanel() {
       () => {},
     );
   };
-  return { panel, next, reveal, write, unfollow, fadeOut, finishStanza };
+  return { panel, next, reveal, write, unfollow, fadeOut, quickenStanza };
 }
 
 const SCROLL_KEYS = [
@@ -488,10 +499,10 @@ export function playTitleIntro({
     write,
     unfollow,
     fadeOut,
-    finishStanza,
+    quickenStanza,
   } = acknowledgementPanel();
-  // A gesture completes the current stanza and unlocks its typing voice.
-  // The next stanza follows its held breath. A hidden tab holds the pen.
+  // A gesture quickens this stanza and unlocks its typing voice. Its glow can
+  // overlap the next stanza's first words. A hidden tab holds the pen.
   const hidden = () => words.pause(document.hidden);
   document.addEventListener("visibilitychange", hidden);
   const image = element("img");
@@ -505,10 +516,13 @@ export function playTitleIntro({
 
   let phase = "black",
     leaving = false,
+    hurriedTitle = false,
     songDone = Promise.resolve(),
     fades = WAKE_FADE.turn,
-    leave;
+    leave,
+    hurry;
   const left = new Promise((resolve) => (leave = resolve));
+  const hurried = new Promise((resolve) => (hurry = resolve));
   const race = (promise) => Promise.race([promise, left]);
   // The song fades as the title goes to black; Escape takes the short way.
   const finish = (way = "turn") => {
@@ -681,40 +695,49 @@ export function playTitleIntro({
     const crossfade = !reduced && phase === "title";
     if (phase === "title") fadeOut(reduced);
     image.alt = logo.name;
-    await race(
-      image
-        .animate(
-          crossfade
-            ? [
-                { opacity: 0, transform: "scale(0.97)", easing: "ease-in-out" },
-                {
-                  opacity: 0.1,
-                  transform: "scale(0.98)",
-                  offset: 2000 / 2950,
-                  easing: "ease-in-out",
-                },
-                { opacity: 1, transform: "scale(1)" },
-              ]
-            : [{ opacity: 0 }, { opacity: 1 }],
-          {
-            duration: reduced ? 250 : 2950,
-            easing: crossfade ? "linear" : "ease",
-            fill: "both",
-          },
-        )
-        .finished.catch(() => {}),
+    const appearance = image.animate(
+      crossfade
+        ? [
+            { opacity: 0, transform: "scale(0.97)", easing: "ease-in-out" },
+            {
+              opacity: 0.1,
+              transform: "scale(0.98)",
+              offset: 2000 / 2950,
+              easing: "ease-in-out",
+            },
+            { opacity: 1, transform: "scale(1)" },
+          ]
+        : [{ opacity: 0 }, { opacity: 1 }],
+      {
+        duration: reduced ? 250 : 2950,
+        easing: crossfade ? "linear" : "ease",
+        fill: "both",
+      },
     );
-    await race(wait(reduced ? 600 : 750));
+    if (hurriedTitle) quickenTitle();
+    await race(appearance.finished.catch(() => {}));
+    await race(
+      Promise.race([wait(reduced ? 600 : 750), hurried.then(() => wait(150))]),
+    );
     showWake();
+  };
+  const quickenTitle = () => {
+    hurriedTitle = true;
+    hurry();
+    for (const animation of layer.getAnimations({ subtree: true }))
+      animation.updatePlaybackRate(reduced ? 1 : 3);
   };
   const advance = () => {
     if (phase === "ack" && !words.complete) {
       voice?.unlock();
-      voice?.stop();
-      finishStanza();
+      quickenStanza();
       return;
     }
-    return phase === "ack" ? showTitle() : showWake();
+    return phase === "ack"
+      ? showTitle()
+      : phase === "title"
+        ? quickenTitle()
+        : undefined;
   };
   next.addEventListener("click", advance);
   layer.addEventListener("click", (event) => {
@@ -733,6 +756,14 @@ export function playTitleIntro({
   const onKey = (event) => {
     if (["Shift", "Control", "Alt", "Meta"].includes(event.key)) return;
     event.stopPropagation();
+    if (
+      event.repeat &&
+      event.key !== "Tab" &&
+      !SCROLL_KEYS.includes(event.key)
+    ) {
+      event.preventDefault();
+      return;
+    }
     // The table's own unlock never hears this key; a scroll key lets the
     // letters' blips start while the poem still writes.
     voice?.unlock();

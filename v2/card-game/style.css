@@ -3400,17 +3400,12 @@ body .beat-stack > .action-panel[data-card-tap]:not([hidden]) {
     1.1rem/1.65 Georgia,
     serif;
 }
-/* It writes in with the dialogue's reveal (.speech-letter), its letters in
-   place from the start and readable to screen readers throughout; the cue
-   waits until the words are whole. */
+/* The hand cue appears as the words start writing. */
 .title-ack .speech-letter {
   visibility: visible;
 }
 .title-ack[data-stream] .title-continue {
-  opacity: 0;
-}
-.title-ack[data-written] .title-continue {
-  animation: beat-fade 600ms ease 300ms backwards;
+  animation: beat-fade 900ms ease 300ms backwards;
 }
 /* A film's opening card: generous leading. */
 .title-ack-text {
@@ -3460,6 +3455,9 @@ body .beat-stack > .action-panel[data-card-tap]:not([hidden]) {
   text-shadow: 0 0 5px color-mix(in srgb, var(--tier-color) 30%, transparent);
 }
 @media (prefers-reduced-motion: reduce) {
+  .title-ack .title-continue {
+    animation: none;
+  }
   .title-ack-glow,
   .title-ack-glow[data-lit] {
     transition: none;
@@ -3542,6 +3540,11 @@ body .beat-stack > .action-panel[data-card-tap]:not([hidden]) {
   text-wrap: balance;
 }
 .title-continue {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45em;
+  min-height: 44px;
   padding: 4px 8px;
   border: 0;
   background: none;
@@ -3552,6 +3555,12 @@ body .beat-stack > .action-panel[data-card-tap]:not([hidden]) {
   letter-spacing: 0.04em;
   opacity: 0.6;
   cursor: pointer;
+}
+.title-continue::before {
+  content: "☞";
+  font-size: 1.4em;
+  font-style: normal;
+  line-height: 1;
 }
 @media (max-width: 640px) {
   .title-reveal {
