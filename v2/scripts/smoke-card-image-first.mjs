@@ -357,6 +357,7 @@ try {
       // Item reactions, when the rules call for them, belong to Vale. The
       // cast's face-down cards remain private throughout both cloth plays.
       assert(requests.length <= 2, "Each cloth play requests words at most once");
+      assert.equal(new Set(requests.map(({ turn }) => turn)).size, requests.length);
       for (const request of requests)
         assert.deepEqual(request.speakers, ["vale"], "Only Vale reacts to the cloth");
       await page.reload();
