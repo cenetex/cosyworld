@@ -74,20 +74,15 @@ async function check(width, name, world, cards, label, sentence) {
     await page.waitForFunction(() => document.body.inert === false);
     for (const card of [cards].flat())
       await selectCard(page, card, { touch: width === 390 });
-    const buttons = page.locator("#card-actions button");
-    await page.waitForFunction(
-      (label) =>
-        document.querySelector("#card-actions button")?.textContent.trim() ===
-        label,
-      label,
-    );
-    assert.deepEqual(
-      await buttons.evaluateAll((all) => all.map((b) => b.textContent.trim())),
-      [label],
-    );
-    await page.getByRole("button", { name: label, exact: true }).waitFor();
+    const action = page.getByRole("button", { name: label, exact: true });
+    await action.waitFor();
+    assert.equal(await page.locator("#card-actions button").count(), 1);
     assert.equal(
-      (await page.locator(".action-beat-heading").textContent()).trim(),
+      (
+        await (
+          label === "Wait" ? action : page.locator(".action-beat-heading")
+        ).innerText()
+      ).trim(),
       sentence,
     );
     await page.waitForFunction(
