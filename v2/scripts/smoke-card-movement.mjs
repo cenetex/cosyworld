@@ -86,7 +86,11 @@ try {
         window.movementCheck = { frames: [], animations: [] };
         const animate = Element.prototype.animate;
         Element.prototype.animate = function (...args) {
-          const avatar = this.closest("[data-avatar]")?.dataset.avatar;
+          // Only time the cast entrances. An avatar can have other motions.
+          const avatar =
+            this.matches(".portrait-body") &&
+            args[1]?.fill === "backwards" &&
+            this.closest("#cast [data-avatar]")?.dataset.avatar;
           if (avatar && window.movementCheck.active) {
             const entry = {
               avatar,
