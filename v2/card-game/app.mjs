@@ -871,6 +871,10 @@ const actionReveal = createTextReveal({
   frame(value) {
     actionMessage.frame = value;
     actionMessage.painter.paint(value);
+    const button = document.querySelector(
+      '[data-card-tap="hint"] #card-actions button',
+    );
+    if (button) button.dataset.revealing = String(!value.complete);
   },
 });
 function writeActionMessage(root, text, key, name) {
@@ -2105,11 +2109,32 @@ export function clearActionBeat(beat) {
   renderActions();
 }
 function showBorrowedBeat() {
+  const combined = !borrowedBeat.edit && borrowedBeat.buttons.length === 1;
   renderCardDescriptor(borrowedBeat, {
     placeArt,
     showNote: showActionBeatNote,
+    showMessage: combined
+      ? (root) =>
+          writeActionMessage(
+            root,
+            [borrowedBeat.name, borrowedBeat.info].filter(Boolean).join(" · "),
+            JSON.stringify(borrowedBeat),
+            borrowedBeat.name,
+          )
+      : undefined,
   });
+  if (combined) cardTapHint($("card-actions").firstElementChild);
+  else {
+    actionReveal.cancel();
+    actionMessage = null;
+  }
   syncActionBeat();
+}
+function cardTapHint(button, hint = button.textContent.toLowerCase()) {
+  $("action-beat").dataset.cardTap = "hint";
+  button.dataset.revealing = String(!actionReveal.complete);
+  button.setAttribute("aria-label", button.textContent);
+  button.textContent = `Tap to ${hint}`;
 }
 
 const choiceKey = () => `${selected.join("+")}:${rowCollapsed}`;
@@ -2253,7 +2278,6 @@ function renderActions() {
   );
   syncLayering();
   if (borrowedBeat) {
-    writeActionMessage(heading.lastElementChild, "");
     return showBorrowedBeat();
   }
   const revision = world.revision;
@@ -2316,10 +2340,7 @@ function renderActions() {
   if (abandonQuest !== confirmKey) abandonQuest = null;
   const dropLabel = drop && playLabel(drop, world);
   const questButtons = abandonQuest
-    ? [
-        { action: drop, label: "Confirm?" },
-        { action: null, label: "Cancel", cancel: true },
-      ]
+    ? [{ action: drop, label: "Confirm?" }]
     : step
       ? [
           {
@@ -2333,7 +2354,7 @@ function renderActions() {
       : drop
         ? [{ action: drop, label: dropLabel }]
         : [];
-  for (const { action, label, cancel } of questButtons) {
+  for (const { action, label } of questButtons) {
     const discard = action?.kind === "drop",
       button = node(
         "button",
@@ -2341,11 +2362,6 @@ function renderActions() {
         action && !discard ? "card-primary" : "card-action",
       );
     button.type = "button";
-    if (cancel) {
-      button.onclick = cancelAbandon;
-      row.append(button);
-      continue;
-    }
     if (discard) {
       button.dataset.dropQuest = String(picked.index);
       button.dataset.destructive = "";
@@ -2438,6 +2454,11 @@ function renderActions() {
     );
     message = button;
     heading.hidden = true;
+  } else if (questShown && row.childElementCount === 1) {
+    cardTapHint(
+      row.firstElementChild,
+      abandonQuest ? "confirm" : drop ? "abandon" : "continue",
+    );
   }
   const note = document.querySelector(".action-beat-note");
   let noteText = next?.reason || "";
@@ -2482,7 +2503,6 @@ $("action-beat").addEventListener(
   (event) => {
     const button = event.target.closest("button");
     if (
-      borrowedBeat ||
       !actionMessage ||
       (button && !event.currentTarget.hasAttribute("data-card-tap"))
     )
@@ -2492,8 +2512,8 @@ $("action-beat").addEventListener(
       actionReveal.finish();
       return;
     }
-    if (!button && !abandonQuest)
-      $("card-actions").querySelector(".card-primary:enabled")?.click();
+    if (!button && event.currentTarget.hasAttribute("data-card-tap"))
+      $("card-actions").querySelector("button:enabled")?.click();
   },
   true,
 );

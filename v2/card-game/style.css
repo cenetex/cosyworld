@@ -3267,6 +3267,38 @@ body .beat-stack > .action-panel[data-card-tap]:not([hidden]) {
   button:is(:hover, :focus-visible, :active) {
   background: transparent;
 }
+/* Quest and menu cards keep their note above the same full-card button. */
+.beat-stack > .action-panel[data-card-tap="hint"] {
+  border: 1px solid var(--tier-color, var(--beat-divider));
+}
+.action-panel[data-card-tap="hint"] .action-beat-body {
+  padding-bottom: 22px;
+}
+.action-panel[data-card-tap="hint"] .action-beat-text {
+  display: block;
+  overflow: visible;
+  font: var(--action-font);
+  color: #f2e3c4;
+}
+.action-panel[data-card-tap="hint"] .action-beat-text strong {
+  font-weight: 700;
+  color: inherit;
+}
+.beat-action[data-card-tap="hint"] #card-actions button {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-end;
+  padding: 6px 12px;
+  color: var(--muted);
+  font:
+    10px/12px Arial,
+    sans-serif;
+}
+.beat-action[data-card-tap="hint"] #card-actions button[data-destructive] {
+  color: var(--danger);
+}
 @media (max-width: 700px) {
   body[data-dialogue-over="true"] {
     --dialogue-height: 96px;

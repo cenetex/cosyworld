@@ -294,7 +294,9 @@ try {
     );
     assert.equal(await groupOrdered(), true, "Vale, its things, its quests");
     assert.equal(
-      await page.locator('#card-actions [data-drop-quest="0"]').textContent(),
+      await page
+        .locator('#card-actions [data-drop-quest="0"]')
+        .getAttribute("aria-label"),
       "Abandon (−1 XP)",
     );
     // Drop is the beat's usual context button, its words red.
@@ -378,7 +380,10 @@ try {
     await page.screenshot({
       path: new URL(`stack-${width}.png`, output).pathname,
     });
-    await drop.click();
+    const readyDrop = page.locator(
+      '#card-actions [data-drop-quest]:not([data-revealing="true"])',
+    );
+    await readyDrop.click();
     assert.equal((await saved()).turn, turn);
     const panel = page.locator("#action-beat");
     assert.equal(
@@ -389,10 +394,21 @@ try {
       await panel.locator(".action-beat-note").innerText(),
       /Cost 0 XP/,
     );
-    await panel.getByRole("button", { name: "Cancel", exact: true }).click();
+    assert.equal(await panel.locator("button").count(), 1);
+    assert.equal(await panel.locator("button").textContent(), "Tap to confirm");
+    if (motion !== "reduce") {
+      await panel.locator("button").click();
+      assert.equal(
+        (await saved()).turn,
+        turn,
+        "first confirmation tap finishes typing",
+      );
+      assert.equal(await panel.getAttribute("data-tier"), "danger");
+    }
+    await page.keyboard.press("Escape");
     assert.equal((await saved()).turn, turn);
-    await drop.click();
-    await panel.getByRole("button", { name: "Confirm?", exact: true }).click();
+    await readyDrop.click();
+    await panel.locator('button:not([data-revealing="true"])').click();
     await ready();
     assert.deepEqual(
       (await saved()).targets,
@@ -445,7 +461,7 @@ try {
         .evaluateAll((buttons) =>
           buttons.map((b) => [b.textContent, b.disabled]),
         ),
-      [["Give to The Gate Guard", false]],
+      [["Tap to continue", false]],
     );
     assert.notEqual(
       await page
