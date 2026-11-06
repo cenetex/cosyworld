@@ -31,6 +31,7 @@ fn play(a: usize, view: &Value, round: usize) -> Option<full::Command> {
         target: None,
         key: format!("concurrent-play-{a}-{round:02}"),
         moving: false,
+        revealed: None,
     })
 }
 
@@ -58,6 +59,7 @@ fn concurrent_writes_to_one_world_never_hit_the_lock_and_keep_each_play_once() {
             target: None,
             key: String::new(),
             moving: false,
+            revealed: None,
         };
         full::run(&tx, &id, &format!("user{a}"), &claim, now()).unwrap();
         tx.commit().unwrap();
@@ -105,6 +107,7 @@ fn concurrent_writes_to_one_world_never_hit_the_lock_and_keep_each_play_once() {
                         target: None,
                         key: String::new(),
                         moving: false,
+                        revealed: None,
                     };
                     if let Err(e) = full::command_as(&app, &id, &u, &heartbeat, None) {
                         errors.lock().unwrap().push(format!("heartbeat {a}: {e}"));

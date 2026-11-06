@@ -278,6 +278,8 @@ pub(super) struct Command {
     pub target: Option<String>,
     #[serde(default)]
     pub key: String,
+    #[serde(default)]
+    pub revealed: Option<Vec<String>>,
     // Accepted from older clients; every claim now leaves the avatar's other
     // worlds (#1846).
     #[serde(default, rename = "move")]
@@ -600,6 +602,7 @@ pub(super) fn run(
                     store::PlayRequest {
                         action: b.action.clone(),
                         key: &b.key,
+                        revealed: b.revealed.as_deref(),
                     },
                     time,
                 )?;
@@ -689,7 +692,8 @@ pub(super) fn take_work(state: &AppState, id: &str) -> Result<Option<Work>> {
     for (key, a, room, text, u, status, narrative, attempt) in rows {
         let retry = status == "retry";
         let prior: Value = serde_json::from_str(&narrative).map_err(sql_error)?;
-        let action: Value = serde_json::from_str(&text).map_err(sql_error)?;
+        let mut action: Value = serde_json::from_str(&text).map_err(sql_error)?;
+        let revealed = store::take_revealed(&mut action);
         let valid = if a >= 8
             || super::store::member(&tx, id, &u)? != Some(a as i32)
             || w.room(a)? != room
@@ -703,7 +707,7 @@ pub(super) fn take_work(state: &AppState, id: &str) -> Result<Option<Work>> {
                 Ok(prior.clone())
             }
         } else {
-            store::commit(&tx, id, &mut w, action, time)
+            store::commit_with_reveal(&tx, id, &mut w, action, revealed, time)
         };
         let result = match valid {
             Ok(v) => v,

@@ -156,6 +156,7 @@ fn body(op: &str, avatar: Option<&str>) -> full::Command {
         target: None,
         key: String::new(),
         moving: false,
+        revealed: None,
     }
 }
 // An avatar is in one world at a time (#1846): a claim elsewhere empties its
@@ -1016,6 +1017,64 @@ fn full_world_claims_queue_authority_and_request_ids() {
     assert_eq!(left, "cancelled");
     tx.commit().unwrap();
 }
+#[test]
+fn a_reveal_snapshot_stays_with_the_first_queued_play_and_out_of_the_journal() {
+    let (path, mut c, id) = fixture();
+    claim(&mut c, &id, 0);
+    let w = full_store::world(&c, &id, now()).unwrap();
+    let mut play = body("play", None);
+    play.key = "reveal-snapshot-0001".into();
+    play.action = home_action(&w, 0, "wait");
+    for invalid in [
+        vec!["not-a-card".into()],
+        vec!["vale".into(), "vale".into()],
+        vec!["vale".into(); 513],
+    ] {
+        play.revealed = Some(invalid);
+        assert_eq!(
+            full::run(&c, &id, "user0", &play, now()).unwrap_err(),
+            "Choose valid revealed cards."
+        );
+    }
+    play.revealed = Some(vec![]);
+    full::run(&c, &id, "user0", &play, now()).unwrap();
+    play.revealed = Some(vec!["vale".into()]);
+    full::run(&c, &id, "user0", &play, now()).unwrap();
+    let queued: String = c
+        .query_row(
+            "SELECT command FROM card_full_plays WHERE id=?",
+            [&play.key],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(
+        serde_json::from_str::<Value>(&queued).unwrap()["revealed"],
+        json!([])
+    );
+    let app = crate::test_app_state(crate::RuntimeWorld::seeded(), Some(path));
+    let work = full::take_work(&app, &id).unwrap().unwrap();
+    let journal: String = c
+        .query_row(
+            "SELECT command FROM card_full_log WHERE json_extract(command,'$.op')='play'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    let journal: Value = serde_json::from_str(&journal).unwrap();
+    assert_eq!(journal["action"], play.action);
+    assert!(journal.get("revealed").is_none());
+    c.execute(
+        "UPDATE card_full_plays SET status='retry' WHERE id=?",
+        [&play.key],
+    )
+    .unwrap();
+    let retry = full::take_work(&app, &id).unwrap().unwrap();
+    assert_eq!(retry.context["context"], work.context["context"]);
+    let committed = full_store::world(&c, &id, now()).unwrap();
+    c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
+    assert_eq!(full_store::world(&c, &id, now()).unwrap(), committed);
+}
+
 #[test]
 fn full_world_npc_turn_and_speech_survive_worker_restart() {
     let (path, mut c, id) = fixture();

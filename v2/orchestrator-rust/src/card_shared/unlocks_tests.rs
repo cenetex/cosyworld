@@ -25,6 +25,7 @@ fn body(op: &str, avatar: Option<&str>) -> full::Command {
         target: None,
         key: String::new(),
         moving: false,
+        revealed: None,
     }
 }
 fn found(c: &mut Connection, user: &str, avatar: &str) -> Result<String, String> {

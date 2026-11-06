@@ -124,6 +124,11 @@ output goes only to the story service and is never a journal input, so it is
 rebuilt from current sources and never versioned. `npm run v2:card:shared:next`
 and the land script rebuild it.
 
+A play can carry the cards its player has revealed. The queue keeps the first
+accepted list for the narrator and reuses that scene if its words need a retry.
+An empty list describes a face-down table. Older clients leave out the list and
+use the saved world's visits and conversations. The rules journal keeps the play.
+
 `card_shared/content.json` holds the pack content the shared rules read: every
 JSON module the rules bundle imports, built by `npm run v2:card:content:build`.
 Rules from v58 on take content as input and receive it per request, so the

@@ -197,6 +197,17 @@ pub(super) fn commit(
     command: Value,
     now: i64,
 ) -> Result<Value> {
+    commit_with_reveal(c, id, w, command, None, now)
+}
+
+pub(super) fn commit_with_reveal(
+    c: &Connection,
+    id: &str,
+    w: &mut World,
+    command: Value,
+    revealed: Option<Value>,
+    now: i64,
+) -> Result<Value> {
     let mut result = w.apply(&command)?;
     c.execute(
         "INSERT INTO card_full_log(world,command,at) VALUES(?,?,?)",
@@ -226,6 +237,9 @@ pub(super) fn commit(
         unlock(c, id, &result, seq, now);
         let mut scene = w.request("context", a);
         scene["action"] = command["action"].clone();
+        if let Some(revealed) = revealed {
+            scene["revealed"] = revealed;
+        }
         match super::narrator::context(&scene) {
             Ok(context) => result["context"] = context,
             Err(error) => {
@@ -400,6 +414,19 @@ pub(super) fn snapshot(c: &Connection, id: &str, user: &str, now: i64) -> Result
 pub(super) struct PlayRequest<'a> {
     pub action: Value,
     pub key: &'a str,
+    pub revealed: Option<&'a [String]>,
+}
+
+pub(super) fn take_revealed(command: &mut Value) -> Option<Value> {
+    command.as_object_mut()?.remove("revealed")
+}
+
+fn valid_reveal(ids: &[String]) -> bool {
+    ids.len() <= 512
+        && ids
+            .iter()
+            .all(|id| id.len() < 128 && crate::routes::card_game::narrative::known_card(id))
+        && ids.iter().collect::<std::collections::BTreeSet<_>>().len() == ids.len()
 }
 /// Rejected plays per user, matching the queued-play minute limit. With
 /// `record`, count one rejection; without it, report whether the budget is spent.
@@ -436,9 +463,15 @@ pub(super) fn enqueue(
     play: PlayRequest<'_>,
     now: i64,
 ) -> Result<()> {
-    let PlayRequest { action, key } = play;
-    let command = json!({"op":"play","actor":actor_id(a),"action":action});
-    let text = command.to_string();
+    let PlayRequest {
+        action,
+        key,
+        revealed,
+    } = play;
+    if revealed.is_some_and(|ids| !valid_reveal(ids)) {
+        return Err("Choose valid revealed cards.".into());
+    }
+    let mut command = json!({"op":"play","actor":actor_id(a),"action":action});
     let old: Option<(String, String, String)> = c
         .query_row(
             "SELECT world,user,command FROM card_full_plays WHERE id=?",
@@ -448,7 +481,9 @@ pub(super) fn enqueue(
         .optional()
         .map_err(sql_error)?;
     if let Some((world, owner, prior)) = old {
-        return if world == id && owner == user && prior == text {
+        let mut prior: Value = serde_json::from_str(&prior).map_err(sql_error)?;
+        take_revealed(&mut prior);
+        return if world == id && owner == user && prior == command {
             Ok(())
         } else {
             Err("Use a fresh play request.".into())
@@ -485,7 +520,12 @@ pub(super) fn enqueue(
     if count >= 4 {
         return Err("Four plays are at the table. Yours can follow shortly.".into());
     }
-    c.execute("INSERT INTO card_full_plays(id,world,actor,user,room,command,status,created) VALUES(?,?,?,?,?,?,'waiting',?)",params![key,id,a,user,room,text,now]).map_err(sql_error)?;
+    // The first accepted reveal snapshot stays with this queue entry. The
+    // worker takes it out before the action reaches the rules and journal.
+    if let Some(revealed) = revealed {
+        command["revealed"] = json!(revealed);
+    }
+    c.execute("INSERT INTO card_full_plays(id,world,actor,user,room,command,status,created) VALUES(?,?,?,?,?,?,'waiting',?)",params![key,id,a,user,room,command.to_string(),now]).map_err(sql_error)?;
     Ok(())
 }
 #[cfg(test)]

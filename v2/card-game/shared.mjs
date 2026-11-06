@@ -306,10 +306,10 @@ export async function connectSharedWorld(id) {
     command,
     sync,
     showLink: () => showLink(id),
-    async play(action, key = crypto.randomUUID()) {
+    async play(action, key = crypto.randomUUID(), revealed = undefined) {
       playError = null;
       try {
-        return await command({ op: "play", key, action });
+        return await command({ op: "play", key, action, revealed });
       } catch (error) {
         if (["TypeError", "TimeoutError", "AbortError"].includes(error.name)) {
           const message =
