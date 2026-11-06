@@ -3984,7 +3984,9 @@ function renderScene() {
     const behindKey = JSON.stringify([
       behind.key,
       summary.text,
+      summary.speaker,
       behind.speakerId,
+      beatPortrait(behind.speakerId),
     ]);
     if (behindButton.dataset.key !== behindKey) {
       behindButton.dataset.key = behindKey;
