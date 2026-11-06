@@ -3254,6 +3254,11 @@ body .beat-stack > .action-panel[data-card-tap]:not([hidden]) {
 .beat-action[data-card-tap] #card-actions {
   display: contents;
 }
+/* A status note shares the card with the action message. */
+.beat-action[data-card-tap=""]
+  .action-beat-body:has(#play-status:not([hidden])) {
+  flex: 0 1 33%;
+}
 .beat-action[data-card-tap] #card-actions button {
   flex: 1 1 0;
   min-width: 0;

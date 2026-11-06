@@ -81,6 +81,7 @@
     ".beat-action #card-actions { box-shadow: -1px 0 0 var(--beat-divider),0 -1px 0 var(--beat-divider); flex: 1 1 auto; gap: 0; overflow: visible; padding: 0 }",
     ".beat-action #card-actions:empty { display: none }",
     ".beat-action .action-beat-body:not(:has(>:not([hidden])))+#card-actions { box-shadow: none; flex: 1 1 100%; max-width: none }",
+    ".beat-action[data-card-tap=\"\"] .action-beat-body:has(#play-status:not([hidden])) { flex: 0 1 33% }",
     ".beat-action[data-card-tap=\"hint\"] #card-actions button { align-items: flex-end; color: var(--muted); display: flex; font: 10px/12px Arial,sans-serif; inset: 0; justify-content: flex-end; padding: 6px 12px; position: absolute }",
     ".beat-action[data-card-tap=\"hint\"] #card-actions button[data-destructive] { color: var(--danger) }",
     ".beat-action[data-card-tap] #card-actions button { flex: 1 1 0; font: var(--action-font); min-width: 0; overflow-wrap: anywhere; padding: 8px 12px; text-align: left }",

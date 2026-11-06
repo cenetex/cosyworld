@@ -386,6 +386,13 @@ try {
       true,
       "a storage update refreshes the holder even at the same world revision",
     );
+    const refreshed = await page.locator("#card-actions .card-primary").evaluate((button) => ({
+      width: button.getBoundingClientRect().width,
+      height: button.closest("#action-beat").getBoundingClientRect().height,
+    }));
+    assert(refreshed.width >= 80, "the update notice leaves room for the action message");
+    assert(refreshed.height < 180, "the update notice keeps the action card compact");
+    await shot("updated-world");
     await load(meeting());
     assert.equal(await card("lamp").isVisible(), false);
     assert.equal(await card("cloth").isVisible(), false);
