@@ -45,7 +45,7 @@ try {
             onInput(text) {
               window.sourceText = text;
               window.sourceEdits.push(text);
-              window.drawSource();
+              window.drawSource(text, key);
             },
           },
           buttons: [
@@ -174,12 +174,25 @@ try {
       await page.keyboard.press(
         process.platform === "darwin" ? "Meta+a" : "Control+a",
       );
+      const started = Date.now();
       await page.keyboard.insertText("A".repeat(8 * 1024 * 1024));
+      console.log(`8 MiB insert: ${Date.now() - started} ms`);
       await page.locator("#setting-create").click();
+      console.log(`8 MiB insert and Create: ${Date.now() - started} ms`);
       assert.equal(
-        await page.evaluate(() => window.createdSource.length),
-        8 * 1024 * 1024,
+        await page.evaluate(
+          () => window.createdSource === "A".repeat(8 * 1024 * 1024),
+        ),
+        true,
         "A whole 8 MiB paste reaches Create",
+      );
+      await field.focus();
+      await page.keyboard.press(
+        process.platform === "darwin" ? "Meta+z" : "Control+z",
+      );
+      assert.equal(
+        await text(),
+        "The fox crossed the old bridge.\n".repeat(200),
       );
     }
     await page.evaluate(() => window.closeSource());
