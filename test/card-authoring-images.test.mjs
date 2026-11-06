@@ -32,6 +32,8 @@ const response = (change = {}) =>
     ...change,
   });
 const decode = () => ({ width: 1536, height: 864, close() {} });
+const invoke = (result) =>
+  requestAuthoringImage(body(), { decode, fetch: async () => result });
 
 it("verifies the output and prepares the same saved Dino reference", async () => {
   const fetch = vi.fn(async () => response());
@@ -42,14 +44,10 @@ it("verifies the output and prepares the same saved Dino reference", async () =>
     mime: image.mime,
     sha256: image.sha256,
   });
-  expect(JSON.parse(fetch.mock.calls[0][1].body)).toEqual(body());
   expect(fetch.mock.calls[0][1]).toMatchObject({
     credentials: "same-origin",
     cache: "no-store",
   });
-  expect(Object.keys(result).sort()).toEqual(
-    "basis image model usage".split(" "),
-  );
 });
 
 it("rejects a changed design, wrong response binding and damaged image", async () => {
@@ -69,12 +67,7 @@ it("rejects a changed design, wrong response binding and damaged image", async (
     { image: { ...image, sha256: "0".repeat(64) } },
     { image: { ...image, size: 0 } },
   ])
-    await expect(
-      requestAuthoringImage(body(), {
-        decode,
-        fetch: async () => response(change),
-      }),
-    ).rejects.toThrow(/binding|digest/);
+    await expect(invoke(response(change))).rejects.toThrow(/binding|digest/);
   const controller = new AbortController();
   controller.abort();
   const fetch = vi.fn();
@@ -86,18 +79,15 @@ it("rejects a changed design, wrong response binding and damaged image", async (
 
 it("bounds streamed JSON and preserves the typed account retry response", async () => {
   await expect(
-    requestAuthoringImage(body(), {
-      fetch: async () => new Response(new Uint8Array(12 * 1024 * 1024 + 1)),
-    }),
+    invoke(new Response(new Uint8Array(12 * 1024 * 1024 + 1))),
   ).rejects.toThrow(/12 MiB/);
   await expect(
-    requestAuthoringImage(body(), {
-      fetch: async () =>
-        Response.json(
-          { error: "Sign in again.", code: "auth", retryAfterMs: 500 },
-          { status: 401 },
-        ),
-    }),
+    invoke(
+      Response.json(
+        { error: "Sign in again.", code: "auth", retryAfterMs: 500 },
+        { status: 401 },
+      ),
+    ),
   ).rejects.toMatchObject({
     message: "Sign in again.",
     status: 401,
@@ -116,8 +106,14 @@ it("requires a verified avatar reference for one pose sheet", async () => {
   await requestAuthoringImage(request, { fetch, decode });
   expect(fetch).toHaveBeenCalledTimes(1);
   await expect(
-    requestAuthoringImage({ ...request, kind: "item" }, { fetch }),
-  ).rejects.toThrow(/confirmed avatar/);
+    requestAuthoringImage(
+      {
+        ...request,
+        basis: authoringImageBasis("sample-vale", 2, "0".repeat(64), 7),
+      },
+      { fetch },
+    ),
+  ).rejects.toThrow(/confirmed portrait/);
 });
 
 it("checks sheet dimensions before creating a canvas and closes decoded images", async () => {

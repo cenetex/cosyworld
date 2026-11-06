@@ -144,9 +144,9 @@ digest. The helper checks every declared file's size and digest before returning
 Pack and bridge IDs, extra source fields and earlier provenance remain intact.
 `localPackCandidates(files)` lists `card-world.json` paths for a later source
 pack resolver. The caller chooses an explicit manifest path for portable import.
-`authoring-images.mjs` verifies transient image responses and splits one pose
-sheet into Happy, Sad, Strike, Brace, Hit and Sleep PNGs. The same loader opens
-the saved Dino example. The caller reviews each result before accepting it.
+
+`authoring-images.mjs` verifies transient image responses and splits one sheet into six named pose PNGs.
+The saved Dino example uses the same loader. Review each result before accepting it.
 
 The browser imports `packs.json`, and the Rust text route embeds the same file
 for profiles, so ids and seeds cannot drift between them. Each avatar has one

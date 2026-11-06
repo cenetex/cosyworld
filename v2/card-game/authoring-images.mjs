@@ -9,7 +9,6 @@ const MIB = 1024 * 1024,
 const need = (ok, message) => {
   if (!ok) throw new Error(message);
 };
-const utf8 = new TextEncoder();
 const hex = (value) =>
   typeof value === "string" && /^[a-f0-9]{64}$/u.test(value);
 function guard({ signal, isCurrent = () => true }, basis) {
@@ -116,8 +115,6 @@ async function readJSON(response, options, basis) {
   }
 }
 
-// Inputs stay in this request. Only verified image bytes and receipt fields
-// return to the caller; the editor owns review and accepted-output storage.
 export async function requestAuthoringImage(body, options = {}) {
   body = structuredClone(body);
   need(
@@ -136,15 +133,25 @@ export async function requestAuthoringImage(body, options = {}) {
         (typeof body.instruction === "string" &&
           body.instruction.length <= 2000)) &&
       typeof body.basis === "string" &&
-      utf8.encode(body.basis).length > 0 &&
-      utf8.encode(body.basis).length <= 512,
+      body.basis.length <= 512,
     "Choose an image role, description and current design binding.",
+  );
+  const binding = JSON.parse(body.basis);
+  need(
+    Array.isArray(binding) &&
+      binding.length === 4 &&
+      authoringImageBasis(...binding) === body.basis,
+    "Use the current candidate, visual revision, portrait digest and request epoch.",
   );
   need(
     body.role !== "pose-sheet" || (body.kind === "avatar" && body.reference),
     "Choose a confirmed avatar portrait for the pose sheet.",
   );
-  if (body.reference) await checkedImage(fromBase64(body.reference));
+  if (body.reference)
+    need(
+      binding[2] === (await checkedImage(fromBase64(body.reference))).sha256,
+      "Use the confirmed portrait named by this design binding.",
+    );
   need(
     !body.instruction || body.reference,
     "Choose a reference image for these changes.",
