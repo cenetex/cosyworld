@@ -9,8 +9,7 @@ use axum::{
     Json, Router,
 };
 use rusqlite::{params, Connection, OptionalExtension};
-use serde::{Deserialize, Serialize};
-use serde_json::{json, Map, Value};
+use serde_json::{json, Value};
 
 type Failure = (StatusCode, &'static str);
 const UNAVAILABLE: Failure = (
@@ -19,71 +18,13 @@ const UNAVAILABLE: Failure = (
 );
 const MISSING: Failure = (StatusCode::NOT_FOUND, "Choose one of your private packs.");
 
-#[derive(Deserialize, Serialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-struct Draft {
-    schema_version: u8,
-    title: String,
-    document: String,
-    pack: Option<Map<String, Value>>,
-    bridge: Option<Map<String, Value>>,
-    #[serde(default)]
-    assets: Vec<Asset>,
-    #[serde(default)]
-    sources: Vec<Value>,
-}
-
-#[derive(Deserialize, Serialize)]
-#[serde(deny_unknown_fields)]
-struct Asset {
-    path: String,
-    mime: String,
-    sha256: String,
-    size: u64,
-}
-
-impl Draft {
-    fn valid(&self) -> bool {
-        self.schema_version == 1
-            && !self.title.trim().is_empty()
-            && self.title.chars().count() <= 80
-            && !self.title.chars().any(char::is_control)
-            && self.document.len() <= 8 * 1024 * 1024
-            && self.assets.len() <= 512
-            && self.sources.len() <= 512
-            && self.sources.iter().all(Value::is_object)
-            && self.assets.iter().enumerate().all(|(i, asset)| {
-                asset.path.starts_with("assets/")
-                    && asset.path.len() <= 240
-                    && !asset.path.contains('\\')
-                    && !asset.path.chars().any(char::is_control)
-                    && asset.path.split('/').all(|p| !["", ".", ".."].contains(&p))
-                    && self.assets[..i].iter().all(|a| a.path != asset.path)
-                    && [
-                        "image/png",
-                        "image/webp",
-                        "image/svg+xml",
-                        "audio/mpeg",
-                        "audio/mp4",
-                    ]
-                    .contains(&asset.mime.as_str())
-                    && asset.sha256.len() == 64
-                    && asset
-                        .sha256
-                        .bytes()
-                        .all(|c| c.is_ascii_digit() || (b'a'..=b'f').contains(&c))
-                    && asset.size > 0
-                    && asset.size <= 16 * 1024 * 1024
-            })
-            && self.assets.iter().map(|a| a.size).sum::<u64>() <= 256 * 1024 * 1024
-    }
-}
-
 pub(super) fn router() -> Router<AppState> {
     Router::new()
         .route("/card-game/authoring/packs", get(list).post(create))
         .route("/card-game/authoring/packs/{id}", get(read))
-        .layer(DefaultBodyLimit::max(10 * 1024 * 1024))
+        .layer(DefaultBodyLimit::max(
+            crate::authoring_draft::MAX_METADATA_BYTES,
+        ))
         .layer(middleware::map_response(
             |mut response: Response| async move {
                 response
@@ -148,14 +89,26 @@ async fn list(State(state): State<AppState>, headers: HeaderMap) -> Response {
 async fn create(
     State(state): State<AppState>,
     headers: HeaderMap,
-    Json(input): Json<Draft>,
+    Json(mut input): Json<Value>,
 ) -> Response {
     run(state, headers, true, |mut c, owner| {
-        if !input.valid() {
-            return Err((
-                StatusCode::BAD_REQUEST,
-                "Check the title, document and file details.",
-            ));
+        let invalid = (
+            StatusCode::BAD_REQUEST,
+            "Check the title, document and file details.",
+        );
+        let object = input.as_object_mut().ok_or(invalid)?;
+        if object.contains_key("id") || object.contains_key("revision") {
+            return Err(invalid);
+        }
+        let id = crate::random_hex(24);
+        object.insert("id".into(), json!(id));
+        object.insert("revision".into(), json!(1));
+        if !crate::authoring_draft::valid(&input)
+            || input["title"]
+                .as_str()
+                .is_none_or(|title| title.trim().is_empty())
+        {
+            return Err(invalid);
         }
         let tx = c
             .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
@@ -173,17 +126,13 @@ async fn create(
                 "Continue one of your 128 private packs.",
             ));
         }
-        let id = crate::random_hex(24);
-        let mut draft = serde_json::to_value(input).map_err(|_| UNAVAILABLE)?;
-        draft["id"] = json!(id);
-        draft["revision"] = json!(1);
         tx.execute(
             "INSERT INTO authoring_packs(id,owner,content) VALUES(?,?,?)",
-            params![id, owner, draft.to_string()],
+            params![id, owner, input.to_string()],
         )
         .map_err(|_| UNAVAILABLE)?;
         tx.commit().map_err(|_| UNAVAILABLE)?;
-        Ok(draft)
+        Ok(input)
     })
     .await
 }

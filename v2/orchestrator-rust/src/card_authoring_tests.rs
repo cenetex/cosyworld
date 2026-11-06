@@ -33,7 +33,7 @@ fn draft() -> Value {
     json!({"schemaVersion":1,"title":"Lantern Marsh","document":"A quiet marsh.\nAn old lantern.",
         "pack":{"id":"lantern-marsh"},"bridge":null,
         "assets":[{"path":"assets/lantern-marsh/guide.png","mime":"image/png","sha256":"a".repeat(64),"size":4096}],
-        "sources":[{"kind":"github","repo":"writer/marsh","commit":"b".repeat(40)}]})
+        "sources":[{"kind":"github","repo":"writer/marsh","commit":"b".repeat(40),"path":"card-world.json"}]})
 }
 
 async fn send(
@@ -83,6 +83,7 @@ async fn private_packs_follow_the_passkey_account_and_survive_reopen() {
     let (status, created) = send(&state, "POST", BASE, &owner, draft(), None).await;
     assert_eq!(status, 200);
     assert_eq!(created["revision"], 1);
+    assert!(crate::authoring_draft::valid(&created));
     assert_eq!(created["document"], draft()["document"]);
     assert_eq!(created["assets"], draft()["assets"]);
     assert_eq!(created["sources"], draft()["sources"]);
@@ -133,12 +134,19 @@ async fn create_checks_origin_size_schema_and_server_owned_fields() {
     for (key, value, status) in [
         ("schemaVersion", json!(2), 400),
         ("title", json!("x".repeat(81)), 400),
+        ("title", json!(" "), 400),
+        ("title", json!("🌲".repeat(41)), 400),
+        (
+            "sources",
+            json!([{ "kind":"github", "repo":"writer/marsh", "commit":"b".repeat(40) }]),
+            400,
+        ),
         ("document", json!("x".repeat(8 * 1024 * 1024 + 1)), 400),
         ("document", json!("x".repeat(10 * 1024 * 1024)), 413),
-        ("owner", json!("other"), 422),
-        ("id", json!("chosen-by-client"), 422),
-        ("revision", json!(99), 422),
-        ("pack", json!([]), 422),
+        ("owner", json!("other"), 400),
+        ("id", json!("chosen-by-client"), 400),
+        ("revision", json!(99), 400),
+        ("pack", json!([]), 400),
         (
             "assets",
             json!([{"path":"assets/../private","mime":"image/png","sha256":"a".repeat(64),"size":1}]),
@@ -159,5 +167,13 @@ async fn create_checks_origin_size_schema_and_server_owned_fields() {
     );
     let mut book = draft();
     book["document"] = json!("x".repeat(8 * 1024 * 1024));
-    assert_eq!(send(&state, "POST", BASE, &owner, book, None).await.0, 200);
+    let (status, created) = send(&state, "POST", BASE, &owner, book.clone(), None).await;
+    assert_eq!(status, 200);
+    assert_eq!(created["document"], book["document"]);
+    assert!(crate::authoring_draft::valid(&created));
+    let route = format!("{BASE}/{}", created["id"].as_str().unwrap());
+    assert_eq!(
+        send(&state, "GET", &route, &owner, Value::Null, None).await,
+        (200, created)
+    );
 }
