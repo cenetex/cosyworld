@@ -283,8 +283,11 @@ try {
       await selectCard(page, "lamp");
       assert.equal(await card("lamp").getAttribute("aria-pressed"), "true");
       assert.equal(
-        await page.locator(".card-primary").first().innerText(),
-        "Cover",
+        await page
+          .locator("#card-actions")
+          .getByRole("button", { name: "Cover", exact: true })
+          .count(),
+        1,
       );
       assert.equal((await state()).turn, old.turn, "selection costs no turn");
       await assertHeldItem("lamp");
