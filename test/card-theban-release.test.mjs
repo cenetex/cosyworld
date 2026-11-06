@@ -30,6 +30,7 @@ import {
 import { createServer } from "../v2/card-game/serve.mjs";
 import { upgradedItems } from "./fixtures/card-upgraded-items.mjs";
 import { stowProvisions } from "./helpers/provisions.mjs";
+import { funeralJourney } from "./helpers/greek-funeral.mjs";
 import { settleGate } from "./helpers/world-life.mjs";
 const pack = packDefinition("greek-drama");
 const openingPlaces = [
@@ -38,6 +39,7 @@ const openingPlaces = [
   "greek-well",
   "greek-gate",
   "greek-battlefield",
+  "greek-polynices-hollow",
   "greek-palace",
   "greek-sanctuary",
   "greek-road-thebes",
@@ -107,7 +109,7 @@ const reachable = (world) => {
   return [...seen].sort();
 };
 describe("the Theban release and its ship", () => {
-  it("opens seven shore places and the harbor road, then the ship after its first signal", () => {
+  it("opens eight shore places and the harbor road, then the ship after its first signal", () => {
     const s = createWorld();
     expect(s.packs[pack.id].scope).toBe("opening");
     expect(reachable(s)).toEqual(
@@ -115,8 +117,8 @@ describe("the Theban release and its ship", () => {
     );
     s.crossings["pond-greek-harbor"].discovered = true;
     expect(reachable(s)).toEqual([...openingPlaces].sort());
-    expect(reachable(s)).toHaveLength(9);
-    expect(pack.release.places).toHaveLength(24);
+    expect(reachable(s)).toHaveLength(10);
+    expect(pack.release.places).toHaveLength(25);
     for (const id of rumours) expect(pack.release.places).not.toContain(id);
     expect(
       pack.release.places
@@ -139,23 +141,12 @@ describe("the Theban release and its ship", () => {
     expect(entityActive(s, "greek-rhapsode")).toBe(true);
     expect(s.actors["greek-rhapsode"].place).toBe("greek-harbor");
   });
-  it("opens five more places when Dione receives the guard's tablet and keeps them through reload", () => {
-    let s = createWorld();
-    s.crossings["pond-greek-harbor"].discovered = true;
-    s.actors.vale.place = "greek-gate";
-    // Meeting the guard tells the decree; the shovel handed to him with the
-    // funeral cloth in hand reports it.
-    s.items["greek-funeral-cloth"].holder = "vale";
-    s = act(s, "take", { item: "greek-shovel" });
-    s = act(s, "give", { item: "greek-shovel", target: "greek-guard" });
-    s = act(s, "take", { item: "greek-guard-tablet" });
-    s.actors.vale.place = "greek-courtyard";
-    expect(reachable(s)).toHaveLength(9);
-    s = act(s, "give", { item: "greek-guard-tablet", target: "greek-baker" });
-    // The tablet on Dione's table opens the Cithaeron road from the
-    // battlefield to the countryside. The Sacred Way waits for the mothers'
-    // petition; the ship with the Travel Provisions reaches Piraeus, whose
-    // Long Walls wait for the herald's truce (rules 94).
+  it("opens the next countryside after Bury and keeps it through reload", () => {
+    const journey = funeralJourney();
+    let s = journey.buried;
+    expect(reachable(journey.veiled)).toHaveLength(10);
+    // Bury opens the Cithaeron road. The mothers' petition opens the Sacred
+    // Way; the herald's truce opens the Long Walls from Piraeus.
     expect(reachable(s)).toContain("greek-eleusis");
     expect(reachable(s)).not.toContain("greek-athens");
     expect(reachable(s)).not.toContain("greek-road-coast");
@@ -167,7 +158,7 @@ describe("the Theban release and its ship", () => {
     ];
     const sailed = openDoorReleasedPlaces.filter((id) => !city.includes(id));
     expect(reachable(s)).toEqual(sailed.sort());
-    expect(reachable(s)).toHaveLength(13);
+    expect(reachable(s)).toHaveLength(14);
     s = decodeSave(encodeSave(s));
     expect(reachable(s)).toEqual(sailed.sort());
     for (const start of openDoorPlaces) {
@@ -207,7 +198,7 @@ describe("the Theban release and its ship", () => {
       ).toBe(false);
     }
     expect(pack.works).toHaveLength(44);
-    expect(Object.keys(pack.places)).toHaveLength(69);
+    expect(Object.keys(pack.places)).toHaveLength(70);
   });
   it("preserves opening scope through reloads", () => {
     let s = createWorld();
@@ -330,12 +321,12 @@ describe("the Theban release and its ship", () => {
     changed.actors["greek-helen-egypt"].place = "greek-harbor";
     expect(() => encodeSave(changed)).toThrow();
   });
-  it("keeps seven opening paintings and adds four Attic paintings", () => {
+  it("keeps eight opening paintings and adds four Attic paintings", () => {
     const openingImages = openingPlaces
       .filter((id) => id !== "greek-ship" && id !== "greek-road-thebes")
       .map(backdrop);
     const sectionImages = openDoorPlaces.map(backdrop);
-    expect(new Set(openingImages).size).toBe(7);
+    expect(new Set(openingImages).size).toBe(8);
     expect(new Set(sectionImages).size).toBe(4);
     expect(
       sectionImages.every((image) =>
@@ -343,7 +334,7 @@ describe("the Theban release and its ship", () => {
       ),
     ).toBe(true);
     const images = [...openingImages, ...sectionImages];
-    expect(new Set(images).size).toBe(11);
+    expect(new Set(images).size).toBe(12);
     expect(images.every((p) => p.endsWith(".webp"))).toBe(true);
     for (const image of images) {
       const bytes = readFileSync(

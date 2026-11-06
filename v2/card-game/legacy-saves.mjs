@@ -85,6 +85,7 @@ export function upgradeSave(
     upgradeGreekOneRoadSave(s);
     upgradeGreekPassSave(s);
     upgradeGreekShipSignalSave(s);
+    upgradeGreekFuneralSave(s);
     s.schema = 7;
     installPacks(s);
   } else if (
@@ -103,6 +104,7 @@ export function upgradeSave(
     upgradeGreekOneRoadSave(s);
     upgradeGreekPassSave(s);
     upgradeGreekShipSignalSave(s);
+    upgradeGreekFuneralSave(s);
     // A pack mounted after this save was written joins it fresh.
     installPacks(s);
   }
@@ -144,6 +146,8 @@ export function upgradeSave(
     upgradeGreekLandRouteSave(s);
     upgradeGreekForecourtSave(s);
     upgradeGreekDecreeSave(s);
+    if (s.packs?.["greek-drama"]?.revision === 20)
+      s.packs["greek-drama"].revision = 21;
     upgradeRecitals(s, packDefinitions);
   }
   upgradeSightings(s);
@@ -1169,6 +1173,16 @@ export function upgradeGreekHomecomingSave(s) {
   if (!pack || pack.revision < 4 || saved?.revision !== 3) return;
   addGreekEntities(s, pack, ["greek-household-witness"], []);
   saved.revision = 4;
+}
+
+function upgradeGreekFuneralSave(s) {
+  const pack = packDefinitions.find((p) => p.id === "greek-drama");
+  const saved = s.packs?.[pack?.id];
+  if (!pack?.avatars["greek-polynices-shade"] || !saved || saved.revision > 20) return;
+  addGreekEntities(s, pack, ["greek-polynices-shade"], []);
+  const antigone = s.actors["greek-antigone"];
+  if (antigone && !saved.flags?.["greek-burial-performed"])
+    delete antigone.want;
 }
 
 function addGreekEntities(s, pack, avatars, items) {

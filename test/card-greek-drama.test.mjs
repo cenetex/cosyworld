@@ -26,10 +26,14 @@ import {
 } from "../v2/card-game/narrative.mjs";
 import {
   conditionsMet,
+  entityActive,
   packDefinition,
 } from "../v2/card-game/pack-registry.mjs";
 
 import { endStandoff } from "./helpers/standoff.mjs";
+import { openingFixture } from "./helpers/greek-opening.mjs";
+import { funeralJourney } from "./helpers/greek-funeral.mjs";
+import { beforeFuneral } from "./fixtures/card-upgraded-items.mjs";
 import { stowProvisions } from "./helpers/provisions.mjs";
 const PACK = "greek-drama";
 const HARBOR = "greek-harbor";
@@ -294,7 +298,7 @@ describe("the Wine-Dark Sea crossing", () => {
   });
 });
 
-// Thebes has no story buttons: its deeds are Give, Wait and meetings.
+// Give carries Thebes's errands and the reports kept in earlier saves.
 const give = (world, item, target) => act(world, "give", { item, target });
 const done = (world, id) => stateOf(world).receipts[`greek-${id}`];
 const noButtons = (world) =>
@@ -315,26 +319,81 @@ describe("Greek choices and their receipts", () => {
     expect(exits(world, HARBOR, "vale")).not.toContain("greek-argolid-road");
   });
 
-  it("reports the plan by handing the guard the shovel and carries his tablet to Dione", () => {
-    let world = move(courtyard("opening"), GATE);
-    expect(done(world, "hear-decree")).toBeTruthy();
-    noButtons(world);
-    // The shovel alone is no report: the guard declines it, and nothing is
-    // decided for the city.
-    world = give(take(world, "greek-shovel"), "greek-shovel", "greek-guard");
+  it.each([
+    ["burial", true, "courtyard-burial"],
+    ["concession", false, "courtyard-permitted-burial"],
+  ])(
+    "finishes a saved %s report at Dione's table",
+    (branch, reportFirst, report) => {
+      const returning = openingFixture(branch, { reportFirst }).returning;
+      expect(stateOf(returning).flags["greek-burial-performed"]).toBe(true);
+      expect(stateOf(returning).flags["greek-open-door-open"]).toBeUndefined();
+      expect(returning.items["greek-burial-account"].holder).toBe("vale");
+      const reported = give(returning, "greek-burial-account", "greek-baker");
+      expect(done(reported, report)).toBe(reported.turn);
+      expect(stateOf(reported).flags["greek-open-door-open"]).toBe(true);
+      expect(stateOf(reported).choices["greek-theban-response"]).toBe(branch);
+      expect(stateOf(reported).receipts).toMatchObject(
+        stateOf(returning).receipts,
+      );
+      expect(reported.items["greek-burial-account"].holder).toBe(COURTYARD);
+      expect(reload(reported)).toEqual(reported);
+    },
+  );
+
+  it("keeps a saved completed burial complete when supplies reach the Hollow", () => {
+    const world = openingFixture("burial").buried;
+    const hollow = "greek-polynices-hollow";
+    world.actors.vale.place = hollow;
+    world.actors["greek-antigone"].place = hollow;
+    for (const item of [
+      "greek-oil-flask",
+      "greek-funeral-cloth",
+      "greek-shovel",
+    ])
+      world.items[item].holder = hollow;
+    expect(stateOf(world).flags["greek-burial-performed"]).toBe(true);
+    expect(
+      legalActions(reload(world)).filter(
+        (a) => a.choiceId === "greek-anoint-polynices",
+      ),
+    ).toEqual([]);
+  });
+
+  it("keeps the Hollow funeral's own receipt when its account reaches Dione", () => {
+    const buried = funeralJourney().buried;
+    let world = take(move(buried, BATTLEFIELD), "greek-burial-account");
+    world = move(world, COURTYARD);
+    const reports = [
+      "burial",
+      "permitted-burial",
+      "concession",
+      "exposure",
+    ].map((id) => `greek-courtyard-${id}`);
+    expect(
+      cardChoices(world, "greek-baker").filter((a) =>
+        reports.includes(a.choiceId),
+      ),
+    ).toEqual([]);
+    world = give(world, "greek-burial-account", "greek-baker");
+    expect(
+      reports.filter((id) => stateOf(world).receipts[id] !== undefined),
+    ).toEqual([]);
     expect(stateOf(world).choices["greek-theban-response"]).toBeUndefined();
-    expect(world.items["greek-shovel"].holder).toBe("vale");
-    // With the funeral cloth in hand too, it reports the burial planned.
-    world.items["greek-funeral-cloth"].holder = "vale";
-    world = give(reload(world), "greek-shovel", "greek-guard");
-    expect(stateOf(world).choices["greek-theban-response"]).toBe("exposure");
-    expect(world.items["greek-shovel"].holder).toBe(GATE);
-    expect(itemPlace(world, "greek-funeral-cloth")).toBe(GATE);
-    world = move(take(world, "greek-guard-tablet"), COURTYARD);
-    world = give(world, "greek-guard-tablet", "greek-baker");
-    expect(done(reload(world), "courtyard-exposure")).toBe(world.turn);
-    expect(stateOf(world).flags["greek-open-door-open"]).toBe(true);
-    expect(itemPlace(world, "greek-guard-tablet")).toBe(COURTYARD);
+    expect(done(world, "bury-polynices")).toBe(buried.turn);
+    expect(stateOf(reload(world)).flags["greek-open-door-open"]).toBe(true);
+  });
+
+  it("keeps the earlier exposure report and its poem through reload", () => {
+    const world = openingFixture("exposure").closed;
+    const saved = reload(world);
+    expect(stateOf(saved).choices["greek-theban-response"]).toBe("exposure");
+    expect(done(saved, "report-plan")).toBe(done(world, "report-plan"));
+    expect(done(saved, "courtyard-exposure")).toBe(
+      done(world, "courtyard-exposure"),
+    );
+    expect(stateOf(saved).recitals).toEqual(stateOf(world).recitals);
+    expect(stateOf(saved).flags["greek-open-door-open"]).toBe(true);
   });
 });
 
@@ -378,14 +437,14 @@ describe("Before the Burial", () => {
   });
 
   it("walks a revision 18 step from the courtyard to the forecourt through the well", () => {
-    const old = JSON.parse(encodeSave(courtyard()));
+    const old = beforeFuneral(JSON.parse(encodeSave(courtyard())));
     old.packs[PACK].revision = 18;
     old.routeKnowledge["greek-rhapsode"] = [
       [COURTYARD, PALACE],
       [PALACE, COURTYARD],
     ];
     const world = decodeSave(JSON.stringify(old));
-    expect(world.packs[PACK].revision).toBe(20);
+    expect(world.packs[PACK].revision).toBe(21);
     expect(world.routeKnowledge["greek-rhapsode"]).toEqual([
       [COURTYARD, WELL],
       [WELL, PALACE],
@@ -395,138 +454,78 @@ describe("Before the Burial", () => {
     expect(reload(world)).toEqual(world);
   });
 
-  it("buries with a shovel, cloth and oil on the battlefield, then yields the account", () => {
-    let world = courtyard();
-    world = take(world, "greek-oil-flask");
-    world = take(move(world, SANCTUARY), "greek-funeral-cloth");
-    world = walk(world, COURTYARD, GATE);
-    expect(done(world, "hear-decree")).toBeTruthy();
-    // The road out is closed until the guard at the gate holds the decree.
-    expect(exits(world, GATE, "vale")).not.toContain(BATTLEFIELD);
-    world.items["greek-creon-writ"].holder = "greek-guard";
-    // Cloth and oil without a dug grave bury no one.
-    world = act(move(reload(world), BATTLEFIELD), "wait");
-    expect(done(world, "perform-burial")).toBeUndefined();
-    world = act(world, "drop", {
-      item: "greek-oil-flask",
-      target: BATTLEFIELD,
-    });
-    world = take(move(world, GATE), "greek-shovel");
-    world = act(move(world, BATTLEFIELD), "wait");
-    expect(done(world, "prepare-burial-ground")).toBeTruthy();
-    noButtons(world);
-    expect(availableCards(world)).not.toContain("greek-burial-account");
-    world = act(world, "drop", { item: "greek-shovel", target: BATTLEFIELD });
-    // The cloth in another's hands serves, but only the oil lying there is
-    // used: a burial never takes what someone else holds (rules 98). Used,
-    // the oil goes straight home to Colonus (rules 102).
-    world.items["greek-funeral-cloth"].holder = "keeper";
-    world.actors.keeper.place = BATTLEFIELD;
-    world = act(reload(world), "wait");
-    expect(stateOf(world).choices["greek-theban-response"]).toBe("burial");
-    const receipt = done(world, "perform-burial");
-    expect(receipt).toBeTruthy();
-    expect(world.items["greek-funeral-cloth"].holder).toBe("keeper");
-    expect(world.usedUp).not.toContain("greek-oil-flask");
-    expect(world.items["greek-oil-flask"].holder).toBe("greek-colonus");
-    expect(world.usedUp).not.toContain("greek-funeral-cloth");
-    expect(world.log.some((e) => e.text?.includes("is buried"))).toBe(true);
-    world = take(reload(world), "greek-burial-account");
-    world = walk(world, GATE, COURTYARD, HARBOR, "pond", HARBOR, COURTYARD);
-    expect(done(world, "perform-burial")).toBe(receipt);
-    world = give(world, "greek-burial-account", "greek-baker");
-    expect(done(world, "courtyard-burial")).toBe(world.turn);
-    expect(stateOf(world).flags["greek-open-door-open"]).toBe(true);
-  });
-
-  it("lets a witnessed petition yield Creon's writ and a permitted burial", () => {
-    let world = courtyard();
-    // Dione bakes once the jar is home; the guard trades the decree he holds
-    // for her bread and eats it (rules 102).
-    world = take(move(world, WELL), "greek-water-jar");
-    world = give(move(world, COURTYARD), "greek-water-jar", "greek-baker");
-    world = take(move(world, SANCTUARY), "greek-household-token");
-    world = take(move(world, COURTYARD), "greek-bread");
-    world = move(world, GATE);
-    expect(world.items["greek-decree"].holder).toBe("greek-guard");
-    world = act(world, "trade", {
-      item: "greek-bread",
-      receive: "greek-decree",
-    });
-    expect(world.items["greek-decree"].holder).toBe("vale");
-    expect(world.usedUp).toContain("greek-bread");
-    // Fed, the guard still guards the gate.
-    expect(exits(world, GATE, "vale")).not.toContain(BATTLEFIELD);
-    // The elder may come back to the well just after Vale: the meeting
-    // then lands on Vale's next play there.
-    world = act(walk(world, COURTYARD, WELL), "wait");
-    expect(done(world, "gather-witness")).toBeTruthy();
-    // Creon wants his decree; he trades his writ for it, and his grant
-    // commits on the meeting.
-    world = move(world, PALACE);
-    expect(world.items["greek-creon-writ"].holder).toBe("greek-creon");
-    world = act(world, "trade", {
-      item: "greek-decree",
-      receive: "greek-creon-writ",
-    });
-    expect(stateOf(world).choices["greek-theban-response"]).toBe("concession");
-    expect(done(world, "petition-burial")).toBeTruthy();
-    expect(world.items["greek-decree"].holder).toBe("greek-creon");
-    expect(world.items["greek-creon-writ"].holder).toBe("vale");
-    expect(reload(world)).toEqual(world);
-    world = give(move(world, COURTYARD), "greek-creon-writ", "greek-baker");
-    expect(stateOf(world).flags["greek-concession-public"]).toBe(true);
-    expect(stateOf(world).flags["greek-open-door-open"]).toBe(true);
-    // The writ in his hands, the guard stands aside.
-    world = take(world, "greek-creon-writ");
-    world = move(world, GATE);
-    expect(exits(world, GATE, "vale")).not.toContain(BATTLEFIELD);
-    world = give(world, "greek-creon-writ", "greek-guard");
-    expect(exits(world, GATE, "vale")).toContain(BATTLEFIELD);
-    world = take(world, "greek-shovel");
-    world = act(move(world, BATTLEFIELD), "wait");
-    expect(done(world, "prepare-burial-ground")).toBeTruthy();
-    world = act(world, "drop", { item: "greek-shovel", target: BATTLEFIELD });
-    world = take(walk(world, GATE, COURTYARD), "greek-oil-flask");
-    world = move(world, SANCTUARY);
-    world = act(world, "drop", {
-      item: "greek-household-token",
-      target: SANCTUARY,
-    });
-    world = take(world, "greek-funeral-cloth");
-    world = walk(world, COURTYARD, GATE, BATTLEFIELD);
-    for (const item of ["greek-funeral-cloth", "greek-oil-flask"])
-      world = act(world, "drop", { item, target: BATTLEFIELD });
-    world = act(world, "wait");
-    expect(stateOf(world).flags["greek-burial-performed"]).toBe(true);
-    expect(done(world, "perform-permitted-burial")).toBeTruthy();
-    expect(done(world, "perform-burial")).toBeUndefined();
-    world = take(world, "greek-burial-account");
-    world = give(
-      walk(world, GATE, COURTYARD),
-      "greek-burial-account",
-      "greek-baker",
+  it("carries the supplies to Antigone and opens the door through three Hollow rites", () => {
+    const journey = funeralJourney(courtyard("opening"));
+    const { supplied, beforeAnoint, anointed, veiled, buried } = journey;
+    for (const item of [
+      "greek-oil-flask",
+      "greek-funeral-cloth",
+      "greek-shovel",
+    ])
+      expect(supplied.items[item].holder).toBe("vale");
+    expect(beforeAnoint.actors["greek-antigone"].place).toBe(
+      "greek-polynices-hollow",
     );
-    expect(stateOf(world).flags["greek-permitted-burial-public"]).toBe(true);
-    expect(reload(world)).toEqual(world);
+    for (const [world, choice] of [
+      [beforeAnoint, "anoint"],
+      [anointed, "shroud"],
+      [veiled, "bury"],
+    ]) {
+      expect(
+        legalActions(world)
+          .filter((a) => a.kind === "choose")
+          .map((a) => a.choiceId),
+      ).toEqual([`greek-${choice}-polynices`]);
+      expect(stateOf(world).flags["greek-open-door-open"]).toBeUndefined();
+      expect(entityActive(world, "greek-colonus")).toBe(false);
+      expect(entityActive(world, "greek-eleusis")).toBe(false);
+    }
+    expect([anointed.turn, veiled.turn, buried.turn]).toEqual([
+      beforeAnoint.turn + 1,
+      beforeAnoint.turn + 2,
+      beforeAnoint.turn + 3,
+    ]);
+    expect(anointed.items["greek-oil-flask"].holder).toBe("greek-colonus");
+    expect(veiled.items["greek-funeral-cloth"].holder).toBe("greek-eleusis");
+    expect(entityActive(buried, "greek-colonus")).toBe(true);
+    expect(entityActive(buried, "greek-eleusis")).toBe(true);
+    const clothAgain = take(
+      move(buried, "greek-eleusis"),
+      "greek-funeral-cloth",
+    );
+    const oilAgain = take(move(clothAgain, "greek-colonus"), "greek-oil-flask");
+    expect(oilAgain.items["greek-oil-flask"].holder).toBe("vale");
+    expect(oilAgain.items["greek-funeral-cloth"].holder).toBe("vale");
+    expect(buried.items["greek-shovel"].holder).toBe("greek-polynices-hollow");
+    expect(stateOf(buried).flags).toMatchObject({
+      "greek-burial-performed": true,
+      "greek-open-door-open": true,
+    });
+    expect(done(buried, "bury-polynices")).toBe(buried.turn);
+    expect(reload(buried)).toEqual(buried);
   });
 
-  it("keeps the report consequential and leaves a way home", () => {
-    let world = move(courtyard(), GATE);
-    world.items["greek-funeral-cloth"].holder = "vale";
-    world = take(reload(world), "greek-shovel");
-    world = give(world, "greek-shovel", "greek-guard");
+  it("earns the guard's passage through Dione's bread and Creon's writ", () => {
+    const { supplied } = funeralJourney(courtyard("opening"));
+    expect(supplied.items["greek-decree"].holder).toBe("greek-creon");
+    expect(supplied.items["greek-creon-writ"].holder).toBe("greek-guard");
+    expect(exits(supplied, GATE, "vale")).toContain(BATTLEFIELD);
+    expect(done(supplied, "return-water-jar")).toBeTruthy();
+    expect(stateOf(supplied).choices["greek-theban-response"]).toBeUndefined();
+    expect(stateOf(supplied).flags["greek-open-door-open"]).toBeUndefined();
+  });
+
+  it("keeps the earlier report and its way home", () => {
+    let world = openingFixture("exposure").closed;
+    const receipts = structuredClone(stateOf(world).receipts);
+    world = walk(reload(world), HARBOR, "pond");
     expect(stateOf(world).choices["greek-theban-response"]).toBe("exposure");
-    world.items["greek-creon-writ"].holder = "greek-guard";
-    world = act(move(take(reload(world), "greek-shovel"), BATTLEFIELD), "wait");
-    expect(done(world, "perform-burial")).toBeUndefined();
-    world = walk(reload(world), GATE, COURTYARD, HARBOR, "pond");
-    expect(stateOf(world).choices["greek-theban-response"]).toBe("exposure");
+    expect(stateOf(world).receipts).toMatchObject(receipts);
     expect(legalActions(world).length).toBeGreaterThan(0);
   });
 
   it("upgrades a revision 10 refusal and the old well steps", () => {
-    const old = JSON.parse(encodeSave(move(courtyard(), GATE)));
+    const old = beforeFuneral(JSON.parse(encodeSave(move(courtyard(), GATE))));
     const pack = old.packs[PACK];
     pack.revision = 10;
     pack.receipts["greek-decline-burial"] = old.turn;
@@ -558,7 +557,7 @@ describe("Before the Burial", () => {
   });
 
   it("opens Dione's road for a revision 10 report told before the invitation", () => {
-    const old = JSON.parse(encodeSave(move(courtyard(), GATE)));
+    const old = beforeFuneral(JSON.parse(encodeSave(move(courtyard(), GATE))));
     const pack = old.packs[PACK];
     pack.revision = 10;
     old.turn += 2;

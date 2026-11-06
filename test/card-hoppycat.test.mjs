@@ -305,7 +305,10 @@ describe("Hoppy Cat refresh", () => {
       const old = JSON.parse(text),
         world = decodeSave(text);
       expect(world.packs[pack.id].revision).toBe(4);
-      expect(world.actors.vale.trust).toEqual(old.actors.vale.trust);
+      expect(world.actors.vale.trust).toEqual({
+        ...old.actors.vale.trust,
+        "greek-polynices-shade": 0,
+      });
       for (const [key, turn] of Object.entries(old.packs[pack.id].receipts))
         expect(world.packs[pack.id].receipts[key]).toBe(turn);
       for (const [key, item] of Object.entries(old.items).filter(

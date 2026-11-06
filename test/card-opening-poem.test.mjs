@@ -6,6 +6,7 @@ import {
   legalActions,
   play,
 } from "../v2/card-game/world.mjs";
+import { funeralJourney } from "./helpers/greek-funeral.mjs";
 import { openingFixture } from "./helpers/greek-opening.mjs";
 import { recitalContext, recitalPoem } from "../v2/card-game/pack-recital.mjs";
 import { narrativeContext } from "../v2/card-game/narrative.mjs";
@@ -72,7 +73,7 @@ describe("the opening poem", () => {
     expect(Object.keys(lore.verses).sort()).toEqual(
       pack.recital.verses.map((v) => v.choice).sort(),
     );
-    expect(couplets).toHaveLength(76);
+    expect(couplets).toHaveLength(78);
     expect(quotesLore(pack.recital)).toBe(false);
     expect(lore.verses["greek-courtyard-concession"].after.choice).toBe(
       "greek-perform-permitted-burial",
@@ -285,15 +286,13 @@ describe("the opening poem", () => {
 });
 
 it("keeps a pruned shared deed's author unknown when Vale loads Mara's saved deed", () => {
-  const source = structuredClone(
-    openingFixture("exposure", { water: false }).decree,
-  );
+  const source = structuredClone(funeralJourney().veiled);
 
   const imported = dispatchShared({
     op: "create",
     save: encodeSave(source),
   }).world;
-  imported.actors.mara.place = "greek-gate";
+  imported.actors.mara.place = "greek-polynices-hollow";
   const request = (world, op, actor, extra = {}) =>
     dispatchShared({
       world,
@@ -311,22 +310,13 @@ it("keeps a pruned shared deed's author unknown when Vale loads Mara's saved dee
     expect(result.ok, result.error || JSON.stringify(result)).toBe(true);
     return result;
   };
-  // Mara reports the plan by handing the guard the shovel, the funeral
-  // cloth in her other hand.
-  imported.items["greek-funeral-cloth"].holder = "mara";
-  const taken = marasPlay(
-    imported,
-    (a) => a.kind === "take" && a.item === "greek-shovel",
-  ).world;
+  // Mara completes the last rite in the shared world.
   const result = marasPlay(
-    taken,
-    (a) =>
-      a.kind === "give" &&
-      a.item === "greek-shovel" &&
-      a.target === "greek-guard",
+    imported,
+    (a) => a.choiceId === "greek-bury-polynices",
   );
   expect(
-    result.world.packs["greek-drama"].recitals["greek-report-plan"].actor,
+    result.world.packs["greek-drama"].recitals["greek-bury-polynices"].actor,
   ).toBe("mara");
   const old = structuredClone(result.world);
   delete old.packs["greek-drama"].recitals;
@@ -334,7 +324,9 @@ it("keeps a pruned shared deed's author unknown when Vale loads Mara's saved dee
   const upgraded = request(old, "upgrade", "vale", {
     from: "full-card-world/3",
   }).world;
-  expect(upgraded.packs["greek-drama"].recitals["greek-report-plan"]).toEqual({
+  expect(
+    upgraded.packs["greek-drama"].recitals["greek-bury-polynices"],
+  ).toEqual({
     actor: null,
     visit: null,
   });
@@ -348,25 +340,21 @@ it("keeps a pruned shared deed's author unknown when Vale loads Mara's saved dee
     expect(result.ok, result.error || JSON.stringify(result)).toBe(true);
     moved = result.world;
   };
-  playAsVale((a) => a.kind === "take" && a.item === "greek-guard-tablet");
+  playAsVale((a) => a.kind === "take" && a.item === "greek-shovel");
   expect(
-    moved.packs["greek-drama"].recitals["greek-report-plan"].actor,
+    moved.packs["greek-drama"].recitals["greek-bury-polynices"].actor,
   ).toBeNull();
-  playAsVale((a) => a.kind === "move" && a.target === "greek-courtyard");
-  playAsVale(
-    (a) =>
-      a.kind === "give" &&
-      a.item === "greek-guard-tablet" &&
-      a.target === "greek-baker",
-  );
+  playAsVale((a) => a.kind === "move" && a.target === "greek-battlefield");
   playAsVale((a) => a.kind === "wait");
   expect(entityActive(moved, bard)).toBe(true);
-  expect(poem(moved).stanzas[0]).toMatchObject({
+  expect(
+    poem(moved).stanzas.find((s) => s.id === "greek-bury-polynices"),
+  ).toMatchObject({
     authorId: null,
-    id: "greek-report-plan",
+    id: "greek-bury-polynices",
     authorName: "an earlier traveler",
   });
   expect(
-    reload(moved).packs["greek-drama"].recitals["greek-report-plan"].actor,
+    reload(moved).packs["greek-drama"].recitals["greek-bury-polynices"].actor,
   ).toBeNull();
 });

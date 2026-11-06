@@ -224,7 +224,11 @@ describe("one want per avatar", () => {
     const s = createWorld();
     const id = "greek-antigone";
     const start = s.actors[id].want;
-    expect(start).toMatchObject({ kind: "item", refusals: 0 });
+    expect(start).toMatchObject({
+      kind: "place",
+      target: "greek-polynices-hollow",
+      refusals: 0,
+    });
     const api = {
       carried: () => [],
       rootHolder: (item) => s.items[item].holder,

@@ -1,6 +1,7 @@
 // Talk reveals what a person wants: one first-person line from their want.
 // It reads the world and never changes it. Another avatar's want reaches the
 // player only through a Talk play with that avatar.
+import { layMet } from "./want.mjs";
 import forest from "./forest.json" with { type: "json" };
 import {
   consumable,
@@ -36,6 +37,7 @@ function met(world, id, want) {
   // Holding a food it wants to eat is not eating it (rules 102).
   if (want.kind === "item")
     return want.step?.verb !== "eat" && rootOf(world, want.target) === id;
+  if (want.step?.verb === "lay") return layMet(world, want);
   if (want.kind === "place") return here === want.target;
   return world.actors[want.target]?.place === here;
 }
@@ -71,6 +73,8 @@ export function wantFact(world, id, nameOf) {
   }
   if (!revealed(world, id, want)) return null;
   const name = nameOf(want.target);
+  if (want.step?.verb === "lay")
+    return `I want ${want.step.items.map((item) => article(nameOf(item))).join(", ")} laid in ${name}.`;
   const line =
     want.kind === "item"
       ? want.step?.verb === "eat"

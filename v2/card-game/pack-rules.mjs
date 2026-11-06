@@ -115,6 +115,12 @@ export function conditionMet(s, c, senses, packId = null, actor = null) {
       return state?.choices?.[c.key] === c.value;
     case "choice_unset":
       return !!state && !Object.hasOwn(state.choices || {}, c.key);
+    case "clock": {
+      const hour = s.turn % (2 * DAYLIGHT_TURNS);
+      return c.from < c.to
+        ? hour >= c.from && hour < c.to
+        : hour >= c.from || hour < c.to;
+    }
     case "flag":
       return (state?.flags?.[c.key] ?? false) === c.value;
     case "knows": {

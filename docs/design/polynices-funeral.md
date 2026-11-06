@@ -309,3 +309,26 @@ The owner settled the open questions on 2026-11-04:
    in the Hollow. Recommended: the player brings her (Accompany), and the
    burial flag keeps her home in the Hollow afterwards. The pack-data PR
    tests that she can follow; if not, the owner decides.
+
+## Quest card and saved progress
+
+The existing Talk quest uses the four hand paintings as its stage art. It
+keeps the quest active through Bury, when the grave painting appears. Bury
+opens the Open Door. The pack keeps the old choice records so existing saves
+can keep their prior outcomes and recitals.
+
+## Build notes, 2026-11-05
+
+PR #2321 uses rules 104 and Greek revision 21. Rules 103 remains unchanged.
+The burial flag finishes the quest and opens the Open Door. Existing saves
+keep their earlier choice receipts. Antigone sleeps at her usual bedtime.
+
+The two funeral `retire_item` effects set `waitAtHome: true`. This sends the
+oil to Colonus and the cloth to Eleusis while those places await the Open
+Door. The Bury rite opens those places. The field is allowed for homed
+items that return after use. Existing retirement keeps its ordinary return
+rule, and each rite still checks the item's custody before using it.
+
+The four earlier courtyard reports remain available to saves that already
+recorded an earlier Theban response. New play records the funeral flags.
+An older completed burial can finish its report and open the road.

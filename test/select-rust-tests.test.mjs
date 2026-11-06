@@ -36,8 +36,16 @@ describe("fast check Rust test selection", () => {
   });
 
   it("skips the Rust job when no Rust input changed", () => {
-    expect(pick("v2/card-game/world.mjs", "docs/release.md")).toEqual([]);
+    expect(pick("v2/card-game/settings-screen.mjs", "docs/release.md")).toEqual(
+      [],
+    );
     expect(pick("package.json")).toEqual([]);
+  });
+
+  it("runs funeral parity when the source world changes", () => {
+    expect(pick("v2/card-game/world.mjs")).toEqual([
+      "card_shared::polynices_tests::",
+    ]);
   });
 
   it("runs the narrative and voice tests when their inputs change", () => {

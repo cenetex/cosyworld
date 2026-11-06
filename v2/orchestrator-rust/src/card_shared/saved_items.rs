@@ -56,6 +56,16 @@ pub(super) fn current_pack_changes(old: &Value, upgraded: &Value) -> Value {
     }
     expected["usedUp"] = upgraded["usedUp"].clone();
     expected["memories"]["greek-wheat"] = upgraded["memories"]["greek-wheat"].clone();
+    // Greek revision 21 adds one neutral acquaintance and Antigone's rites.
+    for actor in expected["actors"].as_object_mut().unwrap().values_mut() {
+        actor["trust"]["greek-polynices-shade"] = Value::from(0);
+    }
+    if old["packs"]["greek-drama"]["flags"]["greek-burial-performed"] != true {
+        let want = &upgraded["actors"]["greek-antigone"]["want"];
+        assert_eq!(want["target"], "greek-polynices-hollow");
+        assert_eq!(want["step"]["finish"], "greek-burial-performed");
+        expected["actors"]["greek-antigone"]["want"] = want.clone();
+    }
     hoppy_revision_4(&expected, upgraded)
 }
 

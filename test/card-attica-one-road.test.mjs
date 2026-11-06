@@ -1,3 +1,4 @@
+import { beforeFuneral } from "./fixtures/card-upgraded-items.mjs";
 import { readFileSync } from "node:fs";
 import vm from "node:vm";
 import { describe, expect, it } from "vitest";
@@ -152,6 +153,7 @@ describe("one road in Attica", () => {
       homecomingJourney().after["greek-homecoming-agree-journey"],
     );
     world.packs["greek-drama"].revision = 7;
+    beforeFuneral(world);
     if (place)
       for (const id of ["vale", "greek-household-witness"])
         world.actors[id].place = place;

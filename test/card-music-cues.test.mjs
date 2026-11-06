@@ -40,8 +40,10 @@ async function table() {
       levels.set(audio, value) && node;
     return Object.defineProperty(context, "currentTime", { get: now });
   };
-  const [battle, loss, room] = [element(), element(), element()];
-  const queue = [battle, loss];
+  const players = Object.fromEntries(Object.keys(CUE_TRACKS).map((id) => [id, element()]));
+  const { battle, "battle-loss": loss } = players;
+  const room = element();
+  const queue = Object.values(players);
   const cues = createMusicCues({
     makeAudio: () => queue.shift(),
     makeContext,

@@ -150,6 +150,15 @@ export const transports = merge("transports");
 export const packPeople = merge("avatars");
 export const packFixtures = merge("fixtures");
 export const packThings = merge("items");
+const waitsAtHome = new Set(
+  packDefinitions.flatMap((pack) =>
+    (pack.choices || []).flatMap((choice) =>
+      choice.effects
+        .filter((e) => e.kind === "retire_item" && e.waitAtHome)
+        .map((e) => e.item),
+    ),
+  ),
+);
 // Food and drink (rules 102): a thing tagged food or drink, with a home it
 // goes back to once eaten or drunk. Any holder may eat or drink it, alone or
 // with someone. One verb, Eat; a drink reads Drink.
@@ -166,6 +175,18 @@ const entities = {
   ...packFixtures,
 };
 export const packEntity = (id) => (owns(entities, id) ? entities[id] : null);
+const waitingAtHome = (world, id) => {
+  const item = packEntity(id);
+  return (
+    waitsAtHome.has(id) &&
+    world.items?.[id]?.holder === item.home &&
+    packDefinition(item.packId).choices.some(
+      (c) =>
+        world.packs[item.packId]?.receipts[c.id] !== undefined &&
+        c.effects.some((e) => e.item === id && e.waitAtHome),
+    )
+  );
+};
 export const packMedia = (id, role = null) => {
   const e = packEntity(id),
     file =
@@ -367,6 +388,8 @@ export function entityEnabled(world, id, saved = false) {
     return false;
   const e = packEntity(id);
   if (!e) return true;
+  if (waitingAtHome(world, id) && !entityEnabled(world, e.home, saved))
+    return false;
   const pack = packDefinition(e.packId),
     state = packState(world, e.packId);
   if (
@@ -378,6 +401,7 @@ export function entityEnabled(world, id, saved = false) {
         ? (e.requires || []).filter((c) => c.kind !== "connected_humans")
         : e.requires,
     ) ||
+    (!saved && !conditionsMet(world, e.packId, e.appearsWhen)) ||
     !sectionAllows(world, pack, id, conditionsMet) ||
     // Saved custody of an undrawn special stays as it was.
     (!saved && !specialsAllow(state, pack, id))
@@ -485,6 +509,7 @@ function choiceFeasible(world, pack, choice, actor, mode = null) {
   const state = packState(world, pack.id);
   if (
     !state ||
+    choice.archived ||
     // A repeating give fires again once its output is used up (rules 95).
     (owns(state.receipts, choice.id) && !choice.repeats) ||
     (choice.on ?? null) !== mode ||
@@ -732,9 +757,12 @@ export function applyPackChoice(
           bringBack(
             world,
             e.item,
-            entityActive(world, thing.home) ? thing.home : thing.holder,
+            e.waitAtHome || entityActive(world, thing.home)
+              ? thing.home
+              : thing.holder,
           );
-          if (!entityEnabled(world, e.item)) useUp(world, e.item, thing.holder);
+          if (!e.waitAtHome && !entityEnabled(world, e.item))
+            useUp(world, e.item, thing.holder);
         }
       }
     }
@@ -1005,6 +1033,7 @@ export function validatePackStates(world) {
     for (const [id, item] of Object.entries(pack.items || {}))
       if (
         !entityEnabled(world, id, true) &&
+        !(waitingAtHome(world, id) && world.items[id].history.length === 0) &&
         (world.items[id]?.holder !== item.holder ||
           (world.items[id]?.history?.length !== 0 &&
             !restGated(item.requires, id)))

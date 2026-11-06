@@ -7,6 +7,13 @@
   "source": "Original CosyWorld writing under the repository MIT license, adapted from the Greek Drama Reader repertoire. See ../ATTRIBUTION.md. No translated passage is quoted.",
   "note": "The Bard once sang these couplets verbatim from his prompt. They are lore, not prompt text: no rule, prompt or speech check reads this file. A follow-up turns them into readable book items in the world. Each key is the recital verse choice id in ../card-world.json. An after variant replaced the couplet when its earlier deed already had a receipt.",
   "verses": {
+    "greek-bury-polynices": {
+      "quest": "theban-burial",
+      "lines": [
+        "She laid her brother in the earth.",
+        "A raven feather marked his rest."
+      ]
+    },
     "greek-return-water-jar": {
       "quest": "story-quest-greek-table",
       "lines": [
