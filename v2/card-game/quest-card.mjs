@@ -10,6 +10,7 @@ import {
   exits,
   itemPlace,
   nameOf,
+  places,
   rootHolder,
   wantText,
 } from "./world.mjs";
@@ -60,10 +61,46 @@ export const questCards = (world, actor = currentActor(world)) =>
 export const questCard = (world, actor = currentActor(world)) =>
   questCards(world, actor)[0] ?? null;
 
-// The rules' action in words; an uncovered target gets its name, while a
-// covered target gets a clear description of what remains to be discovered.
-export function questCaption(quest, covered = false, verb = null) {
-  if (quest.rite && quest.riteVerb !== "Lay") return quest.rite;
+function hideQuestStep(quest, words, covered, known) {
+  const { step } = quest;
+  if (!step) return words;
+  const hiddenPlace = step.at && !known(step.at);
+  const hiddenRecipient = step.to && !known(step.to);
+  if (step.verb === "bring" && quest.kind === "item" && hiddenPlace) {
+    if (covered && (!step.to || hiddenRecipient))
+      return "find something and bring it somewhere";
+    words = step.to
+      ? words.replace(` at ${nameOf(step.at)}`, "")
+      : words.replace(` home to ${nameOf(step.at)}`, " somewhere");
+  } else if (hiddenPlace) {
+    words = step.verb === "bring"
+      ? words.replace(` to ${nameOf(step.at)}`, " somewhere")
+      : words.replace(` at ${nameOf(step.at)}`, " somewhere");
+  }
+  if (hiddenRecipient && !(step.verb === "bring" && quest.kind === "person" && step.at)) {
+    words = words.replace(
+      ` to ${nameOf(step.to)}`,
+      places[step.to] ? " somewhere" : " to someone",
+    );
+  }
+  if (step.with && !known(step.with))
+    words = words.replace(` with ${nameOf(step.with)}`, " with someone");
+  if (step.items?.some((id) => !known(id)))
+    words = words.replace(
+      step.items.map(nameOf).join(", "),
+      [...new Set(step.items.map((id) => known(id) ? nameOf(id) : "something"))].join(", "),
+    );
+  return words;
+}
+
+// Each card in the rules' description gets its name when revealed.
+export function questCaption(quest, covered = false, verb = null, known = () => true) {
+  covered ||= Boolean(quest.target && !known(quest.target));
+  if (quest.rite && quest.riteVerb !== "Lay") {
+    if (covered || !known("greek-antigone") || (quest.remaining?.[0] && !known(quest.remaining[0])))
+      return "Prepare the burial";
+    return quest.rite;
+  }
   const words = wantText({
     kind: quest.kind,
     target: quest.target,
@@ -80,6 +117,7 @@ export function questCaption(quest, covered = false, verb = null) {
         ? "go somewhere you have not found yet"
         : words.replace(nameOf(quest.target), unknown[quest.kind])
       : words;
+  shown = hideQuestStep(quest, shown, covered, known);
   // The accessible goal names the same verb as the place card, including
   // places whose name is known but which this avatar has not visited yet.
   if (quest.kind === "place" && (verb === "Discover" || verb === "Go to")) {
