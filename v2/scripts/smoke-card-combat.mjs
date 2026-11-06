@@ -162,9 +162,7 @@ try {
     // Vale's own card alone is Brace; with the opponent it is Guard.
     await selectCard(page, opponent);
     assert.ok(
-      await page
-        .locator("#card-actions button", { hasText: /^Strike/ })
-        .count(),
+      await page.getByRole("button", { name: "Strike", exact: true }).count(),
       "In battle the avatar card's Talk is Strike",
     );
     await clearSelection(page);
@@ -229,7 +227,13 @@ try {
       });
     await page.waitForTimeout(400); // the hand rises again after Escape
     const raisedHand = await handRect();
-    await page.locator("#card-actions button", { hasText: /^Brace/ }).click();
+    const brace = page.getByRole("button", { name: "Brace", exact: true });
+    await page.waitForFunction(
+      () =>
+        document.querySelector('#card-actions [aria-label="Brace"]')?.dataset
+          .revealing === "false",
+    );
+    await brace.click();
     // The hand locks, untappable, as soon as the play commits, and the
     // dialogue steps aside; only the player lowers the hand.
     assert.deepEqual(
