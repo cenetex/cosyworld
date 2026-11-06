@@ -265,6 +265,7 @@ const files = [
   "settings-cards.mjs",
   "settings-screen.mjs",
   "authoring-edits.mjs",
+  "authoring-quests.mjs",
   "scene.mjs",
   "preferred-locations.mjs",
   "preferred-locations-view.mjs",
