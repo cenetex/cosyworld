@@ -51,20 +51,12 @@ cards and cards elsewhere stay plain. Every tier colour reads at least
 letters like any other (`card-names.mjs` wraps its own letter spans), so
 its timing, caret and inscriptions are unchanged.
 
-A play's effect never makes a card of its own: it is inscribed onto the card
-current when it happened, under its line, writing in letter by letter with
-the dialogue's reveal at a quicker beat, 300 to 900 ms a caption (instant
-with reduced motion; a tap finishes it). Most plays are like this: only Talk,
-Ask and the rules' speech occasions speak (see the card guide), so a silent
-play, a Wait included, writes its caption onto the line in front, and the
-Thinking card or reply follows as a new card. A new card comes only with a
-new line, so "● live" counts lines, never inscriptions. Only an effect with no
-card before it in the visit, such as the viewer's own arrival ("Vale boarded
-the Greek ship.", "Vale arrived from the Agora."), stands as a card: the
-portrait and the caption, which names who acted. Talk is the speech itself
-and leaves none. Fights keep a beat for each step (see below).
-An inscription counts as revealing: the action beat waits until it is done.
-A card shows its latest three effects; Memory keeps them all.
+Each played action keeps its own card. Two Waits followed by Sleep make
+three cards, even when Sleep passes several turns. A reply gets a speech
+card of its own. Other effects may be
+written on the card that was current when they happened. A caption takes
+300 to 900 ms to appear. A tap finishes it. Each card shows up to three
+effects and Memory keeps them all.
 
 Only events at the player's current place, during the current visit, become
 beats: what the player's avatar could witness. Beats are read from committed

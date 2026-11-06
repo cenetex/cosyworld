@@ -212,6 +212,9 @@ fn base_profiles() -> &'static Value {
                         profile["persona"] =
                             entity.get("persona").unwrap_or(&entity["text"]).clone();
                     }
+                    if kind == "item" {
+                        profile["text"] = entity["text"].clone();
+                    }
                     for field in PROFILE_FIELDS {
                         if let Some(value) = entity.get(field) {
                             profile[field] = value.clone();
@@ -1643,9 +1646,9 @@ fn system_voice(entity: &Entity, part: Part) -> String {
     }
 }
 
-/// Every entity this scene knows of: those present, their belongings, their
-/// trips and their wants. A reply that names anyone else is rejected.
-fn known(context: &Context) -> BTreeSet<String> {
+/// The scene's entities and any names this speaker learned from an item or
+/// heard in conversation. A reply that names anyone else is rejected.
+fn known(context: &Context, entity: &Entity) -> BTreeSet<String> {
     let mut ids: BTreeSet<String> = context.entities.iter().map(|e| e.id.clone()).collect();
     ids.insert(context.location.clone());
     for line in &context.conversation {
@@ -1704,6 +1707,14 @@ fn known(context: &Context) -> BTreeSet<String> {
             .flat_map(|b| &b.facts),
     )
     .chain(context.disclosures.iter().map(|d| &d.text))
+    .chain(
+        context
+            .conversation
+            .iter()
+            .filter(|line| witnessed(entity, line))
+            .map(|line| &line.text),
+    )
+    .chain(custody::held_item_text(context, &entity.id).iter())
     .map(String::as_str)
     .collect::<Vec<_>>()
     .join(" ");
@@ -1891,6 +1902,7 @@ fn transcript_sections(context: &Context, entity: &Entity, part: Part) -> Vec<(S
             .filter(|f| part != Part::Line || !conversation::strategy(f))
             .filter_map(|f| person::fact(f, id, outcome.is_some())),
     ));
+    lines.extend(tagged(Section::Facts, custody::held_item_text(context, id)));
     // A fact the rules reserved for this Talk, among the things I know.
     let mentions = if part == Part::Line {
         knowledge::directions(context, id)
@@ -1931,7 +1943,7 @@ fn transcript_sections(context: &Context, entity: &Entity, part: Part) -> Vec<(S
         let fresh = |m: &&InnerMoment, turns: u64| {
             part != Part::Line || context.turn <= m.turn.saturating_add(turns)
         };
-        let known = known(context);
+        let known = known(context, entity);
         let kept = |m: &&InnerMoment| grounded(&m.text, &known);
         if let Some(thought) = life
             .thoughts
@@ -2407,7 +2419,7 @@ impl<'a> Check<'a> {
             part,
             limit,
             sentences,
-            known: known(context),
+            known: known(context, entity),
             brief: if kind(&entity.id, "location") {
                 vec![atmosphere::voice(&entity.id)]
             } else {
