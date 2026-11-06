@@ -58,6 +58,8 @@ sources, or the pack directory. `cardRoot` selects another relative directory.
 `{kind:"github",repo,commit}` with an exact commit. Media keeps its card path;
 `assetSources` records each repository path. `sourcePackCandidates(files)`
 indexes up to 100,000 file entries; each import reads up to 512 media files.
+Extra music files keep their bytes; portable playback also needs the catalog
+adapter's room-to-track mapping from `music.mjs`.
 
 | File                                | Owns                                                                                                                    |
 | ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |

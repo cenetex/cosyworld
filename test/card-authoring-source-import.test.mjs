@@ -1,6 +1,7 @@
 import { expect, it } from "vitest";
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { createHash } from "node:crypto";
+import { roomTracks } from "../v2/card-game/music.mjs";
 import {
   importSourcePack,
   sourcePackCandidates,
@@ -42,7 +43,6 @@ it("imports exact source, media, hashes and explicit lore with pinned provenance
       schemaVersion: 1,
       pack: "island",
       id: "shore-island",
-      crossings: [],
     };
   opts.files.push(
     file("bridge.json", bridge),
@@ -57,6 +57,8 @@ it("imports exact source, media, hashes and explicit lore with pinned provenance
   for (const entry of opts.files)
     if (!entry.path.endsWith(".json")) entry.path = `media/${entry.path}`;
   const result = await importSourcePack(opts);
+  expect(result.assets.size).toBe(4);
+  expect(result.assets.has("assets/island/guide.webp")).toBe(true);
   expect(result.draft.pack).toEqual(pack());
   expect(result.draft.bridge).toEqual(bridge);
   expect([result.draft.id, result.draft.revision]).toEqual([null, 0]);
@@ -82,51 +84,53 @@ it("imports exact source, media, hashes and explicit lore with pinned provenance
   }
 });
 
-it("indexes large directory selections and resolves the actual Greek source", async () => {
-  const paths = readdirSync("v2/card-game/assets", {
-    recursive: true,
-    withFileTypes: true,
-  })
-    .filter((e) => e.isFile())
-    .map((e) => `${e.parentPath}/${e.name}`);
-  paths.push(
-    "v2/content/greek-drama/card-world.json",
-    "v2/worlds/greek-drama/card-bridge.json",
-  );
-  const selected = paths.map((path) =>
-    selectedFile(
-      `repo/${path}`,
-      statSync(path).size,
-      async () => Uint8Array.from(readFileSync(path)).buffer,
-    ),
-  );
-  for (const entry of selected) {
-    entry.file.webkitRelativePath = entry.path;
-    entry.file.name = entry.path.split("/").at(-1);
-  }
-  expect(selected.length).toBeGreaterThan(513);
-  expect(sourcePackCandidates(selected)).toEqual([
-    "repo/v2/content/greek-drama/card-world.json",
-  ]);
-  const result = await importSourcePack({
-    files: selected.map((entry) => entry.file),
-    packPath: "repo/v2/content/greek-drama/card-world.json",
-    bridgePath: "repo/v2/worlds/greek-drama/card-bridge.json",
-  });
-  expect(result.draft.pack).toEqual(JSON.parse(readFileSync(paths.at(-2))));
-  expect(result.draft.bridge).toEqual(JSON.parse(readFileSync(paths.at(-1))));
-  expect(result.assets.has("assets/music/ship-1.mp3")).toBe(true);
-  expect(
-    result.assets.has("assets/greek-drama/ship-deck-at-sea-night.webp"),
-  ).toBe(true);
-  expect(result.assets.has("assets/greek-drama/polynices-shade.webp")).toBe(
-    true,
-  );
-  expect(result.assetSources.get("assets/music/ship-1.mp3")).toEqual({
-    kind: "file",
-    path: "repo/v2/card-game/assets/music/ship-1.mp3",
-  });
-}, 20_000);
+it.each(["greek-drama", "willows"])(
+  "imports raw %s and explicitly selected room music",
+  async (id) => {
+    const packPath = `v2/content/${id}/card-world.json`,
+      bridgePath = `v2/worlds/${id}/card-bridge.json`;
+    const source = JSON.parse(readFileSync(packPath));
+    const paths = readdirSync("v2/card-game/assets", {
+      recursive: true,
+      withFileTypes: true,
+    })
+      .filter((e) => e.isFile())
+      .map((e) => `${e.parentPath}/${e.name}`);
+    paths.push(packPath, bridgePath);
+    const selected = paths.map((path) => ({
+      webkitRelativePath: `repo/${path}`,
+      size: statSync(path).size,
+      arrayBuffer: async () => Uint8Array.from(readFileSync(path)).buffer,
+    }));
+    expect(selected.length).toBeGreaterThan(513);
+    expect(sourcePackCandidates(selected)).toEqual([`repo/${packPath}`]);
+    const extraPaths = Object.keys(source.places).flatMap((place) =>
+      (roomTracks[place] || []).map(({ file }) => `assets/music/${file}`),
+    );
+    const { draft, assets, assetSources } = await importSourcePack({
+      files: selected,
+      packPath: `repo/${packPath}`,
+      bridgePath: `repo/${bridgePath}`,
+      extraPaths,
+    });
+    expect(draft.pack).toEqual(source);
+    expect(draft.bridge).toEqual(JSON.parse(readFileSync(bridgePath)));
+    for (const path of [...extraPaths, source.places[source.entry].backdrop])
+      expect(assets.has(path)).toBe(true);
+    for (const meta of draft.assets) {
+      const original = readFileSync(`v2/card-game/${meta.path}`);
+      expect(Buffer.compare(Buffer.from(assets.get(meta.path)), original)).toBe(
+        0,
+      );
+      expect(meta.sha256).toBe(hash(original));
+      expect(assetSources.get(meta.path)).toEqual({
+        kind: "file",
+        path: `repo/v2/card-game/${meta.path}`,
+      });
+    }
+  },
+  20_000,
+);
 
 it.each([
   { packPath: "../card-world.json" },

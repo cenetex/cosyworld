@@ -15,6 +15,7 @@ const mimes = {
   jpg: "image/jpeg",
   jpeg: "image/jpeg",
   mp3: "audio/mpeg",
+  m4a: "audio/mp4",
   ogg: "audio/ogg",
   wav: "audio/wav",
   json: "application/json",
@@ -22,13 +23,7 @@ const mimes = {
   md: "text/markdown",
 };
 const mime = (path) => mimes[path.split(".").at(-1)];
-const mediaKeys = new Set([
-  "art",
-  "portrait",
-  "backdrop",
-  "overlay",
-  "cardArt",
-]);
+const mediaKeys = ["art", "portrait", "backdrop", "overlay", "cardArt"];
 
 function selectedFiles(files) {
   const selected = new Map();
@@ -149,7 +144,7 @@ export async function importSourcePack({
   };
   function visit(value, key) {
     if (typeof value === "string") {
-      if (value.startsWith("assets/") || mediaKeys.has(key)) add(value);
+      if (value.startsWith("assets/") || mediaKeys.includes(key)) add(value);
     } else if (value && typeof value === "object")
       for (const [name, child] of Object.entries(value)) visit(child, name);
   }
