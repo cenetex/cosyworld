@@ -1064,8 +1064,8 @@ body .dialogue[data-dropped="true"] {
 /* Authoring uses the same hand, seen from above as branches of open stacks. */
 #settings-screen[data-layout="tree"] {
   position: fixed;
-  inset: 74px 22px 150px;
-  height: calc(100dvh - 224px);
+  inset: 74px 22px var(--tree-descriptor-height, 150px);
+  height: calc(100dvh - 74px - var(--tree-descriptor-height, 150px));
   width: auto;
   max-width: none;
   pointer-events: auto;
@@ -1114,8 +1114,8 @@ body:has(#settings-screen[data-layout="tree"][open]) .settings-scene {
 }
 @media (max-width: 700px) {
   #settings-screen[data-layout="tree"] {
-    inset: 64px 8px 150px;
-    height: calc(100dvh - 214px);
+    inset: 64px 8px var(--tree-descriptor-height, 150px);
+    height: calc(100dvh - 64px - var(--tree-descriptor-height, 150px));
   }
   #settings-screen[data-layout="tree"] #settings-hand {
     --card-height: 144px;

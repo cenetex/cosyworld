@@ -226,6 +226,12 @@ try {
         ),
       "labels fit their cards",
     );
+    const screen = page.locator("#settings-screen");
+    await screen.evaluate((el) =>
+      el.style.setProperty("--tree-descriptor-height", "250px"),
+    );
+    const bounds = await screen.boundingBox();
+    assert(bounds.y + bounds.height <= height - 250);
     assert.deepEqual(errors, []);
     await page.close();
     console.log(`tree layout ${width}x${height}: ok`);
