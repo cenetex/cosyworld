@@ -58,6 +58,9 @@ File bytes go through a separate upload. Source records keep local relative
 paths or a GitHub repository, exact commit and path. Drafts accept unfinished
 cards; publication checks the compiled pack with the shared pack validator.
 
+`authoring-session.mjs` owns fields, source text, Undo, saves and guarded tools.
+Use `stage({document,title})` to keep text, `snapshot({pending:false})` to read it, and `save()` to check and persist the draft.
+
 `importSourcePack({files, packPath, bridgePath, cardRoot, extraPaths, origin})`
 in `authoring-source-import.mjs` reads selected raw repository files. It returns
 `{draft, assets, sourceFiles, assetSources}` with exact source bytes and digests.
