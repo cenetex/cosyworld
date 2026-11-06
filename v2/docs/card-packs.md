@@ -28,6 +28,17 @@ and branch navigation keeps the box armed. The workspace owns expansion.
 Source changes clear the pair; Undo restores the exact source and advances the
 local sequence. Server draft revisions stay with persistence.
 
+`authoring-fields.mjs` adapts scalar field cards for the descriptor.
+`authoringField(source, card)` captures its path, type, displayed value and
+action label. `authoringFieldEdit(source, field, text)` returns one expected-value
+source edit for Save; a boolean uses the same call with no text for Enable or
+Disable. Integer fields keep safe whole numbers; decimal fields keep finite
+numbers. Nulls, identities, type tags and reference lists stay read-only.
+Filter cards and branches with `authoringFieldHidden(card)` before rendering;
+this checks paths once and keeps internal text out of accessible names.
+Internal generation fields also have `hidden: true`. The controller applies the
+returned command and records its inverse. Pack compilation checks game meaning.
+
 ## Files
 
 Authoring drafts keep the original pack and bridge together with the writer's
@@ -49,6 +60,18 @@ save preserves it; `null` clears it. A preserved launch must stay in the new
 source. Launch selects the initial location while `pack.entry` and transport
 home docks keep their authored meanings. A ship deck is a valid launch place.
 
+`importSourcePack({files, packPath, bridgePath, cardRoot, extraPaths, origin})`
+in `authoring-source-import.mjs` reads selected raw repository files. It returns
+`{draft, assets, sourceFiles, assetSources}` with exact source bytes and digests.
+The card directory defaults to the sibling `card-game/` for `content/<pack>/`
+sources, or the pack directory. `cardRoot` selects another relative directory.
+`extraPaths` adds card-relative lore files. `origin` is `{kind:"file"}` or
+`{kind:"github",repo,commit}` with an exact commit. Media keeps its card path;
+`assetSources` records each repository path. `sourcePackCandidates(files)`
+indexes up to 100,000 file entries; each import reads up to 512 media files.
+Extra music files keep their bytes; portable playback also needs the catalog
+adapter's room-to-track mapping from `music.mjs`.
+
 | File                                | Owns                                                                                                                    |
 | ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
 | `v2/worlds/card-table.json`         | The hub's own places, avatars and items, the player id, its start and switchable groups, and the list of mounted packs. |
@@ -61,6 +84,18 @@ home docks keep their authored meanings. A ship deck is a valid launch place.
 npm run v2:card:pack:build   # regenerate v2/card-game/packs.json
 npm run v2:card:pack:check   # fail if it is stale or invalid (part of v2:worldpack)
 ```
+
+### Portable local drafts
+
+`authoring-local-import.mjs` reads selected browser Files or `{path, file}`
+entries from a local adapter. `importLocalDraft({files, manifestPath})` opens
+an exported authoring draft, with asset paths relative to its manifest folder.
+It returns a fresh local `draft`, an `assets` map of exact file bytes keyed by
+manifest path, and `sourceFiles` containing the original manifest bytes and
+digest. The helper checks every declared file's size and digest before returning.
+Pack and bridge IDs, extra source fields and earlier provenance remain intact.
+`localPackCandidates(files)` lists `card-world.json` paths for a later source
+pack resolver. The caller chooses an explicit manifest path for portable import.
 
 The browser imports `packs.json`, and the Rust text route embeds the same file
 for profiles, so ids and seeds cannot drift between them. Each avatar has one
