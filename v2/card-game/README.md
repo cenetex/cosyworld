@@ -977,24 +977,18 @@ voice of a speaker with no pitch of their own), with the table's Voices
 setting, none on rests, under reduced motion or in a hidden tab. The blips
 play once audio is unlocked: a new world from the menu hears them from the
 first letter. On a first visit, a tap unlocks the voice and speeds up the
-current stanza. Its letters arrive every 8 ms, with at most four per frame.
-The next stanza starts right away at its usual pace while the earlier words
-light. Typing sounds stay at least 45 ms apart. Every
+current stanza. The next stanza starts as the earlier words light. Every
 letter is laid out from the start, so nothing reflows and screen readers have
 the whole text at once; written whole, it folds back into plain text. Reduced
 motion shows it all at once, with every word's tint and weight still and no glow, and a
-hidden tab pauses it. A pointing hand and "click to read faster" cue
-("tap" on touch screens) appear while the words write. Once the words
-are whole, the cue reads "click to continue". The panel scrolls when it does
-not fit. At a large text size
+hidden tab pauses it. A hand and "click to read faster" cue ("tap" on touch
+screens) change to "continue" when complete; the panel scrolls to fit. At a large text size
 (200% zoom or a 200% root font) the poem wraps in its panel with no sideways
 scroll, and while it writes the panel follows the pen a line at a time, so the
 newest words stay in view, until the reader scrolls it themselves. The line is a button with no chrome that takes focus, with a ring
 only from the keyboard. A tap or click anywhere, or a key (the arrows scroll),
-quickens the current stanza. Repeated taps during that section keep the same
-pace. The finished poem waits for Continue.
-Holding a key keeps the current step. A tap during the logo transition runs
-its existing fades three times faster and shortens the final hold.
+quickens the current stanza. The finished poem waits for Continue. Holding a key
+keeps the current step. Taps speed up the logo fade and shorten its final hold.
 When the player continues, the plain words fade one by one in reading order.
 The lit words linger as the world's logo fades in with the title song. They
 fade from Uncommon through Mythic, with the carved box's words last. Reduced

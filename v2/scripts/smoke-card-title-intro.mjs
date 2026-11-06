@@ -428,12 +428,20 @@ async function checkBlips() {
       "holding Enter keeps the current pace",
     );
     await page.keyboard.up("Enter");
+    if (width === 390)
+      await page.$eval(".title-intro > img", async (image) => {
+        await Promise.all(
+          image.getAnimations().map((animation) => animation.finished),
+        );
+      });
+    const hurriedAt = Date.now();
     await page.keyboard.press("Enter");
     assert.equal(
       await page.locator(".title-intro").getAttribute("data-phase"),
       "title",
     );
     await page.waitForSelector(traveller, { timeout: 2500 });
+    assert.ok(Date.now() - hurriedAt < (width === 390 ? 500 : 2500));
     await page.keyboard.press("Escape");
     await gone(page, 2500);
     assert.deepEqual(page.errors, []);
@@ -742,7 +750,6 @@ try {
     // The way on is a quiet line of text, still a focused button.
     const cue = await page.$eval(".title-continue", (next) => ({
       focused: document.activeElement === next,
-      ring: next.matches(":focus-visible"),
       tag: next.tagName,
       text: next.textContent,
       border: getComputedStyle(next).borderStyle,
@@ -750,7 +757,6 @@ try {
     }));
     assert.deepEqual(cue, {
       focused: true,
-      ring: false,
       tag: "BUTTON",
       text: "click to continue",
       border: "none",

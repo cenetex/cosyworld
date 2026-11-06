@@ -249,8 +249,8 @@ export function acknowledgementHighlights(acknowledgement) {
   });
 }
 // Which words are due once `shown` letters are written: each from its
-// stanza's end, lighting atMs later, and it stays lit. A tap that shows the
-// rest lights them all at once.
+// stanza's end, lighting atMs later, and it stays lit. Showing the whole poem
+// under reduced motion lights them all at once.
 export function acknowledgementGlows(acknowledgement) {
   const pauses = acknowledgementHighlights(acknowledgement);
   return (shown, done) => pauses.map(({ written }) => done || shown >= written);
@@ -519,8 +519,10 @@ export function playTitleIntro({
     hurriedTitle = false,
     songDone = Promise.resolve(),
     fades = WAKE_FADE.turn,
-    leave;
+    leave,
+    hurry;
   const left = new Promise((resolve) => (leave = resolve));
+  const hurried = new Promise((resolve) => (hurry = resolve));
   const race = (promise) => Promise.race([promise, left]);
   // The song fades as the title goes to black; Escape takes the short way.
   const finish = (way = "turn") => {
@@ -714,11 +716,14 @@ export function playTitleIntro({
     );
     if (hurriedTitle) quickenTitle();
     await race(appearance.finished.catch(() => {}));
-    await race(wait(hurriedTitle ? 150 : reduced ? 600 : 750));
+    await race(
+      Promise.race([wait(reduced ? 600 : 750), hurried.then(() => wait(150))]),
+    );
     showWake();
   };
   const quickenTitle = () => {
     hurriedTitle = true;
+    hurry();
     for (const animation of layer.getAnimations({ subtree: true }))
       animation.updatePlaybackRate(reduced ? 1 : 3);
   };
