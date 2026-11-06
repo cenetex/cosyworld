@@ -31,6 +31,9 @@ try {
         "/card-game/authoring-designer.mjs"
       );
       const { importPack } = await import("/card-game/authoring-draft.mjs");
+      const { authoringCardId: cardId } = await import(
+        "/card-game/authoring-tree.mjs"
+      );
       const { showActionBeat, clearActionBeat } = await import(
         "/card-game/app.mjs"
       );
@@ -40,6 +43,10 @@ try {
         draft: importPack(input),
       };
       const tools = [];
+      let seed = "",
+        editing = false,
+        selected = false,
+        opened = 0;
       const store = {
         async write(_key, value, generation) {
           record = { ...structuredClone(value), generation: generation + 1 };
@@ -61,9 +68,54 @@ try {
         run: (_action, ctx) => ctx.save(),
       });
       window.test = { read: () => structuredClone(record) };
+      tools.push({
+        id: "seed",
+        anchor: cardId(["pack"], "root"),
+        describe: (ctx) => ({
+          note: `Draft ${ctx.status.key}`,
+          edit: editing
+            ? {
+                key: "temporary-seed",
+                label: "World idea",
+                value: seed,
+                onInput: (value) => {
+                  seed = value;
+                },
+              }
+            : null,
+          actions: [{ label: editing ? "Find avatars" : "Enter world seed" }],
+        }),
+        run() {
+          if (!editing) {
+            editing = true;
+            return;
+          }
+          tools.push({
+            id: "candidate",
+            name: "Lumi // Lightkeeper",
+            kind: "avatar",
+            holder: cardId(["pack", "avatars"], "collection"),
+            art: "assets/badger-forest/badger-sleeping.png",
+            state: "Suggested",
+            get selected() {
+              return selected;
+            },
+            select() {
+              selected = !selected;
+            },
+            describe: () => ({ actions: [{ label: "Review Lumi" }] }),
+            run(_action, ctx) {
+              window.test.notesAtReview = ctx.snapshot().draft.document;
+            },
+          });
+        },
+      });
       window.test.editor = installWorldDesigner({
         store,
         tools: () => tools,
+        onOpen() {
+          window.test.opened = ++opened;
+        },
         resolveArt(path, { key, generation, title }) {
           window.test.art = [generation, title];
           if (key !== "local") throw Error("Resolve art for this draft.");
@@ -119,6 +171,25 @@ try {
     await page.screenshot({
       path: `output/authoring-collections/${width}-world.png`,
     });
+    assert.equal(await action.innerText(), "Enter world seed");
+    await press(action);
+    await page
+      .getByRole("textbox", { name: "World idea" })
+      .fill("Transient seed canary");
+    await press(action);
+    await tool("candidate");
+    const candidate = page.locator('[data-setting="designer-tool-candidate"]');
+    assert.equal(await candidate.getAttribute("aria-pressed"), "true");
+    assert.match(await candidate.getAttribute("aria-label"), /Suggested/);
+    await candidate.locator("img").evaluate((img) => img.decode());
+    await press(action);
+    assert.equal(
+      await page.evaluate(() => window.test.notesAtReview),
+      "First book",
+    );
+    await page.screenshot({
+      path: `output/authoring-collections/${width}-candidate.png`,
+    });
     await gate();
     await choose(["pack", "choices", 0, "cost"], "field");
     await note.fill("bad");
@@ -150,6 +221,7 @@ try {
     await choose(["pack", "places", "b"], "entity");
     await choose(["pack", "places", "b"], "contents");
     await choose(["pack"], "root");
+    assert.notEqual(await action.innerText(), "Enter world seed");
     await choose(["pack", "places", "a"], "entity");
     await choose(["pack", "places", "a"], "contents");
     await press(
@@ -198,6 +270,7 @@ try {
       window.test.editor.close();
       window.test.editor.open();
     });
+    assert.equal(await page.evaluate(() => window.test.opened), 1);
     assert.equal(
       await page.locator(".settings-scene").getAttribute("data-place"),
       "local:a",
@@ -218,6 +291,7 @@ try {
         }),
       badger,
     );
+    assert.equal(await page.evaluate(() => window.test.opened), 2);
     await choose(["pack", "avatars", "badger"], "entity");
     await page.waitForFunction(
       (id) =>
