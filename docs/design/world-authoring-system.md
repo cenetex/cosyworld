@@ -17,6 +17,124 @@ navigation. A focused editor keeps its caret through background updates.
 independent document workspace. Local play and shared-world resume keep
 their own saved state. A later subdomain may redirect to this route.
 
+## World cards and wooden boxes
+
+The editor hand includes every location, avatar and item in the draft,
+including cards whose play conditions are still locked. Existing stacks and
+scrolling keep a large world within the same hand. Selecting a location
+shows its scene and sets the pack's starting place. Its descriptor says
+`Starting location`. This writes `pack.entry`; bridge arrival points keep
+their separate meaning.
+
+A location has an open wooden box for its links and contents, and a locked
+wooden box for quests that open its approaches. An avatar has an open box
+for held items and a locked box for its quests. These are cards tucked behind
+their owner, using the existing wooden backs, card selection and stack fan.
+Selecting a box arms that destination. Selecting another card names the
+change in the existing context button. A press applies one undoable edit.
+Tapping the armed box again, Escape or the scene clears that selection.
+
+| Selected box | Second card | Context action | Source edit |
+| --- | --- | --- | --- |
+| Location's open box | Another location | Link places | Add reciprocal `places[].exits` entries |
+| Location's open box | Avatar | Place [name] here | Set `avatars[].place` |
+| Location's open box | Item | Place [name] here | Set `items[].holder` |
+| Avatar's open box | Item | Give [item] to [name] | Set `items[].holder` |
+| Avatar's locked box | Item, place or person | Set starting quest | Set the resident's `want` |
+| Location's locked box | Linked approach | Edit opening quest | Open that route's quest stack |
+| Opening quest | A quest step or requirement | Add to opening quest | Patch its existing conditions and choices |
+
+Each physical card has one initial holder. Moving it replaces that holder.
+Home, return, regrowth and appearance rules remain separate fields. Simple
+placement preserves them. Link places is reciprocal by default; a One way
+variant makes direction clear. Existing gated links open their quest stack.
+Repeated linking keeps the existing link once.
+
+The locked box fans into quest cards, then step cards. A step uses the bar
+for its instruction and the same hand for its subject, place, items and
+requirements. An Add requirement, Add step or Add reward card is an ordinary
+card action. Supported choices appear as cards; their values appear in the
+bar. Selection and the single context action carry every edit.
+
+## Hand-written quest compatibility
+
+The editor writes the same source structures as the hand-written packs:
+`avatars[].want`, `choices`, `routes`, entity `requires`, and bridge
+`crossings` and `signals`. A derived editor index joins their references
+into quest stacks. Each card keeps its source pointer and stable entity or
+choice ID. Routes use their source array position and expected subtree hash,
+since several route records can share the same endpoints. A draft revision
+check protects those pointers. The original source objects remain the saved data.
+
+An avatar's simple starting quest uses the supported item, place or person
+want. The existing Eat/Drink and Lay templates retain their extra step
+fields. Rich authored quests use choice cards: their trigger, subject,
+place, ordered requirements, ordered effects and repeat behavior remain
+visible through nested stacks. Rewards use those existing effects. Quest
+chains, branches, flags and receipts retain their original links.
+
+A location's locked box shows each approach separately, for example
+`Gate → Battlefield` or `Attic → Cottage`. An internal approach edits
+`routes[].requires`; a connection between packs edits
+`bridge.crossings[].requires`. A location's own `requires` controls when
+that location appears and has a separate `Appears when` state. The author
+can inspect and edit either through the same stack.
+
+A route can have several alternative records. The stack preserves each
+alternative and its nested All/Any conditions. It also preserves the return
+route. Converting an open link to a gated route removes the matching direct
+exit in the same edit, so the route requirement governs that approach.
+
+The opening quest shows both the actual requirement and its player-facing
+hint. `route.sealed.reason` and `route.sealed.quest` supply the wooden box
+and quest hint in play. Editing that hint keeps the actual opening conditions
+in view. Internal routes show `Stays open` or `While conditions hold`;
+`live: true` uses the latter. Crossings retain their live conditions and
+signal timing.
+
+The first compatibility journeys are:
+
+- **Theban gate:** the guard holds Creon's writ. Its live gate opens and
+  closes with that custody condition.
+- **Polynices' funeral:** obtain permission and supplies, then Anoint,
+  Shroud and Bury in order. Keep each requirement, flag, choice receipt,
+  retired supply and shade state. The resulting road keeps its separate
+  opening conditions and alternative routes.
+- **Attic stairs:** lamplight AND either the Black cloth in the attic OR a
+  carried scarf. Keep the free return crossing and backdrop state.
+- **Hoppy programme:** Talk starts Mira's offer; giving the Draft or Brush
+  chooses a branch; Wait completes that branch. Either ready flag reveals
+  the Evening Programme. Keep the choice, item placement and one-time receipts.
+
+Import and export preserve these packs semantically, including fields that
+are outside the current editing templates. The editor describes an imported
+advanced record through its existing card and retains its source subtree.
+Changing one field patches that field. Array order, IDs, releases, archived
+choices, appearance rules and media variants survive the edit.
+
+## Edit, test and save
+
+Every edit is a single command with its inverse: move, link, set start,
+change requirement, add step or change reward. Undo restores the source and
+the selected location together. Each draft save uses its expected revision.
+A stale save keeps the local draft and shows the two revisions for recovery.
+
+Validation runs on the affected references and again before publication.
+It uses `packProblems`, `packCompositionProblems`, `itemCycleProblems`, the
+bridge compiler and the existing media checks. Conditions are traversed
+through nested `any` and `not` records so every referenced card is visible.
+The designer also reports unreachable starts, absent return paths, an item
+needed behind its own gate, and a quest waiting on its own completion.
+Intentional live gates and authored alternatives keep their exact semantics.
+
+Test world starts a fresh preview at `pack.entry` with the authored holders,
+resident positions and quest conditions. The editor retains its draft while
+the existing rules run the preview. Returning to edit restores the selected
+location. A short quest journey verifies each imported example above before
+those templates are offered for publication. Import tests compare the same
+runtime journey before and after an unrelated card edit, including both
+Hoppy branches and the funeral's consumed supplies and shade state.
+
 ## Draft contract
 
 A draft contains `schemaVersion: 1`, `id`, `revision`, `title`, `document`,
