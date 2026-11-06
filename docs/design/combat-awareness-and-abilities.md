@@ -89,6 +89,10 @@ This keeps speech, animation and saved history attached to the same result.
 These are original examples of the proposed tone. Generated lines would follow
 the speaker's seed, learned facts and inner life.
 
+Follow the person's concern and the actual outcome. A key line can express
+gratitude, resolve, surprise or wit. Grief, funerals and other serious scenes
+should shape its tone. Let humour come from the person and the moment.
+
 | Situation                        | Example                         |
 | -------------------------------- | ------------------------------- |
 | Vale survives at one resolve     | “Still here. Give me a moment.” |
