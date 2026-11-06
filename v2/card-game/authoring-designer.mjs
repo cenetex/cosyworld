@@ -20,6 +20,7 @@ export function installWorldDesigner({
   tools = [],
   onOpen = () => {},
   onClose = () => {},
+  transientState = () => null,
 }) {
   let workspace,
     previous,
@@ -28,7 +29,8 @@ export function installWorldDesigner({
     base = { world: [], tools: [] },
     byId = new Map(),
     toolMap = new Map(),
-    projected;
+    projected,
+    confirmation;
   const session = createAuthoringSession({
     store,
     onChange() {
@@ -95,7 +97,16 @@ export function installWorldDesigner({
     snapshot: () => session.snapshot({ pending: false }),
     stage: session.stage,
   };
-  function openDraft(value, open = session.open) {
+  const pendingDesign = () => session.status.dirty || transientState() !== null;
+  const discardToken = () =>
+    JSON.stringify([
+      session.status.key,
+      session.status.editEpoch,
+      transientState(),
+    ]);
+  function openDraft(value, open = session.open, approved = false) {
+    if (!approved && session.state && pendingDesign())
+      throw new Error("Review this design before opening another draft.");
     opening = true;
     try {
       open(value);
@@ -105,6 +116,7 @@ export function installWorldDesigner({
     }
   }
   function describe(_cards, chosen, armed) {
+    if (!armed) confirmation = null;
     const card = byId.get(chosen),
       toolId = toolMap.has(chosen) ? chosen : projected.anchors.get(chosen),
       tool = toolMap.get(toolId),
@@ -116,7 +128,13 @@ export function installWorldDesigner({
       actions: [],
     };
     if (tool && !(tool.anchor && authoringAction(session.state))) {
-      view = { ...view, ...tool.describe(readContext) };
+      view = {
+        ...view,
+        ...tool.describe({
+          ...readContext,
+          confirming: armed === `${chosen}:0`,
+        }),
+      };
       view.actions = (view.actions || []).map((a) => ({ ...a, tool: toolId }));
     } else if (card?.role === "utility") {
       const run = chosen.replace("designer-", "");
@@ -131,6 +149,7 @@ export function installWorldDesigner({
           label,
           run,
           confirm: run === "reload" && status.dirty,
+          opensDraft: run === "reload",
           disabled: run === "undo" && !session.state.undo.length,
         },
       ];
@@ -158,11 +177,36 @@ export function installWorldDesigner({
       }
     }
     if (status.accepting) view.edit = null;
-    view.actions = view.actions.map((action) => ({
-      ...action,
-      stays: true,
-      disabled: action.disabled || status.busy || status.writing,
-    }));
+    view.actions = view.actions.map((action, index) => {
+      const needsConsent = action.opensDraft && pendingDesign();
+      if (
+        action.opensDraft &&
+        armed === `${chosen}:${index}` &&
+        confirmation?.id !== armed
+      )
+        confirmation = { id: armed, token: discardToken() };
+      return {
+        ...action,
+        ...(needsConsent
+          ? {
+              label:
+                action.run === "reload"
+                  ? armed
+                    ? "Confirm reload and discard"
+                    : "Reload and discard this design"
+                  : armed
+                    ? "Confirm import and discard"
+                    : "Import and discard this design",
+              confirm: true,
+            }
+          : {}),
+        discardToken: action.opensDraft
+          ? (confirmation?.token ?? discardToken())
+          : null,
+        stays: true,
+        disabled: action.disabled || status.busy || status.writing,
+      };
+    });
     return view;
   }
   workspace = installCardWorkspace({
@@ -215,14 +259,26 @@ export function installWorldDesigner({
     },
     run(action) {
       document.activeElement?.blur();
+      if (action.opensDraft && action.discardToken !== discardToken())
+        throw new Error(
+          "This design changed. Review it before opening another draft.",
+        );
       const tool = toolMap.get(action.tool);
       if (action.tool && !tool) throw new Error("Choose an available tool.");
       if (tool && session.state.armed) session.dispatch({ type: "cancel" });
+      const consent = discardToken();
       return session.run(async (ctx) => {
         const open = (value) => {
+          if (
+            discardToken() !== consent ||
+            (!action.opensDraft && pendingDesign())
+          )
+            throw new Error(
+              "This design changed. Review it before opening another draft.",
+            );
           document.activeElement?.blur();
           mode = "world";
-          openDraft(value, ctx.open);
+          openDraft(value, ctx.open, true);
           workspace.refresh();
         };
         if (action.tool) await tool.run(action, { ...ctx, open });

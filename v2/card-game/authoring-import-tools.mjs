@@ -81,7 +81,14 @@ export function authoringImportTools({
         : path.split("/").at(-1),
       describe: () => ({
         note: path,
-        actions: [{ label: "Import this world", run: "import", stays: true }],
+        actions: [
+          {
+            label: "Import this world",
+            run: "import",
+            stays: true,
+            opensDraft: true,
+          },
+        ],
       }),
       async run(_action, context) {
         need(batch === serial, "Choose a card from the current import list.");

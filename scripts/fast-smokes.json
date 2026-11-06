@@ -17,6 +17,10 @@
   ],
   "rules": [
     {
+      "paths": "^v2/card-game/authoring-(designer|session|import-tools)\\.",
+      "smokes": ["smoke-authoring-transient-discard"]
+    },
+    {
       "paths": "^v2/card-game/(beats|combat-beats|dialogue|character-speech|narrative)\\.",
       "smokes": ["smoke-card-beat-stack", "smoke-card-dialogue-timing"]
     },
