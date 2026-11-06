@@ -3305,6 +3305,14 @@ body .beat-stack > .action-panel[data-card-tap]:not([hidden]) {
   color: var(--danger);
 }
 @media (max-width: 700px) {
+  body .beat-stack > .action-panel[data-card-tap=""]:has(#play-status:not([hidden])) {
+    flex-wrap: wrap;
+  }
+  .beat-action[data-card-tap=""] .action-beat-body:has(#play-status:not([hidden])) {
+    flex: 1 1 100%;
+    order: 1;
+    padding-top: 0;
+  }
   body[data-dialogue-over="true"] {
     --dialogue-height: 96px;
   }

@@ -390,7 +390,7 @@ try {
       width: button.getBoundingClientRect().width,
       height: button.closest("#action-beat").getBoundingClientRect().height,
     }));
-    assert(refreshed.width >= 80, "the update notice leaves room for the action message");
+    assert(refreshed.width >= 160, "the update notice leaves room for whole action words");
     assert(refreshed.height < 180, "the update notice keeps the action card compact");
     await shot("updated-world");
     await load(meeting());
