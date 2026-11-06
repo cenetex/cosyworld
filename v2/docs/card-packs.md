@@ -17,6 +17,10 @@ a missing explicit draft link offers the sample through the descriptor.
 `installWorldDesigner` in `authoring-designer.mjs` joins the card tree, fields,
 Undo and draft saves in one workspace. Inject tools, verified art and scene callbacks.
 
+`authoring-accepted.mjs` prepares accepted avatars as guarded source edits plus
+immutable output JSON and image assets. Adopt the result, then pass its full asset
+Map to `store.write` with the expected generation. Earlier bytes support Undo.
+
 The authoring card index is `buildAuthoringTree({pack, bridge})` in
 `authoring-tree.mjs`. It returns ordered `cards`, `roots`, and `children`.
 Each card has its source array path, a parent `holder`, a `kind`, and a `role`. Reference
