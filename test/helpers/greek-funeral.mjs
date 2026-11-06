@@ -60,6 +60,11 @@ export function funeralJourney(world = null) {
     move("sanctuary");
     act("take", { item: "greek-funeral-cloth" });
     states.supplied = world;
+    move("battlefield");
+    for (let turns = 0; turns < 48 && !legalActions(world).some(
+      (a) => a.kind === "talk" && a.target === "greek-polynices-shade",
+    ); turns++) act("wait");
+    act("talk", { target: "greek-polynices-shade" });
     move("polynices-hollow");
     const target = "greek-antigone";
     const canOfferOil = () =>
