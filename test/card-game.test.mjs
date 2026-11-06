@@ -141,11 +141,7 @@ describe("the reflected shore card game", () => {
     s.items.lamp.lit = true;
     s.items.oil.holder = "vale";
     s = act(s, "wait");
-    expect(s.items.lamp).toMatchObject({
-      fuel: 12,
-      lit: false,
-      holder: "vale",
-    });
+    expect(s.items.lamp).toMatchObject({ fuel: 12, lit: false, holder: "vale" });
     expect(s.items.oil.holder).toBe("station");
     expect(s.items.oil).not.toHaveProperty("doses");
     const dry = s.log.findIndex((e) => e.text.includes("runs dry"));
@@ -175,16 +171,10 @@ describe("the reflected shore card game", () => {
     s = act(s, "take", "oil");
     expect(s.items.lamp.fuel).toBe(12);
     expect(s.items.oil.holder).toBe("station");
-    const take = s.log.findIndex(
-      (e) => e.verb === "take" && e.itemId === "oil",
-    );
+    const take = s.log.findIndex((e) => e.verb === "take" && e.itemId === "oil");
     const refuel = s.log.findIndex((e) => e.verb === "refuel");
     expect(refuel).toBeGreaterThan(take);
-    expect(s.log[refuel]).toMatchObject({
-      turn: s.turn,
-      actorId: "vale",
-      locationId: "station",
-    });
+    expect(s.log[refuel]).toMatchObject({ turn: s.turn, actorId: "vale", locationId: "station" });
   });
 
   it("refuels a resident's lamp by the same rule", () => {
