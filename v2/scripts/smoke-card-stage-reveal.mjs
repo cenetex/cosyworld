@@ -85,7 +85,7 @@ try {
             text: document.body.innerText,
             buttons: [...document.querySelectorAll("#card-actions button")]
               .filter((el) => el.checkVisibility())
-              .map((el) => el.textContent),
+              .map((el) => el.getAttribute("aria-label") || el.textContent),
           };
         });
       const noLeaks = ({ down, text }) => {
@@ -141,7 +141,9 @@ try {
           if ((await page.locator("#hand [aria-pressed=true]").count()) === 0)
             await selectCard(page, "vale");
           await page
-            .locator('#card-actions [data-quiet="true"]', { hasText: "Reveal" })
+            .locator(
+              '#card-actions [data-quiet="true"]:not([data-revealing="true"])',
+            )
             .click();
         } else await revealCard(page, id);
         await page.waitForSelector(
@@ -158,7 +160,9 @@ try {
       }
       // Then its first real play: Put out darkens the room, and the card
       // the rules bring arrives face down, nowhere on stage.
-      const putOut = page.locator('#card-actions [data-action="snuff"]');
+      const putOut = page.locator(
+        '#card-actions [data-action="snuff"]:not([data-revealing="true"])',
+      );
       await putOut.waitFor();
       await shot("04-put-out-offered");
       await putOut.click();

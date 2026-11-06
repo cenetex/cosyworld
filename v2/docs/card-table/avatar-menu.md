@@ -126,23 +126,18 @@ only the tools. ☰ opens a list of **world slots**:
 - ☰ has **no profile card** (owner, 2026-11-01). A chosen avatar shows in
   the action beat in front of the dialogue instead.
 
-**Tap a portrait once** to choose it: it glows and the action beat shows it,
-with no border. On the left the avatar stands as on the quest card: no
-tile, a drop shadow, in its place's painting feathered in (the world being
-played) or on the dark ground, under its tier's glow and faint level
-numeral, grey while offline. In the middle are exactly two lines, its name
-("Mara") and where it is ("Exploring *Hollowmere*"; another person's seat
-names who holds it first: "Amber Heron · Exploring *Hollowmere*"). They
-wrap, never ending in an ellipsis, and on a phone the beat grows over the
-hand to fit them. Its action is on the right. On one of yours that is
-**Leave**. A chosen avatar with no action (someone else's, unarmed, or
-anyone's for a non-owner) shows the two lines with no button. Presence is
-the card's colour, not a word.
+**Tap a portrait once** to choose it: it glows and the action beat shows it.
+The avatar stands in its scene on the left, with its level and tier.
+Its name and world use the same text style as a ready play. The text wraps
+to fit the card. A card with an action shows a hint in the lower right,
+such as **Tap to leave**. The first tap finishes typing; the next runs the
+action. A chosen avatar with just information shows its name and world.
+Presence sets the card's colour.
 
 **Tap one of your avatars in another world** to switch to it at once
 (owner, 2026-11-01): the page goes to that world with no veil or
-animation, and ☰ opens there with that avatar chosen and **Leave** on the
-right of its beat. Tapping the avatar being played only chooses it, however
+animation, and ☰ opens there with that avatar chosen and **Tap to leave**
+on its beat. Tapping the avatar being played only chooses it, however
 often. On another person's avatar a second tap arms it: the portrait turns
 its level tier's colour, and the owner gets **Free**. A tap anywhere else in
 the menu disarms; presence redraws keep it armed. Each action acts on one
@@ -173,11 +168,9 @@ player picks what comes next.
   sends `reset`.
 
 The actions use the same action beat as a ready play (`showActionBeat` in
-`app.mjs`, passed to ☰ through `installToolbar`): the avatar's card, its
-two lines, any note and the button on the right. ☰ stays open beside it at
-390 and 1440 pixels; on a short landscape phone ☰ lies over part of it. A tap
-on one of its buttons closes ☰ (it is outside it); after Leave ☰ opens again
-to say what happened.
+`app.mjs`, passed to ☰ through `installToolbar`). A tap on the message closes
+☰ and keeps the card ready for the next tap. Back or another card clears it.
+After Leave, ☰ opens again to say what happened.
 
 **A friend's link** (`/?world=…`) signs the person in, then opens their own
 table with ☰ open and the linked world as an extra slot marked ✉

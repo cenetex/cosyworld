@@ -3265,6 +3265,11 @@ body .beat-stack > .action-panel[data-card-tap]:not([hidden]) {
 .beat-action[data-card-tap] #card-actions {
   display: contents;
 }
+/* A status note shares the card with the action message. */
+.beat-action[data-card-tap=""]
+  .action-beat-body:has(#play-status:not([hidden])) {
+  flex: 0 1 33%;
+}
 .beat-action[data-card-tap] #card-actions button {
   flex: 1 1 0;
   min-width: 0;
@@ -3278,7 +3283,47 @@ body .beat-stack > .action-panel[data-card-tap]:not([hidden]) {
   button:is(:hover, :focus-visible, :active) {
   background: transparent;
 }
+/* Quest and menu cards keep their note above the same full-card button. */
+.beat-stack > .action-panel[data-avatar][data-card-tap="hint"] {
+  border: 1px solid var(--beat-divider);
+}
+.action-panel[data-card-tap="hint"] .action-beat-body {
+  padding-bottom: 22px;
+}
+.action-panel[data-card-tap="hint"] .action-beat-text {
+  display: block;
+  overflow: visible;
+  font: var(--action-font);
+  color: #f2e3c4;
+}
+.action-panel[data-card-tap="hint"] .action-beat-text strong {
+  font-weight: 700;
+  color: inherit;
+}
+.beat-action[data-card-tap="hint"] #card-actions button {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-end;
+  padding: 6px 12px;
+  color: var(--muted);
+  font:
+    10px/12px Arial,
+    sans-serif;
+}
+.beat-action[data-card-tap="hint"] #card-actions button[data-destructive] {
+  color: var(--danger);
+}
 @media (max-width: 700px) {
+  body .beat-stack > .action-panel[data-card-tap=""]:has(#play-status:not([hidden])) {
+    flex-wrap: wrap;
+  }
+  .beat-action[data-card-tap=""] .action-beat-body:has(#play-status:not([hidden])) {
+    flex: 1 1 100%;
+    order: 1;
+    padding-top: 0;
+  }
   body[data-dialogue-over="true"] {
     --dialogue-height: 96px;
   }

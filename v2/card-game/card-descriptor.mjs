@@ -11,7 +11,11 @@ function node(tag, text, className) {
 }
 export function renderCardDescriptor(
   beat,
-  { placeArt = (path) => path, showNote = showActionBeatNote } = {},
+  {
+    placeArt = (path) => path,
+    showNote = showActionBeatNote,
+    showMessage,
+  } = {},
 ) {
   const row = $("card-actions"),
     heading = document.querySelector(".action-beat-heading"),
@@ -57,14 +61,16 @@ export function renderCardDescriptor(
   );
   heading.hidden = !beat.name;
   // An avatar's beat reads as two lines: its name, then where it is.
-  heading.lastElementChild.replaceChildren(
-    node("strong", beat.name || ""),
-    beat.info
-      ? beat.avatar
-        ? node("span", beat.info, "action-beat-info")
-        : ` · ${beat.info}`
-      : "",
-  );
+  if (showMessage) showMessage(heading.lastElementChild);
+  else
+    heading.lastElementChild.replaceChildren(
+      node("strong", beat.name || ""),
+      beat.info
+        ? beat.avatar
+          ? node("span", beat.info, "action-beat-info")
+          : ` · ${beat.info}`
+        : "",
+    );
   const note = document.querySelector(".action-beat-note");
   showNote(note, beat);
   const buttons = beat.buttons.map(({ label, id, run, disabled }, index) => {

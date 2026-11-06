@@ -175,7 +175,7 @@ export async function revealOpening(page) {
   await revealCard(page, "vale");
   await selectCard(page, "lamp");
   await page
-    .locator('#card-actions [data-quiet="true"]', { hasText: "Reveal" })
+    .locator('#card-actions [data-quiet="true"]:not([data-revealing="true"])')
     .click();
   await readyActionButton(page, "snuff").waitFor();
 }

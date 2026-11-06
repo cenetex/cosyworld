@@ -180,7 +180,10 @@ play commits (a local play, or a shared play the room is playing) the beat
 leaves and its reply types into the full-size front card. After a play the
 beat rests until the player chooses a card or taps the raised hand. The top
 quest offers its next playable step. A blocked quest explains why and offers
-Abandon. Abandon opens a red confirmation in the same box. A shared play the
+**Tap to abandon** in the lower right. Tapping opens a red confirmation in
+the same box, with the quest, its XP cost, and **Tap to confirm**. Back or
+deselecting clears it. Both cards use the same typing and tap controls.
+A shared play the
 server refuses brings back the action with its button.
 The hand never moves for it.
 
