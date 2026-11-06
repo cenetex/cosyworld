@@ -453,8 +453,7 @@ const knownName = (id, unknown = "…") =>
 const avatarKnown = () => !coveredCards.has(currentActor(world));
 // A shared viewer follows the room once their avatar and place are known.
 const selfKnown = () =>
-  avatarKnown() &&
-  !coveredCards.has(world.actors[currentActor(world)].place);
+  avatarKnown() && !coveredCards.has(world.actors[currentActor(world)].place);
 function rememberCards() {
   try {
     localStorage.setItem(SEEN_KEY, JSON.stringify([...encountered]));
@@ -636,8 +635,7 @@ function ownSharedEntry() {
 // run, so a choice comes forward after the grace, but a next play waits
 // behind those words: the late line types into its own beat first, as the
 // shared table's seat makes it do, and the next scene is asked after it.
-const localWordsPending = () =>
-  !sharedSession && storyStatus === "pending";
+const localWordsPending = () => !sharedSession && storyStatus === "pending";
 const playQueue = createPlayQueue({
   ready: (action) =>
     !cardsCooling &&
@@ -5407,9 +5405,18 @@ async function submitSharedPlay(action) {
 function syncSharedLine() {
   renderPlayers();
   if (!sharedSession || reviewing || covering) return;
-  // A viewer hears the room once they have uncovered themselves and it.
-  if (!selfKnown()) return;
+  if (!avatarKnown()) return;
   const room = world.actors[currentActor(world)].place;
+  // The avatar's waking scene can speak while its surroundings stay covered.
+  // Other room scenes wait for that viewer's place reveal.
+  const state = selfKnown()
+    ? sharedSession.state
+    : {
+        ...sharedSession.state,
+        history: (sharedSession.state.history || []).filter(
+          (scene) => scene.opening && scene.actor === currentActor(world),
+        ),
+      };
   if (
     document.hidden ||
     document.querySelector("dialog[open], .world-menu:popover-open")
@@ -5419,8 +5426,9 @@ function syncSharedLine() {
   const after = sharedLineSeq ?? sharedLineStart;
   const live =
     after === null
-      ? sharedLiveLine(sharedSession.state, sharedSession.now(), room)
-      : sharedNextLine(sharedSession.state, room, after);
+      ? sharedLiveLine(state, sharedSession.now(), room)
+      : sharedNextLine(state, room, after);
+  if (!live && !selfKnown()) return;
   sharedLineStart ??= -Infinity;
   if (!live && after !== null) return;
   const entry = shownWorld().log.findLast(

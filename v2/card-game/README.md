@@ -648,7 +648,8 @@ and page title show "…" (beside a toolbar logo the covered world name is
 hidden instead), and card labels, screen-reader text and stage alt text
 leave it out. A new game's first line starts when its avatar is uncovered,
 while the room can still be black. The first play waits for that line. In
-shared play, room lines wait for the viewer's avatar and place to be uncovered.
+shared play, the avatar's own opening line starts with its reveal too; later
+room lines wait for the viewer's avatar and place to be uncovered.
 `speech-knowledge.mjs` removes covered items from every local
 speech request, so the dialogue service cannot name them; a fact that
 mentioned one says "something I can't make out" instead, or "something shining I can't make out" for a lit light no cloth covers. The first line is

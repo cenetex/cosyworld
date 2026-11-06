@@ -744,7 +744,7 @@ try {
       /attic-lit/,
     );
     await shot(page, `game-${width}`);
-    // Vale is face up already; his first line waits only for the attic.
+    // Vale's own reveal starts his first line while the attic stays covered.
     await valeShown(page);
     assert.equal(
       await page.getAttribute(
@@ -753,7 +753,9 @@ try {
       ),
       "true",
     );
-    assert.equal(page.wakings, 0);
+    for (let i = 0; i < 50 && page.wakings < 1; i++)
+      await page.waitForTimeout(100);
+    assert.equal(page.wakings, 1);
     await page.locator('#hand .card[data-card="attic"]').click();
     await page.waitForFunction(() =>
       document.querySelector(
