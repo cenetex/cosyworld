@@ -1,15 +1,18 @@
-// What the player's avatar can say follows the cards its player has uncovered
-// (#1575). A covered item never reaches the speech request: its entity, its
-// custody and its name in facts are removed, so the server's validator also
-// rejects a line that names it. The rules still hold the full truth; this
-// narrows only the browser's request. Later, rules-owned knowledge replaces it.
+// The player uncovers cards before their names reach a speech request.
 import {
   entityActive,
   observableStates,
   packOf,
   packThings,
 } from "./pack-registry.mjs";
-import { covered, itemPlace, nameOf, rootHolder } from "./world.mjs";
+import {
+  covered,
+  currentActor,
+  itemPlace,
+  nameOf,
+  places,
+  rootHolder,
+} from "./world.mjs";
 import { questsOf } from "./want.mjs";
 import baseProfiles from "./entity-profiles.json" with { type: "json" };
 
@@ -49,10 +52,17 @@ function blurrer(unknown) {
 function questTargets(world, id) {
   const goal = world.memories[id]?.learning?.at(-1)?.goal;
   return [
-    ...questsOf(world, id).map((q) => q.target),
+    ...questsOf(world, id).flatMap(({ target, step }) => [
+      target,
+      step?.at,
+      step?.to,
+      step?.with,
+      ...(step?.items || []),
+    ]),
+    world.actors[id].glimpse?.id,
     goal?.item,
     goal?.destination,
-  ].filter((t) => t && t !== id && nameOf(t) !== t);
+  ].filter((t) => t !== id && (world.items[t] || world.actors[t] || places[t]));
 }
 
 // Whether the rules record that `speaker` has found `id`: a place it has
@@ -120,65 +130,146 @@ export const groundedInner = (world, speaker, text) =>
   !inventsItem(world, speaker, text);
 
 export function forgetCovered(world, context, isCovered) {
-  const speakers = new Set(context.speakers);
-  const hidden = context.entities
-    .map(({ id }) => id)
-    .concat(context.outcome?.items.map(({ id }) => id) || [])
-    .filter(
-      (id) =>
-        world.items[id] &&
-        !speakers.has(id) &&
-        id !== context.location &&
-        isCovered(id),
-    );
+  const actor = currentActor(world);
+  const hidden = [
+    ...Object.keys(world.actors),
+    ...Object.keys(places),
+    ...Object.keys(world.items),
+  ].filter((id) => isCovered(id) || (world.items[id] && covered(world, id)));
   if (!hidden.length) return context;
   const gone = new Set(hidden);
+  const kept = (id) => !gone.has(id);
+  const keepEntity = (id) =>
+    id === actor || id === context.location || kept(id);
   const unknown = new Map(
     hidden.map((id) => [
       nameOf(id).toLowerCase(),
-      world.items[id].lit && !covered(world, id)
+      world.items[id]?.lit && !covered(world, id)
         ? UNKNOWN_LIGHT
-        : UNKNOWN_THING,
+        : unnamed(world, id),
     ]),
   );
   const blur = blurrer(unknown);
-  const outcome = context.outcome && {
-    ...context.outcome,
-    card: Object.fromEntries(
-      Object.entries(context.outcome.card).map(([key, value]) => [
-        key,
-        gone.has(value) ? null : value,
-      ]),
-    ),
-    avatars: context.outcome.avatars.map((avatar) => ({
-      ...avatar,
-      holding: avatar.holding.filter((id) => !gone.has(id)),
-    })),
-    items: context.outcome.items.filter(({ id }) => !gone.has(id)),
-  };
-  if (outcome)
-    outcome.observations = observableStates(world, [
-      ...outcome.avatars.map(({ id }) => id),
-      ...outcome.items.map(({ id }) => id),
-    ]);
+  const outcome =
+    context.outcome && revealedOutcome(world, context.outcome, actor, kept);
+  const speakers = context.speakers.filter(keepEntity);
   return {
     ...context,
+    speakers,
+    scenery: context.scenery && kept(context.location),
+    concealed: hidden,
     ...(outcome ? { outcome } : {}),
-    focus: gone.has(context.focus) ? null : context.focus,
-    action: blur(context.action),
-    events: context.events.map(blur),
+    focus: kept(context.focus) ? context.focus : null,
+    action: blur(context.action)?.slice(0, 650) ?? null,
+    events: context.events.map((text) => blur(text).slice(0, 650)),
+    conversation: context.conversation
+      .filter(({ actorId }) => kept(actorId))
+      .map((line) => ({ ...line, text: blur(line.text).slice(0, 400) })),
+    ...(context.disclosures && {
+      disclosures: context.disclosures.filter(
+        ({ speaker, text }) =>
+          speakers.includes(speaker) && blur(text) === text,
+      ),
+    }),
     entities: context.entities
-      .filter(({ id }) => !gone.has(id))
+      .filter(({ id }) => keepEntity(id))
       .map((entity) => ({
         ...entity,
-        facts: entity.facts.map(blur),
-        memories: entity.memories.map((m) => ({ ...m, text: blur(m.text) })),
-        previous: blur(entity.previous),
+        facts: entity.facts.map((text) => blur(text).slice(0, 240)),
+        memories: entity.memories.map((m) => ({
+          ...m,
+          text: blur(m.text).slice(0, 400),
+        })),
+        previous: blur(entity.previous)?.slice(0, 400) ?? null,
+        ...(entity.inner_life && {
+          inner_life: {
+            ...entity.inner_life,
+            persona:
+              blur(entity.inner_life.persona) === entity.inner_life.persona
+                ? entity.inner_life.persona
+                : null,
+            thoughts: entity.inner_life.thoughts.filter(
+              ({ text }) => blur(text) === text,
+            ),
+            dreams: entity.inner_life.dreams.filter(
+              ({ text }) => blur(text) === text,
+            ),
+          },
+        }),
+        ...(entity.between && {
+          between: entity.between
+            .filter((b) => speakers.includes(b.with))
+            .map((b) => ({
+              ...b,
+              facts: b.facts.map((text) => blur(text).slice(0, 240)),
+              said: b.said.filter(({ text }) => blur(text) === text),
+            }))
+            .filter((b) => b.facts.length || b.said.length),
+        }),
+        ...(entity.perception && {
+          perception: {
+            ...entity.perception,
+            pull: kept(entity.perception.pull) ? entity.perception.pull : null,
+            arrival:
+              entity.perception.arrival &&
+              Object.fromEntries(
+                Object.entries(entity.perception.arrival).filter(([, value]) =>
+                  kept(value),
+                ),
+              ),
+          },
+        }),
         desire: entity.desire && {
-          ...entity.desire,
-          items: entity.desire.items.filter((id) => !gone.has(id)),
+          items: entity.desire.items.filter(kept),
+          avatars: entity.desire.avatars.filter(kept),
+          location: kept(entity.desire.location)
+            ? entity.desire.location
+            : null,
         },
       })),
+  };
+}
+
+function revealedOutcome(world, outcome, actor, kept) {
+  const card = { ...outcome.card };
+  for (const key of ["target", "item", "receive", "destination"])
+    if (!kept(card[key])) card[key] = null;
+  if (card.wantMet && !kept(card.wantMet.target)) delete card.wantMet;
+  // Ask and Accompany need named parties in the narrator's outcome shape.
+  if (
+    (card.kind === "ask" && (!card.target || !card.item)) ||
+    (card.kind === "accompany" && (!card.target || !card.destination))
+  ) {
+    card.kind = "wait";
+    card.accepted = null;
+    card.destination = null;
+  }
+  const avatars = outcome.avatars.filter(
+    ({ id, location }) => id === actor || (kept(id) && kept(location)),
+  );
+  const avatarIds = new Set(avatars.map(({ id }) => id));
+  const items = outcome.items.filter(
+    ({ id, holder, location }) =>
+      kept(id) && kept(holder) && kept(location) && kept(rootHolder(world, id)),
+  );
+  const itemIds = new Set(items.map(({ id }) => id));
+  return {
+    card,
+    avatars: avatars.map((avatar) => ({
+      ...avatar,
+      holding: avatar.holding.filter((id) => itemIds.has(id)),
+      travel:
+        avatar.travel && kept(avatar.travel.from) && kept(avatar.travel.to)
+          ? {
+              ...avatar.travel,
+              companions: avatar.travel.companions.filter((id) =>
+                avatarIds.has(id),
+              ),
+            }
+          : null,
+    })),
+    items,
+    observations: observableStates(world, [...avatarIds, ...itemIds]),
   };
 }
 

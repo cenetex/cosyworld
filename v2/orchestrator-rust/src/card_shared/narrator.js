@@ -20938,6 +20938,7 @@
 
   // v2/card-game/speech-knowledge.mjs
   var UNKNOWN_THING = "something I can't make out";
+  var UNKNOWN_LIGHT = "something shining I can't make out";
   var UNKNOWN_PERSON = "someone I haven't met yet";
   var unnamed = (world, id) => world.actors[id] ? UNKNOWN_PERSON : world.items[id] ? UNKNOWN_THING : "a place I haven't found yet";
   var escape = (text2) => text2.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -20953,10 +20954,17 @@
   function questTargets(world, id) {
     const goal = world.memories[id]?.learning?.at(-1)?.goal;
     return [
-      ...questsOf(world, id).map((q) => q.target),
+      ...questsOf(world, id).flatMap(({ target, step }) => [
+        target,
+        step?.at,
+        step?.to,
+        step?.with,
+        ...step?.items || []
+      ]),
+      world.actors[id].glimpse?.id,
       goal?.item,
       goal?.destination
-    ].filter((t) => t && t !== id && nameOf(t) !== t);
+    ].filter((t) => t !== id && (world.items[t] || world.actors[t] || places[t]));
   }
   function found(world, speaker, id) {
     const a = world.actors[speaker];
@@ -20992,6 +21000,121 @@
     );
   }
   var groundedInner = (world, speaker, text2) => /\b(i|i'm|i've|my|me|mine)\b/i.test(text2) && (text2.match(/["\u201c\u201d]/g) || []).length % 2 === 0 && !/[,!?]["\u201d] [a-z]/.test(text2) && !inventsItem(world, speaker, text2);
+  function forgetCovered(world, context, isCovered) {
+    const actor = currentActor(world);
+    const hidden = [
+      ...Object.keys(world.actors),
+      ...Object.keys(places),
+      ...Object.keys(world.items)
+    ].filter((id) => isCovered(id) || world.items[id] && covered(world, id));
+    if (!hidden.length) return context;
+    const gone2 = new Set(hidden);
+    const kept = (id) => !gone2.has(id);
+    const keepEntity = (id) => id === actor || id === context.location || kept(id);
+    const unknown = new Map(
+      hidden.map((id) => [
+        nameOf(id).toLowerCase(),
+        world.items[id]?.lit && !covered(world, id) ? UNKNOWN_LIGHT : unnamed(world, id)
+      ])
+    );
+    const blur = blurrer(unknown);
+    const outcome = context.outcome && revealedOutcome(world, context.outcome, actor, kept);
+    const speakers = context.speakers.filter(keepEntity);
+    return {
+      ...context,
+      speakers,
+      scenery: context.scenery && kept(context.location),
+      concealed: hidden,
+      ...outcome ? { outcome } : {},
+      focus: kept(context.focus) ? context.focus : null,
+      action: blur(context.action)?.slice(0, 650) ?? null,
+      events: context.events.map((text2) => blur(text2).slice(0, 650)),
+      conversation: context.conversation.filter(({ actorId }) => kept(actorId)).map((line) => ({ ...line, text: blur(line.text).slice(0, 400) })),
+      ...context.disclosures && {
+        disclosures: context.disclosures.filter(
+          ({ speaker, text: text2 }) => speakers.includes(speaker) && blur(text2) === text2
+        )
+      },
+      entities: context.entities.filter(({ id }) => keepEntity(id)).map((entity) => ({
+        ...entity,
+        facts: entity.facts.map((text2) => blur(text2).slice(0, 240)),
+        memories: entity.memories.map((m) => ({
+          ...m,
+          text: blur(m.text).slice(0, 400)
+        })),
+        previous: blur(entity.previous)?.slice(0, 400) ?? null,
+        ...entity.inner_life && {
+          inner_life: {
+            ...entity.inner_life,
+            persona: blur(entity.inner_life.persona) === entity.inner_life.persona ? entity.inner_life.persona : null,
+            thoughts: entity.inner_life.thoughts.filter(
+              ({ text: text2 }) => blur(text2) === text2
+            ),
+            dreams: entity.inner_life.dreams.filter(
+              ({ text: text2 }) => blur(text2) === text2
+            )
+          }
+        },
+        ...entity.between && {
+          between: entity.between.filter((b) => speakers.includes(b.with)).map((b) => ({
+            ...b,
+            facts: b.facts.map((text2) => blur(text2).slice(0, 240)),
+            said: b.said.filter(({ text: text2 }) => blur(text2) === text2)
+          })).filter((b) => b.facts.length || b.said.length)
+        },
+        ...entity.perception && {
+          perception: {
+            ...entity.perception,
+            pull: kept(entity.perception.pull) ? entity.perception.pull : null,
+            arrival: entity.perception.arrival && Object.fromEntries(
+              Object.entries(entity.perception.arrival).filter(
+                ([, value]) => kept(value)
+              )
+            )
+          }
+        },
+        desire: entity.desire && {
+          items: entity.desire.items.filter(kept),
+          avatars: entity.desire.avatars.filter(kept),
+          location: kept(entity.desire.location) ? entity.desire.location : null
+        }
+      }))
+    };
+  }
+  function revealedOutcome(world, outcome, actor, kept) {
+    const card = { ...outcome.card };
+    for (const key of ["target", "item", "receive", "destination"])
+      if (!kept(card[key])) card[key] = null;
+    if (card.wantMet && !kept(card.wantMet.target)) delete card.wantMet;
+    if (card.kind === "ask" && (!card.target || !card.item) || card.kind === "accompany" && (!card.target || !card.destination)) {
+      card.kind = "wait";
+      card.accepted = null;
+      card.destination = null;
+    }
+    const avatars = outcome.avatars.filter(
+      ({ id, location }) => id === actor || kept(id) && kept(location)
+    );
+    const avatarIds = new Set(avatars.map(({ id }) => id));
+    const items2 = outcome.items.filter(
+      ({ id, holder, location }) => kept(id) && kept(holder) && kept(location) && kept(rootHolder(world, id))
+    );
+    const itemIds = new Set(items2.map(({ id }) => id));
+    return {
+      card,
+      avatars: avatars.map((avatar) => ({
+        ...avatar,
+        holding: avatar.holding.filter((id) => itemIds.has(id)),
+        travel: avatar.travel && kept(avatar.travel.from) && kept(avatar.travel.to) ? {
+          ...avatar.travel,
+          companions: avatar.travel.companions.filter(
+            (id) => avatarIds.has(id)
+          )
+        } : null
+      })),
+      items: items2,
+      observations: observableStates(world, [...avatarIds, ...itemIds])
+    };
+  }
   function forgetUnfound(world, context, isCovered = () => false) {
     const scene = [
       context.location,
@@ -21249,7 +21372,7 @@
       (to) => shut.includes(to) ? `The way to ${nameOf(to)} is shut.` : `The way to ${nameOf(to)} is open.`
     );
   }
-  function narrativeContext(world, action = null) {
+  function narrativeContext(world, action = null, isCovered = null) {
     const cast = dialogueCast(world, action);
     const {
       location,
@@ -21297,7 +21420,7 @@
         .../* @__PURE__ */ new Set([actorId, ...witnesses || [], ...cast2 || []])
       ]
     }));
-    return forgetUnfound(world, {
+    const context = {
       revision: world.revision,
       turn: world.turn,
       outcome: turnOutcome(world),
@@ -21479,7 +21602,8 @@
           } : {}
         };
       })
-    });
+    };
+    return isCovered ? forgetCovered(world, context, isCovered) : forgetUnfound(world, context);
   }
 
   // v2/card-game/sleep-portraits.mjs
@@ -22479,8 +22603,13 @@
   // v2/card-game/shared-narrator.mjs
   function sharedScene(request) {
     const world = load(request);
+    const revealed2 = Array.isArray(request.revealed) ? new Set(request.revealed) : null;
     return {
-      context: narrativeContext(world, request.action || null),
+      context: narrativeContext(
+        world,
+        request.action || null,
+        revealed2 && ((id) => !revealed2.has(id))
+      ),
       ...request.scene ? { scene: currentScene(world) } : {}
     };
   }

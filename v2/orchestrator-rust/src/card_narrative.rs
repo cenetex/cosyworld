@@ -557,6 +557,9 @@ struct Context {
     /// The speaker's own card or place, while its player has not uncovered it.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     covered: Vec<String>,
+    /// Cards the player has yet to reveal, including those outside the scene.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    concealed: Vec<String>,
     /// Why this play speaks (the narrator's speech occasion), for metrics.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     occasion: Option<String>,
@@ -584,6 +587,8 @@ fn valid(context: &Context) -> bool {
         && (1..=8).contains(&context.entities.len())
         && ids.len() == context.entities.len()
         && context.covered.iter().all(|id| ids.contains(id.as_str()))
+        && context.concealed.len() <= 512
+        && context.concealed.iter().all(|id| profiles().get(id).is_some())
         && context.outcome.as_ref().is_none_or(valid_outcome)
         && observations::valid(context)
         && knowledge::valid(context)
@@ -1726,6 +1731,7 @@ fn known(context: &Context, entity: &Entity) -> BTreeSet<String> {
             ids.insert(id.clone());
         }
     }
+    ids.retain(|id| !context.concealed.contains(id));
     ids
 }
 
@@ -2305,6 +2311,22 @@ pub(super) fn prose(view: &str) -> String {
 }
 
 fn messages(context: &Context, entity: &Entity, part: Part) -> Prompt {
+    let mut prompt = scene_messages(context, entity, part);
+    if !context.concealed.is_empty() {
+        // Profiles and held cards add words after the scene reaches Rust.
+        // Apply the same reveal boundary to those words before inference.
+        let mut names: Vec<_> = context.concealed.iter().map(|id| name(id)).collect();
+        names.sort_by_key(|name| std::cmp::Reverse(name.len()));
+        for text in [&mut prompt.system, &mut prompt.assistant, &mut prompt.user] {
+            for name in &names {
+                redact_name(text, name);
+            }
+        }
+    }
+    prompt
+}
+
+fn scene_messages(context: &Context, entity: &Entity, part: Part) -> Prompt {
     if kind(&entity.id, "location") {
         return Prompt {
             system: idiolect(entity, part),
@@ -2975,11 +2997,25 @@ fn plain_words(text: &str) -> Vec<String> {
 
 /// Whether `text` names `name` as a whole word.
 fn mentions(text: &str, name: &str) -> bool {
-    text.match_indices(name).any(|(at, _)| {
-        let before = text[..at].chars().next_back();
-        let after = text[at + name.len()..].chars().next();
-        !before.is_some_and(char::is_alphanumeric) && !after.is_some_and(char::is_alphanumeric)
-    })
+    text.match_indices(name)
+        .any(|(at, _)| word_boundaries(text, at, at + name.len()))
+}
+
+fn word_boundaries(text: &str, start: usize, end: usize) -> bool {
+    let before = text[..start].chars().next_back();
+    let after = text[end..].chars().next();
+    !before.is_some_and(char::is_alphanumeric) && !after.is_some_and(char::is_alphanumeric)
+}
+
+fn redact_name(text: &mut String, name: &str) {
+    let lower = text.to_ascii_lowercase();
+    let name = name.to_ascii_lowercase();
+    for (at, _) in lower.match_indices(&name).rev() {
+        let end = at + name.len();
+        if word_boundaries(&lower, at, end) {
+            text.replace_range(at..end, "something unnamed");
+        }
+    }
 }
 
 #[cfg(test)]
@@ -3105,6 +3141,26 @@ pub(crate) mod tests {
         assert!(shared(&[("moth", "I hear you.")]).is_err());
         assert!(shared(&[]).is_err());
         assert!(shared(&[("vale", "Hold it higher")]).is_err());
+    }
+
+    #[test]
+    fn a_concealed_name_stays_out_of_each_prompt_and_its_reply_vocabulary() {
+        let mut scene = context();
+        let vale = scene.entities.iter_mut().find(|e| e.id == "vale").unwrap();
+        vale.facts
+            .push("The Route board leads to the Between-hours carriage.".into());
+        scene.concealed = vec!["train".into()];
+        let vale = entity(&scene, "vale");
+        assert!(!known(&scene, vale).contains("train"));
+        for part in [Part::Line, Part::Thought, Part::Dream] {
+            let prompt = format!("{:?}", messages(&scene, vale, part));
+            assert!(!prompt
+                .to_ascii_lowercase()
+                .contains("between-hours carriage"));
+        }
+        let mut printed = "between-hours carriage and Between-hours carriageway".into();
+        redact_name(&mut printed, "Between-hours carriage");
+        assert_eq!(printed, "something unnamed and Between-hours carriageway");
     }
 
     pub(super) fn solo_departure() -> TurnOutcome {

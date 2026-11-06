@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { createWorld, nameOf } from "../v2/card-game/world.mjs";
 import { enableMotives } from "../v2/card-game/motives.mjs";
 import { narrativeContext } from "../v2/card-game/narrative.mjs";
+import { sharedContext } from "../v2/card-game/shared-narrator.mjs";
 import {
   forgetCovered,
   forgetUnfound,
@@ -11,6 +12,7 @@ import {
 } from "../v2/card-game/speech-knowledge.mjs";
 
 const fresh = () => enableMotives(createWorld({ opening: true }));
+const visible = ({ concealed, ...context }) => JSON.stringify(context);
 
 describe("speech knows only uncovered cards (#1575)", () => {
   it("keeps a covered lamp out of Vale's opening request", () => {
@@ -18,7 +20,7 @@ describe("speech knows only uncovered cards (#1575)", () => {
     const full = narrativeContext(s);
     expect(JSON.stringify(full)).toMatch(/lamp/i);
     const limited = forgetCovered(s, full, (id) => id === "lamp");
-    expect(JSON.stringify(limited)).not.toMatch(/lamp/i);
+    expect(visible(limited)).not.toMatch(/lamp/i);
     expect(limited.speakers).toEqual(["vale"]);
     expect(limited.entities.map(({ id }) => id)).toContain(limited.location);
     expect(limited.outcome.avatars[0].holding).toEqual([]);
@@ -40,13 +42,41 @@ describe("speech knows only uncovered cards (#1575)", () => {
     );
     const vale = limited.entities.find(({ id }) => id === "vale");
     expect(vale.facts[0]).toMatch(/^Holding: something I can't make out/);
-    expect(JSON.stringify(limited)).not.toMatch(/shining|lamp|cloth/i);
+    expect(visible(limited)).not.toMatch(/shining|lamp|cloth/i);
   });
 
   it("leaves the request untouched once the lamp is uncovered", () => {
     const s = fresh();
     const full = narrativeContext(s);
     expect(forgetCovered(s, full, () => false)).toBe(full);
+  });
+
+  it("keeps unrevealed names out of a quest, earlier talk and private memories", () => {
+    const s = fresh();
+    s.actors.vale.visited.push("train");
+    s.actors.vale.want = {
+      kind: "item",
+      target: "routes",
+      step: { verb: "bring", at: "train" },
+    };
+    const text = "I can take the Route board into the Between-hours carriage.";
+    const full = narrativeContext(s);
+    const vale = full.entities.find(({ id }) => id === "vale");
+    vale.facts.push(text);
+    vale.inner_life = {
+      persona: text,
+      thoughts: [{ text }],
+      dreams: [{ text }],
+    };
+    full.conversation = [{ actorId: "vale", text, witnesses: ["vale"] }];
+    const limited = forgetCovered(s, full, (id) =>
+      ["train", "routes"].includes(id),
+    );
+    expect(visible(limited)).not.toMatch(/Route board|Between-hours carriage/);
+    expect(limited.concealed).toEqual(
+      expect.arrayContaining(["train", "routes"]),
+    );
+    expect(visible(forgetCovered(s, full, () => false))).toContain(text);
   });
 
   it("marks the first line waking and lists Vale and his place while covered (#1600)", () => {
@@ -68,6 +98,19 @@ describe("speech knows only uncovered cards (#1575)", () => {
     // Later turns keep the full scene frame.
     const later = { ...narrativeContext(s), turn: 1 };
     expect(markWaking(s, later, () => true)).toBe(later);
+  });
+
+  it("uses an empty shared reveal list as a face-down view", () => {
+    const request = { world: fresh(), actor: "vale" };
+    expect(visible(sharedContext(request))).toMatch(/lamp/i);
+    expect(visible(sharedContext({ ...request, revealed: [] }))).not.toMatch(
+      /lamp/i,
+    );
+    const context = sharedContext({
+      ...request,
+      revealed: ["vale", "attic", "lamp"],
+    });
+    expect(visible(context)).toMatch(/lamp/i);
   });
 });
 
@@ -97,6 +140,28 @@ describe("speech names only what its speaker has found (#1850)", () => {
     // In the browser, a card its player never uncovered stays unnamed too.
     const shown = forgetUnfound(s, narrativeContext(s), (id) => id === host);
     expect(JSON.stringify(shown)).not.toContain(nameOf(host));
+  });
+
+  it("uses a visit before naming a quest destination without a reveal list", () => {
+    const s = seeking();
+    s.actors.vale.want = {
+      kind: "item",
+      target: "routes",
+      step: { verb: "bring", at: "train" },
+      since: 0,
+      refusals: 0,
+    };
+    const full = narrativeContext(s);
+    vale(full).facts.push(
+      "In a dream, bring the Route board to Between-hours carriage.",
+    );
+    expect(JSON.stringify(forgetUnfound(s, full))).not.toContain(
+      "Between-hours carriage",
+    );
+    s.actors.vale.visited.push("train");
+    expect(JSON.stringify(forgetUnfound(s, full))).toContain(
+      "Between-hours carriage",
+    );
   });
 
   it("does not retell the speaker's own earlier deed", () => {
