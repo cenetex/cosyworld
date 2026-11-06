@@ -128,6 +128,8 @@ The configured Haiku route returns `{candidate,model,usage}`; candidate is one
 `readCharacter` record or `null`. Passages, evidence and prompts stay transient.
 Each request gets one provider attempt; the client reviews and saves approved
 output fields. The service allows one active request per account, two globally.
+`POST /card-game/authoring/generate/image` takes `{kind,role,description,instruction?,reference?,basis}`.
+It uses one Flare attempt and returns `{image:{base64,mime,sha256,size},basis,model,usage}` for review.
 Create accepts the seven content fields and optional `launch`; the server supplies
 `id` and `revision`. PUT `/:id` accepts the same content plus `expectedRevision`.
 It saves source and launch together and returns the nine-field draft. A stale
