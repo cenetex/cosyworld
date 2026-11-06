@@ -497,7 +497,14 @@ try {
       );
       if (actions)
         assert.deepEqual(
-          await page.locator("#card-actions button").allInnerTexts(),
+          await page
+            .locator("#card-actions button")
+            .evaluateAll((buttons) =>
+              buttons.map(
+                (button) =>
+                  button.getAttribute("aria-label") || button.textContent,
+              ),
+            ),
           actions,
           name,
         );
