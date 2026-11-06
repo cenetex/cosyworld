@@ -125,7 +125,7 @@
     ".beat-stack { --beat-behind-scale: 0.94; --beat-peek: 30px }",
     ".beat-stack { --beat-deeper: translateY(calc(-2 * var(--beat-peek))) scale(calc(var(--beat-behind-scale) * var(--beat-behind-scale))); --beat-slot: translateY(calc(-1 * var(--beat-peek))) scale(var(--beat-behind-scale)) }",
     ".beat-stack:not([data-action=\"true\"])>#speech-row[data-beat=\"action\"] .beat-caption[data-primary] .beat-icon { display: none }",
-    ".beat-stack:not([data-action=\"true\"])>#speech-row[data-beat=\"action\"] .beat-caption[data-primary] { color: #f2e3c4; font: var(--action-font); overflow-wrap: anywhere; white-space: normal }",
+    ".beat-stack:not([data-action=\"true\"])>#speech-row[data-beat=\"action\"] .beat-caption[data-primary] { color: #f2e3c4; display: block; font: var(--action-font); overflow-wrap: anywhere; white-space: normal }",
     ".beat-stack:not([data-action=\"true\"])>#speech-row[data-beat=\"action\"] .beat-caption[data-primary][data-named] .card-name:first-child { color: inherit; font-weight: 700 }",
     ".beat-stack>.action-panel { --beat-divider: #b09a6a55; backdrop-filter: blur(12px); background: #10151ded; border-radius: 8px; border: 1px solid var(--beat-divider); box-shadow: 0 -6px 16px #05060c80,0 10px 35px #08091470; display: grid; gap: 6px; overflow: hidden; padding: 0; position: relative; transform-origin: 50% 0; z-index: 3 }",
     ".beat-stack>.action-panel:not([data-tier=\"common\"]) { border-color: var(--tier-color); box-shadow: 0 0 14px color-mix(in srgb,var(--tier-color) 30%,transparent),0 10px 35px #08091470 }",

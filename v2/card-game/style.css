@@ -2434,6 +2434,7 @@ body .beat-live {
 .beat-stack:not([data-action="true"])
   > #speech-row[data-beat="action"]
   .beat-caption[data-primary] {
+  display: block;
   font: var(--action-font);
   color: #f2e3c4;
   white-space: normal;
