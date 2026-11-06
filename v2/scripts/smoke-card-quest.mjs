@@ -314,14 +314,14 @@ try {
         }),
       ["rgb(255, 143, 132)", "none", "0px"],
     );
-    // The beat above it names the chosen quest.
+    // The action names the goal; its quest card also keeps the level.
     const described = (
       await page.locator(".action-beat-heading:not([hidden])").textContent()
     ).trim();
     assert.ok(
-      (await picked.getAttribute("aria-label")).startsWith(
-        `Quest: ${described}`,
-      ),
+      (await picked.getAttribute("aria-label"))
+        .replace(/Level [IVXLCDM]+: /u, "")
+        .startsWith(`Quest: ${described}`),
       `the beat names the quest: ${described}`,
     );
     assert.equal(
@@ -368,14 +368,14 @@ try {
       })),
       { name: "Talk", lines: 1 },
     );
-    assert.match(await talk.getAttribute("aria-label"), /^Quest: Talk with /);
+    assert.equal(
+      await talk.getAttribute("aria-label"),
+      "Quest: Find someone to talk to",
+    );
     const drop = page.locator('#card-actions [data-drop-quest="0"]');
     await drop.waitFor();
-    // The reason is plain text and Abandon is the only action.
-    assert.equal(
-      await page.locator(".action-beat-note").innerText(),
-      "Not found yet",
-    );
+    // The quest caption carries the unknown target; Abandon is its action.
+    assert(await page.locator(".action-beat-note").isHidden());
     assert.equal(await page.locator("#card-actions button").count(), 1);
     assert.equal(
       await page.locator("#card-actions [data-drop-quest]").count(),
@@ -692,6 +692,127 @@ try {
     await page.locator(".dialogue").screenshot({
       path: new URL(`hidden-quest-${width}.png`, output).pathname,
     });
+    for (const [kind, target, step, level] of [
+      ["item", "routes", { verb: "bring", at: "train" }],
+      ["place", "greek-palace", null, 20],
+      [
+        "place",
+        "greek-polynices-hollow",
+        {
+          verb: "lay",
+          items: ["greek-oil-flask", "greek-funeral-cloth", "greek-shovel"],
+        },
+      ],
+    ]) {
+      const sceneWorld = createWorld();
+      sceneWorld.actors.vale.visited.push("pond");
+      sceneWorld.actors.vale.want = {
+        kind,
+        target,
+        ...(step ? { step } : {}),
+        ...(level ? { quest: { level, left: 4 } } : { story: true }),
+        since: sceneWorld.turn,
+        refusals: 0,
+      };
+      if (step?.verb === "lay") {
+        sceneWorld.crossings["pond-greek-harbor"].discovered = true;
+        sceneWorld.actors.vale.place = target;
+        sceneWorld.actors["greek-antigone"].place = target;
+        for (const item of step.items) sceneWorld.items[item].holder = "vale";
+      }
+      const place = step?.at ?? target;
+      const label = step?.verb === "lay" ? "burial" : kind;
+      const sceneTable = `quest-scene-${label}-${width}`;
+      const sceneKey = `cosyworld.reflected-shore.v1.${sceneTable}`;
+      const seen = availableCards(sceneWorld).filter(
+        (id) => id !== place && id !== target,
+      );
+      // A rite appears only in the Hollow where Vale already stands.
+      const visibility = step?.verb === "lay" ? [true] : [false, true];
+      for (const revealed of visibility) {
+        await page.evaluate(
+          ({ sceneKey, save, seen }) => {
+            localStorage.setItem(sceneKey, save);
+            localStorage.setItem(`${sceneKey}.seen`, JSON.stringify(seen));
+          },
+          {
+            sceneKey,
+            save: encodeSave(sceneWorld),
+            seen: revealed ? [...seen, place] : seen,
+          },
+        );
+        await page.goto(
+          `http://127.0.0.1:${server.address().port}/?table=${sceneTable}`,
+        );
+        await ready();
+        await page.locator("#hand .quest-fold").focus();
+        await page.keyboard.press("Enter");
+        await page.locator('#hand .want-card[data-quest-id="quest:0"]').click();
+        const scene = page.locator(".action-beat-cards .quest-screen");
+        const ground = scene.locator(".quest-ground");
+        await ground.waitFor();
+        assert.equal(await scene.locator('[data-entity="vale"]').count(), 1);
+        assert.equal(
+          await ground.getAttribute("data-entity"),
+          revealed ? place : null,
+        );
+        assert.equal(
+          /card-back/u.test(await ground.getAttribute("src")),
+          !revealed,
+        );
+        assert(
+          !/Not found yet/u.test(
+            await page.locator("#action-beat").innerText(),
+          ),
+        );
+        if (!revealed) {
+          assert(await page.locator(".action-beat-note").isHidden());
+          if (kind === "item")
+            assert.equal(
+              (await page.locator(".action-beat-heading").textContent()).trim(),
+              "Find something and bring it somewhere",
+            );
+        }
+        await page.waitForFunction(
+          () =>
+            document.querySelector("#action-beat button")?.dataset.revealing ===
+            "false",
+        );
+        await page.locator(".dialogue").screenshot({
+          path: new URL(
+            `scene-${label}-${revealed ? "revealed" : "hidden"}-${width}.png`,
+            output,
+          ).pathname,
+          animations: "disabled",
+        });
+        if (level) {
+          const action = page.locator("#action-beat");
+          assert.doesNotMatch(await action.innerText(), /Level XX/u);
+          assert.match(
+            await page.locator('#hand .want-card[data-quest-id="quest:0"]')
+              .getAttribute("aria-label"),
+            /Level XX:/u,
+          );
+          assert.equal(await action.getAttribute("data-tier"), "rare");
+          assert.equal(
+            await page.locator('#hand .want-card[data-quest-id="quest:0"]')
+              .getAttribute("data-tier"),
+            "rare",
+          );
+          const style = await action.evaluate((el) => ({
+            border: getComputedStyle(el).borderTopColor,
+            shadow: getComputedStyle(el).boxShadow,
+          }));
+          assert.equal(style.border, "rgb(190, 130, 255)");
+          assert.match(style.shadow, /14px/u, "rare quests glow");
+          await action.locator("button").click();
+          assert.equal(await action.getAttribute("data-tier"), "danger");
+          assert.doesNotMatch(await action.innerText(), /Level XX/u);
+          await page.keyboard.press("Escape");
+          assert.equal(await action.getAttribute("data-tier"), "rare");
+        }
+      }
+    }
     assert.deepEqual(errors, []);
     console.log(
       `Quest fold, met seal, click to clear and +XP, stack fan, choose and drop, avatar stacks passed at ${width}px (${motion}).`,

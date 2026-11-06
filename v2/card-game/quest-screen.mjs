@@ -55,14 +55,14 @@ const picture = (src, className, url, entity) => {
 // found (`atCovered`) shows the carved box in the recipient's slot, as
 // anything unknown on the card does. art: { url, portrait, thing, place } turn ids into image
 // paths.
-export function questScreen(view, art) {
+export function questScreen(view, art, asScene = false) {
   const screen = document.createElement("span");
   screen.className = "quest-screen";
   const { verb, actor, kind, target, covered, to } = view;
   screen.dataset.kind = kind;
-  if (to || view.atCovered) screen.dataset.parts = "3";
+  if (to || (view.atCovered && !asScene)) screen.dataset.parts = "3";
   // An unknown place is the carved back, whole.
-  if (kind === "place" && covered) {
+  if (kind === "place" && covered && !asScene) {
     screen.append(picture(BACK, "quest-back", art.url));
     screen.dataset.back = "true";
     return screen;
@@ -70,7 +70,11 @@ export function questScreen(view, art) {
   // The place where the step happens shows when it is the place itself or
   // the place the player stands in; elsewhere stays a dark ground.
   const ground = kind === "place" ? target : view.here;
-  if (ground)
+  const hiddenPlace =
+    (kind === "place" && covered) || view.hereCovered || view.atCovered;
+  if (asScene && hiddenPlace)
+    screen.append(picture(BACK, "quest-ground", art.url));
+  else if (ground)
     screen.append(picture(art.place(ground), "quest-ground", art.url, ground));
   const [ownPose, theirPose] = POSES[verb] || [];
   const figure = (id, pose, facing, slot) => {
@@ -95,7 +99,7 @@ export function questScreen(view, art) {
   else screen.append(figure(target, theirPose, "left", "right"));
   if (to && !view.toCovered)
     screen.append(figure(to, theirPose, "left", "right quest-to"));
-  else if (to || view.atCovered)
+  else if (to || (view.atCovered && !asScene))
     screen.append(picture(BACK, "quest-back quest-right quest-to", art.url));
   return screen;
 }

@@ -81,7 +81,7 @@ import {
   questTier,
   questVerb,
 } from "./quest-card.mjs";
-import { questStep } from "./quest-step.mjs";
+import { NOT_FOUND, questStep } from "./quest-step.mjs";
 import { actionScene, questScreen } from "./quest-screen.mjs";
 import { createLandingWorld, newRunSeed } from "./pack-landing.mjs";
 import { flipStagePortrait, portraitFraming } from "./portrait-facing.mjs";
@@ -2088,7 +2088,7 @@ function showBeatCards(ids, here, verb, recipe = false, actionView = null) {
   cards.dataset.cards = key;
   releaseImages(cards);
   if (actionView) {
-    cards.replaceChildren(questScreen(actionView, questArt));
+    cards.replaceChildren(questScreen(actionView, questArt, true));
     return;
   }
   if (recipe) {
@@ -2163,8 +2163,10 @@ document.addEventListener(
   true,
 );
 function showBorrowedBeat() {
-  const combined = borrowedBeat.avatar &&
-    !borrowedBeat.edit && borrowedBeat.buttons.length === 1;
+  const combined =
+    borrowedBeat.avatar &&
+    !borrowedBeat.edit &&
+    borrowedBeat.buttons.length === 1;
   renderCardDescriptor(borrowedBeat, {
     placeArt,
     showNote: showActionBeatNote,
@@ -2313,7 +2315,7 @@ function renderActions() {
     sentence = lockShown
       ? lockShown.text
       : questShown
-        ? shownQuestCaption(questShown)
+        ? shownQuestCaption(questShown, false)
         : ((actions[0] && playText(actions[0])) || clientText).replace(
             /\b(the|an?) (?:the|an?) /giu,
             "$1 ",
@@ -2337,24 +2339,28 @@ function renderActions() {
     here,
     playLabel(actions[0], world),
     lockShown?.recipe,
-    actions[0] && !lockShown && !questShown
-      ? actionScene(
-          {
-            actorId: actor,
-            verb: actions[0].kind,
-            itemId: actions[0].item,
-            targetId: actions[0].target,
-            receiveId: actions[0].receive,
-            locationId: actions[0].kind === "move" ? actions[0].target : here,
-          },
-          known,
-        )
-      : null,
+    questShown
+      ? questView(questShown)
+      : actions[0] && !lockShown
+        ? actionScene(
+            {
+              actorId: actor,
+              verb: actions[0].kind,
+              itemId: actions[0].item,
+              targetId: actions[0].target,
+              receiveId: actions[0].receive,
+              locationId: actions[0].kind === "move" ? actions[0].target : here,
+            },
+            known,
+          )
+        : null,
   );
-  // The box's edge takes the rarest card's tier colour; Common stays plain.
-  const rarest = involved
-    .map((id) => levelTier(cardLevel(world, id)))
-    .reduce((top, tier) => (tier.rank > top.rank ? tier : top), levelTier(0));
+  // A quest keeps its own tier; other plays take the rarest selected card.
+  const rarest = questShown
+    ? questTier(questShown, world, known)
+    : involved
+        .map((id) => levelTier(cardLevel(world, id)))
+        .reduce((top, tier) => (tier.rank > top.rank ? tier : top), levelTier(0));
   $("action-beat").dataset.tier = rarest.id;
   $("action-beat").style.setProperty("--tier-color", rarest.color);
   // A folded row lies low even with a choice in it.
@@ -2417,7 +2423,7 @@ function renderActions() {
     ["item", "target", "receive", "destination"].some(
       (key) => progress.action[key] && cardIsCovered(progress.action[key]),
     )
-      ? { reason: "Not found yet" }
+      ? { reason: NOT_FOUND }
       : progress;
   const steps = next?.rest
     ? restPlays(
@@ -2441,7 +2447,7 @@ function renderActions() {
       ? [
           {
             action: step,
-            label: shownQuestCaption(picked),
+            label: shownQuestCaption(picked, false),
           },
         ]
       : drop
@@ -2460,7 +2466,7 @@ function renderActions() {
       button.dataset.destructive = "";
     } else button.dataset.questStep = "";
     if (!discard) button.dataset.action = action.kind;
-    button.title = discard ? "Abandon this quest" : shownQuestCaption(picked);
+    button.title = discard ? "Abandon this quest" : shownQuestCaption(picked, false);
     button.disabled = selectionBlocked();
     button.onclick = () => {
       if (discard && !abandonQuest) {
@@ -2561,11 +2567,11 @@ function renderActions() {
     );
   }
   const note = document.querySelector(".action-beat-note");
-  let noteText = visibleText(next?.reason || "");
+  let noteText = visibleText(next?.reason === NOT_FOUND ? "" : next?.reason || "");
   if (abandonQuest) {
     panel.dataset.tier = "danger";
     panel.style.setProperty("--tier-color", "var(--danger)");
-    noteText = `${shownQuestCaption(picked)}. Cost ${dropCost(world, actor, picked.index)} XP.`;
+    noteText = `${shownQuestCaption(picked, false)}. Cost ${dropCost(world, actor, picked.index)} XP.`;
   }
   showActionBeatNote(note, { note: noteText });
   const text = abandonQuest ? "Abandon this quest?" : sentence;
@@ -2595,7 +2601,7 @@ function renderActions() {
   $("play-readout").textContent = selected.length
     ? `${selectionName}. ${lockShown?.text || ready.map(readout).join(". ") || hint}`
     : questOpen && (shownQuests[questPick] || sealedQuests[0])
-      ? shownQuestCaption(shownQuests[questPick] || sealedQuests[0])
+      ? shownQuestCaption(shownQuests[questPick] || sealedQuests[0], false)
       : "";
 }
 $("action-beat").addEventListener(
@@ -3022,11 +3028,12 @@ const cardBackImage = () =>
 // chosen on top, the context button offers its next step and Discard
 // (quest-step.mjs).
 const questCovered = (quest) =>
-  !quest.art && (!quest.target || cardIsCovered(quest.target));
+  !quest.target || cardIsCovered(quest.target);
 const known = (id) => !cardIsCovered(id);
-function shownQuestCaption(quest) {
+function shownQuestCaption(quest, includeLevel = true) {
   const hidden = questCovered(quest);
-  return questCaption(quest, hidden, questVerb(world, quest, hidden), known);
+  const shown = includeLevel ? quest : { ...quest, level: null };
+  return questCaption(shown, hidden, questVerb(world, quest, hidden), known);
 }
 const questArt = {
   url: (src) => imageUrl(src, "card"),
@@ -3034,6 +3041,21 @@ const questArt = {
   thing: (id) => cardArt(id),
   place: placeArt,
 };
+function questView(quest) {
+  const covered = questCovered(quest);
+  return {
+    verb: questVerb(world, quest, covered),
+    actor: quest.actor,
+    kind: quest.kind,
+    target: quest.target,
+    covered,
+    here: questGround(world, quest, covered, known),
+    hereCovered: Boolean(quest.step?.at && !known(quest.step.at)),
+    to: quest.step?.to,
+    toCovered: Boolean(quest.step?.to && !known(quest.step.to)),
+    atCovered: questBox(quest, known),
+  };
+}
 function questFrame({ id, quest, met }) {
   const picked = !met && questOpen && quest.index === questPick;
   const hidden = questCovered(quest),
@@ -3071,7 +3093,6 @@ function questFrame({ id, quest, met }) {
     setCardLabel(node("span", undefined, "quest-verb"), verb),
     node("span", quest.level ? romanLevel(quest.level) : "", "quest-level"),
   );
-  const target = quest.target;
   el.append(
     // Face down, it shows the carved lid until it turns.
     Object.assign(node("img", undefined, "card-back"), {
@@ -3080,17 +3101,7 @@ function questFrame({ id, quest, met }) {
       draggable: false,
     }),
     questScreen(
-      {
-        verb,
-        actor: quest.art ? null : quest.actor,
-        kind: quest.kind,
-        target,
-        covered: hidden,
-        here: questGround(world, quest, hidden, known),
-        to: quest.step?.to,
-        toCovered: Boolean(quest.step?.to && !known(quest.step.to)),
-        atCovered: questBox(quest, known),
-      },
+      quest.art ? { ...questView(quest), actor: null } : questView(quest),
       quest.art ? { ...questArt, place: () => quest.art } : questArt,
     ),
     head,

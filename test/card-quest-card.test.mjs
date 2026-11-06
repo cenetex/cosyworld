@@ -70,7 +70,10 @@ describe("the quest card", () => {
     expect(questGround(s, bring, false)).toBe("pavilion");
     expect(questBox(bring)).toBe(false);
     // A step with a recipient shows the recipient in that slot instead.
-    const give = { ...bring, step: { verb: "give", to: "moth", at: "pavilion" } };
+    const give = {
+      ...bring,
+      step: { verb: "give", to: "moth", at: "pavilion" },
+    };
     expect(questBox(give, unknown)).toBe(false);
     // A quest with no place keeps the rule it had.
     expect(questBox({ ...bring, step: null }, unknown)).toBe(false);
@@ -111,19 +114,28 @@ describe("the quest card", () => {
       target: "lamp",
     });
     expect(questCaption(quest)).toBe("Hold Lamp");
-    expect(questCaption(quest, true)).toBe(
-      "Hold something you have not found yet",
-    );
+    expect(questCaption(quest, true)).toBe("Find something");
   });
 
   it("explains an undiscovered destination without naming it", () => {
     const s = createWorld();
     const quest = { ...questCard(s), kind: "place", target: "clearing" };
-    expect(questCaption(quest, true)).toBe(
-      "Go somewhere you have not found yet",
-    );
+    expect(questCaption(quest, true)).toBe("Find a place");
     expect(questCaption(quest)).toBe("Go to Forest Clearing");
     expect(questVerb(s, quest, true)).toBe("Discover");
+  });
+
+  it("keeps a Find step short while naming its known place", () => {
+    const quest = {
+      ...questCard(createWorld()),
+      level: 3,
+      step: { verb: "find" },
+    };
+    expect(questCaption(quest, true)).toBe("Level III: Find something");
+    quest.step.at = "pond";
+    expect(questCaption(quest, true)).toBe(
+      "Level III: Find something at Black pond",
+    );
   });
 
   it("uses the visible place verb for covered, known, and visited destinations", () => {
@@ -131,7 +143,7 @@ describe("the quest card", () => {
     const quest = { ...questCard(s), kind: "place", target: "clearing" };
     const caption = (covered) =>
       questCaption(quest, covered, questVerb(s, quest, covered));
-    expect(caption(true)).toBe("Discover somewhere you have not found yet");
+    expect(caption(true)).toBe("Find a place");
     expect(caption(false)).toBe("Discover Forest Clearing");
     s.actors.vale.visited.push("clearing");
     expect(caption(false)).toBe("Go to Forest Clearing");
@@ -147,7 +159,7 @@ describe("the quest card", () => {
       step: { verb: "rest" },
     };
     expect(questCaption(quest, true, questVerb(s, quest, true))).toBe(
-      "Level III: Discover somewhere you have not found yet and rest there",
+      "Level III: Find a place and rest there",
     );
     expect(questCaption(quest, false, questVerb(s, quest))).toBe(
       "Level III: Go to Black pond and rest there",
@@ -160,9 +172,7 @@ describe("the quest card", () => {
       kind: "person",
       target: "moth",
     };
-    expect(questCaption(quest, true)).toBe(
-      "Talk with someone you have not met yet",
-    );
+    expect(questCaption(quest, true)).toBe("Find someone to talk to");
     expect(questCaption(quest)).toBe("Talk with Pip");
   });
 
@@ -174,7 +184,7 @@ describe("the quest card", () => {
       step: { verb: "bring", at: "theatre" },
     };
     expect(questCaption(quest, true)).toBe(
-      "Bring something you have not found yet home to Paper theatre",
+      "Find something and bring it home to Paper theatre",
     );
     expect(questCaption(quest)).toBe(
       "Bring Theatre mask home to Paper theatre",
@@ -189,7 +199,8 @@ describe("the quest card", () => {
       step: { verb: "bring", at: "train" },
     };
     const revealed = new Set();
-    const caption = () => questCaption(quest, false, null, (id) => revealed.has(id));
+    const caption = () =>
+      questCaption(quest, false, null, (id) => revealed.has(id));
     expect(caption()).toBe("Find something and bring it somewhere");
     revealed.add("routes");
     expect(caption()).toBe("Bring Route board somewhere");
@@ -197,7 +208,7 @@ describe("the quest card", () => {
     expect(caption()).toBe("Bring Route board home to Between-hours carriage");
     revealed.delete("routes");
     expect(caption()).toBe(
-      "Bring something you have not found yet home to Between-hours carriage",
+      "Find something and bring it home to Between-hours carriage",
     );
   });
 
@@ -221,7 +232,7 @@ describe("the quest card", () => {
       step: { verb: "bring", to: "moth", at: "pond" },
     };
     expect(questCaption(quest, true)).toBe(
-      "Level III: Bring something you have not found yet to Pip at Black pond",
+      "Level III: Find something and bring it to Pip at Black pond",
     );
     expect(questCaption(quest)).toBe(
       "Level III: Bring Lamp to Pip at Black pond",
@@ -231,7 +242,7 @@ describe("the quest card", () => {
         { ...quest, kind: "place", target: "pond", step: { verb: "rest" } },
         true,
       ),
-    ).toBe("Level III: Rest at a place you have not found yet");
+    ).toBe("Level III: Find a place and rest there");
   });
 
   it("keeps a connection quest without inventing an undiscovered target", () => {
