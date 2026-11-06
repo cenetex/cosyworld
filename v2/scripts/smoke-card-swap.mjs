@@ -216,6 +216,31 @@ try {
     // Coming back: the station's cards rise after the falls and a beat, and
     // the whole swap ends in time.
     const back = await go("station", "travel-back");
+    assert.deepEqual((await visibleCards()).slice(0, 2), ["pond", "station"]);
+    if (!reduced) {
+      const falls = back.motions.filter((m) => m.ghost),
+        lastFall = Math.max(0, ...falls.map((m) => m.at + m.delay + 360)),
+        rises = back.motions.filter((m) => m.rise);
+      for (const id of ["moth", "keeper"])
+        assert(
+          rises.some((m) => m.card === id),
+          `${id} rises: ${JSON.stringify(back.motions)}`,
+        );
+      for (const rise of rises) {
+        const start = rise.at + rise.delay;
+        assert(start >= Math.min(lastFall, SWAP_MS - 530) - slack, "after");
+        assert(start + rise.duration <= SWAP_MS + slack, `in time: ${start}`);
+      }
+    }
+    // Reload the return trip with two loose items. The residents can pick
+    // them up during travel, so put them back for the fan check.
+    await page.evaluate((key) => {
+      const save = JSON.parse(localStorage.getItem(key));
+      save.items.lamp.holder = save.items.bell.holder = "station";
+      localStorage.setItem(key, JSON.stringify(save));
+    }, key);
+    await page.reload();
+    await ready();
     const station = page.locator('#hand [data-card="station"]');
     const placeItems = async () =>
       (await visibleCards()).filter((id) =>
@@ -232,21 +257,6 @@ try {
     ]);
     await tapCard(station);
     assert.deepEqual(await placeItems(), ["pond", "station", "vale"]);
-    if (!reduced) {
-      const falls = back.motions.filter((m) => m.ghost),
-        lastFall = Math.max(0, ...falls.map((m) => m.at + m.delay + 360)),
-        rises = back.motions.filter((m) => m.rise);
-      for (const id of ["moth", "keeper"])
-        assert(
-          rises.some((m) => m.card === id),
-          `${id} rises: ${JSON.stringify(back.motions)}`,
-        );
-      for (const rise of rises) {
-        const start = rise.at + rise.delay;
-        assert(start >= Math.min(lastFall, SWAP_MS - 530) - slack, "after");
-        assert(start + rise.duration <= SWAP_MS + slack, `in time: ${start}`);
-      }
-    }
     // Put out in a new world's attic: the lamp and the attic turn to their
     // dark faces as the light goes down, keeping their nodes, and the pond
     // is dealt face down behind the attic.
