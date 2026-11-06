@@ -236,11 +236,13 @@ try {
         const panel = page.locator('#action-beat[data-card-tap="hint"]');
         const message = panel.locator(".action-beat-text");
         await seat.click();
-        assert.equal(await leave.textContent(), "Tap to leave");
-        assert.equal(await leave.getAttribute("aria-label"), "Leave");
+        assert.equal(await leave.textContent(), "Tap to finish");
+        assert.equal(await leave.getAttribute("aria-label"), "Finish reading");
         await panel
           .locator('.action-beat-text[data-revealing="false"]')
           .waitFor();
+        assert.equal(await leave.textContent(), "Tap to leave");
+        assert.equal(await leave.getAttribute("aria-label"), "Leave");
         assert.equal(
           await message.textContent(),
           "Rue leaves The Weeping Cellar",

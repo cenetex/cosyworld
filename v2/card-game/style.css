@@ -2433,7 +2433,7 @@ body .beat-live {
   width: auto;
   height: 75%;
 }
-#speech-row[data-beat="action"] :is(#speaker, .speech-hint) {
+#speech-row[data-beat="action"] #speaker {
   display: none;
 }
 .beat-stack:not([data-action="true"])
@@ -3268,6 +3268,17 @@ body .beat-stack > .action-panel[data-card-tap]:not([hidden]) {
 .beat-action[data-card-tap] #card-actions {
   display: contents;
 }
+#speech-row[data-beat="action"] .speech-hint,
+.beat-action[data-card-tap=""] #card-actions button::after {
+  position: absolute;
+  right: 12px;
+  bottom: 6px;
+}
+.beat-action[data-card-tap=""] #card-actions button::after {
+  content: attr(data-tap-hint);
+  color: var(--muted);
+  font: 10px/12px Arial, sans-serif;
+}
 /* A status note shares the card with the action message. */
 .beat-action[data-card-tap=""]
   .action-beat-body:has(#play-status:not([hidden])) {
@@ -3280,6 +3291,10 @@ body .beat-stack > .action-panel[data-card-tap]:not([hidden]) {
   text-align: left;
   overflow-wrap: anywhere;
   font: var(--action-font);
+}
+.beat-action[data-card-tap=""] #card-actions button {
+  position: relative;
+  padding-block: 16px 18px;
 }
 .beat-action[data-card-tap]
   #card-actions

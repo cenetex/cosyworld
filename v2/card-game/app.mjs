@@ -57,10 +57,12 @@ import {
 import { fadeInRevealed, revealedStage } from "./stage-reveal.mjs";
 import { OPENING_REVEAL, openingStep } from "./opening.mjs";
 import {
+  actionTapVerb,
   phase,
   refusalLabel,
   refusalSentence,
   revealedBeat,
+  tapPrompt,
   THINKING_GRACE_MS,
 } from "./presentation.mjs";
 import { glowCard, levelUpCard, transformPortrait } from "./card-level-up.mjs";
@@ -816,24 +818,23 @@ function updateSpeechControls(complete) {
   complete &&= inscribing.size === 0;
   const waiting =
     exchange.waiting || (sharedAdvanceRequested && storyStatus === "pending");
-  const sharedForward =
-    sharedSession && shownSceneLine && (!sharedAdvanceRequested || waiting);
-  const forward = reviewing || exchange.hasNext || sharedForward;
-  $("dialogue-advance").dataset.revealing = String(!complete);
-  $("dialogue-advance").setAttribute(
-    "aria-label",
-    complete
-      ? reviewing
-        ? "Step forward to a later beat"
-        : forward
-          ? "Continue to the next beat"
-          : "The latest beat"
-      : "Reveal the full line",
-  );
-  $("speech-hint").hidden = !complete || !forward || !shownSceneLine;
-  $("speech-hint").textContent = waiting
-    ? "Waiting for the next line…"
-    : "Continue";
+  const { frontIndex, liveIndex, pending } = stackView;
+  const own = frontIndex === liveIndex && pending?.own;
+  const cancel = own?.cancel && (thinkingArmed ? "Confirm" : own.committed ? "Stop waiting" : "Cancel");
+  const sharedForward = sharedSession && shownSceneLine && !sharedAdvanceRequested &&
+    (ownPlayInFlight() || sharedNextLine(sharedSession.state, shownSceneLine.locationId, shownSceneLine.seq));
+  const forward = (reviewing && (frontIndex < liveIndex || choiceInStack())) ||
+    exchange.hasNext || sharedForward;
+  const label = reviewing ? "Step forward to a later beat" : "Continue to the next beat";
+  const cue = cancel
+    ? tapPrompt(cancel, true, cancel === "Cancel" ? "Cancel play" : cancel)
+    : tapPrompt(forward && !waiting ? "Continue" : "", complete, forward ? label : "The latest beat");
+  const button = $("dialogue-advance"), hint = $("speech-hint");
+  button.dataset.revealing = String(!complete && !cancel);
+  const waitingLine = complete && waiting && !cancel;
+  button.setAttribute("aria-label", waitingLine ? "Waiting for the next line" : cue.label);
+  hint.textContent = waitingLine ? "Waiting for the next line…" : cue.hint;
+  hint.hidden = button.hidden || !hint.textContent;
 }
 const speechPainter = createRevealPainter($("dialogue-text"), { rest: true });
 // A wake plays on the table: dusk or dawn through a held black, and a level
@@ -870,9 +871,9 @@ const actionReveal = createTextReveal({
     actionMessage.frame = value;
     actionMessage.painter.paint(value);
     const button = document.querySelector(
-      '[data-card-tap="hint"] #card-actions button',
+      '#action-beat[data-card-tap] #card-actions button[data-tap-verb]',
     );
-    if (button) button.dataset.revealing = String(!value.complete);
+    if (button) paintActionTap(button, value.complete);
   },
 });
 function writeActionMessage(root, text, key, name) {
@@ -2179,11 +2180,25 @@ function showBorrowedBeat() {
   syncActionReveal();
   syncActionBeat();
 }
-function cardTapHint(button, hint = button.textContent.toLowerCase()) {
+function paintActionTap(button, complete) {
+  const cue = tapPrompt(button.dataset.tapVerb, complete, button.dataset.tapName);
+  const revealing = String(!complete);
+  if (button.dataset.revealing !== revealing) button.dataset.revealing = revealing;
+  if (button.dataset.tapHint !== cue.hint) button.dataset.tapHint = cue.hint;
+  if (button.getAttribute("aria-label") !== cue.label)
+    button.setAttribute("aria-label", cue.label);
+  if ($("action-beat").dataset.cardTap === "hint" && button.textContent !== cue.hint)
+    button.textContent = cue.hint;
+}
+function nameActionTap(button, verb, label = button.textContent) {
+  if (button.disabled) return;
+  button.dataset.tapVerb = verb;
+  button.dataset.tapName = label;
+  paintActionTap(button, actionReveal.complete);
+}
+function cardTapHint(button, verb = actionTapVerb(null, button.textContent), label) {
   $("action-beat").dataset.cardTap = "hint";
-  button.dataset.revealing = String(!actionReveal.complete);
-  button.setAttribute("aria-label", button.textContent);
-  button.textContent = `Tap to ${hint}`;
+  nameActionTap(button, verb, label);
 }
 
 const choiceKey = () => `${selected.join("+")}:${rowCollapsed}`;
@@ -2522,16 +2537,19 @@ function renderActions() {
     panel.setAttribute("data-card-tap", "");
     if (only?.kind === "wait" && !only.label && !only.guards)
       button.dataset.waitSentence = "";
-    button.setAttribute(
-      "aria-label",
+    nameActionTap(
+      button,
+      quiet ? "Uncover" : actionTapVerb(only, button.textContent),
       only?.label === "Wake" ? sentence : button.textContent,
     );
     message = button;
     heading.hidden = true;
   } else if (questShown && row.childElementCount === 1) {
+    const label = step && playLabel(step, world);
     cardTapHint(
       row.firstElementChild,
-      abandonQuest ? "confirm" : drop ? "abandon" : "continue",
+      abandonQuest ? "Confirm" : drop ? "Abandon" : actionTapVerb(step, label || "Continue"),
+      label || undefined,
     );
   }
   const note = document.querySelector(".action-beat-note");
@@ -3817,9 +3835,7 @@ function renderScene() {
   // A dream being written is the same card, "Dreaming…" (dream-card.mjs).
   $("story-status").lastElementChild.textContent = front?.dream
     ? dreamingLabel(front.armed)
-    : thinkingArmed
-      ? "Tap again to cancel"
-      : "Thinking…";
+    : "Thinking…";
   $("story-status").dataset.armed = String(
     front?.dream ? front.armed : thinkingArmed,
   );
@@ -3827,9 +3843,7 @@ function renderScene() {
     "aria-label",
     front?.dream
       ? dreamingAria(front.armed)
-      : thinkingArmed
-        ? "Tap again to cancel this play"
-        : "Thinking about this scene",
+      : "Thinking about this scene",
   );
   $("speech-row").setAttribute("aria-busy", String(!$("story-status").hidden));
   const ownAction =

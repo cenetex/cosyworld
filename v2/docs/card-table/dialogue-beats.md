@@ -166,8 +166,8 @@ and ● live returns to their action. The arrow keys, wheel and swipes also
 step through the stack.
 
 A single plain play shows the avatar in the scene beside one caption, such
-as “Wake Vale”. The card acts as the button. Tap it to finish
-typing, then tap again to play. Enter and Space work on the focused button.
+as “Wake Vale”. The corner says **Tap to finish** while it types, then names
+the action, as in **Tap to wake**. Enter and Space also work on the card.
 
 When a play commits, its box folds into the stream: it eases down onto the
 front card, the beat the play became (its caption line, or the Thinking card
@@ -176,8 +176,9 @@ when a reply is coming), and fades as that card arrives, in the stack's
 folded line is a beat read from the committed event, so Memory shows it too.
 A chosen play's box leaves at once. Until its scene starts (after any scene
 being read), the play is one Thinking card: the speaker's portrait,
-"Thinking…" and no button. The first tap reads "Tap again to cancel" and the
-second cancels; three seconds, Escape or a tap elsewhere puts it back. A play
+and "Thinking…". The corner says **Tap to cancel** for a queued play or
+**Tap to stop waiting** for a saved play. The first tap asks for confirmation;
+three seconds, Escape or a tap elsewhere clears it. A play
 still waiting is withdrawn and its button returns. A committed one (a shared
 play resuming on the server, or a local play awaiting its words) stays saved:
 its caption shows with no line, never "undone". Once a
@@ -211,8 +212,9 @@ One phase decides what the dialogue box shows (`phase()` in
 
 The action beat shows while choosing. Choosing cards brings their action
 forward while speech keeps writing behind it. The same rule applies to a shared
-refusal. Tap anywhere on the spoken card to finish its text, then tap again to
-advance. The line stays visible while the next reply is on its way.
+refusal. Speech and action history show **Tap to finish** while typing and
+**Tap to continue** when another card follows. The latest card stays visible
+while the next reply is on its way.
 A reload shows a line already begun in full, and a play whose words were
 still on the way asks again, quietly, with its Thinking card. Words that
 failed are not asked again. Clicking off the cards, like Escape, clears the choice: the action beat

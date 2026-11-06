@@ -25,6 +25,33 @@ export function revealedBeat(beat, textOf) {
     })),
   };
 }
+
+const shortActions = {
+  accompany: "Invite",
+  ask: "Ask",
+  give: "Give",
+  threaten: "Threaten",
+  trade: "Trade",
+};
+// The message already names the target. Keep the verb and any authored detail.
+export function actionTapVerb(action, label = "") {
+  if (action?.label) {
+    if (/^Ring the /u.test(label)) return "Ring";
+    if (/^Up to /u.test(label)) return "Go up";
+    if (/^Down to /u.test(label)) return "Go down";
+    return label;
+  }
+  if (action?.kind === "move" && action.item) return "Carry";
+  if (action?.kind === "eat")
+    return label.startsWith("Drink") ? "Drink" : "Eat";
+  if (!action && label.startsWith("Bring to ")) return "Bring";
+  return shortActions[action?.kind] ?? label;
+}
+export function tapPrompt(verb, complete, label = verb) {
+  if (!complete) return { hint: "Tap to finish", label: "Finish reading" };
+  const word = verb?.replace(/^\p{L}/u, (first) => first.toLowerCase());
+  return { hint: word ? `Tap to ${word}` : "", label };
+}
 export function phase({
   reviewing = false,
   revealing = false,
