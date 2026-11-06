@@ -2,12 +2,14 @@ import { test } from "vitest";
 import assert from "node:assert/strict";
 import {
   STANZA_MS,
+  BOX_WHISPERS,
   acknowledgementDelays,
   acknowledgementGlows,
   acknowledgementHighlights,
   acknowledgementPauses,
   titleIntroWanted,
   whisperTier,
+  whisperLine,
 } from "../v2/card-game/title-intro.mjs";
 import { tiers } from "../v2/card-game/level-tiers.mjs";
 import {
@@ -24,6 +26,18 @@ test("whispers show every colour, with the top tiers sharing one percent", () =>
   const counts = tiers.map(() => 0);
   for (let i = 0; i < 1000; i++) counts[whisperTier((i + 0.5) / 1000).rank]++;
   assert.deepEqual(counts, [640, 240, 80, 30, 8, 2]);
+});
+test("twelve whispers share their tier's colour and avoid an immediate repeat", () => {
+  assert.equal(new Set(BOX_WHISPERS.flat()).size, 12);
+  for (const tier of tiers) {
+    const first = whisperLine(tier, "", 0);
+    const second = whisperLine(tier, "", 0.99);
+    assert.notEqual(first, second);
+    for (const draw of [0, 0.5, 0.99]) {
+      assert.equal(whisperLine(tier, first, draw), second);
+      assert.equal(whisperLine(tier, second, draw), first);
+    }
+  }
 });
 const wanted = (overrides = {}) =>
   titleIntroWanted({

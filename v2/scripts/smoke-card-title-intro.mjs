@@ -3,7 +3,13 @@ import { mkdir } from "node:fs/promises";
 import { chromium, webkit } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
 import { startNewGame } from "./card-browser-helpers.mjs";
-import { REVEAL_HINT, TITLES, WAKE_FADE } from "../card-game/title-intro.mjs";
+import {
+  BOX_WHISPERS,
+  REVEAL_HINT,
+  TITLES,
+  WAKE_FADE,
+} from "../card-game/title-intro.mjs";
+import { tiers } from "../card-game/level-tiers.mjs";
 import acknowledgement from "../card-game/acknowledgement.json" with { type: "json" };
 import * as intro from "../card-game/title-intro.mjs";
 const held = intro.acknowledgementHighlights(acknowledgement);
@@ -229,6 +235,25 @@ const idleState = (page) =>
       hidden: hint.getAttribute("aria-hidden"),
     };
   });
+async function nextWhisper(page, draw, word = 0.25) {
+  await page.$eval(
+    ".title-hint",
+    async (hint, { draw, word }) => {
+      const random = Math.random;
+      let calls = 0;
+      Math.random = () => (calls++ === 0 ? draw : word);
+      try {
+        hint.getAnimations()[0].finish();
+        await new Promise(requestAnimationFrame);
+      } finally {
+        Math.random = random;
+      }
+    },
+    { draw, word },
+  );
+  // Let the first frame paint before a check seeks or pauses this fade.
+  await page.waitForTimeout(50);
+}
 // Left alone from an interaction: nothing shows before idleGlowMs, the glow
 // by then, the hint from hintMs. Steps are timed in the page from `since`.
 async function idleCue(page, width, { reduced = false } = {}) {
@@ -250,7 +275,7 @@ async function idleCue(page, width, { reduced = false } = {}) {
   assert.equal(none.glow, 0);
   assert.equal(none.hint, 0);
   assert.equal(none.hidden, "true", "screen readers hear the card's name");
-  assert.equal(none.words, "open it", "inviting the reader to open the box");
+  assert.ok(BOX_WHISPERS.flat().includes(none.words));
   if (!reduced) await shot(page, `reveal-0s-${width}`);
   await at(idleGlowMs - 400);
   assert.equal((await idleState(page)).step, "none", "no glow before idle");
@@ -269,12 +294,15 @@ async function idleCue(page, width, { reduced = false } = {}) {
   assert.ok(hint.hint > 0.1 && hint.hint <= 0.6, JSON.stringify(hint));
   if (!reduced) {
     const positions = [];
-    for (const [index, time] of [1500, 4750, 1500, 1500].entries()) {
+    const lines = new Set();
+    const draws = [0.32, 0.76, 0.92, 0.975, 0.994, 0.999];
+    for (const [index, time] of [
+      1500,
+      4750,
+      ...Array(12).fill(1500),
+    ].entries()) {
       if (index > 1) {
-        await page.$eval(".title-hint", (hint) =>
-          hint.getAnimations()[0].finish(),
-        );
-        await page.waitForTimeout(50);
+        await nextWhisper(page, draws[Math.floor((index - 2) / 2)]);
       }
       await page.$eval(
         ".title-hint",
@@ -294,6 +322,9 @@ async function idleCue(page, width, { reduced = false } = {}) {
         const card = document
           .querySelector(".title-card .card")
           .getBoundingClientRect();
+        const logo = document
+          .querySelector(".title-intro > img")
+          .getBoundingClientRect();
         return {
           x: rect.x,
           y: rect.y,
@@ -301,21 +332,31 @@ async function idleCue(page, width, { reduced = false } = {}) {
           transform: getComputedStyle(hint).transform,
           tier: hint.dataset.tier,
           color: hint.style.color,
+          words: hint.textContent,
           fits:
             rect.left >= 0 &&
             rect.right <= innerWidth &&
             rect.top >= 0 &&
             rect.bottom < privacy.top,
-          clear:
-            rect.right < card.left ||
-            rect.left > card.right ||
-            rect.top > card.bottom,
+          clear: [card, logo].every(
+            (part) =>
+              rect.right < part.left ||
+              rect.left > part.right ||
+              rect.bottom < part.top ||
+              rect.top > part.bottom,
+          ),
           whole: hint.scrollWidth <= hint.clientWidth,
         };
       });
       assert.ok(pose.fits, JSON.stringify(pose));
       assert.ok(pose.clear && pose.whole, JSON.stringify(pose));
       assert.equal(pose.transform, "none");
+      if (index > 1) {
+        const rank = Math.floor((index - 2) / 2);
+        assert.equal(pose.tier, tiers[rank].id);
+        assert.ok(BOX_WHISPERS[rank].includes(pose.words));
+        lines.add(pose.words);
+      }
       assert.ok(
         pose.color &&
           [
@@ -334,7 +375,8 @@ async function idleCue(page, width, { reduced = false } = {}) {
       if (time !== 4750) positions.push([pose.x, pose.y]);
       await shot(page, `whisper-${width}-${index}`);
     }
-    assert.equal(new Set(positions.map(JSON.stringify)).size, 3);
+    assert.ok(new Set(positions.map(JSON.stringify)).size >= 3);
+    assert.equal(lines.size, 12, "every whisper fits around the box");
     await page.$eval(".title-hint", (hint) => hint.getAnimations()[0].play());
   }
   if (!reduced) await shot(page, `reveal-7s-${width}`);
@@ -533,11 +575,52 @@ async function checkLargeText() {
       timeout: REVEAL_HINT.hintMs + 3000,
     });
     await page.waitForTimeout(reducedMotion === "reduce" ? 100 : 1300);
+    if (zoom) {
+      // Give wrapped lines the taller metrics of a different system serif.
+      await page.$eval(".title-hint", (hint) => {
+        hint.style.lineHeight = "1.5";
+      });
+      await nextWhisper(page, 0.32);
+      await nextWhisper(page, 0.999, 0.75);
+      await page.waitForTimeout(1300);
+      assert.equal(
+        await page.textContent(".title-hint"),
+        "you are already inside",
+      );
+    }
     for (const part of [traveller, ".title-hint", ".title-privacy"])
       assert.ok(await inView(page, part), `${name}: ${part} on screen`);
+    assert.ok(
+      await page.$eval(".title-hint", (hint) => {
+        const text = hint.getBoundingClientRect();
+        const box = document
+          .querySelector(".title-card .card")
+          .getBoundingClientRect();
+        const privacy = document
+          .querySelector(".title-privacy")
+          .getBoundingClientRect();
+        const logo = document
+          .querySelector(".title-intro > img")
+          .getBoundingClientRect();
+        return (
+          text.bottom <= privacy.top - 8 &&
+          hint.scrollWidth <= hint.clientWidth &&
+          [box, logo].every(
+            (part) =>
+              text.bottom <= part.top - 6 ||
+              text.top >= part.bottom + 6 ||
+              text.right <= part.left - 6 ||
+              text.left >= part.right + 6,
+          )
+        );
+      }),
+      `${name}: the words clear the logo, box and Privacy`,
+    );
     const card = await page.locator(traveller).boundingBox();
     assert.ok(card.height > 40, JSON.stringify(card));
-    assert.equal(await page.textContent(".title-hint"), "open it");
+    assert.ok(
+      BOX_WHISPERS.flat().includes(await page.textContent(".title-hint")),
+    );
     await shot(page, `${name}-card`);
     await page.keyboard.press("Enter");
     await revealed(page, "Vale");

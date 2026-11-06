@@ -25,9 +25,21 @@ export const TITLES = LOGOS.map((logo) => logo.src);
 const BLACK_MS = 350,
   LOAD_LIMIT_MS = 2500;
 // Left alone, the face-down card glows faintly (style.css) after idleGlowMs,
-// then "open it" whispers around it at hintMs. A tap, a key or a pointer
+// then short invitations whisper around it at hintMs. A tap, a key or a pointer
 // over the card starts the wait again.
 export const REVEAL_HINT = { idleGlowMs: 3000, hintMs: 6000 };
+export const BOX_WHISPERS = [
+  ["open it", "take it"],
+  ["look inside", "come closer"],
+  ["it waits", "just a little"],
+  ["something stirs", "it knows your name"],
+  ["it remembers you", "you left this here"],
+  ["it dreamed of you", "you are already inside"],
+];
+export function whisperLine(tier, previous = "", random = Math.random()) {
+  const choices = BOX_WHISPERS[tier.rank].filter((line) => line !== previous);
+  return choices[Math.floor(random * choices.length)];
+}
 // Visual whispers may show every tier; Legendary and Mythic share 1% of draws.
 export function whisperTier(random = Math.random()) {
   let draw = random * 100;
@@ -566,12 +578,21 @@ export function playTitleIntro({
   privacy.className = "title-privacy";
   let idleTimers = [],
     whisper = null,
+    lastWhisper = "",
     place = 0;
   const invite = () => {
     if (phase !== "card" || leaving || row.dataset.idle !== "hint") return;
     whisper?.cancel();
+    const tier = reduced ? tiers[0] : whisperTier();
+    hint.textContent = reduced
+      ? BOX_WHISPERS[0][0]
+      : whisperLine(tier, lastWhisper);
+    lastWhisper = hint.textContent;
+    hint.dataset.tier = tier.id;
     const box = card.getBoundingClientRect(),
-      origin = row.getBoundingClientRect();
+      crest = image.getBoundingClientRect(),
+      origin = row.getBoundingClientRect(),
+      foot = privacy.getBoundingClientRect().top - 8;
     const w = hint.offsetWidth,
       h = hint.offsetHeight;
     const below = [box.left + (box.width - w) / 2, box.bottom + 12];
@@ -587,12 +608,29 @@ export function playTitleIntro({
             : below,
           below,
         ];
-    const [x, y] = places[place++ % places.length];
-    const tier = reduced ? tiers[0] : whisperTier();
-    hint.dataset.tier = tier.id;
+    const first = place++ % places.length;
+    const candidates = [
+      ...places.slice(first),
+      ...places.slice(0, first),
+      above,
+      [below[0], crest.top - h - 12],
+    ].map(([x, y]) => [
+      Math.max(16, Math.min(innerWidth - w - 16, x)),
+      Math.max(16, Math.min(foot - h, y)),
+    ]);
+    const [x, y] =
+      candidates.find(([x, y]) =>
+        [box, crest].every(
+          (part) =>
+            y + h <= part.top - 8 ||
+            y >= part.bottom + 8 ||
+            x + w <= part.left - 8 ||
+            x >= part.right + 8,
+        ),
+      ) || candidates[0];
     Object.assign(hint.style, {
-      left: `${Math.max(16, Math.min(innerWidth - w - 16, x)) - origin.left}px`,
-      top: `${Math.max(16, Math.min(innerHeight - h - 64, y)) - origin.top}px`,
+      left: `${x - origin.left}px`,
+      top: `${y - origin.top}px`,
       color: tier.color,
     });
     if (!reduced) {
