@@ -128,6 +128,11 @@ async function check(width) {
       const label = document.querySelector("#story-status");
       return (label.hidden ? "" : label.textContent.trim()) === text;
     }, text);
+  const tapHintIs = (text) =>
+    page
+      .locator("#speech-hint:not([hidden])")
+      .filter({ hasText: text })
+      .waitFor();
   const tapCard = () =>
     width === 390
       ? page.locator("#speech-row").tap()
@@ -135,7 +140,7 @@ async function check(width) {
   const twoTaps = async () => {
     await thinkingIs("Thinking…");
     await tapCard();
-    await thinkingIs("Tap again to cancel");
+    await tapHintIs("Tap to confirm");
     await tapCard();
   };
   const until = async (done) => {
@@ -186,17 +191,17 @@ async function check(width) {
     await page.screenshot({ path: resolve(output, `thinking-${width}.png`) });
     // The first tap asks; a pause, Escape or a tap elsewhere puts it back.
     await tapCard();
-    await thinkingIs("Tap again to cancel");
+    await tapHintIs("Tap to confirm");
     await page.screenshot({ path: resolve(output, `confirm-${width}.png`) });
-    await thinkingIs("Thinking…");
+    await tapHintIs("Tap to cancel");
     await tapCard();
-    await thinkingIs("Tap again to cancel");
+    await tapHintIs("Tap to confirm");
     await page.keyboard.press("Escape");
-    await thinkingIs("Thinking…");
+    await tapHintIs("Tap to cancel");
     await tapCard();
-    await thinkingIs("Tap again to cancel");
+    await tapHintIs("Tap to confirm");
     await page.mouse.click(width / 2, 120);
-    await thinkingIs("Thinking…");
+    await tapHintIs("Tap to cancel");
     assert.deepEqual(cancels, []);
     assert.equal(queue.length, 1);
     // Committed: the beat leaves while the reply is written.

@@ -175,7 +175,10 @@ try {
         .locator("#card-actions button")
         .evaluateAll((buttons) =>
           buttons.map(
-            (button) => button.getAttribute("aria-label") || button.textContent,
+            (button) =>
+              button.dataset.tapName ||
+              button.getAttribute("aria-label") ||
+              button.textContent,
           ),
         );
     // Chosen cards, not the current place raised to show its ways on.
@@ -301,10 +304,17 @@ try {
     );
     const message = page.locator("#card-actions [data-wait-sentence]");
     if ((await message.getAttribute("data-revealing")) === "true") {
+      assert.equal(
+        await message.getAttribute("data-tap-hint"),
+        "Tap to finish",
+      );
+      assert.equal(await message.getAttribute("aria-label"), "Finish reading");
       await message.click();
       assert.equal((await state()).turn, before.turn);
       assert.equal(await message.getAttribute("data-revealing"), "false");
     }
+    assert.equal(await message.getAttribute("data-tap-hint"), "Tap to wait");
+    assert.equal(await message.getAttribute("aria-label"), "Wait");
     const played = await measureHand(page, ".action-beat-cards");
     // Its handlers read the live world, so it is refreshed in place.
     assert.equal(
@@ -386,12 +396,20 @@ try {
       true,
       "a storage update refreshes the holder even at the same world revision",
     );
-    const refreshed = await page.locator("#card-actions .card-primary").evaluate((button) => ({
-      width: button.getBoundingClientRect().width,
-      height: button.closest("#action-beat").getBoundingClientRect().height,
-    }));
-    assert(refreshed.width >= 160, "the update notice leaves room for whole action words");
-    assert(refreshed.height < 180, "the update notice keeps the action card compact");
+    const refreshed = await page
+      .locator("#card-actions .card-primary")
+      .evaluate((button) => ({
+        width: button.getBoundingClientRect().width,
+        height: button.closest("#action-beat").getBoundingClientRect().height,
+      }));
+    assert(
+      refreshed.width >= 160,
+      "the update notice leaves room for whole action words",
+    );
+    assert(
+      refreshed.height < 180,
+      "the update notice keeps the action card compact",
+    );
     await shot("updated-world");
     await load(meeting());
     assert.equal(await card("lamp").isVisible(), false);

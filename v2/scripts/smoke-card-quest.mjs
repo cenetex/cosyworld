@@ -293,6 +293,11 @@ try {
       "true",
     );
     assert.equal(await groupOrdered(), true, "Vale, its things, its quests");
+    await page
+      .locator(
+        '#card-actions [data-drop-quest="0"]:not([data-revealing="true"])',
+      )
+      .waitFor();
     assert.equal(
       await page
         .locator('#card-actions [data-drop-quest="0"]')
@@ -395,8 +400,9 @@ try {
       /Cost 0 XP/,
     );
     assert.equal(await panel.locator("button").count(), 1);
-    assert.equal(await panel.locator("button").textContent(), "Tap to confirm");
-    if (motion !== "reduce") {
+    const confirm = panel.locator("button");
+    if ((await confirm.getAttribute("data-revealing")) === "true") {
+      assert.equal(await confirm.textContent(), "Tap to finish");
       await panel.locator("button").click();
       assert.equal(
         (await saved()).turn,
@@ -405,6 +411,7 @@ try {
       );
       assert.equal(await panel.getAttribute("data-tier"), "danger");
     }
+    assert.equal(await confirm.textContent(), "Tap to confirm");
     await page.keyboard.press("Escape");
     assert.equal((await saved()).turn, turn);
     await readyDrop.click();
@@ -448,7 +455,9 @@ try {
     // Chosen, the beat keeps its box and names the quest; its next step,
     // the rules' own Give, is the only action.
     await page.locator('#hand .want-card[data-quest-id="quest:0"]').click();
-    await page.locator("#card-actions [data-quest-step]").waitFor();
+    await page
+      .locator('#card-actions [data-quest-step]:not([data-revealing="true"])')
+      .waitFor();
     assert.equal(
       (
         await page.locator(".action-beat-heading:not([hidden])").textContent()
@@ -461,7 +470,7 @@ try {
         .evaluateAll((buttons) =>
           buttons.map((b) => [b.textContent, b.disabled]),
         ),
-      [["Tap to continue", false]],
+      [["Tap to give", false]],
     );
     assert.notEqual(
       await page
@@ -525,7 +534,9 @@ try {
             .evaluateAll((buttons) =>
               buttons.map(
                 (button) =>
-                  button.getAttribute("aria-label") || button.textContent,
+                  button.dataset.tapName ||
+                  button.getAttribute("aria-label") ||
+                  button.textContent,
               ),
             ),
           actions,
@@ -559,7 +570,7 @@ try {
       top,
       "quest",
       "vale+ greek-funeral-cloth quest:0* quest:1+ quest:2",
-      ["Give The Burial Decree to someone"],
+      ["Travel"],
     );
     await play(
       top,
@@ -658,6 +669,9 @@ try {
       (await page.locator(".action-beat-heading").textContent()).trim(),
       "Find something and bring it somewhere",
     );
+    await page
+      .locator('#card-actions [data-drop-quest]:not([data-revealing="true"])')
+      .waitFor();
     assert.equal(
       await page.locator("#card-actions button").textContent(),
       "Tap to abandon",
@@ -674,8 +688,6 @@ try {
         ].join(" "),
       );
     assert.doesNotMatch(labels, /Route board|Between-hours carriage/);
-    await page.waitForFunction(() =>
-      document.querySelector("#card-actions button").dataset.revealing === "false");
     await page.waitForTimeout(250);
     await page.locator(".dialogue").screenshot({
       path: new URL(`hidden-quest-${width}.png`, output).pathname,

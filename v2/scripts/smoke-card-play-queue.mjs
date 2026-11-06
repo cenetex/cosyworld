@@ -196,9 +196,21 @@ try {
         // Once the earlier scene is read, the play in flight is one Thinking
         // card, which cancels in two taps: the queued play goes and its
         // button comes back.
+        const continueLine = page
+          .locator("#speech-hint")
+          .filter({ hasText: "Tap to continue" });
+        if (await continueLine.isVisible())
+          await page.locator("#speech-row").click();
         await thinkingIs("Thinking…");
+        assert.equal(
+          await page.locator("#speech-hint").innerText(),
+          "Tap to cancel",
+        );
         await page.locator("#speech-row").click();
-        await thinkingIs("Tap again to cancel");
+        await page
+          .locator("#speech-hint:not([hidden])")
+          .filter({ hasText: "Tap to confirm" })
+          .waitFor();
         await page.locator("#speech-row").click();
         // The queued play is gone and its button is back.
         await play.waitFor();
