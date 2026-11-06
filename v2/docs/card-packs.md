@@ -169,6 +169,11 @@ keeps the current draft open during an asynchronous import. `onOpen` clears the
 temporary state only after a successful, approved open.
 Use `stage({document,title})` to keep text, `snapshot({pending:false})` to read it, and `save()` to check and persist the draft.
 
+Local store `beginCreate(key, owner, generation)` saves the account, request UUID,
+source and files before transfer. `readCreate` resumes that snapshot after reload;
+`finishCreate` records its matching first receipt and releases the copied files.
+Later local edits stay separate. The database upgrade preserves existing drafts.
+
 `importSourcePack({files, packPath, bridgePath, cardRoot, extraPaths, origin})`
 in `authoring-source-import.mjs` reads selected raw repository files. It returns
 `{draft, assets, sourceFiles, assetSources}` with exact source bytes and digests.

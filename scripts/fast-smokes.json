@@ -17,6 +17,10 @@
   ],
   "rules": [
     {
+      "paths": "^v2/card-game/authoring-(local|create)-store\\.mjs$",
+      "smokes": ["smoke-authoring-create-store", "smoke-authoring-local-store"]
+    },
+    {
       "paths": "^v2/card-game/authoring-(designer|session|import-tools)\\.",
       "smokes": ["smoke-authoring-transient-discard"]
     },
