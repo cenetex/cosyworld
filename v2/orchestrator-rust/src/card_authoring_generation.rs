@@ -21,6 +21,8 @@ use std::{
 use unicode_normalization::UnicodeNormalization;
 #[path = "card_authoring_image.rs"]
 mod images;
+#[path = "card_authoring_seed.rs"]
+mod seed;
 
 const MODEL: &str = "anthropic/claude-haiku-5.5";
 const ROUTE: &str = "/card-game/authoring/generate/avatars";
@@ -66,6 +68,7 @@ struct Candidate {
 pub(super) fn router() -> Router<AppState> {
     Router::new()
         .route(ROUTE, post(generate))
+        .merge(seed::router())
         .layer(DefaultBodyLimit::max(64 * 1024))
         .merge(images::router())
         .layer(middleware::map_response(
