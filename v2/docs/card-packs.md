@@ -49,6 +49,18 @@ File bytes go through a separate upload. Source records keep local relative
 paths or a GitHub repository, exact commit and path. Drafts accept unfinished
 cards; publication checks the compiled pack with the shared pack validator.
 
+`importSourcePack({files, packPath, bridgePath, cardRoot, extraPaths, origin})`
+in `authoring-source-import.mjs` reads selected raw repository files. It returns
+`{draft, assets, sourceFiles, assetSources}` with exact source bytes and digests.
+The card directory defaults to the sibling `card-game/` for `content/<pack>/`
+sources, or the pack directory. `cardRoot` selects another relative directory.
+`extraPaths` adds card-relative lore files. `origin` is `{kind:"file"}` or
+`{kind:"github",repo,commit}` with an exact commit. Media keeps its card path;
+`assetSources` records each repository path. `sourcePackCandidates(files)`
+indexes up to 100,000 file entries; each import reads up to 512 media files.
+Extra music files keep their bytes; portable playback also needs the catalog
+adapter's room-to-track mapping from `music.mjs`.
+
 | File                                | Owns                                                                                                                    |
 | ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
 | `v2/worlds/card-table.json`         | The hub's own places, avatars and items, the player id, its start and switchable groups, and the list of mounted packs. |
