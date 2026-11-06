@@ -10,6 +10,14 @@ shape for the next spoke.
 
 ## Files
 
+Authoring drafts keep the original pack and bridge together with the writer's
+document. `card-game/authoring-draft.mjs` reads and exports their version 1
+manifest. A draft has its own server ID and revision; imported pack IDs stay
+intact. Asset records hold a relative path, MIME type, SHA-256 and byte size.
+File bytes go through a separate upload. Source records keep local relative
+paths or a GitHub repository, exact commit and path. Drafts accept unfinished
+cards; publication checks the compiled pack with the shared pack validator.
+
 | File                                | Owns                                                                                                                    |
 | ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
 | `v2/worlds/card-table.json`         | The hub's own places, avatars and items, the player id, its start and switchable groups, and the list of mounted packs. |
