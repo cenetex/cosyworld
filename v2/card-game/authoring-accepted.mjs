@@ -21,7 +21,7 @@ const text = (value, max) =>
   value.length <= max &&
   value.isWellFormed() &&
   !/[\u0000-\u001f\u007f]/u.test(value);
-const roles = ["base", "happy", "sad", "strike", "brace", "hit", "sleep"];
+const roles = "base happy sad strike brace hit sleep sheet".split(" ");
 const extensions = {
   "image/png": "png",
   "image/webp": "webp",
