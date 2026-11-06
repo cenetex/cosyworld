@@ -2060,12 +2060,23 @@ function frameFigure(img) {
   else img.addEventListener("load", measure, { once: true });
 }
 // Compose the avatar and selected cards over the scene, as quest cards do.
-function showBeatCards(ids, here, verb, recipe = false) {
+function showBeatCards(ids, here, verb, recipe = false, actionView = null) {
   const cards = document.querySelector(".action-beat-cards"),
-    key = JSON.stringify([recipe, here, verb, ids, ids.map(beatPortrait)]);
+    key = JSON.stringify([
+      recipe,
+      here,
+      verb,
+      ids,
+      ids.map(beatPortrait),
+      actionView,
+    ]);
   if (cards.dataset.cards === key) return;
   cards.dataset.cards = key;
   releaseImages(cards);
+  if (actionView) {
+    cards.replaceChildren(questScreen(actionView, questArt));
+    return;
+  }
   if (recipe) {
     const scene = questScreen(
       {
@@ -2101,7 +2112,7 @@ function showBeatCards(ids, here, verb, recipe = false) {
 // declared before notice(), which a refused save calls during boot.
 export function showActionBeat(beat) {
   borrowedBeat = beat;
-  keptBorrowedBeat = null;
+  if (keptBorrowedBeat) keptBorrowedBeat = beat;
   renderActions();
 }
 let keptBorrowedBeat = null;
@@ -2297,6 +2308,19 @@ function renderActions() {
     here,
     playLabel(actions[0], world),
     lockShown?.recipe,
+    actions[0] && !lockShown && !questShown
+      ? actionScene(
+          {
+            actorId: actor,
+            verb: actions[0].kind,
+            itemId: actions[0].item,
+            targetId: actions[0].target,
+            receiveId: actions[0].receive,
+            locationId: actions[0].kind === "move" ? actions[0].target : here,
+          },
+          known,
+        )
+      : null,
   );
   // The box's edge takes the rarest card's tier colour; Common stays plain.
   const rarest = involved
@@ -2356,9 +2380,16 @@ function renderActions() {
   // it to the top.
   const picked = questOpen && !rested ? shownQuests[questPick] : null;
   const legal = picked?.index === 0 ? legalActions(world) : [];
-  const next =
+  const progress =
     picked?.index === 0 &&
     questStep(world, picked, questCovered(picked), legal);
+  const next =
+    progress?.action &&
+    ["item", "target", "receive", "destination"].some(
+      (key) => progress.action[key] && cardIsCovered(progress.action[key]),
+    )
+      ? { reason: "Not found yet" }
+      : progress;
   const steps = next?.rest
     ? restPlays(
         world,
@@ -2381,10 +2412,7 @@ function renderActions() {
       ? [
           {
             action: step,
-            label:
-              step.kind === "move"
-                ? `Travel to ${nameOf(step.target)}`
-                : playLabel(step, world),
+            label: shownQuestCaption(picked),
           },
         ]
       : drop
@@ -2403,8 +2431,7 @@ function renderActions() {
       button.dataset.destructive = "";
     } else button.dataset.questStep = "";
     if (!discard) button.dataset.action = action.kind;
-    button.title =
-      discard && questCovered(picked) ? "Abandon this quest" : playText(action);
+    button.title = discard ? "Abandon this quest" : shownQuestCaption(picked);
     button.disabled = selectionBlocked();
     button.onclick = () => {
       if (discard && !abandonQuest) {
@@ -2967,7 +2994,7 @@ const questCovered = (quest) =>
 const known = (id) => !cardIsCovered(id);
 function shownQuestCaption(quest) {
   const hidden = questCovered(quest);
-  return questCaption(quest, hidden, questVerb(world, quest, hidden));
+  return questCaption(quest, hidden, questVerb(world, quest, hidden), known);
 }
 const questArt = {
   url: (src) => imageUrl(src, "card"),

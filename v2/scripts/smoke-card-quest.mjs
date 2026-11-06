@@ -559,7 +559,7 @@ try {
       top,
       "quest",
       "vale+ greek-funeral-cloth quest:0* quest:1+ quest:2",
-      ["Travel to Theban Palace Forecourt"],
+      ["Give The Burial Decree to The Gate Guard"],
     );
     await play(
       top,

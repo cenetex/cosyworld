@@ -85,7 +85,7 @@ try {
             text: document.body.innerText,
             buttons: [...document.querySelectorAll("#card-actions button")]
               .filter((el) => el.checkVisibility())
-              .map((el) => el.textContent),
+              .map((el) => el.getAttribute("aria-label") || el.textContent),
           };
         });
       const noLeaks = ({ down, text }) => {

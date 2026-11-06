@@ -244,6 +244,7 @@ try {
         assert(size.height <= 96, JSON.stringify(size));
         assert.equal(size.font, "16px");
         assert.equal(size.scenes, 1);
+        await page.waitForTimeout(180);
         await page.screenshot({
           path: `output/card-world-menu-leave-${width}.png`,
         });
