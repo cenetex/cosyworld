@@ -14,7 +14,7 @@ fn polynices_rites_match_the_source_model_and_replay_from_the_journal() {
         // serde_json sends object keys to QuickJS in sorted order.
         const sorted = v => Array.isArray(v) ? v.map(sorted) : v && typeof v === 'object'
             ? Object.fromEntries(Object.keys(v).sort().map(k => [k, sorted(v[k])])) : v;
-        const s = createWorld({ packScopes: { 'greek-drama': 'full' } });
+        const s = createWorld();
         const hollow = 'greek-polynices-hollow';
         s.turn = s.revision = 20;
         s.crossings['pond-greek-harbor'].discovered = true;

@@ -61,8 +61,10 @@ pub(super) fn current_pack_changes(old: &Value, upgraded: &Value) -> Value {
         actor["trust"]["greek-polynices-shade"] = Value::from(0);
     }
     if old["packs"]["greek-drama"]["flags"]["greek-burial-performed"] != true {
-        expected["actors"]["greek-antigone"]["want"] =
-            upgraded["actors"]["greek-antigone"]["want"].clone();
+        let want = &upgraded["actors"]["greek-antigone"]["want"];
+        assert_eq!(want["target"], "greek-polynices-hollow");
+        assert_eq!(want["step"]["finish"], "greek-burial-performed");
+        expected["actors"]["greek-antigone"]["want"] = want.clone();
     }
     hoppy_revision_4(&expected, upgraded)
 }

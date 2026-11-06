@@ -23,7 +23,7 @@ const rites = [
   "greek-shroud-polynices",
   "greek-bury-polynices",
 ];
-let fixture = createWorld({ packScopes: { "greek-drama": "full" } });
+let fixture = createWorld();
 fixture.turn = fixture.revision = 20;
 fixture.crossings["pond-greek-harbor"].discovered = true;
 fixture.actors.vale.place = "greek-gate";
@@ -140,6 +140,11 @@ try {
         await selectCard(page, "vale", { touch: width === 390 });
         const quest = page.locator('#hand button[data-quest-id="quest:0"]');
         await tapCard(quest);
+        await page.waitForFunction(
+          () =>
+            document.querySelector('#hand button[data-quest-id="quest:0"]')
+              ?.dataset.unrevealed === "false",
+        );
         await page.waitForFunction(
           () => !document.querySelector("#hand [data-revealing]"),
         );
