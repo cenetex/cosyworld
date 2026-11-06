@@ -27,9 +27,9 @@ const record = () => ({
   },
   assets: new Map(),
 });
-async function add(r, path, value) {
+async function add(r, path, value, mime = "image/png") {
   const bytes = Uint8Array.of(value),
-    meta = await assetMetadata(path, "image/png", bytes);
+    meta = await assetMetadata(path, mime, bytes);
   r.draft.assets.push(meta);
   r.assets.set(path, bytes);
   return { ...meta, role: path };
@@ -145,8 +145,7 @@ it("pins the original Dino PNG bytes and loads the bundled example", async () =>
 it("opens an imported JPEG avatar for a fresh roll while keeping its authored portrait", async () => {
   const r = record();
   r.draft.pack.avatars["sample-vale"].portrait = "portrait.jpg";
-  await add(r, "portrait.jpg", 1);
-  r.draft.assets[0].mime = "image/jpeg";
+  await add(r, "portrait.jpg", 1, "image/jpeg");
   const before = JSON.stringify(r.draft);
   const design = await readAvatarDesign(r, "sample-vale", empty);
   expect(design.value.base).toBeUndefined();
