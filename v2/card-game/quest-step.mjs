@@ -1,6 +1,7 @@
 // A chosen quest's next step on the context button: one play the rules
 // already offer (`legalActions`) that moves the quest on, or the reason
 // there is none. Presentation only; the rules decide nothing new here.
+import { packGiveChoice } from "./pack-registry.mjs";
 import { questDistance } from "./quest-card.mjs";
 import { itemPlace, legalActions, rootHolder } from "./world.mjs";
 
@@ -60,7 +61,35 @@ export function questStep(world, quest, covered, legal = legalActions(world)) {
   if (covered) return { reason: NOT_FOUND };
   const here = world.actors[actor].place;
   if (step?.verb === "lay") {
-    const missing = (quest.remaining ?? step.items).filter(
+    const remaining = quest.remaining ?? step.items;
+    if (quest.remaining && here === target) {
+      const [item] = remaining;
+      const gift = legal.find(
+        (a) =>
+          a.kind === "give" &&
+          a.actor === actor &&
+          a.item === item &&
+          a.target === "greek-antigone" &&
+          packGiveChoice(world, a),
+      );
+      if (gift) return { action: gift };
+      const fetch = remaining.find(
+        (id) =>
+          rootHolder(world, id) !== actor &&
+          (id === item || itemPlace(world, id) !== here),
+      );
+      return fetch
+        ? (questStep(
+            world,
+            { actor, kind: "item", target: fetch },
+            false,
+            legal,
+          ) ?? {
+            reason: NO_WAY,
+          })
+        : { reason: "Wait for Antigone to receive the supplies" };
+    }
+    const missing = remaining.filter(
       (id) => world.items[id]?.holder !== target,
     );
     const carried = missing.find((id) => rootHolder(world, id) === actor);
@@ -68,18 +97,6 @@ export function questStep(world, quest, covered, legal = legalActions(world)) {
       return {
         action: legal.find((a) => a.kind === "drop" && a.item === carried),
       };
-    if (!missing.length && here === target) {
-      const rite = legal.find(
-        (a) =>
-          a.kind === "choose" &&
-          [
-            "greek-anoint-polynices",
-            "greek-shroud-polynices",
-            "greek-bury-polynices",
-          ].includes(a.choiceId),
-      );
-      return rite ? { action: rite } : null;
-    }
     if (!carried && missing.length) {
       const nearest = missing
         .map((id) => [id, questDistance(world, actor, itemPlace(world, id))])
