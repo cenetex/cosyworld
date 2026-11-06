@@ -25,8 +25,12 @@ and the last 50 inverse edits. `createAuthoringState(source)` copies the source;
 an edit preview; pass its `sequence` and `key` with `apply`. Selecting a location
 sets the launch sidecar. While a box is armed, that selection becomes its target
 and branch navigation keeps the box armed. The workspace owns expansion.
-Source changes clear the pair; Undo restores the exact source and advances the
-local sequence. Server draft revisions stay with persistence.
+A location's Quests box takes three selections: its box, the approach location,
+and the required item. The action replaces the direct walk with an item opening;
+the return path stays as authored. Choosing another approach clears the item.
+Existing openings keep their condition cards, and ships use dock and lane cards.
+Source changes clear the selection; Undo restores the exact source and advances
+the local sequence. Server draft revisions stay with persistence.
 
 `authoring-fields.mjs` adapts scalar field cards for the descriptor.
 `authoringField(source, card)` captures its path, type, displayed value and

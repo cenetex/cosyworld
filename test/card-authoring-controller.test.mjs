@@ -213,7 +213,7 @@ it("switches and cancels arms explicitly and shows guards for invalid targets", 
   assert.equal(next.selected.length, 1);
   assert.match(
     authoringAction(select(next, id("items", "oil"))).reason,
-    /conditions and rewards/,
+    /approach Harbor/,
   );
   const cancelled = reduceAuthoring(next, { type: "cancel" });
   assert.equal(authoringAction(cancelled), null);
@@ -222,4 +222,110 @@ it("switches and cancels arms explicitly and shows guards for invalid targets", 
     reduceAuthoring(cancelled, { type: "setLaunch", place: "b" }).source.launch,
     { schemaVersion: 1, place: "b" },
   );
+});
+
+it("builds a locked approach from its box, approach and item with exact Undo", () => {
+  const source = fixture();
+  source.pack.places.b.exits = ["a"];
+  let state = select(createAuthoringState(source), id("places", "a"));
+  const before = JSON.stringify(state.source),
+    box = id("places", "b", "quests");
+  state = select(state, box);
+  assert.match(authoringAction(state).reason, /approach Harbor/);
+  assert.strictEqual(select(state, id("items", "oil")), state);
+  state = select(state, id("places", "a"));
+  assert.match(authoringAction(state).reason, /item.*Harbor from Courtyard/);
+  assert.strictEqual(select(state, id("places", "a", "contents")), state);
+  state = select(state, id("items", "oil"));
+  assert.deepEqual(state.selected, [
+    box,
+    id("places", "a"),
+    id("items", "oil"),
+  ]);
+  assert.equal(
+    authoringAction(state).label,
+    "Open Harbor from Courtyard with Oil",
+  );
+  const next = apply(state);
+  assert.deepEqual(next.source.pack.routes, [
+    {
+      from: "a",
+      to: "b",
+      requires: [{ kind: "item_present", item: "oil", place: "a" }],
+    },
+  ]);
+  assert.deepEqual(next.source.pack.places.a.exits, []);
+  assert.deepEqual(next.source.pack.places.b.exits, ["a"]);
+  assert.deepEqual(next.source.launch, state.source.launch);
+  assert.equal(JSON.stringify(undo(next).source), before);
+  assert.equal(JSON.stringify(state.source), before);
+});
+
+it("replaces a selected approach and rejects its former three-card action", () => {
+  const source = fixture();
+  source.pack.places.c = { name: "Hill", exits: ["b"] };
+  source.pack.choices = [
+    { requires: [{ kind: "item_at", item: "oil", place: "a" }] },
+  ];
+  const ref = authoringCardId(
+    ["pack", "choices", 0, "requires", 0, "item"],
+    "link",
+  );
+  const approach = authoringCardId(
+    ["pack", "choices", 0, "requires", 0, "place"],
+    "link",
+  );
+  const box = id("places", "b", "quests");
+  let state = select(pair(createAuthoringState(source), box, approach), ref);
+  const previous = authoringAction(state);
+  assert.equal(previous.disabled, false);
+  state = select(state, id("places", "c"));
+  assert.deepEqual(state.selected, [box, id("places", "c")]);
+  assert.match(authoringAction(state).reason, /item.*Hill/);
+  assert.throws(
+    () => reduceAuthoring(state, { type: "apply", ...previous }),
+    /selection changed/,
+  );
+  state = select(state, ref);
+  const next = apply(state);
+  assert.equal(next.source.pack.routes[0].from, "c");
+  assert.deepEqual(next.source.pack.places.a.exits, ["b"]);
+  assert.deepEqual(undo(next).source, source);
+});
+
+it("keeps rich existing approaches and directs ships to their lane cards", () => {
+  const pack = JSON.parse(
+    readFileSync(
+      new URL("../v2/content/greek-drama/card-world.json", import.meta.url),
+    ),
+  );
+  const bridge = JSON.parse(
+    readFileSync(
+      new URL("../v2/worlds/greek-drama/card-bridge.json", import.meta.url),
+    ),
+  );
+  const original = JSON.stringify({ pack, bridge });
+  const state = pair(
+    createAuthoringState({ pack, bridge }),
+    id("places", "greek-cithaeron", "quests"),
+    id("places", "greek-battlefield"),
+  );
+  assert.match(authoringAction(state).reason, /existing opening quest/);
+  assert.throws(
+    () => apply(select(state, id("items", "greek-provisions"))),
+    /existing opening quest/,
+  );
+  assert.equal(JSON.stringify(state.source), original);
+  for (const [destination, approach] of [
+    ["greek-ship", "greek-harbor"],
+    ["greek-harbor", "greek-ship"],
+  ]) {
+    const selected = pair(
+      createAuthoringState({ pack, bridge }),
+      id("places", destination, "quests"),
+      id("places", approach),
+    );
+    assert.match(authoringAction(selected).reason, /ship's dock and lane/);
+    assert.equal(JSON.stringify(selected.source), original);
+  }
 });
