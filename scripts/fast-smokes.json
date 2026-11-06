@@ -21,6 +21,10 @@
       "smokes": ["smoke-authoring-create-store", "smoke-authoring-local-store"]
     },
     {
+      "paths": "^v2/card-game/authoring-(entry|seed-maker|seed-world)\\.",
+      "smokes": ["smoke-card-seed-maker", "smoke-card-authoring-entry"]
+    },
+    {
       "paths": "^v2/card-game/authoring-(designer|session|import-tools)\\.",
       "smokes": ["smoke-authoring-transient-discard"]
     },

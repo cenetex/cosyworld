@@ -64,3 +64,11 @@ further reveals and exact reload at desktop and phone widths. Check stale
 responses, failed saves and sign-in recovery. Verify each quest target and
 each location link. Check server authentication, origin, bounds and provider
 failure. Retain a small example seed and the observed output.
+
+The browser journey uses “A rainy harbour with clockwork birds”. Its checked
+text fixture creates Rainy quay, Mara and Blue lamp. Retained views show the
+[phone seed field](assets/make-seed-first/seed-390.png),
+[phone cards](assets/make-seed-first/cards-390.png) and
+[desktop cards](assets/make-seed-first/cards-1440.png).
+Show details keeps the extra avatar draw tools available; `/make?sample=1`
+opens the existing Lantern Shore example and its Dino design.

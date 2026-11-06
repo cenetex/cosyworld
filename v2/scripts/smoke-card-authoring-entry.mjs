@@ -80,7 +80,7 @@ try {
       });
     try {
       const response = await page.goto(
-        `http://127.0.0.1:${server.address().port}/make`,
+        `http://127.0.0.1:${server.address().port}/make?sample=1`,
       );
       assert.equal(response.status(), 200);
       assert.match(

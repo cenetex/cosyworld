@@ -18,7 +18,7 @@ try {
     });
     const errors = [];
     page.on("pageerror", (error) => errors.push(error.message));
-    await page.goto(`http://127.0.0.1:${server.address().port}/make`);
+    await page.goto(`http://127.0.0.1:${server.address().port}/make?sample=1`);
     const result = await page.evaluate(async () => {
       const { createSampleWorld, sampleExample } = await import(
         "/card-game/authoring-sample.mjs"

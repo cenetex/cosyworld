@@ -23,7 +23,10 @@ The Tools cards include Sign in and Create passkey through
 `authoring-account-tools.mjs`. They use the shared passkey ceremony and account
 policy. Account state and errors stay in memory; the current draft stays open.
 
-Fresh `/make` visits open Lantern Shore from `authoring-sample.mjs`: three
+Fresh `/make` visits start with a world seed. Create draws text cards for an
+avatar, item and location, with a starter quest. Regenerate, Discard and Uncover
+shape the world. Show details opens its source fields and extra avatar tools.
+Saved text survives reload. `/make?sample=1` opens Lantern Shore from `authoring-sample.mjs`: three
 places, two avatars and three items. Returning the bell to its keeper opens
 the garden. Dino, the Braveheart, is the sample character. Its supplied portrait
 and six-pose sheet show the character design flow. The first draft save stores

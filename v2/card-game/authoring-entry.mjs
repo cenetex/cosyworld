@@ -2,6 +2,8 @@ import { createAuthoringAccountTools } from "./authoring-account-tools.mjs";
 import { authoringSeedTools } from "./authoring-seed-tools.mjs";
 import { openAuthoringStore } from "./authoring-local-store.mjs";
 import { createSampleWorld } from "./authoring-sample.mjs";
+import { emptySeedWorld } from "./authoring-seed-world.mjs";
+import { createSeedMaker } from "./authoring-seed-maker.mjs";
 import { installWorldDesigner } from "./authoring-designer.mjs";
 import { authoringImportTools } from "./authoring-import-tools.mjs";
 import { renderCardDescriptor } from "./card-descriptor.mjs";
@@ -148,18 +150,43 @@ async function start() {
     );
   }
   if (!record) {
-    record = { ...(await createSampleWorld()), generation: 0 };
+    record = {
+      ...(params.get("sample") === "1"
+        ? await createSampleWorld()
+        : emptySeedWorld()),
+      generation: 0,
+    };
     cacheAssets(key, 0, record.draft, record.assets);
   }
   const imports = authoringImportTools({ store, chooseFiles });
   const accountHome = () => designer.chooseTool("sign-in");
   const accounts = createAuthoringAccountTools({
-    onChange: () => designer?.refresh(), onSignedIn: () => { const resume = resumeAccount; resumeAccount = accountHome; resume(); },
+    onChange: () => designer?.refresh(),
+    onSignedIn: () => {
+      const resume = resumeAccount;
+      resumeAccount = accountHome;
+      resume();
+    },
   });
   let resumeAccount = accountHome;
   const seed = authoringSeedTools({
-    requireSignIn() { resumeAccount = () => seed.signedIn(); return accounts.requireSignIn(); },
-    changed: () => designer?.refresh(), chooseTool: id => designer.chooseTool(id),
+    requireSignIn() {
+      resumeAccount = () => seed.signedIn();
+      return accounts.requireSignIn();
+    },
+    changed: () => designer?.refresh(),
+    chooseTool: (id) => designer.chooseTool(id),
+  });
+  const maker = createSeedMaker({
+    accounts: {
+      requireSignIn() {
+        resumeAccount = () => maker.signedIn();
+        return accounts.requireSignIn();
+      },
+    },
+    changed: () => designer?.refresh(),
+    choose: (id) =>
+      id === "world" ? designer.chooseWorld() : designer.chooseTool(id),
   });
   const source = {
     id: "source",
@@ -181,12 +208,29 @@ async function start() {
   };
   designer = installWorldDesigner({
     store,
-    transientState: seed.transientState,
+    transientState: () => {
+      const values = [seed.transientState(), maker.transient()];
+      return values.some((value) => value !== null)
+        ? JSON.stringify(values)
+        : null;
+    },
     actionBeat,
     resolveArt,
-    tools: () => [source, ...imports(), ...accounts.tools(), ...seed.tools()],
-    onOpen(status) { seed.open(status); resumeAccount = accountHome; },
+    tools: () => [
+      source,
+      ...imports(),
+      ...accounts.tools(),
+      ...(maker.detailed() ? seed.tools() : []),
+      ...maker.tools(),
+    ],
+    project: maker.project,
+    onOpen(status) {
+      seed.open(status);
+      maker.clear();
+      resumeAccount = accountHome;
+    },
     onScene(place, source, status) {
+      maker.sync(source, status);
       activeAssets = cache.get(assetKey(status));
       pruneAssets();
       const next = new URL(location.href);
@@ -202,7 +246,9 @@ async function start() {
       );
       $("place-title").textContent = locationCard?.name || "World editor";
       document.querySelector(".brand span").textContent =
-        status.title || "Your world";
+        source.pack?.id === "made-world"
+          ? source.pack.name
+          : status.title || "Your world";
       for (const image of [
         $("backdrop"),
         document.querySelector(".settings-scene"),
@@ -226,6 +272,8 @@ async function start() {
   }
   document.title = "Make a world · Lonely Forest";
   designer.open({ key, record });
+  if (record.draft.pack?.id === "made-world" && !record.draft.pack.entry)
+    designer.chooseTool("maker-seed");
   void accounts.refresh();
   if (!record.draft.pack) designer.chooseTool("source");
 }
