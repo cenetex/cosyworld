@@ -6276,7 +6276,8 @@
           "effects": [
             {
               "kind": "retire_item",
-              "item": "greek-oil-flask"
+              "item": "greek-oil-flask",
+              "waitAtHome": true
             },
             {
               "kind": "set_flag",
@@ -6316,7 +6317,8 @@
           "effects": [
             {
               "kind": "retire_item",
-              "item": "greek-funeral-cloth"
+              "item": "greek-funeral-cloth",
+              "waitAtHome": true
             },
             {
               "kind": "set_flag",

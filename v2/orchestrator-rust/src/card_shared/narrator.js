@@ -8867,7 +8867,8 @@
             effects: [
               {
                 kind: "retire_item",
-                item: "greek-oil-flask"
+                item: "greek-oil-flask",
+                waitAtHome: true
               },
               {
                 kind: "set_flag",
@@ -8907,7 +8908,8 @@
             effects: [
               {
                 kind: "retire_item",
-                item: "greek-funeral-cloth"
+                item: "greek-funeral-cloth",
+                waitAtHome: true
               },
               {
                 kind: "set_flag",
@@ -16778,7 +16780,7 @@
         if (e.kind === "upgrade")
           valid = keysOk(e, ["kind", "upgrade"]) && idOk2(e.upgrade) && c.for !== void 0;
         if (e.kind === "retire_item")
-          valid = keysOk(e, ["kind", "item"]) && owns3(items2, e.item) && (c.requires || []).flatMap((r) => r.kind === "any" ? r.conditions : [r]).some(
+          valid = keysOk(e, ["kind", "item", "waitAtHome"]) && owns3(items2, e.item) && (e.waitAtHome === void 0 || e.waitAtHome === true && items2[e.item].home && !items2[e.item].regrow && !items2[e.item].locked) && (c.requires || []).flatMap((r) => r.kind === "any" ? r.conditions : [r]).some(
             (r) => r.item === e.item && (r.kind === "holding" && r.role === "actor" || ["item_near", "item_at"].includes(r.kind) && r.place === c.at)
           );
         if (e.kind === "drop_item")
@@ -17262,6 +17264,13 @@
   var packPeople = merge("avatars");
   var packFixtures = merge("fixtures");
   var packThings = merge("items");
+  var waitsAtHome = new Set(
+    packDefinitions.flatMap(
+      (pack) => (pack.choices || []).flatMap(
+        (choice) => choice.effects.filter((e) => e.kind === "retire_item" && e.waitAtHome).map((e) => e.item)
+      )
+    )
+  );
   var consumable = (id) => packThings[id]?.home ? ["food", "drink"].find((tag) => packThings[id].tags?.includes(tag)) ?? null : null;
   var isFood = (id) => consumable(id) !== null;
   var entities = {
@@ -17271,6 +17280,12 @@
     ...packFixtures
   };
   var packEntity = (id) => owns4(entities, id) ? entities[id] : null;
+  var waitingAtHome = (world, id) => {
+    const item = packEntity(id);
+    return waitsAtHome.has(id) && world.items?.[id]?.holder === item.home && packDefinition(item.packId).choices.some(
+      (c) => world.packs[item.packId]?.receipts[c.id] !== void 0 && c.effects.some((e) => e.item === id && e.waitAtHome)
+    );
+  };
   function validatePackLinks(places2, actors2, items2) {
     for (const pack of packDefinitions)
       for (const [kind, catalog] of [
@@ -17416,6 +17431,8 @@
       return false;
     const e = packEntity(id);
     if (!e) return true;
+    if (waitingAtHome(world, id) && !entityEnabled(world, e.home, saved))
+      return false;
     const pack = packDefinition(e.packId), state = packState(world, e.packId);
     if (!state || !conditionsMet(
       world,
@@ -17605,7 +17622,7 @@
         if (!entityEnabled(world, id, true) && !departed(pack, state, id) && (world.actors[id]?.place !== actor.place && !actor.previousHomes?.includes(world.actors[id]?.place) || world.actors[id]?.crossed !== 0 || world.actors[id]?.lastTalk !== -9 || owns4(state.met, id)))
           return false;
       for (const [id, item] of Object.entries(pack.items || {}))
-        if (!entityEnabled(world, id, true) && (world.items[id]?.holder !== item.holder || world.items[id]?.history?.length !== 0 && !restGated(item.requires, id)))
+        if (!entityEnabled(world, id, true) && !(waitingAtHome(world, id) && world.items[id].history.length === 0) && (world.items[id]?.holder !== item.holder || world.items[id]?.history?.length !== 0 && !restGated(item.requires, id)))
           return false;
     }
     return true;

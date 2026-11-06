@@ -1353,8 +1353,13 @@ export function packProblems(pack, hub, mountedPlaces = [], mountedItems = []) {
       // (a rite uses up what lies on the grave).
       if (e.kind === "retire_item")
         valid =
-          keysOk(e, ["kind", "item"]) &&
+          keysOk(e, ["kind", "item", "waitAtHome"]) &&
           owns(items, e.item) &&
+          (e.waitAtHome === undefined ||
+            (e.waitAtHome === true &&
+              items[e.item].home &&
+              !items[e.item].regrow &&
+              !items[e.item].locked)) &&
           (c.requires || [])
             .flatMap((r) => (r.kind === "any" ? r.conditions : [r]))
             .some(
