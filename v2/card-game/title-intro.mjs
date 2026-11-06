@@ -255,7 +255,6 @@ export function acknowledgementGlows(acknowledgement) {
 let voice = null;
 export function voiceTitle(sounds) {
   voice = sounds;
-  if (globalThis.navigator?.userActivation?.hasBeenActive) voice?.unlock();
 }
 // Real text from acknowledgement.json, set like a film's opening card. Each
 // highlighted word takes on its set's rarity tier colour and weight in the

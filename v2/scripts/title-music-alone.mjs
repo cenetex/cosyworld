@@ -3,6 +3,15 @@ import { dispatchShared } from "../card-game/shared-world.mjs";
 import { humanAvatarIds } from "../card-game/human-cast.mjs";
 
 export const traveller = ".title-card .card";
+export async function finishAcknowledgement(page) {
+  for (
+    let i = 0;
+    i < 6 && (await page.locator(".title-ack[data-stream]").count());
+    i++
+  )
+    await page.keyboard.press("Enter");
+  await page.waitForSelector(".title-ack[data-written]");
+}
 export const cardShown = async (page) => {
   await page.waitForSelector(traveller);
   assert.equal(await page.getAttribute(".title-privacy", "href"), "/privacy");
@@ -102,8 +111,7 @@ export async function checkTitleMusicAlone(browser, origin, shot) {
     await page.goto(`${origin}/?world=alone&intro=1`);
     await page.waitForSelector('.title-intro[data-phase="ack"] .title-ack');
     await page.waitForSelector("#hand .card", { state: "attached" });
-    // One tap shows the streaming acknowledgement whole; the next goes on.
-    await page.mouse.click(width / 2, 10);
+    await finishAcknowledgement(page);
     await page.mouse.click(width / 2, 10);
     await cardShown(page);
     await page.waitForTimeout(1000);
