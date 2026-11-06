@@ -1377,6 +1377,8 @@ function keepHeldSelection(before, action = null) {
   selected = keepActor ? [actor, ...held] : held;
   expandedHolders.clear();
   if (expanded) expandedHolders.add(actor);
+  // A received card keeps the completed play's beat at rest until a new tap.
+  if (restedChoice !== null) restedChoice = choiceKey();
 }
 // The current place and its items sit on the left. The way back sits just
 // before them, and the other ways on stack at the row's right end.
@@ -2299,6 +2301,11 @@ function renderActions() {
       ? `Look at ${theName(selected[0])} up close.`
       : "";
   const selectionName = selected.map(nameOf).join(" + ");
+  const itemDetails =
+    !rested && selected.length === 1 && things[selected[0]] &&
+    !cardIsCovered(selected[0])
+      ? `${nameOf(selected[0])}. ${things[selected[0]].text || ""} ${cardObservation(world, selected[0])}`.trim()
+      : "";
   $("selection-name").textContent = selected.length
     ? selectionName
     : "Card actions";
@@ -2316,7 +2323,7 @@ function renderActions() {
       ? lockShown.text
       : questShown
         ? shownQuestCaption(questShown, false)
-        : ((actions[0] && playText(actions[0])) || clientText).replace(
+        : ((actions[0] && playText(actions[0])) || clientText || itemDetails).replace(
             /\b(the|an?) (?:the|an?) /giu,
             "$1 ",
           );
@@ -2454,7 +2461,7 @@ function renderActions() {
         ? [{ action: drop, label: dropLabel }]
         : [];
   for (const { action, label } of questButtons) {
-    const discard = action?.kind === "drop",
+    const discard = action?.kind === "drop" && !action.item,
       button = node(
         "button",
         label,
@@ -2568,6 +2575,7 @@ function renderActions() {
   }
   const note = document.querySelector(".action-beat-note");
   let noteText = visibleText(next?.reason === NOT_FOUND ? "" : next?.reason || "");
+  if (!noteText && itemDetails && sentence !== itemDetails) noteText = itemDetails;
   if (abandonQuest) {
     panel.dataset.tier = "danger";
     panel.style.setProperty("--tier-color", "var(--danger)");
@@ -4187,7 +4195,8 @@ function choiceInStack() {
   return (
     !borrowedBeat &&
     shownPhase === "choosing" &&
-    $("card-actions").childElementCount > 0
+    ($("card-actions").childElementCount > 0 ||
+      !document.querySelector(".action-beat-heading").hidden)
   );
 }
 function choiceInFront() {
@@ -4261,7 +4270,7 @@ function syncActionBeat() {
     front = $("speech-row"),
     show =
       Boolean(borrowedBeat) ||
-      ($("card-actions").childElementCount > 0 && !reviewing) ||
+      ((choiceInStack() || $("card-actions").childElementCount > 0) && !reviewing) ||
       (!$("play-status").hidden && shownPhase !== "revealing");
   // A notice before the first render (storage refused) only shows the beat.
   const drawn = Boolean(document.body.dataset.handExpanded);

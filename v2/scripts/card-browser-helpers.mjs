@@ -118,7 +118,13 @@ async function fanAvatarStack(page, holder) {
     `#hand .card-frame[data-holder="${holder}"]:not([hidden], [data-want]) > .card[aria-expanded="false"]:not(.location)`,
   );
   if (!(await folded.count())) return false;
-  await tapCard(folded.first());
+  const top = folded.first();
+  const id = await top.getAttribute("data-card");
+  await tapCard(top);
+  const chosen = page.locator(`#hand [data-card="${id}"]`);
+  // Fanning also selects the top card. Lower it before choosing another.
+  if ((await chosen.getAttribute("aria-pressed")) === "true")
+    await tapCard(chosen);
   return true;
 }
 // A held item stays raised through plays and new targets (#1417, #1435), so
@@ -140,12 +146,14 @@ export async function endStandoff(page, world, actor = "vale") {
 }
 export async function selectCard(page, id, { touch = false } = {}) {
   const frame = page.locator(`#hand [data-card="${id}"]`).locator("..");
+  const wasSelected =
+    (await frame.locator(".card").getAttribute("aria-pressed")) === "true";
   const holder =
     (await frame.getAttribute("hidden")) !== null
       ? await frame.getAttribute("data-holder")
       : null;
   const card = await revealCard(page, id);
-  if ((await card.getAttribute("aria-pressed")) !== "true") {
+  if (wasSelected || (await card.getAttribute("aria-pressed")) !== "true") {
     if (touch) await card.tap();
     else await card.click();
   }
