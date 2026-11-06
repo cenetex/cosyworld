@@ -18,6 +18,16 @@ Each place and avatar has Contents and Quests boxes. Incoming road conditions
 live under the destination's Quests box; outgoing links stay in Contents.
 The index leaves the source intact. Edit commands use those paths separately.
 
+`authoring-controller.mjs` owns local selection, box targeting, edit sequence,
+and the last 50 inverse edits. `createAuthoringState(source)` copies the source;
+`reduceAuthoring(state, event)` accepts `select`, `arm`, `cancel`, `apply`,
+`edit`, `setLaunch`, and `undo`. `authoringAction(state)` supplies a label and
+an edit preview; pass its `sequence` and `key` with `apply`. Selecting a location
+sets the launch sidecar. While a box is armed, that selection becomes its target
+and branch navigation keeps the box armed. The workspace owns expansion.
+Source changes clear the pair; Undo restores the exact source and advances the
+local sequence. Server draft revisions stay with persistence.
+
 ## Files
 
 Authoring drafts keep the original pack and bridge together with the writer's
