@@ -177,3 +177,182 @@ async fn create_checks_origin_size_schema_and_server_owned_fields() {
         (200, created)
     );
 }
+
+fn launch_draft() -> Value {
+    let mut value = draft();
+    value["pack"] = json!({"id":"marsh","entry":"shore","places":{"shore":{},"ship":{}}});
+    value["bridge"] = json!({"transports":{"boat":{"place":"ship","at":"shore"}}});
+    value["launch"] = json!({"schemaVersion":1,"place":"ship"});
+    value
+}
+
+fn save_body(mut draft: Value, revision: u64) -> Value {
+    let object = draft.as_object_mut().unwrap();
+    object.remove("id");
+    object.remove("revision");
+    object.insert("expectedRevision".into(), json!(revision));
+    draft
+}
+
+#[tokio::test]
+async fn authoring_launch_create_preserve_clear_and_reopen() {
+    let (state, path) = fixture();
+    let owner = cookie(&state, "owner");
+    let mut bad = launch_draft();
+    bad["launch"]["place"] = json!("missing");
+    assert_eq!(send(&state, "POST", BASE, &owner, bad, None).await.0, 400);
+    assert_eq!(
+        send(&state, "GET", BASE, &owner, Value::Null, None).await.1,
+        json!({"packs":[]})
+    );
+    let (status, created) = send(&state, "POST", BASE, &owner, launch_draft(), None).await;
+    assert_eq!(status, 200);
+    assert!(crate::authoring_draft::valid(&created));
+    let route = format!("{BASE}/{}", created["id"].as_str().unwrap());
+    let launch_route = format!("{route}/launch");
+    let expected = json!({"revision":1,"launch":{"schemaVersion":1,"place":"ship"}});
+    assert_eq!(
+        send(&state, "GET", &launch_route, &owner, Value::Null, None).await,
+        (200, expected)
+    );
+    let mut missing = save_body(created.clone(), 1);
+    missing["pack"]["places"]
+        .as_object_mut()
+        .unwrap()
+        .remove("ship");
+    assert_eq!(
+        send(&state, "PUT", &route, &owner, missing.clone(), None)
+            .await
+            .0,
+        400
+    );
+    let mut book = save_body(created, 1);
+    book["document"] = json!("x".repeat(8 * 1024 * 1024));
+    let (status, saved) = send(&state, "PUT", &route, &owner, book.clone(), None).await;
+    assert_eq!(status, 200);
+    assert_eq!(saved["document"], book["document"]);
+    assert_eq!(saved["revision"], 2);
+    assert!(crate::authoring_draft::valid(&saved));
+    let reopened = test_app_state(RuntimeWorld::seeded(), Some(path));
+    let (status, launch) = send(&reopened, "GET", &launch_route, &owner, Value::Null, None).await;
+    assert_eq!(
+        (status, launch),
+        (
+            200,
+            json!({"revision":2,"launch":{"schemaVersion":1,"place":"ship"}})
+        )
+    );
+    assert_eq!(saved["pack"]["entry"], "shore");
+    assert_eq!(saved["bridge"]["transports"]["boat"]["at"], "shore");
+    missing["expectedRevision"] = json!(2);
+    missing["launch"] = Value::Null;
+    assert_eq!(
+        send(&state, "PUT", &route, &owner, missing, None).await.0,
+        200
+    );
+    assert_eq!(
+        send(&state, "GET", &launch_route, &owner, Value::Null, None)
+            .await
+            .1,
+        json!({"revision":3,"launch":null})
+    );
+}
+
+#[tokio::test]
+async fn authoring_revision_conflicts_are_private_and_atomic() {
+    let (state, _) = fixture();
+    let owner = cookie(&state, "owner");
+    let other = cookie(&state, "other");
+    let (_, created) = send(&state, "POST", BASE, &owner, launch_draft(), None).await;
+    let route = format!("{BASE}/{}", created["id"].as_str().unwrap());
+    let launch_route = format!("{route}/launch");
+    let input = save_body(created.clone(), 1);
+    for (account, status) in [(&other, 404), ("", 401)] {
+        assert_eq!(
+            send(&state, "GET", &launch_route, account, Value::Null, None)
+                .await
+                .0,
+            status
+        );
+        assert_eq!(
+            send(&state, "PUT", &route, account, input.clone(), None)
+                .await
+                .0,
+            status
+        );
+    }
+    assert_eq!(
+        send(
+            &state,
+            "PUT",
+            &route,
+            &owner,
+            input.clone(),
+            Some(("origin", "https://other.example"))
+        )
+        .await
+        .0,
+        403
+    );
+    for (key, value) in [
+        ("expectedRevision", Value::Null),
+        ("expectedRevision", json!(0)),
+        ("expectedRevision", json!(1.5)),
+        ("expectedRevision", json!(9_007_199_254_740_991_u64)),
+        ("id", json!("other")),
+        ("revision", json!(20)),
+        ("owner", json!("other")),
+        ("launch", json!({"schemaVersion":2,"place":"ship"})),
+        (
+            "launch",
+            json!({"schemaVersion":1,"place":"ship","extra":true}),
+        ),
+        ("launch", json!({"schemaVersion":1,"place":"unknown"})),
+    ] {
+        let mut bad = input.clone();
+        bad[key] = value;
+        assert_eq!(
+            send(&state, "PUT", &route, &owner, bad, None).await.0,
+            400,
+            "{key}"
+        );
+    }
+    let c = open_event_store(state.event_store_path.as_deref().unwrap()).unwrap();
+    c.execute_batch("CREATE TRIGGER reject_launch BEFORE INSERT ON authoring_launch BEGIN SELECT RAISE(ABORT,'test'); END;").unwrap();
+    let mut changed = input.clone();
+    changed["title"] = json!("Rollback");
+    assert_eq!(
+        send(&state, "PUT", &route, &owner, changed, None).await.0,
+        503
+    );
+    assert_eq!(
+        send(&state, "GET", &route, &owner, Value::Null, None)
+            .await
+            .1,
+        created
+    );
+    c.execute_batch("DROP TRIGGER reject_launch;").unwrap();
+    let mut a = input.clone();
+    a["title"] = json!("shore");
+    a["launch"] = json!({"schemaVersion":1,"place":"shore"});
+    let mut b = input;
+    b["title"] = json!("ship");
+    b["launch"] = json!({"schemaVersion":1,"place":"ship"});
+    let (a, b) = tokio::join!(
+        send(&state, "PUT", &route, &owner, a, None),
+        send(&state, "PUT", &route, &owner, b, None)
+    );
+    let (winner, conflict) = if a.0 == 200 { (a, b) } else { (b, a) };
+    assert_eq!(winner.0, 200);
+    assert_eq!(conflict.0, 409);
+    assert_eq!(conflict.1["revision"], 2);
+    let (_, launch) = send(&state, "GET", &launch_route, &owner, Value::Null, None).await;
+    assert_eq!(launch["revision"], 2);
+    assert_eq!(launch["launch"]["place"], winner.1["title"]);
+    assert_eq!(
+        send(&state, "GET", &route, &owner, Value::Null, None)
+            .await
+            .1,
+        winner.1
+    );
+}

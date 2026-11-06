@@ -38,6 +38,17 @@ File bytes go through a separate upload. Source records keep local relative
 paths or a GitHub repository, exact commit and path. Drafts accept unfinished
 cards; publication checks the compiled pack with the shared pack validator.
 
+Private drafts use `/card-game/authoring/packs` under the passkey account.
+Create accepts the seven content fields and optional `launch`; the server supplies
+`id` and `revision`. PUT `/:id` accepts the same content plus `expectedRevision`.
+It saves source and launch together and returns the nine-field draft. A stale
+save returns 409 with the latest `revision`. GET `/:id/launch` returns
+`{revision, launch}`; readers compare its revision with their source revision.
+Launch is `{schemaVersion:1, place}` with a place ID from the pack. Omission on
+save preserves it; `null` clears it. A preserved launch must stay in the new
+source. Launch selects the initial location while `pack.entry` and transport
+home docks keep their authored meanings. A ship deck is a valid launch place.
+
 | File                                | Owns                                                                                                                    |
 | ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
 | `v2/worlds/card-table.json`         | The hub's own places, avatars and items, the player id, its start and switchable groups, and the list of mounted packs. |
