@@ -4,6 +4,7 @@ import {
   sampleSource,
   nameKey,
   readCharacter,
+  readSuggestedCharacter,
   characterLabel,
   addDistinctCharacters,
 } from "../v2/card-game/authoring-cast.mjs";
@@ -82,6 +83,38 @@ describe("authoring characters", () => {
     );
     assert.throws(() => readCharacter({ ...result, name: "🌲" }, sample));
     assert.throws(() => readCharacter({ ...result, aliases: [""] }, sample));
+  });
+  it("keeps world-idea characters marked as suggestions", () => {
+    const value = {
+      name: " Dino ",
+      specialAbility: " The Braveheart ",
+      description: " A green dinosaur with orange spines. ",
+      aliases: [" Little Dino ", "Little Dino"],
+      suggested: true,
+    };
+    const accepted = readSuggestedCharacter(value);
+    assert.deepEqual(accepted, {
+      name: "Dino",
+      specialAbility: "The Braveheart",
+      description: "A green dinosaur with orange spines.",
+      aliases: ["Little Dino"],
+      suggested: true,
+    });
+    assert.equal(characterLabel(accepted), "Dino // The Braveheart");
+    assert.throws(() => readCharacter(value, sample));
+    for (const extra of [
+      { suggested: false },
+      { suggested: undefined },
+      { prompt: "private instructions" },
+      { evidence: "Dino" },
+      { source: sample },
+      { aliases: Array(9).fill("Dino") },
+      { description: "x".repeat(1201) },
+      { name: "🌲" },
+    ])
+      assert.throws(() => readSuggestedCharacter({ ...value, ...extra }));
+    assert.throws(() => readSuggestedCharacter(null));
+    assert.throws(() => readSuggestedCharacter([]));
   });
   it("deduplicates normalized names and aliases while preserving kept art", () => {
     assert.equal(nameKey("ＶÁLE"), nameKey("Vale"));
