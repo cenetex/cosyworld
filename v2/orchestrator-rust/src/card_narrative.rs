@@ -2924,13 +2924,19 @@ impl<'a> Check<'a> {
 
     /// Whether a text names someone or something the scene does not know.
     fn names_unknown(&self, text: &str) -> bool {
-        profiles()
-            .as_object()
-            .expect("profiles")
+        let lower = text.to_ascii_lowercase();
+        self.context
+            .concealed
             .iter()
-            .any(|(id, p)| {
-                p["name"].as_str().is_some_and(|n| mentions(text, n)) && !self.known.contains(id)
-            })
+            .any(|id| mentions(&lower, &name(id).to_ascii_lowercase()))
+            || profiles()
+                .as_object()
+                .expect("profiles")
+                .iter()
+                .any(|(id, p)| {
+                    p["name"].as_str().is_some_and(|n| mentions(text, n))
+                        && !self.known.contains(id)
+                })
     }
 }
 
@@ -3157,6 +3163,9 @@ pub(crate) mod tests {
             assert!(!prompt
                 .to_ascii_lowercase()
                 .contains("between-hours carriage"));
+            assert!(
+                Check::new(&scene, vale, part).names_unknown("I saw the between-hours carriage.")
+            );
         }
         let mut printed = "between-hours carriage and Between-hours carriageway".into();
         redact_name(&mut printed, "Between-hours carriage");
