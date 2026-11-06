@@ -631,6 +631,48 @@ try {
       `the dealt quest appears in the visible hand: ${JSON.stringify(dealtQuest)}`,
     );
     await play(vale, "deselect", "vale", []);
+    // A face-down item and destination stay unnamed in every card label.
+    await page.evaluate((key) => {
+      const save = JSON.parse(localStorage.getItem(key));
+      save.actors.vale.want = {
+        kind: "item",
+        target: "routes",
+        step: { verb: "bring", at: "train" },
+        since: save.turn,
+        refusals: 0,
+      };
+      save.actors.vale.under = [];
+      localStorage.setItem(key, JSON.stringify(save));
+      const seen = JSON.parse(localStorage.getItem(`${key}.seen`));
+      localStorage.setItem(
+        `${key}.seen`,
+        JSON.stringify(seen.filter((id) => !["routes", "train"].includes(id))),
+      );
+    }, shrineKey);
+    await page.reload();
+    await page.locator("#hand .quest-fold").focus();
+    await page.keyboard.press("Enter");
+    await page.locator('#hand .want-card[data-quest-id="quest:0"]').click();
+    assert.equal(
+      await page.locator(".action-beat-heading").textContent(),
+      "Find something and bring it somewhere",
+    );
+    assert.equal(
+      await page.locator("#card-actions button").textContent(),
+      "Tap to abandon",
+    );
+    const labels = await page
+      .locator("#action-beat")
+      .evaluate((el) =>
+        [
+          el.textContent,
+          ...[...el.querySelectorAll("*")].flatMap((node) => [
+            node.getAttribute("aria-label"),
+            node.title,
+          ]),
+        ].join(" "),
+      );
+    assert.doesNotMatch(labels, /Route board|Between-hours carriage/);
     assert.deepEqual(errors, []);
     console.log(
       `Quest fold, met seal, click to clear and +XP, stack fan, choose and drop, avatar stacks passed at ${width}px (${motion}).`,

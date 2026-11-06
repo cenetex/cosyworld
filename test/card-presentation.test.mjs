@@ -1,6 +1,33 @@
 import { describe, it, expect } from "vitest";
 import { cardObservation } from "../v2/card-game/cards.mjs";
 import { createWorld, encodeSave } from "../v2/card-game/world.mjs";
+import { revealedBeat } from "../v2/card-game/presentation.mjs";
+
+describe("reading saved words with revealed cards", () => {
+  const beat = {
+    key: "line:12",
+    speakerId: "vale",
+    line: { seq: 12, text: "I saw the Lamp.", speaker: "Vale", sig: "signed" },
+    actions: [{ seq: 11, text: "Vale took the Lamp." }],
+  };
+  it("keeps signed history intact and silences a masked line", () => {
+    const saved = JSON.stringify(beat);
+    const shown = revealedBeat(beat, (text) => text?.replace("Lamp", "something"));
+    expect(shown.line.text).toBe("I saw the something.");
+    expect(shown.line.silent).toBe(true);
+    expect(shown.actions[0].text).toBe("Vale took the something.");
+    expect(shown.key).toBe(beat.key);
+    expect(JSON.stringify(beat)).toBe(saved);
+  });
+  it("restores the original words and voice when the card is revealed", () => {
+    const shown = revealedBeat(beat, (text) => text);
+    expect(shown.line.text).toBe(beat.line.text);
+    expect(shown.line.silent).toBeFalsy();
+    expect(shown.line.sig).toBe("signed");
+    expect(shown.actions).toEqual(beat.actions);
+    expect(revealedBeat({ ...beat, line: null }, (text) => text).line).toBeNull();
+  });
+});
 
 describe("observable card descriptions", () => {
   it("describes the flame without revealing fuel arithmetic", () => {

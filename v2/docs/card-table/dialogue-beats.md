@@ -72,6 +72,11 @@ journal events and published speech. They add nothing to saves or the shared
 journal, so local and shared play group the same events the same way.
 `v2/card-game/beats.mjs` owns the grouping; `test/card-beats.test.js` checks it.
 
+The reader's revealed cards guide names in speech, action captions, quest
+hints and Memory. A hidden item reads as something; a hidden place reads as
+a place. Reading history preserves its saved text. A masked spoken line
+stays quiet. Each shared play carries the player's reveal list to narration.
+
 Speech beats follow speaking order. An effect is written onto the card
 before the reply that followed it, so a departure stays on the card it
 interrupted. While a reply is being written, the front card is the waiting
