@@ -181,6 +181,39 @@ describe("the quest card", () => {
     );
   });
 
+  it("names the homecoming item and home only after each card is revealed", () => {
+    const quest = {
+      ...questCard(createWorld()),
+      actor: "rue",
+      target: "routes",
+      step: { verb: "bring", at: "train" },
+    };
+    const revealed = new Set();
+    const caption = () => questCaption(quest, false, null, (id) => revealed.has(id));
+    expect(caption()).toBe("Find something and bring it somewhere");
+    revealed.add("routes");
+    expect(caption()).toBe("Bring Route board somewhere");
+    revealed.add("train");
+    expect(caption()).toBe("Bring Route board home to Between-hours carriage");
+    revealed.delete("routes");
+    expect(caption()).toBe(
+      "Bring something you have not found yet home to Between-hours carriage",
+    );
+  });
+
+  it("checks the recipient and place of an item quest separately", () => {
+    const quest = {
+      ...questCard(createWorld()),
+      step: { verb: "bring", to: "moth", at: "pond" },
+    };
+    expect(questCaption(quest, false, null, (id) => id !== "moth")).toBe(
+      "Bring Lamp to someone at Black pond",
+    );
+    expect(questCaption(quest, false, null, (id) => id !== "pond")).toBe(
+      "Bring Lamp to Pip",
+    );
+  });
+
   it("keeps level and step context while covering only the target", () => {
     const quest = {
       ...questCard(createWorld()),
