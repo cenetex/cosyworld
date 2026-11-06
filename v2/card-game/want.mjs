@@ -111,6 +111,9 @@ export const startXp = (id) => {
 };
 
 export const wantOf = (s, id) => s.actors[id]?.want ?? null;
+// The same quest step keeps its identity as the stack changes order.
+export const wantKey = (id, want) =>
+  `${id}:${want.kind}:${want.target}:${want.since}:${want.quest?.left ?? ""}`;
 // The whole stack, top first.
 export const questsOf = (s, id) => {
   const a = s.actors[id];

@@ -316,6 +316,16 @@ describe("the quest card", () => {
     );
     s = play(s, move).state;
     expect(metQuests(before, s, seq).map((q) => q.target)).toEqual(["pond"]);
+    // Earlier completion logs carry the target and the original 1 XP reward.
+    const earlier = structuredClone(s);
+    for (const e of earlier.log) {
+      delete e.wantKey;
+      delete e.questXp;
+    }
+    expect(validateWorld(earlier)).toBe(earlier);
+    expect(metQuests(before, earlier, seq)).toMatchObject([
+      { target: "pond", earnedXp: 1 },
+    ]);
     // A dropped quest is gone without a seal.
     const shown = questCards(s),
       at = s.eventSeq;

@@ -2,7 +2,7 @@
 // target's art with the rules' own words for the want as the caption.
 // Nothing here is authored or decides anything; the rules own the stack
 // (want.mjs).
-import { CONNECT_TARGET, questsOf } from "./want.mjs";
+import { CONNECT_TARGET, questsOf, wantKey } from "./want.mjs";
 import { consumable } from "./pack-registry.mjs";
 import { cardLevel, levelTier, romanLevel } from "./rarity.mjs";
 import {
@@ -44,7 +44,7 @@ function burial(world, want) {
 // quest is met, set aside or moves on a step.
 export const questCards = (world, actor = currentActor(world)) =>
   questsOf(world, actor).map((want, index) => ({
-    key: `${actor}:${want.kind}:${want.target}:${want.since}:${want.quest?.left ?? ""}`,
+    key: wantKey(actor, want),
     index,
     actor,
     kind: want.kind,
@@ -214,6 +214,7 @@ export function metQuests(before, world, seq) {
     if (e.seq > seq && e.verb === "want_met") {
       const i = gone.findIndex(
         (q) =>
+          (e.wantKey === undefined || q.key === e.wantKey) &&
           q.actor === e.actorId &&
           q.kind === e.wantMet?.kind &&
           (q.target ?? CONNECT_TARGET) === e.wantMet.target,

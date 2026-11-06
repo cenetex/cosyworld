@@ -22,6 +22,7 @@ import { narrativeContext } from "../v2/card-game/narrative.mjs";
 import {
   questCaption,
   questCard,
+  questCards,
   metQuests,
   questTier,
 } from "../v2/card-game/quest-card.mjs";
@@ -203,6 +204,34 @@ describe("the level quest", () => {
       { earnedXp: xp },
     ]);
   });
+
+  it.each([true, false])(
+    "keeps each attic rest reward in completion order, level quest on top: %s",
+    (levelOnTop) => {
+      const s = ready(questXp(50) + questSteps(50));
+      s.turn = s.revision = 24 * 51;
+      const rest = {
+        kind: "place",
+        target: "attic",
+        since: s.turn,
+        refusals: 0,
+        step: { verb: "rest" },
+      };
+      const levelRest = { ...rest, quest: { level: 50, left: 1 } };
+      Object.assign(s.actors.vale, {
+        level: 49,
+        want: levelOnTop ? levelRest : rest,
+        under: [levelOnTop ? rest : levelRest],
+      });
+      const before = questCards(s);
+      const after = decodeSave(encodeSave(sleep(decodeSave(encodeSave(s)))));
+      expect(after.actors.vale.xp - s.actors.vale.xp).toBe(6);
+      expect(metQuests(before, after, s.eventSeq)).toMatchObject([
+        { key: before.find((q) => !q.level).key, level: null, earnedXp: 1 },
+        { key: before.find((q) => q.level).key, level: 50, earnedXp: 5 },
+      ]);
+    },
+  );
 
   it("can be dropped for its cost in experience, keeping the level", () => {
     let s = ready(questXp(4));

@@ -31,6 +31,9 @@ and no check that the fight was possible.
   1 XP. Finishing a level quest at its final rest earns XP by the quest's own
   tier. Common earns 1, Uncommon 2, Rare 3, Epic 4, Legendary 5 and Mythic 6.
   The extra XP counts toward the next quest at the same thresholds.
+  Completion events keep the quest step's stable key, so two quests for the
+  same place show their own XP in completion order. Earlier saved events
+  still match by avatar and target.
 - No step is violent. A person step is Talk (the person want itself) or
   Meet, at every level. Threaten and Attack steps saved before rules 90 stay
   valid and are met as before; none is drawn.

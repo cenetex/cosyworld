@@ -72,6 +72,7 @@ import {
   questsOf,
   levelOf,
   wantOf,
+  wantKey,
   travels,
   resting,
   settleWants,
@@ -918,6 +919,7 @@ export function wantAPI(s) {
           actorId: actor,
           verb: "want_met",
           wantMet: { kind: want.kind, target: want.target },
+          wantKey: wantKey(actor, want),
           ...(xp > 1 ? { questXp: xp } : {}),
           ...(want.kind === "item" ? { itemId: want.target } : {}),
           ...(want.kind === "person" ? { targetId: want.target } : {}),
@@ -3862,6 +3864,13 @@ export function validateWorld(s) {
     if (e.receiveId != null && !ids.includes(e.receiveId)) fail();
     if (
       (e.verb === "want_met") !== (e.wantMet !== undefined) ||
+      (e.wantKey !== undefined &&
+        (e.verb !== "want_met" ||
+          typeof e.wantKey !== "string" ||
+          e.wantKey.length > 600 ||
+          !e.wantKey.startsWith(
+            `${e.actorId}:${e.wantMet?.kind}:${e.wantMet?.target}:`,
+          ))) ||
       (e.questXp !== undefined &&
         (e.verb !== "want_met" ||
           !Number.isInteger(e.questXp) ||
