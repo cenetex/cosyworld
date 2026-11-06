@@ -68,6 +68,10 @@ it("saves the trio atomically and retries the same prepared text", async () => {
 it("repairs custody, routes and quests when a card is discarded", async () => {
   const f = fixture();
   await f.session.accept(f.prepare({ kind: "world", cards }));
+  const want = f.session.snapshot().draft.pack.avatars["made-2"].want;
+  await f.session.accept(f.prepare({ kind: "place", discard: "made-1" }));
+  expect(f.session.snapshot().draft.pack.avatars["made-2"].want).toEqual(want);
+  f.session.dispatch({ type: "undo" });
   await f.session.accept(
     f.prepare({ kind: "place", cards: [{ ...cards[2], name: "Garden" }] }),
   );
@@ -108,5 +112,11 @@ it("respects a discarded quest and rejects stale or malformed proposals", async 
   );
   expect(seedContext(f.session.state.source, "made-2")[0].text).toContain(
     "At Quay",
+  );
+  expect(seedContext(f.session.state.source, "made-2")).toHaveLength(4);
+  const record = f.session.snapshot();
+  record.draft.pack.routes = [{ from: "made-1", to: "made-1" }];
+  expect(() => seedEdit(record, { kind: "place", discard: "made-1" })).toThrow(
+    "linked rules",
   );
 });

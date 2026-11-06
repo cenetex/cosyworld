@@ -36,7 +36,7 @@ export function seedContext(source, replacing) {
   const all = seedCards(source.pack),
     names = new Map(all.map((c) => [c.id, c.name]));
   return all
-    .filter((c) => !replacing || c.id === replacing)
+    .sort((a, b) => Number(b.id === replacing) - Number(a.id === replacing))
     .map(({ id, ...card }) => {
       const entity = source.pack[seedKinds[card.kind]][id];
       const place = names.get(entity.place || entity.holder);
@@ -136,7 +136,7 @@ export function seedEdit(
         : old.place || pack.entry;
     for (const avatar of Object.values(pack.avatars)) {
       if (avatar.place === discard) avatar.place = home;
-      if (avatar.want?.target === discard || !home) delete avatar.want;
+      if (avatar.want?.target === discard) delete avatar.want;
     }
     for (const item of Object.values(pack.items))
       if (item.holder === discard) item.holder = home;
@@ -211,6 +211,18 @@ export function seedEdit(
         target: Object.keys(pack.items)[0],
       };
       pack.name = pack.places[pack.entry].name;
+    }
+  }
+  if (discard && !quest) {
+    const pending = [pack, source.bridge, launch];
+    while (pending.length) {
+      const value = pending.pop();
+      need(
+        value !== discard,
+        "Move this card's linked rules before discarding it.",
+      );
+      if (value && typeof value === "object")
+        pending.push(...Object.values(value));
     }
   }
   const edit = sourceEdit(
