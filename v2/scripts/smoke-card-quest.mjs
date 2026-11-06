@@ -714,6 +714,12 @@ try {
         since: sceneWorld.turn,
         refusals: 0,
       };
+      if (step?.verb === "lay") {
+        sceneWorld.crossings["pond-greek-harbor"].discovered = true;
+        sceneWorld.actors.vale.place = target;
+        sceneWorld.actors["greek-antigone"].place = target;
+        for (const item of step.items) sceneWorld.items[item].holder = "vale";
+      }
       const place = step?.at ?? target;
       const label = step?.verb === "lay" ? "burial" : kind;
       const sceneTable = `quest-scene-${label}-${width}`;
