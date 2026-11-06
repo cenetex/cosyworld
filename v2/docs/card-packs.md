@@ -180,6 +180,11 @@ source and files before transfer. `readCreate` resumes that snapshot after reloa
 `finishCreate` records its matching first receipt and releases the copied files.
 Later local edits stay separate. The database upgrade preserves existing drafts.
 
+`transferAuthoringCreate(store, operation)` checks the saved account, verifies
+file bytes and uploads each digest once. It creates the saved source with the
+same request key, then records the matching receipt. Its bounded requests and
+progress callbacks support cancellation and retry from the saved operation.
+
 `importSourcePack({files, packPath, bridgePath, cardRoot, extraPaths, origin})`
 in `authoring-source-import.mjs` reads selected raw repository files. It returns
 `{draft, assets, sourceFiles, assetSources}` with exact source bytes and digests.
