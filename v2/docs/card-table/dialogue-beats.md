@@ -80,13 +80,12 @@ Beats are cards in depth, not rows in a scroll:
   speaker, the speech and its latest effect, truncated.
 - The front card puts the name on top at every size: portrait and name share
   the header row, the speech runs the full width below, and the action
-  captions sit under the speech. The card grows to show the whole line, up to
-  about seven lines (fewer on a short phone screen), with no scrollbar. On a
+  captions sit under the speech. The card grows to fit the text. On a
   phone only the latest effect shows, as one truncated line.
 - On phones and tablets, and on wide screens while the hand is raised, the
   stack sits in a fixed box over the hand's foot.
   The card behind peeks out inside the box, one dimmed line as on wide
-  screens, and the front card takes the rest; a long line scrolls inside it.
+  screens. A long line grows upward from the foot.
   Tap the card behind, swipe or use the arrow keys to step back in time.
 - A new beat arrives in front. The front card recedes into the behind slot and
   the old behind card fades away deeper.
@@ -134,7 +133,7 @@ Beats are cards in depth, not rows in a scroll:
 ## The action beat
 
 A ready play is a beat too: the action beat, in front of the
-stack. It is one row, vertically centred: on the left who acts and what it
+stack. With labelled controls, it is one row, vertically centred: on the left who acts and what it
 acts on, drawn as the quest card pairs them (borderless cut-out figures with
 a drop shadow, a little over each other, facing; an item or place a small
 borderless picture); in the middle what the play will do ("Vale takes the
@@ -153,9 +152,9 @@ out above the ready action. Tap it to bring it forward. The cards stay chosen
 and ● live returns to their action. The arrow keys, wheel and swipes also
 step through the stack.
 
-When Wait is the only plain play on offer, its sentence is the button label.
-Tap anywhere on that action beat to wait one turn. The button also works with
-Enter or Space.
+A single plain play shows the avatar in the scene beside one caption, such
+as “Wake Vale”. The full-size card acts as the button. Tap it to finish
+typing, then tap again to play. Enter and Space work on the focused button.
 
 When a play commits, its box folds into the stream: it eases down onto the
 front card, the beat the play became (its caption line, or the Thinking card

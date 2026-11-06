@@ -30,6 +30,7 @@ export function createSleepView({
   finishReveal = () => {},
   // Deals the quests held back for the dream (app.mjs showQuests).
   dealQuests = () => {},
+  showWake = () => {},
 }) {
   let seen = null,
     shownTurn = null,
@@ -153,6 +154,7 @@ export function createSleepView({
       }
       if (key && key !== seen.key) {
         seen = { key };
+        showWake(next);
         begin({ ...next, fromTurn: from });
         return;
       }

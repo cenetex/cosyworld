@@ -438,7 +438,11 @@ try {
       // A silent play keeps its own card, with the previous line behind it.
       await page.locator('#hand [data-card="vale"]').click();
       await page.locator('#hand [data-card="lamp"]').click();
-      await page.locator('#card-actions [data-action="light"]').click();
+      await page
+        .locator(
+          '#card-actions [data-action="light"]:not([data-revealing="true"])',
+        )
+        .click();
       await page.keyboard.press("Escape");
       await page.waitForFunction(
         () =>

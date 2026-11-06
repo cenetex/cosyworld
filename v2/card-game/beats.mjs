@@ -15,8 +15,10 @@ const QUIET_VERBS = new Set(["talk"]);
 const DAMAGE = /loses (\d+) resolve/u;
 const YIELDED = /after yielding to/u;
 const STANDOFF_ENDS = /(standoff|battle) ends/u;
-// The rules word a wake in the present ("Vale wakes as Pip arrives."); its
-// caption is past, like every other.
+export const plainWaitEntry = (entry) =>
+  entry.verb === "wait" &&
+  entry.text === `${fullName(entry.actorId)} waits one turn.`;
+// Wakes caused by a change in the scene read in the past.
 const WAKE_PAST = {
   wakes: "woke",
   arrives: "arrived",
@@ -189,6 +191,7 @@ export function actionCaption(entry, { viewer, here, arrival = null }) {
               : / waits one turn/u.test(entry.text || "")
                 ? `${a} waited a turn.`
                 : entry.text,
+        entry.woke === "chose" ? "wake" : verb,
       );
     case "guard":
       return caption("⚔", `${a} braced.`);
@@ -329,9 +332,8 @@ export function groupBeats(
     // The Wake play records both the wake and the turn it passed.
     if (
       committed &&
-      entry.verb === "wait" &&
       waking.get(entry.actorId) === entry.turn &&
-      entry.text === `${fullName(entry.actorId)} waits one turn.`
+      plainWaitEntry(entry)
     )
       continue;
     // Local Sleep runs its remaining turns automatically. In a shared
@@ -368,7 +370,7 @@ export function groupBeats(
       !own &&
       caption.icon !== "⚔" &&
       beats.findLast((beat) => beat.anchor < entry.seq);
-    if (current) {
+    if (current && !current.actions.some((action) => action.kind === "wake")) {
       current.actions.push({ ...caption, inscribed: true });
       continue;
     }

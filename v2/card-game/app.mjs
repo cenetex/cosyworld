@@ -118,6 +118,7 @@ import { combatBeats, lastSeq, theName } from "./combat-beats.mjs";
 import {
   beatSummary,
   memoryVisits,
+  plainWaitEntry,
   sceneBeats,
   withPending,
 } from "./beats.mjs";
@@ -835,6 +836,18 @@ const sleepView = createSleepView({
     speechSounds.stop();
   },
   dealQuests: () => showQuests(false),
+  showWake({ id, seq, woke, dream }) {
+    // Give the explicit Wake result its own tap before the reply.
+    if (reviewing || dream || woke !== "chose") return;
+    const waited = world.log.some(
+      (entry) =>
+        entry.seq > seq && entry.actorId === id && plainWaitEntry(entry),
+    );
+    if (!waited) return;
+    reviewing = true;
+    reviewBeat = `a:${seq}`;
+    syncSpeechPlayback();
+  },
 });
 let actionMessage;
 const actionReveal = createTextReveal({
@@ -2013,9 +2026,7 @@ function frameFigure(img) {
   if (img.complete && img.naturalWidth) measure();
   else img.addEventListener("load", measure, { once: true });
 }
-// The action beat's figures, three for plays and five for a recipe, as the quest card pairs them:
-// borderless cut-outs side by side, the actor facing the others; an item or
-// place a small picture beside them.
+// Compose the avatar and selected cards over the scene, as quest cards do.
 function showBeatCards(ids, here, verb, recipe = false) {
   const cards = document.querySelector(".action-beat-cards"),
     key = JSON.stringify([recipe, here, verb, ids, ids.map(beatPortrait)]);
@@ -2042,23 +2053,10 @@ function showBeatCards(ids, here, verb, recipe = false) {
   const other = others.find((id) => people[id]);
   const target = items[0] || other || others.find((id) => places[id]) || here;
   const kind = items.length ? "item" : other ? "person" : "place";
+  const to = items.length ? other : null;
+  if (!actor) return cards.replaceChildren();
   cards.replaceChildren(
-    ...(actor
-      ? [
-          questScreen(
-            {
-              actor,
-              kind,
-              target,
-              here,
-              verb,
-              items,
-              to: items.length ? other : null,
-            },
-            questArt,
-          ),
-        ]
-      : []),
+    questScreen({ actor, kind, target, here, verb, items, to }, questArt),
   );
 }
 // Another part of the table, such as the ☰ menu, can borrow the action
@@ -2413,7 +2411,6 @@ function renderActions() {
   const note = document.querySelector(".action-beat-note");
   let noteText = next?.reason || "";
   if (abandonQuest) {
-    const panel = $("action-beat");
     panel.dataset.tier = "danger";
     panel.style.setProperty("--tier-color", "var(--danger)");
     noteText = `${shownQuestCaption(picked)}. Cost ${dropCost(world, actor, picked.index)} XP.`;
