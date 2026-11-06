@@ -2314,12 +2314,11 @@ fn messages(context: &Context, entity: &Entity, part: Part) -> Prompt {
     let mut prompt = scene_messages(context, entity, part);
     if !context.concealed.is_empty() {
         // Profiles and held cards add words after the scene reaches Rust.
-        // Apply the same reveal boundary to those words before inference.
-        let mut names: Vec<_> = context.concealed.iter().map(|id| name(id)).collect();
-        names.sort_by_key(|name| std::cmp::Reverse(name.len()));
         for text in [&mut prompt.system, &mut prompt.assistant, &mut prompt.user] {
-            for name in &names {
-                redact_name(text, name);
+            for (span, id) in named_spans(text).into_iter().rev() {
+                if context.concealed.contains(id) {
+                    text.replace_range(span, "something unnamed");
+                }
             }
         }
     }
@@ -2924,20 +2923,15 @@ impl<'a> Check<'a> {
 
     /// Whether a text names someone or something the scene does not know.
     fn names_unknown(&self, text: &str) -> bool {
-        let lower = text.to_ascii_lowercase();
-        profiles()
-            .as_object()
-            .expect("profiles")
-            .iter()
-            .any(|(id, p)| {
-                p["name"].as_str().is_some_and(|name| {
-                    if self.context.concealed.contains(id) {
-                        mentions(&lower, &name.to_ascii_lowercase())
-                    } else {
-                        !self.known.contains(id) && mentions(text, name)
-                    }
-                })
-            })
+        named_spans(text).into_iter().any(|(span, id)| {
+            let label = &profiles()[id]["name"];
+            self.context.concealed.contains(id)
+                || (label.as_str() == Some(&text[span])
+                    && !self
+                        .known
+                        .iter()
+                        .any(|known| profiles()[known]["name"] == *label))
+        })
     }
 }
 
@@ -3004,25 +2998,47 @@ fn plain_words(text: &str) -> Vec<String> {
 
 /// Whether `text` names `name` as a whole word.
 fn mentions(text: &str, name: &str) -> bool {
-    text.match_indices(name)
-        .any(|(at, _)| word_boundaries(text, at, at + name.len()))
+    text.match_indices(name).any(|(at, _)| {
+        let before = text[..at].chars().next_back();
+        let after = text[at + name.len()..].chars().next();
+        !before.is_some_and(char::is_alphanumeric) && !after.is_some_and(char::is_alphanumeric)
+    })
 }
 
-fn word_boundaries(text: &str, start: usize, end: usize) -> bool {
-    let before = text[..start].chars().next_back();
-    let after = text[end..].chars().next();
-    !before.is_some_and(char::is_alphanumeric) && !after.is_some_and(char::is_alphanumeric)
-}
-
-fn redact_name(text: &mut String, name: &str) {
+fn named_spans(text: &str) -> Vec<(std::ops::Range<usize>, &'static String)> {
+    static NAMES: OnceLock<Vec<(String, String)>> = OnceLock::new();
+    let names = NAMES.get_or_init(|| {
+        let mut names: Vec<_> = profiles()
+            .as_object()
+            .unwrap()
+            .keys()
+            .map(|id| (name(id).to_ascii_lowercase(), id.clone()))
+            .collect();
+        names.sort_by_key(|(name, _)| std::cmp::Reverse(name.len()));
+        names
+    });
     let lower = text.to_ascii_lowercase();
-    let name = name.to_ascii_lowercase();
-    for (at, _) in lower.rmatch_indices(&name) {
-        let end = at + name.len();
-        if word_boundaries(&lower, at, end) {
-            text.replace_range(at..end, "something unnamed");
+    let mut spans = Vec::new();
+    let mut end = 0;
+    for (at, _) in lower.char_indices() {
+        if at < end
+            || lower[..at]
+                .chars()
+                .next_back()
+                .is_some_and(char::is_alphanumeric)
+        {
+            continue;
+        }
+        if let Some((name, id)) = names.iter().find(|(name, _)| {
+            lower[at..]
+                .strip_prefix(name)
+                .is_some_and(|after| !after.chars().next().is_some_and(char::is_alphanumeric))
+        }) {
+            end = at + name.len();
+            spans.push((at..end, id));
         }
     }
+    spans
 }
 
 #[cfg(test)]
@@ -3156,9 +3172,12 @@ pub(crate) mod tests {
         let vale = scene.entities.iter_mut().find(|e| e.id == "vale").unwrap();
         vale.facts
             .push("The Route board leads to the Between-hours carriage.".into());
-        scene.concealed = vec!["train".into()];
+        scene.concealed = vec!["train".into(), "bell".into()];
         let vale = entity(&scene, "vale");
         assert!(!known(&scene, vale).contains("train"));
+        assert!(named_spans("The Bell Theatre")
+            .iter()
+            .all(|(_, id)| *id != "bell"));
         for part in [Part::Line, Part::Thought, Part::Dream] {
             let prompt = format!("{:?}", messages(&scene, vale, part));
             assert!(!prompt

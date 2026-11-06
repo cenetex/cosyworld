@@ -33,18 +33,20 @@ const unnamed = (world, id) =>
 
 const escape = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 // Replaces each name in `unknown` (lower-case name to phrase) in a text.
-function blurrer(unknown) {
+function blurrer(unknown, shown = []) {
   if (!unknown.size) return (text) => text;
-  const names = [...unknown.keys()]
+  const names = [...unknown.keys(), ...shown]
     .sort((a, b) => b.length - a.length)
     .map(escape);
   const pattern = new RegExp(
-    `\\b(?:(?:the|an?) )?(${names.join("|")})\\b`,
+    `\\b(?:(?:the|an?) )??(${names.join("|")})\\b`,
     "gi",
   );
   return (text) =>
-    text?.replace(pattern, (_, name) => unknown.get(name.toLowerCase())) ??
-    text;
+    text?.replace(
+      pattern,
+      (word, name) => unknown.get(name.toLowerCase()) ?? word,
+    ) ?? text;
 }
 
 // What an avatar's facts may name beyond the scene: its quests' targets
@@ -135,36 +137,49 @@ function coveredCards(world, isCovered) {
     ...Object.keys(places),
     ...Object.keys(world.items),
   ];
-  const hidden = new Set(
-    cards.filter(
-      (id) => isCovered(id) || (world.items[id] && covered(world, id)),
-    ),
-  );
+  const faceDown = (id) => isCovered(id) || (world.items[id] && covered(world, id));
+  const hidden = new Set(cards.filter(faceDown));
   // Greek branches can share the same printed name.
   const shown = new Set(cards.filter((id) => !hidden.has(id)).map(lowerName));
   return {
     hidden,
+    shown,
     unnamedIds: [...hidden].filter((id) => !shown.has(lowerName(id))),
   };
 }
 const lowerName = (id) => nameOf(id).toLowerCase();
 
+function privateWords(entity, blur) {
+  const kept = ({ text }) => blur(text) === text;
+  const { inner_life: life, previous } = entity;
+  return {
+    previous: blur(previous) === previous ? previous : null,
+    ...(life && { inner_life: {
+      ...life,
+      persona: blur(life.persona) === life.persona ? life.persona : null,
+      thoughts: life.thoughts.filter(kept),
+      dreams: life.dreams.filter(kept),
+    }}),
+  };
+}
+
 export function coveredText(world, text, isCovered) {
+  const { unnamedIds, shown } = coveredCards(world, isCovered);
   const names = new Map(
-    coveredCards(world, isCovered).unnamedIds.map((id) => [
+    unnamedIds.map((id) => [
       lowerName(id),
       world.actors[id] ? "someone" : world.items[id] ? "something" : "a place",
     ]),
   );
-  const shown = blurrer(names)(text);
-  return shown && /^[A-Z]/.test(text)
-    ? shown[0].toUpperCase() + shown.slice(1)
-    : shown;
+  const caption = blurrer(names, shown)(text);
+  return caption && /^[A-Z]/.test(text)
+    ? caption[0].toUpperCase() + caption.slice(1)
+    : caption;
 }
 
 export function forgetCovered(world, context, isCovered) {
   const actor = currentActor(world);
-  const { hidden, unnamedIds } = coveredCards(world, isCovered);
+  const { hidden, shown, unnamedIds } = coveredCards(world, isCovered);
   if (!hidden.size) return context;
   const kept = (id) => !hidden.has(id);
   const keepEntity = (id) =>
@@ -177,7 +192,8 @@ export function forgetCovered(world, context, isCovered) {
         : unnamed(world, id),
     ]),
   );
-  const blur = blurrer(unknown);
+  const blur = blurrer(unknown, shown);
+  const keptLine = ({ text }) => blur(text) === text;
   const outcome =
     context.outcome && revealedOutcome(world, context.outcome, actor, kept);
   const speakers = context.speakers.filter(keepEntity);
@@ -191,12 +207,14 @@ export function forgetCovered(world, context, isCovered) {
     action: blur(context.action)?.slice(0, 650) ?? null,
     events: context.events.map((text) => blur(text).slice(0, 650)),
     conversation: context.conversation.filter(
-      ({ actorId, text }) => kept(actorId) && blur(text) === text,
+      (line) => kept(line.actorId) && keptLine(line),
     ),
     ...(context.disclosures && {
       disclosures: context.disclosures.filter(
-        ({ speaker, text }) =>
-          speakers.includes(speaker) && blur(text) === text,
+        (fact) =>
+          speakers.includes(fact.speaker) &&
+          keepEntity(fact.listener) &&
+          keptLine(fact),
       ),
     }),
     entities: context.entities
@@ -209,30 +227,14 @@ export function forgetCovered(world, context, isCovered) {
           if (m.kind === "expression") return text === m.text ? [m] : [];
           return [{ ...m, text: text.slice(0, 650) }];
         }),
-        previous:
-          blur(entity.previous) === entity.previous ? entity.previous : null,
-        ...(entity.inner_life && {
-          inner_life: {
-            ...entity.inner_life,
-            persona:
-              blur(entity.inner_life.persona) === entity.inner_life.persona
-                ? entity.inner_life.persona
-                : null,
-            thoughts: entity.inner_life.thoughts.filter(
-              ({ text }) => blur(text) === text,
-            ),
-            dreams: entity.inner_life.dreams.filter(
-              ({ text }) => blur(text) === text,
-            ),
-          },
-        }),
+        ...privateWords(entity, blur),
         ...(entity.between && {
           between: entity.between
             .filter((b) => speakers.includes(b.with))
             .map((b) => ({
               ...b,
               facts: b.facts.map((text) => blur(text).slice(0, 240)),
-              said: b.said.filter(({ text }) => blur(text) === text),
+              said: b.said.filter(keptLine),
             }))
             .filter((b) => b.facts.length || b.said.length),
         }),
@@ -240,13 +242,6 @@ export function forgetCovered(world, context, isCovered) {
           perception: {
             ...entity.perception,
             pull: kept(entity.perception.pull) ? entity.perception.pull : null,
-            arrival:
-              entity.perception.arrival &&
-              Object.fromEntries(
-                Object.entries(entity.perception.arrival).filter(([, value]) =>
-                  kept(value),
-                ),
-              ),
           },
         }),
         desire: entity.desire && {
@@ -337,6 +332,7 @@ export function forgetUnfound(world, context, isCovered = () => false) {
     const kept = (id) => !hidden.includes(id);
     return {
       ...entity,
+      ...privateWords(entity, blur),
       facts: entity.facts.map(blur),
       ...(entity.between && {
         between: entity.between.map((b) => ({

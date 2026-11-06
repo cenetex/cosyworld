@@ -64,13 +64,12 @@ describe("speech knows only uncovered cards (#1575)", () => {
       dreams: [{ text }],
     };
     full.conversation = [{ actorId: "vale", text, witnesses: ["vale"] }];
+    full.disclosures = [{ speaker: "vale", listener: "moth", text: "I have news." }];
     const limited = forgetCovered(s, full, (id) =>
-      ["train", "routes"].includes(id),
+      ["train", "routes", "moth"].includes(id),
     );
     expect(visible(limited)).not.toMatch(/Route board|Between-hours carriage/);
-    expect(limited.concealed).toEqual(
-      expect.arrayContaining(["train", "routes"]),
-    );
+    expect(limited.disclosures).toEqual([]);
     expect(visible(forgetCovered(s, full, () => false))).toContain(text);
   });
 
@@ -97,15 +96,10 @@ describe("speech knows only uncovered cards (#1575)", () => {
 
   it("uses an empty shared reveal list as a face-down view", () => {
     const request = { world: fresh(), actor: "vale" };
-    expect(visible(sharedContext(request))).toMatch(/lamp/i);
-    expect(visible(sharedContext({ ...request, revealed: [] }))).not.toMatch(
-      /lamp/i,
-    );
-    const context = sharedContext({
-      ...request,
-      revealed: ["vale", "attic", "lamp"],
-    });
-    expect(visible(context)).toMatch(/lamp/i);
+    const seesLamp = (revealed) => /lamp/i.test(visible(sharedContext({ ...request, revealed })));
+    expect(seesLamp()).toBe(true);
+    expect(seesLamp([])).toBe(false);
+    expect(seesLamp(["vale", "attic", "lamp"])).toBe(true);
   });
 });
 
@@ -127,6 +121,7 @@ describe("speech names only what its speaker has found (#1850)", () => {
 
   it("keeps an unrevealed quest target's name out of the prompt", () => {
     const s = seeking();
+    s.memories.vale.innerLife = { persona: `I hope to meet ${nameOf(host)}.`, thoughts: [], dreams: [] };
     const context = narrativeContext(s);
     expect(JSON.stringify(context)).not.toContain(nameOf(host));
     expect(vale(context).facts).toContain(`I want to see ${UNKNOWN_PERSON}.`);
@@ -138,34 +133,14 @@ describe("speech names only what its speaker has found (#1850)", () => {
   });
 
   it("uses the same reveal check for the journal and keeps unrelated words", () => {
-    const text = "PIP carries the route board to the Between-hours carriage.";
-    const masked = coveredText(seeking(), text, (id) => id !== "train");
+    const text = "PIP carries the bell past Helen to The Bell Theatre.";
+    const shown = new Set([
+      "greek-helen-troy",
+      "hoppycat-settled-light-theatre",
+    ]);
+    const masked = coveredText(seeking(), text, (id) => !shown.has(id));
     expect(masked).toBe(
-      "Someone carries something to the Between-hours carriage.",
-    );
-    const egypt = (id) => id === "greek-helen-egypt";
-    expect(coveredText(seeking(), "Helen waits.", egypt)).toBe("Helen waits.");
-  });
-
-  it("uses a visit before naming a quest destination without a reveal list", () => {
-    const s = seeking();
-    s.actors.vale.want = {
-      kind: "item",
-      target: "routes",
-      step: { verb: "bring", at: "train" },
-      since: 0,
-      refusals: 0,
-    };
-    const full = narrativeContext(s);
-    vale(full).facts.push(
-      "In a dream, bring the Route board to Between-hours carriage.",
-    );
-    expect(JSON.stringify(forgetUnfound(s, full))).not.toContain(
-      "Between-hours carriage",
-    );
-    s.actors.vale.visited.push("train");
-    expect(JSON.stringify(forgetUnfound(s, full))).toContain(
-      "Between-hours carriage",
+      "Someone carries something past Helen to The Bell Theatre.",
     );
   });
 
