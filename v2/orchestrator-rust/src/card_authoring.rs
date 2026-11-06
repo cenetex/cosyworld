@@ -1,4 +1,8 @@
 //! Private authoring drafts belong to the signed-in passkey account.
+// The authenticated upload routes will consume this storage boundary next.
+#[allow(dead_code)]
+#[path = "authoring_asset_store.rs"]
+mod assets;
 use crate::AppState;
 use axum::{
     extract::{DefaultBodyLimit, Path, State},
