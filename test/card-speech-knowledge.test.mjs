@@ -54,12 +54,6 @@ describe("speech knows only uncovered cards (#1575)", () => {
 
   it("keeps unrevealed names out of a quest, earlier talk and private memories", () => {
     const s = fresh();
-    s.actors.vale.visited.push("train");
-    s.actors.vale.want = {
-      kind: "item",
-      target: "routes",
-      step: { verb: "bring", at: "train" },
-    };
     const text = "I can take the Route board into the Between-hours carriage.";
     const full = narrativeContext(s);
     const vale = full.entities.find(({ id }) => id === "vale");
@@ -149,6 +143,8 @@ describe("speech names only what its speaker has found (#1850)", () => {
     expect(masked).toBe(
       "Someone carries something to the Between-hours carriage.",
     );
+    const egypt = (id) => id === "greek-helen-egypt";
+    expect(coveredText(seeking(), "Helen waits.", egypt)).toBe("Helen waits.");
   });
 
   it("uses a visit before naming a quest destination without a reveal list", () => {

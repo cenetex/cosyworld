@@ -129,18 +129,30 @@ export const groundedInner = (world, speaker, text) =>
   !/[,!?]["\u201d] [a-z]/.test(text) &&
   !inventsItem(world, speaker, text);
 
-function coveredIds(world, isCovered) {
-  return [
+function coveredCards(world, isCovered) {
+  const cards = [
     ...Object.keys(world.actors),
     ...Object.keys(places),
     ...Object.keys(world.items),
-  ].filter((id) => isCovered(id) || (world.items[id] && covered(world, id)));
+  ];
+  const hidden = new Set(
+    cards.filter(
+      (id) => isCovered(id) || (world.items[id] && covered(world, id)),
+    ),
+  );
+  // Greek branches can share the same printed name.
+  const shown = new Set(cards.filter((id) => !hidden.has(id)).map(lowerName));
+  return {
+    hidden,
+    unnamedIds: [...hidden].filter((id) => !shown.has(lowerName(id))),
+  };
 }
+const lowerName = (id) => nameOf(id).toLowerCase();
 
 export function coveredText(world, text, isCovered) {
   const names = new Map(
-    coveredIds(world, isCovered).map((id) => [
-      nameOf(id).toLowerCase(),
+    coveredCards(world, isCovered).unnamedIds.map((id) => [
+      lowerName(id),
       world.actors[id] ? "someone" : world.items[id] ? "something" : "a place",
     ]),
   );
@@ -152,15 +164,14 @@ export function coveredText(world, text, isCovered) {
 
 export function forgetCovered(world, context, isCovered) {
   const actor = currentActor(world);
-  const hidden = coveredIds(world, isCovered);
-  if (!hidden.length) return context;
-  const gone = new Set(hidden);
-  const kept = (id) => !gone.has(id);
+  const { hidden, unnamedIds } = coveredCards(world, isCovered);
+  if (!hidden.size) return context;
+  const kept = (id) => !hidden.has(id);
   const keepEntity = (id) =>
     id === actor || id === context.location || kept(id);
   const unknown = new Map(
-    hidden.map((id) => [
-      nameOf(id).toLowerCase(),
+    unnamedIds.map((id) => [
+      lowerName(id),
       world.items[id]?.lit && !covered(world, id)
         ? UNKNOWN_LIGHT
         : unnamed(world, id),
@@ -174,14 +185,14 @@ export function forgetCovered(world, context, isCovered) {
     ...context,
     speakers,
     scenery: context.scenery && kept(context.location),
-    concealed: hidden,
+    concealed: unnamedIds,
     ...(outcome ? { outcome } : {}),
     focus: kept(context.focus) ? context.focus : null,
     action: blur(context.action)?.slice(0, 650) ?? null,
     events: context.events.map((text) => blur(text).slice(0, 650)),
-    conversation: context.conversation
-      .filter(({ actorId }) => kept(actorId))
-      .map((line) => ({ ...line, text: blur(line.text).slice(0, 400) })),
+    conversation: context.conversation.filter(
+      ({ actorId, text }) => kept(actorId) && blur(text) === text,
+    ),
     ...(context.disclosures && {
       disclosures: context.disclosures.filter(
         ({ speaker, text }) =>
@@ -193,11 +204,13 @@ export function forgetCovered(world, context, isCovered) {
       .map((entity) => ({
         ...entity,
         facts: entity.facts.map((text) => blur(text).slice(0, 240)),
-        memories: entity.memories.map((m) => ({
-          ...m,
-          text: blur(m.text).slice(0, 400),
-        })),
-        previous: blur(entity.previous)?.slice(0, 400) ?? null,
+        memories: entity.memories.flatMap((m) => {
+          const text = blur(m.text);
+          if (m.kind === "expression") return text === m.text ? [m] : [];
+          return [{ ...m, text: text.slice(0, 650) }];
+        }),
+        previous:
+          blur(entity.previous) === entity.previous ? entity.previous : null,
         ...(entity.inner_life && {
           inner_life: {
             ...entity.inner_life,

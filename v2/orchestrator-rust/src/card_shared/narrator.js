@@ -21000,23 +21000,33 @@
     );
   }
   var groundedInner = (world, speaker, text2) => /\b(i|i'm|i've|my|me|mine)\b/i.test(text2) && (text2.match(/["\u201c\u201d]/g) || []).length % 2 === 0 && !/[,!?]["\u201d] [a-z]/.test(text2) && !inventsItem(world, speaker, text2);
-  function coveredIds(world, isCovered) {
-    return [
+  function coveredCards(world, isCovered) {
+    const cards = [
       ...Object.keys(world.actors),
       ...Object.keys(places),
       ...Object.keys(world.items)
-    ].filter((id) => isCovered(id) || world.items[id] && covered(world, id));
+    ];
+    const hidden = new Set(
+      cards.filter(
+        (id) => isCovered(id) || world.items[id] && covered(world, id)
+      )
+    );
+    const shown = new Set(cards.filter((id) => !hidden.has(id)).map(lowerName));
+    return {
+      hidden,
+      unnamedIds: [...hidden].filter((id) => !shown.has(lowerName(id)))
+    };
   }
+  var lowerName = (id) => nameOf(id).toLowerCase();
   function forgetCovered(world, context, isCovered) {
     const actor = currentActor(world);
-    const hidden = coveredIds(world, isCovered);
-    if (!hidden.length) return context;
-    const gone2 = new Set(hidden);
-    const kept = (id) => !gone2.has(id);
+    const { hidden, unnamedIds } = coveredCards(world, isCovered);
+    if (!hidden.size) return context;
+    const kept = (id) => !hidden.has(id);
     const keepEntity = (id) => id === actor || id === context.location || kept(id);
     const unknown = new Map(
-      hidden.map((id) => [
-        nameOf(id).toLowerCase(),
+      unnamedIds.map((id) => [
+        lowerName(id),
         world.items[id]?.lit && !covered(world, id) ? UNKNOWN_LIGHT : unnamed(world, id)
       ])
     );
@@ -21027,12 +21037,14 @@
       ...context,
       speakers,
       scenery: context.scenery && kept(context.location),
-      concealed: hidden,
+      concealed: unnamedIds,
       ...outcome ? { outcome } : {},
       focus: kept(context.focus) ? context.focus : null,
       action: blur(context.action)?.slice(0, 650) ?? null,
       events: context.events.map((text2) => blur(text2).slice(0, 650)),
-      conversation: context.conversation.filter(({ actorId }) => kept(actorId)).map((line) => ({ ...line, text: blur(line.text).slice(0, 400) })),
+      conversation: context.conversation.filter(
+        ({ actorId, text: text2 }) => kept(actorId) && blur(text2) === text2
+      ),
       ...context.disclosures && {
         disclosures: context.disclosures.filter(
           ({ speaker, text: text2 }) => speakers.includes(speaker) && blur(text2) === text2
@@ -21041,11 +21053,12 @@
       entities: context.entities.filter(({ id }) => keepEntity(id)).map((entity) => ({
         ...entity,
         facts: entity.facts.map((text2) => blur(text2).slice(0, 240)),
-        memories: entity.memories.map((m) => ({
-          ...m,
-          text: blur(m.text).slice(0, 400)
-        })),
-        previous: blur(entity.previous)?.slice(0, 400) ?? null,
+        memories: entity.memories.flatMap((m) => {
+          const text2 = blur(m.text);
+          if (m.kind === "expression") return text2 === m.text ? [m] : [];
+          return [{ ...m, text: text2.slice(0, 650) }];
+        }),
+        previous: blur(entity.previous) === entity.previous ? entity.previous : null,
         ...entity.inner_life && {
           inner_life: {
             ...entity.inner_life,
