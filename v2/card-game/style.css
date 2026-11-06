@@ -1071,6 +1071,17 @@ body .dialogue[data-dropped="true"] {
   max-width: none;
   pointer-events: auto;
 }
+/* In the editor, the cards carry the rounded edges. */
+body:has(#settings-screen[data-layout="tree"][open])
+  :is(
+    .top-actions,
+    .top-actions button,
+    .dialogue,
+    .action-panel,
+    #card-actions button
+  ) {
+  border-radius: 0;
+}
 body:has(#settings-screen[data-layout="tree"][open]) .settings-scene {
   opacity: 1;
   animation: none;

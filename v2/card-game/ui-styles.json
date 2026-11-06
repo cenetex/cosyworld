@@ -381,6 +381,7 @@
     "body .speech-line { grid-area: line; min-height: 24px; min-width: 0 }",
     "body .stage[data-combat=\"true\"]~.dialogue.beat-stack[data-dropped=\"true\"] { opacity: 0 }",
     "body:has(#settings-screen[data-layout=\"tree\"][open]) .settings-scene { animation: none; opacity: 1 }",
+    "body:has(#settings-screen[data-layout=\"tree\"][open]) :is(.top-actions,.top-actions button,.dialogue,.action-panel,#card-actions button) { border-radius: 0 }",
     "body:has(#settings-screen[open]) .settings-scene { animation: settings-scene 0.8s ease 1.2s both }",
     "body:has(#settings-screen[open]) .settings-veil { opacity: 1; transition: opacity 0.6s ease; visibility: visible }",
     "body:is([data-sleep=\"fade\"],[data-sleep=\"held\"]) .dialogue { opacity: 0; transition: opacity var(--sleep-ms,0ms) ease-in-out }",
