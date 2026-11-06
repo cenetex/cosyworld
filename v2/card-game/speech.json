@@ -9,7 +9,8 @@
   "first_meeting": ["newcomer"],
   "want_met": ["met"],
   "long_rest": ["actor"],
-  "thought_due": ["actor"],
+  "first_wait": ["actor"],
   "signal_echo": [],
-  "new_place": ["place"]
+  "new_place": ["place"],
+  "action": ["actor"]
 }

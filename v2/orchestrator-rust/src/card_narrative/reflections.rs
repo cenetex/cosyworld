@@ -38,11 +38,17 @@ pub(super) async fn generate(
     State(state): State<TextState>,
     ConnectInfo(peer): ConnectInfo<SocketAddr>,
     headers: HeaderMap,
-    Json(context): Json<Context>,
+    Json(mut context): Json<Context>,
 ) -> Response {
     let Ok(settings) = state.settings.as_ref() else {
         return StatusCode::SERVICE_UNAVAILABLE.into_response();
     };
+    // The private route includes the resting avatar even on a quiet Wait.
+    if let Some(id) = context.resting.clone() {
+        if !context.speakers.contains(&id) {
+            context.speakers.insert(0, id);
+        }
+    }
     if !(same_origin(&headers) && valid(&context)) {
         return StatusCode::BAD_REQUEST.into_response();
     }
@@ -69,7 +75,8 @@ pub(super) async fn generate(
     };
     // Most scenes have no one due: answer at once, without spending the
     // client's story budget.
-    if !voiced(&context)
+    if !context
+        .resting
         .iter()
         .any(|id| reflection_due(&context, entity(&context, id)).0)
     {
@@ -120,9 +127,9 @@ async fn complete(
 ) -> Value {
     let deadline = tokio::time::Instant::now() + settings.scene_timeout;
     let mut entries = Vec::new();
-    for id in voiced(context) {
+    for id in context.resting.iter() {
         if let Some(reflection) =
-            reflection::generate(config, context, models, settings, deadline, &id).await
+            reflection::generate(config, context, models, settings, deadline, id).await
         {
             entries.push(json!({"id":id,"reflection":reflection}));
         }
@@ -218,6 +225,14 @@ mod tests {
             assert!(seen.lock().unwrap().len() > requests);
             assert!(result.get("reflections").is_some());
         }
+        c.speakers.clear();
+        c.scenery = false;
+        seen.lock().unwrap().clear();
+        let result = complete(&config, &c, &BTreeMap::new(), &VoiceSettings::hosted()).await;
+        assert!(!seen.lock().unwrap().is_empty());
+        assert!(result["reflections"]
+            .as_array()
+            .is_some_and(|v| !v.is_empty()));
         // Only the same client's newer scene drops its private future.
         let queue = Queue::new(2);
         let (mine, other): (IpAddr, IpAddr) =

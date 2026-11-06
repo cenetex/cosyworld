@@ -231,11 +231,9 @@ export function narrativeContext(world, action = null, isCovered = null) {
     ids,
   } = cast;
   // Talk and Ask speak; any other play speaks only on a rules occasion.
-  const { occasion, speakers, scenery } = speechOccasions(world, cast, (w, c) =>
-    signalEcho(w, c.location, turnOutcome(w).card),
-  );
+  const { occasion, speakers, scenery } = speechOccasions(world, cast);
   const resting =
-    cast.resting && speakers[0] === cast.resting ? cast.resting : null;
+    !speakers.length || speakers[0] === cast.resting ? cast.resting : null;
   const rest = resting ? cast.rest : null;
   const defeated =
     cast.defeat &&
@@ -967,6 +965,26 @@ export function createNarrator({
     asking = null,
     controller,
     reflectionController;
+
+  function reflectScene(context, version) {
+    if (reflect) {
+      reflectionController = new AbortController();
+      void boundedRequest(
+        reflect,
+        context,
+        reflectionController.signal,
+        () => {},
+        60_000,
+      )
+        .then((value) => {
+          // Most scenes have no one due a reflection.
+          if (version !== ticket || !value?.reflections?.length) return;
+          const updated = applyGeneratedReflections(getWorld(), context, value);
+          if (updated) apply(updated, { reflection: true });
+        })
+        .catch(() => {});
+    }
+  }
   async function write(context, version, signal) {
     const graceEnd = Date.now() + BUSY_GRACE;
     let deadline = Date.now() + Math.max(30_000, Math.min(budget, 1_900_000));
@@ -1025,27 +1043,7 @@ export function createNarrator({
         preview(null);
         apply(next, { silent: silentSpeakers(context, response, next) });
         status("ready");
-        if (reflect) {
-          reflectionController = new AbortController();
-          void boundedRequest(
-            reflect,
-            context,
-            reflectionController.signal,
-            () => {},
-            60_000,
-          )
-            .then((value) => {
-              // Most scenes have no one due a reflection.
-              if (version !== ticket || !value?.reflections?.length) return;
-              const updated = applyGeneratedReflections(
-                getWorld(),
-                context,
-                value,
-              );
-              if (updated) apply(updated, { reflection: true });
-            })
-            .catch(() => {});
-        }
+        reflectScene(context, version);
         return;
       } catch (error) {
         if (error?.retryAfter !== undefined)
@@ -1093,6 +1091,7 @@ export function createNarrator({
           if (next !== getWorld()) apply(next);
           else silent(quiet);
           status("ready");
+          if (quiet.resting) reflectScene(quiet, version);
           continue;
         }
         controller = new AbortController();

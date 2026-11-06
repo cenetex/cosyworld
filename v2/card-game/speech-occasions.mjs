@@ -7,9 +7,8 @@ import {
   fightersOf,
   REFUSED_VERBS,
 } from "./world.mjs";
-import { hasTemperament } from "./pack-rules.mjs";
-import { reflectionDue } from "./reflections.mjs";
-import { speechMemories } from "./scene-cast.mjs";
+import { hasTemperament, signalEcho } from "./pack-rules.mjs";
+import { visitSpeech } from "./visit-speech.mjs";
 import { profiles } from "./memory.mjs";
 import speech from "./speech.json" with { type: "json" };
 
@@ -52,9 +51,10 @@ export const SPEECH_OCCASIONS = [
   "first_meeting",
   "want_met",
   "long_rest",
-  "thought_due",
+  "first_wait",
   "signal_echo",
   "new_place",
+  "action",
 ];
 
 // The actor's first arrival at this place, read from committed travel.
@@ -77,7 +77,7 @@ function firstArrival(world, location) {
 }
 
 // Which occasions this committed play meets, and who speaks for them.
-export function speechOccasions(world, cast, echo = () => false) {
+export function speechOccasions(world, cast) {
   const actor = currentActor(world);
   const played = playedEntry(world);
   const verb = played?.verb;
@@ -118,19 +118,13 @@ export function speechOccasions(world, cast, echo = () => false) {
     ),
     place: [],
   };
-  const thought = () =>
-    reflectionDue(
-      {
-        rest: cast.rest,
-        resting: actor,
-        turn: world.turn,
-        entities: [
-          { id: actor, memories: speechMemories(world.memories[actor]) },
-        ],
-      },
-      actor,
-      world.memories[actor]?.innerLife,
-    ).thought;
+  const echo =
+    played &&
+    signalEcho(world, cast.location, {
+      kind: verb,
+      item: played.itemId,
+      target: played.targetId,
+    });
   const meets = {
     opening: world.turn === 0,
     defeat: Boolean(cast.defeat),
@@ -142,10 +136,31 @@ export function speechOccasions(world, cast, echo = () => false) {
     first_meeting: roles.newcomer.length > 0,
     want_met: roles.met.length > 0,
     long_rest: waited && cast.rest === "long",
-    thought_due: waited && thought(),
-    // Names no voices, so the rules check may leave it out.
-    signal_echo: Boolean(played && echo(world, cast)),
+    first_wait:
+      verb === "wait" &&
+      !played.sleep &&
+      !played.guards &&
+      visitSpeech(world, actor).turn === world.turn,
+    signal_echo: Boolean(echo),
     new_place: firstArrival(world, cast.location),
+    action:
+      !echo &&
+      played?.accepted !== false &&
+      [
+        "light",
+        "snuff",
+        "take",
+        "drop",
+        "eat",
+        "use",
+        "cover",
+        "ring",
+        "give",
+        "trade",
+        "choose",
+        "course",
+        "move",
+      ].includes(verb),
   };
   // A defeat has exactly one voice.
   const occasions = meets.defeat

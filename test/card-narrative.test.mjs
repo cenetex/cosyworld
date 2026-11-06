@@ -371,9 +371,9 @@ describe("entity memories and model text", () => {
         }),
     });
     narrator.changed();
-    world = act(world, "wait");
+    world = act(world, "move", null, "pond");
     narrator.changed();
-    world = act(world, "wait");
+    world = act(world, "move", null, "station");
     narrator.changed();
     expect(requests).toHaveLength(1);
     expect(started).toHaveBeenCalledTimes(1);

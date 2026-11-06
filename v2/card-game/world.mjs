@@ -175,6 +175,7 @@ import {
   laneOfEdge,
 } from "./pack-transport.mjs";
 import { upgradeSave } from "./legacy-saves.mjs";
+import { settleVisitSpeech, validVisitSpeech } from "./visit-speech.mjs";
 import { firstStart, togglePack, validDisabledPacks } from "./pack-toggle.mjs";
 import {
   consume,
@@ -3161,6 +3162,7 @@ export function play(
       witnesses: [actor],
     });
     settleGuards(next);
+    settleVisitSpeech(s, next, { ...action, actor });
     validateWorld(next);
     return { ok: true, state: next };
   }
@@ -3364,6 +3366,7 @@ export function play(
   // A gate whose condition now holds stays open from here on.
   latchRoutes(next);
   settleGuards(next);
+  settleVisitSpeech(s, next, exact);
   for (const [id, allowance] of Object.entries(
     next.sharedMigration?.inventoryAllowances || {},
   )) {
@@ -3625,6 +3628,7 @@ export function validateWorld(s) {
       fail();
   }
   for (const [id, a] of Object.entries(s.actors)) {
+    if (!validVisitSpeech(a, s.turn)) fail();
     if (
       !a.trust ||
       Object.keys(a.trust).sort().join() !== expectedTrustKeys[id] ||

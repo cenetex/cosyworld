@@ -63,8 +63,7 @@ pub(in crate::card_shared) fn takes_reflect(version: &str) -> bool {
         .is_some_and(|n| n >= 88)
 }
 
-/// Whether the play's recent speech is journaled, none of its reflections
-/// is yet, and the world's rules take a later reflection.
+/// A settled speech or quiet rest can reflect once under the current rules.
 fn due(c: &rusqlite::Connection, id: &str, play: &str, version: &str) -> super::Result<bool> {
     let ops: Vec<String> = c
         .prepare(
@@ -75,7 +74,11 @@ fn due(c: &rusqlite::Connection, id: &str, play: &str, version: &str) -> super::
                 .collect::<rusqlite::Result<_>>()
         })
         .map_err(super::sql_error)?;
-    Ok(ops.iter().any(|op| op == "speech")
+    let quiet: bool = c.query_row(
+        "SELECT EXISTS(SELECT 1 FROM card_full_plays p JOIN card_full_scenes s ON s.world=p.world AND s.play=p.id WHERE p.world=? AND p.id=? AND p.status IN ('playing','done') AND json_extract(p.command,'$.op')='play' AND json_extract(p.narrative,'$.context.resting')=json_extract(p.narrative,'$.actor') AND json_array_length(json_extract(p.narrative,'$.context.speakers'))=0 AND json_extract(p.narrative,'$.context.scenery')=0 AND coalesce(json_extract(s.content,'$.failed'),0)=0)",
+        params![id, play], |r| r.get(0),
+    ).map_err(super::sql_error)?;
+    Ok((quiet || ops.iter().any(|op| op == "speech"))
         && !ops.iter().any(|op| op == "reflect")
         && takes_reflect(version))
 }
@@ -126,14 +129,23 @@ pub(in crate::card_shared) fn commit(
     Ok(true)
 }
 
-/// After a play's line is journaled, reflect for the voices that spoke.
+/// After a play settles, reflect for its speakers or quietly resting actor.
 pub(in crate::card_shared) fn spawn(state: AppState, id: String, work: Work, lines: &Value) {
-    let spoke: Vec<String> = lines
+    let mut spoke: Vec<String> = lines
         .as_array()
         .into_iter()
         .flatten()
         .filter_map(|line| line["actorId"].as_str().map(str::to_string))
         .collect();
+    let actor = super::actor_id(work.actor);
+    let scene = &work.context["context"];
+    // A quiet Wait can keep its private thought after its scene settles.
+    if scene["resting"] == actor
+        && scene["speakers"].as_array().is_some_and(Vec::is_empty)
+        && scene["scenery"] == false
+    {
+        spoke.push(actor.into());
+    }
     let Ok((config, models)) = super::super::full_speech::story(&state) else {
         return;
     };

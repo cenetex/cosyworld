@@ -222,6 +222,7 @@ describe("JRPG scenes", () => {
   it("holds the same reply when a long saved game trims earlier events", () => {
     const write = (s) => {
       const context = narrativeContext(s);
+      context.speakers = ["vale"];
       return applyGeneratedText(s, context, {
         revision: s.revision,
         model: "fixture",

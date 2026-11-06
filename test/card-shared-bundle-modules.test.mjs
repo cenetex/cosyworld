@@ -45,6 +45,7 @@ const RULES = [
   "scene-cast.mjs",
   "shared-rules.mjs",
   "speech-occasions.mjs",
+  "visit-speech.mjs",
   "shared-world-entry.mjs",
   "shared-world.mjs",
   "talk-quest.mjs",
