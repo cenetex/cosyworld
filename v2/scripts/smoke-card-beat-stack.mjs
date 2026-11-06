@@ -14,7 +14,10 @@ import {
   play,
 } from "../card-game/world.mjs";
 import { enableMotives } from "../card-game/motives.mjs";
+import { SPEECH_OCCASIONS } from "../card-game/speech-occasions.mjs";
 import { stackHits } from "./card-browser-helpers.mjs";
+
+const itemReplies = SPEECH_OCCASIONS.includes("action");
 
 const output = process.env.BEAT_STACK_OUTPUT || "output/beat-stack";
 // Set to save start, middle and end frames of each step.
@@ -220,6 +223,7 @@ try {
         },
         { key, save },
       );
+      let itemReply = null;
       await page.route("**/card-game/text", async (route) => {
         const input = route.request().postDataJSON();
         await route.fulfill({
@@ -230,7 +234,10 @@ try {
             model: "browser-fixture",
             entries: input.entities.map(({ id }) => ({
               id,
-              text: lines[id] || `${id} speaks on turn ${input.turn}.`,
+              text:
+                (id === "vale" && itemReply) ||
+                lines[id] ||
+                `${id} speaks on turn ${input.turn}.`,
             })),
           }),
         });
@@ -240,6 +247,29 @@ try {
       );
       const front = () => page.locator("#speaker").textContent();
       const words = () => page.locator("#dialogue-text").textContent();
+      const readItemReply = async (action) => {
+        await page.waitForFunction(
+          (text) =>
+            document.querySelector("#dialogue-text").textContent === text,
+          itemReply,
+        );
+        assert.equal(await front(), "Vale");
+        if (
+          await page.locator('#dialogue-advance[data-revealing="true"]').count()
+        )
+          await page.locator("#dialogue-advance").click();
+        assert.equal(
+          await words(),
+          itemReply,
+          "The first tap finishes the item reply",
+        );
+        await page.locator("#beat-behind").evaluate((button) => button.click());
+        assert.equal(
+          await page.locator("#speech-row").getAttribute("data-beat"),
+          "action",
+        );
+        assert.match(await page.locator("#beat-captions").textContent(), action);
+      };
       // Talk to Pip: Vale's beat arrives in front, then Pip's in front of it.
       await page.locator('#hand [data-card="moth"]').click();
       await page
@@ -456,19 +486,21 @@ try {
           motionFrames.some((step) => depth.includes(step)),
           "Cards move in depth.",
         );
-      // A silent play keeps its own card, with the previous line behind it.
+      // The item result keeps its own card behind any avatar reply.
       await page.locator('#hand [data-card="vale"]').click();
       await page.locator('#hand [data-card="lamp"]').click();
       const actionFont = await page
         .locator('#card-actions [data-action="light"]')
         .evaluate((button) => getComputedStyle(button).font);
+      itemReply = "The lamp shines in my hands while the pond stays dark.";
       await page
         .locator(
           '#card-actions [data-action="light"]:not([data-revealing="true"])',
         )
         .click();
       await page.keyboard.press("Escape");
-      if (motion !== "reduce") {
+      if (itemReplies) await readItemReply(/lit/u);
+      else if (motion !== "reduce") {
         await page.locator("#beat-captions [data-primary].inscribe").waitFor();
         // A tap on the prior card goes Back even while the result is typing.
         await behind.evaluate((button) => button.click());
@@ -494,7 +526,9 @@ try {
         actionFont,
         "Ready and settled action captions share their font",
       );
+      if (itemReplies) await page.locator("#live-line").click();
       // The front target finishes a new result in place; rereading keeps it whole.
+      itemReply = "The pond darkens as I lower the lamp and look at Pip.";
       await page.locator('#hand [data-card="vale"]').click();
       await page.locator('#hand [data-card="lamp"]').click();
       await page
@@ -503,12 +537,13 @@ try {
         )
         .click();
       await page.keyboard.press("Escape");
+      if (itemReplies) await readItemReply(/squared up/u);
       await page.waitForFunction(() =>
         /squared up/u.test(
           document.querySelector("#beat-captions").textContent,
         ),
       );
-      if (motion !== "reduce") {
+      if (motion !== "reduce" && !itemReplies) {
         await page.locator("#beat-captions [data-primary].inscribe").waitFor();
         await page.locator("#speech-row").evaluate((card) => card.click());
       }
