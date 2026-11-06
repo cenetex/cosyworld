@@ -44,6 +44,24 @@
       "phone": "assets/optimized/phone/webp/attic/attic-lit.webp",
       "phoneHash": "24fcf70eab819dc21b907d9b3827224bb41d803c841a9166dc4ed2be1e04fd80"
     },
+    "assets/authoring-guide/dino-design.png": {
+      "sourceHash": "4731141b81052a6dbf09f6ecb9aaa709126adf01d984883fda4870a50b25c95b",
+      "stage": "assets/optimized/stage/png/authoring-guide/dino-design.webp",
+      "stageHash": "ba3f6296a687ca8575ea03deb828ed191cf4ab1d8742bef6ed3669ebee97fab4",
+      "card": "assets/optimized/card/png/authoring-guide/dino-design.webp",
+      "cardHash": "85b1cc793074212c10bbf81eb6cbedbdd9437ef4df0e700d85856e82e6253cc6",
+      "phone": "assets/optimized/phone/png/authoring-guide/dino-design.webp",
+      "phoneHash": "c789b300d93b65cb68a1586505437a6d807831f695f67fb8d214888ce02a7ddb"
+    },
+    "assets/authoring-guide/dino-poses.png": {
+      "sourceHash": "6bc888f8796bbe825eaf96aeb68d8de3f435faf152071603ef71e499d0cb677f",
+      "stage": "assets/optimized/stage/png/authoring-guide/dino-poses.webp",
+      "stageHash": "afd1950013c21a3b87cc3284f044d9b855b27dd4202555da9032a3757528970f",
+      "card": "assets/optimized/card/png/authoring-guide/dino-poses.webp",
+      "cardHash": "d764cbaf84ff0ab705ff13a3c6a6c8b74d0dad6714194b2e7143b1b6c6b12fcc",
+      "phone": "assets/optimized/phone/png/authoring-guide/dino-poses.webp",
+      "phoneHash": "34438d54aa1dc25d55312ada3f7f172af020d144ebccf0546ed2002235b66e6c"
+    },
     "assets/badger-forest/badger-grumpy.png": {
       "sourceHash": "7c68d659f2ff827633095fbd98338ee1b9693645fb4e3eaad88bb6abf53f417f",
       "stage": "assets/optimized/stage/png/badger-forest/badger-grumpy.webp",
