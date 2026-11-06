@@ -4196,11 +4196,16 @@ function placePreviousBeat() {
     );
 }
 new ResizeObserver(placePreviousBeat).observe($("action-beat"));
+let dialogueResizeFrame = 0,
+  dialogueSize = 0;
 new ResizeObserver(([entry]) => {
-  document.body.style.setProperty(
-    "--dialogue-size",
-    `${entry.contentRect.height}px`,
-  );
+  dialogueSize = entry.contentRect.height;
+  if (dialogueResizeFrame) return;
+  // Let this measurement finish before it changes the hand and dock sizes.
+  dialogueResizeFrame = requestAnimationFrame(() => {
+    dialogueResizeFrame = 0;
+    setStyle(document.body.style, "--dialogue-size", `${dialogueSize}px`);
+  });
 }).observe(document.querySelector(".dialogue"));
 function syncActionBeat() {
   const panel = document.querySelector(".action-panel"),
