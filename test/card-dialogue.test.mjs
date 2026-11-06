@@ -102,6 +102,28 @@ describe("paced conversation", () => {
     vi.advanceTimersByTime(28);
     expect(last().shown).toBe(3);
   });
+  it("finishes a section, holds its pause, then resumes its typing voice", () => {
+    const { reveal, last, sound } = player({
+      delay: (_, i) => (i === 3 ? 600 : 28),
+    });
+    reveal.show("poem", "One.Two.", null);
+    vi.advanceTimersByTime(28);
+    sound.mockClear();
+    reveal.finish(4);
+    expect(last()).toMatchObject({ shown: 4, complete: false, instant: true });
+    expect(sound).not.toHaveBeenCalled();
+    reveal.pause(true);
+    vi.advanceTimersByTime(10000);
+    reveal.pause(false);
+    vi.advanceTimersByTime(599);
+    expect(last().shown).toBe(4);
+    vi.advanceTimersByTime(1);
+    expect(last()).toMatchObject({ shown: 5, instant: false });
+    expect(sound).toHaveBeenCalledWith(null, "T", 5);
+    reveal.finish();
+    expect(last().complete).toBe(true);
+    expect(vi.getTimerCount()).toBe(0);
+  });
   it("keeps the rest of a punctuation pause when a menu closes", () => {
     const { reveal, last } = player();
     reveal.show("a", "Hi, Pip", "vale");

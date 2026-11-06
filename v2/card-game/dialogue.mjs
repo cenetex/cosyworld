@@ -82,12 +82,23 @@ export function createTextReveal({
       emit();
       schedule();
     },
-    finish() {
+    finish(until = current?.letters.length) {
       stop();
       if (!current || current.shown === current.letters.length) return;
       current.instant = true;
-      current.shown = current.letters.length;
+      current.shown = Math.max(
+        current.shown,
+        Math.min(until, current.letters.length),
+      );
       emit();
+      if (current.shown < current.letters.length) {
+        current.instant = false;
+        remaining = delay(
+          current.letters[current.shown - 1],
+          current.shown - 1,
+        );
+        schedule(remaining);
+      }
     },
     pause(value) {
       if (paused === value) return;
@@ -148,6 +159,7 @@ export function createRevealPainter(root, { caret = true, rest = false } = {}) {
       glyphs[shown - 1]?.classList.remove("cursor");
       if (next - shown > 1)
         root.dataset.reveal = painted ? "finish" : "instant";
+      else if (!complete) delete root.dataset.reveal;
       for (let i = shown; i < next; i++) glyphs[i].classList.add("revealed");
       shown = next;
       painted = true;

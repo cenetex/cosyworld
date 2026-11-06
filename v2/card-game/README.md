@@ -967,15 +967,15 @@ and stands alone before the box. About 25 seconds in all. The last line,
 tier's colour (45% of the tier over the text's cream), a soft 5 px glow (the
 tier at 30%) and a little weight, a 0.03em stroke under the fill, so colour is
 never the only cue and no glyph moves; all fifteen stay lit, well above AA
-contrast. A tap that shows the rest lights them all at once, and at a large
+contrast. A tap completes the current stanza and lights its words. At a large
 text size a set with a word scrolled out of view lights the rest at once. The
 highlight is styling only: the words stay plain text, announced nowhere. While it writes, every other letter
 blips in the dialogue's own voice (`createSpeechSounds`, the neutral 145 Hz
 voice of a speaker with no pitch of their own), with the table's Voices
 setting, none on rests, under reduced motion or in a hidden tab. The blips
 play once audio is unlocked: a new world from the menu hears them from the
-first letter; a first visit, before any gesture, is silent, and the first
-tap shows the rest and starts the song, which stops the blips. Every
+first letter. On a first visit, a tap completes the current stanza and unlocks
+the voice. The next stanza follows its pause with the typing sound. Every
 letter is laid out from the start, so nothing reflows and screen readers have
 the whole text at once; written whole, it folds back into plain text. Reduced
 motion shows it all at once, with every word's tint and weight still and no glow, and a
@@ -986,13 +986,18 @@ are whole; the panel scrolls when it does not fit. At a large text size
 scroll, and while it writes the panel follows the pen a line at a time, so the
 newest words stay in view, until the reader scrolls it themselves. The line is a button with no chrome that takes focus, with a ring
 only from the keyboard. A tap or click anywhere, or a key (the arrows scroll),
-is the gesture browsers ask for before sound: while it writes the first one
-fades the rest in over 150 ms and starts the title song, and the next one
-goes on.
-When the player continues, the plain words fade one by one in reading order.
-The lit words linger as the world's logo fades in with the title song. They
-fade from Uncommon through Mythic, with the carved box's words last. Reduced
-motion switches straight to the short logo fade. The logo lifts over one face-down
+completes the current stanza over 150 ms. Reading resumes after that stanza's
+pause. The finished poem waits for Continue.
+Continue starts the title song with its 250 ms volume rise. The poem holds
+for 200 ms, then plain words fade in reading order, 20 ms apart, each over
+300 ms. Highlighted words begin at 1.8 seconds and fade over 360 ms. "Care",
+"still", and "living" linger with the Epic words. The complete sentence
+"Nothing here began with us." fades together, followed by the carved-box
+words. `linger` and `fadeTogether` in `acknowledgement.json` select these holds.
+The logo stays at or below 10% opacity through two seconds, then reaches
+full brightness as the last word leaves at 2.95 seconds. It holds for
+750 ms before its lift. Reduced motion uses a 250 ms opacity crossfade
+with the logo fixed in its raised position. The logo sits over one face-down
 card, the game's own card back, with a small Privacy link (`/privacy`) under
 it. The card is a button named "Take the box", answering the poem's last
 line (the card back is the carved box's lid), and takes focus, with

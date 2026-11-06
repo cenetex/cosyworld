@@ -5,6 +5,8 @@
   "wordStepMs": 450,
   "glowInMs": 600,
   "tailMs": 250,
+  "fadeTogether": ["Nothing here began with us."],
+  "linger": ["care", "still", "living"],
   "stanzas": [
     [
       "Before our forest, there was land.",
