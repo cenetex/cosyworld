@@ -141,7 +141,11 @@ describe("the reflected shore card game", () => {
     s.items.lamp.lit = true;
     s.items.oil.holder = "vale";
     s = act(s, "wait");
-    expect(s.items.lamp).toMatchObject({ fuel: 12, lit: false, holder: "vale" });
+    expect(s.items.lamp).toMatchObject({
+      fuel: 12,
+      lit: false,
+      holder: "vale",
+    });
     expect(s.items.oil.holder).toBe("station");
     expect(s.items.oil).not.toHaveProperty("doses");
     const dry = s.log.findIndex((e) => e.text.includes("runs dry"));
@@ -171,10 +175,16 @@ describe("the reflected shore card game", () => {
     s = act(s, "take", "oil");
     expect(s.items.lamp.fuel).toBe(12);
     expect(s.items.oil.holder).toBe("station");
-    const take = s.log.findIndex((e) => e.verb === "take" && e.itemId === "oil");
+    const take = s.log.findIndex(
+      (e) => e.verb === "take" && e.itemId === "oil",
+    );
     const refuel = s.log.findIndex((e) => e.verb === "refuel");
     expect(refuel).toBeGreaterThan(take);
-    expect(s.log[refuel]).toMatchObject({ turn: s.turn, actorId: "vale", locationId: "station" });
+    expect(s.log[refuel]).toMatchObject({
+      turn: s.turn,
+      actorId: "vale",
+      locationId: "station",
+    });
   });
 
   it("refuels a resident's lamp by the same rule", () => {
@@ -308,6 +318,62 @@ describe("the reflected shore card game", () => {
     // Choosing a quest spends no turn; a long rest at the sanctuary sleeps on.
     expect(s.turn).toBeGreaterThanOrEqual(4000 - picks);
   }, 120_000);
+
+  it("scopes import permissions to the authoring page aliases", async () => {
+    const server = createServer();
+    await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+    const url = `http://127.0.0.1:${server.address().port}`;
+    try {
+      const root = await fetch(url);
+      const html = await root.text();
+      const policy = root.headers.get("content-security-policy");
+      expect(policy).toContain("img-src 'self' data:;");
+      expect(policy).toContain("connect-src 'self';");
+      for (const path of ["/make", "/make/", "/make?import=github"]) {
+        for (const method of ["GET", "HEAD"]) {
+          const page = await fetch(`${url}${path}`, { method });
+          expect(page.status).toBe(200);
+          expect(page.headers.get("cache-control")).toBe("no-store");
+          expect(page.headers.get("referrer-policy")).toBe("no-referrer");
+          expect(page.headers.get("etag")).toBeNull();
+          const authoring = page.headers.get("content-security-policy");
+          expect(authoring).toContain("img-src 'self' data: blob:;");
+          expect(authoring).toContain(
+            "connect-src 'self' https://api.github.com https://raw.githubusercontent.com;",
+          );
+          expect(
+            authoring
+              .replace("data: blob:", "data:")
+              .replace(
+                " https://api.github.com https://raw.githubusercontent.com",
+                "",
+              ),
+          ).toBe(policy);
+          expect(await page.text()).toBe(method === "GET" ? html : "");
+        }
+      }
+      expect(html).toContain('<base href="/card-game/" />');
+      for (const path of [
+        "/?make=1",
+        "/card-game/",
+        "/card-game/index.html",
+        "/privacy",
+      ]) {
+        expect(
+          (await fetch(`${url}${path}`)).headers.get("content-security-policy"),
+        ).toBe(policy);
+      }
+      for (const path of [
+        "/make/entry.mjs",
+        "/card-game/make",
+        "/make-other",
+      ]) {
+        expect((await fetch(`${url}${path}`)).status).toBe(404);
+      }
+    } finally {
+      await new Promise((resolve) => server.close(resolve));
+    }
+  });
 
   it("serves only the game assets and supports a clean browser reload", async () => {
     const server = createServer();

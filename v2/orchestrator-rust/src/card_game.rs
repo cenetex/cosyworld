@@ -32,6 +32,8 @@ const CSP: &str = "default-src 'self'; script-src 'self'; style-src 'self'; img-
 pub(super) fn router<S: Clone + Send + Sync + 'static>() -> Router<S> {
     Router::new()
         .route("/", get(index))
+        .route("/make", get(authoring_index))
+        .route("/make/", get(authoring_index))
         .route(
             "/card-game",
             get(|| async { Redirect::permanent("/card-game/") }),
@@ -68,6 +70,23 @@ async fn index() -> Response {
     let mut response = serve("index.html");
     *response.body_mut() = page.into();
     response.headers_mut().remove(header::CONTENT_LENGTH);
+    response
+}
+
+async fn authoring_index() -> Response {
+    let mut response = index().await;
+    let policy = CSP
+        .replace("img-src 'self' data:", "img-src 'self' data: blob:")
+        .replace(
+            "connect-src 'self'",
+            "connect-src 'self' https://api.github.com https://raw.githubusercontent.com",
+        );
+    response.headers_mut().insert(
+        header::CONTENT_SECURITY_POLICY,
+        policy
+            .parse()
+            .expect("authoring policy uses ASCII constants"),
+    );
     response
 }
 
@@ -163,6 +182,59 @@ mod tests {
         let response = request("/download", "GET").await;
         assert_eq!(response.status(), StatusCode::FOUND);
         assert_eq!(response.headers()[header::LOCATION], DOWNLOAD_URL);
+    }
+
+    #[tokio::test]
+    async fn authoring_aliases_share_the_page_and_scope_import_permissions() {
+        let root = request("/", "GET").await;
+        assert_eq!(root.headers()[header::CONTENT_SECURITY_POLICY], CSP);
+        let root_body = to_bytes(root.into_body(), usize::MAX).await.unwrap();
+        for path in ["/make", "/make/", "/make?import=github"] {
+            for method in ["GET", "HEAD"] {
+                let response = request(path, method).await;
+                assert_eq!(response.status(), StatusCode::OK);
+                assert_eq!(response.headers()[header::CACHE_CONTROL], "no-store");
+                assert_eq!(response.headers()[header::REFERRER_POLICY], "no-referrer");
+                assert!(!response.headers().contains_key(header::ETAG));
+                let policy = response.headers()[header::CONTENT_SECURITY_POLICY]
+                    .to_str()
+                    .unwrap();
+                assert!(policy.contains("img-src 'self' data: blob:;"));
+                assert!(policy.contains(
+                    "connect-src 'self' https://api.github.com https://raw.githubusercontent.com;"
+                ));
+                assert_eq!(
+                    policy.replace("data: blob:", "data:").replace(
+                        " https://api.github.com https://raw.githubusercontent.com",
+                        ""
+                    ),
+                    CSP
+                );
+                let body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+                if method == "GET" {
+                    assert_eq!(body, root_body);
+                    assert!(std::str::from_utf8(&body)
+                        .unwrap()
+                        .contains("<base href=\"/card-game/\" />"));
+                } else {
+                    assert!(body.is_empty());
+                }
+            }
+        }
+        for path in [
+            "/?make=1",
+            "/card-game/",
+            "/card-game/index.html",
+            "/privacy",
+        ] {
+            assert_eq!(
+                request(path, "GET").await.headers()[header::CONTENT_SECURITY_POLICY],
+                CSP
+            );
+        }
+        for path in ["/make/entry.mjs", "/card-game/make", "/make-other"] {
+            assert_eq!(request(path, "GET").await.status(), StatusCode::NOT_FOUND);
+        }
     }
 
     #[tokio::test]
