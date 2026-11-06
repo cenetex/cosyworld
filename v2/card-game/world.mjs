@@ -1511,7 +1511,11 @@ export function legalActions(s, actor = currentActor(s)) {
     !lampGuttering(s, here) &&
     (actor === currentActor(s) || controlledByHuman(s, actor)) &&
     s.log.findLast(
-      (e) => e.kind === "action" && e.actorId === actor && !e.generated,
+      (e) =>
+        e.kind === "action" &&
+        e.actorId === actor &&
+        !e.generated &&
+        e.verb !== "claim",
     )?.verb === "wait"
   )
     out.push(sleep);
@@ -3854,6 +3858,7 @@ export function validateWorld(s) {
         ? e.kind !== "action" ||
           e.generated ||
           !actorIds.includes(e.actorId) ||
+          !Number.isSafeInteger(e.seq) ||
           !Number.isSafeInteger(e.receipt) ||
           e.receipt < 1 ||
           e.receipt >= e.seq

@@ -61,6 +61,9 @@ describe("saved paid quest receipts", () => {
     expect(play(s, claim, s.revision - 1).ok).toBe(false);
     expect(play(s, claim, s.revision, "mara").ok).toBe(false);
     expect(play(reload(s), claim).state).toEqual(next);
+    const sleep = legalActions(next).find((a) => a.sleep);
+    expect(sleep).toBeTruthy();
+    expect(play(next, sleep).ok).toBe(true);
   });
 
   it("keeps receipt identity across focus, recurrence and trimmed history", () => {
@@ -136,6 +139,9 @@ describe("saved paid quest receipts", () => {
     expect(() => validateWorld(s)).toThrow();
     const done = act(completed(), "claim");
     done.log.at(-1).receipt = done.eventSeq;
+    expect(() => validateWorld(done)).toThrow();
+    done.log.at(-1).receipt = 1;
+    delete done.log.at(-1).seq;
     expect(() => validateWorld(done)).toThrow();
   });
 
