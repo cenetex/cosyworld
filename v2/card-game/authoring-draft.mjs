@@ -31,6 +31,7 @@ const mimes = {
   jpg: "image/jpeg",
   jpeg: "image/jpeg",
   mp3: "audio/mpeg",
+  m4a: "audio/mp4",
   ogg: "audio/ogg",
   wav: "audio/wav",
   json: "application/json",
