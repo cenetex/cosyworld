@@ -118,6 +118,38 @@ describe("the authored world card tree", () => {
       canonicalId: "vale",
       ref: null,
     });
-    expect(buildAuthoringTree({ pack: null }).cards).toHaveLength(1);
+    expect(buildAuthoringTree({ pack: null }).cards).toHaveLength(2);
+  });
+
+  it("gives each place and avatar a quest box before its first quest", () => {
+    const tree = buildAuthoringTree({
+      pack: {
+        places: { a: { exits: [] } },
+        avatars: { person: { place: "a" } },
+      },
+    });
+    for (const entity of tree.cards.filter((c) => c.role === "entity")) {
+      const box = tree.cards.find(
+        (c) => c.holder === entity.id && c.role === "quests",
+      );
+      expect(box).toMatchObject({
+        name: "Quests",
+        group: true,
+        art: "assets/card-back-locked.webp",
+      });
+      expect(tree.children[box.id]).toEqual([]);
+    }
+    const greek = buildAuthoringTree(load("greek-drama"));
+    const starter = at(greek, ["pack", "avatars", "greek-antigone", "want"]);
+    expect(starter.name).toBe("Starting quest");
+    expect(greek.cards.find((c) => c.id === starter.holder).role).toBe("quests");
+    const road = at(greek, ["pack", "routes", 0]);
+    const owner = greek.cards.find((c) => c.id === road.holder);
+    expect(owner.role).toBe("quests");
+    expect(owner.source).toEqual([
+      "pack",
+      "places",
+      load("greek-drama").pack.routes[0].to,
+    ]);
   });
 });

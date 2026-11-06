@@ -3,7 +3,25 @@
 const BOX = "assets/card-back.webp";
 const LOCK = "assets/card-back-locked.webp";
 const record = (v) => v !== null && typeof v === "object" && !Array.isArray(v);
-const words = (key) => String(key).replaceAll(/[_-]/g, " ");
+const list = (v) => (Array.isArray(v) ? v : []);
+const labels = {
+  requires: "Conditions",
+  opensWith: "Conditions",
+  effects: "Rewards",
+  conditions: "Conditions",
+  any: "Any of these",
+  not: "Except",
+  want: "Starting quest",
+  appearsWhen: "Appears when",
+  set_flag: "Set flag",
+  retire_item: "Use item",
+};
+const words = (key) =>
+  Object.hasOwn(labels, key)
+    ? labels[key]
+    : String(key)
+        .replaceAll(/([a-z])([A-Z])/g, "$1 $2")
+        .replaceAll(/[_-]/g, " ");
 const referenceKeys = new Set([
   "actor",
   "subject",
@@ -45,7 +63,8 @@ export function buildAuthoringTree({ pack, bridge } = {}) {
   pack = record(pack) ? pack : {};
   const cards = [],
     canonical = new Map(),
-    boxes = new Map();
+    boxes = new Map(),
+    quests = new Map();
   const add = (source, role, name, holder, more = {}) => {
     const card = {
       id: authoringCardId(source, role),
@@ -54,6 +73,7 @@ export function buildAuthoringTree({ pack, bridge } = {}) {
       lit: true,
       state: "",
       kind: "box",
+      role,
       holder,
       source: [...source],
       ...more,
@@ -62,10 +82,13 @@ export function buildAuthoringTree({ pack, bridge } = {}) {
     return card;
   };
   const root = add(["pack"], "root", pack.name || "World", null);
+  const rootQuests = add(["pack"], "quests", "Quests", root.id, { art: LOCK });
   const elsewhere = () => {
     let box = boxes.get(null);
     if (!box) {
-      box = add(["pack"], "elsewhere", "Elsewhere", root.id);
+      box = add(["pack"], "elsewhere", "Elsewhere", root.id, {
+        role: "contents",
+      });
       boxes.set(null, box);
     }
     return box;
@@ -85,14 +108,17 @@ export function buildAuthoringTree({ pack, bridge } = {}) {
         state: value.text || "",
       });
       canonical.set(id, card);
-      if (kind !== "item")
+      if (kind !== "item") {
         boxes.set(id, add(source, "contents", "Contents", card.id));
+        quests.set(id, add(source, "quests", "Quests", card.id, { art: LOCK }));
+      }
     }
   }
-  const link = (source, target, holder) => {
+  const link = (source, target, holder, identity = "link") => {
     const found = canonical.get(target);
-    return add(source, "link", found?.name || target, holder, {
+    return add(source, identity, found?.name || target, holder, {
       kind: "link",
+      role: "link",
       canonicalId: target,
       ref: found?.id || null,
       art: found?.art || BOX,
@@ -141,30 +167,51 @@ export function buildAuthoringTree({ pack, bridge } = {}) {
     }
     for (const key of ["requires", "appearsWhen", "want", "locked", "journey"])
       if (value[key] !== undefined)
-        visit(value[key], [...card.source, key], card.id, words(key));
+        visit(
+          value[key],
+          [...card.source, key],
+          quests.get(card.canonicalId)?.id || card.id,
+          key === "requires" ? "Appears when" : words(key),
+        );
     if (card.kind === "place")
-      for (const [i, target] of (value.exits || []).entries())
+      for (const [i, target] of list(value.exits).entries())
         link(
           [...card.source, "exits", i],
           target,
           boxes.get(card.canonicalId).id,
         );
   }
-  for (const [i, route] of (pack.routes || []).entries())
+  for (const [i, route] of list(pack.routes).entries()) {
     visit(
       route,
       ["pack", "routes", i],
-      (boxes.get(route?.from) || elsewhere()).id,
-      "Road",
+      (quests.get(route?.to) || rootQuests).id,
+      "Opening quest",
     );
-  if (pack.choices !== undefined)
-    visit(pack.choices, ["pack", "choices"], root.id, "Quests");
+    if (typeof route?.to === "string")
+      link(
+        ["pack", "routes", i, "to"],
+        route.to,
+        (boxes.get(route.from) || elsewhere()).id,
+        "road",
+      );
+  }
+  for (const [i, choice] of list(pack.choices).entries())
+    visit(
+      choice,
+      ["pack", "choices", i],
+      rootQuests.id,
+      choice?.label || "Quest",
+    );
   for (const key of ["entries", "crossings", "transports"])
     if (record(bridge) && bridge[key] !== undefined)
       visit(bridge[key], ["bridge", key], root.id, words(key));
   const children = Object.fromEntries(cards.map((c) => [c.id, []]));
   for (const card of cards)
     if (card.holder !== null) children[card.holder].push(card.id);
-  for (const card of cards) card.group = children[card.id].length > 0;
+  for (const card of cards)
+    card.group =
+      children[card.id].length > 0 ||
+      ["contents", "quests"].includes(card.role);
   return { cards, roots: [root.id], children };
 }

@@ -10,10 +10,12 @@ shape for the next spoke.
 
 The authoring card index is `buildAuthoringTree({pack, bridge})` in
 `authoring-tree.mjs`. It returns ordered `cards`, `roots`, and `children`.
-Each card has its source array path, a parent `holder`, and a `kind`. Reference
+Each card has its source array path, a parent `holder`, a `kind`, and a `role`. Reference
 cards point to a canonical card through `ref`; external targets keep their ID.
 Contents boxes show initial placement. Elsewhere keeps external holders in reach.
 Quest, road, and transport records retain their source order and nested paths.
+Each place and avatar has Contents and Quests boxes. Incoming road conditions
+live under the destination's Quests box; outgoing links stay in Contents.
 The index leaves the source intact. Edit commands use those paths separately.
 
 ## Files
