@@ -127,6 +127,18 @@ try {
     '#hand .card[data-card="attic"][data-unrevealed="false"]',
   );
   await opening.waitForTimeout(600);
+  const widths = await opening.$eval("#hand", async (hand) => {
+    const widths = [];
+    for (let i = 0; i < 12; i++) {
+      await new Promise(requestAnimationFrame);
+      widths.push(hand.getBoundingClientRect().width);
+    }
+    return widths;
+  });
+  assert.ok(
+    Math.max(...widths) - Math.min(...widths) < 1,
+    JSON.stringify(widths),
+  );
   assert.deepEqual(openingErrors, []);
   await opening.close();
   const sizes = { 390: 844, 765: 760, 1280: 720, 1440: 900, 1900: 960 };
