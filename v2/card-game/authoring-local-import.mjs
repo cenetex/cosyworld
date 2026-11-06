@@ -96,6 +96,10 @@ export async function importLocalDraft({ files, manifestPath }) {
     );
     const actual = await assetMetadata(asset.path, asset.mime, data);
     need(
+      actual.size === asset.size,
+      `Choose ${asset.path} with its recorded byte count.`,
+    );
+    need(
       actual.sha256 === asset.sha256,
       `Choose ${asset.path} with its recorded SHA-256.`,
     );

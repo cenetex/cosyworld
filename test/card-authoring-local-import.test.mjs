@@ -188,6 +188,23 @@ describe("local authoring import", () => {
       load([selected("world/draft.json", "{broken")]),
     ).rejects.toThrow();
   });
+  it("checks recorded size again when an adapter changes its file metadata", async () => {
+    const input = await fixture();
+    const bytes = new Uint8Array([1, 2, 3, 4]);
+    input.draft.assets[0].sha256 = (
+      await assetMetadata("art/pose.webp", "image/webp", bytes)
+    ).sha256;
+    input.files[0] = selected("world/draft.json", exportManifest(input.draft));
+    const file = {
+      size: 3,
+      arrayBuffer: async () => {
+        file.size = 4;
+        return bytes.buffer;
+      },
+    };
+    input.files[1].file = file;
+    await expect(load(input.files)).rejects.toThrow(/byte count/);
+  });
   it("enforces metadata, document, asset and provenance bounds", async () => {
     let reads = 0;
     const big = {
