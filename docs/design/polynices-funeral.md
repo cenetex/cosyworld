@@ -328,3 +328,7 @@ oil to Colonus and the cloth to Eleusis while those places await the Open
 Door. The Bury rite opens those places. The field is allowed for homed
 items that return after use. Existing retirement keeps its ordinary return
 rule, and each rite still checks the item's custody before using it.
+
+The four earlier courtyard reports remain available to saves that already
+recorded an earlier Theban response. New play records the funeral flags.
+An older completed burial can finish its report and open the road.

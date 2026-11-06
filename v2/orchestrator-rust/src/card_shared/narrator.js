@@ -6053,8 +6053,7 @@
               }
             ],
             textTemplate: "{actor} sets the Burial Account on Dione's table. She speaks of the Argive mothers at Eleusis.",
-            on: "give",
-            archived: true
+            on: "give"
           },
           {
             id: "greek-courtyard-concession",
@@ -6092,8 +6091,7 @@
               }
             ],
             textTemplate: "{actor} sets Creon's Writ on Dione's table. She speaks of the Argive mothers at Eleusis.",
-            on: "give",
-            archived: true
+            on: "give"
           },
           {
             id: "greek-courtyard-permitted-burial",
@@ -6136,8 +6134,7 @@
               }
             ],
             textTemplate: "{actor} sets the Burial Account on Dione's table.",
-            on: "give",
-            archived: true
+            on: "give"
           },
           {
             id: "greek-courtyard-exposure",
@@ -6175,8 +6172,7 @@
               }
             ],
             textTemplate: "{actor} sets the Guard's Tablet on Dione's table. She speaks of the Argive mothers at Eleusis.",
-            on: "give",
-            archived: true
+            on: "give"
           },
           {
             id: "greek-helen-egypt",
@@ -8843,6 +8839,11 @@
             label: "Hand Antigone the oil",
             text: "Antigone cleans the dust from her brother and anoints him.",
             requires: [
+              {
+                kind: "flag",
+                key: "greek-burial-performed",
+                value: false
+              },
               {
                 kind: "item_at",
                 item: "greek-oil-flask",
