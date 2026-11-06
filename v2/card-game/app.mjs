@@ -3783,7 +3783,7 @@ function renderScene() {
         item.dataset.kind = action.kind;
         item.toggleAttribute(
           "data-primary",
-          front.committed && action.seq === front.anchor,
+          front.committed === true && action.seq === front.anchor,
         );
         item.toggleAttribute(
           "data-named",
