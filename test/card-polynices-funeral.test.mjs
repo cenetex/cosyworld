@@ -86,6 +86,8 @@ it.each(["opening", "full"])(
     act({ kind: "talk", target: antigone });
     expect(questCard(world)?.art).toContain("polynices-fallen");
     act({ kind: "move", target: "greek-battlefield" });
+    world.turn = world.revision = 36;
+    act({ kind: "talk", target: "greek-polynices-shade" });
     act({ kind: "move", target: hollow });
     expect(world.actors[antigone].place).toBe(hollow);
     expect(actions().filter((a) => a.kind === "choose")).toEqual([]);

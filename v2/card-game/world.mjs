@@ -2602,10 +2602,14 @@ function performPlay(s, a, round = null, settle = []) {
       if (a.target === "bell") s.items.bell.ringing = 0;
       break;
     case "talk": {
-      // A pack can make a Talk the trigger of one authored choice.
-      const told = packTalkChoice(s, a);
+      // Keep a committed Talk valid when its turn crosses the subject's clock.
+      const turn = s.turn - 1,
+        told = packTalkChoice(s, a, turn);
       if (told)
-        text = choiceText(applyPackChoice(s, told, { mode: "talk" }), a.actor);
+        text = choiceText(
+          applyPackChoice(s, told, { mode: "talk", turn }),
+          a.actor,
+        );
       const woken = wakeByVoice(s, a.target),
         roused = wakeResident(s, a.target);
       if (woken) text += ` ${woken}`;

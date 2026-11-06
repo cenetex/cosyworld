@@ -3003,7 +3003,7 @@
         schemaVersion: 1,
         id: "greek-drama",
         packId: "cosyworld.greek-drama",
-        revision: 21,
+        revision: 22,
         name: "The Wine-Dark Sea",
         description: "A branching Greek drama world. A shared ship visits the Wine-Dark Harbor, Athens Harbor and Piraeus. One road joins Athens and Piraeus, and short paths lead to the Attic places where welcome becomes a growing poem.",
         tone: "Concrete Greek domestic and civic life: bread, work, desire, grief, argument, irreverence, and hospitality. Dialogue expresses committed actions. A tragic ending is never required.",
@@ -3129,8 +3129,7 @@
             name: "The Exposed Battlefield",
             text: "Broken spear shafts lie in the dust. A strip of earth outside the city is set apart for the fallen brother.",
             exits: [
-              "greek-gate",
-              "greek-polynices-hollow"
+              "greek-gate"
             ],
             backdrop: "assets/greek-drama/burial-ground-dusk.webp",
             persona: "Broken spear shafts lie in the dust. A strip of earth outside the city is set apart for the fallen brother."
@@ -4174,6 +4173,31 @@
                       kind: "holding",
                       item: "greek-creon-writ",
                       actor: "greek-guard"
+                    },
+                    {
+                      kind: "flag",
+                      key: "greek-burial-performed",
+                      value: true
+                    }
+                  ]
+                },
+                {
+                  kind: "any",
+                  conditions: [
+                    {
+                      kind: "flag",
+                      key: "greek-polynices-heard",
+                      value: true
+                    },
+                    {
+                      kind: "flag",
+                      key: "greek-polynices-anointed",
+                      value: true
+                    },
+                    {
+                      kind: "flag",
+                      key: "greek-polynices-veiled",
+                      value: true
                     },
                     {
                       kind: "flag",
@@ -5504,6 +5528,44 @@
                 actor: "greek-guard"
               }
             ]
+          },
+          {
+            from: "greek-battlefield",
+            to: "greek-polynices-hollow",
+            requires: [
+              {
+                kind: "any",
+                conditions: [
+                  {
+                    kind: "flag",
+                    key: "greek-polynices-heard",
+                    value: true
+                  },
+                  {
+                    kind: "flag",
+                    key: "greek-polynices-anointed",
+                    value: true
+                  },
+                  {
+                    kind: "flag",
+                    key: "greek-polynices-veiled",
+                    value: true
+                  },
+                  {
+                    kind: "flag",
+                    key: "greek-burial-performed",
+                    value: true
+                  }
+                ]
+              }
+            ],
+            sealed: {
+              reason: "Speak to Polynices\u2019 Shade to learn the way into the Hollow.",
+              quest: {
+                kind: "person",
+                target: "greek-polynices-shade"
+              }
+            }
           },
           {
             from: "greek-harbor",
@@ -9073,6 +9135,22 @@
               }
             ],
             on: "give"
+          },
+          {
+            id: "greek-hear-polynices",
+            at: "greek-battlefield",
+            subject: "greek-polynices-shade",
+            label: "Hear Polynices\u2019 Shade",
+            text: "Polynices\u2019 Shade points beneath the bent olive, where his sister can lay him to rest.",
+            requires: [],
+            effects: [
+              {
+                kind: "set_flag",
+                key: "greek-polynices-heard",
+                value: true
+              }
+            ],
+            on: "talk"
           }
         ],
         works: [
@@ -10089,7 +10167,8 @@
             "greek-homecoming-receive-family",
             "greek-anoint-polynices",
             "greek-shroud-polynices",
-            "greek-bury-polynices"
+            "greek-bury-polynices",
+            "greek-hear-polynices"
           ]
         },
         recital: {
@@ -18369,6 +18448,8 @@
       upgradeGreekDecreeSave(s);
       if (s.packs?.["greek-drama"]?.revision === 20)
         s.packs["greek-drama"].revision = 21;
+      if (s.packs?.["greek-drama"]?.revision === 21)
+        s.packs["greek-drama"].revision = 22;
       upgradeRecitals(s, packDefinitions);
     }
     upgradeSightings(s);

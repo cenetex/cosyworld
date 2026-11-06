@@ -26,7 +26,8 @@ const rites = [
   "greek-bury-polynices",
 ];
 let fixture = createWorld();
-fixture.turn = fixture.revision = 20;
+// Reach the shade on the last night turn, then commit the Talk at dawn.
+fixture.turn = fixture.revision = 45;
 fixture.crossings["pond-greek-harbor"].discovered = true;
 fixture.actors.vale.place = "greek-gate";
 fixture.actors.vale.visited.push("pond", "greek-gate");
@@ -126,6 +127,7 @@ try {
       await page.screenshot({
         path: `${output}/${stage}-${width}.png`,
         fullPage: true,
+        animations: "disabled",
       });
     };
     try {
@@ -166,6 +168,29 @@ try {
       }
       await showState(fixture);
       await selectCard(page, hollow, { touch: width === 390 });
+      const locked = page.locator(`#hand [data-card="${hollow}"]`);
+      assert.equal(await locked.getAttribute("data-locked"), "true");
+      await readyActionButton(page, "gate").waitFor();
+      assert.match(await readyActionButton(page, "gate").innerText(), /Polynices.*Shade/);
+      await photograph("locked");
+      const turn = (await state()).turn;
+      assert.equal(turn, 47, "Talk is chosen on the last night turn");
+      await readyActionButton(page, "gate").click();
+      await settle();
+      assert.equal((await state()).turn, turn, "Taking the Talk quest keeps the turn");
+      assert.equal((await state()).actors.vale.want.target, "greek-polynices-shade");
+      await clearSelection(page);
+      await selectCard(page, "greek-polynices-shade", { touch: width === 390 });
+      await readyActionButton(page, "talk").click();
+      await settle();
+      assert.equal((await state()).packs["greek-drama"].flags["greek-polynices-heard"], true);
+      assert.equal((await state()).turn, 48, "Talk commits at dawn");
+      await page.reload();
+      await settle();
+      await selectCard(page, hollow, { touch: width === 390 });
+      assert.equal(await locked.getAttribute("data-locked"), "false");
+      await readyActionButton(page, "move").waitFor();
+      await photograph("opened");
       await readyActionButton(page, "move").click();
       await settle();
       assert.equal((await state()).actors.vale.place, hollow);
@@ -266,6 +291,7 @@ try {
       await page.screenshot({
         path: `${output}/failed-${width}.png`,
         fullPage: true,
+        animations: "disabled",
       });
       throw error;
     } finally {

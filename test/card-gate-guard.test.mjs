@@ -214,8 +214,8 @@ describe("the Exposed Battlefield", () => {
     expect(exits(s, FIELD, "vale").sort()).toEqual([
       ROAD,
       GATE,
-      "greek-polynices-hollow",
     ]);
+    expect(sealedReason(s, "greek-polynices-hollow")).toMatch(/Polynices.*Shade/);
     expect(exits(s, GATE, "vale")).toContain(FIELD);
     expect(waysOut(s)).toEqual([ROAD, GATE, "greek-polynices-hollow"]);
   });

@@ -148,6 +148,8 @@ export function upgradeSave(
     upgradeGreekDecreeSave(s);
     if (s.packs?.["greek-drama"]?.revision === 20)
       s.packs["greek-drama"].revision = 21;
+    if (s.packs?.["greek-drama"]?.revision === 21)
+      s.packs["greek-drama"].revision = 22;
     upgradeRecitals(s, packDefinitions);
   }
   upgradeSightings(s);

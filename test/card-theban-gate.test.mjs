@@ -49,7 +49,6 @@ describe("the Theban City Gate", () => {
     // bars from both sides until it opens (rules 100).
     expect(pack.places["greek-battlefield"].exits).toEqual([
       "greek-gate",
-      "greek-polynices-hollow",
     ]);
     expect(
       pack.routes.find(
