@@ -52,6 +52,18 @@ cards; publication checks the compiled pack with the shared pack validator.
 `authoring-session.mjs` owns fields, source text, Undo, saves and guarded tools.
 Use `stage({document,title})` to keep text, `snapshot({pending:false})` to read it, and `save()` to check and persist the draft.
 
+`importSourcePack({files, packPath, bridgePath, cardRoot, extraPaths, origin})`
+in `authoring-source-import.mjs` reads selected raw repository files. It returns
+`{draft, assets, sourceFiles, assetSources}` with exact source bytes and digests.
+The card directory defaults to the sibling `card-game/` for `content/<pack>/`
+sources, or the pack directory. `cardRoot` selects another relative directory.
+`extraPaths` adds card-relative lore files. `origin` is `{kind:"file"}` or
+`{kind:"github",repo,commit}` with an exact commit. Media keeps its card path;
+`assetSources` records each repository path. `sourcePackCandidates(files)`
+indexes up to 100,000 file entries; each import reads up to 512 media files.
+Extra music files keep their bytes; portable playback also needs the catalog
+adapter's room-to-track mapping from `music.mjs`.
+
 | File                                | Owns                                                                                                                    |
 | ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
 | `v2/worlds/card-table.json`         | The hub's own places, avatars and items, the player id, its start and switchable groups, and the list of mounted packs. |
@@ -64,6 +76,18 @@ Use `stage({document,title})` to keep text, `snapshot({pending:false})` to read 
 npm run v2:card:pack:build   # regenerate v2/card-game/packs.json
 npm run v2:card:pack:check   # fail if it is stale or invalid (part of v2:worldpack)
 ```
+
+### Portable local drafts
+
+`authoring-local-import.mjs` reads selected browser Files or `{path, file}`
+entries from a local adapter. `importLocalDraft({files, manifestPath})` opens
+an exported authoring draft, with asset paths relative to its manifest folder.
+It returns a fresh local `draft`, an `assets` map of exact file bytes keyed by
+manifest path, and `sourceFiles` containing the original manifest bytes and
+digest. The helper checks every declared file's size and digest before returning.
+Pack and bridge IDs, extra source fields and earlier provenance remain intact.
+`localPackCandidates(files)` lists `card-world.json` paths for a later source
+pack resolver. The caller chooses an explicit manifest path for portable import.
 
 The browser imports `packs.json`, and the Rust text route embeds the same file
 for profiles, so ids and seeds cannot drift between them. Each avatar has one
