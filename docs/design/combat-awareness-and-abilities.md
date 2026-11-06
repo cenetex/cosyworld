@@ -25,6 +25,16 @@ could offer a small set of distinct actions through the existing card table.
   line per play.
 - Avatars begin with a seed sentence. Events and reflection shape their voice.
   See [voice construction](../../v2/orchestrator-rust/src/card_narrative.rs).
+- Combat uses four resolve, seeded damage, Strike, Brace, Cover and Wait.
+  A fight spans one room. Residents choose from their last attacker and trust.
+  Front and back placement belongs to presentation; range would need rules.
+- The [battle hand](../../v2/card-game/cards.mjs) shows people, the current
+  place and a disputed item. Held ability items would need to join that hand.
+  The current carry limit is three spaces, with some items using extra space.
+- The [item schema](../../v2/card-game/pack-schema.mjs) supports tags and story
+  fields. Combat effects need a checked field and supported rule. The existing
+  [authoring design](world-authoring-play.md) treats ability text as descriptive
+  until that rule has been chosen and tested.
 
 ## Proposed key moments
 
@@ -92,6 +102,52 @@ Antigone's [authored facts](../../v2/content/greek-drama/card-world.json) value
 practical help and care for the dead. That gives a concrete basis for her
 response to protection. The current mounted cast supplies these examples.
 
+## Proposed item abilities
+
+A held item grants one named combat action. The first tap opens its details.
+Selecting the item with a combatant names the target. The existing context
+button shows the act and its effect. The item card shows whether it is ready
+or spent; its descriptor states the use limit.
+
+Start with one use per item per battle and one full play per use. Three carry
+spaces create an early choice about which tools to bring. One item and target
+should offer one clear action. Further actions on one item need a reviewed
+selection design within the existing card table.
+
+A disputed weapon needs a clear surrender action too. Proposed control:
+selecting the disputed item alone offers Yield to the challenger; item plus
+target offers its ability. Check this choice in a focused desktop and phone
+play-through.
+
+These are original sketches. Effects and values are proposed for play testing.
+
+| New item       | Action     | Proposed effect                                                                    |
+| -------------- | ---------- | ---------------------------------------------------------------------------------- |
+| Bronze buckler | Stand with | Cover one combatant and brace yourself until your next play.                       |
+| Rowan crook    | Hook aside | Remove a target's Cover, creating an opening.                                      |
+| Reed whistle   | Rally      | Restore one resolve to another combatant who has one resolve.                      |
+| Cast net       | Entangle   | Reduce the target's next Strike by one, with a minimum of one damage.              |
+| Short sword    | Answer     | After this target struck you, strike at the top of the existing tier damage range. |
+
+Pilot the buckler and crook. They make support and counterplay visible through
+Cover and Brace. Test two- and three-person fights before adding healing or
+further saved effects. The buckler's expiry needs an explicit timing rule.
+Each harmful ability resets the peaceful round. Each peaceful support action
+counts as that person stepping back.
+
+Use new authored items for the pilot. Ajax's existing shield carries a specific
+delivery promise to Eurysaces in the [Greek pack](../../v2/content/greek-drama/card-world.json).
+
+Keep sanctuary protection, tier damage limits, item custody, shared human
+battle rules and defeat settlement. Residents and players should use the same
+legal actions and effects. Resident choice needs a policy for each new action.
+
+Save a set of used item IDs with the battle. A use stays spent through reload,
+transfer and departure or return until that battle ends. Shared play checks
+revision and custody again. The committed result records item and ability IDs,
+actor, intended target, actual recipient, state changes, witnesses and source
+event sequence. Key-moment speech reads those same fields.
+
 ## Research sources
 
 - [Valve: dynamic dialogue](https://gdcvault.com/play/1015946/AI-driven-Dynamic-Dialog-through).
@@ -102,6 +158,21 @@ response to protection. The current mounted cast supplies these examples.
   His examples tie speech to low health, current place, previous meetings and
   exact player actions. CosyWorld can make a reaction equally easy to connect
   to a visible event.
+- [Red Hook: Darkest Dungeon](https://store.steampowered.com/app/262060/Darkest_Dungeon/).
+  The official description links stress and quirks to play and describes
+  narration that marks successes and failures. CosyWorld could give each key
+  outcome a brief human response.
+- [Red Hook: Darkest Dungeon II](https://store.steampowered.com/app/1940340/Darkest_Dungeon_II/).
+  Its token system supports combat decisions, while relationships can create
+  useful combinations or conflict. The proposed lesson is readable conditions
+  and battle consequences tied to people.
+- [Battle Brothers: features](https://battlebrothersgame.com/features/).
+  The developer explicitly gives weapons distinct skills, including axe shield
+  splitting, mace stuns and spearwalls. This supports the proposed idea that
+  a CosyWorld weapon grants a clear verb.
+
+These applications are our design proposals. The linked sources establish the
+reference games' patterns; CosyWorld's effects and limits need its own tests.
 
 ## Proposed delivery and proof
 
@@ -109,12 +180,19 @@ response to protection. The current mounted cast supplies these examples.
 2. Add selected combat occasions and shared speaker selection. This is an
    engine change and needs its own design review, engine label and rules version.
 3. Tune timing and voice quality in the existing dialogue bar.
-4. Prototype item abilities after their action and save contract is agreed.
+4. Add a checked item field and one bounded effect resolver, with authoritative
+   local, shared and replay tests. Use a new shared rules version.
+5. Add ability item visibility, target selection and the single context action.
+   Play the changed path at desktop and phone widths.
+6. Author two pilot items and their resident choice rules. Test balance and
+   the matching speech occasions.
 
 Test a covered blow, a protected person yielding later in the same exchange,
 a defeated speaker changing rooms, simultaneous shared battles, repeated
 delivery, reload, a slow reply after another action, and hidden information.
 Journal replay and local/shared results should agree on event and speaker.
+Ability tests also cover spent items, transfer, repeat requests, expiry order,
+sanctuaries, a full hand, invalid targets, peaceful rounds, retreat and re-entry.
 
 Play-test current speech, key-moment speech and frequent speech. Ask players
 who reacted, what caused the line, and why that person cared. Measure relevant
