@@ -55,6 +55,13 @@ describe("authoring collections", () => {
         (c) => c.art === source.pack.avatars.badger.variants.asleep.portrait,
       ),
     ).toBe(true);
+    const id = authoringCardId(["pack", "avatars", "badger"], "entity");
+    expect(
+      view.world.filter((c) => c.holder === id).map((c) => c.name),
+    ).toEqual(["Contents", "Quests", "name", "Description", "Details"]);
+    expect(
+      view.world.find((c) => c.source?.at(-1) === "temperament").holder,
+    ).toBe(`${id}-details`);
   });
   it("keeps the scene's pose, portrait and variant precedence", () => {
     const resident = {

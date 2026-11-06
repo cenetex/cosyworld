@@ -27,10 +27,16 @@ export function authoringCollections(cards, { pack, launch } = {}) {
   ];
   for (const [name, label] of Object.entries(groups))
     projected.push(box(groupId(name), label, WORLD));
+  const entities = new Set(
+    cards.filter((c) => c.role === "entity").map((c) => c.id),
+  );
+  const common = new Set(["name", "text", "art", "portrait", "backdrop"]);
+  const details = new Set();
   for (const original of cards) {
     const card = { ...original, sourceHolder: original.holder };
     if (card.id === WORLD) {
       card.name = "World";
+      card.role = "navigation";
       card.state = pack?.name || "Your world";
       card.art = rootArt?.art || rootArt?.backdrop || card.art;
     } else if (card.role === "entity") {
@@ -53,8 +59,15 @@ export function authoringCollections(cards, { pack, launch } = {}) {
           group: false,
         });
     } else if (card.holder === WORLD) card.holder = DETAILS;
+    else if (card.role === "field" && entities.has(card.holder)) {
+      if (!common.has(card.source.at(-1))) {
+        details.add(card.holder);
+        card.holder += "-details";
+      } else if (card.source.at(-1) === "text") card.name = "Description";
+    }
     projected.push(card);
   }
+  for (const id of details) projected.push(box(`${id}-details`, "Details", id));
   const byId = new Map(projected.map((card) => [card.id, card]));
   // Links use the same resolved portrait as their canonical entity.
   for (const card of projected)

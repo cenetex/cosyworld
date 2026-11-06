@@ -138,6 +138,8 @@ try {
         () =>
           new URL(location.href).searchParams.get("draft") !== "first-world",
       );
+      await choose(["pack"], "root");
+      await choose(["pack", "places"], "collection");
       await choose(["pack", "places", "beach"], "entity");
       await scene();
       assert(
@@ -145,7 +147,7 @@ try {
           "blob:",
         ),
       );
-      await choose(["pack"], "root");
+      await press(page.locator("#history-button"));
       await press(page.locator('[data-setting="designer-save"]'));
       await press(action);
       await saved();

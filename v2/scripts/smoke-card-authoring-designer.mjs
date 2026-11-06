@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
 import fixture from "../../test/fixtures/authoring-designer.json" with { type: "json" };
+import badger from "../content/badger-forest/card-world.json" with { type: "json" };
+import { mkdir } from "node:fs/promises";
 import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
 import { authoringCardId } from "../card-game/authoring-tree.mjs";
@@ -7,6 +9,7 @@ import { smokeWidths } from "./card-browser-helpers.mjs";
 const server = createServer();
 await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
 const browser = await chromium.launch({ headless: true });
+await mkdir("output/authoring-collections", { recursive: true });
 try {
   for (const width of smokeWidths([1440, 390, 320])) {
     const page = await browser.newPage({
@@ -59,9 +62,10 @@ try {
       window.test.editor = installWorldDesigner({
         store,
         tools: () => tools,
-        resolveArt(_path, { key, generation, title }) {
+        resolveArt(path, { key, generation, title }) {
           window.test.art = [generation, title];
           if (key !== "local") throw Error("Resolve art for this draft.");
+          return path?.startsWith("assets/badger-forest/") ? path : null;
         },
         actionBeat: { show: showActionBeat, clear: clearActionBeat },
         onScene(place, _source, { key, generation, title }) {
@@ -73,7 +77,14 @@ try {
       });
       window.test.editor.open({ key: "local", record });
     }, fixture);
+    assert.equal(await page.locator("#settings-hand .card").count(), 1);
     const choose = async (path, role) => {
+      if (role === "root")
+        return page.evaluate(() => window.test.editor.chooseWorld());
+      if (role === "entity") {
+        await choose(["pack"], "root");
+        await choose(["pack", path[1]], "collection");
+      }
       const card = page.locator(
         `[data-setting="${authoringCardId(path, role)}"]`,
       );
@@ -87,15 +98,25 @@ try {
       note = page.locator(".action-beat-note"),
       info = page.locator(".action-beat-text");
     const gate = async () => {
+      await page.evaluate(() => window.test.editor.chooseTools());
+      await choose(["pack"], "details");
       await choose(["pack"], "quests");
       await choose(["pack", "choices", 0], "field");
     };
     const save = async () => {
-      await choose(["pack"], "root");
+      await page.evaluate(() => window.test.editor.chooseTools());
       await page.locator('[data-setting="designer-save"]').click();
       await action.click();
       await info.filter({ hasText: "Saved" }).waitFor();
     };
+    await choose(["pack"], "root");
+    assert.deepEqual(
+      await page.locator("#settings-hand [data-setting]").allTextContents(),
+      ["World", "Items", "Avatars", "Locations"],
+    );
+    await page.screenshot({
+      path: `output/authoring-collections/${width}-world.png`,
+    });
     await gate();
     await choose(["pack", "choices", 0, "cost"], "field");
     await note.fill("bad");
@@ -129,7 +150,11 @@ try {
     await choose(["pack"], "root");
     await choose(["pack", "places", "a"], "entity");
     await choose(["pack", "places", "a"], "contents");
-    await choose(["pack", "items", "oil"], "entity");
+    await page
+      .locator(
+        `[data-setting="${authoringCardId(["pack", "items", "oil"], "entity")}-contents"]`,
+      )
+      .click();
     assert.equal(await action.innerText(), "Move Oil from Yard to Port");
     await action.click();
     await save();
@@ -145,6 +170,15 @@ try {
     await choose(["pack", "places", "a"], "entity");
     await choose(["pack", "places", "a"], "contents");
     await choose(["pack", "avatars", "person"], "entity");
+    await choose(["pack", "avatars", "person"], "quests");
+    await choose(["pack", "items", "oil"], "entity");
+    assert.equal(
+      await action.innerText(),
+      "Set Robin's starting quest: bring Oil",
+    );
+    await page.keyboard.press("Escape");
+    assert.equal(await action.count(), 0);
+    await choose(["pack", "avatars", "person"], "entity");
     await choose(["pack", "avatars", "person", "name"], "field");
     await note.fill("Wren");
     await action.click();
@@ -154,6 +188,10 @@ try {
     const current = [renamed.generation, "Edited"];
     assert.deepEqual(await page.evaluate(() => window.test.art), current);
     assert.deepEqual(await page.evaluate(() => window.test.scene), current);
+    await choose(["pack", "avatars", "person"], "entity");
+    await page.screenshot({
+      path: `output/authoring-collections/${width}-avatar.png`,
+    });
     await page.evaluate(() => {
       window.test.editor.close();
       window.test.editor.open();
@@ -166,6 +204,29 @@ try {
       requests.some((url) => url.includes("invalid.invalid")),
       false,
     );
+    await page.evaluate(
+      (pack) =>
+        window.test.editor.open({
+          key: "local",
+          record: {
+            ...window.test.read(),
+            launch: null,
+            draft: { ...window.test.read().draft, pack, bridge: null },
+          },
+        }),
+      badger,
+    );
+    await choose(["pack", "avatars", "badger"], "entity");
+    await page.waitForFunction(
+      (id) =>
+        [...document.querySelectorAll(`[data-setting="${id}"] img`)].some(
+          (img) => img.naturalWidth > 0 && img.src.includes("badger-sleeping"),
+        ),
+      authoringCardId(["pack", "avatars", "badger"], "entity"),
+    );
+    await page.screenshot({
+      path: `output/authoring-collections/${width}-badger.png`,
+    });
     assert.deepEqual(errors, []);
     console.log(
       `designer ${width}: source, field, move, Undo, private fields, safe art and scene reopen passed`,
