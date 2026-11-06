@@ -20559,6 +20559,7 @@
       "take",
       "drop",
       "focus",
+      "claim",
       "gate",
       "pack",
       "give",
@@ -20596,6 +20597,8 @@
       if (e.actorId != null && !actorIds.includes(e.actorId)) fail();
       if (e.locationId != null && !Object.hasOwn(places, e.locationId)) fail();
       if (e.verb != null && !verbs.includes(e.verb)) fail();
+      if (e.verb === "claim" ? e.kind !== "action" || e.generated || !actorIds.includes(e.actorId) || !Number.isSafeInteger(e.receipt) || e.receipt < 1 || e.receipt >= e.seq : e.receipt !== void 0)
+        fail();
       if (e.outcome !== void 0 && !OUTCOMES.includes(e.outcome) || e.droppedItemIds !== void 0 && (!Array.isArray(e.droppedItemIds) || e.droppedItemIds.some((id) => !ids.includes(id))))
         fail();
       if (e.verb === "choose") {
@@ -20831,6 +20834,7 @@
     const actor = currentActor(world);
     const played = playedEntry(world);
     const verb = played?.verb;
+    if (verb === "claim") return { occasion: null, speakers: [], scenery: false };
     const awake = (id) => !hasTemperament(id) || world.actors[id]?.awake;
     const near = (id) => Boolean(id) && id !== actor && cast.audience.includes(id) && awake(id);
     const thisTurn = world.log.filter(
@@ -21504,7 +21508,7 @@
       ids: ids3
     } = cast;
     const { occasion, speakers, scenery } = speechOccasions(world, cast);
-    const resting2 = !speakers.length || speakers[0] === cast.resting ? cast.resting : null;
+    const resting2 = played?.verb !== "claim" && (!speakers.length || speakers[0] === cast.resting) ? cast.resting : null;
     const rest = resting2 ? cast.rest : null;
     const defeated = cast.defeat && `${nameOf(currentActor(world))} was beaten by ${nameOf(cast.defeat)} and came to at ${nameOf(location)}.`;
     const disclosures = knowledgeDisclosures(

@@ -3798,6 +3798,7 @@ export function validateWorld(s) {
     "take",
     "drop",
     "focus",
+    "claim",
     "gate",
     "pack",
     "give",
@@ -3848,6 +3849,17 @@ export function validateWorld(s) {
     if (e.actorId != null && !actorIds.includes(e.actorId)) fail();
     if (e.locationId != null && !Object.hasOwn(places, e.locationId)) fail();
     if (e.verb != null && !verbs.includes(e.verb)) fail();
+    if (
+      e.verb === "claim"
+        ? e.kind !== "action" ||
+          e.generated ||
+          !actorIds.includes(e.actorId) ||
+          !Number.isSafeInteger(e.receipt) ||
+          e.receipt < 1 ||
+          e.receipt >= e.seq
+        : e.receipt !== undefined
+    )
+      fail();
     if (
       (e.outcome !== undefined && !OUTCOMES.includes(e.outcome)) ||
       (e.droppedItemIds !== undefined &&

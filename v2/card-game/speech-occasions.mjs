@@ -81,6 +81,7 @@ export function speechOccasions(world, cast) {
   const actor = currentActor(world);
   const played = playedEntry(world);
   const verb = played?.verb;
+  if (verb === "claim") return { occasion: null, speakers: [], scenery: false };
   const awake = (id) => !hasTemperament(id) || world.actors[id]?.awake;
   const near = (id) =>
     Boolean(id) && id !== actor && cast.audience.includes(id) && awake(id);
