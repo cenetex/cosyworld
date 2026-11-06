@@ -73,7 +73,7 @@ try {
       reducedMotion: motion,
     });
     page.setDefaultTimeout(15000);
-    const table = `combat-${opponent}-${width}-${motion}-${knownArrival}`;
+    const table = `combat-${opponent}-${width}-${motion === "reduce" ? "r" : "m"}-${knownArrival ? "seen" : "new"}`;
     const key = `cosyworld.reflected-shore.v1.${table}`;
     const report = { opponent, width, motion, knownArrival, errors: [] };
     results.push(report);
