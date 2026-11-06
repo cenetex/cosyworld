@@ -27,16 +27,24 @@ const world = dispatchShared({
 // Seat order: vale, mara, ash, nell, tavi, rue, orin, ada.
 const seats = (...held) => held.concat(Array(8 - held.length).fill(0));
 // The friend's world is played as Tavi, in seat five.
-const snapshot = (id) => {
+const snapshot = (id, nudgeReady) => {
   const actor = id === "friend" ? "tavi" : "vale";
-  const seat = id === "friend" ? seats(0, 0, 0, 0, 1) : seats(1);
+  const maraHere = nudgeReady && id === "here";
+  const players = maraHere ? [actor, "mara"] : [actor];
+  const seat =
+    id === "friend"
+      ? seats(0, 0, 0, 0, 1)
+      : maraHere
+        ? seats(1, 1)
+        : seats(1);
+  if (maraHere) world.actors.mara.place = world.actors.vale.place;
   return {
     ...dispatchShared({
       op: "view",
       world,
       actor,
-      claimed: [actor],
-      present: [actor],
+      claimed: players,
+      present: players,
     }),
     id,
     version: "full-card-world/3",
@@ -75,6 +83,7 @@ try {
       await page.screenshot({ path });
     };
     let tavi = "tavi";
+    let nudgeReady = false;
     await page.route("**/auth/account", (route) =>
       route.fulfill({ json: { authenticated: true } }),
     );
@@ -89,7 +98,7 @@ try {
                   id: "here",
                   owner: true,
                   actor: "vale",
-                  held: seats(1),
+                  held: nudgeReady ? seats(1, 1) : seats(1),
                   seed: 1,
                 },
                 // Someone holds Mara in the spare slot; Vale's seat is free.
@@ -119,14 +128,14 @@ try {
         if (!["enter", "heartbeat"].includes(body.op))
           commands.push([id, body]);
         if (body.op === "release") tavi = null;
-        route.fulfill({ json: snapshot(id) });
+        route.fulfill({ json: snapshot(id, nudgeReady) });
       },
     );
     await page.route(
       /\/card-game\/shared\/worlds\/(here|spare|friend)$/,
       (route) =>
         route.fulfill({
-          json: snapshot(route.request().url().split("/").at(-1)),
+          json: snapshot(route.request().url().split("/").at(-1), nudgeReady),
         }),
     );
     await page.goto(`${origin}/?world=here`);
@@ -174,21 +183,21 @@ try {
     );
     assert.equal(await card.locator(".beat-face.quest-screen").count(), 1);
     assert.deepEqual(await actions.allInnerTexts(), ["Leave"]);
-    // Portrait left, words in the middle, Leave flush on the right, all in
-    // one row.
+    // Portrait left, words in the middle, and Leave flush on the right.
+    // On phones Leave may wrap onto its own row.
     const [art, words, leaveBox, beatBox] = await Promise.all(
       [".action-beat-cards", ".action-beat-body", "#card-actions", ""].map(
         (part) => card.locator(part ? part : ":scope").boundingBox(),
       ),
     );
-    assert(art.x < words.x && words.x + words.width <= leaveBox.x + 1);
+    assert(art.x < words.x);
+    const stacked = leaveBox.y >= words.y + words.height - 1;
+    if (stacked) assert(width <= 390);
+    else assert(words.x + words.width <= leaveBox.x + 1);
     assert(
       Math.abs(leaveBox.x + leaveBox.width - (beatBox.x + beatBox.width)) <= 2,
     );
-    assert(
-      leaveBox.y < words.y + words.height &&
-        words.y < leaveBox.y + leaveBox.height,
-    );
+
     assert(await note.isHidden());
     await shot(`output/card-world-slots-selected-${width}.png`);
     await valeFace.click();
@@ -282,6 +291,24 @@ try {
     assert.equal(await card.getAttribute("data-avatar"), "rue");
     await Promise.all([page.waitForURL(/\?world=fresh$/), fresh.click()]);
     assert.deepEqual(commands.splice(0), [["new", { avatar: "rue" }]]);
+    nudgeReady = true;
+    await page.goto(`${origin}/?world=here`);
+    await page.waitForFunction(() => document.body.inert === false);
+    await page.locator("#toolbar-menu-button").click();
+    await menu
+      .locator('.world-slot[data-current="true"] [data-avatar="mara"] button')
+      .click();
+    assert.deepEqual(await actions.allInnerTexts(), ["Nudge"]);
+    await Promise.all([
+      page.waitForResponse(
+        (response) => response.request().postDataJSON()?.op === "nudge",
+      ),
+      actions.first().click(),
+    ]);
+    assert.deepEqual(commands.shift(), [
+      "here",
+      { op: "nudge", target: "mara" },
+    ]);
     assert.deepEqual(errors, []);
     await page.close();
   }

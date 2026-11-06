@@ -232,6 +232,8 @@ try {
         // Vale may go where Tavi was; Tavi would stay as a resident.
         await menu.locator('.slot-cast [data-avatar="vale"] button').click();
         const bring = page.locator("#avatar-bring");
+        assert.equal(await bring.count(), 0);
+        await menu.locator(".seat-open:enabled").first().click();
         assert.match(await bring.innerText(), /^Bring to \S/);
         assert.equal(await bring.isEnabled(), true);
       }
