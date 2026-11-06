@@ -148,9 +148,10 @@ The deck's source place keeps its empty static exits. Its bridge owns
 `transports`, dock crossings and lanes. Linking a normal place to the ship
 offers Add dock, followed by the joining port and lane cards. One edit adds
 the dock, a valid boarding crossing and its lane. The existing return path
-and the order of lanes remain visible. A First dock / Home port card edits
-`transport.at`; that value is also the rescue home. The shipmaster role is
-separate from where that avatar starts.
+and the order of lanes remain visible. A Starting dock / Home port card edits
+`transport.at`; that value is also the rescue home. Charybdis uses the Greek
+harbor here, while its first listed dock is the pond. Dock order remains a
+separate value. The shipmaster role is separate from where that avatar starts.
 
 The tree shows the ship once, with port references on its docks branch.
 Selecting a lane opens its direction, cargo requirement and travel reason.
@@ -174,7 +175,7 @@ Charybdis examples anchor the transport adapter:
 - The deck retains its sea/day/night paintings, boarding art, weather and
   music. The Willows' dark mist conditions remain on its own crossing.
 
-A start-aboard launch uses the deck and its authored first dock. It needs the
+A start-aboard launch uses the deck and its authored `transport.at`. It needs the
 explicit launch adapter above; boarding-crossing endpoints remain dock IDs.
 Validation uses `laneProblems`, transport schema checks and `validTransports`.
 Every dock needs an outgoing lane and a viable route home. Tests include
