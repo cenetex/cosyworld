@@ -60,27 +60,32 @@ const browser = await chromium.launch({
 });
 const results = [];
 try {
-  for (const [width, height, motion, opponent] of [
-    "moth",
-    "greek-antigone",
-  ].flatMap((id) => [
-    [1440, 900, "no-preference", id],
-    [390, 844, "no-preference", id],
-    [390, 844, "reduce", id],
-  ])) {
+  for (const [width, height, motion, opponent, knownArrival] of [
+    ...["moth", "greek-antigone"].flatMap((id) => [
+      [1440, 900, "no-preference", id, true],
+      [390, 844, "no-preference", id, true],
+      [390, 844, "reduce", id, true],
+    ]),
+    [390, 844, "reduce", "moth", false],
+  ]) {
     const page = await browser.newPage({
       viewport: { width, height },
       reducedMotion: motion,
     });
     page.setDefaultTimeout(15000);
-    const table = `combat-${opponent}-${width}-${motion}`;
+    const table = `combat-${opponent}-${width}-${motion === "reduce" ? "r" : "m"}-${knownArrival ? "seen" : "new"}`;
     const key = `cosyworld.reflected-shore.v1.${table}`;
-    const report = { opponent, width, motion, errors: [] };
+    const report = { opponent, width, motion, knownArrival, errors: [] };
     results.push(report);
     page.on("pageerror", (error) => report.errors.push(error.message));
     await page.addInitScript(
-      ({ key, save }) => {
+      ({ key, save, knownArrival }) => {
         localStorage.setItem(key, save);
+        // The arrival reply comes from a host whose card was already revealed.
+        localStorage.setItem(
+          `${key}.seen`,
+          JSON.stringify(knownArrival ? ["station", "keeper"] : []),
+        );
         localStorage.setItem("cosyworld.dialogue.sound", "off");
         localStorage.setItem(
           "cosyworld.room-music",
@@ -111,7 +116,7 @@ try {
           return animate.call(this, frames, options);
         };
       },
-      { key, save: encodeSave(fixture(opponent)) },
+      { key, save: encodeSave(fixture(opponent)), knownArrival },
     );
     let request;
     await page.route("**/card-game/text", async (route) => {
@@ -604,13 +609,23 @@ try {
       widths.length >= 2 && Math.max(...widths) - Math.min(...widths) < 1,
       `The caption keeps its width ${widths}`,
     );
-    // One voice answers the defeat.
-    await page.waitForFunction(() => Boolean(window.document.body));
-    assert.ok(request, "The arrival asked for words");
-    assert.equal(request.speakers.length, 1);
+    const arrivalHost = page.locator('#hand [data-card="keeper"]');
+    assert.equal(
+      await arrivalHost.getAttribute("data-unrevealed"),
+      String(!knownArrival),
+      "The arrival preserves the host's saved reveal state",
+    );
+    if (knownArrival) {
+      assert.ok(request, "The revealed arrival host asked for words");
+      assert.deepEqual(request.speakers, ["keeper"]);
+    } else {
+      assert.equal(request, undefined, "A covered arrival host stays quiet");
+    }
     await page.screenshot({
-      path: new URL(`arrival-${opponent}-${width}-${motion}.png`, output)
-        .pathname,
+      path: new URL(
+        `arrival-${opponent}-${width}-${motion}-${knownArrival}.png`,
+        output,
+      ).pathname,
     });
     const overflow = await page.evaluate(
       () => document.documentElement.scrollWidth > window.innerWidth,
