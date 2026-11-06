@@ -155,9 +155,9 @@ The private byte pipeline starts in Rust's `authoring_asset_store.rs`.
 `generated/authoring-private/`. Each file allows 16 MiB; each owner allows
 256 MiB and 1,024 files, including unfinished uploads. The shared generated
 asset guard also counts these bytes against its 512 MiB physical budget.
-The next layer adds authenticated upload/read routes, SQLite ready rows and
-manifest references. Create will commit source and launch only after all
-referenced bytes are ready; its stable operation key will make retries exact.
+Authenticated PUT/GET/HEAD `/card-game/authoring/assets/{sha256}` serve each
+owner's verified bytes. SQLite records each ready file after its durable write.
+Manifest references and stable Create retries form the next layer.
 The current private draft API stores the manifest and launch metadata.
 
 `authoring-session.mjs` owns fields, source text, Undo, saves and guarded tools.
