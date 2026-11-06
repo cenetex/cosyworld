@@ -588,7 +588,7 @@ try {
     await page.waitForFunction(() =>
       document
         .querySelector("#action-beat")
-        .textContent.includes("A public copy forbids burial"),
+        .innerText.includes("A public copy forbids burial"),
     );
     assert.equal(await page.locator("#action-beat").isVisible(), true);
     await tapCard(received);
@@ -681,7 +681,7 @@ try {
     await page.waitForFunction(() =>
       document
         .querySelector("#action-beat")
-        .textContent.includes("Carried by Vale."),
+        .innerText.includes("Clean linen from the looms at Eleusis"),
     );
     assert.match(
       await page.locator("#action-beat").innerText(),
