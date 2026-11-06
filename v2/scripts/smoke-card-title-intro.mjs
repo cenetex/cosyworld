@@ -343,8 +343,8 @@ async function checkBlips() {
 
 // Large text: 320x568 at 200% browser zoom, and 390x844 with the root font
 // at 200% under reduced motion. The poem wraps in its panel with no sideways
-// scroll; while it writes, the panel follows the pen; a key shows it whole
-// and the next goes on. The card gives up height so its hint and Privacy
+// scroll; while it writes, the panel follows the pen; keys complete each
+// stanza, then continue. The card gives up height so its hint and Privacy
 // stay on screen.
 async function checkLargeText() {
   const inView = (page, selector) =>
@@ -525,7 +525,14 @@ try {
       window.__soft = 0;
       const until = () => performance.now() + 300;
       const watch = (end = until()) => {
-        window.__soft = Math.max(window.__soft, window.softLetters());
+        const fading = [
+          ...document.querySelectorAll(".title-ack .speech-letter.revealed"),
+        ].filter((letter) =>
+          letter
+            .getAnimations()
+            .some((animation) => animation.effect.getTiming().duration === 150),
+        ).length;
+        window.__soft = Math.max(window.__soft, fading);
         if (performance.now() < end) requestAnimationFrame(() => watch(end));
       };
       for (const type of ["click", "keydown"])
@@ -546,7 +553,7 @@ try {
     const moved = (await layout()).map((v, i) => Math.abs(v - unlit[i]));
     assert.ok(Math.max(...moved) < 1, `words moved ${Math.max(...moved)} px`);
     const soft = await page.evaluate(() => window.__soft);
-    assert.ok(soft > 50, `${soft} letters fading after the tap`);
+    assert.ok(soft > 50, `${soft} letters share the stanza fade`);
     await finishAcknowledgement(page);
     await page.waitForTimeout(1000);
     const tapped = await streamState(page);
@@ -599,8 +606,7 @@ try {
       JSON.stringify(ack.lines),
     );
     assert.ok(ack.overflow <= 0, `${ack.overflow}px wider than the panel`);
-    // A tap that shows the rest lights every held phrase at once, each in
-    // its climbing tier.
+    // Completing all stanzas lights every held phrase in its climbing tier.
     assert.deepEqual(await glowState(page), {
       tiers: held.map(({ tier }) => tier),
       lit: phrases,

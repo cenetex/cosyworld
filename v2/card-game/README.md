@@ -1031,14 +1031,14 @@ uncovered set is saved, so a reload neither covers the avatar again nor asks
 for its first line twice. A joining avatar in a shared world is uncovered the
 same way; with no title (a reload, other sites, the local app), the avatar's
 card waits for its own tap as before.
-Reduced motion crossfades each step, moves the logo up at once and swaps the
-face in without the flip. If the logo does not load within 2.5 seconds, the
+Reduced motion crossfades each step, keeps the logo raised and swaps the
+card's face in. If the logo does not load within 2.5 seconds, the
 card shows without it.
 
 The song is _The Attic Keeps Its Lamp × Moonstone Sanctum_
 (`assets/music/title-attic-lamp.mp3`, `title-song.mjs`). It follows the saved
 music switch and volume: with music off the title and its card work in silence.
-It downloads only after that first gesture, and `play()` runs inside it. The
+It downloads on Continue, and `play()` runs inside that gesture. The
 title lasts seconds, so the song comes in over a quarter second, 1.4 times the
 saved volume (it is mastered about 3 LU under the room songs); the old 2-second
 fade from silence left it near -50 dBFS until the card showed. No room music plays while the
