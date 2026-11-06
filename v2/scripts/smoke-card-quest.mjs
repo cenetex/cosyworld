@@ -559,7 +559,7 @@ try {
       top,
       "quest",
       "vale+ greek-funeral-cloth quest:0* quest:1+ quest:2",
-      ["Give The Burial Decree to The Gate Guard"],
+      ["Give The Burial Decree to someone"],
     );
     await play(
       top,
