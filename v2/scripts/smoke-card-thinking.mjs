@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { mkdir, writeFile } from "node:fs/promises";
 import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
-import { createWorld, encodeSave, nameOf } from "../card-game/world.mjs";
+import { createWorld, encodeSave, legalActions, nameOf, play } from "../card-game/world.mjs";
 import { availableCards } from "../card-game/cards.mjs";
 import { readyActionButton, selectCard } from "./card-browser-helpers.mjs";
 
@@ -14,8 +14,13 @@ const browser = await chromium.launch({ headless: true });
 const reports = [];
 try {
   for (const width of [1440, 390]) {
-    const world = createWorld();
-    world.actors.vale.place = "pond";
+    let world = createWorld();
+    // A later silent return needs an earlier committed arrival at the station.
+    for (const target of ["pond", "station", "pond"]) {
+      const moved = play(world, legalActions(world).find(action => action.kind === "move" && action.target === target));
+      assert(moved.ok, moved.error);
+      world = moved.state;
+    }
     world.actors.moth.place = "pond";
     // Pip stays at the pond to be talked with.
     world.actors.moth.want = null;
