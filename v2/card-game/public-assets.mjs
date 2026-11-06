@@ -27,6 +27,7 @@ const files = [
   "toolbar.mjs",
   "world-name.mjs",
   "avatar-world.mjs",
+  "authoring-draft.mjs",
   "avatar-menu.mjs",
   "unlock-view.mjs",
   "world-names.json",
