@@ -12,6 +12,25 @@ fn holder<'a>(outcome: &'a TurnOutcome, item: &str) -> Option<&'a str> {
     None
 }
 
+pub(super) fn held_item_text(context: &Context, speaker: &str) -> Vec<String> {
+    let Some(outcome) = context.outcome.as_ref().filter(|_| !context.waking) else {
+        return vec![];
+    };
+    let Some(avatar) = outcome.avatars.iter().find(|avatar| avatar.id == speaker) else {
+        return vec![];
+    };
+    avatar
+        .holding
+        .iter()
+        .filter(|id| !context.covered.contains(id) && holder(outcome, id) == Some(speaker))
+        .filter_map(|id| {
+            let text = super::profiles()[id]["text"].as_str()?.trim();
+            let passage: String = text.chars().take(240).collect();
+            Some(format!("From {}: {passage}", super::person::the(&name(id))))
+        })
+        .collect()
+}
+
 pub(super) fn facts(context: &Context, speaker: &str) -> Vec<String> {
     let Some(outcome) = &context.outcome else {
         return vec![];
@@ -139,4 +158,56 @@ pub(super) fn consistent(text: &str, context: &Context, speaker: &str) -> bool {
         }
     }
     true
+}
+
+#[cfg(test)]
+mod tests {
+    use super::super::{conversation, entity, known, messages, tests, ItemOutcome, Part};
+
+    #[test]
+    fn held_item_story_follows_the_gift_in_talk_thoughts_and_dreams() {
+        let mut context = tests::context();
+        let mut outcome = tests::solo_departure();
+        let id = "willows-pipe";
+        let passage = "It's their sound.";
+        outcome.card.kind = "talk".into();
+        outcome.card.target = Some("moth".into());
+        outcome.avatars[0].holding.push(id.into());
+        outcome.avatars[1].location = "station".into();
+        outcome.avatars[1].travel = None;
+        outcome.items.push(ItemOutcome {
+            id: id.into(),
+            holder: "vale".into(),
+            location: "station".into(),
+        });
+        context.outcome = Some(outcome);
+
+        let sees_story = |context, speaker, part| {
+            messages(context, entity(context, speaker), part)
+                .assistant
+                .contains(passage)
+        };
+        for part in [Part::Line, Part::Thought, Part::Dream] {
+            assert!(sees_story(&context, "vale", part));
+            assert!(!sees_story(&context, "moth", part));
+        }
+        let swede = "willows-swede";
+        assert!(known(&context, entity(&context, "vale")).contains(swede));
+        assert!(!known(&context, entity(&context, "moth")).contains(swede));
+        let heard = conversation::with_line(&context, "vale", "The Swede heard it too.").unwrap();
+        assert!(known(&heard, entity(&heard, "moth")).contains(swede));
+
+        let outcome = context.outcome.as_mut().unwrap();
+        outcome.avatars[0].holding.clear();
+        outcome.avatars[1].holding.push(id.into());
+        outcome.items.last_mut().unwrap().holder = "moth".into();
+        for part in [Part::Line, Part::Thought, Part::Dream] {
+            assert!(!sees_story(&context, "vale", part));
+            assert!(sees_story(&context, "moth", part));
+        }
+        context.covered.push(id.into());
+        for part in [Part::Line, Part::Thought, Part::Dream] {
+            assert!(!sees_story(&context, "moth", part));
+        }
+    }
 }

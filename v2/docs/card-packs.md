@@ -33,6 +33,11 @@ missing art with a reason naming the field.
 
 Packs can also supply `topics`: facts a resident tells through Talk.
 
+An item's `text` can carry a piece of a story, such as the words scratched
+inside the Willows stew pot. The first 240 characters reach the item's holder
+in Talk, thoughts and dreams. Use a short passage that makes sense on its own.
+Giving the item passes the passage to the new holder.
+
 ### Starter quests
 
 Each resident can name its starter quest as `want`: `{"kind": "item" |
