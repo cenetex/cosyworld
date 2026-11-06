@@ -187,6 +187,9 @@ Pack and bridge IDs, extra source fields and earlier provenance remain intact.
 pack resolver. The caller chooses an explicit manifest path for portable import.
 
 `authoring-images.mjs` verifies transient image responses and splits one sheet into six named pose PNGs.
+`createAuthoringVisualDraft` keeps one image review in memory, binds poses to a
+confirmed portrait, and passes accepted bytes to the session on confirmation.
+It also reviews Dino's saved sheet and keeps a failed save ready for retry.
 The saved Dino example uses the same loader. Review each result before accepting it.
 
 The browser imports `packs.json`, and the Rust text route embeds the same file
