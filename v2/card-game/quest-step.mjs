@@ -2,9 +2,48 @@
 // The player chooses how to gather supplies and reach the goal.
 import { packGiveChoice } from "./pack-registry.mjs";
 import { questVisible } from "./quest-card.mjs";
-import { itemPlace, legalActions, rootHolder } from "./world.mjs";
+import {
+  accompanyDecision,
+  expects,
+  itemPlace,
+  legalActions,
+  play,
+  rootHolder,
+  willingToGive,
+} from "./world.mjs";
+import { holdsAsWanted } from "./want.mjs";
 
 export const NOT_FOUND = "Not found yet";
+
+function accepted(world, action) {
+  if (action.kind === "give")
+    return packGiveChoice(world, action) || expects(world, action);
+  if (action.kind === "ask")
+    return willingToGive(world, action.target, action.item, action.actor);
+  if (action.kind === "accompany")
+    return accompanyDecision(
+      world,
+      action.actor,
+      action.target,
+      action.destination,
+      true,
+    ).accepted;
+  // Meal consent is private to the rules. Read its resolved event from a copy.
+  if (action.kind === "eat" && action.target) {
+    const result = play(world, action, world.revision, action.actor);
+    return (
+      result.ok &&
+      result.state.log.some(
+        (event) =>
+          event.seq > world.eventSeq &&
+          event.verb === "eat" &&
+          event.actorId === action.actor &&
+          event.accepted === true,
+      )
+    );
+  }
+  return true;
+}
 
 export function questStep(world, quest, covered, legal = legalActions(world)) {
   if (!questVisible(world, quest)) return null;
@@ -15,7 +54,7 @@ export function questStep(world, quest, covered, legal = legalActions(world)) {
     mine = legal.filter((a) => a.actor === actor),
     placeOf = (id) => world.actors[id]?.place,
     choose = (test) => {
-      const action = mine.find(test);
+      const action = mine.find((a) => test(a) && accepted(world, a));
       return action ? { action } : null;
     },
     arrive = (place) =>
@@ -64,16 +103,33 @@ export function questStep(world, quest, covered, legal = legalActions(world)) {
         (a) =>
           a.kind === "accompany" && a.target === target && a.destination === to,
       );
-    return rootHolder(world, target) === actor &&
-      (!step.to || placeOf(step.to) === to)
+    if (step.to && placeOf(step.to) !== to) return null;
+    return rootHolder(world, target) === actor
       ? arrive(to)
-      : null;
+      : here === to
+        ? choose((a) => ["take", "ask"].includes(a.kind) && a.item === target)
+        : null;
   }
   if (step) return choose((a) => a.kind === step.verb && a.target === target);
   if (kind === "place") return arrive(target);
   if (kind === "person")
     return choose((a) => a.kind === "talk" && a.target === target);
-  return kind === "item"
-    ? choose((a) => ["take", "ask"].includes(a.kind) && a.item === target)
-    : null;
+  if (kind !== "item") return null;
+  return choose((a) => {
+    const taking = ["take", "ask"].includes(a.kind),
+      lighting = ["light", "snuff"].includes(a.kind);
+    if (
+      (!taking && !lighting) ||
+      (a.item !== target && world.items[a.item]?.holder !== target)
+    )
+      return false;
+    const item = { ...world.items[a.item] };
+    if (taking) item.holder = actor;
+    else item.lit = a.kind === "light";
+    return holdsAsWanted(
+      { ...world, items: { ...world.items, [a.item]: item } },
+      actor,
+      quest,
+    );
+  });
 }

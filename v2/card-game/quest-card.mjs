@@ -67,6 +67,7 @@ export const questCards = (world, actor = currentActor(world)) =>
     level: want.quest?.level ?? null,
     left: want.quest?.left ?? 0,
     step: want.step ?? null,
+    ...(want.lit === undefined ? {} : { lit: want.lit }),
     ...burial(world, want),
   }));
 // The top quest, the one the folded card shows, or null.

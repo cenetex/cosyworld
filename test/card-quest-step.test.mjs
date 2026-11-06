@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createWorld, legalActions } from "../v2/card-game/world.mjs";
+import { createWorld, legalActions, play } from "../v2/card-game/world.mjs";
 import { NOT_FOUND, questStep } from "../v2/card-game/quest-step.mjs";
 import { questCard } from "../v2/card-game/quest-card.mjs";
 import { funeralJourney } from "./helpers/greek-funeral.mjs";
@@ -48,10 +48,13 @@ describe("a chosen quest's completion action", () => {
       "keeper",
       null,
     ]);
-    expect(shown(questStep(s, quest("item", "oil"), false))).toEqual([
+    s.actors.keeper.want = null;
+    s.actors.keeper.trust.vale = 1;
+    s.items.cloth.holder = "keeper";
+    expect(shown(questStep(s, quest("item", "cloth"), false))).toEqual([
       "ask",
       "keeper",
-      "oil",
+      "cloth",
     ]);
   });
 
@@ -78,6 +81,12 @@ describe("a chosen quest's completion action", () => {
     const give = quest("item", "oil", { verb: "give", to: "keeper" });
     expect(questStep(s, give, false)).toBe(null);
     s.items.oil.holder = "vale";
+    s.actors.keeper.want = {
+      kind: "item",
+      target: "oil",
+      since: 0,
+      refusals: 0,
+    };
     expect(shown(questStep(s, give, false))).toEqual(["give", "keeper", "oil"]);
     const bring = quest("item", "oil", { verb: "bring", at: "station" });
     expect(shown(questStep(s, bring, false))).toEqual([
@@ -87,6 +96,64 @@ describe("a chosen quest's completion action", () => {
     ]);
     s.items.oil.holder = "keeper";
     expect(questStep(s, bring, false)).toBe(null);
+  });
+
+  it("leaves a refused request to ordinary card play", () => {
+    const s = createWorld();
+    s.actors.vale.place = "pond";
+    s.actors.vale.want = { kind: "item", target: "oil", since: 0, refusals: 0 };
+    s.actors.keeper.want = { ...s.actors.vale.want };
+    expect(questStep(s, questCard(s), false)).toBe(null);
+    const ask = legalActions(s).find(
+      (a) => a.kind === "ask" && a.item === "oil",
+    );
+    expect(
+      play(s, ask).state.log.some(
+        (e) => e.verb === "ask" && e.accepted === false,
+      ),
+    ).toBe(true);
+  });
+
+  it("completes Bring by taking the item at its destination", () => {
+    const s = createWorld();
+    s.actors.vale.place = "pond";
+    s.items.oil.holder = "pond";
+    s.actors.vale.want = {
+      kind: "item",
+      target: "oil",
+      step: { verb: "bring", at: "pond", to: "keeper" },
+      since: 0,
+      refusals: 0,
+    };
+    const action = questStep(s, questCard(s), false).action;
+    expect(action.kind).toBe("take");
+    expect(
+      play(s, action).state.log.some(
+        (e) => e.verb === "want_met" && e.actorId === "vale",
+      ),
+    ).toBe(true);
+  });
+
+  it("offers the act that leaves a lamp held as wanted", () => {
+    const s = createWorld();
+    s.actors.vale.want = {
+      kind: "item",
+      target: "lamp",
+      lit: true,
+      since: 0,
+      refusals: 0,
+    };
+    s.items.lamp.holder = "station";
+    s.items.lamp.lit = false;
+    expect(questStep(s, questCard(s), false)).toBe(null);
+    s.items.lamp.holder = "vale";
+    const action = questStep(s, questCard(s), false).action;
+    expect(action.kind).toBe("light");
+    expect(
+      play(s, action).state.log.some(
+        (e) => e.verb === "want_met" && e.actorId === "vale",
+      ),
+    ).toBe(true);
   });
 
   it("holds the Hollow quest action until its supplies and Antigone are there", () => {
