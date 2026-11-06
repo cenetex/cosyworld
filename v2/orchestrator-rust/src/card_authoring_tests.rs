@@ -32,7 +32,7 @@ fn fixture() -> (AppState, PathBuf) {
 fn draft() -> Value {
     json!({"schemaVersion":1,"title":"Lantern Marsh","document":"A quiet marsh.\nAn old lantern.",
         "pack":{"id":"lantern-marsh"},"bridge":null,
-        "assets":[{"path":"assets/lantern-marsh/guide.png","mime":"image/png","sha256":"a".repeat(64),"size":4096}],
+        "assets":[],
         "sources":[{"kind":"github","repo":"writer/marsh","commit":"b".repeat(40),"path":"card-world.json"}]})
 }
 
@@ -356,3 +356,6 @@ async fn authoring_revision_conflicts_are_private_and_atomic() {
         winner.1
     );
 }
+
+#[path = "card_authoring_create_tests.rs"]
+mod create_receipt_tests;
