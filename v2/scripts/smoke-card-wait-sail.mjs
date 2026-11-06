@@ -116,6 +116,15 @@ try {
       "Vale rings the Steam Clock's bell. The sound rolls between the trees.",
     );
     await glade.close();
+    const rest = await check(
+      width,
+      "rest",
+      clearing(),
+      ["vale", "clearing"],
+      "Wait",
+      "Vale waits one turn.",
+    );
+    await rest.close();
     // Docked, a wait moves nothing: every selection reads Wait.
     for (const [name, cards] of [
       ["docked-vale", "vale"],
