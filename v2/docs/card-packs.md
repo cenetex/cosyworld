@@ -54,6 +54,10 @@ mode to `idea` for suggestions; `extract` is the default for story text.
 `acceptedCharacterNames` reads current names and saved aliases across accepted
 history, so later draws respect renamed characters and restored versions.
 
+`readAvatarDesign` loads verified avatar artwork and its restored visual history.
+Its binding includes the draft, pack, active variant and full authored avatar.
+The Dino example requires the supplied pack, avatar and original portrait/sheet hashes.
+
 The authoring card index is `buildAuthoringTree({pack, bridge})` in
 `authoring-tree.mjs`. It returns ordered `cards`, `roots`, and `children`.
 Each card has its source array path, a parent `holder`, a `kind`, and a `role`. Reference

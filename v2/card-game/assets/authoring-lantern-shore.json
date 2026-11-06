@@ -156,6 +156,8 @@
     "specialAbility": "The Braveheart",
     "portrait": "assets/lantern-shore/dino.png",
     "sheet": "assets/lantern-shore/dino-poses.png",
-    "roles": ["happy", "sad", "strike", "brace", "hit", "sleep"]
+    "roles": ["happy", "sad", "strike", "brace", "hit", "sleep"],
+    "portraitSha256": "4731141b81052a6dbf09f6ecb9aaa709126adf01d984883fda4870a50b25c95b",
+    "sheetSha256": "6bc888f8796bbe825eaf96aeb68d8de3f435faf152071603ef71e499d0cb677f"
   }
 }
