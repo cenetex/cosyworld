@@ -995,8 +995,10 @@ only from the keyboard. A tap or click anywhere, or a key (the arrows scroll),
 is the gesture browsers ask for before sound: while it writes the first one
 fades the rest in over 150 ms and starts the title song, and the next one
 goes on.
-After it, the world's logo fades in (with the song, if it has not begun)
-and lifts over one face-down
+When the player continues, the plain words fade one by one in reading order.
+The lit words linger as the world's logo fades in with the title song. They
+fade from Uncommon through Mythic, with the carved box's words last. Reduced
+motion switches straight to the short logo fade. The logo lifts over one face-down
 card, the game's own card back, with a small Privacy link (`/privacy`) under
 it. The card is a button named "Take the box", answering the poem's last
 line (the card back is the carved box's lid), and takes focus, with

@@ -47,7 +47,10 @@ describe("the Theban City Gate", () => {
     expect(pack.places["greek-gate"].exits).not.toContain("greek-battlefield");
     // The way in from the battlefield is the gate itself, which its guard
     // bars from both sides until it opens (rules 100).
-    expect(pack.places["greek-battlefield"].exits).toEqual(["greek-gate"]);
+    expect(pack.places["greek-battlefield"].exits).toEqual([
+      "greek-gate",
+      "greek-polynices-hollow",
+    ]);
     expect(
       pack.routes.find(
         (r) => r.from === "greek-battlefield" && r.to === "greek-gate",

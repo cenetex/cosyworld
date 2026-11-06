@@ -154,6 +154,7 @@ import {
   CUE_TRACKS,
   HUSH,
   battleMusicDue,
+  funeralMusicDue,
   createMusicCues,
 } from "./music-cues.mjs";
 import { createHum } from "./hum.mjs";
@@ -167,12 +168,14 @@ import {
   createTextReveal,
   createRevealPainter,
   letterSpans,
+  splitLetters,
   createSpeechSounds,
   createExchange,
   createPlayQueue,
   afterDeadline,
   waitForScene,
 } from "./dialogue.mjs";
+import { dropCost } from "./want.mjs";
 import { nameLetters, namedText } from "./card-names.mjs";
 import {
   currentActor,
@@ -868,6 +871,36 @@ const sleepView = createSleepView({
   },
   dealQuests: () => showQuests(false),
 });
+let actionMessage;
+const actionReveal = createTextReveal({
+  reduced: () => reducedMotion.matches,
+  frame(value) {
+    actionMessage.frame = value;
+    actionMessage.painter.paint(value);
+  },
+});
+function writeActionMessage(root, text, key, name) {
+  if (!text) {
+    actionReveal.cancel();
+    actionMessage = null;
+    root.textContent = "";
+    return;
+  }
+  const frame = actionMessage?.frame;
+  if (actionMessage?.root === root && frame?.key === key) return;
+  const glyphs = letterSpans(text);
+  root.replaceChildren(...glyphs);
+  if (text.startsWith(`${name} `)) {
+    const speaker = node("strong");
+    root.prepend(speaker);
+    speaker.append(...glyphs.slice(0, splitLetters(name).length));
+  }
+  const painter = createRevealPainter(root);
+  painter.start(glyphs);
+  actionMessage = { root, painter, frame };
+  if (frame?.key === key) painter.paint(frame);
+  else actionReveal.show(key, text, currentActor(world));
+}
 const reveal = createTextReveal({
   reduced: () => reducedMotion.matches,
   sound: (...args) => {
@@ -946,6 +979,7 @@ const reveal = createTextReveal({
 });
 reducedMotion.addEventListener("change", () => {
   if (reducedMotion.matches) {
+    actionReveal.finish();
     reveal.finish();
     speechSounds.stop();
     for (const motion of handMotions.values()) motion.finish();
@@ -969,6 +1003,7 @@ function syncSpeechPlayback() {
 }
 function pauseSpeech() {
   const paused = syncSpeechPlayback();
+  actionReveal.pause(paused || reviewing);
   for (const animation of [
     ...$("cast").getAnimations({ subtree: true }),
     ...$("speech-row").getAnimations(),
@@ -1097,7 +1132,13 @@ let combatCue = false,
   lossCue = false;
 function syncMusicCue() {
   if (!combatCue && !lossCue)
-    music.cue(battleMusicDue(world, currentActor(world)) ? "battle" : null);
+    music.cue(
+      battleMusicDue(world, currentActor(world))
+        ? "battle"
+        : funeralMusicDue(world, currentActor(world))
+          ? "funeral"
+          : null,
+    );
 }
 // The island's drone follows the same switch and volume as the music.
 const hum = createHum();
@@ -2190,6 +2231,15 @@ function presentPhase() {
   });
 }
 function syncPhase() {
+  if (reviewing && abandonQuest) {
+    abandonQuest = null;
+    renderActions();
+  }
+  actionReveal.pause(
+    reviewing ||
+      document.hidden ||
+      Boolean(document.querySelector("dialog[open], .world-menu:popover-open")),
+  );
   if (presentPhase() !== shownPhase) renderActions();
 }
 // The server's reason for refusing this play, while its cards stay chosen
@@ -2263,11 +2313,6 @@ function renderActions() {
     .reduce((top, tier) => (tier.rank > top.rank ? tier : top), levelTier(0));
   $("action-beat").dataset.tier = rarest.id;
   $("action-beat").style.setProperty("--tier-color", rarest.color);
-  heading.lastElementChild.replaceChildren(
-    ...(sentence.startsWith(`${name} `)
-      ? [node("strong", name), sentence.slice(name.length)]
-      : [sentence]),
-  );
   // A folded row lies low even with a choice in it.
   document.querySelector(".play-dock").dataset.selected = String(
     selected.length > 0 && !rowCollapsed,
@@ -2277,7 +2322,10 @@ function renderActions() {
     dragging.length > 0 || !rowCollapsed || $("settings-screen").open,
   );
   syncLayering();
-  if (borrowedBeat) return showBorrowedBeat(row, heading);
+  if (borrowedBeat) {
+    writeActionMessage(heading.lastElementChild, "");
+    return showBorrowedBeat(row, heading);
+  }
   const revision = world.revision;
   const nudgeTarget =
     !rested &&
@@ -2354,7 +2402,7 @@ function renderActions() {
   const dropLabel = drop && playLabel(drop, world);
   const questButtons = abandonQuest
     ? [
-        { action: drop, label: dropLabel.replace(/^Abandon/u, "Confirm") },
+        { action: drop, label: "Confirm?" },
         { action: null, label: "Cancel", cancel: true },
       ]
     : step
@@ -2453,6 +2501,7 @@ function renderActions() {
     blocked.title = reason;
     row.append(blocked);
   }
+  let message = heading.lastElementChild;
   const only = actions.length === 1 ? actions[0] : null;
   if (
     only?.kind === "wait" &&
@@ -2466,7 +2515,7 @@ function renderActions() {
     const button = row.firstElementChild;
     button.dataset.waitSentence = "";
     button.setAttribute("aria-label", button.textContent);
-    button.textContent = sentence;
+    message = button;
     heading.hidden = true;
   }
   const note = document.querySelector(".action-beat-note");
@@ -2476,10 +2525,16 @@ function renderActions() {
     const panel = $("action-beat");
     panel.dataset.tier = "danger";
     panel.style.setProperty("--tier-color", "var(--danger)");
-    heading.lastElementChild.textContent = "Abandon this quest?";
-    note.textContent = shownQuestCaption(picked);
+    note.textContent = `${shownQuestCaption(picked)}. Cost ${dropCost(world, actor, picked.index)} XP.`;
     note.hidden = false;
   }
+  const text = abandonQuest ? "Abandon this quest?" : sentence;
+  writeActionMessage(
+    message,
+    text,
+    JSON.stringify([choiceKey(), picked?.key, text]),
+    name,
+  );
   delete $("action-beat").dataset.avatar;
   // A refused play whose cards are no longer chosen says so on the status
   // line, briefly, as its button would.
@@ -2503,10 +2558,26 @@ function renderActions() {
       ? shownQuestCaption(shownQuests[questPick] || sealedQuests[0])
       : "";
 }
-$("action-beat").addEventListener("click", (event) => {
-  if (event.target.closest("button")) return;
-  $("card-actions").querySelector("[data-wait-sentence]")?.click();
-});
+$("action-beat").addEventListener(
+  "click",
+  (event) => {
+    const button = event.target.closest("button");
+    if (
+      borrowedBeat ||
+      !actionMessage ||
+      (button && !button.hasAttribute("data-wait-sentence"))
+    )
+      return;
+    if (!actionReveal.complete) {
+      event.stopPropagation();
+      actionReveal.finish();
+      return;
+    }
+    if (!button && !abandonQuest)
+      $("card-actions").querySelector(".card-primary:enabled")?.click();
+  },
+  true,
+);
 function updateCardSelection(frame) {
   if (frame.dataset.want) {
     const entry = questEntry(frame.dataset.questId);
@@ -2926,7 +2997,8 @@ const stackLabel = (stack) =>
 // words. It glows while the target is near. The card itself plays nothing:
 // chosen on top, the context button offers its next step and Discard
 // (quest-step.mjs).
-const questCovered = (quest) => !quest.target || cardIsCovered(quest.target);
+const questCovered = (quest) =>
+  !quest.art && (!quest.target || cardIsCovered(quest.target));
 const known = (id) => !cardIsCovered(id);
 function shownQuestCaption(quest) {
   const hidden = questCovered(quest);
@@ -2986,7 +3058,7 @@ function questFrame({ id, quest, met }) {
     questScreen(
       {
         verb,
-        actor: quest.actor,
+        actor: quest.art ? null : quest.actor,
         kind: quest.kind,
         target,
         covered: hidden,
@@ -2995,7 +3067,7 @@ function questFrame({ id, quest, met }) {
         toCovered: Boolean(quest.step?.to && !known(quest.step.to)),
         atCovered: questBox(quest, known),
       },
-      questArt,
+      quest.art ? { ...questArt, place: () => quest.art } : questArt,
     ),
     head,
   );

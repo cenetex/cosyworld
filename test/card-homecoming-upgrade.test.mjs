@@ -89,7 +89,7 @@ describe("the household save upgrade", () => {
       });
       expect(Object.keys(after.actors).length).toBe(
         Object.keys(before.actors).length +
-          10 +
+          11 +
           Object.keys(hoppycat.avatars).length,
       );
       expect(after.items).toEqual({
@@ -152,6 +152,7 @@ describe("the household save upgrade", () => {
             "greek-ajax-tecmessa": 0,
             "greek-ajax-teucer": 0,
             "greek-ajax-odysseus": 0,
+            "greek-polynices-shade": 0,
           },
         });
       for (const [id, memory] of Object.entries(before.memories))

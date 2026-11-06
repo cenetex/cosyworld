@@ -384,10 +384,14 @@ try {
       await panel.evaluate((el) => getComputedStyle(el).borderTopColor),
       "rgb(255, 143, 132)",
     );
+    assert.match(
+      await panel.locator(".action-beat-note").innerText(),
+      /Cost 0 XP/,
+    );
     await panel.getByRole("button", { name: "Cancel", exact: true }).click();
     assert.equal((await saved()).turn, turn);
     await drop.click();
-    await panel.getByRole("button", { name: "Confirm", exact: true }).click();
+    await panel.getByRole("button", { name: "Confirm?", exact: true }).click();
     await ready();
     assert.deepEqual(
       (await saved()).targets,
