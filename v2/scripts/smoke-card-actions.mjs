@@ -552,9 +552,22 @@ try {
     await page.getByRole("button", { name: "Talk", exact: true }).click();
     await ready();
     assert.equal((await state()).turn, 1);
+    assert.equal(
+      knowsFact(await state(), "vale", "greek-hear-decree"),
+      false,
+      "The guard's decree waits while Creon's card is face down",
+    );
+    await page.evaluate((key) => {
+      const seen = JSON.parse(localStorage.getItem(`${key}.seen`) || "[]");
+      localStorage.setItem(`${key}.seen`, JSON.stringify([...seen, "greek-creon"]));
+    }, key);
+    await load(story);
+    await selectCard(page, "greek-guard");
+    await page.getByRole("button", { name: "Talk", exact: true }).click();
+    await ready();
     assert(
       knowsFact(await state(), "vale", "greek-hear-decree"),
-      "Talk teaches the listener the guard's decree",
+      "Talk teaches the decree once its named card is revealed",
     );
     if ([1440, 390].includes(width)) {
       const meal = createWorld();
