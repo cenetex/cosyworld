@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { mkdir, readFile } from "node:fs/promises";
 import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
 import {
@@ -11,7 +11,7 @@ import {
   nameOf,
 } from "../card-game/world.mjs";
 import { availableCards } from "../card-game/cards.mjs";
-import { selectCard } from "./card-browser-helpers.mjs";
+import { selectCard, readyActionButton } from "./card-browser-helpers.mjs";
 
 const server = createServer();
 await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
@@ -34,10 +34,10 @@ function fixture(actor) {
   world.presentActors = [actor];
   for (const id of [actor, "moth", "keeper"]) world.actors[id].place = place;
   world.items.lamp.holder = "moth";
-  addLog(world, "Vale", "An earlier line from Vale.", {
+  addLog(world, nameOf(actor), "An earlier line.", {
     generated: true,
     kind: "dialogue",
-    actorId: "vale",
+    actorId: actor,
     locationId: place,
   });
   return play(
@@ -80,20 +80,38 @@ async function reviewsEarlierLine(page, id) {
   for (
     let step = 0;
     step < 10 &&
-    (await page.locator("#dialogue-text").innerText()) !==
-      "An earlier line from Vale.";
+    (await page.locator("#dialogue-text").innerText()) !== "An earlier line.";
     step++
-  )
+  ) {
     await page.locator("#beat-behind").click({ position: { x: 80, y: 6 } });
-  assert.equal(await page.locator("#speaker").innerText(), "Vale");
+    if (await page.locator('#dialogue-advance[data-revealing="true"]').count())
+      await page.locator("#dialogue-advance").click();
+  }
+  assert.equal(await page.locator("#speaker").innerText(), nameOf(id));
   assert.equal(
     await page.locator("#dialogue-text").innerText(),
-    "An earlier line from Vale.",
+    "An earlier line.",
   );
   await page.getByRole("button", { name: /^Return to live dialogue/ }).click();
   await waitingFor(page, id);
 }
 const reports = [];
+const output = new URL("../../output/card-reply-wait/", import.meta.url);
+await mkdir(output, { recursive: true });
+async function keepsReply(page, text, tap = true) {
+  await page.waitForFunction(
+    () => document.querySelector("#speech-hint").textContent === "Thinking…",
+  );
+  const before = await page.locator("#speech-row").innerText();
+  assert.equal(await page.locator("#dialogue-text").innerText(), text);
+  assert.equal(await page.locator("#story-status").isVisible(), false);
+  if (tap) {
+    await page.locator("#dialogue-advance").click();
+    await page.locator("#speech-row").click();
+    await page.locator("#dialogue-advance").click();
+  }
+  assert.equal(await page.locator("#speech-row").innerText(), before);
+}
 // Stream the story by hand so each line arrives when the check says.
 function storyStream() {
   const fetch = globalThis.fetch;
@@ -153,7 +171,7 @@ async function localCheck(width, actor, kind, mode) {
   console.log(`Reply wait: ${actor} ${kind} ${mode} at ${width}px`);
   const page = await browser.newPage({
     viewport: { width, height: 900 },
-    reducedMotion: "reduce",
+    reducedMotion: width === 390 ? "reduce" : "no-preference",
   });
   const errors = [];
   page.setDefaultTimeout(10000);
@@ -167,7 +185,7 @@ async function localCheck(width, actor, kind, mode) {
   await page.goto(`${origin}/?table=${table}`);
   await selectCard(page, "moth");
   if (kind === "ask") await selectCard(page, "lamp");
-  await page.locator(`#card-actions [data-action="${kind}"]`).first().click();
+  await readyActionButton(page, kind).first().click();
   await page.waitForFunction(() => globalThis.story);
   const speakers = await page.evaluate(() => globalThis.story.input.speakers);
   assert.deepEqual(speakers.slice(0, 2), [actor, "moth"]);
@@ -191,6 +209,20 @@ async function localCheck(width, actor, kind, mode) {
     );
   // The player's avatar speaks first, so it thinks first.
   await waitingFor(page, actor);
+  assert.equal(
+    await page.locator("#speech-hint").innerText(),
+    "Tap to stop waiting",
+  );
+  await page.locator("#speech-row").click();
+  assert.equal(
+    await page.locator("#speech-hint").innerText(),
+    "Tap to confirm",
+  );
+  await page.keyboard.press("Escape");
+  assert.equal(
+    await page.locator("#speech-hint").innerText(),
+    "Tap to stop waiting",
+  );
   await reviewsEarlierLine(page, actor);
   if (mode === "streamed") {
     await page.evaluate(
@@ -198,14 +230,40 @@ async function localCheck(width, actor, kind, mode) {
       [actor, words(actor)],
     );
     await shows(page, actor);
-    // After that line's reading pause, the reply partner thinks.
-    await waitingFor(page, "moth");
+    if (width === 1440) {
+      assert.equal(
+        await page.locator("#speech-hint").innerText(),
+        "Tap to finish",
+      );
+      await page.locator("#dialogue-advance").click();
+    }
+    await keepsReply(page, words(actor), width === 1440);
+    await page.screenshot({
+      path: new URL(`local-${actor}-${width}.png`, output).pathname,
+    });
+    await page.locator("#beat-behind").click({ position: { x: 80, y: 6 } });
+    assert.equal(
+      await page.locator("#speech-hint").innerText(),
+      "Tap to continue",
+    );
+    await page
+      .getByRole("button", { name: /^Return to live dialogue/ })
+      .click();
+    await keepsReply(page, words(actor), false);
     await finish(1);
   } else {
     // A whole exchange plays in speaking order.
     await finish(speakers.length);
     await shows(page, actor);
   }
+  await page.waitForFunction(
+    () =>
+      document.querySelector("#speech-hint").textContent === "Tap to continue",
+  );
+  assert.equal(await page.locator("#dialogue-text").innerText(), words(actor));
+  await page.waitForTimeout(200);
+  assert.equal(await page.locator("#dialogue-text").innerText(), words(actor));
+  await page.locator("#dialogue-advance").click();
   await shows(page, "moth");
   assert.deepEqual(errors, []);
   reports.push({ width, actor, kind, [mode]: "passed" });
@@ -230,7 +288,7 @@ async function takeHolds(width, reducedMotion) {
   await page.addInitScript(storyStream);
   await page.goto(`${origin}/?table=${table}`);
   await selectCard(page, "lamp");
-  await page.locator('#card-actions [data-action="take"]').first().click();
+  await readyActionButton(page, "take").first().click();
   const held = await page.waitForFunction(
     () => {
       const card = document.querySelector('#hand .card[data-card="lamp"]'),
@@ -312,35 +370,66 @@ try {
       await shared.route("**/card-game/shared/worlds/reply-wait**", (route) =>
         route.fulfill({ json: snapshot }),
       );
-      await shared.goto(`${origin}/?world=reply-wait`);
-      // A shared exchange arrives whole, so the acting avatar thinks first.
-      await waitingFor(shared, actor);
-      await reviewsEarlierLine(shared, actor);
-      // The next play's wait replaces the old one, even with old Vale speech saved.
-      snapshot = structuredClone(snapshot);
-      const next = structuredClone(committed);
-      next.actors.keeper.place = scenePlace(actor);
-      const reply = legalActions(next).find(
-        (a) => a.kind === "talk" && a.target === "keeper",
-      );
-      assert(reply, "The next reply partner is present");
-      snapshot.world = play(next, reply).state;
-      snapshot.now++;
-      await shared.evaluate(async () => {
-        await globalThis.syncReply();
+      addLog(snapshot.world, nameOf(actor), words(actor), {
+        generated: true,
+        kind: "dialogue",
+        actorId: actor,
+        locationId: scenePlace(actor),
       });
-      await waitingFor(shared, actor);
+      const first = snapshot.world.log.at(-1);
+      snapshot.history = [
+        {
+          play: "reply",
+          room: scenePlace(actor),
+          starts_at: snapshot.now - 1,
+          until_at: snapshot.now + 60000,
+          lines: [first],
+        },
+      ];
+      // Open the shared reader on its first published line; the room is
+      // still generating the partner's reply.
+      await shared.goto(`${origin}/?world=reply-wait`);
+      await shows(shared, actor);
+      await keepsReply(shared, words(actor), width === 1440);
+      await shared.screenshot({
+        path: new URL(`shared-${actor}-${width}.png`, output).pathname,
+      });
+      await shared.locator("#beat-behind").click({ position: { x: 80, y: 6 } });
+      await shared
+        .getByRole("button", { name: /^Return to live dialogue/ })
+        .click();
+      await keepsReply(shared, words(actor), false);
       snapshot = structuredClone(snapshot);
       snapshot.queue = [];
       snapshot.now++;
-      await shared.evaluate(async () => {
-        await globalThis.syncReply();
-      });
+      if (width === 390) {
+        snapshot.history[0].silent = ["moth"];
+        snapshot.history[0].after = first.seq;
+      } else {
+        addLog(snapshot.world, nameOf("moth"), words("moth"), {
+          generated: true,
+          kind: "dialogue",
+          actorId: "moth",
+          locationId: scenePlace(actor),
+        });
+        snapshot.history[0].lines.push(snapshot.world.log.at(-1));
+      }
+      await shared.evaluate(() => globalThis.syncReply());
       await shared.waitForFunction(
         () =>
-          document.querySelector("#speech-row").getAttribute("aria-busy") ===
-          "false",
+          document.querySelector("#speech-hint").textContent ===
+          "Tap to continue",
       );
+      assert.equal(
+        await shared.locator("#dialogue-text").innerText(),
+        words(actor),
+      );
+      await shared.locator("#dialogue-advance").click();
+      await shared.waitForFunction(
+        (text) => document.querySelector("#dialogue-text").textContent === text,
+        width === 390 ? "…" : words("moth"),
+      );
+      assert.equal(await shared.locator("#story-status").isVisible(), false);
       assert.deepEqual(sharedErrors, []);
       reports.push({ width, actor, kind, shared: "passed" });
       await shared.close();
