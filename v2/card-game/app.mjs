@@ -2158,12 +2158,12 @@ function showBorrowedBeat(row, heading) {
   const buttons = beat.buttons.map(({ label, id, run, disabled }, index) => {
     const previous = row.children[index];
     const button =
-      previous?.id === id && previous.dataset.keepMenu === "true"
+      previous?.dataset.keepMenu === "true" && previous.id === (id ?? "")
         ? previous
         : node("button", label, index ? "card-action" : "card-primary");
     button.textContent = label;
     button.type = "button";
-    button.id = id;
+    button.id = id ?? "";
     button.dataset.keepMenu = "true";
     button.disabled = Boolean(disabled);
     button.onclick = run;
