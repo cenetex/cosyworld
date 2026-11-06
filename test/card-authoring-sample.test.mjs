@@ -66,9 +66,11 @@ it("loads a complete editable sample with exact portable artwork", async () => {
     ["portrait", "dino-design"],
     ["sheet", "dino-poses"],
   ])
-    expect(Buffer.from(assets.get(example[role]))).toEqual(
-      readFileSync(`v2/card-game/assets/authoring-guide/${file}.png`),
-    );
+    expect(
+      Buffer.from(assets.get(example[role])).equals(
+        readFileSync(`v2/card-game/assets/authoring-guide/${file}.png`),
+      ),
+    ).toBe(true);
   draft.pack.avatars["sample-vale"].name = "Changed";
   expect(sampleSource().pack.avatars["sample-vale"].name).toBe("Dino");
   expect(packProblems(packDefinition("lantern-shore"), hub)).toEqual([]);
