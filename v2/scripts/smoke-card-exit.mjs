@@ -122,8 +122,8 @@ try {
     );
     await ready();
     assert.equal(await page.locator(".card-exits > *").count(), 0);
-    // Walking back to the pond leaves Pip, the keeper and the pond's card
-    // behind: each falls from where it lay, inert, a moment apart.
+    // Walking to the pond leaves Pip and the keeper behind. Each falls from
+    // where it lay, inert, a moment apart.
     await watch();
     // Vale goes along and keeps his node (card-keep.mjs).
     await page.evaluate(() => {
@@ -145,14 +145,14 @@ try {
     await page.screenshot({
       path: new URL(`falling-${width}.png`, output).pathname,
     });
-    // The way back, the pond, falls from the top of the left stack as the
-    // hand redraws under the veil; the station lies folded under it (#2286).
     await page.waitForFunction(() =>
-      window.exitWatch.seen.some((g) => g.card === "pond"),
+      document.querySelector("#place-title").textContent.includes("Black pond"),
     );
     const gone = (await seen()).map((g) => g.card);
-    for (const card of ["moth", "keeper", "pond"])
+    for (const card of ["moth", "keeper"])
       assert(gone.includes(card), `${card} falls: ${gone}`);
+    assert(!gone.includes("pond"), "the pond stays as the current place");
+    assert(!gone.includes("station"), "the station stays as the way back");
     assert(!gone.includes("vale"), "Vale goes along");
     // A change of place lets them go 50 ms apart (card-swap.mjs).
     falling.forEach((looks, i) =>

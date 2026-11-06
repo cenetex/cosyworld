@@ -264,13 +264,17 @@ try {
         await page.locator("#dialogue-advance").click();
         assert.equal(await words(), lines.vale);
       }
-      // Tapping a finished front card moves the exchange on to Pip.
+      // Tapping the speaker portrait on a finished card moves the exchange on to Pip.
       await page.waitForFunction(
         () =>
           document.querySelector("#dialogue-advance").dataset.revealing ===
           "false",
       );
-      await page.locator("#dialogue-advance").click();
+      if (motion === "reduce") {
+        await page.waitForTimeout(3000);
+        assert.equal(await words(), lines.vale);
+      }
+      await page.locator("#speaker-portrait").click();
       await page.waitForFunction(
         () => document.querySelector("#speaker").textContent === "Pip",
       );

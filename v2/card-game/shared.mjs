@@ -540,6 +540,13 @@ export function sharedLiveLine(state, now, room) {
   return scene.lines.at(-1);
 }
 
+export function sharedNextLine(state, room, seq) {
+  const earliest = state.world?.log?.[0]?.seq ?? 0;
+  return roomScenes(state, room)
+    .flatMap((scene) => scene.lines)
+    .find((line) => line.seq > seq && line.seq >= earliest);
+}
+
 // Select a saved scene's line; imported local log entries have no such record.
 export function sharedVoiceReference(state, line) {
   if (!Number.isInteger(line?.seq) || line.silent) return;

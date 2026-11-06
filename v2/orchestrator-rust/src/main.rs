@@ -24,6 +24,9 @@ mod avatar_levels;
 mod avatar_links;
 mod avatar_reflections;
 mod avatar_rescue;
+// Shared draft checks for the private authoring API follow-up.
+#[allow(dead_code)]
+mod authoring_draft;
 #[cfg(test)]
 mod beliefs_tests;
 mod card_shared;

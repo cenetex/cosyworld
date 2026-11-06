@@ -187,8 +187,9 @@ try {
     });
     // Any play meets it; it stays sealed and the fold glows.
     await page
-      .locator("#card-actions button", { hasText: "Wait" })
-      .first()
+      .locator(
+        '#card-actions [data-action="wait"]:not([data-revealing="true"])',
+      )
       .click();
     await ready();
     const tab = page.locator('#hand .quest-fold[data-glow="invite"]');
@@ -227,7 +228,7 @@ try {
     await gain.waitFor({ state: "detached" });
     // A stack (#1831): the fold shows the top quest; opening it fans them all
     // out; choosing a quest beneath brings it to the top without a turn, and
-    // only the top quest offers Discard.
+    // only the top quest offers Abandon.
     await page.evaluate((key) => {
       const s = JSON.parse(localStorage.getItem(key));
       const vale = s.actors.vale;
@@ -294,7 +295,7 @@ try {
     assert.equal(await groupOrdered(), true, "Vale, its things, its quests");
     assert.equal(
       await page.locator('#card-actions [data-drop-quest="0"]').textContent(),
-      "Discard (−1 XP)",
+      "Abandon (−1 XP)",
     );
     // Drop is the beat's usual context button, its words red.
     assert.deepEqual(
@@ -307,9 +308,9 @@ try {
       ["rgb(255, 143, 132)", "none", "0px"],
     );
     // The beat above it names the chosen quest.
-    const described = await page
-      .locator(".action-beat-heading:not([hidden])")
-      .innerText();
+    const described = (
+      await page.locator(".action-beat-heading:not([hidden])").textContent()
+    ).trim();
     assert.ok(
       (await picked.getAttribute("aria-label")).startsWith(
         `Quest: ${described}`,
@@ -363,15 +364,12 @@ try {
     assert.match(await talk.getAttribute("aria-label"), /^Quest: Talk with /);
     const drop = page.locator('#card-actions [data-drop-quest="0"]');
     await drop.waitFor();
-    // Its keeper not yet met, the Talk quest's step says why on the button.
-    assert.deepEqual(
-      await page
-        .locator("#card-actions [data-quest-step]")
-        .evaluateAll((buttons) =>
-          buttons.map((b) => [b.textContent, b.disabled]),
-        ),
-      [["Not found yet", true]],
+    // The reason is plain text and Abandon is the only action.
+    assert.equal(
+      await page.locator(".action-beat-note").innerText(),
+      "Not found yet",
     );
+    assert.equal(await page.locator("#card-actions button").count(), 1);
     assert.equal(
       await page.locator("#card-actions [data-drop-quest]").count(),
       1,
@@ -381,6 +379,20 @@ try {
       path: new URL(`stack-${width}.png`, output).pathname,
     });
     await drop.click();
+    assert.equal((await saved()).turn, turn);
+    const panel = page.locator("#action-beat");
+    assert.equal(
+      await panel.evaluate((el) => getComputedStyle(el).borderTopColor),
+      "rgb(255, 143, 132)",
+    );
+    assert.match(
+      await panel.locator(".action-beat-note").innerText(),
+      /Cost 0 XP/,
+    );
+    await panel.getByRole("button", { name: "Cancel", exact: true }).click();
+    assert.equal((await saved()).turn, turn);
+    await drop.click();
+    await panel.getByRole("button", { name: "Confirm?", exact: true }).click();
     await ready();
     assert.deepEqual(
       (await saved()).targets,
@@ -418,11 +430,13 @@ try {
       "Quest: Give The Burial Decree to The Gate Guard, near",
     );
     // Chosen, the beat keeps its box and names the quest; its next step,
-    // the rules' own Give, stands beside Discard.
+    // the rules' own Give, is the only action.
     await page.locator('#hand .want-card[data-quest-id="quest:0"]').click();
-    await page.locator('#card-actions [data-drop-quest="0"]').waitFor();
+    await page.locator("#card-actions [data-quest-step]").waitFor();
     assert.equal(
-      await page.locator(".action-beat-heading:not([hidden])").innerText(),
+      (
+        await page.locator(".action-beat-heading:not([hidden])").textContent()
+      ).trim(),
       "Give The Burial Decree to The Gate Guard",
     );
     assert.deepEqual(
@@ -431,10 +445,7 @@ try {
         .evaluateAll((buttons) =>
           buttons.map((b) => [b.textContent, b.disabled]),
         ),
-      [
-        ["Give to The Gate Guard", false],
-        ["Discard", false],
-      ],
+      [["Give to The Gate Guard", false]],
     );
     assert.notEqual(
       await page
@@ -493,7 +504,14 @@ try {
       );
       if (actions)
         assert.deepEqual(
-          await page.locator("#card-actions button").allInnerTexts(),
+          await page
+            .locator("#card-actions button")
+            .evaluateAll((buttons) =>
+              buttons.map(
+                (button) =>
+                  button.getAttribute("aria-label") || button.textContent,
+              ),
+            ),
           actions,
           name,
         );
@@ -525,7 +543,7 @@ try {
       top,
       "quest",
       "vale+ greek-funeral-cloth quest:0* quest:1+ quest:2",
-      ["Travel to Theban Palace Forecourt", "Discard"],
+      ["Travel to Theban Palace Forecourt"],
     );
     await play(
       top,
