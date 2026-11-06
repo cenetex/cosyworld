@@ -519,6 +519,11 @@ impl AccountAuth {
         Ok(session)
     }
 
+    #[cfg(test)]
+    pub(super) fn test_session(&self, user_id: &str) -> String {
+        self.issue_session(user_id).expect("test account session").1
+    }
+
     fn issue_session(&self, user_id: &str) -> AccountResult<(String, String)> {
         let token = random_hex(32);
         let token_hash = hash_session_token(&token);

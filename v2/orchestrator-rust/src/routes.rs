@@ -18,6 +18,8 @@ use tracing::Instrument;
 
 use super::*;
 
+#[path = "card_authoring_generation.rs"]
+mod card_authoring_generation;
 #[path = "card_game.rs"]
 pub(crate) mod card_game;
 #[path = "card_voices.rs"]
@@ -142,6 +144,7 @@ fn app_router_with_dependencies(
     let request_log_context = RequestLogContext::from_state(&state);
     Router::new()
         .merge(crate::card_authoring::router())
+        .merge(card_authoring_generation::router())
         .merge(crate::card_shared::router())
         .merge(card_voices::router())
         .merge(card_game::router())
