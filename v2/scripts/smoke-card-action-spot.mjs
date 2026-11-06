@@ -204,6 +204,12 @@ try {
     const panel = page.locator(".action-panel");
     assert(await panel.isHidden(), `${name}: the taken play is at rest`);
     assert(await page.locator("#speech-row").isVisible());
+    assert(
+      await page
+        .locator('#speaker-portrait .quest-thing[data-entity="greek-decree"]')
+        .isVisible(),
+      `${name}: the taken decree stays in the action art`,
+    );
     await page.locator("#toolbar-menu-button").click();
     await page
       .locator('#world-menu [data-slot="spare"] [data-avatar="mara"] button')

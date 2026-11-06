@@ -54,7 +54,9 @@ describe("action scene art", () => {
       kind: "place",
       target: "pond",
     });
-    expect(actionScene(course, (id) => id !== "pond").target).toBe("greek-ship");
+    expect(actionScene(course, (id) => id !== "pond").target).toBe(
+      "greek-ship",
+    );
   });
 
   it("keeps covered cards out of the view", () => {
