@@ -3,7 +3,11 @@
 // Desktop, phone and reduced motion; against Antigone, Pip is a third
 // combatant.
 import { atticOpening } from "../../test/fixtures/card-attic-opening.mjs";
-import { clearSelection, selectCard } from "./card-browser-helpers.mjs";
+import {
+  clearSelection,
+  readyActionButton,
+  selectCard,
+} from "./card-browser-helpers.mjs";
 import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
 import { chromium } from "playwright";
@@ -166,9 +170,16 @@ try {
     );
     // Vale's own card alone is Brace; with the opponent it is Guard.
     await selectCard(page, opponent);
-    assert.ok(
-      await page.getByRole("button", { name: "Strike", exact: true }).count(),
+    const strikeButton = readyActionButton(page, "attack");
+    await strikeButton.waitFor();
+    assert.equal(
+      await strikeButton.getAttribute("aria-label"),
+      "Strike",
       "In battle the avatar card's Talk is Strike",
+    );
+    assert.equal(
+      await strikeButton.getAttribute("data-tap-hint"),
+      "Tap to strike",
     );
     await clearSelection(page);
     await selectCard(page, "vale");
@@ -232,12 +243,10 @@ try {
       });
     await page.waitForTimeout(400); // the hand rises again after Escape
     const raisedHand = await handRect();
-    const brace = page.getByRole("button", { name: "Brace", exact: true });
-    await page.waitForFunction(
-      () =>
-        document.querySelector('#card-actions [aria-label="Brace"]')?.dataset
-          .revealing === "false",
-    );
+    const brace = readyActionButton(page, "guard");
+    await brace.waitFor();
+    assert.equal(await brace.getAttribute("aria-label"), "Brace");
+    assert.equal(await brace.getAttribute("data-tap-hint"), "Tap to brace");
     await brace.click();
     // The hand locks, untappable, as soon as the play commits, and the
     // dialogue steps aside; only the player lowers the hand.
