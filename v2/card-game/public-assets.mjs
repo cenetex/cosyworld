@@ -277,6 +277,7 @@ const files = [
   "portrait-facing.mjs",
   "presentation.mjs",
   "cards.mjs",
+  "card-tree-layout.mjs",
   "motives.mjs",
   "life.mjs",
   "knowledge.mjs",
