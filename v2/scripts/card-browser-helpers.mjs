@@ -172,6 +172,7 @@ export function readyActionButton(page, kind) {
 // and only then does the rules' first play, Put out, douse it. Any play on
 // the revealed cards (a Wait) is a first play too.
 export async function revealOpening(page) {
+  await revealCard(page, "vale");
   await selectCard(page, "lamp");
   await page
     .locator('#card-actions [data-quiet="true"]', { hasText: "Reveal" })

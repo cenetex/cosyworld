@@ -58,7 +58,11 @@ for (const stream of [server.stdout, server.stderr])
     output = (output + chunk).slice(-4000);
   });
 
+let sentRequests = 0;
 async function send(name, context, expected, headers = {}, raw) {
+  // Count every request so larger fixture sets keep within the route's cap.
+  if (++sentRequests % 30 === 0)
+    await new Promise((done) => setTimeout(done, 60_000));
   const response = await fetch(`${base}/card-game/text`, {
     method: "POST",
     headers: {

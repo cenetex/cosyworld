@@ -289,6 +289,13 @@ describe("shared words that fail", () => {
         .status,
     ).toBe("pending");
   });
+  it("shows the viewer's queued opening as pending", () => {
+    const queue = [{ actor: "vale", opening: true, status: "retry" }];
+    expect(sharedSpeechState({ ...state, queue }).status).toBe("pending");
+    expect(sharedSpeechState({ ...state, actor: "mara", queue }).status).toBe(
+      "ready",
+    );
+  });
   it("show a silent scene's speakers as … after the play's last event", () => {
     const silent = {
       play: "play2",

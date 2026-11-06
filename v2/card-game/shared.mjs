@@ -559,7 +559,13 @@ export function sharedVoiceReference(state, line) {
 // Words on the way, or the room's scene as it stands. Words that failed are
 // already "…" in that scene, so nothing waits on them and nothing retries.
 export function sharedSpeechState(state) {
-  const working = state.queue?.some((entry) => entry.status === "working");
+  const working = state.queue?.some(
+    (entry) =>
+      entry.status === "working" ||
+      (entry.opening &&
+        entry.actor === state.actor &&
+        entry.status === "retry"),
+  );
   return { status: working ? "pending" : "ready" };
 }
 

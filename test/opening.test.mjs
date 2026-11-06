@@ -11,6 +11,17 @@ describe("a new world's opening", () => {
     (id) =>
       ids.includes(id);
 
+  it("starts with the avatar when the title was skipped", () => {
+    expect(openingStep(world, "vale", down("vale", "lamp", "attic"))).toEqual({
+      step: "reveal",
+      next: "vale",
+    });
+    expect(openingStep(world, "vale", down("vale"))).toEqual({
+      step: "reveal",
+      next: "vale",
+    });
+  });
+
   it("reveals the lit lamp and the attic, in either order, before a play", () => {
     expect(openingStep(world, "vale", down("lamp", "attic"))).toEqual({
       step: "reveal",

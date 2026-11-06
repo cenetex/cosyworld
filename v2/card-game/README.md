@@ -646,9 +646,12 @@ The player's avatar knows only what its player has uncovered (#1575). Until a
 card is uncovered, the screen never names it: the place heading, world name
 and page title show "…" (beside a toolbar logo the covered world name is
 hidden instead), and card labels, screen-reader text and stage alt text
-leave it out. A new game's first line waits until its player uncovers both the
-avatar and its place; in shared play the room's lines wait the same way for
-each viewer. `speech-knowledge.mjs` removes covered items from every local
+leave it out. A new game's first line starts when its avatar is uncovered,
+while the room can still be black. On title-free tables, Reveal offers the
+avatar first. The first play waits for that line. In
+shared play, the avatar's own opening line starts with its reveal too; later
+room lines wait for the viewer's avatar and place to be uncovered.
+`speech-knowledge.mjs` removes covered items from every local
 speech request, so the dialogue service cannot name them; a fact that
 mentioned one says "something I can't make out" instead, or "something shining I can't make out" for a lit light no cloth covers. The first line is
 raw (#1600): the request is marked `waking`, and the service frames it with
@@ -1023,7 +1026,7 @@ the scene over 0.3. The times are `WAKE_FADE` in `title-intro.mjs`.
 The title's card is the avatar's own card: as the title leaves, by its turn or
 by Escape, that card is uncovered in the hand (`onTitleWake`), face up with no
 second flip and announced as a new card. Skipping counts as the reveal. The
-first line still waits for the place card (see the hand above), and the
+first line starts at that reveal (see the hand above), and the
 uncovered set is saved, so a reload neither covers the avatar again nor asks
 for its first line twice. A joining avatar in a shared world is uncovered the
 same way; with no title (a reload, other sites, the local app), the avatar's
