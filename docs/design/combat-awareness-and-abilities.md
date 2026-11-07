@@ -127,19 +127,38 @@ These are original sketches. Effects and values are proposed for play testing.
 
 | New item       | Action     | Proposed effect                                                                    |
 | -------------- | ---------- | ---------------------------------------------------------------------------------- |
-| Bronze buckler | Stand with | Cover one combatant and brace yourself until your next play.                       |
-| Rowan crook    | Hook aside | Remove a target's Cover, creating an opening.                                      |
+| Bronze buckler | Stand with | Cover one combatant and brace against the first incoming hit.                      |
+| Rowan crook    | Hook aside | Remove Cover and hold an opening through the user's next play that spends a turn.  |
 | Reed whistle   | Rally      | Restore one resolve to another combatant who has one resolve.                      |
 | Cast net       | Entangle   | Reduce the target's next Strike by one, with a minimum of one damage.              |
 | Short sword    | Answer     | After this target struck you, strike at the top of the existing tier damage range. |
 
 Pilot the buckler and crook. They make support and counterplay visible through
 Cover and Brace. Test two- and three-person fights before adding healing or
-further saved effects. The buckler's expiry needs an explicit timing rule.
-Hook aside is offered while its target is covering someone. Answer is offered
-when its target hit the user since the user's last play.
+further saved effects. Hook aside targets someone actively covering another
+person. Answer is offered when its target hit the user since the user's last
+play.
 Each harmful ability resets the peaceful round. Each peaceful support action
 counts as that person stepping back.
+
+### Proposed pilot timing
+
+Review of the current resident rules showed that Intercept can restore removed
+Cover in the same exchange. The pilot therefore needs explicit saved windows.
+
+- Stand with applies its stance after the user's normal posture reset and
+  before residents reply. Cover lasts until that user's next play that spends
+  a turn begins. Brace reduces the first incoming hit by one, to a minimum of
+  one damage, then is consumed. A direct hit or an intercepted hit consumes
+  Brace; Cover continues. Any remaining Brace expires with Cover.
+- Hook aside removes the target's active Cover. It suppresses Intercept and
+  the Cover from Stand with through the user's next play that spends a turn.
+  Clear the suppression after that play resolves, before residents reply.
+  Hook aside counts as hostile for the peaceful-round tracker.
+- Claim and Focus preserve both windows. Measure each window by its user's
+  actions. Global turns and round boundaries can contain other people's plays.
+  Combat ending or either involved person departing clears the related effects.
+  Save the owner and window state so reload and shared replay keep that order.
 
 Use new authored items for the pilot. Ajax's existing shield carries a specific
 delivery promise to Eurysaces in the [Greek pack](../../v2/content/greek-drama/card-world.json).
@@ -199,6 +218,9 @@ delivery, reload, a slow reply after another action, and hidden information.
 Journal replay and local/shared results should agree on event and speaker.
 Ability tests also cover spent items, transfer, repeat requests, expiry order,
 sanctuaries, a full hand, invalid targets, peaceful rounds, retreat and re-entry.
+Pilot timing tests cover immediate retaliation, two incoming hits, resident
+reply order, the user's next Strike, Claim and Focus between plays, a shared
+player acting between them, departure, reload and journal replay.
 
 Play-test current speech, key-moment speech and frequent speech. Ask players
 who reacted, what caused the line, and why that person cared. Measure relevant
