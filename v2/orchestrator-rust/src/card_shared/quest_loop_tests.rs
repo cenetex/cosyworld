@@ -110,6 +110,9 @@ fn rules_99_quest_loop_commits_and_replays_in_the_c_host() {
         a["kind"] == "give" && a["target"] == "keeper" && a["item"] == "bell"
     });
     commit(&mut world, give);
+    assert_eq!(world.game["actors"]["vale"]["xp"], 1);
+    let reward = play(&world, |a| a["kind"] == "claim");
+    commit(&mut world, reward);
     assert_eq!(world.game["actors"]["vale"]["xp"], 2);
     assert_eq!(world.game["actors"]["vale"]["halfwayIssued"], 2);
     assert_eq!(quests(&world)[0]["step"], json!({"verb":"rest"}));
@@ -143,6 +146,8 @@ fn rules_99_quest_loop_commits_and_replays_in_the_c_host() {
         glimpse,
         json!({"level":2,"kind":"place","id":"attic","at":"attic"})
     );
+    let reward = play(&world, |a| a["kind"] == "claim");
+    commit(&mut world, reward);
     assert_eq!(world.game["actors"]["vale"]["xp"], 3);
     let event = long_rest(&mut world);
     assert_eq!(event["dream"], "quest");

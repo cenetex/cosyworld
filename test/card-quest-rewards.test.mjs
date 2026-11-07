@@ -6,9 +6,12 @@ import {
   legalActions,
   play,
   validateWorld,
+  wantAPI,
 } from "../v2/card-game/world.mjs";
 import {
   newWant,
+  offerLevelQuest,
+  questsOf,
   questRewardsOf,
   questSteps,
   questXp,
@@ -117,7 +120,7 @@ describe("saved quest receipts", () => {
     expect(receipts[2].want).toEqual(receipts[0].want);
     s = play(s, { kind: "pack", pack: "sea", enable: false }).state;
     expect(questRewardsOf(reload(s), "vale")).toEqual(receipts);
-    expect(act(s, "claim").actors.vale.xp).toBe(s.actors.vale.xp);
+    expect(act(s, "claim").actors.vale.xp).toBe(s.actors.vale.xp + questRewardsOf(s, "vale")[0].xp);
   });
 
   it("keeps resident rewards automatic and old paid saves intact", () => {
@@ -152,7 +155,7 @@ describe("saved quest receipts", () => {
     [10, 2],
     [50, 5],
     [100, 6],
-  ])("records level %i with its paid %i XP", (level, xp) => {
+  ])("records level %i with its unpaid %i XP", (level, xp) => {
     let s = questing(createWorld());
     s.turn = s.revision = 24 * (level + 1);
     Object.assign(s.actors.vale, {
@@ -169,16 +172,17 @@ describe("saved quest receipts", () => {
     const sleeping = legalActions(s).find((a) => a.sleep);
     s = reload(play(s, sleeping).state);
     expect(questRewardsOf(s, "vale")).toMatchObject([
-      { paid: true, level, xp },
+      { paid: false, level, xp },
     ]);
     expect(questRewardCards(s)).toMatchObject([{ earnedLevel: level, earnedXp: xp }]);
-    expect(s.actors.vale.level).toBe(level);
-    expect(act(s, "claim").actors.vale.xp).toBe(s.actors.vale.xp);
+    expect(s.actors.vale.level).toBe(level - 1);
+    expect(act(s, "claim").actors.vale.level).toBe(level);
+    expect(act(s, "claim").actors.vale.xp).toBe(s.actors.vale.xp + questRewardsOf(s, "vale")[0].xp);
   });
 
   it.each([
     (r) => {
-      r.paid = false;
+      r.paid = "unpaid";
     },
     (r) => {
       r.actor = "mara";
@@ -237,7 +241,7 @@ describe("saved quest receipts", () => {
     const done = both(request);
     expect(done.ok).toBe(true);
     expect(both(request)).toEqual(done);
-    expect(done.world.actors.vale.xp).toBe(s.actors.vale.xp);
+    expect(done.world.actors.vale.xp).toBe(s.actors.vale.xp + 1);
     expect(both({ ...request, world: done.world }).ok).toBe(false);
     expect(
       both({ ...request, world: done.world, revision: done.world.revision }).ok,
@@ -245,4 +249,103 @@ describe("saved quest receipts", () => {
     expect(both({ ...request, actor: "mara" }).ok).toBe(false);
     expect(both({ ...request, present: ["mara"] }).ok).toBe(false);
   });
+});
+
+const claim = (s, id) => play(s, legalActions(s).find((a) => a.kind === "claim" && a.receipt === id)).state;
+function finalReward(level) {
+  let s = questing(createWorld());
+  s.turn = s.revision = 24 * (level + 1);
+  Object.assign(s.actors.vale, { level: level - 1, xp: questXp(level) + questSteps(level) - 1,
+    want: { ...newWant("place", "station", s.turn), quest: { level, left: 2 } } });
+  s = act(s, "wait");
+  s.actors.vale.place = "attic";
+  s = act(s, "wait");
+  return reload(play(s, legalActions(s).find((a) => a.sleep)).state);
+}
+it.each([5, 10, 50, 100])("pays level %i once in either step/final claim order", (level) => {
+  for (const order of [[0, 1], [1, 0]]) {
+    let s = finalReward(level);
+    const receipts = questRewardsOf(s, "vale"), xp = s.actors.vale.xp, turn = s.turn;
+    expect(receipts).toHaveLength(2);
+    expect(receipts[1]).toMatchObject({ level, paid: false });
+    expect(s.actors.vale.level).toBe(level - 1);
+    let paid = 0;
+    for (const i of order) {
+      s = reload(claim(s, receipts[i].id));
+      paid += receipts[i].xp;
+      expect(s.actors.vale.xp).toBe(xp + paid);
+      expect(s.turn).toBe(turn);
+      expect(s.actors.vale.level).toBe(i === 1 || order[0] === 1 ? level : level - 1);
+    }
+    expect(questRewardsOf(s, "vale")).toEqual([]);
+  }
+});
+it("holds level progress through more rests and ordinary claims, then checks the new threshold", () => {
+  let s = finalReward(10);
+  const final = questRewardsOf(s, "vale").find((r) => r.level);
+  s.actors.vale.want = { ...newWant("place", "attic", s.turn), step: { verb: "rest" } };
+  for (let i = 0; i < 2; i++) {
+    s = act(s, "wait");
+    s = play(s, legalActions(s).find((a) => a.sleep)).state;
+    expect(questRewardsOf(s, "vale")).toContainEqual(final);
+    expect(offerLevelQuest(s, "vale", wantAPI(s))).toBeNull();
+    expect(questsOf(s, "vale").some((w) => w.quest)).toBe(false);
+    expect(s.log.filter((e) => e.turn === s.turn && e.dream)).toEqual([]);
+  }
+  while (s.actors.vale.xp < questXp(11)) {
+    const move = legalActions(s).find((a) => a.kind === "move");
+    s.actors.vale.want = newWant("place", move.target, s.turn);
+    const count = questRewardsOf(s, "vale").length;
+    s = play(s, move).state;
+    expect(questRewardsOf(s, "vale")).toHaveLength(count + 1);
+    const receipt = questRewardsOf(s, "vale").at(-1);
+    s = claim(s, receipt.id);
+    expect(questsOf(s, "vale").some((w) => w.step?.verb === "rest")).toBe(false);
+  }
+  s = reload(claim(s, final.id));
+  expect(s.actors.vale.level).toBe(10);
+  expect(questsOf(s, "vale")).toContainEqual(expect.objectContaining({ step: { verb: "rest" } }));
+  expect(s.actors.vale.glimpse).toBeUndefined();
+});
+it("acknowledges an actual rules109 paid reward after upgrade", () => {
+  const engine = currentSharedEngine(109), seats = { actor: "vale", claimed: ["vale"], present: ["vale"] };
+  const old = (request) => JSON.parse(engine.cardShared(JSON.stringify({ ...request, ...seats })));
+  let s = old({ op: "create", seed: 19 }).world;
+  delete s.opening;
+  s.actors.vale.want = newWant("place", s.actors.vale.place, s.turn);
+  s = old({ op: "play", world: s, action: old({ op: "view", world: s }).actions.find((a) => a.kind === "wait") }).world;
+  const receipt = questRewardsOf(s, "vale")[0];
+  expect(receipt.paid).toBe(true);
+  const next = claim(reload(s), receipt.id);
+  expect(next.actors.vale.xp).toBe(s.actors.vale.xp);
+  expect(next.actors.vale.level).toBe(s.actors.vale.level);
+  expect(questRewardsOf(next, "vale")).toEqual([]);
+});
+
+it("keeps a later earned level and its glimpse when an older final reward is claimed", () => {
+  const s = finalReward(10), receipt = questRewardsOf(s, "vale").find((r) => r.level);
+  s.actors.vale.level = 12;
+  s.actors.vale.glimpse = { level: 13, kind: "place", id: "attic", at: "attic" };
+  const next = claim(s, receipt.id);
+  expect(next.actors.vale.level).toBe(12);
+  expect(next.actors.vale.glimpse).toEqual(s.actors.vale.glimpse);
+  expect(next.actors.vale.xp).toBe(s.actors.vale.xp + receipt.xp);
+});
+it("replays final and step payments through compiled shared rules in either order", () => {
+  const engine = currentSharedEngine(), seats = { actor: "vale", claimed: ["vale"], present: ["vale"] };
+  for (const order of [[0, 1], [1, 0]]) {
+    let s = finalReward(10);
+    const receipts = questRewardsOf(s, "vale"), xp = s.actors.vale.xp;
+    for (const i of order) {
+      const action = legalActions(s).find((a) => a.kind === "claim" && a.receipt === receipts[i].id);
+      const request = { op: "play", world: s, action, revision: s.revision, ...seats };
+      const result = dispatchShared(request);
+      expect(JSON.parse(engine.cardShared(JSON.stringify(request)))).toEqual(result);
+      expect(dispatchShared(request)).toEqual(result);
+      expect(result.ok).toBe(true);
+      s = reload(result.world);
+    }
+    expect(s.actors.vale.level).toBe(10);
+    expect(s.actors.vale.xp).toBe(xp + receipts.reduce((n, r) => n + r.xp, 0));
+  }
 });

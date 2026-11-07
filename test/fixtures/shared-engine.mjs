@@ -12,8 +12,8 @@ const read = (path) =>
 
 // The current compiled shared rules, hosted as Rust hosts them: with this
 // build's pack content in globalThis.cardContent.
-export function currentSharedEngine() {
-  const version = read("engine.rs").match(
+export function currentSharedEngine(savedVersion = null) {
+  const version = savedVersion ?? read("engine.rs").match(
     /const VERSION: &str = "full-card-world\/(\d+)"/,
   )[1];
   const runtime = vm.createContext({

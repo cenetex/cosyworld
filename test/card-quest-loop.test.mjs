@@ -1,3 +1,4 @@
+import { collectRewards } from "./helpers/claim-rewards.mjs";
 // Rules 99, the quest loop: the halfway quest to sleep at a sanctuary, the
 // glimpse it brings, one or two dreams per level, and quests from Talk.
 import { describe, expect, it } from "vitest";
@@ -46,7 +47,7 @@ export function at(level, xp) {
 export function meetOne(s) {
   const move = legalActions(s, "vale").find((a) => a.kind === "move");
   pushQuest(s, "vale", newWant("place", move.target, s.turn));
-  return play(s, move, s.revision, "vale").state;
+  return collectRewards(play(s, move, s.revision, "vale").state);
 }
 const wokeLong = (s) =>
   s.log.findLast((e) => e.actorId === "vale" && e.woke !== undefined)?.rest ===
@@ -77,6 +78,7 @@ describe("the halfway quest to sleep at a sanctuary", () => {
     // Met at the Hillside Sanctuary as well as in the attic: one more want.
     s = longRest(s, "greek-sanctuary");
     expect(sanctuaryQuests(s)).toHaveLength(0);
+    s = collectRewards(s);
     expect(s.actors.vale.xp).toBe(halfwayXp(10) + 1);
     // Short of full experience before the rest, no level quest comes.
     expect(levelQuest(s)).toBeNull();

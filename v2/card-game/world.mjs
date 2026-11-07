@@ -910,9 +910,7 @@ export function wantAPI(s) {
       addLog(
         s,
         "World",
-        (actor === currentActor(s) || heldByHuman(s, actor))
-          ? `${nameOf(actor)} completed a quest: ${wantText(want)}. The reward is ready.`
-          : want.kind === "item"
+        want.kind === "item"
           ? `${nameOf(actor)} has the ${nameOf(want.target)} at last.`
           : want.kind === "place"
             ? `${nameOf(actor)} reaches ${nameOf(want.target)}.`

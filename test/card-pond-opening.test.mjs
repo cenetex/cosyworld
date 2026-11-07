@@ -1,3 +1,4 @@
+import { collectRewards } from "./helpers/claim-rewards.mjs";
 import { describe, expect, it } from "vitest";
 import {
   decodeSave,
@@ -73,6 +74,7 @@ describe("the attic opening and saved pond journeys", () => {
   it("meets Vale's lamp want and then the keeper through the pond and station", () => {
     let world = fresh();
     world = act(world, "light");
+    world = collectRewards(world);
     expect(world.actors.vale.xp).toBe(1);
     expect(exits(world, "pond")).toEqual(["station", "attic"]);
     world = act(world, "wait");
@@ -194,7 +196,7 @@ describe("the attic opening and saved pond journeys", () => {
     expect(exits(restored, "station")).toEqual(["pond"]);
     const shore = act(restored, "move", "pond");
     expect(shore.actors.vale.want).not.toBeNull();
-    const attic = act(shore, "move", "attic");
+    const attic = collectRewards(act(shore, "move", "attic"));
     // The quest drawn at the pond goes on, or was met on the way back.
     expect(attic.actors.vale.want !== null || attic.actors.vale.xp > 0).toBe(true);
     expect(attic.opening.version).toBe(1);

@@ -1,3 +1,4 @@
+import { collectRewards } from "./helpers/claim-rewards.mjs";
 import { describe, expect, it } from "vitest";
 import {
   createWorld,
@@ -190,7 +191,8 @@ describe("quest step verbs", () => {
         give &&
         next.log.some((e) => e.seq > last && e.verb === "give" && e.accepted);
       if (accepted) {
-        expect(next.actors.vale.xp).toBeGreaterThan(before.vale);
+        expect(next.actors.vale.xp).toBe(before.vale);
+        expect(collectRewards(next).actors.vale.xp).toBeGreaterThan(before.vale);
         expect(next.actors.moth.xp).toBeGreaterThan(before.moth);
         both++;
       }

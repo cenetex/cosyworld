@@ -1,3 +1,4 @@
+import { collectRewards } from "./helpers/claim-rewards.mjs";
 import { questing } from "./helpers/first-quest.mjs";
 import { describe, expect, it } from "vitest";
 import {
@@ -106,6 +107,8 @@ describe("one want per avatar", () => {
     s = play(s, act(s, "move", { target: "pond" })).state;
     const [event] = metEvents(s, "vale");
     expect(event.wantMet).toEqual({ kind: "place", target: "pond" });
+    expect(s.actors.vale.xp).toBe(0);
+    s = collectRewards(s);
     expect(s.actors.vale.xp).toBe(1);
     // The player's level waits for its level quest.
     expect(levelOf(s, "vale")).toBe(1);

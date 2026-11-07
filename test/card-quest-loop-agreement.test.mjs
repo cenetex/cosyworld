@@ -73,8 +73,10 @@ function playLoop(server) {
   run((a) => a.kind === "talk" && a.target === "keeper");
   const talked = structuredClone(world);
   run((a) => a.kind === "give" && a.target === "keeper" && a.item === "bell");
+  run((a) => a.kind === "claim");
   const halfway = structuredClone(world);
   longRest();
+  run((a) => a.kind === "claim");
   const glimpsed = structuredClone(world);
   const glimpseWake = structuredClone(woke());
   longRest();

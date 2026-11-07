@@ -556,7 +556,7 @@ try {
         (key) => JSON.parse(localStorage.getItem(key)).actors.vale.xp,
         gateKey,
       ),
-      xp + 1,
+      xp,
     );
     await page.screenshot({
       path: new URL(`last-gift-${width}.png`, output).pathname,

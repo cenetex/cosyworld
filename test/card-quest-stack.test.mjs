@@ -1,3 +1,4 @@
+import { collectRewards } from "./helpers/claim-rewards.mjs";
 // A stack of quests per avatar (#1831): new quests go on top, nothing wipes
 // one already held, a player may drop any quest or bring one to the top, and
 // any quest in the stack can be met.
@@ -171,6 +172,7 @@ describe("the quest stack", () => {
     const xp = s.actors.vale.xp;
     s = act(s, (a) => a.kind === "move" && a.target === "pond");
     expect(targets(s)).toEqual(["lamp"]);
+    s = collectRewards(s);
     expect(s.actors.vale.xp).toBe(xp + 1);
     expect(
       s.log.some((e) => e.verb === "want_met" && e.wantMet?.target === "pond"),

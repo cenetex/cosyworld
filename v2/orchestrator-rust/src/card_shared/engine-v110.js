@@ -7535,7 +7535,7 @@
       log: (actor, want, xp) => addLog(
         s,
         "World",
-        actor === currentActor(s) || heldByHuman(s, actor) ? `${nameOf(actor)} completed a quest: ${wantText(want)}. The reward is ready.` : want.kind === "item" ? `${nameOf(actor)} has the ${nameOf(want.target)} at last.` : want.kind === "place" ? `${nameOf(actor)} reaches ${nameOf(want.target)}.` : want.kind === "connect" ? `${nameOf(actor)} makes an introduction at last.` : `${nameOf(actor)} and ${nameOf(want.target)} talk at last.`,
+        want.kind === "item" ? `${nameOf(actor)} has the ${nameOf(want.target)} at last.` : want.kind === "place" ? `${nameOf(actor)} reaches ${nameOf(want.target)}.` : want.kind === "connect" ? `${nameOf(actor)} makes an introduction at last.` : `${nameOf(actor)} and ${nameOf(want.target)} talk at last.`,
         {
           kind: "narration",
           actorId: actor,

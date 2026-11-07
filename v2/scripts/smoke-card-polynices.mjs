@@ -302,7 +302,7 @@ try {
       await checked.click();
       await checked.waitFor({ state: "detached" });
       assert.equal((await state()).turn, closed.state.turn);
-      assert.equal((await state()).actors.vale.xp, closed.state.actors.vale.xp);
+      assert.equal((await state()).actors.vale.xp, closed.state.actors.vale.xp + receipt.xp);
       await page.reload();
       await settle();
       assert.equal(await checked.count(), 0);

@@ -1,3 +1,4 @@
+import { collectRewards } from "./helpers/claim-rewards.mjs";
 import { describe, expect, it } from "vitest";
 import {
   createWorld,
@@ -175,6 +176,8 @@ describe("the level quest", () => {
     for (let i = 0; i < 8 && narrativeContext(s).rest !== "long"; i++)
       s = act(s, (a) => a.sleep);
     expect(narrativeContext(s).rest).toBe("long");
+    expect(levelOf(s, "vale")).toBe(5);
+    s = collectRewards(s);
     expect(levelOf(s, "vale")).toBe(6);
     expect(s.actors.vale.want?.quest).toBeUndefined();
     expect(validateWorld(s)).toBe(s);
@@ -197,7 +200,7 @@ describe("the level quest", () => {
       step: { verb: "rest" },
       quest: { level, left: 1 },
     };
-    const after = decodeSave(encodeSave(sleep(s)));
+    const after = collectRewards(decodeSave(encodeSave(sleep(s))));
     expect(after.actors.vale.level).toBe(level);
     expect(after.actors.vale.xp - s.actors.vale.xp).toBe(xp);
     expect(metQuests([questCard(s)], after, s.eventSeq)).toMatchObject([
@@ -224,7 +227,7 @@ describe("the level quest", () => {
         under: [levelOnTop ? rest : levelRest],
       });
       const before = questCards(s);
-      const after = decodeSave(encodeSave(sleep(decodeSave(encodeSave(s)))));
+      const after = collectRewards(decodeSave(encodeSave(sleep(decodeSave(encodeSave(s))))));
       expect(after.actors.vale.xp - s.actors.vale.xp).toBe(6);
       expect(metQuests(before, after, s.eventSeq)).toMatchObject([
         { key: before.find((q) => !q.level).key, level: null, earnedXp: 1 },
@@ -300,6 +303,7 @@ describe("the level quest", () => {
     };
     s = sleep(s);
     expect(narrativeContext(s).rest).toBe("long");
+    s = collectRewards(s);
     expect(levelOf(s, "vale")).toBe(2);
     expect(levelQuests(s)).toEqual([]);
     s.actors.vale.place = "attic";
@@ -345,20 +349,17 @@ describe("the level quest", () => {
         s.actors.vale.xp += 3;
       }
       const before = levelOf(s, "vale"),
-        want = s.actors.vale.want,
+        rewards = s.actors.vale.questRewards || [],
         seq = s.log.at(-1).seq;
       const actions = legalActions(s);
       s = play(s, actions[(step * 7919) % actions.length]).state;
       const after = levelOf(s, "vale");
       expect(after).toBeGreaterThanOrEqual(before);
       if (after > before) {
-        expect(want).toMatchObject({
-          quest: { level: after, left: 1 },
-          step: { verb: "rest" },
-        });
+        expect(rewards.some((r) => r.level === after && !r.paid)).toBe(true);
         expect(
           s.log.some(
-            (e) => e.seq > seq && e.verb === "want_met" && e.actorId === "vale",
+            (e) => e.seq > seq && e.verb === "claim" && e.actorId === "vale",
           ),
         ).toBe(true);
       }
