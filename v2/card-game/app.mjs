@@ -2525,8 +2525,7 @@ function renderActions() {
     look.onclick = () => showItemView(viewed);
     row.append(look);
   }
-  // A sealed card says why its way is shut in the context button once its
-  // quest is taken; until then Seek the way carries the reason.
+  // The context button keeps a closed box's contents concealed.
   const sealed = !rested && closed;
   if (sealed) {
     const why = node("button", "Locked", "card-action");
@@ -2678,8 +2677,8 @@ function updateCardSelection(frame) {
     frame.dataset.expanded = String(expandedHolders.has(id));
     button.setAttribute("aria-expanded", String(expandedHolders.has(id)));
   }
-  if (cardIsClosed(id)) return;
   syncAvatarStack(frame, id);
+  if (cardIsClosed(id)) return;
   button.querySelector(".sr-only").textContent =
     cardObservation(world, id) +
     (label ? ` ${label}.` : "") +
@@ -2921,8 +2920,7 @@ function card(id) {
   observation.id = `card-detail-${id}`;
   if (raised && label) observation.textContent += ` ${label}.`;
   if (hidden) observation.textContent = "";
-  // A locked box is labelled "Locked" (the owner's exception); its reason
-  // is in the context button.
+  // Every closed lid stays nameless until it opens.
   el.append(
     graphic,
     setCardLabel(
@@ -3012,7 +3010,7 @@ function card(id) {
       frame.dataset.inventory = String(held.length);
       frame.dataset.expanded = String(expandedHolders.has(id));
       el.setAttribute("aria-expanded", String(expandedHolders.has(id)));
-      const named = held.filter((item) => !cardIsCovered(item)).map(nameOf);
+      const named = held.filter((item) => !cardIsClosed(item)).map(nameOf);
       if (named.length < held.length)
         named.push(`${held.length - named.length} covered`);
       if (!hidden)
@@ -3032,11 +3030,9 @@ function card(id) {
       }
     }
   }
-  if (!hidden) {
-    syncAvatarStack(frame, id);
-    if (foldQuest()?.actor === id) frame.prepend(questFold(foldQuest()));
-  }
-  // Its reason is in the context button, never on the box.
+  syncAvatarStack(frame, id);
+  if (!hidden && foldQuest()?.actor === id) frame.prepend(questFold(foldQuest()));
+  // Discovery and prerequisites share the same closed appearance.
   el.dataset.locked = String(hidden);
   el.dataset.unrevealed = String(cardIsCovered(id) && !locked);
   const back = node("img", undefined, "card-back");
@@ -3060,7 +3056,7 @@ const cardBackImage = () =>
 // chosen on top, the context button offers its next step and Discard
 // (quest-step.mjs).
 const questCovered = (quest) =>
-  quest.receiptId === undefined && (!quest.target || cardIsCovered(quest.target));
+  quest.receiptId === undefined && (!quest.target || cardIsClosed(quest.target));
 const known = (id) => !cardIsClosed(id);
 function shownQuestCaption(quest, includeLevel = true) {
   const hidden = questCovered(quest);

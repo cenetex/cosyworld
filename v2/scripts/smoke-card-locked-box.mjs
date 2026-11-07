@@ -155,7 +155,9 @@ try {
         name: el.querySelector(".name").textContent,
         label: el.getAttribute("aria-label"),
         border: getComputedStyle(el).borderTopColor,
-        tier: el.dataset.tier,
+        outline: getComputedStyle(el.querySelector(".card-back")).outline,
+        width: getComputedStyle(el).width,
+        height: getComputedStyle(el).height,
       }));
       const closedLid = await lidState(field);
       await page.keyboard.press("Escape");
@@ -187,11 +189,27 @@ try {
         await page.keyboard.press("Escape");
         await selectCard(page, "greek-guard");
       }
+      await page.evaluate(() => {
+        const watch = new MutationObserver(() => {
+          const card = document.querySelector('.want-card[data-unrevealed="true"][aria-label="Closed box"]');
+          if (!card) return;
+          const back = card.querySelector(".card-back");
+          window.closedQuestEvidence = { src: back.src, label: card.getAttribute("aria-label"),
+            border: getComputedStyle(card).borderTopColor, outline: getComputedStyle(back).outline,
+            near: card.dataset.near, art: getComputedStyle(card.querySelector(".quest-screen")).visibility };
+          watch.disconnect();
+        });
+        watch.observe(document.getElementById("hand"), { subtree: true, childList: true, attributes: true });
+      });
       await readyActionButton(page, "talk").click();
       await ready();
       const state = () =>
         page.evaluate((key) => JSON.parse(localStorage.getItem(key)), key);
       assert.equal((await state()).actors.vale.want.target, "greek-bread");
+      const questLid = await page.evaluate(() => window.closedQuestEvidence);
+      assert(questLid, "the new quest first uses the closed-box state");
+      assert.deepEqual(questLid, { src: closedLid.src, label: closedLid.label,
+        border: closedLid.border, outline: closedLid.outline, near: "false", art: "hidden" });
       await page.keyboard.press("Escape");
       await boxed();
 
