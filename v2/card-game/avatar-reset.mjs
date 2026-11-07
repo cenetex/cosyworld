@@ -1,5 +1,6 @@
 import { createWorld, fillSeatWants } from "./world.mjs";
 import { enableMotives } from "./motives.mjs";
+import { settleHeldItems } from "./held-item.mjs";
 
 // A shared world's owner frees a seat, or its holder releases it (#1825). The
 // avatar starts over as a fresh level-1 starter at its starting place: its
@@ -57,5 +58,6 @@ export function resetAvatar(world, id) {
   if (world.heldActors)
     world.heldActors = world.heldActors.filter((a) => a !== id);
   world.revision += 1;
+  settleHeldItems(world);
   return world;
 }

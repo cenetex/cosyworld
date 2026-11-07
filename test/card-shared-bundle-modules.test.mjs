@@ -14,6 +14,7 @@ const RULES = [
   "adaptive-learning.mjs",
   "boardyai.mjs",
   "conversation.mjs",
+  "held-item.mjs",
   "expression.mjs",
   "glimpse.mjs",
   "hidden-avatar.mjs",
