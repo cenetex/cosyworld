@@ -304,7 +304,7 @@ it("holds level progress through more rests and ordinary claims, then checks the
   }
   s = reload(claim(s, final.id));
   expect(s.actors.vale.level).toBe(10);
-  expect(questsOf(s, "vale")).toContainEqual(expect.objectContaining({ step: { verb: "rest" } }));
+  expect(questsOf(s, "vale").some((w) => w.step?.verb === "rest")).toBe(false);
   expect(s.actors.vale.glimpse).toBeUndefined();
 });
 it("acknowledges an actual rules109 paid reward after upgrade", () => {

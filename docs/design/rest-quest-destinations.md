@@ -1,4 +1,13 @@
-# Rest quest destinations
+# Rest through the avatar
+
+Routine REST reminders leave the quest stack. Experience makes the next dream
+due; long sleep at a sanctuary reveals it through the avatar. The halfway
+glimpse comes once per level. A long rest at the full threshold brings the
+level quest. Ordinary goals supply the experience between those thresholds.
+
+Older saves shed their unfinished routine REST reminders. The remaining
+quests keep their order. Completed reward cards keep their saved deed and
+reward for Claim.
 
 Rue's REST card could name her carriage. The same home fallback affected all
 seven shared visitors. Their homes are ordinary places; long rest completion
@@ -8,7 +17,7 @@ Every new rest step now chooses an active sanctuary. It prefers the avatar's
 saved sanctuary, then their home when that home is a sanctuary, then another
 active sanctuary. This uses the same catalog as sleep completion.
 
-Loading an earlier save repairs rest steps that point to an ordinary place.
+Loading an earlier save repairs level rest steps that point to an ordinary place.
 It keeps the quest's start, level, remaining steps and place in the stack.
 Completed reward cards keep their saved deed and reward. Released rules keep
 their original journal behavior.

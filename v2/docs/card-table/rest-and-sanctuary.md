@@ -3,6 +3,14 @@
 Status: decided by the owner on #1648 (2026-11-01). It ships with level quests
 (#1583) and the quest card (#1689) in one batch of rules.
 
+Owner update, 2026-11-06: routine REST reminders leave the quest hand. Long
+sleep reads dream readiness from experience: halfway brings a glimpse, and
+the full threshold brings the level quest. Ordinary goals supply the XP.
+Existing saves remove unfinished routine reminders and retain completed
+reward cards for Claim. A level quest's final rest points to an active
+sanctuary, including for shared visitors whose homes are ordinary places.
+See [rest through the avatar](../../../docs/design/rest-quest-destinations.md).
+
 ## The rules
 
 - **One sanctuary per world.** A sanctuary is a place property in pack data,

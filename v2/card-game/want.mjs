@@ -342,15 +342,19 @@ export const restStep = (s, actor, api, quest) => ({
   step: { verb: "rest" },
 });
 const sanctuaryQuest = (w) => w.step?.verb === "rest" && !w.quest;
-// Earlier saves could point a rest at a home where sleep never completes it.
+// Retire routine rest reminders in saved stacks. Level quests keep their
+// final rest, with a destination where long sleep can complete it.
 export function repairRestTargets(s, api) {
-  for (const id of Object.keys(s.actors))
+  for (const id of Object.keys(s.actors)) {
+    const held = questsOf(s, id), kept = held.filter((want) => !sanctuaryQuest(want));
+    if (kept.length !== held.length) setQuests(s.actors[id], kept);
     for (const want of questsOf(s, id))
       if (
         want.kind === "place" && want.step?.verb === "rest" &&
         api.places().includes(want.target) && !api.sanctuaries.includes(want.target)
       )
         want.target = restStep(s, id, api).target;
+  }
 }
 // A sanctuary quest rebuilt for another place (its sanctuary gone quiet, or
 // set aside) takes the place of an ordinary quest for that place, as
@@ -365,12 +369,8 @@ export function mergeSanctuaryQuests(list) {
   };
   return list.filter((w, i) => w.quest || keeps(key(w)) === i);
 }
-// Waking from a long rest meets a quest to sleep at a sanctuary, completes a
-// level quest's rest step there, or, with the experience for the next level
-// before it woke, brings that level quest. One long rest brings one of them
-// at most: a sanctuary quest met short of full experience brings no level
-// quest until the next long rest. It returns the rest's dream, if any: the
-// halfway glimpse or the level quest, the only two a level has (rules 99).
+// Long sleep completes the level quest's final rest or brings the next
+// dream due from experience. Each level has a halfway glimpse and a quest.
 export function wake(s, actor, api) {
   const a = s.actors[actor],
     before = a.xp;
@@ -378,20 +378,16 @@ export function wake(s, actor, api) {
   a.level ??= levelFor(a.xp);
   const full = a.xp >= questXp(a.level + 1);
   let dream = null;
-  // Met short of full experience, the sanctuary quest brings the glimpse.
-  const slept = questsOf(s, actor).findIndex(sanctuaryQuest);
-  if (slept >= 0) {
-    commitMet(s, actor, api, [], slept);
-    if (
-      !full &&
-      api.player(actor) &&
-      !questsOf(s, actor).some((w) => w.quest) &&
-      !pendingLevelReward(s, actor) &&
-      a.glimpse?.level !== a.level + 1
-    ) {
-      a.glimpse = drawGlimpse(s, actor, api, a.level + 1);
-      dream = "glimpse";
-    }
+  // Experience makes a dream due. Sleep reveals it through the avatar.
+  if (
+    !full && a.xp >= halfwayXp(a.level) &&
+    api.player(actor) &&
+    !questsOf(s, actor).some((w) => w.quest) &&
+    !pendingLevelReward(s, actor) &&
+    a.glimpse?.level !== a.level + 1
+  ) {
+    a.glimpse = drawGlimpse(s, actor, api, a.level + 1);
+    dream = "glimpse";
   }
   const rest = questsOf(s, actor).findIndex(
     (w) => w.quest && w.step?.verb === "rest" && w.target === a.place,
@@ -401,11 +397,8 @@ export function wake(s, actor, api) {
   milestones(s, actor, api, before);
   return dream;
 }
-// At halfway to the next level quest, and again at full experience as a
-// pointer, a player is given the ordinary quest to sleep at a sanctuary
-// (rules 99). It comes once per level at halfway, recorded as
-// `halfwayIssued`, so a dropped one never returns; the pointer comes only as
-// experience reaches full. A held level quest needs neither.
+// Retain the saved halfway marker as experience passes its threshold.
+// Sleep reads the threshold directly when the avatar wakes.
 function milestones(s, id, api, before) {
   const a = s.actors[id];
   if (!api.player(id) || pendingLevelReward(s, id) || questsOf(s, id).some((w) => w.quest)) return;
@@ -415,7 +408,6 @@ function milestones(s, id, api, before) {
     a.xp >= halfwayXp(level) && a.xp < full && a.halfwayIssued !== level + 1;
   if (!halfway && !(before < full && a.xp >= full)) return;
   a.halfwayIssued = level + 1;
-  pushQuest(s, id, restStep(s, id, api));
 }
 // Dropping a level quest costs one experience for the first (the quest to
 // level 2), two for the next, and so on, never below the experience of the

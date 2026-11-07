@@ -44,6 +44,8 @@ function halfwayAtTea() {
     (a) => a.kind === "move" && a.target === "pond",
   );
   const next = collectRewards(play(s, move, s.revision, "vale").state);
+  // A retained routine reminder from an earlier rules version.
+  pushQuest(next, "vale", restStep(next, "vale", wantAPI(next)));
   expect(shape(next)).toEqual([`place:${TEA}:rest`]);
   return next;
 }

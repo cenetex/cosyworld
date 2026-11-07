@@ -36,6 +36,16 @@ describe("rest quest destinations", () => {
     expect(decodeSave(encodeSave(saved))).toEqual(saved);
   });
 
+  it("retires an old carriage reminder while keeping other quests in order", () => {
+    const world = fixture();
+    world.actors.rue.want = { ...newWant("place", "train", 0), step: { verb: "rest" } };
+    const held = [newWant("item", "routes", 0), newWant("place", "station", 0)];
+    world.actors.rue.under = held;
+    const saved = decodeSave(JSON.stringify(world));
+    expect([saved.actors.rue.want, ...saved.actors.rue.under]).toEqual(held);
+    expect(saved.actors.rue.xp).toBe(world.actors.rue.xp);
+  });
+
   it("checks the repaired card after long sleep and pays its reward once", () => {
     let world = fixture();
     world.actors.rue.want = { ...newWant("place", "train", 0), step: { verb: "rest" }, quest: { level: 2, left: 1 } };
