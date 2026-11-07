@@ -147,6 +147,13 @@ export const allQuestsOf = (s, id) => {
 };
 export const questsOf = (s, id) =>
   allQuestsOf(s, id).slice(0, playerQuests(id) ? QUEST_LIMIT : NPC_QUEST_LIMIT);
+// Admission observes the next play, including when waking opens the slot.
+const questPlays = new WeakMap();
+export function beginQuestPlay(s) {
+  questPlays.set(s, Object.fromEntries(humanAvatarIds.map((id) => [id, questsOf(s, id)])));
+}
+export const endQuestPlay = (s) => questPlays.delete(s);
+const observingQuests = (s, id) => questPlays.get(s)?.[id] ?? questsOf(s, id);
 // A met want with nothing beneath leaves its avatar content: no want until
 // it next rests (a player's Sleep, a resident's day). Any quest it takes on
 // ends that.
@@ -416,10 +423,14 @@ export function wake(s, actor, api) {
     dream = "glimpse";
   }
   const rest = questsOf(s, actor).findIndex(
-    (w) => w.quest && w.step?.verb === "rest" && w.target === a.place,
+    (w) => observingQuests(s, actor).includes(w) &&
+      w.quest && w.step?.verb === "rest" && w.target === a.place,
   );
   if (rest >= 0) commitMet(s, actor, api, [], rest);
-  else if (full && offerLevelQuest(s, actor, api)) dream = "quest";
+  else if (full) {
+    const offered = offerLevelQuest(s, actor, api);
+    if (offered && questsOf(s, actor).includes(offered)) dream = "quest";
+  }
   milestones(s, actor, api, before);
   return dream;
 }
@@ -763,9 +774,11 @@ export function settleWants(s, actors, api, action = null) {
     }
     // Any quest in the stack can be met, each once per play. A level
     // quest's next step, or a fresh draw, takes the met one's place.
-    for (const want of questsOf(s, id))
-      if (questMet(s, id, want, talk, action))
-        commitMet(s, id, api, met, allQuestsOf(s, id).indexOf(want));
+    for (const want of observingQuests(s, id)) {
+      const index = allQuestsOf(s, id).indexOf(want);
+      if (index >= 0 && questMet(s, id, want, talk, action))
+        commitMet(s, id, api, met, index);
+    }
     if (a.xp > before) milestones(s, id, api, before);
   }
   return met;
