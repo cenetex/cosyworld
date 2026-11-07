@@ -54,12 +54,12 @@ export function whisperTier(random = Math.random()) {
 export const WAKE_FADE = {
   turn: {
     holdMs: 700,
-    songSeconds: 1.8,
+    songSeconds: 4,
     blackMs: 900,
     darkMs: 300,
     sceneMs: 2500,
   },
-  skip: { songSeconds: 1, blackMs: 250, darkMs: 100, sceneMs: 800 },
+  skip: { songSeconds: 2, blackMs: 250, darkMs: 100, sceneMs: 800 },
   reduced: { blackMs: 0, darkMs: 300, sceneMs: 300 },
 };
 

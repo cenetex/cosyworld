@@ -1160,6 +1160,7 @@ function syncMusicCue() {
         : funeralMusicDue(world, currentActor(world))
           ? "funeral"
           : null,
+      musicWorldId(),
     );
 }
 // The island's drone follows the same switch and volume as the music.

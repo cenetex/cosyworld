@@ -3,8 +3,8 @@ import streams from "./music-streams.json" with { type: "json" };
 import { RETURN_FADE_SECONDS, wakeContext } from "./audio-wake.mjs";
 
 // Songs that take over from the room song for a moment of play, through
-// music.cue(name) in music.mjs. Each file is a seamless loop: the song's last
-// second of decay is mixed over its first. Fades and waits are in seconds.
+// music.cue(name) in music.mjs. Most cues loop; a performance plays through
+// once. Fades and waits are in seconds.
 
 // The battle song comes in over the second the room song takes to fade out.
 const battle = {
@@ -22,6 +22,7 @@ export const CUE_TRACKS = {
     title: "The Hillside Sanctuary",
     fadeIn: 5,
     fadeOut: 2,
+    once: true,
   },
   // The loss screen's song waits for the battle song to fade under the fade
   // to black, holds three of its beats of silence, then comes in slowly.
@@ -48,26 +49,62 @@ export function battleMusicDue(world, actor) {
 }
 
 export function funeralMusicDue(world, actor) {
-  return world?.actors?.[actor]?.place === "greek-polynices-hollow" &&
-    world.packs?.["greek-drama"]?.flags?.["greek-burial-performed"] === true;
+  return (
+    world?.actors?.[actor]?.place === "greek-polynices-hollow" &&
+    world.packs?.["greek-drama"]?.flags?.["greek-burial-performed"] === true
+  );
 }
 
 export function createMusicCues({
   makeAudio = () => new Audio(),
   ...options
 } = {}) {
+  let current = null,
+    requested = null,
+    scope,
+    changed = () => {};
   const players = Object.entries(CUE_TRACKS).map(([name, track]) => [
     name,
-    createCueTrack({ audio: makeAudio(), track, ...options }),
+    createCueTrack({
+      audio: makeAudio(),
+      track,
+      ...options,
+      ended: () => {
+        if (current === name) select(null, name);
+      },
+    }),
   ]);
-  let current = null;
+  function select(name, completed = null) {
+    if (current === name) return;
+    current = name;
+    for (const [id, player] of players) player.setActive(id === current);
+    changed(completed);
+  }
   const each = (method) => (value) => {
     for (const [, player] of players) player[method](value);
   };
   return {
-    cue(name) {
-      current = CUE_TRACKS[name] || name === HUSH ? name : null;
-      for (const [id, player] of players) player.setActive(id === current);
+    cue(name, worldScope) {
+      if (worldScope !== undefined && scope !== worldScope) {
+        scope = worldScope;
+        requested = null;
+        for (const [, player] of players) player.reset();
+        select(null);
+      }
+      name = CUE_TRACKS[name] || name === HUSH ? name : null;
+      if (requested === name) return;
+      requested = name;
+      // A started performance follows the listener until its final note.
+      if (
+        !name &&
+        CUE_TRACKS[current]?.once &&
+        players.find(([id]) => id === current)?.[1].performed
+      )
+        return;
+      select(name);
+    },
+    onChange(listener) {
+      changed = listener;
     },
     get current() {
       return current;
@@ -85,12 +122,13 @@ export function createMusicCues({
   };
 }
 
-// One looping song with the room song's switch, volume and hidden-tab rules.
+// One song with the room song's switch, volume and hidden-tab rules.
 // A cue that holds (a new battle round, another strike) never restarts it.
 // A cue that ends fades out and stops; its next use starts from the top.
 function createCueTrack({
   audio,
   track,
+  ended = () => {},
   makeContext = () =>
     new (globalThis.AudioContext || globalThis.webkitAudioContext)(),
   now = () => performance.now() / 1000,
@@ -106,6 +144,7 @@ function createCueTrack({
     returning = false,
     loaded = false,
     fresh = true,
+    performed = false,
     volume = 0.3,
     generation = 0,
     context = null,
@@ -115,7 +154,7 @@ function createCueTrack({
     cuedAt = 0,
     envelope = { from: 0, to: 0, start: 0, seconds: 0 };
   audio.preload = "none";
-  audio.loop = true;
+  audio.loop = !track.once;
   audio.volume = 0;
 
   const clock = () => (context ? context.currentTime : now());
@@ -189,12 +228,20 @@ function createCueTrack({
     fresh = false;
     try {
       Promise.resolve(audio.play()).then(
-        () => attempt === generation && fadeIn(),
+        () => {
+          if (attempt === generation) {
+            performed = true;
+            fadeIn();
+          }
+        },
         () => {},
       );
     } catch {}
   }
   audio.addEventListener?.("error", () => (loaded = false));
+  audio.addEventListener?.("ended", () => {
+    if (track.once && flags.active) ended();
+  });
   const set = (key) => (value) => {
     if (flags[key] === Boolean(value)) return;
     flags[key] = Boolean(value);
@@ -203,8 +250,27 @@ function createCueTrack({
   const setActive = set("active");
   return {
     setActive(value) {
-      if (value && !flags.active) cuedAt = now();
+      if (value && !flags.active) {
+        cuedAt = now();
+        if (track.once && fresh) {
+          audio.pause();
+          performed = false;
+        }
+      }
       setActive(value);
+    },
+    get performed() {
+      return performed;
+    },
+    reset() {
+      clearTimeout(stopTimer);
+      clearTimeout(waitTimer);
+      generation++;
+      flags.active = false;
+      fresh = true;
+      performed = false;
+      fadeTo(0, 0);
+      audio.pause();
     },
     get sounding() {
       return !audio.paused;

@@ -8,6 +8,7 @@ import {
   pressSetting,
   putOutOpening,
   revealOpening,
+  readyActionButton,
 } from "./card-browser-helpers.mjs";
 import { roomTracks } from "../card-game/music.mjs";
 
@@ -67,7 +68,7 @@ export async function checkMusicReveal(browser, origin) {
     );
     await clearSelection(page);
     await selectCard(page, card);
-    await page.locator("#card-actions .card-primary").click();
+    await readyActionButton(page).click();
     await page.waitForFunction(
       () => document.querySelector("#hand").dataset.cooling === "false",
     );
@@ -84,6 +85,15 @@ export async function checkMusicReveal(browser, origin) {
     // opening offers no play until the lamp and attic are revealed.
     await revealOpening(page);
     await playCard("attic");
+    assert.equal(
+      await page.evaluate(
+        () =>
+          JSON.parse(
+            localStorage.getItem("cosyworld.reflected-shore.v1.music-reveal"),
+          ).turn,
+      ),
+      1,
+    );
     await page.waitForTimeout(1200);
     assert(await audio((a) => a.paused), "The lit attic stays silent");
     assert.deepEqual(await page.evaluate(() => window.musicPlays), []);

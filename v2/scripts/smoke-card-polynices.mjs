@@ -77,10 +77,11 @@ try {
         if (!localStorage.getItem(key)) localStorage.setItem(key, save);
         localStorage.setItem(`${key}.seen`, JSON.stringify(seen));
         localStorage.setItem("cosyworld.dialogue.sound", "off");
-        localStorage.setItem(
-          "cosyworld.room-music",
-          JSON.stringify({ enabled: false }),
-        );
+        const play = HTMLMediaElement.prototype.play;
+        HTMLMediaElement.prototype.play = function (...args) {
+          if (this.src.includes("hillside-sanctuary")) window.funeralSong = this;
+          return play.apply(this, args);
+        };
       },
       { key, save: encodeSave(fixture), seen: Object.keys(profiles) },
     );
@@ -259,12 +260,14 @@ try {
         );
         const saved = (await state()).packs["greek-drama"];
         assert.equal(saved.receipts[rites[index]], before.turn + 1);
-        await page.reload();
-        await settle();
+        if (index < 2) {
+          await page.reload();
+          await settle();
+        }
         assert.deepEqual(
           (await state()).packs["greek-drama"],
           saved,
-          "Reload keeps the rite",
+          "The rite stays saved",
         );
       }
       const done = await state();
@@ -280,6 +283,40 @@ try {
       assert.equal(done.items["greek-funeral-cloth"].holder, "greek-eleusis");
       assert.equal(done.items["greek-shovel"].holder, hollow);
       await photograph("buried");
+      // A real Move keeps the started funeral performance through its end.
+      await page.waitForFunction(() => window.funeralSong && !window.funeralSong.paused);
+      const musicBefore = await page.evaluate(() => ({
+        position: window.funeralSong.currentTime,
+        duration: window.funeralSong.duration,
+        loop: window.funeralSong.loop,
+      }));
+      assert.equal(musicBefore.loop, false);
+      assert.ok(musicBefore.duration > 30);
+      for (const place of ["greek-battlefield", "greek-gate", "greek-courtyard"]) {
+        await clearSelection(page);
+        await selectCard(page, place, { touch: width === 390 });
+        await readyActionButton(page, "move").click();
+        await settle();
+        assert.equal((await state()).actors.vale.place, place);
+      }
+      await page.waitForFunction((position) =>
+        !window.funeralSong.paused && window.funeralSong.currentTime > position + 0.2,
+      musicBefore.position);
+      assert.equal(await page.locator("#room-music").evaluate((a) => a.paused), true);
+      await photograph("funeral-song-after-travel");
+      await page.evaluate(() => {
+        window.funeralSong.currentTime = window.funeralSong.duration - 0.25;
+      });
+      await page.waitForFunction(() => window.funeralSong.ended);
+      await page.waitForFunction(() => !document.querySelector("#room-music").paused);
+      assert.match(await page.locator("#room-music").getAttribute("src"), /greek-courtyard/);
+      const completedRites = (await state()).packs["greek-drama"];
+      await page.reload();
+      await settle();
+      assert.deepEqual((await state()).packs["greek-drama"], completedRites, "Reload keeps the final rite");
+      assert.equal((await state()).actors.vale.place, "greek-courtyard");
+      assert.equal(await page.evaluate(() => Boolean(window.funeralSong)), false);
+      console.log(JSON.stringify({ width, funeralMusic: musicBefore, travelled: true, ended: true, reload: true }));
       // The saved checked rite follows Vale after the funeral and pack close.
       const receipt = done.actors.vale.questRewards.find((r) => r.want.target === hollow);
       assert.ok(receipt);

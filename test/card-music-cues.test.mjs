@@ -40,8 +40,10 @@ async function table() {
       levels.set(audio, value) && node;
     return Object.defineProperty(context, "currentTime", { get: now });
   };
-  const players = Object.fromEntries(Object.keys(CUE_TRACKS).map((id) => [id, element()]));
-  const { battle, "battle-loss": loss } = players;
+  const players = Object.fromEntries(
+    Object.keys(CUE_TRACKS).map((id) => [id, element()]),
+  );
+  const { battle, funeral, "battle-loss": loss } = players;
   const room = element();
   const queue = Object.values(players);
   const cues = createMusicCues({
@@ -56,8 +58,75 @@ async function table() {
   await advance(1000);
   room.currentTime = 42;
   const level = (audio) => levels.get(audio)?.() ?? 0;
-  return { music, room, battle, loss, level };
+  return { music, room, battle, funeral, loss, cues, level };
 }
+
+it("finishes a funeral performance across travel, then releases the room song", async () => {
+  const { music, room, funeral, cues } = await table();
+  music.cue("funeral", "world-a");
+  await advance(5000);
+  expect(funeral.loop).toBe(false);
+  funeral.currentTime = 30;
+  music.setRoom("station");
+  music.cue(null, "world-a");
+  await advance(3000);
+  expect([funeral.paused, funeral.currentTime, room.paused]).toEqual([
+    false,
+    30,
+    true,
+  ]);
+  for (const control of ["setEnabled", "setHidden", "setQuiet"]) {
+    const paused = control === "setEnabled" ? false : true;
+    music[control](paused);
+    await advance(2100);
+    expect(funeral.paused).toBe(true);
+    music[control](!paused);
+    await advance(500);
+    expect([funeral.paused, funeral.currentTime]).toEqual([false, 30]);
+  }
+  funeral.pause();
+  funeral.dispatchEvent(new Event("ended"));
+  expect(cues.current).toBe(null);
+  await advance(1000);
+  expect(room.paused).toBe(false);
+  expect(room.src).toContain("station-1");
+});
+
+it("plays a completed performance once per cue and respects battle and world changes", async () => {
+  const { music, funeral, battle, cues } = await table();
+  music.cue("funeral", "world-a");
+  await advance(5000);
+  funeral.pause();
+  funeral.dispatchEvent(new Event("ended"));
+  music.cue("funeral", "world-a");
+  expect([funeral.paused, cues.current]).toEqual([true, null]);
+  music.cue(null, "world-a");
+  music.cue("funeral", "world-a");
+  await advance(1000);
+  music.cue("battle");
+  await advance(2100);
+  expect([funeral.paused, battle.paused, cues.current]).toEqual([
+    true,
+    false,
+    "battle",
+  ]);
+  funeral.dispatchEvent(new Event("ended"));
+  expect(cues.current).toBe("battle");
+  music.cue("funeral", "world-a");
+  await advance(1000);
+  music.cue(null, "world-b");
+  expect([funeral.paused, cues.current]).toEqual([true, null]);
+});
+
+it("releases an unstarted performance when the listener leaves", async () => {
+  const { music, funeral, cues } = await table();
+  music.setEnabled(false);
+  music.cue("funeral", "world-a");
+  music.cue(null, "world-a");
+  music.setEnabled(true);
+  await advance(5000);
+  expect([funeral.paused, cues.current]).toEqual([true, null]);
+});
 
 it("crossfades from the room song into a looping battle song and back", async () => {
   const { music, room, battle, level } = await table();

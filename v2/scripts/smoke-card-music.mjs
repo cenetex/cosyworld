@@ -8,6 +8,7 @@ import {
   openSettings,
   pressSetting,
   closeSettings,
+  readyActionButton,
   tapCard,
 } from "./card-browser-helpers.mjs";
 import assert from "node:assert/strict";
@@ -71,11 +72,7 @@ try {
       () => document.querySelector("#hand").dataset.cooling === "false",
     );
     await selectCard(page, card);
-    const action = page.locator(
-      kind
-        ? `#card-actions [data-action="${kind}"]`
-        : "#card-actions .card-primary",
-    );
+    const action = readyActionButton(page, kind);
     await action.click();
   }
   // A new game stays quiet, menu included, until its first accepted card play.
