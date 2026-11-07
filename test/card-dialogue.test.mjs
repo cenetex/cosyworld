@@ -555,6 +555,8 @@ describe("one exchange per card play", () => {
     expect(show).toHaveBeenCalledTimes(1);
     exchange.revealed(1);
     exchange.advance();
+    exchange.revealed(1);
+    expect(exchange.read).toBe(false);
     exchange.advance();
     vi.advanceTimersByTime(10000);
     expect(show).toHaveBeenCalledTimes(2);

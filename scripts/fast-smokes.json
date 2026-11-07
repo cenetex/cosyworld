@@ -17,6 +17,10 @@
   ],
   "rules": [
     {
+      "paths": "^v2/card-game/(app|shared|dialogue|scene)\\.mjs$",
+      "smokes": ["smoke-card-speech-queue"]
+    },
+    {
       "paths": "^v2/card-game/authoring-create-transfer\\.mjs$|^v2/scripts/smoke-authoring-create-transfer\\.mjs$",
       "smokes": ["smoke-authoring-create-transfer"]
     },

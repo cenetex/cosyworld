@@ -547,6 +547,26 @@ export function sharedNextLine(state, room, seq) {
     .find((line) => line.seq > seq && line.seq >= earliest);
 }
 
+// A viewer resumes the line they opened. A fresh reader starts at the first
+// line of the latest exchange; the server clock only orders exchanges.
+export function sharedReadingLine(state, room, saved = null) {
+  const scenes = roomScenes(state, room);
+  const log = state.world?.log || [];
+  const earliest = log[0]?.seq ?? 0;
+  const lines = scenes.flatMap((scene) => scene.lines)
+    .filter((line) => line.seq >= earliest);
+  if (saved?.room === room && saved.actor === state.actor && saved.seed === state.world?.run?.seed &&
+      Number.isFinite(saved.seq) && saved.seq >= 0) {
+    const kept = lines.find((line) => line.seq === saved.seq) || log.find(
+      (line) => line.seq === saved.seq && line.generated && line.locationId === room,
+    );
+    if (kept) return kept;
+    const next = lines.find((line) => line.seq > saved.seq);
+    if (next) return next;
+  }
+  return scenes.at(-1)?.lines.find((line) => line.seq >= earliest) || null;
+}
+
 // Select a saved scene's line; imported local log entries have no such record.
 export function sharedVoiceReference(state, line) {
   if (!Number.isInteger(line?.seq) || line.silent) return;
