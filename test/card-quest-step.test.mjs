@@ -122,6 +122,7 @@ describe("a chosen quest's completion action", () => {
       kind: "item",
       target: "oil",
       step: { verb: "bring", at: "pond", to: "keeper" },
+      quest: { level: 2, left: 2 },
       since: 0,
       refusals: 0,
     };
