@@ -196,6 +196,15 @@ try {
         false,
         "The last reply waits for Continue",
       );
+      await page.locator("#beat-behind").click({ position: { x: 80, y: 6 } });
+      await page
+        .getByRole("button", { name: /^Return to live dialogue/ })
+        .click();
+      assert.equal(
+        await page.locator("#speaker-portrait").getAttribute("data-entity"),
+        "greek-guard",
+      );
+      assert.equal(await page.locator("#action-beat").isVisible(), false);
       const before = await page.evaluate(
         (key) => JSON.parse(localStorage.getItem(key)),
         key,

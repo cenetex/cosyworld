@@ -5744,7 +5744,8 @@ function adoptShared(value) {
   }
   const key = JSON.stringify([value.world, value.present, value.claimed]);
   if (key !== sharedWorldKey) {
-    const from = world.actors[currentActor(world)].place;
+    const previousActor = currentActor(world);
+    const from = world.actors[previousActor].place;
     const before = lastSeq(world);
     const next = sharedWorld(value);
     const alreadyOpen = Boolean(sharedWorldKey);
@@ -5780,6 +5781,7 @@ function adoptShared(value) {
       ? "pending"
       : "ready";
     const moved = world.actors[currentActor(world)].place !== from;
+    if (moved || value.actor !== previousActor) queuedChoice = false;
     if (moved) {
       cancelTravel();
       reviewing = false;
