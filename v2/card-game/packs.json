@@ -410,7 +410,7 @@
       "schemaVersion": 1,
       "id": "greek-drama",
       "packId": "cosyworld.greek-drama",
-      "revision": 22,
+      "revision": 23,
       "name": "The Wine-Dark Sea",
       "description": "A branching Greek drama world. A shared ship visits the Wine-Dark Harbor, Athens Harbor and Piraeus. One road joins Athens and Piraeus, and short paths lead to the Attic places where welcome becomes a growing poem.",
       "tone": "Concrete Greek domestic and civic life: bread, work, desire, grief, argument, irreverence, and hospitality. Dialogue expresses committed actions. A tragic ending is never required.",
@@ -1584,6 +1584,11 @@
                   {
                     "kind": "flag",
                     "key": "greek-burial-performed",
+                    "value": true
+                  },
+                  {
+                    "kind": "flag",
+                    "key": "greek-concession-public",
                     "value": true
                   }
                 ]
@@ -2930,9 +2935,19 @@
           "live": true,
           "requires": [
             {
-              "kind": "holding",
-              "item": "greek-creon-writ",
-              "actor": "greek-guard"
+              "kind": "any",
+              "conditions": [
+                {
+                  "kind": "holding",
+                  "item": "greek-creon-writ",
+                  "actor": "greek-guard"
+                },
+                {
+                  "kind": "flag",
+                  "key": "greek-concession-public",
+                  "value": true
+                }
+              ]
             }
           ]
         },
@@ -3113,6 +3128,11 @@
                   "kind": "item_near",
                   "item": "greek-creon-writ",
                   "place": "greek-courtyard"
+                },
+                {
+                  "kind": "flag",
+                  "key": "greek-concession-public",
+                  "value": true
                 }
               ]
             }
@@ -3540,7 +3560,7 @@
           "subject": "greek-baker",
           "at": "greek-courtyard",
           "label": "Share the public exception",
-          "text": "Vale sets Creon's Writ on Dione's table. She speaks of the Argive mothers at Eleusis.",
+          "text": "Dione keeps a copy of the permission and returns the original writ to Creon. She speaks of the Argive mothers at Eleusis.",
           "requires": [
             {
               "kind": "choice",
@@ -3555,9 +3575,9 @@
           ],
           "effects": [
             {
-              "kind": "place_item",
+              "kind": "give_item",
               "item": "greek-creon-writ",
-              "place": "greek-courtyard"
+              "actor": "greek-creon"
             },
             {
               "kind": "set_flag",
@@ -3570,7 +3590,7 @@
               "value": true
             }
           ],
-          "textTemplate": "{actor} sets Creon's Writ on Dione's table. She speaks of the Argive mothers at Eleusis.",
+          "textTemplate": "Dione keeps a copy of the permission and returns the original writ to Creon. She speaks of the Argive mothers at Eleusis.",
           "on": "give"
         },
         {

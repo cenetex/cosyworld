@@ -14,6 +14,7 @@ import {
   entityEnabled,
   latchingRoute,
   packEntity,
+  packGiftFits,
 } from "./pack-registry.mjs";
 import { sectionAllows } from "./pack-sections.mjs";
 import { authoredRouteEdges } from "./roaming-routes.mjs";
@@ -150,6 +151,7 @@ export function upgradeSave(
       s.packs["greek-drama"].revision = 21;
     if (s.packs?.["greek-drama"]?.revision === 21)
       s.packs["greek-drama"].revision = 22;
+    upgradeGreekWritSave(s);
     upgradeRecitals(s, packDefinitions);
   }
   upgradeSightings(s);
@@ -799,6 +801,34 @@ export function upgradeGreekDecreeSave(s) {
   saved.revision = 20;
 }
 
+// Revision 23 returns the original after Dione records the public permission.
+function upgradeGreekWritSave(s) {
+  const pack = packDefinitions.find((p) => p.id === "greek-drama"),
+    saved = s.packs?.[pack?.id];
+  if (!pack || pack.revision < 23 || saved?.revision !== 22) return;
+  const id = "greek-creon-writ",
+    item = s.items?.[id],
+    choice = pack.choices.find((c) => c.id === "greek-courtyard-concession");
+  const untouched = item?.holder === "greek-palace" && !item.history?.length;
+  const copied =
+    item?.holder === choice.at &&
+    Object.hasOwn(saved.receipts, choice.id) &&
+    item.history
+      ?.at(-1)
+      ?.endsWith(
+        " sets Creon's Writ on Dione's table. She speaks of the Argive mothers at Eleusis.",
+      );
+  if (
+    (untouched || copied) &&
+    !Object.values(s.items).some((i) => i.holder === id) &&
+    packGiftFits(s, id, pack.items[id].holder)
+  ) {
+    item.holder = pack.items[id].holder;
+    if (copied) item.history = [...item.history, choice.text].slice(-12);
+  }
+  saved.revision = 23;
+}
+
 // Each rumoured place and the reachable place its visitors return to. Troy
 // is the Northern Road's far end, so its travelers come down at the harbor.
 const RUMOURS = {
@@ -1180,7 +1210,8 @@ export function upgradeGreekHomecomingSave(s) {
 function upgradeGreekFuneralSave(s) {
   const pack = packDefinitions.find((p) => p.id === "greek-drama");
   const saved = s.packs?.[pack?.id];
-  if (!pack?.avatars["greek-polynices-shade"] || !saved || saved.revision > 20) return;
+  if (!pack?.avatars["greek-polynices-shade"] || !saved || saved.revision > 20)
+    return;
   addGreekEntities(s, pack, ["greek-polynices-shade"], []);
   const antigone = s.actors["greek-antigone"];
   if (antigone && !saved.flags?.["greek-burial-performed"])

@@ -1355,7 +1355,18 @@ export function packProblems(pack, hub, mountedPlaces = [], mountedItems = []) {
           keysOk(e, ["kind", "item"]) && owns(items, e.item) && c.on === "meet";
       if (e.kind === "give_item")
         valid =
-          keysOk(e, ["kind", "item"]) && owns(items, e.item) && c.on !== "meet";
+          keysOk(e, ["kind", "item", "actor"]) &&
+          owns(items, e.item) &&
+          c.on !== "meet" &&
+          (e.actor === undefined ||
+            (owns(avatars, e.actor) &&
+              c.on === "give" &&
+              (c.requires || []).some(
+                (r) =>
+                  r.kind === "holding" &&
+                  r.item === e.item &&
+                  r.role === "actor",
+              )));
       // A cosmetic upgrade for the traveler the choice is for (#1873).
       if (e.kind === "upgrade")
         valid =
