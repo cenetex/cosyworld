@@ -50,9 +50,9 @@ import {
 } from "./card-entry.mjs";
 import {
   LOCKED_BACK,
+  CLOSED_BOX,
   createLockedBoxes,
   isLockedBox,
-  lockedQuest,
 } from "./locked-box.mjs";
 import { fadeInRevealed, revealedStage } from "./stage-reveal.mjs";
 import { OPENING_REVEAL, openingStep } from "./opening.mjs";
@@ -423,7 +423,8 @@ const cardArt = (id) =>
 // going (the ship's deck from its berth), lit for the hour and weather.
 const placeArt = (id) => placeCardArt(world, id);
 const cardIsCovered = (id) => !encountered.has(id) || coveredCards.has(id);
-const visibleText = (text) => coveredText(world, text, cardIsCovered);
+const cardIsClosed = (id) => cardIsCovered(id) || isLockedBox(world, id);
+const visibleText = (text) => coveredText(world, text, cardIsClosed);
 // The scene's uncovered cards, so text writes their names in their card's
 // colour (card-names.mjs).
 const cardColours = (ids) =>
@@ -434,7 +435,7 @@ const cardColours = (ids) =>
     color: levelTier(cardLevel(world, id)).color,
   }));
 const sceneCards = () =>
-  cardColours(availableCards(world).filter((id) => !cardIsCovered(id)));
+  cardColours(availableCards(world).filter((id) => !cardIsClosed(id)));
 const namedSpan = (text) => {
   const span = document.createElement("span");
   span.append(...namedText(text, sceneCards()));
@@ -443,7 +444,7 @@ const namedSpan = (text) => {
 // The screen names a card only once its player has uncovered it (#1575),
 // and the world's hidden avatar only once this avatar has met it (#1936).
 const knownName = (id, unknown = "…") =>
-  coveredCards.has(id) || hiddenFor(world, currentActor(world))?.id === id
+  cardIsClosed(id) || hiddenFor(world, currentActor(world))?.id === id
     ? unknown
     : nameOf(id);
 // The waking avatar speaks as soon as its own card is known. Its covered
@@ -2303,21 +2304,22 @@ function renderActions() {
   // reply types into the full-size front card.
   // While the opening has a card down, the button only reveals the next.
   const quiet = !rested && opening()?.step === "reveal";
-  const actions = rested || quiet ? [] : ready;
+  const closed = selected.some(cardIsClosed);
+  const actions = rested || quiet || closed ? [] : ready;
   const clientText = quiet
     ? "Turn over the next card."
     : !rested &&
         selected.length === 1 &&
         things[selected[0]]?.view &&
-        !cardIsCovered(selected[0])
+        !cardIsClosed(selected[0])
       ? `Look at ${theName(selected[0])} up close.`
       : "";
-  const selectionName = selected.map(nameOf).join(" + ");
+  const selectionName = selected.map((id) => cardIsClosed(id) ? "Closed box" : nameOf(id)).join(" + ");
   const itemDetails =
     !rested &&
     selected.length === 1 &&
     things[selected[0]] &&
-    !cardIsCovered(selected[0])
+    !cardIsClosed(selected[0])
       ? `${nameOf(selected[0])}. ${things[selected[0]].text || ""} ${cardObservation(world, selected[0])}`.trim()
       : "";
   $("selection-name").textContent = selected.length
@@ -2330,8 +2332,7 @@ function renderActions() {
     // The quest chosen in the open fan names itself, as a play does.
     questShown =
       !selected.length && questOpen && !rested ? shownQuests[questPick] : null,
-    lockShown =
-      !rested && selected.length === 1 ? lockedQuest(world, selected[0]) : null,
+    lockShown = !rested && closed ? { text: CLOSED_BOX, cards: [] } : null,
     // Rule texts can double a name's article ("the The Burial Decree").
     sentence = lockShown
       ? lockShown.text
@@ -2351,9 +2352,7 @@ function renderActions() {
   const others = selected.filter((id) => id !== actor);
   const here = world.actors[actor].place;
   const involved = lockShown
-    ? lockShown.recipe
-      ? lockShown.cards
-      : [actor, ...lockShown.cards]
+    ? []
     : questShown
       ? [actor, questShown.target].filter((id) => id && !cardIsCovered(id))
       : sentence
@@ -2528,17 +2527,13 @@ function renderActions() {
   }
   // A sealed card says why its way is shut in the context button once its
   // quest is taken; until then Seek the way carries the reason.
-  const sealed =
-    !rested &&
-    selected.length === 1 &&
-    !actions.some((a) => a.kind === "gate") &&
-    sealedReason(world, selected[0]);
+  const sealed = !rested && closed;
   if (sealed) {
     const why = node("button", "Locked", "card-action");
     why.type = "button";
     why.disabled = true;
     why.dataset.blocked = "gate";
-    why.title = sealed;
+    why.title = CLOSED_BOX;
     row.append(why);
   }
   // An Ask, Trade or Invite of a sleeping resident says so (rules 100).
@@ -2628,7 +2623,7 @@ function renderActions() {
       ? `Not played: ${playLabel(a)}. ${refusedPlay(a)}`
       : playLabel(a);
   $("play-readout").textContent = selected.length
-    ? `${selectionName}. ${lockShown?.text || ready.map(readout).join(". ") || hint}`
+    ? `${selectionName}. ${lockShown?.text || actions.map(readout).join(". ") || hint}`
     : questOpen && (shownQuests[questPick] || sealedQuests[0])
       ? shownQuestCaption(shownQuests[questPick] || sealedQuests[0], false)
       : "";
@@ -2674,7 +2669,7 @@ function updateCardSelection(frame) {
   frame.dataset.raised = String(raised);
   button.setAttribute("aria-pressed", String(raised));
   button.dataset.selected = String(selected.includes(id));
-  button.classList.toggle("new", fresh.has(id));
+  button.classList.toggle("new", !cardIsClosed(id) && fresh.has(id));
   if (frame.dataset.holder)
     frame.hidden = places[frame.dataset.holder]
       ? !expandedHolders.has(frame.dataset.holder)
@@ -2683,8 +2678,8 @@ function updateCardSelection(frame) {
     frame.dataset.expanded = String(expandedHolders.has(id));
     button.setAttribute("aria-expanded", String(expandedHolders.has(id)));
   }
+  if (cardIsClosed(id)) return;
   syncAvatarStack(frame, id);
-  if (button.dataset.locked === "true") return;
   button.querySelector(".sr-only").textContent =
     cardObservation(world, id) +
     (label ? ` ${label}.` : "") +
@@ -2712,7 +2707,7 @@ function openLockedBoxes() {
       .filter((button) => !button.parentElement.hidden)
       .map((button) => button.dataset.card),
     buttons
-      .filter((button) => button.dataset.locked === "true")
+      .filter((button) => isLockedBox(world, button.dataset.card))
       .map((button) => button.dataset.card),
   );
   const lid = imageUrl(LOCKED_BACK, "card");
@@ -2815,8 +2810,16 @@ function showQuests(opening) {
   for (const card of cards) {
     if (card.dataset.met === "true") questsInView.turned(card.dataset.questEntry);
     const down = questsInView.down(card.dataset.questEntry);
-    card.dataset.unrevealed = String(down);
+    setQuestClosed(card, down);
     if (!down && seen(card)) revealedQuests.add(card.dataset.questEntry);
+  }
+}
+function setQuestClosed(card, closed) {
+  card.dataset.unrevealed = card.dataset.locked = String(closed);
+  const entry = questEntry(card.dataset.questId);
+  if (entry) {
+    card.dataset.near = String(!closed && questNear(world, entry.quest));
+    card.setAttribute("aria-label", closed ? "Closed box" : questLabel(entry.quest, entry.met, card.dataset.near === "true"));
   }
 }
 function turnQuest(key) {
@@ -2827,7 +2830,7 @@ function turnQuest(key) {
   if (!card) return questsInView.unseen(key);
   if (!questsInView.turned(key)) return;
   revealedQuests.add(key);
-  card.dataset.unrevealed = "false";
+  setQuestClosed(card, false);
   void revealCard(card);
 }
 function moveHandPart(key, element, frames, duration = 220) {
@@ -2845,19 +2848,20 @@ function card(id) {
     crossingFace = type === "location" ? travelCard(world, id) : null,
     def = crossingFace ? { ...base, name: crossingFace.name } : base,
     // A card locked behind a quest is a carved wooden box (locked-box.mjs).
-    locked = isLockedBox(world, id);
+    locked = isLockedBox(world, id),
+    hidden = cardIsCovered(id) || locked;
   const raised =
     selected.includes(id) || Boolean(places[id] && expandedHolders.has(id));
   const chosen = raised ? cardPlay(world, selected) : null;
   const el = node("button", undefined, `card ${type}`);
-  const level = cardLevel(world, id),
+  const level = hidden ? 1 : cardLevel(world, id),
     tier = levelTier(level);
   el.dataset.level = String(level);
   el.dataset.tier = tier.id;
   el.dataset.selected = String(selected.includes(id));
   el.style.setProperty("--tier-color", tier.color);
   el.type = "button";
-  el.classList.toggle("new", fresh.has(id));
+  el.classList.toggle("new", !hidden && fresh.has(id));
   el.dataset.card = id;
   el.disabled = selectionBlocked();
   el.setAttribute("aria-pressed", String(raised));
@@ -2916,7 +2920,6 @@ function card(id) {
   const observation = node("span", cardObservation(world, id), "sr-only");
   observation.id = `card-detail-${id}`;
   if (raised && label) observation.textContent += ` ${label}.`;
-  const hidden = cardIsCovered(id) || locked;
   if (hidden) observation.textContent = "";
   // A locked box is labelled "Locked" (the owner's exception); its reason
   // is in the context button.
@@ -2924,7 +2927,7 @@ function card(id) {
     graphic,
     setCardLabel(
       node("span", undefined, "name"),
-      locked ? "Locked" : hidden ? "" : def.name,
+      hidden ? "" : def.name,
     ),
     observation,
   );
@@ -2936,9 +2939,9 @@ function card(id) {
     el.append(numeral);
   }
   el.addEventListener("click", () => choose(id));
-  el.draggable = !el.disabled && !cardIsCovered(id);
+  el.draggable = !el.disabled && !hidden;
   el.addEventListener("dragstart", (e) => {
-    if (selectionBlocked() || cardIsCovered(id)) {
+    if (selectionBlocked() || cardIsClosed(id)) {
       e.preventDefault();
       return;
     }
@@ -2967,7 +2970,7 @@ function card(id) {
     e.stopPropagation();
     if (
       !selectionBlocked() &&
-      !cardIsCovered(id) &&
+      !cardIsClosed(id) &&
       dragging.length &&
       !dragging.includes(id)
     ) {
@@ -3005,7 +3008,7 @@ function card(id) {
     const held = availableCards(world).filter(
       (item) => things[item] && rootHolder(world, item) === id,
     );
-    if (held.length && !locked) {
+    if (held.length && !hidden) {
       frame.dataset.inventory = String(held.length);
       frame.dataset.expanded = String(expandedHolders.has(id));
       el.setAttribute("aria-expanded", String(expandedHolders.has(id)));
@@ -3020,7 +3023,7 @@ function card(id) {
         const preview = node("img", undefined, "held-preview");
         preview.decoding = "async";
         preview.src = imageUrl(
-          cardIsCovered(item) ? "./assets/card-back.webp" : cardArt(item),
+          cardIsClosed(item) ? LOCKED_BACK : cardArt(item),
           "card",
         );
         preview.alt = "";
@@ -3029,21 +3032,20 @@ function card(id) {
       }
     }
   }
-  syncAvatarStack(frame, id);
-  if (foldQuest()?.actor === id) frame.prepend(questFold(foldQuest()));
+  if (!hidden) {
+    syncAvatarStack(frame, id);
+    if (foldQuest()?.actor === id) frame.prepend(questFold(foldQuest()));
+  }
   // Its reason is in the context button, never on the box.
-  el.dataset.locked = String(locked);
+  el.dataset.locked = String(hidden);
   el.dataset.unrevealed = String(cardIsCovered(id) && !locked);
   const back = node("img", undefined, "card-back");
-  back.src = imageUrl(locked ? LOCKED_BACK : "./assets/card-back.webp", "card");
+  back.src = imageUrl(LOCKED_BACK, "card");
   back.alt = "";
   back.draggable = false;
   el.append(back);
-  if (locked) {
-    el.setAttribute("aria-label", `Locked ${type} card, ${tier.label}`);
-    el.removeAttribute("aria-describedby");
-  } else if (cardIsCovered(id)) {
-    el.setAttribute("aria-label", `Uncover new ${type} card, ${tier.label}`);
+  if (hidden) {
+    el.setAttribute("aria-label", "Closed box");
     el.removeAttribute("aria-describedby");
   }
   return frame;
@@ -3051,7 +3053,7 @@ function card(id) {
 // Face-down layers in a stack (the ways on, the folded quest and its steps
 // to come) show the carved card back.
 const cardBackImage = () =>
-  `url("${imageUrl("./assets/card-back.webp", "card")}")`;
+  `url("${imageUrl(LOCKED_BACK, "card")}")`;
 // The quest card: a small screen showing the player doing the quest's verb
 // with its target, with only the verb, the level and the tier colour as
 // words. It glows while the target is near. The card itself plays nothing:
@@ -3059,7 +3061,7 @@ const cardBackImage = () =>
 // (quest-step.mjs).
 const questCovered = (quest) =>
   quest.receiptId === undefined && (!quest.target || cardIsCovered(quest.target));
-const known = (id) => !cardIsCovered(id);
+const known = (id) => !cardIsClosed(id);
 function shownQuestCaption(quest, includeLevel = true) {
   const hidden = questCovered(quest);
   const shown = includeLevel ? quest : { ...quest, level: null };
@@ -3086,6 +3088,9 @@ function questView(quest) {
     atCovered: questBox(quest, known),
   };
 }
+const questLabel = (quest, met, near) => met
+  ? `Quest met: ${shownQuestCaption(quest)}. Select to collect its reward.`
+  : `Quest${quest.index ? ` ${quest.index + 1}` : ""}: ${shownQuestCaption(quest)}${near ? ", near" : ""}`;
 function questFrame({ id, quest, met }) {
   const picked = !met && questOpen && quest.index === questPick;
   const hidden = questCovered(quest),
@@ -3109,10 +3114,7 @@ function questFrame({ id, quest, met }) {
   el.setAttribute("aria-pressed", String(picked));
   el.setAttribute(
     "aria-label",
-    met
-      ? `Quest met: ${shownQuestCaption(quest)}. Select to collect its reward.`
-      : `Quest${quest.index ? ` ${quest.index + 1}` : ""}: ${shownQuestCaption(quest)}${near ? ", near" : ""}`,
-  );
+    questLabel(quest, met, near),  );
   if (met) {
     el.dataset.met = "true";
     el.append(node("span", "✓", "quest-seal"));
@@ -3127,7 +3129,7 @@ function questFrame({ id, quest, met }) {
   el.append(
     // Face down, it shows the carved lid until it turns.
     Object.assign(node("img", undefined, "card-back"), {
-      src: imageUrl("./assets/card-back.webp", "card"),
+      src: imageUrl(LOCKED_BACK, "card"),
       alt: "",
       draggable: false,
     }),

@@ -170,15 +170,10 @@ try {
       await selectCard(page, hollow, { touch: width === 390 });
       const locked = page.locator(`#hand [data-card="${hollow}"]`);
       assert.equal(await locked.getAttribute("data-locked"), "true");
-      await readyActionButton(page, "gate").waitFor();
-      assert.match(await readyActionButton(page, "gate").innerText(), /Polynices.*Shade/);
+      assert.equal(await page.locator('#card-actions [data-blocked="gate"]').getAttribute("title"), "A closed box.");
+      assert.equal(await page.locator('#card-actions [data-action="gate"]').count(), 0);
       await photograph("locked");
-      const turn = (await state()).turn;
-      assert.equal(turn, 47, "Talk is chosen on the last night turn");
-      await readyActionButton(page, "gate").click();
-      await settle();
-      assert.equal((await state()).turn, turn, "Taking the Talk quest keeps the turn");
-      assert.equal((await state()).actors.vale.want.target, "greek-polynices-shade");
+      assert.equal((await state()).turn, 47, "Talk is chosen on the last night turn");
       await clearSelection(page);
       await selectCard(page, "greek-polynices-shade", { touch: width === 390 });
       await readyActionButton(page, "talk").click();

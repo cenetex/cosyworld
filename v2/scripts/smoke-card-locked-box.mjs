@@ -1,6 +1,6 @@
 // A card locked behind a quest is a carved wooden box (locked-box.mjs). At
 // the shut City Gate the battlefield is the locked lid, labelled "Locked" on
-// a red edge; its descriptor names the guard. Talk gives his quest. Giving
+// a red edge; its contents stay concealed. Talk gives the guard's quest. Giving
 // the guard Creon's Writ opens the way: the box turns over once and
 // stays open through redraws.
 //
@@ -78,10 +78,13 @@ try {
       page.on("pageerror", (error) => errors.push(error.message));
       await page.addInitScript(
         ({ key, save, seen }) => {
-          if (!localStorage.getItem(key)) localStorage.setItem(key, save);
+          if (!localStorage.getItem(key)) {
+            localStorage.setItem(key, save);
+            localStorage.setItem(`${key}.seen.covered`, JSON.stringify(["greek-creon-writ"]));
+          }
           localStorage.setItem(`${key}.seen`, JSON.stringify(seen));
         },
-        { key, save, seen: Object.keys(profiles) },
+        { key, save, seen: Object.keys(profiles).filter((id) => id !== "greek-creon-writ") },
       );
       await page.route("**/card-game/text", (route) => {
         const context = route.request().postDataJSON();
@@ -120,16 +123,15 @@ try {
       const boxed = async () => {
         await revealCard(page, FIELD);
         assert.equal(await attr("data-locked"), "true");
-        // Its only words are "Locked", on a red edge.
-        assert.equal(await field.locator(".name").textContent(), "Locked");
-        assert.ok(await field.locator(".name").isVisible());
+        // Every closed box has the same nameless lid.
+        assert.equal(await field.locator(".name").textContent(), "");
         assert.equal(
           await field.evaluate((el) => getComputedStyle(el).borderTopColor),
           "rgb(226, 72, 58)",
         );
         assert.ok(await field.locator(".card-back").isVisible());
         assert.ok(!(await field.locator(".art img").first().isVisible()));
-        assert.doesNotMatch(await attr("aria-label"), /Battlefield/u);
+        assert.equal(await attr("aria-label"), "Closed box");
       };
       const open = async () => {
         await revealCard(page, FIELD);
@@ -148,15 +150,35 @@ try {
       await ready();
       await boxed();
       await shot("01-locked-box");
-      // The guarded lock describes its guard; Talk gives his quest.
+      const lidState = (card) => card.evaluate((el) => ({
+        src: el.querySelector(".card-back").src,
+        name: el.querySelector(".name").textContent,
+        label: el.getAttribute("aria-label"),
+        border: getComputedStyle(el).borderTopColor,
+        tier: el.dataset.tier,
+      }));
+      const closedLid = await lidState(field);
+      await page.keyboard.press("Escape");
+      await selectCard(page, "vale");
+      const writ = page.locator('#hand [data-card="greek-creon-writ"]');
+      assert.equal(await writ.getAttribute("data-unrevealed"), "true");
+      assert.deepEqual(await lidState(writ), closedLid);
+      await revealCard(page, "greek-creon-writ");
+      assert.equal(await writ.getAttribute("data-locked"), "false");
+      assert.match(await writ.getAttribute("aria-label"), /Creon/u);
+      await page.keyboard.press("Escape");
+      // Selecting the box keeps its contents concealed. Talk gives the guard's quest.
       await selectCard(page, FIELD);
       const lock = page.locator('#card-actions [data-blocked="gate"]');
       assert.equal(await lock.textContent(), "Locked");
       assert.equal(
         await page.locator(".action-beat-text").textContent(),
-        "The Gate Guard is guarding this card",
+        "A closed box.",
       );
       assert.equal(await lock.isDisabled(), true);
+      assert.equal(await lock.getAttribute("title"), "A closed box.");
+      assert.equal(await page.locator("#selection-name").textContent(), "Closed box");
+      assert.doesNotMatch(await page.locator("#play-readout").textContent(), /Battlefield|Guard|Writ/u);
       await page.keyboard.press("Escape");
       await selectCard(page, "greek-guard");
       if (await page.locator('#card-actions [data-action="meet"]').count()) {

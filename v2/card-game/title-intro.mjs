@@ -560,12 +560,13 @@ export function playTitleIntro({
   const card = element("button", "card avatar");
   card.type = "button";
   card.dataset.unrevealed = "true";
+  card.dataset.locked = "true";
   card.dataset.card = "title-traveller";
   // The acknowledgement asks "Will you take it?"; the card back is the box.
   card.setAttribute("aria-label", "Open the box");
   const back = element("img", "card-back");
   back.alt = "";
-  back.src = imageUrl("./assets/card-back.webp", "card");
+  back.src = imageUrl("./assets/card-back-locked.webp", "card");
   card.append(back);
   const frame = element("div", "card-frame title-card");
   frame.append(card);
@@ -694,6 +695,7 @@ export function playTitleIntro({
     await race(Promise.race([Promise.all(decoded), wait(400)]));
     if (leaving) return;
     card.dataset.unrevealed = "false";
+    card.dataset.locked = "false";
     card.setAttribute("aria-label", wakeName || "Your traveller");
     if (!reduced) await race(revealCard(card));
     await race(wait(WAKE_FADE.turn.holdMs));

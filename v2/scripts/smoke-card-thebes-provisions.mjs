@@ -155,7 +155,7 @@ try {
     await sealed.waitFor({ state: "attached" });
     assert.equal(await sealed.getAttribute("data-locked"), "true");
     await revealCard(page, "greek-battlefield");
-    assert.equal(await sealed.locator(".name").textContent(), "Locked");
+    assert.equal(await sealed.locator(".name").textContent(), "");
     assert.equal(await sealed.locator(".card-back").isVisible(), true);
     assert.equal(await sealed.locator(".art img").first().isVisible(), false);
     await shot("03-guarded-gate-card");
@@ -166,7 +166,7 @@ try {
     const guarded = page.locator('#card-actions [data-blocked="gate"]');
     assert.equal(
       await guarded.getAttribute("title"),
-      "The Gate Guard is guarding this card",
+      "A closed box.",
     );
     assert.equal(await guarded.isDisabled(), true);
     assert.equal(
@@ -213,7 +213,7 @@ try {
     const shut = page.locator('#card-actions [data-blocked="gate"]');
     assert.equal(
       await shut.getAttribute("title"),
-      "Put the Travel Provisions down on deck",
+      "A closed box.",
     );
     assert.equal(await shut.isDisabled(), true);
     assert.equal(
