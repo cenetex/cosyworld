@@ -86,7 +86,16 @@ try {
     await ready();
     assert((await floor()).includes("oil"), "the flask rests on the pond floor");
     // Taking the flask puts it in the hand that holds the empty lamp.
-    await cards("oil");
+    await ready();
+    await selectCard(page, "oil", { touch });
+    assert.equal(await page.locator("#selection-name").textContent(), "Oil flask");
+    assert.doesNotMatch(
+      await page.locator("#action-beat").innerText(),
+      /Fills an empty lamp|waits full again|twelve on its own/i,
+      "selecting the flask does not reveal its catalog instructions",
+    );
+    await page.locator("#card-actions .card-primary").click();
+    await ready();
     await page.waitForFunction(
       (key) => JSON.parse(localStorage.getItem(key)).items.lamp.fuel === 12,
       key,
