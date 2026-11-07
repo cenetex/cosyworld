@@ -3248,6 +3248,7 @@ async function clearQuest(button, quest) {
   if (selectionBlocked() || (pending && !pending.uncertain)) return;
   const reward = pending || { quest, color: button.style.getPropertyValue("--tier-color"),
     box: button.getBoundingClientRect(), key: crypto.randomUUID() };
+  questOpen = false;
   if (quest.receiptId === undefined) {
     sealedQuests = sealedQuests.filter((q) => q !== quest);
     render();

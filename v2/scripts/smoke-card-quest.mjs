@@ -192,19 +192,6 @@ try {
     await page.screenshot({
       path: new URL(`expanded-${width}.png`, output).pathname,
     });
-    // Keep the reply pending while its completed card is tapped.
-    let releaseReply;
-    const replyGate = new Promise((resolve) => { releaseReply = resolve; });
-    const holdReply = async (route) => {
-      await replyGate;
-      const input = route.request().postDataJSON();
-      await route.fulfill({ json: {
-        revision: input.revision,
-        model: "quest-claim-fixture",
-        entries: input.entities.map(({ id }) => ({ id, text: "The lamp shines beside the saved deed." })),
-      } });
-    };
-    await page.route("**/card-game/text", holdReply);
     // Any play meets it; its checked card stays in the open avatar group.
     await page
       .locator(
@@ -240,14 +227,8 @@ try {
     // Cleared, it falls away as an inert ghost; reduced motion lets it go.
     await card.hover();
     await card.click();
-    assert.equal(await card.isDisabled(), true);
-    assert.equal(await page.evaluate((key) => JSON.parse(localStorage.getItem(key)).actors.vale.questRewards.length, key), 1);
-    releaseReply();
     const gain = page.locator(".quest-xp");
     await gain.waitFor();
-    await page.unroute("**/card-game/text", holdReply);
-    await page.waitForFunction(() => document.querySelector("#dialogue-text").textContent.includes("The lamp shines beside the saved deed."));
-    assert.ok(await page.evaluate((key) => JSON.parse(localStorage.getItem(key)).log.some((e) => e.text?.includes("The lamp shines beside the saved deed.")), key));
     const falling = await page.locator(".card-exits > .beat-ghost").evaluateAll(
       (ghosts) => ghosts.map((g) => [g.inert, getComputedStyle(g).pointerEvents]),
     );
@@ -523,6 +504,21 @@ try {
     await page.screenshot({
       path: new URL(`give-${width}.png`, output).pathname,
     });
+    // Keep the reply pending while its completed card is tapped.
+    let releaseReply, replyStarted;
+    const requestStarted = new Promise((resolve) => { replyStarted = resolve; });
+    const replyGate = new Promise((resolve) => { releaseReply = resolve; });
+    const holdReply = async (route) => {
+      replyStarted();
+      await replyGate;
+      const input = route.request().postDataJSON();
+      await route.fulfill({ json: {
+        revision: input.revision,
+        model: "quest-claim-fixture",
+        entries: input.entities.map(({ id }) => ({ id, text: "The lamp shines beside the saved deed." })),
+      } });
+    };
+    await page.route("**/card-game/text", holdReply);
     // The last held item leaves, and the completed quest stays in reach.
     const xp = await page.evaluate(
       (key) => JSON.parse(localStorage.getItem(key)).actors.vale.xp,
@@ -531,6 +527,7 @@ try {
     await page
       .locator('#card-actions [data-quest-step]:not([data-revealing="true"])')
       .click();
+    await Promise.race([requestStarted, page.waitForTimeout(15000).then(() => { throw new Error("Gift speech request did not start"); })]);
     const metGift = page.locator('#hand .want-card[data-met="true"]');
     await metGift.waitFor();
     await page.waitForFunction(() => {
@@ -567,6 +564,16 @@ try {
     });
     const completedGift = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)), gateKey);
     const receiptKey = await metGift.getAttribute("data-quest-key");
+    await metGift.click({ position: { x: 40, y: 16 } });
+    assert.equal(await metGift.isDisabled(), true);
+    assert.equal(await page.evaluate((key) => JSON.parse(localStorage.getItem(key)).actors.vale.questRewards.length, gateKey), 1);
+    releaseReply();
+    await page.locator(".quest-xp").waitFor();
+    await page.unroute("**/card-game/text", holdReply);
+    assert.ok(await page.evaluate((key) => JSON.parse(localStorage.getItem(key)).log.some((e) => e.text?.includes("The lamp shines beside the saved deed.")), gateKey));
+    await page.waitForFunction(() => document.querySelector("#dialogue-text").textContent.includes("The lamp shines beside the saved deed."));
+    // Open a second saved copy to check reload and a full local save store.
+    await page.evaluate(({ key, saved }) => localStorage.setItem(key, JSON.stringify(saved)), { key: gateKey, saved: completedGift });
     await page.reload();
     await ready();
     await selectCard(page, "vale");
