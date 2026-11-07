@@ -59,6 +59,7 @@ import {
   tastes,
 } from "./motives.mjs";
 import { newMemories, rememberEvent, validMemories } from "./memory.mjs";
+import { handSnapshot, settleHeldItems, validHeldItems } from "./held-item.mjs";
 import {
   installKnowledge,
   witnessKnowledge,
@@ -339,6 +340,7 @@ export function createWorld({ opening = false, packScopes = {}, seed } = {}) {
   fillWants(world, wantAPI(world), true);
   rememberEvent(world, world.log[0]);
   settleGuards(world);
+  settleHeldItems(world);
   return world;
 }
 // Mount every pack missing from this save: its crossings, its state, and its
@@ -2357,9 +2359,11 @@ function residentRound(s, acted) {
 // played since the last Strike and none of those plays was one. A Strike
 // starts the round again; an arrival must play before it can complete.
 function perform(s, a, round = null, settle = []) {
+  const hands = handSnapshot(s);
   settleStandoffs(s); // anyone who walked in joins before playing
   const conflict = standoffFor(s, a.actor);
   const result = performPlay(s, a, round, settle);
+  settleHeldItems(s, hands);
   if (conflict && s.standoffs.includes(conflict)) {
     const calm = conflict.steppedBack;
     if (a.kind === "attack") for (const id in calm) calm[id] = false;
@@ -3200,6 +3204,7 @@ export function play(
     });
     settleGuards(next);
     settleVisitSpeech(s, next, { ...action, actor });
+    settleHeldItems(next, handSnapshot(s));
     validateWorld(next);
     return { ok: true, state: next };
   }
@@ -3426,6 +3431,7 @@ export function play(
     if (count <= 3) delete next.sharedMigration.inventoryAllowances[id];
     else next.sharedMigration.inventoryAllowances[id] = count;
   }
+  settleHeldItems(next, handSnapshot(s));
   validateWorld(next);
   // Alone, the world runs on around a sleeper until something wakes it.
   // It stops at the first refused play, and the sleep cap bounds it.
@@ -3573,6 +3579,7 @@ export function validateWorld(s) {
   if (!validPackState(s, sensesFor(s)) || !validItemCycle(s)) fail();
   if (
     !validConversations(s) ||
+    !validHeldItems(s) ||
     !validOpenedRoutes(s.openedRoutes) ||
     !validHidden(s) ||
     !validDoors(s) ||
@@ -4010,6 +4017,7 @@ export function decodeSave(text) {
     installConversations(s);
     latchRoutes(s);
     settleGuards(s);
+    settleHeldItems(s);
     validateWorld(s);
     preserveTransportAccess(s);
   } catch (error) {

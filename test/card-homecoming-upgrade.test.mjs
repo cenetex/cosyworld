@@ -132,6 +132,7 @@ describe("the household save upgrade", () => {
         metTurn,
         gaveUp,
         guarding,
+        heldItem,
         ...a
       }) => a;
       for (const [id, { progress, ...actor }] of Object.entries(before.actors))

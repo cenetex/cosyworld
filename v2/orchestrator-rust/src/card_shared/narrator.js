@@ -449,425 +449,6 @@
     return valid;
   }
 
-  // v2/card-game/emoji-symbols.json
-  var emoji_symbols_default = {
-    "\u{1F327}\uFE0F": "rain",
-    "\u{1F43E}": "paw prints",
-    "\u{1F3E0}": "a house",
-    "\u2615": "a warm cup",
-    "\u{1F333}": "a broad tree",
-    "\u{1F441}\uFE0F": "an eye",
-    "\u{1F30C}": "a starry sky",
-    "\u{1F343}": "leaves in the wind",
-    "\u{1F319}": "a crescent moon",
-    "\u2B50": "a star",
-    "\u2728": "sparkles",
-    "\u{1F4A7}": "a drop of water",
-    "\u{1F331}": "a seedling",
-    "\u{1F33C}": "a flower",
-    "\u{1F344}": "a mushroom",
-    "\u{1F98B}": "a butterfly",
-    "\u{1F9F5}": "thread",
-    "\u{1F514}": "a bell",
-    "\u{1F56F}\uFE0F": "a candle",
-    "\u{1F5DD}\uFE0F": "a key",
-    "\u{1F381}": "a gift",
-    "\u{1F499}": "a blue heart",
-    "\u{1F49B}": "a yellow heart",
-    "\u2764\uFE0F": "a red heart",
-    "\u{1FAD6}": "a teapot",
-    "\u{1F35E}": "bread",
-    "\u{1FAB5}": "wood",
-    "\u{1F332}": "a pine tree",
-    "\u{1F989}": "an owl",
-    "\u{1F43A}": "a wolf",
-    "\u{1F408}": "a cat",
-    "\u{1F42D}": "a mouse",
-    "\u{1F440}": "watchful eyes",
-    "\u{1F300}": "a spiral",
-    "\u{1F63A}": "a smiling cat",
-    "\u{1F638}": "a grinning cat",
-    "\u{1F63F}": "a crying cat",
-    "\u{1F640}": "a startled cat",
-    "\u2753": "a question mark",
-    "\u2757": "an exclamation mark",
-    "\u2705": "a check mark",
-    "\u{1F44B}": "a waving hand",
-    "\u{1F64F}": "folded hands",
-    "\u{1F91D}": "joined hands",
-    "\u{1F449}": "a hand pointing right",
-    "\u{1F448}": "a hand pointing left",
-    "\u2B06\uFE0F": "an upward arrow",
-    "\u2B07\uFE0F": "a downward arrow",
-    "\u{1F6AA}": "a door",
-    "\u{1F6E4}\uFE0F": "a railway track",
-    "\u{1FA9E}": "a mirror",
-    "\u{1F4D6}": "an open book",
-    "\u{1F305}": "sunrise",
-    "\u2600\uFE0F": "the sun",
-    "\u{1F311}": "a dark moon"
-  };
-
-  // v2/card-game/expression.mjs
-  var EXPRESSION_TYPES = ["speech", "movement", "emoji"];
-  var orderedSymbols = Object.keys(emoji_symbols_default).sort((a, b) => b.length - a.length);
-
-  // v2/card-game/conversation.mjs
-  var talkedDirectly = (s, actor, other) => (s.conversations || []).some(
-    (c) => c.actors.includes(actor) && c.actors.includes(other) && actor !== other
-  );
-  function recordConversation(s, event) {
-    if (event?.kind !== "action" || event.verb !== "talk") return;
-    const actors2 = [event.actorId, event.targetId].sort();
-    if (actors2[0] === actors2[1] || actors2.some((id) => !s.actors[id])) return;
-    if (!talkedDirectly(s, ...actors2))
-      (s.conversations ??= []).push({ actors: actors2, seq: event.seq, turn: event.turn });
-  }
-  function installConversations(s) {
-    if (s.conversations !== void 0) return;
-    s.conversations = [];
-    for (const event of s.log || []) recordConversation(s, event);
-  }
-  function validConversations(s) {
-    const rows = s.conversations;
-    if (rows === void 0) return true;
-    const seen = /* @__PURE__ */ new Set(), size = Object.keys(s.actors).length;
-    return Array.isArray(rows) && rows.length <= size * (size - 1) / 2 && rows.every((c) => {
-      if (!c || Object.keys(c).sort().join() !== "actors,seq,turn" || !Array.isArray(c.actors) || c.actors.length !== 2 || c.actors.some((id) => !Object.hasOwn(s.actors, id)) || c.actors[0] >= c.actors[1] || !Number.isSafeInteger(c.seq) || c.seq < 1 || c.seq > s.eventSeq || !Number.isSafeInteger(c.turn) || c.turn < 0 || c.turn > s.turn)
-        return false;
-      const key = c.actors.join(":"), fresh = !seen.has(key);
-      seen.add(key);
-      return fresh;
-    });
-  }
-
-  // v2/card-game/pack-journeys.mjs
-  var agreed = (world, pack, journey) => Object.hasOwn(world.packs?.[pack.id]?.receipts || {}, journey.after);
-  function installJourneyProgress(world, packs) {
-    if (world.journeyProgress !== void 0) return;
-    world.journeyProgress = {};
-    for (const pack of packs)
-      for (const [id, { journey }] of Object.entries(pack.avatars))
-        if (journey && agreed(world, pack, journey))
-          world.journeyProgress[id] = {
-            agreement: journey.after,
-            step: journey.path.indexOf(world.actors[id]?.place)
-          };
-  }
-  function validJourneyProgress(world, packs) {
-    const records = world.journeyProgress;
-    if (!records || typeof records !== "object" || Array.isArray(records))
-      return false;
-    if (Object.keys(records).some(
-      (id) => !packs.some((p) => p.avatars[id]?.journey)
-    ))
-      return false;
-    return packs.every(
-      (pack) => Object.entries(pack.avatars).every(([id, avatar]) => {
-        const journey = avatar.journey;
-        if (!journey) return true;
-        const progress = records[id];
-        return agreed(world, pack, journey) ? progress && Object.keys(progress).sort().join() === "agreement,step" && progress.agreement === journey.after && Number.isSafeInteger(progress.step) && progress.step >= 0 && progress.step < journey.path.length : progress === void 0;
-      })
-    );
-  }
-
-  // v2/card-game/level-tiers.mjs
-  var tiers = [
-    [0, "Common", "#c8dce6"],
-    [10, "Uncommon", "#8cdcff"],
-    [20, "Rare", "#be82ff"],
-    [30, "Epic", "#ffc85a"],
-    [50, "Legendary", "#fff082"],
-    [100, "Mythic", "#ff9ce6"]
-  ].map(([minLevel, label, color], rank2) => ({
-    id: label.toLowerCase(),
-    label,
-    color,
-    minLevel,
-    rank: rank2
-  }));
-  var levelTier = (level) => tiers.findLast((tier) => level >= tier.minLevel) || tiers[0];
-
-  // v2/card-game/forest.json
-  var forest_default = {
-    questsBeginAt: { kind: "arrived", place: "pond" },
-    homeGates: {
-      attic: {
-        item: "lamp",
-        light: true,
-        fuel: "oil",
-        rescue: "pond",
-        opening: true
-      }
-    },
-    reflectionRoutes: [
-      {
-        from: "attic",
-        to: "pond",
-        requires: [
-          { kind: "item_present", item: "lamp", place: "attic" },
-          { kind: "not", condition: { kind: "light", item: "lamp", at: ["attic"], uncovered: true } }
-        ]
-      },
-      {
-        from: "pond",
-        to: "attic",
-        requires: [{ kind: "light", item: "lamp", at: ["pond"], uncovered: true }]
-      }
-    ],
-    places: {
-      station: {
-        name: "Empty station",
-        text: "The timetable lists years that have yet to happen. A path leads along the shore to the pond.",
-        exits: [
-          "pond"
-        ]
-      },
-      attic: {
-        sanctuary: true,
-        name: "Mirror attic",
-        text: "A tall mirror shows only the warm attic. Dust gathers along its frame.",
-        exits: [],
-        backdrop: "assets/shared/places/attic-dark.webp",
-        backdrops: [
-          { backdrop: "assets/attic/attic-lit.webp", requires: [{ kind: "light", item: "lamp", at: ["attic"], uncovered: true }] },
-          { backdrop: "assets/attic/attic-doused.webp", requires: [{ kind: "item_present", item: "lamp", place: "attic" }] }
-        ],
-        stage: {
-          focus: {
-            x: 64,
-            y: 50
-          },
-          mark: 75,
-          lamp: {
-            x: 65,
-            y: 60
-          }
-        }
-      },
-      pond: {
-        name: "Black pond",
-        text: "Something vast breathes beneath the reflection. A path leads to the station.",
-        exits: [
-          "station"
-        ]
-      }
-    },
-    people: {
-      vale: {
-        name: "Vale",
-        text: "Your avatar. A traveller with a coat full of empty pockets.",
-        tastes: {
-          likes: "Interesting routes and a decent bargain",
-          sore: "Changed terms"
-        },
-        home: "attic",
-        values: { lamp: 8, oil: 5, bell: 5, cloth: 4 },
-        want: { kind: "item", target: "lamp" }
-      },
-      moth: {
-        name: "Pip",
-        text: "A moth in a borrowed waistcoat. Seeks a lit lamp and a witness at the pond.",
-        tastes: {
-          likes: "Warm light and a splendid waistcoat",
-          sore: "Someone spoiling the light"
-        },
-        home: "pond",
-        values: { lamp: 12, oil: 3, bell: 1, cloth: 6 },
-        want: { kind: "item", target: "lamp", lit: true },
-        grievances: [
-          { kind: "light", on: [{ kind: "snuff" }, { kind: "cover", target: "lamp" }], reason: "{actor} spoiled Pip's light." }
-        ]
-      },
-      keeper: {
-        name: "The keeper",
-        text: "A tall figure with a clock for a face. Seeks a bell and a witness in the attic.",
-        tastes: {
-          likes: "Quiet hours and properly returned things",
-          sore: "Unnecessary ringing"
-        },
-        home: "station",
-        values: { lamp: 3, oil: 8, bell: 10, cloth: 6 },
-        want: { kind: "item", target: "bell" },
-        valueRules: {
-          cloth: [{ when: [{ item: "bell", field: "ringing", min: 1 }], add: 9 }]
-        },
-        grievances: [
-          { kind: "noise", on: [{ kind: "ring" }], reason: "{actor} rang the bell during a perfectly good quiet moment." }
-        ]
-      }
-    },
-    things: {
-      lamp: {
-        name: "Lamp",
-        startLevel: 50,
-        text: "An oil lamp with soot-darkened glass. Burns one fuel each turn, even under a cloth.",
-        valueRules: [{ when: [{ item: "lamp", field: "fuel", max: 0 }], add: -5 }]
-      },
-      oil: {
-        name: "Oil flask",
-        startLevel: 10,
-        text: "Fills an empty lamp to twelve on its own when one hand holds both. Then it waits full again at the station.",
-        refuels: "lamp",
-        returnsTo: "station",
-        valueRules: [
-          { when: [{ holds: "lamp" }, { item: "lamp", field: "fuel", max: 2 }], add: 9 }
-        ]
-      },
-      bell: {
-        name: "Bell",
-        startLevel: 20,
-        text: "A hand bell with a worn handle. Rings for three turns. Its ring carries far over still water. The Black cloth stops its sound."
-      },
-      cloth: {
-        name: "Black cloth",
-        startLevel: 20,
-        text: "Cover the lamp to block its light, or the bell to stop its sound. Travels with the covered object."
-      }
-    },
-    initialState: {
-      locations: {
-        attic: {
-          anchored: false
-        },
-        pond: {
-          answer: null
-        }
-      },
-      standoffs: [],
-      peaceUntil: {
-        vale: 0,
-        moth: 0,
-        keeper: 0
-      },
-      actors: {
-        vale: {
-          place: "station",
-          crossed: 0,
-          lastTalk: -9,
-          trust: {
-            moth: 0,
-            keeper: 0
-          }
-        },
-        moth: {
-          place: "pond",
-          crossed: 0,
-          lastTalk: -9,
-          trust: {
-            vale: 0,
-            keeper: 0
-          }
-        },
-        keeper: {
-          place: "pond",
-          crossed: 0,
-          lastTalk: -9,
-          trust: {
-            vale: 0,
-            moth: 0
-          }
-        }
-      },
-      items: {
-        lamp: {
-          holder: "station",
-          fuel: 12,
-          lit: false,
-          history: []
-        },
-        oil: {
-          holder: "keeper",
-          history: []
-        },
-        bell: {
-          holder: "station",
-          ringing: 0,
-          history: []
-        },
-        cloth: {
-          holder: "moth",
-          history: []
-        }
-      },
-      log: [
-        {
-          seq: 1,
-          turn: 0,
-          kind: "narration",
-          actorId: null,
-          locationId: "station",
-          cast: [
-            "vale"
-          ],
-          items: [
-            {
-              id: "lamp",
-              holder: "station",
-              fuel: 12,
-              lit: false
-            },
-            {
-              id: "bell",
-              holder: "station",
-              ringing: 0
-            }
-          ],
-          light: false,
-          speaker: "World",
-          text: "Vale arrives at the empty station. Pip carries a black cloth. The keeper holds the oil for an empty lamp. Each wants something ... different. Under the pond, a presence is listening."
-        }
-      ]
-    },
-    opening: {
-      discovery: {
-        version: 1,
-        crossed: false,
-        met: {
-          vale: 0
-        }
-      },
-      actors: {
-        vale: {
-          place: "attic"
-        },
-        keeper: {
-          place: "station"
-        }
-      },
-      items: {
-        lamp: {
-          holder: "vale",
-          lit: true
-        }
-      },
-      log: [
-        {
-          seq: 1,
-          turn: 0,
-          kind: "narration",
-          actorId: null,
-          locationId: "attic",
-          cast: [
-            "vale"
-          ],
-          items: [
-            {
-              id: "lamp",
-              holder: "vale",
-              fuel: 12,
-              lit: true
-            }
-          ],
-          light: true,
-          speaker: "World",
-          text: "Vale stands alone in Mirror attic, holding a lamp. Its light fills the room; the tall mirror shows only the attic."
-        }
-      ]
-    }
-  };
-
   // v2/card-game/shared-cast.json
   var shared_cast_default = {
     version: 1,
@@ -1242,6 +823,285 @@
     )
   };
 
+  // v2/card-game/forest.json
+  var forest_default = {
+    questsBeginAt: { kind: "arrived", place: "pond" },
+    homeGates: {
+      attic: {
+        item: "lamp",
+        light: true,
+        fuel: "oil",
+        rescue: "pond",
+        opening: true
+      }
+    },
+    reflectionRoutes: [
+      {
+        from: "attic",
+        to: "pond",
+        requires: [
+          { kind: "item_present", item: "lamp", place: "attic" },
+          { kind: "not", condition: { kind: "light", item: "lamp", at: ["attic"], uncovered: true } }
+        ]
+      },
+      {
+        from: "pond",
+        to: "attic",
+        requires: [{ kind: "light", item: "lamp", at: ["pond"], uncovered: true }]
+      }
+    ],
+    places: {
+      station: {
+        name: "Empty station",
+        text: "The timetable lists years that have yet to happen. A path leads along the shore to the pond.",
+        exits: [
+          "pond"
+        ]
+      },
+      attic: {
+        sanctuary: true,
+        name: "Mirror attic",
+        text: "A tall mirror shows only the warm attic. Dust gathers along its frame.",
+        exits: [],
+        backdrop: "assets/shared/places/attic-dark.webp",
+        backdrops: [
+          { backdrop: "assets/attic/attic-lit.webp", requires: [{ kind: "light", item: "lamp", at: ["attic"], uncovered: true }] },
+          { backdrop: "assets/attic/attic-doused.webp", requires: [{ kind: "item_present", item: "lamp", place: "attic" }] }
+        ],
+        stage: {
+          focus: {
+            x: 64,
+            y: 50
+          },
+          mark: 75,
+          lamp: {
+            x: 65,
+            y: 60
+          }
+        }
+      },
+      pond: {
+        name: "Black pond",
+        text: "Something vast breathes beneath the reflection. A path leads to the station.",
+        exits: [
+          "station"
+        ]
+      }
+    },
+    people: {
+      vale: {
+        name: "Vale",
+        text: "Your avatar. A traveller with a coat full of empty pockets.",
+        tastes: {
+          likes: "Interesting routes and a decent bargain",
+          sore: "Changed terms"
+        },
+        home: "attic",
+        values: { lamp: 8, oil: 5, bell: 5, cloth: 4 },
+        want: { kind: "item", target: "lamp" }
+      },
+      moth: {
+        name: "Pip",
+        text: "A moth in a borrowed waistcoat. Seeks a lit lamp and a witness at the pond.",
+        tastes: {
+          likes: "Warm light and a splendid waistcoat",
+          sore: "Someone spoiling the light"
+        },
+        home: "pond",
+        values: { lamp: 12, oil: 3, bell: 1, cloth: 6 },
+        want: { kind: "item", target: "lamp", lit: true },
+        grievances: [
+          { kind: "light", on: [{ kind: "snuff" }, { kind: "cover", target: "lamp" }], reason: "{actor} spoiled Pip's light." }
+        ]
+      },
+      keeper: {
+        name: "The keeper",
+        text: "A tall figure with a clock for a face. Seeks a bell and a witness in the attic.",
+        tastes: {
+          likes: "Quiet hours and properly returned things",
+          sore: "Unnecessary ringing"
+        },
+        home: "station",
+        values: { lamp: 3, oil: 8, bell: 10, cloth: 6 },
+        want: { kind: "item", target: "bell" },
+        valueRules: {
+          cloth: [{ when: [{ item: "bell", field: "ringing", min: 1 }], add: 9 }]
+        },
+        grievances: [
+          { kind: "noise", on: [{ kind: "ring" }], reason: "{actor} rang the bell during a perfectly good quiet moment." }
+        ]
+      }
+    },
+    things: {
+      lamp: {
+        name: "Lamp",
+        startLevel: 50,
+        text: "An oil lamp with soot-darkened glass. Burns one fuel each turn, even under a cloth.",
+        valueRules: [{ when: [{ item: "lamp", field: "fuel", max: 0 }], add: -5 }]
+      },
+      oil: {
+        name: "Oil flask",
+        startLevel: 10,
+        text: "Fills an empty lamp to twelve on its own when one hand holds both. Then it waits full again at the station.",
+        refuels: "lamp",
+        returnsTo: "station",
+        valueRules: [
+          { when: [{ holds: "lamp" }, { item: "lamp", field: "fuel", max: 2 }], add: 9 }
+        ]
+      },
+      bell: {
+        name: "Bell",
+        startLevel: 20,
+        text: "A hand bell with a worn handle. Rings for three turns. Its ring carries far over still water. The Black cloth stops its sound."
+      },
+      cloth: {
+        name: "Black cloth",
+        startLevel: 20,
+        text: "Cover the lamp to block its light, or the bell to stop its sound. Travels with the covered object."
+      }
+    },
+    initialState: {
+      locations: {
+        attic: {
+          anchored: false
+        },
+        pond: {
+          answer: null
+        }
+      },
+      standoffs: [],
+      peaceUntil: {
+        vale: 0,
+        moth: 0,
+        keeper: 0
+      },
+      actors: {
+        vale: {
+          place: "station",
+          crossed: 0,
+          lastTalk: -9,
+          trust: {
+            moth: 0,
+            keeper: 0
+          }
+        },
+        moth: {
+          place: "pond",
+          crossed: 0,
+          lastTalk: -9,
+          trust: {
+            vale: 0,
+            keeper: 0
+          }
+        },
+        keeper: {
+          place: "pond",
+          crossed: 0,
+          lastTalk: -9,
+          trust: {
+            vale: 0,
+            moth: 0
+          }
+        }
+      },
+      items: {
+        lamp: {
+          holder: "station",
+          fuel: 12,
+          lit: false,
+          history: []
+        },
+        oil: {
+          holder: "keeper",
+          history: []
+        },
+        bell: {
+          holder: "station",
+          ringing: 0,
+          history: []
+        },
+        cloth: {
+          holder: "moth",
+          history: []
+        }
+      },
+      log: [
+        {
+          seq: 1,
+          turn: 0,
+          kind: "narration",
+          actorId: null,
+          locationId: "station",
+          cast: [
+            "vale"
+          ],
+          items: [
+            {
+              id: "lamp",
+              holder: "station",
+              fuel: 12,
+              lit: false
+            },
+            {
+              id: "bell",
+              holder: "station",
+              ringing: 0
+            }
+          ],
+          light: false,
+          speaker: "World",
+          text: "Vale arrives at the empty station. Pip carries a black cloth. The keeper holds the oil for an empty lamp. Each wants something ... different. Under the pond, a presence is listening."
+        }
+      ]
+    },
+    opening: {
+      discovery: {
+        version: 1,
+        crossed: false,
+        met: {
+          vale: 0
+        }
+      },
+      actors: {
+        vale: {
+          place: "attic"
+        },
+        keeper: {
+          place: "station"
+        }
+      },
+      items: {
+        lamp: {
+          holder: "vale",
+          lit: true
+        }
+      },
+      log: [
+        {
+          seq: 1,
+          turn: 0,
+          kind: "narration",
+          actorId: null,
+          locationId: "attic",
+          cast: [
+            "vale"
+          ],
+          items: [
+            {
+              id: "lamp",
+              holder: "vale",
+              fuel: 12,
+              lit: true
+            }
+          ],
+          light: true,
+          speaker: "World",
+          text: "Vale stands alone in Mirror attic, holding a lamp. Its light fills the room; the tall mirror shows only the attic."
+        }
+      ]
+    }
+  };
+
   // v2/card-game/pack-recital.mjs
   function recitalVisit(world, pack) {
     return Math.max(
@@ -1540,6 +1400,66 @@
     const list = world.packs[pack.id]?.specials;
     if (!pack.specials || !world.run) return list === void 0;
     return Array.isArray(list) && new Set(list).size === list.length && list.every((id) => pack.specials.pool.some((e) => e.id === id));
+  }
+
+  // v2/card-game/pack-journeys.mjs
+  var agreed = (world, pack, journey) => Object.hasOwn(world.packs?.[pack.id]?.receipts || {}, journey.after);
+  function installJourneyProgress(world, packs) {
+    if (world.journeyProgress !== void 0) return;
+    world.journeyProgress = {};
+    for (const pack of packs)
+      for (const [id, { journey }] of Object.entries(pack.avatars))
+        if (journey && agreed(world, pack, journey))
+          world.journeyProgress[id] = {
+            agreement: journey.after,
+            step: journey.path.indexOf(world.actors[id]?.place)
+          };
+  }
+  function validJourneyProgress(world, packs) {
+    const records = world.journeyProgress;
+    if (!records || typeof records !== "object" || Array.isArray(records))
+      return false;
+    if (Object.keys(records).some(
+      (id) => !packs.some((p) => p.avatars[id]?.journey)
+    ))
+      return false;
+    return packs.every(
+      (pack) => Object.entries(pack.avatars).every(([id, avatar]) => {
+        const journey = avatar.journey;
+        if (!journey) return true;
+        const progress = records[id];
+        return agreed(world, pack, journey) ? progress && Object.keys(progress).sort().join() === "agreement,step" && progress.agreement === journey.after && Number.isSafeInteger(progress.step) && progress.step >= 0 && progress.step < journey.path.length : progress === void 0;
+      })
+    );
+  }
+
+  // v2/card-game/conversation.mjs
+  var talkedDirectly = (s, actor, other) => (s.conversations || []).some(
+    (c) => c.actors.includes(actor) && c.actors.includes(other) && actor !== other
+  );
+  function recordConversation(s, event) {
+    if (event?.kind !== "action" || event.verb !== "talk") return;
+    const actors2 = [event.actorId, event.targetId].sort();
+    if (actors2[0] === actors2[1] || actors2.some((id) => !s.actors[id])) return;
+    if (!talkedDirectly(s, ...actors2))
+      (s.conversations ??= []).push({ actors: actors2, seq: event.seq, turn: event.turn });
+  }
+  function installConversations(s) {
+    if (s.conversations !== void 0) return;
+    s.conversations = [];
+    for (const event of s.log || []) recordConversation(s, event);
+  }
+  function validConversations(s) {
+    const rows = s.conversations;
+    if (rows === void 0) return true;
+    const seen = /* @__PURE__ */ new Set(), size = Object.keys(s.actors).length;
+    return Array.isArray(rows) && rows.length <= size * (size - 1) / 2 && rows.every((c) => {
+      if (!c || Object.keys(c).sort().join() !== "actors,seq,turn" || !Array.isArray(c.actors) || c.actors.length !== 2 || c.actors.some((id) => !Object.hasOwn(s.actors, id)) || c.actors[0] >= c.actors[1] || !Number.isSafeInteger(c.seq) || c.seq < 1 || c.seq > s.eventSeq || !Number.isSafeInteger(c.turn) || c.turn < 0 || c.turn > s.turn)
+        return false;
+      const key = c.actors.join(":"), fresh = !seen.has(key);
+      seen.add(key);
+      return fresh;
+    });
   }
 
   // v2/card-game/weather.json
@@ -2302,6 +2222,23 @@
       g && typeof g === "object" && Object.keys(g).length === 4 && Number.isSafeInteger(g.level) && g.level >= 2 && g.level <= most && GLIMPSE_KINDS.includes(g.kind) && name(g.id) && (g.kind !== "verb" || GLIMPSE_VERBS.includes(g.id)) && name(g.at)
     );
   }
+
+  // v2/card-game/level-tiers.mjs
+  var tiers = [
+    [0, "Common", "#c8dce6"],
+    [10, "Uncommon", "#8cdcff"],
+    [20, "Rare", "#be82ff"],
+    [30, "Epic", "#ffc85a"],
+    [50, "Legendary", "#fff082"],
+    [100, "Mythic", "#ff9ce6"]
+  ].map(([minLevel, label, color], rank2) => ({
+    id: label.toLowerCase(),
+    label,
+    color,
+    minLevel,
+    rank: rank2
+  }));
+  var levelTier = (level) => tiers.findLast((tier) => level >= tier.minLevel) || tiers[0];
 
   // v2/card-game/want-talk.mjs
   var authoredWant = (id) => forest_default.people[id]?.want || packPeople[id]?.want || null;
@@ -16077,6 +16014,69 @@
     ]
   };
 
+  // v2/card-game/emoji-symbols.json
+  var emoji_symbols_default = {
+    "\u{1F327}\uFE0F": "rain",
+    "\u{1F43E}": "paw prints",
+    "\u{1F3E0}": "a house",
+    "\u2615": "a warm cup",
+    "\u{1F333}": "a broad tree",
+    "\u{1F441}\uFE0F": "an eye",
+    "\u{1F30C}": "a starry sky",
+    "\u{1F343}": "leaves in the wind",
+    "\u{1F319}": "a crescent moon",
+    "\u2B50": "a star",
+    "\u2728": "sparkles",
+    "\u{1F4A7}": "a drop of water",
+    "\u{1F331}": "a seedling",
+    "\u{1F33C}": "a flower",
+    "\u{1F344}": "a mushroom",
+    "\u{1F98B}": "a butterfly",
+    "\u{1F9F5}": "thread",
+    "\u{1F514}": "a bell",
+    "\u{1F56F}\uFE0F": "a candle",
+    "\u{1F5DD}\uFE0F": "a key",
+    "\u{1F381}": "a gift",
+    "\u{1F499}": "a blue heart",
+    "\u{1F49B}": "a yellow heart",
+    "\u2764\uFE0F": "a red heart",
+    "\u{1FAD6}": "a teapot",
+    "\u{1F35E}": "bread",
+    "\u{1FAB5}": "wood",
+    "\u{1F332}": "a pine tree",
+    "\u{1F989}": "an owl",
+    "\u{1F43A}": "a wolf",
+    "\u{1F408}": "a cat",
+    "\u{1F42D}": "a mouse",
+    "\u{1F440}": "watchful eyes",
+    "\u{1F300}": "a spiral",
+    "\u{1F63A}": "a smiling cat",
+    "\u{1F638}": "a grinning cat",
+    "\u{1F63F}": "a crying cat",
+    "\u{1F640}": "a startled cat",
+    "\u2753": "a question mark",
+    "\u2757": "an exclamation mark",
+    "\u2705": "a check mark",
+    "\u{1F44B}": "a waving hand",
+    "\u{1F64F}": "folded hands",
+    "\u{1F91D}": "joined hands",
+    "\u{1F449}": "a hand pointing right",
+    "\u{1F448}": "a hand pointing left",
+    "\u2B06\uFE0F": "an upward arrow",
+    "\u2B07\uFE0F": "a downward arrow",
+    "\u{1F6AA}": "a door",
+    "\u{1F6E4}\uFE0F": "a railway track",
+    "\u{1FA9E}": "a mirror",
+    "\u{1F4D6}": "an open book",
+    "\u{1F305}": "sunrise",
+    "\u2600\uFE0F": "the sun",
+    "\u{1F311}": "a dark moon"
+  };
+
+  // v2/card-game/expression.mjs
+  var EXPRESSION_TYPES = ["speech", "movement", "emoji"];
+  var orderedSymbols = Object.keys(emoji_symbols_default).sort((a, b) => b.length - a.length);
+
   // v2/card-game/pack-items-schema.mjs
   var REGROW_EVENTS = ["dawn", "dusk", "rest"];
   var CUSTODY = ["holding", "item_near", "item_at", "item_present"];
@@ -17923,6 +17923,27 @@
           return false;
     }
     return true;
+  }
+
+  // v2/card-game/held-item.mjs
+  function handSnapshot(world) {
+    return Object.fromEntries(
+      Object.entries(world.items).filter(
+        ([id, item]) => world.actors[item.holder] && entityEnabled(world, id)
+      ).map(([id, item]) => [id, item.holder])
+    );
+  }
+  var choicesFor = (hands, actor) => Object.keys(hands).filter((id) => hands[id] === actor).sort();
+  var validHeldItems = (world) => Object.values(world.actors || {}).every(
+    (actor) => actor.heldItem === void 0 || actor.heldItem === null || typeof actor.heldItem === "string" && Object.hasOwn(world.items, actor.heldItem)
+  );
+  function settleHeldItems(world, before = null) {
+    if (!validHeldItems(world)) throw new Error("The held item is invalid.");
+    const hands = handSnapshot(world);
+    for (const [id, actor] of Object.entries(world.actors)) {
+      const choices = choicesFor(hands, id), arrived = before ? choices.filter((item) => before[item] !== id) : [], saved = actor.heldItem;
+      actor.heldItem = arrived.includes(saved) ? saved : arrived.at(-1) ?? (choices.includes(saved) ? saved : choices[0] ?? null);
+    }
   }
 
   // v2/card-game/roaming-routes.mjs
@@ -20551,7 +20572,7 @@
     if (s.run !== void 0 && (Object.keys(s.run || {}).join() !== "seed" || !validSeed(s.run.seed)))
       fail();
     if (!validPackState(s, sensesFor(s)) || !validItemCycle(s)) fail();
-    if (!validConversations(s) || !validOpenedRoutes(s.openedRoutes) || !validHidden(s) || !validDoors(s) || s.hidden && !Object.hasOwn(places, s.hidden.place))
+    if (!validConversations(s) || !validHeldItems(s) || !validOpenedRoutes(s.openedRoutes) || !validHidden(s) || !validDoors(s) || s.hidden && !Object.hasOwn(places, s.hidden.place))
       fail();
     if (!validRouteKnowledge(s, [...authoredRouteEdges(), ...laneEdges()]) || !validMemories(s) || !validMotives(s) || !validLife(s, Object.keys(places)) || !validHome(s) || !validSleep(s, places) || !validGuard(s, places))
       fail();
@@ -20737,6 +20758,7 @@
       installConversations(s);
       latchRoutes(s);
       settleGuards(s);
+      settleHeldItems(s);
       validateWorld(s);
       preserveTransportAccess(s);
     } catch (error) {

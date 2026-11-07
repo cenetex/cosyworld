@@ -27,6 +27,7 @@ import {
 } from "../v2/card-game/world.mjs";
 import { availableCards, cardPlay, playLabel } from "../v2/card-game/cards.mjs";
 import { currentScene } from "../v2/card-game/scene.mjs";
+import { settleHeldItems } from "../v2/card-game/held-item.mjs";
 import {
   narrativeContext,
   applyGeneratedText,
@@ -47,6 +48,7 @@ function pond({ lit = true, fuel = 12, place = "pond" } = {}) {
   // Pip rests content here instead of pursuing Vale's lamp.
   s.actors.moth.want = null;
   s.actors.moth.metTurn = s.turn;
+  settleHeldItems(s);
   addLog(s, "World", "Vale waits beside the water.", { locationId: place });
   return s;
 }

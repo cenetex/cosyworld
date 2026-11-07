@@ -15,6 +15,7 @@ import { BENCH, SCENE } from "./settings-cards.mjs";
 const files = [
   "battle-context.mjs",
   "conversation.mjs",
+  "held-item.mjs",
   "authoring-create-tools.mjs",
   "authoring-create-transfer.mjs",
   "authoring-seed-world.mjs",
