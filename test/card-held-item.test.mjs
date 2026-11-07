@@ -14,6 +14,7 @@ import {
   settleHeldItems,
 } from "../v2/card-game/held-item.mjs";
 import { useUp } from "../v2/card-game/item-use.mjs";
+import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 
 function table() {
   const world = createWorld();
@@ -64,6 +65,110 @@ it("chooses the received item for both sides of a real Trade", () => {
   expect(result.ok, result.error).toBe(true);
   expect(result.state.actors.keeper.heldItem).toBe(action.item);
   expect(result.state.actors.vale.heldItem).toBe(action.receive);
+});
+
+it("keeps the last actual receipt when Give and Ask arrive in one turn", () => {
+  const world = table();
+  world.actors.moth.place = world.actors.vale.place;
+  world.items.lamp.holder = "vale";
+  world.items.cloth.holder = "keeper";
+  world.items.oil.holder = "attic";
+  world.actors.keeper.want = null;
+  world.actors.keeper.trust.moth = 3;
+  world.actors.moth.want = {
+    kind: "item",
+    target: "cloth",
+    since: 0,
+    refusals: 0,
+  };
+  settleHeldItems(world);
+  const result = act(world, "give", { item: "lamp", target: "moth" });
+  const transfers = result.log.filter((e) => ["give", "ask"].includes(e.verb));
+  expect(transfers.map((e) => [e.verb, e.itemId, e.accepted])).toEqual([
+    ["give", "lamp", true],
+    ["ask", "cloth", true],
+  ]);
+  expect(new Set(transfers.map((e) => e.turn)).size).toBe(1);
+  expect(result.items.lamp.holder).toBe("moth");
+  expect(result.items.cloth.holder).toBe("moth");
+  expect(result.actors.moth.heldItem).toBe("cloth");
+});
+
+it("chooses a real Take and repairs the hand after Drop", () => {
+  const world = table();
+  world.actors.keeper.place = "attic";
+  world.items.lamp.holder = world.actors.vale.place;
+  let result = act(world, "take", { item: "lamp" });
+  expect(result.actors.vale.heldItem).toBe("lamp");
+  result = act(result, "drop", { item: "lamp" });
+  expect(result.actors.vale.heldItem).toBe("bell");
+});
+
+it("preserves the hand after a refused gift and a full recipient", () => {
+  let world = table();
+  world.actors.moth.place = world.actors.vale.place;
+  world.items.cloth.holder = "moth";
+  world.actors.moth.want = {
+    kind: "item",
+    target: "cloth",
+    since: 0,
+    refusals: 0,
+  };
+  settleHeldItems(world);
+  world = act(world, "give", { item: "bell", target: "moth" });
+  expect(world.log.findLast((e) => e.verb === "give").accepted).toBe(false);
+  expect(heldItem(world, "moth")).toBe("cloth");
+  world = table();
+  for (const item of ["oil", "cloth", "mask"])
+    world.items[item].holder = "keeper";
+  settleHeldItems(world);
+  const before = structuredClone(world);
+  const result = play(world, { key: "give:vale:bell:keeper" });
+  expect(result.ok).toBe(false);
+  expect(result.state).toEqual(before);
+});
+
+it("repairs a disabled choice through the real zero-turn pack action", () => {
+  const world = table();
+  world.items["greek-water-jar"].holder = "keeper";
+  world.actors.keeper.heldItem = "greek-water-jar";
+  const result = play(world, { kind: "pack", pack: "sea", enable: false });
+  expect(result.ok, result.error).toBe(true);
+  expect(result.state.turn).toBe(world.turn);
+  expect(result.state.actors.keeper.heldItem).toBe("oil");
+  const back = play(result.state, { kind: "pack", pack: "sea", enable: true });
+  expect(back.ok, back.error).toBe(true);
+  expect(back.state.actors.keeper.heldItem).toBe("oil");
+});
+
+it("keeps a covering on the chosen object", () => {
+  const world = table();
+  world.items.bell.holder = "keeper";
+  world.items.cloth.holder = "bell";
+  world.actors.keeper.heldItem = "bell";
+  settleHeldItems(world);
+  expect(heldItem(world, "keeper")).toBe("bell");
+  expect(world.items.cloth.holder).toBe("bell");
+  expect(Object.keys(handSnapshot(world))).not.toContain("cloth");
+});
+
+it("preserves the hand through shared retry and clears it on seat reset", () => {
+  const world = table();
+  const seats = { actor: "vale", claimed: ["vale"], present: ["vale"] };
+  const view = dispatchShared({ op: "view", world, ...seats });
+  const action = view.actions.find(
+    (a) => a.kind === "give" && a.item === "bell" && a.target === "keeper",
+  );
+  const request = { op: "play", world, action, ...seats };
+  const result = dispatchShared(request);
+  expect(result.ok, result.error).toBe(true);
+  expect(result.world.actors.keeper.heldItem).toBe("bell");
+  expect(dispatchShared(structuredClone(request))).toEqual(result);
+  expect(dispatchShared({ ...request, world: result.world }).ok).toBe(false);
+  const reset = dispatchShared({ ...seats, world: result.world, op: "reset" });
+  expect(reset.ok, reset.error).toBe(true);
+  expect(reset.world.actors.vale.heldItem).toBeNull();
+  expect(reset.world.actors.keeper.heldItem).toBe("bell");
 });
 
 it("repairs a lost or consumed choice and leaves an empty hand when needed", () => {

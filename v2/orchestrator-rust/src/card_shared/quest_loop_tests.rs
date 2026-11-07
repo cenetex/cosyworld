@@ -221,3 +221,41 @@ fn rules_98_world_upgrades_to_99_keeping_its_opening_and_packs() {
     assert_eq!(full_store::world(&c, &id, now()).unwrap(), world);
     let _ = std::fs::remove_file(path);
 }
+
+#[test]
+fn held_item_keeps_the_last_received_item_through_journal_replay() {
+    let mut world = created(engine::VERSION);
+    let game = &mut world.game;
+    game.as_object_mut().unwrap().remove("opening");
+    for actor in ["vale", "moth", "keeper"] {
+        game["actors"][actor]["place"] = json!("station");
+    }
+    game["items"]["lamp"]["holder"] = json!("vale");
+    game["items"]["cloth"]["holder"] = json!("keeper");
+    game["items"]["oil"]["holder"] = json!("attic");
+    game["actors"]["keeper"]["want"] = Value::Null;
+    game["actors"]["keeper"]["trust"]["moth"] = json!(3);
+    game["actors"]["moth"]["want"] = json!({"kind":"item","target":"cloth","since":0,"refusals":0});
+    let (path, c, id) = fixture("held-item-replay", &world);
+    let commit =
+        |w: &mut World, command: Value| full_store::commit(&c, &id, w, command, now()).unwrap();
+    commit(&mut world, json!({"op":"claim","actor":"vale"}));
+    commit(&mut world, json!({"op":"enter","actor":"vale"}));
+    let gift = play(&world, |a| {
+        a["kind"] == "give" && a["item"] == "lamp" && a["target"] == "moth"
+    });
+    commit(&mut world, gift.clone());
+    assert_eq!(world.game["items"]["lamp"]["holder"], "moth");
+    assert_eq!(world.game["items"]["cloth"]["holder"], "moth");
+    assert_eq!(world.game["actors"]["moth"]["heldItem"], "cloth");
+    let after = world.clone();
+    assert!(full_store::commit(&c, &id, &mut world, gift, now()).is_err());
+    assert_eq!(world, after);
+    c.execute("DELETE FROM card_full_checkpoints WHERE world=?", [&id])
+        .unwrap();
+    drop(c);
+    let c = store::open(&path).unwrap();
+    assert_eq!(full_store::world(&c, &id, now()).unwrap(), world);
+    drop(c);
+    let _ = std::fs::remove_file(path);
+}
