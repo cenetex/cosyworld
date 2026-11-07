@@ -313,8 +313,10 @@ try {
     await ready();
     await selectCard(page, fable);
     assert.equal(
-      await page.locator("#card-actions .card-primary").textContent(),
-      "Talk",
+      await page
+        .locator("#card-actions .card-primary")
+        .getAttribute("data-action"),
+      "talk",
     );
     await page.locator("#card-actions .card-primary").click();
     await ready();
