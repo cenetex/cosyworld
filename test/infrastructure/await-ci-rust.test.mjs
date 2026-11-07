@@ -79,6 +79,59 @@ describe('reusing a .dev train or version-only parent', () => {
     ).toBe('run');
   });
 
+  const train = (status, conclusion, runId, started_at, head_sha = 'qualified') =>
+    gates(status, conclusion, runId).map((r) => ({ ...r, started_at, head_sha }));
+  const passedTrain = () => train('completed', 'success', 42416346337, '2026-11-07T21:41:34Z');
+  const skippedTrain = () => train('completed', 'skipped', 42416828746, '2026-11-07T21:53:48Z');
+
+  it('keeps the passed train when a later train skips the same commit gates', () => {
+    const checks = [...skippedTrain(), ...passedTrain()];
+    expect(decide(checks).decision).toBe('reuse');
+    expect(decide(checks.reverse()).decision).toBe('reuse');
+  });
+
+  it.each(['failure', 'cancelled', 'timed_out'])(
+    'keeps a newer %s attempt authoritative through a later skipped train',
+    (conclusion) => {
+      const checks = [
+        ...passedTrain(),
+        ...train('completed', conclusion, 7, '2026-11-07T21:50:00Z'),
+        ...skippedTrain()
+      ];
+      expect(decide(checks).decision).toBe('run');
+      expect(decide(checks.reverse()).decision).toBe('run');
+    }
+  );
+
+  it.each(['queued', 'in_progress'])('waits for a newer %s attempt', (status) => {
+    const checks = [
+      ...passedTrain(),
+      ...train(status, null, 7, '2026-11-07T21:50:00Z'),
+      ...skippedTrain()
+    ];
+    expect(decide(checks).decision).toBe('wait');
+    expect(decide(checks.reverse()).decision).toBe('wait');
+  });
+
+  it('runs when every matching check was skipped, even before the missing deadline', () => {
+    expect(decide(skippedTrain()).decision).toBe('run');
+    expect(decide(skippedTrain(), { missingIsFinal: true }).decision).toBe('run');
+  });
+
+  it('keeps skipped fallback separate by commit and check name', () => {
+    const otherCommit = passedTrain().map((r) => ({ ...r, head_sha: 'other' }));
+    expect(decide([...otherCommit, ...skippedTrain()]).decision).toBe('run');
+    expect(decide([passedTrain()[0], ...skippedTrain()]).decision).toBe('run');
+  });
+
+  it('keeps skipped fallback when the passing record belongs to this run or another app', () => {
+    expect(decide([...passedTrain(), ...skippedTrain()], {
+      selfRunId: '42416346337'
+    }).decision).toBe('run');
+    const otherApp = passedTrain().map((r) => ({ ...r, app: { slug: 'other' } }));
+    expect(decide([...otherApp, ...skippedTrain()]).decision).toBe('run');
+  });
+
   it('treats only version lines in the bump files as a version-only change', () => {
     const file = (filename, patch) => ({ filename, status: 'modified', patch });
     const bump = [

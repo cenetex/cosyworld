@@ -46,12 +46,21 @@ export function versionOnly(files) {
 // One of 'reuse', 'wait', or 'run', with the reason. Checks from the
 // current run (`selfRunId`) never count: they are this gate itself.
 export function decide(checkRuns, { missingIsFinal = false, selfRunId = '' } = {}) {
+  const nameOf = (run) => GATE_CHECKS[run.name] ?? run.name;
+  const eligible = checkRuns.filter((run) =>
+    CI_RUST_CHECKS.includes(nameOf(run)) &&
+    (!run.app?.slug || run.app.slug === 'github-actions') &&
+    (!selfRunId || !String(run.details_url ?? '').includes(`/runs/${selfRunId}/`))
+  );
+  const skipped = (run) => run.status === 'completed' && run.conclusion === 'skipped';
+  const checkKey = (run) => JSON.stringify([run.head_sha ?? '', nameOf(run)]);
+  const attempted = new Set(eligible.filter((run) => !skipped(run)).map(checkKey));
   const latest = new Map();
-  for (const run of checkRuns) {
-    const name = GATE_CHECKS[run.name] ?? run.name;
-    if (!CI_RUST_CHECKS.includes(name)) continue;
-    if (run.app?.slug && run.app.slug !== 'github-actions') continue;
-    if (selfRunId && String(run.details_url ?? '').includes(`/runs/${selfRunId}/`)) continue;
+  for (const run of eligible) {
+    // A train can skip a gate after another train ran it on this same commit.
+    // Keep that attempt; a skipped-only check still makes this gate run.
+    if (skipped(run) && attempted.has(checkKey(run))) continue;
+    const name = nameOf(run);
     const seen = latest.get(name);
     if (!seen || (run.started_at ?? '') > (seen.started_at ?? '')) {
       latest.set(name, run);
