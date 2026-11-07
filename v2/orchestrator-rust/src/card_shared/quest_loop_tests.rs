@@ -91,6 +91,14 @@ fn rules_99_quest_loop_commits_and_replays_in_the_c_host() {
 
     let talk = play(&world, |a| a["kind"] == "talk" && a["target"] == "keeper");
     commit(&mut world, talk);
+    let conversation = world.game["conversations"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|c| c["actors"] == json!(["keeper", "vale"]))
+        .expect("direct Talk has durable participants");
+    assert_eq!(conversation["turn"], world.game["turn"]);
+    assert!(conversation["seq"].as_u64().unwrap() > 0);
     assert_eq!(
         quests(&world)[0],
         json!({"kind":"item","target":"bell","since":3,"refusals":0,
