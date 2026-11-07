@@ -3280,6 +3280,7 @@ async function clearQuest(button, quest) {
       }
     }
     reward.accepted = true;
+    notice("");
   } catch (error) {
     if (error.cause) reward.uncertain = true;
     else questClaims.delete(quest.key);

@@ -596,6 +596,7 @@ try {
     const collectedGift = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)), gateKey);
     assert.equal(collectedGift.turn, completedGift.turn);
     assert.equal(collectedGift.actors.vale.questRewards, undefined);
+    assert.equal(await page.locator("#play-status").isHidden(), true);
     assert.equal(await page.locator("body").getAttribute("data-hand-expanded"), "true");
     assert.equal(await metGift.count(), 0, "one tap clears the checked card");
     assert.equal(
