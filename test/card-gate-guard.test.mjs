@@ -1,4 +1,4 @@
-// Rules 100, world life: the Gate Guard's standing Wait bars the battlefield,
+// Rules 100, world life: the Gate Guard's standing Wait bars city entry,
 // and a player may stand guard at a guardable way.
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
@@ -23,7 +23,7 @@ import {
 
 const GUARD = "greek-guard",
   GATE = "greek-gate",
-  FIELD = "greek-battlefield";
+  BEYOND = "greek-courtyard";
 // Beat the guard at his post: threaten, then strike until he yields.
 function beatGuard(s) {
   s = act(s, "threaten", { target: GUARD });
@@ -41,54 +41,57 @@ function beatGuard(s) {
 }
 
 describe("the Gate Guard", () => {
-  it("bars the battlefield as a locked way whose button names him", () => {
+  it("bars city entry as a locked way whose button names him", () => {
     const s = lifeWorld({ place: GATE });
-    expect(s.actors[GUARD].guarding).toBe(FIELD);
-    expect(exits(s, GATE, "vale")).not.toContain(FIELD);
-    expect(exits(s, GATE, "greek-antigone")).not.toContain(FIELD);
-    expect(exits(s, GATE, GUARD)).toContain(FIELD);
-    expect(sealedReason(s, FIELD)).toBe("The Gate Guard is guarding this card");
-    // The locked card gives no quest: Talk with him gives his (rules 102).
-    expect(legalActions(s).some((a) => a.kind === "gate")).toBe(false);
-    // He bars the gate from the battlefield side too: there it is the
-    // locked box with the same reason, and only he may pass.
-    const far = structuredClone(s);
-    far.actors.vale.place = FIELD;
-    far.actors.vale.visited.push(GATE);
-    const field = reload(far);
-    expect(exits(field, FIELD, "vale")).not.toContain(GATE);
-    expect(sealedReason(field, GATE)).toBe(
+    expect(s.actors[GUARD].guarding).toBe(BEYOND);
+    expect(exits(s, GATE, "vale")).not.toContain(BEYOND);
+    expect(exits(s, GATE, "greek-antigone")).not.toContain(BEYOND);
+    expect(exits(s, GATE, GUARD)).toContain(BEYOND);
+    expect(sealedReason(s, BEYOND)).toBe(
       "The Gate Guard is guarding this card",
     );
-    expect(exits(field, FIELD, GUARD)).toContain(GATE);
+    // The locked card gives no quest: Talk with him gives his (rules 102).
+    expect(legalActions(s).some((a) => a.kind === "gate")).toBe(false);
+    // The city gate lets travellers leave from the courtyard.
+    const far = structuredClone(s);
+    far.actors.vale.place = BEYOND;
+    far.actors.vale.visited.push(GATE);
+    const field = reload(far);
+    expect(exits(field, BEYOND, "vale")).toContain(GATE);
+    expect(sealedReason(field, GATE)).toBe(null);
+    expect(exits(field, BEYOND, GUARD)).toContain(GATE);
   });
 
   it("keeps guarding through a Talk", () => {
     let s = lifeWorld({ place: GATE });
     s = act(s, "talk", { target: GUARD });
-    expect(s.actors[GUARD].guarding).toBe(FIELD);
-    expect(sealedReason(s, FIELD)).toBe("The Gate Guard is guarding this card");
+    expect(s.actors[GUARD].guarding).toBe(BEYOND);
+    expect(sealedReason(s, BEYOND)).toBe(
+      "The Gate Guard is guarding this card",
+    );
   });
 
   it("is knocked through on defeat, holds a grudge, walks back and bars again", () => {
     let s = beatGuard(lifeWorld({ place: GATE }));
-    expect(s.actors[GUARD].place).toBe(FIELD);
+    expect(s.actors[GUARD].place).toBe(BEYOND);
     expect(s.actors[GUARD].guarding).toBeUndefined();
     expect(s.log.some((e) => /knocked through/u.test(e.text))).toBe(true);
     const grudge = s.motives.grievances[GUARD].find((g) => g.other === "vale");
     expect(grudge).toMatchObject({ kind: "threat" });
     expect(grudge.weight).toBeGreaterThanOrEqual(1);
     // The way is open while he is away.
-    expect(exits(s, GATE, "vale")).toContain(FIELD);
-    expect(sealedReason(s, FIELD)).toBe(null);
+    expect(exits(s, GATE, "vale")).toContain(BEYOND);
+    expect(sealedReason(s, BEYOND)).toBe(null);
     // After the peace he walks home, off-stage, and bars the way again.
-    s = act(s, "move", { target: "greek-courtyard" });
+    s = act(s, "move", { target: "greek-battlefield" });
     for (let i = 0; i < 8 && s.actors[GUARD].place !== GATE; i++) s = wait(s);
     expect(s.actors[GUARD].place).toBe(GATE);
-    expect(s.actors[GUARD].guarding).toBe(FIELD);
+    expect(s.actors[GUARD].guarding).toBe(BEYOND);
     s = act(s, "move", { target: GATE });
-    expect(exits(s, GATE, "vale")).not.toContain(FIELD);
-    expect(sealedReason(s, FIELD)).toBe("The Gate Guard is guarding this card");
+    expect(exits(s, GATE, "vale")).not.toContain(BEYOND);
+    expect(sealedReason(s, BEYOND)).toBe(
+      "The Gate Guard is guarding this card",
+    );
   });
 
   it("stands aside while he holds Creon's writ, wherever he stands", () => {
@@ -101,8 +104,8 @@ describe("the Gate Guard", () => {
     expect(s.actors[GUARD].place).toBe(GATE);
     expect(s.actors[GUARD].guarding).toBeUndefined();
     s = act(s, "move", { target: GATE });
-    expect(exits(s, GATE, "vale")).toContain(FIELD);
-    expect(sealedReason(s, FIELD)).toBe(null);
+    expect(exits(s, GATE, "vale")).toContain(BEYOND);
+    expect(sealedReason(s, BEYOND)).toBe(null);
   });
 });
 
@@ -114,33 +117,33 @@ describe("a player's guard", () => {
   };
   it("stands as a Wait on a guardable way and bars residents only", () => {
     let s = opened();
-    const { actions } = cardActions(s, ["vale", FIELD]);
+    const { actions } = cardActions(s, ["vale", BEYOND]);
     expect(actions).toHaveLength(1);
-    expect(cardActions(s, [FIELD]).actions.map((a) => a.kind)).toEqual([
+    expect(cardActions(s, [BEYOND]).actions.map((a) => a.kind)).toEqual([
       "move",
     ]);
     const [guard] = actions;
     expect(guard).toMatchObject({
       kind: "wait",
       label: "Guard",
-      cards: ["vale", FIELD],
+      cards: ["vale", BEYOND],
     });
     const done = play(s, guard, s.revision);
     expect(done.ok, done.error).toBe(true);
     s = done.state;
-    expect(s.actors.vale.guarding).toBe(FIELD);
+    expect(s.actors.vale.guarding).toBe(BEYOND);
     expect(
       s.log.findLast((e) => e.actorId === "vale" && e.verb === "wait"),
-    ).toMatchObject({ guards: FIELD });
-    expect(exits(s, GATE, "greek-antigone")).not.toContain(FIELD);
-    expect(exits(s, GATE, "vale")).toContain(FIELD);
+    ).toMatchObject({ guards: BEYOND });
+    expect(exits(s, GATE, "greek-antigone")).not.toContain(BEYOND);
+    expect(exits(s, GATE, "vale")).toContain(BEYOND);
     // Guard again keeps it; any other play ends it.
-    const again = legalActions(s).find((a) => a.guards === FIELD);
+    const again = legalActions(s).find((a) => a.guards === BEYOND);
     s = play(s, again, s.revision).state;
-    expect(s.actors.vale.guarding).toBe(FIELD);
+    expect(s.actors.vale.guarding).toBe(BEYOND);
     s = wait(s);
     expect(s.actors.vale.guarding).toBeUndefined();
-    expect(exits(s, GATE, "greek-antigone")).toContain(FIELD);
+    expect(exits(s, GATE, "greek-antigone")).toContain(BEYOND);
   });
 
   it("never bars another player in a shared world and lapses when its player leaves", () => {
@@ -165,7 +168,7 @@ describe("a player's guard", () => {
       actor: "mara",
       ...seats,
     }).world;
-    const guard = view("vale").actions.find((a) => a.guards === FIELD);
+    const guard = view("vale").actions.find((a) => a.guards === BEYOND);
     world = dispatchShared({
       op: "play",
       world,
@@ -173,8 +176,8 @@ describe("a player's guard", () => {
       action: guard,
       ...seats,
     }).world;
-    expect(world.actors.vale.guarding).toBe(FIELD);
-    expect(view("mara").exits).toContain(FIELD);
+    expect(world.actors.vale.guarding).toBe(BEYOND);
+    expect(view("mara").exits).toContain(BEYOND);
     // Vale leaves: the guard lapses at the next play.
     world = dispatchShared({
       op: "play",
@@ -190,8 +193,8 @@ describe("a player's guard", () => {
   });
 });
 
-// The battlefield's ways out are the City Gate and the Cithaeron Road, each
-// open or shown as the locked box with its reason (the owner, #2233).
+// The battlefield reaches the outside junction and the personal Hollow.
+const FIELD = "greek-battlefield";
 const waysOut = (s) =>
   [
     ...new Set([
@@ -199,28 +202,18 @@ const waysOut = (s) =>
       ...sealedWays(s, "vale").map((r) => r.to),
     ]),
   ].sort();
-const ROAD = "greek-cithaeron";
+
 describe("the Exposed Battlefield", () => {
-  it("has two ways out, the gate and the road, in a new full world", () => {
-    let s = lifeWorld({ place: FIELD });
-    expect(waysOut(s)).toEqual([ROAD, GATE, "greek-polynices-hollow"]);
-    expect(sealedReason(s, GATE)).toBe("The Gate Guard is guarding this card");
-    expect(sealedReason(s, ROAD)).toMatch(/Theban account of the burial/u);
-    // The decree lifts the bar on both sides for good, and a road once
-    // opened by a Theban account stays open.
-    s.items["greek-creon-writ"].holder = GUARD;
-    s.openedRoutes = [...(s.openedRoutes || []), `${FIELD}>${ROAD}`].sort();
-    s = settleGate(reload(s));
-    expect(exits(s, FIELD, "vale").sort()).toEqual([
-      ROAD,
-      GATE,
-    ]);
-    expect(sealedReason(s, "greek-polynices-hollow")).toMatch(/Polynices.*Shade/);
-    expect(exits(s, GATE, "vale")).toContain(FIELD);
-    expect(waysOut(s)).toEqual([ROAD, GATE, "greek-polynices-hollow"]);
+  it("reaches the outside gate while the Hollow waits for its own quest", () => {
+    const s = lifeWorld({ place: FIELD });
+    expect(waysOut(s)).toEqual([GATE, "greek-polynices-hollow"]);
+    expect(exits(s, FIELD, "vale")).toContain(GATE);
+    expect(sealedReason(s, "greek-polynices-hollow")).toMatch(
+      /Polynices.*Shade/,
+    );
   });
 
-  it("has the same two ways out in a rules 99 world upgraded to 100", () => {
+  it("keeps its ways out when a rules 99 world upgrades", () => {
     const file = (f) =>
       readFileSync(`v2/orchestrator-rust/src/card_shared/${f}`, "utf8");
     const context = vm.createContext({
@@ -240,8 +233,8 @@ describe("the Exposed Battlefield", () => {
     old.packs["greek-drama"].scope = "full";
     old.actors.vale.place = FIELD;
     const upgraded = decodeSave(JSON.stringify(old));
-    expect(upgraded.actors[GUARD].guarding).toBe(FIELD);
-    expect(waysOut(upgraded)).toEqual([ROAD, GATE, "greek-polynices-hollow"]);
+    expect(upgraded.actors[GUARD].guarding).toBe(BEYOND);
+    expect(waysOut(upgraded)).toEqual([GATE, "greek-polynices-hollow"]);
     expect(exits(upgraded, FIELD, GUARD)).toContain(GATE);
   });
 });

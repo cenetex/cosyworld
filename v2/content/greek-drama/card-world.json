@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "greek-drama",
   "packId": "cosyworld.greek-drama",
-  "revision": 22,
+  "revision": 24,
   "name": "The Wine-Dark Sea",
   "description": "A branching Greek drama world. A shared ship visits the Wine-Dark Harbor, Athens Harbor and Piraeus. One road joins Athens and Piraeus, and short paths lead to the Attic places where welcome becomes a growing poem.",
   "tone": "Concrete Greek domestic and civic life: bread, work, desire, grief, argument, irreverence, and hospitality. Dialogue expresses committed actions. A tragic ending is never required.",
@@ -86,10 +86,10 @@
     },
     "greek-gate": {
       "name": "Theban City Gate",
-      "text": "Fresh repairs cover the gate. A guard keeps the road to the fallen soldiers clear.",
+      "text": "Fresh repairs cover the gate. The courtyard lies inside the wall. Outside, paths lead to the battlefield and the road over Cithaeron.",
       "exits": [
-        "greek-courtyard",
-        "greek-aulis"
+        "greek-battlefield",
+        "greek-cithaeron"
       ],
       "backdrop": "assets/greek-drama/city-gate-closed-day.webp",
       "backdrops": [
@@ -103,7 +103,7 @@
             {
               "kind": "gate_open",
               "from": "greek-gate",
-              "to": "greek-battlefield"
+              "to": "greek-courtyard"
             }
           ]
         },
@@ -117,18 +117,19 @@
             {
               "kind": "gate_open",
               "from": "greek-gate",
-              "to": "greek-battlefield"
+              "to": "greek-courtyard"
             }
           ]
         }
       ],
-      "persona": "Fresh repairs cover the gate. A guard keeps the road to the fallen soldiers. He guards it until Creon's writ is in his hands."
+      "persona": "The City Gate is the junction outside Thebes. The guard keeps the entrance to the courtyard. Travelers can leave toward the battlefield or the Cithaeron road to Eleusis and Athens."
     },
     "greek-battlefield": {
       "name": "The Exposed Battlefield",
       "text": "Broken spear shafts lie in the dust. A strip of earth outside the city is set apart for the fallen brother.",
       "exits": [
-        "greek-gate"
+        "greek-gate",
+        "greek-aulis"
       ],
       "backdrop": "assets/greek-drama/burial-ground-dusk.webp",
       "persona": "Broken spear shafts lie in the dust. A strip of earth outside the city is set apart for the fallen brother."
@@ -145,15 +146,15 @@
     },
     "greek-cithaeron": {
       "name": "The Cithaeron Road",
-      "text": "Goat paths cross the wooded slope of Cithaeron. One end leads to The Exposed Battlefield; the other leads to Eleusinian Sanctuary. A distant drum carries between the trees.",
+      "text": "Goat paths cross the wooded slope of Cithaeron. One end leads to Theban City Gate; the other leads to Eleusinian Sanctuary. A distant drum carries between the trees.",
       "exits": [
-        "greek-battlefield",
+        "greek-gate",
         "greek-eleusis"
       ],
       "backdrop": "assets/greek-drama/bacchae-cithaeron-day.webp",
-      "persona": "A shared road over Cithaeron between The Exposed Battlefield and Eleusinian Sanctuary. The left end always leads to The Exposed Battlefield. The right end always leads to Eleusinian Sanctuary. From the battlefield it opens only while a Theban account of the burial is there or on Dione’s table: the Burial Account, Creon’s Writ or the Guard’s Tablet. Travelers can meet, talk, rest and carry their belongings here.",
+      "persona": "A shared road over Cithaeron between Theban City Gate and Eleusinian Sanctuary. The left end leads to Theban City Gate. The right end leads to Eleusinian Sanctuary. Travelers can meet, talk, rest and carry their belongings here.",
       "road": [
-        "greek-battlefield",
+        "greek-gate",
         "greek-eleusis"
       ]
     },
@@ -161,7 +162,7 @@
       "name": "Aulis Anchorage",
       "text": "The ships lie motionless beside the shore. Soldiers wait outside the command tents.",
       "exits": [
-        "greek-gate"
+        "greek-battlefield"
       ],
       "backdrop": "assets/greek-drama/aulis-anchorage-day.webp",
       "persona": "The ships lie motionless beside the shore. Soldiers wait outside the command tents."
@@ -1661,13 +1662,7 @@
       "values": {},
       "seed": "Aethra, mother of Theseus.",
       "portrait": "assets/greek-drama/open-door-aethra.webp",
-      "requires": [
-        {
-          "kind": "flag",
-          "key": "greek-open-door-open",
-          "value": true
-        }
-      ],
+      "requires": [],
       "tastes": {
         "likes": "careful listening and help that reaches its owner",
         "sore": "promises treated as finished deeds",
@@ -2518,7 +2513,7 @@
   "routes": [
     {
       "from": "greek-gate",
-      "to": "greek-battlefield",
+      "to": "greek-courtyard",
       "live": true,
       "requires": [
         {
@@ -2655,81 +2650,6 @@
     {
       "from": "greek-argos-palace",
       "to": "greek-argos-tomb"
-    },
-    {
-      "from": "greek-battlefield",
-      "to": "greek-cithaeron",
-      "requires": [
-        {
-          "kind": "flag",
-          "key": "greek-burial-performed",
-          "value": true
-        },
-        {
-          "kind": "any",
-          "conditions": [
-            {
-              "kind": "item_near",
-              "item": "greek-burial-account",
-              "place": "greek-battlefield"
-            },
-            {
-              "kind": "item_near",
-              "item": "greek-burial-account",
-              "place": "greek-courtyard"
-            }
-          ]
-        }
-      ],
-      "sealed": {
-        "reason": "The road over Cithaeron opens once a Theban account of the burial is here or on Dione's table.",
-        "quest": {
-          "kind": "item",
-          "target": "greek-burial-account"
-        }
-      }
-    },
-    {
-      "from": "greek-battlefield",
-      "to": "greek-cithaeron",
-      "requires": [
-        {
-          "kind": "any",
-          "conditions": [
-            {
-              "kind": "item_near",
-              "item": "greek-creon-writ",
-              "place": "greek-battlefield"
-            },
-            {
-              "kind": "item_near",
-              "item": "greek-creon-writ",
-              "place": "greek-courtyard"
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "from": "greek-battlefield",
-      "to": "greek-cithaeron",
-      "requires": [
-        {
-          "kind": "any",
-          "conditions": [
-            {
-              "kind": "item_near",
-              "item": "greek-guard-tablet",
-              "place": "greek-battlefield"
-            },
-            {
-              "kind": "item_near",
-              "item": "greek-guard-tablet",
-              "place": "greek-courtyard"
-            }
-          ]
-        }
-      ]
     },
     {
       "from": "greek-eleusis",
@@ -4021,14 +3941,13 @@
       "label": "Hear the mothers’ request",
       "text": "Vale sits with Aethra and the Argive mothers. Their sons died in the attack on Thebes. They ask Athens to recover the remains for burial. Aethra sets their petition and olive branch within reach.",
       "textTemplate": "{actor} sits with Aethra and the Argive mothers. Their sons died in the attack on Thebes. They ask Athens to recover the remains for burial. Aethra sets their petition and olive branch within reach.",
-      "requires": [
+      "requires": [],
+      "effects": [
         {
-          "kind": "flag",
+          "kind": "set_flag",
           "key": "greek-open-door-open",
           "value": true
-        }
-      ],
-      "effects": [
+        },
         {
           "kind": "set_flag",
           "key": "greek-open-door-mothers-heard",
@@ -7446,13 +7365,7 @@
         "greek-cithaeron",
         "greek-road-athens-eleusis"
       ],
-      "requires": [
-        {
-          "kind": "flag",
-          "key": "greek-open-door-open",
-          "value": true
-        }
-      ]
+      "requires": []
     },
     {
       "id": "greek-ajax",
@@ -7486,13 +7399,7 @@
       "speaker": "greek-aethra",
       "at": "greek-eleusis",
       "text": "The Argive mothers ask Athens to recover their sons' remains for burial.",
-      "requires": [
-        {
-          "kind": "flag",
-          "key": "greek-open-door-open",
-          "value": true
-        }
-      ],
+      "requires": [],
       "choiceId": "greek-open-door-hear-mothers"
     },
     {

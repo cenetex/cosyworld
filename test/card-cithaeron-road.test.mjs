@@ -1,45 +1,98 @@
+import "./helpers/still-cast.mjs";
 import { describe, expect, it } from "vitest";
-import { decodeSave, encodeSave, exits } from "../v2/card-game/world.mjs";
-import { packDefinition } from "../v2/card-game/pack-registry.mjs";
-import { openingFixture } from "./helpers/greek-opening.mjs";
+import {
+  createWorld,
+  decodeSave,
+  encodeSave,
+  exits,
+} from "../v2/card-game/world.mjs";
+import { act } from "./helpers/world-life.mjs";
+import { sailTo } from "./helpers/voyage.mjs";
+import { greekTravelTargets } from "./helpers/greek-travel.mjs";
 
-// The Cithaeron road leads from the battlefield to Eleusis once a Theban
-// account of the burial is at the battlefield or on Dione's table in the
-// courtyard, and stays open after: the
-// Burial Account, Creon's Writ or the Guard's Tablet. The way back from
-// Eleusis is always open.
+const GATE = "greek-gate",
+  ROAD = "greek-cithaeron",
+  COURT = "greek-courtyard";
 const reload = (s) => decodeSave(encodeSave(s));
-const ROAD = "greek-cithaeron";
-const out = (s) => exits(reload(s), "greek-battlefield", "vale").includes(ROAD);
+function start(place) {
+  const s = createWorld();
+  s.actors.vale.place = place;
+  s.crossings["pond-greek-harbor"].discovered = true;
+  return reload(s);
+}
+const walk = (s, ...places) =>
+  places.reduce(
+    (w, target) =>
+      greekTravelTargets(w.actors.vale.place, target).reduce(
+        (world, target) => act(world, "move", { target }),
+        w,
+      ),
+    s,
+  );
 
-describe("the Cithaeron road", () => {
-  it("opens with a Theban account at the battlefield or with Dione", () => {
-    const fixture = openingFixture("burial");
-    // Before the rite the account lies unseen at the battlefield. After it,
-    // the road still waits for the Open Door, which Dione's report opens.
-    expect(out(fixture.beforeRite)).toBe(false);
-    expect(out(fixture.buried)).toBe(false);
-    const s = fixture.closed;
-    expect(s.items["greek-burial-account"].holder).toBe("greek-courtyard");
-    expect(out(s)).toBe(true);
-    // Taken from Dione's table, it leaves the road open.
-    const opened = reload(s);
-    opened.items["greek-burial-account"].holder = "greek-well";
-    expect(out(opened)).toBe(true);
-    // Creon's Writ and the Guard's Tablet open it the same way.
-    const gates = packDefinition("greek-drama").routes.filter(
-      (r) => r.to === ROAD,
+describe("the road outside the City Gate", () => {
+  it.each([COURT, "greek-battlefield"])(
+    "lets a traveller leave from %s while city entry is guarded",
+    (place) => {
+      let s = walk(start(place), GATE);
+      expect(s.actors["greek-guard"].guarding).toBe(COURT);
+      expect(exits(s, GATE, "vale")).not.toContain(COURT);
+      expect(exits(s, COURT, "vale")).toContain(GATE);
+      expect(exits(s, GATE, "vale")).toEqual(
+        expect.arrayContaining([ROAD, "greek-battlefield"]),
+      );
+      s = walk(s, ROAD, "greek-eleusis");
+      expect(s.packs["greek-drama"].flags["greek-open-door-open"]).toBe(true);
+      expect(reload(s)).toEqual(s);
+    },
+  );
+
+  it("repairs the old road knowledge while keeping people and items in place", () => {
+    const old = start(ROAD);
+    old.packs["greek-drama"].revision = 22;
+    old.items["greek-water-jar"].holder = ROAD;
+    old.routeKnowledge.vale = [
+      ["greek-battlefield", ROAD],
+      [GATE, "greek-aulis"],
+      ["greek-aulis", GATE],
+    ];
+    old.actors["greek-guard"].guarding = "greek-battlefield";
+    const s = decodeSave(JSON.stringify(old));
+    expect(s.actors.vale.place).toBe(ROAD);
+    expect(s.items["greek-water-jar"].holder).toBe(ROAD);
+    expect(s.routeKnowledge.vale).toEqual(
+      expect.arrayContaining([
+        ["greek-battlefield", GATE],
+        [GATE, ROAD],
+        [GATE, "greek-battlefield"],
+        ["greek-battlefield", "greek-aulis"],
+        ["greek-aulis", "greek-battlefield"],
+      ]),
     );
-    expect(gates.map((r) => r.requires.at(-1).conditions[0].item)).toEqual([
-      "greek-burial-account",
-      "greek-creon-writ",
-      "greek-guard-tablet",
-    ]);
-    // The way back is always open.
-    expect(exits(reload(s), "greek-eleusis", "vale")).toContain(ROAD);
-    expect(exits(reload(s), ROAD, "vale")).toEqual([
-      "greek-battlefield",
-      "greek-eleusis",
-    ]);
+    expect(s.actors["greek-guard"].guarding).toBe(COURT);
+    expect(reload(s)).toEqual(s);
+  });
+
+  it("reaches Athens from the guarded gate and returns to Thebes by ship", () => {
+    let s = walk(start(COURT), GATE, ROAD, "greek-eleusis");
+    s = act(s, "take", { item: "greek-burial-petition" });
+    s = walk(s, "greek-athens");
+    s = act(s, "give", {
+      item: "greek-burial-petition",
+      target: "greek-theseus",
+    });
+    s = walk(s, "greek-piraeus");
+    for (
+      let i = 0;
+      i < 12 && !exits(s, "greek-piraeus", "vale").includes("greek-ship");
+      i++
+    )
+      s = act(s, "wait");
+    s = walk(s, "greek-ship");
+    s = sailTo(s, "greek-harbor");
+    s = walk(s, COURT);
+    expect(s.actors.vale.place).toBe(COURT);
+    expect(s.actors["greek-guard"].guarding).toBe(COURT);
+    expect(reload(s)).toEqual(s);
   });
 });
