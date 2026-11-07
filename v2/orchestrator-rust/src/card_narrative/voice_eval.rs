@@ -581,10 +581,10 @@ fn a_character_speaks_as_itself_in_the_assistant_turn() {
     // The system turn says who she is; her own view does not repeat it.
     assert!(view.starts_with("I want the Funeral Oil. "));
     assert!(view.ends_with(
-        "I smell bread cooling under a cloth; one place at the table is empty. I'm holding the \
-         Sack of Wheat. Vale's Lamp is burning and uncovered. I ask Vale for the Funeral Oil. \
+        "I smell bread cooling under a cloth; one place at the table is empty. I ask Vale for the Funeral Oil. \
          Vale keeps it for now. Vale, the Lamplighter is right here; I'm talking with them."
     ));
+    assert!(view.contains("I'm carrying the Sack of Wheat."));
     // A fact she witnessed is not told again as the fact she may share.
     assert_eq!(view.matches("Ships for Piraeus Quays leave").count(), 1);
     assert!(prompt.assistant.contains("I want the Funeral Oil."));
@@ -604,7 +604,7 @@ fn a_character_speaks_as_itself_in_the_assistant_turn() {
         check.verdict("The Funeral Oil is mine.", true, false),
         Err("custody")
     );
-    let echo = "I'm holding the Sack of Wheat Vale's Lamp is burning and uncovered.";
+    let echo = "I smell bread cooling under a cloth one place at the table is empty.";
     assert_eq!(check.verdict(echo, true, false), Err("echoed brief"));
     // The heard line said back first is dropped; her own words stay.
     let reply = "Good evening, Dione! What are you baking? Bread for the rites, Vale.";
@@ -658,25 +658,23 @@ fn a_line_ends_on_what_the_speaker_perceives() {
         let c = heard.as_ref().unwrap_or(context);
         prose(&messages(c, entity(c, id), Part::Line).assistant)
     };
-    // L1: Myrto sees the flame Vale holds and the threat, not who holds what.
+    // L1: Myrto sees the threat; Vale's stored lamp stays private.
     let myrto = view("harbor wait with Myrto", "greek-shipmaster");
     assert!(myrto.ends_with(
-        "Worn stone steps rise under my sandals; water slaps the landing. My hands are empty. \
-         Vale's Lamp is burning and uncovered. Pip threatens Vale over the Lamp. \
+        "Worn stone steps rise under my sandals; water slaps the landing. Pip threatens Vale over the Lamp. \
          Vale, the Lamplighter is right here; I'm talking with them."
     ));
     // L4: Antigone at the gate, no "Vale and Antigone are both at…".
     let antigone = view("Antigone at the gate", "greek-antigone");
     assert!(antigone.ends_with(
-        "Fresh mortar smells damp on the gate; dust blows in from the road. My hands are empty. \
-         Vale's Lamp is burning and uncovered. Vale, the Lamplighter is right here; I'm talking \
+        "Fresh mortar smells damp on the gate; dust blows in from the road. Vale, the Lamplighter is right here; I'm talking \
          with them."
     ));
     // P2 and P4: a return compared with the visit before it.
     assert!(view("P2 back at the pond", "vale").contains("The Bell wasn't here last time I came."));
     assert!(view("P4 alone at the pond", "vale").ends_with(
         "Pip was here last time I came. The water lies black and still; something breathes \
-         under it. I'm holding the Lamp. My Lamp is unlit and uncovered. I'm alone here."
+         under it. My Lamp is unlit and uncovered. I'm alone here."
     ));
     // An older tab sends no perception: the earlier view, unchanged.
     let (_, harbor, _) = cases

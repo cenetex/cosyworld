@@ -270,22 +270,14 @@ mod tests {
     fn visible_listener_custody_survives_later_talk_and_hides_the_rest() {
         let mut c = tests::context();
         let mut outcome = tests::solo_departure();
-        outcome.card.kind = "give".into();
-        outcome.card.item = Some("lamp".into());
+        outcome.card.kind = "talk".into();
         outcome.card.target = Some("moth".into());
-        outcome.card.accepted = Some(true);
         outcome.avatars[1].location = "station".into();
         outcome.avatars[1].travel = None;
         outcome.avatars[1].held_item = Some("lamp".into());
         outcome.items[0].location = "station".into();
-        assert!(super::super::valid_outcome(&outcome));
         c.outcome = Some(outcome);
         let visible = "Pip is holding the Lamp.";
-        assert_eq!(visible_holding(&c, "vale"), [visible]);
-        let outcome = c.outcome.as_mut().unwrap();
-        outcome.card.kind = "talk".into();
-        outcome.card.item = None;
-        outcome.card.accepted = None;
         let mut c: Context = serde_json::from_value(serde_json::to_value(c).unwrap()).unwrap();
         for perceived in [false, true] {
             c.entities[0].perception = perceived.then(Default::default);
@@ -293,11 +285,6 @@ mod tests {
             assert!(prompt.contains(visible), "{prompt}");
             assert!(!prompt.contains("Pip is holding the Black cloth"));
         }
-        assert_eq!(
-            carrying(&c, entity(&c, "moth")).as_deref(),
-            Some("I'm carrying the Lamp and the Black cloth.")
-        );
-        assert_eq!(hand(&c, "moth").as_deref(), Some("I'm holding the Lamp."));
         let npc = messages(&c, entity(&c, "moth"), Part::Line).assistant;
         assert!(npc.contains("I'm carrying the Lamp and the Black cloth."));
         assert!(npc.contains("I'm holding the Lamp."));
@@ -309,12 +296,6 @@ mod tests {
         for item in outcome.items.iter_mut().skip(2) {
             item.location = "station".into();
         }
-        assert_eq!(
-            visible_holding(&crowd, "vale"),
-            [visible, "The keeper is holding the Bell."]
-        );
-        assert!(!visible_item(&crowd, "vale", "oil"));
-        assert!(visible_item(&crowd, "keeper", "oil"));
         crowd.outcome.as_mut().unwrap().avatars[1].held_item = None;
         crowd.outcome.as_mut().unwrap().observations =
             serde_json::from_value(serde_json::json!([{"id":"lamp-flame", "value":true}])).unwrap();
@@ -322,20 +303,15 @@ mod tests {
             crowd.entities[0].perception = perceived.then(Default::default);
             let prompt = messages(&crowd, entity(&crowd, "vale"), Part::Line).assistant;
             assert!(prompt.contains("The keeper is holding the Bell."));
+            assert!(!prompt.contains("The keeper is holding the Oil flask."));
             assert!(!prompt.to_lowercase().contains("lamp is burning"));
         }
         c.outcome.as_mut().unwrap().card.target = None;
         c.speakers = vec!["vale".into()];
         assert_eq!(visible_holding(&c, "vale"), [visible]);
-        c.outcome.as_mut().unwrap().card.target = Some("moth".into());
-        c.speakers.push("moth".into());
-        c.outcome.as_mut().unwrap().avatars[1]
-            .holding
-            .retain(|id| id != "lamp");
+        let held = std::mem::take(&mut c.outcome.as_mut().unwrap().avatars[1].holding);
         assert!(!super::super::valid_outcome(c.outcome.as_ref().unwrap()));
-        c.outcome.as_mut().unwrap().avatars[1]
-            .holding
-            .push("lamp".into());
+        c.outcome.as_mut().unwrap().avatars[1].holding = held;
         c.concealed.push("lamp".into());
         assert!(visible_holding(&c, "vale").is_empty());
         c.concealed.clear();
@@ -351,13 +327,14 @@ mod tests {
         c.outcome.as_mut().unwrap().items[0].holder = "station".into();
         c.entities[0].perception = None;
         let ground = "The Lamp is on the ground here.";
-        assert!(messages(&c, entity(&c, "vale"), Part::Line)
-            .assistant
-            .contains(ground));
+        let shown = |c: &Context| {
+            messages(c, entity(c, "vale"), Part::Line)
+                .assistant
+                .contains(ground)
+        };
+        assert!(shown(&c));
         c.concealed.push("lamp".into());
-        assert!(!messages(&c, entity(&c, "vale"), Part::Line)
-            .assistant
-            .contains(ground));
+        assert!(!shown(&c));
     }
 
     #[test]

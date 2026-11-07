@@ -198,14 +198,6 @@ pub(super) fn lines(context: &Context, entity: &Entity, p: &Perception) -> Vec<(
     if !context.concealed.contains(&context.location) {
         pinned.extend(anchor(&context.location));
     }
-    pinned.extend(custody::carrying(context, entity));
-    pinned.extend(custody::hand(context, id));
-    pinned.extend(custody::visible_holding(context, id));
-    pinned.extend(
-        custody::facts(context, id)
-            .into_iter()
-            .filter(|f| f.starts_with("I ")),
-    );
     // "Between us" may already tell a deed ("Pip threatened me…").
     let between = super::between::lines(context, entity);
     let stem = |line: &str| -> Vec<String> {
@@ -236,7 +228,7 @@ pub(super) fn lines(context: &Context, entity: &Entity, p: &Perception) -> Vec<(
     );
     extra.extend(
         wanted(context, entity, id)
-            .filter(|line| !pinned.contains(line))
+            .filter(|line| !custody::visible_holding(context, id).contains(line))
             .map(|line| (3, line)),
     );
     extra.extend(

@@ -2012,6 +2012,11 @@ fn transcript_sections(context: &Context, entity: &Entity, part: Part) -> Vec<(S
         .filter(|_| avatar && part == Part::Line);
     if perceived.is_some() {
         lines.retain(|(section, _)| !matches!(section, Section::Now | Section::Directions));
+        let custody = custody::carrying(context, entity)
+            .into_iter()
+            .chain(custody::hand(context, id))
+            .chain(custody::facts(context, id));
+        lines.extend(tagged(Section::Directions, custody));
     }
     // No authored sample lines (#1537): the voice comes from the idiolect
     // and the world, never from example utterances.
@@ -4264,8 +4269,9 @@ pub(crate) mod tests {
         .unwrap();
         assert_eq!(shared["entries"][1]["text"], "I will keep it safe, Vale.");
         assert_eq!(tries.load(std::sync::atomic::Ordering::SeqCst), 2);
-        assert!(seen.lock().unwrap().iter().any(|request| prompt_of(request)
-            .contains("The keeper has the Oil flask and the Bell at Mirror attic.")));
+        let own_custody = "I'm carrying the Oil flask and the Bell.";
+        let requests = seen.lock().unwrap();
+        assert!(requests.iter().any(|r| prompt_of(r).contains(own_custody)));
         server.abort();
     }
 

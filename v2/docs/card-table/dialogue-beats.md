@@ -292,11 +292,9 @@ The speaker's current inventory comes from the committed outcome. The full
 transcript and the short perception frame share this source, so a busy fact
 list still leaves the character aware of what they carry. A later transfer
 updates that view. Covered objects keep their unnamed sense description.
-Up to three nearby visible hands reach that frame, with the listener first.
-Their saved hand choices and current direct custody agree before
-the speaker can name it. Each person's own voice keeps their full inventory.
-That inventory reads as what they carry; the chosen item reads as what they
-hold in hand.
+Custody sits beside the 70-token scene: each speaker's full carried inventory,
+their chosen hand, and up to three nearby visible hands, with the listener first.
+Saved hand choices must match current direct custody before a speaker names them.
 
 The check flags by default (owner, 2026-11-03). It **blocks** only:
 an empty reply; one over its size cap or unfinished (`shape`); an
