@@ -5,7 +5,11 @@ import {
   validConversations,
 } from "./conversation.mjs";
 import { expressionOf } from "./expression.mjs";
-import { pressureBeforeGive, validHandover, validThreatSource } from "./handover.mjs";
+import {
+  pressureBeforeGive,
+  validHandover,
+  validThreatSource,
+} from "./handover.mjs";
 import { installJourneyProgress } from "./pack-journeys.mjs";
 import { levelTier } from "./level-tiers.mjs";
 import { recordLearning, beginLearning, reconsiderPlan } from "./learning.mjs";
@@ -2606,7 +2610,8 @@ function performPlay(s, a, round = null, settle = []) {
         text += ` ${nameOf(a.target)} declines.`;
         break;
       }
-      if (a.kind === "give" && !pressure) trustGiver(s, a.target, a.item, a.actor);
+      if (a.kind === "give" && !pressure)
+        trustGiver(s, a.target, a.item, a.actor);
       transfer(s, a.item, a.target, a.text);
       if (a.kind === "trade") transfer(s, a.receive, a.actor, a.text);
       break;
@@ -2686,8 +2691,10 @@ function performPlay(s, a, round = null, settle = []) {
     here !== s.actors[a.actor].place
       ? arriveRecitals(s, packDefinitions, a.actor)
       : [];
-  const handover = requestAccepted && pressure && s.items[a.item]?.holder === a.target
-    ? pressure : null;
+  const handover =
+    requestAccepted && pressure && s.items[a.item]?.holder === a.target
+      ? pressure
+      : null;
   if (handover)
     text = `${who} hands the ${nameOf(a.item)} to ${nameOf(a.target)} under pressure.`;
   meetCast(s);
@@ -2720,7 +2727,8 @@ function performPlay(s, a, round = null, settle = []) {
     ...(a.kind === "attack" ? { locationId: here, ...combat } : {}),
     ...(handover ? { handover } : {}),
   });
-  if (a.kind === "threaten") standoffFor(s, a.actor).sourceSeq = s.log.at(-1).seq;
+  if (a.kind === "threaten")
+    standoffFor(s, a.actor).sourceSeq = s.log.at(-1).seq;
   recordConversation(s, s.log.at(-1));
   // A gift in person to an aggrieved recipient is a repair all present see.
   const answer = repairAnswer(
@@ -3657,8 +3665,8 @@ export function validateWorld(s) {
       typeof c.answered !== "boolean" ||
       !Number.isSafeInteger(c.opened) ||
       c.opened < 1 ||
-      c.opened > s.turn
-      || !validThreatSource(s, c)
+      c.opened > s.turn ||
+      !validThreatSource(s, c)
     )
       fail();
     const pair =

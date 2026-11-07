@@ -133,7 +133,13 @@ function remember(life, e) {
 }
 // Record what happened to each participant. Experiences are memories, not
 // points.
-export function recordLifeAction(s, a, accepted, usefulGift = false, handover = null) {
+export function recordLifeAction(
+  s,
+  a,
+  accepted,
+  usefulGift = false,
+  handover = null,
+) {
   if (!s.life) return;
   const participant = (id) =>
     lifeOf(s, id) !== undefined &&
@@ -142,7 +148,9 @@ export function recordLifeAction(s, a, accepted, usefulGift = false, handover = 
       s.controlledActors?.includes(id));
   const social =
     a.kind === "talk" ||
-    (["ask", "accompany", "give", "trade"].includes(a.kind) && accepted && !handover);
+    (["ask", "accompany", "give", "trade"].includes(a.kind) &&
+      accepted &&
+      !handover);
   if (social && s.actors[a.target])
     for (const [id, other] of [
       [a.actor, a.target],
