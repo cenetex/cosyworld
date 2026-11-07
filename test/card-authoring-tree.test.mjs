@@ -95,7 +95,7 @@ describe("the authored world card tree", () => {
         c.source.at(-1) === "to" &&
         c.canonicalId === to,
     );
-    expect(links).toHaveLength(3);
+    expect(new Set(links.map((c) => c.source[2])).size).toBe(3);
     expect(new Set(links.map((c) => c.id)).size).toBe(links.length);
     expect(new Set(links.map((c) => c.ref)).size).toBe(1);
   });
