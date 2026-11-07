@@ -1,7 +1,7 @@
 // A stack of quests per avatar: each an item, a place or a person. The world
 // rules decide when one is met and how much experience it earns.
-// New quests go on top and nothing replaces one already
-// held (#1831): `actor.want` is the top, the one pursued and shown, and
+// Player quests join the saved queue in order. `actor.want` is the top,
+// the one pursued and shown, and
 // `actor.under` the quests beneath it, next first. The next want is drawn
 // from the world, deterministically, so a replayed journal makes the same
 // choices.
@@ -169,11 +169,9 @@ const lastIndex = (list, test) => {
   for (let i = list.length - 1; i > 0; i--) if (test(list[i])) return i;
   return -1;
 };
-// A new quest goes on top. One the avatar already holds comes to the top
-// instead of being held twice; a sanctuary quest takes the place of another
-// quest for the same place. Past the limit the oldest ordinary quest
-// leaves; a level quest never does, and a story quest (`story`, set by pack
-// content) only when everything beneath the top is a level or story quest.
+// Player quests retain their focus and join the queue at its end. Residents
+// put new quests on top and keep their existing three-goal replacement rules.
+// A sanctuary reminder can replace the ordinary visit to the same place.
 export function pushQuest(s, actor, want) {
   const a = s.actors[actor];
   if (playerQuests(actor)) {
@@ -288,7 +286,7 @@ export function drawStep(s, actor, api, kind, target, level, roll) {
   return { verb };
 }
 // On waking from a long rest with experience enough for the next level, the
-// player's level quest goes on top of its stack. It holds one at a time.
+// player's level quest joins its queue. It holds one at a time.
 export function offerLevelQuest(s, actor, api) {
   const a = s.actors[actor];
   a.level ??= levelFor(a.xp);
