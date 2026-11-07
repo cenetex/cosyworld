@@ -16,7 +16,9 @@ export function battleEvents(world, played) {
         e.seq >= played.seq &&
         e.turn === played.turn &&
         !e.generated &&
-        verbs.includes(e.verb),
+        verbs.includes(e.verb) &&
+        e.actorId &&
+        (["guard", "retreat", "sent-home"].includes(e.verb) || e.targetId),
     )
     .map((e) => ({
       seq: e.seq,
@@ -64,18 +66,16 @@ export function battleFacts(world, actor, events, nameOf) {
       const hit = e.target === actor ? "I" : nameOf(e.target);
       const ward =
         e.protected === actor ? "me" : e.protected && nameOf(e.protected);
-      const result = e.protected
+      let result = e.protected
         ? `${hit} took ${e.actor === actor ? "my" : `${nameOf(e.actor)}'s`} blow for ${ward}.`
         : `${who} struck ${target}.`;
-      facts.push(result);
-      if (Number.isInteger(e.before) && Number.isInteger(e.after))
-        facts.push(
-          `${hit} lost ${e.damage} resolve, from ${e.before} to ${e.after}.${e.braced ? ` ${e.target === actor ? "I was" : `${hit} was`} braced for that blow.` : ""}`,
-        );
+      if (e.braced)
+        result += ` ${hit === "I" ? "I was" : `${hit} was`} braced.`;
+      if ([e.before, e.after, e.damage].every(Number.isInteger))
+        result += ` The blow dealt ${e.damage} damage; resolve fell from ${e.before} to ${e.after}.`;
       if (["yield", "sent-home"].includes(e.outcome))
-        facts.push(
-          `${hit} ${e.outcome === "sent-home" ? "was sent home" : "yielded"} after that blow.`,
-        );
+        result += ` ${hit} ${e.outcome === "sent-home" ? "was sent home" : "yielded"}.`;
+      facts.push(result);
     }
     if (e.destination)
       facts.push(

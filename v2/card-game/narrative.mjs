@@ -237,6 +237,7 @@ export function narrativeContext(world, action = null, isCovered = null) {
   } = cast;
   // Talk and Ask speak; any other play speaks only on a rules occasion.
   const { occasion, speakers, scenery } = speechOccasions(world, cast);
+  const battle = battleEvents(world, played);
   const resting =
     played?.verb !== "claim" &&
     (!speakers.length || speakers[0] === cast.resting)
@@ -383,9 +384,7 @@ export function narrativeContext(world, action = null, isCovered = null) {
       ];
       let desire = null;
       if (kind === "avatar") {
-        facts.push(
-          ...battleFacts(world, id, battleEvents(world, played), nameOf),
-        );
+        facts.unshift(...battleFacts(world, id, battle, nameOf));
         // A resident's mood is a world fact; its pack words how to play it.
         if (hasTemperament(id)) {
           const state = world.actors[id],
