@@ -9,7 +9,7 @@ import { resolve } from "node:path";
 import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
 import { createWorld, encodeSave } from "../card-game/world.mjs";
-import { questXp } from "../card-game/want.mjs";
+import { newWant, questXp } from "../card-game/want.mjs";
 import { availableCards } from "../card-game/cards.mjs";
 import {
   readyActionButton,
@@ -45,6 +45,10 @@ async function wake(width, { quest, reduced = false }) {
   world.revision = Math.max(world.revision, world.turn);
   world.actors.vale.xp = quest ? questXp(2) : 0;
   world.actors.vale.level = 1;
+  if (quest)
+    world.actors.vale.want = {
+      ...newWant("place", "attic", world.turn), step: { verb: "rest" },
+    };
   world.actors.moth.want = null;
   world.actors.keeper.want = null;
   world.items.lamp.holder = "station";
@@ -172,6 +176,8 @@ async function wake(width, { quest, reduced = false }) {
   try {
     await page.goto(`${origin}/?table=dream`);
     await page.waitForFunction(() => document.body.inert === false);
+    assert.equal(await page.locator("#hand .want-card").count(), 0,
+      "the old routine REST card leaves the hand");
     await selectCard(page, "vale", { touch });
     await play.click();
     await settled();
@@ -274,21 +280,20 @@ async function wake(width, { quest, reduced = false }) {
         "dream",
       );
       assert.equal(await page.evaluate(() => window.wakeLineShown), false);
-      // The dealt quest lies face down on the stack: the folded card behind
-      // Vale, glowing as new, or its own card, turned once it was seen.
+      // The dealt quest stays on the avatar's stack after the dream.
       assert.equal(
         await page.evaluate(() => {
           const fold = document.querySelector("#hand .quest-fold");
-          if (fold && !fold.hidden) return fold.dataset.glow;
+          if (fold && !fold.hidden && Number(fold.dataset.count) > 0) return "present";
           return [...document.querySelectorAll("#hand .want-card")].some(
             (c) =>
               !c.closest(".want-frame").hidden &&
               c.dataset.unrevealed === "false",
           )
-            ? "invite"
+            ? "present"
             : "missing";
         }),
-        "invite",
+        "present",
         "the dealt quest is on the stack",
       );
     } else {

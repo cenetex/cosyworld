@@ -72,6 +72,7 @@ import {
   knownActors as readKnownActors,
   installWants,
   wake,
+  repairRestTargets,
   dropQuest,
   focusQuest,
   claimQuestReward,
@@ -4003,6 +4004,7 @@ export function decodeSave(text) {
         !humanHeld(world, id) && setAsideWant(world, id, wantAPI(world)),
     });
     installJourneyProgress(s, packDefinitions);
+    repairRestTargets(s, wantAPI(s));
     // An earlier save records the gates already open as it loads, and its
     // guards take their posts (rules 100).
     installConversations(s);

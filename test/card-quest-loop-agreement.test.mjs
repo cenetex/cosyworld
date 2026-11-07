@@ -76,9 +76,11 @@ function playLoop(server) {
   run((a) => a.kind === "claim");
   const halfway = structuredClone(world);
   longRest();
-  run((a) => a.kind === "claim");
   const glimpsed = structuredClone(world);
   const glimpseWake = structuredClone(woke());
+  run((a) => a.kind === "move" && a.target === "pond");
+  run((a) => a.kind === "claim");
+  run((a) => a.kind === "move" && a.target === "attic");
   longRest();
   return {
     talked,
@@ -107,9 +109,7 @@ describe("rules 99 quest loop on the server", () => {
     expect(loop.talked.actors.vale.heard).toEqual({ keeper: "item:bell" });
     // Met, it reaches halfway: the quest to sleep at a sanctuary.
     expect(loop.halfway.actors.vale).toMatchObject({ xp: 2, halfwayIssued: 2 });
-    expect(questsOf(loop.halfway, "vale")[0]).toMatchObject({
-      step: { verb: "rest" },
-    });
+    expect(questsOf(loop.halfway, "vale").some((w) => w.step?.verb === "rest")).toBe(false);
     // Its long rest dreams the glimpse; the next, at full, the level quest.
     expect(loop.glimpseWake).toMatchObject({ rest: "long", dream: "glimpse" });
     const glimpse = loop.glimpsed.actors.vale.glimpse;

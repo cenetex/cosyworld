@@ -123,7 +123,7 @@ fn rules_99_quest_loop_commits_and_replays_in_the_c_host() {
     commit(&mut world, reward);
     assert_eq!(world.game["actors"]["vale"]["xp"], 2);
     assert_eq!(world.game["actors"]["vale"]["halfwayIssued"], 2);
-    assert_eq!(quests(&world)[0]["step"], json!({"verb":"rest"}));
+    assert!(quests(&world).iter().all(|w| w["step"]["verb"] != "rest"));
 
     let wait = |w: &World| play(w, |a| a["kind"] == "wait" && a["sleep"] != true);
     let sleep = |w: &World| play(w, |a| a["sleep"] == true);
@@ -154,9 +154,13 @@ fn rules_99_quest_loop_commits_and_replays_in_the_c_host() {
         glimpse,
         json!({"level":2,"kind":"place","id":"attic","at":"attic"})
     );
+    let visit = play(&world, |a| a["kind"] == "move" && a["target"] == "pond");
+    commit(&mut world, visit);
     let reward = play(&world, |a| a["kind"] == "claim");
     commit(&mut world, reward);
     assert_eq!(world.game["actors"]["vale"]["xp"], 3);
+    let home = play(&world, |a| a["kind"] == "move" && a["target"] == "attic");
+    commit(&mut world, home);
     let event = long_rest(&mut world);
     assert_eq!(event["dream"], "quest");
     let level = quests(&world)

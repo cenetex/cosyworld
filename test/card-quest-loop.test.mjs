@@ -66,46 +66,41 @@ export const sanctuaryQuests = (s) =>
 const levelQuest = (s) => questsOf(s, "vale").find((w) => w.quest) ?? null;
 const reload = (s) => decodeSave(encodeSave(s));
 
-describe("the halfway quest to sleep at a sanctuary", () => {
-  it("comes once at halfway, and a long rest in any sanctuary meets it", () => {
+describe("dream readiness through the avatar", () => {
+  it("dreams at halfway after a long rest in any sanctuary", () => {
     // Level X asks a gap of four ordinary wants: halfway is two.
     let s = at(10, halfwayXp(10) - 1);
     s = meetOne(s);
     expect(s.actors.vale.xp).toBe(halfwayXp(10));
-    expect(sanctuaryQuests(s)).toHaveLength(1);
+    expect(sanctuaryQuests(s)).toHaveLength(0);
     expect(s.actors.vale.halfwayIssued).toBe(11);
     expect(validateWorld(reload(s))).toBeTruthy();
     // Met at the Hillside Sanctuary as well as in the attic: one more want.
     s = longRest(s, "greek-sanctuary");
     expect(sanctuaryQuests(s)).toHaveLength(0);
     s = collectRewards(s);
-    expect(s.actors.vale.xp).toBe(halfwayXp(10) + 1);
+    expect(s.actors.vale.xp).toBe(halfwayXp(10));
     // Short of full experience before the rest, no level quest comes.
     expect(levelQuest(s)).toBeNull();
     expect(validateWorld(s)).toBe(s);
   });
 
-  it("is free to drop and never returns that level", () => {
+  it("keeps routine rest out of the quest stack as experience grows", () => {
     let s = at(10, halfwayXp(10) - 1);
     s = meetOne(s);
-    const i = questsOf(s, "vale").findIndex((w) => w.step?.verb === "rest");
-    const xp = s.actors.vale.xp;
-    s = act(s, (a) => a.kind === "drop" && !a.item && a.quest === i);
-    expect(s.actors.vale.xp).toBe(xp);
+    expect(questsOf(s, "vale").every((w) => w.step?.verb !== "rest")).toBe(true);
     expect(sanctuaryQuests(s)).toHaveLength(0);
     s = meetOne(s);
     expect(sanctuaryQuests(s)).toHaveLength(0);
   });
 
-  it("points to a sanctuary again at full, and any long rest at full brings the level quest", () => {
+  it("brings the level quest through sleep at full experience", () => {
     let s = at(2, questXp(3) - 1);
     s.actors.vale.halfwayIssued = 3;
     s = meetOne(s);
     expect(s.actors.vale.xp).toBe(questXp(3));
-    expect(sanctuaryQuests(s)).toHaveLength(1);
-    // Dropped, it cannot block levelling.
-    const i = questsOf(s, "vale").findIndex((w) => w.step?.verb === "rest");
-    s = act(s, (a) => a.kind === "drop" && !a.item && a.quest === i);
+    expect(sanctuaryQuests(s)).toHaveLength(0);
+
     s = longRest(s);
     expect(levelQuest(s)?.quest).toMatchObject({ level: 3 });
     expect(validateWorld(s)).toBe(s);
@@ -221,15 +216,8 @@ describe("the halfway glimpse", () => {
     expect(validateWorld(s)).toBe(s);
   });
 
-  it("brings none when the halfway quest is dropped, or when full comes first", () => {
+  it("brings the level quest when full experience comes before sleep", () => {
     let s = halfway();
-    const i = questsOf(s, "vale").findIndex((w) => w.step?.verb === "rest");
-    s = act(s, (a) => a.kind === "drop" && !a.item && a.quest === i);
-    s = longRest(s);
-    expect(s.actors.vale.glimpse).toBeUndefined();
-    expect(wake(s).dream).toBeUndefined();
-    // Halfway and full crossed before one long rest: the quest, drawn freely.
-    s = halfway();
     while (s.actors.vale.xp < questXp(11)) s = meetOne(s);
     s = longRest(s);
     expect(s.actors.vale.glimpse).toBeUndefined();
@@ -263,20 +251,13 @@ describe("dreams per level", () => {
     expect(dreamsSince(s, from)).toEqual(["glimpse", "quest"]);
   });
 
-  it("is one when full experience comes before a long rest, or the halfway quest is dropped", () => {
+  it("is one when full experience comes before a long rest", () => {
     let s = halfway();
-    let from = s.log.at(-1).seq;
+    const from = s.log.at(-1).seq;
     while (s.actors.vale.xp < questXp(11)) s = meetOne(s);
     s = restAndReflect(restAndReflect(s));
     expect(dreamsSince(s, from)).toEqual(["quest"]);
-    s = halfway();
-    from = s.log.at(-1).seq;
-    const i = questsOf(s, "vale").findIndex((w) => w.step?.verb === "rest");
-    s = act(s, (a) => a.kind === "drop" && !a.item && a.quest === i);
-    s = restAndReflect(s);
-    while (s.actors.vale.xp < questXp(11)) s = meetOne(s);
-    s = restAndReflect(s);
-    expect(dreamsSince(s, from)).toEqual(["quest"]);
+
   });
 
   it("never comes to an ordinary long rest or a Wait", () => {

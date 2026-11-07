@@ -2472,15 +2472,24 @@
   var restStep = (s, actor, api, quest) => ({
     ...newWant(
       "place",
-      [s.actors[actor].sanctuary, api.home(actor)].find(
-        (p) => p && (api.active?.(p) ?? true)
-      ) ?? s.actors[actor].place,
+      [s.actors[actor].sanctuary, api.home(actor), ...api.sanctuaries].find(
+        (p) => api.sanctuaries.includes(p) && (api.active?.(p) ?? true)
+      ),
       s.turn
     ),
     ...quest ? { quest } : {},
     step: { verb: "rest" }
   });
   var sanctuaryQuest = (w) => w.step?.verb === "rest" && !w.quest;
+  function repairRestTargets(s, api) {
+    for (const id of Object.keys(s.actors)) {
+      const held = questsOf(s, id), kept = held.filter((want) => !sanctuaryQuest(want));
+      if (kept.length !== held.length) setQuests(s.actors[id], kept);
+      for (const want of questsOf(s, id))
+        if (want.kind === "place" && want.step?.verb === "rest" && api.places().includes(want.target) && !api.sanctuaries.includes(want.target))
+          want.target = restStep(s, id, api).target;
+    }
+  }
   function mergeSanctuaryQuests(list) {
     const key = (w) => `${w.kind}:${w.target}`;
     const keeps = (k) => {
@@ -20726,6 +20735,7 @@
         setAside: (world, id) => !humanHeld(world, id) && setAsideWant(world, id, wantAPI(world))
       });
       installJourneyProgress(s, packDefinitions);
+      repairRestTargets(s, wantAPI(s));
       installConversations(s);
       latchRoutes(s);
       settleGuards(s);

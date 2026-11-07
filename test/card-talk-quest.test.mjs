@@ -200,7 +200,7 @@ describe("a quest from Talk", () => {
     expect(s.actors.vale.halfwayIssued).toBe(11);
     expect(
       questsOf(s, "vale").some((w) => w.step?.verb === "rest" && !w.quest),
-    ).toBe(true);
+    ).toBe(false);
   });
 
   it("refuses a malformed saved record", () => {
