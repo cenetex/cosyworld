@@ -1,7 +1,7 @@
 // Talk reveals what a person wants: one first-person line from their want.
 // It reads the world and never changes it. Another avatar's want reaches the
 // player only through a Talk play with that avatar.
-import { layMet } from "./want.mjs";
+import { layMet, questsOf } from "./want.mjs";
 import forest from "./forest.json" with { type: "json" };
 import {
   consumable,
@@ -84,7 +84,7 @@ export function wantFact(world, id, nameOf) {
         ? `I want to be at ${name}.`
         : `I want to see ${name}.`;
   // Only the top quest is said; the rest of the stack is a count.
-  const more = world.actors[id].under?.length || 0;
+  const more = Math.max(0, questsOf(world, id).length - 1);
   return more
     ? `${line} I have ${more === 1 ? "one other quest" : `${more} other quests`} too.`
     : line;

@@ -16,9 +16,11 @@ import {
   transports,
 } from "./pack-registry.mjs";
 import { sendShipHome } from "./pack-transport.mjs";
+import { humanAvatarIds } from "./human-cast.mjs";
 import {
   mergeSanctuaryQuests,
-  questsOf,
+  allQuestsOf,
+  QUEST_LIMIT,
   restStep,
   setQuests,
 } from "./want.mjs";
@@ -183,14 +185,16 @@ function scatter(s, pack, api) {
     if (mine(id)) continue;
     if (mine(a.sanctuary)) delete a.sanctuary;
     const list = mergeSanctuaryQuests(
-      questsOf(s, id).map((w) =>
+      allQuestsOf(s, id).map((w) =>
         w.step?.verb === "rest" && mine(w.target)
           ? restStep(s, id, api.want, w.quest)
           : w,
-      ),
+      ), humanAvatarIds.includes(id),
     );
     const named = (w) => names(w).some(mine);
-    const order = [...list.filter((w) => !named(w)), ...list.filter(named)];
+    const count = humanAvatarIds.includes(id) ? QUEST_LIMIT : list.length;
+    const active = list.slice(0, count);
+    const order = [...active.filter((w) => !named(w)), ...active.filter(named), ...list.slice(count)];
     if (order.length) setQuests(a, order);
   }
 }

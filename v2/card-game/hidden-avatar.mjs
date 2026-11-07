@@ -7,7 +7,7 @@
 import { humanAvatar } from "./human-cast.mjs";
 import { packDefinitions } from "./pack-registry.mjs";
 import { seedHash } from "./pack-specials.mjs";
-import { newWant, pushQuest, questsOf } from "./want.mjs";
+import { newWant, pushQuest, allQuestsOf } from "./want.mjs";
 
 const avatarList = (value) =>
   Array.isArray(value) &&
@@ -72,7 +72,7 @@ export function seekHidden(world, actor) {
   if (!target || target === actor || world.hidden.met.includes(actor))
     throw new Error("Nobody is hidden here for you to find.");
   if (
-    !questsOf(world, actor).some(
+    !allQuestsOf(world, actor).some(
       (w) => w.kind === "person" && w.target === target && !w.step,
     )
   )

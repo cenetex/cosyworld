@@ -82,6 +82,7 @@ import {
   pushQuest,
   questsOf,
   questTerms,
+  allQuestsOf,
   levelOf,
   wantOf,
   wantKey,
@@ -1929,7 +1930,7 @@ export function legalActions(s, actor = currentActor(s)) {
     for (const r of sealedWays(s, actor)) {
       if (
         !r.sealed.quest ||
-        questsOf(s, actor).some((w) => questTerms(w) === questTerms(gateQuest(s, r.sealed.quest)))
+        allQuestsOf(s, actor).some((w) => questTerms(w) === questTerms(gateQuest(s, r.sealed.quest)))
       )
         continue;
       out.push(offer("gate", actor, null, r.to, r.sealed.reason, [r.to]));
@@ -3727,7 +3728,7 @@ export function validateWorld(s) {
       !validWant(s, id) ||
       a.visited.length > Object.keys(places).length ||
       a.visited.some((place) => !Object.hasOwn(places, place)) ||
-      questsOf(s, id).some(
+      allQuestsOf(s, id).some(
         (w) => w.kind === "place" && !Object.hasOwn(places, w.target),
       )
     )

@@ -6,9 +6,10 @@ admits the next waiting quest. Incoming quests preserve the player's focus.
 Completed reward receipts stay available until claimed and use no active slot.
 
 The existing saved `want` and `under` list retains every quest and its progress.
-Its first two entries are active for a current or claimed human player;
+Its first two entries are active for each avatar in the human cast;
 the remaining entries wait. An older three-quest save keeps its third quest
-waiting. NPC goal stacks keep their current rules.
+waiting. This stays true during absence, import and shared claim changes.
+Named NPC goal stacks keep their current rules.
 
 Admission, source deduplication and save checks read the whole list.
 Gameplay and quest cards read active entries. A waiting quest starts observing

@@ -45,8 +45,10 @@ export const REFUSAL_LIMIT = 3;
 export const STALL_TURNS = 48;
 export const REST_TURNS = 3;
 export const CONTENT_TURNS = 24;
-// An avatar holds at most this many quests.
-export const QUEST_LIMIT = 3;
+// Player avatars keep two quests active, including while living as residents.
+export const QUEST_LIMIT = 2;
+const NPC_QUEST_LIMIT = 3;
+const playerQuests = (id) => humanAvatarIds.includes(id);
 
 // A pack's residents become known once the player has found a way in.
 export const knownActors = (s) =>
@@ -139,10 +141,12 @@ export const sameQuest = (left, right) =>
 export const wantKey = (id, want) =>
   `${id}:${want.kind}:${want.target}:${want.since}:${want.quest?.left ?? ""}:${questTerms(want)}`;
 // The whole stack, top first.
-export const questsOf = (s, id) => {
+export const allQuestsOf = (s, id) => {
   const a = s.actors[id];
   return a?.want ? [a.want, ...(a.under || [])] : [];
 };
+export const questsOf = (s, id) =>
+  allQuestsOf(s, id).slice(0, playerQuests(id) ? QUEST_LIMIT : NPC_QUEST_LIMIT);
 // A met want with nothing beneath leaves its avatar content: no want until
 // it next rests (a player's Sleep, a resident's day). Any quest it takes on
 // ends that.
@@ -165,6 +169,18 @@ const lastIndex = (list, test) => {
 // content) only when everything beneath the top is a level or story quest.
 export function pushQuest(s, actor, want) {
   const a = s.actors[actor];
+  if (playerQuests(actor)) {
+    const held = allQuestsOf(s, actor);
+    const old = held.find((w) => want.quest
+      ? w.quest?.level === want.quest.level
+      : !w.quest && questTerms(w) === questTerms(want));
+    if (old) {
+      if (want.story) old.story = true;
+      return old;
+    }
+    setQuests(a, [...held, want]);
+    return want;
+  }
   const same = (w) =>
     sameQuest(w, want) || (!w.quest && !want.quest && !w.step &&
       want.step?.verb === "rest" && w.kind === want.kind && w.target === want.target);
@@ -178,7 +194,7 @@ export function pushQuest(s, actor, want) {
       ? { ...old, ...(want.story ? { story: true } : {}) }
       : want;
   const list = [top, ...held.filter((w) => !same(w))];
-  while (list.length > QUEST_LIMIT) {
+  while (list.length > NPC_QUEST_LIMIT) {
     const at = lastIndex(list, (w) => !w.quest && !w.story);
     list.splice(at > 0 ? at : lastIndex(list, (w) => !w.quest), 1);
   }
@@ -187,8 +203,8 @@ export function pushQuest(s, actor, want) {
 }
 // The player chooses which quest to pursue: it comes to the top.
 export function focusQuest(s, actor, index) {
-  const list = questsOf(s, actor);
-  if (!(index > 0 && index < list.length)) return;
+  const list = allQuestsOf(s, actor);
+  if (!(index > 0 && index < questsOf(s, actor).length)) return;
   const [want] = list.splice(index, 1);
   setQuests(s.actors[actor], [want, ...list]);
 }
@@ -269,7 +285,7 @@ export function drawStep(s, actor, api, kind, target, level, roll) {
 export function offerLevelQuest(s, actor, api) {
   const a = s.actors[actor];
   a.level ??= levelFor(a.xp);
-  if (pendingLevelReward(s, actor) || questsOf(s, actor).some((w) => w.quest) || a.xp < questXp(a.level + 1))
+  if (pendingLevelReward(s, actor) || allQuestsOf(s, actor).some((w) => w.quest) || a.xp < questXp(a.level + 1))
     return null;
   const level = a.level + 1,
     quest = { level, left: questSteps(level) + 1 };
@@ -354,9 +370,9 @@ const sanctuaryQuest = (w) => w.step?.verb === "rest" && !w.quest;
 // final rest, with a destination where long sleep can complete it.
 export function repairRestTargets(s, api) {
   for (const id of Object.keys(s.actors)) {
-    const held = questsOf(s, id), kept = held.filter((want) => !sanctuaryQuest(want));
+    const held = allQuestsOf(s, id), kept = held.filter((want) => !sanctuaryQuest(want));
     if (kept.length !== held.length) setQuests(s.actors[id], kept);
-    for (const want of questsOf(s, id))
+    for (const want of allQuestsOf(s, id))
       if (
         want.kind === "place" && want.step?.verb === "rest" &&
         api.places().includes(want.target) && !api.sanctuaries.includes(want.target)
@@ -392,7 +408,7 @@ export function wake(s, actor, api) {
   if (
     !full && a.xp >= halfwayXp(a.level) &&
     api.player(actor) &&
-    !questsOf(s, actor).some((w) => w.quest) &&
+    !allQuestsOf(s, actor).some((w) => w.quest) &&
     !pendingLevelReward(s, actor) &&
     a.glimpse?.level !== a.level + 1
   ) {
@@ -411,7 +427,7 @@ export function wake(s, actor, api) {
 // Sleep reads the threshold directly when the avatar wakes.
 function milestones(s, id, api, before) {
   const a = s.actors[id];
-  if (!api.player(id) || pendingLevelReward(s, id) || questsOf(s, id).some((w) => w.quest)) return;
+  if (!api.player(id) || pendingLevelReward(s, id) || allQuestsOf(s, id).some((w) => w.quest)) return;
   const level = a.level ?? levelFor(a.xp),
     full = questXp(level + 1);
   const halfway =
@@ -435,7 +451,7 @@ export function dropCost(s, actor, index = 0) {
 // dropping the last one draws another at once.
 export function dropQuest(s, actor, api, index = 0) {
   const a = s.actors[actor],
-    list = questsOf(s, actor),
+    list = allQuestsOf(s, actor),
     want = list[index];
   if (!want) return;
   a.xp -= dropCost(s, actor, index);
@@ -747,22 +763,16 @@ export function settleWants(s, actors, api, action = null) {
     }
     // Any quest in the stack can be met, each once per play. A level
     // quest's next step, or a fresh draw, takes the met one's place.
-    for (let i = 0; i < questsOf(s, id).length; ) {
-      if (!questMet(s, id, questsOf(s, id)[i], talk, action)) {
-        i++;
-        continue;
-      }
-      const held = questsOf(s, id).length;
-      commitMet(s, id, api, met, i);
-      if (questsOf(s, id).length >= held) i++;
-    }
+    for (const want of questsOf(s, id))
+      if (questMet(s, id, want, talk, action))
+        commitMet(s, id, api, met, allQuestsOf(s, id).indexOf(want));
     if (a.xp > before) milestones(s, id, api, before);
   }
   return met;
 }
 function commitMet(s, id, api, met, index = 0) {
   const a = s.actors[id],
-    list = questsOf(s, id),
+    list = allQuestsOf(s, id),
     want = list[index],
     quest = want.quest && { ...want.quest, left: want.quest.left - 1 };
   a.level ??= levelFor(a.xp);
@@ -826,8 +836,8 @@ function giveUp(s, actor, api) {
       a,
       mergeSanctuaryQuests([
         restStep(s, actor, api, want.quest),
-        ...questsOf(s, actor).slice(1),
-      ]),
+        ...allQuestsOf(s, actor).slice(1),
+      ], playerQuests(actor)),
     );
   else if (want.quest)
     a.want =
@@ -836,7 +846,7 @@ function giveUp(s, actor, api) {
       questStep(s, actor, api, want.quest, want);
   else {
     const aside = { ...want, since: s.turn, refusals: 0 },
-      rest = questsOf(s, actor).slice(1);
+      rest = allQuestsOf(s, actor).slice(1);
     const next = rest.length ? null : nextWant(s, actor, api, want);
     setQuests(a, [...rest, ...(next ? [next] : []), aside]);
   }
@@ -879,8 +889,8 @@ export function fillWants(s, api, now = false) {
     const first = awaitsFirstQuest(s, id, api);
     if (first === "waiting") {
       // An authored starter waits; a level or story quest stays.
-      const kept = questsOf(s, id).filter((w) => w.quest || w.story);
-      if (!a.xp && kept.length < questsOf(s, id).length) setQuests(a, kept);
+      const kept = allQuestsOf(s, id).filter((w) => w.quest || w.story);
+      if (!a.xp && kept.length < allQuestsOf(s, id).length) setQuests(a, kept);
       continue;
     }
     // A content player waits for its Sleep; a resident, which never sleeps,
@@ -989,7 +999,11 @@ export function validWant(s, id) {
     v.length <= 64 &&
     new Set(v).size === v.length &&
     v.every((x) => Object.hasOwn(of, x));
-  const quests = questsOf(s, id);
+  const quests = allQuestsOf(s, id);
+  // Unique validated terms bound the queue by the world's finite card set.
+  const cards = Object.keys(s.items).length + Object.keys(s.actors).length +
+    Object.keys(s.locations).length + 1;
+  const limit = playerQuests(id) ? 16 * cards ** 3 : NPC_QUEST_LIMIT;
   // Experience an avatar brought from its last world (#1846) raises the cap.
   const most = startXp(id) + (a.carried ?? 0) + s.turn * 8;
   return (
@@ -1024,7 +1038,7 @@ export function validWant(s, id) {
       (Array.isArray(a.under) &&
         a.want !== null &&
         a.under.length >= 1 &&
-        a.under.length < QUEST_LIMIT &&
+        a.under.length < limit &&
         a.under.every((w) => validQuest(s, id, w)))) &&
     quests.filter((w) => w.quest).length <= 1 &&
     new Set(quests.filter((w) => !w.quest).map(questTerms))
