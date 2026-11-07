@@ -10,7 +10,8 @@ import {
   playText,
   restPlays,
 } from "../v2/card-game/cards.mjs";
-import { packDefinitions } from "../v2/card-game/pack-registry.mjs";
+import { packDefinitions, packDefinition } from "../v2/card-game/pack-registry.mjs";
+import { createLandingWorld } from "../v2/card-game/pack-landing.mjs";
 import {
   createWorld,
   encodeSave,
@@ -172,6 +173,23 @@ describe("named card actions", () => {
       expect(result.hint).toBeTruthy();
     }
     expect(encodeSave(world)).toBe(before);
+  });
+  it("explains a resident's stay while keeping Talk and legal invitations", () => {
+    let world = createLandingWorld(packDefinition("hoppycat-archive"), 7);
+    const move = legalActions(world).find(
+      (a) => a.kind === "move" && a.target === "hoppycat-meraki-atelier",
+    );
+    world = play(world, move).state;
+    const before = encodeSave(world), fable = "hoppycat-fable";
+    expect(kinds(world, [fable])).toEqual(["talk"]);
+    expect(cardActions(world, ["vale", fable])).toEqual({
+      actions: [], hint: "Select Fable on their own to talk.",
+    });
+    expect(cardActions(world, [fable, "hoppycat-halfway-tea-garden"])).toEqual({
+      actions: [], hint: "Fable stays at the Makers' Loft for now.",
+    });
+    expect(encodeSave(world)).toBe(before);
+    expect(primary(meeting(), ["moth", "pond"]).kind).toBe("accompany");
   });
   it("hints at Ask only when an Ask for that person is legal", () => {
     const ask = /ask for it/u;

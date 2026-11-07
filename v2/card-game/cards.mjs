@@ -4,8 +4,11 @@ import {
   packPlaces,
   packDefinitions,
   packThings,
+  staysPut,
+  packJourneyDestination,
   transports,
 } from "./pack-registry.mjs";
+import { keepsHome } from "./resident-home.mjs";
 import { dropCost } from "./want.mjs";
 import { lockedAt } from "./pack-items.mjs";
 import { shutLanes } from "./pack-transport.mjs";
@@ -314,7 +317,11 @@ export function cardPlay(world, selected) {
               a.target === avatar &&
               a.destination === location,
           ),
-      "Pair a nearby avatar with an open path to ask them to accompany you.",
+      avatar !== player &&
+        (staysPut(avatar, world) || keepsHome(world, avatar)) &&
+        !packJourneyDestination(world, avatar)
+        ? `${nameOf(avatar)} stays at ${nameOf(here).replace(/^The /u, "the ")} for now.`
+        : "Pair a nearby avatar with an open path to ask them to accompany you.",
     );
   // An item lying here pairs with this place to be used where it lies.
   if (item && location)

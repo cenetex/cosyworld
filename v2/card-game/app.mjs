@@ -2314,6 +2314,12 @@ function renderActions() {
     !cardIsCovered(selected[0])
       ? `${nameOf(selected[0])}. ${things[selected[0]].text || ""} ${cardObservation(world, selected[0])}`.trim()
       : "";
+  const pairDetails =
+    !rested && !actions.length && selected.length === 2 &&
+    selected.some((id) => people[id]) &&
+    selected.every((id) => (people[id] || places[id]) && !cardIsCovered(id))
+      ? hint
+      : "";
   $("selection-name").textContent = selected.length
     ? selectionName
     : "Card actions";
@@ -2334,7 +2340,8 @@ function renderActions() {
         : (
             (actions[0] && playText(actions[0])) ||
             clientText ||
-            itemDetails
+            itemDetails ||
+            pairDetails
           ).replace(
             /\b(the|an?) (?:the|an?) /giu,
             "$1 ",
