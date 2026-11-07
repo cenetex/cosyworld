@@ -14,6 +14,9 @@ import {
   packGiveChoice,
 } from "../v2/card-game/pack-registry.mjs";
 import { openingFixture } from "./helpers/greek-opening.mjs";
+import { dispatchShared } from "../v2/card-game/shared-world.mjs";
+import { worldLife } from "../v2/card-game/resident-home.mjs";
+import { currentSharedEngine } from "./fixtures/shared-engine.mjs";
 
 const writ = "greek-creon-writ",
   creon = "greek-creon",
@@ -61,25 +64,6 @@ it("starts the writ with Creon and preserves an earned Ask and Give", () => {
   expect(s.items[writ].holder).toBe("greek-guard");
   expect(exits(s, "greek-gate")).toContain("greek-battlefield");
   expect(decodeSave(encodeSave(s)).items[writ]).toEqual(s.items[writ]);
-});
-
-it("records Dione's copy, returns the original, and keeps public passage", () => {
-  let s = walk(
-    openingFixture("concession").permission,
-    "greek-well",
-    "greek-courtyard",
-  );
-  const prior = [...s.items[writ].history];
-  s = act(s, "give", { item: writ, target: "greek-baker" });
-  expect(s.items[writ].holder).toBe(creon);
-  expect(s.items[writ].history).toEqual([
-    ...prior,
-    packDefinition(pack).choices.find((c) => c.id === copy).text,
-  ]);
-  expect(s.packs[pack].flags["greek-concession-public"]).toBe(true);
-  expect(s.packs[pack].receipts[copy]).toBe(s.turn);
-  s = walk(s, "greek-gate", "greek-battlefield", "greek-cithaeron");
-  expect(decodeSave(encodeSave(s))).toEqual(s);
 });
 
 it("repairs the old untouched palace writ and Dione's recorded deposit once", () => {
@@ -135,4 +119,43 @@ it("requires the authored recipient to be active with room for the original", ()
   for (const item of ["greek-bread", "greek-water-jar"])
     s.items[item].holder = creon;
   expect(packGiveChoice(s, action)).toBeNull();
+});
+
+it("commits the public copy through the same local and compiled shared rules", () => {
+  const seed = old("permission");
+  seed.turn = seed.revision = 48;
+  const previousLife = worldLife.on,
+    engine = currentSharedEngine();
+  worldLife.on = true;
+  try {
+    const run = (request) => {
+      const result = dispatchShared(structuredClone(request));
+      expect(JSON.parse(engine.cardShared(JSON.stringify(request)))).toEqual(
+        result,
+      );
+      expect(result.ok, result.error).toBe(true);
+      return result;
+    };
+    let world = run({ op: "create", save: JSON.stringify(seed) }).world;
+    for (const [kind, target] of [
+      ["move", "greek-well"],
+      ["move", "greek-courtyard"],
+      ["give", "greek-baker"],
+    ]) {
+      const action = run({ op: "view", world }).actions.find(
+        (a) =>
+          a.kind === kind &&
+          a.target === target &&
+          (kind !== "give" || a.item === writ),
+      );
+      world = run({ op: "play", world, action }).world;
+    }
+    expect(world.items[writ].holder).toBe(creon);
+    expect(world.packs[pack].receipts[copy]).toBe(world.turn);
+    expect(world.packs[pack].flags["greek-concession-public"]).toBe(true);
+    expect(exits(world, "greek-gate")).toContain("greek-battlefield");
+    expect(exits(world, "greek-battlefield")).toContain("greek-cithaeron");
+  } finally {
+    worldLife.on = previousLife;
+  }
 });

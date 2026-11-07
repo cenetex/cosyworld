@@ -114,6 +114,50 @@ fn step(target: &str) -> [(&str, &str); 2] {
     [("kind", "move"), ("target", target)]
 }
 
+#[test]
+fn public_writ_copy_returns_to_its_custodian_and_replays() {
+    let (c, id) = fixture();
+    let mut world = World::create(None).unwrap();
+    world.claimed[0] = 1;
+    world.present[0] = 1;
+    world.game.as_object_mut().unwrap().remove("opening");
+    world.game["actors"]["vale"]["place"] = json!("greek-courtyard");
+    world.game["items"]["greek-creon-writ"]["holder"] = json!("vale");
+    world.game["items"]["greek-decree"]["holder"] = json!("greek-creon");
+    let pack = &mut world.game["packs"]["greek-drama"];
+    pack["receipts"]["greek-petition-burial"] = json!(0);
+    pack["choices"]["greek-theban-response"] = json!("concession");
+    pack["flags"]["greek-burial-permitted"] = json!(true);
+    full_store::seed(&c, &id, &world, "agreed-permission", now()).unwrap();
+    let action = play(
+        &c,
+        &id,
+        &mut world,
+        0,
+        &[
+            ("kind", "give"),
+            ("item", "greek-creon-writ"),
+            ("target", "greek-baker"),
+        ],
+    );
+    assert_eq!(
+        world.game["items"]["greek-creon-writ"]["holder"],
+        "greek-creon"
+    );
+    assert_eq!(
+        world.game["packs"]["greek-drama"]["receipts"]["greek-courtyard-concession"],
+        1
+    );
+    assert!(world.game["items"]["greek-creon-writ"]["history"][0]
+        .as_str()
+        .unwrap()
+        .contains("keeps a copy"));
+    rejected(&c, &id, &mut world, "vale", action);
+    c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
+    let reopened = store::open(std::path::Path::new(c.path().unwrap())).unwrap();
+    assert_eq!(full_store::world(&reopened, &id, now()).unwrap(), world);
+}
+
 // Myrine's walk from Eleusis to the Piraeus quays, one road at a time.
 const MYRINE_PATH: [&str; 4] = [
     "greek-road-athens-eleusis",
