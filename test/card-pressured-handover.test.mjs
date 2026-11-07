@@ -9,6 +9,7 @@ import {
 } from "../v2/card-game/world.mjs";
 import { newWant, questRewardsOf } from "../v2/card-game/want.mjs";
 import { actionCaption } from "../v2/card-game/beats.mjs";
+import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 
 function act(s, kind, target = null, item = null) {
   const a = legalActions(s).find(
@@ -164,4 +165,18 @@ it("rejects extra handover metadata", () => {
   const s = act(demand(), "give", "moth", "lamp");
   s.log.find((e) => e.handover).handover.guessed = true;
   expect(() => validateWorld(s)).toThrow();
+});
+it("preserves the shared player's threat and the NPC's custody", () => {
+  const s = meeting();
+  s.items.lamp.holder = "moth";
+  s.actors.moth.want = null;
+  const world = dispatchShared({ op: "create", save: encodeSave(s) }).world;
+  const context = { actor: "vale", claimed: ["vale"], present: ["vale"] };
+  const action = dispatchShared({ op: "view", world, ...context }).actions
+    .find((a) => a.kind === "threaten" && a.target === "moth");
+  const r = dispatchShared({ op: "play", world, ...context, action, expectedRevision: world.revision });
+  expect(r.ok, r.error).toBe(true);
+  expect(r.world.items.lamp.holder).toBe("moth");
+  expect(r.world.standoffs[0].sourceSeq).toBe(r.world.log.find((e) => e.verb === "threaten").seq);
+  expect(r.world.log.some((e) => e.handover)).toBe(false);
 });
