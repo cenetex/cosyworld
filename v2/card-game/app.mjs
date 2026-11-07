@@ -3103,9 +3103,15 @@ function questView(quest) {
     at: quest.step?.at,
   };
 }
-const questLabel = (quest, met, near) => met
-  ? `Quest met: ${shownQuestCaption(quest)}. Select to collect its reward.`
-  : `Quest${quest.index ? ` ${quest.index + 1}` : ""}: ${shownQuestCaption(quest)}${near ? ", near" : ""}`;
+const levelUpTitle = (quest, met) => quest.level && (!met || quest.earnedLevel);
+const questLabel = (quest, met, near) => {
+  const caption = levelUpTitle(quest, met)
+    ? `Level Up ${romanLevel(quest.level)}: ${shownQuestCaption(quest, false)}`
+    : shownQuestCaption(quest);
+  return met
+    ? `Quest met: ${caption}. Select to collect its reward.`
+    : `Quest${quest.index ? ` ${quest.index + 1}` : ""}: ${caption}${near ? ", near" : ""}`;
+};
 function questFrame({ id, quest, met }) {
   const picked = !met && questOpen && quest.index === questPick;
   const hidden = questCovered(quest),
@@ -3135,10 +3141,10 @@ function questFrame({ id, quest, met }) {
     el.append(node("span", "✓", "quest-seal"));
   }
   const head = node("span", undefined, "quest-head");
-  // The label is the quest's verb alone; the whole quest is its accessible
-  // name (aria-label above).
+  // A level quest keeps its title through each step. A checked step names
+  // its deed; the final receipt names the level ready to claim.
   head.append(
-    setCardLabel(node("span", undefined, "quest-verb"), verb),
+    setCardLabel(node("span", undefined, "quest-verb"), levelUpTitle(quest, met) ? "Level Up" : verb),
     node("span", quest.level ? romanLevel(quest.level) : "", "quest-level"),
   );
   el.append(
@@ -3238,15 +3244,15 @@ function syncQuestFold(fold) {
         ? "near"
         : "none";
   const count = questEntries().length;
+  const summary = [
+    shownQuests.length && `${shownQuests.length} active quest${shownQuests.length === 1 ? "" : "s"}`,
+    sealedQuests.length && `${sealedQuests.length} reward${sealedQuests.length === 1 ? "" : "s"} to claim`,
+  ].filter(Boolean).join(", ");
   const caption = shownQuestCaption(sealedQuests[0] || quest);
   fold.dataset.count = String(count);
   fold.setAttribute(
     "aria-label",
-    sealedQuests.length
-      ? `Quest met: ${caption}. Open it.`
-      : count > 1
-        ? `${count} quests: ${caption}. Open them.`
-        : `Quest: ${caption}. Open it.`,
+    `${summary}: ${caption}. Open ${count > 1 ? "them" : "it"}.`,
   );
 }
 function questFold(quest) {

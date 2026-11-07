@@ -971,12 +971,15 @@ try {
         });
         if (level) {
           const action = page.locator("#action-beat");
+          const levelCard = page.locator('#hand .want-card[data-quest-id="quest:0"]');
+          assert.equal(await levelCard.locator(".quest-verb").innerText(), "Level Up");
+          assert.equal(await levelCard.locator(".quest-level").innerText(), "XX");
           assert.doesNotMatch(await action.innerText(), /Level XX/u);
           assert.match(
             await page
               .locator('#hand .want-card[data-quest-id="quest:0"]')
               .getAttribute("aria-label"),
-            /Level XX:/u,
+            /Level Up XX:/u,
           );
           assert.equal(await action.getAttribute("data-tier"), "rare");
           assert.equal(
