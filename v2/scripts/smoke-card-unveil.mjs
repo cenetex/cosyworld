@@ -207,6 +207,20 @@ try {
       );
       // A place has no level of its own, so its card carries no numeral.
       assert.equal(await pond.locator(".card-level").count(), 0);
+      // Capture the actual reveal as it starts, including its shorter lid
+      // motion. Inspection and the later skip tap share that held reveal.
+      await page.evaluate(() => {
+        const watch = new MutationObserver(() => {
+          const card = document.querySelector('#hand [data-card="pond"]');
+          if (!card?.dataset.revealing) return;
+          watch.disconnect();
+          for (const animation of card.getAnimations({ subtree: true }))
+            animation.pause();
+        });
+        watch.observe(document.getElementById("hand"), {
+          subtree: true, childList: true, attributeFilter: ["data-revealing"],
+        });
+      });
       await pond.click();
       assert.equal(await pond.getAttribute("aria-pressed"), "false");
       assert.equal(await pond.getAttribute("data-unrevealed"), "false");
