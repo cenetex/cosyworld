@@ -14,7 +14,6 @@ import {
   entityEnabled,
   latchingRoute,
   packEntity,
-  packGiftFits,
 } from "./pack-registry.mjs";
 import { sectionAllows } from "./pack-sections.mjs";
 import { authoredRouteEdges } from "./roaming-routes.mjs";
@@ -799,34 +798,6 @@ export function upgradeGreekDecreeSave(s) {
       s.items[id].holder = item.home;
     }
   saved.revision = 20;
-}
-
-// Revision 23 returns the original after Dione records the public permission.
-function upgradeGreekWritSave(s) {
-  const pack = packDefinitions.find((p) => p.id === "greek-drama"),
-    saved = s.packs?.[pack?.id];
-  if (!pack || pack.revision < 23 || saved?.revision !== 22) return;
-  const id = "greek-creon-writ",
-    item = s.items?.[id],
-    choice = pack.choices.find((c) => c.id === "greek-courtyard-concession");
-  const untouched = item?.holder === "greek-palace" && !item.history?.length;
-  const copied =
-    item?.holder === choice.at &&
-    Object.hasOwn(saved.receipts, choice.id) &&
-    item.history
-      ?.at(-1)
-      ?.endsWith(
-        " sets Creon's Writ on Dione's table. She speaks of the Argive mothers at Eleusis.",
-      );
-  if (
-    (untouched || copied) &&
-    !Object.values(s.items).some((i) => i.holder === id) &&
-    packGiftFits(s, id, pack.items[id].holder)
-  ) {
-    item.holder = pack.items[id].holder;
-    if (copied) item.history = [...item.history, choice.text].slice(-12);
-  }
-  saved.revision = 23;
 }
 
 // Each rumoured place and the reachable place its visitors return to. Troy
@@ -1724,4 +1695,25 @@ export function upgradeGreekEastSeaSave(s) {
         (edge) => !laneOfEdge(edge) || sailed.has(JSON.stringify(edge)),
       );
   saved.revision = 16;
+}
+
+// Revision 23 gives the two orders ordinary item custody. An untouched
+// palace-floor Writ is the old authored start; later transfers stay saved.
+function upgradeGreekWritSave(s) {
+  const pack = packDefinitions.find((p) => p.id === "greek-drama");
+  const saved = s.packs?.[pack?.id];
+  if (!pack || pack.revision < 23 || saved?.revision !== 22) return;
+  const writ = s.items["greek-creon-writ"];
+  const held = Object.values(s.items).filter((i) => i.holder === "greek-creon");
+  if (
+    writ?.holder === "greek-palace" &&
+    writ.history.length === 0 &&
+    held.length < 3 &&
+    !Object.values(s.items).some(
+      (i) =>
+        i.holder === "greek-creon-writ" || held.includes(s.items[i.holder]),
+    )
+  )
+    writ.holder = "greek-creon";
+  saved.revision = 23;
 }

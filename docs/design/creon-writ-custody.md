@@ -1,18 +1,21 @@
-# Creon's Writ custody
+# The guard’s two papers
 
-Creon starts with the original writ. When Dione receives it for the public
-concession, she keeps a copy and returns the original to him. The existing
-public-concession record supplies proof at the City Gate, on the Cithaeron
-way, and for Antigone's funeral journey. A writ already given to the guard
-keeps that owner and continues to open the gate.
+The Gate Decree assigns the guard to his post. Creon starts with his Writ.
+Both remain ordinary items: Take, Ask, Give and Trade change their custody.
+The guard is free of duty while he holds no Gate Decree. His ordinary Drink
+quest takes him to the common table with the wine skin.
 
-A Give choice can name an authored pack avatar in its `give_item` effect.
-That avatar must be active and have room. The traveler must hold the item.
-The effect records its transfer in the item's existing history. The default
-recipient remains the acting traveler.
+With both papers, he holds his post and lets a trusted traveller through.
+The general `passWhen` avatar rule evaluates conditions for each traveller.
+The `trusted` condition requires the stated trust and a settled relationship;
+an active grievance takes priority. Shared people receive their own result.
+The held order determines duty; friendship affects passage at the actual post.
 
-Greek revision 23 repairs an untouched old palace writ or Dione's recorded
-courtyard deposit when it is still the item's last deed. Later ownership and
-item history remain saved. The repair keeps the permission receipt, flags,
-and opened ways. An item carrying another object or a full custodian's hands
-keeps its saved custody.
+Dione’s earlier public-copy choice is archived. Its old receipts and item
+history remain readable. New gifts use the usual item rules. Earlier player
+transfers keep their saved custody. A never-touched old palace-floor Writ
+returns to Creon when his hand has room; covered items keep their placement.
+
+This replaces the earlier proposed copy-and-return effect. The road from the
+City Gate is a separate change. Released rules and recorded saves keep their
+original bundles; this change takes the next shared rules version at landing.

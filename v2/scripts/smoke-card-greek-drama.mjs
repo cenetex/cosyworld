@@ -4,15 +4,12 @@ import { checkOpeningPoem } from "./smoke-card-opening-poem.mjs";
 // Exercise the public card UI and its one saved history, at desktop and phone
 // widths. Text is a bounded fixture; the deterministic model owns every result.
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import { gunzipSync } from "node:zlib";
 import { mkdir } from "node:fs/promises";
 import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
 import {
   addLog,
   createWorld,
-  decodeSave,
   encodeSave,
   legalActions,
   places,
@@ -364,67 +361,6 @@ try {
     assert.equal(await card(opposite).count(), 0);
     await travel("pond");
     assert.equal(rootHolder(await state(), evidence), "vale");
-
-    // Play the old concession through its current public-copy result.
-    const saved = JSON.parse(
-      gunzipSync(
-        readFileSync(
-          new URL(
-            "../../test/fixtures/greek-before-funeral/concession.json.gz",
-            import.meta.url,
-          ),
-        ),
-      ),
-    ).permission;
-    let copying = decodeSave(JSON.stringify(saved));
-    copying.turn = copying.revision = 48;
-    copying = commit(
-      commit(copying, "move", "greek-well"),
-      "move",
-      "greek-courtyard",
-    );
-    await page.evaluate(({ key, value }) => localStorage.setItem(key, value), {
-      key,
-      value: encodeSave(copying),
-    });
-    await page.reload();
-    await ready();
-    await pair("greek-creon-writ", "greek-baker");
-    assert.equal(
-      (await state()).items["greek-creon-writ"].holder,
-      "greek-creon",
-    );
-    assert.equal(
-      (await state()).packs["greek-drama"].flags["greek-concession-public"],
-      true,
-    );
-    assert.equal(
-      await card("greek-creon-writ").count(),
-      0,
-      "The original leaves Dione's table",
-    );
-    await travel("greek-gate");
-    await travel("greek-battlefield");
-    await travel("greek-gate");
-    await travel("greek-courtyard");
-    await travel("greek-well");
-    await travel("greek-palace");
-    assert.equal(
-      await card("greek-creon-writ").locator("..").getAttribute("data-holder"),
-      "greek-creon",
-    );
-    await page.reload();
-    await ready();
-    await selectCard(page, "greek-creon-writ");
-    await artReady();
-    await page.screenshot({
-      path: new URL(`creon-writ-${width}.png`, output).pathname,
-      fullPage: true,
-    });
-    assert.equal(
-      (await state()).items["greek-creon-writ"].holder,
-      "greek-creon",
-    );
     assert.ok(requests.some((r) => r.location === "greek-gate"));
     assert.ok(requests.every((r) => r.speakers.length <= 3));
     assert.deepEqual(failedAssets, []);

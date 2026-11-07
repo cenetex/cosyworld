@@ -2551,10 +2551,16 @@ function performPlay(s, a, round = null, settle = []) {
       }
       break;
     }
-    case "move":
+    case "move": {
+      const guard = guardOf(s, here, a.target);
+      if (guard && guard !== a.actor) {
+        text += ` ${nameOf(guard)} lets ${who} through.`;
+        affected = guard;
+      }
       if (travel(s, a.actor, a.target) && firstCrossing)
         text += " Something on the far shore turns its head.";
       break;
+    }
     case "take":
       transfer(s, a.item, a.actor, a.text);
       break;

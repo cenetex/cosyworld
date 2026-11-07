@@ -1177,11 +1177,6 @@
                 "kind": "flag",
                 "key": "greek-burial-performed",
                 "value": true
-              },
-              {
-                "kind": "flag",
-                "key": "greek-concession-public",
-                "value": true
               }
             ]
           },
@@ -1269,29 +1264,54 @@
     },
     "greek-guard": {
       "name": "The Gate Guard",
-      "text": "He guards the road to the battlefield and will not stand aside without Creon's writ. He keeps glancing toward the smell of Dione's oven.",
+      "text": "The Gate Decree assigns him to the gate. Creon's Writ gives him leave. With both papers in hand, he judges each traveller by their friendship. Off duty, he likes a drink at Dione's table.",
       "place": "greek-gate",
       "home": "greek-gate",
       "values": {
         "greek-provisions": 1,
         "greek-decree": 5,
-        "greek-bread": 2,
-        "greek-creon-writ": 7
+        "greek-bread": 6,
+        "greek-creon-writ": 7,
+        "greek-wine-skin": 5
       },
       "seed": "The Gate Guard of Thebes.",
       "portrait": "assets/greek-drama/chthonic-guard.png",
       "tastes": {
-        "likes": "an unambiguous instruction, returning alive",
+        "likes": "clear orders, familiar faces, wine at the common table",
         "sore": "being blamed for things outside his sight",
-        "reason": "He guards the road to the battlefield and will not stand aside without Creon's writ. He keeps glancing toward the smell of Dione's oven."
+        "reason": "The Gate Decree assigns him to the gate. Creon's Writ gives him leave. With both papers in hand, he judges each traveller by their friendship. Off duty, he likes a drink at Dione's table."
       },
       "want": {
         "kind": "item",
-        "target": "greek-bread",
+        "target": "greek-wine-skin",
         "step": {
-          "verb": "eat"
+          "verb": "eat",
+          "at": "greek-courtyard"
         }
-      }
+      },
+      "travels": false,
+      "stayUntil": [
+        {
+          "kind": "not",
+          "condition": {
+            "kind": "holding",
+            "item": "greek-decree",
+            "actor": "greek-guard"
+          }
+        }
+      ],
+      "passWhen": [
+        {
+          "kind": "holding",
+          "item": "greek-creon-writ",
+          "actor": "greek-guard"
+        },
+        {
+          "kind": "trusted",
+          "actor": "greek-guard",
+          "min": 1
+        }
+      ]
     },
     "greek-baker": {
       "name": "Dione the Baker",
@@ -2101,9 +2121,9 @@
       "home": "greek-gate"
     },
     "greek-decree": {
-      "name": "The Burial Decree",
+      "name": "Gate Decree",
       "startLevel": 50,
-      "text": "A public copy forbids burial of the brother left outside the city.",
+      "text": "An order bearing Creon’s seal assigns its holder to guard the road through the city gate.",
       "holder": "greek-guard",
       "persona": "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
       "art": "assets/greek-drama/decree.png"
@@ -2448,7 +2468,7 @@
     },
     "greek-creon-writ": {
       "name": "Creon's Writ",
-      "text": "A sealed writ from the palace. With it, Creon permits the household to bury the brother, and the gate guard to stand aside.",
+      "text": "Creon’s sealed permission for the household to bury the brother. It also gives the gate guard leave from his post.",
       "persona": "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
       "holder": "greek-creon",
       "art": "assets/greek-drama/creon-writ.webp"
@@ -2527,19 +2547,12 @@
       "live": true,
       "requires": [
         {
-          "kind": "any",
-          "conditions": [
-            {
-              "kind": "holding",
-              "item": "greek-creon-writ",
-              "actor": "greek-guard"
-            },
-            {
-              "kind": "flag",
-              "key": "greek-concession-public",
-              "value": true
-            }
-          ]
+          "kind": "not",
+          "condition": {
+            "kind": "holding",
+            "item": "greek-decree",
+            "actor": "greek-guard"
+          }
         }
       ]
     },
@@ -2720,11 +2733,6 @@
               "kind": "item_near",
               "item": "greek-creon-writ",
               "place": "greek-courtyard"
-            },
-            {
-              "kind": "flag",
-              "key": "greek-concession-public",
-              "value": true
             }
           ]
         }
@@ -2843,8 +2851,8 @@
       "id": "greek-hear-decree",
       "subject": "greek-guard",
       "at": "greek-gate",
-      "label": "Hear the burial order",
-      "text": "The guard reads the burial prohibition aloud.",
+      "label": "Hear the gate order",
+      "text": "The guard reads the order assigning him to the city gate.",
       "requires": [],
       "effects": [
         {
@@ -2853,7 +2861,7 @@
           "value": true
         }
       ],
-      "textTemplate": "The guard reads the burial prohibition aloud.",
+      "textTemplate": "The guard reads the order assigning him to the city gate.",
       "on": "meet"
     },
     {
@@ -3152,7 +3160,7 @@
       "subject": "greek-baker",
       "at": "greek-courtyard",
       "label": "Share the public exception",
-      "text": "Dione keeps a copy of the permission and returns the original writ to Creon. She speaks of the Argive mothers at Eleusis.",
+      "text": "Vale sets Creon's Writ on Dione's table. She speaks of the Argive mothers at Eleusis.",
       "requires": [
         {
           "kind": "choice",
@@ -3167,9 +3175,9 @@
       ],
       "effects": [
         {
-          "kind": "give_item",
+          "kind": "place_item",
           "item": "greek-creon-writ",
-          "actor": "greek-creon"
+          "place": "greek-courtyard"
         },
         {
           "kind": "set_flag",
@@ -3182,8 +3190,9 @@
           "value": true
         }
       ],
-      "textTemplate": "Dione keeps a copy of the permission and returns the original writ to Creon. She speaks of the Argive mothers at Eleusis.",
-      "on": "give"
+      "textTemplate": "{actor} sets Creon's Writ on Dione's table. She speaks of the Argive mothers at Eleusis.",
+      "on": "give",
+      "archived": true
     },
     {
       "id": "greek-courtyard-permitted-burial",

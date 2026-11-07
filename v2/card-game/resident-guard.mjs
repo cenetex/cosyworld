@@ -2,7 +2,12 @@
 // Guard guards by default from world-life.json; a player guards with a Wait
 // aimed at the way. The far card shows as the locked box, and the button
 // names the guard (sealedWays in world.mjs).
-import { packPeople, entityActive, packRouteOpen } from "./pack-registry.mjs";
+import {
+  packPeople,
+  entityActive,
+  packRouteOpen,
+  conditionsMet,
+} from "./pack-registry.mjs";
 import {
   humanAvatar,
   humanAvatarIds,
@@ -83,7 +88,16 @@ export function guardOf(s, from, to, traveller = null) {
       !entityActive(s, id)
     )
       continue;
-    if (!humanAvatar(id)) return id;
+    if (!humanAvatar(id)) {
+      const person = packPeople[id];
+      if (
+        traveller &&
+        person?.passWhen &&
+        conditionsMet(s, person.packId, person.passWhen, traveller)
+      )
+        continue;
+      return id;
+    }
     if (humanPresent(s, id) && !(traveller && controlledByHuman(s, traveller)))
       return id;
   }

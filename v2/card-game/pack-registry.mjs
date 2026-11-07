@@ -578,26 +578,9 @@ function choiceFeasible(
       ? !owns(state.choices, e.key)
       : e.kind === "place_item"
         ? world.items[e.item]?.holder === actor && e.place === choice.at
-        : e.kind === "give_item" && e.actor
-          ? world.items[e.item]?.holder === actor &&
-            entityActive(atTurn, e.actor) &&
-            packGiftFits(world, e.item, e.actor)
-          : e.kind === "drop_item"
-            ? usedUp(world, e.item)
-            : true,
-  );
-}
-export function packGiftFits(world, item, actor) {
-  const after = {
-    ...world,
-    items: {
-      ...world.items,
-      [item]: { ...world.items[item], holder: actor },
-    },
-  };
-  return (
-    Object.keys(after.items).filter((id) => rootOf(after, id) === actor)
-      .length <= 3
+        : e.kind === "drop_item"
+          ? usedUp(world, e.item)
+          : true,
   );
 }
 export function packChoices(world, actor = "vale") {
@@ -830,7 +813,7 @@ export function applyPackChoice(
       note(e.item);
     }
     if (e.kind === "give_item") {
-      world.items[e.item].holder = e.actor || action.actor;
+      world.items[e.item].holder = action.actor;
       note(e.item);
     }
     if (e.kind === "hide_item") {

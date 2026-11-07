@@ -472,9 +472,7 @@ character as its subject. Choices can supply `textTemplate` with `{actor}`
 for the acting avatar's name; ordinary `text` remains literal.
 
 Effects are choose, set_flag, custody-checked place_item, and four item
-moves. `give_item` hands a pack item to the acting avatar. A Give choice may
-name an `actor` from its pack as the recipient of an item the traveler holds.
-That recipient must be active and have room for the item. `retire_item`
+moves. `give_item` hands a pack item to the acting avatar. `retire_item`
 uses an item up (below); the actor must hold it, or the choice must require
 it `item_near` or `item_at` its own place. From rules 98 it uses only the
 actor's own item or one lying at the place, never one another person holds.
@@ -850,3 +848,8 @@ unchanged.
 
 Import cards list local or GitHub sources, then save the chosen world and its
 assets as a fresh local draft. Portable files keep their source document.
+
+A resident’s optional `passWhen` conditions grant passage through that resident’s
+guarded way for the current traveller. `{ "kind": "trusted", "actor": "resident-id",
+"min": 1 }` reads that resident’s trust in the traveller; active grievances take
+priority. This condition belongs to live, traveller-specific checks.
