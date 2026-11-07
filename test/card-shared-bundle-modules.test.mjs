@@ -17,6 +17,7 @@ const RULES = [
   "held-item.mjs",
   "expression.mjs",
   "glimpse.mjs",
+  "handover.mjs",
   "hidden-avatar.mjs",
   "homecoming.mjs",
   "human-cast.mjs",
