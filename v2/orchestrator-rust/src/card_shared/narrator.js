@@ -368,7 +368,7 @@
       case "talk":
         return empty("item", "receive", "destination");
       case "wait":
-        return empty("target", "item", "receive", "destination");
+        return empty("item", "receive", "destination");
       default:
         return false;
     }
@@ -406,9 +406,7 @@
       return false;
     if (trial.version !== 2) return false;
     const { goal, action, expected } = trial;
-    if (!fields2(goal, "kind target item destination") || !["ask", "accompany"].includes(goal.kind) || !world.actors[goal.target] || goal.target === actor || (goal.kind === "ask" ? !world.items[goal.item] || goal.destination !== null : goal.item !== null || profiles2[goal.destination]?.kind !== "location") || !fields2(action, "kind target item receive destination") || !validAction(action, goal) || action.kind === "wait" && [action.target, action.item, action.receive, action.destination].some(
-      (x) => x !== null
-    ) || [action.item, action.receive].some(
+    if (!fields2(goal, "kind target item destination") || !["ask", "accompany"].includes(goal.kind) || !world.actors[goal.target] || goal.target === actor || (goal.kind === "ask" ? !world.items[goal.item] || goal.destination !== null : goal.item !== null || profiles2[goal.destination]?.kind !== "location") || !fields2(action, "kind target item receive destination") || !validAction(action, goal) || action.kind === "wait" && action.target !== null && profiles2[action.target]?.kind !== "location" || [action.item, action.receive].some(
       (id) => id !== null && !world.items[id]
     ) || action.destination !== null && profiles2[action.destination]?.kind !== "location" || !validObservation(trial.before) || !validObservation(trial.after) || trial.before.met || trial.reward !== outcomeReward(trial.before, trial.after) || !fields2(expected, "value samples local") || !Number.isInteger(expected.samples) || expected.samples < 0 || expected.samples > TRIAL_LIMIT || !Number.isInteger(expected.local) || expected.local < 0 || expected.local > expected.samples || (expected.samples === 0 ? expected.value !== null : !Number.isFinite(expected.value) || Math.abs(expected.value) > 100) || typeof trial.conditions !== "string" || trial.conditions.length > 16e3 || typeof trial.afterConditions !== "string" || trial.afterConditions.length > 16e3 || typeof trial.intent !== "string" || trial.intent.length > 2e3 || typeof trial.evidence !== "string" || !trial.evidence.length || trial.evidence.length > 650)
       return false;
@@ -416,7 +414,7 @@
       return false;
     if (JSON.parse(trial.conditions)[7] !== trial.intent) return false;
     const source = world.log.find((e) => e.seq === trial.seq);
-    return !source || !source.generated && source.kind === "action" && source.actorId === actor && source.turn === trial.turn && source.verb === action.kind && (source.targetId || null) === action.target && (source.itemId || null) === action.item && (source.receiveId || null) === action.receive && (source.destinationId || null) === action.destination && source.text.slice(0, 650) === trial.evidence && (!["ask", "accompany"].includes(action.kind) || source.accepted === trial.after.met);
+    return !source || !source.generated && source.kind === "action" && source.actorId === actor && source.turn === trial.turn && source.verb === action.kind && (action.kind === "wait" ? source.guards || null : source.targetId || null) === action.target && (source.itemId || null) === action.item && (source.receiveId || null) === action.receive && (source.destinationId || null) === action.destination && source.text.slice(0, 650) === trial.evidence && (!["ask", "accompany"].includes(action.kind) || source.accepted === trial.after.met);
   }
 
   // v2/card-game/learning.mjs

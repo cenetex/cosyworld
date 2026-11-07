@@ -325,7 +325,7 @@ function validAction(action, goal) {
     case "talk":
       return empty("item", "receive", "destination");
     case "wait":
-      return empty("target", "item", "receive", "destination");
+      return empty("item", "receive", "destination");
     default:
       return false;
   }
@@ -388,9 +388,8 @@ export function validTrial(world, actor, trial, profiles) {
     !fields(action, "kind target item receive destination") ||
     !validAction(action, goal) ||
     (action.kind === "wait" &&
-      [action.target, action.item, action.receive, action.destination].some(
-        (x) => x !== null,
-      )) ||
+      action.target !== null &&
+      profiles[action.target]?.kind !== "location") ||
     [action.item, action.receive].some(
       (id) => id !== null && !world.items[id],
     ) ||
@@ -435,7 +434,9 @@ export function validTrial(world, actor, trial, profiles) {
       source.actorId === actor &&
       source.turn === trial.turn &&
       source.verb === action.kind &&
-      (source.targetId || null) === action.target &&
+      (action.kind === "wait"
+        ? source.guards || null
+        : source.targetId || null) === action.target &&
       (source.itemId || null) === action.item &&
       (source.receiveId || null) === action.receive &&
       (source.destinationId || null) === action.destination &&
