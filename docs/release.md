@@ -359,6 +359,9 @@ full-suite failure as an issue and fix it in parallel.
    commit changes only version lines in the version files
    (`scripts/await-ci-rust.mjs`), waiting while those run. They run the
    checks themselves, at once, when none exist, and again when they failed.
+   A later train's skipped gate keeps the latest actual attempt for that same
+   commit and check. A newer failure, cancellation, or running attempt still
+   decides the result. A check with only skipped records runs on the release.
 6. Smoke: both `/meta` endpoints report `X.Y.Z` and the tag commit, and the
    GitHub release exists.
 
