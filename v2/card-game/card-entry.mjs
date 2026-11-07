@@ -101,7 +101,9 @@ export function createCardEntries() {
 // what for. Its steps still to go, the turn it was given and its place in
 // the stack are progress on the same card, never a new one.
 export const questEntryKey = (quest) =>
-  `${quest.actor}:${quest.kind}:${quest.target ?? ""}`;
+  quest.receiptId === undefined
+    ? `${quest.actor}:${quest.kind}:${quest.target ?? ""}`
+    : `reward:${quest.actor}:${quest.receiptId}`;
 
 // Quests in the hand. `show(keys, seen)` takes the quest keys in the hand
 // now, folded or not, and the ones in view, and returns the ones due to

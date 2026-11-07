@@ -71,6 +71,7 @@ import {
   isQuestId,
   metQuests,
   questCards,
+  questRewardCards,
   questVisible,
   questCaption,
   questBox,
@@ -387,10 +388,9 @@ const shownStageLevels = new Map();
 const coveredCards = new Set();
 let openingHeld = false;
 // The quest stack on show, top first, and whether it is fanned open. A met
-// quest stays, sealed, until its player clears it (sealedQuests, newest
-// first; questSeq is the last event read for them); a first quest arrives
-// glowing (questFresh); questPick is the stack card chosen in the open fan.
-// All are this browser's only: the rules have already removed a met quest.
+// quest stays checked until its saved reward is collected (sealedQuests,
+// newest first). A first quest glows; questPick chooses the open fan card.
+// questSeq also supports shared hosts finishing their rules109 update.
 let shownQuests = [],
   sealedQuests = [],
   questSeq = null,
@@ -402,6 +402,7 @@ let shownQuests = [],
   // The place whose ways on are fanned at the row's right end (#2272).
   waysOpen = null;
 // The folded card behind the avatar shows the top quest.
+const questClaims = new Map();
 const foldQuest = () => shownQuests.find((quest) => questVisible(world, quest)) ?? sealedQuests[0] ?? null;
 const questEntries = () => [
   ...sealedQuests.map((quest, i) => ({
@@ -2485,7 +2486,7 @@ function renderActions() {
       button.dataset.destructive = "";
     } else button.dataset.questStep = "";
     if (!discard) button.dataset.action = action.kind;
-    button.title = discard ? "Abandon this quest" : shownQuestCaption(picked, false);
+    button.title = discard ? "Discard this quest" : shownQuestCaption(picked, false);
     button.disabled = selectionBlocked();
     button.onclick = () => {
       if (discard && !abandonQuest) {
@@ -2581,7 +2582,7 @@ function renderActions() {
     const label = step && playLabel(step, world);
     cardTapHint(
       row.firstElementChild,
-      abandonQuest ? "Confirm" : drop ? "Abandon" : actionTapVerb(step, label || "Continue"),
+      abandonQuest ? "Confirm" : drop ? "Discard" : actionTapVerb(step, label || "Continue"),
       label || undefined,
     );
   }
@@ -2594,7 +2595,7 @@ function renderActions() {
   }
   showActionBeatNote(note, { note: noteText });
   const text = abandonQuest
-    ? "Abandon this quest?"
+    ? "Discard this quest?"
     : itemDetails && sentence !== itemDetails
       ? `${sentence}\n${itemDetails}`
       : sentence;
@@ -2807,6 +2808,7 @@ function showQuests(opening) {
       ),
     );
   for (const card of cards) {
+    if (card.dataset.met === "true") questsInView.turned(card.dataset.questEntry);
     const down = questsInView.down(card.dataset.questEntry);
     card.dataset.unrevealed = String(down);
     if (!down && seen(card)) revealedQuests.add(card.dataset.questEntry);
@@ -3051,7 +3053,7 @@ const cardBackImage = () =>
 // chosen on top, the context button offers its next step and Discard
 // (quest-step.mjs).
 const questCovered = (quest) =>
-  !quest.target || cardIsCovered(quest.target);
+  quest.receiptId === undefined && (!quest.target || cardIsCovered(quest.target));
 const known = (id) => !cardIsCovered(id);
 function shownQuestCaption(quest, includeLevel = true) {
   const hidden = questCovered(quest);
@@ -3092,7 +3094,7 @@ function questFrame({ id, quest, met }) {
   el.dataset.tier = tier.id;
   el.dataset.near = String(near);
   el.style.setProperty("--tier-color", tier.color);
-  el.disabled = selectionBlocked();
+  el.disabled = selectionBlocked() || questClaims.has(quest.key);
   el.dataset.questId = id;
   el.dataset.questKey = quest.key;
   el.dataset.questEntry = questEntryKey(quest);
@@ -3102,7 +3104,7 @@ function questFrame({ id, quest, met }) {
   el.setAttribute(
     "aria-label",
     met
-      ? `Quest met: ${shownQuestCaption(quest)}. Select to clear it.`
+      ? `Quest met: ${shownQuestCaption(quest)}. Select to collect its reward.`
       : `Quest${quest.index ? ` ${quest.index + 1}` : ""}: ${shownQuestCaption(quest)}${near ? ", near" : ""}`,
   );
   if (met) {
@@ -3234,14 +3236,40 @@ function questFold(quest) {
   });
   return fold;
 }
-// Clearing a met quest shows the experience it brought rising from the card
-// and glows the avatar when it ends a level quest. The rules granted that
-// experience when the quest was met.
-function clearQuest(button, quest) {
-  if (selectionBlocked()) return;
-  const color = button.style.getPropertyValue("--tier-color"),
-    box = button.getBoundingClientRect(),
-    gain = node("span", `+${quest.earnedXp} XP`, "quest-xp");
+// The checked card stays until the saved world acknowledges its claim.
+async function clearQuest(button, quest) {
+  if (selectionBlocked() || questClaims.has(quest.key)) return;
+  const reward = { quest, color: button.style.getPropertyValue("--tier-color"),
+    box: button.getBoundingClientRect(), key: crypto.randomUUID() };
+  if (quest.receiptId === undefined) {
+    sealedQuests = sealedQuests.filter((q) => q !== quest);
+    render();
+    return showQuestReward(reward);
+  }
+  const action = legalActions(world).find((a) =>
+    a.kind === "claim" && a.actor === quest.actor && a.receipt === quest.receiptId);
+  if (!action) return;
+  questClaims.set(quest.key, reward);
+  button.disabled = true;
+  try {
+    if (sharedSession) await sharedSession.play(action, reward.key);
+    else {
+      const result = play(world, action, world.revision);
+      if (!result.ok) throw new Error(result.error);
+      world = result.state;
+      save();
+    }
+    reward.accepted = true;
+  } catch (error) {
+    questClaims.delete(quest.key);
+    notice(error.message);
+  } finally {
+    renderedHand = "";
+    render();
+  }
+}
+function showQuestReward({ quest, color, box }) {
+  const gain = node("span", `+${quest.earnedXp} XP`, "quest-xp");
   gain.style.setProperty("--tier-color", color);
   gain.style.left = `${box.left + box.width / 2}px`;
   gain.style.top = `${box.top + box.height / 4}px`;
@@ -3258,11 +3286,10 @@ function clearQuest(button, quest) {
   );
   rise.finished.catch(() => {}).then(() => gain.remove());
   count("quest.met");
-  sealedQuests = sealedQuests.filter((q) => q !== quest);
-  if (!sealedQuests.length) questOpen = false;
-  render();
   const avatar = $("hand").querySelector(`.card[data-card="${quest.actor}"]`);
-  if (quest.level && quest.left <= 1 && avatar) void glowCard(avatar, color);
+  const level = quest.receiptId === undefined
+    ? quest.level && quest.left <= 1 : quest.earnedLevel;
+  if (level && avatar) void glowCard(avatar, color);
 }
 const showPreferredLocations = createPreferredLocationsView(
   $("stage"),
@@ -4690,11 +4717,22 @@ function render() {
   const dealtQuest = liveQuests.find(
     (quest) => questVisible(world, quest) && !shownQuests.some((shown) => shown.key === quest.key),
   );
-  const met =
-    questSeq !== null && world.eventSeq > questSeq
-      ? metQuests(shownQuests, world, questSeq)
-      : [];
-  sealedQuests = [...met, ...sealedQuests];
+  const legacy = sharedSession &&
+    Number(sharedSession.state.version?.split("/")[1]) < 109;
+  const receipts = questRewardCards(world);
+  const met = legacy
+    ? questSeq !== null && world.eventSeq > questSeq
+      ? metQuests(shownQuests, world, questSeq) : []
+    : receipts.filter((q) => !sealedQuests.some((shown) => shown.key === q.key));
+  sealedQuests = legacy ? [...met, ...sealedQuests] : receipts;
+  for (const [key, reward] of questClaims) {
+    if (!receipts.some((q) => q.key === key)) {
+      questClaims.delete(key);
+      queueMicrotask(() => showQuestReward(reward));
+    } else if (reward.accepted && !sharedSession?.state.queue?.some((q) => q.id === reward.key)) {
+      questClaims.delete(key);
+    }
+  }
   questSeq = world.eventSeq;
   // A quest where there was none, such as the first at the pond, is new.
   if (!shownQuests.length && liveQuests.length && renderedHand)

@@ -241,7 +241,7 @@ try {
     await gain.waitFor({ state: "detached" });
     // A stack (#1831): the fold shows the top quest; opening it fans them all
     // out; choosing a quest beneath brings it to the top without a turn, and
-    // only the top quest offers Abandon.
+    // only the top quest offers Discard.
     await page.evaluate((key) => {
       const s = JSON.parse(localStorage.getItem(key));
       const vale = s.actors.vale;
@@ -313,7 +313,7 @@ try {
       await page
         .locator('#card-actions [data-drop-quest="0"]')
         .getAttribute("aria-label"),
-      "Abandon (−1 XP)",
+      "Discard (−1 XP)",
     );
     // Drop is the beat's usual context button, its words red.
     assert.deepEqual(
@@ -385,7 +385,7 @@ try {
     );
     const drop = page.locator('#card-actions [data-drop-quest="0"]');
     await drop.waitFor();
-    // The quest caption carries the unknown target; Abandon is its action.
+    // The quest caption carries the unknown target; Discard is its action.
     assert(await page.locator(".action-beat-note").isHidden());
     assert.equal(await page.locator("#card-actions button").count(), 1);
     assert.equal(
@@ -703,7 +703,7 @@ try {
       top,
       "quest",
       "vale+ greek-funeral-cloth quest:0* quest:1+ quest:2",
-      ["Abandon"],
+      ["Discard"],
     );
     await play(
       top,
