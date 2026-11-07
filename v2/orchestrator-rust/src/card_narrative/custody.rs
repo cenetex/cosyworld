@@ -34,7 +34,9 @@ pub(super) fn holding(context: &Context, entity: &Entity) -> Option<String> {
     let mut things: Vec<_> = avatar
         .holding
         .iter()
-        .filter(|id| !hidden(id) && holder(outcome, id) == Some(entity.id.as_str()))
+        .filter(|id| {
+            !hidden(id) && holder(outcome, id).is_none_or(|owner| owner == entity.id.as_str())
+        })
         .map(|id| person::the(&name(id)))
         .collect();
     things.extend(
@@ -289,6 +291,12 @@ mod tests {
         assert_eq!(
             holding(&c, entity(&c, "vale")).as_deref(),
             Some("My hands are empty.")
+        );
+        // The item table has its own size cap; the avatar's inventory stays.
+        c.outcome.as_mut().unwrap().items.clear();
+        assert_eq!(
+            holding(&c, entity(&c, "moth")).as_deref(),
+            Some("I'm holding the Lamp and the Black cloth.")
         );
         c.outcome = None;
         c.entities
