@@ -492,6 +492,7 @@ function loadSeen(reset = false) {
   shownStageLevels.clear();
   shownQuests = [];
   sealedQuests = [];
+  questClaims.clear();
   questSeq = null;
   questPick = 0;
   questFresh = false;
@@ -499,15 +500,17 @@ function loadSeen(reset = false) {
 }
 loadSeen();
 function save() {
-  if (saveBlocked || sharedSession || storageBlocked) return;
+  if (saveBlocked || sharedSession || storageBlocked) return false;
   try {
     const encoded = encodeSave(world);
     localStorage.setItem(SAVE_KEY, encoded);
     rememberLocalUpgrades(world);
     void localBackups?.queue(encoded);
+    return true;
   } catch {
     count("error.storage");
     notice(UNSAVED_NOTICE);
+    return false;
   }
 }
 if (localBackups) {
@@ -684,7 +687,9 @@ function updateCardCooldown() {
     "#hand button, #card-actions button",
   )) {
     // A blocked reason (a Take refused for space) never plays.
-    button.disabled = selectionBlocked() || Boolean(button.dataset.blocked);
+    const claim = questClaims.get(button.dataset.questKey);
+    button.disabled = selectionBlocked() || Boolean(button.dataset.blocked) ||
+      Boolean(claim && !claim.uncertain);
     if (button.dataset.card)
       button.draggable =
         !button.disabled && !cardIsCovered(button.dataset.card);
@@ -3094,7 +3099,8 @@ function questFrame({ id, quest, met }) {
   el.dataset.tier = tier.id;
   el.dataset.near = String(near);
   el.style.setProperty("--tier-color", tier.color);
-  el.disabled = selectionBlocked() || questClaims.has(quest.key);
+  const claim = questClaims.get(quest.key);
+  el.disabled = selectionBlocked() || Boolean(claim && !claim.uncertain);
   el.dataset.questId = id;
   el.dataset.questKey = quest.key;
   el.dataset.questEntry = questEntryKey(quest);
@@ -3238,8 +3244,9 @@ function questFold(quest) {
 }
 // The checked card stays until the saved world acknowledges its claim.
 async function clearQuest(button, quest) {
-  if (selectionBlocked() || questClaims.has(quest.key)) return;
-  const reward = { quest, color: button.style.getPropertyValue("--tier-color"),
+  const pending = questClaims.get(quest.key);
+  if (selectionBlocked() || (pending && !pending.uncertain)) return;
+  const reward = pending || { quest, color: button.style.getPropertyValue("--tier-color"),
     box: button.getBoundingClientRect(), key: crypto.randomUUID() };
   if (quest.receiptId === undefined) {
     sealedQuests = sealedQuests.filter((q) => q !== quest);
@@ -3249,19 +3256,32 @@ async function clearQuest(button, quest) {
   const action = legalActions(world).find((a) =>
     a.kind === "claim" && a.actor === quest.actor && a.receipt === quest.receiptId);
   if (!action) return;
+  reward.uncertain = false;
   questClaims.set(quest.key, reward);
-  button.disabled = true;
+  avatarFan = "quests";
+  expandedHolders.add(quest.actor);
+  rowCollapsed = false;
+  renderedHand = "";
+  render();
   try {
+    while (localWordsPending() && questClaims.get(quest.key) === reward)
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    if (questClaims.get(quest.key) !== reward) return;
     if (sharedSession) await sharedSession.play(action, reward.key);
     else {
       const result = play(world, action, world.revision);
       if (!result.ok) throw new Error(result.error);
+      const before = world;
       world = result.state;
-      save();
+      if (!save()) {
+        world = before;
+        throw new Error(UNSAVED_NOTICE);
+      }
     }
     reward.accepted = true;
   } catch (error) {
-    questClaims.delete(quest.key);
+    if (error.cause) reward.uncertain = true;
+    else questClaims.delete(quest.key);
     notice(error.message);
   } finally {
     renderedHand = "";
@@ -4726,6 +4746,14 @@ function render() {
     : receipts.filter((q) => !sealedQuests.some((shown) => shown.key === q.key));
   sealedQuests = legacy ? [...met, ...sealedQuests] : receipts;
   for (const [key, reward] of questClaims) {
+    if (reward.quest.actor !== currentActor(world)) {
+      questClaims.delete(key);
+      continue;
+    }
+    if (sharedSession?.state.queue?.some((q) => q.id === reward.key)) {
+      reward.accepted = true;
+      reward.uncertain = false;
+    }
     if (!receipts.some((q) => q.key === key)) {
       questClaims.delete(key);
       queueMicrotask(() => showQuestReward(reward));
@@ -5760,6 +5788,9 @@ function adoptShared(value) {
     if (alreadyOpen) {
       queueDiscoveries();
     }
+  } else if (questClaims.size) {
+    renderedHand = "";
+    render();
   } else {
     renderActions();
     renderScene();

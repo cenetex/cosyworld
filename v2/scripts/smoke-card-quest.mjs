@@ -187,6 +187,19 @@ try {
     await page.screenshot({
       path: new URL(`expanded-${width}.png`, output).pathname,
     });
+    // Keep the reply pending while its completed card is tapped.
+    let releaseReply;
+    const replyGate = new Promise((resolve) => { releaseReply = resolve; });
+    const holdReply = async (route) => {
+      await replyGate;
+      const input = route.request().postDataJSON();
+      await route.fulfill({ json: {
+        revision: input.revision,
+        model: "quest-claim-fixture",
+        entries: input.entities.map(({ id }) => ({ id, text: "The lamp shines beside the saved deed." })),
+      } });
+    };
+    await page.route("**/card-game/text", holdReply);
     // Any play meets it; its checked card stays in the open avatar group.
     await page
       .locator(
@@ -221,15 +234,18 @@ try {
     });
     // Cleared, it falls away as an inert ghost; reduced motion lets it go.
     await card.hover();
-    const falling = await card.evaluate((el) => {
-      el.click();
-      return [...document.querySelectorAll(".card-exits > .beat-ghost")].map(
-        (g) => [g.inert, getComputedStyle(g).pointerEvents],
-      );
-    });
-    assert.deepEqual(falling, motion === "reduce" ? [] : [[true, "none"]]);
+    await card.click();
+    assert.equal(await card.isDisabled(), true);
+    assert.equal(await page.evaluate((key) => JSON.parse(localStorage.getItem(key)).actors.vale.questRewards.length, key), 1);
+    releaseReply();
     const gain = page.locator(".quest-xp");
     await gain.waitFor();
+    await page.unroute("**/card-game/text", holdReply);
+    assert.ok(await page.evaluate((key) => JSON.parse(localStorage.getItem(key)).log.some((e) => e.text?.includes("The lamp shines beside the saved deed.")), key));
+    const falling = await page.locator(".card-exits > .beat-ghost").evaluateAll(
+      (ghosts) => ghosts.map((g) => [g.inert, getComputedStyle(g).pointerEvents]),
+    );
+    assert.deepEqual(falling, motion === "reduce" ? [] : [[true, "none"]]);
     assert.match(await gain.textContent(), /^\+\d+ XP$/);
     await page.screenshot({
       path: new URL(`cleared-${width}.png`, output).pathname,
@@ -543,8 +559,31 @@ try {
       path: new URL(`last-gift-${width}.png`, output).pathname,
       animations: "disabled",
     });
+    const completedGift = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)), gateKey);
+    const receiptKey = await metGift.getAttribute("data-quest-key");
+    await page.reload();
+    await ready();
+    await selectCard(page, "vale");
+    await metGift.waitFor();
+    assert.equal(await metGift.getAttribute("data-quest-key"), receiptKey);
+    // A full save store leaves the checked card available for another tap.
+    await page.evaluate((key) => {
+      window.restoreQuestStorage = Storage.prototype.setItem;
+      Storage.prototype.setItem = function (name, value) {
+        if (name === key) throw new Error("Storage fixture is full");
+        return window.restoreQuestStorage.call(this, name, value);
+      };
+    }, gateKey);
+    await metGift.click({ position: { x: 40, y: 16 } });
+    await page.waitForFunction(() => document.querySelector('#hand .want-card[data-met="true"]')?.disabled === false);
+    assert.equal(await page.locator(".quest-xp").count(), 0);
+    await page.evaluate(() => { Storage.prototype.setItem = window.restoreQuestStorage; });
     await metGift.click({ position: { x: 40, y: 16 } });
     await page.locator(".quest-xp").waitFor();
+    const collectedGift = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)), gateKey);
+    assert.equal(collectedGift.turn, completedGift.turn);
+    assert.equal(collectedGift.actors.vale.questRewards, undefined);
+    assert.equal(await page.locator("body").getAttribute("data-hand-expanded"), "true");
     assert.equal(await metGift.count(), 0, "one tap clears the checked card");
     assert.equal(
       await page.evaluate(
@@ -806,7 +845,7 @@ try {
       .waitFor();
     assert.equal(
       await page.locator("#card-actions button").textContent(),
-      "Tap to abandon",
+      "Tap to discard",
     );
     const labels = await page
       .locator("#action-beat")
