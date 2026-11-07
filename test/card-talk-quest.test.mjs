@@ -18,6 +18,7 @@ import {
 import { enableMotives } from "../v2/card-game/motives.mjs";
 import {
   halfwayXp,
+  allQuestsOf,
   newWant,
   questsOf,
   questXp,
@@ -49,12 +50,12 @@ const given = (s) => questsOf(s, "vale").filter((w) => talkQuestFrom(w));
 describe("a quest from Talk", () => {
   it("gives the quest for a want new to the player, once, and saves it", () => {
     let s = talk(station(), "moth");
-    expect(questsOf(s, "vale")[0]).toMatchObject({
+    expect(questsOf(s, "vale")[1]).toMatchObject({
       kind: "item",
       target: "lamp",
       step: { verb: "give", to: "moth" },
     });
-    expect(wantText(questsOf(s, "vale")[0])).toBe(
+    expect(wantText(questsOf(s, "vale")[1])).toBe(
       `give ${nameOf("lamp")} to ${nameOf("moth")}`,
     );
     expect(s.actors.vale.heard).toEqual({ moth: "item:lamp" });
@@ -114,7 +115,7 @@ describe("a quest from Talk", () => {
     expect(s.actors.vale.xp).toBe(xp + 1);
   });
 
-  it("goes second under a level or story quest, on top otherwise", () => {
+  it("waits behind both current quests, including level and story quests", () => {
     for (const top of [
       { ...newWant("person", "keeper", 0), quest: { level: 2, left: 2 } },
       {
@@ -131,19 +132,21 @@ describe("a quest from Talk", () => {
       s = talk(s, "moth");
       const list = questsOf(s, "vale");
       expect(list[0].quest ?? list[0].story).toBeTruthy();
-      expect(talkQuestFrom(list[1])).toBe("moth");
+      expect(list[1].target).toBe("pond");
+      expect(talkQuestFrom(allQuestsOf(s, "vale")[2])).toBe("moth");
     }
   });
 
-  it("keeps holding an item and giving it as distinct quests", () => {
+  it("keeps holding and giving the same item as separate goals", () => {
     let s = station();
     s.items.lamp.holder = "station";
     s.actors.vale.want = newWant("place", "pond", 0);
     s.actors.vale.under = [newWant("item", "lamp", 0)];
     s = talk(s, "moth");
     const list = questsOf(s, "vale");
-    expect(list.filter((w) => w.target === "lamp")).toHaveLength(2);
-    expect(list[0]).toMatchObject({ kind: "item", target: "lamp" });
+    expect(list.filter((w) => w.target === "lamp")).toHaveLength(1);
+    expect(list[0]).toMatchObject({ kind: "place", target: "pond" });
+    expect(allQuestsOf(s, "vale")[2].step).toEqual({ verb: "give", to: "moth" });
   });
 
   it("leaves when their want changes first, without a refusal", () => {

@@ -17,6 +17,7 @@ import {
   newWant,
   pushQuest,
   questsOf,
+  allQuestsOf,
   restStep,
   reviseStalledWants,
   STALL_TURNS,
@@ -65,7 +66,7 @@ describe("a sanctuary quest redirected by a pack going off", () => {
     const s = halfwayAtTea();
     pushQuest(s, "vale", newWant("place", "pond", s.turn));
     const result = play(s, off("hoppy"), s.revision, "vale");
-    expect(shape(result.state)).toEqual(["place:pond:", "place:attic:rest"]);
+    expect(shape(result.state)).toEqual(["place:attic:rest", "place:pond:"]);
   });
 
   it("never costs a level quest redirected to the same place", () => {
@@ -77,16 +78,15 @@ describe("a sanctuary quest redirected by a pack going off", () => {
       restStep(s, "vale", wantAPI(s), { level: 3, left: 1 }),
     );
     expect(shape(s)).toEqual([
-      `place:${TEA}:rest*`,
-      "place:attic:",
       `place:${TEA}:rest`,
+      "place:attic:",
     ]);
     expect(validateWorld(s)).toBe(s);
     const result = play(s, off("hoppy"), s.revision, "vale");
     expect(result.error).toBeUndefined();
     expect(shape(result.state)).toEqual([
-      "place:attic:rest*",
       "place:attic:rest",
+      "place:attic:rest*",
     ]);
     expect(validateWorld(result.state)).toBe(result.state);
   });
@@ -124,7 +124,7 @@ function rng(seed) {
 const pick = (next, list) => list[Math.floor(next() * list.length)];
 const PACKS = ["hoppy", "sea", "cottage", "shore"];
 const levelQuests = (s) =>
-  questsOf(s, "vale")
+  allQuestsOf(s, "vale")
     .filter((w) => w.quest)
     .map((w) => w.quest.level);
 

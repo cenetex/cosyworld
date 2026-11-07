@@ -2,6 +2,7 @@ import { createWorld, legalActions, play } from "../../v2/card-game/world.mjs";
 import { worldLife } from "../../v2/card-game/resident-home.mjs";
 import { greekTravelTargets } from "./greek-travel.mjs";
 import { endStandoff } from "./standoff.mjs";
+import { questsOf } from "../../v2/card-game/want.mjs";
 
 // Start at Dione's courtyard, then earn the writ and carry every supply by
 // ordinary card plays. The crossing has its own journey tests.
@@ -75,6 +76,8 @@ export function funeralJourney(world = null) {
           a.item === "greek-oil-flask",
       );
     for (let turns = 0; turns < 48 && !canOfferOil(); turns++) act("wait");
+    const quest = questsOf(world, "vale").findIndex((w) => w.target === "greek-polynices-hollow");
+    if (quest > 0) act("focus", { quest });
     states.beforeAnoint = world;
     for (const [state, item] of [
       ["anointed", "greek-oil-flask"],

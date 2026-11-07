@@ -1,6 +1,6 @@
 import { expect, it } from "vitest";
 import { createWorld, decodeSave, encodeSave, legalActions, play, validateWorld, wantAPI } from "../v2/card-game/world.mjs";
-import { newWant, pushQuest, questsOf, questRewardsOf, sameQuest, wantKey } from "../v2/card-game/want.mjs";
+import { allQuestsOf, newWant, pushQuest, questsOf, questRewardsOf, sameQuest, wantKey } from "../v2/card-game/want.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import { currentSharedEngine } from "./fixtures/shared-engine.mjs";
 import { questing } from "./helpers/first-quest.mjs";
@@ -31,14 +31,15 @@ function act(s, kind, target = null) {
 
 it("keeps hold and two recipient goals through save, pack changes and actual deeds", () => {
   let s = reload(start());
-  const goals = structuredClone(questsOf(s, "vale"));
+  const goals = structuredClone(allQuestsOf(s, "vale"));
   expect(new Set(goals.map((w) => wantKey("vale", w))).size).toBe(3);
-  expect(new Set(questCards(s).map(questEntryKey)).size).toBe(3);
+  expect(new Set(questCards(s).map(questEntryKey)).size).toBe(2);
   for (const enable of [false, true]) {
     s = play(s, { kind: "pack", pack: "hoppy", enable }).state;
-    expect(questsOf(s, "vale")).toEqual(goals);
+    expect(allQuestsOf(s, "vale")).toEqual(goals);
   }
   s = reload(act(s, "take"));
+  expect(new Set(questCards(s).map(questEntryKey)).size).toBe(2);
   expect(questRewardsOf(s, "vale").map((r) => r.want.step ?? null)).toEqual([null]);
   expect(questsOf(s, "vale").map((w) => w.step.to)).toEqual(["moth", "keeper"]);
   s = reload(act(s, "give", "keeper"));
@@ -52,7 +53,8 @@ it("deduplicates canonical terms while preserving required light and recipient",
   expect(sameQuest(reverse, gift("keeper"))).toBe(true);
   expect(wantKey("vale", reverse)).toBe(wantKey("vale", gift("keeper")));
   pushQuest(s, "vale", reverse);
-  expect(questsOf(s, "vale")).toHaveLength(3);
+  expect(allQuestsOf(s, "vale")).toHaveLength(3);
+  s.actors.vale.want = reverse;
   s.actors.vale.under = [reverse];
   expect(() => validateWorld(s)).toThrow();
   s.actors.vale.want = newWant("item", "lamp", 0);

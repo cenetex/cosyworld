@@ -82,6 +82,9 @@ import {
   pushQuest,
   questsOf,
   questTerms,
+  allQuestsOf,
+  beginQuestPlay,
+  endQuestPlay,
   levelOf,
   wantOf,
   wantKey,
@@ -1929,7 +1932,7 @@ export function legalActions(s, actor = currentActor(s)) {
     for (const r of sealedWays(s, actor)) {
       if (
         !r.sealed.quest ||
-        questsOf(s, actor).some((w) => questTerms(w) === questTerms(gateQuest(s, r.sealed.quest)))
+        allQuestsOf(s, actor).some((w) => questTerms(w) === questTerms(gateQuest(s, r.sealed.quest)))
       )
         continue;
       out.push(offer("gate", actor, null, r.to, r.sealed.reason, [r.to]));
@@ -3268,6 +3271,7 @@ export function play(
   }
   // Any other play ends a player's guard (rules 100), and an away avatar's
   // resident sleep becomes its returning player's own.
+  beginQuestPlay(next);
   if (!exact.guards) delete next.actors[actor].guarding;
   const dozing = next.actors[actor].sleeping;
   if (dozing?.until !== undefined)
@@ -3436,6 +3440,7 @@ export function play(
     else next.sharedMigration.inventoryAllowances[id] = count;
   }
   settleHeldItems(next, handSnapshot(s));
+  endQuestPlay(next);
   validateWorld(next);
   // Alone, the world runs on around a sleeper until something wakes it.
   // It stops at the first refused play, and the sleep cap bounds it.
@@ -3727,7 +3732,7 @@ export function validateWorld(s) {
       !validWant(s, id) ||
       a.visited.length > Object.keys(places).length ||
       a.visited.some((place) => !Object.hasOwn(places, place)) ||
-      questsOf(s, id).some(
+      allQuestsOf(s, id).some(
         (w) => w.kind === "place" && !Object.hasOwn(places, w.target),
       )
     )

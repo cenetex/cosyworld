@@ -9,7 +9,7 @@
 // want has since changed leaves at the next settle, not as a refusal. Met,
 // it is a want met like any other, so it counts toward the gap of ordinary
 // wants between level quests.
-import { nextWant, pushQuest, questsOf, questTerms, setQuests } from "./want.mjs";
+import { allQuestsOf, nextWant, pushQuest, questTerms, setQuests } from "./want.mjs";
 import { revealed } from "./want-talk.mjs";
 
 const key = (want) => `${want.kind}:${want.target}`;
@@ -70,27 +70,18 @@ export function questFor(s, them, want) {
 
 // A player's Talk with `them`: their top want, if Talk reveals it and the
 // player has not been told it by them before, becomes a quest. One already
-// held moves up instead. Under a level or story quest on top it goes second,
-// so the level quest stays in focus; the usual limit pushes the oldest
-// ordinary quest out.
+// held keeps its place. New quests join the saved queue and preserve focus.
 export function talkQuest(s, actor, them, api) {
   const a = s.actors[actor],
     want = s.actors[them]?.want;
   if (!api.player(actor) || them === actor || !want) return null;
   const quest = revealed(s, them, want) && questFor(s, them, want);
   if (!quest || a.heard?.[them] === key(want)) return null;
-  a.heard = { ...a.heard, [them]: key(want) };
-  const held = questsOf(s, actor);
+  const held = allQuestsOf(s, actor);
   // A level quest's step that is this very quest already asks it.
   if (held.some((w) => w.quest && questTerms(w) === questTerms(quest))) return null;
-  const first = held[0],
-    focus = first && (first.quest || first.story);
   const top = pushQuest(s, actor, quest);
-  const list = questsOf(s, actor);
-  if (focus && list[0] !== first && list[1] === first) {
-    [list[0], list[1]] = [list[1], list[0]];
-    setQuests(a, list);
-  }
+  a.heard = { ...a.heard, [them]: key(want) };
   return top;
 }
 
@@ -100,7 +91,7 @@ export function talkQuest(s, actor, them, api) {
 export function pruneTalkQuests(s, api) {
   for (const id of Object.keys(s.actors)) {
     if (!api.player(id)) continue;
-    const list = questsOf(s, id);
+    const list = allQuestsOf(s, id);
     const kept = list.filter((w) => {
       const them = talkQuestFrom(w);
       if (!them) return true;

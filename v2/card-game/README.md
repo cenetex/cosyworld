@@ -235,7 +235,8 @@ their discovery reveal. An open avatar group stays open after a deed, so a
 completed quest's checked card remains within reach. Tapping the checked card
 shows its earned XP and clears it.
 
-Each avatar holds a stack of up to three quests (#1831). Each quest is an
+Each player avatar holds two active quests, including Level Up. Further quests
+wait in order. Named NPCs hold up to three goals. Each quest is an
 item to hold, a place to reach or a person to talk with. A world pack defines each resident's starter quest as its `want`
 (`{kind, target}`); `forest.json` does the same for Vale, Pip and the keeper.
 What happens next comes from the world rules in `want.mjs`, not from authored
@@ -243,15 +244,14 @@ quest chains. The internal field `actor.want` is the top of the stack, the
 quest pursued and shown; `actor.under` holds the quests beneath it, next
 first, and is absent while the stack holds one. Player-facing text says quest.
 
-- **Stack.** A new quest always goes on top, and nothing replaces or wipes a
-  quest already held. A quest the avatar already holds comes to the top
-  instead of being held twice. When a fourth arrives, the oldest ordinary
-  quest leaves. A level quest never leaves this way, and a story quest
-  (`story: true`, pushed by pack content such as RATi hiding your button at
-  the Cosy Cottage) leaves only when everything beneath the top is a level or
-  story quest. An avatar holds one level quest at a time. Any quest in the
-  stack is met when its condition holds, not only the top one, and a met
-  quest leaves the stack; the next is drawn only when the stack is empty.
+- **Stack.** Incoming player quests join the saved list in order and keep
+  the current focus. Completion or discard admits the next waiting quest.
+  The first two entries are active; further `under` entries retain their
+  progress while waiting, including the third quest from older saves.
+  An avatar holds one level quest across its active and waiting entries.
+  Each active quest can be met by a play; waiting quests observe later plays
+  after admission. Completed reward cards remain available until claimed.
+  A fresh random quest is drawn only when the whole list is empty.
 - **Choose and drop.** In the open fan, choosing a quest beneath the top
   brings it to the top with a **focus** play naming it (`quest`, its index).
   Focus is journaled like any play, but it takes no turn: the world does not

@@ -40,7 +40,7 @@ import {
   sealedWays,
   REFUSED_VERBS,
 } from "./world.mjs";
-import { knownActors, wantOf } from "./want.mjs";
+import { knownActors, questsOf, wantOf } from "./want.mjs";
 import { guardedFrom } from "./resident-guard.mjs";
 import {
   forgetCovered,
@@ -358,9 +358,10 @@ export function narrativeContext(world, action = null, isCovered = null) {
           ? wantFact(world, id, nameOf)
           : null;
       // Waking from a long rest, a new level quest arrives in the dream.
-      const quest = world.actors[id]?.want;
+      const quest = questsOf(world, id).find((w) => w.quest && w.since === world.turn);
       const dreamt =
         rest === "long" &&
+        cast.dream === "quest" &&
         id === resting &&
         quest?.quest?.left &&
         quest.since === world.turn

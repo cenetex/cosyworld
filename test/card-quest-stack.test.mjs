@@ -18,6 +18,7 @@ import {
 import { playLabel } from "../v2/card-game/cards.mjs";
 import {
   QUEST_LIMIT,
+  allQuestsOf,
   dropCost,
   questXp,
   knownActors,
@@ -45,18 +46,18 @@ const level = (target) => ({
 const story = (target) => ({ ...newWant("item", target, 0), story: true });
 
 describe("the quest stack", () => {
-  it("puts a new quest on top and keeps the rest beneath", () => {
+  it("keeps focus as new quests arrive", () => {
     const s = createWorld();
     expect(targets(s)).toEqual(["lamp"]);
     pushQuest(s, "vale", newWant("place", "pond", 0));
-    expect(targets(s)).toEqual(["pond", "lamp"]);
-    // One already held comes to the top instead of being held twice.
+    expect(targets(s)).toEqual(["lamp", "pond"]);
+    // Hearing the same quest preserves its place.
     pushQuest(s, "vale", newWant("item", "lamp", 0));
     expect(targets(s)).toEqual(["lamp", "pond"]);
     expect(validateWorld(reload(s))).toBeTruthy();
   });
 
-  it(`holds ${QUEST_LIMIT}; the oldest ordinary quest leaves, never a level or story quest`, () => {
+  it(`keeps ${QUEST_LIMIT} active and retains all further work in order`, () => {
     const s = createWorld();
     s.actors.vale.want = level("keeper");
     s.actors.vale.under = [
@@ -64,14 +65,15 @@ describe("the quest stack", () => {
       newWant("item", "lamp", 0),
     ];
     pushQuest(s, "vale", story("bell"));
-    expect(targets(s)).toEqual(["bell", "keeper", "pond"]);
+    expect(targets(s)).toEqual(["keeper", "pond"]);
     pushQuest(s, "vale", newWant("place", "station", 0));
-    expect(targets(s)).toEqual(["station", "bell", "keeper"]);
-    // With only level and story quests beneath, the oldest story quest goes.
+    expect(targets(s)).toEqual(["keeper", "pond"]);
     pushQuest(s, "vale", story("cloth"));
-    expect(targets(s)).toEqual(["cloth", "bell", "keeper"]);
+    expect(allQuestsOf(s, "vale").map((w) => w.target)).toEqual([
+      "keeper", "pond", "lamp", "bell", "station", "cloth",
+    ]);
     pushQuest(s, "vale", newWant("place", "pond", 0));
-    expect(targets(s)).toEqual(["pond", "cloth", "keeper"]);
+    expect(allQuestsOf(s, "vale")).toHaveLength(6);
     expect(questsOf(s, "vale").some((w) => w.quest)).toBe(true);
     expect(validateWorld(reload(s))).toBeTruthy();
   });
@@ -151,8 +153,9 @@ describe("the quest stack", () => {
     let s = createWorld();
     s.actors.vale.under = [newWant("place", "pond", 0), story("bell")];
     const before = structuredClone(s);
-    s = act(s, (a) => a.kind === "focus" && a.quest === 2);
-    expect(targets(s)).toEqual(["bell", "lamp", "pond"]);
+    s = act(s, (a) => a.kind === "focus" && a.quest === 1);
+    expect(targets(s)).toEqual(["pond", "lamp"]);
+    expect(allQuestsOf(s, "vale")[2]).toEqual(story("bell"));
     // Only picking a card: the turn holds and nobody else moves.
     expect(s.turn).toBe(before.turn);
     expect(s.revision).toBe(before.revision + 1);
@@ -204,14 +207,15 @@ describe("the quest stack", () => {
     );
   });
 
-  it("rejects an overfull stack and a second level quest", () => {
+  it("retains waiting work and rejects a second level quest", () => {
     const s = createWorld();
     s.actors.vale.under = [
       newWant("place", "pond", 0),
       newWant("place", "station", 0),
       newWant("person", "moth", 0),
     ];
-    expect(() => validateWorld(reload(s))).toThrow();
+    expect(allQuestsOf(reload(s), "vale")).toHaveLength(4);
+    expect(questsOf(reload(s), "vale")).toHaveLength(2);
     const t = createWorld();
     t.actors.vale.want = level("keeper");
     t.actors.vale.under = [level("moth")];
