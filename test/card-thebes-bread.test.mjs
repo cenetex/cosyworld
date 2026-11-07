@@ -1,6 +1,6 @@
 // Rules 102 and Greek revision 20 (#2284): one bread, two routes. Dione bakes
 // it from the water jar and the wheat; the guard bars the gate while he holds
-// the Burial Decree and trades it for the bread, which he eats; Myrto packs
+// the Gate Decree and trades it for the bread, which he eats; Myrto packs
 // the Charybdis's provisions from bread, figs and wine. Eaten or used, a
 // thing goes home: made things locked, the rest ready to fetch again.
 import { describe, expect, it } from "vitest";
@@ -106,7 +106,7 @@ describe("Dione's bread", () => {
 });
 
 describe("the guard and the decree", () => {
-  it("guards the gate until he holds Creon's writ, and again once it leaves him", () => {
+  it("guards while holding the Gate Decree and returns when the order returns", () => {
     const states = openingFixture("concession");
     let s = states.decree;
     expect(s.items["greek-decree"].holder).toBe(GUARD);
@@ -125,12 +125,12 @@ describe("the guard and the decree", () => {
         step: { verb: "give", to: GUARD },
       }),
     );
-    // He trades the decree for the bread, eats it, and guards on.
+    // He trades the decree for the bread, eats it, and leaves duty.
     s = states.traded;
     expect(s.items["greek-decree"].holder).toBe("vale");
     expect(locked(s, "greek-bread")).toBe(true);
     expect(s.actors[GUARD].want).toBe(null);
-    expect(out(s)).toBe(false);
+    expect(out(s)).toBe(true);
     // The decree buys Creon's writ; the writ in his hands, he stands aside.
     s = states.opened;
     expect(s.items["greek-creon-writ"].holder).toBe(GUARD);
@@ -143,9 +143,10 @@ describe("the guard and the decree", () => {
         "greek-creon-writ"
       ].holder,
     ).toBe(GUARD);
-    // Without it he guards again, both ways.
+    // The returned Gate Decree puts him back on duty.
     const lost = structuredClone(s);
     lost.items["greek-creon-writ"].holder = "greek-gate";
+    lost.items["greek-decree"].holder = GUARD;
     s = act(reload(lost), "wait");
     expect(out(s)).toBe(false);
     const field = structuredClone(s);
@@ -407,7 +408,7 @@ describe("the Charybdis's provisions", () => {
     expect(out(s)).toBe(false);
     s = act(s, "trade", { item: "greek-bread", receive: "greek-decree" });
     expect(locked(s, "greek-bread")).toBe(true);
-    expect(out(s)).toBe(false);
+    expect(out(s)).toBe(true);
     s = act(walk(s, "palace"), "trade", {
       item: "greek-decree",
       receive: "greek-creon-writ",

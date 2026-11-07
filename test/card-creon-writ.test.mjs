@@ -9,11 +9,7 @@ import {
   play,
 } from "../v2/card-game/world.mjs";
 import { guardPost, settleGuards } from "../v2/card-game/resident-guard.mjs";
-import {
-  entityActive,
-  freed,
-  packPeople,
-} from "../v2/card-game/pack-registry.mjs";
+import { entityActive, packPeople } from "../v2/card-game/pack-registry.mjs";
 const guard = "greek-guard",
   gate = "greek-gate",
   beyond = guardPost(guard).to;
@@ -26,19 +22,11 @@ function start() {
   return s;
 }
 describe("the guard's two ordinary papers", () => {
-  it("starts with the Gate Decree on duty and the Writ with Creon", () => {
+  it("uses each traveller's friendship when the guard has both papers", () => {
     const s = start();
     expect(s.items["greek-decree"].holder).toBe(guard);
     expect(s.items["greek-creon-writ"].holder).toBe("greek-creon");
     expect(exits(s, gate, "vale")).not.toContain(beyond);
-    s.items["greek-decree"].holder = "vale";
-    s.items["greek-creon-writ"].holder = guard;
-    settleGuards(s);
-    expect(freed(s, guard)).toBe(true);
-    expect(exits(s, gate, "vale")).toContain(beyond);
-  });
-  it("uses each traveller's friendship when the guard has both papers", () => {
-    const s = start();
     s.sharedVersion = 1;
     s.controlledActors = s.presentActors = ["vale", "rue"];
     s.actors.rue.place = gate;

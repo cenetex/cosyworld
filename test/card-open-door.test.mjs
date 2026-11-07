@@ -252,14 +252,12 @@ describe("the Open Door", () => {
     expect(state(world).flags["greek-burial-performed"]).toBeUndefined();
     expect(accessible(world)).toEqual(OPEN_DOOR_PLACES);
     world = openDoorWalk(world, "harbor", "piraeus", "harbor", "courtyard");
-    // The writ lies on Dione's table; the guard stands aside once he holds
-    // it (rules 102).
+    // The old public gift keeps its saved custody. The guard's order is
+    // with Creon, so he is already free of duty.
     expect(world.items["greek-creon-writ"].holder).toBe("greek-courtyard");
     world = playOpenDoor(world, "take", { item: "greek-creon-writ" });
     world = openDoorWalk(world, "gate");
-    expect(exits(world, "greek-gate", "vale")).not.toContain(
-      "greek-battlefield",
-    );
+    expect(exits(world, "greek-gate", "vale")).toContain("greek-battlefield");
     world = playOpenDoor(world, "give", {
       item: "greek-creon-writ",
       target: "greek-guard",
