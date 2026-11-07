@@ -145,6 +145,11 @@ try {
         )
           await step({ kind: "wait" });
       }
+      if (
+        kind === "accompany" &&
+        (await state()).actors[fields.target]?.sleeping
+      )
+        await step({ kind: "talk", target: fields.target });
       const before = await state();
       const action = openDoorAction(before, kind, fields);
       const cards = action.cards?.length
@@ -159,10 +164,24 @@ try {
           continue;
         }
         const card = await revealCard(page, id);
-        const bounds = await card.boundingBox();
-        const position = { x: bounds.width / 2, y: 16 };
-        if (width === 390) await card.tap({ position });
-        else await card.click({ position });
+        const point = await card.evaluate((el) => {
+          const r = el.getBoundingClientRect();
+          for (
+            let y = Math.max(0, r.top) + 8;
+            y < Math.min(innerHeight, r.bottom);
+            y += 12
+          )
+            for (
+              let x = Math.max(0, r.left) + 8;
+              x < Math.min(innerWidth, r.right);
+              x += 12
+            )
+              if (el.contains(document.elementFromPoint(x, y))) return { x, y };
+          return null;
+        });
+        assert.ok(point, `${id} exposes a place to tap at ${width}`);
+        if (width === 390) await page.touchscreen.tap(point.x, point.y);
+        else await page.mouse.click(point.x, point.y);
       }
       await page
         .locator(`#card-actions [data-action="${kind}"]`)
