@@ -515,7 +515,7 @@ try {
       await route.fulfill({ json: {
         revision: input.revision,
         model: "quest-claim-fixture",
-        entries: input.entities.map(({ id }) => ({ id, text: "The lamp shines beside the saved deed." })),
+        entries: input.entities.map(({ id }) => ({ id, text: "These quiet moments will stay with me." })),
       } });
     };
     await page.route("**/card-game/text", holdReply);
@@ -570,8 +570,8 @@ try {
     releaseReply();
     await page.locator(".quest-xp").waitFor();
     await page.unroute("**/card-game/text", holdReply);
-    assert.ok(await page.evaluate((key) => JSON.parse(localStorage.getItem(key)).log.some((e) => e.text?.includes("The lamp shines beside the saved deed.")), gateKey));
-    await page.waitForFunction(() => document.querySelector("#dialogue-text").textContent.includes("The lamp shines beside the saved deed."));
+    assert.ok(await page.evaluate((key) => JSON.parse(localStorage.getItem(key)).log.some((e) => e.text?.includes("These quiet moments will stay with me.")), gateKey));
+    await page.waitForFunction(() => document.querySelector("#dialogue-text").textContent.includes("These quiet moments will stay with me."));
     // Open a second saved copy to check reload and a full local save store.
     await page.evaluate(({ key, saved }) => localStorage.setItem(key, JSON.stringify(saved)), { key: gateKey, saved: completedGift });
     await page.reload();
