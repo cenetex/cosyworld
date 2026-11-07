@@ -209,7 +209,7 @@ describe("the level quest", () => {
   });
 
   it.each([true, false])(
-    "keeps each attic rest reward in completion order, level quest on top: %s",
+    "keeps the level reward when a saved routine rest retires, level quest on top: %s",
     (levelOnTop) => {
       const s = ready(questXp(50) + questSteps(50));
       s.turn = s.revision = 24 * 51;
@@ -228,9 +228,8 @@ describe("the level quest", () => {
       });
       const before = questCards(s);
       const after = collectRewards(decodeSave(encodeSave(sleep(decodeSave(encodeSave(s))))));
-      expect(after.actors.vale.xp - s.actors.vale.xp).toBe(6);
+      expect(after.actors.vale.xp - s.actors.vale.xp).toBe(5);
       expect(metQuests(before, after, s.eventSeq)).toMatchObject([
-        { key: before.find((q) => !q.level).key, level: null, earnedXp: 1 },
         { key: before.find((q) => q.level).key, level: 50, earnedXp: 5 },
       ]);
     },
