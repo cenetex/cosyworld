@@ -4,6 +4,7 @@ import { packGiveChoice } from "./pack-registry.mjs";
 import { questVisible } from "./quest-card.mjs";
 import {
   accompanyDecision,
+  currentActor,
   expects,
   itemPlace,
   legalActions,
@@ -14,6 +15,45 @@ import {
 import { holdsAsWanted } from "./want.mjs";
 
 export const NOT_FOUND = "Not found yet";
+
+// A known quest can name a private carried item. The player chooses the
+// payment; the rules offer and resolve the same Trade as an item-card pair.
+export function questTrade(
+  world,
+  quest,
+  selected,
+  known,
+  legal = legalActions(world),
+) {
+  if (
+    !quest ||
+    quest.receiptId !== undefined ||
+    quest.kind !== "item" ||
+    quest.actor !== currentActor(world) ||
+    !questVisible(world, quest)
+  )
+    return null;
+  const cards = [...new Set(selected)].filter((id) => id !== quest.actor),
+    owner = world.items[quest.target]?.holder;
+  if (
+    cards.length !== 1 ||
+    world.items[cards[0]]?.holder !== quest.actor ||
+    !world.actors[owner] ||
+    owner === quest.actor ||
+    ![cards[0], quest.target, owner].every(known)
+  )
+    return null;
+  return (
+    legal.find(
+      (action) =>
+        action.kind === "trade" &&
+        action.actor === quest.actor &&
+        action.item === cards[0] &&
+        action.receive === quest.target &&
+        action.target === owner,
+    ) ?? null
+  );
+}
 
 function accepted(world, action) {
   if (action.kind === "give")
