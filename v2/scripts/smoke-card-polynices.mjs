@@ -260,12 +260,14 @@ try {
         );
         const saved = (await state()).packs["greek-drama"];
         assert.equal(saved.receipts[rites[index]], before.turn + 1);
-        await page.reload();
-        await settle();
+        if (index < 2) {
+          await page.reload();
+          await settle();
+        }
         assert.deepEqual(
           (await state()).packs["greek-drama"],
           saved,
-          "Reload keeps the rite",
+          "The rite stays saved",
         );
       }
       const done = await state();
@@ -308,8 +310,10 @@ try {
       await page.waitForFunction(() => window.funeralSong.ended);
       await page.waitForFunction(() => !document.querySelector("#room-music").paused);
       assert.match(await page.locator("#room-music").getAttribute("src"), /greek-courtyard/);
+      const completedRites = (await state()).packs["greek-drama"];
       await page.reload();
       await settle();
+      assert.deepEqual((await state()).packs["greek-drama"], completedRites, "Reload keeps the final rite");
       assert.equal((await state()).actors.vale.place, "greek-courtyard");
       assert.equal(await page.evaluate(() => Boolean(window.funeralSong)), false);
       console.log(JSON.stringify({ width, funeralMusic: musicBefore, travelled: true, ended: true, reload: true }));
