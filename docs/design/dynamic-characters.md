@@ -1,7 +1,7 @@
 # Dynamic characters through shared life
 
 Status: research and proposed design, 6 November 2026. Source review used
-`61aadc631`, version `1.2.125`. Implementation belongs in later PRs.
+`9ccebec20`, version `1.2.125`. Implementation belongs in later PRs.
 
 CosyWorld can make people feel alive through choices that follow from their
 lives. A person wants something, knows part of the world, has relationships,
@@ -143,8 +143,9 @@ how the committed battle event can feed that reaction.
 
 ## Quests and rewards as a changed world
 
-The [quest research](quest-design-research.md) and
-[saved reward design](quest-reward-claims.md) give completion a visible moment.
+The [earlier quest research](quest-design-research.md) explores lasting
+consequences. The [saved reward design](quest-reward-claims.md) gives completion
+a visible moment.
 The deed earns a checked card; the player claims its reward through the card.
 
 Further rewards can follow the same saved event: an invitation accepted,
@@ -155,6 +156,31 @@ note. A funeral can change a mourner's concerns and the meaning of the Hollow.
 
 This supports the game's central feeling: care leaves traces in the world.
 Characters reveal themselves through what they choose, remember, and offer.
+
+## Deleuze, Guattari, and Barthes as design prompts
+
+These are our design interpretations of the texts.
+
+In [the introduction to A Thousand Plateaus][deleuze], Deleuze and Guattari
+describe connections among different kinds of things and many possible points
+of entry. For CosyWorld, this suggests quests built around relationships among
+people, objects, and places. A funeral cloth can connect a mourner, a maker,
+a gift, and a place. Meeting any of them can lead into the situation. A reward
+can create another useful connection, such as a person willing to accompany
+you or an object with a new use. Keep the actual conditions clear enough for
+the player to learn through the world.
+
+In [The Death of the Author][barthes], Barthes gives the reader a central part
+in bringing a text's many voices together. Our game design use is to leave
+room for the player's interpretation. Antigone, Creon, and the player may give
+the same burial different meanings: care, defiance, duty, or grief. Commit the
+deed once. Let each person's knowledge and relationships shape their response.
+The player can decide which response matters to them.
+
+This also gives the quest card a stronger role. Its changing art records the
+rite; its check marks the deed; Claim gives the player a moment to receive
+what follows. A keepsake, a welcome, or a promise makes that moment personal.
+The existing cards and descriptor can carry these meanings.
 
 ## First implementation slices
 
@@ -202,3 +228,5 @@ her funeral goal remains held. The player follows the same route requirement.
 [ideology]: https://rimworldgame.com/index.php/ideology
 [qud]: https://cavesofqud.com/roadmap/
 [versu]: https://versu.com/wp-content/uploads/2014/05/versu.pdf
+[deleuze]: https://markingham.org/wp-content/uploads/2012/05/introductionrhizome-pdf.pdf
+[barthes]: https://writing.upenn.edu/~taransky/Barthes.pdf
