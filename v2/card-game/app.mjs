@@ -3814,7 +3814,11 @@ function renderScene() {
         entry.seq > liveThrough &&
         entry.locationId === scene.locationId,
     );
-  const hiddenAction = (entry) => moreToRead && entry.turn > shownTurn;
+  const hiddenAction = (entry) =>
+    (moreToRead && entry.turn > shownTurn) ||
+    // A zero-turn change joins the stack after the reply being read.
+    // Its caption must leave that reply's Continue control in front.
+    (!sharedSession && exchange.current && entry.seq > liveThrough);
   const waiting = sharedSession
     ? sharedSpeech.status === "pending" && sharedLineSeq === null
     : Boolean(

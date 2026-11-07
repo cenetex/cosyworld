@@ -61,6 +61,10 @@ forward with its words whole. Other effects may be written on the card
 that was current when they happened, in 300 to 900 ms. Each card shows up
 to three effects and Memory keeps them all.
 
+A pack change made during a reply joins the stack after that exchange.
+Continue stays with the current speaker until their reply finishes. Choosing
+a quest opens its details quietly; its focus action remains in saved history.
+
 A Wait aboard a ship reads “Vale sailed on.” when that turn's saved voyage
 event records a cast-off or arrival. Choosing the ship or the avatar has the
 same outcome. Dockside waits keep their wait caption. The current ship phase
