@@ -101,7 +101,7 @@ describe("rules 99 quest loop on the server", () => {
       JSON.parse(engine.cardShared(JSON.stringify(request))),
     );
     // The Talk quest and its record.
-    expect(questsOf(loop.talked, "vale")[0]).toMatchObject({
+    expect(questsOf(loop.talked, "vale")[1]).toMatchObject({
       kind: "item",
       target: "bell",
       step: { verb: "give", to: "keeper" },

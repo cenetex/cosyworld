@@ -114,7 +114,8 @@ describe("one hidden avatar per world (#1936)", () => {
       questsOf(twice, "vale").filter((w) => w.target === "mara"),
     ).toHaveLength(1);
     const met = talk(twice).world;
-    expect(questsOf(met, "vale").some((w) => w.target === "mara")).toBe(false);
+    expect(questsOf(met, "vale").some((w) => w.target === "mara" && !w.step)).toBe(false);
+    expect(met.actors.vale.questRewards[0].want.target).toBe("mara");
     expect(() => ask(met, "seek")).toThrow(/Nobody/);
   });
 

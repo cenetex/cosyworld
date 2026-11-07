@@ -300,7 +300,7 @@ describe("eat and drink quests", () => {
     // the ship.
     s = structuredClone(atGate());
     quest(s, { with: "moth", at: "greek-ship" });
-    expect(reload(s).actors.vale.want.step).toEqual({
+    expect(questsOf(reload(s), "vale").find((w) => w.step?.verb === "eat").step).toEqual({
       verb: "eat",
       with: "moth",
       at: "greek-ship",

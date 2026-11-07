@@ -121,7 +121,7 @@ describe("a button in each traveler's own colour", () => {
   it("makes finding the hidden button the traveler's quest", () => {
     let world = meetRati();
     const spot = world.items[BUTTON].holder;
-    expect(world.actors.vale.want).toEqual({
+    expect(world.actors.vale.under[0]).toEqual({
       kind: "item",
       target: BUTTON,
       since: world.turn,
@@ -142,7 +142,7 @@ describe("a button in each traveler's own colour", () => {
     expect(world.actors.vale.want?.target).not.toBe(BUTTON);
   });
 
-  it("puts the button quest on top without wiping an open level quest (#1831)", () => {
+  it("keeps both active quests when the one-time button quest arrives", () => {
     const start = attic();
     start.actors.vale.want = {
       kind: "person",
@@ -151,15 +151,15 @@ describe("a button in each traveler's own colour", () => {
       refusals: 0,
       quest: { level: 2, left: 2 },
     };
+    start.actors.vale.under = [{ kind: "place", target: "pond", since: 0, refusals: 0 }];
     const world = act(start, "move", { target: COTTAGE });
-    expect(world.actors.vale.want).toMatchObject({
+    expect(world.actors.vale.under[1]).toMatchObject({
       target: BUTTON,
       story: true,
     });
-    expect(world.actors.vale.under).toEqual([
-      expect.objectContaining({ quest: { level: 2, left: 2 } }),
-    ]);
+    expect(world.actors.vale.want.quest).toEqual({ level: 2, left: 2 });
     validateWorld(reload(world));
+    expect(act(reload(world), "wait").actors.vale.under.filter((w) => w.target === BUTTON)).toHaveLength(1);
   });
 
   it("lets RATi say she would sew it into a scarf", () => {
