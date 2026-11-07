@@ -21602,12 +21602,56 @@
     return facts;
   }
 
+  // v2/card-game/scarves.mjs
+  var scarfItemId = (actor) => `forest-scarf-${actor}`;
+  var holdsScarf = (world, actor) => Boolean(actor) && world?.items?.[scarfItemId(actor)]?.holder === actor;
+  var scarfPortrait = (actor) => `assets/shared/characters/${actor}-scarf.png`;
+  var PORTRAITS = { scarf: scarfPortrait };
+  var upgradesOf = (world, actor) => world?.actors?.[actor]?.upgrades || [];
+  function avatarImage(world, actor) {
+    const avatar = humanAvatar(actor);
+    if (!avatar) return null;
+    const has = upgradesOf(world, actor);
+    const upgrade = Object.keys(PORTRAITS).find((id) => has.includes(id));
+    if (upgrade) return PORTRAITS[upgrade](actor);
+    return holdsScarf(world, actor) ? scarfPortrait(actor) : avatar.image;
+  }
+
+  // v2/card-game/sleep-portraits.mjs
+  var travelers = /* @__PURE__ */ new Set([
+    "vale",
+    "mara",
+    "ash",
+    "nell",
+    "tavi",
+    "rue",
+    "orin",
+    "ada"
+  ]);
+  var sleepPortraitAssets = [
+    ...[...travelers].flatMap(
+      (id) => ["", "-scarf"].map(
+        (wardrobe) => `assets/shared/characters/${id}-sleeping${wardrobe}.webp`
+      )
+    ),
+    ...["moth", "keeper"].map((id) => `assets/sleep/${id}-sleeping.webp`)
+  ];
+  function sleepingPortrait(world, id) {
+    if (!world?.actors?.[id]?.sleeping) return null;
+    if (travelers.has(id)) {
+      const scarf = avatarImage(world, id) === scarfPortrait(id);
+      return `assets/shared/characters/${id}-sleeping${scarf ? "-scarf" : ""}.webp`;
+    }
+    return ["moth", "keeper"].includes(id) ? `assets/sleep/${id}-sleeping.webp` : null;
+  }
+
   // v2/card-game/narrative.mjs
   function refusalFact(played) {
     const asked = played.verb === "ask" ? `request for ${nameOf(played.itemId)}` : played.verb === "accompany" ? `invitation to ${nameOf(played.destinationId)}` : `offer of ${nameOf(played.itemId)}`;
     return `${nameOf(played.targetId)} refused ${nameOf(played.actorId)}'s ${asked} (refusal: ${played.reason || "wants-something-else"}). Nothing changed.`;
   }
   function turnOutcome(world) {
+    const hand = (id) => sleepingPortrait(world, id) ? null : heldItem(world, id);
     const events = world.log.filter(
       (entry) => entry.turn === world.turn && !entry.generated
     );
@@ -21632,7 +21676,7 @@
       .../* @__PURE__ */ new Set([
         played?.itemId,
         played?.receiveId,
-        ...actorIds2.map((id) => heldItem(world, id)),
+        ...actorIds2.map(hand),
         ...Object.keys(world.items).filter(
           (id) => actorIds2.includes(rootHolder(world, id))
         ),
@@ -21660,7 +21704,7 @@
           id,
           location: actor.place,
           holding: carried(world, id),
-          heldItem: heldItem(world, id),
+          heldItem: hand(id),
           travel: movement ? {
             from: movement.fromLocationId,
             to: movement.locationId,
@@ -21715,7 +21759,7 @@
   function visibleItem(world, observer, item, location) {
     const here = world.actors[observer]?.place ?? location;
     const owner2 = rootHolder(world, item);
-    return itemPlace2(world, item) === here && (owner2 === observer || owner2 === here || world.items[item].holder === owner2 && heldItem(world, owner2) === item);
+    return itemPlace2(world, item) === here && (owner2 === observer || owner2 === here || !sleepingPortrait(world, owner2) && world.items[item].holder === owner2 && heldItem(world, owner2) === item);
   }
   function narrativeContext(world, action = null, isCovered = null) {
     const cast = dialogueCast(world, action);
@@ -21950,26 +21994,6 @@
     };
     return isCovered ? forgetCovered(world, context, isCovered) : forgetUnfound(world, context);
   }
-
-  // v2/card-game/sleep-portraits.mjs
-  var travelers = /* @__PURE__ */ new Set([
-    "vale",
-    "mara",
-    "ash",
-    "nell",
-    "tavi",
-    "rue",
-    "orin",
-    "ada"
-  ]);
-  var sleepPortraitAssets = [
-    ...[...travelers].flatMap(
-      (id) => ["", "-scarf"].map(
-        (wardrobe) => `assets/shared/characters/${id}-sleeping${wardrobe}.webp`
-      )
-    ),
-    ...["moth", "keeper"].map((id) => `assets/sleep/${id}-sleeping.webp`)
-  ];
 
   // v2/card-game/rarity-portraits.mjs
   var appearances = {

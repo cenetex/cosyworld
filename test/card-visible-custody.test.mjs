@@ -23,6 +23,11 @@ it("keeps a received hand through Talk/reload and each speaker's private invento
   world.actors.moth.want = {kind: "item", target: "cloth", since: world.turn, refusals: 0};
   const wanting = narrativeContext(world).entities.find((e) => e.id === "moth").facts.join(" ");
   expect(wanting).not.toContain(`Wants ${nameOf("cloth")}, currently with`);
+  world.actors.moth.sleeping = {until: world.turn + 2};
+  const asleep = narrativeContext(world);
+  expect(asleep.outcome.avatars.find((a) => a.id === "moth")).toMatchObject({heldItem: null, holding: ["lamp"]});
+  expect(world.actors.moth.heldItem).toBe("lamp");
+  expect(asleep.entities.find((e) => e.id === "vale").facts.find((f) => f.startsWith("At the dialogue scene:"))).not.toContain(nameOf("lamp"));
 });
 
 it("keeps chosen hands within the item cap after the committed action item", () => {

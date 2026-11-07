@@ -54,6 +54,7 @@ import { playedEntry, speechOccasions } from "./speech-occasions.mjs";
 import { perception } from "./perception.mjs";
 import { battleEvents, battleFacts } from "./battle-context.mjs";
 import { heldItem } from "./held-item.mjs";
+import { sleepingPortrait } from "./sleep-portraits.mjs";
 
 // A refusal reaches the brief as its committed code; the refuser's line
 // says why in its own words.
@@ -69,6 +70,7 @@ function refusalFact(played) {
 
 // Capture the resolved turn separately from wishes and remembered speech.
 export function turnOutcome(world) {
+  const hand = (id) => sleepingPortrait(world, id) ? null : heldItem(world, id);
   const events = world.log.filter(
     (entry) => entry.turn === world.turn && !entry.generated,
   );
@@ -105,7 +107,7 @@ export function turnOutcome(world) {
     ...new Set([
       played?.itemId,
       played?.receiveId,
-      ...actorIds.map((id) => heldItem(world, id)),
+      ...actorIds.map(hand),
       ...Object.keys(world.items).filter((id) =>
         actorIds.includes(rootHolder(world, id)),
       ),
@@ -144,7 +146,7 @@ export function turnOutcome(world) {
         id,
         location: actor.place,
         holding: carried(world, id),
-        heldItem: heldItem(world, id),
+        heldItem: hand(id),
         travel: movement
           ? {
               from: movement.fromLocationId,
@@ -230,7 +232,7 @@ function visibleItem(world, observer, item, location) {
   const here = world.actors[observer]?.place ?? location;
   const owner = rootHolder(world, item);
   return itemPlace(world, item) === here && (owner === observer || owner === here ||
-    (world.items[item].holder === owner && heldItem(world, owner) === item));
+    (!sleepingPortrait(world, owner) && world.items[item].holder === owner && heldItem(world, owner) === item));
 }
 
 export function narrativeContext(world, action = null, isCovered = null) {
