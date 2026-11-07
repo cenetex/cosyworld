@@ -112,13 +112,22 @@ export const startXp = (id) => {
 
 export const wantOf = (s, id) => s.actors[id]?.want ?? null;
 // Completed player quests stay saved until their owner collects the card.
-// These first receipts record rewards already paid by commitMet.
+// The deed advances at once; the checked card holds its reward until claim.
 export const questRewardsOf = (s, id) => s.actors[id]?.questRewards ?? [];
-export function claimQuestReward(s, id, receipt) {
-  const a = s.actors[id];
+export function claimQuestReward(s, id, receipt, api) {
+  const a = s.actors[id], reward = questRewardsOf(s, id).find((r) => r.id === receipt);
+  if (!reward) return;
   a.questRewards = questRewardsOf(s, id).filter((r) => r.id !== receipt);
   if (!a.questRewards.length) delete a.questRewards;
+  if (reward.paid) return;
+  const before = a.xp, level = levelOf(s, id);
+  a.xp += reward.xp;
+  a.level = Math.max(level, reward.level ?? level);
+  if (a.level > level) delete a.glimpse;
+  milestones(s, id, api, a.level > level ? 0 : before);
 }
+const pendingLevelReward = (s, id) =>
+  questRewardsOf(s, id).some((r) => !r.paid && r.level !== null);
 // The same quest step keeps its identity as the stack changes order.
 export const wantKey = (id, want) =>
   `${id}:${want.kind}:${want.target}:${want.since}:${want.quest?.left ?? ""}`;
@@ -252,7 +261,7 @@ export function drawStep(s, actor, api, kind, target, level, roll) {
 export function offerLevelQuest(s, actor, api) {
   const a = s.actors[actor];
   a.level ??= levelFor(a.xp);
-  if (questsOf(s, actor).some((w) => w.quest) || a.xp < questXp(a.level + 1))
+  if (pendingLevelReward(s, actor) || questsOf(s, actor).some((w) => w.quest) || a.xp < questXp(a.level + 1))
     return null;
   const level = a.level + 1,
     quest = { level, left: questSteps(level) + 1 };
@@ -367,6 +376,7 @@ export function wake(s, actor, api) {
       !full &&
       api.player(actor) &&
       !questsOf(s, actor).some((w) => w.quest) &&
+      !pendingLevelReward(s, actor) &&
       a.glimpse?.level !== a.level + 1
     ) {
       a.glimpse = drawGlimpse(s, actor, api, a.level + 1);
@@ -388,7 +398,7 @@ export function wake(s, actor, api) {
 // experience reaches full. A held level quest needs neither.
 function milestones(s, id, api, before) {
   const a = s.actors[id];
-  if (!api.player(id) || questsOf(s, id).some((w) => w.quest)) return;
+  if (!api.player(id) || pendingLevelReward(s, id) || questsOf(s, id).some((w) => w.quest)) return;
   const level = a.level ?? levelFor(a.xp),
     full = questXp(level + 1);
   const halfway =
@@ -745,7 +755,7 @@ function commitMet(s, id, api, met, index = 0) {
     quest = want.quest && { ...want.quest, left: want.quest.left - 1 };
   a.level ??= levelFor(a.xp);
   const xp = quest?.left === 0 ? levelTier(quest.level).rank + 1 : 1;
-  a.xp += xp;
+  if (!api.player(id)) a.xp += xp;
   a.metTurn = s.turn;
   met.push({ actorId: id, want });
   api.log(id, want, xp);
@@ -757,12 +767,12 @@ function commitMet(s, id, api, met, index = 0) {
       want: structuredClone(want),
       xp,
       level: quest?.left === 0 ? quest.level : null,
-      paid: true,
+      paid: false,
     });
   if (quest?.left > 1) list[index] = questStep(s, id, api, quest, want);
   else if (quest?.left === 1) list[index] = restStep(s, id, api, quest);
   else {
-    if (quest) {
+    if (quest && !api.player(id)) {
       a.level = quest.level;
       delete a.glimpse;
     } else if (!api.player(id)) a.level = Math.max(a.level, levelFor(a.xp));
@@ -1021,7 +1031,7 @@ function validQuestRewards(s, id) {
           !r ||
           Object.keys(r).sort().join() !== "actor,id,level,paid,turn,want,xp" ||
           r.actor !== id ||
-          r.paid !== true ||
+          typeof r.paid !== "boolean" ||
           !Number.isSafeInteger(r.id) ||
           r.id <= (receipts[i - 1]?.id ?? 0) ||
           r.id > s.eventSeq ||

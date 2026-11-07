@@ -1,3 +1,4 @@
+import { collectRewards } from "./helpers/claim-rewards.mjs";
 // Talk gives a quest (#2196, rules 99): a player's Talk that reveals a want
 // new to them gives give(item, them), bring(them, place) or
 // introduce(them, person).
@@ -89,6 +90,7 @@ describe("a quest from Talk", () => {
     s.actors.moth.place = s.actors.vale.place = "pond";
     s = wait(s);
     expect(given(s)).toEqual([]);
+    s = collectRewards(s);
     expect(s.actors.vale.xp).toBe(xp + 1);
     s = station();
     s.actors.keeper.place = "pond";
@@ -108,6 +110,7 @@ describe("a quest from Talk", () => {
     s.actors.moth.place = "pond";
     s = wait(s);
     expect(given(s)).toEqual([]);
+    s = collectRewards(s);
     expect(s.actors.vale.xp).toBe(xp + 1);
   });
 
@@ -163,6 +166,8 @@ describe("a quest from Talk", () => {
       (a) => a.kind === "give" && a.target === "moth" && a.item === "lamp",
     );
     expect(given(s)).toEqual([]);
+    expect(s.actors.vale.xp).toBe(vale);
+    s = collectRewards(s);
     expect(s.actors.vale.xp).toBe(vale + 1);
     expect(s.actors.moth.xp).toBe(pip + 1);
   });
@@ -190,6 +195,7 @@ describe("a quest from Talk", () => {
       s,
       (a) => a.kind === "give" && a.target === "moth" && a.item === "lamp",
     );
+    s = collectRewards(s);
     expect(s.actors.vale.xp).toBe(halfwayXp(10));
     expect(s.actors.vale.halfwayIssued).toBe(11);
     expect(

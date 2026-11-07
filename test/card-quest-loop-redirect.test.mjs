@@ -1,3 +1,4 @@
+import { collectRewards } from "./helpers/claim-rewards.mjs";
 // Rules 99: a sanctuary quest rebuilt for another place, when its pack
 // switches off or it is set aside, takes the place of an ordinary quest for
 // that place. It never crashes the play, is never held twice, and never
@@ -42,7 +43,7 @@ function halfwayAtTea() {
   const move = legalActions(s, "vale").find(
     (a) => a.kind === "move" && a.target === "pond",
   );
-  const next = play(s, move, s.revision, "vale").state;
+  const next = collectRewards(play(s, move, s.revision, "vale").state);
   expect(shape(next)).toEqual([`place:${TEA}:rest`]);
   return next;
 }

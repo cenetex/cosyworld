@@ -1,3 +1,4 @@
+import { collectRewards } from "./helpers/claim-rewards.mjs";
 import { questing } from "./helpers/first-quest.mjs";
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
@@ -132,6 +133,8 @@ describe("a button in each traveler's own colour", () => {
     // The button is an ordinary thing where it rests: anyone there can take it.
     world.actors.vale.place = spot;
     world = act(world, "take", { item: BUTTON });
+    expect(world.actors.vale.xp).toBe(xp);
+    world = collectRewards(world);
     expect(world.actors.vale.xp).toBe(xp + 1);
     expect(
       world.log.some((e) => e.verb === "want_met" && e.itemId === BUTTON),

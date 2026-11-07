@@ -2634,6 +2634,16 @@ fn dousing_the_held_lamp_meets_vales_want_once_and_replays() {
     assert_eq!(first.len(), 1);
     assert_eq!(first[0]["wantMet"], json!({"kind":"item","target":"lamp"}));
     assert_eq!(first[0]["turn"], w.game["turn"]);
+    assert_eq!(w.game["actors"]["vale"]["xp"], 0);
+    let reward = home_action(&w, 0, "claim");
+    full_store::commit(
+        &c,
+        &id,
+        &mut w,
+        json!({"op":"play","actor":"vale","action":reward}),
+        now(),
+    )
+    .unwrap();
     assert_eq!(w.game["actors"]["vale"]["xp"], 1);
     assert_ne!(w.game["actors"]["vale"]["want"]["target"], "lamp");
     assert!(w.game.get("quests").is_none());

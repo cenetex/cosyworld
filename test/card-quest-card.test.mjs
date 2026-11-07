@@ -414,8 +414,8 @@ it("keeps repeated saved deeds separate across reload and collection", () => {
   expect(cards[0].receiptId).toBeGreaterThan(cards[1].receiptId);
   const claim = legalActions(world).find((a) => a.kind === "claim" && a.receipt === cards[1].receiptId);
   const claimed = play(world, claim).state;
-  expect(questRewardCards(decodeSave(encodeSave(claimed)))).toEqual([cards[0]]);
-  expect(claimed.actors.vale.xp).toBe(world.actors.vale.xp);
+  expect(questRewardCards(decodeSave(encodeSave(claimed)))).toEqual([{ ...cards[0], xp: claimed.actors.vale.xp }]);
+  expect(claimed.actors.vale.xp).toBe(world.actors.vale.xp + 1);
   expect(claimed.turn).toBe(world.turn);
 });
 
