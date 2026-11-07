@@ -287,6 +287,11 @@ try {
       ),
       trial,
     );
+    await page.waitForFunction(() =>
+      [...document.querySelectorAll("#backdrop, #cast img, .card img")].every(
+        (img) => img.complete && img.naturalWidth > 0,
+      ),
+    );
     await page.screenshot({
       path: `${output}/learned-guard-${width}.png`,
       fullPage: true,
