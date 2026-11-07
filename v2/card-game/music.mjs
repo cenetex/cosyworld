@@ -361,8 +361,13 @@ export function createRoomMusic({
     pause();
     sync();
   });
-  function cueChanged() {
+  function cueChanged(completed) {
     if (cued === (cues?.current ?? null)) return;
+    if (completed && sourceRoom !== room) {
+      sourceRoom = null;
+      restartOnVisit = true;
+      failures = 0;
+    }
     cued = cues?.current ?? null;
     sync();
     report();

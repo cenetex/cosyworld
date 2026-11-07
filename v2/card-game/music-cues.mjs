@@ -70,15 +70,15 @@ export function createMusicCues({
       track,
       ...options,
       ended: () => {
-        if (current === name) select(null);
+        if (current === name) select(null, name);
       },
     }),
   ]);
-  function select(name) {
+  function select(name, completed = null) {
     if (current === name) return;
     current = name;
     for (const [id, player] of players) player.setActive(id === current);
-    changed();
+    changed(completed);
   }
   const each = (method) => (value) => {
     for (const [, player] of players) player[method](value);

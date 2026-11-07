@@ -991,8 +991,11 @@ try {
       "the song fades rather than cutting",
     );
     await wakeFades(page, width, "vale");
-    // The song has faded out by the time the scene is up.
+    // The audio fade finishes on its own clock after the scene appears.
     await gone(page, WAKE_FADE.turn.sceneMs + 1000);
+    await page.waitForFunction(() => window.__titleSong.paused, null, {
+      timeout: WAKE_FADE.turn.songSeconds * 1000 + 1000,
+    });
     assert.equal(await page.evaluate(() => window.__titleSong.paused), true);
     // #2061: the lamplit attic plays no room music.
     assert.equal(await page.$eval("#room-music", (a) => a.paused), true);
@@ -1060,7 +1063,9 @@ try {
     await later.keyboard.press("Escape");
     await gone(later, 2500);
     await valeShown(later);
-    await later.waitForTimeout(1200);
+    await later.waitForFunction(() => window.__titleSong.paused, null, {
+      timeout: WAKE_FADE.skip.songSeconds * 1000 + 1000,
+    });
     assert.equal(await later.evaluate(() => window.__titleSong.paused), true);
     await later.reload();
     await later.waitForSelector("#hand .card");

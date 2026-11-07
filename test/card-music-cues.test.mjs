@@ -88,7 +88,8 @@ it("finishes a funeral performance across travel, then releases the room song", 
   funeral.dispatchEvent(new Event("ended"));
   expect(cues.current).toBe(null);
   await advance(1000);
-  expect([room.paused, room.currentTime]).toEqual([false, 42]);
+  expect(room.paused).toBe(false);
+  expect(room.src).toContain("station-1");
 });
 
 it("plays a completed performance once per cue and respects battle and world changes", async () => {
