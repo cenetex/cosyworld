@@ -1,4 +1,4 @@
-// Locked cards describe their quests through the existing action beat.
+// Closed boxes conceal their contents and requirements in the existing action beat.
 import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
 import { chromium } from "playwright";
@@ -19,10 +19,10 @@ try {
     [390, 844],
     [360, 740],
   ]) {
-    for (const [id, place, count] of [
-      ["greek-provisions", "greek-harbor", 5],
-      ["greek-bread", "greek-courtyard", 4],
-      ["greek-cithaeron", "greek-battlefield", 1],
+    for (const [id, place] of [
+      ["greek-provisions", "greek-harbor"],
+      ["greek-bread", "greek-courtyard"],
+      ["greek-cithaeron", "greek-battlefield"],
     ]) {
       const world = createWorld();
       world.packs["greek-drama"].scope = "full";
@@ -65,7 +65,7 @@ try {
       const text = page.locator(".action-beat-text");
       assert.equal(await text.textContent(), expected.text);
       const images = page.locator(".action-beat-cards img");
-      assert.equal(await images.count(), count);
+      assert.equal(await images.count(), 0);
       assert.deepEqual(
         await images.evaluateAll((nodes) =>
           nodes.map((node) => node.dataset.entity).sort(),
@@ -116,7 +116,7 @@ try {
       await page.close();
     }
     console.log(
-      `Lock quests, ingredient pictures and unchanged turns passed at ${width}px.`,
+      `Anonymous boxes and unchanged turns passed at ${width}px.`,
     );
   }
 } finally {

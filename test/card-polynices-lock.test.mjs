@@ -75,7 +75,7 @@ it.each([
     expect(plan(world, antigone).action?.target).not.toBe(hollow);
     expect(lifeHome(antigone, world)).toBe("greek-gate");
     expect(isLockedBox(world, hollow)).toBe(true);
-    expect(lockedQuest(world, hollow).cards).toEqual([shade]);
+    expect(lockedQuest(world, hollow).cards).toEqual([]);
     const turn = world.turn;
     act("gate", hollow);
     expect(world.turn).toBe(turn);

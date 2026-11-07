@@ -694,15 +694,12 @@ The save counts each kit's scatters in `scatters`.
 ```
 
 A gated route may show a sealed card. While the route is shut from `from`,
-`to` appears as a locked wooden box: the locked lid
-(`assets/card-back-locked.webp`) on a red edge, labelled only "Locked", with
-no painting and no name. Selecting it
-shows `reason` in the context button, and its play, Seek the way, gives the
-traveller the route's quest at once, as picking a quest does (no turn
-passes). The quest is a story quest: hold or give an item (`to` names who to
-give it to), reach a place, or talk with a person. Once the route opens, the
-box turns over once, the next time it is in view, and the card is an
-ordinary travel card from then on (`locked-box.mjs`).
+`to` appears as a nameless wooden box. Every closed card uses the same lid
+(`assets/card-back-locked.webp`) and red edge. The descriptor and accessible
+label keep its contents and requirements concealed. Authored `reason` and
+`quest` remain route data; the closed box shows only its closed state.
+Once the route opens, the box turns over once when it is in view. Its name,
+art and ordinary card actions then appear (`locked-box.mjs`).
 
 ```json
 { "from": "greek-gate", "to": "greek-battlefield", "requires": [ ... ],

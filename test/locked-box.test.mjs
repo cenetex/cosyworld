@@ -28,33 +28,23 @@ const walk = (s, place) =>
   );
 
 describe("locked boxes", () => {
-  it("shows every recipe ingredient as the lock's quest, without changing its state", () => {
+  it("keeps recipe contents concealed until the box opens", () => {
     const s = createWorld();
     s.actors.vale.place = "greek-harbor";
     const before = JSON.stringify(s);
-    const ingredients = ["greek-bread", "greek-figs", "greek-wine-skin"];
-    const baking = ["greek-water-jar", "greek-wheat"];
-    expect(lockedQuest(s, "greek-provisions")).toEqual({
-      recipe: true,
-      text: "Bring Courtyard Bread, Dried Figs and Wine Skin to Myrto the Shipmaster at The Wine-Dark Harbor.",
-      cards: ingredients.concat("greek-shipmaster", "greek-harbor"),
-    });
-    expect(lockedQuest(s, "greek-bread")).toEqual({
-      recipe: true,
-      text: "Bring Water Jar and Sack of Wheat to Dione the Baker at Theban Courtyard.",
-      cards: baking.concat("greek-baker", "greek-courtyard"),
-    });
+    for (const id of ["greek-provisions", "greek-bread"])
+      expect(lockedQuest(s, id)).toEqual({ text: "A closed box.", cards: [] });
     expect(JSON.stringify(s)).toBe(before);
     s.usedUp = s.usedUp.filter((id) => id !== "greek-provisions");
     expect(lockedQuest(s, "greek-provisions")).toBeNull();
   });
-  it("uses the authored route quest for a sealed way", () => {
+  it("keeps a sealed way concealed", () => {
     const s = createWorld();
     s.packs["greek-drama"].scope = "full";
     s.actors.vale.place = "greek-battlefield";
     expect(lockedQuest(s, "greek-cithaeron")).toEqual({
-      text: "Hold Burial Account.",
-      cards: ["greek-burial-account"],
+      text: "A closed box.",
+      cards: [],
     });
   });
   it("lock the sealed card alone until its quest opens the way", () => {
@@ -63,8 +53,8 @@ describe("locked boxes", () => {
       "greek-battlefield",
     ]);
     expect(lockedQuest(s, "greek-battlefield")).toEqual({
-      text: "The Gate Guard is guarding this card",
-      cards: ["greek-guard"],
+      text: "A closed box.",
+      cards: [],
     });
     // A guarded card gives no quest of its own; Talk with the guard gives
     // his (rules 102).

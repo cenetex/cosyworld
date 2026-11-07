@@ -41,7 +41,7 @@ describe("the quest card's screen", () => {
     expect(parts(screen)).toEqual([
       "quest-figure quest-left:orin.webp",
       "quest-thing:board.webp",
-      "quest-back quest-right quest-to:./assets/card-back.webp",
+      "quest-back quest-right quest-to:./assets/card-back-locked.webp",
     ]);
   });
 
@@ -66,7 +66,7 @@ describe("the quest card's screen", () => {
       },
       true,
     );
-    expect(parts(screen)[0]).toBe("quest-ground:./assets/card-back.webp");
+    expect(parts(screen)[0]).toBe("quest-ground:./assets/card-back-locked.webp");
     expect(screen.children.some((img) => img.dataset.entity === "orin")).toBe(
       true,
     );
@@ -99,7 +99,7 @@ describe("the quest card's screen", () => {
       art,
     );
     expect(parts(screen).at(-1)).toBe(
-      "quest-back quest-right quest-to:./assets/card-back.webp",
+      "quest-back quest-right quest-to:./assets/card-back-locked.webp",
     );
   });
 });
