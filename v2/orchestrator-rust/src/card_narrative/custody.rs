@@ -1,4 +1,4 @@
-use super::{kind, listener, name, Context, TurnOutcome};
+use super::{kind, listener, name, person, Context, Entity, TurnOutcome};
 
 fn holder<'a>(outcome: &'a TurnOutcome, item: &str) -> Option<&'a str> {
     let mut current = item;
@@ -10,6 +10,49 @@ fn holder<'a>(outcome: &'a TurnOutcome, item: &str) -> Option<&'a str> {
         current = &entry.holder;
     }
     None
+}
+
+// The committed inventory survives the optional fact list's length limit.
+// Covered objects keep only their existing unnamed sense description.
+pub(super) fn holding(context: &Context, entity: &Entity) -> Option<String> {
+    let fact = entity.facts.iter().find(|f| f.starts_with("Holding: "));
+    let Some((outcome, avatar)) = context.outcome.as_ref().and_then(|outcome| {
+        outcome
+            .avatars
+            .iter()
+            .find(|avatar| avatar.id == entity.id)
+            .map(|avatar| (outcome, avatar))
+    }) else {
+        return fact.and_then(|f| person::fact(f, &entity.id, true));
+    };
+    let hidden = |id: &String| context.concealed.contains(id) || context.covered.contains(id);
+    let obscured = context
+        .concealed
+        .iter()
+        .chain(&context.covered)
+        .any(|id| kind(id, "item"));
+    let mut things: Vec<_> = avatar
+        .holding
+        .iter()
+        .filter(|id| {
+            !hidden(id) && holder(outcome, id).is_none_or(|owner| owner == entity.id.as_str())
+        })
+        .map(|id| person::the(&name(id)))
+        .collect();
+    things.extend(
+        fact.into_iter()
+            .flat_map(|f| {
+                f.trim_start_matches("Holding: ")
+                    .trim_end_matches('.')
+                    .split(", ")
+            })
+            .filter(|thing| obscured && thing.starts_with("something "))
+            .map(String::from),
+    );
+    if things.is_empty() {
+        return (!obscured).then(|| "My hands are empty.".into());
+    }
+    Some(format!("I'm holding {}.", person::list(&things)))
 }
 
 pub(super) fn held_item_text(context: &Context, speaker: &str) -> Vec<String> {
@@ -163,6 +206,109 @@ pub(super) fn consistent(text: &str, context: &Context, speaker: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::super::{conversation, entity, known, messages, tests, Context, ItemOutcome, Part};
+    use super::*;
+
+    #[test]
+    fn committed_inventory_survives_full_facts_and_later_transfer() {
+        let mut c = tests::context();
+        c.outcome = Some(tests::solo_departure());
+        let outcome = c.outcome.as_mut().unwrap();
+        outcome.card.kind = "give".into();
+        outcome.card.item = Some("lamp".into());
+        outcome.card.target = Some("moth".into());
+        outcome.card.accepted = Some(true);
+        c.speakers = vec!["vale".into(), "moth".into()];
+        let moth = c.entities.iter_mut().find(|e| e.id == "moth").unwrap();
+        moth.facts = vec!["Location now: Black pond. Company now: alone.".into(); 16];
+        moth.facts.push("Holding: Lamp, Black cloth.".into());
+        moth.facts.truncate(16);
+        for perceived in [false, true] {
+            c.entities
+                .iter_mut()
+                .find(|e| e.id == "moth")
+                .unwrap()
+                .perception = perceived.then(Default::default);
+            for part in [Part::Line, Part::Thought] {
+                let prompt = messages(&c, entity(&c, "moth"), part).assistant;
+                assert!(
+                    prompt.contains("I'm holding the Lamp and the Black cloth."),
+                    "{prompt}"
+                );
+                assert!(
+                    prompt.contains("I received the Lamp from Vale."),
+                    "{prompt}"
+                );
+            }
+        }
+        let outcome = c.outcome.as_mut().unwrap();
+        outcome.items[0].holder = "vale".into();
+        outcome.items[0].location = "station".into();
+        outcome.avatars[0].holding.push("lamp".into());
+        outcome.avatars[1].holding.retain(|id| id != "lamp");
+        // Even an older optional fact yields to the current outcome.
+        c.entities
+            .iter_mut()
+            .find(|e| e.id == "moth")
+            .unwrap()
+            .facts = vec!["Holding: Lamp, Black cloth.".into()];
+        let c: Context = serde_json::from_value(serde_json::to_value(c).unwrap()).unwrap();
+        assert_eq!(
+            holding(&c, entity(&c, "moth")).as_deref(),
+            Some("I'm holding the Black cloth.")
+        );
+        assert_eq!(
+            holding(&c, entity(&c, "vale")).as_deref(),
+            Some("I'm holding the Lamp.")
+        );
+        let prompt = messages(&c, entity(&c, "moth"), Part::Line).assistant;
+        assert!(!prompt.contains("I'm holding the Lamp"), "{prompt}");
+        assert!(
+            prompt.contains("I received the Lamp from Vale."),
+            "{prompt}"
+        );
+    }
+
+    #[test]
+    fn hidden_inventory_keeps_its_unnamed_sense_and_legacy_context() {
+        let mut c = tests::context();
+        c.outcome = Some(tests::solo_departure());
+        c.concealed = vec!["lamp".into(), "cloth".into()];
+        c.entities
+            .iter_mut()
+            .find(|e| e.id == "moth")
+            .unwrap()
+            .facts = vec!["Holding: something shining I can't make out.".into()];
+        let phrase = "I'm holding something shining I can't make out.";
+        assert_eq!(holding(&c, entity(&c, "moth")).as_deref(), Some(phrase));
+        c.entities
+            .iter_mut()
+            .find(|e| e.id == "moth")
+            .unwrap()
+            .facts
+            .clear();
+        assert_eq!(holding(&c, entity(&c, "moth")), None);
+        c.concealed.clear();
+        assert_eq!(
+            holding(&c, entity(&c, "vale")).as_deref(),
+            Some("My hands are empty.")
+        );
+        // The item table has its own size cap; the avatar's inventory stays.
+        c.outcome.as_mut().unwrap().items.clear();
+        assert_eq!(
+            holding(&c, entity(&c, "moth")).as_deref(),
+            Some("I'm holding the Lamp and the Black cloth.")
+        );
+        c.outcome = None;
+        c.entities
+            .iter_mut()
+            .find(|e| e.id == "moth")
+            .unwrap()
+            .facts = vec!["Holding: Lamp.".into()];
+        assert_eq!(
+            holding(&c, entity(&c, "moth")).as_deref(),
+            Some("I'm holding the Lamp.")
+        );
+    }
 
     #[test]
     fn held_item_story_follows_the_gift_in_talk_thoughts_and_dreams() {

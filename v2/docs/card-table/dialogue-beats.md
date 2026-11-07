@@ -288,6 +288,11 @@ is a speaker and a speech verb after a closing quote (`," I say`); a
 quotation inside speech keeps its words. The corpus in `framing.rs` lists
 lines that must pass and lines that must fail.
 
+The speaker's current inventory comes from the committed outcome. The full
+transcript and the short perception frame share this source, so a busy fact
+list still leaves the character aware of what they carry. A later transfer
+updates that view. Covered objects keep their unnamed sense description.
+
 The check flags by default (owner, 2026-11-03). It **blocks** only:
 an empty reply; one over its size cap or unfinished (`shape`); an
 instruction aimed at a model (`instruction`); system talk (`assistant`); a
