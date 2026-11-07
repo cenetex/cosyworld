@@ -43,6 +43,10 @@ export function resetAvatar(world, id) {
   }
   if (world.motives?.grievances?.[id]) world.motives.grievances[id] = [];
   if (world.invitedPlaces) delete world.invitedPlaces[id];
+  if (world.conversations)
+    world.conversations = world.conversations.filter(
+      (c) => !c.actors.includes(id),
+    );
   world.peaceUntil[id] = 0;
   if (world.defeats) delete world.defeats[id];
   world.standoffs = world.standoffs.filter(

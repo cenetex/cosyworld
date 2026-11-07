@@ -514,6 +514,35 @@
   var EXPRESSION_TYPES = ["speech", "movement", "emoji"];
   var orderedSymbols = Object.keys(emoji_symbols_default).sort((a, b) => b.length - a.length);
 
+  // v2/card-game/conversation.mjs
+  var talkedDirectly = (s, actor, other) => (s.conversations || []).some(
+    (c) => c.actors.includes(actor) && c.actors.includes(other) && actor !== other
+  );
+  function recordConversation(s, event) {
+    if (event?.kind !== "action" || event.verb !== "talk") return;
+    const actors2 = [event.actorId, event.targetId].sort();
+    if (actors2[0] === actors2[1] || actors2.some((id) => !s.actors[id])) return;
+    if (!talkedDirectly(s, ...actors2))
+      (s.conversations ??= []).push({ actors: actors2, seq: event.seq, turn: event.turn });
+  }
+  function installConversations(s) {
+    if (s.conversations !== void 0) return;
+    s.conversations = [];
+    for (const event of s.log || []) recordConversation(s, event);
+  }
+  function validConversations(s) {
+    const rows = s.conversations;
+    if (rows === void 0) return true;
+    const seen = /* @__PURE__ */ new Set(), size = Object.keys(s.actors).length;
+    return Array.isArray(rows) && rows.length <= size * (size - 1) / 2 && rows.every((c) => {
+      if (!c || Object.keys(c).sort().join() !== "actors,seq,turn" || !Array.isArray(c.actors) || c.actors.length !== 2 || c.actors.some((id) => !Object.hasOwn(s.actors, id)) || c.actors[0] >= c.actors[1] || !Number.isSafeInteger(c.seq) || c.seq < 1 || c.seq > s.eventSeq || !Number.isSafeInteger(c.turn) || c.turn < 0 || c.turn > s.turn)
+        return false;
+      const key = c.actors.join(":"), fresh = !seen.has(key);
+      seen.add(key);
+      return fresh;
+    });
+  }
+
   // v2/card-game/pack-journeys.mjs
   var agreed = (world, pack, journey) => Object.hasOwn(world.packs?.[pack.id]?.receipts || {}, journey.after);
   function installJourneyProgress(world, packs) {
@@ -2060,6 +2089,12 @@
       }
       case "flag":
         return (state?.flags?.[c.key] ?? false) === c.value;
+      case "talked":
+        return talkedDirectly(
+          s,
+          actor || senses2?.player || currentActor(s),
+          c.person
+        );
       case "knows": {
         const who = actor || senses2?.player || currentActor(s);
         return (c.topics || [c.topic]).some((topic) => knowsFact(s, who, topic));
@@ -16234,6 +16269,7 @@
     "connected_humans",
     "met",
     "knows",
+    "talked",
     "pack_item_present",
     "clock",
     "daylight",
@@ -16773,6 +16809,9 @@
           case "flag":
             ok = keysOk(c, ["kind", "key", "value"]) && idOk2(c.key) && typeof c.value === "boolean";
             break;
+          case "talked":
+            ok = keysOk(c, ["kind", "person"]) && owns3(avatars, c.person);
+            break;
           case "holding":
             ok = keysOk(c, ["kind", "item", "actor", "role"]) && owns3(items2, c.item) && (c.role === void 0 ? c.actor === hub2.player || owns3(avatars, c.actor) : c.role === "actor" && c.actor === void 0);
             break;
@@ -16853,6 +16892,7 @@
       "connected_humans",
       "met",
       "knows",
+      "talked",
       "daylight",
       "drawn",
       "chance",
@@ -16945,15 +16985,23 @@
     const routes = pack.routes || [];
     for (const r of routes) {
       check(
-        keysOk(r, ["from", "to", "requires", "live", "sealed"]) && (r.live === void 0 || r.live === true) && owns3(places2, r.from) && owns3(places2, r.to) && r.from !== r.to,
+        keysOk(r, [
+          "from",
+          "to",
+          "requires",
+          "travelerRequires",
+          "live",
+          "sealed"
+        ]) && (r.live === void 0 || r.live === true) && owns3(places2, r.from) && owns3(places2, r.to) && r.from !== r.to,
         "routes must stay within their pack"
       );
       const q = r.sealed?.quest;
       check(
-        r.sealed === void 0 || keysOk(r.sealed, ["quest", "reason"]) && Boolean(r.requires?.length) && textOk(r.sealed.reason, 240) && keysOk(q, ["kind", "target", "to"]) && (q.kind === "item" ? owns3(items2, q.target) && (q.to === void 0 || owns3(avatars, q.to)) : q.to === void 0 && (q.kind === "place" ? owns3(places2, q.target) : q.kind === "person" && owns3(avatars, q.target))),
+        r.sealed === void 0 || keysOk(r.sealed, ["quest", "reason"]) && Boolean(r.requires?.length || r.travelerRequires?.length) && textOk(r.sealed.reason, 240) && keysOk(q, ["kind", "target", "to"]) && (q.kind === "item" ? owns3(items2, q.target) && (q.to === void 0 || owns3(avatars, q.to)) : q.to === void 0 && (q.kind === "place" ? owns3(places2, q.target) : q.kind === "person" && owns3(avatars, q.target))),
         `route ${r.from}>${r.to} sealed card needs a gate, a reason and a quest`
       );
       requirements(r.requires, "route requires");
+      requirements(r.travelerRequires, "route traveller requires");
       check(
         routes.some((q2) => q2.from === r.to && q2.to === r.from) || places2[r.to]?.exits?.includes(r.from),
         "a route has no return"
@@ -17686,6 +17734,14 @@
       (r) => r.from === from && r.to === to && routeOpen(world, pack.id, r)
     )
   );
+  function personalRouteOpen(world, from, to, actor) {
+    const routes = packDefinitions.flatMap(
+      (pack) => (pack.routes || []).filter((r) => r.from === from && r.to === to).map((route) => ({ pack: pack.id, route }))
+    );
+    return !routes.some(({ route }) => route.travelerRequires?.length) || routes.some(
+      ({ pack, route }) => routeOpen(world, pack, route) && conditionsMet(world, pack, route.travelerRequires, actor)
+    );
+  }
   function latchRoutes(world) {
     for (const { pack, route } of latching) {
       const key = routeKey(route);
@@ -17700,7 +17756,12 @@
   function packExits(world, place, actor = null) {
     const routes = packDefinitions.flatMap(
       (pack) => (pack.routes || []).filter(
-        (r) => r.from === place && routeOpen(world, pack.id, r) && (humanAvatarIds.includes(actor) || roamingQuestActor(actor) || packPeople[actor]?.personalQuests || owns4(pack.places, r.from) && owns4(pack.places, r.to))
+        (r) => r.from === place && routeOpen(world, pack.id, r) && conditionsMet(
+          world,
+          pack.id,
+          r.travelerRequires,
+          actor || currentActor(world)
+        ) && (humanAvatarIds.includes(actor) || roamingQuestActor(actor) || packPeople[actor]?.personalQuests || owns4(pack.places, r.from) && owns4(pack.places, r.to))
       ).map((r) => r.to)
     );
     return routes.filter(
@@ -20146,7 +20207,7 @@
     for (const to of guardedExits(s, place))
       if (!ways.includes(to)) ways.push(to);
     return ways.filter(
-      (to) => entityActive(s, to) && actorCanVisit(actor, to, s) && humanRoomAvailable(s, actor, to) && !guardOf(s, place, to, actor)
+      (to) => entityActive(s, to) && actorCanVisit(actor, to, s) && humanRoomAvailable(s, actor, to) && personalRouteOpen(s, place, to, actor || currentActor(s)) && !guardOf(s, place, to, actor)
     );
   }
   var sealedRoutes = null;
@@ -20483,7 +20544,7 @@
     if (s.run !== void 0 && (Object.keys(s.run || {}).join() !== "seed" || !validSeed(s.run.seed)))
       fail();
     if (!validPackState(s, sensesFor(s)) || !validItemCycle(s)) fail();
-    if (!validOpenedRoutes(s.openedRoutes) || !validHidden(s) || !validDoors(s) || s.hidden && !Object.hasOwn(places, s.hidden.place))
+    if (!validConversations(s) || !validOpenedRoutes(s.openedRoutes) || !validHidden(s) || !validDoors(s) || s.hidden && !Object.hasOwn(places, s.hidden.place))
       fail();
     if (!validRouteKnowledge(s, [...authoredRouteEdges(), ...laneEdges()]) || !validMemories(s) || !validMotives(s) || !validLife(s, Object.keys(places)) || !validHome(s) || !validSleep(s, places) || !validGuard(s, places))
       fail();
@@ -20665,6 +20726,7 @@
         setAside: (world, id) => !humanHeld(world, id) && setAsideWant(world, id, wantAPI(world))
       });
       installJourneyProgress(s, packDefinitions);
+      installConversations(s);
       latchRoutes(s);
       settleGuards(s);
       validateWorld(s);

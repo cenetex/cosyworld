@@ -16,6 +16,7 @@ import { usedUp, useUp, bringBack } from "./item-use.mjs";
 import compiled from "./packs.json" with { type: "json" };
 import {
   humanHomePack,
+  currentActor,
   humanAvatar,
   humanAvatarIds,
   controlledByHuman,
@@ -449,6 +450,23 @@ export const packRouteOpen = (world, from, to) =>
       (r) => r.from === from && r.to === to && routeOpen(world, pack.id, r),
     ),
   );
+// Personal entry requirements remain true for each traveller, even when
+// the world has latched the physical gate open.
+export function personalRouteOpen(world, from, to, actor) {
+  const routes = packDefinitions.flatMap((pack) =>
+    (pack.routes || [])
+      .filter((r) => r.from === from && r.to === to)
+      .map((route) => ({ pack: pack.id, route })),
+  );
+  return (
+    !routes.some(({ route }) => route.travelerRequires?.length) ||
+    routes.some(
+      ({ pack, route }) =>
+        routeOpen(world, pack, route) &&
+        conditionsMet(world, pack, route.travelerRequires, actor),
+    )
+  );
+}
 export function latchRoutes(world) {
   for (const { pack, route } of latching) {
     const key = routeKey(route);
@@ -472,6 +490,12 @@ export function packExits(world, place, actor = null) {
         (r) =>
           r.from === place &&
           routeOpen(world, pack.id, r) &&
+          conditionsMet(
+            world,
+            pack.id,
+            r.travelerRequires,
+            actor || currentActor(world),
+          ) &&
           (humanAvatarIds.includes(actor) ||
             roamingQuestActor(actor) ||
             packPeople[actor]?.personalQuests ||

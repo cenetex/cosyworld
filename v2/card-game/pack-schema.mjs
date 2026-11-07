@@ -77,6 +77,7 @@ export const CONDITION_KINDS = [
   "connected_humans",
   "met",
   "knows",
+  "talked",
   "pack_item_present",
   "clock",
   "daylight",
@@ -964,6 +965,9 @@ export function packProblems(pack, hub, mountedPlaces = [], mountedItems = []) {
             idOk(c.key) &&
             typeof c.value === "boolean";
           break;
+        case "talked":
+          ok = keysOk(c, ["kind", "person"]) && owns(avatars, c.person);
+          break;
         case "holding":
           ok =
             keysOk(c, ["kind", "item", "actor", "role"]) &&
@@ -1107,6 +1111,7 @@ export function packProblems(pack, hub, mountedPlaces = [], mountedItems = []) {
           "connected_humans",
           "met",
           "knows",
+          "talked",
           "daylight",
           "drawn",
           "chance",
@@ -1222,7 +1227,14 @@ export function packProblems(pack, hub, mountedPlaces = [], mountedItems = []) {
   const routes = pack.routes || [];
   for (const r of routes) {
     check(
-      keysOk(r, ["from", "to", "requires", "live", "sealed"]) &&
+      keysOk(r, [
+        "from",
+        "to",
+        "requires",
+        "travelerRequires",
+        "live",
+        "sealed",
+      ]) &&
         (r.live === undefined || r.live === true) &&
         owns(places, r.from) &&
         owns(places, r.to) &&
@@ -1234,7 +1246,7 @@ export function packProblems(pack, hub, mountedPlaces = [], mountedItems = []) {
     check(
       r.sealed === undefined ||
         (keysOk(r.sealed, ["quest", "reason"]) &&
-          Boolean(r.requires?.length) &&
+          Boolean(r.requires?.length || r.travelerRequires?.length) &&
           textOk(r.sealed.reason, 240) &&
           keysOk(q, ["kind", "target", "to"]) &&
           (q.kind === "item"
@@ -1247,6 +1259,7 @@ export function packProblems(pack, hub, mountedPlaces = [], mountedItems = []) {
       `route ${r.from}>${r.to} sealed card needs a gate, a reason and a quest`,
     );
     requirements(r.requires, "route requires");
+    requirements(r.travelerRequires, "route traveller requires");
     check(
       routes.some((q) => q.from === r.to && q.to === r.from) ||
         places[r.to]?.exits?.includes(r.from),
