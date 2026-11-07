@@ -32,14 +32,14 @@ function completed() {
   return act(s, "wait");
 }
 
-describe("saved paid quest receipts", () => {
+describe("saved quest receipts", () => {
   it("saves the deed and collects once without spending a turn", () => {
     const s = reload(completed());
     const [receipt] = questRewardsOf(s, "vale");
     expect(receipt).toMatchObject({
       actor: "vale",
       xp: 1,
-      paid: true,
+      paid: false,
       level: null,
     });
     expect(receipt.id).toBe(
@@ -49,7 +49,8 @@ describe("saved paid quest receipts", () => {
     const next = play(s, { ...claim, receipt: -1, xp: 9000 }).state;
     expect(next.turn).toBe(s.turn);
     expect(next.revision).toBe(s.revision + 1);
-    expect(next.actors.vale.xp).toBe(s.actors.vale.xp);
+    expect(s.actors.vale.xp).toBe(0);
+    expect(next.actors.vale.xp).toBe(1);
     expect(next.actors.vale.level).toBe(s.actors.vale.level);
     expect(next.actors.keeper).toEqual(s.actors.keeper);
     expect(narrativeContext(next)).toMatchObject({

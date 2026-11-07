@@ -114,6 +114,7 @@ const released = {
   106: "a251b7c8d869aeb6578149340859f5e2af241f04058e42d2644e3503c83752f3",
   107: "9b085286aecef31a8bd4655a961e3a53a4e160842d418c2eeed562de10f11aba",
   108: "068ce294f053b3639336a25348029201fbe9861e80adb7e339d94944bbc26091",
+  109: "b5330842b8319eff1835d050ff186dd9c90ab42245759420f06a5a8a330ce991",
 };
 
 it("preserves every released and qualified interpreter for exact journal replay", () => {

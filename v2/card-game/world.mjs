@@ -910,7 +910,9 @@ export function wantAPI(s) {
       addLog(
         s,
         "World",
-        want.kind === "item"
+        (actor === currentActor(s) || heldByHuman(s, actor))
+          ? `${nameOf(actor)} completed a quest: ${wantText(want)}. The reward is ready.`
+          : want.kind === "item"
           ? `${nameOf(actor)} has the ${nameOf(want.target)} at last.`
           : want.kind === "place"
             ? `${nameOf(actor)} reaches ${nameOf(want.target)}.`
@@ -1896,7 +1898,8 @@ export function legalActions(s, actor = currentActor(s)) {
           actor,
           null,
           null,
-          `${nameOf(actor)} collects a completed quest.`,
+          reward.paid ? `${nameOf(actor)} collects a completed quest.`
+            : `${nameOf(actor)} claims ${reward.xp} XP for a completed quest.`,
           [],
         ),
         receipt: reward.id,
@@ -3196,11 +3199,11 @@ export function play(
     };
   const next = structuredClone(s);
   if (actor !== "vale" || s.playerActorId) next.playerActorId = actor;
-  // Collecting a paid receipt only changes its card and the saved revision.
+  // Claim pays a saved reward once and advances the saved revision.
   // Rest, combat and residents keep their current turn.
   if (exact.kind === "claim") {
     next.revision += 1;
-    claimQuestReward(next, actor, exact.receipt);
+    claimQuestReward(next, actor, exact.receipt, wantAPI(next));
     addLog(next, "World", exact.text, {
       kind: "action",
       actorId: actor,
