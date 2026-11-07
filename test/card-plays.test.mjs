@@ -138,6 +138,7 @@ describe("playing the world through cards", () => {
     let s = createWorld();
     s.actors.moth.place = "station";
     s.items.lamp.holder = "moth";
+    s.actors.moth.heldItem = "lamp";
     expect(cardPlay(s, ["lamp"]).action.kind).toBe("ask");
     s = cards(s, "lamp", "moth");
     expect(s.items.lamp.holder).toBe("moth");
@@ -145,6 +146,7 @@ describe("playing the world through cards", () => {
     s = createWorld();
     s.actors.keeper.place = "station";
     s.items.lamp.holder = "keeper";
+    s.actors.keeper.heldItem = "lamp";
     s = cards(s, "lamp");
     expect(s.items.lamp.holder).toBe("vale");
     s.actors.moth.place = "station";

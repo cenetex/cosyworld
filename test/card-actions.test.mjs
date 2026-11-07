@@ -241,8 +241,9 @@ describe("named card actions", () => {
     world.items.lamp.holder = "moth";
     const moved = availableCards(world);
     expect(
-      moved.slice(moved.indexOf("moth"), moved.indexOf("moth") + 3),
-    ).toEqual(["moth", "lamp", "cloth"]);
+      moved.slice(moved.indexOf("moth"), moved.indexOf("moth") + 2),
+    ).toEqual(["moth", "lamp"]);
+    expect(world.items.cloth.holder).toBe("lamp");
   });
 });
 

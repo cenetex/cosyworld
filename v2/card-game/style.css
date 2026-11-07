@@ -299,7 +299,8 @@ main {
   filter: brightness(1.08);
   transform: translateY(-2px) rotate(var(--lean));
 }
-.portrait img {
+.portrait img,
+.portrait-held-item img {
   width: 100%;
   height: 100%;
   object-fit: contain;
@@ -347,6 +348,11 @@ main {
   --hand-x: 88%;
   --hand-y: 22%;
   --held-offset: -15%;
+}
+.card.avatar {
+  --hand-x: 15%;
+  --hand-y: 25%;
+  --held-offset: -50%;
 }
 .portrait-held-item {
   position: absolute;

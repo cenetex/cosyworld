@@ -162,6 +162,7 @@
     ".card-frame[data-holder] .card { border-color: #a48d6370 }",
     ".card-level { color: var(--tier-color); font: 12px/1 Georgia,serif; letter-spacing: 0.12em; opacity: 0; pointer-events: none; position: absolute; right: 10px; text-shadow: 0 0 5px var(--tier-color),0 0 12px var(--tier-color); top: 7px; transition: opacity 160ms; visibility: hidden; z-index: 3 }",
     ".card-name { color: var(--tier-color) }",
+    ".card.avatar { --hand-x: 15%; --hand-y: 25%; --held-offset: -50% }",
     ".card[data-lit=\"false\"] :is(.name,.quest-head) { filter: brightness(0.6) }",
     ".card[data-selected=\"true\"] .card-level { opacity: 0.6; visibility: visible }",
     ".defeat-captions .beat-caption { font-size: 1em }",

@@ -140,7 +140,9 @@ import {
   humanAvatars,
 } from "./shared.mjs";
 import { enableMotives } from "./motives.mjs";
-import { seatActors } from "./human-cast.mjs";
+import { seatActors, controlledByHuman } from "./human-cast.mjs";
+import { heldItem } from "./held-item.mjs";
+import { sleepingPortrait } from "./sleep-portraits.mjs";
 import { PLAYING_KEY } from "./avatar-world.mjs";
 import { openTableSession } from "./table-session.mjs";
 import { createNarrator, requestNarrative, silentLines } from "./narrative.mjs";
@@ -2336,7 +2338,7 @@ function renderActions() {
     selected.length === 1 &&
     things[selected[0]] &&
     !cardIsClosed(selected[0])
-      ? `${nameOf(selected[0])}. ${things[selected[0]].text || ""} ${cardObservation(world, selected[0])}`.trim()
+      ? `${nameOf(selected[0])}. ${things[selected[0]].text || ""} ${cardObservation(world, selected[0], known)}`.trim()
       : "";
   $("selection-name").textContent = selected.length
     ? selectionName
@@ -2662,6 +2664,10 @@ $("action-beat").addEventListener(
   },
   true,
 );
+const npcHand = (id) =>
+  people[id] && id !== currentActor(world) && !controlledByHuman(world, id);
+const holderVerb = (id) => places[id] ? "Contains"
+  : npcHand(id) && !sleepingPortrait(world, id) ? "Holds" : "Carries";
 function updateCardSelection(frame) {
   if (frame.dataset.want) {
     const entry = questEntry(frame.dataset.questId);
@@ -2696,10 +2702,10 @@ function updateCardSelection(frame) {
   syncAvatarStack(frame, id);
   if (cardIsClosed(id)) return;
   button.querySelector(".sr-only").textContent =
-    cardObservation(world, id) +
+    cardObservation(world, id, known) +
     (label ? ` ${label}.` : "") +
     (held.length
-      ? ` ${places[id] ? "Contains" : "Carries"} ${held.map((item) => cardIsClosed(item) ? "covered" : nameOf(item)).join(", ")}. Select to show these cards.`
+      ? ` ${holderVerb(id)} ${held.map((item) => cardIsClosed(item) ? "covered" : nameOf(item)).join(", ")}. Select to show these cards.`
       : "");
 }
 const handMotions = new Map();
@@ -2933,7 +2939,7 @@ function card(id) {
     }
   }
   const label = playLabel(chosen?.action);
-  const observation = node("span", cardObservation(world, id), "sr-only");
+  const observation = node("span", cardObservation(world, id, known), "sr-only");
   observation.id = `card-detail-${id}`;
   if (raised && label) observation.textContent += ` ${label}.`;
   if (hidden) observation.textContent = "";
@@ -3031,10 +3037,10 @@ function card(id) {
       if (named.length < held.length)
         named.push(`${held.length - named.length} covered`);
       if (!hidden)
-        observation.textContent += ` ${places[id] ? "Contains" : "Carries"} ${named.join(", ")}. Select to show these cards.`;
+        observation.textContent += ` ${holderVerb(id)} ${named.join(", ")}. Select to show these cards.`;
       // One carried thing peeks out behind its holder; the rest wait in
       // the opened stack.
-      for (const item of held.slice(0, 1)) {
+      for (const item of npcHand(id) ? [] : held.slice(0, 1)) {
         const preview = node("img", undefined, "held-preview");
         preview.decoding = "async";
         preview.src = imageUrl(
@@ -3047,6 +3053,8 @@ function card(id) {
       }
     }
   }
+  if (!hidden && npcHand(id) && !sleepingPortrait(world, id))
+    renderHeldItem(el, { id }, heldItem(world, id));
   syncAvatarStack(frame, id);
   if (!hidden && foldQuest()?.actor === id) frame.prepend(questFold(foldQuest()));
   // A real lock takes priority over discovery.
@@ -3455,12 +3463,13 @@ const litCarried = (actor) =>
   ) || null;
 function renderHeldItem(figure, actor, itemId) {
   let preview = figure.querySelector(".portrait-held-item");
-  figure.setAttribute(
-    "aria-label",
-    itemId
-      ? `${knownName(actor.id, "Someone")} holds ${knownName(itemId, "a covered card")}`
-      : knownName(actor.id, "Someone"),
-  );
+  if (!figure.matches(".card"))
+    figure.setAttribute(
+      "aria-label",
+      itemId
+        ? `${knownName(actor.id, "Someone")} holds ${cardIsClosed(itemId) ? "a closed card" : nameOf(itemId)}`
+        : knownName(actor.id, "Someone"),
+    );
   if (!itemId) {
     preview?.remove();
     return;
@@ -3468,18 +3477,21 @@ function renderHeldItem(figure, actor, itemId) {
   if (!preview) {
     preview = node("span", undefined, "portrait-held-item");
     preview.setAttribute("aria-hidden", "true");
-    figure.querySelector(".portrait-body").append(preview);
+    (figure.querySelector(".portrait-body") || figure).append(preview);
   }
   const item = world.items[itemId];
   const covering = Object.keys(world.items).find(
     (id) => world.items[id].holder === itemId,
   );
-  const key = JSON.stringify([itemId, covering]);
+  const closed = cardIsClosed(itemId);
+  const shown = [itemId, !closed && covering].filter(Boolean);
+  const sources = shown.map((id) => cardIsClosed(id) ? cardBack(id) : cardArt(id));
+  const key = JSON.stringify(sources);
   if (preview.dataset.key !== key) {
-    const images = [itemId, covering].filter(Boolean).map((id, index) => {
+    const images = sources.map((src, index) => {
       const image = node("img", undefined, index ? "object-cover" : "");
       image.decoding = "async";
-      image.src = imageUrl(cardArt(id), "card");
+      image.src = imageUrl(src, "card");
       image.alt = "";
       image.draggable = false;
       return image;
@@ -3488,9 +3500,9 @@ function renderHeldItem(figure, actor, itemId) {
     preview.dataset.key = key;
   }
   preview.dataset.item = itemId;
-  preview.dataset.lit = String(item.lit ?? "");
-  preview.dataset.covered = String(Boolean(covering));
-  preview.dataset.ringing = String(item.ringing > 0 && !covering);
+  preview.dataset.lit = String(closed ? "" : (item.lit ?? ""));
+  preview.dataset.covered = String(!closed && Boolean(covering));
+  preview.dataset.ringing = String(!closed && item.ringing > 0 && !covering);
 }
 
 // Things lying here stand on the painted floor behind the cast as cutouts of
@@ -3718,14 +3730,16 @@ function renderScene() {
     image.dataset.source = actor.cutout;
     image.dataset.flip = String(flipStagePortrait(actor.cutout, actor.facing));
     figure.dataset.flip = image.dataset.flip;
-    // A raised hand card shows in the player's hand; otherwise a figure
-    // carrying a lit light holds it up, as Vale wakes holding the lamp.
+    // Residents show their saved hand. The player keeps the raised item
+    // or a carried light, as Vale wakes holding the lamp.
     renderHeldItem(
       figure,
       actor,
       sleeping
         ? null
-        : (id === currentActor(world) && handItem) || litCarried(id),
+        : npcHand(id)
+          ? heldItem(world, id)
+          : (id === currentActor(world) && handItem) || litCarried(id),
     );
     figure.classList.toggle(
       "active",

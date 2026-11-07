@@ -390,6 +390,7 @@ try {
     await page.keyboard.press("Escape");
     const remote = meeting();
     remote.items.lamp.holder = "keeper";
+    remote.actors.keeper.heldItem = "lamp";
     await page.evaluate(
       ({ key, save }) => {
         localStorage.setItem(key, save);
@@ -408,6 +409,8 @@ try {
       true,
       "a storage update refreshes the holder even at the same world revision",
     );
+    assert.equal((await state()).items.oil.holder, "keeper");
+    assert.equal(await card("oil").count(), 0);
     const refreshed = await page
       .locator("#card-actions .card-primary")
       .evaluate((button) => ({
