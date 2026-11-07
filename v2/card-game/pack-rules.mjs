@@ -1,3 +1,4 @@
+import { talkedDirectly } from "./conversation.mjs";
 import {
   currentActor,
   controlledByHuman,
@@ -123,6 +124,12 @@ export function conditionMet(s, c, senses, packId = null, actor = null) {
     }
     case "flag":
       return (state?.flags?.[c.key] ?? false) === c.value;
+    case "talked":
+      return talkedDirectly(
+        s,
+        actor || senses?.player || currentActor(s),
+        c.person,
+      );
     case "knows": {
       const who = actor || senses?.player || currentActor(s);
       return (c.topics || [c.topic]).some((topic) => knowsFact(s, who, topic));

@@ -1,3 +1,8 @@
+import {
+  recordConversation,
+  installConversations,
+  validConversations,
+} from "./conversation.mjs";
 import { expressionOf } from "./expression.mjs";
 import { installJourneyProgress } from "./pack-journeys.mjs";
 import { levelTier } from "./level-tiers.mjs";
@@ -103,6 +108,7 @@ import {
   entityActive,
   actorCanVisit,
   packExits,
+  personalRouteOpen,
   latchRoutes,
   validOpenedRoutes,
   packChoices,
@@ -299,6 +305,7 @@ export function createWorld({ opening = false, packScopes = {}, seed } = {}) {
     turn: 0,
     revision: 0,
     eventSeq: 1,
+    conversations: [],
   };
   if (seed != null && !validSeed(seed)) throw new Error("Choose a run seed.");
   if (seed != null) world.run = { seed };
@@ -628,6 +635,7 @@ export function exits(s, place, actor = null, previous = null) {
       entityActive(s, to) &&
       actorCanVisit(actor, to, s) &&
       humanRoomAvailable(s, actor, to) &&
+      personalRouteOpen(s, place, to, actor || currentActor(s)) &&
       !guardOf(s, place, to, actor),
   );
 }
@@ -2695,6 +2703,7 @@ function performPlay(s, a, round = null, settle = []) {
       : {}),
     ...(a.kind === "attack" ? { locationId: here, ...combat } : {}),
   });
+  recordConversation(s, s.log.at(-1));
   // A gift in person to an aggrieved recipient is a repair all present see.
   const answer = repairAnswer(
     s,
@@ -3562,6 +3571,7 @@ export function validateWorld(s) {
     fail();
   if (!validPackState(s, sensesFor(s)) || !validItemCycle(s)) fail();
   if (
+    !validConversations(s) ||
     !validOpenedRoutes(s.openedRoutes) ||
     !validHidden(s) ||
     !validDoors(s) ||
@@ -3995,6 +4005,7 @@ export function decodeSave(text) {
     installJourneyProgress(s, packDefinitions);
     // An earlier save records the gates already open as it loads, and its
     // guards take their posts (rules 100).
+    installConversations(s);
     latchRoutes(s);
     settleGuards(s);
     validateWorld(s);
