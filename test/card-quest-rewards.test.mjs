@@ -16,6 +16,7 @@ import {
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import { currentSharedEngine } from "./fixtures/shared-engine.mjs";
 import { questing } from "./helpers/first-quest.mjs";
+import { questRewardCards } from "../v2/card-game/quest-card.mjs";
 import { narrativeContext } from "../v2/card-game/narrative.mjs";
 
 const reload = (s) => decodeSave(encodeSave(s));
@@ -169,6 +170,7 @@ describe("saved paid quest receipts", () => {
     expect(questRewardsOf(s, "vale")).toMatchObject([
       { paid: true, level, xp },
     ]);
+    expect(questRewardCards(s)).toMatchObject([{ earnedLevel: level, earnedXp: xp }]);
     expect(s.actors.vale.level).toBe(level);
     expect(act(s, "claim").actors.vale.xp).toBe(s.actors.vale.xp);
   });

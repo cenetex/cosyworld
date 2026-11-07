@@ -46,6 +46,11 @@ const worldOf = (log, place = "pond") => ({
 });
 
 describe("beat grouping", () => {
+  it("keeps the current speech in front when a quest reward is collected", () => {
+    const line = said("vale", "The lamp shines beside the saved deed.");
+    const log = [line, did("vale", "claim", { receipt: 1 })];
+    expect(sceneBeats(worldOf(log))).toEqual(sceneBeats(worldOf([line])));
+  });
   it("keeps a played card in front of the lines it prompts", () => {
     seq = 0;
     const log = [

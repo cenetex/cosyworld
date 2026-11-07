@@ -69,10 +69,15 @@ try {
     );
     const table = `quest-${width}`,
       key = `cosyworld.reflected-shore.v1.${table}`;
-    const ready = () =>
-      page.waitForFunction(
-        () => document.querySelector("#hand").dataset.cooling === "false",
-      );
+    const ready = async () => {
+      for (let i = 0; i < 500; i++) {
+        if (await page.locator("#hand").getAttribute("data-cooling") === "false") return;
+        if (await page.locator("#dialogue-advance").isVisible())
+          await page.locator("#dialogue-advance").click();
+        await page.waitForTimeout(40);
+      }
+      throw new Error("Quest hand stayed busy");
+    };
     await page.goto(
       `http://127.0.0.1:${server.address().port}/?table=${table}`,
     );
@@ -241,6 +246,7 @@ try {
     const gain = page.locator(".quest-xp");
     await gain.waitFor();
     await page.unroute("**/card-game/text", holdReply);
+    await page.waitForFunction(() => document.querySelector("#dialogue-text").textContent.includes("The lamp shines beside the saved deed."));
     assert.ok(await page.evaluate((key) => JSON.parse(localStorage.getItem(key)).log.some((e) => e.text?.includes("The lamp shines beside the saved deed.")), key));
     const falling = await page.locator(".card-exits > .beat-ghost").evaluateAll(
       (ghosts) => ghosts.map((g) => [g.inert, getComputedStyle(g).pointerEvents]),
