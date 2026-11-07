@@ -326,22 +326,32 @@ function glimpseStep(s, actor, api, quest) {
       : { verb, to, at: api.home(to) || s.actors[to].place },
   );
 }
-// The way back to the sanctuary the avatar last slept in, or, for one that
-// never reached a sanctuary or whose sanctuary sleeps, its home. Without a
+// The way back to the avatar's last active sanctuary, or another active
+// sanctuary when its home is an ordinary place. Without a
 // level quest it is the ordinary quest to sleep at a sanctuary, met by a
 // long rest in any of them (rules 99).
 export const restStep = (s, actor, api, quest) => ({
   ...newWant(
     "place",
-    [s.actors[actor].sanctuary, api.home(actor)].find(
-      (p) => p && (api.active?.(p) ?? true),
-    ) ?? s.actors[actor].place,
+    [s.actors[actor].sanctuary, api.home(actor), ...api.sanctuaries].find(
+      (p) => api.sanctuaries.includes(p) && (api.active?.(p) ?? true),
+    ),
     s.turn,
   ),
   ...(quest ? { quest } : {}),
   step: { verb: "rest" },
 });
 const sanctuaryQuest = (w) => w.step?.verb === "rest" && !w.quest;
+// Earlier saves could point a rest at a home where sleep never completes it.
+export function repairRestTargets(s, api) {
+  for (const id of Object.keys(s.actors))
+    for (const want of questsOf(s, id))
+      if (
+        want.kind === "place" && want.step?.verb === "rest" &&
+        api.places().includes(want.target) && !api.sanctuaries.includes(want.target)
+      )
+        want.target = restStep(s, id, api).target;
+}
 // A sanctuary quest rebuilt for another place (its sanctuary gone quiet, or
 // set aside) takes the place of an ordinary quest for that place, as
 // `pushQuest` does, and of a later sanctuary quest; level quests stay as they
