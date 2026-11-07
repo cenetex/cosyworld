@@ -224,7 +224,7 @@ fn rules_98_world_upgrades_to_99_keeping_its_opening_and_packs() {
 
 #[test]
 fn held_item_keeps_the_last_received_item_through_journal_replay() {
-    let mut world = created(engine::VERSION);
+    let mut world = created(engine::HUNDRED_FOURTEENTH_VERSION);
     let game = &mut world.game;
     game.as_object_mut().unwrap().remove("opening");
     for actor in ["vale", "moth", "keeper"] {
@@ -237,6 +237,7 @@ fn held_item_keeps_the_last_received_item_through_journal_replay() {
     game["actors"]["keeper"]["trust"]["moth"] = json!(3);
     game["actors"]["moth"]["want"] = json!({"kind":"item","target":"cloth","since":0,"refusals":0});
     let (path, c, id) = fixture("held-item-replay", &world);
+    let mut world = full_store::world(&c, &id, now()).unwrap();
     let commit =
         |w: &mut World, command: Value| full_store::commit(&c, &id, w, command, now()).unwrap();
     commit(&mut world, json!({"op":"claim","actor":"vale"}));

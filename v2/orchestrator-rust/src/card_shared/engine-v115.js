@@ -751,138 +751,6 @@
     return view2;
   }
 
-  // card-content:v2/card-game/emoji-symbols.json
-  var emoji_symbols_default = globalThis.cardContent.files["v2/card-game/emoji-symbols.json"];
-
-  // v2/card-game/expression.mjs
-  var EXPRESSION_TYPES = ["speech", "movement", "emoji"];
-  var expressionOf = (profile) => profile?.expression || "speech";
-  var orderedSymbols = Object.keys(emoji_symbols_default).sort((a, b) => b.length - a.length);
-  function emojiParts(text2) {
-    if (typeof text2 !== "string" || text2.length > 160) return null;
-    let rest2 = text2.trim();
-    const parts = [];
-    while (rest2) {
-      const symbol = orderedSymbols.find((value) => rest2.startsWith(value));
-      if (!symbol || parts.length === 5) return null;
-      parts.push(symbol);
-      rest2 = rest2.slice(symbol.length).trimStart();
-    }
-    return parts.length >= 2 ? parts : null;
-  }
-  var expressionKind = (profile) => expressionOf(profile) === "movement" ? "narration" : "dialogue";
-  function validExpression(profile, text2) {
-    if (expressionOf(profile) === "emoji") return Boolean(emojiParts(text2));
-    if (expressionOf(profile) !== "movement") return true;
-    return text2.startsWith(`${profile.name} `) && !/["“”\n]/u.test(text2) && !/\b(?:says?|speaks?|asks?|replies?|whispers?|shouts?|tells?|I|me|my)\b/iu.test(
-      text2
-    ) && /^(?:lowers|raises|tilts|blinks|flicks|cocks|inclines|pricks|twitches|wags|dips|shifts|turns|rests|settles|leans|curls|stretches|tucks|sniffs|yawns|watches|looks)\b/u.test(
-      text2.slice(profile.name.length + 1)
-    );
-  }
-
-  // v2/card-game/conversation.mjs
-  var talkedDirectly = (s, actor, other) => (s.conversations || []).some(
-    (c) => c.actors.includes(actor) && c.actors.includes(other) && actor !== other
-  );
-  function recordConversation(s, event) {
-    if (event?.kind !== "action" || event.verb !== "talk") return;
-    const actors2 = [event.actorId, event.targetId].sort();
-    if (actors2[0] === actors2[1] || actors2.some((id) => !s.actors[id])) return;
-    if (!talkedDirectly(s, ...actors2))
-      (s.conversations ??= []).push({ actors: actors2, seq: event.seq, turn: event.turn });
-  }
-  function installConversations(s) {
-    if (s.conversations !== void 0) return;
-    s.conversations = [];
-    for (const event of s.log || []) recordConversation(s, event);
-  }
-  function validConversations(s) {
-    const rows = s.conversations;
-    if (rows === void 0) return true;
-    const seen = /* @__PURE__ */ new Set(), size = Object.keys(s.actors).length;
-    return Array.isArray(rows) && rows.length <= size * (size - 1) / 2 && rows.every((c) => {
-      if (!c || Object.keys(c).sort().join() !== "actors,seq,turn" || !Array.isArray(c.actors) || c.actors.length !== 2 || c.actors.some((id) => !Object.hasOwn(s.actors, id)) || c.actors[0] >= c.actors[1] || !Number.isSafeInteger(c.seq) || c.seq < 1 || c.seq > s.eventSeq || !Number.isSafeInteger(c.turn) || c.turn < 0 || c.turn > s.turn)
-        return false;
-      const key2 = c.actors.join(":"), fresh = !seen.has(key2);
-      seen.add(key2);
-      return fresh;
-    });
-  }
-
-  // v2/card-game/pack-journeys.mjs
-  var agreed = (world, pack, journey) => Object.hasOwn(world.packs?.[pack.id]?.receipts || {}, journey.after);
-  function installJourneyProgress(world, packs) {
-    if (world.journeyProgress !== void 0) return;
-    world.journeyProgress = {};
-    for (const pack of packs)
-      for (const [id, { journey }] of Object.entries(pack.avatars))
-        if (journey && agreed(world, pack, journey))
-          world.journeyProgress[id] = {
-            agreement: journey.after,
-            step: journey.path.indexOf(world.actors[id]?.place)
-          };
-  }
-  function agreeJourney(world, pack, choice) {
-    for (const [id, { journey }] of Object.entries(pack.avatars))
-      if (journey?.after === choice)
-        (world.journeyProgress ??= {})[id] = { agreement: choice, step: 0 };
-  }
-  function advanceJourney(world, pack, id, from, to) {
-    const journey = pack?.avatars[id]?.journey;
-    const progress = world.journeyProgress?.[id];
-    if (journey && progress && agreed(world, pack, journey) && journey.path[progress.step] === from && journey.path[progress.step + 1] === to)
-      progress.step += 1;
-  }
-  function journeyNextPlace(world, pack, id) {
-    const journey = pack?.avatars[id]?.journey;
-    const progress = world.journeyProgress?.[id];
-    if (!journey || !progress || !agreed(world, pack, journey)) return null;
-    const waypoint = journey.path[progress.step];
-    return world.actors[id]?.place === waypoint ? journey.path[progress.step + 1] || null : waypoint;
-  }
-  function journeyChoiceReady(world, pack, choice) {
-    const journey = pack.avatars[choice.subject]?.journey;
-    return !journey || choice.at !== journey.path.at(-1) || choice.id === journey.after || world.journeyProgress?.[choice.subject]?.step === journey.path.length - 1;
-  }
-  function validJourneyProgress(world, packs) {
-    const records = world.journeyProgress;
-    if (!records || typeof records !== "object" || Array.isArray(records))
-      return false;
-    if (Object.keys(records).some(
-      (id) => !packs.some((p) => p.avatars[id]?.journey)
-    ))
-      return false;
-    return packs.every(
-      (pack) => Object.entries(pack.avatars).every(([id, avatar]) => {
-        const journey = avatar.journey;
-        if (!journey) return true;
-        const progress = records[id];
-        return agreed(world, pack, journey) ? progress && Object.keys(progress).sort().join() === "agreement,step" && progress.agreement === journey.after && Number.isSafeInteger(progress.step) && progress.step >= 0 && progress.step < journey.path.length : progress === void 0;
-      })
-    );
-  }
-
-  // v2/card-game/level-tiers.mjs
-  var tiers = [
-    [0, "Common", "#c8dce6"],
-    [10, "Uncommon", "#8cdcff"],
-    [20, "Rare", "#be82ff"],
-    [30, "Epic", "#ffc85a"],
-    [50, "Legendary", "#fff082"],
-    [100, "Mythic", "#ff9ce6"]
-  ].map(([minLevel, label, color], rank2) => ({
-    id: label.toLowerCase(),
-    label,
-    color,
-    minLevel,
-    rank: rank2
-  }));
-  var levelTier = (level) => tiers.findLast((tier) => level >= tier.minLevel) || tiers[0];
-
-  // card-content:v2/card-game/forest.json
-  var forest_default = globalThis.cardContent.files["v2/card-game/forest.json"];
-
   // card-content:v2/card-game/shared-cast.json
   var shared_cast_default = globalThis.cardContent.files["v2/card-game/shared-cast.json"];
 
@@ -1014,6 +882,9 @@
       })
     )
   };
+
+  // card-content:v2/card-game/forest.json
+  var forest_default = globalThis.cardContent.files["v2/card-game/forest.json"];
 
   // v2/card-game/pack-recital.mjs
   function recordRecital(world, pack, choice, actor) {
@@ -1196,6 +1067,88 @@
     const list = world.packs[pack.id]?.specials;
     if (!pack.specials || !world.run) return list === void 0;
     return Array.isArray(list) && new Set(list).size === list.length && list.every((id) => pack.specials.pool.some((e) => e.id === id));
+  }
+
+  // v2/card-game/pack-journeys.mjs
+  var agreed = (world, pack, journey) => Object.hasOwn(world.packs?.[pack.id]?.receipts || {}, journey.after);
+  function installJourneyProgress(world, packs) {
+    if (world.journeyProgress !== void 0) return;
+    world.journeyProgress = {};
+    for (const pack of packs)
+      for (const [id, { journey }] of Object.entries(pack.avatars))
+        if (journey && agreed(world, pack, journey))
+          world.journeyProgress[id] = {
+            agreement: journey.after,
+            step: journey.path.indexOf(world.actors[id]?.place)
+          };
+  }
+  function agreeJourney(world, pack, choice) {
+    for (const [id, { journey }] of Object.entries(pack.avatars))
+      if (journey?.after === choice)
+        (world.journeyProgress ??= {})[id] = { agreement: choice, step: 0 };
+  }
+  function advanceJourney(world, pack, id, from, to) {
+    const journey = pack?.avatars[id]?.journey;
+    const progress = world.journeyProgress?.[id];
+    if (journey && progress && agreed(world, pack, journey) && journey.path[progress.step] === from && journey.path[progress.step + 1] === to)
+      progress.step += 1;
+  }
+  function journeyNextPlace(world, pack, id) {
+    const journey = pack?.avatars[id]?.journey;
+    const progress = world.journeyProgress?.[id];
+    if (!journey || !progress || !agreed(world, pack, journey)) return null;
+    const waypoint = journey.path[progress.step];
+    return world.actors[id]?.place === waypoint ? journey.path[progress.step + 1] || null : waypoint;
+  }
+  function journeyChoiceReady(world, pack, choice) {
+    const journey = pack.avatars[choice.subject]?.journey;
+    return !journey || choice.at !== journey.path.at(-1) || choice.id === journey.after || world.journeyProgress?.[choice.subject]?.step === journey.path.length - 1;
+  }
+  function validJourneyProgress(world, packs) {
+    const records = world.journeyProgress;
+    if (!records || typeof records !== "object" || Array.isArray(records))
+      return false;
+    if (Object.keys(records).some(
+      (id) => !packs.some((p) => p.avatars[id]?.journey)
+    ))
+      return false;
+    return packs.every(
+      (pack) => Object.entries(pack.avatars).every(([id, avatar]) => {
+        const journey = avatar.journey;
+        if (!journey) return true;
+        const progress = records[id];
+        return agreed(world, pack, journey) ? progress && Object.keys(progress).sort().join() === "agreement,step" && progress.agreement === journey.after && Number.isSafeInteger(progress.step) && progress.step >= 0 && progress.step < journey.path.length : progress === void 0;
+      })
+    );
+  }
+
+  // v2/card-game/conversation.mjs
+  var talkedDirectly = (s, actor, other) => (s.conversations || []).some(
+    (c) => c.actors.includes(actor) && c.actors.includes(other) && actor !== other
+  );
+  function recordConversation(s, event) {
+    if (event?.kind !== "action" || event.verb !== "talk") return;
+    const actors2 = [event.actorId, event.targetId].sort();
+    if (actors2[0] === actors2[1] || actors2.some((id) => !s.actors[id])) return;
+    if (!talkedDirectly(s, ...actors2))
+      (s.conversations ??= []).push({ actors: actors2, seq: event.seq, turn: event.turn });
+  }
+  function installConversations(s) {
+    if (s.conversations !== void 0) return;
+    s.conversations = [];
+    for (const event of s.log || []) recordConversation(s, event);
+  }
+  function validConversations(s) {
+    const rows = s.conversations;
+    if (rows === void 0) return true;
+    const seen = /* @__PURE__ */ new Set(), size = Object.keys(s.actors).length;
+    return Array.isArray(rows) && rows.length <= size * (size - 1) / 2 && rows.every((c) => {
+      if (!c || Object.keys(c).sort().join() !== "actors,seq,turn" || !Array.isArray(c.actors) || c.actors.length !== 2 || c.actors.some((id) => !Object.hasOwn(s.actors, id)) || c.actors[0] >= c.actors[1] || !Number.isSafeInteger(c.seq) || c.seq < 1 || c.seq > s.eventSeq || !Number.isSafeInteger(c.turn) || c.turn < 0 || c.turn > s.turn)
+        return false;
+      const key2 = c.actors.join(":"), fresh = !seen.has(key2);
+      seen.add(key2);
+      return fresh;
+    });
   }
 
   // card-content:v2/card-game/weather.json
@@ -2077,6 +2030,23 @@
     );
   }
 
+  // v2/card-game/level-tiers.mjs
+  var tiers = [
+    [0, "Common", "#c8dce6"],
+    [10, "Uncommon", "#8cdcff"],
+    [20, "Rare", "#be82ff"],
+    [30, "Epic", "#ffc85a"],
+    [50, "Legendary", "#fff082"],
+    [100, "Mythic", "#ff9ce6"]
+  ].map(([minLevel, label, color], rank2) => ({
+    id: label.toLowerCase(),
+    label,
+    color,
+    minLevel,
+    rank: rank2
+  }));
+  var levelTier = (level) => tiers.findLast((tier) => level >= tier.minLevel) || tiers[0];
+
   // v2/card-game/want-talk.mjs
   var authoredWant = (id) => forest_default.people[id]?.want || packPeople[id]?.want || null;
   var rootOf = (world, item) => {
@@ -2670,6 +2640,36 @@
 
   // card-content:v2/card-game/packs.json
   var packs_default = globalThis.cardContent.files["v2/card-game/packs.json"];
+
+  // card-content:v2/card-game/emoji-symbols.json
+  var emoji_symbols_default = globalThis.cardContent.files["v2/card-game/emoji-symbols.json"];
+
+  // v2/card-game/expression.mjs
+  var EXPRESSION_TYPES = ["speech", "movement", "emoji"];
+  var expressionOf = (profile) => profile?.expression || "speech";
+  var orderedSymbols = Object.keys(emoji_symbols_default).sort((a, b) => b.length - a.length);
+  function emojiParts(text2) {
+    if (typeof text2 !== "string" || text2.length > 160) return null;
+    let rest2 = text2.trim();
+    const parts = [];
+    while (rest2) {
+      const symbol = orderedSymbols.find((value) => rest2.startsWith(value));
+      if (!symbol || parts.length === 5) return null;
+      parts.push(symbol);
+      rest2 = rest2.slice(symbol.length).trimStart();
+    }
+    return parts.length >= 2 ? parts : null;
+  }
+  var expressionKind = (profile) => expressionOf(profile) === "movement" ? "narration" : "dialogue";
+  function validExpression(profile, text2) {
+    if (expressionOf(profile) === "emoji") return Boolean(emojiParts(text2));
+    if (expressionOf(profile) !== "movement") return true;
+    return text2.startsWith(`${profile.name} `) && !/["“”\n]/u.test(text2) && !/\b(?:says?|speaks?|asks?|replies?|whispers?|shouts?|tells?|I|me|my)\b/iu.test(
+      text2
+    ) && /^(?:lowers|raises|tilts|blinks|flicks|cocks|inclines|pricks|twitches|wags|dips|shifts|turns|rests|settles|leans|curls|stretches|tucks|sniffs|yawns|watches|looks)\b/u.test(
+      text2.slice(profile.name.length + 1)
+    );
+  }
 
   // v2/card-game/pack-items-schema.mjs
   var REGROW_EVENTS = ["dawn", "dusk", "rest"];
@@ -4652,6 +4652,27 @@
     return true;
   }
 
+  // v2/card-game/held-item.mjs
+  function handSnapshot(world) {
+    return Object.fromEntries(
+      Object.entries(world.items).filter(
+        ([id, item]) => world.actors[item.holder] && entityEnabled(world, id)
+      ).map(([id, item]) => [id, item.holder])
+    );
+  }
+  var choicesFor = (hands, actor) => Object.keys(hands).filter((id) => hands[id] === actor).sort();
+  var validHeldItems = (world) => Object.values(world.actors || {}).every(
+    (actor) => actor.heldItem === void 0 || actor.heldItem === null || typeof actor.heldItem === "string" && Object.hasOwn(world.items, actor.heldItem)
+  );
+  function settleHeldItems(world, before = null) {
+    if (!validHeldItems(world)) throw new Error("The held item is invalid.");
+    const hands = handSnapshot(world);
+    for (const [id, actor] of Object.entries(world.actors)) {
+      const choices = choicesFor(hands, id), arrived = before ? choices.filter((item) => before[item] !== id) : [], saved = actor.heldItem;
+      actor.heldItem = arrived.includes(saved) ? saved : arrived.at(-1) ?? (choices.includes(saved) ? saved : choices[0] ?? null);
+    }
+  }
+
   // v2/card-game/roaming-routes.mjs
   var roamingActors = Object.keys(packPeople).filter(roamingQuestActor);
   var authoredRouteEdges = () => [
@@ -5284,27 +5305,6 @@
         (g.incident === void 0 || /^event:[1-9]\d*$/u.test(g.incident) && Number(g.incident.slice(6)) <= (s.eventSeq ?? Infinity)) && (g.lastTouched === void 0 || Number.isSafeInteger(g.lastTouched) && g.lastTouched >= g.turn && g.lastTouched <= s.turn) && (g.repaired === void 0 || typeof g.repaired === "boolean") && (g.item === void 0 || typeof g.item === "string" && g.item.length <= 80)
       )
     );
-  }
-
-  // v2/card-game/held-item.mjs
-  function handSnapshot(world) {
-    return Object.fromEntries(
-      Object.entries(world.items).filter(
-        ([id, item]) => world.actors[item.holder] && entityEnabled(world, id)
-      ).map(([id, item]) => [id, item.holder])
-    );
-  }
-  var choicesFor = (hands, actor) => Object.keys(hands).filter((id) => hands[id] === actor).sort();
-  var validHeldItems = (world) => Object.values(world.actors || {}).every(
-    (actor) => actor.heldItem === void 0 || actor.heldItem === null || typeof actor.heldItem === "string" && Object.hasOwn(world.items, actor.heldItem)
-  );
-  function settleHeldItems(world, before = null) {
-    if (!validHeldItems(world)) throw new Error("The held item is invalid.");
-    const hands = handSnapshot(world);
-    for (const [id, actor] of Object.entries(world.actors)) {
-      const choices = choicesFor(hands, id), arrived = before ? choices.filter((item) => before[item] !== id) : [], saved = actor.heldItem;
-      actor.heldItem = arrived.includes(saved) ? saved : arrived.at(-1) ?? (choices.includes(saved) ? saved : choices[0] ?? null);
-    }
   }
 
   // v2/card-game/talk-quest.mjs
@@ -10261,6 +10261,7 @@
     return loaded;
   }
   function response(world, extra = {}) {
+    settleHeldItems(world);
     return { ok: true, world: stored(world), ...extra };
   }
   function carryProgress(actor, progress) {

@@ -178,6 +178,13 @@ it("preserves the hand through shared retry and clears it on seat reset", () => 
   expect(reset.ok, reset.error).toBe(true);
   expect(reset.world.actors.vale.heldItem).toBeNull();
   expect(reset.world.actors.keeper.heldItem).toBe("bell");
+  const old = both({ op: "create", save: encodeSave(createWorld()) }).world;
+  old.items.mask.holder = "mara";
+  old.actors.mara.heldItem = "mask";
+  const upgraded = both({ ...seats, world: old, op: "upgrade", from: "full-card-world/2" });
+  expect(upgraded.world.items.mask.holder).toBe(old.actors.mara.place);
+  expect(upgraded.world.actors.mara.heldItem).toBeNull();
+  expect(decodeSave(encodeSave(upgraded.world)).actors).toEqual(upgraded.world.actors);
 });
 
 it("repairs a lost or consumed choice and leaves an empty hand when needed", () => {

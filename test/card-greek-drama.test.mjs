@@ -262,6 +262,7 @@ describe("the Wine-Dark Sea crossing", () => {
       for (const id of Object.keys(old.life.actors))
         if (id.startsWith("greek-")) delete old.life.actors[id];
 
+    for (const actor of Object.values(old.actors)) delete actor.heldItem;
     const migrated = decodeSave(JSON.stringify(old));
     expect(migrated.schema).toBe(7);
     expect(migrated.log).toEqual(old.log);

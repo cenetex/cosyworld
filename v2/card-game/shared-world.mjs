@@ -1,4 +1,5 @@
 import { privateView } from "./learning.mjs";
+import { settleHeldItems } from "./held-item.mjs";
 import { expressionKind, validExpression } from "./expression.mjs";
 // One pure adapter for the browser model and the server's C-backed JS runtime.
 // The host supplies authenticated claims and presence on every operation.
@@ -78,6 +79,7 @@ export function load(request) {
   return loaded;
 }
 function response(world, extra = {}) {
+  settleHeldItems(world);
   return { ok: true, world: stored(world), ...extra };
 }
 // An avatar's level travels with it between worlds (#1846): the host passes

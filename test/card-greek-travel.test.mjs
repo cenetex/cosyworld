@@ -285,6 +285,7 @@ describe("Greek ports and fixed roads", () => {
         metTurn,
         gaveUp,
         guarding,
+        heldItem,
         ...a
       }) => a;
       for (const [id, { progress, ...actor }] of Object.entries(old.actors))

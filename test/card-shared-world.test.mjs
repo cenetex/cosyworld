@@ -119,7 +119,10 @@ describe("the full world shared by human avatars", () => {
     expect(result.world.log).toEqual(old.log);
     const { boardyai: boardy, ...others } = result.world.actors;
     const { boardyai: oldBoardy, ...oldOthers } = old.actors;
-    expect(others).toEqual(oldOthers);
+    expect(others).toEqual({
+      ...oldOthers,
+      mara: { ...oldOthers.mara, heldItem: "mask" },
+    });
     expect(boardy).toEqual(oldBoardy);
   });
   it("imports the exact opening, fuel, wants, memory and life state", () => {
