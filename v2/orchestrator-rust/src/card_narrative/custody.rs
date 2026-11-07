@@ -26,6 +26,11 @@ pub(super) fn holding(context: &Context, entity: &Entity) -> Option<String> {
         return fact.and_then(|f| person::fact(f, &entity.id, true));
     };
     let hidden = |id: &String| context.concealed.contains(id) || context.covered.contains(id);
+    let obscured = context
+        .concealed
+        .iter()
+        .chain(&context.covered)
+        .any(|id| kind(id, "item"));
     let mut things: Vec<_> = avatar
         .holding
         .iter()
@@ -39,15 +44,10 @@ pub(super) fn holding(context: &Context, entity: &Entity) -> Option<String> {
                     .trim_end_matches('.')
                     .split(", ")
             })
-            .filter(|thing| thing.starts_with("something "))
+            .filter(|thing| obscured && thing.starts_with("something "))
             .map(String::from),
     );
     if things.is_empty() {
-        let obscured = context
-            .concealed
-            .iter()
-            .chain(&context.covered)
-            .any(|id| kind(id, "item"));
         return (!obscured).then(|| "My hands are empty.".into());
     }
     Some(format!("I'm holding {}.", person::list(&things)))
