@@ -61,7 +61,8 @@ export function lifeDataProblems(places, people) {
       problems.push(`pack ${id} needs a known pack and a sleep schedule`);
   for (const r of life.guardable || [])
     if (
-      Object.keys(r).sort().join() !== "from,to" ||
+      Object.keys(r).some((key) => !["from", "to", "oneWay"].includes(key)) ||
+      (r.oneWay !== undefined && typeof r.oneWay !== "boolean") ||
       !own(places, r.from) ||
       !own(places, r.to) ||
       !authoredRouteEdges().some(([a, b]) => a === r.from && b === r.to)

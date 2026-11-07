@@ -62,7 +62,10 @@ export function guardedExits(_s, place) {
 const guardedWay = (from, to) =>
   isGuardable(from, to)
     ? [from, to]
-    : isGuardable(to, from)
+    : isGuardable(to, from) &&
+        !(life.guardable || []).some(
+          (r) => r.from === to && r.to === from && r.oneWay,
+        )
       ? [to, from]
       : null;
 // Who bars the way from `from` to `to`, in either direction, for

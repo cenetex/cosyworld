@@ -15,10 +15,10 @@
     "badger": { "sleep": { "from": 28, "to": 46 } },
     "oak": { "range": 0 },
     "hoppycat-nix-fermata": { "sleep": { "from": 46, "to": 22 } },
-    "greek-guard": { "range": 0, "sleep": null, "guards": "greek-battlefield" },
+    "greek-guard": { "range": 0, "sleep": null, "guards": "greek-courtyard" },
     "greek-shipmaster": { "sails": true, "sleep": { "from": 30, "to": 45 } },
     "greek-rhapsode": { "sleep": null },
     "boardyai": { "sleep": null }
   },
-  "guardable": [{ "from": "greek-gate", "to": "greek-battlefield" }]
+  "guardable": [{ "from": "greek-gate", "to": "greek-courtyard", "oneWay": true }]
 }
