@@ -69,10 +69,15 @@ try {
     );
     const table = `quest-${width}`,
       key = `cosyworld.reflected-shore.v1.${table}`;
-    const ready = () =>
-      page.waitForFunction(
-        () => document.querySelector("#hand").dataset.cooling === "false",
-      );
+    const ready = async () => {
+      for (let i = 0; i < 500; i++) {
+        if (await page.locator("#hand").getAttribute("data-cooling") === "false") return;
+        if (await page.locator("#dialogue-advance").isVisible())
+          await page.locator("#dialogue-advance").click();
+        await page.waitForTimeout(40);
+      }
+      throw new Error("Quest hand stayed busy");
+    };
     await page.goto(
       `http://127.0.0.1:${server.address().port}/?table=${table}`,
     );
@@ -221,15 +226,13 @@ try {
     });
     // Cleared, it falls away as an inert ghost; reduced motion lets it go.
     await card.hover();
-    const falling = await card.evaluate((el) => {
-      el.click();
-      return [...document.querySelectorAll(".card-exits > .beat-ghost")].map(
-        (g) => [g.inert, getComputedStyle(g).pointerEvents],
-      );
-    });
-    assert.deepEqual(falling, motion === "reduce" ? [] : [[true, "none"]]);
+    await card.click();
     const gain = page.locator(".quest-xp");
     await gain.waitFor();
+    const falling = await page.locator(".card-exits > .beat-ghost").evaluateAll(
+      (ghosts) => ghosts.map((g) => [g.inert, getComputedStyle(g).pointerEvents]),
+    );
+    assert.deepEqual(falling, motion === "reduce" ? [] : [[true, "none"]]);
     assert.match(await gain.textContent(), /^\+\d+ XP$/);
     await page.screenshot({
       path: new URL(`cleared-${width}.png`, output).pathname,
@@ -241,7 +244,7 @@ try {
     await gain.waitFor({ state: "detached" });
     // A stack (#1831): the fold shows the top quest; opening it fans them all
     // out; choosing a quest beneath brings it to the top without a turn, and
-    // only the top quest offers Abandon.
+    // only the top quest offers Discard.
     await page.evaluate((key) => {
       const s = JSON.parse(localStorage.getItem(key));
       const vale = s.actors.vale;
@@ -313,7 +316,7 @@ try {
       await page
         .locator('#card-actions [data-drop-quest="0"]')
         .getAttribute("aria-label"),
-      "Abandon (−1 XP)",
+      "Discard (−1 XP)",
     );
     // Drop is the beat's usual context button, its words red.
     assert.deepEqual(
@@ -385,7 +388,7 @@ try {
     );
     const drop = page.locator('#card-actions [data-drop-quest="0"]');
     await drop.waitFor();
-    // The quest caption carries the unknown target; Abandon is its action.
+    // The quest caption carries the unknown target; Discard is its action.
     assert(await page.locator(".action-beat-note").isHidden());
     assert.equal(await page.locator("#card-actions button").count(), 1);
     assert.equal(
@@ -501,6 +504,21 @@ try {
     await page.screenshot({
       path: new URL(`give-${width}.png`, output).pathname,
     });
+    // Keep the reply pending while its completed card is tapped.
+    let releaseReply, replyStarted;
+    const requestStarted = new Promise((resolve) => { replyStarted = resolve; });
+    const replyGate = new Promise((resolve) => { releaseReply = resolve; });
+    const holdReply = async (route) => {
+      replyStarted();
+      await replyGate;
+      const input = route.request().postDataJSON();
+      await route.fulfill({ json: {
+        revision: input.revision,
+        model: "quest-claim-fixture",
+        entries: input.entities.map(({ id }) => ({ id, text: "These quiet moments will stay with me." })),
+      } });
+    };
+    await page.route("**/card-game/text", holdReply);
     // The last held item leaves, and the completed quest stays in reach.
     const xp = await page.evaluate(
       (key) => JSON.parse(localStorage.getItem(key)).actors.vale.xp,
@@ -509,6 +527,7 @@ try {
     await page
       .locator('#card-actions [data-quest-step]:not([data-revealing="true"])')
       .click();
+    await Promise.race([requestStarted, page.waitForTimeout(15000).then(() => { throw new Error("Gift speech request did not start"); })]);
     const metGift = page.locator('#hand .want-card[data-met="true"]');
     await metGift.waitFor();
     await page.waitForFunction(() => {
@@ -543,8 +562,42 @@ try {
       path: new URL(`last-gift-${width}.png`, output).pathname,
       animations: "disabled",
     });
+    const completedGift = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)), gateKey);
+    const receiptKey = await metGift.getAttribute("data-quest-key");
+    await metGift.click({ position: { x: 40, y: 16 } });
+    assert.equal(await metGift.isDisabled(), true);
+    assert.equal(await page.evaluate((key) => JSON.parse(localStorage.getItem(key)).actors.vale.questRewards.length, gateKey), 1);
+    releaseReply();
+    await page.locator(".quest-xp").waitFor();
+    await page.unroute("**/card-game/text", holdReply);
+    assert.ok(await page.evaluate((key) => JSON.parse(localStorage.getItem(key)).log.some((e) => e.text?.includes("These quiet moments will stay with me.")), gateKey));
+    await page.waitForFunction(() => document.querySelector("#dialogue-text").textContent.includes("These quiet moments will stay with me."));
+    // Open a second saved copy to check reload and a full local save store.
+    await page.evaluate(({ key, saved }) => localStorage.setItem(key, JSON.stringify(saved)), { key: gateKey, saved: completedGift });
+    await page.reload();
+    await ready();
+    await selectCard(page, "vale");
+    await metGift.waitFor();
+    assert.equal(await metGift.getAttribute("data-quest-key"), receiptKey);
+    // A full save store leaves the checked card available for another tap.
+    await page.evaluate((key) => {
+      window.restoreQuestStorage = Storage.prototype.setItem;
+      Storage.prototype.setItem = function (name, value) {
+        if (name === key) throw new Error("Storage fixture is full");
+        return window.restoreQuestStorage.call(this, name, value);
+      };
+    }, gateKey);
+    await metGift.click({ position: { x: 40, y: 16 } });
+    await page.waitForFunction(() => document.querySelector('#hand .want-card[data-met="true"]')?.disabled === false);
+    assert.equal(await page.locator(".quest-xp").count(), 0);
+    await page.evaluate(() => { Storage.prototype.setItem = window.restoreQuestStorage; });
     await metGift.click({ position: { x: 40, y: 16 } });
     await page.locator(".quest-xp").waitFor();
+    const collectedGift = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)), gateKey);
+    assert.equal(collectedGift.turn, completedGift.turn);
+    assert.equal(collectedGift.actors.vale.questRewards, undefined);
+    assert.equal(await page.locator("#play-status").isHidden(), true);
+    assert.equal(await page.locator("body").getAttribute("data-hand-expanded"), "true");
     assert.equal(await metGift.count(), 0, "one tap clears the checked card");
     assert.equal(
       await page.evaluate(
@@ -703,7 +756,7 @@ try {
       top,
       "quest",
       "vale+ greek-funeral-cloth quest:0* quest:1+ quest:2",
-      ["Abandon"],
+      ["Discard"],
     );
     await play(
       top,
@@ -806,7 +859,7 @@ try {
       .waitFor();
     assert.equal(
       await page.locator("#card-actions button").textContent(),
-      "Tap to abandon",
+      "Tap to discard",
     );
     const labels = await page
       .locator("#action-beat")

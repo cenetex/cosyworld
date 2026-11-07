@@ -199,6 +199,8 @@ try {
       const pickQuest = async () => {
         await clearSelection(page);
         await selectCard(page, "vale", { touch: width === 390 });
+        if (await quest.isHidden())
+          await tapCard(page.locator('#hand .want-frame:not([hidden]) .want-card[data-met="true"]'));
         await tapCard(quest);
         await page.waitForFunction(
           () => !document.querySelector("#hand [data-revealing]"),
@@ -283,6 +285,27 @@ try {
       assert.equal(done.items["greek-funeral-cloth"].holder, "greek-eleusis");
       assert.equal(done.items["greek-shovel"].holder, hollow);
       await photograph("buried");
+      // The saved checked rite follows Vale after the funeral and pack close.
+      const receipt = done.actors.vale.questRewards.find((r) => r.want.target === hollow);
+      assert.ok(receipt);
+      done.actors.vale.place = "pond";
+      const closed = play(done, { kind: "pack", pack: "sea", enable: false });
+      assert.ok(closed.ok, closed.error);
+      await showState(closed.state);
+      await selectCard(page, "vale", { touch: width === 390 });
+      const checked = page.locator(`[data-quest-key="reward:vale:${receipt.id}"]`);
+      await checked.waitFor();
+      assert.equal(await checked.getAttribute("data-met"), "true");
+      assert.equal(await checked.getAttribute("data-unrevealed"), "false");
+      await checked.scrollIntoViewIfNeeded();
+      await photograph("saved-funeral-reward");
+      await checked.click();
+      await checked.waitFor({ state: "detached" });
+      assert.equal((await state()).turn, closed.state.turn);
+      assert.equal((await state()).actors.vale.xp, closed.state.actors.vale.xp);
+      await page.reload();
+      await settle();
+      assert.equal(await checked.count(), 0);
       assert.deepEqual(errors, []);
       assert.deepEqual(failedAssets, []);
       console.log(

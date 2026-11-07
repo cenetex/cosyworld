@@ -2,7 +2,7 @@
 // target's art with the rules' own words for the want as the caption.
 // Nothing here is authored or decides anything; the rules own the stack
 // (want.mjs).
-import { CONNECT_TARGET, questsOf, wantKey } from "./want.mjs";
+import { CONNECT_TARGET, questRewardsOf, questsOf, wantKey } from "./want.mjs";
 import { conditionsMet, consumable } from "./pack-registry.mjs";
 import { cardLevel, levelTier, romanLevel } from "./rarity.mjs";
 import {
@@ -56,7 +56,8 @@ export function questVisible(world, quest) {
 // Each quest in the player's stack, top first. A card's key changes when its
 // quest is met, set aside or moves on a step.
 export const questCards = (world, actor = currentActor(world)) =>
-  questsOf(world, actor).map((want, index) => ({
+  questsOf(world, actor).map((want, index) => questFromWant(world, actor, want, index));
+const questFromWant = (world, actor, want, index) => ({
     key: wantKey(actor, want),
     index,
     actor,
@@ -69,6 +70,15 @@ export const questCards = (world, actor = currentActor(world)) =>
     step: want.step ?? null,
     ...(want.lit === undefined ? {} : { lit: want.lit }),
     ...burial(world, want),
+  });
+// Each saved deed keeps its identity until its owner collects it.
+export const questRewardCards = (world, actor = currentActor(world)) =>
+  questRewardsOf(world, actor).slice().reverse().map((reward) => ({
+    ...questFromWant(world, actor, reward.want, null),
+    key: `reward:${actor}:${reward.id}`,
+    receiptId: reward.id,
+    earnedXp: reward.xp,
+    earnedLevel: reward.level,
   }));
 // The top quest, the one the folded card shows, or null.
 export const questCard = (world, actor = currentActor(world)) =>

@@ -2,6 +2,8 @@ import { questing } from "./helpers/first-quest.mjs";
 import { describe, expect, it } from "vitest";
 import {
   createWorld as baseCreateWorld,
+  decodeSave,
+  encodeSave,
   legalActions,
   play,
   validateWorld,
@@ -17,6 +19,7 @@ import {
   questCard,
   questBox,
   questCards,
+  questRewardCards,
   questDistance,
   questGround,
   questHand,
@@ -26,6 +29,8 @@ import {
   questVerb,
 } from "../v2/card-game/quest-card.mjs";
 import { cardLevel, levelTier } from "../v2/card-game/rarity.mjs";
+import { questEntryKey } from "../v2/card-game/card-entry.mjs";
+import { funeralJourney } from "./helpers/greek-funeral.mjs";
 import { QUEST_LIMIT } from "../v2/card-game/want.mjs";
 
 describe("the quest card", () => {
@@ -394,4 +399,35 @@ describe("the quest card", () => {
     }
     expect(validateWorld(s)).toBe(s);
   });
+});
+
+it("keeps repeated saved deeds separate across reload and collection", () => {
+  let world = createWorld();
+  for (let i = 0; i < 2; i++) {
+    world.actors.vale.want = { kind: "place", target: "station", since: 0, refusals: 0 };
+    world = play(world, legalActions(world).find((a) => a.kind === "wait")).state;
+  }
+  world = decodeSave(encodeSave(world));
+  const cards = questRewardCards(world);
+  expect(cards).toHaveLength(2);
+  expect(new Set(cards.map(questEntryKey)).size).toBe(2);
+  expect(cards[0].receiptId).toBeGreaterThan(cards[1].receiptId);
+  const claim = legalActions(world).find((a) => a.kind === "claim" && a.receipt === cards[1].receiptId);
+  const claimed = play(world, claim).state;
+  expect(questRewardCards(decodeSave(encodeSave(claimed)))).toEqual([cards[0]]);
+  expect(claimed.actors.vale.xp).toBe(world.actors.vale.xp);
+  expect(claimed.turn).toBe(world.turn);
+});
+
+it("keeps the saved funeral card after leaving and closing its pack", () => {
+  let world = funeralJourney().buried;
+  const card = questRewardCards(world).find((q) => q.target === "greek-polynices-hollow");
+  expect(card).toMatchObject({ riteVerb: "Buried", earnedXp: 1, earnedLevel: null });
+  world.actors.vale.place = "pond";
+  const closed = play(world, { kind: "pack", pack: "sea", enable: false });
+  expect(closed.ok, closed.error).toBe(true);
+  world = closed.state;
+  expect(questRewardCards(decodeSave(encodeSave(world)))).toContainEqual(card);
+  const claim = legalActions(world).find((a) => a.kind === "claim" && a.receipt === card.receiptId);
+  expect(questRewardCards(play(world, claim).state)).not.toContainEqual(card);
 });
