@@ -3104,6 +3104,9 @@ pub(crate) mod tests {
     #[test]
     fn witnessed_battle_facts_reach_the_personal_prompt() {
         let mut c = context();
+        for entity in &mut c.entities {
+            entity.memories.clear();
+        }
         let facts = [
             "The keeper took Vale's blow for me. The keeper was braced. The blow dealt 1 damage; resolve fell from 4 to 3.",
             "Antigone struck me. The blow dealt 2 damage; resolve fell from 1 to 0. I yielded.",
