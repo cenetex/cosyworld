@@ -10,7 +10,7 @@ An optional `oneWay` field on an existing guardable edge limits the standing
 guard to its authored direction. The edge still supplies both walking exits.
 Other guardable edges keep their existing two-way rule.
 
-Greek revision 23 preserves people and items on Cithaeron. Saved road
+Greek revision 24 preserves people and items on Cithaeron. Saved road
 knowledge is rebuilt through the current junction, old removed route latches
 are retired, and the guard takes the courtyard entrance on reload. The
 released shared bundles preserve earlier journals.

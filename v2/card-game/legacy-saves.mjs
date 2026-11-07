@@ -906,12 +906,13 @@ export function upgradeGreekDistrictRoadsSave(s) {
   saved.revision = 14;
 }
 
-// Revision 23 joins the countryside at the City Gate. Saved road knowledge
+// Revision 24 joins the countryside at the City Gate. Saved road knowledge
 // follows that junction; the standing guard takes the city entrance.
 function upgradeGreekGateRoadSave(s) {
   const pack = packDefinitions.find((p) => p.id === "greek-drama");
   const saved = s.packs?.[pack?.id];
-  if (!pack || pack.revision < 23 || saved?.revision !== 22) return;
+  if (!pack || pack.revision < 24 || ![22, 23].includes(saved?.revision))
+    return;
   foldRetiredRoads(s);
   if (Array.isArray(s.openedRoutes)) {
     s.openedRoutes = s.openedRoutes.filter(latchingRoute);
@@ -920,7 +921,7 @@ function upgradeGreekGateRoadSave(s) {
   for (const actor of Object.values(s.actors))
     if (actor.place === "greek-gate" && actor.guarding === "greek-battlefield")
       delete actor.guarding;
-  saved.revision = 23;
+  saved.revision = 24;
 }
 
 // Revision 13 makes Cithaeron the road from the battlefield to Eleusis. A
@@ -1198,7 +1199,8 @@ export function upgradeGreekHomecomingSave(s) {
 function upgradeGreekFuneralSave(s) {
   const pack = packDefinitions.find((p) => p.id === "greek-drama");
   const saved = s.packs?.[pack?.id];
-  if (!pack?.avatars["greek-polynices-shade"] || !saved || saved.revision > 20) return;
+  if (!pack?.avatars["greek-polynices-shade"] || !saved || saved.revision > 20)
+    return;
   addGreekEntities(s, pack, ["greek-polynices-shade"], []);
   const antigone = s.actors["greek-antigone"];
   if (antigone && !saved.flags?.["greek-burial-performed"])
