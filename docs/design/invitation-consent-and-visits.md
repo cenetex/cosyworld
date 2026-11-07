@@ -98,9 +98,10 @@ the normal sleep schedule still applies. Ordinary Wait, Focus, Claim and
 another room's plays preserve the agreement.
 
 End the visit through a saved rule event when the host leaves alone or its
-Sleep action commits, the companion commits a departure or accepts another host, a new
-harmful incident breaks their company, control changes, or either participant
-is reset or removed from active content. Keep the ending reason for speech.
+Sleep action commits, the companion commits a departure or accepts another host,
+a new harmful incident breaks their company, the companion returns to human
+control, or either participant is reset or removed from active content.
+Keep the ending reason for speech.
 Sleep ends the agreement before the resident planning pass.
 After the visit ends, ordinary home policy resumes along available routes.
 A journey resident returns toward its saved waypoint. A closed route leaves
