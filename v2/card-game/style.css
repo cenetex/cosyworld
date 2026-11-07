@@ -1956,7 +1956,7 @@ body .cast[data-count] {
   border: 1px solid #b09a6a66;
   background: #252832;
 }
-.speaker-portrait img {
+.speaker-portrait > img {
   width: 100%;
   height: 100%;
   object-fit: cover;

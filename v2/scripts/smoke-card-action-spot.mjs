@@ -3,13 +3,24 @@
 // the dialogue and the hand, and the hand never moves for it. Vale takes the
 // Burial Decree at the Theban Palace Forecourt (one "the" in the caption)
 // and offers it to Creon.
-import { selectCard } from "./card-browser-helpers.mjs";
+import { readyActionButton, selectCard } from "./card-browser-helpers.mjs";
 import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
 import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
 import { createWorld, encodeSave } from "../card-game/world.mjs";
 import { cardLevel, levelTier } from "../card-game/rarity.mjs";
+
+async function naturalItemRatio(image) {
+  await image.waitFor({ state: "visible" });
+  await image.evaluate((img) => img.decode());
+  const size = await image.evaluate((img) => ({
+    natural: img.naturalWidth / img.naturalHeight,
+    shown: parseFloat(getComputedStyle(img).width) / parseFloat(getComputedStyle(img).height),
+  }));
+  assert(Math.abs(size.shown - size.natural) < 0.01,
+    `item ratio ${size.shown} matches source ${size.natural}`);
+}
 
 const output = new URL("../../output/action-spot/", import.meta.url);
 await mkdir(output, { recursive: true });
@@ -185,6 +196,7 @@ try {
     assert.deepEqual(await box(".dialogue"), restDialogue, "dialogue stays");
     await handUncut();
     await shot("ready");
+    await naturalItemRatio(page.locator(".action-beat-cards .quest-thing"));
     await page
       .locator('#card-actions .card-primary:not([data-revealing="true"])')
       .click();
@@ -204,12 +216,18 @@ try {
     const panel = page.locator(".action-panel");
     assert(await panel.isHidden(), `${name}: the taken play is at rest`);
     assert(await page.locator("#speech-row").isVisible());
+    await page.locator("#beat-behind").click({ position: { x: 24, y: 6 } });
+    await settled();
     assert(
       await page
         .locator('#speaker-portrait .quest-thing[data-entity="greek-decree"]')
         .isVisible(),
       `${name}: the taken decree stays in the action art`,
     );
+    await shot("taken");
+    await naturalItemRatio(page.locator("#speaker-portrait .quest-thing"));
+    await page.locator("#live-line").click();
+    await settled();
     await page.locator("#toolbar-menu-button").click();
     await page
       .locator('#world-menu [data-slot="spare"] [data-avatar="mara"] button')
@@ -226,7 +244,8 @@ try {
     await page.keyboard.press("Escape");
     await selectCard(page, "greek-decree");
     await selectCard(page, "greek-creon");
-    const give = page.locator("#card-actions .card-primary");
+    const give = readyActionButton(page);
+    await give.waitFor();
     assert.match(await give.getAttribute("aria-label"), /Give/);
     const offering = await actionBeat("give");
     assert.equal(offering.cards, 3, "Vale, the decree and Creon");
