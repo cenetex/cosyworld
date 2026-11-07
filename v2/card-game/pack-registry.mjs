@@ -452,19 +452,18 @@ export const packRouteOpen = (world, from, to) =>
   );
 // Personal entry requirements remain true for each traveller, even when
 // the world has latched the physical gate open.
-const routeRequirements = new Map();
-for (const pack of packDefinitions)
-  for (const route of pack.routes || []) {
-    const key = routeKey(route);
-    if (!routeRequirements.has(key)) routeRequirements.set(key, []);
-    routeRequirements.get(key).push({ pack: pack.id, route });
-  }
 export function personalRouteOpen(world, from, to, actor) {
-  const routes = routeRequirements.get(`${from}>${to}`);
+  const routes = packDefinitions.flatMap((pack) =>
+    (pack.routes || [])
+      .filter((r) => r.from === from && r.to === to)
+      .map((route) => ({ pack: pack.id, route })),
+  );
   return (
-    !routes ||
-    routes.some(({ pack, route }) =>
-      conditionsMet(world, pack, route.travelerRequires, actor),
+    !routes.some(({ route }) => route.travelerRequires?.length) ||
+    routes.some(
+      ({ pack, route }) =>
+        routeOpen(world, pack, route) &&
+        conditionsMet(world, pack, route.travelerRequires, actor),
     )
   );
 }

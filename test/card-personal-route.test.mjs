@@ -110,6 +110,30 @@ it("checks each traveller even after the shared gate opens", () => {
     expect.objectContaining({ kind: "move", target: hollow }),
   );
 });
+it("uses an open physical alternative and preserves an ordinary crossing", () => {
+  route.travelerRequires = [{ kind: "talked", person: shade }];
+  const alternative = {
+    from: field,
+    to: hollow,
+    live: true,
+    requires: [{ kind: "flag", key: "test-path", value: true }],
+  };
+  pack.routes.push(alternative);
+  try {
+    const s = start();
+    s.openedRoutes = [`${field}>${hollow}`];
+    expect(personalRouteOpen(s, field, hollow, "vale")).toBe(false);
+    expect(exits(s, field, "vale")).not.toContain(hollow);
+    s.packs[pack.id].flags["test-path"] = true;
+    expect(personalRouteOpen(s, field, hollow, "vale")).toBe(true);
+    expect(exits(s, field, "vale")).toContain(hollow);
+    s.transports["greek-ship"].dock = "pond";
+    expect(personalRouteOpen(s, "pond", "greek-ship", "vale")).toBe(true);
+    expect(exits(s, "pond", "vale")).toContain("greek-ship");
+  } finally {
+    pack.routes.pop();
+  }
+});
 it("validates personal route conditions and saved event identity", () => {
   route.travelerRequires = [{ kind: "talked", person: "missing" }];
   expect(() => validatePackDefinition(pack)).toThrow();
