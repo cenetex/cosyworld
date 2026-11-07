@@ -182,7 +182,11 @@ try {
     await shot("idle");
 
     await selectCard(page, "greek-decree");
-    await page.locator("#card-actions .card-primary").waitFor();
+    await readyActionButton(page).waitFor();
+    await page.waitForFunction(() =>
+      !document.querySelector("#hand").getAnimations({ subtree: true }).some((animation) =>
+        animation.playState === "running" && Number.isFinite(animation.effect?.getComputedTiming().endTime)),
+    );
     const restHand = await box("#hand"),
       restDialogue = await box(".dialogue");
     const taking = await actionBeat("take");
@@ -244,8 +248,8 @@ try {
     await page.keyboard.press("Escape");
     await selectCard(page, "greek-decree");
     await selectCard(page, "greek-creon");
-    const give = readyActionButton(page);
-    await give.waitFor();
+    const give = page.locator("#card-actions .card-primary");
+    await readyActionButton(page).waitFor();
     assert.match(await give.getAttribute("aria-label"), /Give/);
     const offering = await actionBeat("give");
     assert.equal(offering.cards, 3, "Vale, the decree and Creon");
