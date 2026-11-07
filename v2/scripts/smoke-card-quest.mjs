@@ -348,6 +348,7 @@ try {
     const described = (
       await page.locator(".action-beat-heading:not([hidden])").textContent()
     ).trim();
+    await page.waitForFunction(() => document.querySelector('#hand .want-card[data-picked="true"]')?.dataset.unrevealed === "false");
     assert.ok(
       (await picked.getAttribute("aria-label"))
         .replace(/Level Up [IVXLCDM]+: /u, "")
