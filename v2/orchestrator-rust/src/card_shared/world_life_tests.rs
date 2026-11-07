@@ -251,7 +251,7 @@ fn current_company_replays_real_talk_and_separation_without_checkpoints() {
     world.game.as_object_mut().unwrap().remove("opening");
     let fable = "hoppycat-fable";
     world.game["actors"]["vale"]["place"] = world.game["actors"][fable]["place"].clone();
-    world.game["packs"]["hoppy"]["met"][fable] = json!(0);
+    world.game["packs"]["hoppycat-archive"]["met"][fable] = json!(0);
     let (path, c, id) = fixture("current-company", &world);
     let pair = |w: &World| {
         w.game["conversations"]

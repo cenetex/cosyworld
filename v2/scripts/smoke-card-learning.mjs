@@ -11,6 +11,7 @@ import {
 } from "../card-game/world.mjs";
 import { enableMotives } from "../card-game/motives.mjs";
 import { guardPost, settleGuards } from "../card-game/resident-guard.mjs";
+import { packPeople } from "../card-game/pack-registry.mjs";
 import { selectCard } from "./card-browser-helpers.mjs";
 import { rest } from "../../test/fixtures/card-rest.mjs";
 import {
@@ -301,7 +302,7 @@ try {
     const encounter = createWorld({ seed: 7 });
     delete encounter.opening;
     encounter.actors.vale.place = encounter.actors[fable].place;
-    encounter.packs.hoppy.met[fable] = 0;
+    encounter.packs[packPeople[fable].packId].met[fable] = 0;
     await page.evaluate(({ key, save }) => localStorage.setItem(key, save), {
       key: companyKey,
       save: encodeSave(encounter),
