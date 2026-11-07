@@ -2012,16 +2012,16 @@ fn transcript_sections(context: &Context, entity: &Entity, part: Part) -> Vec<(S
         .filter(|_| avatar && part == Part::Line);
     if perceived.is_some() {
         lines.retain(|(section, _)| !matches!(section, Section::Now | Section::Directions));
-        let custody = custody::carrying(context, entity)
-            .into_iter()
-            .chain(custody::hand(context, id))
-            .chain(custody::facts(context, id));
-        lines.extend(tagged(Section::Directions, custody));
     }
     // No authored sample lines (#1537): the voice comes from the idiolect
     // and the world, never from example utterances.
     let mut view = conversation::frame(context, entity, part, lines, mentions);
     if let Some(p) = perceived {
+        let custody = custody::carrying(context, entity)
+            .into_iter()
+            .chain(custody::hand(context, id))
+            .chain(custody::facts(context, id));
+        view.extend(tagged(Section::Directions, custody));
         // What I remember of the one I face, then what I perceive now.
         let memory = entity.recall.as_ref().map_or_else(Vec::new, |r| {
             recall::lines(context, entity, r)
