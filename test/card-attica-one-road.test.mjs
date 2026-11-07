@@ -146,13 +146,13 @@ describe("one road in Attica", () => {
     expect(decodeSave(encodeSave(current))).toEqual(current);
   });
 
-  // Myrine's journey progress is only her saved place on the authored path,
-  // so a revision-7 save is the agreed world with its earlier pack revision.
+  // Earlier saves used Myrine's place as her agreed journey step.
   const agreedAtRevision7 = (place) => {
     const world = structuredClone(
       homecomingJourney().after["greek-homecoming-agree-journey"],
     );
     world.packs["greek-drama"].revision = 7;
+    delete world.journeyProgress;
     beforeFuneral(world);
     if (place)
       for (const id of ["vale", "greek-household-witness"])

@@ -13,6 +13,7 @@ import {
 import { homecomingSteps } from "../../test/helpers/greek-homecoming.mjs";
 import {
   clearSelection,
+  revealCard,
   selectCard,
   smokeWidths,
   wordsFellSilent,
@@ -152,8 +153,17 @@ try {
       if (kind === "drop" && !cards.includes(fields.target))
         cards.push(fields.target);
       await clearSelection(page);
-      for (const id of [...new Set(cards)])
-        await selectCard(page, id, { touch: width === 390 });
+      for (const id of [...new Set(cards)]) {
+        if (profiles[id]?.kind !== "avatar") {
+          await selectCard(page, id, { touch: width === 390 });
+          continue;
+        }
+        const card = await revealCard(page, id);
+        const bounds = await card.boundingBox();
+        const position = { x: bounds.width / 2, y: 16 };
+        if (width === 390) await card.tap({ position });
+        else await card.click({ position });
+      }
       await page
         .locator(`#card-actions [data-action="${kind}"]`)
         .first()
@@ -164,6 +174,11 @@ try {
       if (kind === "accompany") {
         assert.equal(after.actors.vale.place, fields.destination);
         assert.equal(after.actors[fields.target].place, fields.destination);
+        assert.equal(
+          after.journeyProgress[fields.target].step,
+          before.journeyProgress[fields.target].step + 1,
+          "agreed step advances",
+        );
       }
       assert.equal(after.quests, undefined, "no quest records return");
     };
@@ -199,6 +214,11 @@ try {
             (await state()).packs,
             now.packs,
             "agreement survives reload",
+          );
+          assert.deepEqual(
+            (await state()).journeyProgress,
+            now.journeyProgress,
+            "journey progress survives reload",
           );
         }
         if (action.kind === "accompany") await capture("household-at-quay");

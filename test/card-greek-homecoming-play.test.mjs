@@ -4,6 +4,8 @@ import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import { learnLane } from "../v2/card-game/pack-transport.mjs";
 import { openDoorAction, playOpenDoor } from "./helpers/open-door.mjs";
 import { homecomingJourney, myrineSteps } from "./helpers/greek-homecoming.mjs";
+import { currentSharedEngine } from "./fixtures/shared-engine.mjs";
+import { DAY_TURNS, worldLife } from "../v2/card-game/resident-home.mjs";
 
 const flag = (world, key) =>
   world.packs["greek-drama"].flags[`greek-homecoming-${key}`];
@@ -26,6 +28,49 @@ const receive = "greek-homecoming-receive-family";
 const receipt = (world, id) => world.packs["greek-drama"].receipts[id];
 
 describe("the household reaches its berth", () => {
+  it("upgrades old journey progress and replays each step in the shared bundle", () => {
+    const legacy = homecomingJourney().after["greek-homecoming-agree-journey"];
+    delete legacy.journeyProgress;
+    legacy.turn = legacy.revision =
+      Math.ceil(legacy.turn / DAY_TURNS) * DAY_TURNS;
+    const previousLife = worldLife.on;
+    worldLife.on = true;
+    try {
+      const engine = currentSharedEngine();
+      const run = (request) => {
+        const result = dispatchShared(structuredClone(request));
+        expect(JSON.parse(engine.cardShared(JSON.stringify(request)))).toEqual(
+          result,
+        );
+        expect(result.ok).toBe(true);
+        return result;
+      };
+      let world = run({ op: "create", save: JSON.stringify(legacy) }).world;
+      const person = "greek-household-witness";
+      expect(world.journeyProgress[person].step).toBe(0);
+      for (const [index, destination] of myrineSteps.entries()) {
+        const request = {
+          op: "play",
+          world,
+          actor: "vale",
+          claimed: ["vale"],
+          present: ["vale"],
+          revision: world.revision,
+          action: openDoorAction(world, "accompany", {
+            target: person,
+            destination,
+          }),
+        };
+        const result = run(request);
+        expect(run(request)).toEqual(result);
+        world = decodeSave(encodeSave(result.world));
+        expect(world.journeyProgress[person].step).toBe(index + 1);
+      }
+    } finally {
+      worldLife.on = previousLife;
+    }
+  });
+
   it("plays the household's care with real travel and custody", () => {
     const { world, before, after } = homecomingJourney();
     const receiving = before[receive];

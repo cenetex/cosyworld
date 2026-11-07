@@ -316,7 +316,7 @@ it("acknowledges an actual rules109 paid reward after upgrade", () => {
   s = old({ op: "play", world: s, action: old({ op: "view", world: s }).actions.find((a) => a.kind === "wait") }).world;
   const receipt = questRewardsOf(s, "vale")[0];
   expect(receipt.paid).toBe(true);
-  const next = claim(reload(s), receipt.id);
+  const next = claim(decodeSave(JSON.stringify(s)), receipt.id);
   expect(next.actors.vale.xp).toBe(s.actors.vale.xp);
   expect(next.actors.vale.level).toBe(s.actors.vale.level);
   expect(questRewardsOf(next, "vale")).toEqual([]);
