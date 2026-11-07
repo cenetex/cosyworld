@@ -42,12 +42,17 @@ import {
 } from "./world.mjs";
 import { knownActors, wantOf } from "./want.mjs";
 import { guardedFrom } from "./resident-guard.mjs";
-import { forgetCovered, forgetUnfound, groundedInner } from "./speech-knowledge.mjs";
+import {
+  forgetCovered,
+  forgetUnfound,
+  groundedInner,
+} from "./speech-knowledge.mjs";
 import { hasTemperament, variantOf, signalEcho } from "./pack-rules.mjs";
 import { reflectionDue } from "./reflections.mjs";
 import { betweenUs } from "./between-us.mjs";
 import { playedEntry, speechOccasions } from "./speech-occasions.mjs";
 import { perception } from "./perception.mjs";
+import { battleEvents, battleFacts } from "./battle-context.mjs";
 
 // A refusal reaches the brief as its committed code; the refuser's line
 // says why in its own words.
@@ -232,6 +237,7 @@ export function narrativeContext(world, action = null, isCovered = null) {
   } = cast;
   // Talk and Ask speak; any other play speaks only on a rules occasion.
   const { occasion, speakers, scenery } = speechOccasions(world, cast);
+  const battle = battleEvents(world, played);
   const resting =
     played?.verb !== "claim" &&
     (!speakers.length || speakers[0] === cast.resting)
@@ -329,7 +335,8 @@ export function narrativeContext(world, action = null, isCovered = null) {
       // The place and player retain the route's established history. Another
       // resident knows only their own recorded interactions and memories.
       const continuity =
-        !isCovered?.(location) && (kind === "location" || id === currentActor(world))
+        !isCovered?.(location) &&
+        (kind === "location" || id === currentActor(world))
           ? packSceneFacts(world, location)
           : [];
       // A want reaches the player through Talk: one first-person line for
@@ -377,6 +384,7 @@ export function narrativeContext(world, action = null, isCovered = null) {
       ];
       let desire = null;
       if (kind === "avatar") {
+        facts.unshift(...battleFacts(world, id, battle, nameOf));
         // A resident's mood is a world fact; its pack words how to play it.
         if (hasTemperament(id)) {
           const state = world.actors[id],
@@ -564,7 +572,9 @@ export function narrativeContext(world, action = null, isCovered = null) {
       };
     }),
   };
-  return isCovered ? forgetCovered(world, context, isCovered) : forgetUnfound(world, context);
+  return isCovered
+    ? forgetCovered(world, context, isCovered)
+    : forgetUnfound(world, context);
 }
 
 export function applyGeneratedReflections(world, context, response) {
@@ -1103,7 +1113,9 @@ export function createNarrator({
           if (Date.now() < holdUntil)
             await retryPause(controller.signal, holdUntil - Date.now());
           if (version !== ticket) continue;
-          const context = limit(narrativeContext(getWorld(), action, isCovered));
+          const context = limit(
+            narrativeContext(getWorld(), action, isCovered),
+          );
           started(context);
           await write(context, version, controller.signal);
         } catch (error) {

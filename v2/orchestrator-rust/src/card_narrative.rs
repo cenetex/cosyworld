@@ -3101,6 +3101,29 @@ pub(crate) mod tests {
             {"id":"moth","facts":["Holding the black cloth."],"desire":{"items":["lamp"],"location":"pond","avatars":["vale"]},"memories":[{"turn":3,"kind":"expression","text":"Pip: I offered my cloth."}],"previous":null}
         ]})).unwrap()
     }
+    #[test]
+    fn witnessed_battle_facts_reach_the_personal_prompt() {
+        let mut c = context();
+        for entity in &mut c.entities {
+            entity.memories.clear();
+        }
+        let facts = [
+            "The keeper took Vale's blow for me. The keeper was braced. The blow dealt 1 damage; resolve fell from 4 to 3.",
+            "Antigone struck me. The blow dealt 2 damage; resolve fell from 1 to 0. I yielded.",
+            "I retreated to Black pond.",
+            "I have 3 resolve now. My stance is open.",
+            "I am covering Vale.",
+            "The keeper is covering me.",
+        ];
+        c.entities[3].facts = facts.iter().map(|f| (*f).into()).collect();
+        let checked = untrusted::trusted(c).expect("authored battle context");
+        assert_eq!(checked.entities[3].facts, facts);
+        let prompt = transcript(&checked, &checked.entities[3], Part::Line);
+        for fact in facts {
+            assert!(prompt.contains(fact), "{fact}");
+        }
+    }
+
     #[tokio::test]
     async fn browser_chat_prepares_authored_prompts_and_checks_replies_without_provider_keys() {
         let scene = serde_json::to_value(context()).unwrap();

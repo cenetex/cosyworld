@@ -13,6 +13,7 @@ import { BENCH, SCENE } from "./settings-cards.mjs";
 
 // The local server, release smoke, and Rust asset generator use this list.
 const files = [
+  "battle-context.mjs",
   "authoring-create-tools.mjs",
   "authoring-create-transfer.mjs",
   "authoring-seed-world.mjs",
