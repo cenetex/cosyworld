@@ -243,7 +243,7 @@ fn rules_100_busy_world_plays_well_inside_the_deadline() {
 
 #[test]
 fn current_company_replays_real_talk_and_separation_without_checkpoints() {
-    let mut world = created(engine::VERSION);
+    let mut world = World::seeded(None, Some(7)).unwrap();
     world.claimed[0] = 1;
     world.present[0] = 1;
     world.claimed[1] = 1;
