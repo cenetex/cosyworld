@@ -7,9 +7,11 @@ import { createServer } from "../card-game/serve.mjs";
 import { dispatchShared } from "../card-game/shared-world.mjs";
 import { createWorld, encodeSave, addLog, legalActions, play } from "../card-game/world.mjs";
 import { availableCards } from "../card-game/cards.mjs";
-import { selectCard } from "./card-browser-helpers.mjs";
+import { selectCard, smokeWidths } from "./card-browser-helpers.mjs";
 
 const output = new URL("../../output/speech-queue/", import.meta.url);
+const wiring = await readFile(new URL("../orchestrator-rust/src/card_shared/engine.rs", import.meta.url), "utf8");
+const version = /const VERSION: &str = "([^"]+)"/u.exec(wiring)[1];
 await mkdir(output, { recursive: true });
 const server = createServer();
 await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
@@ -53,7 +55,7 @@ async function seed(page, key, world, stream = false) {
   }, { key, save: encodeSave(world), seen: availableCards(world), stream, text });
 }
 try {
-  for (const width of [1440, 390]) {
+  for (const width of smokeWidths([1440, 390])) {
     const options = { viewport: { width, height: width === 390 ? 844 : 900 }, reducedMotion: "reduce" };
     let world = dispatchShared({ op: "create", save: encodeSave(createWorld({ seed: 7 })) }).world;
     const add = (id, text) => {
@@ -73,7 +75,7 @@ try {
     const page = await browser.newPage({ ...options, reducedMotion: "no-preference" }), errors = [];
     page.on("pageerror", (error) => errors.push(error.message));
     const view = () => ({ ...dispatchShared({ op: "view", world, actor: "vale", claimed: ["vale"], present: ["vale"] }),
-      id: "speech-queue", version: "full-card-world/117", claimed: [1, 0, 0, 0, 0, 0, 0, 0],
+      id: "speech-queue", version, claimed: [1, 0, 0, 0, 0, 0, 0, 0],
       present: [1, 0, 0, 0, 0, 0, 0, 0], now: Date.now(), queue: [], history });
     await page.route("**/auth/account", (route) => route.fulfill({ json: { authenticated: true } }));
     await page.route(/\/card-game\/shared\/worlds\/speech-queue(?:\/command)?$/, (route) => route.fulfill({ json: view() }));
@@ -88,6 +90,8 @@ try {
     assert.equal(await front(page), first.text, "Late speech stays queued.");
     await open(page, url);
     assert.equal(await front(page), first.text, "Reload keeps the first line.");
+    await page.waitForTimeout(1000);
+    assert.equal(await front(page), first.text, "The settled front keeps the same line.");
     await page.screenshot({ path: new URL(`shared-waiting-${width}.png`, output).pathname });
     await read(page);
     assert.equal(await front(page), second.text);
