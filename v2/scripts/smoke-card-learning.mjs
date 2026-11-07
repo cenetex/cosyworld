@@ -296,6 +296,54 @@ try {
       path: `${output}/learned-guard-${width}.png`,
       fullPage: true,
     });
+    const fable = "hoppycat-fable",
+      companyKey = `${key}-company`;
+    const encounter = createWorld({ seed: 7 });
+    delete encounter.opening;
+    encounter.actors.vale.place = encounter.actors[fable].place;
+    encounter.packs.hoppy.met[fable] = 0;
+    await page.evaluate(({ key, save }) => localStorage.setItem(key, save), {
+      key: companyKey,
+      save: encodeSave(encounter),
+    });
+    await page.goto(
+      `http://127.0.0.1:${server.address().port}/?table=learning-guard-company`,
+    );
+    await ready();
+    await selectCard(page, fable);
+    assert.equal(
+      await page.locator("#card-actions .card-primary").textContent(),
+      "Talk",
+    );
+    await page.locator("#card-actions .card-primary").click();
+    await ready();
+    const currentPair = () =>
+      page.evaluate((key) => {
+        const s = JSON.parse(localStorage.getItem(key));
+        return s.conversations.find(
+          (c) =>
+            c.actors.includes("vale") && c.actors.includes("hoppycat-fable"),
+        );
+      }, companyKey);
+    const company = await currentPair();
+    assert.ok(Number.isSafeInteger(company.company));
+    await page.reload();
+    await ready();
+    assert.deepEqual(await currentPair(), company);
+    const move = await page.evaluate(async (key) => {
+      const { decodeSave, legalActions } = await import("/card-game/world.mjs");
+      return legalActions(decodeSave(localStorage.getItem(key))).find(
+        (a) => a.kind === "move",
+      );
+    }, companyKey);
+    assert.ok(move, "Fable's room has a way to leave");
+    await page.keyboard.press("Escape");
+    await selectCard(page, move.target);
+    await page.locator("#card-actions .card-primary").click();
+    await ready();
+    const ended = await currentPair();
+    assert.equal(ended.company, undefined);
+    assert.equal(ended.seq, company.seq);
     assert.deepEqual(errors, []);
     await page.close();
   }
