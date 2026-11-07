@@ -602,6 +602,11 @@ or a nudge, read on that status line in front of the dialogue. A refusal does
 not return on reload.
 Selection, cancellation,
 drag pairing and keyboard navigation spend no turn; only a committed play does.
+Residents show their saved held item on their avatar card and in the scene.
+Opening a resident's stack shows that one item for Ask or Trade. Their other
+belongings stay in their custody. The player's own inventory remains available.
+A received gift becomes the resident's held item; reload keeps that choice.
+A closed held card keeps its ordinary back or locked back until it opens.
 The latest selected carried item appears in the player's avatar hand.
 Clicking the scene keeps that item selected and held. Tap its card again or
 press Escape to clear it.

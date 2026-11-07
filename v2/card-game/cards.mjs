@@ -6,6 +6,8 @@ import {
   packThings,
   transports,
 } from "./pack-registry.mjs";
+import { heldItem } from "./held-item.mjs";
+import { controlledByHuman } from "./human-cast.mjs";
 import { dropCost } from "./want.mjs";
 import { lockedAt } from "./pack-items.mjs";
 import { shutLanes } from "./pack-transport.mjs";
@@ -37,10 +39,19 @@ export function availableCards(world) {
         world.presentActors?.includes(id)),
   );
   cast.sort((a, b) => Number(b === player) - Number(a === player));
-  const after = (holder) =>
-    items
+  const after = (holder) => {
+    if (
+      people[holder] &&
+      holder !== player &&
+      !controlledByHuman(world, holder)
+    ) {
+      const held = heldItem(world, holder);
+      return items.includes(held) ? [held] : [];
+    }
+    return items
       .filter((id) => world.items[id].holder === holder)
       .flatMap((id) => [id, ...after(id)]);
+  };
   const destinations = exits(world, here, player).filter(
     (place) =>
       !world.presentActors ||

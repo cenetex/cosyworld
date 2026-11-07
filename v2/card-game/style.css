@@ -299,7 +299,8 @@ main {
   filter: brightness(1.08);
   transform: translateY(-2px) rotate(var(--lean));
 }
-.portrait img {
+.portrait img,
+.portrait-held-item img {
   width: 100%;
   height: 100%;
   object-fit: contain;
@@ -311,7 +312,8 @@ main {
 }
 /* Hand positions follow the original 2:3 character artwork. The prop shares
    the body's movement and scales with it at every viewport size. */
-.portrait {
+.portrait,
+.card.avatar {
   --hand-x: 83%;
   --hand-y: 32.5%;
   --held-offset: -100%;
