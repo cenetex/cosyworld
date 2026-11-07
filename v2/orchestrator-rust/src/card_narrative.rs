@@ -1838,11 +1838,7 @@ fn transcript_sections(context: &Context, entity: &Entity, part: Part) -> Vec<(S
         }
     }
     lines.push((Section::Now, conversation::presence(context, id)));
-    let held = entity.facts.iter().find(|f| f.starts_with("Holding: "));
-    lines.extend(tagged(
-        Section::Now,
-        held.and_then(|f| person::fact(f, id, true)),
-    ));
+    lines.extend(tagged(Section::Now, custody::holding(context, entity)));
     if let Some(outcome) = outcome {
         let ground: Vec<_> = outcome
             .items
