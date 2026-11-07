@@ -6,9 +6,9 @@ import {
   legalActions,
   play,
 } from "../v2/card-game/world.mjs";
-import { settleGuards } from "../v2/card-game/resident-guard.mjs";
+import { guardPost, settleGuards } from "../v2/card-game/resident-guard.mjs";
 const guard = "greek-guard",
-  beyond = "greek-battlefield";
+  beyond = guardPost(guard).to;
 function learnedGuard() {
   // Reduced from the world-life seed-two walk: an unanswered request is
   // followed by the player's standing Guard, whose Wait has a place target.
