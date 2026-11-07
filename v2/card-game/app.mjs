@@ -2666,7 +2666,8 @@ $("action-beat").addEventListener(
 );
 const npcHand = (id) =>
   people[id] && id !== currentActor(world) && !controlledByHuman(world, id);
-const holderVerb = (id) => places[id] ? "Contains" : npcHand(id) ? "Holds" : "Carries";
+const holderVerb = (id) => places[id] ? "Contains"
+  : npcHand(id) && !sleepingPortrait(world, id) ? "Holds" : "Carries";
 function updateCardSelection(frame) {
   if (frame.dataset.want) {
     const entry = questEntry(frame.dataset.questId);

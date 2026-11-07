@@ -96,6 +96,7 @@ try {
       if (sleeping) {
         assert.match(await card.locator(".art img").first().getAttribute("src"), /sleeping/u);
         await tapCard(card);
+        assert.match(await card.locator(".sr-only").textContent(), /Carries/u);
         await page.waitForTimeout(300);
         await card.scrollIntoViewIfNeeded();
         await shot("asleep");
