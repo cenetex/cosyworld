@@ -515,7 +515,7 @@ export function restPlays(world, actions, again, cards = []) {
   );
 }
 
-export function cardObservation(world, id) {
+export function cardObservation(world, id, known = () => true) {
   const item = world.items[id];
   if (item) {
     const observations = [];
@@ -528,7 +528,7 @@ export function cardObservation(world, id) {
     const cover = Object.keys(world.items).find(
       (other) => world.items[other].holder === id,
     );
-    if (cover) observations.push(`Covered by ${nameOf(cover)}`);
+    if (cover) observations.push(`Covered by ${known(cover) ? nameOf(cover) : "a closed card"}`);
     observations.push(
       things[item.holder]
         ? `On ${nameOf(item.holder)}`

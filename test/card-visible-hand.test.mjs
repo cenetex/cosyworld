@@ -1,5 +1,5 @@
 import { expect, it } from "vitest";
-import { availableCards, cardPlay } from "../v2/card-game/cards.mjs";
+import { availableCards, cardObservation, cardPlay } from "../v2/card-game/cards.mjs";
 import {
   createWorld,
   decodeSave,
@@ -70,4 +70,11 @@ it("keeps an NPC's covering on its held item and shows empty hands after loss", 
   settleHeldItems(world);
   expect(world.actors.keeper.heldItem).toBeNull();
   expect(availableCards(world)).not.toContain("oil");
+});
+
+it("keeps a concealed covering unnamed in the held item details", () => {
+  const world = meeting();
+  world.items.cloth.holder = "lamp";
+  expect(cardObservation(world, "lamp", id => id !== "cloth")).toContain("Covered by a closed card");
+  expect(cardObservation(world, "lamp")).toContain("Covered by Black cloth");
 });

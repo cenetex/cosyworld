@@ -142,6 +142,7 @@ import {
 import { enableMotives } from "./motives.mjs";
 import { seatActors, controlledByHuman } from "./human-cast.mjs";
 import { heldItem } from "./held-item.mjs";
+import { sleepingPortrait } from "./sleep-portraits.mjs";
 import { PLAYING_KEY } from "./avatar-world.mjs";
 import { openTableSession } from "./table-session.mjs";
 import { createNarrator, requestNarrative, silentLines } from "./narrative.mjs";
@@ -2337,7 +2338,7 @@ function renderActions() {
     selected.length === 1 &&
     things[selected[0]] &&
     !cardIsClosed(selected[0])
-      ? `${nameOf(selected[0])}. ${things[selected[0]].text || ""} ${cardObservation(world, selected[0])}`.trim()
+      ? `${nameOf(selected[0])}. ${things[selected[0]].text || ""} ${cardObservation(world, selected[0], known)}`.trim()
       : "";
   $("selection-name").textContent = selected.length
     ? selectionName
@@ -2700,7 +2701,7 @@ function updateCardSelection(frame) {
   syncAvatarStack(frame, id);
   if (cardIsClosed(id)) return;
   button.querySelector(".sr-only").textContent =
-    cardObservation(world, id) +
+    cardObservation(world, id, known) +
     (label ? ` ${label}.` : "") +
     (held.length
       ? ` ${holderVerb(id)} ${held.map((item) => cardIsClosed(item) ? "covered" : nameOf(item)).join(", ")}. Select to show these cards.`
@@ -2937,7 +2938,7 @@ function card(id) {
     }
   }
   const label = playLabel(chosen?.action);
-  const observation = node("span", cardObservation(world, id), "sr-only");
+  const observation = node("span", cardObservation(world, id, known), "sr-only");
   observation.id = `card-detail-${id}`;
   if (raised && label) observation.textContent += ` ${label}.`;
   if (hidden) observation.textContent = "";
@@ -3051,7 +3052,8 @@ function card(id) {
       }
     }
   }
-  if (!hidden && npcHand(id)) renderHeldItem(el, { id }, heldItem(world, id));
+  if (!hidden && npcHand(id) && !sleepingPortrait(world, id))
+    renderHeldItem(el, { id }, heldItem(world, id));
   syncAvatarStack(frame, id);
   if (!hidden && foldQuest()?.actor === id) frame.prepend(questFold(foldQuest()));
   // A real lock takes priority over discovery.
@@ -3727,8 +3729,8 @@ function renderScene() {
     image.dataset.source = actor.cutout;
     image.dataset.flip = String(flipStagePortrait(actor.cutout, actor.facing));
     figure.dataset.flip = image.dataset.flip;
-    // A raised hand card shows in the player's hand; otherwise a figure
-    // carrying a lit light holds it up, as Vale wakes holding the lamp.
+    // Residents show their saved hand. The player keeps the raised item
+    // or a carried light, as Vale wakes holding the lamp.
     renderHeldItem(
       figure,
       actor,
