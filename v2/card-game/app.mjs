@@ -82,7 +82,7 @@ import {
   questTier,
   questVerb,
 } from "./quest-card.mjs";
-import { NOT_FOUND, questStep } from "./quest-step.mjs";
+import { NOT_FOUND, questStep, questTrade } from "./quest-step.mjs";
 import { actionScene, questScreen } from "./quest-screen.mjs";
 import { createLandingWorld, newRunSeed } from "./pack-landing.mjs";
 import { flipStagePortrait, portraitFraming } from "./portrait-facing.mjs";
@@ -1602,7 +1602,9 @@ function choose(id) {
   lastPlayAt = -Infinity;
   fresh.delete(id);
   const questPicked = questOpen;
-  questOpen = false;
+  questOpen = questPicked && Boolean(
+    questTrade(world, shownQuests[questPick], [id], known),
+  );
   // Any tap opens a folded row again; the held item is still raised.
   rowCollapsed = false;
   // Any tap but one on the ways on folds them: one fan at a time.
@@ -1614,7 +1616,11 @@ function choose(id) {
   const actor = currentActor(world),
     part = expandedHolders.has(actor) ? avatarStack(id) : null;
   const withCard = [...selected, id];
-  if (selected.length === 3 && selected.includes(id))
+  if (questOpen) {
+    selectCards(selected.includes(id) ? [] : [id], { keepOpen: true });
+    expandedHolders.add(actor);
+    avatarFan = "items";
+  } else if (selected.length === 3 && selected.includes(id))
     selectCards(
       selected.filter((cardId) => cardId !== id),
       { keepOpen: true },
@@ -2308,7 +2314,12 @@ function renderActions() {
     sharedRefusal = null;
   shownPhase = presentPhase();
   const rested = shownPhase !== "choosing";
-  const { actions: offered, hint } = cardActions(world, selected);
+  const chosenQuest = questOpen && !rested ? shownQuests[questPick] : null;
+  const trade = chosenQuest?.index === 0 &&
+    questTrade(world, chosenQuest, selected, known);
+  const { actions: offered, hint } = trade
+    ? { actions: [trade], hint: "" }
+    : cardActions(world, selected);
   const ready = restPlays(
     world,
     offered,
@@ -2321,7 +2332,7 @@ function renderActions() {
   // While the opening has a card down, the button only reveals the next.
   const quiet = !rested && opening()?.step === "reveal";
   const closed = selected.some(cardIsClosed);
-  const actions = rested || quiet || closed ? [] : ready;
+  const actions = rested || quiet || closed || (questOpen && !trade) ? [] : ready;
   const clientText = quiet
     ? "Turn over the next card."
     : !rested &&
@@ -2346,8 +2357,7 @@ function renderActions() {
     actor = currentActor(world),
     name = nameOf(actor),
     // The quest chosen in the open fan names itself, as a play does.
-    questShown =
-      !selected.length && questOpen && !rested ? shownQuests[questPick] : null,
+    questShown = !trade && chosenQuest,
     lockShown = !rested && closed ? { text: CLOSED_BOX, cards: [] } : null,
     // Rule texts can double a name's article ("the The Burial Decree").
     sentence = lockShown
@@ -2437,7 +2447,13 @@ function renderActions() {
         button.dataset.pack = action.packId;
       }
       const renderedAt = performance.now();
-      button.onclick = () => commitAction(action, revision, renderedAt);
+      button.onclick = () => {
+        if (trade) {
+          questOpen = false;
+          questPick = 0;
+        }
+        commitAction(action, revision, renderedAt);
+      };
       return button;
     }),
   );
@@ -2453,10 +2469,10 @@ function renderActions() {
   // rules already offer, or why there is none) and Discard (a level quest
   // costs experience, named on its button). Choosing a card beneath brings
   // it to the top.
-  const picked = questOpen && !rested ? shownQuests[questPick] : null;
+  const picked = trade ? null : chosenQuest;
   const legal = picked?.index === 0 ? legalActions(world) : [];
   const progress =
-    picked?.index === 0 &&
+    !selected.length && picked?.index === 0 &&
     questStep(world, picked, questCovered(picked), legal);
   const next =
     progress?.action &&
@@ -2603,6 +2619,7 @@ function renderActions() {
   }
   const note = document.querySelector(".action-beat-note");
   let noteText = visibleText(next?.reason === NOT_FOUND ? "" : next?.reason || "");
+  if (trade) noteText = shownQuestCaption(chosenQuest, false);
   if (abandonQuest) {
     panel.dataset.tier = "danger";
     panel.style.setProperty("--tier-color", "var(--danger)");
@@ -3191,9 +3208,10 @@ function pickQuest(quest) {
     (a) => a.kind === "focus" && a.quest === quest.index,
   );
   questPick = quest.index;
-  // The chosen quest is the choice alone, beside its avatar's stacks.
+  // A known item quest keeps the payment the player deliberately selected.
+  const payment = questTrade(world, quest, selected, known);
   questOpen = true;
-  selected = [];
+  selected = payment ? [payment.item] : [];
   avatarFan = "quests";
   expandedHolders.add(currentActor(world));
   rowCollapsed = false;
