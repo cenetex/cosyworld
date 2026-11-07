@@ -53,6 +53,7 @@ import {
   CLOSED_BOX,
   createLockedBoxes,
   isLockedBox,
+  lockedQuest,
 } from "./locked-box.mjs";
 import { fadeInRevealed, revealedStage } from "./stage-reveal.mjs";
 import { OPENING_REVEAL, openingStep } from "./opening.mjs";
@@ -2360,7 +2361,12 @@ function renderActions() {
     // The quest chosen in the open fan names itself, as a play does.
     questShown =
       !selected.length && questOpen && !rested ? shownQuests[questPick] : null,
-    lockShown = !rested && closed ? { text: CLOSED_BOX, cards: [] } : null,
+    lockShown =
+      !rested && closed
+        ? (selected.length === 1 && isLockedBox(world, selected[0])
+            ? lockedQuest(world, selected[0])
+            : null) || { text: CLOSED_BOX, cards: [] }
+        : null,
     // Rule texts can double a name's article ("the The Burial Decree").
     sentence = lockShown
       ? lockShown.text
