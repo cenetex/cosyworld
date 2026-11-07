@@ -2,7 +2,13 @@ import { recordRecital, recitalVisit, validRecitals } from "./pack-recital.mjs";
 import { boardyPack, BOARDY, boardyActive } from "./boardyai.mjs";
 import { sectionAllows } from "./pack-sections.mjs";
 import { specialsAllow, validSpecials } from "./pack-specials.mjs";
-import { journeyNextPlace, validJourneyPlaces } from "./pack-journeys.mjs";
+import {
+  journeyNextPlace,
+  validJourneyProgress,
+  journeyChoiceReady,
+  agreeJourney,
+  advanceJourney,
+} from "./pack-journeys.mjs";
 import { pushQuest } from "./want.mjs";
 import { usedUp, useUp, bringBack } from "./item-use.mjs";
 // The compiled world packs mounted on the card table, indexed for the engine.
@@ -231,6 +237,8 @@ export const staysPut = (id, world = null) =>
   packPeople[id]?.travels === false && !freed(world, id);
 export const packJourneyDestination = (world, id) =>
   journeyNextPlace(world, packOf(id), id);
+export const recordJourneyTravel = (world, id, from, to) =>
+  advanceJourney(world, packOf(id), id, from, to);
 export const avoidsStandoffs = (id) => packPeople[id]?.standoffs === false;
 export const fixturesAt = (place) =>
   Object.entries(packFixtures)
@@ -529,6 +537,7 @@ function choiceFeasible(
     (mode !== "hold" && world.actors[actor]?.place !== choice.at) ||
     !entityActive(atTurn, choice.at) ||
     !entityActive(atTurn, choice.subject) ||
+    !journeyChoiceReady(world, pack, choice) ||
     !conditionsMet(atTurn, pack.id, choice.requires, actor)
   )
     return false;
@@ -819,6 +828,7 @@ export function applyPackChoice(
     }
   }
   state.receipts[choice.id] = world.turn;
+  agreeJourney(world, pack, choice.id);
   recordRecital(world, pack, choice.id, action.actor);
   return choice;
 }
@@ -908,6 +918,7 @@ const restGated = (requires = [], id) =>
 export function validatePackStates(world) {
   if (
     !record(world.packs) ||
+    !validJourneyProgress(world, packDefinitions) ||
     Object.keys(world.packs).sort().join() !==
       packDefinitions
         .map((p) => p.id)
@@ -921,7 +932,6 @@ export function validatePackStates(world) {
     if (
       !record(state) ||
       !validRecitals(world, pack) ||
-      !validJourneyPlaces(world, pack) ||
       !validSpecials(world, pack) ||
       state.revision !== pack.revision ||
       !["opening", "full"].includes(state.scope) ||

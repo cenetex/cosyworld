@@ -514,6 +514,37 @@
   var EXPRESSION_TYPES = ["speech", "movement", "emoji"];
   var orderedSymbols = Object.keys(emoji_symbols_default).sort((a, b) => b.length - a.length);
 
+  // v2/card-game/pack-journeys.mjs
+  var agreed = (world, pack, journey) => Object.hasOwn(world.packs?.[pack.id]?.receipts || {}, journey.after);
+  function installJourneyProgress(world, packs) {
+    if (world.journeyProgress !== void 0) return;
+    world.journeyProgress = {};
+    for (const pack of packs)
+      for (const [id, { journey }] of Object.entries(pack.avatars))
+        if (journey && agreed(world, pack, journey))
+          world.journeyProgress[id] = {
+            agreement: journey.after,
+            step: journey.path.indexOf(world.actors[id]?.place)
+          };
+  }
+  function validJourneyProgress(world, packs) {
+    const records = world.journeyProgress;
+    if (!records || typeof records !== "object" || Array.isArray(records))
+      return false;
+    if (Object.keys(records).some(
+      (id) => !packs.some((p) => p.avatars[id]?.journey)
+    ))
+      return false;
+    return packs.every(
+      (pack) => Object.entries(pack.avatars).every(([id, avatar]) => {
+        const journey = avatar.journey;
+        if (!journey) return true;
+        const progress = records[id];
+        return agreed(world, pack, journey) ? progress && Object.keys(progress).sort().join() === "agreement,step" && progress.agreement === journey.after && Number.isSafeInteger(progress.step) && progress.step >= 0 && progress.step < journey.path.length : progress === void 0;
+      })
+    );
+  }
+
   // v2/card-game/level-tiers.mjs
   var tiers = [
     [0, "Common", "#c8dce6"],
@@ -1482,16 +1513,6 @@
     const list = world.packs[pack.id]?.specials;
     if (!pack.specials || !world.run) return list === void 0;
     return Array.isArray(list) && new Set(list).size === list.length && list.every((id) => pack.specials.pool.some((e) => e.id === id));
-  }
-
-  // v2/card-game/pack-journeys.mjs
-  function validJourneyPlaces(world, pack) {
-    return Object.entries(pack.avatars).every(([id, avatar]) => {
-      const journey = avatar.journey;
-      if (!journey) return true;
-      const place = world.actors[id]?.place;
-      return world.packs?.[pack.id]?.receipts?.[journey.after] ? journey.path.includes(place) : place === journey.path[0];
-    });
   }
 
   // v2/card-game/weather.json
@@ -17766,12 +17787,12 @@
     (c) => c.kind === "item_at" ? c.item === id : restGated(c.conditions || (c.condition ? [c.condition] : []), id)
   );
   function validatePackStates(world) {
-    if (!record4(world.packs) || Object.keys(world.packs).sort().join() !== packDefinitions.map((p) => p.id).sort().join())
+    if (!record4(world.packs) || !validJourneyProgress(world, packDefinitions) || Object.keys(world.packs).sort().join() !== packDefinitions.map((p) => p.id).sort().join())
       return false;
     for (const pack of packDefinitions) {
       if (!pack.choices) continue;
       const state = world.packs[pack.id];
-      if (!record4(state) || !validRecitals(world, pack) || !validJourneyPlaces(world, pack) || !validSpecials(world, pack) || state.revision !== pack.revision || !["opening", "full"].includes(state.scope) || Object.keys(state).sort().join() !== [
+      if (!record4(state) || !validRecitals(world, pack) || !validSpecials(world, pack) || state.revision !== pack.revision || !["opening", "full"].includes(state.scope) || Object.keys(state).sort().join() !== [
         "revision",
         "sounds",
         "choices",
@@ -20643,6 +20664,7 @@
         laneText: laneFactText,
         setAside: (world, id) => !humanHeld(world, id) && setAsideWant(world, id, wantAPI(world))
       });
+      installJourneyProgress(s, packDefinitions);
       latchRoutes(s);
       settleGuards(s);
       validateWorld(s);

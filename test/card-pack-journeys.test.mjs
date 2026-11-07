@@ -14,6 +14,7 @@ import {
   packDefinition,
   packDefinitions,
   packPeople,
+  packJourneyDestination,
   validatePackStates,
 } from "../v2/card-game/pack-registry.mjs";
 import { packProblems } from "../v2/card-game/pack-schema.mjs";
@@ -128,6 +129,10 @@ describe("agreed resident journeys", () => {
     for (const destination of path.slice(1)) {
       world = act(world, "accompany", { target: resident, destination });
       expect(world.actors[resident].place).toBe(destination);
+      expect(world.journeyProgress[resident]).toEqual({
+        agreement,
+        step: path.indexOf(destination),
+      });
       expect(world.actors.vale.place).toBe(destination);
       expect(world.items["greek-water-jar"].holder).toBe(resident);
       expect(world.items["greek-water-jar"].history[0]).toBe(
@@ -173,14 +178,55 @@ describe("agreed resident journeys", () => {
     );
   });
 
-  it("validates saved journey places and authored consent, route, and resident boundaries", () => {
+  it("keeps an agreed waypoint through a visit and a real return trip", () => {
+    let world = act(fixture(), "choose", { choiceId: agreement });
+    for (const id of ["vale", resident]) world.actors[id].place = "greek-well";
+    world = decodeSave(encodeSave(world));
+    expect(world.journeyProgress[resident]).toEqual({ agreement, step: 0 });
+    expect(packJourneyDestination(world, resident)).toBe(path[0]);
+    world = act(world, "accompany", { target: resident, destination: path[0] });
+    expect(world.journeyProgress[resident].step).toBe(0);
+    world = act(world, "accompany", { target: resident, destination: path[1] });
+    expect(world.journeyProgress[resident].step).toBe(1);
+    for (const id of ["vale", resident]) world.actors[id].place = path.at(-1);
+    expect(legalActions(world).some((a) => a.choiceId === arrival)).toBe(false);
+    expect(decodeSave(encodeSave(world)).journeyProgress[resident].step).toBe(
+      1,
+    );
+  });
+
+  it("derives an older save's agreed step once", () => {
+    const world = act(fixture(), "choose", { choiceId: agreement });
+    world.actors[resident].place = path[2];
+    delete world.journeyProgress;
+    const loaded = decodeSave(JSON.stringify(world));
+    expect(loaded.journeyProgress[resident]).toEqual({ agreement, step: 2 });
+    loaded.actors[resident].place = "greek-well";
+    expect(decodeSave(encodeSave(loaded)).journeyProgress).toEqual(
+      loaded.journeyProgress,
+    );
+  });
+
+  it("validates saved progress and authored consent, route, and resident boundaries", () => {
     expect(packProblems(pack, hub, mountedPlaces)).toEqual([]);
     const world = fixture();
     world.actors[resident].place = "greek-harbor";
-    expect(validatePackStates(world)).toBe(false);
+    expect(validatePackStates(world)).toBe(true);
     const accepted = act(fixture(), "choose", { choiceId: agreement });
     accepted.actors[resident].place = "greek-well";
-    expect(validatePackStates(accepted)).toBe(false);
+    expect(validatePackStates(accepted)).toBe(true);
+    for (const progress of [
+      null,
+      [],
+      { agreement, step: -1 },
+      { agreement, step: path.length },
+      { agreement: "another", step: 0 },
+      { agreement, step: 0, extra: true },
+    ]) {
+      const bad = structuredClone(accepted);
+      bad.journeyProgress[resident] = progress;
+      expect(validatePackStates(bad)).toBe(false);
+    }
     for (const change of [
       (p) => {
         p.avatars[resident].journey.after = "unknown-agreement";
