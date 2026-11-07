@@ -7,6 +7,8 @@
 // touches rules, saves, the journal or sync, and an entering card takes taps
 // at once, so nothing waits on it.
 
+import { questTerms } from "./want.mjs";
+
 // The rise of a newly met card: 460 ms, a short overshoot, as before.
 export const ENTRY_MS = 460;
 // Cards that enter together follow each other closely, a few letters apart
@@ -102,7 +104,7 @@ export function createCardEntries() {
 // the stack are progress on the same card, never a new one.
 export const questEntryKey = (quest) =>
   quest.receiptId === undefined
-    ? `${quest.actor}:${quest.kind}:${quest.target ?? ""}`
+    ? `${quest.actor}:${quest.kind}:${quest.target ?? ""}:${quest.level ?? "ordinary"}:${questTerms(quest)}`
     : `reward:${quest.actor}:${quest.receiptId}`;
 
 // Quests in the hand. `show(keys, seen)` takes the quest keys in the hand

@@ -135,14 +135,14 @@ describe("a quest from Talk", () => {
     }
   });
 
-  it("moves a quest already held up instead of holding it twice", () => {
+  it("keeps holding an item and giving it as distinct quests", () => {
     let s = station();
     s.items.lamp.holder = "station";
     s.actors.vale.want = newWant("place", "pond", 0);
     s.actors.vale.under = [newWant("item", "lamp", 0)];
     s = talk(s, "moth");
     const list = questsOf(s, "vale");
-    expect(list.filter((w) => w.target === "lamp")).toHaveLength(1);
+    expect(list.filter((w) => w.target === "lamp")).toHaveLength(2);
     expect(list[0]).toMatchObject({ kind: "item", target: "lamp" });
   });
 

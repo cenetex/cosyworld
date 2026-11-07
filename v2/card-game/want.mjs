@@ -129,7 +129,7 @@ export function claimQuestReward(s, id, receipt, api) {
 const pendingLevelReward = (s, id) =>
   questRewardsOf(s, id).some((r) => !r.paid && r.level !== null);
 // The same quest step keeps its identity as the stack changes order.
-const questTerms = (w) => JSON.stringify([
+export const questTerms = (w) => JSON.stringify([
   w.kind, w.target,
   w.step ? Object.keys(w.step).sort().map((key) => [key, w.step[key]]) : null,
   w.lit ?? null,

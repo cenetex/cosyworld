@@ -81,7 +81,7 @@ import {
   questRewardsOf,
   pushQuest,
   questsOf,
-  sameQuest,
+  questTerms,
   levelOf,
   wantOf,
   wantKey,
@@ -1929,7 +1929,7 @@ export function legalActions(s, actor = currentActor(s)) {
     for (const r of sealedWays(s, actor)) {
       if (
         !r.sealed.quest ||
-        questsOf(s, actor).some((w) => sameQuest(w, gateQuest(s, r.sealed.quest)))
+        questsOf(s, actor).some((w) => questTerms(w) === questTerms(gateQuest(s, r.sealed.quest)))
       )
         continue;
       out.push(offer("gate", actor, null, r.to, r.sealed.reason, [r.to]));
