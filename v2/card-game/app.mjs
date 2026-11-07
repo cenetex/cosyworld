@@ -2619,7 +2619,6 @@ function renderActions() {
   }
   const note = document.querySelector(".action-beat-note");
   let noteText = visibleText(next?.reason === NOT_FOUND ? "" : next?.reason || "");
-  if (trade) noteText = shownQuestCaption(chosenQuest, false);
   if (abandonQuest) {
     panel.dataset.tier = "danger";
     panel.style.setProperty("--tier-color", "var(--danger)");
@@ -3204,6 +3203,7 @@ function pickQuest(quest) {
   if (selectionBlocked()) return;
   if (reviewing) returnToLive();
   queueChoice();
+  restedChoice = null;
   const focus = legalActions(world).find(
     (a) => a.kind === "focus" && a.quest === quest.index,
   );
