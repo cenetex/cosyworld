@@ -233,7 +233,10 @@ export function narrativeContext(world, action = null, isCovered = null) {
   // Talk and Ask speak; any other play speaks only on a rules occasion.
   const { occasion, speakers, scenery } = speechOccasions(world, cast);
   const resting =
-    !speakers.length || speakers[0] === cast.resting ? cast.resting : null;
+    played?.verb !== "claim" &&
+    (!speakers.length || speakers[0] === cast.resting)
+      ? cast.resting
+      : null;
   const rest = resting ? cast.rest : null;
   const defeated =
     cast.defeat &&

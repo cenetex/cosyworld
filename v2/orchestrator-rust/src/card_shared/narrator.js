@@ -2581,7 +2581,16 @@
     const list = (v, of) => Array.isArray(v) && v.length <= 64 && new Set(v).size === v.length && v.every((x) => Object.hasOwn(of, x));
     const quests = questsOf(s, id);
     const most = startXp(id) + (a.carried ?? 0) + s.turn * 8;
-    return Number.isSafeInteger(a.xp) && a.xp >= 0 && (a.carried === void 0 || Number.isSafeInteger(a.carried) && a.carried >= 0) && (a.level === void 0 || Number.isSafeInteger(a.level) && a.level >= 1 && a.level <= levelFor(most)) && a.xp <= most && (a.metTurn === void 0 || whole6(a.metTurn)) && (a.content === void 0 || a.content === true) && (a.glimpse === void 0 || validGlimpse(a.glimpse, levelFor(most) + 1)) && (a.halfwayIssued === void 0 || Number.isSafeInteger(a.halfwayIssued) && a.halfwayIssued >= 2 && a.halfwayIssued <= levelFor(most) + 1) && (a.gaveUp === void 0 || a.gaveUp && Object.keys(a.gaveUp).length === 2 && typeof a.gaveUp.target === "string" && whole6(a.gaveUp.turn)) && list(a.talked, s.actors) && validHeard(s, id) && !a.talked.includes(id) && Array.isArray(a.visited) && (a.want === null || validQuest(s, id, a.want)) && (a.under === void 0 || Array.isArray(a.under) && a.want !== null && a.under.length >= 1 && a.under.length < QUEST_LIMIT && a.under.every((w) => validQuest(s, id, w))) && quests.filter((w) => w.quest).length <= 1 && new Set(quests.filter((w) => !w.quest).map((w) => `${w.kind}:${w.target}`)).size === quests.filter((w) => !w.quest).length;
+    return Number.isSafeInteger(a.xp) && a.xp >= 0 && (a.carried === void 0 || Number.isSafeInteger(a.carried) && a.carried >= 0) && (a.level === void 0 || Number.isSafeInteger(a.level) && a.level >= 1 && a.level <= levelFor(most)) && a.xp <= most && (a.metTurn === void 0 || whole6(a.metTurn)) && validQuestRewards(s, id) && (a.content === void 0 || a.content === true) && (a.glimpse === void 0 || validGlimpse(a.glimpse, levelFor(most) + 1)) && (a.halfwayIssued === void 0 || Number.isSafeInteger(a.halfwayIssued) && a.halfwayIssued >= 2 && a.halfwayIssued <= levelFor(most) + 1) && (a.gaveUp === void 0 || a.gaveUp && Object.keys(a.gaveUp).length === 2 && typeof a.gaveUp.target === "string" && whole6(a.gaveUp.turn)) && list(a.talked, s.actors) && validHeard(s, id) && !a.talked.includes(id) && Array.isArray(a.visited) && (a.want === null || validQuest(s, id, a.want)) && (a.under === void 0 || Array.isArray(a.under) && a.want !== null && a.under.length >= 1 && a.under.length < QUEST_LIMIT && a.under.every((w) => validQuest(s, id, w))) && quests.filter((w) => w.quest).length <= 1 && new Set(quests.filter((w) => !w.quest).map((w) => `${w.kind}:${w.target}`)).size === quests.filter((w) => !w.quest).length;
+  }
+  function validQuestRewards(s, id) {
+    const receipts = s.actors[id].questRewards;
+    return receipts === void 0 || Array.isArray(receipts) && receipts.length > 0 && receipts.length <= s.eventSeq && receipts.every((r, i) => {
+      if (!r || Object.keys(r).sort().join() !== "actor,id,level,paid,turn,want,xp" || r.actor !== id || r.paid !== true || !Number.isSafeInteger(r.id) || r.id <= (receipts[i - 1]?.id ?? 0) || r.id > s.eventSeq || !Number.isSafeInteger(r.turn) || r.turn < 0 || r.turn > s.turn || !validQuest(s, id, r.want) || r.want.since > r.turn)
+        return false;
+      const level = r.want.quest?.left === 1 ? r.want.quest.level : null;
+      return r.level === level && r.xp === (level ? levelTier(level).rank + 1 : 1);
+    });
   }
   function validQuest(s, id, w) {
     const whole6 = (n) => Number.isSafeInteger(n) && n >= 0 && n <= s.turn;
@@ -20550,6 +20559,7 @@
       "take",
       "drop",
       "focus",
+      "claim",
       "gate",
       "pack",
       "give",
@@ -20587,6 +20597,8 @@
       if (e.actorId != null && !actorIds.includes(e.actorId)) fail();
       if (e.locationId != null && !Object.hasOwn(places, e.locationId)) fail();
       if (e.verb != null && !verbs.includes(e.verb)) fail();
+      if (e.verb === "claim" ? e.kind !== "action" || e.generated || !actorIds.includes(e.actorId) || !Number.isSafeInteger(e.seq) || !Number.isSafeInteger(e.receipt) || e.receipt < 1 || e.receipt >= e.seq : e.receipt !== void 0)
+        fail();
       if (e.outcome !== void 0 && !OUTCOMES.includes(e.outcome) || e.droppedItemIds !== void 0 && (!Array.isArray(e.droppedItemIds) || e.droppedItemIds.some((id) => !ids.includes(id))))
         fail();
       if (e.verb === "choose") {
@@ -20822,6 +20834,7 @@
     const actor = currentActor(world);
     const played = playedEntry(world);
     const verb = played?.verb;
+    if (verb === "claim") return { occasion: null, speakers: [], scenery: false };
     const awake = (id) => !hasTemperament(id) || world.actors[id]?.awake;
     const near = (id) => Boolean(id) && id !== actor && cast.audience.includes(id) && awake(id);
     const thisTurn = world.log.filter(
@@ -21495,7 +21508,7 @@
       ids: ids3
     } = cast;
     const { occasion, speakers, scenery } = speechOccasions(world, cast);
-    const resting2 = !speakers.length || speakers[0] === cast.resting ? cast.resting : null;
+    const resting2 = played?.verb !== "claim" && (!speakers.length || speakers[0] === cast.resting) ? cast.resting : null;
     const rest = resting2 ? cast.rest : null;
     const defeated = cast.defeat && `${nameOf(currentActor(world))} was beaten by ${nameOf(cast.defeat)} and came to at ${nameOf(location)}.`;
     const disclosures = knowledgeDisclosures(
