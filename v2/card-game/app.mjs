@@ -2699,7 +2699,7 @@ function updateCardSelection(frame) {
     cardObservation(world, id) +
     (label ? ` ${label}.` : "") +
     (held.length
-      ? ` ${places[id] ? "Contains" : "Carries"} ${held.map(nameOf).join(", ")}. Select to show these cards.`
+      ? ` ${places[id] ? "Contains" : "Carries"} ${held.map((item) => cardIsClosed(item) ? "covered" : nameOf(item)).join(", ")}. Select to show these cards.`
       : "");
 }
 const handMotions = new Map();

@@ -172,11 +172,12 @@ try {
       assert.notEqual(plainLid.border, closedLid.border);
       assert.equal(plainLid.name, "");
       assert.equal(plainLid.label, "Face-down card. Tap to reveal.");
+      assert.doesNotMatch(await page.locator('[data-card="vale"] .sr-only').textContent(), /Creon|Writ/u);
       assert.equal(plainLid.width, closedLid.width);
       assert.equal(plainLid.height, closedLid.height);
       assert.equal(await page.locator('[data-card="vale"]').getAttribute("data-unrevealed"), "false");
       assert.equal(await page.locator('[data-card="vale"]').getAttribute("data-locked"), "false");
-      assert.equal(await page.locator('[data-card="vale"]').locator("..").locator(".held-preview").getAttribute("src"), new URL(plainLid.src).pathname);
+      assert.equal(await page.locator('[data-card="vale"]').locator("..").locator(".held-preview").getAttribute("src"), plainLid.src);
       await shot("01-three-card-states");
       await page.reload();
       await ready();
@@ -232,8 +233,13 @@ try {
       assert.notEqual(questLid.border, closedLid.border);
       assert.equal(questLid.near, "false");
       assert.equal(questLid.art, "hidden");
-      for (const edge of await page.locator(".quest-edge, .want-fold, .way-edge").all())
-        assert.doesNotMatch(await edge.evaluate((el) => getComputedStyle(el).getPropertyValue("--card-back")), /locked/u);
+      const edges = await page.locator(".quest-edge, .quest-fold, .place-edge").all();
+      assert(edges.length > 0, "the hand contains folded card layers");
+      for (const edge of edges) {
+        const back = await edge.evaluate((el) => getComputedStyle(el).getPropertyValue("--card-back"));
+        assert.match(back, /card-back.webp/u);
+        assert.doesNotMatch(back, /locked/u);
+      }
       await page.keyboard.press("Escape");
       await boxed();
 

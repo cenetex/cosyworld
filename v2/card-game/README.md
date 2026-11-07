@@ -546,7 +546,7 @@ dropped (`figure-settle.mjs`, `v2/scripts/smoke-card-figure-settle.mjs`).
 Cards have three states. An unseen card lies face down under the plain wooden
 back and reveals on a tap. A card with an unmet prerequisite uses the locked
 back and red edge. A revealed card shows its face. Both closed states conceal
-the name, painting, rarity, contents, and quest details. Tapping a locked box
+the name, painting, contents, and quest details. Tapping a locked box
 selects it; the existing descriptor says "A closed box."
 When its lock clears, the box opens with the existing card reveal
 (a crossfade under reduced motion). Held previews and quest miniatures
