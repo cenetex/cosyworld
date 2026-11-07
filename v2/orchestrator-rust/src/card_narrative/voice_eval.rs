@@ -604,7 +604,7 @@ fn a_character_speaks_as_itself_in_the_assistant_turn() {
         check.verdict("The Funeral Oil is mine.", true, false),
         Err("custody")
     );
-    let echo = "I smell bread cooling under a cloth one place at the table is empty.";
+    let echo = "I'm carrying the Sack of Wheat I'm holding the Sack of Wheat.";
     assert_eq!(check.verdict(echo, true, false), Err("echoed brief"));
     // The heard line said back first is dropped; her own words stay.
     let reply = "Good evening, Dione! What are you baking? Bread for the rites, Vale.";
