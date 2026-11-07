@@ -503,6 +503,8 @@ struct AvatarOutcome {
     id: String,
     location: String,
     holding: Vec<String>,
+    #[serde(default, rename = "heldItem", skip_serializing_if = "Option::is_none")]
+    held_item: Option<String>,
     travel: Option<Travel>,
 }
 #[derive(Debug, Deserialize, Serialize)]
@@ -768,6 +770,14 @@ fn valid_outcome(outcome: &TurnOutcome) -> bool {
                 && avatar.holding.len() <= 4
                 && avatar.holding.iter().collect::<BTreeSet<_>>().len() == avatar.holding.len()
                 && avatar.holding.iter().all(|id| kind(id, "item"))
+                && avatar.held_item.as_ref().is_none_or(|id| {
+                    avatar.holding.contains(id)
+                        && outcome.items.iter().any(|item| {
+                            &item.id == id
+                                && item.holder == avatar.id
+                                && item.location == avatar.location
+                        })
+                })
                 && avatar.travel.as_ref().is_none_or(|travel| {
                     kind(&travel.from, "location")
                         && travel.to == avatar.location
@@ -1838,12 +1848,17 @@ fn transcript_sections(context: &Context, entity: &Entity, part: Part) -> Vec<(S
         }
     }
     lines.push((Section::Now, conversation::presence(context, id)));
-    lines.extend(tagged(Section::Now, custody::holding(context, entity)));
+    lines.extend(tagged(Section::Now, custody::carrying(context, entity)));
+    lines.extend(tagged(Section::Now, custody::hand(context, id)));
     if let Some(outcome) = outcome {
         let ground: Vec<_> = outcome
             .items
             .iter()
-            .filter(|i| i.holder == context.location)
+            .filter(|i| {
+                i.holder == context.location
+                    && !context.concealed.contains(&i.id)
+                    && !context.covered.contains(&i.id)
+            })
             .map(|i| person::the(&name(&i.id)))
             .collect();
         if !ground.is_empty() {
@@ -1920,6 +1935,12 @@ fn transcript_sections(context: &Context, entity: &Entity, part: Part) -> Vec<(S
         .into_iter()
         .flatten()
     {
+        if fact["entity"]
+            .as_str()
+            .is_some_and(|item| kind(item, "item") && !custody::visible_item(context, id, item))
+        {
+            continue;
+        }
         if let Some(text) = fact["fact"].as_str() {
             let text = text
                 .strip_suffix(" now.")
@@ -1996,6 +2017,11 @@ fn transcript_sections(context: &Context, entity: &Entity, part: Part) -> Vec<(S
     // and the world, never from example utterances.
     let mut view = conversation::frame(context, entity, part, lines, mentions);
     if let Some(p) = perceived {
+        let custody = custody::carrying(context, entity)
+            .into_iter()
+            .chain(custody::hand(context, id))
+            .chain(custody::facts(context, id));
+        view.extend(tagged(Section::Directions, custody));
         // What I remember of the one I face, then what I perceive now.
         let memory = entity.recall.as_ref().map_or_else(Vec::new, |r| {
             recall::lines(context, entity, r)
@@ -4151,7 +4177,7 @@ pub(crate) mod tests {
         assert!(prompt.contains("I received the Bell from Vale."));
         let vale = transcript(&c, &c.entities[0], Part::Line);
         assert!(
-            vale.contains("The keeper has the Oil flask and the Bell at Mirror attic."),
+            !vale.contains("The keeper has the Oil flask and the Bell at Mirror attic."),
             "{vale}"
         );
         // Custody is checked against the resolved world, not prompt words.
@@ -4243,8 +4269,9 @@ pub(crate) mod tests {
         .unwrap();
         assert_eq!(shared["entries"][1]["text"], "I will keep it safe, Vale.");
         assert_eq!(tries.load(std::sync::atomic::Ordering::SeqCst), 2);
-        assert!(seen.lock().unwrap().iter().any(|request| prompt_of(request)
-            .contains("The keeper has the Oil flask and the Bell at Mirror attic.")));
+        let own_custody = "I'm carrying the Oil flask and the Bell.";
+        let requests = seen.lock().unwrap();
+        assert!(requests.iter().any(|r| prompt_of(r).contains(own_custody)));
         server.abort();
     }
 
@@ -4891,6 +4918,7 @@ pub(crate) mod tests {
             id: "badger".into(),
             location: "clearing".into(),
             holding: vec![],
+            held_item: None,
             travel: None,
         });
         c.outcome = Some(o);

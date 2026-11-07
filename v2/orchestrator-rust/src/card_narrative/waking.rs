@@ -44,8 +44,9 @@ pub(super) fn transcript(context: &Context, entity: &Entity) -> String {
         .map(|item| person::the(&name(item)))
         .collect();
     if !held.is_empty() {
-        lines.push(format!("I'm holding {}.", person::list(&held)));
+        lines.push(format!("I'm carrying {}.", person::list(&held)));
     }
+    lines.extend(custody::hand(context, &entity.id));
     lines.join("\n")
 }
 

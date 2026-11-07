@@ -17945,6 +17945,10 @@
     );
   }
   var choicesFor = (hands, actor) => Object.keys(hands).filter((id) => hands[id] === actor).sort();
+  function heldItem(world, actor) {
+    const choices = choicesFor(handSnapshot(world), actor);
+    return choices.includes(world.actors[actor]?.heldItem) ? world.actors[actor].heldItem : choices[0] ?? null;
+  }
   var validHeldItems = (world) => Object.values(world.actors || {}).every(
     (actor) => actor.heldItem === void 0 || actor.heldItem === null || typeof actor.heldItem === "string" && Object.hasOwn(world.items, actor.heldItem)
   );
@@ -21350,7 +21354,10 @@
       card,
       avatars: avatars.map((avatar) => ({
         ...avatar,
-        holding: avatar.holding.filter((id) => itemIds.has(id)),
+        holding: avatar.holding.filter(kept),
+        ...Object.hasOwn(avatar, "heldItem") && {
+          heldItem: itemIds.has(avatar.heldItem) ? avatar.heldItem : null
+        },
         travel: avatar.travel && kept(avatar.travel.from) && kept(avatar.travel.to) ? {
           ...avatar.travel,
           companions: avatar.travel.companions.filter(
@@ -21595,12 +21602,56 @@
     return facts;
   }
 
+  // v2/card-game/scarves.mjs
+  var scarfItemId = (actor) => `forest-scarf-${actor}`;
+  var holdsScarf = (world, actor) => Boolean(actor) && world?.items?.[scarfItemId(actor)]?.holder === actor;
+  var scarfPortrait = (actor) => `assets/shared/characters/${actor}-scarf.png`;
+  var PORTRAITS = { scarf: scarfPortrait };
+  var upgradesOf = (world, actor) => world?.actors?.[actor]?.upgrades || [];
+  function avatarImage(world, actor) {
+    const avatar = humanAvatar(actor);
+    if (!avatar) return null;
+    const has = upgradesOf(world, actor);
+    const upgrade = Object.keys(PORTRAITS).find((id) => has.includes(id));
+    if (upgrade) return PORTRAITS[upgrade](actor);
+    return holdsScarf(world, actor) ? scarfPortrait(actor) : avatar.image;
+  }
+
+  // v2/card-game/sleep-portraits.mjs
+  var travelers = /* @__PURE__ */ new Set([
+    "vale",
+    "mara",
+    "ash",
+    "nell",
+    "tavi",
+    "rue",
+    "orin",
+    "ada"
+  ]);
+  var sleepPortraitAssets = [
+    ...[...travelers].flatMap(
+      (id) => ["", "-scarf"].map(
+        (wardrobe) => `assets/shared/characters/${id}-sleeping${wardrobe}.webp`
+      )
+    ),
+    ...["moth", "keeper"].map((id) => `assets/sleep/${id}-sleeping.webp`)
+  ];
+  function sleepingPortrait(world, id) {
+    if (!world?.actors?.[id]?.sleeping) return null;
+    if (travelers.has(id)) {
+      const scarf = avatarImage(world, id) === scarfPortrait(id);
+      return `assets/shared/characters/${id}-sleeping${scarf ? "-scarf" : ""}.webp`;
+    }
+    return ["moth", "keeper"].includes(id) ? `assets/sleep/${id}-sleeping.webp` : null;
+  }
+
   // v2/card-game/narrative.mjs
   function refusalFact(played) {
     const asked = played.verb === "ask" ? `request for ${nameOf(played.itemId)}` : played.verb === "accompany" ? `invitation to ${nameOf(played.destinationId)}` : `offer of ${nameOf(played.itemId)}`;
     return `${nameOf(played.targetId)} refused ${nameOf(played.actorId)}'s ${asked} (refusal: ${played.reason || "wants-something-else"}). Nothing changed.`;
   }
   function turnOutcome(world) {
+    const hand = (id) => sleepingPortrait(world, id) ? null : heldItem(world, id);
     const events = world.log.filter(
       (entry) => entry.turn === world.turn && !entry.generated
     );
@@ -21625,6 +21676,7 @@
       .../* @__PURE__ */ new Set([
         played?.itemId,
         played?.receiveId,
+        ...actorIds2.map(hand),
         ...Object.keys(world.items).filter(
           (id) => actorIds2.includes(rootHolder(world, id))
         ),
@@ -21652,6 +21704,7 @@
           id,
           location: actor.place,
           holding: carried(world, id),
+          heldItem: hand(id),
           travel: movement ? {
             from: movement.fromLocationId,
             to: movement.locationId,
@@ -21702,6 +21755,11 @@
     return [...new Set(ways)].filter((to) => shut.includes(to) || open.includes(to)).map(
       (to) => shut.includes(to) ? `The way to ${nameOf(to)} is shut.` : `The way to ${nameOf(to)} is open.`
     );
+  }
+  function visibleItem(world, observer, item, location) {
+    const here = world.actors[observer]?.place ?? location;
+    const owner2 = rootHolder(world, item);
+    return itemPlace2(world, item) === here && (owner2 === observer || owner2 === here || !sleepingPortrait(world, owner2) && world.items[item].holder === owner2 && heldItem(world, owner2) === item);
   }
   function narrativeContext(world, action = null, isCovered = null) {
     const cast = dialogueCast(world, action);
@@ -21863,7 +21921,7 @@
             );
           for (const item of desire.items)
             facts.push(
-              carried(world, id).includes(item) ? `Already holds the wanted ${nameOf(item)}.` : itemPlace2(world, item) === world.actors[id].place ? `Wants ${nameOf(item)}, currently with ${nameOf(rootHolder(world, item))}.` : `Wants ${nameOf(item)}.`
+              carried(world, id).includes(item) ? `Already holds the wanted ${nameOf(item)}.` : visibleItem(world, id, item, location) ? `Wants ${nameOf(item)}, currently with ${nameOf(rootHolder(world, item))}.` : `Wants ${nameOf(item)}.`
             );
           if (desire.location)
             facts.push(
@@ -21905,7 +21963,7 @@
             facts.push("The wrapped bell rests beside the quiet water.");
         }
         facts.push(
-          `At the dialogue scene: ${present.map(nameOf).join(", ")}. Items here: ${localItems.map(nameOf).join(", ") || "none"}.`
+          `At the dialogue scene: ${present.map(nameOf).join(", ")}. Items here: ${localItems.filter((item) => visibleItem(world, id, item, location)).map(nameOf).join(", ") || "none"}.`
         );
         return {
           id,
@@ -21936,26 +21994,6 @@
     };
     return isCovered ? forgetCovered(world, context, isCovered) : forgetUnfound(world, context);
   }
-
-  // v2/card-game/sleep-portraits.mjs
-  var travelers = /* @__PURE__ */ new Set([
-    "vale",
-    "mara",
-    "ash",
-    "nell",
-    "tavi",
-    "rue",
-    "orin",
-    "ada"
-  ]);
-  var sleepPortraitAssets = [
-    ...[...travelers].flatMap(
-      (id) => ["", "-scarf"].map(
-        (wardrobe) => `assets/shared/characters/${id}-sleeping${wardrobe}.webp`
-      )
-    ),
-    ...["moth", "keeper"].map((id) => `assets/sleep/${id}-sleeping.webp`)
-  ];
 
   // v2/card-game/rarity-portraits.mjs
   var appearances = {

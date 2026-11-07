@@ -109,7 +109,9 @@ fn states(context: &Context, id: &str, listener: Option<&str>) -> Vec<String> {
         };
         let whose = if item.holder == id {
             "My".to_string()
-        } else if Some(item.holder.as_str()) == listener {
+        } else if Some(item.holder.as_str()) == listener
+            && custody::visible_holder(context, id, entity).is_some()
+        {
             format!("{}'s", name(&item.holder))
         } else {
             continue;
@@ -138,7 +140,8 @@ fn wanted(context: &Context, entity: &Entity, id: &str) -> Option<String> {
     let desire = entity.desire.as_ref()?;
     desire.items.iter().find_map(|item| {
         let held = outcome.items.iter().find(|i| &i.id == item)?;
-        (held.holder != id && kind(&held.holder, "avatar") && held.location == context.location)
+        custody::visible_holder(context, id, item)
+            .is_some()
             .then(|| {
                 format!(
                     "{} is holding {}.",
@@ -195,12 +198,6 @@ pub(super) fn lines(context: &Context, entity: &Entity, p: &Perception) -> Vec<(
     if !context.concealed.contains(&context.location) {
         pinned.extend(anchor(&context.location));
     }
-    pinned.extend(custody::holding(context, entity));
-    pinned.extend(
-        custody::facts(context, id)
-            .into_iter()
-            .filter(|f| f.starts_with("I ")),
-    );
     // "Between us" may already tell a deed ("Pip threatened me…").
     let between = super::between::lines(context, entity);
     let stem = |line: &str| -> Vec<String> {
@@ -229,7 +226,11 @@ pub(super) fn lines(context: &Context, entity: &Entity, p: &Perception) -> Vec<(
             .zip([5, 1])
             .map(|(line, rank)| (rank, line)),
     );
-    extra.extend(wanted(context, entity, id).map(|line| (3, line)));
+    extra.extend(
+        wanted(context, entity, id)
+            .filter(|line| !custody::visible_holding(context, id).contains(line))
+            .map(|line| (3, line)),
+    );
     extra.extend(
         p.pull
             .as_ref()
