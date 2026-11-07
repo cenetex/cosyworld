@@ -10,6 +10,7 @@ import {
 import {
   currentCompany,
   talkedDirectly,
+  validConversations,
 } from "../v2/card-game/conversation.mjs";
 import { packPeople } from "../v2/card-game/pack-registry.mjs";
 const fable = "hoppycat-fable";
@@ -88,6 +89,20 @@ describe("current company from a real Talk", () => {
       const bad = structuredClone(s);
       pair(bad).company = company;
       expect(() => encodeSave(bad)).toThrow();
+    }
+    for (const changed of [
+      { kind: "notice" },
+      { verb: "wait" },
+      { generated: true },
+      { actorId: "rue" },
+      { targetId: "moth" },
+    ]) {
+      const bad = structuredClone(s);
+      Object.assign(
+        bad.log.find((e) => e.seq === pair(bad).company),
+        changed,
+      );
+      expect(validConversations(bad)).toBe(false);
     }
     const old = structuredClone(s);
     delete old.conversations;
