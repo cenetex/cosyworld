@@ -17973,6 +17973,36 @@
     }
   }
 
+  // v2/card-game/handover.mjs
+  var sourceMatches = (s, seq, challenger, defender, item, turn, location) => {
+    const e = s.log.find((e2) => e2.seq === seq);
+    return !e || e.kind === "action" && !e.generated && e.verb === "threaten" && e.actorId === challenger && e.targetId === defender && e.itemId === item && e.turn === turn && e.locationId === location;
+  };
+  var sequence2 = (seq, max) => Number.isSafeInteger(seq) && seq > 0 && seq <= max;
+  function validThreatSource(s, c) {
+    return c.sourceSeq === void 0 || sequence2(c.sourceSeq, s.eventSeq) && sourceMatches(
+      s,
+      c.sourceSeq,
+      c.challenger,
+      c.defender,
+      c.item,
+      c.opened,
+      c.location
+    );
+  }
+  function validHandover(s, e) {
+    const h = e.handover;
+    return h === void 0 || h && Object.keys(h).sort().join() === "kind,openedTurn,sourceSeq" && h.kind === "pressure" && e.kind === "action" && !e.generated && e.verb === "give" && e.accepted === true && s.items[e.itemId] && s.actors[e.actorId] && s.actors[e.targetId] && e.actorId !== e.targetId && sequence2(e.seq, s.eventSeq) && Number.isSafeInteger(h.openedTurn) && h.openedTurn > 0 && h.openedTurn <= e.turn && (h.sourceSeq === null || sequence2(h.sourceSeq, e.seq - 1) && sourceMatches(
+      s,
+      h.sourceSeq,
+      e.targetId,
+      e.actorId,
+      e.itemId,
+      h.openedTurn,
+      e.locationId
+    ));
+  }
+
   // v2/card-game/roaming-routes.mjs
   var roamingActors = Object.keys(packPeople).filter(roamingQuestActor);
   var authoredRouteEdges = () => [
@@ -20615,7 +20645,7 @@
       fail();
     const fighting = /* @__PURE__ */ new Set();
     for (const c of s.standoffs) {
-      if (!c || !actorIds.includes(c.challenger) || !actorIds.includes(c.defender) || c.challenger === c.defender || !Object.hasOwn(places, c.location) || c.item !== null && !ids.includes(c.item) || typeof c.answered !== "boolean" || !Number.isSafeInteger(c.opened) || c.opened < 1 || c.opened > s.turn)
+      if (!c || !actorIds.includes(c.challenger) || !actorIds.includes(c.defender) || c.challenger === c.defender || !Object.hasOwn(places, c.location) || c.item !== null && !ids.includes(c.item) || typeof c.answered !== "boolean" || !Number.isSafeInteger(c.opened) || c.opened < 1 || c.opened > s.turn || !validThreatSource(s, c))
         fail();
       const pair = c.resolve && typeof c.resolve === "object" ? fightersOf(c) : [];
       if (pair.length < 2 || pair.some((id) => !actorIds.includes(id) || fighting.has(id)))
@@ -20715,6 +20745,7 @@
     ];
     const cast = castIds, entities2 = entityIds;
     for (const e of s.log) {
+      if (!validHandover(s, e)) fail();
       if (e.seq !== void 0) {
         if (!Number.isSafeInteger(e.seq) || e.seq <= seq || e.seq > s.eventSeq)
           fail();
