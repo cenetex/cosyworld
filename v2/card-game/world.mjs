@@ -5,6 +5,11 @@ import {
   validConversations,
 } from "./conversation.mjs";
 import { expressionOf } from "./expression.mjs";
+import {
+  pressureBeforeGive,
+  validHandover,
+  validThreatSource,
+} from "./handover.mjs";
 import { installJourneyProgress } from "./pack-journeys.mjs";
 import { levelTier } from "./level-tiers.mjs";
 import { recordLearning, beginLearning, reconsiderPlan } from "./learning.mjs";
@@ -2440,6 +2445,7 @@ function performPlay(s, a, round = null, settle = []) {
   }
   const learningStart = beginLearning(s, a);
   const holder = holderBefore(s, a);
+  const pressure = pressureBeforeGive(s, a);
   const usefulGift =
     a.kind === "give" &&
     (valueOf(s, a.target, a.item) >= 5 || needed(s, a.target, a.item));
@@ -2604,7 +2610,8 @@ function performPlay(s, a, round = null, settle = []) {
         text += ` ${nameOf(a.target)} declines.`;
         break;
       }
-      if (a.kind === "give") trustGiver(s, a.target, a.item, a.actor);
+      if (a.kind === "give" && !pressure)
+        trustGiver(s, a.target, a.item, a.actor);
       transfer(s, a.item, a.target, a.text);
       if (a.kind === "trade") transfer(s, a.receive, a.actor, a.text);
       break;
@@ -2684,12 +2691,19 @@ function performPlay(s, a, round = null, settle = []) {
     here !== s.actors[a.actor].place
       ? arriveRecitals(s, packDefinitions, a.actor)
       : [];
+  const handover =
+    requestAccepted && pressure && s.items[a.item]?.holder === a.target
+      ? pressure
+      : null;
+  if (handover)
+    text = `${who} hands the ${nameOf(a.item)} to ${nameOf(a.target)} under pressure.`;
   meetCast(s);
   recordLifeAction(
     s,
     a,
     invitation?.accepted ?? requestAccepted,
     usefulGift && requestAccepted,
+    handover,
   );
   addLog(s, "World", text, {
     kind: "action",
@@ -2711,7 +2725,10 @@ function performPlay(s, a, round = null, settle = []) {
       ? { destinationId: a.destination, accepted: invitation.accepted }
       : {}),
     ...(a.kind === "attack" ? { locationId: here, ...combat } : {}),
+    ...(handover ? { handover } : {}),
   });
+  if (a.kind === "threaten")
+    standoffFor(s, a.actor).sourceSeq = s.log.at(-1).seq;
   recordConversation(s, s.log.at(-1));
   // A gift in person to an aggrieved recipient is a repair all present see.
   const answer = repairAnswer(
@@ -2722,6 +2739,7 @@ function performPlay(s, a, round = null, settle = []) {
     a.kind === "give" &&
       requestAccepted &&
       meetsItemWant(s, a.target, a.item, { ...a, accepted: true }),
+    handover,
   );
   recordReaction(s, a, witnesses, requestAccepted, s.log.at(-1));
   const repair =
@@ -3647,7 +3665,8 @@ export function validateWorld(s) {
       typeof c.answered !== "boolean" ||
       !Number.isSafeInteger(c.opened) ||
       c.opened < 1 ||
-      c.opened > s.turn
+      c.opened > s.turn ||
+      !validThreatSource(s, c)
     )
       fail();
     const pair =
@@ -3855,6 +3874,7 @@ export function validateWorld(s) {
   const cast = castIds,
     entities = entityIds;
   for (const e of s.log) {
+    if (!validHandover(s, e)) fail();
     if (e.seq !== undefined) {
       if (!Number.isSafeInteger(e.seq) || e.seq <= seq || e.seq > s.eventSeq)
         fail();

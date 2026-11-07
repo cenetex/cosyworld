@@ -133,7 +133,13 @@ function remember(life, e) {
 }
 // Record what happened to each participant. Experiences are memories, not
 // points.
-export function recordLifeAction(s, a, accepted, usefulGift = false) {
+export function recordLifeAction(
+  s,
+  a,
+  accepted,
+  usefulGift = false,
+  handover = null,
+) {
   if (!s.life) return;
   const participant = (id) =>
     lifeOf(s, id) !== undefined &&
@@ -142,7 +148,9 @@ export function recordLifeAction(s, a, accepted, usefulGift = false) {
       s.controlledActors?.includes(id));
   const social =
     a.kind === "talk" ||
-    (["ask", "accompany", "give", "trade"].includes(a.kind) && accepted);
+    (["ask", "accompany", "give", "trade"].includes(a.kind) &&
+      accepted &&
+      !handover);
   if (social && s.actors[a.target])
     for (const [id, other] of [
       [a.actor, a.target],
@@ -150,13 +158,13 @@ export function recordLifeAction(s, a, accepted, usefulGift = false) {
     ])
       if (participant(id))
         lifeOf(s, id).company[other] = s.turn + COMPANY_TURNS;
-  if (a.kind === "give" && accepted && participant(a.target))
+  if (a.kind === "give" && accepted && !handover && participant(a.target))
     lifeOf(s, a.target).attachments[a.item] = { from: a.actor, turn: s.turn };
   for (const id of Object.keys(s.life.actors))
     for (const item of Object.keys(lifeOf(s, id).attachments))
       if (rootOwner(s, item) !== id) delete lifeOf(s, id).attachments[item];
   const kindFor = (id) => {
-    if (a.kind === "give" && usefulGift)
+    if (a.kind === "give" && usefulGift && !handover)
       return id === a.actor ? "help" : "gift";
     if (a.kind === "trade" && accepted) return "trade";
     if (a.kind === "talk") return "talk";

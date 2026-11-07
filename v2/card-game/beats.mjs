@@ -212,6 +212,11 @@ export function actionCaption(
     case "attack":
       return caption("⚔", `${a} struck ${t}. ${attackResult(entry)}`);
     case "give":
+      if (entry.accepted && entry.handover?.kind === "pressure")
+        return caption(
+          "⇄",
+          `${a} handed ${the(entry.itemId)} to ${t} under pressure.`,
+        );
       return entry.accepted === false
         ? caption(
             "⇄",

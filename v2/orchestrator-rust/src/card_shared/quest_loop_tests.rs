@@ -260,3 +260,46 @@ fn held_item_keeps_the_last_received_item_through_journal_replay() {
     drop(c);
     let _ = std::fs::remove_file(path);
 }
+
+#[test]
+fn pressured_handover_replays_custody_and_social_meaning_without_checkpoints() {
+    let mut world = created(engine::VERSION);
+    // A local actual Ask -> Threaten save, continued through shared authority.
+    world.game = serde_json::from_str(include_str!(
+        "../../../../test/fixtures/card-pressured-handover.json"
+    ))
+    .unwrap();
+    let (path, c, id) = fixture("pressured-handover-replay", &world);
+    let commit =
+        |w: &mut World, command: Value| full_store::commit(&c, &id, w, command, now()).unwrap();
+    commit(&mut world, json!({"op":"claim","actor":"vale"}));
+    commit(&mut world, json!({"op":"enter","actor":"vale"}));
+    let source = world.game["standoffs"][0]["sourceSeq"].clone();
+    assert!(source.as_u64().unwrap() > 0);
+    let give = play(&world, |a| {
+        a["kind"] == "give" && a["item"] == "lamp" && a["target"] == "moth"
+    });
+    commit(&mut world, give.clone());
+    assert_eq!(world.game["items"]["lamp"]["holder"], "moth");
+    assert_eq!(world.game["actors"]["moth"]["trust"]["vale"], 0);
+    assert!(world.game["life"]["actors"]["moth"]["attachments"]["lamp"].is_null());
+    assert_eq!(world.game["standoffs"], json!([]));
+    let event = world.game["log"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|e| e["verb"] == "give")
+        .unwrap();
+    assert_eq!(event["handover"]["sourceSeq"], source);
+    assert_eq!(event["handover"]["kind"], "pressure");
+    let after = world.clone();
+    assert!(full_store::commit(&c, &id, &mut world, give, now()).is_err());
+    assert_eq!(world, after);
+    c.execute("DELETE FROM card_full_checkpoints WHERE world=?", [&id])
+        .unwrap();
+    drop(c);
+    let c = store::open(&path).unwrap();
+    assert_eq!(full_store::world(&c, &id, now()).unwrap(), world);
+    drop(c);
+    let _ = std::fs::remove_file(path);
+}
