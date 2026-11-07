@@ -209,3 +209,63 @@ fn rules_98_world_upgrades_to_99_keeping_its_opening_and_packs() {
     assert_eq!(full_store::world(&c, &id, now()).unwrap(), world);
     let _ = std::fs::remove_file(path);
 }
+
+#[test]
+fn craft_outcome_keeps_its_source_and_custody_through_journal_replay() {
+    let mut world = created(engine::VERSION);
+    let game = &mut world.game;
+    game.as_object_mut().unwrap().remove("opening");
+    game["turn"] = json!(12);
+    game["revision"] = json!(12);
+    game["actors"]["vale"]["place"] = json!("greek-courtyard");
+    game["actors"]["greek-baker"]["place"] = json!("greek-courtyard");
+    game["items"]["greek-water-jar"]["holder"] = json!("vale");
+    game["items"]["greek-wheat"]["holder"] = json!("greek-baker");
+    let (path, c, id) = fixture("craft-outcome", &world);
+    let commit = |w: &mut World, command: Value| {
+        full_store::commit(&c, &id, w, command.clone(), now())
+            .unwrap_or_else(|e| panic!("{command}: {e}"))
+    };
+    commit(&mut world, json!({"op":"claim","actor":"vale"}));
+    commit(&mut world, json!({"op":"enter","actor":"vale"}));
+    let gift = play(&world, |a| {
+        a["kind"] == "give" && a["item"] == "greek-water-jar" && a["target"] == "greek-baker"
+    });
+    commit(&mut world, gift.clone());
+    let events = world.game["log"].as_array().unwrap();
+    let event = events.iter().find(|e| e["verb"] == "craft").unwrap();
+    assert_eq!(event["actorId"], "greek-baker");
+    assert_eq!(event["itemId"], "greek-bread");
+    assert_eq!(event["holderId"], "greek-courtyard");
+    assert_eq!(
+        event["consumedIds"],
+        json!(["greek-water-jar", "greek-wheat"])
+    );
+    let source = events
+        .iter()
+        .find(|e| e["seq"] == event["sourceSeq"])
+        .unwrap();
+    assert_eq!(source["verb"], "give");
+    assert_eq!(source["itemId"], "greek-water-jar");
+    assert_eq!(source["turn"], event["turn"]);
+    assert_eq!(
+        world.game["items"]["greek-bread"]["holder"],
+        "greek-courtyard"
+    );
+    let before_retry = world.clone();
+    assert!(full_store::commit(&c, &id, &mut world, gift, now()).is_err());
+    assert_eq!(world, before_retry);
+    let take = play(&world, |a| {
+        a["kind"] == "take" && a["item"] == "greek-bread"
+    });
+    commit(&mut world, take);
+    assert_eq!(world.game["items"]["greek-bread"]["holder"], "vale");
+    c.execute("DELETE FROM card_full_checkpoints WHERE world=?", [&id])
+        .unwrap();
+    assert_eq!(full_store::world(&c, &id, now()).unwrap(), world);
+    drop(c);
+    let reopened = store::open(&path).unwrap();
+    full_store::schema(&reopened).unwrap();
+    assert_eq!(full_store::world(&reopened, &id, now()).unwrap(), world);
+    let _ = std::fs::remove_file(path);
+}
