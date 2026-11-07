@@ -240,3 +240,56 @@ fn rules_100_busy_world_plays_well_inside_the_deadline() {
     eprintln!("rules 100 busy world: slowest play {slowest:?}");
     assert!(slowest < std::time::Duration::from_millis(1500));
 }
+
+#[test]
+fn ordinary_guard_orders_and_drink_replay_from_the_journal() {
+    let mut world = created(engine::VERSION);
+    world.claimed[0] = 1;
+    world.present[0] = 1;
+    world.game.as_object_mut().unwrap().remove("opening");
+    world.game["actors"]["vale"]["place"] = json!("greek-gate");
+    world.game["crossings"]["pond-greek-harbor"]["discovered"] = json!(true);
+    world.game["items"]["greek-decree"]["holder"] = json!("vale");
+    world.game["items"]["greek-creon-writ"]["holder"] = json!("vale");
+    world.game["items"]["greek-wine-skin"]["holder"] = json!(GUARD);
+    let (path, c, id) = fixture("guard-papers", &world);
+    let commit =
+        |w: &mut World, action: Value| full_store::commit(&c, &id, w, play(action), now()).unwrap();
+    let writ = pick(&world, |a| {
+        a["kind"] == "give" && a["item"] == "greek-creon-writ" && a["target"] == GUARD
+    })
+    .unwrap();
+    commit(&mut world, writ.clone());
+    assert_eq!(world.game["actors"][GUARD]["place"], "greek-courtyard");
+    let before = world.game.clone();
+    assert!(full_store::commit(&c, &id, &mut world, play(writ), now()).is_err());
+    assert_eq!(world.game, before);
+    let walk = pick(&world, |a| {
+        a["kind"] == "move" && a["target"] == "greek-courtyard"
+    })
+    .unwrap();
+    commit(&mut world, walk);
+    let wait = pick(&world, plain_wait).unwrap();
+    commit(&mut world, wait);
+    assert!(world.game["log"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|e| e["actorId"] == GUARD && e["verb"] == "eat" && e["itemId"] == "greek-wine-skin"));
+    let order = pick(&world, |a| {
+        a["kind"] == "give" && a["item"] == "greek-decree" && a["target"] == GUARD
+    })
+    .unwrap();
+    commit(&mut world, order);
+    assert_eq!(world.game["actors"][GUARD]["place"], "greek-gate");
+    assert_eq!(world.game["items"]["greek-creon-writ"]["holder"], GUARD);
+    assert_eq!(world.game["items"]["greek-decree"]["holder"], GUARD);
+    c.execute("DELETE FROM card_full_checkpoints WHERE world=?", [&id])
+        .unwrap();
+    drop(c);
+    let reopened = store::open(&path).unwrap();
+    full_store::schema(&reopened).unwrap();
+    assert_eq!(full_store::world(&reopened, &id, now()).unwrap(), world);
+    drop(reopened);
+    std::fs::remove_file(path).unwrap();
+}
