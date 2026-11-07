@@ -231,8 +231,8 @@ const touchVerbs = ["give", "trade", "attack", "threaten", "accompany"];
 // took or damaged, or it is the recipient's current want. Any other gift is
 // an ordinary gift. `wanted` says whether the gift meets an item quest in the
 // recipient's stack, lit-ness and all, read before the gift settles it.
-export function repairAnswer(s, a, accepted, witnesses, wanted = false) {
-  if (a.kind !== "give" || !accepted || !witnesses.includes(a.target))
+export function repairAnswer(s, a, accepted, witnesses, wanted = false, handover = null) {
+  if (a.kind !== "give" || !accepted || handover || !witnesses.includes(a.target))
     return null;
   const g = (s.motives?.grievances[a.target] || [])
     .filter(
