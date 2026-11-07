@@ -109,8 +109,47 @@ export function settleCrafting(s, a, nameOf, log) {
     log(
       `${nameOf(locked.by)} uses ${used.slice(0, -1).join(", ")}${used.length > 1 ? " and " : ""}${used.at(-1)}. ${capital(the(nameOf(id)))} is ready.`,
       home,
+      {
+        actorId: locked.by,
+        itemId: id,
+        consumedIds: [...locked.consumes],
+        holderId: s.items[id].holder,
+      },
     );
   }
+}
+
+// A craft records the ingredients used in that occurrence. Later custody and
+// recipe edits keep their own meaning; retained source actions still agree.
+export function validCraftEvent(s, event) {
+  if (event.verb !== "craft") return event.consumedIds === undefined;
+  const { consumedIds, sourceSeq } = event;
+  if (
+    event.kind !== "narration" ||
+    event.generated ||
+    !s.actors[event.actorId] ||
+    !s.items[event.itemId] ||
+    !Number.isSafeInteger(event.seq) ||
+    !Number.isSafeInteger(event.turn) ||
+    event.turn < 0 || event.turn > s.turn ||
+    !Number.isSafeInteger(sourceSeq) ||
+    sourceSeq < 1 || sourceSeq >= event.seq ||
+    !Array.isArray(consumedIds) ||
+    consumedIds.length < 1 || consumedIds.length > 3 ||
+    consumedIds.some((id, i) =>
+      !s.items[id] || id === event.itemId || consumedIds.indexOf(id) !== i) ||
+    !Array.isArray(event.witnesses) ||
+    !event.witnesses.includes(event.actorId)
+  )
+    return false;
+  const source = s.log.find((entry) => entry.seq === sourceSeq);
+  return (
+    !source ||
+    (source.kind === "action" && source.turn === event.turn &&
+      ["give", "trade", "drop"].includes(source.verb) &&
+      source.accepted !== false && consumedIds.includes(source.itemId) &&
+      source.targetId === (source.verb === "drop" ? event.locationId : event.actorId))
+  );
 }
 
 // The light change and long rests this round brought.
