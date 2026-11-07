@@ -1,6 +1,6 @@
 // A card locked behind a quest is a carved wooden box (locked-box.mjs). At
-// the shut City Gate the battlefield is the locked lid, labelled "Locked" on
-// a red edge; its contents stay concealed. Talk gives the guard's quest. Giving
+// the shut City Gate the battlefield is a nameless lid with a red edge.
+// Talk gives the guard's quest. Giving
 // the guard Creon's Writ opens the way: the box turns over once and
 // stays open through redraws.
 //
@@ -217,8 +217,10 @@ try {
       await page.keyboard.press("Escape");
       await selectCard(page, "greek-creon-writ");
       await selectCard(page, "greek-guard");
+      const give = readyActionButton(page, "give");
+      await give.waitFor();
       const turning = page.evaluate(holdLid, { id: FIELD, at: 60, reduced });
-      await readyActionButton(page).click();
+      await give.click();
       assert.equal(
         (await state()).items["greek-creon-writ"].holder,
         "greek-guard",
