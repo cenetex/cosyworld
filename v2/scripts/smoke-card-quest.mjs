@@ -464,7 +464,7 @@ try {
         .locator("#hand .want-frame:not([hidden]) .want-card")
         .first()
         .getAttribute("aria-label"),
-      "Quest: Give The Burial Decree to The Gate Guard, near",
+      "Quest: Give Gate Decree to The Gate Guard, near",
     );
     // The first fold tap also names the quest and offers its Give action.
     await page
@@ -474,7 +474,7 @@ try {
       (
         await page.locator(".action-beat-heading:not([hidden])").textContent()
       ).trim(),
-      "Give The Burial Decree to The Gate Guard",
+      "Give Gate Decree to The Gate Guard",
     );
     assert.deepEqual(
       await page
