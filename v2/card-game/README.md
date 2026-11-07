@@ -311,7 +311,10 @@ first, and is absent while the stack holds one. Player-facing text says quest.
   anyone known, or what they hold, will do, reachable or not. A new world
   draws one for every avatar without an authored `want`; a quest left empty
   by an older rule set or a pack mounted later is drawn after a short rest.
-- **Level quest.** The quest is the threshold (#1583). A player's
+- **Level quest.** Its card reads **Level Up** beside the target level's
+  Roman numeral. Selecting it shows the current task. A checked step keeps
+  its deed title; the final checked card reads **Level Up** until claimed.
+  The quest is the threshold (#1583). A player's
   experience still rises with every quest met, but its level (`actor.level`)
   rises only through a level quest. Waking from a long rest at a sanctuary
   with experience enough for the next level brings that quest in the dream:

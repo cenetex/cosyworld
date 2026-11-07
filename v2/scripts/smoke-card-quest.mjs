@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
 import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
-import { createWorld, encodeSave } from "../card-game/world.mjs";
+import { createWorld, encodeSave, legalActions, play as playWorld } from "../card-game/world.mjs";
+import { newWant, questXp, questSteps } from "../card-game/want.mjs";
 import { availableCards } from "../card-game/cards.mjs";
 import { selectCard, tapCard } from "./card-browser-helpers.mjs";
 
@@ -40,6 +41,21 @@ shrine.actors.vale.under = [
   { kind: "item", target: "lamp", step: { verb: "give", to: "greek-ismene" } },
   { kind: "place", target: "greek-gate" },
 ].map((want) => ({ ...want, since: 0, refusals: 0 }));
+// Finish the last two deeds of level V through the current rules.
+let levelReward = createWorld();
+levelReward.turn = levelReward.revision = 144;
+levelReward.actors.vale.visited.push("pond");
+Object.assign(levelReward.actors.vale, {
+  level: 4, xp: questXp(5) + questSteps(5) - 1,
+  want: { ...newWant("place", "station", 144), quest: { level: 5, left: 2 } },
+});
+for (const kind of ["wait", "wait", "sleep"]) {
+  if (levelReward.actors.vale.questRewards?.length) levelReward.actors.vale.place = "attic";
+  const action = legalActions(levelReward).find((a) => kind === "sleep" ? a.sleep : a.kind === kind);
+  const result = playWorld(levelReward, action);
+  assert.ok(result.ok, result.error);
+  levelReward = result.state;
+}
 await mkdir(output, { recursive: true });
 try {
   for (const [width, height, motion] of [
@@ -332,9 +348,10 @@ try {
     const described = (
       await page.locator(".action-beat-heading:not([hidden])").textContent()
     ).trim();
+    await page.waitForFunction(() => document.querySelector('#hand .want-card[data-picked="true"]')?.dataset.unrevealed === "false");
     assert.ok(
       (await picked.getAttribute("aria-label"))
-        .replace(/Level [IVXLCDM]+: /u, "")
+        .replace(/Level Up [IVXLCDM]+: /u, "")
         .startsWith(`Quest: ${described}`),
       `the beat names the quest: ${described}`,
     );
@@ -971,12 +988,16 @@ try {
         });
         if (level) {
           const action = page.locator("#action-beat");
+          const levelCard = page.locator('#hand .want-card[data-quest-id="quest:0"]');
+          await page.waitForFunction(() => document.querySelector('#hand .want-card[data-quest-id="quest:0"]')?.dataset.unrevealed === 'false');
+          assert.equal(await levelCard.locator(".quest-verb").textContent(), "Level Up");
+          assert.equal(await levelCard.locator(".quest-level").textContent(), "XX");
           assert.doesNotMatch(await action.innerText(), /Level XX/u);
           assert.match(
             await page
               .locator('#hand .want-card[data-quest-id="quest:0"]')
               .getAttribute("aria-label"),
-            /Level XX:/u,
+            /Level Up XX:/u,
           );
           assert.equal(await action.getAttribute("data-tier"), "rare");
           assert.equal(
@@ -999,6 +1020,32 @@ try {
         }
       }
     }
+    // A checked step keeps its deed. The final receipt names the earned level.
+    const rewardKey = `cosyworld.reflected-shore.v1.level-reward-${width}`;
+    await page.evaluate(({ key, save, seen }) => {
+      localStorage.setItem(key, save);
+      localStorage.setItem(`${key}.seen`, JSON.stringify(seen));
+    }, { key: rewardKey, save: encodeSave(levelReward), seen: availableCards(levelReward) });
+    await page.goto(`http://127.0.0.1:${server.address().port}/?table=level-reward-${width}`);
+    await ready();
+    assert.match(await page.locator("#hand .quest-fold").getAttribute("aria-label"), /1 active quest, 2 rewards to claim/u);
+    await openFold();
+    const rewards = levelReward.actors.vale.questRewards;
+    const finalReward = rewards.find((r) => r.level === 5);
+    for (const reward of rewards) {
+      const card = page.locator(`[data-quest-key="reward:vale:${reward.id}"]`);
+      assert.equal(await card.locator(".quest-verb").textContent(), reward.level === 5 ? "Level Up" : "Go to");
+      assert.equal(await card.locator(".quest-level").textContent(), "V");
+      assert.equal(await card.locator(".quest-seal").textContent(), "✓");
+    }
+    const claim = page.locator(`[data-quest-key="reward:vale:${finalReward.id}"]`);
+    await claim.scrollIntoViewIfNeeded();
+    await page.screenshot({ path: new URL(`level-reward-${width}.png`, output).pathname, animations: "disabled" });
+    await claim.click({ position: { x: 40, y: 16 } });
+    await page.waitForFunction(({ key, xp }) => {
+      const actor = JSON.parse(localStorage.getItem(key)).actors.vale;
+      return actor.level === 5 && actor.xp === xp + 1 && actor.questRewards.length === 1;
+    }, { key: rewardKey, xp: levelReward.actors.vale.xp });
     assert.deepEqual(errors, []);
     console.log(
       `Quest fold, met seal, click to clear and +XP, stack fan, choose and drop, avatar stacks passed at ${width}px (${motion}).`,
