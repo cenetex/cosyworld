@@ -226,6 +226,7 @@ try {
     guarded.actors.vale.place = "greek-gate";
     guarded.packs["greek-drama"].met[guard] = 0;
     guarded.items["greek-creon-writ"].holder = guard;
+    guarded.items["greek-decree"].holder = "vale";
     settleGuards(guarded);
     const key = "cosyworld.reflected-shore.v1.learning-guard";
     await page.evaluate(
