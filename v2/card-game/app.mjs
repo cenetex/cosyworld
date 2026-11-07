@@ -198,6 +198,7 @@ import { variantOf } from "./pack-rules.mjs";
 import { hiddenFor, unlockedSince } from "./unlock-view.mjs";
 import {
   currentScene,
+  isSceneText,
   sceneCast,
   nextSpeaker,
   sceneStaging,
@@ -1311,7 +1312,7 @@ function loadTurnLines({ pending = false } = {}) {
   const lines = shownWorld().log.filter(
     (entry) =>
       entry.generated &&
-      entry.kind === "dialogue" &&
+      isSceneText(entry) &&
       entry.turn === world.turn &&
       entry.locationId === world.actors[currentActor(world)].place &&
       // The dreamer says nothing on waking: the dream is the beat.
@@ -5750,7 +5751,7 @@ function syncSharedLine() {
   sharedLineSeq = entry.seq;
   sharedAdvanceRequested = false;
   try {
-    localStorage.setItem(`${SAVE_KEY}.reading`, JSON.stringify({ room, seq: entry.seq }));
+    localStorage.setItem(`${SAVE_KEY}.reading`, JSON.stringify({ room, seq: entry.seq, seed: world.run?.seed }));
   } catch {}
   lineSeq = entry.seq;
   storyStatus = "ready";

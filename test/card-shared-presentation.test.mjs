@@ -126,6 +126,8 @@ describe("shared room dialogue clock", () => {
     expect(sharedReadingLine(incoming, "pond")).toEqual(later);
     expect(sharedReadingLine(incoming, "pond", { room: "station", seq: 10 })).toEqual(later);
     expect(sharedReadingLine({ ...incoming, world: { log: [second, later] } }, "pond", saved)).toEqual(second);
+    expect(sharedReadingLine({ ...incoming, world: { run: { seed: 2 } } }, "pond", { ...saved, seed: 1 })).toEqual(later);
+    expect(sharedReadingLine(incoming, "pond", { ...saved, seq: Infinity })).toEqual(later);
   });
   it("shows a silent reply speaker as … after the spoken line", () => {
     const spoken = {
