@@ -15,6 +15,7 @@ import {
 } from "../v2/card-game/held-item.mjs";
 import { useUp } from "../v2/card-game/item-use.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
+import { currentSharedEngine } from "./fixtures/shared-engine.mjs";
 
 function table() {
   const world = createWorld();
@@ -153,19 +154,27 @@ it("keeps a covering on the chosen object", () => {
 });
 
 it("preserves the hand through shared retry and clears it on seat reset", () => {
+  const engine = currentSharedEngine();
+  const both = (request) => {
+    const result = dispatchShared(request);
+    expect(JSON.parse(engine.cardShared(JSON.stringify(request)))).toEqual(
+      result,
+    );
+    return result;
+  };
   const world = table();
   const seats = { actor: "vale", claimed: ["vale"], present: ["vale"] };
-  const view = dispatchShared({ op: "view", world, ...seats });
+  const view = both({ op: "view", world, ...seats });
   const action = view.actions.find(
     (a) => a.kind === "give" && a.item === "bell" && a.target === "keeper",
   );
   const request = { op: "play", world, action, ...seats };
-  const result = dispatchShared(request);
+  const result = both(request);
   expect(result.ok, result.error).toBe(true);
   expect(result.world.actors.keeper.heldItem).toBe("bell");
-  expect(dispatchShared(structuredClone(request))).toEqual(result);
-  expect(dispatchShared({ ...request, world: result.world }).ok).toBe(false);
-  const reset = dispatchShared({ ...seats, world: result.world, op: "reset" });
+  expect(both(structuredClone(request))).toEqual(result);
+  expect(both({ ...request, world: result.world }).ok).toBe(false);
+  const reset = both({ ...seats, world: result.world, op: "reset" });
   expect(reset.ok, reset.error).toBe(true);
   expect(reset.world.actors.vale.heldItem).toBeNull();
   expect(reset.world.actors.keeper.heldItem).toBe("bell");

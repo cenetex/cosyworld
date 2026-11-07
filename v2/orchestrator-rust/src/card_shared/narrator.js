@@ -18435,6 +18435,27 @@
     );
   }
 
+  // v2/card-game/held-item.mjs
+  function handSnapshot(world) {
+    return Object.fromEntries(
+      Object.entries(world.items).filter(
+        ([id, item]) => world.actors[item.holder] && entityEnabled(world, id)
+      ).map(([id, item]) => [id, item.holder])
+    );
+  }
+  var choicesFor = (hands, actor) => Object.keys(hands).filter((id) => hands[id] === actor).sort();
+  var validHeldItems = (world) => Object.values(world.actors || {}).every(
+    (actor) => actor.heldItem === void 0 || actor.heldItem === null || typeof actor.heldItem === "string" && Object.hasOwn(world.items, actor.heldItem)
+  );
+  function settleHeldItems(world, before = null) {
+    if (!validHeldItems(world)) throw new Error("The held item is invalid.");
+    const hands = handSnapshot(world);
+    for (const [id, actor] of Object.entries(world.actors)) {
+      const choices = choicesFor(hands, id), arrived = before ? choices.filter((item) => before[item] !== id) : [], saved = actor.heldItem;
+      actor.heldItem = arrived.includes(saved) ? saved : arrived.at(-1) ?? (choices.includes(saved) ? saved : choices[0] ?? null);
+    }
+  }
+
   // v2/card-game/pack-items.mjs
   var homed = Object.keys(packThings).filter((id) => packThings[id].home).sort();
   var packKits = packDefinitions.flatMap(
@@ -20551,7 +20572,7 @@
     if (s.run !== void 0 && (Object.keys(s.run || {}).join() !== "seed" || !validSeed(s.run.seed)))
       fail();
     if (!validPackState(s, sensesFor(s)) || !validItemCycle(s)) fail();
-    if (!validConversations(s) || !validOpenedRoutes(s.openedRoutes) || !validHidden(s) || !validDoors(s) || s.hidden && !Object.hasOwn(places, s.hidden.place))
+    if (!validConversations(s) || !validHeldItems(s) || !validOpenedRoutes(s.openedRoutes) || !validHidden(s) || !validDoors(s) || s.hidden && !Object.hasOwn(places, s.hidden.place))
       fail();
     if (!validRouteKnowledge(s, [...authoredRouteEdges(), ...laneEdges()]) || !validMemories(s) || !validMotives(s) || !validLife(s, Object.keys(places)) || !validHome(s) || !validSleep(s, places) || !validGuard(s, places))
       fail();
@@ -20737,6 +20758,7 @@
       installConversations(s);
       latchRoutes(s);
       settleGuards(s);
+      settleHeldItems(s);
       validateWorld(s);
       preserveTransportAccess(s);
     } catch (error) {
