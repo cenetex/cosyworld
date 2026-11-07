@@ -97,10 +97,11 @@ wants and take part in the scene. A visit allows sleep at the visited place;
 the normal sleep schedule still applies. Ordinary Wait, Focus, Claim and
 another room's plays preserve the agreement.
 
-End the visit through a saved rule event when the host leaves alone or takes
-a long rest, the companion commits a departure or accepts another host, a new
+End the visit through a saved rule event when the host leaves alone or its
+Sleep action commits, the companion commits a departure or accepts another host, a new
 harmful incident breaks their company, control changes, or either participant
 is reset or removed from active content. Keep the ending reason for speech.
+Sleep ends the agreement before the resident planning pass.
 After the visit ends, ordinary home policy resumes along available routes.
 A journey resident returns toward its saved waypoint. A closed route leaves
 the resident in the actual place with a visible reason and a later route home.
@@ -120,8 +121,12 @@ as their existing world requirements. Final arrival remains a real event.
 Keep the Hoppy work, attribution and agreement receipts, Myrine's homecoming,
 Swede's recovered kit and Antigone's funeral conditions. Their data continues
 to supply aims and effects. Visiting another place leaves unfinished deeds
-available. Authored `on: depart` choices still commit their departure effects
-and leave carried goods behind according to their existing rule.
+available. Today `on: depart` can make a ready Swede vanish on any cross-pack
+trip and leave his goods behind. Give an agreed story departure an explicit
+purpose in its offered action and saved result. That purpose commits the
+authored final departure and custody effects. An ordinary social visit keeps
+the visitor and their goods together for a later return. Preserve the existing
+autonomous story departure through the same purpose rule.
 
 Party access should reuse a single route check before either inventory moves:
 door resources, open crossings, active places, guards, recovery, ship state
@@ -164,7 +169,9 @@ Away human avatars follow the existing resident consent rule. Returning human
 control ends the AI visit at the actual saved location. A present human chooses
 their own movement. A later joint invitation feature would require that
 person's explicit answer through their existing cards and context button.
-Host disconnect or control transfer ends their visit in the authoritative
+Temporary host disconnect preserves a co-located visit. The away host may then
+act as a resident; actual separation ends the visit through the normal rule.
+Control returning to the companion ends its AI consent in the authoritative
 presence transition, with the same result on replay.
 
 ## Save migration and small PRs
@@ -199,6 +206,8 @@ and prove each migration through local decode and shared journal replay.
   local wants, sleep, separation, harm, host change and return home.
 - Journey visits before agreement, after agreement, off path, return, next
   step and final arrival; work receipts still require their actual deeds.
+- Ready Swede's social visit preserves his presence and goods; an agreed final
+  departure commits the authored ending. Sleep expiry occurs at Sleep commit.
 - Joint keys and nested inventories, closed and reopened paths, guarded ways,
   ship boarding/landing, recovery, capacity and every party member's entry facts.
 - Encode/decode, previous/current saves, pack toggles, reset, away-to-present
