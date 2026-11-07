@@ -51,7 +51,11 @@ describe("the road outside the City Gate", () => {
     const old = start(ROAD);
     old.packs["greek-drama"].revision = 22;
     old.items["greek-water-jar"].holder = ROAD;
-    old.routeKnowledge.vale = [["greek-battlefield", ROAD]];
+    old.routeKnowledge.vale = [
+      ["greek-battlefield", ROAD],
+      [GATE, "greek-aulis"],
+      ["greek-aulis", GATE],
+    ];
     old.actors["greek-guard"].guarding = "greek-battlefield";
     const s = decodeSave(JSON.stringify(old));
     expect(s.actors.vale.place).toBe(ROAD);
@@ -60,6 +64,9 @@ describe("the road outside the City Gate", () => {
       expect.arrayContaining([
         ["greek-battlefield", GATE],
         [GATE, ROAD],
+        [GATE, "greek-battlefield"],
+        ["greek-battlefield", "greek-aulis"],
+        ["greek-aulis", "greek-battlefield"],
       ]),
     );
     expect(s.actors["greek-guard"].guarding).toBe(COURT);

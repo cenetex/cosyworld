@@ -1,7 +1,8 @@
 # The City Gate and the road to Athens
 
 The City Gate is the junction outside Thebes. The battlefield and Cithaeron
-road meet there. A posted guard controls entry to the courtyard; people
+road meet there. Aulis joins the battlefield, so each junction keeps three
+links. A posted guard controls entry to the courtyard; people
 inside can leave. The road continues to Eleusis, where speaking with the
 mothers begins their own request for passage to Athens. The ship supplies
 another way home through the Theban harbor.

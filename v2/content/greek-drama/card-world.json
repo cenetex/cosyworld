@@ -89,8 +89,7 @@
       "text": "Fresh repairs cover the gate. The courtyard lies inside the wall. Outside, paths lead to the battlefield and the road over Cithaeron.",
       "exits": [
         "greek-battlefield",
-        "greek-cithaeron",
-        "greek-aulis"
+        "greek-cithaeron"
       ],
       "backdrop": "assets/greek-drama/city-gate-closed-day.webp",
       "backdrops": [
@@ -129,7 +128,8 @@
       "name": "The Exposed Battlefield",
       "text": "Broken spear shafts lie in the dust. A strip of earth outside the city is set apart for the fallen brother.",
       "exits": [
-        "greek-gate"
+        "greek-gate",
+        "greek-aulis"
       ],
       "backdrop": "assets/greek-drama/burial-ground-dusk.webp",
       "persona": "Broken spear shafts lie in the dust. A strip of earth outside the city is set apart for the fallen brother."
@@ -162,7 +162,7 @@
       "name": "Aulis Anchorage",
       "text": "The ships lie motionless beside the shore. Soldiers wait outside the command tents.",
       "exits": [
-        "greek-gate"
+        "greek-battlefield"
       ],
       "backdrop": "assets/greek-drama/aulis-anchorage-day.webp",
       "persona": "The ships lie motionless beside the shore. Soldiers wait outside the command tents."
