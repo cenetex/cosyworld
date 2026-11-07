@@ -73,7 +73,7 @@ it("migrates retained direct Talk events and keeps an old latch separate from pe
   s = decodeSave(encodeSave(s));
   expect(talkedDirectly(s, "vale", shade)).toBe(false);
   s = talk(s, "vale", shade);
-  const records = structuredClone(s.conversations);
+  const records = s.conversations.map(({ company: _company, ...record }) => record);
   delete s.conversations;
   expect(decodeSave(encodeSave(s)).conversations).toEqual(records);
 });
