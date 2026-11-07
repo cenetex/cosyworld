@@ -13,6 +13,7 @@ const RULES = [
   "avatar-reset.mjs",
   "adaptive-learning.mjs",
   "boardyai.mjs",
+  "conversation.mjs",
   "expression.mjs",
   "glimpse.mjs",
   "hidden-avatar.mjs",
