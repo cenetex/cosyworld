@@ -292,6 +292,9 @@ The speaker's current inventory comes from the committed outcome. The full
 transcript and the short perception frame share this source, so a busy fact
 list still leaves the character aware of what they carry. A later transfer
 updates that view. Covered objects keep their unnamed sense description.
+The listener's visible held item reaches the same frame when both people
+are present. Its saved hand choice and current direct custody agree before
+the speaker can name it. Each person's own voice keeps their full inventory.
 
 The check flags by default (owner, 2026-11-03). It **blocks** only:
 an empty reply; one over its size cap or unfinished (`shape`); an

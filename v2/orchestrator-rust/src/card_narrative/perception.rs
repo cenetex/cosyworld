@@ -138,7 +138,8 @@ fn wanted(context: &Context, entity: &Entity, id: &str) -> Option<String> {
     let desire = entity.desire.as_ref()?;
     desire.items.iter().find_map(|item| {
         let held = outcome.items.iter().find(|i| &i.id == item)?;
-        (held.holder != id && kind(&held.holder, "avatar") && held.location == context.location)
+        custody::visible_holder(context, id, item)
+            .is_some()
             .then(|| {
                 format!(
                     "{} is holding {}.",
@@ -196,6 +197,7 @@ pub(super) fn lines(context: &Context, entity: &Entity, p: &Perception) -> Vec<(
         pinned.extend(anchor(&context.location));
     }
     pinned.extend(custody::holding(context, entity));
+    pinned.extend(custody::visible_holding(context, id));
     pinned.extend(
         custody::facts(context, id)
             .into_iter()
@@ -229,7 +231,11 @@ pub(super) fn lines(context: &Context, entity: &Entity, p: &Perception) -> Vec<(
             .zip([5, 1])
             .map(|(line, rank)| (rank, line)),
     );
-    extra.extend(wanted(context, entity, id).map(|line| (3, line)));
+    extra.extend(
+        wanted(context, entity, id)
+            .filter(|line| !pinned.contains(line))
+            .map(|line| (3, line)),
+    );
     extra.extend(
         p.pull
             .as_ref()

@@ -74,6 +74,54 @@ pub(super) fn held_item_text(context: &Context, speaker: &str) -> Vec<String> {
         .collect()
 }
 
+pub(super) fn visible_holder<'a>(
+    context: &'a Context,
+    speaker: &str,
+    item: &str,
+) -> Option<&'a str> {
+    let outcome = context.outcome.as_ref()?;
+    let observer = outcome.avatars.iter().find(|a| a.id == speaker)?;
+    let owner = outcome
+        .avatars
+        .iter()
+        .find(|a| a.held_item.as_deref() == Some(item))?;
+    let visible = |id: &str| {
+        !context
+            .concealed
+            .iter()
+            .chain(&context.covered)
+            .any(|hidden| hidden == id)
+            && context.entities.iter().any(|e| e.id == id)
+    };
+    (owner.id != speaker
+        && observer.location == context.location
+        && owner.location == context.location
+        && visible(item)
+        && visible(&owner.id)
+        && outcome
+            .items
+            .iter()
+            .any(|i| i.id == item && i.holder == owner.id && i.location == owner.location))
+    .then_some(owner.id.as_str())
+}
+
+pub(super) fn visible_holding(context: &Context, speaker: &str) -> Option<String> {
+    let outcome = context.outcome.as_ref()?;
+    let listener = listener(context, speaker);
+    let listener_item = outcome
+        .avatars
+        .iter()
+        .find(|a| Some(&a.id) == listener.as_ref())?
+        .held_item
+        .as_ref()?;
+    let owner = visible_holder(context, speaker, listener_item)?;
+    Some(format!(
+        "{} is holding {}.",
+        name(owner),
+        person::the(&name(listener_item))
+    ))
+}
+
 pub(super) fn facts(context: &Context, speaker: &str) -> Vec<String> {
     let Some(outcome) = &context.outcome else {
         return vec![];
@@ -97,46 +145,7 @@ pub(super) fn facts(context: &Context, speaker: &str) -> Vec<String> {
             }
         }
     }
-    // Who holds what, each holder once: "The keeper is holding the Oil
-    // flask and the Bell."
-    let mut held: Vec<(&str, &str, Vec<String>)> = Vec::new();
-    for item in &outcome.items {
-        if let Some(owner) = holder(outcome, &item.id) {
-            let relevant = context
-                .entities
-                .iter()
-                .any(|entity| entity.id == item.id || entity.id == owner)
-                || outcome.card.item.as_deref() == Some(&item.id)
-                || outcome.card.receive.as_deref() == Some(&item.id);
-            // My own hands and the ground here are said with where I am.
-            if !relevant || owner == speaker || owner == context.location {
-                continue;
-            }
-            let thing = super::person::the(&name(&item.id));
-            match held
-                .iter_mut()
-                .find(|(o, at, _)| *o == owner && *at == item.location)
-            {
-                Some((_, _, things)) => things.push(thing),
-                None => held.push((owner, &item.location, vec![thing])),
-            }
-        }
-    }
-    for (owner, at, things) in held {
-        let things = super::person::list(&things);
-        facts.push(super::sentence(if kind(owner, "location") {
-            let verb = if things.contains(" and ") {
-                "are"
-            } else {
-                "is"
-            };
-            format!("{things} {verb} at {}.", name(owner))
-        } else if at == context.location {
-            format!("{} is holding {things}.", name(owner))
-        } else {
-            format!("{} has {things} at {}.", name(owner), name(at))
-        }));
-    }
+    facts.extend(visible_holding(context, speaker));
     facts
 }
 
@@ -207,6 +216,54 @@ pub(super) fn consistent(text: &str, context: &Context, speaker: &str) -> bool {
 mod tests {
     use super::super::{conversation, entity, known, messages, tests, Context, ItemOutcome, Part};
     use super::*;
+
+    #[test]
+    fn visible_listener_custody_survives_later_talk_and_hides_the_rest() {
+        let mut c = tests::context();
+        let mut outcome = tests::solo_departure();
+        outcome.card.kind = "give".into();
+        outcome.card.item = Some("lamp".into());
+        outcome.card.target = Some("moth".into());
+        outcome.card.accepted = Some(true);
+        outcome.avatars[1].location = "station".into();
+        outcome.avatars[1].travel = None;
+        outcome.avatars[1].held_item = Some("lamp".into());
+        outcome.items[0].location = "station".into();
+        assert!(super::super::valid_outcome(&outcome));
+        c.outcome = Some(outcome);
+        let visible = "Pip is holding the Lamp.";
+        assert_eq!(visible_holding(&c, "vale").as_deref(), Some(visible));
+        let outcome = c.outcome.as_mut().unwrap();
+        outcome.card.kind = "talk".into();
+        outcome.card.item = None;
+        outcome.card.accepted = None;
+        let mut c: Context = serde_json::from_value(serde_json::to_value(c).unwrap()).unwrap();
+        for perceived in [false, true] {
+            c.entities[0].perception = perceived.then(Default::default);
+            let prompt = messages(&c, entity(&c, "vale"), Part::Line).assistant;
+            assert!(prompt.contains(visible), "{prompt}");
+            assert!(
+                !prompt.contains("Pip is holding the Black cloth"),
+                "{prompt}"
+            );
+        }
+        assert_eq!(
+            holding(&c, entity(&c, "moth")).as_deref(),
+            Some("I'm holding the Lamp and the Black cloth.")
+        );
+        c.concealed.push("lamp".into());
+        assert_eq!(visible_holding(&c, "vale"), None);
+        c.concealed.clear();
+        c.outcome.as_mut().unwrap().avatars[1].location = "pond".into();
+        assert_eq!(visible_holding(&c, "vale"), None);
+        c.outcome.as_mut().unwrap().avatars[1].location = "station".into();
+        c.outcome.as_mut().unwrap().items[0].holder = "vale".into();
+        assert_eq!(visible_holding(&c, "vale"), None);
+        assert!(!super::super::valid_outcome(c.outcome.as_ref().unwrap()));
+        c.outcome.as_mut().unwrap().avatars[1].held_item = None;
+        assert_eq!(visible_holding(&c, "vale"), None);
+        assert!(super::super::valid_outcome(c.outcome.as_ref().unwrap()));
+    }
 
     #[test]
     fn committed_inventory_survives_full_facts_and_later_transfer() {

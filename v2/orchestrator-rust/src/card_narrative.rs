@@ -503,6 +503,8 @@ struct AvatarOutcome {
     id: String,
     location: String,
     holding: Vec<String>,
+    #[serde(default, rename = "heldItem", skip_serializing_if = "Option::is_none")]
+    held_item: Option<String>,
     travel: Option<Travel>,
 }
 #[derive(Debug, Deserialize, Serialize)]
@@ -768,6 +770,14 @@ fn valid_outcome(outcome: &TurnOutcome) -> bool {
                 && avatar.holding.len() <= 4
                 && avatar.holding.iter().collect::<BTreeSet<_>>().len() == avatar.holding.len()
                 && avatar.holding.iter().all(|id| kind(id, "item"))
+                && avatar.held_item.as_ref().is_none_or(|id| {
+                    avatar.holding.contains(id)
+                        && outcome.items.iter().any(|item| {
+                            &item.id == id
+                                && item.holder == avatar.id
+                                && item.location == avatar.location
+                        })
+                })
                 && avatar.travel.as_ref().is_none_or(|travel| {
                     kind(&travel.from, "location")
                         && travel.to == avatar.location
@@ -4151,7 +4161,7 @@ pub(crate) mod tests {
         assert!(prompt.contains("I received the Bell from Vale."));
         let vale = transcript(&c, &c.entities[0], Part::Line);
         assert!(
-            vale.contains("The keeper has the Oil flask and the Bell at Mirror attic."),
+            !vale.contains("The keeper has the Oil flask and the Bell at Mirror attic."),
             "{vale}"
         );
         // Custody is checked against the resolved world, not prompt words.
@@ -4891,6 +4901,7 @@ pub(crate) mod tests {
             id: "badger".into(),
             location: "clearing".into(),
             holding: vec![],
+            held_item: None,
             travel: None,
         });
         c.outcome = Some(o);
