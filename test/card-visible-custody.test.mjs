@@ -31,6 +31,7 @@ it("keeps chosen hands within the item cap after the committed action item", () 
   world.sharedVersion = 1;
   world = seatActors(world, ["vale", "mara"], ["vale", "mara"]);
   const actors = knownActors(world).slice(0, 8), here = world.actors.vale.place;
+  world.items["greek-shovel"].holder = here;
   for (const id of actors) world.actors[id].place = here;
   const items = Object.keys(world.items).filter((id) => id !== "greek-shovel" && entityActive(world, id)).slice(0, 24);
   expect(actors).toHaveLength(8);
@@ -42,4 +43,6 @@ it("keeps chosen hands within the item cap after the committed action item", () 
   expect(outcome.items[0].id).toBe("greek-shovel");
   for (const actor of outcome.avatars)
     expect(outcome.items).toContainEqual({id: actor.heldItem, holder: actor.id, location: here});
+  const redacted = forgetCovered(world, narrativeContext(world), (id) => id === "greek-shovel");
+  expect(redacted.outcome.avatars.map((a) => a.holding)).toEqual(outcome.avatars.map((a) => a.holding));
 });

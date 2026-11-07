@@ -286,7 +286,7 @@ function revealedOutcome(world, outcome, actor, kept) {
     card,
     avatars: avatars.map((avatar) => ({
       ...avatar,
-      holding: avatar.holding.filter((id) => itemIds.has(id)),
+      holding: avatar.holding.filter(kept),
       ...(Object.hasOwn(avatar, "heldItem") && {
         heldItem: itemIds.has(avatar.heldItem) ? avatar.heldItem : null,
       }),
