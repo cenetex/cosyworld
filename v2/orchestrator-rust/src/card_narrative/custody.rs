@@ -109,7 +109,6 @@ pub(super) fn visible_holder<'a>(
             .iter()
             .chain(&context.covered)
             .any(|hidden| hidden == id)
-            && context.entities.iter().any(|e| e.id == id)
     };
     (owner.id != speaker
         && observer.location == context.location
@@ -303,12 +302,7 @@ mod tests {
         assert!(npc.contains("I'm carrying the Lamp and the Black cloth."));
         assert!(npc.contains("I'm holding the Lamp."));
         let mut crowd: Context = serde_json::from_value(serde_json::to_value(&c).unwrap()).unwrap();
-        for id in ["keeper", "bell"] {
-            let mut extra = serde_json::to_value(&c.entities[2]).unwrap();
-            extra["id"] = id.into();
-            extra["facts"] = serde_json::json!([]);
-            crowd.entities.push(serde_json::from_value(extra).unwrap());
-        }
+        // The item details have their own bound; a visible hand needs no full entity row.
         let outcome = crowd.outcome.as_mut().unwrap();
         outcome.avatars[2].location = "station".into();
         outcome.avatars[2].held_item = Some("bell".into());
