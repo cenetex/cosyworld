@@ -1,5 +1,6 @@
 import {
   recordConversation,
+  settleCompany,
   installConversations,
   validConversations,
 } from "./conversation.mjs";
@@ -2412,6 +2413,7 @@ function performPlay(s, a, round = null, settle = []) {
   if (a.kind === "wait") {
     const asleep = Boolean(s.actors[a.actor].sleeping);
     rest(s, a.actor, here, a.sleep);
+    settleCompany(s, entityActive);
     if (a.guards) s.actors[a.actor].guarding = a.guards;
     const learningStart = beginLearning(s, a);
     if (a.actor === currentActor(s)) calm(s, here);
@@ -2730,6 +2732,7 @@ function performPlay(s, a, round = null, settle = []) {
       witnesses,
     );
   if (repair) closeRepaired(s, repair);
+  settleCompany(s, entityActive);
   if (a.kind === "talk") talkKnowledge(s, a, s.log.at(-1));
   // A human's first Talk with the world's hidden avatar unlocks it (#1936).
   const met = meetHidden(s, a, controlledByHuman(s, a.actor));
@@ -3203,6 +3206,7 @@ export function play(
       witnesses: [actor],
     });
     settleGuards(next);
+    settleCompany(next, entityActive);
     settleVisitSpeech(s, next, { ...action, actor });
     settleHeldItems(next, handSnapshot(s));
     validateWorld(next);
@@ -3423,6 +3427,7 @@ export function play(
   // A gate whose condition now holds stays open from here on.
   latchRoutes(next);
   settleGuards(next);
+  settleCompany(next, entityActive);
   settleVisitSpeech(s, next, exact);
   for (const [id, allowance] of Object.entries(
     next.sharedMigration?.inventoryAllowances || {},
