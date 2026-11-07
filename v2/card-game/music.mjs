@@ -361,17 +361,21 @@ export function createRoomMusic({
     pause();
     sync();
   });
+  function cueChanged() {
+    if (cued === (cues?.current ?? null)) return;
+    cued = cues?.current ?? null;
+    sync();
+    report();
+  }
+  cues?.onChange?.(cueChanged);
   return {
     // Whether a cue song is still audible, fading out included.
     get cueSounding() {
       return Boolean(cues?.sounding);
     },
-    cue(name = null) {
-      cues?.cue(name);
-      if (cued === (cues?.current ?? null)) return;
-      cued = cues?.current ?? null;
-      sync();
-      report();
+    cue(name = null, scope) {
+      cues?.cue(name, scope);
+      cueChanged();
     },
     setStarted(value) {
       cues?.setStarted(value);

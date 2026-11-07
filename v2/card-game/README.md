@@ -1411,8 +1411,13 @@ return.
 
 A cue (`music.cue(name)`, `music-cues.mjs`) takes over from the room song,
 which fades out over a second, pauses in place and returns from there on
-`music.cue(null)`. Cue songs loop seamlessly, follow the music switch, volume,
+`music.cue(null)`. Cue songs follow the music switch, volume,
 hidden tab and opening wait, and never restart while their cue holds.
+Battle cues loop. The funeral cue is one performance: once it starts in
+Polynices' Hollow, it finishes across ordinary travel, then releases the room
+song. Battle and loss cues take priority; changing worlds clears the prior
+performance. A later visit can start it again. The title song fades over four
+seconds when the avatar wakes, or two seconds when the player skips.
 `"battle"` (_The Attic Keeps Its Lamp_, 1:18, in over 1 second, out over 1.5)
 plays while the player's room holds an open standoff, from the threat to a
 round without a Strike, the item's release or a defeat that leaves one

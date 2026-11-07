@@ -4,6 +4,7 @@ import {
   createTitleSong,
   titleSongSettings,
 } from "../v2/card-game/title-song.mjs";
+import { WAKE_FADE } from "../v2/card-game/title-intro.mjs";
 
 beforeEach(() => vi.useFakeTimers());
 afterEach(() => vi.useRealTimers());
@@ -79,6 +80,27 @@ test("Wake fades the song out over a second, then stops it", () => {
   expect(audio.pause).toHaveBeenCalledOnce();
   expect(context.close).toHaveBeenCalled();
   expect(song.start()).toBe(false);
+});
+
+test.each([
+  ["turn", 4],
+  ["skip", 2],
+])("the %s exit keeps its full music fade", async (way, seconds) => {
+  const { audio, ramps, context } = fakes();
+  const song = createTitleSong({
+    makeAudio: () => audio,
+    makeContext: () => context,
+    doc: null,
+  });
+  song.start();
+  expect(WAKE_FADE[way].songSeconds).toBe(seconds);
+  const done = song.stop(WAKE_FADE[way].songSeconds);
+  expect(ramps.at(-1)).toEqual([0, seconds]);
+  await vi.advanceTimersByTimeAsync(seconds * 1000 - 1);
+  expect(audio.paused).toBe(false);
+  await vi.advanceTimersByTimeAsync(1);
+  await done;
+  expect(audio.paused).toBe(true);
 });
 
 test("music off, or volume zero, stays silent", () => {
