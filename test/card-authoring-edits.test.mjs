@@ -82,8 +82,9 @@ describe("atomic authoring edits", () => {
       () => linkPlaces(source, "greek-ship", "greek-harbor"),
       /dock/,
     );
+    const approach = source.pack.routes.find((route) => route.sealed);
     assert.throws(
-      () => linkPlaces(source, "greek-gate", "greek-battlefield"),
+      () => linkPlaces(source, approach.from, approach.to),
       /quest/,
     );
     assert.throws(() => linkPlaces(small(), "a", "a"));
