@@ -1437,29 +1437,40 @@
   var talkedDirectly = (s, actor, other) => (s.conversations || []).some(
     (c) => c.actors.includes(actor) && c.actors.includes(other) && actor !== other
   );
-  function recordConversation(s, event) {
-    if (event?.kind !== "action" || event.verb !== "talk") return;
+  function recordConversation(s, event, current = true) {
+    if (event?.kind !== "action" || event.verb !== "talk" || event.generated)
+      return;
     const actors2 = [event.actorId, event.targetId].sort();
     if (actors2[0] === actors2[1] || actors2.some((id) => !s.actors[id])) return;
-    if (!talkedDirectly(s, ...actors2))
-      (s.conversations ??= []).push({ actors: actors2, seq: event.seq, turn: event.turn });
+    let row = (s.conversations || []).find(
+      (c) => c.actors.join() === actors2.join()
+    );
+    if (!row) {
+      row = { actors: actors2, seq: event.seq, turn: event.turn };
+      (s.conversations ??= []).push(row);
+    }
+    if (current) row.company = event.seq;
   }
   function installConversations(s) {
     if (s.conversations !== void 0) return;
     s.conversations = [];
-    for (const event of s.log || []) recordConversation(s, event);
+    for (const event of s.log || []) recordConversation(s, event, false);
   }
   function validConversations(s) {
     const rows = s.conversations;
     if (rows === void 0) return true;
     const seen = /* @__PURE__ */ new Set(), size = Object.keys(s.actors).length;
     return Array.isArray(rows) && rows.length <= size * (size - 1) / 2 && rows.every((c) => {
-      if (!c || Object.keys(c).sort().join() !== "actors,seq,turn" || !Array.isArray(c.actors) || c.actors.length !== 2 || c.actors.some((id) => !Object.hasOwn(s.actors, id)) || c.actors[0] >= c.actors[1] || !Number.isSafeInteger(c.seq) || c.seq < 1 || c.seq > s.eventSeq || !Number.isSafeInteger(c.turn) || c.turn < 0 || c.turn > s.turn)
+      if (!c || Object.keys(c).filter((k) => k !== "company").sort().join() !== "actors,seq,turn" || !Array.isArray(c.actors) || c.actors.length !== 2 || c.actors.some((id) => !Object.hasOwn(s.actors, id)) || c.actors[0] >= c.actors[1] || !Number.isSafeInteger(c.seq) || c.seq < 1 || c.seq > s.eventSeq || !Number.isSafeInteger(c.turn) || c.turn < 0 || c.turn > s.turn || c.company !== void 0 && (!Number.isSafeInteger(c.company) || c.company < c.seq || c.company > s.eventSeq || !companySource(s, c)))
         return false;
       const key = c.actors.join(":"), fresh = !seen.has(key);
       seen.add(key);
       return fresh;
     });
+  }
+  function companySource(s, c) {
+    const source = s.log.find((e) => e.seq === c.company);
+    return !source || source.kind === "action" && source.verb === "talk" && !source.generated && [source.actorId, source.targetId].sort().join() === c.actors.join();
   }
 
   // v2/card-game/weather.json

@@ -281,7 +281,7 @@ fn current_company_replays_real_talk_and_separation_without_checkpoints() {
         &c,
         &id,
         &mut world,
-        json!({"op":"play","actor":"rue","action":wait}),
+        json!({"op":"play","actor":"mara","action":wait}),
         now(),
     )
     .unwrap();
