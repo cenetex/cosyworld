@@ -4,6 +4,7 @@ import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
 import { createWorld, encodeSave } from "../card-game/world.mjs";
 import { availableCards } from "../card-game/cards.mjs";
+import { selectCard, tapCard } from "./card-browser-helpers.mjs";
 
 // The quest folds behind the player's avatar. A met quest stays, sealed,
 // until its player clears it; clearing shows the experience it brought. The
@@ -18,6 +19,7 @@ gate.actors.vale.place = "greek-gate";
 gate.actors.vale.visited.push("pond");
 gate.crossings["pond-greek-harbor"].discovered = true;
 gate.items["greek-decree"].holder = "vale";
+gate.items.lamp.holder = "attic";
 gate.actors.vale.want = {
   kind: "item",
   target: "greek-decree",
@@ -185,20 +187,31 @@ try {
     await page.screenshot({
       path: new URL(`expanded-${width}.png`, output).pathname,
     });
-    // Any play meets it; it stays sealed and the fold glows.
+    // Any play meets it; its checked card stays in the open avatar group.
     await page
       .locator(
         '#card-actions [data-action="wait"]:not([data-revealing="true"])',
       )
       .click();
     await ready();
-    const tab = page.locator('#hand .quest-fold[data-glow="invite"]');
-    await tab.waitFor();
-    // The fold peeks out behind Vale's card; it also takes the keyboard.
-    await tab.focus();
-    await page.keyboard.press("Enter");
     const card = page.locator('#hand .want-card[data-met="true"]');
     await card.waitFor();
+    assert.equal(
+      await page.locator("body").getAttribute("data-hand-expanded"),
+      "true",
+    );
+    await page.waitForFunction(() => {
+      const box = document
+        .querySelector('#hand .want-card[data-met="true"]')
+        .getBoundingClientRect();
+      return box.left >= 0 && box.right <= innerWidth;
+    });
+    assert.equal(
+      await page
+        .locator('#hand [data-card="vale"]')
+        .getAttribute("aria-expanded"),
+      "true",
+    );
     // Met by a play, the same quest is still face up.
     assert.equal(await card.getAttribute("data-unrevealed"), "false");
     assert.equal(await card.locator(".quest-seal").count(), 1);
@@ -279,11 +292,9 @@ try {
     await openFold();
     const fan = page.locator("#hand .want-frame:not([hidden])");
     assert.equal(await fan.count(), 2, "the open fold fans out the stack");
-    // Nothing is chosen until a quest in the fan is, and it moves left, to
-    // the front of the quests, still after what Vale carries (#2295).
+    // The fold's first tap opens the top quest's details as it fans the stack.
     const picked = page.locator('#hand .want-card[data-picked="true"]');
-    assert.equal(await picked.count(), 0);
-    await page.locator('#hand .want-card[data-quest-id="quest:0"]').click();
+    assert.equal(await picked.count(), 1);
     assert.equal(await picked.getAttribute("data-quest-id"), "quest:0");
     assert.equal(
       await page
@@ -452,9 +463,7 @@ try {
         .getAttribute("aria-label"),
       "Quest: Give The Burial Decree to The Gate Guard, near",
     );
-    // Chosen, the beat keeps its box and names the quest; its next step,
-    // the rules' own Give, is the only action.
-    await page.locator('#hand .want-card[data-quest-id="quest:0"]').click();
+    // The first fold tap also names the quest and offers its Give action.
     await page
       .locator('#card-actions [data-quest-step]:not([data-revealing="true"])')
       .waitFor();
@@ -492,6 +501,102 @@ try {
     await page.screenshot({
       path: new URL(`give-${width}.png`, output).pathname,
     });
+    // The last held item leaves, and the completed quest stays in reach.
+    const xp = await page.evaluate(
+      (key) => JSON.parse(localStorage.getItem(key)).actors.vale.xp,
+      gateKey,
+    );
+    await page
+      .locator('#card-actions [data-quest-step]:not([data-revealing="true"])')
+      .click();
+    const metGift = page.locator('#hand .want-card[data-met="true"]');
+    await metGift.waitFor();
+    await page.waitForFunction(() => {
+      const box = document
+        .querySelector('#hand .want-card[data-met="true"]')
+        .getBoundingClientRect();
+      return box.left >= 0 && box.right <= innerWidth;
+    });
+    await page.waitForFunction(
+      () =>
+        document.querySelector('#hand .want-card[data-met="true"]')
+          ?.disabled === false,
+    );
+    assert.equal(
+      await page.locator("body").getAttribute("data-hand-expanded"),
+      "true",
+    );
+    assert.equal(
+      await page
+        .locator('#hand [data-holder="vale"]:not([hidden], [data-want])')
+        .count(),
+      0,
+    );
+    assert.equal(
+      await page.evaluate(
+        (key) => JSON.parse(localStorage.getItem(key)).actors.vale.xp,
+        gateKey,
+      ),
+      xp + 1,
+    );
+    await page.screenshot({
+      path: new URL(`last-gift-${width}.png`, output).pathname,
+      animations: "disabled",
+    });
+    await metGift.click({ position: { x: 40, y: 16 } });
+    await page.locator(".quest-xp").waitFor();
+    assert.equal(await metGift.count(), 0, "one tap clears the checked card");
+    assert.equal(
+      await page.evaluate(
+        (key) => JSON.parse(localStorage.getItem(key)).actors.vale.xp,
+        gateKey,
+      ),
+      xp + 1,
+    );
+    // Taking an item raises it at rest. Its next tap opens its full details.
+    const pickup = structuredClone(gate);
+    pickup.items["greek-decree"].holder = "greek-gate";
+    pickup.actors.vale.want = null;
+    pickup.actors.vale.content = true;
+    await page.evaluate(({ key, save }) => localStorage.setItem(key, save), {
+      key: gateKey,
+      save: encodeSave(pickup),
+    });
+    await page.reload();
+    await ready();
+    await selectCard(page, "greek-decree");
+    await page
+      .locator(
+        '#card-actions [data-action="take"]:not([data-revealing="true"])',
+      )
+      .click();
+    const received = page.locator('#hand [data-card="greek-decree"]');
+    await page.waitForFunction(
+      () =>
+        document.querySelector('#hand [data-card="greek-decree"]')?.disabled ===
+          false &&
+        document
+          .querySelector('#hand [data-card="greek-decree"]')
+          ?.getAttribute("aria-pressed") === "true",
+    );
+    await tapCard(received);
+    assert.equal(
+      await received.getAttribute("aria-pressed"),
+      "true",
+      "the received item's first tap opens details",
+    );
+    await page.waitForFunction(() =>
+      document
+        .querySelector("#action-beat")
+        .innerText.includes("A public copy forbids burial"),
+    );
+    assert.equal(await page.locator("#action-beat").isVisible(), true);
+    await tapCard(received);
+    assert.equal(
+      await received.getAttribute("aria-pressed"),
+      "false",
+      "the next tap lowers it",
+    );
     // Choosing Vale shows its things and its quests as two stacks; a top
     // card fans its stack, a card chosen moves left, and Vale folds them
     // back, then lowers (#2256). + marks an open stack, * a raised card.
@@ -560,12 +665,40 @@ try {
     await play(
       '[data-card="greek-funeral-cloth"]',
       "items",
-      "vale*+ greek-funeral-cloth+ greek-decree lamp quest:0",
+      "vale+ greek-funeral-cloth* greek-decree+ lamp quest:0",
+    );
+    assert.equal(
+      await page
+        .locator('#hand [data-card="greek-funeral-cloth"]')
+        .getAttribute("aria-pressed"),
+      "true",
+    );
+    assert.equal(
+      await page.locator("#action-beat").isVisible(),
+      true,
+      "the first item tap opens its details",
+    );
+    await page.waitForFunction(() =>
+      document
+        .querySelector("#action-beat")
+        .innerText.includes("Clean linen from the looms at Eleusis"),
+    );
+    assert.match(
+      await page.locator("#action-beat").innerText(),
+      /Clean linen from the looms at Eleusis/,
+    );
+    await page.screenshot({
+      path: new URL(`details-${width}.png`, output).pathname,
+      animations: "disabled",
+    });
+    await play(
+      '[data-card="greek-funeral-cloth"]',
+      "lower-item",
+      "vale+ greek-funeral-cloth+ greek-decree lamp quest:0",
     );
     await play('[data-card="lamp"]', "item", `${lamp}+ greek-decree quest:0`, [
       "Light",
     ]);
-    await play(top, "quests", `${lamp} quest:0+ quest:1 quest:2`);
     await play(
       top,
       "quest",
@@ -664,7 +797,6 @@ try {
     await page.reload();
     await page.locator("#hand .quest-fold").focus();
     await page.keyboard.press("Enter");
-    await page.locator('#hand .want-card[data-quest-id="quest:0"]').click();
     assert.equal(
       (await page.locator(".action-beat-heading").textContent()).trim(),
       "Find something and bring it somewhere",
@@ -747,7 +879,6 @@ try {
         await ready();
         await page.locator("#hand .quest-fold").focus();
         await page.keyboard.press("Enter");
-        await page.locator('#hand .want-card[data-quest-id="quest:0"]').click();
         const scene = page.locator(".action-beat-cards .quest-screen");
         const ground = scene.locator(".quest-ground");
         await ground.waitFor();
@@ -789,13 +920,15 @@ try {
           const action = page.locator("#action-beat");
           assert.doesNotMatch(await action.innerText(), /Level XX/u);
           assert.match(
-            await page.locator('#hand .want-card[data-quest-id="quest:0"]')
+            await page
+              .locator('#hand .want-card[data-quest-id="quest:0"]')
               .getAttribute("aria-label"),
             /Level XX:/u,
           );
           assert.equal(await action.getAttribute("data-tier"), "rare");
           assert.equal(
-            await page.locator('#hand .want-card[data-quest-id="quest:0"]')
+            await page
+              .locator('#hand .want-card[data-quest-id="quest:0"]')
               .getAttribute("data-tier"),
             "rare",
           );

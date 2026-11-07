@@ -228,6 +228,13 @@ and generated audio are checked through `test/card-character-speech.test.mjs`.
 
 ## A quest stack per avatar
 
+The first tap on a known item or quest shows its details in the descriptor.
+Tapping the top card of its folded stack also fans that stack. The quest fold
+behind the avatar opens the first quest's details. Unknown world cards keep
+their discovery reveal. An open avatar group stays open after a deed, so a
+completed quest's checked card remains within reach. Tapping the checked card
+shows its earned XP and clears it.
+
 Each avatar holds a stack of up to three quests (#1831). Each quest is an
 item to hold, a place to reach or a person to talk with. A world pack defines each resident's starter quest as its `want`
 (`{kind, target}`); `forest.json` does the same for Vale, Pip and the keeper.
@@ -407,7 +414,7 @@ while the target is within two moves. Steps still to come lie face down behind
 the card, showing the card back. It plays nothing. The top quest folds behind the player's avatar card as
 a full-size card in its stack: face down, showing the carved card back, leaning
 out to the top left with a glowing line in its tier colour along its edge.
-Choosing the folded card opens the avatar's stacks with its quests fanned out,
+Choosing the folded card opens the first quest's details and fans its stack,
 top first. Each quest card is dealt face down, showing the
 carved lid, and turns to its face 520 ms after it is first seen, with the
 hand's reveal (`card-reveal.mjs`), the next quest a moment after; reduced
@@ -418,7 +425,7 @@ quest that leaves the hand and later comes back is dealt face down again. The
 hand a page or a new game opens on is already dealt: a quest in view then is
 face up at once. It takes taps while face down. In the open fan the top quest is chosen and
 offers its next step and Discard. Tapping a quest beneath brings it to the top, with no turn
-taken, and tapping the chosen one folds the fan. The rules remove a met quest at once; the browser keeps its card,
+taken, and tapping the chosen one lowers that card. The rules remove a met quest at once; the browser keeps its card,
 sealed, in the fan, and the folded line glows until its player taps the card
 to clear it. Any met card can be cleared, in any order; clearing shows the one
 point of experience it brought rising from the card (a still label with
