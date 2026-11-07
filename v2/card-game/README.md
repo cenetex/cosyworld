@@ -543,15 +543,15 @@ a new game, a shared update) settles the cast instead of cutting it: a
 figure still entering or leaving goes from how it looks now to where it
 rests over 200 ms, and one leaving the stage fades out there before it is
 dropped (`figure-settle.mjs`, `v2/scripts/smoke-card-figure-settle.mjs`).
-Every closed card uses the same wooden lid, blank name, and plain red edge.
-Its access label says "Closed box". This includes new discoveries, recipe
-results, sealed ways, quest targets, and small cards inside quest scenes.
-Tapping a locked box selects it; the existing descriptor says "A closed box."
-Names, paintings, rarity, contents, and quest details appear after opening.
-When the rules open a lock, its box turns over with the existing card reveal
-(a crossfade under reduced motion). A known card whose lock closes again
-uses the same closed lid (`locked-box.mjs`). Each browser reads its own
-player's view of a shared gate.
+Cards have three states. An unseen card lies face down under the plain wooden
+back and reveals on a tap. A card with an unmet prerequisite uses the locked
+back and red edge. A revealed card shows its face. Both closed states conceal
+the name, painting, contents, and quest details. Tapping a locked box
+selects it; the existing descriptor says "A closed box."
+When its lock clears, the box opens with the existing card reveal
+(a crossfade under reduced motion). Held previews and quest miniatures
+use the same distinction. Newly dealt quests and folded stack layers use the
+normal back (`locked-box.mjs`). Each browser reads its player's shared view.
 On arrival, the hand scrolls just far enough to show the new current place.
 Selection scrolls just far enough to show the chosen card, including when a
 person opens a stack.
