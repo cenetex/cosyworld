@@ -543,18 +543,15 @@ a new game, a shared update) settles the cast instead of cutting it: a
 figure still entering or leaving goes from how it looks now to where it
 rests over 200 ms, and one leaving the stage fades out there before it is
 dropped (`figure-settle.mjs`, `v2/scripts/smoke-card-figure-settle.mjs`).
-A card locked behind a quest (a sealed card, the far side of a shut gate) is
-a locked wooden box: the darker locked lid on a red edge, labelled only
-"Locked" (the owner's one exception to words on a card), with no painting and
-no name.
-Tapping it chooses it and shows its quest in the existing action beat. A recipe
-lock shows its ingredients with its maker inside the home scene and names them; a sealed route shows
-its authored quest. A guarded way names its guard, whose Talk gives the quest.
-The Locked button keeps the rule's full reason in its title. When the rules
-open the way, the box turns over once, with the same lift as an uncovered
-card (a crossfade under reduced motion), and the card shows as itself from
-then on; a redraw never covers it again (`locked-box.mjs`). In a shared world
-each browser reads its own player's view of the gate.
+Every closed card uses the same wooden lid, blank name, and plain red edge.
+Its access label says "Closed box". This includes new discoveries, recipe
+results, sealed ways, quest targets, and small cards inside quest scenes.
+Tapping a locked box selects it; the existing descriptor says "A closed box."
+Names, paintings, rarity, contents, and quest details appear after opening.
+When the rules open a lock, its box turns over with the existing card reveal
+(a crossfade under reduced motion). A known card whose lock closes again
+uses the same closed lid (`locked-box.mjs`). Each browser reads its own
+player's view of a shared gate.
 On arrival, the hand scrolls just far enough to show the new current place.
 Selection scrolls just far enough to show the chosen card, including when a
 person opens a stack.
