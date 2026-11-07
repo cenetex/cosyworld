@@ -125,6 +125,7 @@ it("records three consumed inputs when a Drop completes another recipe", () => {
 it.each([
   { verb: "wait" },
   { accepted: false },
+  { accepted: undefined },
   { targetId: "vale" },
   { itemId: "lamp" },
 ])("requires a retained source action to support the craft: %j", (patch) => {
@@ -142,6 +143,7 @@ it.each([
   { consumedIds: [...inputs, inputs[0]] },
   { consumedIds: [bread] },
   { consumedIds: ["missing"] },
+  { consumedIds: ["toString"] },
   { holderId: "missing" },
   { actorId: "missing" },
   { sourceSeq: 0 },

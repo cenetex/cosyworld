@@ -127,8 +127,8 @@ export function validCraftEvent(s, event) {
   if (
     event.kind !== "narration" ||
     event.generated ||
-    !s.actors[event.actorId] ||
-    !s.items[event.itemId] ||
+    !Object.hasOwn(s.actors, event.actorId) ||
+    !Object.hasOwn(s.items, event.itemId) ||
     !Number.isSafeInteger(event.seq) ||
     !Number.isSafeInteger(event.turn) ||
     event.turn < 0 || event.turn > s.turn ||
@@ -137,7 +137,7 @@ export function validCraftEvent(s, event) {
     !Array.isArray(consumedIds) ||
     consumedIds.length < 1 || consumedIds.length > 3 ||
     consumedIds.some((id, i) =>
-      !s.items[id] || id === event.itemId || consumedIds.indexOf(id) !== i) ||
+      !Object.hasOwn(s.items, id) || id === event.itemId || consumedIds.indexOf(id) !== i) ||
     !Array.isArray(event.witnesses) ||
     !event.witnesses.includes(event.actorId)
   )
@@ -147,7 +147,7 @@ export function validCraftEvent(s, event) {
     !source ||
     (source.kind === "action" && source.turn === event.turn &&
       ["give", "trade", "drop"].includes(source.verb) &&
-      source.accepted !== false && consumedIds.includes(source.itemId) &&
+      (source.verb === "drop" || source.accepted === true) && consumedIds.includes(source.itemId) &&
       source.targetId === (source.verb === "drop" ? event.locationId : event.actorId))
   );
 }
