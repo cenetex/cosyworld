@@ -703,7 +703,7 @@ try {
       top,
       "quest",
       "vale+ greek-funeral-cloth quest:0* quest:1+ quest:2",
-      ["Travel"],
+      ["Abandon"],
     );
     await play(
       top,
