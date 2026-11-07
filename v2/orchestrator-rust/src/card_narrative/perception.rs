@@ -109,7 +109,9 @@ fn states(context: &Context, id: &str, listener: Option<&str>) -> Vec<String> {
         };
         let whose = if item.holder == id {
             "My".to_string()
-        } else if Some(item.holder.as_str()) == listener {
+        } else if Some(item.holder.as_str()) == listener
+            && custody::visible_holder(context, id, entity).is_some()
+        {
             format!("{}'s", name(&item.holder))
         } else {
             continue;

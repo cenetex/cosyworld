@@ -53,6 +53,7 @@ import { betweenUs } from "./between-us.mjs";
 import { playedEntry, speechOccasions } from "./speech-occasions.mjs";
 import { perception } from "./perception.mjs";
 import { battleEvents, battleFacts } from "./battle-context.mjs";
+import { heldItem } from "./held-item.mjs";
 
 // A refusal reaches the brief as its committed code; the refuser's line
 // says why in its own words.
@@ -104,6 +105,7 @@ export function turnOutcome(world) {
     ...new Set([
       played?.itemId,
       played?.receiveId,
+      ...actorIds.map((id) => heldItem(world, id)),
       ...Object.keys(world.items).filter((id) =>
         actorIds.includes(rootHolder(world, id)),
       ),
@@ -142,6 +144,7 @@ export function turnOutcome(world) {
         id,
         location: actor.place,
         holding: carried(world, id),
+        heldItem: heldItem(world, id),
         travel: movement
           ? {
               from: movement.fromLocationId,
@@ -221,6 +224,13 @@ function wayFacts(world, place) {
         ? `The way to ${nameOf(to)} is shut.`
         : `The way to ${nameOf(to)} is open.`,
     );
+}
+
+function visibleItem(world, observer, item, location) {
+  const here = world.actors[observer]?.place ?? location;
+  const owner = rootHolder(world, item);
+  return itemPlace(world, item) === here && (owner === observer || owner === here ||
+    (world.items[item].holder === owner && heldItem(world, owner) === item));
 }
 
 export function narrativeContext(world, action = null, isCovered = null) {
@@ -491,7 +501,7 @@ export function narrativeContext(world, action = null, isCovered = null) {
           facts.push(
             carried(world, id).includes(item)
               ? `Already holds the wanted ${nameOf(item)}.`
-              : itemPlace(world, item) === world.actors[id].place
+              : visibleItem(world, id, item, location)
                 ? `Wants ${nameOf(item)}, currently with ${nameOf(rootHolder(world, item))}.`
                 : `Wants ${nameOf(item)}.`,
           );
@@ -539,7 +549,7 @@ export function narrativeContext(world, action = null, isCovered = null) {
           facts.push("The wrapped bell rests beside the quiet water.");
       }
       facts.push(
-        `At the dialogue scene: ${present.map(nameOf).join(", ")}. Items here: ${localItems.map(nameOf).join(", ") || "none"}.`,
+        `At the dialogue scene: ${present.map(nameOf).join(", ")}. Items here: ${localItems.filter((item) => visibleItem(world, id, item, location)).map(nameOf).join(", ") || "none"}.`,
       );
       return {
         id,

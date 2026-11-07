@@ -17945,6 +17945,10 @@
     );
   }
   var choicesFor = (hands, actor) => Object.keys(hands).filter((id) => hands[id] === actor).sort();
+  function heldItem(world, actor) {
+    const choices = choicesFor(handSnapshot(world), actor);
+    return choices.includes(world.actors[actor]?.heldItem) ? world.actors[actor].heldItem : choices[0] ?? null;
+  }
   var validHeldItems = (world) => Object.values(world.actors || {}).every(
     (actor) => actor.heldItem === void 0 || actor.heldItem === null || typeof actor.heldItem === "string" && Object.hasOwn(world.items, actor.heldItem)
   );
@@ -21351,6 +21355,9 @@
       avatars: avatars.map((avatar) => ({
         ...avatar,
         holding: avatar.holding.filter((id) => itemIds.has(id)),
+        ...Object.hasOwn(avatar, "heldItem") && {
+          heldItem: itemIds.has(avatar.heldItem) ? avatar.heldItem : null
+        },
         travel: avatar.travel && kept(avatar.travel.from) && kept(avatar.travel.to) ? {
           ...avatar.travel,
           companions: avatar.travel.companions.filter(
@@ -21625,6 +21632,7 @@
       .../* @__PURE__ */ new Set([
         played?.itemId,
         played?.receiveId,
+        ...actorIds2.map((id) => heldItem(world, id)),
         ...Object.keys(world.items).filter(
           (id) => actorIds2.includes(rootHolder(world, id))
         ),
@@ -21652,6 +21660,7 @@
           id,
           location: actor.place,
           holding: carried(world, id),
+          heldItem: heldItem(world, id),
           travel: movement ? {
             from: movement.fromLocationId,
             to: movement.locationId,
@@ -21702,6 +21711,11 @@
     return [...new Set(ways)].filter((to) => shut.includes(to) || open.includes(to)).map(
       (to) => shut.includes(to) ? `The way to ${nameOf(to)} is shut.` : `The way to ${nameOf(to)} is open.`
     );
+  }
+  function visibleItem(world, observer, item, location) {
+    const here = world.actors[observer]?.place ?? location;
+    const owner2 = rootHolder(world, item);
+    return itemPlace2(world, item) === here && (owner2 === observer || owner2 === here || world.items[item].holder === owner2 && heldItem(world, owner2) === item);
   }
   function narrativeContext(world, action = null, isCovered = null) {
     const cast = dialogueCast(world, action);
@@ -21863,7 +21877,7 @@
             );
           for (const item of desire.items)
             facts.push(
-              carried(world, id).includes(item) ? `Already holds the wanted ${nameOf(item)}.` : itemPlace2(world, item) === world.actors[id].place ? `Wants ${nameOf(item)}, currently with ${nameOf(rootHolder(world, item))}.` : `Wants ${nameOf(item)}.`
+              carried(world, id).includes(item) ? `Already holds the wanted ${nameOf(item)}.` : visibleItem(world, id, item, location) ? `Wants ${nameOf(item)}, currently with ${nameOf(rootHolder(world, item))}.` : `Wants ${nameOf(item)}.`
             );
           if (desire.location)
             facts.push(
@@ -21905,7 +21919,7 @@
             facts.push("The wrapped bell rests beside the quiet water.");
         }
         facts.push(
-          `At the dialogue scene: ${present.map(nameOf).join(", ")}. Items here: ${localItems.map(nameOf).join(", ") || "none"}.`
+          `At the dialogue scene: ${present.map(nameOf).join(", ")}. Items here: ${localItems.filter((item) => visibleItem(world, id, item, location)).map(nameOf).join(", ") || "none"}.`
         );
         return {
           id,

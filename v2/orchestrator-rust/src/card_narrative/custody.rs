@@ -123,21 +123,49 @@ pub(super) fn visible_holder<'a>(
     .then_some(owner.id.as_str())
 }
 
-pub(super) fn visible_holding(context: &Context, speaker: &str) -> Option<String> {
-    let outcome = context.outcome.as_ref()?;
-    let listener = listener(context, speaker);
-    let listener_item = outcome
-        .avatars
+pub(super) fn visible_item(context: &Context, speaker: &str, item: &str) -> bool {
+    if context
+        .concealed
         .iter()
-        .find(|a| Some(&a.id) == listener.as_ref())?
-        .held_item
-        .as_ref()?;
-    let owner = visible_holder(context, speaker, listener_item)?;
-    Some(format!(
-        "{} is holding {}.",
-        name(owner),
-        person::the(&name(listener_item))
-    ))
+        .chain(&context.covered)
+        .any(|id| id == item)
+    {
+        return false;
+    }
+    context.outcome.as_ref().is_none_or(|outcome| {
+        holder(outcome, item) == Some(speaker)
+            || visible_holder(context, speaker, item).is_some()
+            || outcome
+                .items
+                .iter()
+                .any(|i| i.id == item && i.holder == context.location)
+                && outcome
+                    .avatars
+                    .iter()
+                    .any(|a| a.id == speaker && a.location == context.location)
+    })
+}
+
+pub(super) fn visible_holding(context: &Context, speaker: &str) -> Vec<String> {
+    let Some(outcome) = &context.outcome else {
+        return vec![];
+    };
+    let listener = listener(context, speaker);
+    let mut avatars: Vec<_> = outcome.avatars.iter().collect();
+    avatars.sort_by_key(|a| Some(&a.id) != listener.as_ref());
+    avatars
+        .into_iter()
+        .filter_map(|avatar| {
+            let item = avatar.held_item.as_ref()?;
+            let owner = visible_holder(context, speaker, item)?;
+            Some(format!(
+                "{} is holding {}.",
+                name(owner),
+                person::the(&name(item))
+            ))
+        })
+        .take(3)
+        .collect()
 }
 
 pub(super) fn facts(context: &Context, speaker: &str) -> Vec<String> {
@@ -203,6 +231,8 @@ pub(super) fn consistent(text: &str, context: &Context, speaker: &str) -> bool {
                 || [
                     format!("i am holding the {label}"),
                     format!("i'm holding the {label}"),
+                    format!("i am carrying the {label}"),
+                    format!("i'm carrying the {label}"),
                 ]
                 .iter()
                 .any(|prefix| starts_word(statement, prefix))
@@ -212,6 +242,8 @@ pub(super) fn consistent(text: &str, context: &Context, speaker: &str) -> bool {
                 || [
                     format!("you are holding the {label}"),
                     format!("you're holding the {label}"),
+                    format!("you are carrying the {label}"),
+                    format!("you're carrying the {label}"),
                 ]
                 .iter()
                 .any(|prefix| starts_word(statement, prefix))
@@ -250,7 +282,7 @@ mod tests {
         assert!(super::super::valid_outcome(&outcome));
         c.outcome = Some(outcome);
         let visible = "Pip is holding the Lamp.";
-        assert_eq!(visible_holding(&c, "vale").as_deref(), Some(visible));
+        assert_eq!(visible_holding(&c, "vale"), [visible]);
         let outcome = c.outcome.as_mut().unwrap();
         outcome.card.kind = "talk".into();
         outcome.card.item = None;
@@ -260,10 +292,7 @@ mod tests {
             c.entities[0].perception = perceived.then(Default::default);
             let prompt = messages(&c, entity(&c, "vale"), Part::Line).assistant;
             assert!(prompt.contains(visible), "{prompt}");
-            assert!(
-                !prompt.contains("Pip is holding the Black cloth"),
-                "{prompt}"
-            );
+            assert!(!prompt.contains("Pip is holding the Black cloth"));
         }
         assert_eq!(
             carrying(&c, entity(&c, "moth")).as_deref(),
@@ -273,9 +302,37 @@ mod tests {
         let npc = messages(&c, entity(&c, "moth"), Part::Line).assistant;
         assert!(npc.contains("I'm carrying the Lamp and the Black cloth."));
         assert!(npc.contains("I'm holding the Lamp."));
+        let mut crowd: Context = serde_json::from_value(serde_json::to_value(&c).unwrap()).unwrap();
+        for id in ["keeper", "bell"] {
+            let mut extra = serde_json::to_value(&c.entities[2]).unwrap();
+            extra["id"] = id.into();
+            extra["facts"] = serde_json::json!([]);
+            crowd.entities.push(serde_json::from_value(extra).unwrap());
+        }
+        let outcome = crowd.outcome.as_mut().unwrap();
+        outcome.avatars[2].location = "station".into();
+        outcome.avatars[2].held_item = Some("bell".into());
+        for item in outcome.items.iter_mut().skip(2) {
+            item.location = "station".into();
+        }
+        assert_eq!(
+            visible_holding(&crowd, "vale"),
+            [visible, "The keeper is holding the Bell."]
+        );
+        assert!(!visible_item(&crowd, "vale", "oil"));
+        assert!(visible_item(&crowd, "keeper", "oil"));
+        crowd.outcome.as_mut().unwrap().avatars[1].held_item = None;
+        crowd.outcome.as_mut().unwrap().observations =
+            serde_json::from_value(serde_json::json!([{"id":"lamp-flame", "value":true}])).unwrap();
+        for perceived in [false, true] {
+            crowd.entities[0].perception = perceived.then(Default::default);
+            let prompt = messages(&crowd, entity(&crowd, "vale"), Part::Line).assistant;
+            assert!(prompt.contains("The keeper is holding the Bell."));
+            assert!(!prompt.to_lowercase().contains("lamp is burning"));
+        }
         c.outcome.as_mut().unwrap().card.target = None;
         c.speakers = vec!["vale".into()];
-        assert_eq!(visible_holding(&c, "vale"), None);
+        assert_eq!(visible_holding(&c, "vale"), [visible]);
         c.outcome.as_mut().unwrap().card.target = Some("moth".into());
         c.speakers.push("moth".into());
         c.outcome.as_mut().unwrap().avatars[1]
@@ -286,16 +343,16 @@ mod tests {
             .holding
             .push("lamp".into());
         c.concealed.push("lamp".into());
-        assert_eq!(visible_holding(&c, "vale"), None);
+        assert!(visible_holding(&c, "vale").is_empty());
         c.concealed.clear();
         c.outcome.as_mut().unwrap().avatars[1].location = "pond".into();
-        assert_eq!(visible_holding(&c, "vale"), None);
+        assert!(visible_holding(&c, "vale").is_empty());
         c.outcome.as_mut().unwrap().avatars[1].location = "station".into();
         c.outcome.as_mut().unwrap().items[0].holder = "vale".into();
-        assert_eq!(visible_holding(&c, "vale"), None);
+        assert!(visible_holding(&c, "vale").is_empty());
         assert!(!super::super::valid_outcome(c.outcome.as_ref().unwrap()));
         c.outcome.as_mut().unwrap().avatars[1].held_item = None;
-        assert_eq!(visible_holding(&c, "vale"), None);
+        assert!(visible_holding(&c, "vale").is_empty());
         assert!(super::super::valid_outcome(c.outcome.as_ref().unwrap()));
         c.outcome.as_mut().unwrap().items[0].holder = "station".into();
         c.entities[0].perception = None;

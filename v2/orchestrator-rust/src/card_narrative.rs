@@ -1935,6 +1935,12 @@ fn transcript_sections(context: &Context, entity: &Entity, part: Part) -> Vec<(S
         .into_iter()
         .flatten()
     {
+        if fact["entity"]
+            .as_str()
+            .is_some_and(|item| kind(item, "item") && !custody::visible_item(context, id, item))
+        {
+            continue;
+        }
         if let Some(text) = fact["fact"].as_str() {
             let text = text
                 .strip_suffix(" now.")
