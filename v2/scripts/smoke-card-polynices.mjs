@@ -289,7 +289,7 @@ try {
       const receipt = done.actors.vale.questRewards.find((r) => r.want.target === hollow);
       assert.ok(receipt);
       done.actors.vale.place = "pond";
-      const closed = play(done, { kind: "pack", pack: "greek-drama", enable: false });
+      const closed = play(done, { kind: "pack", pack: "sea", enable: false });
       assert.ok(closed.ok, closed.error);
       await showState(closed.state);
       await selectCard(page, "vale", { touch: width === 390 });

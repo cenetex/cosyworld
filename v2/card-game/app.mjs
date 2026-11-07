@@ -3264,7 +3264,7 @@ async function clearQuest(button, quest) {
   renderedHand = "";
   render();
   try {
-    while (localWordsPending() && questClaims.get(quest.key) === reward)
+    while ((localWordsPending() || sleepView.active) && questClaims.get(quest.key) === reward)
       await new Promise((resolve) => setTimeout(resolve, 50));
     if (questClaims.get(quest.key) !== reward) return;
     if (sharedSession) await sharedSession.play(action, reward.key);

@@ -424,7 +424,9 @@ it("keeps the saved funeral card after leaving and closing its pack", () => {
   const card = questRewardCards(world).find((q) => q.target === "greek-polynices-hollow");
   expect(card).toMatchObject({ riteVerb: "Buried", earnedXp: 1, earnedLevel: null });
   world.actors.vale.place = "pond";
-  world = play(world, { kind: "pack", pack: "greek-drama", enable: false }).state;
+  const closed = play(world, { kind: "pack", pack: "sea", enable: false });
+  expect(closed.ok, closed.error).toBe(true);
+  world = closed.state;
   expect(questRewardCards(decodeSave(encodeSave(world)))).toContainEqual(card);
   const claim = legalActions(world).find((a) => a.kind === "claim" && a.receipt === card.receiptId);
   expect(questRewardCards(play(world, claim).state)).not.toContainEqual(card);
