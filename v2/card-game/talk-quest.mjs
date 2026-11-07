@@ -70,9 +70,7 @@ export function questFor(s, them, want) {
 
 // A player's Talk with `them`: their top want, if Talk reveals it and the
 // player has not been told it by them before, becomes a quest. One already
-// held moves up instead. Under a level or story quest on top it goes second,
-// so the level quest stays in focus; the usual limit pushes the oldest
-// ordinary quest out.
+// held keeps its place. New quests join the saved queue and preserve focus.
 export function talkQuest(s, actor, them, api) {
   const a = s.actors[actor],
     want = s.actors[them]?.want;

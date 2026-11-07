@@ -189,7 +189,7 @@ function scatter(s, pack, api) {
         w.step?.verb === "rest" && mine(w.target)
           ? restStep(s, id, api.want, w.quest)
           : w,
-      ), humanAvatarIds.includes(id),
+      ),
     );
     const named = (w) => names(w).some(mine);
     const count = humanAvatarIds.includes(id) ? QUEST_LIMIT : list.length;

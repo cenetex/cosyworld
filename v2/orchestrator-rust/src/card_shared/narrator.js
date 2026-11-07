@@ -2295,7 +2295,7 @@
     if (want.step?.verb === "lay")
       return `I want ${want.step.items.map((item) => article(nameOf2(item))).join(", ")} laid in ${name}.`;
     const line = want.kind === "item" ? want.step?.verb === "eat" ? `I want to ${consumable(want.target) === "drink" ? "drink" : "eat"} ${article(name)}${want.step.at ? ` at ${nameOf2(want.step.at)}` : ""}.` : `I want ${article(name)}.` : want.kind === "place" ? `I want to be at ${name}.` : `I want to see ${name}.`;
-    const more = world.actors[id].under?.length || 0;
+    const more = Math.max(0, questsOf(world, id).length - 1);
     return more ? `${line} I have ${more === 1 ? "one other quest" : `${more} other quests`} too.` : line;
   }
   var wantHeard = (world, played, id, player) => id === player || played?.verb === "talk" && [played.actorId, played.targetId].includes(id);
@@ -2311,7 +2311,9 @@
   var CONNECT_TARGET = "humans";
   var REFUSAL_LIMIT = 3;
   var CONTENT_TURNS = 24;
-  var QUEST_LIMIT = 3;
+  var QUEST_LIMIT = 2;
+  var NPC_QUEST_LIMIT = 3;
+  var playerQuests = (id) => humanAvatarIds.includes(id);
   var knownActors = (s) => [
     .../* @__PURE__ */ new Set([
       ...Object.keys(sharedEnabled(s) ? s.actors : s.opening?.met || s.actors),
@@ -2336,10 +2338,11 @@
     w.lit ?? null
   ]);
   var wantKey = (id, want) => `${id}:${want.kind}:${want.target}:${want.since}:${want.quest?.left ?? ""}:${questTerms(want)}`;
-  var questsOf = (s, id) => {
+  var allQuestsOf = (s, id) => {
     const a = s.actors[id];
     return a?.want ? [a.want, ...a.under || []] : [];
   };
+  var questsOf = (s, id) => allQuestsOf(s, id).slice(0, playerQuests(id) ? QUEST_LIMIT : NPC_QUEST_LIMIT);
   function setQuests(a, list) {
     a.want = list[0] ?? null;
     if (a.want) delete a.content;
@@ -2435,9 +2438,9 @@
   var sanctuaryQuest = (w) => w.step?.verb === "rest" && !w.quest;
   function repairRestTargets(s, api) {
     for (const id of Object.keys(s.actors)) {
-      const held = questsOf(s, id), kept = held.filter((want) => !sanctuaryQuest(want));
+      const held = allQuestsOf(s, id), kept = held.filter((want) => !sanctuaryQuest(want));
       if (kept.length !== held.length) setQuests(s.actors[id], kept);
-      for (const want of questsOf(s, id))
+      for (const want of allQuestsOf(s, id))
         if (want.kind === "place" && want.step?.verb === "rest" && api.places().includes(want.target) && !api.sanctuaries.includes(want.target))
           want.target = restStep(s, id, api).target;
     }
@@ -2550,13 +2553,13 @@
         a,
         mergeSanctuaryQuests([
           restStep(s, actor, api, want.quest),
-          ...questsOf(s, actor).slice(1)
+          ...allQuestsOf(s, actor).slice(1)
         ])
       );
     else if (want.quest)
       a.want = want.quest.left === questSteps(want.quest.level) + 1 && glimpseStep(s, actor, api, want.quest) || questStep(s, actor, api, want.quest, want);
     else {
-      const aside = { ...want, since: s.turn, refusals: 0 }, rest = questsOf(s, actor).slice(1);
+      const aside = { ...want, since: s.turn, refusals: 0 }, rest = allQuestsOf(s, actor).slice(1);
       const next = rest.length ? null : nextWant(s, actor, api, want);
       setQuests(a, [...rest, ...next ? [next] : [], aside]);
     }
@@ -2597,9 +2600,11 @@
     const a = s.actors[id];
     const whole6 = (n) => Number.isSafeInteger(n) && n >= 0 && n <= s.turn;
     const list = (v, of) => Array.isArray(v) && v.length <= 64 && new Set(v).size === v.length && v.every((x) => Object.hasOwn(of, x));
-    const quests = questsOf(s, id);
+    const quests = allQuestsOf(s, id);
+    const cards = Object.keys(s.items).length + Object.keys(s.actors).length + Object.keys(s.locations).length + 1;
+    const limit = playerQuests(id) ? 16 * cards ** 3 : NPC_QUEST_LIMIT;
     const most = startXp(id) + (a.carried ?? 0) + s.turn * 8;
-    return Number.isSafeInteger(a.xp) && a.xp >= 0 && (a.carried === void 0 || Number.isSafeInteger(a.carried) && a.carried >= 0) && (a.level === void 0 || Number.isSafeInteger(a.level) && a.level >= 1 && a.level <= levelFor(most)) && a.xp <= most && (a.metTurn === void 0 || whole6(a.metTurn)) && validQuestRewards(s, id) && (a.content === void 0 || a.content === true) && (a.glimpse === void 0 || validGlimpse(a.glimpse, levelFor(most) + 1)) && (a.halfwayIssued === void 0 || Number.isSafeInteger(a.halfwayIssued) && a.halfwayIssued >= 2 && a.halfwayIssued <= levelFor(most) + 1) && (a.gaveUp === void 0 || a.gaveUp && Object.keys(a.gaveUp).length === 2 && typeof a.gaveUp.target === "string" && whole6(a.gaveUp.turn)) && list(a.talked, s.actors) && validHeard(s, id) && !a.talked.includes(id) && Array.isArray(a.visited) && (a.want === null || validQuest(s, id, a.want)) && (a.under === void 0 || Array.isArray(a.under) && a.want !== null && a.under.length >= 1 && a.under.length < QUEST_LIMIT && a.under.every((w) => validQuest(s, id, w))) && quests.filter((w) => w.quest).length <= 1 && new Set(quests.filter((w) => !w.quest).map(questTerms)).size === quests.filter((w) => !w.quest).length;
+    return Number.isSafeInteger(a.xp) && a.xp >= 0 && (a.carried === void 0 || Number.isSafeInteger(a.carried) && a.carried >= 0) && (a.level === void 0 || Number.isSafeInteger(a.level) && a.level >= 1 && a.level <= levelFor(most)) && a.xp <= most && (a.metTurn === void 0 || whole6(a.metTurn)) && validQuestRewards(s, id) && (a.content === void 0 || a.content === true) && (a.glimpse === void 0 || validGlimpse(a.glimpse, levelFor(most) + 1)) && (a.halfwayIssued === void 0 || Number.isSafeInteger(a.halfwayIssued) && a.halfwayIssued >= 2 && a.halfwayIssued <= levelFor(most) + 1) && (a.gaveUp === void 0 || a.gaveUp && Object.keys(a.gaveUp).length === 2 && typeof a.gaveUp.target === "string" && whole6(a.gaveUp.turn)) && list(a.talked, s.actors) && validHeard(s, id) && !a.talked.includes(id) && Array.isArray(a.visited) && (a.want === null || validQuest(s, id, a.want)) && (a.under === void 0 || Array.isArray(a.under) && a.want !== null && a.under.length >= 1 && a.under.length < limit && a.under.every((w) => validQuest(s, id, w))) && quests.filter((w) => w.quest).length <= 1 && new Set(quests.filter((w) => !w.quest).map(questTerms)).size === quests.filter((w) => !w.quest).length;
   }
   function validQuestRewards(s, id) {
     const receipts = s.actors[id].questRewards;
@@ -20641,7 +20646,7 @@
         (x, i, all) => !actorIds.includes(x) || i && all[i - 1] >= x
       )))
         fail();
-      if (!validWant(s, id) || a.visited.length > Object.keys(places).length || a.visited.some((place) => !Object.hasOwn(places, place)) || questsOf(s, id).some(
+      if (!validWant(s, id) || a.visited.length > Object.keys(places).length || a.visited.some((place) => !Object.hasOwn(places, place)) || allQuestsOf(s, id).some(
         (w) => w.kind === "place" && !Object.hasOwn(places, w.target)
       ))
         fail();
@@ -21836,8 +21841,8 @@
           return { id, facts: [], desire: null, memories: [], previous: null };
         const continuity = !isCovered?.(location) && (kind === "location" || id === currentActor(world)) ? packSceneFacts(world, location) : [];
         const want = kind === "avatar" && wantHeard(world, played, id, currentActor(world)) ? wantFact(world, id, nameOf) : null;
-        const quest = world.actors[id]?.want;
-        const dreamt = rest === "long" && id === resting2 && quest?.quest?.left && quest.since === world.turn ? `In a dream, the quest for level ${quest.quest.level}: ${wantText(quest)}.` : null;
+        const quest = questsOf(world, id).find((w) => w.quest && w.since === world.turn);
+        const dreamt = rest === "long" && cast.dream === "quest" && id === resting2 && quest?.quest?.left && quest.since === world.turn ? `In a dream, the quest for level ${quest.quest.level}: ${wantText(quest)}.` : null;
         const glimpse = world.actors[id]?.glimpse;
         const glimpsed = cast.dream === "glimpse" && id === resting2 && glimpse ? `In a dream, a glimpse of the quest for level ${glimpse.level}: ${glimpse.kind === "verb" ? glimpse.id : nameOf(glimpse.id)}.` : null;
         const between = beforeFirstLight ? { entries: [], retold: [] } : betweenUs(world, id, speakers, nameOf);

@@ -174,21 +174,25 @@ const lastIndex = (list, test) => {
 // A sanctuary reminder can replace the ordinary visit to the same place.
 export function pushQuest(s, actor, want) {
   const a = s.actors[actor];
+  const same = (w) =>
+    sameQuest(w, want) || (!w.quest && !want.quest && !w.step &&
+      want.step?.verb === "rest" && w.kind === want.kind && w.target === want.target);
   if (playerQuests(actor)) {
     const held = allQuestsOf(s, actor);
     const old = held.find((w) => want.quest
       ? w.quest?.level === want.quest.level
-      : !w.quest && questTerms(w) === questTerms(want));
+      : same(w));
     if (old) {
+      if (want.step?.verb === "rest" && !old.step) {
+        setQuests(a, held.map((w) => w === old ? want : w));
+        return want;
+      }
       if (want.story) old.story = true;
       return old;
     }
     setQuests(a, [...held, want]);
     return want;
   }
-  const same = (w) =>
-    sameQuest(w, want) || (!w.quest && !want.quest && !w.step &&
-      want.step?.verb === "rest" && w.kind === want.kind && w.target === want.target);
   const held = questsOf(s, actor);
   const old = held.find(same);
   const shape = (w) => JSON.stringify([w.step ?? null]);
@@ -848,7 +852,7 @@ function giveUp(s, actor, api) {
       mergeSanctuaryQuests([
         restStep(s, actor, api, want.quest),
         ...allQuestsOf(s, actor).slice(1),
-      ], playerQuests(actor)),
+      ]),
     );
   else if (want.quest)
     a.want =

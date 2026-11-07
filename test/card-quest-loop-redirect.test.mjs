@@ -58,7 +58,7 @@ describe("a sanctuary quest redirected by a pack going off", () => {
     expect(validateWorld(s)).toBe(s);
     const result = play(s, off("hoppy"), s.revision, "vale");
     expect(result.error).toBeUndefined();
-    expect(shape(result.state)).toEqual(["place:attic:rest", "place:attic:"]);
+    expect(shape(result.state)).toEqual(["place:attic:rest"]);
     expect(validateWorld(result.state)).toBe(result.state);
   });
 
@@ -86,7 +86,7 @@ describe("a sanctuary quest redirected by a pack going off", () => {
     expect(result.error).toBeUndefined();
     expect(shape(result.state)).toEqual([
       "place:attic:rest",
-      "place:attic:",
+      "place:attic:rest*",
     ]);
     expect(validateWorld(result.state)).toBe(result.state);
   });
