@@ -292,6 +292,10 @@ fn agreed_household_journey_replays_after_released_history_with_both_care_choice
             assert!(world.game["packs"]["greek-drama"]["receipts"]
                 ["greek-homecoming-agree-journey"]
                 .is_number());
+            assert_eq!(
+                world.game["journeyProgress"][MYRINE],
+                json!({"agreement":"greek-homecoming-agree-journey","step":0})
+            );
             for target in MYRINE_PATH {
                 play(&c, &id, &mut world, 0, &step(target));
             }
@@ -299,7 +303,7 @@ fn agreed_household_journey_replays_after_released_history_with_both_care_choice
             c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
             assert_eq!(full_store::world(&c, &id, now()).unwrap(), world);
             let mut travel = Value::Null;
-            for destination in MYRINE_PATH {
+            for (step, destination) in MYRINE_PATH.into_iter().enumerate() {
                 travel = play(
                     &c,
                     &id,
@@ -311,6 +315,7 @@ fn agreed_household_journey_replays_after_released_history_with_both_care_choice
                         ("destination", destination),
                     ],
                 );
+                assert_eq!(world.game["journeyProgress"][MYRINE]["step"], step + 1);
             }
             assert_eq!(world.game["actors"][MYRINE]["place"], "greek-piraeus");
             assert_eq!(world.game["actors"]["mara"]["place"], "greek-piraeus");
@@ -373,7 +378,8 @@ fn agreed_household_journey_replays_after_released_history_with_both_care_choice
             }
             assert_eq!(world.game["actors"][MYRINE]["place"], "greek-piraeus");
             c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
-            assert_eq!(full_store::world(&c, &id, now()).unwrap(), world);
+            let reopened = store::open(std::path::Path::new(c.path().unwrap())).unwrap();
+            assert_eq!(full_store::world(&reopened, &id, now()).unwrap(), world);
             let upgrades: i64 = c.query_row("SELECT count(*) FROM card_full_log WHERE json_extract(command,'$.op')='upgrade'", [], |r| r.get(0)).unwrap();
             assert_eq!(upgrades, 1);
         }
