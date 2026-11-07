@@ -218,8 +218,8 @@ One phase decides what the dialogue box shows (`phase()` in
 
 | Phase     | When                                                                          | In front                                   |
 | --------- | ----------------------------------------------------------------------------- | ------------------------------------------ |
+| revealing | the live line is being written, the exchange has more, or a choice awaits Continue | the line, in its full-size card          |
 | choosing  | the hand has a choice and its play is ready or past the thinking grace        | the action beat, the spoken beat behind it |
-| revealing | the live line is being written, or the exchange has more                      | the line, in its full-size card            |
 | thinking  | a play is queued, or committed less than 5 s ago, and its words have not come | the Thinking card                          |
 | reviewing | the player stepped back behind live                                           | the earlier beat, with ● live              |
 | idle      | otherwise                                                                     | the latest beat                            |

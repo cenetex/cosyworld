@@ -219,10 +219,6 @@ try {
         );
       } else {
         await page.locator('#card-actions [data-drop-quest="0"]').waitFor();
-        assert.doesNotMatch(
-          await page.locator(".dialogue").innerText(),
-          /turns to another quest/,
-        );
       }
       const after = await page.evaluate(
         (key) => JSON.parse(localStorage.getItem(key)),
