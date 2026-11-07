@@ -1584,6 +1584,7 @@ export function legalActions(s, actor = currentActor(s)) {
           canDisembark(s, crossing.transport, id)) &&
         id !== actor &&
         !controlledByHuman(s, id) &&
+        !guardOf(s, here, to, id) &&
         ((!staysPut(id, s) && !keepsHome(s, id)) ||
           packJourneyDestination(s, id) === to) &&
         !departureWaits(s, id, to) &&
@@ -3117,6 +3118,8 @@ function wantPlan(s, actor) {
     owner = rootHolder(s, item);
   // Held but not as wanted: uncover it, then light or put it out.
   if (owner === actor) {
+    if (want.step?.verb === "eat" && want.step.at && want.step.at !== here)
+      return go(want.step.at);
     if (want.lit === undefined) return idle();
     const cover = ids.find((id) => s.items[id].holder === item);
     const fix = cover

@@ -51,9 +51,10 @@ export function funeralJourney(world = null) {
     act("talk", { target: "greek-antigone" });
     move("palace");
     act("trade", { item: "greek-decree", receive: "greek-creon-writ" });
-    move("gate");
+    move(world.actors["greek-guard"].place.replace("greek-", ""));
     worldLife.on = true;
     act("give", { item: "greek-creon-writ", target: "greek-guard" });
+    move("gate");
     act("take", { item: "greek-shovel" });
     move("courtyard");
     act("take", { item: "greek-oil-flask" });
