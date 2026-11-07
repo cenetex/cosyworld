@@ -1,4 +1,3 @@
-import { collectRewards } from "./helpers/claim-rewards.mjs";
 import { describe, expect, it } from "vitest";
 import forest from "../v2/card-game/forest.json" with { type: "json" };
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
@@ -186,7 +185,9 @@ describe("an unlocked avatar's homecoming", () => {
     const home = run();
     expect(home.actors.mara.place).toBe("theatre");
     expect(home.actors.mara.xp).toBe(0);
-    expect(collectRewards(home, "mara").actors.mara.xp).toBe(1);
+    expect(
+      playAs(home, "mara", (a) => a.kind === "claim").world.actors.mara.xp,
+    ).toBe(1);
     expect(questsOf(home, "mara").some((w) => w.target === "mask")).toBe(false);
     expect(run()).toEqual(home);
   });
