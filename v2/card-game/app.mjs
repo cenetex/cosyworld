@@ -5518,7 +5518,7 @@ function resumeScene({ otherTab = false } = {}) {
       entry.locationId === world.actors[currentActor(world)].place && !sleepView.hidesLine(entry));
     const index = saved ? lines.findIndex((entry) => entry.seq >= saved.seq) : -1;
     const remaining = index >= 0 ? lines.slice(index) : [];
-    const line = remaining[0] || currentScene(world).line;
+    const line = remaining[0] || lines.at(-1);
     // A line read, or begun, before the reload shows whole.
     if (line) completedSpeech.add(lineKey(line, line.locationId));
     lineSeq = null;

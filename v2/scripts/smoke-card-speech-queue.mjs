@@ -27,7 +27,12 @@ async function read(page) {
 const text = { vale: "Skull, what is on the path? I can see your ears turning toward the garden, and I would like to hear what you have found.", skull: "Skull turns his ears toward the garden." };
 async function open(page, url) {
   await page.goto(url);
-  await page.waitForFunction(() => !document.body.inert && document.querySelector("#dialogue-text").textContent);
+  try {
+    await page.waitForFunction(() => !document.body.inert && document.querySelector("#dialogue-text").textContent);
+  } catch (error) {
+    console.error(await page.evaluate(() => ({ inert: document.body.inert, text: document.body.innerText.slice(-2000) })));
+    throw error;
+  }
 }
 async function seed(page, key, world, stream = false) {
   await page.addInitScript(({ key, save, seen, stream, text }) => {
@@ -35,10 +40,12 @@ async function seed(page, key, world, stream = false) {
     localStorage.setItem(`${key}.seen`, JSON.stringify(seen));
     localStorage.setItem("cosyworld.dialogue.sound", "off");
     localStorage.setItem("cosyworld.room-music", JSON.stringify({ enabled: false }));
-    if (!stream) return;
+    window.speechQueueRequests = 0;
     const original = window.fetch.bind(window);
     window.fetch = (input, options) => {
       if (input !== "/card-game/text") return original(input, options);
+      window.speechQueueRequests++;
+      if (!stream) return original(input, options);
       const c = JSON.parse(options.body);
       const entries = Object.entries(text).map(([id, text]) => ({ id, text }));
       const event = (value) => new TextEncoder().encode(`data: ${JSON.stringify(value)}\n\n`);
@@ -158,12 +165,24 @@ try {
       await local.evaluate((position) => {
         const key = "cosyworld.reflected-shore.v1.local-queue";
         const save = JSON.parse(localStorage.getItem(key));
-        save.log = save.log.filter((entry) => entry.seq > position.seq);
+        save.log = save.log.filter((entry) => !entry.generated || entry.seq > position.seq);
         localStorage.setItem(key, JSON.stringify(save));
         localStorage.setItem(`${key}.reading`, JSON.stringify(position));
       }, position);
       await open(local, `${origin}/?table=local-queue`);
       assert.equal(await front(local), text.skull, "A trimmed cursor resumes the next retained reply.");
+      const legacy = JSON.parse(await local.evaluate(() => localStorage.getItem("cosyworld.reflected-shore.v1.local-queue")));
+      addLog(legacy, "Moonlit trail", "Moonlight falls across the pawprints.", {
+        generated: true, kind: "narration", entityId: "forest-trail", locationId: "forest-trail",
+      });
+      await local.evaluate((save) => {
+        localStorage.setItem("cosyworld.reflected-shore.v1.local-queue", save);
+        localStorage.removeItem("cosyworld.reflected-shore.v1.local-queue.reading");
+      }, encodeSave(legacy));
+      await open(local, `${origin}/?table=local-queue`);
+      assert.equal(await front(local), text.skull, "An older save resumes the latest visible reply.");
+      await local.waitForFunction(() => document.querySelector("#hand").dataset.cooling === "false");
+      assert.equal(await local.evaluate(() => window.speechQueueRequests), 0, "Completed movement-only words are reused on reload.");
       await local.screenshot({ path: new URL(`local-${stream}-${width}.png`, output).pathname });
       assert.deepEqual(errors, []);
       reports.push({ width, mode: stream ? "local-stream" : "local-json", errors });
