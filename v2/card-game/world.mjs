@@ -1,4 +1,5 @@
 import { expressionOf } from "./expression.mjs";
+import { installJourneyProgress } from "./pack-journeys.mjs";
 import { levelTier } from "./level-tiers.mjs";
 import { recordLearning, beginLearning, reconsiderPlan } from "./learning.mjs";
 import {
@@ -124,6 +125,7 @@ import {
   isPackActor,
   staysPut,
   packJourneyDestination,
+  recordJourneyTravel,
   roamingQuestActor,
   avoidsStandoffs,
   transports,
@@ -310,6 +312,7 @@ export function createWorld({ opening = false, packScopes = {}, seed } = {}) {
     world.log = start.log;
   }
   installPacks(world);
+  installJourneyProgress(world, packDefinitions);
   for (const [id, scope] of Object.entries(packScopes)) {
     if (
       !world.packs[id] ||
@@ -1896,7 +1899,8 @@ export function legalActions(s, actor = currentActor(s)) {
           actor,
           null,
           null,
-          reward.paid ? `${nameOf(actor)} collects a completed quest.`
+          reward.paid
+            ? `${nameOf(actor)} collects a completed quest.`
             : `${nameOf(actor)} claims ${reward.xp} XP for a completed quest.`,
           [],
         ),
@@ -2454,6 +2458,7 @@ function performPlay(s, a, round = null, settle = []) {
           ...new Set([...(visits[a.target] || []), a.destination]),
         ].sort();
         const through = travelParty(s, [a.actor, a.target], a.destination);
+        recordJourneyTravel(s, a.target, here, a.destination);
         text += ` ${nameOf(a.target)} agrees. They travel together.`;
         if (through && firstCrossing)
           text += " Something on the far shore turns its head.";
@@ -3987,6 +3992,7 @@ export function decodeSave(text) {
       setAside: (world, id) =>
         !humanHeld(world, id) && setAsideWant(world, id, wantAPI(world)),
     });
+    installJourneyProgress(s, packDefinitions);
     // An earlier save records the gates already open as it loads, and its
     // guards take their posts (rules 100).
     latchRoutes(s);

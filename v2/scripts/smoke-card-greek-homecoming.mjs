@@ -13,6 +13,7 @@ import {
 import { homecomingSteps } from "../../test/helpers/greek-homecoming.mjs";
 import {
   clearSelection,
+  revealCard,
   selectCard,
   smokeWidths,
   wordsFellSilent,
@@ -144,6 +145,11 @@ try {
         )
           await step({ kind: "wait" });
       }
+      if (
+        kind === "accompany" &&
+        (await state()).actors[fields.target]?.sleeping
+      )
+        await step({ kind: "talk", target: fields.target });
       const before = await state();
       const action = openDoorAction(before, kind, fields);
       const cards = action.cards?.length
@@ -152,8 +158,31 @@ try {
       if (kind === "drop" && !cards.includes(fields.target))
         cards.push(fields.target);
       await clearSelection(page);
-      for (const id of [...new Set(cards)])
-        await selectCard(page, id, { touch: width === 390 });
+      for (const id of [...new Set(cards)]) {
+        if (profiles[id]?.kind !== "avatar") {
+          await selectCard(page, id, { touch: width === 390 });
+          continue;
+        }
+        const card = await revealCard(page, id);
+        const point = await card.evaluate((el) => {
+          const r = el.getBoundingClientRect();
+          for (
+            let y = Math.max(0, r.top) + 8;
+            y < Math.min(innerHeight, r.bottom);
+            y += 12
+          )
+            for (
+              let x = Math.max(0, r.left) + 8;
+              x < Math.min(innerWidth, r.right);
+              x += 12
+            )
+              if (el.contains(document.elementFromPoint(x, y))) return { x, y };
+          return null;
+        });
+        assert.ok(point, `${id} exposes a place to tap at ${width}`);
+        if (width === 390) await page.touchscreen.tap(point.x, point.y);
+        else await page.mouse.click(point.x, point.y);
+      }
       await page
         .locator(`#card-actions [data-action="${kind}"]`)
         .first()
@@ -164,6 +193,11 @@ try {
       if (kind === "accompany") {
         assert.equal(after.actors.vale.place, fields.destination);
         assert.equal(after.actors[fields.target].place, fields.destination);
+        assert.equal(
+          after.journeyProgress[fields.target].step,
+          before.journeyProgress[fields.target].step + 1,
+          "agreed step advances",
+        );
       }
       assert.equal(after.quests, undefined, "no quest records return");
     };
@@ -199,6 +233,11 @@ try {
             (await state()).packs,
             now.packs,
             "agreement survives reload",
+          );
+          assert.deepEqual(
+            (await state()).journeyProgress,
+            now.journeyProgress,
+            "journey progress survives reload",
           );
         }
         if (action.kind === "accompany") await capture("household-at-quay");
