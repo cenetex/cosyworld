@@ -5,9 +5,8 @@ import {
   decodeSave,
   encodeSave,
   exits,
-  legalActions,
-  play,
 } from "../v2/card-game/world.mjs";
+import { act } from "./helpers/world-life.mjs";
 import { sailTo } from "./helpers/voyage.mjs";
 import { greekTravelTargets } from "./helpers/greek-travel.mjs";
 
@@ -20,20 +19,6 @@ function start(place) {
   s.actors.vale.place = place;
   s.crossings["pond-greek-harbor"].discovered = true;
   return reload(s);
-}
-function act(s, kind, fields = {}) {
-  const action = legalActions(s).find(
-    (a) =>
-      a.kind === kind &&
-      Object.entries(fields).every(([key, value]) => a[key] === value),
-  );
-  expect(
-    action,
-    `${kind} ${JSON.stringify(fields)} at ${s.actors.vale.place}`,
-  ).toBeTruthy();
-  const done = play(s, action);
-  expect(done.ok, done.error).toBe(true);
-  return done.state;
 }
 const walk = (s, ...places) =>
   places.reduce(

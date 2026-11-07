@@ -12,7 +12,7 @@ import { lifeWorld, reload, settleGate } from "./helpers/world-life.mjs";
 
 const GUARD = "greek-guard",
   GATE = "greek-gate",
-  FIELD = "greek-battlefield";
+  FIELD = "greek-courtyard";
 const sandbox = {};
 runInNewContext(
   readFileSync("v2/orchestrator-rust/src/card_shared/narrator.js", "utf8"),
@@ -38,14 +38,15 @@ const told = (context) =>
     .filter((f) => !/^(Paths visible|At the dialogue scene)/u.test(f))
     .join(" ");
 const SIDES = [
-  [GATE, FIELD, "The way to The Exposed Battlefield is"],
+  [GATE, FIELD, "The way to Theban Courtyard is"],
   [FIELD, GATE, "The way to Theban City Gate is"],
 ];
 const OPEN = { guarded: false, away: true, lifted: true };
 
 describe("the voices at the Theban gate", () => {
-  for (const [state, open] of Object.entries(OPEN))
-    for (const [place, beyond, line] of SIDES)
+  for (const [state, entryOpen] of Object.entries(OPEN))
+    for (const [place, beyond, line] of SIDES) {
+      const open = place === GATE ? entryOpen : true;
       it(`hear it ${open ? "open" : "shut"} at ${place} when ${state}`, () => {
         const s = scene(state, place);
         expect(exits(s, place, "vale").includes(beyond)).toBe(open);
@@ -75,4 +76,5 @@ describe("the voices at the Theban gate", () => {
           }),
         );
       });
+    }
 });

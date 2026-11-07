@@ -3075,7 +3075,7 @@
         schemaVersion: 1,
         id: "greek-drama",
         packId: "cosyworld.greek-drama",
-        revision: 22,
+        revision: 24,
         name: "The Wine-Dark Sea",
         description: "A branching Greek drama world. A shared ship visits the Wine-Dark Harbor, Athens Harbor and Piraeus. One road joins Athens and Piraeus, and short paths lead to the Attic places where welcome becomes a growing poem.",
         tone: "Concrete Greek domestic and civic life: bread, work, desire, grief, argument, irreverence, and hospitality. Dialogue expresses committed actions. A tragic ending is never required.",
@@ -3159,9 +3159,10 @@
           },
           "greek-gate": {
             name: "Theban City Gate",
-            text: "Fresh repairs cover the gate. A guard keeps the road to the fallen soldiers clear.",
+            text: "Fresh repairs cover the gate. The courtyard lies inside the wall. Outside, paths lead to the battlefield and the road over Cithaeron.",
             exits: [
-              "greek-courtyard",
+              "greek-battlefield",
+              "greek-cithaeron",
               "greek-aulis"
             ],
             backdrop: "assets/greek-drama/city-gate-closed-day.webp",
@@ -3176,7 +3177,7 @@
                   {
                     kind: "gate_open",
                     from: "greek-gate",
-                    to: "greek-battlefield"
+                    to: "greek-courtyard"
                   }
                 ]
               },
@@ -3190,12 +3191,12 @@
                   {
                     kind: "gate_open",
                     from: "greek-gate",
-                    to: "greek-battlefield"
+                    to: "greek-courtyard"
                   }
                 ]
               }
             ],
-            persona: "Fresh repairs cover the gate. A guard keeps the road to the fallen soldiers. He guards it until Creon's writ is in his hands."
+            persona: "The City Gate is the junction outside Thebes. The guard keeps the entrance to the courtyard. Travelers can leave toward the battlefield or the Cithaeron road to Eleusis and Athens."
           },
           "greek-battlefield": {
             name: "The Exposed Battlefield",
@@ -3218,15 +3219,15 @@
           },
           "greek-cithaeron": {
             name: "The Cithaeron Road",
-            text: "Goat paths cross the wooded slope of Cithaeron. One end leads to The Exposed Battlefield; the other leads to Eleusinian Sanctuary. A distant drum carries between the trees.",
+            text: "Goat paths cross the wooded slope of Cithaeron. One end leads to Theban City Gate; the other leads to Eleusinian Sanctuary. A distant drum carries between the trees.",
             exits: [
-              "greek-battlefield",
+              "greek-gate",
               "greek-eleusis"
             ],
             backdrop: "assets/greek-drama/bacchae-cithaeron-day.webp",
-            persona: "A shared road over Cithaeron between The Exposed Battlefield and Eleusinian Sanctuary. The left end always leads to The Exposed Battlefield. The right end always leads to Eleusinian Sanctuary. From the battlefield it opens only while a Theban account of the burial is there or on Dione\u2019s table: the Burial Account, Creon\u2019s Writ or the Guard\u2019s Tablet. Travelers can meet, talk, rest and carry their belongings here.",
+            persona: "A shared road over Cithaeron between Theban City Gate and Eleusinian Sanctuary. The left end leads to Theban City Gate. The right end leads to Eleusinian Sanctuary. Travelers can meet, talk, rest and carry their belongings here.",
             road: [
-              "greek-battlefield",
+              "greek-gate",
               "greek-eleusis"
             ]
           },
@@ -4734,13 +4735,7 @@
             values: {},
             seed: "Aethra, mother of Theseus.",
             portrait: "assets/greek-drama/open-door-aethra.webp",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-open-door-open",
-                value: true
-              }
-            ],
+            requires: [],
             tastes: {
               likes: "careful listening and help that reaches its owner",
               sore: "promises treated as finished deeds",
@@ -5591,7 +5586,7 @@
         routes: [
           {
             from: "greek-gate",
-            to: "greek-battlefield",
+            to: "greek-courtyard",
             live: true,
             requires: [
               {
@@ -5728,81 +5723,6 @@
           {
             from: "greek-argos-palace",
             to: "greek-argos-tomb"
-          },
-          {
-            from: "greek-battlefield",
-            to: "greek-cithaeron",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-burial-performed",
-                value: true
-              },
-              {
-                kind: "any",
-                conditions: [
-                  {
-                    kind: "item_near",
-                    item: "greek-burial-account",
-                    place: "greek-battlefield"
-                  },
-                  {
-                    kind: "item_near",
-                    item: "greek-burial-account",
-                    place: "greek-courtyard"
-                  }
-                ]
-              }
-            ],
-            sealed: {
-              reason: "The road over Cithaeron opens once a Theban account of the burial is here or on Dione's table.",
-              quest: {
-                kind: "item",
-                target: "greek-burial-account"
-              }
-            }
-          },
-          {
-            from: "greek-battlefield",
-            to: "greek-cithaeron",
-            requires: [
-              {
-                kind: "any",
-                conditions: [
-                  {
-                    kind: "item_near",
-                    item: "greek-creon-writ",
-                    place: "greek-battlefield"
-                  },
-                  {
-                    kind: "item_near",
-                    item: "greek-creon-writ",
-                    place: "greek-courtyard"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            from: "greek-battlefield",
-            to: "greek-cithaeron",
-            requires: [
-              {
-                kind: "any",
-                conditions: [
-                  {
-                    kind: "item_near",
-                    item: "greek-guard-tablet",
-                    place: "greek-battlefield"
-                  },
-                  {
-                    kind: "item_near",
-                    item: "greek-guard-tablet",
-                    place: "greek-courtyard"
-                  }
-                ]
-              }
-            ]
           },
           {
             from: "greek-eleusis",
@@ -7094,14 +7014,13 @@
             label: "Hear the mothers\u2019 request",
             text: "Vale sits with Aethra and the Argive mothers. Their sons died in the attack on Thebes. They ask Athens to recover the remains for burial. Aethra sets their petition and olive branch within reach.",
             textTemplate: "{actor} sits with Aethra and the Argive mothers. Their sons died in the attack on Thebes. They ask Athens to recover the remains for burial. Aethra sets their petition and olive branch within reach.",
-            requires: [
+            requires: [],
+            effects: [
               {
-                kind: "flag",
+                kind: "set_flag",
                 key: "greek-open-door-open",
                 value: true
-              }
-            ],
-            effects: [
+              },
               {
                 kind: "set_flag",
                 key: "greek-open-door-mothers-heard",
@@ -10519,13 +10438,7 @@
               "greek-cithaeron",
               "greek-road-athens-eleusis"
             ],
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-open-door-open",
-                value: true
-              }
-            ]
+            requires: []
           },
           {
             id: "greek-ajax",
@@ -10559,13 +10472,7 @@
             speaker: "greek-aethra",
             at: "greek-eleusis",
             text: "The Argive mothers ask Athens to recover their sons' remains for burial.",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-open-door-open",
-                value: true
-              }
-            ],
+            requires: [],
             choiceId: "greek-open-door-hear-mothers"
           },
           {
@@ -18548,6 +18455,7 @@
         s.packs["greek-drama"].revision = 21;
       if (s.packs?.["greek-drama"]?.revision === 21)
         s.packs["greek-drama"].revision = 22;
+      upgradeGreekGateRoadSave(s);
       upgradeRecitals(s, packDefinitions);
     }
     upgradeSightings(s);
@@ -19121,6 +19029,21 @@
     foldRetiredRoads(s);
     saved.revision = 14;
   }
+  function upgradeGreekGateRoadSave(s) {
+    const pack = packDefinitions.find((p) => p.id === "greek-drama");
+    const saved = s.packs?.[pack?.id];
+    if (!pack || pack.revision < 24 || ![22, 23].includes(saved?.revision))
+      return;
+    foldRetiredRoads(s);
+    if (Array.isArray(s.openedRoutes)) {
+      s.openedRoutes = s.openedRoutes.filter(latchingRoute);
+      if (!s.openedRoutes.length) delete s.openedRoutes;
+    }
+    for (const actor of Object.values(s.actors))
+      if (actor.place === "greek-gate" && actor.guarding === "greek-battlefield")
+        delete actor.guarding;
+    saved.revision = 24;
+  }
   function upgradeGreekCithaeronSave(s) {
     const pack = packDefinitions.find((p) => p.id === "greek-drama");
     const saved = s.packs?.[pack?.id];
@@ -19344,7 +19267,8 @@
   function upgradeGreekFuneralSave(s) {
     const pack = packDefinitions.find((p) => p.id === "greek-drama");
     const saved = s.packs?.[pack?.id];
-    if (!pack?.avatars["greek-polynices-shade"] || !saved || saved.revision > 20) return;
+    if (!pack?.avatars["greek-polynices-shade"] || !saved || saved.revision > 20)
+      return;
     addGreekEntities(s, pack, ["greek-polynices-shade"], []);
     const antigone = s.actors["greek-antigone"];
     if (antigone && !saved.flags?.["greek-burial-performed"])
@@ -19800,12 +19724,12 @@
       badger: { sleep: { from: 28, to: 46 } },
       oak: { range: 0 },
       "hoppycat-nix-fermata": { sleep: { from: 46, to: 22 } },
-      "greek-guard": { range: 0, sleep: null, guards: "greek-battlefield" },
+      "greek-guard": { range: 0, sleep: null, guards: "greek-courtyard" },
       "greek-shipmaster": { sails: true, sleep: { from: 30, to: 45 } },
       "greek-rhapsode": { sleep: null },
       boardyai: { sleep: null }
     },
-    guardable: [{ from: "greek-gate", to: "greek-battlefield" }]
+    guardable: [{ from: "greek-gate", to: "greek-courtyard", oneWay: true }]
   };
 
   // v2/card-game/resident-home.mjs
@@ -19821,7 +19745,7 @@
       if (!packDefinitions.some((d) => d.id === id) || !recordOk(p, ["sleep"]))
         problems2.push(`pack ${id} needs a known pack and a sleep schedule`);
     for (const r of world_life_default.guardable || [])
-      if (Object.keys(r).sort().join() !== "from,to" || !own2(places2, r.from) || !own2(places2, r.to) || !authoredRouteEdges().some(([a, b]) => a === r.from && b === r.to))
+      if (Object.keys(r).some((key) => !["from", "to", "oneWay"].includes(key)) || r.oneWay !== void 0 && typeof r.oneWay !== "boolean" || !own2(places2, r.from) || !own2(places2, r.to) || !authoredRouteEdges().some(([a, b]) => a === r.from && b === r.to))
         problems2.push(`guardable way ${r.from}>${r.to} needs an authored route`);
     for (const [id, r] of Object.entries(world_life_default.residents || {}))
       if (!own2(people2, id) || !recordOk(r, ["range", "sails", "sleep", "guards"]) || r.guards !== void 0 && !(world_life_default.guardable || []).some(
@@ -19924,7 +19848,9 @@
     guardData();
     return [...guardable.get(place) || [], ...returns2.get(place) || []];
   }
-  var guardedWay = (from, to) => isGuardable(from, to) ? [from, to] : isGuardable(to, from) ? [to, from] : null;
+  var guardedWay = (from, to) => isGuardable(from, to) ? [from, to] : isGuardable(to, from) && !(world_life_default.guardable || []).some(
+    (r) => r.from === to && r.to === from && r.oneWay
+  ) ? [to, from] : null;
   function guardOf(s, from, to, traveller = null) {
     const way = guardedWay(from, to);
     if (!way) return null;
