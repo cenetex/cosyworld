@@ -165,6 +165,8 @@ try {
       const writ = page.locator('#hand [data-card="greek-creon-writ"]');
       assert.equal(await writ.getAttribute("data-unrevealed"), "true");
       assert.equal(await writ.getAttribute("data-locked"), "false");
+      assert.equal(await writ.getAttribute("data-tier"), "common");
+      assert.equal(await writ.getAttribute("data-level"), "1");
       const plainLid = await lidState(writ);
       assert.match(plainLid.src, /card-back(?:[.-])/u);
       assert.doesNotMatch(plainLid.src, /locked/u);
