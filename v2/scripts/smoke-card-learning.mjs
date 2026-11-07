@@ -10,6 +10,8 @@ import {
   encodeSave,
 } from "../card-game/world.mjs";
 import { enableMotives } from "../card-game/motives.mjs";
+import { guardPost, settleGuards } from "../card-game/resident-guard.mjs";
+import { selectCard } from "./card-browser-helpers.mjs";
 import { rest } from "../../test/fixtures/card-rest.mjs";
 import {
   narrativeContext,
@@ -218,6 +220,76 @@ try {
         await page.reload();
       }
     }
+    const guard = "greek-guard",
+      beyond = guardPost(guard).to;
+    const guarded = createWorld({ seed: 2 });
+    guarded.actors.vale.place = "greek-gate";
+    guarded.packs["greek-drama"].met[guard] = 0;
+    guarded.items["greek-creon-writ"].holder = guard;
+    settleGuards(guarded);
+    const key = "cosyworld.reflected-shore.v1.learning-guard";
+    await page.evaluate(
+      ({ key, save }) => {
+        localStorage.setItem(key, save);
+        localStorage.setItem(
+          `${key}.seen`,
+          JSON.stringify([
+            "vale",
+            "greek-guard",
+            "greek-creon-writ",
+            "greek-gate",
+            "greek-battlefield",
+            "greek-courtyard",
+          ]),
+        );
+      },
+      { key, save: encodeSave(guarded) },
+    );
+    await page.goto(
+      `http://127.0.0.1:${server.address().port}/?table=learning-guard`,
+    );
+    const ready = async () => {
+      for (let n = 0; n < 375; n++) {
+        if (await page.locator("#dialogue-advance").isVisible())
+          await page.locator("#dialogue-advance").click();
+        if (
+          (await page.locator("#hand").getAttribute("data-cooling")) === "false"
+        )
+          return;
+        await page.waitForTimeout(40);
+      }
+      throw Error("The Guard learning hand stayed busy.");
+    };
+    await ready();
+    await selectCard(page, "greek-creon-writ");
+    await page.locator("#card-actions .card-primary").click();
+    await ready();
+    await page.keyboard.press("Escape");
+    await selectCard(page, "vale");
+    await selectCard(page, beyond);
+    await page.locator("#card-actions .card-primary").click();
+    await ready();
+    const trial = await page.evaluate(
+      (key) =>
+        JSON.parse(localStorage.getItem(key)).memories.vale.learning.at(-1),
+      key,
+    );
+    assert.equal(trial.action.kind, "wait");
+    assert.equal(trial.action.target, beyond);
+    await page.reload();
+    await ready();
+    assert.deepEqual(
+      await page.evaluate(
+        (key) =>
+          JSON.parse(localStorage.getItem(key)).memories.vale.learning.at(-1),
+        key,
+      ),
+      trial,
+    );
+    await page.screenshot({
+      path: `${output}/learned-guard-${width}.png`,
+      fullPage: true,
+    });
     assert.deepEqual(errors, []);
     await page.close();
   }
