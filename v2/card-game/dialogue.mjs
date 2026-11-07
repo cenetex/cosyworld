@@ -294,6 +294,7 @@ export function createExchange({
   settled = () => {},
   transition = () => {},
   busy = () => {},
+  holdLast = () => false,
 }) {
   let generation = 0,
     active = false,
@@ -347,6 +348,9 @@ export function createExchange({
     if (transitionWork?.then) void transitionWork.then(resume, resume);
     else resume();
   }
+  function settleLast() {
+    if (!streaming && index === lines.length - 1 && !holdLast()) advance();
+  }
 
   return {
     begin() {
@@ -365,7 +369,7 @@ export function createExchange({
       if (streaming) {
         lines = value;
         streaming = pending;
-        if (!streaming && index === lines.length - 1) advance();
+        settleLast();
         return;
       }
       streaming = pending;
@@ -391,15 +395,16 @@ export function createExchange({
       )
         return;
       completed = seq;
-      if (!streaming && index === lines.length - 1) advance();
+      settleLast();
     },
     advance,
+    settleLast,
     cancel: finish,
     pause(value) {
       if (paused === value) return;
       paused = value;
       if (!paused && handoff) handoff();
-      else if (!paused && !streaming && index === lines.length - 1) advance();
+      else if (!paused) settleLast();
     },
     get active() {
       return active;

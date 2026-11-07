@@ -399,6 +399,8 @@ try {
         .getByRole("button", { name: /^Return to live dialogue/ })
         .click();
       await keepsReply(shared, words(actor), false);
+      await selectCard(shared, actor);
+      assert.equal(await shared.locator("#action-beat").isVisible(), false);
       snapshot = structuredClone(snapshot);
       snapshot.queue = [];
       snapshot.now++;
@@ -406,6 +408,12 @@ try {
         snapshot.history[0].silent = ["moth"];
         snapshot.history[0].after = first.seq;
       } else {
+        for (const [id, text] of [[scenePlace(actor), "The pond holds the echo."], ["lamp", "The lamp rests in Pip's hand."]]) {
+          addLog(snapshot.world, nameOf(id), text, {
+            generated: true, kind: "narration", entityId: id, locationId: scenePlace(actor),
+          });
+          snapshot.history[0].lines.push(snapshot.world.log.at(-1));
+        }
         addLog(snapshot.world, nameOf("moth"), words("moth"), {
           generated: true,
           kind: "dialogue",
@@ -425,11 +433,19 @@ try {
         words(actor),
       );
       await shared.locator("#dialogue-advance").click();
+      if (width === 1440) for (const text of ["The pond holds the echo.", "The lamp rests in Pip's hand."]) {
+        await shared.waitForFunction((text) => document.querySelector("#dialogue-text").textContent === text, text);
+        assert.equal(await shared.locator("#action-beat").isVisible(), false);
+        await shared.locator("#speech-row").click();
+      }
       await shared.waitForFunction(
         (text) => document.querySelector("#dialogue-text").textContent === text,
         width === 390 ? "…" : words("moth"),
       );
       assert.equal(await shared.locator("#story-status").isVisible(), false);
+      assert.equal(await shared.locator("#action-beat").isVisible(), false);
+      await shared.locator("#speech-row").click();
+      await readyActionButton(shared, "wait").waitFor();
       assert.deepEqual(sharedErrors, []);
       reports.push({ width, actor, kind, shared: "passed" });
       await shared.close();

@@ -300,13 +300,11 @@ try {
             .getAttribute("data-revealing"),
           "true",
         );
-        // Choosing a card keeps its action ready while the line writes.
+        // Choosing a card keeps the writing speech in front.
         await page.evaluate(() =>
           document.querySelector('#hand [data-card="moth"]').click(),
         );
-        await page
-          .locator("#card-actions .card-primary")
-          .waitFor({ state: "visible" });
+        assert.equal(await page.locator("#action-beat").isVisible(), false);
         assert.equal(
           await page
             .locator("#dialogue-advance")

@@ -139,6 +139,10 @@ try {
           page,
           { take: "cloth", talk: "moth", move: "pond" }[kind],
         );
+        for (let i = 0; i < 8 && !(await page.locator(`#card-actions [data-action="${kind}"]`).isVisible()); i++) {
+          await page.locator("#speech-row").click();
+          await page.waitForTimeout(250);
+        }
         await readyActionButton(page, kind).click();
       }
       await readThrough(page, key, before.revision);
