@@ -18,7 +18,7 @@ Gameplay implementation follows review in separate small PRs.
 | Player links        | [actorCanVisit](../../v2/card-game/pack-registry.mjs) accepts saved invited places. A human's accepted invitation already permits a resident to use the human's open route across a pack boundary.                                                    |
 | Human control       | [human-cast](../../v2/card-game/human-cast.mjs) treats a present seat as human controlled and an away seat as a resident. Invite currently targets residents.                                                                                         |
 
-Fable and all sixteen Hoppy residents have `travels: false` in the
+All sixteen Hoppy residents, including Fable, have `travels: false` in the
 [active pack](../../v2/content/hoppycat-archive/card-world.json). Only Lumen,
 Mira and Glim have agreed journeys. Fable's home rule hides Invite even with
 trust three and a want at the destination. Her level thirty plays no part.
@@ -70,6 +70,10 @@ Proposed first policy, using existing state wherever possible:
 - Positive trust or current company gives a reason to accept a social visit.
 - Otherwise the resident explains their current concern or wish to know the
   inviter better. A later action can change that answer.
+
+Assess goals against the proposed party state: both travellers and their
+carried items move together. Fable wanting to meet Vale can stay near Vale
+through the trip. The same check covers a wanted item carried by either person.
 
 Treat an ordinary mutual Talk as current company across the cast. Record its
 participants and source event through a common relation helper. Company lasts
@@ -158,6 +162,8 @@ consent when the queue commits. Shared private views hide other people's inner
 life, so a browser preview describes the request. Accepted and refused
 Accompany events retain actor, target, origin, destination, result and reason.
 New reasons include the rule facts that support the companion's reply.
+Add consent facts to [learning conditions](../../v2/card-game/learning.mjs),
+so company or journey changes let a resident revise a learned refusal.
 
 Acceptance spends one turn, moves both inventories atomically, records route
 access and the visit, and skips the companion's second response. Refusal spends
@@ -203,6 +209,8 @@ and prove each migration through local decode and shared journal replay.
 - Table-driven offers and decisions across fixed, ranged, roaming, journey,
   freed and away-human residents; trust zero/positive, Talk company, goal
   progress, active grievance and its repair. Include Fable without an ID branch.
+- Goals about either traveller or their carried items use the resulting party
+  location. A new company fact changes the conditions of a learned refusal.
 - Actual accepted/refused plays, one turn, one companion response, then Wait,
   local wants, sleep, separation, harm, host change and return home.
 - Journey visits before agreement, after agreement, off path, return, next
