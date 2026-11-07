@@ -273,6 +273,18 @@ mod tests {
         let npc = messages(&c, entity(&c, "moth"), Part::Line).assistant;
         assert!(npc.contains("I'm carrying the Lamp and the Black cloth."));
         assert!(npc.contains("I'm holding the Lamp."));
+        c.outcome.as_mut().unwrap().card.target = None;
+        c.speakers = vec!["vale".into()];
+        assert_eq!(visible_holding(&c, "vale"), None);
+        c.outcome.as_mut().unwrap().card.target = Some("moth".into());
+        c.speakers.push("moth".into());
+        c.outcome.as_mut().unwrap().avatars[1]
+            .holding
+            .retain(|id| id != "lamp");
+        assert!(!super::super::valid_outcome(c.outcome.as_ref().unwrap()));
+        c.outcome.as_mut().unwrap().avatars[1]
+            .holding
+            .push("lamp".into());
         c.concealed.push("lamp".into());
         assert_eq!(visible_holding(&c, "vale"), None);
         c.concealed.clear();
