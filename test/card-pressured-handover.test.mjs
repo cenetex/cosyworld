@@ -8,6 +8,7 @@ import {
   validateWorld,
 } from "../v2/card-game/world.mjs";
 import { newWant, questRewardsOf } from "../v2/card-game/want.mjs";
+import { actionCaption } from "../v2/card-game/beats.mjs";
 
 function act(s, kind, target = null, item = null) {
   const a = legalActions(s).find(
@@ -51,6 +52,9 @@ it("records a wanted handover from the actual threat without gift affection", ()
     },
   });
   expect(event.text).toBe("Vale hands the Lamp to Pip under pressure.");
+  expect(actionCaption(event, { viewer: "vale", here: "station" }).text).toBe(
+    "Vale handed the Lamp to Pip under pressure.",
+  );
   expect(s.actors.moth.trust.vale).toBe(0);
   expect(s.life.actors.moth).toEqual(life);
   expect(s.standoffs).toEqual([]);
@@ -145,4 +149,19 @@ it("preserves real source anchors after log trimming and marks older battles unk
   const event = old.log.find((e) => e.handover);
   event.handover.sourceSeq = event.seq;
   expect(() => validateWorld(old)).toThrow();
+});
+it.each([
+  ["actorId", "keeper"],
+  ["itemId", "cloth"],
+  ["locationId", "pond"],
+  ["generated", true],
+])("rejects a retained threat source with changed %s", (field, value) => {
+  const s = demand();
+  s.log.find((e) => e.seq === s.standoffs[0].sourceSeq)[field] = value;
+  expect(() => validateWorld(s)).toThrow();
+});
+it("rejects extra handover metadata", () => {
+  const s = act(demand(), "give", "moth", "lamp");
+  s.log.find((e) => e.handover).handover.guessed = true;
+  expect(() => validateWorld(s)).toThrow();
 });
