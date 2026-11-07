@@ -2329,7 +2329,13 @@
     return level * (level - 1) / 2;
   };
   var wantOf2 = (s, id) => s.actors[id]?.want ?? null;
-  var wantKey = (id, want) => `${id}:${want.kind}:${want.target}:${want.since}:${want.quest?.left ?? ""}`;
+  var questTerms = (w) => JSON.stringify([
+    w.kind,
+    w.target,
+    w.step ? Object.keys(w.step).sort().map((key) => [key, w.step[key]]) : null,
+    w.lit ?? null
+  ]);
+  var wantKey = (id, want) => `${id}:${want.kind}:${want.target}:${want.since}:${want.quest?.left ?? ""}:${questTerms(want)}`;
   var questsOf = (s, id) => {
     const a = s.actors[id];
     return a?.want ? [a.want, ...a.under || []] : [];
@@ -2437,7 +2443,8 @@
     }
   }
   function mergeSanctuaryQuests(list) {
-    const key = (w) => `${w.kind}:${w.target}`;
+    const rests = new Set(list.filter(sanctuaryQuest).map((w) => w.target));
+    const key = (w) => w.kind === "place" && rests.has(w.target) && (!w.step || sanctuaryQuest(w)) ? `rest:${w.target}` : questTerms(w);
     const keeps = (k) => {
       const same2 = (w) => !w.quest && key(w) === k;
       const rest = list.findIndex((w) => same2(w) && sanctuaryQuest(w));
@@ -2592,7 +2599,7 @@
     const list = (v, of) => Array.isArray(v) && v.length <= 64 && new Set(v).size === v.length && v.every((x) => Object.hasOwn(of, x));
     const quests = questsOf(s, id);
     const most = startXp(id) + (a.carried ?? 0) + s.turn * 8;
-    return Number.isSafeInteger(a.xp) && a.xp >= 0 && (a.carried === void 0 || Number.isSafeInteger(a.carried) && a.carried >= 0) && (a.level === void 0 || Number.isSafeInteger(a.level) && a.level >= 1 && a.level <= levelFor(most)) && a.xp <= most && (a.metTurn === void 0 || whole6(a.metTurn)) && validQuestRewards(s, id) && (a.content === void 0 || a.content === true) && (a.glimpse === void 0 || validGlimpse(a.glimpse, levelFor(most) + 1)) && (a.halfwayIssued === void 0 || Number.isSafeInteger(a.halfwayIssued) && a.halfwayIssued >= 2 && a.halfwayIssued <= levelFor(most) + 1) && (a.gaveUp === void 0 || a.gaveUp && Object.keys(a.gaveUp).length === 2 && typeof a.gaveUp.target === "string" && whole6(a.gaveUp.turn)) && list(a.talked, s.actors) && validHeard(s, id) && !a.talked.includes(id) && Array.isArray(a.visited) && (a.want === null || validQuest(s, id, a.want)) && (a.under === void 0 || Array.isArray(a.under) && a.want !== null && a.under.length >= 1 && a.under.length < QUEST_LIMIT && a.under.every((w) => validQuest(s, id, w))) && quests.filter((w) => w.quest).length <= 1 && new Set(quests.filter((w) => !w.quest).map((w) => `${w.kind}:${w.target}`)).size === quests.filter((w) => !w.quest).length;
+    return Number.isSafeInteger(a.xp) && a.xp >= 0 && (a.carried === void 0 || Number.isSafeInteger(a.carried) && a.carried >= 0) && (a.level === void 0 || Number.isSafeInteger(a.level) && a.level >= 1 && a.level <= levelFor(most)) && a.xp <= most && (a.metTurn === void 0 || whole6(a.metTurn)) && validQuestRewards(s, id) && (a.content === void 0 || a.content === true) && (a.glimpse === void 0 || validGlimpse(a.glimpse, levelFor(most) + 1)) && (a.halfwayIssued === void 0 || Number.isSafeInteger(a.halfwayIssued) && a.halfwayIssued >= 2 && a.halfwayIssued <= levelFor(most) + 1) && (a.gaveUp === void 0 || a.gaveUp && Object.keys(a.gaveUp).length === 2 && typeof a.gaveUp.target === "string" && whole6(a.gaveUp.turn)) && list(a.talked, s.actors) && validHeard(s, id) && !a.talked.includes(id) && Array.isArray(a.visited) && (a.want === null || validQuest(s, id, a.want)) && (a.under === void 0 || Array.isArray(a.under) && a.want !== null && a.under.length >= 1 && a.under.length < QUEST_LIMIT && a.under.every((w) => validQuest(s, id, w))) && quests.filter((w) => w.quest).length <= 1 && new Set(quests.filter((w) => !w.quest).map(questTerms)).size === quests.filter((w) => !w.quest).length;
   }
   function validQuestRewards(s, id) {
     const receipts = s.actors[id].questRewards;

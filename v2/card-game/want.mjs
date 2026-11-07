@@ -129,8 +129,15 @@ export function claimQuestReward(s, id, receipt, api) {
 const pendingLevelReward = (s, id) =>
   questRewardsOf(s, id).some((r) => !r.paid && r.level !== null);
 // The same quest step keeps its identity as the stack changes order.
+export const questTerms = (w) => JSON.stringify([
+  w.kind, w.target,
+  w.step ? Object.keys(w.step).sort().map((key) => [key, w.step[key]]) : null,
+  w.lit ?? null,
+]);
+export const sameQuest = (left, right) =>
+  !left.quest && !right.quest && questTerms(left) === questTerms(right);
 export const wantKey = (id, want) =>
-  `${id}:${want.kind}:${want.target}:${want.since}:${want.quest?.left ?? ""}`;
+  `${id}:${want.kind}:${want.target}:${want.since}:${want.quest?.left ?? ""}:${questTerms(want)}`;
 // The whole stack, top first.
 export const questsOf = (s, id) => {
   const a = s.actors[id];
@@ -159,7 +166,8 @@ const lastIndex = (list, test) => {
 export function pushQuest(s, actor, want) {
   const a = s.actors[actor];
   const same = (w) =>
-    !w.quest && !want.quest && w.kind === want.kind && w.target === want.target;
+    sameQuest(w, want) || (!w.quest && !want.quest && !w.step &&
+      want.step?.verb === "rest" && w.kind === want.kind && w.target === want.target);
   const held = questsOf(s, actor);
   const old = held.find(same);
   const shape = (w) => JSON.stringify([w.step ?? null]);
@@ -361,7 +369,9 @@ export function repairRestTargets(s, api) {
 // `pushQuest` does, and of a later sanctuary quest; level quests stay as they
 // are. Nothing else is held twice (rules 99).
 export function mergeSanctuaryQuests(list) {
-  const key = (w) => `${w.kind}:${w.target}`;
+  const rests = new Set(list.filter(sanctuaryQuest).map((w) => w.target));
+  const key = (w) => w.kind === "place" && rests.has(w.target) &&
+    (!w.step || sanctuaryQuest(w)) ? `rest:${w.target}` : questTerms(w);
   const keeps = (k) => {
     const same = (w) => !w.quest && key(w) === k;
     const rest = list.findIndex((w) => same(w) && sanctuaryQuest(w));
@@ -1017,7 +1027,7 @@ export function validWant(s, id) {
         a.under.length < QUEST_LIMIT &&
         a.under.every((w) => validQuest(s, id, w)))) &&
     quests.filter((w) => w.quest).length <= 1 &&
-    new Set(quests.filter((w) => !w.quest).map((w) => `${w.kind}:${w.target}`))
+    new Set(quests.filter((w) => !w.quest).map(questTerms))
       .size === quests.filter((w) => !w.quest).length
   );
 }

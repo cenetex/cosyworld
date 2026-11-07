@@ -3,7 +3,7 @@ import { mkdir } from "node:fs/promises";
 import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
 import { createWorld, encodeSave } from "../card-game/world.mjs";
-import { selectCard } from "./card-browser-helpers.mjs";
+import { readyActionButton, selectCard } from "./card-browser-helpers.mjs";
 
 // Cards leaving the hand fall as inert ghosts from where they lay while the
 // hand redraws at once (card-exit.mjs). A reload, another tab's world and a
@@ -115,7 +115,11 @@ try {
       await page.evaluate(() => {
         if (window.exitWatch) window.exitWatch.shown = window.exitWatch.boxes();
       });
-      await page.locator("#card-actions button").click();
+      await readyActionButton(page).click();
+      await page.waitForFunction(
+        ({ key, place }) => JSON.parse(localStorage.getItem(key)).actors.vale.place === place,
+        { key, place },
+      );
     };
     await page.goto(
       `http://127.0.0.1:${server.address().port}/?table=exit-${width}`,

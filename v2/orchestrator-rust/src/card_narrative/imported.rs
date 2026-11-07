@@ -278,6 +278,71 @@ fn kind_of(key: &str, list: &str) -> &'static str {
 }
 
 impl Strip<'_> {
+    /// Current completion keys: actor, kind, target, since, level step, terms.
+    fn quest_key(&mut self, text: &str) -> bool {
+        let parts: Vec<_> = text.splitn(6, ':').collect();
+        let whole = |s: &str| {
+            s.parse::<u64>()
+                .is_ok_and(|n| n <= 9_007_199_254_740_991 && n.to_string() == s)
+        };
+        if text.len() > 600
+            || parts.len() != 6
+            || !["item", "person", "place", "connect"].contains(&parts[1])
+            || !whole(parts[3])
+            || (!parts[4].is_empty() && !whole(parts[4]))
+            || !token(&parts[..5].join(":"))
+            || !self.vocabulary.known(&parts[..5].join(":"))
+        {
+            return false;
+        }
+        let Ok(Value::Array(terms)) = serde_json::from_str::<Value>(parts[5]) else {
+            return false;
+        };
+        if terms.len() != 4
+            || terms[0].as_str() != Some(parts[1])
+            || terms[1].as_str() != Some(parts[2])
+            || !(terms[3].is_null() || terms[3].is_boolean())
+            || serde_json::to_string(&terms).ok().as_deref() != Some(parts[5])
+        {
+            return false;
+        }
+        if !terms[2].is_null() {
+            let Some(step) = terms[2].as_array() else {
+                return false;
+            };
+            let mut previous = "";
+            let mut verb = false;
+            for pair in step {
+                let Some(pair) = pair.as_array().filter(|p| p.len() == 2) else {
+                    return false;
+                };
+                let Some(key) = pair[0].as_str() else {
+                    return false;
+                };
+                if key <= previous
+                    || !["at", "finish", "items", "to", "verb", "with"].contains(&key)
+                {
+                    return false;
+                }
+                if key == "items" {
+                    if !pair[1].as_array().is_some_and(|items| {
+                        (1..=3).contains(&items.len()) && items.iter().all(Value::is_string)
+                    }) {
+                        return false;
+                    }
+                } else if !pair[1].is_string() {
+                    return false;
+                }
+                verb |= key == "verb";
+                previous = key;
+            }
+            if !verb {
+                return false;
+            }
+        }
+        self.encoded(parts[5])
+    }
+
     /// Whether every string in a JSON-encoded value is a vocabulary word
     /// (adaptive-learning.mjs keys its conditions this way).
     fn encoded(&mut self, text: &str) -> bool {
@@ -321,6 +386,10 @@ impl Strip<'_> {
         if !SENTENCES.contains(&key) {
             if token(text) {
                 return self.vocabulary.known(text);
+            }
+            // Quest event keys join an old compound id to canonical terms.
+            if key == "wantKey" {
+                return self.quest_key(text);
             }
             if text.starts_with('[') && self.encoded(text) {
                 return true;

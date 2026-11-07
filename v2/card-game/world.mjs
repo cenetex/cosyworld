@@ -81,6 +81,7 @@ import {
   questRewardsOf,
   pushQuest,
   questsOf,
+  questTerms,
   levelOf,
   wantOf,
   wantKey,
@@ -1926,11 +1927,9 @@ export function legalActions(s, actor = currentActor(s)) {
   // A sealed card gives its quest, unless that quest is already on top.
   if (controlledByHuman(s, actor))
     for (const r of sealedWays(s, actor)) {
-      const top = questsOf(s, actor)[0];
       if (
         !r.sealed.quest ||
-        (top?.kind === r.sealed.quest.kind &&
-          top.target === r.sealed.quest.target)
+        questsOf(s, actor).some((w) => questTerms(w) === questTerms(gateQuest(s, r.sealed.quest)))
       )
         continue;
       out.push(offer("gate", actor, null, r.to, r.sealed.reason, [r.to]));

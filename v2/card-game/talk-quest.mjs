@@ -9,7 +9,7 @@
 // want has since changed leaves at the next settle, not as a refusal. Met,
 // it is a want met like any other, so it counts toward the gap of ordinary
 // wants between level quests.
-import { nextWant, pushQuest, questsOf, setQuests } from "./want.mjs";
+import { nextWant, pushQuest, questsOf, questTerms, setQuests } from "./want.mjs";
 import { revealed } from "./want-talk.mjs";
 
 const key = (want) => `${want.kind}:${want.target}`;
@@ -68,7 +68,6 @@ export function questFor(s, them, want) {
   return null;
 }
 
-const shape = (w) => JSON.stringify([w.kind, w.target, w.step ?? null]);
 // A player's Talk with `them`: their top want, if Talk reveals it and the
 // player has not been told it by them before, becomes a quest. One already
 // held moves up instead. Under a level or story quest on top it goes second,
@@ -83,7 +82,7 @@ export function talkQuest(s, actor, them, api) {
   a.heard = { ...a.heard, [them]: key(want) };
   const held = questsOf(s, actor);
   // A level quest's step that is this very quest already asks it.
-  if (held.some((w) => w.quest && shape(w) === shape(quest))) return null;
+  if (held.some((w) => w.quest && questTerms(w) === questTerms(quest))) return null;
   const first = held[0],
     focus = first && (first.quest || first.story);
   const top = pushQuest(s, actor, quest);

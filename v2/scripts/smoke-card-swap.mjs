@@ -4,7 +4,7 @@ import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
 import { createWorld, encodeSave } from "../card-game/world.mjs";
 import { SWAP_MS } from "../card-game/card-swap.mjs";
-import { revealOpening, selectCard, tapCard } from "./card-browser-helpers.mjs";
+import { readyActionButton, revealOpening, selectCard, tapCard } from "./card-browser-helpers.mjs";
 
 // A scene change swaps the hand in beats, not one cut (card-swap.mjs).
 // Travel: the cards left behind fall as ghosts, nearest Vale first, as the
@@ -169,6 +169,7 @@ try {
       );
     const go = async (place, name) => {
       await selectCard(page, place);
+      await readyActionButton(page, "move").waitFor();
       await tap("#card-actions button");
       await strip(name);
       await settled();
