@@ -245,6 +245,11 @@ still on the way asks again, quietly, with its Thinking card. Words that
 failed are not asked again. Clicking off the cards, like Escape, clears the choice: the action beat
 fades and the full dialogue card comes back.
 
+A shared viewer's browser keeps the current line for that world and avatar.
+Reopening resumes that line in full. A fresh reader starts with the first
+line of the latest exchange, then taps through its replies. Movement replies
+use the same queue as spoken replies.
+
 Every play in flight is one Thinking card with the speaker's portrait: queued
 here, sent or waiting at a shared table, or committed with its words still on
 the way. A local play chosen during an exchange waits until its last reply
