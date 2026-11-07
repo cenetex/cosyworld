@@ -432,6 +432,10 @@ try {
       assert.equal((await state()).actors.vale.place, "attic");
       assert.equal((await state()).items.lamp.lit, true);
       assert.deepEqual(await covered(), opening);
+      // Read the new opening line before choosing the lamp's quiet Reveal.
+      await revealCard(page, "vale");
+      await finish();
+      assert.equal((await state()).turn, 0);
       await putOutOpening(page);
       await unveil("pond");
       await page.evaluate(
