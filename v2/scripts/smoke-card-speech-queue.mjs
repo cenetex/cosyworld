@@ -24,7 +24,7 @@ async function read(page) {
   if (await button.getAttribute("data-revealing") === "true") await button.click();
   await button.click();
 }
-const text = { vale: "Skull, what is on the path?", skull: "Skull turns his ears toward the garden." };
+const text = { vale: "Skull, what is on the path? I can see your ears turning toward the garden, and I would like to hear what you have found.", skull: "Skull turns his ears toward the garden." };
 async function open(page, url) {
   await page.goto(url);
   await page.waitForFunction(() => !document.body.inert && document.querySelector("#dialogue-text").textContent);
@@ -122,7 +122,7 @@ try {
       for (const [kind, target] of [["move", "forest-cottage"], ["talk", "rati"], ["move", "forest-garden"], ["wait"], ["move", "forest-trail"]])
         world = play(world, legalActions(world).find((a) => a.kind === kind && (!target || a.target === target))).state;
       addLog(world, "Vale", "I have arrived.", { generated: true, kind: "dialogue", actorId: "vale", entityId: "vale", locationId: "forest-trail" });
-      const local = await browser.newPage(options), errors = [];
+      const local = await browser.newPage({ ...options, reducedMotion: "no-preference" }), errors = [];
       local.on("pageerror", (error) => errors.push(error.message));
       if (stream) {
         const html = await readFile(new URL("../card-game/index.html", import.meta.url), "utf8");
@@ -144,9 +144,26 @@ try {
       if (stream) await local.evaluate(() => window.finishReply());
       await local.waitForTimeout(500);
       assert.equal(await front(local), text.vale, "The movement reply waits for a tap.");
+      assert.equal(await local.locator("#dialogue-advance").getAttribute("data-revealing"), "true");
+      await open(local, `${origin}/?table=local-queue`);
+      assert.equal(await front(local), text.vale, "Local reload keeps the partly read line.");
+      assert.equal(await local.locator("#dialogue-advance").getAttribute("data-revealing"), "false");
+      await local.waitForTimeout(600);
       await local.screenshot({ path: new URL(`local-waiting-${stream}-${width}.png`, output).pathname });
+      const position = await local.evaluate(() => JSON.parse(localStorage.getItem("cosyworld.reflected-shore.v1.local-queue.reading")));
       await read(local);
       assert.equal(await front(local), text.skull);
+      await open(local, `${origin}/?table=local-queue`);
+      assert.equal(await front(local), text.skull, "A movement reply also resumes whole.");
+      await local.evaluate((position) => {
+        const key = "cosyworld.reflected-shore.v1.local-queue";
+        const save = JSON.parse(localStorage.getItem(key));
+        save.log = save.log.filter((entry) => entry.seq > position.seq);
+        localStorage.setItem(key, JSON.stringify(save));
+        localStorage.setItem(`${key}.reading`, JSON.stringify(position));
+      }, position);
+      await open(local, `${origin}/?table=local-queue`);
+      assert.equal(await front(local), text.skull, "A trimmed cursor resumes the next retained reply.");
       await local.screenshot({ path: new URL(`local-${stream}-${width}.png`, output).pathname });
       assert.deepEqual(errors, []);
       reports.push({ width, mode: stream ? "local-stream" : "local-json", errors });

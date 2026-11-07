@@ -555,7 +555,7 @@ export function sharedReadingLine(state, room, saved = null) {
   const earliest = log[0]?.seq ?? 0;
   const lines = scenes.flatMap((scene) => scene.lines)
     .filter((line) => line.seq >= earliest);
-  if (saved?.room === room && saved.seed === state.world?.run?.seed &&
+  if (saved?.room === room && saved.actor === state.actor && saved.seed === state.world?.run?.seed &&
       Number.isFinite(saved.seq) && saved.seq >= 0) {
     const kept = lines.find((line) => line.seq === saved.seq) || log.find(
       (line) => line.seq === saved.seq && line.generated && line.locationId === room,

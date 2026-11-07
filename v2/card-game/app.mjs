@@ -353,6 +353,22 @@ const SEEN_KEY = `${SAVE_KEY}.seen`;
 // a reload asks again only for words it interrupted. Words that failed stay
 // "…" and are never asked again (#1642). A completed reply clears the marker.
 const WORDS_MARKER_KEY = `${SAVE_KEY}.words-failed`;
+const READING_KEY = `${SAVE_KEY}.reading`;
+function readingPosition() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(READING_KEY));
+    if (saved?.actor === currentActor(world) && saved.seed === world.run?.seed &&
+        saved.room === world.actors[currentActor(world)].place && Number.isFinite(saved.seq) && saved.seq >= 0)
+      return saved;
+  } catch {}
+  return null;
+}
+function rememberReading(line) {
+  try {
+    localStorage.setItem(READING_KEY, JSON.stringify({ room: line.locationId,
+      actor: currentActor(world), seq: line.seq, seed: world.run?.seed }));
+  } catch {}
+}
 function rememberWords(revision, pending = false) {
   if (sharedSession) return;
   try {
@@ -711,6 +727,7 @@ const exchange = createExchange({
     if (people[speakerId] && cardIsCovered(speakerId))
       uncover(speakerId, { fade: false });
     lineSeq = line.seq;
+    rememberReading(line);
     // The stack brings the new beat in front as it renders. A player who
     // stepped back stays there: the line raises the live count and types
     // when they return (#2017).
@@ -5418,7 +5435,7 @@ function hasCurrentWords() {
     (entry) =>
       entry.generated &&
       !entry.fallback &&
-      entry.kind === "dialogue" &&
+      isSceneText(entry) &&
       entry.turn === world.turn &&
       entry.locationId === world.actors[currentActor(world)].place,
   );
@@ -5495,13 +5512,19 @@ function resumeScene({ otherTab = false } = {}) {
     return;
   }
   if (!saveBlocked && hasCurrentWords()) {
-    const line = currentScene(world).line;
+    const saved = readingPosition();
+    const lines = shownWorld().log.filter((entry) => entry.generated &&
+      isSceneText(entry) && entry.turn === world.turn &&
+      entry.locationId === world.actors[currentActor(world)].place && !sleepView.hidesLine(entry));
+    const index = saved ? lines.findIndex((entry) => entry.seq >= saved.seq) : -1;
+    const remaining = index >= 0 ? lines.slice(index) : [];
+    const line = remaining[0] || currentScene(world).line;
     // A line read, or begun, before the reload shows whole.
     if (line) completedSpeech.add(lineKey(line, line.locationId));
     lineSeq = null;
     exchange.begin();
     render();
-    exchange.load(line ? [line] : []);
+    exchange.load(remaining.length ? remaining : line ? [line] : []);
   } else render();
 }
 // Until it resolves, the player's own play reads on its button as what their
@@ -5724,13 +5747,9 @@ function syncSharedLine() {
     return;
   if (sharedLineSeq !== null && !sharedAdvanceRequested) return;
   const after = sharedLineSeq ?? sharedLineStart;
-  let saved;
-  if (after === null) {
-    try { saved = JSON.parse(localStorage.getItem(`${SAVE_KEY}.reading`)); } catch {}
-  }
   const live =
     after === null
-      ? sharedReadingLine(state, room, saved)
+      ? sharedReadingLine(state, room, readingPosition())
       : sharedNextLine(state, room, after);
   if (!live && !selfKnown()) return;
   sharedLineStart ??= -Infinity;
@@ -5750,9 +5769,7 @@ function syncSharedLine() {
   if (after === null) completedSpeech.add(lineKey(entry, room));
   sharedLineSeq = entry.seq;
   sharedAdvanceRequested = false;
-  try {
-    localStorage.setItem(`${SAVE_KEY}.reading`, JSON.stringify({ room, seq: entry.seq, seed: world.run?.seed }));
-  } catch {}
+  rememberReading(entry);
   lineSeq = entry.seq;
   storyStatus = "ready";
   renderScene();
