@@ -444,6 +444,11 @@ fn ajax_upgrade_brings_an_uninvited_nineteen_camp_visitor_home_and_replays_it() 
         }
         for (id, saved) in old.game["actors"].as_object().unwrap() {
             let mut retained = current.game["actors"][id].clone();
+            // Rules 115 adds a hand choice to older actor records.
+            if saved.get("heldItem").is_none() {
+                assert!(retained.get("heldItem").is_some());
+                retained.as_object_mut().unwrap().remove("heldItem");
+            }
             if id == "vale" {
                 retained["place"] = saved["place"].clone();
             }

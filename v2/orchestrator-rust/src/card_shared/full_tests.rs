@@ -25,6 +25,11 @@ pub(super) fn pack_revision(id: &str) -> Value {
 pub(super) fn assert_saved_actors(current: &Value, old: &Value) {
     for (id, saved) in old.as_object().unwrap() {
         let mut actor = current[id].clone();
+        // Rules 115 adds a hand choice to older actor records.
+        if saved.get("heldItem").is_none() {
+            assert!(actor.get("heldItem").is_some());
+            actor.as_object_mut().unwrap().remove("heldItem");
+        }
         actor["trust"]
             .as_object_mut()
             .unwrap()
