@@ -10,6 +10,10 @@ use this identity. Existing routine sanctuary reminders still replace an
 ordinary visit goal for that same place. Level quests retain their own level
 progress and their existing admission rules.
 
+Shared save import checks each event key's original compound prefix and
+encoded terms against the rules vocabulary. Honest completion history stays
+intact; the existing text checks cover the terms too.
+
 This prepares the separate two-active-quest change. Stack capacity and arrival
 order remain the current rules. Historical bundles stay unchanged; the next
 shared rules version applies the new identity after an explicit upgrade.
