@@ -150,6 +150,11 @@ veiled and buried saves through explicit completed-funeral compatibility.
 Migrate this route separately; its old global latch alone cannot prove that
 either person held the required conversation.
 
+Give residents a general prerequisite concern when their intended route needs
+an achievable deed. It temporarily points to that deed and preserves their
+main want. Antigone can seek a real conversation with the shade, learn the way,
+then resume her funeral purpose. The same rule can serve other route remedies.
+
 ## Cards and shared authority
 
 Keep resident plus destination as the selection. The existing context button
@@ -196,6 +201,8 @@ and prove each migration through local decode and shared journal replay.
 
 1. Save and validate journey progress; keep today's play behavior. Migrate old
    journeys and test real routes, reload and story completion.
+   The personal Hollow gate also needs a resident prerequisite concern and its
+   reachable remedy before activation.
 2. Add common company and visit state, route checks and consent together with
    the Invite eligibility change. Split groundwork first if the 400-line
    budget requires it; activate a coherent flow after that PR lands.
@@ -219,6 +226,8 @@ and prove each migration through local decode and shared journal replay.
   departure commits the authored ending. Sleep expiry occurs at Sleep commit.
 - Joint keys and nested inventories, closed and reopened paths, guarded ways,
   ship boarding/landing, recovery, capacity and every party member's entry facts.
+- Blocked Antigone takes an actual Talk with the shade and then enters the
+  Hollow. The prerequisite concern preserves her main funeral want throughout.
 - Encode/decode, previous/current saves, pack toggles, reset, away-to-present
   control, two-owner races, stale revisions, forged actors, repeated request
   keys and checkpoint-free journal reconstruction through the current engine.
