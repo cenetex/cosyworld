@@ -424,6 +424,8 @@ const cardArt = (id) =>
 const placeArt = (id) => placeCardArt(world, id);
 const cardIsCovered = (id) => !encountered.has(id) || coveredCards.has(id);
 const cardIsClosed = (id) => cardIsCovered(id) || isLockedBox(world, id);
+const CARD_BACK = "./assets/card-back.webp";
+const cardBack = (id) => isLockedBox(world, id) ? LOCKED_BACK : CARD_BACK;
 const visibleText = (text) => coveredText(world, text, cardIsClosed);
 // The scene's uncovered cards, so text writes their names in their card's
 // colour (card-names.mjs).
@@ -2828,11 +2830,12 @@ function showQuests(opening) {
   }
 }
 function setQuestClosed(card, closed) {
-  card.dataset.unrevealed = card.dataset.locked = String(closed);
+  card.dataset.unrevealed = String(closed);
+  card.dataset.locked = "false";
   const entry = questEntry(card.dataset.questId);
   if (entry) {
     card.dataset.near = String(!closed && questNear(world, entry.quest));
-    card.setAttribute("aria-label", closed ? "Closed box" : questLabel(entry.quest, entry.met, card.dataset.near === "true"));
+    card.setAttribute("aria-label", closed ? "Face-down quest" : questLabel(entry.quest, entry.met, card.dataset.near === "true"));
   }
 }
 function turnQuest(key) {
@@ -3035,7 +3038,7 @@ function card(id) {
         const preview = node("img", undefined, "held-preview");
         preview.decoding = "async";
         preview.src = imageUrl(
-          cardIsClosed(item) ? LOCKED_BACK : cardArt(item),
+          cardIsClosed(item) ? cardBack(item) : cardArt(item),
           "card",
         );
         preview.alt = "";
@@ -3046,16 +3049,16 @@ function card(id) {
   }
   syncAvatarStack(frame, id);
   if (!hidden && foldQuest()?.actor === id) frame.prepend(questFold(foldQuest()));
-  // Discovery and prerequisites share the same closed appearance.
-  el.dataset.locked = String(hidden);
+  // A real lock takes priority over discovery.
+  el.dataset.locked = String(locked);
   el.dataset.unrevealed = String(cardIsCovered(id) && !locked);
   const back = node("img", undefined, "card-back");
-  back.src = imageUrl(LOCKED_BACK, "card");
+  back.src = imageUrl(cardBack(id), "card");
   back.alt = "";
   back.draggable = false;
   el.append(back);
   if (hidden) {
-    el.setAttribute("aria-label", "Closed box");
+    el.setAttribute("aria-label", locked ? "Locked box" : "Face-down card. Tap to reveal.");
     el.removeAttribute("aria-describedby");
   }
   return frame;
@@ -3063,7 +3066,7 @@ function card(id) {
 // Face-down layers in a stack (the ways on, the folded quest and its steps
 // to come) show the carved card back.
 const cardBackImage = () =>
-  `url("${imageUrl(LOCKED_BACK, "card")}")`;
+  `url("${imageUrl(CARD_BACK, "card")}")`;
 // The quest card: a small screen showing the player doing the quest's verb
 // with its target, with only the verb, the level and the tier colour as
 // words. It glows while the target is near. The card itself plays nothing:
@@ -3082,6 +3085,7 @@ const questArt = {
   portrait: (id) => portrait(id, null, world),
   thing: (id) => cardArt(id),
   place: placeArt,
+  back: cardBack,
 };
 function questView(quest) {
   const covered = questCovered(quest);
@@ -3096,6 +3100,7 @@ function questView(quest) {
     to: quest.step?.to,
     toCovered: Boolean(quest.step?.to && !known(quest.step.to)),
     atCovered: questBox(quest, known),
+    at: quest.step?.at,
   };
 }
 const questLabel = (quest, met, near) => met
@@ -3139,7 +3144,7 @@ function questFrame({ id, quest, met }) {
   el.append(
     // Face down, it shows the carved lid until it turns.
     Object.assign(node("img", undefined, "card-back"), {
-      src: imageUrl(LOCKED_BACK, "card"),
+      src: imageUrl(CARD_BACK, "card"),
       alt: "",
       draggable: false,
     }),

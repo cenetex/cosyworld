@@ -1,4 +1,4 @@
-// A card locked behind a quest is a carved wooden box (locked-box.mjs). At
+// Face-down cards use a plain back; real locks use the keyhole. At
 // the shut City Gate the battlefield is a nameless lid with a red edge.
 // Talk gives the guard's quest. Giving
 // the guard Creon's Writ opens the way: the box turns over once and
@@ -81,10 +81,10 @@ try {
           if (!localStorage.getItem(key)) {
             localStorage.setItem(key, save);
             localStorage.setItem(`${key}.seen.covered`, JSON.stringify(["greek-creon-writ"]));
+            localStorage.setItem(`${key}.seen`, JSON.stringify(seen));
           }
-          localStorage.setItem(`${key}.seen`, JSON.stringify(seen));
         },
-        { key, save, seen: Object.keys(profiles).filter((id) => id !== "greek-creon-writ") },
+        { key, save, seen: Object.keys(profiles).filter((id) => id !== "greek-creon-writ" && (!reduced || id !== FIELD)) },
       );
       await page.route("**/card-game/text", (route) => {
         const context = route.request().postDataJSON();
@@ -123,7 +123,7 @@ try {
       const boxed = async () => {
         await revealCard(page, FIELD);
         assert.equal(await attr("data-locked"), "true");
-        // Every closed box has the same nameless lid.
+        // A real lock keeps its nameless lid and red edge.
         assert.equal(await field.locator(".name").textContent(), "");
         assert.equal(
           await field.evaluate((el) => getComputedStyle(el).borderTopColor),
@@ -131,7 +131,7 @@ try {
         );
         assert.ok(await field.locator(".card-back").isVisible());
         assert.ok(!(await field.locator(".art img").first().isVisible()));
-        assert.equal(await attr("aria-label"), "Closed box");
+        assert.equal(await attr("aria-label"), "Locked box");
       };
       const open = async () => {
         await revealCard(page, FIELD);
@@ -164,7 +164,25 @@ try {
       await selectCard(page, "vale");
       const writ = page.locator('#hand [data-card="greek-creon-writ"]');
       assert.equal(await writ.getAttribute("data-unrevealed"), "true");
-      assert.deepEqual(await lidState(writ), closedLid);
+      assert.equal(await writ.getAttribute("data-locked"), "false");
+      const plainLid = await lidState(writ);
+      assert.match(plainLid.src, /card-back(?:[.-])/u);
+      assert.doesNotMatch(plainLid.src, /locked/u);
+      assert.notEqual(plainLid.src, closedLid.src);
+      assert.notEqual(plainLid.border, closedLid.border);
+      assert.equal(plainLid.name, "");
+      assert.equal(plainLid.label, "Face-down card. Tap to reveal.");
+      assert.equal(plainLid.width, closedLid.width);
+      assert.equal(plainLid.height, closedLid.height);
+      assert.equal(await page.locator('[data-card="vale"]').getAttribute("data-unrevealed"), "false");
+      assert.equal(await page.locator('[data-card="vale"]').getAttribute("data-locked"), "false");
+      assert.equal(await page.locator('[data-card="vale"]').locator("..").locator(".held-preview").getAttribute("src"), new URL(plainLid.src).pathname);
+      await shot("01-three-card-states");
+      await page.reload();
+      await ready();
+      await selectCard(page, "vale");
+      assert.equal(await writ.getAttribute("data-unrevealed"), "true");
+      assert.equal(await writ.getAttribute("data-locked"), "false");
       await revealCard(page, "greek-creon-writ");
       assert.equal(await writ.getAttribute("data-locked"), "false");
       assert.match(await writ.getAttribute("aria-label"), /Creon/u);
@@ -191,12 +209,12 @@ try {
       }
       await page.evaluate(() => {
         const watch = new MutationObserver(() => {
-          const card = document.querySelector('.want-card[data-unrevealed="true"][aria-label="Closed box"]');
+          const card = document.querySelector('.want-card[data-unrevealed="true"][aria-label="Face-down quest"]');
           if (!card) return;
           const back = card.querySelector(".card-back");
           window.closedQuestEvidence = { src: back.src, label: card.getAttribute("aria-label"),
             border: getComputedStyle(card).borderTopColor, outline: getComputedStyle(back).outline,
-            near: card.dataset.near, art: getComputedStyle(card.querySelector(".quest-screen")).visibility };
+            locked: card.dataset.locked, near: card.dataset.near, art: getComputedStyle(card.querySelector(".quest-screen")).visibility };
           watch.disconnect();
         });
         watch.observe(document.getElementById("hand"), { subtree: true, childList: true, attributes: true });
@@ -207,9 +225,15 @@ try {
         page.evaluate((key) => JSON.parse(localStorage.getItem(key)), key);
       assert.equal((await state()).actors.vale.want.target, "greek-bread");
       const questLid = await page.evaluate(() => window.closedQuestEvidence);
-      assert(questLid, "the new quest first uses the closed-box state");
-      assert.deepEqual(questLid, { src: closedLid.src, label: closedLid.label,
-        border: closedLid.border, outline: closedLid.outline, near: "false", art: "hidden" });
+      assert(questLid, "the new quest is first dealt face down");
+      assert.equal(questLid.src, plainLid.src);
+      assert.equal(questLid.label, "Face-down quest");
+      assert.equal(questLid.locked, "false");
+      assert.notEqual(questLid.border, closedLid.border);
+      assert.equal(questLid.near, "false");
+      assert.equal(questLid.art, "hidden");
+      for (const edge of await page.locator(".quest-edge, .want-fold, .way-edge").all())
+        assert.doesNotMatch(await edge.evaluate((el) => getComputedStyle(el).getPropertyValue("--card-back")), /locked/u);
       await page.keyboard.press("Escape");
       await boxed();
 

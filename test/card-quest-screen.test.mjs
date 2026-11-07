@@ -41,8 +41,22 @@ describe("the quest card's screen", () => {
     expect(parts(screen)).toEqual([
       "quest-figure quest-left:orin.webp",
       "quest-thing:board.webp",
-      "quest-back quest-right quest-to:./assets/card-back-locked.webp",
+      "quest-back quest-right quest-to:./assets/card-back.webp",
     ]);
+  });
+
+  it.each([
+    [{ kind: "place", target: "gate", covered: true }, "gate"],
+    [{ ...bring, target: "gift", covered: true }, "gift"],
+    [{ ...bring, to: "moth", toCovered: true }, "moth"],
+    [{ ...bring, at: "home", atCovered: true }, "home"],
+  ])("uses the target's actual lock for a closed miniature", (view, locked) => {
+    const screen = questScreen(view, {
+      ...art,
+      back: (id) => id === locked ? "locked.webp" : "plain.webp",
+    });
+    expect(parts(screen).some((part) => part.endsWith(":locked.webp"))).toBe(true);
+    expect(screen.children.some((img) => img.dataset.entity === locked)).toBe(false);
   });
 
   it("shows a found home as the card's ground", () => {
@@ -66,7 +80,7 @@ describe("the quest card's screen", () => {
       },
       true,
     );
-    expect(parts(screen)[0]).toBe("quest-ground:./assets/card-back-locked.webp");
+    expect(parts(screen)[0]).toBe("quest-ground:./assets/card-back.webp");
     expect(screen.children.some((img) => img.dataset.entity === "orin")).toBe(
       true,
     );
@@ -99,7 +113,7 @@ describe("the quest card's screen", () => {
       art,
     );
     expect(parts(screen).at(-1)).toBe(
-      "quest-back quest-right quest-to:./assets/card-back-locked.webp",
+      "quest-back quest-right quest-to:./assets/card-back.webp",
     );
   });
 });

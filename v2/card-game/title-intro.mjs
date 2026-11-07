@@ -560,13 +560,13 @@ export function playTitleIntro({
   const card = element("button", "card avatar");
   card.type = "button";
   card.dataset.unrevealed = "true";
-  card.dataset.locked = "true";
+  card.dataset.locked = "false";
   card.dataset.card = "title-traveller";
   // The acknowledgement asks "Will you take it?"; the card back is the box.
   card.setAttribute("aria-label", "Open the box");
   const back = element("img", "card-back");
   back.alt = "";
-  back.src = imageUrl("./assets/card-back-locked.webp", "card");
+  back.src = imageUrl("./assets/card-back.webp", "card");
   card.append(back);
   const frame = element("div", "card-frame title-card");
   frame.append(card);

@@ -5,7 +5,7 @@ import { combatPortrait } from "./combat-portraits.mjs";
 import { flipStagePortrait } from "./portrait-facing.mjs";
 import { people, places, things } from "./world.mjs";
 
-import { LOCKED_BACK as BACK } from "./locked-box.mjs";
+const BACK = "./assets/card-back.webp";
 // Poses for verbs that have them; others use the speaking portraits.
 const POSES = { Strike: ["attack", "guard"], Threaten: ["attack", null] };
 const ACTION_POSES = { attack: "Strike", threaten: "Threaten" };
@@ -59,11 +59,12 @@ export function questScreen(view, art, asScene = false) {
   const screen = document.createElement("span");
   screen.className = "quest-screen";
   const { verb, actor, kind, target, covered, to } = view;
+  const back = (id) => art.back?.(id) || BACK;
   screen.dataset.kind = kind;
   if (to || (view.atCovered && !asScene)) screen.dataset.parts = "3";
   // An unknown place is the carved back, whole.
   if (kind === "place" && covered && !asScene) {
-    screen.append(picture(BACK, "quest-back", art.url));
+    screen.append(picture(back(target), "quest-back", art.url));
     screen.dataset.back = "true";
     return screen;
   }
@@ -73,7 +74,7 @@ export function questScreen(view, art, asScene = false) {
   const hiddenPlace =
     (kind === "place" && covered) || view.hereCovered || view.atCovered;
   if (asScene && hiddenPlace)
-    screen.append(picture(BACK, "quest-ground", art.url));
+    screen.append(picture(back(view.atCovered ? view.at : ground), "quest-ground", art.url));
   else if (ground)
     screen.append(picture(art.place(ground), "quest-ground", art.url, ground));
   const [ownPose, theirPose] = POSES[verb] || [];
@@ -92,7 +93,7 @@ export function questScreen(view, art, asScene = false) {
     );
   if (kind === "place") return screen;
   if (!target || covered)
-    screen.append(picture(BACK, "quest-back quest-right", art.url));
+    screen.append(picture(back(target), "quest-back quest-right", art.url));
   else if (kind === "item")
     for (const item of view.items || [target])
       screen.append(picture(art.thing(item), "quest-thing", art.url, item));
@@ -100,6 +101,6 @@ export function questScreen(view, art, asScene = false) {
   if (to && !view.toCovered)
     screen.append(figure(to, theirPose, "left", "right quest-to"));
   else if (to || (view.atCovered && !asScene))
-    screen.append(picture(BACK, "quest-back quest-right quest-to", art.url));
+    screen.append(picture(back(to || view.at), "quest-back quest-right quest-to", art.url));
   return screen;
 }
