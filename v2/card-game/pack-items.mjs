@@ -125,21 +125,30 @@ export function validCraftEvent(s, event) {
   if (event.verb !== "craft") return event.consumedIds === undefined;
   const { consumedIds, sourceSeq } = event;
   if (
-    event.kind !== "narration" || event.generated ||
-    !s.actors[event.actorId] || !s.items[event.itemId] ||
-    !Number.isSafeInteger(event.seq) || !Number.isSafeInteger(event.turn) ||
+    event.kind !== "narration" ||
+    event.generated ||
+    !s.actors[event.actorId] ||
+    !s.items[event.itemId] ||
+    !Number.isSafeInteger(event.seq) ||
+    !Number.isSafeInteger(event.turn) ||
     event.turn < 0 || event.turn > s.turn ||
-    !Number.isSafeInteger(sourceSeq) || sourceSeq < 1 || sourceSeq >= event.seq ||
-    !Array.isArray(consumedIds) || consumedIds.length < 1 || consumedIds.length > 3 ||
-    consumedIds.some((id, i) => !s.items[id] || id === event.itemId || consumedIds.indexOf(id) !== i) ||
-    !Array.isArray(event.witnesses) || !event.witnesses.includes(event.actorId)
-  ) return false;
+    !Number.isSafeInteger(sourceSeq) ||
+    sourceSeq < 1 || sourceSeq >= event.seq ||
+    !Array.isArray(consumedIds) ||
+    consumedIds.length < 1 || consumedIds.length > 3 ||
+    consumedIds.some((id, i) =>
+      !s.items[id] || id === event.itemId || consumedIds.indexOf(id) !== i) ||
+    !Array.isArray(event.witnesses) ||
+    !event.witnesses.includes(event.actorId)
+  )
+    return false;
   const source = s.log.find((entry) => entry.seq === sourceSeq);
-  return !source || (
-    source.kind === "action" && source.turn === event.turn &&
-    ["give", "trade", "drop"].includes(source.verb) && source.accepted !== false &&
-    consumedIds.includes(source.itemId) &&
-    source.targetId === (source.verb === "drop" ? event.locationId : event.actorId)
+  return (
+    !source ||
+    (source.kind === "action" && source.turn === event.turn &&
+      ["give", "trade", "drop"].includes(source.verb) &&
+      source.accepted !== false && consumedIds.includes(source.itemId) &&
+      source.targetId === (source.verb === "drop" ? event.locationId : event.actorId))
   );
 }
 

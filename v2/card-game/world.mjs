@@ -2775,8 +2775,12 @@ function performPlay(s, a, round = null, settle = []) {
   // Giving a maker the last of a locked thing's set makes it (rules 102).
   settleCrafting(s, a, nameOf, (text, locationId, outcome) =>
     addLog(s, "World", text, {
-      kind: "narration", verb: "craft", locationId, sourceSeq,
-      witnesses: witnessesAt(s, locationId), ...outcome,
+      kind: "narration",
+      verb: "craft",
+      locationId,
+      sourceSeq,
+      witnesses: witnessesAt(s, locationId),
+      ...outcome,
     }),
   );
   // A traveler who comes to hold an item made for them uses it up (#1873).
@@ -3866,9 +3870,12 @@ export function validateWorld(s) {
     if (e.locationId != null && !Object.hasOwn(places, e.locationId)) fail();
     if (e.verb != null && !verbs.includes(e.verb)) fail();
     if (!validCraftEvent(s, e)) fail();
-    if (e.verb === "craft" && (
-      !places[e.locationId] || (!holderIds.has(e.holderId) && !ids.includes(e.holderId))
-    )) fail();
+    if (
+      e.verb === "craft" &&
+      (!places[e.locationId] ||
+        (!holderIds.has(e.holderId) && !ids.includes(e.holderId)))
+    )
+      fail();
     if (
       e.verb === "claim"
         ? e.kind !== "action" ||
