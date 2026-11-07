@@ -1,3 +1,4 @@
+import { routeAlternativesFixture } from "./helpers/authoring-route-alternatives.mjs";
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { buildAuthoringTree } from "../v2/card-game/authoring-tree.mjs";
@@ -85,15 +86,16 @@ describe("the authored world card tree", () => {
   );
 
   it("keeps route alternatives and their shared destination distinct", () => {
-    const tree = buildAuthoringTree(load("greek-drama"));
+    const { source, to } = routeAlternativesFixture(load("greek-drama"));
+    const tree = buildAuthoringTree(source);
     const links = tree.cards.filter(
       (c) =>
         c.kind === "link" &&
         c.source[1] === "routes" &&
         c.source.at(-1) === "to" &&
-        c.canonicalId === "greek-cithaeron",
+        c.canonicalId === to,
     );
-    expect(links.length).toBeGreaterThanOrEqual(3);
+    expect(links).toHaveLength(3);
     expect(new Set(links.map((c) => c.id)).size).toBe(links.length);
     expect(new Set(links.map((c) => c.ref)).size).toBe(1);
   });

@@ -1,3 +1,4 @@
+import { routeAlternativesFixture } from "./helpers/authoring-route-alternatives.mjs";
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { applySourceEdit } from "../v2/card-game/authoring-edits.mjs";
@@ -54,14 +55,9 @@ describe("authored opening and voyage quests", () => {
       ]);
     },
   );
-  it("keeps all three battlefield alternatives and their sealed quests", () => {
-    const source = greek(),
+  it("keeps three route alternatives and their sealed quests", () => {
+    const { source, indices } = routeAlternativesFixture(greek()),
       routes = source.pack.routes;
-    const indices = routes
-      .map((r, i) =>
-        r.from === "greek-battlefield" && r.to === "greek-cithaeron" ? i : -1,
-      )
-      .filter((i) => i >= 0);
     expect(indices).toHaveLength(3);
     const i = indices[1],
       next = apply(
@@ -143,10 +139,11 @@ describe("authored opening and voyage quests", () => {
         item: "greek-provisions",
       }),
     ).toThrow(/ship/);
+    const approach = source.pack.routes.find((route) => route.sealed);
     expect(() =>
       addItemOpening(source, {
-        from: "greek-gate",
-        to: "greek-battlefield",
+        from: approach.from,
+        to: approach.to,
         item: "greek-provisions",
       }),
     ).toThrow(/existing/);

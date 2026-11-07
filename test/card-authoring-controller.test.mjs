@@ -305,10 +305,11 @@ it("keeps rich existing approaches and directs ships to their lane cards", () =>
     ),
   );
   const original = JSON.stringify({ pack, bridge });
+  const approach = pack.routes.find((route) => route.sealed);
   const state = pair(
     createAuthoringState({ pack, bridge }),
-    id("places", "greek-cithaeron", "quests"),
-    id("places", "greek-battlefield"),
+    id("places", approach.to, "quests"),
+    id("places", approach.from),
   );
   assert.match(authoringAction(state).reason, /existing opening quest/);
   assert.throws(
