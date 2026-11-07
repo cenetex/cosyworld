@@ -1848,12 +1848,17 @@ fn transcript_sections(context: &Context, entity: &Entity, part: Part) -> Vec<(S
         }
     }
     lines.push((Section::Now, conversation::presence(context, id)));
-    lines.extend(tagged(Section::Now, custody::holding(context, entity)));
+    lines.extend(tagged(Section::Now, custody::carrying(context, entity)));
+    lines.extend(tagged(Section::Now, custody::hand(context, id)));
     if let Some(outcome) = outcome {
         let ground: Vec<_> = outcome
             .items
             .iter()
-            .filter(|i| i.holder == context.location)
+            .filter(|i| {
+                i.holder == context.location
+                    && !context.concealed.contains(&i.id)
+                    && !context.covered.contains(&i.id)
+            })
             .map(|i| person::the(&name(&i.id)))
             .collect();
         if !ground.is_empty() {

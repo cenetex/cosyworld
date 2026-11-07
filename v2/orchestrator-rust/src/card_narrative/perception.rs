@@ -196,7 +196,8 @@ pub(super) fn lines(context: &Context, entity: &Entity, p: &Perception) -> Vec<(
     if !context.concealed.contains(&context.location) {
         pinned.extend(anchor(&context.location));
     }
-    pinned.extend(custody::holding(context, entity));
+    pinned.extend(custody::carrying(context, entity));
+    pinned.extend(custody::hand(context, id));
     pinned.extend(custody::visible_holding(context, id));
     pinned.extend(
         custody::facts(context, id)

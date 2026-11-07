@@ -14,7 +14,7 @@ fn holder<'a>(outcome: &'a TurnOutcome, item: &str) -> Option<&'a str> {
 
 // The committed inventory survives the optional fact list's length limit.
 // Covered objects keep only their existing unnamed sense description.
-pub(super) fn holding(context: &Context, entity: &Entity) -> Option<String> {
+pub(super) fn carrying(context: &Context, entity: &Entity) -> Option<String> {
     let fact = entity.facts.iter().find(|f| f.starts_with("Holding: "));
     let Some((outcome, avatar)) = context.outcome.as_ref().and_then(|outcome| {
         outcome
@@ -23,7 +23,12 @@ pub(super) fn holding(context: &Context, entity: &Entity) -> Option<String> {
             .find(|avatar| avatar.id == entity.id)
             .map(|avatar| (outcome, avatar))
     }) else {
-        return fact.and_then(|f| person::fact(f, &entity.id, true));
+        return fact
+            .and_then(|f| person::fact(f, &entity.id, true))
+            .map(|text| {
+                text.replace("I'm holding ", "I'm carrying ")
+                    .replace("My hands are empty.", "I'm carrying nothing.")
+            });
     };
     let hidden = |id: &String| context.concealed.contains(id) || context.covered.contains(id);
     let obscured = context
@@ -50,9 +55,9 @@ pub(super) fn holding(context: &Context, entity: &Entity) -> Option<String> {
             .map(String::from),
     );
     if things.is_empty() {
-        return (!obscured).then(|| "My hands are empty.".into());
+        return (!obscured).then(|| "I'm carrying nothing.".into());
     }
-    Some(format!("I'm holding {}.", person::list(&things)))
+    Some(format!("I'm carrying {}.", person::list(&things)))
 }
 
 pub(super) fn held_item_text(context: &Context, speaker: &str) -> Vec<String> {
@@ -72,6 +77,19 @@ pub(super) fn held_item_text(context: &Context, speaker: &str) -> Vec<String> {
             Some(format!("From {}: {passage}", super::person::the(&name(id))))
         })
         .collect()
+}
+
+pub(super) fn hand(context: &Context, speaker: &str) -> Option<String> {
+    let outcome = context.outcome.as_ref()?;
+    let avatar = outcome.avatars.iter().find(|a| a.id == speaker)?;
+    let item = avatar.held_item.as_ref()?;
+    (!context.concealed.contains(item)
+        && !context.covered.contains(item)
+        && outcome
+            .items
+            .iter()
+            .any(|i| &i.id == item && i.holder == speaker))
+    .then(|| format!("I'm holding {}.", person::the(&name(item))))
 }
 
 pub(super) fn visible_holder<'a>(
@@ -248,9 +266,13 @@ mod tests {
             );
         }
         assert_eq!(
-            holding(&c, entity(&c, "moth")).as_deref(),
-            Some("I'm holding the Lamp and the Black cloth.")
+            carrying(&c, entity(&c, "moth")).as_deref(),
+            Some("I'm carrying the Lamp and the Black cloth.")
         );
+        assert_eq!(hand(&c, "moth").as_deref(), Some("I'm holding the Lamp."));
+        let npc = messages(&c, entity(&c, "moth"), Part::Line).assistant;
+        assert!(npc.contains("I'm carrying the Lamp and the Black cloth."));
+        assert!(npc.contains("I'm holding the Lamp."));
         c.concealed.push("lamp".into());
         assert_eq!(visible_holding(&c, "vale"), None);
         c.concealed.clear();
@@ -263,6 +285,16 @@ mod tests {
         c.outcome.as_mut().unwrap().avatars[1].held_item = None;
         assert_eq!(visible_holding(&c, "vale"), None);
         assert!(super::super::valid_outcome(c.outcome.as_ref().unwrap()));
+        c.outcome.as_mut().unwrap().items[0].holder = "station".into();
+        c.entities[0].perception = None;
+        let ground = "The Lamp is on the ground here.";
+        assert!(messages(&c, entity(&c, "vale"), Part::Line)
+            .assistant
+            .contains(ground));
+        c.concealed.push("lamp".into());
+        assert!(!messages(&c, entity(&c, "vale"), Part::Line)
+            .assistant
+            .contains(ground));
     }
 
     #[test]
@@ -288,7 +320,7 @@ mod tests {
             for part in [Part::Line, Part::Thought] {
                 let prompt = messages(&c, entity(&c, "moth"), part).assistant;
                 assert!(
-                    prompt.contains("I'm holding the Lamp and the Black cloth."),
+                    prompt.contains("I'm carrying the Lamp and the Black cloth."),
                     "{prompt}"
                 );
                 assert!(
@@ -310,15 +342,15 @@ mod tests {
             .facts = vec!["Holding: Lamp, Black cloth.".into()];
         let c: Context = serde_json::from_value(serde_json::to_value(c).unwrap()).unwrap();
         assert_eq!(
-            holding(&c, entity(&c, "moth")).as_deref(),
-            Some("I'm holding the Black cloth.")
+            carrying(&c, entity(&c, "moth")).as_deref(),
+            Some("I'm carrying the Black cloth.")
         );
         assert_eq!(
-            holding(&c, entity(&c, "vale")).as_deref(),
-            Some("I'm holding the Lamp.")
+            carrying(&c, entity(&c, "vale")).as_deref(),
+            Some("I'm carrying the Lamp.")
         );
         let prompt = messages(&c, entity(&c, "moth"), Part::Line).assistant;
-        assert!(!prompt.contains("I'm holding the Lamp"), "{prompt}");
+        assert!(!prompt.contains("I'm carrying the Lamp"), "{prompt}");
         assert!(
             prompt.contains("I received the Lamp from Vale."),
             "{prompt}"
@@ -335,25 +367,25 @@ mod tests {
             .find(|e| e.id == "moth")
             .unwrap()
             .facts = vec!["Holding: something shining I can't make out.".into()];
-        let phrase = "I'm holding something shining I can't make out.";
-        assert_eq!(holding(&c, entity(&c, "moth")).as_deref(), Some(phrase));
+        let phrase = "I'm carrying something shining I can't make out.";
+        assert_eq!(carrying(&c, entity(&c, "moth")).as_deref(), Some(phrase));
         c.entities
             .iter_mut()
             .find(|e| e.id == "moth")
             .unwrap()
             .facts
             .clear();
-        assert_eq!(holding(&c, entity(&c, "moth")), None);
+        assert_eq!(carrying(&c, entity(&c, "moth")), None);
         c.concealed.clear();
         assert_eq!(
-            holding(&c, entity(&c, "vale")).as_deref(),
-            Some("My hands are empty.")
+            carrying(&c, entity(&c, "vale")).as_deref(),
+            Some("I'm carrying nothing.")
         );
         // The item table has its own size cap; the avatar's inventory stays.
         c.outcome.as_mut().unwrap().items.clear();
         assert_eq!(
-            holding(&c, entity(&c, "moth")).as_deref(),
-            Some("I'm holding the Lamp and the Black cloth.")
+            carrying(&c, entity(&c, "moth")).as_deref(),
+            Some("I'm carrying the Lamp and the Black cloth.")
         );
         c.outcome = None;
         c.entities
@@ -362,8 +394,8 @@ mod tests {
             .unwrap()
             .facts = vec!["Holding: Lamp.".into()];
         assert_eq!(
-            holding(&c, entity(&c, "moth")).as_deref(),
-            Some("I'm holding the Lamp.")
+            carrying(&c, entity(&c, "moth")).as_deref(),
+            Some("I'm carrying the Lamp.")
         );
     }
 
