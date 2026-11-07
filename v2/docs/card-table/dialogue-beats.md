@@ -224,9 +224,11 @@ One phase decides what the dialogue box shows (`phase()` in
 | reviewing | the player stepped back behind live                                           | the earlier beat, with ● live              |
 | idle      | otherwise                                                                     | the latest beat                            |
 
-The action beat shows while choosing. Choosing cards brings their action
-forward while speech keeps writing behind it. The same rule applies to a shared
-refusal. Speech and action history show **Tap to finish** while typing and
+The action beat shows while choosing. Cards chosen during speech keep their
+selection while their action waits after the current exchange. Continue brings
+each reply forward, then the chosen details and context action. Text streams
+only on the current speech card. Shared readers keep their own place in this
+queue. Speech and action history show **Tap to finish** while typing and
 **Tap to continue** when another card follows. The latest card stays visible
 while the next reply is on its way. Its lower-right cue reads **Thinking…**
 until that reply is ready, then **Tap to continue**. Taps during the wait keep

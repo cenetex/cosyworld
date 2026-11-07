@@ -698,6 +698,7 @@ function updateCardCooldown() {
   if (playQueue.pending) queueMicrotask(() => playQueue.flush());
 }
 const exchange = createExchange({
+  holdLast: () => queuedChoice,
   prepare: prepareScene,
   show: (line) => {
     pendingSpeaker = null;
@@ -723,6 +724,7 @@ const exchange = createExchange({
       handTimer = setTimeout(releaseHand, HAND_WAIT);
     // A failed request releases the hand as well.
     if (!value) {
+      queuedChoice = false;
       pendingSpeaker = null;
       renderScene();
       queueMicrotask(() => {
@@ -833,7 +835,7 @@ function updateSpeechControls(complete) {
   const sharedForward = sharedSession && shownSceneLine && !sharedAdvanceRequested &&
     (ownPlayInFlight() || sharedNextLine(sharedSession.state, shownSceneLine.locationId, shownSceneLine.seq));
   const forward = (reviewing && (frontIndex < liveIndex || choiceInStack())) ||
-    exchange.hasNext || sharedForward;
+    exchange.hasNext || sharedForward || queuedChoice;
   const label = reviewing ? "Step forward to a later beat" : "Continue to the next beat";
   const dreamTap = sleepView.dreamTap;
   const cue = dreamTap !== null
@@ -1582,6 +1584,7 @@ function sharingMeal(cards) {
 function choose(id) {
   if (finishCardReveal(id) || selectionBlocked()) return;
   if (reviewing) returnToLive();
+  queueChoice();
   if (things[id] && selected.includes(id) && restedChoice === choiceKey()) {
     restedChoice = null;
     rowCollapsed = false;
@@ -2226,6 +2229,13 @@ function cardTapHint(button, verb = actionTapVerb(null, button.textContent), lab
 }
 
 const choiceKey = () => `${selected.join("+")}:${rowCollapsed}`;
+let queuedChoice = false;
+function queueChoice() {
+  queuedChoice ||= Boolean(shownSceneLine && (
+    !reveal.complete || exchange.current || replyPending() ||
+    (sharedSession && sharedNextLine(sharedSession.state, shownSceneLine.locationId, shownSceneLine.seq))
+  ));
+}
 function lingeringWords(inFlight) {
   // A play still queued, sending or waiting at the table can be withdrawn;
   // its Thinking card stands until the rules take it.
@@ -2249,10 +2259,14 @@ function lingeringWords(inFlight) {
 }
 function presentPhase() {
   if (restedChoice !== choiceKey()) restedChoice = null;
+  if (queuedChoice && (rowCollapsed || (!selected.length && !questOpen) || restedChoice !== null)) {
+    queuedChoice = false;
+    queueMicrotask(() => exchange.settleLast());
+  }
   const inFlight = Boolean(stackView.pending) || Boolean(ownPlayInFlight());
   return phase({
     reviewing: reviewing && stackView.frontIndex < stackView.liveIndex,
-    revealing: !reveal.complete || exchange.hasNext || inscribing.size > 0,
+    revealing: queuedChoice || !reveal.complete || exchange.hasNext || inscribing.size > 0,
     inFlight,
     lingering: lingeringWords(inFlight),
     raised: !rowCollapsed,
@@ -3167,6 +3181,7 @@ function questFrame({ id, quest, met }) {
 function pickQuest(quest) {
   if (selectionBlocked()) return;
   if (reviewing) returnToLive();
+  queueChoice();
   const focus = legalActions(world).find(
     (a) => a.kind === "focus" && a.quest === quest.index,
   );
@@ -4492,8 +4507,11 @@ function advanceFront() {
     syncSpeechPlayback();
     finishSpokenLine();
     if (sharedSession) {
+      if (!sharedNextLine(sharedSession.state, shownSceneLine.locationId, shownSceneLine.seq))
+        queuedChoice = false;
       sharedAdvanceRequested = true;
       syncSharedLine();
+      renderActions();
     } else exchange.advance();
     updateSpeechControls(reveal.complete);
   }

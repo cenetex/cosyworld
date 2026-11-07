@@ -333,6 +333,35 @@ describe("short character voices", () => {
 });
 
 describe("one exchange per card play", () => {
+  it.each([false, true])("holds a queued choice after the last reply (stream: %s)", (streaming) => {
+    let held = true;
+    const show = vi.fn();
+    const exchange = createExchange({ show, holdLast: () => held });
+    const lines = [
+      { seq: 1, entityId: "gate", text: "The way opens." },
+      { seq: 2, entityId: "decree", text: "The seal is warm." },
+      { seq: 3, entityId: "vale", text: "I have it." },
+    ];
+    exchange.begin();
+    exchange.load(lines.slice(0, streaming ? 1 : 3), { pending: streaming });
+    exchange.revealed(1);
+    if (streaming) exchange.load(lines);
+    expect(exchange.current.seq).toBe(1);
+    exchange.advance();
+    exchange.revealed(2);
+    expect(exchange.current.seq).toBe(2);
+    exchange.advance();
+    exchange.revealed(3);
+    expect(exchange.read).toBe(true);
+    expect(exchange.active).toBe(true);
+    exchange.pause(true);
+    exchange.pause(false);
+    expect(exchange.current.seq).toBe(3);
+    expect(show.mock.calls.map(([line]) => line.entityId)).toEqual(["gate", "decree", "vale"]);
+    if (streaming) { held = false; exchange.settleLast(); }
+    else exchange.advance();
+    expect(exchange.active).toBe(false);
+  });
   function setup() {
     vi.useFakeTimers();
     const show = vi.fn(),
