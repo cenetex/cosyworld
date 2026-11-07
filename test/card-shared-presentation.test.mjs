@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   sharedLiveLine,
   sharedNextLine,
+  sharedReadingLine,
   createSharedPlaybackClock,
   sharedSpeechState,
   sharedVoiceReference,
@@ -113,6 +114,18 @@ describe("shared room dialogue clock", () => {
     expect(sharedNextLine(state, "pond", second.seq)).toBeUndefined();
     const recent = { ...state, world: { log: [second] } };
     expect(sharedNextLine(recent, "pond", 0)).toEqual(second);
+  });
+  it("starts a fresh reader at the first line and resumes their saved place", () => {
+    expect(sharedReadingLine(state, "pond")).toEqual(first);
+    const saved = { room: "pond", seq: first.seq };
+    const later = { seq: 12, text: "A later reply." };
+    const incoming = { ...state, history: [...state.history,
+      { room: "pond", starts_at: 90000, lines: [later] }] };
+    expect(sharedReadingLine(incoming, "pond", saved)).toEqual(first);
+    expect(sharedReadingLine(incoming, "pond", { ...saved, seq: second.seq })).toEqual(second);
+    expect(sharedReadingLine(incoming, "pond")).toEqual(later);
+    expect(sharedReadingLine(incoming, "pond", { room: "station", seq: 10 })).toEqual(later);
+    expect(sharedReadingLine({ ...incoming, world: { log: [second, later] } }, "pond", saved)).toEqual(second);
   });
   it("shows a silent reply speaker as … after the spoken line", () => {
     const spoken = {

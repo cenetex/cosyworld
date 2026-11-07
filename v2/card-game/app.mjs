@@ -131,7 +131,7 @@ import { expressionLabel, expressionOf } from "./expression.mjs";
 import {
   installSharedControls,
   renderRoomStatus,
-  sharedLiveLine,
+  sharedReadingLine,
   sharedNextLine,
   sharedSilentLines,
   sharedSpeechState,
@@ -5723,9 +5723,13 @@ function syncSharedLine() {
     return;
   if (sharedLineSeq !== null && !sharedAdvanceRequested) return;
   const after = sharedLineSeq ?? sharedLineStart;
+  let saved;
+  if (after === null) {
+    try { saved = JSON.parse(localStorage.getItem(`${SAVE_KEY}.reading`)); } catch {}
+  }
   const live =
     after === null
-      ? sharedLiveLine(state, sharedSession.now(), room)
+      ? sharedReadingLine(state, room, saved)
       : sharedNextLine(state, room, after);
   if (!live && !selfKnown()) return;
   sharedLineStart ??= -Infinity;
@@ -5745,6 +5749,9 @@ function syncSharedLine() {
   if (after === null) completedSpeech.add(lineKey(entry, room));
   sharedLineSeq = entry.seq;
   sharedAdvanceRequested = false;
+  try {
+    localStorage.setItem(`${SAVE_KEY}.reading`, JSON.stringify({ room, seq: entry.seq }));
+  } catch {}
   lineSeq = entry.seq;
   storyStatus = "ready";
   renderScene();
