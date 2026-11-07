@@ -5,7 +5,7 @@ import { combatPortrait } from "./combat-portraits.mjs";
 import { flipStagePortrait } from "./portrait-facing.mjs";
 import { people, places, things } from "./world.mjs";
 
-const BACK = "./assets/card-back.webp";
+import { LOCKED_BACK as BACK } from "./locked-box.mjs";
 // Poses for verbs that have them; others use the speaking portraits.
 const POSES = { Strike: ["attack", "guard"], Threaten: ["attack", null] };
 const ACTION_POSES = { attack: "Strike", threaten: "Threaten" };
