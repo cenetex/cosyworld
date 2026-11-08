@@ -369,3 +369,40 @@ fn craft_outcome_keeps_its_source_and_custody_through_journal_replay() {
     assert_eq!(full_store::world(&reopened, &id, now()).unwrap(), world);
     let _ = std::fs::remove_file(path);
 }
+
+#[test]
+fn quiet_held_choice_replays_without_a_turn_or_speech_job() {
+    let mut world = created(engine::VERSION);
+    world.game["items"]["lamp"]["holder"] = json!("vale");
+    world.game["actors"]["vale"]["heldItem"] = json!("lamp");
+    let (path, c, id) = fixture("quiet-held-choice", &world);
+    let mut world = full_store::world(&c, &id, now()).unwrap();
+    let commit = |w: &mut World, cmd: Value| full_store::commit(&c, &id, w, cmd, now());
+    commit(&mut world, json!({"op":"claim","actor":"vale"})).unwrap();
+    commit(&mut world, json!({"op":"enter","actor":"vale"})).unwrap();
+    let turn = world.game["turn"].clone();
+    let fuel = world.game["items"]["lamp"]["fuel"].clone();
+    let cmd = json!({"op":"hold","actor":"vale","choice":{
+        "item":null,"revision":world.game["revision"]}});
+    commit(&mut world, cmd.clone()).unwrap();
+    assert_eq!(world.game["actors"]["vale"]["heldItem"], Value::Null);
+    assert_eq!(world.game["items"]["lamp"]["holder"], "vale");
+    assert_eq!(world.game["turn"], turn);
+    assert_eq!(world.game["items"]["lamp"]["fuel"], fuel);
+    let saved = world.clone();
+    assert!(commit(&mut world, cmd).is_err());
+    assert_eq!(world, saved);
+    let foreign = json!({"op":"hold","actor":"mara","choice":{
+        "item":"lamp","revision":world.game["revision"]}});
+    assert!(commit(&mut world, foreign).is_err());
+    assert_eq!(world, saved);
+    let jobs: i64 = c.query_row("SELECT count(*) FROM card_full_plays WHERE world=?",
+        [&id], |row| row.get(0)).unwrap();
+    assert_eq!(jobs, 0);
+    c.execute("DELETE FROM card_full_checkpoints WHERE world=?", [&id]).unwrap();
+    drop(c);
+    let c = store::open(&path).unwrap();
+    assert_eq!(full_store::world(&c, &id, now()).unwrap(), saved);
+    drop(c);
+    let _ = std::fs::remove_file(path);
+}

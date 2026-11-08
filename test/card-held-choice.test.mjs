@@ -1,3 +1,4 @@
+import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import { expect, it } from "vitest";
 import { createWorld, decodeSave, encodeSave } from "../v2/card-game/world.mjs";
 import {
@@ -68,4 +69,32 @@ it("changes only held choice and revision without spending a turn", () => {
     }),
   ).toThrow();
   expect(world).toEqual(before);
+});
+
+it("authenticates quiet shared choices and keeps unrelated simulation unchanged", () => {
+  const world = createWorld();
+  world.items.lamp.holder = "vale";
+  const request = {
+    op: "hold",
+    actor: "vale",
+    claimed: ["vale"],
+    present: ["vale"],
+    world,
+    choice: { item: "lamp", revision: world.revision },
+  };
+  const result = dispatchShared(request);
+  expect(result.ok).toBe(true);
+  expect(result.world.actors.vale.heldItem).toBe("lamp");
+  expect(result.world.turn).toBe(world.turn);
+  expect(result.world.log).toEqual(world.log);
+  expect(result.world.items).toEqual(world.items);
+  expect(() => dispatchShared({ ...request, present: [] })).toThrow();
+  expect(() => dispatchShared({ ...request, actor: "mara" })).toThrow();
+  expect(() =>
+    dispatchShared({
+      ...request,
+      choice: { ...request.choice, actor: "keeper" },
+    }),
+  ).toThrow();
+  expect(() => dispatchShared({ ...request, world: result.world })).toThrow();
 });

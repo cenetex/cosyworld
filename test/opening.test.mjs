@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { openingStep } from "../v2/card-game/opening.mjs";
 import { createLandingWorld } from "../v2/card-game/pack-landing.mjs";
-import { legalActions, play } from "../v2/card-game/world.mjs";
+import { createWorld, legalActions, play } from "../v2/card-game/world.mjs";
 import { cardPlay } from "../v2/card-game/cards.mjs";
 
 describe("a new world's opening", () => {
@@ -55,4 +55,12 @@ describe("a new world's opening", () => {
       null,
     );
   });
+});
+
+it("ends the opening after quiet stow without requiring a world turn", () => {
+  const world = createWorld({ opening: true });
+  world.items.lamp.lit = false;
+  world.actors.vale.heldItem = null;
+  expect(world.turn).toBe(0);
+  expect(openingStep(world, "vale", () => false)).toBeNull();
 });

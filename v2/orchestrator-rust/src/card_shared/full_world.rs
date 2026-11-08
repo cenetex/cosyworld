@@ -454,6 +454,13 @@ impl World {
                 next.present[a] = 0;
                 (4, json!({}))
             }
+            "hold" => {
+                let mut request = self.request("hold", a);
+                request["choice"] = command["choice"].clone();
+                let result = engine::reduce_pack(&self.version, self.pack.as_deref(), request)?;
+                next.game = result["world"].clone();
+                (11, result)
+            }
             "play" => {
                 let mut request = self.request("play", a);
                 request["action"] = command["action"].clone();
