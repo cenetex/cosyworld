@@ -17,7 +17,7 @@
   ],
   "rules": [
     {
-      "paths": "^v2/(card-game/(packs\\.json|packdata/|assets/(ratiradio/|music/night-shift-on-ratiradio))|worlds/(card-table\\.json|ratiradio/))",
+      "paths": "^v2/(content/ratiradio/|card-game/(packs\\.json|assets/(ratiradio/|music/night-shift-on-ratiradio))|worlds/(card-table\\.json|ratiradio/))",
       "smokes": ["smoke-card-ratiradio"]
     },
     {
