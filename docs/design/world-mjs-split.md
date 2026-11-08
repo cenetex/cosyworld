@@ -12,7 +12,7 @@ engine at the end.
 The proposed modules follow the existing function clusters:
 
 - `catalog` — `places`, `sanctuaries`, `people`, `things`, `nameOf` (done).
-- `create` — `createWorld`, `seedRun`.
+- `create` — `createWorld`, `seedRun` (done).
 - `items` — `rootHolder`, `itemPlace`, `carried`, `covered`, `shining`,
   `willingToGive`, `tradePossible`, `canTrade`.
 - `geography` — `senses`, `placeText`, `settleStationExits`, `exits`,
@@ -35,4 +35,6 @@ table + brotli) then collapses the per-version `include_str!` constants.
 ## Slices landed
 
 - `world/catalog.mjs` — the catalog data and `nameOf`. Verified old-vs-new
+  byte-for-byte equivalent across seeds 7, 42, 1729.
+- `world/create.mjs` — `createWorld` and `seedRun`. Verified old-vs-new
   byte-for-byte equivalent across seeds 7, 42, 1729.

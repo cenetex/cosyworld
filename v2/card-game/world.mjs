@@ -311,55 +311,13 @@ const expectedTrustKeys = Object.fromEntries(
       .join(),
   ]),
 );
-// A run seed draws each pack's specials once (pack-specials.mjs).
-export function createWorld({ opening = false, packScopes = {}, seed } = {}) {
-  const world = {
-    schema: 7,
-    ...structuredClone(forest.initialState),
-    memories: newMemories(),
-    turn: 0,
-    revision: 0,
-    eventSeq: 1,
-    conversations: [],
-  };
-  if (seed != null && !validSeed(seed)) throw new Error("Choose a run seed.");
-  if (seed != null) world.run = { seed };
-  if (opening) {
-    const start = structuredClone(forest.opening);
-    world.opening = start.discovery;
-    for (const [id, fields] of Object.entries(start.actors))
-      Object.assign(world.actors[id], fields);
-    for (const [id, fields] of Object.entries(start.items))
-      Object.assign(world.items[id], fields);
-    world.log = start.log;
-  }
-  installPacks(world);
-  installJourneyProgress(world, packDefinitions);
-  for (const [id, scope] of Object.entries(packScopes)) {
-    if (
-      !world.packs[id] ||
-      !["opening", "full"].includes(scope) ||
-      !packDefinition(id)?.release
-    )
-      throw new Error("Unknown content scope.");
-    world.packs[id].scope = scope;
-  }
-  enableMotives(world);
-  installLife(world, travels);
-  installRouteKnowledge(world);
-  installKnowledge(world);
-  // A new world starts with one want on every avatar but a player still
-  // waiting for its first quest.
-  fillWants(world, wantAPI(world), true);
-  rememberEvent(world, world.log[0]);
-  settleGuards(world);
-  settleHeldItems(world);
-  settleStationExits(world);
-  return world;
-}
+// A run seed draws each pack's specials once (pack-specials.mjs). World
+// creation and seeding live in world/create.mjs (#1390).
+import { createWorld, seedRun } from "./world/create.mjs";
+export { createWorld, seedRun };
 // Mount every pack missing from this save: its crossings, its state, and its
 // residents with fresh relationships. Earlier saves keep their own history.
-function installPacks(s) {
+export function installPacks(s) {
   const added = [];
   installTransports(s);
   s.crossings ??= {};
@@ -419,17 +377,8 @@ function installPacks(s) {
   installRouteKnowledge(s);
   installWants(s);
 }
-// A world saved before runs had seeds takes one once, from its host.
-export function seedRun(s, seed) {
-  if (s.run || !validSeed(seed)) return s;
-  s.run = { seed };
-  // Doors placed before the world had a seed move to the seed's picks.
-  delete s.doors;
-  installPacks(s);
-  return s;
-}
 // Travellers who learn the roads start from their home region's routes.
-function installRouteKnowledge(s) {
+export function installRouteKnowledge(s) {
   s.routeKnowledge ??= {};
   for (const actor of roamingActors)
     if (!s.routeKnowledge[actor]) {
