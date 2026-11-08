@@ -302,9 +302,10 @@ export function markCrossed(s, from, to) {
     s.crossings[c.id].discovered = true;
 }
 /** Extra place text from crossings that start here (open or closed). */
-export const crossingScenery = (s, place, senses) =>
+export const crossingScenery = (s, place, senses, waiting = []) =>
   crossings
-    .filter((c) => c.from === place && c.scenery)
+    .filter((c) => c.from === place && c.scenery &&
+      !waiting.includes(c.transport ? transports[c.transport].place : c.to))
     .map((c) =>
       crossingOpen(s, c, senses) ? c.scenery.open : c.scenery.closed,
     )

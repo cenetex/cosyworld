@@ -290,6 +290,7 @@ const files = [
   "action-beat-note.mjs",
   "pack-landing.mjs",
   "pack-landings.json",
+  "station-exits.mjs",
   "world.mjs",
   "scene-cast.mjs",
   "settings-cards.mjs",

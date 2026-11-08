@@ -239,6 +239,7 @@ impl World {
                 engine::HUNDRED_TWENTY_FIRST_VERSION,
                 engine::HUNDRED_TWENTY_SECOND_VERSION,
                 engine::HUNDRED_TWENTY_THIRD_VERSION,
+                engine::HUNDRED_TWENTY_FOURTH_VERSION,
                 engine::VERSION,
             ];
             let allowed = versions
@@ -398,6 +399,7 @@ impl World {
             engine::HUNDRED_TWENTY_FIRST_VERSION,
             engine::HUNDRED_TWENTY_SECOND_VERSION,
             engine::HUNDRED_TWENTY_THIRD_VERSION,
+            engine::HUNDRED_TWENTY_FOURTH_VERSION,
         ]
         .contains(&self.version.as_str())
         {
@@ -489,6 +491,21 @@ impl World {
             }
             _ => return Err("Choose an available play.".into()),
         };
+        // Rules125 journals Station admission with presence, not with a later GET.
+        // Earlier engines do not implement the authored presence operation.
+        let station_slots = self
+            .version
+            .strip_prefix("full-card-world/")
+            .and_then(|v| v.parse::<u32>().ok())
+            .is_some_and(|v| v >= 125);
+        if station_slots && matches!(op, "enter" | "leave" | "release" | "reset") {
+            let settled = engine::reduce_pack(
+                &next.version,
+                next.pack.as_deref(),
+                next.request("presence", a),
+            )?;
+            next.game = settled["world"].clone();
+        }
         self.guard(&next, kind, a)?;
         *self = next;
         Ok(result)

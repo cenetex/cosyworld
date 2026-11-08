@@ -360,3 +360,72 @@ fn one_connected_human_keeps_the_normal_turn_loop() {
     }
     assert_eq!(world.game["turn"], 3);
 }
+
+#[test]
+fn station_presence_admission_survives_checkpoint_free_replay() {
+    let path = std::env::temp_dir().join(format!("station-slots-{}.sqlite", crate::random_hex(12)));
+    let c = store::open(&path).unwrap();
+    full_store::schema(&c).unwrap();
+    let id = "d".repeat(48);
+    store::create(&c, &id, "owner", now()).unwrap();
+    let mut world = World::create(None).unwrap();
+    world.game.as_object_mut().unwrap().remove("opening");
+    world.game["actors"]["vale"]["place"] = json!("station");
+    world.game["actors"]["mara"]["place"] = json!("pond");
+    world.game["doors"]["pavilion"] = json!("station");
+    world.game["items"]["routes"]["holder"] = json!("station");
+    world.game["items"]["board"]["holder"] = json!("mara");
+    world.game["items"]["boardyai-calling-card"]["holder"] = json!("station");
+    world.game["stationExitOrder"] = json!([]);
+    full_store::seed(&c, &id, &world, "station-presence", now()).unwrap();
+    let commit = |world: &mut World, command: Value| {
+        full_store::commit(&c, &id, world, command, now()).unwrap();
+    };
+    for actor in ["vale", "mara"] {
+        for op in ["claim", "enter"] {
+            commit(&mut world, json!({"op":op,"actor":actor}));
+        }
+    }
+    assert_eq!(
+        world.game["stationExitOrder"],
+        json!(["train", "boardyai-parlour"])
+    );
+    let before = world.clone();
+    world.project(0).unwrap();
+    world.project(1).unwrap();
+    assert_eq!(world, before, "views do not admit exits");
+    let action = world.project(1).unwrap()["actions"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|a| a["kind"] == "move" && a["target"] == "station")
+        .unwrap()
+        .clone();
+    let play = json!({"op":"play","actor":"mara","action":action});
+    commit(&mut world, play);
+    assert_eq!(
+        world.game["stationExitOrder"],
+        json!(["train", "boardyai-parlour", "pavilion"])
+    );
+    for (op, expected) in [
+        ("leave", json!(["train", "pavilion"])),
+        ("enter", json!(["train", "pavilion", "boardyai-parlour"])),
+    ] {
+        commit(&mut world, json!({"op":op,"actor":"mara"}));
+        assert_eq!(world.game["stationExitOrder"], expected);
+    }
+    c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
+    assert_eq!(full_store::world(&c, &id, now()).unwrap(), world);
+}
+
+#[test]
+fn historical_presence_commands_leave_game_bytes_unchanged() {
+    let mut world = World::create(None).unwrap();
+    world.version = "full-card-world/124".into();
+    world.claimed[0] = 1;
+    let game = world.game.clone();
+    for op in ["enter", "leave", "release"] {
+        world.apply(&json!({"op":op,"actor":"vale"})).unwrap();
+        assert_eq!(world.game, game, "historical {op}");
+    }
+}

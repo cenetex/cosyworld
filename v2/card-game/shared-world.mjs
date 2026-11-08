@@ -7,6 +7,7 @@ import {
   createWorld,
   decodeSave,
   validateWorld,
+  settleStationExits,
   legalActions,
   matchingActions,
   play,
@@ -40,6 +41,10 @@ import { homecoming } from "./homecoming.mjs";
 import { dialogueCast } from "./scene-cast.mjs";
 import { speechOccasions } from "./speech-occasions.mjs";
 
+function validateTransition(world) {
+  settleStationExits(world);
+  validateWorld(world);
+}
 function ids(value, fallback = []) {
   const result = value === undefined ? fallback : value;
   if (
@@ -189,7 +194,7 @@ export function dispatchShared(request) {
     // A fresh world's resident avatars take a want at once; an imported or
     // upgraded one gives them wants at its next play.
     if (request.save == null) fillSeatWants(world);
-    validateWorld(world);
+    validateTransition(world);
     return response(world, view(world, request.actor || "vale"));
   }
   if (request.op === "migrate") return migrate(request);
@@ -202,10 +207,15 @@ export function dispatchShared(request) {
       settleHomeItems(world, world.heldActors);
     seedRun(world, request.seed);
     world.revision += 1;
-    validateWorld(world);
+    validateTransition(world);
     return response(world);
   }
   if (request.op === "validate") return response(world);
+  // Only journaled host presence transitions call this operation, never a view.
+  if (request.op === "presence") {
+    validateTransition(world);
+    return response(world);
+  }
   if (request.op === "join") {
     if (!world.controlledActors.includes(actor))
       world.controlledActors.push(actor);
@@ -213,19 +223,19 @@ export function dispatchShared(request) {
     arrive(world, actor);
     carryProgress(world.actors[actor], request.progress);
     enableShared(world);
-    validateWorld(world);
+    validateTransition(world);
     return response(world, view(world, actor));
   }
   // The host checks that the world's owner asked; the avatar starts over.
   if (request.op === "reset") {
     resetAvatar(world, actor);
-    validateWorld(world);
+    validateTransition(world);
     return response(world);
   }
   if (request.op === "seek") {
     seekHidden(world, actor);
     world.revision += 1;
-    validateWorld(world);
+    validateTransition(world);
     return response(world, view(world, actor));
   }
   if (request.op === "view")
@@ -341,7 +351,7 @@ export function dispatchShared(request) {
       publishKnowledgeSpeech(world, lines.at(-1), request.disclosures || []);
     }
     world.revision += 1;
-    validateWorld(world);
+    validateTransition(world);
     return response(world, { lines });
   }
   // Reflections journaled after their speech (#2016). They touch only the
@@ -349,7 +359,7 @@ export function dispatchShared(request) {
   if (request.op === "reflect") {
     applyLaterReflections(world, request);
     world.revision += 1;
-    validateWorld(world);
+    validateTransition(world);
     return response(world);
   }
   throw new Error("Choose a supported world operation.");
@@ -406,7 +416,7 @@ function migrate(request) {
   );
   contextual(world, { ...request, claimed, present });
   const legacyScenes = migrateScenes(world, request.legacyScenes || [], rooms);
-  validateWorld(world);
+  validateTransition(world);
   return response(world, { legacyScenes });
 }
 
