@@ -13,6 +13,10 @@ export function createFigureFramer(createCanvas) {
       img.style.setProperty("--figure-height", f.height);
       img.style.setProperty("--head-x", f.headX);
       img.style.setProperty("--portrait-crop", f.portraitCrop);
+      img.style.setProperty("--silhouette-width", f.width);
+      img.style.setProperty("--figure-center-x", f.centerX);
+      img.style.setProperty("--figure-center-y", f.top + f.height / 2);
+      img.style.setProperty("--figure-ratio", f.ratio);
     };
     const measure = () => {
       if (!img.complete || !img.naturalWidth || !img.naturalHeight) return;
@@ -39,6 +43,14 @@ export function createFigureFramer(createCanvas) {
               break;
             }
         if (!rows.length) return;
+        let fullLeft = w,
+          fullRight = 0;
+        for (const y of rows)
+          for (let x = 0; x < w; x++)
+            if (solid(x, y)) {
+              fullLeft = Math.min(fullLeft, x);
+              fullRight = Math.max(fullRight, x + 1);
+            }
         const top = rows[0],
           bottom = rows.at(-1) + 1,
           head = top + Math.max(1, Math.round((bottom - top) * 0.15));
@@ -54,6 +66,9 @@ export function createFigureFramer(createCanvas) {
           top: top / h,
           height: (bottom - top) / h,
           headX: (left + right) / 2 / w,
+          width: (fullRight - fullLeft) / w,
+          centerX: (fullLeft + fullRight) / 2 / w,
+          ratio: img.naturalWidth / img.naturalHeight,
           portraitCrop:
             img.naturalHeight / img.naturalWidth < 1.25 ? 0.85 : 0.3,
         });

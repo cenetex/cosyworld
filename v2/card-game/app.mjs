@@ -2901,6 +2901,8 @@ function card(id) {
   el.type = "button";
   el.classList.toggle("new", !hidden && fresh.has(id));
   el.dataset.card = id;
+  if (type === "avatar")
+    el.dataset.sleeping = String(Boolean(world.actors[id]?.sleeping));
   el.disabled = selectionBlocked();
   el.setAttribute("aria-pressed", String(raised));
   el.setAttribute(
