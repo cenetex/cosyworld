@@ -3,3 +3,4 @@ v2/content/willows/source-text.txt whitespace=-blank-at-eol,-blank-at-eof
 
 # Preserve pinned worldpack payload bytes on every checkout.
 v2/worldpacks/** -text
+test/fixtures/card-store/** -text

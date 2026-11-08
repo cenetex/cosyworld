@@ -1,16 +1,16 @@
-// Offline integrity checks. Import provenance and compiler admission follow separately.
+// Offline integrity and pinned Git evidence. Import and compiler admission follow.
 import assert from "node:assert/strict";
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
+import {
+  gitObjectId,
+  PAYLOAD,
+  verifySourceProof,
+} from "./card-store-proof.mjs";
 
 export const CONTRACT = "cosyworld.card-table/1";
-export const PAYLOAD = [
-  "worldpack.json",
-  "card-world.json",
-  "card-bridge.json",
-  "PROVENANCE.md",
-];
+export { PAYLOAD };
 const idOk = (id) =>
   typeof id === "string" &&
   /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/.test(id) &&
@@ -40,6 +40,7 @@ const native = new Set([
   "locked-card",
   "constructor",
   "prototype",
+  "proofs",
 ]);
 
 export function safePath(root, relative) {
@@ -100,7 +101,12 @@ export function scanFiles(root) {
       } finally {
         fs.closeSync(fd);
       }
-      files.push({ path: relative, size: bytes.length, sha256: hash(bytes) });
+      files.push({
+        path: relative,
+        size: bytes.length,
+        sha256: hash(bytes),
+        gitBlob: gitObjectId("blob", bytes),
+      });
     }
   };
   walk(root);
@@ -168,6 +174,7 @@ export function verifyStore(v2, { check = true } = {}) {
       files.every(
         (f) =>
           PAYLOAD.includes(f.path) ||
+          f.path === "LICENSE" ||
           /^assets\/(?:[A-Za-z0-9][A-Za-z0-9_.-]*\/)*[a-z0-9-]+\.(png|webp|mp3)$/.test(
             f.path,
           ),
@@ -183,6 +190,7 @@ export function verifyStore(v2, { check = true } = {}) {
       pinned.sha256,
       "Vendored payload differs from its pin",
     );
+    verifySourceProof(source, json(v2, `worldpacks/proofs/${id}.json`), files);
     const manifest = json(v2, `${dir}/worldpack.json`);
     const world = json(v2, `${dir}/card-world.json`);
     const bridge = json(v2, `${dir}/card-bridge.json`);
