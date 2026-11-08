@@ -266,7 +266,7 @@ describe("the full world shared by human avatars", () => {
     expect(reflectionOpen(visible, "pond")).toBe(false);
     expect(soundAt(visible, "pond", sensesFor(visible))).toBe(false);
   });
-  it("lets an away human live on as a resident who keeps their belongings", () => {
+  it("lets an away human interact as a resident without allowing direct theft", () => {
     const world = shared();
     world.items.mask.holder = "mara";
     world.items.lamp.holder = "vale";
@@ -286,24 +286,13 @@ describe("the full world shared by human avatars", () => {
     expect(
       view.actions.some((a) => a.kind === "take" && a.item === "mask"),
     ).toBe(false);
-    // An away traveler is no one's to threaten or trade with, and an Ask
-    // takes nothing from her (rules 98).
-    const aimed = (a) =>
-      ["threaten", "trade"].includes(a.kind) &&
-      (a.target === "mara" || a.receive === "mask");
-    expect(view.actions.filter(aimed).map((a) => a.key)).toEqual([]);
-    const plea = view.actions.find((a) => a.kind === "ask");
-    const asked = ask(world, "play", "vale", {
-      present: ["vale"],
-      action: plea,
-    });
-    expect(asked.world.items.mask.holder).toBe("mara");
-    for (const npc of ["moth", "keeper"])
-      expect(
-        legalActions(view.world, npc).some(
-          (a) => (a.kind === "take" && a.item === "mask") || aimed(a),
-        ),
-      ).toBe(false);
+    expect(view.actions.some((a) => a.kind === "trade" && a.receive === "mask")).toBe(true);
+    // Present humans still choose trades themselves and cannot be challenged.
+    const present = ask(world, "view", "vale");
+    expect(present.actions.some((a) =>
+      (a.kind === "trade" && a.receive === "mask") ||
+      (a.kind === "threaten" && a.target === "mara"),
+    )).toBe(false);
     // Vale's plays let the resident Mara act on her own wants.
     let next = world;
     for (let i = 0; i < 6; i++) {
@@ -317,6 +306,30 @@ describe("the full world shared by human avatars", () => {
       next = result.world;
     }
     expect(next.log.some((e) => e.actorId === "mara")).toBe(true);
+  });
+  it("keeps an away Vale for Talk and permits a lamp challenge, with replay", () => {
+    const world = shared();
+    world.actors.vale.place = world.actors.mara.place = "pond";
+    world.items.lamp.holder = "vale";
+    world.items.mask.holder = "mara";
+    world.actors.vale.want = { kind: "place", target: "station", since: 0, refusals: 0 };
+    const context = { present: ["mara"] };
+    const view = ask(world, "view", "mara", context);
+    expect(view.actions.some((a) => a.kind === "threaten" && a.target === "vale")).toBe(true);
+    expect(view.actions.some((a) => a.kind === "trade" && a.receive === "lamp")).toBe(true);
+    const action = view.actions.find((a) => a.kind === "talk" && a.target === "vale");
+    const result = ask(world, "play", "mara", { ...context, action });
+    expect(result.ok).toBe(true);
+    expect(result.world.actors.vale.place).toBe("pond");
+    expect(result.world.speechVoices.mara).toContain("vale");
+    expect(ask(world, "play", "mara", { ...context, action }).world).toEqual(result.world);
+    const spoken = ask(result.world, "speech", "mara", {
+      ...context, room: "pond", lines: [{ actorId: "vale", text: "Hello, Mara." }],
+    });
+    expect(spoken.world.log.at(-1).actorId).toBe("vale");
+    const returned = ask(result.world, "view", "mara", { present: ["mara", "vale"] });
+    expect(returned.actions.some((a) => a.kind === "threaten" && a.target === "vale")).toBe(false);
+    expect(returned.world.items.lamp.holder).toBe("vale");
   });
   it("rejects actor impersonation and extra actor keys before play", () => {
     const world = shared();

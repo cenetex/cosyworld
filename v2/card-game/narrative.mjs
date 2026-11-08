@@ -42,7 +42,7 @@ import {
   willingToGive,
   canTrade,
 } from "./world.mjs";
-import { controlledByHuman, residentAvatar } from "./human-cast.mjs";
+import { controlledByHuman } from "./human-cast.mjs";
 import { knownActors, questsOf, wantOf } from "./want.mjs";
 import { guardedFrom } from "./resident-guard.mjs";
 import {
@@ -246,7 +246,7 @@ function exchangeFacts(world, speaker, played) {
   if (
     !world.actors[partner] || partner === speaker ||
     world.actors[partner].place !== here ||
-    controlledByHuman(world, speaker) || residentAvatar(world, speaker) ||
+    controlledByHuman(world, speaker) ||
     sleepingPortrait(world, speaker) || sleepingPortrait(world, partner)
   ) return [];
   const owned = carried(world, speaker).filter(

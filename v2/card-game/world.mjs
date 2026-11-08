@@ -827,9 +827,10 @@ const needed = (s, actor, item) =>
   questsOf(s, actor).some(
     (want) => want.kind === "item" && bundle(s, item).includes(want.target),
   );
-// An away traveler's avatar, played as a resident, is no one's to ask,
-// threaten, trade with or draw into a fight (rules 98).
-const humanHeld = (s, id) => controlledByHuman(s, id) || residentAvatar(s, id);
+// Present humans choose for themselves; an away avatar uses resident decisions.
+const humanHeld = (s, id) => controlledByHuman(s, id);
+// Keep player quest custody independent from interaction eligibility.
+const playerQuestHeld = (s, id) => controlledByHuman(s, id) || residentAvatar(s, id);
 export function willingToGive(s, owner, item, recipient = null) {
   return (
     !humanHeld(s, owner) &&
@@ -2886,7 +2887,8 @@ function performPlay(s, a, round = null, settle = []) {
       witnesses: [held.actor],
     });
   // Answering the request is the invited avatar's action for this round.
-  return invitation ? a.target : null;
+  return invitation || (a.kind === "talk" && residentAvatar(s, a.target))
+    ? a.target : null;
 }
 
 // Routes use the exits available to the actor who is planning the trip.
@@ -3512,7 +3514,7 @@ export function play(
     // Residents put ashore set that pursuit aside.
     if (voyage.kind === "home")
       for (const id of voyage.ashore)
-        if (!humanHeld(next, id)) setAsideWant(next, id, wantAPI(next));
+        if (!playerQuestHeld(next, id)) setAsideWant(next, id, wantAPI(next));
   }
   const worldLine = (text, locationId) =>
     addLog(next, "World", text, { kind: "narration", locationId });
@@ -4135,7 +4137,7 @@ export function decodeSave(text) {
       installPacks,
       laneText: laneFactText,
       setAside: (world, id) =>
-        !humanHeld(world, id) && setAsideWant(world, id, wantAPI(world)),
+        !playerQuestHeld(world, id) && setAsideWant(world, id, wantAPI(world)),
     });
     installJourneyProgress(s, packDefinitions);
     repairRestTargets(s, wantAPI(s));

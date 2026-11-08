@@ -140,5 +140,5 @@ it("leaves human choices undecided and does not inspect a sleeping partner's han
   seatActors(world, ["vale", "mara"], ["vale", "mara"]);
   expect(knowledge(world, "mara")).toEqual([]);
   seatActors(world, ["vale", "mara"], ["vale"]);
-  expect(knowledge(world, "mara")).toEqual([]);
+  expect(knowledge(world, "mara").length).toBeGreaterThan(0);
 });
