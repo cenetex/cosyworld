@@ -9,6 +9,7 @@ import {
 } from "../v2/card-game/sleep-portraits.mjs";
 import {
   flipStagePortrait,
+  nativePortraitFacing,
   portraitFraming,
 } from "../v2/card-game/portrait-facing.mjs";
 import { publicAssets } from "../v2/card-game/public-assets.mjs";
@@ -30,6 +31,39 @@ const seated = (ids, place = "glasshouse") => {
 };
 
 describe("sleeping art", () => {
+  it("shows Dione's approved sleep art on the card and stage until she wakes", () => {
+    let world = createWorld({ packScopes: { "greek-drama": "full" } });
+    world.turn = world.revision = 91;
+    world.actors.vale.place = "greek-courtyard";
+    world.actors["greek-baker"].place = "greek-courtyard";
+    world.packs["greek-drama"].met["greek-baker"] = 0;
+    world.actors["greek-baker"].sleeping = {
+      since: 90,
+      place: "greek-courtyard",
+      until: 96,
+    };
+    const art = "./assets/sleep/greek-baker-sleeping.png";
+    expect(sleepingPortrait(world, "greek-baker")).toBe(art.slice(2));
+    expect(portrait("greek-baker", null, world)).toBe(art);
+    expect(
+      sceneStaging(world, { cast: ["greek-baker"] }).actors[0],
+    ).toMatchObject({ id: "greek-baker", cutout: art, pose: "sleep" });
+    expect(sleepPortraitAssets).toContain(art.slice(2));
+    expect(nativePortraitFacing(art)).toBe("left");
+    expect(flipStagePortrait(art, "right")).toBe(true);
+
+    world.turn = world.revision = 95;
+    const awake = wait(world, "vale");
+    expect(awake.turn).toBe(96);
+    expect(awake.actors["greek-baker"].sleeping).toBeUndefined();
+    expect(portrait("greek-baker", null, awake)).toBe(
+      "./assets/greek-drama/chthonic-baker.png",
+    );
+    expect(
+      sceneStaging(awake, { cast: ["greek-baker"] }).actors[0],
+    ).toMatchObject({ cutout: "./assets/greek-drama/chthonic-baker.png" });
+  });
+
   it("follows the committed sleep state until the sleeper wakes", () => {
     let world = sleep(seated(["vale"]), "vale");
     expect(world.actors.vale.sleeping).toBeDefined();
@@ -56,13 +90,13 @@ describe("sleeping art", () => {
     world.actors.vale.place = "station";
     expect(sleepingPortrait(wait(world), "vale")).toBeNull();
     // Residents never Sleep; one marked asleep without art keeps its own.
-    const before = portrait("greek-baker", null, world);
-    world.actors["greek-baker"].sleeping = {
+    const before = portrait("greek-creon", null, world);
+    world.actors["greek-creon"].sleeping = {
       since: 0,
       place: "x",
       present: [],
     };
-    expect(portrait("greek-baker", null, world)).toBe(before);
+    expect(portrait("greek-creon", null, world)).toBe(before);
     expect(sleepingPortrait(null, "vale")).toBeNull();
     expect(sleepingPortrait(world, "unknown")).toBeNull();
   });
@@ -94,7 +128,7 @@ describe("sleeping art", () => {
   );
 
   it("publishes the complete pack and never mirrors the keeper's clock", () => {
-    expect(sleepPortraitAssets).toHaveLength(18);
+    expect(sleepPortraitAssets).toHaveLength(19);
     const published = new Set(publicAssets.map(({ file }) => file));
     for (const file of sleepPortraitAssets) {
       expect(published.has(file), file).toBe(true);

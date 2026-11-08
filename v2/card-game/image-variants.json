@@ -5129,6 +5129,15 @@
       "phone": "assets/optimized/phone/png/shared/places/train.webp",
       "phoneHash": "a792faec129d29f9de2442492c500e7090b3c3be5b0ff0c3ef05a52fd966100b"
     },
+    "assets/sleep/greek-baker-sleeping.png": {
+      "sourceHash": "a6304b18792b292ebc965e30a29f821e6266a7c0de06a2c13b1edf76f1609cd9",
+      "stage": "assets/optimized/stage/png/sleep/greek-baker-sleeping.webp",
+      "stageHash": "57f4e5a59e97c7a3ec646fb071d9d7c24aaac78b2fba3257225a9e35a69af876",
+      "card": "assets/optimized/card/png/sleep/greek-baker-sleeping.webp",
+      "cardHash": "6e3593e819570437ae482a7d579a8bbaa09c772c6d20a96d5d21249b6644c305",
+      "phone": "assets/optimized/phone/png/sleep/greek-baker-sleeping.webp",
+      "phoneHash": "2aafadbc6f408809f73120f7ede416f6c0e052ba2445ecc2ae288c72c302a96a"
+    },
     "assets/sleep/keeper-sleeping.webp": {
       "sourceHash": "7c3f68a155d82778eab8dc93af1c0a96789c04efe42ef8fec9342974bd646faf",
       "stage": "assets/sleep/keeper-sleeping.webp",
