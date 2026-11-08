@@ -258,7 +258,7 @@ jobs:
             *) node "v2/scripts/$SMOKE.mjs" ;;
           esac
       - name: Upload browser images
-        if: failure()
+        if: failure() || matrix.smoke == 'smoke-card-ratiradio'
         uses: actions/upload-artifact@v7
         with:
           name: fast-check-${{ matrix.smoke }}
