@@ -1,3 +1,4 @@
+import { createFigureFramer } from "./figure-frame.mjs";
 import { renderCardDescriptor } from "./card-descriptor.mjs";
 import {
   nameTitleWaker,
@@ -2102,61 +2103,9 @@ function queueDiscoveries() {
     });
 }
 
-const figures = new Map();
-function frameFigure(img) {
-  const apply = (f) => {
-    img.style.setProperty("--figure-top", f.top);
-    img.style.setProperty("--figure-height", f.height);
-    img.style.setProperty("--head-x", f.headX);
-    img.style.setProperty("--portrait-crop", f.portraitCrop);
-  };
-  const measure = () => {
-    if (!figures.has(img.src)) {
-      const w = 48,
-        h = Math.round((w * img.naturalHeight) / img.naturalWidth) || w;
-      const canvas = document.createElement("canvas");
-      canvas.width = w;
-      canvas.height = h;
-      const context = canvas.getContext("2d", { willReadFrequently: true });
-      context.drawImage(img, 0, 0, w, h);
-      let alpha;
-      try {
-        alpha = context.getImageData(0, 0, w, h).data;
-      } catch {
-        return;
-      }
-      const solid = (x, y) => alpha[(y * w + x) * 4 + 3] > 40;
-      const rows = [];
-      for (let y = 0; y < h; y++)
-        for (let x = 0; x < w; x++)
-          if (solid(x, y)) {
-            rows.push(y);
-            break;
-          }
-      if (!rows.length) return;
-      const top = rows[0],
-        bottom = rows.at(-1) + 1,
-        head = top + Math.max(1, Math.round((bottom - top) * 0.15));
-      let left = w,
-        right = 0;
-      for (let y = top; y < head; y++)
-        for (let x = 0; x < w; x++)
-          if (solid(x, y)) {
-            left = Math.min(left, x);
-            right = Math.max(right, x + 1);
-          }
-      figures.set(img.src, {
-        top: top / h,
-        height: (bottom - top) / h,
-        headX: (left + right) / 2 / w,
-        portraitCrop: img.naturalHeight / img.naturalWidth < 1.25 ? 0.85 : 0.3,
-      });
-    }
-    apply(figures.get(img.src));
-  };
-  if (img.complete && img.naturalWidth) measure();
-  else img.addEventListener("load", measure, { once: true });
-}
+const { frameFigure, syncFigureFrame } = createFigureFramer(
+  () => document.createElement("canvas"),
+);
 // Compose the avatar and selected cards over the scene, as quest cards do.
 function showBeatCards(
   ids, here, verb, recipe = false, actionView = null, asScene = true,
@@ -5000,7 +4949,7 @@ function render() {
         // A face changed with the light fades; one that moves just moves.
         if (stayed && faces.length) fadeFaces(faces, handExits(), wait(faceAt));
       } else if (leaving.length) dropCards(leaving, handExits());
-      for (const [was, now] of changed) morphFrame(was, now);
+      for (const [was, now] of changed) morphFrame(was, now, syncFigureFrame);
       $("hand").replaceChildren(...frames);
       if (swap) swap.left += leaving.length;
     }
