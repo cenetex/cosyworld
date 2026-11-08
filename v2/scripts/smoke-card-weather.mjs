@@ -59,9 +59,14 @@ try {
       );
     });
     await page.goto(`${origin}/?table=${table}`);
-    async function load(place, turn, shipAtHarbor = false) {
+    async function load(place, turn, shipAtHarbor = false, lamp = "off") {
       const world = createWorld({ packScopes: { "greek-drama": "full" } });
       world.actors.vale.place = place;
+      Object.assign(world.items.lamp, {
+        holder: lamp === "held" ? "vale" : lamp === "placed" ? place : "station",
+        fuel: lamp === "off" ? 0 : 12, lit: lamp !== "off",
+      });
+      world.actors.vale.heldItem = lamp === "held" ? "lamp" : null;
       world.turn = world.revision = turn;
       if (shipAtHarbor) {
         world.crossings["pond-greek-harbor"].discovered = true;
@@ -348,6 +353,28 @@ try {
         css: "none",
       });
     }
+    async function checkLamp(kind, suffix) {
+      await load("pond", 36, false, kind);
+      await page.waitForFunction(async () => {
+        const { stageLight } = await import("/card-game/stage-light-view.mjs");
+        return stageLight(document.querySelector("#stage"))?.pools.some((p) => p.portable);
+      });
+      const aligned = await page.evaluate(async (kind) => {
+        const { stageLight } = await import("/card-game/stage-light-view.mjs");
+        const stage = document.querySelector("#stage");
+        const pool = stageLight(stage).pools.find((p) => p.portable);
+        const art = stage.querySelector(".stage-figures").getBoundingClientRect();
+        const selector = kind === "held" ? ".portrait-held-item" : ".floor-item";
+        const prop = stage.querySelector(`${selector}[data-item="lamp"]`).getBoundingClientRect();
+        return Math.abs(art.left + art.width * pool.x / 100 - prop.left - prop.width / 2) < 1 &&
+          Math.abs(art.top + art.height * pool.y / 100 - prop.top - prop.height / 2) < 1 &&
+          Number(stage.style.getPropertyValue("--light-on")) > 0;
+      }, kind);
+      assert(aligned, `${width} ${kind} ${suffix}: lamp pool must match rendered prop`);
+      await page.screenshot({ path: new URL(`lamp-${width}-${kind}-${suffix}.png`, output).pathname });
+    }
+    await checkLamp("held", "shader");
+    await checkLamp("placed", "shader");
     if (!phone) {
       // Without WebGL the CSS multiply carries the same grade.
       await page.addInitScript(() => {
@@ -368,6 +395,8 @@ try {
         "block",
       );
       assert((await figureLight()) < 0.7);
+      await checkLamp("held", "fallback");
+      await checkLamp("placed", "fallback");
     }
     assert.deepEqual(errors, []);
     await page.close();
