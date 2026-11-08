@@ -6,7 +6,7 @@ import {
   humanAvatarIds,
   sharedEnabled,
 } from "./human-cast.mjs";
-import { knowsFact } from "./knowledge.mjs";
+import { knowsFact, grievanceActive } from "./knowledge.mjs";
 import { locationWeather } from "./weather.mjs";
 import { usedUp } from "./item-use.mjs";
 // General rules over world-pack data: crossings and their signals, fixtures
@@ -134,6 +134,13 @@ export function conditionMet(s, c, senses, packId = null, actor = null) {
       const who = actor || senses?.player || currentActor(s);
       return (c.topics || [c.topic]).some((topic) => knowsFact(s, who, topic));
     }
+    case "trusted":
+      return (
+        (s.actors[c.actor]?.trust?.[actor] || 0) >= c.min &&
+        !(s.motives?.grievances?.[c.actor] || []).some(
+          (g) => g.other === actor && grievanceActive(s, g),
+        )
+      );
     case "holding":
       return (
         s.items[c.item]?.holder === (c.role === "actor" ? actor : c.actor) &&

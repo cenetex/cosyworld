@@ -49,6 +49,79 @@ fn plain_wait(a: &Value) -> bool {
 
 const GUARD: &str = "greek-guard";
 
+#[test]
+fn resident_passage_checks_each_traveller_in_the_c_host() {
+    let mut inputs: Value = serde_json::from_str(content::current_text()).unwrap();
+    let beyond =
+        inputs["files"]["v2/card-game/world-life.json"]["residents"][GUARD]["guards"].clone();
+    let greek = inputs["files"]["v2/card-game/packs.json"]["packs"]
+        .as_array_mut()
+        .unwrap()
+        .iter_mut()
+        .find(|pack| pack["id"] == "greek-drama")
+        .unwrap();
+    greek["avatars"][GUARD]["passWhen"] = json!([{"kind":"trusted","actor":GUARD,"min":1}]);
+    let text = inputs.to_string();
+    let hash = content::hash(&text);
+    let c = rusqlite::Connection::open_in_memory().unwrap();
+    full_store::schema(&c).unwrap();
+    c.execute(
+        "INSERT INTO card_full_packs(hash,revision,content) VALUES(?,?,?)",
+        rusqlite::params![hash, "resident-passage", text],
+    )
+    .unwrap();
+    content::preload(&c, &hash).unwrap();
+    let game = engine::reduce_pack(
+        engine::VERSION,
+        Some(&hash),
+        json!({"op":"create","seed":9}),
+    )
+    .unwrap()["world"]
+        .clone();
+    let mut world = World {
+        version: engine::VERSION.into(),
+        game,
+        claimed: [0; 8],
+        present: [0; 8],
+        pack: Some(hash),
+    };
+    world.claimed[0] = 1;
+    world.present[0] = 1;
+    world.claimed[1] = 1;
+    world.present[1] = 1;
+    world.game.as_object_mut().unwrap().remove("opening");
+    for actor in ["vale", "mara", "greek-ismene"] {
+        world.game["actors"][actor]["place"] = json!("greek-gate");
+    }
+    world.game["packs"]["greek-drama"]["met"]["greek-ismene"] = json!(0);
+    world.game["actors"][GUARD]["trust"]["vale"] = json!(1);
+    let permitted = world.project(0).unwrap();
+    let blocked = world.project(1).unwrap();
+    assert!(permitted["exits"].as_array().unwrap().contains(&beyond));
+    assert!(!blocked["exits"].as_array().unwrap().contains(&beyond));
+    assert!(!permitted["actions"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|action| {
+            action["kind"] == "accompany"
+                && action["target"] == "greek-ismene"
+                && action["destination"] == beyond
+        }));
+    world.game["actors"][GUARD]["trust"]["greek-ismene"] = json!(1);
+    let accompanied = world.project(0).unwrap();
+    assert!(accompanied["actions"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|action| {
+            action["kind"] == "accompany"
+                && action["target"] == "greek-ismene"
+                && action["destination"] == beyond
+        }));
+    assert_eq!(world.game["actors"][GUARD]["guarding"], beyond);
+}
+
 // Rules 100 in the C QuickJS host: residents fall asleep on their scattered
 // schedules (`sleeping.until`, `slept`), the Gate Guard bars the battlefield
 // (`guarding`), is knocked through by a lost fight (`homeward`), walks home
