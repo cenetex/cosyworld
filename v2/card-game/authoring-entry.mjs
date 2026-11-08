@@ -1,3 +1,4 @@
+import { createAuthoringVisualTools } from "./authoring-visual-tools.mjs";
 import { createAuthoringAccountTools } from "./authoring-account-tools.mjs";
 import { authoringSeedTools } from "./authoring-seed-tools.mjs";
 import { openAuthoringStore } from "./authoring-local-store.mjs";
@@ -192,6 +193,14 @@ async function start() {
     choose: (id) =>
       id === "world" ? designer.chooseWorld() : designer.chooseTool(id),
   });
+  const visuals = createAuthoringVisualTools({
+    accounts: { requireSignIn() {
+      resumeAccount = visuals.signedIn;
+      return accounts.requireSignIn();
+    } },
+    changed: () => designer?.refresh(),
+    choose: id => designer.chooseTool(id),
+  });
   const creator = authoringCreateTools({
     store,
     accounts: { state: accounts.state, requireSignIn() {
@@ -222,7 +231,7 @@ async function start() {
   designer = installWorldDesigner({
     store,
     transientState: () => {
-      const values = [seed.transientState(), maker.transient(), creator.transientState()];
+      const values = [seed.transientState(), maker.transient(), creator.transientState(), visuals.transient()];
       return values.some((value) => value !== null)
         ? JSON.stringify(values)
         : null;
@@ -236,16 +245,19 @@ async function start() {
       ...(maker.detailed() ? seed.tools() : []),
       ...maker.tools(),
       ...creator.tools(),
+      ...visuals.tools(),
     ],
     project: maker.project,
     onOpen(status) {
       seed.open(status);
       maker.clear();
+      visuals.clear();
       creator.open(status);
       resumeAccount = accountHome;
     },
     onScene(place, source, status) {
       maker.sync(source, status);
+      visuals.sync(source);
       activeAssets = cache.get(assetKey(status));
       pruneAssets();
       const next = new URL(location.href);
