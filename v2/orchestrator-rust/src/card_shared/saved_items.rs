@@ -4,12 +4,9 @@ use serde_json::{json, Value};
 
 /// Fresh authored defaults with the saved world's seed, independent of its upgrade.
 pub(super) fn initial_game(game: &Value) -> Value {
-    super::full_world::World::seeded(
-        None,
-        game["run"]["seed"].as_u64().map(|seed| seed as u32),
-    )
-    .unwrap()
-    .game
+    super::full_world::World::seeded(None, game["run"]["seed"].as_u64().map(|seed| seed as u32))
+        .unwrap()
+        .game
 }
 
 /// Catalog additions start fresh; every existing expected record stays exact.

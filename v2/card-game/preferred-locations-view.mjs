@@ -7,6 +7,8 @@ export function createPreferredLocationsView(stage, art, cast) {
   function draw() {
     frame = 0;
     const stageBox = stage.getBoundingClientRect();
+    // Small phone casts use close portraits; their authored scale still applies.
+    const closeUp = stageBox.width < 701 && spots.size <= 3;
     let artBox = art.getBoundingClientRect();
     if (spots.size && stageBox.width < 701 && artBox.width > stageBox.width) {
       const middle =
@@ -43,7 +45,9 @@ export function createPreferredLocationsView(stage, art, cast) {
         Math.min(
           (stageBox.width * 1.5) /
             (stageBox.width < 701
-              ? Math.min(spots.size, 3)
+              ? closeUp
+                ? 1
+                : Math.min(spots.size, 3)
               : Math.max(1, spots.size)),
           floor - stageBox.top,
         ),
@@ -56,7 +60,10 @@ export function createPreferredLocationsView(stage, art, cast) {
         point.bottom,
         castBox.bottom - stageBox.top - height,
       );
-      const half = Math.min(width / 2, stageBox.width / 2);
+      const half = Math.min(
+        width / 2,
+        stageBox.width / (closeUp ? spots.size + 1 : 2),
+      );
       const min = stageBox.left - castBox.left + half;
       const max = stageBox.right - castBox.left - half;
       placed.push({ figure, point, min, max, width, height });
@@ -85,7 +92,7 @@ export function createPreferredLocationsView(stage, art, cast) {
       if (center + width / 2 > dock.left && center - width / 2 < dock.right)
         point.bottom = Math.max(
           point.bottom,
-          castBox.bottom - dock.top + 12 - height * 0.7,
+          castBox.bottom - dock.top + 12 - height * (closeUp ? 0.25 : 0.7),
         );
       point.bottom = Math.min(
         point.bottom,

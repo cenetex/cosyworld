@@ -120,8 +120,7 @@ fn assert_saved_items(current: &Value, old: &Value) {
 fn assert_saved_packs(current: &Value, old: &Value) {
     let initial = super::saved_items::initial_game(current);
     let current = &current["packs"];
-    let mut expected =
-        super::saved_items::with_initial_additions(&old["packs"], &initial["packs"]);
+    let mut expected = super::saved_items::with_initial_additions(&old["packs"], &initial["packs"]);
     expected["greek-drama"]["revision"] = greek_revision();
     expected["boardyai"] = current["boardyai"].clone();
     expected["hoppycat-archive"] = current["hoppycat-archive"].clone();
