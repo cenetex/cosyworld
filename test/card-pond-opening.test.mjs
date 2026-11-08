@@ -159,7 +159,7 @@ describe("the attic opening and saved pond journeys", () => {
     expect(result.state.items.lamp.holder).toBe("moth");
   });
 
-  it("gives the station one path, plus the parlour door while the card is there", () => {
+  it("keeps the station path while the calling card opens the attic parlour door", () => {
     const world = dispatchShared({ op: "create" }).world;
     world.sharedVersion = 1;
     world.controlledActors = humanAvatarIds;
@@ -180,11 +180,13 @@ describe("the attic opening and saved pond journeys", () => {
     expect(neighbors.filter((p) => !homes.includes(p))).toEqual([
       "pond",
       ...(places["ratiradio-staff-kitchen"] ? ["ratiradio-staff-kitchen"] : []),
-      "boardyai-parlour",
     ]);
     expect(homes.every((home) => neighbors.includes(home))).toBe(true);
     world.items["boardyai-calling-card"].holder = "station";
-    expect(exits(world, "station", "vale").sort()).toEqual(["boardyai-parlour", "pond"]);
+    expect(exits(world, "station", "vale")).toEqual(["pond"]);
+    expect(exits(world, "attic", "vale")).not.toContain("boardyai-parlour");
+    world.items["boardyai-calling-card"].holder = "attic";
+    expect(exits(world, "attic", "vale")).toContain("boardyai-parlour");
   });
 
   it("preserves saved attic purposes, positions, possessions and history", () => {

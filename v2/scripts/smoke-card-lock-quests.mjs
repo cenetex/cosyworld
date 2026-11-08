@@ -7,7 +7,8 @@ import { createWorld, encodeSave } from "../card-game/world.mjs";
 import { availableCards } from "../card-game/cards.mjs";
 import { isLockedBox, lockedQuest } from "../card-game/locked-box.mjs";
 import { profiles } from "../card-game/memory.mjs";
-import { revealCard, tapCard } from "./card-browser-helpers.mjs";
+import { sleepWindow } from "../card-game/resident-sleep.mjs";
+import { revealCard, tapCard, selectCard } from "./card-browser-helpers.mjs";
 const output = new URL(
   process.argv[2]
     ? `file://${process.argv[2].replace(/\/?$/u, "/")}`
@@ -19,14 +20,17 @@ const server = createServer();
 await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
 const browser = await chromium.launch({ headless: true });
 try {
-  for (const [width, height] of [
-    [1920, 1080],
-    [1440, 900],
-    [390, 844],
-    [360, 740],
+  for (const [width, height, reducedMotion] of [
+    [1920, 1080, "reduce"],
+    [1440, 900, "reduce"],
+    [390, 844, "reduce"],
+    [360, 740, "reduce"],
+    [1440, 900, "no-preference"],
+    [390, 844, "no-preference"],
   ]) {
     for (const [id, place] of [
       ["greek-provisions", "greek-harbor"],
+      ["greek-piraeus", "greek-ship"],
       ["greek-bread", "greek-courtyard"],
       ["greek-battlefield", "greek-gate"],
       ["greek-polynices-hollow", "greek-battlefield"],
@@ -34,7 +38,19 @@ try {
       const world = createWorld();
       world.packs["greek-drama"].scope = "full";
       world.actors.vale.place = place;
+      if (place === "greek-ship")
+        world.transports["greek-ship"].dock = "greek-harbor";
       if (id === "greek-polynices-hollow") world.turn = world.revision = 36;
+      if (id === "greek-battlefield") {
+        world.actors["greek-antigone"].place = place;
+        const sleep = sleepWindow(world, "greek-antigone", 1);
+        world.turn = world.revision = sleep.start;
+        world.actors["greek-antigone"].sleeping = {
+          since: sleep.start,
+          place,
+          until: sleep.end,
+        };
+      }
       const encountered = new Set([
         ...Object.keys(profiles),
         ...availableCards(world),
@@ -48,7 +64,7 @@ try {
       const page = await browser.newPage({
         viewport: { width, height },
         hasTouch: width < 700,
-        reducedMotion: "reduce",
+        reducedMotion,
       });
       const key = `cosyworld.reflected-shore.v1.lock-${id}-${width}`;
       const errors = [];
@@ -101,11 +117,16 @@ try {
       await tapCard(await revealCard(page, id));
       const text = page.locator(".action-beat-text");
       assert.equal(await text.textContent(), expected.text);
+      assert.equal(await text.getAttribute("data-revealing"), "false");
       const images = page.locator(".action-beat-cards img");
-      assert.equal(await images.count(), 0);
+      assert.equal(await images.count(), 1);
+      assert.match(
+        await images.first().getAttribute("src"),
+        /card-back-locked(?:[.-]card)?\.webp/u,
+      );
       assert.deepEqual(
         await images.evaluateAll((nodes) =>
-          nodes.map((node) => node.dataset.entity).sort(),
+          nodes.flatMap((node) => node.dataset.entity || []).sort(),
         ),
         [...expected.cards].sort(),
       );
@@ -114,9 +135,48 @@ try {
         expected.recipe ? 1 : 0,
       );
       const button = page.locator('#card-actions [data-blocked="gate"]');
-      if (await button.count()) {
+      {
+        assert.equal(await button.count(), 1);
         assert.equal(await button.textContent(), "Locked");
         assert(await button.isDisabled());
+        assert.equal(
+          await button.getAttribute("aria-label"),
+          `Locked. ${expected.text}`,
+        );
+        assert.equal(await button.getAttribute("data-tap-verb"), null);
+        assert.equal(
+          await page.locator("#action-beat").getAttribute("data-card-tap"),
+          "hint",
+        );
+        const status = await button.evaluate((n) => {
+          const range = document.createRange();
+          range.selectNodeContents(n);
+          const text = range.getBoundingClientRect();
+          const panel = n.closest("#action-beat").getBoundingClientRect();
+          const style = getComputedStyle(n);
+          return {
+            font: style.fontSize,
+            right: panel.right - text.right,
+            bottom: panel.bottom - text.bottom,
+            divider: getComputedStyle(n.parentElement).display,
+          };
+        });
+        assert.equal(status.font, "10px");
+        assert(
+          Math.abs(status.right - 13) <= 2,
+          "same right inset as Continue",
+        );
+        assert(
+          status.bottom >= 5 && status.bottom <= 10,
+          "small bottom corner status",
+        );
+        assert.equal(status.divider, "contents", "no separate button row");
+        await button.click({ force: true });
+        await button.dispatchEvent("click");
+        await page.locator(`#hand [data-card="${id}"]`).focus();
+        await page.keyboard.press("Enter");
+        await page.keyboard.press("Enter");
+        assert.equal(await button.textContent(), "Locked");
         assert.equal(
           await page.locator('#card-actions [data-action="gate"]').count(),
           0,
@@ -144,8 +204,26 @@ try {
         "quest pictures are drawn",
       );
       await page.screenshot({
-        path: new URL(`${id}-scene-${width}.png`, output).pathname,
+        path: new URL(`${id}-scene-${width}-${reducedMotion}.png`, output)
+          .pathname,
       });
+      if (id === "greek-battlefield") {
+        await page.keyboard.press("Escape");
+        await selectCard(page, "greek-antigone");
+        await selectCard(page, id);
+        assert.equal(await page.locator("#card-actions button").count(), 1);
+        assert.equal(await button.textContent(), "Locked");
+        assert.equal(
+          await page.locator('#card-actions [data-blocked="asleep"]').count(),
+          0,
+        );
+        assert.equal(await text.textContent(), "A locked box.");
+        assert.equal(await images.count(), 1);
+        await page.screenshot({
+          path: new URL(`paired-${width}-${reducedMotion}.png`, output)
+            .pathname,
+        });
+      }
       const after = await page.evaluate((key) => {
         const state = JSON.parse(localStorage.getItem(key));
         return {

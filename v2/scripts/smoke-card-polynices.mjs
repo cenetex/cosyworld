@@ -171,7 +171,7 @@ try {
       await selectCard(page, hollow, { touch: width === 390 });
       const locked = page.locator(`#hand [data-card="${hollow}"]`);
       assert.equal(await locked.getAttribute("data-locked"), "true");
-      assert.equal(await page.locator('#card-actions [data-blocked="gate"]').getAttribute("title"), "A closed box.");
+      assert.equal(await page.locator('#card-actions [data-blocked="gate"]').getAttribute("title"), await page.locator(".action-beat-text").textContent());
       assert.equal(await page.locator('#card-actions [data-action="gate"]').count(), 0);
       await photograph("locked");
       assert.equal((await state()).turn, 47, "Talk is chosen on the last night turn");

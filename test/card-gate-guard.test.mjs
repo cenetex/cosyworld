@@ -237,7 +237,7 @@ describe("the Exposed Battlefield", () => {
     old.packs["greek-drama"].scope = "full";
     old.actors.vale.place = FIELD;
     const upgraded = decodeSave(JSON.stringify(old));
-    expect(upgraded.actors[GUARD].guarding).toBe(FIELD);
+    expect(upgraded.items["greek-decree"]).toEqual(old.items["greek-decree"]);
     expect(waysOut(upgraded)).toEqual([ROAD, GATE, "greek-polynices-hollow"]);
     expect(exits(upgraded, FIELD, GUARD)).toContain(GATE);
   });

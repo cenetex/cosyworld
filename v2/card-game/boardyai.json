@@ -2,20 +2,20 @@
   "schemaVersion": 1,
   "id": "boardyai",
   "packId": "cosyworld.boardyai",
-  "revision": 2,
+  "revision": 3,
   "name": "BoardyAI",
   "description": "A friendly AI brings human players together.",
   "entry": "boardyai-parlour",
   "bridge": {
     "id": "boardyai-shore",
-    "description": "Boardy's calling card opens a parlour door at Empty station."
+    "description": "Boardy's calling card opens a parlour door in Mirror attic."
   },
   "choices": [],
   "places": {
     "boardyai-parlour": {
       "name": "BoardyAI's Parlour",
-      "text": "Two armchairs face a small tea table. Misty rails pass the window. A side door leads to Empty station.",
-      "persona": "A warm room beside Empty station. Two comfortable chairs invite a conversation. Calling cards fill the shelves, and a kettle waits on the table.",
+      "text": "Two armchairs face a small tea table. Misty rails pass the window. A side door leads to Mirror attic.",
+      "persona": "A warm room behind a door in Mirror attic. Two comfortable chairs invite a conversation. Calling cards fill the shelves, and a kettle waits on the table.",
       "requires": [
         {
           "kind": "shared_world"
@@ -59,8 +59,8 @@
   "items": {
     "boardyai-calling-card": {
       "name": "Boardy's calling card",
-      "text": "An ivory card bears a blue smile. A small brass key hangs from its corner. At Empty station, it opens the door to BoardyAI's Parlour.",
-      "persona": "BoardyAI's ivory calling card has a blue smile and a brass key on blue thread. It opens his parlour door at Empty station.",
+      "text": "An ivory card bears a blue smile. A small brass key hangs from its corner. Carry it from Empty station to Mirror attic to open BoardyAI's Parlour.",
+      "persona": "BoardyAI's ivory calling card has a blue smile and a brass key on blue thread. It starts at Empty station and opens his parlour door in Mirror attic.",
       "requires": [
         {
           "kind": "connected_humans",
@@ -74,7 +74,7 @@
   "crossings": [
     {
       "id": "station-boardyai-parlour",
-      "from": "station",
+      "from": "attic",
       "to": "boardyai-parlour",
       "travelers": "player",
       "requires": [
@@ -85,26 +85,26 @@
         {
           "kind": "item_near",
           "item": "boardyai-calling-card",
-          "place": "station"
+          "place": "attic"
         }
       ],
       "travel": "through BoardyAI's parlour door",
       "scenery": {
-        "open": "A blue smile marks a warm parlour door beside the station bench.",
+        "open": "A blue smile marks a warm parlour door beside the attic mirror.",
         "cardArt": "assets/boardyai/parlour.png"
       }
     },
     {
       "id": "boardyai-parlour-station",
       "from": "boardyai-parlour",
-      "to": "station",
+      "to": "attic",
       "travelers": "player",
       "requires": [
         {
           "kind": "shared_world"
         }
       ],
-      "travel": "back to Empty station"
+      "travel": "back to Mirror attic"
     }
   ]
 }

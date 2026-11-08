@@ -1181,20 +1181,20 @@
     schemaVersion: 1,
     id: "boardyai",
     packId: "cosyworld.boardyai",
-    revision: 2,
+    revision: 3,
     name: "BoardyAI",
     description: "A friendly AI brings human players together.",
     entry: "boardyai-parlour",
     bridge: {
       id: "boardyai-shore",
-      description: "Boardy's calling card opens a parlour door at Empty station."
+      description: "Boardy's calling card opens a parlour door in Mirror attic."
     },
     choices: [],
     places: {
       "boardyai-parlour": {
         name: "BoardyAI's Parlour",
-        text: "Two armchairs face a small tea table. Misty rails pass the window. A side door leads to Empty station.",
-        persona: "A warm room beside Empty station. Two comfortable chairs invite a conversation. Calling cards fill the shelves, and a kettle waits on the table.",
+        text: "Two armchairs face a small tea table. Misty rails pass the window. A side door leads to Mirror attic.",
+        persona: "A warm room behind a door in Mirror attic. Two comfortable chairs invite a conversation. Calling cards fill the shelves, and a kettle waits on the table.",
         requires: [
           {
             kind: "shared_world"
@@ -1238,8 +1238,8 @@
     items: {
       "boardyai-calling-card": {
         name: "Boardy's calling card",
-        text: "An ivory card bears a blue smile. A small brass key hangs from its corner. At Empty station, it opens the door to BoardyAI's Parlour.",
-        persona: "BoardyAI's ivory calling card has a blue smile and a brass key on blue thread. It opens his parlour door at Empty station.",
+        text: "An ivory card bears a blue smile. A small brass key hangs from its corner. Carry it from Empty station to Mirror attic to open BoardyAI's Parlour.",
+        persona: "BoardyAI's ivory calling card has a blue smile and a brass key on blue thread. It starts at Empty station and opens his parlour door in Mirror attic.",
         requires: [
           {
             kind: "connected_humans",
@@ -1253,7 +1253,7 @@
     crossings: [
       {
         id: "station-boardyai-parlour",
-        from: "station",
+        from: "attic",
         to: "boardyai-parlour",
         travelers: "player",
         requires: [
@@ -1264,26 +1264,26 @@
           {
             kind: "item_near",
             item: "boardyai-calling-card",
-            place: "station"
+            place: "attic"
           }
         ],
         travel: "through BoardyAI's parlour door",
         scenery: {
-          open: "A blue smile marks a warm parlour door beside the station bench.",
+          open: "A blue smile marks a warm parlour door beside the attic mirror.",
           cardArt: "assets/boardyai/parlour.png"
         }
       },
       {
         id: "boardyai-parlour-station",
         from: "boardyai-parlour",
-        to: "station",
+        to: "attic",
         travelers: "player",
         requires: [
           {
             kind: "shared_world"
           }
         ],
-        travel: "back to Empty station"
+        travel: "back to Mirror attic"
       }
     ]
   };
@@ -1296,7 +1296,7 @@
   function boardyFacts(world, nameOf2) {
     const here = world.actors[BOARDY].place;
     return [
-      "My home is BoardyAI's Parlour. My calling card opens its door at Empty station, held or left there.",
+      "My home is BoardyAI's Parlour. My calling card opens its door in Mirror attic, held or left there.",
       ...connectedHumans(world).map(
         (id) => world.actors[id].place === here ? `${nameOf2(id)} is here with me.` : world.memories[BOARDY].seen?.[id] ? `I last saw ${nameOf2(id)} at ${nameOf2(world.memories[BOARDY].seen[id].place)}. They may have moved since then.` : `I have yet to find ${nameOf2(id)}.`
       )
@@ -19046,6 +19046,7 @@
           c.steppedBack = { [c.challenger]: false, [c.defender]: false };
       upgradeShoreRouteSave(s);
       upgradeBoardyStationSave(s);
+      upgradeBoardyAtticSave(s);
       upgradeHoppyCatSeaSave(s);
       upgradeHoppyCatInteriorsSave(s);
       upgradeBoardingSave(s);
@@ -19342,6 +19343,24 @@
       ];
     }
     saved.revision = 2;
+  }
+  function upgradeBoardyAtticSave(s) {
+    const pack = packDefinitions.find((p) => p.id === "boardyai");
+    const saved = s.packs?.[pack?.id];
+    if (!pack || pack.revision < 3 || saved?.revision !== 2) return;
+    const path = ["station", "pond", "attic", "boardyai-parlour"];
+    for (const [actor, known] of Object.entries(s.routeKnowledge || {})) {
+      if (!Array.isArray(known)) continue;
+      const expanded = known.flatMap((edge) => {
+        if (!Array.isArray(edge) || edge.length !== 2) return [edge];
+        const route = edge[0] === path[0] && edge[1] === path.at(-1) ? path : edge[0] === path.at(-1) && edge[1] === path[0] ? [...path].reverse() : null;
+        return route ? route.slice(1).map((to, i) => [route[i], to]) : [edge];
+      });
+      s.routeKnowledge[actor] = [
+        ...new Map(expanded.map((edge) => [JSON.stringify(edge), edge])).values()
+      ];
+    }
+    saved.revision = 3;
   }
   function upgradeHoppyCatSeaSave(s) {
     const pack = packDefinitions.find((p) => p.id === "hoppycat-archive");

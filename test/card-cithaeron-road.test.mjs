@@ -5,6 +5,7 @@ import {
   exits,
   sealedWays,
 } from "../v2/card-game/world.mjs";
+import { packDefinition } from "../v2/card-game/pack-registry.mjs";
 import { conditionMet } from "../v2/card-game/pack-rules.mjs";
 import { funeralJourney } from "./helpers/greek-funeral.mjs";
 
@@ -49,7 +50,7 @@ describe("the Cithaeron road from the Exposed Battlefield", () => {
     expect(old.items["greek-guard-tablet"].holder).toBe("greek-gate");
 
     const current = reload(old);
-    expect(current.packs[PACK].revision).toBe(23);
+    expect(current.packs[PACK].revision).toBe(packDefinition(PACK).revision);
     expect(flagMet(current, "greek-burial-performed")).toBe(false);
     expect(flagMet(current, "greek-guard-warned")).toBe(false);
     for (const actor of ["vale", "greek-antigone"])
@@ -85,7 +86,7 @@ describe("the Cithaeron road from the Exposed Battlefield", () => {
     );
 
     const current = reload(old);
-    expect(current.packs[PACK].revision).toBe(23);
+    expect(current.packs[PACK].revision).toBe(packDefinition(PACK).revision);
     expect(current.packs[PACK].flags).toEqual(flags);
     expect(current.packs[PACK].receipts).toEqual(receipts);
     expect(current.openedRoutes).toContain(

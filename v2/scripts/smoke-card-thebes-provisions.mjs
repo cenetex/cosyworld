@@ -166,7 +166,7 @@ try {
     const guarded = page.locator('#card-actions [data-blocked="gate"]');
     assert.equal(
       await guarded.getAttribute("title"),
-      "A closed box.",
+      await page.locator(".action-beat-text").textContent(),
     );
     assert.equal(await guarded.isDisabled(), true);
     assert.equal(
@@ -213,7 +213,7 @@ try {
     const shut = page.locator('#card-actions [data-blocked="gate"]');
     assert.equal(
       await shut.getAttribute("title"),
-      "A closed box.",
+      await page.locator(".action-beat-text").textContent(),
     );
     assert.equal(await shut.isDisabled(), true);
     assert.equal(

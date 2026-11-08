@@ -42,18 +42,23 @@ fn boardy_follows_authenticated_presence_in_the_c_host() {
 }
 
 #[test]
-fn boardy_calling_card_opens_the_parlour_from_empty_station() {
+fn boardy_station_card_opens_the_parlour_from_the_attic() {
     let mut world = World::create(None).unwrap();
     world.game.as_object_mut().unwrap().remove("opening");
     world.game["actors"]["vale"]["place"] = json!("station");
+    world.game["items"]["lamp"]["holder"] = json!("vale");
+    world.game["items"]["lamp"]["lit"] = json!(false);
     for actor in ["vale", "mara"] {
         world.apply(&json!({"op":"claim", "actor":actor})).unwrap();
         world.apply(&json!({"op":"enter", "actor":actor})).unwrap();
     }
     for (kind, field, value, destination) in [
         ("take", "item", "boardyai-calling-card", "station"),
+        ("light", "item", "lamp", "station"),
+        ("move", "target", "pond", "pond"),
+        ("move", "target", "attic", "attic"),
         ("move", "target", "boardyai-parlour", "boardyai-parlour"),
-        ("move", "target", "station", "station"),
+        ("move", "target", "attic", "attic"),
     ] {
         let view = world.project(0).unwrap();
         let action = view["actions"]

@@ -5,6 +5,8 @@ local saves and shared worlds, with the same authored rules in both modes.
 
 ## Current guides
 
+- [Dev-agent wiki: task recipes and troubleshooting](agent-wiki/README.md)
+
 - [Play and setup](../readme.md)
 - [Product](../PRD.md)
 - [Engineering](../ENG.md)

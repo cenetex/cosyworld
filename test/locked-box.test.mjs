@@ -47,6 +47,24 @@ describe("locked boxes", () => {
     s.usedUp = s.usedUp.filter((id) => id !== "greek-provisions");
     expect(lockedQuest(s, "greek-provisions")).toBeNull();
   });
+  it("uses a locked-box description when its requirement cannot be previewed", () => {
+    const route = packDefinitions
+      .find((pack) => pack.id === "greek-drama")
+      .routes.find((entry) => entry.to === "greek-polynices-hollow");
+    const quest = route.sealed.quest;
+    delete route.sealed.quest;
+    try {
+      const world = createWorld();
+      world.packs["greek-drama"].scope = "full";
+      world.actors.vale.place = "greek-battlefield";
+      expect(lockedQuest(world, "greek-polynices-hollow")).toEqual({
+        text: "A locked box.",
+        cards: [],
+      });
+    } finally {
+      route.sealed.quest = quest;
+    }
+  });
   it("does not show a box for the always-open Cithaeron road", () => {
     const s = createWorld();
     s.packs["greek-drama"].scope = "full";

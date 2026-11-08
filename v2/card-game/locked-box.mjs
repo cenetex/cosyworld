@@ -18,6 +18,7 @@ import { laneConditions } from "./pack-transport.mjs";
 import { currentActor, rootHolder, sealedWays } from "./world.mjs";
 
 export const CLOSED_BOX = "A closed box.";
+export const LOCKED_BOX = "A locked box.";
 export function lockedQuest(world, id, known = () => false) {
   if (!isLockedBox(world, id)) return null;
   const preview = sealedAvatar(world, id);
@@ -44,7 +45,7 @@ export function lockedQuest(world, id, known = () => false) {
     conditionGoal(world, route?.pack.id, route?.route.requires, actor) ||
     laneGoal(world, world.actors[actor]?.place, id, actor) ||
     craftedGoal(world, id, actor);
-  if (!goal) return { text: CLOSED_BOX, cards: [] };
+  if (!goal) return { text: LOCKED_BOX, cards: [] };
   const quest = {
     actor,
     kind: goal.kind,

@@ -48,11 +48,13 @@ describe("earlier station route knowledge", () => {
       expect(next).toEqual(before);
     });
   }
-  it("keeps an old14 parlour route at the station", () => {
+  it("reroutes an old14 parlour journey through the attic without rewriting history", () => {
     const { world, request } = earlierPlay("boardyai-parlour");
     expect(world.routeKnowledge["greek-rhapsode"]).toContainEqual(["boardyai-parlour", "station"]);
     const next = dispatchShared(request("upgrade", { from: "full-card-world/14", to: "full-card-world/17" })).world;
-    expect(next.routeKnowledge["greek-rhapsode"]).toContainEqual(["boardyai-parlour", "station"]);
+    for (const edge of [["boardyai-parlour", "attic"], ["attic", "pond"], ["pond", "station"]])
+      expect(next.routeKnowledge["greek-rhapsode"]).toContainEqual(edge);
+    expect(next.routeKnowledge["greek-rhapsode"]).not.toContainEqual(["boardyai-parlour", "station"]);
     expect(next.routeKnowledge["greek-rhapsode"]).not.toContainEqual(["boardyai-parlour", "pond"]);
     expect(next.log).toEqual(world.log);
   });

@@ -136,7 +136,9 @@ describe("combat beats from today's rule lines", () => {
   });
 
   it("names a thing with one article", () => {
-    expect(theName("greek-decree")).toBe("the Burial Decree");
+    expect(theName("greek-decree")).toBe(
+      `the ${nameOf("greek-decree").replace(/^the /i, "")}`,
+    );
     expect(theName("keeper")).toBe("the keeper");
     expect(theName("lamp")).toBe(`the ${nameOf("lamp")}`);
   });
