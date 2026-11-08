@@ -235,8 +235,8 @@ describe("named card actions", () => {
     const cards = availableCards(world);
     expect(cards.slice(0, 5)).toEqual(["vale", "lamp", "cloth", "oil", "moth"]);
     expect(
-      cards.slice(cards.indexOf("station"), cards.indexOf("station") + 2),
-    ).toEqual(["station", "bell"]);
+      cards.slice(cards.indexOf("station"), cards.indexOf("pond")),
+    ).toEqual(["station", ...(world.items["ratiradio-request-slip"] ? ["ratiradio-request-slip"] : []), "bell"]);
     expect(cards.slice(-1)).toEqual(["pond"]);
     world.items.lamp.holder = "moth";
     const moved = availableCards(world);

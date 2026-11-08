@@ -145,6 +145,8 @@ describe("quest step verbs", () => {
       both = 0;
     for (let turn = 0; turn < 300; turn++) {
       const vale = s.actors.vale;
+      // This fixture owns one active level quest, including after a redraw.
+      delete vale.under;
       // Keep Pip wanting the lamp and Vale's step giving it to Pip.
       if (s.actors.moth.want?.target !== "lamp" || s.actors.moth.want.step)
         s.actors.moth.want = {

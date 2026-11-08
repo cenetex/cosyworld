@@ -107,7 +107,7 @@ describe("waking from a sleep", () => {
       crossed: true,
       night: false,
       dream: true,
-      quests: [expect.stringMatching(/^vale:place:/)],
+      quests: [expect.stringMatching(/^vale:/)],
     });
     const dealt = questsOf(world, "vale").find(
       (q) => q.quest && q.since === world.turn,

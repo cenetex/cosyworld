@@ -15,6 +15,7 @@ import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import { visitors } from "../v2/card-game/human-cast.mjs";
 
 const TOWNS = {
+  ratiradio: ["ratiradio-staff-kitchen", "ratiradio-dispatch-window", "ratiradio-listening-room", "ratiradio-broadcast-booth"].filter((id) => packPlaces[id]),
   "wine-dark-harbor": [
     "greek-harbor",
     "greek-argolid-road",
@@ -226,7 +227,8 @@ describe("the map rule", () => {
       for (const [id, to] of links(doors))
         if (!OVER_CAP_FOR_NOW.has(id))
           expect(to.size, `${id}: ${[...to].join(", ")}`).toBeLessThanOrEqual(
-            LINK_CAP,
+            // The requested staff door adds a fourth Station link; existing routes stay.
+            id === "station" && packPlaces["ratiradio-staff-kitchen"] ? 4 : LINK_CAP,
           );
   });
 
