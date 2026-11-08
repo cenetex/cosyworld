@@ -1,4 +1,4 @@
-import { afterEach, expect, it } from "vitest";
+import { expect, it } from "vitest";
 import {
   createWorld,
   decodeSave,
@@ -24,9 +24,6 @@ const field = "greek-battlefield",
   antigone = "greek-antigone";
 const pack = packDefinitions.find((p) => p.id === "greek-drama");
 const route = pack.routes.find((r) => r.from === field && r.to === hollow);
-afterEach(() => {
-  delete route.travelerRequires;
-});
 function start() {
   const s = createWorld();
   s.turn = s.revision = 36;
@@ -78,7 +75,9 @@ it("migrates retained direct Talk events and keeps an old latch separate from pe
   expect(decodeSave(encodeSave(s)).conversations).toEqual(records);
 });
 it("checks each traveller even after the shared gate opens", () => {
-  route.travelerRequires = [{ kind: "talked", person: shade }];
+  expect(route.travelerRequires).toEqual([
+    { kind: "talked", person: shade },
+  ]);
   expect(() => validatePackDefinition(pack)).not.toThrow();
   let s = talk(start(), "vale", shade);
   expect(exits(s, field, "vale")).toContain(hollow);
@@ -111,7 +110,6 @@ it("checks each traveller even after the shared gate opens", () => {
   );
 });
 it("uses an open physical alternative and preserves an ordinary crossing", () => {
-  route.travelerRequires = [{ kind: "talked", person: shade }];
   const alternative = {
     from: field,
     to: hollow,
@@ -136,7 +134,11 @@ it("uses an open physical alternative and preserves an ordinary crossing", () =>
 });
 it("validates personal route conditions and saved event identity", () => {
   route.travelerRequires = [{ kind: "talked", person: "missing" }];
-  expect(() => validatePackDefinition(pack)).toThrow();
+  try {
+    expect(() => validatePackDefinition(pack)).toThrow();
+  } finally {
+    route.travelerRequires = [{ kind: "talked", person: shade }];
+  }
   const s = talk(start(), "vale", shade);
   for (const patch of [
     { seq: s.eventSeq + 1 },

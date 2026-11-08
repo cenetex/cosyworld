@@ -29,7 +29,7 @@ function start(shared = false) {
   world.turn = world.revision = 36;
   delete world.opening;
   world.crossings["pond-greek-harbor"].discovered = true;
-  world.actors.vale.place = world.actors[antigone].place = field;
+  world.actors.vale.place = field;
   world.actors.vale.visited.push("pond", "greek-gate", field);
   world.items["greek-creon-writ"].holder = "greek-guard";
   world.packs[pack].met[shade] = 35;
@@ -87,14 +87,14 @@ it.each([
     act("talk", shade);
     expect(world.packs[pack].flags[heard]).toBe(true);
     expect(world.packs[pack].receipts["greek-hear-polynices"]).toBe(world.turn);
+    expect(exits(world, field, "vale")).toContain(hollow);
+    expect(exits(world, field, antigone)).not.toContain(hollow);
     expect(lifeHome(antigone, world)).toBe(hollow);
-    for (const actor of ["vale", antigone])
-      expect(exits(world, field, actor)).toContain(hollow);
-    expect(world.actors[antigone].place).toBe(hollow);
+    expect(world.actors[antigone].place).not.toBe(hollow);
     world.turn = world.revision = 48;
     const dawn = decodeSave(encodeSave(world));
     expect(isLockedBox(dawn, hollow)).toBe(false);
-    expect(exits(dawn, field, antigone)).toContain(hollow);
+    expect(exits(dawn, field, antigone)).not.toContain(hollow);
     for (const [request, expected] of requests)
       expect(JSON.parse(engine.cardShared(JSON.stringify(request)))).toEqual(
         expected,
@@ -104,6 +104,7 @@ it.each([
 
 it("keeps NPC Talk outside the player's unlock choice", () => {
   const world = start();
+  world.actors[antigone].place = field;
   const action = legalActions(world, antigone).find(
     (a) => a.kind === "talk" && a.target === shade,
   );

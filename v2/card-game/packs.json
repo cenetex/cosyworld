@@ -2939,6 +2939,12 @@
         {
           "from": "greek-battlefield",
           "to": "greek-polynices-hollow",
+          "travelerRequires": [
+            {
+              "kind": "talked",
+              "person": "greek-polynices-shade"
+            }
+          ],
           "requires": [
             {
               "kind": "any",

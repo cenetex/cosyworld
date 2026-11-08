@@ -302,3 +302,59 @@ fn current_company_replays_real_talk_and_separation_without_checkpoints() {
     drop(reopened);
     std::fs::remove_file(path).unwrap();
 }
+
+#[test]
+fn a_residents_personal_route_talk_replays_from_the_journal() {
+    let mut world = created(engine::VERSION);
+    let antigone = "greek-antigone";
+    let shade = "greek-polynices-shade";
+    let hollow = "greek-polynices-hollow";
+    world.claimed[0] = 1;
+    world.present[0] = 1;
+    world.game.as_object_mut().unwrap().remove("opening");
+    world.game["turn"] = json!(88);
+    world.game["revision"] = json!(88);
+    world.game["actors"]["vale"]["place"] = json!("greek-battlefield");
+    world.game["crossings"]["pond-greek-harbor"]["discovered"] = json!(true);
+    world.game["items"]["greek-creon-writ"]["holder"] = json!(GUARD);
+    for actor in [antigone, shade] {
+        world.game["packs"]["greek-drama"]["met"][actor] = json!(0);
+    }
+    let (path, c, id) = fixture("hollow-resident", &world);
+    let act = |w: &mut World, kind: &str, target: &str| {
+        let action = pick(w, |a| {
+            a["kind"] == kind
+                && (target.is_empty() || a["target"] == target)
+                && (kind != "wait" || plain_wait(a))
+        })
+        .unwrap();
+        full_store::commit(&c, &id, w, play(action), now()).unwrap();
+    };
+    act(&mut world, "wait", "");
+    act(&mut world, "talk", shade);
+    assert!(world.game["actors"][antigone].get("sleeping").is_some());
+    act(&mut world, "move", hollow);
+    for _ in 0..4 {
+        if world.game["actors"][antigone]["place"] == hollow {
+            break;
+        }
+        act(&mut world, "wait", "");
+    }
+    assert_eq!(world.game["actors"][antigone]["place"], hollow);
+    let conversation = world.game["log"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|e| e["actorId"] == antigone && e["verb"] == "talk" && e["targetId"] == shade)
+        .unwrap();
+    assert_eq!(conversation["fromLocationId"], "greek-battlefield");
+    assert!(conversation["turn"].as_u64().unwrap() % 48 >= 36);
+    c.execute("DELETE FROM card_full_checkpoints WHERE world=?", [&id])
+        .unwrap();
+    drop(c);
+    let reopened = store::open(&path).unwrap();
+    full_store::schema(&reopened).unwrap();
+    assert_eq!(full_store::world(&reopened, &id, now()).unwrap(), world);
+    drop(reopened);
+    std::fs::remove_file(path).unwrap();
+}

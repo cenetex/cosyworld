@@ -1597,6 +1597,7 @@ export function legalActions(s, actor = currentActor(s)) {
           canDisembark(s, crossing.transport, id)) &&
         id !== actor &&
         !controlledByHuman(s, id) &&
+        personalRouteOpen(s, here, to, id) &&
         ((!staysPut(id, s) && !keepsHome(s, id)) ||
           packJourneyDestination(s, id) === to) &&
         !departureWaits(s, id, to) &&
@@ -2318,6 +2319,10 @@ function residentRound(s, acted) {
     if (!target) continue;
     steps += 1;
     const step = stepToward(s, id, target).action;
+    if (step?.kind === "talk") {
+      perform(s, step, null, [id, step.target]);
+      continue;
+    }
     const to = step?.kind === "move" ? step.target : null;
     if (!to || transportPlace(to) || (target !== home && !inRange(s, id, to)))
       continue;
@@ -2893,6 +2898,38 @@ function toward(s, actor, target) {
       getActions().find((a) => a.kind === "move" && a.target === route[1]) ||
       voyageAction(s, actor, route[1], getActions())
     );
+  // A personal route can require a conversation before the traveller enters.
+  // Approach its speaker by open ways, then use the ordinary legal Talk.
+  for (const pack of packDefinitions)
+    for (const route of pack.routes || []) {
+      if (
+        !route.travelerRequires?.length ||
+        conditionsMet(s, pack.id, route.travelerRequires, actor) ||
+        !(
+          (!route.live &&
+            s.openedRoutes?.includes(`${route.from}>${route.to}`)) ||
+          conditionsMet(s, pack.id, route.requires)
+        ) ||
+        (route.to !== target && !routeBetween(s, route.to, target, actor))
+      )
+        continue;
+      for (const requirement of route.travelerRequires) {
+        if (
+          requirement.kind !== "talked" ||
+          conditionsMet(s, pack.id, [requirement], actor)
+        )
+          continue;
+        const person = requirement.person,
+          approach = routeBetween(s, here, s.actors[person]?.place, actor);
+        if (!approach) continue;
+        const step = getActions().find((a) =>
+          approach.length === 1
+            ? a.kind === "talk" && a.target === person
+            : a.kind === "move" && a.target === approach[1],
+        );
+        if (step) return step;
+      }
+    }
   // Inside a lamp gate, a cast avatar lights its lamp to open the way out;
   // the player's own hand makes that play.
   const gate = homeGates[here];
