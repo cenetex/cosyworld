@@ -306,3 +306,15 @@ it("archives a late paid response after its preview was closed", async () => {
   expect(sets[0].images[0].bytes).toEqual(bytes);
   expect(f.session.state.source.pack.avatars[f.id].portrait).toBeUndefined();
 });
+
+it("does not lock other tools after a provider error or empty appearance entry", async () => {
+  const f = await fixture(false);
+  await f.run("portrait");
+  expect(f.tool("pose-sheet").describe().actions[0].disabled).toBe(false);
+  f.tool("portrait").describe().edit.onInput("A keeper in a green coat.");
+  f.request.mockRejectedValueOnce(new Error("Provider unavailable"));
+  await f.run("portrait");
+  expect(f.tool("portrait").describe().note).toBe("Provider unavailable");
+  expect(f.tool("pose-sheet").describe().actions[0].disabled).toBe(false);
+  expect(f.tools.tools().some((t) => t.name === "Discard artwork")).toBe(false);
+});

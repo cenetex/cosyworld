@@ -111,7 +111,11 @@ export function createAuthoringVisualTools({
       throw new Error("Retry saving artwork before generating again.");
     const record = context.snapshot({ assets: true });
     const nextBinding = avatarBinding(record, id);
-    if (owner && (owner !== toolId(id, role) || binding !== nextBinding))
+    if (
+      owner &&
+      (visual.state.role || visual.state.busy) &&
+      (owner !== toolId(id, role) || binding !== nextBinding)
+    )
       throw new Error("Confirm or discard the current artwork first.");
     const edited =
       (owner === toolId(id, role) || (!owner && design?.id === id)) &&
@@ -233,7 +237,7 @@ export function createAuthoringVisualTools({
                   label: active && state.role ? "Confirm artwork" : name,
                   disabled:
                     Boolean(unsaved) ||
-                    Boolean(owner && !active) ||
+                    Boolean(owner && !active && (state.role || state.busy)) ||
                     Boolean(state.busy),
                   confirm: !(active && state.role),
                 },
