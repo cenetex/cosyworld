@@ -59,6 +59,7 @@ const RULES = [
   "world.mjs",
   "world/catalog.mjs",
   "world/create.mjs",
+  "world/lanes.mjs",
 ];
 
 it("keeps the shared rules bundle to its reviewed modules and no content", async () => {

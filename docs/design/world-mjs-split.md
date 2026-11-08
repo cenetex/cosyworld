@@ -38,3 +38,5 @@ table + brotli) then collapses the per-version `include_str!` constants.
   byte-for-byte equivalent across seeds 7, 42, 1729.
 - `world/create.mjs` — `createWorld` and `seedRun`. Verified old-vs-new
   byte-for-byte equivalent across seeds 7, 42, 1729.
+- `world/lanes.mjs` — `laneTalkFacts`, `laneFact`, `laneFactText` and the
+  port/lane helpers. Verified old-vs-new byte-for-byte equivalent.

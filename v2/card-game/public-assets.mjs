@@ -296,6 +296,7 @@ const files = [
   "world.mjs",
   "world/catalog.mjs",
   "world/create.mjs",
+  "world/lanes.mjs",
   "scene-cast.mjs",
   "settings-cards.mjs",
   "settings-screen.mjs",
