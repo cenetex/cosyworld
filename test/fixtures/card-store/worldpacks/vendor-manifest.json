@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "packs": [
+    {
+      "id": "sample",
+      "source": {
+        "repo": "example/cosyworld-pack",
+        "commit": "1111111111111111111111111111111111111111"
+      },
+      "pinned": {
+        "revision": 1,
+        "contract": "cosyworld.card-table/1",
+        "sha256": "83f0ae446a8094864f736be428cd853cb1b8be03de51b1061433e5be5e45613e"
+      },
+      "mounted": true,
+      "dir": "worldpacks/sample"
+    }
+  ]
+}

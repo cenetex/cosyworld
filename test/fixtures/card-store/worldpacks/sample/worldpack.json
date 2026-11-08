@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "kind": "cosyworld.worldpack/1",
+  "id": "sample",
+  "revision": 1,
+  "source": {
+    "repo": "example/cosyworld-pack"
+  },
+  "engine": {
+    "contract": "cosyworld.card-table/1",
+    "entry": "sample-door"
+  }
+}
