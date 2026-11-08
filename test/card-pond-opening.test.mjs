@@ -179,6 +179,7 @@ describe("the attic opening and saved pond journeys", () => {
     const homes = humanAvatars.slice(1).map((a) => a.home.id);
     expect(neighbors.filter((p) => !homes.includes(p))).toEqual([
       "pond",
+      ...(places["ratiradio-staff-kitchen"] ? ["ratiradio-staff-kitchen"] : []),
       "boardyai-parlour",
     ]);
     expect(homes.every((home) => neighbors.includes(home))).toBe(true);

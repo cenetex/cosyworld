@@ -89,6 +89,10 @@ describe("want data", () => {
       "willows-swede": { kind: "place", target: "willows-landing" },
       "hoppycat-glim-twice": { kind: "item", target: "hoppycat-loop-token" },
       boardyai: { kind: "connect", target: "humans" },
+      ...(packPeople["ratiradio-rati"] ? {
+        "ratiradio-rati": { kind: "place", target: "ratiradio-staff-kitchen" },
+        "ratiradio-raven": { kind: "place", target: "pond" },
+      } : {}),
     });
   });
 

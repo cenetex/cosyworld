@@ -351,7 +351,8 @@ describe("the level quest", () => {
         rewards = s.actors.vale.questRewards || [],
         seq = s.log.at(-1).seq;
       const actions = legalActions(s);
-      s = play(s, actions[(step * 7919) % actions.length]).state;
+      const rest = step % 40 === 0 && actions.find((a) => a.sleep);
+      s = play(s, rest || actions[(step * 7919) % actions.length]).state;
       const after = levelOf(s, "vale");
       expect(after).toBeGreaterThanOrEqual(before);
       if (after > before) {

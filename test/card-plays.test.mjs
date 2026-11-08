@@ -25,6 +25,7 @@ describe("playing the world through cards", () => {
       "station",
       // The Hoppy Cat spool lies here while the keeper's oil is at the pond.
       "hoppycat-red-thread-spool",
+      ...(s.items["ratiradio-request-slip"] ? ["ratiradio-request-slip"] : []),
       "lamp",
       "bell",
       "pond",
