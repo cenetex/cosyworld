@@ -19,6 +19,15 @@ export const onStageLight = (listener) => listeners.add(listener);
 export const stageLight = (stage) => states.get(stage)?.light;
 
 function apply(stage, light) {
+  const state = states.get(stage);
+  const portable = state.options?.lamp && portableLampPool(stage);
+  state.geometry = JSON.stringify(portable || null);
+  light.pools = [
+    ...(portable
+      ? [{ ...portable, on: Math.max(0.15, nightness(light.hour)) }]
+      : []),
+    ...(light.pools || []).filter((pool) => !pool.portable),
+  ].slice(0, 4);
   for (const [name, value] of Object.entries(lightStyle(light)))
     stage.style.setProperty(name, value);
   stage.dataset.hour = String(Math.floor(light.hour));
@@ -84,8 +93,9 @@ export function renderStageLight(
       state.layoutFrame = requestAnimationFrame(() => {
         state.layoutFrame = 0;
         const geometry = JSON.stringify(portableLampPool(stage));
-        if (geometry !== state.geometry)
-          renderStageLight(stage, { ...state.options, ease: false });
+        if (geometry !== state.geometry && state.light)
+          // Move only the pool. Do not cut an in-flight time-of-day ease.
+          apply(stage, { ...state.light });
       });
     });
     state.layout.observe(stage, {
@@ -149,7 +159,6 @@ export function renderStageLight(
     light.sky = sky;
     light.pools = pools.map((pool, i) => ({
       ...pool,
-      ...(pool.portable ? portableLampPool(stage) : null),
       on:
         now.lit[i] *
         (pool.portable ? Math.max(0.15, nightness(hour)) : nightness(hour)),
