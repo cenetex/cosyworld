@@ -420,7 +420,6 @@ mod tests {
             .into();
             e.facts.clear();
             e.memories.clear();
-            e.desire = None;
             if super::kind(&e.id, "avatar") {
                 e.perception = Some(Default::default());
             }
