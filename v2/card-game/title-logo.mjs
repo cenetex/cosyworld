@@ -24,6 +24,7 @@ export function worldLogoKey(href) {
   if (table && /^[a-z0-9-]{1,40}$/i.test(table)) return `table:${table}`;
   const pack = params.get("pack");
   if (pack) return `pack:${pack}`;
+  if (/^\/pip\/?$/u.test(new URL(href).pathname)) return "entry:pip";
   return "local";
 }
 

@@ -32,6 +32,8 @@ const CSP: &str = "default-src 'self'; script-src 'self'; style-src 'self'; img-
 pub(super) fn router<S: Clone + Send + Sync + 'static>() -> Router<S> {
     Router::new()
         .route("/", get(index))
+        .route("/pip", get(index))
+        .route("/pip/", get(index))
         .route("/make", get(authoring_index))
         .route("/make/", get(authoring_index))
         .route(
@@ -171,6 +173,24 @@ mod tests {
         assert_eq!(&body[..], include_bytes!("../../card-game/index.html"));
         let response = request("/classic", "GET").await;
         assert_eq!(response.status(), StatusCode::NOT_FOUND);
+    }
+
+    #[tokio::test]
+    async fn pip_card_aliases_serve_the_current_table() {
+        for path in ["/pip", "/pip/", "/pip?utm_source=card"] {
+            for method in ["GET", "HEAD"] {
+                let response = request(path, method).await;
+                assert_eq!(response.status(), StatusCode::OK);
+                assert_eq!(response.headers()[header::CACHE_CONTROL], "no-store");
+                assert_eq!(response.headers()[header::CONTENT_SECURITY_POLICY], CSP);
+                let body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+                if method == "GET" {
+                    assert_eq!(&body[..], include_bytes!("../../card-game/index.html"));
+                } else {
+                    assert!(body.is_empty());
+                }
+            }
+        }
     }
 
     #[tokio::test]

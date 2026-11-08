@@ -85,6 +85,7 @@ import {
 import { NOT_FOUND, questStep } from "./quest-step.mjs";
 import { actionScene, questScreen } from "./quest-screen.mjs";
 import { createLandingWorld, newRunSeed } from "./pack-landing.mjs";
+import { createPipWorld } from "./pip-landing.mjs";
 import { flipStagePortrait, portraitFraming } from "./portrait-facing.mjs";
 import { locationWeather } from "./weather.mjs";
 import { DAYLIGHT_TURNS, isNight, locationDaylight } from "./daylight.mjs";
@@ -230,6 +231,7 @@ const $ = (id) => document.getElementById(id);
 const {
   tableName,
   startingPack,
+  startingPip,
   sharedWorldId,
   sharedSession,
   saveKey: SAVE_KEY,
@@ -237,7 +239,9 @@ const {
 // A new local world: Vale wakes in the attic, the only avatar played locally
 // (#1892). Its travelers wear the local passkey's cosmetic upgrades (#1873).
 const freshWorld = () =>
-  wearLocalUpgrades(enableMotives(createLandingWorld(startingPack)));
+  wearLocalUpgrades(
+    enableMotives(startingPip ? createPipWorld() : createLandingWorld(startingPack)),
+  );
 let world = sharedSession
     ? { ...sharedSession.state.world, playerActorId: sharedSession.state.actor }
     : freshWorld(),
@@ -258,6 +262,10 @@ let world = sharedSession
   if (slotLabel && tableName) {
     slotLabel.hidden = false;
     slotLabel.textContent = `Saving as table "${tableName}". Without the ?table= parameter this menu shows a different saved game.`;
+  }
+  if (slotLabel && startingPip) {
+    slotLabel.hidden = false;
+    slotLabel.textContent = "Your visit with Pip is saved at lonelyforest.com/pip.";
   }
 }
 // Beat captions keep their glyph as data; the table draws each one as line
@@ -507,6 +515,11 @@ function loadSeen(reset = false) {
   // The opening hand starts covered, like any newly met card; a known table
   // keeps the cards its player has already uncovered.
   if (opening) for (const id of availableCards(world)) coveredCards.add(id);
+  if (startingPip && opening) {
+    for (const id of ["vale", "moth", "lamp", "pond"]) coveredCards.delete(id);
+    selected = ["lamp", "moth"];
+    rowCollapsed = false;
+  }
   fresh.clear();
   shownLevels.clear();
   shownStageLevels.clear();
@@ -5379,6 +5392,7 @@ $("confirm-reset").onclick = () => {
   expandedHolders.clear();
   rowCollapsed = true;
   saveBlocked = false;
+  if (startingPip) loadSeen(true);
   notice("");
   save();
   $("reset-dialog").close();
@@ -5908,7 +5922,7 @@ const settingsCards = installSettingsCards({
   },
 });
 // The root page resumes whichever avatar was played last.
-if (!tableName && !startingPack)
+if (!tableName && !startingPack && !startingPip)
   try {
     localStorage.setItem(
       PLAYING_KEY,

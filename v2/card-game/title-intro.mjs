@@ -7,6 +7,7 @@ import { revealCard } from "./card-reveal.mjs";
 import { tiers } from "./level-tiers.mjs";
 import { LOGOS, logoSite, showToolbarLogo, worldLogo } from "./title-logo.mjs";
 import { createTitleSong } from "./title-song.mjs";
+import { pipEntry } from "./pip-landing.mjs";
 import {
   createRevealPainter,
   createTextReveal,
@@ -66,7 +67,7 @@ export const WAKE_FADE = {
 // Only on Lonely Forest: no other site's landing, not the local CosyWorld
 // app, no table or pack link. Automated browsers need `intro=1`.
 export function titleIntroAllowed({ href, local, webdriver }) {
-  if (local) return false;
+  if (local || pipEntry(href)) return false;
   const url = new URL(href);
   const forced = url.searchParams.get("intro") === "1";
   if ([...url.searchParams.keys()].some((k) => k !== "intro" && k !== "world"))

@@ -39,6 +39,11 @@ in a particular saved world.
 
 ## Identity checks
 
+The physical Pip card points to `/pip` (also `/pip/`). It opens a separate
+local save, beside Pip with a lit Lamp and the existing Give action selected.
+`pip-landing.mjs` sets up new visits; returning visits restore that save.
+Explicit world, table and pack query links keep their usual behavior.
+
 Start each task with the branch, commit, and package version. Fetch `origin/main`
 for new work. For a live task, check `/meta.primary_game` and follow the catalog
 URLs in `/meta.card_game`. Compare the served files with the intended release.
