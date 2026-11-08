@@ -57,7 +57,7 @@ try {
     };
     const page = await browser.newPage({
       viewport: { width, height: width === 390 ? 844 : 900 },
-      reducedMotion: "reduce",
+      reducedMotion: id === "greek-baker" ? "no-preference" : "reduce",
       hasTouch: width === 390,
     });
     const errors = [];
@@ -177,11 +177,13 @@ try {
         };
       });
       assert.deepEqual(fit.actual, fit.expected, "awake card uses its own alpha framing");
+      await page.waitForTimeout(1900);
       const geometry = await figure.evaluate((el) => {
         const box = el.getBoundingClientRect();
         const stage = document.querySelector("#stage").getBoundingClientRect();
         return { top: box.top, height: box.height, stageTop: stage.top, stageHeight: stage.height };
       });
+      assert(geometry.top >= geometry.stageTop - 2, JSON.stringify({ id, width, geometry }));
       console.log(JSON.stringify({ id, width, geometry }));
 
       await page.screenshot({
