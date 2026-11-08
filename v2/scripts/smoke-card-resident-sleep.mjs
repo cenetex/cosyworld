@@ -57,7 +57,7 @@ try {
     };
     const page = await browser.newPage({
       viewport: { width, height: width === 390 ? 844 : 900 },
-      reducedMotion: id === "greek-baker" ? "no-preference" : "reduce",
+      reducedMotion: "reduce",
       hasTouch: width === 390,
     });
     const errors = [];
@@ -135,6 +135,8 @@ try {
       ) {
         await ready();
         await selectCard(page, place);
+        if (id === "greek-baker" && savedWorld.turn === 95)
+          await page.emulateMedia({ reducedMotion: "no-preference" });
         await page.locator('#card-actions [data-action="wait"]').click();
         await ready();
         const saved = await page.evaluate(
