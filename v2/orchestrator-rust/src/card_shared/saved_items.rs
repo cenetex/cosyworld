@@ -98,6 +98,7 @@ pub(super) fn current_pack_changes(old: &Value, upgraded: &Value) -> Value {
     }
     let mut expected = hoppy_revision_4(&expected, upgraded);
     let initial = initial_game(upgraded);
+    expected["packs"]["boardyai"]["revision"] = initial["packs"]["boardyai"]["revision"].clone();
     for field in ["packs", "items"] {
         expected[field] = with_initial_additions(&expected[field], &initial[field]);
     }

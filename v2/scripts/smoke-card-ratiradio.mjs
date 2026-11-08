@@ -97,6 +97,7 @@ try {
       const frame = card(which).locator("..");
       const holder = await frame.getAttribute("hidden") !== null ? await frame.getAttribute("data-holder") : null;
       const target = await revealCard(page, which);
+      await page.waitForFunction((id) => !document.querySelector(`#hand [data-card="${id}"]`)?.dataset.revealing, which);
       if (await target.getAttribute("aria-pressed") !== "true") await tapCard(target);
       if (holder && await card(holder).getAttribute("aria-pressed") === "true" && !await card(holder).evaluate((node) => node.classList.contains("location"))) await tapCard(card(holder));
     };

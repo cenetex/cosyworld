@@ -130,6 +130,7 @@ export function upgradeSave(
         c.steppedBack = { [c.challenger]: false, [c.defender]: false };
     upgradeShoreRouteSave(s);
     upgradeBoardyStationSave(s);
+    upgradeBoardyAtticSave(s);
     upgradeHoppyCatSeaSave(s);
     upgradeHoppyCatInteriorsSave(s);
     upgradeBoardingSave(s);
@@ -508,6 +509,31 @@ export function upgradeBoardyStationSave(s) {
     ];
   }
   saved.revision = 2;
+}
+
+// Revision 3 moves only the doorway. Its saved crossing IDs and the card stay.
+export function upgradeBoardyAtticSave(s) {
+  const pack = packDefinitions.find((p) => p.id === "boardyai");
+  const saved = s.packs?.[pack?.id];
+  if (!pack || pack.revision < 3 || saved?.revision !== 2) return;
+  const path = ["station", "pond", "attic", "boardyai-parlour"];
+  for (const [actor, known] of Object.entries(s.routeKnowledge || {})) {
+    if (!Array.isArray(known)) continue;
+    const expanded = known.flatMap((edge) => {
+      if (!Array.isArray(edge) || edge.length !== 2) return [edge];
+      const route =
+        edge[0] === path[0] && edge[1] === path.at(-1)
+          ? path
+          : edge[0] === path.at(-1) && edge[1] === path[0]
+            ? [...path].reverse()
+            : null;
+      return route ? route.slice(1).map((to, i) => [route[i], to]) : [edge];
+    });
+    s.routeKnowledge[actor] = [
+      ...new Map(expanded.map((edge) => [JSON.stringify(edge), edge])).values(),
+    ];
+  }
+  saved.revision = 3;
 }
 
 // Hoppy Cat revision 2 is reached by ship from Piraeus to the Signal Jetty.

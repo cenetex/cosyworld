@@ -60,7 +60,7 @@ try {
         "one human sees no calling card",
       );
     }
-    // Boardy steps out of his station door and meets Vale at the pond.
+    // Boardy has left his attic doorway and meets Vale at the pond.
     const world = {
       ...seed,
       playerActorId: membership.actor,
@@ -76,7 +76,7 @@ try {
       since: world.turn,
       refusals: 0,
     };
-    // He steps out of his station door to meet Vale at the pond.
+    // His visit is separate from the calling card's Station starting place.
     world.actors.boardyai.place = "pond";
     const table = `boardyai-${width}`;
     const key = `cosyworld.reflected-shore.v1.${table}`;
@@ -179,10 +179,16 @@ try {
     for (const [id, kind, turn, place] of [
       ["station", "move", startTurn + 2, "station"],
       ["boardyai-calling-card", "take", startTurn + 3, "station"],
-      ["boardyai-parlour", "move", startTurn + 4, "boardyai-parlour"],
-      ["station", "move", startTurn + 5, "station"],
+      ["lamp", "light", startTurn + 4, "station"],
+      ["pond", "move", startTurn + 5, "pond"],
+      ["attic", "move", startTurn + 6, "attic"],
+      ["boardyai-parlour", "move", startTurn + 7, "boardyai-parlour"],
+      ["attic", "move", startTurn + 8, "attic"],
     ]) {
       await page.keyboard.press("Escape");
+      await page.waitForFunction(
+        () => !document.querySelector("#hand [data-revealing]"),
+      );
       await selectCard(page, id);
       await page.locator(`#card-actions [data-action="${kind}"]`).click();
       await page.waitForFunction(
@@ -210,13 +216,13 @@ try {
         (key) => JSON.parse(localStorage.getItem(key)).turn,
         key,
       ),
-      startTurn + 5,
+      startTurn + 8,
     );
     const saved = await page.evaluate(
       (key) => JSON.parse(localStorage.getItem(key)),
       key,
     );
-    assert.equal(saved.actors.vale.place, "station");
+    assert.equal(saved.actors.vale.place, "attic");
     assert.equal(saved.items["boardyai-calling-card"].holder, "vale");
     assert.equal(
       await page.locator('#hand [data-card="boardyai-calling-card"]').count(),

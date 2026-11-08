@@ -24,6 +24,8 @@ import {
   entityActive,
   entityEnabled,
   packDefinitions,
+  packPlaces,
+  hub,
   packThings,
   transports,
 } from "./pack-registry.mjs";
@@ -37,6 +39,14 @@ export const packKits = packDefinitions.flatMap((pack) =>
   (pack.kits || []).map((kit) => ({ ...kit, packId: pack.id })),
 );
 const kitThings = new Set(packKits.flatMap((kit) => kit.items));
+
+// Reserved possessions remain available to people, but do not invite an
+// unsolicited resident pickup before their authored return is complete.
+export const reservedItem = (s, id) => {
+  const thing = packThings[id];
+  return Boolean(thing?.reservedUntil?.length &&
+    !conditionsMet(s, thing.packId, thing.reservedUntil));
+};
 
 function rootOf(s, id) {
   let holder = s.items[id].holder;
@@ -245,6 +255,20 @@ export function settleItemCycle(s, nameOf, log) {
       log(`${capital(the(nameOf(home)))} has ${the(nameOf(id))} again.`, home);
   }
   if (events.includes("dawn")) {
+    for (const [id, thing] of Object.entries(packThings)) {
+      const to = thing.recoverTo;
+      if (!to || usedUp(s, id) || !entityEnabled(s, id) || !entityActive(s, to)) continue;
+      const holder = rootOf(s, id);
+      const absent = humanAvatar(holder) && !humanPresent(s, holder);
+      const present = s.actors[holder] || packPlaces[holder] || hub.places.includes(holder);
+      if (holder === to || (!absent && present && entityActive(s, holder))) continue;
+      // Only genuinely absent custody recovers. Loose deposits stay put;
+      // an intentionally locked destination is still an active place.
+      s.items[id].holder = to;
+      const text = `${capital(the(nameOf(to)))} has ${the(nameOf(id))} back.`;
+      note(s, id, text);
+      log(text, to);
+    }
     const seen = {};
     for (const id of homed) {
       const home = packThings[id].home,

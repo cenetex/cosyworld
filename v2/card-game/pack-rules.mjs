@@ -255,14 +255,14 @@ const windowOpen = (s, c) =>
     ? crossingState(s, c.id)?.phase === c.signal.steps.length
     : s.turn < (crossingState(s, c.id)?.until ?? 0));
 // A retired crossing stays open only in saves that had already found it.
-export const crossingOpen = (s, c, senses) =>
+export const crossingOpen = (s, c, senses, actor = senses?.player ?? null) =>
   (!c.retired || Boolean(crossingState(s, c.id)?.discovered)) &&
   entityActive(s, c.from) &&
   entityActive(s, c.to) &&
   (c.transport
     ? transportUnlocked(s, c.transport) && shipDock(s, c.transport) === c.from
     : windowOpen(s, c) && signalReady(s, c, senses)) &&
-  c.requires.every((r) => conditionMet(s, r, senses, c.packId));
+  c.requires.every((r) => conditionMet(s, r, senses, c.packId, actor));
 export const crossingBetween = (from, to, s = null) =>
   (s && transportCrossing(s, from, to)) ||
   crossings.find((c) => !c.transport && c.from === from && c.to === to) ||
@@ -284,7 +284,7 @@ export const crossingExits = (s, place, actor, senses) =>
           (s.invitedPlaces?.[actor]?.includes(c.from) &&
             (packPeople[actor]?.packId ?? null) ===
               (packPlaces[c.to]?.packId ?? null))) &&
-        crossingOpen(s, c, senses),
+        crossingOpen(s, c, senses, actor),
     )
     .map((c) => (c.transport ? transports[c.transport].place : c.to));
 

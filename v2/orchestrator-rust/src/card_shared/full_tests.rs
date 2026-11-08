@@ -3061,7 +3061,7 @@ fn hoppycat_upgrade_keeps_released_history_and_replays_new_story_choices() {
                     expected["revision"] = greek_revision();
                 }
                 if field == "packs" && key == "boardyai" {
-                    expected["revision"] = json!(2);
+                    expected["revision"] = json!(3);
                 }
                 assert_eq!(world.game[field][key], expected, "saved {field}/{key}");
             }
