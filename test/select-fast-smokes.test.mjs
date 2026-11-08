@@ -75,7 +75,7 @@ describe("fast check smoke selection", () => {
   it("keeps the RatiRadio route in the integration smoke budget", () => {
     for (const file of [
       "v2/card-game/packs.json",
-      "v2/card-game/packdata/ratiradio.json",
+      "v2/content/ratiradio/card-world.json",
       "v2/card-game/assets/ratiradio/raven.webp",
       "v2/card-game/assets/music/night-shift-on-ratiradio-remastered.mp3",
       "v2/worlds/ratiradio/card-bridge.json",
