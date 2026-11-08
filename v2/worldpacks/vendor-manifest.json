@@ -7,12 +7,12 @@
       "source": {
         "repo": "deniskoval431-hash/cosyworld-worldpack-warren",
         "ref": "main",
-        "commit": "81d39699b1dfc02bab2aef75325c9e79d71f78a4"
+        "commit": "cea0aee7c9e8f12ed6407133d37d8bab3d18e047"
       },
       "pinned": {
         "revision": 1,
         "contract": "cosyworld.card-table/1",
-        "sha256": "724d462259fafe486b9f85d053db9e107a4d153989f1ecd116a09e5193c24344",
+        "sha256": "f4c5efa99946ed938259e7e761e0a1d65d08d4a4581af2affbe385a75fbbb47e",
         "files": [
           "card-world.json",
           "card-bridge.json",

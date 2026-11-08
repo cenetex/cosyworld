@@ -30,5 +30,19 @@
       "arrive": "warren-threshold",
       "via": "pond-warren-threshold"
     }
-  ]
+  ],
+  "values": {
+    "hissling": {
+      "lamp": 2,
+      "oil": 1,
+      "bell": 2,
+      "cloth": 1
+    },
+    "sifter": {
+      "lamp": 1,
+      "oil": 2,
+      "bell": 1,
+      "cloth": 2
+    }
+  }
 }

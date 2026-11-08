@@ -59,7 +59,8 @@
         "kind": "item",
         "target": "spore-jar"
       },
-      "portrait": "assets/warren/hissling.png"
+      "portrait": "assets/warren/hissling.png",
+      "standoffs": false
     },
     "sifter": {
       "name": "The Sifter",
@@ -83,7 +84,8 @@
         "kind": "item",
         "target": "spore-jar"
       },
-      "portrait": "assets/warren/sifter.png"
+      "portrait": "assets/warren/sifter.png",
+      "standoffs": false
     }
   },
   "items": {

@@ -1,7 +1,7 @@
 {
   "repo": "deniskoval431-hash/cosyworld-worldpack-warren",
-  "commit": "81d39699b1dfc02bab2aef75325c9e79d71f78a4",
-  "fetchedAt": "2026-11-06T02:10:02.718Z",
+  "commit": "cea0aee7c9e8f12ed6407133d37d8bab3d18e047",
+  "fetchedAt": "2026-11-08T19:35:15.545Z",
   "payloadFiles": [
     "card-world.json",
     "card-bridge.json",
@@ -13,6 +13,6 @@
     "assets/spore-jar.png",
     "assets/threshold.png"
   ],
-  "payloadSha256": "724d462259fafe486b9f85d053db9e107a4d153989f1ecd116a09e5193c24344",
+  "payloadSha256": "f4c5efa99946ed938259e7e761e0a1d65d08d4a4581af2affbe385a75fbbb47e",
   "warning": "fetched payload does not match the pin — re-pin before build"
 }
