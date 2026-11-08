@@ -5,6 +5,7 @@ import {
   characterVoices,
   createCharacterSpeech,
   createVoiceClips,
+  createVoiceHistory,
 } from "../v2/card-game/character-speech.mjs";
 import { publicAssets } from "../v2/card-game/public-assets.mjs";
 
@@ -30,7 +31,7 @@ function cacheStore() {
   };
   return { saved, open: async () => cache };
 }
-function fixture() {
+function fixture(options = {}) {
   const sources = [],
     events = [];
   const context = {
@@ -61,6 +62,7 @@ function fixture() {
     load,
     makeContext: () => context,
     changed: (state) => events.push(state),
+    ...options,
   });
   return { speech, context, sources, events, load, client };
 }
@@ -227,6 +229,94 @@ describe("the six card character voices", () => {
     f.sources[0].onended();
     expect(f.speech.busy).toBe(false);
     expect(f.events.at(-1).state).toBe("ready");
+  });
+  it("does not automatically replay a heard beat after clear, review, mute or reconnect", async () => {
+    const f = fixture();
+    f.speech.unlock();
+    f.speech.show("first", "vale", "Hello.");
+    await tick();
+    f.sources[0].onended();
+    f.speech.clear();
+    f.speech.show("first", "vale", "Hello.");
+    f.speech.setEnabled(false);
+    f.speech.setEnabled(true);
+    f.speech.connectionChanged();
+    f.speech.unlock();
+    await tick();
+    expect(f.sources).toHaveLength(1);
+    f.speech.retry(); // An explicit request can still replay the same line.
+    await tick();
+    expect(f.sources).toHaveLength(2);
+    f.speech.show("second", "vale", "Hello."); // Same words, new occurrence.
+    await tick();
+    expect(f.sources).toHaveLength(3);
+  });
+  it("remembers playback across reloads and separates runs and shared avatars", async () => {
+    const saved = new Map();
+    const storage = {
+      getItem: (key) => saved.get(key),
+      setItem: (key, value) => saved.set(key, value),
+    };
+    let scope = "local:save:run-one";
+    const options = () => ({
+      history: createVoiceHistory(storage),
+      scope: () => scope,
+    });
+    const first = fixture(options());
+    first.speech.unlock();
+    first.speech.show("line", "vale", "Hello.");
+    await tick();
+    const reload = fixture(options());
+    reload.speech.unlock();
+    reload.speech.show("line", "vale", "Hello.");
+    await tick();
+    expect(reload.sources).toHaveLength(0);
+    for (scope of [
+      "local:save:run-two",
+      "shared:world:mara",
+      "shared:world:ash",
+    ]) {
+      reload.speech.show("line", "vale", "Hello.");
+      await tick();
+    }
+    expect(reload.sources).toHaveLength(3);
+  });
+  it("does not consume unheard muted or interrupted loads and tolerates blocked storage", async () => {
+    const history = createVoiceHistory({
+      getItem() {
+        throw new Error("blocked");
+      },
+      setItem() {
+        throw new Error("full");
+      },
+    });
+    const f = fixture({ history });
+    f.speech.setEnabled(false);
+    f.speech.show("muted", "vale", "Hello.");
+    f.speech.unlock();
+    f.speech.setEnabled(true);
+    f.speech.unlock();
+    await tick();
+    expect(f.sources).toHaveLength(1);
+    f.speech.clear();
+    f.speech.show("muted", "vale", "Hello.");
+    await tick();
+    expect(f.sources).toHaveLength(1);
+    let release;
+    f.load.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          release = resolve;
+        }),
+    );
+    f.speech.show("waiting", "vale", "Wait.");
+    await tick();
+    f.speech.clear();
+    release(audio());
+    await tick();
+    f.speech.show("waiting", "vale", "Wait.");
+    await tick();
+    expect(f.sources).toHaveLength(2);
   });
   it("drops late speech after skipping and stops speech immediately when muted", async () => {
     const f = fixture();

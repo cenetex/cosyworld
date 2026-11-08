@@ -166,7 +166,7 @@ import {
 import { createHum } from "./hum.mjs";
 import { createSfx } from "./sfx.mjs";
 import { recedeBackdrop } from "./combat-backdrop.mjs";
-import { createCharacterSpeech } from "./character-speech.mjs";
+import { createCharacterSpeech, createVoiceHistory } from "./character-speech.mjs";
 import { localRuntime } from "./local-service.mjs";
 import { hostedVoices } from "./hosted-voices.mjs";
 import { createLocalBackups, installBackupControls } from "./local-saves.mjs";
@@ -828,6 +828,13 @@ function finishSpokenLine() {
     exchange.revealed(line.seq);
 }
 const characterSpeech = createCharacterSpeech({
+  history: createVoiceHistory({
+    getItem: (key) => localStorage.getItem(key),
+    setItem: (key, value) => localStorage.setItem(key, value),
+  }),
+  scope: () => sharedSession
+    ? `shared:${sharedWorldId}:${sharedSession.state.actor}`
+    : `local:${SAVE_KEY}:${world.run?.seed ?? ""}`,
   changed: ({ state, message }) => {
     $("speech-row").dataset.voice = state;
     $("voice-retry").hidden = state !== "error";

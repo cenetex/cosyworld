@@ -150,12 +150,48 @@ export function createVoiceClips({
   return clip;
 }
 
+// Listening history belongs to presentation, never to the shared rules journal.
+// Persist only identities, not audio. A blocked/full store still works in this tab.
+export function createVoiceHistory(storage) {
+  const memory = new Map();
+  function entries(scope) {
+    if (!memory.has(scope)) {
+      let keys = [];
+      try {
+        const saved = JSON.parse(
+          storage?.getItem(`cosyworld.voice-heard:${scope}`),
+        );
+        if (Array.isArray(saved))
+          keys = saved.filter((key) => typeof key === "string");
+      } catch {}
+      memory.set(scope, new Set(keys.slice(-2048)));
+    }
+    return memory.get(scope);
+  }
+  return {
+    has: (scope, key) => entries(scope).has(key),
+    add(scope, key) {
+      const keys = entries(scope);
+      keys.add(key);
+      while (keys.size > 2048) keys.delete(keys.values().next().value);
+      try {
+        storage?.setItem(
+          `cosyworld.voice-heard:${scope}`,
+          JSON.stringify([...keys]),
+        );
+      } catch {}
+    },
+  };
+}
+
 export function createCharacterSpeech({
   client = voiceClient(),
   load = createVoiceClips({ client }),
   makeContext = () =>
     new (globalThis.AudioContext || globalThis.webkitAudioContext)(),
   changed = () => {},
+  history = createVoiceHistory(),
+  scope = () => "session",
 } = {}) {
   let context,
     source,
@@ -232,6 +268,7 @@ export function createCharacterSpeech({
         publish("ready");
       };
       playing.start();
+      history.add(line.scope, line.key);
       publish("playing");
     } catch (error) {
       if (current !== line || line.controller.signal.aborted) return;
@@ -264,10 +301,18 @@ export function createCharacterSpeech({
           (connected(client) || current?.busy),
       ),
     show(key, speaker, text, reference) {
-      if (current?.key === key) return;
+      if (current?.key === key && current.scope === scope()) return;
       stop(false, prefetch?.speaker === speaker && prefetch.text === text);
       current = characterVoices[speaker]
-        ? { key, speaker, text, reference, attempted: false, busy: false }
+        ? {
+            key,
+            speaker,
+            text,
+            reference,
+            scope: scope(),
+            attempted: history.has(scope(), key),
+            busy: false,
+          }
         : null;
       publish(
         !enabled ? "off" : current && !connected(client) ? "connect" : "ready",
@@ -301,13 +346,14 @@ export function createCharacterSpeech({
       enabled = value;
       if (!enabled) stop();
       else {
-        if (current) current.attempted = false;
+        if (current)
+          current.attempted = history.has(current.scope, current.key);
         void run();
       }
     },
     connectionChanged() {
       stop(false);
-      if (current) current.attempted = false;
+      if (current) current.attempted = history.has(current.scope, current.key);
       publish(connected(client) ? "ready" : "connect");
       void run();
     },

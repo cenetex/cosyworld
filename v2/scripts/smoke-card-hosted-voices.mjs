@@ -176,10 +176,17 @@ async function checkPersonalReplay(width) {
     for (let replay = 0; replay < 2; replay++) {
       await page.waitForFunction(() => document.body.inert === false);
       await page.locator("#speaker").click();
-      await page.waitForFunction(
-        () => document.querySelector("#speech-row").dataset.voice === "playing",
-      );
-      await checkAccountRefresh(page);
+      if (replay === 0) {
+        await page.waitForFunction(
+          () => document.querySelector("#speech-row").dataset.voice === "playing",
+        );
+        await checkAccountRefresh(page);
+      } else {
+        await page.waitForTimeout(500);
+        assert.equal(await page.getAttribute("#speech-row", "data-voice"), "ready");
+        assert.equal(await page.evaluate(() => window.voicePlayback.starts), 0,
+          "Reloading a heard line does not autoplay it again");
+      }
       assert.deepEqual(voices, [
         { speaker: "vale", text: "The lamp is steady." },
       ]);
@@ -190,7 +197,7 @@ async function checkPersonalReplay(width) {
     });
     assert.deepEqual(errors, []);
     console.log(
-      `Replayed personal speech across reload and account refresh at ${width}px.`,
+      `Kept personal speech once-only across reload and account refresh at ${width}px.`,
     );
   } finally {
     await page.close();
