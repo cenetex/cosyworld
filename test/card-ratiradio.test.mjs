@@ -31,8 +31,8 @@ const home = id("listening-room"),
   raven = id("raven");
 const returns = ["red-beanie", "raven-figurine", "glass"].map(id);
 const flags = (s) => s.packs.ratiradio.flags;
-const fixture = () => {
-  const s = createWorld({ seed: 17 });
+const fixture = (opening = false) => {
+  const s = createWorld({ opening, seed: 17 });
   s.actors.vale.place = "pond";
   s.actors.vale.visited.push("pond");
   for (const item of Object.values(s.items))
@@ -98,6 +98,24 @@ it("walks the full return, introduces both residents at home, then keeps the unl
   expect(entityActive(s, raven)).toBe(true);
   expect(reservedItem(s, id("glass"))).toBe(false);
   expect(s.actors[raven].place).not.toBe(home);
+});
+
+it("keeps opening and pack meetings aligned when arrival wakes RATi", () => {
+  let s = fixture(true);
+  s.opening.crossed = true;
+  s.opening.met.moth = 0;
+  s.locations.attic.anchored = true;
+  for (const [kind, target] of route.slice(0, 7)) s = act(s, kind, target);
+  expect(s.opening.crossed).toBe(true);
+  expect(s.packs.ratiradio.met[rati]).toBeUndefined();
+  expect(s.opening.met[rati]).toBeUndefined();
+  const before = encodeSave(s);
+  s = act(s, "move", home);
+  expect(s.actors.vale.place).toBe(home);
+  expect(s.packs.ratiradio.met[rati]).toBe(s.turn);
+  expect(s.opening.met[rati]).toBe(s.turn);
+  expect(decodeSave(encodeSave(s))).toEqual(s);
+  expect(decodeSave(before).actors.vale.place).toBe(id("dispatch-window"));
 });
 
 it("requires all three direct deposits together, with no RATi presence requirement", () => {
