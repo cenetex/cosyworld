@@ -20,7 +20,7 @@ const commit = execFileSync("git", ["rev-parse", "HEAD"], {
   encoding: "utf8",
 }).trim();
 function fixture(turns) {
-  let world = enableMotives(createWorld({ opening: true }));
+  let world = enableMotives(createWorld({ opening: true, seed: 7 }));
   for (const kind of ["snuff", "move", "light"])
     world = play(
       world,
@@ -50,6 +50,7 @@ const fixtures = [0, 120].map((turns) => {
     turns,
     save: encodeSave(world),
     turn: world.turn,
+    seed: world.run.seed,
     logEntries: world.log.length,
   };
 });
@@ -85,6 +86,10 @@ try {
         const errors = [],
           requests = [],
           evaluations = [];
+        let releaseProbe;
+        const probed = new Promise((resolve) => {
+          releaseProbe = resolve;
+        });
         const report = {
           commit,
           browser: browser.version(),
@@ -92,6 +97,7 @@ try {
           mode,
           fixture: {
             turns: fixture.turn,
+            seed: fixture.seed,
             bytes: Buffer.byteLength(fixture.save),
             logEntries: fixture.logEntries,
           },
@@ -146,10 +152,11 @@ try {
               try {
                 return setItem.call(this, name, value);
               } finally {
+                const duration = performance.now() - start;
                 if (data.active && name === key)
                   data.saves.push({
                     bytes: new Blob([value]).size,
-                    duration: performance.now() - start,
+                    duration,
                   });
               }
             };
@@ -171,10 +178,13 @@ try {
           requests.push(request);
           if (mode === "timeout" && requests.length === 1) return;
           await sleep(mode === "delayed" ? 3000 : 100);
+          if (mode === "delayed") await probed;
           const fail =
             mode === "failure" || (mode === "retry" && requests.length === 1);
           request.status = fail ? 503 : 200;
-          request.duration = rounded(performance.now() - request.start);
+          request.fixtureResponseDelayMs = rounded(
+            performance.now() - request.start,
+          );
           await route.fulfill({
             status: request.status,
             contentType: "application/json",
@@ -197,7 +207,7 @@ try {
           const pending = requests.find((entry) => entry.status === "pending");
           if (pending) {
             pending.status = "aborted";
-            pending.duration = rounded(performance.now() - pending.start);
+            pending.abortedAfterMs = rounded(performance.now() - pending.start);
           }
         });
         let cdp,
@@ -245,7 +255,7 @@ try {
             key,
           );
           assert.equal(committed.turn, fixture.turn + 1);
-          // Real pointer and keyboard handlers remain usable while words wait.
+          // The delayed reply is held until both real input handlers finish.
           const pointerStart = performance.now();
           await page.locator("#toolbar-menu-button").click();
           await page.locator("#world-menu").waitFor({ state: "visible" });
@@ -254,6 +264,9 @@ try {
           await page.keyboard.press("Escape");
           await page.locator("#world-menu").waitFor({ state: "hidden" });
           report.keyboardMs = rounded(performance.now() - keyboardStart);
+          report.replyPendingAfterInputs = requests[0].status === "pending";
+          if (mode === "delayed") assert(report.replyPendingAfterInputs);
+          releaseProbe();
           await page.waitForFunction(
             ({ mode, turn }) =>
               mode === "failure"
