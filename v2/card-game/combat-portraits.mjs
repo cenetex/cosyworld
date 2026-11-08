@@ -1,3 +1,5 @@
+import { wardrobePoseForSource } from "./wardrobe.mjs";
+import { packPeople } from "./pack-registry.mjs";
 // Combat keeps the wardrobe already on stage while the committed beats play.
 import variants from "./image-variants.json" with { type: "json" };
 import { humanAvatarIds } from "./human-cast.mjs";
@@ -10,6 +12,9 @@ import poseFit from "./assets/combat/pose-fit.json" with { type: "json" };
 const players = new Set(humanAvatarIds);
 const poses = ["guard", "attack", "hit"];
 export function combatPortrait(id, pose, source, facing) {
+  if (!poses.includes(pose)) return null;
+  const dressed = wardrobePoseForSource(packPeople[id]?.wardrobe, source, pose);
+  if (dressed) return `./${dressed}`;
   const form = portraitFormForSource(id, source),
     stem = castCombatStem(id);
   if (

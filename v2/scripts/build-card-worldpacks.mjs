@@ -109,6 +109,7 @@ for (const pack of packs) {
       a.portrait,
       ...(Array.isArray(a.poses) ? a.poses : []).map((p) => p?.portrait),
       ...Object.values(a.variants || {}).map((v) => v.portrait),
+      ...(a.wardrobe || []).flatMap((entry) => Object.values(entry.images)),
     ]),
   ].filter(Boolean);
   for (const file of new Set(media)) {

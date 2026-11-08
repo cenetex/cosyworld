@@ -1,3 +1,4 @@
+import { wardrobePortrait } from "./wardrobe.mjs";
 import {
   currentActor,
   people,
@@ -82,11 +83,21 @@ export function placeBackdrop(world, id) {
   );
 }
 export function portrait(id, facing = null, world = null) {
+  const resident = packPeople[id];
+  const dressed = wardrobePortrait(
+    world,
+    id,
+    resident?.wardrobe,
+    world?.actors?.[id]?.sleeping ||
+      (resident?.temperament && world?.actors?.[id]?.awake === false)
+      ? "sleep"
+      : "base",
+  );
+  if (dressed) return `./${dressed}`;
   const sleeping = sleepingPortrait(world, id);
   if (sleeping) return `./${sleeping}`;
   const human = avatarImage(world, id);
   if (human) return `./${human}`;
-  const resident = packPeople[id];
   if (resident)
     return `./${
       (world && rarityForm(id, levelOf(world, id))?.portrait) ||

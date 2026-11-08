@@ -1,6 +1,7 @@
 // The closed vocabulary for card-table world packs and their bridges.
 // The build script and the browser registry both use this one validator, so
 // an authored pack either loads exactly as checked or does not load at all.
+import { validWardrobe } from "./wardrobe.mjs";
 import { validFactText } from "./knowledge.mjs";
 
 import { EXPRESSION_TYPES } from "./expression.mjs";
@@ -682,6 +683,7 @@ export function packProblems(pack, hub, mountedPlaces = [], mountedItems = []) {
         "tastes",
         "portrait",
         "poses",
+        "wardrobe",
         "temperament",
         "variants",
         "home",
@@ -791,6 +793,15 @@ export function packProblems(pack, hub, mountedPlaces = [], mountedItems = []) {
                     hub.avatars.includes(a.want.target)))),
       `avatar ${id} want needs an item, place or person target, or connects humans`,
     );
+    if (a.wardrobe !== undefined)
+      check(
+        validWardrobe(
+          a.wardrobe,
+          (item) => owns(pack.items, item),
+          (path) => mediaPathOk(pack.id, path),
+        ),
+        `avatar ${id} wardrobe needs unique item sets and named portrait images in this pack`,
+      );
     const t = a.temperament;
     if (t === undefined) {
       check(

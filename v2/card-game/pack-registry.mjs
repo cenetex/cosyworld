@@ -228,7 +228,8 @@ export const packOf = (id) => packDefinition(entities[id]?.packId);
 export const resident = (id) => packPeople[id] || null;
 export const roamingQuestActor = (id, world = null) =>
   packPeople[id]?.roamingQuest === "latest-completion" &&
-  (!world || conditionsMet(world, packPeople[id].packId, packPeople[id].requires));
+  (!world ||
+    conditionsMet(world, packPeople[id].packId, packPeople[id].requires));
 // A resident who keeps to its scene leaves it once its pack's `stayUntil`
 // conditions hold (the Swede, once the Willows kit is back at camp).
 export const freed = (world, id) =>
@@ -317,6 +318,7 @@ export const packMediaFiles = [
         a.portrait,
         ...(a.poses || []).map((p) => p.portrait),
         ...Object.values(a.variants || {}).map((v) => v.portrait),
+        ...(a.wardrobe || []).flatMap((entry) => Object.values(entry.images)),
       ]),
     ]),
   ),
