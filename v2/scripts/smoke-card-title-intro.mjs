@@ -400,12 +400,92 @@ async function wakeFades(page, width, name) {
   );
   await shot(page, `black-${width}`);
   await page.waitForSelector('.title-intro[data-phase="out"]');
-  await page.waitForTimeout(WAKE_FADE.turn.sceneMs / 3);
+  const dealt = await page.$$eval(".title-intro > .card-frame", (cards) =>
+    cards.map((card) => ({
+      inert: card.inert,
+      hidden: card.getAttribute("aria-hidden"),
+      duplicateIds: card.querySelectorAll("[id]").length,
+      frames: card.getAnimations()[0]?.effect.getKeyframes(),
+    })),
+  );
+  assert.ok(dealt.length > 1, "opening box deals a fan, not only the avatar");
+  for (const card of dealt) {
+    assert.equal(card.inert, true);
+    assert.equal(card.hidden, "true");
+    assert.equal(card.duplicateIds, 0);
+    assert.match(card.frames[1].transform, /rotate/);
+    assert.match(card.frames.at(-1).transform, /^rotate\(/);
+  }
+  // Sample fixed animation times so slow screenshot IO cannot miss the deal.
+  const sample = (time) =>
+    page.$eval(
+      ".title-intro",
+      (layer, time) => {
+        for (const node of [
+          layer,
+          ...layer.querySelectorAll(":scope > .card-frame"),
+        ])
+          for (const animation of node.getAnimations()) {
+            animation.pause();
+            animation.currentTime = time;
+          }
+      },
+      time,
+    );
+  await sample(300);
+  await shot(page, `fan-out-${width}`);
+  await sample(WAKE_FADE.turn.sceneMs / 3);
   const opacity = await page.$eval(".title-intro", (layer) =>
     Number(getComputedStyle(layer).opacity),
   );
   assert.ok(opacity > 0.05 && opacity < 0.85, `fading in: ${opacity}`);
   await shot(page, `fade-in-${width}`);
+  await sample(1900);
+  const settled = await page.$$eval(".title-intro > .card-frame", (copies) =>
+    copies.flatMap((copy) => {
+      const id = copy.querySelector(".card[data-card]")?.dataset.card;
+      const original =
+        id &&
+        document
+          .querySelector(`#hand .card[data-card="${CSS.escape(id)}"]`)
+          ?.closest(".card-frame");
+      if (!original) return [];
+      const from = copy.getBoundingClientRect(),
+        to = original.getBoundingClientRect();
+      return [
+        {
+          id,
+          dimensionsMatch:
+            copy.offsetWidth === original.offsetWidth &&
+            copy.offsetHeight === original.offsetHeight,
+          angleMatch:
+            copy.getAnimations()[0].effect.getKeyframes().at(-1).transform ===
+            `rotate(${getComputedStyle(original).rotate === "none" ? "0deg" : getComputedStyle(original).rotate})`,
+          delta: Math.max(
+            ...["left", "top", "width", "height"].map((key) =>
+              Math.abs(from[key] - to[key]),
+            ),
+          ),
+        },
+      ];
+    }),
+  );
+  assert.ok(settled.length, "dealt cards still have real hand slots");
+  for (const card of settled) {
+    assert.ok(
+      card.dimensionsMatch && card.angleMatch,
+      `settled proportions: ${JSON.stringify(card)}`,
+    );
+    assert.ok(card.delta < 2, `settled slot: ${JSON.stringify(card)}`);
+  }
+  await shot(page, `fan-settled-${width}`);
+  await page.$eval(".title-intro", (layer) => {
+    for (const node of [
+      layer,
+      ...layer.querySelectorAll(":scope > .card-frame"),
+    ])
+      for (const animation of node.getAnimations()) animation.play();
+  });
 }
 // The title's card is the avatar's: once the title leaves, by its turn or by
 // Escape, Vale's hand card is face up with no second flip.
