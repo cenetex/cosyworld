@@ -2364,7 +2364,7 @@ function renderActions() {
     lockShown =
       !rested && closed
         ? (selected.length === 1 && isLockedBox(world, selected[0])
-            ? lockedQuest(world, selected[0])
+            ? lockedQuest(world, selected[0], known)
             : null) || { text: CLOSED_BOX, cards: [] }
         : null,
     // Rule texts can double a name's article ("the The Burial Decree").

@@ -4,10 +4,16 @@ import { mkdir } from "node:fs/promises";
 import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
 import { createWorld, encodeSave } from "../card-game/world.mjs";
-import { lockedQuest } from "../card-game/locked-box.mjs";
+import { availableCards } from "../card-game/cards.mjs";
+import { isLockedBox, lockedQuest } from "../card-game/locked-box.mjs";
 import { profiles } from "../card-game/memory.mjs";
 import { revealCard, tapCard } from "./card-browser-helpers.mjs";
-const output = new URL("../../output/lock-quests/", import.meta.url);
+const output = new URL(
+  process.argv[2]
+    ? `file://${process.argv[2].replace(/\/?$/u, "/")}`
+    : "../../output/lock-quests/",
+  import.meta.url,
+);
 await mkdir(output, { recursive: true });
 const server = createServer();
 await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
@@ -29,7 +35,15 @@ try {
       world.packs["greek-drama"].scope = "full";
       world.actors.vale.place = place;
       if (id === "greek-polynices-hollow") world.turn = world.revision = 36;
-      const expected = lockedQuest(world, id);
+      const encountered = new Set([
+        ...Object.keys(profiles),
+        ...availableCards(world),
+      ]);
+      const expected = lockedQuest(
+        world,
+        id,
+        (target) => encountered.has(target) && !isLockedBox(world, target),
+      );
       assert(expected, `${id} is locked`);
       const page = await browser.newPage({
         viewport: { width, height },

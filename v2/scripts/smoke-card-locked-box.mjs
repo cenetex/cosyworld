@@ -149,6 +149,9 @@ try {
       await page.goto(`${at}/?table=locked-box-${width}-${reduced}`);
       await ready();
       await boxed();
+      await selectCard(page, FIELD);
+      assert.doesNotMatch(await page.locator(".action-beat-text").textContent(), /Creon|Writ/u);
+      await page.keyboard.press("Escape");
       await shot("01-locked-box");
       const lidState = (card) => card.evaluate((el) => ({
         src: el.querySelector(".card-back").src,
@@ -189,6 +192,8 @@ try {
       await revealCard(page, "greek-creon-writ");
       assert.equal(await writ.getAttribute("data-locked"), "false");
       assert.match(await writ.getAttribute("aria-label"), /Creon/u);
+      await page.keyboard.press("Escape");
+      await revealCard(page, "greek-guard");
       await page.keyboard.press("Escape");
       const state = () =>
         page.evaluate((key) => JSON.parse(localStorage.getItem(key)), key);
