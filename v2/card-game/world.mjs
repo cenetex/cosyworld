@@ -253,7 +253,3157 @@ const homeGates = { ...forest.homeGates, ...humanHomeGates };
 export const sanctuaries = Object.keys(places).filter(
   (id) => places[id].sanctuary === true,
 );
-export const p…29043 tokens truncated….
+export const people = { ...forest.people, ...packPeople };
+export const things = { ...packThings, ...forest.things };
+validatePackLinks(places, people, things);
+const lifeProblems = lifeDataProblems(places, people);
+if (lifeProblems.length)
+  throw new Error(`Invalid world life data: ${lifeProblems.join("; ")}`);
+// Geography identifies resources beyond the attic; each real trip keeps its gates.
+const atticInterior = (() => {
+  const found = new Set(["attic"]),
+    queue = ["attic"];
+  const routes = packDefinitions.flatMap((pack) => pack.routes || []);
+  for (let i = 0; i < queue.length && i < Object.keys(places).length; i++) {
+    const from = queue[i];
+    for (const to of [
+      ...places[from].exits,
+      ...crossings
+        .filter((c) => c.from === from && !c.transport)
+        .map((c) => c.to),
+      ...routes.filter((r) => r.from === from).map((r) => r.to),
+    ]) {
+      if (to === "pond" || found.has(to)) continue;
+      found.add(to);
+      queue.push(to);
+    }
+  }
+  return found;
+})();
+const ids = Object.keys(things);
+const actorIds = [...Object.keys(forest.people), ...packActorIds];
+// Fixed at load, so validation compares against these instead of rebuilding.
+const placeIds = Object.keys(places);
+const sortedActorKeys = actorIds.slice().sort().join();
+const sortedItemKeys = ids.slice().sort().join();
+const castIds = new Set([...actorIds, ...ids]);
+const entityIds = new Set([...castIds, ...placeIds]);
+const holderIds = new Set([...actorIds, ...placeIds]);
+const LOG_KINDS = ["action", "dialogue", "narration", "input", "hint"];
+const OUTCOMES = ["hit", "guarded", "yield", "sent-home"];
+let planReads = null;
+function planningReadsFor(world) {
+  if (!planReads) return null;
+  let reads = planReads.get(world);
+  if (!reads) {
+    reads = {};
+    planReads.set(world, reads);
+  }
+  return reads;
+}
+function knownActors(world) {
+  const reads = planningReadsFor(world);
+  if (!reads) return readKnownActors(world);
+  return (reads.knownActors ??= readKnownActors(world)).slice();
+}
+
+const expectedTrustKeys = Object.fromEntries(
+  actorIds.map((id) => [
+    id,
+    actorIds
+      .filter((other) => other !== id)
+      .sort()
+      .join(),
+  ]),
+);
+export const nameOf = (id) =>
+  places[id]?.name || people[id]?.name || things[id]?.name || "the world";
+// A run seed draws each pack's specials once (pack-specials.mjs).
+export function createWorld({ opening = false, packScopes = {}, seed } = {}) {
+  const world = {
+    schema: 7,
+    ...structuredClone(forest.initialState),
+    memories: newMemories(),
+    turn: 0,
+    revision: 0,
+    eventSeq: 1,
+    conversations: [],
+  };
+  if (seed != null && !validSeed(seed)) throw new Error("Choose a run seed.");
+  if (seed != null) world.run = { seed };
+  if (opening) {
+    const start = structuredClone(forest.opening);
+    world.opening = start.discovery;
+    for (const [id, fields] of Object.entries(start.actors))
+      Object.assign(world.actors[id], fields);
+    for (const [id, fields] of Object.entries(start.items))
+      Object.assign(world.items[id], fields);
+    world.log = start.log;
+  }
+  installPacks(world);
+  installJourneyProgress(world, packDefinitions);
+  for (const [id, scope] of Object.entries(packScopes)) {
+    if (
+      !world.packs[id] ||
+      !["opening", "full"].includes(scope) ||
+      !packDefinition(id)?.release
+    )
+      throw new Error("Unknown content scope.");
+    world.packs[id].scope = scope;
+  }
+  enableMotives(world);
+  installLife(world, travels);
+  installRouteKnowledge(world);
+  installKnowledge(world);
+  // A new world starts with one want on every avatar but a player still
+  // waiting for its first quest.
+  fillWants(world, wantAPI(world), true);
+  rememberEvent(world, world.log[0]);
+  settleGuards(world);
+  settleHeldItems(world);
+  settleStationExits(world);
+  return world;
+}
+// Mount every pack missing from this save: its crossings, its state, and its
+// residents with fresh relationships. Earlier saves keep their own history.
+function installPacks(s) {
+  const added = [];
+  installTransports(s);
+  s.crossings ??= {};
+  s.packs ??= {};
+  const fresh = newMemories();
+  // A hub item added after this save was written joins it where it starts.
+  for (const [id, item] of Object.entries(forest.initialState.items))
+    if (!Object.hasOwn(s.items, id)) {
+      s.items[id] = structuredClone(item);
+      s.memories[id] ??= fresh[id];
+    }
+  // A crossing these rules no longer have, such as a home's old pond door,
+  // leaves the save.
+  for (const home of Object.keys(humanHomeGates))
+    for (const id of [`pond-${home}`, `${home}-pond`])
+      if (!crossings.some((c) => c.id === id)) delete s.crossings[id];
+  // So does a known way through one.
+  const ways = new Set(authoredRouteEdges().map((e) => e.join(">")));
+  for (const [id, known] of Object.entries(s.routeKnowledge || {}))
+    s.routeKnowledge[id] = known.filter(
+      (e) => !e.some((p) => humanHomeGates[p]) || ways.has(e.join(">")),
+    );
+  if (!s.doors) placeDoors(s);
+  for (const pack of packDefinitions) {
+    for (const c of pack.crossings) s.crossings[c.id] ??= newCrossingState(c);
+    if (s.packs[pack.id]) continue;
+    s.packs[pack.id] = newPackRecord(pack);
+    for (const [id, a] of Object.entries(pack.avatars)) {
+      if (s.actors[id]) throw new Error("A pack resident is already present.");
+      s.actors[id] = {
+        place: a.place,
+        crossed: 0,
+        lastTalk: -9,
+        trust: Object.fromEntries(
+          actorIds.filter((other) => other !== id).map((other) => [other, 0]),
+        ),
+        ...newTemperament(id),
+      };
+      s.peaceUntil[id] = 0;
+      s.memories[id] = fresh[id];
+      if (s.motives) s.motives.grievances[id] = [];
+    }
+    for (const [id, item] of Object.entries(pack.items || {})) {
+      if (s.items[id]) throw new Error("A pack item is already present.");
+      s.items[id] = { holder: item.holder, history: [] };
+      s.memories[id] = fresh[id];
+      added.push(id);
+    }
+    for (const [id, actor] of Object.entries(s.actors))
+      for (const other of Object.keys(pack.avatars))
+        if (other !== id) actor.trust[other] ??= 0;
+    for (const id of Object.keys(pack.places)) s.memories[id] ??= fresh[id];
+  }
+  for (const pack of packDefinitions) installSpecials(s, pack);
+  installItemCycle(s, added);
+  installLife(s, travels);
+  installRouteKnowledge(s);
+  installWants(s);
+}
+// A world saved before runs had seeds takes one once, from its host.
+export function seedRun(s, seed) {
+  if (s.run || !validSeed(seed)) return s;
+  s.run = { seed };
+  // Doors placed before the world had a seed move to the seed's picks.
+  delete s.doors;
+  installPacks(s);
+  return s;
+}
+// Travellers who learn the roads start from their home region's routes.
+function installRouteKnowledge(s) {
+  s.routeKnowledge ??= {};
+  for (const actor of roamingActors)
+    if (!s.routeKnowledge[actor]) {
+      rememberRoutes(s, actor, initialRouteEdges(actor));
+      rememberRoutes(s, actor, visibleRouteEdges(s.actors[actor].place));
+    }
+}
+// Holder chains are a few links deep, so the walk tracks visits only when a
+// chain runs long enough to hide a loop: the common case allocates nothing.
+const SHORT_CHAIN = 32;
+export function rootHolder(s, id) {
+  let holder = s.items[id].holder;
+  for (let step = 0; step < SHORT_CHAIN; step++) {
+    if (!s.items[holder]) return holder;
+    if (holder === id) throw new Error("An item holds itself.");
+    holder = s.items[holder].holder;
+  }
+  holder = s.items[id].holder;
+  const visited = new Set([id]);
+  while (s.items[holder]) {
+    if (visited.has(holder)) throw new Error("An item holds itself.");
+    visited.add(holder);
+    holder = s.items[holder].holder;
+  }
+  return holder;
+}
+export const itemPlace = (s, id) =>
+  s.actors[rootHolder(s, id)]?.place || rootHolder(s, id);
+export const carried = (s, actor) =>
+  ids.filter((id) => rootHolder(s, id) === actor);
+export const covered = (s, id) => s.items.cloth.holder === id;
+export const shining = (s) =>
+  entityActive(s, "lamp") &&
+  s.items.lamp.lit &&
+  s.items.lamp.fuel > 0 &&
+  !covered(s, "lamp");
+// A reflection opens while its authored conditions hold (#1600). Forest data
+// opens the attic mirror once the lamp there is dark, and the pond's way back
+// while the lamp shines on the shore.
+const reflectionsFrom = (s, from) =>
+  (forest.reflectionRoutes || [])
+    .filter(
+      (r) =>
+        r.from === from && r.requires.every((c) => conditionMet(s, c, null)),
+    )
+    .map((r) => r.to);
+export const reflectionOpen = (s, from = itemPlace(s, "lamp")) =>
+  reflectionsFrom(s, from).length > 0;
+// The bell is the shore's sound source: heard where it rests while it rings
+// uncovered. Packs add their own sounding fixtures through pack-rules.mjs.
+const baseSoundAt = (s, place) =>
+  entityActive(s, "bell") &&
+  s.items.bell.ringing > 0 &&
+  !covered(s, "bell") &&
+  itemPlace(s, "bell") === place;
+export const senses = { player: "vale", baseSoundAt, nameOf };
+export const sensesFor = (s) => ({
+  ...senses,
+  player: currentActor(s),
+  ...(s.controlledActors ? { humanActors: s.controlledActors } : {}),
+});
+const baseExits = (_s, place) => places[place].exits;
+export const placeText = (s, place) =>
+  [
+    place === "attic" && reflectionOpen(s, place)
+      ? "A tall mirror opens onto a black shore. A path leads through the glass."
+      : s.opening && place === "station"
+        ? "The timetable lists years that have yet to happen. A path leads along the shore to the pond."
+        : places[place].text,
+    ...crossingScenery(s, place, sensesFor(s),
+      place === "station" ? stationCandidates(s).filter((id) =>
+        !stationExits(s, stationCandidates(s)).includes(id)) : []),
+    ...transportScenery(s, place, nameOf),
+    ...(homeRescueExit(s, place) || pondRescueExit(s, place)
+      ? [
+          `A narrow path leads to ${nameOf(homeRescueExit(s, place) || pondRescueExit(s, place))}.`,
+        ]
+      : []),
+  ].join(" ");
+// A home gate can be restored by resources in the room, including a present
+// helper's belongings. Full hands can make room through the usual Drop action.
+function localGateResource(s, place, item, actor) {
+  return Boolean(
+    s.items[item] &&
+      entityActive(s, item) &&
+      itemPlace(s, item) === place &&
+      (canUse(s, actor, item) ||
+        (controlledByHuman(s, rootHolder(s, item)) &&
+          humanPresent(s, rootHolder(s, item))) ||
+        // An away traveler's lamp still lights here, though no one may
+        // take it from them (rules 98).
+        residentAvatar(s, rootHolder(s, item)) ||
+        (knownActors(s).includes(rootHolder(s, item)) &&
+          (willingToGive(s, rootHolder(s, item), item, actor) ||
+            carried(s, actor).some((payment) =>
+              canTrade(s, actor, payment, item),
+            )))),
+  );
+}
+function homeGateRecoverable(s, place, gate, actor) {
+  if (!localGateResource(s, place, gate.item, actor)) return false;
+  if (!gate.light || s.items[gate.item].fuel > 0) return true;
+  // Holding a full flask with the empty lamp refuels it, so a flask here is enough.
+  return Boolean(gate.fuel && localGateResource(s, place, gate.fuel, actor));
+}
+function rawOrdinaryExits(s, place, actor, previous) {
+  return [
+    ...new Set([
+      ...baseExits(s, place),
+      ...reflectionsFrom(s, place),
+      ...crossingExits(s, place, actor, sensesFor(s)),
+      ...transportExits(s, place, previous, actor),
+      ...packExits(s, place, actor),
+    ]),
+  ];
+}
+// Conditions without a traveler (the train and calling card) may open while
+// nobody stands here. A traveler-specific key counts only for its present holder.
+const stationCrossings = crossings.filter((c) => c.from === "station");
+const stationTargets = [...new Set([
+  ...places.station.exits,
+  ...stationCrossings.map((c) => c.transport ? transports[c.transport].place : c.to),
+  ...packDefinitions.flatMap((p) => (p.routes || []).filter((r) => r.from === "station").map((r) => r.to)),
+])];
+function stationCandidates(s) {
+  const actors = [null, ...Object.keys(s.actors).filter((id) =>
+    s.actors[id].place === "station" && entityActive(s, id) &&
+    (!humanAvatar(id) || humanPresent(s, id) || residentAvatar(s, id)))];
+  return [...new Set([
+    ...baseExits(s, "station"), ...reflectionsFrom(s, "station"),
+    ...stationCrossings.filter((c) => actors.some((actor) =>
+      crossingOpen(s, c, sensesFor(s), actor)))
+      .map((c) => c.transport ? transports[c.transport].place : c.to),
+    ...packExits(s, "station", null),
+  ])].filter((id) => entityActive(s, id));
+}
+export function settleStationExits(s) {
+  s.stationExitOrder = stationExitOrder(s, stationCandidates(s));
+}
+function limitedExits(s, place, ways) {
+  return place === "station" ? stationExits(s, stationCandidates(s), ways) : ways;
+}
+function ordinaryExits(s, place, actor, previous) {
+  return limitedExits(s, place, rawOrdinaryExits(s, place, actor, previous));
+}
+// A doorway into another part of the same isolated home still needs a way out.
+// Capacity is checked when traveling, so a crowded shore remains a waiting case.
+function ordinaryRouteHome(s, place, destination, actor, previous) {
+  const queue = [[place, previous]],
+    visited = new Set([place]);
+  for (let i = 0; i < queue.length; i++) {
+    const [from, before] = queue[i];
+    if (from === destination) return true;
+    for (const to of ordinaryExits(s, from, actor, before)) {
+      if (
+        visited.has(to) ||
+        !entityActive(s, to) ||
+        !actorCanVisit(actor, to, s)
+      )
+        continue;
+      visited.add(to);
+      queue.push([to, from]);
+    }
+  }
+  return false;
+}
+function homeRescueExit(s, place, actor = currentActor(s), previous = null) {
+  const gate = homeGates[place];
+  actor ||= currentActor(s);
+  return gate &&
+    (controlledByHuman(s, actor) ||
+      homeOf(actor) === place ||
+      (gate.opening && knownActors(s).includes(actor))) &&
+    s.actors[actor]?.place === place &&
+    !ordinaryRouteHome(s, place, gate.rescue, actor, previous) &&
+    !homeGateRecoverable(s, place, gate, actor)
+    ? // With its rescue place asleep, the first pack on takes them in (rules 98).
+      entityActive(s, gate.rescue)
+      ? gate.rescue
+      : firstStart(s)
+    : null;
+}
+function insideLampRemedy(s, actor) {
+  const here = s.actors[actor].place,
+    lamp = itemPlace(s, "lamp"),
+    oil = itemPlace(s, "oil");
+  if (
+    !atticInterior.has(here) ||
+    !ordinaryRouteHome(s, here, lamp, actor) ||
+    !ordinaryRouteHome(s, lamp, "attic", actor)
+  )
+    return false;
+  const at = (place) => ({
+    ...s,
+    actors: { ...s.actors, [actor]: { ...s.actors[actor], place } },
+  });
+  if (!localGateResource(at(lamp), lamp, "lamp", actor)) return false;
+  return (
+    s.items.lamp.fuel > 0 ||
+    (ordinaryRouteHome(s, here, oil, actor) &&
+      ordinaryRouteHome(s, oil, lamp, actor) &&
+      localGateResource(at(oil), oil, "oil", actor))
+  );
+}
+// Recover a gate resource left beyond the mirror after reachable remedies are gone.
+function pondRescueExit(s, place, actor, previous) {
+  actor ||= currentActor(s);
+  const lamp = itemPlace(s, "lamp"),
+    oil = itemPlace(s, "oil");
+  // The flask is always full; it matters while it is shut inside with the lamp empty.
+  if (
+    place !== "pond" ||
+    s.actors[actor]?.place !== place ||
+    (!controlledByHuman(s, actor) && !knownActors(s).includes(actor)) ||
+    !(atticInterior.has(lamp) || atticInterior.has(oil)) ||
+    ordinaryRouteHome(s, place, "attic", actor, previous)
+  )
+    return null;
+  if (
+    ordinaryRouteHome(s, place, lamp, actor, previous) &&
+    (s.items.lamp.fuel > 0 || ordinaryRouteHome(s, place, oil, actor, previous))
+  )
+    return null;
+  if (
+    knownActors(s).some(
+      (id) =>
+        (!controlledByHuman(s, id) || humanPresent(s, id)) &&
+        (insideLampRemedy(s, id) ||
+          (!atticInterior.has(lamp) &&
+            s.actors[id].place === "attic" &&
+            homeRescueExit(s, "attic", id) &&
+            localGateResource(s, "attic", "oil", id))),
+    )
+  )
+    return null;
+  return "attic";
+}
+export function exits(s, place, actor = null, previous = null) {
+  const rescue = homeRescueExit(s, place, actor, previous),
+    returnPath = pondRescueExit(s, place, actor, previous);
+  const ways = [
+    ...ordinaryExits(s, place, actor, previous),
+    ...(rescue ? [rescue] : []),
+    ...(returnPath ? [returnPath] : []),
+  ];
+  // A guardable way, and the way back through it (rules 100).
+  for (const to of guardedExits(s, place))
+    if (!ways.includes(to)) ways.push(to);
+  return limitedExits(s, place, ways.filter(
+    (to) =>
+      entityActive(s, to) &&
+      actorCanVisit(actor, to, s) &&
+      humanRoomAvailable(s, actor, to) &&
+      personalRouteOpen(s, place, to, actor || currentActor(s)) &&
+      !guardOf(s, place, to, actor),
+  ));
+}
+
+// A sealed way (rules 95): a pack route that names its sealed card and the
+// quest that opens it, while it is shut from where the traveller stands.
+// A guarded way shows the same sealed card while its guard bars it, and the
+// reason names the guard (rules 100); it gives its quest if the route has one.
+let sealedRoutes = null;
+export function sealedWays(s, actor = currentActor(s)) {
+  sealedRoutes ??= packDefinitions.flatMap((pack) =>
+    (pack.routes || []).filter((r) => r.sealed || isGuardable(r.from, r.to)),
+  );
+  const here = s.actors[actor]?.place,
+    ways = [
+      ...sealedRoutes.filter((r) => r.from === here),
+      // A guard bars his way from both sides (rules 100).
+      ...guardedFrom(here).map((to) => ({ from: here, to })),
+    ].filter((r) => entityActive(s, r.to) && entityActive(s, here));
+  if (!ways.length) return [];
+  const open = exits(s, here, actor),
+    seen = new Set();
+  return ways
+    .filter((r) => !open.includes(r.to))
+    .flatMap((r) => {
+      const guard = guardOf(s, here, r.to, actor);
+      if (!guard) return r.sealed ? [r] : [];
+      // The card beyond a guarded way is locked; its reason names the guard
+      // and gives no quest (rules 102). Talk with him gives his.
+      const reason = `${nameOf(guard)} is guarding this card`;
+      return [{ ...r, sealed: { reason }, guardedBy: guard }];
+    })
+    .filter((r) => !seen.has(r.to) && seen.add(r.to));
+}
+// The quest a sealed card gives: the thing to hold, or to give someone, the
+// place to reach or the person to talk with.
+const gateQuest = (s, { kind, target, to }) => ({
+  kind,
+  target,
+  since: s.turn,
+  refusals: 0,
+  story: true,
+  ...(to ? { step: { verb: "give", to } } : {}),
+});
+// Before the pond, Vale stays in an opening home, its rescue or the station.
+const openingPlace = (place) =>
+  Object.entries(homeGates).some(
+    ([home, gate]) =>
+      gate.opening && [home, gate.rescue, "station"].includes(place),
+  );
+// A crossing out of an opening home taken (a scarf's attic stair) crosses
+// the opening without the pond, so Moth may be still unmet (rules 97).
+const leftHome = (s) =>
+  s.opening?.leftHome === true || crossings.some(
+    (c) => homeGates[c.from]?.opening && s.crossings?.[c.id]?.discovered,
+  );
+function meetPackCast(s, player) {
+  for (const [id, a] of Object.entries(packPeople))
+    if (entityActive(s, id) && s.actors[id].place === s.actors[player].place)
+      s.packs[a.packId].met && (s.packs[a.packId].met[id] ??= s.turn);
+}
+function meetCast(s) {
+  const player = currentActor(s);
+  meetPackCast(s, player);
+  if (controlledByHuman(s, player))
+    applyMeetingChoices(s, player, Object.keys(places));
+  // Arrival can awaken a resident through a meeting choice. Record that
+  // encounter before the opening ledger sees the newly active resident too.
+  meetPackCast(s, player);
+  if (!s.opening || (player !== "vale" && !s.opening.crossed)) return;
+  // The pond crosses the opening, as does leaving its home another way (a
+  // scarf's stair down to the forest cottage); Vale still meets people one
+  // by one after either.
+  if (
+    player === "vale" &&
+    (s.actors.vale.place === "pond" || !openingPlace(s.actors.vale.place))
+  )
+    s.opening.crossed = true;
+  if (!s.opening.crossed) {
+    for (const id of roamingActors)
+      if (entityActive(s, id) && s.actors[id].place === s.actors[player].place)
+        s.opening.met[id] ??= s.turn;
+    return;
+  }
+  for (const id of actorIds)
+    if (
+      entityActive(s, id) &&
+      s.actors[id].place === s.actors[player].place &&
+      s.opening.met[id] === undefined
+    )
+      s.opening.met[id] = s.turn;
+}
+const canReach = (s, actor, item) =>
+  (itemPlace(s, item) === s.actors[actor].place &&
+    !actorIds.includes(rootHolder(s, item))) ||
+  rootHolder(s, item) === actor;
+const canUse = canReach;
+const loadOf = (s, id) => 1 + (s.items.cloth.holder === id ? 1 : 0);
+const hasSpace = (s, actor, id) =>
+  carried(s, actor).length +
+    (rootHolder(s, id) === actor ? 0 : loadOf(s, id)) <=
+  3;
+// A want in words, for cards and history.
+export function wantText(want) {
+  if (!want) return "nothing in particular";
+  const step = want.step,
+    what = nameOf(want.target),
+    // Players see Strike for the attack play.
+    verb = step?.verb === "attack" ? "strike" : step?.verb;
+  if (step?.verb === "lay")
+    return `lay ${step.items.map(nameOf).join(", ")} in ${what}`;
+  if (step?.verb === "give") return `give ${what} to ${nameOf(step.to)}`;
+  // Eat or drink one, with someone, somewhere (rules 102).
+  if (step?.verb === "eat")
+    return `${consumable(want.target) === "drink" ? "drink" : "eat"} ${what}${step.with ? ` with ${nameOf(step.with)}` : ""}${step.at ? ` at ${nameOf(step.at)}` : ""}`;
+  // Talk's quest to bring a person somewhere, or to someone (rules 99).
+  if (step?.verb === "bring" && want.kind === "person")
+    return `bring ${what} to ${nameOf(step.at ?? step.to)}`;
+  if (step?.verb === "bring")
+    return step.to
+      ? `bring ${what} to ${nameOf(step.to)} at ${nameOf(step.at)}`
+      : `bring ${what} home to ${nameOf(step.at)}`;
+  if (step?.at) return `${verb} ${what} at ${nameOf(step.at)}`;
+  if (step?.verb === "rest") return `rest at ${what}`;
+  if (step) return `${verb} ${what}`;
+  if (want.kind === "item")
+    return `hold ${want.lit === undefined ? "" : want.lit ? "the lit " : "the dark "}${nameOf(want.target)}`;
+  if (want.kind === "place") return `go to ${nameOf(want.target)}`;
+  if (want.kind === "connect") return "introduce two people";
+  return `talk with ${nameOf(want.target)}`;
+}
+const bundle = (s, item) => [
+  item,
+  ...(s.items.cloth.holder === item ? ["cloth"] : []),
+];
+// An item is needed when it is, or carries, the actor's wanted item.
+const needed = (s, actor, item) =>
+  questsOf(s, actor).some(
+    (want) => want.kind === "item" && bundle(s, item).includes(want.target),
+  );
+// An away traveler's avatar, played as a resident, is no one's to ask,
+// threaten, trade with or draw into a fight (rules 98).
+const humanHeld = (s, id) => controlledByHuman(s, id) || residentAvatar(s, id);
+export function willingToGive(s, owner, item, recipient = null) {
+  return (
+    !humanHeld(s, owner) &&
+    recipient !== null &&
+    !resentment(s, owner, recipient) &&
+    !needed(s, owner, item) &&
+    giftDecision(s, owner, item, recipient).accepted
+  );
+}
+// A trade is possible when both items are in hand and both sides have room.
+// Whether the other side agrees is decided when the trade is played.
+export function tradePossible(s, actor, give, receive) {
+  const other = s.items[receive]?.holder;
+  if (
+    s.items[give]?.holder !== actor ||
+    !actorIds.includes(other) ||
+    !knownActors(s).includes(other) ||
+    other === actor ||
+    controlledByHuman(s, other) ||
+    s.actors[actor].place !== s.actors[other].place
+  )
+    return false;
+  const outgoing = loadOf(s, give),
+    incoming = loadOf(s, receive);
+  return (
+    carried(s, actor).length - outgoing + incoming <= 3 &&
+    carried(s, other).length - incoming + outgoing <= 3
+  );
+}
+// Nobody trades away their own want; anyone takes it in trade.
+// A grudge raises the price in tradeDecision; the other side's own want is
+// worth any grudge.
+function tradeWilling(s, actor, give, receive) {
+  const other = s.items[receive].holder;
+  return (
+    !needed(s, other, receive) &&
+    (needed(s, other, give) || tradeDecision(s, actor, give, receive).accepted)
+  );
+}
+export function canTrade(s, actor, give, receive) {
+  return (
+    tradePossible(s, actor, give, receive) &&
+    tradeWilling(s, actor, give, receive)
+  );
+}
+function giftWilling(s, item, recipient) {
+  return (
+    controlledByHuman(s, recipient) ||
+    needed(s, recipient, item) ||
+    valueOf(s, recipient, item) >= 2
+  );
+}
+// Refusals commit a code on the play; the refuser's own line voices it.
+export const REFUSAL_REASONS = ["grudge", "needs-it", "wants-something-else"];
+export const REFUSED_VERBS = ["give", "trade", "ask", "accompany", "eat"];
+// A companion shares a meal or a drink (rules 102) as it consents to other
+// social plays: awake, out of any fight, at peace, with no grudge, and
+// either trusting the host or wanting this very meal with them.
+function shareDecision(s, actor, companion) {
+  if (controlledByHuman(s, companion)) return true;
+  return (
+    !residentAsleep(s, companion) &&
+    !standoffFor(s, actor) &&
+    !standoffFor(s, companion) &&
+    s.peaceUntil[companion] <= s.turn &&
+    !resentment(s, companion, actor) &&
+    ((s.actors[companion].trust?.[actor] || 0) > 0 ||
+      questsOf(s, companion).some(
+        (w) => w.step?.verb === "eat" && w.step.with === actor,
+      ))
+  );
+}
+function refusalReason(s, a) {
+  const other = a.kind === "trade" ? s.items[a.receive].holder : a.target;
+  if (resentment(s, other, a.actor)) return "grudge";
+  if (a.kind === "trade" && needed(s, other, a.receive)) return "needs-it";
+  if (
+    a.kind === "ask" &&
+    (needed(s, other, a.item) || keepReason(s, other, a.item))
+  )
+    return "needs-it";
+  return "wants-something-else";
+}
+// What the other side will say to a Give or Trade. The residents' planner
+// reads this to avoid some offers it expects to be refused.
+export function expects(s, a) {
+  if (a.kind === "give")
+    return residentAsleep(s, a.target) || giftWilling(s, a.item, a.target);
+  if (a.kind === "trade") return tradeWilling(s, a.actor, a.item, a.receive);
+  return true;
+}
+// Places an actor can route to now, for drawing a next want.
+// A resident kept to a range searches only within it (rules 100).
+function reachable(s, actor, within = null) {
+  const from = s.actors[actor].place,
+    seen = new Set([from]),
+    queue = [from];
+  for (let i = 0; i < queue.length; i++)
+    for (const next of exits(s, queue[i], actor))
+      if (
+        !seen.has(next) &&
+        entityActive(s, next) &&
+        (!within || within(next))
+      ) {
+        seen.add(next);
+        queue.push(next);
+      }
+  return [...seen].filter((id) => id !== from && !transportPlace(id)).sort();
+}
+const homeOf = (id) =>
+  (packPeople[id]?.levelAtHome && packPeople[id].home) ||
+  tastes[id]?.home ||
+  humanAvatar(id)?.home?.id ||
+  null;
+// Avatars that became residents of a shared world (#1846) take a want at once.
+export const fillSeatWants = (s) => fillWants(s, wantAPI(s), true);
+// The world reads the want rules use, exported for their tests.
+export function wantAPI(s) {
+  return {
+    carried: (actor) => carried(s, actor),
+    rootHolder: (item) => rootHolder(s, item),
+    valueOf: (actor, item) => !controlledByHuman(s, actor) && reservedItem(s, item)
+      ? 1 : valueOf(s, actor, item),
+    // A resident holding the item directly would give it, or take something
+    // the actor carries in trade. A human holder or a nested item may yet.
+    obtainable: (actor, item) => {
+      const owner = s.items[item].holder;
+      return (
+        !actorIds.includes(owner) ||
+        controlledByHuman(s, owner) ||
+        willingToGive(s, owner, item, actor) ||
+        carried(s, actor).some(
+          (give) => give !== item && tradeWilling(s, actor, give, item),
+        )
+      );
+    },
+    // A resident kept to a range only wants what lies within it (rules 100).
+    reachable: (actor) => reachable(s, actor, rangeTest(s, actor)),
+    rangeTest: (actor) => rangeTest(s, actor),
+    wanders: (actor) => wanders(s, actor),
+    places: () => Object.keys(places),
+    home: homeOf,
+    active: (id) => entityActive(s, id),
+    sanctuaries,
+    player: (id) => id === currentActor(s) || heldByHuman(s, id),
+    questsBeginAt: forest.questsBeginAt,
+    placeOf: (item) => itemPlace(s, item),
+    distance: (from, to, actor) =>
+      from === to ? 0 : (routeBetween(s, from, to, actor)?.length ?? 0) - 1,
+    log: (actor, want, xp) =>
+      addLog(
+        s,
+        "World",
+        want.kind === "item"
+          ? `${nameOf(actor)} has the ${nameOf(want.target)} at last.`
+          : want.kind === "place"
+            ? `${nameOf(actor)} reaches ${nameOf(want.target)}.`
+            : want.kind === "connect"
+              ? `${nameOf(actor)} makes an introduction at last.`
+              : `${nameOf(actor)} and ${nameOf(want.target)} talk at last.`,
+        {
+          kind: "narration",
+          actorId: actor,
+          verb: "want_met",
+          wantMet: { kind: want.kind, target: want.target },
+          wantKey: wantKey(actor, want),
+          ...(xp > 1 ? { questXp: xp } : {}),
+          ...(want.kind === "item" ? { itemId: want.target } : {}),
+          ...(want.kind === "person" ? { targetId: want.target } : {}),
+        },
+      ),
+  };
+}
+// Who can meet a want this turn: the cast that acts and the people it met.
+// Pack residents join only when they act or are spoken to, so a resident
+// already at its wanted place does not fill the history unseen.
+function wantActors(s, extra = []) {
+  return [
+    ...new Set([
+      ...actorIds.filter(
+        (id) =>
+          travels(id, s) &&
+          entityActive(s, id) &&
+          (!controlledByHuman(s, id) || humanPresent(s, id)),
+      ),
+      ...extra,
+    ]),
+  ].filter((id) => s.actors[id] && entityActive(s, id));
+}
+export function addLog(s, speaker, text, detail = {}) {
+  const actorId =
+    detail.actorId ?? actorIds.find((id) => nameOf(id) === speaker) ?? null;
+  const locationId =
+    detail.locationId || s.actors[actorId || currentActor(s)].place;
+  if (s.eventSeq === undefined) {
+    s.log.forEach((entry, index) => {
+      entry.seq = index + 1;
+    });
+    s.eventSeq = s.log.length;
+  }
+  s.eventSeq += 1;
+  s.log.push({
+    seq: s.eventSeq,
+    turn: s.turn,
+    speaker,
+    text,
+    kind:
+      detail.kind ||
+      (speaker === "You" ? "input" : actorId ? "dialogue" : "narration"),
+    actorId,
+    locationId,
+    cast: knownActors(s).filter(
+      (id) =>
+        s.actors[id].place === locationId &&
+        (!controlledByHuman(s, id) || humanPresent(s, id)),
+    ),
+    items: ids
+      .filter((id) => entityActive(s, id) && itemPlace(s, id) === locationId)
+      .map((id) => {
+        const { history, ...item } = s.items[id];
+        return { id, ...item };
+      }),
+    light: shining(s) && itemPlace(s, "lamp") === locationId,
+    ...detail,
+  });
+  const entry = s.log.at(-1);
+  if (
+    !entry.generated &&
+    entry.actorId === currentActor(s) &&
+    entry.fromLocationId &&
+    entry.fromLocationId !== entry.locationId &&
+    (["move", "retreat", "sent-home"].includes(entry.verb) ||
+      (entry.verb === "accompany" && entry.accepted))
+  )
+    s.arrival = {
+      seq: entry.seq,
+      fromLocationId: entry.fromLocationId,
+      locationId: entry.locationId,
+    };
+  rememberEvent(s, entry);
+  witnessKnowledge(
+    s,
+    entry,
+    (id) =>
+      entityActive(s, id) && (!controlledByHuman(s, id) || humanPresent(s, id)),
+    authoredKnowledgeTopics(),
+  );
+  trimLog(s);
+}
+
+const authoredKnowledgeTopics = () =>
+  packDefinitions.flatMap((pack) =>
+    (pack.topics || []).map((topic) => ({ ...topic, packId: pack.id })),
+  );
+function talkKnowledge(s, action, entry) {
+  const pairs = controlledByHuman(s, action.actor)
+    ? [
+        [action.target, action.actor],
+        [action.actor, action.target],
+      ]
+    : [
+        [action.actor, action.target],
+        [action.target, action.actor],
+      ];
+  for (const [speaker, listener] of pairs) {
+    if (expressionOf(people[speaker]) !== "speech") continue;
+    // A story choice is the listener's own deed: only their Talk commits it,
+    // at the play, whether or not the line is ever voiced. A resident who
+    // seeks them out may tell the account, which their own later Talk can
+    // still turn into the choice, one choice per turn.
+    const choices = listener === action.actor ? packChoices(s, listener) : [];
+    const topics = authoredKnowledgeTopics()
+      .filter((topic) =>
+        conditionsMet(s, topic.packId, topic.requires || [], listener),
+      )
+      .map((topic) => ({
+        ...topic,
+        choiceReady: choices.some(
+          (a) => a.packId === topic.packId && a.choiceId === topic.choiceId,
+        ),
+      }));
+    // At a port or aboard, talk turns to the ships unless an authored story
+    // choice is ready here; elsewhere a lane is told when there is nothing
+    // newer to say.
+    const lane = laneToTell(s, speaker, listener);
+    const port =
+      lane && atPort(s, speaker) && !topics.some((topic) => topic.choiceReady);
+    if (port && reserveLaneKnowledge(s, speaker, listener, entry, lane)) break;
+    const told = reserveKnowledge(s, speaker, listener, entry, topics);
+    if (told?.commitChoice) commitTopicChoice(s, told);
+    if (told) break;
+    if (
+      lane &&
+      !port &&
+      reserveLaneKnowledge(s, speaker, listener, entry, lane)
+    )
+      break;
+  }
+}
+function commitTopicChoice(s, told) {
+  const topic = s.knowledge.facts[told.factId].source.topic;
+  const action = packChoices(s, told.listener).find(
+    (a) => a.packId === topic.packId && a.choiceId === topic.choiceId,
+  );
+  if (!action || Object.values(s.packs[topic.packId].receipts).includes(s.turn))
+    return;
+  applyPackChoice(s, action);
+  addLog(s, "World", action.text, {
+    kind: "action",
+    actorId: told.listener,
+    verb: "choose",
+    packId: action.packId,
+    choiceId: action.choiceId,
+    targetId: action.target,
+    locationId: s.actors[told.listener].place,
+  });
+}
+const atPort = (s, actor) =>
+  Object.values(transports).some(
+    (t) =>
+      t.place === s.actors[actor].place ||
+      t.docks.includes(s.actors[actor].place),
+  );
+// A lane the speaker knows and the listener does not, nearest first.
+function laneToTell(s, speaker, listener) {
+  const here = s.actors[speaker].place;
+  const ship = Object.entries(transports).find(([, t]) => t.place === here);
+  const near = ship ? s.transports[ship[0]].dock : here;
+  const lanes = laneEdges()
+    .map(laneOfEdge)
+    .filter(
+      ([from, to]) =>
+        entityActive(s, from) &&
+        entityActive(s, to) &&
+        knowsLane(s, speaker, from, to) &&
+        !knowsLane(s, listener, from, to),
+    )
+    .sort(
+      ([a, b], [c, d]) =>
+        Number(c === near || d === near) - Number(a === near || b === near),
+    );
+  return lanes.length ? laneFact(...lanes[0]) : null;
+}
+// Talk context: the lanes a person at a port knows from it. Narration only.
+export function laneTalkFacts(s, actor) {
+  if (!s.actors[actor] || !atPort(s, actor)) return [];
+  const here = s.actors[actor].place;
+  const ship = Object.entries(transports).find(([, t]) => t.place === here);
+  const near = ship ? s.transports[ship[0]].dock : here;
+  const known = laneEdges()
+    .map(laneOfEdge)
+    .filter(
+      ([from, to]) =>
+        from === near && entityActive(s, to) && knowsLane(s, actor, from, to),
+    )
+    .map(([, to]) => nameOf(to));
+  return known.length
+    ? [`I know ships sail from ${nameOf(near)} to ${known.join(" and ")}.`]
+    : [`I know of no ship lane from ${nameOf(near)}.`];
+}
+// A gated lane is told with its condition; telling it never opens it. A
+// named thing is told by name; a world's things as "something from there",
+// or by the world's short name when it is one of several choices.
+const worldName = (pack) =>
+  packDefinitions.find((p) => p.id === pack)?.name.split(":")[0] ?? "there";
+const needOf = (c, choice = false) =>
+  c.kind === "any"
+    ? [...new Set(c.conditions.map((r) => needOf(r, true)))].join(" or ")
+    : c.item
+      ? nameOf(c.item)
+      : choice && c.pack
+        ? `something from ${worldName(c.pack)}`
+        : "something from there";
+const laneNeed = (gate) =>
+  [...new Set(gate.map((c) => needOf(c)))].join(" and ");
+export const laneFact = (from, to) => {
+  const gate = laneConditions(from, to);
+  return {
+    id: `lane:${from}>${to}`,
+    text: gate
+      ? `Ships for ${nameOf(to)} leave from ${nameOf(from)} only with ${laneNeed(gate)} aboard.`
+      : `Ships for ${nameOf(to)} leave from ${nameOf(from)}.`,
+  };
+};
+const laneFactText = (id) => {
+  const [from, to] = id.startsWith("lane:") ? id.slice(5).split(">") : [];
+  return from &&
+    to &&
+    laneEdges().some(([a, b]) => a === `sea:${from}` && b === `sea:${to}`)
+    ? laneFact(from, to).text
+    : null;
+};
+
+// Only recorded speech teaches a selected account. Its story choice was
+// already committed by the Talk that reserved it.
+export function publishKnowledgeSpeech(s, entry, disclosures) {
+  // An unnamed id has no name to stand for I or you.
+  const named = (id) => (nameOf(id) === "the world" ? null : nameOf(id));
+  const learned = acceptKnowledgeSpeech(s, entry, disclosures, named);
+  // A lane heard in published speech goes on the listener's own chart.
+  for (const { fact, listener } of learned)
+    if (fact.source.kind === "lane")
+      learnLane(s, listener, ...fact.id.slice(5).split(">"));
+  return learned;
+}
+// Rules read recent history, so generated words never shorten the authoritative
+// window. Each kind keeps its own limit; the same plays leave the same events.
+export const LOG_LIMIT = 100;
+const LAMP_FUEL = 12;
+export const GENERATED_LOG_LIMIT = 100;
+function trimLog(s) {
+  const authoritative = () => s.log.filter((entry) => !entry.generated).length;
+  while (authoritative() > LOG_LIMIT) {
+    // Keep scene beats when commands fill the history. Retain the latest event.
+    const last = s.log.findLastIndex((entry) => !entry.generated);
+    const hint = s.log.findIndex(
+      (entry, index) =>
+        !entry.generated &&
+        index < last &&
+        ["input", "hint"].includes(entry.kind),
+    );
+    s.log.splice(
+      hint >= 0 ? hint : s.log.findIndex((entry) => !entry.generated),
+      1,
+    );
+  }
+  // Generated words older than every remaining event have no scene to join.
+  while (
+    s.log.filter((entry) => entry.generated).length > GENERATED_LOG_LIMIT ||
+    s.log[0]?.generated
+  )
+    s.log.splice(
+      s.log.findIndex((entry) => entry.generated),
+      1,
+    );
+}
+function remember(s, item, text) {
+  s.items[item].history.push(`Turn ${s.turn}: ${text}`);
+  s.items[item].history = s.items[item].history.slice(-12);
+}
+function transfer(s, item, holder, text) {
+  s.items[item].holder = holder;
+  remember(s, item, text);
+}
+// A fuel item fills its empty target when one avatar holds both, then returns
+// full to its authored place. Forest data names the pair (oil refuels lamp).
+const fuelItems = Object.keys(forest.things).filter(
+  (id) => forest.things[id].refuels,
+);
+function refuelCarried(s) {
+  for (const id of fuelItems) {
+    const { refuels: target, returnsTo } = things[id];
+    const actor = rootHolder(s, id);
+    if (
+      !s.actors[actor] ||
+      rootHolder(s, target) !== actor ||
+      s.items[target].fuel !== 0 ||
+      !entityActive(s, id) ||
+      !entityActive(s, target)
+    )
+      continue;
+    const here = s.actors[actor].place;
+    const text = `${nameOf(actor)} empties the ${nameOf(id)} into the dry ${nameOf(target)}. The ${nameOf(target)} is full. Back at ${nameOf(returnsTo)}, the ${nameOf(id)} stands full again.`;
+    s.items[target].fuel = LAMP_FUEL;
+    remember(s, target, text);
+    transfer(s, id, returnsTo, text);
+    addLog(s, "World", text, {
+      kind: "narration",
+      verb: "refuel",
+      actorId: actor,
+      itemId: id,
+      targetId: target,
+      itemIds: [id, target],
+      locationId: here,
+      returnLocationId: returnsTo,
+    });
+  }
+}
+function offer(kind, actor, item, target, text, cards) {
+  return {
+    kind,
+    actor,
+    item,
+    target,
+    text,
+    cards,
+    key: [kind, actor, item || "", target || ""].join(":"),
+  };
+}
+// A battle holds its whole room. Its combatants are the keys of `resolve`,
+// in the order they joined; rules 84 keeps no sides.
+export const fightersOf = (c) => Object.keys(c.resolve);
+export function standoffFor(s, actor) {
+  return s.standoffs.find((c) => Object.hasOwn(c.resolve, actor));
+}
+export function opponentOf(c, actor) {
+  return c.challenger === actor ? c.defender : c.challenger;
+}
+// Strength in a contest goes by level tier: avatars in one tier are equal.
+const tierOf = (s, id) => levelTier(levelOf(s, id)).rank;
+export const outranks = (s, actor, other) =>
+  tierOf(s, actor) > tierOf(s, other);
+// The most a strike can land: 3 on a lower tier, 2 on the same, 1 on a higher.
+export function strikePower(s, actor, target) {
+  return 2 + Math.sign(tierOf(s, actor) - tierOf(s, target));
+}
+// A strike lands a seeded 1 to strikePower, rolled from the run seed and the
+// play, so every table and every replay agrees on it.
+export function strikeDamage(s, actor, target) {
+  const roll = runHash(s, `strike:${s.revision}:${actor}:${target}`);
+  return 1 + (roll % strikePower(s, actor, target));
+}
+function closeStandoff(s, c) {
+  s.standoffs = s.standoffs.filter((entry) => entry !== c);
+  for (const id of fightersOf(c)) s.peaceUntil[id] = s.turn + 3;
+}
+// Everyone present joins, except humans in shared play (#1511) and avatars
+// whose pack keeps them out of fights. Each joins with four resolve and must
+// play before a round without a Strike can complete.
+function joinBattle(s, c, id) {
+  c.resolve[id] = 4;
+  for (const field of ["guarding", "struck", "steppedBack"])
+    c[field][id] = false;
+  s.peaceUntil[id] = Math.min(s.peaceUntil[id], s.turn);
+}
+function leaveBattle(s, c, id) {
+  for (const field of ["resolve", "guarding", "struck", "steppedBack"])
+    delete c[field][id];
+  for (const map of [c.covering, c.hitBy])
+    for (const [key, value] of Object.entries(map || {}))
+      if (key === id || value === id) delete map[key];
+  s.peaceUntil[id] = s.turn + 3;
+}
+const fightsHere = (s, c, id) =>
+  [c.challenger, c.defender].includes(id) ||
+  (!avoidsStandoffs(id) && !(sharedEnabled(s) && humanHeld(s, id)));
+// Consecutive defeats per avatar. A win or a rest at a sanctuary clears it;
+// the third defeat sends the loser home with empty hands.
+export const DEFEATS_TO_SEND_HOME = 3;
+// A loss at zero resolve. The first two drop the disputed item and fall back
+// along an open path. The third drops everything the loser carries where they
+// fell and puts them at home. Being sent home is not a crossing.
+function defeatInStandoff(s, c, winner, loser, here) {
+  const defeats = (s.defeats ??= {});
+  delete defeats[winner];
+  const lossCount = (defeats[loser] || 0) + 1;
+  const home = homeOf(loser);
+  // A guard beaten at its post is knocked through the way it guards, even
+  // a third time: its home is the post (rules 100).
+  const post = guardPost(loser);
+  const knocked =
+    post?.from === here &&
+    !wayLifted(s, post.from, post.to) &&
+    entityActive(s, post.to) &&
+    actorCanVisit(loser, post.to, s);
+  const sentHome =
+    !knocked &&
+    lossCount >= DEFEATS_TO_SEND_HOME &&
+    Boolean(home) &&
+    entityActive(s, home) &&
+    actorCanVisit(loser, home, s);
+  const dropped = sentHome
+    ? ids.filter((id) => s.items[id].holder === loser)
+    : [
+        c.item && rootHolder(s, c.item) === loser
+          ? c.item
+          : ids.find(
+              (id) => s.items[id].holder === loser && needed(s, winner, id),
+            ),
+      ].filter(Boolean);
+  let text = "";
+  for (const id of dropped)
+    transfer(s, id, here, `${nameOf(loser)} yields the ${nameOf(id)}.`);
+  if (dropped.length)
+    text += ` ${nameOf(loser)} drops the ${dropped.map(nameOf).join(", the ")}.`;
+  if (lossCount >= DEFEATS_TO_SEND_HOME) delete defeats[loser];
+  else defeats[loser] = lossCount;
+  const outcome = sentHome ? "sent-home" : "yield";
+  const to = knocked
+    ? post.to
+    : sentHome
+      ? home
+      : exits(s, here, loser).find((next) => !isCourse(s, here, next, loser));
+  // The loser leaves the battle; it ends with one combatant left or the
+  // disputed item let go.
+  leaveBattle(s, c, loser);
+  const over = fightersOf(c).length < 2 || dropped.includes(c.item);
+  if (over) closeStandoff(s, c);
+  const ends = over ? " The battle ends." : "";
+  if (!to || to === here) {
+    text += sentHome
+      ? ` ${nameOf(loser)} is already home.${ends}`
+      : ` ${nameOf(loser)} yields here.${ends}`;
+    return { text, outcome, lossCount, droppedItemIds: dropped, to: null };
+  }
+  // A retreat walks an open path; being sent home crosses nothing.
+  if (!sentHome) markCrossed(s, here, to);
+  s.actors[loser].place = to;
+  moveTransport(s, here, to);
+  // A resident pushed from home walks back to it (rules 100).
+  if (
+    !humanHeld(s, loser) &&
+    rangeOf(s, loser) !== null &&
+    to !== lifeHome(loser, s)
+  )
+    s.actors[loser].homeward = true;
+  for (const id of carried(s, loser))
+    remember(s, id, `${nameOf(loser)} retreated to ${nameOf(to)} with it.`);
+  text += sentHome
+    ? ` ${nameOf(loser)} is beaten a third time and sent home to ${nameOf(to)}.${ends}`
+    : knocked
+      ? ` ${nameOf(loser)} is knocked through to ${nameOf(to)}.${ends}`
+      : ` ${nameOf(loser)} retreats to ${nameOf(to)}.${ends}`;
+  return {
+    text,
+    outcome,
+    lossCount,
+    droppedItemIds: dropped,
+    to,
+    arrivalText: sentHome
+      ? `${nameOf(loser)} arrives home at ${nameOf(to)} with empty hands after a third defeat by ${nameOf(winner)}.`
+      : `${nameOf(loser)} arrives at ${nameOf(to)} after yielding to ${nameOf(winner)}.`,
+  };
+}
+function settleStandoffs(s) {
+  for (const c of [...s.standoffs]) {
+    for (const id of fightersOf(c))
+      if (s.actors[id].place !== c.location) leaveBattle(s, c, id);
+    // Arrivals join the battle: there are no bystanders.
+    for (const id of actorIds)
+      if (
+        entityActive(s, id) &&
+        !Object.hasOwn(c.resolve, id) &&
+        s.actors[id].place === c.location &&
+        !standoffFor(s, id) &&
+        fightsHere(s, c, id) &&
+        (!controlledByHuman(s, id) || humanPresent(s, id))
+      )
+        joinBattle(s, c, id);
+    const separated = fightersOf(c).length < 2;
+    const released = c.item && rootHolder(s, c.item) !== c.defender;
+    // A resident challenger that has set the disputed item aside before
+    // any blow would only stand there; it lets the item go.
+    const forgone =
+      c.item &&
+      !controlledByHuman(s, c.challenger) &&
+      !Object.values(c.struck).some(Boolean) &&
+      !needed(s, c.challenger, c.item);
+    if (separated || released || forgone) {
+      closeStandoff(s, c);
+      addLog(
+        s,
+        "World",
+        separated
+          ? `The fighters part. The battle ends.`
+          : released
+            ? `The ${nameOf(c.item)} changes hands. The battle ends.`
+            : `${nameOf(c.challenger)} lets the ${nameOf(c.item)} go. The battle ends.`,
+        {
+          kind: "narration",
+          actorId: c.challenger,
+          targetId: c.defender,
+          itemId: c.item,
+          locationId: c.location,
+        },
+      );
+    }
+  }
+}
+// A joint trip follows the invited avatar's current target hands.
+export function accompanyDecision(
+  s,
+  actor,
+  companion,
+  destination,
+  routeApproved = false,
+) {
+  const here = s.actors[companion].place;
+  const invited =
+    controlledByHuman(s, actor) &&
+    !controlledByHuman(s, companion) &&
+    s.actors[actor].place === here &&
+    (routeApproved || exits(s, here, actor).includes(destination));
+  if (!invited && !actorCanVisit(companion, destination, s))
+    return { accepted: false, reason: "wants-something-else" };
+  if (standoffFor(s, actor) || standoffFor(s, companion))
+    return { accepted: false, reason: "wants-something-else" };
+  if (s.peaceUntil[companion] > s.turn)
+    return { accepted: false, reason: "wants-something-else" };
+  if (packPeople[companion]?.journey)
+    return invited && packJourneyDestination(s, companion) === destination
+      ? { accepted: true }
+      : { accepted: false, reason: "wants-something-else" };
+  if (resentment(s, companion, actor))
+    return socialTravel(s, actor, companion, destination);
+  // A companion goes along when the trip brings its own want closer.
+  const want = wantOf(s, companion);
+  // A companion stays near its wanted item when the requester carries it.
+  if (want?.kind === "item" && rootHolder(s, want.target) === actor)
+    return { accepted: true };
+  const goal =
+    want?.kind === "place"
+      ? want.target
+      : want?.kind === "person"
+        ? s.actors[want.target]?.place
+        : want?.kind === "item" && rootHolder(s, want.target) !== companion
+          ? itemPlace(s, want.target)
+          : null;
+  const distance = (from, to) => {
+    const route = routeBetween(s, from, to);
+    return route ? route.length - 1 : Infinity;
+  };
+  if (
+    goal &&
+    (goal === destination || distance(destination, goal) < distance(here, goal))
+  )
+    return { accepted: true };
+  if (s.actors[companion].trust[actor] > 0) return { accepted: true };
+  return socialTravel(s, actor, companion, destination);
+}
+
+export function legalActions(s, actor = currentActor(s)) {
+  if (
+    !s.actors[actor] ||
+    (!entityActive(s, actor) && !roamingQuestActor(actor, s))
+  )
+    return [];
+  const here = s.actors[actor].place;
+  // Sleep is a Wait that lasts until something changes. A sleeper may sleep
+  // on or choose any other play, which wakes it first.
+  const asleep = Boolean(s.actors[actor].sleeping),
+    sleep = {
+      ...offer("wait", actor, null, null, `${nameOf(actor)} sleeps.`, []),
+      key: `sleep:${actor}::`,
+      label: "Sleep",
+      sleep: true,
+    };
+  const out = [
+    ...(asleep ? [sleep] : []),
+    offer("wait", actor, null, null, `${nameOf(actor)} waits one turn.`, []),
+  ];
+  const conflict = standoffFor(s, actor);
+  if (conflict)
+    out.push(
+      offer("guard", actor, null, null, `${nameOf(actor)} braces.`, [actor]),
+    );
+  // A player's Wait after a Wait may become Sleep, never aboard, mid-fight,
+  // or beside a lamp about to burn its last oil.
+  else if (
+    !asleep &&
+    !transportPlace(here) &&
+    !lampGuttering(s, here) &&
+    (actor === currentActor(s) || controlledByHuman(s, actor)) &&
+    s.log.findLast(
+      (e) =>
+        e.kind === "action" &&
+        e.actorId === actor &&
+        !e.generated &&
+        e.verb !== "claim",
+    )?.verb === "wait"
+  )
+    out.push(sleep);
+  // A player may stand guard at a guardable way it could take: a standing
+  // Wait that lasts until its next other play (rules 100).
+  if (
+    !conflict &&
+    !transportPlace(here) &&
+    (actor === currentActor(s) || controlledByHuman(s, actor))
+  ) {
+    const open = exits(s, here, actor);
+    for (const to of guardableWays(here).filter((to) => open.includes(to)))
+      out.push({
+        ...offer(
+          "wait",
+          actor,
+          null,
+          to,
+          `${nameOf(actor)} guards the way to ${nameOf(to)}.`,
+          [actor, to],
+        ),
+        key: `guard-way:${actor}::${to}`,
+        label: "Guard",
+        guards: to,
+      });
+  }
+  for (const to of packPeople[actor]?.journey ? [] : exits(s, here, actor)) {
+    if (departureWaits(s, actor, to)) continue;
+    // A course card aboard a docked ship sets the voyage for everyone aboard.
+    if (isCourse(s, here, to, actor)) {
+      const course = offer(
+        "course",
+        actor,
+        null,
+        to,
+        `${nameOf(actor)} sets the ship's course for ${nameOf(to)}.`,
+        [to],
+      );
+      course.label = "Set course";
+      out.push(course);
+      continue;
+    }
+    const through = !baseExits(s, here).includes(to);
+    const crossing = crossingBetween(here, to, s);
+    const way = through
+      ? ` ${homeRescueExit(s, here, actor) === to || pondRescueExit(s, here, actor) === to ? "along a narrow path" : crossing?.travel || "through the reflection"}`
+      : "";
+    // A human can invite a willing resident along their open route.
+    for (const other of knownActors(s).filter(
+      (id) =>
+        (crossing?.travelers !== "player" || controlledByHuman(s, actor)) &&
+        (!transportPlace(here) ||
+          !crossing?.transport ||
+          canDisembark(s, crossing.transport, id)) &&
+        id !== actor &&
+        !controlledByHuman(s, id) &&
+        !guardOf(s, here, to, id) &&
+        ((!staysPut(id, s) && !keepsHome(s, id)) ||
+          packJourneyDestination(s, id) === to) &&
+        !departureWaits(s, id, to) &&
+        s.actors[id].place === here,
+    )) {
+      const request = offer(
+        "accompany",
+        actor,
+        null,
+        other,
+        `${nameOf(actor)} asks ${nameOf(other)} to accompany them to ${nameOf(to)}.`,
+        [other, to],
+      );
+      request.destination = to;
+      request.key += `:${to}`;
+      out.push(request);
+    }
+    out.push(
+      offer(
+        "move",
+        actor,
+        null,
+        to,
+        crossing?.transport
+          ? `${nameOf(actor)} ${crossing.travelLabel === "Board" ? "boards" : "disembarks at"} ${nameOf(to)}.`
+          : `${nameOf(actor)} goes to ${nameOf(to)}${way}.`,
+        [to],
+      ),
+    );
+    for (const id of ids.filter((id) => s.items[id].holder === actor)) {
+      out.push(
+        offer(
+          "move",
+          actor,
+          id,
+          to,
+          crossing?.transport
+            ? `${nameOf(actor)} carries the ${nameOf(id)} ${crossing.travelLabel === "Board" ? "aboard" : "ashore at"} ${nameOf(to)}.`
+            : `${nameOf(actor)} carries the ${nameOf(id)} to ${nameOf(to)}${way}.`,
+          [id, to],
+        ),
+      );
+    }
+  }
+  for (const other of knownActors(s).filter(
+    (id) => id !== actor && s.actors[id].place === here,
+  )) {
+    // A resident with a temperament is greeted (or woken) rather than asked
+    // what it wants, and one that avoids standoffs cannot be threatened.
+    if (hasTemperament(other)) {
+      const greet = greeting(s, other, actor, senses);
+      const talk = offer("talk", actor, null, other, greet.text, [other]);
+      if (greet.label) talk.label = greet.label;
+      out.push(talk);
+    }
+    // In battle, Guard covers another combatant and Strike hits one.
+    if (conflict && Object.hasOwn(conflict.resolve, other)) {
+      out.push(
+        offer(
+          "intercept",
+          actor,
+          null,
+          other,
+          `${nameOf(actor)} covers ${nameOf(other)}.`,
+          [actor, other],
+        ),
+      );
+      // A sanctuary allows a threat but never an attack.
+      if (!sanctuaries.includes(here))
+        out.push(
+          offer(
+            "attack",
+            actor,
+            null,
+            other,
+            `${nameOf(actor)} attacks ${nameOf(other)}.`,
+            [other],
+          ),
+        );
+    } else if (
+      !(sharedEnabled(s) && humanHeld(s, other)) &&
+      !avoidsStandoffs(other) &&
+      !conflict &&
+      !standoffFor(s, other) &&
+      s.peaceUntil[actor] <= s.turn &&
+      s.peaceUntil[other] <= s.turn
+    ) {
+      const stake =
+        ids.find(
+          (id) => s.items[id].holder === other && needed(s, actor, id),
+        ) ||
+        ids.find((id) => s.items[id].holder === other) ||
+        null;
+      out.push(
+        offer(
+          "threaten",
+          actor,
+          stake,
+          other,
+          `${nameOf(actor)} threatens ${nameOf(other)}${stake ? ` over the ${nameOf(stake)}` : ""}.`,
+          [other],
+        ),
+      );
+    }
+    if (!hasTemperament(other))
+      out.push(
+        offer(
+          "talk",
+          actor,
+          null,
+          other,
+          `${nameOf(actor)} has a conversation with ${nameOf(other)}.`,
+          [other],
+        ),
+      );
+  }
+  for (const id of ids) {
+    const item = s.items[id];
+    if (
+      !entityActive(s, id) ||
+      itemPlace(s, id) !== here ||
+      (actorIds.includes(rootHolder(s, id)) &&
+        !knownActors(s).includes(rootHolder(s, id)))
+    )
+      continue;
+    if (
+      canReach(s, actor, id) &&
+      item.holder !== actor &&
+      hasSpace(s, actor, id)
+    ) {
+      out.push(
+        offer(
+          "take",
+          actor,
+          id,
+          null,
+          `${nameOf(actor)} ${things[item.holder] ? "uncovers and takes" : "takes"} the ${nameOf(id)}.`,
+          [id],
+        ),
+      );
+    }
+    if (item.holder === actor) {
+      // Food and drink are eaten or drunk by whoever holds them, alone or
+      // with someone here (rules 102).
+      const meal = consumable(id);
+      if (meal) {
+        const verb = meal === "drink" ? "drinks" : "eats";
+        out.push(
+          offer(
+            "eat",
+            actor,
+            id,
+            null,
+            `${nameOf(actor)} ${verb} the ${nameOf(id)}.`,
+            [id],
+          ),
+        );
+        for (const other of knownActors(s).filter(
+          (p) => p !== actor && s.actors[p].place === here,
+        ))
+          out.push(
+            offer(
+              "eat",
+              actor,
+              id,
+              other,
+              `${nameOf(actor)} ${verb} the ${nameOf(id)} with ${nameOf(other)}.`,
+              [id, other],
+            ),
+          );
+      }
+      out.push(
+        offer(
+          "drop",
+          actor,
+          id,
+          here,
+          `${nameOf(actor)} puts the ${nameOf(id)} in ${nameOf(here)}.`,
+          [id],
+        ),
+      );
+      for (const other of knownActors(s).filter(
+        (p) => p !== actor && s.actors[p].place === here && hasSpace(s, p, id),
+      )) {
+        out.push(
+          offer(
+            "give",
+            actor,
+            id,
+            other,
+            `${nameOf(actor)} gives the ${nameOf(id)} to ${nameOf(other)}.`,
+            [id, other],
+          ),
+        );
+      }
+    } else if (
+      actorIds.includes(item.holder) &&
+      item.holder !== actor &&
+      hasSpace(s, actor, id)
+    ) {
+      out.push(
+        offer(
+          "ask",
+          actor,
+          id,
+          item.holder,
+          `${nameOf(actor)} asks ${nameOf(item.holder)} for the ${nameOf(id)}.`,
+          [id, item.holder],
+        ),
+      );
+    }
+    if (!canUse(s, actor, id)) continue;
+    const belonging = humanAvatarIds
+      .map(humanAvatar)
+      .find((a) => a.id !== "vale" && a.item.id === id);
+    if (belonging) {
+      const use = offer(
+        "use",
+        actor,
+        id,
+        null,
+        `${nameOf(actor)} ${belonging.item.effect}.`,
+        [id],
+      );
+      use.label = belonging.item.verb;
+      out.push(use);
+    }
+    if (id === "lamp") {
+      if (item.lit)
+        out.push(
+          offer(
+            "snuff",
+            actor,
+            id,
+            null,
+            `${nameOf(actor)} puts out the Lamp.`,
+            [id],
+          ),
+        );
+      else if (item.fuel > 0)
+        out.push(
+          offer(
+            "light",
+            actor,
+            id,
+            null,
+            `${nameOf(actor)} lights the Lamp${covered(s, id) ? " under its cloth" : ""}.`,
+            [id],
+          ),
+        );
+    }
+    if (id === "bell" && !covered(s, id))
+      out.push(
+        offer(
+          "ring",
+          actor,
+          id,
+          null,
+          `${nameOf(actor)} rings the Bell. The sound carries across the shore.`,
+          [id],
+        ),
+      );
+    if (
+      id === "cloth" &&
+      canReach(s, actor, id) &&
+      item.holder !== "lamp" &&
+      item.holder !== "bell"
+    ) {
+      for (const target of ["lamp", "bell"].filter(
+        (t) =>
+          itemPlace(s, t) === here &&
+          canReach(s, actor, t) &&
+          (rootHolder(s, t) !== actor || hasSpace(s, actor, id)),
+      )) {
+        out.push(
+          offer(
+            "cover",
+            actor,
+            id,
+            target,
+            `${nameOf(actor)} covers the ${nameOf(target)} with the Black cloth.`,
+            [id, target],
+          ),
+        );
+      }
+    }
+  }
+  const payments = ids.filter((id) => s.items[id].holder === actor);
+  const tradePartners = new Set(
+    payments.length
+      ? knownActors(s).filter(
+          (other) =>
+            other !== actor &&
+            !humanHeld(s, other) &&
+            s.actors[other].place === here,
+        )
+      : [],
+  );
+  const tradeGoods = ids.filter((id) => tradePartners.has(s.items[id].holder));
+  for (const give of payments)
+    for (const receive of tradeGoods) {
+      if (!tradePossible(s, actor, give, receive)) continue;
+      const other = s.items[receive].holder;
+      const action = offer(
+        "trade",
+        actor,
+        give,
+        other,
+        `${nameOf(actor)} trades the ${nameOf(give)} for ${nameOf(other)}’s ${nameOf(receive)}.`,
+        [give, receive],
+      );
+      action.receive = receive;
+      action.key += ":" + receive;
+      out.push(action);
+    }
+  out.push(...fixtureOffers(s, actor, sensesFor(s)), ...packChoices(s, actor));
+  if (actor === currentActor(s) || controlledByHuman(s, actor))
+    for (const reward of questRewardsOf(s, actor))
+      out.push({
+        ...offer(
+          "claim",
+          actor,
+          null,
+          null,
+          reward.paid
+            ? `${nameOf(actor)} collects a completed quest.`
+            : `${nameOf(actor)} claims ${reward.xp} XP for a completed quest.`,
+          [],
+        ),
+        receipt: reward.id,
+        label: "Claim reward",
+        key: `claim:${actor}:${reward.id}`,
+      });
+  // A player may drop any quest in its stack (a level quest costs
+  // experience, `dropCost`), or choose one from beneath, which brings it to the top
+  // without taking a turn.
+  // A sealed card gives its quest, unless that quest is already on top.
+  if (controlledByHuman(s, actor))
+    for (const r of sealedWays(s, actor)) {
+      if (
+        !r.sealed.quest ||
+        allQuestsOf(s, actor).some((w) => questTerms(w) === questTerms(gateQuest(s, r.sealed.quest)))
+      )
+        continue;
+      out.push(offer("gate", actor, null, r.to, r.sealed.reason, [r.to]));
+    }
+  if (actor === currentActor(s) || controlledByHuman(s, actor))
+    questsOf(s, actor).forEach((w, quest) => {
+      const goal =
+        w.kind === "person" && !w.step
+          ? `meet ${nameOf(w.target)}`
+          : wantText(w);
+      const drop = offer(
+        "drop",
+        actor,
+        null,
+        null,
+        `${nameOf(actor)} abandons their quest to ${goal}.`,
+        [],
+      );
+      out.push({ ...drop, quest, key: `${drop.key}:${quest}` });
+      if (quest > 0) {
+        const focus = offer(
+          "focus",
+          actor,
+          null,
+          null,
+          `${nameOf(actor)} turns to another quest.`,
+          [],
+        );
+        out.push({ ...focus, quest, key: `${focus.key}:${quest}` });
+      }
+    });
+  for (const action of out) {
+    if (action.kind === "take" && things[s.items[action.item]?.holder])
+      action.label = "Uncover";
+    if (action.kind === "move") {
+      const crossing = crossingBetween(here, action.target, s);
+      if (crossing?.travelLabel) action.label = crossing.travelLabel;
+    }
+  }
+  // A sleeping resident is asked, traded with and invited only once awake;
+  // a Give it keeps for waking (rules 100).
+  const open = roomLocked(s, here, actor, out).filter(
+    (a) =>
+      !["ask", "trade", "accompany"].includes(a.kind) ||
+      !residentAsleep(s, a.target),
+  );
+  // Every Give and Trade is offered. While planning, residents only consider
+  // the offers they expect the other side to accept.
+  return planReads ? open.filter((a) => expects(s, a)) : open;
+}
+// A battle locks its room: nobody there leaves, talks or changes items until
+// it ends. Arrivals are locked in too. Wait and the battle's own plays stay,
+// and the threatened side may still hand over the demanded item.
+const ROOM_LOCKED = new Set([
+  "eat",
+  "talk",
+  "threaten",
+  "move",
+  "accompany",
+  "course",
+  "gate",
+  "take",
+  "drop",
+  "give",
+  "trade",
+  "ask",
+  "cover",
+]);
+function roomLocked(s, here, actor, actions) {
+  if (!s.standoffs.some((c) => c.location === here)) return actions;
+  const conflict = standoffFor(s, actor);
+  return actions.filter(
+    (a) =>
+      !ROOM_LOCKED.has(a.kind) ||
+      (a.kind === "drop" && !a.item) ||
+      (a.kind === "give" &&
+        conflict?.item === a.item &&
+        a.target === opponentOf(conflict, actor)),
+  );
+}
+// A selection names its plays. One that names the actor (Brace, Guard) wins
+// over the same cards without the actor (yourself + Pip threatens Pip).
+export function matchingActions(s, selected, actor = currentActor(s)) {
+  const all = [...new Set(selected)];
+  const set = all.filter((id) => id !== actor);
+  const match = (cards) => (a) =>
+    Array.isArray(a.cards) &&
+    a.cards.length === cards.length &&
+    cards.every((id) => a.cards.includes(id));
+  const actions = legalActions(s, actor);
+  const exact = all.length > set.length ? actions.filter(match(all)) : [];
+  return exact.length || !set.length ? exact : actions.filter(match(set));
+}
+function travelParty(s, actors, destination) {
+  const from = s.actors[actors[0]].place;
+  const through = !baseExits(s, from).includes(destination);
+  // The legal action approves the whole party before any carried key moves.
+  // Leaving the opening home anchors it, by its rescue path or through a
+  // mirror the doused lamp opened (#1600).
+  if (
+    homeGates[from]?.opening &&
+    (s.opening || homeRescueExit(s, from, actors[0]) === destination)
+  )
+    s.locations[from].anchored = true;
+  markCrossed(s, from, destination);
+  for (const actor of actors) applyDeparture(s, actor, destination);
+  for (const actor of actors) {
+    if (through) s.actors[actor].crossed += 1;
+    s.actors[actor].place = destination;
+    noteRoomArrival(s, actor);
+    for (const id of carried(s, actor))
+      remember(s, id, `${nameOf(actor)} carried it to ${nameOf(destination)}.`);
+  }
+  moveTransport(s, from, destination);
+  return through;
+}
+const travel = (s, actor, destination) => travelParty(s, [actor], destination);
+
+// Trust has one source: someone gave me the item I wanted.
+function trustGiver(s, recipient, item, giver) {
+  if (!needed(s, recipient, item) || !s.actors[recipient].trust) return;
+  s.actors[recipient].trust[giver] = Math.min(
+    3,
+    (s.actors[recipient].trust[giver] || 0) + 1,
+  );
+}
+// Wait is the only rest. Any Wait at a sanctuary, by a player or a resident,
+// clears every loss. A Wait anywhere else leaves losses as they are. Sleep, a
+// player's Wait after a Wait, lasts until something changes (wakeSleepers).
+// Nobody rests in the middle of a standoff.
+function rest(s, actor, here, sleep = false) {
+  if (standoffFor(s, actor)) return;
+  if (sanctuaries.includes(here) && s.defeats?.[actor]) delete s.defeats[actor];
+  if (sleep && !s.actors[actor].sleeping)
+    s.actors[actor].sleeping = {
+      since: s.turn,
+      place: here,
+      present: bodiesAt(s, here),
+    };
+}
+// Who is physically in a place: being discovered or met is not arriving.
+const bodiesAt = (s, place) =>
+  actorIds
+    .filter(
+      (id) =>
+        s.actors[id].place === place &&
+        (!controlledByHuman(s, id) || humanPresent(s, id)),
+    )
+    .sort();
+const witnessesAt = (s, place) =>
+  knownActors(s)
+    .filter((id) => entityActive(s, id) && bodiesAt(s, place).includes(id))
+    .sort();
+// A lit lamp here about to burn its last oil: Sleep would sleep through it.
+const lampGuttering = (s, place) =>
+  s.items.lamp.lit && s.items.lamp.fuel <= 1 && itemPlace(s, "lamp") === place;
+const WAKE_REASONS = [
+  "chose",
+  "moved",
+  "lamp",
+  "dry",
+  "arrival",
+  "departure",
+  "crossing",
+  "threat",
+  "dock",
+  "dawn",
+  "dusk",
+  "rested",
+];
+const SLEEP_TURNS = 24;
+// What a long rest may dream (rules 99): the halfway glimpse, or the level
+// quest it brings.
+const DREAMS = ["glimpse", "quest"];
+// Sleep always ends by the next light change, so no sleep is longer than one
+// light period. A long rest needs half of one: two cannot both begin and end
+// within one light period, so a sanctuary dreams at most once per period.
+export const LONG_SLEEP_TURNS = DAYLIGHT_TURNS / 2;
+// A sleeper wakes in the place it now stands. A sleep of LONG_SLEEP_TURNS or
+// more in the sanctuary where it fell asleep is a long rest; a shorter one
+// there is a short rest that only clears losses.
+function wakeUp(s, id, woke, text) {
+  const z = s.actors[id].sleeping,
+    here = s.actors[id].place;
+  delete s.actors[id].sleeping;
+  const sanctuary = here === z.place && sanctuaries.includes(here),
+    long = sanctuary && s.turn - z.since >= LONG_SLEEP_TURNS;
+  if (sanctuary && s.defeats?.[id]) delete s.defeats[id];
+  renewWant(s, id, wantAPI(s));
+  // A long rest may bring one dream: the halfway glimpse or the level quest.
+  const dream = long ? wake(s, id, wantAPI(s)) : null;
+  addLog(s, "World", text, {
+    kind: "action",
+    actorId: id,
+    verb: "wait",
+    locationId: here,
+    witnesses: witnessesAt(s, here),
+    woke,
+    ...(long ? { rest: "long" } : {}),
+    ...(dream ? { dream } : {}),
+  });
+}
+// After the lamp burns each round, every sleeper wakes at the first change
+// where it sleeps. `before` is the world as the round began.
+function wakeSleepers(s, before, voyages) {
+  for (const id of actorIds) {
+    const z = s.actors[id].sleeping;
+    // A resident's sleep keeps its schedule (residentRound).
+    if (!z || z.until !== undefined) continue;
+    // A traveller arriving or leaving is named before a resident.
+    const first = (list) =>
+      list.find((x) => controlledByHuman(s, x)) ?? list[0];
+    const who = nameOf(id),
+      here = s.actors[id].place,
+      now = bodiesAt(s, z.place).filter((x) => x !== id),
+      came = first(now.filter((x) => !z.present.includes(x))),
+      left = first(z.present.filter((x) => x !== id && !now.includes(x))),
+      dock = voyages.find((v) => v.kind === "arrive" && v.dock === z.place),
+      dry =
+        before.items.lamp.lit &&
+        !s.items.lamp.lit &&
+        s.items.lamp.fuel === 0 &&
+        itemPlace(s, "lamp") === z.place,
+      was = exits(before, z.place, id),
+      ways = exits(s, z.place, id);
+    const light = s.turn > z.since && s.turn % DAYLIGHT_TURNS === 0,
+      dusk = Math.floor(s.turn / DAYLIGHT_TURNS) % 2;
+    const [, woke, text] =
+      [
+        [here !== z.place, "moved", `wakes in ${nameOf(here)}`],
+        [lampGuttering(s, z.place), "lamp", "wakes as the lamp gutters"],
+        [dry, "dry", "wakes as the lamp runs dry"],
+        [came, "arrival", `wakes as ${came && nameOf(came)} arrives`],
+        [left, "departure", `wakes as ${left && nameOf(left)} leaves`],
+        [
+          ways.some((to) => !was.includes(to)),
+          "crossing",
+          "wakes as a way opens here",
+        ],
+        [
+          was.some((to) => !ways.includes(to)),
+          "crossing",
+          "wakes as a way here closes",
+        ],
+        [standoffFor(s, id), "threat", "wakes to a threat"],
+        [
+          dock,
+          "dock",
+          `wakes as ${dock && nameOf(transports[dock.id].place)} docks`,
+        ],
+        [light && dusk, "dusk", "wakes at dusk"],
+        [light, "dawn", "wakes at dawn"],
+        [s.turn - z.since >= SLEEP_TURNS, "rested", "wakes, rested"],
+      ].find(([hit]) => hit) ?? [];
+    if (woke) wakeUp(s, id, woke, `${who} ${text}.`);
+  }
+}
+// --- Rules 100: world life (resident-home, -sleep, -guard) ---------------
+// A resident asleep on its schedule wakes, at once, for a Talk, a threat, a
+// ring where it sleeps or being moved. It stays awake until its next bedtime.
+function wakeResident(s, id) {
+  if (!residentAsleep(s, id)) return false;
+  delete s.actors[id].sleeping;
+  return true;
+}
+// Where a resident's want would take it, or null.
+function wantPlace(s, id) {
+  const home = levelReturnHome(s, id);
+  if (home) return home;
+  const want = wantOf(s, id);
+  if (!want || resting(s, id)) return null;
+  if (want.kind === "place") return want.target;
+  if (want.kind === "person") return s.actors[want.target]?.place ?? null;
+  if (want.kind === "item" && rootHolder(s, want.target) !== id)
+    return itemPlace(s, want.target);
+  return null;
+}
+// After the cast has acted: who falls asleep or rises, then the walk home
+// and, at dawn and dusk, one step for each resident where no player is.
+// Sorted ids, at most OFFSTAGE_STEPS steps, starting further on each turn.
+function residentRound(s, acted) {
+  if (!worldLife.on) return;
+  const occupied = new Set(
+    actorIds
+      .filter((id) => controlledByHuman(s, id) && humanPresent(s, id))
+      .map((id) => s.actors[id].place),
+  );
+  const seen = (place) => occupied.has(place);
+  const life = actorIds
+    .filter(
+      (id) =>
+        !controlledByHuman(s, id) &&
+        !roamingActors.includes(id) &&
+        (!humanAvatar(id) || residentAvatar(s, id)) &&
+        entityActive(s, id),
+    )
+    .sort();
+  for (const id of life) {
+    const a = s.actors[id],
+      z = a.sleeping;
+    if (a.homeward && a.place === lifeHome(id, s)) delete a.homeward;
+    if (z?.until !== undefined) {
+      if (s.turn >= z.until || a.place !== z.place || standoffFor(s, id)) {
+        wakeResident(s, id);
+        if (seen(a.place))
+          addLog(s, "World", `${nameOf(id)} wakes.`, {
+            kind: "narration",
+            actorId: id,
+            locationId: a.place,
+          });
+      }
+      continue;
+    }
+    const w = bedtime(s, id);
+    if (
+      z ||
+      !w ||
+      a.slept === w.start ||
+      standoffFor(s, id) ||
+      transportPlace(a.place)
+    )
+      continue;
+    // A resident sleeps at home: away, it walks home first if it can.
+    const home = lifeHome(id, s);
+    if (
+      rangeOf(s, id) !== null &&
+      home &&
+      a.place !== home &&
+      entityActive(s, home) &&
+      stepToward(s, id, home).action?.kind === "move"
+    ) {
+      a.homeward = true;
+      continue;
+    }
+    a.slept = w.start;
+    a.sleeping = { since: s.turn, place: a.place, until: w.end };
+    if (seen(a.place))
+      addLog(s, "World", `${nameOf(id)} falls asleep.`, {
+        kind: "narration",
+        actorId: id,
+        locationId: a.place,
+      });
+  }
+  const dawnOrDusk = s.turn % DAYLIGHT_TURNS === 0;
+  const walkers = life.filter(
+    (id) =>
+      !acted.includes(id) &&
+      !s.actors[id].sleeping &&
+      !seen(s.actors[id].place) &&
+      !standoffFor(s, id) &&
+      s.peaceUntil[id] <= s.turn &&
+      (Number.isFinite(rangeOf(s, id)) || s.actors[id].homeward) &&
+      !transportPlace(s.actors[id].place),
+  );
+  const start = walkers.length ? s.turn % walkers.length : 0;
+  const moved = [];
+  let steps = 0;
+  for (const id of [...walkers.slice(start), ...walkers.slice(0, start)]) {
+    if (steps >= OFFSTAGE_STEPS) break;
+    const a = s.actors[id],
+      here = a.place,
+      home = lifeHome(id, s);
+    if (!home || !entityActive(s, home)) {
+      delete a.homeward;
+      continue;
+    }
+    const goal = wantPlace(s, id);
+    const ranged = Number.isFinite(rangeOf(s, id));
+    const idleAway = ranged && here !== home && !(goal && inRange(s, id, goal));
+    const target =
+      here !== home && (walksHome(s, id) || idleAway || (ranged && dawnOrDusk))
+        ? home
+        : dawnOrDusk &&
+            wanders(s, id) &&
+            goal &&
+            goal !== here &&
+            inRange(s, id, goal)
+          ? goal
+          : null;
+    if (!target) continue;
+    steps += 1;
+    const step = stepToward(s, id, target).action;
+    const to = step?.kind === "move" ? step.target : null;
+    if (!to || transportPlace(to) || (target !== home && !inRange(s, id, to)))
+      continue;
+    travel(s, id, to);
+    if (to === home) delete a.homeward;
+    moved.push(id);
+    if (seen(to) || seen(here))
+      addLog(
+        s,
+        "World",
+        seen(to)
+          ? `${nameOf(id)} arrives.`
+          : `${nameOf(id)} leaves for ${nameOf(to)}.`,
+        {
+          kind: "narration",
+          actorId: id,
+          locationId: seen(to) ? to : here,
+          fromLocationId: here,
+        },
+      );
+  }
+  if (!moved.length) return;
+  // Walking in where the player is, a resident is met there and then, as a
+  // player's own arrival meets who is there (rules 101, #2248).
+  const by = s.actors[currentActor(s)].place;
+  if (moved.some((id) => s.actors[id].place === by)) meetCast(s);
+  // Arriving meets a want for a place; two who meet off-stage meet a want
+  // to talk, as a rules fact without speech.
+  const api = wantAPI(s);
+  settleWants(s, moved, api);
+  for (const id of moved.sort()) {
+    const want = wantOf(s, id),
+      other = want?.kind === "person" ? want.target : null;
+    if (
+      other &&
+      s.actors[other]?.place === s.actors[id].place &&
+      !s.actors[other].sleeping &&
+      entityActive(s, other)
+    )
+      settleWants(s, [id, other], api, {
+        kind: "talk",
+        actor: id,
+        target: other,
+      });
+  }
+}
+// A battle ends after one full round without a Strike: every combatant has
+// played since the last Strike and none of those plays was one. A Strike
+// starts the round again; an arrival must play before it can complete.
+function perform(s, a, round = null, settle = []) {
+  const hands = handSnapshot(s);
+  settleStandoffs(s); // anyone who walked in joins before playing
+  const conflict = standoffFor(s, a.actor);
+  const result = performPlay(s, a, round, settle);
+  settleHeldItems(s, hands);
+  if (conflict && s.standoffs.includes(conflict)) {
+    const calm = conflict.steppedBack;
+    if (a.kind === "attack") for (const id in calm) calm[id] = false;
+    else if (Object.hasOwn(calm, a.actor)) calm[a.actor] = true;
+    if (Object.values(calm).every(Boolean)) {
+      closeStandoff(s, conflict);
+      addLog(s, "World", "Nobody strikes for a whole round. The battle ends.", {
+        kind: "narration",
+        actorId: a.actor,
+        locationId: conflict.location,
+      });
+    }
+  }
+  return result;
+}
+function performPlay(s, a, round = null, settle = []) {
+  const who = nameOf(a.actor);
+  const firstCrossing = actorIds.every((id) => s.actors[id].crossed === 0);
+  const here = s.actors[a.actor].place;
+  const witnesses = [
+    ...actorIds.filter(
+      (id) =>
+        entityActive(s, id) &&
+        s.actors[id].place === here &&
+        (!controlledByHuman(s, id) || humanPresent(s, id)),
+    ),
+    ...ids.filter((id) => entityActive(s, id) && itemPlace(s, id) === here),
+  ];
+  const conflict = standoffFor(s, a.actor);
+  if (conflict) {
+    conflict.guarding[a.actor] = false;
+    delete conflict.covering?.[a.actor];
+    delete conflict.hitBy?.[a.actor];
+    if (a.actor === conflict.defender) conflict.answered = true;
+  }
+  if (a.kind === "drop" && !a.item) {
+    dropQuest(s, a.actor, wantAPI(s), a.quest);
+    addLog(s, "World", a.text, {
+      kind: "action",
+      actorId: a.actor,
+      verb: a.kind,
+      witnesses,
+    });
+    return;
+  }
+  if (a.kind === "wait") {
+    const asleep = Boolean(s.actors[a.actor].sleeping);
+    rest(s, a.actor, here, a.sleep);
+    settleCompany(s, entityActive);
+    if (a.guards) s.actors[a.actor].guarding = a.guards;
+    const learningStart = beginLearning(s, a);
+    if (a.actor === currentActor(s)) calm(s, here);
+    // Observing here, awake, may notice one of the place's signs.
+    const sign = !asleep && !a.sleep && packWaitChoice(s, a.actor);
+    const text = sign
+      ? choiceText(applyPackChoice(s, sign, { mode: "wait" }), a.actor)
+      : a.text;
+    // The player's wait is a committed play like any other.
+    if (learningStart || sign || a.actor === currentActor(s)) {
+      addLog(s, "World", text, {
+        kind: "action",
+        actorId: a.actor,
+        verb: "wait",
+        witnesses,
+        ...(a.sleep ? { sleep: true } : {}),
+        ...(a.guards ? { guards: a.guards } : {}),
+      });
+      if (learningStart) recordLearning(s, a, learningStart, s.log.at(-1));
+    }
+    return;
+  }
+  const learningStart = beginLearning(s, a);
+  const holder = holderBefore(s, a);
+  const pressure = pressureBeforeGive(s, a);
+  const usefulGift =
+    a.kind === "give" &&
+    (valueOf(s, a.target, a.item) >= 5 || needed(s, a.target, a.item));
+  let text = a.text;
+  let requestAccepted = false;
+  let refusal = null;
+  let affected = null,
+    arrival = null,
+    combat = null,
+    invitation = null;
+  switch (a.kind) {
+    case "use":
+      remember(s, a.item, a.text);
+      break;
+    case "course":
+      setCourse(s, here, a.target);
+      break;
+    case "choose":
+      applyPackChoice(s, a);
+      break;
+    case "accompany": {
+      const respondentConflict = standoffFor(s, a.target);
+      if (respondentConflict) {
+        respondentConflict.guarding[a.target] = false;
+        if (respondentConflict.defender === a.target)
+          respondentConflict.answered = true;
+      }
+      invitation = accompanyDecision(s, a.actor, a.target, a.destination, true);
+      s.actors[a.actor].lastTalk = s.turn;
+      if (invitation.accepted) {
+        const visits = (s.invitedPlaces ??= {});
+        visits[a.target] = [
+          ...new Set([...(visits[a.target] || []), a.destination]),
+        ].sort();
+        const through = travelParty(s, [a.actor, a.target], a.destination);
+        recordJourneyTravel(s, a.target, here, a.destination);
+        text += ` ${nameOf(a.target)} agrees. They travel together.`;
+        if (through && firstCrossing)
+          text += " Something on the far shore turns its head.";
+      } else {
+        text += ` ${nameOf(a.target)} declines the trip.`;
+        refusal = invitation.reason;
+      }
+      break;
+    }
+    case "threaten":
+      if (wakeResident(s, a.target)) text += ` ${nameOf(a.target)} wakes.`;
+      if (here === "pond") s.locations.pond.answer = null;
+      s.standoffs.push({
+        challenger: a.actor,
+        defender: a.target,
+        location: here,
+        item: a.item,
+        opened: s.turn,
+        answered: false,
+        resolve: { [a.actor]: 4, [a.target]: 4 },
+        guarding: { [a.actor]: false, [a.target]: false },
+        struck: { [a.actor]: false, [a.target]: false },
+        steppedBack: { [a.actor]: false, [a.target]: false },
+        covering: {},
+        hitBy: {},
+      });
+      break;
+    case "guard":
+      conflict.guarding[a.actor] = true;
+      break;
+    case "intercept":
+      (conflict.covering ??= {})[a.actor] = a.target;
+      break;
+    case "attack": {
+      // A combatant guarding the target takes the hit, with its own brace.
+      const guard = fightersOf(conflict).find(
+        (id) => id !== a.actor && conflict.covering?.[id] === a.target,
+      );
+      const hit = guard || a.target;
+      const guarded = conflict.guarding[hit];
+      const damage = Math.max(
+        1,
+        strikeDamage(s, a.actor, hit) - Number(guarded),
+      );
+      const resolveBefore = conflict.resolve[hit];
+      conflict.guarding[hit] = false;
+      conflict.struck[a.actor] = true;
+      (conflict.hitBy ??= {})[hit] = a.actor;
+      conflict.resolve[hit] = Math.max(0, resolveBefore - damage);
+      text += `${guard ? ` ${nameOf(guard)} steps in front of ${nameOf(a.target)}.` : ""} ${guarded ? "The brace softens the blow. " : ""}${nameOf(hit)} loses ${damage} resolve.`;
+      combat = {
+        ...(guard ? { targetId: guard, coveredId: a.target } : {}),
+        damage,
+        guarded,
+        resolveBefore,
+        resolveAfter: conflict.resolve[hit],
+        outcome: guarded ? "guarded" : "hit",
+        lossCount: s.defeats?.[hit] || 0,
+      };
+      if (conflict.resolve[hit] === 0) {
+        const defeat = defeatInStandoff(s, conflict, a.actor, hit, here);
+        text += defeat.text;
+        Object.assign(combat, {
+          outcome: defeat.outcome,
+          lossCount: defeat.lossCount,
+          droppedItemIds: defeat.droppedItemIds,
+        });
+        if (defeat.to)
+          arrival = {
+            text: defeat.arrivalText,
+            kind: "narration",
+            verb: defeat.outcome === "sent-home" ? "sent-home" : "retreat",
+            actorId: hit,
+            targetId: a.actor,
+            locationId: defeat.to,
+            fromLocationId: here,
+            droppedItemIds: defeat.droppedItemIds,
+            lossCount: defeat.lossCount,
+            witnesses,
+          };
+      }
+      break;
+    }
+    case "move": {
+      const guard = guardOf(s, here, a.target);
+      if (guard && guard !== a.actor) {
+        text += ` ${nameOf(guard)} lets ${who} through.`;
+        affected = guard;
+      }
+      if (travel(s, a.actor, a.target) && firstCrossing)
+        text += " Something on the far shore turns its head.";
+      break;
+    }
+    case "take":
+      transfer(s, a.item, a.actor, a.text);
+      break;
+    case "drop":
+      transfer(s, a.item, here, a.text);
+      break;
+    // Eaten or drunk, a thing goes home: locked if it is made, else ready
+    // again. A companion shares it only if it agrees (rules 102).
+    case "eat":
+      if (a.target) {
+        requestAccepted = shareDecision(s, a.actor, a.target);
+        if (!requestAccepted) {
+          refusal = resentment(s, a.target, a.actor)
+            ? "grudge"
+            : "wants-something-else";
+          text = `${text.replace(/\.$/u, "")}? ${nameOf(a.target)} declines.`;
+          break;
+        }
+      }
+      consume(s, a.item);
+      break;
+    case "give":
+    case "trade": {
+      // A pack can make a gift the trigger of one authored choice.
+      const gift = a.kind === "give" ? packGiveChoice(s, a) : null;
+      if (gift) {
+        requestAccepted = true;
+        text = choiceText(applyPackChoice(s, gift, { mode: "give" }), a.actor);
+        break;
+      }
+      requestAccepted = expects(s, a);
+      if (!requestAccepted) {
+        refusal = refusalReason(s, a);
+        if (a.kind === "trade") refuseWant(s, a.actor, a.receive, wantAPI(s));
+        text =
+          a.kind === "give"
+            ? `${who} offers the ${nameOf(a.item)} to ${nameOf(a.target)}.`
+            : `${who} offers the ${nameOf(a.item)} for ${nameOf(a.target)}’s ${nameOf(a.receive)}.`;
+        text += ` ${nameOf(a.target)} declines.`;
+        break;
+      }
+      if (a.kind === "give" && !pressure)
+        trustGiver(s, a.target, a.item, a.actor);
+      transfer(s, a.item, a.target, a.text);
+      if (a.kind === "trade") transfer(s, a.receive, a.actor, a.text);
+      break;
+    }
+    case "light":
+      if (
+        s.opening &&
+        !s.opening.crossed &&
+        a.actor === "vale" &&
+        here === "attic" &&
+        s.items.lamp.holder === "attic"
+      )
+        transfer(s, "lamp", "vale", "Vale lifts the lamp.");
+      s.items.lamp.lit = true;
+      remember(s, "lamp", a.text);
+      break;
+    case "snuff":
+      s.items.lamp.lit = false;
+      remember(s, "lamp", a.text);
+      break;
+    case "ring":
+      // Any sound made here disturbs the residents resting here.
+      for (const line of disturb(s, here)) text += ` ${line}`;
+      for (const id of actorIds)
+        if (s.actors[id].place === here && wakeResident(s, id))
+          text += ` ${nameOf(id)} wakes.`;
+      if (a.fixture) {
+        soundFixture(s, a.fixture);
+        break;
+      }
+
+      s.locations.pond.answer =
+        s.locations.pond.answer === "hush" ? null : s.locations.pond.answer;
+      s.items.bell.ringing = 3;
+      remember(s, "bell", a.text);
+      break;
+    case "cover":
+      transfer(s, "cloth", a.target, a.text);
+      remember(s, a.target, a.text);
+      if (a.target === "bell") s.items.bell.ringing = 0;
+      break;
+    case "talk": {
+      // Keep a committed Talk valid when its turn crosses the subject's clock.
+      const turn = s.turn - 1,
+        told = packTalkChoice(s, a, turn);
+      if (told)
+        text = choiceText(
+          applyPackChoice(s, told, { mode: "talk", turn }),
+          a.actor,
+        );
+      const woken = wakeByVoice(s, a.target),
+        roused = wakeResident(s, a.target);
+      if (woken) text += ` ${woken}`;
+      else if (roused) text += ` ${nameOf(a.target)} wakes.`;
+      s.actors[a.actor].lastTalk = s.turn;
+      break;
+    }
+    case "ask": {
+      const willing = willingToGive(s, a.target, a.item, a.actor);
+      requestAccepted = willing;
+      if (willing) {
+        trustGiver(s, a.actor, a.item, a.target);
+        text = `${nameOf(a.target)} hands the ${nameOf(a.item)} to ${who}.`;
+        transfer(s, a.item, a.actor, text);
+      } else {
+        text += ` ${nameOf(a.target)} keeps it for now.`;
+        refusal = refusalReason(s, a);
+        refuseWant(s, a.actor, a.item, wantAPI(s));
+      }
+      s.actors[a.actor].lastTalk = s.turn;
+      break;
+    }
+    default:
+      throw new Error("Unknown act.");
+  }
+  const recitals =
+    here !== s.actors[a.actor].place
+      ? arriveRecitals(s, packDefinitions, a.actor)
+      : [];
+  const handover =
+    requestAccepted && pressure && s.items[a.item]?.holder === a.target
+      ? pressure
+      : null;
+  if (handover)
+    text = `${who} hands the ${nameOf(a.item)} to ${nameOf(a.target)} under pressure.`;
+  meetCast(s);
+  recordLifeAction(
+    s,
+    a,
+    invitation?.accepted ?? requestAccepted,
+    usefulGift && requestAccepted,
+    handover,
+  );
+  addLog(s, "World", text, {
+    kind: "action",
+    actorId: a.actor,
+    verb: a.kind,
+    ...(a.kind === "choose" ? { packId: a.packId, choiceId: a.choiceId } : {}),
+    fromLocationId: here,
+    witnesses,
+    itemId: a.item,
+    ...(affected ? { entityId: affected } : {}),
+    targetId: a.target,
+    ...(a.receive ? { receiveId: a.receive } : {}),
+    ...(["ask", "give", "trade"].includes(a.kind) ||
+    (a.kind === "eat" && a.target)
+      ? { accepted: requestAccepted }
+      : {}),
+    ...(refusal ? { reason: refusal } : {}),
+    ...(invitation
+      ? { destinationId: a.destination, accepted: invitation.accepted }
+      : {}),
+    ...(a.kind === "attack" ? { locationId: here, ...combat } : {}),
+    ...(handover ? { handover } : {}),
+  });
+  const sourceSeq = s.log.at(-1).seq;
+  if (a.kind === "threaten")
+    standoffFor(s, a.actor).sourceSeq = s.log.at(-1).seq;
+  recordConversation(s, s.log.at(-1));
+  // A gift in person to an aggrieved recipient is a repair all present see.
+  const answer = repairAnswer(
+    s,
+    a,
+    requestAccepted,
+    witnesses,
+    a.kind === "give" &&
+      requestAccepted &&
+      meetsItemWant(s, a.target, a.item, { ...a, accepted: true }),
+    handover,
+  );
+  recordReaction(s, a, witnesses, requestAccepted, s.log.at(-1));
+  const repair =
+    answer &&
+    witnessRepair(
+      s,
+      s.log.at(-1),
+      answer,
+      `${who} makes amends to ${nameOf(a.target)}.`,
+      witnesses,
+    );
+  if (repair) closeRepaired(s, repair);
+  settleCompany(s, entityActive);
+  if (a.kind === "talk") talkKnowledge(s, a, s.log.at(-1));
+  // A human's first Talk with the world's hidden avatar unlocks it (#1936).
+  const met = meetHidden(s, a, controlledByHuman(s, a.actor));
+  if (met)
+    addLog(s, "World", `${nameOf(a.target)} remembers ${who}.`, {
+      kind: "narration",
+      unlock: met.unlock,
+      actorId: a.actor,
+      entityId: a.target,
+      locationId: here,
+      witnesses: [a.actor, a.target],
+    });
+  recordLearning(s, a, learningStart, s.log.at(-1));
+  for (const visit of recitals)
+    addLog(
+      s,
+      "World",
+      `${nameOf(visit.actorId)} waits here with a song of ${who}'s journey.`,
+      {
+        ...visit,
+        kind: "narration",
+        verb: "move",
+        witnesses: [a.actor, visit.actorId],
+      },
+    );
+  if (arrival) {
+    const { text: arrivalText, ...details } = arrival;
+    addLog(s, "World", arrivalText, details);
+  }
+  settleStandoffs(s);
+  // A want met by this play is a world fact recorded right after it.
+  settleWants(
+    s,
+    wantActors(s, [
+      a.actor,
+      ...(s.actors[a.target] ? [a.target] : []),
+      ...settle,
+    ]),
+    wantAPI(s),
+    ["ask", "give", "trade", "eat"].includes(a.kind)
+      ? { ...a, accepted: !a.target || requestAccepted }
+      : a,
+  );
+  // A Talk quest whose want has changed leaves; a player's Talk that
+  // reveals a want new to them gives one (#2196, rules 99).
+  pruneTalkQuests(s, wantAPI(s));
+  if (a.kind === "talk") talkQuest(s, a.actor, a.target, wantAPI(s));
+  // Resolved plays, and only those, can advance a crossing's signal.
+  if (round)
+    noteAct(s, a, here, holder, round, sensesFor(s), (line, locationId) =>
+      addLog(s, "World", line, { locationId }),
+    );
+  // A flask and an empty lamp in one avatar's hands refuel after the play.
+  refuelCarried(s);
+  // Giving a maker the last of a locked thing's set makes it (rules 102).
+  settleCrafting(s, a, nameOf, (text, locationId, outcome) =>
+    addLog(s, "World", text, {
+      kind: "narration",
+      verb: "craft",
+      locationId,
+      sourceSeq,
+      witnesses: witnessesAt(s, locationId),
+      ...outcome,
+    }),
+  );
+  // A traveler who comes to hold an item made for them uses it up (#1873).
+  for (const held of applyHoldChoices(s))
+    addLog(s, "World", held.text, {
+      kind: "narration",
+      actorId: held.actor,
+      itemId: held.item,
+      witnesses: [held.actor],
+    });
+  // Answering the request is the invited avatar's action for this round.
+  return invitation ? a.target : null;
+}
+
+// Routes use the exits available to the actor who is planning the trip.
+function routeBetween(s, from, target, actor = null) {
+  const reads = planningReadsFor(s);
+  if (!reads) return readRouteBetween(s, from, target, actor);
+  const routes = (reads.routes ??= new Map());
+  if (!routes.has(actor)) routes.set(actor, new Map());
+  const origins = routes.get(actor);
+  if (!origins.has(from)) origins.set(from, new Map());
+  const destinations = origins.get(from);
+  if (!destinations.has(target))
+    destinations.set(target, readRouteBetween(s, from, target, actor));
+  return destinations.get(target)?.slice();
+}
+function readRouteBetween(s, from, target, actor = null) {
+  const queue = [[from]],
+    visited = new Set([from]);
+  while (queue.length) {
+    const route = queue.shift();
+    if (route.at(-1) === target) return route;
+    const here = route.at(-1);
+    const projected =
+      s.actors[actor] && s.actors[actor].place !== here
+        ? {
+            ...s,
+            actors: {
+              ...s.actors,
+              [actor]: { ...s.actors[actor], place: here },
+            },
+          }
+        : s;
+    const previous = route.at(-2) ?? (transportPlace(here) ? VOYAGE : null);
+    for (const next of exits(projected, here, actor, previous))
+      if (!visited.has(next)) {
+        visited.add(next);
+        queue.push([...route, next]);
+      }
+  }
+}
+// Aboard a ship, reaching a dock means setting a course toward it, waiting
+// out the voyage, or stepping ashore once the ship has arrived.
+function voyageAction(s, actor, dock, actions = legalActions(s, actor)) {
+  const here = s.actors[actor].place;
+  if (!transportPlace(here)) return undefined;
+  const ashore = actions.find((a) => a.kind === "move" && a.target === dock);
+  if (ashore) return ashore;
+  const lane = courseToward(s, here, dock, actor);
+  return (
+    actions.find((a) => a.kind === "course" && a.target === lane) ||
+    actions.find((a) => a.kind === "wait")
+  );
+}
+function toward(s, actor, target) {
+  const here = s.actors[actor].place;
+  const route = routeBetween(s, here, target, actor);
+  let actions;
+  const getActions = () => (actions ??= legalActions(s, actor));
+  if (route)
+    return (
+      getActions().find((a) => a.kind === "move" && a.target === route[1]) ||
+      voyageAction(s, actor, route[1], getActions())
+    );
+  // Inside a lamp gate, a cast avatar lights its lamp to open the way out;
+  // the player's own hand makes that play.
+  const gate = homeGates[here];
+  if (
+    gate?.light &&
+    !s.items[gate.item].lit &&
+    actor !== currentActor(s) &&
+    !controlledByHuman(s, actor) &&
+    homeGateRecoverable(s, here, gate, actor)
+  ) {
+    const light = getActions().find(
+      (a) => a.kind === "light" && a.item === gate.item,
+    );
+    if (light) return light;
+  }
+  if (target === "attic" && !["attic", "pond", "station"].includes(here)) {
+    const approach = routeBetween(s, here, "pond", actor);
+    if (approach?.length > 1)
+      return getActions().find(
+        (a) => a.kind === "move" && a.target === approach[1],
+      );
+  }
+  if (
+    target !== "attic" &&
+    atticInterior.has(target) &&
+    !atticInterior.has(here)
+  )
+    return toward(s, actor, "attic");
+  // Reach a home threshold before tending its gate or taking its rescue path.
+  const rescueRoutes = new Map();
+  const rescueRoute = (from) => {
+    if (!rescueRoutes.has(from))
+      rescueRoutes.set(from, routeBetween(s, from, target, actor));
+    return rescueRoutes.get(from);
+  };
+  for (const [home, gate] of Object.entries(homeGates)) {
+    if (here === home || !rescueRoute(gate.rescue)) continue;
+    const approach = routeBetween(s, here, home, actor);
+    if (approach?.length > 1)
+      return getActions().find(
+        (a) => a.kind === "move" && a.target === approach[1],
+      );
+  }
+  // Sound can reopen an outward crossing while the traveler stays on its shore.
+  if (
+    crossings.some(
+      (c) =>
+        c.from === here &&
+        !c.transport &&
+        c.requires.some((r) => r.kind === "sound" && r.at.includes(here)) &&
+        routeBetween(s, c.to, target, actor),
+    )
+  ) {
+    const sound = getActions().find(
+      (a) => a.kind === "ring" && a.item === "bell",
+    );
+    if (sound)
+      return covered(s, "bell")
+        ? getActions().find((a) => a.kind === "take" && a.item === "cloth")
+        : sound;
+  }
+}
+export function plan(s, actor = currentActor(s)) {
+  const previousReads = planReads;
+  planReads = new WeakMap();
+  try {
+    const selected = readPlan(s, actor);
+    // Delay only voluntary departure. Combat, explicit accompaniment and
+    // forced relocation still run; stepping off an arriving ship stays safe.
+    if (selected.action?.kind === "move" && !transportPlace(s.actors[actor].place) &&
+        !standoffFor(s, actor) && residentCourtesy(s, actor))
+      return { action: legalActions(s, actor).find((a) => a.kind === "wait" && !a.sleep && !a.guards) };
+    return selected;
+  } finally {
+    planReads = previousReads;
+  }
+}
+function readPlan(s, actor) {
+  const arrival = transportArrival(s, actor);
+  const landing =
+    arrival &&
+    legalActions(s, actor).find(
+      (a) => a.kind === "move" && a.target === arrival,
+    );
+  if (landing) return { action: landing };
+  const selected = wantPlan(s, actor);
+  if (levelReturnHome(s, actor)) return selected;
+  return reconsiderPlan(
+    s,
+    actor,
+    selected,
+    plannedActions(s, actor).filter(
+      (a) =>
+        a.key === selected.action.key ||
+        !["trade", "give"].includes(a.kind) ||
+        (!needed(s, actor, a.item) && !keepReason(s, actor, a.item)),
+    ),
+  );
+}
+function plannedActions(s, actor) {
+  return legalActions(s, actor).filter((a) => controlledByHuman(s, actor) ||
+    !(["take", "steal", "ask", "threaten"].includes(a.kind) && reservedItem(s, a.item)) &&
+    !(a.kind === "trade" && reservedItem(s, a.receive)));
+}
+// One legal step toward a place. Travellers who learn the roads keep to
+// the routes they know and explore the edge of that map; the others use
+// the open routes and the plays that open them.
+function stepToward(s, actor, target) {
+  const known = s.routeKnowledge?.[actor];
+  if (!known) return { action: toward(s, actor, target) || null };
+  const here = s.actors[actor].place;
+  const open = (from, to, previous) =>
+    exits(
+      s,
+      from,
+      actor,
+      previous ?? (transportPlace(from) ? VOYAGE : null),
+    ).includes(to);
+  let path =
+    knownRoute(s, actor, here, target, open) ||
+    knownRoute(s, actor, here, target);
+  if (!path) {
+    const frontiers = [...new Set(known.map(([, to]) => to))].filter(
+      (to) =>
+        to !== here &&
+        entityActive(s, to) &&
+        berthOpen(s, to) !== false &&
+        !known.some(([from]) => from === to),
+    );
+    if (!entityActive(s, here)) frontiers.push(...exits(s, here, actor));
+    path = frontiers
+      .map((to) => knownRoute(s, actor, here, to))
+      .filter(Boolean)
+      .sort(
+        (a, b) => a.length - b.length || a.at(-1).localeCompare(b.at(-1)),
+      )[0];
+    if (!path) return { action: null };
+  }
+  const actions = legalActions(s, actor);
+  const action =
+    actions.find((a) => a.kind === "move" && a.target === path[1]) ||
+    voyageAction(s, actor, path[1], actions);
+  // Waiting at a port for the ship calls it one lane closer.
+  return {
+    action: action || null,
+    ...(!action && transportPlace(path[1]) ? { callShip: true } : {}),
+  };
+}
+// Pursue the want with the fixed verbs: go there, then ask, trade, threaten.
+// A refusal is an outcome: it counts against the want, and enough of them
+// set it aside.
+function wantPlan(s, actor) {
+  const acts = plannedActions(s, actor);
+  const find = (kind, test = () => true) =>
+    acts.find((a) => a.kind === kind && test(a));
+  const idle = () => ({ action: find("wait") || acts[0] });
+  const here = s.actors[actor].place;
+  if (s.peaceUntil[actor] > s.turn) return idle();
+  const conflict = standoffFor(s, actor);
+  const want = wantOf(s, actor);
+  // A resident answers plays, not sides: it strikes whoever struck it since
+  // its last play, or holds what it wants, until a human holder plays
+  // anything but a Strike. It braces when low, guards a friend under attack,
+  // and otherwise waits.
+  if (conflict) {
+    const answer = (action) => (action ? { action } : idle());
+    const others = fightersOf(conflict).filter((id) => id !== actor);
+    const striker = others.find((id) => conflict.hitBy?.[actor] === id);
+    const foe =
+      striker ||
+      others.find(
+        (id) =>
+          !(controlledByHuman(s, id) && conflict.steppedBack[id]) &&
+          ids.some(
+            (item) => rootHolder(s, item) === id && needed(s, actor, item),
+          ),
+      );
+    if (foe && conflict.resolve[actor] <= 1)
+      return striker ? answer(find("guard")) : idle();
+    if (foe) return answer(find("attack", (a) => a.target === foe));
+    const friend = others.find(
+      (id) => conflict.hitBy?.[id] && s.actors[actor].trust?.[id] > 0,
+    );
+    return answer(friend && find("intercept", (a) => a.target === friend));
+  }
+  const levelHome = levelReturnHome(s, actor);
+  if (levelHome) {
+    const step = here === levelHome ? {} : stepToward(s, actor, levelHome);
+    return { ...step, action: step.action || idle().action };
+  }
+  // Rules 100: a resident walking home goes home first, and one kept to a
+  // range drifts home when it has nothing to pursue here. With a player it
+  // acts as before; its wants take it walking only at dawn and dusk, away
+  // from players (residentRound).
+  const home = lifeHome(actor, s),
+    ranged = Number.isFinite(rangeOf(s, actor) ?? Infinity);
+  const homeStep = () => {
+    const step = home && here !== home ? stepToward(s, actor, home) : null;
+    return step?.action ? { action: step.action } : idle();
+  };
+  const drift = () => (ranged && worldLife.on ? homeStep() : idle());
+  if (walksHome(s, actor)) return homeStep();
+  // A resident eats what it holds when a quest of its wants it eaten, there
+  // and with that companion if named.
+  const meal = acts.find(
+    (a) =>
+      a.kind === "eat" &&
+      questsOf(s, actor).some(
+        (w) =>
+          w.step?.verb === "eat" &&
+          w.target === a.item &&
+          (w.step.with ?? null) === (a.target ?? null) &&
+          (!w.step.at || w.step.at === here),
+      ),
+  );
+  if (meal) return { action: meal };
+  if (!want) return drift();
+  // A meal it can only have somewhere it cannot go is left where it lies.
+  if (
+    want.step?.verb === "eat" &&
+    want.step.at &&
+    want.step.at !== here &&
+    (!travels(actor, s) || staysPut(actor, s) || keepsHome(s, actor))
+  )
+    return drift();
+  if (resting(s, actor)) return idle();
+  // A maker leaves what it makes for others to carry.
+  if (want.kind === "item" && makerChoice(actor, want.target)) return idle();
+  const go = (place) => {
+    if (!travels(actor, s) || staysPut(actor, s) || keepsHome(s, actor))
+      return drift();
+    const step = stepToward(s, actor, place);
+    const to = step.action?.kind === "move" ? step.action.target : null;
+    if (
+      ranged &&
+      to &&
+      (!inRange(s, actor, to) || (transportPlace(to) && !mayBoard(s, actor)))
+    )
+      return drift();
+    return step.action
+      ? { action: step.action }
+      : { ...idle(), ...(step.callShip ? { callShip: true } : {}) };
+  };
+  if (want.kind === "place")
+    return here === want.target ? idle() : go(want.target);
+  // A connector Talks once two connected humans share the room, and
+  // otherwise visits one who is elsewhere.
+  if (want.kind === "connect") {
+    const humans = connectedHumans(s);
+    const withMe = humans.filter((id) => s.actors[id].place === here);
+    if (withMe.length >= 2) {
+      const talk = find("talk", (a) => withMe.includes(a.target));
+      return talk && s.turn - s.actors[actor].lastTalk >= 1
+        ? { action: talk }
+        : idle();
+    }
+    const away = humans.find((id) => s.actors[id].place !== here);
+    return away ? go(s.actors[away].place) : idle();
+  }
+  if (want.kind === "person") {
+    const there = s.actors[want.target]?.place;
+    if (there !== here) return go(there);
+    const talk = find("talk", (a) => a.target === want.target);
+    return talk && s.turn - s.actors[actor].lastTalk >= 1
+      ? { action: talk }
+      : idle();
+  }
+  const item = want.target,
+    owner = rootHolder(s, item);
+  // Held but not as wanted: uncover it, then light or put it out.
+  if (owner === actor) {
+    if (want.step?.verb === "eat" && want.step.at && want.step.at !== here)
+      return go(want.step.at);
+    if (want.lit === undefined) return idle();
+    const cover = ids.find((id) => s.items[id].holder === item);
+    const fix = cover
+      ? find("take", (a) => a.item === cover)
+      : s.items[item].lit !== want.lit &&
+        find(want.lit ? "light" : "snuff", (a) => a.item === item);
+    return fix ? { action: fix } : idle();
+  }
+  if (itemPlace(s, item) !== here) return go(itemPlace(s, item));
+  let top = item;
+  while (s.items[s.items[top].holder]) top = s.items[top].holder;
+  const spares = (kind) =>
+    acts
+      .filter((a) => a.kind === kind && a.item && !needed(s, actor, a.item))
+      .sort(
+        (x, y) =>
+          valueOf(s, actor, x.item) - valueOf(s, actor, y.item) ||
+          x.item.localeCompare(y.item),
+      );
+  if (!actorIds.includes(owner)) {
+    const take =
+      find("take", (a) => a.item === top) ||
+      find("take", (a) => a.item === item);
+    if (take) return { action: take };
+    const drop = spares("drop")[0];
+    return drop ? { action: drop } : idle();
+  }
+  const recent = (verb, test = () => true) =>
+    s.log.some(
+      (e) =>
+        e.kind === "action" &&
+        e.verb === verb &&
+        e.actorId === actor &&
+        e.targetId === owner &&
+        s.turn - e.turn <= 4 &&
+        test(e),
+    );
+  if (!hasSpace(s, actor, top)) {
+    const drop = spares("drop")[0];
+    if (drop) return { action: drop };
+  }
+  const ask = find("ask", (a) => a.item === top && a.target === owner);
+  if (ask && !recent("ask")) return { action: ask };
+  const trades = spares("trade").filter((a) => a.receive === top);
+  const trade =
+    trades.find((a) => expects(s, a)) ||
+    trades.find((a) => !recent("trade", (e) => e.itemId === a.item));
+  if (trade) return { action: trade };
+  const bold =
+    travels(actor, s) &&
+    !avoidsStandoffs(actor) &&
+    want.refusals >= 1 &&
+    (resentment(s, actor, owner) > 0 ||
+      want.refusals >= 2 ||
+      outranks(s, actor, owner));
+  const threat = bold && find("threaten", (a) => a.target === owner);
+  if (threat) return { action: threat };
+  return idle();
+}
+export function play(
+  s,
+  action,
+  expectedRevision = s.revision,
+  actor = currentActor(s),
+) {
+  if (expectedRevision !== s.revision)
+    return {
+      ok: false,
+      state: s,
+      error: "The world changed. Choose a current play.",
+    };
+  // Switching a pack is journaled; no turn passes (rules 98, pack-toggle.mjs).
+  if (action?.kind === "pack") {
+    const next = structuredClone(s);
+    settleStationExits(next);
+    const done = togglePack(next, action, actor, {
+      closeStandoff,
+      want: wantAPI(next),
+      hash: (key) => runHash(next, key),
+    });
+    if (done.error) return { ok: false, state: s, error: done.error };
+    next.revision += 1;
+    addLog(next, "World", done.text, {
+      kind: "action",
+      actorId: actor,
+      verb: "pack",
+      witnesses: [actor],
+    });
+    settleGuards(next);
+    settleCompany(next, entityActive);
+    settleVisitSpeech(s, next, { ...action, actor });
+    settleHeldItems(next, handSnapshot(s));
+    settleStationExits(next);
+    validateWorld(next);
+    return { ok: true, state: next };
+  }
+  const exact = legalActions(s, actor).find((a) => a.key === action?.key);
+  if (!exact)
+    return {
+      ok: false,
+      state: s,
+      error: "That play has changed. Check the cards and choose again.",
+    };
+  const next = structuredClone(s);
+  settleStationExits(next);
+  if (actor !== "vale" || s.playerActorId) next.playerActorId = actor;
+  // Claim pays a saved reward once and advances the saved revision.
+  // Rest, combat and residents keep their current turn.
+  if (exact.kind === "claim") {
+    next.revision += 1;
+    claimQuestReward(next, actor, exact.receipt, wantAPI(next));
+    addLog(next, "World", exact.text, {
+      kind: "action",
+      actorId: actor,
+      verb: "claim",
+      receipt: exact.receipt,
+      witnesses: [actor],
+    });
+    settleStationExits(next);
+    validateWorld(next);
+    return { ok: true, state: next };
+  }
+  // Choosing which quest is on top is only picking a card: it is journaled
+  // like a play, but no turn passes and the world does not move on.
+  if (exact.kind === "focus") {
+    next.revision += 1;
+    focusQuest(next, actor, exact.quest);
+    addLog(next, "World", exact.text, {
+      kind: "action",
+      actorId: actor,
+      verb: "focus",
+      witnesses: [actor],
+    });
+    settleStationExits(next);
+    validateWorld(next);
+    return { ok: true, state: next };
+  }
+  // A sealed card hands its quest to the traveller, as picking a quest does:
+  // no turn passes (rules 95).
+  if (exact.kind === "gate") {
+    next.revision += 1;
+    const way = sealedWays(next, actor).find((r) => r.to === exact.target);
+    const quest = pushQuest(next, actor, gateQuest(next, way.sealed.quest));
+    const what = wantText(quest).replace(/(^| )The /gu, "$1the ");
+    addLog(next, "World", `${nameOf(actor)} takes up a quest: ${what}.`, {
+      kind: "action",
+      actorId: actor,
+      verb: "gate",
+      targetId: exact.target,
+      witnesses: [actor],
+    });
+    settleStationExits(next);
+    validateWorld(next);
+    return { ok: true, state: next };
+  }
+  // Any other play ends a player's guard (rules 100), and an away avatar's
+  // resident sleep becomes its returning player's own.
+  beginQuestPlay(next);
+  if (!exact.guards) delete next.actors[actor].guarding;
+  const dozing = next.actors[actor].sleeping;
+  if (dozing?.until !== undefined)
+    next.actors[actor].sleeping = {
+      since: dozing.since,
+      place: dozing.place,
+      present: bodiesAt(next, dozing.place),
+    };
+  // Crossings open before the play decide whether a signal refreshes them.
+  const round = beginRound(s, sensesFor(s));
+  for (const id of actorIds)
+    if (controlledByHuman(next, id) && humanPresent(next, id) &&
+        next.actors[id].roomArrival?.place !== next.actors[id].place)
+      noteRoomArrival(next, id);
+  next.turn += 1;
+  next.revision += 1;
+  noteResidentInteraction(next, exact);
+  // Any play but sleeping on wakes a sleeper first.
   if (next.actors[actor].sleeping && !exact.sleep)
     wakeUp(next, actor, "chose", `${nameOf(actor)} wakes.`);
   const reflectionSource = next.actors[actor].place;
