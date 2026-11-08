@@ -50,6 +50,15 @@ it.each([
 });
 it("ignores inherited Git config, object paths and credentials", () => {
   const root = temp();
+  const ambient = path.join(root, "ambient-home");
+  fs.mkdirSync(ambient);
+  fs.writeFileSync(
+    path.join(ambient, ".netrc"),
+    "machine github.com login ambient-user password unused\n",
+  );
+  vi.stubEnv("HOME", ambient);
+  vi.stubEnv("USERPROFILE", ambient);
+  vi.stubEnv("NETRC", path.join(ambient, ".netrc"));
   const poison = path.join(root, "poison-config");
   fs.writeFileSync(
     poison,
@@ -70,6 +79,13 @@ it("ignores inherited Git config, object paths and credentials", () => {
   const git = isolatedGit(repository);
   git(["init", "--bare", "--template=", "--object-format=sha1", "."]);
   const config = git(["config", "--list"]).toString();
+  const childEnv = vi.mocked(execFileSync).mock.calls.at(-1)[2].env;
+  expect(childEnv.HOME).toBe(path.join(repository, "private-home"));
+  expect(childEnv.USERPROFILE).toBe(childEnv.HOME);
+  expect(childEnv.NETRC).toBeUndefined();
+  expect(fs.readdirSync(childEnv.HOME)).toEqual([]);
+  expect(process.env.HOME).toBe(ambient);
+  expect(process.env.USERPROFILE).toBe(ambient);
   expect(config).not.toContain("poison");
   expect(config).toContain("credential.helper=\n");
   expect(config).toContain("http.followredirects=false");

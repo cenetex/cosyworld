@@ -31,6 +31,8 @@ export function sourceUrl(source) {
 }
 
 export function isolatedGit(dir) {
+  const privateGitHome = path.join(dir, "private-home");
+  fs.mkdirSync(privateGitHome, { mode: 0o700 });
   const env = Object.fromEntries(
     Object.entries(process.env).filter(([key]) =>
       /^(PATH|SystemRoot|TEMP|TMP|TMPDIR|SSL_CERT_FILE|SSL_CERT_DIR|CURL_CA_BUNDLE|https?_proxy|all_proxy|no_proxy)$/i.test(
@@ -39,6 +41,8 @@ export function isolatedGit(dir) {
     ),
   );
   Object.assign(env, {
+    HOME: privateGitHome,
+    USERPROFILE: privateGitHome,
     GIT_CONFIG_NOSYSTEM: "1",
     GIT_CONFIG_SYSTEM: os.devNull,
     GIT_CONFIG_GLOBAL: os.devNull,
