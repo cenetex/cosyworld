@@ -118,7 +118,9 @@ fn assert_saved_items(current: &Value, old: &Value) {
 }
 
 fn assert_saved_packs(current: &Value, old: &Value) {
-    let mut expected = old.clone();
+    let initial = super::saved_items::initial_game(current);
+    let current = &current["packs"];
+    let mut expected = super::saved_items::with_initial_additions(&old["packs"], &initial["packs"]);
     expected["greek-drama"]["revision"] = greek_revision();
     expected["boardyai"] = current["boardyai"].clone();
     expected["hoppycat-archive"] = current["hoppycat-archive"].clone();
@@ -2159,7 +2161,7 @@ fn released_greek_upgrades_and_recitals_replay_after_quests_are_dropped() {
             assert_eq!(w.version, engine::VERSION);
             assert_saved_actors(&w.game["actors"], &previous.game["actors"]);
             assert_saved_items(&w.game["items"], &previous.game["items"]);
-            assert_saved_packs(&w.game["packs"], &previous.game["packs"]);
+            assert_saved_packs(&w.game, &previous.game);
             assert_eq!(w.game["log"], quest_free_log(&previous.game["log"]));
             assert_eq!(w.game["turn"], previous.game["turn"]);
             assert_eq!(
@@ -2457,7 +2459,7 @@ fn released_shared_quest_receipts_drop_on_upgrade_and_replay() {
         assert_eq!(w.version, engine::VERSION);
         assert_saved_actors(&w.game["actors"], &previous.game["actors"]);
         assert_saved_items(&w.game["items"], &previous.game["items"]);
-        assert_saved_packs(&w.game["packs"], &previous.game["packs"]);
+        assert_saved_packs(&w.game, &previous.game);
         assert_eq!(w.game["log"], quest_free_log(&previous.game["log"]));
         assert_eq!(w.game["turn"], previous.game["turn"]);
         // The want model keeps no quest receipts; the Bard is no longer drawn

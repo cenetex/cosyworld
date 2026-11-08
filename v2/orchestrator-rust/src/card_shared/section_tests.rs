@@ -122,52 +122,28 @@ fn earlier_greek_worlds_upgrade_once_with_original_history_and_new_entities() {
                         old.game["packs"]["greek-drama"][field]
                     );
                 }
-                assert_eq!(
-                    upgraded.game["actors"].as_object().unwrap().len(),
-                    old.game["actors"].as_object().unwrap().len()
-                        + 16
-                        + 3
-                        + 4
-                        // Greek revision 21: Polynices' shade.
-                        + 1
-                        + if version == engine::ELEVENTH_VERSION {
-                            3
-                        } else {
-                            11
+                let initial = super::saved_items::initial_game(&upgraded.game);
+                for field in ["actors", "items"] {
+                    let current = upgraded.game[field].as_object().unwrap();
+                    let catalog = initial[field].as_object().unwrap();
+                    assert_eq!(current.len(), catalog.len(), "{field} catalog");
+                    for (id, record) in catalog {
+                        let added = current.get(id).expect("current catalog entry");
+                        if old.game[field].get(id).is_some() {
+                            continue;
                         }
-                );
-                assert_eq!(
-                    upgraded.game["items"].as_object().unwrap().len(),
-                    old.game["items"].as_object().unwrap().len()
-                        + 13
-                        + 4
-                        // Greek revision 9: the Suppliant's Olive Branch.
-                        + 1
-                        // The storybook world map was retired on 2026-11-01
-                        // (docs/design/storybook-map-item.md); upgrades no
-                        // longer add it.
-                        // The Lonely Forest: the Wolfprint Charm and eight
-                        // buttons and scarves.
-                        + 17
-                        // Greek revision 11: the Burial Account, Creon's Writ
-                        // and the Guard's Tablet.
-                        + 3
-                        // Greek revision 15: the Pyre Account and the
-                        // Marathon Record.
-                        + 2
-                        // The Thebes provisions loop: the Dried Figs, the
-                        // Wine Skin and the Libation Wine.
-                        + 3
-                        // Greek revision 20: the Sack of Wheat.
-                        + 1
-                        // The Helen and Atreid records.
-                        + 2
-                        + if version == engine::ELEVENTH_VERSION {
-                            9
+                        if field == "items" {
+                            assert_eq!(added, record, "new item {id}");
                         } else {
-                            18
+                            for key in ["place", "crossed", "lastTalk"] {
+                                assert_eq!(added[key], record[key], "new actor {id}.{key}");
+                            }
+                            for trust in added["trust"].as_object().unwrap().values() {
+                                assert_eq!(trust, &json!(0), "new actor {id} trust");
+                            }
                         }
-                );
+                    }
+                }
                 assert_eq!(
                     upgraded.game["items"]["greek-burial-petition"]["holder"],
                     "greek-eleusis"
