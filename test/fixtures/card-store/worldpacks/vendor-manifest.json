@@ -5,12 +5,12 @@
       "id": "sample",
       "source": {
         "repo": "example/cosyworld-pack",
-        "commit": "1111111111111111111111111111111111111111"
+        "commit": "0f2483d368a0d5668cf293c8e8d926c7b31e1483"
       },
       "pinned": {
         "revision": 1,
         "contract": "cosyworld.card-table/1",
-        "sha256": "83f0ae446a8094864f736be428cd853cb1b8be03de51b1061433e5be5e45613e"
+        "sha256": "a60ed24b554da9b13f3535ee370ad6a86a2804e9b7c92910484551a671758513"
       },
       "mounted": true,
       "dir": "worldpacks/sample"
