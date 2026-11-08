@@ -18450,6 +18450,14 @@
   var kitThings = new Set(packKits.flatMap((kit) => kit.items));
   var restOf = (id) => packThings[id].home ?? packThings[id].holder;
   var lockedThings = Object.keys(packThings).filter((id) => packThings[id].locked).sort();
+  function validCraftEvent(s, event) {
+    if (event.verb !== "craft") return event.consumedIds === void 0;
+    const { consumedIds, sourceSeq } = event;
+    if (event.kind !== "narration" || event.generated || !Object.hasOwn(s.actors, event.actorId) || !Object.hasOwn(s.items, event.itemId) || !Number.isSafeInteger(event.seq) || !Number.isSafeInteger(event.turn) || event.turn < 0 || event.turn > s.turn || !Number.isSafeInteger(sourceSeq) || sourceSeq < 1 || sourceSeq >= event.seq || !Array.isArray(consumedIds) || consumedIds.length < 1 || consumedIds.length > 3 || consumedIds.some((id, i) => !Object.hasOwn(s.items, id) || id === event.itemId || consumedIds.indexOf(id) !== i) || !Array.isArray(event.witnesses) || !event.witnesses.includes(event.actorId))
+      return false;
+    const source = s.log.find((entry) => entry.seq === sourceSeq);
+    return !source || source.kind === "action" && source.turn === event.turn && ["give", "trade", "drop"].includes(source.verb) && (source.verb === "drop" || source.accepted === true) && consumedIds.includes(source.itemId) && source.targetId === (source.verb === "drop" ? event.locationId : event.actorId);
+  }
   function installItemCycle(s, added = []) {
     const starts = (id) => packThings[id]?.startsUsed === true && s.items[id]?.holder === packThings[id].holder && !s.items[id].history.length;
     const fresh = Array.isArray(s.usedUp) ? added : Object.keys(s.items);
@@ -20669,6 +20677,7 @@
       "drop",
       "focus",
       "claim",
+      "craft",
       "gate",
       "pack",
       "give",
@@ -20707,6 +20716,9 @@
       if (e.actorId != null && !actorIds.includes(e.actorId)) fail();
       if (e.locationId != null && !Object.hasOwn(places, e.locationId)) fail();
       if (e.verb != null && !verbs2.includes(e.verb)) fail();
+      if (!validCraftEvent(s, e)) fail();
+      if (e.verb === "craft" && (!places[e.locationId] || !holderIds.has(e.holderId) && !ids.includes(e.holderId)))
+        fail();
       if (e.verb === "claim" ? e.kind !== "action" || e.generated || !actorIds.includes(e.actorId) || !Number.isSafeInteger(e.seq) || !Number.isSafeInteger(e.receipt) || e.receipt < 1 || e.receipt >= e.seq : e.receipt !== void 0)
         fail();
       if (e.outcome !== void 0 && !OUTCOMES.includes(e.outcome) || e.droppedItemIds !== void 0 && (!Array.isArray(e.droppedItemIds) || e.droppedItemIds.some((id) => !ids.includes(id))))
@@ -21614,6 +21626,7 @@
     "ada"
   ]);
   var residentSleepPortraits = {
+    "greek-antigone": "assets/sleep/residents/greek-antigone-sleeping.png",
     "greek-baker": "assets/sleep/greek-baker-sleeping.png"
   };
   var sleepPortraitAssets = [
@@ -22784,6 +22797,7 @@
       "assets/greek-drama/myrine.webp",
       "assets/greek-drama/polynices-shade.webp",
       "assets/sleep/greek-baker-sleeping.png",
+      "assets/sleep/residents/greek-antigone-sleeping.png",
       ...["tecmessa", "teucer", "odysseus"].map(
         (name) => `assets/greek-drama/ajax-${name}.png`
       ),
