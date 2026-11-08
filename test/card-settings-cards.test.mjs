@@ -1,4 +1,4 @@
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
   PACKS,
@@ -43,16 +43,36 @@ describe("settings as a hand of cards", () => {
     expect(labels(cards, "privacy")).toEqual(["Open privacy"]);
     expect(held("sound")).toEqual(["music", "voices", "volume"]);
     expect(held("play")).toEqual(["fight", "scares", "controls"]);
-    expect(held("world").slice(0, 4)).toEqual(
+    expect(held("world").slice(0, PACKS.length)).toEqual(
       PACKS.map(([id]) => `pack-${id}`),
     );
-    expect(held("world").slice(4)).toEqual(["new-game", "download"]);
+    expect(held("world").slice(PACKS.length)).toEqual(["new-game", "download"]);
     // Every card is a full-bleed painting: a workbench crop or a pack's.
     for (const c of cards)
       expect(existsSync(`v2/card-game/${c.art.replace("./", "")}`)).toBe(true);
     expect(cards.filter((c) => !/settings\/|pack-/.test(c.art + c.id))).toEqual(
       [],
     );
+  });
+
+  it("offers every switchable world pack, including RatiRadio", () => {
+    const catalog = JSON.parse(readFileSync("v2/card-game/packs.json", "utf8"));
+    expect(PACKS.map(([id]) => id).sort()).toEqual(
+      Object.keys(catalog.hub.switchable).sort(),
+    );
+    for (const on of [false, true]) {
+      const packs = { ...table().packs, radio: { on } };
+      const radio = settingsCards(table({ packs })).find(
+        (c) => c.id === "pack-radio",
+      );
+      expect(radio.lit).toBe(on);
+      expect(radio.actions).toMatchObject([
+        { run: "pack", pack: "radio", enable: !on },
+      ]);
+      expect(radio.actions[0].label).toBe(
+        `Turn Night Shift at RatiRadio ${on ? "off" : "on"}`,
+      );
+    }
   });
 
   it("shows state as the face and says the next action in the button", () => {
