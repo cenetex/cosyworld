@@ -14,6 +14,7 @@ const travelers = new Set([
 // Approved resident sleep art is registered by actor id. Aliases can point
 // to the same asset without changing the world-life rules or base portrait.
 const residentSleepPortraits = {
+  "greek-antigone": "assets/sleep/residents/greek-antigone-sleeping.png",
   "greek-baker": "assets/sleep/greek-baker-sleeping.png",
 };
 export const sleepPortraitAssets = [
