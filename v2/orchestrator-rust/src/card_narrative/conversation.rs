@@ -6,7 +6,8 @@
 //! reach it, so a chat-tuned model answers a person, the view stays out of
 //! the reply, and the words are stable across attempts.
 use super::{
-    answered, custody, kind, name, names, waking, witnessed, Context, Entity, Part, Section, SpokenLine,
+    answered, custody, kind, name, names, waking, witnessed, Context, Entity, Part, Section,
+    SpokenLine,
 };
 
 /// The recent talk here: at most this many lines, oldest dropped first.
@@ -26,8 +27,8 @@ pub(super) fn applies(context: &Context, entity: &Entity, part: Part) -> bool {
 /// The line this speaker answers: in a Talk, the actor's line for its
 /// target; otherwise the latest line someone else said here that it heard.
 pub(super) fn heard<'a>(context: &'a Context, entity: &Entity) -> Option<&'a SpokenLine> {
-    // An exchange answers the committed action. Earlier speech remains in
-    // chat(), but a promise made before the play cannot stand in for its result.
+    // Exchange contexts contain prior-turn speech only; fresh line chaining
+    // belongs to Talk. Keep old promises in chat(), not as this play's result.
     if custody::exchange(context, &entity.id) {
         return None;
     }
@@ -332,7 +333,9 @@ mod tests {
                 assert!(valid(&c));
                 let prompt = messages(&c, super::super::entity(&c, "vale"));
                 assert_eq!(prompt.user, "Pip is here.");
-                assert!(prompt.assistant.contains("Pip said: \"You can borrow my lamp.\""));
+                assert!(prompt
+                    .assistant
+                    .contains("Pip said: \"You can borrow my lamp.\""));
                 assert!(heard(&c, super::super::entity(&c, "moth")).is_none());
             }
         }

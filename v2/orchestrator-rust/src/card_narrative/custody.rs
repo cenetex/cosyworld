@@ -236,24 +236,43 @@ pub(super) fn facts(context: &Context, speaker: &str) -> Vec<String> {
 // A future custodial undertaking presupposes receipt. Explicit acquisition
 // conditions keep a hypothetical loan distinct from a completed exchange.
 fn undertaking(statement: &str, item: &str) -> bool {
-    let conditional = ["if ", "when ", "once ", "provided "]
-        .iter()
-        .any(|marker| {
-            statement.match_indices(*marker).any(|(at, marker)| {
-                let condition = &statement[at + marker.len()..];
-                [
-                    "you give ", "you lend ", "you hand ", "you let me ", "i get ",
-                    "i receive ", "i borrow ", "i can borrow ", "i have ", "i'm given ",
-                ]
-                .iter()
-                .any(|start| condition.starts_with(start))
-            })
-        });
+    let label = name(item).to_lowercase();
+    let objects = ["it".into(), label.clone(), person::the(&label)];
+    let conditional = ["if ", "when ", "once ", "provided "].iter().any(|marker| {
+        statement.match_indices(*marker).any(|(at, marker)| {
+            let condition = &statement[at + marker.len()..];
+            let condition = condition.strip_prefix("that ").unwrap_or(condition);
+            let receiving = [
+                "i get ",
+                "i receive ",
+                "i borrow ",
+                "i can borrow ",
+                "i'm given ",
+                "you let me borrow ",
+                "you let me have ",
+            ];
+            let acquired = receiving.iter().any(|start| {
+                condition
+                    .strip_prefix(*start)
+                    .is_some_and(|rest| object_tail(rest, &objects).is_some())
+            });
+            let handed = ["you give ", "you lend ", "you hand "].iter().any(|start| {
+                condition.strip_prefix(*start).is_some_and(|rest| {
+                    if let Some(rest) = rest.strip_prefix("me ") {
+                        return object_tail(rest, &objects).is_some();
+                    }
+                    object_tail(rest, &objects).is_some_and(|tail| {
+                        tail.strip_prefix(" to me")
+                            .is_some_and(|end| !end.chars().next().is_some_and(char::is_alphanumeric))
+                    })
+                })
+            });
+            acquired || handed
+        })
+    });
     if conditional {
         return false;
     }
-    let label = name(item).to_lowercase();
-    let objects = ["it".into(), label.clone(), person::the(&label)];
     statement.split([',', '\u{2014}']).any(|clause| {
         let clause = clause.trim().trim_start_matches("and ");
         let Some(promise) = clause
@@ -263,27 +282,37 @@ fn undertaking(statement: &str, item: &str) -> bool {
             return false;
         };
         [
-            "take care of ", "take good care of ", "look after ", "keep ", "return ",
-            "bring ", "give ",
+            "take care of ",
+            "take good care of ",
+            "look after ",
+            "keep ",
+            "return ",
+            "bring ",
+            "give ",
         ]
         .iter()
         .any(|verb| {
             let Some(rest) = promise.strip_prefix(*verb) else {
                 return false;
             };
-            objects.iter().any(|object| {
-                rest.strip_prefix(object.as_str()).is_some_and(|tail| {
-                    !tail.chars().next().is_some_and(char::is_alphanumeric)
-                        && match *verb {
-                            "bring " | "give " => tail.starts_with(" back"),
-                            "keep " => tail.chars().all(|c| !c.is_alphanumeric())
-                                || [" safe", " secure", " close", " with me", " for you", " until "]
-                                    .iter().any(|end| tail.starts_with(end)),
-                            _ => true,
-                        }
-                })
+            object_tail(rest, &objects).is_some_and(|tail| match *verb {
+                "bring " | "give " => tail.starts_with(" back"),
+                "keep " => {
+                    tail.chars().all(|c| !c.is_alphanumeric())
+                        || [" safe", " secure", " close", " with me", " for you", " until "]
+                            .iter()
+                            .any(|end| tail.starts_with(end))
+                }
+                _ => true,
             })
         })
+    })
+}
+
+fn object_tail<'a>(text: &'a str, objects: &[String]) -> Option<&'a str> {
+    objects.iter().find_map(|object| {
+        text.strip_prefix(object.as_str())
+            .filter(|tail| !tail.chars().next().is_some_and(char::is_alphanumeric))
     })
 }
 
@@ -401,20 +430,23 @@ mod tests {
         } else {
             "vale"
         };
-        c.outcome = Some(serde_json::from_value(serde_json::json!({
-            "card":{"kind":kind,"target":"greek-ismene",
-                "item":if kind == "ask" { "greek-household-token" } else { "lamp" },
-                "receive":(kind == "trade").then_some("greek-household-token"),
-                "accepted":accepted},
-            "avatars":[
-                {"id":"vale","location":c.location,"holding":[]},
-                {"id":"greek-ismene","location":c.location,"holding":[]}
-            ],
-            "items":[
-                {"id":"greek-household-token","holder":token,"location":c.location},
-                {"id":"lamp","holder":lamp,"location":c.location}
-            ]
-        })).unwrap());
+        c.outcome = Some(
+            serde_json::from_value(serde_json::json!({
+                "card":{"kind":kind,"target":"greek-ismene",
+                    "item":if kind == "ask" { "greek-household-token" } else { "lamp" },
+                    "receive":(kind == "trade").then_some("greek-household-token"),
+                    "accepted":accepted},
+                "avatars":[
+                    {"id":"vale","location":c.location,"holding":[]},
+                    {"id":"greek-ismene","location":c.location,"holding":[]}
+                ],
+                "items":[
+                    {"id":"greek-household-token","holder":token,"location":c.location},
+                    {"id":"lamp","holder":lamp,"location":c.location}
+                ]
+            }))
+            .unwrap(),
+        );
         let outcome = c.outcome.as_mut().unwrap();
         for avatar in &mut outcome.avatars {
             avatar.holding = outcome
@@ -435,8 +467,8 @@ mod tests {
                 let mut c = exchange_context(kind, accepted);
                 for perceived in [false, true] {
                     for e in &mut c.entities {
-                        e.perception = (perceived && super::kind(&e.id, "avatar"))
-                            .then(Default::default);
+                        e.perception =
+                            (perceived && super::kind(&e.id, "avatar")).then(Default::default);
                     }
                     for speaker in ["vale", "greek-ismene"] {
                         let prompt = messages(&c, entity(&c, speaker), Part::Line).assistant;
@@ -467,7 +499,8 @@ mod tests {
     fn failed_receipt_blocks_custodial_promises_not_politeness_or_hypotheticals() {
         let c = exchange_context("ask", false);
         let check = Check::new(&c, entity(&c, "vale"), Part::Line);
-        let screenshot = "Thank you, Ismene. I’ll take good care of it—and return it when you need it.";
+        let screenshot =
+            "Thank you, Ismene. I’ll take good care of it—and return it when you need it.";
         for line in [
             screenshot,
             "I'll look after the Household Token.",
@@ -475,6 +508,9 @@ mod tests {
             "I'll return it tomorrow.",
             "I'll bring it back.",
             "I'll give it back when you ask.",
+            "I'll keep it safe when I have time.",
+            "I'll return it if you give me a moment.",
+            "I'll return it if you let me know.",
         ] {
             assert_eq!(check.clean(line, true), Err("custody"), "{line}");
         }
@@ -482,6 +518,8 @@ mod tests {
             "Thank you for explaining.",
             "If you lend it to me, I'll return it when you need it.",
             "I'll keep it safe if you give it to me.",
+            "Once you hand me the Household Token, I'll keep it safe.",
+            "I'll return it when I receive it.",
             "I could look after it if you wished.",
             "May I borrow it?",
             "I won't take it.",
@@ -508,7 +546,10 @@ mod tests {
             ("trade", "greek-ismene"),
         ] {
             let c = exchange_context(kind, false);
-            assert!(!consistent("I'll keep it safe.", &c, speaker), "{kind} {speaker}");
+            assert!(
+                !consistent("I'll keep it safe.", &c, speaker),
+                "{kind} {speaker}"
+            );
         }
     }
 
