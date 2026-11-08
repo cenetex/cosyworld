@@ -117,8 +117,6 @@ import {
   validLife,
 } from "./life.mjs";
 import {
-  packPlaces,
-  packThings,
   crossings,
   entityActive,
   actorCanVisit,
@@ -138,7 +136,6 @@ import {
   packTalkChoice,
   choiceText,
   conditionsMet,
-  validatePackLinks,
   packDefinition,
   packPeople,
   packActorIds,
@@ -243,15 +240,17 @@ import {
   validGuard,
 } from "./resident-guard.mjs";
 
-// Authored forest data and mounted packs share the same rule path.
-export const places = { ...forest.places, ...packPlaces };
+// Authored forest data and mounted packs share the same rule path. The
+// catalog and its names live in world/catalog.mjs (#1390).
+import {
+  places,
+  sanctuaries,
+  people,
+  things,
+  nameOf,
+} from "./world/catalog.mjs";
+export { places, sanctuaries, people, things, nameOf };
 const homeGates = { ...forest.homeGates, ...humanHomeGates };
-export const sanctuaries = Object.keys(places).filter(
-  (id) => places[id].sanctuary === true,
-);
-export const people = { ...forest.people, ...packPeople };
-export const things = { ...packThings, ...forest.things };
-validatePackLinks(places, people, things);
 const lifeProblems = lifeDataProblems(places, people);
 if (lifeProblems.length)
   throw new Error(`Invalid world life data: ${lifeProblems.join("; ")}`);
@@ -312,8 +311,6 @@ const expectedTrustKeys = Object.fromEntries(
       .join(),
   ]),
 );
-export const nameOf = (id) =>
-  places[id]?.name || people[id]?.name || things[id]?.name || "the world";
 // A run seed draws each pack's specials once (pack-specials.mjs).
 export function createWorld({ opening = false, packScopes = {}, seed } = {}) {
   const world = {

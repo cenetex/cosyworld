@@ -294,6 +294,7 @@ const files = [
   "pack-landings.json",
   "station-exits.mjs",
   "world.mjs",
+  "world/catalog.mjs",
   "scene-cast.mjs",
   "settings-cards.mjs",
   "settings-screen.mjs",
