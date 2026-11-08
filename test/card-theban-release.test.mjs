@@ -1,5 +1,6 @@
 import { needsVoyage, sailTo } from "./helpers/voyage.mjs";
 import { describe, expect, it } from "vitest";
+import { openGreekGate } from "./helpers/greek-gate.mjs";
 import { readFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import {
@@ -97,10 +98,10 @@ const act = (s, kind, fields = {}) => {
   expect(r.ok, r.error).toBe(true);
   return r.state;
 };
-// The battlefield road is open once the guard holds the decree.
+// These walks begin with explicit custody that opens the City Gate.
 const reachable = (world) => {
   const s = structuredClone(world);
-  s.items["greek-creon-writ"].holder = "greek-guard";
+  openGreekGate(s);
   settleGate(s);
   const seen = new Set([pack.entry]);
   for (const id of seen)
@@ -212,9 +213,8 @@ describe("the Theban release and its ship", () => {
   it("keeps a route from every opening place back to the pond after the signal", () => {
     const s = createWorld();
     s.crossings["pond-greek-harbor"].discovered = true;
-    // The battlefield is reached only through the City Gate, whose guard
-    // stands aside while he holds Creon's writ (rules 102).
-    s.items["greek-creon-writ"].holder = "greek-guard";
+    // The City Gate is open for the return journey.
+    openGreekGate(s);
     settleGate(s);
     for (const start of openingPlaces.filter((id) => id !== "greek-ship")) {
       const seen = new Set([start]);

@@ -370,10 +370,11 @@ describe("rules 95 item cycle", () => {
     ).toBeUndefined();
   });
 
-  it("shows the guarded card locked, with no quest, until the writ", () => {
+  it("shows a friend the guarded card locked, with no quest, until the writ", () => {
     let s = harbor();
     s.actors.vale.place = "greek-gate";
     s.items["greek-creon-writ"].holder = "vale";
+    s.actors["greek-guard"].trust.vale = 1;
     s = reload(s);
     expect(exits(s, "greek-gate", "vale")).not.toContain("greek-battlefield");
     expect(availableCards(s)).toContain("greek-battlefield");

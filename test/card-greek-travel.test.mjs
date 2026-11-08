@@ -2,6 +2,7 @@ import { atticOpening } from "./fixtures/card-attic-opening.mjs";
 import { readFileSync } from "node:fs";
 import vm from "node:vm";
 import { describe, it, expect } from "vitest";
+import { openGreekGate } from "./helpers/greek-gate.mjs";
 import {
   createWorld,
   decodeSave,
@@ -73,9 +74,8 @@ function shared(dock, seas = false, ajax = false) {
   // The Travel Provisions ride on deck, which opens the Wine-Dark Harbor's
   // lane to Piraeus.
   stowProvisions(world, "greek-ship");
-  // The guard holds Creon's writ, so the City Gate stands open and the land
-  // route enters Thebes (rules 102: a live gate, never latched).
-  if (ajax) world.items["greek-creon-writ"].holder = "greek-guard";
+  // The gate stands open for this journey; it never gains a lasting latch.
+  if (ajax) openGreekGate(world);
   return world;
 }
 const ask = (world, actor, extra = {}) =>

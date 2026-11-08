@@ -76,10 +76,30 @@ try {
       }),
     );
     // Hold each reply until released, so the pending play can be seen.
-    let release;
+    let holding = false;
+    const heldReplies = new Set();
+    const holdReply = () => {
+      holding = true;
+      const response = page.waitForResponse("**/card-game/text");
+      return async () => {
+        holding = false;
+        for (const release of heldReplies) release();
+        const reply = await response;
+        assert.equal(await reply.finished(), null, "fixture reply completed");
+        return reply.request().postDataJSON();
+      };
+    };
     await page.route("**/card-game/text", async (route) => {
       const c = route.request().postDataJSON();
-      await new Promise((r) => (release = r));
+      if (holding) {
+        await new Promise((resolve) => {
+          const release = () => {
+            heldReplies.delete(release);
+            resolve();
+          };
+          heldReplies.add(release);
+        });
+      }
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -175,9 +195,7 @@ try {
     await page
       .locator('#hand [data-card="greek-decree"]')
       .waitFor({ state: "attached" });
-    release?.();
     await page.waitForTimeout(800);
-    release?.();
     await handUncut();
     await shot("idle");
 
@@ -201,6 +219,7 @@ try {
     await handUncut();
     await shot("ready");
     await naturalItemRatio(page.locator(".action-beat-cards .quest-thing"));
+    const takingReply = holdReply();
     await page
       .locator('#card-actions .card-primary:not([data-revealing="true"])')
       .click();
@@ -211,9 +230,8 @@ try {
     );
     const captions = await page.locator(".dialogue").innerText();
     assert(!/the the/i.test(captions), captions);
-    release?.();
+    await takingReply();
     await page.waitForTimeout(600);
-    release?.();
     // Taking keeps the same decree chosen and rests the committed play.
     // Opening a menu beat is an arrival, with no outgoing action to fold.
     await settled();
@@ -257,17 +275,43 @@ try {
     assert.equal(offering.tier, taking.tier, "the decree outranks Rare Creon");
     await handUncut();
     await shot("ready-dialogue");
+    const givingReply = holdReply();
     await give.and(page.locator(':not([data-revealing="true"])')).click();
     await page.waitForTimeout(150);
     await handUncut();
     await shot("pending");
-    release?.();
-    await page.waitForTimeout(600);
-    release?.();
+    const given = await givingReply();
+    // Receiving the response is not the same as reading its dialogue. Wait
+    // for this turn's words, then advance them as a player before choosing
+    // Creon; choosing early deliberately holds the last reply for Continue.
+    await page.waitForFunction(
+      ({ key, turn }) => {
+        const saved = JSON.parse(localStorage.getItem(key));
+        return saved.log.some((entry) => entry.generated && entry.turn === turn);
+      },
+      { key, turn: given.turn },
+    );
+    assert.equal(
+      await page.evaluate((key) =>
+        JSON.parse(localStorage.getItem(key)).items["greek-decree"].holder,
+      key),
+      "greek-creon",
+      "Give committed before returning to Talk",
+    );
+    for (let step = 0; step < 100; step++) {
+      if (await page.locator('#hand[data-cooling="false"]').count()) break;
+      const advance = page.locator(
+        '#dialogue-advance:is([aria-label="Finish reading"], [aria-label="Continue to the next beat"])',
+      );
+      if (await advance.isVisible()) await advance.click();
+      await page.waitForTimeout(40);
+    }
+    await page.locator('#hand[data-cooling="false"]').waitFor();
     await handUncut();
     // The peeking beat is Back. Live returns to the same ready action.
     await page.keyboard.press("Escape");
     await selectCard(page, "greek-creon");
+    await readyActionButton(page, "talk").waitFor();
     await actionBeat("talk");
     const speech = page.locator("#speech-row");
     const words = await page.locator("#dialogue-text").textContent();
