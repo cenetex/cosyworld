@@ -1,0 +1,64 @@
+{
+  "tool": "built-in image_gen.imagegen",
+  "referenceConceptSha256": "dfdfee9597920b116de9ee1fe066472e628540e72f2d7e5de53fb5a758a68f5a",
+  "assets": [
+    {
+      "key": "staff-kitchen",
+      "transparent": false,
+      "prompt": "Use case: stylized-concept. Asset type: final CosyWorld place painting for Night Shift at RATiRadio. Expand the relevant panel of the supplied concept sheet into ONE full-bleed wide 16:9 production background, ideally 1672×941. Reference image 1 is the approved art-direction sheet, only a reference for the worn teal, amber light, painterly anime draftsmanship and tactile surfaces. No sheet layout, borders, titles, captions, watermark, interface, people, birds, character silhouettes, reflections of characters, or movable quest props. Do not paint any red beanie, thermos, raven figurine, drinking glass, station key, request slip. Objects will be separate game entities. Preserve an uncluttered lower-left foreground and grounded floor for the player avatar. No text except where explicitly requested. Beautiful authored painterly detail, gentle night atmosphere, physically coherent interior, selective anime linework, warm brass and dark aged wood, teal shadows. Critical room features visible in the central/right two-thirds.\nPrimary request: The Staff Kitchen, empty overnight staff room with a slightly uncanny long row of old mismatched refrigerators receding along the right wall. A cream enamel refrigerator nearest the viewer, then faded teal and brown doors, small amber ceiling lamps diminishing into depth, old teal kitchen cupboards and a fixed sink along the back left. Worn square blue-green floor tiles with a little amber reflection. One mid-distance refrigerator barely ajar with a cool inner glow. Warm, used, maintained but threadbare, not abandoned rubble. No portable cups, mugs, bottles or food vessels. Make the lower-left 25% open tiled floor. Keep major appliances and sink comfortably above that foreground.",
+      "references": [
+        "exec-6e28c67f-94aa-40a1-bedd-f4f67d659ae9.png"
+      ]
+    },
+    {
+      "key": "dispatch-window",
+      "transparent": false,
+      "prompt": "Use case: stylized-concept. Asset type: final CosyWorld place painting for Night Shift at RATiRadio. Expand the relevant panel of the supplied concept sheet into ONE full-bleed wide 16:9 production background, ideally 1672×941. Reference image 1 is the approved art-direction sheet, only a reference for the worn teal, amber light, painterly anime draftsmanship and tactile surfaces. No sheet layout, borders, titles, captions, watermark, interface, people, birds, character silhouettes, reflections of characters, or movable quest props. Do not paint any red beanie, thermos, raven figurine, drinking glass, station key, request slip. Objects will be separate game entities. Preserve an uncluttered lower-left foreground and grounded floor for the player avatar. No text except where explicitly requested. Beautiful authored painterly detail, gentle night atmosphere, physically coherent interior, selective anime linework, warm brass and dark aged wood, teal shadows. Critical room features visible in the central/right two-thirds.\nPrimary request: The Dispatch Window, an empty late-night radio-station service hatch. Center/right a wide wired-glass partition above an aged dark wooden counter, a small open serving hatch revealing an empty desk and chair behind it. Amber light spreads through the wired glass into teal shadow. A plain round clock above the partition has hands only, no numerals or lettering. Worn framed notice slots remain empty; a few fixed shelves and a pencil cup behind the glass, not foreground loot. No paper bag, hat, bottles or drinking vessels. The foreground is an open waiting-room floor, especially lower-left, with the counter receding diagonally rather than blocking the player's feet. Quiet, human-scale, a night shift still in progress.",
+      "references": [
+        "exec-6e28c67f-94aa-40a1-bedd-f4f67d659ae9.png"
+      ]
+    },
+    {
+      "key": "listening-room",
+      "transparent": false,
+      "prompt": "Use case: stylized-concept. Asset type: final CosyWorld place painting for Night Shift at RATiRadio. Expand the relevant panel of the supplied concept sheet into ONE full-bleed wide 16:9 production background, ideally 1672×941. Reference image 1 is the approved art-direction sheet, only a reference for the worn teal, amber light, painterly anime draftsmanship and tactile surfaces. No sheet layout, borders, titles, captions, watermark, interface, people, birds, character silhouettes, reflections of characters, or movable quest props. Do not paint any red beanie, thermos, raven figurine, drinking glass, station key, request slip. Objects will be separate game entities. Preserve an uncluttered lower-left foreground and grounded floor for the player avatar. No text except where explicitly requested. Beautiful authored painterly detail, gentle night atmosphere, physically coherent interior, selective anime linework, warm brass and dark aged wood, teal shadows. Critical room features visible in the central/right two-thirds.\nPrimary request: The Listening Room is human RATi's home inside the radio station, a genuinely homely worn retreat. A well-loved empty armchair slightly right of center with a folded muted grey-green throw; wooden side table with only a fixed shaded amber lamp and a small vintage radio. A rain-darkened window with teal curtains on the rear-left wall; a few books on the rear shelf. On the far-right wall a clearly visible closed wooden Broadcast Booth door with a rectangular observation window; no words or sign. The radio, chair, lamp and booth door are the clear landmarks. An aged rug leaves the lower-left foreground simple and open for the player. Do not include any glass, red textile, thermos, key, figurine, person or bird. Warm habit and rest, not a waiting lobby. Painterly anime interior in the exact approved palette.",
+      "references": [
+        "exec-6e28c67f-94aa-40a1-bedd-f4f67d659ae9.png"
+      ]
+    },
+    {
+      "key": "broadcast-booth",
+      "transparent": false,
+      "prompt": "Use case: stylized-concept. Asset type: final CosyWorld place painting for Night Shift at RATiRadio. Expand the relevant panel of the supplied concept sheet into ONE full-bleed wide 16:9 production background, ideally 1672×941. Reference image 1 is the approved art-direction sheet, only a reference for the worn teal, amber light, painterly anime draftsmanship and tactile surfaces. No sheet layout, borders, titles, captions, watermark, interface, people, birds, character silhouettes, reflections of characters, or movable quest props. Do not paint any red beanie, thermos, raven figurine, drinking glass, station key, request slip. Objects will be separate game entities. Preserve an uncluttered lower-left foreground and grounded floor for the player avatar. No text except where explicitly requested. Beautiful authored painterly detail, gentle night atmosphere, physically coherent interior, selective anime linework, warm brass and dark aged wood, teal shadows. Critical room features visible in the central/right two-thirds.\nPrimary request: The Broadcast Booth, empty late-night analogue radio control room. Center/right an unoccupied worn studio chair faces a compact wooden mixing desk with warm amber VU meters and a fixed brass microphone on a black articulated boom. A broad interior observation window in the back wall looks into another empty dim room. Worn teal acoustic panels, dark timber frames, soft lamp reflection, subtle cable runs. A small red lamp above the window glows; it has no lettering. Angle the desk so the lower-left 25% is clear floor and the chair does not occupy the player silhouette zone. No headphones, loose papers, glass, cups, bottles, hats, thermos, figurine or key. The empty chair, microphone and mixing desk are distinct, convincingly usable focal points.",
+      "references": [
+        "exec-6e28c67f-94aa-40a1-bedd-f4f67d659ae9.png"
+      ]
+    },
+    {
+      "key": "rati",
+      "transparent": true,
+      "prompt": "Use case: identity-preserve. Asset type: full-body transparent game avatar illustration for Night Shift at RATiRadio. Extract and refine the HUMAN RATi character from reference image 1 into ONE standalone character, not a sheet. Reference image 2 provides the authoritative human face inside the storyboard frame: tousled medium brown hair, green iris on the VIEWER'S LEFT, blue iris on the VIEWER'S RIGHT. Young adult man, warm light skin, recognizably human ears and proportions. Open-collar off-white button shirt with rolled sleeves, charcoal high-waisted trousers, plain worn brown shoes, relaxed capable stance, quiet attentive expression. Entire body from hair to soles within frame, arms comfortably relaxed, empty hands. Frontal three-quarter stance with face close enough to frontal that both eye colors read. Painterly anime rendering matching the concept sheet's refined textured illustration, clean crisp silhouette, warm neutral highlights with subdued teal shadows. Real transparent background, no scenery, no floor, no cast shadow, no text, no card frame, no aura. The character occupies 84% of a tall portrait canvas, with clear space around all extremities. No mouse ears, no animal features, no beanie, no glass, no thermos, no keys, no raven, no headset.",
+      "references": [
+        "exec-6e28c67f-94aa-40a1-bedd-f4f67d659ae9.png",
+        "glass-page-10.png"
+      ]
+    },
+    {
+      "key": "raven",
+      "transparent": true,
+      "prompt": "Use case: identity-preserve. Asset type: full-body transparent living Raven game avatar for Night Shift at RATiRadio. Create ONE standalone living black raven using the living raven from reference image 1 and the storyboard bird from reference image 2 for identity, never the ceramic item. Clearly alive: layered matte black feathers with restrained teal-violet iridescence, anatomically convincing beak and expressive gaze, slender scaly legs with distinct toes, natural balanced standing pose. Head turned slightly toward viewer, both eyes readable: green eye on VIEWER'S LEFT and blue eye on VIEWER'S RIGHT, subtle natural color, no magic beams. Entire body, tail, beak and both feet fully inside a square-to-portrait canvas; ample margins. Painterly anime-naturalist illustration, selectively crisp feather shapes, softer painted interior detail. Distinct from the glossy rigid ceramic raven figurine. Real transparent background. No branch, pedestal, floor, cast shadow, scenery, text, frame or other objects. No extra wings or legs. It is an ordinary living raven, not an anthropomorphic humanoid.",
+      "references": [
+        "exec-6e28c67f-94aa-40a1-bedd-f4f67d659ae9.png",
+        "glass-page-30.png"
+      ]
+    },
+    {
+      "key": "items-atlas",
+      "transparent": true,
+      "prompt": "Use case: stylized-concept. Asset type: ONE transparent production sprite atlas containing six completely separate quest-object illustrations for Night Shift at RATiRadio, arranged precisely in a 3-column × 2-row grid. Reference image 1 supplies the approved item designs and worn teal/amber painterly anime style. This is a clean unlettered atlas for mechanical separation into six square cards. Large transparent gutters between cells; nothing overlaps a grid boundary. All six objects fully visible, centered with generous breathing room in their cells. Top row left to right: 1) one aged brass Station Key on a small metal ring with a worn dark red-brown leather tag; 2) one deep rust-red knitted Beanie with thick folded ribbed cuff, softly slumped, no logo; 3) one upright battered dark-teal metal Thermos with dull silver screw cap and cream unlettered scuffed label. Bottom row left to right: 4) one small glossy BLACK CERAMIC Raven Figurine on a tiny integrated oval base, rigid sculpted wings, glossy glaze, obviously an inanimate ornament, no colored live eyes; 5) one ordinary clear drinking Glass HALF FULL of clean water, no hand, subtly faceted base and painted highlights with translucent glass edges; 6) one worn cream paper Request Slip with three short faint illegible graphite lines and a small plain pencil resting diagonally across it. No legible letters or numbers. Genuine transparent background everywhere outside each object, no beige page, no checkerboard baked in, no shelves, no floor, no cast shadows connecting objects. No labels, borders, dividers, title, UI, characters, living bird or duplicate objects. Consistent scale appropriate to a six-cell item atlas; each object occupies about 65–75% of its cell. Wide 3:2 overall canvas, preferably 1536×1024 or larger.",
+      "references": [
+        "exec-6e28c67f-94aa-40a1-bedd-f4f67d659ae9.png"
+      ]
+    }
+  ]
+}
