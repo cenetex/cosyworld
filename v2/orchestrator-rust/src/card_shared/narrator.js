@@ -3039,7 +3039,7 @@
         schemaVersion: 1,
         id: "greek-drama",
         packId: "cosyworld.greek-drama",
-        revision: 23,
+        revision: 24,
         name: "The Wine-Dark Sea",
         description: "A branching Greek drama world. A shared ship visits the Wine-Dark Harbor, Athens Harbor and Piraeus. One road joins Athens and Piraeus, and short paths lead to the Attic places where welcome becomes a growing poem.",
         tone: "Concrete Greek domestic and civic life: bread, work, desire, grief, argument, irreverence, and hospitality. Dialogue expresses committed actions. A tragic ending is never required.",
@@ -4301,29 +4301,54 @@
           },
           "greek-guard": {
             name: "The Gate Guard",
-            text: "He guards the road to the battlefield and will not stand aside without Creon's writ. He keeps glancing toward the smell of Dione's oven.",
+            text: "The Gate Decree assigns him to the gate. With both papers in hand, he admits a trusted traveller unless a grievance stands between them. Off duty, he likes a drink at Dione's table.",
             place: "greek-gate",
             home: "greek-gate",
             values: {
               "greek-provisions": 1,
               "greek-decree": 5,
-              "greek-bread": 2,
-              "greek-creon-writ": 7
+              "greek-bread": 6,
+              "greek-creon-writ": 7,
+              "greek-wine-skin": 5
             },
             seed: "The Gate Guard of Thebes.",
             portrait: "assets/greek-drama/chthonic-guard.png",
             tastes: {
-              likes: "an unambiguous instruction, returning alive",
+              likes: "clear orders, familiar faces, wine at the common table",
               sore: "being blamed for things outside his sight",
-              reason: "He guards the road to the battlefield and will not stand aside without Creon's writ. He keeps glancing toward the smell of Dione's oven."
+              reason: "The Gate Decree assigns him to the gate. With both papers in hand, he admits a trusted traveller unless a grievance stands between them. Off duty, he likes a drink at Dione's table."
             },
             want: {
               kind: "item",
-              target: "greek-bread",
+              target: "greek-wine-skin",
               step: {
-                verb: "eat"
+                verb: "eat",
+                at: "greek-courtyard"
               }
-            }
+            },
+            travels: false,
+            stayUntil: [
+              {
+                kind: "not",
+                condition: {
+                  kind: "holding",
+                  item: "greek-decree",
+                  actor: "greek-guard"
+                }
+              }
+            ],
+            passWhen: [
+              {
+                kind: "holding",
+                item: "greek-creon-writ",
+                actor: "greek-guard"
+              },
+              {
+                kind: "trusted",
+                actor: "greek-guard",
+                min: 1
+              }
+            ]
           },
           "greek-baker": {
             name: "Dione the Baker",
@@ -5133,9 +5158,9 @@
             home: "greek-gate"
           },
           "greek-decree": {
-            name: "The Burial Decree",
+            name: "Gate Decree",
             startLevel: 50,
-            text: "A public copy forbids burial of the brother left outside the city.",
+            text: "An order bearing Creon\u2019s seal assigns its holder to guard the road through the city gate.",
             holder: "greek-guard",
             persona: "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
             art: "assets/greek-drama/decree.png"
@@ -5480,7 +5505,7 @@
           },
           "greek-creon-writ": {
             name: "Creon's Writ",
-            text: "A sealed writ from the palace. With it, Creon permits the household to bury the brother, and the gate guard to stand aside.",
+            text: "Creon\u2019s sealed permission for the household to bury the brother. With it, the gate guard may admit a trusted traveller while keeping his post.",
             persona: "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
             holder: "greek-creon",
             art: "assets/greek-drama/creon-writ.webp"
@@ -5559,9 +5584,12 @@
             live: true,
             requires: [
               {
-                kind: "holding",
-                item: "greek-creon-writ",
-                actor: "greek-guard"
+                kind: "not",
+                condition: {
+                  kind: "holding",
+                  item: "greek-decree",
+                  actor: "greek-guard"
+                }
               }
             ]
           },
@@ -5789,8 +5817,8 @@
             id: "greek-hear-decree",
             subject: "greek-guard",
             at: "greek-gate",
-            label: "Hear the burial order",
-            text: "The guard reads the burial prohibition aloud.",
+            label: "Hear the gate order",
+            text: "The guard reads the order assigning him to the city gate.",
             requires: [],
             effects: [
               {
@@ -5799,7 +5827,7 @@
                 value: true
               }
             ],
-            textTemplate: "The guard reads the burial prohibition aloud.",
+            textTemplate: "The guard reads the order assigning him to the city gate.",
             on: "meet"
           },
           {
@@ -6129,7 +6157,8 @@
               }
             ],
             textTemplate: "{actor} sets Creon's Writ on Dione's table. She speaks of the Argive mothers at Eleusis.",
-            on: "give"
+            on: "give",
+            archived: true
           },
           {
             id: "greek-courtyard-permitted-burial",
@@ -18574,6 +18603,7 @@
       if (s.packs?.["greek-drama"]?.revision === 21)
         s.packs["greek-drama"].revision = 22;
       upgradeGreekCithaeronOpenSave(s);
+      upgradeGreekWritSave(s);
       upgradeRecitals(s, packDefinitions);
     }
     upgradeSightings(s);
@@ -19382,7 +19412,8 @@
   function upgradeGreekFuneralSave(s) {
     const pack = packDefinitions.find((p) => p.id === "greek-drama");
     const saved = s.packs?.[pack?.id];
-    if (!pack?.avatars["greek-polynices-shade"] || !saved || saved.revision > 20) return;
+    if (!pack?.avatars["greek-polynices-shade"] || !saved || saved.revision > 20)
+      return;
     addGreekEntities(s, pack, ["greek-polynices-shade"], []);
     const antigone = s.actors["greek-antigone"];
     if (antigone && !saved.flags?.["greek-burial-performed"])
@@ -19776,6 +19807,18 @@
           (edge) => !laneOfEdge(edge) || sailed.has(JSON.stringify(edge))
         );
     saved.revision = 16;
+  }
+  function upgradeGreekWritSave(s) {
+    const pack = packDefinitions.find((p) => p.id === "greek-drama");
+    const saved = s.packs?.[pack?.id];
+    if (!pack || pack.revision < 24 || saved?.revision !== 23) return;
+    const writ = s.items["greek-creon-writ"];
+    const held = Object.values(s.items).filter((i) => i.holder === "greek-creon");
+    if (writ?.holder === "greek-palace" && writ.history.length === 0 && held.length < 3 && !Object.values(s.items).some(
+      (i) => i.holder === "greek-creon-writ" || held.includes(s.items[i.holder])
+    ))
+      writ.holder = "greek-creon";
+    saved.revision = 24;
   }
 
   // v2/card-game/visit-speech.mjs

@@ -18,6 +18,8 @@ import {
 } from "../card-game/world.mjs";
 import { enableMotives } from "../card-game/motives.mjs";
 import { profiles } from "../card-game/memory.mjs";
+import { entityActive, packPeople } from "../card-game/pack-registry.mjs";
+import { guardPost, settleGuards } from "../card-game/resident-guard.mjs";
 
 function commit(world, kind, target) {
   const action = legalActions(world).find(
@@ -367,6 +369,74 @@ try {
     assert.deepEqual(errors, []);
     console.log(
       `Greek crossing, Theban decree, ${branch} branch, custody, reload and return passed at ${width}px.`,
+    );
+    // Both papers give this guard a live decision about the person at his post.
+    const guard = "greek-guard",
+      beyond = guardPost(guard).to;
+    const loadGuard = async (friendly) => {
+      const s = createWorld({ seed: 7 });
+      s.actors.vale.place = "greek-gate";
+      for (const id of Object.keys(packPeople))
+        if (id.startsWith("greek-") && entityActive(s, id))
+          s.packs["greek-drama"].met[id] = 0;
+      s.items["greek-creon-writ"].holder = guard;
+      s.actors[guard].trust.vale = friendly ? 1 : 0;
+      if (friendly === null) {
+        s.items["greek-decree"].holder = s.items["greek-creon-writ"].holder =
+          "vale";
+        s.items["greek-wine-skin"].holder = guard;
+      }
+      settleGuards(s);
+      await page.evaluate(({ key, save }) => localStorage.setItem(key, save), {
+        key,
+        save: encodeSave(s),
+      });
+      await page.reload();
+      await ready();
+    };
+    await loadGuard(false);
+    await selectCard(page, beyond);
+    assert.equal(
+      await page.locator('#card-actions [data-blocked="gate"]').isDisabled(),
+      true,
+    );
+    await loadGuard(true);
+    await travel(beyond);
+    assert.ok(
+      (await state()).log.some(
+        (e) =>
+          e.actorId === "vale" &&
+          e.verb === "move" &&
+          e.text.includes("lets Vale through"),
+      ),
+    );
+    await loadGuard(null);
+    await pair("greek-creon-writ", guard);
+    assert.equal((await state()).actors[guard].place, "greek-courtyard");
+    await travel("greek-courtyard");
+    await playCard("vale");
+    assert.ok(
+      (await state()).log.some(
+        (e) =>
+          e.actorId === guard &&
+          e.verb === "eat" &&
+          e.itemId === "greek-wine-skin",
+      ),
+    );
+    await pair("greek-decree", guard);
+    assert.equal((await state()).actors[guard].place, "greek-gate");
+    await page.reload();
+    await ready();
+    assert.equal((await state()).items["greek-creon-writ"].holder, guard);
+    assert.equal((await state()).items["greek-decree"].holder, guard);
+    await artReady();
+    await page.screenshot({
+      path: new URL(`guard-papers-${width}.png`, output).pathname,
+      fullPage: true,
+    });
+    assert.deepEqual(errors, []);
+    console.log(
+      `Guard friendship, ordinary drink, renewed duty and reload passed at ${width}px.`,
     );
     await page.close();
   }

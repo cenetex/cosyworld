@@ -70,7 +70,7 @@ describe("the Gate Guard", () => {
     expect(sealedReason(s, FIELD)).toBe("The Gate Guard is guarding this card");
   });
 
-  it("is knocked through on defeat, holds a grudge, walks back and bars again", () => {
+  it("is knocked through on defeat, yields his order and holds a grudge", () => {
     let s = beatGuard(lifeWorld({ place: GATE }));
     expect(s.actors[GUARD].place).toBe(FIELD);
     expect(s.actors[GUARD].guarding).toBeUndefined();
@@ -81,35 +81,27 @@ describe("the Gate Guard", () => {
     // The way is open while he is away.
     expect(exits(s, GATE, "vale")).toContain(FIELD);
     expect(sealedReason(s, FIELD)).toBe(null);
-    // After the peace he walks home, off-stage, and bars the way again.
-    s = act(s, "move", { target: "greek-courtyard" });
-    for (let i = 0; i < 8 && s.actors[GUARD].place !== GATE; i++) s = wait(s);
-    expect(s.actors[GUARD].place).toBe(GATE);
-    expect(s.actors[GUARD].guarding).toBe(FIELD);
-    s = act(s, "move", { target: GATE });
-    expect(exits(s, GATE, "vale")).not.toContain(FIELD);
-    expect(sealedReason(s, FIELD)).toBe("The Gate Guard is guarding this card");
+    expect(s.items["greek-decree"].holder).toBe(GATE);
   });
 
-  it("stands aside while he holds Creon's writ, wherever he stands", () => {
-    let s = lifeWorld({ place: "greek-courtyard" });
-    s.actors[GUARD].place = "greek-courtyard";
-    s.actors[GUARD].homeward = true;
-    s.items["greek-creon-writ"].holder = GUARD;
-    s = wait(reload(s));
-    for (let i = 0; i < 4 && s.actors[GUARD].place !== GATE; i++) s = wait(s);
-    expect(s.actors[GUARD].place).toBe(GATE);
-    expect(s.actors[GUARD].guarding).toBeUndefined();
-    s = act(s, "move", { target: GATE });
-    expect(exits(s, GATE, "vale")).toContain(FIELD);
-    expect(sealedReason(s, FIELD)).toBe(null);
-  });
+  it.each([GATE, "greek-courtyard", FIELD])(
+    "has no duty without the Gate Decree while at %s",
+    (place) => {
+      const s = lifeWorld({ place: GATE });
+      s.actors[GUARD].place = place;
+      s.items["greek-decree"].holder = "greek-creon";
+      settleGate(s);
+      expect(s.actors[GUARD].guarding).toBeUndefined();
+      expect(exits(s, GATE, "vale")).toContain(FIELD);
+      expect(sealedReason(s, FIELD)).toBe(null);
+    },
+  );
 });
 
 describe("a player's guard", () => {
   const opened = () => {
     const s = lifeWorld({ place: GATE });
-    s.items["greek-creon-writ"].holder = GUARD;
+    s.items["greek-decree"].holder = "greek-creon";
     return wait(reload(s));
   };
   it("stands as a Wait on a guardable way and bars residents only", () => {
@@ -206,8 +198,8 @@ describe("the Exposed Battlefield", () => {
     expect(waysOut(s)).toEqual([ROAD, GATE, "greek-polynices-hollow"]);
     expect(sealedReason(s, GATE)).toBe("The Gate Guard is guarding this card");
     expect(sealedReason(s, ROAD)).toBe(null);
-    // The writ lifts the City Gate bar on both sides; the road stays open.
-    s.items["greek-creon-writ"].holder = GUARD;
+    // Removing the duty order lifts the City Gate bar; the road stays open.
+    s.items["greek-decree"].holder = "greek-creon";
     s = settleGate(reload(s));
     expect(exits(s, FIELD, "vale").sort()).toEqual([
       ROAD,
@@ -237,7 +229,9 @@ describe("the Exposed Battlefield", () => {
     old.packs["greek-drama"].scope = "full";
     old.actors.vale.place = FIELD;
     const upgraded = decodeSave(JSON.stringify(old));
-    expect(upgraded.actors[GUARD].guarding).toBe(FIELD);
+    expect(upgraded.items["greek-decree"].holder).toBe(
+      old.items["greek-decree"].holder,
+    );
     expect(waysOut(upgraded)).toEqual([ROAD, GATE, "greek-polynices-hollow"]);
     expect(exits(upgraded, FIELD, GUARD)).toContain(GATE);
   });

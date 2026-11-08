@@ -151,6 +151,7 @@ export function upgradeSave(
     if (s.packs?.["greek-drama"]?.revision === 21)
       s.packs["greek-drama"].revision = 22;
     upgradeGreekCithaeronOpenSave(s);
+    upgradeGreekWritSave(s);
     upgradeRecitals(s, packDefinitions);
   }
   upgradeSightings(s);
@@ -1196,7 +1197,8 @@ export function upgradeGreekHomecomingSave(s) {
 function upgradeGreekFuneralSave(s) {
   const pack = packDefinitions.find((p) => p.id === "greek-drama");
   const saved = s.packs?.[pack?.id];
-  if (!pack?.avatars["greek-polynices-shade"] || !saved || saved.revision > 20) return;
+  if (!pack?.avatars["greek-polynices-shade"] || !saved || saved.revision > 20)
+    return;
   addGreekEntities(s, pack, ["greek-polynices-shade"], []);
   const antigone = s.actors["greek-antigone"];
   if (antigone && !saved.flags?.["greek-burial-performed"])
@@ -1709,4 +1711,25 @@ export function upgradeGreekEastSeaSave(s) {
         (edge) => !laneOfEdge(edge) || sailed.has(JSON.stringify(edge)),
       );
   saved.revision = 16;
+}
+
+// Revision 24 gives the two orders ordinary item custody. An untouched
+// palace-floor Writ is the old authored start; later transfers stay saved.
+function upgradeGreekWritSave(s) {
+  const pack = packDefinitions.find((p) => p.id === "greek-drama");
+  const saved = s.packs?.[pack?.id];
+  if (!pack || pack.revision < 24 || saved?.revision !== 23) return;
+  const writ = s.items["greek-creon-writ"];
+  const held = Object.values(s.items).filter((i) => i.holder === "greek-creon");
+  if (
+    writ?.holder === "greek-palace" &&
+    writ.history.length === 0 &&
+    held.length < 3 &&
+    !Object.values(s.items).some(
+      (i) =>
+        i.holder === "greek-creon-writ" || held.includes(s.items[i.holder]),
+    )
+  )
+    writ.holder = "greek-creon";
+  saved.revision = 24;
 }

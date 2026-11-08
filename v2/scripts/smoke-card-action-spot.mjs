@@ -1,7 +1,7 @@
 // A ready play is a beat in front of the dialogue: what the play will do,
 // as one tap target. The spoken beat fades behind it, nothing sits between
 // the dialogue and the hand, and the hand never moves for it. Vale takes the
-// Burial Decree at the Theban Palace Forecourt (one "the" in the caption)
+// Gate Decree at the Theban Palace Forecourt (one "the" in the caption)
 // and offers it to Creon.
 import { readyActionButton, selectCard } from "./card-browser-helpers.mjs";
 import assert from "node:assert/strict";
@@ -190,7 +190,7 @@ try {
     const restHand = await box("#hand"),
       restDialogue = await box(".dialogue");
     const taking = await actionBeat("take");
-    assert.match(taking.caption, /^\s*Vale takes the Burial Decree/u);
+    assert.match(taking.caption, /^\s*Vale takes the Gate Decree/u);
     assert.equal(taking.cards, 2, "Vale and the decree");
     // The decree is the rarest card in the take, so its tier edges the box.
     assert.equal(taking.tier, levelTier(cardLevel(world, "greek-decree")).id);
@@ -206,7 +206,7 @@ try {
       .click();
     await page.waitForFunction(() =>
       [...document.querySelectorAll(".beat-caption, .dialogue")].some((e) =>
-        /took the Burial Decree/.test(e.textContent),
+        /took the Gate Decree/.test(e.textContent),
       ),
     );
     const captions = await page.locator(".dialogue").innerText();

@@ -122,12 +122,11 @@ fn resident_passage_checks_each_traveller_in_the_c_host() {
     assert_eq!(world.game["actors"][GUARD]["guarding"], beyond);
 }
 
-// Rules 100 in the C QuickJS host: residents fall asleep on their scattered
+// Current rules in the C QuickJS host: residents fall asleep on their scattered
 // schedules (`sleeping.until`, `slept`), the Gate Guard bars the battlefield
-// (`guarding`), is knocked through by a lost fight (`homeward`), walks home
-// off-stage and bars it again, and a player stands guard (`guarding` on a
-// seat, `guards` on its Wait). The journal alone rebuilds every new record
-// exactly, here and reopened.
+// (`guarding`), loses his duty with the yielded decree, and a player stands
+// guard (`guarding` on a seat, `guards` on its Wait). The journal alone rebuilds
+// every new record exactly, here and reopened.
 #[test]
 fn rules_100_world_life_commits_and_replays_in_the_c_host() {
     let mut world = created(engine::VERSION);
@@ -171,7 +170,8 @@ fn rules_100_world_life_commits_and_replays_in_the_c_host() {
         commit(&mut world, play(next));
     }
     assert_eq!(world.game["actors"][GUARD]["place"], "greek-battlefield");
-    assert_eq!(world.game["actors"][GUARD]["homeward"], true);
+    assert_eq!(world.game["items"]["greek-decree"]["holder"], "greek-gate");
+    assert!(world.game["actors"][GUARD].get("homeward").is_none());
     for _ in 0..6 {
         if world.game["standoffs"].as_array().unwrap().is_empty() {
             break;
@@ -196,16 +196,13 @@ fn rules_100_world_life_commits_and_replays_in_the_c_host() {
         .unwrap()
         .clone();
     assert_eq!(stood["guards"], "greek-battlefield");
-    // He walks home after the peace and bars the way again.
+    // The dropped decree ends his duty; peace alone does not restore it.
     for _ in 0..8 {
-        if world.game["actors"][GUARD]["place"] == "greek-gate" {
-            break;
-        }
         let next = wait(&world);
         commit(&mut world, next);
     }
-    assert_eq!(world.game["actors"][GUARD]["place"], "greek-gate");
-    assert_eq!(world.game["actors"][GUARD]["guarding"], "greek-battlefield");
+    assert_eq!(world.game["actors"][GUARD]["place"], "greek-battlefield");
+    assert!(world.game["actors"][GUARD].get("guarding").is_none());
     assert!(world.game["actors"][GUARD].get("homeward").is_none());
     assert!(world.game["actors"]["vale"].get("guarding").is_none());
 
@@ -222,8 +219,8 @@ fn rules_100_world_life_commits_and_replays_in_the_c_host() {
 
 // A rules 99 world mid-opening, its player holding a halfway quest and a
 // glimpse, upgrades to 100 through the one recorded upgrade: its opening,
-// packs, glimpse and halfway records are kept, every new field is absent
-// but the guard's post, its journal replays on rules 99 and then 100, and
+// packs, glimpse and halfway records are kept, every new field is absent,
+// its journal replays on rules 99 then current rules, and
 // the opening plays on.
 #[test]
 fn rules_99_world_upgrades_to_100_keeping_its_opening_and_packs() {
@@ -250,6 +247,7 @@ fn rules_99_world_upgrades_to_100_keeping_its_opening_and_packs() {
     let upgraded = full_store::world(&c, &id, now()).unwrap();
     assert_eq!(upgraded.version, engine::VERSION);
     // Greek revision 20 and Hoppy revision 4 update their rooms and things.
+    let old_decree = old["items"]["greek-decree"]["holder"].clone();
     let old = super::saved_items::current_pack_changes(&old, &upgraded.game);
     for field in ["opening", "packs", "items", "turn", "log"] {
         assert_eq!(upgraded.game[field], old[field], "Keep {field}");
@@ -260,14 +258,14 @@ fn rules_99_world_upgrades_to_100_keeping_its_opening_and_packs() {
             assert_eq!(&upgraded.game["actors"][actor][key], value, "{actor}.{key}");
         }
         let after = &upgraded.game["actors"][actor];
-        for key in ["homeward", "slept", "sleeping"] {
+        for key in ["guarding", "homeward", "slept", "sleeping"] {
             assert!(after.get(key).is_none(), "{actor}.{key}");
         }
     }
-    // The only new record: the guard takes his post.
+    // The earlier decree's custody survives; duty follows the held paper.
     assert_eq!(
-        upgraded.game["actors"][GUARD]["guarding"],
-        "greek-battlefield"
+        upgraded.game["items"]["greek-decree"]["holder"],
+        old_decree
     );
     assert_eq!(upgraded.game["actors"]["vale"]["halfwayIssued"], 2);
     assert_eq!(upgraded.game["actors"]["vale"]["glimpse"]["id"], "attic");
@@ -366,6 +364,56 @@ fn current_company_replays_real_talk_and_separation_without_checkpoints() {
     full_store::commit(&c, &id, &mut world, play(walk), now()).unwrap();
     assert!(pair(&world).get("company").is_none());
     assert_eq!(pair(&world)["seq"], first["seq"]);
+    c.execute("DELETE FROM card_full_checkpoints WHERE world=?", [&id])
+        .unwrap();
+    drop(c);
+    let reopened = store::open(&path).unwrap();
+    full_store::schema(&reopened).unwrap();
+    assert_eq!(full_store::world(&reopened, &id, now()).unwrap(), world);
+    drop(reopened);
+    std::fs::remove_file(path).unwrap();
+}
+
+#[test]
+fn ordinary_guard_orders_and_drink_replay_from_the_journal() {
+    let mut world = created(engine::VERSION);
+    world.claimed[0] = 1;
+    world.present[0] = 1;
+    world.game.as_object_mut().unwrap().remove("opening");
+    world.game["actors"]["vale"]["place"] = json!("greek-gate");
+    world.game["crossings"]["pond-greek-harbor"]["discovered"] = json!(true);
+    world.game["items"]["greek-decree"]["holder"] = json!("vale");
+    world.game["items"]["greek-creon-writ"]["holder"] = json!("vale");
+    world.game["items"]["greek-wine-skin"]["holder"] = json!(GUARD);
+    let (path, c, id) = fixture("guard-papers", &world);
+    let commit =
+        |w: &mut World, action: Value| full_store::commit(&c, &id, w, play(action), now()).unwrap();
+    let give = |w: &World, item: &str| {
+        pick(w, |a| a["kind"] == "give" && a["item"] == item && a["target"] == GUARD).unwrap()
+    };
+    let writ = give(&world, "greek-creon-writ");
+    commit(&mut world, writ.clone());
+    assert_eq!(world.game["actors"][GUARD]["place"], "greek-courtyard");
+    let before = world.game.clone();
+    assert!(full_store::commit(&c, &id, &mut world, play(writ), now()).is_err());
+    assert_eq!(world.game, before);
+    let walk = pick(&world, |a| {
+        a["kind"] == "move" && a["target"] == "greek-courtyard"
+    })
+    .unwrap();
+    commit(&mut world, walk);
+    let wait = pick(&world, plain_wait).unwrap();
+    commit(&mut world, wait);
+    assert!(world.game["log"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|e| e["actorId"] == GUARD && e["verb"] == "eat" && e["itemId"] == "greek-wine-skin"));
+    let order = give(&world, "greek-decree");
+    commit(&mut world, order);
+    assert_eq!(world.game["actors"][GUARD]["place"], "greek-gate");
+    assert_eq!(world.game["items"]["greek-creon-writ"]["holder"], GUARD);
+    assert_eq!(world.game["items"]["greek-decree"]["holder"], GUARD);
     c.execute("DELETE FROM card_full_checkpoints WHERE world=?", [&id])
         .unwrap();
     drop(c);

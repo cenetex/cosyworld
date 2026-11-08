@@ -98,7 +98,7 @@ describe("the quest card", () => {
     // The label is the verb; the caption is the card's accessible name.
     expect(questVerb(s, quest)).toBe("Give");
     expect(questCaption(quest)).toBe(
-      "Give The Burial Decree to The Gate Guard",
+      "Give Gate Decree to The Gate Guard",
     );
     const top = Math.max(
       cardLevel(s, "greek-decree"),
