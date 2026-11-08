@@ -10,6 +10,7 @@ import {
 } from "../v2/card-game/world.mjs";
 import { readFileSync } from "node:fs";
 import {
+  allQuestsOf,
   drawStep,
   levelGap,
   levelOf,
@@ -351,7 +352,14 @@ describe("the level quest", () => {
         rewards = s.actors.vale.questRewards || [],
         seq = s.log.at(-1).seq;
       const actions = legalActions(s);
-      const rest = step % 40 === 0 && actions.find((a) => a.sleep);
+      // The first home turn waits; the next one can take the long rest.
+      const rest =
+        step % 40 === 0
+          ? actions.find((a) => a.kind === "wait" && !a.sleep)
+          : step % 40 === 1
+            ? actions.find((a) => a.sleep)
+            : null;
+      if (step % 40 < 2) expect(rest).toBeTruthy();
       s = play(s, rest || actions[(step * 7919) % actions.length]).state;
       const after = levelOf(s, "vale");
       expect(after).toBeGreaterThanOrEqual(before);
@@ -363,8 +371,8 @@ describe("the level quest", () => {
           ),
         ).toBe(true);
       }
-      const quest = s.actors.vale.want?.quest;
-      if (quest) {
+      for (const { quest } of allQuestsOf(s, "vale")) {
+        if (!quest) continue;
         quests++;
         expect(quest.left).toBeLessThanOrEqual(questSteps(quest.level) + 1);
         expect(quest.level).toBe(levelOf(s, "vale") + 1);
