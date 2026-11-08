@@ -685,6 +685,7 @@ export function packProblems(pack, hub, mountedPlaces = [], mountedItems = []) {
         "temperament",
         "variants",
         "home",
+        "levelAtHome",
         "homeWhen",
         "passWhen",
         "appearsWhen",
@@ -1167,6 +1168,15 @@ export function packProblems(pack, hub, mountedPlaces = [], mountedItems = []) {
       );
     if (a.home !== undefined)
       check(owns(places, a.home), `avatar ${id} home is invalid`);
+    check(
+      a.levelAtHome === undefined ||
+        (a.levelAtHome === true &&
+          !humanAvatarIds.includes(id) &&
+          owns(places, a.home) &&
+          places[a.home].sanctuary === true &&
+          a.homeWhen === undefined),
+      `avatar ${id} levelAtHome needs a fixed sanctuary home for a resident`,
+    );
     requirements(a.appearsWhen, `avatar ${id} appearance`, false);
     if (a.homeWhen !== undefined) {
       check(
