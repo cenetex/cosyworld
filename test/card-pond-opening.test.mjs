@@ -17,6 +17,10 @@ import { atticOpening } from "./fixtures/card-attic-opening.mjs";
 import { pondOpening } from "./fixtures/card-pond-opening.mjs";
 import { createLandingWorld } from "../v2/card-game/pack-landing.mjs";
 import { sceneCast } from "../v2/card-game/scene.mjs";
+import { boardyPack } from "../v2/card-game/boardyai.mjs";
+const doorway = boardyPack.crossings.find(
+  (c) => c.id === "station-boardyai-parlour",
+).from;
 
 const fresh = () => enableMotives(pondOpening());
 const act = (world, kind, target) => {
@@ -159,7 +163,7 @@ describe("the attic opening and saved pond journeys", () => {
     expect(result.state.items.lamp.holder).toBe("moth");
   });
 
-  it("keeps the station path while the calling card opens the attic parlour door", () => {
+  it("keeps the station path while the calling card opens the authored parlour door", () => {
     const world = dispatchShared({ op: "create" }).world;
     world.sharedVersion = 1;
     world.controlledActors = humanAvatarIds;
@@ -168,6 +172,7 @@ describe("the attic opening and saved pond journeys", () => {
     for (const avatar of humanAvatars)
       world.items[avatar.item.id].holder = "pond";
     world.items["boardyai-calling-card"].holder = "pond";
+    expect(["station", "attic"]).toContain(doorway);
     const neighbors = [];
     for (const place of Object.keys(places)) {
       world.actors.vale.place = place;
@@ -180,13 +185,17 @@ describe("the attic opening and saved pond journeys", () => {
     expect(neighbors.filter((p) => !homes.includes(p))).toEqual([
       "pond",
       ...(places["ratiradio-staff-kitchen"] ? ["ratiradio-staff-kitchen"] : []),
+      ...(doorway === "station" ? ["boardyai-parlour"] : []),
     ]);
     expect(homes.every((home) => neighbors.includes(home))).toBe(true);
     world.items["boardyai-calling-card"].holder = "station";
-    expect(exits(world, "station", "vale")).toEqual(["pond"]);
-    expect(exits(world, "attic", "vale")).not.toContain("boardyai-parlour");
-    world.items["boardyai-calling-card"].holder = "attic";
-    expect(exits(world, "attic", "vale")).toContain("boardyai-parlour");
+    expect(exits(world, "station", "vale")).toEqual(
+      doorway === "station" ? ["pond", "boardyai-parlour"] : ["pond"],
+    );
+    const elsewhere = doorway === "station" ? "attic" : "station";
+    expect(exits(world, elsewhere, "vale")).not.toContain("boardyai-parlour");
+    world.items["boardyai-calling-card"].holder = doorway;
+    expect(exits(world, doorway, "vale")).toContain("boardyai-parlour");
   });
 
   it("preserves saved attic purposes, positions, possessions and history", () => {

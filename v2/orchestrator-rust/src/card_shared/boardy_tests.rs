@@ -42,7 +42,7 @@ fn boardy_follows_authenticated_presence_in_the_c_host() {
 }
 
 #[test]
-fn boardy_station_card_opens_the_parlour_from_the_attic() {
+fn boardy_station_card_opens_the_authored_parlour_door() {
     let mut world = World::create(None).unwrap();
     world.game.as_object_mut().unwrap().remove("opening");
     world.game["actors"]["vale"]["place"] = json!("station");
@@ -52,14 +52,35 @@ fn boardy_station_card_opens_the_parlour_from_the_attic() {
         world.apply(&json!({"op":"claim", "actor":actor})).unwrap();
         world.apply(&json!({"op":"enter", "actor":actor})).unwrap();
     }
-    for (kind, field, value, destination) in [
-        ("take", "item", "boardyai-calling-card", "station"),
-        ("light", "item", "lamp", "station"),
-        ("move", "target", "pond", "pond"),
-        ("move", "target", "attic", "attic"),
+    let content: Value = serde_json::from_str(super::content::current_text()).unwrap();
+    let crossings = content["files"]["v2/card-game/boardyai.json"]["crossings"]
+        .as_array()
+        .unwrap();
+    let entrance = crossings
+        .iter()
+        .find(|c| c["id"] == "station-boardyai-parlour")
+        .unwrap();
+    let doorway = entrance["from"].as_str().unwrap();
+    assert!(["station", "attic"].contains(&doorway));
+    assert_eq!(entrance["to"], "boardyai-parlour");
+    let return_door = crossings
+        .iter()
+        .find(|c| c["id"] == "boardyai-parlour-station")
+        .unwrap();
+    assert_eq!(return_door["to"], doorway);
+    let mut journey = vec![("take", "item", "boardyai-calling-card", "station")];
+    if doorway == "attic" {
+        journey.extend([
+            ("light", "item", "lamp", "station"),
+            ("move", "target", "pond", "pond"),
+            ("move", "target", "attic", "attic"),
+        ]);
+    }
+    journey.extend([
         ("move", "target", "boardyai-parlour", "boardyai-parlour"),
-        ("move", "target", "attic", "attic"),
-    ] {
+        ("move", "target", doorway, doorway),
+    ]);
+    for (kind, field, value, destination) in journey {
         let view = world.project(0).unwrap();
         let action = view["actions"]
             .as_array()
@@ -364,4 +385,39 @@ fn one_connected_human_keeps_the_normal_turn_loop() {
             .unwrap();
     }
     assert_eq!(world.game["turn"], 3);
+}
+
+#[test]
+fn historical_presence_commands_leave_game_bytes_unchanged() {
+    let text = include_str!("../../../../test/fixtures/card-content-rules-125.json");
+    let hash = super::content::hash(text);
+    let c = rusqlite::Connection::open_in_memory().unwrap();
+    full_store::schema(&c).unwrap();
+    c.execute(
+        "INSERT INTO card_full_packs(hash,revision,content) VALUES(?,?,?)",
+        rusqlite::params![hash, "rules125", text],
+    )
+    .unwrap();
+    super::content::preload(&c, &hash).unwrap();
+    let version = "full-card-world/125";
+    let game = engine::reduce_pack(version, Some(&hash), json!({"op":"create"}))
+        .unwrap()["world"]
+        .clone();
+    let mut world = World {
+        version: version.into(),
+        game: game.clone(),
+        claimed: [1, 1, 0, 0, 0, 0, 0, 0],
+        present: [0; 8],
+        pack: Some(hash),
+    };
+    for (op, actor) in [
+        ("enter", "vale"),
+        ("enter", "mara"),
+        ("leave", "mara"),
+        ("enter", "mara"),
+        ("release", "mara"),
+    ] {
+        world.apply(&json!({"op":op,"actor":actor})).unwrap();
+        assert_eq!(world.game, game, "historical {actor} {op}");
+    }
 }
