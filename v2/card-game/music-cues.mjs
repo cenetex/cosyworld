@@ -1,6 +1,7 @@
 import { mediaUrl } from "./media.mjs";
 import streams from "./music-streams.json" with { type: "json" };
 import { RETURN_FADE_SECONDS, wakeContext } from "./audio-wake.mjs";
+import { packPlaces } from "./pack-registry.mjs";
 
 // Songs that take over from the room song for a moment of play, through
 // music.cue(name) in music.mjs. Most cues loop; a performance plays through
@@ -15,6 +16,14 @@ const battle = {
 };
 // One beat of the battle song, measured from the file (about 95 a minute).
 export const BATTLE_BEAT_SECONDS = 60 / 95;
+export const RATIRADIO_PERFORMANCE = {
+  file: "night-shift-on-ratiradio-remastered.mp3",
+  title: "Night Shift on RatiRadio — ratimics",
+  fadeIn: 2,
+  fadeOut: 2,
+  once: true,
+  remember: true,
+};
 export const CUE_TRACKS = {
   battle,
   funeral: {
@@ -24,6 +33,9 @@ export const CUE_TRACKS = {
     fadeOut: 2,
     once: true,
   },
+  ...(packPlaces["ratiradio-broadcast-booth"]
+    ? { ratiradio: RATIRADIO_PERFORMANCE }
+    : {}),
   // The loss screen's song waits for the battle song to fade under the fade
   // to black, holds three of its beats of silence, then comes in slowly.
   // Leaving the loss screen fades it out fully before the lift (app.mjs).
@@ -55,20 +67,40 @@ export function funeralMusicDue(world, actor) {
   );
 }
 
+export const radioMusicDue = (world, actor) =>
+  world?.actors?.[actor]?.place === "ratiradio-broadcast-booth";
+
 export function createMusicCues({
   makeAudio = () => new Audio(),
+  tracks = CUE_TRACKS,
+  storage,
   ...options
 } = {}) {
   let current = null,
     requested = null,
     scope,
     changed = () => {};
-  const players = Object.entries(CUE_TRACKS).map(([name, track]) => [
+  const remembered = new Set();
+  function wasPlayed(name, save = false) {
+    if (!tracks[name]?.remember || scope === undefined) return false;
+    const key = `cosyworld.performance:${scope}:${name}`;
+    if (save) remembered.add(key);
+    try {
+      const store = storage ?? globalThis.localStorage;
+      if (save) store?.setItem(key, "1");
+      return remembered.has(key) || store?.getItem(key) === "1";
+    } catch {
+      return remembered.has(key);
+    }
+  }
+  const players = Object.entries(tracks).map(([name, track]) => [
     name,
     createCueTrack({
       audio: makeAudio(),
       track,
       ...options,
+      canStart: () => !wasPlayed(name),
+      played: () => wasPlayed(name, true),
       ended: () => {
         if (current === name) select(null, name);
       },
@@ -91,13 +123,14 @@ export function createMusicCues({
         for (const [, player] of players) player.reset();
         select(null);
       }
-      name = CUE_TRACKS[name] || name === HUSH ? name : null;
+      name = tracks[name] || name === HUSH ? name : null;
       if (requested === name) return;
       requested = name;
+      if (current !== name && wasPlayed(name)) name = null;
       // A started performance follows the listener until its final note.
       if (
         !name &&
-        CUE_TRACKS[current]?.once &&
+        tracks[current]?.once &&
         players.find(([id]) => id === current)?.[1].performed
       )
         return;
@@ -129,6 +162,8 @@ function createCueTrack({
   audio,
   track,
   ended = () => {},
+  canStart = () => true,
+  played = () => {},
   makeContext = () =>
     new (globalThis.AudioContext || globalThis.webkitAudioContext)(),
   now = () => performance.now() / 1000,
@@ -220,6 +255,8 @@ function createCueTrack({
     // A song that waits starts only once its wait from the cue has passed.
     const left = fresh ? (track.wait || 0) - (now() - cuedAt) : 0;
     if (left > 0) return void (waitTimer = setTimeout(sync, left * 1000));
+    // Another tab may have begun this listener's performance while muted.
+    if (!performed && !canStart()) return ended();
     if (!loaded) {
       const original = `assets/music/${track.file}`;
       audio.src = mediaUrl(streams[original]?.file || original);
@@ -230,6 +267,7 @@ function createCueTrack({
       Promise.resolve(audio.play()).then(
         () => {
           if (attempt === generation) {
+            if (!performed) played();
             performed = true;
             fadeIn();
           }

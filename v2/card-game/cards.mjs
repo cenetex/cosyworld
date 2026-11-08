@@ -4,6 +4,7 @@ import {
   packPlaces,
   packDefinitions,
   packThings,
+  packPeople,
   transports,
 } from "./pack-registry.mjs";
 import { dropCost } from "./want.mjs";
@@ -22,6 +23,18 @@ import {
   covered,
   sealedWays,
 } from "./world.mjs";
+
+// An undiscovered resident can wait as an existing locked card, without
+// becoming an active actor or receiving plays before its requirements hold.
+export const sealedAvatar = (world, id) => {
+  const preview = packPeople[id]?.sealed;
+  return preview &&
+    world.actors[currentActor(world)]?.place === preview.at &&
+    entityActive(world, preview.at) &&
+    !entityActive(world, id)
+    ? preview
+    : null;
+};
 
 export function availableCards(world) {
   const player = currentActor(world),
@@ -63,6 +76,7 @@ export function availableCards(world) {
     .filter((id) => !destinations.includes(id));
   // A made thing waits locked at its home until its maker makes it again.
   sealed.push(...lockedAt(world, here));
+  sealed.push(...Object.keys(packPeople).filter((id) => sealedAvatar(world, id)));
   // A port its ship cannot sail to yet, and why (rules 102).
   sealed.push(
     ...shutLanes(world, here)
@@ -156,6 +170,8 @@ export function asleepReason(world, selected) {
 // Why a sealed card's way is shut, from its pack data, or null. A locked
 // made thing names who makes it from what (rules 102).
 export const sealedReason = (world, id) => {
+  const preview = sealedAvatar(world, id);
+  if (preview) return preview.reason;
   const lock = things[id] && packThings[id]?.locked;
   if (lock)
     return lockedAt(world, packThings[id].home).includes(id)
@@ -234,7 +250,7 @@ export function cardPlay(world, selected) {
     if (people[id])
       return single(
         find("talk", null, id) || find("attack", null, id),
-        `Meet ${nameOf(id)} here.`,
+        sealedReason(world, id) || `Meet ${nameOf(id)} here.`,
       );
     if (sealedReason(world, id)) return single(null, sealedReason(world, id));
     const holder = world.items[id].holder;

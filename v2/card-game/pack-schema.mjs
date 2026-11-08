@@ -693,6 +693,7 @@ export function packProblems(pack, hub, mountedPlaces = [], mountedItems = []) {
         "want",
         "requires",
         "canonicalPerson",
+        "sealed",
       ]),
       `avatar ${id} has an unknown field`,
     );
@@ -1149,6 +1150,14 @@ export function packProblems(pack, hub, mountedPlaces = [], mountedItems = []) {
   }
   for (const [id, a] of Object.entries(avatars)) {
     requirements(a.requires, `avatar ${id} requires`);
+    check(
+      a.sealed === undefined ||
+        (keysOk(a.sealed, ["at", "reason"]) &&
+          owns(places, a.sealed.at) &&
+          textOk(a.sealed.reason, 240) &&
+          Array.isArray(a.requires) && a.requires.length > 0),
+      `avatar ${id} sealed card needs a place, a reason and activation requirements`,
+    );
     for (const [n, p] of (Array.isArray(a.poses) ? a.poses : []).entries())
       requirements(p?.requires, `avatar ${id} pose ${n + 1} requires`);
     if (a.canonicalPerson !== undefined)

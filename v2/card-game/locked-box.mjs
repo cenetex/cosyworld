@@ -5,7 +5,7 @@
 // same lift as an uncovered card (card-reveal.mjs), and the card shows as
 // itself from then on. Presentation only: it reads the committed world and
 // never touches rules, saves, the journal or sync.
-import { sealedReason } from "./cards.mjs";
+import { sealedReason, sealedAvatar } from "./cards.mjs";
 import {
   conditionsMet,
   packDefinitions,
@@ -20,6 +20,8 @@ import { currentActor, rootHolder, sealedWays } from "./world.mjs";
 export const CLOSED_BOX = "A closed box.";
 export function lockedQuest(world, id, known = () => false) {
   if (!isLockedBox(world, id)) return null;
+  const preview = sealedAvatar(world, id);
+  if (preview) return { text: preview.reason, cards: [] };
   const actor = currentActor(world);
   const way = sealedWays(world, actor).find((route) => route.to === id);
   const route =

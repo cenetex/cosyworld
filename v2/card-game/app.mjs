@@ -157,6 +157,7 @@ import {
   HUSH,
   battleMusicDue,
   funeralMusicDue,
+  radioMusicDue,
   createMusicCues,
 } from "./music-cues.mjs";
 import { createHum } from "./hum.mjs";
@@ -1201,8 +1202,10 @@ function syncMusicCue() {
         ? "battle"
         : funeralMusicDue(world, currentActor(world))
           ? "funeral"
-          : null,
-      musicWorldId(),
+          : radioMusicDue(world, currentActor(world))
+            ? "ratiradio"
+            : null,
+      `${musicWorldId()}:${currentActor(world)}`,
     );
 }
 // The island's drone follows the same switch and volume as the music.
