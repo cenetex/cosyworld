@@ -6,7 +6,8 @@
 //! reach it, so a chat-tuned model answers a person, the view stays out of
 //! the reply, and the words are stable across attempts.
 use super::{
-    answered, kind, name, names, waking, witnessed, Context, Entity, Part, Section, SpokenLine,
+    answered, custody, kind, name, names, waking, witnessed, Context, Entity, Part, Section,
+    SpokenLine,
 };
 
 /// The recent talk here: at most this many lines, oldest dropped first.
@@ -26,6 +27,11 @@ pub(super) fn applies(context: &Context, entity: &Entity, part: Part) -> bool {
 /// The line this speaker answers: in a Talk, the actor's line for its
 /// target; otherwise the latest line someone else said here that it heard.
 pub(super) fn heard<'a>(context: &'a Context, entity: &Entity) -> Option<&'a SpokenLine> {
+    // Exchange contexts contain prior-turn speech only; fresh line chaining
+    // belongs to Talk. Keep old promises in chat(), not as this play's result.
+    if custody::exchange(context, &entity.id) {
+        return None;
+    }
     answered(context, entity).or_else(|| {
         context
             .conversation
@@ -69,7 +75,7 @@ pub(super) fn user(context: &Context, entity: &Entity) -> String {
             line.text
         ),
         None => super::listener(context, &entity.id)
-            .filter(|_| entity.perception.is_some())
+            .filter(|_| entity.perception.is_some() || custody::exchange(context, &entity.id))
             .map_or_else(
                 || crate::ai_gateway::SILENCE.into(),
                 |l| format!("{} is here.", name(&l)),
@@ -306,6 +312,38 @@ mod tests {
         outcome.card.target = Some("moth".into());
         assert!(valid(&c));
         c
+    }
+
+    #[test]
+    fn exchange_results_keep_earlier_promises_as_memory_not_the_reply_cue() {
+        let mut c = talk();
+        c.conversation = vec![SpokenLine {
+            signed: None,
+            witnesses: Some(vec!["vale".into(), "moth".into()]),
+            actor_id: "moth".into(),
+            text: "You can borrow my lamp.".into(),
+        }];
+        for verb in ["ask", "give", "trade"] {
+            let card = &mut c.outcome.as_mut().unwrap().card;
+            card.kind = verb.into();
+            card.item = Some("lamp".into());
+            card.receive = (verb == "trade").then(|| "bell".into());
+            for accepted in [false, true] {
+                c.outcome.as_mut().unwrap().card.accepted = Some(accepted);
+                assert!(valid(&c));
+                let prompt = messages(&c, super::super::entity(&c, "vale"));
+                assert_eq!(prompt.user, "Pip is here.");
+                assert!(prompt
+                    .assistant
+                    .contains("Pip said: \"You can borrow my lamp.\""));
+                assert!(heard(&c, super::super::entity(&c, "moth")).is_none());
+            }
+        }
+        c.outcome.as_mut().unwrap().card.kind = "talk".into();
+        assert_eq!(
+            heard(&c, super::super::entity(&c, "vale")).unwrap().text,
+            "You can borrow my lamp."
+        );
     }
 
     /// A provider whose replies take `delay(stem)` before they come back.
