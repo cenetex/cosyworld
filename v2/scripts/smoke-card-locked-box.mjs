@@ -228,7 +228,7 @@ try {
         "Give Creon's Writ to The Gate Guard",
       );
       assert.equal(await lock.isDisabled(), true);
-      assert.equal(await lock.getAttribute("title"), "A closed box.");
+      assert.equal(await lock.getAttribute("title"), await page.locator(".action-beat-text").textContent());
       assert.equal(await page.locator("#selection-name").textContent(), "Closed box");
       assert.match(await page.locator("#play-readout").textContent(), /Give Creon's Writ to The Gate Guard/u);
       assert.doesNotMatch(await page.locator("#play-readout").textContent(), /Battlefield/u);
