@@ -104,7 +104,10 @@ export function makerCardLayout(cards, state = {}) {
   const hand = cards.filter(
     (card) => card.holder === holder && !tableIds.has(card.id),
   );
-  const tree = cardTreeLayout(table, state);
+  const tree = cardTreeLayout(table, {
+    ...state,
+    active: tableIds.has(active?.id) ? active.id : holder,
+  });
   const row = Math.max(0, ...tree.nodes.map((node) => node.depth)) + 2;
   return {
     columns: Math.max(tree.columns, hand.length, 1),

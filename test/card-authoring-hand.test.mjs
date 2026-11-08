@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { makerCardLayout, placeCardTree } from "../v2/card-game/card-tree-layout.mjs";
+import {
+  makerCardLayout,
+  placeCardTree,
+} from "../v2/card-game/card-tree-layout.mjs";
 const cards = [
   { id: "world", group: true },
   { id: "room", holder: "world", group: true },
@@ -35,6 +38,14 @@ describe("maker table and hand", () => {
       avatar: "hand",
       item: "hand",
     });
+  });
+  it("keeps the same table sizing while selecting a hand card", () => {
+    const table = (active) =>
+      makerCardLayout(cards, {
+        active,
+        expanded: ["world", "room"],
+      }).nodes.filter((n) => n.zone === "table");
+    expect(table("item")).toEqual(table("room"));
   });
   it("folds a box back into the parent hand without exposing descendants", () => {
     expect(zones({ active: "room", expanded: ["world", "avatar"] })).toEqual({
