@@ -274,9 +274,9 @@ describe("Greek ports and fixed roads", () => {
         recall: null,
       };
       const current = decodeSave(JSON.stringify(old));
-      // Quest progress is dropped; each avatar gains its want record, and
-      // the Gate Guard takes his post (rules 100).
-      expect(current.actors["greek-guard"].guarding).toBe("greek-battlefield");
+      // Preserve the entire old duty paper, including its palace custody.
+      // Present-day guard duty is tested separately from save preservation.
+      expect(current.items["greek-decree"]).toEqual(old.items["greek-decree"]);
       const lived = ({
         want,
         xp,

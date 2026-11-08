@@ -518,6 +518,11 @@ const COUNTRYSIDE = ["greek-cithaeron", "greek-eleusis", "greek-colonus"];
 const CITY = ["greek-athens", "greek-road-athens-piraeus"];
 const holding = (world, item, holder) => {
   world.items[item].holder = holder;
+  if (item === "greek-creon-writ" && holder === "greek-guard") {
+    // An open-gate fixture supplies both authority papers and personal trust.
+    world.items["greek-decree"].holder = holder;
+    world.actors[holder].trust.vale = 1;
+  }
   return settleGate(world);
 };
 const has = (seen, ids) => ids.filter((id) => seen.has(id));
@@ -528,16 +533,18 @@ describe("the roads home keep the Greek story gates", () => {
       const s = stages[stage]();
       const starts = ["greek-harbor"];
       for (const from of starts) {
-        // Carrying, trading and making anything else anywhere, without the
-        // guard holding Creon's writ no walker from the city passes the gate.
-        const before = reach(s, from, { pinned: ["greek-creon-writ"] });
+        // Keep the Decree with its guard and the Writ out of reach.
+        // Carrying, trading and making other goods cannot open his gate.
+        const before = reach(s, from, {
+          pinned: ["greek-creon-writ", "greek-decree"],
+        });
         expect(has(before, BATTLEFIELD), from).toEqual([]);
         // Nor with the decree alone: the guard holds it from the start.
         const decree = reach(s, from, {
-          pinned: ["greek-creon-writ", "greek-bread"],
+          pinned: ["greek-creon-writ", "greek-decree", "greek-bread"],
         });
         expect(has(decree, BATTLEFIELD), from).toEqual([]);
-        // The guard holding the writ at the gate opens it.
+        // With both papers, the guard admits this trusted traveller.
         const after = reach(
           holding(structuredClone(s), "greek-creon-writ", "greek-guard"),
           from,
@@ -565,14 +572,16 @@ describe("the roads home keep the Greek story gates", () => {
         // Without the guard holding Creon's writ, a walker from Attica
         // reaches the battlefield but never the city: the guard bars his
         // gate both ways.
-        const before = reach(s, from, { pinned: ["greek-creon-writ"] });
+        const before = reach(s, from, {
+          pinned: ["greek-creon-writ", "greek-decree"],
+        });
         expect(before.has("greek-battlefield"), from).toBe(true);
         expect(has(before, THEBES), from).toEqual([]);
-        // The guard holding it at the gate opens the city to the land route.
+        // Both papers and personal trust open the city to the land route.
         const after = reach(
           holding(structuredClone(s), "greek-creon-writ", "greek-guard"),
           from,
-          { pinned: ["greek-creon-writ"] },
+          { pinned: ["greek-creon-writ", "greek-decree"] },
         );
         expect(has(after, THEBES), from).toEqual(THEBES);
       }
@@ -675,7 +684,7 @@ describe("the exposure ending with the City Gate shut", () => {
     );
     expect(s.openedRoutes || []).not.toContain(CITY_GATE);
     const reached = reach(s, "greek-harbor", {
-      pinned: ["greek-creon-writ"],
+      pinned: ["greek-creon-writ", "greek-decree"],
       ship: true,
       local: false,
     });
@@ -722,7 +731,9 @@ describe("a rules 93 save on the Coast Road", () => {
     ];
     const w = decodeSave(JSON.stringify(s));
     // Later revisions add the forecourt, the live City Gate and the funeral.
-    expect(w.packs["greek-drama"].revision).toBe(packDefinition("greek-drama").revision);
+    expect(w.packs["greek-drama"].revision).toBe(
+      packDefinition("greek-drama").revision,
+    );
     expect(w.actors.vale.place).toBe("greek-piraeus");
     expect(w.items["greek-water-jar"].holder).toBe("greek-piraeus");
     // Revision 20 forgets the City Gate's old latch: the gate reads live,

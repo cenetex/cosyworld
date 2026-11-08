@@ -12,8 +12,8 @@ import { narrativeContext } from "../v2/card-game/narrative.mjs";
 import { openingFixture } from "./helpers/greek-opening.mjs";
 
 // The Gate Guard guards the road from the Theban City Gate out to the
-// battlefield, both ways, until he holds Creon's writ (rules 102, a live
-// gate); the writ gone, he guards again.
+// battlefield, both ways. These fixtures establish closed and generally
+// open roads with explicit custody of both papers.
 const reload = (s) => decodeSave(encodeSave(s));
 const out = (s) => exits(s, "greek-gate", "vale").includes("greek-battlefield");
 const painted = (s) => !backdrop("greek-gate", s).includes("closed");
@@ -47,9 +47,7 @@ describe("the Theban City Gate", () => {
     expect(pack.places["greek-gate"].exits).not.toContain("greek-battlefield");
     // The way in from the battlefield is the gate itself, which its guard
     // bars from both sides until it opens (rules 100).
-    expect(pack.places["greek-battlefield"].exits).toEqual([
-      "greek-gate",
-    ]);
+    expect(pack.places["greek-battlefield"].exits).toEqual(["greek-gate"]);
     expect(
       pack.routes.find(
         (r) => r.from === "greek-battlefield" && r.to === "greek-gate",
@@ -61,9 +59,11 @@ describe("the Theban City Gate", () => {
       ]);
   });
 
-  it("opens the battlefield road while the guard holds Creon's writ", () => {
+  it("keeps the road, painting and voices aligned with the papers", () => {
     let s = openingFixture("concession").traded;
-    expect(s.items["greek-decree"].holder).toBe("vale");
+    // Restore the duty order while the Writ remains with Creon.
+    s.items["greek-decree"].holder = "greek-guard";
+    s = reload(s);
     expect(out(s)).toBe(false);
     expect(painted(s)).toBe(false);
     // The voices hear the shut way from the rules, and nothing calls it open.
@@ -88,11 +88,13 @@ describe("the Theban City Gate", () => {
   it("keeps a live route a toggle", () => {
     const s = structuredClone(openingFixture("concession").opened);
     s.items["greek-creon-writ"].holder = "greek-elder";
+    s.items["greek-decree"].holder = "greek-guard";
     // The next round's settle puts him back on guard.
     const shut = act(reload(s), "wait");
     expect(out(shut)).toBe(false);
     expect(painted(shut)).toBe(false);
     s.items["greek-creon-writ"].holder = "greek-guard";
+    s.items["greek-decree"].holder = "greek-creon";
     const open = reload(s);
     expect(out(open)).toBe(true);
     expect(open.openedRoutes ?? []).not.toContain(OPENED[0]);

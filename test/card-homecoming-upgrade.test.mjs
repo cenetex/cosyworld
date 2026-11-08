@@ -121,9 +121,9 @@ describe("the household save upgrade", () => {
       expect(withoutHomeDoors(after.crossings)).toMatchObject(
         withoutHomeDoors(before.crossings),
       );
-      // Quest progress is dropped; each avatar gains its want record, and
-      // the Gate Guard takes his post (rules 100).
-      expect(after.actors["greek-guard"].guarding).toBe("greek-battlefield");
+      // Preserve the entire old duty paper, including its palace custody.
+      // Present-day guard duty is tested separately from save preservation.
+      expect(after.items["greek-decree"]).toEqual(before.items["greek-decree"]);
       const lived = ({
         want,
         xp,
