@@ -60,6 +60,46 @@ const packs = (table.packs || []).map((id) => {
   };
 });
 
+// Store packs: third-party worldpacks admitted by build-card-store.mjs.
+// The vendor manifest is bound to the verified store index by that gate (it
+// is compared field-by-field in check mode); here admitted packs only join
+// the compile, through the same destructure and checks as in-tree packs.
+const vendorManifestPath = path.join(v2, "worldpacks/vendor-manifest.json");
+if (fs.existsSync(vendorManifestPath)) {
+  const vendors = JSON.parse(fs.readFileSync(vendorManifestPath, "utf8"));
+  if (vendors?.schemaVersion !== 1 || !Array.isArray(vendors.packs))
+    problems.push("vendor-manifest.json needs schemaVersion 1 and a packs list");
+  const inTree = new Set(table.packs);
+  for (const v of vendors?.packs || []) {
+    if (inTree.has(v.id)) continue; // an in-tree pack with the same id wins
+    if (v.mounted === false) continue; // verified but not selected
+    const source = read(`worldpacks/${v.id}/card-world.json`);
+    const bridge = read(`worldpacks/${v.id}/card-bridge.json`);
+    if (source.id !== v.id) problems.push(`${v.id}: source id must match its store entry`);
+    if (bridge.schemaVersion !== 1 || bridge.pack !== v.id)
+      problems.push(`${v.id}: bridge needs schemaVersion 1 and pack "${v.id}"`);
+    const {
+      schemaVersion: _sv,
+      pack: _pk,
+      id: bridgeIdV,
+      description: descriptionV,
+      entries: entriesV,
+      ...joinsV
+    } = bridge;
+    bridgeEntries[v.id] = entriesV;
+    const unknownV = Object.keys(joinsV).filter(
+      (key) => !["values", "crossings", "transports"].includes(key),
+    );
+    if (unknownV.length)
+      problems.push(`${v.id}: bridge has unknown fields ${unknownV.join(", ")}`);
+    packs.push({
+      ...source,
+      bridge: { id: bridgeIdV, description: descriptionV },
+      ...joinsV,
+    });
+  }
+}
+
 const seen = new Map();
 problems.push(...packCompositionProblems(packs));
 const observationIds = new Set((table.hub.observations || []).map((d) => d.id));
@@ -216,8 +256,8 @@ if (check) {
     );
     process.exit(1);
   }
-  console.log(`Card world packs are current: ${table.packs.join(", ")}.`);
+  console.log(`Card world packs are current: ${packs.map((pk) => pk.id).join(", ")}.`);
 } else {
   fs.writeFileSync(output, compiled);
-  console.log(`Wrote v2/card-game/packs.json: ${table.packs.join(", ")}.`);
+  console.log(`Wrote v2/card-game/packs.json: ${packs.map((pk) => pk.id).join(", ")}.`);
 }
