@@ -295,6 +295,7 @@ const files = [
   "station-exits.mjs",
   "world.mjs",
   "world/catalog.mjs",
+  "world/create.mjs",
   "scene-cast.mjs",
   "settings-cards.mjs",
   "settings-screen.mjs",
