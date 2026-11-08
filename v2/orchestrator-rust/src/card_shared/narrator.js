@@ -21882,6 +21882,7 @@
           ...dreamt ? [dreamt] : [],
           ...glimpsed ? [glimpsed] : [],
           ...want ? [want] : [],
+          ...kind === "avatar" && !beforeFirstLight ? exchangeFacts(world, id, played) : [],
           ...knowledgeFacts(
             pastDeedsAside(world, id, told(id), between.retold),
             id,
@@ -21897,7 +21898,6 @@
         ];
         let desire = null;
         if (kind === "avatar") {
-          if (!beforeFirstLight) facts.unshift(...exchangeFacts(world, id, played));
           facts.unshift(...battleFacts(world, id, battle, nameOf));
           if (hasTemperament(id)) {
             const state = world.actors[id], mood = variantOf(world, id);

@@ -417,6 +417,7 @@ export function narrativeContext(world, action = null, isCovered = null) {
         ...(dreamt ? [dreamt] : []),
         ...(glimpsed ? [glimpsed] : []),
         ...(want ? [want] : []),
+        ...(kind === "avatar" && !beforeFirstLight ? exchangeFacts(world, id, played) : []),
         ...knowledgeFacts(
           pastDeedsAside(world, id, told(id), between.retold),
           id,
@@ -434,7 +435,6 @@ export function narrativeContext(world, action = null, isCovered = null) {
       ];
       let desire = null;
       if (kind === "avatar") {
-        if (!beforeFirstLight) facts.unshift(...exchangeFacts(world, id, played));
         facts.unshift(...battleFacts(world, id, battle, nameOf));
         // A resident's mood is a world fact; its pack words how to play it.
         if (hasTemperament(id)) {
