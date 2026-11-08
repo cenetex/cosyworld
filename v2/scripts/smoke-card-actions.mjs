@@ -553,6 +553,20 @@ try {
       await page.evaluate(() => document.activeElement.dataset.action),
       "threaten",
     );
+    // A single click lowers only its card, even when Vale's stacks are open.
+    // Use the DOM click directly: selection helpers may retry a still-raised
+    // card and would hide the original wrong-card deselection.
+    await card("vale").dispatchEvent("click");
+    assert.deepEqual(await chosen(), ["moth"]);
+    await card("vale").dispatchEvent("click");
+    assert.deepEqual(await chosen(), ["moth", "vale"]);
+    await card("moth").dispatchEvent("click");
+    assert.deepEqual(await chosen(), ["vale"]);
+    await card("moth").dispatchEvent("click");
+    assert.deepEqual(await chosen(), ["moth", "vale"]);
+    assert.deepEqual(await labels(), ["Threaten Pip for Black cloth"]);
+    assert.equal((await state()).turn, 0, "selection never commits a threat");
+    await page.locator('#card-actions [data-action="threaten"]').focus();
     await shot("threat");
     await page.keyboard.press("Enter");
     await ready();
