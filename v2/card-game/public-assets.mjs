@@ -77,6 +77,7 @@ const files = [
     ),
   ),
   "assets/music/title-attic-lamp.mp3",
+  "assets/music/night-shift-on-ratiradio-remastered.mp3",
   // Settings cards cut from the owner's workbench (settings-cards.mjs).
   ...BENCH.map((name) => `assets/settings/workbench-${name}.png`),
   // The workbench itself is Settings' scene.
