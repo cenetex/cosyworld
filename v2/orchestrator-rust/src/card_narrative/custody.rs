@@ -235,7 +235,7 @@ pub(super) fn facts(context: &Context, speaker: &str) -> Vec<String> {
 
 // A future custodial undertaking presupposes receipt. Explicit acquisition
 // conditions keep a hypothetical loan distinct from a completed exchange.
-fn undertaking(statement: &str, item: &str) -> bool {
+fn undertaking(statement: &str, item: &str, pronoun: bool) -> bool {
     let label = name(item).to_lowercase();
     let objects = ["it".into(), label.clone(), person::the(&label)];
     let conditional = ["if ", "when ", "once ", "provided "].iter().any(|marker| {
@@ -262,8 +262,9 @@ fn undertaking(statement: &str, item: &str) -> bool {
                         return object_tail(rest, &objects).is_some();
                     }
                     object_tail(rest, &objects).is_some_and(|tail| {
-                        tail.strip_prefix(" to me")
-                            .is_some_and(|end| !end.chars().next().is_some_and(char::is_alphanumeric))
+                        tail.strip_prefix(" to me").is_some_and(|end| {
+                            !end.chars().next().is_some_and(char::is_alphanumeric)
+                        })
                     })
                 })
             });
@@ -273,6 +274,8 @@ fn undertaking(statement: &str, item: &str) -> bool {
     if conditional {
         return false;
     }
+    // A Trade names two items; bare "it" may mean my retained payment.
+    let referents = if pronoun { &objects[..] } else { &objects[1..] };
     statement.split([',', '\u{2014}']).any(|clause| {
         let clause = clause.trim().trim_start_matches("and ");
         let Some(promise) = clause
@@ -295,13 +298,15 @@ fn undertaking(statement: &str, item: &str) -> bool {
             let Some(rest) = promise.strip_prefix(*verb) else {
                 return false;
             };
-            object_tail(rest, &objects).is_some_and(|tail| match *verb {
+            object_tail(rest, referents).is_some_and(|tail| match *verb {
                 "bring " | "give " => tail.starts_with(" back"),
                 "keep " => {
                     tail.chars().all(|c| !c.is_alphanumeric())
-                        || [" safe", " secure", " close", " with me", " for you", " until "]
-                            .iter()
-                            .any(|end| tail.starts_with(end))
+                        || [
+                            " safe", " secure", " close", " with me", " for you", " until ",
+                        ]
+                        .iter()
+                        .any(|end| tail.starts_with(end))
                 }
                 _ => true,
             })
@@ -337,7 +342,7 @@ pub(super) fn consistent(text: &str, context: &Context, speaker: &str) -> bool {
         let statement = statement
             .trim_start_matches("now, ")
             .trim_start_matches("well, ");
-        if missing.is_some_and(|item| undertaking(statement, item)) {
+        if missing.is_some_and(|item| undertaking(statement, item, outcome.card.kind != "trade")) {
             return false;
         }
         for item in &outcome.items {
@@ -540,16 +545,25 @@ mod tests {
         // A later transfer may give the item to the failed requester after all.
         accepted.outcome.as_mut().unwrap().card.accepted = Some(false);
         assert!(consistent("I'll keep it safe.", &accepted, "vale"));
-        for (kind, speaker) in [
-            ("give", "greek-ismene"),
-            ("trade", "vale"),
-            ("trade", "greek-ismene"),
+        let give = exchange_context("give", false);
+        assert!(!consistent("I'll keep it safe.", &give, "greek-ismene"));
+        let trade = exchange_context("trade", false);
+        for (speaker, retained, incoming) in [
+            ("vale", "Lamp", "Household Token"),
+            ("greek-ismene", "Household Token", "Lamp"),
         ] {
-            let c = exchange_context(kind, false);
-            assert!(
-                !consistent("I'll keep it safe.", &c, speaker),
-                "{kind} {speaker}"
+            let check = Check::new(&trade, entity(&trade, speaker), Part::Line);
+            assert!(check.clean("I'll keep it safe.", true).is_ok());
+            assert!(check
+                .clean(&format!("I'll keep the {retained} safe."), true)
+                .is_ok());
+            assert_eq!(
+                check.clean(&format!("I'll keep the {incoming} safe."), true),
+                Err("custody")
             );
+            assert!(check
+                .clean(&format!("I'll keep the {incoming} safe if you lend it to me."), true)
+                .is_ok());
         }
     }
 
