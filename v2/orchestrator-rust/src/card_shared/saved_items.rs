@@ -2,6 +2,22 @@
 // dose count: one flask now fills one empty lamp and returns full (#1526).
 use serde_json::{json, Value};
 
+/// Fresh authored defaults with the saved world's seed, independent of its upgrade.
+pub(super) fn initial_game(game: &Value) -> Value {
+    super::full_world::World::seeded(None, game["run"]["seed"].as_u64().map(|seed| seed as u32))
+        .unwrap()
+        .game
+}
+
+/// Catalog additions start fresh; every existing expected record stays exact.
+pub(super) fn with_initial_additions(saved: &Value, initial: &Value) -> Value {
+    let mut expected = saved.as_object().unwrap().clone();
+    for (id, value) in initial.as_object().unwrap() {
+        expected.entry(id.clone()).or_insert_with(|| value.clone());
+    }
+    Value::Object(expected)
+}
+
 pub(super) fn greek_story_items(items: &mut Value) {
     for (id, holder) in [
         ("greek-helen-accounts", "greek-harbor"),
@@ -80,7 +96,23 @@ pub(super) fn current_pack_changes(old: &Value, upgraded: &Value) -> Value {
         assert_eq!(want["step"]["finish"], "greek-burial-performed");
         expected["actors"]["greek-antigone"]["want"] = want.clone();
     }
-    hoppy_revision_4(&expected, upgraded)
+    let mut expected = hoppy_revision_4(&expected, upgraded);
+    let initial = initial_game(upgraded);
+    for field in ["packs", "items"] {
+        expected[field] = with_initial_additions(&expected[field], &initial[field]);
+    }
+    for (id, actor) in expected["actors"].as_object_mut().unwrap() {
+        for other in initial["actors"].as_object().unwrap().keys() {
+            if other != id {
+                actor["trust"]
+                    .as_object_mut()
+                    .unwrap()
+                    .entry(other.clone())
+                    .or_insert_with(|| json!(0));
+            }
+        }
+    }
+    expected
 }
 
 // Hoppy revision 4 moves room contents and adds three papers. Other fields,
