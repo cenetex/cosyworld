@@ -149,6 +149,9 @@ try {
       await page.goto(`${at}/?table=locked-box-${width}-${reduced}`);
       await ready();
       await boxed();
+      await selectCard(page, FIELD);
+      assert.doesNotMatch(await page.locator(".action-beat-text").textContent(), /Creon|Writ/u);
+      await page.keyboard.press("Escape");
       await shot("01-locked-box");
       const lidState = (card) => card.evaluate((el) => ({
         src: el.querySelector(".card-back").src,
@@ -190,18 +193,46 @@ try {
       assert.equal(await writ.getAttribute("data-locked"), "false");
       assert.match(await writ.getAttribute("aria-label"), /Creon/u);
       await page.keyboard.press("Escape");
+      await revealCard(page, "greek-guard");
+      await page.keyboard.press("Escape");
+      const state = () =>
+        page.evaluate((key) => JSON.parse(localStorage.getItem(key)), key);
+      const questState = async () => {
+        const saved = await state();
+        return {
+          turn: saved.turn,
+          revision: saved.revision,
+          eventSeq: saved.eventSeq,
+          log: saved.log,
+          quests: Object.fromEntries(
+            Object.entries(saved.actors).map(([id, actor]) => [
+              id,
+              { want: actor.want, under: actor.under },
+            ]),
+          ),
+          packs: Object.fromEntries(
+            Object.entries(saved.packs).map(([id, pack]) => [
+              id,
+              { flags: pack.flags, receipts: pack.receipts },
+            ]),
+          ),
+        };
+      };
+      const beforeBox = await questState();
       // Selecting the box keeps its contents concealed. Talk gives the guard's quest.
       await selectCard(page, FIELD);
       const lock = page.locator('#card-actions [data-blocked="gate"]');
       assert.equal(await lock.textContent(), "Locked");
       assert.equal(
         await page.locator(".action-beat-text").textContent(),
-        "A closed box.",
+        "Give Creon's Writ to The Gate Guard",
       );
       assert.equal(await lock.isDisabled(), true);
       assert.equal(await lock.getAttribute("title"), "A closed box.");
       assert.equal(await page.locator("#selection-name").textContent(), "Closed box");
-      assert.doesNotMatch(await page.locator("#play-readout").textContent(), /Battlefield|Guard|Writ/u);
+      assert.match(await page.locator("#play-readout").textContent(), /Give Creon's Writ to The Gate Guard/u);
+      assert.doesNotMatch(await page.locator("#play-readout").textContent(), /Battlefield/u);
+      assert.deepEqual(await questState(), beforeBox, "box preview adds no quest or outcome");
       await page.keyboard.press("Escape");
       await selectCard(page, "greek-guard");
       if (await page.locator('#card-actions [data-action="meet"]').count()) {
@@ -224,9 +255,17 @@ try {
       });
       await readyActionButton(page, "talk").click();
       await ready();
-      const state = () =>
-        page.evaluate((key) => JSON.parse(localStorage.getItem(key)), key);
-      assert.equal((await state()).actors.vale.want.target, "greek-bread");
+      const vale = (await state()).actors.vale;
+      assert(
+        [vale.want, ...(vale.under || [])].some(
+          (quest) =>
+            quest?.kind === "item" &&
+            quest.target === "greek-bread" &&
+            quest.step?.verb === "give" &&
+            quest.step.to === "greek-guard",
+        ),
+        "Talk with the guard still adds his bread request to Vale's quest stack",
+      );
       const questLid = await page.evaluate(() => window.closedQuestEvidence);
       assert(questLid, "the new quest is first dealt face down");
       assert.equal(questLid.src, plainLid.src);

@@ -11,6 +11,7 @@ import { greekTravelTargets } from "./helpers/greek-travel.mjs";
 import { openingFixture } from "./helpers/greek-opening.mjs";
 import { settleGate } from "./helpers/world-life.mjs";
 import { questsOf } from "../v2/card-game/want.mjs";
+import { packDefinitions } from "../v2/card-game/pack-registry.mjs";
 
 function act(s, kind, fields = {}) {
   const action = legalActions(s).find(
@@ -28,24 +29,23 @@ const walk = (s, place) =>
   );
 
 describe("locked boxes", () => {
-  it("keeps recipe contents concealed until the box opens", () => {
+  it("shows a crafted item's next requirement without changing the world", () => {
     const s = createWorld();
+    s.packs["greek-drama"].scope = "full";
     s.actors.vale.place = "greek-harbor";
     const before = JSON.stringify(s);
-    for (const id of ["greek-provisions", "greek-bread"])
-      expect(lockedQuest(s, id)).toEqual({ text: "A closed box.", cards: [] });
+    expect(lockedQuest(s, "greek-provisions", () => true)).toEqual({
+      text: "Bring Courtyard Bread home to The Wine-Dark Harbor",
+      cards: [],
+    });
+    expect(lockedQuest(s, "greek-bread", () => true)).toEqual({
+      text: "Bring Water Jar home to Theban Courtyard",
+      cards: [],
+    });
+    expect(lockedQuest(s, "greek-creon-writ")).toBeNull();
     expect(JSON.stringify(s)).toBe(before);
     s.usedUp = s.usedUp.filter((id) => id !== "greek-provisions");
     expect(lockedQuest(s, "greek-provisions")).toBeNull();
-  });
-  it("keeps a sealed way concealed", () => {
-    const s = createWorld();
-    s.packs["greek-drama"].scope = "full";
-    s.actors.vale.place = "greek-battlefield";
-    expect(lockedQuest(s, "greek-cithaeron")).toEqual({
-      text: "A closed box.",
-      cards: [],
-    });
   });
   it("lock the sealed card alone until its quest opens the way", () => {
     let s = openingFixture("burial").decree;
@@ -53,7 +53,23 @@ describe("locked boxes", () => {
       "greek-battlefield",
     ]);
     expect(lockedQuest(s, "greek-battlefield")).toEqual({
-      text: "A closed box.",
+      text: "Find something and give it to someone",
+      cards: [],
+    });
+    expect(lockedQuest(s, "greek-battlefield", () => true)).toEqual({
+      text: "Give Creon's Writ to The Gate Guard",
+      cards: [],
+    });
+    const hidden = lockedQuest(s, "greek-battlefield", () => false);
+    expect(hidden).toEqual({
+      text: "Find something and give it to someone",
+      cards: [],
+    });
+    expect(hidden.text).not.toMatch(/Creon|Writ|Gate Guard/u);
+    const far = structuredClone(s);
+    far.actors.vale.place = "greek-battlefield";
+    expect(lockedQuest(far, "greek-gate", () => true)).toEqual({
+      text: "Give Creon's Writ to The Gate Guard",
       cards: [],
     });
     // A guarded card gives no quest of its own; Talk with the guard gives
@@ -97,6 +113,77 @@ describe("locked boxes", () => {
     expect(availableCards(shared)).toContain("greek-battlefield");
     shared.items["greek-creon-writ"].holder = "greek-guard";
     expect(isLockedBox(settleGate(shared), "greek-battlefield")).toBe(false);
+  });
+
+  it("previews the actor's own conversation requirement without adding a quest", () => {
+    const pack = packDefinitions.find((entry) => entry.id === "greek-drama");
+    const route = pack.routes.find(
+      (entry) =>
+        entry.from === "greek-battlefield" &&
+        entry.to === "greek-polynices-hollow",
+    );
+    const beforeRequires = route.requires;
+    const beforeTravelerRequires = route.travelerRequires;
+    route.requires = [{ kind: "flag", key: "preview-open", value: true }];
+    route.travelerRequires = [
+      { kind: "talked", person: "greek-polynices-shade" },
+    ];
+    try {
+      const world = createWorld();
+      world.sharedVersion = 1;
+      world.playerActorId = "mara";
+      world.controlledActors = ["mara"];
+      world.presentActors = ["mara"];
+      world.actors.mara.place = "greek-battlefield";
+      world.actors.vale.place = "greek-battlefield";
+      world.packs[pack.id].scope = "full";
+      world.packs[pack.id].flags["preview-open"] = true;
+      world.conversations = [
+        {
+          actors: ["greek-polynices-shade", "vale"].sort(),
+          seq: 1,
+          turn: 0,
+        },
+      ];
+      const saved = JSON.stringify(world);
+      expect(lockedQuest(world, "greek-polynices-hollow", () => true)).toEqual({
+        text: "Talk with Polynices' Shade",
+        cards: [],
+      });
+      expect(questsOf(world, "mara")).toEqual([]);
+      expect(JSON.stringify(world)).toBe(saved);
+      world.conversations.push({
+        actors: ["greek-polynices-shade", "mara"].sort(),
+        seq: 2,
+        turn: 0,
+      });
+      expect(lockedQuest(world, "greek-polynices-hollow")).toBeNull();
+    } finally {
+      route.requires = beforeRequires;
+      if (beforeTravelerRequires === undefined) delete route.travelerRequires;
+      else route.travelerRequires = beforeTravelerRequires;
+    }
+  });
+
+  it("shows a crafted item's unmet ingredient in quest wording", () => {
+    const world = createWorld();
+    world.packs["greek-drama"].scope = "full";
+    world.actors.vale.place = "greek-courtyard";
+    expect(lockedQuest(world, "greek-bread", () => true)).toEqual({
+      text: "Bring Water Jar home to Theban Courtyard",
+      cards: [],
+    });
+  });
+
+  it("previews the item needed for a shut ship lane", () => {
+    const world = createWorld();
+    world.packs["greek-drama"].scope = "full";
+    world.actors.vale.place = "greek-ship";
+    world.transports["greek-ship"].dock = "greek-harbor";
+    expect(lockedQuest(world, "greek-piraeus", () => true)).toEqual({
+      text: "Bring Travel Provisions home to The Charybdis",
+      cards: [],
+    });
   });
 
   it("turn over once, when next seen open, and never cover again", () => {

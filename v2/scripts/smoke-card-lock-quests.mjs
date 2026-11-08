@@ -1,13 +1,19 @@
-// Closed boxes conceal their contents and requirements in the existing action beat.
+// Closed boxes show their authored quest requirement in the existing action beat.
 import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
 import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
 import { createWorld, encodeSave } from "../card-game/world.mjs";
-import { lockedQuest } from "../card-game/locked-box.mjs";
+import { availableCards } from "../card-game/cards.mjs";
+import { isLockedBox, lockedQuest } from "../card-game/locked-box.mjs";
 import { profiles } from "../card-game/memory.mjs";
 import { revealCard, tapCard } from "./card-browser-helpers.mjs";
-const output = new URL("../../output/lock-quests/", import.meta.url);
+const output = new URL(
+  process.argv[2]
+    ? `file://${process.argv[2].replace(/\/?$/u, "/")}`
+    : "../../output/lock-quests/",
+  import.meta.url,
+);
 await mkdir(output, { recursive: true });
 const server = createServer();
 await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
@@ -22,12 +28,22 @@ try {
     for (const [id, place] of [
       ["greek-provisions", "greek-harbor"],
       ["greek-bread", "greek-courtyard"],
-      ["greek-cithaeron", "greek-battlefield"],
+      ["greek-battlefield", "greek-gate"],
+      ["greek-polynices-hollow", "greek-battlefield"],
     ]) {
       const world = createWorld();
       world.packs["greek-drama"].scope = "full";
       world.actors.vale.place = place;
-      const expected = lockedQuest(world, id);
+      if (id === "greek-polynices-hollow") world.turn = world.revision = 36;
+      const encountered = new Set([
+        ...Object.keys(profiles),
+        ...availableCards(world),
+      ]);
+      const expected = lockedQuest(
+        world,
+        id,
+        (target) => encountered.has(target) && !isLockedBox(world, target),
+      );
       assert(expected, `${id} is locked`);
       const page = await browser.newPage({
         viewport: { width, height },
@@ -61,6 +77,27 @@ try {
       await page
         .locator(`#hand [data-card="${id}"]`)
         .waitFor({ state: "attached" });
+      const before = await page.evaluate((key) => {
+        const state = JSON.parse(localStorage.getItem(key));
+        return {
+          turn: state.turn,
+          revision: state.revision,
+          eventSeq: state.eventSeq,
+          log: state.log,
+          quests: Object.fromEntries(
+            Object.entries(state.actors).map(([id, actor]) => [
+              id,
+              { want: actor.want, under: actor.under },
+            ]),
+          ),
+          packs: Object.fromEntries(
+            Object.entries(state.packs).map(([id, pack]) => [
+              id,
+              { flags: pack.flags, receipts: pack.receipts },
+            ]),
+          ),
+        };
+      }, key);
       await tapCard(await revealCard(page, id));
       const text = page.locator(".action-beat-text");
       assert.equal(await text.textContent(), expected.text);
@@ -80,6 +117,10 @@ try {
       if (await button.count()) {
         assert.equal(await button.textContent(), "Locked");
         assert(await button.isDisabled());
+        assert.equal(
+          await page.locator('#card-actions [data-action="gate"]').count(),
+          0,
+        );
       }
       const fits = await text.evaluate((n) => {
         const r = document.createRange();
@@ -105,19 +146,36 @@ try {
       await page.screenshot({
         path: new URL(`${id}-scene-${width}.png`, output).pathname,
       });
-      assert.equal(
-        await page.evaluate(
-          (key) => JSON.parse(localStorage.getItem(key)).turn,
-          key,
-        ),
-        world.turn,
+      const after = await page.evaluate((key) => {
+        const state = JSON.parse(localStorage.getItem(key));
+        return {
+          turn: state.turn,
+          revision: state.revision,
+          eventSeq: state.eventSeq,
+          log: state.log,
+          quests: Object.fromEntries(
+            Object.entries(state.actors).map(([id, actor]) => [
+              id,
+              { want: actor.want, under: actor.under },
+            ]),
+          ),
+          packs: Object.fromEntries(
+            Object.entries(state.packs).map(([id, pack]) => [
+              id,
+              { flags: pack.flags, receipts: pack.receipts },
+            ]),
+          ),
+        };
+      }, key);
+      assert.deepEqual(
+        after,
+        before,
+        "preview creates no quest or play outcome",
       );
       assert.deepEqual(errors, []);
       await page.close();
     }
-    console.log(
-      `Anonymous boxes and unchanged turns passed at ${width}px.`,
-    );
+    console.log(`Anonymous boxes and unchanged turns passed at ${width}px.`);
   }
 } finally {
   await browser.close();
