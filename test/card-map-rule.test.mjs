@@ -13,6 +13,7 @@ import {
 } from "../v2/card-game/pack-registry.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import { visitors } from "../v2/card-game/human-cast.mjs";
+import { exits } from "../v2/card-game/world.mjs";
 
 const TOWNS = {
   ratiradio: ["ratiradio-staff-kitchen", "ratiradio-dispatch-window", "ratiradio-listening-room", "ratiradio-broadcast-booth"].filter((id) => packPlaces[id]),
@@ -122,10 +123,11 @@ const worlds = [null, ...visitors.map((a) => a.id)].flatMap((homecoming) =>
   [1, 2, 3, 4, 5, 6].map(
     (seed) =>
       dispatchShared({ op: "create", seed, ...(homecoming && { homecoming }) })
-        .world.doors,
+        .world,
   ),
 );
-function links(doors = worlds[0]) {
+function links(world = worlds[0]) {
+  const doors = world.doors;
   const places = { ...forest.places, ...packPlaces };
   const out = new Map();
   const add = (from, to) => {
@@ -146,6 +148,9 @@ function links(doors = worlds[0]) {
       )
     )
       add(c.from, c.transport ? transports[c.transport].place : c.to);
+  // Station admits at most three active ways in first-open order (owner, 2026-11-08).
+  // Full contention and persistence are covered by card-station-exits.test.mjs.
+  out.set("station", new Set(exits(world, "station", "vale")));
   return out;
 }
 
@@ -223,8 +228,8 @@ describe("the map rule", () => {
   });
 
   it("gives every place at most three links", () => {
-    for (const doors of worlds)
-      for (const [id, to] of links(doors))
+    for (const world of worlds)
+      for (const [id, to] of links(world))
         if (!OVER_CAP_FOR_NOW.has(id))
           expect(to.size, `${id}: ${[...to].join(", ")}`).toBeLessThanOrEqual(
             LINK_CAP,

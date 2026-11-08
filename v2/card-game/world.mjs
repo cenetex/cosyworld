@@ -1,3 +1,4 @@
+import { stationExitOrder, stationExits, validStationExitOrder } from "./station-exits.mjs";
 import {
   recordConversation,
   settleCompany,
@@ -156,6 +157,7 @@ import {
   newPackRecord,
   newTemperament,
   crossingExits,
+  crossingOpen,
   crossingBetween,
   crossingScenery,
   markCrossed,
@@ -355,6 +357,7 @@ export function createWorld({ opening = false, packScopes = {}, seed } = {}) {
   rememberEvent(world, world.log[0]);
   settleGuards(world);
   settleHeldItems(world);
+  settleStationExits(world);
   return world;
 }
 // Mount every pack missing from this save: its crossings, its state, and its
@@ -499,7 +502,9 @@ export const placeText = (s, place) =>
       : s.opening && place === "station"
         ? "The timetable lists years that have yet to happen. A path leads along the shore to the pond."
         : places[place].text,
-    ...crossingScenery(s, place, sensesFor(s)),
+    ...crossingScenery(s, place, sensesFor(s),
+      place === "station" ? stationCandidates(s).filter((id) =>
+        !stationExits(s, stationCandidates(s)).includes(id)) : []),
     ...transportScenery(s, place, nameOf),
     ...(homeRescueExit(s, place) || pondRescueExit(s, place)
       ? [
@@ -533,7 +538,7 @@ function homeGateRecoverable(s, place, gate, actor) {
   // Holding a full flask with the empty lamp refuels it, so a flask here is enough.
   return Boolean(gate.fuel && localGateResource(s, place, gate.fuel, actor));
 }
-function ordinaryExits(s, place, actor, previous) {
+function rawOrdinaryExits(s, place, actor, previous) {
   return [
     ...new Set([
       ...baseExits(s, place),
@@ -543,6 +548,35 @@ function ordinaryExits(s, place, actor, previous) {
       ...packExits(s, place, actor),
     ]),
   ];
+}
+// Conditions without a traveler (the train and calling card) may open while
+// nobody stands here. A traveler-specific key counts only for its present holder.
+const stationCrossings = crossings.filter((c) => c.from === "station");
+const stationTargets = [...new Set([
+  ...places.station.exits,
+  ...stationCrossings.map((c) => c.transport ? transports[c.transport].place : c.to),
+  ...packDefinitions.flatMap((p) => (p.routes || []).filter((r) => r.from === "station").map((r) => r.to)),
+])];
+function stationCandidates(s) {
+  const actors = [null, ...Object.keys(s.actors).filter((id) =>
+    s.actors[id].place === "station" && entityActive(s, id) &&
+    (!humanAvatar(id) || humanPresent(s, id) || residentAvatar(s, id)))];
+  return [...new Set([
+    ...baseExits(s, "station"), ...reflectionsFrom(s, "station"),
+    ...stationCrossings.filter((c) => actors.some((actor) =>
+      crossingOpen(s, c, sensesFor(s), actor)))
+      .map((c) => c.transport ? transports[c.transport].place : c.to),
+    ...packExits(s, "station", null),
+  ])].filter((id) => entityActive(s, id));
+}
+export function settleStationExits(s) {
+  s.stationExitOrder = stationExitOrder(s, stationCandidates(s));
+}
+function limitedExits(s, place, ways) {
+  return place === "station" ? stationExits(s, stationCandidates(s), ways) : ways;
+}
+function ordinaryExits(s, place, actor, previous) {
+  return limitedExits(s, place, rawOrdinaryExits(s, place, actor, previous));
 }
 // A doorway into another part of the same isolated home still needs a way out.
 // Capacity is checked when traveling, so a crowded shore remains a waiting case.
@@ -647,14 +681,14 @@ export function exits(s, place, actor = null, previous = null) {
   // A guardable way, and the way back through it (rules 100).
   for (const to of guardedExits(s, place))
     if (!ways.includes(to)) ways.push(to);
-  return ways.filter(
+  return limitedExits(s, place, ways.filter(
     (to) =>
       entityActive(s, to) &&
       actorCanVisit(actor, to, s) &&
       humanRoomAvailable(s, actor, to) &&
       personalRouteOpen(s, place, to, actor || currentActor(s)) &&
       !guardOf(s, place, to, actor),
-  );
+  ));
 }
 
 // A sealed way (rules 95): a pack route that names its sealed card and the
@@ -706,7 +740,7 @@ const openingPlace = (place) =>
 // A crossing out of an opening home taken (a scarf's attic stair) crosses
 // the opening without the pond, so Moth may be still unmet (rules 97).
 const leftHome = (s) =>
-  crossings.some(
+  s.opening?.leftHome === true || crossings.some(
     (c) => homeGates[c.from]?.opening && s.crossings?.[c.id]?.discovered,
   );
 function meetCast(s) {
@@ -3251,6 +3285,7 @@ export function play(
   // Switching a pack is journaled; no turn passes (rules 98, pack-toggle.mjs).
   if (action?.kind === "pack") {
     const next = structuredClone(s);
+    settleStationExits(next);
     const done = togglePack(next, action, actor, {
       closeStandoff,
       want: wantAPI(next),
@@ -3268,6 +3303,7 @@ export function play(
     settleCompany(next, entityActive);
     settleVisitSpeech(s, next, { ...action, actor });
     settleHeldItems(next, handSnapshot(s));
+    settleStationExits(next);
     validateWorld(next);
     return { ok: true, state: next };
   }
@@ -3279,6 +3315,7 @@ export function play(
       error: "That play has changed. Check the cards and choose again.",
     };
   const next = structuredClone(s);
+  settleStationExits(next);
   if (actor !== "vale" || s.playerActorId) next.playerActorId = actor;
   // Claim pays a saved reward once and advances the saved revision.
   // Rest, combat and residents keep their current turn.
@@ -3292,6 +3329,7 @@ export function play(
       receipt: exact.receipt,
       witnesses: [actor],
     });
+    settleStationExits(next);
     validateWorld(next);
     return { ok: true, state: next };
   }
@@ -3306,6 +3344,7 @@ export function play(
       verb: "focus",
       witnesses: [actor],
     });
+    settleStationExits(next);
     validateWorld(next);
     return { ok: true, state: next };
   }
@@ -3323,6 +3362,7 @@ export function play(
       targetId: exact.target,
       witnesses: [actor],
     });
+    settleStationExits(next);
     validateWorld(next);
     return { ok: true, state: next };
   }
@@ -3500,6 +3540,7 @@ export function play(
   }
   settleHeldItems(next, handSnapshot(s));
   endQuestPlay(next);
+  settleStationExits(next);
   validateWorld(next);
   // Alone, the world runs on around a sleeper until something wakes it.
   // It stops at the first refused play, and the sleep cap bounds it.
@@ -3532,6 +3573,7 @@ export function validateWorld(s) {
     s.revision < s.turn
   )
     fail();
+  if (!validStationExitOrder(s, stationTargets)) fail();
   if (
     !validKnowledge(
       s,
@@ -3594,6 +3636,7 @@ export function validateWorld(s) {
       !o ||
       ![1, 2].includes(o.version) ||
       typeof o.crossed !== "boolean" ||
+      (o.leftHome !== undefined && typeof o.leftHome !== "boolean") ||
       !o.met ||
       o.met.vale !== 0 ||
       Object.keys(o.met).some((id) => !actorIds.includes(id)) ||
@@ -4096,6 +4139,7 @@ export function decodeSave(text) {
     latchRoutes(s);
     settleGuards(s);
     settleHeldItems(s);
+    if (s.stationExitOrder === undefined) settleStationExits(s);
     validateWorld(s);
     preserveTransportAccess(s);
   } catch (error) {

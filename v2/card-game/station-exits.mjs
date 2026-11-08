@@ -1,4 +1,4 @@
-// Pure prerequisite, not wired into gameplay yet. Supply eligible IDs in authored
+// Supply eligible IDs in authored
 // order; persist the returned queue after every eligibility change, including closure.
 // Pond reserves one slot. Availability hides admitted ways without promoting waiters.
 // Readers never change the save; validate saved queues before using them.
