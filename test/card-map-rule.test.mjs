@@ -227,8 +227,7 @@ describe("the map rule", () => {
       for (const [id, to] of links(doors))
         if (!OVER_CAP_FOR_NOW.has(id))
           expect(to.size, `${id}: ${[...to].join(", ")}`).toBeLessThanOrEqual(
-            // The requested staff door adds a fourth Station link; existing routes stay.
-            id === "station" && packPlaces["ratiradio-staff-kitchen"] ? 4 : LINK_CAP,
+            LINK_CAP,
           );
   });
 
