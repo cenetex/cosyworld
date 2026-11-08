@@ -167,31 +167,124 @@ pub(super) fn visible_holding(context: &Context, speaker: &str) -> Vec<String> {
         .collect()
 }
 
+// The transfers this play proposed, independent of whether they happened.
+fn transfers(context: &Context) -> Vec<(&str, &str, &str)> {
+    let Some(outcome) = &context.outcome else {
+        return vec![];
+    };
+    let actor = context.acting_avatar.as_deref().unwrap_or("vale");
+    let card = &outcome.card;
+    let (Some(item), Some(target)) = (card.item.as_deref(), card.target.as_deref()) else {
+        return vec![];
+    };
+    match card.kind.as_str() {
+        "ask" => vec![(item, target, actor)],
+        "give" => vec![(item, actor, target)],
+        "trade" => card.receive.as_deref().map_or_else(Vec::new, |receive| {
+            vec![(item, actor, target), (receive, target, actor)]
+        }),
+        _ => vec![],
+    }
+}
+
+pub(super) fn exchange(context: &Context, speaker: &str) -> bool {
+    transfers(context)
+        .iter()
+        .any(|(_, from, to)| speaker == *from || speaker == *to)
+}
+
 pub(super) fn facts(context: &Context, speaker: &str) -> Vec<String> {
     let Some(outcome) = &context.outcome else {
         return vec![];
     };
     let mut facts = Vec::new();
-    let actor = context.acting_avatar.as_deref().unwrap_or("vale");
-    if outcome.card.kind == "give" && outcome.card.accepted != Some(false) {
-        if let (Some(item), Some(target)) = (&outcome.card.item, &outcome.card.target) {
-            if speaker == target {
-                facts.push(format!(
-                    "I received {} from {}.",
-                    super::person::the(&name(item)),
-                    name(actor)
-                ));
-            } else if speaker == actor {
-                facts.push(format!(
-                    "I gave {} to {}.",
-                    super::person::the(&name(item)),
-                    name(target)
-                ));
-            }
+    // Older Give contexts omitted the answer. Ask and Trade need a recorded one.
+    let accepted = outcome
+        .card
+        .accepted
+        .or_else(|| (outcome.card.kind == "give").then_some(true));
+    for (item, from, to) in transfers(context) {
+        if context
+            .concealed
+            .iter()
+            .chain(&context.covered)
+            .any(|id| id == item)
+        {
+            continue;
         }
+        let (verb, other) = match (speaker == to, speaker == from, accepted) {
+            (true, _, Some(true)) => ("received", from),
+            (true, _, Some(false)) => ("did not receive", from),
+            (_, true, Some(true)) => ("gave", to),
+            (_, true, Some(false)) => ("did not give", to),
+            _ => continue,
+        };
+        let direction = if speaker == to { "from" } else { "to" };
+        facts.push(format!(
+            "I {verb} {} {direction} {}.",
+            person::the(&name(item)),
+            name(other)
+        ));
+    }
+    if accepted == Some(false) && exchange(context, speaker) {
+        facts.push("This exchange was refused; no item changed hands in it.".into());
     }
     facts.extend(visible_holding(context, speaker));
     facts
+}
+
+// A future custodial undertaking presupposes receipt. Explicit acquisition
+// conditions keep a hypothetical loan distinct from a completed exchange.
+fn undertaking(statement: &str, item: &str) -> bool {
+    let conditional = ["if ", "when ", "once ", "provided "]
+        .iter()
+        .any(|marker| {
+            statement.match_indices(*marker).any(|(at, marker)| {
+                let condition = &statement[at + marker.len()..];
+                [
+                    "you give ", "you lend ", "you hand ", "you let me ", "i get ",
+                    "i receive ", "i borrow ", "i can borrow ", "i have ", "i'm given ",
+                ]
+                .iter()
+                .any(|start| condition.starts_with(start))
+            })
+        });
+    if conditional {
+        return false;
+    }
+    let label = name(item).to_lowercase();
+    let objects = ["it".into(), label.clone(), person::the(&label)];
+    statement.split([',', '\u{2014}']).any(|clause| {
+        let clause = clause.trim().trim_start_matches("and ");
+        let Some(promise) = clause
+            .strip_prefix("i'll ")
+            .or_else(|| clause.strip_prefix("i will "))
+        else {
+            return false;
+        };
+        [
+            "take care of ", "take good care of ", "look after ", "keep ", "return ",
+            "bring ", "give ",
+        ]
+        .iter()
+        .any(|verb| {
+            let Some(rest) = promise.strip_prefix(*verb) else {
+                return false;
+            };
+            objects.iter().any(|object| {
+                rest.strip_prefix(object.as_str()).is_some_and(|tail| {
+                    !tail.chars().next().is_some_and(char::is_alphanumeric)
+                        && match *verb {
+                            "bring " | "give " => tail.starts_with(" back"),
+                            "keep " => tail.chars().all(|c| !c.is_alphanumeric())
+                                || [" safe", " secure", " close", " with me", " for you", " until "]
+                                    .iter().any(|end| tail.starts_with(end)),
+                            _ => true,
+                        }
+                })
+            })
+        })
+    })
 }
 
 // Check explicit present custody statements against the resolved world.
@@ -201,6 +294,12 @@ pub(super) fn consistent(text: &str, context: &Context, speaker: &str) -> bool {
         return true;
     };
     let addressed = listener(context, speaker);
+    let missing = transfers(context).into_iter().find_map(|(item, _, to)| {
+        (outcome.card.accepted == Some(false)
+            && speaker == to
+            && holder(outcome, item).is_some_and(|owner| owner != speaker))
+        .then_some(item)
+    });
     for sentence in text.split_inclusive(['.', '!', '?', ';', '\n']) {
         if sentence.trim_end().ends_with('?') {
             continue;
@@ -209,6 +308,9 @@ pub(super) fn consistent(text: &str, context: &Context, speaker: &str) -> bool {
         let statement = statement
             .trim_start_matches("now, ")
             .trim_start_matches("well, ");
+        if missing.is_some_and(|item| undertaking(statement, item)) {
+            return false;
+        }
         for item in &outcome.items {
             let label = name(&item.id).to_lowercase();
             let label = label.strip_prefix("the ").unwrap_or(&label);
@@ -263,8 +365,152 @@ pub(super) fn consistent(text: &str, context: &Context, speaker: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::super::{conversation, entity, known, messages, tests, Context, ItemOutcome, Part};
+    use super::super::{
+        conversation, entity, known, messages, tests, Check, Context, ItemOutcome, Part,
+    };
     use super::*;
+
+    fn exchange_context(kind: &str, accepted: bool) -> Context {
+        let mut c = tests::context();
+        c.location = "greek-sanctuary".into();
+        c.focus = Some("greek-household-token".into());
+        c.speakers = vec!["vale".into(), "greek-ismene".into()];
+        c.action = None;
+        for e in &mut c.entities {
+            e.id = match e.id.as_str() {
+                "station" => "greek-sanctuary",
+                "lamp" => "greek-household-token",
+                "moth" => "greek-ismene",
+                _ => "vale",
+            }
+            .into();
+            e.facts.clear();
+            e.memories.clear();
+            e.desire = None;
+            if super::kind(&e.id, "avatar") {
+                e.perception = Some(Default::default());
+            }
+        }
+        let token = if accepted && kind != "give" {
+            "vale"
+        } else {
+            "greek-ismene"
+        };
+        let lamp = if accepted && kind != "ask" {
+            "greek-ismene"
+        } else {
+            "vale"
+        };
+        c.outcome = Some(serde_json::from_value(serde_json::json!({
+            "card":{"kind":kind,"target":"greek-ismene",
+                "item":if kind == "ask" { "greek-household-token" } else { "lamp" },
+                "receive":(kind == "trade").then_some("greek-household-token"),
+                "accepted":accepted},
+            "avatars":[
+                {"id":"vale","location":c.location,"holding":[]},
+                {"id":"greek-ismene","location":c.location,"holding":[]}
+            ],
+            "items":[
+                {"id":"greek-household-token","holder":token,"location":c.location},
+                {"id":"lamp","holder":lamp,"location":c.location}
+            ]
+        })).unwrap());
+        let outcome = c.outcome.as_mut().unwrap();
+        for avatar in &mut outcome.avatars {
+            avatar.holding = outcome
+                .items
+                .iter()
+                .filter(|i| i.holder == avatar.id)
+                .map(|i| i.id.clone())
+                .collect();
+        }
+        assert!(super::super::valid(&c));
+        c
+    }
+
+    #[test]
+    fn exchange_results_survive_perception_and_empty_optional_facts() {
+        for kind in ["ask", "give", "trade"] {
+            for accepted in [false, true] {
+                let mut c = exchange_context(kind, accepted);
+                for perceived in [false, true] {
+                    for e in &mut c.entities {
+                        e.perception = (perceived && super::kind(&e.id, "avatar"))
+                            .then(Default::default);
+                    }
+                    for speaker in ["vale", "greek-ismene"] {
+                        let prompt = messages(&c, entity(&c, speaker), Part::Line).assistant;
+                        for (item, from, to) in transfers(&c) {
+                            let (verb, direction, other) = match (speaker == to, accepted) {
+                                (true, true) => ("received", "from", from),
+                                (true, false) => ("did not receive", "from", from),
+                                (false, true) => ("gave", "to", to),
+                                (false, false) => ("did not give", "to", to),
+                            };
+                            let fact = format!(
+                                "I {verb} {} {direction} {}.",
+                                person::the(&name(item)),
+                                name(other)
+                            );
+                            assert!(prompt.contains(&fact), "{kind} {speaker}: {prompt}");
+                        }
+                    }
+                }
+                assert!(facts(&c, "greek-sanctuary").is_empty());
+                c.concealed = vec!["lamp".into(), "greek-household-token".into()];
+                assert!(!facts(&c, "vale").join(" ").contains("Household Token"));
+            }
+        }
+    }
+
+    #[test]
+    fn failed_receipt_blocks_custodial_promises_not_politeness_or_hypotheticals() {
+        let c = exchange_context("ask", false);
+        let check = Check::new(&c, entity(&c, "vale"), Part::Line);
+        let screenshot = "Thank you, Ismene. I’ll take good care of it—and return it when you need it.";
+        for line in [
+            screenshot,
+            "I'll look after the Household Token.",
+            "I will keep it safe.",
+            "I'll return it tomorrow.",
+            "I'll bring it back.",
+            "I'll give it back when you ask.",
+        ] {
+            assert_eq!(check.clean(line, true), Err("custody"), "{line}");
+        }
+        for line in [
+            "Thank you for explaining.",
+            "If you lend it to me, I'll return it when you need it.",
+            "I'll keep it safe if you give it to me.",
+            "I could look after it if you wished.",
+            "May I borrow it?",
+            "I won't take it.",
+            "I'll wait here.",
+            "I remember holding it.",
+            "I'll keep it in mind.",
+            "I'll give it some thought.",
+            "I'll bring it up later.",
+        ] {
+            assert!(check.clean(line, true).is_ok(), "{line}");
+        }
+        let owner = Check::new(&c, entity(&c, "greek-ismene"), Part::Line);
+        assert!(owner.clean("I'll keep it safe.", true).is_ok());
+        let mut accepted = exchange_context("ask", true);
+        assert!(Check::new(&accepted, entity(&accepted, "vale"), Part::Line)
+            .clean(screenshot, true)
+            .is_ok());
+        // A later transfer may give the item to the failed requester after all.
+        accepted.outcome.as_mut().unwrap().card.accepted = Some(false);
+        assert!(consistent("I'll keep it safe.", &accepted, "vale"));
+        for (kind, speaker) in [
+            ("give", "greek-ismene"),
+            ("trade", "vale"),
+            ("trade", "greek-ismene"),
+        ] {
+            let c = exchange_context(kind, false);
+            assert!(!consistent("I'll keep it safe.", &c, speaker), "{kind} {speaker}");
+        }
+    }
 
     #[test]
     fn visible_listener_custody_survives_later_talk_and_hides_the_rest() {
