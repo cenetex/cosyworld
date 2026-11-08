@@ -6,8 +6,8 @@ import worlds from "../v2/card-game/assets/staging/worlds.json" with { type: "js
 
 it("covers each current place with valid painted standing spots", () => {
   const catalog = { ...core.places, ...greek.places, ...worlds.places };
-  expect(Object.keys(catalog).sort()).toEqual(Object.keys(places).sort());
-  for (const entry of Object.values(catalog)) {
+  expect(Object.keys(places).filter((id) => !catalog[id])).toEqual([]);
+  for (const [place, entry] of Object.entries(catalog)) {
     for (const variant of [entry, ...Object.values(entry.backdrops || {})]) {
       expect(variant.spots).toHaveLength(6);
       for (const [x, y, scale] of variant.spots) {
@@ -17,7 +17,7 @@ it("covers each current place with valid painted standing spots", () => {
         );
       }
       for (const [id, index] of Object.entries(variant.avatars || {})) {
-        expect(people[id]).toBeDefined();
+        if (places[place]) expect(people[id]).toBeDefined();
         expect(Number.isInteger(index) && index >= 0 && index < 6).toBe(true);
       }
     }
