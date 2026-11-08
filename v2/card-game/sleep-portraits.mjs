@@ -11,12 +11,18 @@ const travelers = new Set([
   "orin",
   "ada",
 ]);
+// Approved resident sleep art is registered by actor id. Aliases can point
+// to the same asset without changing the world-life rules or base portrait.
+const residentSleepPortraits = {
+  "greek-baker": "assets/sleep/greek-baker-sleeping.png",
+};
 export const sleepPortraitAssets = [
   ...[...travelers].flatMap((id) =>
     ["", "-scarf"].map(
       (wardrobe) => `assets/shared/characters/${id}-sleeping${wardrobe}.webp`,
     ),
   ),
+  ...Object.values(residentSleepPortraits),
   ...["moth", "keeper"].map((id) => `assets/sleep/${id}-sleeping.webp`),
 ];
 
@@ -26,6 +32,7 @@ export function sleepingPortrait(world, id) {
     const scarf = avatarImage(world, id) === scarfPortrait(id);
     return `assets/shared/characters/${id}-sleeping${scarf ? "-scarf" : ""}.webp`;
   }
+  if (residentSleepPortraits[id]) return residentSleepPortraits[id];
   return ["moth", "keeper"].includes(id)
     ? `assets/sleep/${id}-sleeping.webp`
     : null;
