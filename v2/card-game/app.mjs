@@ -3697,21 +3697,6 @@ function renderScene() {
   // place its own share and lights, such as the attic's lamp. A place with
   // no night painting takes the full night grade, cooled.
   const authored = placeLight(scene.locationId);
-  renderStageLight($("stage"), {
-    turn: sleepLight.turn,
-    strength: gradeStrength({
-      grade: authored.grade,
-      painted: Boolean(scene.daylight),
-      night: isNight({ turn: sleepLight.turn }),
-    }),
-    tint: scene.daylight ? null : UNPAINTED_NIGHT_TINT,
-    pools: (authored.lights || []).map((pool) => ({
-      ...pool,
-      on: !pool.item || lampLitHere(view, scene.locationId),
-    })),
-    sky: authored,
-    ease: stayed && !sleepLight.cut,
-  });
   renderWeather($("stage"), scene.weather, { ease: stayed });
   let overlay = $("location-overlay");
   if (scene.overlay && !overlay) {
@@ -3891,6 +3876,23 @@ function renderScene() {
     }
   });
   showPreferredLocations(staging.actors);
+  renderStageLight($("stage"), {
+    turn: sleepLight.turn,
+    strength: gradeStrength({
+      grade: authored.grade,
+      painted: Boolean(scene.daylight),
+      night: isNight({ turn: sleepLight.turn }),
+    }),
+    tint: scene.daylight ? null : UNPAINTED_NIGHT_TINT,
+    lamp: lampLitHere(view, scene.locationId),
+    pools: (authored.lights || []).filter((pool) => pool.item !== "lamp").map((pool) => ({
+      ...pool,
+      on: !pool.item || lampLitHere(view, scene.locationId),
+    })),
+    sky: authored,
+    ease: stayed && !sleepLight.cut,
+  });
+
   // A reveal off stage (a place card, someone elsewhere) fades nothing later.
   stageReveals.clear();
   hauntScene($("stage"), scene.locationId, {

@@ -103,6 +103,7 @@ export function tintShade(light, tint, hour) {
 }
 
 export const isNeutral = (light) =>
+  !(light.pools || []).some((pool) => pool.on > 0) &&
   light.shade.every((v) => v > 0.995) &&
   light.desat < 0.005 &&
   light.vignette < 0.005 &&
