@@ -53,17 +53,25 @@ export function cardTreeLayout(cards, { expanded = [], active = null } = {}) {
 
 // The workspace owns frame creation, focus and selection. This function only
 // places those same frames; callers can retain their DOM through draft saves.
-export function placeCardTree(screen, cards, state) {
-  const { nodes, columns } = cardTreeLayout(cards, state);
+export function placeCardTree(screen, cards, state, layout = cardTreeLayout) {
+  const { nodes, columns } = layout(cards, state);
   const positions = new Map(nodes.map((node) => [node.id, node]));
   screen.dataset.layout = "tree";
   screen.style.setProperty("--tree-columns", columns);
+  screen.style.setProperty(
+    "--tree-table-rows",
+    Math.max(
+      1,
+      ...nodes.filter((n) => n.zone === "table").map((n) => n.depth + 1),
+    ),
+  );
   for (const frame of screen.querySelectorAll(".card-frame")) {
     const node = positions.get(
       frame.querySelector("[data-setting]")?.dataset.setting,
     );
     frame.hidden = !node;
     if (!node) continue;
+    frame.dataset.zone = node.zone || "table";
     frame.dataset.ancestor = String(node.ancestor);
     frame.dataset.phone = String(node.phone);
     for (const [key, value] of Object.entries({
@@ -76,4 +84,42 @@ export function placeCardTree(screen, cards, state) {
     }))
       frame.style.setProperty(`--tree-${key}`, value);
   }
+}
+
+// The maker deals only the current box into the hand. Open boxes stay on the
+// table; choosing a box in the hand plays it there without changing custody.
+export function makerCardLayout(cards, state = {}) {
+  const open = new Set(state.expanded || []);
+  const byId = new Map(cards.map((card) => [card.id, card]));
+  const active = byId.get(state.active);
+  const holder = open.has(active?.id) ? active.id : active?.holder;
+  const visible = new Set(cardTreeLayout(cards, state).nodes.map((n) => n.id));
+  const table = cards.filter(
+    (card) =>
+      visible.has(card.id) && (!byId.has(card.holder) || open.has(card.id)),
+  );
+  const tableIds = new Set(table.map((card) => card.id));
+  const hand = cards.filter(
+    (card) => card.holder === holder && !tableIds.has(card.id),
+  );
+  const tree = cardTreeLayout(table, state);
+  const row = Math.max(0, ...tree.nodes.map((node) => node.depth)) + 2;
+  return {
+    columns: Math.max(tree.columns, hand.length, 1),
+    nodes: [
+      ...tree.nodes.map((node) => ({ ...node, zone: "table", phone: true })),
+      ...hand.map((card, i) => ({
+        id: card.id,
+        depth: row - 1,
+        column: i + 1,
+        span: 1,
+        phone: true,
+        ancestor: false,
+        phoneRow: row,
+        phoneColumn: i + 1,
+        phoneSpan: 1,
+        zone: "hand",
+      })),
+    ],
+  };
 }
