@@ -550,7 +550,11 @@ Cards have three states. An unseen card lies face down under the plain wooden
 back and reveals on a tap. A card with an unmet prerequisite uses the locked
 back and red edge. A revealed card shows its face. Both closed states conceal
 the name, painting, contents, and quest details. Tapping a locked box
-selects it; the existing descriptor says "A closed box."
+selects it; the existing descriptor shows the concealed card back and its
+authored requirement, or "A locked box." when no requirement can be shown.
+"Locked" sits in the same small bottom-right position as "Continue". It is
+a disabled status, not a separate action row; selecting or tapping it never
+creates a quest or takes a turn.
 When its lock clears, the box opens with the existing card reveal
 (a crossfade under reduced motion). Held previews and quest miniatures
 use the same distinction. Newly dealt quests and folded stack layers use the

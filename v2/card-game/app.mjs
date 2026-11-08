@@ -52,6 +52,7 @@ import {
 import {
   LOCKED_BACK,
   CLOSED_BOX,
+  LOCKED_BOX,
   createLockedBoxes,
   isLockedBox,
   lockedQuest,
@@ -2155,7 +2156,9 @@ function frameFigure(img) {
   else img.addEventListener("load", measure, { once: true });
 }
 // Compose the avatar and selected cards over the scene, as quest cards do.
-function showBeatCards(ids, here, verb, recipe = false, actionView = null) {
+function showBeatCards(
+  ids, here, verb, recipe = false, actionView = null, asScene = true,
+) {
   const cards = document.querySelector(".action-beat-cards"),
     key = JSON.stringify([
       recipe,
@@ -2164,12 +2167,13 @@ function showBeatCards(ids, here, verb, recipe = false, actionView = null) {
       ids,
       ids.map(beatPortrait),
       actionView,
+      asScene,
     ]);
   if (cards.dataset.cards === key) return;
   cards.dataset.cards = key;
   releaseImages(cards);
   if (actionView) {
-    cards.replaceChildren(questScreen(actionView, questArt, true));
+    cards.replaceChildren(questScreen(actionView, questArt, asScene));
     return;
   }
   if (recipe) {
@@ -2406,7 +2410,12 @@ function renderActions() {
       !rested && closed
         ? (selected.length === 1 && isLockedBox(world, selected[0])
             ? lockedQuest(world, selected[0], known)
-            : null) || { text: CLOSED_BOX, cards: [] }
+            : null) || {
+            text: selected.some((id) => isLockedBox(world, id))
+              ? LOCKED_BOX
+              : CLOSED_BOX,
+            cards: [],
+          }
         : null,
     // Rule texts can double a name's article ("the The Burial Decree").
     sentence = lockShown
@@ -2437,10 +2446,12 @@ function renderActions() {
     here,
     playLabel(actions[0], world),
     lockShown?.recipe,
-    questShown
-      ? questView(questShown)
-      : actions[0] && !lockShown
-        ? actionScene(
+    lockShown
+      ? { kind: "place", target: selected.find(cardIsClosed), covered: true }
+      : questShown
+        ? questView(questShown)
+        : actions[0]
+          ? actionScene(
             {
               actorId: actor,
               verb: actions[0].kind,
@@ -2449,9 +2460,10 @@ function renderActions() {
               receiveId: actions[0].receive,
               locationId: actions[0].kind === "move" ? actions[0].target : here,
             },
-            known,
-          )
-        : null,
+              known,
+            )
+          : null,
+    !lockShown,
   );
   // A quest keeps its own tier; other plays take the rarest selected card.
   const rarest = questShown
@@ -2606,11 +2618,14 @@ function renderActions() {
     why.type = "button";
     why.disabled = true;
     why.dataset.blocked = "gate";
-    why.title = CLOSED_BOX;
+    why.title = lockShown.text;
+    why.setAttribute("aria-label", `Locked. ${lockShown.text}`);
     row.append(why);
+    // The same descriptor and small corner cue as Continue, without a play.
+    cardTapHint(why, "Locked");
   }
   // An Ask, Trade or Invite of a sleeping resident says so (rules 100).
-  const asleep = !rested && !actions.length && asleepReason(world, selected);
+  const asleep = !sealed && !rested && !actions.length && asleepReason(world, selected);
   if (asleep) {
     const blocked = node("button", asleep, "card-primary");
     blocked.type = "button";
@@ -2622,7 +2637,7 @@ function renderActions() {
   // A Take refused for space says why in the context button (#2018). It
   // plays nothing; the cards stay as they are.
   const crowded =
-    !rested && hint === TOO_MANY_ITEMS && selected.find((id) => things[id]);
+    !sealed && !rested && hint === TOO_MANY_ITEMS && selected.find((id) => things[id]);
   if (crowded) {
     const reason = `You have too many items to take ${theName(crowded).toLowerCase()}`;
     const blocked = node("button", reason, "card-primary");
@@ -2674,6 +2689,8 @@ function renderActions() {
     JSON.stringify([choiceKey(), picked?.key, text]),
     name,
   );
+  // A disabled status cannot receive the tap that finishes typed words.
+  if (sealed) actionReveal.finish();
   delete $("action-beat").dataset.avatar;
   // A refused play whose cards are no longer chosen says so on the status
   // line, briefly, as its button would.
