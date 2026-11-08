@@ -21779,6 +21779,32 @@
     const owner2 = rootHolder(world, item);
     return itemPlace2(world, item) === here && (owner2 === observer || owner2 === here || !sleepingPortrait(world, owner2) && world.items[item].holder === owner2 && heldItem(world, owner2) === item);
   }
+  function exchangeFacts(world, speaker, played) {
+    const partner = played?.targetId === speaker ? played.actorId : currentActor(world);
+    const here = world.actors[speaker]?.place;
+    if (!world.actors[partner] || partner === speaker || world.actors[partner].place !== here || controlledByHuman(world, speaker) || residentAvatar(world, speaker) || sleepingPortrait(world, speaker) || sleepingPortrait(world, partner)) return [];
+    const owned = carried(world, speaker).filter(
+      (item) => world.items[item].holder === speaker && entityActive(world, item)
+    );
+    const items2 = [.../* @__PURE__ */ new Set([
+      played?.itemId,
+      played?.receiveId,
+      heldItem(world, speaker),
+      ...owned
+    ])].filter((item) => owned.includes(item)).slice(0, 3);
+    const payments = carried(world, partner).filter(
+      (item) => world.items[item].holder === partner && entityActive(world, item) && visibleItem(world, speaker, item, here)
+    );
+    return items2.flatMap((item) => {
+      const facts = [willingToGive(world, speaker, item, partner) ? `If ${nameOf(partner)} asked me for ${nameOf(item)}, I would agree to give it.` : `If ${nameOf(partner)} asked me for ${nameOf(item)}, I would refuse to give it.`];
+      const offers = payments.filter((payment) => canTrade(world, partner, payment, item));
+      for (const payment of offers)
+        facts.push(`I would accept ${nameOf(partner)}'s ${nameOf(payment)} in trade for my ${nameOf(item)} now.`);
+      if (payments.length && !offers.length)
+        facts.push(`No item ${nameOf(partner)} is showing me would make me trade ${nameOf(item)} now.`);
+      return facts;
+    });
+  }
   function narrativeContext(world, action = null, isCovered = null) {
     const cast = dialogueCast(world, action);
     const {
@@ -21871,6 +21897,7 @@
         ];
         let desire = null;
         if (kind === "avatar") {
+          if (!beforeFirstLight) facts.unshift(...exchangeFacts(world, id, played));
           facts.unshift(...battleFacts(world, id, battle, nameOf));
           if (hasTemperament(id)) {
             const state = world.actors[id], mood = variantOf(world, id);
