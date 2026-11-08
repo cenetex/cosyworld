@@ -87,8 +87,7 @@ it("walks a carried meal to its quest place through ordinary resident plays", ()
     refusals: 0,
     step: { verb: "eat", at: gate },
   };
-  // A present player gets three turns before an ordinary resident departs.
-  for (let i = 0; i < 4; i++) s = act(s, "wait");
+  s = act(s, "wait");
   expect(s.actors[resident].place).toBe(gate);
   s = act(s, "move", { target: gate });
   s = act(s, "wait");

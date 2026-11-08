@@ -1,18 +1,23 @@
 # Resident courtesy on arrival
 
-Ordinary AI movement waits for three world turns after a human enters a room,
-or after a resident enters a room occupied by a human. Talk, Ask, Give and Trade
+Ordinary AI movement waits for three following world turns after a human travels
+into a room, or a resident travels into a room occupied by a human. Talk, Ask, Give and Trade
 hold the addressed resident for two following world turns. This is courtesy,
 not consent to an interaction or a permanent lock. A human leaving, disconnecting
 or sleeping stops holding a resident. Other humans in the room count too.
 
 Room arrival and addressed interaction stamps are bounded optional actor fields
 with validated places, actor IDs and turns. They survive saves and journal replay.
-Old saves get a human arrival stamp on the first committed play; waiting does not
-refresh it. Existing schema-7 saves remain readable.
+Old saves without stamps keep their existing timing until actual travel or an
+interaction. Waiting and loading never invent or refresh arrival. Per-human
+interaction stamps preserve overlapping courtesy windows. Existing schema-7
+saves remain readable.
+
+A newly created local world stamps its starting player as arriving.
 
 Only autonomous Move plans are replaced with Wait. Combat, explicit accepted
-Accompany, forced relocation and transport disembarkation retain their rules.
+Accompany, forced relocation and transport disembarkation retain their rules. Forced
+relocation, shared presence changes and claims do not create arrival stamps.
 Offstage world life already skips rooms occupied by humans. World-life-disabled
 story fixtures keep their existing behavior.
 

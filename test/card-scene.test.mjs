@@ -184,7 +184,8 @@ describe("JRPG scenes", () => {
     const s = gathered();
     s.actors.moth.want = wantPlace("pond");
     s.actors.keeper.want = null;
-    const left = act(s, "wait");
+    // The new-world arrival grace expires before the resident departs.
+    const left = act(act(act(act(s, "wait"), "wait"), "wait"), "wait");
     expect(movementCaption(left)).toContain("Pip leaves for Black pond.");
     expect(movementCaption(act(left, "wait"))).not.toContain(
       "Pip leaves for Black pond.",
@@ -299,7 +300,8 @@ describe("JRPG scenes", () => {
     );
     s.actors.moth.want = wantPlace("pond");
     s.actors.keeper.place = "pond";
-    s = act(act(s, "wait"), "wait");
+    // Talk keeps the resident here for two following turns.
+    s = act(act(act(s, "wait"), "wait"), "wait");
     expect(s.actors.moth.place).toBe("pond");
     expect(currentScene(s, spoken).slots).toEqual(["vale", "moth", "keeper"]);
     expect(currentScene(s).slots).toEqual(["vale", null]);

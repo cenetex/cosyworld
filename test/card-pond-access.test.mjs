@@ -215,10 +215,10 @@ it("removes entry after an autonomous carrier departure in the same completed tu
   s.actors.moth.want = newWant("place", "station", s.turn);
   delete s.actors.moth.metTurn;
   const stale = cardPlay(s, ["attic"]).action;
-  const result = play(
-    s,
-    legalActions(s).find((a) => a.kind === "wait"),
-  );
+  let result = play(s, legalActions(s).find((a) => a.kind === "wait"));
+  // The carrier stays for the arrival grace before taking the lamp away.
+  for (let i = 0; i < 2; i++)
+    result = play(result.state, legalActions(result.state).find((a) => a.kind === "wait" && !a.sleep));
   expect(result.ok).toBe(true);
   const next = result.state;
   expect(next.actors.moth.place).toBe("station");

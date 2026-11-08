@@ -197,8 +197,8 @@ export const validHome = (s) =>
     (a) => a.homeward === undefined || a.homeward === true,
   );
 
-// Short, journaled courtesy, not a lock from a browser selection. An old
-// save gets its first stamp on the next play; ordinary waiting never renews it.
+// Short, journaled courtesy, not a lock from a browser selection.
+// Only actual travel and interactions stamp it; loading never invents arrival.
 export function noteRoomArrival(s, id) {
   s.actors[id].roomArrival = { place: s.actors[id].place, turn: s.turn };
 }
@@ -209,12 +209,14 @@ export function noteResidentInteraction(s, action) {
   )
     return;
   const target = s.actors[action.target];
-  if (target && !controlledByHuman(s, action.target))
-    target.roomAttention = {
-      by: action.actor,
-      place: target.place,
-      turn: s.turn,
-    };
+  if (target && !controlledByHuman(s, action.target)) {
+    target.roomAttention = Object.fromEntries(
+      Object.entries(target.roomAttention || {}).filter(
+        ([, stamp]) => stamp.place === target.place && s.turn - stamp.turn <= 2,
+      ),
+    );
+    target.roomAttention[action.actor] = { place: target.place, turn: s.turn };
+  }
 }
 export function residentCourtesy(s, id) {
   if (!worldLife.on || controlledByHuman(s, id)) return false;
@@ -231,26 +233,26 @@ export function residentCourtesy(s, id) {
       !a.sleeping &&
       (recent(a.roomArrival, 3) ||
         recent(resident.roomArrival, 3) ||
-        (resident.roomAttention?.by === human &&
-          recent(resident.roomAttention, 2))),
+        recent(resident.roomAttention?.[human], 2)),
   );
 }
 export function validResidentCourtesy(s, places) {
-  return Object.values(s.actors).every((a) =>
-    [
-      [a.roomArrival, false],
-      [a.roomAttention, true],
-    ].every(
-      ([stamp, attention]) =>
-        stamp === undefined ||
-        (stamp &&
-          Object.keys(stamp).sort().join() ===
-            (attention ? "by,place,turn" : "place,turn") &&
-          Object.hasOwn(places, stamp.place) &&
-          Number.isSafeInteger(stamp.turn) &&
-          stamp.turn >= 0 &&
-          stamp.turn <= s.turn &&
-          (!attention || Object.hasOwn(s.actors, stamp.by))),
-    ),
+  const stampOk = (stamp) =>
+    stamp &&
+    Object.keys(stamp).sort().join() === "place,turn" &&
+    Object.hasOwn(places, stamp.place) &&
+    Number.isSafeInteger(stamp.turn) &&
+    stamp.turn >= 0 &&
+    stamp.turn <= s.turn;
+  return Object.values(s.actors).every(
+    (a) =>
+      (a.roomArrival === undefined || stampOk(a.roomArrival)) &&
+      (a.roomAttention === undefined ||
+        (a.roomAttention &&
+          !Array.isArray(a.roomAttention) &&
+          typeof a.roomAttention === "object" &&
+          Object.entries(a.roomAttention).every(
+            ([by, stamp]) => Object.hasOwn(s.actors, by) && stampOk(stamp),
+          ))),
   );
 }

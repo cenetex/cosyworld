@@ -340,8 +340,13 @@ describe("the level quest", () => {
   });
 
   it("raises the player's level only through a met level quest through a long run", () => {
-    let s = createWorld();
-    let quests = 0;
+    // Begin with a real dream quest; random movement can interrupt every later
+    // sampled sleep, so those sleeps alone cannot guarantee this coverage.
+    let s = ready();
+    s.actors.vale.level = 1;
+    s = sleep(s);
+    let quests = allQuestsOf(s, "vale").filter((w) => w.quest).length;
+    expect(quests).toBeGreaterThan(0);
     for (let step = 0; step < 400; step++) {
       // Now and then the player comes home to the attic with experience.
       if (step % 40 === 0) {

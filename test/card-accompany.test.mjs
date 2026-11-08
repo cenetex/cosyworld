@@ -75,7 +75,8 @@ describe("accompany card requests", () => {
     expect(world.revision).toBe(1);
     expect(world.actors.vale.place).toBe("pond");
     expect(world.actors.moth.place).toBe("pond");
-    expect(world.actors.keeper.place).toBe("station");
+    // The player's arrival also gives the keeper time to interact.
+    expect(world.actors.keeper.place).toBe("pond");
     expect(world.items.lamp.holder).toBe("vale");
     expect(world.items.cloth.holder).toBe("moth");
     expect(reply(world)).toMatchObject({

@@ -362,6 +362,7 @@ export function createWorld({ opening = false, packScopes = {}, seed } = {}) {
   settleGuards(world);
   settleHeldItems(world);
   settleStationExits(world);
+  noteRoomArrival(world, currentActor(world));
   return world;
 }
 // Mount every pack missing from this save: its crossings, its state, and its
@@ -3396,10 +3397,6 @@ export function play(
     };
   // Crossings open before the play decide whether a signal refreshes them.
   const round = beginRound(s, sensesFor(s));
-  for (const id of actorIds)
-    if (controlledByHuman(next, id) && humanPresent(next, id) &&
-        next.actors[id].roomArrival?.place !== next.actors[id].place)
-      noteRoomArrival(next, id);
   next.turn += 1;
   next.revision += 1;
   noteResidentInteraction(next, exact);

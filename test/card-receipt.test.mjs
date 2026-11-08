@@ -29,7 +29,9 @@ function stationTrade() {
   // Then Pip, rested, sets off for the pond.
   delete s.actors.moth.metTurn;
   s.actors.moth.want = { kind: "place", target: "pond", since: s.turn, refusals: 0 };
-  return act(s, "wait");
+  // Startup courtesy may hold Pip briefly; witness the actual departure.
+  for (let i = 0; i < 4 && s.actors.moth.place === "station"; i++) s = act(s, "wait");
+  return s;
 }
 describe("witnessed History events", () => {
   it("keeps a visible event for every turn before generated words arrive", () => {

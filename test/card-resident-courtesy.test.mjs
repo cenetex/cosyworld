@@ -22,6 +22,7 @@ function fixture() {
   s.controlledActors = s.presentActors = ["vale"];
   s.actors[resident].place = room;
   s.actors[resident].want = newWant("place", away, s.turn);
+  noteRoomArrival(s, "vale");
   return s;
 }
 it("keeps a resident for three rounds, then releases without a permanent lock", () => {
@@ -42,7 +43,7 @@ it("holds arrivals through two follow-up plays and an interaction through two mo
   for (let i = 0; i < 2; i++) s = act(s, "wait");
   s = act(s, "talk", { target: resident });
   const talked = s.turn;
-  expect(s.actors[resident].roomAttention.turn).toBe(talked);
+  expect(s.actors[resident].roomAttention.vale.turn).toBe(talked);
   for (let i = 0; i < 2; i++) {
     s = act(s, "wait");
     expect(s.actors[resident].place).toBe(room);
@@ -127,5 +128,37 @@ it("does not replace a combat response or explicit accepted accompaniment", () =
   expect(a).toBeDefined();
   s = play(s, a).state;
   expect(s.actors.vale.place).toBe(away);
+  expect(s.actors[resident].place).toBe(away);
+});
+
+it("keeps each human's unexpired attention when the latest speaker leaves", () => {
+  let s = fixture();
+  delete s.actors.vale.roomArrival;
+  s.controlledActors = s.presentActors = ["vale", "rue"];
+  s.actors.rue.place = room;
+  const step = (actor, kind, target) => {
+    const a = legalActions(s, actor).find(
+      (a) =>
+        a.kind === kind &&
+        (target === undefined || a.target === target) &&
+        !a.sleep &&
+        !a.guards,
+    );
+    expect(a).toBeDefined();
+    const result = play(s, a, s.revision, actor);
+    expect(result.ok, result.error).toBe(true);
+    s = reload(result.state);
+  };
+  step("vale", "talk", resident);
+  step("rue", "talk", resident);
+  step("rue", "move", away);
+  expect(s.actors[resident].place).toBe(room);
+  step("vale", "wait", undefined);
+  expect(s.actors[resident].place).toBe(away);
+});
+it("does not invent an arrival or renew courtesy by loading an old save", () => {
+  let s = fixture();
+  delete s.actors.vale.roomArrival;
+  s = act(reload(s), "wait");
   expect(s.actors[resident].place).toBe(away);
 });

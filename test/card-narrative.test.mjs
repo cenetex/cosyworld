@@ -59,6 +59,8 @@ const wantPlace = (target) => ({ kind: "place", target, since: 0, refusals: 0 })
 // at the pond, so it leaves on the next play; the others stay put.
 function leavingStation(...leavers) {
   const world = createWorld();
+  // This fixture is an established visit, outside startup courtesy.
+  delete world.actors.vale.roomArrival;
   for (const id of ["moth", "keeper"]) {
     world.actors[id].place = "station";
     world.actors[id].want = leavers.includes(id) ? wantPlace("pond") : null;
@@ -67,14 +69,14 @@ function leavingStation(...leavers) {
 }
 
 describe("entity memories and model text", () => {
-  it("keeps the final Bell recipient and its later movement in the speech request", () => {
+  it("keeps the final Bell recipient nearby in the speech request, then lets it leave", () => {
     const world = createWorld();
     world.actors.vale.place = "pond";
     world.items.lamp.holder = "vale";
     world.items.lamp.lit = true;
     world.actors.keeper.place = "pond";
     world.items.bell.holder = "vale";
-    // The keeper heads home to the station; Vale's bell rides along.
+    // The keeper wants home, but stays for the social interaction grace.
     world.actors.keeper.want = wantPlace("station");
     const next = act(world, "give", "bell", "keeper");
     const outcome = narrativeContext(next).outcome;
@@ -86,18 +88,21 @@ describe("entity memories and model text", () => {
     expect(outcome.items.find((item) => item.id === "bell")).toEqual({
       id: "bell",
       holder: "keeper",
-      location: "station",
+      location: "pond",
     });
-    // The keeper carries the bell home.
+    // The gift stays with the keeper, without inventing an immediate departure.
     expect(
       outcome.avatars.find((actor) => actor.id === "keeper"),
     ).toMatchObject({
       holding: ["oil", "bell"],
-      travel: { from: "pond", to: "station", companions: [] },
+      travel: null,
     });
     expect(narrativeContext(decodeSave(encodeSave(next))).outcome).toEqual(
       outcome,
     );
+    const left = act(act(act(next, "wait"), "wait"), "wait");
+    expect(left.actors.keeper.place).toBe("station");
+    expect(left.items.bell.holder).toBe("keeper");
   });
 
   it("sends the final lamp state after refueling, lighting, covering and running dry", () => {

@@ -242,13 +242,19 @@ function restAndReflect(s) {
 describe("dreams per level", () => {
   it("are two with a long rest after halfway, never a third", () => {
     let s = halfway();
-    const from = s.log.at(-1).seq;
-    s = restAndReflect(s);
-    // More long rests between halfway and full bring no dream.
-    s = restAndReflect(restAndReflect(s));
+    const dreams = [];
+    const rest = () => {
+      const from = s.eventSeq;
+      s = restAndReflect(s);
+      dreams.push(...dreamsSince(s, from));
+    };
+    rest();
+    // Collect per rest: the bounded world log may trim the earlier dream.
+    rest();
+    rest();
     while (s.actors.vale.xp < questXp(11)) s = meetOne(s);
-    s = restAndReflect(s);
-    expect(dreamsSince(s, from)).toEqual(["glimpse", "quest"]);
+    rest();
+    expect(dreams).toEqual(["glimpse", "quest"]);
   });
 
   it("is one when full experience comes before a long rest", () => {

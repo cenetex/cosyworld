@@ -97,6 +97,8 @@ it("walks the full return, introduces both residents at home, then keeps the unl
   s = act(s, "take", id("glass"));
   expect(entityActive(s, raven)).toBe(true);
   expect(reservedItem(s, id("glass"))).toBe(false);
+  // Waking beside a newly arrived player does not mean departing at once.
+  for (let i = 0; i < 3 && s.actors[raven].place === home; i++) s = act(s);
   expect(s.actors[raven].place).not.toBe(home);
 });
 
