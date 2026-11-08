@@ -4463,6 +4463,114 @@
       "phone": "assets/optimized/phone/png/pond.webp",
       "phoneHash": "a74d766a9cee2393404d2ddd253ccbbffa7f1fa28e5907a01d40c52f282b6293"
     },
+    "assets/ratiradio/broadcast-booth.webp": {
+      "sourceHash": "ad93d9a4ad1250b1f23215dbe0b51f32df5d8c27c0cb1bcc9910c1c9e631ff4e",
+      "stage": "assets/ratiradio/broadcast-booth.webp",
+      "stageHash": "ad93d9a4ad1250b1f23215dbe0b51f32df5d8c27c0cb1bcc9910c1c9e631ff4e",
+      "card": "assets/optimized/card/webp/ratiradio/broadcast-booth.webp",
+      "cardHash": "aaa64cd776a9046a54d1f6239fd78c7d4d5d1a0377278a9fd80854adbf55103c",
+      "phone": "assets/optimized/phone/webp/ratiradio/broadcast-booth.webp",
+      "phoneHash": "bd31a0b9beb202ebcc9f9651f6ecdda91793020c36f3b3ec4e390f6f14b933a0"
+    },
+    "assets/ratiradio/dispatch-window.webp": {
+      "sourceHash": "0dad17084694c7928b2352a37217a9ef9b5982282764a52f94a6cd9be7cd0218",
+      "stage": "assets/ratiradio/dispatch-window.webp",
+      "stageHash": "0dad17084694c7928b2352a37217a9ef9b5982282764a52f94a6cd9be7cd0218",
+      "card": "assets/optimized/card/webp/ratiradio/dispatch-window.webp",
+      "cardHash": "b7baf8579e1a86606d9d206cd0f6e924a936188a13322a65f8ad5566f6cdb7f5",
+      "phone": "assets/optimized/phone/webp/ratiradio/dispatch-window.webp",
+      "phoneHash": "9b22803057c598e94203130a993865c4bf148b33d3546650de50b638e9f90aa9"
+    },
+    "assets/ratiradio/glass.webp": {
+      "sourceHash": "444a02890adfffb19f1e7d92a6fe31c562b786138ab82126760df42137901667",
+      "stage": "assets/ratiradio/glass.webp",
+      "stageHash": "444a02890adfffb19f1e7d92a6fe31c562b786138ab82126760df42137901667",
+      "card": "assets/ratiradio/glass.webp",
+      "cardHash": "444a02890adfffb19f1e7d92a6fe31c562b786138ab82126760df42137901667",
+      "phone": "assets/ratiradio/glass.webp",
+      "phoneHash": "444a02890adfffb19f1e7d92a6fe31c562b786138ab82126760df42137901667"
+    },
+    "assets/ratiradio/listening-room.webp": {
+      "sourceHash": "f501e0b39b78fdcf51cc9e50766edcf15441e5450456550c488add201ccb7f0a",
+      "stage": "assets/ratiradio/listening-room.webp",
+      "stageHash": "f501e0b39b78fdcf51cc9e50766edcf15441e5450456550c488add201ccb7f0a",
+      "card": "assets/optimized/card/webp/ratiradio/listening-room.webp",
+      "cardHash": "7344141851331495a3a2ee51bf94e716cffa9683f87bc57dacfbfa49c4d7b1a3",
+      "phone": "assets/optimized/phone/webp/ratiradio/listening-room.webp",
+      "phoneHash": "4562ee5527eb2fe35f024bb589b05a23680a30e0888d6f2d8313254feffd8fc2"
+    },
+    "assets/ratiradio/rati.webp": {
+      "sourceHash": "9f82c1c6e3c0e213cf0d355f745fe2152b29d981353864cf6f065c8e42c3142e",
+      "stage": "assets/ratiradio/rati.webp",
+      "stageHash": "9f82c1c6e3c0e213cf0d355f745fe2152b29d981353864cf6f065c8e42c3142e",
+      "card": "assets/optimized/card/webp/ratiradio/rati.webp",
+      "cardHash": "792c849391858c3cb3ab381634eacc3a6d6af642cbae0c6259e06e995a11bbb2",
+      "phone": "assets/optimized/phone/webp/ratiradio/rati.webp",
+      "phoneHash": "d1476dd362372d22ee6d1a476adae0bb520b4f1ad4715f8967fb5eb1d7f1f766"
+    },
+    "assets/ratiradio/raven-figurine.webp": {
+      "sourceHash": "d66e30a14509aedf6380b4fd604046681e49fe9bd0ac9aa1af7bcb634da0abfd",
+      "stage": "assets/ratiradio/raven-figurine.webp",
+      "stageHash": "d66e30a14509aedf6380b4fd604046681e49fe9bd0ac9aa1af7bcb634da0abfd",
+      "card": "assets/ratiradio/raven-figurine.webp",
+      "cardHash": "d66e30a14509aedf6380b4fd604046681e49fe9bd0ac9aa1af7bcb634da0abfd",
+      "phone": "assets/ratiradio/raven-figurine.webp",
+      "phoneHash": "d66e30a14509aedf6380b4fd604046681e49fe9bd0ac9aa1af7bcb634da0abfd"
+    },
+    "assets/ratiradio/raven.webp": {
+      "sourceHash": "7c9656eac04c81e77a8f3a0fe6ba1370a75830c9a9459ea1edb12d86337cbe09",
+      "stage": "assets/ratiradio/raven.webp",
+      "stageHash": "7c9656eac04c81e77a8f3a0fe6ba1370a75830c9a9459ea1edb12d86337cbe09",
+      "card": "assets/optimized/card/webp/ratiradio/raven.webp",
+      "cardHash": "887f6bc905a09f61d054f9f9933300bb4becd8b07a4c6526ca3c711fbc1ccc31",
+      "phone": "assets/optimized/phone/webp/ratiradio/raven.webp",
+      "phoneHash": "20dd695e90f52804a50dd7c681546539764a10b6afd61f3cbe2291d98aa19140"
+    },
+    "assets/ratiradio/red-beanie.webp": {
+      "sourceHash": "9607802e448994e22b270a0786c6b7bc8cdfcf9b65577303516f6363d72abff8",
+      "stage": "assets/ratiradio/red-beanie.webp",
+      "stageHash": "9607802e448994e22b270a0786c6b7bc8cdfcf9b65577303516f6363d72abff8",
+      "card": "assets/ratiradio/red-beanie.webp",
+      "cardHash": "9607802e448994e22b270a0786c6b7bc8cdfcf9b65577303516f6363d72abff8",
+      "phone": "assets/ratiradio/red-beanie.webp",
+      "phoneHash": "9607802e448994e22b270a0786c6b7bc8cdfcf9b65577303516f6363d72abff8"
+    },
+    "assets/ratiradio/request-slip.webp": {
+      "sourceHash": "905125492b77d5ebf4faca8748c2d00fb6c72d0a405f8e5e836af75971216ac5",
+      "stage": "assets/ratiradio/request-slip.webp",
+      "stageHash": "905125492b77d5ebf4faca8748c2d00fb6c72d0a405f8e5e836af75971216ac5",
+      "card": "assets/ratiradio/request-slip.webp",
+      "cardHash": "905125492b77d5ebf4faca8748c2d00fb6c72d0a405f8e5e836af75971216ac5",
+      "phone": "assets/ratiradio/request-slip.webp",
+      "phoneHash": "905125492b77d5ebf4faca8748c2d00fb6c72d0a405f8e5e836af75971216ac5"
+    },
+    "assets/ratiradio/staff-kitchen.webp": {
+      "sourceHash": "5882b8f84f127fdbe665dbf51131ec4d720ad7f400f7b3c68090d6d831e4e22a",
+      "stage": "assets/ratiradio/staff-kitchen.webp",
+      "stageHash": "5882b8f84f127fdbe665dbf51131ec4d720ad7f400f7b3c68090d6d831e4e22a",
+      "card": "assets/optimized/card/webp/ratiradio/staff-kitchen.webp",
+      "cardHash": "357cd1730b631164b37513a8bbd9296a85aaf95617485ba809789b5b71d8ffd1",
+      "phone": "assets/optimized/phone/webp/ratiradio/staff-kitchen.webp",
+      "phoneHash": "ec0f0f14a2e8d2a3e8d4bf71007fd06fd05b04599c33b4353affaef3332ea6c1"
+    },
+    "assets/ratiradio/station-key.webp": {
+      "sourceHash": "783b5032883ec995478038e8ef73cac6f1ebaf48fa5a8f6b356f79ee99f4d5aa",
+      "stage": "assets/ratiradio/station-key.webp",
+      "stageHash": "783b5032883ec995478038e8ef73cac6f1ebaf48fa5a8f6b356f79ee99f4d5aa",
+      "card": "assets/ratiradio/station-key.webp",
+      "cardHash": "783b5032883ec995478038e8ef73cac6f1ebaf48fa5a8f6b356f79ee99f4d5aa",
+      "phone": "assets/ratiradio/station-key.webp",
+      "phoneHash": "783b5032883ec995478038e8ef73cac6f1ebaf48fa5a8f6b356f79ee99f4d5aa"
+    },
+    "assets/ratiradio/thermos.webp": {
+      "sourceHash": "9643b7e5af2cb0a65fc84f89b1b55d540f3c3795431ec32e64c0982aa79ae836",
+      "stage": "assets/ratiradio/thermos.webp",
+      "stageHash": "9643b7e5af2cb0a65fc84f89b1b55d540f3c3795431ec32e64c0982aa79ae836",
+      "card": "assets/ratiradio/thermos.webp",
+      "cardHash": "9643b7e5af2cb0a65fc84f89b1b55d540f3c3795431ec32e64c0982aa79ae836",
+      "phone": "assets/ratiradio/thermos.webp",
+      "phoneHash": "9643b7e5af2cb0a65fc84f89b1b55d540f3c3795431ec32e64c0982aa79ae836"
+    },
     "assets/rest/long-rest.webp": {
       "sourceHash": "9cd6aea86be840fd030bfaf584c8b4f6c30641bbb104090840f92fb6d50a6a0e",
       "stage": "assets/rest/long-rest.webp",

@@ -1107,8 +1107,10 @@ export function packProblems(pack, hub, mountedPlaces = [], mountedItems = []) {
   // Saved state, or `any`/`not` over saved state, such as a thing that
   // shows only while no other thing is in the same place.
   const savedCondition = (c) =>
-    ["any", "not"].includes(c?.kind)
-      ? (c.conditions || [c.condition]).every(savedCondition)
+    c?.kind === "any"
+      ? Array.isArray(c.conditions) && c.conditions.every(savedCondition)
+      : c?.kind === "not"
+        ? savedCondition(c.condition)
       : [
           "choice",
           "choice_unset",
@@ -1231,6 +1233,8 @@ export function packProblems(pack, hub, mountedPlaces = [], mountedItems = []) {
         "startsUsed",
         "absentReturn",
         "locked",
+        "reservedUntil",
+        "recoverTo",
       ]) &&
         (i.tags === undefined ||
           (Array.isArray(i.tags) &&
@@ -1251,6 +1255,11 @@ export function packProblems(pack, hub, mountedPlaces = [], mountedItems = []) {
     );
     media(i.art, `item ${id} art`);
     requirements(i.requires, `item ${id} requires`);
+    requirements(i.reservedUntil, `item ${id} reservedUntil`);
+    check(i.reservedUntil === undefined || (Array.isArray(i.reservedUntil) && i.reservedUntil.length > 0),
+      `item ${id} reservedUntil needs a condition`);
+    check(i.recoverTo === undefined || anyPlace(i.recoverTo),
+      `item ${id} recoverTo needs a known place`);
   }
   const routes = pack.routes || [];
   for (const r of routes) {

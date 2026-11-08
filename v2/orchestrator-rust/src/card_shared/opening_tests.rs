@@ -107,6 +107,9 @@ fn released_pond_opening_keeps_its_place_through_upgrade_and_journal_rebuild() {
     }
     super::saved_items::greek_story_items(&mut expected["items"]);
     expected = super::saved_items::hoppy_revision_4(&expected, &world.game);
+    let initial = super::saved_items::initial_game(&world.game);
+    expected["items"] =
+        super::saved_items::with_initial_additions(&expected["items"], &initial["items"]);
     for field in ["items", "opening", "turn"] {
         assert_eq!(world.game[field], expected[field], "{field}");
     }

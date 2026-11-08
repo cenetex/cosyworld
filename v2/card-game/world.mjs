@@ -209,6 +209,7 @@ import {
   settleVoyageCargo,
   validItemCycle,
   validCraftEvent,
+  reservedItem,
 } from "./pack-items.mjs";
 import { installSpecials, validSeed } from "./pack-specials.mjs";
 import forest from "./forest.json" with { type: "json" };
@@ -910,7 +911,8 @@ export function wantAPI(s) {
   return {
     carried: (actor) => carried(s, actor),
     rootHolder: (item) => rootHolder(s, item),
-    valueOf: (actor, item) => valueOf(s, actor, item),
+    valueOf: (actor, item) => !controlledByHuman(s, actor) && reservedItem(s, item)
+      ? 1 : valueOf(s, actor, item),
     // A resident holding the item directly would give it, or take something
     // the actor carries in trade. A human holder or a nested item may yet.
     obtainable: (actor, item) => {
@@ -1512,7 +1514,7 @@ export function accompanyDecision(
 export function legalActions(s, actor = currentActor(s)) {
   if (
     !s.actors[actor] ||
-    (!entityActive(s, actor) && !roamingQuestActor(actor))
+    (!entityActive(s, actor) && !roamingQuestActor(actor, s))
   )
     return [];
   const here = s.actors[actor].place;
@@ -2993,13 +2995,18 @@ function readPlan(s, actor) {
     s,
     actor,
     selected,
-    legalActions(s, actor).filter(
+    plannedActions(s, actor).filter(
       (a) =>
         a.key === selected.action.key ||
         !["trade", "give"].includes(a.kind) ||
         (!needed(s, actor, a.item) && !keepReason(s, actor, a.item)),
     ),
   );
+}
+function plannedActions(s, actor) {
+  return legalActions(s, actor).filter((a) => controlledByHuman(s, actor) ||
+    !(["take", "steal", "ask", "threaten"].includes(a.kind) && reservedItem(s, a.item)) &&
+    !(a.kind === "trade" && reservedItem(s, a.receive)));
 }
 // One legal step toward a place. Travellers who learn the roads keep to
 // the routes they know and explore the edge of that map; the others use
@@ -3049,7 +3056,7 @@ function stepToward(s, actor, target) {
 // A refusal is an outcome: it counts against the want, and enough of them
 // set it aside.
 function wantPlan(s, actor) {
-  const acts = legalActions(s, actor);
+  const acts = plannedActions(s, actor);
   const find = (kind, test = () => true) =>
     acts.find((a) => a.kind === kind && test(a));
   const idle = () => ({ action: find("wait") || acts[0] });
@@ -3426,12 +3433,13 @@ export function play(
     );
   // Travellers who learn the roads act every round, wherever they are.
   for (const id of roamingActors) {
-    if (controlledByHuman(next, id) || id === respondent) continue;
+    if (controlledByHuman(next, id) || id === respondent ||
+      !roamingQuestActor(id, s) || !roamingQuestActor(id, next)) continue;
     const from = next.actors[id].place;
     rememberRoutes(next, id, visibleRouteEdges(from));
     const chosen = plan(next, id);
     if (chosen.callShip) callTransport(next, from, true);
-    if (chosen.action.kind !== "wait")
+    if (chosen.action.kind !== "wait" || standoffFor(next, id))
       perform(next, chosen.action, round, [id]);
     else rest(next, id, from);
     rememberRoutes(next, id, visibleRouteEdges(next.actors[id].place));

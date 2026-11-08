@@ -7,7 +7,7 @@ import {
   transports,
   roamingQuestActor,
 } from "./pack-registry.mjs";
-export const roamingActors = Object.keys(packPeople).filter(roamingQuestActor);
+export const roamingActors = Object.keys(packPeople).filter((id) => roamingQuestActor(id));
 export const authoredRouteEdges = () => [
   ...Object.entries({ ...forest.places, ...packPlaces }).flatMap(([from, p]) =>
     p.exits.map((to) => [from, to]),
