@@ -20,7 +20,7 @@ import {
   entityActive,
   staysPut,
 } from "./pack-registry.mjs";
-import { humanAvatar } from "./human-cast.mjs";
+import { controlledByHuman, humanPresent, humanAvatar } from "./human-cast.mjs";
 import { authoredRouteEdges } from "./roaming-routes.mjs";
 import { DAYLIGHT_TURNS } from "./pack-rules.mjs";
 import { BOARDY } from "./boardyai.mjs";
@@ -196,3 +196,61 @@ export const validHome = (s) =>
   Object.values(s.actors).every(
     (a) => a.homeward === undefined || a.homeward === true,
   );
+
+// Short, journaled courtesy, not a lock from a browser selection. An old
+// save gets its first stamp on the next play; ordinary waiting never renews it.
+export function noteRoomArrival(s, id) {
+  s.actors[id].roomArrival = { place: s.actors[id].place, turn: s.turn };
+}
+export function noteResidentInteraction(s, action) {
+  if (
+    !controlledByHuman(s, action.actor) ||
+    !["talk", "ask", "give", "trade"].includes(action.kind)
+  )
+    return;
+  const target = s.actors[action.target];
+  if (target && !controlledByHuman(s, action.target))
+    target.roomAttention = {
+      by: action.actor,
+      place: target.place,
+      turn: s.turn,
+    };
+}
+export function residentCourtesy(s, id) {
+  if (!worldLife.on || controlledByHuman(s, id)) return false;
+  const resident = s.actors[id];
+  const recent = (stamp, turns) =>
+    stamp?.place === resident.place &&
+    s.turn >= stamp.turn &&
+    s.turn - stamp.turn <= turns;
+  return Object.entries(s.actors).some(
+    ([human, a]) =>
+      controlledByHuman(s, human) &&
+      humanPresent(s, human) &&
+      a.place === resident.place &&
+      !a.sleeping &&
+      (recent(a.roomArrival, 3) ||
+        recent(resident.roomArrival, 3) ||
+        (resident.roomAttention?.by === human &&
+          recent(resident.roomAttention, 2))),
+  );
+}
+export function validResidentCourtesy(s, places) {
+  return Object.values(s.actors).every((a) =>
+    [
+      [a.roomArrival, false],
+      [a.roomAttention, true],
+    ].every(
+      ([stamp, attention]) =>
+        stamp === undefined ||
+        (stamp &&
+          Object.keys(stamp).sort().join() ===
+            (attention ? "by,place,turn" : "place,turn") &&
+          Object.hasOwn(places, stamp.place) &&
+          Number.isSafeInteger(stamp.turn) &&
+          stamp.turn >= 0 &&
+          stamp.turn <= s.turn &&
+          (!attention || Object.hasOwn(s.actors, stamp.by))),
+    ),
+  );
+}
