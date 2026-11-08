@@ -79,9 +79,29 @@ try {
         );
         const db = await openAuthoringStore();
         try {
-          return await db.read(
+          const record = await db.read(
             new URL(location.href).searchParams.get("draft") || "first-world",
           );
+          return {
+            ...record,
+            assets: await Promise.all(
+              [...record.assets].map(async ([path, bytes]) => {
+                const sha256 = Array.from(
+                  new Uint8Array(await crypto.subtle.digest("SHA-256", bytes)),
+                  (b) => b.toString(16).padStart(2, "0"),
+                ).join("");
+                let dimensions = null;
+                if (path.endsWith(".png")) {
+                  const bitmap = await createImageBitmap(
+                    new Blob([bytes], { type: "image/png" }),
+                  );
+                  dimensions = [bitmap.width, bitmap.height];
+                  bitmap.close();
+                }
+                return { path, sha256, size: bytes.byteLength, dimensions };
+              }),
+            ),
+          };
         } finally {
           db.close();
         }
@@ -232,6 +252,18 @@ try {
         `[data-setting="designer-tool-art-${avatar}-${role}-preview-0"]`,
       );
       await preview.waitFor({ state: "visible" });
+      const image = await preview
+        .locator(".art img")
+        .first()
+        .evaluate(async (img) => {
+          await img.decode();
+          return [
+            img.src.startsWith("blob:"),
+            img.naturalWidth,
+            img.naturalHeight,
+          ];
+        });
+      assert.deepEqual(image, [true, 300, 200]);
     };
     await generate("portrait");
     await tool(`art-${avatar}-portrait-discard`);
@@ -255,12 +287,24 @@ try {
     await saved(7);
     assert.equal(imageCalls, 2);
     await generate("pose-sheet");
-    for (let i = 0; i < 7; i++)
-      await page
-        .locator(
-          `[data-setting="designer-tool-art-${avatar}-pose-sheet-preview-${i}"]`,
-        )
-        .waitFor({ state: "visible" });
+    for (let i = 0; i < 7; i++) {
+      const preview = page.locator(
+        `[data-setting="designer-tool-art-${avatar}-pose-sheet-preview-${i}"]`,
+      );
+      await preview.waitFor({ state: "visible" });
+      const image = await preview
+        .locator(".art img")
+        .first()
+        .evaluate(async (img) => {
+          await img.decode();
+          return [
+            img.src.startsWith("blob:"),
+            img.naturalWidth,
+            img.naturalHeight,
+          ];
+        });
+      assert.deepEqual(image, i === 0 ? [true, 300, 200] : [true, 100, 100]);
+    }
     await page.screenshot({
       path: `${output}/${width}-pose-review.png`,
       animations: "disabled",
@@ -275,6 +319,13 @@ try {
         ),
       );
     const final = await read();
+    for (const pose of ["happy", "sad", "hit", "strike", "brace", "sleep"]) {
+      const asset = final.assets.find((a) => a.path.endsWith(`-${pose}.png`));
+      const meta = final.draft.assets.find((a) => a.path === asset.path);
+      assert.deepEqual(asset.dimensions, [100, 100]);
+      assert.equal(asset.sha256, meta.sha256);
+      assert.equal(asset.size, meta.size);
+    }
     await page.reload();
     await page.locator("#history-button").waitFor();
     assert.deepEqual(await read(), final);
