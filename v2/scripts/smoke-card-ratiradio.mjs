@@ -6,7 +6,7 @@ import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
 import { createWorld, encodeSave, legalActions, play } from "../card-game/world.mjs";
 import { availableCards } from "../card-game/cards.mjs";
-import { packPeople } from "../card-game/pack-registry.mjs";
+import { packPeople, packDefinition } from "../card-game/pack-registry.mjs";
 import { clearSelection, revealCard, tapCard, readyActionButton } from "./card-browser-helpers.mjs";
 
 // This prerequisite can land before the pack. Its integration run must play
@@ -29,6 +29,10 @@ const route = [
   ["drop", id("glass")], ["drop", id("raven-figurine")],
 ];
 let start = createWorld({ opening: true, seed: 17 });
+// Gate/return smoke: objects have already been fetched and left in the rooms.
+// Fresh external placement and its voyage are covered by card-radio-scatter.
+for (const [id, item] of Object.entries(packDefinition("ratiradio").items))
+  if (item.scatterOutside) start.items[id].holder = item.holder;
 // A real local journey retains its opening ledger after leaving the forest.
 start.opening.crossed = true;
 start.opening.met.moth = 0;
