@@ -81,8 +81,9 @@ Privacy is one tap away. You then holds Account (hosted play),
 Another passkey (a shared world, signed in) and Play counts. Sound holds
 Music, Voices and Volume. Play holds Fight speed, Flashes and scares and
 Controls, whose Next tip shows the next tip in place and keeps Controls
-chosen. World holds the four pack cards, Cosy
-Cottage (`lonely-forest`), The Reflected Shore (the hub), The Wine-Dark Sea
+chosen. World holds the switchable pack cards, Cosy
+Cottage (`lonely-forest`), The Reflected Shore (the hub), Night Shift at RatiRadio
+(`ratiradio`), The Wine-Dark Sea
 (`greek-drama`) and Hoppy Cat Universe (`hoppycat-archive`), then New game
 (the local table), Backup (the desktop app) and
 Download, which opens `/download`. A pack card is

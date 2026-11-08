@@ -66,12 +66,12 @@ export const BENCH = [
 function bench(name) {
   return `settings/workbench-${name}.png`;
 }
-// The owner's four packs, by their switchable groups (rules 98,
-// pack-toggle.mjs), lead World. A pack card is lit while it is on; its
+// The world's packs, by their switchable groups (pack-toggle.mjs), lead World. A pack card is lit while it is on; its
 // button switches it, or says why it can't.
 export const PACKS = [
   ["cottage", "Cosy Cottage", "lonely-forest/cottage.png"],
   ["shore", "The Reflected Shore", "pond.png"],
+  ["radio", "Night Shift at RatiRadio", "ratiradio/listening-room.webp"],
   ["sea", "The Wine-Dark Sea", "greek-drama/harbor-open-berth.webp"],
   [
     "hoppy",
