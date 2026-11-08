@@ -1,13 +1,16 @@
 import { addLog, createWorld } from "./world.mjs";
 import { newMemories } from "./memory.mjs";
-import { settleHeldItems } from "./held-item.mjs";
-import { newRunSeed } from "./pack-landing.mjs";
+import { createLandingWorld, newRunSeed } from "./pack-landing.mjs";
+import landings from "./pack-landings.json" with { type: "json" };
+import { questFor } from "./talk-quest.mjs";
+import { pushQuest } from "./want.mjs";
 
 // A physical Pip card opens its own local world. Explicit world links win.
 export function pipEntry(href) {
   const url = new URL(href);
   return (
     /^\/pip\/?$/u.test(url.pathname) &&
+    !landings[url.hostname] &&
     !["world", "table", "pack"].some((key) => url.searchParams.has(key))
   );
 }
@@ -18,16 +21,18 @@ export function createPipWorld(seed = newRunSeed()) {
   world.actors.vale.visited = ["pond"];
   world.actors.keeper.place = "station";
   world.actors.keeper.visited = ["station"];
-  world.items.lamp.holder = "vale";
-  world.items.lamp.lit = true;
-  settleHeldItems(world);
   world.log = [];
   world.eventSeq = 0;
   world.memories = newMemories();
-  addLog(
-    world,
-    "World",
-    "You found Pip. The Lamp in your hand lights his wings.",
-  );
+  addLog(world, "World", "You found Pip.");
+  return world;
+}
+
+export function beginPipJourney(seed = newRunSeed()) {
+  const world = createLandingWorld(null, seed);
+  pushQuest(world, "vale", {
+    ...questFor(world, "moth", world.actors.moth.want),
+    story: true,
+  });
   return world;
 }

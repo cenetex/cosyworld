@@ -26,15 +26,16 @@ function veil(opacity) {
 
 // Fades to black, then runs `go` (a navigation or reload). The next page
 // lifts the black.
-export async function leavePage(go) {
+export async function leavePage(go, { ms = duration(), remember = true } = {}) {
   try {
-    sessionStorage.setItem(KEY, "1");
+    if (remember) sessionStorage.setItem(KEY, "1");
   } catch {}
   const black = veil(0);
   await black
-    .animate({ opacity: [0, 1] }, { duration: duration(), fill: "forwards" })
+    .animate({ opacity: [0, 1] }, { duration: reduced() ? duration() : ms, fill: "forwards" })
     .finished.catch(() => {});
   go();
+  if (!remember) black.remove();
 }
 
 // On a page opened by leavePage: the black lifts as the table comes in.
