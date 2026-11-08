@@ -177,6 +177,14 @@ describe("quest step verbs", () => {
       // Pip can't follow Vale into a place closed to him.
       if (turn % 5 === 0 && actorCanVisit("moth", vale.place, s)) {
         s.actors.moth.place = vale.place;
+        // Leave a free hand slot before the fixture returns the Lamp.
+        const otherCarried = Object.keys(s.items).filter(
+          (id) => id !== "lamp" && s.items[id].holder === "vale",
+        );
+        for (const id of otherCarried.slice(2)) {
+          s.items[id].holder = vale.place;
+          if (vale.heldItem === id) delete vale.heldItem;
+        }
         s.items.lamp.holder = "vale";
       }
       const actions = legalActions(s);
