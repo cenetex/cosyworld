@@ -9,11 +9,12 @@ import { SAVE_BASE } from "../card-game/avatar-world.mjs";
 import { availableCards } from "../card-game/cards.mjs";
 import {
   encodeSave,
+  decodeSave,
   createWorld,
   legalActions,
   play,
 } from "../card-game/world.mjs";
-import { smokeWidths } from "./card-browser-helpers.mjs";
+import { selectCard, smokeWidths } from "./card-browser-helpers.mjs";
 
 const widths = smokeWidths([1440, 390]);
 const output = resolve(
@@ -60,6 +61,19 @@ try {
       await page.goto(
         `http://127.0.0.1:${server.address().port}/?table=resident-sleep-${width}`,
       );
+      const ready = async () => {
+        for (let attempt = 0; attempt < 250; attempt++) {
+          if (
+            (await page.locator("#hand").getAttribute("data-cooling")) ===
+            "false"
+          )
+            return;
+          if (await page.locator("#dialogue-advance").isVisible())
+            await page.locator("#dialogue-advance").click();
+          await page.waitForTimeout(40);
+        }
+        throw new Error("The hand stayed busy.");
+      };
       const card = page.locator('#hand [data-card="greek-baker"] .art img');
       await card.waitFor();
       const figure = page.locator('#cast [data-avatar="greek-baker"]');
@@ -95,34 +109,24 @@ try {
       const awake = play(at95, waitAt95, at95.revision).state;
       assert.equal(awake.turn, 96);
       assert.equal(awake.actors["greek-baker"].sleeping, undefined);
-      const awakePage = await browser.newPage({
-        viewport: { width, height: width === 390 ? 844 : 900 },
-        reducedMotion: "reduce",
-        hasTouch: width === 390,
-      });
-      awakePage.on("pageerror", (error) => errors.push(error.message));
-      await awakePage.route("**/card-game/text", (route) =>
-        route.fulfill({ status: 503, json: { error: "fixture" } }),
-      );
-      await awakePage.addInitScript(
-        ({ key, save, seen }) => {
-          localStorage.setItem(key, save);
-          localStorage.setItem(`${key}.seen`, JSON.stringify(seen));
-          localStorage.setItem("cosyworld.dialogue.sound", "off");
-        },
-        { key, save: encodeSave(awake), seen: availableCards(awake) },
-      );
-      await awakePage.goto(
-        `http://127.0.0.1:${server.address().port}/?table=resident-sleep-${width}`,
-      );
-      const awakeCard = awakePage.locator(
-        '#hand [data-card="greek-baker"] .art img',
-      );
-      await awakeCard.waitFor();
-      await awakePage
-        .locator('#cast [data-avatar="greek-baker"] img')
-        .waitFor();
-      await awakePage.waitForFunction(() => {
+      let savedWorld = world;
+      for (
+        let attempt = 0;
+        attempt < 8 && savedWorld.actors["greek-baker"].sleeping;
+        attempt++
+      ) {
+        await ready();
+        await selectCard(page, "greek-courtyard");
+        await page.locator('#card-actions [data-action="wait"]').click();
+        await ready();
+        const saved = await page.evaluate(
+          (saveKey) => localStorage.getItem(saveKey),
+          key,
+        );
+        savedWorld = decodeSave(saved);
+      }
+      assert.equal(savedWorld.actors["greek-baker"].sleeping, undefined);
+      await page.waitForFunction(() => {
         const img = document.querySelector(
           '#cast [data-avatar="greek-baker"] img',
         );
@@ -133,21 +137,18 @@ try {
         );
       });
       assert.notEqual(
-        await awakePage
+        await page
           .locator('#cast [data-avatar="greek-baker"]')
           .getAttribute("data-pose"),
         "sleep",
       );
       assert.doesNotMatch(
-        await awakeCard.getAttribute("src"),
+        await card.getAttribute("src"),
         /greek-baker-sleeping/u,
       );
-      await awakePage.screenshot({
-        path: resolve(output, `awake-${width}.png`),
-      });
+      await page.screenshot({ path: resolve(output, `awake-${width}.png`) });
       assert.deepEqual(errors, []);
       console.log(`Resident sleep art passed at ${width}px.`);
-      await awakePage.close();
     } finally {
       await page.close();
     }
