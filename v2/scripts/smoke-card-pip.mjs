@@ -19,7 +19,7 @@ try {
     for (const method of ["GET", "HEAD"])
       assert.equal((await fetch(`${base}${path}`, { method })).status, 200);
   for (const [width, height] of [[1440, 900], [390, 844], [320, 568]]) {
-    const page = await browser.newPage({ viewport: { width, height }, hasTouch: width < 700 });
+    const page = await browser.newPage({ viewport: { width, height }, hasTouch: width < 700, reducedMotion: width === 320 ? "reduce" : "no-preference" });
     page.setDefaultTimeout(15000);
     const errors = [];
     page.on("pageerror", (error) => errors.push(error.message));
@@ -35,10 +35,15 @@ try {
     const talk = page.locator('#card-actions [data-action="talk"]');
     const box = page.locator('.title-intro[data-phase="card"] .card');
     await box.waitFor();
+    if (width === 320) {
+      await page.locator('.title-reveal[data-idle="hint"]').waitFor();
+      assert.equal(await page.locator(".title-hint").textContent(), "open it");
+      const hint = await page.locator(".title-hint").boundingBox();
+      assert(hint.y > 16 && hint.y + hint.height <= height);
+    }
     await page.screenshot({ path: new URL(`box-${width}.png`, output).pathname });
     await box.click();
     await page.locator(".title-intro").waitFor({ state: "detached" });
-    console.log(await page.locator('#card-actions button').allTextContents());
     await page.screenshot({ path: new URL(`revealed-${width}.png`, output).pathname });
     await talk.waitFor();
     const initial = await page.evaluate((key) => localStorage.getItem(key), key);
@@ -53,10 +58,10 @@ try {
     console.log(`Pip visible at ${width}`);
     await page.locator('#cast [data-avatar="moth"] img').evaluate(async (img) => img.decode());
     await page.waitForTimeout(1200);
-    console.log(await page.locator('#cast [data-avatar="moth"]').evaluate((el) => ({ box: el.getBoundingClientRect().toJSON(), style: el.getAttribute("style") })));
+    const pip = await page.locator('#cast [data-avatar="moth"]').boundingBox();
+    assert(pip.width > 80 && pip.x >= 0 && pip.x + pip.width <= width);
     await page.screenshot({ path: new URL(`pip-${width}.png`, output).pathname });
     await talk.click();
-    await page.locator(".page-fade").waitFor();
     await page.locator(".title-intro").waitFor();
     await page.keyboard.press("Escape");
     await page.locator(".title-intro").waitFor({ state: "detached" });
@@ -75,6 +80,20 @@ try {
     assert.deepEqual(errors, []);
     await page.close();
   }
+  const other = await browser.newPage();
+  await other.goto(`${base}/pip`);
+  await other.locator('.title-intro[data-phase="card"] .card').click();
+  await other.locator(".title-intro").waitFor({ state: "detached" });
+  await other.locator('#card-actions [data-action="talk"]').click();
+  await other.locator(".page-fade").waitFor();
+  await other.evaluate(({ key, save }) => {
+    localStorage.setItem(key, save);
+    window.dispatchEvent(new StorageEvent("storage", { key, newValue: save }));
+  }, { key, save });
+  await other.locator(".page-fade").waitFor({ state: "detached" });
+  assert.equal(await other.evaluate((key) => localStorage.getItem(key), key), save);
+  assert.equal(await other.locator(".title-intro").count(), 0);
+  await other.close();
   const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
   await page.addInitScript(() => Object.defineProperty(window, "localStorage", { get() { throw new DOMException("Blocked", "SecurityError"); } }));
   await page.goto(`${base}/pip`);
