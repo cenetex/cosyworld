@@ -32,7 +32,7 @@ import hoppycat from "../v2/content/hoppycat-archive/card-world.json" with { typ
 import { readFileSync } from "node:fs";
 import vm from "node:vm";
 import { describe, expect, it } from "vitest";
-import { decodeSave, encodeSave } from "../v2/card-game/world.mjs";
+import { createWorld, decodeSave, encodeSave } from "../v2/card-game/world.mjs";
 import { availableCards } from "../v2/card-game/cards.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import { openingFixture } from "./helpers/greek-opening.mjs";
@@ -260,6 +260,7 @@ describe("the side roads in earlier saved worlds", () => {
           world.packs["greek-drama"][key],
         );
       expect(restored.items).toEqual({
+        ...createWorld().items,
         ...upgradedItems(world.items),
         ...branchItems,
         ...willowsItems,

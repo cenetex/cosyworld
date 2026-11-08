@@ -230,7 +230,8 @@ describe("the Theban release and its ship", () => {
   });
   it("retains genuine schema-6 branches, evidence, memories and wider geography", () => {
     const before = legacy("egypt"),
-      after = decodeSave(JSON.stringify(before));
+      after = decodeSave(JSON.stringify(before)),
+      initial = createWorld();
     expect(after.schema).toBe(7);
     expect(after.packs[pack.id].scope).toBe("full");
     for (const key of ["choices", "flags", "receipts", "met"])
@@ -246,32 +247,40 @@ describe("the Theban release and its ship", () => {
         .sort(),
     ).toEqual(
       [
-        "board",
-        "boardyai-calling-card",
-        "can",
-        "greek-olive-branch",
-        "greek-burial-account",
-        "greek-creon-writ",
-        "greek-guard-tablet",
-        "greek-helen-accounts",
-        "greek-atreid-record",
-        "float",
-        "kite",
-        "mask",
-        "routes",
-        "shears",
-        ...openDoorItems,
-        ...Object.keys(pack.items).filter((id) => id.startsWith("greek-ajax-")),
-        "greek-figs",
-        "greek-wine-skin",
-        "greek-libation",
-        // Revision 20: Dione's wheat, for the bread she makes.
-        "greek-wheat",
-        ...Object.keys(packDefinition("hoppycat-archive").items),
-        ...Object.keys(packDefinition("willows").items),
-        ...Object.keys(packDefinition("lonely-forest").items),
+        ...new Set([
+          "board",
+          "boardyai-calling-card",
+          "can",
+          "greek-olive-branch",
+          "greek-burial-account",
+          "greek-creon-writ",
+          "greek-guard-tablet",
+          "greek-helen-accounts",
+          "greek-atreid-record",
+          "float",
+          "kite",
+          "mask",
+          "routes",
+          "shears",
+          ...packDefinitions
+            .filter((p) => !before.packs[p.id])
+            .flatMap((p) => Object.keys(p.items || {})),
+          ...openDoorItems,
+          ...Object.keys(pack.items).filter((id) => id.startsWith("greek-ajax-")),
+          "greek-figs",
+          "greek-wine-skin",
+          "greek-libation",
+          // Revision 20: Dione's wheat, for the bread she makes.
+          "greek-wheat",
+          ...Object.keys(packDefinition("hoppycat-archive").items),
+          ...Object.keys(packDefinition("willows").items),
+          ...Object.keys(packDefinition("lonely-forest").items),
+        ]),
       ].sort(),
     );
+    for (const [id, item] of Object.entries(initial.items).filter(
+      ([id]) => !before.items[id],
+    )) expect(after.items[id]).toEqual(item);
     expect(after.memories).toMatchObject(before.memories);
     // Quest records leave the history; every other event stays as it was.
     expect(after.log).toEqual(
