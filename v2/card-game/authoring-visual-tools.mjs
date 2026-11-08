@@ -164,6 +164,8 @@ export function createAuthoringVisualTools({
       if (design && !next?.pack?.avatars?.[design.id]) clear();
     },
     clear,
+    pendingArtwork: () =>
+      Boolean(unsaved || visual.state.role || visual.state.busy),
     transient: () =>
       unsaved
         ? JSON.stringify(["unsaved-artwork", unsaved.avatarId])
