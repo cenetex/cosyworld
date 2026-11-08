@@ -49,7 +49,7 @@ describe("witnessed History events", () => {
     const s = stationTrade();
     const trade = s.log.find((entry) => entry.verb === "trade");
     expect(trade.text).toMatch(
-      /^Pip trades the Black cloth for .*Oil flask\.$/,
+      /^Pip trades the Black cloth for the Oil flask with .+\.$/,
     );
     expect(witnessed(trade)).toBe(true);
     // Pip's departure is seen from where it started.
