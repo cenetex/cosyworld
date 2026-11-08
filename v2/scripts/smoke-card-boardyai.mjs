@@ -12,7 +12,7 @@ const entrance = boardyPack.crossings.find(
   (c) => c.id === "station-boardyai-parlour",
 );
 const doorway = entrance.from;
-assert(["station", "attic"].includes(doorway));
+assert.equal(doorway, "station", "Boardy revision4 restores the Station entrance");
 assert.equal(entrance.to, "boardyai-parlour");
 assert.equal(
   boardyPack.crossings.find((c) => c.id === "boardyai-parlour-station").to,
@@ -226,6 +226,9 @@ try {
           path: new URL(`parlour-${width}.png`, output).pathname,
         });
     }
+    const admittedBeforeReload = await page.evaluate(
+      (key) => JSON.parse(localStorage.getItem(key)).stationExitOrder, key,
+    );
     await page.reload();
     await page.locator('#hand [data-card="vale"]').waitFor();
     await selectCard(page, "boardyai-calling-card");
@@ -241,6 +244,8 @@ try {
       key,
     );
     assert.equal(saved.actors.vale.place, doorway);
+    assert.deepEqual(saved.stationExitOrder, admittedBeforeReload);
+    await page.locator('#hand [data-card="boardyai-parlour"]').waitFor();
     assert.equal(saved.items["boardyai-calling-card"].holder, "vale");
     assert.equal(
       await page.locator('#hand [data-card="boardyai-calling-card"]').count(),

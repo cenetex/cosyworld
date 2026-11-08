@@ -461,7 +461,10 @@ fn station_presence_admission_survives_checkpoint_free_replay() {
         .clone();
     let play = json!({"op":"play","actor":"mara","action":action});
     commit(&mut world, play);
-    assert_eq!(order(&world), json!(["train", "boardyai-parlour", "pavilion"]));
+    assert_eq!(
+        order(&world),
+        json!(["train", "boardyai-parlour", "pavilion"])
+    );
     for (op, expected) in [
         ("leave", json!(["train", "pavilion"])),
         ("enter", json!(["train", "pavilion", "boardyai-parlour"])),
