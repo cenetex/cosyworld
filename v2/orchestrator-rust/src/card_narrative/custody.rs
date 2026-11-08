@@ -562,7 +562,10 @@ mod tests {
                 Err("custody")
             );
             assert!(check
-                .clean(&format!("I'll keep the {incoming} safe if you lend it to me."), true)
+                .clean(
+                    &format!("I'll keep the {incoming} safe if you lend it to me."),
+                    true
+                )
                 .is_ok());
         }
     }
