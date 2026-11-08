@@ -1,6 +1,6 @@
 {
   "name": "cosyworld",
-  "version": "1.2.127",
+  "version": "1.2.125",
   "description": "A persistent card world with local and shared play",
   "type": "module",
   "private": true,
@@ -69,8 +69,8 @@
     "play:cards": "node v2/card-game/serve.mjs",
     "v2:card:unveil:smoke": "node v2/scripts/smoke-card-unveil.mjs",
     "v2:card:quest:smoke": "node v2/scripts/smoke-card-quest.mjs",
-    "v2:card:pack:build": "node v2/scripts/build-card-worldpacks.mjs && npm run v2:card:images:build && npm run v2:card:music:build && npm run v2:card:assets:build && npm run v2:card:shared:build && npm run v2:card:narrator:build && npm run v2:card:content:build",
-    "v2:card:pack:check": "node v2/scripts/build-card-worldpacks.mjs --check && npm run v2:card:images:check && npm run v2:card:music:check && npm run v2:card:assets:check && npm run v2:card:shared:check && npm run v2:card:narrator:check && npm run v2:card:content:check",
+    "v2:card:pack:build": "node v2/scripts/build-card-store.mjs && node v2/scripts/build-card-worldpacks.mjs && npm run v2:card:images:build && npm run v2:card:music:build && npm run v2:card:assets:build && npm run v2:card:shared:build && npm run v2:card:narrator:build && npm run v2:card:content:build",
+    "v2:card:pack:check": "node v2/scripts/build-card-store.mjs --check && node v2/scripts/build-card-worldpacks.mjs --check && npm run v2:card:images:check && npm run v2:card:music:check && npm run v2:card:assets:check && npm run v2:card:shared:check && npm run v2:card:narrator:check && npm run v2:card:content:check",
     "v2:card:greek:smoke": "node v2/scripts/smoke-card-greek-drama.mjs",
     "v2:card:assets:build": "node v2/scripts/build-card-assets.mjs",
     "v2:card:assets:check": "node v2/scripts/build-card-assets.mjs --check",

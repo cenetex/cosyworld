@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "kind": "cosyworld.worldpack/1",
+  "id": "warren",
+  "name": "The Warren",
+  "revision": 1,
+  "description": "A patient burrow beneath Black pond, reached through a crack in the stone. Whatever the surface discards drifts down there, and the residents keep it: memory-spores on cool shelves, small refusals recorded as soft chalk marks. Nothing down there is thrown away twice.",
+  "author": {
+    "name": "warrenmind",
+    "url": "https://github.com/deniskoval431-hash"
+  },
+  "source": {
+    "repo": "deniskoval431-hash/cosyworld-worldpack-warren",
+    "branch": "main"
+  },
+  "license": "MIT",
+  "engine": {
+    "contract": "cosyworld.card-table/1",
+    "entry": "warren-threshold",
+    "hubCrossing": "pond"
+  },
+  "contents": {
+    "places": 3,
+    "avatars": 2,
+    "items": 2,
+    "topics": 3
+  },
+  "tags": ["burrow", "memory", "quiet", "third-party", "reference-plugin"],
+  "art": {
+    "backdrops": 3,
+    "portraits": 2,
+    "items": 2,
+    "provenance": "PROVENANCE.md"
+  }
+}

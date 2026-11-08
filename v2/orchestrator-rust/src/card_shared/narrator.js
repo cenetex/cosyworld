@@ -2659,12 +2659,11 @@
           ],
           reachedBy: "sea"
         },
-        radio: {
-          name: "Night Shift at RatiRadio",
+        warren: {
+          name: "The Warren",
           packs: [
-            "ratiradio"
-          ],
-          reachedBy: "shore"
+            "warren"
+          ]
         }
       },
       places: [
@@ -2817,12 +2816,12 @@
             via: "attic-forest-cottage"
           }
         ],
-        ratiradio: [
+        warren: [
           {
             joins: "hub",
-            at: "station",
-            arrive: "ratiradio-staff-kitchen",
-            via: "station-ratiradio"
+            at: "pond",
+            arrive: "warren-threshold",
+            via: "pond-warren-threshold"
           }
         ]
       }
@@ -15985,452 +15984,154 @@
       },
       {
         schemaVersion: 1,
-        id: "ratiradio",
-        packId: "cosyworld.ratiradio",
+        id: "warren",
+        packId: "cosyworld.warren",
         revision: 1,
-        name: "Night Shift at RatiRadio",
-        description: "A late-night radio station opens through recovered possessions. Bring the glass, ceramic raven, red beanie home to the Listening Room. RATi roams from this home; Raven joins the world when the return is complete.",
-        entry: "ratiradio-staff-kitchen",
+        name: "The Warren",
+        description: "A patient burrow beneath Black pond, reached through a crack in the stone. Whatever the surface discards drifts down here, and the residents keep it: spores of memory on cool shelves, small refusals recorded in soft marks on the wall. Nothing down here is thrown away twice.",
+        entry: "warren-threshold",
         places: {
-          "ratiradio-staff-kitchen": {
-            name: "Staff Kitchen",
-            text: "The fridges keep the hours here. A dispatch door waits at the far end. Carry the Red Beanie to open it. A lost-property tray rests by the staff entrance.",
-            persona: "A worn teal staff kitchen with old refrigerators, pale tiles, a chair, a sink, a lost-property tray. The staff entrance leads back to Empty Station. Movable possessions may be carried away.",
-            exits: [],
-            backdrop: "assets/ratiradio/staff-kitchen.webp"
-          },
-          "ratiradio-dispatch-window": {
-            name: "Dispatch Window",
-            text: "A service hatch opens onto nobody. Shift notes curl above its shelf. Carry the Thermos to open the Listening Room.",
-            persona: "A late-night dispatch hatch with a wooden counter, old shift notes, an empty shelf. Warm light leaks from the Listening Room door. The staff kitchen is behind you.",
+          "warren-threshold": {
+            name: "The Threshold",
+            text: "A burrow mouth beneath the shore. A crack in the stone lets a thin grey light through, and the air smells of rain, moss and old paper. Small things rest on the lip of the crack: a button, a bendy straw, someone's lost key. They are arranged, not abandoned.",
+            persona: "A quiet, tender burrow mouth where lost things are set down with care. Describe small objects gently, as if each one mattered to somebody once. Use the current story facts for progress.",
             exits: [
-              "ratiradio-staff-kitchen"
+              "warren-shelf"
             ],
-            backdrop: "assets/ratiradio/dispatch-window.webp"
+            backdrop: "assets/warren/threshold.png"
           },
-          "ratiradio-listening-room": {
-            name: "Listening Room",
-            text: "RATi lives here. A radio faces a worn armchair. Put the glass, raven figurine, red beanie down here together. Carry the figurine to open the Broadcast Booth.",
-            persona: "RATi's home and sanctuary: worn armchair, amber lamp, small radio, a pale glass ring on the table, a bare chair back, a ledge beside the booth door. RATi roams but returns here to gain levels. The ceramic figurine remains an object when the living Raven arrives.",
+          "warren-shelf": {
+            name: "The Spore Shelf",
+            text: "Shelves of pale clay hold rows of small jars. Each jar carries a memory-spore: a soft glowing mote that holds one kept thing \u2014 a name, a promise, the way rain sounded last spring. A Sifter moves along the shelves, turning each jar a quarter-turn so the light fades evenly.",
+            persona: "A long room of cool shelves and patient tending. Memory here is kept, not hoarded: a spore that is never visited fades on its own, and the residents let it. Describe the glow as gentle, never eerie. Use the current story facts for progress.",
             exits: [
-              "ratiradio-dispatch-window"
+              "warren-threshold",
+              "warren-ledger"
             ],
-            backdrop: "assets/ratiradio/listening-room.webp",
-            sanctuary: true
+            backdrop: "assets/warren/shelf.png"
           },
-          "ratiradio-broadcast-booth": {
-            name: "Broadcast Booth",
-            text: "The ON AIR light comes up. The chair behind the microphone is empty. Take the glass back to the Listening Room with the figurine and red beanie.",
-            persona: "An empty radio booth with a mixing desk, suspended microphone, empty host chair, rain-dark window. A late-night broadcast continues. The glass belongs back in the Listening Room.",
+          "warren-ledger": {
+            name: "The Ledger Nook",
+            text: "A round room with a wall of small soft marks, each one a refusal: a thing somebody chose not to do, recorded kindly. The Hissling keeps the ledger and can read any mark aloud without judgment \u2014 the no is as much a part of a story as the yes.",
+            persona: "A warm round nook where refusals are recorded with respect. Treat every 'no' in the story as a fact worth keeping, never as a failure. Describe the marks as soft, like chalk or charcoal, never as scars. Use the current story facts for progress.",
             exits: [
-              "ratiradio-listening-room"
+              "warren-shelf"
             ],
-            backdrop: "assets/ratiradio/broadcast-booth.webp"
+            backdrop: "assets/warren/ledger.png"
           }
         },
         avatars: {
-          "ratiradio-rati": {
-            name: "RATi",
-            text: "An attentive late-night listener. The Listening Room is his home. He roams, earns experience, returns here to gain his next level.",
-            seed: "RATi, a late-night listener at RatiRadio.",
-            place: "ratiradio-listening-room",
-            home: "ratiradio-listening-room",
-            levelAtHome: true,
-            roamingQuest: "latest-completion",
-            portrait: "assets/ratiradio/rati.webp",
+          hissling: {
+            name: "The Hissling",
+            place: "warren-threshold",
+            text: "A patient coil of a snake that hatched itself, with pale moon spots along its scales. It keeps the Threshold and sets each fallen thing in its place.",
+            seed: "A patient coil that hatched itself.",
             tastes: {
-              likes: "A warm drink, a voice through the static, things finding their way home",
-              sore: "A possession mistaken for its owner",
-              reason: "RATi listens for the small things people leave unsaid."
+              likes: "Stillness, long silences, and things set down gently",
+              sore: "Loud jeers and hurried hands",
+              reason: "It hatched patient, and it stays that way.",
+              noise: "{actor} clattered through the Threshold."
+            },
+            desire: {
+              items: [
+                "spore-jar"
+              ],
+              location: "warren-threshold",
+              avatars: []
             },
             want: {
-              kind: "place",
-              target: "ratiradio-staff-kitchen"
+              kind: "item",
+              target: "spore-jar"
             },
-            requires: [
-              {
-                kind: "flag",
-                key: "rati-awake",
-                value: true
-              }
-            ]
+            portrait: "assets/warren/hissling.png"
           },
-          "ratiradio-raven": {
-            name: "Raven",
-            text: "A living raven with an alert, knowing eye. The little ceramic bird remains on its own card. Raven roams through the open world.",
-            seed: "Raven, the living bird of RatiRadio.",
-            place: "ratiradio-listening-room",
-            home: "ratiradio-listening-room",
-            roamingQuest: "latest-completion",
-            portrait: "assets/ratiradio/raven.webp",
+          sifter: {
+            name: "The Sifter",
+            place: "warren-shelf",
+            text: "A small quick creature, something between a moth and a shrew, that sorts what falls through the crack. It turns every jar a quarter-turn each day so the spores fade evenly \u2014 tending, not rescuing.",
+            seed: "A small sorter of fallen things.",
             tastes: {
-              likes: "Quiet corners, reflections, familiar voices",
-              sore: "Being mistaken for the ceramic figurine",
-              reason: "Raven notices what has found its way back."
+              likes: "Useful small things and an even fade",
+              sore: "Things thrown away in anger",
+              reason: "The Sifter keeps memory by letting it fade, and anger breaks the fade.",
+              noise: "{actor} rattled the spore jars."
+            },
+            desire: {
+              items: [
+                "spore-jar"
+              ],
+              location: "warren-shelf",
+              avatars: []
             },
             want: {
-              kind: "place",
-              target: "pond"
+              kind: "item",
+              target: "spore-jar"
             },
-            requires: [
-              {
-                kind: "flag",
-                key: "raven-awake",
-                value: true
-              }
-            ],
-            sealed: {
-              at: "ratiradio-listening-room",
-              reason: "Put the glass, raven figurine, red beanie down in the Listening Room together."
-            }
+            portrait: "assets/warren/sifter.png"
           }
         },
         items: {
-          "ratiradio-station-key": {
-            name: "Station Key",
-            text: "A brass key with a worn STAFF tag. Carry it from Black Pond to the staff entrance at Empty Station.",
-            persona: "A brass station key with a chipped STAFF tag. It opens the Staff Kitchen entrance from Empty Station. It stays with its carrier after the first opening.",
-            holder: "pond",
-            art: "assets/ratiradio/station-key.webp",
-            reservedUntil: [
-              {
-                kind: "flag",
-                key: "raven-awake",
-                value: true
-              }
-            ],
-            recoverTo: "pond"
+          "spore-jar": {
+            name: "Memory-spore jar",
+            text: "A small clay jar with a pale mote inside, cool to the touch. It holds one kept thing.",
+            persona: "A small clay jar holding a memory-spore: one kept thing, glowing softly.",
+            holder: "warren-shelf",
+            art: "assets/warren/spore-jar.png"
           },
-          "ratiradio-red-beanie": {
-            name: "Red Beanie",
-            text: "Red wool left on a kitchen chair. Carry it to open Dispatch Window, then put it down in the Listening Room.",
-            persona: "A soft red knitted beanie, left for someone who works late. It opens dispatch, then belongs back in the Listening Room.",
-            holder: "ratiradio-staff-kitchen",
-            art: "assets/ratiradio/red-beanie.webp",
-            reservedUntil: [
-              {
-                kind: "flag",
-                key: "raven-awake",
-                value: true
-              }
-            ],
-            recoverTo: "ratiradio-staff-kitchen"
-          },
-          "ratiradio-thermos": {
-            name: "Thermos",
-            text: "Still warm at the neck. Carry it from dispatch to open the Listening Room.",
-            persona: "A dented steel thermos with a dark lid. Its warmth opens the Listening Room. Returning it is optional.",
-            holder: "ratiradio-dispatch-window",
-            art: "assets/ratiradio/thermos.webp",
-            reservedUntil: [
-              {
-                kind: "flag",
-                key: "raven-awake",
-                value: true
-              }
-            ],
-            recoverTo: "ratiradio-staff-kitchen"
-          },
-          "ratiradio-raven-figurine": {
-            name: "Raven Figurine",
-            text: "A little ceramic raven. Borrow it to open the Broadcast Booth, then bring it back to the Listening Room.",
-            persona: "A small black ceramic raven with a glazed eye. It remains a ceramic object when the living Raven appears. It must rest directly in the Listening Room with the glass and beanie.",
-            holder: "ratiradio-listening-room",
-            art: "assets/ratiradio/raven-figurine.webp",
-            reservedUntil: [
-              {
-                kind: "flag",
-                key: "raven-awake",
-                value: true
-              }
-            ],
-            recoverTo: "ratiradio-staff-kitchen"
-          },
-          "ratiradio-glass": {
-            name: "Half-full Glass",
-            text: "Water catches the booth light. Put this glass down in the Listening Room with the figurine and red beanie.",
-            persona: "An ordinary drinking glass, half full of water. Returning the glass, ceramic raven, red beanie together reveals the living Raven.",
-            holder: "ratiradio-broadcast-booth",
-            art: "assets/ratiradio/glass.webp",
-            reservedUntil: [
-              {
-                kind: "flag",
-                key: "raven-awake",
-                value: true
-              }
-            ],
-            recoverTo: "ratiradio-staff-kitchen"
-          },
-          "ratiradio-request-slip": {
-            name: "Request Slip",
-            text: "Lost property goes back to the listening room. Leave it where someone will find it.",
-            persona: "A creased radio request slip with a lost-property note. The glass, ceramic raven, red beanie belong in the Listening Room. This paper is a clue, not a required return.",
-            holder: "station",
-            art: "assets/ratiradio/request-slip.webp"
+          "moon-token": {
+            name: "Moon token",
+            text: "A pale coin, cool on one face and warm on the other. The Hissling gives it to visitors it decides are patient.",
+            persona: "A pale coin, cool on one face and warm on the other.",
+            holder: "hissling",
+            art: "assets/warren/moon-token.png"
           }
         },
-        routes: [
-          {
-            from: "ratiradio-staff-kitchen",
-            to: "ratiradio-dispatch-window",
-            requires: [
-              {
-                kind: "flag",
-                key: "dispatch-open",
-                value: true
-              }
-            ],
-            sealed: {
-              quest: {
-                kind: "item",
-                target: "ratiradio-red-beanie"
-              },
-              reason: "Carry the Red Beanie to open this passage."
-            }
-          },
-          {
-            from: "ratiradio-dispatch-window",
-            to: "ratiradio-listening-room",
-            requires: [
-              {
-                kind: "flag",
-                key: "listening-open",
-                value: true
-              }
-            ],
-            sealed: {
-              quest: {
-                kind: "item",
-                target: "ratiradio-thermos"
-              },
-              reason: "Carry the Thermos to open this passage."
-            }
-          },
-          {
-            from: "ratiradio-listening-room",
-            to: "ratiradio-broadcast-booth",
-            requires: [
-              {
-                kind: "flag",
-                key: "booth-open",
-                value: true
-              }
-            ],
-            sealed: {
-              quest: {
-                kind: "item",
-                target: "ratiradio-raven-figurine"
-              },
-              reason: "Carry the Raven Figurine to open this passage."
-            }
-          }
-        ],
-        choices: [
-          {
-            id: "ratiradio-enter-station",
-            subject: "ratiradio-staff-kitchen",
-            at: "ratiradio-staff-kitchen",
-            label: "The staff entrance stays open behind you.",
-            text: "The staff entrance stays open behind you.",
-            requires: [],
-            effects: [
-              {
-                kind: "set_flag",
-                key: "station-open",
-                value: true
-              }
-            ],
-            on: "meet"
-          },
-          {
-            id: "ratiradio-wake-rati",
-            subject: "ratiradio-listening-room",
-            at: "ratiradio-listening-room",
-            label: "RATi looks up from the radio. This is his home; the glass, figurine, red beanie belong here.",
-            text: "RATi looks up from the radio. This is his home; the glass, figurine, red beanie belong here.",
-            requires: [],
-            effects: [
-              {
-                kind: "set_flag",
-                key: "rati-awake",
-                value: true
-              }
-            ],
-            on: "meet"
-          },
-          {
-            id: "ratiradio-open-dispatch-window",
-            subject: "ratiradio-staff-kitchen",
-            at: "ratiradio-staff-kitchen",
-            label: "The passage to Dispatch Window opens.",
-            text: "The passage to Dispatch Window opens.",
-            requires: [
-              {
-                kind: "holding",
-                item: "ratiradio-red-beanie",
-                role: "actor"
-              }
-            ],
-            effects: [
-              {
-                kind: "set_flag",
-                key: "dispatch-open",
-                value: true
-              }
-            ],
-            on: "meet"
-          },
-          {
-            id: "ratiradio-open-listening-room",
-            subject: "ratiradio-dispatch-window",
-            at: "ratiradio-dispatch-window",
-            label: "The passage to Listening Room opens.",
-            text: "The passage to Listening Room opens.",
-            requires: [
-              {
-                kind: "holding",
-                item: "ratiradio-thermos",
-                role: "actor"
-              }
-            ],
-            effects: [
-              {
-                kind: "set_flag",
-                key: "listening-open",
-                value: true
-              }
-            ],
-            on: "meet"
-          },
-          {
-            id: "ratiradio-open-broadcast-booth",
-            subject: "ratiradio-listening-room",
-            at: "ratiradio-listening-room",
-            label: "The passage to Broadcast Booth opens.",
-            text: "The passage to Broadcast Booth opens.",
-            requires: [
-              {
-                kind: "holding",
-                item: "ratiradio-raven-figurine",
-                role: "actor"
-              }
-            ],
-            effects: [
-              {
-                kind: "set_flag",
-                key: "booth-open",
-                value: true
-              }
-            ],
-            on: "meet"
-          },
-          {
-            id: "ratiradio-return-things",
-            subject: "ratiradio-listening-room",
-            at: "ratiradio-listening-room",
-            label: "A claw catches the chair back. Raven blinks once. On the ledge, the ceramic bird stays perfectly still.",
-            text: "A claw catches the chair back. Raven blinks once. On the ledge, the ceramic bird stays perfectly still.",
-            requires: [
-              {
-                kind: "item_at",
-                item: "ratiradio-glass",
-                place: "ratiradio-listening-room"
-              },
-              {
-                kind: "item_at",
-                item: "ratiradio-raven-figurine",
-                place: "ratiradio-listening-room"
-              },
-              {
-                kind: "item_at",
-                item: "ratiradio-red-beanie",
-                place: "ratiradio-listening-room"
-              }
-            ],
-            effects: [
-              {
-                kind: "set_flag",
-                key: "raven-awake",
-                value: true
-              }
-            ],
-            on: "meet"
-          }
-        ],
+        routes: [],
+        choices: [],
         topics: [
           {
-            id: "ratiradio-bring-them-home",
-            speaker: "ratiradio-rati",
-            at: "ratiradio-listening-room",
-            text: "RATi says the glass, ceramic raven, red beanie belong together in the Listening Room.",
-            requires: [
-              {
-                kind: "flag",
-                key: "raven-awake",
-                value: false
-              }
-            ]
-          },
-          {
-            id: "ratiradio-rati-home",
-            speaker: "ratiradio-rati",
-            at: "ratiradio-listening-room",
-            text: "RATi lives in the Listening Room, returning there to gain levels after roaming.",
+            id: "hissling-kept-things",
+            speaker: "hissling",
+            at: "warren-threshold",
+            text: "The Hissling says nothing down here is thrown away twice.",
             requires: []
           },
           {
-            id: "ratiradio-little-one",
-            speaker: "ratiradio-raven",
-            at: "ratiradio-listening-room",
-            text: "Raven says the little ceramic bird can keep watch.",
-            requires: [
-              {
-                kind: "flag",
-                key: "raven-awake",
-                value: true
-              }
-            ]
+            id: "sifter-even-fade",
+            speaker: "sifter",
+            at: "warren-shelf",
+            text: "The Sifter says a memory that is never visited fades on its own, and that is tending too.",
+            requires: []
+          },
+          {
+            id: "hissling-the-ledger",
+            speaker: "hissling",
+            at: "warren-ledger",
+            text: "The Hissling says the ledger keeps every no as kindly as any yes.",
+            requires: []
           }
         ],
         bridge: {
-          id: "shore-ratiradio",
-          description: "The Station Key at Black Pond opens the staff entrance at Empty Station. The entrance stays open after the first arrival."
+          id: "shore-warren",
+          description: "A crack below the shore: from Black Pond a patient descent reaches the burrow where what the surface discards is kept and tended. The way back is the same crack, climbed slowly."
         },
         crossings: [
           {
-            id: "station-ratiradio",
-            from: "station",
-            to: "ratiradio-staff-kitchen",
+            id: "pond-warren-threshold",
+            from: "pond",
+            to: "warren-threshold",
             travelers: "any",
-            travel: "through the staff entrance",
-            requires: [
-              {
-                kind: "any",
-                conditions: [
-                  {
-                    kind: "flag",
-                    key: "station-open",
-                    value: true
-                  },
-                  {
-                    kind: "holding",
-                    item: "ratiradio-station-key",
-                    role: "actor"
-                  }
-                ]
-              }
-            ],
-            scenery: {
-              open: "The staff entrance opens onto a kitchen of humming refrigerators.",
-              closed: "A brass lock waits beneath STAFF KITCHEN. Its key lies at Black Pond."
-            }
+            travel: "down through the crack beneath the still water",
+            travelLabel: "Descend",
+            requires: []
           },
           {
-            id: "ratiradio-station",
-            from: "ratiradio-staff-kitchen",
-            to: "station",
+            id: "warren-threshold-pond",
+            from: "warren-threshold",
+            to: "pond",
             travelers: "any",
-            travel: "through the staff entrance",
+            travel: "up through the crack to the shore",
+            travelLabel: "Surface",
             requires: []
           }
         ]

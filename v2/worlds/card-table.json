@@ -30,12 +30,11 @@
         ],
         "reachedBy": "sea"
       },
-      "radio": {
-        "name": "Night Shift at RatiRadio",
+      "warren": {
+        "name": "The Warren",
         "packs": [
-          "ratiradio"
-        ],
-        "reachedBy": "shore"
+          "warren"
+        ]
       }
     },
     "places": [
@@ -135,7 +134,6 @@
     "greek-drama",
     "hoppycat-archive",
     "willows",
-    "lonely-forest",
-    "ratiradio"
+    "lonely-forest"
   ]
 }
