@@ -306,6 +306,11 @@ describe("Hoppy Cat refresh", () => {
         world = decodeSave(text);
       expect(world.packs[pack.id].revision).toBe(4);
       expect(world.actors.vale.trust).toEqual({
+        ...Object.fromEntries(
+          Object.keys(createWorld().actors)
+            .filter((id) => id !== "vale")
+            .map((id) => [id, 0]),
+        ),
         ...old.actors.vale.trust,
         "greek-polynices-shade": 0,
       });

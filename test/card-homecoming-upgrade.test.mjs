@@ -30,7 +30,7 @@ const decreeItems = Object.fromEntries(
 import { readFileSync } from "node:fs";
 import vm from "node:vm";
 import { describe, expect, it } from "vitest";
-import { decodeSave, encodeSave } from "../v2/card-game/world.mjs";
+import { createWorld, decodeSave, encodeSave } from "../v2/card-game/world.mjs";
 import { entityActive } from "../v2/card-game/pack-registry.mjs";
 import {
   branchItems,
@@ -83,16 +83,16 @@ describe("the household save upgrade", () => {
       expect(before.packs["greek-drama"].revision).toBe(3);
       expect(before.actors[witness]).toBeUndefined();
       const after = decodeSave(JSON.stringify(before));
+      const initial = createWorld();
       expect(after.packs["greek-drama"]).toEqual({
         ...before.packs["greek-drama"],
         revision: currentPackDefinition("greek-drama").revision,
       });
-      expect(Object.keys(after.actors).length).toBe(
-        Object.keys(before.actors).length +
-          11 +
-          Object.keys(hoppycat.avatars).length,
+      expect(Object.keys(after.actors).sort()).toEqual(
+        Object.keys(initial.actors).sort(),
       );
       expect(after.items).toEqual({
+        ...initial.items,
         ...upgradedItems(before.items),
         ...branchItems,
         ...willowsItems,
@@ -139,6 +139,11 @@ describe("the household save upgrade", () => {
         expect(lived(after.actors[id])).toEqual({
           ...upgradedActor(actor),
           trust: {
+            ...Object.fromEntries(
+              Object.keys(initial.actors)
+                .filter((other) => other !== id)
+                .map((other) => [other, 0]),
+            ),
             ...actor.trust,
             [witness]: 0,
             boardyai: 0,
@@ -156,6 +161,18 @@ describe("the household save upgrade", () => {
             "greek-polynices-shade": 0,
           },
         });
+      for (const id of Object.keys(initial.actors).filter(
+        (id) => !before.actors[id],
+      )) {
+        expect(after.actors[id]).toMatchObject({
+          place: initial.actors[id].place,
+          crossed: 0,
+          lastTalk: -9,
+        });
+        expect(
+          Object.values(after.actors[id].trust).every((value) => value === 0),
+        ).toBe(true);
+      }
       for (const [id, memory] of Object.entries(before.memories))
         expect(after.memories[id]).toMatchObject(memory);
       for (const [id, peace] of Object.entries(before.peaceUntil))

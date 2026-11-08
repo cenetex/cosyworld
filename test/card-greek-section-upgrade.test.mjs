@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import vm from "node:vm";
 import { describe, expect, it } from "vitest";
-import { decodeSave, encodeSave } from "../v2/card-game/world.mjs";
+import { createWorld, decodeSave, encodeSave } from "../v2/card-game/world.mjs";
 import {
   entityActive,
   packDefinition,
@@ -67,6 +67,7 @@ describe("Greek section save upgrade", () => {
       for (const field of ["turn", "revision", "eventSeq", "log"])
         expect(after[field]).toEqual(before[field]);
       expect(withoutHomeDoors(after.crossings)).toEqual({
+        ...withoutHomeDoors(createWorld().crossings),
         ...withoutHomeDoors(before.crossings),
         "greek-ship-willows-landing": { discovered: false },
         "willows-landing-greek-ship": { discovered: false },
