@@ -4,6 +4,7 @@ import { PLAYING_KEY, SAVE_BASE } from "./avatar-world.mjs";
 import { imageUrl } from "./images.mjs";
 import { count } from "./metrics.mjs";
 import { revealCard } from "./card-reveal.mjs";
+import { ghostOf, releaseGhost } from "./card-ghost.mjs";
 import { tiers } from "./level-tiers.mjs";
 import { LOGOS, logoSite, showToolbarLogo, worldLogo } from "./title-logo.mjs";
 import { createTitleSong } from "./title-song.mjs";
@@ -63,6 +64,110 @@ export const WAKE_FADE = {
   skip: { songSeconds: 2, blackMs: 250, darkMs: 100, sceneMs: 800 },
   reduced: { blackMs: 0, darkMs: 300, sceneMs: 300 },
 };
+
+// Deal the opening's real cards visually, without moving their DOM nodes or
+// changing custody. The title owns these inert copies until its fade finishes.
+export function openingDealFrames(
+  origin,
+  target,
+  index,
+  total,
+  rotation = "0deg",
+) {
+  const x = origin.left + origin.width / 2 - target.left - target.width / 2;
+  const y = origin.top + origin.height / 2 - target.top - target.height / 2;
+  const at = index - (total - 1) / 2;
+  return [
+    { transform: `translate(${x}px, ${y}px) scale(0.8)`, opacity: 0 },
+    {
+      transform: `translate(${x + at * Math.min(28, origin.width / total)}px, ${y - 24}px) rotate(${at * 4}deg) scale(0.9)`,
+      opacity: 1,
+      offset: 0.3,
+    },
+    { transform: `rotate(${rotation})`, opacity: 1 },
+  ];
+}
+async function dealOpeningHand(layer, origin) {
+  const hand = document.getElementById("hand");
+  if (!hand || !origin?.width) return () => {};
+  const bounds = hand.getBoundingClientRect();
+  const cards = [...hand.querySelectorAll(":scope > .card-frame")].filter(
+    (node) => {
+      const box = node.getBoundingClientRect();
+      return (
+        box.width &&
+        box.height &&
+        box.right > bounds.left &&
+        box.left < bounds.right
+      );
+    },
+  );
+  const deals = await Promise.all(
+    cards.map(async (node, index) => {
+      const bounds = node.getBoundingClientRect();
+      const box = {
+        left: bounds.left + (bounds.width - node.offsetWidth) / 2,
+        top: bounds.top + (bounds.height - node.offsetHeight) / 2,
+        width: node.offsetWidth,
+        height: node.offsetHeight,
+      };
+      const rotation = getComputedStyle(node).rotate;
+      const copy = ghostOf(node);
+      const images = [...copy.querySelectorAll("img")];
+      for (const image of images) image.loading = "eager";
+      // Never fly an empty portrait while the copied image decodes. A failed
+      // or slow image keeps its normal table reveal instead of delaying entry.
+      const ready = await Promise.race([
+        Promise.all(
+          images.map((image) =>
+            image.decode().then(
+              () => true,
+              () => false,
+            ),
+          ),
+        ).then((results) => results.every(Boolean)),
+        wait(400).then(() => false),
+      ]);
+      if (!ready) {
+        releaseGhost(copy);
+        return null;
+      }
+      Object.assign(copy.style, {
+        position: "fixed",
+        left: `${box.left}px`,
+        top: `${box.top}px`,
+        width: `${box.width}px`,
+        height: `${box.height}px`,
+        margin: "0",
+        pointerEvents: "none",
+        rotate: "none",
+        transformOrigin: "50% 50%",
+      });
+      copy.style.setProperty("--card-height", `${box.height}px`);
+      return { copy, box, index, rotation };
+    }),
+  );
+  for (const deal of deals.filter(Boolean)) {
+    const { copy, box, index, rotation } = deal;
+    layer.append(copy);
+    copy.animate(
+      openingDealFrames(
+        origin,
+        box,
+        index,
+        cards.length,
+        rotation === "none" ? "0deg" : rotation,
+      ),
+      {
+        duration: 1300,
+        delay: index * 55,
+        fill: "both",
+        easing: "cubic-bezier(.2,.7,.25,1)",
+      },
+    );
+  }
+  return () => deals.forEach((deal) => releaseGhost(deal?.copy));
+}
 
 // Only on Lonely Forest: no other site's landing, not the local CosyWorld
 // app, no table or pack link. Automated browsers need `intro=1`.
@@ -534,7 +639,8 @@ export function playTitleIntro({
     songDone = Promise.resolve(),
     fades = WAKE_FADE.turn,
     leave,
-    hurry;
+    hurry,
+    dealOrigin = null;
   const left = new Promise((resolve) => (leave = resolve));
   const hurried = new Promise((resolve) => (hurry = resolve));
   const race = (promise) => Promise.race([promise, left]);
@@ -542,6 +648,8 @@ export function playTitleIntro({
   const finish = (way = "turn") => {
     if (leaving) return;
     leaving = true;
+    if (way === "turn" && !reduced && !cardOnly)
+      dealOrigin = card.getBoundingClientRect();
     idle(false);
     words.cancel();
     voice?.stop();
@@ -595,7 +703,9 @@ export function playTitleIntro({
     const box = card.getBoundingClientRect(),
       crest = image.getBoundingClientRect(),
       origin = row.getBoundingClientRect(),
-      foot = cardOnly ? innerHeight - 16 : privacy.getBoundingClientRect().top - 8;
+      foot = cardOnly
+        ? innerHeight - 16
+        : privacy.getBoundingClientRect().top - 8;
     const w = hint.offsetWidth,
       h = hint.offsetHeight;
     const below = [box.left + (box.width - w) / 2, box.bottom + 12];
@@ -713,14 +823,15 @@ export function playTitleIntro({
     phase = layer.dataset.phase = "card";
     panel.remove();
     image.getAnimations().forEach((animation) => animation.finish());
-    if (!cardOnly) image.animate(
-      [{ transform: "none" }, { transform: "translateY(-14dvh) scale(0.8)" }],
-      {
-        duration: reduced ? 0 : 900,
-        easing: "ease",
-        fill: "both",
-      },
-    );
+    if (!cardOnly)
+      image.animate(
+        [{ transform: "none" }, { transform: "translateY(-14dvh) scale(0.8)" }],
+        {
+          duration: reduced ? 0 : 900,
+          easing: "ease",
+          fill: "both",
+        },
+      );
     layer.append(row);
     if (!cardOnly) layer.append(privacy);
     fade(row, reduced ? 250 : 600, reduced ? 0 : 300);
@@ -865,6 +976,9 @@ export function playTitleIntro({
     layer.append(dark);
     await fade(dark, blackMs).finished.catch(() => {});
     await wait(darkMs);
+    const clearDeal = dealOrigin
+      ? await dealOpeningHand(layer, dealOrigin)
+      : () => {};
     layer.dataset.phase = "out";
     await layer
       .animate([{ opacity: 1 }, { opacity: 0 }], {
@@ -873,6 +987,7 @@ export function playTitleIntro({
         fill: "both",
       })
       .finished.catch(() => {});
+    clearDeal();
     layer.remove();
   })();
   const hold = shown.then(() => songDone);

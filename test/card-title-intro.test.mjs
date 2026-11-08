@@ -2,6 +2,7 @@ import { test } from "vitest";
 import assert from "node:assert/strict";
 import {
   STANZA_MS,
+  openingDealFrames,
   BOX_WHISPERS,
   acknowledgementDelays,
   acknowledgementGlows,
@@ -235,5 +236,38 @@ test("single words light set by set after their stanzas, tiers climbing", () => 
   assert.deepEqual(
     [settleMs, wordStepMs, glowInMs, tailMs],
     [200, 450, 600, 250],
+  );
+});
+
+test("opening cards fan from the box into their own hand slots", () => {
+  for (const width of [390, 1440]) {
+    const origin = { left: width / 2 - 80, top: 300, width: 160, height: 240 };
+    const targets = [0, 1, 2].map((index) => ({
+      left: 20 + index * 90,
+      top: 600,
+      width: 120,
+      height: 180,
+    }));
+    const plans = targets.map((target, i) =>
+      openingDealFrames(origin, target, i, targets.length),
+    );
+    for (const [i, plan] of plans.entries()) {
+      assert.equal(
+        plan[0].transform,
+        `translate(${origin.left + 80 - targets[i].left - 60}px, -270px) scale(0.8)`,
+      );
+      assert.deepEqual(plan.at(-1), { transform: "rotate(0deg)", opacity: 1 });
+      assert.equal(plan[1].offset, 0.3);
+    }
+    assert.match(plans[0][1].transform, /rotate\(-4deg\)/);
+    assert.match(plans[2][1].transform, /rotate\(4deg\)/);
+  }
+});
+
+test("opening cards settle at the original hand lean", () => {
+  const box = { left: 10, top: 10, width: 120, height: 180 };
+  assert.equal(
+    openingDealFrames(box, box, 0, 2, "-1.2deg").at(-1).transform,
+    "rotate(-1.2deg)",
   );
 });
