@@ -540,6 +540,18 @@ export function sharedLiveLine(state, now, room) {
   return scene.lines.at(-1);
 }
 
+// Before the place is uncovered, a reader can advance only their own waking
+// scene. Use the same scope for Continue, queued choices, and line delivery.
+export function sharedReadingState(state, placeKnown) {
+  if (placeKnown) return state;
+  return {
+    ...state,
+    history: (state.history || []).filter(
+      (scene) => scene.opening && scene.actor === state.actor,
+    ),
+  };
+}
+
 export function sharedNextLine(state, room, seq) {
   const earliest = state.world?.log?.[0]?.seq ?? 0;
   return roomScenes(state, room)
