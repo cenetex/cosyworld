@@ -11,6 +11,9 @@ class ImageNode extends EventTarget {
   naturalWidth = 48;
   naturalHeight = 72;
   top = 0;
+  bottom = 72;
+  left = 24;
+  right = 25;
   style = { setProperty: (key, value) => this.values.set(key, value) };
   constructor(source, top) {
     super();
@@ -43,8 +46,9 @@ function canvasDocument() {
           },
           getImageData: () => {
             const data = new Uint8ClampedArray(48 * 72 * 4);
-            for (let y = image.top; y < 72; y++)
-              data[(y * 48 + 24) * 4 + 3] = 255;
+            for (let y = image.top; y < image.bottom; y++)
+              for (let x = image.left; x < image.right; x++)
+                data[(y * 48 + x) * 4 + 3] = 255;
             return { data };
           },
         }),
@@ -93,4 +97,20 @@ it("frames warm replacements immediately and ignores incomplete image bytes", ()
   kept.src = "pending";
   frameFigure(kept);
   expect(kept.values.get("--figure-height")).toBe(1);
+});
+
+it("centers the full sleeping silhouette rather than only its head", () => {
+  canvasDocument();
+  const { frameFigure } = createFigureFramer(() =>
+    document.createElement("canvas"),
+  );
+  const image = new ImageNode("off-center-sleep", 36);
+  image.bottom = 68;
+  image.left = 2;
+  image.right = 42;
+  frameFigure(image);
+  expect(image.values.get("--figure-center-x")).toBe(22 / 48);
+  expect(image.values.get("--figure-center-y")).toBeCloseTo(52 / 72);
+  expect(image.values.get("--silhouette-width")).toBe(40 / 48);
+  expect(image.values.get("--figure-ratio")).toBe(2 / 3);
 });

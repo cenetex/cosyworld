@@ -1416,6 +1416,14 @@ body .card.item .art img {
   translate: calc(-100% * var(--head-x, 0.5)) 0;
   object-fit: fill;
 }
+/* Center the visible sleeping silhouette, not its transparent canvas. Keep
+   the whole pose inside both axes; awake cards retain their head framing. */
+body .card.avatar[data-sleeping="true"] .art img {
+  top: 50%;
+  left: 50%;
+  height: min(calc(76% / var(--figure-height, 1)), calc(90cqi / var(--silhouette-width, 1) / var(--figure-ratio, 1)));
+  translate: calc(-100% * var(--figure-center-x, 0.5)) calc(-100% * var(--figure-center-y, 0.5));
+}
 /* Every card's name sits at its top in the quest card's label: one font
    and treatment in its tier colour over a light shade, broken only between
    words (card-label.mjs keeps a hyphenated word whole). */
