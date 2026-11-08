@@ -1,5 +1,5 @@
 import { privateView } from "./learning.mjs";
-import { settleHeldItems } from "./held-item.mjs";
+import { applyHeldChoice, settleHeldItems } from "./held-item.mjs";
 import { expressionKind, validExpression } from "./expression.mjs";
 // One pure adapter for the browser model and the server's C-backed JS runtime.
 // The host supplies authenticated claims and presence on every operation.
@@ -237,6 +237,16 @@ export function dispatchShared(request) {
     world.revision += 1;
     validateTransition(world);
     return response(world, view(world, actor));
+  }
+  if (request.op === "hold") {
+    if (
+      !world.controlledActors.includes(actor) ||
+      !world.presentActors.includes(actor)
+    )
+      throw new Error("Enter this world with your avatar first.");
+    applyHeldChoice(world, actor, request.choice);
+    validateTransition(world);
+    return response(world);
   }
   if (request.op === "view")
     return {
