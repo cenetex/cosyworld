@@ -2967,9 +2967,11 @@ fn stage_action(text: &str) -> bool {
     text.split_inclusive(['.', '!', '?', ';'])
         .map(|s| s.trim().to_lowercase())
         .any(|s| {
-            ["give", "hand", "pass", "take", "offer", "drop", "put"]
-                .iter()
-                .any(|verb| s.starts_with(&format!("i {verb} the ")))
+            [
+                "give", "hand", "pass", "place", "take", "offer", "drop", "put",
+            ]
+            .iter()
+            .any(|verb| s.starts_with(&format!("i {verb} the ")))
         })
 }
 
