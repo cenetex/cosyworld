@@ -106,11 +106,25 @@ export function createPreferredLocationsView(stage, art, cast) {
     if (!frame) frame = requestAnimationFrame(draw);
   }
   const observer = new ResizeObserver(schedule);
+  const watched = new Set();
   observer.observe(stage);
   observer.observe(art);
   observer.observe(cast);
   observer.observe(document.querySelector(".play-dock"));
   return (actors) => {
+    // Pose/framing and cast-rank changes animate each figure's height.
+    // Re-clamp its painted floor as that height settles, not only when
+    // the surrounding stage changes size.
+    for (const figure of watched) {
+      if (figure.parentElement === cast) continue;
+      observer.unobserve(figure);
+      watched.delete(figure);
+    }
+    for (const figure of cast.children) {
+      if (watched.has(figure)) continue;
+      watched.add(figure);
+      observer.observe(figure);
+    }
     originalFocus = stage.style.getPropertyValue("--focus-x") || "0.5";
     spots = new Map(
       actors
