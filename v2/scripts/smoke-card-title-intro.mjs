@@ -514,7 +514,7 @@ async function wakeFades(page, width, name) {
         .some((animation) =>
           animation.effect
             .getKeyframes()
-            .some((frame) => frame.translate === "0 -14px"),
+            .some((frame) => /^0(?:px)? -14px$/.test(frame.translate)),
         ),
     ),
     "avatar bounces only after landing",
