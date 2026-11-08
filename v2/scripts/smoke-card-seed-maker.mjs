@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { mkdir } from "node:fs/promises";
 import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
@@ -78,9 +79,29 @@ try {
         );
         const db = await openAuthoringStore();
         try {
-          return await db.read(
+          const record = await db.read(
             new URL(location.href).searchParams.get("draft") || "first-world",
           );
+          return {
+            ...record,
+            assets: await Promise.all(
+              [...record.assets].map(async ([path, bytes]) => {
+                const sha256 = Array.from(
+                  new Uint8Array(await crypto.subtle.digest("SHA-256", bytes)),
+                  (b) => b.toString(16).padStart(2, "0"),
+                ).join("");
+                let dimensions = null;
+                if (path.endsWith(".png")) {
+                  const bitmap = await createImageBitmap(
+                    new Blob([bytes], { type: "image/png" }),
+                  );
+                  dimensions = [bitmap.width, bitmap.height];
+                  bitmap.close();
+                }
+                return { path, sha256, size: bytes.byteLength, dimensions };
+              }),
+            ),
+          };
         } finally {
           db.close();
         }
@@ -184,7 +205,127 @@ try {
     await tool(`discard-quest-${avatar}`);
     await action();
     await saved(6);
+    // Exercise real UI, image decoding/slicing and IndexedDB, with no provider charge.
+    const png = await page.evaluate(() => {
+      const canvas = document.createElement("canvas");
+      canvas.width = 300;
+      canvas.height = 200;
+      const ctx = canvas.getContext("2d");
+      for (let i = 0; i < 6; i++) {
+        ctx.fillStyle = ["red", "green", "blue", "yellow", "purple", "orange"][
+          i
+        ];
+        ctx.fillRect((i % 3) * 100 + 20, Math.floor(i / 3) * 100 + 20, 60, 60);
+      }
+      return canvas.toDataURL("image/png").split(",")[1];
+    });
+    const bytes = Buffer.from(png, "base64");
+    let imageCalls = 0;
+    await page.route("**/authoring/generate/image", (route) => {
+      const input = route.request().postDataJSON();
+      imageCalls++;
+      assert.equal(input.kind, "avatar");
+      if (input.role === "pose-sheet") assert(input.reference?.sha256);
+      return route.fulfill({
+        json: {
+          basis: input.basis,
+          model: "openai/gpt-image-2.6-flare",
+          image: {
+            base64: png,
+            mime: "image/png",
+            size: bytes.length,
+            sha256: createHash("sha256").update(bytes).digest("hex"),
+          },
+        },
+      });
+    });
+    const generate = async (role) => {
+      await category("avatars");
+      await entity("avatars", avatar);
+      await tool(`art-${avatar}-${role}`);
+      await action();
+      await action();
+      await page
+        .getByRole("button", { name: "Confirm artwork", exact: true })
+        .waitFor();
+      const preview = page.locator(
+        `[data-setting="designer-tool-art-${avatar}-${role}-preview-0"]`,
+      );
+      await preview.waitFor({ state: "visible" });
+      const image = await preview
+        .locator(".art img")
+        .first()
+        .evaluate(async (img) => {
+          await img.decode();
+          return [
+            img.src.startsWith("blob:"),
+            img.naturalWidth,
+            img.naturalHeight,
+          ];
+        });
+      assert.deepEqual(image, [true, 300, 200]);
+    };
+    await generate("portrait");
+    await tool(`art-${avatar}-portrait-discard`);
+    await action();
+    assert.equal((await read()).draft.pack.avatars[avatar].portrait, undefined);
+    await generate("portrait");
+    // One failed local write must retain the paid result for a no-charge retry.
+    await page.evaluate(() => {
+      const put = IDBObjectStore.prototype.put;
+      IDBObjectStore.prototype.put = function (...args) {
+        if (this.name === "drafts") {
+          IDBObjectStore.prototype.put = put;
+          throw new Error("Storage full (smoke)");
+        }
+        return put.apply(this, args);
+      };
+    });
+    await action();
+    await page.getByText("Storage full (smoke)", { exact: true }).waitFor();
+    await action();
+    await saved(7);
+    assert.equal(imageCalls, 2);
+    await generate("pose-sheet");
+    for (let i = 0; i < 7; i++) {
+      const preview = page.locator(
+        `[data-setting="designer-tool-art-${avatar}-pose-sheet-preview-${i}"]`,
+      );
+      await preview.waitFor({ state: "visible" });
+      const image = await preview
+        .locator(".art img")
+        .first()
+        .evaluate(async (img) => {
+          await img.decode();
+          return [
+            img.src.startsWith("blob:"),
+            img.naturalWidth,
+            img.naturalHeight,
+          ];
+        });
+      assert.deepEqual(image, i === 0 ? [true, 300, 200] : [true, 100, 100]);
+    }
+    await page.screenshot({
+      path: `${output}/${width}-pose-review.png`,
+      animations: "disabled",
+    });
+    await action();
+    await saved(8);
+    assert.equal(imageCalls, 3);
+    for (const pose of ["happy", "sad", "hit", "strike", "brace", "sleep"])
+      assert(
+        (await read()).draft.assets.some((asset) =>
+          asset.path.endsWith(`-${pose}.png`),
+        ),
+      );
     const final = await read();
+    for (const pose of ["happy", "sad", "hit", "strike", "brace", "sleep"]) {
+      const asset = final.assets.find((a) => a.path.endsWith(`-${pose}.png`));
+      const meta = final.draft.assets.find((a) => a.path === asset.path);
+      assert.deepEqual(asset.dimensions, [100, 100]);
+      assert.equal(asset.sha256, meta.sha256);
+      assert.equal(asset.size, meta.size);
+    }
     await page.reload();
     await page.locator("#history-button").waitFor();
     assert.deepEqual(await read(), final);
