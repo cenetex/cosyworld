@@ -76,14 +76,16 @@ try {
     await page.locator('#hand [data-card="vale"]').click();
     await play("Wait");
     await ready();
-    const fold = page.locator('#hand .quest-fold[data-glow="invite"]');
+    const fold = page.locator('#hand .quest-fold[data-glow="none"]');
     await fold.waitFor();
     await fold.focus();
     await page.keyboard.press("Enter");
     const met = page.locator('#hand .want-card[data-met="true"]');
     await met.waitFor();
     await met.click();
-    await page.locator(".quest-xp").waitFor({ state: "detached" });
+    await page.locator("#card-actions button").click();
+    await page.locator("#action-beat progress").waitFor();
+    await page.locator("#card-actions button").click();
     await ready();
     // Content: no want, and no quest card anywhere in the hand.
     const content = await vale();

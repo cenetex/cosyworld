@@ -117,7 +117,7 @@ try {
     assert.equal(await quest.isHidden(), true, "the quest folds behind Vale");
     // Vale already holds the lamp, so the folded quest wears the near halo.
     // It is a face-down card in Vale's stack, Vale's size, with no tab.
-    const fold = page.locator('#hand .quest-fold[data-glow="near"]');
+    const fold = page.locator('#hand .quest-fold[data-glow="none"]');
     assert.equal(await fold.count(), 1);
     assert.equal(await page.locator("#hand .quest-tab").count(), 0);
     const [foldBox, valeBox] = await page.evaluate(() =>
@@ -235,7 +235,7 @@ try {
     );
     // Met by a play, the same quest is still face up.
     assert.equal(await card.getAttribute("data-unrevealed"), "false");
-    assert.equal(await card.locator(".quest-seal").count(), 1);
+    assert.equal(await card.locator(".quest-seal").count(), 0);
     assert.equal(await page.locator("#hand .quest-fold").isHidden(), true);
     await page.screenshot({
       path: new URL(`met-${width}.png`, output).pathname,
@@ -243,13 +243,19 @@ try {
     // Cleared, it falls away as an inert ghost; reduced motion lets it go.
     await card.hover();
     await card.click();
-    const gain = page.locator(".quest-xp");
+    assert.equal(await card.count(), 1, "selection does not claim the reward");
+    await page.keyboard.press("Escape");
+    assert.equal(await card.count(), 1, "dismissal preserves the receipt");
+    await card.click();
+    await page.screenshot({ path: new URL(`complete-${width}.png`, output).pathname });
+    await page.locator("#card-actions button").click();
+    const gain = page.locator('#action-beat progress');
     await gain.waitFor();
     const falling = await page.locator(".card-exits > .beat-ghost").evaluateAll(
       (ghosts) => ghosts.map((g) => [g.inert, getComputedStyle(g).pointerEvents]),
     );
     assert.deepEqual(falling, motion === "reduce" ? [] : [[true, "none"]]);
-    assert.match(await gain.textContent(), /^\+\d+ XP$/);
+    assert.match(await page.locator(".action-beat-heading").textContent(), /Earned \d+ points?/);
     await page.screenshot({
       path: new URL(`cleared-${width}.png`, output).pathname,
     });
@@ -257,6 +263,7 @@ try {
       await page.locator('#hand .want-card[data-met="true"]').count(),
       0,
     );
+    await page.locator("#card-actions button").click();
     await gain.waitFor({ state: "detached" });
     // A stack (#1831): the fold shows the top quest; opening it fans them all
     // out; choosing a quest beneath brings it to the top without a turn, and
@@ -582,10 +589,11 @@ try {
     const completedGift = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)), gateKey);
     const receiptKey = await metGift.getAttribute("data-quest-key");
     await metGift.click({ position: { x: 40, y: 16 } });
+    await page.locator("#card-actions button").click();
     assert.equal(await metGift.isDisabled(), true);
     assert.equal(await page.evaluate((key) => JSON.parse(localStorage.getItem(key)).actors.vale.questRewards.length, gateKey), 1);
     releaseReply();
-    await page.locator(".quest-xp").waitFor();
+    await page.locator("#action-beat progress").waitFor();
     await page.unroute("**/card-game/text", holdReply);
     assert.ok(await page.evaluate((key) => JSON.parse(localStorage.getItem(key)).log.some((e) => e.text?.includes("These quiet moments will stay with me.")), gateKey));
     await page.waitForFunction(() => document.querySelector("#dialogue-text").textContent.includes("These quiet moments will stay with me."));
@@ -605,17 +613,19 @@ try {
       };
     }, gateKey);
     await metGift.click({ position: { x: 40, y: 16 } });
+    await page.locator("#card-actions button").click();
     await page.waitForFunction(() => document.querySelector('#hand .want-card[data-met="true"]')?.disabled === false);
-    assert.equal(await page.locator(".quest-xp").count(), 0);
+    assert.equal(await page.locator("#action-beat progress").count(), 0);
     await page.evaluate(() => { Storage.prototype.setItem = window.restoreQuestStorage; });
     await metGift.click({ position: { x: 40, y: 16 } });
-    await page.locator(".quest-xp").waitFor();
+    await page.locator("#card-actions button").click();
+    await page.locator("#action-beat progress").waitFor();
     const collectedGift = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)), gateKey);
     assert.equal(collectedGift.turn, completedGift.turn);
     assert.equal(collectedGift.actors.vale.questRewards, undefined);
     assert.equal(await page.locator("#play-status").isHidden(), true);
     assert.equal(await page.locator("body").getAttribute("data-hand-expanded"), "true");
-    assert.equal(await metGift.count(), 0, "one tap clears the checked card");
+    assert.equal(await metGift.count(), 0, "confirming clears the checked card");
     assert.equal(
       await page.evaluate(
         (key) => JSON.parse(localStorage.getItem(key)).actors.vale.xp,
@@ -1036,12 +1046,13 @@ try {
       const card = page.locator(`[data-quest-key="reward:vale:${reward.id}"]`);
       assert.equal(await card.locator(".quest-verb").textContent(), reward.level === 5 ? "Level Up" : "Go to");
       assert.equal(await card.locator(".quest-level").textContent(), "V");
-      assert.equal(await card.locator(".quest-seal").textContent(), "✓");
+      assert.equal(await card.locator(".quest-seal").count(), 0);
     }
     const claim = page.locator(`[data-quest-key="reward:vale:${finalReward.id}"]`);
     await claim.scrollIntoViewIfNeeded();
     await page.screenshot({ path: new URL(`level-reward-${width}.png`, output).pathname, animations: "disabled" });
     await claim.click({ position: { x: 40, y: 16 } });
+    await page.locator("#card-actions button").click();
     await page.waitForFunction(({ key, xp }) => {
       const actor = JSON.parse(localStorage.getItem(key)).actors.vale;
       return actor.level === 5 && actor.xp === xp + 1 && actor.questRewards.length === 1;

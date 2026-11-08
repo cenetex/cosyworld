@@ -123,11 +123,9 @@
     "quest-level",
     "quest-right",
     "quest-screen",
-    "quest-seal",
     "quest-thing",
     "quest-to",
     "quest-verb",
-    "quest-xp",
     "reveal-lid",
     "reveal-sheen",
     "scene-shade",
@@ -270,7 +268,7 @@
     "world-menu"
   ],
   "elements": {
-    "v2/card-game/app.mjs": 62,
+    "v2/card-game/app.mjs": 60,
     "v2/card-game/avatar-menu.mjs": 19,
     "v2/card-game/build-info.mjs": 2,
     "v2/card-game/card-label.mjs": 1,
@@ -295,6 +293,6 @@
     "v2/card-game/toolbar.mjs": 11,
     "v2/card-game/weather-shader.mjs": 1,
     "v2/card-game/weather-view.mjs": 2,
-    "v2/card-game/card-descriptor.mjs": 8
+    "v2/card-game/card-descriptor.mjs": 9
   }
 }

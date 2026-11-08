@@ -180,6 +180,7 @@ import {
   waitForScene,
 } from "./dialogue.mjs";
 import { dropCost } from "./want.mjs";
+import { questRewardProgress } from "./quest-reward-progress.mjs";
 import { nameLetters, namedText } from "./card-names.mjs";
 import {
   currentActor,
@@ -2367,6 +2368,7 @@ function renderActions() {
   const row = $("card-actions"),
     panel = $("action-beat");
   panel.removeAttribute("data-card-tap");
+  delete panel.dataset.questReward;
   if (
     sharedRefusal &&
     (sharedRefusal.choice !== selected.join("+") ||
@@ -3182,7 +3184,7 @@ const questLabel = (quest, met, near) => {
     ? `Level Up ${romanLevel(quest.level)}: ${shownQuestCaption(quest, false)}`
     : shownQuestCaption(quest);
   return met
-    ? `Quest met: ${caption}. Select to collect its reward.`
+    ? `Quest met: ${caption}. Select to complete the quest.`
     : `Quest${quest.index ? ` ${quest.index + 1}` : ""}: ${caption}${near ? ", near" : ""}`;
 };
 function questFrame({ id, quest, met }) {
@@ -3211,7 +3213,7 @@ function questFrame({ id, quest, met }) {
     questLabel(quest, met, near),  );
   if (met) {
     el.dataset.met = "true";
-    el.append(node("span", "✓", "quest-seal"));
+
   }
   const head = node("span", undefined, "quest-head");
   // A level quest keeps its title through each step. A checked step names
@@ -3233,12 +3235,12 @@ function questFrame({ id, quest, met }) {
     ),
     head,
   );
-  // A quest's first tap shows its details and fans the stack. A checked
-  // card clears on its first tap; tapping a chosen quest lowers it.
+  // A first tap shows details. A completed quest offers its reward in the
+  // descriptor; tapping a chosen active quest lowers it.
   el.addEventListener("click", () => {
     if (selectionBlocked()) return;
     if (picked) questOpen = false;
-    else if (met) return clearQuest(el, quest);
+    else if (met) return openQuestReward(quest);
     else return pickQuest(quest);
     render();
   });
@@ -3310,12 +3312,7 @@ function syncQuestFold(fold) {
       : questTier(quest)
     ).color,
   );
-  fold.dataset.glow =
-    sealedQuests.length || questFresh
-      ? "invite"
-      : !questCovered(quest) && questNear(world, quest)
-        ? "near"
-        : "none";
+  fold.dataset.glow = "none";
   const count = questEntries().length;
   const summary = [
     shownQuests.length && `${shownQuests.length} active quest${shownQuests.length === 1 ? "" : "s"}`,
@@ -3339,12 +3336,31 @@ function questFold(quest) {
   });
   return fold;
 }
+// Completion is a choice in the existing descriptor, never an automatic card tap.
+function openQuestReward(quest) {
+  const color = questTier(quest, world, known).color;
+  const beat = {
+    avatar: quest.actor,
+    cards: [{ src: portrait(quest.actor, null, world), color }],
+    name: "Complete the Quest",
+    message: "Complete the Quest",
+    info: shownQuestCaption(quest, false),
+    note: `${shownQuestCaption(quest, false)} · +${quest.earnedXp} XP`,
+    reward: { color },
+    buttons: [{
+      label: "Complete the Quest",
+      run: () => clearQuest(beat, quest),
+    }],
+  };
+  showActionBeat(beat);
+  keptBorrowedBeat = beat;
+}
 // The checked card stays until the saved world acknowledges its claim.
-async function clearQuest(button, quest) {
+async function clearQuest(beat, quest) {
   const pending = questClaims.get(quest.key);
   if (selectionBlocked() || (pending && !pending.uncertain)) return;
-  const reward = pending || { quest, color: button.style.getPropertyValue("--tier-color"),
-    box: button.getBoundingClientRect(), key: crypto.randomUUID() };
+  const reward = pending || { quest, color: beat.reward.color, beat,
+    key: crypto.randomUUID() };
   questOpen = false;
   if (quest.receiptId === undefined) {
     sealedQuests = sealedQuests.filter((q) => q !== quest);
@@ -3353,7 +3369,14 @@ async function clearQuest(button, quest) {
   }
   const action = legalActions(world).find((a) =>
     a.kind === "claim" && a.actor === quest.actor && a.receipt === quest.receiptId);
-  if (!action) return;
+  if (!action) {
+    clearActionBeat();
+    notice("This reward is no longer available.");
+    return;
+  }
+  reward.beat = beat;
+  beat.buttons[0].disabled = true;
+  beat.note = "Saving your reward…";
   reward.uncertain = false;
   questClaims.set(quest.key, reward);
   avatarFan = "quests";
@@ -3381,34 +3404,36 @@ async function clearQuest(button, quest) {
   } catch (error) {
     if (error.cause) reward.uncertain = true;
     else questClaims.delete(quest.key);
+    beat.buttons[0].disabled = false;
+    beat.note = error.message;
     notice(error.message);
   } finally {
     renderedHand = "";
     render();
   }
 }
-function showQuestReward({ quest, color, box }) {
-  const gain = node("span", `+${quest.earnedXp} XP`, "quest-xp");
-  gain.style.setProperty("--tier-color", color);
-  gain.style.left = `${box.left + box.width / 2}px`;
-  gain.style.top = `${box.top + box.height / 4}px`;
-  document.body.append(gain);
-  const rise = gain.animate(
-    reducedMotion.matches
-      ? [{ opacity: 1 }, { opacity: 1, offset: 0.8 }, { opacity: 0 }]
-      : [
-          { opacity: 0, translate: "-50% 0" },
-          { opacity: 1, translate: "-50% -16px", offset: 0.3 },
-          { opacity: 0, translate: "-50% -44px" },
-        ],
-    { duration: 1100, easing: "ease-out" },
-  );
-  rise.finished.catch(() => {}).then(() => gain.remove());
+function showQuestReward({ quest, color, beat }) {
   count("quest.met");
-  const avatar = $("hand").querySelector(`.card[data-card="${quest.actor}"]`);
-  const level = quest.receiptId === undefined
-    ? quest.level && quest.left <= 1 : quest.earnedLevel;
-  if (level && avatar) void glowCard(avatar, color);
+  // A newer selection must never be replaced by a late network response.
+  if (borrowedBeat !== beat) return;
+  const { value, max, ready, nextLevel } = questRewardProgress(world, quest.actor);
+  const result = {
+    ...beat,
+    name: `Earned ${quest.earnedXp} ${quest.earnedXp === 1 ? "point" : "points"}`,
+    message: `Earned ${quest.earnedXp} ${quest.earnedXp === 1 ? "point" : "points"}`,
+    note: ready
+      ? "Enough XP for the next level quest. Complete it to level up."
+      : `${value} / ${max} XP toward Level ${romanLevel(nextLevel)}`,
+    reward: { color, value, max,
+      label: `Experience toward Level ${romanLevel(nextLevel)}` },
+    buttons: [{ label: "Continue", run: () => clearActionBeat() }],
+  };
+  showActionBeat(result);
+  keptBorrowedBeat = result;
+  if (!reducedMotion.matches) $("action-beat").animate(
+    [{ filter: "brightness(1.5)" }, { filter: "brightness(1)" }],
+    { duration: 600, easing: "ease-out" },
+  );
 }
 const showPreferredLocations = createPreferredLocationsView(
   $("stage"),

@@ -24,6 +24,8 @@ export function renderCardDescriptor(
   if (beat.avatar) panel.dataset.avatar = beat.avatar;
   else delete panel.dataset.avatar;
   panel.dataset.tier = "common";
+  panel.dataset.questReward = String(Boolean(beat.reward));
+  if (beat.reward) panel.style.setProperty("--tier-color", beat.reward.color);
   $("selection-name").textContent = beat.name || "Card actions";
   // A play's beat draws its own cards again after this one.
   cards.dataset.cards = "borrowed";
@@ -73,6 +75,14 @@ export function renderCardDescriptor(
     );
   const note = document.querySelector(".action-beat-note");
   showNote(note, beat);
+  if (beat.reward?.max) {
+    const meter = node("progress");
+    meter.max = beat.reward.max;
+    meter.value = beat.reward.value;
+    meter.setAttribute("aria-label", beat.reward.label);
+    note.append(meter);
+    note.setAttribute("role", "status");
+  }
   const buttons = beat.buttons.map(({ label, id, run, disabled }, index) => {
     const previous = row.children[index];
     const button =

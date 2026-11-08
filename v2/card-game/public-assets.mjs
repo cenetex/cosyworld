@@ -13,6 +13,7 @@ import { BENCH, SCENE } from "./settings-cards.mjs";
 
 // The local server, release smoke, and Rust asset generator use this list.
 const files = [
+  "quest-reward-progress.mjs",
   "handover.mjs",
   "battle-context.mjs",
   "conversation.mjs",
