@@ -66,7 +66,7 @@ const server = createServer();
 await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
 let browser;
 try {
-  browser = await chromium.launch({ headless: true });
+  browser = await chromium.launch({ headless: true, executablePath: process.env.CHROMIUM_PATH });
   for (const width of smokeWidths([1440, 390]))
     for (const reduced of [false, true]) {
       const page = await browser.newPage({
@@ -121,7 +121,10 @@ try {
         });
       };
       const boxed = async () => {
+        await selectCard(page, "greek-gate");
         await revealCard(page, FIELD);
+        assert.equal(await field.locator("..").getAttribute("data-holder"), "greek-gate");
+        assert.ok(await field.evaluate((el) => el.classList.contains("item")));
         assert.equal(await attr("data-locked"), "true");
         // A real lock keeps its nameless lid and red edge.
         assert.equal(await field.locator(".name").textContent(), "");
