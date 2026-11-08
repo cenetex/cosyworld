@@ -1278,6 +1278,162 @@
       "avatars": {
         "oak": 0
       }
+    },
+    "ratiradio-staff-kitchen": {
+      "note": "Visitors use the clear lower-left tiles. The other feet follow the floor beside the refrigerators and the open corridor.",
+      "spots": [
+        [
+          23,
+          87,
+          0.94
+        ],
+        [
+          58,
+          80,
+          0.84
+        ],
+        [
+          76,
+          68,
+          0.68
+        ],
+        [
+          43,
+          91,
+          0.94
+        ],
+        [
+          72,
+          91,
+          0.9
+        ],
+        [
+          88,
+          78,
+          0.76
+        ]
+      ],
+      "avatars": {
+        "ratiradio-rati": 1,
+        "ratiradio-raven": 2
+      }
+    },
+    "ratiradio-dispatch-window": {
+      "note": "The first visitor stands by the open aisle on the left. All feet stay on the near tiles in front of the hatch counter.",
+      "spots": [
+        [
+          22,
+          86,
+          0.9
+        ],
+        [
+          51,
+          90,
+          0.84
+        ],
+        [
+          78,
+          91,
+          0.72
+        ],
+        [
+          38,
+          96,
+          0.9
+        ],
+        [
+          65,
+          97,
+          0.84
+        ],
+        [
+          87,
+          97,
+          0.76
+        ]
+      ],
+      "avatars": {
+        "ratiradio-rati": 1,
+        "ratiradio-raven": 2
+      }
+    },
+    "ratiradio-listening-room": {
+      "note": "The first visitor uses the open boards below the window. RATi stands beside the rug; Raven takes the floor beside the booth door. Feet stay clear of the armchair and radio table.",
+      "spots": [
+        [
+          21,
+          87,
+          0.92
+        ],
+        [
+          43,
+          92,
+          0.86
+        ],
+        [
+          80,
+          90,
+          0.65
+        ],
+        [
+          33,
+          97,
+          0.9
+        ],
+        [
+          61,
+          97,
+          0.88
+        ],
+        [
+          92,
+          92,
+          0.76
+        ]
+      ],
+      "avatars": {
+        "ratiradio-rati": 1,
+        "ratiradio-raven": 2
+      }
+    },
+    "ratiradio-broadcast-booth": {
+      "note": "Visitors occupy the clear foreground to the left of the mixing desk. The rightmost floor spots sit beyond the chair wheels, leaving the microphone visible.",
+      "spots": [
+        [
+          18,
+          87,
+          0.92
+        ],
+        [
+          37,
+          92,
+          0.82
+        ],
+        [
+          84,
+          96,
+          0.64
+        ],
+        [
+          25,
+          97,
+          0.92
+        ],
+        [
+          10,
+          97,
+          0.82
+        ],
+        [
+          96,
+          98,
+          0.75
+        ]
+      ],
+      "avatars": {
+        "ratiradio-rati": 1,
+        "ratiradio-raven": 2
+      }
     }
   }
 }
