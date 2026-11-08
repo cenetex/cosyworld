@@ -3,6 +3,7 @@ import {
   nameTitleWaker,
   onTitleWake,
   playNewWorldIntro,
+  playTitleIntro,
   titleMusicHold,
   voiceTitle,
 } from "./title-intro.mjs";
@@ -85,6 +86,7 @@ import {
 import { NOT_FOUND, questStep } from "./quest-step.mjs";
 import { actionScene, questScreen } from "./quest-screen.mjs";
 import { createLandingWorld, newRunSeed } from "./pack-landing.mjs";
+import { beginPipJourney, createPipWorld } from "./pip-landing.mjs";
 import { flipStagePortrait, portraitFraming } from "./portrait-facing.mjs";
 import { locationWeather } from "./weather.mjs";
 import { DAYLIGHT_TURNS, isNight, locationDaylight } from "./daylight.mjs";
@@ -230,6 +232,7 @@ const $ = (id) => document.getElementById(id);
 const {
   tableName,
   startingPack,
+  startingPip,
   sharedWorldId,
   sharedSession,
   saveKey: SAVE_KEY,
@@ -237,13 +240,18 @@ const {
 // A new local world: Vale wakes in the attic, the only avatar played locally
 // (#1892). Its travelers wear the local passkey's cosmetic upgrades (#1873).
 const freshWorld = () =>
-  wearLocalUpgrades(enableMotives(createLandingWorld(startingPack)));
+  wearLocalUpgrades(
+    enableMotives(startingPip ? createPipWorld() : createLandingWorld(startingPack)),
+  );
 let world = sharedSession
     ? { ...sharedSession.state.world, playerActorId: sharedSession.state.actor }
     : freshWorld(),
   selected = [],
   expandedHolders = new Set(),
   saveBlocked = false,
+  pipLeaving = false,
+  pipTransition = 0,
+  pipTimer = null,
   lineSeq = null,
   selectionRevision = 0,
   dragging = [],
@@ -258,6 +266,10 @@ let world = sharedSession
   if (slotLabel && tableName) {
     slotLabel.hidden = false;
     slotLabel.textContent = `Saving as table "${tableName}". Without the ?table= parameter this menu shows a different saved game.`;
+  }
+  if (slotLabel && startingPip) {
+    slotLabel.hidden = false;
+    slotLabel.textContent = "Your visit with Pip is saved at lonelyforest.com/pip.";
   }
 }
 // Beat captions keep their glyph as data; the table draws each one as line
@@ -439,7 +451,10 @@ const cardArt = (id) =>
 // painting the action beat shows, so a destination card shows where you are
 // going (the ship's deck from its berth), lit for the hour and weather.
 const placeArt = (id) => placeCardArt(world, id);
-const cardIsCovered = (id) => !encountered.has(id) || coveredCards.has(id);
+const pipPrelude = () => startingPip && !world.opening;
+const cardIsCovered = (id) => pipPrelude()
+  ? id !== "moth" && !(world.actors.vale.want?.story && id === "lamp")
+  : !encountered.has(id) || coveredCards.has(id);
 const cardIsClosed = (id) => cardIsCovered(id) || isLockedBox(world, id);
 const CARD_BACK = "./assets/card-back.webp";
 const cardBack = (id) => isLockedBox(world, id) ? LOCKED_BACK : CARD_BACK;
@@ -507,6 +522,14 @@ function loadSeen(reset = false) {
   // The opening hand starts covered, like any newly met card; a known table
   // keeps the cards its player has already uncovered.
   if (opening) for (const id of availableCards(world)) coveredCards.add(id);
+  if (startingPip) {
+    encountered.add("moth");
+    coveredCards.delete("moth");
+  }
+  if (pipPrelude() && !saveBlocked) {
+    selected = ["moth"];
+    rowCollapsed = false;
+  }
   fresh.clear();
   shownLevels.clear();
   shownStageLevels.clear();
@@ -637,7 +660,7 @@ async function prepareScene() {
 }
 function selectionBlocked() {
   return (
-    saveBlocked ||
+    saveBlocked || pipLeaving ||
     covering ||
     Boolean(sharedSession && !hasSharedPlace(sharedSession.state))
   );
@@ -1737,6 +1760,23 @@ function commitAction(action, revision, renderedAt = -Infinity) {
 }
 function performAction(action, revision) {
   if (saveBlocked || sharedSession) return;
+  if (pipPrelude() && action.kind === "talk" && action.target === "moth") {
+    const next = beginPipJourney(world.run?.seed);
+    world.actors.vale.want = structuredClone(next.actors.vale.want);
+    save();
+    pipLeaving = true;
+    const transition = ++pipTransition;
+    selected = [];
+    restedChoice = null;
+    render();
+    pipTimer = setTimeout(() => {
+      if (transition !== pipTransition) return;
+      void leavePage(() => {
+        if (transition === pipTransition) resetTable(next);
+      }, { ms: 1600, remember: false });
+    }, 1800);
+    return;
+  }
   const result = play(world, action, revision);
   if (!result.ok) {
     count("error.rules_reject");
@@ -4816,7 +4856,7 @@ function render() {
   if (questShown(foldQuest())) questFresh = false;
   const handCards = chosenFirst(
     questHand(
-      stackPlaces(availableCards(world)),
+      pipPrelude() ? ["moth"] : stackPlaces(availableCards(world)),
       world,
       pickedFirst(questEntries().map((entry) => entry.id)),
     ),
@@ -5350,7 +5390,14 @@ $("new-game").onclick = () => {
   pauseSpeech();
 };
 $("cancel-reset").onclick = () => $("reset-dialog").close();
-$("confirm-reset").onclick = () => {
+function cancelPipTransition() {
+  pipTransition++;
+  clearTimeout(pipTimer);
+  pipLeaving = false;
+}
+$("confirm-reset").onclick = () => resetTable();
+function resetTable(next = freshWorld()) {
+  cancelPipTransition();
   playQueue.clear();
   releaseGhosts();
   // Archive the outgoing save: starting fresh must be reversible, because
@@ -5364,7 +5411,7 @@ $("confirm-reset").onclick = () => {
   exchange.cancel();
   reveal.cancel();
   speechSounds.stop();
-  world = freshWorld();
+  world = next;
   rememberWords(null);
   loadSeen(true);
   completedSpeech.clear();
@@ -5379,16 +5426,18 @@ $("confirm-reset").onclick = () => {
   expandedHolders.clear();
   rowCollapsed = true;
   saveBlocked = false;
+  if (startingPip) loadSeen(true);
   notice("");
   save();
   $("reset-dialog").close();
-  playNewWorldIntro();
+  playNewWorldIntro({ arrival: startingPip && Boolean(world.opening) });
   holdMusicForTitle();
   nameTitleWaker(nameOf(currentActor(world)), currentActor(world));
   resumeScene();
-};
+}
 window.addEventListener("storage", (event) => {
   if (sharedSession || event.key !== SAVE_KEY || !event.newValue) return;
+  cancelPipTransition();
   playQueue.clear();
   releaseGhosts();
   cancelTravel();
@@ -5908,7 +5957,7 @@ const settingsCards = installSettingsCards({
   },
 });
 // The root page resumes whichever avatar was played last.
-if (!tableName && !startingPack)
+if (!tableName && !startingPack && !startingPip)
   try {
     localStorage.setItem(
       PLAYING_KEY,
@@ -5938,7 +5987,14 @@ if (sharedSession) {
   setInterval(syncSharedLine, 200);
 }
 // The title's Wake button names the avatar this world opens with.
-nameTitleWaker(nameOf(currentActor(world)), currentActor(world));
+nameTitleWaker(pipPrelude() ? "Pip" : nameOf(currentActor(world)), pipPrelude() ? "moth" : currentActor(world));
+if (startingPip && openingTable) save();
 resumeScene();
 // The title's turn (or Escape past it) is this avatar's reveal.
-onTitleWake(() => uncover(currentActor(world), { flip: false }));
+onTitleWake(() => uncover(pipPrelude() ? "moth" : currentActor(world), { flip: false }));
+if (pipPrelude() && world.actors.vale.want?.story)
+  performAction({ kind: "talk", target: "moth" }, world.revision);
+else if (pipPrelude() && openingTable) {
+  playTitleIntro({ cardOnly: true, storage: null });
+  holdMusicForTitle();
+}

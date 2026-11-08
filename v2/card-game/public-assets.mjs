@@ -284,6 +284,7 @@ const files = [
   "defeat-view.mjs",
   "combat-portraits.mjs",
   "table-session.mjs",
+  "pip-landing.mjs",
   "app.mjs",
   "action-beat-note.mjs",
   "pack-landing.mjs",

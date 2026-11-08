@@ -4,6 +4,7 @@ import { arrivePage } from "./page-fade.mjs";
 import { membersLock } from "./shared-auth.mjs";
 import { playTitleIntro, titleIntroWanted } from "./title-intro.mjs";
 import { logoSite, showToolbarLogo, worldLogo } from "./title-logo.mjs";
+import { pipEntry } from "./pip-landing.mjs";
 // A new world opens with the Lonely Forest title over the booting table; the
 // same logo stands in the toolbar for as long as that world is played.
 let storage = null;
@@ -44,7 +45,7 @@ if (!authoring && (params.has("shared") || (local && params.has("world")))) {
 // Vale's local table (avatar-world.mjs, #1892).
 let resume = null;
 try {
-  if (!authoring && !local && !params.size)
+  if (!authoring && !local && !params.size && !pipEntry(location.href))
     resume = JSON.parse(localStorage.getItem("cosyworld.playing") || "null");
 } catch {}
 if (locked) {

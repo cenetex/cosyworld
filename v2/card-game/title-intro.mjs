@@ -7,6 +7,7 @@ import { revealCard } from "./card-reveal.mjs";
 import { tiers } from "./level-tiers.mjs";
 import { LOGOS, logoSite, showToolbarLogo, worldLogo } from "./title-logo.mjs";
 import { createTitleSong } from "./title-song.mjs";
+import { pipEntry } from "./pip-landing.mjs";
 import {
   createRevealPainter,
   createTextReveal,
@@ -66,7 +67,7 @@ export const WAKE_FADE = {
 // Only on Lonely Forest: no other site's landing, not the local CosyWorld
 // app, no table or pack link. Automated browsers need `intro=1`.
 export function titleIntroAllowed({ href, local, webdriver }) {
-  if (local) return false;
+  if (local || pipEntry(href)) return false;
   const url = new URL(href);
   const forced = url.searchParams.get("intro") === "1";
   if ([...url.searchParams.keys()].some((k) => k !== "intro" && k !== "world"))
@@ -102,7 +103,7 @@ export function queueTitleIntro(world, storage = globalThis.localStorage) {
 }
 
 // New game on the local table picks its own logo and plays the title at once.
-export function playNewWorldIntro() {
+export function playNewWorldIntro({ arrival = false } = {}) {
   const context = pageContext();
   let storage = null;
   try {
@@ -112,7 +113,7 @@ export function playNewWorldIntro() {
   const logo = worldLogo({ href: context.href, storage, fresh: true });
   showToolbarLogo(logo);
   // The New game click is long past: the title still waits for its own tap.
-  if (titleIntroAllowed(context))
+  if (titleIntroAllowed(context) || (arrival && pipEntry(context.href)))
     playTitleIntro({ storage: null, logo, song: createTitleSong({ storage }) });
 }
 
@@ -492,6 +493,7 @@ export function playTitleIntro({
   logo = LOGOS[0],
   storage = globalThis.localStorage,
   song = createTitleSong({ storage }),
+  cardOnly = false,
 } = {}) {
   try {
     storage.removeItem(INTRO_KEY);
@@ -593,7 +595,7 @@ export function playTitleIntro({
     const box = card.getBoundingClientRect(),
       crest = image.getBoundingClientRect(),
       origin = row.getBoundingClientRect(),
-      foot = privacy.getBoundingClientRect().top - 8;
+      foot = cardOnly ? innerHeight - 16 : privacy.getBoundingClientRect().top - 8;
     const w = hint.offsetWidth,
       h = hint.offsetHeight;
     const below = [box.left + (box.width - w) / 2, box.bottom + 12];
@@ -621,7 +623,7 @@ export function playTitleIntro({
     ]);
     const [x, y] =
       candidates.find(([x, y]) =>
-        [box, crest].every(
+        (cardOnly ? [box] : [box, crest]).every(
           (part) =>
             y + h <= part.top - 8 ||
             y >= part.bottom + 8 ||
@@ -669,7 +671,8 @@ export function playTitleIntro({
     image.onerror = () => resolve(false);
     setTimeout(() => resolve(false), LOAD_LIMIT_MS);
   });
-  image.src = imageUrl(source);
+  if (!cardOnly) image.src = imageUrl(source);
+  else image.hidden = true;
 
   // The face is the avatar's card from the hand, as the table drew it. The
   // revealed card holds a moment, so the player sees who wakes, then enters.
@@ -710,7 +713,7 @@ export function playTitleIntro({
     phase = layer.dataset.phase = "card";
     panel.remove();
     image.getAnimations().forEach((animation) => animation.finish());
-    image.animate(
+    if (!cardOnly) image.animate(
       [{ transform: "none" }, { transform: "translateY(-14dvh) scale(0.8)" }],
       {
         duration: reduced ? 0 : 900,
@@ -718,7 +721,8 @@ export function playTitleIntro({
         fill: "both",
       },
     );
-    layer.append(row, privacy);
+    layer.append(row);
+    if (!cardOnly) layer.append(privacy);
     fade(row, reduced ? 250 : 600, reduced ? 0 : 300);
     card.focus({ preventScroll: true });
     idle();
@@ -842,7 +846,10 @@ export function playTitleIntro({
         Promise.race([document.fonts?.ready, wait(LOAD_LIMIT_MS)]),
       ]),
     );
-    if (!leaving) {
+    if (!leaving && cardOnly) {
+      phase = "title";
+      showWake();
+    } else if (!leaving) {
       phase = layer.dataset.phase = "ack";
       layer.append(panel);
       write(reduced);

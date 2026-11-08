@@ -2,10 +2,12 @@
 import { SAVE_BASE } from "./avatar-world.mjs";
 import { landingPack } from "./pack-landing.mjs";
 import { connectSharedWorld } from "./shared.mjs";
+import { pipEntry } from "./pip-landing.mjs";
 
 export async function openTableSession(href, connect = connectSharedWorld) {
   const params = new URL(href).searchParams;
   const tableName = params.get("table");
+  const startingPip = pipEntry(href);
   const startingPack = landingPack(href);
   const sharedWorldId = params.get("world");
   const sharedSession = sharedWorldId ? await connect(sharedWorldId) : null;
@@ -15,6 +17,15 @@ export async function openTableSession(href, connect = connectSharedWorld) {
       ? `${SAVE_BASE}.${tableName}`
       : startingPack
         ? `${SAVE_BASE}.pack.${startingPack.id}`
-        : SAVE_BASE;
-  return { tableName, startingPack, sharedWorldId, sharedSession, saveKey };
+        : startingPip
+          ? `${SAVE_BASE}.entry.pip`
+          : SAVE_BASE;
+  return {
+    tableName,
+    startingPack,
+    startingPip,
+    sharedWorldId,
+    sharedSession,
+    saveKey,
+  };
 }

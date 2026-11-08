@@ -2,6 +2,7 @@ import titleLogos from "./title-logos.json" with { type: "json" };
 import landings from "./pack-landings.json" with { type: "json" };
 import { imageUrl } from "./images.mjs";
 import { RARITY_WEIGHTS } from "./pack-specials.mjs";
+import { pipEntry } from "./pip-landing.mjs";
 
 // Each world shows one Lonely Forest logo from `title-logos.json`, in its
 // title and in the toolbar. The first pick for a world is a weighted draw
@@ -24,6 +25,7 @@ export function worldLogoKey(href) {
   if (table && /^[a-z0-9-]{1,40}$/i.test(table)) return `table:${table}`;
   const pack = params.get("pack");
   if (pack) return `pack:${pack}`;
+  if (pipEntry(href)) return "entry:pip";
   return "local";
 }
 
