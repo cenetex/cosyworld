@@ -206,6 +206,7 @@ import {
   settleItemCycle,
   settleVoyageCargo,
   validItemCycle,
+  validCraftEvent,
 } from "./pack-items.mjs";
 import { installSpecials, validSeed } from "./pack-specials.mjs";
 import forest from "./forest.json" with { type: "json" };
@@ -2727,6 +2728,7 @@ function performPlay(s, a, round = null, settle = []) {
     ...(a.kind === "attack" ? { locationId: here, ...combat } : {}),
     ...(handover ? { handover } : {}),
   });
+  const sourceSeq = s.log.at(-1).seq;
   if (a.kind === "threaten")
     standoffFor(s, a.actor).sourceSeq = s.log.at(-1).seq;
   recordConversation(s, s.log.at(-1));
@@ -2808,8 +2810,15 @@ function performPlay(s, a, round = null, settle = []) {
   // A flask and an empty lamp in one avatar's hands refuel after the play.
   refuelCarried(s);
   // Giving a maker the last of a locked thing's set makes it (rules 102).
-  settleCrafting(s, a, nameOf, (text, locationId) =>
-    addLog(s, "World", text, { kind: "narration", locationId }),
+  settleCrafting(s, a, nameOf, (text, locationId, outcome) =>
+    addLog(s, "World", text, {
+      kind: "narration",
+      verb: "craft",
+      locationId,
+      sourceSeq,
+      witnesses: witnessesAt(s, locationId),
+      ...outcome,
+    }),
   );
   // A traveler who comes to hold an item made for them uses it up (#1873).
   for (const held of applyHoldChoices(s))
@@ -3855,6 +3864,7 @@ export function validateWorld(s) {
     "drop",
     "focus",
     "claim",
+    "craft",
     "gate",
     "pack",
     "give",
@@ -3906,6 +3916,13 @@ export function validateWorld(s) {
     if (e.actorId != null && !actorIds.includes(e.actorId)) fail();
     if (e.locationId != null && !Object.hasOwn(places, e.locationId)) fail();
     if (e.verb != null && !verbs.includes(e.verb)) fail();
+    if (!validCraftEvent(s, e)) fail();
+    if (
+      e.verb === "craft" &&
+      (!places[e.locationId] ||
+        (!holderIds.has(e.holderId) && !ids.includes(e.holderId)))
+    )
+      fail();
     if (
       e.verb === "claim"
         ? e.kind !== "action" ||
