@@ -1659,7 +1659,9 @@ function choose(id) {
   const actor = currentActor(world),
     part = expandedHolders.has(actor) ? avatarStack(id) : null;
   const withCard = [...selected, id];
-  if (selected.length === 3 && selected.includes(id))
+  // Lower the card actually tapped before any stack-folding behavior.
+  // In a pair, tapping the expanded avatar must leave its partner chosen.
+  if (selected.length > 1 && selected.includes(id))
     selectCards(
       selected.filter((cardId) => cardId !== id),
       { keepOpen: true },

@@ -503,7 +503,9 @@ stays avatar, things, then quests, so no quest ever lies ahead of a thing
 next card, and a quest is the choice alone, offering its next step and
 **Discard**. A quest dealt while the stacks show rises in its own slot. A stack of one card hides nothing,
 so its card is chosen at the first tap. Tapping the avatar again folds both
-stacks back to the avatar, and tapping it once more lowers it.
+stacks back to the avatar, and tapping it once more lowers it. If two or more
+cards are chosen, tapping any chosen card lowers only that card and keeps
+the others chosen, including when you tap your avatar during Threaten.
 A person or place holding things shows the first of them peeking out behind
 its card. Reduced motion means nothing moves, not that nothing changes: keyframe motion stops and every transition left is an opacity fade of at most 300 ms (`style.css`, checked element by element by `v2/scripts/smoke-card-reduced-fades.mjs`). A pointer over a card shuffles it: the card and its preview stack lift together while the rest of the fan parts around it (180 ms; touch has no hover, reduced motion only brightens it).
 Every card names itself at its top in one label, for avatars, items, places,
