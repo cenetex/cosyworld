@@ -47,6 +47,13 @@ describe("locked boxes", () => {
     s.usedUp = s.usedUp.filter((id) => id !== "greek-provisions");
     expect(lockedQuest(s, "greek-provisions")).toBeNull();
   });
+  it("does not show a box for the always-open Cithaeron road", () => {
+    const s = createWorld();
+    s.packs["greek-drama"].scope = "full";
+    s.actors.vale.place = "greek-battlefield";
+    expect(isLockedBox(s, "greek-cithaeron")).toBe(false);
+    expect(lockedQuest(s, "greek-cithaeron")).toBeNull();
+  });
   it("lock the sealed card alone until its quest opens the way", () => {
     let s = openingFixture("burial").decree;
     expect(availableCards(s).filter((id) => isLockedBox(s, id))).toEqual([

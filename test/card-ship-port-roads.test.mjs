@@ -579,7 +579,7 @@ describe("the roads home keep the Greek story gates", () => {
     });
 
   for (const stage of ["open door", "ajax"])
-    it(`keeps the countryside behind a Theban outcome: ${stage}`, () => {
+    it(`keeps the City Gate shut while the open road reaches the countryside: ${stage}`, () => {
       const s = holding(stages[stage](), "greek-creon-writ", "greek-guard");
       const outcomes = [
         "greek-burial-account",
@@ -590,9 +590,11 @@ describe("the roads home keep the Greek story gates", () => {
       for (const from of starts) {
         const before = reach(s, from, { pinned: outcomes });
         expect(before.has("greek-battlefield")).toBe(true);
-        expect(has(before, COUNTRYSIDE), from).toEqual([]);
+        // The Battlefield–Cithaeron road and the connected countryside stay
+        // open even while the Theban outcome and City Gate remain unresolved.
+        expect(has(before, COUNTRYSIDE), from).toEqual(COUNTRYSIDE);
         expect(has(before, CITY), from).toEqual([]);
-        // The tablet reaches Dione's table: the Cithaeron road opens.
+        // The tablet still settles Thebes, while countryside access remains.
         const after = reach(
           holding(structuredClone(s), "greek-guard-tablet", "greek-courtyard"),
           from,
@@ -671,7 +673,7 @@ describe("the exposure ending with the City Gate shut", () => {
       openDoorStart("exposure", { gate: false }),
       "greek-harbor",
     );
-    expect(s.openedRoutes).not.toContain(CITY_GATE);
+    expect(s.openedRoutes || []).not.toContain(CITY_GATE);
     const reached = reach(s, "greek-harbor", {
       pinned: ["greek-creon-writ"],
       ship: true,
