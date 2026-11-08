@@ -7,6 +7,17 @@ import { createWorld, encodeSave } from "../card-game/world.mjs";
 import { enableMotives } from "../card-game/motives.mjs";
 import { selectCard } from "./card-browser-helpers.mjs";
 import { UNKNOWN_PERSON } from "../card-game/speech-knowledge.mjs";
+import { boardyPack } from "../card-game/boardyai.mjs";
+const entrance = boardyPack.crossings.find(
+  (c) => c.id === "station-boardyai-parlour",
+);
+const doorway = entrance.from;
+assert(["station", "attic"].includes(doorway));
+assert.equal(entrance.to, "boardyai-parlour");
+assert.equal(
+  boardyPack.crossings.find((c) => c.id === "boardyai-parlour-station").to,
+  doorway,
+);
 
 const server = createServer();
 await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
@@ -60,7 +71,7 @@ try {
         "one human sees no calling card",
       );
     }
-    // Boardy has left his attic doorway and meets Vale at the pond.
+    // Boardy has left his parlour doorway and meets Vale at the pond.
     const world = {
       ...seed,
       playerActorId: membership.actor,
@@ -176,15 +187,22 @@ try {
       throw Error("BoardyAI's visit stayed busy.");
     };
     await settle();
-    for (const [id, kind, turn, place] of [
-      ["station", "move", startTurn + 2, "station"],
-      ["boardyai-calling-card", "take", startTurn + 3, "station"],
-      ["lamp", "light", startTurn + 4, "station"],
-      ["pond", "move", startTurn + 5, "pond"],
-      ["attic", "move", startTurn + 6, "attic"],
-      ["boardyai-parlour", "move", startTurn + 7, "boardyai-parlour"],
-      ["attic", "move", startTurn + 8, "attic"],
-    ]) {
+    const journey = [
+      ["station", "move", "station"],
+      ["boardyai-calling-card", "take", "station"],
+      ...(doorway === "attic"
+        ? [
+            ["lamp", "light", "station"],
+            ["pond", "move", "pond"],
+            ["attic", "move", "attic"],
+          ]
+        : []),
+      ["boardyai-parlour", "move", "boardyai-parlour"],
+      [doorway, "move", doorway],
+    ];
+    let turn = startTurn + 1;
+    for (const [id, kind, place] of journey) {
+      turn += 1;
       await page.keyboard.press("Escape");
       await page.waitForFunction(
         () => !document.querySelector("#hand [data-revealing]"),
@@ -216,13 +234,13 @@ try {
         (key) => JSON.parse(localStorage.getItem(key)).turn,
         key,
       ),
-      startTurn + 8,
+      turn,
     );
     const saved = await page.evaluate(
       (key) => JSON.parse(localStorage.getItem(key)),
       key,
     );
-    assert.equal(saved.actors.vale.place, "attic");
+    assert.equal(saved.actors.vale.place, doorway);
     assert.equal(saved.items["boardyai-calling-card"].holder, "vale");
     assert.equal(
       await page.locator('#hand [data-card="boardyai-calling-card"]').count(),

@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import vm from "node:vm";
-import { dispatchShared } from "../v2/card-game/shared-world.mjs";
+import { currentSharedEngine } from "./fixtures/shared-engine.mjs";
+const rules125 = currentSharedEngine(125);
+const dispatch125 = (request) => JSON.parse(rules125.cardShared(JSON.stringify(request)));
 import { upgradeShoreRouteSave } from "../v2/card-game/legacy-saves.mjs";
 import { upgradedItems } from "./fixtures/card-upgraded-items.mjs";
 const releasedSource = readFileSync(new URL(
@@ -27,14 +29,14 @@ function earlierPlay(place) {
   world = accepted.world;
   return { world, request };
 }
-describe("earlier station route knowledge", () => {
+describe("earlier station route knowledge under rules125", () => {
   for (const place of ["attic", "station"]) {
     it(`upgrades an accepted old14 play at ${place} through the pond`, () => {
       const { world, request } = earlierPlay(place);
       const moved = ["attic"];
       const expectedOld = place === "station" ? moved.map((to) => [place, to]) : [[place, "station"]];
       for (const edge of expectedOld) expect(world.routeKnowledge["greek-rhapsode"]).toContainEqual(edge);
-      const next = dispatchShared(request("upgrade", { from: "full-card-world/14", to: "full-card-world/17" })).world;
+      const next = dispatch125(request("upgrade", { from: "full-card-world/14", to: "full-card-world/125" })).world;
       for (const [from, to] of expectedOld) {
         expect(next.routeKnowledge["greek-rhapsode"]).not.toContainEqual([from, to]);
         expect(next.routeKnowledge["greek-rhapsode"]).toContainEqual([from, "pond"]);
@@ -51,7 +53,7 @@ describe("earlier station route knowledge", () => {
   it("reroutes an old14 parlour journey through the attic without rewriting history", () => {
     const { world, request } = earlierPlay("boardyai-parlour");
     expect(world.routeKnowledge["greek-rhapsode"]).toContainEqual(["boardyai-parlour", "station"]);
-    const next = dispatchShared(request("upgrade", { from: "full-card-world/14", to: "full-card-world/17" })).world;
+    const next = dispatch125(request("upgrade", { from: "full-card-world/14", to: "full-card-world/125" })).world;
     for (const edge of [["boardyai-parlour", "attic"], ["attic", "pond"], ["pond", "station"]])
       expect(next.routeKnowledge["greek-rhapsode"]).toContainEqual(edge);
     expect(next.routeKnowledge["greek-rhapsode"]).not.toContainEqual(["boardyai-parlour", "station"]);

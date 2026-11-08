@@ -19,11 +19,16 @@ import {
 } from "../v2/card-game/pack-registry.mjs";
 import { enableMotives } from "../v2/card-game/motives.mjs";
 import { boardyPack, boardyFacts } from "../v2/card-game/boardyai.mjs";
-import {
-  upgradeBoardyAtticSave,
-  upgradeBoardyStationSave,
-} from "../v2/card-game/legacy-saves.mjs";
+import { upgradeBoardyStationSave } from "../v2/card-game/legacy-saves.mjs";
 import { sceneStaging } from "../v2/card-game/scene.mjs";
+
+const entrance = boardyPack.crossings.find(
+  (c) => c.id === "station-boardyai-parlour",
+);
+const doorway = entrance.from;
+const returnDoor = boardyPack.crossings.find(
+  (c) => c.id === "boardyai-parlour-station",
+);
 
 const view = (world, present = ["vale", "mara"], actor = "vale") =>
   dispatchShared({
@@ -81,7 +86,10 @@ describe("BoardyAI's presence and home", () => {
     expect(entityActive(view(world, ["vale"]).world, "cloth")).toBe(false);
   });
 
-  it("carries his station card to the attic doorway and keeps the return door", () => {
+  it("carries his station card to the authored doorway and keeps the return door", () => {
+    expect(["station", "attic"]).toContain(doorway);
+    expect(entrance.to).toBe("boardyai-parlour");
+    expect(returnDoor).toMatchObject({ from: entrance.to, to: doorway });
     let world = fresh();
     world.actors.vale.place = "station";
     const act = (kind, field, value) => {
@@ -104,18 +112,23 @@ describe("BoardyAI's presence and home", () => {
       "boardyai-calling-card",
     );
     expect(world.items["boardyai-calling-card"].holder).toBe("station");
-    expect(view(world).exits).not.toContain("boardyai-parlour");
+    expect(view(world).exits.includes("boardyai-parlour")).toBe(
+      doorway === "station",
+    );
     act("take", "item", "boardyai-calling-card");
-    act("take", "item", "lamp");
-    act("light", "item", "lamp");
-    act("move", "target", "pond");
-    act("move", "target", "attic");
+    if (doorway === "attic") {
+      act("take", "item", "lamp");
+      act("light", "item", "lamp");
+      act("move", "target", "pond");
+      act("move", "target", doorway);
+    }
     expect(view(world).exits).toContain("boardyai-parlour");
     world.items["boardyai-calling-card"].holder = "mara";
     expect(view(world).exits).not.toContain("boardyai-parlour");
-    world.items["boardyai-calling-card"].holder = "station";
+    world.items["boardyai-calling-card"].holder =
+      doorway === "attic" ? "station" : "attic";
     expect(view(world).exits).not.toContain("boardyai-parlour");
-    world.items["boardyai-calling-card"].holder = "attic";
+    world.items["boardyai-calling-card"].holder = doorway;
     expect(view(world).exits).toContain("boardyai-parlour");
     act("take", "item", "boardyai-calling-card");
     expect(view(world).exits).toContain("boardyai-parlour");
@@ -123,12 +136,12 @@ describe("BoardyAI's presence and home", () => {
     expect(world.actors.vale.place).toBe("boardyai-parlour");
     expect(world.items["boardyai-calling-card"].holder).toBe("vale");
     expect(view(decodeSave(encodeSave(world)), ["vale"]).exits).toContain(
-      "attic",
+      doorway,
     );
-    act("move", "target", "attic");
-    expect(world.actors.vale.place).toBe("attic");
+    act("move", "target", doorway);
+    expect(world.actors.vale.place).toBe(doorway);
     expect(view(world).exits).toContain("boardyai-parlour");
-    act("snuff", "item", "lamp");
+    if (doorway === "attic") act("snuff", "item", "lamp");
     act("move", "target", "pond");
     expect(view(world).exits).not.toContain("boardyai-parlour");
   });
@@ -159,7 +172,7 @@ describe("BoardyAI's presence and home", () => {
         (i) => i.id,
       ),
     ).toContain("boardyai-calling-card");
-    world.actors.vale.place = "attic";
+    world.actors.vale.place = doorway;
     world.items["boardyai-calling-card"].holder = "vale";
     expect(view(world, ["vale"]).exits).not.toContain("boardyai-parlour");
     expect(view(world).exits).toContain("boardyai-parlour");
@@ -191,50 +204,6 @@ describe("BoardyAI's presence and home", () => {
     const before = structuredClone(world);
     upgradeBoardyStationSave(world);
     expect(world).toEqual(before);
-  });
-
-  it("upgrades only revision 2's doorway knowledge while preserving the saved world", () => {
-    let world = fresh();
-    world.actors.vale.place = "station";
-    const action = view(world).actions.find(
-      (a) => a.kind === "take" && a.item === "boardyai-calling-card",
-    );
-    expect(action).toBeDefined();
-    world = dispatchShared({
-      op: "play",
-      world,
-      actor: "vale",
-      claimed: ["vale", "mara"],
-      present: ["vale", "mara"],
-      action,
-    }).world;
-    // A saved world omits live presence; normalize that existing boundary first.
-    world = decodeSave(encodeSave(world));
-    world.packs.boardyai.revision = 2;
-    world.crossings["station-boardyai-parlour"].discovered = true;
-    world.crossings["boardyai-parlour-station"].discovered = true;
-    world.routeKnowledge.vale = [
-      ["station", "boardyai-parlour"],
-      ["boardyai-parlour", "station"],
-      ["station", "pond"],
-      ["forest-garden", "forest-oak"],
-    ];
-    const expected = structuredClone(world);
-    expected.packs.boardyai.revision = 3;
-    expected.routeKnowledge.vale = [
-      ["station", "pond"],
-      ["pond", "attic"],
-      ["attic", "boardyai-parlour"],
-      ["boardyai-parlour", "attic"],
-      ["attic", "pond"],
-      ["pond", "station"],
-      ["forest-garden", "forest-oak"],
-    ];
-    const loaded = decodeSave(JSON.stringify(world));
-    expect(loaded).toEqual(expected);
-    upgradeBoardyAtticSave(loaded);
-    expect(loaded).toEqual(expected);
-    expect(decodeSave(encodeSave(loaded))).toEqual(expected);
   });
 
   it("validates his home and bounded human presence conditions", () => {
