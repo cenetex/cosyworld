@@ -408,6 +408,9 @@ async function wakeFades(page, width, name) {
     fade.pause();
     fade.currentTime = 175;
   });
+  const fading = await page.$eval(".title-intro > img", (logo) => Number(getComputedStyle(logo).opacity));
+  assert.ok(fading > 0 && fading < 1);
+  assert.equal(await page.$eval(".title-reveal", (row) => getComputedStyle(row).opacity), "1");
   await shot(page, `logo-out-${width}`);
   await page.$eval(".title-intro > img", (logo) =>
     logo.getAnimations().at(-1).play(),
@@ -431,7 +434,7 @@ async function wakeFades(page, width, name) {
   await sample(300);
   const dealt = await page.$$eval(".title-intro > .card-frame", (cards) =>
     cards.map((card) => ({
-      inert: card.inert,
+      inert: card.inert && card.getAttribute("aria-hidden") === "true" && !card.querySelector("[id]"),
       covered: card.querySelector(".card").dataset.unrevealed,
       ready: [...card.querySelectorAll("img")].every(
         (image) => image.complete && image.naturalWidth > 0,
@@ -474,6 +477,9 @@ async function wakeFades(page, width, name) {
           .querySelector(`#hand .card[data-card="${CSS.escape(id)}"]`)
           ?.closest(".card-frame");
       if (!original) return [];
+      const rotation = getComputedStyle(original).rotate;
+      const endpoint = copy.getAnimations()[0].effect.getKeyframes().at(-1).transform;
+      if (copy.offsetWidth !== original.offsetWidth || copy.offsetHeight !== original.offsetHeight || endpoint !== `rotate(${rotation === "none" ? "0deg" : rotation})`) return [Infinity];
       const a = copy.getBoundingClientRect(),
         b = original.getBoundingClientRect();
       return [
