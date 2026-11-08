@@ -7,7 +7,7 @@ import {
   RATIRADIO_PERFORMANCE,
   battleMusicDue,
   createMusicCues,
-  radioMusicDue,
+  locationMusicCue,
 } from "../v2/card-game/music-cues.mjs";
 import { createWorld, legalActions, play } from "../v2/card-game/world.mjs";
 
@@ -130,15 +130,27 @@ it("rechecks another tab's receipt before a muted broadcast starts", async () =>
   first.music.setEnabled(true);
   await advance(3000);
   expect([first.radio.paused, first.cues.current]).toEqual([true, null]);
+});
+
+it("selects a location cue from data for the requested avatar", () => {
+  const world = {
+    actors: {
+      visitor: { place: "small-studio" },
+      host: { place: "green-room" },
+    },
+  };
+  const tracks = { ambient: {}, "evening-set": { at: "small-studio" } };
+  expect(locationMusicCue(world, "visitor", tracks)).toBe("evening-set");
+  expect(locationMusicCue(world, "host", tracks)).toBe(null);
+  expect(locationMusicCue(world, "missing", tracks)).toBe(null);
+  expect(locationMusicCue(null, "visitor", tracks)).toBe(null);
   expect(
-    radioMusicDue(
-      { actors: { vale: { place: "ratiradio-broadcast-booth" } } },
-      "vale",
+    locationMusicCue(
+      { actors: { visitor: { place: RATIRADIO_PERFORMANCE.at } } },
+      "visitor",
+      { broadcast: RATIRADIO_PERFORMANCE },
     ),
-  ).toBe(true);
-  expect(
-    radioMusicDue({ actors: { vale: { place: "station" } } }, "vale"),
-  ).toBe(false);
+  ).toBe("broadcast");
 });
 
 it("records no broadcast receipt after refused playback, then retries on a gesture", async () => {

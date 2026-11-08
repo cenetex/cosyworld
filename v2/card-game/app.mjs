@@ -157,7 +157,7 @@ import {
   HUSH,
   battleMusicDue,
   funeralMusicDue,
-  radioMusicDue,
+  locationMusicCue,
   createMusicCues,
 } from "./music-cues.mjs";
 import { createHum } from "./hum.mjs";
@@ -1202,9 +1202,7 @@ function syncMusicCue() {
         ? "battle"
         : funeralMusicDue(world, currentActor(world))
           ? "funeral"
-          : radioMusicDue(world, currentActor(world))
-            ? "ratiradio"
-            : null,
+          : locationMusicCue(world, currentActor(world)),
       `${musicWorldId()}:${currentActor(world)}`,
     );
 }

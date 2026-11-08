@@ -17,6 +17,7 @@ const battle = {
 // One beat of the battle song, measured from the file (about 95 a minute).
 export const BATTLE_BEAT_SECONDS = 60 / 95;
 export const RATIRADIO_PERFORMANCE = {
+  at: "ratiradio-broadcast-booth",
   file: "night-shift-on-ratiradio-remastered.mp3",
   title: "Night Shift on RatiRadio — ratimics",
   fadeIn: 2,
@@ -33,7 +34,7 @@ export const CUE_TRACKS = {
     fadeOut: 2,
     once: true,
   },
-  ...(packPlaces["ratiradio-broadcast-booth"]
+  ...(packPlaces[RATIRADIO_PERFORMANCE.at]
     ? { ratiradio: RATIRADIO_PERFORMANCE }
     : {}),
   // The loss screen's song waits for the battle song to fade under the fade
@@ -67,8 +68,13 @@ export function funeralMusicDue(world, actor) {
   );
 }
 
-export const radioMusicDue = (world, actor) =>
-  world?.actors?.[actor]?.place === "ratiradio-broadcast-booth";
+// A location cue belongs to the listener's current room, regardless of avatar.
+export function locationMusicCue(world, actor, tracks = CUE_TRACKS) {
+  const place = world?.actors?.[actor]?.place;
+  return place
+    ? Object.entries(tracks).find(([, track]) => track.at === place)?.[0] ?? null
+    : null;
+}
 
 export function createMusicCues({
   makeAudio = () => new Audio(),
