@@ -2350,13 +2350,6 @@ function renderActions() {
       ? `Look at ${theName(selected[0])} up close.`
       : "";
   const selectionName = selected.map((id) => cardIsClosed(id) ? "Closed box" : nameOf(id)).join(" + ");
-  const itemDetails =
-    !rested &&
-    selected.length === 1 &&
-    things[selected[0]] &&
-    !cardIsClosed(selected[0])
-      ? `${nameOf(selected[0])}. ${things[selected[0]].text || ""} ${cardObservation(world, selected[0])}`.trim()
-      : "";
   $("selection-name").textContent = selected.length
     ? selectionName
     : "Card actions";
@@ -2375,8 +2368,7 @@ function renderActions() {
         ? shownQuestCaption(questShown, false)
         : (
             (actions[0] && playText(actions[0])) ||
-            clientText ||
-            itemDetails
+            clientText
           ).replace(
             /\b(the|an?) (?:the|an?) /giu,
             "$1 ",
@@ -2628,11 +2620,7 @@ function renderActions() {
     noteText = `${shownQuestCaption(picked, false)}. Cost ${dropCost(world, actor, picked.index)} XP.`;
   }
   showActionBeatNote(note, { note: noteText });
-  const text = abandonQuest
-    ? "Discard this quest?"
-    : itemDetails && sentence !== itemDetails
-      ? `${sentence}\n${itemDetails}`
-      : sentence;
+  const text = abandonQuest ? "Discard this quest?" : sentence;
   writeActionMessage(
     message,
     text,
