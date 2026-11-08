@@ -1,0 +1,7 @@
+{
+  "schemaVersion": 1,
+  "id": "sample",
+  "packId": "cosyworld.sample",
+  "revision": 1,
+  "entry": "sample-door"
+}
