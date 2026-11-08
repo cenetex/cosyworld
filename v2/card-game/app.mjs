@@ -1,3 +1,4 @@
+import { applyHeldChoice, heldItem } from "./held-item.mjs";
 import { renderCardDescriptor } from "./card-descriptor.mjs";
 import {
   nameTitleWaker,
@@ -259,7 +260,7 @@ let world = sharedSession
   selectionRevision = 0,
   dragging = [],
   // The hand rests folded until a card is touched. Only a click outside
-  // the card area or Escape folds it again, and clears the choice; a play,
+  // the card area or Escape folds it again, preserving the held item; a play,
   // changing the selection and deselecting never do.
   rowCollapsed = true;
 // Name the save slot: table saves are keyed off the URL param, so a player
@@ -360,6 +361,7 @@ try {
   saveBlocked = true;
   notice(error.message + " Use New game to start again.");
 }
+selected = [heldItem(world, currentActor(world))].filter(Boolean);
 const UNSAVED_NOTICE =
   "This browser could not save the world. Keep this tab open to keep playing.";
 if (storageBlocked) notice(UNSAVED_NOTICE);
@@ -663,7 +665,7 @@ async function prepareScene() {
 }
 function selectionBlocked() {
   return (
-    saveBlocked || pipLeaving ||
+    saveBlocked || pipLeaving || holdingChoice ||
     covering ||
     Boolean(sharedSession && !hasSharedPlace(sharedSession.state))
   );
@@ -671,6 +673,7 @@ function selectionBlocked() {
 // The player's latest shared play, from sending until the table settles it.
 let sharedPlay = null;
 let sharedSending = false;
+let holdingChoice = false;
 let sharedRefusal = null;
 let sharedNoticeSeen;
 function ownSharedEntry() {
@@ -1118,9 +1121,9 @@ $("voice-retry").onclick = () => characterSpeech.retry();
 let musicEnabled = true,
   musicVolume = 0.3;
 function musicPlayed() {
-  return sharedSession
-    ? sharedSession.state.music_started === true
-    : world.turn > 0;
+  return (sharedSession ? sharedSession.state.music_started === true : world.turn > 0) ||
+    Boolean(world.opening && currentActor(world) === "vale" &&
+      world.actors.vale.place === "attic" && openingRevealed(world, "vale"));
 }
 // The opening attic stays silent until the lamp goes out and its mirror
 // first shows the Black pond. This world's id is remembered at that moment,
@@ -1397,11 +1400,33 @@ const SETTLE_MS = 500;
 // A held item stays raised until it leaves the player's hands. An item that
 // arrives in the player's hands through the play, such as the other side of a
 // trade or a take, becomes the held item instead.
+async function persistHeldChoice(item) {
+  const choice = { item, revision: world.revision };
+  holdingChoice = true;
+  try {
+    if (sharedSession)
+      await sharedSession.command({ op: "hold", action: choice });
+    else {
+      applyHeldChoice(world, currentActor(world), choice);
+      save();
+    }
+  } catch (error) {
+    // Never resend an uncertain choice: fetch the committed state instead.
+    if (sharedSession) await sharedSession.sync().catch(() => {});
+    selected = selected.filter(
+      (id) =>
+        !world.items[id] || world.items[id].holder !== currentActor(world),
+    );
+    selected.push(...[heldItem(world, currentActor(world))].filter(Boolean));
+    notice(error.message);
+  } finally {
+    holdingChoice = false;
+    selectionRevision = world.revision;
+    render();
+  }
+}
 function heldSelection() {
-  return {
-    held: selected.filter((id) => selectedHandItem(world, [id])),
-    hands: handItems(),
-  };
+  return { hands: handItems() };
 }
 function handItems() {
   const actor = currentActor(world);
@@ -1422,11 +1447,7 @@ function keepHeldSelection(before, action = null) {
   // A standoff locks the room and takes the held things out of the hand
   // (#1775), so a raised item leaves the selection with its card.
   const shown = availableCards(world);
-  const held = (
-    received
-      ? [received]
-      : before.held.filter((id) => selectedHandItem(world, [id]))
-  ).filter((id) => shown.includes(id));
+  const held = [heldItem(world, actor)].filter((id) => id && shown.includes(id));
   const keepActor = held.length > 0 && selected.includes(actor);
   // The avatar's open stacks stay open after a deed, including a last gift.
   const expanded = expandedHolders.has(actor);
@@ -1718,6 +1739,11 @@ function choose(id) {
           : [...selected, id],
       { keepOpen: lowering },
     );
+  }
+  if (world.items[id]?.holder === actor) {
+    const current = heldItem(world, actor);
+    const item = selected.includes(id) ? id : current === id ? null : current;
+    if (item !== current) void persistHeldChoice(item);
   }
   selectionRevision = world.revision;
   render();
@@ -3525,13 +3551,6 @@ function returnToLive() {
   renderScene();
   if (!$("dialogue-advance").hidden) $("dialogue-advance").focus();
 }
-const litCarried = (actor) =>
-  Object.keys(world.items).find(
-    (id) =>
-      world.items[id].lit &&
-      rootHolder(world, id) === actor &&
-      !cardIsCovered(id),
-  ) || null;
 function renderHeldItem(figure, actor, itemId) {
   let preview = figure.querySelector(".portrait-held-item");
   figure.setAttribute(
@@ -3724,7 +3743,6 @@ function renderScene() {
   $("cast").dataset.shared = String(Boolean(sharedSession));
   $("cast").style.setProperty("--cast-count", String(staging.actors.length));
   const castKey = JSON.stringify(staging.actors.map(({ id }) => id));
-  const handItem = selectedHandItem(world, selected);
   if (castKey !== renderedCast) {
     renderedCast = castKey;
     const existing = new Map(
@@ -3797,14 +3815,12 @@ function renderScene() {
     image.dataset.source = actor.cutout;
     image.dataset.flip = String(flipStagePortrait(actor.cutout, actor.facing));
     figure.dataset.flip = image.dataset.flip;
-    // A raised hand card shows in the player's hand; otherwise a figure
-    // carrying a lit light holds it up, as Vale wakes holding the lamp.
+    // Everyone sees the same saved prop; target selection is presentation.
+    const held = heldItem(world, id);
     renderHeldItem(
       figure,
       actor,
-      sleeping
-        ? null
-        : (id === currentActor(world) && handItem) || litCarried(id),
+      sleeping || cardIsCovered(held) ? null : held,
     );
     figure.classList.toggle(
       "active",
@@ -5345,15 +5361,11 @@ document.addEventListener("keydown", (e) => {
     (selected.length || expandedHolders.size || !rowCollapsed || questOpen)
   ) {
     playQueue.clear();
-    selected = [];
-    questOpen = false;
-    expandedHolders.clear();
-    rowCollapsed = true;
-    render();
+    foldHand();
   }
 });
-// A click outside the cards and the dialogue folds the row and clears the
-// choice, as Escape does: the action panel fades and the full dialogue card
+// A click outside the cards and dialogue folds the row, keeping the held
+// item but clearing targets: the action panel fades and the full dialogue card
 // is back. A tap on the dialogue steps its beat and leaves the
 // hand be, as do the toolbar, dialogs and buttons. Nothing else moves it.
 document.addEventListener("click", (e) => {
@@ -5385,7 +5397,7 @@ document.addEventListener("click", (e) => {
   foldHand();
 });
 function foldHand() {
-  selected = [];
+  selected = [heldItem(world, currentActor(world))].filter(Boolean);
   questOpen = false;
   rowCollapsed = true;
   expandedHolders.clear();
@@ -5448,7 +5460,7 @@ function resetTable(next = freshWorld()) {
   // A new game starts its hand from the left.
   renderedHandPlace = null;
   lineSeq = null;
-  selected = [];
+  selected = [heldItem(world, currentActor(world))].filter(Boolean);
   expandedHolders.clear();
   rowCollapsed = true;
   saveBlocked = false;
@@ -5861,7 +5873,13 @@ function adoptShared(value) {
     // The Talk that met the hidden avatar unlocks it: a beat says so.
     const found =
       alreadyOpen && unlockedSince(next, value.actor, lastSeq(world));
+    const previousHeld = heldItem(world, previousActor);
     world = next;
+    const nextHeld = heldItem(world, currentActor(world));
+    if (previousHeld !== nextHeld || previousActor !== currentActor(world)) {
+      selected = selected.filter((id) => id !== previousHeld && id !== nextHeld);
+      if (nextHeld) selected.push(nextHeld);
+    }
     sharedWorldKey = key;
     if (found)
       showActionBeat({

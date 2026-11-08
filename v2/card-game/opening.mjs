@@ -1,7 +1,7 @@
 // A new world's opening (PRD tap-to-reveal, #2182): Vale alone on black; a
 // tap brings in the lit lamp he holds and another the lit attic, in either
-// order; then the first real play, Put out, darkens the room and the rules
-// bring a new card. Presentation only: the rules' offers are unchanged, and
+// order; putting the lamp away darkens the room and reveals the mirror.
+// Presentation only: the rules' offers are unchanged, and
 // a world past its first turn, or a shared one, has no opening.
 import { rootHolder } from "./world.mjs";
 
@@ -12,6 +12,8 @@ export const OPENING_REVEAL = "Reveal";
 // "play" with the cards for its first play, or null once it is past.
 export function openingStep(world, actor, covered) {
   if (!world.opening || world.turn !== 0 || !world.actors[actor]) return null;
+  // Stowing is a quiet choice, not a turn. Its dark mirror ends the opening.
+  if (actor === "vale" && world.items.lamp?.lit === false) return null;
   const light = Object.keys(world.items).find(
     (id) => world.items[id].lit && rootHolder(world, id) === actor,
   );
