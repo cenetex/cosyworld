@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { makerCardLayout } from "../v2/card-game/card-tree-layout.mjs";
+import { makerCardLayout, placeCardTree } from "../v2/card-game/card-tree-layout.mjs";
 const cards = [
   { id: "world", group: true },
   { id: "room", holder: "world", group: true },
@@ -64,5 +64,19 @@ describe("maker table and hand", () => {
       world: "table",
       other: "table",
     });
+  });
+  it("keeps default tree placement unmarked after leaving maker layout", () => {
+    const values = new Map();
+    const screen = {
+      dataset: {},
+      style: { setProperty: (key, value) => values.set(key, value) },
+      querySelectorAll: () => [],
+    };
+    const state = { active: "world", expanded: ["world"] };
+    placeCardTree(screen, cards, state, makerCardLayout);
+    expect(screen.dataset.makerHand).toBe("true");
+    placeCardTree(screen, cards, state);
+    expect(screen.dataset.makerHand).toBeUndefined();
+    expect(screen.dataset.layout).toBe("tree");
   });
 });

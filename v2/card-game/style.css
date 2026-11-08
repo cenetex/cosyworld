@@ -3681,26 +3681,23 @@ body .beat-stack > .action-panel[data-card-tap]:not([hidden]) {
 }
 
 /* Maker: played boxes remain on the table; their loose cards form the hand. */
-#settings-screen[data-layout="tree"] #settings-hand {
+#settings-screen[data-layout="tree"][data-maker-hand="true"] #settings-hand {
   grid-template-rows: repeat(var(--tree-table-rows), max-content) minmax(
       max-content,
       1fr
     );
 }
-#settings-screen[data-layout="tree"] .card-frame[data-zone="hand"] {
-  position: sticky;
-  bottom: 0;
-  z-index: 2;
+#settings-screen[data-layout="tree"][data-maker-hand="true"] .card-frame[data-zone="hand"] {
   align-self: end;
   margin-top: 44px;
   rotate: clamp(-4deg, calc(var(--fan-at) * 1deg), 4deg);
 }
 @media (max-width: 700px) {
-  #settings-screen[data-layout="tree"] #settings-hand {
+  #settings-screen[data-layout="tree"][data-maker-hand="true"] #settings-hand {
     grid-template-columns: repeat(var(--tree-columns), minmax(96px, 116px));
     justify-content: safe center;
   }
-  #settings-screen[data-layout="tree"] .card-frame {
+  #settings-screen[data-layout="tree"][data-maker-hand="true"] .card-frame {
     grid-row: var(--tree-row);
     grid-column: var(--tree-column) / span var(--tree-span);
   }

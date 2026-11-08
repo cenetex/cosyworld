@@ -57,6 +57,8 @@ export function placeCardTree(screen, cards, state, layout = cardTreeLayout) {
   const { nodes, columns } = layout(cards, state);
   const positions = new Map(nodes.map((node) => [node.id, node]));
   screen.dataset.layout = "tree";
+  if (layout === makerCardLayout) screen.dataset.makerHand = "true";
+  else delete screen.dataset.makerHand;
   screen.style.setProperty("--tree-columns", columns);
   screen.style.setProperty(
     "--tree-table-rows",

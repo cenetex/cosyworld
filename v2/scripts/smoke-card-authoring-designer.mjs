@@ -292,6 +292,33 @@ try {
     assert(
       (await page.locator('[data-zone="hand"] [data-setting]').count()) > 0,
     );
+    const geometry = await page.locator("#settings-hand").evaluate((hand) => {
+      const boxes = [...hand.querySelectorAll('[data-zone="table"]')].map(
+        (el) => el.getBoundingClientRect(),
+      );
+      const cards = [...hand.querySelectorAll('[data-zone="hand"]')].map((el) =>
+        el.getBoundingClientRect(),
+      );
+      return {
+        tableBottom: Math.max(...boxes.map((box) => box.bottom)),
+        handTop: Math.min(...cards.map((card) => card.top)),
+      };
+    });
+    assert(
+      geometry.handTop > geometry.tableBottom,
+      "hand is below, not over, the played table cards",
+    );
+    await page.locator(`[data-setting="${avatarId}"]`).focus();
+    await page.keyboard.press("ArrowDown");
+    assert.notEqual(
+      await page.evaluate(() => document.activeElement.dataset.setting),
+      avatarId,
+    );
+    await page.keyboard.press("ArrowUp");
+    assert.equal(
+      await page.evaluate(() => document.activeElement.dataset.setting),
+      avatarId,
+    );
     const uniqueIds = await page
       .locator("#settings-hand [data-setting]")
       .evaluateAll((els) => els.map((el) => el.dataset.setting));
