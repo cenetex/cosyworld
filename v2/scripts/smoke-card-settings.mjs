@@ -139,6 +139,17 @@ try {
     await tapCard(setting(page, "controls"));
     await tapCard(setting(page, "play"));
     assert.equal(await button(page).textContent(), "Close settings");
+    // Radio is offered in World and uses the same pack action in every viewport.
+    await pressSetting(page, "pack-radio");
+    await page
+      .locator('[data-setting="pack-radio"][data-lit="false"]')
+      .waitFor({
+        state: "attached",
+      });
+    await pressSetting(page, "pack-radio");
+    await page.locator('[data-setting="pack-radio"][data-lit="true"]').waitFor({
+      state: "attached",
+    });
     // A pack switches off and dims, and on again.
     await pressSetting(page, "pack-sea");
     await page.locator('[data-setting="pack-sea"][data-lit="false"]').waitFor({
