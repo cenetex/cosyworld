@@ -4,6 +4,7 @@
 // another folds it, and the chosen card's beat borrows the context button.
 // The controls behind the cards are the buttons in #menu-dialog, which no
 // longer opens.
+import { transparentLogo } from "./title-logo.mjs";
 import { imageUrl } from "./images.mjs";
 import { hostedVoices } from "./hosted-voices.mjs";
 import { localRuntime } from "./local-service.mjs";
@@ -45,7 +46,7 @@ function showVeil() {
   if (!logo) return veil.replaceChildren(scene);
   const image = veil.querySelector(".settings-logo") || new Image();
   Object.assign(image, { alt: "", className: "settings-logo" });
-  image.src = imageUrl(logo);
+  image.src = imageUrl(transparentLogo(logo));
   veil.replaceChildren(image, scene);
 }
 // Shared play's passkey buttons sit in #menu-dialog by their names.
