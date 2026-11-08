@@ -11,8 +11,10 @@ People sit at rest; Skull and Whiskerwind curl up. Glim's bowl rests on folded
 legs. Oak keeps his wooden face. Each transparent canvas has room above the pose.
 
 Status: all 49 portraits are saved and checked, covering all 55 roster actor IDs.
-These source PNGs are an art handoff. Game selection and final WebP exports are
-future work.
+Dione and Antigone now use their registered sleeping portraits in the hand and
+scene while their committed state is asleep. Waking restores their ordinary
+portraits. The remaining source PNGs are an art handoff for later registration
+and final WebP exports.
 
 The [roster](roster.json) records shared identities and actor aliases.
 [Prompts](prompts.json) record each source reference and generated PNG path.

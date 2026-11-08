@@ -13,6 +13,7 @@ import {
   portraitFraming,
 } from "../v2/card-game/portrait-facing.mjs";
 import { publicAssets } from "../v2/card-game/public-assets.mjs";
+import { imageUrl } from "../v2/card-game/images.mjs";
 
 const choose = (world, pick, actor = "vale") =>
   play(world, legalActions(world, actor).find(pick), world.revision, actor)
@@ -89,7 +90,7 @@ describe("sleeping art", () => {
     const world = createWorld();
     world.actors.vale.place = "station";
     expect(sleepingPortrait(wait(world), "vale")).toBeNull();
-    // Residents never Sleep; one marked asleep without art keeps its own.
+    // A resident without a sleeping painting keeps its ordinary art.
     const before = portrait("greek-creon", null, world);
     world.actors["greek-creon"].sleeping = {
       since: 0,
@@ -99,6 +100,47 @@ describe("sleeping art", () => {
     expect(portrait("greek-creon", null, world)).toBe(before);
     expect(sleepingPortrait(null, "vale")).toBeNull();
     expect(sleepingPortrait(world, "unknown")).toBeNull();
+  });
+
+  it("keeps Antigone's registered sleep painting until a committed wake", () => {
+    const id = "greek-antigone";
+    const file = "./assets/sleep/residents/greek-antigone-sleeping.png";
+    const world = createWorld({ packScopes: { "greek-drama": "full" } });
+    world.turn = world.revision = 95;
+    world.actors.vale.place = "greek-gate";
+    world.actors[id].sleeping = {
+      since: 90,
+      place: "greek-gate",
+      until: 96,
+    };
+    expect(portrait(id, null, world)).toBe(file);
+    expect(sceneStaging(world, { cast: [id] }).actors[0]).toMatchObject({
+      id,
+      cutout: file,
+      pose: "sleep",
+    });
+    expect(sleepPortraitAssets).toContain(file.slice(2));
+    expect(nativePortraitFacing(file)).toBe("left");
+    expect(flipStagePortrait(file, "right")).toBe(true);
+    expect(publicAssets.map(({ file: asset }) => asset)).toContain(
+      file.slice(2),
+    );
+    expect(imageUrl(file, "card")).toContain(
+      `/assets/optimized/card/png/sleep/residents/${id}-sleeping.webp`,
+    );
+    expect(imageUrl(file, "phone")).toContain(
+      `/assets/optimized/phone/png/sleep/residents/${id}-sleeping.webp`,
+    );
+    const awake = wait(world, "vale");
+    expect(awake.turn).toBe(96);
+    expect(awake.actors[id].sleeping).toBeUndefined();
+    expect(sleepingPortrait(awake, id)).toBeNull();
+    expect(portrait(id, null, awake)).toBe(
+      "./assets/greek-drama/chthonic-antigone.png",
+    );
+    expect(sceneStaging(awake, { cast: [id] }).actors[0]).toMatchObject({
+      cutout: "./assets/greek-drama/chthonic-antigone.png",
+    });
   });
 
   it.each(humanAvatarIds)(
@@ -128,14 +170,13 @@ describe("sleeping art", () => {
   );
 
   it("publishes the complete pack and never mirrors the keeper's clock", () => {
-    expect(sleepPortraitAssets).toHaveLength(19);
+    expect(sleepPortraitAssets).toHaveLength(20);
     const published = new Set(publicAssets.map(({ file }) => file));
     for (const file of sleepPortraitAssets) {
       expect(published.has(file), file).toBe(true);
       expect(portraitFraming(file), file).toBe("wide");
     }
-    // Residents never Sleep under the rules; their art follows the same
-    // committed state should a later rule let them.
+    // Pip and the keeper retain their registered sleeping paintings.
     const world = createWorld();
     for (const id of ["moth", "keeper"]) {
       world.actors[id].sleeping = { since: 0, place: "attic", present: [] };

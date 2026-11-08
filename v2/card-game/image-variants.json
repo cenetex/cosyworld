@@ -5156,6 +5156,15 @@
       "phone": "assets/optimized/phone/webp/sleep/moth-sleeping.webp",
       "phoneHash": "6ae23677abfd123501a7fd8e96cc11674859fe7adfdfb7917b0faeeeaed1c1d6"
     },
+    "assets/sleep/residents/greek-antigone-sleeping.png": {
+      "sourceHash": "848ea4359a743f157fdedc50958dcab3ba4b8f11eaa9f4cdb7999d6aaf8580c4",
+      "stage": "assets/optimized/stage/png/sleep/residents/greek-antigone-sleeping.webp",
+      "stageHash": "a7ac6c062bafd59f3fd90fe45b1a55b4fe374aafc61026e4480e0dd7b253863f",
+      "card": "assets/optimized/card/png/sleep/residents/greek-antigone-sleeping.webp",
+      "cardHash": "aaa7e94805b32385e99eb204a3323ef50b56ba45b71261299070f624e1eaafb8",
+      "phone": "assets/optimized/phone/png/sleep/residents/greek-antigone-sleeping.webp",
+      "phoneHash": "72285b4a1ee9159c3da883578f49b372fcc53412e998daceec11150e73374a37"
+    },
     "assets/station.png": {
       "sourceHash": "7dacf532b00c33735860d19273366188d6f759df6ad2f5429f15d287c08d1a33",
       "stage": "assets/optimized/stage/png/station.webp",
