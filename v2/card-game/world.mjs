@@ -1597,6 +1597,7 @@ export function legalActions(s, actor = currentActor(s)) {
           canDisembark(s, crossing.transport, id)) &&
         id !== actor &&
         !controlledByHuman(s, id) &&
+        !guardOf(s, here, to, id) &&
         ((!staysPut(id, s) && !keepsHome(s, id)) ||
           packJourneyDestination(s, id) === to) &&
         !departureWaits(s, id, to) &&
@@ -2566,10 +2567,16 @@ function performPlay(s, a, round = null, settle = []) {
       }
       break;
     }
-    case "move":
+    case "move": {
+      const guard = guardOf(s, here, a.target);
+      if (guard && guard !== a.actor) {
+        text += ` ${nameOf(guard)} lets ${who} through.`;
+        affected = guard;
+      }
       if (travel(s, a.actor, a.target) && firstCrossing)
         text += " Something on the far shore turns its head.";
       break;
+    }
     case "take":
       transfer(s, a.item, a.actor, a.text);
       break;
@@ -3147,6 +3154,8 @@ function wantPlan(s, actor) {
     owner = rootHolder(s, item);
   // Held but not as wanted: uncover it, then light or put it out.
   if (owner === actor) {
+    if (want.step?.verb === "eat" && want.step.at && want.step.at !== here)
+      return go(want.step.at);
     if (want.lit === undefined) return idle();
     const cover = ids.find((id) => s.items[id].holder === item);
     const fix = cover

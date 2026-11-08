@@ -848,3 +848,8 @@ unchanged.
 
 Import cards list local or GitHub sources, then save the chosen world and its
 assets as a fresh local draft. Portable files keep their source document.
+
+A resident’s optional `passWhen` conditions grant passage through that resident’s
+guarded way for the current traveller. `{ "kind": "trusted", "actor": "resident-id",
+"min": 1 }` reads that resident’s trust in the traveller; active grievances take
+priority. This condition belongs to live, traveller-specific checks.

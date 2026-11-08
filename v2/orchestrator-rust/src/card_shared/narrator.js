@@ -2028,6 +2028,10 @@
         const who = actor || senses2?.player || currentActor(s);
         return (c.topics || [c.topic]).some((topic) => knowsFact(s, who, topic));
       }
+      case "trusted":
+        return (s.actors[c.actor]?.trust?.[actor] || 0) >= c.min && !(s.motives?.grievances?.[c.actor] || []).some(
+          (g) => g.other === actor && grievanceActive(s, g)
+        );
       case "holding":
         return s.items[c.item]?.holder === (c.role === "actor" ? actor : c.actor) && !usedUp(s, c.item);
       // A one-way cosmetic upgrade the traveler carries between worlds (#1873).
@@ -16220,6 +16224,7 @@
     "choice_unset",
     "flag",
     "holding",
+    "trusted",
     "item_at",
     "item_present",
     "item_near",
@@ -16619,6 +16624,7 @@
           "variants",
           "home",
           "homeWhen",
+          "passWhen",
           "appearsWhen",
           "values",
           "desire",
@@ -16771,6 +16777,9 @@
           case "talked":
             ok = keysOk(c, ["kind", "person"]) && owns3(avatars, c.person);
             break;
+          case "trusted":
+            ok = keysOk(c, ["kind", "actor", "min"]) && owns3(avatars, c.actor) && intOk(c.min, 1, 3);
+            break;
           case "holding":
             ok = keysOk(c, ["kind", "item", "actor", "role"]) && owns3(items2, c.item) && (c.role === void 0 ? c.actor === hub2.player || owns3(avatars, c.actor) : c.role === "actor" && c.actor === void 0);
             break;
@@ -16913,6 +16922,7 @@
         );
         requirements(d.requires, `avatar ${id} desire requires`);
       }
+      requirements(a.passWhen, `avatar ${id} passage requires`, false);
       requirements(a.stayUntil, `avatar ${id} stayUntil`);
     }
     for (const [id, i] of Object.entries(items2)) {
@@ -19961,7 +19971,12 @@
       const a = s.actors[id];
       if (id === traveller || a?.guarding !== beyond || a.place !== post || !entityActive(s, id))
         continue;
-      if (!humanAvatar(id)) return id;
+      if (!humanAvatar(id)) {
+        const person = packPeople[id];
+        if (traveller && person?.passWhen && conditionsMet(s, person.packId, person.passWhen, traveller))
+          continue;
+        return id;
+      }
       if (humanPresent(s, id) && !(traveller && controlledByHuman(s, traveller)))
         return id;
     }

@@ -69,6 +69,7 @@ export const CONDITION_KINDS = [
   "choice_unset",
   "flag",
   "holding",
+  "trusted",
   "item_at",
   "item_present",
   "item_near",
@@ -685,6 +686,7 @@ export function packProblems(pack, hub, mountedPlaces = [], mountedItems = []) {
         "variants",
         "home",
         "homeWhen",
+        "passWhen",
         "appearsWhen",
         "values",
         "desire",
@@ -968,6 +970,12 @@ export function packProblems(pack, hub, mountedPlaces = [], mountedItems = []) {
         case "talked":
           ok = keysOk(c, ["kind", "person"]) && owns(avatars, c.person);
           break;
+        case "trusted":
+          ok =
+            keysOk(c, ["kind", "actor", "min"]) &&
+            owns(avatars, c.actor) &&
+            intOk(c.min, 1, 3);
+          break;
         case "holding":
           ok =
             keysOk(c, ["kind", "item", "actor", "role"]) &&
@@ -1185,6 +1193,7 @@ export function packProblems(pack, hub, mountedPlaces = [], mountedItems = []) {
       );
       requirements(d.requires, `avatar ${id} desire requires`);
     }
+    requirements(a.passWhen, `avatar ${id} passage requires`, false);
     requirements(a.stayUntil, `avatar ${id} stayUntil`);
   }
   for (const [id, i] of Object.entries(items)) {
