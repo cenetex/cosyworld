@@ -148,7 +148,9 @@ export function verifyStore(v2, { check = true } = {}) {
       "Invalid source repository",
     );
     assert(
-      /^[a-f0-9]{40}$/.test(source.commit) && !/^0+$/.test(source.commit),
+      typeof source.commit === "string" &&
+        /^[a-f0-9]{40}$/.test(source.commit) &&
+        !/^0+$/.test(source.commit),
       "Pin an exact source commit",
     );
     assert(
@@ -156,6 +158,7 @@ export function verifyStore(v2, { check = true } = {}) {
         Number.isSafeInteger(pinned.revision) &&
         pinned.revision > 0 &&
         pinned.contract === CONTRACT &&
+        typeof pinned.sha256 === "string" &&
         /^[a-f0-9]{64}$/.test(pinned.sha256),
       "Invalid contract, revision, mount state or hash",
     );

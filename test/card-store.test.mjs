@@ -103,6 +103,17 @@ it.each(["vendor", "published"])(
     expect(() => verifyStore(root)).toThrow(/symlink/);
   },
 );
+it.each(["commit", "sha256"])("rejects array-valued %s pins", (field) => {
+  const root = fixture();
+  for (const name of ["store.json", "vendor-manifest.json"]) {
+    const data = read(root, `worldpacks/${name}`);
+    const entry = data.packs[0];
+    const pin = field === "commit" ? entry.source : entry.pinned;
+    pin[field] = [pin[field]];
+    write(root, `worldpacks/${name}`, data);
+  }
+  expect(() => verifyStore(root)).toThrow(/Pin an exact|Invalid contract/);
+});
 it.each(["tamper", "executable", "oversize", "missing-provenance"])(
   "rejects %s payloads",
   (change) => {

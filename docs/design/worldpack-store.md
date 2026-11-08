@@ -1,26 +1,11 @@
 # Worldpack store integrity
 
-The catalog starts empty. This first step adds an offline integrity check;
-the runtime compiler does not admit store packs yet. It changes no released
-engine bundle.
+The catalog starts empty. This offline integrity gate changes no released engine; the runtime compiler does not admit store packs yet.
 
-Run `node v2/scripts/build-card-store.mjs --check` to compare the complete
-vendor manifest with the verified, mounted index entries. The same command
-without `--check` writes that manifest after all integrity checks pass.
-Both modes compare every published asset with the recursive vendored asset
-set, including missing files, extra files, nested folders, byte lengths and
-SHA-256 hashes. They neither download files nor repair asset copies.
+Run `node v2/scripts/build-card-store.mjs --check` to compare the complete vendor manifest with verified, mounted index entries. Without `--check`, it writes that manifest after all checks pass. Both modes compare every published asset with the recursive vendored set: missing files, extra files, nested folders, lengths, SHA-256 hashes. Neither downloads nor repairs assets.
 
-The defined payload is `worldpack.json`, `card-world.json`, `card-bridge.json`,
-`PROVENANCE.md`, plus `assets/`. Pins cover sorted path, byte length and hash
-records. Manifest identity, revision, engine contract and source repository
-must agree with the index. Unmounted entries remain checked but do not enter
-the vendor manifest. Paths reject traversal, symlinks and executable files;
-payloads allow 512 files, 1,024 paths, 16 MiB per file, 128 MiB total, eight
-nested folders, 32 catalog entries. PNG/WebP and MP3 assets are supported.
+The payload is `worldpack.json`, `card-world.json`, `card-bridge.json`, `PROVENANCE.md`, plus `assets/`. Pins cover sorted path, length, hash records. Identity, revision, contract, source must match the index. Unmounted entries remain checked but stay outside the vendor manifest.
 
-The local content hash proves agreement with the reviewed vendored bytes.
-It does not prove their upstream origin. The next step adds an explicit
-commit-pinned importer with Git object evidence, including provenance.
-Compiler admission follows that step through the same verified result,
-using current bridge entries and switchable groups before any pack is mounted.
+Paths reject traversal, symlinks, executable files. Limits: 512 files, 1,024 paths, 16 MiB per file, 128 MiB total, eight nested folders, 32 entries. PNG/WebP plus MP3 assets are supported.
+
+The local hash proves agreement with reviewed bytes, not upstream origin. Next: a commit-pinned importer with Git object evidence, including provenance; then compiler admission using this verified result, current bridge entries, switchable groups before any pack is mounted.
