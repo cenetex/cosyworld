@@ -91,6 +91,8 @@ import {
   beginQuestPlay,
   endQuestPlay,
   levelOf,
+  levelReturnHome,
+  settleHomeLevels,
   wantOf,
   wantKey,
   travels,
@@ -896,7 +898,11 @@ function reachable(s, actor, within = null) {
       }
   return [...seen].filter((id) => id !== from && !transportPlace(id)).sort();
 }
-const homeOf = (id) => tastes[id]?.home || humanAvatar(id)?.home?.id || null;
+const homeOf = (id) =>
+  (packPeople[id]?.levelAtHome && packPeople[id].home) ||
+  tastes[id]?.home ||
+  humanAvatar(id)?.home?.id ||
+  null;
 // Avatars that became residents of a shared world (#1846) take a want at once.
 export const fillSeatWants = (s) => fillWants(s, wantAPI(s), true);
 // The world reads the want rules use, exported for their tests.
@@ -2206,6 +2212,8 @@ function wakeResident(s, id) {
 }
 // Where a resident's want would take it, or null.
 function wantPlace(s, id) {
+  const home = levelReturnHome(s, id);
+  if (home) return home;
   const want = wantOf(s, id);
   if (!want || resting(s, id)) return null;
   if (want.kind === "place") return want.target;
@@ -2980,6 +2988,7 @@ function readPlan(s, actor) {
     );
   if (landing) return { action: landing };
   const selected = wantPlan(s, actor);
+  if (levelReturnHome(s, actor)) return selected;
   return reconsiderPlan(
     s,
     actor,
@@ -3072,6 +3081,11 @@ function wantPlan(s, actor) {
       (id) => conflict.hitBy?.[id] && s.actors[actor].trust?.[id] > 0,
     );
     return answer(friend && find("intercept", (a) => a.target === friend));
+  }
+  const levelHome = levelReturnHome(s, actor);
+  if (levelHome) {
+    const step = here === levelHome ? {} : stepToward(s, actor, levelHome);
+    return { ...step, action: step.action || idle().action };
   }
   // Rules 100: a resident walking home goes home first, and one kept to a
   // range drifts home when it has nothing to pursue here. With a player it
@@ -3461,6 +3475,7 @@ export function play(
   );
   pruneTalkQuests(next, wantAPI(next));
   fillWants(next, wantAPI(next));
+  settleHomeLevels(next);
   // A round of waits still ends a standoff nobody would carry on.
   settleStandoffs(next);
   // A gate whose condition now holds stays open from here on.

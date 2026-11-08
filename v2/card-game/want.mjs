@@ -81,6 +81,24 @@ export const travels = (id, s = null) =>
 export const levelFor = (xp) => Math.floor((1 + Math.sqrt(1 + 8 * xp)) / 2);
 export const levelOf = (s, id) =>
   s.actors[id]?.level ?? levelFor(s.actors[id]?.xp || 0);
+// Opted-in residents bank experience while away. Their authored home stays
+// fixed even when a journey or a visit changes their latest sanctuary.
+export const levelReturnHome = (s, id) =>
+  packPeople[id]?.levelAtHome && levelFor(s.actors[id].xp) > levelOf(s, id)
+    ? packPeople[id].home
+    : null;
+export function settleHomeLevels(s) {
+  for (const id of Object.keys(s.actors)) {
+    const home = levelReturnHome(s, id);
+    if (
+      home &&
+      s.actors[id].place === home &&
+      entityActive(s, id) &&
+      entityActive(s, home)
+    )
+      s.actors[id].level = levelFor(s.actors[id].xp);
+  }
+}
 // The quest for level n has one step per five levels, ceil(n / 5): one
 // through level 5, ten at Legendary (50), twenty at Mythic (100), and then
 // the rest that raises the level. The table is in docs/design/level-curve.md.
@@ -505,6 +523,8 @@ export function installWants(s) {
           : null;
     }
     a.xp ??= startXp(id);
+    // Old saves without an explicit level retain their already earned level.
+    if (packPeople[id]?.levelAtHome) a.level ??= levelFor(a.xp);
     a.visited ??= [a.place];
     a.talked ??= [];
   }
@@ -809,10 +829,12 @@ function commitMet(s, id, api, met, index = 0) {
   if (quest?.left > 1) list[index] = questStep(s, id, api, quest, want);
   else if (quest?.left === 1) list[index] = restStep(s, id, api, quest);
   else {
-    if (quest && !api.player(id)) {
-      a.level = quest.level;
-      delete a.glimpse;
-    } else if (!api.player(id)) a.level = Math.max(a.level, levelFor(a.xp));
+    if (!api.player(id) && !packPeople[id]?.levelAtHome) {
+      if (quest) {
+        a.level = quest.level;
+        delete a.glimpse;
+      } else a.level = Math.max(a.level, levelFor(a.xp));
+    }
     list.splice(index, 1);
   }
   setQuests(a, list);

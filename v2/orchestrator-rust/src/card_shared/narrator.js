@@ -2477,6 +2477,7 @@
         } : null;
       }
       a.xp ??= startXp(id);
+      if (packPeople[id]?.levelAtHome) a.level ??= levelFor(a.xp);
       a.visited ??= [a.place];
       a.talked ??= [];
     }
@@ -16623,6 +16624,7 @@
           "temperament",
           "variants",
           "home",
+          "levelAtHome",
           "homeWhen",
           "passWhen",
           "appearsWhen",
@@ -16904,6 +16906,10 @@
         );
       if (a.home !== void 0)
         check(owns3(places2, a.home), `avatar ${id} home is invalid`);
+      check(
+        a.levelAtHome === void 0 || a.levelAtHome === true && !humanAvatarIds.includes(id) && owns3(places2, a.home) && places2[a.home].sanctuary === true && a.homeWhen === void 0,
+        `avatar ${id} levelAtHome needs a fixed sanctuary home for a resident`
+      );
       requirements(a.appearsWhen, `avatar ${id} appearance`, false);
       if (a.homeWhen !== void 0) {
         check(
@@ -20351,7 +20357,7 @@
         }
     return [...seen].filter((id) => id !== from && !transportPlace(id)).sort();
   }
-  var homeOf2 = (id) => tastes[id]?.home || humanAvatar(id)?.home?.id || null;
+  var homeOf2 = (id) => packPeople[id]?.levelAtHome && packPeople[id].home || tastes[id]?.home || humanAvatar(id)?.home?.id || null;
   function wantAPI(s) {
     return {
       carried: (actor) => carried(s, actor),
