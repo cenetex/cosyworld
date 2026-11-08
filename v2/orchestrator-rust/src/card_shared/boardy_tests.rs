@@ -400,9 +400,8 @@ fn historical_presence_commands_leave_game_bytes_unchanged() {
     .unwrap();
     super::content::preload(&c, &hash).unwrap();
     let version = "full-card-world/125";
-    let game = engine::reduce_pack(version, Some(&hash), json!({"op":"create"}))
-        .unwrap()["world"]
-        .clone();
+    let game =
+        engine::reduce_pack(version, Some(&hash), json!({"op":"create"})).unwrap()["world"].clone();
     let mut world = World {
         version: version.into(),
         game: game.clone(),
