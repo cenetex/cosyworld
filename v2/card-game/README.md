@@ -1707,3 +1707,9 @@ journey is `v2/scripts/smoke-card-theban-scenery.mjs`. The weather journey is
 If table startup fails, the existing dialogue bar offers Try again. It reloads
 the same page without clearing saves. The startup title releases its overlay,
 keyboard and audio ownership before the retry becomes available.
+
+If a shared play starts in another tab before this table receives its update,
+trying another action returns directly to the current play. The table refreshes
+its server view without resending the rejected action or claiming its rewards.
+Authentication and other real errors still show normally. Covered by
+`smoke-card-resume-play.mjs` at desktop and phone widths.

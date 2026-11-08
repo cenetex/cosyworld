@@ -104,3 +104,72 @@ describe("shared snapshot ordering", () => {
     expect(connection.state.now).toBe(1002);
   });
 });
+
+describe("resume the play already at the table", () => {
+  const busy = () => ({
+    ok: false,
+    json: async () => ({ error: "Your play is already at the table." }),
+  });
+  it.each(["waiting", "retry", "working", "playing"])(
+    "refreshes a stale session into its %s play without resubmitting",
+    async (status) => {
+      const { connection, fetch, respond } = await session();
+      const current = {
+        ...snapshot(2, 1002),
+        queue: [{ id: "existing", actor: "vale", status }],
+      };
+      const listener = vi.fn();
+      const report = vi.fn();
+      connection.subscribe(listener, report);
+      fetch.mockResolvedValueOnce(busy());
+      fetch.mockResolvedValueOnce(respond(current));
+      const start = fetch.mock.calls.length;
+      const result = await connection.play({ kind: "wait" }, "new-attempt");
+      expect(result.resumedPlay).toBe(true);
+      expect(connection.state).toEqual(current);
+      expect(listener).toHaveBeenCalledWith(current);
+      expect(report).not.toHaveBeenCalled();
+      expect(
+        fetch.mock.calls.slice(start).map(([, init]) => init.method),
+      ).toEqual(["POST", "GET"]);
+      expect(connection.state).not.toHaveProperty("resumedPlay");
+    },
+  );
+  it("resumes the committed view if the existing play finishes during refresh", async () => {
+    const { connection, fetch, respond } = await session();
+    fetch.mockResolvedValueOnce(busy());
+    fetch.mockResolvedValueOnce(respond(snapshot(2, 1002)));
+    expect((await connection.play({}, "late-attempt")).resumedPlay).toBe(true);
+    expect(connection.state.world).toEqual(after.world);
+    expect(connection.state.queue).toEqual([]);
+  });
+  it("does not call a fresh accepted play a resume", async () => {
+    const { connection, fetch, respond } = await session();
+    fetch.mockResolvedValueOnce(respond(snapshot(2, 1002)));
+    expect(await connection.play({}, "first-play")).not.toHaveProperty(
+      "resumedPlay",
+    );
+  });
+  it("keeps authentication failures visible when refreshing", async () => {
+    const { connection, fetch } = await session();
+    fetch.mockResolvedValueOnce(busy());
+    fetch.mockResolvedValueOnce({
+      ok: false,
+      json: async () => ({ error: "Sign in to play." }),
+    });
+    await expect(connection.play({}, "attempt")).rejects.toThrow(
+      "Sign in to play.",
+    );
+    expect(connection.state.world).toEqual(before.world);
+  });
+  it("does not suppress unrelated refusals", async () => {
+    const { connection, fetch } = await session();
+    fetch.mockResolvedValueOnce({
+      ok: false,
+      json: async () => ({ error: "Choose an available play." }),
+    });
+    await expect(connection.play({}, "attempt")).rejects.toThrow(
+      "Choose an available play.",
+    );
+  });
+});
