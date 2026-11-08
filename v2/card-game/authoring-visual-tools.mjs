@@ -31,7 +31,7 @@ export function createAuthoringVisualTools({
   function previews() {
     for (const url of urls) URL.revokeObjectURL(url);
     const state = visual.state;
-    urls = [state.image, ...state.poses]
+    urls = [state.image, ...(state.role === "portrait" ? [] : state.poses)]
       .filter(Boolean)
       .map((image) =>
         URL.createObjectURL(new Blob([image.bytes], { type: image.mime })),
@@ -55,10 +55,12 @@ export function createAuthoringVisualTools({
     }
     previews();
     changed();
+    if (owner) choose(owner);
   }
   return {
     sync(next) {
       source = next;
+      if (design && !next?.pack?.avatars?.[design.id]) clear();
     },
     clear,
     transient: () =>
@@ -108,7 +110,7 @@ export function createAuthoringVisualTools({
                     "This avatar changed. Discard the preview and generate again.",
                   );
                 const saved = await visual.confirm(async (output) => {
-                  prepared ??= await prepareAcceptedAvatar(record, {
+                  prepared = await prepareAcceptedAvatar(record, {
                     candidateId: crypto.randomUUID(),
                     targetId: id,
                     ...(design.variant
@@ -146,20 +148,24 @@ export function createAuthoringVisualTools({
               choose(action);
             },
           });
-          [state.image, ...state.poses].filter(Boolean).forEach((image, i) => {
-            tools.push({
-              id: `${action}-preview-${i}`,
-              name:
-                image.role === "base" || i === 0 ? "Avatar cutout" : image.role,
-              holder: `designer-tool-${action}`,
-              art: urls[i],
-              kind: "avatar",
-              describe: () => ({
-                note: "Review this generated artwork before confirming the set.",
-                actions: [],
-              }),
+          [state.image, ...(state.role === "portrait" ? [] : state.poses)]
+            .filter(Boolean)
+            .forEach((image, i) => {
+              tools.push({
+                id: `${action}-preview-${i}`,
+                name:
+                  image.role === "base" || i === 0
+                    ? "Avatar cutout"
+                    : image.role,
+                holder: `designer-tool-${action}`,
+                art: urls[i],
+                kind: "avatar",
+                describe: () => ({
+                  note: "Review this generated artwork before confirming the set.",
+                  actions: [],
+                }),
+              });
             });
-          });
         }
       }
       return tools;

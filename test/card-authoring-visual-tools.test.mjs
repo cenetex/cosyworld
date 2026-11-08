@@ -31,7 +31,7 @@ async function fixture() {
       cards: [
         { kind: "place", name: "Quay", text: "The ferry waits." },
         { kind: "avatar", name: "Mara", text: "A keeper with a lamp." },
-          { kind: "item", name: "Lamp", text: "A blue glass lamp." },
+        { kind: "item", name: "Lamp", text: "A blue glass lamp." },
       ],
     }),
   );
@@ -129,4 +129,40 @@ it("discards the preview without replacing saved artwork", async () => {
   discard.run();
   expect(f.tools.transient()).toBeNull();
   expect(f.session.state.source.pack.avatars[f.id].portrait).toBeUndefined();
+});
+it("reprepares a failed save after unrelated edits without regenerating", async () => {
+  const f = await fixture();
+  await f.run("portrait");
+  f.fail(true);
+  await f.run("portrait");
+  f.fail(false);
+  f.session.stage({ document: "Updated world notes" });
+  await f.session.save();
+  await f.run("portrait");
+  expect(f.request).toHaveBeenCalledTimes(1);
+  expect(f.tools.transient()).toBeNull();
+  expect(f.session.snapshot().draft.document).toBe("Updated world notes");
+});
+it("removing the preview owner releases all generation tools", async () => {
+  const f = await fixture();
+  await f.run("portrait");
+  await f.session.accept(
+    seedEdit(f.session.snapshot(), { kind: "avatar", discard: f.id }),
+  );
+  expect(f.tools.transient()).toBeNull();
+});
+it("reviews only the new cutout when replacing an avatar with saved poses", async () => {
+  const f = await fixture();
+  await f.run("portrait");
+  await f.run("portrait");
+  await f.run("pose-sheet");
+  await f.run("pose-sheet");
+  await f.run("portrait");
+  expect(
+    f.tools
+      .tools()
+      .filter((t) => t.id.includes("preview"))
+      .map((t) => t.name),
+  ).toEqual(["Avatar cutout"]);
+  expect(f.selected()).toBe(`art-${f.id}-portrait`);
 });
