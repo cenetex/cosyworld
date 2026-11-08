@@ -150,6 +150,7 @@ export function upgradeSave(
       s.packs["greek-drama"].revision = 21;
     if (s.packs?.["greek-drama"]?.revision === 21)
       s.packs["greek-drama"].revision = 22;
+    upgradeGreekCithaeronOpenSave(s);
     upgradeRecitals(s, packDefinitions);
   }
   upgradeSightings(s);
@@ -913,6 +914,21 @@ export function upgradeGreekCithaeronSave(s) {
   if (!pack || pack.revision < 13 || saved?.revision !== 12) return;
   foldRetiredRoads(s);
   saved.revision = 13;
+}
+
+// Revision 23 replaces the gated Cithaeron road with a permanently open way.
+// Old saves drop only the route latch that no longer exists.
+export function upgradeGreekCithaeronOpenSave(s) {
+  const pack = packDefinitions.find((p) => p.id === "greek-drama");
+  const saved = s.packs?.[pack?.id];
+  if (!pack || pack.revision < 23 || saved?.revision !== 22) return;
+  if (Array.isArray(s.openedRoutes)) {
+    s.openedRoutes = s.openedRoutes.filter(
+      (key) => key !== "greek-battlefield>greek-cithaeron",
+    );
+    if (!s.openedRoutes.length) delete s.openedRoutes;
+  }
+  saved.revision = 23;
 }
 
 // Revision 12 retires Athenian places. Anyone or anything there, or a ship

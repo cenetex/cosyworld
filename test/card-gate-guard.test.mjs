@@ -190,8 +190,8 @@ describe("a player's guard", () => {
   });
 });
 
-// The battlefield's ways out are the City Gate and the Cithaeron Road, each
-// open or shown as the locked box with its reason (the owner, #2233).
+// The battlefield's ways out are the always-open Cithaeron road and the
+// guarded City Gate. Personal passage to the Hollow remains separately gated.
 const waysOut = (s) =>
   [
     ...new Set([
@@ -201,15 +201,13 @@ const waysOut = (s) =>
   ].sort();
 const ROAD = "greek-cithaeron";
 describe("the Exposed Battlefield", () => {
-  it("has two ways out, the gate and the road, in a new full world", () => {
+  it("keeps the road open while the City Gate and Hollow keep their gates", () => {
     let s = lifeWorld({ place: FIELD });
     expect(waysOut(s)).toEqual([ROAD, GATE, "greek-polynices-hollow"]);
     expect(sealedReason(s, GATE)).toBe("The Gate Guard is guarding this card");
-    expect(sealedReason(s, ROAD)).toMatch(/Theban account of the burial/u);
-    // The decree lifts the bar on both sides for good, and a road once
-    // opened by a Theban account stays open.
+    expect(sealedReason(s, ROAD)).toBe(null);
+    // The writ lifts the City Gate bar on both sides; the road stays open.
     s.items["greek-creon-writ"].holder = GUARD;
-    s.openedRoutes = [...(s.openedRoutes || []), `${FIELD}>${ROAD}`].sort();
     s = settleGate(reload(s));
     expect(exits(s, FIELD, "vale").sort()).toEqual([
       ROAD,
@@ -220,7 +218,7 @@ describe("the Exposed Battlefield", () => {
     expect(waysOut(s)).toEqual([ROAD, GATE, "greek-polynices-hollow"]);
   });
 
-  it("has the same two ways out in a rules 99 world upgraded to 100", () => {
+  it("keeps the road open in a rules 99 world upgraded to 100", () => {
     const file = (f) =>
       readFileSync(`v2/orchestrator-rust/src/card_shared/${f}`, "utf8");
     const context = vm.createContext({
@@ -234,8 +232,7 @@ describe("the Exposed Battlefield", () => {
     const old = JSON.parse(
       context.cardShared(JSON.stringify({ op: "create", seed: 9 })),
     ).world;
-    // A world whose Theban release has opened the road (the guard's tablet
-    // on Dione's table): before that the road is not yet in the world.
+    // The road is open after this old world loads under current rules.
     delete old.opening;
     old.packs["greek-drama"].scope = "full";
     old.actors.vale.place = FIELD;

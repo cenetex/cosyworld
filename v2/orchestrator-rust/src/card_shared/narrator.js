@@ -3035,7 +3035,7 @@
         schemaVersion: 1,
         id: "greek-drama",
         packId: "cosyworld.greek-drama",
-        revision: 22,
+        revision: 23,
         name: "The Wine-Dark Sea",
         description: "A branching Greek drama world. A shared ship visits the Wine-Dark Harbor, Athens Harbor and Piraeus. One road joins Athens and Piraeus, and short paths lead to the Attic places where welcome becomes a growing poem.",
         tone: "Concrete Greek domestic and civic life: bread, work, desire, grief, argument, irreverence, and hospitality. Dialogue expresses committed actions. A tragic ending is never required.",
@@ -5691,78 +5691,7 @@
           },
           {
             from: "greek-battlefield",
-            to: "greek-cithaeron",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-burial-performed",
-                value: true
-              },
-              {
-                kind: "any",
-                conditions: [
-                  {
-                    kind: "item_near",
-                    item: "greek-burial-account",
-                    place: "greek-battlefield"
-                  },
-                  {
-                    kind: "item_near",
-                    item: "greek-burial-account",
-                    place: "greek-courtyard"
-                  }
-                ]
-              }
-            ],
-            sealed: {
-              reason: "The road over Cithaeron opens once a Theban account of the burial is here or on Dione's table.",
-              quest: {
-                kind: "item",
-                target: "greek-burial-account"
-              }
-            }
-          },
-          {
-            from: "greek-battlefield",
-            to: "greek-cithaeron",
-            requires: [
-              {
-                kind: "any",
-                conditions: [
-                  {
-                    kind: "item_near",
-                    item: "greek-creon-writ",
-                    place: "greek-battlefield"
-                  },
-                  {
-                    kind: "item_near",
-                    item: "greek-creon-writ",
-                    place: "greek-courtyard"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            from: "greek-battlefield",
-            to: "greek-cithaeron",
-            requires: [
-              {
-                kind: "any",
-                conditions: [
-                  {
-                    kind: "item_near",
-                    item: "greek-guard-tablet",
-                    place: "greek-battlefield"
-                  },
-                  {
-                    kind: "item_near",
-                    item: "greek-guard-tablet",
-                    place: "greek-courtyard"
-                  }
-                ]
-              }
-            ]
+            to: "greek-cithaeron"
           },
           {
             from: "greek-eleusis",
@@ -18626,6 +18555,7 @@
         s.packs["greek-drama"].revision = 21;
       if (s.packs?.["greek-drama"]?.revision === 21)
         s.packs["greek-drama"].revision = 22;
+      upgradeGreekCithaeronOpenSave(s);
       upgradeRecitals(s, packDefinitions);
     }
     upgradeSightings(s);
@@ -19205,6 +19135,18 @@
     if (!pack || pack.revision < 13 || saved?.revision !== 12) return;
     foldRetiredRoads(s);
     saved.revision = 13;
+  }
+  function upgradeGreekCithaeronOpenSave(s) {
+    const pack = packDefinitions.find((p) => p.id === "greek-drama");
+    const saved = s.packs?.[pack?.id];
+    if (!pack || pack.revision < 23 || saved?.revision !== 22) return;
+    if (Array.isArray(s.openedRoutes)) {
+      s.openedRoutes = s.openedRoutes.filter(
+        (key) => key !== "greek-battlefield>greek-cithaeron"
+      );
+      if (!s.openedRoutes.length) delete s.openedRoutes;
+    }
+    saved.revision = 23;
   }
   function upgradeGreekDistrictSave(s) {
     const pack = packDefinitions.find((p) => p.id === "greek-drama");
@@ -21671,12 +21613,16 @@
     "orin",
     "ada"
   ]);
+  var residentSleepPortraits = {
+    "greek-baker": "assets/sleep/greek-baker-sleeping.png"
+  };
   var sleepPortraitAssets = [
     ...[...travelers].flatMap(
       (id) => ["", "-scarf"].map(
         (wardrobe) => `assets/shared/characters/${id}-sleeping${wardrobe}.webp`
       )
     ),
+    ...Object.values(residentSleepPortraits),
     ...["moth", "keeper"].map((id) => `assets/sleep/${id}-sleeping.webp`)
   ];
   function sleepingPortrait(world, id) {
@@ -21685,6 +21631,7 @@
       const scarf = avatarImage(world, id) === scarfPortrait(id);
       return `assets/shared/characters/${id}-sleeping${scarf ? "-scarf" : ""}.webp`;
     }
+    if (residentSleepPortraits[id]) return residentSleepPortraits[id];
     return ["moth", "keeper"].includes(id) ? `assets/sleep/${id}-sleeping.webp` : null;
   }
 
@@ -22836,6 +22783,7 @@
       ),
       "assets/greek-drama/myrine.webp",
       "assets/greek-drama/polynices-shade.webp",
+      "assets/sleep/greek-baker-sleeping.png",
       ...["tecmessa", "teucer", "odysseus"].map(
         (name) => `assets/greek-drama/ajax-${name}.png`
       ),
