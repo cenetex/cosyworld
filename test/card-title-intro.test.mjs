@@ -254,10 +254,14 @@ test("opening cards fan from the box into their own hand slots", () => {
     for (const [i, plan] of plans.entries()) {
       assert.equal(
         plan[0].transform,
-        `translate(${origin.left + 80 - targets[i].left - 60}px, -270px) scale(0.8)`,
+        `translate(${origin.left + 80 - targets[i].left - 60}px, -270px) scale(${160 / 120}, ${240 / 180})`,
       );
       assert.deepEqual(plan.at(-1), { transform: "rotate(0deg)", opacity: 1 });
       assert.equal(plan[1].offset, 0.3);
+      assert.ok(
+        plan.every((frame) => frame.opacity === 1),
+        "the box stays opaque through the deal",
+      );
     }
     assert.match(plans[0][1].transform, /rotate\(-4deg\)/);
     assert.match(plans[2][1].transform, /rotate\(4deg\)/);

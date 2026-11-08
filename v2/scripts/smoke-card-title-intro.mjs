@@ -5,6 +5,7 @@ import { createServer } from "../card-game/serve.mjs";
 import { startNewGame } from "./card-browser-helpers.mjs";
 import {
   BOX_WHISPERS,
+  OPENING_DEAL,
   REVEAL_HINT,
   TITLES,
   WAKE_FADE,
@@ -390,42 +391,31 @@ async function idleCue(page, width, { reduced = false } = {}) {
 // Leaving: the face holds, the title goes to black with the song fading,
 // then slowly opens on the scene. Frames of the black and the fade-in.
 async function wakeFades(page, width, name) {
-  await page.waitForSelector('.title-intro[data-phase="dark"] .title-dark');
-  // Reveal-once: under the black the hand card is already face up.
-  await valeShown(page, name);
-  await page.waitForTimeout(WAKE_FADE.turn.blackMs + 50);
-  assert.equal(
-    await page.$eval(".title-dark", (d) => getComputedStyle(d).opacity),
-    "1",
+  await page.waitForSelector('.title-intro[data-phase="logo-out"]');
+  const before = await page.evaluate(() => ({
+    box: document.querySelector(".title-card .card").dataset.unrevealed,
+    boxVisible: getComputedStyle(document.querySelector(".title-reveal"))
+      .visibility,
+    hand: getComputedStyle(document.getElementById("hand")).visibility,
+  }));
+  assert.deepEqual(before, {
+    box: "true",
+    boxVisible: "visible",
+    hand: "hidden",
+  });
+  await page.$eval(".title-intro > img", (logo) => {
+    const fade = logo.getAnimations().at(-1);
+    fade.pause();
+    fade.currentTime = 175;
+  });
+  const fading = await page.$eval(".title-intro > img", (logo) => Number(getComputedStyle(logo).opacity));
+  assert.ok(fading > 0 && fading < 1);
+  assert.equal(await page.$eval(".title-reveal", (row) => getComputedStyle(row).opacity), "1");
+  await shot(page, `logo-out-${width}`);
+  await page.$eval(".title-intro > img", (logo) =>
+    logo.getAnimations().at(-1).play(),
   );
-  await shot(page, `black-${width}`);
-  await page.waitForSelector('.title-intro[data-phase="out"]');
-  const dealt = await page.$$eval(".title-intro > .card-frame", (cards) =>
-    cards.map((card) => ({
-      inert: card.inert,
-      hidden: card.getAttribute("aria-hidden"),
-      duplicateIds: card.querySelectorAll("[id]").length,
-      readyImages: [...card.querySelectorAll("img")].every(
-        (image) =>
-          image.complete && image.naturalWidth > 0 && image.decoding === "sync",
-      ),
-      frames: card.getAnimations()[0]?.effect.getKeyframes(),
-    })),
-  );
-  assert.ok(dealt.length > 1, "opening box deals a fan, not only the avatar");
-  for (const card of dealt) {
-    assert.equal(card.inert, true);
-    assert.equal(card.hidden, "true");
-    assert.equal(card.duplicateIds, 0);
-    assert.equal(
-      card.readyImages,
-      true,
-      "flying artwork is decoded before the first frame",
-    );
-    assert.match(card.frames[1].transform, /rotate/);
-    assert.match(card.frames.at(-1).transform, /^rotate\(/);
-  }
-  // Sample fixed animation times so slow screenshot IO cannot miss the deal.
+  await page.waitForSelector('.title-intro[data-phase="dealing"]');
   const sample = (time) =>
     page.$eval(
       ".title-intro",
@@ -442,16 +432,44 @@ async function wakeFades(page, width, name) {
       time,
     );
   await sample(300);
-  await shot(page, `fan-out-${width}`);
-  await sample(WAKE_FADE.turn.sceneMs / 3);
-  const opacity = await page.$eval(".title-intro", (layer) =>
-    Number(getComputedStyle(layer).opacity),
+  const dealt = await page.$$eval(".title-intro > .card-frame", (cards) =>
+    cards.map((card) => ({
+      inert: card.inert && card.getAttribute("aria-hidden") === "true" && !card.querySelector("[id]"),
+      covered: card.querySelector(".card").dataset.unrevealed,
+      ready: [...card.querySelectorAll("img")].every(
+        (image) => image.complete && image.naturalWidth > 0,
+      ),
+    })),
   );
-  assert.ok(opacity > 0.05 && opacity < 0.85, `fading in: ${opacity}`);
-  await shot(page, `fade-in-${width}`);
-  await sample(1900);
-  const settled = await page.$$eval(".title-intro > .card-frame", (copies) =>
-    copies.flatMap((copy) => {
+  assert.ok(dealt.length > 1);
+  for (const card of dealt)
+    assert.deepEqual(card, { inert: true, covered: "true", ready: true });
+  assert.equal(
+    await page.$eval("#hand", (hand) => getComputedStyle(hand).visibility),
+    "hidden",
+  );
+  assert.equal(
+    await page.getAttribute(
+      `#hand .card[data-card="${name}"]`,
+      "data-unrevealed",
+    ),
+    "true",
+  );
+  assert.equal(
+    await page.$eval(
+      ".title-intro",
+      (layer) => getComputedStyle(layer).opacity,
+    ),
+    "1",
+  );
+  await shot(page, `fan-out-${width}`);
+  await sample(900);
+  await shot(page, `fan-moving-${width}`);
+  await sample(
+    OPENING_DEAL.flightMs + (dealt.length - 1) * OPENING_DEAL.staggerMs - 1,
+  );
+  const deltas = await page.$$eval(".title-intro > .card-frame", (cards) =>
+    cards.flatMap((copy) => {
       const id = copy.querySelector(".card[data-card]")?.dataset.card;
       const original =
         id &&
@@ -459,35 +477,22 @@ async function wakeFades(page, width, name) {
           .querySelector(`#hand .card[data-card="${CSS.escape(id)}"]`)
           ?.closest(".card-frame");
       if (!original) return [];
-      const from = copy.getBoundingClientRect(),
-        to = original.getBoundingClientRect();
+      const rotation = getComputedStyle(original).rotate;
+      const endpoint = copy.getAnimations()[0].effect.getKeyframes().at(-1).transform;
+      if (copy.offsetWidth !== original.offsetWidth || copy.offsetHeight !== original.offsetHeight || endpoint !== `rotate(${rotation === "none" ? "0deg" : rotation})`) return [Infinity];
+      const a = copy.getBoundingClientRect(),
+        b = original.getBoundingClientRect();
       return [
-        {
-          id,
-          dimensionsMatch:
-            copy.offsetWidth === original.offsetWidth &&
-            copy.offsetHeight === original.offsetHeight,
-          angleMatch:
-            copy.getAnimations()[0].effect.getKeyframes().at(-1).transform ===
-            `rotate(${getComputedStyle(original).rotate === "none" ? "0deg" : getComputedStyle(original).rotate})`,
-          delta: Math.max(
-            ...["left", "top", "width", "height"].map((key) =>
-              Math.abs(from[key] - to[key]),
-            ),
+        Math.max(
+          ...["left", "top", "width", "height"].map((key) =>
+            Math.abs(a[key] - b[key]),
           ),
-        },
+        ),
       ];
     }),
   );
-  assert.ok(settled.length, "dealt cards still have real hand slots");
-  for (const card of settled) {
-    assert.ok(
-      card.dimensionsMatch && card.angleMatch,
-      `settled proportions: ${JSON.stringify(card)}`,
-    );
-    assert.ok(card.delta < 2, `settled slot: ${JSON.stringify(card)}`);
-  }
-  await shot(page, `fan-settled-${width}`);
+  assert.ok(deltas.length && deltas.every((delta) => delta < 2));
+  await shot(page, `fan-arrived-${width}`);
   await page.$eval(".title-intro", (layer) => {
     for (const node of [
       layer,
@@ -495,6 +500,26 @@ async function wakeFades(page, width, name) {
     ])
       for (const animation of node.getAnimations()) animation.play();
   });
+  await page.waitForSelector(".title-intro", { state: "detached" });
+  await valeShown(page, name);
+  assert.equal(
+    await page.$eval("#hand", (hand) => getComputedStyle(hand).visibility),
+    "visible",
+  );
+  assert.equal(await page.locator(".title-intro .beat-ghost").count(), 0);
+  assert.ok(
+    await page.$eval(`#hand .card[data-card="${name}"]`, (card) =>
+      card
+        .getAnimations()
+        .some((animation) =>
+          animation.effect
+            .getKeyframes()
+            .some((frame) => /^0(?:px)? -14px$/.test(frame.translate)),
+        ),
+    ),
+    "avatar bounces only after landing",
+  );
+  await shot(page, `avatar-landed-${width}`);
 }
 // The title's card is the avatar's: once the title leaves, by its turn or by
 // Escape, Vale's hand card is face up with no second flip.
@@ -1063,22 +1088,6 @@ try {
       );
       await page.locator(traveller).click();
     } else await page.keyboard.press("Enter");
-    await revealed(page, "Vale");
-    await page.waitForTimeout(desktop ? 300 : 100);
-    await shot(page, `face-${width}`);
-    // The name sits at the card's top, as on every card.
-    const top = await page.$eval(traveller, (card) => {
-      const name = card.querySelector(".name");
-      return [name.offsetParent === card, name.offsetTop];
-    });
-    assert.deepEqual(top, [true, 0], "the name tops the card");
-    assert.equal((await idleState(page)).step, "none", "the turn ends the cue");
-    await page.waitForSelector(".title-intro[data-phase=dark]");
-    assert.equal(
-      await page.evaluate(() => window.__titleSong.paused),
-      false,
-      "the song fades rather than cutting",
-    );
     await wakeFades(page, width, "vale");
     // The audio fade finishes on its own clock after the scene appears.
     await gone(page, WAKE_FADE.turn.sceneMs + 1000);
@@ -1177,6 +1186,22 @@ try {
     await valeShown(skipper);
     await skipper.reload();
     await valeShown(skipper);
+    // Escape during flight restores the real hand without a second reveal.
+    await startNewGame(skipper);
+    await titlePhase(skipper);
+    await finishAcknowledgement(skipper);
+    await skipper.keyboard.press("Enter");
+    await cardShown(skipper);
+    await skipper.locator(traveller).click();
+    await skipper.waitForSelector('.title-intro[data-phase="dealing"]');
+    await skipper.keyboard.press("Escape");
+    await gone(skipper, 1500);
+    await valeShown(skipper);
+    assert.equal(
+      await skipper.$eval("#hand", (hand) => getComputedStyle(hand).visibility),
+      "visible",
+    );
+    assert.equal(await skipper.locator(".title-intro .beat-ghost").count(), 0);
     await skipContext.close();
   }
 
@@ -1345,12 +1370,8 @@ try {
   await quiet.locator(".title-hint").click();
   await revealed(quiet, "Vale");
   assert.equal(await quiet.locator(".reveal-lid").count(), 0);
-  // It cuts to black, holds, and crossfades quickly into the scene.
-  await quiet.waitForSelector('.title-intro[data-phase="dark"]');
-  assert.equal(
-    await quiet.$eval(".title-dark", (d) => getComputedStyle(d).opacity),
-    "1",
-  );
+  // Reduced motion settles without a flight or a travelling portrait.
+  assert.equal(await quiet.locator(".title-intro .beat-ghost").count(), 0);
   await gone(quiet, 3000);
   await quiet.waitForSelector("#hand .card");
   assert.equal(await blips(quiet), 0, "reduced motion writes without blips");

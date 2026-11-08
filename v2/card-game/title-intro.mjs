@@ -19,7 +19,8 @@ import {
 
 // The Lonely Forest title opens every new world: black, the land
 // acknowledgement (acknowledgement.json), the world's logo (title-logo.mjs)
-// with its song, a face-down card that turns to the avatar, then the table. A reload or a return to a world never replays it.
+// with its song, then the box deals covered cards into the hand. The avatar
+// reveals and bounces only after landing. Returning worlds never replay it.
 // The key holds the id of a shared world just created or joined whose title
 // is still due.
 export const INTRO_KEY = "cosyworld.title-intro";
@@ -65,6 +66,13 @@ export const WAKE_FADE = {
   reduced: { blackMs: 0, darkMs: 300, sceneMs: 300 },
 };
 
+export const OPENING_DEAL = {
+  logoMs: 350,
+  flightMs: 1300,
+  staggerMs: 55,
+  landMs: 520,
+};
+
 // Deal the opening's real cards visually, without moving their DOM nodes or
 // changing custody. The title owns these inert copies until its fade finishes.
 export function openingDealFrames(
@@ -78,7 +86,10 @@ export function openingDealFrames(
   const y = origin.top + origin.height / 2 - target.top - target.height / 2;
   const at = index - (total - 1) / 2;
   return [
-    { transform: `translate(${x}px, ${y}px) scale(0.8)`, opacity: 0 },
+    {
+      transform: `translate(${x}px, ${y}px) scale(${origin.width / target.width}, ${origin.height / target.height})`,
+      opacity: 1,
+    },
     {
       transform: `translate(${x + at * Math.min(28, origin.width / total)}px, ${y - 24}px) rotate(${at * 4}deg) scale(0.9)`,
       opacity: 1,
@@ -89,7 +100,8 @@ export function openingDealFrames(
 }
 async function dealOpeningHand(layer, origin) {
   const hand = document.getElementById("hand");
-  if (!hand || !origin?.width) return () => {};
+  if (!hand || !origin?.width)
+    return { finished: Promise.resolve(), finish() {}, clear() {} };
   const bounds = hand.getBoundingClientRect();
   const cards = [...hand.querySelectorAll(":scope > .card-frame")].filter(
     (node) => {
@@ -147,26 +159,35 @@ async function dealOpeningHand(layer, origin) {
       return { copy, box, index, rotation };
     }),
   );
+  const motions = [];
   for (const deal of deals.filter(Boolean)) {
     const { copy, box, index, rotation } = deal;
     layer.append(copy);
-    copy.animate(
-      openingDealFrames(
-        origin,
-        box,
-        index,
-        cards.length,
-        rotation === "none" ? "0deg" : rotation,
+    motions.push(
+      copy.animate(
+        openingDealFrames(
+          origin,
+          box,
+          index,
+          cards.length,
+          rotation === "none" ? "0deg" : rotation,
+        ),
+        {
+          duration: OPENING_DEAL.flightMs,
+          delay: index * OPENING_DEAL.staggerMs,
+          fill: "both",
+          easing: "cubic-bezier(.2,.7,.25,1)",
+        },
       ),
-      {
-        duration: 1300,
-        delay: index * 55,
-        fill: "both",
-        easing: "cubic-bezier(.2,.7,.25,1)",
-      },
     );
   }
-  return () => deals.forEach((deal) => releaseGhost(deal?.copy));
+  return {
+    finished: Promise.all(
+      motions.map((motion) => motion.finished.catch(() => {})),
+    ),
+    finish: () => motions.forEach((motion) => motion.finish()),
+    clear: () => deals.forEach((deal) => releaseGhost(deal?.copy)),
+  };
 }
 
 // Only on Lonely Forest: no other site's landing, not the local CosyWorld
@@ -640,7 +661,9 @@ export function playTitleIntro({
     fades = WAKE_FADE.turn,
     leave,
     hurry,
-    dealOrigin = null;
+    dealOrigin = null,
+    flight = null,
+    skipFlight = false;
   const left = new Promise((resolve) => (leave = resolve));
   const hurried = new Promise((resolve) => (hurry = resolve));
   const race = (promise) => Promise.race([promise, left]);
@@ -648,15 +671,14 @@ export function playTitleIntro({
   const finish = (way = "turn") => {
     if (leaving) return;
     leaving = true;
-    if (way === "turn" && !reduced && !cardOnly)
-      dealOrigin = card.getBoundingClientRect();
+    if (way === "turn" && !cardOnly) dealOrigin = card.getBoundingClientRect();
     idle(false);
     words.cancel();
     voice?.stop();
     document.removeEventListener("visibilitychange", hidden);
     fades = { ...WAKE_FADE[way], ...(reduced && WAKE_FADE.reduced) };
     songDone = song.stop(fades.songSeconds);
-    wake();
+    if (!dealOrigin) wake();
     leave();
   };
   const fade = (node, duration, delay = 0) =>
@@ -788,6 +810,11 @@ export function playTitleIntro({
   // revealed card holds a moment, so the player sees who wakes, then enters.
   const turn = async () => {
     if (phase !== "card" || leaving) return;
+    if (!cardOnly) {
+      count("intro.wake");
+      finish();
+      return;
+    }
     phase = layer.dataset.phase = "revealed";
     idle(false);
     count("intro.wake");
@@ -926,8 +953,13 @@ export function playTitleIntro({
     idle();
     if (event.key === "Escape") {
       event.preventDefault();
-      if (!leaving) count("intro.skip");
-      finish("skip");
+      if (leaving) {
+        skipFlight = true;
+        flight?.finish();
+      } else {
+        count("intro.skip");
+        finish("skip");
+      }
       return;
     }
     // Tab moves between the step's links and button; Enter and Space press
@@ -968,6 +1000,73 @@ export function playTitleIntro({
       next.focus({ preventScroll: true, focusVisible: false });
     }
     await left;
+    if (dealOrigin) {
+      const hand = document.getElementById("hand");
+      const visibility = hand?.style.visibility ?? "";
+      if (hand) hand.style.visibility = "hidden";
+      try {
+        phase = layer.dataset.phase = "logo-out";
+        hint.hidden = true;
+        privacy.hidden = true;
+        await image
+          .animate([{ opacity: 1 }, { opacity: 0 }], {
+            duration: reduced || skipFlight ? 0 : OPENING_DEAL.logoMs,
+            fill: "forwards",
+          })
+          .finished.catch(() => {});
+        if (!reduced && !skipFlight) {
+          flight = await dealOpeningHand(layer, dealOrigin);
+          // Replace the still-visible box only when the covered cards exist.
+          row.hidden = true;
+          phase = layer.dataset.phase = "dealing";
+          layer.animate(
+            [{ backgroundColor: "#000" }, { backgroundColor: "transparent" }],
+            {
+              duration: OPENING_DEAL.flightMs,
+              fill: "forwards",
+            },
+          );
+          if (skipFlight) flight.finish();
+          await flight.finished;
+        }
+        flight?.clear();
+        if (hand) hand.style.visibility = visibility;
+        // The actual avatar is first uncovered here, in its final hand slot.
+        wake();
+        phase = layer.dataset.phase = "landed";
+        layer.remove();
+        window.removeEventListener("keydown", onKey, true);
+        const avatar =
+          wakeId &&
+          document.querySelector(
+            `#hand .card[data-card="${CSS.escape(wakeId)}"]`,
+          );
+        avatar?.focus({ preventScroll: true });
+        if (avatar && !skipFlight) {
+          const motion = avatar.animate(
+            reduced
+              ? [
+                  { filter: "brightness(1)" },
+                  { filter: "brightness(1.35)" },
+                  { filter: "brightness(1)" },
+                ]
+              : [
+                  { translate: "0 0" },
+                  { translate: "0 -14px", offset: 0.4 },
+                  { translate: "0 0" },
+                ],
+            { duration: OPENING_DEAL.landMs, easing: "ease-out" },
+          );
+          await motion.finished.catch(() => {});
+        }
+      } finally {
+        flight?.clear();
+        if (hand) hand.style.visibility = visibility;
+        layer.remove();
+        window.removeEventListener("keydown", onKey, true);
+      }
+      return;
+    }
     window.removeEventListener("keydown", onKey, true);
     // To black, a breath of it, then the scene slowly comes up.
     const { blackMs, darkMs, sceneMs } = fades;
@@ -976,9 +1075,6 @@ export function playTitleIntro({
     layer.append(dark);
     await fade(dark, blackMs).finished.catch(() => {});
     await wait(darkMs);
-    const clearDeal = dealOrigin
-      ? await dealOpeningHand(layer, dealOrigin)
-      : () => {};
     layer.dataset.phase = "out";
     await layer
       .animate([{ opacity: 1 }, { opacity: 0 }], {
@@ -987,7 +1083,6 @@ export function playTitleIntro({
         fill: "both",
       })
       .finished.catch(() => {});
-    clearDeal();
     layer.remove();
   })();
   const hold = shown.then(() => songDone);
