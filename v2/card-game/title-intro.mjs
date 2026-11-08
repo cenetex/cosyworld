@@ -4,6 +4,7 @@ import { PLAYING_KEY, SAVE_BASE } from "./avatar-world.mjs";
 import { imageUrl } from "./images.mjs";
 import { count } from "./metrics.mjs";
 import { revealCard } from "./card-reveal.mjs";
+import { ghostOf, releaseGhost } from "./card-ghost.mjs";
 import { tiers } from "./level-tiers.mjs";
 import { LOGOS, logoSite, showToolbarLogo, worldLogo } from "./title-logo.mjs";
 import { createTitleSong } from "./title-song.mjs";
@@ -86,7 +87,7 @@ export function openingDealFrames(
     { transform: `rotate(${rotation})`, opacity: 1 },
   ];
 }
-function dealOpeningHand(layer, origin) {
+async function dealOpeningHand(layer, origin) {
   const hand = document.getElementById("hand");
   if (!hand || !origin?.width) return () => {};
   const bounds = hand.getBoundingClientRect();
@@ -101,32 +102,53 @@ function dealOpeningHand(layer, origin) {
       );
     },
   );
-  const deals = cards.map((node, index) => {
-    const bounds = node.getBoundingClientRect();
-    const box = {
-      left: bounds.left + (bounds.width - node.offsetWidth) / 2,
-      top: bounds.top + (bounds.height - node.offsetHeight) / 2,
-      width: node.offsetWidth,
-      height: node.offsetHeight,
-    };
-    const rotation = getComputedStyle(node).rotate;
-    const copy = node.cloneNode(true);
-    copy.inert = true;
-    copy.setAttribute("aria-hidden", "true");
-    for (const child of [copy, ...copy.querySelectorAll("[id]")])
-      child.removeAttribute("id");
-    Object.assign(copy.style, {
-      position: "fixed",
-      left: `${box.left}px`,
-      top: `${box.top}px`,
-      width: `${box.width}px`,
-      height: `${box.height}px`,
-      margin: "0",
-      pointerEvents: "none",
-      rotate: "none",
-      transformOrigin: "50% 50%",
-    });
-    copy.style.setProperty("--card-height", `${box.height}px`);
+  const deals = await Promise.all(
+    cards.map(async (node, index) => {
+      const bounds = node.getBoundingClientRect();
+      const box = {
+        left: bounds.left + (bounds.width - node.offsetWidth) / 2,
+        top: bounds.top + (bounds.height - node.offsetHeight) / 2,
+        width: node.offsetWidth,
+        height: node.offsetHeight,
+      };
+      const rotation = getComputedStyle(node).rotate;
+      const copy = ghostOf(node);
+      const images = [...copy.querySelectorAll("img")];
+      for (const image of images) image.loading = "eager";
+      // Never fly an empty portrait while the copied image decodes. A failed
+      // or slow image keeps its normal table reveal instead of delaying entry.
+      const ready = await Promise.race([
+        Promise.all(
+          images.map((image) =>
+            image.decode().then(
+              () => true,
+              () => false,
+            ),
+          ),
+        ).then((results) => results.every(Boolean)),
+        wait(400).then(() => false),
+      ]);
+      if (!ready) {
+        releaseGhost(copy);
+        return null;
+      }
+      Object.assign(copy.style, {
+        position: "fixed",
+        left: `${box.left}px`,
+        top: `${box.top}px`,
+        width: `${box.width}px`,
+        height: `${box.height}px`,
+        margin: "0",
+        pointerEvents: "none",
+        rotate: "none",
+        transformOrigin: "50% 50%",
+      });
+      copy.style.setProperty("--card-height", `${box.height}px`);
+      return { copy, box, index, rotation };
+    }),
+  );
+  for (const deal of deals.filter(Boolean)) {
+    const { copy, box, index, rotation } = deal;
     layer.append(copy);
     copy.animate(
       openingDealFrames(
@@ -143,9 +165,8 @@ function dealOpeningHand(layer, origin) {
         easing: "cubic-bezier(.2,.7,.25,1)",
       },
     );
-    return copy;
-  });
-  return () => deals.forEach((copy) => copy.remove());
+  }
+  return () => deals.forEach((deal) => releaseGhost(deal?.copy));
 }
 
 // Only on Lonely Forest: no other site's landing, not the local CosyWorld
@@ -955,10 +976,10 @@ export function playTitleIntro({
     layer.append(dark);
     await fade(dark, blackMs).finished.catch(() => {});
     await wait(darkMs);
-    layer.dataset.phase = "out";
     const clearDeal = dealOrigin
-      ? dealOpeningHand(layer, dealOrigin)
+      ? await dealOpeningHand(layer, dealOrigin)
       : () => {};
+    layer.dataset.phase = "out";
     await layer
       .animate([{ opacity: 1 }, { opacity: 0 }], {
         duration: sceneMs,

@@ -405,6 +405,10 @@ async function wakeFades(page, width, name) {
       inert: card.inert,
       hidden: card.getAttribute("aria-hidden"),
       duplicateIds: card.querySelectorAll("[id]").length,
+      readyImages: [...card.querySelectorAll("img")].every(
+        (image) =>
+          image.complete && image.naturalWidth > 0 && image.decoding === "sync",
+      ),
       frames: card.getAnimations()[0]?.effect.getKeyframes(),
     })),
   );
@@ -413,6 +417,11 @@ async function wakeFades(page, width, name) {
     assert.equal(card.inert, true);
     assert.equal(card.hidden, "true");
     assert.equal(card.duplicateIds, 0);
+    assert.equal(
+      card.readyImages,
+      true,
+      "flying artwork is decoded before the first frame",
+    );
     assert.match(card.frames[1].transform, /rotate/);
     assert.match(card.frames.at(-1).transform, /^rotate\(/);
   }
