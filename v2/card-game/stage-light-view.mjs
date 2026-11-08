@@ -36,9 +36,10 @@ export function portableLampPool(stage) {
       el.dataset.lit === "true" &&
       el.dataset.covered !== "true" &&
       el.getBoundingClientRect().width > 0 &&
+      getComputedStyle(el).visibility !== "hidden" &&
       !el.closest('[aria-hidden="true"].portrait'),
   );
-  const art = stage.querySelector("#backdrop")?.getBoundingClientRect();
+  const art = stage.querySelector(".stage-figures")?.getBoundingClientRect();
   const box = lamp?.getBoundingClientRect();
   if (!art?.width || !art.height || !box?.width || !box.height) return null;
   return {
@@ -76,9 +77,36 @@ export function renderStageLight(
         renderStageLight(stage, { ...state.options, ease: false });
     });
     state.resize.observe(stage);
+    // Hand/dialogue height and figure visibility can change without resizing
+    // the stage. Watch layout changes, never run a permanent polling loop.
+    state.layout = new MutationObserver(() => {
+      if (state.layoutFrame || !state.options?.lamp) return;
+      state.layoutFrame = requestAnimationFrame(() => {
+        state.layoutFrame = 0;
+        const geometry = JSON.stringify(portableLampPool(stage));
+        if (geometry !== state.geometry)
+          renderStageLight(stage, { ...state.options, ease: false });
+      });
+    });
+    state.layout.observe(stage, {
+      subtree: true,
+      attributes: true,
+      attributeFilter: [
+        "style",
+        "class",
+        "aria-hidden",
+        "data-lit",
+        "data-covered",
+      ],
+    });
+    state.layout.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["style", "class"],
+    });
   }
   state.options = { turn, strength, pools, sky, ease, tint, lamp };
   const portable = lamp && portableLampPool(stage);
+  state.geometry = JSON.stringify(portable || null);
   pools = [...(portable ? [portable] : []), ...pools].slice(0, 4);
   const lit = pools.map((pool) => Number(Boolean(pool.on)));
   const key = JSON.stringify([pools, tint]);
