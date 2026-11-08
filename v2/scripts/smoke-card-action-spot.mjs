@@ -191,12 +191,10 @@ try {
         path: new URL(`${state}-${name}.png`, output).pathname,
       });
     const port = server.address().port;
-    const openingReply = holdReply();
     await page.goto(`http://127.0.0.1:${port}/?table=action-spot-${name}`);
     await page
       .locator('#hand [data-card="greek-decree"]')
       .waitFor({ state: "attached" });
-    await openingReply();
     await page.waitForTimeout(800);
     await handUncut();
     await shot("idle");
