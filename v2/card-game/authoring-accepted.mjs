@@ -30,11 +30,13 @@ const acceptedOk = (value) =>
   fields(
     value,
     ["name", "specialAbility", "aliases", "description"],
-    ["suggested"],
+    ["suggested", "physicalDescription"],
   ) &&
   text(value.name, 80) &&
   text(value.specialAbility, 100) &&
   text(value.description, 1200) &&
+  (value.physicalDescription === undefined ||
+    text(value.physicalDescription, 1200)) &&
   Array.isArray(value.aliases) &&
   value.aliases.length <= 8 &&
   value.aliases.every((alias) => text(alias, 80)) &&

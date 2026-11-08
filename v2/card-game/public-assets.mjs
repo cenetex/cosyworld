@@ -60,6 +60,7 @@ const files = [
   "authoring-controller.mjs",
   "authoring-images.mjs",
   "authoring-visual-draft.mjs",
+  "authoring-art-library.mjs",
   "authoring-visual-tools.mjs",
   "avatar-menu.mjs",
   "unlock-view.mjs",

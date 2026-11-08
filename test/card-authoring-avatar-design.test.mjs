@@ -149,6 +149,7 @@ it("opens an imported JPEG avatar for a fresh roll while keeping its authored po
   const before = JSON.stringify(r.draft);
   const design = await readAvatarDesign(r, "sample-vale", empty);
   expect(design.value.base).toBeUndefined();
-  expect(design.value.description).toBe("A green dinosaur.");
+  expect(design.value.description).toBe("");
+  expect(design.accepted.description).toBe("A green dinosaur.");
   expect(JSON.stringify(r.draft)).toBe(before);
 });

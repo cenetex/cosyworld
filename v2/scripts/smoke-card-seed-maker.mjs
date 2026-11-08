@@ -223,6 +223,7 @@ try {
     let imageCalls = 0;
     await page.route("**/authoring/generate/image", (route) => {
       const input = route.request().postDataJSON();
+      assert.equal(input.description, "A keeper in a green coat.");
       imageCalls++;
       assert.equal(input.kind, "avatar");
       if (input.role === "pose-sheet") assert(input.reference?.sha256);
@@ -239,12 +240,24 @@ try {
         },
       });
     });
-    const generate = async (role) => {
+    const generate = async (role, first = false) => {
       await category("avatars");
       await entity("avatars", avatar);
       await tool(`art-${avatar}-${role}`);
       await action();
       await action();
+      const physical = page.getByRole("textbox", {
+        name: "Physical description only",
+      });
+      if (await physical.isVisible()) {
+        await physical.fill("A keeper in a green coat.");
+        await action();
+        await action();
+      }
+      if (first) {
+        await saved(8);
+        return;
+      }
       await page
         .getByRole("button", { name: "Confirm artwork", exact: true })
         .waitFor();
@@ -265,10 +278,16 @@ try {
         });
       assert.deepEqual(image, [true, 300, 200]);
     };
+    await generate("portrait", true);
+    const firstPortrait = (await read()).draft.pack.avatars[avatar].portrait;
+    assert(firstPortrait);
     await generate("portrait");
     await tool(`art-${avatar}-portrait-discard`);
     await action();
-    assert.equal((await read()).draft.pack.avatars[avatar].portrait, undefined);
+    assert.equal(
+      (await read()).draft.pack.avatars[avatar].portrait,
+      firstPortrait,
+    );
     await generate("portrait");
     // One failed local write must retain the paid result for a no-charge retry.
     await page.evaluate(() => {
@@ -284,8 +303,8 @@ try {
     await action();
     await page.getByText("Storage full (smoke)", { exact: true }).waitFor();
     await action();
-    await saved(7);
-    assert.equal(imageCalls, 2);
+    await saved(11);
+    assert.equal(imageCalls, 3);
     await generate("pose-sheet");
     for (let i = 0; i < 7; i++) {
       const preview = page.locator(
@@ -310,8 +329,8 @@ try {
       animations: "disabled",
     });
     await action();
-    await saved(8);
-    assert.equal(imageCalls, 3);
+    await saved(13);
+    assert.equal(imageCalls, 4);
     for (const pose of ["happy", "sad", "hit", "strike", "brace", "sleep"])
       assert(
         (await read()).draft.assets.some((asset) =>
