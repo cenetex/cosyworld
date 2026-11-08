@@ -10,8 +10,8 @@ import { talkQuest } from "../v2/card-game/talk-quest.mjs";
 
 const gift = (to) => ({ ...newWant("item", "lamp", 0), step: { verb: "give", to } });
 const reload = (s) => decodeSave(encodeSave(s));
-function start() {
-  const s = questing(createWorld());
+function start(world = createWorld()) {
+  const s = questing(world);
   s.actors.vale.want = newWant("item", "lamp", 0);
   s.actors.vale.under = [gift("moth"), gift("keeper")];
   s.actors.moth.want = s.actors.keeper.want = newWant("item", "lamp", 0);
@@ -97,12 +97,15 @@ it("uses an existing level Give step when Talk repeats its terms in another orde
 it("upgrades an old shared stack and agrees on term-aware saves and plays", () => {
   const old = currentSharedEngine(116), engine = currentSharedEngine();
   const seats = { actor: "vale", claimed: ["vale"], present: ["vale"] };
-  const before = JSON.parse(old.cardShared(JSON.stringify({ op: "create", save: start(), ...seats })));
+  const original = JSON.parse(old.cardShared(JSON.stringify({ op: "create", ...seats }))).world;
+  const before = JSON.parse(old.cardShared(JSON.stringify({ op: "create", save: start(structuredClone(original)), ...seats })));
   // Rules116 rejects terms it conflates; a historical valid single quest upgrades.
   expect(before.ok).toBe(false);
-  const legacy = start();
+  const legacy = start(structuredClone(original));
   delete legacy.actors.vale.under;
-  let s = JSON.parse(old.cardShared(JSON.stringify({ op: "create", save: legacy, ...seats }))).world;
+  const loaded = JSON.parse(old.cardShared(JSON.stringify({ op: "create", save: legacy, ...seats })));
+  expect(loaded.ok, loaded.error).toBe(true);
+  let s = loaded.world;
   const both = (request) => {
     const result = dispatchShared(structuredClone(request));
     expect(JSON.parse(engine.cardShared(JSON.stringify(request)))).toEqual(result);

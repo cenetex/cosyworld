@@ -268,6 +268,7 @@ try {
     // The peeking beat is Back. Live returns to the same ready action.
     await page.keyboard.press("Escape");
     await selectCard(page, "greek-creon");
+    await readyActionButton(page, "talk").waitFor();
     await actionBeat("talk");
     const speech = page.locator("#speech-row");
     const words = await page.locator("#dialogue-text").textContent();
