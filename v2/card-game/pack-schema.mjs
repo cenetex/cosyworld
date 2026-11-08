@@ -1235,6 +1235,7 @@ export function packProblems(pack, hub, mountedPlaces = [], mountedItems = []) {
         "locked",
         "reservedUntil",
         "recoverTo",
+        "scatterOutside",
       ]) &&
         (i.tags === undefined ||
           (Array.isArray(i.tags) &&
@@ -1258,6 +1259,8 @@ export function packProblems(pack, hub, mountedPlaces = [], mountedItems = []) {
     requirements(i.reservedUntil, `item ${id} reservedUntil`);
     check(i.reservedUntil === undefined || (Array.isArray(i.reservedUntil) && i.reservedUntil.length > 0),
       `item ${id} reservedUntil needs a condition`);
+    check(i.scatterOutside === undefined || i.scatterOutside === true,
+      `item ${id} scatterOutside must be true`);
     check(i.recoverTo === undefined || anyPlace(i.recoverTo),
       `item ${id} recoverTo needs a known place`);
   }

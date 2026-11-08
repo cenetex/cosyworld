@@ -4,9 +4,33 @@ use serde_json::{json, Value};
 
 /// Fresh authored defaults with the saved world's seed, independent of its upgrade.
 pub(super) fn initial_game(game: &Value) -> Value {
-    super::full_world::World::seeded(None, game["run"]["seed"].as_u64().map(|seed| seed as u32))
-        .unwrap()
-        .game
+    let mut initial = super::full_world::World::seeded(
+        None,
+        game["run"]["seed"].as_u64().map(|seed| seed as u32),
+    )
+    .unwrap()
+    .game;
+    // Newly introduced keepsakes scatter at the saved world's current turn.
+    // Keep the independently seeded holders; only their fresh history timestamp
+    // differs from a turn-zero game. Existing saved records are never replaced.
+    if initial["run"]["seed"].is_u64() {
+        for id in [
+            "ratiradio-glass",
+            "ratiradio-raven-figurine",
+            "ratiradio-red-beanie",
+            "ratiradio-thermos",
+        ] {
+            assert_eq!(
+                initial["items"][id]["history"],
+                json!(["Turn 0: Waiting beyond its home world."])
+            );
+            initial["items"][id]["history"] = json!([format!(
+                "Turn {}: Waiting beyond its home world.",
+                game["turn"].as_u64().unwrap()
+            )]);
+        }
+    }
+    initial
 }
 
 /// Catalog additions start fresh; every existing expected record stays exact.

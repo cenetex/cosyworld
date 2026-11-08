@@ -31,7 +31,9 @@ export function createLandingWorld(pack = null, seed = newRunSeed()) {
   // A landing starts inside the pack, so its things that start outside it,
   // such as the Hoppy Cat spool at the station, wait at the entry instead.
   for (const [id, item] of Object.entries(pack.items || {}))
-    if (!pack.places[item.holder] && !pack.avatars?.[item.holder])
+    // An explicit external recovery point remains outside on direct landings.
+    if (!pack.places[item.holder] && !pack.avatars?.[item.holder] &&
+        item.recoverTo !== item.holder)
       world.items[id].holder = pack.entry;
   addLog(
     world,

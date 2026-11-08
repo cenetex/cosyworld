@@ -33,6 +33,10 @@ const returns = ["red-beanie", "raven-figurine", "glass"].map(id);
 const flags = (s) => s.packs.ratiradio.flags;
 const fixture = (opening = false) => {
   const s = createWorld({ opening, seed: 17 });
+  // This gate/return fixture represents objects already fetched and deposited.
+  // Fresh cross-world placement is covered by card-radio-scatter.test.mjs.
+  for (const [id, item] of Object.entries(packDefinition("ratiradio").items))
+    if (item.scatterOutside) s.items[id].holder = item.holder;
   s.actors.vale.place = "pond";
   s.actors.vale.visited.push("pond");
   for (const item of Object.values(s.items))
@@ -179,7 +183,7 @@ it("preserves loose deposits at dawn, recovers absent custody away from home", (
     s.items[item].holder = "mara";
   dawn();
   expect(s.items[id("station-key")].holder).toBe("pond");
-  expect(s.items[id("raven-figurine")].holder).toBe(id("staff-kitchen"));
+  expect(s.items[id("raven-figurine")].holder).toBe("pond");
   expect(entityActive(s, raven)).toBe(false);
 });
 

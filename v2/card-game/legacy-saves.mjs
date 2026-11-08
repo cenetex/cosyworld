@@ -71,6 +71,10 @@ export function upgradeSave(
       .filter((p) => (s.packs?.[p.id]?.revision ?? p.revision) < p.revision)
       .map((p) => p.id),
   );
+  // Radio revision 2 changes initial placement, not earned room receipts.
+  if (s.packs?.ratiradio?.revision === 1 &&
+      packDefinitions.some((p) => p.id === "ratiradio" && p.revision >= 2))
+    s.packs.ratiradio.revision = 2;
   upgradeHoppyTableSave(s);
   forgetQuests(s);
   if (s?.schema === 6) {

@@ -160,6 +160,7 @@ for (const revision of [2, 3]) it(`restores Boardy revision ${revision} without 
   old.routeKnowledge.vale = [[door, "boardyai-parlour"], ["boardyai-parlour", door], ["pond", "attic"]];
   const expected = structuredClone(old);
   expected.packs.boardyai.revision = 4;
+  expected.packs.ratiradio.revision = 2; // Current content keeps earned Radio receipts.
   if (revision === 3) expected.opening.leftHome = true;
   settleStationExits(expected);
   expected.routeKnowledge.vale = [["station", "boardyai-parlour"], ["boardyai-parlour", "station"], ["pond", "attic"]];

@@ -29,7 +29,7 @@
       ],
       "scenery": {
         "open": "The staff entrance opens onto a kitchen of humming refrigerators.",
-        "closed": "A brass lock waits beneath STAFF KITCHEN. Its key lies at Black Pond."
+        "closed": "A brass lock waits beneath STAFF KITCHEN. Carry the Station Key to open the staff entrance."
       }
     },
     {

@@ -39,6 +39,16 @@ try {
       key = `cosyworld.reflected-shore.v1.${table}`;
     page.on("pageerror", (error) => errors.push(error.message));
     await page.addInitScript(() => {
+      // Keep initial and reset hands reproducible as other-world items scatter.
+      // Seed 17 leaves the attic clear; all reveal/hit-testing assertions stay exact.
+      const random = crypto.getRandomValues.bind(crypto);
+      crypto.getRandomValues = (array) => {
+        if (array instanceof Uint32Array && array.length === 1) {
+          array[0] = 17;
+          return array;
+        }
+        return random(array);
+      };
       localStorage.setItem("cosyworld.dialogue.sound", "off");
       localStorage.setItem(
         "cosyworld.room-music",
@@ -129,6 +139,7 @@ try {
         `http://127.0.0.1:${server.address().port}/?table=${table}`,
       );
       await ready();
+      assert.equal((await state()).run.seed, 17);
       assert.equal((await state()).actors.vale.place, "attic");
       assert.equal((await state()).items.lamp.lit, true);
       // The lamplit attic shows only the room in the mirror (#1653).
@@ -429,6 +440,7 @@ try {
       // Signed out, Settings holds New game (#1892).
       await startNewGame(page);
       await ready();
+      assert.equal((await state()).run.seed, 17);
       assert.equal((await state()).actors.vale.place, "attic");
       assert.equal((await state()).items.lamp.lit, true);
       assert.deepEqual(await covered(), opening);

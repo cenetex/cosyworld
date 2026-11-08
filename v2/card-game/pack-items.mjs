@@ -25,6 +25,7 @@ import {
   entityEnabled,
   packDefinitions,
   packPlaces,
+  packIdOf,
   hub,
   packThings,
   transports,
@@ -321,6 +322,42 @@ function scatterKit(s, kit, events, nameOf, log) {
   s.scatters = { ...(s.scatters || {}), [kit.id]: count + 1 };
 }
 
+// Cross-world keepsakes start at external pack entries, one world per item
+// before a world is repeated. Never choose interiors, conditional places or
+// private homes. The hub is one world, not one ticket per hub place.
+function scatterOutside(s) {
+  // Shared creation and seedless imports receive their host seed afterward.
+  if (!s.run) return;
+  const groups = [
+    { id: "hub", places: hub.places },
+    ...packDefinitions.filter((p) => hub.packEntries[p.id]).map((p) =>
+      ({ id: p.id, places: [p.entry] })),
+  ];
+  const used = new Map();
+  for (const id of Object.keys(packThings).sort()) {
+    const thing = packThings[id], item = s.items[id];
+    if (!thing.scatterOutside || !item) continue;
+    const taken = used.get(thing.packId) || new Set();
+    used.set(thing.packId, taken);
+    // History records the initial placement once. Existing custody, deliberate
+    // deposits and already moved items survive content upgrades and reloads.
+    if (item.holder !== thing.holder || item.history.length || usedUp(s, id)) {
+      taken.add(packIdOf(rootOf(s, id)));
+      continue;
+    }
+    const candidates = groups.filter((g) => g.id !== thing.packId).map((g) => ({
+      ...g, places: g.places.filter((p) => entityActive(s, p) && !packPlaces[p]?.requires?.length),
+    })).filter((g) => g.places.length);
+    if (!candidates.length) continue;
+    let choices = candidates.filter((g) => !taken.has(g.id));
+    if (!choices.length) { taken.clear(); choices = candidates; }
+    const group = choices[runHash(s, `scatter-world:${thing.packId}:${id}`) % choices.length];
+    item.holder = group.places[runHash(s, `scatter-place:${id}`) % group.places.length];
+    taken.add(group.id);
+    note(s, id, "Waiting beyond its home world.");
+  }
+}
+
 // A world from before rules 95 takes the used-up list once: a thing that now
 // starts used up and still lies untouched where it starts leaves play. A
 // thing added to a later world starts as its content says.
@@ -333,6 +370,7 @@ export function installItemCycle(s, added = []) {
   s.usedUp = [
     ...new Set([...(s.usedUp || []), ...fresh.filter(starts)]),
   ].sort();
+  scatterOutside(s);
 }
 
 const whole = (n) => Number.isSafeInteger(n) && n > 0;

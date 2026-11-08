@@ -15987,14 +15987,14 @@
         schemaVersion: 1,
         id: "ratiradio",
         packId: "cosyworld.ratiradio",
-        revision: 1,
+        revision: 2,
         name: "Night Shift at RatiRadio",
         description: "A late-night radio station opens through recovered possessions. Bring the glass, ceramic raven, red beanie home to the Listening Room. RATi roams from this home; Raven joins the world when the return is complete.",
         entry: "ratiradio-staff-kitchen",
         places: {
           "ratiradio-staff-kitchen": {
             name: "Staff Kitchen",
-            text: "The fridges keep the hours here. A dispatch door waits at the far end. Carry the Red Beanie to open it. A lost-property tray rests by the staff entrance.",
+            text: "The fridges keep the hours here. Carry the Red Beanie to open Dispatch Window. The missing possessions have wandered into the other worlds.",
             persona: "A worn teal staff kitchen with old refrigerators, pale tiles, a chair, a sink, a lost-property tray. The staff entrance leads back to Empty Station. Movable possessions may be carried away.",
             exits: [],
             backdrop: "assets/ratiradio/staff-kitchen.webp"
@@ -16020,7 +16020,7 @@
           },
           "ratiradio-broadcast-booth": {
             name: "Broadcast Booth",
-            text: "The ON AIR light comes up. The chair behind the microphone is empty. Take the glass back to the Listening Room with the figurine and red beanie.",
+            text: "The ON AIR light comes up. The chair behind the microphone is empty. The glass, figurine and red beanie belong together in the Listening Room.",
             persona: "An empty radio booth with a mixing desk, suspended microphone, empty host chair, rain-dark window. A late-night broadcast continues. The glass belongs back in the Listening Room.",
             exits: [
               "ratiradio-listening-room"
@@ -16103,7 +16103,7 @@
           },
           "ratiradio-red-beanie": {
             name: "Red Beanie",
-            text: "Red wool left on a kitchen chair. Carry it to open Dispatch Window, then put it down in the Listening Room.",
+            text: "Red wool, lost beyond the station. Carry it to open Dispatch Window, then put it down in the Listening Room.",
             persona: "A soft red knitted beanie, left for someone who works late. It opens dispatch, then belongs back in the Listening Room.",
             holder: "ratiradio-staff-kitchen",
             art: "assets/ratiradio/red-beanie.webp",
@@ -16114,11 +16114,12 @@
                 value: true
               }
             ],
-            recoverTo: "ratiradio-staff-kitchen"
+            recoverTo: "pond",
+            scatterOutside: true
           },
           "ratiradio-thermos": {
             name: "Thermos",
-            text: "Still warm at the neck. Carry it from dispatch to open the Listening Room.",
+            text: "Still warm at the neck. Lost beyond the station, it opens the Listening Room when carried.",
             persona: "A dented steel thermos with a dark lid. Its warmth opens the Listening Room. Returning it is optional.",
             holder: "ratiradio-dispatch-window",
             art: "assets/ratiradio/thermos.webp",
@@ -16129,11 +16130,12 @@
                 value: true
               }
             ],
-            recoverTo: "ratiradio-staff-kitchen"
+            recoverTo: "pond",
+            scatterOutside: true
           },
           "ratiradio-raven-figurine": {
             name: "Raven Figurine",
-            text: "A little ceramic raven. Borrow it to open the Broadcast Booth, then bring it back to the Listening Room.",
+            text: "A small ceramic raven, lost beyond the station. Carry it to open the Broadcast Booth, then leave it in the Listening Room.",
             persona: "A small black ceramic raven with a glazed eye. It remains a ceramic object when the living Raven appears. It must rest directly in the Listening Room with the glass and beanie.",
             holder: "ratiradio-listening-room",
             art: "assets/ratiradio/raven-figurine.webp",
@@ -16144,11 +16146,12 @@
                 value: true
               }
             ],
-            recoverTo: "ratiradio-staff-kitchen"
+            recoverTo: "pond",
+            scatterOutside: true
           },
           "ratiradio-glass": {
             name: "Half-full Glass",
-            text: "Water catches the booth light. Put this glass down in the Listening Room with the figurine and red beanie.",
+            text: "A water glass, lost beyond the station. Put it down in the Listening Room beside the Red Beanie and Raven Figurine.",
             persona: "An ordinary drinking glass, half full of water. Returning the glass, ceramic raven, red beanie together reveals the living Raven.",
             holder: "ratiradio-broadcast-booth",
             art: "assets/ratiradio/glass.webp",
@@ -16159,11 +16162,12 @@
                 value: true
               }
             ],
-            recoverTo: "ratiradio-staff-kitchen"
+            recoverTo: "pond",
+            scatterOutside: true
           },
           "ratiradio-request-slip": {
             name: "Request Slip",
-            text: "Lost property goes back to the listening room. Leave it where someone will find it.",
+            text: "Lost beyond the station: a red beanie, thermos, ceramic raven and glass. Search the other worlds. Bring the beanie, raven and glass home to the Listening Room.",
             persona: "A creased radio request slip with a lost-property note. The glass, ceramic raven, red beanie belong in the Listening Room. This paper is a clue, not a required return.",
             holder: "station",
             art: "assets/ratiradio/request-slip.webp"
@@ -16422,7 +16426,7 @@
             ],
             scenery: {
               open: "The staff entrance opens onto a kitchen of humming refrigerators.",
-              closed: "A brass lock waits beneath STAFF KITCHEN. Its key lies at Black Pond."
+              closed: "A brass lock waits beneath STAFF KITCHEN. Carry the Station Key to open the staff entrance."
             }
           },
           {
@@ -17420,7 +17424,8 @@
           "absentReturn",
           "locked",
           "reservedUntil",
-          "recoverTo"
+          "recoverTo",
+          "scatterOutside"
         ]) && (i.tags === void 0 || Array.isArray(i.tags) && i.tags.length >= 1 && i.tags.length <= 4 && i.tags.every(idOk2)) && textOk(i.name, 120) && textOk(i.text) && textOk(i.persona) && (owns3(places2, i.holder) || owns3(avatars, i.holder) || hub2?.places?.includes(i.holder)),
         `item ${id} is invalid`
       );
@@ -17434,6 +17439,10 @@
       check(
         i.reservedUntil === void 0 || Array.isArray(i.reservedUntil) && i.reservedUntil.length > 0,
         `item ${id} reservedUntil needs a condition`
+      );
+      check(
+        i.scatterOutside === void 0 || i.scatterOutside === true,
+        `item ${id} scatterOutside must be true`
       );
       check(
         i.recoverTo === void 0 || anyPlace(i.recoverTo),
@@ -18971,6 +18980,18 @@
     const thing = packThings[id];
     return Boolean(thing?.reservedUntil?.length && !conditionsMet(s, thing.packId, thing.reservedUntil));
   };
+  function rootOf4(s, id) {
+    let holder = s.items[id].holder;
+    for (let i = 0; i < 32 && s.items[holder]; i++)
+      holder = s.items[holder].holder;
+    return holder;
+  }
+  var note = (s, id, text2) => {
+    s.items[id].history = [
+      ...s.items[id].history,
+      `Turn ${s.turn}: ${text2}`
+    ].slice(-12);
+  };
   var restOf = (id) => packThings[id].home ?? packThings[id].holder;
   var lockedThings = Object.keys(packThings).filter((id) => packThings[id].locked).sort();
   function validCraftEvent(s, event) {
@@ -18981,12 +19002,45 @@
     const source = s.log.find((entry) => entry.seq === sourceSeq);
     return !source || source.kind === "action" && source.turn === event.turn && ["give", "trade", "drop"].includes(source.verb) && (source.verb === "drop" || source.accepted === true) && consumedIds.includes(source.itemId) && source.targetId === (source.verb === "drop" ? event.locationId : event.actorId);
   }
+  function scatterOutside(s) {
+    if (!s.run) return;
+    const groups2 = [
+      { id: "hub", places: hub.places },
+      ...packDefinitions.filter((p) => hub.packEntries[p.id]).map((p) => ({ id: p.id, places: [p.entry] }))
+    ];
+    const used = /* @__PURE__ */ new Map();
+    for (const id of Object.keys(packThings).sort()) {
+      const thing = packThings[id], item = s.items[id];
+      if (!thing.scatterOutside || !item) continue;
+      const taken = used.get(thing.packId) || /* @__PURE__ */ new Set();
+      used.set(thing.packId, taken);
+      if (item.holder !== thing.holder || item.history.length || usedUp(s, id)) {
+        taken.add(packIdOf(rootOf4(s, id)));
+        continue;
+      }
+      const candidates = groups2.filter((g) => g.id !== thing.packId).map((g) => ({
+        ...g,
+        places: g.places.filter((p) => entityActive(s, p) && !packPlaces[p]?.requires?.length)
+      })).filter((g) => g.places.length);
+      if (!candidates.length) continue;
+      let choices = candidates.filter((g) => !taken.has(g.id));
+      if (!choices.length) {
+        taken.clear();
+        choices = candidates;
+      }
+      const group = choices[runHash(s, `scatter-world:${thing.packId}:${id}`) % choices.length];
+      item.holder = group.places[runHash(s, `scatter-place:${id}`) % group.places.length];
+      taken.add(group.id);
+      note(s, id, "Waiting beyond its home world.");
+    }
+  }
   function installItemCycle(s, added = []) {
     const starts = (id) => packThings[id]?.startsUsed === true && s.items[id]?.holder === packThings[id].holder && !s.items[id].history.length;
     const fresh = Array.isArray(s.usedUp) ? added : Object.keys(s.items);
     s.usedUp = [
       .../* @__PURE__ */ new Set([...s.usedUp || [], ...fresh.filter(starts)])
     ].sort();
+    scatterOutside(s);
   }
   var whole4 = (n) => Number.isSafeInteger(n) && n > 0;
   var validItemCycle = (s) => Array.isArray(s.usedUp) && s.usedUp.every(
@@ -19022,6 +19076,8 @@
     const reworked = new Set(
       packDefinitions.filter((p) => (s.packs?.[p.id]?.revision ?? p.revision) < p.revision).map((p) => p.id)
     );
+    if (s.packs?.ratiradio?.revision === 1 && packDefinitions.some((p) => p.id === "ratiradio" && p.revision >= 2))
+      s.packs.ratiradio.revision = 2;
     upgradeHoppyTableSave(s);
     forgetQuests(s);
     if (s?.schema === 6) {
