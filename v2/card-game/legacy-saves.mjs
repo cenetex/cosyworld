@@ -130,6 +130,7 @@ export function upgradeSave(
         c.steppedBack = { [c.challenger]: false, [c.defender]: false };
     upgradeShoreRouteSave(s);
     upgradeBoardyStationSave(s);
+    restoreBoardyStationSave(s);
     upgradeBoardyAtticSave(s);
     upgradeHoppyCatSeaSave(s);
     upgradeHoppyCatInteriorsSave(s);
@@ -534,6 +535,27 @@ export function upgradeBoardyAtticSave(s) {
     ];
   }
   saved.revision = 3;
+}
+
+// Revision 4 restores the Station door without moving people or possessions.
+export function restoreBoardyStationSave(s) {
+  const pack = packDefinitions.find((p) => p.id === "boardyai");
+  const saved = s.packs?.[pack?.id];
+  if (!pack || pack.revision < 4 || ![2, 3].includes(saved?.revision)) return;
+  // Its discovered outward door proves departure from the former opening home.
+  if (saved.revision === 3 && s.opening?.crossed &&
+    s.crossings?.["station-boardyai-parlour"]?.discovered)
+    s.opening.leftHome = true;
+  if (saved.revision === 3)
+    for (const [actor, known] of Object.entries(s.routeKnowledge || {})) {
+      if (!Array.isArray(known)) continue;
+      const translated = known.map((edge) =>
+        Array.isArray(edge) && edge.length === 2 && edge.includes("boardyai-parlour")
+          ? edge.map((place) => place === "attic" ? "station" : place) : edge);
+      s.routeKnowledge[actor] = [...new Map(translated.map((edge) =>
+        [JSON.stringify(edge), edge])).values()];
+    }
+  saved.revision = 4;
 }
 
 // Hoppy Cat revision 2 is reached by ship from Piraeus to the Signal Jetty.

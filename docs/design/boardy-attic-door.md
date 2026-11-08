@@ -1,5 +1,7 @@
 # Boardy's attic doorway
 
+Historical revision3 design, superseded by [Station admission](station-first-open-exits.md).
+
 The Station has a three-link limit. Boardy's doorway moves to Mirror Attic
 so the requested RatiRadio staff entrance can join Station without displacing
 the carriage. The card still starts at Station; its directions name the Attic.

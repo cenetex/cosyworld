@@ -129,8 +129,8 @@ fn quest_history_upgrade(version: &str, speeches: usize) {
         .unwrap();
     let mut expected_packs = old.game["packs"].clone();
     expected_packs["greek-drama"]["revision"] = greek["revision"].clone();
-    // BoardyAI revision 3 moves only his doorway to Mirror attic.
-    expected_packs["boardyai"]["revision"] = json!(3);
+    // Boardy's revision 3 Attic door returns to Station in revision 4.
+    expected_packs["boardyai"]["revision"] = json!(4);
     assert_saved_values(&expected_packs, &upgraded.game["packs"], "packs");
     // The want model drops quest records and progress on upgrade; every other
     // saved field and the rest of the history survive.

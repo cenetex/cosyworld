@@ -3061,7 +3061,8 @@ fn hoppycat_upgrade_keeps_released_history_and_replays_new_story_choices() {
                     expected["revision"] = greek_revision();
                 }
                 if field == "packs" && key == "boardyai" {
-                    expected["revision"] = json!(3);
+                    // Revision 3's Attic door returns to Station in revision 4.
+                    expected["revision"] = json!(4);
                 }
                 assert_eq!(world.game[field][key], expected, "saved {field}/{key}");
             }

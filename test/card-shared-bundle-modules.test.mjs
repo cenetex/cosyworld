@@ -48,6 +48,7 @@ const RULES = [
   "scene-cast.mjs",
   "shared-rules.mjs",
   "speech-occasions.mjs",
+  "station-exits.mjs",
   "visit-speech.mjs",
   "shared-world-entry.mjs",
   "shared-world.mjs",

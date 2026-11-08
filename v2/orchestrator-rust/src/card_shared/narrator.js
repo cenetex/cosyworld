@@ -1181,20 +1181,20 @@
     schemaVersion: 1,
     id: "boardyai",
     packId: "cosyworld.boardyai",
-    revision: 3,
+    revision: 4,
     name: "BoardyAI",
     description: "A friendly AI brings human players together.",
     entry: "boardyai-parlour",
     bridge: {
       id: "boardyai-shore",
-      description: "Boardy's calling card opens a parlour door in Mirror attic."
+      description: "Boardy's calling card opens a parlour door at Empty station."
     },
     choices: [],
     places: {
       "boardyai-parlour": {
         name: "BoardyAI's Parlour",
-        text: "Two armchairs face a small tea table. Misty rails pass the window. A side door leads to Mirror attic.",
-        persona: "A warm room behind a door in Mirror attic. Two comfortable chairs invite a conversation. Calling cards fill the shelves, and a kettle waits on the table.",
+        text: "Two armchairs face a small tea table. Misty rails pass the window. A side door leads to Empty station.",
+        persona: "A warm room beside Empty station. Two comfortable chairs invite a conversation. Calling cards fill the shelves, and a kettle waits on the table.",
         requires: [
           {
             kind: "shared_world"
@@ -1238,8 +1238,8 @@
     items: {
       "boardyai-calling-card": {
         name: "Boardy's calling card",
-        text: "An ivory card bears a blue smile. A small brass key hangs from its corner. Carry it from Empty station to Mirror attic to open BoardyAI's Parlour.",
-        persona: "BoardyAI's ivory calling card has a blue smile and a brass key on blue thread. It starts at Empty station and opens his parlour door in Mirror attic.",
+        text: "An ivory card bears a blue smile. A small brass key hangs from its corner. At Empty station, it opens the door to BoardyAI's Parlour.",
+        persona: "BoardyAI's ivory calling card has a blue smile and a brass key on blue thread. It opens his parlour door at Empty station.",
         requires: [
           {
             kind: "connected_humans",
@@ -1253,7 +1253,7 @@
     crossings: [
       {
         id: "station-boardyai-parlour",
-        from: "attic",
+        from: "station",
         to: "boardyai-parlour",
         travelers: "player",
         requires: [
@@ -1264,26 +1264,26 @@
           {
             kind: "item_near",
             item: "boardyai-calling-card",
-            place: "attic"
+            place: "station"
           }
         ],
         travel: "through BoardyAI's parlour door",
         scenery: {
-          open: "A blue smile marks a warm parlour door beside the attic mirror.",
+          open: "A blue smile marks a warm parlour door beside the station bench.",
           cardArt: "assets/boardyai/parlour.png"
         }
       },
       {
         id: "boardyai-parlour-station",
         from: "boardyai-parlour",
-        to: "attic",
+        to: "station",
         travelers: "player",
         requires: [
           {
             kind: "shared_world"
           }
         ],
-        travel: "back to Mirror attic"
+        travel: "back to Empty station"
       }
     ]
   };
@@ -1296,7 +1296,7 @@
   function boardyFacts(world, nameOf2) {
     const here = world.actors[BOARDY].place;
     return [
-      "My home is BoardyAI's Parlour. My calling card opens its door in Mirror attic, held or left there.",
+      "My home is BoardyAI's Parlour. My calling card opens its door at Empty station, held or left there.",
       ...connectedHumans(world).map(
         (id) => world.actors[id].place === here ? `${nameOf2(id)} is here with me.` : world.memories[BOARDY].seen?.[id] ? `I last saw ${nameOf2(id)} at ${nameOf2(world.memories[BOARDY].seen[id].place)}. They may have moved since then.` : `I have yet to find ${nameOf2(id)}.`
       )
@@ -2111,7 +2111,7 @@
   var packDiscovered = (s, packId) => crossings.some(
     (c) => c.packId === packId && isPackPlace(c.to) && crossingState(s, c.id)?.discovered
   );
-  var crossingScenery = (s, place, senses2) => crossings.filter((c) => c.from === place && c.scenery).map(
+  var crossingScenery = (s, place, senses2, waiting = []) => crossings.filter((c) => c.from === place && c.scenery && !waiting.includes(c.transport ? transports[c.transport].place : c.to)).map(
     (c) => crossingOpen(s, c, senses2) ? c.scenery.open : c.scenery.closed
   ).filter(Boolean);
   var matches = (p, a, holder) => Boolean(p) && p.verb === a.kind && (p.item === void 0 || p.item === a.item) && (p.target === void 0 || p.target === a.target) && (p.from === void 0 || p.from === holder);
@@ -18401,6 +18401,26 @@
     }
   }
 
+  // v2/card-game/station-exits.mjs
+  var STATION_EXIT_LIMIT = 3;
+  function stationExitOrder(world, eligible) {
+    const candidates = [...new Set(eligible)].filter((id) => id !== "pond");
+    const earlier = (world.stationExitOrder || []).filter(
+      (id) => candidates.includes(id)
+    );
+    return [...earlier, ...candidates.filter((id) => !earlier.includes(id))];
+  }
+  function stationExits(world, eligible, available = eligible) {
+    const admitted = ["pond", ...stationExitOrder(world, eligible)].slice(
+      0,
+      STATION_EXIT_LIMIT
+    );
+    return admitted.filter((id) => available.includes(id));
+  }
+  var validStationExitOrder = (world, targets) => world.stationExitOrder === void 0 || Array.isArray(world.stationExitOrder) && new Set(world.stationExitOrder).size === world.stationExitOrder.length && [...world.stationExitOrder].every(
+    (id) => id !== "pond" && targets.includes(id)
+  );
+
   // v2/card-game/handover.mjs
   var sourceMatches = (s, seq, challenger, defender, item, turn, location) => {
     const e = s.log.find((e2) => e2.seq === seq);
@@ -19046,6 +19066,7 @@
           c.steppedBack = { [c.challenger]: false, [c.defender]: false };
       upgradeShoreRouteSave(s);
       upgradeBoardyStationSave(s);
+      restoreBoardyStationSave(s);
       upgradeBoardyAtticSave(s);
       upgradeHoppyCatSeaSave(s);
       upgradeHoppyCatInteriorsSave(s);
@@ -19361,6 +19382,20 @@
       ];
     }
     saved.revision = 3;
+  }
+  function restoreBoardyStationSave(s) {
+    const pack = packDefinitions.find((p) => p.id === "boardyai");
+    const saved = s.packs?.[pack?.id];
+    if (!pack || pack.revision < 4 || ![2, 3].includes(saved?.revision)) return;
+    if (saved.revision === 3 && s.opening?.crossed && s.crossings?.["station-boardyai-parlour"]?.discovered)
+      s.opening.leftHome = true;
+    if (saved.revision === 3)
+      for (const [actor, known] of Object.entries(s.routeKnowledge || {})) {
+        if (!Array.isArray(known)) continue;
+        const translated = known.map((edge) => Array.isArray(edge) && edge.length === 2 && edge.includes("boardyai-parlour") ? edge.map((place) => place === "attic" ? "station" : place) : edge);
+        s.routeKnowledge[actor] = [...new Map(translated.map((edge) => [JSON.stringify(edge), edge])).values()];
+      }
+    saved.revision = 4;
   }
   function upgradeHoppyCatSeaSave(s) {
     const pack = packDefinitions.find((p) => p.id === "hoppycat-archive");
@@ -20682,7 +20717,12 @@
   var baseExits = (_s, place) => places[place].exits;
   var placeText = (s, place) => [
     place === "attic" && reflectionOpen(s, place) ? "A tall mirror opens onto a black shore. A path leads through the glass." : s.opening && place === "station" ? "The timetable lists years that have yet to happen. A path leads along the shore to the pond." : places[place].text,
-    ...crossingScenery(s, place, sensesFor(s)),
+    ...crossingScenery(
+      s,
+      place,
+      sensesFor(s),
+      place === "station" ? stationCandidates(s).filter((id) => !stationExits(s, stationCandidates(s)).includes(id)) : []
+    ),
     ...transportScenery(s, place, nameOf),
     ...homeRescueExit(s, place) || pondRescueExit(s, place) ? [
       `A narrow path leads to ${nameOf(homeRescueExit(s, place) || pondRescueExit(s, place))}.`
@@ -20702,7 +20742,7 @@
     if (!gate.light || s.items[gate.item].fuel > 0) return true;
     return Boolean(gate.fuel && localGateResource(s, place, gate.fuel, actor));
   }
-  function ordinaryExits(s, place, actor, previous) {
+  function rawOrdinaryExits(s, place, actor, previous) {
     return [
       .../* @__PURE__ */ new Set([
         ...baseExits(s, place),
@@ -20712,6 +20752,30 @@
         ...packExits(s, place, actor)
       ])
     ];
+  }
+  var stationCrossings = crossings.filter((c) => c.from === "station");
+  var stationTargets = [.../* @__PURE__ */ new Set([
+    ...places.station.exits,
+    ...stationCrossings.map((c) => c.transport ? transports[c.transport].place : c.to),
+    ...packDefinitions.flatMap((p) => (p.routes || []).filter((r) => r.from === "station").map((r) => r.to))
+  ])];
+  function stationCandidates(s) {
+    const actors2 = [null, ...Object.keys(s.actors).filter((id) => s.actors[id].place === "station" && entityActive(s, id) && (!humanAvatar(id) || humanPresent(s, id) || residentAvatar(s, id)))];
+    return [.../* @__PURE__ */ new Set([
+      ...baseExits(s, "station"),
+      ...reflectionsFrom(s, "station"),
+      ...stationCrossings.filter((c) => actors2.some((actor) => crossingOpen(s, c, sensesFor(s), actor))).map((c) => c.transport ? transports[c.transport].place : c.to),
+      ...packExits(s, "station", null)
+    ])].filter((id) => entityActive(s, id));
+  }
+  function settleStationExits(s) {
+    s.stationExitOrder = stationExitOrder(s, stationCandidates(s));
+  }
+  function limitedExits(s, place, ways) {
+    return place === "station" ? stationExits(s, stationCandidates(s), ways) : ways;
+  }
+  function ordinaryExits(s, place, actor, previous) {
+    return limitedExits(s, place, rawOrdinaryExits(s, place, actor, previous));
   }
   function ordinaryRouteHome(s, place, destination, actor, previous) {
     const queue = [[place, previous]], visited = /* @__PURE__ */ new Set([place]);
@@ -20768,9 +20832,9 @@
     ];
     for (const to of guardedExits(s, place))
       if (!ways.includes(to)) ways.push(to);
-    return ways.filter(
+    return limitedExits(s, place, ways.filter(
       (to) => entityActive(s, to) && actorCanVisit(actor, to, s) && humanRoomAvailable(s, actor, to) && personalRouteOpen(s, place, to, actor || currentActor(s)) && !guardOf(s, place, to, actor)
-    );
+    ));
   }
   var sealedRoutes = null;
   function sealedWays(s, actor = currentActor(s)) {
@@ -20794,7 +20858,7 @@
   var openingPlace = (place) => Object.entries(homeGates).some(
     ([home, gate]) => gate.opening && [home, gate.rescue, "station"].includes(place)
   );
-  var leftHome = (s) => crossings.some(
+  var leftHome = (s) => s.opening?.leftHome === true || crossings.some(
     (c) => homeGates[c.from]?.opening && s.crossings?.[c.id]?.discovered
   );
   var canReach = (s, actor, item) => itemPlace2(s, item) === s.actors[actor].place && !actorIds.includes(rootHolder(s, item)) || rootHolder(s, item) === actor;
@@ -21062,6 +21126,7 @@
     };
     if (!s || s.schema !== 7 || !Number.isSafeInteger(s.turn) || s.turn < 0 || !Number.isSafeInteger(s.revision) || s.revision < s.turn)
       fail();
+    if (!validStationExitOrder(s, stationTargets)) fail();
     if (!validKnowledge(
       s,
       actorIds,
@@ -21090,7 +21155,7 @@
       fail();
     if (s.opening !== void 0) {
       const o = s.opening;
-      if (!o || ![1, 2].includes(o.version) || typeof o.crossed !== "boolean" || !o.met || o.met.vale !== 0 || Object.keys(o.met).some((id) => !actorIds.includes(id)) || Object.values(o.met).some(
+      if (!o || ![1, 2].includes(o.version) || typeof o.crossed !== "boolean" || o.leftHome !== void 0 && typeof o.leftHome !== "boolean" || !o.met || o.met.vale !== 0 || Object.keys(o.met).some((id) => !actorIds.includes(id)) || Object.values(o.met).some(
         (turn) => !Number.isSafeInteger(turn) || turn < 0 || turn > s.turn
       ) || !sharedEnabled(s) && o.met.keeper !== void 0 && o.met.moth === void 0 && !leftHome(s) || !o.crossed && (!openingPlace(s.actors?.vale?.place) || Object.keys(o.met).some(
         (id) => id !== "vale" && !roamingActors.includes(id)
@@ -21298,6 +21363,7 @@
       latchRoutes(s);
       settleGuards(s);
       settleHeldItems(s);
+      if (s.stationExitOrder === void 0) settleStationExits(s);
       validateWorld(s);
       preserveTransportAccess(s);
     } catch (error) {

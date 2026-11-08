@@ -26,13 +26,11 @@ each other's locations through encounters in the world.
 Boardy's calling card rests at Empty station. Like Boardy, it appears only
 while two or more humans are connected; local and single-human games show no
 card and no parlour door. Its blue smile opens a door to **BoardyAI's Parlour**
-when a present human brings it to Mirror attic or leaves it there. Carry the
-card from Station through Black pond; the lit lamp opens the Attic route.
-Two armchairs and a tea table wait inside. The parlour door leads back to
-Mirror attic even when only one human remains connected. Revision 3 keeps
-the original crossing IDs, the card's Station start, all carried possessions,
-and the saved journal. Known Station–Parlour journeys now pass through Pond
-and Attic. Revision 1 cards still resting at Pond first move to Station.
+when a present human holds or leaves it at Empty station. Station keeps Pond and
+its first two other open ways; later doors wait until an earlier one closes.
+The parlour returns to Station even when only one human remains connected.
+Revision 4 translates the former Attic doorway knowledge without moving people,
+belongings or progress. Earlier journals retain their original rules and content.
 
 The seven new humans start in their homes with their signature items on the floor.
 Picking up the item opens the path to Black pond. Putting it down closes that
