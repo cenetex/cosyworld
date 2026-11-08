@@ -1,4 +1,5 @@
 import { expect, it } from "vitest";
+import { openGreekGate } from "./helpers/greek-gate.mjs";
 import { questCard, questCards, questVisible, questVerb } from "../v2/card-game/quest-card.mjs";
 import { funeralJourney } from "./helpers/greek-funeral.mjs";
 import {
@@ -82,7 +83,7 @@ it.each(["opening", "full"])(
     world.crossings["pond-greek-harbor"].discovered = true;
     world.actors.vale.place = "greek-gate";
     world.actors.vale.visited.push("pond", "greek-gate");
-    world.items["greek-creon-writ"].holder = "greek-guard";
+    openGreekGate(world);
     act({ kind: "talk", target: antigone });
     expect(questCard(world)?.art).toContain("polynices-fallen");
     act({ kind: "move", target: "greek-battlefield" });
@@ -125,7 +126,7 @@ it("keeps a meeting with the shade after dawn", () => {
   world.crossings["pond-greek-harbor"].discovered = true;
   world.actors.vale.place = battlefield;
   world.actors.vale.visited.push("pond", battlefield);
-  world.items["greek-creon-writ"].holder = "greek-guard";
+  openGreekGate(world);
   const talk = (state) =>
     legalActions(state).find((a) => a.kind === "talk" && a.target === shade);
   world.turn = world.revision = 35;

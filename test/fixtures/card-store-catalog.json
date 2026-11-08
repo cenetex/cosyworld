@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "description": "Advisory only.",
+  "packs": [
+    {
+      "id": "sample",
+      "name": "A sample",
+      "author": "An author",
+      "description": "A quiet place.",
+      "tags": ["quiet"],
+      "source": { "repo": "example/pack" },
+      "rating": {
+        "source": "github",
+        "stars": 1,
+        "forks": 2,
+        "updated": "2026-11-03",
+        "note": "Curated note."
+      },
+      "reviews": [
+        {
+          "author": "A reviewer",
+          "note": "Reviewed the art.",
+          "updated": "2026-11-03"
+        }
+      ]
+    }
+  ]
+}

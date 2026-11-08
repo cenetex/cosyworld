@@ -72,6 +72,19 @@ describe("fast check smoke selection", () => {
     ]);
   });
 
+  it("keeps the RatiRadio route in the integration smoke budget", () => {
+    for (const file of [
+      "v2/card-game/packs.json",
+      "v2/content/ratiradio/card-world.json",
+      "v2/card-game/assets/ratiradio/raven.webp",
+      "v2/card-game/assets/music/night-shift-on-ratiradio-remastered.mp3",
+      "v2/worlds/ratiradio/card-bridge.json",
+    ])
+      expect(pick(file, "v2/card-game/app.mjs", "v2/card-game/world.mjs",
+        "v2/orchestrator-rust/src/card_shared/content.json")[config.core.length])
+        .toBe("smoke-card-ratiradio");
+  });
+
   it("runs a changed smoke first, skips Rust smokes, and caps the count", () => {
     const smokes = pick(
       "v2/scripts/smoke-shared-cards.mjs",

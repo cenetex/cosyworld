@@ -79,6 +79,11 @@
     "offset": 25924,
     "sourceHash": "ce3b8aeaba7e5ffb56c5004cb31b1c7a2919a2b90193f6534dc6314eae46686c"
   },
+  "assets/music/night-shift-on-ratiradio-remastered.mp3": {
+    "file": "assets/music-stream/night-shift-on-ratiradio-remastered.mp3",
+    "offset": 245,
+    "sourceHash": "a0ef7697ffc2eedc50a04c35ddd52ed700b567015d3a2feaae03ce01ac2af3d9"
+  },
   "assets/music/pond-1.mp3": {
     "file": "assets/music-stream/pond-1.mp3",
     "offset": 26253,

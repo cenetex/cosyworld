@@ -1,16 +1,29 @@
 import { describe, it, expect } from "vitest";
 import { existsSync } from "node:fs";
 import { humanAvatarIds } from "../v2/card-game/human-cast.mjs";
-import { combatPortrait } from "../v2/card-game/combat-portraits.mjs";
+import {
+  combatPortrait,
+  createCombatPortraits,
+} from "../v2/card-game/combat-portraits.mjs";
 import { people } from "../v2/card-game/world.mjs";
 import { packPeople } from "../v2/card-game/pack-registry.mjs";
 import { portrait } from "../v2/card-game/scene.mjs";
 import variants from "../v2/card-game/image-variants.json" with { type: "json" };
+import roster from "../v2/card-game/assets/combat/cast-roster.json" with { type: "json" };
 import {
   nativePortraitFacing,
   flipStagePortrait,
   portraitFraming,
 } from "../v2/card-game/portrait-facing.mjs";
+
+const painted = new Set([
+  ...humanAvatarIds,
+  "moth",
+  "keeper",
+  ...roster.identities
+    .filter((identity) => identity.presentation !== "backdrop")
+    .flatMap((identity) => identity.actorIds),
+]);
 
 describe("combat art on the current stage", () => {
   it("keeps each player's plain or scarf wardrobe and uses registered paintings", () => {
@@ -46,14 +59,16 @@ describe("combat art on the current stage", () => {
       combatPortrait("keeper", "guard", "./assets/keeper-right.png", "right"),
     ).toBeNull();
   });
-  it("covers the current cast in both directions without changing backdrop residents", () => {
+  it("covers each painted family in both directions and preserves other residents", () => {
     for (const id of Object.keys(people))
       for (const pose of ["attack", "hit", "guard"])
         for (const facing of ["left", "right"]) {
           const result = combatPortrait(id, pose, portrait(id, facing), facing);
           if (
+            !painted.has(id) ||
             (id === "keeper" && facing === "right") ||
-            packPeople[id]?.presentation === "backdrop" || id === "greek-polynices-shade"
+            packPeople[id]?.presentation === "backdrop" ||
+            id === "greek-polynices-shade"
           ) {
             expect(result).toBeNull();
             continue;
@@ -97,6 +112,39 @@ describe("combat art on the current stage", () => {
     ).toBeNull();
     expect(combatPortrait("vale", "walk", "vale.png", "right")).toBeNull();
   });
+  it.each(["rati", "raven"])(
+    "keeps RatiRadio %s on its approved portrait through unpainted combat poses",
+    async (name) => {
+      const id = `ratiradio-${name}`;
+      const source = `./assets/ratiradio/${name}.webp`;
+      const image = {
+        src: source,
+        dataset: { source, flip: "false" },
+        getAttribute: () => source,
+        style: { removeProperty() {} },
+      };
+      const figure = {
+        dataset: {
+          facing: "left",
+          flip: "false",
+          pose: "idle",
+          framing: "standard",
+        },
+        querySelector: () => image,
+      };
+      const portraits = createCombatPortraits(() => figure);
+      await portraits.prepare([{ actorId: id, targetId: id, kind: "attack" }]);
+      for (const pose of ["attack", "hit", "guard", "beaten"]) {
+        portraits.pose(id, pose);
+        expect(image.src).toBe(source);
+        expect(image.dataset.source).toBe(source);
+        expect(image.dataset.flip).toBe("false");
+        expect(figure.dataset.combatArt).toBeUndefined();
+      }
+      portraits.restore();
+      expect(image.src).toBe(source);
+    },
+  );
   it("keeps the original portrait when a registered stage image is missing", () => {
     const path = "assets/combat/greek-antigone-guard.webp";
     const original = variants.images[path];

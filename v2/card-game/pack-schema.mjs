@@ -685,6 +685,7 @@ export function packProblems(pack, hub, mountedPlaces = [], mountedItems = []) {
         "temperament",
         "variants",
         "home",
+        "levelAtHome",
         "homeWhen",
         "passWhen",
         "appearsWhen",
@@ -693,6 +694,7 @@ export function packProblems(pack, hub, mountedPlaces = [], mountedItems = []) {
         "want",
         "requires",
         "canonicalPerson",
+        "sealed",
       ]),
       `avatar ${id} has an unknown field`,
     );
@@ -1149,6 +1151,14 @@ export function packProblems(pack, hub, mountedPlaces = [], mountedItems = []) {
   }
   for (const [id, a] of Object.entries(avatars)) {
     requirements(a.requires, `avatar ${id} requires`);
+    check(
+      a.sealed === undefined ||
+        (keysOk(a.sealed, ["at", "reason"]) &&
+          owns(places, a.sealed.at) &&
+          textOk(a.sealed.reason, 240) &&
+          Array.isArray(a.requires) && a.requires.length > 0),
+      `avatar ${id} sealed card needs a place, a reason and activation requirements`,
+    );
     for (const [n, p] of (Array.isArray(a.poses) ? a.poses : []).entries())
       requirements(p?.requires, `avatar ${id} pose ${n + 1} requires`);
     if (a.canonicalPerson !== undefined)
@@ -1158,6 +1168,15 @@ export function packProblems(pack, hub, mountedPlaces = [], mountedItems = []) {
       );
     if (a.home !== undefined)
       check(owns(places, a.home), `avatar ${id} home is invalid`);
+    check(
+      a.levelAtHome === undefined ||
+        (a.levelAtHome === true &&
+          !humanAvatarIds.includes(id) &&
+          owns(places, a.home) &&
+          places[a.home].sanctuary === true &&
+          a.homeWhen === undefined),
+      `avatar ${id} levelAtHome needs a fixed sanctuary home for a resident`,
+    );
     requirements(a.appearsWhen, `avatar ${id} appearance`, false);
     if (a.homeWhen !== undefined) {
       check(
