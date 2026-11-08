@@ -28,11 +28,15 @@ const route = [
   ["take", id("glass")], ["move", home],
   ["drop", id("glass")], ["drop", id("raven-figurine")],
 ];
-let start = createWorld({ seed: 17 });
+let start = createWorld({ opening: true, seed: 17 });
+// A real local journey retains its opening ledger after leaving the forest.
+start.opening.crossed = true;
+start.opening.met.moth = 0;
+start.locations.attic.anchored = true;
 start.actors.vale.place = "pond";
 start.actors.vale.visited.push("pond");
 for (const item of Object.values(start.items)) if (item.holder === "vale") item.holder = "pond";
-for (const [kind, target] of route.slice(0, 8)) {
+for (const [kind, target] of route.slice(0, 6)) {
   const action = legalActions(start).find((a) => a.kind === kind && (a.item === target || a.target === target));
   assert(action, `${kind} ${target}`);
   const result = play(start, action);
@@ -49,7 +53,7 @@ try {
   for (const [width, height] of [[1440, 900], [390, 844]]) {
     const report = { width, height, browser: browser.version(), checks: [], errors: [], console: [], assetErrors: [], serviceFailures: [], screenshots: [] };
     reports.push(report);
-    const page = await browser.newPage({ viewport: { width, height }, hasTouch: width < 700, reducedMotion: "reduce" });
+    const page = await browser.newPage({ viewport: { width, height }, hasTouch: width < 700, reducedMotion: "no-preference" });
     page.setDefaultTimeout(20000);
     const table = `ratiradio-qa-${width}`, key = `cosyworld.reflected-shore.v1.${table}`;
     page.on("pageerror", (error) => report.errors.push(error.message));
@@ -110,6 +114,24 @@ try {
     };
     try {
       await page.goto(`http://127.0.0.1:${server.address().port}/?table=${table}`);
+      // Start before the reported stuck doorway, not after it. Exercise the
+      // actual small Travel cue as well as the rules-level journey above.
+      await card(id("thermos")).waitFor({ state: "attached" });
+      await ready();
+      await choose(id("thermos"));
+      await readyActionButton(page, "take").click();
+      await page.waitForFunction(({ key, thermos }) => JSON.parse(localStorage.getItem(key)).items[thermos].holder === "vale", { key, thermos: id("thermos") });
+      report.checks.push("Thermos taken through the UI");
+      await clearSelection(page);
+      await choose(home);
+      // A choice made during the pickup reply waits behind its Continue.
+      await page.locator('#dialogue-advance:not([data-revealing="true"])').click();
+      const travel = readyActionButton(page, "move");
+      await travel.waitFor();
+      const bounds = await travel.boundingBox();
+      await travel.click({ position: { x: bounds.width - 25, y: bounds.height - 8 } });
+      await page.waitForFunction(({ key, home }) => JSON.parse(localStorage.getItem(key)).actors.vale.place === home, { key, home });
+      report.checks.push("Tap to travel enters Listening Room from Dispatch Window");
       await card(rati).waitFor();
       await ready();
       assert.equal((await state()).actors[rati].place, home);

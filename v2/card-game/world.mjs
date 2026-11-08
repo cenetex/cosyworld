@@ -743,13 +743,19 @@ const leftHome = (s) =>
   s.opening?.leftHome === true || crossings.some(
     (c) => homeGates[c.from]?.opening && s.crossings?.[c.id]?.discovered,
   );
-function meetCast(s) {
-  const player = currentActor(s);
+function meetPackCast(s, player) {
   for (const [id, a] of Object.entries(packPeople))
     if (entityActive(s, id) && s.actors[id].place === s.actors[player].place)
       s.packs[a.packId].met && (s.packs[a.packId].met[id] ??= s.turn);
+}
+function meetCast(s) {
+  const player = currentActor(s);
+  meetPackCast(s, player);
   if (controlledByHuman(s, player))
     applyMeetingChoices(s, player, Object.keys(places));
+  // Arrival can awaken a resident through a meeting choice. Record that
+  // encounter before the opening ledger sees the newly active resident too.
+  meetPackCast(s, player);
   if (!s.opening || (player !== "vale" && !s.opening.crossed)) return;
   // The pond crosses the opening, as does leaving its home another way (a
   // scarf's stair down to the forest cottage); Vale still meets people one
