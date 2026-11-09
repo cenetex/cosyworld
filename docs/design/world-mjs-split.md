@@ -46,3 +46,5 @@ table + brotli) then collapses the per-version `include_str!` constants.
   `sensesFor`, `baseSoundAt`. Verified old-vs-new byte-for-byte equivalent.
 - `world/station.mjs` — `baseExits`, `stationCandidates`, `settleStationExits`,
   `limitedExits`, `stationTargets`. Verified old-vs-new byte-for-byte equivalent.
+- `world/geography.mjs` — `placeText`, `exits`, `sealedWays`, and the
+  rescue/route helpers. Verified old-vs-new byte-for-byte equivalent.

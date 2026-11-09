@@ -1,4 +1,4 @@
-import { stationExits, validStationExitOrder } from "./station-exits.mjs";
+import { validStationExitOrder } from "./station-exits.mjs";
 import {
   recordConversation,
   settleCompany,
@@ -33,7 +33,6 @@ import {
   controlledByHuman,
   humanPresent,
   sharedEnabled,
-  humanRoomAvailable,
   humanHomeGates,
   heldByHuman,
   residentAvatar,
@@ -121,7 +120,6 @@ import {
   entityActive,
   actorCanVisit,
   packExits,
-  personalRouteOpen,
   latchRoutes,
   validOpenedRoutes,
   packChoices,
@@ -153,9 +151,7 @@ import {
   newCrossingState,
   newPackRecord,
   newTemperament,
-  crossingExits,
   crossingBetween,
-  crossingScenery,
   markCrossed,
   beginRound,
   holderBefore,
@@ -175,7 +171,6 @@ import {
 import {
   installTransports,
   moveTransport,
-  transportExits,
   waitForTransport,
   transportArrival,
   preserveTransportAccess,
@@ -186,7 +181,6 @@ import {
   berthOpen,
   canDisembark,
   transportPlace,
-  transportScenery,
   callTransport,
   VOYAGE,
   laneEdges,
@@ -194,7 +188,7 @@ import {
 } from "./pack-transport.mjs";
 import { upgradeSave } from "./legacy-saves.mjs";
 import { settleVisitSpeech, validVisitSpeech } from "./visit-speech.mjs";
-import { firstStart, togglePack, validDisabledPacks } from "./pack-toggle.mjs";
+import { togglePack, validDisabledPacks } from "./pack-toggle.mjs";
 import {
   consume,
   settleCrafting,
@@ -225,9 +219,6 @@ import {
 import { bedtime, residentAsleep, validSleep } from "./resident-sleep.mjs";
 import {
   guardableWays,
-  guardedExits,
-  guardedFrom,
-  isGuardable,
   guardPost,
   guardOf,
   wayLifted,
@@ -245,12 +236,12 @@ import {
   nameOf,
 } from "./world/catalog.mjs";
 export { places, sanctuaries, people, things, nameOf };
-const homeGates = { ...forest.homeGates, ...humanHomeGates };
+export const homeGates = { ...forest.homeGates, ...humanHomeGates };
 const lifeProblems = lifeDataProblems(places, people);
 if (lifeProblems.length)
   throw new Error(`Invalid world life data: ${lifeProblems.join("; ")}`);
 // Geography identifies resources beyond the attic; each real trip keeps its gates.
-const atticInterior = (() => {
+export const atticInterior = (() => {
   const found = new Set(["attic"]),
     queue = ["attic"];
   const routes = packDefinitions.flatMap((pack) => pack.routes || []);
@@ -291,7 +282,7 @@ function planningReadsFor(world) {
   }
   return reads;
 }
-function knownActors(world) {
+export function knownActors(world) {
   const reads = planningReadsFor(world);
   if (!reads) return readKnownActors(world);
   return (reads.knownActors ??= readKnownActors(world)).slice();
@@ -391,62 +382,18 @@ import {
 } from "./world/items.mjs";
 export { rootHolder, itemPlace, carried, covered, shining };
 // Senses and reflections live in world/senses.mjs (#1390).
-import { reflectionOpen, reflectionsFrom, senses, sensesFor } from "./world/senses.mjs";
+import { reflectionOpen, senses, sensesFor } from "./world/senses.mjs";
 export { reflectionOpen, senses, sensesFor };
-export const placeText = (s, place) =>
-  [
-    place === "attic" && reflectionOpen(s, place)
-      ? "A tall mirror opens onto a black shore. A path leads through the glass."
-      : s.opening && place === "station"
-        ? "The timetable lists years that have yet to happen. A path leads along the shore to the pond."
-        : places[place].text,
-    ...crossingScenery(s, place, sensesFor(s),
-      place === "station" ? stationCandidates(s).filter((id) =>
-        !stationExits(s, stationCandidates(s)).includes(id)) : []),
-    ...transportScenery(s, place, nameOf),
-    ...(homeRescueExit(s, place) || pondRescueExit(s, place)
-      ? [
-          `A narrow path leads to ${nameOf(homeRescueExit(s, place) || pondRescueExit(s, place))}.`,
-        ]
-      : []),
-  ].join(" ");
-// A home gate can be restored by resources in the room, including a present
-// helper's belongings. Full hands can make room through the usual Drop action.
-function localGateResource(s, place, item, actor) {
-  return Boolean(
-    s.items[item] &&
-      entityActive(s, item) &&
-      itemPlace(s, item) === place &&
-      (canUse(s, actor, item) ||
-        (controlledByHuman(s, rootHolder(s, item)) &&
-          humanPresent(s, rootHolder(s, item))) ||
-        // An away traveler's lamp still lights here, though no one may
-        // take it from them (rules 98).
-        residentAvatar(s, rootHolder(s, item)) ||
-        (knownActors(s).includes(rootHolder(s, item)) &&
-          (willingToGive(s, rootHolder(s, item), item, actor) ||
-            carried(s, actor).some((payment) =>
-              canTrade(s, actor, payment, item),
-            )))),
-  );
-}
-function homeGateRecoverable(s, place, gate, actor) {
-  if (!localGateResource(s, place, gate.item, actor)) return false;
-  if (!gate.light || s.items[gate.item].fuel > 0) return true;
-  // Holding a full flask with the empty lamp refuels it, so a flask here is enough.
-  return Boolean(gate.fuel && localGateResource(s, place, gate.fuel, actor));
-}
-function rawOrdinaryExits(s, place, actor, previous) {
-  return [
-    ...new Set([
-      ...baseExits(s, place),
-      ...reflectionsFrom(s, place),
-      ...crossingExits(s, place, actor, sensesFor(s)),
-      ...transportExits(s, place, previous, actor),
-      ...packExits(s, place, actor),
-    ]),
-  ];
-}
+// Geography lives in world/geography.mjs (#1390).
+import {
+  placeText,
+  exits,
+  sealedWays,
+  homeRescueExit,
+  pondRescueExit,
+  homeGateRecoverable,
+} from "./world/geography.mjs";
+export { placeText, exits, sealedWays };
 // Station exits and candidates live in world/station.mjs (#1390).
 import {
   baseExits,
@@ -456,152 +403,6 @@ import {
   stationTargets,
 } from "./world/station.mjs";
 export { settleStationExits };
-function ordinaryExits(s, place, actor, previous) {
-  return limitedExits(s, place, rawOrdinaryExits(s, place, actor, previous));
-}
-// A doorway into another part of the same isolated home still needs a way out.
-// Capacity is checked when traveling, so a crowded shore remains a waiting case.
-function ordinaryRouteHome(s, place, destination, actor, previous) {
-  const queue = [[place, previous]],
-    visited = new Set([place]);
-  for (let i = 0; i < queue.length; i++) {
-    const [from, before] = queue[i];
-    if (from === destination) return true;
-    for (const to of ordinaryExits(s, from, actor, before)) {
-      if (
-        visited.has(to) ||
-        !entityActive(s, to) ||
-        !actorCanVisit(actor, to, s)
-      )
-        continue;
-      visited.add(to);
-      queue.push([to, from]);
-    }
-  }
-  return false;
-}
-function homeRescueExit(s, place, actor = currentActor(s), previous = null) {
-  const gate = homeGates[place];
-  actor ||= currentActor(s);
-  return gate &&
-    (controlledByHuman(s, actor) ||
-      homeOf(actor) === place ||
-      (gate.opening && knownActors(s).includes(actor))) &&
-    s.actors[actor]?.place === place &&
-    !ordinaryRouteHome(s, place, gate.rescue, actor, previous) &&
-    !homeGateRecoverable(s, place, gate, actor)
-    ? // With its rescue place asleep, the first pack on takes them in (rules 98).
-      entityActive(s, gate.rescue)
-      ? gate.rescue
-      : firstStart(s)
-    : null;
-}
-function insideLampRemedy(s, actor) {
-  const here = s.actors[actor].place,
-    lamp = itemPlace(s, "lamp"),
-    oil = itemPlace(s, "oil");
-  if (
-    !atticInterior.has(here) ||
-    !ordinaryRouteHome(s, here, lamp, actor) ||
-    !ordinaryRouteHome(s, lamp, "attic", actor)
-  )
-    return false;
-  const at = (place) => ({
-    ...s,
-    actors: { ...s.actors, [actor]: { ...s.actors[actor], place } },
-  });
-  if (!localGateResource(at(lamp), lamp, "lamp", actor)) return false;
-  return (
-    s.items.lamp.fuel > 0 ||
-    (ordinaryRouteHome(s, here, oil, actor) &&
-      ordinaryRouteHome(s, oil, lamp, actor) &&
-      localGateResource(at(oil), oil, "oil", actor))
-  );
-}
-// Recover a gate resource left beyond the mirror after reachable remedies are gone.
-function pondRescueExit(s, place, actor, previous) {
-  actor ||= currentActor(s);
-  const lamp = itemPlace(s, "lamp"),
-    oil = itemPlace(s, "oil");
-  // The flask is always full; it matters while it is shut inside with the lamp empty.
-  if (
-    place !== "pond" ||
-    s.actors[actor]?.place !== place ||
-    (!controlledByHuman(s, actor) && !knownActors(s).includes(actor)) ||
-    !(atticInterior.has(lamp) || atticInterior.has(oil)) ||
-    ordinaryRouteHome(s, place, "attic", actor, previous)
-  )
-    return null;
-  if (
-    ordinaryRouteHome(s, place, lamp, actor, previous) &&
-    (s.items.lamp.fuel > 0 || ordinaryRouteHome(s, place, oil, actor, previous))
-  )
-    return null;
-  if (
-    knownActors(s).some(
-      (id) =>
-        (!controlledByHuman(s, id) || humanPresent(s, id)) &&
-        (insideLampRemedy(s, id) ||
-          (!atticInterior.has(lamp) &&
-            s.actors[id].place === "attic" &&
-            homeRescueExit(s, "attic", id) &&
-            localGateResource(s, "attic", "oil", id))),
-    )
-  )
-    return null;
-  return "attic";
-}
-export function exits(s, place, actor = null, previous = null) {
-  const rescue = homeRescueExit(s, place, actor, previous),
-    returnPath = pondRescueExit(s, place, actor, previous);
-  const ways = [
-    ...ordinaryExits(s, place, actor, previous),
-    ...(rescue ? [rescue] : []),
-    ...(returnPath ? [returnPath] : []),
-  ];
-  // A guardable way, and the way back through it (rules 100).
-  for (const to of guardedExits(s, place))
-    if (!ways.includes(to)) ways.push(to);
-  return limitedExits(s, place, ways.filter(
-    (to) =>
-      entityActive(s, to) &&
-      actorCanVisit(actor, to, s) &&
-      humanRoomAvailable(s, actor, to) &&
-      personalRouteOpen(s, place, to, actor || currentActor(s)) &&
-      !guardOf(s, place, to, actor),
-  ));
-}
-
-// A sealed way (rules 95): a pack route that names its sealed card and the
-// quest that opens it, while it is shut from where the traveller stands.
-// A guarded way shows the same sealed card while its guard bars it, and the
-// reason names the guard (rules 100); it gives its quest if the route has one.
-let sealedRoutes = null;
-export function sealedWays(s, actor = currentActor(s)) {
-  sealedRoutes ??= packDefinitions.flatMap((pack) =>
-    (pack.routes || []).filter((r) => r.sealed || isGuardable(r.from, r.to)),
-  );
-  const here = s.actors[actor]?.place,
-    ways = [
-      ...sealedRoutes.filter((r) => r.from === here),
-      // A guard bars his way from both sides (rules 100).
-      ...guardedFrom(here).map((to) => ({ from: here, to })),
-    ].filter((r) => entityActive(s, r.to) && entityActive(s, here));
-  if (!ways.length) return [];
-  const open = exits(s, here, actor),
-    seen = new Set();
-  return ways
-    .filter((r) => !open.includes(r.to))
-    .flatMap((r) => {
-      const guard = guardOf(s, here, r.to, actor);
-      if (!guard) return r.sealed ? [r] : [];
-      // The card beyond a guarded way is locked; its reason names the guard
-      // and gives no quest (rules 102). Talk with him gives his.
-      const reason = `${nameOf(guard)} is guarding this card`;
-      return [{ ...r, sealed: { reason }, guardedBy: guard }];
-    })
-    .filter((r) => !seen.has(r.to) && seen.add(r.to));
-}
 // The quest a sealed card gives: the thing to hold, or to give someone, the
 // place to reach or the person to talk with.
 const gateQuest = (s, { kind, target, to }) => ({
@@ -664,7 +465,7 @@ const canReach = (s, actor, item) =>
   (itemPlace(s, item) === s.actors[actor].place &&
     !actorIds.includes(rootHolder(s, item))) ||
   rootHolder(s, item) === actor;
-const canUse = canReach;
+export const canUse = canReach;
 const loadOf = (s, id) => 1 + (s.items.cloth.holder === id ? 1 : 0);
 const hasSpace = (s, actor, id) =>
   carried(s, actor).length +
@@ -820,7 +621,7 @@ function reachable(s, actor, within = null) {
       }
   return [...seen].filter((id) => id !== from && !transportPlace(id)).sort();
 }
-const homeOf = (id) =>
+export const homeOf = (id) =>
   (packPeople[id]?.levelAtHome && packPeople[id].home) ||
   tastes[id]?.home ||
   humanAvatar(id)?.home?.id ||
