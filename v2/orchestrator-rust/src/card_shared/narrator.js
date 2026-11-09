@@ -2043,6 +2043,14 @@
         return packRouteOpen(s, c.from, c.to);
       case "home_door":
         return s.doors?.[c.home] === c.place;
+      // The current player carries the thing, unless another carrier is named.
+      case "held":
+        return s.items[c.item]?.holder === (c.actor ?? currentActor(s)) && !usedUp(s, c.item);
+      // The thing rests on a place, not in a hand or inside another thing.
+      case "grounded": {
+        const holder = s.items[c.item]?.holder;
+        return holder != null && !s.items[holder] && !s.actors[holder] && !usedUp(s, c.item);
+      }
       case "connected_humans":
         return sharedEnabled(s) && humanAvatarIds.filter((id) => humanPresent(s, id)).length >= c.minimum;
       case "item_near": {
@@ -16715,6 +16723,8 @@
     "chance",
     "upgraded",
     "gate_open",
+    "grounded",
+    "held",
     "home_door"
   ];
   var AT_SEA = "@sea";
@@ -20613,15 +20623,243 @@
     return true;
   }
 
-  // v2/card-game/world.mjs
+  // v2/card-game/world/catalog.mjs
   var places = { ...forest_default.places, ...packPlaces };
-  var homeGates = { ...forest_default.homeGates, ...humanHomeGates };
   var sanctuaries = Object.keys(places).filter(
     (id) => places[id].sanctuary === true
   );
   var people = { ...forest_default.people, ...packPeople };
   var things = { ...packThings, ...forest_default.things };
   validatePackLinks(places, people, things);
+  var nameOf = (id) => places[id]?.name || people[id]?.name || things[id]?.name || "the world";
+
+  // v2/card-game/world/items.mjs
+  var SHORT_CHAIN = 32;
+  function rootHolder(s, id) {
+    let holder = s.items[id].holder;
+    for (let step = 0; step < SHORT_CHAIN; step++) {
+      if (!s.items[holder]) return holder;
+      if (holder === id) throw new Error("An item holds itself.");
+      holder = s.items[holder].holder;
+    }
+    holder = s.items[id].holder;
+    const visited = /* @__PURE__ */ new Set([id]);
+    while (s.items[holder]) {
+      if (visited.has(holder)) throw new Error("An item holds itself.");
+      visited.add(holder);
+      holder = s.items[holder].holder;
+    }
+    return holder;
+  }
+  var itemPlace = (s, id) => s.actors[rootHolder(s, id)]?.place || rootHolder(s, id);
+  var carried = (s, actor) => ids.filter((id) => rootHolder(s, id) === actor);
+  var covered = (s, id) => s.items.cloth.holder === id;
+  var shining = (s) => entityActive(s, "lamp") && s.items.lamp.lit && s.items.lamp.fuel > 0 && !covered(s, "lamp");
+
+  // v2/card-game/world/senses.mjs
+  var reflectionsFrom = (s, from) => (forest_default.reflectionRoutes || []).filter(
+    (r) => r.from === from && r.requires.every((c) => conditionMet(s, c, null))
+  ).map((r) => r.to);
+  var reflectionOpen = (s, from = itemPlace(s, "lamp")) => reflectionsFrom(s, from).length > 0;
+  var baseSoundAt = (s, place) => entityActive(s, "bell") && s.items.bell.ringing > 0 && !covered(s, "bell") && itemPlace(s, "bell") === place;
+  var senses = { player: "vale", baseSoundAt, nameOf };
+  var sensesFor = (s) => ({
+    ...senses,
+    player: currentActor(s),
+    ...s.controlledActors ? { humanActors: s.controlledActors } : {}
+  });
+
+  // v2/card-game/world/station.mjs
+  var baseExits = (_s, place) => places[place].exits;
+  var stationCrossings = crossings.filter((c) => c.from === "station");
+  var stationTargets = [
+    .../* @__PURE__ */ new Set([
+      ...places.station.exits,
+      ...stationCrossings.map(
+        (c) => c.transport ? transports[c.transport].place : c.to
+      ),
+      ...packDefinitions.flatMap(
+        (p) => (p.routes || []).filter((r) => r.from === "station").map((r) => r.to)
+      )
+    ])
+  ];
+  function stationCandidates(s) {
+    const actors2 = [
+      null,
+      ...Object.keys(s.actors).filter(
+        (id) => s.actors[id].place === "station" && entityActive(s, id) && (!humanAvatar(id) || humanPresent(s, id) || residentAvatar(s, id))
+      )
+    ];
+    return [
+      .../* @__PURE__ */ new Set([
+        ...baseExits(s, "station"),
+        ...reflectionsFrom(s, "station"),
+        ...stationCrossings.filter(
+          (c) => actors2.some((actor) => crossingOpen(s, c, sensesFor(s), actor))
+        ).map((c) => c.transport ? transports[c.transport].place : c.to),
+        ...packExits(s, "station", null)
+      ])
+    ].filter((id) => entityActive(s, id));
+  }
+  function settleStationExits(s) {
+    s.stationExitOrder = stationExitOrder(s, stationCandidates(s));
+  }
+  function limitedExits(s, place, ways) {
+    return place === "station" ? stationExits(s, stationCandidates(s), ways) : ways;
+  }
+
+  // v2/card-game/world/geography.mjs
+  var placeText = (s, place) => [
+    place === "attic" && reflectionOpen(s, place) ? "A tall mirror opens onto a black shore. A path leads through the glass." : s.opening && place === "station" ? "The timetable lists years that have yet to happen. A path leads along the shore to the pond." : places[place].text,
+    ...crossingScenery(
+      s,
+      place,
+      sensesFor(s),
+      place === "station" ? stationCandidates(s).filter((id) => !stationExits(s, stationCandidates(s)).includes(id)) : []
+    ),
+    ...transportScenery(s, place, nameOf),
+    ...homeRescueExit(s, place) || pondRescueExit(s, place) ? [
+      `A narrow path leads to ${nameOf(homeRescueExit(s, place) || pondRescueExit(s, place))}.`
+    ] : []
+  ].join(" ");
+  function localGateResource(s, place, item, actor) {
+    return Boolean(
+      s.items[item] && entityActive(s, item) && itemPlace(s, item) === place && (canUse(s, actor, item) || controlledByHuman(s, rootHolder(s, item)) && humanPresent(s, rootHolder(s, item)) || // An away traveler's lamp still lights here, though no one may
+      // take it from them (rules 98).
+      residentAvatar(s, rootHolder(s, item)) || knownActors2(s).includes(rootHolder(s, item)) && (willingToGive(s, rootHolder(s, item), item, actor) || carried(s, actor).some(
+        (payment) => canTrade(s, actor, payment, item)
+      )))
+    );
+  }
+  function homeGateRecoverable(s, place, gate, actor) {
+    if (!localGateResource(s, place, gate.item, actor)) return false;
+    if (!gate.light || s.items[gate.item].fuel > 0) return true;
+    return Boolean(gate.fuel && localGateResource(s, place, gate.fuel, actor));
+  }
+  function rawOrdinaryExits(s, place, actor, previous) {
+    return [
+      .../* @__PURE__ */ new Set([
+        ...baseExits(s, place),
+        ...reflectionsFrom(s, place),
+        ...crossingExits(s, place, actor, sensesFor(s)),
+        ...transportExits(s, place, previous, actor),
+        ...packExits(s, place, actor)
+      ])
+    ];
+  }
+  function ordinaryExits(s, place, actor, previous) {
+    return limitedExits(s, place, rawOrdinaryExits(s, place, actor, previous));
+  }
+  function ordinaryRouteHome(s, place, destination, actor, previous) {
+    const queue = [[place, previous]], visited = /* @__PURE__ */ new Set([place]);
+    for (let i = 0; i < queue.length; i++) {
+      const [from, before] = queue[i];
+      if (from === destination) return true;
+      for (const to of ordinaryExits(s, from, actor, before)) {
+        if (visited.has(to) || !entityActive(s, to) || !actorCanVisit(actor, to, s))
+          continue;
+        visited.add(to);
+        queue.push([to, from]);
+      }
+    }
+    return false;
+  }
+  function homeRescueExit(s, place, actor = currentActor(s), previous = null) {
+    const gate = homeGates[place];
+    actor ||= currentActor(s);
+    return gate && (controlledByHuman(s, actor) || homeOf2(actor) === place || gate.opening && knownActors2(s).includes(actor)) && s.actors[actor]?.place === place && !ordinaryRouteHome(s, place, gate.rescue, actor, previous) && !homeGateRecoverable(s, place, gate, actor) ? (
+      // With its rescue place asleep, the first pack on takes them in (rules 98).
+      entityActive(s, gate.rescue) ? gate.rescue : firstStart(s)
+    ) : null;
+  }
+  function insideLampRemedy(s, actor) {
+    const here = s.actors[actor].place, lamp = itemPlace(s, "lamp"), oil = itemPlace(s, "oil");
+    if (!atticInterior.has(here) || !ordinaryRouteHome(s, here, lamp, actor) || !ordinaryRouteHome(s, lamp, "attic", actor))
+      return false;
+    const at = (place) => ({
+      ...s,
+      actors: { ...s.actors, [actor]: { ...s.actors[actor], place } }
+    });
+    if (!localGateResource(at(lamp), lamp, "lamp", actor)) return false;
+    return s.items.lamp.fuel > 0 || ordinaryRouteHome(s, here, oil, actor) && ordinaryRouteHome(s, oil, lamp, actor) && localGateResource(at(oil), oil, "oil", actor);
+  }
+  function pondRescueExit(s, place, actor, previous) {
+    actor ||= currentActor(s);
+    const lamp = itemPlace(s, "lamp"), oil = itemPlace(s, "oil");
+    if (place !== "pond" || s.actors[actor]?.place !== place || !controlledByHuman(s, actor) && !knownActors2(s).includes(actor) || !(atticInterior.has(lamp) || atticInterior.has(oil)) || ordinaryRouteHome(s, place, "attic", actor, previous))
+      return null;
+    if (ordinaryRouteHome(s, place, lamp, actor, previous) && (s.items.lamp.fuel > 0 || ordinaryRouteHome(s, place, oil, actor, previous)))
+      return null;
+    if (knownActors2(s).some(
+      (id) => (!controlledByHuman(s, id) || humanPresent(s, id)) && (insideLampRemedy(s, id) || !atticInterior.has(lamp) && s.actors[id].place === "attic" && homeRescueExit(s, "attic", id) && localGateResource(s, "attic", "oil", id))
+    ))
+      return null;
+    return "attic";
+  }
+  function exits(s, place, actor = null, previous = null) {
+    const rescue = homeRescueExit(s, place, actor, previous), returnPath = pondRescueExit(s, place, actor, previous);
+    const ways = [
+      ...ordinaryExits(s, place, actor, previous),
+      ...rescue ? [rescue] : [],
+      ...returnPath ? [returnPath] : []
+    ];
+    for (const to of guardedExits(s, place))
+      if (!ways.includes(to)) ways.push(to);
+    return limitedExits(s, place, ways.filter(
+      (to) => entityActive(s, to) && actorCanVisit(actor, to, s) && humanRoomAvailable(s, actor, to) && personalRouteOpen(s, place, to, actor || currentActor(s)) && !guardOf(s, place, to, actor)
+    ));
+  }
+  var sealedRoutes = null;
+  function sealedWays(s, actor = currentActor(s)) {
+    sealedRoutes ??= packDefinitions.flatMap(
+      (pack) => (pack.routes || []).filter((r) => r.sealed || isGuardable(r.from, r.to))
+    );
+    const here = s.actors[actor]?.place, ways = [
+      ...sealedRoutes.filter((r) => r.from === here),
+      // A guard bars his way from both sides (rules 100).
+      ...guardedFrom(here).map((to) => ({ from: here, to }))
+    ].filter((r) => entityActive(s, r.to) && entityActive(s, here));
+    if (!ways.length) return [];
+    const open = exits(s, here, actor), seen = /* @__PURE__ */ new Set();
+    return ways.filter((r) => !open.includes(r.to)).flatMap((r) => {
+      const guard = guardOf(s, here, r.to, actor);
+      if (!guard) return r.sealed ? [r] : [];
+      const reason = `${nameOf(guard)} is guarding this card`;
+      return [{ ...r, sealed: { reason }, guardedBy: guard }];
+    }).filter((r) => !seen.has(r.to) && seen.add(r.to));
+  }
+
+  // v2/card-game/world/lanes.mjs
+  var atPort = (s, actor) => Object.values(transports).some(
+    (t) => t.place === s.actors[actor].place || t.docks.includes(s.actors[actor].place)
+  );
+  function laneTalkFacts(s, actor) {
+    if (!s.actors[actor] || !atPort(s, actor)) return [];
+    const here = s.actors[actor].place;
+    const ship = Object.entries(transports).find(([, t]) => t.place === here);
+    const near = ship ? s.transports[ship[0]].dock : here;
+    const known = laneEdges().map(laneOfEdge).filter(
+      ([from, to]) => from === near && entityActive(s, to) && knowsLane(s, actor, from, to)
+    ).map(([, to]) => nameOf(to));
+    return known.length ? [`I know ships sail from ${nameOf(near)} to ${known.join(" and ")}.`] : [`I know of no ship lane from ${nameOf(near)}.`];
+  }
+  var worldName = (pack) => packDefinitions.find((p) => p.id === pack)?.name.split(":")[0] ?? "there";
+  var needOf = (c, choice = false) => c.kind === "any" ? [...new Set(c.conditions.map((r) => needOf(r, true)))].join(" or ") : c.item ? nameOf(c.item) : choice && c.pack ? `something from ${worldName(c.pack)}` : "something from there";
+  var laneNeed = (gate) => [...new Set(gate.map((c) => needOf(c)))].join(" and ");
+  var laneFact = (from, to) => {
+    const gate = laneConditions(from, to);
+    return {
+      id: `lane:${from}>${to}`,
+      text: gate ? `Ships for ${nameOf(to)} leave from ${nameOf(from)} only with ${laneNeed(gate)} aboard.` : `Ships for ${nameOf(to)} leave from ${nameOf(from)}.`
+    };
+  };
+  var laneFactText = (id) => {
+    const [from, to] = id.startsWith("lane:") ? id.slice(5).split(">") : [];
+    return from && to && laneEdges().some(([a, b]) => a === `sea:${from}` && b === `sea:${to}`) ? laneFact(from, to).text : null;
+  };
+
+  // v2/card-game/world.mjs
+  var homeGates = { ...forest_default.homeGates, ...humanHomeGates };
   var lifeProblems = lifeDataProblems(places, people);
   if (lifeProblems.length)
     throw new Error(`Invalid world life data: ${lifeProblems.join("; ")}`);
@@ -20673,7 +20911,6 @@
       actorIds.filter((other) => other !== id).sort().join()
     ])
   );
-  var nameOf = (id) => places[id]?.name || people[id]?.name || things[id]?.name || "the world";
   function installPacks(s) {
     const added = [];
     installTransports(s);
@@ -20738,186 +20975,13 @@
         rememberRoutes(s, actor, visibleRouteEdges(s.actors[actor].place));
       }
   }
-  var SHORT_CHAIN = 32;
-  function rootHolder(s, id) {
-    let holder = s.items[id].holder;
-    for (let step = 0; step < SHORT_CHAIN; step++) {
-      if (!s.items[holder]) return holder;
-      if (holder === id) throw new Error("An item holds itself.");
-      holder = s.items[holder].holder;
-    }
-    holder = s.items[id].holder;
-    const visited = /* @__PURE__ */ new Set([id]);
-    while (s.items[holder]) {
-      if (visited.has(holder)) throw new Error("An item holds itself.");
-      visited.add(holder);
-      holder = s.items[holder].holder;
-    }
-    return holder;
-  }
-  var itemPlace2 = (s, id) => s.actors[rootHolder(s, id)]?.place || rootHolder(s, id);
-  var carried = (s, actor) => ids.filter((id) => rootHolder(s, id) === actor);
-  var covered = (s, id) => s.items.cloth.holder === id;
-  var shining = (s) => entityActive(s, "lamp") && s.items.lamp.lit && s.items.lamp.fuel > 0 && !covered(s, "lamp");
-  var reflectionsFrom = (s, from) => (forest_default.reflectionRoutes || []).filter(
-    (r) => r.from === from && r.requires.every((c) => conditionMet(s, c, null))
-  ).map((r) => r.to);
-  var reflectionOpen = (s, from = itemPlace2(s, "lamp")) => reflectionsFrom(s, from).length > 0;
-  var baseSoundAt = (s, place) => entityActive(s, "bell") && s.items.bell.ringing > 0 && !covered(s, "bell") && itemPlace2(s, "bell") === place;
-  var senses = { player: "vale", baseSoundAt, nameOf };
-  var sensesFor = (s) => ({
-    ...senses,
-    player: currentActor(s),
-    ...s.controlledActors ? { humanActors: s.controlledActors } : {}
-  });
-  var baseExits = (_s, place) => places[place].exits;
-  var placeText = (s, place) => [
-    place === "attic" && reflectionOpen(s, place) ? "A tall mirror opens onto a black shore. A path leads through the glass." : s.opening && place === "station" ? "The timetable lists years that have yet to happen. A path leads along the shore to the pond." : places[place].text,
-    ...crossingScenery(
-      s,
-      place,
-      sensesFor(s),
-      place === "station" ? stationCandidates(s).filter((id) => !stationExits(s, stationCandidates(s)).includes(id)) : []
-    ),
-    ...transportScenery(s, place, nameOf),
-    ...homeRescueExit(s, place) || pondRescueExit(s, place) ? [
-      `A narrow path leads to ${nameOf(homeRescueExit(s, place) || pondRescueExit(s, place))}.`
-    ] : []
-  ].join(" ");
-  function localGateResource(s, place, item, actor) {
-    return Boolean(
-      s.items[item] && entityActive(s, item) && itemPlace2(s, item) === place && (canUse(s, actor, item) || controlledByHuman(s, rootHolder(s, item)) && humanPresent(s, rootHolder(s, item)) || // An away traveler's lamp still lights here, though no one may
-      // take it from them (rules 98).
-      residentAvatar(s, rootHolder(s, item)) || knownActors2(s).includes(rootHolder(s, item)) && (willingToGive(s, rootHolder(s, item), item, actor) || carried(s, actor).some(
-        (payment) => canTrade(s, actor, payment, item)
-      )))
-    );
-  }
-  function homeGateRecoverable(s, place, gate, actor) {
-    if (!localGateResource(s, place, gate.item, actor)) return false;
-    if (!gate.light || s.items[gate.item].fuel > 0) return true;
-    return Boolean(gate.fuel && localGateResource(s, place, gate.fuel, actor));
-  }
-  function rawOrdinaryExits(s, place, actor, previous) {
-    return [
-      .../* @__PURE__ */ new Set([
-        ...baseExits(s, place),
-        ...reflectionsFrom(s, place),
-        ...crossingExits(s, place, actor, sensesFor(s)),
-        ...transportExits(s, place, previous, actor),
-        ...packExits(s, place, actor)
-      ])
-    ];
-  }
-  var stationCrossings = crossings.filter((c) => c.from === "station");
-  var stationTargets = [.../* @__PURE__ */ new Set([
-    ...places.station.exits,
-    ...stationCrossings.map((c) => c.transport ? transports[c.transport].place : c.to),
-    ...packDefinitions.flatMap((p) => (p.routes || []).filter((r) => r.from === "station").map((r) => r.to))
-  ])];
-  function stationCandidates(s) {
-    const actors2 = [null, ...Object.keys(s.actors).filter((id) => s.actors[id].place === "station" && entityActive(s, id) && (!humanAvatar(id) || humanPresent(s, id) || residentAvatar(s, id)))];
-    return [.../* @__PURE__ */ new Set([
-      ...baseExits(s, "station"),
-      ...reflectionsFrom(s, "station"),
-      ...stationCrossings.filter((c) => actors2.some((actor) => crossingOpen(s, c, sensesFor(s), actor))).map((c) => c.transport ? transports[c.transport].place : c.to),
-      ...packExits(s, "station", null)
-    ])].filter((id) => entityActive(s, id));
-  }
-  function settleStationExits(s) {
-    s.stationExitOrder = stationExitOrder(s, stationCandidates(s));
-  }
-  function limitedExits(s, place, ways) {
-    return place === "station" ? stationExits(s, stationCandidates(s), ways) : ways;
-  }
-  function ordinaryExits(s, place, actor, previous) {
-    return limitedExits(s, place, rawOrdinaryExits(s, place, actor, previous));
-  }
-  function ordinaryRouteHome(s, place, destination, actor, previous) {
-    const queue = [[place, previous]], visited = /* @__PURE__ */ new Set([place]);
-    for (let i = 0; i < queue.length; i++) {
-      const [from, before] = queue[i];
-      if (from === destination) return true;
-      for (const to of ordinaryExits(s, from, actor, before)) {
-        if (visited.has(to) || !entityActive(s, to) || !actorCanVisit(actor, to, s))
-          continue;
-        visited.add(to);
-        queue.push([to, from]);
-      }
-    }
-    return false;
-  }
-  function homeRescueExit(s, place, actor = currentActor(s), previous = null) {
-    const gate = homeGates[place];
-    actor ||= currentActor(s);
-    return gate && (controlledByHuman(s, actor) || homeOf2(actor) === place || gate.opening && knownActors2(s).includes(actor)) && s.actors[actor]?.place === place && !ordinaryRouteHome(s, place, gate.rescue, actor, previous) && !homeGateRecoverable(s, place, gate, actor) ? (
-      // With its rescue place asleep, the first pack on takes them in (rules 98).
-      entityActive(s, gate.rescue) ? gate.rescue : firstStart(s)
-    ) : null;
-  }
-  function insideLampRemedy(s, actor) {
-    const here = s.actors[actor].place, lamp = itemPlace2(s, "lamp"), oil = itemPlace2(s, "oil");
-    if (!atticInterior.has(here) || !ordinaryRouteHome(s, here, lamp, actor) || !ordinaryRouteHome(s, lamp, "attic", actor))
-      return false;
-    const at = (place) => ({
-      ...s,
-      actors: { ...s.actors, [actor]: { ...s.actors[actor], place } }
-    });
-    if (!localGateResource(at(lamp), lamp, "lamp", actor)) return false;
-    return s.items.lamp.fuel > 0 || ordinaryRouteHome(s, here, oil, actor) && ordinaryRouteHome(s, oil, lamp, actor) && localGateResource(at(oil), oil, "oil", actor);
-  }
-  function pondRescueExit(s, place, actor, previous) {
-    actor ||= currentActor(s);
-    const lamp = itemPlace2(s, "lamp"), oil = itemPlace2(s, "oil");
-    if (place !== "pond" || s.actors[actor]?.place !== place || !controlledByHuman(s, actor) && !knownActors2(s).includes(actor) || !(atticInterior.has(lamp) || atticInterior.has(oil)) || ordinaryRouteHome(s, place, "attic", actor, previous))
-      return null;
-    if (ordinaryRouteHome(s, place, lamp, actor, previous) && (s.items.lamp.fuel > 0 || ordinaryRouteHome(s, place, oil, actor, previous)))
-      return null;
-    if (knownActors2(s).some(
-      (id) => (!controlledByHuman(s, id) || humanPresent(s, id)) && (insideLampRemedy(s, id) || !atticInterior.has(lamp) && s.actors[id].place === "attic" && homeRescueExit(s, "attic", id) && localGateResource(s, "attic", "oil", id))
-    ))
-      return null;
-    return "attic";
-  }
-  function exits(s, place, actor = null, previous = null) {
-    const rescue = homeRescueExit(s, place, actor, previous), returnPath = pondRescueExit(s, place, actor, previous);
-    const ways = [
-      ...ordinaryExits(s, place, actor, previous),
-      ...rescue ? [rescue] : [],
-      ...returnPath ? [returnPath] : []
-    ];
-    for (const to of guardedExits(s, place))
-      if (!ways.includes(to)) ways.push(to);
-    return limitedExits(s, place, ways.filter(
-      (to) => entityActive(s, to) && actorCanVisit(actor, to, s) && humanRoomAvailable(s, actor, to) && personalRouteOpen(s, place, to, actor || currentActor(s)) && !guardOf(s, place, to, actor)
-    ));
-  }
-  var sealedRoutes = null;
-  function sealedWays(s, actor = currentActor(s)) {
-    sealedRoutes ??= packDefinitions.flatMap(
-      (pack) => (pack.routes || []).filter((r) => r.sealed || isGuardable(r.from, r.to))
-    );
-    const here = s.actors[actor]?.place, ways = [
-      ...sealedRoutes.filter((r) => r.from === here),
-      // A guard bars his way from both sides (rules 100).
-      ...guardedFrom(here).map((to) => ({ from: here, to }))
-    ].filter((r) => entityActive(s, r.to) && entityActive(s, here));
-    if (!ways.length) return [];
-    const open = exits(s, here, actor), seen = /* @__PURE__ */ new Set();
-    return ways.filter((r) => !open.includes(r.to)).flatMap((r) => {
-      const guard = guardOf(s, here, r.to, actor);
-      if (!guard) return r.sealed ? [r] : [];
-      const reason = `${nameOf(guard)} is guarding this card`;
-      return [{ ...r, sealed: { reason }, guardedBy: guard }];
-    }).filter((r) => !seen.has(r.to) && seen.add(r.to));
-  }
   var openingPlace = (place) => Object.entries(homeGates).some(
     ([home, gate]) => gate.opening && [home, gate.rescue, "station"].includes(place)
   );
   var leftHome = (s) => s.opening?.leftHome === true || crossings.some(
     (c) => homeGates[c.from]?.opening && s.crossings?.[c.id]?.discovered
   );
-  var canReach = (s, actor, item) => itemPlace2(s, item) === s.actors[actor].place && !actorIds.includes(rootHolder(s, item)) || rootHolder(s, item) === actor;
+  var canReach = (s, actor, item) => itemPlace(s, item) === s.actors[actor].place && !actorIds.includes(rootHolder(s, item)) || rootHolder(s, item) === actor;
   var canUse = canReach;
   var loadOf = (s, id) => 1 + (s.items.cloth.holder === id ? 1 : 0);
   function wantText(want) {
@@ -21002,7 +21066,7 @@
       sanctuaries,
       player: (id) => id === currentActor(s) || heldByHuman(s, id),
       questsBeginAt: forest_default.questsBeginAt,
-      placeOf: (item) => itemPlace2(s, item),
+      placeOf: (item) => itemPlace(s, item),
       distance: (from, to, actor) => from === to ? 0 : (routeBetween(s, from, to, actor)?.length ?? 0) - 1,
       log: (actor, want, xp) => addLog(
         s,
@@ -21042,11 +21106,11 @@
       cast: knownActors2(s).filter(
         (id) => s.actors[id].place === locationId && (!controlledByHuman(s, id) || humanPresent(s, id))
       ),
-      items: ids.filter((id) => entityActive(s, id) && itemPlace2(s, id) === locationId).map((id) => {
+      items: ids.filter((id) => entityActive(s, id) && itemPlace(s, id) === locationId).map((id) => {
         const { history, ...item } = s.items[id];
         return { id, ...item };
       }),
-      light: shining(s) && itemPlace2(s, "lamp") === locationId,
+      light: shining(s) && itemPlace(s, "lamp") === locationId,
       ...detail
     });
     const entry = s.log.at(-1);
@@ -21068,33 +21132,6 @@
   var authoredKnowledgeTopics = () => packDefinitions.flatMap(
     (pack) => (pack.topics || []).map((topic) => ({ ...topic, packId: pack.id }))
   );
-  var atPort = (s, actor) => Object.values(transports).some(
-    (t) => t.place === s.actors[actor].place || t.docks.includes(s.actors[actor].place)
-  );
-  function laneTalkFacts(s, actor) {
-    if (!s.actors[actor] || !atPort(s, actor)) return [];
-    const here = s.actors[actor].place;
-    const ship = Object.entries(transports).find(([, t]) => t.place === here);
-    const near = ship ? s.transports[ship[0]].dock : here;
-    const known = laneEdges().map(laneOfEdge).filter(
-      ([from, to]) => from === near && entityActive(s, to) && knowsLane(s, actor, from, to)
-    ).map(([, to]) => nameOf(to));
-    return known.length ? [`I know ships sail from ${nameOf(near)} to ${known.join(" and ")}.`] : [`I know of no ship lane from ${nameOf(near)}.`];
-  }
-  var worldName = (pack) => packDefinitions.find((p) => p.id === pack)?.name.split(":")[0] ?? "there";
-  var needOf = (c, choice = false) => c.kind === "any" ? [...new Set(c.conditions.map((r) => needOf(r, true)))].join(" or ") : c.item ? nameOf(c.item) : choice && c.pack ? `something from ${worldName(c.pack)}` : "something from there";
-  var laneNeed = (gate) => [...new Set(gate.map((c) => needOf(c)))].join(" and ");
-  var laneFact = (from, to) => {
-    const gate = laneConditions(from, to);
-    return {
-      id: `lane:${from}>${to}`,
-      text: gate ? `Ships for ${nameOf(to)} leave from ${nameOf(from)} only with ${laneNeed(gate)} aboard.` : `Ships for ${nameOf(to)} leave from ${nameOf(from)}.`
-    };
-  };
-  var laneFactText = (id) => {
-    const [from, to] = id.startsWith("lane:") ? id.slice(5).split(">") : [];
-    return from && to && laneEdges().some(([a, b]) => a === `sea:${from}` && b === `sea:${to}`) ? laneFact(from, to).text : null;
-  };
   var LOG_LIMIT = 100;
   var LAMP_FUEL = 12;
   var GENERATED_LOG_LIMIT = 100;
@@ -21282,7 +21319,7 @@
     for (const [id, item] of Object.entries(s.items)) {
       if (!holderIds.has(item.holder) && !(id === "cloth" && (item.holder === "lamp" || item.holder === "bell")))
         fail();
-      if (entityActive(s, id) && (!entityActive(s, item.holder) || !entityActive(s, itemPlace2(s, id))))
+      if (entityActive(s, id) && (!entityActive(s, item.holder) || !entityActive(s, itemPlace(s, id))))
         fail();
       if (!Array.isArray(item.history) || item.history.length > 12 || item.history.some((t) => typeof t !== "string" || t.length > 400))
         fail();
@@ -21487,7 +21524,7 @@
       (id) => known.includes(id) && entityActive(world, id) && world.actors[id].place === location && (!world.controlledActors?.includes(id) || world.presentActors?.includes(id))
     );
     const localItems = Object.keys(world.items).filter(
-      (id) => entityActive(world, id) && itemPlace2(world, id) === location
+      (id) => entityActive(world, id) && itemPlace(world, id) === location
     );
     const changes2 = sceneChanges(world);
     const departing = changes2.filter((change) => change.leaving).map((change) => change.actorId);
@@ -21879,7 +21916,7 @@
     }
   function inventsItem(world, speaker, text2) {
     const a = world.actors[speaker];
-    const near = (id) => world.items[id] && entityActive(world, id) && (rootHolder(world, id) === speaker || !a?.visited || a.visited.includes(itemPlace2(world, id)));
+    const near = (id) => world.items[id] && entityActive(world, id) && (rootHolder(world, id) === speaker || !a?.visited || a.visited.includes(itemPlace(world, id)));
     const lower = String(text2 || "").toLowerCase();
     return [...itemNouns].some(
       ([noun, ids3]) => new RegExp(`\\b${noun}s?\\b`).test(lower) && !ids3.some(near)
@@ -22156,7 +22193,7 @@
     const here = world.actors[id].place;
     const pull = desire?.location && exits(world, here, id).includes(desire.location) ? desire.location : null;
     const wanted = (desire?.items || []).filter(
-      (item) => itemPlace2(world, item) === here
+      (item) => itemPlace(world, item) === here
     );
     return {
       changes: changes(entries, id, listener, wanted),
@@ -22332,7 +22369,7 @@
         ...Object.keys(world.items).filter(
           (id) => actorIds2.includes(rootHolder(world, id))
         ),
-        ...Object.keys(world.items).filter((id) => itemPlace2(world, id) === here),
+        ...Object.keys(world.items).filter((id) => itemPlace(world, id) === here),
         ...!world.opening && !packEntity(here) ? Object.keys(world.items).filter((id) => !packEntity(id)) : []
       ])
     ].filter((id) => world.items[id] && entityActive(world, id)).slice(0, 24);
@@ -22369,7 +22406,7 @@
       items: relevantItems.map((id) => ({
         id,
         holder: world.items[id].holder,
-        location: itemPlace2(world, id)
+        location: itemPlace(world, id)
       })),
       observations: observableStates(world, [...actorIds2, ...relevantItems])
     };
@@ -22411,7 +22448,7 @@
   function visibleItem(world, observer, item, location) {
     const here = world.actors[observer]?.place ?? location;
     const owner2 = rootHolder(world, item);
-    return itemPlace2(world, item) === here && (owner2 === observer || owner2 === here || !sleepingPortrait(world, owner2) && world.items[item].holder === owner2 && heldItem(world, owner2) === item);
+    return itemPlace(world, item) === here && (owner2 === observer || owner2 === here || !sleepingPortrait(world, owner2) && world.items[item].holder === owner2 && heldItem(world, owner2) === item);
   }
   function exchangeFacts(world, speaker, played) {
     const partner = played?.targetId === speaker ? played.actorId : currentActor(world);
