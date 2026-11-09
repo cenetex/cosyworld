@@ -11,17 +11,19 @@
   },
   "reflectionRoutes": [
     {
-      "from": "attic",
-      "to": "pond",
+      "from": "pond",
+      "to": "attic",
       "requires": [
-        { "kind": "item_present", "item": "lamp", "place": "attic" },
-        { "kind": "not", "condition": { "kind": "light", "item": "lamp", "at": ["attic"], "uncovered": true } }
+        { "kind": "held", "item": "lamp" },
+        { "kind": "light", "item": "lamp", "at": ["pond"] }
       ]
     },
     {
-      "from": "pond",
-      "to": "attic",
-      "requires": [{ "kind": "light", "item": "lamp", "at": ["pond"], "uncovered": true }]
+      "from": "attic",
+      "to": "pond",
+      "requires": [
+        { "kind": "not", "condition": { "kind": "light", "item": "lamp", "at": ["attic"] } }
+      ]
     }
   ],
   "places": {
