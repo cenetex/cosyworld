@@ -272,7 +272,7 @@ const atticInterior = (() => {
   }
   return found;
 })();
-const ids = Object.keys(things);
+export const ids = Object.keys(things);
 const actorIds = [...Object.keys(forest.people), ...packActorIds];
 // Fixed at load, so validation compares against these instead of rebuilding.
 const placeIds = Object.keys(places);
@@ -383,35 +383,15 @@ export function installRouteKnowledge(s) {
       rememberRoutes(s, actor, visibleRouteEdges(s.actors[actor].place));
     }
 }
-// Holder chains are a few links deep, so the walk tracks visits only when a
-// chain runs long enough to hide a loop: the common case allocates nothing.
-const SHORT_CHAIN = 32;
-export function rootHolder(s, id) {
-  let holder = s.items[id].holder;
-  for (let step = 0; step < SHORT_CHAIN; step++) {
-    if (!s.items[holder]) return holder;
-    if (holder === id) throw new Error("An item holds itself.");
-    holder = s.items[holder].holder;
-  }
-  holder = s.items[id].holder;
-  const visited = new Set([id]);
-  while (s.items[holder]) {
-    if (visited.has(holder)) throw new Error("An item holds itself.");
-    visited.add(holder);
-    holder = s.items[holder].holder;
-  }
-  return holder;
-}
-export const itemPlace = (s, id) =>
-  s.actors[rootHolder(s, id)]?.place || rootHolder(s, id);
-export const carried = (s, actor) =>
-  ids.filter((id) => rootHolder(s, id) === actor);
-export const covered = (s, id) => s.items.cloth.holder === id;
-export const shining = (s) =>
-  entityActive(s, "lamp") &&
-  s.items.lamp.lit &&
-  s.items.lamp.fuel > 0 &&
-  !covered(s, "lamp");
+// Item lookups live in world/items.mjs (#1390).
+import {
+  rootHolder,
+  itemPlace,
+  carried,
+  covered,
+  shining,
+} from "./world/items.mjs";
+export { rootHolder, itemPlace, carried, covered, shining };
 // A reflection opens while its authored conditions hold (#1600). Forest data
 // opens the attic mirror once the lamp there is dark, and the pond's way back
 // while the lamp shines on the shore.
