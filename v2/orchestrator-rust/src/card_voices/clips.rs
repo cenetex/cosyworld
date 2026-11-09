@@ -37,17 +37,30 @@ pub(crate) fn clip(c: &Connection, world: &str, id: &str) -> rusqlite::Result<Op
     .optional()
 }
 
-pub(crate) fn keep(c: &Connection, world: &str, id: &str, audio: &[u8]) -> rusqlite::Result<()> {
+/// Competing processes can synthesize, but only the durable winner is heard.
+pub(crate) fn keep(
+    c: &mut Connection,
+    world: &str,
+    id: &str,
+    audio: &[u8],
+) -> rusqlite::Result<Vec<u8>> {
     schema(c)?;
-    c.execute(
+    let tx = c.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
+    tx.execute(
         "INSERT OR IGNORE INTO card_voice_clips VALUES (?1, ?2, ?3, ?4)",
         params![world, id, audio, crate::util::now_unix_secs() as i64],
     )?;
-    c.execute(
+    let kept = tx.query_row(
+        "SELECT audio FROM card_voice_clips WHERE world_id = ?1 AND request_id = ?2",
+        params![world, id],
+        |row| row.get(0),
+    )?;
+    tx.execute(
         "DELETE FROM card_voice_clips WHERE world_id = ?1 AND rowid NOT IN
             (SELECT rowid FROM card_voice_clips WHERE world_id = ?1
              ORDER BY rowid DESC LIMIT ?2)",
         params![world, KEEP],
     )?;
-    Ok(())
+    tx.commit()?;
+    Ok(kept)
 }
