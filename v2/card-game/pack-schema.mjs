@@ -90,6 +90,7 @@ export const CONDITION_KINDS = [
   "gate_open",
   "grounded",
   "held",
+  "actor_at",
   "home_door",
 ];
 // The `ship_at` dock for a ship sailing between ports.
@@ -1009,6 +1010,12 @@ export function packProblems(pack, hub, mountedPlaces = [], mountedItems = []) {
             keysOk(c, ["kind", "home", "place"]) &&
             owns(places, c.home) &&
             anyPlace(c.place);
+          break;
+        case "actor_at":
+          ok =
+            keysOk(c, ["kind", "place", "actor"]) &&
+            anyPlace(c.place) &&
+            (c.actor === undefined || idOk(c.actor));
           break;
         case "connected_humans":
           ok = keysOk(c, ["kind", "minimum"]) && intOk(c.minimum, 1, 8);

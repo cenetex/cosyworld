@@ -174,6 +174,9 @@ export function conditionMet(s, c, senses, packId = null, actor = null) {
         !usedUp(s, c.item)
       );
     }
+    // The current player (or a named actor) stands at the place.
+    case "actor_at":
+      return s.actors[c.actor ?? currentActor(s)]?.place === c.place;
     case "connected_humans":
       return (
         sharedEnabled(s) &&

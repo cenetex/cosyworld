@@ -6,6 +6,12 @@ const held = (world, item, actor) =>
   conditionMet(world, { kind: "held", item, ...(actor ? { actor } : {}) }, null);
 const grounded = (world, item) =>
   conditionMet(world, { kind: "grounded", item }, null);
+const actorAt = (world, place, actor) =>
+  conditionMet(
+    world,
+    { kind: "actor_at", place, ...(actor ? { actor } : {}) },
+    null,
+  );
 
 describe("held and grounded conditions", () => {
   it("held is true only when the current player carries the thing", () => {
@@ -34,5 +40,15 @@ describe("held and grounded conditions", () => {
     // Inside another thing is not on the ground.
     world.items.lamp.holder = "cloth";
     expect(grounded(world, "lamp")).toBe(false);
+  });
+
+  it("actor_at is true only when the player (or named actor) is at the place", () => {
+    const world = createWorld();
+    world.actors.vale.place = "pond";
+    expect(actorAt(world, "pond")).toBe(true);
+    expect(actorAt(world, "attic")).toBe(false);
+    world.actors.keeper.place = "attic";
+    expect(actorAt(world, "attic", "keeper")).toBe(true);
+    expect(actorAt(world, "attic", "vale")).toBe(false);
   });
 });
