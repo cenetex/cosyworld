@@ -119,12 +119,24 @@ try {
         };
         requestAnimationFrame(tick);
       });
+    const snapshot = () => page.evaluate((key) => {
+      const image = document.querySelector("#backdrop");
+      return {
+        saved: JSON.parse(localStorage.getItem(key))?.revision,
+        shown: document.querySelector("#hand")?.dataset.presentedRevision,
+        src: image?.getAttribute("src"), complete: image?.complete,
+        naturalWidth: image?.naturalWidth,
+        bodySleep: document.body.dataset.sleep ?? null,
+        stageSleep: document.querySelector("#stage")?.dataset.sleep ?? null,
+      };
+    }, key);
     const wait = async () => {
       await page.keyboard.press("Escape");
       await selectCard(page, "mara");
       const shown = await page
         .locator("#hand")
         .getAttribute("data-presented-revision");
+      const before = await snapshot();
       await watch();
       // Selecting Mara starts her action sentence. Its first tap while
       // revealing finishes the words; only a ready button plays Wait.
@@ -179,10 +191,19 @@ try {
             `Wait after revision ${shown} never settled within 25 s: the hand did not present a new revision, or the ship overlay or berth crossfade kept fading. ${JSON.stringify(diagnostic)}. ${error.message}`,
           );
         });
-      return page.evaluate(() => {
+      const samples = await page.evaluate(() => {
         window.__fade.stop = true;
         return window.__fade;
       });
+      console.log(JSON.stringify({
+        place, before, after: await snapshot(),
+        ghost: {
+          count: samples.ghost.length,
+          min: samples.ghost.length ? Math.min(...samples.ghost) : null,
+          max: samples.ghost.length ? Math.max(...samples.ghost) : null,
+        },
+      }));
+      return samples;
     };
     await page.goto(`${origin}/?table=${table}`);
     await page.waitForSelector("#hand .card");
@@ -255,7 +276,8 @@ try {
     if (place === "pond") {
       assert.ok(mid(fade.overlay), "the ship fades out");
       assert.equal(await page.locator("#location-overlay").isHidden(), true);
-    } else assert.ok(mid(fade.ghost), "the ship crossfades to the berth");
+    } else assert.ok(mid(fade.ghost),
+      `the ship crossfades to the berth: ${JSON.stringify(fade.ghost)}`);
     assert.deepEqual(errors, []);
     console.log(`Ship fade: arrival and departure at ${place} passed.`);
     await page.close();
