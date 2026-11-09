@@ -21,6 +21,10 @@
       "smokes": ["smoke-card-ratiradio"]
     },
     {
+      "paths": "^v2/card-game/sleep-(view|presentation)\\.mjs$",
+      "smokes": ["smoke-card-sleep-dream"]
+    },
+    {
       "paths": "^v2/card-game/transitions\\.mjs$",
       "smokes": ["smoke-card-ship-fade", "smoke-card-reduced-fades"]
     },
