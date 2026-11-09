@@ -155,6 +155,22 @@ export function conditionMet(s, c, senses, packId = null, actor = null) {
       return packRouteOpen(s, c.from, c.to);
     case "home_door":
       return s.doors?.[c.home] === c.place;
+    // The current player carries the thing, unless another carrier is named.
+    case "held":
+      return (
+        s.items[c.item]?.holder === (c.actor ?? currentActor(s)) &&
+        !usedUp(s, c.item)
+      );
+    // The thing rests on a place, not in a hand or inside another thing.
+    case "grounded": {
+      const holder = s.items[c.item]?.holder;
+      return (
+        holder != null &&
+        !s.items[holder] &&
+        !s.actors[holder] &&
+        !usedUp(s, c.item)
+      );
+    }
     case "connected_humans":
       return (
         sharedEnabled(s) &&

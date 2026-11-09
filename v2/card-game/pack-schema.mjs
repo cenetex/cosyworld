@@ -88,6 +88,8 @@ export const CONDITION_KINDS = [
   "chance",
   "upgraded",
   "gate_open",
+  "grounded",
+  "held",
   "home_door",
 ];
 // The `ship_at` dock for a ship sailing between ports.
