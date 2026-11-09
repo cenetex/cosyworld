@@ -18,12 +18,15 @@ export const reflectionsFrom = (s, from) =>
     .map((r) => r.to);
 export const reflectionOpen = (s, from = itemPlace(s, "lamp")) =>
   reflectionsFrom(s, from).length > 0;
-// The bell is the shore's sound source: heard where it rests while it rings
-// uncovered. Packs add their own sounding fixtures through pack-rules.mjs.
+// A ringing hub object sounds where it rests. Packs add their own sounding
+// fixtures through pack-rules.mjs.
 const baseSoundAt = (s, place) =>
-  entityActive(s, "bell") &&
-  s.items.bell.ringing > 0 &&
-  itemPlace(s, "bell") === place;
+  Object.keys(s.items).some(
+    (id) =>
+      entityActive(s, id) &&
+      s.items[id].ringing > 0 &&
+      itemPlace(s, id) === place,
+  );
 export const senses = { player: "vale", baseSoundAt, nameOf };
 export const sensesFor = (s) => ({
   ...senses,
