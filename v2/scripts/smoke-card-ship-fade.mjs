@@ -10,7 +10,7 @@ import { decodeSave, encodeSave } from "../card-game/world.mjs";
 import { profiles } from "../card-game/memory.mjs";
 import { summonTransport } from "../card-game/pack-transport.mjs";
 import { openDoorStart } from "../../test/helpers/open-door.mjs";
-import { selectCard } from "./card-browser-helpers.mjs";
+import { readyActionButton, selectCard } from "./card-browser-helpers.mjs";
 
 const output = new URL("../../output/ship-fade/", import.meta.url);
 await mkdir(output, { recursive: true });
@@ -122,7 +122,9 @@ try {
         .locator("#hand")
         .getAttribute("data-presented-revision");
       await watch();
-      await page.locator('#card-actions [data-action="wait"]').first().click();
+      // Selecting Mara starts her action sentence. Its first tap while
+      // revealing finishes the words; only a ready button plays Wait.
+      await readyActionButton(page, "wait").first().click();
       // Settled: the hand shows the play's revision, the overlay has no fade
       // running or waiting on its image (fadeLayer holds opacity 0 inline
       // while it decodes), and no berth crossfade ghost remains.
@@ -147,9 +149,30 @@ try {
           shown,
           { timeout: 25_000 },
         )
-        .catch((error) => {
+        .catch(async (error) => {
+          const diagnostic = await page
+            .evaluate((key) => {
+              const overlay = document.querySelector("#location-overlay");
+              return {
+                savedRevision: JSON.parse(localStorage.getItem(key))?.revision,
+                shownRevision:
+                  document.querySelector("#hand")?.dataset.presentedRevision,
+                overlayHidden: overlay?.hidden,
+                overlayStyle: overlay?.style.opacity,
+                animations: overlay?.getAnimations().map((a) => a.playState),
+                ghosts: document.querySelectorAll(".backdrop-fading").length,
+                action: document.querySelector("#card-actions")?.textContent,
+                status: document.querySelector("#play-status")?.textContent,
+              };
+            }, key)
+            .catch(() => null);
+          await page
+            .screenshot({
+              path: new URL(`${place}-failed.png`, output).pathname,
+            })
+            .catch(() => {});
           throw new Error(
-            `Wait after revision ${shown} never settled within 25 s: the hand did not present a new revision, or the ship overlay or berth crossfade kept fading. ${error.message}`,
+            `Wait after revision ${shown} never settled within 25 s: the hand did not present a new revision, or the ship overlay or berth crossfade kept fading. ${JSON.stringify(diagnostic)}. ${error.message}`,
           );
         });
       return page.evaluate(() => {
