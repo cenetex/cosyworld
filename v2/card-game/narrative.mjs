@@ -40,6 +40,7 @@ import {
   REFUSED_VERBS,
   willingToGive,
   canTrade,
+  shining,
 } from "./world.mjs";
 import { controlledByHuman, residentAvatar } from "./human-cast.mjs";
 import { knownActors, questsOf, wantOf } from "./want.mjs";
@@ -557,9 +558,7 @@ export function narrativeContext(world, action = null, isCovered = null) {
         const item = world.items[id];
         facts.push(`Held by or resting at: ${nameOf(rootHolder(world, id))}.`);
         if (id === "lamp")
-          facts.push(
-            `${item.fuel === 0 ? "Empty" : item.fuel <= 3 ? "Running low on oil" : "Has oil"}; ${item.lit ? "lit" : "unlit"}.`,
-          );
+          facts.push(shining(world) ? "Lit." : "Unlit.");
         if (things[id]?.refuels)
           facts.push(
             `Full. Held with an empty ${nameOf(things[id].refuels)}, it fills it and returns to ${nameOf(things[id].returnsTo)}.`,

@@ -743,14 +743,18 @@ export const meetsItemWant = (s, actor, item, action = null) =>
       questMet(s, actor, w, null, action),
   );
 // An item want may name the item's light: then it is met only in the
-// actor's own hands, lit (or dark) and uncovered, as a moth wants a flame.
+// actor's own hands, lit (or dark), as a moth wants a flame. The lamp is lit
+// while its oil is beside it, not by a flag.
+const lampLit = (s) => {
+  const at = (id) => s.actors[rootOf(s, id)]?.place || rootOf(s, id);
+  return at("oil") === at("lamp");
+};
 export function holdsAsWanted(s, actor, want) {
   if (want.lit === undefined) return rootOf(s, want.target) === actor;
   const item = s.items[want.target];
   return (
     item.holder === actor &&
-    Boolean(item.lit) === want.lit &&
-    !Object.values(s.items).some((i) => i.holder === want.target)
+    Boolean(lampLit(s)) === want.lit
   );
 }
 function rootOf(s, id) {

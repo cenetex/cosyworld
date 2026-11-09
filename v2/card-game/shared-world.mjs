@@ -407,9 +407,6 @@ function migrate(request) {
       .map((id) => [id, carried(world, id).length])
       .filter(([, count]) => count > 3),
   );
-  world.items.lamp.lit = legacy.uses[0] % 2 === 1;
-  if (world.items.lamp.lit)
-    world.items.lamp.fuel = Math.max(1, world.items.lamp.fuel);
   const claimed = humanAvatarIds.filter((id, i) => legacy.claimed[i]);
   const present = humanAvatarIds.filter(
     (id, i) => legacy.present[i] && legacy.claimed[i],

@@ -191,6 +191,7 @@ import {
   nameOf,
   itemPlace,
   rootHolder,
+  shining,
   play,
   encodeSave,
   decodeSave,
@@ -3476,12 +3477,7 @@ function returnToLive() {
   if (!$("dialogue-advance").hidden) $("dialogue-advance").focus();
 }
 const litCarried = (actor) =>
-  Object.keys(world.items).find(
-    (id) =>
-      world.items[id].lit &&
-      rootHolder(world, id) === actor &&
-      !cardIsCovered(id),
-  ) || null;
+  shining(world) && rootHolder(world, "lamp") === actor ? "lamp" : null;
 function renderHeldItem(figure, actor, itemId) {
   let preview = figure.querySelector(".portrait-held-item");
   figure.setAttribute(

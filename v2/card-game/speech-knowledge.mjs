@@ -11,6 +11,7 @@ import {
   nameOf,
   places,
   rootHolder,
+  shining,
 } from "./world.mjs";
 import { questsOf } from "./want.mjs";
 import baseProfiles from "./entity-profiles.json" with { type: "json" };
@@ -190,9 +191,7 @@ export function forgetCovered(world, context, isCovered) {
   const unknown = new Map(
     unnamedIds.map((id) => [
       lowerName(id),
-      world.items[id]?.lit
-        ? UNKNOWN_LIGHT
-        : unnamed(world, id),
+      id === "lamp" && shining(world) ? UNKNOWN_LIGHT : unnamed(world, id),
     ]),
   );
   const blur = blurrer(unknown, shown);

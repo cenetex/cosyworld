@@ -19,6 +19,7 @@ import {
   legalActions,
   itemPlace,
   rootHolder,
+  shining,
   exits,
   sealedWays,
 } from "./world.mjs";
@@ -225,12 +226,7 @@ export function cardPlay(world, selected) {
         (item === undefined || a.item === item) &&
         (target === undefined || a.target === target),
     );
-  const use = (id) =>
-    id === "lamp"
-      ? find(world.items.lamp.lit ? "snuff" : "light", id)
-      : id === "bell"
-        ? find("ring", id)
-        : undefined;
+  const use = (id) => (id === "bell" ? find("ring", id) : undefined);
   if (cards.length === 1) {
     const id = cards[0];
     const authored = () => choicesOn(id, actions)[0];
@@ -517,8 +513,6 @@ export function cardObservation(world, id) {
   const item = world.items[id];
   if (item) {
     const observations = [];
-    if (typeof item.lit === "boolean")
-      observations.push(item.lit ? "Lit" : "Unlit");
     if (typeof item.ringing === "number")
       observations.push(
         item.ringing > 0 ? "Ringing" : "Silent",

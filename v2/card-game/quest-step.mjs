@@ -125,7 +125,6 @@ export function questStep(world, quest, covered, legal = legalActions(world)) {
       return false;
     const item = { ...world.items[a.item] };
     if (taking) item.holder = actor;
-    else item.lit = a.kind === "light";
     return holdsAsWanted(
       { ...world, items: { ...world.items, [a.item]: item } },
       actor,

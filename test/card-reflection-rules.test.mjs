@@ -11,16 +11,17 @@ const lit = (world, at) =>
   conditionMet(world, { kind: "light", item: "lamp", at }, null);
 
 describe("#1550 simplified lamp rule", () => {
-  it("is lit only when the player holds the oil and the lamp is held or grounded", () => {
+  it("is lit only when the oil and lamp are co-located", () => {
     const world = createWorld();
     world.actors.vale.place = "pond";
     world.items.lamp.holder = "pond"; // grounded at the pond
-    expect(lit(world, ["pond"])).toBe(false); // no oil yet
-    world.items.oil.holder = "vale"; // player holds the oil
-    expect(lit(world, ["pond"])).toBe(true);
-    world.items.oil.holder = "attic"; // oil put down
+    world.items.oil.holder = "attic"; // oil kept elsewhere
     expect(lit(world, ["pond"])).toBe(false);
-    // Held works too, not just grounded.
+    world.items.oil.holder = "pond"; // oil brought beside the lamp
+    expect(lit(world, ["pond"])).toBe(true);
+    world.items.oil.holder = "attic"; // oil taken away again
+    expect(lit(world, ["pond"])).toBe(false);
+    // Held together also works, not just grounded.
     world.items.oil.holder = "vale";
     world.items.lamp.holder = "vale";
     expect(lit(world, ["pond"])).toBe(true);

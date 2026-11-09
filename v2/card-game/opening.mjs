@@ -3,7 +3,7 @@
 // order; then the first real play, Put out, darkens the room and the rules
 // bring a new card. Presentation only: the rules' offers are unchanged, and
 // a world past its first turn, or a shared one, has no opening.
-import { rootHolder } from "./world.mjs";
+import { rootHolder, shining } from "./world.mjs";
 
 // The context button's quiet label while the opening still has a card down.
 export const OPENING_REVEAL = "Reveal";
@@ -12,9 +12,8 @@ export const OPENING_REVEAL = "Reveal";
 // "play" with the cards for its first play, or null once it is past.
 export function openingStep(world, actor, covered) {
   if (!world.opening || world.turn !== 0 || !world.actors[actor]) return null;
-  const light = Object.keys(world.items).find(
-    (id) => world.items[id].lit && rootHolder(world, id) === actor,
-  );
+  const light =
+    shining(world) && rootHolder(world, "lamp") === actor ? "lamp" : null;
   const down = [actor, light, world.actors[actor].place].filter(
     (id) => id && covered(id),
   );

@@ -77,8 +77,8 @@ function localGateResource(s, place, item, actor) {
 }
 export function homeGateRecoverable(s, place, gate, actor) {
   if (!localGateResource(s, place, gate.item, actor)) return false;
-  if (!gate.light || s.items[gate.item].fuel > 0) return true;
-  // Holding a full flask with the empty lamp refuels it, so a flask here is enough.
+  if (!gate.light || itemPlace(s, gate.fuel) === itemPlace(s, gate.item)) return true;
+  // Holding the fuel beside the lamp lights it, so a flask here is enough.
   return Boolean(gate.fuel && localGateResource(s, place, gate.fuel, actor));
 }
 function rawOrdinaryExits(s, place, actor, previous) {
@@ -148,7 +148,7 @@ function insideLampRemedy(s, actor) {
   });
   if (!localGateResource(at(lamp), lamp, "lamp", actor)) return false;
   return (
-    s.items.lamp.fuel > 0 ||
+    itemPlace(s, "oil") === itemPlace(s, "lamp") ||
     (ordinaryRouteHome(s, here, oil, actor) &&
       ordinaryRouteHome(s, oil, lamp, actor) &&
       localGateResource(at(oil), oil, "oil", actor))
@@ -170,7 +170,8 @@ export function pondRescueExit(s, place, actor, previous) {
     return null;
   if (
     ordinaryRouteHome(s, place, lamp, actor, previous) &&
-    (s.items.lamp.fuel > 0 || ordinaryRouteHome(s, place, oil, actor, previous))
+    (itemPlace(s, "oil") === itemPlace(s, "lamp") ||
+      ordinaryRouteHome(s, place, oil, actor, previous))
   )
     return null;
   if (

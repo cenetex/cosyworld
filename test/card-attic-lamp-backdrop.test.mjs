@@ -12,7 +12,7 @@ function attic({ lit, holder }) {
   const world = createWorld();
   world.actors.vale.place = "attic";
   world.items.lamp.holder = holder;
-  if (lit) world.items.oil.holder = "vale"; // holding the oil lights the lamp
+  if (lit) world.items.oil.holder = holder; // oil co-located with the lamp
   return world;
 }
 

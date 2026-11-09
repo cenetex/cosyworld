@@ -494,7 +494,7 @@ export function wantText(want) {
   if (step?.verb === "rest") return `rest at ${what}`;
   if (step) return `${verb} ${what}`;
   if (want.kind === "item")
-    return `hold ${want.lit === undefined ? "" : want.lit ? "the lit " : "the dark "}${nameOf(want.target)}`;
+    return `hold ${nameOf(want.target)}`;
   if (want.kind === "place") return `go to ${nameOf(want.target)}`;
   if (want.kind === "connect") return "introduce two people";
   return `talk with ${nameOf(want.target)}`;
@@ -853,7 +853,6 @@ export function publishKnowledgeSpeech(s, entry, disclosures) {
 // Rules read recent history, so generated words never shorten the authoritative
 // window. Each kind keeps its own limit; the same plays leave the same events.
 export const LOG_LIMIT = 100;
-const LAMP_FUEL = 12;
 export const GENERATED_LOG_LIMIT = 100;
 function trimLog(s) {
   const authoritative = () => s.log.filter((entry) => !entry.generated).length;
@@ -888,40 +887,6 @@ function remember(s, item, text) {
 function transfer(s, item, holder, text) {
   s.items[item].holder = holder;
   remember(s, item, text);
-}
-// A fuel item fills its empty target when one avatar holds both, then returns
-// full to its authored place. Forest data names the pair (oil refuels lamp).
-const fuelItems = Object.keys(forest.things).filter(
-  (id) => forest.things[id].refuels,
-);
-function refuelCarried(s) {
-  for (const id of fuelItems) {
-    const { refuels: target, returnsTo } = things[id];
-    const actor = rootHolder(s, id);
-    if (
-      !s.actors[actor] ||
-      rootHolder(s, target) !== actor ||
-      s.items[target].fuel !== 0 ||
-      !entityActive(s, id) ||
-      !entityActive(s, target)
-    )
-      continue;
-    const here = s.actors[actor].place;
-    const text = `${nameOf(actor)} empties the ${nameOf(id)} into the dry ${nameOf(target)}. The ${nameOf(target)} is full. Back at ${nameOf(returnsTo)}, the ${nameOf(id)} stands full again.`;
-    s.items[target].fuel = LAMP_FUEL;
-    remember(s, target, text);
-    transfer(s, id, returnsTo, text);
-    addLog(s, "World", text, {
-      kind: "narration",
-      verb: "refuel",
-      actorId: actor,
-      itemId: id,
-      targetId: target,
-      itemIds: [id, target],
-      locationId: here,
-      returnLocationId: returnsTo,
-    });
-  }
 }
 function offer(kind, actor, item, target, text, cards) {
   return {
@@ -1196,7 +1161,6 @@ export function legalActions(s, actor = currentActor(s)) {
   else if (
     !asleep &&
     !transportPlace(here) &&
-    !lampGuttering(s, here) &&
     (actor === currentActor(s) || controlledByHuman(s, actor)) &&
     s.log.findLast(
       (e) =>
@@ -1488,30 +1452,6 @@ export function legalActions(s, actor = currentActor(s)) {
       use.label = belonging.item.verb;
       out.push(use);
     }
-    if (id === "lamp") {
-      if (item.lit)
-        out.push(
-          offer(
-            "snuff",
-            actor,
-            id,
-            null,
-            `${nameOf(actor)} puts out the Lamp.`,
-            [id],
-          ),
-        );
-      else if (item.fuel > 0)
-        out.push(
-          offer(
-            "light",
-            actor,
-            id,
-            null,
-            `${nameOf(actor)} lights the Lamp.`,
-            [id],
-          ),
-        );
-    }
     if (id === "bell")
       out.push(
         offer(
@@ -1755,9 +1695,6 @@ const witnessesAt = (s, place) =>
   knownActors(s)
     .filter((id) => entityActive(s, id) && bodiesAt(s, place).includes(id))
     .sort();
-// A lit lamp here about to burn its last oil: Sleep would sleep through it.
-const lampGuttering = (s, place) =>
-  s.items.lamp.lit && s.items.lamp.fuel <= 1 && itemPlace(s, "lamp") === place;
 const WAKE_REASONS = [
   "chose",
   "moved",
@@ -1820,11 +1757,6 @@ function wakeSleepers(s, before, voyages) {
       came = first(now.filter((x) => !z.present.includes(x))),
       left = first(z.present.filter((x) => x !== id && !now.includes(x))),
       dock = voyages.find((v) => v.kind === "arrive" && v.dock === z.place),
-      dry =
-        before.items.lamp.lit &&
-        !s.items.lamp.lit &&
-        s.items.lamp.fuel === 0 &&
-        itemPlace(s, "lamp") === z.place,
       was = exits(before, z.place, id),
       ways = exits(s, z.place, id);
     const light = s.turn > z.since && s.turn % DAYLIGHT_TURNS === 0,
@@ -1832,8 +1764,6 @@ function wakeSleepers(s, before, voyages) {
     const [, woke, text] =
       [
         [here !== z.place, "moved", `wakes in ${nameOf(here)}`],
-        [lampGuttering(s, z.place), "lamp", "wakes as the lamp gutters"],
-        [dry, "dry", "wakes as the lamp runs dry"],
         [came, "arrival", `wakes as ${came && nameOf(came)} arrives`],
         [left, "departure", `wakes as ${left && nameOf(left)} leaves`],
         [
@@ -2289,22 +2219,6 @@ function performPlay(s, a, round = null, settle = []) {
       if (a.kind === "trade") transfer(s, a.receive, a.actor, a.text);
       break;
     }
-    case "light":
-      if (
-        s.opening &&
-        !s.opening.crossed &&
-        a.actor === "vale" &&
-        here === "attic" &&
-        s.items.lamp.holder === "attic"
-      )
-        transfer(s, "lamp", "vale", "Vale lifts the lamp.");
-      s.items.lamp.lit = true;
-      remember(s, "lamp", a.text);
-      break;
-    case "snuff":
-      s.items.lamp.lit = false;
-      remember(s, "lamp", a.text);
-      break;
     case "ring":
       // Any sound made here disturbs the residents resting here.
       for (const line of disturb(s, here)) text += ` ${line}`;
@@ -2479,8 +2393,6 @@ function performPlay(s, a, round = null, settle = []) {
     noteAct(s, a, here, holder, round, sensesFor(s), (line, locationId) =>
       addLog(s, "World", line, { locationId }),
     );
-  // A flask and an empty lamp in one avatar's hands refuel after the play.
-  refuelCarried(s);
   // Giving a maker the last of a locked thing's set makes it (rules 102).
   settleCrafting(s, a, nameOf, (text, locationId, outcome) =>
     addLog(s, "World", text, {
@@ -2565,21 +2477,6 @@ function toward(s, actor, target) {
       getActions().find((a) => a.kind === "move" && a.target === route[1]) ||
       voyageAction(s, actor, route[1], getActions())
     );
-  // Inside a lamp gate, a cast avatar lights its lamp to open the way out;
-  // the player's own hand makes that play.
-  const gate = homeGates[here];
-  if (
-    gate?.light &&
-    !s.items[gate.item].lit &&
-    actor !== currentActor(s) &&
-    !controlledByHuman(s, actor) &&
-    homeGateRecoverable(s, here, gate, actor)
-  ) {
-    const light = getActions().find(
-      (a) => a.kind === "light" && a.item === gate.item,
-    );
-    if (light) return light;
-  }
   if (target === "attic" && !["attic", "pond", "station"].includes(here)) {
     const approach = routeBetween(s, here, "pond", actor);
     if (approach?.length > 1)
@@ -2829,13 +2726,7 @@ function wantPlan(s, actor) {
   if (owner === actor) {
     if (want.step?.verb === "eat" && want.step.at && want.step.at !== here)
       return go(want.step.at);
-    if (want.lit === undefined) return idle();
-    const cover = ids.find((id) => s.items[id].holder === item);
-    const fix = cover
-      ? find("take", (a) => a.item === cover)
-      : s.items[item].lit !== want.lit &&
-        find(want.lit ? "light" : "snuff", (a) => a.item === item);
-    return fix ? { action: fix } : idle();
+    return idle();
   }
   if (itemPlace(s, item) !== here) return go(itemPlace(s, item));
   let top = item;
@@ -3026,14 +2917,6 @@ export function play(
     ]),
   ];
   const respondent = perform(next, exact, round, residents);
-  if (
-    next.opening &&
-    !next.locations.attic.anchored &&
-    ["light", "snuff"].includes(exact.kind) &&
-    next.actors.vale.place === "attic"
-  ) {
-    next.locations.attic.anchored = true;
-  }
   for (const id of residents) {
     if (
       id === respondent ||
@@ -3046,20 +2929,6 @@ export function play(
     wakeResident(next, id);
     perform(next, plan(next, id).action, round, residents);
   }
-  if (next.items.lamp.lit) {
-    next.items.lamp.fuel = Math.max(0, next.items.lamp.fuel - 1);
-    if (next.items.lamp.fuel === 0) {
-      next.items.lamp.lit = false;
-      addLog(
-        next,
-        "World",
-        "The Lamp runs dry. Its flame folds into a tiny black sun.",
-        { locationId: itemPlace(next, "lamp") },
-      );
-    }
-  }
-  // A lamp that just ran dry in a hand that also holds the flask fills again.
-  refuelCarried(next);
   const rings = next.log.filter(
     (entry) =>
       entry.turn === next.turn &&
@@ -3483,17 +3352,8 @@ export function validateWorld(s) {
     const count = carried(s, actor).length;
     if (count > (allowance || 3) || (allowance && allowance !== count)) fail();
   }
-  const lamp = s.items.lamp,
-    oil = s.items.oil,
+  const oil = s.items.oil,
     bell = s.items.bell;
-  if (
-    !Number.isInteger(lamp.fuel) ||
-    lamp.fuel < 0 ||
-    lamp.fuel > LAMP_FUEL ||
-    typeof lamp.lit !== "boolean" ||
-    (lamp.lit && lamp.fuel === 0)
-  )
-    fail();
   if (
     Object.hasOwn(oil, "doses") ||
     !Number.isInteger(bell.ringing) ||
@@ -3561,12 +3421,8 @@ export function validateWorld(s) {
     "pack",
     "give",
     "ask",
-    "light",
-    "snuff",
     "ring",
-    "refuel",
     "eat",
-    "cover",
     "talk",
     "wait",
     "trade",
