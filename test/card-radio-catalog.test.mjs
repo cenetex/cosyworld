@@ -1,5 +1,7 @@
 import { readFileSync, readdirSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { once } from "node:events";
+import { createServer, radioSchedule } from "../v2/card-game/serve.mjs";
 import {
   radioSources,
   validateRadioCatalog,
@@ -44,4 +46,42 @@ describe("RatiRadio's measured catalog", () => {
       validateRadioCatalog({ ...catalog, version: "wrong" }),
     ).toThrow();
   });
+});
+
+it("uses the same epoch, boundary and loop contract on the local server", async () => {
+  const total = catalog.tracks.reduce(
+    (sum, track) => sum + track.durationMs,
+    0,
+  );
+  const first = catalog.tracks[0],
+    second = catalog.tracks[1];
+  for (const [now, track, start] of [
+    [0, first, 0],
+    [first.durationMs - 1, first, 0],
+    [first.durationMs, second, first.durationMs],
+    [total, first, total],
+  ]) {
+    const { sourceHash, ...expected } = track;
+    expect(radioSchedule(now)).toEqual({
+      station: "ratiradio",
+      version: catalog.version,
+      serverTimeMs: now,
+      track: expected,
+      startedAtMs: start,
+      endsAtMs: start + track.durationMs,
+    });
+  }
+  const server = createServer().listen(0, "127.0.0.1");
+  await once(server, "listening");
+  try {
+    const response = await fetch(
+      `http://127.0.0.1:${server.address().port}/card-game/radio`,
+    );
+    expect(response.status).toBe(200);
+    expect(response.headers.get("cache-control")).toBe("no-store");
+    const body = await response.json();
+    expect(body).toEqual(radioSchedule(body.serverTimeMs));
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
 });

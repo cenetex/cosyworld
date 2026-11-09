@@ -5,6 +5,7 @@ import { createHash } from "node:crypto";
 import { pipeline } from "node:stream/promises";
 import { fileURLToPath } from "node:url";
 import { publicAssets } from "./public-assets.mjs";
+import radioCatalog from "./assets/music/radio-catalog.json" with { type: "json" };
 
 const playPolicy =
   "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; media-src 'self' blob:; object-src 'none'; base-uri 'self'; frame-ancestors 'self'; form-action 'self'";
@@ -84,6 +85,24 @@ function byteRange(value, length) {
     : { start: Number(start), end: Number(end) };
 }
 
+// The local server uses the Rust endpoint's UTC clock contract too.
+export function radioSchedule(now = Date.now()) {
+  let offset =
+    now % radioCatalog.tracks.reduce((sum, track) => sum + track.durationMs, 0);
+  for (const { file, title, durationMs } of radioCatalog.tracks) {
+    if (offset < durationMs)
+      return {
+        station: "ratiradio",
+        version: radioCatalog.version,
+        serverTimeMs: now,
+        track: { file, title, durationMs },
+        startedAtMs: now - offset,
+        endsAtMs: now - offset + durationMs,
+      };
+    offset -= durationMs;
+  }
+}
+
 export function createServer({
   assetRoot = new URL("./", import.meta.url),
   assetList = publicAssets,
@@ -102,6 +121,14 @@ export function createServer({
   return http.createServer(async (req, res) => {
     const url = new URL(req.url, "http://localhost");
     const pathname = url.pathname;
+    if (pathname === "/card-game/radio" && req.method === "GET") {
+      res.writeHead(200, {
+        "Content-Type": "application/json",
+        "Cache-Control": "no-store",
+      });
+      res.end(JSON.stringify(radioSchedule()));
+      return;
+    }
     const authoring = pathname === "/make" || pathname === "/make/";
     const path = authoring
       ? "/index.html"
