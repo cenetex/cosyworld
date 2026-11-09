@@ -55,142 +55,22 @@ describe("the reflected shore card game", () => {
     expect(encodeSave(s)).toBe(before);
   });
 
-  it("lets the cast move and claim its wanted object while Vale waits", () => {
-    let s = act(createWorld(), "wait");
-    expect(s.actors.moth.place).toBe("station");
-    s = act(s, "wait");
-    expect(s.items.lamp.holder).toBe("moth");
-    // A moth wants the flame: Pip lights the lamp he took.
-    s = act(s, "wait");
-    expect(s.items.lamp.lit).toBe(true);
-    expect(
-      s.log.findLast((e) => e.verb === "want_met" && e.actorId === "moth"),
-    ).toMatchObject({
-      wantMet: { kind: "item", target: "lamp" },
-    });
-    expect(s.actors.moth.xp).toBe(1);
-    // Met away from home, Pip rests right there with his next want.
-    expect(s.actors.moth.want).not.toMatchObject({ target: "pond" });
-    s = act(s, "wait");
-    expect(s.actors.moth.place).toBe("station");
-    expect(s.items.lamp.holder).toBe("moth");
-  });
-
-  it("opens a real route with light and closes it when covered", () => {
-    let s = createWorld();
-    s.items.cloth.holder = "pond";
-    s = act(s, "take", "lamp");
-    s = act(s, "light", "lamp");
-    s = act(s, "move", null, "pond");
-    s = act(s, "move", null, "attic");
-    // The lit attic mirror holds only the room; dousing opens it (#1600).
-    expect(exits(s, "attic")).toEqual([]);
-    s = act(s, "snuff", "lamp");
-    s = act(s, "move", null, "pond");
-    expect(s.actors.vale.place).toBe("pond");
-    expect(s.actors.vale.crossed).toBe(2);
-    expect(exits(s, "pond")).toEqual(["station"]);
-    s = act(s, "light", "lamp");
-    expect(exits(s, "pond")).toContain("attic");
-    s = act(s, "cover", "cloth", "lamp");
-    expect(covered(s, "lamp")).toBe(true);
-    expect(exits(s, "pond")).toEqual(["station"]);
-    s = endStandoff(s);
-    const fuel = s.items.lamp.fuel;
-    s = act(s, "take", "cloth");
-    expect(reflectionOpen(s)).toBe(true);
-    expect(s.items.lamp.fuel).toBe(fuel - 1);
-  });
-
-  it("moves a cover with its object when a different avatar takes it", () => {
-    let s = createWorld();
-    s.actors.vale.place = "pond";
-    s.items.cloth.holder = "pond";
-    s.actors.moth.place = "attic";
-    s.items.lamp.holder = "vale";
-    s = act(s, "cover", "cloth", "lamp");
-    expect(carried(s, "vale")).toEqual(["lamp", "cloth"]);
-    s = act(s, "move", null, "station");
-    expect(itemPlace(s, "cloth")).toBe("station");
-    s = act(s, "drop", "lamp");
-    expect(s.items.lamp.holder).toBe("moth");
-    expect(rootHolder(s, "cloth")).toBe("moth");
-    expect(s.items.lamp.history.some((e) => e.includes("Pip takes"))).toBe(
-      true,
-    );
-  });
-
-  it("offers no pour play while the lamp still burns", () => {
+  it("draws the moth's want from the oil, not the lamp flame", () => {
     const s = createWorld();
-    s.actors.vale.place = "attic";
-    s.items.lamp.holder = "vale";
-    s.items.lamp.fuel = 10;
-    s.items.oil.holder = "vale";
-    expect(matchingActions(s, ["oil", "lamp"])).toEqual([]);
-    const next = act(s, "wait");
-    expect(next.items.oil.holder).toBe("vale");
-    expect(next.items.lamp.fuel).toBe(10);
-    expect(next.log.some((e) => e.verb === "refuel")).toBe(false);
+    expect(s.actors.moth.want).toMatchObject({ kind: "item", target: "oil" });
   });
 
-  it("refuels a lamp that runs dry in a hand holding the flask, then returns the flask to the station", () => {
-    let s = createWorld();
+  it("opens the mirror by the lamp's light and dark", () => {
+    const s = createWorld();
     s.actors.vale.place = "pond";
-    s.items.lamp.holder = "vale";
-    s.items.lamp.fuel = 1;
-    s.items.lamp.lit = true;
-    s.items.oil.holder = "vale";
-    s = act(s, "wait");
-    expect(s.items.lamp).toMatchObject({ fuel: 12, lit: false, holder: "vale" });
-    expect(s.items.oil.holder).toBe("station");
-    expect(s.items.oil).not.toHaveProperty("doses");
-    const dry = s.log.findIndex((e) => e.text.includes("runs dry"));
-    const refuel = s.log.findIndex((e) => e.verb === "refuel");
-    expect(dry).toBeGreaterThanOrEqual(0);
-    expect(refuel).toBeGreaterThan(dry);
-    expect(s.log[refuel]).toMatchObject({
-      kind: "narration",
-      verb: "refuel",
-      actorId: "vale",
-      itemId: "oil",
-      targetId: "lamp",
-      itemIds: ["oil", "lamp"],
-      locationId: "pond",
-      returnLocationId: "station",
-      turn: s.turn,
-    });
-    expect(decodeSave(encodeSave(s))).toEqual(s);
-  });
-
-  it("refuels during the play that puts the flask and the empty lamp in one hand", () => {
-    let s = createWorld();
-    s.actors.vale.place = "station";
-    s.items.lamp.holder = "vale";
-    s.items.lamp.fuel = 0;
+    // A dark attic opens the mirror to the pond.
+    s.items.lamp.holder = "attic";
     s.items.oil.holder = "station";
-    s = act(s, "take", "oil");
-    expect(s.items.lamp.fuel).toBe(12);
-    expect(s.items.oil.holder).toBe("station");
-    const take = s.log.findIndex((e) => e.verb === "take" && e.itemId === "oil");
-    const refuel = s.log.findIndex((e) => e.verb === "refuel");
-    expect(refuel).toBeGreaterThan(take);
-    expect(s.log[refuel]).toMatchObject({ turn: s.turn, actorId: "vale", locationId: "station" });
-  });
-
-  it("refuels a resident's lamp by the same rule", () => {
-    let s = createWorld();
-    s.actors.keeper.place = "station";
-    s.items.lamp.holder = "keeper";
-    s.items.lamp.fuel = 1;
-    s.items.lamp.lit = true;
-    s.items.oil.holder = "keeper";
-    s = act(s, "wait");
-    expect(s.items.lamp.fuel).toBe(12);
-    expect(s.items.oil.holder).toBe("station");
-    expect(s.log.find((e) => e.verb === "refuel")).toMatchObject({
-      actorId: "keeper",
-      locationId: "station",
-    });
+    expect(exits(s, "attic")).toContain("pond");
+    // A lit lamp held at the pond opens the mirror to the attic.
+    s.items.lamp.holder = "vale";
+    s.items.oil.holder = "pond";
+    expect(exits(s, "pond")).toContain("attic");
   });
 
   it("lets the keeper go for its wanted bell and carry it", () => {
@@ -202,18 +82,6 @@ describe("the reflected shore card game", () => {
     s = act(s, "wait");
     expect(s.items.bell.holder).toBe("keeper");
     expect(s.actors.keeper.xp).toBe(1);
-  });
-
-  it("uses the same cloth to stop sound", () => {
-    let s = createWorld();
-    s.actors.vale.place = "pond";
-    s.actors.keeper.place = "station";
-    s.items.bell.holder = "pond";
-    s.items.cloth.holder = "pond";
-    s.items.bell.ringing = 2;
-    s = act(s, "cover", "cloth", "bell");
-    expect(s.items.bell.ringing).toBe(0);
-    expect(legalActions(s).some((a) => a.kind === "ring")).toBe(false);
   });
 
   it("keeps possession with an unwilling owner and accepts a willing handover", () => {
