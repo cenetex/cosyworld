@@ -1,0 +1,587 @@
+[
+  {
+    "kind": "take",
+    "actor": "vale",
+    "item": "greek-bread",
+    "target": null,
+    "text": "Vale takes the Courtyard Bread.",
+    "cards": [
+      "greek-bread"
+    ],
+    "key": "take:vale:greek-bread:"
+  },
+  {
+    "kind": "move",
+    "actor": "vale",
+    "item": null,
+    "target": "greek-gate",
+    "text": "Vale goes to Theban City Gate.",
+    "cards": [
+      "greek-gate"
+    ],
+    "key": "move:vale::greek-gate"
+  },
+  {
+    "kind": "trade",
+    "actor": "vale",
+    "item": "greek-bread",
+    "target": "greek-guard",
+    "text": "Vale trades the Courtyard Bread for The Gate Guard’s The Burial Decree.",
+    "cards": [
+      "greek-bread",
+      "greek-decree"
+    ],
+    "key": "trade:vale:greek-bread:greek-guard:greek-decree",
+    "receive": "greek-decree"
+  },
+  {
+    "kind": "move",
+    "actor": "vale",
+    "item": null,
+    "target": "greek-courtyard",
+    "text": "Vale goes to Theban Courtyard.",
+    "cards": [
+      "greek-courtyard"
+    ],
+    "key": "move:vale::greek-courtyard"
+  },
+  {
+    "kind": "move",
+    "actor": "vale",
+    "item": null,
+    "target": "greek-well",
+    "text": "Vale goes to Theban Market Well.",
+    "cards": [
+      "greek-well"
+    ],
+    "key": "move:vale::greek-well"
+  },
+  {
+    "kind": "move",
+    "actor": "vale",
+    "item": null,
+    "target": "greek-palace",
+    "text": "Vale goes to Theban Palace Forecourt.",
+    "cards": [
+      "greek-palace"
+    ],
+    "key": "move:vale::greek-palace"
+  },
+  {
+    "kind": "trade",
+    "actor": "vale",
+    "item": "greek-decree",
+    "target": "greek-creon",
+    "text": "Vale trades the The Burial Decree for Creon’s Creon's Writ.",
+    "cards": [
+      "greek-decree",
+      "greek-creon-writ"
+    ],
+    "key": "trade:vale:greek-decree:greek-creon:greek-creon-writ",
+    "receive": "greek-creon-writ"
+  },
+  {
+    "kind": "move",
+    "actor": "vale",
+    "item": null,
+    "target": "greek-well",
+    "text": "Vale goes to Theban Market Well.",
+    "cards": [
+      "greek-well"
+    ],
+    "key": "move:vale::greek-well"
+  },
+  {
+    "kind": "move",
+    "actor": "vale",
+    "item": null,
+    "target": "greek-courtyard",
+    "text": "Vale goes to Theban Courtyard.",
+    "cards": [
+      "greek-courtyard"
+    ],
+    "key": "move:vale::greek-courtyard"
+  },
+  {
+    "kind": "move",
+    "actor": "vale",
+    "item": null,
+    "target": "greek-gate",
+    "text": "Vale goes to Theban City Gate.",
+    "cards": [
+      "greek-gate"
+    ],
+    "key": "move:vale::greek-gate"
+  },
+  {
+    "kind": "give",
+    "actor": "vale",
+    "item": "greek-creon-writ",
+    "target": "greek-guard",
+    "text": "Vale gives the Creon's Writ to The Gate Guard.",
+    "cards": [
+      "greek-creon-writ",
+      "greek-guard"
+    ],
+    "key": "give:vale:greek-creon-writ:greek-guard"
+  },
+  {
+    "kind": "move",
+    "actor": "vale",
+    "item": null,
+    "target": "greek-courtyard",
+    "text": "Vale goes to Theban Courtyard.",
+    "cards": [
+      "greek-courtyard"
+    ],
+    "key": "move:vale::greek-courtyard"
+  },
+  {
+    "kind": "drop",
+    "actor": "vale",
+    "item": "lamp",
+    "target": "greek-courtyard",
+    "text": "Vale puts the Lamp in Theban Courtyard.",
+    "cards": [
+      "lamp"
+    ],
+    "key": "drop:vale:lamp:greek-courtyard"
+  },
+  {
+    "kind": "move",
+    "actor": "vale",
+    "item": null,
+    "target": "greek-gate",
+    "text": "Vale goes to Theban City Gate.",
+    "cards": [
+      "greek-gate"
+    ],
+    "key": "move:vale::greek-gate"
+  },
+  {
+    "kind": "move",
+    "actor": "vale",
+    "item": null,
+    "target": "greek-battlefield",
+    "text": "Vale goes to The Exposed Battlefield through the reflection.",
+    "cards": [
+      "greek-battlefield"
+    ],
+    "key": "move:vale::greek-battlefield"
+  },
+  {
+    "kind": "move",
+    "actor": "vale",
+    "item": null,
+    "target": "greek-cithaeron",
+    "text": "Vale goes to The Cithaeron Road through the reflection.",
+    "cards": [
+      "greek-cithaeron"
+    ],
+    "key": "move:vale::greek-cithaeron"
+  },
+  {
+    "kind": "move",
+    "actor": "vale",
+    "item": null,
+    "target": "greek-eleusis",
+    "text": "Vale goes to Eleusinian Sanctuary.",
+    "cards": [
+      "greek-eleusis"
+    ],
+    "key": "move:vale::greek-eleusis"
+  },
+  {
+    "kind": "take",
+    "actor": "vale",
+    "item": "greek-burial-petition",
+    "target": null,
+    "text": "Vale takes the The Mothers’ Petition.",
+    "cards": [
+      "greek-burial-petition"
+    ],
+    "key": "take:vale:greek-burial-petition:"
+  },
+  {
+    "kind": "move",
+    "actor": "vale",
+    "item": null,
+    "target": "greek-road-athens-eleusis",
+    "text": "Vale goes to The Sacred Way through the reflection.",
+    "cards": [
+      "greek-road-athens-eleusis"
+    ],
+    "key": "move:vale::greek-road-athens-eleusis"
+  },
+  {
+    "kind": "move",
+    "actor": "vale",
+    "item": null,
+    "target": "greek-athens",
+    "text": "Vale goes to Athenian Agora.",
+    "cards": [
+      "greek-athens"
+    ],
+    "key": "move:vale::greek-athens"
+  },
+  {
+    "kind": "give",
+    "actor": "vale",
+    "item": "greek-burial-petition",
+    "target": "greek-theseus",
+    "text": "Vale gives the The Mothers’ Petition to Theseus.",
+    "cards": [
+      "greek-burial-petition",
+      "greek-theseus"
+    ],
+    "key": "give:vale:greek-burial-petition:greek-theseus"
+  },
+  {
+    "kind": "talk",
+    "actor": "vale",
+    "item": null,
+    "target": "greek-theseus",
+    "text": "Vale has a conversation with Theseus.",
+    "cards": [
+      "greek-theseus"
+    ],
+    "key": "talk:vale::greek-theseus"
+  },
+  {
+    "kind": "move",
+    "actor": "vale",
+    "item": null,
+    "target": "greek-road-athens-piraeus",
+    "text": "Vale goes to The Long Walls through the reflection.",
+    "cards": [
+      "greek-road-athens-piraeus"
+    ],
+    "key": "move:vale::greek-road-athens-piraeus"
+  },
+  {
+    "kind": "move",
+    "actor": "vale",
+    "item": null,
+    "target": "greek-piraeus",
+    "text": "Vale goes to Piraeus Quays.",
+    "cards": [
+      "greek-piraeus"
+    ],
+    "key": "move:vale::greek-piraeus"
+  },
+  {
+    "kind": "wait",
+    "actor": "vale",
+    "item": null,
+    "target": null,
+    "text": "Vale waits one turn.",
+    "cards": [],
+    "key": "wait:vale::"
+  },
+  {
+    "kind": "take",
+    "actor": "vale",
+    "item": "greek-return-cloths",
+    "target": null,
+    "text": "Vale takes the Clean Burial Cloths.",
+    "cards": [
+      "greek-return-cloths"
+    ],
+    "key": "take:vale:greek-return-cloths:"
+  },
+  {
+    "kind": "move",
+    "actor": "vale",
+    "item": null,
+    "target": "greek-road-athens-piraeus",
+    "text": "Vale goes to The Long Walls through the reflection.",
+    "cards": [
+      "greek-road-athens-piraeus"
+    ],
+    "key": "move:vale::greek-road-athens-piraeus"
+  },
+  {
+    "kind": "move",
+    "actor": "vale",
+    "item": null,
+    "target": "greek-athens",
+    "text": "Vale goes to Athenian Agora.",
+    "cards": [
+      "greek-athens"
+    ],
+    "key": "move:vale::greek-athens"
+  },
+  {
+    "kind": "move",
+    "actor": "vale",
+    "item": null,
+    "target": "greek-road-athens-eleusis",
+    "text": "Vale goes to The Sacred Way.",
+    "cards": [
+      "greek-road-athens-eleusis"
+    ],
+    "key": "move:vale::greek-road-athens-eleusis"
+  },
+  {
+    "kind": "move",
+    "actor": "vale",
+    "item": null,
+    "target": "greek-eleusis",
+    "text": "Vale goes to Eleusinian Sanctuary.",
+    "cards": [
+      "greek-eleusis"
+    ],
+    "key": "move:vale::greek-eleusis"
+  },
+  {
+    "kind": "drop",
+    "actor": "vale",
+    "item": "greek-return-cloths",
+    "target": "greek-eleusis",
+    "text": "Vale puts the Clean Burial Cloths in Eleusinian Sanctuary.",
+    "cards": [
+      "greek-return-cloths"
+    ],
+    "key": "drop:vale:greek-return-cloths:greek-eleusis"
+  },
+  {
+    "kind": "wait",
+    "actor": "vale",
+    "item": null,
+    "target": null,
+    "text": "Vale waits one turn.",
+    "cards": [],
+    "key": "wait:vale::"
+  },
+  {
+    "kind": "take",
+    "actor": "vale",
+    "item": "greek-ash-urn",
+    "target": null,
+    "text": "Vale takes the The Funeral Urn.",
+    "cards": [
+      "greek-ash-urn"
+    ],
+    "key": "take:vale:greek-ash-urn:"
+  },
+  {
+    "kind": "give",
+    "actor": "vale",
+    "item": "greek-ash-urn",
+    "target": "greek-argive-mother",
+    "text": "Vale gives the The Funeral Urn to An Argive Mother.",
+    "cards": [
+      "greek-ash-urn",
+      "greek-argive-mother"
+    ],
+    "key": "give:vale:greek-ash-urn:greek-argive-mother"
+  },
+  {
+    "kind": "take",
+    "actor": "vale",
+    "item": "greek-return-list",
+    "target": null,
+    "text": "Vale takes the The Return List.",
+    "cards": [
+      "greek-return-list"
+    ],
+    "key": "take:vale:greek-return-list:"
+  },
+  {
+    "kind": "take",
+    "actor": "vale",
+    "item": "greek-pyre-account",
+    "target": null,
+    "text": "Vale takes the The Pyre Account.",
+    "cards": [
+      "greek-pyre-account"
+    ],
+    "key": "take:vale:greek-pyre-account:"
+  },
+  {
+    "kind": "move",
+    "actor": "vale",
+    "item": null,
+    "target": "greek-road-athens-eleusis",
+    "text": "Vale goes to The Sacred Way through the reflection.",
+    "cards": [
+      "greek-road-athens-eleusis"
+    ],
+    "key": "move:vale::greek-road-athens-eleusis"
+  },
+  {
+    "kind": "move",
+    "actor": "vale",
+    "item": null,
+    "target": "greek-athens",
+    "text": "Vale goes to Athenian Agora.",
+    "cards": [
+      "greek-athens"
+    ],
+    "key": "move:vale::greek-athens"
+  },
+  {
+    "kind": "move",
+    "actor": "vale",
+    "item": null,
+    "target": "greek-road-athens-piraeus",
+    "text": "Vale goes to The Long Walls through the reflection.",
+    "cards": [
+      "greek-road-athens-piraeus"
+    ],
+    "key": "move:vale::greek-road-athens-piraeus"
+  },
+  {
+    "kind": "move",
+    "actor": "vale",
+    "item": null,
+    "target": "greek-piraeus",
+    "text": "Vale goes to Piraeus Quays.",
+    "cards": [
+      "greek-piraeus"
+    ],
+    "key": "move:vale::greek-piraeus"
+  },
+  {
+    "kind": "give",
+    "actor": "vale",
+    "item": "greek-return-list",
+    "target": "greek-quay-host",
+    "text": "Vale gives the The Return List to Thaleia the Quay Host.",
+    "cards": [
+      "greek-return-list",
+      "greek-quay-host"
+    ],
+    "key": "give:vale:greek-return-list:greek-quay-host"
+  },
+  {
+    "kind": "move",
+    "actor": "vale",
+    "item": null,
+    "target": "greek-road-athens-piraeus",
+    "text": "Vale goes to The Long Walls through the reflection.",
+    "cards": [
+      "greek-road-athens-piraeus"
+    ],
+    "key": "move:vale::greek-road-athens-piraeus"
+  },
+  {
+    "kind": "move",
+    "actor": "vale",
+    "item": null,
+    "target": "greek-athens",
+    "text": "Vale goes to Athenian Agora.",
+    "cards": [
+      "greek-athens"
+    ],
+    "key": "move:vale::greek-athens"
+  },
+  {
+    "kind": "move",
+    "actor": "vale",
+    "item": null,
+    "target": "greek-road-athens-eleusis",
+    "text": "Vale goes to The Sacred Way.",
+    "cards": [
+      "greek-road-athens-eleusis"
+    ],
+    "key": "move:vale::greek-road-athens-eleusis"
+  },
+  {
+    "kind": "move",
+    "actor": "vale",
+    "item": null,
+    "target": "greek-eleusis",
+    "text": "Vale goes to Eleusinian Sanctuary.",
+    "cards": [
+      "greek-eleusis"
+    ],
+    "key": "move:vale::greek-eleusis"
+  },
+  {
+    "kind": "accompany",
+    "actor": "vale",
+    "item": null,
+    "target": "greek-household-witness",
+    "text": "Vale asks Myrine of Argos to accompany them to The Sacred Way.",
+    "cards": [
+      "greek-household-witness",
+      "greek-road-athens-eleusis"
+    ],
+    "key": "accompany:vale::greek-household-witness:greek-road-athens-eleusis",
+    "destination": "greek-road-athens-eleusis"
+  },
+  {
+    "kind": "talk",
+    "actor": "vale",
+    "item": null,
+    "target": "greek-household-witness",
+    "text": "Vale has a conversation with Myrine of Argos.",
+    "cards": [
+      "greek-household-witness"
+    ],
+    "key": "talk:vale::greek-household-witness"
+  },
+  {
+    "kind": "accompany",
+    "actor": "vale",
+    "item": null,
+    "target": "greek-household-witness",
+    "text": "Vale asks Myrine of Argos to accompany them to Athenian Agora.",
+    "cards": [
+      "greek-household-witness",
+      "greek-athens"
+    ],
+    "key": "accompany:vale::greek-household-witness:greek-athens",
+    "destination": "greek-athens"
+  },
+  {
+    "kind": "accompany",
+    "actor": "vale",
+    "item": null,
+    "target": "greek-household-witness",
+    "text": "Vale asks Myrine of Argos to accompany them to The Long Walls.",
+    "cards": [
+      "greek-household-witness",
+      "greek-road-athens-piraeus"
+    ],
+    "key": "accompany:vale::greek-household-witness:greek-road-athens-piraeus",
+    "destination": "greek-road-athens-piraeus"
+  },
+  {
+    "kind": "accompany",
+    "actor": "vale",
+    "item": null,
+    "target": "greek-household-witness",
+    "text": "Vale asks Myrine of Argos to accompany them to Piraeus Quays.",
+    "cards": [
+      "greek-household-witness",
+      "greek-piraeus"
+    ],
+    "key": "accompany:vale::greek-household-witness:greek-piraeus",
+    "destination": "greek-piraeus"
+  },
+  {
+    "kind": "take",
+    "actor": "vale",
+    "item": "greek-provision-basket",
+    "target": null,
+    "text": "Vale takes the The Quay Basket.",
+    "cards": [
+      "greek-provision-basket"
+    ],
+    "key": "take:vale:greek-provision-basket:"
+  },
+  {
+    "kind": "give",
+    "actor": "vale",
+    "item": "greek-provision-basket",
+    "target": "greek-household-witness",
+    "text": "Vale gives the The Quay Basket to Myrine of Argos.",
+    "cards": [
+      "greek-provision-basket",
+      "greek-household-witness"
+    ],
+    "key": "give:vale:greek-provision-basket:greek-household-witness"
+  }
+]
