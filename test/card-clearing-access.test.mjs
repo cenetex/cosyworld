@@ -9,12 +9,16 @@ import {
   decodeSave,
 } from "../v2/card-game/world.mjs";
 import { enableMotives } from "../v2/card-game/motives.mjs";
-import { availableCards, cardPlay } from "../v2/card-game/cards.mjs";
-import { narrativeContext } from "../v2/card-game/narrative.mjs";
+import { availableCards, cardPlay, sealedReason } from "../v2/card-game/cards.mjs";
+import { isLockedBox } from "../v2/card-game/locked-box.mjs";
+import { heldItem } from "../v2/card-game/held-item.mjs";
+import { allQuestsOf } from "../v2/card-game/want.mjs";
 
 function act(s, kind, target) {
   const action = legalActions(s).find(
-    (a) => a.kind === kind && (!target || a.target === target),
+    (a) =>
+      a.kind === kind &&
+      (!target || a.target === target || a.item === target),
   );
   expect(action, `${kind} ${target || ""}`).toBeTruthy();
   const result = play(s, action);
@@ -27,100 +31,95 @@ function pond() {
   s.actors.moth.place = "attic";
   s.items.lamp.holder = "moth";
   s.items.bell.holder = "vale";
+  s.actors.vale.heldItem = "bell";
   return s;
 }
-const ring = (s) => act(s, "ring");
-const open = () => ring(ring(pond()));
+const open = () => pond();
 const visible = (s) => exits(s, "pond", "vale").includes("clearing");
 // The bridge's saved state for the pond's crossing into the clearing.
 const crossing = (s) => s.crossings["pond-clearing"];
 
-describe("the temporary ringing path to Forest Clearing", () => {
-  it("offers three following turns, then expires and rejects stale choices", () => {
-    let s = open();
-    const stale = cardPlay(s, ["clearing"]).action;
-    expect(s.items.bell.ringing).toBe(3);
-    expect(crossing(s).until).toBe(s.turn + 3);
-    for (let remaining = 3; remaining > 0; remaining--) {
-      expect(visible(s)).toBe(true);
-      expect(s.items.bell.ringing).toBe(remaining);
-      const before = encodeSave(s);
-      availableCards(s);
-      cardPlay(s, ["clearing"]);
-      expect(encodeSave(s)).toBe(before);
-      expect(play(s, { key: "invented" }).state).toBe(s);
-      s = act(s, "wait");
-    }
-    expect(crossing(s).discovered).toBe(true);
-    expect(visible(s)).toBe(false);
-    expect(availableCards(s)).not.toContain("clearing");
-    expect(cardPlay(s, ["clearing"]).action).toBeNull();
-    expect(play(s, stale, s.revision)).toMatchObject({ ok: false, state: s });
-    expect(play(s, stale, s.revision - 1).ok).toBe(false);
-    const facts = narrativeContext(s).entities.find(
-      (e) => e.id === "pond",
-    ).facts;
-    expect(facts.find((f) => f.startsWith("Paths visible now:"))).not.toContain(
-      "Forest Clearing",
-    );
+describe("the held Bell at Black pond", () => {
+  it("opens only while this traveler holds the Bell, and stays a locked box otherwise", () => {
+    const held = open();
+    expect(heldItem(held, "vale")).toBe("bell");
+    expect(visible(held)).toBe(true);
+    expect(isLockedBox(held, "clearing")).toBe(false);
+    expect(crossing(held)).toEqual({ discovered: false });
+    const ground = open();
+    ground.items.bell.holder = "pond";
+    ground.actors.vale.heldItem = null;
+    expect(visible(ground)).toBe(false);
+    expect(availableCards(ground)).toContain("clearing");
+    expect(isLockedBox(ground, "clearing")).toBe(true);
+    expect(sealedReason(ground, "clearing")).toBe("Hold the Bell.");
+    const carried = open();
+    carried.items.lamp.holder = "vale";
+    carried.actors.vale.heldItem = "lamp";
+    expect(carried.items.bell.holder).toBe("vale");
+    expect(visible(carried)).toBe(false);
+    const npc = open();
+    npc.actors.moth.place = "pond";
+    npc.items.bell.holder = "moth";
+    npc.actors.moth.heldItem = "bell";
+    npc.actors.vale.heldItem = null;
+    expect(visible(npc)).toBe(false);
+    expect(exits(npc, "pond", "moth")).not.toContain("clearing");
+    const other = open();
+    other.actors.mara.place = "pond";
+    other.items.bell.holder = "mara";
+    other.actors.mara.heldItem = "bell";
+    other.actors.vale.heldItem = null;
+    expect(visible(other)).toBe(false);
+    other.playerActorId = "mara";
+    expect(exits(other, "pond", "mara")).toContain("clearing");
+    expect(isLockedBox(other, "clearing")).toBe(false);
   });
 
-  it("allows the final entry turn but needs a sounding bell to return", () => {
-    let s = act(act(open(), "wait"), "wait");
-    expect(s.items.bell.ringing).toBe(1);
+  it("follows a drop, a handoff and a move away, and a ring does not open it", () => {
+    let s = open();
+    s.actors.vale.place = "station";
+    expect(availableCards(s)).not.toContain("clearing");
+    s.actors.vale.place = "pond";
     s = act(s, "move", "clearing");
-    expect(s.items.bell.ringing).toBe(0);
-    s = act(act(s, "wait"), "wait");
-    expect(exits(s, "clearing", "vale")).not.toContain("pond");
-    expect(availableCards(s)).not.toContain("pond");
-    s = act(decodeSave(encodeSave(s)), "ring", "clearing");
-    expect(exits(s, "clearing", "vale")).toContain("pond");
+    expect(visible(s)).toBe(true);
+    s = act(s, "drop", "bell");
+    expect(visible(s)).toBe(false);
+    expect(isLockedBox(s, "pond")).toBe(true);
+    expect(availableCards(s)).toContain("pond");
+    s.items.bell.holder = "vale";
+    s.actors.vale.heldItem = "bell";
     s = act(s, "move", "pond");
-    expect(visible(s)).toBe(false);
-    expect(visible(ring(s))).toBe(false);
-    expect(visible(ring(ring(s)))).toBe(true);
-  });
-
-  it("refreshes an active window with one local ring and preserves its exact remainder on reload", () => {
-    let s = act(act(open(), "wait"), "wait");
-    s = ring(decodeSave(encodeSave(s)));
-    expect(crossing(s).phase).toBe(0);
-    expect(crossing(s).until).toBe(s.turn + 3);
-    expect(s.items.bell.ringing).toBe(3);
-    s = decodeSave(encodeSave(act(s, "wait")));
-    expect(crossing(s).until - s.turn).toBe(2);
-    s = act(act(s, "wait"), "wait");
-    expect(visible(decodeSave(encodeSave(s)))).toBe(false);
-  });
-
-  it("does not let a distant ring refresh or reopen the pond path", () => {
-    let s = open();
-    const expiry = crossing(s).until;
-    s = act(s, "move", "station");
-    expect(visible(s)).toBe(false);
-    s = ring(s);
-    expect(crossing(s).until).toBe(expiry);
-    s = act(s, "move", "pond");
-    expect(s.items.bell.ringing).toBeGreaterThan(0);
-    expect(visible(s)).toBe(false);
-    expect(visible(ring(s))).toBe(false);
-  });
-
-  it("uses current ground or carrier location and closes if the bell leaves or is covered", () => {
-    const s = open();
-    for (const holder of ["pond", "vale", "moth"]) {
-      s.items.bell.holder = holder;
-      s.actors.moth.place = "pond";
-      expect(visible(s)).toBe(true);
-    }
-    const stale = cardPlay(s, ["clearing"]).action;
-    s.actors.moth.place = "station";
-    expect(visible(s)).toBe(false);
-    expect(play(s, stale, s.revision).ok).toBe(false);
+    s.items.bell.holder = "moth";
     s.actors.moth.place = "pond";
-    s.items.cloth.holder = "bell";
+    s.actors.moth.heldItem = "bell";
+    s.actors.vale.heldItem = null;
     expect(visible(s)).toBe(false);
-    expect(availableCards(s)).not.toContain("clearing");
+    const away = open();
+    away.items.bell.holder = "pond";
+    away.actors.vale.heldItem = null;
+    away.items.bell.ringing = 3;
+    expect(visible(away)).toBe(false);
+    const covered = open();
+    covered.items.cloth.holder = "bell";
+    expect(visible(covered)).toBe(true);
+  });
+
+  it("gives the locked card's quest without traveling", () => {
+    const s = open();
+    s.items.bell.holder = "pond";
+    s.actors.vale.heldItem = null;
+    const gate = legalActions(s).find(
+      (a) => a.kind === "gate" && a.target === "clearing",
+    );
+    expect(gate.text).toBe("Hold the Bell.");
+    const taken = play(s, gate);
+    expect(taken.ok).toBe(true);
+    expect(taken.state.actors.vale.place).toBe("pond");
+    expect(allQuestsOf(taken.state, "vale")).toContainEqual(
+      expect.objectContaining({ kind: "item", target: "bell", story: true }),
+    );
+    expect(cardPlay(s, ["clearing"]).action.kind).toBe("gate");
   });
 
   it("keeps independent NPC crossing gated while a player can invite company", () => {
@@ -141,7 +140,8 @@ describe("the temporary ringing path to Forest Clearing", () => {
         a.destination === "clearing",
     );
     expect(invitation).toBeDefined();
-    for (let i = 0; i < 3; i++) s = act(s, "wait");
+    s.items.bell.holder = "pond";
+    s.actors.vale.heldItem = null;
     expect(play(s, invitation).ok).toBe(false);
     expect(s.invitedPlaces).toBeUndefined();
   });
@@ -156,12 +156,12 @@ describe("the temporary ringing path to Forest Clearing", () => {
     // Pip wants the station and carries the ringing bell there.
     s.actors.moth.want = newWant("place", "station", s.turn);
     delete s.actors.moth.metTurn;
-    const stale = cardPlay(s, ["clearing"]).action;
+    const stale = cardPlay(open(), ["clearing"]).action;
     s = act(s, "wait");
     expect(s.actors.moth.place).toBe("station");
-    expect(s.items.bell).toMatchObject({ holder: "moth", ringing: 2 });
-    expect(crossing(s).until).toBeGreaterThan(s.turn);
-    expect(availableCards(s)).not.toContain("clearing");
+    expect(s.items.bell.holder).toBe("moth");
+    expect(visible(s)).toBe(false);
+    expect(availableCards(s)).toContain("clearing");
     expect(play(s, stale, s.revision).ok).toBe(false);
     expect(visible(decodeSave(encodeSave(s)))).toBe(false);
   });
@@ -179,15 +179,13 @@ describe("the temporary ringing path to Forest Clearing", () => {
     };
     let s = act(open(), "move", "clearing");
     s = decodeSave(legacy(s, { rings: 0, discovered: true }));
-    expect(crossing(s)).toEqual({ discovered: true, phase: 0, until: 0 });
+    expect(crossing(s)).toEqual({ discovered: true });
     expect(s.actors.vale.place).toBe("clearing");
     expect(exits(s, "clearing", "vale")).toContain("pond");
-    expect(visible(act(s, "move", "pond"))).toBe(false);
-    for (const invalid of [-1, 1.5, s.turn + 4])
-      expect(() =>
-        decodeSave(
-          legacy(s, { rings: 0, discovered: true, openUntil: invalid }),
-        ),
-      ).toThrow();
+    const back = act(s, "move", "pond");
+    back.items.bell.holder = "pond";
+    back.actors.vale.heldItem = null;
+    expect(visible(back)).toBe(false);
+    expect(isLockedBox(back, "clearing")).toBe(true);
   });
 });

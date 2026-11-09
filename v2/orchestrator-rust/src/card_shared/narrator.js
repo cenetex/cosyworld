@@ -2034,6 +2034,9 @@
         );
       case "holding":
         return s.items[c.item]?.holder === (c.role === "actor" ? actor : c.actor) && !usedUp(s, c.item);
+      // The one card in this traveler's hand (held-item.mjs), not merely carried.
+      case "held":
+        return Boolean(actor) && heldItem(s, actor) === c.item && !usedUp(s, c.item);
       // A one-way cosmetic upgrade the traveler carries between worlds (#1873).
       case "upgraded":
         return Boolean(s.actors[actor]?.upgrades?.includes(c.upgrade));
@@ -2104,6 +2107,13 @@
   var signalReady = (s, c, senses2) => (c.signal?.while || []).every((r) => conditionMet(s, r, senses2, c.packId));
   var windowOpen = (s, c) => !c.signal || (c.signal.opens === null ? crossingState(s, c.id)?.phase === c.signal.steps.length : s.turn < (crossingState(s, c.id)?.until ?? 0));
   var crossingOpen = (s, c, senses2, actor = senses2?.player ?? null) => (!c.retired || Boolean(crossingState(s, c.id)?.discovered)) && entityActive(s, c.from) && entityActive(s, c.to) && (c.transport ? transportUnlocked(s, c.transport) && shipDock(s, c.transport) === c.from : windowOpen(s, c) && signalReady(s, c, senses2)) && c.requires.every((r) => conditionMet(s, r, senses2, c.packId, actor));
+  function sealedCrossingWays(s, actor, senses2) {
+    const here = s.actors[actor]?.place;
+    if (!here) return [];
+    return crossings.filter(
+      (c) => c.sealed && c.from === here && mayCross(c, actor, senses2) && entityActive(s, c.from) && entityActive(s, c.to) && !crossingOpen(s, c, senses2, actor)
+    ).map((c) => ({ from: c.from, to: c.to, sealed: c.sealed }));
+  }
   var mayCross = (c, actor, senses2) => c.travelers === "any" || actor === senses2.player || roamingQuestActor(actor) || packPeople[actor]?.personalQuests || senses2.humanActors?.includes(actor);
   var crossingExits = (s, place, actor, senses2) => crossings.filter(
     (c) => c.from === place && (mayCross(c, actor, senses2) || s.invitedPlaces?.[actor]?.includes(c.from) && (packPeople[actor]?.packId ?? null) === (packPlaces[c.to]?.packId ?? null)) && crossingOpen(s, c, senses2, actor)
@@ -2832,7 +2842,7 @@
         schemaVersion: 1,
         id: "badger-forest",
         packId: "cosyworld.badger-forest",
-        revision: 1,
+        revision: 2,
         name: "The Steam Clock",
         description: "A sunlit woodland clearing where an old Steam Clock ticks over Badger's favourite patch of moss.",
         entry: "clearing",
@@ -2977,7 +2987,7 @@
         },
         bridge: {
           id: "shore-badger-forest",
-          description: "Two bell rings at Black pond fold its reflection onto the Steam Clock clearing. A bell sounding at either end keeps the way back open."
+          description: "Holding the Bell at Black pond shows the Forest Clearing to that traveler. Holding it in the clearing shows the way back. Anyone else sees a locked box."
         },
         values: {
           badger: {
@@ -2994,38 +3004,21 @@
             to: "clearing",
             travelers: "player",
             travel: "through the reflection",
-            signal: {
-              steps: [
-                {
-                  verb: "ring",
-                  item: "bell"
-                },
-                {
-                  verb: "ring",
-                  item: "bell"
-                }
-              ],
-              consecutive: true,
-              opens: 3,
-              refresh: {
-                verb: "ring",
-                item: "bell"
-              },
-              echo: {
-                speaker: "echo",
-                text: "bong"
-              },
-              complete: "In the water, a forest clearing and an old Steam Clock come into view."
-            },
             requires: [
               {
-                kind: "sound",
-                at: [
-                  "pond"
-                ]
+                kind: "held",
+                item: "bell"
               }
             ],
-            closed: "The reflected clearing fades from the pond."
+            sealed: {
+              quest: {
+                kind: "item",
+                target: "bell"
+              },
+              reason: "Hold the Bell."
+            },
+            opened: "The Bell in hand folds the pond, and a forest clearing comes into view.",
+            closed: "The Bell leaves the hand. The reflected clearing fades from the pond."
           },
           {
             id: "clearing-pond",
@@ -3035,19 +3028,23 @@
             travel: "through the reflection",
             requires: [
               {
-                kind: "sound",
-                at: [
-                  "pond",
-                  "clearing"
-                ]
+                kind: "held",
+                item: "bell"
               }
             ],
+            sealed: {
+              quest: {
+                kind: "item",
+                target: "bell"
+              },
+              reason: "Hold the Bell."
+            },
             scenery: {
-              open: "A bell is sounding, and the dark reflection between the roots opens onto Black pond.",
+              open: "The Bell is in hand, and the dark reflection between the roots opens onto Black pond.",
               closed: "Moss lies between the roots."
             },
             opened: "A dark reflection between the roots opens onto Black pond.",
-            closed: "The bells fall silent. The reflection between the roots fades."
+            closed: "The Bell leaves the hand. The reflection between the roots fades."
           }
         ]
       },
@@ -16696,6 +16693,7 @@
     "choice_unset",
     "flag",
     "holding",
+    "held",
     "trusted",
     "item_at",
     "item_present",
@@ -17257,6 +17255,9 @@
           case "holding":
             ok = keysOk(c, ["kind", "item", "actor", "role"]) && owns3(items2, c.item) && (c.role === void 0 ? c.actor === hub2.player || owns3(avatars, c.actor) : c.role === "actor" && c.actor === void 0);
             break;
+          case "held":
+            ok = keysOk(c, ["kind", "item"]) && (hub2.items.includes(c.item) || owns3(items2, c.item));
+            break;
           case "upgraded":
             ok = keysOk(c, ["kind", "upgrade", "role"]) && idOk2(c.upgrade) && c.role === "actor";
             break;
@@ -17816,7 +17817,8 @@
           "closed",
           "travelLabel",
           "transport",
-          "retired"
+          "retired",
+          "sealed"
         ]) && idOk2(c.id) && (c.retired === void 0 || c.retired === true && c.transport === void 0 && c.signal === void 0) && !crossingIds.has(c.id),
         `${name} needs a distinct id and only known fields`
       );
@@ -17839,6 +17841,13 @@
         `${name} requires must be a list`
       );
       for (const r of c?.requires || []) condition(r, `${name} condition`);
+      if (c?.sealed !== void 0) {
+        const q = c.sealed.quest;
+        check(
+          keysOk(c.sealed, ["quest", "reason"]) && textOk(c.sealed.reason, 240) && keysOk(q, ["kind", "target"]) && q.kind === "item" && (hub2.items.includes(q.target) || owns3(items2, q.target)),
+          `${name} sealed card needs a reason and an item to hold`
+        );
+      }
       for (const field of ["opened", "closed"])
         if (c?.[field] !== void 0)
           check(textOk(c[field], 400), `${name} ${field} text is too long`);
@@ -19145,6 +19154,7 @@
       if (s.packs?.["greek-drama"]?.revision === 21)
         s.packs["greek-drama"].revision = 22;
       upgradeGreekCithaeronOpenSave(s);
+      upgradeBadgerBellSave(s);
       upgradeRecitals(s, packDefinitions);
     }
     upgradeSightings(s);
@@ -20075,6 +20085,15 @@
       };
     pack.revision = 2;
   }
+  function upgradeBadgerBellSave(s) {
+    const pack = packDefinitions.find((p) => p.id === "badger-forest");
+    const saved = s.packs?.[pack?.id];
+    if (!pack || pack.revision < 2 || saved?.revision !== 1) return;
+    const state = s.crossings?.["pond-clearing"];
+    if (state && typeof state === "object")
+      s.crossings["pond-clearing"] = { discovered: state.discovered === true };
+    saved.revision = 2;
+  }
   function upgradeSteamClockSave(s) {
     const clock = s.steamClock;
     delete s.steamClock;
@@ -20613,15 +20632,18 @@
     return true;
   }
 
-  // v2/card-game/world.mjs
+  // v2/card-game/world/catalog.mjs
   var places = { ...forest_default.places, ...packPlaces };
-  var homeGates = { ...forest_default.homeGates, ...humanHomeGates };
   var sanctuaries = Object.keys(places).filter(
     (id) => places[id].sanctuary === true
   );
   var people = { ...forest_default.people, ...packPeople };
   var things = { ...packThings, ...forest_default.things };
   validatePackLinks(places, people, things);
+  var nameOf = (id) => places[id]?.name || people[id]?.name || things[id]?.name || "the world";
+
+  // v2/card-game/world.mjs
+  var homeGates = { ...forest_default.homeGates, ...humanHomeGates };
   var lifeProblems = lifeDataProblems(places, people);
   if (lifeProblems.length)
     throw new Error(`Invalid world life data: ${lifeProblems.join("; ")}`);
@@ -20673,7 +20695,6 @@
       actorIds.filter((other) => other !== id).sort().join()
     ])
   );
-  var nameOf = (id) => places[id]?.name || people[id]?.name || things[id]?.name || "the world";
   function installPacks(s) {
     const added = [];
     installTransports(s);
@@ -20900,7 +20921,9 @@
     const here = s.actors[actor]?.place, ways = [
       ...sealedRoutes.filter((r) => r.from === here),
       // A guard bars his way from both sides (rules 100).
-      ...guardedFrom(here).map((to) => ({ from: here, to }))
+      ...guardedFrom(here).map((to) => ({ from: here, to })),
+      // A crossing can keep its card in the hand as a locked box (rules 129).
+      ...sealedCrossingWays(s, actor, sensesFor(s))
     ].filter((r) => entityActive(s, r.to) && entityActive(s, here));
     if (!ways.length) return [];
     const open = exits(s, here, actor), seen = /* @__PURE__ */ new Set();

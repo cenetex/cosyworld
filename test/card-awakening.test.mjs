@@ -61,15 +61,9 @@ describe("the bell crossing to the Steam Clock", () => {
     s = applyGeneratedText(s, context, response);
     const replies = (world) =>
       world.log.filter((entry) => entry.generated && entry.turn === world.turn);
-    expect(replies(s)).toHaveLength(1);
-    expect(replies(s)[0]).toMatchObject({
-      speaker: "echo",
-      text: "bong",
-      kind: "dialogue",
-    });
+    expect(replies(s).some((entry) => entry.speaker === "echo")).toBe(false);
     s = decodeSave(encodeSave(s));
-    s = applyGeneratedText(s, context, response);
-    expect(replies(s)).toHaveLength(1);
+    expect(s.log.some((entry) => entry.speaker === "echo")).toBe(false);
     s = ring(s);
     expect(s.actors.vale.place).toBe("pond");
     expect(availableCards(s)).toContain("clearing");
@@ -82,7 +76,7 @@ describe("the bell crossing to the Steam Clock", () => {
     const start = pond();
     const first = ring(start);
     expect(first.actors.vale.place).toBe("pond");
-    expect(signal(first).phase).toBe(1);
+    expect(exits(first, "pond", "vale")).toContain("clearing");
     expect(knownActors(first)).not.toContain("badger");
     const before = encodeSave(first);
     availableCards(first);
@@ -90,17 +84,8 @@ describe("the bell crossing to the Steam Clock", () => {
     expect(encodeSave(first)).toBe(before);
     const heard = ring(decodeSave(before));
     expect(heard.actors.vale.place).toBe("pond");
-    expect(signal(heard)).toEqual({
-      phase: 0,
-      discovered: true,
-      until: heard.turn + 3,
-    });
+    expect(signal(heard)).toEqual({ discovered: false });
     expect(turnOutcome(heard).card.kind).toBe("ring");
-    expect(
-      heard.memories.pond.events.some((e) =>
-        e.text.includes("forest clearing"),
-      ),
-    ).toBe(true);
     // Vale sees the crossing, and companion offers follow the local cast.
     expect(exits(heard, "pond", "vale")).toContain("clearing");
     expect(exits(heard, "pond")).not.toContain("clearing");
@@ -131,7 +116,7 @@ describe("the bell crossing to the Steam Clock", () => {
     expect(rejected.ok).toBe(false);
     expect(rejected.state).toBe(s);
     s = act(s, "wait");
-    expect(signal(s).phase).toBe(0);
+    expect(signal(s)).toEqual({ discovered: false });
     s = ring(s);
     expect(s.actors.vale.place).toBe("pond");
     s = act(s, "move", null, "station");
@@ -147,7 +132,7 @@ describe("the bell crossing to the Steam Clock", () => {
     s.actors.vale.place = "pond";
     s.items.cloth.holder = "bell";
     expect(legalActions(s).some((a) => a.kind === "ring")).toBe(false);
-    expect(signal(s).phase).toBe(0);
+    expect(exits(s, "pond", "vale")).toContain("clearing");
   });
 
   it("keeps Badger asleep on arrival, then remembers waking him across return trips", () => {
@@ -163,12 +148,13 @@ describe("the bell crossing to the Steam Clock", () => {
     expect(s.actors.badger.wakeCause).toBe("voice");
     expect(narrativeContext(s).speakers).toContain("badger");
     s = act(s, "move", null, "pond");
-    expect(availableCards(s)).not.toContain("clearing");
+    expect(availableCards(s)).toContain("clearing");
     s = decodeSave(encodeSave(s));
     // The pond's regulars keep away again, so the two rings stay unbroken.
     s.actors.moth.place = "attic";
     s.actors.keeper.place = "station";
-    s = reach(ring(ring(s)));
+    s.actors.vale.heldItem = "bell";
+    s = reach(s);
     expect(s.actors.badger.awake).toBe(true);
     // Badger keeps to the clearing, so he never sets out on a want.
     expect(s.actors.badger.place).toBe("clearing");
@@ -189,9 +175,11 @@ describe("the bell crossing to the Steam Clock", () => {
     s = act(s, "wait");
     expect(s.actors.badger.irritation).toBe(1);
     s = act(s, "drop", "bell");
+    expect(exits(s, "clearing", "vale")).not.toContain("pond");
+    s.items.bell.holder = "vale";
+    s.actors.vale.heldItem = "bell";
     s = act(s, "move", null, "pond");
     expect(s.actors.vale.place).toBe("pond");
-    expect(s.items.bell.holder).toBe("clearing");
   });
 
   it("keeps Badger grumpy after quiet and sharpens his voice with recorded irritation", () => {

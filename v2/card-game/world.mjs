@@ -155,6 +155,7 @@ import {
   newTemperament,
   crossingExits,
   crossingOpen,
+  sealedCrossingWays,
   crossingBetween,
   crossingScenery,
   markCrossed,
@@ -651,6 +652,8 @@ export function sealedWays(s, actor = currentActor(s)) {
       ...sealedRoutes.filter((r) => r.from === here),
       // A guard bars his way from both sides (rules 100).
       ...guardedFrom(here).map((to) => ({ from: here, to })),
+      // A crossing can keep its card in the hand as a locked box (rules 129).
+      ...sealedCrossingWays(s, actor, sensesFor(s)),
     ].filter((r) => entityActive(s, r.to) && entityActive(s, here));
   if (!ways.length) return [];
   const open = exits(s, here, actor),

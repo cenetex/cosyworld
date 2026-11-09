@@ -157,6 +157,7 @@ export function upgradeSave(
     if (s.packs?.["greek-drama"]?.revision === 21)
       s.packs["greek-drama"].revision = 22;
     upgradeGreekCithaeronOpenSave(s);
+    upgradeBadgerBellSave(s);
     upgradeRecitals(s, packDefinitions);
   }
   upgradeSightings(s);
@@ -1378,6 +1379,19 @@ export function upgradeTransportSave(s) {
       turn: null,
     };
   pack.revision = 2;
+}
+
+// Revision 2 opens the Forest Clearing while this traveler holds the Bell.
+// The old two-ring signal kept phase and a turn window; those fields no
+// longer belong on the crossing.
+export function upgradeBadgerBellSave(s) {
+  const pack = packDefinitions.find((p) => p.id === "badger-forest");
+  const saved = s.packs?.[pack?.id];
+  if (!pack || pack.revision < 2 || saved?.revision !== 1) return;
+  const state = s.crossings?.["pond-clearing"];
+  if (state && typeof state === "object")
+    s.crossings["pond-clearing"] = { discovered: state.discovered === true };
+  saved.revision = 2;
 }
 
 export function upgradeSteamClockSave(s) {

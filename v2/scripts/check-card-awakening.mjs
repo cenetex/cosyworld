@@ -98,31 +98,13 @@ try {
   await play("bell");
   assert.equal((await state()).items.bell.holder, "vale");
   await play("pond");
-  await play("bell");
-  assert.equal((await state()).crossings["pond-clearing"].phase, 1);
+  // Holding the Bell opens the clearing. A ring is not required.
   assert.equal((await state()).actors.vale.place, "pond");
-  assert.equal(await page.locator("#speaker").textContent(), "echo");
-  assert.equal(await page.locator("#dialogue-text").textContent(), "bong");
-  const echoTurn = (await state()).turn;
-  const echoRequests = requests.length;
-  assert.equal(await page.locator('[data-card="bell"] .state').count(), 0);
-  assert.doesNotMatch(await page.locator("#hand").innerText(), /Ring again/);
-  await page.reload();
-  await page.locator('[data-card="bell"]').waitFor({ state: "attached" });
-  await ready();
-  assert.equal(requests.length, echoRequests);
+  assert.equal((await state()).actors.vale.heldItem, "bell");
   assert.equal(
-    (await state()).log.filter(
-      (entry) => entry.generated && entry.turn === echoTurn,
-    ).length,
-    1,
+    await page.locator('[data-card="clearing"]').getAttribute("data-locked"),
+    "false",
   );
-  assert.equal(await page.locator("#speaker").textContent(), "echo");
-  assert.equal(await page.locator("#dialogue-text").textContent(), "bong");
-  await play("bell");
-  // The second ring reveals the clearing; its card takes Vale there.
-  assert.equal((await state()).actors.vale.place, "pond");
-  assert.equal((await state()).crossings["pond-clearing"].discovered, true);
   await play("clearing");
   assert.equal((await state()).actors.vale.place, "clearing");
   assert.equal((await state()).items.bell.holder, "vale");
@@ -194,11 +176,11 @@ try {
   assert.ok(await endStandoff(page, await state()), "Pip threatens Vale");
   await ready();
   assert.equal((await state()).standoffs.length, 0);
-  assert.equal((await state()).crossings["pond-clearing"].phase, 0);
-  await play("bell");
-  assert.equal((await state()).actors.vale.place, "pond");
-  await play("bell");
-  assert.equal((await state()).actors.vale.place, "pond");
+  assert.equal((await state()).actors.vale.heldItem, "bell");
+  assert.equal(
+    await page.locator('[data-card="clearing"]').getAttribute("data-locked"),
+    "false",
+  );
   await play("clearing");
   assert.equal((await state()).actors.vale.place, "clearing");
   await page.reload();

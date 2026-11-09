@@ -9,6 +9,7 @@ import {
 import { knowsFact, grievanceActive } from "./knowledge.mjs";
 import { locationWeather } from "./weather.mjs";
 import { usedUp } from "./item-use.mjs";
+import { heldItem } from "./held-item.mjs";
 // General rules over world-pack data: crossings and their signals, fixtures
 // that sound, and residents with a temperament. No rule here names a pack,
 // place, resident or hub object; the compiled packs supply every name.
@@ -146,6 +147,11 @@ export function conditionMet(s, c, senses, packId = null, actor = null) {
         s.items[c.item]?.holder === (c.role === "actor" ? actor : c.actor) &&
         !usedUp(s, c.item)
       );
+    // The one card in this traveler's hand (held-item.mjs), not merely carried.
+    case "held":
+      return (
+        Boolean(actor) && heldItem(s, actor) === c.item && !usedUp(s, c.item)
+      );
     // A one-way cosmetic upgrade the traveler carries between worlds (#1873).
     case "upgraded":
       return Boolean(s.actors[actor]?.upgrades?.includes(c.upgrade));
@@ -263,6 +269,22 @@ export const crossingOpen = (s, c, senses, actor = senses?.player ?? null) =>
     ? transportUnlocked(s, c.transport) && shipDock(s, c.transport) === c.from
     : windowOpen(s, c) && signalReady(s, c, senses)) &&
   c.requires.every((r) => conditionMet(s, r, senses, c.packId, actor));
+/** A shut crossing that names a sealed card, for the traveler standing at its start. */
+export function sealedCrossingWays(s, actor, senses) {
+  const here = s.actors[actor]?.place;
+  if (!here) return [];
+  return crossings
+    .filter(
+      (c) =>
+        c.sealed &&
+        c.from === here &&
+        mayCross(c, actor, senses) &&
+        entityActive(s, c.from) &&
+        entityActive(s, c.to) &&
+        !crossingOpen(s, c, senses, actor),
+    )
+    .map((c) => ({ from: c.from, to: c.to, sealed: c.sealed }));
+}
 export const crossingBetween = (from, to, s = null) =>
   (s && transportCrossing(s, from, to)) ||
   crossings.find((c) => !c.transport && c.from === from && c.to === to) ||

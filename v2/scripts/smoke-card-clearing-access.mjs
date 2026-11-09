@@ -27,7 +27,7 @@ fixture = act(fixture, "light");
 fixture.actors.moth.place = "attic";
 fixture.items.lamp.holder = "moth";
 fixture.items.bell.holder = "vale";
-fixture = act(act(fixture, "ring"), "ring");
+fixture.actors.vale.heldItem = "bell";
 const save = encodeSave(fixture);
 const key = "cosyworld.reflected-shore.v1.clearing-access-check";
 const server = createServer();
@@ -109,67 +109,19 @@ try {
       await page.locator("#card-actions .card-primary").click();
       await ready();
     };
-    const wait = () => use("pond");
-    await wait();
-    await wait();
-    assert.equal((await state()).items.bell.ringing, 1);
-    await use("bell");
-    assert.equal((await state()).items.bell.ringing, 3);
-    await wait();
+    assert.equal((await state()).actors.vale.heldItem, "bell");
+    assert.equal(await card("clearing").getAttribute("data-locked"), "false");
     await page.reload();
     await ready();
-    assert.equal((await state()).items.bell.ringing, 2);
     assert.equal(await card("clearing").count(), 1);
-    await wait();
-    await wait();
-    assert.equal(await card("clearing").count(), 0);
-    assert.equal((await state()).crossings["pond-clearing"].discovered, true);
-    await use("bell");
-    assert.equal(await card("clearing").count(), 0);
-    await use("bell");
-    assert.equal(await card("clearing").count(), 1);
-    // A save arriving from another tab closes a selected, now-stale route.
-    await selectCard(page, "clearing");
-    const expired = act(act(act(await state(), "wait"), "wait"), "wait");
-    await page.evaluate(
-      ({ key, value }) => {
-        localStorage.setItem(key, value);
-        window.dispatchEvent(
-          new StorageEvent("storage", { key, newValue: value }),
-        );
-      },
-      { key, value: encodeSave(expired) },
-    );
-    await ready();
-    assert.equal(await card("clearing").count(), 0);
-    assert.equal((await state()).actors.vale.place, "pond");
-    await use("bell");
-    await use("bell");
-    await wait();
-    await wait();
     await use("clearing");
     assert.equal((await state()).actors.vale.place, "clearing");
-    assert.equal((await state()).items.bell.ringing, 0);
-    await page.reload();
-    await ready();
-    // With every bell silent the way back is hidden; the clock's own bell
-    // on the clearing card reopens it.
-    assert.equal(await card("pond").count(), 0);
-    await selectCard(page, "clearing");
-
-    await page
-      .getByRole("button", { name: "Ring the Steam Clock", exact: true })
-      .click();
-    await ready();
-    assert.equal(await card("pond").count(), 1);
+    assert.equal(await card("pond").getAttribute("data-locked"), "false");
     await use("pond");
     assert.equal((await state()).actors.vale.place, "pond");
-    assert.equal(await card("clearing").count(), 0);
     assert.ok(requests.length > 0);
     assert.deepEqual(errors, []);
-    console.log(
-      `Clearing expiry, refresh, reload, stale selection, clock bell and safe return passed at ${width}px.`,
-    );
+    console.log(`Held Bell opens the clearing and the way back at ${width}px.`);
     await page.close();
   }
 } finally {

@@ -116,13 +116,15 @@ describe("switching a pack off and on (rules 98)", () => {
   });
 
   it("breaks a signal in progress where no player is left (rules 99)", () => {
+    // The clearing opens on one ring, so it keeps no saved step. The ship's
+    // cover still does, and leaving the pond breaks that step.
     const s = world((w) => {
       w.actors.vale.place = "pond";
-      w.crossings["pond-clearing"].phase = 1;
+      w.crossings["pond-greek-harbor"].phase = 1;
     });
     const quiet = ok(play(s, off(SHORE)));
     expect(quiet.actors.vale.place).not.toBe("pond");
-    expect(quiet.crossings["pond-clearing"]).toMatchObject({ phase: 0 });
+    expect(quiet.crossings["pond-greek-harbor"]).toMatchObject({ phase: 0 });
     expect(validateWorld(quiet)).toBe(quiet);
   });
 

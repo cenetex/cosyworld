@@ -99,7 +99,7 @@ describe("world packs on the card table", () => {
         /condition/,
       ],
       [(p) => (p.crossings[1].from = "station"), /join a hub place/],
-      [(p) => (p.crossings[0].signal.steps[0].verb = "sing"), /known verb/],
+      [(p) => (p.crossings[0].requires[0].kind = "held-loosely"), /condition/],
       [(p) => (p.avatars.bell = p.avatars.badger), /reuse hub ids/],
       [(p) => p.crossings.splice(1, 1), /crossing back to the hub/],
       [(p) => delete p.avatars.badger.travels, /stage needs/],
@@ -252,27 +252,20 @@ describe("the forest crossing's signal", () => {
     s.items.bell.holder = "vale";
     return s;
   }
-  it("counts resolved plays without disclosing the next step", () => {
+  it("opens for the player holding the Bell and not for a resident", () => {
     let s = pond();
+    s.actors.vale.heldItem = "bell";
     expect(knownActors(s)).not.toContain("badger");
-    s = act(s, "ring", null, "bell");
-    expect(s.crossings["pond-clearing"].phase).toBe(1);
+    expect(s.crossings["pond-clearing"]).toEqual({ discovered: false });
     const before = encodeSave(s);
     legalActions(s);
     availableCards(s);
     expect(encodeSave(s)).toBe(before);
-    // The next ring would complete the signal, and the offer says so.
-    expect(
-      legalActions(s).find((a) => a.kind === "ring" && a.item === "bell").text,
-    ).toBe("Vale rings the Bell. The sound carries across the shore.");
-    s = act(s, "ring", null, "bell");
-    expect(s.crossings["pond-clearing"]).toMatchObject({
-      phase: 0,
-      discovered: true,
-    });
-    expect(knownActors(s)).toContain("badger");
     expect(exits(s, "pond", "vale")).toContain("clearing");
     expect(exits(s, "pond", "keeper")).not.toContain("clearing");
+    s.actors.vale.heldItem = "lamp";
+    s.items.lamp.holder = "vale";
+    expect(exits(s, "pond", "vale")).not.toContain("clearing");
   });
 });
 
@@ -282,7 +275,7 @@ describe("planning across crossings", () => {
     s.actors.vale.place = "clearing";
     s.crossings["pond-clearing"].discovered = true;
     s.items.bell.holder = "vale";
-    s.items.bell.ringing = 2;
+    s.actors.vale.heldItem = "bell";
     expect(plan(s, "vale").action.key).toBe("move:vale::pond");
     expect(plan(s, "badger").action.kind).toBe("wait");
   });
@@ -292,24 +285,20 @@ describe("the Steam Clock's own bell", () => {
   it("never leaves a silent way back from the clearing", () => {
     const s = clearing();
     expect(exits(s, "clearing", "vale")).not.toContain("pond");
-    expect(availableCards(s)).not.toContain("pond");
+    expect(availableCards(s)).toContain("pond");
     expect(placeText(s, "clearing")).toMatch(/Moss lies between the roots/);
   });
 
   it("opens the way back while the hand bell sounds at either end", () => {
-    for (const holder of ["vale", "clearing", "pond"]) {
-      const s = clearing();
-      s.items.bell.holder = holder;
-      s.items.bell.ringing = 2;
-      expect(availableCards(s), holder).toContain("pond");
-      expect(placeText(s, "clearing")).toMatch(/opens onto Black pond/);
-    }
-    const distant = clearing();
-    distant.items.bell.ringing = 2;
-    expect(availableCards(distant)).not.toContain("pond");
-    distant.items.bell.holder = "clearing";
-    distant.items.cloth.holder = "bell";
-    expect(availableCards(distant)).not.toContain("pond");
+    const held = clearing();
+    held.items.bell.holder = "vale";
+    held.actors.vale.heldItem = "bell";
+    expect(exits(held, "clearing", "vale")).toContain("pond");
+    expect(placeText(held, "clearing")).toMatch(/opens onto Black pond/);
+    const ground = clearing();
+    ground.items.bell.holder = "clearing";
+    expect(exits(ground, "clearing", "vale")).not.toContain("pond");
+    expect(availableCards(ground)).toContain("pond");
   });
 
   it("is a play on the clearing card that reopens the way and wakes Badger", () => {
@@ -320,14 +309,14 @@ describe("the Steam Clock's own bell", () => {
     expect(legalActions(s, "badger").some((a) => a.fixture)).toBe(false);
     s = ringClock(s);
     expect(fixtureSounding(s, "steam-clock")).toBe(true);
-    expect(availableCards(s)).toContain("pond");
+    expect(exits(s, "clearing", "vale")).not.toContain("pond");
     expect(s.items.bell.ringing).toBe(0);
     expect(s.actors.badger).toMatchObject({
       awake: true,
       wakeCause: "sound",
       irritation: 2,
     });
-    expect(s.log.map((e) => e.text)).toContain(
+    expect(s.log.map((e) => e.text)).not.toContain(
       "A dark reflection between the roots opens onto Black pond.",
     );
     expect(s.motives.grievances.badger.some((g) => g.kind === "noise")).toBe(
@@ -348,10 +337,8 @@ describe("the Steam Clock's own bell", () => {
     expect(fixtureSounding(s, "steam-clock")).toBe(true);
     s = act(act(s, "wait"), "wait");
     expect(fixtureSounding(s, "steam-clock")).toBe(false);
-    expect(availableCards(s)).not.toContain("pond");
-    expect(
-      s.log.some((e) => e.turn === s.turn && /bells fall silent/.test(e.text)),
-    ).toBe(true);
+    expect(exits(s, "clearing", "vale")).not.toContain("pond");
+    expect(availableCards(s)).toContain("pond");
     const before = encodeSave(s);
     expect(play(s, stale).ok).toBe(false);
     expect(encodeSave(s)).toBe(before);
@@ -371,7 +358,7 @@ describe("the Steam Clock's own bell", () => {
     const s = ringClock(clearing());
     for (const mutate of [
       (x) => (x.packs["badger-forest"].sounds["steam-clock"] = x.turn + 4),
-      (x) => (x.packs["badger-forest"].revision = 2),
+      (x) => (x.packs["badger-forest"].revision = 3),
       (x) => (x.crossings["clearing-pond"].phase = 0),
       (x) => {
         x.crossings["pond-clearing"].until = x.turn;

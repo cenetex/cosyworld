@@ -263,6 +263,7 @@ schema still accepts them so older pack files load.
 | Kind                                  | Holds when                                                                                                       |
 | ------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
 | `{ "kind": "sound", "at": [places] }` | A sound is audible at any listed place: the hand bell ringing uncovered there, or a pack fixture sounding there. |
+| `{ "kind": "held", "item": id }`      | That item is the one card in this traveler's hand (`heldItem`), not merely carried. Hub and pack items both count. |
 
 `{ "kind": "item_present", "item": "cloth", "place": "attic" }` checks an
 item's physical place. It follows custody through covered items and their
@@ -326,7 +327,7 @@ Keep each kind a closed, typed descriptor over shared world state.
 
 ```jsonc
 "signal": {
-  "steps": [{ "verb": "ring", "item": "bell" }, { "verb": "ring", "item": "bell" }],
+  "steps": [{ "verb": "ring", "item": "bell" }],
   "consecutive": true,     // any other player play resets progress
   "opens": 3,              // turns the crossing stays open after completion
   "refresh": { "verb": "ring", "item": "bell" },  // a play that extends an open window
@@ -337,6 +338,11 @@ Keep each kind a closed, typed descriptor over shared world state.
   "complete": "…"          // line logged when the signal completes
 }
 ```
+
+A signal may list up to eight steps. `echo` answers only a step that leaves
+the signal unfinished. The Steam Clock crossing does not use a signal. It
+opens while the traveler holds the Bell (`{ "kind": "held", "item": "bell" }`),
+and its `sealed` card stays in the hand as a locked box until then.
 
 A step matches a resolved play by `verb` and optionally `item`, `target` and
 `from` (the item's holder before the play; `"from": "lamp"` with
@@ -364,7 +370,7 @@ no pack schema changes. [Rules 98](../../docs/design/rules-98-pack-toggle.md) re
 | Cosy Cottage (`lonely-forest`)          | hub: attic → cottage, the lamplit attic with the black cloth or a scarf                 |
 | The Wine-Dark Sea (`greek-drama`)       | hub: pond → harbour by the Charybdis; Hoppy Cat: Signal Jetty → Piraeus by its ship     |
 | Hoppy Cat Universe (`hoppycat-archive`) | hub: pond ↔ tea garden by the red thread, open only outward; the Sea: Piraeus ↔ jetty |
-| The Steam Clock (`badger-forest`)       | hub: pond → clearing, the bell sounding at the pond                                     |
+| The Steam Clock (`badger-forest`)       | hub: pond → clearing, while the traveler holds the Bell                                 |
 | The Willows (`willows`)                 | hub: pond → landing by canoe; the Sea: the Charybdis's rail → landing on misty nights   |
 
 The hub's entries are its packs' hub entries seen from the other side.

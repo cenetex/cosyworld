@@ -7,9 +7,10 @@ for the format.
 
 - `card-world.json` is the reusable world. It does not mention Black pond.
 - [`../../worlds/badger-forest/card-bridge.json`](../../worlds/badger-forest/card-bridge.json)
-  joins it to the shore: two consecutive bell rings at Black pond open the way
-  in for three turns, and a bell sounding at either end (including the Steam
-  Clock's own) opens the way back.
+  joins it to the shore: the traveler who holds the Bell at Black pond sees
+  the Forest Clearing, and holding it in the clearing shows the way back.
+  Anyone else, including someone who only carries the Bell, sees a locked box.
+  Pack revision 2 drops the old two-ring signal.
 - Art lives in `v2/card-game/assets/badger-forest/`; its provenance is in
   [`v2/card-game/assets/PROVENANCE.md`](../../card-game/assets/PROVENANCE.md).
 

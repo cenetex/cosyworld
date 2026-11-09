@@ -887,20 +887,13 @@ The Forest Clearing, Badger and the Steam Clock are a world pack
 (`v2/worlds/badger-forest/`). No engine rule names them; see
 [`v2/docs/card-packs.md`](../docs/card-packs.md) for the format.
 
-Ring the Bell twice in a row at Black pond to find the Forest Clearing.
-The first ring gets one reply: **echo** says **bong**. The second folds
-the pond's reflection and unveils a Forest Clearing card; Vale stays at the
-pond until the player plays it, then travels with their belongings. Only
-Vale takes that way, and no one can be asked along. A different successful
-player play resets the sequence; inspecting cards and hearing replies keeps
-it. The first ring also survives a reload. The bell must be uncovered.
-
-The second ring opens entry for three following player turns. Another ring
-at the pond refreshes that active window to three turns. The ringing bell
-must remain physically at the pond, either carried or on the ground; taking
-it away or muffling it closes entry. Discovery remains remembered, but the
-clearing card disappears when its entrance closes. Reload retains the exact
-remaining window. Inspecting cards and retrying dialogue consume no turns.
+Hold the Bell at Black pond to find the Forest Clearing. The Bell must be
+the card in that traveler's hand (`heldItem`), not merely carried beside
+another held card, left on the ground, or held by someone else. While it
+is not, the Forest Clearing stays in the hand as a locked box whose quest
+is to hold the Bell. Playing the open card travels with the traveler's
+belongings. Only that traveler takes the way, and no one can be asked along.
+A ring does not open it. Inspecting cards consumes no turns.
 
 Badger starts asleep beside the clock. Playing his avatar card wakes him.
 His mood, wake cause, memories, and generated conversation belong to the
@@ -910,12 +903,10 @@ quiet: concrete complaints, grudging answers, and a firm claim to his warm
 patch of moss. More noise makes him terser and more indignant. He answers
 useful questions from known facts without turning into a cheerful guide.
 
-The Black pond card in the clearing appears only while a bell is audible at
-one of the two shores. Silence removes both the exit and the travel offer.
-Choose **Ring the Steam Clock** on the clearing card to ring its installed
-bell for three following turns, even if the hand bell was left behind.
-Ringing the clock wakes or annoys Badger; it does not move or ring the hand bell.
-Once the entrance closes, two consecutive rings at the pond open it again.
+The Black pond card in the clearing is open while that traveler still holds
+the Bell, and a locked box otherwise. Choose **Ring the Steam Clock** on the
+clearing card to sound its installed bell. That wakes or annoys Badger and
+does not open either shore.
 The normal card UI handles travel, inventory,
 conversation, and history throughout. Earlier shore saves gain the clearing
 and its sleeping resident when loaded.

@@ -69,6 +69,7 @@ export const CONDITION_KINDS = [
   "choice_unset",
   "flag",
   "holding",
+  "held",
   "trusted",
   "item_at",
   "item_present",
@@ -986,6 +987,11 @@ export function packProblems(pack, hub, mountedPlaces = [], mountedItems = []) {
               ? c.actor === hub.player || owns(avatars, c.actor)
               : c.role === "actor" && c.actor === undefined);
           break;
+        case "held":
+          ok =
+            keysOk(c, ["kind", "item"]) &&
+            (hub.items.includes(c.item) || owns(items, c.item));
+          break;
         case "upgraded":
           ok =
             keysOk(c, ["kind", "upgrade", "role"]) &&
@@ -1820,6 +1826,7 @@ export function packProblems(pack, hub, mountedPlaces = [], mountedItems = []) {
         "travelLabel",
         "transport",
         "retired",
+        "sealed",
       ]) &&
         idOk(c.id) &&
         (c.retired === undefined ||
@@ -1853,6 +1860,17 @@ export function packProblems(pack, hub, mountedPlaces = [], mountedItems = []) {
       `${name} requires must be a list`,
     );
     for (const r of c?.requires || []) condition(r, `${name} condition`);
+    if (c?.sealed !== undefined) {
+      const q = c.sealed.quest;
+      check(
+        keysOk(c.sealed, ["quest", "reason"]) &&
+          textOk(c.sealed.reason, 240) &&
+          keysOk(q, ["kind", "target"]) &&
+          q.kind === "item" &&
+          (hub.items.includes(q.target) || owns(items, q.target)),
+        `${name} sealed card needs a reason and an item to hold`,
+      );
+    }
     for (const field of ["opened", "closed"])
       if (c?.[field] !== undefined)
         check(textOk(c[field], 400), `${name} ${field} text is too long`);

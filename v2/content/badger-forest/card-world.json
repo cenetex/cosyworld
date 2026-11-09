@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "badger-forest",
   "packId": "cosyworld.badger-forest",
-  "revision": 1,
+  "revision": 2,
   "name": "The Steam Clock",
   "description": "A sunlit woodland clearing where an old Steam Clock ticks over Badger's favourite patch of moss.",
   "entry": "clearing",

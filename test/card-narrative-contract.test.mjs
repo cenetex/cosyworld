@@ -47,24 +47,12 @@ describe("browser dialogue history contract", () => {
     });
   });
 
-  it("keeps the authored echo in the save, without treating it as an avatar", () => {
-    for (const { name, world, context } of narrativeContractCases().filter(
-      ({ name }) => name.includes("echo") || name === "reload covered bell",
-    )) {
-      expect(
-        world.log.find((entry) => entry.speaker === "echo"),
-        name,
-      ).toMatchObject({
-        kind: "dialogue",
-        text: "bong",
-        actorId: null,
-        turn: 8,
-      });
-      expect(
-        context.conversation.some((line) => line.text === "bong"),
-        name,
-      ).toBe(false);
-    }
+  it("does not write an echo when the held Bell opens the clearing", () => {
+    const world = hearFirstEcho();
+    expect(world.log.some((entry) => entry.speaker === "echo")).toBe(false);
+    expect(
+      narrativeContext(world).conversation.some((line) => line.text === "bong"),
+    ).toBe(false);
   });
 
   it("selects the last six actual avatar lines before applying the history limit", () => {

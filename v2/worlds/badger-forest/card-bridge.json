@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "shore-badger-forest",
   "pack": "badger-forest",
-  "description": "Two bell rings at Black pond fold its reflection onto the Steam Clock clearing. A bell sounding at either end keeps the way back open.",
+  "description": "Holding the Bell at Black pond shows the Forest Clearing to that traveler. Holding it in the clearing shows the way back. Anyone else sees a locked box.",
   "entries": [
     {
       "joins": "hub",
@@ -26,36 +26,21 @@
       "to": "clearing",
       "travelers": "player",
       "travel": "through the reflection",
-      "signal": {
-        "steps": [
-          {
-            "verb": "ring",
-            "item": "bell"
-          },
-          {
-            "verb": "ring",
-            "item": "bell"
-          }
-        ],
-        "consecutive": true,
-        "opens": 3,
-        "refresh": {
-          "verb": "ring",
-          "item": "bell"
-        },
-        "echo": {
-          "speaker": "echo",
-          "text": "bong"
-        },
-        "complete": "In the water, a forest clearing and an old Steam Clock come into view."
-      },
       "requires": [
         {
-          "kind": "sound",
-          "at": ["pond"]
+          "kind": "held",
+          "item": "bell"
         }
       ],
-      "closed": "The reflected clearing fades from the pond."
+      "sealed": {
+        "quest": {
+          "kind": "item",
+          "target": "bell"
+        },
+        "reason": "Hold the Bell."
+      },
+      "opened": "The Bell in hand folds the pond, and a forest clearing comes into view.",
+      "closed": "The Bell leaves the hand. The reflected clearing fades from the pond."
     },
     {
       "id": "clearing-pond",
@@ -65,16 +50,23 @@
       "travel": "through the reflection",
       "requires": [
         {
-          "kind": "sound",
-          "at": ["pond", "clearing"]
+          "kind": "held",
+          "item": "bell"
         }
       ],
+      "sealed": {
+        "quest": {
+          "kind": "item",
+          "target": "bell"
+        },
+        "reason": "Hold the Bell."
+      },
       "scenery": {
-        "open": "A bell is sounding, and the dark reflection between the roots opens onto Black pond.",
+        "open": "The Bell is in hand, and the dark reflection between the roots opens onto Black pond.",
         "closed": "Moss lies between the roots."
       },
       "opened": "A dark reflection between the roots opens onto Black pond.",
-      "closed": "The bells fall silent. The reflection between the roots fades."
+      "closed": "The Bell leaves the hand. The reflection between the roots fades."
     }
   ]
 }
