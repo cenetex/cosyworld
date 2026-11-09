@@ -152,6 +152,7 @@ export function upgradeSave(
     upgradeGreekLandRouteSave(s);
     upgradeGreekForecourtSave(s);
     upgradeGreekDecreeSave(s);
+    upgradeReflectionGatesSave(s);
     if (s.packs?.["greek-drama"]?.revision === 20)
       s.packs["greek-drama"].revision = 21;
     if (s.packs?.["greek-drama"]?.revision === 21)
@@ -773,6 +774,18 @@ export function upgradeGreekShipSignalSave(s) {
   if (state && (state.phase > 2 || (state.phase === 2 && !state.discovered)))
     state.phase = 0;
   saved.revision = 10;
+}
+
+// #1550 reflection rules: the pond-clearing and pond-greek-harbor crossings
+// are now static gates, not signals, so their saved phase/until are orphaned.
+export function upgradeReflectionGatesSave(s) {
+  for (const id of ["pond-clearing", "pond-greek-harbor"]) {
+    const state = s.crossings?.[id];
+    if (state) {
+      delete state.phase;
+      delete state.until;
+    }
+  }
 }
 
 // Revision 17 gives every Theban place at most three links: the sanctuary
