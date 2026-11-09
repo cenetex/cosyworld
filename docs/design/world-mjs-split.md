@@ -42,3 +42,5 @@ table + brotli) then collapses the per-version `include_str!` constants.
   port/lane helpers. Verified old-vs-new byte-for-byte equivalent.
 - `world/items.mjs` — `rootHolder`, `itemPlace`, `carried`, `covered`,
   `shining`. Verified old-vs-new byte-for-byte equivalent.
+- `world/senses.mjs` — `reflectionOpen`, `reflectionsFrom`, `senses`,
+  `sensesFor`, `baseSoundAt`. Verified old-vs-new byte-for-byte equivalent.

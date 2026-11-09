@@ -170,7 +170,6 @@ import {
   disturb,
   calm,
   validPackState,
-  conditionMet,
   DAYLIGHT_TURNS,
   runHash,
 } from "./pack-rules.mjs";
@@ -392,31 +391,9 @@ import {
   shining,
 } from "./world/items.mjs";
 export { rootHolder, itemPlace, carried, covered, shining };
-// A reflection opens while its authored conditions hold (#1600). Forest data
-// opens the attic mirror once the lamp there is dark, and the pond's way back
-// while the lamp shines on the shore.
-const reflectionsFrom = (s, from) =>
-  (forest.reflectionRoutes || [])
-    .filter(
-      (r) =>
-        r.from === from && r.requires.every((c) => conditionMet(s, c, null)),
-    )
-    .map((r) => r.to);
-export const reflectionOpen = (s, from = itemPlace(s, "lamp")) =>
-  reflectionsFrom(s, from).length > 0;
-// The bell is the shore's sound source: heard where it rests while it rings
-// uncovered. Packs add their own sounding fixtures through pack-rules.mjs.
-const baseSoundAt = (s, place) =>
-  entityActive(s, "bell") &&
-  s.items.bell.ringing > 0 &&
-  !covered(s, "bell") &&
-  itemPlace(s, "bell") === place;
-export const senses = { player: "vale", baseSoundAt, nameOf };
-export const sensesFor = (s) => ({
-  ...senses,
-  player: currentActor(s),
-  ...(s.controlledActors ? { humanActors: s.controlledActors } : {}),
-});
+// Senses and reflections live in world/senses.mjs (#1390).
+import { reflectionOpen, reflectionsFrom, senses, sensesFor } from "./world/senses.mjs";
+export { reflectionOpen, senses, sensesFor };
 const baseExits = (_s, place) => places[place].exits;
 export const placeText = (s, place) =>
   [
