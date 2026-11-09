@@ -149,4 +149,4 @@ For human and agent tooling, derive a read-only bounded status from authoritativ
 
 Roll out one boundary per small PR: failing characterization → narrow change → independent review → affected unit/sequence tests → desktop and phone browser paths → exact-head hosted checks. Keep existing card/bar/context-button UI. Engine refactors require the existing equivalence, released-bundle, native agreement and journal replay gates, plus a new rules version only where required. Do not combine this audit with pending lamp activation, schema migration, deployment or a global controller rewrite.
 
-This first patch changes only presentation ownership and tests. It cannot establish that the whole application is regression-free; keep the PR draft until required browser and hosted gates are verified.
+This first patch changes presentation ownership, tests and smoke selection. Transition changes now select the existing ship-fade and desktop/phone reduced-motion browser checks. It cannot establish that the whole application is regression-free; keep the PR draft until required browser and hosted gates are verified.

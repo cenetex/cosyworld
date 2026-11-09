@@ -57,6 +57,24 @@ describe("fast check smoke selection", () => {
       expect(pick(file)).toContain("smoke-card-music");
   });
 
+  it("checks layer fades and reduced motion when transitions change", () => {
+    expect(pick("v2/card-game/transitions.mjs")).toEqual([
+      ...config.core,
+      "smoke-card-ship-fade",
+      "smoke-card-reduced-fades",
+    ]);
+    expect(
+      pick(
+        "v2/card-game/transitions.mjs",
+        "v2/content/ratiradio/card-world.json",
+      ).slice(config.core.length),
+    ).toEqual([
+      "smoke-card-ratiradio",
+      "smoke-card-ship-fade",
+      "smoke-card-reduced-fades",
+    ]);
+  });
+
   it("gives a core smoke a path selects no slot of the cap", () => {
     // beat-stack and actions are core; the rest fill the three slots.
     const smokes = pick(

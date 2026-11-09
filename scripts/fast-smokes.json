@@ -21,6 +21,10 @@
       "smokes": ["smoke-card-ratiradio"]
     },
     {
+      "paths": "^v2/card-game/transitions\\.mjs$",
+      "smokes": ["smoke-card-ship-fade", "smoke-card-reduced-fades"]
+    },
+    {
       "paths": "^v2/card-game/(app|shared|dialogue|scene)\\.mjs$",
       "smokes": ["smoke-card-speech-queue"]
     },
