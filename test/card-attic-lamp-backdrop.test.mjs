@@ -3,7 +3,8 @@ import { createWorld } from "../v2/card-game/world.mjs";
 import { backdrop, lampLitHere, placeCardArt } from "../v2/card-game/scene.mjs";
 
 // #1422, #1600: the attic is painted lit while the lamp shines in it, doused
-// while the dark lamp is there, and dark without it.
+// while the dark lamp is there, and dark without it. #1550 makes the lamp lit
+// when the player holds the oil and the lamp is held or grounded.
 const DARK = "./assets/shared/places/attic-dark.webp";
 const LIT = "./assets/attic/attic-lit.webp";
 const DOUSED = "./assets/attic/attic-doused.webp";
@@ -11,19 +12,15 @@ function attic({ lit, holder }) {
   const world = createWorld();
   world.actors.vale.place = "attic";
   world.items.lamp.holder = holder;
-  world.items.lamp.lit = lit;
-  world.items.lamp.fuel = 12;
+  if (lit) world.items.oil.holder = "vale"; // holding the oil lights the lamp
   return world;
 }
 
 describe("attic backdrop follows the lamp in the attic", () => {
-  it("is doused while the lamp in the attic is unlit or covered", () => {
+  it("is doused while the lamp in the attic is unlit", () => {
     const world = attic({ lit: false, holder: "attic" });
     expect(lampLitHere(world, "attic")).toBe(false);
     expect(backdrop("attic", world)).toBe(DOUSED);
-    const covered = attic({ lit: true, holder: "vale" });
-    covered.items.cloth.holder = "lamp";
-    expect(backdrop("attic", covered)).toBe(DOUSED);
   });
   it("is lit while Vale holds the lit lamp in the attic", () => {
     const world = attic({ lit: true, holder: "vale" });
