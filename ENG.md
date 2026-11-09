@@ -18,6 +18,9 @@ The classic client is retired. The native C world kernel remains for
 compatibility history until #1652's later phases remove it.
 Their pack catalog and metadata have an explicit classic scope.
 
+The [state-machine inventory](docs/design/state-machine-contracts.md) maps current
+owners, events, invariants, interruption risks and test boundaries before refactoring.
+
 ## Engineering priorities
 
 1. Keep new systems in focused modules. The main-file line ceiling checks this.
