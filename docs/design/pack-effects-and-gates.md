@@ -13,20 +13,31 @@ conditions a crossing, route, topic, or reflection can require. Added kinds:
 - `held` — the current player (or a named `actor`) carries the thing.
 - `grounded` — the thing rests on a place, not in a hand or inside another
   thing.
+- `actor_at` — the current player (or a named `actor`) stands at the place.
 
-## Plan
+## Done (draft PR #2561)
 
-1. Add `held` and `grounded` (done).
-2. Redefine `light` to "the player holds the oil and the lamp is held or
-   grounded" (replaces the `lit`/`fuel`/`uncovered` bookkeeping), and drop
-   `covered`.
-3. Express the five reflection/secret-path rules in `forest.json`:
-   - attic mirror ← lit lamp held at the pond;
-   - pond mirror ← dark attic;
-   - cosy cottage ← black cloth in the lit attic;
-   - old steam-clock path ← bell held at the pond;
-   - Charybdis ← wait + cloth held at the pond + lit lamp on the ground.
-4. Delete the bespoke functions (`covered`, `shining`'s fuel check,
-   `insideLampRemedy`, `pondRescueExit`, `homeGateRecoverable`, `atticInterior`).
+1. `held`, `grounded`, `actor_at` conditions (with tests).
+2. `light` redefined to "the player holds the oil and the lamp is held or
+   grounded" (`c.fuel` defaults to `oil`); the `uncovered` field dropped from
+   the schema and data.
+3. `covered` (black-cloth covering) removed from rules and presentation.
+4. Five reflection/secret-path rules as data:
+   - pond mirror → attic: `held(lamp) + light(lamp @ pond)`;
+   - attic mirror → pond: `not(light(lamp @ attic))`;
+   - cottage stairs: `light(lamp @ attic) + held(cloth) + actor_at(attic)`;
+   - steam-clock path: `held(bell) + actor_at(pond)`;
+   - Charybdis: `light(lamp @ pond) + grounded(lamp) + held(cloth)`.
+5. Save migration `upgradeReflectionGatesSave` drops the orphaned signal
+   `phase`/`until` for the two crossings that became static gates.
+6. `baseSoundAt` generalised from "the bell" to "any ringing hub object".
 
-Each step is a behaviour change and is guarded by the #1387 equivalence harness.
+## Remaining
+
+- Home rescue: `insideLampRemedy`, `pondRescueExit`, `homeGateRecoverable`,
+  `homeRescueExit` still read `lamp.fuel`/`lit` and hardcode the attic/pond.
+- Station hub: `stationCandidates` / `stationTargets`.
+- Interior traversal: `atticInterior` (BFS of the isolated home interior).
+- Remove the now-unread `lit`/`fuel` fields from save state (replay-sensitive).
+- Test sweep: ~239 old-puzzle tests still assert the previous lamp/reflection
+  behaviour and need rewriting to the new rules.
