@@ -85,10 +85,7 @@
       },
       "home": "pond",
       "values": { "lamp": 12, "oil": 3, "bell": 1, "cloth": 6 },
-      "want": { "kind": "item", "target": "lamp", "lit": true },
-      "grievances": [
-        { "kind": "light", "on": [{ "kind": "snuff" }, { "kind": "cover", "target": "lamp" }], "reason": "{actor} spoiled Pip's light." }
-      ]
+      "want": { "kind": "item", "target": "oil" }
     },
     "keeper": {
       "name": "The keeper",
@@ -112,18 +109,14 @@
     "lamp": {
       "name": "Lamp",
       "startLevel": 50,
-      "text": "An oil lamp with soot-darkened glass. Burns one fuel each turn, even under a cloth.",
-      "valueRules": [{ "when": [{ "item": "lamp", "field": "fuel", "max": 0 }], "add": -5 }]
+      "text": "An oil lamp with soot-darkened glass. It burns while its oil is beside it."
     },
     "oil": {
       "name": "Oil flask",
       "startLevel": 10,
-      "text": "Fills an empty lamp to twelve on its own when one hand holds both. Then it waits full again at the station.",
+      "text": "Lights the lamp while it is beside it. It waits at the station.",
       "refuels": "lamp",
-      "returnsTo": "station",
-      "valueRules": [
-        { "when": [{ "holds": "lamp" }, { "item": "lamp", "field": "fuel", "max": 2 }], "add": 9 }
-      ]
+      "returnsTo": "station"
     },
     "bell": {
       "name": "Bell",
@@ -183,8 +176,6 @@
     "items": {
       "lamp": {
         "holder": "station",
-        "fuel": 12,
-        "lit": false,
         "history": []
       },
       "oil": {
@@ -214,9 +205,7 @@
         "items": [
           {
             "id": "lamp",
-            "holder": "station",
-            "fuel": 12,
-            "lit": false
+            "holder": "station"
           },
           {
             "id": "bell",
@@ -248,8 +237,7 @@
     },
     "items": {
       "lamp": {
-        "holder": "vale",
-        "lit": true
+        "holder": "vale"
       }
     },
     "log": [
@@ -265,9 +253,7 @@
         "items": [
           {
             "id": "lamp",
-            "holder": "vale",
-            "fuel": 12,
-            "lit": true
+            "holder": "vale"
           }
         ],
         "light": true,
