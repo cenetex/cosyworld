@@ -57,6 +57,13 @@ describe("fast check smoke selection", () => {
       expect(pick(file)).toContain("smoke-card-music");
   });
 
+  it("checks dream lifetime when the sleep owner changes", () => {
+    for (const owner of ["view", "presentation"])
+      expect(pick(`v2/card-game/sleep-${owner}.mjs`)).toContain(
+        "smoke-card-sleep-dream",
+      );
+  });
+
   it("checks layer fades and reduced motion when transitions change", () => {
     expect(pick("v2/card-game/transitions.mjs")).toEqual([
       ...config.core,

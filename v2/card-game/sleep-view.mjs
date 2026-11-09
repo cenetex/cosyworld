@@ -169,7 +169,8 @@ export function createSleepView({
     // The catcher and the dialogue button take the same next tap.
     get dreamTap() {
       if (!wake?.dream) return null;
-      if (shown.beat === "dreaming") return shown.armed ? "Confirm" : "Stop waiting";
+      if (shown.beat === "dreaming")
+        return shown.armed ? "Confirm" : "Stop waiting";
       if (shown.beat === "dream") return shown.revealed ? "Continue" : "Finish";
       return shown.beat === "enter" ? "Continue" : "";
     },
@@ -239,11 +240,13 @@ export function createSleepView({
     // bring none either.
     words(status) {
       if (!sequence || !wake?.dream) return;
+      const mine = sequence,
+        sceneWords = words;
       if (status === "pending") words.asked = true;
       if (status === "failed") sequence.failed();
       if (status === "ready" && words.asked)
         setTimeout(() => {
-          if (sequence && !words.reflecting) sequence.failed();
+          if (mine === sequence && !sceneWords.reflecting) mine.failed();
         });
     },
     // Wraps the reflection request: one that settles with no dream saved
@@ -263,6 +266,17 @@ export function createSleepView({
         Promise.resolve(result).then(settled, settled);
         return result;
       };
+    },
+    // A replacement world is already awake, just like the first table.
+    // Unlike stop(), discard the old dream, line filter and wake identity.
+    reset(world, viewer) {
+      sequence?.stop();
+      if (sequence) paint({ beat: "done" });
+      wake = dreamt = shown = null;
+      words = { asked: false, reflecting: false };
+      currentWorld = world;
+      shownTurn = world.turn;
+      seen = { key: sleepWake(world, viewer)?.key ?? null };
     },
     stop() {
       sequence?.stop();

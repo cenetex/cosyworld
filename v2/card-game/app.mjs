@@ -5389,6 +5389,7 @@ function resetTable(next = freshWorld()) {
   reveal.cancel();
   speechSounds.stop();
   world = next;
+  sleepView.reset(world, currentActor(world));
   rememberWords(null);
   loadSeen(true);
   completedSpeech.clear();
@@ -5425,6 +5426,7 @@ window.addEventListener("storage", (event) => {
   speechSounds.stop();
   try {
     world = enableMotives(decodeSave(event.newValue));
+    sleepView.reset(world, currentActor(world));
     loadSeen();
     renderedHand = "";
     quietExits = true;
