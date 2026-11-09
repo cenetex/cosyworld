@@ -1,7 +1,7 @@
 // Senses and reflections, split out of world.mjs (#1390).
 import { conditionMet } from "../pack-rules.mjs";
 import { entityActive } from "../pack-registry.mjs";
-import { itemPlace, covered } from "./items.mjs";
+import { itemPlace } from "./items.mjs";
 import { nameOf } from "./catalog.mjs";
 import { currentActor } from "../human-cast.mjs";
 import forest from "../forest.json" with { type: "json" };
@@ -23,7 +23,6 @@ export const reflectionOpen = (s, from = itemPlace(s, "lamp")) =>
 const baseSoundAt = (s, place) =>
   entityActive(s, "bell") &&
   s.items.bell.ringing > 0 &&
-  !covered(s, "bell") &&
   itemPlace(s, "bell") === place;
 export const senses = { player: "vale", baseSoundAt, nameOf };
 export const sensesFor = (s) => ({

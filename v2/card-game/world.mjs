@@ -377,10 +377,9 @@ import {
   rootHolder,
   itemPlace,
   carried,
-  covered,
   shining,
 } from "./world/items.mjs";
-export { rootHolder, itemPlace, carried, covered, shining };
+export { rootHolder, itemPlace, carried, shining };
 // Senses and reflections live in world/senses.mjs (#1390).
 import { reflectionOpen, senses, sensesFor } from "./world/senses.mjs";
 export { reflectionOpen, senses, sensesFor };
@@ -1508,12 +1507,12 @@ export function legalActions(s, actor = currentActor(s)) {
             actor,
             id,
             null,
-            `${nameOf(actor)} lights the Lamp${covered(s, id) ? " under its cloth" : ""}.`,
+            `${nameOf(actor)} lights the Lamp.`,
             [id],
           ),
         );
     }
-    if (id === "bell" && !covered(s, id))
+    if (id === "bell")
       out.push(
         offer(
           "ring",
@@ -2622,10 +2621,7 @@ function toward(s, actor, target) {
     const sound = getActions().find(
       (a) => a.kind === "ring" && a.item === "bell",
     );
-    if (sound)
-      return covered(s, "bell")
-        ? getActions().find((a) => a.kind === "take" && a.item === "cloth")
-        : sound;
+    if (sound) return sound;
   }
 }
 export function plan(s, actor = currentActor(s)) {
@@ -3502,8 +3498,7 @@ export function validateWorld(s) {
     Object.hasOwn(oil, "doses") ||
     !Number.isInteger(bell.ringing) ||
     bell.ringing < 0 ||
-    bell.ringing > 3 ||
-    (covered(s, "bell") && bell.ringing > 0)
+    bell.ringing > 3
   )
     fail();
   const signal = s.locations.pond.shipSignal;

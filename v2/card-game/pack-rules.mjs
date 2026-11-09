@@ -97,15 +97,18 @@ export function conditionMet(s, c, senses, packId = null, actor = null) {
   switch (c.kind) {
     case "sound":
       return !!senses && c.at.some((place) => soundAt(s, place, senses));
-    case "light":
+    case "light": {
+      const player = currentActor(s);
+      const holder = s.items[c.item]?.holder;
+      const grounded =
+        holder != null && !s.items[holder] && !s.actors[holder];
       return Boolean(
         entityActive(s, c.item) &&
-          s.items[c.item]?.lit &&
-          s.items[c.item]?.fuel > 0 &&
-          c.at.includes(objectPlace(s, c.item)) &&
-          (!c.uncovered ||
-            !Object.values(s.items).some((i) => i.holder === c.item)),
+          s.items[c.fuel ?? "oil"]?.holder === player &&
+          (holder === player || grounded) &&
+          c.at.includes(objectPlace(s, c.item)),
       );
+    }
     case "not":
       return !conditionMet(s, c.condition, senses, packId, actor);
     case "any":

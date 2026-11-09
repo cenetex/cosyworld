@@ -1,5 +1,6 @@
-// Item lookups: who holds what and whether it is carried, covered, or lit.
+// Item lookups: who holds what and whether it is carried or lit.
 import { entityActive } from "../pack-registry.mjs";
+import { currentActor } from "../human-cast.mjs";
 import { ids } from "../world.mjs";
 
 // Holder chains are a few links deep, so the walk tracks visits only when a
@@ -25,9 +26,13 @@ export const itemPlace = (s, id) =>
   s.actors[rootHolder(s, id)]?.place || rootHolder(s, id);
 export const carried = (s, actor) =>
   ids.filter((id) => rootHolder(s, id) === actor);
-export const covered = (s, id) => s.items.cloth.holder === id;
-export const shining = (s) =>
-  entityActive(s, "lamp") &&
-  s.items.lamp.lit &&
-  s.items.lamp.fuel > 0 &&
-  !covered(s, "lamp");
+export const shining = (s) => {
+  const player = currentActor(s);
+  const holder = s.items.lamp?.holder;
+  const grounded = holder != null && !s.items[holder] && !s.actors[holder];
+  return (
+    entityActive(s, "lamp") &&
+    s.items.oil?.holder === player &&
+    (holder === player || grounded)
+  );
+};

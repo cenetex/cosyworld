@@ -20,7 +20,6 @@ import {
   itemPlace,
   rootHolder,
   exits,
-  covered,
   sealedWays,
 } from "./world.mjs";
 
@@ -277,13 +276,7 @@ export function cardPlay(world, selected) {
     );
     if (meal) return result(meal);
     if (id === "lamp") return single(use(id), "Pair the Lamp with Oil flask.");
-    if (id === "bell")
-      return single(
-        use(id),
-        covered(world, id)
-          ? "Play Black cloth to uncover the Bell."
-          : "Ring the Bell.",
-      );
+    if (id === "bell") return single(use(id), "Ring the Bell.");
     return single(
       null,
       id !== "oil" && id !== "cloth"
@@ -528,7 +521,7 @@ export function cardObservation(world, id) {
       observations.push(item.lit ? "Lit" : "Unlit");
     if (typeof item.ringing === "number")
       observations.push(
-        item.ringing > 0 && !covered(world, id) ? "Ringing" : "Silent",
+        item.ringing > 0 ? "Ringing" : "Silent",
       );
     const cover = Object.keys(world.items).find(
       (other) => world.items[other].holder === id,
