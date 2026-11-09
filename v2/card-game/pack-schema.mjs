@@ -923,13 +923,12 @@ export function packProblems(pack, hub, mountedPlaces = [], mountedItems = []) {
           break;
         case "light":
           ok =
-            keysOk(c, ["kind", "item", "at", "uncovered"]) &&
+            keysOk(c, ["kind", "item", "at", "fuel"]) &&
             (hub.items.includes(c.item) || owns(items, c.item)) &&
             Array.isArray(c.at) &&
             c.at.length > 0 &&
             c.at.length <= 4 &&
-            c.at.every((p) => anyPlace(p) || mountedPlaces.includes(p)) &&
-            (c.uncovered === undefined || typeof c.uncovered === "boolean");
+            c.at.every((p) => anyPlace(p) || mountedPlaces.includes(p));
           break;
         case "not":
           ok =
