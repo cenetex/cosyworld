@@ -1,6 +1,6 @@
 // The Greek ship docking where the player waits fades in: the ship painted
 // over Black Pond and the berth at the Wine-Dark Harbor. Its card folds into
-// the location stack. It fades out as it sails, and nothing is left holding a
+// the ways stack. It fades out as it sails, and nothing is left holding a
 // style or blocking a click.
 import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
@@ -10,7 +10,11 @@ import { decodeSave, encodeSave } from "../card-game/world.mjs";
 import { profiles } from "../card-game/memory.mjs";
 import { summonTransport } from "../card-game/pack-transport.mjs";
 import { openDoorStart } from "../../test/helpers/open-door.mjs";
-import { readyActionButton, selectCard } from "./card-browser-helpers.mjs";
+import {
+  readyActionButton,
+  revealCard,
+  selectCard,
+} from "./card-browser-helpers.mjs";
 
 const output = new URL("../../output/ship-fade/", import.meta.url);
 await mkdir(output, { recursive: true });
@@ -20,9 +24,9 @@ const origin = `http://127.0.0.1:${server.address().port}`;
 let browser;
 try {
   browser = await chromium.launch({ headless: true });
-  for (const [place, away] of [
-    ["pond", "greek-harbor"],
-    ["greek-harbor", "pond"],
+  for (const [place, away, topWay] of [
+    ["pond", "greek-harbor", "station"],
+    ["greek-harbor", "pond", "greek-road-thebes"],
   ]) {
     const table = `ship-fade-${place}`;
     const key = `cosyworld.reflected-shore.v1.${table}`;
@@ -188,16 +192,22 @@ try {
       fade = await wait();
     assert.equal((await ship()).dock, place, "the ship comes to the waiter");
     const mid = (values) => values.some((v) => v > 0.05 && v < 0.95);
-    // The docked ship folds face down into the place's location stack
-    // (#1780), so its card shows no fade until the stack opens.
-    assert.equal(
-      await page
-        .locator('#hand [data-card="greek-ship"]')
-        .locator("xpath=..")
-        .getAttribute("data-holder"),
-      place,
-      `the ship card stacks behind ${place}`,
+    // Ways on stack at the right (#2272), separate from the current place.
+    // In both fixtures the ship joins beneath the existing first way.
+    const shipCard = page.locator('#hand [data-card="greek-ship"]');
+    const frame = shipCard.locator("xpath=..");
+    const top = page.locator(`#hand [data-card="${topWay}"]`);
+    assert.deepEqual(
+      await page.locator("#hand .card.location").evaluateAll(
+        (cards, here) =>
+          cards.map((card) => card.dataset.card).filter((id) => id !== here),
+        place,
+      ),
+      [topWay, "greek-ship"],
+      "the ship joins the ways stack behind its first destination",
     );
+    assert.equal(await top.getAttribute("aria-expanded"), "false");
+    assert.equal(await frame.evaluate((el) => el.hidden), true);
     assert.deepEqual(fade.card, [], "the folded ship card stays out of sight");
     if (place === "pond") assert.ok(mid(fade.overlay), "the ship fades in");
     else assert.ok(mid(fade.ghost), "the berth crossfades to the ship");
@@ -205,15 +215,12 @@ try {
       path: new URL(`${place}-docked.png`, output).pathname,
     });
     // Settled: no animation or inline style left, and the card takes clicks
-    // once the location stack is open.
-    await page.locator(`#hand [data-card="${place}"]`).click();
-    await page
-      .locator(`#hand [data-card="${place}"][aria-expanded="true"]`)
-      .waitFor();
+    // once the ways stack is open.
+    await revealCard(page, "greek-ship");
+    assert.equal(await top.getAttribute("aria-expanded"), "true");
+    assert.equal(await frame.evaluate((el) => el.hidden), false);
+    assert.equal(await shipCard.isVisible(), true);
     await page.waitForTimeout(600);
-    const frame = page
-      .locator('#hand [data-card="greek-ship"]')
-      .locator("xpath=..");
     const settled = await page.evaluate(() => {
       const card = document.querySelector('#hand [data-card="greek-ship"]');
       card.scrollIntoView({ block: "nearest", inline: "center" });
