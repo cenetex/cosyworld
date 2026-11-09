@@ -364,14 +364,35 @@
           "to": "clearing",
           "travelers": "player",
           "travel": "through the reflection",
-          "requires": [
-            {
-              "kind": "held",
+          "signal": {
+            "steps": [
+              {
+                "verb": "ring",
+                "item": "bell"
+              },
+              {
+                "verb": "ring",
+                "item": "bell"
+              }
+            ],
+            "consecutive": true,
+            "opens": 3,
+            "refresh": {
+              "verb": "ring",
               "item": "bell"
             },
+            "echo": {
+              "speaker": "echo",
+              "text": "bong"
+            },
+            "complete": "In the water, a forest clearing and an old Steam Clock come into view."
+          },
+          "requires": [
             {
-              "kind": "actor_at",
-              "place": "pond"
+              "kind": "sound",
+              "at": [
+                "pond"
+              ]
             }
           ],
           "closed": "The reflected clearing fades from the pond."
@@ -8181,23 +8202,42 @@
           "travelers": "any",
           "travel": "aboard the ship",
           "travelLabel": "Board",
-          "requires": [
-            {
-              "kind": "light",
-              "item": "lamp",
-              "at": [
-                "pond"
-              ]
-            },
-            {
-              "kind": "grounded",
-              "item": "lamp"
-            },
-            {
-              "kind": "held",
-              "item": "cloth"
-            }
-          ],
+          "signal": {
+            "steps": [
+              {
+                "verb": "cover",
+                "item": "cloth",
+                "target": "lamp"
+              },
+              {
+                "verb": "take",
+                "item": "cloth",
+                "from": "lamp"
+              }
+            ],
+            "consecutive": false,
+            "opens": null,
+            "while": [
+              {
+                "kind": "light",
+                "item": "lamp",
+                "at": [
+                  "pond"
+                ]
+              },
+              {
+                "kind": "not",
+                "condition": {
+                  "kind": "sound",
+                  "at": [
+                    "pond",
+                    "clearing"
+                  ]
+                }
+              }
+            ]
+          },
+          "requires": [],
           "scenery": {
             "open": "The Charybdis waits on the black water.",
             "overlay": "assets/greek-drama/pond-ship-overlay.png",
