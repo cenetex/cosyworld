@@ -1,4 +1,4 @@
-import { stationExitOrder, stationExits, validStationExitOrder } from "./station-exits.mjs";
+import { stationExits, validStationExitOrder } from "./station-exits.mjs";
 import {
   recordConversation,
   settleCompany,
@@ -154,7 +154,6 @@ import {
   newPackRecord,
   newTemperament,
   crossingExits,
-  crossingOpen,
   crossingBetween,
   crossingScenery,
   markCrossed,
@@ -394,7 +393,6 @@ export { rootHolder, itemPlace, carried, covered, shining };
 // Senses and reflections live in world/senses.mjs (#1390).
 import { reflectionOpen, reflectionsFrom, senses, sensesFor } from "./world/senses.mjs";
 export { reflectionOpen, senses, sensesFor };
-const baseExits = (_s, place) => places[place].exits;
 export const placeText = (s, place) =>
   [
     place === "attic" && reflectionOpen(s, place)
@@ -449,32 +447,15 @@ function rawOrdinaryExits(s, place, actor, previous) {
     ]),
   ];
 }
-// Conditions without a traveler (the train and calling card) may open while
-// nobody stands here. A traveler-specific key counts only for its present holder.
-const stationCrossings = crossings.filter((c) => c.from === "station");
-const stationTargets = [...new Set([
-  ...places.station.exits,
-  ...stationCrossings.map((c) => c.transport ? transports[c.transport].place : c.to),
-  ...packDefinitions.flatMap((p) => (p.routes || []).filter((r) => r.from === "station").map((r) => r.to)),
-])];
-function stationCandidates(s) {
-  const actors = [null, ...Object.keys(s.actors).filter((id) =>
-    s.actors[id].place === "station" && entityActive(s, id) &&
-    (!humanAvatar(id) || humanPresent(s, id) || residentAvatar(s, id)))];
-  return [...new Set([
-    ...baseExits(s, "station"), ...reflectionsFrom(s, "station"),
-    ...stationCrossings.filter((c) => actors.some((actor) =>
-      crossingOpen(s, c, sensesFor(s), actor)))
-      .map((c) => c.transport ? transports[c.transport].place : c.to),
-    ...packExits(s, "station", null),
-  ])].filter((id) => entityActive(s, id));
-}
-export function settleStationExits(s) {
-  s.stationExitOrder = stationExitOrder(s, stationCandidates(s));
-}
-function limitedExits(s, place, ways) {
-  return place === "station" ? stationExits(s, stationCandidates(s), ways) : ways;
-}
+// Station exits and candidates live in world/station.mjs (#1390).
+import {
+  baseExits,
+  stationCandidates,
+  settleStationExits,
+  limitedExits,
+  stationTargets,
+} from "./world/station.mjs";
+export { settleStationExits };
 function ordinaryExits(s, place, actor, previous) {
   return limitedExits(s, place, rawOrdinaryExits(s, place, actor, previous));
 }

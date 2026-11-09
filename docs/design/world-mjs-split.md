@@ -44,3 +44,5 @@ table + brotli) then collapses the per-version `include_str!` constants.
   `shining`. Verified old-vs-new byte-for-byte equivalent.
 - `world/senses.mjs` — `reflectionOpen`, `reflectionsFrom`, `senses`,
   `sensesFor`, `baseSoundAt`. Verified old-vs-new byte-for-byte equivalent.
+- `world/station.mjs` — `baseExits`, `stationCandidates`, `settleStationExits`,
+  `limitedExits`, `stationTargets`. Verified old-vs-new byte-for-byte equivalent.
