@@ -8203,18 +8203,7 @@
           "travel": "aboard the ship",
           "travelLabel": "Board",
           "signal": {
-            "steps": [
-              {
-                "verb": "cover",
-                "item": "cloth",
-                "target": "lamp"
-              },
-              {
-                "verb": "take",
-                "item": "cloth",
-                "from": "lamp"
-              }
-            ],
+            "steps": [],
             "consecutive": false,
             "opens": null,
             "while": [
@@ -8226,14 +8215,12 @@
                 ]
               },
               {
-                "kind": "not",
-                "condition": {
-                  "kind": "sound",
-                  "at": [
-                    "pond",
-                    "clearing"
-                  ]
-                }
+                "kind": "grounded",
+                "item": "lamp"
+              },
+              {
+                "kind": "held",
+                "item": "cloth"
               }
             ]
           },
