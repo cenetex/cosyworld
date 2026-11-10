@@ -20,9 +20,12 @@ const output = new URL(
 await mkdir(output, { recursive: true });
 const server = createServer();
 await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
-const browser = await browserType.launch({ headless: true });
+const browser = await browserType.launch({
+  headless: true,
+  executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE,
+});
 const meeting = () => {
-  const s = createWorld();
+  const s = createWorld({ seed: 2531 });
   s.actors.moth.place = s.actors.keeper.place = "station";
   s.items.lamp.holder = "vale";
   return s;
