@@ -118,15 +118,6 @@ pub(super) fn current_field(game: &Value, field: &str) -> Value {
     }
 }
 
-/// The same expectation for one saved field of a game; only `items` changes.
-pub(super) fn upgraded_field(game: &Value, field: &str) -> Value {
-    if field == "items" {
-        upgraded(&game[field])
-    } else {
-        game[field].clone()
-    }
-}
-
 /// Willows revision 2 moves the Swede's unmoved kit (#1692): the sheet and
 /// sack to the landing, the paddle and rope to the bank. A save from Willows
 /// revision 1 expects these new places.

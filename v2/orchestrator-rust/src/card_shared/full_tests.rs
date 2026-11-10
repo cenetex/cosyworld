@@ -393,8 +393,9 @@ fn first_ship_signal_unlocks_shared_round_trips_and_replays() {
     w.present = w.claimed;
     w.game["actors"]["vale"]["place"] = json!("pond");
     w.game["actors"]["mara"]["place"] = json!("greek-harbor");
-    // The keeper watches the far dock during this transport fixture.
+    // Residents stay away from the signal's grounded lamp in this transport fixture.
     w.game["actors"]["keeper"]["place"] = json!("greek-harbor");
+    w.game["actors"]["moth"]["place"] = json!("greek-battlefield");
     w.game["items"]["lamp"]["holder"] = json!("vale");
     w.game["items"]["lamp"]["lit"] = json!(true);
     w.game["items"]["lamp"]["fuel"] = json!(12);
@@ -418,8 +419,8 @@ fn first_ship_signal_unlocks_shared_round_trips_and_replays() {
     w.game["actors"]["mara"]["place"] = json!("pond");
     full_store::seed(&c, &id, &w, "first-ship-signal", now()).unwrap();
     // A grounded fueled lamp and the cloth held at the pond call the ship.
-    hold(&c, &id, &mut w, 0, json!("cloth"));
-    assert_eq!(w.game["items"]["lamp"]["lit"], false);
+    assert_eq!(w.game["actors"]["vale"]["heldItem"], "lamp");
+    assert_eq!(w.game["items"]["lamp"]["lit"], true);
     assert_eq!(
         w.game["crossings"]["pond-greek-harbor"]["discovered"],
         false
@@ -442,6 +443,10 @@ fn first_ship_signal_unlocks_shared_round_trips_and_replays() {
         .unwrap();
         assert_eq!(w.game["crossings"]["pond-greek-harbor"]["discovered"], true);
         assert_eq!(w.game["items"]["lamp"]["lit"], true);
+        if kind == "drop" {
+            assert_eq!(w.game["items"]["lamp"]["holder"], "pond");
+            assert_eq!(w.game["actors"]["vale"]["heldItem"], "cloth");
+        }
     }
     hold(&c, &id, &mut w, 0, Value::Null);
     for target in ["greek-ship", "greek-harbor", "greek-ship", "pond"] {

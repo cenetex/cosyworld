@@ -252,7 +252,11 @@ fn rules_99_world_upgrades_to_100_keeping_its_opening_and_packs() {
     // Greek revision 20 and Hoppy revision 4 update their rooms and things.
     let old = super::saved_items::current_pack_changes(&old, &upgraded.game);
     for field in ["opening", "packs", "items", "turn", "log"] {
-        assert_eq!(upgraded.game[field], old[field], "Keep {field}");
+        assert_eq!(
+            upgraded.game[field],
+            super::saved_items::current_field(&old, field),
+            "Keep {field}"
+        );
     }
     assert_eq!(upgraded.game.get("disabledPacks"), old.get("disabledPacks"));
     for (actor, before) in old["actors"].as_object().unwrap() {
@@ -271,10 +275,15 @@ fn rules_99_world_upgrades_to_100_keeping_its_opening_and_packs() {
     );
     assert_eq!(upgraded.game["actors"]["vale"]["halfwayIssued"], 2);
     assert_eq!(upgraded.game["actors"]["vale"]["glimpse"]["id"], "attic");
-    // The opening goes on under rules 100: dousing the lamp opens the mirror.
+    // Under current rules, quietly stowing the lamp opens the mirror.
     let mut world = upgraded;
-    let snuff = play(pick(&world, |a| a["kind"] == "snuff").unwrap());
-    commit(&mut world, snuff);
+    let turn = world.game["turn"].clone();
+    let history = world.game["log"].clone();
+    let stow = json!({"op":"hold","actor":"vale","choice":{
+        "item":null,"revision":world.game["revision"]}});
+    commit(&mut world, stow);
+    assert_eq!(world.game["turn"], turn);
+    assert_eq!(world.game["log"], history);
     assert_eq!(world.game["items"]["lamp"]["lit"], false);
     c.execute("DELETE FROM card_full_checkpoints WHERE world=?", [&id])
         .unwrap();

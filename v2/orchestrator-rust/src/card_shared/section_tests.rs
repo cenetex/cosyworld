@@ -113,7 +113,13 @@ fn earlier_greek_worlds_upgrade_once_with_original_history_and_new_entities() {
                 );
                 for (key, value) in old.game["crossings"].as_object().unwrap() {
                     if !super::full_tests::moved_door(key) {
-                        assert_eq!(&upgraded.game["crossings"][key], value);
+                        let mut expected = value.clone();
+                        if key == "pond-greek-harbor" {
+                            // The grounded-lamp gate keeps discovery, not signal phases.
+                            expected.as_object_mut().unwrap().remove("phase");
+                            expected.as_object_mut().unwrap().remove("until");
+                        }
+                        assert_eq!(upgraded.game["crossings"][key], expected);
                     }
                 }
                 for field in ["choices", "flags", "receipts", "met", "scope", "recitals"] {
