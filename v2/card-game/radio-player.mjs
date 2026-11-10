@@ -1,7 +1,7 @@
 import { createRadioStation } from "./radio-station.mjs";
 import { mediaUrl } from "./media.mjs";
 import streams from "./music-streams.json" with { type: "json" };
-import { wakeContext } from "./audio-wake.mjs";
+import { contextAsleep, wakeContext } from "./audio-wake.mjs";
 
 // The station clock, never the media element, decides which song and position.
 export function createRadioPlayer({
@@ -42,7 +42,7 @@ export function createRadioPlayer({
       title: snapshot
         ? `RatiRadio: ${snapshot.track.title} — made by ratimics`
         : "RatiRadio is off the air",
-      playing: !audio.paused,
+      playing: !audio.paused && !contextAsleep(context),
       failed,
     });
   function level(value) {
@@ -64,6 +64,10 @@ export function createRadioPlayer({
         nextGain.gain.value = 0;
         nextGain.connect(next.destination);
         next.createMediaElementSource(audio).connect(nextGain);
+        next.addEventListener?.("statechange", () => {
+          if (wanted() && contextAsleep(next)) void wakeContext(next).then(report);
+          report();
+        });
         context = next;
         gain = nextGain;
         audio.volume = 1;
