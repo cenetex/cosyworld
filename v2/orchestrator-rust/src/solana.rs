@@ -1,7 +1,6 @@
 use super::*;
 
 use ed25519_dalek::{Signature, Verifier, VerifyingKey};
-use rand::{rngs::OsRng, RngCore};
 
 #[derive(Clone, Debug, Deserialize)]
 #[serde(untagged)]
@@ -51,16 +50,6 @@ pub(crate) fn stable_hash_u64(parts: &[&str]) -> u64 {
 
 pub(crate) fn stable_hash_hex(parts: &[&str]) -> String {
     format!("{:016x}", stable_hash_u64(parts))
-}
-
-pub(crate) fn random_hex(byte_count: usize) -> String {
-    let mut bytes = vec![0_u8; byte_count];
-    OsRng.fill_bytes(&mut bytes);
-    let mut out = String::with_capacity(byte_count * 2);
-    for byte in bytes {
-        out.push_str(&format!("{byte:02x}"));
-    }
-    out
 }
 
 pub(crate) fn wallet_challenge_message(
