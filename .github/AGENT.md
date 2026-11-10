@@ -131,8 +131,7 @@ dispatch. `deploy.yml` deploys .dev from a scheduled train every 30 minutes
 [agent test passkey](../docs/release.md#agent-test-passkey).
 
 The full suite is the final cross-platform authority. It uses Node 24 and stable Rust
-for lint, tests, content, kernel, Rust builds, browser and composition smokes,
-and guide checks. Browser journeys run in parallel shards from one shared
+for lint, tests, content, kernel, Rust builds, browser smokes. Browser journeys run in parallel shards from one shared
 debug binary. `scripts/plan-browser-shards.mjs` packs the measured checks in
 `scripts/browser-shards.json` into shards of about six minutes; add a new
 journey there with its duration, and split a long journey by width with
