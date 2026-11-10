@@ -16018,7 +16018,7 @@
           },
           "ratiradio-listening-room": {
             name: "Listening Room",
-            text: "RATi's armchair faces a small radio. Across the rug, the closed Booth door waits in warm lamplight.",
+            text: "RATi's armchair faces a small radio. Across the rug, the Booth door waits in warm lamplight.",
             persona: "RATi's home and sanctuary: worn armchair, amber lamp, small radio, a pale glass ring on the table, a bare chair back, a ledge beside the booth door. RATi roams but returns here to gain levels. The ceramic figurine remains an object when the living Raven arrives.",
             exits: [
               "ratiradio-dispatch-window"
@@ -16394,7 +16394,7 @@
             id: "ratiradio-little-one",
             speaker: "ratiradio-raven",
             at: "ratiradio-listening-room",
-            text: "Raven taps its ceramic double once; the little bird makes no reply.",
+            text: "Raven calls the ceramic figurine its quiet double, a little bird that needs no voice.",
             requires: [
               {
                 kind: "flag",
