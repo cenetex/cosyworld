@@ -71,11 +71,13 @@ try {
         localStorage.getItem("cosyworld.reflected-shore.v1.badger-check"),
       ),
     );
-  const play = async (id) => {
+  const play = async (id, expectedAction) => {
     await ready();
     // A held item stays raised after its play; start each play fresh.
     await clearSelection(page);
     await selectCard(page, id);
+    if (expectedAction)
+      assert.equal(await page.locator("#card-actions .card-primary").getAttribute("data-action"), expectedAction);
     await page.locator("#card-actions .card-primary").click();
     await ready();
   };
@@ -103,7 +105,7 @@ try {
   assert.ok(await page.locator('[data-card="pond"]').count());
   await play("pond");
   await play("station");
-  await play("bell");
+  await play("bell", "take");
   assert.equal((await state()).items.bell.holder, "vale");
   await play("pond");
   await play("bell");
@@ -141,8 +143,11 @@ try {
   assert.equal(await sprite.count(), 0);
   const before = (await state()).turn;
   await page.locator('[data-card="badger"]').focus();
-  // The badger arrives covered: the first press uncovers it, and a press
-  // during the reveal only finishes it, so wait before selecting.
+  // The first press selects the closed box; its context button opens it.
+  await page.keyboard.press("Enter");
+  assert.equal(await page.locator('[data-card="badger"]').getAttribute("data-unrevealed"), "true");
+  assert.equal((await state()).turn, before);
+  await page.locator("#card-actions [data-open-box]").focus();
   await page.keyboard.press("Enter");
   await page.waitForFunction(
     () =>
@@ -156,7 +161,6 @@ try {
   await decode();
   await page.screenshot({ path: "output/badger-check/desktop-asleep.png" });
   await page.locator('[data-card="badger"]').focus();
-  await page.keyboard.press("Enter");
   assert.equal(
     await page.locator('[data-card="badger"]').getAttribute("aria-pressed"),
     "true",

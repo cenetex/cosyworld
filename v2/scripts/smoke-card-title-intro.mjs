@@ -1120,6 +1120,8 @@ try {
       await page.waitForTimeout(100);
     assert.equal(page.wakings, 1);
     await page.locator('#hand .card[data-card="attic"]').click();
+    assert.equal(await page.locator('#hand .card[data-card="attic"]').getAttribute("data-unrevealed"), "true");
+    await page.locator('#card-actions [data-open-box="attic"]').click();
     await page.waitForFunction(() =>
       document.querySelector(
         '#hand .card[data-card="attic"][data-unrevealed="false"]',

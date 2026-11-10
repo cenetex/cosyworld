@@ -1671,15 +1671,11 @@ function choose(id) {
   if (finishCardReveal(id) || selectionBlocked()) return;
   if (reviewing) returnToLive();
   queueChoice();
-  if (things[id] && selected.includes(id) && restedChoice === choiceKey()) {
+  if (things[id] && selected.includes(id) &&
+    (restedChoice === choiceKey() || (rowCollapsed && cardIsClosed(id)))) {
     restedChoice = null;
     rowCollapsed = false;
     render();
-    return;
-  }
-  // A locked box is chosen, not uncovered: it opens with its quest.
-  if (cardIsCovered(id) && !isLockedBox(world, id)) {
-    uncover(id);
     return;
   }
   playQueue.clear();
@@ -1700,7 +1696,18 @@ function choose(id) {
   const withCard = [...selected, id];
   // Lower the card actually tapped before any stack-folding behavior.
   // In a pair, tapping the expanded avatar must leave its partner chosen.
-  if (selected.length > 1 && selected.includes(id))
+  if (cardIsClosed(id)) {
+    // A closed thing replaces its browsing place just like a known thing.
+    const holder = things[id] ? rootHolder(world, id) : null;
+    const knownCards = selected.filter((card) =>
+      !cardIsClosed(card) && !(places[id] && places[card]) &&
+      !(places[holder] && card === holder));
+    const partner = selectedHandItem(world, knownCards) || (knownCards.length === 1 ? knownCards[0] : null);
+    selectCards(
+      selected.includes(id) ? selected.filter((card) => card !== id) : [partner, id].filter(Boolean),
+      { keepOpen: true },
+    );
+  } else if (selected.length > 1 && selected.includes(id))
     selectCards(
       selected.filter((cardId) => cardId !== id),
       { keepOpen: true },
@@ -1774,6 +1781,7 @@ function choose(id) {
   revealHandCard(id, { nextFrame: firstItem });
 }
 function dragPlay(cards) {
+  if (cards.some(cardIsClosed)) return null;
   const { action } = cardPlay(world, cards);
   if (!action) return null;
   return restPlays(
@@ -2505,7 +2513,7 @@ function renderActions() {
       return button;
     }),
   );
-  if (quiet) {
+  if (quiet && !closed) {
     const reveal = node("button", OPENING_REVEAL, "card-primary");
     reveal.type = "button";
     reveal.dataset.quiet = "true";
@@ -2607,16 +2615,29 @@ function renderActions() {
   }
   // The context button keeps a closed box's contents concealed.
   const sealed = !rested && closed;
+  const closedCard = selected.find(cardIsClosed);
+  const openingBox = sealed && !isLockedBox(world, closedCard) ? closedCard : null;
   if (sealed) {
-    const why = node("button", "Locked", "card-action");
+    const why = node("button", openingBox ? "Tap to open" : "Locked", "card-action");
     why.type = "button";
-    why.disabled = true;
-    why.dataset.blocked = "gate";
+    why.disabled = !openingBox || selectionBlocked();
     why.title = lockShown.text;
-    why.setAttribute("aria-label", `Locked. ${lockShown.text}`);
+    if (openingBox) {
+      why.dataset.openBox = openingBox;
+      why.onclick = () => {
+        if (!selectionBlocked() && selected.includes(openingBox) && !isLockedBox(world, openingBox)) {
+          // The replacement action must not catch a second tap on Open.
+          lastPlayAt = performance.now();
+          uncover(openingBox);
+        }
+      };
+    } else {
+      why.dataset.blocked = "gate";
+      why.setAttribute("aria-label", `Locked. ${lockShown.text}`);
+    }
     row.append(why);
-    // The same descriptor and small corner cue as Continue, without a play.
-    cardTapHint(why, "Locked");
+    // The same descriptor and small corner cue as Continue.
+    cardTapHint(why, openingBox ? "Open" : "Locked");
   }
   // An Ask, Trade or Invite of a sleeping resident says so (rules 100).
   const asleep = !sealed && !rested && !actions.length && asleepReason(world, selected);
@@ -2647,7 +2668,7 @@ function renderActions() {
     sentence &&
     row.childElementCount === 1 &&
     !row.firstElementChild.disabled &&
-    (only || quiet || row.firstElementChild.dataset.look)
+    (only || quiet || openingBox || row.firstElementChild.dataset.look)
   ) {
     const button = row.firstElementChild;
     panel.setAttribute("data-card-tap", "");
@@ -2655,7 +2676,7 @@ function renderActions() {
       button.dataset.waitSentence = "";
     nameActionTap(
       button,
-      quiet ? "Uncover" : actionTapVerb(only, button.textContent),
+      openingBox ? "Open" : quiet ? "Uncover" : actionTapVerb(only, button.textContent),
       only?.label === "Wake" ? sentence : button.textContent,
     );
     message = button;
@@ -3023,7 +3044,8 @@ function card(id) {
   el.addEventListener("click", () => choose(id));
   el.draggable = !el.disabled && !hidden;
   el.addEventListener("dragstart", (e) => {
-    if (selectionBlocked() || cardIsClosed(id)) {
+    if (selectionBlocked() || cardIsClosed(id) ||
+      (selected.includes(id) && selected.some(cardIsClosed))) {
       e.preventDefault();
       return;
     }
@@ -3125,7 +3147,7 @@ function card(id) {
   back.draggable = false;
   el.append(back);
   if (hidden) {
-    el.setAttribute("aria-label", locked ? "Locked box" : "Face-down card. Tap to reveal.");
+    el.setAttribute("aria-label", locked ? "Locked box" : "Closed box. Select to inspect.");
     el.removeAttribute("aria-describedby");
   }
   return frame;
@@ -4815,7 +4837,7 @@ function render() {
   if (rowCollapsed) expandedHolders.clear();
   else
     for (const id of selected) {
-      if (people[id] || id === placeHere()) expandedHolders.add(id);
+      if (!cardIsClosed(id) && (people[id] || id === placeHere())) expandedHolders.add(id);
     }
   if (rowCollapsed || waysOpen !== placeHere()) waysOpen = null;
   // Folding the avatar's stacks folds its fan and lowers a chosen quest.
