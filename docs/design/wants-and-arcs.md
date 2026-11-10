@@ -24,6 +24,14 @@ over the six mounted packs in `v2/worlds/card-table.json`.
    follow the principles of deleuze and jodorowsky?"
 7. Dreams: "Keep long rest dreams its charming."
 8. Shared worlds on Lonely Forest at the rules bump: "we can reset."
+9. Boxes first: "I mean almost every box should be locked, unlocking a box
+   should 'feel' like the primary way until they're all unlocked then you
+   find out about desire (we ahve 9 locked boxes now but perhaps we should
+   have many more) also the world generator provides an opportunity for
+   procedural expansion"
+10. Re-locking and visibility: "yes, boxes can re-lock and so on as well -
+    think of it as a maze of escape rooms but the locked boxes should be
+    visibile right..."
 
 ## Already decided earlier
 
@@ -124,6 +132,66 @@ are not drawn as locked boxes.
 A *closed* box is only a card this browser has not turned over: "Tap to
 open", no rule, no XP (`app.mjs:479-482`).
 
+**What can be a box.** Counts are entries in `packs.json` for the six
+mounted packs, plus `forest.json` and `shared-cast.json` for the hub.
+
+| Card kind | Cards | Locked today | Lock it can carry with no rules change |
+| --- | --- | --- | --- |
+| Place | 93 in packs; 3 hub; 8 homes | 6 (4 sealed ways, 1 guarded, 1 lane) | A route's `requires` plus `sealed` (`pack-schema.mjs:1290-1297`); a guard on the way; a ship lane's `opensWith` and `reason`. Pack crossings (15, 8 gated) and hub routes cannot carry `sealed` |
+| Resident | 58 in packs; 3 hub; 8 human | 1 (Raven) | `requires` plus `sealed: { at, reason }` (`pack-schema.mjs:696-703`) |
+| Item | 83 in packs; 4 hub | 2 (bread, provisions) | Only `locked: { by, consumes }`: a maker and what she uses. No general item lock exists |
+
+Conditions a lock may use today (`CONDITION_KINDS`, `pack-schema.mjs:63`):
+a thing held (`holding`, `held`, `in_hand`); a thing placed (`item_at`,
+`item_near`, `grounded`); a person met, talked with or a fact known (`met`,
+`talked`, `knows`); trust (`trusted`, used 0 times); a flag or a fork set by
+an effect on Give, Meet, Wait, Talk or Hold; time and weather (`daylight`,
+`clock`, `weather`); light and sound; a guard, who keeps a schedule and can
+be fought or given what he wants (rules 100).
+
+**What is drawn.** A locked card is on the table only where its lock was
+written to show (`availableCards`, `cards.mjs:73-89`):
+
+- *Places.* A shut way is drawn only if its route has `sealed` or a guard
+  (`sealedWays`, `world/geography.mjs:216-240`), and a shut lane only if it
+  has a `reason`. 16 of 23 pack routes are gated; 4 carry `sealed` and 1 is
+  guarded. The other 11 gated routes, all 8 gated crossings and the hub's
+  mirror are left out of the hand until they open.
+- *Residents.* A resident whose `requires` does not hold is drawn only if it
+  has `sealed`, and only at its `at` place (`sealedAvatar`, `cards.mjs:31`).
+  30 pack residents have `requires`; 1 has `sealed`. The other 29 are left
+  out until they appear.
+- *Items.* A made thing is drawn locked at its home while used up and its
+  maker is active (`lockedAt`, `pack-items.mjs:91`). No other item can be
+  drawn locked.
+
+So today most shut things are hidden, not shown locked.
+
+**Locking again.** Three things do it today. A made thing locks when used
+up (`pack-items.mjs:82`). A guard bars his way again when he is back at his
+post. A route marked `live: true` is open only while its condition holds;
+any other gated route latches: once open it stays open for everyone
+(`pack-registry.mjs:432-446`). 2 of the 16 gated routes are `live` (the
+Theban gate and the Oak's trail). RatiRadio's doors latch, by its contract.
+
+**The hub.** A new world opens with Vale in the Mirror attic holding the
+lit Lamp (`forest.json` `opening`). The mirror to the Black pond opens when
+the lamp is there and not lit (`reflectionRoutes`); the way back needs it
+lit at the pond; the attic as home needs lamp and oil (`homeGates`). Human
+homes open with their belonging near (`human-cast.mjs:51`). None of these
+is drawn as a locked box.
+
+**The world generator.** `/make` asks the model for text only: a place, an
+avatar and an item, each `kind`, `name`, `text`
+(`card_authoring_seed.rs:5-22`). Code builds the rest
+(`authoring-seed-world.mjs:183-212`): a new place gets plain `exits` both
+ways to the entry place, an avatar stands at the entry, an item lies there,
+and the first avatar wants the first item. It emits no `routes`, `requires`,
+`sealed` or `locked`, so every generated card is open. The prompt tells the
+model to prefer "a different relationship or practical use over another
+version of a locked door" and not to claim "opened routes"
+(`card_authoring_seed.rs:17-20`).
+
 ### Level up, Sleep and home
 
 - A player's level rises only through a level quest. With XP at `questXp`
@@ -187,40 +255,127 @@ it somewhere, eat it, lay things in a place). `actor.under`, the limits, the
 - It is met by a world fact after anyone's play. It gains one XP, is content
   a while, then draws again. It sets a want aside after three refusals.
 
-### Players: boxes and conversations
+### Players: boxes first, desire after
 
-- **XP comes first from opening locked boxes.** When a player's play makes a
-  locked box's facts hold, that player gains XP and the world records who
-  opened it. This is new: opening pays nothing today.
-- **A helper's point comes second.** When a player's play meets someone
-  else's want, the player gains one XP and that person's trust in them rises
-  by one. This widens `trustGiver` from "gave me the item" to "met my want".
-  #1871 owns what a remembered helper says and does later.
-- **One want at a time, from two places.** From a locked box: select it and
-  take its quest, the `gate` play that four boxes have today, extended to
-  all of them from the caption they already show. From a conversation: Talk
-  that reveals a person's want gives the matching want (give it to them,
-  bring them there, bring them to that person), as rules 99 does now.
-- **Nothing is drawn for a player.** A player with no want has no quest
-  card until a box or a person gives one.
+**Almost every card arrives locked, and every locked card is visible.** A
+box is a card: a place, a resident or an item. It lies on the table face
+down with "Locked", never left out until it can be opened. Visible does not
+mean openable yet: a box may wait on something far away or not yet in the
+world, and nothing falls back (mystery over reachability). Its reason shows
+on the context button and descriptor when it is selected, never on the card.
 
-My assumptions where the owner's sentence leaves a gap (each is an open
-question below). The one quest card sits where the quest fold sits today.
+- *Places* lock through the way to them. Every gated route says why
+  (`sealed`), so the 11 hidden gated routes become visible boxes. Pack data.
+- *Residents* lock with `requires` and `sealed`. The 29 conditional
+  residents that show nothing today become visible boxes. Pack data.
+- *Items* need one small rules addition: a `sealed` item, lying where it is
+  but shut until its conditions hold.
+- *Crossings and hub ways* need `sealed` read there too: rules.
+- *Open at the start*: Vale, the Lamp he holds, and the Mirror attic, his
+  home. The first box is the Black pond behind the mirror, opened by putting
+  the lamp out, which is already the opening's first play. Beyond it Pip,
+  the keeper, the Bell and the Empty station can each be a box.
 
-- *A want already held stays.* A second box or Talk does not replace it. The
-  box still shows what opens it and the person still says what they want.
-  The player discards first (free, as today) to take another.
-- *One XP per act.* A box opening pays one. A helper's point pays one. A
-  player's want being met pays nothing more by itself: a box want is paid by
-  the box opening and a conversation want by the helper's point.
-- *A box pays each avatar once per world*, so bread that locks again cannot
-  be farmed. A *closed* box (not yet turned over) pays nothing.
-- *Starter wants stay*: homecoming in a non-Vale world, and Pip's lamp on
-  `/pip` (which already comes from a Talk).
+**A maze of escape rooms.** A place is a room. Its boxes interlock: opening
+one supplies what another needs. Rooms join through boxes too, so the world
+is a maze of them. In existing cards only:
 
-A finding to weigh: there are 9 locked boxes today, in two packs, and level
-5 takes 15 XP. Boxes cannot be the main source of XP until packs hold more
-(sealed ways, made things, sealed residents). That is pack data, not rules.
+- A room is a place with three to five boxes among its residents, items and
+  ways on, and at least one open card to start from.
+- Inside a room, each lock names another card of that room or of a room
+  already passed: the thing in this box is the thing that one's resident
+  wants, or the thing that way needs carried.
+- A way on is a box like the others, so leaving a room is one of its
+  puzzles, and a later room may need something left behind.
+- Thebes is one today: the bread (made) feeds the guard, whose way (guard)
+  leads to the shade (time), who opens the Hollow (talk), where the rites
+  need three things laid (placed).
+
+**Locking again is normal.** A pack chooses per box whether it latches open
+or follows its facts:
+
+| Box | Locks again when | Today |
+| --- | --- | --- |
+| Made thing | it is used up | yes |
+| Way with a held or placed key | the key is carried away | yes, if the route is `live` |
+| Guarded way | the guard is back at his post | yes |
+| Way or resident on a time | the hour passes | yes, if `live` |
+| Trust lock | trust is lost to a grievance | the `trusted` condition already reads grievances |
+| Latching way (RatiRadio's doors) | never | yes |
+
+A way the player already passed may shut behind them if it is `live`. That
+is the maze, not a fault: a fight, the guard's want or another way round
+remains. Personal entry rules stay personal. My assumption, not decided: a
+box pays its XP to each avatar once per world, so opening the same box
+again pays nothing.
+
+**Opening a box.** It opens when its facts hold, as now. The player whose
+play made them hold gains one XP, and the world records who opened it.
+
+**Generated worlds.** The entry place and the first avatar stay open; every
+card drawn after arrives locked and visible. Code, not the model, writes
+the lock, as it writes the links today: a new place joins by a `routes`
+entry with `requires` and `sealed` in place of plain `exits`; a new
+resident gets `requires` and `sealed`. Each draw extends a room: its lock
+names a card already in that world, and the lock kind rotates by seed, so
+the lock can be met from facts in the same world. A room that reaches five
+boxes sends the next place draw on as a new room. The prompt stays as it
+is: the model still writes no locks.
+
+**Desire after.** Two readings of "until they're all unlocked then you find
+out about desire":
+
+1. *Per world.* Wants surface for the player only once every box in the
+   world is open.
+2. *Per box.* A resident's box, once open, is where you learn that
+   resident's desire. Desire arrives box by box.
+
+The draft assumes **the second**, and this is my reading, not the owner's
+word. A generated world keeps adding boxes, and boxes lock again, so "all
+open" may never come under the first. The second also fits one want per
+avatar: each resident's want is found at that resident's own box. The
+feeling the owner describes still holds: early play is nearly all boxes; as
+they open, more of what is in front of the player is people and what they
+want.
+
+So, for a player:
+
+- A sealed resident cannot be talked with. Once open, Talk says their want.
+- The player holds one want at a time, taken from a locked box (its reason,
+  by the `gate` play) or from a conversation (rules 99). Nothing is drawn.
+- Meeting someone else's want pays the helper one XP and raises that
+  person's trust in them by one. #1871 owns what they remember.
+- The one quest card sits where the quest fold sits today.
+
+**XP against today's thresholds.** One XP per box, one per want met for
+someone. Level 5 takes 15 XP, level 10 takes 44, level 20 takes 132
+(`questXp`).
+
+| Boxes | Count | Reaches |
+| --- | --- | --- |
+| Locked today | 9 | level 3 (7 XP) |
+| Every existing gate shown: 16 routes, 8 crossings, 2 lanes, 1 guard, 30 residents, 2 made things | up to 59 | level 12 |
+| Almost every pack card (93 places, 58 residents, 83 items) | about 230 | level 27 |
+| Greek alone, all locked | about 140 | level 20 |
+| A generated world | 2 for the first draw, then 1 a draw | 7 draws for level 10 to 11 |
+
+Boxes can carry the levels once locking is broad; the nine cannot.
+
+**Lock guardrails.** Many boxes must not become many copies of key and door
+([jagged edge](jagged-agi-level-design.md) warns of a station that plays as
+"three copies of a key-and-door puzzle").
+
+- Seven lock kinds, each from conditions that exist: a thing held; a thing
+  placed; a thing made; a person's trust; something met, heard or seen;
+  a guard; a time.
+- A validator rule: the boxes shown in one place do not share a lock kind,
+  and a way's lock kind differs from the lock on the way that led to it.
+  RatiRadio's three carry-it-here doors fail this today.
+- A lock names things that exist in its world. It need not be reachable now.
+- No lock is opened by speech. A fight is always a way past a guard.
+
+Other assumptions of mine, each an open question below: a held want stays
+when another is offered; homecoming and Pip's lamp stay as starter wants.
 
 ### Level Up is Sleep at home
 
@@ -308,8 +463,12 @@ by the pack validator:
 
 1. At most three staged wants per resident (the size of the funeral).
 2. An arc never puts a want in the player's hand. It changes what residents
-   want; the player takes that up by Talk, or takes a box's.
+   want; the player learns it by Talk once that resident's box is open.
 3. Every `when` reads a fact that a fixed verb can make true.
+
+With boxes first, an arc is a situation spread over several boxes of one
+or two rooms, and each opened resident then says a staged want. Any of
+those boxes leads in.
 
 B is the texture under it, and #1871 owns it. C stays between worlds (#2282).
 
@@ -343,20 +502,20 @@ or diagnosis.
 
 ### The three ethos questions
 
-1. **What can the player do differently?** Choose their one want, from a
-   box in front of them or from what someone says, and drop it freely. Go
-   home to sleep when they have grown. Refuse, and nothing nags.
+1. **What can the player do differently?** Open what is shut in front of
+   them, by carrying, placing, making, waiting, earning trust or fighting.
+   Then learn what the person behind it wants and choose whether to help.
 2. **What will the world remember?** Who opened which box; who met whose
    want and the trust that came of it; the public facts an arc turned on (a
    burial, an opened door); a level earned at home.
 3. **Why is it more interesting?** Today the hand fills with quests from
-   nine sources and the player works the list. With one want, taken on
-   purpose, what matters is the shut thing in front of them and the people
-   near it. Level-up gives home a purpose.
+   nine sources and the player works the list. With boxes first, the world
+   is shut things in plain sight with stated reasons, and people are met by
+   opening the way to them. Desire comes as a discovery, not a to-do.
 
 ## Migration slices
 
-In order. Rules slices 3–6 mint one rules version together. Alpha saves may
+In order. Rules slices 4–8 mint one rules version together. Alpha saves may
 be dropped, and the owner allows the shared worlds on Lonely Forest to be
 reset at that bump ("we can reset"), so no upgrade keeps old stacks.
 Released journals replay on their frozen bundles. Slices that delete
@@ -366,29 +525,34 @@ Released journals replay on their frozen bundles. Slices that delete
 | --- | --- | --- | --- | --- |
 | 1 | Nine buttons become `on: "talk"`; drop five archived choices | pack data | keep | No pack choice lacks `on`; Talk with Teucer commits `greek-ajax-hear-plea`; no `choose` play is offered |
 | 2 | Vale's home is the attic; each human home rests its own avatar | data | keep | Schema test: every human avatar's home accepts its long rest |
-| 3 | One want: remove the stack and `focus`; no drawn want for players; remove sources 6 and 8 | rules | reset | After 200 turns no avatar has `under`; a player with no want has no quest card; Talk with the keeper gives "give the Bell" only when none is held |
-| 4 | Box opening pays XP; every box gives its want; helper XP and trust | rules | reset | Vale brings the guard the Writ: the battlefield opens, Vale +1 XP, once. Vale gives the keeper the Bell: Vale +1 XP, keeper's trust in Vale +1 |
-| 5 | Level Up is Sleep at home; remove the level quest; keep dreams | rules | reset | At threshold Vale holds Sleep at home; a 12-turn Sleep in the attic raises the level; discarding it costs XP and it does not return at once |
-| 6 | Staged `wants` on residents; remove `choose` from offered plays | rules | reset | No arc field in the save; the same world facts give the same want after reload |
-| 7 | Burial, RatiRadio and RATi's buttons as staged wants; more boxes | pack data | keep | Antigone's Talk line changes at the Writ and after the burial; RATi's changes at each door |
-| 8 | One quest card; remove the fan and Focus from the client | client | keep | `npm run check:ui` passes with no new entry; phone and desktop |
+| 3 | Show every lock: `sealed` on the 11 hidden gated routes and the 29 conditional residents | pack data | keep | Each lies in the hand as a locked box, with its reason on the context button |
+| 4 | One want: remove the stack and `focus`; no drawn want for players; remove sources 6 and 8 | rules | reset | After 200 turns no avatar has `under`; a player with no want has no quest card |
+| 5 | Box opening pays one XP and is recorded; helper XP and trust; a sealed resident's want is not said | rules | reset | Vale brings the guard the Writ: the battlefield opens, Vale +1 XP, once. Vale gives the keeper the Bell: +1 XP, keeper's trust +1 |
+| 6 | Boxes everywhere: `sealed` items; hub ways and crossings drawn as boxes; the lock-kind validator | rules | reset | A new world shows Vale, the Lamp and the attic open and the Black pond locked; putting the lamp out opens it for 1 XP |
+| 7 | Level Up is Sleep at home; remove the level quest; keep dreams | rules | reset | At threshold Vale holds Sleep at home; a 12-turn Sleep in the attic raises the level; discarding costs XP |
+| 8 | Staged `wants` on residents; remove `choose` from offered plays | rules | reset | No arc field in the save; the same facts give the same want after reload |
+| 9 | Lock the hub and the packs as rooms, latch or `live` per box; burial and RatiRadio as staged wants | pack data | keep | The validator passes; carrying a `live` way's key off shuts it again; Antigone's Talk line changes at the Writ |
+| 10 | Generated cards arrive locked and visible | authoring code | keep | A second place drawn in `/make` is a locked box whose reason names a card already in that world |
+| 11 | One quest card; remove the fan and Focus from the client | client | keep | `npm run check:ui` passes with no new entry; phone and desktop |
 
 Later: resident draws from grievances, knowledge and trust (#1506, #1871),
 as a second rules batch; then the README quest section is rewritten.
 
 ## Open questions for the owner
 
-1. Which boxes pay XP? The draft pays for the 9 locked boxes (Greek 5,
-   RatiRadio 4), once per avatar per world, and nothing for a closed box
-   that is only turned over. Should a box that locks again (the bread) pay
-   again, and where should more boxes come from?
-2. When a player holds a want and a box or a person offers another, does
-   the held one stay (the draft) or does the new one replace it?
-3. Is it one XP per act (a box opened, a want met for someone), with no
-   extra point when the player's own want is met, or should a box pay more?
-4. Do the two starter wants stay: homecoming in a non-Vale world, and Pip's
-   lamp on `/pip`? Homecoming comes from neither a box nor a conversation.
-5. Arcs: should a resident's staged wants be unordered, any that hold may
-   surface, as the Deleuze note suggests, or stay "first that holds"?
-6. With no level quest, what does the halfway dream show? The draft leaves
-   the glimpse as drawn today.
+1. "Then you find out about desire": per box (the draft: an opened
+   resident's box is where you learn that resident's want) or per world
+   (no wants for the player until every box is open)?
+2. Does a box that locks again pay XP again when it is reopened? The draft
+   assumes one XP per box, once per avatar per world.
+3. Is a box every card: places, residents and items? Items have no general
+   lock today, so "almost every item locked" needs a rules addition.
+4. Is the start right: Vale, the Lamp and the Mirror attic open, and the
+   Black pond the first box, opened by putting the lamp out?
+5. RatiRadio's three doors share one lock kind (carry it here) and latch
+   open. Exempt them from the lock-kind rule, or vary two of them?
+6. With boxes first, does a box still hand over a want (the `gate` play),
+   and does a held want stay when another is offered?
+7. Still open from before: unordered staged wants (the Deleuze note); what
+   the halfway dream shows; whether homecoming and Pip's lamp stay as
+   starter wants.
