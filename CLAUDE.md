@@ -20,10 +20,9 @@ AI supplies dialogue from committed events and current character facts. The
 rules own movement, possession, consent, quests, and outcomes.
 
 The `/classic` client is retired ([#1652](https://github.com/cenetex/cosyworld/issues/1652)).
-Classic packs remain until a later phase removes them; the Rust crate and the
-native C world kernel no longer carry the classic world.
-Their older product guides remain in git history.
-The source map distinguishes the card pack compiler from the classic compiler.
+The classic packs, worldpack compiler and registries are deleted; the Rust
+crate and the native C world kernel no longer carry the classic world. Their
+older product guides and sources remain in git history.
 
 ## Make a change
 

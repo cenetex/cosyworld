@@ -311,7 +311,7 @@ checks only that `package.json`, `package-lock.json`, both Cargo manifests and
 lock files, and the desktop config agree.
 
 Journal replay, saves, released rules bundles (`engine-vN.js` and their
-hashes), worldpack bundle hashes, and the card asset manifest do not read the
+hashes) and the card asset manifest do not read the
 package version. It appears only in `/meta.version`, the
 `x-cosyworld-card-version` and media headers, activation metrics
 `release_version`, and the Mac app name.

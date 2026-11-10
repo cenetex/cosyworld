@@ -93,8 +93,8 @@ backdrop PNGs are represented by their hashes rather than duplicated here.
 They live in the `badger-forest` world pack's asset folder. These files preserve the generated PNGs and alpha.
 
 The references are the original CosyWorld images
-`v2/content/lonely-forest/assets/characters/slices/18-forest-clock-shrine.png`
-and `13-badger-cub.png`. The user identified image 13 as Grumpy Badger.
+`18-forest-clock-shrine.png` and `13-badger-cub.png` from the classic Lonely
+Forest character slices (deleted from the repo; git history keeps them). The user identified image 13 as Grumpy Badger.
 
 Background direction: preserve the old dark Steam Clock on its mossy stone
 base, with warm dappled woodland light and a clear patch of ground beside it.

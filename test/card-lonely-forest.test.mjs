@@ -239,21 +239,6 @@ describe("Tea beneath the oak", () => {
       whiskerwind: "emoji",
       oak: "speech",
     });
-    const map = JSON.parse(
-      readFileSync(
-        new URL(
-          "../v2/content/lonely-forest/classic-to-card.json",
-          import.meta.url,
-        ),
-        "utf8",
-      ),
-    );
-    expect(map.avatars["1002"]).toBe("whiskerwind");
-    expect(new Set(Object.values(map.places))).toEqual(
-      new Set(Object.keys(pack.places)),
-    );
-    for (const item of Object.values(map.items))
-      expect(Object.keys(pack.items)).toContain(item);
   });
 
   it("opens with light and cloth in the attic and keeps the cottage return after the cloth moves", () => {
