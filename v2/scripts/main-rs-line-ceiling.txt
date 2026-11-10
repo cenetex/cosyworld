@@ -496,4 +496,8 @@
 # and every classic item the card boot cannot reach (#1652, slice 1). What
 # remains is kept alive only by the inert classic fields of AppState and
 # RuntimeWorld; the next slice removes those.
-2813
+#
+# 2813 -> 256: the classic AppState fields, RuntimeWorld and the classic
+# world types are deleted (#1652, slice 2). main.rs keeps the card-only
+# AppState, event-store health and the event-store schema init.
+256

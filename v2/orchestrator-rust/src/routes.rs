@@ -105,9 +105,6 @@ fn with_ingress_layers(
         // status field. Promote that field to the HTTP status after handlers
         // finish, before compression obscures the JSON body.
         .layer(middleware::map_response(action_response_http_status))
-        // Extractor and method rejections happen before the command handler.
-        // Normalize those last so /commands never leaks Axum's plain-text body.
-        .layer(middleware::from_fn(command_response_json_contract))
         // Existing keep-alive connections must not submit fresh work after the
         // process begins draining. Liveness remains available to distinguish a
         // draining process from a dead one.
@@ -224,23 +221,13 @@ async fn shutdown_admission(
         return next.run(request).await;
     }
 
-    let mut response = if request.uri().path() == "/commands" {
-        canonical_command_error_with_kind(
-            "",
-            503,
-            "The server is restarting. Reconnect and retry with the same intent_id.",
-            Some(CommandErrorKind::ServerUnavailable),
-        )
-        .into_response()
-    } else {
-        Json(serde_json::json!({
-            "ok": false,
-            "status": 503,
-            "error": "server_draining",
-            "output": "The server is restarting. Reconnect and retry."
-        }))
-        .into_response()
-    };
+    let mut response = Json(serde_json::json!({
+        "ok": false,
+        "status": 503,
+        "error": "server_draining",
+        "output": "The server is restarting. Reconnect and retry."
+    }))
+    .into_response();
     *response.status_mut() = StatusCode::SERVICE_UNAVAILABLE;
     response
         .headers_mut()
@@ -249,59 +236,6 @@ async fn shutdown_admission(
         .headers_mut()
         .insert(header::CONNECTION, HeaderValue::from_static("close"));
     response
-}
-
-async fn command_response_json_contract(request: Request, next: Next) -> Response {
-    let is_command = request.uri().path() == "/commands";
-    let response = next.run(request).await;
-    if !is_command
-        || !(response.status().is_client_error() || response.status().is_server_error())
-        || response
-            .headers()
-            .get(header::CONTENT_TYPE)
-            .and_then(|value| value.to_str().ok())
-            .is_some_and(|value| value.starts_with("application/json"))
-    {
-        return response;
-    }
-
-    let status = response.status();
-    let error_kind = if status.is_server_error() {
-        CommandErrorKind::ServerUnavailable
-    } else {
-        CommandErrorKind::InvalidRequest
-    };
-    let output = match status {
-        StatusCode::BAD_REQUEST => "The command request body is invalid JSON.",
-        StatusCode::METHOD_NOT_ALLOWED => "POST this command as JSON.",
-        StatusCode::PAYLOAD_TOO_LARGE => "The command request body is too large.",
-        StatusCode::UNSUPPORTED_MEDIA_TYPE => {
-            "Send the command with Content-Type: application/json."
-        }
-        StatusCode::UNPROCESSABLE_ENTITY => {
-            "The command request is missing required fields or has invalid field values."
-        }
-        StatusCode::TOO_MANY_REQUESTS => {
-            "Too many command requests. Retry with the same intent_id."
-        }
-        status if status.is_server_error() => {
-            "The command could not be served. Retry with the same intent_id."
-        }
-        _ => "The command request was rejected. Refresh and retry.",
-    };
-    let allow = response.headers().get(header::ALLOW).cloned();
-    let retry_after = response.headers().get(header::RETRY_AFTER).cloned();
-    let mut replacement =
-        canonical_command_error_with_kind("", u32::from(status.as_u16()), output, Some(error_kind))
-            .into_response();
-    *replacement.status_mut() = status;
-    if let Some(value) = allow {
-        replacement.headers_mut().insert(header::ALLOW, value);
-    }
-    if let Some(value) = retry_after {
-        replacement.headers_mut().insert(header::RETRY_AFTER, value);
-    }
-    replacement
 }
 
 #[derive(Clone)]
@@ -328,12 +262,12 @@ pub(super) async fn action_response_http_status(response: Response) -> Response 
         Ok(bytes) => bytes,
         Err(error) => {
             warn!("failed to encode JSON action response: {error}");
-            let mut response = canonical_command_error_with_kind(
-                "",
-                500,
-                "The response could not be encoded. Retry with the same intent_id.",
-                Some(CommandErrorKind::ResponseEncodingFailed),
-            )
+            let mut response = Json(serde_json::json!({
+                "ok": false,
+                "status": 500,
+                "error": "response_encoding_failed",
+                "output": "The response could not be encoded. Retry."
+            }))
             .into_response();
             *response.status_mut() = StatusCode::INTERNAL_SERVER_ERROR;
             return response;
@@ -358,7 +292,7 @@ mod tests {
     use tower::ServiceExt;
 
     fn card_app(shutdown: ShutdownSubscription) -> Router {
-        card_app_router(test_app_state(RuntimeWorld::empty(), None), shutdown)
+        card_app_router(test_app_state(None), shutdown)
     }
 
     #[tokio::test]
@@ -488,12 +422,9 @@ mod tests {
         let body = to_bytes(response.into_body(), 1024 * 1024)
             .await
             .expect("error body");
-        let payload: CommandResponse =
+        let payload: serde_json::Value =
             serde_json::from_slice(&body).expect("parseable error envelope");
-        assert!(!payload.ok);
-        assert_eq!(
-            payload.error_kind,
-            Some(CommandErrorKind::ResponseEncodingFailed)
-        );
+        assert_eq!(payload["ok"], false);
+        assert_eq!(payload["error"], "response_encoding_failed");
     }
 }

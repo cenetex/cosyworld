@@ -2,10 +2,6 @@
 
 use serde::Serialize;
 
-pub(crate) fn primary() -> bool {
-    std::env::var("COSYWORLD_PRIMARY_GAME").as_deref() == Ok("cards")
-}
-
 #[derive(Debug, Serialize)]
 pub(crate) struct GameMetadata {
     primary_game: &'static str,
@@ -39,10 +35,6 @@ struct Catalogs {
 }
 
 impl GameMetadata {
-    pub(crate) fn current() -> Self {
-        Self::for_primary(primary())
-    }
-
     pub(crate) fn for_primary(cards: bool) -> Self {
         Self {
             primary_game: if cards { "card-table" } else { "classic" },
@@ -120,15 +112,10 @@ mod tests {
 
     #[test]
     fn release_metadata_keeps_versions_and_exposes_game_at_the_top_level() {
-        let value = serde_json::to_value(crate::projection_cache::MetaVersions::current()).unwrap();
-        assert_eq!(value["version"], env!("CARGO_PKG_VERSION"));
-        assert_eq!(
-            value["content_engine_version"],
-            crate::content_registry::content_engine_version()
-        );
+        let value = serde_json::to_value(GameMetadata::for_primary(true)).unwrap();
         assert!(value["primary_game"].is_string());
         assert_eq!(value["card_game"]["source_root"], "v2/card-game/");
-        let source_commit = crate::projection_cache::source_commit;
+        let source_commit = crate::card_boot::source_commit;
         assert_eq!(
             source_commit(Some("80364A5BE2F0c1d2e3f4".into())).as_deref(),
             Some("80364a5be2f0")

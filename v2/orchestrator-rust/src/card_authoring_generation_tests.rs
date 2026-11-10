@@ -53,7 +53,7 @@ async fn authoring_auth_grounding_and_gateway_use_transient_source() {
         "authoring-generation-{}.sqlite",
         crate::random_hex(12)
     ));
-    let mut state = crate::test_app_state(crate::RuntimeWorld::empty(), Some(path.clone()));
+    let mut state = crate::test_app_state(Some(path.clone()));
     let owner = crate::random_hex(12);
     crate::open_event_store(&path).unwrap().execute(
         "INSERT INTO auth_users(id,username,display_name,status,created_at_unix,updated_at_unix) VALUES(?1,?1,?1,'active',0,0)", [&owner]).unwrap();

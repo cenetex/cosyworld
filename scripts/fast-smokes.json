@@ -157,9 +157,9 @@
     "ignoreInputs": [],
     "rules": [
       {
-        "about": "The C kernel and card session guards.",
+        "about": "The card C session guard.",
         "paths": "^v2/core-c/",
-        "modules": ["card_shared.rs", "kernel.rs"]
+        "modules": ["card_shared.rs"]
       },
       {
         "about": "build.rs embeds the public card files this script lists.",

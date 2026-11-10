@@ -166,7 +166,6 @@ describe("deploy workflow", () => {
     const rustLint = job("production-rust-lint", "production-gate");
     const gate = job("production-gate", "primary-fly");
     expect(nodeGate).toContain("npm run v2:worldpack");
-    expect(nodeGate).toContain("npm run v2:kernel");
     expect(nodeGate).toContain("npm run v2:syntax");
     expect(nodeGate).toContain(
       "npx vitest run test/infrastructure/deploy-workflow.test.mjs",

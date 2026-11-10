@@ -1,34 +1,5 @@
+//! Sizes of the event store and generated assets, reported in `/meta`.
 use super::*;
-use std::sync::{atomic::AtomicBool, mpsc::SyncSender};
-
-pub(super) struct SnapshotWriter {
-    sender: SyncSender<SnapshotMessage>,
-    regular_write_outstanding: Arc<AtomicBool>,
-}
-
-enum SnapshotMessage {
-    Write(SnapshotJob),
-    WriteAndFlush(SnapshotJob, SyncSender<io::Result<()>>),
-}
-
-struct SnapshotJob {
-    snapshot_path: Option<PathBuf>,
-    snapshot: Option<RuntimeSnapshot>,
-    resident_continuity_path: Option<PathBuf>,
-    resident_continuity: Option<ResidentContinuitySnapshot>,
-    event_store_path: Option<PathBuf>,
-    compact_after_snapshot: bool,
-    retained_world_event_limit: usize,
-    through_event_seq: u64,
-}
-
-impl SnapshotWriter {}
-
-impl SnapshotJob {}
-
-pub(super) fn snapshot_temp_path(path: &Path) -> PathBuf {
-    path.with_extension("json.tmp")
-}
 
 const MAX_GENERATED_ASSET_SCAN: usize = 20_000;
 
@@ -53,8 +24,6 @@ pub(super) struct PersistenceStorageReport {
     pub(super) event_store_auto_vacuum: Option<&'static str>,
     pub(super) generated_asset_bytes: Option<u64>,
     pub(super) generated_asset_count: Option<u64>,
-    pub(super) snapshot_bytes: Option<u64>,
-    pub(super) snapshot_temp_bytes: Option<u64>,
 }
 
 /// Generated art is the one store on the volume with no retention at all, so
@@ -90,23 +59,13 @@ fn generated_asset_usage(root: &Path) -> Option<(u64, u64)> {
 
 pub(super) fn persistence_storage_report(
     event_store_path: Option<&Path>,
-    snapshot_path: Option<&Path>,
     generated_asset_dir: Option<&Path>,
 ) -> PersistenceStorageReport {
-    let snapshot_bytes =
-        snapshot_path.and_then(|path| fs::metadata(path).ok().map(|meta| meta.len()));
-    let snapshot_temp_bytes = snapshot_path.and_then(|path| {
-        fs::metadata(snapshot_temp_path(path))
-            .ok()
-            .map(|meta| meta.len())
-    });
     let generated = generated_asset_dir
         .filter(|dir| dir.is_dir())
         .and_then(generated_asset_usage);
     let Some(event_store_path) = event_store_path else {
         return PersistenceStorageReport {
-            snapshot_bytes,
-            snapshot_temp_bytes,
             generated_asset_bytes: generated.map(|usage| usage.0),
             generated_asset_count: generated.map(|usage| usage.1),
             ..PersistenceStorageReport::default()
@@ -141,7 +100,5 @@ pub(super) fn persistence_storage_report(
         event_store_auto_vacuum: sqlite_stats.map(|stats| stats.2),
         generated_asset_bytes: generated.map(|usage| usage.0),
         generated_asset_count: generated.map(|usage| usage.1),
-        snapshot_bytes,
-        snapshot_temp_bytes,
     }
 }

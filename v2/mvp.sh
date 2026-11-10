@@ -40,7 +40,7 @@ Usage: v2/mvp.sh [start|open|check|status|logs|stop|restart]
 Commands:
   start    Build and start the game server, then open ${URL}
   open     Open ${URL}
-  check    Run kernel, Rust, and JS checks plus the card narrative
+  check    Run Rust and JS checks plus the card narrative
            and production-profile smokes
   status   Print health and listener information
   logs     Tail the server log
@@ -177,10 +177,6 @@ status() {
   screen -ls | grep "$SESSION" || true
 }
 
-run_kernel_check() {
-  bash "$ROOT/scripts/check-kernel.sh"
-}
-
 run_worldpack_check() {
   node "$ROOT/scripts/compile-worldpack.mjs" --check
   node "$ROOT/scripts/check-worldpack.mjs"
@@ -206,7 +202,6 @@ run_architecture_checks() {
 
 check_all() {
   run_worldpack_check
-  run_kernel_check
   run_ai_model_checks
   run_rust_checks
   run_architecture_checks

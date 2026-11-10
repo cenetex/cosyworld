@@ -99,7 +99,7 @@ fn publication_keeps_reflection_private_after_disconnect_and_duplicate_finish() 
     queued.key = "learning-publication".into();
     queued.action = home_action(&full_store::world(&c, &id, now()).unwrap(), 0, "wait");
     full::run(&c, &id, "user0", &queued, now()).unwrap();
-    let app = crate::test_app_state(crate::RuntimeWorld::empty(), Some(path));
+    let app = crate::test_app_state(Some(path));
     let work = full::take_work(&app, &id).unwrap().unwrap();
     let duplicate = work.clone();
     let (_, ids) = full_speech::prepared(0, &work.context).unwrap();

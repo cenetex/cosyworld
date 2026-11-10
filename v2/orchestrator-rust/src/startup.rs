@@ -414,7 +414,7 @@ mod tests {
                 .await
                 .expect("bind shutdown test server");
             let (trigger, shutdown) = shutdown_channel();
-            let state = test_app_state(RuntimeWorld::empty(), None);
+            let state = test_app_state(None);
             let app = routes::card_app_router(state, shutdown.clone());
             let server = tokio::spawn(serve_until_shutdown(
                 listener,
@@ -447,7 +447,7 @@ mod tests {
         let (trigger, shutdown) = shutdown_channel();
         let app = Router::new().route(
             "/stuck",
-            axum::routing::get(|| std::future::pending::<&'static str>()),
+            axum::routing::get(std::future::pending::<&'static str>),
         );
         let server = tokio::spawn(serve_until_shutdown(listener, app, shutdown, drain_budget));
         let connection = connected_request(addr, "/stuck").await;

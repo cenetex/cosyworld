@@ -1,7 +1,6 @@
 use super::*;
 
 mod dev_test_passkey;
-mod rati_link;
 
 use axum::http::{header::CACHE_CONTROL, HeaderValue};
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
@@ -15,7 +14,6 @@ use webauthn_rs::prelude::{
 const ACCOUNT_SESSION_TTL: Duration = Duration::from_secs(30 * 24 * 60 * 60);
 const ACCOUNT_STEP_UP_TTL: Duration = Duration::from_secs(10 * 60);
 const CEREMONY_TTL: Duration = Duration::from_secs(5 * 60);
-const ACCOUNT_WALLET_CAPABILITY_TTL: Duration = Duration::from_secs(30 * 60);
 
 type AccountResult<T> = Result<T, AccountError>;
 
@@ -58,9 +56,6 @@ pub(super) struct AccountAuth {
     webauthn: Webauthn,
     db_path: Option<Arc<PathBuf>>,
     ceremonies: StdMutex<BTreeMap<String, AccountCeremony>>,
-    wallet_link_challenges: StdMutex<BTreeMap<String, WalletLinkChallenge>>,
-    wallet_claims: StdMutex<BTreeMap<String, WalletClaimIntent>>,
-    wallet_claim_challenges: StdMutex<BTreeMap<String, WalletClaimChallenge>>,
     cookie_name: String,
     secure_cookie: bool,
     /// `COSYWORLD_PASSKEYS=members`: no sign-ups, no signed-out play.
@@ -74,7 +69,6 @@ enum AccountCeremony {
         username: String,
         display_name: String,
         label: String,
-        bootstrap_wallet: Option<String>,
         new_user: bool,
         state: PasskeyRegistration,
     },
@@ -100,35 +94,6 @@ impl AccountCeremony {
 }
 
 #[derive(Clone, Debug)]
-struct WalletLinkChallenge {
-    user_id: String,
-    wallet_address: String,
-    message: String,
-    expires_at: Instant,
-}
-
-#[derive(Clone, Debug)]
-struct WalletClaimIntent {
-    user_id: String,
-    poll_token: String,
-    expires_at: Instant,
-    expires_at_unix: u64,
-    wallet_address: Option<String>,
-    moved: bool,
-    completed_at: Option<Instant>,
-}
-
-#[derive(Clone, Debug)]
-struct WalletClaimChallenge {
-    claim_id: String,
-    user_id: String,
-    wallet_address: String,
-    message: String,
-    claimed_elsewhere: bool,
-    expires_at: Instant,
-}
-
-#[derive(Clone, Debug)]
 struct AccountSessionRecord {
     user_id: String,
     username: String,
@@ -149,7 +114,6 @@ struct RegisteredPasskey<'a> {
     credential_id: &'a str,
     label: &'a str,
     passkey: &'a Passkey,
-    bootstrap_wallet: Option<&'a str>,
     new_user: bool,
 }
 
@@ -161,7 +125,6 @@ pub(super) struct PasskeyRegistrationStartRequest {
     display_name: String,
     #[serde(default)]
     label: String,
-    wallet_session: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -214,8 +177,6 @@ struct IdentityResponse {
     passkeys: Vec<PasskeyView>,
     wallets: Vec<WalletView>,
     active_wallet: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    wallet_session: Option<String>,
     step_up_required: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     error: Option<String>,
@@ -232,7 +193,6 @@ impl IdentityResponse {
             passkeys: Vec::new(),
             wallets: Vec::new(),
             active_wallet: None,
-            wallet_session: None,
             step_up_required: false,
             error: None,
         }
@@ -283,9 +243,6 @@ impl AccountAuth {
             webauthn,
             db_path,
             ceremonies: StdMutex::new(BTreeMap::new()),
-            wallet_link_challenges: StdMutex::new(BTreeMap::new()),
-            wallet_claims: StdMutex::new(BTreeMap::new()),
-            wallet_claim_challenges: StdMutex::new(BTreeMap::new()),
             cookie_name: if secure_cookie {
                 "__Host-cosyworld_session".to_string()
             } else {
@@ -319,9 +276,6 @@ impl AccountAuth {
             webauthn,
             db_path,
             ceremonies: StdMutex::new(BTreeMap::new()),
-            wallet_link_challenges: StdMutex::new(BTreeMap::new()),
-            wallet_claims: StdMutex::new(BTreeMap::new()),
-            wallet_claim_challenges: StdMutex::new(BTreeMap::new()),
             cookie_name: "cosyworld_session".to_string(),
             secure_cookie: false,
             members_only,
@@ -488,10 +442,6 @@ pub(super) async fn passkey_registration_start(
         return auth_message(StatusCode::FORBIDDEN, passkey_access::SIGNUPS_CLOSED);
     }
 
-    let bootstrap_wallet = payload
-        .wallet_session
-        .as_deref()
-        .and_then(|token| wallet_for_session(&state.wallet_sessions, token));
     let resolved = if let Some(current) = current.as_ref() {
         if now_unix_secs().saturating_sub(current.verified_at_unix) > ACCOUNT_STEP_UP_TTL.as_secs()
         {
@@ -511,7 +461,7 @@ pub(super) async fn passkey_registration_start(
             false,
         ))
     } else {
-        resolve_registration_identity(auth, &payload, bootstrap_wallet.as_deref())
+        resolve_registration_identity(auth, &payload)
     };
     let (user_id, username, display_name, new_user) = match resolved {
         Ok(value) => value,
@@ -555,7 +505,6 @@ pub(super) async fn passkey_registration_start(
         username,
         display_name,
         label,
-        bootstrap_wallet,
         new_user,
         state: registration,
     }) {
@@ -587,7 +536,6 @@ pub(super) async fn passkey_registration_finish(
         username,
         display_name,
         label,
-        bootstrap_wallet,
         new_user,
         state: registration,
         ..
@@ -619,7 +567,6 @@ pub(super) async fn passkey_registration_finish(
             credential_id: &credential_id,
             label: &label,
             passkey: &passkey,
-            bootstrap_wallet: bootstrap_wallet.as_deref(),
             new_user,
         },
     ) {
@@ -629,7 +576,7 @@ pub(super) async fn passkey_registration_finish(
         Ok(session) => session,
         Err(error) => return auth_error(StatusCode::SERVICE_UNAVAILABLE, error),
     };
-    identity_response(&state, &user_id.to_string(), Some(cookie), None)
+    identity_response(&state, &user_id.to_string(), Some(cookie))
 }
 
 pub(super) async fn passkey_login_start(
@@ -814,7 +761,7 @@ pub(super) async fn passkey_login_finish(
         Ok(session) => session,
         Err(error) => return auth_error(StatusCode::SERVICE_UNAVAILABLE, error),
     };
-    identity_response(&state, &user_id.to_string(), Some(cookie), None)
+    identity_response(&state, &user_id.to_string(), Some(cookie))
 }
 
 pub(super) async fn account_identity(
@@ -826,7 +773,7 @@ pub(super) async fn account_identity(
         Err(error) => return auth_error(StatusCode::SERVICE_UNAVAILABLE, error),
     };
     match current {
-        Some(current) => identity_response(&state, &current.user_id, None, None),
+        Some(current) => identity_response(&state, &current.user_id, None),
         None if state.account_auth.members_only => {
             let mut body = serde_json::to_value(IdentityResponse::signed_out())
                 .unwrap_or(serde_json::Value::Null);
@@ -848,35 +795,10 @@ pub(super) async fn account_logout(State(state): State<AppState>, headers: Heade
     )
 }
 
-fn valid_openrouter_api_key(value: &str) -> bool {
-    value.starts_with("sk-or-")
-        && (20..=512).contains(&value.len())
-        && value.bytes().all(|byte| byte.is_ascii_graphic())
-}
-
 fn resolve_registration_identity(
     auth: &AccountAuth,
     payload: &PasskeyRegistrationStartRequest,
-    bootstrap_wallet: Option<&str>,
 ) -> AccountResult<(Uuid, String, String, bool)> {
-    if let Some(wallet) = bootstrap_wallet {
-        if let Some((user_id, username, display_name, passkey_count)) =
-            find_user_by_wallet(auth.path()?, wallet)?
-        {
-            if passkey_count > 0 {
-                return Err(account_error(
-                    "this account already has a passkey; sign in before adding another",
-                ));
-            }
-            return Ok((
-                Uuid::parse_str(&user_id)
-                    .map_err(|_| account_error("account identity is invalid"))?,
-                username,
-                display_name,
-                false,
-            ));
-        }
-    }
     let user_id = Uuid::new_v4();
     let generated = payload.username.trim().is_empty();
     let username = if generated {
@@ -897,12 +819,7 @@ fn resolve_registration_identity(
     Ok((user_id, username, display_name, true))
 }
 
-fn identity_response(
-    state: &AppState,
-    user_id: &str,
-    cookie: Option<String>,
-    preferred_wallet: Option<&str>,
-) -> Response {
+fn identity_response(state: &AppState, user_id: &str, cookie: Option<String>) -> Response {
     let auth = &state.account_auth;
     let (username, display_name) =
         match find_user_by_id(auth.path().unwrap_or_else(|_| Path::new("")), user_id) {
@@ -919,13 +836,7 @@ fn identity_response(
         Ok(wallets) => wallets,
         Err(error) => return auth_error(StatusCode::SERVICE_UNAVAILABLE, error),
     };
-    let active_wallet = preferred_wallet
-        .filter(|wallet| wallets.iter().any(|entry| entry.wallet_address == *wallet))
-        .map(ToString::to_string)
-        .or_else(|| wallets.first().map(|wallet| wallet.wallet_address.clone()));
-    let wallet_session = active_wallet
-        .as_deref()
-        .map(|wallet| mint_account_wallet_capability(state, wallet, &wallets));
+    let active_wallet = wallets.first().map(|wallet| wallet.wallet_address.clone());
     no_store_json(
         StatusCode::OK,
         &IdentityResponse {
@@ -937,38 +848,11 @@ fn identity_response(
             passkeys,
             wallets,
             active_wallet,
-            wallet_session,
             step_up_required: false,
             error: None,
         },
         cookie,
     )
-}
-
-fn mint_account_wallet_capability(
-    state: &AppState,
-    wallet_address: &str,
-    wallets: &[WalletView],
-) -> String {
-    let token = random_hex(32);
-    let now = Instant::now();
-    if let Ok(mut sessions) = state.wallet_sessions.lock() {
-        sessions
-            .sessions
-            .retain(|_, session| session.expires_at > now);
-        sessions.sessions.insert(
-            token.clone(),
-            WalletSession {
-                wallet_address: wallet_address.to_string(),
-                linked_wallet_addresses: wallets
-                    .iter()
-                    .map(|wallet| wallet.wallet_address.clone())
-                    .collect(),
-                expires_at: now + ACCOUNT_WALLET_CAPABILITY_TTL,
-            },
-        );
-    }
-    token
 }
 
 fn init_account_schema(path: &Path) -> AccountResult<()> {
@@ -1042,27 +926,6 @@ fn persist_registered_passkey(
         .is_none()
     {
         return Err(account_error("account is unavailable"));
-    }
-    if let Some(wallet) = registration.bootstrap_wallet {
-        let existing_user = transaction
-            .query_row(
-                "SELECT user_id FROM user_wallets WHERE wallet_address = ?1",
-                params![wallet],
-                |row| row.get::<_, String>(0),
-            )
-            .optional()?;
-        if existing_user
-            .as_deref()
-            .is_some_and(|existing| existing != registration.user_id)
-        {
-            return Err(account_error("wallet is already linked to another account"));
-        }
-        transaction.execute(
-            "INSERT OR IGNORE INTO user_wallets
-             (user_id, wallet_address, role, verified_at_unix, created_at_unix)
-             VALUES (?1, ?2, 'ownership', ?3, ?3)",
-            params![registration.user_id, wallet, now],
-        )?;
     }
     let passkey_json = serde_json::to_string(registration.passkey)
         .map_err(|error| account_error(format!("failed to serialize passkey: {error}")))?;
@@ -1178,123 +1041,6 @@ fn find_user_by_id(path: &Path, user_id: &str) -> AccountResult<Option<(String, 
     .map_err(Into::into)
 }
 
-fn find_user_by_wallet(
-    path: &Path,
-    wallet_address: &str,
-) -> AccountResult<Option<(String, String, String, usize)>> {
-    let conn = open_event_store(path)?;
-    conn.query_row(
-        "SELECT users.id, users.username, users.display_name,
-                (SELECT COUNT(*) FROM auth_passkeys WHERE user_id = users.id)
-         FROM user_wallets
-         JOIN auth_users AS users ON users.id = user_wallets.user_id
-         WHERE user_wallets.wallet_address = ?1 AND users.status = 'active'",
-        params![wallet_address],
-        |row| {
-            Ok((
-                row.get(0)?,
-                row.get(1)?,
-                row.get(2)?,
-                row.get::<_, i64>(3)?.max(0) as usize,
-            ))
-        },
-    )
-    .optional()
-    .map_err(Into::into)
-}
-
-fn link_account_wallet(path: &Path, user_id: &str, wallet_address: &str) -> AccountResult<()> {
-    let conn = open_event_store(path)?;
-    let existing = conn
-        .query_row(
-            "SELECT user_id FROM user_wallets WHERE wallet_address = ?1",
-            params![wallet_address],
-            |row| row.get::<_, String>(0),
-        )
-        .optional()?;
-    if existing
-        .as_deref()
-        .is_some_and(|existing| existing != user_id)
-    {
-        return Err(account_error("wallet is already linked to another account"));
-    }
-    let now = now_unix_secs() as i64;
-    conn.execute(
-        "INSERT OR IGNORE INTO user_wallets
-         (user_id, wallet_address, role, verified_at_unix, created_at_unix)
-         VALUES (?1, ?2, 'ownership', ?3, ?3)",
-        params![user_id, wallet_address, now],
-    )?;
-    Ok(())
-}
-
-fn wallet_owner_user_id(path: &Path, wallet_address: &str) -> AccountResult<Option<String>> {
-    let conn = open_event_store(path)?;
-    conn.query_row(
-        "SELECT user_id FROM user_wallets WHERE wallet_address = ?1",
-        params![wallet_address],
-        |row| row.get::<_, String>(0),
-    )
-    .optional()
-    .map_err(Into::into)
-}
-
-fn claim_account_wallet(
-    path: &Path,
-    user_id: &str,
-    wallet_address: &str,
-    allow_move: bool,
-) -> AccountResult<bool> {
-    let mut conn = open_event_store(path)?;
-    let transaction = conn.transaction()?;
-    let existing = transaction
-        .query_row(
-            "SELECT user_id FROM user_wallets WHERE wallet_address = ?1",
-            params![wallet_address],
-            |row| row.get::<_, String>(0),
-        )
-        .optional()?;
-    let moved = existing
-        .as_deref()
-        .is_some_and(|existing_user_id| existing_user_id != user_id);
-    if moved && !allow_move {
-        return Err(account_error(
-            "This wallet was claimed by another account. Review and sign a fresh move request.",
-        ));
-    }
-    if moved {
-        transaction.execute(
-            "DELETE FROM user_wallets WHERE wallet_address = ?1",
-            params![wallet_address],
-        )?;
-    }
-    let now = now_unix_secs() as i64;
-    transaction.execute(
-        "INSERT INTO user_wallets
-         (user_id, wallet_address, role, verified_at_unix, created_at_unix)
-         VALUES (?1, ?2, 'ownership', ?3, ?3)
-         ON CONFLICT(wallet_address) DO UPDATE SET
-           user_id = excluded.user_id,
-           role = 'ownership',
-           verified_at_unix = excluded.verified_at_unix",
-        params![user_id, wallet_address, now],
-    )?;
-    transaction.commit()?;
-    Ok(moved)
-}
-
-fn wallet_belongs_to_user(path: &Path, user_id: &str, wallet_address: &str) -> AccountResult<bool> {
-    let conn = open_event_store(path)?;
-    Ok(conn
-        .query_row(
-            "SELECT 1 FROM user_wallets WHERE user_id = ?1 AND wallet_address = ?2",
-            params![user_id, wallet_address],
-            |_| Ok(()),
-        )
-        .optional()?
-        .is_some())
-}
-
 fn normalize_account_username(value: &str) -> Option<String> {
     let username = value.trim().to_ascii_lowercase();
     (username.len() >= 3
@@ -1366,7 +1112,6 @@ fn auth_message(status: StatusCode, message: impl Into<String>) -> Response {
             passkeys: Vec::new(),
             wallets: Vec::new(),
             active_wallet: None,
-            wallet_session: None,
             step_up_required: status == StatusCode::UNAUTHORIZED,
             error: Some(message),
         },
@@ -1439,11 +1184,9 @@ mod tests {
             username: String::new(),
             display_name: String::new(),
             label: String::new(),
-            wallet_session: None,
         };
         let (_, username, display_name, new_user) =
-            resolve_registration_identity(&auth, &payload, None)
-                .expect("generated account identity");
+            resolve_registration_identity(&auth, &payload).expect("generated account identity");
         assert!(new_user);
         assert!(username.starts_with("player-"));
         assert_eq!(display_name, "CosyWorld player");
@@ -1457,65 +1200,5 @@ mod tests {
         let hashed = hash_session_token(&token);
         assert_ne!(hashed, token);
         assert_eq!(hashed, hash_session_token(&token));
-    }
-
-    #[test]
-    fn openrouter_key_shape_is_conservative() {
-        assert!(valid_openrouter_api_key(&format!(
-            "sk-or-{}",
-            "a".repeat(32)
-        )));
-        assert!(!valid_openrouter_api_key("sk-not-openrouter"));
-    }
-
-    #[test]
-    fn account_schema_allows_many_wallets_but_one_owner_per_wallet() {
-        let path = std::env::temp_dir().join(format!("cosyworld-account-{}.sqlite", random_hex(8)));
-        init_account_schema(&path).expect("account schema");
-        let conn = open_event_store(&path).expect("account database");
-        let now = now_unix_secs() as i64;
-        for (id, username) in [("u1", "one"), ("u2", "two")] {
-            conn.execute(
-                "INSERT INTO auth_users (id, username, display_name, status, created_at_unix, updated_at_unix)
-                 VALUES (?1, ?2, ?2, 'active', ?3, ?3)",
-                params![id, username, now],
-            )
-            .expect("insert user");
-        }
-        link_account_wallet(&path, "u1", "wallet-a").expect("first wallet");
-        link_account_wallet(&path, "u1", "wallet-b").expect("second wallet");
-        assert!(link_account_wallet(&path, "u2", "wallet-a").is_err());
-        assert!(wallet_belongs_to_user(&path, "u1", "wallet-a").unwrap());
-        assert!(wallet_belongs_to_user(&path, "u1", "wallet-b").unwrap());
-        let _ = fs::remove_file(path);
-    }
-
-    #[test]
-    fn wallet_claim_moves_exclusive_nft_access_between_accounts() {
-        let path = std::env::temp_dir().join(format!("cosyworld-account-{}.sqlite", random_hex(8)));
-        init_account_schema(&path).expect("account schema");
-        let conn = open_event_store(&path).expect("account database");
-        let now = now_unix_secs() as i64;
-        for (id, username) in [("u1", "one"), ("u2", "two")] {
-            conn.execute(
-                "INSERT INTO auth_users (id, username, display_name, status, created_at_unix, updated_at_unix)
-                 VALUES (?1, ?2, ?2, 'active', ?3, ?3)",
-                params![id, username, now],
-            )
-            .expect("insert user");
-        }
-        link_account_wallet(&path, "u1", "wallet-a").expect("initial wallet claim");
-
-        assert!(claim_account_wallet(&path, "u2", "wallet-a", false).is_err());
-        assert!(wallet_belongs_to_user(&path, "u1", "wallet-a").unwrap());
-        assert!(claim_account_wallet(&path, "u2", "wallet-a", true).expect("move wallet claim"));
-        assert!(!wallet_belongs_to_user(&path, "u1", "wallet-a").unwrap());
-        assert!(wallet_belongs_to_user(&path, "u2", "wallet-a").unwrap());
-        assert_eq!(
-            wallet_owner_user_id(&path, "wallet-a").unwrap().as_deref(),
-            Some("u2")
-        );
-        assert!(!claim_account_wallet(&path, "u2", "wallet-a", false).expect("reclaim same wallet"));
-        let _ = fs::remove_file(path);
     }
 }

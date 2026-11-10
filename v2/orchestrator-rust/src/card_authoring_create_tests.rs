@@ -115,7 +115,7 @@ async fn create_receipts_preserve_owner_content_files_and_retry_identity() {
     let (status, saved) = send(&state, "PUT", &route, &owner, save, None).await;
     assert_eq!(status, 200);
     assert_eq!(saved["revision"], 2);
-    let mut reopened = test_app_state(RuntimeWorld::empty(), Some(path.clone()));
+    let mut reopened = test_app_state(Some(path.clone()));
     reopened.generated_asset_dir = state.generated_asset_dir.clone();
     assert_eq!(
         send(&reopened, "POST", BASE, &owner, input.clone(), key).await,

@@ -66,7 +66,7 @@ Then run every row that matches the change:
 | Card table (`v2/card-game/`) | `npm run check:ui` (new UI or a core restyle needs the owner's review of `ui-inventory.json` or `ui-styles.json`); `npm test`; `npm run play:cards` and play the changed path at desktop and phone width; a new public file joins `public-assets.mjs`; run `npm run v2:card:assets:build` to refresh `media-manifest.json` (Cargo builds the Rust asset module itself) |
 | Cross-surface tests (`test/`) | `npm test` |
 | Pack/content/compiler | `npm run v2:worldpack` |
-| C kernel or ABI | `npm run v2:kernel`; `npm run v2:rust:test` |
+| Card C session guard or ABI | `npm run v2:rust:test` |
 | Rust orchestrator | `npm run v2:rust:test`; targeted Rust test while iterating |
 | Browser, HTTP, persistence, or multiplayer | `npm run v2:check` |
 | Broad V2 or release change | `npm run check:local` and the relevant build |
@@ -92,7 +92,7 @@ every early notice path, plus the image-first, actions, beat-stack, and unveil
 journeys and the opening's Steam Clock walk, `check-card-awakening`) run on
 every pull request and main push, each in its own parallel job, and count in the `fast` result; a core smoke a path also selects runs
 once and takes no path slot. Each smoke serves the static card game; smokes
-that start the Rust server run only in the full suite. A change to the Rust crate, the C kernel, the AI model
+that start the Rust server run only in the full suite. A change to the Rust crate, the card C session guard, the AI model
 crate, or a file the crate reads (such as `v2/card-game/senses.json`,
 `packs.json`, or a test fixture) adds the `rust` job: the tests of the modules
 that own or read the changed files, from Cargo's restored cache.
@@ -241,7 +241,7 @@ Do not edit or commit these directly:
 
 Treat these as review-sensitive rather than forbidden:
 
-- `v2/core-c/include/cosy_kernel.h` and journal action codes, because ABI or
+- `v2/core-c/include/card_table.h` and journal action codes, because ABI or
   replay changes can invalidate history;
 - production profiles, workflows, `Dockerfile`, and `fly.toml`, because main
   supplies the next scheduled `.dev` train;
