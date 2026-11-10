@@ -2,60 +2,70 @@
 
 CosyWorld is a shared world that remembers what people do. This Pact is the
 promise the game makes to every traveler, regardless of who controls their
-avatar, which worldpack they entered through, or whether AI is available.
+avatar, which world pack they entered through, or whether AI is available.
 
 It is product law. It is not an in-world faction, a membership gate, or the
 [Cottage Pact proof world](archive/classic/v2/docs/pact-proof-world.md).
 
 [A world that remembers](cosyworld-ethos.md) is the editorial ethos beside
-this Pact: how we decide what belongs in the game.
+this Pact: how we decide what belongs in the game. The
+[card guide](../v2/card-game/README.md) describes current behavior in detail.
+
+## The Game In One Paragraph
+
+A traveler sees the world as cards: the people, things and places their avatar
+can reach now. They raise one card or a pair, and one button names the play
+that selection makes. A committed play moves the world one turn, and the
+residents then act with the same plays under the same rules. Characters speak
+about what just happened. Nothing else changes the world.
 
 ## One World, One Truth
 
-Everyone in a place shares the same people, items, exits, conversation, and
-consequences. A resident does not give each player a private version of events.
-Ownership may open a shared place, but it never creates a private copy of that
-place.
+Everyone in a place shares the same people, items, ways out, and consequences.
+A resident does not give each traveler a private version of events. A traveler
+may keep several worlds, but each world has one history.
 
-The server decides what is legal and records what happened. A client, a
-language model, or a vivid description cannot make an unearned change true.
+The rules decide what is legal and record what happened. A client, a language
+model, or a vivid description cannot make an unearned change true. A shared
+world can be replayed from its record and arrive at the same state.
 
 ## Home Holds
 
-Home is a real sanctuary. It does not decay while people are away. Combat and
-uninvited pressure do not enter it. Rest there is free and complete.
+Home is a real sanctuary. It does not decay while people are away, and no one
+is struck there. Rest there is free and complete.
 
-The frontier may contain danger, loss, and unfinished trouble, but only after a
-traveler chooses to go there. Time moves through played turns, not a clock on
-the wall.
+Elsewhere there may be danger, loss, and unfinished trouble, but only after a
+traveler chooses to go. Time moves through plays, not a clock on the wall. A
+world waits for its travelers: there are no streaks, no decay, and no penalty
+for absence.
 
 ## Every Choice Is Honest
 
-Before a traveler commits, an action names its target, cost, and known risk.
-The server's complete legal candidate set is internal. Travelers receive two
-dealt cards plus certified Think/Pass; committing either card or Pass spends
-the turn.
+A card is an honest view of one person, thing, or place. Before a traveler
+commits, the button names the play and whom or what it acts on. When a play is
+unavailable, the button says why.
 
-If an action is certain, the world does not roll. If the outcome is uncertain
-and consequential, the referee resolves it from declared rules and recorded
-state. A failed check changes the situation or closes that approach; it is not
-an invitation to press the same empty button again.
+Players and residents share one rule path. A resident can ask, trade, refuse,
+threaten, and be refused exactly as a traveler can. A refusal takes the turn,
+changes no custody, and comes with the refuser's reason when the rules have
+one. A play that cannot succeed is not offered as an empty button to press
+again.
 
 ## Identity Comes From Play
 
-A Calling belongs to its player. The game does not diagnose a hidden self or
-assign a destiny. Friends, rivalries, debts, promises, skills, and public deeds
-give an avatar shape over time.
+The game does not diagnose a hidden self or assign a destiny. Characters
+remember what a traveler did, not what they said: gifts, refusals, threats,
+fights, help. Speech never creates an obligation.
 
-The Journal records meaningful outcomes, not flattering inventions. Other
-people can witness those outcomes, answer them, and depend on them.
+What a resident thinks of a traveler comes from what that resident witnessed
+or was truthfully told, one person at a time. There is no single good-or-evil
+meter.
 
 ## Things Matter Because Of Their Relations
 
-An item is not only a bonus. It can be carried, entrusted, installed, broken,
-repaired, offered, or returned. A location is not only a backdrop. It can
-shelter, divide, reveal, connect, or become a home. A person is never only a
-quest marker.
+An item is not only a bonus. It can be carried, entrusted, placed, used up,
+offered, or returned. A place is not only a backdrop. It can shelter, divide,
+reveal, connect, or become a home. A person is never only a quest marker.
 
 Keys, permissions, promises, placements, and completed work open only the
 thresholds they actually fit. Moving one of them can remove that capacity.
@@ -75,11 +85,12 @@ discovery.
 ## Leaving Is Not A Promise To Win
 
 Retreat, refusal, rescue, compromise, and return with an unanswered question
-are valid outcomes. The game must not spend a traveler's last strength while
-removing every path to shelter, aid, or home.
+are valid outcomes. A traveler may set a quest down. A traveler who keeps
+losing is sent home, not stranded: the game must not remove every path to
+shelter, aid, or home.
 
-Care is a real action. So are giving something up, keeping watch, repairing a
-route, witnessing another person's deed, and bringing useful knowledge back.
+Care is a real action. So are giving something up, keeping watch, witnessing
+another person's deed, and bringing useful knowledge back.
 
 ## Return Makes The Difference Public
 
@@ -87,58 +98,49 @@ A venture is more than movement away from home. Its discoveries alter what
 people can know, do, reach, trust, carry, or remember.
 
 Returning is more than crossing an old doorway. A return settles something
-from the venture into a hearth, relationship, route, item, obligation, or
+from the venture into a home, relationship, route, item, obligation, or
 shared memory. If nothing has changed, it is simply another visit.
 
 ## AI Has A Voice, Not Authority
 
-AI may speak for a resident, propose narration, or illustrate an earned
-moment. It never chooses legality, odds, access, topology, rewards, custody, or
-consequences.
+AI may speak for a character or illustrate an earned moment. It never chooses
+legality, access, routes, rewards, custody, or consequences. A character
+influences the world only by persuading a traveler to act.
 
-A model is not automatically a person. It may embody an authored resident or
-power a carried, equipped, or installed item. In either case the world states
-truthfully who acted, which device or model contributed, and why a capability
-is unavailable.
+Any model may voice any character. Whichever one does, a line that claims an
+unearned transfer, fact, or outcome is not published.
 
-Core play remains available without AI. If requested dialogue cannot be
-generated, it fails plainly and without charge. The game does not put invented
-words into a character's mouth as a fallback.
+Core play remains available without AI. A line that cannot be generated shows
+as "…" and never blocks play. The game does not put invented words into a
+character's mouth as a fallback.
 
 ## Progress Is Earned, Never Bought
 
-Ordinary play, friendship, travel, discovery, safety, and growth always have a
-zero-Orb path. Orbs support shared images. They do not buy success, power,
-access, conversation, or a better roll.
+Play, friendship, travel, discovery, safety, and growth cost nothing. Nothing
+bought grants success, power, access, conversation, or a better outcome.
 
-Gifts and trades preserve provenance. Paying for or holding an external asset
-does not grant rules authority, world items, or access to shared places.
+Growth comes from what an avatar has done in the world. Gifts and trades
+preserve who held what. Holding an external asset does not grant rules
+authority, world items, or access to shared places.
 
 ## Every Traveler Keeps Their Boundaries
 
-Speech and trade are subject to consent and moderation. Travelers can mute,
-block, decline, withdraw, and report. A symbolic or ceremonial act is always a
-fictional world action chosen by its participants, never treatment, diagnosis,
-humiliation, or an instruction for real life.
+Giving, asking, and trading need the other side's consent. An invitation can
+be declined. A traveler who is away from the table is never struck, and their
+avatar is never played for them by another traveler.
+
+A symbolic or ceremonial act is always a fictional world action chosen by its
+participants, never treatment, diagnosis, humiliation, or an instruction for
+real life.
 
 ## Together Is Chosen
 
-Standing in the same room, riding in the same carriage, serving on the same
-ship, or entering the same ruin does not silently make people a party. A party
-exists because its members chose a shared Venture. Joining, accompanying,
-leaving, staying behind, and separating are recorded choices.
+Standing in the same room or sailing on the same ship does not silently make
+people a party. Travelers go together because one invited and the other
+accepted. One traveler cannot move another by pressing Travel.
 
-One traveler cannot move another by pressing Travel. A shared departure names
-who is ready, what Formation they are using, where it intends to go, and what
-known cost or risk the group accepts. An absent person cannot hold everyone
-hostage; the ready travelers may leave as a smaller party while the world keeps
-the others truthfully where they remained.
-
-Vehicles remain physical things rather than social authority. A walking group,
-carriage, jetski flotilla, pirate ship, and dungeon delve can all carry the same
-Company through different parts of one Venture. Conversation follows the party
-only when authoritative membership and the fiction's communication boundaries
-permit it; the client never invents a private channel by relabeling a room.
+An absent person cannot hold everyone hostage. Those who are ready may leave,
+and the world keeps the others truthfully where they remained.
 
 ## The Shape Of A Tale
 
@@ -156,10 +158,9 @@ Sign, retreat to a Hearth, loop through several Challenges, or make a new
 Hearth far from the old one. The world remains open; the tale gives one part of
 it a temporary center.
 
-Shared truth, sanctuary, action authority, the AI boundary, the zero-Orb core,
-moderation, strict discovery receipts, and kernel-owned Gate transitions are
-live foundations. Perishable frontier forays and fatigue, cross-system
-relation/capacity deltas, quest-level table evidence, and the six-function
-grammar with Return settlement remain accepted direction. Until they land,
-this Pact is the standard against which their design and implementation are
-judged.
+## Where The Game Falls Short Of This
+
+The Pact is the standard the game is judged against, including where the game
+does not yet meet it. Known gaps are tracked as issues, not hidden here. A
+change that would break a promise above needs the Pact changed first, by the
+owner.
