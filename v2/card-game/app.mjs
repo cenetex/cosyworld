@@ -3316,8 +3316,14 @@ async function clearQuest(button, quest) {
     while ((localWordsPending() || sleepView.active) && questClaims.get(quest.key) === reward)
       await new Promise((resolve) => setTimeout(resolve, 50));
     if (questClaims.get(quest.key) !== reward) return;
-    if (sharedSession) await sharedSession.play(action, reward.key);
-    else {
+    if (sharedSession) {
+      const result = await sharedSession.play(action, reward.key);
+      if (result.resumedPlay) {
+        questClaims.delete(quest.key);
+        resumeCurrentSharedPlay();
+        return;
+      }
+    } else {
       const result = play(world, action, world.revision);
       if (!result.ok) throw new Error(result.error);
       const before = world;
@@ -5679,6 +5685,19 @@ function sharedWorld(value) {
     seated(value.present),
   );
 }
+// A stale action yields to the play already running, without pretending
+// that action happened or advancing past its unread dialogue.
+function resumeCurrentSharedPlay() {
+  sharedPlay = null;
+  sharedRefusal = null;
+  restedChoice = null;
+  reviewing = false;
+  reviewBeat = null;
+  selectCards(heldSelection().held, { keepOpen: true });
+  notice("");
+  lineSeq = sharedLineSeq;
+  syncSharedLine();
+}
 async function submitSharedPlay(action) {
   if (
     sharedSending ||
@@ -5714,11 +5733,15 @@ async function submitSharedPlay(action) {
   showSharedPlay("sending");
   try {
     const hidden = hiddenFor(world, currentActor(world))?.id;
-    await sharedSession.play(
+    const result = await sharedSession.play(
       current,
       sharedPlay.key,
       [...encountered].filter((id) => !cardIsCovered(id) && id !== hidden),
     );
+    if (result.resumedPlay) {
+      resumeCurrentSharedPlay();
+      return;
+    }
     lastPlayAt = performance.now();
     if (!playQueue.pending && JSON.stringify(selected) === selection) {
       keepHeldSelection(heldBefore, current);
