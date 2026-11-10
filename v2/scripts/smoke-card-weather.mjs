@@ -454,6 +454,7 @@ try {
         "block",
       );
 
+      assert(await page.locator("#stage").evaluate(stage => Number(/brightness\(([\d.]+)\)/.exec(stage.style.getPropertyValue("--tod-figure"))[1]) < 0.7));
       await checkLamp("held", "fallback");
       await checkLamp("placed", "fallback");
     }
