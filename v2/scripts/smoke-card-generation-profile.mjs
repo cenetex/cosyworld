@@ -28,6 +28,15 @@ function fixture(turns) {
         (a) => a.kind === kind && (kind !== "move" || a.target === "pond"),
       ),
     ).state;
+  // A reload with no words for the opening turn asks the model again, so the
+  // saved shore starts with its current line already heard.
+  addLog(world, "Vale", "I remember this shore, at first light.", {
+    actorId: "vale",
+    entityId: "vale",
+    locationId: world.actors.vale.place,
+    kind: "dialogue",
+    generated: true,
+  });
   for (let i = 0; i < turns; i++) {
     world = play(
       world,
@@ -36,7 +45,7 @@ function fixture(turns) {
     addLog(world, "Vale", `I remember this shore, day ${i}.`, {
       actorId: "vale",
       entityId: "vale",
-      locationId: "pond",
+      locationId: world.actors.vale.place,
       kind: "dialogue",
       generated: true,
     });
