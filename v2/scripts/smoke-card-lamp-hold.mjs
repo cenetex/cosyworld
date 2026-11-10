@@ -39,12 +39,21 @@ try {
     await page.goto(
       `http://127.0.0.1:${server.address().port}/?table=lamp-${width}`,
     );
+    await page.locator('#hand [data-card="lamp"]').waitFor();
+    await page.keyboard.press("Escape");
     const lamp = await revealCard(page, "lamp");
     await page.waitForFunction(
       () => !document.querySelector("#hand [data-revealing]"),
     );
     const read = () =>
       page.evaluate((key) => JSON.parse(localStorage.getItem(key)), key);
+    // Opening a folded, covered held item preserves the authoritative choice.
+    const opened = await read();
+    assert.equal(opened.actors.vale.heldItem, "lamp");
+    assert.equal(opened.items.lamp.lit, true);
+    assert.equal(opened.items.lamp.fuelRooms, 3);
+    assert.equal(opened.turn, world.turn);
+    // Once revealed, the usual tap still stows it and the next holds it.
     await tapCard(lamp);
     await page.waitForFunction(
       (key) =>

@@ -57,8 +57,9 @@ export async function startNewGame(page) {
 }
 
 // Use the same holder reveal and selection gestures as a player.
-export async function revealCard(page, id) {
+export async function revealCard(page, id, { keepSelected = false } = {}) {
   const card = page.locator(`#hand [data-card="${id}"]`);
+  const wasSelected = (await card.getAttribute("aria-pressed")) === "true";
   const frame = card.locator("..");
   const holder = await frame.getAttribute("data-holder");
   if ((await frame.getAttribute("hidden")) !== null) {
@@ -74,14 +75,20 @@ export async function revealCard(page, id) {
   )
     await tapCard(card);
   await card.scrollIntoViewIfNeeded();
-  // The first tap uncovers; a tap during the reveal only skips it.
+  // Select the closed box, then open it through its descriptor.
   if ((await card.getAttribute("data-unrevealed")) === "true") {
-    await tapCard(card);
+    const open = page.locator(`#card-actions [data-open-box="${id}"]`);
+    // Escape can keep a held box selected in the folded hand. Open its
+    // details first; a selected card alone does not mean its action is shown.
+    if (!(await open.count())) await tapCard(card);
+    if ((await card.getAttribute("aria-pressed")) !== "true") await tapCard(card);
+    await open.click();
     await page.waitForFunction(
       (id) =>
         !document.querySelector(`#hand [data-card="${id}"]`)?.dataset.revealing,
       id,
     );
+    if (!keepSelected && !wasSelected && (await card.getAttribute("aria-pressed")) === "true") await tapCard(card);
   }
   // The folded top of the ways on fans them before it can be chosen.
   if (!holder && (await wayTop(page).count()) && (await isWayTop(card)))
@@ -101,10 +108,12 @@ const isWayTop = (card) =>
       el.classList.contains("location") &&
       !el.parentElement.hasAttribute("data-inventory"),
   );
-// A covered top card is uncovered by its first tap, so tap until they fan.
+// Open a covered top through its descriptor, then fan the ways.
 async function fanWays(page, frame) {
   for (let i = 0; i < 3 && (await wayTop(page).count()); i++) {
     await tapCard(wayTop(page).last());
+    if (await page.locator("#card-actions [data-open-box]").count())
+      await page.locator("#card-actions [data-open-box]").click();
     await page.waitForFunction(
       () => !document.querySelector("#hand [data-revealing]"),
     );
@@ -118,8 +127,14 @@ async function fanAvatarStack(page, holder) {
     `#hand .card-frame[data-holder="${holder}"]:not([hidden], [data-want]) > .card[aria-expanded="false"]:not(.location)`,
   );
   if (!(await folded.count())) return false;
-  const top = folded.first();
-  const id = await top.getAttribute("data-card");
+  const id = await folded.first().getAttribute("data-card");
+  const top = page.locator(`#hand [data-card="${id}"]`);
+  if ((await top.getAttribute("data-unrevealed")) === "true") {
+    await tapCard(top);
+    await page.locator("#card-actions [data-open-box]").click();
+    await page.waitForFunction(() => !document.querySelector("#hand [data-revealing]"));
+    if ((await top.getAttribute("aria-pressed")) === "true") await tapCard(top);
+  }
   await tapCard(top);
   const chosen = page.locator(`#hand [data-card="${id}"]`);
   // Fanning also selects the top card. Lower it before choosing another.
@@ -162,7 +177,7 @@ export async function selectCard(page, id, { touch = false } = {}) {
     (await frame.getAttribute("hidden")) !== null
       ? await frame.getAttribute("data-holder")
       : null;
-  const card = await revealCard(page, id);
+  const card = await revealCard(page, id, { keepSelected: true });
   if (wasSelected || (await card.getAttribute("aria-pressed")) !== "true") {
     if (touch) await card.tap();
     else await card.click();
@@ -195,7 +210,7 @@ export function readyActionButton(page, kind) {
 // Stowing the lamp then darkens the mirror quietly, with no Light/Snuff play.
 export async function revealOpening(page) {
   await revealCard(page, "vale");
-  await revealCard(page, "lamp");
+  await revealCard(page, "lamp", { keepSelected: true });
   const reveal = page.locator(
     '#card-actions [data-quiet="true"]:not([data-revealing="true"])',
   );

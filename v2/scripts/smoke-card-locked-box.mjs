@@ -13,6 +13,7 @@ import { encodeSave } from "../card-game/world.mjs";
 import { openingFixture } from "../../test/helpers/greek-opening.mjs";
 import { profiles } from "../card-game/memory.mjs";
 import {
+  clearSelection,
   readyActionButton,
   revealCard,
   selectCard,
@@ -176,7 +177,7 @@ try {
       assert.notEqual(plainLid.src, closedLid.src);
       assert.notEqual(plainLid.border, closedLid.border);
       assert.equal(plainLid.name, "");
-      assert.equal(plainLid.label, "Face-down card. Tap to reveal.");
+      assert.equal(plainLid.label, "Closed box. Select to inspect.");
       assert.doesNotMatch(await page.locator('[data-card="vale"] .sr-only').textContent(), /Creon|Writ/u);
       assert.equal(plainLid.width, closedLid.width);
       assert.equal(plainLid.height, closedLid.height);
@@ -218,6 +219,8 @@ try {
           ),
         };
       };
+      // Escape preserves the held writ; inspect the box alone first.
+      await clearSelection(page);
       const beforeBox = await questState();
       // Selecting the box keeps its contents concealed. Talk gives the guard's quest.
       await selectCard(page, FIELD);
@@ -233,7 +236,17 @@ try {
       assert.match(await page.locator("#play-readout").textContent(), /Give Creon's Writ to The Gate Guard/u);
       assert.doesNotMatch(await page.locator("#play-readout").textContent(), /Battlefield/u);
       assert.deepEqual(await questState(), beforeBox, "box preview adds no quest or outcome");
-      await page.keyboard.press("Escape");
+      await clearSelection(page);
+      await selectCard(page, "greek-creon-writ");
+      const beforePair = await questState();
+      await selectCard(page, FIELD);
+      assert.equal((await state()).actors.vale.heldItem, "greek-creon-writ");
+      assert.equal(await writ.getAttribute("aria-pressed"), "true");
+      assert.equal(await field.getAttribute("aria-pressed"), "true");
+      assert.equal(await lock.isDisabled(), true);
+      assert.equal(await page.locator("#card-actions [data-open-box]").count(), 0);
+      assert.deepEqual(await questState(), beforePair, "a held partner cannot open a locked box");
+      await clearSelection(page);
       await selectCard(page, "greek-guard");
       if (await page.locator('#card-actions [data-action="meet"]').count()) {
         await readyActionButton(page, "meet").click();
