@@ -18,13 +18,16 @@ if (!packPeople["ratiradio-rati"]) {
 const output = fileURLToPath(new URL("../../output/ratiradio/", import.meta.url));
 const id = (name) => `ratiradio-${name}`;
 const home = id("listening-room"), raven = id("raven"), rati = id("rati");
+// The doors are three different locks: the Beanie held, the Thermos set down
+// at the Dispatch Window, and a Talk with RATi while holding the figurine.
 const route = [
   ["take", id("station-key")], ["move", "station"],
   ["move", id("staff-kitchen")], ["drop", id("station-key")],
-  ["take", id("red-beanie")], ["move", id("dispatch-window")],
-  ["take", id("thermos")], ["move", home],
-  ["drop", id("red-beanie")], ["drop", id("thermos")],
-  ["take", id("raven-figurine")], ["move", id("broadcast-booth")],
+  ["take", id("red-beanie")], ["take", id("thermos")],
+  ["take", id("raven-figurine")], ["move", id("dispatch-window")],
+  ["drop", id("thermos")], ["move", home],
+  ["talk", rati], ["drop", id("red-beanie")],
+  ["move", id("broadcast-booth")],
   ["take", id("glass")], ["move", home],
   ["drop", id("glass")], ["drop", id("raven-figurine")],
 ];
@@ -33,6 +36,10 @@ let start = createWorld({ opening: true, seed: 17 });
 // Fresh external placement and its voyage are covered by card-radio-scatter.
 for (const [id, item] of Object.entries(packDefinition("ratiradio").items))
   if (item.scatterOutside) start.items[id].holder = item.holder;
+// Fetched keepsakes wait in the kitchen. The Thermos opens the Listening Room
+// only when set down at the Dispatch Window; carrying the figurine to RATi
+// opens the Booth only when they Talk.
+for (const keepsake of ["thermos", "raven-figurine"]) start.items[id(keepsake)].holder = id("staff-kitchen");
 // A real local journey retains its opening ledger after leaving the forest.
 start.opening.crossed = true;
 start.opening.met.moth = 0;
@@ -40,7 +47,7 @@ start.locations.attic.anchored = true;
 start.actors.vale.place = "pond";
 start.actors.vale.visited.push("pond");
 for (const item of Object.values(start.items)) if (item.holder === "vale") item.holder = "pond";
-for (const [kind, target] of route.slice(0, 6)) {
+for (const [kind, target] of route.slice(0, 8)) {
   const action = legalActions(start).find((a) => a.kind === kind && (a.item === target || a.target === target));
   assert(action, `${kind} ${target}`);
   const result = play(start, action);
@@ -118,21 +125,26 @@ try {
     };
     try {
       await page.goto(`http://127.0.0.1:${server.address().port}/?table=${table}`);
-      // Start before the reported stuck doorway, not after it. Exercise the
-      // actual small Travel cue as well as the rules-level journey above.
-      await card(id("thermos")).waitFor({ state: "attached" });
+      // Start at the Dispatch Window with the Thermos in hand. Carrying it in
+      // opens nothing: the Listening Room stays a locked box until the Thermos
+      // is set down on the plate. Exercise the actual small Travel cue too.
+      await card(home).waitFor({ state: "attached" });
       await ready();
-      // The restored save keeps the Beanie in hand; stow it before choosing
-      // the loose Thermos alone, rather than pairing the two items.
+      assert.equal(await card(home).getAttribute("data-locked"), "true");
+      assert.equal((await state()).packs.ratiradio.flags["listening-open"], undefined);
+      report.checks.push("Listening Room is a locked box while the Thermos is only carried");
       await clearSelection(page);
       await choose(id("thermos"));
-      await readyActionButton(page, "take").click();
-      await page.waitForFunction(({ key, thermos }) => JSON.parse(localStorage.getItem(key)).items[thermos].holder === "vale", { key, thermos: id("thermos") });
-      report.checks.push("Thermos taken through the UI");
+      await choose(id("dispatch-window"));
+      const put = (await state()).revision;
+      await readyActionButton(page, "drop").click();
+      await page.waitForFunction(({ key, put }) => JSON.parse(localStorage.getItem(key)).revision > put, { key, put });
+      await ready();
+      assert.equal((await state()).packs.ratiradio.flags["listening-open"], true);
+      assert.equal(await card(home).getAttribute("data-locked"), "false");
+      report.checks.push("Setting the Thermos down at the Dispatch Window opens the Listening Room");
       await clearSelection(page);
       await choose(home);
-      // A choice made during the pickup reply waits behind its Continue.
-      await page.locator('#dialogue-advance:not([data-revealing="true"])').click();
       const travel = readyActionButton(page, "move");
       await travel.waitFor();
       const bounds = await travel.boundingBox();
@@ -153,9 +165,15 @@ try {
       assert.equal(await page.locator('#card-actions [data-action="talk"], #card-actions [data-action="give"], #card-actions [data-action="threaten"]').count(), 0);
       await shot("raven-locked");
       report.checks.push("Locked Raven shows the return descriptor without interaction actions");
-      for (const [kind, target] of route.slice(8)) {
+      for (const [kind, target] of route.slice(10)) {
         await ready();
         await clearSelection(page);
+        if (kind === "talk") {
+          // The Booth stays shut while the figurine is only held in the room.
+          const booth = id("broadcast-booth");
+          assert.equal(await card(booth).getAttribute("data-locked"), "true");
+          assert.equal((await state()).packs.ratiradio.flags["booth-open"], undefined);
+        }
         await choose(target);
         if (kind === "drop") await choose((await state()).actors.vale.place);
         const before = (await state()).revision;
@@ -163,6 +181,11 @@ try {
         await page.waitForFunction(({ key, before }) => JSON.parse(localStorage.getItem(key)).revision > before, { key, before });
         await ready();
         report.checks.push(`${kind} ${target}`);
+        if (kind === "talk") {
+          assert.equal((await state()).packs.ratiradio.flags["booth-open"], true);
+          assert.equal(await card(id("broadcast-booth")).getAttribute("data-locked"), "false");
+          report.checks.push("Talking with RATi while holding the figurine opens the Broadcast Booth");
+        }
         if (kind === "move" && target === id("broadcast-booth")) {
           await page.waitForFunction(() => window.__ratiAudio.some((entry) => entry.ok && entry.src.includes("night-shift-on-ratiradio-remastered")));
           report.audio = await page.evaluate(() => window.__ratiAudio.filter((entry) => entry.src.includes("night-shift-on-ratiradio-remastered")));
