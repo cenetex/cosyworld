@@ -1033,6 +1033,73 @@ fn full_world_claims_queue_authority_and_request_ids() {
     tx.commit().unwrap();
 }
 #[test]
+fn quiet_hold_handler_uses_the_authenticated_actor_and_replays() {
+    let (path, mut c, id) = fixture();
+    claim(&mut c, &id, 0);
+    claim(&mut c, &id, 1);
+    let time = now();
+    let before = full_store::world(&c, &id, time).unwrap();
+    assert_eq!(before.game["actors"]["vale"]["heldItem"], "lamp");
+    // A requested avatar cannot override the passkey's authenticated seat.
+    let mut command = body("hold", Some("mara"));
+    command.action = json!({"item":null,"revision":before.game["revision"]});
+    let reply = full::run(&c, &id, "user0", &command, time).unwrap();
+    assert_eq!(reply["actor"], "vale");
+    let saved = full_store::world(&c, &id, time).unwrap();
+    let mut actors = before.game["actors"].clone();
+    actors["vale"]["heldItem"] = Value::Null;
+    assert_eq!(saved.game["actors"], actors);
+    let mut lamp = before.game["items"]["lamp"].clone();
+    lamp["lit"] = json!(false);
+    assert_eq!(saved.game["items"]["lamp"], lamp);
+    assert_eq!(saved.game["items"]["lamp"]["holder"], "vale");
+    for field in ["turn", "eventSeq", "log"] {
+        assert_eq!(saved.game[field], before.game[field], "quiet {field}");
+    }
+    assert_eq!(
+        saved.game["revision"].as_u64().unwrap(),
+        before.game["revision"].as_u64().unwrap() + 1
+    );
+    assert_eq!(saved.claimed, before.claimed);
+    assert_eq!(saved.present, before.present);
+    assert!(full::run(&c, &id, "user0", &command, time).is_err());
+    assert_eq!(full_store::world(&c, &id, time).unwrap(), saved);
+    command.action = json!({"item":"lamp","revision":saved.game["revision"]});
+    for user in ["unclaimed-user", "user1"] {
+        assert!(full::run(&c, &id, user, &command, time).is_err());
+        assert_eq!(full_store::world(&c, &id, time).unwrap(), saved);
+    }
+    let jobs: i64 = c
+        .query_row(
+            "SELECT count(*) FROM card_full_plays WHERE world=?",
+            [&id],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(jobs, 0);
+    let holds: i64 = c.query_row(
+        "SELECT count(*) FROM card_full_log WHERE world=? AND json_extract(command,'$.op')='hold'",
+        [&id], |row| row.get(0),
+    ).unwrap();
+    assert_eq!(holds, 1);
+    let recorded: String = c.query_row(
+        "SELECT command FROM card_full_log WHERE world=? AND json_extract(command,'$.op')='hold'",
+        [&id], |row| row.get(0),
+    ).unwrap();
+    assert_eq!(
+        serde_json::from_str::<Value>(&recorded).unwrap(),
+        json!({
+            "op":"hold","actor":"vale","choice":{"item":null,"revision":before.game["revision"]}
+        })
+    );
+    c.execute("DELETE FROM card_full_checkpoints WHERE world=?", [&id])
+        .unwrap();
+    drop(c);
+    let reopened = store::open(&path).unwrap();
+    assert_eq!(full_store::world(&reopened, &id, time).unwrap(), saved);
+}
+
+#[test]
 fn a_reveal_snapshot_stays_with_the_first_queued_play_and_out_of_the_journal() {
     let (path, mut c, id) = fixture();
     claim(&mut c, &id, 0);
