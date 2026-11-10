@@ -204,10 +204,9 @@ it somewhere, eat it, lay things in a place). `actor.under`, the limits, the
   bring them there, bring them to that person), as rules 99 does now.
 - **Nothing is drawn for a player.** A player with no want has no quest
   card until a box or a person gives one.
-- **Its one quest card** sits where the quest fold sits today.
 
-Assumptions of mine where the owner's sentence leaves a gap. Each is also
-an open question below.
+My assumptions where the owner's sentence leaves a gap (each is an open
+question below). The one quest card sits where the quest fold sits today.
 
 - *A want already held stays.* A second box or Talk does not replace it. The
   box still shows what opens it and the person still says what they want.
@@ -220,10 +219,9 @@ an open question below.
 - *Starter wants stay*: homecoming in a non-Vale world, and Pip's lamp on
   `/pip` (which already comes from a Talk).
 
-One finding the owner should weigh: there are 9 locked boxes today, in two
-packs. Level 5 takes 15 XP on today's thresholds. Boxes cannot be the main
-source of XP until packs hold more of them. That is pack data (sealed ways,
-made things, sealed residents), not rules.
+A finding to weigh: there are 9 locked boxes today, in two packs, and level
+5 takes 15 XP. Boxes cannot be the main source of XP until packs hold more
+(sealed ways, made things, sealed residents). That is pack data, not rules.
 
 ### Level Up is Sleep at home
 
