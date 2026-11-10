@@ -70,12 +70,29 @@ try {
         .evaluateAll((nodes) => nodes.map((n) => n.dataset.slot)),
       ["new"],
     );
-    // Light dismissal also retires pending refreshes.
+    // Native toggle events coalesce when close and reopen share one task.
     await page.keyboard.press("Escape");
     await page.locator("#open").click();
     await page.waitForFunction(() => pending.length === 5);
-    await page.mouse.click(width - 5, 895);
+    await page.evaluate(() => {
+      menu.hidePopover();
+      menu.showPopover();
+    });
+    await reply(5, { authenticated: true });
+    await reply(6, list("coalesced"));
+    await page.locator('[data-slot="coalesced"]').waitFor();
     await reply(4, { authenticated: false });
+    await page.waitForTimeout(50);
+    assert.equal(
+      await page.locator(".world-slots").evaluate((node) => node.hidden),
+      false,
+    );
+    // Light dismissal also retires pending refreshes.
+    await page.keyboard.press("Escape");
+    await page.locator("#open").click();
+    await page.waitForFunction(() => pending.length === 8);
+    await page.mouse.click(width - 5, 895);
+    await reply(7, { authenticated: false });
     await page.waitForTimeout(50);
     assert.equal(
       await page
