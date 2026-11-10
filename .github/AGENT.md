@@ -197,10 +197,6 @@ when either is missing; it will block once content versioning lands.
   for the browser model, forest data, save upgrades, and public assets.
 - `v2/orchestrator-rust/src/main.rs` is very large. Use exact searches and narrow
   reads; do not mix opportunistic refactoring into a feature fix.
-- `v2/content/official/**` is compiled output. Editing it without the owning
-  source pack produces a stale lock/bundle failure.
-- A changed official pack set changes bundle identity. Old snapshots and action
-  journals must not be silently loaded under the new identity.
 - Journal replay is more authoritative than snapshots. Snapshot-only tests do
   not prove persistence.
 - Browser/query wallet claims are development conveniences unless the explicit
@@ -225,7 +221,6 @@ Do not edit or commit these directly:
 
 - `.env`, `.env.*`, keys, wallet files, bearer tokens, logs, or runtime SQLite
   and snapshot data;
-- `v2/content/official/**` except as output from the worldpack compiler;
 - released shared rules `v2/orchestrator-rust/src/card_shared/engine-v*.js`
   and their version wiring. After rebasing a branch that changes rule modules,
   run `npm run v2:card:shared:next`; it restores main's recorded rules and claims
@@ -234,7 +229,6 @@ Do not edit or commit these directly:
   already on main (`v2/scripts/released-bundles.mjs`). To land a prepared branch, `npm run land -- <branch>`
   applies its own work onto main at main's version, regenerates the rules
   bundle and asset manifest, and commits; it stops only on a conflict in the branch's work;
-- `v2/worlds/official/pack.lock.json` except through the lock command;
 - `package-lock.json` except through an intentional dependency/version update;
 - build outputs such as `target/`, `dist/`, coverage, generated runtime assets,
   or `.runtime/`.
@@ -254,6 +248,6 @@ Treat these as review-sensitive rather than forbidden:
 - Authority, authorization, idempotency, and replay paths were reviewed.
 - New state survives restart; new rules have authoritative tests.
 - Generated artifacts match their source and contain no unrelated churn.
-- Public copy passes the writing-register checks.
+- Public copy follows `v2/docs/writing-style.md`.
 - No secret or local runtime file appears in the diff.
 - The PR is validated, linked to its issue, and ready to merge.

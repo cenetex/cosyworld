@@ -177,11 +177,6 @@ status() {
   screen -ls | grep "$SESSION" || true
 }
 
-run_worldpack_check() {
-  node "$ROOT/scripts/compile-worldpack.mjs" --check
-  node "$ROOT/scripts/check-worldpack.mjs"
-}
-
 run_ai_model_checks() {
   (
     cd "$ROOT/ai-model-rust"
@@ -201,7 +196,6 @@ run_architecture_checks() {
 }
 
 check_all() {
-  run_worldpack_check
   run_ai_model_checks
   run_rust_checks
   run_architecture_checks
