@@ -156,6 +156,7 @@ import { signedRequest } from "./signed-words.mjs";
 import { rememberLocalUpgrades, wearLocalUpgrades } from "./scarves.mjs";
 import { coveredText, coveredTextReader, markWaking } from "./speech-knowledge.mjs";
 import { packMedia } from "./pack-registry.mjs";
+import { createRadioPlayer } from "./radio-player.mjs";
 import { createRoomMusic, openingRevealed } from "./music.mjs";
 import {
   CUE_TRACKS,
@@ -1199,7 +1200,8 @@ try {
 const music = createRoomMusic({
   audio: $("room-music"),
   cues: createMusicCues(),
-  changed: ({ enabled, started, title, playing, failed }) => {
+  radio: createRadioPlayer(),
+  changed: ({ enabled, started, title, playing, failed, radio }) => {
     $("music-toggle").textContent = `Music: ${enabled ? "on" : "off"}`;
     $("music-toggle").setAttribute("aria-pressed", String(enabled));
     $("music-status").textContent = !enabled
@@ -1209,7 +1211,7 @@ const music = createRoomMusic({
           ? "Music waits for the dark."
           : "Play your first card to start music."
         : failed
-          ? "Music is taking a moment. Switch it off and on to retry."
+          ? radio ? "RatiRadio is off the air." : "Music is taking a moment. Switch it off and on to retry."
           : playing
             ? title
             : "Tap or press a key to start music.";

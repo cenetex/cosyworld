@@ -10,7 +10,7 @@ beforeEach(() => {
 afterEach(() => vi.useRealTimers());
 const advance = (ms) => vi.advanceTimersByTimeAsync(ms);
 
-function player({ fallback = false, random = () => 0 } = {}) {
+function player({ fallback = false, random = () => 0, radio = null, cues = null } = {}) {
   let from = 0,
     to = 0,
     start = 0,
@@ -77,6 +77,8 @@ function player({ fallback = false, random = () => 0 } = {}) {
   const changed = vi.fn();
   const music = createRoomMusic({
     audio,
+    radio,
+    cues,
     random,
     changed,
     now: clock,
@@ -467,4 +469,21 @@ describe("opening music", () => {
     world.actors.vale.place = "cottage";
     expect(openingRevealed(world, "vale")).toBe(true);
   });
+});
+
+it("delegates existing controls to radio without starting it by default", async () => {
+  const radio = Object.fromEntries(["onChange", "setActive", "setStarted", "setEnabled", "setHidden", "setQuiet", "setVolume", "unlock"].map(key => [key, vi.fn()]));
+  const cues = { current: null, cue(name) { this.current = name; }, setStarted() {}, unlock() {}, setEnabled() {}, setVolume() {}, setHidden() {}, setQuiet() {} };
+  const { music, audio, begin } = player({ radio, cues });
+  await begin(); expect(radio.setActive).not.toHaveBeenCalled();
+  music.setRadio(true); expect(audio.paused).toBe(true); expect(radio.setActive).toHaveBeenLastCalledWith(true);
+  music.cue("battle"); expect(radio.setQuiet).toHaveBeenLastCalledWith(true);
+  music.setQuiet(true); music.setQuiet(false); expect(radio.setQuiet).toHaveBeenLastCalledWith(true);
+  music.cue(null); expect(radio.setQuiet).toHaveBeenLastCalledWith(false);
+  music.setEnabled(false); expect(radio.setEnabled).toHaveBeenLastCalledWith(false);
+  music.setHidden(true); expect(radio.setHidden).toHaveBeenLastCalledWith(true);
+  music.setQuiet(true); expect(radio.setQuiet).toHaveBeenLastCalledWith(true);
+  music.setVolume(0.6); expect(radio.setVolume).toHaveBeenLastCalledWith(0.6);
+  music.setRadio(false); music.setEnabled(true); music.setHidden(false); music.setQuiet(false);
+  await advance(1000); expect(audio.paused).toBe(false);
 });

@@ -115,6 +115,7 @@ export function openingRevealed(world, actor) {
 export function createRoomMusic({
   audio,
   cues = null,
+  radio = null,
   changed = () => {},
   makeContext = () =>
     new (globalThis.AudioContext || globalThis.webkitAudioContext)(),
@@ -145,6 +146,7 @@ export function createRoomMusic({
     volumeTimer = null,
     ending = false,
     envelope = { from: 0, to: 0, start: 0, seconds: 0 };
+  let radioActive = false, radioStatus = {};
   const positions = new Map();
   audio.preload = "none";
   audio.volume = 0;
@@ -215,6 +217,7 @@ export function createRoomMusic({
     return (
       started &&
       !cued &&
+      !radioActive &&
       unlocked &&
       enabled &&
       !hidden &&
@@ -225,11 +228,12 @@ export function createRoomMusic({
   }
   function report() {
     changed({
+      radio: radioActive && !cued,
       enabled,
       started,
-      title: CUE_TRACKS[cued]?.title || track()?.title || "",
-      playing: Boolean(cued) || !audio.paused,
-      failed: failures >= (roomTracks[trackRoom()]?.length || 1),
+      title: CUE_TRACKS[cued]?.title || (radioActive ? radioStatus.title : track()?.title) || "",
+      playing: Boolean(cued) || (radioActive ? Boolean(radioStatus.playing) : !audio.paused),
+      failed: radioActive && !cued ? Boolean(radioStatus.failed) : failures >= (roomTracks[trackRoom()]?.length || 1),
     });
   }
   function pause() {
@@ -370,11 +374,24 @@ export function createRoomMusic({
       failures = 0;
     }
     cued = cues?.current ?? null;
+    radio?.setQuiet(quiet || Boolean(cued));
     sync();
     report();
   }
   cues?.onChange?.(cueChanged);
+  radio?.onChange((status) => { radioStatus = status; report(); });
   return {
+    // Activation belongs to the accepted portable-item state, not a UI toggle.
+    setRadio(value) {
+      if (!radio || radioActive === Boolean(value)) return;
+      radioActive = Boolean(value);
+      clearTimeout(transitionTimer);
+      transitionTimer = null;
+      pause();
+      radio.setActive(radioActive);
+      sync();
+      report();
+    },
     // Whether a cue song is still audible, fading out included.
     get cueSounding() {
       return Boolean(cues?.sounding);
@@ -385,6 +402,7 @@ export function createRoomMusic({
     },
     setStarted(value) {
       cues?.setStarted(value);
+      radio?.setStarted(value);
       if (started === Boolean(value)) {
         // The waiting status follows plays made before music starts.
         if (!started) report();
@@ -418,12 +436,14 @@ export function createRoomMusic({
       // wanted() holds playback until that avatar's play is accepted.
       unlocked = true;
       cues?.unlock();
+      radio?.unlock();
       if (enabled && !hidden) unlockGraph();
       start();
     },
     setEnabled(value) {
       enabled = Boolean(value);
       cues?.setEnabled(enabled);
+      radio?.setEnabled(enabled);
       if (enabled && failures) {
         failures = 0;
         pause();
@@ -436,6 +456,7 @@ export function createRoomMusic({
       if (!Number.isFinite(value)) return;
       volume = Math.max(0, Math.min(1, value));
       cues?.setVolume(volume);
+      radio?.setVolume(volume);
       if (
         wanted() &&
         !audio.paused &&
@@ -449,6 +470,7 @@ export function createRoomMusic({
       if (hidden === Boolean(value)) return;
       hidden = Boolean(value);
       cues?.setHidden(hidden);
+      radio?.setHidden(hidden);
       if (!hidden) {
         returning = true;
         void wakeContext(context);
@@ -461,6 +483,7 @@ export function createRoomMusic({
       if (quiet === Boolean(value)) return;
       quiet = Boolean(value);
       cues?.setQuiet(quiet);
+      radio?.setQuiet(quiet || Boolean(cued));
       if (!quiet) {
         returning = true;
         void wakeContext(context);
