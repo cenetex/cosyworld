@@ -75,116 +75,122 @@ const worn = (world, turns) => {
 };
 
 for (const shared of [false, true])
-  it(`earns the Forest scarf, retreats and returns without shortcuts (shared ${shared})`, () => {
-    const engine = shared && currentSharedEngine();
-    const hosted = session((request) => {
-      const result = dispatchShared(request);
-      expect(JSON.parse(engine.cardShared(JSON.stringify(request)))).toEqual(
-        result,
+  it(
+    `earns the Forest scarf, retreats and returns without shortcuts (shared ${shared})`,
+    () => {
+      const engine = shared && currentSharedEngine();
+      const hosted = session((request) => {
+        const result = dispatchShared(request);
+        expect(JSON.parse(engine.cardShared(JSON.stringify(request)))).toEqual(
+          result,
+        );
+        return result;
+      });
+      let world = fresh(),
+        reached = 0;
+      expect(world.turn).toBe(0);
+      expect(forest(world).receipts).toEqual({});
+      if (shared) {
+        world = sorted(
+          dispatchShared({ op: "create", seed: 17, save: encodeSave(world) })
+            .world,
+        );
+        for (const op of ["claim", "enter"])
+          world = sorted(hosted(world, { op, actor: "vale" }).world);
+      }
+      const view = (w) =>
+        shared
+          ? hosted(w, { op: "view", actor: "vale" }).actions
+          : legalActions(w);
+      const step = (kind, fields = {}) => {
+        const before = structuredClone(world);
+        const action = view(world).find(
+          (a) =>
+            a.kind === kind &&
+            !a.sleep &&
+            !a.guards &&
+            Object.entries(fields).every(([k, v]) => a[k] === v),
+        );
+        expect(action, `${kind} ${JSON.stringify(fields)}`).toBeTruthy();
+        const result = shared
+          ? hosted(world, { op: "play", actor: "vale", action })
+          : play(world, action, world.revision);
+        expect(result.ok, result.error).toBe(true);
+        expect(world).toEqual(before);
+        const next = result.world || result.state;
+        validateWorld(structuredClone(next));
+        for (const [id, at] of Object.entries(forest(before).met))
+          expect(forest(next).met[id]).toBe(at);
+        world = reload(next);
+        expect(view(world)).toEqual(view(next));
+        if (shared) world = sorted(world);
+        reached++;
+        return action;
+      };
+      const reject = (action, stale = false) => {
+        const before = encodeSave(world);
+        const revision = world.revision - Number(stale);
+        const result = shared
+          ? hosted(world, { op: "play", actor: "vale", action, revision })
+          : play(world, action, revision);
+        expect(result.ok).toBe(false);
+        expect(encodeSave(world)).toBe(before);
+      };
+      step("move", { target: garden });
+      // The unmodified shared landing has a larger active hiding-place pool.
+      for (let i = 0; i < (shared ? 43 : 12); i++) step("wait");
+      step("move", { target: cottage });
+      const hidden = world.turn;
+      expect(world.items[button].holder).toBe(garden);
+      expect(forest(world).receipts["forest-hide-button-vale"]).toBe(hidden);
+      step("move", { target: garden });
+      step("take", { item: button });
+      step("move", { target: cottage });
+      const give = step("give", { item: button, target: "rati" });
+      const sewn = world.turn;
+      reject(give);
+      // Leave the sewn scarf unresolved, reload outside, then return for it.
+      for (const target of [garden, cottage]) {
+        step("move", { target });
+        expect(world.actors.vale.upgrades || []).toEqual([]);
+        expect(world.items[scarf].holder).toBe(cottage);
+        expect(entityActive(world, scarf)).toBe(true);
+        expect(entityActive(world, button)).toBe(false);
+        expect(forest(world).receipts["forest-sew-scarf-vale"]).toBe(sewn);
+        expect(
+          forest(world).receipts["forest-wear-scarf-vale"],
+        ).toBeUndefined();
+      }
+      const take = step("take", { item: scarf });
+      const turns = {
+        "hide-button": hidden,
+        "sew-scarf": sewn,
+        "wear-scarf": world.turn,
+      };
+      reject(take);
+      reject(view(world)[0], true);
+      for (const target of [garden, cottage]) {
+        step("move", { target });
+        worn(world, turns);
+      }
+      expect(reached).toBe(shared ? 54 : 23);
+      expect(turns).toEqual(
+        shared
+          ? { "hide-button": 45, "sew-scarf": 49, "wear-scarf": 52 }
+          : { "hide-button": 14, "sew-scarf": 18, "wear-scarf": 21 },
       );
-      return result;
-    });
-    let world = fresh(),
-      reached = 0;
-    expect(world.turn).toBe(0);
-    expect(forest(world).receipts).toEqual({});
-    if (shared) {
-      world = sorted(
-        dispatchShared({ op: "create", seed: 17, save: encodeSave(world) })
-          .world,
-      );
-      for (const op of ["claim", "enter"])
-        world = sorted(hosted(world, { op, actor: "vale" }).world);
-    }
-    const view = (w) =>
-      shared
-        ? hosted(w, { op: "view", actor: "vale" }).actions
-        : legalActions(w);
-    const step = (kind, fields = {}) => {
-      const before = structuredClone(world);
-      const action = view(world).find(
-        (a) =>
-          a.kind === kind &&
-          !a.sleep &&
-          !a.guards &&
-          Object.entries(fields).every(([k, v]) => a[k] === v),
-      );
-      expect(action, `${kind} ${JSON.stringify(fields)}`).toBeTruthy();
-      const result = shared
-        ? hosted(world, { op: "play", actor: "vale", action })
-        : play(world, action, world.revision);
-      expect(result.ok, result.error).toBe(true);
-      expect(world).toEqual(before);
-      const next = result.world || result.state;
-      validateWorld(structuredClone(next));
-      for (const [id, at] of Object.entries(forest(before).met))
-        expect(forest(next).met[id]).toBe(at);
-      world = reload(next);
-      expect(view(world)).toEqual(view(next));
-      if (shared) world = sorted(world);
-      reached++;
-      return action;
-    };
-    const reject = (action, stale = false) => {
-      const before = encodeSave(world);
-      const revision = world.revision - Number(stale);
-      const result = shared
-        ? hosted(world, { op: "play", actor: "vale", action, revision })
-        : play(world, action, revision);
-      expect(result.ok).toBe(false);
-      expect(encodeSave(world)).toBe(before);
-    };
-    step("move", { target: garden });
-    // The unmodified shared landing has a larger active hiding-place pool.
-    for (let i = 0; i < (shared ? 43 : 12); i++) step("wait");
-    step("move", { target: cottage });
-    const hidden = world.turn;
-    expect(world.items[button].holder).toBe(garden);
-    expect(forest(world).receipts["forest-hide-button-vale"]).toBe(hidden);
-    step("move", { target: garden });
-    step("take", { item: button });
-    step("move", { target: cottage });
-    const give = step("give", { item: button, target: "rati" });
-    const sewn = world.turn;
-    reject(give);
-    // Leave the sewn scarf unresolved, reload outside, then return for it.
-    for (const target of [garden, cottage]) {
-      step("move", { target });
-      expect(world.actors.vale.upgrades || []).toEqual([]);
-      expect(world.items[scarf].holder).toBe(cottage);
-      expect(entityActive(world, scarf)).toBe(true);
-      expect(entityActive(world, button)).toBe(false);
-      expect(forest(world).receipts["forest-sew-scarf-vale"]).toBe(sewn);
-      expect(forest(world).receipts["forest-wear-scarf-vale"]).toBeUndefined();
-    }
-    const take = step("take", { item: scarf });
-    const turns = {
-      "hide-button": hidden,
-      "sew-scarf": sewn,
-      "wear-scarf": world.turn,
-    };
-    reject(take);
-    reject(view(world)[0], true);
-    for (const target of [garden, cottage]) {
-      step("move", { target });
-      worn(world, turns);
-    }
-    expect(reached).toBe(shared ? 54 : 23);
-    expect(turns).toEqual(
-      shared
-        ? { "hide-button": 45, "sew-scarf": 49, "wear-scarf": 52 }
-        : { "hide-button": 14, "sew-scarf": 18, "wear-scarf": 21 },
-    );
-    if (shared) {
-      for (const op of ["claim", "enter", "leave", "enter"])
-        world = sorted(hosted(world, { op, actor: "mara" }).world);
-      const before = structuredClone(world);
-      const mara = hosted(world, { op: "view", actor: "mara" });
-      expect(mara.room).toBe("theatre");
-      worn(mara.world, turns);
-      expect(world).toEqual(before);
-    }
-  }, 30000);
+      if (shared) {
+        for (const op of ["claim", "enter", "leave", "enter"])
+          world = sorted(hosted(world, { op, actor: "mara" }).world);
+        const before = structuredClone(world);
+        const mara = hosted(world, { op: "view", actor: "mara" });
+        expect(mara.room).toBe("theatre");
+        worn(mara.world, turns);
+        expect(world).toEqual(before);
+      }
+    },
+    shared ? 30000 : undefined,
+  );
 
 it("pins the earned scarf's rules-132 successor hashes without importing an upgrade", () => {
   expect(hash(read("./fixtures/card-content-rules-132.json"))).toBe(
