@@ -35,6 +35,7 @@ import {
   ajaxPlea,
   ajaxGrave,
   ajaxAccount,
+  ajaxBuried,
   ajaxJourney,
   ajaxChoice,
   ajaxMove,
@@ -150,6 +151,58 @@ describe("Earth Beside the Ships", () => {
     world = ajaxChoice(world, "bury-appeal");
     expect(deed(world, "bury-appeal").turn).toBe(world.turn);
     expect(verses(world).at(-1).id).toBe("greek-ajax-bury-appeal");
+  });
+
+  // The seven Ajax story choices were pressed buttons; each now fires from
+  // the Talk with its speaker and is never offered as a `choose` play (#2605).
+  it("commits the seven testimony and record choices at Talk, not as buttons", () => {
+    const talkIds = [
+      "learn-shield-teucer",
+      "learn-shield-odysseus",
+      "learn-shield-tecmessa",
+      "hear-plea",
+      "record-public",
+      "record-household",
+      "record-appeal",
+    ].map((id) => `greek-ajax-${id}`);
+    for (const id of talkIds)
+      expect(pack.choices.find((c) => c.id === id).on).toBe("talk");
+    expect(pack.choices.filter((c) => c.on === undefined)).toEqual([]);
+    const chooses = (w) => legalActions(w).filter((a) => a.kind === "choose");
+    const talkTo = (world, target) => {
+      expect(chooses(world)).toEqual([]);
+      const next = playOpenDoor(world, "talk", { target });
+      expect(chooses(next)).toEqual([]);
+      return next;
+    };
+    // Each speaker's Talk alone commits the shield testimony.
+    const camp = ajaxCamp();
+    for (const [speaker, place, id] of [
+      ["greek-ajax-teucer", "greek-greek-camp", "learn-shield-teucer"],
+      ["greek-ajax-odysseus", "greek-greek-camp", "learn-shield-odysseus"],
+      ["greek-ajax-tecmessa", "greek-ajax-household", "learn-shield-tecmessa"],
+    ]) {
+      const world = talkTo(ajaxMove(camp, place), speaker);
+      expect(ajaxState(world).receipts[`greek-ajax-${id}`]).toBe(world.turn);
+      expect(ajaxState(world).flags["greek-ajax-shield-keeper-heard"]).toBe(
+        true,
+      );
+    }
+    // Teucer's Talk commits the plea, then the signed record for each route.
+    let world = ajaxMove(shieldDelivered(), "greek-greek-camp");
+    world = talkTo(world, "greek-ajax-teucer");
+    expect(ajaxState(world).receipts["greek-ajax-hear-plea"]).toBe(world.turn);
+    expect(ajaxState(world).flags["greek-ajax-plea-heard"]).toBe(true);
+    for (const route of ["public", "household", "appeal"]) {
+      let signed = ajaxMove(ajaxBuried(route), "greek-greek-camp");
+      if (signed.items["greek-ajax-plea"].holder !== "vale")
+        signed = playOpenDoor(signed, "take", { item: "greek-ajax-plea" });
+      signed = talkTo(signed, "greek-ajax-teucer");
+      expect(ajaxState(signed).receipts[`greek-ajax-record-${route}`]).toBe(
+        signed.turn,
+      );
+      expect(ajaxState(signed).flags["greek-ajax-account-ready"]).toBe(true);
+    }
   });
 
   it("requires the actual cloth and tools when the burial is performed", () => {

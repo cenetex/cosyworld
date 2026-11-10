@@ -5483,7 +5483,8 @@
               "value": true
             }
           ],
-          "workId": "sophocles-ajax"
+          "workId": "sophocles-ajax",
+          "on": "talk"
         },
         {
           "id": "greek-ajax-learn-shield-odysseus",
@@ -5516,7 +5517,8 @@
               "value": true
             }
           ],
-          "workId": "sophocles-ajax"
+          "workId": "sophocles-ajax",
+          "on": "talk"
         },
         {
           "id": "greek-ajax-learn-shield-tecmessa",
@@ -5549,7 +5551,8 @@
               "value": true
             }
           ],
-          "workId": "sophocles-ajax"
+          "workId": "sophocles-ajax",
+          "on": "talk"
         },
         {
           "id": "greek-ajax-deliver-shield",
@@ -5620,7 +5623,8 @@
               "value": true
             }
           ],
-          "workId": "sophocles-ajax"
+          "workId": "sophocles-ajax",
+          "on": "talk"
         },
         {
           "id": "greek-ajax-deliver-plea",
@@ -5996,7 +6000,8 @@
               "value": true
             }
           ],
-          "workId": "sophocles-ajax"
+          "workId": "sophocles-ajax",
+          "on": "talk"
         },
         {
           "id": "greek-ajax-return-public",
@@ -6146,7 +6151,8 @@
               "value": true
             }
           ],
-          "workId": "sophocles-ajax"
+          "workId": "sophocles-ajax",
+          "on": "talk"
         },
         {
           "id": "greek-ajax-return-household",
@@ -6301,7 +6307,8 @@
               "value": true
             }
           ],
-          "workId": "sophocles-ajax"
+          "workId": "sophocles-ajax",
+          "on": "talk"
         },
         {
           "id": "greek-ajax-return-appeal",
@@ -12234,7 +12241,8 @@
               "key": "forest-walkers-heard",
               "value": true
             }
-          ]
+          ],
+          "on": "talk"
         },
         {
           "id": "forest-hear-walkers-oak",
@@ -12261,7 +12269,8 @@
               "key": "forest-walkers-heard",
               "value": true
             }
-          ]
+          ],
+          "on": "talk"
         },
         {
           "id": "forest-sit-watch",

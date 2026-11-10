@@ -12,7 +12,7 @@ holder's group. Transfers move the cards into the new holder's group.
 
 | Selection                                 | Available plays                              |
 | ----------------------------------------- | -------------------------------------------- |
-| Person                                    | Talk and relevant story choices              |
+| Person                                    | Talk; story choices fire from it             |
 | Vale                                      | Wait; Brace during a standoff                |
 | Vale + person                             | Threaten; Brace and Strike during a standoff |
 | Loose item                                | Take                                         |

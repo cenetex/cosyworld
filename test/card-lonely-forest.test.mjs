@@ -411,7 +411,10 @@ describe("Tea beneath the oak", () => {
       (a) => a.kind === "move" && a.target === COTTAGE,
     );
     expect(stale).toBeDefined();
-    const dark = command("vale", { op: "hold", choice: { item: null, revision: world.revision } });
+    const dark = command("vale", {
+      op: "hold",
+      choice: { item: null, revision: world.revision },
+    });
     expect(dark.ok, dark.error).toBe(true);
     world = reload(dark.world);
     expect(command("mara").exits).not.toContain(COTTAGE);
@@ -426,9 +429,9 @@ describe("Tea beneath the oak", () => {
 
   it("offers no story buttons and follows ordinary plays", () => {
     const pack = packDefinition(PACK);
-    expect(
-      pack.choices.filter((c) => c.on === undefined).map((c) => c.id),
-    ).toEqual(["forest-hear-walkers-rati", "forest-hear-walkers-oak"]);
+    expect(pack.choices.filter((c) => c.on === undefined)).toEqual([]);
+    for (const id of ["forest-hear-walkers-rati", "forest-hear-walkers-oak"])
+      expect(pack.choices.find((c) => c.id === id).on).toBe("talk");
     let world = move(attic(), COTTAGE);
     // Vale's button is somewhere else, so RATi cannot sew it yet.
     expect(world.items["forest-button-vale"].holder).not.toBe(COTTAGE);
@@ -569,6 +572,13 @@ describe("Three walkers, one old root", () => {
       for (const target of road) world = move(world, target);
       world = hear(world, speaker, fact);
       expect(state(world).flags["forest-walkers-heard"]).toBe(true);
+      // The Talk committed it; no pressed button offered it (#2605).
+      expect(
+        state(world).receipts[`forest-hear-walkers-${speaker}`],
+      ).toBeTruthy();
+      expect(legalActions(world).filter((a) => a.kind === "choose")).toEqual(
+        [],
+      );
       world = reload(world);
       for (const target of trail) world = move(world, target);
       world = wait(world);
