@@ -10224,7 +10224,12 @@
     const s = JSON.parse(text2);
     try {
       const lamp = s?.items?.lamp;
-      if (lamp && ["fuelRooms", "fuelPlace", "fuelVisit"].some((key2) => Object.hasOwn(lamp, key2)) && (!validLampRoomFuel(lamp) || !Object.hasOwn(places, lamp.fuelPlace) || lamp.fuel !== lamp.fuelRooms * 4))
+      const hasRoomFuel = lamp && ["fuelRooms", "fuelPlace", "fuelVisit"].some(
+        (key2) => Object.hasOwn(lamp, key2)
+      );
+      if (lamp && typeof lamp.lit !== "boolean" && (hasRoomFuel || Object.hasOwn(lamp, "lit")))
+        throw new Error("Invalid saved lamp room fuel.");
+      if (hasRoomFuel && (!validLampRoomFuel(lamp) || !Object.hasOwn(places, lamp.fuelPlace) || lamp.fuel !== lamp.fuelRooms * 4))
         throw new Error("Invalid saved lamp room fuel.");
       upgradeSave(s, {
         actorIds,
