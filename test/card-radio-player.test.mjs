@@ -55,3 +55,15 @@ it("stops late play completion after navigation", async () => {
   player.unlock(); await tick(); player.setActive(false); resolve(); await tick();
   expect(audio.paused).toBe(true); expect(audio.volume).toBe(0);
 });
+it("retunes catalog changes and never keeps yesterday's media position", async () => {
+  const fetchStation = vi.fn().mockResolvedValueOnce(snapshot).mockResolvedValue({ ...snapshot, version: "v2", serverTimeMs: 27000, startedAtMs: 15000, endsAtMs: 75000, track: { ...snapshot.track, file: "pond-2.mp3" } });
+  const { audio, player } = setup(fetchStation);
+  player.unlock(); await tick(); await vi.advanceTimersByTimeAsync(15000);
+  expect(audio.load).toHaveBeenCalledTimes(2); expect(audio.src).toContain("pond-2.mp3");
+  expect(audio.currentTime).toBe(12); player.setActive(false);
+});
+it("rejects media shorter than the authoritative position instead of looping it", async () => {
+  const { audio, player, changed } = setup(); audio.duration = 5;
+  player.unlock(); await tick(); expect(audio.paused).toBe(true);
+  expect(changed.mock.lastCall[0].failed).toBe(true); player.setActive(false);
+});
