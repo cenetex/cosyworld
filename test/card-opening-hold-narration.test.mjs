@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import vm from "node:vm";
 import { afterEach, expect, it, vi } from "vitest";
-import { createWorld, holdChoice } from "../v2/card-game/world.mjs";
+import { createWorld, holdChoice, addLog } from "../v2/card-game/world.mjs";
 import { createNarrator } from "../v2/card-game/narrative.mjs";
 
 const app = readFileSync(
@@ -26,12 +26,12 @@ function table({
   const world = createWorld({ opening: true });
   if (ordinary) world.turn = 1;
   if (partial)
-    world.log.push({
+    addLog(world, "Vale", "Already spoken.", {
       generated: true,
       kind: "dialogue",
-      turn: 0,
+      actorId: "vale",
+      entityId: "vale",
       locationId: "attic",
-      text: "Already spoken.",
     });
   const context = vm.createContext({
     world,
@@ -40,7 +40,7 @@ function table({
     sharedSession: shared
       ? { command: vi.fn(async () => {}), sync: vi.fn() }
       : null,
-    narrator: { changed: vi.fn() },
+    narrator: { continuePending: vi.fn() },
     holdChoice,
     currentActor: () => "vale",
     isSceneText: (entry) => entry.kind === "dialogue",
@@ -62,29 +62,26 @@ afterEach(() => vi.useRealTimers());
 it.each([
   [{}, true],
   [{ pending: false }, false],
-  [{ ordinary: true }, false],
-  [{ partial: true }, false],
+  [{ ordinary: true }, true],
+  [{ partial: true }, true],
   [{ shared: true }, false],
-])(
-  "refreshes only a pending unpublished local opening: %j",
-  async (options, refresh) => {
-    const t = table(options);
-    await t.persistHeldChoice(null);
-    expect(t.narrator.changed).toHaveBeenCalledTimes(refresh ? 1 : 0);
-    if (!options.shared) {
-      expect(t.world.actors.vale.heldItem).toBeNull();
-      expect(t.world.items.lamp.lit).toBe(false);
-      expect(t.world.turn).toBe(options.ordinary ? 1 : 0);
-    } else expect(t.sharedSession.command).toHaveBeenCalledTimes(1);
-  },
-);
-it("does not restart after a rejected quiet choice or a line committed during save", async () => {
+])("continues only pending local words: %j", async (options, refresh) => {
+  const t = table(options);
+  await t.persistHeldChoice(null);
+  expect(t.narrator.continuePending).toHaveBeenCalledTimes(refresh ? 1 : 0);
+  if (!options.shared) {
+    expect(t.world.actors.vale.heldItem).toBeNull();
+    expect(t.world.items.lamp.lit).toBe(false);
+    expect(t.world.turn).toBe(options.ordinary ? 1 : 0);
+  } else expect(t.sharedSession.command).toHaveBeenCalledTimes(1);
+});
+it("does not restart after a rejected choice and resumes with newly committed words", async () => {
   const failed = table();
   failed.holdChoice = () => {
     throw new Error("stale choice");
   };
   await failed.persistHeldChoice(null);
-  expect(failed.narrator.changed).not.toHaveBeenCalled();
+  expect(failed.narrator.continuePending).not.toHaveBeenCalled();
   const published = table();
   published.save = () =>
     published.world.log.push({
@@ -94,7 +91,7 @@ it("does not restart after a rejected quiet choice or a line committed during sa
       locationId: "attic",
     });
   await published.persistHeldChoice(null);
-  expect(published.narrator.changed).not.toHaveBeenCalled();
+  expect(published.narrator.continuePending).toHaveBeenCalledOnce();
 });
 it("coalesces held/stowed opening changes, rejects old replies and saves Awake once", async () => {
   vi.useFakeTimers();
@@ -182,7 +179,7 @@ it("fences replacement worlds against the refreshed opening's late response", as
   expect(requests.every((r) => r.signal.aborted)).toBe(true);
 });
 
-it("does not refresh or reinterpret an already-published early opening", async () => {
+it("continues an early opening without reinterpreting its published speaker", async () => {
   vi.useFakeTimers();
   const t = table(),
     requests = [];
@@ -211,8 +208,10 @@ it("does not refresh or reinterpret an already-published early opening", async (
   ).toBe(true);
   await t.persistHeldChoice(null);
   await vi.advanceTimersByTimeAsync(0);
-  expect(requests).toHaveLength(1);
-  expect(requests[0].signal.aborted).toBe(false);
+  expect(requests).toHaveLength(2);
+  expect(requests[1].context.speakers).toEqual([]);
+  expect(requests[1].context.entities.map(({ id }) => id)).toContain("vale");
+  expect(requests[0].signal.aborted).toBe(true);
   expect(t.world.log).toEqual(log);
   expect(t.world.memories).toEqual(memories);
   t.narrator.invalidate();

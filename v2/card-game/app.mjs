@@ -392,21 +392,32 @@ function rememberReading(line) {
       actor: currentActor(world), seq: line.seq, seed: world.run?.seed }));
   } catch {}
 }
-function rememberWords(revision, pending = false) {
+function rememberWords(revision, pending = false, cast = null) {
   if (sharedSession) return;
   try {
     if (revision === null) localStorage.removeItem(WORDS_MARKER_KEY);
     else
       localStorage.setItem(
         WORDS_MARKER_KEY,
-        `${revision}${pending ? ":pending" : ""}`,
+        cast ? JSON.stringify({ revision, pending, cast }) : `${revision}${pending ? ":pending" : ""}`,
       );
   } catch {
     /* This tab still plays; a reload shows the caption alone. */
   }
 }
+function pendingCast() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(WORDS_MARKER_KEY));
+    const cast = saved?.revision === world.revision && saved.pending && saved.cast;
+    if (Array.isArray(cast?.speakers) && cast.speakers.length <= 3 &&
+        cast.speakers.every((id) => typeof id === "string") && typeof cast.scenery === "boolean")
+      return cast;
+  } catch {}
+  return null;
+}
 // "silent", "pending" or null for the current revision.
 function wordsOnLoad() {
+  if (pendingCast()) return "pending";
   try {
     const [revision, pending] = (
       localStorage.getItem(WORDS_MARKER_KEY) || ""
@@ -1355,7 +1366,7 @@ const narrator = createNarrator({
     // Words that came, or failed, free a play waiting behind them.
     if (value !== "pending" && playQueue.pending)
       queueMicrotask(() => playQueue.flush());
-    if (value === "pending") rememberWords(world.revision, true);
+    if (value === "pending") rememberWords(world.revision, true, narrator.pendingCast());
     if (value === "pending" && !exchange.active) exchange.begin();
     if (value === "failed") {
       if (error?.code === "mismatch") count("voice.mismatch");
@@ -1415,7 +1426,7 @@ const SETTLE_MS = 500;
 // arrives in the player's hands through the play, such as the other side of a
 // trade or a take, becomes the held item instead.
 async function persistHeldChoice(item) {
-  const refreshOpening = localWordsPending() && openingWordsDue();
+  const refreshWords = localWordsPending();
   const choice = { item, revision: world.revision };
   holdingChoice = true;
   try {
@@ -1424,8 +1435,8 @@ async function persistHeldChoice(item) {
     else {
       holdChoice(world, currentActor(world), choice);
       save();
-      // Rebuild only an unpublished opening; old replies remain ticket-fenced.
-      if (refreshOpening && openingWordsDue()) narrator.changed();
+      // Keep published words and continue only the remaining voices.
+      if (refreshWords) narrator.continuePending();
     }
   } catch (error) {
     // Never resend an uncertain choice: fetch the committed state instead.
@@ -5547,7 +5558,7 @@ function resumeScene({ otherTab = false } = {}) {
     render();
     return;
   }
-  const words = wordsOnLoad();
+  const words = wordsOnLoad(), cast = pendingCast();
   if (openingWordsDue() && !otherTab && words !== "silent") {
     // A new game asks the dialogue model for Vale's first line, and a reload
     // that interrupted it asks again. Words that failed stay "…".
@@ -5558,7 +5569,7 @@ function resumeScene({ otherTab = false } = {}) {
     narrator.changed();
     return;
   }
-  if (!saveBlocked && !hasCurrentWords() && words === "pending" && !otherTab) {
+  if (!saveBlocked && words === "pending" && !otherTab) {
     // This turn's words were on the way before the reload: ask again,
     // quietly, under the Thinking card. Another tab that is asking keeps
     // its request; this one shows the caption alone.
@@ -5569,9 +5580,21 @@ function resumeScene({ otherTab = false } = {}) {
         entry.actorId === currentActor(world),
     );
     lineSeq = null;
+    if (hasCurrentWords()) {
+      // A reload keeps the visible line whole while its remaining voices resume.
+      const lines = shownWorld().log.filter((entry) => entry.generated &&
+        isSceneText(entry) && entry.turn === world.turn &&
+        entry.locationId === world.actors[currentActor(world)].place);
+      const saved = readingPosition();
+      const line = lines.find((entry) => saved && entry.seq >= saved.seq) || lines.at(-1);
+      if (line) completedSpeech.add(lineKey(line, line.locationId));
+      exchange.begin();
+      exchange.load(line ? lines.filter((entry) => entry.seq >= line.seq) : [], { pending: true });
+    }
     render();
     narrator.changed(
       played ? { item: played.itemId, target: played.targetId } : null,
+      { remaining: cast || true },
     );
     return;
   }

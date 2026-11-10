@@ -3294,3 +3294,49 @@ fn refused_words_finish_the_play_as_silence_instead_of_holding_the_seat() {
     );
     assert!(full::take_work(&app, &id).unwrap().is_none());
 }
+
+#[test]
+fn held_change_refreshes_pending_words_without_replaying_the_play() {
+    let (path, mut c, id) = fixture();
+    claim(&mut c, &id, 0);
+    let w = full_store::world(&c, &id, now()).unwrap();
+    let mut queued = body("play", None);
+    queued.key = "held-pending-words-0001".into();
+    queued.action = home_action(&w, 0, "wait");
+    full::run(&c, &id, "user0", &queued, now()).unwrap();
+    let app = crate::test_app_state(crate::RuntimeWorld::seeded(), Some(path));
+    let old = full::take_work(&app, &id).unwrap().unwrap();
+    let mut w = full_store::world(&c, &id, now()).unwrap();
+    let turn = w.game["turn"].clone();
+    let memories = w.game["memories"].clone();
+    let log = w.game["log"].clone();
+    hold(&c, &id, &mut w, 0, Value::Null);
+    let words =
+        json!([{"speaker":"Vale","actorId":"vale","entityId":"vale","text":"The lamp is bright."}]);
+    assert!(!full::finish_work(&app, &id, old.clone(), Ok(words)).unwrap());
+    assert_eq!(full_store::world(&c, &id, now()).unwrap().game["log"], log);
+    let next = full::take_work(&app, &id).unwrap().unwrap();
+    assert_eq!(next.id, old.id);
+    assert_eq!(next.context["turn"], turn);
+    assert_ne!(next.context["context"], old.context["context"]);
+    assert_eq!(
+        next.context["context"]["speakers"],
+        old.context["context"]["speakers"]
+    );
+    assert!(!full::finish_work(&app, &id, old, Err("Late stale failure".into())).unwrap());
+    let words = json!([{"speaker":"Vale","actorId":"vale","entityId":"vale","text":"I have put the lamp away."}]);
+    assert!(full::finish_work(&app, &id, next.clone(), Ok(words.clone())).unwrap());
+    assert!(!full::finish_work(&app, &id, next, Ok(words)).unwrap());
+    let mut saved = full_store::world(&c, &id, now()).unwrap();
+    assert_eq!(saved.game["turn"], turn);
+    // A later hold keeps the completed exchange and its accumulated memories.
+    let spoken = saved.game["log"].clone();
+    let remembered = saved.game["memories"].clone();
+    assert_ne!(remembered, memories);
+    hold(&c, &id, &mut saved, 0, json!("lamp"));
+    assert_eq!(saved.game["log"], spoken);
+    assert_eq!(saved.game["memories"], remembered);
+    c.execute("DELETE FROM card_full_checkpoints WHERE world=?", [&id])
+        .unwrap();
+    assert_eq!(full_store::world(&c, &id, now()).unwrap(), saved);
+}

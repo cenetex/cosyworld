@@ -22571,8 +22571,14 @@
       return facts;
     });
   }
-  function narrativeContext(world, action = null, isCovered = null) {
+  function narrativeContext(world, action = null, isCovered = null, remaining = false) {
     const cast = dialogueCast(world, action);
+    const original = typeof remaining === "object" ? remaining : null;
+    if (original) cast.ids = [.../* @__PURE__ */ new Set([
+      cast.location,
+      ...original.speakers.filter((id) => cast.audience.includes(id)),
+      ...cast.ids
+    ])].slice(0, 8);
     const {
       location,
       beforeFirstLight,
@@ -22583,7 +22589,10 @@
       played,
       ids: ids3
     } = cast;
-    const { occasion, speakers, scenery } = speechOccasions(world, cast);
+    const occasionState = speechOccasions(world, cast);
+    const { occasion } = occasionState;
+    const speakers = original ? original.speakers.filter((id) => ids3.includes(id)) : occasionState.speakers;
+    const scenery = original ? original.scenery : occasionState.scenery;
     const battle = battleEvents(world, played);
     const resting2 = played?.verb !== "claim" && (!speakers.length || speakers[0] === cast.resting) ? cast.resting : null;
     const rest = resting2 ? cast.rest : null;
@@ -22608,7 +22617,7 @@
     const mindsNoise = (id) => /noise|ringing/i.test(tastes[id]?.sore || "");
     const ways = wayFacts(world, location);
     const conversation = beforeFirstLight ? [] : world.log.filter(
-      (entry) => entry.generated && entry.kind === "dialogue" && profiles[entry.actorId]?.kind === "avatar" && entry.locationId === location && entry.turn < world.turn
+      (entry) => entry.generated && entry.kind === "dialogue" && profiles[entry.actorId]?.kind === "avatar" && entry.locationId === location && (entry.turn < world.turn || remaining && entry.turn === world.turn)
     ).slice(-6).map(({ actorId, text: text2, cast: cast2, witnesses }) => ({
       actorId,
       text: text2,
@@ -22803,6 +22812,18 @@
         };
       })
     };
+    if (remaining) {
+      const spoken = new Set(world.log.filter((entry) => entry.generated && !entry.fallback && entry.turn === world.turn && entry.entityId && ["dialogue", "narration"].includes(entry.kind)).map((entry) => entry.entityId));
+      context.speakers = context.speakers.filter((id) => !spoken.has(id));
+      if (spoken.has(context.location)) context.scenery = false;
+      if (spoken.has(context.focus)) context.focus = null;
+      context.disclosures = (context.disclosures || []).filter((d) => !spoken.has(d.speaker));
+      if (spoken.has(context.resting)) {
+        context.resting = null;
+        delete context.rest;
+        delete context.dream;
+      }
+    }
     return isCovered ? forgetCovered(world, context, isCovered) : forgetUnfound(world, context);
   }
 

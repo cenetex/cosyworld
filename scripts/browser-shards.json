@@ -30,6 +30,7 @@
     "smoke-card-play-queue": 18,
     "smoke-card-speech-queue": 45,
     "smoke-card-opening-hold": 20,
+    "smoke-card-dialogue-continuation": 25,
     "smoke-card-zero-turn-beats": 45,
     "smoke-card-queued-choices": 70,
     "smoke-card-sleep": 30,
