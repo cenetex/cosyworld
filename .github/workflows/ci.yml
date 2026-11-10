@@ -146,7 +146,7 @@ jobs:
       - name: Test Rust orchestrator
         run: bash v2/scripts/check-rust.sh test
 
-  # The browser and composition checks need only the debug binary, so it is
+  # The browser checks need only the debug binary, so it is
   # built beside the Rust tests instead of after them.
   smoke-binary:
     name: Smoke-test binary

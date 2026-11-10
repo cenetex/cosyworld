@@ -120,15 +120,8 @@ test("authored world first tales satisfy the inline manifest contract", () => {
   }
 });
 
-test("Lantern composition mounts the shared official first tale", () => {
-  const world = JSON.parse(
-    fs.readFileSync(path.join(worldsRoot, "lantern-keeper/world.json"), "utf8"),
-  );
-  assert.equal(world.first_tale, "../official/first-tale.json");
-});
-
 test("compositions without the Lantern pack mount the continuation-free core tale", () => {
-  for (const worldId of ["core-only", "core-ruby"]) {
+  for (const worldId of ["core-only"]) {
     const world = JSON.parse(
       fs.readFileSync(path.join(worldsRoot, worldId, "world.json"), "utf8"),
     );

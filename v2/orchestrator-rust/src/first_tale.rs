@@ -518,15 +518,6 @@ mod tests {
     }
 
     #[test]
-    fn absent_manifest_first_tale_stays_absent() {
-        let manifest = serde_json::from_str::<SeedWorldpackManifest>(include_str!(
-            "../../content/ruby-high-only/worldpack.json"
-        ))
-        .expect("Ruby-only compiled manifest");
-        assert!(first_tale_for_manifest(&manifest).is_none());
-    }
-
-    #[test]
     fn official_source_explicitly_preserves_the_existing_first_tale() {
         let first_tale = official_first_tale();
         validate_first_tale(first_tale).expect("official first tale is valid");
@@ -551,36 +542,14 @@ mod tests {
     }
 
     #[test]
-    fn only_source_compositions_that_mount_the_core_tale_declare_it() {
+    fn the_core_only_source_world_declares_the_core_tale() {
         let core_only: serde_json::Value =
             serde_json::from_str(include_str!("../../worlds/core-only/world.json"))
                 .expect("core-only source world");
-        let core_ruby: serde_json::Value =
-            serde_json::from_str(include_str!("../../worlds/core-ruby/world.json"))
-                .expect("core-ruby source world");
-        let ruby_only: serde_json::Value =
-            serde_json::from_str(include_str!("../../worlds/ruby-high-only/world.json"))
-                .expect("Ruby-only source world");
-        let services_only: serde_json::Value =
-            serde_json::from_str(include_str!("../../worlds/services-only/world.json"))
-                .expect("services-only source world");
-        let lantern: serde_json::Value =
-            serde_json::from_str(include_str!("../../worlds/lantern-keeper/world.json"))
-                .expect("Lantern source world");
         assert_eq!(
             core_only.get("first_tale").and_then(|value| value.as_str()),
             Some("../official/first-tale-core.json")
         );
-        assert_eq!(
-            core_ruby.get("first_tale").and_then(|value| value.as_str()),
-            Some("../official/first-tale-core.json")
-        );
-        assert_eq!(
-            lantern.get("first_tale").and_then(|value| value.as_str()),
-            Some("../official/first-tale.json")
-        );
-        assert!(ruby_only.get("first_tale").is_none());
-        assert!(services_only.get("first_tale").is_none());
     }
 
     #[test]

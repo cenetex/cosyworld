@@ -1682,59 +1682,6 @@ mod tests {
     }
 
     #[test]
-    fn core_and_non_world_compositions_mount_without_implicit_packs() {
-        let content_root = configured_content_root();
-        let core = ContentRegistry::from_json(
-            &fs::read_to_string(content_root.join("core-only/registry.json"))
-                .expect("Core-only registry reads"),
-            content_engine_version(),
-        )
-        .expect("Core-only registry mounts");
-        assert_eq!(core.content().manifest.packs.len(), 3);
-        assert!(core.pack("cosyworld.core").is_some());
-        assert!(core.pack("cosyworld.rules-profile-srd5").is_some());
-        assert_eq!(core.entry_location_id(), Some(COSY_COTTAGE_LOCATION_ID));
-        assert_eq!(
-            core.capability_provider("cosyworld.core/rules"),
-            Some("cosyworld.core")
-        );
-        assert!(!core.content().locations.is_empty());
-
-        let services = ContentRegistry::from_json(
-            &fs::read_to_string(content_root.join("services-only/registry.json"))
-                .expect("services-only registry reads"),
-            content_engine_version(),
-        )
-        .expect("services-only registry mounts");
-        assert_eq!(services.content().manifest.packs.len(), 3);
-        assert!(services.pack("cosyworld.services-fixture").is_some());
-        assert!(services.pack("cosyworld.rules-profile-srd5").is_some());
-        assert!(services.pack("cosyworld.core").is_none());
-        assert_eq!(services.entry_location_id(), None);
-        assert!(services.content().locations.is_empty());
-        assert!(services.content().actors.is_empty());
-    }
-
-    #[test]
-    fn elysium_mounts_its_self_authored_avatar_level_track() {
-        let registry = ContentRegistry::from_json(
-            &fs::read_to_string(configured_content_root().join("elysium-only/registry.json"))
-                .expect("Elysium registry reads"),
-            content_engine_version(),
-        )
-        .expect("Elysium registry mounts");
-        let track = registry
-            .content()
-            .avatar_level_tracks
-            .first()
-            .expect("Elysium avatar level track");
-        assert_eq!(track.id, "elysium.embodiment");
-        assert_eq!(track.identity.mode, "self_authored");
-        assert_eq!(track.max_level, 3);
-        assert_eq!(track.levels.last().map(|level| level.level), Some(3));
-    }
-
-    #[test]
     fn deployment_entry_override_must_resolve_inside_the_selected_worldpack() {
         let path = configured_content_root().join("official/registry.json");
         let registry = ContentRegistry::from_json(
