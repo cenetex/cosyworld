@@ -8,7 +8,7 @@ and keep a bounded social party, but party membership never grants access,
 changes ownership, or affects world simulation.
 
 This is not the Company/Venture party accepted by
-[ADR 0009](../../docs/decisions/0009-companies-ventures-formations-and-shared-travel.md).
+ADR 0009.
 A rendezvous party is temporary invite and co-location state: it has no shared
 objective, Formation, readiness, chronicle, vehicle composition, detachment, or
 group movement authority. A future implementation may offer its members an

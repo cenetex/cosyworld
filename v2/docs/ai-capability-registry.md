@@ -20,10 +20,10 @@ candidate and sends only that model ID to the provider.
 - `image_generation` accepts text and produces an image. Exact-bound Elysium
   subjects use the same capability validation against their checked-in binding,
   rather than borrowing a model from a global text pool. Under
-  [ADR 0007](../../docs/decisions/0007-model-bindings-and-item-devices.md), an
+  ADR 0007, an
   image-only subject is a model-backed item device rather than a resident.
 - `embeddings` and `rerank` rank existing records against a query. Under
-  [ADR 0010](../../docs/decisions/0010-semantic-instruments-shape-memory.md) a
+  ADR 0010 a
   binding of either kind powers a semantic instrument: an item whose holder gets
   a different ordering of the same history. The ranking is committed against an
   exact query event sequence and replay reads that commit, so no journal depends
@@ -314,7 +314,7 @@ a pack extension:
 ## Pack-bound exact models and interaction profiles
 
 An exact model is execution configuration, not automatically a resident.
-[ADR 0007](../../docs/decisions/0007-model-bindings-and-item-devices.md)
+ADR 0007
 requires a worldpack to declare whether the binding embodies an authored actor
 or powers an item device. The current compatibility resource
 `actor_model_bindings` supports actors only. The accepted additive direction is

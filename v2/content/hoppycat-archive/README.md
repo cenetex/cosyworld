@@ -54,6 +54,6 @@ The GitHub observation index in `v2/worlds/hoppycat/github-index.json` is still
 non-authoritative. It tells curators when the public source landscape changes;
 it cannot add a room, actor, item, quest fact, or journal event automatically.
 
-See `docs/worldpacks/hoppycat-living-archive.md` for the full world design,
+See git history for the former Hoppycat world design guide, which covered
 avatar model, gameplay loop, source boundaries, sync-agent roles, and proposed
 deployment sequence for `hoppycat.lonelyforest.com`.

@@ -135,7 +135,7 @@ generation job.
 
 Items advance through distinct authored use milestones. Locations advance through
 unique completed construction, upgrade, and civic expansion projects as specified in
-[Location Classes, Development Projects, and Buildings](../../docs/location-development.md).
+Location Classes, Development Projects, and Buildings.
 The [entity level contract](entity-level-authority.md) freezes existing levels at a
 versioned journal boundary and records each later milestone once. Fresh locations start
 at level 0; their numbered art and self-description pools open at level 1.
@@ -149,7 +149,7 @@ Non-avatar descriptions belong only to their subject; the avatar whose reflectio
 the opportunity does not inherit an item's or location's first-person memory.
 An item or location persona is gentle animism, not an actor controller or a claim of
 personhood. Per
-[ADR 0007](../../docs/decisions/0007-model-bindings-and-item-devices.md), a model-backed
+ADR 0007, a model-backed
 device remains an item even when it receives a first-person description; the avatar using
 it remains the acting subject unless a separate authored actor contract says otherwise.
 
