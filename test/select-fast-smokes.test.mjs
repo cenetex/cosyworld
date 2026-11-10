@@ -8,6 +8,14 @@ const config = JSON.parse(
 const pick = (...changed) => selectSmokes(changed, config);
 
 describe("fast check smoke selection", () => {
+  it("runs smoke-card-startup-recovery for its script and owner", () => {
+    const smoke = "smoke-card-startup-recovery";
+    expect(pick(`v2/scripts/${smoke}.mjs`)).toContain(smoke);
+    expect(pick("v2/card-game/entry.mjs")).toContain(smoke);
+    const shards = JSON.parse(readFileSync("scripts/browser-shards.json", "utf8"));
+    expect(shards.checks[smoke]).toBeGreaterThan(0);
+  });
+
   it("names only smoke scripts that exist", () => {
     const named = [
       config.core,
