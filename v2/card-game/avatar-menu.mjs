@@ -615,10 +615,16 @@ export function installAvatarMenu({
     armed = false;
     render();
   });
+  // beforetoggle is synchronous, unlike coalesced toggle notifications.
+  // A close/reopen must retire the old load even before its next microtask.
+  let loadGeneration = 0;
+  menu.addEventListener("beforetoggle", () => loadGeneration++);
   menu.addEventListener("toggle", () => {
     if (!menu.matches(":popover-open")) {
       // The seat's beat leaves with ☰, after a tap on its button has run.
-      setTimeout(() => beat && actionBeat.clear(beat), 0);
+      const closedBeat = beat;
+      beat = null;
+      setTimeout(() => closedBeat && actionBeat.clear(closedBeat), 0);
       // A friend's world shows once, until ☰ closes or an avatar goes there.
       if (invite) stored(INVITE_KEY, null);
       invite = null;
@@ -639,26 +645,32 @@ export function installAvatarMenu({
   // Signed in, the slots are the account's shared worlds. Without the
   // server the menu keeps what it has.
   async function load(inviteId) {
+    const generation = ++loadGeneration;
+    const current = () =>
+      generation === loadGeneration && menu.matches(":popover-open");
     try {
       if (!allowShared()) return;
       const account = await request("/auth/account");
+      if (!current()) return;
       shared = Boolean(session || account.authenticated);
       if (!shared) return;
       const list = await request("/card-game/shared/worlds");
+      if (!current()) return;
       rows = list.worlds;
       unlocked = Array.isArray(list.unlocked) ? list.unlocked : null;
       if (!inviteId) return;
       const view = await request(`/card-game/shared/worlds/${inviteId}`);
+      if (!current()) return;
       invite = { ...view, id: inviteId };
       status.textContent = "Tap + there to bring an avatar in.";
     } catch (error) {
       // A link to a world nobody is in any more says it has closed.
-      if (inviteId && /closed/.test(error?.message)) {
+      if (current() && inviteId && /closed/.test(error?.message)) {
         stored(INVITE_KEY, null);
         status.textContent = error.message;
       }
     } finally {
-      redraw();
+      if (current()) redraw();
     }
   }
   if (stored(INVITE_KEY) || arrived) {
