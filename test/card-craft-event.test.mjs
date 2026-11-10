@@ -8,7 +8,7 @@ import {
 } from "../v2/card-game/world.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import { worldLife } from "../v2/card-game/resident-home.mjs";
-import { openingFixture } from "./helpers/greek-opening.mjs";
+import { greekErrands, openingFixture } from "./helpers/greek-opening.mjs";
 import { currentSharedEngine } from "./fixtures/shared-engine.mjs";
 
 const bread = "greek-bread",
@@ -30,7 +30,7 @@ const bake = (world) => act(world, "give", { item: inputs[0], target: baker });
 const crafts = (world) => world.log.filter((entry) => entry.verb === "craft");
 
 it("records the consumed set, immediate result and witnessed source action", () => {
-  const before = openingFixture("burial").waterOffer;
+  const before = greekErrands().waterOffer;
   before.items["greek-shovel"].holder = baker;
   const world = bake(before),
     event = crafts(world).at(-1);
@@ -63,7 +63,7 @@ it("records the consumed set, immediate result and witnessed source action", () 
 });
 
 it("gives a repeated craft its own identity while retaining the first outcome", () => {
-  let world = bake(openingFixture("burial").waterOffer);
+  let world = bake(greekErrands().waterOffer);
   const first = structuredClone(crafts(world)[0]);
   world = act(world, "take", { item: bread });
   world = act(world, "eat", { item: bread, target: null });
@@ -85,6 +85,7 @@ it("gives a repeated craft its own identity while retaining the first outcome", 
 });
 
 it("keeps old plain craft narration as its original record", () => {
+  // Only a recorded save has the old plain narration: current rules log a craft event.
   const world = openingFixture("burial").water;
   expect(crafts(world)).toEqual([]);
   expect(
@@ -94,7 +95,7 @@ it("keeps old plain craft narration as its original record", () => {
 });
 
 it("records three consumed inputs when a Drop completes another recipe", () => {
-  let world = openingFixture("burial").waterOffer;
+  let world = greekErrands().waterOffer;
   const harbor = "greek-harbor",
     maker = "greek-shipmaster",
     output = "greek-provisions";
@@ -131,7 +132,7 @@ it.each([
   { targetId: "vale" },
   { itemId: "lamp" },
 ])("requires a retained source action to support the craft: %j", (patch) => {
-  const world = bake(openingFixture("burial").waterOffer);
+  const world = bake(greekErrands().waterOffer);
   Object.assign(
     world.log.find((entry) => entry.seq === crafts(world)[0].sourceSeq),
     patch,
@@ -155,7 +156,7 @@ it.each([
   { locationId: null },
   { witnesses: [] },
 ])("rejects an invalid saved craft fact: %j", (patch) => {
-  const world = bake(openingFixture("burial").waterOffer);
+  const world = bake(greekErrands().waterOffer);
   Object.assign(crafts(world)[0], patch);
   expect(() => validateWorld(world)).toThrow();
 });
@@ -175,7 +176,7 @@ it.each(["give", "drop"])(
         );
         return result;
       };
-      const world = openingFixture("burial").waterOffer;
+      const world = greekErrands().waterOffer;
       const seats = { actor: "vale", claimed: ["vale"], present: ["vale"] };
       const viewed = both({ op: "view", world, ...seats });
       const action = viewed.actions.find(
