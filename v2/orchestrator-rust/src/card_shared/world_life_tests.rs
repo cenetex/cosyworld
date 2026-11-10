@@ -819,3 +819,179 @@ fn raven_return_replays_reachable_awakening_and_second_traveler() {
     drop(reopened);
     std::fs::remove_file(path).unwrap();
 }
+
+#[test]
+fn earned_forest_scarf_replays_without_checkpoints() {
+    use sha2::{Digest, Sha256};
+    let trace: Value = serde_json::from_str(include_str!(
+        "../../../../test/fixtures/forest-scarf-rules-132.json"
+    ))
+    .unwrap();
+    let text = include_str!("../../../../test/fixtures/card-content-rules-132.json");
+    let hash = content::hash(text);
+    assert_eq!(hash, trace["contentSha256"]);
+    assert_eq!(
+        format!("{:x}", Sha256::digest(include_bytes!("engine-v132.js"))),
+        trace["engineSha256"]
+    );
+    let path = std::env::temp_dir().join(format!(
+        "earned-forest-scarf-{}.sqlite",
+        crate::random_hex(12)
+    ));
+    let c = store::open(&path).unwrap();
+    full_store::schema(&c).unwrap();
+    c.execute(
+        "INSERT INTO card_full_packs(hash,revision,content) VALUES(?,?,?)",
+        rusqlite::params![hash, "rules132", text],
+    )
+    .unwrap();
+    content::preload(&c, &hash).unwrap();
+    let version = trace["version"].as_str().unwrap();
+    let game = engine::reduce_pack(
+        version,
+        Some(&hash),
+        json!({"op":"create","seed":17,"save":trace["save"]}),
+    )
+    .unwrap()["world"]
+        .clone();
+    let digest = |game: &Value| content::hash(&game.to_string());
+    assert_eq!(digest(&game), trace["initialSha256"]);
+    let mut world = World {
+        version: version.into(),
+        game,
+        claimed: [0; 8],
+        present: [0; 8],
+        pack: Some(hash),
+    };
+    let id = "f".repeat(48);
+    store::create(&c, &id, "owner", now()).unwrap();
+    full_store::seed(&c, &id, &world, "unplayed-forest-landing", now()).unwrap();
+    let rows = || {
+        c.query_row(
+            "SELECT count(*) FROM card_full_log WHERE world=?",
+            [&id],
+            |row| row.get::<_, i64>(0),
+        )
+        .unwrap()
+    };
+    let mut reached = 0;
+    for step in trace["steps"].as_array().unwrap() {
+        let command = &step["command"];
+        let actor = if command["actor"] == "mara" { 1 } else { 0 };
+        if command["op"] == "claim" {
+            let user = if actor == 0 { "owner" } else { "visitor" };
+            super::bindings::claim(&c, &id, user, actor).unwrap();
+        }
+        if command["op"] == "play" {
+            assert!(world.project(actor).unwrap()["actions"]
+                .as_array()
+                .unwrap()
+                .contains(&command["action"]));
+            reached += 1;
+        }
+        full_store::commit(&c, &id, &mut world, command.clone(), now()).unwrap();
+        assert_eq!(digest(&world.game), step["sha256"], "transition {reached}");
+        if command["op"] == "play" && world.game["turn"] == 50 {
+            // Vale left the sewn scarf behind, without completing the keepsake.
+            assert!(world.game["actors"]["vale"]["upgrades"].is_null());
+            assert_eq!(
+                world.game["items"]["forest-scarf-vale"]["holder"],
+                "forest-cottage"
+            );
+            assert_eq!(
+                world.game["packs"]["lonely-forest"]["receipts"]["forest-sew-scarf-vale"],
+                49
+            );
+            assert!(
+                world.game["packs"]["lonely-forest"]["receipts"]["forest-wear-scarf-vale"]
+                    .is_null()
+            );
+        }
+        // Retry each consuming action while its recipient/place is still present.
+        if command["action"]["kind"] == "give" || command["action"]["item"] == "forest-scarf-vale" {
+            let before = world.clone();
+            let count = rows();
+            assert!(full_store::commit(&c, &id, &mut world, command.clone(), now()).is_err());
+            assert_eq!(world, before);
+            assert_eq!(rows(), count);
+        }
+    }
+    assert_eq!(reached, 54);
+    assert_eq!(rows(), 61); // One seed, four claims/entries, two reconnects, 54 plays.
+    let check = |w: &World| {
+        let forest = &w.game["packs"]["lonely-forest"];
+        assert_eq!(w.game["actors"]["vale"]["upgrades"], json!(["scarf"]));
+        assert!(w.game["actors"]["mara"]["upgrades"].is_null());
+        for (choice, turn) in [("hide-button", 45), ("sew-scarf", 49), ("wear-scarf", 52)] {
+            assert_eq!(forest["receipts"][format!("forest-{choice}-vale")], turn);
+        }
+        assert_eq!(forest["flags"]["forest-scarf-vale-worn"], true);
+        assert!(forest["receipts"]["forest-wear-scarf-mara"].is_null());
+        for item in ["forest-button-vale", "forest-scarf-vale"] {
+            assert_eq!(
+                w.game["items"][item],
+                json!({"holder":"forest-cottage","history":[]})
+            );
+            assert!(!w.project(0).unwrap()["actions"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|a| a["item"] == item));
+        }
+    };
+    check(&world);
+    let before = world.clone();
+    let count = rows();
+    // The play adapter checks revisions; the host journals canonical choices.
+    let mut stale = world.request("play", 0);
+    stale["action"] = pick(&world, plain_wait).unwrap();
+    stale["revision"] = json!(world.game["revision"].as_u64().unwrap() - 1);
+    assert!(engine::reduce_pack(version, world.pack.as_deref(), stale).is_err());
+    // Quiet held choices carry their revision all the way into commit.
+    let stale_hold = json!({"op":"hold","actor":"vale","choice":{"item":null,
+        "revision":world.game["revision"].as_u64().unwrap()-1}});
+    assert!(full_store::commit(&c, &id, &mut world, stale_hold, now()).is_err());
+    assert_eq!(world.project(1).unwrap()["room"], "theatre");
+    assert_eq!(world, before);
+    assert_eq!(rows(), count);
+    assert_eq!(
+        super::bindings::upgrades(&c, "owner", 0).unwrap(),
+        vec!["scarf"]
+    );
+    assert!(super::bindings::upgrades(&c, "visitor", 1)
+        .unwrap()
+        .is_empty());
+    c.execute("DELETE FROM card_full_checkpoints WHERE world=?", [&id])
+        .unwrap();
+    drop(c);
+    let reopened = store::open(&path).unwrap();
+    full_store::schema(&reopened).unwrap();
+    let mut expected = world.clone();
+    if engine::historical(&expected.version) {
+        expected
+            .apply(
+                &json!({"op":"upgrade","from":world.version,"to":engine::VERSION,
+            "seed":super::full_world::run_seed(&id),"pack":content::current()}),
+            )
+            .unwrap();
+    } else if expected.pack.as_deref() != Some(content::current()) {
+        expected
+            .apply(
+                &json!({"op":"repack","from":world.pack,"to":content::current(),
+            "revision":content::REVISION}),
+            )
+            .unwrap();
+    }
+    let replayed = full_store::world(&reopened, &id, now()).unwrap();
+    assert_eq!(replayed, expected);
+    check(&replayed);
+    assert_eq!(
+        super::bindings::upgrades(&reopened, "owner", 0).unwrap(),
+        vec!["scarf"]
+    );
+    assert!(super::bindings::upgrades(&reopened, "visitor", 1)
+        .unwrap()
+        .is_empty());
+    drop(reopened);
+    std::fs::remove_file(path).unwrap();
+}
