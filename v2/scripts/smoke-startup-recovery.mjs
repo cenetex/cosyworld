@@ -46,6 +46,7 @@ try {
       const retry = page.locator("#dialogue-advance");
       await retry.waitFor({ state: "visible" });
       assert.equal((await retry.textContent()).trim(), "Try again");
+      assert.equal(await retry.getAttribute("aria-label"), "Try again");
       assert.equal(await page.evaluate(() => document.body.inert), false);
       assert.equal(await page.locator(".title-intro").count(), 0);
       // A stale intro continuation must not recreate its overlay or eat keys.

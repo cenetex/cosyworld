@@ -35,6 +35,7 @@ beforeEach(() => {
         textContent: "",
         disabled: false,
         focus: vi.fn(),
+        setAttribute: vi.fn(),
         addEventListener: vi.fn(),
       },
     ]),
@@ -75,6 +76,7 @@ it.each(["local service", "table import"])(
     expect(elements.get("dialogue-text").textContent).toBe("Try again");
     const retry = elements.get("dialogue-advance");
     expect(retry.hidden).toBe(false);
+    expect(retry.setAttribute).toHaveBeenCalledWith("aria-label", "Try again");
     const click = retry.addEventListener.mock.calls.find(
       ([name]) => name === "click",
     )[1];

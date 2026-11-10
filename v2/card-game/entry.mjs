@@ -71,6 +71,7 @@ try {
     document.getElementById("dialogue-text").textContent = "Try again";
     row.hidden = retry.hidden = false;
     retry.disabled = false;
+    retry.setAttribute("aria-label", "Try again");
     retry.addEventListener(
       "click",
       (event) => {
