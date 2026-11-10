@@ -3737,16 +3737,12 @@ export function validateWorld(s) {
     )
       fail();
   }
-  freshlyValidated.add(s);
   return s;
 }
-// Rule results are validated before they return, so the save that follows
-// does not check the same world again. Saving spends the mark: a later save of
-// that object, and every decoded or imported save, is validated in full.
-const freshlyValidated = new WeakSet();
+// World objects remain mutable after validation, including their nested state.
+// Validate the actual value being persisted, never its earlier object identity.
 export function encodeSave(s) {
-  if (!freshlyValidated.has(s)) validateWorld(s);
-  freshlyValidated.delete(s);
+  validateWorld(s);
   return JSON.stringify(s);
 }
 export function decodeSave(text) {

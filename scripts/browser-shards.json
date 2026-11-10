@@ -100,6 +100,7 @@
     "smoke-card-shared-discovery": 13,
     "smoke-card-bard-travel": 30,
     "smoke-card-voice": 43,
-    "smoke-card-descriptor": 10
+    "smoke-card-descriptor": 10,
+    "smoke-card-save-validation": 10
   }
 }
