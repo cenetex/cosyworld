@@ -62,7 +62,6 @@ mod entity_context;
 mod entity_levels;
 mod event_replay_store;
 mod first_tale;
-mod first_tale_presentations;
 mod generated_asset_budget;
 mod generated_places;
 mod generation_policy;
@@ -198,7 +197,6 @@ use event_replay_store::{
     insert_world_events, insert_world_events_strict, read_event_store_tail_for_locations,
 };
 use first_tale::*;
-use first_tale_presentations::*;
 use generated_places::*;
 use generation_policy::*;
 use hosted_access::*;
