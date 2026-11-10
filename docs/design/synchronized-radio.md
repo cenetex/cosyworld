@@ -16,3 +16,11 @@ multi-speaker playback. No database timer, paid service or player data is used.
 
 The existing music switch, volume and first user gesture still govern sound.
 Shared saved rules, replay, song bytes and performance receipts are unchanged.
+
+The browser playback prerequisite is `radio-player.mjs`, connected to the
+existing music controls through `createRoomMusic.setRadio`. It stays inactive
+until a future portable-item rule calls that method from accepted world state.
+There is no automatic booth activation or station picker. Hidden, muted,
+settings-paused and battle-cued listeners stop and fetch a fresh clock on return.
+`node v2/scripts/smoke-card-radio-player.mjs` checks real decoded audio signal
+and station position at desktop and phone widths; it does not prove speaker output.

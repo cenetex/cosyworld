@@ -228,7 +228,7 @@ export function createRoomMusic({
   }
   function report() {
     changed({
-      ...(radioActive && !cued ? radioStatus : {}),
+      radio: radioActive && !cued,
       enabled,
       started,
       title: CUE_TRACKS[cued]?.title || (radioActive ? radioStatus.title : track()?.title) || "",

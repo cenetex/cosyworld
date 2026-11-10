@@ -1201,7 +1201,7 @@ const music = createRoomMusic({
   audio: $("room-music"),
   cues: createMusicCues(),
   radio: createRadioPlayer(),
-  changed: ({ enabled, started, title, playing, failed }) => {
+  changed: ({ enabled, started, title, playing, failed, radio }) => {
     $("music-toggle").textContent = `Music: ${enabled ? "on" : "off"}`;
     $("music-toggle").setAttribute("aria-pressed", String(enabled));
     $("music-status").textContent = !enabled
@@ -1211,7 +1211,7 @@ const music = createRoomMusic({
           ? "Music waits for the dark."
           : "Play your first card to start music."
         : failed
-          ? "Music is taking a moment. Switch it off and on to retry."
+          ? radio ? "RatiRadio is off the air." : "Music is taking a moment. Switch it off and on to retry."
           : playing
             ? title
             : "Tap or press a key to start music.";
