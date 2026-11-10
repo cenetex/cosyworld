@@ -320,8 +320,8 @@ package version. It appears only in `/meta.version`, the
 
 Broken tests do not block `.dev`. When the owner says "tag it from .dev",
 release the exact commit `.dev` serves, without waiting for the full suite.
-The deploy workflow's own production gates (Node, Rust, worldpack
-compatibility, volume space, backups) still run on the tag. File any
+The deploy workflow's own production gates (Node, Rust, volume space,
+backups) still run on the tag. File any
 full-suite failure as an issue and fix it in parallel.
 
 1. Read the commit `.dev` serves:
@@ -415,7 +415,7 @@ soaked `.dev` trains (`promote.yml` and `scripts/promote-train.mjs`, run at
 `:22` and `:52`) was removed. `.dev` keeps its own train schedule.
 
 A tag run keeps every production gate: the Node, Rust (`check-rust.sh test`,
-#1743), and lint gates, worldpack compatibility, volume space, and the
+#1743), and lint gates, volume space, and the
 Lonely Forest backup. A failed gate stops the deploy and opens the usual
 tracking issue. When the tagged commit is one a `.dev` train already ran,
 the tag reuses that train's passed Rust gate and lint. A tag pushed while an
@@ -438,17 +438,11 @@ Restoring a volume snapshot restores them, so remembered words signed before
 the snapshot still verify. A recovery onto a fresh volume makes a new key, and
 words signed by the old one drop out of context; to keep them, restore the
 database or set the old key as `COSYWORLD_SIGNING_KEY`.
-The runtime restores the latest accepted checkpoint, replays the retained journal
-suffix, and refuses incompatible world-pack or generated-descendant state rather
-than silently replacing it. A normal release must report zero checkpoint
-rejections in `/meta` after deployment.
-
-Recovery captures are compatibility evidence for an exact live bundle and
-tenant, not generic seed data. Use a capture only through the guarded workflow
-input documented in [`deployment/07-deployment.md`](deployment/07-deployment.md),
-and verify the resulting bundle hash and journal cursor before cutting the next
-tag. Prefer a forward fix over rolling an active persistent world back across a
-schema or world-pack boundary.
+The hosted server boots card-only and does not replay the classic journal or
+snapshot, so a release has no world-pack bundle comparison or checkpoint
+rejection count. Shared card worlds replay their own journal under their
+recorded rules. Prefer a forward fix over rolling an active persistent world
+back across a schema or rules boundary.
 
 Shared rules v88 added the `reflect` journal op
 ([shared worlds](../v2/docs/card-table/shared-worlds.md#learning-and-private-reflection)).

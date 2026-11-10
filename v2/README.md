@@ -28,11 +28,13 @@ when a local file supplies that setting. `npm run v2:stop` stops the local serve
 
 - `/health` reports readiness; `/health/live` reports process liveness.
 - `/meta.version` identifies the running release.
-- `/meta.primary_game` identifies the surface selected for `/`.
+- `/meta.primary_game` is `card-table`, the surface served at `/`.
 - `/meta.card_game` gives the card entry URL, source directory, play modes,
   catalog URLs, and current shared rules version.
-- `/meta.metadata_scopes` marks the classic world, worldpack, combat, and
-  content-engine fields. Deployment and recovery tools retain these fields.
+- `/meta.deployment`, `/meta.persistence`, `/meta.features` and `/meta.ai`
+  report the profile, event store health and size, and dialogue provider. The
+  hosted server boots card-only, so `/meta` has no classic world, worldpack or
+  combat fields.
 
 Both live sites select the card game at `/`. The testing site follows `main`;
 Lonely Forest follows a versioned release. See the

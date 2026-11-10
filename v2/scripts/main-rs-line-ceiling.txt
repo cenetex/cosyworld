@@ -488,4 +488,7 @@
 #
 # 58660 -> 58658: the retired first-tale presentation receipt module and its
 # route are gone.
-58658
+#
+# 58658 -> 58579: the hosted server boots card-only (#1652). The empty
+# RuntimeWorld constructor moved to card_boot.rs with the card boot and /meta.
+58579

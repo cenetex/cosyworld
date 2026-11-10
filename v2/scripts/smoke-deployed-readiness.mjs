@@ -26,41 +26,28 @@ async function inspectTarget(value) {
   assert(health.ok === true, `${baseUrl.origin} health is not ok`);
   assert(meta.ok === true, `${baseUrl.origin} meta is not ok`);
   assert(meta.deployment?.profile === "production", `${baseUrl.origin} is not in production mode`);
-  assert(meta.deployment?.world_id === "world://cosyworld/official", `${baseUrl.origin} has the wrong canonical world id`);
-  assert(meta.deployment?.world_epoch === 1, `${baseUrl.origin} has the wrong canonical world epoch`);
   assert(typeof meta.deployment?.process_id === "string" && meta.deployment.process_id.length > 0, `${baseUrl.origin} has no process id`);
-  assert(meta.deployment?.shard_id === meta.deployment?.process_id, `${baseUrl.origin} shard alias differs from process id`);
-  assert(meta.persistence?.snapshot_enabled === true, `${baseUrl.origin} snapshot persistence is disabled`);
+  assert(meta.primary_game === "card-table", `${baseUrl.origin} is not serving the card table`);
+  assert(
+    typeof meta.card_game?.shared_rules_version === "string" && meta.card_game.shared_rules_version.length > 0,
+    `${baseUrl.origin} reports no shared card rules version`,
+  );
   assert(meta.persistence?.event_store_enabled === true, `${baseUrl.origin} event-store persistence is disabled`);
-  assert(meta.persistence?.checkpoint_rejections === 0, `${baseUrl.origin} rejected a saved checkpoint`);
   assert(meta.persistence?.event_store?.status === "healthy", `${baseUrl.origin} persistence is ${meta.persistence?.event_store?.status ?? "unobservable"}`);
   assert(meta.persistence?.event_store?.consecutive_append_failures === 0, `${baseUrl.origin} has consecutive event-store append failures`);
   assert(meta.persistence?.event_store?.consecutive_read_failures === 0, `${baseUrl.origin} has consecutive event-store read failures`);
   assert(meta.persistence?.event_store?.pending_event_count === 0, `${baseUrl.origin} has pending event-store writes`);
-  assert(meta.features?.card_policy_mode === "shadow", `${baseUrl.origin} card policy is not in shadow mode`);
-  assert(meta.features?.card_policy_top_k === 3, `${baseUrl.origin} card policy top-k is not 3`);
-  assert(
-    meta.features?.card_policy_model_hash === "829992bfa57d67fe",
-    `${baseUrl.origin} has the wrong card-policy model`,
-  );
-  // Wallet-linked avatars are discovered on chain; no other domain feeds
-  // ownership, so a release never waits on one.
-  assert(
-    ["on_chain", "fixture", "not_configured"].includes(meta.linked_avatar_adapter?.source),
-    `${baseUrl.origin} reports no linked-avatar source`,
-  );
-  assert(
-    meta.linked_avatar_adapter?.remote_configured === undefined,
-    `${baseUrl.origin} still reports a remote linked-avatar feed`,
-  );
+  // The card-only server (#1652) has no classic world, worldpack, snapshot or
+  // linked-avatar adapter, so none of them is reported or checked.
+  for (const classic of ["worldpack", "world", "linked_avatar_adapter"]) {
+    assert(meta[classic] === undefined, `${baseUrl.origin} still reports classic ${classic} state`);
+  }
 
   return {
     url: baseUrl.origin,
     profile: meta.deployment.profile,
-    card_policy_mode: meta.features.card_policy_mode,
-    card_policy_top_k: meta.features.card_policy_top_k,
-    card_policy_model_hash: meta.features.card_policy_model_hash,
-    linked_avatar_source: meta.linked_avatar_adapter.source,
+    process_id: meta.deployment.process_id,
+    shared_rules_version: meta.card_game.shared_rules_version,
   };
 }
 
