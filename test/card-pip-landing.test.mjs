@@ -1,3 +1,4 @@
+import { selectLamp } from "./fixtures/card-attic-opening.mjs";
 import { expect, it } from "vitest";
 import { beginPipJourney, createPipWorld, pipEntry } from "../v2/card-game/pip-landing.mjs";
 import { openTableSession } from "../v2/card-game/table-session.mjs";
@@ -60,7 +61,9 @@ it.each([0, 17, 4294967295])("carries Pip's quest through Vale's opening for see
   expect(world.opening).toBeDefined();
   expect(world.actors.vale.place).toBe("attic");
   expect(world.actors.vale.want).toMatchObject(quest);
-  for (const [kind, target] of [["snuff"], ["move", "pond"], ["light"], ["give", "moth"]]) {
+  world = selectLamp(world);
+  for (const [kind, target] of [["move", "pond"], ["give", "moth"]]) {
+    if (kind === "give") world = selectLamp(world, "lamp");
     const action = legalActions(world).find((a) => a.kind === kind && (!target || a.target === target));
     expect(action, kind).toBeDefined();
     const result = play(world, action);

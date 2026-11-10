@@ -13,7 +13,7 @@ import {
   narrativeContractCases,
   playCard,
 } from "./card-narrative-contexts.mjs";
-import { atticOpening } from "./card-attic-opening.mjs";
+import { atticOpening, selectLamp } from "./card-attic-opening.mjs";
 import { sailTo } from "../helpers/voyage.mjs";
 
 // Recorded lines, one per speaker and turn, standing in for model replies.
@@ -151,11 +151,10 @@ function beforeReturn() {
 // cloth and the uncovered, burning Lamp) and Pip, and Dione, who wants the
 // Funeral Oil that Vale carries.
 export function assistantRoleScenes() {
-  let world = playCard(enableMotives(atticOpening()), "snuff", "lamp");
-  world = playCard(playCard(world, "move", null, "pond"), "light", "lamp");
+  let world = selectLamp(enableMotives(atticOpening()));
+  world = selectLamp(playCard(world, "move", null, "pond"), "lamp");
   world.items.cloth.holder = "vale";
-  world.items.lamp.fuel = 12;
-  world = playCard(playCard(world, "cover", "cloth", "lamp"), "take", "cloth");
+  world = selectLamp(playCard(world, "drop", "lamp"), "cloth");
   world = sailTo(playCard(world, "move", null, "greek-ship"), "greek-harbor");
   world.actors.moth.place = "greek-harbor";
   const harbor = (kind, target, i) => step(world, kind, target, i).context;
@@ -262,10 +261,10 @@ export function perceptionScenes() {
 // asks the Gate Guard to open it. Each speaker hears the way as the rules
 // have it.
 export function gateScenes() {
-  let world = playCard(enableMotives(atticOpening()), "snuff", "lamp");
-  world = playCard(playCard(world, "move", null, "pond"), "light", "lamp");
+  let world = selectLamp(enableMotives(atticOpening()));
+  world = selectLamp(playCard(world, "move", null, "pond"), "lamp");
   world.items.cloth.holder = "vale";
-  world = playCard(playCard(world, "cover", "cloth", "lamp"), "take", "cloth");
+  world = selectLamp(playCard(world, "drop", "lamp"), "cloth");
   world = sailTo(playCard(world, "move", null, "greek-ship"), "greek-harbor");
   const court = playCard(
     playCard(world, "move", null, "greek-road-thebes"),

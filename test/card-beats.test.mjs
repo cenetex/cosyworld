@@ -1,4 +1,4 @@
-import { atticOpening } from "./fixtures/card-attic-opening.mjs";
+import { atticOpening, selectLamp } from "./fixtures/card-attic-opening.mjs";
 import { describe, it, expect } from "vitest";
 import { createWorld, legalActions, play } from "../v2/card-game/world.mjs";
 import { enableMotives } from "../v2/card-game/motives.mjs";
@@ -476,7 +476,7 @@ describe("combat beats from the rules", () => {
   };
   it("gives each fighter a beat and the loser the defeat", () => {
     let s = enableMotives(atticOpening());
-    s = act(s, "snuff");
+    s = selectLamp(s);
     s.actors.moth.place = "pond";
     s = act(s, "move", "pond");
     s.standoffs = [

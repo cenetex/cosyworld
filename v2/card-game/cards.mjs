@@ -1,3 +1,4 @@
+import { lampRoomFlame } from "./lamp-room-fuel.mjs";
 import {
   consumable,
   entityActive,
@@ -76,7 +77,9 @@ export function availableCards(world) {
     .filter((id) => !destinations.includes(id));
   // A made thing waits locked at its home until its maker makes it again.
   sealed.push(...lockedAt(world, here));
-  sealed.push(...Object.keys(packPeople).filter((id) => sealedAvatar(world, id)));
+  sealed.push(
+    ...Object.keys(packPeople).filter((id) => sealedAvatar(world, id)),
+  );
   // A port its ship cannot sail to yet, and why (rules 102).
   sealed.push(
     ...shutLanes(world, here)
@@ -226,12 +229,7 @@ export function cardPlay(world, selected) {
         (item === undefined || a.item === item) &&
         (target === undefined || a.target === target),
     );
-  const use = (id) =>
-    id === "lamp"
-      ? find(world.items.lamp.lit ? "snuff" : "light", id)
-      : id === "bell"
-        ? find("ring", id)
-        : undefined;
+  const use = (id) => (id === "bell" ? find("ring", id) : undefined);
   if (cards.length === 1) {
     const id = cards[0];
     const authored = () => choicesOn(id, actions)[0];
@@ -276,7 +274,11 @@ export function cardPlay(world, selected) {
       (a) => a.kind === "eat" && a.item === id && !a.target,
     );
     if (meal) return result(meal);
-    if (id === "lamp") return single(use(id), "Pair the Lamp with Oil flask.");
+    if (id === "lamp")
+      return single(
+        null,
+        `${lampRoomFlame(world.items.lamp)}. Pair with this place to put it down, or tap again to put it away.`,
+      );
     if (id === "bell")
       return single(
         use(id),
@@ -525,7 +527,13 @@ export function cardObservation(world, id) {
   if (item) {
     const observations = [];
     if (typeof item.lit === "boolean")
-      observations.push(item.lit ? "Lit" : "Unlit");
+      observations.push(
+        id === "lamp" && item.fuelRooms !== undefined
+          ? lampRoomFlame(item)
+          : item.lit
+            ? "Lit"
+            : "Unlit",
+      );
     if (typeof item.ringing === "number")
       observations.push(
         item.ringing > 0 && !covered(world, id) ? "Ringing" : "Silent",

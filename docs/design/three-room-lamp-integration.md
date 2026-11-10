@@ -31,3 +31,21 @@ journal replay after deleting checkpoints, desktop/phone holds and reloads, and
 the full regression suite. Passing focused tests does not substitute for legacy
 fixture migration or the broader suite. This remains a draft until those gates
 and independent review are complete.
+
+## Atomic crossing and resident settlement
+
+Greek revision24 replaces the cover/uncover signal with `unlockWhen`, a bounded
+list of existing-style authored conditions on a transport crossing. A grounded
+lit lamp at Black Pond and an actor there selecting the cloth reveal the ship.
+`in_hand` deliberately differs from older `held` custody vocabulary. The same
+settlement runs on quiet hand changes and actual plays, including residents.
+Discovery remains latched, old completed signals keep discovery, partial signal
+fields retire without rewriting logs, and occupied voyages retain access.
+Bell ringing/put-down redesign and mystery-card UI are separate followups.
+
+Resident lamp selection probes actual authored routes with isolated candidate
+hand/light state. A home's `light` flag denotes its resource, not the desired
+on/off state: interpreting it as brightness trapped Pip in the attic. The
+regression retains240-play liveness and1000-play save-validity assertions.
+Crossing finalization follows voyage cargo/light settlement, not stale pre-voyage
+light. `validateWorld` checks room metadata, known fuel location and projection.

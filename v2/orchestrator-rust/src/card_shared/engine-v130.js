@@ -1043,7 +1043,9 @@
       s.transports[id] ??= freshState(t.at, s.turn || 0);
   }
   function transportUnlocked(s, id) {
-    const signals = crossings.filter((c) => c.transport === id && c.signal);
+    const signals = crossings.filter(
+      (c) => c.transport === id && (c.signal || c.unlockWhen)
+    );
     return !signals.length || signals.some((c) => s.crossings[c.id].discovered);
   }
   var shipDock = (s, id) => read(s, id)?.phase === "sea" ? null : read(s, id)?.dock ?? null;
@@ -1054,7 +1056,9 @@
       if (Object.entries(s.actors).some(
         ([actor, state]) => state.place === transports[id].place && controlledByHuman(s, actor)
       )) {
-        const signal = crossings.find((c) => c.transport === id && c.signal);
+        const signal = crossings.find(
+          (c) => c.transport === id && (c.signal || c.unlockWhen)
+        );
         if (signal) s.crossings[signal.id].discovered = true;
       }
     }
@@ -1411,6 +1415,10 @@
       case "home_door":
         return s.doors?.[c.home] === c.place;
       // The current player carries the thing, unless another carrier is named.
+      case "in_hand":
+        return heldItem(s, actor ?? currentActor(s)) === c.item && !usedUp(s, c.item);
+      case "actor_at":
+        return s.actors[actor ?? currentActor(s)]?.place === c.place;
       case "held":
         return s.items[c.item]?.holder === (c.actor ?? currentActor(s)) && !usedUp(s, c.item);
       // The thing rests on a place, not in a hand or inside another thing.
@@ -1541,6 +1549,19 @@
         }
         if (signal.complete) log(signal.complete, c.from);
       }
+    }
+  }
+  function settleCrossingUnlocks(s, senses2) {
+    for (const c of crossings) {
+      if (!c.unlockWhen || s.crossings[c.id].discovered) continue;
+      if (!Object.keys(s.actors).some(
+        (actor) => entityActive(s, actor) && c.unlockWhen.every(
+          (r) => conditionMet(s, r, senses2, c.packId, actor)
+        )
+      ))
+        continue;
+      s.crossings[c.id].discovered = true;
+      summonTransport(s, c.transport, c.from);
     }
   }
   function endRound(s, round2, senses2, log) {
@@ -2638,6 +2659,8 @@
     "gate_open",
     "grounded",
     "held",
+    "in_hand",
+    "actor_at",
     "home_door"
   ];
   var AT_SEA = "@sea";
@@ -3143,6 +3166,13 @@
       let ok = record3(c) && CONDITION_KINDS.includes(c.kind) && depth <= 2;
       if (ok)
         switch (c.kind) {
+          case "in_hand":
+          case "grounded":
+            ok = keysOk(c, ["kind", "item"]) && (hub2.items.includes(c.item) || owns3(items2, c.item));
+            break;
+          case "actor_at":
+            ok = keysOk(c, ["kind", "place"]) && anyPlace(c.place);
+            break;
           case "sound":
             ok = keysOk(c, ["kind", "at"]) && Array.isArray(c.at) && c.at.length > 0 && c.at.length <= 4 && new Set(c.at).size === c.at.length && c.at.every((p) => anyPlace(p) || mountedPlaces.includes(p));
             break;
@@ -3733,6 +3763,7 @@
           "travelers",
           "travel",
           "signal",
+          "unlockWhen",
           "requires",
           "scenery",
           "opened",
@@ -3782,6 +3813,14 @@
           ),
           `${name} scenery needs open and/or closed text`
         );
+      if (c.unlockWhen !== void 0) {
+        check(
+          c.signal === void 0 && c.transport !== void 0 && Array.isArray(c.unlockWhen) && c.unlockWhen.length > 0 && c.unlockWhen.length <= 6,
+          `${name} unlockWhen needs transport conditions, not a signal`
+        );
+        for (const r of c.unlockWhen || [])
+          condition(r, `${name} unlock condition`);
+      }
       const s = c?.signal;
       if (s === void 0) continue;
       check(
@@ -4478,6 +4517,46 @@
       throw new Error("The world changed. Choose an item again.");
     chooseHeldItem(world, actor, choice.item);
     world.revision += 1;
+  }
+
+  // v2/card-game/lamp-room-fuel.mjs
+  var LAMP_ROOM_LIMIT = 3;
+  var validPlace = (place) => typeof place === "string" && place.length > 0;
+  function validLampRoomFuel(state) {
+    return Boolean(
+      state && Number.isInteger(state.fuelRooms) && state.fuelRooms >= 0 && state.fuelRooms <= LAMP_ROOM_LIMIT && validPlace(state.fuelPlace) && typeof state.fuelVisit === "boolean"
+    );
+  }
+  function checkPlace(place) {
+    if (!validPlace(place)) throw new Error("Choose a lamp location.");
+  }
+  function burning({ held = false, grounded = false }) {
+    if (typeof held !== "boolean" || typeof grounded !== "boolean" || held && grounded)
+      throw new Error("Choose one physical lamp position.");
+    return held || grounded;
+  }
+  function filledLampRoomFuel(place) {
+    checkPlace(place);
+    return { fuelRooms: LAMP_ROOM_LIMIT, fuelPlace: place, fuelVisit: true };
+  }
+  function roomFuelFromTurns(fuel, place) {
+    if (!Number.isInteger(fuel) || fuel < 0 || fuel > 12)
+      throw new Error("Expected released lamp fuel between zero and twelve.");
+    return { ...filledLampRoomFuel(place), fuelRooms: Math.ceil(fuel / 4) };
+  }
+  function settleLampRoomFuel(state, { place, held = false, grounded = false }) {
+    if (!validLampRoomFuel(state)) throw new Error("Invalid lamp room fuel.");
+    checkPlace(place);
+    const burns = burning({ held, grounded });
+    const counted = state.fuelPlace === place && state.fuelVisit;
+    const spent = burns && !counted && state.fuelRooms > 0;
+    const fuelRooms = state.fuelRooms - Number(spent);
+    return {
+      fuelRooms,
+      fuelPlace: place,
+      fuelVisit: counted || spent,
+      lit: burns && fuelRooms > 0
+    };
   }
 
   // v2/card-game/station-exits.mjs
@@ -5905,6 +5984,8 @@
       if (s.packs?.["greek-drama"]?.revision === 21)
         s.packs["greek-drama"].revision = 22;
       upgradeGreekCithaeronOpenSave(s);
+      if (s.packs?.["greek-drama"]?.revision === 23)
+        s.packs["greek-drama"].revision = 24;
       upgradeRecitals(s, packDefinitions);
     }
     upgradeSightings(s);
@@ -7825,7 +7906,13 @@
       );
     if (!s.doors) placeDoors(s);
     for (const pack of packDefinitions) {
-      for (const c of pack.crossings) s.crossings[c.id] ??= newCrossingState(c);
+      for (const c of pack.crossings) {
+        s.crossings[c.id] ??= newCrossingState(c);
+        if (c.unlockWhen) {
+          delete s.crossings[c.id].phase;
+          delete s.crossings[c.id].until;
+        }
+      }
       if (s.packs[pack.id]) continue;
       s.packs[pack.id] = newPackRecord(pack);
       for (const [id, a] of Object.entries(pack.avatars)) {
@@ -8210,6 +8297,7 @@
     settleLamp(s);
     if (s.opening && actor === "vale" && s.actors.vale.place === "attic")
       s.locations.attic.anchored = true;
+    settleCrossingUnlocks(s, sensesFor(s));
     latchRoutes(s);
     settleGuards(s);
     settleStationExits(s);
@@ -8974,6 +9062,7 @@
   }
   function perform(s, a, round2 = null, settle = []) {
     const hands = handSnapshot(s);
+    settleCrossingUnlocks(s, sensesFor(s));
     settleStandoffs(s);
     const conflict = standoffFor(s, a.actor);
     const result = performPlay(s, a, round2, settle, hands);
@@ -9263,6 +9352,7 @@
     }
     settleHeldItems(s, hands);
     settleLamp(s);
+    settleCrossingUnlocks(s, sensesFor(s));
     const recitals = here !== s.actors[a.actor].place ? arriveRecitals(s, packDefinitions, a.actor) : [];
     const handover = requestAccepted && pressure && s.items[a.item]?.holder === a.target ? pressure : null;
     if (handover)
@@ -9438,13 +9528,6 @@
     const getActions = () => actions ??= legalActions(s, actor);
     if (route)
       return getActions().find((a) => a.kind === "move" && a.target === route[1]) || voyageAction(s, actor, route[1], getActions());
-    const gate = homeGates[here];
-    if (gate?.light && !s.items[gate.item].lit && actor !== currentActor(s) && !controlledByHuman(s, actor) && homeGateRecoverable(s, here, gate, actor)) {
-      const light = getActions().find(
-        (a) => a.kind === "light" && a.item === gate.item
-      );
-      if (light) return light;
-    }
     if (target === "attic" && !["attic", "pond", "station"].includes(here)) {
       const approach = routeBetween(s, here, "pond", actor);
       if (approach?.length > 1)
@@ -9460,8 +9543,8 @@
         rescueRoutes.set(from, routeBetween(s, from, target, actor));
       return rescueRoutes.get(from);
     };
-    for (const [home, gate2] of Object.entries(homeGates)) {
-      if (here === home || !rescueRoute(gate2.rescue)) continue;
+    for (const [home, gate] of Object.entries(homeGates)) {
+      if (here === home || !rescueRoute(gate.rescue)) continue;
       const approach = routeBetween(s, here, home, actor);
       if (approach?.length > 1)
         return getActions().find(
@@ -9477,6 +9560,30 @@
       if (sound)
         return covered(s, "bell") ? getActions().find((a) => a.kind === "take" && a.item === "cloth") : sound;
     }
+  }
+  function prepareResidentLamp(s, actor) {
+    if (controlledByHuman(s, actor) || s.items.lamp.holder !== actor) return;
+    const want = wantOf(s, actor), here = s.actors[actor].place;
+    const destination = levelReturnHome(s, actor) || (want?.kind === "place" ? want.target : want?.kind === "person" ? s.actors[want.target]?.place : null);
+    let choice;
+    if (destination && destination !== here && !routeBetween(s, here, destination, actor)) {
+      for (const heldItem2 of [null, "lamp"]) {
+        const probe = {
+          ...s,
+          actors: { ...s.actors, [actor]: { ...s.actors[actor], heldItem: heldItem2 } },
+          items: { ...s.items, lamp: { ...s.items.lamp } }
+        };
+        settleLamp(probe);
+        if (routeBetween(probe, here, destination, actor)) {
+          choice = heldItem2;
+          break;
+        }
+      }
+    } else if (want?.target === "lamp" && typeof want.lit === "boolean")
+      choice = want.lit ? "lamp" : null;
+    if (choice === void 0) return;
+    chooseHeldItem(s, actor, choice);
+    settleLamp(s);
   }
   function plan(s, actor = currentActor(s)) {
     const previousReads = planReads;
@@ -9616,7 +9723,7 @@
         return go(want.step.at);
       if (want.lit === void 0) return idle();
       const cover = ids.find((id) => s.items[id].holder === item);
-      const fix = cover ? find("take", (a) => a.item === cover) : s.items[item].lit !== want.lit && find(want.lit ? "light" : "snuff", (a) => a.item === item);
+      const fix = cover ? find("take", (a) => a.item === cover) : null;
       return fix ? { action: fix } : idle();
     }
     if (itemPlace(s, item) !== here) return go(itemPlace(s, item));
@@ -9772,6 +9879,7 @@
         continue;
       if (residentAsleep(next, id) && !standoffFor(next, id)) continue;
       wakeResident(next, id);
+      prepareResidentLamp(next, id);
       perform(next, plan(next, id).action, round2, residents);
     }
     const rings = next.log.filter(
@@ -9779,24 +9887,11 @@
     );
     if (!rings.length)
       next.items.bell.ringing = Math.max(0, next.items.bell.ringing - 1);
-    endRound(
-      next,
-      round2,
-      sensesFor(next),
-      (line, locationId) => addLog(next, "World", line, { locationId })
-    );
-    const isOpen = reflectionOpen(next, reflectionSource);
-    if (wasOpen !== isOpen)
-      addLog(
-        next,
-        "World",
-        isOpen ? reflectionSource === "pond" ? "The pond's reflection opens a path to the attic." : "The attic mirror opens a path to the pond. A dark shore waits through the glass." : reflectionSource === "pond" ? "The pond's reflected path to the attic closes. The shore path to the station remains open." : "The attic mirror's path to the pond closes.",
-        { locationId: reflectionSource }
-      );
     for (const id of roamingActors) {
       if (controlledByHuman(next, id) || id === respondent || !roamingQuestActor(id, s) || !roamingQuestActor(id, next)) continue;
       const from = next.actors[id].place;
       rememberRoutes(next, id, visibleRouteEdges(from));
+      prepareResidentLamp(next, id);
       const chosen = plan(next, id);
       if (chosen.callShip) callTransport(next, from, true);
       if (chosen.action.kind !== "wait" || standoffFor(next, id))
@@ -9829,6 +9924,21 @@
     settleLamp(next);
     refuelCarried(next);
     settleLamp(next);
+    settleCrossingUnlocks(next, sensesFor(next));
+    endRound(
+      next,
+      round2,
+      sensesFor(next),
+      (line, locationId) => addLog(next, "World", line, { locationId })
+    );
+    const isOpen = reflectionOpen(next, reflectionSource);
+    if (wasOpen !== isOpen)
+      addLog(
+        next,
+        "World",
+        isOpen ? reflectionSource === "pond" ? "The pond's reflection opens a path to the attic." : "The attic mirror opens a path to the pond. A dark shore waits through the glass." : reflectionSource === "pond" ? "The pond's reflected path to the attic closes. The shore path to the station remains open." : "The attic mirror's path to the pond closes.",
+        { locationId: reflectionSource }
+      );
     wakeSleepers(next, s, voyages);
     settleItemCycle(next, nameOf, worldLine);
     reviseStalledWants(
@@ -9991,7 +10101,7 @@
       if (count > (allowance || 3) || allowance && allowance !== count) fail();
     }
     const lamp = s.items.lamp, oil = s.items.oil, bell = s.items.bell;
-    if (!Number.isInteger(lamp.fuel) || lamp.fuel < 0 || lamp.fuel > LAMP_FUEL || typeof lamp.lit !== "boolean" || lamp.lit && lamp.fuel === 0)
+    if (!validLampRoomFuel(lamp) || !Object.hasOwn(places, lamp.fuelPlace) || lamp.fuel !== lamp.fuelRooms * 4 || !Number.isInteger(lamp.fuel) || lamp.fuel < 0 || lamp.fuel > LAMP_FUEL || typeof lamp.lit !== "boolean" || lamp.lit && lamp.fuel === 0)
       fail();
     if (Object.hasOwn(oil, "doses") || !Number.isInteger(bell.ringing) || bell.ringing < 0 || bell.ringing > 3 || covered(s, "bell") && bell.ringing > 0)
       fail();
@@ -10150,46 +10260,6 @@
   var carried = (s, actor) => ids.filter((id) => rootHolder(s, id) === actor);
   var covered = (s, id) => s.items.cloth.holder === id;
   var shining = (s) => entityActive(s, "lamp") && s.items.lamp.lit && s.items.lamp.fuel > 0 && !covered(s, "lamp");
-
-  // v2/card-game/lamp-room-fuel.mjs
-  var LAMP_ROOM_LIMIT = 3;
-  var validPlace = (place) => typeof place === "string" && place.length > 0;
-  function validLampRoomFuel(state) {
-    return Boolean(
-      state && Number.isInteger(state.fuelRooms) && state.fuelRooms >= 0 && state.fuelRooms <= LAMP_ROOM_LIMIT && validPlace(state.fuelPlace) && typeof state.fuelVisit === "boolean"
-    );
-  }
-  function checkPlace(place) {
-    if (!validPlace(place)) throw new Error("Choose a lamp location.");
-  }
-  function burning({ held = false, grounded = false }) {
-    if (typeof held !== "boolean" || typeof grounded !== "boolean" || held && grounded)
-      throw new Error("Choose one physical lamp position.");
-    return held || grounded;
-  }
-  function filledLampRoomFuel(place) {
-    checkPlace(place);
-    return { fuelRooms: LAMP_ROOM_LIMIT, fuelPlace: place, fuelVisit: true };
-  }
-  function roomFuelFromTurns(fuel, place) {
-    if (!Number.isInteger(fuel) || fuel < 0 || fuel > 12)
-      throw new Error("Expected released lamp fuel between zero and twelve.");
-    return { ...filledLampRoomFuel(place), fuelRooms: Math.ceil(fuel / 4) };
-  }
-  function settleLampRoomFuel(state, { place, held = false, grounded = false }) {
-    if (!validLampRoomFuel(state)) throw new Error("Invalid lamp room fuel.");
-    checkPlace(place);
-    const burns = burning({ held, grounded });
-    const counted = state.fuelPlace === place && state.fuelVisit;
-    const spent = burns && !counted && state.fuelRooms > 0;
-    const fuelRooms = state.fuelRooms - Number(spent);
-    return {
-      fuelRooms,
-      fuelPlace: place,
-      fuelVisit: counted || spent,
-      lit: burns && fuelRooms > 0
-    };
-  }
 
   // v2/card-game/lamp-state.mjs
   function installLampFuel(world) {

@@ -261,7 +261,7 @@ describe("the side roads in earlier saved worlds", () => {
         );
       expect(restored.items).toEqual({
         ...createWorld().items,
-        ...upgradedItems(world.items),
+        ...upgradedItems(world.items, restored),
         ...branchItems,
         ...willowsItems,
         ...ajaxItems,

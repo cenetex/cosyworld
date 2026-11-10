@@ -1,5 +1,5 @@
 import { endStandoff } from "../helpers/standoff.mjs";
-import { atticOpening } from "./card-attic-opening.mjs";
+import { atticOpening, selectLamp } from "./card-attic-opening.mjs";
 import { openingFixture } from "../helpers/greek-opening.mjs";
 import {
   createWorld,
@@ -60,18 +60,14 @@ export function narrativeContractCases() {
   const clearing = playCard(secondRing, "move", null, "clearing");
   const opening = enableMotives(atticOpening());
   // The opening starts lit; dousing opens the mirror, relit on the shore.
-  const doused = playCard(opening, "snuff", "lamp");
-  const pond = playCard(
-    playCard(doused, "move", null, "pond"),
-    "light",
-    "lamp",
-  );
+  const doused = selectLamp(opening);
+  const pond = selectLamp(playCard(doused, "move", null, "pond"), "lamp");
   const signalStart = structuredClone(pond);
   signalStart.items.cloth.holder = "vale";
-  signalStart.items.lamp.fuel = 12;
-  // One cover and one uncover of the lit lamp call the ship.
-  const firstCover = playCard(signalStart, "cover", "cloth", "lamp");
-  const ship = playCard(firstCover, "take", "cloth");
+
+  // A placed lamp and selected cloth reveal the ship without special plays.
+  const placedLamp = playCard(signalStart, "drop", "lamp");
+  const ship = selectLamp(placedLamp, "cloth");
   const aboard = playCard(ship, "move", null, "greek-ship");
   const harbor = sailTo(aboard, "greek-harbor");
   const road = playCard(harbor, "move", null, "greek-road-thebes");
@@ -106,7 +102,7 @@ export function narrativeContractCases() {
     ["enter clearing", clearing],
     ["return to echo's location", playCard(clearing, "move", null, "pond")],
     ["uncover bell", playCard(covered, "take", "cloth")],
-    ["first lamp covering", firstCover],
+    ["lamp placed on shore", placedLamp],
     ["ship summoned", ship],
     ["reload summoned ship", decodeSave(encodeSave(ship))],
     ["Steam Clock return bell", playCard(clearing, "ring", null, "clearing")],

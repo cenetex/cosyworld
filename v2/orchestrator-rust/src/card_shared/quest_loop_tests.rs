@@ -5,6 +5,13 @@ fn fixture(name: &str, world: &World) -> (std::path::PathBuf, rusqlite::Connecti
     let path = std::env::temp_dir().join(format!("{name}-{}.sqlite", crate::random_hex(12)));
     let c = store::open(&path).unwrap();
     full_store::schema(&c).unwrap();
+    if let Some(hash) = &world.pack {
+        c.execute(
+            "INSERT OR IGNORE INTO card_full_packs(hash,revision,content) VALUES(?,?,?)",
+            rusqlite::params![hash, world.version, &*content::text(hash).unwrap()],
+        )
+        .unwrap();
+    }
     let id = "e".repeat(48);
     store::create(&c, &id, "owner", now()).unwrap();
     full_store::seed(&c, &id, world, name, now()).unwrap();
@@ -12,13 +19,24 @@ fn fixture(name: &str, world: &World) -> (std::path::PathBuf, rusqlite::Connecti
 }
 
 fn created(version: &str) -> World {
-    let pack = engine::takes_content(version).then(|| content::seeded(version).into());
-    let game = engine::reduce_pack(
-        version,
-        Some(content::seeded(version)),
-        json!({"op":"create","seed":9}),
-    )
-    .unwrap()["world"]
+    let content = if version == engine::HUNDRED_TWENTY_EIGHTH_VERSION {
+        let text = include_str!("../../../../test/fixtures/released-rules/content-v128.json");
+        let hash = content::hash(text);
+        let c = rusqlite::Connection::open_in_memory().unwrap();
+        full_store::schema(&c).unwrap();
+        c.execute(
+            "INSERT INTO card_full_packs(hash,revision,content) VALUES(?,?,?)",
+            rusqlite::params![hash, version, text],
+        )
+        .unwrap();
+        content::preload(&c, &hash).unwrap();
+        hash
+    } else {
+        content::seeded(version).to_string()
+    };
+    let pack = engine::takes_content(version).then(|| content.clone());
+    let game = engine::reduce_pack(version, Some(&content), json!({"op":"create","seed":9}))
+        .unwrap()["world"]
         .clone();
     World {
         version: version.into(),
@@ -74,7 +92,8 @@ fn rules_99_quest_loop_commits_and_replays_in_the_c_host() {
     game["revision"] = json!(2);
     game["actors"]["vale"]["place"] = json!("attic");
     game["actors"]["keeper"]["place"] = json!("attic");
-    game["items"]["lamp"]["holder"] = json!("station");
+    game["items"]["lamp"]["holder"] = json!("vale");
+    game["actors"]["vale"]["heldItem"] = json!("bell");
     game["items"]["bell"]["holder"] = json!("vale");
     game["actors"]["keeper"]["want"] =
         json!({"kind":"item","target":"bell","since":2,"refusals":0});
@@ -118,6 +137,9 @@ fn rules_99_quest_loop_commits_and_replays_in_the_c_host() {
         a["kind"] == "give" && a["target"] == "keeper" && a["item"] == "bell"
     });
     commit(&mut world, give);
+    let stow = json!({"op":"hold","actor":"vale","choice":{
+        "item":null,"revision":world.game["revision"]}});
+    commit(&mut world, stow);
     assert_eq!(world.game["actors"]["vale"]["xp"], 1);
     let reward = play(&world, |a| a["kind"] == "claim");
     commit(&mut world, reward);
@@ -159,6 +181,9 @@ fn rules_99_quest_loop_commits_and_replays_in_the_c_host() {
     let reward = play(&world, |a| a["kind"] == "claim");
     commit(&mut world, reward);
     assert_eq!(world.game["actors"]["vale"]["xp"], 3);
+    let hold = json!({"op":"hold","actor":"vale","choice":{
+        "item":"lamp","revision":world.game["revision"]}});
+    commit(&mut world, hold);
     let home = play(&world, |a| a["kind"] == "move" && a["target"] == "attic");
     commit(&mut world, home);
     let event = long_rest(&mut world);
@@ -201,7 +226,13 @@ fn rules_98_world_upgrades_to_99_keeping_its_opening_and_packs() {
     let upgraded = full_store::world(&c, &id, now()).unwrap();
     assert_eq!(upgraded.version, engine::VERSION);
     // Greek revision 20 and Hoppy revision 4 update their rooms and things.
-    let old = super::saved_items::current_pack_changes(&old, &upgraded.game);
+    let mut old = super::saved_items::current_pack_changes(&old, &upgraded.game);
+    let rooms = (old["items"]["lamp"]["fuel"].as_u64().unwrap() + 3) / 4;
+    old["items"]["lamp"]["fuelRooms"] = json!(rooms);
+    old["items"]["lamp"]["fuel"] = json!(rooms * 4);
+    old["items"]["lamp"]["fuelPlace"] = json!("attic");
+    old["items"]["lamp"]["fuelVisit"] = json!(true);
+    old["packs"]["greek-drama"]["revision"] = json!(24);
     for field in ["opening", "packs", "items", "turn", "log"] {
         assert_eq!(upgraded.game[field], old[field], "Keep {field}");
     }
@@ -213,8 +244,9 @@ fn rules_98_world_upgrades_to_99_keeping_its_opening_and_packs() {
     }
     // The opening goes on under rules 99: dousing the lamp opens the mirror.
     let mut world = upgraded;
-    let snuff = play(&world, |a| a["kind"] == "snuff");
-    commit(&mut world, snuff);
+    let stow = json!({"op":"hold","actor":"vale","choice":{
+        "item":null,"revision":world.game["revision"]}});
+    commit(&mut world, stow);
     assert_eq!(world.game["items"]["lamp"]["lit"], false);
     c.execute("DELETE FROM card_full_checkpoints WHERE world=?", [&id])
         .unwrap();
