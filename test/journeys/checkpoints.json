@@ -1,0 +1,60 @@
+{
+  "greek-before-funeral": {
+    "arrival": {
+      "turn": 2,
+      "place": "greek-courtyard",
+      "carried": ["lamp"],
+      "sha256": "997903596107c711"
+    },
+    "waterOffer": {
+      "turn": 5,
+      "place": "greek-courtyard",
+      "carried": ["greek-water-jar", "lamp"],
+      "sha256": "0fe4f777f461b9f8"
+    },
+    "water": {
+      "turn": 6,
+      "place": "greek-courtyard",
+      "carried": ["lamp"],
+      "sha256": "7231505af138a30d"
+    },
+    "decree": {
+      "turn": 7,
+      "place": "greek-gate",
+      "carried": ["lamp"],
+      "sha256": "d35ea0aad189e7cf"
+    },
+    "traded": {
+      "turn": 11,
+      "place": "greek-gate",
+      "carried": ["greek-decree", "lamp"],
+      "sha256": "aba435bd70661f1a"
+    },
+    "writ": {
+      "turn": 15,
+      "place": "greek-palace",
+      "carried": ["greek-creon-writ", "lamp"],
+      "sha256": "4310219d66029d1b"
+    },
+    "opened": {
+      "turn": 19,
+      "place": "greek-gate",
+      "carried": ["lamp"],
+      "sha256": "7c9313b5c02014c1"
+    }
+  },
+  "greek-before-funeral-dry": {
+    "arrival": {
+      "turn": 2,
+      "place": "greek-courtyard",
+      "carried": ["lamp"],
+      "sha256": "997903596107c711"
+    },
+    "decree": {
+      "turn": 3,
+      "place": "greek-gate",
+      "carried": ["lamp"],
+      "sha256": "fd70c8fbc9955d28"
+    }
+  }
+}

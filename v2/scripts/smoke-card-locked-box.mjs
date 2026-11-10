@@ -10,7 +10,7 @@ import { mkdir } from "node:fs/promises";
 import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
 import { encodeSave } from "../card-game/world.mjs";
-import { openingFixture } from "../../test/helpers/greek-opening.mjs";
+import { greekErrands } from "../../test/helpers/greek-opening.mjs";
 import { profiles } from "../card-game/memory.mjs";
 import {
   clearSelection,
@@ -28,7 +28,7 @@ const output = new URL(
   import.meta.url,
 );
 await mkdir(output, { recursive: true });
-const world = structuredClone(openingFixture("burial").decree);
+const world = structuredClone(greekErrands().decree);
 world.actors.vale.place = "greek-gate";
 world.crossings["pond-greek-harbor"].discovered = true;
 for (const id of ["lamp", "cloth"]) world.items[id].holder = "pond";

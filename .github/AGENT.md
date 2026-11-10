@@ -71,6 +71,23 @@ Then run every row that matches the change:
 | Browser, HTTP, persistence, or multiplayer | `npm run v2:check` |
 | Broad V2 or release change | `npm run check:local` and the relevant build |
 
+### Test starting states
+
+A test that needs a world "just before X" plays a journey; it does not load a
+recorded save. A journey (`test/journeys/*.mjs`) names its start, then lists real
+plays (`{ kind, item, target }`, matched against `legalActions`), road walks
+(`{ walk: "gate" }`), quiet hand picks (`{ hold: "cloth" }`) and checkpoints
+(`{ at: "traded" }`). A play that is not legal fails with the journey, the
+checkpoint it was heading for and the legal plays. To add one: write the module,
+list it in `test/journeys/index.mjs`, read its worlds in a test with
+`journeyWorlds(journey)` (`test/helpers/journey.mjs`; worlds are built once per
+test file, about 0.1 s), and run `npm run test:journeys:build`. After a rules or
+pack change, `npm run test:journeys:check` (part of `v2:card:pack:check`) names
+each journey and checkpoint that moved; read the diff of
+`test/journeys/checkpoints.json`, fix any journey whose step stopped being
+legal, then rebuild. Keep recorded saves only as replay proofs: a released rule
+bundle or an old save that must still load.
+
 ### Fast check
 
 The UI style guard follows CSS variables used by core surfaces across CSS
