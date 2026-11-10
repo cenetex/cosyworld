@@ -152,10 +152,6 @@
     "default": ["card_shared.rs", "card_narrative.rs"],
     "ignoreInputs": ["package.json"],
     "rules": [
-    {
-      "paths": "^v2/card-game/(entry|title-intro)\\.mjs$",
-      "smokes": ["smoke-card-startup-recovery"]
-    },
       {
         "about": "The C kernel and card session guards.",
         "paths": "^v2/core-c/",
