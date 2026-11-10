@@ -14,7 +14,9 @@ loss of enjoyment. Human taste and a simpler goal had to intervene.
 
 **CosyWorld's response: generate possibilities, verify consequences, let
 the player determine what matters.** Do not promote a model's eloquence
-to state authority. See [the Pact](../cosyworld-pact.md).
+to state authority. See [the Pact](../cosyworld-pact.md) for the product
+law and [A world that remembers](../cosyworld-ethos.md) for the governing
+ethos and backlog questions. This note is the working detail beneath both.
 
 This isn't a mandate to add more rules. The three useful boundaries already
 exist:
@@ -103,7 +105,9 @@ For a new or significantly revised level, one human reviewer should
 play a short journey, ideally once without knowing its intended solution.
 Keep the existing card-table controls and test tools.
 
-Ask only four questions:
+The ethos asks for two answers: the most memorable moment and the part to
+remove. These four questions are optional prompts for finding them, not a
+form to complete:
 
 1. **Surprise:** What specific detail could only belong to this level?
 2. **Agency:** What did I choose that changed something real?
