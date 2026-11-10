@@ -466,12 +466,9 @@ It shares its store with [hidden holdings](../../docs/design/hidden-holdings.md)
 
 ### Later: one want per avatar, Sleep at home, arcs (#2605)
 
-Owner direction, 2026-11-10: remove story choice buttons and the extra quest
-sources, keep one want per avatar, make Level Up the want to Sleep at home,
-and put authored story arcs over drawn wants. The draft, with today's
-inventory, three arc options and the migration slices, is
-[wants and arcs](../../docs/design/wants-and-arcs.md). Nothing in it is built;
-this section above describes the game as it ships.
+Owner direction, 2026-11-10. The draft, with today's inventory and the
+migration slices, is [wants and arcs](../../docs/design/wants-and-arcs.md).
+Nothing in it is built; the section above describes the game as it ships.
 
 ## Image-first presentation
 

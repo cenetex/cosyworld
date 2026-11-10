@@ -150,20 +150,13 @@ reads "Tap to open", needs no rule and pays nothing (`app.mjs:479-482`).
   other homes are ordinary places behind a door that needs the avatar's
   belonging, so a long rest there does nothing today. 36 of 58 pack
   residents set `home`.
-
-### Trust, gates and memory
-
 - Trust is 0–3 per pair. Its one source is giving someone the item they want
-  (`trustGiver`, `world.mjs:1737`). It lowers a trade's price and softens a
-  gift refusal (`motives.mjs:95,108`), lets an invitation or a shared meal
-  be accepted (`world.mjs:1192`, `:590`) and makes a resident step in for a
-  friend who is struck (`world.mjs:2766`). No pack gate reads it: the
-  `trusted` condition exists (`pack-rules.mjs:138`) and is used 0 times.
+  (`trustGiver`, `world.mjs:1737`). It eases trades and gifts
+  (`motives.mjs:95,108`), invitations and shared meals (`world.mjs:1192`,
+  `:590`), and stepping in for a struck friend (`world.mjs:2766`). No pack
+  gate reads it: `trusted` (`pack-rules.mjs:138`) is used 0 times.
 - 25 routes and crossings carry `requires` (one is retired): flags 15, an
   item somewhere or held 15, a `choice` 6.
-- Four bounded records hold the past: `memory.mjs` (16 events),
-  `knowledge.mjs` (256 facts), `motives.mjs` (6 grievances each) and
-  `life.mjs` (16 experiences).
 
 ### What the reference content leans on
 
@@ -280,9 +273,6 @@ Kept: the 179 triggered choices, as authored effects on fixed verbs
 (decided); source 1 for residents; source 4, Talk gives a want; source 5,
 a box gives a want; sources 7 and 9 as starter wants.
 
-Fork effects (`choose`, 33) and the six route gates that read them are out
-of scope here; #1581 step 8 owns them.
-
 ### Story arcs: three options
 
 **A. Stages of world facts.** A resident may carry a short `wants` list.
@@ -298,9 +288,9 @@ Nothing is saved: the stage is read from the world each turn, like
 - *RatiRadio.* RATi: the beanie until Dispatch opens, the thermos until the
   Listening Room opens, the figurine until the Booth opens, then the three
   keepsakes laid in his room; after Raven wakes, "I want to see Raven".
-- *Pack data.* A `wants` list on the avatars that need one.
-- *Rules.* One generic read in want selection, and a schema check.
-- *The player sees.* What people ask for changes after what was done.
+- *Needs.* A `wants` list in pack data; one generic read in want selection
+  and a schema check in the rules. The player sees what people ask for
+  change after what was done.
 - *How it fails.* It is a chain if authors make it long, and a staged
   resident never wants anything else. One resident, one line of story.
 
@@ -369,7 +359,7 @@ or diagnosis.
 3. **Why is it more interesting?** Today the hand fills with quests from
    nine sources and the player works the list. With one want, taken on
    purpose, what matters is the shut thing in front of them and the people
-   near it. Level-up gives home a purpose it lacks today.
+   near it. Level-up gives home a purpose.
 
 ## Migration slices
 
@@ -389,8 +379,6 @@ Released journals replay on their frozen bundles. Slices that delete
 | 6 | Staged `wants` on residents; remove `choose` from offered plays | rules | reset | No arc field in the save; the same world facts give the same want after reload |
 | 7 | Burial, RatiRadio and RATi's buttons as staged wants; more boxes | pack data | keep | Antigone's Talk line changes at the Writ and after the burial; RATi's changes at each door |
 | 8 | One quest card; remove the fan and Focus from the client | client | keep | `npm run check:ui` passes with no new entry; phone and desktop |
-| 9 | Resident draws from grievances, knowledge and trust (#1506, #1871) | rules, later batch | reset | The keeper sees Vale take the Bell: his next want is the Bell and Talk gives the reason |
-| 10 | Rewrite the README quest section; retire superseded notes | docs | keep | `npm run docs:check` |
 
 ## Open questions for the owner
 
