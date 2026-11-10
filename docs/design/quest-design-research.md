@@ -43,7 +43,7 @@ from the linked source. Paraphrase is marked as such.
 | P15 | **OSR axioms as principles.** A set of GM and player principles in the style of *Apocalypse World*. | Ben Milton, Steven Lumpkin and David Perry, [Principia Apocrypha](https://lithyscaphe.blogspot.com/p/principia-apocrypha.html) (2018). | Use principles to guide the LLM's voice, and procedures to guide the engine. |
 | P16 | **Clocks.** Progress clocks are segmented circles for effort against an obstacle or a coming threat. | John Harper, *Blades in the Dark*; [Roll20 compendium entry](https://roll20.net/compendium/BITD/Progress%20clocks). | Many resources are already clocks (lamp fuel, rest turns). Talk should name them as stakes, not numbers. |
 | P17 | **Fronts.** Linked threats with ordered portents that advance when the players do not act. | Vincent Baker, *Apocalypse World*; see [The Daily Apocalypse on threat countdowns](https://daily-apocalypse.com/daily-apocalypse/85-threat-countdown-clocks). | A cosy "front" is a need that gets a little worse, then speaks up. |
-| P18 | **Dungeon sign and tell.** Good dungeons show evidence before danger; exploration rewards reading the place. | Gus L, *Dungeon of Signs* and *All Dead Generations* blogs; see review of [Tomb Robbers of the Crystal Frontier](https://gorgonbones.bearblog.dev/review-tomb-robbers-of-the-crystal-frontier-by-gus-l/). The in-repo [DM guide](../dm-guide/chapters/06-obstacles-and-pressure.md) states the same as Lead, Gate, Hazard, Pressure. | Each quest gate should have a visible, sayable sign. |
+| P18 | **Dungeon sign and tell.** Good dungeons show evidence before danger; exploration rewards reading the place. | Gus L, *Dungeon of Signs* and *All Dead Generations* blogs; see review of [Tomb Robbers of the Crystal Frontier](https://gorgonbones.bearblog.dev/review-tomb-robbers-of-the-crystal-frontier-by-gus-l/). The in-repo retired DM guide (chapter 6) states the same as Lead, Gate, Hazard, Pressure. | Each quest gate should have a visible, sayable sign. |
 | P19 | **Storylets and salience.** Small content pieces unlocked by qualities; the system or player picks the most fitting one now. | Emily Short, [Beyond Branching](https://emshort.blog/2016/04/12/beyond-branching-quality-based-and-salience-based-narrative-structures/) (2016) and [Storylets: You Want Them](https://emshort.blog/2019/11/29/storylets-you-want-them/) (2019). | Our `storyQuests` plus `topics` are already storylets. Talk should pick the most salient fact for this listener, here, now. |
 | P20 | **The simulation dream, and its trap.** Rich simulation only matters when players can see and read it. | Tynan Sylvester, [The Simulation Dream](https://gamedeveloper.com/design/the-simulation-dream) (2013). | Hidden quest state that no character can mention is wasted. |
 | P21 | **Storytellers pace events.** RimWorld's storyteller presets choose when and how hard events land. | [RimWorld](https://en.wikipedia.org/wiki/RimWorld); [RimWorld wiki](https://rimworldwiki.com/wiki/About_RimWorld). | A cosy storyteller should space quest beats and rest, not raise danger. We already have rest and stall turns. |
@@ -219,7 +219,7 @@ Three short summaries carry most of the weight:
   silent lie when the item has moved.
 - **No explicit unknowns.** The packet never tells a speaker what it does *not*
   know. The DM guide calls for "excluded claim classes"
-  (`docs/dm-guide/chapters/08-ai-referee.md:45-49`). Without them, a model
+  (chapter 8 of the retired DM guide). Without them, a model
   asked "where is the bell?" will guess.
 - **The design backlog is heavier than needed.** `quest-grammar-and-return.md`
   proposes a typed `QuestPattern` graph, receipts and deltas across the C
@@ -472,7 +472,7 @@ Let a pack author a short `rumors` list: complete one-sentence facts, each with
 the engine, and an optional quest link. At world creation (or first mount),
 assign each rumor to one candidate by a seeded draw from the world seed, and
 freeze it, as the DM guide's "Tables without amnesia" asks
-(`docs/dm-guide/chapters/07-places-and-tables.md:140-184`). A rumor is spoken as
+(chapter 7 of the retired DM guide). A rumor is spoken as
 hearsay: "People at the well say ...". A `false` rumor is authored, attributed
 and hedged, so the model never invents it. Later, when an event contradicts a
 rumor, the engine can give witnesses a correcting fact.
@@ -667,4 +667,4 @@ LLM characters and world state
 In-repo
 
 - [Story quest guide](../../v2/docs/card-story-quests.md), [quest journeys](../../v2/docs/card-table/roaming-quests.md), [card guide](../../v2/card-game/README.md).
-- DM guide: [obstacles and pressure](../dm-guide/chapters/06-obstacles-and-pressure.md), [tables](../dm-guide/chapters/07-places-and-tables.md), [AI referee](../dm-guide/chapters/08-ai-referee.md), [preparing adventures](../dm-guide/chapters/09-preparing-adventures.md).
+- Retired DM guide chapters (in git history): obstacles and pressure, tables, AI referee, preparing adventures.

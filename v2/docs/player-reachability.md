@@ -24,5 +24,4 @@ release path. The passkey gate proves recovery on a fresh device.
 
 The production-router test follows entry, four dealt actions, session expiry,
 knockout, and release. Browser checks cover the rendered lifecycle actions and
-require a runnable dealt card in a playable scene. Composition checks apply
-the same authority contract across the shipped world compositions.
+require a runnable dealt card in a playable scene.
