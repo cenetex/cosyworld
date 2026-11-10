@@ -5706,7 +5706,9 @@ function resumeCurrentSharedPlay() {
   restedChoice = null;
   reviewing = false;
   reviewBeat = null;
-  selectCards(heldSelection().held, { keepOpen: true });
+  const shown = availableCards(world);
+  const held = [heldItem(world, currentActor(world))].filter((id) => id && shown.includes(id));
+  selectCards(held, { keepOpen: true });
   notice("");
   lineSeq = sharedLineSeq;
   syncSharedLine();
