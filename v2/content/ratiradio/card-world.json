@@ -381,7 +381,7 @@
       "id": "ratiradio-bring-them-home",
       "speaker": "ratiradio-rati",
       "at": "ratiradio-listening-room",
-      "text": "RATi touches the ring on the table. The glass, the beanie, the little ceramic bird: he has kept their places.",
+      "text": "RATi touches the ring on the table; the glass, the beanie, the little ceramic bird: he has kept their places.",
       "requires": [
         {
           "kind": "flag",
@@ -394,14 +394,14 @@
       "id": "ratiradio-rati-home",
       "speaker": "ratiradio-rati",
       "at": "ratiradio-listening-room",
-      "text": "RATi calls the Listening Room home. He can wander far, but comes back here before each new level.",
+      "text": "RATi calls the Listening Room home; he can wander far, but comes back here before each new level.",
       "requires": []
     },
     {
       "id": "ratiradio-little-one",
       "speaker": "ratiradio-raven",
       "at": "ratiradio-listening-room",
-      "text": "Raven taps its ceramic double once. The little bird makes no reply.",
+      "text": "Raven taps its ceramic double once; the little bird makes no reply.",
       "requires": [
         {
           "kind": "flag",
