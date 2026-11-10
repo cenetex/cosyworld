@@ -4499,6 +4499,15 @@
       "phone": "assets/optimized/phone/webp/ratiradio/listening-room.webp",
       "phoneHash": "4562ee5527eb2fe35f024bb589b05a23680a30e0888d6f2d8313254feffd8fc2"
     },
+    "assets/ratiradio/portable-radio.webp": {
+      "sourceHash": "4bb1c29d9da541dfec05883363ca771033616c9357d186b122dbda3236b3761b",
+      "stage": "assets/ratiradio/portable-radio.webp",
+      "stageHash": "4bb1c29d9da541dfec05883363ca771033616c9357d186b122dbda3236b3761b",
+      "card": "assets/ratiradio/portable-radio.webp",
+      "cardHash": "4bb1c29d9da541dfec05883363ca771033616c9357d186b122dbda3236b3761b",
+      "phone": "assets/ratiradio/portable-radio.webp",
+      "phoneHash": "4bb1c29d9da541dfec05883363ca771033616c9357d186b122dbda3236b3761b"
+    },
     "assets/ratiradio/rati.webp": {
       "sourceHash": "9f82c1c6e3c0e213cf0d355f745fe2152b29d981353864cf6f065c8e42c3142e",
       "stage": "assets/ratiradio/rati.webp",

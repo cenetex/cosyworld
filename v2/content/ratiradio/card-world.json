@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "ratiradio",
   "packId": "cosyworld.ratiradio",
-  "revision": 2,
+  "revision": 3,
   "name": "Night Shift at RatiRadio",
   "description": "A late-night radio station opens through recovered possessions. Bring the glass, ceramic raven, red beanie home to the Listening Room. RATi roams from this home; Raven joins the world when the return is complete.",
   "entry": "ratiradio-staff-kitchen",
@@ -186,6 +186,13 @@
       "persona": "A creased radio request slip with a lost-property note. The glass, ceramic raven, red beanie belong in the Listening Room. This paper is a clue, not a required return.",
       "holder": "station",
       "art": "assets/ratiradio/request-slip.webp"
+    },
+    "ratiradio-portable-radio": {
+      "name": "Portable Radio",
+      "text": "A small portable radio with an on/off dial. Carry it to hear the same RatiRadio broadcast wherever you go.",
+      "persona": "A portable receiver for RatiRadio. It starts switched off. Its owner can turn it on or off; anyone in the same place can hear it while it is on.",
+      "holder": "ratiradio-broadcast-booth",
+      "art": "assets/ratiradio/portable-radio.webp"
     }
   },
   "routes": [

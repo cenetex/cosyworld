@@ -1,3 +1,4 @@
+import { radioAudible } from "./radio-item.mjs";
 import { holdChoice } from "./world.mjs";
 import { createFigureFramer } from "./figure-frame.mjs";
 import { heldItem } from "./held-item.mjs";
@@ -1876,6 +1877,7 @@ function performAction(action, revision) {
   });
   world = result.state;
   rememberWait(action, selected.join("+"));
+  music.setRadio(radioAudible(world, currentActor(world)));
   music.setRoom(
     world.actors[currentActor(world)].place,
     locationDaylight(world, world.actors[currentActor(world)].place)?.phase ||
@@ -4834,6 +4836,7 @@ function render() {
   );
   hum.setStarted(musicHasStarted());
   ringHeard();
+  music.setRadio(radioAudible(world, currentActor(world)));
   // While the travel veil comes down, the old place stays drawn.
   if (covering) return;
   sleepView.observe(world, currentActor(world));

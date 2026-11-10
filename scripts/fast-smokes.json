@@ -33,6 +33,10 @@
       "smokes": ["smoke-card-ship-fade", "smoke-card-reduced-fades"]
     },
     {
+      "paths": "^v2/card-game/(radio-(item|player|station)|music)\\.mjs$|^v2/content/ratiradio/card-world\\.json$",
+      "smokes": ["smoke-card-portable-radio"]
+    },
+    {
       "paths": "^v2/card-game/(app|shared|dialogue|scene)\\.mjs$",
       "smokes": ["smoke-card-speech-queue"]
     },

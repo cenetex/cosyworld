@@ -18,6 +18,7 @@ const files = [
   "conversation.mjs",
   "held-item.mjs",
   "lamp-state.mjs",
+  "radio-item.mjs",
   "lamp-room-fuel.mjs",
   "authoring-create-tools.mjs",
   "authoring-create-transfer.mjs",

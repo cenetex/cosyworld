@@ -15787,7 +15787,7 @@
         schemaVersion: 1,
         id: "ratiradio",
         packId: "cosyworld.ratiradio",
-        revision: 2,
+        revision: 3,
         name: "Night Shift at RatiRadio",
         description: "A late-night radio station opens through recovered possessions. Bring the glass, ceramic raven, red beanie home to the Listening Room. RATi roams from this home; Raven joins the world when the return is complete.",
         entry: "ratiradio-staff-kitchen",
@@ -15971,6 +15971,13 @@
             persona: "A creased radio request slip with a lost-property note. The glass, ceramic raven, red beanie belong in the Listening Room. This paper is a clue, not a required return.",
             holder: "station",
             art: "assets/ratiradio/request-slip.webp"
+          },
+          "ratiradio-portable-radio": {
+            name: "Portable Radio",
+            text: "A small portable radio with an on/off dial. Carry it to hear the same RatiRadio broadcast wherever you go.",
+            persona: "A portable receiver for RatiRadio. It starts switched off. Its owner can turn it on or off; anyone in the same place can hear it while it is on.",
+            holder: "ratiradio-broadcast-booth",
+            art: "assets/ratiradio/portable-radio.webp"
           }
         },
         routes: [
@@ -18231,6 +18238,13 @@
     }
   }
 
+  // v2/card-game/radio-item.mjs
+  var RADIO_ITEM = "ratiradio-portable-radio";
+  function validRadioItem(world) {
+    const item = world.items[RADIO_ITEM];
+    return !item || !Object.hasOwn(item, "radioOn") || typeof item.radioOn === "boolean";
+  }
+
   // v2/card-game/lamp-room-fuel.mjs
   var LAMP_ROOM_LIMIT = 3;
   var validPlace = (place) => typeof place === "string" && place.length > 0;
@@ -19143,6 +19157,13 @@
     );
     if (s.packs?.ratiradio?.revision === 1 && packDefinitions.some((p) => p.id === "ratiradio" && p.revision >= 2))
       s.packs.ratiradio.revision = 2;
+    const radioPack = packDefinitions.find((p) => p.id === "ratiradio");
+    if (s.packs?.ratiradio?.revision === 2 && radioPack?.revision >= 3) {
+      const id = "ratiradio-portable-radio";
+      s.items[id] ??= { holder: radioPack.items[id].holder, history: [] };
+      s.memories[id] ??= newMemories()[id];
+      s.packs.ratiradio.revision = 3;
+    }
     upgradeHoppyTableSave(s);
     forgetQuests(s);
     if (s?.schema === 6) {
@@ -21370,6 +21391,7 @@
       const count = carried(s, actor).length;
       if (count > (allowance || 3) || allowance && allowance !== count) fail();
     }
+    if (!validRadioItem(s)) fail();
     const lamp = s.items.lamp, oil = s.items.oil, bell = s.items.bell;
     if (!validLampRoomFuel(lamp) || !Object.hasOwn(places, lamp.fuelPlace) || lamp.fuel !== lamp.fuelRooms * 4 || !Number.isInteger(lamp.fuel) || lamp.fuel < 0 || lamp.fuel > LAMP_FUEL || typeof lamp.lit !== "boolean" || lamp.lit && lamp.fuel === 0)
       fail();
@@ -21389,6 +21411,7 @@
     if (!validDisabledPacks(s.disabledPacks)) fail();
     let seq = 0;
     const verbs2 = [
+      "radio",
       "want_met",
       "accompany",
       "threaten",

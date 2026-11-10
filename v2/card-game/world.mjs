@@ -1,3 +1,4 @@
+import { RADIO_ITEM, validRadioItem } from "./radio-item.mjs";
 import { validLampRoomFuel } from "./lamp-room-fuel.mjs";
 import { fillLampFuel, settleLamp } from "./lamp-state.mjs";
 import { validStationExitOrder } from "./station-exits.mjs";
@@ -1428,6 +1429,16 @@ export function legalActions(s, actor = currentActor(s)) {
         ),
       );
     }
+    if (id === RADIO_ITEM && canReach(s, actor, id)) {
+      const on = item.radioOn !== true;
+      out.push({
+        ...offer("radio", actor, id, null,
+          `${nameOf(actor)} turns the Portable Radio ${on ? "on" : "off"}.`, [id]),
+        key: `radio:${actor}:${id}:${on ? "on" : "off"}`,
+        radioOn: on,
+        label: `Turn ${on ? "on" : "off"}`,
+      });
+    }
     if (item.holder === actor) {
       // Food and drink are eaten or drunk by whoever holds them, alone or
       // with someone here (rules 102).
@@ -2134,6 +2145,9 @@ function performPlay(s, a, round = null, settle = [], hands = handSnapshot(s)) {
     combat = null,
     invitation = null;
   switch (a.kind) {
+    case "radio":
+      s.items[RADIO_ITEM].radioOn = a.radioOn;
+      break;
     case "use":
       remember(s, a.item, a.text);
       break;
@@ -3490,6 +3504,7 @@ export function validateWorld(s) {
     const count = carried(s, actor).length;
     if (count > (allowance || 3) || (allowance && allowance !== count)) fail();
   }
+  if (!validRadioItem(s)) fail();
   const lamp = s.items.lamp,
     oil = s.items.oil,
     bell = s.items.bell;
@@ -3553,6 +3568,7 @@ export function validateWorld(s) {
   if (!validDisabledPacks(s.disabledPacks)) fail();
   let seq = 0;
   const verbs = [
+    "radio",
     "want_met",
     "accompany",
     "threaten",
