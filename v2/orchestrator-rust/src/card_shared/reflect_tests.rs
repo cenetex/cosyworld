@@ -19,15 +19,7 @@ fn shared_line_commits_before_its_reflection_and_the_reflect_op_replays() {
     claim(&mut c, &id, 1);
     let mut w = full_store::world(&c, &id, now()).unwrap();
     assert!(full::reflect::takes_reflect(&w.version));
-    let snuff = home_action(&w, 0, "snuff");
-    full_store::commit(
-        &c,
-        &id,
-        &mut w,
-        json!({"op":"play","actor":"vale","action":snuff}),
-        now(),
-    )
-    .unwrap();
+    hold(&c, &id, &mut w, 0, Value::Null);
     let mut queued = body("play", None);
     queued.key = "reflect-after-speech".into();
     queued.action = home_action(&full_store::world(&c, &id, now()).unwrap(), 0, "wait");
@@ -145,9 +137,7 @@ async fn quiet_wait_reflects_privately_and_replays() {
     let (path, mut c, id) = fixture();
     claim(&mut c, &id, 0);
     let mut w = full_store::world(&c, &id, now()).unwrap();
-    let snuff = home_action(&w, 0, "snuff");
-    let snuff = json!({"op":"play","actor":"vale","action":snuff});
-    full_store::commit(&c, &id, &mut w, snuff, now()).unwrap();
+    hold(&c, &id, &mut w, 0, Value::Null);
     let wait = home_action(&w, 0, "wait");
     full_store::commit(
         &c,

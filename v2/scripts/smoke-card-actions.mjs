@@ -22,7 +22,10 @@ const server = createServer();
 await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
 const browser = await browserType.launch({
   headless: true,
-  executablePath: browserName === "chromium" ? process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE : undefined,
+  executablePath:
+    browserName === "chromium"
+      ? process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE
+      : undefined,
 });
 const meeting = () => {
   const s = createWorld({ seed: 17 });
@@ -504,9 +507,20 @@ try {
     const chosenState = await state();
     assert.equal(chosenState.actors.vale.heldItem, "lamp");
     assert.equal(chosenState.items.lamp.lit, true);
-    assert.equal(chosenState.turn, before.turn, "holding an item costs no turn");
-    assert.deepEqual(chosenState.log, before.log, "holding an item creates no beat");
-    assert.deepEqual(chosenState.items, { ...beforeTrade.items, lamp: { ...beforeTrade.items.lamp, lit: true } });
+    assert.equal(
+      chosenState.turn,
+      before.turn,
+      "holding an item costs no turn",
+    );
+    assert.deepEqual(
+      chosenState.log,
+      before.log,
+      "holding an item creates no beat",
+    );
+    assert.deepEqual(chosenState.items, {
+      ...beforeTrade.items,
+      lamp: { ...beforeTrade.items.lamp, lit: true },
+    });
     await shot("trade");
     await page.locator("#card-actions button").click();
     assert.equal(await card("vale").isDisabled(), false);

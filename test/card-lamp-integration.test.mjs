@@ -272,3 +272,17 @@ it("migrates authentic rules128 light/snuff history without reinterpreting its e
     expect(old).toEqual(before);
   }
 }, 30000);
+
+
+describe("saved room fuel is validated before settlement", () => {
+  it.each([
+    { fuelPlace: "nonexistent" }, { fuel: 99 }, { fuel: -1 },
+    { fuelRooms: 1, fuel: 12 }, { fuelPlace: undefined },
+  ])("rejects forged metadata on local/shared import: %j", (fields) => {
+    const world = createWorld();
+    Object.assign(world.items.lamp, fields);
+    const save = JSON.stringify(world);
+    expect(() => decodeSave(save)).toThrow(/lamp room fuel/);
+    expect(() => dispatchShared({ op: "create", save })).toThrow(/lamp room fuel/);
+  });
+});

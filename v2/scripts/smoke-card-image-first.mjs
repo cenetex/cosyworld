@@ -24,9 +24,9 @@ await mkdir(output, { recursive: true });
 const server = createServer();
 await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
 const browser = await chromium.launch({
-    headless: true,
-    executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE,
-  });
+  headless: true,
+  executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE,
+});
 const report = [];
 function action(world, kind, item, target) {
   const found = legalActions(world).find(
@@ -52,7 +52,7 @@ function pond() {
   s.items.cloth.holder = "vale";
   fillLampFuel(s);
   s.items.bell.holder = "station";
-  s.actors.moth.place = "station";
+  s.actors.moth.place = "greek-palace";
   s.actors.keeper.place = "station";
   return decodeSave(encodeSave(s));
 }
@@ -206,7 +206,11 @@ try {
       async function assertQuietSelection() {
         const selected = await state();
         assert.equal(selected.turn, old.turn, "item selection costs no turn");
-        assert.deepEqual(selected.log, old.log, "item selection creates no beat");
+        assert.deepEqual(
+          selected.log,
+          old.log,
+          "item selection creates no beat",
+        );
         assert.equal(selected.items.lamp.fuelRooms, old.items.lamp.fuelRooms);
         const normalized = structuredClone(selected);
         normalized.revision = old.revision;
@@ -222,7 +226,11 @@ try {
       );
       async function assertHeldItem(id) {
         if (id === null) {
-          assert.equal(await heldPreview.count(), 0, "a stowed item has no portrait prop");
+          assert.equal(
+            await heldPreview.count(),
+            0,
+            "a stowed item has no portrait prop",
+          );
           return;
         }
         assert.equal(await heldPreview.getAttribute("data-item"), id);
@@ -349,7 +357,10 @@ try {
       await page.keyboard.press("Escape");
       await cards("cloth", "lamp");
       // Covering keeps both items in hand, so the covered lamp stays raised.
-      assert.equal((await state()).crossings["pond-greek-harbor"].discovered, false);
+      assert.equal(
+        (await state()).crossings["pond-greek-harbor"].discovered,
+        false,
+      );
       assert.equal(await card("lamp").getAttribute("data-covered"), "true");
       await assertHeldItem("lamp");
       assert.equal(await heldPreview.getAttribute("data-covered"), "true");
@@ -362,12 +373,18 @@ try {
       await cards("cloth");
       // A covered or carried lamp does not summon the ship. Set it on the
       // shore while holding the cloth, then pick it up for the journey.
-      assert.equal((await state()).crossings["pond-greek-harbor"].discovered, false);
+      assert.equal(
+        (await state()).crossings["pond-greek-harbor"].discovered,
+        false,
+      );
       await cards("lamp", "pond");
       assert.equal((await state()).items.lamp.holder, "pond");
       assert.equal((await state()).items.lamp.lit, true);
       assert.equal((await state()).actors.vale.heldItem, "cloth");
-      assert.equal((await state()).crossings["pond-greek-harbor"].discovered, true);
+      assert.equal(
+        (await state()).crossings["pond-greek-harbor"].discovered,
+        true,
+      );
       assert.equal(await card("greek-ship").count(), 1);
       await cards("lamp");
       assert.doesNotMatch(
@@ -380,10 +397,20 @@ try {
       );
       // Item reactions, when the rules call for them, belong to Vale. The
       // cast's face-down cards remain private throughout both cloth plays.
-      assert(requests.length <= 4, "Each item play requests words at most once");
-      assert.equal(new Set(requests.map(({ turn }) => turn)).size, requests.length);
+      assert(
+        requests.length <= 4,
+        "Each item play requests words at most once",
+      );
+      assert.equal(
+        new Set(requests.map(({ turn }) => turn)).size,
+        requests.length,
+      );
       for (const request of requests)
-        assert.deepEqual(request.speakers, ["vale"], "Only Vale reacts to the cloth");
+        assert.deepEqual(
+          request.speakers,
+          ["vale"],
+          "Only Vale reacts to the cloth",
+        );
       await page.reload();
       await card("cloth").waitFor({ state: "attached" });
       await assertHeldItem("lamp");

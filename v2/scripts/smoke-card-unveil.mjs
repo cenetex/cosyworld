@@ -17,9 +17,9 @@ import {
 const server = createServer();
 await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
 const browser = await chromium.launch({
-    headless: true,
-    executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE,
-  });
+  headless: true,
+  executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE,
+});
 const output = new URL("../../output/discovery/", import.meta.url);
 await mkdir(output, { recursive: true });
 const reports = [];
@@ -201,7 +201,14 @@ try {
       assert.equal((await state()).turn, 0);
       assert.equal((await state()).actors.vale.heldItem, null);
       assert.equal((await state()).items.lamp.fuelRooms, 3);
-      assert.equal(await page.locator('#card-actions [data-action="light"], #card-actions [data-action="snuff"]').count(), 0);
+      assert.equal(
+        await page
+          .locator(
+            '#card-actions [data-action="light"], #card-actions [data-action="snuff"]',
+          )
+          .count(),
+        0,
+      );
       const pressed = () =>
         page.evaluate(() =>
           [
@@ -230,7 +237,9 @@ try {
             animation.pause();
         });
         watch.observe(document.getElementById("hand"), {
-          subtree: true, childList: true, attributeFilter: ["data-revealing"],
+          subtree: true,
+          childList: true,
+          attributeFilter: ["data-revealing"],
         });
       });
       await pond.click();
@@ -385,14 +394,22 @@ try {
         await page.locator('#hand [data-card="oil"]').isVisible(),
         false,
       );
-      assert(requests.every((input) =>
-        !input.speakers.includes("keeper") &&
-        !input.entities.some(({ id }) => id === "keeper")),
-      "A face-down Keeper stays out of narration");
+      assert(
+        requests.every(
+          (input) =>
+            !input.speakers.includes("keeper") &&
+            !input.entities.some(({ id }) => id === "keeper"),
+        ),
+        "A face-down Keeper stays out of narration",
+      );
       await finish();
       const beforeKeeper = (await state()).turn;
       await revealCard(page, "keeper");
-      assert.equal((await state()).turn, beforeKeeper, "Revealing a person takes no turn");
+      assert.equal(
+        (await state()).turn,
+        beforeKeeper,
+        "Revealing a person takes no turn",
+      );
       await page.waitForSelector(
         '#hand [data-card="keeper"][data-unrevealed="false"]:not([data-revealing])',
         { state: "attached" },

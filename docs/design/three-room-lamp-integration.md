@@ -49,3 +49,30 @@ on/off state: interpreting it as brightness trapped Pip in the attic. The
 regression retains240-play liveness and1000-play save-validity assertions.
 Crossing finalization follows voyage cargo/light settlement, not stale pre-voyage
 light. `validateWorld` checks room metadata, known fuel location and projection.
+
+## Review map and regression boundaries
+
+- Persistent hand selection changes light without a gameplay turn. The local
+  command and authenticated host command share settlement and stale-revision
+  rejection; the host journals it without launching a speech round.
+- Physical changes settle hand, fuel and light before event observations and
+  quest decisions. Pack toggles and voyage unloading also move the lamp, so
+  those paths require the same settlement rather than waiting for reload.
+- Retiring Light/Snuff removes incidental resident plays that previously settled
+  active goals. Wait now settles eligible goals through the existing admission
+  guard; the unchanged queued-quest regression proves the completion timing.
+- Residents must choose light or darkness for actual authored routes, including
+  going home to sleep. Their lamp choice is isolated from the public planner;
+  human selection remains explicit. Long-run liveness assertions are retained.
+- Quiet light changes can reveal a route, wake a sleeper, and introduce a card.
+  Existing opening anchoring, discovery queue, music latch and available-card
+  selection are reused. No narration request or new UI component is added.
+- Current quest actions project the received hand/light state, rather than
+  offering retired Light/Snuff actions. Historical actions remain accepted only
+  as historical evidence and in their pinned released engines.
+
+The Bell put-down ritual, mystery-box quest presentation, and visual-only lamp
+art are not bundled here. Test changes use actual quiet choices or explicit
+room-fuel fixtures; released-engine expectations remain historical. Independent
+review must inspect the final source tree after broad JS, native and browser
+checks, not approve this draft from focused checks alone.

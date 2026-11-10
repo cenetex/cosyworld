@@ -5351,7 +5351,8 @@ document.addEventListener("click", (e) => {
   foldHand();
 });
 function foldHand() {
-  selected = [heldItem(world, currentActor(world))].filter(Boolean);
+  const shown = availableCards(world);
+  selected = [heldItem(world, currentActor(world))].filter((id) => id && shown.includes(id));
   questOpen = false;
   rowCollapsed = true;
   expandedHolders.clear();

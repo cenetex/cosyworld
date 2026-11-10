@@ -16,7 +16,12 @@ import {
 } from "../card-game/world.mjs";
 import { enableMotives } from "../card-game/motives.mjs";
 import { SPEECH_OCCASIONS } from "../card-game/speech-occasions.mjs";
-import { stackHits, selectCard, clearSelection } from "./card-browser-helpers.mjs";
+import {
+  stackHits,
+  selectCard,
+  clearSelection,
+  smokeWidths,
+} from "./card-browser-helpers.mjs";
 
 const itemReplies = SPEECH_OCCASIONS.includes("action");
 
@@ -145,14 +150,14 @@ async function nodesAfterSteps(page, stepBack, steps) {
   await cdp.detach();
   return grown;
 }
-let fixture = enableMotives(createWorld({ opening: true }));
+let fixture = enableMotives(createWorld({ opening: true, seed: 17 }));
 // Stowing opens the mirror without a turn or spending Pip's first ask.
 holdChoice(fixture, "vale", { item: null, revision: fixture.revision });
 fixture = play(
   fixture,
   legalActions(fixture).find((a) => a.kind === "move" && a.target === "pond"),
 ).state;
-fixture.items.cloth.holder = "vale";
+fixture.items.bell.holder = "vale";
 const save = encodeSave(fixture);
 const npcFixture = structuredClone(fixture);
 addLog(npcFixture, "Vale", "The lantern swings.", {
@@ -187,7 +192,7 @@ try {
     executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE,
   });
   await mkdir(output, { recursive: true });
-  for (const width of [1440, 390])
+  for (const width of smokeWidths([1440, 390]))
     for (const motion of ["no-preference", "reduce"]) {
       const key = `cosyworld.reflected-shore.v1.beat-${width}-${motion}`;
       const page = await browser.newPage({
@@ -271,7 +276,10 @@ try {
           await page.locator("#speech-row").getAttribute("data-beat"),
           "action",
         );
-        assert.match(await page.locator("#beat-captions").textContent(), action);
+        assert.match(
+          await page.locator("#beat-captions").textContent(),
+          action,
+        );
       };
       // Talk to Pip: Vale's beat arrives in front, then Pip's in front of it.
       await page.locator('#hand [data-card="moth"]').click();
@@ -488,25 +496,38 @@ try {
           "Cards move in depth.",
         );
       // The item result keeps its own card behind any avatar reply.
-      const beforeHold = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)), key);
+      const beforeHold = await page.evaluate(
+        (key) => JSON.parse(localStorage.getItem(key)),
+        key,
+      );
       await selectCard(page, "lamp");
-      const afterHold = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)), key);
+      const afterHold = await page.evaluate(
+        (key) => JSON.parse(localStorage.getItem(key)),
+        key,
+      );
       assert.equal(afterHold.actors.vale.heldItem, "lamp");
       assert.equal(afterHold.items.lamp.lit, true);
       assert.equal(afterHold.turn, beforeHold.turn);
-      assert.deepEqual(afterHold.log, beforeHold.log, "holding makes no action beat");
-      await selectCard(page, "cloth");
+      assert.deepEqual(
+        afterHold.log,
+        beforeHold.log,
+        "holding makes no action beat",
+      );
+      await clearSelection(page);
+      await selectCard(page, "bell");
+      await selectCard(page, "pond");
       const actionFont = await page
-        .locator('#card-actions [data-action="cover"]')
+        .locator('#card-actions [data-action="drop"]')
         .evaluate((button) => getComputedStyle(button).font);
-      itemReply = "I cover the lamp with the black cloth.";
+      const dropReply = "I set the bell down beside the pond.";
+      itemReply = dropReply;
       await page
         .locator(
-          '#card-actions [data-action="cover"]:not([data-revealing="true"])',
+          '#card-actions [data-action="drop"]:not([data-revealing="true"])',
         )
         .click();
       await page.keyboard.press("Escape");
-      if (itemReplies) await readItemReply(/covered/u);
+      if (itemReplies) await readItemReply(/put down/u);
       else if (motion !== "reduce") {
         await page.locator("#beat-captions [data-primary].inscribe").waitFor();
         // A tap on the prior card goes Back even while the result is typing.
@@ -517,8 +538,9 @@ try {
       }
       await page.waitForFunction(
         () =>
-          /covered/u.test(document.querySelector("#beat-captions").textContent) &&
-          !document.querySelector(".inscribe"),
+          /put down/u.test(
+            document.querySelector("#beat-captions").textContent,
+          ) && !document.querySelector(".inscribe"),
       );
       assert.equal(await front(), "Vale");
       assert.equal(
@@ -535,20 +557,18 @@ try {
       );
       if (itemReplies) await page.locator("#live-line").click();
       // The front target finishes a new result in place; rereading keeps it whole.
-      itemReply = "I lift the cloth from the lamp and look at Pip.";
+      itemReply = "I pick the bell up again and look at Pip.";
       await clearSelection(page);
-      await selectCard(page, "cloth");
+      await selectCard(page, "bell");
       await page
         .locator(
           '#card-actions [data-action="take"]:not([data-revealing="true"])',
         )
         .click();
       await page.keyboard.press("Escape");
-      if (itemReplies) await readItemReply(/squared up/u);
+      if (itemReplies) await readItemReply(/took/u);
       await page.waitForFunction(() =>
-        /squared up/u.test(
-          document.querySelector("#beat-captions").textContent,
-        ),
+        /took/u.test(document.querySelector("#beat-captions").textContent),
       );
       if (motion !== "reduce" && !itemReplies) {
         await page.locator("#beat-captions [data-primary].inscribe").waitFor();
@@ -556,13 +576,17 @@ try {
       }
       assert.match(
         await page.locator("#beat-captions").textContent(),
-        /Pip squared up to Vale/u,
+        /Vale took the Bell/u,
       );
       assert.equal(await page.locator("#beat-captions .inscribe").count(), 0);
       await behind.evaluate((button) => button.click());
+      if (itemReplies) {
+        assert.equal(await words(), dropReply);
+        await behind.evaluate((button) => button.click());
+      }
       assert.match(
         await page.locator("#beat-captions").textContent(),
-        /took/u,
+        /put down/u,
       );
       assert.equal(await page.locator("#beat-captions .inscribe").count(), 0);
       await page.locator("#live-line").click();
@@ -634,5 +658,6 @@ try {
     }
 } finally {
   await browser?.close();
-  server.close();
+  server.closeAllConnections();
+  await new Promise((resolve) => server.close(resolve));
 }

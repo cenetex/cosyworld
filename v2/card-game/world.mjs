@@ -3752,6 +3752,13 @@ export function encodeSave(s) {
 export function decodeSave(text) {
   const s = JSON.parse(text);
   try {
+    // Existing room metadata is evidence, not a migration hint. Reject it before
+    // settlement can replace an unknown location or repair a forged projection.
+    const lamp = s?.items?.lamp;
+    if (lamp && ["fuelRooms", "fuelPlace", "fuelVisit"].some((key) => Object.hasOwn(lamp, key)) &&
+        (!validLampRoomFuel(lamp) || !Object.hasOwn(places, lamp.fuelPlace) ||
+         lamp.fuel !== lamp.fuelRooms * 4))
+      throw new Error("Invalid saved lamp room fuel.");
     upgradeSave(s, {
       actorIds,
       installPacks,

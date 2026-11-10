@@ -56,7 +56,7 @@ fn preserves_old_entities(after: &Value, before: &Value) {
     // Quest progress gives way to one want; the rest of each actor survives.
     super::full_tests::assert_saved_actors(&after["actors"], &before["actors"]);
     for field in ["items", "peaceUntil"] {
-        for (id, value) in super::saved_items::upgraded_field(before, field)
+        for (id, value) in super::saved_items::current_field(before, field)
             .as_object()
             .unwrap()
         {

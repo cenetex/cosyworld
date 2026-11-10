@@ -10223,6 +10223,9 @@
   function decodeSave(text2) {
     const s = JSON.parse(text2);
     try {
+      const lamp = s?.items?.lamp;
+      if (lamp && ["fuelRooms", "fuelPlace", "fuelVisit"].some((key2) => Object.hasOwn(lamp, key2)) && (!validLampRoomFuel(lamp) || !Object.hasOwn(places, lamp.fuelPlace) || lamp.fuel !== lamp.fuelRooms * 4))
+        throw new Error("Invalid saved lamp room fuel.");
       upgradeSave(s, {
         actorIds,
         installPacks,

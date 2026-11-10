@@ -133,9 +133,14 @@ export async function clearSelection(page) {
   await page.keyboard.press("Escape");
   const held = page.locator('#hand .card[aria-pressed="true"]');
   if (await held.count()) {
-    const card = await revealCard(page, await held.first().getAttribute("data-card"));
-    if ((await card.getAttribute("aria-pressed")) === "true") await tapCard(card);
-    if ((await card.getAttribute("aria-pressed")) === "true") await tapCard(card);
+    const card = await revealCard(
+      page,
+      await held.first().getAttribute("data-card"),
+    );
+    if ((await card.getAttribute("aria-pressed")) === "true")
+      await tapCard(card);
+    if ((await card.getAttribute("aria-pressed")) === "true")
+      await tapCard(card);
   }
 }
 // A battle locks its room until a round passes without a Strike, so a
@@ -194,11 +199,20 @@ export async function revealOpening(page) {
   const reveal = page.locator(
     '#card-actions [data-quiet="true"]:not([data-revealing="true"])',
   );
-  if (await reveal.count()) await reveal.click();
+  if (
+    (await page
+      .locator('#hand [data-card="attic"]')
+      .getAttribute("data-unrevealed")) === "true"
+  )
+    await reveal.click();
   await page.waitForFunction(
-    () => document.querySelector('#hand [data-card="attic"]')?.dataset.unrevealed === "false",
+    () =>
+      document.querySelector('#hand [data-card="attic"]')?.dataset
+        .unrevealed === "false",
   );
-  await page.waitForFunction(() => !document.querySelector("#hand [data-revealing]"));
+  await page.waitForFunction(
+    () => !document.querySelector("#hand [data-revealing]"),
+  );
 }
 export async function putOutOpening(page) {
   await revealOpening(page);
@@ -206,7 +220,9 @@ export async function putOutOpening(page) {
   await tapCard(lamp);
   if ((await lamp.getAttribute("aria-pressed")) === "true") await tapCard(lamp);
   await page.waitForFunction(
-    () => document.querySelector('#hand [data-card="lamp"]')?.dataset.lit === "false",
+    () =>
+      document.querySelector('#hand [data-card="lamp"]')?.dataset.lit ===
+      "false",
   );
 }
 // The beat stack's cards take real pointer hits: the front card under its own
