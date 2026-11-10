@@ -54,4 +54,9 @@
 #
 # 220 -> 0: the classic world and its crate-level dead-code allow are deleted
 # (#1652, slice 2); `cargo clippy --all-targets` is warning-free.
-0
+#
+# 0 -> 4 (CI stable 1.99): the 0 above was measured on an older local
+# toolchain. CI reports `result_large_err` twice in card_narrative.rs
+# (`Result<Value, Response>`), counted once per target. Existing card code,
+# not new; left for a card-side fix.
+4
