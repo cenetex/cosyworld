@@ -42,6 +42,11 @@ over the six mounted packs in `v2/worlds/card-table.json`.
     per box, once per avatar per world); items are boxes too, as a later
     slice; the start is Vale, the Lamp and the Mirror attic open, with the
     Black pond the first box, opened by putting the lamp out.
+15. Taken by a tap: "the wants that a player avatar could have - where do
+    they come from? click a locked box 'take quest' and when you earn xp
+    after reaching enough u get 'take level up quest'? so its always a tap
+    whereas currently its random"; "after 'talk' with a resident the first
+    time in a room we could have 'accept quest' option"; "and so on".
 
 ## Already decided earlier
 
@@ -327,8 +332,8 @@ way wants the beanie carried to it, the bread wants Dione to have water and
 wheat, Raven wants three keepsakes laid in the Listening Room.
 
 - *Selecting a locked box tells its want*, on the context button and the
-  descriptor, never on the card. Pressing that button takes it up as the
-  player's one want, with no turn spent, so the quest card can hold it.
+  descriptor, never on the card. The button beside it, **Take quest**, takes
+  it up as the player's one want, with no turn spent.
 - *Meeting it opens the box*, whoever holds it as a want or nobody. The
   player whose play met it gains one XP and the world records who opened
   it. XP is again simply wants met: a box's, or a person's.
@@ -370,13 +375,59 @@ So, for a player:
 
 - A sealed resident cannot be talked with; its box tells its want. Once
   open, Talk says the resident's own.
-- The player holds one want at a time: a box's, taken up by selecting it,
-  or a person's, from a conversation (rules 99). Nothing is drawn.
+- The player holds one want at a time, always taken by a tap (next
+  section). Nothing is drawn and nothing is handed over.
 - Meeting any card's want pays one XP: opening a box, or helping a person,
   whose trust in the helper also rises by one (#1871 owns what they
-  remember).
-- Homecoming and Pip's lamp stay as starter wants (owner: "sure").
+  remember). The player need not have taken the want to be paid.
 - The one quest card sits where the quest fold sits today.
+
+**A player's want is always taken by a tap, never drawn.** Today a
+player's quests arrive on their own: drawn by seed, pushed by a Talk,
+brought by a dream. Under this rule each one is a named button in the
+existing action row, on a card the player has selected. No new UI.
+
+| Where the player is | Selected | Button | What taking it does |
+| --- | --- | --- | --- |
+| Where a locked box lies | the locked box | **Take quest** (owner's label) | The box's want becomes the player's one want. No turn passes. This is today's `gate` play (`world.mjs:1615`, `:3001`), for every box |
+| In a place with a resident, after Talk with them there | that resident | **Accept quest** (owner's label), beside Talk | The want they said becomes the player's: give it to them, bring them there, or bring them to that person (the shapes of `questFor`, `talk-quest.mjs:33`). No turn passes |
+| Anywhere, with XP enough for the next level | the player's own avatar card | **Take level up quest** (owner's label) | The player's want becomes Sleep at home |
+| A non-Vale avatar's new world | its home, shown as a locked box | **Take quest** | Homecoming: bring the belonging home. My proposal: the home door is a box whose want is its belonging; until hub ways are drawn as boxes it is given at the start, as now |
+| `/pip` | Pip, after his Talk | **Accept quest** | Pip's lamp. Today that Talk gives it at once (`pip-landing.mjs:31`) |
+
+- *Talk reveals, the tap takes.* A resident's own desire is still learned
+  by Talk, as dialogue, once their box is open. Accept quest is what makes
+  it the player's want. Today the same Talk pushes the quest by itself
+  (`talkQuest`, `talk-quest.mjs:74`).
+- *"The first time in a room"*, as I read it: Accept quest is offered for
+  a resident after the player's first Talk with them since arriving in that
+  place, and stays until either leaves or that want changes. Coming back
+  needs a new Talk. This is my assumption and an open question.
+- *While a want is held* none of these buttons can be pressed. The button
+  stays in the row, disabled, and its label says why: "Finish or discard
+  your quest first" (my wording). Discard is free, except Sleep at home.
+  This is the draft's assumption; the owner has not decided.
+- *The level-up button* sits on the player's own avatar card, which today
+  offers only Wait (`ACTIONS.md`), and where the quest fold already lies
+  and the level glow already shows. The placing is mine. It replaces the
+  level quest arriving on waking (`offerLevelQuest`, `want.mjs:312`, called
+  from `wake`, `want.mjs:427`).
+
+The other places a want reaches a player without a tap today, each
+converted or removed:
+
+| Today | Becomes |
+| --- | --- |
+| Source 2, drawn when the stack is empty (`want.mjs:628`) | Removed for players |
+| Source 3, level quest on waking | Take level up quest |
+| Source 4, Talk pushes a quest | Accept quest |
+| Source 5, `gate`, on 4 boxes | Take quest, on every box |
+| Source 6, `hide_item` pushes "find your button" (`pack-registry.mjs:830`) | Removed. RATi wants the button; Talk says so; Accept quest |
+| Source 7, homecoming set at world creation (`homecoming.mjs:91`) | Take quest on the home's box (proposal above) |
+| Source 8, Seek in the menu (already a tap) | Removed with the `seek` play |
+| Source 9, Pip's landing | Accept quest on Pip |
+| Vale's authored `want` for the Lamp (`forest.json:75`), held back until the pond (`questsBeginAt`) | Removed: a player has no authored want |
+| A fresh draw after Discard (`want.mjs:492`) | Removed: after Discard the player holds none |
 
 **XP against today's thresholds.** One XP per want met: a box opened or a
 person helped. Level 5 takes 15 XP, level 10 takes 44, level 20 takes 132
@@ -423,9 +474,6 @@ Each uses conditions and triggers that exist, so it is pack data. In the
 Listening Room the Booth (heard) and Raven (placed) then differ, and no door
 repeats the one before it.
 
-My other assumption, an open question below: a held want stays when
-another is offered.
-
 ### Level Up is Sleep at home
 
 - Each avatar has its home. Vale's is the Mirror attic (a data change: his
@@ -434,10 +482,10 @@ another is offered.
   Between-hours carriage, Games pavilion, Sail loft.
 - Home rests its own avatar as a sanctuary does. A non-Vale home's door
   needs its belonging, so finding home comes first.
-- When a player's XP reaches the next level's threshold, they hold **Sleep
-  at home**: the place want with the rest step that exists today, aimed at
-  `homeOf`. It is the one want the rules give a player unasked. A player
-  holding another want gets it when that one ends.
+- When a player's XP reaches the next level's threshold, their own avatar
+  card offers **Take level up quest**. Taking it gives **Sleep at home**:
+  the place want with the rest step that exists today, aimed at `homeOf`.
+  Nothing arrives on waking any more.
 - It is met by a long rest at home: a Sleep of 12 turns or more that began
   there. The level rises by one on waking. One level per sleep.
 - **Discarding it costs XP**, as dropping a level quest does now
@@ -468,16 +516,15 @@ another is offered.
 | --- | --- |
 | The `choose` play: 9 buttons (decided) | Each becomes `on: "talk"` on the same subject. Pack data. |
 | 5 archived Greek choices | Nothing. |
-| Source 2 for players, the drawn want | Boxes and conversations. Residents keep the draw. |
-| Source 3, level quest | Sleep at home. |
+| Source 2 for players, the drawn want | Take quest and Accept quest. Residents keep the draw. |
+| Source 3, level quest | Take level up quest, which is Sleep at home. |
 | Source 6, `hide_item` quest | The button is still hidden. RATi's want names it; Talk gives it. |
 | Source 8, Seek | The `seek` play goes. Nothing replaces it here; #1848 proposes learning of a hidden person by Talk. |
 | The stack, `focus`, two active quests | One want. |
 
 Kept: the 179 triggered choices, as authored effects on fixed verbs
-(decided); source 1 for residents; source 4, Talk gives a want; source 5
-for every box, as the box telling its want; sources 7 and 9 as starter
-wants (decided).
+(decided); source 1 for residents; sources 4, 5, 7 and 9, each now taken
+by a tap.
 
 ### Story arcs: three options
 
@@ -595,7 +642,7 @@ Released journals replay on their frozen bundles. Slices that delete
 | 2 | Vale's home is the attic; each human home rests its own avatar | data | keep | Schema test: every human avatar's home accepts its long rest |
 | 3 | Show every lock: `sealed` on the 11 hidden gated routes and the 29 conditional residents; vary two RatiRadio doors | pack data | keep | Each lies in the hand as a locked box that tells its want on the context button |
 | 4 | One want: remove the stack and `focus`; no drawn want for players; remove sources 6 and 8 | rules | reset | After 200 turns no avatar has `under`; a player with no want has no quest card |
-| 5 | A lock is a want: a box tells it, may be taken up, and meeting it pays one XP and is recorded; helper XP and trust; the `gate` play goes | rules | reset | Vale brings the guard the Writ: the battlefield opens, Vale +1 XP, once. Vale gives the keeper the Bell: +1 XP, keeper's trust +1 |
+| 5 | A lock is a want, and every player want is a tap: Take quest, Accept quest, Take level up quest; meeting a want pays one XP and is recorded; helper XP and trust | rules | reset | Vale brings the guard the Writ: the battlefield opens, Vale +1 XP, once. Vale gives the keeper the Bell: +1 XP, keeper's trust +1 |
 | 6 | Boxes everywhere: hub ways and crossings drawn as boxes; the lock-kind validator | rules | reset | A new world shows Vale, the Lamp and the attic open and the Black pond locked; putting the lamp out opens it for 1 XP |
 | 7 | Level Up is Sleep at home; remove the level quest; keep dreams | rules | reset | At threshold Vale holds Sleep at home; a 12-turn Sleep in the attic raises the level; discarding costs XP |
 | 8 | Staged `wants` on residents; remove `choose` from offered plays | rules | reset | No arc field in the save; the same facts give the same want after reload |
@@ -609,14 +656,22 @@ the README quest section is rewritten.
 
 ## Open questions for the owner
 
-1. When a player holds a want and a box or a person offers another, does
-   the held one stay (the draft's assumption) or does the new one replace
-   it?
-2. Staged wants: ordered ("first that holds") or unordered (any that hold
+1. While a player holds a want, are Take quest, Accept quest and Take
+   level up quest unavailable, with the reason as the button's label (the
+   draft's assumption), or does taking a new one replace the held one?
+2. "After talk with a resident the first time in a room": is Accept quest
+   offered after the first Talk since arriving in that place, until either
+   leaves or the want changes (the draft's assumption), or once ever per
+   resident and place?
+3. Where does Take level up quest live? The draft puts it on the player's
+   own avatar card.
+4. Homecoming: is it Take quest on the avatar's home, shown as a locked
+   box (the draft's proposal), or does it stay given at the start?
+5. Staged wants: ordered ("first that holds") or unordered (any that hold
    may surface)? The burial example under the Deleuze note shows both.
-3. RatiRadio: are the two varied doors right (Thermos set down at the
+6. RatiRadio: are the two varied doors right (Thermos set down at the
    Dispatch Window; Talk with RATi while holding the figurine)? The
    proposal is mine.
-4. Does the lock-kind rule, and "every lock visible", apply to the hub's
+7. Does the lock-kind rule, and "every lock visible", apply to the hub's
    own ways beyond the Black pond (the mirror back, the lit arch, home
    doors), or only to packs and generated worlds?
