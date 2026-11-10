@@ -327,7 +327,3 @@ The owner settled these on 2026-11-01 ([#1737](https://github.com/cenetex/cosywo
    #1892: only Vale plays locally).
 4. Extra shared claims stay until the player next moves that avatar.
 5. A player has at most one avatar in a world.
-
-If table startup fails, the existing dialogue bar offers Try again. It reloads
-the same page without clearing saves. The startup title releases its overlay,
-keyboard and audio ownership before the retry becomes available.

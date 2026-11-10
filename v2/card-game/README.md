@@ -1705,3 +1705,7 @@ new lane never holds up an authored scene. Lanes are saved as `sea:` edges in ro
 See the Greek pack README and `test/card-theban-release.test.mjs`; the scene
 journey is `v2/scripts/smoke-card-theban-scenery.mjs`. The weather journey is
 `node v2/scripts/smoke-card-weather.mjs`.
+
+If table startup fails, the existing dialogue bar offers Try again. It reloads
+the same page without clearing saves. The startup title releases its overlay,
+keyboard and audio ownership before the retry becomes available.
