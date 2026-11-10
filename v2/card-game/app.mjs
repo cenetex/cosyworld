@@ -166,7 +166,7 @@ import {
 import { createHum } from "./hum.mjs";
 import { createSfx } from "./sfx.mjs";
 import { recedeBackdrop } from "./combat-backdrop.mjs";
-import { createCharacterSpeech } from "./character-speech.mjs";
+import { createCharacterSpeech, createVoiceHistory, voiceLineIdentity } from "./character-speech.mjs";
 import { localRuntime } from "./local-service.mjs";
 import { hostedVoices } from "./hosted-voices.mjs";
 import { createLocalBackups, installBackupControls } from "./local-saves.mjs";
@@ -341,7 +341,8 @@ const localBackups =
 let openingTable = true;
 // In-app browsers and WebViews can block storage outright. The table then
 // plays a fresh world in this tab instead of refusing every card.
-let storageBlocked = false;
+let storageBlocked = false,
+  migratedRunSeed = false;
 try {
   await localBackups?.restore();
   let saved = null;
@@ -353,8 +354,10 @@ try {
   if (saved) {
     openingTable = false;
     // A save from before run seeds takes one once, as a shared world does.
+    const restored = decodeSave(saved);
+    migratedRunSeed = !restored.run;
     world = wearLocalUpgrades(
-      enableMotives(seedRun(decodeSave(saved), newRunSeed())),
+      enableMotives(seedRun(restored, newRunSeed())),
     );
   }
 } catch (error) {
@@ -828,6 +831,13 @@ function finishSpokenLine() {
     exchange.revealed(line.seq);
 }
 const characterSpeech = createCharacterSpeech({
+  history: createVoiceHistory({
+    getItem: (key) => localStorage.getItem(key),
+    setItem: (key, value) => localStorage.setItem(key, value),
+  }),
+  scope: () => sharedSession
+    ? `shared:${sharedWorldId}:${sharedSession.state.actor}`
+    : `local:${SAVE_KEY}:${world.run?.seed ?? ""}`,
   changed: ({ state, message }) => {
     $("speech-row").dataset.voice = state;
     $("voice-retry").hidden = state !== "error";
@@ -987,7 +997,7 @@ const reveal = createTextReveal({
       if (shownSceneLine?.silent) characterSpeech.clear();
       else
         characterSpeech.show(
-          value.key,
+          voiceLineIdentity(shownSceneLine),
           value.speaker,
           value.text,
           sharedVoiceReference(sharedSession?.state, shownSceneLine),
@@ -5980,7 +5990,8 @@ if (sharedSession) {
 }
 // The title's Wake button names the avatar this world opens with.
 nameTitleWaker(pipPrelude() ? "Pip" : nameOf(currentActor(world)), pipPrelude() ? "moth" : currentActor(world));
-if (startingPip && openingTable) save();
+// Persist a legacy run's assigned identity before speech can be heard.
+if (migratedRunSeed || (startingPip && openingTable)) save();
 resumeScene();
 // The title's turn (or Escape past it) is this avatar's reveal.
 onTitleWake(() => uncover(pipPrelude() ? "moth" : currentActor(world), { flip: false }));
