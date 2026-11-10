@@ -382,6 +382,7 @@ const files = [
   "packs.json",
   "music.mjs",
   "music-cues.mjs",
+  "radio-station.mjs",
   ...Object.values(CUE_TRACKS).map(({ file }) => `assets/music/${file}`),
   "hum.mjs",
   "sfx.mjs",
