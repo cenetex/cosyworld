@@ -45,7 +45,18 @@ describe("fast check Rust test selection", () => {
   it("runs funeral parity when the source world changes", () => {
     expect(pick("v2/card-game/world.mjs")).toEqual([
       "card_shared::polynices_tests::",
+      "card_shared::world_life_tests::",
     ]);
+  });
+
+  it("runs consequence replay for rule modules and pinned evidence", () => {
+    for (const path of [
+      "v2/card-game/lamp-state.mjs",
+      "v2/card-game/pack-registry.mjs",
+      "v2/card-game/world/perform.mjs",
+      "test/fixtures/radio-entry-rules-130.json",
+    ])
+      expect(pick(path)).toContain("card_shared::world_life_tests::");
   });
 
   it("runs the narrative and voice tests when their inputs change", () => {
