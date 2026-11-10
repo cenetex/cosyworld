@@ -2421,7 +2421,7 @@ fn public_state_keeps_the_action_hand_bounded() {
 }
 
 #[tokio::test]
-async fn legacy_mutable_player_routes_require_an_action_hand_certificate() {
+async fn retired_mutable_player_routes_are_not_found() {
     let listener = TcpListener::bind("127.0.0.1:0")
         .await
         .expect("bind legacy route test listener");
@@ -2438,10 +2438,12 @@ async fn legacy_mutable_player_routes_require_an_action_hand_certificate() {
     for path in [
         "/actions/pass",
         "/actions/chat",
+        "/actions/model-interaction",
         "/actions/move",
         "/actions/explore-path",
         "/actions/discover",
         "/actions/check",
+        "/actions/notice",
         "/actions/study",
         "/actions/influence",
         "/actions/cast-spell",
@@ -2452,6 +2454,7 @@ async fn legacy_mutable_player_routes_require_an_action_hand_certificate() {
         "/actions/trade-item",
         "/actions/theft",
         "/actions/craft",
+        "/actions/declare-combat",
         "/actions/attack",
         "/actions/defend",
         "/actions/prepare",
@@ -2469,18 +2472,7 @@ async fn legacy_mutable_player_routes_require_an_action_hand_certificate() {
             .send()
             .await
             .expect("legacy route response");
-        assert_eq!(
-            response.status(),
-            reqwest::StatusCode::BAD_REQUEST,
-            "{path}"
-        );
-        let body = response
-            .json::<serde_json::Value>()
-            .await
-            .expect("legacy action response envelope");
-        assert_eq!(body["ok"], false, "{path}");
-        assert_eq!(body["status"], 400, "{path}");
-        assert_eq!(body["events"], serde_json::json!([]), "{path}");
+        assert_eq!(response.status(), reqwest::StatusCode::NOT_FOUND, "{path}");
     }
     server.abort();
 }

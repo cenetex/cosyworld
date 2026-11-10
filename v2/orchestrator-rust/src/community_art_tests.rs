@@ -1,13 +1,11 @@
 use super::*;
 use crate::media_recipes::media_verdict::{
-    make_visual_verdict, prepare_media_candidate, record_media_provider_failure,
-    record_media_visual_verdict, MediaCandidateInput, MediaVerdictDisposition,
-    MEDIA_BRIEF_CONSTRAINT_LIMIT,
+    prepare_media_candidate, record_media_provider_failure, MediaCandidateInput,
+    MediaVerdictDisposition, MEDIA_BRIEF_CONSTRAINT_LIMIT,
 };
 use axum::{response::IntoResponse as _, routing::post, Router};
 use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
 use image::{DynamicImage, ImageBuffer, ImageFormat, Rgba};
-use serde_json::json;
 use sha2::{Digest as _, Sha256};
 use std::{
     io::Cursor,
