@@ -1,5 +1,7 @@
 use super::*;
 
+use axum::Router;
+
 const DEFAULT_LISTEN_ADDR: &str = "127.0.0.1:3102";
 
 pub(super) async fn run() -> Result<(), Box<dyn std::error::Error>> {
@@ -16,20 +18,13 @@ pub(super) async fn run() -> Result<(), Box<dyn std::error::Error>> {
         return crate::routes::card_game::local::run(config).await;
     }
 
-    configured_content_registry().map_err(io::Error::other)?;
     let drain_budget = configured_shutdown_drain_budget()?;
-    let state = AppState::bootstrap().await?;
-    crate::proxim8::linked_avatars::seed_permanent_characters(&state).await;
-    let shutdown_state = state.clone();
-    let _background_services = BackgroundServices::start(&state);
+    // The hosted server boots card-only (#1652): no classic content registry,
+    // journal replay, snapshot or scheduler.
+    let state = AppState::bootstrap_card().await?;
+    let _ai_readiness = start_ai_readiness_scheduler(state.ai_config.as_ref().clone());
 
     let report = serve(state, boot_started, drain_budget).await?;
-    let snapshot_started = Instant::now();
-    // Background workers outlive serve() and only stop when the tokio runtime
-    // drops after this returns. Never releasing the runtime keeps them from
-    // committing a record the final snapshot does not cover.
-    std::mem::forget(persist_final_snapshot(&shutdown_state).await);
-    let snapshot_elapsed = snapshot_started.elapsed();
     info!(
         event = "shutdown_complete",
         signal = report.first_signal.as_str(),
@@ -41,7 +36,6 @@ pub(super) async fn run() -> Result<(), Box<dyn std::error::Error>> {
         active_streams_at_signal = report.active_streams_at_signal,
         streams_notified = report.streams_notified,
         streams_remaining = report.streams_remaining,
-        final_snapshot_elapsed_ms = snapshot_elapsed.as_millis() as u64,
     );
 
     Ok(())
@@ -170,37 +164,6 @@ fn inject_production_log_context(payload: &mut serde_json::Value, context: &Prod
     );
 }
 
-struct BackgroundServices {
-    _projection_refresh: tokio::task::JoinHandle<()>,
-    _canonical_capacity: Option<tokio::task::JoinHandle<()>>,
-    _ai_readiness: Option<tokio::task::JoinHandle<()>>,
-    _media_jobs: Option<tokio::task::JoinHandle<()>>,
-}
-
-impl BackgroundServices {
-    fn start(state: &AppState) -> Self {
-        let projection_refresh = start_projection_refresh_scheduler(state.clone());
-        let canonical_capacity = start_canonical_capacity_scheduler(state.clone());
-        start_focused_encounter_scheduler(state.clone());
-        start_actor_job_worker(state.clone());
-        resume_pending_community_art_generations(state);
-        let media_jobs = start_media_job_worker(state.clone());
-        start_event_store_retry_scheduler(state.clone());
-        start_ownership_refresh_scheduler(state.clone());
-        start_moderation_retention_scheduler(state.clone());
-        start_story_metrics_retention_scheduler(state.clone());
-        start_command_receipt_retention_scheduler(state.clone());
-        let ai_readiness = start_ai_readiness_scheduler(state.ai_config.as_ref().clone());
-
-        Self {
-            _projection_refresh: projection_refresh,
-            _canonical_capacity: canonical_capacity,
-            _ai_readiness: ai_readiness,
-            _media_jobs: media_jobs,
-        }
-    }
-}
-
 #[derive(Clone, Copy, Debug)]
 struct ShutdownReport {
     first_signal: ShutdownReason,
@@ -228,18 +191,18 @@ async fn serve(
     let (trigger, shutdown) = shutdown_channel();
     let include_sigint = !env_flag("COSYWORLD_DISABLE_CTRL_C_SHUTDOWN");
     let signal_task = tokio::spawn(relay_shutdown_signals(trigger, include_sigint));
-    let result = serve_until_shutdown(listener, state, shutdown, drain_budget).await;
+    let app = routes::card_app_router(state, shutdown.clone());
+    let result = serve_until_shutdown(listener, app, shutdown, drain_budget).await;
     signal_task.abort();
     result.map_err(Into::into)
 }
 
 async fn serve_until_shutdown(
     listener: TcpListener,
-    state: AppState,
+    app: Router,
     shutdown: ShutdownSubscription,
     drain_budget: Duration,
 ) -> io::Result<ShutdownReport> {
-    let app = routes::app_router_with_shutdown(state, shutdown.clone());
     let mut first_notice = shutdown.clone();
     let mut graceful_notice = shutdown.clone();
 
@@ -532,11 +495,11 @@ mod tests {
             .await
             .expect("bind shutdown test server");
         let (trigger, shutdown) = shutdown_channel();
+        let app = routes::app_router_with_shutdown(state, shutdown.clone());
         let server = tokio::spawn(async move {
-            let report =
-                serve_until_shutdown(listener, state, shutdown, Duration::from_millis(250))
-                    .await
-                    .expect("serve until simulated shutdown");
+            let report = serve_until_shutdown(listener, app, shutdown, Duration::from_millis(250))
+                .await
+                .expect("serve until simulated shutdown");
             drop(persist_final_snapshot(&shutdown_state).await);
             report
         });
@@ -567,9 +530,10 @@ mod tests {
         let addr = listener.local_addr().expect("stream server address");
         let (trigger, shutdown) = shutdown_channel();
         let observed = shutdown.clone();
+        let app = routes::app_router_with_shutdown(state, shutdown.clone());
         let server = tokio::spawn(serve_until_shutdown(
             listener,
-            state,
+            app,
             shutdown,
             Duration::from_millis(500),
         ));
@@ -610,12 +574,8 @@ mod tests {
             .expect("bind blocked shutdown server");
         let addr = listener.local_addr().expect("blocked server address");
         let (trigger, shutdown) = shutdown_channel();
-        let server = tokio::spawn(serve_until_shutdown(
-            listener,
-            state,
-            shutdown,
-            drain_budget,
-        ));
+        let app = routes::app_router_with_shutdown(state, shutdown.clone());
+        let server = tokio::spawn(serve_until_shutdown(listener, app, shutdown, drain_budget));
         let connection = connected_request(addr, "/state").await;
         tokio::time::sleep(Duration::from_millis(20)).await;
         (trigger, server, held, connection)

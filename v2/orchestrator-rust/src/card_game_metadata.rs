@@ -1,4 +1,4 @@
-//! Public source map for the card game and the classic compatibility fields.
+//! Public source map for the card game.
 
 use serde::Serialize;
 
@@ -10,7 +10,6 @@ pub(crate) fn primary() -> bool {
 pub(crate) struct GameMetadata {
     primary_game: &'static str,
     card_game: CardGameMetadata,
-    metadata_scopes: MetadataScopes,
 }
 
 #[derive(Debug, Serialize)]
@@ -39,14 +38,6 @@ struct Catalogs {
     mounted_packs: &'static str,
 }
 
-#[derive(Debug, Serialize)]
-struct MetadataScopes {
-    worldpack: &'static str,
-    world: &'static str,
-    combat: &'static str,
-    content_engine_version: &'static str,
-}
-
 impl GameMetadata {
     pub(crate) fn current() -> Self {
         Self::for_primary(primary())
@@ -70,12 +61,6 @@ impl GameMetadata {
                 card_text: CardText {
                     catalog_stale: super::narrative::catalog_stale(),
                 },
-            },
-            metadata_scopes: MetadataScopes {
-                worldpack: "classic-compatibility",
-                world: "classic-compatibility",
-                combat: "classic-compatibility",
-                content_engine_version: "classic-compatibility",
             },
         }
     }
@@ -102,11 +87,7 @@ mod tests {
                 meta["card_game"]["shared_rules_version"],
                 crate::card_shared::RULES_VERSION
             );
-            assert_eq!(
-                meta["metadata_scopes"]["worldpack"],
-                "classic-compatibility"
-            );
-            assert_eq!(meta["metadata_scopes"]["world"], "classic-compatibility");
+            assert!(meta.get("metadata_scopes").is_none());
             assert_eq!(meta["card_game"]["card_text"]["catalog_stale"], false);
             let router = super::super::router::<()>();
             let entry = meta["card_game"]["entry_url"].as_str().unwrap();

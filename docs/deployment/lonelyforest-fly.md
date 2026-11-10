@@ -73,22 +73,9 @@ Fly may accept a snapshot and leave it in `waiting` or `running` for several
 minutes during transient queueing, but a snapshot that never reaches `created`
 still blocks the deploy.
 
-Before Fly replaces the image, the Lonely Forest job runs
-`v2/scripts/check-deploy-worldpack.mjs https://lonelyforest.com`, the same
-bundle-identity guard as the primary app. It compares the live `/meta` hash
-with the candidate registry using the exact-match or explicitly declared
-replay-compatible migration rule, and stops the release on a mismatch.
-
-### Recovery when the app is already unavailable
-
-Do not bypass the guard and do not blindly redeploy the previous image. A
-successful forward boot may have written a snapshot under the new bundle hash;
-the older image will then fail its own bundle-identity check.
-
-Save the last observed `/meta` response as a reviewed, committed capture file
-and pass its path in the workflow's `lonelyforest_recovery_capture` input. The
-guard evaluates the captured hash exactly like a live one. See the capture
-format in `v2/scripts/check-deploy-worldpack.mjs`.
+The hosted server boots card-only and reports no classic worldpack identity,
+so the release has no bundle-identity guard. If the app is unavailable, read its
+logs, fix the cause, and redeploy with the usual volume backup.
 
 The workflow requires two GitHub Actions secrets:
 

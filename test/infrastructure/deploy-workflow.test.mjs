@@ -208,9 +208,9 @@ describe("deploy workflow", () => {
     expect(job("lonelyforest-fly", "deploy-outcome")).toContain(
       "needs: [deployment-impact, release-owner, production-gate, lonelyforest-image, lonelyforest-backup]",
     );
-    expect(
-      workflow.indexOf("Guard primary worldpack bundle compatibility"),
-    ).toBeLessThan(workflow.indexOf("Create rollback backup"));
+    // The card-only server has no classic worldpack bundle to compare (#1652).
+    expect(workflow).not.toContain("check-deploy-worldpack");
+    expect(workflow).not.toContain("recovery_capture");
   });
 
   it("deploys the .dev train from one job without the release path", () => {
@@ -622,7 +622,7 @@ describe("deploy workflow", () => {
     );
   });
 
-  it("runs Lonely Forest as one process behind the same bundle guard as primary", () => {
+  it("runs Lonely Forest as one process like primary", () => {
     expect(lonelyForestFlyConfig).toContain(
       'app = "/app/cosyworld-orchestrator"',
     );
@@ -633,9 +633,6 @@ describe("deploy workflow", () => {
       'COSYWORLD_V2_EVENT_DB_PATH = "/data/cosyworld-v2-events.sqlite"',
     );
     expect(lonelyForestFlyConfig).not.toContain("MULTITENANT");
-    expect(job("lonelyforest-backup", "lonelyforest-fly")).toContain(
-      "node v2/scripts/check-deploy-worldpack.mjs https://lonelyforest.com",
-    );
     expect(workflow).not.toContain("lonelyforest_fresh_empty_tenant");
     expect(dockerfile).not.toContain("nginx");
     expect(

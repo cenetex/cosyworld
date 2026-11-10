@@ -82,7 +82,8 @@ secret values through Fly's secret store for the selected app.
   `COSYWORLD_AVATAR_OWNERSHIP_FEED_URL`/`_BEARER` settings are ignored
   ([#1502](https://github.com/cenetex/cosyworld/issues/1502)).
 
-The Rust service opens and upgrades its journal during startup. Keep each
+The Rust service opens and upgrades its event store during startup. It does not
+replay the retired classic journal; those rows stay on the volume, unread. Keep each
 world's journal, snapshots, and generated assets together on its assigned
 volume path. The [canonical-world guide](../../v2/docs/canonical-world.md)
 describes the checks needed before adding writers or routing capacity.
@@ -107,7 +108,8 @@ versioned migration receipt for each non-avatar receipt:
 - the allowlisted linked-avatar actor receipt is excluded and continues through
   its dedicated adapter.
 
-Inspect `GET /meta` at the release boundary. Under
+The card-only server no longer runs this migration or reports it in `/meta`. For
+a classic runtime, inspect `GET /meta` at the release boundary. Under
 `migration_archive.item_materialization.receipts`, `migration_receipts` must equal the sum of
 `preserved_ordinary_world_items`, `archived_collection_returns`, and
 `quarantined`. Review every non-zero quarantine count against the preserved
@@ -127,35 +129,11 @@ separate retention policy explicitly authorizes deletion.
 
 ## Recover the testing app
 
-When the testing app's live `/meta` is unavailable, use a committed capture
-of its last observed bundle identity with the normal deployment guard.
-
-1. Read the identity from the app or its volume. An internal request can work
-   while Fly is waiting for readiness:
-
-   ```sh
-   fly ssh console --app cosyworld -C "curl -s http://127.0.0.1:3000/meta"
-   ```
-
-2. Save the observed identity in a committed capture:
-
-   ```json
-   {
-     "schema_version": 1,
-     "source": "app-volume",
-     "captured_at": "2026-08-07T18:40:00Z",
-     "meta": { "worldpack": { "bundle_hash": "sha256:<64 lowercase hex>" } }
-   }
-   ```
-
-   Replace the example time and hash with the observed values. A saved public
-   response may use `operator-capture` as its source. Keep the capture inside
-   the checkout so it can be reviewed with the recovery change.
-
-3. Run `Deploy` manually with `target: primary` and
-   `primary_recovery_capture` set to that committed path. The normal bundle
-   comparison and volume backup still apply.
-4. Verify `/health` and `/meta` after recovery and keep the workflow log.
+The hosted server boots card-only and reads no classic worldpack identity, so a
+deploy has no bundle comparison to satisfy and needs no `/meta` capture. If the
+app will not start, read its logs, fix the cause, and run `Deploy` manually with
+`target: primary`. The volume backup still applies. Verify `/health` and
+`/meta` after recovery and keep the workflow log.
 
 For production tenant recovery, follow the
 [Lonely Forest runbook](lonelyforest-fly.md#recovery-when-a-tenant-is-already-unavailable).
@@ -172,7 +150,7 @@ to reach `created`. The default wait is ten minutes. The workflow log records
 the snapshot ID. Recovery keeps one active writer for each world's journal.
 
 Use `/health` for readiness and persistence, `/health/live` for process
-liveness, and `/meta` for version and bundle identity. The
+liveness, and `/meta` for the version, commit, and shared card rules version. The
 [production logs guide](production-logs.md) covers retained logs, incident
 queries, and the cross-app ingestion check.
 

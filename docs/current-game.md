@@ -60,6 +60,14 @@ compiled bundles. `v2/worlds/official/` and `v2/content/official/` select and bu
 that runtime. Its `actors.json` and `registry.json` files describe the classic
 cast. The classic compiler and release bundle guards keep saved history valid.
 
+The hosted server boots card-only ([#1652](https://github.com/cenetex/cosyworld/issues/1652)).
+`startup::run` calls `AppState::bootstrap_card` in `card_boot.rs`. It loads no
+classic content registry, journal, snapshot or scheduler, and mounts only the
+card table, `/auth` sign-in, shared worlds, dialogue, authoring, play metrics,
+`/meta` and `/health` (`routes::card_app_router`). The classic rows stay on
+disk, unread. The classic Rust modules remain, unreachable, until a later
+change deletes them.
+
 Historical decisions keep their original dates and context. Current
 behavior follows the shipping code, catalogs, tests, and live release.
 

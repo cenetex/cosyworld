@@ -64,7 +64,7 @@ impl RequestLogContext {
             region: startup::log_context_env("FLY_REGION", "local"),
             process: state.deployment.process_id.clone(),
             tenant: startup::log_context_env("COSYWORLD_LOG_TENANT", "primary"),
-            worldpack: active_content().manifest.id.clone(),
+            worldpack: startup::log_context_env("COSYWORLD_LOG_WORLDPACK", "card-table"),
         }
     }
 }
@@ -128,6 +128,7 @@ fn app_router_with_command_capacity(state: AppState, command_capacity: Arc<Semap
     app_router_with_dependencies(state, command_capacity, ShutdownSubscription::idle())
 }
 
+#[cfg(test)]
 pub(super) fn app_router_with_shutdown(state: AppState, shutdown: ShutdownSubscription) -> Router {
     app_router_with_dependencies(
         state,
@@ -141,8 +142,7 @@ fn app_router_with_dependencies(
     command_capacity: Arc<Semaphore>,
     shutdown: ShutdownSubscription,
 ) -> Router {
-    let request_log_context = RequestLogContext::from_state(&state);
-    Router::new()
+    let routes = Router::new()
         .merge(crate::card_authoring::router())
         .merge(card_authoring_generation::router())
         .merge(crate::card_shared::router())
@@ -382,7 +382,47 @@ fn app_router_with_dependencies(
             "/internal/canonical/imports",
             post(internal_canonical_legacy_import),
         )
-        .route("/stream", get(stream).layer(Extension(shutdown.clone())))
+        .route("/stream", get(stream).layer(Extension(shutdown.clone())));
+    with_ingress_layers(routes, state, shutdown)
+}
+
+/// The hosted server (#1652): the card table, accounts, shared worlds,
+/// dialogue, voices, authoring, play metrics, `/meta` and `/health`. The
+/// classic routes are not mounted, and the classic world is never loaded.
+pub(super) fn card_app_router(state: AppState, shutdown: ShutdownSubscription) -> Router {
+    let routes = Router::new()
+        .merge(crate::card_authoring::router())
+        .merge(card_authoring_generation::router())
+        .merge(crate::card_shared::router())
+        .merge(card_voices::router())
+        .merge(card_game::router())
+        .merge(play_metrics::router())
+        .merge(card_game::text_router(state.ai_config.clone(), true))
+        .route("/health", get(health))
+        .route("/health/live", get(health_live))
+        .route("/meta", get(super::card_boot::card_meta))
+        .route("/auth/account", get(account_identity))
+        .route("/auth/logout", post(account_logout))
+        .route(
+            "/auth/passkey/register/start",
+            post(passkey_registration_start),
+        )
+        .route(
+            "/auth/passkey/register/finish",
+            post(passkey_registration_finish),
+        )
+        .route("/auth/passkey/login/start", post(passkey_login_start))
+        .route("/auth/passkey/login/finish", post(passkey_login_finish));
+    with_ingress_layers(routes, state, shutdown)
+}
+
+fn with_ingress_layers(
+    routes: Router<AppState>,
+    state: AppState,
+    shutdown: ShutdownSubscription,
+) -> Router {
+    let request_log_context = RequestLogContext::from_state(&state);
+    routes
         // Action handlers return JSON envelopes with their authoritative
         // status field. Promote that field to the HTTP status after handlers
         // finish, before compression obscures the JSON body.

@@ -1,3 +1,6 @@
+// The hosted server boots card-only; the classic world modules are unreachable
+// until #1652 deletes them.
+#![allow(dead_code)]
 mod account_auth;
 mod account_avatars;
 mod activation;
@@ -28,6 +31,7 @@ mod avatar_rescue;
 #[cfg(test)]
 mod beliefs_tests;
 mod card_authoring;
+mod card_boot;
 mod card_shared;
 // The closed-vocabulary Calling Forge and event-derived Bond scripting.
 // Its candidate/proposal entry points power the client surface in a follow-up;
@@ -5575,94 +5579,11 @@ fn zone_for_safety(safety: &str) -> &'static str {
 
 impl RuntimeWorld {
     fn seeded() -> Self {
-        let mut world = Box::new(CwWorld::default());
-
-        unsafe {
-            cw_world_init(&mut *world);
-        }
-
-        let mut runtime = RuntimeWorld {
-            world,
-            clock_fill_cascade: Vec::new(),
-            canonical_identities: CanonicalIdentityState::default(),
-            command_receipts: CommandReceiptCache::default(),
-            ai_publications: BTreeMap::new(),
-            actors: seed_actor_meta(),
-            items: seed_item_meta(),
-            locations: seed_location_names(),
-            location_meta: seed_location_meta(),
-            content: BTreeMap::new(),
-            branches: BTreeMap::new(),
-            clocks: BTreeMap::new(),
-            tags: BTreeMap::new(),
-            jobs: BTreeMap::new(),
-            room_sheets: BTreeMap::new(),
-            routes: BTreeMap::new(),
-            threshold_gate_sources: BTreeMap::new(),
-            threshold_hazard_states: BTreeMap::new(),
-            discovery_sources: BTreeMap::new(),
-            discovery_claims: BTreeMap::new(),
-            generated_pathways: BTreeMap::new(),
-            generated_places: BTreeMap::new(),
-            governance_decisions: BTreeMap::new(),
-            settlement_buildings: BTreeMap::new(),
-            building_footprint_claims: BTreeMap::new(),
-            loot_allocations: BTreeMap::new(),
-            item_identity_reveals: BTreeMap::new(),
-            natural_affordances: BTreeMap::new(),
-            community_art_generations: BTreeMap::new(),
-            journeys: BTreeMap::new(),
-            avatar_rescue_predecessors: BTreeMap::new(),
-            character_identities: BTreeMap::new(),
-            callings: BTreeMap::new(),
-            skills: BTreeMap::new(),
-            charm_slots: BTreeMap::new(),
-            equipped_charms: BTreeMap::new(),
-            prepared_spells: BTreeMap::new(),
-            npc_cooperation: BTreeMap::new(),
-            local_leads: BTreeMap::new(),
-            item_provenance: BTreeMap::new(),
-            materialization_receipts: BTreeMap::new(),
-            item_materialization_migrations: BTreeMap::new(),
-            craft_receipts: BTreeMap::new(),
-            ledger_marks: BTreeMap::new(),
-            advancement_spends: BTreeMap::new(),
-            bonds: BTreeMap::new(),
-            beliefs: BTreeMap::new(),
-            entity_memories: BTreeMap::new(),
-            entity_levels: EntityLevelLedger::fresh(),
-            goal_ledger: BTreeMap::new(),
-            resident_continuities: BTreeMap::new(),
-            avatar_rescues: BTreeMap::new(),
-            actor_autonomy: BTreeMap::new(),
-            actor_rules_facets: BTreeMap::new(),
-            deeds: BTreeMap::new(),
-            deed_ids_by_actor: BTreeMap::new(),
-            actor_practices: BTreeMap::new(),
-            transfer_offers: BTreeMap::new(),
-            gift_auto_accepts: BTreeMap::new(),
-            actor_safety: BTreeMap::new(),
-            treasure_objectives: BTreeMap::new(),
-            card_policy_preferences: BTreeMap::new(),
-            world_simulation: WorldSimulationState::default(),
-            rpg_claims: BTreeSet::new(),
-            orb_balances: BTreeMap::new(),
-            orb_reward_claims: BTreeSet::new(),
-            listen_attempt_claims: BTreeSet::new(),
-            pack_mount_state: PackMountState::default(),
-            action_journal_seq: 0,
-            hand_generations: BTreeMap::new(),
-            story_hand_states: BTreeMap::new(),
-            room_initiatives: BTreeMap::new(),
-            daily_journals: BTreeMap::new(),
-            presence_states: BTreeMap::new(),
-            event_log: Vec::new(),
-            recent_room_lines: BTreeMap::new(),
-            next_actor_id: 5000,
-            next_content_id: 9000,
-            next_seed: now_seed(),
-        };
-
+        let mut runtime = Self::empty();
+        runtime.actors = seed_actor_meta();
+        runtime.items = seed_item_meta();
+        runtime.locations = seed_location_names();
+        runtime.location_meta = seed_location_meta();
         runtime.ensure_seed_topology();
         runtime.ensure_active_actor_rules_facets();
         runtime.ensure_canonical_identities(0);
