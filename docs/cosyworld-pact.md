@@ -7,6 +7,9 @@ avatar, which worldpack they entered through, or whether AI is available.
 It is product law. It is not an in-world faction, a membership gate, or the
 [Cottage Pact proof world](archive/classic/v2/docs/pact-proof-world.md).
 
+[A world that remembers](cosyworld-ethos.md) is the editorial ethos beside
+this Pact: how we decide what belongs in the game.
+
 ## One World, One Truth
 
 Everyone in a place shares the same people, items, exits, conversation, and
