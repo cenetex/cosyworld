@@ -20,16 +20,13 @@ const commit = execFileSync("git", ["rev-parse", "HEAD"], {
   encoding: "utf8",
 }).trim();
 function fixture(turns) {
-  let world = enableMotives(createWorld({ opening: true, seed: 7 }));
-  for (const kind of ["snuff", "move", "light"])
-    world = play(
-      world,
-      legalActions(world).find(
-        (a) => a.kind === kind && (kind !== "move" || a.target === "pond"),
-      ),
-    ).state;
-  // A reload with no words for the opening turn asks the model again, so the
-  // saved shore starts with its current line already heard.
+  // The opening needs reveals before any play, so the fixture starts past it.
+  let world = enableMotives(createWorld({ seed: 7 }));
+  world = play(
+    world,
+    legalActions(world).find((a) => a.kind === "wait"),
+  ).state;
+  // The saved shore starts with its current line already heard.
   addLog(world, "Vale", "I remember this shore, at first light.", {
     actorId: "vale",
     entityId: "vale",
