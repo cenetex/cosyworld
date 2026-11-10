@@ -2124,9 +2124,10 @@ fn listener(context: &Context, id: &str) -> Option<String> {
     if id != actor && others.iter().any(|s| *s == actor) {
         Some(actor.to_string())
     } else {
-        others.first().map(|s| s.to_string()).or_else(|| {
-            answered(context, entity(context, id)).map(|line| line.actor_id.clone())
-        })
+        others
+            .first()
+            .map(|s| s.to_string())
+            .or_else(|| answered(context, entity(context, id)).map(|line| line.actor_id.clone()))
     }
 }
 
@@ -5158,7 +5159,8 @@ pub(crate) mod tests {
         c.disclosures = serde_json::from_value(json!([{
             "factId":"event:2", "speaker":"moth", "listener":"vale",
             "eventSeq":3, "text":"Pip found a shell beside the pond."
-        }])).unwrap();
+        }]))
+        .unwrap();
         c.conversation = vec![SpokenLine {
             signed: None,
             witnesses: Some(vec!["vale".into(), "moth".into()]),
