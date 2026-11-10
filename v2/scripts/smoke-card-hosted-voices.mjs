@@ -42,6 +42,15 @@ async function trackVoices(page) {
 }
 
 async function checkAccountRefresh(page) {
+  assert.equal(
+    await page.evaluate(() =>
+      Object.entries(localStorage)
+        .filter(([key]) => key.startsWith("cosyworld.voice-heard:"))
+        .some(([, value]) => value.includes("The lamp is steady.")),
+    ),
+    false,
+    "Listening history must not retain dialogue text",
+  );
   assert.deepEqual(await page.evaluate(() => window.voicePlayback), {
     starts: 1,
     stops: 0,

@@ -166,7 +166,7 @@ import {
 import { createHum } from "./hum.mjs";
 import { createSfx } from "./sfx.mjs";
 import { recedeBackdrop } from "./combat-backdrop.mjs";
-import { createCharacterSpeech, createVoiceHistory } from "./character-speech.mjs";
+import { createCharacterSpeech, createVoiceHistory, voiceLineIdentity } from "./character-speech.mjs";
 import { localRuntime } from "./local-service.mjs";
 import { hostedVoices } from "./hosted-voices.mjs";
 import { createLocalBackups, installBackupControls } from "./local-saves.mjs";
@@ -997,7 +997,7 @@ const reveal = createTextReveal({
       if (shownSceneLine?.silent) characterSpeech.clear();
       else
         characterSpeech.show(
-          value.key,
+          voiceLineIdentity(shownSceneLine),
           value.speaker,
           value.text,
           sharedVoiceReference(sharedSession?.state, shownSceneLine),

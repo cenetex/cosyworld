@@ -150,23 +150,31 @@ export function createVoiceClips({
   return clip;
 }
 
+// Reveal keys include words; listening history only needs the saved occurrence.
+export const voiceLineIdentity = (line) =>
+  JSON.stringify([line.seq, line.entityId || line.actorId || line.locationId]);
+
 // Listening history belongs to presentation, never to the shared rules journal.
-// Persist only identities, not audio. A blocked/full store still works in this tab.
+// Read storage each time so open tabs see one another's completed writes.
+// This is not a cross-tab playback lock; simultaneous starts may still overlap.
 export function createVoiceHistory(storage) {
-  const memory = new Map();
+  const memory = new Map(),
+    unsaved = new Map();
   function entries(scope) {
-    if (!memory.has(scope)) {
-      let keys = [];
-      try {
-        const saved = JSON.parse(
-          storage?.getItem(`cosyworld.voice-heard:${scope}`),
+    let keys = memory.get(scope) || new Set();
+    try {
+      const saved = JSON.parse(
+        storage?.getItem(`cosyworld.voice-heard:${scope}`),
+      );
+      if (Array.isArray(saved))
+        keys = new Set(
+          saved.filter((key) => typeof key === "string").slice(-2048),
         );
-        if (Array.isArray(saved))
-          keys = saved.filter((key) => typeof key === "string");
-      } catch {}
-      memory.set(scope, new Set(keys.slice(-2048)));
-    }
-    return memory.get(scope);
+    } catch {}
+    for (const key of unsaved.get(scope) || []) keys.add(key);
+    while (keys.size > 2048) keys.delete(keys.values().next().value);
+    memory.set(scope, keys);
+    return keys;
   }
   return {
     has: (scope, key) => entries(scope).has(key),
@@ -179,7 +187,14 @@ export function createVoiceHistory(storage) {
           `cosyworld.voice-heard:${scope}`,
           JSON.stringify([...keys]),
         );
-      } catch {}
+        unsaved.delete(scope);
+      } catch {
+        const pending = unsaved.get(scope) || new Set();
+        pending.add(key);
+        while (pending.size > 2048)
+          pending.delete(pending.values().next().value);
+        unsaved.set(scope, pending);
+      }
     },
   };
 }
@@ -219,7 +234,7 @@ export function createCharacterSpeech({
     }
     if (notify) publish(enabled ? "ready" : "off");
   }
-  async function run() {
+  async function run({ retry = false } = {}) {
     if (
       !enabled ||
       paused ||
@@ -231,6 +246,7 @@ export function createCharacterSpeech({
       return;
     const line = current;
     line.attempted = true;
+    if (!retry && history.has(line.scope, line.key)) return;
     line.busy = true;
     line.controller = new AbortController();
     const signal = AbortSignal.any([
@@ -250,6 +266,11 @@ export function createCharacterSpeech({
       }
       signal.throwIfAborted();
       if (current !== line) return;
+      if (!retry && history.has(line.scope, line.key)) {
+        line.busy = false;
+        publish("ready");
+        return;
+      }
       if (
         !Number.isFinite(buffer.duration) ||
         buffer.duration <= 0 ||
@@ -360,7 +381,7 @@ export function createCharacterSpeech({
     retry() {
       stop(false);
       if (current) current.attempted = false;
-      void run();
+      void run({ retry: true });
     },
     stop,
     clear({ keepPrefetch = false } = {}) {

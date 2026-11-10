@@ -6,6 +6,7 @@ import {
   createCharacterSpeech,
   createVoiceClips,
   createVoiceHistory,
+  voiceLineIdentity,
 } from "../v2/card-game/character-speech.mjs";
 import { publicAssets } from "../v2/card-game/public-assets.mjs";
 
@@ -317,6 +318,71 @@ describe("the six card character voices", () => {
     f.speech.show("waiting", "vale", "Wait.");
     await tick();
     expect(f.sources).toHaveLength(2);
+  });
+  it("shares content-free history between open tabs without losing earlier writes", () => {
+    const saved = new Map();
+    const storage = {
+      getItem: (key) => saved.get(key),
+      setItem: (key, value) => saved.set(key, value),
+    };
+    const a = createVoiceHistory(storage),
+      b = createVoiceHistory(storage);
+    const line = { seq: 1, actorId: "vale", text: "Private dialogue words." };
+    const first = voiceLineIdentity(line);
+    const second = voiceLineIdentity({ ...line, seq: 2 });
+    expect(a.has("run", first)).toBe(false);
+    expect(b.has("run", first)).toBe(false);
+    a.add("run", first);
+    expect(b.has("run", first)).toBe(true);
+    b.add("run", second);
+    expect(a.has("run", second)).toBe(true);
+    const reload = createVoiceHistory(storage);
+    expect(reload.has("run", first)).toBe(true);
+    expect(reload.has("run", second)).toBe(true);
+    expect([...saved.values()].join()).not.toContain(line.text);
+    expect(first).not.toBe(second);
+  });
+  it("retains tab history when existing storage is readable but writes fail", () => {
+    const history = createVoiceHistory({
+      getItem: () => JSON.stringify(["first"]),
+      setItem() {
+        throw new Error("full");
+      },
+    });
+    history.add("run", "second");
+    expect(history.has("run", "first")).toBe(true);
+    expect(history.has("run", "second")).toBe(true);
+  });
+  it("suppresses a line heard in another tab during loading but permits explicit retry", async () => {
+    const saved = new Map();
+    const storage = {
+      getItem: (key) => saved.get(key),
+      setItem: (key, value) => saved.set(key, value),
+    };
+    const a = fixture({ history: createVoiceHistory(storage) });
+    const b = fixture({ history: createVoiceHistory(storage) });
+    let release;
+    b.load.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          release = resolve;
+        }),
+    );
+    b.speech.unlock();
+    b.speech.show("first", "vale", "Hello.");
+    await tick();
+    a.speech.unlock();
+    a.speech.show("first", "vale", "Hello.");
+    await tick();
+    release(audio());
+    await tick();
+    expect(a.sources).toHaveLength(1);
+    expect(b.sources).toHaveLength(0);
+    expect(b.speech.busy).toBe(false);
+    expect(b.events.at(-1).state).toBe("ready");
+    b.speech.retry();
+    await tick();
+    expect(b.sources).toHaveLength(1);
   });
   it("keeps bounded history when stored data is damaged or too old", () => {
     const saved = new Map();
