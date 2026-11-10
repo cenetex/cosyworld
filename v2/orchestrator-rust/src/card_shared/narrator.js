@@ -16002,14 +16002,14 @@
         places: {
           "ratiradio-staff-kitchen": {
             name: "Staff Kitchen",
-            text: "The fridges keep the hours here. Carry the Red Beanie to open Dispatch Window. The missing possessions have wandered into the other worlds.",
+            text: "The fridges keep the hours here. One door stands barely ajar, casting cold light across the worn tiles.",
             persona: "A worn teal staff kitchen with old refrigerators, pale tiles, a chair, a sink, a lost-property tray. The staff entrance leads back to Empty Station. Movable possessions may be carried away.",
             exits: [],
             backdrop: "assets/ratiradio/staff-kitchen.webp"
           },
           "ratiradio-dispatch-window": {
             name: "Dispatch Window",
-            text: "A service hatch opens onto nobody. Shift notes curl above its shelf. Carry the Thermos to open the Listening Room.",
+            text: "A clock without numbers hangs over wired glass. Through the open hatch, an empty desk keeps its own night shift.",
             persona: "A late-night dispatch hatch with a wooden counter, old shift notes, an empty shelf. Warm light leaks from the Listening Room door. The staff kitchen is behind you.",
             exits: [
               "ratiradio-staff-kitchen"
@@ -16018,7 +16018,7 @@
           },
           "ratiradio-listening-room": {
             name: "Listening Room",
-            text: "RATi lives here. A radio faces a worn armchair. Put the glass, raven figurine, red beanie down here together. Carry the figurine to open the Broadcast Booth.",
+            text: "RATi's armchair faces a small radio. Across the rug, the Booth door waits in warm lamplight.",
             persona: "RATi's home and sanctuary: worn armchair, amber lamp, small radio, a pale glass ring on the table, a bare chair back, a ledge beside the booth door. RATi roams but returns here to gain levels. The ceramic figurine remains an object when the living Raven arrives.",
             exits: [
               "ratiradio-dispatch-window"
@@ -16028,7 +16028,7 @@
           },
           "ratiradio-broadcast-booth": {
             name: "Broadcast Booth",
-            text: "The ON AIR light comes up. The chair behind the microphone is empty. The glass, figurine and red beanie belong together in the Listening Room.",
+            text: "A red lamp glows over an empty chair. Amber meters stir on the mixing desk; beyond the window, another room is dark.",
             persona: "An empty radio booth with a mixing desk, suspended microphone, empty host chair, rain-dark window. A late-night broadcast continues. The glass belongs back in the Listening Room.",
             exits: [
               "ratiradio-listening-room"
@@ -16242,8 +16242,8 @@
             id: "ratiradio-enter-station",
             subject: "ratiradio-staff-kitchen",
             at: "ratiradio-staff-kitchen",
-            label: "The staff entrance stays open behind you.",
-            text: "The staff entrance stays open behind you.",
+            label: "The staff entrance settles open behind you.",
+            text: "The staff entrance clicks open behind you, then settles on its catch.",
             requires: [],
             effects: [
               {
@@ -16258,8 +16258,8 @@
             id: "ratiradio-wake-rati",
             subject: "ratiradio-listening-room",
             at: "ratiradio-listening-room",
-            label: "RATi looks up from the radio. This is his home; the glass, figurine, red beanie belong here.",
-            text: "RATi looks up from the radio. This is his home; the glass, figurine, red beanie belong here.",
+            label: "RATi looks up from the radio. His chair has a visitor's place beside it.",
+            text: "RATi looks up from the radio. His chair has a visitor's place beside it.",
             requires: [],
             effects: [
               {
@@ -16274,8 +16274,8 @@
             id: "ratiradio-open-dispatch-window",
             subject: "ratiradio-staff-kitchen",
             at: "ratiradio-staff-kitchen",
-            label: "The passage to Dispatch Window opens.",
-            text: "The passage to Dispatch Window opens.",
+            label: "The shutter gives way. Dispatch Window opens.",
+            text: "The beanie's red wool passes the shutter. The latch gives way; Dispatch Window opens.",
             requires: [
               {
                 kind: "holding",
@@ -16296,8 +16296,8 @@
             id: "ratiradio-open-listening-room",
             subject: "ratiradio-dispatch-window",
             at: "ratiradio-dispatch-window",
-            label: "The passage to Listening Room opens.",
-            text: "The passage to Listening Room opens.",
+            label: "The radio comes through clear. Listening Room opens.",
+            text: "The Thermos warms the metal plate beside the door. Inside, the radio comes through clear; Listening Room opens.",
             requires: [
               {
                 kind: "holding",
@@ -16318,8 +16318,8 @@
             id: "ratiradio-open-broadcast-booth",
             subject: "ratiradio-listening-room",
             at: "ratiradio-listening-room",
-            label: "The passage to Broadcast Booth opens.",
-            text: "The passage to Broadcast Booth opens.",
+            label: "The Broadcast Booth door clicks open.",
+            text: "The figurine's glazed eye catches a sliver of light. The Broadcast Booth door clicks open.",
             requires: [
               {
                 kind: "holding",
@@ -16374,7 +16374,7 @@
             id: "ratiradio-bring-them-home",
             speaker: "ratiradio-rati",
             at: "ratiradio-listening-room",
-            text: "RATi says the glass, ceramic raven, red beanie belong together in the Listening Room.",
+            text: "RATi touches the ring on the table; the glass, the beanie, the little ceramic bird: he has kept their places.",
             requires: [
               {
                 kind: "flag",
@@ -16387,14 +16387,14 @@
             id: "ratiradio-rati-home",
             speaker: "ratiradio-rati",
             at: "ratiradio-listening-room",
-            text: "RATi lives in the Listening Room, returning there to gain levels after roaming.",
+            text: "RATi calls the Listening Room home; he can wander far, but comes back here before each new level.",
             requires: []
           },
           {
             id: "ratiradio-little-one",
             speaker: "ratiradio-raven",
             at: "ratiradio-listening-room",
-            text: "Raven says the little ceramic bird can keep watch.",
+            text: "Raven calls the ceramic figurine its quiet double, a little bird that needs no voice.",
             requires: [
               {
                 kind: "flag",

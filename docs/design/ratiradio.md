@@ -21,6 +21,22 @@ Entering the booth starts the supplied six-minute remaster for that listener.
 The performance follows the return journey. Muting never affects progression.
 First-listen state is separate from shared-world gate and resident flags.
 
+
+## Room rhythm and truthful scenery
+
+Each room has a different purpose: cold uncertainty in the Staff Kitchen;
+a staffed-but-empty threshold at Dispatch; genuine shelter in Listening;
+a performance that earns its meaning in the Booth. The words follow the
+approved place paintings: refrigerator glow, wired glass and clock, RATi's
+armchair, studio meters. Movable quest items remain separate cards, never
+painted onto a room that might have lost them.
+
+Sealed-route descriptors and item cards still state exact requirements.
+A resident may speak about what is missing, but speech does not open a door.
+Raven's appearance follows three direct placements, not the quality of an
+AI's narration. This treatment follows the short taste review in
+[the jagged-AGI design proposal](https://github.com/cenetex/cosyworld/pull/2574).
+
 ## Authority and compatibility
 
 The rules own possession, passage, activation, levels. The first entrance must
