@@ -337,7 +337,12 @@ describe("the six card character voices", () => {
     for (const interrupt of ["mute", "disconnect"]) {
       const f = fixture();
       let release;
-      f.load.mockImplementationOnce(() => new Promise((resolve) => { release = resolve; }));
+      f.load.mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            release = resolve;
+          }),
+      );
       f.speech.unlock();
       f.speech.show("line", "vale", "Hello.");
       await tick();
