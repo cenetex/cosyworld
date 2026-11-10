@@ -10,4 +10,4 @@ cost and effect of a card action. Provider costs belong to the server's operatin
 budget. Treat future economy proposals as planning until their rules ship.
 
 The classic Orb economy, linked-avatar adapters, and NFT migration records live
-in git history and support compatibility and audit work on those systems.
+in git history.

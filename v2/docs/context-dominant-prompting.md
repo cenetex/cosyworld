@@ -136,7 +136,7 @@ generation job.
 Items advance through distinct authored use milestones. Locations advance through
 unique completed construction, upgrade, and civic expansion projects as specified in
 Location Classes, Development Projects, and Buildings.
-The [entity level contract](entity-level-authority.md) freezes existing levels at a
+The entity level contract freezes existing levels at a
 versioned journal boundary and records each later milestone once. Fresh locations start
 at level 0; their numbered art and self-description pools open at level 1.
 Prompt construction consumes the authoritative level and must never infer advancement
