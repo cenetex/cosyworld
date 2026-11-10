@@ -6,10 +6,6 @@ Nothing here is built. No rules, pack or client change ships with this note.
 Issue: [#2605](https://github.com/cenetex/cosyworld/issues/2605), under
 [#2576](https://github.com/cenetex/cosyworld/issues/2576).
 
-Owner direction, 2026-11-10: remove story choice buttons and quest sources;
-one want per avatar; Level Up becomes Sleep at home; the rest is procedural;
-story arcs sit on top.
-
 Line numbers are for main at `c3bfac77a` (rules `full-card-world/131`). Pack
 counts are computed from `v2/card-game/packs.json` with a short Node script
 over the six mounted packs in `v2/worlds/card-table.json`.
@@ -126,8 +122,8 @@ are not drawn as locked boxes.
 - **No XP is paid for opening.** XP comes only if the box's quest was taken
   (source 5, four of the nine) and met. Made things lock again when used up.
 
-A *closed* box is different: a card this browser has not turned over yet. It
-reads "Tap to open", needs no rule and pays nothing (`app.mjs:479-482`).
+A *closed* box is only a card this browser has not turned over: "Tap to
+open", no rule, no XP (`app.mjs:479-482`).
 
 ### Level up, Sleep and home
 
@@ -379,6 +375,9 @@ Released journals replay on their frozen bundles. Slices that delete
 | 6 | Staged `wants` on residents; remove `choose` from offered plays | rules | reset | No arc field in the save; the same world facts give the same want after reload |
 | 7 | Burial, RatiRadio and RATi's buttons as staged wants; more boxes | pack data | keep | Antigone's Talk line changes at the Writ and after the burial; RATi's changes at each door |
 | 8 | One quest card; remove the fan and Focus from the client | client | keep | `npm run check:ui` passes with no new entry; phone and desktop |
+
+Later: resident draws from grievances, knowledge and trust (#1506, #1871),
+as a second rules batch; then the README quest section is rewritten.
 
 ## Open questions for the owner
 
