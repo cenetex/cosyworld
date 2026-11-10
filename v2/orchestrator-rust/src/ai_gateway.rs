@@ -75,6 +75,17 @@ pub(crate) struct AiConfig {
 }
 
 impl AiConfig {
+    #[cfg(test)]
+    pub(crate) fn for_transient_openrouter(&self, api_key: String) -> Self {
+        let mut config = self.clone();
+        config.api_key = api_key;
+        config.base_url = "https://openrouter.ai/api/v1".to_string();
+        config.server_paid = false;
+        config.readiness =
+            AiReadiness::ready_with_low_credit_threshold(DEFAULT_LOW_CREDIT_THRESHOLD);
+        config
+    }
+
     pub(crate) fn from_env() -> Result<Option<Self>, String> {
         let api_key = std::env::var("COSYWORLD_AI_API_KEY")
             .ok()
@@ -646,6 +657,48 @@ fn exact_endpoint_context_hash(
         hasher.update(value.as_bytes());
     }
     format!("{:x}", hasher.finalize())
+}
+
+#[cfg(test)]
+pub(crate) async fn request_routed_chat_completion(
+    config: &AiConfig,
+    model: &str,
+    request: ChatCompletionRequest<'_>,
+) -> Result<AiCompletion, AiGatewayError> {
+    let local_development_adapter = config.data_policy_mode == DataPolicyMode::Development
+        && local_ai_base_url(&config.base_url);
+    if (ai_provider_name(Some(config)) != "openrouter" && !local_development_adapter)
+        || !model.starts_with("openrouter/")
+    {
+        return Err(AiGatewayError {
+            kind: AiFailureKind::Client,
+            message: format!("{} requires an OpenRouter router model", request.feature),
+            attempts: 0,
+            latency: Duration::ZERO,
+        });
+    }
+    request_completion(
+        config,
+        request.feature,
+        request.prompt_version,
+        request.system,
+        "",
+        Value::String(request.user.to_string()),
+        Some(request.temperature),
+        request.max_tokens,
+        request.timeout,
+        request.max_attempts,
+        request.referer,
+        request.response_format,
+        request.room_id,
+        model,
+        config.reasoning_effort.as_deref(),
+        false,
+        false,
+        None,
+        None,
+    )
+    .await
 }
 
 pub(crate) async fn request_chat_completion(
@@ -3047,6 +3100,351 @@ mod tests {
                 "{invalid}"
             );
         }
+    }
+
+    #[test]
+    fn server_budget_closes_at_twenty_dollars_and_resets_on_utc_boundary() {
+        assert!(!server_daily_spend_exhausted(19.999_999));
+        assert!(server_daily_spend_exhausted(20.0));
+        assert!(server_daily_spend_exhausted(20.01));
+        assert_eq!(next_utc_day_unix(0), 86_400);
+        assert_eq!(next_utc_day_unix(86_399), 86_400);
+        assert_eq!(next_utc_day_unix(86_400), 172_800);
+
+        let server = AiConfig {
+            api_key: "sk-or-server".to_string(),
+            base_url: "https://openrouter.ai/api/v1".to_string(),
+            server_paid: true,
+            ..AiConfig::default()
+        };
+        assert!(uses_server_paid_openrouter(&server));
+        assert!(!uses_server_paid_openrouter(
+            &server.for_transient_openrouter("sk-or-player".to_string())
+        ));
+    }
+
+    #[tokio::test]
+    async fn free_router_authors_text_and_reports_the_resolved_model() {
+        use std::sync::Mutex;
+
+        let request_body = Arc::new(Mutex::new(None::<Value>));
+        let captured = Arc::clone(&request_body);
+        let app = Router::new().route(
+            "/chat/completions",
+            post(move |Json(body): Json<Value>| {
+                let captured = Arc::clone(&captured);
+                async move {
+                    *captured.lock().expect("capture free router request") = Some(body);
+                    Json(json!({
+                        "model": "example/resolved-free-model:free",
+                        "choices": [{
+                            "message": { "content": "The kettle remembers you." },
+                            "finish_reason": "stop"
+                        }],
+                        "usage": { "total_tokens": 9 }
+                    }))
+                }
+            }),
+        );
+        let listener = TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("bind free router gateway test server");
+        let address = listener.local_addr().expect("free router gateway address");
+        let server = tokio::spawn(async move {
+            let _ = axum::serve(listener, app).await;
+        });
+        let config = AiConfig {
+            api_key: "test".to_string(),
+            base_url: format!("http://{address}"),
+            data_policy_mode: DataPolicyMode::Development,
+            ..AiConfig::default()
+        };
+        let completion = request_routed_chat_completion(
+            &config,
+            OPENROUTER_FREE_MODEL,
+            ChatCompletionRequest {
+                feature: "speech_text_test",
+                prompt_version: "speech-text-test-v1",
+                capability: ModelCapability::Voice,
+                system: "Write one line.",
+                user: "Welcome the traveler.",
+                temperature: 0.7,
+                max_tokens: 64,
+                timeout: Duration::from_secs(2),
+                max_attempts: 1,
+                referer: "http://127.0.0.1",
+                response_format: None,
+                room_id: None,
+            },
+        )
+        .await
+        .expect("free router text completion");
+
+        let body = request_body
+            .lock()
+            .expect("read free router request")
+            .clone()
+            .expect("free router request captured");
+        assert_eq!(body["model"], OPENROUTER_FREE_MODEL);
+        assert_eq!(completion.text, "The kettle remembers you.");
+        assert_eq!(
+            completion.resolved_model_id,
+            "example/resolved-free-model:free"
+        );
+        server.abort();
+    }
+
+    #[test]
+    fn gateway_errors_have_stable_telemetry_codes() {
+        assert_eq!(
+            AiGatewayError {
+                kind: AiFailureKind::InvalidResponse,
+                message: "bad response".to_string(),
+                attempts: 1,
+                latency: Duration::ZERO,
+            }
+            .code(),
+            "inference_invalid_response"
+        );
+    }
+
+    #[tokio::test]
+    async fn exact_endpoint_request_shape_4xx_is_terminal_without_retry_amplification() {
+        let requests = Arc::new(AtomicUsize::new(0));
+        let observed = Arc::clone(&requests);
+        let app = Router::new().route(
+            "/chat/completions",
+            post(move || {
+                let observed = Arc::clone(&observed);
+                async move {
+                    observed.fetch_add(1, Ordering::SeqCst);
+                    (
+                        StatusCode::BAD_REQUEST,
+                        Json(json!({ "error": { "message": "invalid request shape" } })),
+                    )
+                }
+            }),
+        );
+        let listener = TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("bind terminal 4xx gateway test server");
+        let address = listener
+            .local_addr()
+            .expect("terminal 4xx gateway test address");
+        let server = tokio::spawn(async move {
+            let _ = axum::serve(listener, app).await;
+        });
+        let config = AiConfig {
+            api_key: "test".to_string(),
+            base_url: format!("http://{address}"),
+            model: "test-model".to_string(),
+            data_policy_mode: DataPolicyMode::Development,
+            ..AiConfig::default()
+        };
+        let error = request_chat_completion(
+            &config,
+            ChatCompletionRequest {
+                feature: "chat_route_test",
+                prompt_version: "chat-route-test-v1",
+                capability: ModelCapability::Voice,
+                system: "Write one line.",
+                user: "Hello.",
+                temperature: 0.7,
+                max_tokens: 64,
+                timeout: Duration::from_secs(2),
+                max_attempts: 4,
+                referer: "http://127.0.0.1",
+                response_format: None,
+                room_id: None,
+            },
+        )
+        .await
+        .expect_err("deterministic 400 must be terminal");
+
+        assert_eq!(error.code(), "inference_provider_error");
+        assert_eq!(error.attempts, 1);
+        assert_eq!(requests.load(Ordering::SeqCst), 1);
+        server.abort();
+    }
+
+    #[tokio::test]
+    async fn unauthorized_exact_request_is_single_call_and_blocks_only_that_route() {
+        let requests = Arc::new(AtomicUsize::new(0));
+        let observed_requests = Arc::clone(&requests);
+        let app = Router::new().route(
+            "/chat/completions",
+            post(move || {
+                let observed_requests = Arc::clone(&observed_requests);
+                async move {
+                    observed_requests.fetch_add(1, Ordering::SeqCst);
+                    (
+                        StatusCode::UNAUTHORIZED,
+                        Json(json!({ "error": { "message": "invalid credential" } })),
+                    )
+                }
+            }),
+        );
+        let listener = TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("bind readiness authorization server");
+        let address = listener.local_addr().expect("readiness test address");
+        let server = tokio::spawn(async move {
+            let _ = axum::serve(listener, app).await;
+        });
+        let config = AiConfig {
+            api_key: "test".to_string(),
+            base_url: format!("http://{address}"),
+            model: "test-model".to_string(),
+            data_policy_mode: DataPolicyMode::Development,
+            ..AiConfig::default()
+        };
+        let request = || {
+            request_chat_completion(
+                &config,
+                ChatCompletionRequest {
+                    feature: "chat_route_test",
+                    prompt_version: "chat-route-test-v1",
+                    capability: ModelCapability::Voice,
+                    system: "Write one line.",
+                    user: "Hello.",
+                    temperature: 0.7,
+                    max_tokens: 64,
+                    timeout: Duration::from_secs(2),
+                    max_attempts: 4,
+                    referer: "http://127.0.0.1",
+                    response_format: None,
+                    room_id: None,
+                },
+            )
+        };
+
+        let first = request().await.expect_err("401 must fail closed");
+        assert_eq!(first.provider_http_status(), Some(401));
+        assert_eq!(first.attempts, 1);
+        let second = request()
+            .await
+            .expect_err("open exact-route circuit must reject before I/O");
+        assert_eq!(second.code(), crate::ai_readiness::AI_ROUTE_INCOMPATIBLE);
+        assert_eq!(second.attempts, 0);
+        assert_eq!(requests.load(Ordering::SeqCst), 1);
+        assert!(config
+            .exact_route_gate(CHAT_COMPLETIONS_ENDPOINT, "provider/other-model")
+            .is_ready());
+        server.abort();
+    }
+
+    #[tokio::test]
+    async fn retry_after_opens_only_the_failed_exact_route() {
+        let app = Router::new().route(
+            "/chat/completions",
+            post(|| async {
+                (
+                    StatusCode::TOO_MANY_REQUESTS,
+                    [("retry-after", "7")],
+                    Json(json!({ "error": { "message": "slow down" } })),
+                )
+            }),
+        );
+        let listener = TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("bind readiness rate-limit server");
+        let address = listener.local_addr().expect("readiness test address");
+        let server = tokio::spawn(async move {
+            let _ = axum::serve(listener, app).await;
+        });
+        let config = AiConfig {
+            api_key: "test".to_string(),
+            base_url: format!("http://{address}"),
+            model: "test-model".to_string(),
+            data_policy_mode: DataPolicyMode::Development,
+            ..AiConfig::default()
+        };
+        let error = request_chat_completion(
+            &config,
+            ChatCompletionRequest {
+                feature: "chat_route_test",
+                prompt_version: "chat-route-test-v1",
+                capability: ModelCapability::Voice,
+                system: "Write one line.",
+                user: "Hello.",
+                temperature: 0.7,
+                max_tokens: 64,
+                timeout: Duration::from_secs(2),
+                max_attempts: 1,
+                referer: "http://127.0.0.1",
+                response_format: None,
+                room_id: None,
+            },
+        )
+        .await
+        .expect_err("429 must open a route cooldown");
+
+        assert_eq!(error.provider_http_status(), Some(429));
+        assert_eq!(error.retry_after(), Some(Duration::from_secs(7)));
+        assert!(!config
+            .exact_route_gate(CHAT_COMPLETIONS_ENDPOINT, "test-model")
+            .is_ready());
+        assert!(config
+            .exact_route_gate(CHAT_COMPLETIONS_ENDPOINT, "provider/other-model")
+            .is_ready());
+        server.abort();
+    }
+
+    #[tokio::test]
+    async fn provider_4xx_includes_safe_capability_diagnostics() {
+        let app = Router::new().route(
+            "/chat/completions",
+            post(|| async {
+                (
+                    StatusCode::BAD_REQUEST,
+                    Json(json!({
+                        "error": {
+                            "code": "unsupported_capability",
+                            "message": "test-model does not support image_url with json_schema"
+                        }
+                    })),
+                )
+            }),
+        );
+        let listener = TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("bind image policy diagnostic server");
+        let addr = listener.local_addr().expect("AI gateway test address");
+        let server = tokio::spawn(async move {
+            let _ = axum::serve(listener, app).await;
+        });
+        let config = AiConfig {
+            api_key: "test".to_string(),
+            base_url: format!("http://{addr}"),
+            model: "test-model".to_string(),
+            reasoning_effort: None,
+            ..AiConfig::default()
+        };
+
+        let error = request_chat_completion(
+            &config,
+            ChatCompletionRequest {
+                feature: "chat_route_test",
+                prompt_version: "chat-route-test-v1",
+                capability: ModelCapability::Voice,
+                system: "Write one line.",
+                user: "Hello.",
+                temperature: 0.7,
+                max_tokens: 64,
+                timeout: Duration::from_secs(2),
+                max_attempts: 1,
+                referer: "http://127.0.0.1",
+                response_format: None,
+                room_id: None,
+            },
+        )
+        .await
+        .expect_err("provider capability mismatch must fail closed");
+        let message = error.to_string();
+
+        assert!(message.contains("HTTP 400 Bad Request"));
+        assert!(message.contains("does not support image_url with json_schema"));
+        server.abort();
     }
 }
 
