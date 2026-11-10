@@ -1,3 +1,4 @@
+import { fillLampFuel, settleLamp } from "./lamp-state.mjs";
 import { validStationExitOrder } from "./station-exits.mjs";
 import {
   recordConversation,
@@ -909,7 +910,7 @@ function refuelCarried(s) {
       continue;
     const here = s.actors[actor].place;
     const text = `${nameOf(actor)} empties the ${nameOf(id)} into the dry ${nameOf(target)}. The ${nameOf(target)} is full. Back at ${nameOf(returnsTo)}, the ${nameOf(id)} stands full again.`;
-    s.items[target].fuel = LAMP_FUEL;
+    fillLampFuel(s);
     remember(s, target, text);
     transfer(s, id, returnsTo, text);
     addLog(s, "World", text, {
@@ -1489,30 +1490,6 @@ export function legalActions(s, actor = currentActor(s)) {
       use.label = belonging.item.verb;
       out.push(use);
     }
-    if (id === "lamp") {
-      if (item.lit)
-        out.push(
-          offer(
-            "snuff",
-            actor,
-            id,
-            null,
-            `${nameOf(actor)} puts out the Lamp.`,
-            [id],
-          ),
-        );
-      else if (item.fuel > 0)
-        out.push(
-          offer(
-            "light",
-            actor,
-            id,
-            null,
-            `${nameOf(actor)} lights the Lamp${covered(s, id) ? " under its cloth" : ""}.`,
-            [id],
-          ),
-        );
-    }
     if (id === "bell" && !covered(s, id))
       out.push(
         offer(
@@ -2040,6 +2017,9 @@ function perform(s, a, round = null, settle = []) {
   const conflict = standoffFor(s, a.actor);
   const result = performPlay(s, a, round, settle);
   settleHeldItems(s, hands);
+  settleLamp(s);
+  refuelCarried(s);
+  settleLamp(s);
   if (conflict && s.standoffs.includes(conflict)) {
     const calm = conflict.steppedBack;
     if (a.kind === "attack") for (const id in calm) calm[id] = false;
@@ -3050,20 +3030,6 @@ export function play(
     wakeResident(next, id);
     perform(next, plan(next, id).action, round, residents);
   }
-  if (next.items.lamp.lit) {
-    next.items.lamp.fuel = Math.max(0, next.items.lamp.fuel - 1);
-    if (next.items.lamp.fuel === 0) {
-      next.items.lamp.lit = false;
-      addLog(
-        next,
-        "World",
-        "The Lamp runs dry. Its flame folds into a tiny black sun.",
-        { locationId: itemPlace(next, "lamp") },
-      );
-    }
-  }
-  // A lamp that just ran dry in a hand that also holds the flask fills again.
-  refuelCarried(next);
   const rings = next.log.filter(
     (entry) =>
       entry.turn === next.turn &&
@@ -3133,6 +3099,10 @@ export function play(
   const worldLine = (text, locationId) =>
     addLog(next, "World", text, { kind: "narration", locationId });
   settleVoyageCargo(next, voyages, nameOf, worldLine);
+  settleHeldItems(next, handSnapshot(s));
+  settleLamp(next);
+  refuelCarried(next);
+  settleLamp(next);
   wakeSleepers(next, s, voyages);
   // Regrowth, the dawn safeguard and kits follow the light and long rests.
   settleItemCycle(next, nameOf, worldLine);
@@ -3161,6 +3131,7 @@ export function play(
     else next.sharedMigration.inventoryAllowances[id] = count;
   }
   settleHeldItems(next, handSnapshot(s));
+  settleLamp(next);
   endQuestPlay(next);
   settleStationExits(next);
   validateWorld(next);
@@ -3761,6 +3732,7 @@ export function decodeSave(text) {
     latchRoutes(s);
     settleGuards(s);
     settleHeldItems(s);
+    settleLamp(s);
     if (s.stationExitOrder === undefined) settleStationExits(s);
     validateWorld(s);
     preserveTransportAccess(s);

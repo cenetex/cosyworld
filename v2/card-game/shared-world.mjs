@@ -1,3 +1,4 @@
+import { settleLamp } from "./lamp-state.mjs";
 import { privateView } from "./learning.mjs";
 import { applyHeldChoice, settleHeldItems } from "./held-item.mjs";
 import { expressionKind, validExpression } from "./expression.mjs";
@@ -42,6 +43,8 @@ import { dialogueCast } from "./scene-cast.mjs";
 import { speechOccasions } from "./speech-occasions.mjs";
 
 function validateTransition(world) {
+  settleHeldItems(world);
+  settleLamp(world);
   settleStationExits(world);
   validateWorld(world);
 }
