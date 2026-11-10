@@ -1,3 +1,4 @@
+import { currentSharedEngine } from "./fixtures/shared-engine.mjs";
 import { readFileSync } from "node:fs";
 import vm from "node:vm";
 import { describe, expect, it } from "vitest";
@@ -273,16 +274,90 @@ it("migrates authentic rules128 light/snuff history without reinterpreting its e
   }
 }, 30000);
 
-
 describe("saved room fuel is validated before settlement", () => {
   it.each([
-    { fuelPlace: "nonexistent" }, { fuel: 99 }, { fuel: -1 },
-    { fuelRooms: 1, fuel: 12 }, { fuelPlace: undefined },
+    { fuelPlace: "nonexistent" },
+    { fuel: 99 },
+    { fuel: -1 },
+    { fuelRooms: 1, fuel: 12 },
+    { fuelPlace: undefined },
   ])("rejects forged metadata on local/shared import: %j", (fields) => {
     const world = createWorld();
     Object.assign(world.items.lamp, fields);
     const save = JSON.stringify(world);
     expect(() => decodeSave(save)).toThrow(/lamp room fuel/);
-    expect(() => dispatchShared({ op: "create", save })).toThrow(/lamp room fuel/);
+    expect(() => dispatchShared({ op: "create", save })).toThrow(
+      /lamp room fuel/,
+    );
   });
+});
+
+describe.each(["source", "compiled"])("saved lamp lit type (%s)", (mode) => {
+  const dispatch = (request) => {
+    if (mode === "source") return dispatchShared(request);
+    const result = JSON.parse(
+      currentSharedEngine().cardShared(JSON.stringify(request)),
+    );
+    if (result.ok === false) throw new Error(result.error);
+    return result;
+  };
+  it.each(["invalid", 0, null, [], {}, undefined])(
+    "rejects malformed current lit %j",
+    (lit) => {
+      const world = createWorld();
+      world.items.lamp.lit = lit;
+      const save = JSON.stringify(world);
+      if (mode === "source")
+        expect(() => decodeSave(save)).toThrow(/lamp room fuel/);
+      expect(() => dispatch({ op: "create", save })).toThrow(/lamp room fuel/);
+      expect(() =>
+        dispatch({
+          op: "upgrade",
+          world: JSON.parse(save),
+          from: "full-card-world/128",
+        }),
+      ).toThrow(/lamp room fuel/);
+    },
+  );
+  it.each([true, false, undefined])(
+    "preserves supported legacy lit %j",
+    (lit) => {
+      const old = createWorld();
+      for (const key of ["fuelRooms", "fuelPlace", "fuelVisit"])
+        delete old.items.lamp[key];
+      old.items.lamp.lit = lit;
+      const save = JSON.stringify(old);
+      const loaded = dispatch({ op: "create", save }).world;
+      expect(loaded.items.lamp).toMatchObject({
+        holder: "station",
+        fuelRooms: 3,
+        fuel: 12,
+        lit: true,
+      });
+      expect(loaded.log).toEqual(old.log);
+      if (mode === "source")
+        expect(decodeSave(save).items.lamp).toEqual(loaded.items.lamp);
+      expect(
+        dispatch({
+          op: "upgrade",
+          world: JSON.parse(save),
+          from: "full-card-world/128",
+        }).world.items.lamp,
+      ).toEqual(loaded.items.lamp);
+      old.items.lamp.lit = "invalid";
+      const invalid = JSON.stringify(old);
+      if (mode === "source")
+        expect(() => decodeSave(invalid)).toThrow(/lamp room fuel/);
+      expect(() => dispatch({ op: "create", save: invalid })).toThrow(
+        /lamp room fuel/,
+      );
+      expect(() =>
+        dispatch({
+          op: "upgrade",
+          world: JSON.parse(invalid),
+          from: "full-card-world/128",
+        }),
+      ).toThrow(/lamp room fuel/);
+    },
+  );
 });

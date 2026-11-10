@@ -3755,7 +3755,14 @@ export function decodeSave(text) {
     // Existing room metadata is evidence, not a migration hint. Reject it before
     // settlement can replace an unknown location or repair a forged projection.
     const lamp = s?.items?.lamp;
-    if (lamp && ["fuelRooms", "fuelPlace", "fuelVisit"].some((key) => Object.hasOwn(lamp, key)) &&
+    const hasRoomFuel = lamp && ["fuelRooms", "fuelPlace", "fuelVisit"].some(
+      (key) => Object.hasOwn(lamp, key),
+    );
+    // Legacy saves may omit the derived flag; an explicit flag must be boolean.
+    if (lamp && typeof lamp.lit !== "boolean" &&
+        (hasRoomFuel || Object.hasOwn(lamp, "lit")))
+      throw new Error("Invalid saved lamp room fuel.");
+    if (hasRoomFuel &&
         (!validLampRoomFuel(lamp) || !Object.hasOwn(places, lamp.fuelPlace) ||
          lamp.fuel !== lamp.fuelRooms * 4))
       throw new Error("Invalid saved lamp room fuel.");
