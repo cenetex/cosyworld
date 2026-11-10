@@ -49,6 +49,12 @@ describe("fast check Rust test selection", () => {
     ]);
   });
 
+  it("runs receiver journal replay when authored radio rules change", () => {
+    expect(pick("v2/card-game/radio-item.mjs")).toEqual([
+      "card_shared::quest_loop_tests::",
+    ]);
+  });
+
   it("runs consequence replay for rule modules and pinned evidence", () => {
     for (const path of [
       "v2/card-game/lamp-state.mjs",
