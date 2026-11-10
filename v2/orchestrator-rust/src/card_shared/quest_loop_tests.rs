@@ -227,7 +227,7 @@ fn rules_98_world_upgrades_to_99_keeping_its_opening_and_packs() {
     assert_eq!(upgraded.version, engine::VERSION);
     // Greek revision 20 and Hoppy revision 4 update their rooms and things.
     let mut old = super::saved_items::current_pack_changes(&old, &upgraded.game);
-    let rooms = (old["items"]["lamp"]["fuel"].as_u64().unwrap() + 3) / 4;
+    let rooms = old["items"]["lamp"]["fuel"].as_u64().unwrap().div_ceil(4);
     old["items"]["lamp"]["fuelRooms"] = json!(rooms);
     old["items"]["lamp"]["fuel"] = json!(rooms * 4);
     old["items"]["lamp"]["fuelPlace"] = json!("attic");
