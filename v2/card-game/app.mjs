@@ -139,6 +139,7 @@ import {
   installSharedControls,
   renderRoomStatus,
   sharedReadingLine,
+  sharedReadingState,
   sharedNextLine,
   sharedSilentLines,
   sharedSpeechState,
@@ -494,6 +495,7 @@ const avatarKnown = () => !coveredCards.has(currentActor(world));
 // A shared viewer follows the room once their avatar and place are known.
 const selfKnown = () =>
   avatarKnown() && !coveredCards.has(world.actors[currentActor(world)].place);
+const readerState = () => sharedReadingState(sharedSession.state, selfKnown());
 function rememberCards() {
   try {
     localStorage.setItem(SEEN_KEY, JSON.stringify([...encountered]));
@@ -874,7 +876,7 @@ new ResizeObserver(measureSpeech).observe($("dialogue-text"));
 function replyPending() {
   return sharedSession
     ? Boolean(shownSceneLine && storyStatus === "pending" &&
-        !sharedNextLine(sharedSession.state, shownSceneLine.locationId, shownSceneLine.seq))
+        !sharedNextLine(readerState(), shownSceneLine.locationId, shownSceneLine.seq))
     : exchange.waiting;
 }
 function updateSpeechControls(complete) {
@@ -884,7 +886,7 @@ function updateSpeechControls(complete) {
   const own = frontIndex === liveIndex && pending?.own;
   const cancel = own?.cancel && (thinkingArmed ? "Confirm" : own.committed ? "Stop waiting" : "Cancel");
   const sharedForward = sharedSession && shownSceneLine && !sharedAdvanceRequested &&
-    (ownPlayInFlight() || sharedNextLine(sharedSession.state, shownSceneLine.locationId, shownSceneLine.seq));
+    (ownPlayInFlight() || sharedNextLine(readerState(), shownSceneLine.locationId, shownSceneLine.seq));
   const forward = (reviewing && (frontIndex < liveIndex || choiceInStack())) ||
     exchange.hasNext || sharedForward || queuedChoice;
   const label = reviewing ? "Step forward to a later beat" : "Continue to the next beat";
@@ -2279,7 +2281,7 @@ let queuedChoice = false;
 function queueChoice() {
   queuedChoice ||= Boolean(shownSceneLine && (
     !reveal.complete || exchange.current || replyPending() ||
-    (sharedSession && sharedNextLine(sharedSession.state, shownSceneLine.locationId, shownSceneLine.seq))
+    (sharedSession && sharedNextLine(readerState(), shownSceneLine.locationId, shownSceneLine.seq))
   ));
 }
 function lingeringWords(inFlight) {
@@ -3344,8 +3346,14 @@ async function clearQuest(button, quest) {
     while ((localWordsPending() || sleepView.active) && questClaims.get(quest.key) === reward)
       await new Promise((resolve) => setTimeout(resolve, 50));
     if (questClaims.get(quest.key) !== reward) return;
-    if (sharedSession) await sharedSession.play(action, reward.key);
-    else {
+    if (sharedSession) {
+      const result = await sharedSession.play(action, reward.key);
+      if (result.resumedPlay) {
+        questClaims.delete(quest.key);
+        resumeCurrentSharedPlay();
+        return;
+      }
+    } else {
       const result = play(world, action, world.revision);
       if (!result.ok) throw new Error(result.error);
       const before = world;
@@ -3874,12 +3882,7 @@ function renderScene() {
     : undefined;
   const moreToRead =
     shownTurn !== undefined &&
-    view.log.some(
-      (entry) =>
-        entry.generated &&
-        entry.seq > liveThrough &&
-        entry.locationId === scene.locationId,
-    );
+    Boolean(sharedNextLine(readerState(), scene.locationId, liveThrough));
   const hiddenAction = (entry) =>
     (moreToRead && entry.turn > shownTurn) ||
     // A zero-turn change joins the stack after the reply being read.
@@ -4560,7 +4563,7 @@ function advanceFront() {
     syncSpeechPlayback();
     finishSpokenLine();
     if (sharedSession) {
-      if (!sharedNextLine(sharedSession.state, shownSceneLine.locationId, shownSceneLine.seq))
+      if (!sharedNextLine(readerState(), shownSceneLine.locationId, shownSceneLine.seq))
         queuedChoice = false;
       sharedAdvanceRequested = true;
       syncSharedLine();
@@ -5695,6 +5698,19 @@ function sharedWorld(value) {
     seated(value.present),
   );
 }
+// A stale action yields to the play already running, without pretending
+// that action happened or advancing past its unread dialogue.
+function resumeCurrentSharedPlay() {
+  sharedPlay = null;
+  sharedRefusal = null;
+  restedChoice = null;
+  reviewing = false;
+  reviewBeat = null;
+  selectCards(heldSelection().held, { keepOpen: true });
+  notice("");
+  lineSeq = sharedLineSeq;
+  syncSharedLine();
+}
 async function submitSharedPlay(action) {
   if (
     sharedSending ||
@@ -5730,11 +5746,15 @@ async function submitSharedPlay(action) {
   showSharedPlay("sending");
   try {
     const hidden = hiddenFor(world, currentActor(world))?.id;
-    await sharedSession.play(
+    const result = await sharedSession.play(
       current,
       sharedPlay.key,
       [...encountered].filter((id) => !cardIsCovered(id) && id !== hidden),
     );
+    if (result.resumedPlay) {
+      resumeCurrentSharedPlay();
+      return;
+    }
     lastPlayAt = performance.now();
     if (!playQueue.pending && JSON.stringify(selected) === selection) {
       keepHeldSelection(heldBefore, current);
@@ -5764,14 +5784,7 @@ function syncSharedLine() {
   const room = world.actors[currentActor(world)].place;
   // The avatar's waking scene can speak while its surroundings stay covered.
   // Other room scenes wait for that viewer's place reveal.
-  const state = selfKnown()
-    ? sharedSession.state
-    : {
-        ...sharedSession.state,
-        history: (sharedSession.state.history || []).filter(
-          (scene) => scene.opening && scene.actor === currentActor(world),
-        ),
-      };
+  const state = readerState();
   if (
     document.hidden ||
     document.querySelector("dialog[open], .world-menu:popover-open")

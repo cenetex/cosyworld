@@ -93,6 +93,4 @@ they came from.
   can bring must also have a path a solo player can find.
 
 Use the [card guide](v2/card-game/README.md) for current behavior and GitHub
-issues for proposed work. Earlier plans are in the
-[planning archive](docs/archive/backlog/README.md). Earlier product
-requirements are preserved in the [classic archive](docs/archive/classic/PRD.md).
+issues for proposed work.

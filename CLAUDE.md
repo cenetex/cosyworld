@@ -21,7 +21,7 @@ rules own movement, possession, consent, quests, and outcomes.
 
 The `/classic` client is retired ([#1652](https://github.com/cenetex/cosyworld/issues/1652)).
 Native C world rules and classic packs remain until later phases remove them.
-Their older product guides are in the [archive](docs/archive/classic/index.md).
+Their older product guides remain in git history.
 The source map distinguishes the card pack compiler from the classic compiler.
 
 ## Make a change

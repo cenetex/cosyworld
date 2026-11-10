@@ -48,5 +48,5 @@ Neither a browser claim nor a character's generated words can grant an item.
   Rust asset embedding from the source list.
 
 Follow imports before editing. The current game is `v2/card-game/`; classic packs,
-older native-C world rules and [archived docs](../archive/classic/index.md) remain
+older native-C world rules remain
 for compatibility/history, not as an alternative place to implement new play.

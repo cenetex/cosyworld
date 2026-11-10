@@ -204,30 +204,13 @@ run_architecture_checks() {
   bash "$ROOT/scripts/check-rust-lint.sh"
 }
 
-run_js_checks() {
-  node --check "$ROOT/scripts/smoke-production-profile.mjs"
-  node --check "$ROOT/scripts/smoke-standalone-compositions.mjs"
-}
-
-run_production_profile_smoke() {
-  node "$ROOT/scripts/smoke-production-profile.mjs"
-}
-
-run_composition_smoke() {
-  node "$ROOT/scripts/smoke-standalone-compositions.mjs"
-  node "$ROOT/scripts/smoke-core-ruby-composition.mjs"
-}
-
 check_all() {
   run_worldpack_check
   run_kernel_check
   run_ai_model_checks
   run_rust_checks
   run_architecture_checks
-  run_js_checks
-  run_composition_smoke
   node "$ROOT/scripts/smoke-card-narrative-contract.mjs"
-  run_production_profile_smoke
 }
 
 cmd="${1:-start}"

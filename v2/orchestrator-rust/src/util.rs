@@ -1,6 +1,17 @@
 use super::*;
 
+use rand::{rngs::OsRng, RngCore};
 use std::ffi::CStr;
+
+pub(crate) fn random_hex(byte_count: usize) -> String {
+    let mut bytes = vec![0_u8; byte_count];
+    OsRng.fill_bytes(&mut bytes);
+    let mut out = String::with_capacity(byte_count * 2);
+    for byte in bytes {
+        out.push_str(&format!("{byte:02x}"));
+    }
+    out
+}
 
 pub(crate) fn canonical_command_receipt_key(world_id: &str, intent_id: &str) -> String {
     format!("{world_id}\u{0}{intent_id}")

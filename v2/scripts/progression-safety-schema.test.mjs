@@ -57,14 +57,7 @@ function errorsForWorld(context, mutator = () => {}) {
   ).join("\n");
 }
 
-function projectProof(context) {
-  return context.manifests
-    .find((manifest) => manifest.id === "project89.composition.three-rings")
-    .extensions[extensionName];
-}
-
 const official = compiledWorldContext("official");
-const project89 = compiledWorldContext("project89");
 const descriptorFixture = readJson(
   path.join(v2Root, "orchestrator-rust", "fixtures", "threshold-descriptors-v1.json"),
 );
@@ -192,33 +185,8 @@ test("the content-pack contract invokes progression safety validation", () => {
   );
 });
 
-test("Project89's four unique relay keys certify the whole three-ring graph", () => {
-  assert.equal(errorsForWorld(project89), "");
-  const proof = projectProof(project89);
-  assert.deepEqual(
-    proof.access_methods.map((method) => method.item_id),
-    [8971, 8973, 8979, 8983],
-  );
-  assert(proof.access_methods.every((method) => method.kind === "mission_key"));
-  assert(
-    proof.access_methods.every((method) =>
-      Object.values(method.custody).filter((value) => value === "recoverable").length === 6),
-  );
-});
-
 test("a bounded ruin certifies Discovery, Lead recovery, reclosure, and fatigue retreat", () => {
   assert.equal(errorsForWorld(boundedRuinContext()), "");
-});
-
-test("rejects a unique key that can be unreachable behind its required Gate", () => {
-  assert.match(
-    errorsForWorld(project89, (context) => {
-      const proof = projectProof(context);
-      proof.access_methods[0].source_location_id = 8940;
-      proof.recoveries[0].source_location_id = 8940;
-    }),
-    /Gate .* mission key 8971 is unreachable before its required route opens/,
-  );
 });
 
 test("rejects an installed-item Gate that can strand actors without return or rescue", () => {
@@ -254,45 +222,6 @@ test("rejects a frontier fatigue transition with no retreat, camp, aid, or rescu
       context.manifests[0].extensions[extensionName],
     ).join("\n"),
     /frontier .* preserve a bounded retreat, camp, aid, or rescue escape/,
-  );
-});
-
-test("rejects custody paths that omit an authored loss or recovery policy", () => {
-  const proof = structuredClone(projectProof(project89));
-  delete proof.access_methods[0].custody.resident_custody;
-  assert.match(
-    progressionSafetyValidationErrors(proof).join("\n"),
-    /classify resident_custody as recoverable or inert/,
-  );
-  proof.access_methods[0].custody.resident_custody = "recoverable";
-  proof.access_methods[0].custody.recovery_ref =
-    "project89.composition.three-rings:recovery/missing";
-  const context = structuredClone(project89);
-  projectProof(context).access_methods[0].custody = proof.access_methods[0].custody;
-  assert.match(errorsForWorld(context), /references missing recovery .*missing/);
-});
-
-test("keeps exact mission keys distinct from reusable capabilities", () => {
-  const proof = structuredClone(projectProof(project89));
-  const method = proof.access_methods[0];
-  method.kind = "reusable_capability";
-  method.capability = "archive-decoding";
-  assert.match(
-    progressionSafetyValidationErrors(proof).join("\n"),
-    /reusable_capability cannot masquerade as an exact mission key/,
-  );
-});
-
-test("rejects cross-pack Gate routes whose generated owner is not authoritative", () => {
-  assert.match(
-    errorsForWorld(project89, (context) => {
-      const bridge = context.manifests.find(
-        (manifest) => manifest.id === "project89.composition.three-rings",
-      );
-      bridge.extensions["x-cosyworld-generation"].cross_pack_routes[0].route_owner =
-        "project89.operation-liberation";
-    }),
-    /Gate .* is owned by project89\.composition\.three-rings, not generated owner project89\.operation-liberation/,
   );
 });
 

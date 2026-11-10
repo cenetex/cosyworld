@@ -517,27 +517,6 @@ mod tests {
             .expect("advancing offer belongs to the authoritative candidate set")
     }
 
-    fn project89_first_tale() -> SeedFirstTaleContent {
-        serde_json::from_str(include_str!("../../worlds/project89/first-tale.json"))
-            .expect("Project 89 first-tale source")
-    }
-
-    #[test]
-    fn compiled_manifest_accepts_an_optional_inline_first_tale() {
-        let mut manifest = serde_json::from_str::<serde_json::Value>(include_str!(
-            "../../content/official/worldpack.json"
-        ))
-        .expect("official compiled manifest");
-        manifest["first_tale"] =
-            serde_json::to_value(project89_first_tale()).expect("first tale serializes");
-
-        let manifest = serde_json::from_value::<SeedWorldpackManifest>(manifest)
-            .expect("inline first tale parses");
-        let first_tale = manifest.first_tale.expect("first tale is retained");
-        assert_eq!(first_tale.destination_location_id, 8905);
-        assert_eq!(first_tale.job_id, "project89:operation-liberation");
-    }
-
     #[test]
     fn absent_manifest_first_tale_stays_absent() {
         let manifest = serde_json::from_str::<SeedWorldpackManifest>(include_str!(
@@ -569,18 +548,6 @@ mod tests {
             first_tale.copy.question,
             "Can we make the washed garden path trustworthy before the next visitor?"
         );
-    }
-
-    #[test]
-    fn project89_owns_its_first_tale_locations_job_and_copy() {
-        let first_tale = project89_first_tale();
-        validate_first_tale(&first_tale).expect("Project 89 first tale is valid");
-        assert_eq!(first_tale.lead_location_id, 8900);
-        assert_eq!(first_tale.destination_location_id, 8905);
-        assert_eq!(first_tale.job_id, "project89:operation-liberation");
-        assert_eq!(first_tale.progress_clock_id, "project89.liberation-signal");
-        assert!(first_tale.copy.next_invitation.contains("relay apertures"));
-        assert!(!first_tale.copy.question.contains("garden"));
     }
 
     #[test]

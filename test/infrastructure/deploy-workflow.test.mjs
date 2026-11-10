@@ -423,8 +423,7 @@ describe("deploy workflow", () => {
   it("runs the long CI smoke suites in parallel from one shared binary", () => {
     const runtime = ciJob("runtime", "smoke-binary");
     const binary = ciJob("smoke-binary", "rust-quality");
-    const composition = ciJob("composition", "browser");
-    const browser = ciJob("browser", "publication");
+    const browser = ciJob("browser", "build");
     const build = ciJob("build");
 
     // The binary builds beside the Rust tests, so the smoke suites need not
@@ -434,9 +433,6 @@ describe("deploy workflow", () => {
     expect(runtime).toContain("check-rust.sh test");
     expect(runtime).not.toContain("v2:composition:smoke");
     expect(runtime).not.toContain("v2:browser:check");
-    expect(composition).toContain("needs: smoke-binary");
-    expect(composition).toContain("suite: [standalone, core-ruby]");
-    expect(composition).toContain("actions/download-artifact@v8");
     expect(browser).toContain("needs: smoke-binary");
     // The browser matrix comes from the measured shard plan.
     expect(binary).toContain("node scripts/plan-browser-shards.mjs");

@@ -67,6 +67,3 @@ The [card guide](v2/card-game/README.md) owns the game map. The
 [shared-world guide](v2/docs/card-table/shared-worlds.md) owns its server boundary.
 The [contribution policy](.github/AGENT.md) owns required checks. The
 [release guide](docs/release.md) owns deployment.
-
-Earlier architecture and priorities remain in the
-[classic engineering archive](docs/archive/classic/ENG.md).
