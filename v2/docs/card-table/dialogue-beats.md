@@ -376,3 +376,9 @@ stack. A play leaves focus on the hand card that made it.
 
 A chosen play waits for the hand's swap deadline. If the timer wakes early,
 it checks the clock again and stays due until the hand has settled.
+
+Quiet hand changes do not end an unfinished exchange. Words already published
+stay in place; remaining speakers use the current hand and light state. Reload
+resumes pending local words without repeating published speakers. Completed and
+failed exchanges stay complete. Shared pending words refresh under the same
+committed play, without playing the action again.

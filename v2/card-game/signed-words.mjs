@@ -119,8 +119,14 @@ export function withSignatures(context, storage = globalThis.localStorage) {
 // Wrap a story request so it sends signed words and keeps new envelopes.
 export const signedRequest =
   (send) =>
-  async (context, ...rest) =>
-    rememberSigned(await send(withSignatures(context), ...rest));
+  async (context, signal, progress = () => {}) =>
+    rememberSigned(
+      await send(withSignatures(context), signal, (entries) => {
+        // A validated streamed line may outlive its aborted transport.
+        rememberSigned({ entries });
+        progress(entries);
+      }),
+    );
 
 // Every kept envelope, once each: a save shared into a new world sends them
 // so the server keeps the words they cover (#2067).
