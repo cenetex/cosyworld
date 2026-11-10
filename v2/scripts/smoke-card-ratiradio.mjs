@@ -122,6 +122,9 @@ try {
       // actual small Travel cue as well as the rules-level journey above.
       await card(id("thermos")).waitFor({ state: "attached" });
       await ready();
+      // The restored save keeps the Beanie in hand; stow it before choosing
+      // the loose Thermos alone, rather than pairing the two items.
+      await clearSelection(page);
       await choose(id("thermos"));
       await readyActionButton(page, "take").click();
       await page.waitForFunction(({ key, thermos }) => JSON.parse(localStorage.getItem(key)).items[thermos].holder === "vale", { key, thermos: id("thermos") });
