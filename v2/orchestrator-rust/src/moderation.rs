@@ -2,15 +2,6 @@ use axum::http::{header, HeaderMap};
 
 use crate::AppState;
 
-pub(crate) const DEFAULT_MODERATION_REPORT_RETENTION_DAYS: u64 = 90;
-
-#[derive(Clone, Copy, Debug)]
-pub(crate) struct ModerationReportRetention {
-    pub(crate) days: Option<u64>,
-}
-
-impl ModerationReportRetention {}
-
 // ---------------------------------------------------------------------------
 // HTTP handlers and auth (extracted from main.rs)
 // ---------------------------------------------------------------------------

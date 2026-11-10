@@ -185,10 +185,6 @@ impl AiReadinessGate {
     pub(crate) const fn is_terminal_block(self) -> bool {
         self.reason_code.is_some() && self.terminal
     }
-
-    pub(crate) const fn is_retryable_block(self) -> bool {
-        self.reason_code.is_some() && !self.terminal
-    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
@@ -476,10 +472,6 @@ impl AiReadiness {
         self.bench.snapshot(Instant::now())
     }
 
-    pub(crate) fn unbench(&self, requested_model_id: &str) -> bool {
-        self.bench.clear(requested_model_id)
-    }
-
     #[cfg(test)]
     pub(crate) fn record_probe_success(&self) {
         self.record_probe_result(None);
@@ -665,52 +657,6 @@ mod tests {
     }
 
     #[test]
-    fn exact_route_unauthorized_does_not_poison_other_models_or_endpoints() {
-        let readiness = AiReadiness::default();
-        readiness.record_http_failure_at(
-            "images",
-            "openai/gpt-image-1",
-            401,
-            None,
-            Instant::now(),
-            100,
-        );
-
-        let failed = readiness.gate("images", "openai/gpt-image-1");
-        assert_eq!(failed.reason_code(), Some(AI_ROUTE_INCOMPATIBLE));
-        assert!(failed.is_retryable_block());
-        assert!(readiness
-            .gate("images", "openai/gpt-image-1-mini")
-            .is_ready());
-        assert!(readiness
-            .gate("chat/completions", "openai/gpt-chat-latest")
-            .is_ready());
-
-        readiness.record_probe_http_failure(401);
-        assert_eq!(
-            readiness
-                .gate("chat/completions", "openai/gpt-chat-latest")
-                .reason_code(),
-            Some(AI_ACCOUNT_UNAUTHORIZED),
-            "only the account probe may open the account-wide unauthorized circuit"
-        );
-    }
-
-    #[test]
-    fn route_success_does_not_end_startup_probing() {
-        let readiness = AiReadiness::probing_with_low_credit_threshold(5.0);
-        readiness.record_success("chat/completions", "provider/model-a");
-        let gate = readiness.gate("chat/completions", "provider/model-a");
-        assert_eq!(gate.reason_code(), Some(AI_READINESS_PROBING));
-        assert!(gate.is_retryable_block());
-
-        readiness.record_probe_success();
-        assert!(readiness
-            .gate("chat/completions", "provider/model-a")
-            .is_ready());
-    }
-
-    #[test]
     fn rate_limit_is_bounded_to_the_exact_route_and_expires() {
         let readiness = AiReadiness::default();
         let started = Instant::now();
@@ -792,138 +738,6 @@ mod tests {
                 130,
             )
             .is_ready());
-    }
-
-    #[test]
-    fn one_provider_fault_does_not_open_its_route_but_repeated_faults_do() {
-        let readiness = AiReadiness::default();
-        let started = Instant::now();
-        let at = |secs| started + Duration::from_secs(secs);
-        let fault = |secs| {
-            readiness.record_http_failure_at(
-                "chat/completions",
-                "provider/voice",
-                500,
-                None,
-                at(secs),
-                100 + secs,
-            )
-        };
-        let ready = |secs| {
-            readiness
-                .gate_at("chat/completions", "provider/voice", at(secs), 100 + secs)
-                .is_ready()
-        };
-        // One 500, or one timeout, leaves every later call on the model open.
-        fault(0);
-        assert!(ready(0), "a single fault must not open the route");
-        readiness.record_transport_failure("chat/completions", "provider/voice");
-        assert!(readiness
-            .gate("chat/completions", "provider/voice")
-            .is_ready());
-        // Faults older than the window no longer count toward the trip.
-        let quiet = AiReadiness::default();
-        for secs in [0, 61, 122] {
-            quiet.record_http_failure_at(
-                "chat/completions",
-                "provider/voice",
-                502,
-                None,
-                at(secs),
-                100 + secs,
-            );
-        }
-        assert!(quiet
-            .gate_at("chat/completions", "provider/voice", at(122), 222)
-            .is_ready());
-
-        // Three inside sixty seconds open it, for the short cooldown only.
-        let repeated = AiReadiness::default();
-        for secs in [0, 20, 40] {
-            repeated.record_http_failure_at(
-                "chat/completions",
-                "provider/voice",
-                503,
-                None,
-                at(secs),
-                100 + secs,
-            );
-        }
-        let gate = repeated.gate_at("chat/completions", "provider/voice", at(40), 140);
-        assert_eq!(gate.reason_code(), Some(AI_PROVIDER_UNAVAILABLE));
-        assert!(gate.is_retryable_block());
-        assert!(repeated
-            .gate_at("chat/completions", "provider/other", at(40), 140)
-            .is_ready());
-        assert!(repeated
-            .gate_at("chat/completions", "provider/voice", at(50), 150)
-            .is_ready());
-        // Half-open: the next fault reopens at once; a success closes it.
-        repeated.record_http_failure_at(
-            "chat/completions",
-            "provider/voice",
-            500,
-            None,
-            at(51),
-            151,
-        );
-        assert!(!repeated
-            .gate_at("chat/completions", "provider/voice", at(51), 151)
-            .is_ready());
-        assert!(repeated
-            .gate_at("chat/completions", "provider/voice", at(61), 161)
-            .is_ready());
-        repeated.record_success("chat/completions", "provider/voice");
-        repeated.record_http_failure_at(
-            "chat/completions",
-            "provider/voice",
-            500,
-            None,
-            at(62),
-            162,
-        );
-        assert!(repeated
-            .gate_at("chat/completions", "provider/voice", at(62), 162)
-            .is_ready());
-    }
-
-    #[test]
-    fn half_open_reopens_bench_a_model_and_auth_or_rate_limits_never_do() {
-        let readiness = AiReadiness::default();
-        let t0 = Instant::now();
-        let at = |secs| t0 + Duration::from_secs(secs);
-        let fault = |status, secs| {
-            let retry = Some(Duration::from_secs(1));
-            readiness.record_http_failure_at("chat", "p/flaky", status, retry, at(secs), secs)
-        };
-        let gate = |secs| readiness.gate_at("chat", "p/flaky", at(secs), secs);
-        for status in [401, 402, 404, 429] {
-            (0..20).for_each(|secs| fault(status, secs * 2));
-            assert!(readiness.benched().is_empty(), "status {status}");
-            readiness.record_probe_success();
-            readiness.record_success("chat", "p/flaky");
-        }
-        // Three faults open the route; each half-open fault reopens it, and
-        // the third opening benches the model on every endpoint.
-        (100..103).for_each(|secs| fault(503, secs));
-        assert!(gate(112).is_ready());
-        fault(503, 113);
-        assert!(gate(123).is_ready() && readiness.benched().is_empty());
-        fault(503, 124);
-        let benched = gate(600);
-        assert_eq!(benched.reason_code(), Some(AI_MODEL_BENCHED));
-        assert!(benched.is_retryable_block());
-        assert_eq!(benched.retry_at_unix(), Some(124 + 6 * 3_600));
-        let other = readiness.gate_at("embeddings", "p/flaky", at(600), 600);
-        assert_eq!(other.reason_code(), Some(AI_MODEL_BENCHED));
-        assert_eq!(readiness.benched()[0].trips, 3);
-        // The bench ends on its own and the route is half-open again.
-        assert!(gate(124 + 6 * 3_600).is_ready());
-        (0..6).for_each(|_| readiness.record_voice_outcome("provider/quiet", false));
-        let quiet = readiness.gate("chat", "provider/quiet");
-        assert_eq!(quiet.reason_code(), Some(AI_MODEL_BENCHED));
-        assert!(readiness.unbench("provider/quiet"));
-        assert!(readiness.gate("chat", "provider/quiet").is_ready());
     }
 
     #[test]

@@ -11,11 +11,7 @@ fn fresh(a: usize) -> (crate::AppState, Connection, String) {
         .unwrap();
     let id = full::found(&tx, "owner", a, None, now()).unwrap();
     tx.commit().unwrap();
-    (
-        crate::test_app_state(crate::RuntimeWorld::empty(), Some(path)),
-        c,
-        id,
-    )
+    (crate::test_app_state(Some(path)), c, id)
 }
 fn command(op: &str) -> full::Command {
     full::Command {

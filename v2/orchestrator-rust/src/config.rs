@@ -1,23 +1,20 @@
 use super::*;
 
-pub(crate) const DEFAULT_CANONICAL_LEASE_TTL: Duration = Duration::from_secs(30);
-pub(crate) const DEFAULT_CANONICAL_REGION_ID: &str = "local";
-
-#[derive(Clone, Debug, Default)]
-pub(crate) struct CanonicalRoutingConfig {
-    pub(crate) base_url: Option<String>,
-    pub(crate) token: Option<String>,
-}
-#[derive(Clone, Debug)]
-pub(crate) struct CanonicalRecoveryConfig {
-    pub(crate) replica_path: PathBuf,
-    pub(crate) region_id: String,
-}
-impl CanonicalRoutingConfig {}
-#[derive(Clone, Debug)]
-pub(crate) struct RegionalPresence {
-    pub(crate) active: bool,
-    pub(crate) last_seen_at: Instant,
+pub(crate) const OFFICIAL_WORLD_ID: &str = "world://cosyworld/official";
+pub(crate) fn normalize_process_id(value: &str, variable: &str) -> io::Result<String> {
+    let process_id = value.trim();
+    if process_id.is_empty()
+        || process_id.len() > 64
+        || !process_id
+            .chars()
+            .all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '-' | '_'))
+    {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            format!("{variable} must be 1-64 ASCII letters, numbers, '-' or '_'"),
+        ));
+    }
+    Ok(process_id.to_string())
 }
 
 impl DeploymentProfile {

@@ -10,7 +10,7 @@
   "scripts": {
     "dev": "npm run v2:start",
     "dev:game": "npm run v2:start",
-    "check": "npm test && npm run v2:worldpack && npm run v2:kernel && npm run v2:rust:test && npm run v2:architecture && npm run v2:syntax",
+    "check": "npm test && npm run v2:worldpack && npm run v2:rust:test && npm run v2:architecture && npm run v2:syntax",
     "check:local": "npm run check:ui && npm test && npm run v2:check",
     "check:ui": "node scripts/check-ui-inventory.mjs",
     "deploy:timings": "node scripts/deploy-timings.mjs",
@@ -34,7 +34,6 @@
     "v2:srd:import": "node v2/scripts/import-srd-5.1.mjs && node v2/scripts/import-srd-5.2.1.mjs",
     "v2:srd:check": "node v2/scripts/import-srd-5.1.mjs --check && node v2/scripts/import-srd-5.2.1.mjs --check",
     "v2:holy-land:art": "node v2/scripts/generate-holy-land-art.mjs",
-    "v2:kernel": "bash ./v2/scripts/check-kernel.sh",
     "v2:ai-model:test": "cargo test --manifest-path v2/ai-model-rust/Cargo.toml",
     "v2:ai-model:wasm": "cargo build --manifest-path v2/ai-model-rust/Cargo.toml --target wasm32-unknown-unknown --release",
     "v2:rust:test": "bash ./v2/scripts/check-rust.sh test",

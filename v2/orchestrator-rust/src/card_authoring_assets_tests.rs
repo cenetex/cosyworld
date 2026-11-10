@@ -63,7 +63,7 @@ async fn private_asset_http_is_owned_bounded_durable_and_retryable() {
     let root = std::env::temp_dir().join(format!("private-assets-http-{}", crate::random_hex(12)));
     fs::create_dir(&root).unwrap();
     let db = root.join("events.sqlite");
-    let mut state = crate::test_app_state(crate::RuntimeWorld::empty(), Some(db.clone()));
+    let mut state = crate::test_app_state(Some(db.clone()));
     let generated = root.join("generated");
     fs::create_dir(&generated).unwrap();
     state.generated_asset_dir = Arc::new(generated.clone());
@@ -145,7 +145,7 @@ async fn private_asset_http_is_owned_bounded_durable_and_retryable() {
     assert_eq!(stored.read(&retry).unwrap().unwrap(), b"retry");
     sql.execute_batch("DROP TRIGGER fail_ready;").unwrap();
     assert_eq!(status(&state, &a, "PUT", &retry, b"retry").await, 200);
-    let mut reopened = crate::test_app_state(crate::RuntimeWorld::empty(), Some(db.clone()));
+    let mut reopened = crate::test_app_state(Some(db.clone()));
     reopened.generated_asset_dir = state.generated_asset_dir.clone();
     assert_eq!(status(&reopened, &a, "GET", &retry, b"").await, 200);
     sql.execute(

@@ -6,7 +6,7 @@ use tower::ServiceExt;
 pub(super) fn members_state() -> (AppState, PathBuf) {
     let path =
         std::env::temp_dir().join(format!("cosyworld-passkey-access-{}.sqlite", random_hex(8)));
-    let mut state = test_app_state(RuntimeWorld::empty(), Some(path.clone()));
+    let mut state = test_app_state(Some(path.clone()));
     state.account_auth = AccountAuth::for_test_with_access(Some(Arc::new(path.clone())), true);
     (state, path)
 }
@@ -137,7 +137,7 @@ async fn members_mode_refuses_sign_ups_and_signed_out_play() {
 async fn open_mode_keeps_sign_ups_and_signed_out_reads() {
     let path =
         std::env::temp_dir().join(format!("cosyworld-passkey-open-{}.sqlite", random_hex(8)));
-    let state = test_app_state(RuntimeWorld::empty(), Some(path.clone()));
+    let state = test_app_state(Some(path.clone()));
     let (status, body) = send(&state, "POST", "/auth/passkey/register/start", None).await;
     assert_eq!(status, 200, "{body}");
     let (_, body) = send(&state, "GET", "/auth/account", None).await;

@@ -23,10 +23,7 @@ fn cookie(state: &AppState, id: &str) -> String {
 
 fn fixture() -> (AppState, PathBuf) {
     let path = std::env::temp_dir().join(format!("authoring-{}.sqlite", random_hex(12)));
-    (
-        test_app_state(RuntimeWorld::empty(), Some(path.clone())),
-        path,
-    )
+    (test_app_state(Some(path.clone())), path)
 }
 
 fn draft() -> Value {
@@ -112,7 +109,7 @@ async fn private_packs_follow_the_passkey_account_and_survive_reopen() {
         list,
         json!({"packs":[{"id":id,"title":"Lantern Marsh","revision":1}]})
     );
-    let reopened = test_app_state(RuntimeWorld::empty(), Some(path));
+    let reopened = test_app_state(Some(path));
     assert_eq!(
         send(&reopened, "GET", &route, &owner, Value::Null, None).await,
         (200, created)
@@ -236,7 +233,7 @@ async fn authoring_launch_create_preserve_clear_and_reopen() {
     assert_eq!(saved["document"], book["document"]);
     assert_eq!(saved["revision"], 2);
     assert!(crate::authoring_draft::valid(&saved));
-    let reopened = test_app_state(RuntimeWorld::empty(), Some(path));
+    let reopened = test_app_state(Some(path));
     let (status, launch) = send(&reopened, "GET", &launch_route, &owner, Value::Null, None).await;
     assert_eq!(
         (status, launch),

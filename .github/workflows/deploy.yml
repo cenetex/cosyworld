@@ -315,7 +315,6 @@ jobs:
       - name: Run Node and deployment contract checks
         run: |
           npm run v2:worldpack
-          npm run v2:kernel
           npm run v2:syntax
           npx vitest run test/infrastructure/deploy-workflow.test.mjs --reporter=dot
 

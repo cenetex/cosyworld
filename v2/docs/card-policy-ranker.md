@@ -232,25 +232,10 @@ The training report binds `warm_start_model_hash` to the parent artifact.
 Models remain pinned within an episode, while each turn still incorporates that
 avatar's latest journaled history.
 
-Start an authoritative, private treasure episode for an inference-controlled
-avatar through the moderator API. The treasure must be a loose world item; the
-item id is persisted for replay but is never copied into card-policy features or
-traces:
-
-```sh
-curl -X POST http://127.0.0.1:3102/moderation/card-policy/treasure-objectives \
-  -H "Authorization: Bearer $COSYWORLD_MODERATION_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"objective_id":"episode-001","actor_id":1003,"treasure_item_id":2001,"max_turns":48}'
-```
-
-While that objective is active, the planner clones the authoritative runtime
-once per legal card, applies that card only in the clone, and records a bounded
-cost-to-treasure for the resulting branch. A successful pickup has child loss
-1; invalid or unreachable branches receive the remaining episode budget plus
-one. The live world is never mutated by evaluation. Actual resident decisions
-advance the objective budget, and journaled `treasure_objective.completed` or
-`treasure_objective.timed_out` events close the episode.
+The moderator route that started a treasure episode on a live server
+(`/moderation/card-policy/treasure-objectives`) was removed with the classic
+world (#1652). Treasure episodes now exist only in previously journaled data and
+in the offline lab.
 
 Export newly journaled shadow observations and write valid counterfactual
 labels directly in the ranker's TSV format:
@@ -263,32 +248,10 @@ cargo run --release --bin card-policy-lab -- export-shadow \
   --after-seq 0
 ```
 
-For repeatable local collection, `scripts/collect-card-policy-objectives.sh`
-drives authoritative HTTP offers against an isolated dev server and exports one
-completed objective at a time. It requires `curl`, `jq`, and `sqlite3`, but not
-Python. The optional local `card-policy-mock-provider` binary implements the
-small OpenAI-compatible voice surface needed by the server so collection does
-not depend on a remote model. It is deterministic test infrastructure, not a
-production voice provider.
-
-If a collector is interrupted after `N` complete objectives, resume it without
-rewriting those rows:
-
-```sh
-COSYWORLD_CARD_POLICY_COLLECT_URL=http://127.0.0.1:3115 \
-COSYWORLD_CARD_POLICY_COLLECT_JOURNAL=/tmp/card-policy/events.sqlite \
-COSYWORLD_CARD_POLICY_COLLECT_RUN_ID=real-001 \
-COSYWORLD_CARD_POLICY_COLLECT_START_EPISODE=N \
-bash scripts/collect-card-policy-objectives.sh 500
-```
-
-`COSYWORLD_CARD_POLICY_COLLECT_TREASURE_IDS` accepts a comma-separated item-id
-list for controlled canaries. By default the collector notices a resident,
-rotates Chat into view, starts a two-turn objective, then plays Chat and one
-pickup trigger. `COSYWORLD_CARD_POLICY_COLLECT_SETUP_ACTIONS`,
-`COSYWORLD_CARD_POLICY_COLLECT_MAX_TURNS`, and
-`COSYWORLD_CARD_POLICY_COLLECT_ACTIONS` can drive other objectives. Only
-enabled, authoritative offers are submitted.
+The hosted server no longer mounts the classic treasure-objective route or the
+shadow rollout, so live collection against a server is retired (#1652). The
+`card-policy-mock-provider` binary remains deterministic test infrastructure,
+not a production voice provider.
 
 Prepare one or more completed shard datasets for learning with a deterministic
 world-level 70/15/15 split:

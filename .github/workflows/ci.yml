@@ -60,12 +60,11 @@ jobs:
 
       # Keep the non-Rust commands from `npm run check` here so they can run
       # beside the longer Rust and browser gate rather than before it.
-      - name: Test, validate content, and check the kernel
+      - name: Test and validate content
         run: |
           npm test
           npm run docs:check
           npm run v2:worldpack
-          npm run v2:kernel
           npm run v2:syntax
 
   # FLY_RUNNERS=on (repository variable) moves this job to the self-hosted Fly

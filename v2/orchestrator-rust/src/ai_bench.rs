@@ -160,16 +160,6 @@ impl AiBench {
         }
     }
 
-    /// End a bench now. Returns whether the model was benched.
-    pub(crate) fn clear(&self, model: &str) -> bool {
-        let model = model.trim();
-        let cleared = self.lock().remove(model).is_some_and(|s| s.bench.is_some());
-        if cleared {
-            info!(event = "ai_model_unbenched", model, cause = "operator");
-        }
-        cleared
-    }
-
     pub(crate) fn snapshot(&self, now: Instant) -> Vec<BenchedModel> {
         let mut models = self.lock();
         models.retain(|_, strikes| {

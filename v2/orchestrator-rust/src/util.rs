@@ -16,13 +16,6 @@ pub(crate) fn sqlite_error(error: rusqlite::Error) -> io::Error {
     io::Error::other(error)
 }
 
-pub(crate) fn now_seed() -> u64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|duration| duration.as_nanos() as u64)
-        .unwrap_or(0xC051_0002)
-}
-
 pub(crate) fn now_millis() -> u64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -50,15 +43,6 @@ pub(crate) fn generated_asset_dir_from_env() -> PathBuf {
         .filter(|value| !value.is_empty())
         .map(PathBuf::from)
         .unwrap_or_else(|| PathBuf::from(".runtime/generated"))
-}
-
-pub(crate) fn is_safe_image_content_type(value: &str) -> bool {
-    !value.is_empty()
-        && value.len() <= 96
-        && value.starts_with("image/")
-        && value
-            .chars()
-            .all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '/' | '+' | '-' | '.'))
 }
 
 pub(crate) fn required_health_urls_from_env() -> Vec<String> {
@@ -105,39 +89,4 @@ pub(crate) async fn required_processes_ready(urls: &[String]) -> Result<(), Stri
         }
     }
     Ok(())
-}
-
-pub(crate) fn seed_item_kind(item: &SeedItemContent) -> Option<u8> {
-    seed_item_kind_from_str(&item.kind)
-}
-
-pub(crate) fn seed_item_kind_from_str(kind: &str) -> Option<u8> {
-    match kind {
-        "potion" => Some(CW_ITEM_POTION),
-        "evolution" => Some(CW_ITEM_EVOLUTION),
-        "trinket" | "keepsake" => Some(CW_ITEM_KEEPSAKE),
-        _ => None,
-    }
-}
-
-pub(crate) fn item_size_from_str(size: &str) -> Option<u8> {
-    match size {
-        "tiny" => Some(CW_ITEM_SIZE_TINY),
-        "small" => Some(CW_ITEM_SIZE_SMALL),
-        "medium" => Some(CW_ITEM_SIZE_MEDIUM),
-        "large" => Some(CW_ITEM_SIZE_LARGE),
-        _ => None,
-    }
-}
-
-pub(crate) fn default_seed_item_size() -> String {
-    "small".to_string()
-}
-
-pub(crate) fn default_seed_item_role() -> String {
-    "generic".to_string()
-}
-
-pub(crate) fn default_seed_item_weight_tenths() -> u16 {
-    CW_ITEM_DEFAULT_WEIGHT_TENTHS
 }

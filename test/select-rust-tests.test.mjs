@@ -67,11 +67,7 @@ describe("fast check Rust test selection", () => {
     expect(packs).toContain("routes::card_game::");
     expect(packs).toContain("card_shared::full_tests::");
     expect(packs).not.toContain(N); // routes::card_game:: covers it
-    expect(pick("v2/content/official/rules.json")).toEqual(["content_load::"]);
-    expect(pick("v2/core-c/src/card_table.c")).toEqual([
-      "card_shared::",
-      "kernel::",
-    ]);
+    expect(pick("v2/core-c/src/card_table.c")).toEqual(["card_shared::"]);
   });
 
   it("runs the default for crate-wide files", () => {
@@ -88,8 +84,16 @@ describe("fast check Rust test selection", () => {
     expect(
       pick(`${SRC}/card_narrative/voice_eval.rs`, `${SRC}/card_narrative.rs`),
     ).toEqual([N]);
-    const many = ["combat", "movement", "spatial", "notice", "shutdown"];
-    const files = [...many, "room_history", "story_metrics"];
+    const files = [
+      "shutdown",
+      "rate_limit",
+      "startup",
+      "play_metrics",
+      "passkey_access",
+      "signed_envelope",
+      "ai_registry",
+      "account_auth",
+    ];
     expect(pick(...files.map((m) => `${SRC}/${m}.rs`))).toHaveLength(
       config.rust.max,
     );
