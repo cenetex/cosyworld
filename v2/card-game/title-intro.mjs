@@ -620,6 +620,7 @@ export function playTitleIntro({
   storage = globalThis.localStorage,
   song = createTitleSong({ storage }),
   cardOnly = false,
+  signal,
 } = {}) {
   try {
     storage.removeItem(INTRO_KEY);
@@ -980,6 +981,25 @@ export function playTitleIntro({
     else if (phase === "ack" || phase === "title") advance();
   };
   window.addEventListener("keydown", onKey, true);
+  // Startup owns this title. A failed boot must release its keyboard, song
+  // and overlay without waking a partially initialized table.
+  const abort = () => {
+    leaving = true;
+    skipFlight = true;
+    idle(false);
+    words.cancel();
+    voice?.stop();
+    songDone = song.stop(0);
+    flight?.finish();
+    flight?.clear();
+    document.removeEventListener("visibilitychange", hidden);
+    window.removeEventListener("resize", idle);
+    window.removeEventListener("keydown", onKey, true);
+    layer.remove();
+    leave();
+  };
+  signal?.addEventListener("abort", abort, { once: true });
+  if (signal?.aborted) abort();
 
   const shown = (async () => {
     // The font is settled before the stream starts, so no letter swaps.
@@ -1000,6 +1020,7 @@ export function playTitleIntro({
       next.focus({ preventScroll: true, focusVisible: false });
     }
     await left;
+    if (signal?.aborted) return;
     if (dealOrigin) {
       const hand = document.getElementById("hand");
       const visibility = hand?.style.visibility ?? "";
@@ -1032,6 +1053,7 @@ export function playTitleIntro({
         flight?.clear();
         if (hand) hand.style.visibility = visibility;
         // The actual avatar is first uncovered here, in its final hand slot.
+        if (signal?.aborted) return;
         wake();
         phase = layer.dataset.phase = "landed";
         layer.remove();
@@ -1085,6 +1107,7 @@ export function playTitleIntro({
       .finished.catch(() => {});
     layer.remove();
   })();
+  shown.then(() => signal?.removeEventListener("abort", abort));
   const hold = shown.then(() => songDone);
   musicHold = hold;
   hold.then(() => {

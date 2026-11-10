@@ -17,6 +17,10 @@
   ],
   "rules": [
     {
+      "paths": "^v2/card-game/(entry|title-intro)\\.mjs$",
+      "smokes": ["smoke-card-startup-recovery"]
+    },
+    {
       "paths": "^v2/(content/ratiradio/|card-game/(packs\\.json|assets/(ratiradio/|music/night-shift-on-ratiradio))|worlds/(card-table\\.json|ratiradio/))",
       "smokes": ["smoke-card-ratiradio"]
     },
@@ -87,6 +91,10 @@
     {
       "paths": "^v2/card-game/(music|hum|opening)|music-streams|^v2/scripts/(music-reveal-check|shared-music-openings)\\.",
       "smokes": ["smoke-card-music"]
+    },
+    {
+      "paths": "^v2/card-game/avatar-menu\\.mjs$",
+      "smokes": ["smoke-card-avatar-menu-requests"]
     },
     {
       "paths": "^v2/card-game/(page-fade|avatar-menu|entry)\\.",
