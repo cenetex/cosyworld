@@ -16,7 +16,10 @@ import {
 
 const server = createServer();
 await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
-const browser = await chromium.launch({ headless: true });
+const browser = await chromium.launch({
+    headless: true,
+    executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE,
+  });
 const output = new URL("../../output/discovery/", import.meta.url);
 await mkdir(output, { recursive: true });
 const reports = [];
@@ -194,13 +197,11 @@ try {
         "the pond waits at the row's right end",
       );
       assert.equal(await pond.getAttribute("data-unrevealed"), "true");
-      // The doused lamp stays in hand and offers Light until it is lowered;
-      // the play rests its beat, so the reply comes to the front, and a tap
-      // on the raised hand brings Light back.
-      const light = page.locator('#card-actions [data-action="light"]');
-      assert.equal(await light.count(), 0, "the beat rests after the play");
-      await page.locator(".play-dock").dispatchEvent("click");
-      assert.equal(await light.count(), 1, "the lamp still offers Light");
+      // Stowing is quiet: no turn, reply, or retired lamp action is offered.
+      assert.equal((await state()).turn, 0);
+      assert.equal((await state()).actors.vale.heldItem, null);
+      assert.equal((await state()).items.lamp.fuelRooms, 3);
+      assert.equal(await page.locator('#card-actions [data-action="light"], #card-actions [data-action="snuff"]').count(), 0);
       const pressed = () =>
         page.evaluate(() =>
           [
@@ -208,7 +209,7 @@ try {
           ].map((card) => card.dataset.card),
         );
       const held = await pressed();
-      assert(held.includes("lamp"), "the lamp stays raised");
+      assert(!held.includes("lamp"), "the stowed lamp stays lowered");
       const before = await state();
       assert.equal(await pond.locator(".card-back").isVisible(), true);
       assert(

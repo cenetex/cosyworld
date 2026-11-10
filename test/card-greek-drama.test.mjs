@@ -1,3 +1,5 @@
+import { selectLamp } from "./fixtures/card-attic-opening.mjs";
+import { fillLampFuel } from "../v2/card-game/lamp-state.mjs";
 import { readFileSync } from "node:fs";
 import { greekTravelTargets } from "./helpers/greek-travel.mjs";
 import { summonTransport } from "../v2/card-game/pack-transport.mjs";
@@ -67,10 +69,15 @@ function move(world, target) {
   if (boarding && !world.crossings["pond-greek-harbor"].discovered) {
     if (["lamp", "bell"].includes(world.items.cloth.holder))
       world = act(world, "take", { item: "cloth" });
-    if (!world.items.lamp.lit) world = act(world, "light", { item: "lamp" });
-    // Cover, then uncover, the lit lamp: the whole ship signal.
-    world = act(world, "cover", { item: "cloth", target: "lamp" });
-    world = act(world, "take", { item: "cloth" });
+    world = selectLamp(world, "cloth");
+    // Ship discovery is the setup here, not Pip's competing lamp quest.
+    world.actors.moth.want = null;
+    world.actors.moth.metTurn = world.turn;
+    world = act(world, "drop", { item: "lamp", target: "pond" });
+    expect(world.crossings["pond-greek-harbor"].discovered).toBe(true);
+    // Discovery persists; take the lamp along as a stowed belonging.
+    world = act(world, "take", { item: "lamp" });
+    world = selectLamp(world);
   }
   if (
     (world.actors.vale.place === "pond" && target === HARBOR) ||
@@ -119,7 +126,7 @@ function move(world, target) {
   if (nested && world.items.cloth.holder !== "bell")
     world = act(world, "cover", { item: "cloth", target: "bell" });
   if (boarding) {
-    if (world.items.lamp.lit) world = act(world, "snuff", { item: "lamp" });
+    world = selectLamp(world);
     // Reserve capacity for funeral supplies. Later voyages keep the first
     // signal; the nested-custody case keeps its pair.
     if (!nested && world.items.cloth.holder === "vale")
@@ -169,11 +176,11 @@ function pond(scope = "full") {
   let world = enableMotives(
     createWorld({ opening: true, packScopes: { "greek-drama": scope } }),
   );
-  world = act(world, "snuff");
+  world = selectLamp(world);
   world = act(world, "move", { target: "pond" });
   world.items.cloth.holder = "vale";
   world.items.oil.holder = HARBOR;
-  world.items.lamp.fuel = 12;
+  fillLampFuel(world);
   return world;
 }
 
@@ -187,7 +194,7 @@ describe("the Wine-Dark Sea crossing", () => {
     // A nested belonging tests actual custody rather than a copied inventory.
     world.items.bell.holder = "vale";
     world.items.cloth.holder = "bell";
-    world.items.lamp.fuel = 12;
+    fillLampFuel(world);
     world.actors.vale.trust.moth = 2;
     addLog(
       world,

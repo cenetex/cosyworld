@@ -127,11 +127,16 @@ async function fanAvatarStack(page, holder) {
     await tapCard(chosen);
   return true;
 }
-// A held item stays raised through plays and new targets (#1417, #1435), so
-// a scripted step that names its own cards first lowers it, as Escape does.
+// Escape folds the hand but keeps its held item. A scripted step naming its
+// own cards must also tap that item to stow it before making a fresh choice.
 export async function clearSelection(page) {
-  if (await page.locator('#hand .card[aria-pressed="true"]').count())
-    await page.keyboard.press("Escape");
+  await page.keyboard.press("Escape");
+  const held = page.locator('#hand .card[aria-pressed="true"]');
+  if (await held.count()) {
+    const card = await revealCard(page, await held.first().getAttribute("data-card"));
+    if ((await card.getAttribute("aria-pressed")) === "true") await tapCard(card);
+    if ((await card.getAttribute("aria-pressed")) === "true") await tapCard(card);
+  }
 }
 // A battle locks its room until a round passes without a Strike, so a
 // scripted walk waits it out by playing the place card (Wait). Residents
@@ -181,22 +186,28 @@ export function readyActionButton(page, kind) {
   const action = kind ? `[data-action="${kind}"]` : ".card-primary";
   return page.locator(`#card-actions ${action}:not([data-revealing="true"])`);
 }
-// A new local world opens on Vale alone, the lit lamp and the attic face down
-// (opening.mjs). Its context button offers no play while either is down: the
-// lamp's tap turns it, the quiet Reveal turns the attic and chooses the lamp,
-// and only then does the rules' first play, Put out, douse it. Any play on
-// the revealed cards (a Wait) is a first play too.
+// The opening reveals Vale, the held lamp and the attic without a turn.
+// Stowing the lamp then darkens the mirror quietly, with no Light/Snuff play.
 export async function revealOpening(page) {
   await revealCard(page, "vale");
-  await selectCard(page, "lamp");
-  await page
-    .locator('#card-actions [data-quiet="true"]:not([data-revealing="true"])')
-    .click();
-  await readyActionButton(page, "snuff").waitFor();
+  await revealCard(page, "lamp");
+  const reveal = page.locator(
+    '#card-actions [data-quiet="true"]:not([data-revealing="true"])',
+  );
+  if (await reveal.count()) await reveal.click();
+  await page.waitForFunction(
+    () => document.querySelector('#hand [data-card="attic"]')?.dataset.unrevealed === "false",
+  );
+  await page.waitForFunction(() => !document.querySelector("#hand [data-revealing]"));
 }
 export async function putOutOpening(page) {
   await revealOpening(page);
-  await readyActionButton(page, "snuff").click();
+  const lamp = await revealCard(page, "lamp");
+  await tapCard(lamp);
+  if ((await lamp.getAttribute("aria-pressed")) === "true") await tapCard(lamp);
+  await page.waitForFunction(
+    () => document.querySelector('#hand [data-card="lamp"]')?.dataset.lit === "false",
+  );
 }
 // The beat stack's cards take real pointer hits: the front card under its own
 // centre, and the card behind under its peeking top line (#1538).

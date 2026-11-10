@@ -1,3 +1,4 @@
+import { selectLamp } from "./fixtures/card-attic-opening.mjs";
 import { describe, expect, it, vi } from "vitest";
 import {
   createWorld,
@@ -90,7 +91,7 @@ describe("speech occasions", () => {
     delete s.actors.vale.waitSpeech;
     s = decodeSave(encodeSave(s));
     expect(occasions(act(s, "wait")).speakers).toEqual([]);
-    s = act(act(s, "snuff"), "light");
+    s = selectLamp(selectLamp(s), "lamp");
     for (let i = 0; i < 110; i++) s = act(s, "wait");
     s.log = s.log.slice(-10);
     s = act(decodeSave(encodeSave(s)), "wait");
@@ -104,12 +105,12 @@ describe("speech occasions", () => {
     let world = dispatchShared({ op: "create" }).world;
     for (const [kind, speakers] of [
       ["wait", ["vale"]],
-      ["snuff", ["vale"]],
+      ["drop", ["vale"]],
       ["wait", []],
-      ["light", ["vale"]],
+      ["take", ["vale"]],
     ]) {
       const action = legalActions(world).find(
-        (a) => a.kind === kind && !a.sleep,
+        (a) => a.kind === kind && !a.sleep && (kind === "wait" || a.item === "lamp"),
       );
       const result = dispatchShared({
         op: "play",

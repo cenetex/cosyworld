@@ -1,3 +1,4 @@
+import { heldItem } from "../v2/card-game/held-item.mjs";
 import { readFileSync } from "node:fs";
 import vm from "node:vm";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
@@ -193,6 +194,7 @@ function appBoundary(sleepView, world) {
     world,
     sleepView,
     decodeSave,
+    heldItem,
     enableMotives: (w) => w,
     freshWorld: createWorld,
     currentActor: () => "vale",

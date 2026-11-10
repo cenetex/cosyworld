@@ -321,7 +321,7 @@ export const packDiscovered = (s, packId) =>
   );
 export function markCrossed(s, from, to) {
   const c = crossingBetween(from, to, s);
-  if (c && !(c.transport && c.signal) && crossingState(s, c.id))
+  if (c && !(c.transport && (c.signal || c.unlockWhen)) && crossingState(s, c.id))
     s.crossings[c.id].discovered = true;
 }
 /** Extra place text from crossings that start here (open or closed). */

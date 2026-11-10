@@ -157,6 +157,10 @@ export function assistantRoleScenes() {
   world = selectLamp(playCard(world, "drop", "lamp"), "cloth");
   world = sailTo(playCard(world, "move", null, "greek-ship"), "greek-harbor");
   world.actors.moth.place = "greek-harbor";
+  // This voice scene specifically stages Pip contesting Vale's lit lamp.
+  world.items.lamp.holder = "vale";
+  world = selectLamp(world, "lamp");
+  world.actors.moth.want = { kind: "item", target: "lamp", lit: true, since: world.turn, refusals: 2 };
   const harbor = (kind, target, i) => step(world, kind, target, i).context;
   const road = playCard(world, "move", null, "greek-road-thebes");
   const bakery = playCard(road, "move", null, "greek-courtyard");

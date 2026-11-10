@@ -127,19 +127,23 @@ describe("accompany card requests", () => {
     expect(reply(world).accepted).toBe(true);
     expect(wait(world).items.lamp.holder).toBe("moth");
   });
-  it("crosses an open reflection with both inventories and advances fuel once", () => {
+  it("crosses an open reflection with both inventories and spends one room of fuel", () => {
     // The lamp shining on the shore opens the pond's way back (#1600).
     const start = together();
     start.actors.vale.place = start.actors.moth.place = "pond";
     start.actors.moth.want.target = "attic";
-    start.items.lamp.lit = true;
-    start.items.lamp.fuel = 3;
+    start.actors.vale.heldItem = "lamp";
+    Object.assign(start.items.lamp, {
+      lit: true, fuel: 12, fuelRooms: 3, fuelPlace: "pond", fuelVisit: true,
+    });
     start.items.bell.holder = "moth";
     start.items.cloth.holder = "bell";
     const world = request(start, "moth", "attic");
     expect(world.actors.vale.crossed).toBe(1);
     expect(world.actors.moth.crossed).toBe(1);
-    expect(world.items.lamp.fuel).toBe(2);
+    expect(world.items.lamp).toMatchObject({
+      fuelRooms: 2, fuel: 8, fuelPlace: "attic", lit: true,
+    });
     expect(rootHolder(world, "cloth")).toBe("moth");
     expect(itemPlace(world, "cloth")).toBe("attic");
     expect(decodeSave(encodeSave(world))).toEqual(world);

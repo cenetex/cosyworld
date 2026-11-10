@@ -1424,6 +1424,7 @@ async function persistHeldChoice(item) {
   } finally {
     holdingChoice = false;
     selectionRevision = world.revision;
+    queueDiscoveries();
     render();
   }
 }
@@ -4858,6 +4859,7 @@ function render() {
   // Published speech can unlock cards and plays during the current turn.
   const handState = JSON.stringify([
     handCards,
+    [...encountered],
     [...coveredCards],
     legalActions(world).map((action) => action.key),
   ]);

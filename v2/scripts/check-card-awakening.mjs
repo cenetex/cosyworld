@@ -1,5 +1,6 @@
 import {
   endStandoff,
+  clearSelection,
   putOutOpening,
   selectCard,
   openSettings,
@@ -16,12 +17,16 @@ await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
 const origin = `http://127.0.0.1:${server.address().port}`;
 let browser;
 try {
-  browser = await chromium.launch({ headless: true });
+  browser = await chromium.launch({
+    headless: true,
+    executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE,
+  });
   const context = await browser.newContext({
     viewport: { width: 1440, height: 1000 },
     reducedMotion: "reduce",
   });
   const page = await context.newPage();
+  page.setDefaultTimeout(20000);
   const errors = [];
   const requests = [];
   page.on("pageerror", (error) => errors.push(error.message));
@@ -69,7 +74,7 @@ try {
   const play = async (id) => {
     await ready();
     // A held item stays raised after its play; start each play fresh.
-    await page.keyboard.press("Escape");
+    await clearSelection(page);
     await selectCard(page, id);
     await page.locator("#card-actions .card-primary").click();
     await ready();
@@ -86,11 +91,14 @@ try {
   await page.goto(`${origin}/?table=badger-check`);
   await page.locator('[data-card="lamp"]').waitFor({ state: "attached" });
   assert.equal((await state()).actors.vale.place, "attic");
-  // The opening reveals the lamp and attic before its first play, Put out.
+  // Reveal the opening and stow the lamp quietly to open the mirror.
   await ready();
   await putOutOpening(page);
   await ready();
   assert.equal((await state()).items.lamp.lit, false);
+  assert.equal((await state()).turn, 0);
+  assert.equal((await state()).actors.vale.heldItem, null);
+  assert.equal((await state()).items.lamp.fuelRooms, 3);
   assert.equal((await state()).actors.vale.place, "attic");
   assert.ok(await page.locator('[data-card="pond"]').count());
   await play("pond");

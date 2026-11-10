@@ -96,6 +96,7 @@ export function openingRevealed(world, actor) {
   if (!opening || opening.crossed || actor !== "vale") return true;
   if (world.actors?.vale?.place !== "attic") return true;
   return (
+    world.locations?.attic?.anchored ||
     reflectionOpen(world, "attic") ||
     (world.log || []).some(
       (entry) =>

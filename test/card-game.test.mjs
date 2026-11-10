@@ -1,3 +1,4 @@
+import { selectLamp } from "./fixtures/card-attic-opening.mjs";
 import { readFileSync } from "node:fs";
 import { setImmediate as yieldToRunner } from "node:timers/promises";
 import { questing } from "./helpers/first-quest.mjs";
@@ -60,7 +61,7 @@ describe("the reflected shore card game", () => {
     expect(s.actors.moth.place).toBe("station");
     s = act(s, "wait");
     expect(s.items.lamp.holder).toBe("moth");
-    // A moth wants the flame: Pip lights the lamp he took.
+    // A moth wants the flame: Pip holds the lamp he took.
     s = act(s, "wait");
     expect(s.items.lamp.lit).toBe(true);
     expect(
@@ -80,26 +81,26 @@ describe("the reflected shore card game", () => {
     let s = createWorld();
     s.items.cloth.holder = "pond";
     s = act(s, "take", "lamp");
-    s = act(s, "light", "lamp");
     s = act(s, "move", null, "pond");
-    s = act(s, "move", null, "attic");
-    // The lit attic mirror holds only the room; dousing opens it (#1600).
-    expect(exits(s, "attic")).toEqual([]);
-    s = act(s, "snuff", "lamp");
-    s = act(s, "move", null, "pond");
-    expect(s.actors.vale.place).toBe("pond");
-    expect(s.actors.vale.crossed).toBe(2);
-    expect(exits(s, "pond")).toEqual(["station"]);
-    s = act(s, "light", "lamp");
     expect(exits(s, "pond")).toContain("attic");
     s = act(s, "cover", "cloth", "lamp");
     expect(covered(s, "lamp")).toBe(true);
     expect(exits(s, "pond")).toEqual(["station"]);
     s = endStandoff(s);
-    const fuel = s.items.lamp.fuel;
+    const fuel = s.items.lamp.fuelRooms;
     s = act(s, "take", "cloth");
+    expect(s.items.lamp.lit).toBe(false);
+    s = selectLamp(s, "lamp");
     expect(reflectionOpen(s)).toBe(true);
-    expect(s.items.lamp.fuel).toBe(fuel - 1);
+    expect(s.items.lamp.fuelRooms).toBe(fuel);
+    s = act(s, "move", null, "attic");
+    // Stowing opens the lit attic mirror without spending a turn (#1600).
+    expect(exits(s, "attic")).toEqual([]);
+    s = selectLamp(s);
+    s = act(s, "move", null, "pond");
+    expect(s.actors.vale.place).toBe("pond");
+    expect(s.actors.vale.crossed).toBe(2);
+    expect(exits(s, "pond")).toEqual(["station"]);
   });
 
   it("moves a cover with its object when a different avatar takes it", () => {
@@ -124,29 +125,36 @@ describe("the reflected shore card game", () => {
     const s = createWorld();
     s.actors.vale.place = "attic";
     s.items.lamp.holder = "vale";
-    s.items.lamp.fuel = 10;
+    s.actors.vale.heldItem = "lamp";
+    Object.assign(s.items.lamp, {
+      fuel: 8, fuelRooms: 2, fuelPlace: "attic", fuelVisit: true,
+    });
     s.items.oil.holder = "vale";
     expect(matchingActions(s, ["oil", "lamp"])).toEqual([]);
     const next = act(s, "wait");
     expect(next.items.oil.holder).toBe("vale");
-    expect(next.items.lamp.fuel).toBe(10);
+    expect(next.items.lamp).toMatchObject({ fuelRooms: 2, fuel: 8, lit: true });
     expect(next.log.some((e) => e.verb === "refuel")).toBe(false);
   });
 
   it("refuels a lamp that runs dry in a hand holding the flask, then returns the flask to the station", () => {
     let s = createWorld();
-    s.actors.vale.place = "pond";
     s.items.lamp.holder = "vale";
-    s.items.lamp.fuel = 1;
-    s.items.lamp.lit = true;
+    s.actors.vale.heldItem = "lamp";
+    Object.assign(s.items.lamp, { fuel: 4, fuelRooms: 1, lit: true });
     s.items.oil.holder = "vale";
-    s = act(s, "wait");
-    expect(s.items.lamp).toMatchObject({ fuel: 12, lit: false, holder: "vale" });
+    s = act(s, "move", null, "pond");
+    expect(s.items.lamp).toMatchObject({
+      fuel: 12, fuelRooms: 3, lit: true, holder: "vale",
+    });
     expect(s.items.oil.holder).toBe("station");
     expect(s.items.oil).not.toHaveProperty("doses");
-    const dry = s.log.findIndex((e) => e.text.includes("runs dry"));
-    const refuel = s.log.findIndex((e) => e.verb === "refuel");
+    const dry = s.log.findIndex((e) => e.verb === "move" && e.actorId === "vale");
     expect(dry).toBeGreaterThanOrEqual(0);
+    expect(s.log[dry].items.find((item) => item.id === "lamp")).toMatchObject({
+      fuelRooms: 0, lit: false,
+    });
+    const refuel = s.log.findIndex((e) => e.verb === "refuel");
     expect(refuel).toBeGreaterThan(dry);
     expect(s.log[refuel]).toMatchObject({
       kind: "narration",
@@ -166,7 +174,7 @@ describe("the reflected shore card game", () => {
     let s = createWorld();
     s.actors.vale.place = "station";
     s.items.lamp.holder = "vale";
-    s.items.lamp.fuel = 0;
+    Object.assign(s.items.lamp, { fuel: 0, fuelRooms: 0, lit: false });
     s.items.oil.holder = "station";
     s = act(s, "take", "oil");
     expect(s.items.lamp.fuel).toBe(12);
@@ -181,8 +189,8 @@ describe("the reflected shore card game", () => {
     let s = createWorld();
     s.actors.keeper.place = "station";
     s.items.lamp.holder = "keeper";
-    s.items.lamp.fuel = 1;
-    s.items.lamp.lit = true;
+    s.actors.keeper.heldItem = "lamp";
+    Object.assign(s.items.lamp, { fuel: 0, fuelRooms: 0, lit: false });
     s.items.oil.holder = "keeper";
     s = act(s, "wait");
     expect(s.items.lamp.fuel).toBe(12);

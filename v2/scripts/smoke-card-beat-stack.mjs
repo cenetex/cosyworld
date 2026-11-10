@@ -10,12 +10,13 @@ import {
   addLog,
   createWorld,
   encodeSave,
+  holdChoice,
   legalActions,
   play,
 } from "../card-game/world.mjs";
 import { enableMotives } from "../card-game/motives.mjs";
 import { SPEECH_OCCASIONS } from "../card-game/speech-occasions.mjs";
-import { stackHits } from "./card-browser-helpers.mjs";
+import { stackHits, selectCard, clearSelection } from "./card-browser-helpers.mjs";
 
 const itemReplies = SPEECH_OCCASIONS.includes("action");
 
@@ -145,15 +146,13 @@ async function nodesAfterSteps(page, stepBack, steps) {
   return grown;
 }
 let fixture = enableMotives(createWorld({ opening: true }));
-// The opening starts lit: douse it to open the mirror (#1653). Relighting it
-// at the pond would spend Pip's ask for the lamp before the talk.
-for (const kind of ["snuff", "move"])
-  fixture = play(
-    fixture,
-    legalActions(fixture).find(
-      (a) => a.kind === kind && (kind !== "move" || a.target === "pond"),
-    ),
-  ).state;
+// Stowing opens the mirror without a turn or spending Pip's first ask.
+holdChoice(fixture, "vale", { item: null, revision: fixture.revision });
+fixture = play(
+  fixture,
+  legalActions(fixture).find((a) => a.kind === "move" && a.target === "pond"),
+).state;
+fixture.items.cloth.holder = "vale";
 const save = encodeSave(fixture);
 const npcFixture = structuredClone(fixture);
 addLog(npcFixture, "Vale", "The lantern swings.", {
@@ -183,7 +182,10 @@ const lines = {
 };
 let browser;
 try {
-  browser = await chromium.launch({ headless: true });
+  browser = await chromium.launch({
+    headless: true,
+    executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE,
+  });
   await mkdir(output, { recursive: true });
   for (const width of [1440, 390])
     for (const motion of ["no-preference", "reduce"]) {
@@ -192,6 +194,7 @@ try {
         viewport: { width, height: width > 700 ? 900 : 844 },
         reducedMotion: motion,
       });
+      page.setDefaultTimeout(20000);
       const errors = [];
       page.on("pageerror", (error) => errors.push(error.message));
       await page.addInitScript(
@@ -485,19 +488,25 @@ try {
           "Cards move in depth.",
         );
       // The item result keeps its own card behind any avatar reply.
-      await page.locator('#hand [data-card="vale"]').click();
-      await page.locator('#hand [data-card="lamp"]').click();
+      const beforeHold = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)), key);
+      await selectCard(page, "lamp");
+      const afterHold = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)), key);
+      assert.equal(afterHold.actors.vale.heldItem, "lamp");
+      assert.equal(afterHold.items.lamp.lit, true);
+      assert.equal(afterHold.turn, beforeHold.turn);
+      assert.deepEqual(afterHold.log, beforeHold.log, "holding makes no action beat");
+      await selectCard(page, "cloth");
       const actionFont = await page
-        .locator('#card-actions [data-action="light"]')
+        .locator('#card-actions [data-action="cover"]')
         .evaluate((button) => getComputedStyle(button).font);
-      itemReply = "The lamp shines in my hands while the pond stays dark.";
+      itemReply = "I cover the lamp with the black cloth.";
       await page
         .locator(
-          '#card-actions [data-action="light"]:not([data-revealing="true"])',
+          '#card-actions [data-action="cover"]:not([data-revealing="true"])',
         )
         .click();
       await page.keyboard.press("Escape");
-      if (itemReplies) await readItemReply(/lit/u);
+      if (itemReplies) await readItemReply(/covered/u);
       else if (motion !== "reduce") {
         await page.locator("#beat-captions [data-primary].inscribe").waitFor();
         // A tap on the prior card goes Back even while the result is typing.
@@ -508,7 +517,7 @@ try {
       }
       await page.waitForFunction(
         () =>
-          /lit/u.test(document.querySelector("#beat-captions").textContent) &&
+          /covered/u.test(document.querySelector("#beat-captions").textContent) &&
           !document.querySelector(".inscribe"),
       );
       assert.equal(await front(), "Vale");
@@ -526,12 +535,12 @@ try {
       );
       if (itemReplies) await page.locator("#live-line").click();
       // The front target finishes a new result in place; rereading keeps it whole.
-      itemReply = "The pond darkens as I lower the lamp and look at Pip.";
-      await page.locator('#hand [data-card="vale"]').click();
-      await page.locator('#hand [data-card="lamp"]').click();
+      itemReply = "I lift the cloth from the lamp and look at Pip.";
+      await clearSelection(page);
+      await selectCard(page, "cloth");
       await page
         .locator(
-          '#card-actions [data-action="snuff"]:not([data-revealing="true"])',
+          '#card-actions [data-action="take"]:not([data-revealing="true"])',
         )
         .click();
       await page.keyboard.press("Escape");
@@ -553,7 +562,7 @@ try {
       await behind.evaluate((button) => button.click());
       assert.match(
         await page.locator("#beat-captions").textContent(),
-        /snuffed/u,
+        /took/u,
       );
       assert.equal(await page.locator("#beat-captions .inscribe").count(), 0);
       await page.locator("#live-line").click();

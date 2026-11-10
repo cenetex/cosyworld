@@ -559,7 +559,7 @@ export function narrativeContext(world, action = null, isCovered = null) {
         facts.push(`Held by or resting at: ${nameOf(rootHolder(world, id))}.`);
         if (id === "lamp")
           facts.push(
-            `${item.fuel === 0 ? "Empty" : item.fuel <= 3 ? "Running low on oil" : "Has oil"}; ${item.lit ? "lit" : "unlit"}; ${covered(world, id) ? "covered" : "uncovered"}.`,
+            `${item.fuel === 0 ? "Empty" : (item.fuelRooms === 1 || (item.fuelRooms === undefined && item.fuel <= 3)) ? "Running low on oil" : "Has oil"}; ${item.lit ? "lit" : "unlit"}; ${covered(world, id) ? "covered" : "uncovered"}.`,
           );
         if (things[id]?.refuels)
           facts.push(

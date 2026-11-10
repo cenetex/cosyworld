@@ -934,14 +934,16 @@ function refuelCarried(s) {
 }
 // Hand selection is quiet, but every dependent light/gate fact is atomic.
 export function holdChoice(s, actor, choice) {
+  const before = structuredClone(s);
   applyHeldChoice(s, actor, choice);
   settleLamp(s);
   refuelCarried(s);
   settleHeldItems(s);
   settleLamp(s);
-  if (s.opening && actor === "vale" && s.actors.vale.place === "attic")
+  if (s.opening && actor === "vale" && s.actors.vale.place === "attic" && reflectionOpen(s, "attic"))
     s.locations.attic.anchored = true;
   settleCrossingUnlocks(s, sensesFor(s));
+  wakeSleepers(s, before, []);
   latchRoutes(s);
   settleGuards(s);
   settleStationExits(s);
@@ -1926,6 +1928,7 @@ function residentRound(s, acted) {
       continue;
     // A resident sleeps at home: away, it walks home first if it can.
     const home = lifeHome(id, s);
+    prepareResidentLamp(s, id, home);
     if (
       rangeOf(s, id) !== null &&
       home &&
@@ -1983,6 +1986,7 @@ function residentRound(s, acted) {
           : null;
     if (!target) continue;
     steps += 1;
+    prepareResidentLamp(s, id, target);
     const step = stepToward(s, id, target).action;
     const to = step?.kind === "move" ? step.target : null;
     if (!to || transportPlace(to) || (target !== home && !inRange(s, id, to)))
@@ -2043,6 +2047,8 @@ function perform(s, a, round = null, settle = []) {
   settleLamp(s);
   refuelCarried(s);
   settleLamp(s);
+  if (a.kind === "wait")
+    settleWants(s, wantActors(s, [a.actor, ...settle]), wantAPI(s), a);
   if (conflict && s.standoffs.includes(conflict)) {
     const calm = conflict.steppedBack;
     if (a.kind === "attack") for (const id in calm) calm[id] = false;
@@ -2607,10 +2613,10 @@ function toward(s, actor, target) {
 }
 // A resident may quietly choose its own prop before deciding its next play.
 // Human selection and the public planner remain read-only and explicit.
-function prepareResidentLamp(s, actor) {
+function prepareResidentLamp(s, actor, target = null) {
   if (controlledByHuman(s, actor) || s.items.lamp.holder !== actor) return;
   const want = wantOf(s, actor), here = s.actors[actor].place;
-  const destination = levelReturnHome(s, actor) || (want?.kind === "place" ? want.target :
+  const destination = target || (s.actors[actor].homeward ? lifeHome(actor, s) : null) || levelReturnHome(s, actor) || (want?.kind === "place" ? want.target :
     want?.kind === "person" ? s.actors[want.target]?.place : null);
   let choice;
   if (destination && destination !== here && !routeBetween(s, here, destination, actor)) {
@@ -2926,6 +2932,8 @@ export function play(
     settleCompany(next, entityActive);
     settleVisitSpeech(s, next, { ...action, actor });
     settleHeldItems(next, handSnapshot(s));
+    settleLamp(next);
+    settleCrossingUnlocks(next, sensesFor(next));
     settleStationExits(next);
     validateWorld(next);
     return { ok: true, state: next };

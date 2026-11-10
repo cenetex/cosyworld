@@ -1497,7 +1497,7 @@
   );
   function markCrossed(s, from, to) {
     const c = crossingBetween(from, to, s);
-    if (c && !(c.transport && c.signal) && crossingState(s, c.id))
+    if (c && !(c.transport && (c.signal || c.unlockWhen)) && crossingState(s, c.id))
       s.crossings[c.id].discovered = true;
   }
   var matches = (p, a, holder2) => Boolean(p) && p.verb === a.kind && (p.item === void 0 || p.item === a.item) && (p.target === void 0 || p.target === a.target) && (p.from === void 0 || p.from === holder2);
@@ -8290,14 +8290,16 @@
     }
   }
   function holdChoice(s, actor, choice) {
+    const before = structuredClone(s);
     applyHeldChoice(s, actor, choice);
     settleLamp(s);
     refuelCarried(s);
     settleHeldItems(s);
     settleLamp(s);
-    if (s.opening && actor === "vale" && s.actors.vale.place === "attic")
+    if (s.opening && actor === "vale" && s.actors.vale.place === "attic" && reflectionOpen(s, "attic"))
       s.locations.attic.anchored = true;
     settleCrossingUnlocks(s, sensesFor(s));
+    wakeSleepers(s, before, []);
     latchRoutes(s);
     settleGuards(s);
     settleStationExits(s);
@@ -8992,6 +8994,7 @@
       if (z || !w || a.slept === w.start || standoffFor(s, id) || transportPlace(a.place))
         continue;
       const home = lifeHome(id, s);
+      prepareResidentLamp(s, id, home);
       if (rangeOf(s, id) !== null && home && a.place !== home && entityActive(s, home) && stepToward(s, id, home).action?.kind === "move") {
         a.homeward = true;
         continue;
@@ -9025,6 +9028,7 @@
       const target = here !== home && (walksHome(s, id) || idleAway || ranged && dawnOrDusk) ? home : dawnOrDusk && wanders(s, id) && goal && goal !== here && inRange(s, id, goal) ? goal : null;
       if (!target) continue;
       steps += 1;
+      prepareResidentLamp(s, id, target);
       const step = stepToward(s, id, target).action;
       const to = step?.kind === "move" ? step.target : null;
       if (!to || transportPlace(to) || target !== home && !inRange(s, id, to))
@@ -9070,6 +9074,8 @@
     settleLamp(s);
     refuelCarried(s);
     settleLamp(s);
+    if (a.kind === "wait")
+      settleWants(s, wantActors(s, [a.actor, ...settle]), wantAPI(s), a);
     if (conflict && s.standoffs.includes(conflict)) {
       const calm2 = conflict.steppedBack;
       if (a.kind === "attack") for (const id in calm2) calm2[id] = false;
@@ -9561,10 +9567,10 @@
         return covered(s, "bell") ? getActions().find((a) => a.kind === "take" && a.item === "cloth") : sound;
     }
   }
-  function prepareResidentLamp(s, actor) {
+  function prepareResidentLamp(s, actor, target = null) {
     if (controlledByHuman(s, actor) || s.items.lamp.holder !== actor) return;
     const want = wantOf(s, actor), here = s.actors[actor].place;
-    const destination = levelReturnHome(s, actor) || (want?.kind === "place" ? want.target : want?.kind === "person" ? s.actors[want.target]?.place : null);
+    const destination = target || (s.actors[actor].homeward ? lifeHome(actor, s) : null) || levelReturnHome(s, actor) || (want?.kind === "place" ? want.target : want?.kind === "person" ? s.actors[want.target]?.place : null);
     let choice;
     if (destination && destination !== here && !routeBetween(s, here, destination, actor)) {
       for (const heldItem2 of [null, "lamp"]) {
@@ -9782,6 +9788,8 @@
       settleCompany(next2, entityActive);
       settleVisitSpeech(s, next2, { ...action, actor });
       settleHeldItems(next2, handSnapshot(s));
+      settleLamp(next2);
+      settleCrossingUnlocks(next2, sensesFor(next2));
       settleStationExits(next2);
       validateWorld(next2);
       return { ok: true, state: next2 };
