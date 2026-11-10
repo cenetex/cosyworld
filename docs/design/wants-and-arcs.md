@@ -1,7 +1,7 @@
 # Wants and arcs
 
 Status: design agreed with the owner, 2026-11-10. Nothing here is built.
-One question is still open, at the end. Issue:
+No question is open. Issue:
 [#2605](https://github.com/cenetex/cosyworld/issues/2605), under
 [#2576](https://github.com/cenetex/cosyworld/issues/2576).
 
@@ -55,6 +55,9 @@ over the six mounted packs in `v2/worlds/card-table.json`.
     the avatar's home, shown as a locked box; staged wants are unordered,
     with authored order only breaking ties; yes to the two varied RatiRadio
     doors; every lock visible applies to the hub's home doors.
+17. Whether the hub's other ways (the mirror back to the attic, the lit
+    arch to the Empty station) should become visible locked boxes too:
+    "yep".
 
 ## Already decided earlier
 
@@ -301,7 +304,8 @@ tells its want on the context button and descriptor, never on the card.
   The 11 hidden gated routes become visible boxes. Pack data.
 - *Residents* lock with `requires` and `sealed`. The 29 conditional
   residents that show nothing today become visible boxes. Pack data.
-- *Crossings and the hub's home doors* need a seal read there too: rules.
+- *Crossings and the hub's ways* (home doors, the mirror back to the attic,
+  the lit arch to the Empty station) need a seal read there too: rules.
 - *Items* are boxes too, as the last rules slice: a `sealed` item lies where
   it is but shut until its conditions hold.
 - *Open at the start:* Vale, the Lamp he holds, and the Mirror attic, his
@@ -531,7 +535,7 @@ pass the 400-line budget and need `Large-Change`.
 | 6 | A lock is a want; meeting any want pays one XP, once per box per avatar; helper trust | rules | reset | Vale brings the guard the Writ: the battlefield opens, +1 XP; shut and reopened, +0. Vale gives the keeper the Bell: +1 XP, trust +1 |
 | 7 | Tap-only: Take quest on every box, Accept quest after Talk, the buttons disabled while a want is held | rules | reset | Talk with the keeper adds nothing; Accept quest then gives "give the Bell"; a second box's Take quest is disabled with its reason |
 | 8 | Level Up: Take level up quest on the own card, Sleep at home, homes rest their owners; remove the level quest | rules | reset | At threshold Vale's card offers it; a 12-turn Sleep in the attic raises the level; discarding costs XP and the button is gone |
-| 9 | Seals on crossings and the hub's home doors; the Black pond as the first box; homecoming as Take quest; the lock-kind validator | rules | reset | A new world shows Vale, the Lamp and the attic open and the Black pond locked; putting the lamp out opens it for 1 XP |
+| 9 | Seals on crossings and the hub's ways (home doors, the mirror back to the attic, the lit arch to the Empty station); the Black pond as the first box; homecoming as Take quest; the lock-kind validator | rules | reset | A new world shows Vale, the Lamp and the attic open and the Black pond locked; putting the lamp out opens it for 1 XP |
 | 10 | Unordered staged `wants`; `sealed` items; remove `choose` from offered plays | rules | reset | No arc field in the save; the same facts and seed give the same want after reload; a sealed item lies locked and opens on its facts |
 | 11 | Packs as rooms: lock the hub and packs by kind; burial and RatiRadio as staged wants | pack data | keep | The validator passes; carrying a `live` way's key off shuts it; Antigone says either staged want at the gate |
 | 12 | Generated cards arrive locked and visible | authoring code | keep | A second place drawn in `/make` is a locked box whose want names a card already in that world |
@@ -558,9 +562,3 @@ then the README quest section is rewritten.
    set on arrival and for a guard who leaves on his own schedule.
 8. Client behaviour of the quest fan, Focus and Claim was read from the
    README, not from `quest-card.mjs` or `app.mjs`.
-
-## Open question
-
-The hub's other ways, the mirror back to the attic and the lit arch to the
-Empty station, are not drawn as locked boxes today. They are left as they
-are. Should they become visible boxes too?
