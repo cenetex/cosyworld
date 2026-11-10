@@ -21,7 +21,7 @@ import { DAYLIGHT_TURNS } from "../v2/card-game/pack-rules.mjs";
 import * as itemRules from "../v2/card-game/pack-items.mjs";
 import { roamingActors } from "../v2/card-game/roaming-routes.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
-import { newWant } from "../v2/card-game/want.mjs";
+import { newWant, questsOf } from "../v2/card-game/want.mjs";
 
 // This acceptance contract runs only when its pack is mounted.
 const it = check.skipIf(!packPeople["ratiradio-rati"]);
@@ -300,9 +300,14 @@ it("draws every locked way and the sealed Raven as a box with its reason", () =>
     expect(box(s, id(card)).reason, card).toMatch(reason);
     expect(lockedQuest(s, id(card), () => true).text, card).toBeTruthy();
   }
-  expect(lockedQuest(s, id("broadcast-booth"), () => true).text).toMatch(
-    /talk/iu,
-  );
+  // A descriptor never names a method that does not open the box: it states
+  // the aim, and the button carries the exact condition.
+  for (const card of ["listening-room", "broadcast-booth"]) {
+    s.actors.vale.place = id(card === "listening-room" ? "dispatch-window" : "listening-room");
+    const text = lockedQuest(s, id(card), () => true).text;
+    expect(text, card).toMatch(/^(Go to|Discover) /u);
+    expect(text, card).not.toMatch(/hold|carry|talk/iu);
+  }
 });
 
 it("uses three different lock kinds, one per door, in the pack data", () => {
@@ -389,4 +394,15 @@ it("hears the figurine from RATi in any room of the station", () => {
     s = act(gather(s, rati), "talk", rati);
     expect(flags(s)["booth-open"], path.join()).toBe(true);
   }
+});
+
+it("does not complete the Thermos door's quest by carrying the Thermos", () => {
+  let s = steps(fixture(), upTo("move", id("dispatch-window")));
+  s = act(s, "gate", id("listening-room"));
+  const open = () =>
+    questsOf(s, "vale").some((q) => q.target === home);
+  expect(open()).toBe(true);
+  s = act(s);
+  expect(open()).toBe(true);
+  expect(flags(s)["listening-open"]).toBeUndefined();
 });

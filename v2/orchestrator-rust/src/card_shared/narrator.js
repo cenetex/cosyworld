@@ -16020,8 +16020,8 @@
             ],
             sealed: {
               quest: {
-                kind: "item",
-                target: "ratiradio-thermos"
+                kind: "place",
+                target: "ratiradio-listening-room"
               },
               reason: "Put the Thermos down at the Dispatch Window to open this passage."
             }
@@ -16038,8 +16038,8 @@
             ],
             sealed: {
               quest: {
-                kind: "person",
-                target: "ratiradio-rati"
+                kind: "place",
+                target: "ratiradio-broadcast-booth"
               },
               reason: "Talk with RATi while holding the Raven Figurine to open this passage."
             }

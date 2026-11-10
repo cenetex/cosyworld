@@ -366,8 +366,10 @@ and beanie lie in the Listening Room, the Request Slip is optional.
 Slice 2 built this as pack data. RATi roams, so the Talk is authored once in
 each station room he can stand in with the traveler. A sealed way's quest takes
 only a kind and a target (`pack-schema.mjs:1304`, `gateQuest` `world.mjs:417`),
-so the descriptor of the Thermos door reads "hold the Thermos" while the
-button gives the full reason; a placement step needs a rules slice.
+and `to` means a hand-over. No kind is met by an item lying at a place, and
+`sealed` cannot omit `quest`. So the Thermos and Booth doors use a place goal:
+the descriptor reads "Discover Listening Room" and the button gives the exact
+condition. A placement step needs a rules slice.
 
 **Generated worlds.** The entry place and the first avatar stay open; every
 card drawn after arrives locked and visible. Code, not the model, writes
