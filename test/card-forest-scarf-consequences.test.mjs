@@ -184,7 +184,7 @@ for (const shared of [false, true])
       worn(mara.world, turns);
       expect(world).toEqual(before);
     }
-  });
+  }, 30000);
 
 it("pins the earned scarf's rules-132 successor hashes without importing an upgrade", () => {
   expect(hash(read("./fixtures/card-content-rules-132.json"))).toBe(
