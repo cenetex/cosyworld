@@ -121,6 +121,33 @@ try {
     await page.screenshot({ path: new URL(`shared-${width}.png`, output).pathname });
     await page.close();
 
+    // A shared waking scene can finish while the room is still facedown.
+    // Later room speech must not keep the selected resident behind Continue.
+    const intro = await browser.newPage({ ...options, reducedMotion: "reduce" });
+    const introErrors = [];
+    intro.on("pageerror", (error) => introErrors.push(error.message));
+    world.actors.moth.place = "station";
+    history[1].opening = true;
+    history[1].actor = "vale";
+    await intro.route("**/auth/account", (route) => route.fulfill({ json: { authenticated: true } }));
+    await intro.route(/\/card-game\/shared\/worlds\/speech-queue(?:\/command)?$/, (route) => route.fulfill({ json: view() }));
+    await seed(intro, "cosyworld.reflected-shore.v1.shared.speech-queue.vale", world);
+    await intro.addInitScript(() => {
+      localStorage.setItem("cosyworld.reflected-shore.v1.shared.speech-queue.vale.seen.covered", JSON.stringify(["station"]));
+    });
+    await open(intro, url);
+    assert.equal(await front(intro), first.text, "The covered room starts at this avatar's opening.");
+    await selectCard(intro, "moth");
+    await read(intro);
+    await intro.waitForFunction((text) => document.querySelector("#dialogue-text").textContent === text, second.text);
+    await read(intro);
+    await intro.locator('#card-actions [data-action="talk"]').waitFor({ state: "visible" });
+    assert.notEqual(await front(intro), late.text, "Unrevealed room speech does not leak into the intro.");
+    assert.deepEqual(introErrors, []);
+    await intro.screenshot({ path: new URL(`shared-covered-intro-${width}.png`, output).pathname });
+    reports.push({ width, mode: "shared-covered-intro", talkAvailable: true, errors: introErrors });
+    await intro.close();
+
     for (const stream of [false, true]) {
       world = createWorld();
       world.actors.vale.place = "attic";
