@@ -142,3 +142,16 @@ it("leaves human choices undecided and does not inspect a sleeping partner's han
   seatActors(world, ["vale", "mara"], ["vale"]);
   expect(knowledge(world, "mara")).toEqual([]);
 });
+
+it("Dione's wheat offer during Talk is conditional and does not transfer the sack", () => {
+  let world = encounter("greek-baker");
+  world.items["greek-wheat"].holder = "greek-baker";
+  world.actors["greek-baker"].want = null;
+  world.actors["greek-baker"].trust.vale = 1;
+  world = act(world, {kind: "talk", target: "greek-baker"});
+  const context = narrativeContext(world);
+  expect(context.outcome.card.kind).toBe("talk");
+  expect(world.items["greek-wheat"].holder).toBe("greek-baker");
+  expect(knowledge(world, "greek-baker")).toContain(
+    "If Vale asked me for Sack of Wheat, I would agree to give it.");
+});

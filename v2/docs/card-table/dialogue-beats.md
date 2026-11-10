@@ -86,6 +86,15 @@ before the reply that followed it, so a departure stays on the card it
 interrupted. While a reply is being written, the front card is the waiting
 speaker with Thinking; the play's effect is on the card behind it.
 
+## Offers and custody
+
+A resident's willingness is a conditional offer, not an action: "I'd give you
+that if you asked." Ask, Give and Trade move items only when the rules commit
+them. Voice checks reject explicit present transfers to a named recipient
+when the resolved inventory still has another owner. Questions, conditional
+offers and remembered exchanges retain their separate meanings. This is a
+bounded wording check, not a general natural-language proof of every claim.
+
 ## The depth stack
 
 Beats are cards in depth, not rows in a scroll:

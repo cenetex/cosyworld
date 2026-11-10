@@ -321,6 +321,53 @@ fn object_tail<'a>(text: &'a str, objects: &[String]) -> Option<&'a str> {
     })
 }
 
+// A present transfer is a claim about custody, not an offer. Match only
+// explicit objects and recipients; conditionals and memories remain speech.
+fn transfer_claim<'a>(
+    statement: &str,
+    item: &str,
+    context: &'a Context,
+    speaker: &str,
+) -> Option<&'a str> {
+    if statement.contains(" if ") || statement.contains(" when ") {
+        return None;
+    }
+    let outcome = context.outcome.as_ref()?;
+    let label = name(item).to_lowercase();
+    let objects = [person::the(&label), label];
+    let addressed = listener(context, speaker);
+    for verb in ["give", "hand", "pass", "place", "put"] {
+        let Some(rest) = statement.strip_prefix(&format!("i {verb} ")) else {
+            continue;
+        };
+        let Some(tail) = object_tail(rest, &objects) else {
+            continue;
+        };
+        for avatar in &outcome.avatars {
+            let own = name(&avatar.id).to_lowercase();
+            let mut destinations = vec![
+                format!(" to {own}"),
+                format!(" in {own}'s hands"),
+                format!(" into {own}'s hands"),
+            ];
+            if addressed.as_deref() == Some(avatar.id.as_str()) {
+                destinations.extend([
+                    " to you".into(),
+                    " in your hands".into(),
+                    " into your hands".into(),
+                ]);
+            }
+            if destinations.iter().any(|destination| {
+                tail.strip_prefix(destination)
+                    .is_some_and(|rest| rest.is_empty() || rest.starts_with(['.', '!', ',', ';']))
+            }) {
+                return Some(&avatar.id);
+            }
+        }
+    }
+    None
+}
+
 // Check explicit present custody statements against the resolved world.
 // Historical accounts and questions keep their separate meanings.
 pub(super) fn consistent(text: &str, context: &Context, speaker: &str) -> bool {
@@ -346,6 +393,11 @@ pub(super) fn consistent(text: &str, context: &Context, speaker: &str) -> bool {
             return false;
         }
         for item in &outcome.items {
+            if transfer_claim(statement, &item.id, context, speaker).is_some_and(|claimed| {
+                holder(outcome, &item.id).is_some_and(|actual| actual != claimed)
+            }) {
+                return false;
+            }
             let label = name(&item.id).to_lowercase();
             let label = label.strip_prefix("the ").unwrap_or(&label);
             let item_subjects = [
@@ -439,7 +491,7 @@ mod tests {
                 "card":{"kind":kind,"target":"greek-ismene",
                     "item":if kind == "ask" { "greek-household-token" } else { "lamp" },
                     "receive":(kind == "trade").then_some("greek-household-token"),
-                    "accepted":accepted},
+                    "accepted":(kind != "talk").then_some(accepted)},
                 "avatars":[
                     {"id":"vale","location":c.location,"holding":[]},
                     {"id":"greek-ismene","location":c.location,"holding":[]}
@@ -496,6 +548,65 @@ mod tests {
                 c.concealed = vec!["lamp".into(), "greek-household-token".into()];
                 assert!(!facts(&c, "vale").join(" ").contains("Household Token"));
             }
+        }
+    }
+
+    #[test]
+    fn dione_cannot_place_wheat_in_vales_hands_during_talk() {
+        let json = serde_json::to_string(&exchange_context("talk", false))
+            .unwrap()
+            .replace("greek-ismene", "greek-baker")
+            .replace("greek-household-token", "greek-wheat");
+        let c: Context = serde_json::from_str(&json).unwrap();
+        let check = Check::new(&c, entity(&c, "greek-baker"), Part::Line);
+        assert_eq!(
+            check.clean("I place the Sack of Wheat in Vale’s hands.", true),
+            Err("custody")
+        );
+        assert!(consistent(
+            "I'd give you the Sack of Wheat if you asked.",
+            &c,
+            "greek-baker"
+        ));
+    }
+
+    #[test]
+    fn prospective_offers_cannot_become_present_transfers() {
+        for kind in ["talk", "ask", "give", "trade"] {
+            let c = exchange_context(kind, false);
+            let check = Check::new(&c, entity(&c, "greek-ismene"), Part::Line);
+            for line in [
+                "I place the Household Token in Vale's hands.",
+                "I put the Household Token into your hands.",
+                "I hand the Household Token to Vale.",
+                "I give the Household Token to you.",
+                "I pass the Household Token to Vale.",
+            ] {
+                assert_eq!(check.clean(line, true), Err("custody"), "{kind}: {line}");
+            }
+            for line in [
+                "I'd give you the Household Token if you asked.",
+                "If you asked, I would give the Household Token to you.",
+                "I would accept your Lamp in trade for my Household Token.",
+                "I won't give you the Household Token.",
+                "I gave the Household Token to you once.",
+                "May I place the Household Token in your hands?",
+            ] {
+                assert!(consistent(line, &c, "greek-ismene"), "{kind}: {line}");
+            }
+        }
+        for kind in ["ask", "trade"] {
+            let c = exchange_context(kind, true);
+            assert!(consistent(
+                "I gave the Household Token to Vale.",
+                &c,
+                "greek-ismene"
+            ));
+            assert!(consistent(
+                "I place the Household Token in Vale's hands.",
+                &c,
+                "greek-ismene"
+            ));
         }
     }
 
