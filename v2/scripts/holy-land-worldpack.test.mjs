@@ -17,12 +17,9 @@ const jobs = readJson("the-holy-land", "jobs.json");
 const locations = readJson("the-holy-land", "locations.json");
 const holyLandPack = readJson("the-holy-land", "pack.json");
 const bridgePack = readJson("core-holy-land-bridge", "pack.json");
-const bethlehemRegistry = readJson("bethlehem", "registry.json");
+const officialRegistry = readJson("official", "registry.json");
 const officialWorld = JSON.parse(
   fs.readFileSync(path.resolve(scriptDir, "../worlds/official/world.json"), "utf8"),
-);
-const bethlehemWorld = JSON.parse(
-  fs.readFileSync(path.resolve(scriptDir, "../worlds/bethlehem/world.json"), "utf8"),
 );
 
 test("the Twelve search for Christ for twelve distinct reasons", () => {
@@ -175,40 +172,9 @@ test("the official world accepts the deployed pre-item-policy journal", () => {
   );
 });
 
-test("Bethlehem accepts every declared production replay epoch", () => {
-  // #669 changed only authored voice text and prompt presentation: the world,
-  // resource identities, rules profile, pack versions, and persisted-state
-  // interpretation remain stable across this boundary.
-  // Tenant 7 persisted the second and third hashes before later content-pack
-  // compiler releases. The fourth is the provider-less bundle replaced by the
-  // Lonely Forest art mount. The fifth predates the Emmaus presentation update;
-  // the sixth is the Emmaus bundle replaced by Rati's authored portrait. The
-  // seventh is the bundle replaced by the Mossbell discovery slot, which adds
-  // one unplaced core item and no new state interpretation. The eighth is the
-  // exact v1.0.139 tenant journal before the richer item policies. All use the
-  // same canonical IDs and state meaning.
-  const compatible = bethlehemWorld.persistence_compatibility
-    .replay_compatible_bundle_hashes;
-  assert.deepEqual(compatible, [
-    "sha256:463890e096d1ebb1bc253e20af8173bf3cf3a78ee508e3236e18ba002f03b0df",
-    "sha256:0d989794764b86a1b3067a3c1ca43078dbacfece38a84371039d5a16af80e2f3",
-    "sha256:2029c79967979ad2864570ea55708b6fdc02aced3c32ad80f88c646c330083f8",
-    "sha256:782e5c77078ffe57d9cb31ed070ca8ba14a9158084e13f08fea17d9497a8b347",
-    "sha256:e02e7f097c390244005c2ccebbdcec82dc2618ede05fac998716f6a03bdcc63e",
-    "sha256:97c90b233f9a548f914bed0ddb4d9b5582bc370398a980d8ef9ec8d524a13c74",
-    "sha256:0781f23550c8be3e16ad2fb92b9c1bf067f164c351d9d95df47a2969116f7480",
-    "sha256:070906fd0fd90124fe93641d11c2c6285cf0c78b2e9126d805206a0d9136eb7f",
-    "sha256:d6bb85c9b172307abb4c06faabb6d270e583b539947abb90d2e683832dff806d",
-    "sha256:1480f6d16556ba2a61636c106a9aeae87f05cca72c02e043fa22eedad6188fbf",
-    "sha256:3015ec6fa4ee3332a54efedac4be96001bd17133d7e704e9eaf99f644619a8c4",
-    "sha256:547ffc8912e30ea091fbb9f0effc127bb37e1c04b2921232012aac62eeb83794",
-    "sha256:9cbe87c723ddc9ca19212fe829d15c5c41e9633ff9cbd8f307aa661e8f248b8e",
-  ]);
-});
-
-test("Bethlehem mounts a provider for every authored card image", () => {
-  const prefixes = bethlehemRegistry.assets.map(({ public_prefix }) => public_prefix);
-  for (const card of bethlehemRegistry.resources.cards) {
+test("the official worldpack mounts a provider for every authored card image", () => {
+  const prefixes = officialRegistry.assets.map(({ public_prefix }) => public_prefix);
+  for (const card of officialRegistry.resources.cards) {
     if (!card.image_url?.startsWith("/assets/")) continue;
     assert.ok(
       prefixes.some(

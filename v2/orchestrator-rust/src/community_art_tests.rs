@@ -261,15 +261,11 @@ fn a_new_level_description_replaces_the_frozen_brief_and_reopens_funded_art() {
 
 #[test]
 fn an_elysium_void_can_use_its_exact_text_model_to_describe_itself() {
-    let registry = ContentRegistry::from_json(
-        &fs::read_to_string(configured_content_root().join("elysium-only/registry.json"))
-            .expect("Elysium registry reads"),
-        content_engine_version(),
-    )
-    .expect("Elysium registry mounts");
-    let content = registry.content();
-    let actor_id = content
-        .actor_model_bindings
+    let bindings: Vec<SeedActorModelBinding> = serde_json::from_str(include_str!(
+        "../../content/elysium/actor_model_bindings.json"
+    ))
+    .expect("Elysium actor model bindings");
+    let actor_id = bindings
         .iter()
         .find(|binding| {
             binding.input_modalities.iter().any(|mode| mode == "text")
@@ -281,12 +277,10 @@ fn an_elysium_void_can_use_its_exact_text_model_to_describe_itself() {
     assert!(self_authored_avatar_has_text_binding(
         "self_authored",
         actor_id,
-        &content.actor_model_bindings,
+        &bindings,
     ));
     assert!(!self_authored_avatar_has_text_binding(
-        "authored",
-        actor_id,
-        &content.actor_model_bindings,
+        "authored", actor_id, &bindings,
     ));
 }
 

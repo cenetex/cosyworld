@@ -4496,21 +4496,6 @@ mod rules_profile_tests {
         .expect("active rules/2 bundle")
     }
 
-    fn commons_manifest() -> SeedWorldpackManifest {
-        serde_json::from_str(include_str!("../../content/five-e-commons/worldpack.json"))
-            .expect("Five E Commons worldpack manifest")
-    }
-
-    fn commons_rules_profile() -> SeedRuleBundle {
-        serde_json::from_str::<Vec<SeedRuleBundle>>(include_str!(
-            "../../content/five-e-commons/rules.json"
-        ))
-        .expect("Five E Commons rules bundles")
-        .into_iter()
-        .find(|bundle| bundle.pack_id == "cosyworld.rules-profile-commons")
-        .expect("Five E Commons active rules/2 bundle")
-    }
-
     #[test]
     fn manifest_accepts_explicit_profile_membership_and_rejects_mismatch() {
         let mut manifest = official_manifest();
@@ -4567,19 +4552,5 @@ mod rules_profile_tests {
             validate_seed_rules_profile(&bundle).expect_err("incomplete conformance"),
             "rules conformance does not cover every declared action",
         );
-    }
-
-    #[test]
-    fn five_e_commons_profile_loads_without_copying_reference_resources() {
-        let manifest = commons_manifest();
-        assert_eq!(manifest.rules_profile, "cosyworld.commons5/1");
-        validate_worldpack_manifest(&manifest).expect("Five E Commons manifest is loadable");
-
-        let bundle = commons_rules_profile();
-        assert_eq!(bundle.adapter, "cosyworld.rules/2");
-        assert_eq!(bundle.namespace, "cosyworld.commons5");
-        assert!(bundle.resources.conditions.is_empty());
-        assert!(bundle.resources.monster_seeds.is_empty());
-        validate_seed_rules_profile(&bundle).expect("Five E Commons profile is executable");
     }
 }

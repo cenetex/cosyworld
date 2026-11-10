@@ -58,14 +58,9 @@ describe("avatar naming schema", () => {
     expect(() => assertAvatarNamingConfig(config)).toThrow(expected);
   });
 
-  it("embeds the same authored grammar in every world-bearing composition", () => {
-    for (const composition of ["official", "core-only", "ruby-high-only"]) {
-      expect(
-        read(`v2/content/${composition}/worldpack.json`).avatar_naming,
-      ).toEqual(authored);
-    }
-    expect(
-      read("v2/content/services-only/worldpack.json").avatar_naming,
-    ).toBeUndefined();
+  it("embeds the same authored grammar in the official worldpack", () => {
+    expect(read("v2/content/official/worldpack.json").avatar_naming).toEqual(
+      authored,
+    );
   });
 });

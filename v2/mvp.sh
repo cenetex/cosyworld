@@ -40,8 +40,8 @@ Usage: v2/mvp.sh [start|open|check|status|logs|stop|restart]
 Commands:
   start    Build and start the game server, then open ${URL}
   open     Open ${URL}
-  check    Run kernel, Rust, and JS checks plus the composition, card
-           narrative, and production-profile smokes
+  check    Run kernel, Rust, and JS checks plus the card narrative
+           and production-profile smokes
   status   Print health and listener information
   logs     Tail the server log
   stop     Stop the detached MVP server
