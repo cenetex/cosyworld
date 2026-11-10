@@ -516,3 +516,124 @@ fn radio_entry_consequences_replay_without_checkpoints() {
     drop(reopened);
     std::fs::remove_file(path).unwrap();
 }
+
+#[test]
+fn forest_charm_consequences_replay_without_checkpoints() {
+    use sha2::{Digest, Sha256};
+    let trace: Value = serde_json::from_str(include_str!(
+        "../../../../test/fixtures/forest-charm-rules-131.json"
+    ))
+    .unwrap();
+    let text = include_str!("../../../../test/fixtures/card-content-rules-131.json");
+    let hash = content::hash(text);
+    assert_eq!(hash, trace["contentSha256"]);
+    assert_eq!(
+        format!("{:x}", Sha256::digest(include_bytes!("engine-v131.js"))),
+        trace["engineSha256"]
+    );
+    let charm = "forest-wolfprint-charm";
+    for ending in ["keep", "give"] {
+        let mut world = World {
+            version: trace["version"].as_str().unwrap().into(),
+            game: trace["initial"].clone(),
+            claimed: [1, 1, 0, 0, 0, 0, 0, 0],
+            present: [1, 0, 0, 0, 0, 0, 0, 0],
+            pack: Some(hash.clone()),
+        };
+        let (path, c, id) = fixture(&format!("forest-{ending}-consequences"), &world);
+        c.execute(
+            "INSERT OR IGNORE INTO card_full_packs(hash,revision,content) VALUES(?,?,?)",
+            rusqlite::params![hash, "rules131", text],
+        )
+        .unwrap();
+        content::preload(&c, &hash).unwrap();
+        let steps = trace["branches"][ending].as_array().unwrap();
+        assert_eq!(steps.len(), 16);
+        for (i, step) in steps.iter().enumerate() {
+            let request = &step["request"];
+            assert!(world.project(0).unwrap()["actions"]
+                .as_array()
+                .unwrap()
+                .contains(&request["action"]));
+            full_store::commit(&c, &id, &mut world, request.clone(), now()).unwrap();
+            assert_eq!(world.game, step["world"], "{ending} transition {i}");
+            // Reject the repeated gift at the cottage, not merely an absent recipient.
+            if ending == "give" && i == 11 {
+                let before = world.clone();
+                let rows = || {
+                    c.query_row(
+                        "SELECT count(*) FROM card_full_log WHERE world=?",
+                        [&id],
+                        |row| row.get::<_, i64>(0),
+                    )
+                    .unwrap()
+                };
+                let count = rows();
+                assert!(full_store::commit(&c, &id, &mut world, request.clone(), now()).is_err());
+                assert_eq!(world, before);
+                assert_eq!(rows(), count);
+            }
+        }
+        let kept = ending == "keep";
+        let holder = if kept { "vale" } else { "forest-cottage" };
+        let check = |game: &Value| {
+            let forest = &game["packs"]["lonely-forest"];
+            assert_eq!(game["items"][charm]["holder"], holder);
+            assert_eq!(forest["flags"]["forest-homecoming-shared"], true);
+            assert_eq!(
+                forest["receipts"]["forest-keep-charm"],
+                if kept { json!(12) } else { Value::Null }
+            );
+            assert_eq!(
+                forest["receipts"]["forest-leave-charm"],
+                if kept { Value::Null } else { json!(12) }
+            );
+            for (who, turn) in [("rati", 1), ("skull", 5), ("oak", 8)] {
+                assert_eq!(forest["met"][who], turn);
+            }
+        };
+        check(&world.game);
+        assert_eq!(
+            pick(&world, |a| a["kind"] == "move"
+                && a["target"] == "forest-trail")
+            .is_some(),
+            kept
+        );
+        // Mara reconnects at her real Theatre. A public homecoming is not travel.
+        for op in ["enter", "leave", "enter"] {
+            full_store::commit(&c, &id, &mut world, json!({"op":op,"actor":"mara"}), now())
+                .unwrap();
+            check(&world.game);
+        }
+        let before = world.clone();
+        for _ in 0..2 {
+            let mara = world.project(1).unwrap();
+            assert_eq!(mara["room"], "theatre");
+            check(&mara["world"]);
+        }
+        assert_eq!(world, before);
+        c.execute("DELETE FROM card_full_checkpoints WHERE world=?", [&id])
+            .unwrap();
+        drop(c);
+        let reopened = store::open(&path).unwrap();
+        full_store::schema(&reopened).unwrap();
+        let mut expected = world.clone();
+        if engine::historical(&expected.version) {
+            expected
+                .apply(&json!({"op":"upgrade", "from":world.version,
+                "to":engine::VERSION, "seed":super::full_world::run_seed(&id),
+                "pack":content::current()}))
+                .unwrap();
+        } else if expected.pack.as_deref() != Some(content::current()) {
+            expected
+                .apply(&json!({"op":"repack", "from":world.pack,
+                "to":content::current(), "revision":content::REVISION}))
+                .unwrap();
+        }
+        let replayed = full_store::world(&reopened, &id, now()).unwrap();
+        assert_eq!(replayed, expected);
+        check(&replayed.game);
+        drop(reopened);
+        std::fs::remove_file(path).unwrap();
+    }
+}
