@@ -14,10 +14,13 @@ async fn upload(state: &AppState, cookie: &str, owner: &str, sha: &str, bytes: &
     request
         .extensions_mut()
         .insert(ConnectInfo("127.0.0.1:8845".parse::<SocketAddr>().unwrap()));
-    let response = crate::routes::app_router(state.clone())
-        .oneshot(request)
-        .await
-        .unwrap();
+    let response = crate::routes::card_app_router(
+        state.clone(),
+        crate::shutdown::ShutdownSubscription::idle(),
+    )
+    .oneshot(request)
+    .await
+    .unwrap();
     assert_eq!(response.headers()[header::CACHE_CONTROL], "no-store");
     response.status().as_u16()
 }
@@ -112,7 +115,7 @@ async fn create_receipts_preserve_owner_content_files_and_retry_identity() {
     let (status, saved) = send(&state, "PUT", &route, &owner, save, None).await;
     assert_eq!(status, 200);
     assert_eq!(saved["revision"], 2);
-    let mut reopened = test_app_state(RuntimeWorld::seeded(), Some(path.clone()));
+    let mut reopened = test_app_state(RuntimeWorld::empty(), Some(path.clone()));
     reopened.generated_asset_dir = state.generated_asset_dir.clone();
     assert_eq!(
         send(&reopened, "POST", BASE, &owner, input.clone(), key).await,

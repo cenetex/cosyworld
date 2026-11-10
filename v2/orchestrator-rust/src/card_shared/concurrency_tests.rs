@@ -64,7 +64,7 @@ fn concurrent_writes_to_one_world_never_hit_the_lock_and_keep_each_play_once() {
         full::run(&tx, &id, &format!("user{a}"), &claim, now()).unwrap();
         tx.commit().unwrap();
     }
-    let app = crate::test_app_state(crate::RuntimeWorld::seeded(), Some(path.clone()));
+    let app = crate::test_app_state(crate::RuntimeWorld::empty(), Some(path.clone()));
     let errors = Arc::new(Mutex::new(Vec::<String>::new()));
     let accepted = Arc::new(Mutex::new(Vec::<String>::new()));
     let start = Arc::new(Barrier::new(PLAYERS + 1));

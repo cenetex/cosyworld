@@ -284,7 +284,7 @@ fn release_preserves_items_and_another_account_can_claim() {
 async fn shared_routes_require_an_account_cookie() {
     use axum::{body::Body, http::Request};
     use tower::ServiceExt;
-    let state = crate::test_app_state(crate::RuntimeWorld::seeded(), None);
+    let state = crate::test_app_state(crate::RuntimeWorld::empty(), None);
     let response = router()
         .with_state(state)
         .oneshot(
@@ -306,7 +306,7 @@ fn recovery_keeps_committed_play_and_hides_private_state() {
     body.item = 0;
     body.key = "test-play-0000000000".into();
     run(&mut c, &id, "u", &body, now()).unwrap();
-    let state = crate::test_app_state(crate::RuntimeWorld::seeded(), Some(path.clone()));
+    let state = crate::test_app_state(crate::RuntimeWorld::empty(), Some(path.clone()));
     let work = take_work(&state, &id).unwrap().unwrap();
     assert_eq!(store::world(&c, &id).unwrap().holders[0], 9);
     c.execute("UPDATE card_plays SET until_at=0 WHERE id=?", [&work.id])
@@ -385,7 +385,7 @@ fn queued_item_race_rechecks_custody_and_commits_once() {
         .unwrap();
     }
     tx.commit().unwrap();
-    let state = crate::test_app_state(crate::RuntimeWorld::seeded(), Some(path));
+    let state = crate::test_app_state(crate::RuntimeWorld::empty(), Some(path));
     let work = take_work(&state, &id).unwrap().unwrap();
     assert!(take_work(&state, &id).unwrap().is_none());
     finish_work(&state,&id,work,Ok(json!([{"speaker":"Vale","text":"A little light."},{"speaker":"The shore","text":"The water glints."}]))).unwrap();

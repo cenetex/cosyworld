@@ -90,7 +90,7 @@ async fn the_endpoint_refuses_bad_batches_limits_clients_and_keeps_no_identity()
         std::process::id(),
         now_millis()
     ));
-    let state = test_app_state(RuntimeWorld::seeded(), Some(path.clone()));
+    let state = test_app_state(RuntimeWorld::empty(), Some(path.clone()));
     let app = router().with_state(state);
     let today = utc_day(now_millis());
     let good = json!({"day": today, "counters": {"play.talk": 1, "session.start": 1}}).to_string();

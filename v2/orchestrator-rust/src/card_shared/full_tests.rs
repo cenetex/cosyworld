@@ -1133,7 +1133,7 @@ fn a_reveal_snapshot_stays_with_the_first_queued_play_and_out_of_the_journal() {
         serde_json::from_str::<Value>(&queued).unwrap()["revealed"],
         json!([])
     );
-    let app = crate::test_app_state(crate::RuntimeWorld::seeded(), Some(path));
+    let app = crate::test_app_state(crate::RuntimeWorld::empty(), Some(path));
     let work = full::take_work(&app, &id).unwrap().unwrap();
     let journal: String = c
         .query_row(
@@ -1177,7 +1177,7 @@ fn full_world_npc_turn_and_speech_survive_worker_restart() {
         .unwrap();
     full::run(&tx, &id, "user0", &b, now()).unwrap();
     tx.commit().unwrap();
-    let app = crate::test_app_state(crate::RuntimeWorld::seeded(), Some(path));
+    let app = crate::test_app_state(crate::RuntimeWorld::empty(), Some(path));
     let work = full::take_work(&app, &id).unwrap().unwrap();
     let before = full_store::world(&c, &id, now()).unwrap();
     assert_eq!(
@@ -1225,7 +1225,7 @@ async fn server_dialogue_keeps_a_legacy_browser_scene_through_replay() {
         params![json!({"browser_chat":true}).to_string(), b.key],
     )
     .unwrap();
-    let state = crate::test_app_state(crate::RuntimeWorld::seeded(), Some(path));
+    let state = crate::test_app_state(crate::RuntimeWorld::empty(), Some(path));
     let work = full::take_work(&state, &id).unwrap().unwrap();
     assert_eq!(work.context["browser_chat"], false);
     let projected = full_store::snapshot(&c, &id, "user0", now()).unwrap();
@@ -1309,7 +1309,7 @@ fn server_dialogue_resumes_a_working_browser_scene_and_fences_its_old_reply() {
     b.key = "legacy-browser-working-0001".into();
     b.action = home_action(&w, 0, "wait");
     full::run(&c, &id, "user0", &b, now()).unwrap();
-    let state = crate::test_app_state(crate::RuntimeWorld::seeded(), Some(path));
+    let state = crate::test_app_state(crate::RuntimeWorld::empty(), Some(path));
     let old = full::take_work(&state, &id).unwrap().unwrap();
     let saved = old.context["context"].clone();
     let committed = full_store::world(&c, &id, now()).unwrap();
@@ -1433,7 +1433,7 @@ fn full_world_shared_speech_is_journaled_with_matching_log_sequences() {
             .unwrap();
         full::run(&tx, &id, "user0", &b, now()).unwrap();
         tx.commit().unwrap();
-        let state = crate::test_app_state(crate::RuntimeWorld::seeded(), Some(path));
+        let state = crate::test_app_state(crate::RuntimeWorld::empty(), Some(path));
         let work = full::take_work(&state, &id).unwrap().unwrap();
         let voice = |index| crate::routes::shared_voice_line(&c, &id, &b.key, index).unwrap();
         assert_eq!(voice(0), None, "working speech is not yet billable");
@@ -1496,7 +1496,7 @@ fn failed_shared_words_finish_the_play_as_silence_and_free_the_seat() {
     b.key = "speech-silent-000001".into();
     b.action = home_action(&w, 0, "wait");
     full::run(&c, &id, "user0", &b, now()).unwrap();
-    let app = crate::test_app_state(crate::RuntimeWorld::seeded(), Some(path));
+    let app = crate::test_app_state(crate::RuntimeWorld::empty(), Some(path));
     let work = full::take_work(&app, &id).unwrap().unwrap();
     let committed = full_store::world(&c, &id, now()).unwrap();
     let journal = |c: &rusqlite::Connection| -> i64 {
@@ -1576,7 +1576,7 @@ fn shared_speech_publication_retries_a_write_lock_with_the_original_reply() {
         full::run(&tx, &id, &format!("user{a}"), &command, now()).unwrap();
         tx.commit().unwrap();
     }
-    let app = crate::test_app_state(crate::RuntimeWorld::seeded(), Some(path.clone()));
+    let app = crate::test_app_state(crate::RuntimeWorld::empty(), Some(path.clone()));
     let work = full::take_work(&app, &id).unwrap().unwrap();
     assert_eq!(work.actor, 0);
     let evidence: Vec<Value> = work.context["context"]["entities"]
@@ -1681,7 +1681,7 @@ fn shared_speech_publication_reports_an_exhausted_write_lock_budget() {
         .unwrap();
     full::run(&tx, &id, "user0", &command, now()).unwrap();
     tx.commit().unwrap();
-    let app = crate::test_app_state(crate::RuntimeWorld::seeded(), Some(path.clone()));
+    let app = crate::test_app_state(crate::RuntimeWorld::empty(), Some(path.clone()));
     let work = full::take_work(&app, &id).unwrap().unwrap();
     let lines = json!([{"speaker":"Vale","actorId":"vale","entityId":"vale","text":"I have a moment to listen."}]);
     let mut connection = store::open(&path).unwrap();
@@ -3268,7 +3268,7 @@ fn refused_words_finish_the_play_as_silence_instead_of_holding_the_seat() {
     b.key = "refused-words-000001".into();
     b.action = home_action(&w, 0, "wait");
     full::run(&c, &id, "user0", &b, now()).unwrap();
-    let app = crate::test_app_state(crate::RuntimeWorld::seeded(), Some(path));
+    let app = crate::test_app_state(crate::RuntimeWorld::empty(), Some(path));
     let work = full::take_work(&app, &id).unwrap().unwrap();
     let committed = full_store::world(&c, &id, now()).unwrap();
     // A speaker who is not in the room: the rules refuse the speech op.

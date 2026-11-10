@@ -154,7 +154,7 @@
     "paths": "^v2/(orchestrator-rust|ai-model-rust|core-c)/|^v2/scripts/check-rust\\.sh$",
     "max": 6,
     "default": ["card_shared.rs", "card_narrative.rs"],
-    "ignoreInputs": ["package.json"],
+    "ignoreInputs": [],
     "rules": [
       {
         "about": "The C kernel and card session guards.",

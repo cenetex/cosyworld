@@ -491,4 +491,9 @@
 #
 # 58658 -> 58579: the hosted server boots card-only (#1652). The empty
 # RuntimeWorld constructor moved to card_boot.rs with the card boot and /meta.
-58579
+#
+# 58579 -> 2813: delete the classic router, its handlers and their tests,
+# and every classic item the card boot cannot reach (#1652, slice 1). What
+# remains is kept alive only by the inert classic fields of AppState and
+# RuntimeWorld; the next slice removes those.
+2813

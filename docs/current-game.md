@@ -65,8 +65,9 @@ The hosted server boots card-only ([#1652](https://github.com/cenetex/cosyworld/
 classic content registry, journal, snapshot or scheduler, and mounts only the
 card table, `/auth` sign-in, shared worlds, dialogue, authoring, play metrics,
 `/meta` and `/health` (`routes::card_app_router`). The classic rows stay on
-disk, unread. The classic Rust modules remain, unreachable, until a later
-change deletes them.
+disk, unread. The classic router, handlers and their tests are deleted. The
+classic world modules that remain are kept alive only by the inert classic
+fields of `AppState` and `RuntimeWorld`, until a later change removes them.
 
 Historical decisions keep their original dates and context. Current
 behavior follows the shipping code, catalogs, tests, and live release.

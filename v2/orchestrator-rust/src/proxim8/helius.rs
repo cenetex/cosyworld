@@ -10,10 +10,7 @@
 
 use super::*;
 
-/// Most assets read for one wallet: ten pages of 1000.
-const MAX_PAGES: usize = 10;
 const PAGE_LIMIT: usize = 1000;
-const TIMEOUT: Duration = Duration::from_secs(15);
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct OwnedAsset {
@@ -26,21 +23,6 @@ pub(crate) struct OwnedAsset {
     /// The NFT's own `content.metadata.description`, raw; the avatar's
     /// self-contained description when the world authors none.
     pub(crate) description: Option<String>,
-}
-
-/// `COSYWORLD_HELIUS_RPC_URL`, or the Helius mainnet RPC for
-/// `HELIUS_API_KEY`. None means the server cannot discover wallet-linked
-/// avatars on chain; only a local development fixture can supply them.
-pub(crate) fn helius_rpc_url() -> Option<String> {
-    if let Ok(url) = std::env::var("COSYWORLD_HELIUS_RPC_URL") {
-        let url = url.trim();
-        if !url.is_empty() {
-            return Some(url.to_string());
-        }
-    }
-    let key = std::env::var("HELIUS_API_KEY").ok()?;
-    let key = key.trim();
-    (!key.is_empty()).then(|| format!("https://mainnet.helius-rpc.com/?api-key={key}"))
 }
 
 fn request_body(wallet: &str, page: usize) -> serde_json::Value {
@@ -126,41 +108,6 @@ pub(crate) fn parse_assets_page(
         });
     }
     Ok((assets, items.len()))
-}
-
-/// Every asset `wallet` holds, read page by page.
-pub(crate) async fn fetch_owned_assets(rpc_url: &str, wallet: &str) -> io::Result<Vec<OwnedAsset>> {
-    let client = reqwest::Client::builder()
-        .timeout(TIMEOUT)
-        .build()
-        .map_err(io::Error::other)?;
-    let mut assets = Vec::new();
-    for page in 1..=MAX_PAGES {
-        let response = client
-            .post(rpc_url)
-            .json(&request_body(wallet, page))
-            .send()
-            .await
-            .map_err(|error| {
-                io::Error::other(format!("helius request failed: {}", error.without_url()))
-            })?;
-        if !response.status().is_success() {
-            return Err(io::Error::other(format!(
-                "helius status {}",
-                response.status()
-            )));
-        }
-        let body: serde_json::Value = response
-            .json()
-            .await
-            .map_err(|error| io::Error::other(format!("helius body: {}", error.without_url())))?;
-        let (page_assets, count) = parse_assets_page(wallet, &body)?;
-        assets.extend(page_assets);
-        if count < PAGE_LIMIT {
-            break;
-        }
-    }
-    Ok(assets)
 }
 
 #[cfg(test)]
