@@ -1,9 +1,8 @@
 # Wants and arcs
 
 Status: draft for the owner to edit, 2026-11-10, with the owner's first
-answers folded in (see [Owner decisions](#owner-decisions-2026-11-10)).
-Nothing here is built. No rules, pack or client change ships with this note.
-Issue: [#2605](https://github.com/cenetex/cosyworld/issues/2605), under
+answers folded in. Nothing here is built. Issue:
+[#2605](https://github.com/cenetex/cosyworld/issues/2605), under
 [#2576](https://github.com/cenetex/cosyworld/issues/2576).
 
 Line numbers are for main at `c3bfac77a` (rules `full-card-world/131`). Pack
