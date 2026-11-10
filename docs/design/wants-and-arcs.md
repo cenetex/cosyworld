@@ -36,6 +36,12 @@ over the six mounted packs in `v2/worlds/card-table.json`.
 12. Whether a box hands over a want: "A locked box tells you its want."
 13. Unordered staged wants: "(?)", undecided. The halfway dream: "dreams".
     Homecoming and Pip's lamp as starter wants: "sure".
+14. "yes to all four", to these four recommendations: desire is per box,
+    and a resident's own desire is a second want learned by Talk after
+    their box opens; a box that locks again does not pay XP again (one XP
+    per box, once per avatar per world); items are boxes too, as a later
+    slice; the start is Vale, the Lamp and the Mirror attic open, with the
+    Black pond the first box, opened by putting the lamp out.
 
 ## Already decided earlier
 
@@ -272,10 +278,11 @@ on the context button and descriptor when it is selected, never on the card.
   (`sealed`), so the 11 hidden gated routes become visible boxes. Pack data.
 - *Residents* lock with `requires` and `sealed`. The 29 conditional
   residents that show nothing today become visible boxes. Pack data.
-- *Items* need one small rules addition: a `sealed` item, lying where it is
-  but shut until its conditions hold.
+- *Items* are boxes too (decided), as a later slice: they need one small
+  rules addition, a `sealed` item, lying where it is but shut until its
+  conditions hold. Places and residents come first, as pack data.
 - *Crossings and hub ways* need `sealed` read there too: rules.
-- *Open at the start*: Vale, the Lamp he holds, and the Mirror attic, his
+- *Open at the start* (decided): Vale, the Lamp he holds, and the Mirror attic, his
   home. The first box is the Black pond behind the mirror, opened by putting
   the lamp out, which is already the opening's first play. Beyond it Pip,
   the keeper, the Bell and the Empty station can each be a box.
@@ -309,9 +316,9 @@ or follows its facts:
 
 A way the player already passed may shut behind them if it is `live`. That
 is the maze, not a fault: a fight, the guard's want or another way round
-remains. Personal entry rules stay personal. My assumption, not decided: a
-box pays its XP to each avatar once per world, so opening the same box
-again pays nothing.
+remains. Personal entry rules stay personal. Decided: a box pays its XP
+to each avatar once per world, so opening the same box again pays nothing.
+Otherwise eating the bread and having it made again would farm XP.
 
 **A lock is a want.** "A locked box tells you its want." There is one
 idea here, not two: what shuts a card is what that card wants, and meeting
@@ -348,20 +355,16 @@ out about desire":
 2. *Per box.* A resident's box, once open, is where you learn that
    resident's desire. Desire arrives box by box.
 
-The draft assumes **the second**, and this is my reading, not the owner's
-word. A generated world keeps adding boxes, and boxes lock again, so "all
-open" may never come under the first. The second also fits one want per
-avatar: each resident's want is found at that resident's own box. The
-feeling the owner describes still holds: early play is nearly all boxes; as
-they open, more of what is in front of the player is people and what they
-want.
+**The second is decided.** A generated world keeps adding boxes, and boxes
+lock again, so "all open" may never come under the first. The second also
+fits one want per avatar: each resident's want is found at that resident's
+own box. Early play is nearly all boxes; as they open, more of what is in
+front of the player is people and what they want.
 
 A resident's card therefore tells two wants, one after the other. Shut, the
 box tells its want: what opens the way to that person. Open, the person
-tells their own desire in Talk. In this draft they are different wants, and
-"finding out about desire" is the second. They could instead be one and the
-same (a person is shut until their desire is met); that is put to the owner
-in question 1.
+tells their own desire in Talk. They are two wants, in that order, and
+"finding out about desire" is the second (decided).
 
 So, for a player:
 
@@ -593,33 +596,27 @@ Released journals replay on their frozen bundles. Slices that delete
 | 3 | Show every lock: `sealed` on the 11 hidden gated routes and the 29 conditional residents; vary two RatiRadio doors | pack data | keep | Each lies in the hand as a locked box that tells its want on the context button |
 | 4 | One want: remove the stack and `focus`; no drawn want for players; remove sources 6 and 8 | rules | reset | After 200 turns no avatar has `under`; a player with no want has no quest card |
 | 5 | A lock is a want: a box tells it, may be taken up, and meeting it pays one XP and is recorded; helper XP and trust; the `gate` play goes | rules | reset | Vale brings the guard the Writ: the battlefield opens, Vale +1 XP, once. Vale gives the keeper the Bell: +1 XP, keeper's trust +1 |
-| 6 | Boxes everywhere: `sealed` items; hub ways and crossings drawn as boxes; the lock-kind validator | rules | reset | A new world shows Vale, the Lamp and the attic open and the Black pond locked; putting the lamp out opens it for 1 XP |
+| 6 | Boxes everywhere: hub ways and crossings drawn as boxes; the lock-kind validator | rules | reset | A new world shows Vale, the Lamp and the attic open and the Black pond locked; putting the lamp out opens it for 1 XP |
 | 7 | Level Up is Sleep at home; remove the level quest; keep dreams | rules | reset | At threshold Vale holds Sleep at home; a 12-turn Sleep in the attic raises the level; discarding costs XP |
 | 8 | Staged `wants` on residents; remove `choose` from offered plays | rules | reset | No arc field in the save; the same facts give the same want after reload |
 | 9 | Lock the hub and the packs as rooms, latch or `live` per box; burial and RatiRadio as staged wants | pack data | keep | The validator passes; carrying a `live` way's key off shuts it again; Antigone's Talk line changes at the Writ |
 | 10 | Generated cards arrive locked and visible | authoring code | keep | A second place drawn in `/make` is a locked box whose reason names a card already in that world |
 | 11 | One quest card; remove the fan and Focus from the client | client | keep | `npm run check:ui` passes with no new entry; phone and desktop |
 
-Later: resident draws from grievances, knowledge and trust (#1506, #1871),
-as a second rules batch; then the README quest section is rewritten.
+Later, as a second rules batch: `sealed` items, so items are boxes too;
+resident draws from grievances, knowledge and trust (#1506, #1871). Then
+the README quest section is rewritten.
 
 ## Open questions for the owner
 
-1. "Then you find out about desire": per box (the draft: an opened
-   resident's box is where you learn that resident's want) or per world
-   (no wants for the player until every box is open)? And since a locked
-   box already tells its want: is a resident's own desire a second want,
-   told in Talk after the box opens (the draft), or the same want as the
-   lock?
-2. Does a box that locks again pay XP again when it is reopened? The draft
-   assumes one XP per box, once per avatar per world.
-3. Is a box every card: places, residents and items? Items have no general
-   lock today, so "almost every item locked" needs a rules addition.
-4. Is the start right: Vale, the Lamp and the Mirror attic open, and the
-   Black pond the first box, opened by putting the lamp out?
-5. When a player holds a want and a box or a person offers another, does
-   the held one stay (the draft) or does the new one replace it?
-6. Staged wants: ordered ("first that holds") or unordered (any that hold
+1. When a player holds a want and a box or a person offers another, does
+   the held one stay (the draft's assumption) or does the new one replace
+   it?
+2. Staged wants: ordered ("first that holds") or unordered (any that hold
    may surface)? The burial example under the Deleuze note shows both.
-7. RatiRadio: are the two varied doors right (Thermos set down at the
-   Dispatch Window; Talk with RATi while holding the figurine)?
+3. RatiRadio: are the two varied doors right (Thermos set down at the
+   Dispatch Window; Talk with RATi while holding the figurine)? The
+   proposal is mine.
+4. Does the lock-kind rule, and "every lock visible", apply to the hub's
+   own ways beyond the Black pond (the mirror back, the lit arch, home
+   doors), or only to packs and generated worlds?
