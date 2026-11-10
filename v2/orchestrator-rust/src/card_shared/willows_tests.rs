@@ -14,8 +14,19 @@ fn willows_upgrades_from_each_released_version() {
 fn willows_upgrades_version_eighteen_and_replays_observed_signs_and_the_kit() {
     let version = engine::EIGHTEENTH_VERSION;
     let (path, c, id, mut world) = upgraded_willows(version);
-    // The released save keeps its unlit lamp, and a dark lamp already opens
-    // the attic mirror (#1600), so the journey starts by stepping through.
+    // The upgraded fueled lamp lights while held. Quietly stow it to open
+    // the attic mirror, keeping the released custody and history intact.
+    let turn = world.game["turn"].clone();
+    let history = world.game["log"].clone();
+    let lamp_history = world.game["items"]["lamp"]["history"].clone();
+    let stow = json!({"op":"hold","actor":"vale","choice":{
+        "item":null,"revision":world.game["revision"]}});
+    full_store::commit(&c, &id, &mut world, stow, now()).unwrap();
+    assert_eq!(world.game["turn"], turn);
+    assert_eq!(world.game["log"], history);
+    assert_eq!(world.game["items"]["lamp"]["history"], lamp_history);
+    assert_eq!(world.game["items"]["lamp"]["holder"], "vale");
+    assert_eq!(world.game["items"]["lamp"]["lit"], false);
     for (field, value) in [
         ("target", "pond"),
         ("target", "greek-ship"),

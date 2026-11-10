@@ -658,10 +658,10 @@ fn a_line_ends_on_what_the_speaker_perceives() {
         let c = heard.as_ref().unwrap_or(context);
         prose(&messages(c, entity(c, id), Part::Line).assistant)
     };
-    // L1: Myrto sees the threat; Vale's stored lamp stays private.
+    // L1: Myrto hears Pip ask; Vale's stored lamp stays private.
     let myrto = view("harbor wait with Myrto", "greek-shipmaster");
     assert!(myrto.ends_with(
-        "Worn stone steps rise under my sandals; water slaps the landing. Pip threatens Vale over the Lamp. \
+        "Worn stone steps rise under my sandals; water slaps the landing. Pip asks Vale for the Lamp. Vale keeps it for now. \
          Vale, the Lamplighter is right here; I'm talking with them."
     ));
     // L4: Antigone at the gate, no "Vale and Antigone are both at…".

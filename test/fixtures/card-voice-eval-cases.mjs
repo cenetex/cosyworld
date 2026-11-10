@@ -162,7 +162,10 @@ export function assistantRoleScenes() {
   world = selectLamp(world, "lamp");
   world.actors.moth.want = { kind: "item", target: "lamp", lit: true, since: world.turn, refusals: 2 };
   const harbor = (kind, target, i) => step(world, kind, target, i).context;
-  const road = playCard(world, "move", null, "greek-road-thebes");
+  // The remaining voice cases concern their own speakers, not Pip's lamp pursuit.
+  const onward = structuredClone(world);
+  Object.assign(onward.actors.moth, { want: null, content: true, metTurn: onward.turn });
+  const road = playCard(onward, "move", null, "greek-road-thebes");
   const bakery = playCard(road, "move", null, "greek-courtyard");
   bakery.items["greek-oil-flask"].holder = "vale";
   bakery.actors["greek-baker"].want = {
