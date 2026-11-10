@@ -28,7 +28,7 @@ const browser = await browserType.launch({
       : undefined,
 });
 const meeting = () => {
-  const s = createWorld({ seed: 17 });
+  const s = createWorld({ seed: 2531 });
   s.actors.moth.place = s.actors.keeper.place = "station";
   s.items.lamp.holder = "vale";
   return s;

@@ -7,7 +7,11 @@ import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
 import { dispatchShared } from "../card-game/shared-world.mjs";
 import { addLog, createWorld, encodeSave } from "../card-game/world.mjs";
-import { revealCard, openSettings } from "./card-browser-helpers.mjs";
+import {
+  revealCard,
+  openSettings,
+  smokeWidths,
+} from "./card-browser-helpers.mjs";
 
 const settingIds = (page) =>
   page
@@ -38,6 +42,15 @@ async function trackVoices(page) {
 }
 
 async function checkAccountRefresh(page) {
+  assert.equal(
+    await page.evaluate(() =>
+      Object.entries(localStorage)
+        .filter(([key]) => key.startsWith("cosyworld.voice-heard:"))
+        .some(([, value]) => value.includes("The lamp is steady.")),
+    ),
+    false,
+    "Listening history must not retain dialogue text",
+  );
   assert.deepEqual(await page.evaluate(() => window.voicePlayback), {
     starts: 1,
     stops: 0,
@@ -122,6 +135,14 @@ async function checkSharedVoice(width) {
   await page.waitForFunction(() => document.body.inert === false);
   await revealCard(page, "vale");
   await revealCard(page, room);
+  // Covered words must remain silent, including through the voice service.
+  assert.equal(
+    await page.textContent("#dialogue-text"),
+    "Something is steady.",
+  );
+  assert.equal(await page.evaluate(() => window.voicePlayback.starts), 0);
+  assert.deepEqual(voices, []);
+  await revealCard(page, "lamp");
   await page.waitForFunction(
     () => document.querySelector("#speech-row").dataset.voice === "playing",
   );
@@ -129,6 +150,22 @@ async function checkSharedVoice(width) {
     { world: "voice-w", play: "saved-voice-play", line: 0 },
   ]);
   await checkAccountRefresh(page);
+  await page.reload();
+  await page.waitForFunction(() => document.body.inert === false);
+  await page.locator("#speaker").click();
+  await page.waitForFunction(
+    () =>
+      document.querySelector("#dialogue-text").textContent ===
+      "The lamp is steady.",
+  );
+  await page.waitForTimeout(500);
+  assert.equal(await page.getAttribute("#speech-row", "data-voice"), "ready");
+  assert.equal(
+    await page.evaluate(() => window.voicePlayback.starts),
+    0,
+    "Reloading the heard shared line does not autoplay it again",
+  );
+  assert.equal(voices.length, 1);
   await page.screenshot({ path: `output/voices/shared-voice-${width}.png` });
   await openSettings(page);
   const ids = await settingIds(page);
@@ -148,6 +185,7 @@ async function checkPersonalReplay(width) {
     errors = [];
   page.on("pageerror", (error) => errors.push(error.message));
   await trackVoices(page);
+  // A legacy save gets its run seed once, and must keep it on reload.
   const world = createWorld({ opening: true });
   addLog(world, "Vale", "The lamp is steady.", {
     actorId: "vale",
@@ -157,10 +195,15 @@ async function checkPersonalReplay(width) {
     locationId: world.actors.vale.place,
   });
   const table = `voice-replay-${width}`;
-  await page.addInitScript(({ key, save }) => localStorage.setItem(key, save), {
-    key: `cosyworld.reflected-shore.v1.${table}`,
-    save: encodeSave(world),
-  });
+  await page.addInitScript(
+    ({ key, save }) => {
+      if (!localStorage.getItem(key)) localStorage.setItem(key, save);
+    },
+    {
+      key: `cosyworld.reflected-shore.v1.${table}`,
+      save: encodeSave(world),
+    },
+  );
   await page.route("**/auth/account", (route) =>
     route.fulfill({ json: { authenticated: true } }),
   );
@@ -176,10 +219,24 @@ async function checkPersonalReplay(width) {
     for (let replay = 0; replay < 2; replay++) {
       await page.waitForFunction(() => document.body.inert === false);
       await page.locator("#speaker").click();
-      await page.waitForFunction(
-        () => document.querySelector("#speech-row").dataset.voice === "playing",
-      );
-      await checkAccountRefresh(page);
+      if (replay === 0) {
+        await page.waitForFunction(
+          () =>
+            document.querySelector("#speech-row").dataset.voice === "playing",
+        );
+        await checkAccountRefresh(page);
+      } else {
+        await page.waitForTimeout(500);
+        assert.equal(
+          await page.getAttribute("#speech-row", "data-voice"),
+          "ready",
+        );
+        assert.equal(
+          await page.evaluate(() => window.voicePlayback.starts),
+          0,
+          "Reloading a heard line does not autoplay it again",
+        );
+      }
       assert.deepEqual(voices, [
         { speaker: "vale", text: "The lamp is steady." },
       ]);
@@ -190,7 +247,7 @@ async function checkPersonalReplay(width) {
     });
     assert.deepEqual(errors, []);
     console.log(
-      `Replayed personal speech across reload and account refresh at ${width}px.`,
+      `Kept personal speech once-only across reload and account refresh at ${width}px.`,
     );
   } finally {
     await page.close();
@@ -202,12 +259,15 @@ const origin = () => `http://127.0.0.1:${server.address().port}`;
 await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
 let browser;
 try {
-  browser = await chromium.launch({ headless: true });
+  browser = await chromium.launch({
+    headless: true,
+    executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE,
+  });
   await mkdir("output/voices", { recursive: true });
   for (const [width, signedIn] of [
     [1440, true],
     [390, false],
-  ]) {
+  ].filter(([width]) => smokeWidths([1440, 390]).includes(width))) {
     const page = await browser.newPage({ viewport: { width, height: 900 } });
     const errors = [];
     page.on("pageerror", (error) => errors.push(error.message));
@@ -230,7 +290,7 @@ try {
     console.log(`Settings showed no credits at ${width}px.`);
     await page.close();
   }
-  for (const width of [1440, 390]) {
+  for (const width of smokeWidths([1440, 390])) {
     await checkSharedVoice(width);
     await checkPersonalReplay(width);
   }
