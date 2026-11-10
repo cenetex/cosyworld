@@ -175,6 +175,11 @@
         "modules": ["card_game.rs"]
       },
       {
+        "about": "Run portable receiver journal replay when its authored rules change.",
+        "paths": "^v2/card-game/radio-item\\.mjs$",
+        "modules": ["card_shared/quest_loop_tests.rs"]
+      },
+      {
         "about": "Run consequence replay when authored card rules change, not only generated bundles.",
         "paths": "^v2/card-game/(world/|rules/|(world|shared-world|pack-[^/]+|opening|lamp-state|held-item|knowledge|want|resident-[^/]+)\\.mjs$)",
         "modules": ["card_shared/world_life_tests.rs"]
