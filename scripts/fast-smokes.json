@@ -89,6 +89,10 @@
       "smokes": ["smoke-card-music"]
     },
     {
+      "paths": "^v2/card-game/avatar-menu\\.mjs$",
+      "smokes": ["smoke-card-avatar-menu-requests"]
+    },
+    {
       "paths": "^v2/card-game/(page-fade|avatar-menu|entry)\\.",
       "smokes": ["smoke-card-page-fade"]
     },

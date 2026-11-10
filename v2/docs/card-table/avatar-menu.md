@@ -327,3 +327,8 @@ The owner settled these on 2026-11-01 ([#1737](https://github.com/cenetex/cosywo
    #1892: only Vale plays locally).
 4. Extra shared claims stay until the player next moves that avatar.
 5. A player has at most one avatar in a world.
+
+Each opening owns its account, world-list and invitation responses. Closing
+or reopening the menu retires those requests before they can change the next
+opening's slots, status or invitation. The existing menu remains usable when
+its current refresh fails.
