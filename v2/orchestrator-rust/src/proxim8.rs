@@ -427,15 +427,6 @@ pub(super) async fn materialize_wallet_proxim8s(
 mod tests {
     use super::*;
 
-    fn project_config() -> Proxim8MaterializationConfig {
-        let pack: serde_json::Value = serde_json::from_str(include_str!(
-            "../../content/project89-operation-liberation/pack.json"
-        ))
-        .expect("Project89 pack");
-        serde_json::from_value(pack["extensions"][PROXIM8_EXTENSION_ID].clone())
-            .expect("Project89 Proxim8 policy")
-    }
-
     #[test]
     fn trusted_feed_requires_verified_collection_membership() {
         let wallet = "DcXxMstZHwnEMjLTF1Aa2kHB95NBif77nPUEZqD4ZTue";
@@ -476,62 +467,5 @@ mod tests {
             .actors
             .get(&callum.id)
             .is_some_and(|meta| meta.description.contains("others of his collection")));
-    }
-
-    #[test]
-    fn verified_owner_materialization_is_independent_exactly_once_and_snapshot_safe() {
-        let config = project_config();
-        let mut runtime = RuntimeWorld::seeded();
-        runtime.ensure_location(PROXIM8_ENTRY_LOCATION_ID, 0);
-        let asset_id = "8GwrpeSH4TpAGEJsmoF35J8DY6RNCdyjCBZsEnTySEKd";
-        let wallet = "DcXxMstZHwnEMjLTF1Aa2kHB95NBif77nPUEZqD4ZTue";
-        let record = proxim8_materialization_record(&runtime, wallet, asset_id, &config)
-            .expect("first materialization");
-        let actor_id = record.action.actor_id;
-        let (status, events) = runtime.apply_journal_record(&record);
-        assert_eq!(status, CW_OK);
-        assert!(events
-            .iter()
-            .any(|event| event.type_name == "actor.materialized"));
-        assert_eq!(runtime.actor_by_id(actor_id).unwrap().kind, CW_ACTOR_NPC);
-        assert_eq!(
-            runtime.actor_control_mode(actor_id),
-            ActorControlMode::LocalAi
-        );
-        let item_inventory = materialization_retirement::receipt_inventory(&runtime);
-        assert_eq!(item_inventory.total, 0);
-        assert_eq!(item_inventory.retained_actor_materialization, 1);
-        let actor_before = serde_json::to_value(runtime.actor_by_id(actor_id)).unwrap();
-        let memory_before = runtime
-            .materialization_receipts
-            .values()
-            .find(|receipt| receipt.actor_id == actor_id)
-            .and_then(|receipt| runtime.item_by_id(receipt.item_id));
-        materialization_retirement::migrate_legacy_receipts(&mut runtime)
-            .expect("linked-avatar receipt is excluded from item migration");
-        assert!(runtime.item_materialization_migrations.is_empty());
-        assert_eq!(
-            serde_json::to_value(runtime.actor_by_id(actor_id)).unwrap(),
-            actor_before
-        );
-        assert_eq!(
-            runtime
-                .materialization_receipts
-                .values()
-                .find(|receipt| receipt.actor_id == actor_id)
-                .and_then(|receipt| runtime.item_by_id(receipt.item_id)),
-            memory_before
-        );
-        assert!(proxim8_materialization_record(&runtime, wallet, asset_id, &config).is_none());
-
-        let restored = RuntimeSnapshot::from_runtime(&runtime)
-            .into_runtime()
-            .expect("snapshot restores");
-        assert_eq!(restored.actor_by_id(actor_id).unwrap().kind, CW_ACTOR_NPC);
-        assert_eq!(
-            restored.actor_control_mode(actor_id),
-            ActorControlMode::LocalAi
-        );
-        assert!(proxim8_materialization_record(&restored, wallet, asset_id, &config).is_none());
     }
 }

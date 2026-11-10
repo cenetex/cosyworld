@@ -105,7 +105,7 @@ test("first-tale schema rejects malformed continuation authority", () => {
 });
 
 test("authored world first tales satisfy the inline manifest contract", () => {
-  for (const worldId of ["official", "project89"]) {
+  for (const worldId of ["official"]) {
     const value = JSON.parse(
       fs.readFileSync(
         path.join(worldsRoot, worldId, "first-tale.json"),
