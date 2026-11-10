@@ -24,6 +24,8 @@ try {
     await page.getByText("Listen", { exact: true }).click();
     await page.waitForFunction(() => !radioTest.audio.paused && radioTest.audio.currentTime > 0);
     await page.waitForFunction(() => { const values = new Float32Array(2048); radioTest.analyser.getFloatTimeDomainData(values); return values.some(v => Math.abs(v) > 0.001); });
+    await page.evaluate(() => radioTest.context.suspend());
+    await page.waitForFunction(() => radioTest.context.state === "running");
     const evidence = await page.evaluate(async () => {
       const { audio, player } = radioTest;
       const station = await fetch("/card-game/radio").then(r => r.json());
