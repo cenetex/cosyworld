@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { expect, it } from "vitest";
 import {
@@ -149,4 +150,219 @@ it("agrees between today's source and compiled JS through the reachable trace", 
   expect(world.items[key].holder).toBe(kitchen);
   expect(world.packs.ratiradio.flags).toEqual({ "station-open": true });
   expect(world.actors.mara.place).toBe(kitchen);
+});
+
+// Fresh seed 92, no opening or injected custody/encounters. Shared successors
+// use serde's key order; the local trace deliberately retains its own NPC order.
+const ravenTrace = JSON.parse(
+  readFileSync(
+    new URL("./fixtures/raven-return-rules-131.json", import.meta.url),
+  ),
+);
+const home = "ratiradio-listening-room",
+  raven = "ratiradio-raven";
+const figurine = "ratiradio-raven-figurine",
+  glass = "ratiradio-glass";
+const receipt = "ratiradio-return-things";
+const sha = (value) => createHash("sha256").update(value).digest("hex");
+const digest = (world) => sha(JSON.stringify(sorted(world)));
+const ruleFile = (name) =>
+  readFileSync(
+    new URL(`../v2/orchestrator-rust/src/card_shared/${name}`, import.meta.url),
+  );
+function assertReturn(world, at) {
+  const radio = world.packs.ratiradio;
+  expect(!!radio.flags["raven-awake"]).toBe(at >= 59);
+  expect(radio.receipts[receipt]).toBe(at >= 59 ? 55 : undefined);
+  if (at >= 59) expect(radio.met[raven]).toBe(55);
+  if (at >= 60) expect(world.items[glass].holder).toBe("vale");
+  if (at >= 68) {
+    expect(world.actors.vale.place).toBe(home);
+    expect(world.actors[raven].place).toBe("pond"); // Returning does not summon Raven home.
+    expect(world.items[figurine].holder).toBe(home);
+    expect(radio.flags["listening-open"]).toBe(true);
+  }
+  if (at >= 79) {
+    expect(world.actors.mara.place).toBe(home);
+    expect(world.items.mask.holder).toBe("mara");
+    expect(
+      world.conversations.some(
+        (c) => c.actors.includes("mara") && c.actors.includes(raven),
+      ),
+    ).toBe(false);
+  }
+  const milestone = ravenTrace.milestones.find((m) => m.afterOperation === at);
+  if (milestone) {
+    expect([world.turn, world.revision]).toEqual([
+      milestone.turn,
+      milestone.revision,
+    ]);
+    expect(world.actors["ratiradio-rati"].place).toBe(milestone.ratiPlace);
+    for (const [item, holder] of Object.entries(milestone.holders))
+      expect(world.items[item].holder).toBe(holder);
+  }
+}
+
+for (const historical of [true, false])
+  it(
+    `reaches Raven's awakening and second-traveler return (${historical ? "frozen 131" : "current agreement"})`,
+    { timeout: 30000 },
+    () => {
+      const engine = currentSharedEngine(historical ? 131 : null);
+      const run = (request) =>
+        JSON.parse(engine.cardShared(JSON.stringify(request)));
+      let world = historical
+        ? structuredClone(ravenTrace.initial)
+        : sorted(
+            dispatchShared({
+              op: "create",
+              seed: 92,
+              save: encodeSave(createWorld({ seed: 92 })),
+            }).world,
+          );
+      if (
+        ruleFile("engine.rs")
+          .toString()
+          .includes('const VERSION: &str = "full-card-world/131"')
+      )
+        expect(digest(world)).toBe(ravenTrace.initialSha256);
+      if (historical) {
+        expect(sha(ruleFile("engine-v131.js"))).toBe(ravenTrace.engineSha256);
+        expect(
+          sha(
+            readFileSync(
+              new URL(
+                "./fixtures/card-content-rules-131.json",
+                import.meta.url,
+              ),
+            ),
+          ),
+        ).toBe(ravenTrace.contentSha256);
+        expect(digest(world)).toBe(ravenTrace.initialSha256);
+      }
+      let fork;
+      for (const [index, step] of ravenTrace.steps.entries()) {
+        const request = { ...step.request, world },
+          before = structuredClone(request);
+        if (request.op === "play")
+          expect(run({ ...request, op: "view" }).actions).toContainEqual(
+            request.action,
+          );
+        const result = run(request);
+        expect(request).toEqual(before);
+        expect(result.ok, result.error).toBe(true);
+        if (historical) expect(digest(result.world)).toBe(step.worldSha256);
+        else {
+          expect(dispatchShared(request)).toEqual(result);
+          expect(request).toEqual(before);
+          validateWorld(structuredClone(result.world));
+          expect(reload(result.world)).toEqual(result.world);
+          expect(
+            dispatchShared({
+              ...request,
+              op: "view",
+              world: reload(result.world),
+            }),
+          ).toEqual(
+            dispatchShared({ ...request, op: "view", world: result.world }),
+          );
+        }
+        world = sorted(result.world);
+        assertReturn(world, index + 1);
+        if (index === 57) fork = structuredClone(world);
+        if (index >= 60 && index <= 63)
+          expect(world.actors[raven].place).toBe(
+            ["ratiradio-dispatch-window", kitchen, "station", "pond"][
+              index - 60
+            ],
+          );
+        if (index === 69)
+          expect(
+            run({ ...request, op: "view", world }).actions.some(
+              (a) => a.kind === "move" && a.target === "clearing",
+            ),
+          ).toBe(false);
+      }
+      expect(ravenTrace.steps).toHaveLength(81);
+      for (const request of [
+        { op: "play", action: ravenTrace.steps[58].request.action },
+        { op: "hold", choice: { item: null, revision: world.revision - 1 } },
+      ]) {
+        const input = {
+            ...ravenTrace.steps.at(-1).request,
+            ...request,
+            actor: "vale",
+            world,
+          },
+          before = structuredClone(input);
+        expect(run(input).ok).toBe(false);
+        expect(input).toEqual(before);
+      }
+      // Deposit history alone is insufficient. RATi need not be present.
+      for (const [index, step] of ravenTrace.negativeFork.steps.entries()) {
+        const request = { ...step.request, world: fork },
+          before = structuredClone(request);
+        expect(run({ ...request, op: "view" }).actions).toContainEqual(
+          request.action,
+        );
+        const result = run(request);
+        expect(result.ok, result.error).toBe(true);
+        if (historical) expect(digest(result.world)).toBe(step.worldSha256);
+        else {
+          expect(dispatchShared(request)).toEqual(result);
+          validateWorld(structuredClone(result.world));
+          expect(reload(result.world)).toEqual(result.world);
+        }
+        expect(request).toEqual(before);
+        fork = sorted(result.world);
+        expect(!!fork.packs.ratiradio.flags["raven-awake"]).toBe(index === 13);
+        if (index === 12)
+          expect(fork.actors["ratiradio-rati"].place).toBe(
+            "ratiradio-dispatch-window",
+          );
+      }
+      expect(fork.packs.ratiradio.receipts[receipt]).toBe(68);
+      expect(fork.actors["ratiradio-rati"].place).toBe(kitchen);
+    },
+  );
+
+it("reaches a local Raven return using the local NPC route and reloads every play", () => {
+  let world = createWorld({ seed: 92 }),
+    met,
+    awakened;
+  for (const [index, command] of ravenTrace.localRoute.commands.entries()) {
+    const before = structuredClone(world),
+      request = structuredClone(command);
+    if (command.op === "play")
+      expect(legalActions(world)).toContainEqual(command.action);
+    let result;
+    if (command.op === "hold") {
+      const next = structuredClone(world);
+      holdChoice(next, "vale", command.choice);
+      result = { ok: true, state: next };
+    } else result = play(world, command.action, command.revision);
+    expect(result.ok, result.error).toBe(true);
+    expect(world).toEqual(before);
+    expect(command).toEqual(request);
+    validateWorld(structuredClone(result.state));
+    world = reload(result.state);
+    expect(world).toEqual(result.state);
+    expect(legalActions(world)).toEqual(legalActions(result.state));
+    const radio = world.packs.ratiradio;
+    expect(!!radio.flags["raven-awake"]).toBe(index >= 57);
+    if (index >= 57) {
+      awakened ??= radio.receipts[receipt];
+      met ??= radio.met[raven];
+      expect([radio.receipts[receipt], radio.met[raven]]).toEqual([
+        awakened,
+        met,
+      ]);
+    }
+  }
+  expect(ravenTrace.localRoute.commands).toHaveLength(67);
+  expect([world.turn, world.revision]).toEqual([63, 67]);
+  expect(world.items[glass].holder).toBe("vale");
+  expect(world.items[figurine].holder).toBe(home);
+  expect(world.actors.vale.place).toBe(home);
+  expect(world.actors[raven].place).toBe("pond");
 });
