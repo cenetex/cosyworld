@@ -8,13 +8,6 @@ const config = JSON.parse(
 const pick = (...changed) => selectSmokes(changed, config);
 
 describe("fast check smoke selection", () => {
-  it("runs smoke-card-avatar-menu-requests for its script and owner", () => {
-    const smoke = "smoke-card-avatar-menu-requests";
-    expect(pick(`v2/scripts/${smoke}.mjs`)).toContain(smoke);
-    expect(pick("v2/card-game/avatar-menu.mjs")).toContain(smoke);
-    const shards = JSON.parse(readFileSync("scripts/browser-shards.json", "utf8"));
-    expect(shards.checks[smoke]).toBeGreaterThan(0);
-  });
 
   it("names only smoke scripts that exist", () => {
     const named = [
@@ -116,6 +109,14 @@ describe("fast check smoke selection", () => {
       expect(pick(file, "v2/card-game/app.mjs", "v2/card-game/world.mjs",
         "v2/orchestrator-rust/src/card_shared/content.json")[config.core.length])
         .toBe("smoke-card-ratiradio");
+  });
+
+  it("runs smoke-card-avatar-menu-requests for its script and owner", () => {
+    const smoke = "smoke-card-avatar-menu-requests";
+    expect(pick(`v2/scripts/${smoke}.mjs`)).toContain(smoke);
+    expect(pick("v2/card-game/avatar-menu.mjs")).toContain(smoke);
+    const shards = JSON.parse(readFileSync("scripts/browser-shards.json", "utf8"));
+    expect(shards.checks[smoke]).toBeGreaterThan(0);
   });
 
   it("runs a changed smoke first, skips Rust smokes, and caps the count", () => {
