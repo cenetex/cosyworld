@@ -37,7 +37,10 @@ impl Harness {
         let (send, arrivals) = mpsc::unbounded_channel();
         let app = Router::new().route(
             "/audio/speech",
-            post(move || {
+            // Consume the upload before releasing the response barrier. The
+            // speech body includes audio references; an early response can reset
+            // a client that is still writing it, rather than exercise our gate.
+            post(move |Json(_body): Json<Value>| {
                 let send = send.clone();
                 async move {
                     let (reply, receive) = oneshot::channel();
