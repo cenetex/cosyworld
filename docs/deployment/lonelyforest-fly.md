@@ -116,7 +116,7 @@ credentials do not authenticate at `cosyworld.fly.dev`.
 
 ## Card table
 
-`COSYWORLD_PRIMARY_GAME=cards` serves the card table at `/`. The release
+The server serves the card table at `/`. The release
 embeds its HTML, modules, styles, and images under `/card-game/`. Run
 `node v2/scripts/smoke-deployed-card-game.mjs https://lonelyforest.com` to
 compare the public files with a local release checkout.

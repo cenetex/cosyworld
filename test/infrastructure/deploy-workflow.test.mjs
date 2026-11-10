@@ -123,7 +123,7 @@ describe("deploy workflow", () => {
     expect(dockerfile).toContain('ENTRYPOINT ["/app/entrypoint.sh"]');
   });
 
-  it("ships the checksummed card ranker in conservative production shadow mode", () => {
+  it("ships the checksummed card ranker file", () => {
     expect(cardPolicyModel.subarray(0, 8).toString("utf8")).toBe("CWRANK2\n");
     expect(cardPolicyModel).toHaveLength(516);
     expect(createHash("sha256").update(cardPolicyModel).digest("hex")).toBe(
@@ -133,13 +133,6 @@ describe("deploy workflow", () => {
     expect(dockerfile).toContain(
       "COPY models/card-policy /app/models/card-policy",
     );
-    for (const config of [primaryFlyConfig, lonelyForestFlyConfig]) {
-      expect(config).toContain('COSYWORLD_CARD_POLICY_MODE = "shadow"');
-      expect(config).toContain(
-        'COSYWORLD_CARD_POLICY_MODEL_PATH = "/app/models/card-policy/incumbent.cwrank"',
-      );
-      expect(config).toContain('COSYWORLD_CARD_POLICY_TOP_K = "3"');
-    }
   });
 
   it("keeps the Docker entrypoint COPY, chmod, and ENTRYPOINT destinations aligned", () => {
@@ -1159,26 +1152,28 @@ describe("deploy workflow", () => {
     );
   });
 
-  it("keeps the image workshop configured on both Fly tenants", () => {
-    const model =
-      'COSYWORLD_REPLICATE_AVATAR_MODEL = "black-forest-labs/flux-dev-lora"';
-    const mirquoLora = 'COSYWORLD_REPLICATE_AVATAR_LORA = "immanencer/mirquo"';
-    const loraInput = 'COSYWORLD_REPLICATE_AVATAR_LORA_INPUT = "lora_weights"';
-    const loraScaleInput =
-      'COSYWORLD_REPLICATE_AVATAR_LORA_SCALE_INPUT = "lora_scale"';
-    const trigger =
-      'COSYWORLD_REPLICATE_AVATAR_PROMPT_PREFIX = "MRQ, cozy storybook trading-card portrait"';
-    const visionModel = 'COSYWORLD_AI_VISION_MODEL = "openai/gpt-5-image-mini"';
-    const visionReasoning = 'COSYWORLD_AI_VISION_REASONING_EFFORT = "low"';
-
-    for (const config of [primaryFlyConfig, lonelyForestFlyConfig]) {
-      expect(config).toContain(model);
-      expect(config).toContain(mirquoLora);
-      expect(config).toContain(loraInput);
-      expect(config).toContain(loraScaleInput);
-      expect(config).toContain(trigger);
-      expect(config).toContain(visionModel);
-      expect(config).toContain(visionReasoning);
+  it("sets no environment the card-only server no longer reads", () => {
+    const retired = [
+      "COSYWORLD_PRIMARY_GAME",
+      "COSYWORLD_CARD_POLICY_",
+      "COSYWORLD_RENDEZVOUS_PARTY_",
+      "COSYWORLD_STORY_METRICS_RETENTION_DAYS",
+      "COSYWORLD_REPLICATE_AVATAR_",
+      "COSYWORLD_AI_VISION_",
+      "COSYWORLD_AI_VOICE_",
+      "COSYWORLD_AI_DECISION_MODEL",
+      "COSYWORLD_MEDIA_DAILY_LIMIT_MICROUSD",
+      "COSYWORLD_COMMUNITY_IMAGE_ESTIMATED_COST_MICROUSD",
+      "COSYWORLD_CANONICAL_",
+      "COSYWORLD_GENERATION_",
+      "COSYWORLD_CONTENT_ROOT",
+    ];
+    for (const config of [
+      primaryFlyConfig,
+      lonelyForestFlyConfig,
+      dockerfile,
+    ]) {
+      for (const name of retired) expect(config).not.toContain(name);
     }
   });
 

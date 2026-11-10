@@ -50,7 +50,7 @@ Start each task with the branch, commit, and package version. Fetch `origin/main
 for new work. For a live task, check `/meta.primary_game` and follow the catalog
 URLs in `/meta.card_game`. Compare the served files with the intended release.
 
-## Classic compatibility
+## Card-only server
 
 The `/classic` client is retired; `/` serves only the card table. The classic
 source packs, the worldpack compiler and checker, the SRD importers, and the
@@ -64,8 +64,9 @@ The hosted server boots card-only ([#1652](https://github.com/cenetex/cosyworld/
 classic content registry, journal, snapshot or scheduler, and mounts only the
 card table, `/auth` sign-in, shared worlds, dialogue, authoring, play metrics,
 `/meta` and `/health` (`routes::card_app_router`). The classic rows stay on
-disk, unread. The classic router, handlers, world modules and the native C
-world kernel are deleted from the Rust crate. `AppState` holds only what the
+disk, unread. The classic router, handlers, world modules, journal replay,
+snapshots, wallets, card-policy shadow planner and the native C world kernel
+are deleted from the Rust crate. `AppState` holds only what the
 card path reads: the deployment, the event store, accounts, AI config, the
 generated-asset directory, the rate limiter and the moderation token.
 

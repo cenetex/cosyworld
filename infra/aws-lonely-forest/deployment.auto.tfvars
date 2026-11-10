@@ -18,8 +18,6 @@ openrouter_api_key_secret_arn  = "arn:aws:secretsmanager:us-east-1:022118847419:
 openrouter_chat_model          = "openai/gpt-5.4-nano"
 openrouter_metacognitive_model = "openai/gpt-5.6-sol"
 openrouter_reasoning_effort    = "none"
-generation_default_mode        = "off"
-generation_feature_modes       = { pathway_content = "auto_bounded" }
 replicate_api_token_secret_arn = "arn:aws:secretsmanager:us-east-1:022118847419:secret:lonely-forest/REPLICATE_API_TOKEN-KEaGRv"
 subnet_ids = [
   "subnet-6d16a437",

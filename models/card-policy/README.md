@@ -22,7 +22,7 @@ to 8.174, with p50/p90/p99 of 8/12/15 turns.
 The current real-objective audit produced valid replay rows but no strict
 preference signal, so it was not used to authorize live rollout. The artifact
 remains in shadow mode while the supervised collector gathers more varied
-held-out objectives. See `v2/docs/card-policy-ranker.md` for the full contract.
+held-out objectives. The server no longer loads it; `card-policy-lab` trains and evaluates rankers.
 
 Rebuild with the documented `card-policy-lab pipeline` command and verify that
 the model hash, schema hash, SHA-256, held-out metrics, and population regression

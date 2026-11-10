@@ -52,7 +52,7 @@ Open `http://127.0.0.1:4177/`. Generated dialogue uses a Rust service selected b
 Python 3, `screen`, and `lsof`, then run:
 
 ```sh
-COSYWORLD_PRIMARY_GAME=cards npm run dev
+npm run dev
 ```
 
 The full server opens `http://127.0.0.1:3102/`. Use `npm run v2:status` to inspect
