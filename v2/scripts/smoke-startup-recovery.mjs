@@ -23,7 +23,6 @@ try {
           "cosyworld.room-music",
           JSON.stringify({ enabled: false }),
         );
-        localStorage.setItem("startup-kept", "saved data");
       });
       const target =
         stage === "table"
@@ -52,6 +51,9 @@ try {
       // A stale intro continuation must not recreate its overlay or eat keys.
       await page.waitForTimeout(600);
       assert.equal(await page.locator(".title-intro").count(), 0);
+      await page.evaluate(() =>
+        localStorage.setItem("startup-kept", "saved data"),
+      );
       await retry.focus();
       await page.unroute(target);
       await Promise.all([
