@@ -157,7 +157,6 @@ fn classic_tables_are_not_created_or_queried_by_current_source() {
 fn drop_removes_only_classic_tables_and_shrinks_the_file() {
     let path = card_store(true);
     let before_survivors = survivors(&path);
-    let kept_classic = ["action_journal", "persistence_compaction"];
     {
         let c = Connection::open(&path).unwrap();
         for table in [
@@ -165,6 +164,8 @@ fn drop_removes_only_classic_tables_and_shrinks_the_file() {
             "canonical_commits",
             "orb_ledger",
             "media_jobs",
+            "action_journal",
+            "persistence_compaction",
         ] {
             c.execute_batch(&format!(
                 "CREATE TABLE {table}(id INTEGER PRIMARY KEY, body BLOB);
@@ -180,31 +181,23 @@ fn drop_removes_only_classic_tables_and_shrinks_the_file() {
                 .unwrap();
             }
         }
-        // Classic by origin but still read by offline tools: must survive.
-        for table in kept_classic {
-            c.execute_batch(&format!(
-                "CREATE TABLE {table}(id INTEGER PRIMARY KEY, body TEXT);
-                 INSERT INTO {table}(body) VALUES('keep');"
-            ))
-            .unwrap();
-        }
     }
     let with_classic = survivors(&path);
     assert_eq!(
-        with_classic.len(),
-        before_survivors.len() + kept_classic.len()
+        with_classic, before_survivors,
+        "only classic tables were added"
     );
     let size_before = std::fs::metadata(&path).unwrap().len();
     assert!(size_before > 4_000_000);
 
     let report = drop_classic_tables(&path).unwrap();
-    assert_eq!(report.dropped.len(), 5);
+    assert_eq!(report.dropped.len(), 7);
     assert_eq!(
         report.dropped.iter().filter(|(_, rows)| *rows == 3).count(),
-        4
+        6
     );
     assert!(report.dropped.contains(&("actor_sessions", 0)));
-    assert_eq!(report.missing, classic_tables().len() - 5);
+    assert_eq!(report.missing, classic_tables().len() - 7);
     assert!(report.freed_bytes > 4_000_000);
 
     let left = names(&path);

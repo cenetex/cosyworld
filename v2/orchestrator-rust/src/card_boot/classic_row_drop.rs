@@ -19,13 +19,13 @@ const FLAG: &str = "COSYWORLD_ONE_TIME_DROP_CLASSIC_ROWS";
 /// How it was built: every `CREATE TABLE` in `v2/orchestrator-rust/src` on the
 /// commit before #2598 removed the classic schema init, minus every table the
 /// current tree creates, reads or writes (accounts and passkeys, `card_*`,
-/// authoring, play metrics, signing keys). `action_journal` and
-/// `persistence_compaction` are classic too but are left out: the offline
-/// `card-policy-lab export-shadow` command and `v2/scripts/inspect-action-journal.mjs`
-/// still read them. `classic_tables_do_not_collide_with_current_code` fails if
+/// authoring, play metrics, signing keys). The last readers of `action_journal`
+/// and `persistence_compaction` (`card-policy-lab export-shadow` and
+/// `inspect-action-journal.mjs`) were deleted so both could join the list.
+/// The source-scan test fails if
 /// any name here is created or queried by the current source. `DROP TABLE`
 /// takes the table's indexes and triggers with it.
-const CLASSIC_TABLES: [&str; 49] = [
+const CLASSIC_TABLES: [&str; 51] = [
     "activation_events",
     "activation_backfills",
     "ai_publication_attempts",
@@ -58,6 +58,8 @@ const CLASSIC_TABLES: [&str; 49] = [
     "canonical_legacy_import_reports",
     "canonical_command_receipts",
     "world_events",
+    "action_journal",
+    "persistence_compaction",
     "room_memory_chapters",
     "actor_jobs",
     "actor_sessions",

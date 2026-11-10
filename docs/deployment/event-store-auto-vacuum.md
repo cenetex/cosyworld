@@ -64,13 +64,12 @@ owner decided on 2026-11-10 that those rows are not needed. The primary store
 `COSYWORLD_ONE_TIME_DROP_CLASSIC_ROWS=1` drops them at boot.
 
 **This cannot be undone except by restoring the volume backup.** It drops
-only the 49 tables named in `v2/orchestrator-rust/src/card_boot/classic_row_drop.rs`
+only the 51 tables named in `v2/orchestrator-rust/src/card_boot/classic_row_drop.rs`
 (a fixed list, never a pattern), with their indexes and triggers. Accounts,
 passkeys, shared worlds and their journal, card authoring, play metrics and
 signing keys are not on the list, and a test fails if any of them ever is.
-`action_journal` and `persistence_compaction` are left in place because the
-offline `card-policy-lab export-shadow` and `inspect-action-journal` tools
-still read them.
+`action_journal` and `persistence_compaction` are on the list; their last
+readers (`card-policy-lab export-shadow`, `inspect-action-journal`) were removed.
 
 ### Procedure
 

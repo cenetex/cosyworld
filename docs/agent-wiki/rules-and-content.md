@@ -56,7 +56,6 @@ The shared card store is not the classic journal. Inspect
 - Plays, scenes, account bindings and queues have their own state. A world snapshot
   is not a complete service backup or proof of idempotency.
 - Journal rows also have non-replay readers. Inspect them before considering retention.
-  The classic `v2:journal:inspect` command reads `action_journal`, not this full log.
 
 ## State and presentation checks
 
