@@ -562,6 +562,14 @@ authored requirement, or "A locked box." when no requirement can be shown.
 "Locked" sits in the same small bottom-right position as "Continue". It is
 a disabled status, not a separate action row; selecting or tapping it never
 creates a quest or takes a turn.
+A pack draws a gated way or a conditional resident as a locked box when its
+route or card carries `sealed` (a reason, and for a way a place goal): the
+Lonely Forest trail, the Sacred Way, the Long Walls, and Thaleia, an Argive
+mother, Iphis and Myrine in the Greek pack. The box cannot be entered, talked
+to or acted on until its old condition holds. A way or resident whose own place
+carries the same condition has no place to lie in yet, so pack data cannot draw
+it (the Egypt, Troy and Argive accounts, the Open Door residents who share
+their section's flag, and the Ajax residents).
 When its lock clears, the box opens with the existing card reveal
 (a crossfade under reduced motion). Held previews and quest miniatures
 use the same distinction. Newly dealt quests and folded stack layers use the
@@ -739,7 +747,8 @@ that only RATi, Skull and Whiskerwind can reach.
 
 The Wolfprint Charm opens a path from Oak to the Moonlit Trail while the charm
 is at Oak: carried by someone present, put among the roots, or given to Oak.
-Taking it away closes that entrance. The return from the trail to Oak is always
+Taking it away closes that entrance. Until then the trail lies at Oak as a
+locked box, and at the garden as one until the drain is cleared. The return from the trail to Oak is always
 open. The garden path still opens after tending the drain or stones, so a first
 visitor can reach the charm on the trail before finding this shortcut.
 

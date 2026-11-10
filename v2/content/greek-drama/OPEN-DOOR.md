@@ -25,7 +25,9 @@ districts. The Sacred Way leads from Eleusis into the city once the mothers'
 petition is at Eleusis or in the Agora; the way back is always open. The
 Long Walls open from both ends once the herald's truce is in the Agora. A
 gate stays open once opened, for everyone in that world, even after its
-thing moves away. These routes share
+thing moves away. A shut gate lies face down as a locked box with its
+condition as the reason. Thaleia, the Argive mother, Iphis and Myrine lie
+locked in their places the same way until their old conditions hold. These routes share
 Dione’s lasting invitation. Waiting at a port lets the empty ship complete
 its circuit.
 

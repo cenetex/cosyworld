@@ -447,7 +447,14 @@
           "item": "forest-wolfprint-charm",
           "place": "forest-oak"
         }
-      ]
+      ],
+      "sealed": {
+        "quest": {
+          "kind": "place",
+          "target": "forest-trail"
+        },
+        "reason": "Open only while the Wolfprint Charm is at the Old Oak Tree."
+      }
     },
     {
       "from": "forest-garden",
@@ -458,7 +465,14 @@
           "key": "forest-path-cleared",
           "value": true
         }
-      ]
+      ],
+      "sealed": {
+        "quest": {
+          "kind": "place",
+          "target": "forest-trail"
+        },
+        "reason": "Opens once the garden drain is cleared."
+      }
     }
   ],
   "choices": [

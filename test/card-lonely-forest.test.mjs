@@ -33,7 +33,12 @@ import {
   legalActions,
   play,
 } from "../v2/card-game/world.mjs";
-import { availableCards, cardChoices } from "../v2/card-game/cards.mjs";
+import {
+  availableCards,
+  cardChoices,
+  sealedReason,
+} from "../v2/card-game/cards.mjs";
+import { isLockedBox } from "../v2/card-game/locked-box.mjs";
 import { enableMotives } from "../v2/card-game/motives.mjs";
 import { hub, packDefinition } from "../v2/card-game/pack-registry.mjs";
 import { packProblems } from "../v2/card-game/pack-schema.mjs";
@@ -156,7 +161,10 @@ describe("Tea beneath the oak", () => {
   it("opens Oak's shortcut with the charm nearby and keeps the trail's return free", () => {
     let world = move(move(welcome(), GARDEN), OAK);
     expect(exits(world, OAK, "vale")).not.toContain(TRAIL);
-    expect(availableCards(world)).not.toContain(TRAIL);
+    // The shut way lies in the hand as a locked box with its reason.
+    expect(availableCards(world)).toContain(TRAIL);
+    expect(isLockedBox(world, TRAIL)).toBe(true);
+    expect(sealedReason(world, TRAIL)).toMatch(/Wolfprint Charm is at the Old Oak/u);
     world = move(world, GARDEN);
     world = wait(world);
     world = move(world, TRAIL);
@@ -179,6 +187,7 @@ describe("Tea beneath the oak", () => {
     expect(world.items[CHARM].holder).toBe(TRAIL);
     world = move(world, OAK);
     expect(exits(world, OAK, "vale")).not.toContain(TRAIL);
+    expect(isLockedBox(world, TRAIL)).toBe(true);
     expect(play(world, stale).ok).toBe(false);
 
     // The original garden route still lets a traveler recover the charm.
@@ -441,8 +450,11 @@ describe("Tea beneath the oak", () => {
     expect(state(world).receipts["forest-stay-for-tea"]).toBe(world.turn);
     world = move(world, GARDEN);
     expect(exits(world, GARDEN, "vale")).not.toContain(TRAIL);
+    expect(isLockedBox(world, TRAIL)).toBe(true);
+    expect(sealedReason(world, TRAIL)).toMatch(/garden drain is cleared/u);
     world = wait(world);
     expect(exits(world, GARDEN, "vale")).toContain(TRAIL);
+    expect(isLockedBox(world, TRAIL)).toBe(false);
     world = move(world, TRAIL);
     expect(state(world).flags["forest-watch-shared"]).toBeUndefined();
     world = talk(world, "skull");
