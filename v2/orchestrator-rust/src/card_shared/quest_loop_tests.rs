@@ -505,3 +505,63 @@ fn rules_128_lamp_history_survives_room_fuel_upgrade_and_replay() {
     drop(c);
     let _ = std::fs::remove_file(path);
 }
+
+#[test]
+fn portable_radio_switch_custody_and_sqlite_journal_replay() {
+    let mut world = created(engine::VERSION);
+    let radio = "ratiradio-portable-radio";
+    // Synthetic possession/location fixture, not a completed station quest.
+    world.game["items"][radio]["holder"] = json!("attic");
+    world.game["actors"]["mara"]["place"] = json!("attic");
+    let (path, c, id) = fixture("portable-radio", &world);
+    let commit = |w: &mut World, cmd: Value| full_store::commit(&c, &id, w, cmd, now());
+    for actor in ["vale", "mara"] {
+        commit(&mut world, json!({"op":"claim","actor":actor})).unwrap();
+        commit(&mut world, json!({"op":"enter","actor":actor})).unwrap();
+    }
+    for (kind, target) in [("take", ""), ("radio", ""), ("give", "mara")] {
+        let mut cmd = play(&world, |a| {
+            a["kind"] == kind && a["item"] == radio && (target.is_empty() || a["target"] == target)
+        });
+        cmd["revision"] = world.game["revision"].clone();
+        commit(&mut world, cmd.clone()).unwrap();
+        let accepted = world.clone();
+        assert!(commit(&mut world, cmd).is_err());
+        assert_eq!(world, accepted);
+    }
+    assert_eq!(world.game["items"][radio]["holder"], "mara");
+    assert_eq!(world.game["items"][radio]["radioOn"], true);
+    assert!(!world.project(0).unwrap()["actions"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|a| a["kind"] == "radio"));
+    for kind in ["radio", "radio", "drop"] {
+        let view = world.project(1).unwrap();
+        let action = view["actions"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|a| a["kind"] == kind && a["item"] == radio)
+            .unwrap();
+        commit(
+            &mut world,
+            json!({"op":"play","actor":"mara","action":action}),
+        )
+        .unwrap();
+    }
+    assert_eq!(world.game["items"][radio]["holder"], "attic");
+    assert_eq!(world.game["items"][radio]["radioOn"], true);
+    let stow = json!({"op":"hold","actor":"vale","choice":{
+        "item":null,"revision":world.game["revision"]}});
+    commit(&mut world, stow).unwrap();
+    let cmd = play(&world, |a| a["kind"] == "move" && a["target"] == "pond");
+    commit(&mut world, cmd).unwrap();
+    c.execute("DELETE FROM card_full_checkpoints WHERE world=?", [&id])
+        .unwrap();
+    drop(c);
+    let c = store::open(&path).unwrap();
+    assert_eq!(full_store::world(&c, &id, now()).unwrap(), world);
+    drop(c);
+    let _ = std::fs::remove_file(path);
+}
