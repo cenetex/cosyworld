@@ -1415,6 +1415,7 @@ const SETTLE_MS = 500;
 // arrives in the player's hands through the play, such as the other side of a
 // trade or a take, becomes the held item instead.
 async function persistHeldChoice(item) {
+  const refreshOpening = localWordsPending() && openingWordsDue();
   const choice = { item, revision: world.revision };
   holdingChoice = true;
   try {
@@ -1423,6 +1424,8 @@ async function persistHeldChoice(item) {
     else {
       holdChoice(world, currentActor(world), choice);
       save();
+      // Rebuild only an unpublished opening; old replies remain ticket-fenced.
+      if (refreshOpening && openingWordsDue()) narrator.changed();
     }
   } catch (error) {
     // Never resend an uncertain choice: fetch the committed state instead.
