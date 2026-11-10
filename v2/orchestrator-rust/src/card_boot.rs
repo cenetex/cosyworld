@@ -7,6 +7,8 @@
 //! `AppState` fields set in `bootstrap_card`; every other field is inert.
 use super::*;
 
+pub(crate) mod classic_row_drop;
+
 impl AppState {
     /// Build the state the card table needs. Opens the event database (the
     /// accounts and the shared-world journal live in it) and nothing else of
@@ -17,6 +19,9 @@ impl AppState {
         let mut event_store_health = EventStoreHealth::default();
         if let Some(path) = event_store_path.as_deref() {
             init_event_store(path)?;
+            if classic_row_drop::drop_requested() {
+                classic_row_drop::run_requested_drop(path)?;
+            }
             if one_time_auto_vacuum_requested() {
                 match convert_existing_store_to_incremental_auto_vacuum(path) {
                     Ok(converted) => warn!(
