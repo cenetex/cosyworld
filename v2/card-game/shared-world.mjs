@@ -1,11 +1,12 @@
 import { settleLamp } from "./lamp-state.mjs";
 import { privateView } from "./learning.mjs";
-import { applyHeldChoice, settleHeldItems } from "./held-item.mjs";
+import { settleHeldItems } from "./held-item.mjs";
 import { expressionKind, validExpression } from "./expression.mjs";
 // One pure adapter for the browser model and the server's C-backed JS runtime.
 // The host supplies authenticated claims and presence on every operation.
 import {
   createWorld,
+  holdChoice,
   decodeSave,
   validateWorld,
   settleStationExits,
@@ -247,7 +248,7 @@ export function dispatchShared(request) {
       !world.presentActors.includes(actor)
     )
       throw new Error("Enter this world with your avatar first.");
-    applyHeldChoice(world, actor, request.choice);
+    holdChoice(world, actor, request.choice);
     validateTransition(world);
     return response(world);
   }

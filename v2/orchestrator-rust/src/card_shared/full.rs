@@ -575,7 +575,9 @@ pub(super) fn run(
                 // A card choice is journaled immediately, without a speech
                 // job or an NPC turn. The reducer checks its saved revision.
                 store::commit(
-                    c, id, &mut w,
+                    c,
+                    id,
+                    &mut w,
                     json!({"op":"hold","actor":actor_id(a),"choice":b.action}),
                     time,
                 )?;

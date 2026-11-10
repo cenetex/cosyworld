@@ -66,7 +66,7 @@ import {
   tastes,
 } from "./motives.mjs";
 import { newMemories, rememberEvent, validMemories } from "./memory.mjs";
-import { handSnapshot, settleHeldItems, validHeldItems } from "./held-item.mjs";
+import { applyHeldChoice, handSnapshot, settleHeldItems, validHeldItems } from "./held-item.mjs";
 import {
   installKnowledge,
   witnessKnowledge,
@@ -924,6 +924,20 @@ function refuelCarried(s) {
       returnLocationId: returnsTo,
     });
   }
+}
+// Hand selection is quiet, but every dependent light/gate fact is atomic.
+export function holdChoice(s, actor, choice) {
+  applyHeldChoice(s, actor, choice);
+  settleLamp(s);
+  refuelCarried(s);
+  settleHeldItems(s);
+  settleLamp(s);
+  if (s.opening && actor === "vale" && s.actors.vale.place === "attic")
+    s.locations.attic.anchored = true;
+  latchRoutes(s);
+  settleGuards(s);
+  settleStationExits(s);
+  validateWorld(s);
 }
 function offer(kind, actor, item, target, text, cards) {
   return {
@@ -2015,7 +2029,7 @@ function perform(s, a, round = null, settle = []) {
   const hands = handSnapshot(s);
   settleStandoffs(s); // anyone who walked in joins before playing
   const conflict = standoffFor(s, a.actor);
-  const result = performPlay(s, a, round, settle);
+  const result = performPlay(s, a, round, settle, hands);
   settleHeldItems(s, hands);
   settleLamp(s);
   refuelCarried(s);
@@ -2035,7 +2049,7 @@ function perform(s, a, round = null, settle = []) {
   }
   return result;
 }
-function performPlay(s, a, round = null, settle = []) {
+function performPlay(s, a, round = null, settle = [], hands = handSnapshot(s)) {
   const who = nameOf(a.actor);
   const firstCrossing = actorIds.every((id) => s.actors[id].crossed === 0);
   const here = s.actors[a.actor].place;
@@ -2270,22 +2284,6 @@ function performPlay(s, a, round = null, settle = []) {
       if (a.kind === "trade") transfer(s, a.receive, a.actor, a.text);
       break;
     }
-    case "light":
-      if (
-        s.opening &&
-        !s.opening.crossed &&
-        a.actor === "vale" &&
-        here === "attic" &&
-        s.items.lamp.holder === "attic"
-      )
-        transfer(s, "lamp", "vale", "Vale lifts the lamp.");
-      s.items.lamp.lit = true;
-      remember(s, "lamp", a.text);
-      break;
-    case "snuff":
-      s.items.lamp.lit = false;
-      remember(s, "lamp", a.text);
-      break;
     case "ring":
       // Any sound made here disturbs the residents resting here.
       for (const line of disturb(s, here)) text += ` ${line}`;
@@ -2341,6 +2339,8 @@ function performPlay(s, a, round = null, settle = []) {
     default:
       throw new Error("Unknown act.");
   }
+  settleHeldItems(s, hands);
+  settleLamp(s);
   const recitals =
     here !== s.actors[a.actor].place
       ? arriveRecitals(s, packDefinitions, a.actor)
@@ -2438,6 +2438,8 @@ function performPlay(s, a, round = null, settle = []) {
     addLog(s, "World", arrivalText, details);
   }
   settleStandoffs(s);
+  settleHeldItems(s);
+  settleLamp(s);
   // A want met by this play is a world fact recorded right after it.
   settleWants(
     s,

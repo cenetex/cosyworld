@@ -396,13 +396,53 @@ fn quiet_held_choice_replays_without_a_turn_or_speech_job() {
         "item":"lamp","revision":world.game["revision"]}});
     assert!(commit(&mut world, foreign).is_err());
     assert_eq!(world, saved);
-    let jobs: i64 = c.query_row("SELECT count(*) FROM card_full_plays WHERE world=?",
-        [&id], |row| row.get(0)).unwrap();
+    let jobs: i64 = c
+        .query_row(
+            "SELECT count(*) FROM card_full_plays WHERE world=?",
+            [&id],
+            |row| row.get(0),
+        )
+        .unwrap();
     assert_eq!(jobs, 0);
-    c.execute("DELETE FROM card_full_checkpoints WHERE world=?", [&id]).unwrap();
+    c.execute("DELETE FROM card_full_checkpoints WHERE world=?", [&id])
+        .unwrap();
     drop(c);
     let c = store::open(&path).unwrap();
     assert_eq!(full_store::world(&c, &id, now()).unwrap(), saved);
+    drop(c);
+    let _ = std::fs::remove_file(path);
+}
+
+#[test]
+fn three_room_lamp_replays_dark_travel_and_exhaustion() {
+    let mut world = created(engine::VERSION);
+    let (path, c, id) = fixture("lamp-room-visits", &world);
+    let commit = |w: &mut World, cmd: Value| full_store::commit(&c, &id, w, cmd, now()).unwrap();
+    commit(&mut world, json!({"op":"claim","actor":"vale"}));
+    commit(&mut world, json!({"op":"enter","actor":"vale"}));
+    let choose = |w: &mut World, item: Value| {
+        let cmd = json!({"op":"hold","actor":"vale","choice":{
+            "item":item,"revision":w.game["revision"]}});
+        commit(w, cmd);
+    };
+    choose(&mut world, Value::Null);
+    let step = play(&world, |a| a["kind"] == "move" && a["target"] == "pond");
+    commit(&mut world, step);
+    assert_eq!(world.game["items"]["lamp"]["fuelRooms"], 3);
+    assert_eq!(world.game["items"]["lamp"]["lit"], false);
+    choose(&mut world, json!("lamp"));
+    assert_eq!(world.game["items"]["lamp"]["fuelRooms"], 2);
+    for (place, remaining) in [("station", 1), ("pond", 0)] {
+        let step = play(&world, |a| a["kind"] == "move" && a["target"] == place);
+        commit(&mut world, step);
+        assert_eq!(world.game["items"]["lamp"]["fuelRooms"], remaining);
+        assert_eq!(world.game["items"]["lamp"]["lit"], remaining > 0);
+    }
+    c.execute("DELETE FROM card_full_checkpoints WHERE world=?", [&id])
+        .unwrap();
+    drop(c);
+    let c = store::open(&path).unwrap();
+    assert_eq!(full_store::world(&c, &id, now()).unwrap(), world);
     drop(c);
     let _ = std::fs::remove_file(path);
 }

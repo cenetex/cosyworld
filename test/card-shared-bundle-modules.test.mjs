@@ -15,6 +15,8 @@ const RULES = [
   "boardyai.mjs",
   "conversation.mjs",
   "held-item.mjs",
+  "lamp-state.mjs",
+  "lamp-room-fuel.mjs",
   "expression.mjs",
   "glimpse.mjs",
   "handover.mjs",

@@ -17,6 +17,8 @@ const files = [
   "battle-context.mjs",
   "conversation.mjs",
   "held-item.mjs",
+  "lamp-state.mjs",
+  "lamp-room-fuel.mjs",
   "authoring-create-tools.mjs",
   "authoring-create-transfer.mjs",
   "authoring-seed-world.mjs",

@@ -1,6 +1,6 @@
-import { settleLamp } from "./lamp-state.mjs";
+import { holdChoice } from "./world.mjs";
 import { createFigureFramer } from "./figure-frame.mjs";
-import { applyHeldChoice, heldItem } from "./held-item.mjs";
+import { heldItem } from "./held-item.mjs";
 import { renderCardDescriptor } from "./card-descriptor.mjs";
 import {
   nameTitleWaker,
@@ -1409,8 +1409,7 @@ async function persistHeldChoice(item) {
     if (sharedSession)
       await sharedSession.command({ op: "hold", action: choice });
     else {
-      applyHeldChoice(world, currentActor(world), choice);
-      settleLamp(world);
+      holdChoice(world, currentActor(world), choice);
       save();
     }
   } catch (error) {
