@@ -3304,7 +3304,7 @@ fn held_change_refreshes_pending_words_without_replaying_the_play() {
     queued.key = "held-pending-words-0001".into();
     queued.action = home_action(&w, 0, "wait");
     full::run(&c, &id, "user0", &queued, now()).unwrap();
-    let app = crate::test_app_state(crate::RuntimeWorld::seeded(), Some(path));
+    let app = crate::test_app_state(crate::RuntimeWorld::empty(), Some(path));
     let old = full::take_work(&app, &id).unwrap().unwrap();
     let mut w = full_store::world(&c, &id, now()).unwrap();
     let turn = w.game["turn"].clone();
