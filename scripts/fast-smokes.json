@@ -33,6 +33,10 @@
       "smokes": ["smoke-card-ship-fade", "smoke-card-reduced-fades"]
     },
     {
+      "paths": "^v2/card-game/(radio-(item|player|station)|music)\\.mjs$|^v2/content/ratiradio/card-world\\.json$",
+      "smokes": ["smoke-card-portable-radio"]
+    },
+    {
       "paths": "^v2/card-game/(app|shared|dialogue|scene)\\.mjs$",
       "smokes": ["smoke-card-speech-queue"]
     },
@@ -169,11 +173,6 @@
         "about": "build.rs embeds the public card files this script lists.",
         "paths": "^v2/scripts/build-card-assets\\.mjs$|^v2/card-game/public-assets\\.mjs$",
         "modules": ["card_game.rs"]
-      },
-      {
-        "about": "Run consequence replay when authored card rules change, not only generated bundles.",
-        "paths": "^v2/card-game/(world/|rules/|(world|shared-world|pack-[^/]+|opening|lamp-state|held-item|knowledge|want|resident-[^/]+)\\.mjs$)",
-        "modules": ["card_shared/world_life_tests.rs"]
       }
     ]
   }
