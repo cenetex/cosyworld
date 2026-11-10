@@ -12,7 +12,7 @@ import {
 import { locationWeather } from "../card-game/weather.mjs";
 import { locationDaylight } from "../card-game/daylight.mjs";
 import { hourOf } from "../card-game/stage-light.mjs";
-import { selectCard } from "./card-browser-helpers.mjs";
+import { selectCard, readyActionButton } from "./card-browser-helpers.mjs";
 import { enableMotives } from "../card-game/motives.mjs";
 
 const output = new URL("../../output/card-weather/", import.meta.url);
@@ -229,7 +229,7 @@ try {
     await load("greek-courtyard", 11);
     await check("greek-courtyard", 11, "clear-courtyard");
     await selectCard(page, "vale", { touch: width === 390 });
-    await page.locator('#card-actions [data-action="wait"]').click();
+    await readyActionButton(page, "wait").click();
     await page.waitForFunction(
       ({ key }) => JSON.parse(localStorage.getItem(key)).turn === 12,
       { key },
@@ -238,7 +238,7 @@ try {
     await load("greek-courtyard", 23);
     await check("greek-courtyard", 23, "before-night");
     await selectCard(page, "vale", { touch: width === 390 });
-    await page.locator('#card-actions [data-action="wait"]').click();
+    await readyActionButton(page, "wait").click();
     await page.waitForFunction(
       ({ key }) => JSON.parse(localStorage.getItem(key)).turn === 24,
       { key },
