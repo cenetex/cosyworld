@@ -142,12 +142,7 @@ async fn open_mode_keeps_sign_ups_and_signed_out_reads() {
     assert_eq!(status, 200, "{body}");
     let (_, body) = send(&state, "GET", "/auth/account", None).await;
     assert!(body.get("members_only").is_none());
-    assert_ne!(
-        send(&state, "GET", "/card-game/shared/worlds", None)
-            .await
-            .0,
-        401
-    );
+    assert_ne!(send(&state, "GET", "/card-game/local", None).await.0, 401);
     drop(state);
     let _ = fs::remove_file(path);
 }
