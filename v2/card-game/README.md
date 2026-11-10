@@ -466,7 +466,7 @@ It shares its store with [hidden holdings](../../docs/design/hidden-holdings.md)
 
 ### Later: one want per avatar, Sleep at home, arcs (#2605)
 
-Owner direction, 2026-11-10. The draft, with today's inventory and the
+Owner direction, 2026-11-10. The agreed design, with today's inventory and the
 migration slices, is [wants and arcs](../../docs/design/wants-and-arcs.md).
 Nothing in it is built; the section above describes the game as it ships.
 

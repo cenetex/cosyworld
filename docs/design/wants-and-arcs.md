@@ -1,7 +1,7 @@
 # Wants and arcs
 
-Status: draft for the owner to edit, 2026-11-10, with the owner's first
-answers folded in. Nothing here is built. Issue:
+Status: design agreed with the owner, 2026-11-10. Nothing here is built.
+One question is still open, at the end. Issue:
 [#2605](https://github.com/cenetex/cosyworld/issues/2605), under
 [#2576](https://github.com/cenetex/cosyworld/issues/2576).
 
@@ -34,7 +34,7 @@ over the six mounted packs in `v2/worlds/card-table.json`.
     visibile right..."
 11. RatiRadio's three doors sharing one lock kind: "Vary 2".
 12. Whether a box hands over a want: "A locked box tells you its want."
-13. Unordered staged wants: "(?)", undecided. The halfway dream: "dreams".
+13. Unordered staged wants: "(?)" (settled in 16). The halfway dream: "dreams".
     Homecoming and Pip's lamp as starter wants: "sure".
 14. "yes to all four", to these four recommendations: desire is per box,
     and a resident's own desire is a second want learned by Talk after
@@ -47,6 +47,14 @@ over the six mounted packs in `v2/worlds/card-table.json`.
     after reaching enough u get 'take level up quest'? so its always a tap
     whereas currently its random"; "after 'talk' with a resident the first
     time in a room we could have 'accept quest' option"; "and so on".
+16. "go with your picks", to these seven: while a quest is held, the three
+    buttons are unavailable with the reason as their label, and nothing is
+    replaced; Accept quest is offered after the first Talk since arriving
+    in that place, until either leaves or the want changes; Take level up
+    quest is on the player's own avatar card; homecoming is Take quest on
+    the avatar's home, shown as a locked box; staged wants are unordered,
+    with authored order only breaking ties; yes to the two varied RatiRadio
+    doors; every lock visible applies to the hub's home doors.
 
 ## Already decided earlier
 
@@ -251,56 +259,61 @@ version of a locked door" and not to claim "opened routes"
 
 ## The design
 
-### Residents: one want each
+### One want per card
 
-A want is one record on an avatar: a thing to hold, a place to be, or a
-person to see, with at most one of today's shapes (give it to someone, bring
-it somewhere, eat it, lay things in a place). `actor.under`, the limits, the
-`focus` play and the `story` and `quest` marks go.
+A want is one record: a thing to hold, a place to be, or a person to see,
+with at most one of today's shapes (give it to someone, bring it somewhere,
+eat it, lay things in a place). Every card holds at most one. `actor.under`,
+the limits, the `focus` play and the `story` and `quest` marks go.
 
-- A resident starts with its pack `want` when it has one. Every other want
-  is drawn by the rules, seeded by avatar and turn as today, from committed
-  facts only: a thing it values, held nearby or lying loose; a thing an open
-  grievance names; a thing, place or person it has seen or been told of
-  (#1506); a person it trusts who is elsewhere; somewhere it has not been;
-  home, after a few wants met away. The draw keeps the fact it came from.
-- In Talk it says its want in one first-person line, with the reason when
-  there is one ("I want the Bell. The keeper took it."), as `wantFact` does
-  now (`want-talk.mjs:61`).
-- It is met by a world fact after anyone's play. It gains one XP, is content
-  a while, then draws again. It sets a want aside after three refusals.
+**Residents.** A resident starts with its pack `want` when it has one.
+Every other want is drawn by the rules, seeded by avatar and turn as today,
+from committed facts only: a thing it values, held nearby or lying loose; a
+thing an open grievance names; a thing, place or person it has seen or been
+told of (#1506); a person it trusts who is elsewhere; somewhere it has not
+been; home, after a few wants met away. In Talk it says its want in one
+first-person line, with the reason when there is one, as `wantFact` does
+now (`want-talk.mjs:61`). It sets a want aside after three refusals.
 
-### Players: boxes first, desire after
+**A lock is a want.** "A locked box tells you its want." What shuts a card
+is what that card wants, and meeting it opens the card: a shut way wants
+the beanie carried to it, the bread wants Dione to have water and wheat,
+Raven wants three keepsakes laid in the Listening Room. Locks and wants
+are one idea, so the separate `reason` and `quest` on a seal, the disabled
+"Locked" button and any second XP rule for boxes go.
+
+**XP is wants met.** Whoever's play meets a card's want gains one XP: a box
+opened, or a person helped, whose trust in the helper also rises by one
+(this widens `trustGiver`; #1871 owns what they remember). The player need
+not have taken the want. A box pays each avatar once per world, so a box
+that locks again does not pay again.
+
+### Boxes first
 
 **Almost every card arrives locked, and every locked card is visible.** A
 box is a card: a place, a resident or an item. It lies on the table face
 down with "Locked", never left out until it can be opened. Visible does not
 mean openable yet: a box may wait on something far away or not yet in the
-world, and nothing falls back (mystery over reachability). Its want shows
-on the context button and descriptor when it is selected, never on the card.
+world, and nothing falls back (mystery over reachability). Selecting it
+tells its want on the context button and descriptor, never on the card.
 
-- *Places* lock through the way to them. Every gated route says why
-  (`sealed`), so the 11 hidden gated routes become visible boxes. Pack data.
+- *Places* lock through the way to them: a route's `requires` and `sealed`.
+  The 11 hidden gated routes become visible boxes. Pack data.
 - *Residents* lock with `requires` and `sealed`. The 29 conditional
   residents that show nothing today become visible boxes. Pack data.
-- *Items* are boxes too (decided), as a later slice: they need one small
-  rules addition, a `sealed` item, lying where it is but shut until its
-  conditions hold. Places and residents come first, as pack data.
-- *Crossings and hub ways* need `sealed` read there too: rules.
-- *Open at the start* (decided): Vale, the Lamp he holds, and the Mirror attic, his
+- *Crossings and the hub's home doors* need a seal read there too: rules.
+- *Items* are boxes too, as the last rules slice: a `sealed` item lies where
+  it is but shut until its conditions hold.
+- *Open at the start:* Vale, the Lamp he holds, and the Mirror attic, his
   home. The first box is the Black pond behind the mirror, opened by putting
-  the lamp out, which is already the opening's first play. Beyond it Pip,
-  the keeper, the Bell and the Empty station can each be a box.
+  the lamp out, which is already the opening's first play.
 
-**A maze of escape rooms.** A place is a room. Its boxes interlock: opening
-one supplies what another needs. Rooms join through boxes too, so the world
-is a maze of them. In existing cards only:
+**A maze of escape rooms.** A place is a room whose boxes interlock:
+opening one supplies what another needs. Rooms join through boxes too.
 
 - A room is a place with three to five boxes among its residents, items and
   ways on, and at least one open card to start from.
-- Inside a room, each lock names another card of that room or of a room
-  already passed: the thing in this box is the thing that one's resident
-  wants, or the thing that way needs carried.
+- Each lock names another card of that room or of a room already passed.
 - A way on is a box like the others, so leaving a room is one of its
   puzzles, and a later room may need something left behind.
 - Thebes is one today: the bread (made) feeds the guard, whose way (guard)
@@ -308,7 +321,7 @@ is a maze of them. In existing cards only:
   need three things laid (placed).
 
 **Locking again is normal.** A pack chooses per box whether it latches open
-or follows its facts:
+or follows its facts (`live`, which exists for routes):
 
 | Box | Locks again when | Today |
 | --- | --- | --- |
@@ -316,163 +329,106 @@ or follows its facts:
 | Way with a held or placed key | the key is carried away | yes, if the route is `live` |
 | Guarded way | the guard is back at his post | yes |
 | Way or resident on a time | the hour passes | yes, if `live` |
-| Trust lock | trust is lost to a grievance | the `trusted` condition already reads grievances |
+| Trust lock | trust is lost to a grievance | `trusted` already reads grievances |
 | Latching way (RatiRadio's doors) | never | yes |
 
-A way the player already passed may shut behind them if it is `live`. That
-is the maze, not a fault: a fight, the guard's want or another way round
-remains. Personal entry rules stay personal. Decided: a box pays its XP
-to each avatar once per world, so opening the same box again pays nothing.
-Otherwise eating the bread and having it made again would farm XP.
+A `live` way the player already passed may shut behind them. That is the
+maze, not a fault: a fight, the guard's want or another way round remains.
 
-**A lock is a want.** "A locked box tells you its want." There is one
-idea here, not two: what shuts a card is what that card wants, and meeting
-it opens the card. So every card holds one want, as residents do: a shut
-way wants the beanie carried to it, the bread wants Dione to have water and
-wheat, Raven wants three keepsakes laid in the Listening Room.
+**Lock kinds and the variety rule.** Many boxes must not become many copies
+of key and door ([jagged edge](jagged-agi-level-design.md): "three copies
+of a key-and-door puzzle").
 
-- *Selecting a locked box tells its want*, on the context button and the
-  descriptor, never on the card. The button beside it, **Take quest**, takes
-  it up as the player's one want, with no turn spent.
-- *Meeting it opens the box*, whoever holds it as a want or nobody. The
-  player whose play met it gains one XP and the world records who opened
-  it. XP is again simply wants met: a box's, or a person's.
-- *What this deletes:* the `gate` play as a quest hand-over; the separate
-  `reason` and `quest` on a seal (one want, and its sentence is built from
-  it as `lockedQuest` does today); the disabled "Locked" button; and a
-  second XP rule for boxes.
+- Seven lock kinds, each from conditions that exist: a thing held; a thing
+  placed; a thing made; a person's trust; something met, heard or seen; a
+  guard; a time.
+- The validator: boxes shown in one place do not share a lock kind, and a
+  way's lock kind differs from the lock on the way that led to it.
+- A lock names things that exist in its world. It need not be reachable.
+- No lock is opened by what a model says. A Talk play may open one: the
+  rules commit it at the play. A fight is always a way past a guard.
+
+**RatiRadio as the first room.** Two doors are varied (owner: "Vary 2").
+The rest of [the contract](ratiradio.md) is kept: the same three objects,
+nothing consumed, opened ways latch, Raven wakes when the glass, figurine
+and beanie lie in the Listening Room, the Request Slip is optional.
+
+| Door | Today | Its want | Lock kind |
+| --- | --- | --- | --- |
+| Dispatch Window | carry the Red Beanie to it | unchanged | a thing held |
+| Listening Room | carry the Thermos to it | the Thermos set down at the Dispatch Window, on the metal plate its line already names | a thing placed |
+| Broadcast Booth | carry the Raven Figurine to it | Talk with RATi while holding the figurine | something heard |
 
 **Generated worlds.** The entry place and the first avatar stay open; every
 card drawn after arrives locked and visible. Code, not the model, writes
 the lock, as it writes the links today: a new place joins by a `routes`
 entry with `requires` and `sealed` in place of plain `exits`; a new
 resident gets `requires` and `sealed`. Each draw extends a room: its lock
-names a card already in that world, and the lock kind rotates by seed, so
-the lock can be met from facts in the same world. A room that reaches five
-boxes sends the next place draw on as a new room. The prompt stays as it
-is: the model still writes no locks.
+names a card already in that world and its kind rotates by seed. A room
+that reaches five boxes sends the next place on as a new room. The prompt
+stays as it is: the model writes no locks.
 
-**Desire after.** Two readings of "until they're all unlocked then you find
-out about desire":
-
-1. *Per world.* Wants surface for the player only once every box in the
-   world is open.
-2. *Per box.* A resident's box, once open, is where you learn that
-   resident's desire. Desire arrives box by box.
-
-**The second is decided.** A generated world keeps adding boxes, and boxes
-lock again, so "all open" may never come under the first. The second also
-fits one want per avatar: each resident's want is found at that resident's
-own box. Early play is nearly all boxes; as they open, more of what is in
-front of the player is people and what they want.
-
-A resident's card therefore tells two wants, one after the other. Shut, the
-box tells its want: what opens the way to that person. Open, the person
-tells their own desire in Talk. They are two wants, in that order, and
-"finding out about desire" is the second (decided).
-
-So, for a player:
-
-- A sealed resident cannot be talked with; its box tells its want. Once
-  open, Talk says the resident's own.
-- The player holds one want at a time, always taken by a tap (next
-  section). Nothing is drawn and nothing is handed over.
-- Meeting any card's want pays one XP: opening a box, or helping a person,
-  whose trust in the helper also rises by one (#1871 owns what they
-  remember). The player need not have taken the want to be paid.
-- The one quest card sits where the quest fold sits today.
-
-**A player's want is always taken by a tap, never drawn.** Today a
-player's quests arrive on their own: drawn by seed, pushed by a Talk,
-brought by a dream. Under this rule each one is a named button in the
-existing action row, on a card the player has selected. No new UI.
-
-| Where the player is | Selected | Button | What taking it does |
-| --- | --- | --- | --- |
-| Where a locked box lies | the locked box | **Take quest** (owner's label) | The box's want becomes the player's one want. No turn passes. This is today's `gate` play (`world.mjs:1615`, `:3001`), for every box |
-| In a place with a resident, after Talk with them there | that resident | **Accept quest** (owner's label), beside Talk | The want they said becomes the player's: give it to them, bring them there, or bring them to that person (the shapes of `questFor`, `talk-quest.mjs:33`). No turn passes |
-| Anywhere, with XP enough for the next level | the player's own avatar card | **Take level up quest** (owner's label) | The player's want becomes Sleep at home |
-| A non-Vale avatar's new world | its home, shown as a locked box | **Take quest** | Homecoming: bring the belonging home. My proposal: the home door is a box whose want is its belonging; until hub ways are drawn as boxes it is given at the start, as now |
-| `/pip` | Pip, after his Talk | **Accept quest** | Pip's lamp. Today that Talk gives it at once (`pip-landing.mjs:31`) |
-
-- *Talk reveals, the tap takes.* A resident's own desire is still learned
-  by Talk, as dialogue, once their box is open. Accept quest is what makes
-  it the player's want. Today the same Talk pushes the quest by itself
-  (`talkQuest`, `talk-quest.mjs:74`).
-- *"The first time in a room"*, as I read it: Accept quest is offered for
-  a resident after the player's first Talk with them since arriving in that
-  place, and stays until either leaves or that want changes. Coming back
-  needs a new Talk. This is my assumption and an open question.
-- *While a want is held* none of these buttons can be pressed. The button
-  stays in the row, disabled, and its label says why: "Finish or discard
-  your quest first" (my wording). Discard is free, except Sleep at home.
-  This is the draft's assumption; the owner has not decided.
-- *The level-up button* sits on the player's own avatar card, which today
-  offers only Wait (`ACTIONS.md`), and where the quest fold already lies
-  and the level glow already shows. The placing is mine. It replaces the
-  level quest arriving on waking (`offerLevelQuest`, `want.mjs:312`, called
-  from `wake`, `want.mjs:427`).
-
-The other places a want reaches a player without a tap today, each
-converted or removed:
-
-| Today | Becomes |
-| --- | --- |
-| Source 2, drawn when the stack is empty (`want.mjs:628`) | Removed for players |
-| Source 3, level quest on waking | Take level up quest |
-| Source 4, Talk pushes a quest | Accept quest |
-| Source 5, `gate`, on 4 boxes | Take quest, on every box |
-| Source 6, `hide_item` pushes "find your button" (`pack-registry.mjs:830`) | Removed. RATi wants the button; Talk says so; Accept quest |
-| Source 7, homecoming set at world creation (`homecoming.mjs:91`) | Take quest on the home's box (proposal above) |
-| Source 8, Seek in the menu (already a tap) | Removed with the `seek` play |
-| Source 9, Pip's landing | Accept quest on Pip |
-| Vale's authored `want` for the Lamp (`forest.json:75`), held back until the pond (`questsBeginAt`) | Removed: a player has no authored want |
-| A fresh draw after Discard (`want.mjs:492`) | Removed: after Discard the player holds none |
-
-**XP against today's thresholds.** One XP per want met: a box opened or a
-person helped. Level 5 takes 15 XP, level 10 takes 44, level 20 takes 132
-(`questXp`).
+**XP against today's thresholds.** Level 5 takes 15 XP, level 10 takes 44,
+level 20 takes 132 (`questXp`).
 
 | Boxes | Count | Reaches |
 | --- | --- | --- |
-| Locked today | 9 | level 3 (7 XP) |
+| Locked today | 9 | level 3 |
 | Every existing gate shown: 16 routes, 8 crossings, 2 lanes, 1 guard, 30 residents, 2 made things | up to 59 | level 12 |
 | Almost every pack card (93 places, 58 residents, 83 items) | about 230 | level 27 |
-| Greek alone, all locked | about 140 | level 20 |
 | A generated world | 2 for the first draw, then 1 a draw | 7 draws for level 10 to 11 |
 
-Boxes can carry the levels once locking is broad; the nine cannot.
+### Desire after
 
-**Lock guardrails.** Many boxes must not become many copies of key and door
-([jagged edge](jagged-agi-level-design.md) warns of a station that plays as
-"three copies of a key-and-door puzzle").
+Desire is per box. A resident's card tells two wants, in order. Shut, the
+box tells its want: what opens the way to that person. Open, the person
+tells their own desire in Talk. "Finding out about desire" is the second.
+A sealed resident cannot be talked with. Early play is nearly all boxes; as
+they open, more of what is in front of the player is people and what they
+want. ("Until they're all unlocked" is not read per world: a generated
+world keeps adding boxes, so that day might never come.)
 
-- Seven lock kinds, each from conditions that exist: a thing held; a thing
-  placed; a thing made; a person's trust; something met, heard or seen;
-  a guard; a time.
-- A validator rule: the boxes shown in one place do not share a lock kind,
-  and a way's lock kind differs from the lock on the way that led to it.
-  RatiRadio's three carry-it-here doors fail this today; two are varied
-  below.
-- A lock names things that exist in its world. It need not be reachable now.
-- No lock is opened by what a model says. A Talk play may open one: the
-  rules commit it at the play. A fight is always a way past a guard.
+### A player's want is always taken by a tap
 
-**RatiRadio, two doors varied** (owner: "Vary 2"). This is my proposal for
-the owner to edit. It keeps [the contract](ratiradio.md): the beanie, the
-thermos and the figurine are still the three facts, nothing is consumed,
-opened ways stay open, Raven still wakes when the glass, figurine and beanie
-lie in the Listening Room, and the Request Slip stays optional.
+A player holds one want at a time. None is drawn and none is handed over.
+Each source is a named button in the existing action row, on a card the
+player has selected. No new UI.
 
-| Door | Today | Proposed want | Lock kind |
+| Where the player is | Selected | Button | What taking it does |
 | --- | --- | --- | --- |
-| Dispatch Window | carry the Red Beanie to it | unchanged | a thing held |
-| Listening Room | carry the Thermos to it | the Thermos set down at the Dispatch Window, on the metal plate its line already names | a thing placed (`item_at`) |
-| Broadcast Booth | carry the Raven Figurine to it | Talk with RATi while holding the figurine | something heard (an `on: "talk"` effect that needs `holding`) |
+| Where a locked box lies | the locked box | **Take quest** | The box's want becomes the player's. No turn passes. Today's `gate` play (`world.mjs:1615`, `:3001`), for every box |
+| With a resident, after Talk with them there | that resident | **Accept quest**, beside Talk | The want they said becomes the player's: give it to them, bring them there, or bring them to that person (`questFor`, `talk-quest.mjs:33`). No turn passes |
+| Anywhere, with XP enough for the next level | the player's own avatar card | **Take level up quest** | The player's want becomes Sleep at home |
+| A non-Vale avatar's new world | its home, a locked box | **Take quest** | Homecoming: bring the belonging home |
+| `/pip` | Pip, after his Talk | **Accept quest** | Pip's lamp |
 
-Each uses conditions and triggers that exist, so it is pack data. In the
-Listening Room the Booth (heard) and Raven (placed) then differ, and no door
-repeats the one before it.
+- *Talk reveals, the tap takes.* Talk says a resident's desire as dialogue.
+  Accept quest makes it the player's want.
+- *Accept quest* is offered after the player's first Talk with that
+  resident since arriving in that place, until either leaves or that want
+  changes. Coming back needs a new Talk.
+- *While a want is held* these buttons stay in the row, disabled, and the
+  label says why ("Finish or discard your quest first"). Nothing is
+  replaced. Discard is free, except Sleep at home.
+- *The quest card* sits where the quest fold sits today, one card.
+
+What reaches a player without a tap today, and what becomes of it:
+
+| Today | Becomes |
+| --- | --- |
+| Source 2, drawn when the stack is empty (`want.mjs:628`), and after Discard (`want.mjs:492`) | Removed for players |
+| Source 3, level quest on waking | Take level up quest |
+| Source 4, Talk pushes a quest | Accept quest |
+| Source 5, `gate`, on 4 boxes | Take quest, on every box |
+| Source 6, `hide_item` pushes "find your button" | Removed. RATi wants the button; Talk says so; Accept quest |
+| Source 7, homecoming set at world creation | Take quest on the home's box |
+| Source 8, Seek in the menu | Removed with the `seek` play |
+| Source 9, Pip's landing | Accept quest on Pip |
+| Vale's authored `want` for the Lamp (`forest.json:75`) | Removed: a player has no authored want |
+
+Also removed: the `choose` play (the 9 buttons become `on: "talk"` on the
+same subject; the 179 triggered choices stay as authored effects), the 5
+archived Greek choices, the stack and `focus`.
 
 ### Level Up is Sleep at home
 
@@ -480,140 +436,69 @@ repeats the one before it.
   `shared-cast.json` home names the Empty station today). The others keep
   theirs: Paper theatre, Sunken belfry, Wild glasshouse, Wind hill,
   Between-hours carriage, Games pavilion, Sail loft.
-- Home rests its own avatar as a sanctuary does. A non-Vale home's door
-  needs its belonging, so finding home comes first.
-- When a player's XP reaches the next level's threshold, their own avatar
-  card offers **Take level up quest**. Taking it gives **Sleep at home**:
-  the place want with the rest step that exists today, aimed at `homeOf`.
-  Nothing arrives on waking any more.
+- Home rests its own avatar as a sanctuary does. A home's door is a visible
+  locked box whose want is its avatar's belonging.
+- With XP at the next level's threshold (today's `questXp` numbers), the
+  player's own avatar card offers **Take level up quest**. Taking it gives
+  **Sleep at home**: the place want with the rest step that exists today,
+  aimed at `homeOf`. This replaces the level quest arriving on waking
+  (`want.mjs:312`, `:427`), its drawn steps and its dream.
 - It is met by a long rest at home: a Sleep of 12 turns or more that began
   there. The level rises by one on waking. One level per sleep.
-- **Discarding it costs XP**, as dropping a level quest does now
-  (`dropCost`, `want.mjs:473`). That takes the player back under the
-  threshold, which is what stops it returning at once.
-- **Long-rest dreams stay** (owner: "dreams"). Today the rules make two
-  dreams, on a long rest only (`world.mjs:1791`). At halfway to the next
-  level the glimpse draws, by seed, one person, item, place or verb the
-  avatar already knows (`drawGlimpse`, `glimpse.mjs:46`), and the scene
-  gives the model one fact: "In a dream, a glimpse of the quest for level
-  N: <name>." (`narrative.mjs:414-418`). The other dream brings the level
-  quest (`narrative.mjs:404-412`). The model writes the dream from that
-  fact; there are no authored dream lines, and an ordinary long rest dreams
-  nothing. With no level quest the second dream goes and the glimpse stays
-  as it is drawn, now at home, as a dream of something known and nothing
-  more. Its fact line drops "of the quest for level N".
-- Not ready, in the existing places only: away from home the quest card
-  reads Go to; at home the context button offers Wait, then Sleep; where
-  Sleep cannot be offered the button says why ("Can't sleep during a
-  standoff", "Can't sleep aboard", "The lamp is about to go out"). Woken
-  early, nothing rises and the want stays.
+- Discarding it costs XP, as dropping a level quest does now (`dropCost`,
+  `want.mjs:473`). That takes the player back under the threshold, which is
+  what stops the button returning at once.
+- Long-rest dreams stay. The halfway glimpse is drawn as today: by seed,
+  one person, item, place or verb the avatar already knows (`glimpse.mjs:46`),
+  given to the model as one fact (`narrative.mjs:414-418`). It no longer
+  fixes anything, and its fact line drops "of the quest for level N".
+- In the existing places only: away from home the quest card reads Go to;
+  at home the context button offers Wait, then Sleep; where Sleep cannot be
+  offered the button says why. Woken early, the want stays.
 - Residents keep today's rule. `levelAtHome` stays an opt-in.
-- The level quest and its drawn steps go.
 
-### What is removed
+### Story arcs
 
-| Removed | Replaced by |
-| --- | --- |
-| The `choose` play: 9 buttons (decided) | Each becomes `on: "talk"` on the same subject. Pack data. |
-| 5 archived Greek choices | Nothing. |
-| Source 2 for players, the drawn want | Take quest and Accept quest. Residents keep the draw. |
-| Source 3, level quest | Take level up quest, which is Sleep at home. |
-| Source 6, `hide_item` quest | The button is still hidden. RATi's want names it; Talk gives it. |
-| Source 8, Seek | The `seek` play goes. Nothing replaces it here; #1848 proposes learning of a hidden person by Talk. |
-| The stack, `focus`, two active quests | One want. |
+An arc is a situation spread over the boxes of one or two rooms, told by
+what the opened residents want.
 
-Kept: the 179 triggered choices, as authored effects on fixed verbs
-(decided); source 1 for residents; sources 4, 5, 7 and 9, each now taken
-by a tap.
+A resident may carry a short `wants` list. Each entry has `when` (the
+existing conditions) and a `want`. The list is **unordered**: any entry
+whose `when` holds may surface, the seeded draw picks among them, and
+authored order only breaks ties. Nothing is saved: it is read from the
+world each turn, like `homeWhen`.
 
-### Story arcs: three options
+- *Burial.* Antigone at the gate, once the guard holds the Writ, may say
+  she wants to be at the Hollow, or that she wants the oil, the cloth and
+  the shovel laid there. Bringing her, or bringing the things, each meets a
+  want of hers. After the burial her wants are drawn. The three give
+  effects stay as they are.
+- *RatiRadio.* RATi's wants name the keepsakes still to come home, then
+  Raven.
 
-**A. Stages of world facts.** A resident may carry a short `wants` list.
-Each entry has `when` (the existing conditions) and a `want`; the first
-entry that holds is that resident's want, and an entry may say "draw one".
-Nothing is saved: the stage is read from the world each turn, like
-`homeWhen`.
-
-- *Burial.* Antigone: until the guard holds the Writ, "I want to be at
-  Polynices' Hollow"; then "I want the oil, the cloth and the shovel laid in
-  the Hollow"; after the burial, a drawn want. The guard: bread until he has
-  the Writ. The three give effects stay as they are.
-- *RatiRadio.* RATi: the beanie until Dispatch opens, the thermos until the
-  Listening Room opens, the figurine until the Booth opens, then the three
-  keepsakes laid in his room; after Raven wakes, "I want to see Raven".
-- *Needs.* A `wants` list in pack data; one generic read in want selection
-  and a schema check in the rules. The player sees what people ask for
-  change after what was done.
-- *How it fails.* It is a chain if authors make it long, and a staged
-  resident never wants anything else. One resident, one line of story.
-
-**B. Stages of a bond** (not chosen). Trust 0–3 with each resident picks an
-authored want, Talk topic or opening per tier, using `trusted`. Antigone
-would move from the Hollow to the rites to her family's story. It fails
-because trust is per traveler but a want is one per resident, so two
-travelers pull one Antigone two ways, against One World, One Truth; a
-burial is a public deed, not a private bond; and four tiers end fast.
-
-**C. Chapters of the world** (not chosen). A pack lists facts set at world
-levels, applied on a level-up sleep and told in the waking dream: the shade
-walks from world level 2, the Station Key turns up at another. It fails
-because sleeping, not doing, opens the story: a door opens for a clock, not
-a reason. It also tangles with pack toggles and shared seats.
-
-**Chosen: A, kept small** (owner: "sure"). Both reference levels are already
-written this way in data: wants, effects on fixed verbs, and flags. A names
-that pattern and needs the least new rule and no new saved state. Its facts
-are public, so every traveler sees the same Antigone. Three limits, checked
-by the pack validator:
+Three limits, checked by the pack validator:
 
 1. At most three staged wants per resident (the size of the funeral).
-2. An arc never puts a want in the player's hand. It changes what residents
-   want; the player learns it by Talk once that resident's box is open.
+2. An arc never puts a want in the player's hand. The player learns it by
+   Talk once that resident's box is open, and takes it by a tap.
 3. Every `when` reads a fact that a fixed verb can make true.
 
-With boxes first, an arc is a situation spread over several boxes of one
-or two rooms, and each opened resident then says a staged want. Any of
-those boxes leads in.
+Not chosen: stages of a bond (trust tiers pick the want; trust is per
+traveler but a want is one per resident), and chapters of the world (facts
+set at world levels; sleeping, not doing, would open the story).
 
-B is the texture under it, and #1871 owns it. C stays between worlds (#2282).
-
-### Does A follow Deleuze and Jodorowsky?
-
-An interpretation for the owner to correct.
-
-The repo has one statement, in
-[dynamic characters](dynamic-characters.md#deleuze-guattari-and-barthes-as-design-prompts),
-marked there as "our design interpretations": "connections among different
-kinds of things and many possible points of entry", so that "Meeting any of
-them can lead into the situation", and "A reward can create another useful
-connection". It has no text on Jodorowsky; that part uses the commonly
-cited ideas.
-
-Where A fits. No plot stands outside the world: a staged want is read fresh
-from present facts and nothing is saved. A want is met by a concrete act
-with a real effect, never by speech. Talk reads what a person wants now, as
-a tarot reading describes the present and predicts nothing.
-
-Where it does not. "The first entry that holds" is an ordered line: a tree
-with one way in, on one resident. A cap of three makes it short, not
-many-entried.
-
-One adjustment, no new system: make the list unordered. Any staged want
-whose `when` holds may surface, and a situation's wants may sit on several
-residents (Antigone, the guard, the shade), so any of them leads in. The
-owner has not decided ("(?)"). The two behaviours, in the burial, once the
-guard holds the Writ and before the rites:
-
-- *Ordered.* Antigone always says "I want the oil, the cloth and the shovel
-  laid in the Hollow." Her earlier want, to be at the Hollow, is behind her
-  for good, even while she still stands at the gate.
-- *Unordered.* Both hold while she is at the gate. On one visit she says
-  she wants to be at the Hollow; on another, that she wants the three
-  things laid there. Which comes is drawn by seed. Bringing her or bringing
-  the things each meets a want of hers.
-
-Per the Pact, a symbolic act is a fictional world action, never treatment
-or diagnosis.
+**Deleuze and Jodorowsky.** An interpretation for the owner to correct. The
+repo's one statement is in
+[dynamic characters](dynamic-characters.md#deleuze-guattari-and-barthes-as-design-prompts):
+"connections among different kinds of things and many possible points of
+entry", so that "Meeting any of them can lead into the situation". It has no
+text on Jodorowsky. This design fits in that no plot stands outside the
+world (wants are read fresh from present facts), any box of a situation
+leads in, a want is met by a concrete act and never by speech, and Talk
+reads what a person wants now, as a tarot reading describes the present.
+It falls short in that a cap of three keeps a situation small. Per the
+Pact, a symbolic act is a fictional world action, never treatment or
+diagnosis.
 
 ### The three ethos questions
 
@@ -621,57 +506,61 @@ or diagnosis.
    them, by carrying, placing, making, waiting, earning trust or fighting.
    Then learn what the person behind it wants and choose whether to help.
 2. **What will the world remember?** Who opened which box; who met whose
-   want and the trust that came of it; the public facts an arc turned on (a
-   burial, an opened door); a level earned at home.
+   want and the trust that came of it; the public facts a situation turned
+   on (a burial, an opened door); a level earned at home.
 3. **Why is it more interesting?** Today the hand fills with quests from
    nine sources and the player works the list. With boxes first, the world
-   is shut things in plain sight with stated reasons, and people are met by
-   opening the way to them. Desire comes as a discovery, not a to-do.
+   is shut things in plain sight that say what they want, and people are
+   met by opening the way to them. Desire comes as a discovery, not a to-do.
 
 ## Migration slices
 
-In order. Rules slices 4–8 mint one rules version together. Alpha saves may
-be dropped, and the owner allows the shared worlds on Lonely Forest to be
-reset at that bump ("we can reset"), so no upgrade keeps old stacks.
-Released journals replay on their frozen bundles. Slices that delete
-`want.mjs` code will pass the 400-line budget and need `Large-Change`.
+In order. Slices 5–10 are rules changes and mint **one** rules version
+together. Alpha saves may be dropped, and the shared worlds on Lonely
+Forest may be reset at that bump (owner: "we can reset"). Released journals
+replay on their frozen bundles. Slices that delete `want.mjs` code will
+pass the 400-line budget and need `Large-Change`.
 
 | # | Slice | Kind | Saves | Acceptance |
 | --- | --- | --- | --- | --- |
 | 1 | Nine buttons become `on: "talk"`; drop five archived choices | pack data | keep | No pack choice lacks `on`; Talk with Teucer commits `greek-ajax-hear-plea`; no `choose` play is offered |
-| 2 | Vale's home is the attic; each human home rests its own avatar | data | keep | Schema test: every human avatar's home accepts its long rest |
-| 3 | Show every lock: `sealed` on the 11 hidden gated routes and the 29 conditional residents; vary two RatiRadio doors | pack data | keep | Each lies in the hand as a locked box that tells its want on the context button |
-| 4 | One want: remove the stack and `focus`; no drawn want for players; remove sources 6 and 8 | rules | reset | After 200 turns no avatar has `under`; a player with no want has no quest card |
-| 5 | A lock is a want, and every player want is a tap: Take quest, Accept quest, Take level up quest; meeting a want pays one XP and is recorded; helper XP and trust | rules | reset | Vale brings the guard the Writ: the battlefield opens, Vale +1 XP, once. Vale gives the keeper the Bell: +1 XP, keeper's trust +1 |
-| 6 | Boxes everywhere: hub ways and crossings drawn as boxes; the lock-kind validator | rules | reset | A new world shows Vale, the Lamp and the attic open and the Black pond locked; putting the lamp out opens it for 1 XP |
-| 7 | Level Up is Sleep at home; remove the level quest; keep dreams | rules | reset | At threshold Vale holds Sleep at home; a 12-turn Sleep in the attic raises the level; discarding costs XP |
-| 8 | Staged `wants` on residents; remove `choose` from offered plays | rules | reset | No arc field in the save; the same facts give the same want after reload |
-| 9 | Lock the hub and the packs as rooms, latch or `live` per box; burial and RatiRadio as staged wants | pack data | keep | The validator passes; carrying a `live` way's key off shuts it again; Antigone's Talk line changes at the Writ |
-| 10 | Generated cards arrive locked and visible | authoring code | keep | A second place drawn in `/make` is a locked box whose reason names a card already in that world |
-| 11 | One quest card; remove the fan and Focus from the client | client | keep | `npm run check:ui` passes with no new entry; phone and desktop |
+| 2 | RatiRadio as one room: three lock kinds, every box visible | pack data | keep | One human new to it plays kitchen to booth and back, names the most memorable moment and the part to cut (#2577) |
+| 3 | Vale's home is the attic | data | keep | Vale's home reads Mirror attic in the catalog and the avatar menu |
+| 4 | Show every lock: `sealed` on the 11 hidden gated routes and the 29 conditional residents; latch or `live` per box | pack data | keep | Each lies in the hand as a locked box and tells its want when selected |
+| 5 | One want: remove the stack and `focus`; no drawn or authored want for players; remove sources 6 and 8 | rules | reset | After 200 turns no avatar has `under`; a player who has taken nothing has no quest card |
+| 6 | A lock is a want; meeting any want pays one XP, once per box per avatar; helper trust | rules | reset | Vale brings the guard the Writ: the battlefield opens, +1 XP; shut and reopened, +0. Vale gives the keeper the Bell: +1 XP, trust +1 |
+| 7 | Tap-only: Take quest on every box, Accept quest after Talk, the buttons disabled while a want is held | rules | reset | Talk with the keeper adds nothing; Accept quest then gives "give the Bell"; a second box's Take quest is disabled with its reason |
+| 8 | Level Up: Take level up quest on the own card, Sleep at home, homes rest their owners; remove the level quest | rules | reset | At threshold Vale's card offers it; a 12-turn Sleep in the attic raises the level; discarding costs XP and the button is gone |
+| 9 | Seals on crossings and the hub's home doors; the Black pond as the first box; homecoming as Take quest; the lock-kind validator | rules | reset | A new world shows Vale, the Lamp and the attic open and the Black pond locked; putting the lamp out opens it for 1 XP |
+| 10 | Unordered staged `wants`; `sealed` items; remove `choose` from offered plays | rules | reset | No arc field in the save; the same facts and seed give the same want after reload; a sealed item lies locked and opens on its facts |
+| 11 | Packs as rooms: lock the hub and packs by kind; burial and RatiRadio as staged wants | pack data | keep | The validator passes; carrying a `live` way's key off shuts it; Antigone says either staged want at the gate |
+| 12 | Generated cards arrive locked and visible | authoring code | keep | A second place drawn in `/make` is a locked box whose want names a card already in that world |
+| 13 | One quest card; the three buttons; remove the fan and Focus | client | keep | `npm run check:ui` passes with no new entry; phone and desktop |
 
-Later, as a second rules batch: `sealed` items, so items are boxes too;
-resident draws from grievances, knowledge and trust (#1506, #1871). Then
-the README quest section is rewritten.
+Later: resident draws from grievances, knowledge and trust (#1506, #1871);
+then the README quest section is rewritten.
 
-## Open questions for the owner
+## Check before building
 
-1. While a player holds a want, are Take quest, Accept quest and Take
-   level up quest unavailable, with the reason as the button's label (the
-   draft's assumption), or does taking a new one replace the held one?
-2. "After talk with a resident the first time in a room": is Accept quest
-   offered after the first Talk since arriving in that place, until either
-   leaves or the want changes (the draft's assumption), or once ever per
-   resident and place?
-3. Where does Take level up quest live? The draft puts it on the player's
-   own avatar card.
-4. Homecoming: is it Take quest on the avatar's home, shown as a locked
-   box (the draft's proposal), or does it stay given at the start?
-5. Staged wants: ordered ("first that holds") or unordered (any that hold
-   may surface)? The burial example under the Deleuze note shows both.
-6. RatiRadio: are the two varied doors right (Thermos set down at the
-   Dispatch Window; Talk with RATi while holding the figurine)? The
-   proposal is mine.
-7. Does the lock-kind rule, and "every lock visible", apply to the hub's
-   own ways beyond the Black pond (the mirror back, the lit arch, home
-   doors), or only to packs and generated worlds?
+1. That the action row can show Accept quest beside Talk with no new entry
+   in `ui-inventory.json`. The row holds several named buttons today
+   (`ACTIONS.md`); this was not tried.
+2. That the player's own avatar card offers only Wait outside a standoff.
+   This is from `ACTIONS.md`, not traced in `legalActions`.
+3. Whether a pack-data-only slice needs a rules mint. `packs.json` is
+   imported by `pack-registry.mjs`, so it may be part of the shared bundle.
+4. Whether an `on: "meet"` effect fires when a thing is put down, or only
+   on arrival. The Thermos door may need a different existing trigger.
+5. Whether `authoring-seed-world.mjs` is in the shared bundle.
+6. That a guard bars his way again on returning to his post. This is from
+   comments and [items and crafting](items-and-crafting.md), not a trace.
+7. That every lock's XP can be credited to one player's play, for flags
+   set on arrival and for a guard who leaves on his own schedule.
+8. Client behaviour of the quest fan, Focus and Claim was read from the
+   README, not from `quest-card.mjs` or `app.mjs`.
+
+## Open question
+
+The hub's other ways, the mirror back to the attic and the lit arch to the
+Empty station, are not drawn as locked boxes today. They are left as they
+are. Should they become visible boxes too?
