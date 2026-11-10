@@ -318,6 +318,40 @@ describe("the six card character voices", () => {
     await tick();
     expect(f.sources).toHaveLength(2);
   });
+  it("keeps bounded history when stored data is damaged or too old", () => {
+    const saved = new Map();
+    const storage = {
+      getItem: (key) => saved.get(key),
+      setItem: (key, value) => saved.set(key, value),
+    };
+    saved.set("cosyworld.voice-heard:run", "not JSON");
+    const history = createVoiceHistory(storage);
+    for (let i = 0; i < 2049; i++) history.add("run", `line:${i}`);
+    const reload = createVoiceHistory(storage);
+    expect(reload.has("run", "line:0")).toBe(false);
+    expect(reload.has("run", "line:1")).toBe(true);
+    expect(reload.has("run", "line:2048")).toBe(true);
+    expect(reload.has("other", "line:2048")).toBe(false);
+  });
+  it("retries interrupted loading on unmute and reconnect without consuming it", async () => {
+    for (const interrupt of ["mute", "disconnect"]) {
+      const f = fixture();
+      let release;
+      f.load.mockImplementationOnce(() => new Promise((resolve) => { release = resolve; }));
+      f.speech.unlock();
+      f.speech.show("line", "vale", "Hello.");
+      await tick();
+      if (interrupt === "mute") f.speech.setEnabled(false);
+      else f.speech.connectionChanged();
+      release(audio());
+      if (interrupt === "mute") f.speech.setEnabled(true);
+      await tick();
+      expect(f.sources).toHaveLength(1);
+      f.speech.connectionChanged();
+      await tick();
+      expect(f.sources).toHaveLength(1);
+    }
+  });
   it("drops late speech after skipping and stops speech immediately when muted", async () => {
     const f = fixture();
     let release;
