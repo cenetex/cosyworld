@@ -12,7 +12,7 @@ fn fresh(a: usize) -> (crate::AppState, Connection, String) {
     let id = full::found(&tx, "owner", a, None, now()).unwrap();
     tx.commit().unwrap();
     (
-        crate::test_app_state(crate::RuntimeWorld::seeded(), Some(path)),
+        crate::test_app_state(crate::RuntimeWorld::empty(), Some(path)),
         c,
         id,
     )

@@ -183,7 +183,7 @@ fn quest_core_talk_disclosure_waits_for_published_speech_and_replays_accepted_le
     let mut talk = command("play", "quest-core-talk-request");
     talk.action = action(&before, &[("kind", "talk"), ("target", "greek-guard")]);
     full::run(&c, &id, "user0", &talk, now()).unwrap();
-    let app = crate::test_app_state(crate::RuntimeWorld::seeded(), Some(path.clone()));
+    let app = crate::test_app_state(crate::RuntimeWorld::empty(), Some(path.clone()));
     let work = full::take_work(&app, &id).unwrap().unwrap();
     let stale_attempt = work.clone();
     assert_eq!(work.room, "greek-gate");

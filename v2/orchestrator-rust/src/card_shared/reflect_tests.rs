@@ -24,7 +24,7 @@ fn shared_line_commits_before_its_reflection_and_the_reflect_op_replays() {
     queued.key = "reflect-after-speech".into();
     queued.action = home_action(&full_store::world(&c, &id, now()).unwrap(), 0, "wait");
     full::run(&c, &id, "user0", &queued, now()).unwrap();
-    let app = crate::test_app_state(crate::RuntimeWorld::seeded(), Some(path));
+    let app = crate::test_app_state(crate::RuntimeWorld::empty(), Some(path));
     let work = full::take_work(&app, &id).unwrap().unwrap();
     assert_eq!(work.context["context"]["resting"], "vale");
     let (_, ids) = full_speech::prepared(0, &work.context).unwrap();
@@ -105,7 +105,7 @@ fn shared_line_commits_before_its_reflection_and_the_reflect_op_replays() {
 fn refused_or_orphan_reflections_leave_the_world_whole() {
     let (path, mut c, id) = fixture();
     claim(&mut c, &id, 0);
-    let app = crate::test_app_state(crate::RuntimeWorld::seeded(), Some(path));
+    let app = crate::test_app_state(crate::RuntimeWorld::empty(), Some(path));
     let before = full_store::world(&c, &id, now()).unwrap();
     let entry = json!({"id":"vale","reflection":{"thought":"A thought.","persona":"A persona.","evidence":[999999]}});
     let orphan = json!({"op":"reflect","actor":"vale","play":"never-spoken","turn":before.game["turn"],"rest":null,"entries":[entry]});
@@ -153,7 +153,7 @@ async fn quiet_wait_reflects_privately_and_replays() {
     full::run(&c, &id, "user0", &queued, now()).unwrap();
     let seen = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
     let (address, server) = serve(plain_provider(seen, |_, stem| stem_reply(stem))).await;
-    let mut app = crate::test_app_state(crate::RuntimeWorld::seeded(), Some(path));
+    let mut app = crate::test_app_state(crate::RuntimeWorld::empty(), Some(path));
     app.ai_config = std::sync::Arc::new(Some(test_config(address)));
     let work = full::take_work(&app, &id).unwrap().unwrap();
     assert_eq!(work.context["context"]["speakers"], json!([]));

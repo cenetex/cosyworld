@@ -20,7 +20,7 @@ describe("fast check Rust test selection", () => {
     expect(missing).toEqual([]);
     const path = (f) => modules.get(`${SRC}/${f}`).join("::");
     expect(path("card_narrative/voice_eval.rs")).toBe(`${N}voice_eval`);
-    expect(path("tests/action_hand_tests.rs")).toBe("tests::action_hand_tests");
+    expect(path("startup.rs")).toBe("startup");
     expect(path("card_policy/ranker.rs")).toBe("card_policy::ranker");
   });
 
@@ -67,10 +67,7 @@ describe("fast check Rust test selection", () => {
     expect(packs).toContain("routes::card_game::");
     expect(packs).toContain("card_shared::full_tests::");
     expect(packs).not.toContain(N); // routes::card_game:: covers it
-    expect(pick("v2/content/official/rules.json")).toEqual([
-      "content_load::",
-      "content_registry::",
-    ]);
+    expect(pick("v2/content/official/rules.json")).toEqual(["content_load::"]);
     expect(pick("v2/core-c/src/card_table.c")).toEqual([
       "card_shared::",
       "kernel::",

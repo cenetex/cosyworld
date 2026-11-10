@@ -1,12 +1,12 @@
 use super::*;
-use crate::routes::app_router;
+use crate::routes::card_app_router;
 use axum::body::{to_bytes, Body};
 use tower::ServiceExt;
 
 pub(super) fn members_state() -> (AppState, PathBuf) {
     let path =
         std::env::temp_dir().join(format!("cosyworld-passkey-access-{}.sqlite", random_hex(8)));
-    let mut state = test_app_state(RuntimeWorld::seeded(), Some(path.clone()));
+    let mut state = test_app_state(RuntimeWorld::empty(), Some(path.clone()));
     state.account_auth = AccountAuth::for_test_with_access(Some(Arc::new(path.clone())), true);
     (state, path)
 }
@@ -62,7 +62,10 @@ pub(super) async fn send_json(
     request
         .extensions_mut()
         .insert(ConnectInfo("127.0.0.1:8841".parse::<SocketAddr>().unwrap()));
-    let response = app_router(state.clone()).oneshot(request).await.unwrap();
+    let response = card_app_router(state.clone(), crate::shutdown::ShutdownSubscription::idle())
+        .oneshot(request)
+        .await
+        .unwrap();
     let status = response.status().as_u16();
     let cookie = response
         .headers()
@@ -106,7 +109,7 @@ async fn members_mode_refuses_sign_ups_and_signed_out_play() {
     for (method, route) in [
         ("POST", "/card-game/text"),
         ("GET", "/card-game/shared/worlds"),
-        ("GET", "/state"),
+        ("GET", "/card-game/local"),
     ] {
         let (status, body) = send(&state, method, route, None).await;
         assert_eq!(status, 401, "{method} {route}");
@@ -134,12 +137,12 @@ async fn members_mode_refuses_sign_ups_and_signed_out_play() {
 async fn open_mode_keeps_sign_ups_and_signed_out_reads() {
     let path =
         std::env::temp_dir().join(format!("cosyworld-passkey-open-{}.sqlite", random_hex(8)));
-    let state = test_app_state(RuntimeWorld::seeded(), Some(path.clone()));
+    let state = test_app_state(RuntimeWorld::empty(), Some(path.clone()));
     let (status, body) = send(&state, "POST", "/auth/passkey/register/start", None).await;
     assert_eq!(status, 200, "{body}");
     let (_, body) = send(&state, "GET", "/auth/account", None).await;
     assert!(body.get("members_only").is_none());
-    assert_ne!(send(&state, "GET", "/state", None).await.0, 401);
+    assert_ne!(send(&state, "GET", "/card-game/local", None).await.0, 401);
     drop(state);
     let _ = fs::remove_file(path);
 }

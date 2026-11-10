@@ -407,28 +407,12 @@ impl ModelCandidate {
         self.output_limit
     }
 
-    pub(crate) fn context_limit(&self) -> Option<u32> {
-        self.context_limit
-    }
-
     pub(crate) fn provider(&self) -> &str {
         &self.provider
     }
 
-    pub(crate) fn family(&self) -> Option<&str> {
-        self.family.as_deref()
-    }
-
     pub(crate) fn concrete_model(&self) -> Option<&ConcreteModelIdentity> {
         self.concrete_model.as_ref()
-    }
-
-    pub(crate) fn prompt_adapter(&self) -> &PromptAdapterRef {
-        &self.prompt_adapter
-    }
-
-    pub(crate) fn observations(&self) -> &CandidateObservations {
-        &self.observations
     }
 
     #[cfg(test)]

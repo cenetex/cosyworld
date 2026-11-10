@@ -31,10 +31,13 @@ async fn send_to(
     request.extensions_mut().insert(axum::extract::ConnectInfo(
         "127.0.0.1:8845".parse::<std::net::SocketAddr>().unwrap(),
     ));
-    let response = crate::routes::app_router(state.clone())
-        .oneshot(request)
-        .await
-        .unwrap();
+    let response = crate::routes::card_app_router(
+        state.clone(),
+        crate::shutdown::ShutdownSubscription::idle(),
+    )
+    .oneshot(request)
+    .await
+    .unwrap();
     assert_eq!(response.headers()[header::CACHE_CONTROL], "no-store");
     let status = response.status().as_u16();
     let bytes = to_bytes(response.into_body(), 100_000).await.unwrap();
@@ -50,7 +53,7 @@ async fn authoring_auth_grounding_and_gateway_use_transient_source() {
         "authoring-generation-{}.sqlite",
         crate::random_hex(12)
     ));
-    let mut state = crate::test_app_state(crate::RuntimeWorld::seeded(), Some(path.clone()));
+    let mut state = crate::test_app_state(crate::RuntimeWorld::empty(), Some(path.clone()));
     let owner = crate::random_hex(12);
     crate::open_event_store(&path).unwrap().execute(
         "INSERT INTO auth_users(id,username,display_name,status,created_at_unix,updated_at_unix) VALUES(?1,?1,?1,'active',0,0)", [&owner]).unwrap();

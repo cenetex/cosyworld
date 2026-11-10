@@ -288,37 +288,12 @@ fn configured_listen_addr() -> Result<SocketAddr, std::net::AddrParseError> {
         .parse()
 }
 
-async fn persist_final_snapshot(state: &AppState) -> tokio::sync::MutexGuard<'_, RuntimeWorld> {
-    // Snapshot writes are coalesced during play, so force the latest runtime to
-    // disk on a graceful shutdown and keep the next journal replay inexpensive.
-    // Every commit needs this lock, so the caller holds the returned guard
-    // until exit and nothing can land in the journal after the checkpoint.
-    let runtime = state.inner.lock().await;
-    persist_runtime_now(state, &runtime);
-    release_canonical_leases(state);
-    runtime
-}
-
-fn release_canonical_leases(state: &AppState) {
-    let Some(path) = state.event_store_path.as_deref() else {
-        return;
-    };
-    match release_owner_partition_leases(
-        path,
-        OFFICIAL_WORLD_ID,
-        state.canonical_owner_id.as_str(),
-        now_millis(),
-    ) {
-        Ok(released) => info!(event = "canonical_leases_released", released),
-        Err(error) => warn!(event = "canonical_lease_release_failed", %error),
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_support::test_app_state;
     use std::io::Write;
-    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    use tokio::io::AsyncWriteExt;
 
     #[derive(Clone, Default)]
     struct CapturedOutput(std::sync::Arc<std::sync::Mutex<Vec<u8>>>);
@@ -432,131 +407,30 @@ mod tests {
         connection
     }
 
-    async fn read_response_headers(connection: &mut tokio::net::TcpStream) -> String {
-        let mut response = Vec::new();
-        let mut chunk = [0_u8; 512];
-        tokio::time::timeout(Duration::from_secs(1), async {
-            loop {
-                let read = connection
-                    .read(&mut chunk)
-                    .await
-                    .expect("read response headers");
-                assert!(read > 0, "connection closed before response headers");
-                response.extend_from_slice(&chunk[..read]);
-                if response.windows(4).any(|window| window == b"\r\n\r\n") {
-                    break;
-                }
-            }
-        })
-        .await
-        .expect("response headers arrive");
-        String::from_utf8(response).expect("HTTP response is UTF-8")
-    }
-
-    fn snapshot_test_state(reason: ShutdownReason) -> (AppState, PathBuf) {
-        let snapshot_path = std::env::temp_dir().join(format!(
-            "cosyworld-shutdown-{}-{}-{}.json",
-            reason.as_str(),
-            std::process::id(),
-            random_hex(8)
-        ));
-        let mut state = test_app_state(RuntimeWorld::seeded(), None);
-        state.snapshot_path = Some(Arc::new(snapshot_path.clone()));
-        state.snapshot_writer = Some(Arc::new(
-            SnapshotWriter::spawn().expect("shutdown snapshot writer"),
-        ));
-        (state, snapshot_path)
-    }
-
     #[tokio::test]
-    async fn the_final_snapshot_fences_later_commits_until_exit() {
-        let (state, snapshot_path) = snapshot_test_state(ShutdownReason::Sigterm);
-        let final_runtime = persist_final_snapshot(&state).await;
-        let worker_state = state.clone();
-        let late_commit = tokio::spawn(async move {
-            let _runtime = worker_state.inner.lock().await;
-        });
-        tokio::time::sleep(Duration::from_millis(50)).await;
-        assert!(
-            !late_commit.is_finished(),
-            "a background worker must not reach the runtime after the final snapshot"
-        );
-        drop(final_runtime);
-        late_commit
-            .await
-            .expect("worker resumes once the guard drops");
-        let _ = fs::remove_file(snapshot_path);
-    }
-
-    async fn run_snapshot_shutdown(reason: ShutdownReason) -> ShutdownReport {
-        let (state, snapshot_path) = snapshot_test_state(reason);
-        let shutdown_state = state.clone();
-        let listener = TcpListener::bind("127.0.0.1:0")
-            .await
-            .expect("bind shutdown test server");
-        let (trigger, shutdown) = shutdown_channel();
-        let app = routes::app_router_with_shutdown(state, shutdown.clone());
-        let server = tokio::spawn(async move {
-            let report = serve_until_shutdown(listener, app, shutdown, Duration::from_millis(250))
-                .await
-                .expect("serve until simulated shutdown");
-            drop(persist_final_snapshot(&shutdown_state).await);
-            report
-        });
-        tokio::task::yield_now().await;
-        trigger.notify(reason);
-        let report = server.await.expect("shutdown server task");
-        let persisted = fs::read_to_string(&snapshot_path).expect("final shutdown snapshot");
-        assert!(persisted.contains("worldpack_bundle_hash"));
-        let _ = fs::remove_file(snapshot_path);
-        report
-    }
-
-    #[tokio::test]
-    async fn sigint_and_sigterm_both_reach_final_snapshot_persistence() {
+    async fn sigint_and_sigterm_both_drain_the_card_server_cleanly() {
         for reason in [ShutdownReason::Sigint, ShutdownReason::Sigterm] {
-            let report = run_snapshot_shutdown(reason).await;
+            let listener = TcpListener::bind("127.0.0.1:0")
+                .await
+                .expect("bind shutdown test server");
+            let (trigger, shutdown) = shutdown_channel();
+            let state = test_app_state(RuntimeWorld::empty(), None);
+            let app = routes::card_app_router(state, shutdown.clone());
+            let server = tokio::spawn(serve_until_shutdown(
+                listener,
+                app,
+                shutdown,
+                Duration::from_millis(250),
+            ));
+            tokio::task::yield_now().await;
+            trigger.notify(reason);
+            let report = server
+                .await
+                .expect("shutdown server task")
+                .expect("serve until simulated shutdown");
             assert_eq!(report.first_signal, reason);
             assert_eq!(report.forced_drain_count, 0);
         }
-    }
-
-    #[tokio::test]
-    async fn active_stream_is_notified_and_finishes_before_the_drain_deadline() {
-        let state = test_app_state(RuntimeWorld::seeded(), None);
-        let listener = TcpListener::bind("127.0.0.1:0")
-            .await
-            .expect("bind stream shutdown server");
-        let addr = listener.local_addr().expect("stream server address");
-        let (trigger, shutdown) = shutdown_channel();
-        let observed = shutdown.clone();
-        let app = routes::app_router_with_shutdown(state, shutdown.clone());
-        let server = tokio::spawn(serve_until_shutdown(
-            listener,
-            app,
-            shutdown,
-            Duration::from_millis(500),
-        ));
-
-        let mut stream = connected_request(addr, "/stream").await;
-        let headers = read_response_headers(&mut stream).await;
-        assert!(headers.starts_with("HTTP/1.1 200"), "{headers}");
-        assert_eq!(observed.active_streams(), 1);
-
-        trigger.notify(ShutdownReason::Sigterm);
-        let mut tail = Vec::new();
-        tokio::time::timeout(Duration::from_millis(400), stream.read_to_end(&mut tail))
-            .await
-            .expect("SSE connection closes for reconnect")
-            .expect("read SSE shutdown tail");
-        let report = server
-            .await
-            .expect("stream shutdown task")
-            .expect("stream shutdown server");
-        assert_eq!(report.forced_drain_count, 0);
-        assert_eq!(report.active_streams_at_signal, 1);
-        assert_eq!(report.streams_notified, 1);
-        assert_eq!(report.streams_remaining, 0);
     }
 
     async fn start_blocked_request(
@@ -564,34 +438,33 @@ mod tests {
     ) -> (
         ShutdownTrigger,
         tokio::task::JoinHandle<io::Result<ShutdownReport>>,
-        tokio::sync::OwnedMutexGuard<RuntimeWorld>,
         tokio::net::TcpStream,
     ) {
-        let state = test_app_state(RuntimeWorld::seeded(), None);
-        let held = state.inner.clone().lock_owned().await;
         let listener = TcpListener::bind("127.0.0.1:0")
             .await
             .expect("bind blocked shutdown server");
         let addr = listener.local_addr().expect("blocked server address");
         let (trigger, shutdown) = shutdown_channel();
-        let app = routes::app_router_with_shutdown(state, shutdown.clone());
+        let app = Router::new().route(
+            "/stuck",
+            axum::routing::get(|| std::future::pending::<&'static str>()),
+        );
         let server = tokio::spawn(serve_until_shutdown(listener, app, shutdown, drain_budget));
-        let connection = connected_request(addr, "/state").await;
+        let connection = connected_request(addr, "/stuck").await;
         tokio::time::sleep(Duration::from_millis(20)).await;
-        (trigger, server, held, connection)
+        (trigger, server, connection)
     }
 
     #[tokio::test]
     async fn stuck_request_cannot_extend_shutdown_past_the_drain_budget() {
         let budget = Duration::from_millis(100);
-        let (trigger, server, held, _connection) = start_blocked_request(budget).await;
+        let (trigger, server, _connection) = start_blocked_request(budget).await;
         let started = Instant::now();
         trigger.notify(ShutdownReason::Test);
         let report = server
             .await
             .expect("deadline shutdown task")
             .expect("deadline shutdown server");
-        drop(held);
         assert_eq!(report.forced_drain_count, 1);
         assert_eq!(report.forced_drain_reason, "deadline");
         assert!(report.drain_elapsed >= budget);
@@ -600,8 +473,7 @@ mod tests {
 
     #[tokio::test]
     async fn repeated_signal_forces_a_stuck_drain_immediately() {
-        let (trigger, server, held, _connection) =
-            start_blocked_request(Duration::from_secs(1)).await;
+        let (trigger, server, _connection) = start_blocked_request(Duration::from_secs(1)).await;
         trigger.notify(ShutdownReason::Sigint);
         tokio::time::sleep(Duration::from_millis(25)).await;
         trigger.notify(ShutdownReason::Sigterm);
@@ -609,7 +481,6 @@ mod tests {
             .await
             .expect("repeated shutdown task")
             .expect("repeated shutdown server");
-        drop(held);
         assert_eq!(report.signal_count, 2);
         assert_eq!(report.forced_drain_count, 1);
         assert_eq!(report.forced_drain_reason, "repeated_signal");

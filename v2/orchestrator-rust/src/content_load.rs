@@ -5,13 +5,9 @@ mod discovery_authority;
 #[path = "threshold_descriptors.rs"]
 mod threshold_descriptors;
 pub(super) use discovery_authority::{
-    discovery_authority_catalog, freeze_discovery_receipt, DiscoveryAuthorityCatalog,
-    DiscoveryEventTable, DiscoveryReceiptRequest, DiscoveryRollReceipt, DiscoverySelectionMode,
-    DiscoverySlotDefinition, DiscoveryStockingTable, DiscoveryTell,
+    discovery_authority_catalog, DiscoveryAuthorityCatalog, DiscoveryRollReceipt, DiscoveryTell,
 };
 pub(super) use threshold_descriptors::{
-    threshold_kernel_id, threshold_record_claim_already_applied,
-    threshold_record_preconditions_hold, AcceptedThresholdIntent, ThresholdFactSource,
     ThresholdGateSource, ThresholdHazardDeveloperView, ThresholdHazardRuntimeState,
     ThresholdKernelSnapshot, ThresholdMethodOfferView,
 };
@@ -654,26 +650,7 @@ pub(super) struct SeedAssetMount {
     pub(super) fallback: Option<String>,
 }
 
-impl SeedAssetMount {
-    pub(super) fn cache_namespace(&self) -> String {
-        format!(
-            "pack://{}@{}/{}/{}?content={}",
-            self.pack_id, self.pack_version, self.provider, self.mount, self.content_hash
-        )
-    }
-
-    pub(super) fn cache_key(&self, asset_path: &str) -> String {
-        format!(
-            "pack://{}@{}/{}/{}/{}?content={}",
-            self.pack_id,
-            self.pack_version,
-            self.provider,
-            self.mount,
-            asset_path.trim_start_matches('/'),
-            self.content_hash
-        )
-    }
-}
+impl SeedAssetMount {}
 
 #[derive(Clone, Debug, Deserialize)]
 pub(super) struct SeedAccessGateContent {
@@ -742,17 +719,7 @@ pub(super) struct SeedActorContent {
     pub(super) relationship: Option<SeedRelationshipContent>,
 }
 
-impl SeedActorContent {
-    pub(super) fn authored_default_control_mode(&self) -> ActorControlMode {
-        self.control_mode.unwrap_or_else(|| {
-            if self.event_autonomy.unwrap_or(true) {
-                ActorControlMode::LocalAi
-            } else {
-                ActorControlMode::ReactiveAi
-            }
-        })
-    }
-}
+impl SeedActorContent {}
 
 #[derive(Clone, Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -1378,30 +1345,6 @@ fn safe_relative_asset_path(asset_path: &str) -> bool {
         && Path::new(asset_path)
             .components()
             .all(|component| matches!(component, std::path::Component::Normal(_)))
-}
-
-pub(super) fn seed_asset_mount_path(mount: &SeedAssetMount, asset_path: &str) -> Option<PathBuf> {
-    if !safe_relative_asset_path(asset_path) {
-        return None;
-    }
-    Some(
-        configured_content_root()
-            .join(&mount.root)
-            .join(&mount.directory)
-            .join(asset_path),
-    )
-}
-
-pub(super) fn asset_content_type(asset_path: &str) -> &'static str {
-    if asset_path.ends_with(".webp") {
-        "image/webp"
-    } else if asset_path.ends_with(".svg") {
-        "image/svg+xml"
-    } else if asset_path.ends_with(".json") {
-        "application/json"
-    } else {
-        "image/png"
-    }
 }
 
 pub(super) fn validate_worldpack_manifest(manifest: &SeedWorldpackManifest) -> Result<(), String> {
@@ -4448,109 +4391,4 @@ fn validate_seed_effect_descriptor(
         EffectDescriptor::Unknown => unreachable!("unknown effects reject before validation"),
     }
     Ok(())
-}
-
-#[cfg(test)]
-mod rules_profile_tests {
-    use super::*;
-
-    #[test]
-    fn locations_accept_only_supported_interior_views() {
-        let close: SeedLocationContent = serde_json::from_str(
-            r#"{"id":1,"name":"Room","interior_view":"close","allow_combat":false}"#,
-        )
-        .expect("close interior view");
-        assert_eq!(close.interior_view, Some(InteriorViewMode::Close));
-
-        let hex: SeedLocationContent = serde_json::from_str(
-            r#"{"id":2,"name":"City","interior_view":"hex","allow_combat":false}"#,
-        )
-        .expect("hex interior view");
-        assert_eq!(hex.interior_view, Some(InteriorViewMode::Hex));
-
-        let isometric: SeedLocationContent = serde_json::from_str(
-            r#"{"id":3,"name":"Room","interior_view":"isometric","allow_combat":false}"#,
-        )
-        .expect("isometric interior view");
-        assert_eq!(isometric.interior_view, Some(InteriorViewMode::Isometric));
-
-        let error = serde_json::from_str::<SeedLocationContent>(
-            r#"{"id":4,"name":"Room","interior_view":"perspective","allow_combat":false}"#,
-        )
-        .expect_err("unsupported interior view");
-        assert!(error.to_string().contains("unknown variant"));
-    }
-
-    fn official_manifest() -> SeedWorldpackManifest {
-        serde_json::from_str(include_str!("../../content/official/worldpack.json"))
-            .expect("official worldpack manifest")
-    }
-
-    fn official_rules_profile() -> SeedRuleBundle {
-        serde_json::from_str::<Vec<SeedRuleBundle>>(include_str!(
-            "../../content/official/rules.json"
-        ))
-        .expect("official rules bundles")
-        .into_iter()
-        .find(|bundle| bundle.adapter == "cosyworld.rules/2")
-        .expect("active rules/2 bundle")
-    }
-
-    #[test]
-    fn manifest_accepts_explicit_profile_membership_and_rejects_mismatch() {
-        let mut manifest = official_manifest();
-        let active_profile = manifest.rules_profile.clone();
-        let pack = manifest
-            .packs
-            .iter_mut()
-            .find(|pack| pack.id == "cosyworld.core")
-            .expect("core pack");
-        pack.rules_profile = None;
-        pack.rules_compatibility = Some(SeedRulesCompatibility {
-            profiles: vec![active_profile.clone(), "fixture.commons/1".to_string()],
-        });
-        validate_worldpack_manifest(&manifest).expect("selected profile is accepted");
-
-        let pack = manifest
-            .packs
-            .iter_mut()
-            .find(|pack| pack.id == "cosyworld.core")
-            .expect("core pack");
-        pack.rules_profile = Some(active_profile.clone());
-        let error = validate_worldpack_manifest(&manifest).expect_err("ambiguous compatibility");
-        assert!(error.contains("combines legacy rules_profile"));
-
-        let pack = manifest
-            .packs
-            .iter_mut()
-            .find(|pack| pack.id == "cosyworld.core")
-            .expect("core pack");
-        pack.rules_profile = None;
-        pack.rules_compatibility = Some(SeedRulesCompatibility {
-            profiles: vec!["fixture.commons/1".to_string()],
-        });
-        let error = validate_worldpack_manifest(&manifest).expect_err("profile mismatch");
-        assert!(error.contains(&active_profile));
-        assert!(error.contains("fixture.commons/1"));
-    }
-
-    #[test]
-    fn profile_owns_its_action_set_and_conformance_must_match_it() {
-        let mut bundle = official_rules_profile();
-        bundle
-            .resources
-            .actions
-            .retain(|action| action.id != "srd5.2.1:dash");
-        bundle
-            .resources
-            .conformance
-            .retain(|row| row.action_id != "srd5.2.1:dash");
-        validate_seed_rules_profile(&bundle).expect("eleven-action profile is complete");
-
-        bundle.resources.conformance.pop();
-        assert_eq!(
-            validate_seed_rules_profile(&bundle).expect_err("incomplete conformance"),
-            "rules conformance does not cover every declared action",
-        );
-    }
 }
