@@ -15,7 +15,6 @@ import {
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import { currentSharedEngine } from "./fixtures/shared-engine.mjs";
 import { reload } from "./helpers/world-life.mjs";
-
 const cottage = "forest-cottage",
   garden = "forest-garden";
 const button = "forest-button-vale",
@@ -73,7 +72,6 @@ const worn = (world, turns) => {
   expect(forest(world).flags["forest-scarf-vale-worn"]).toBe(true);
   expect(forest(world).receipts["forest-wear-scarf-mara"]).toBeUndefined();
 };
-
 for (const shared of [false, true])
   it(
     `earns the Forest scarf, retreats and returns without shortcuts (shared ${shared})`,
@@ -137,7 +135,6 @@ for (const shared of [false, true])
         expect(encodeSave(world)).toBe(before);
       };
       step("move", { target: garden });
-      // The unmodified shared landing has a larger active hiding-place pool.
       for (let i = 0; i < (shared ? 43 : 12); i++) step("wait");
       step("move", { target: cottage });
       const hidden = world.turn;
@@ -191,7 +188,6 @@ for (const shared of [false, true])
     },
     shared ? 30000 : undefined,
   );
-
 it("pins the earned scarf's rules-132 successor hashes without importing an upgrade", () => {
   expect(hash(read("./fixtures/card-content-rules-132.json"))).toBe(
     trace.contentSha256,
