@@ -1,3 +1,4 @@
+import { RADIO_ITEM } from "./radio-item.mjs";
 import { lampRoomFlame } from "./lamp-room-fuel.mjs";
 import {
   consumable,
@@ -229,7 +230,8 @@ export function cardPlay(world, selected) {
         (item === undefined || a.item === item) &&
         (target === undefined || a.target === target),
     );
-  const use = (id) => (id === "bell" ? find("ring", id) : undefined);
+  const use = (id) =>
+    id === RADIO_ITEM ? find("radio", id) : id === "bell" ? find("ring", id) : undefined;
   if (cards.length === 1) {
     const id = cards[0];
     const authored = () => choicesOn(id, actions)[0];
@@ -279,6 +281,7 @@ export function cardPlay(world, selected) {
         null,
         `${lampRoomFlame(world.items.lamp)}. Pair with this place to put it down, or tap again to put it away.`,
       );
+    if (id === RADIO_ITEM) return single(use(id));
     if (id === "bell")
       return single(
         use(id),
@@ -526,6 +529,8 @@ export function cardObservation(world, id) {
   const item = world.items[id];
   if (item) {
     const observations = [];
+    if (id === RADIO_ITEM)
+      observations.push(item.radioOn === true ? "Radio on" : "Radio off");
     if (typeof item.lit === "boolean")
       observations.push(
         id === "lamp" && item.fuelRooms !== undefined

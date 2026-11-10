@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "tool": "built-in image_gen.imagegen",
+  "date": "2026-11-10",
+  "prompt": "Use case: stylized-concept. Asset type: standalone portable radio item illustration for CosyWorld's Night Shift at RATiRadio. Create ONE small portable vintage transistor radio, complete and centered on a square canvas with generous transparent margin. Worn dark-teal enamel casing, slightly scuffed warm brass trim, dark fabric speaker grille, small tuning window without readable text, two simple knobs, a sturdy carry handle and short telescoping antenna. Three-quarter front view, unmistakably a portable handheld radio, not a studio console or microphone. Painterly anime-naturalist draftsmanship with tactile aged materials, subdued teal shadows and warm neutral amber highlights, consistent with a quiet late-night station world. Entire antenna and handle fit comfortably inside the image. This single asset serves both switched-off and switched-on states: no glowing power light, sound effects, beams, notes or state-specific indicators. Real transparent background, no scenery, tabletop, floor, cast shadow, frame, labels, letters, numbers, logos, watermark or other objects. Aim for a production item sprite at 1024 square, subject occupies about 75 percent of canvas.",
+  "source": {
+    "file": "exec-91ab9183-3031-4f75-bc17-a9fd19cd412e.png",
+    "sha256": "90401a9332d0c5c9e29516492a66129401593d57b7ffbb145ed696fc531fcdc1",
+    "width": 1254,
+    "height": 1254,
+    "alpha": true
+  },
+  "output": {
+    "file": "assets/ratiradio/portable-radio.webp",
+    "sha256": "4bb1c29d9da541dfec05883363ca771033616c9357d186b122dbda3236b3761b",
+    "width": 512,
+    "height": 512,
+    "bytes": 63608,
+    "alpha": true
+  },
+  "encoding": "cwebp -q 88 -alpha_q 100 -m 6 -resize 512 512; mechanical resize and WebP encoding only",
+  "review": "Inspected generated source and encoded sprite. Complete recognizable portable radio with handle, antenna, speaker and two knobs. Worn teal/brass palette matches existing thermos and glass item rendering. Transparent exterior, no text, scenery or illuminated state indicator. Visible alpha >10 bounds [42,26,470,490] fit within 512 square. No redraw or manual matting."
+}

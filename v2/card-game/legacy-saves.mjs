@@ -75,6 +75,13 @@ export function upgradeSave(
   if (s.packs?.ratiradio?.revision === 1 &&
       packDefinitions.some((p) => p.id === "ratiradio" && p.revision >= 2))
     s.packs.ratiradio.revision = 2;
+  const radioPack = packDefinitions.find((p) => p.id === "ratiradio");
+  if (s.packs?.ratiradio?.revision === 2 && radioPack?.revision >= 3) {
+    const id = "ratiradio-portable-radio";
+    s.items[id] ??= { holder: radioPack.items[id].holder, history: [] };
+    s.memories[id] ??= newMemories()[id];
+    s.packs.ratiradio.revision = 3;
+  }
   upgradeHoppyTableSave(s);
   forgetQuests(s);
   if (s?.schema === 6) {
