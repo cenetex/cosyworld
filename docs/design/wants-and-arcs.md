@@ -576,6 +576,32 @@ is already unconditional. Once the claim is gone its four phrases are no
 longer checked, and nothing can make them true. `guard-tablet.webp` and
 its provenance entries become unused and stay in place.
 
+### Earlier work to reuse
+
+A triage of the open pull requests on 2026-11-10 found these head starts.
+Each is far behind main, so take the idea and the tests, not the branch.
+
+- #2451, slices 6 and 11: Creon keeps his Writ, and the gate guard lets
+  through someone he trusts unless a grievance stands between them. It is
+  the first use of the `trusted` condition.
+- #2479, slice 11: the Hollow route needs the traveler's own earlier Talk
+  with the Shade, and shows that on the locked route without a quest card.
+- #2455, slices 4 and 11: a guard who controls entry but not exit. Check it
+  against the Greek map scale before reuse.
+- #2555, slices 4 and 11: Badger's Clearing opens while the Bell is held.
+  Only the pack idea is left to reuse.
+- #2536, slice 13: drawing locked boxes in the place's stack. Boxes stay
+  typed and face down; one uniform box for every kind is not adopted.
+
+Decided in the same triage ("go with your picks"): Claim and the completion
+dialog go with the quest stack at the bump, since XP is paid on the play
+(#2540 closed). An avatar whose player is away acts as a resident and draws
+a want like one (#2532, held for the bump). The lamp and light
+simplification (#1550) is redone on top of slice 9 (#2561 closed). The
+`world.mjs` facade split (#1390) resumes after the bump with a fresh
+baseline (#2564 closed). #2464 is closed: there is no quest target to trade
+for.
+
 ## Check before building
 
 1. That the action row can show Accept quest beside Talk with no new entry
