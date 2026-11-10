@@ -446,3 +446,30 @@ fn three_room_lamp_replays_dark_travel_and_exhaustion() {
     drop(c);
     let _ = std::fs::remove_file(path);
 }
+
+#[test]
+fn rules_128_lamp_history_survives_room_fuel_upgrade_and_replay() {
+    let mut world = created(engine::HUNDRED_TWENTY_EIGHTH_VERSION);
+    let (path, c, id) = fixture("lamp-128-upgrade", &world);
+    let commit = |w: &mut World, cmd: Value| full_store::commit(&c, &id, w, cmd, now()).unwrap();
+    commit(&mut world, json!({"op":"claim","actor":"vale"}));
+    commit(&mut world, json!({"op":"enter","actor":"vale"}));
+    for verb in ["snuff", "light"] {
+        let action = play(&world, |a| a["kind"] == verb);
+        commit(&mut world, action);
+    }
+    let history = world.game["log"].clone();
+    let lamp_history = world.game["items"]["lamp"]["history"].clone();
+    let upgraded = full_store::world(&c, &id, now()).unwrap();
+    assert_eq!(upgraded.version, engine::VERSION);
+    assert_eq!(upgraded.game["log"], history);
+    assert_eq!(upgraded.game["items"]["lamp"]["history"], lamp_history);
+    assert_eq!(upgraded.game["items"]["lamp"]["fuelRooms"], 3);
+    c.execute("DELETE FROM card_full_checkpoints WHERE world=?", [&id])
+        .unwrap();
+    drop(c);
+    let c = store::open(&path).unwrap();
+    assert_eq!(full_store::world(&c, &id, now()).unwrap(), upgraded);
+    drop(c);
+    let _ = std::fs::remove_file(path);
+}

@@ -1,8 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { openingStep } from "../v2/card-game/opening.mjs";
 import { createLandingWorld } from "../v2/card-game/pack-landing.mjs";
-import { createWorld, legalActions, play } from "../v2/card-game/world.mjs";
-import { cardPlay } from "../v2/card-game/cards.mjs";
+import { createWorld, holdChoice, exits } from "../v2/card-game/world.mjs";
 
 describe("a new world's opening", () => {
   const world = createLandingWorld(null, 1);
@@ -37,16 +36,15 @@ describe("a new world's opening", () => {
     });
   });
 
-  it("then offers the rules' own Put out, which brings a new card", () => {
-    const step = openingStep(world, "vale", down());
-    expect(step).toEqual({ step: "play", choice: ["lamp"] });
-    const action = cardPlay(world, step.choice).action;
-    expect(action.kind).toBe("snuff");
-    expect(legalActions(world).some((a) => a.key === action.key)).toBe(true);
-    const after = play(world, action);
-    const next = after.state ?? after;
+  it("opens the mirror by quietly stowing, with no special play", () => {
+    const next = structuredClone(world);
+    expect(openingStep(next, "vale", down())).toEqual({ step: "play", choice: ["lamp"] });
+    holdChoice(next, "vale", { item: null, revision: next.revision });
+    expect(next.turn).toBe(world.turn);
     expect(next.items.lamp.lit).toBe(false);
-    expect(openingStep(next, "vale", down())).toBe(null);
+    expect(next.items.lamp.holder).toBe("vale");
+    expect(exits(next, "attic")).toContain("pond");
+    expect(openingStep(next, "vale", down())).toBeNull();
   });
 
   it("is past for a world that has moved on or never opened here", () => {
