@@ -637,3 +637,185 @@ fn forest_charm_consequences_replay_without_checkpoints() {
         std::fs::remove_file(path).unwrap();
     }
 }
+
+// Fresh seed-92 traversal: historical hashes never follow current migrations.
+#[test]
+fn raven_return_replays_reachable_awakening_and_second_traveler() {
+    use sha2::{Digest, Sha256};
+    let trace: Value = serde_json::from_str(include_str!(
+        "../../../../test/fixtures/raven-return-rules-131.json"
+    ))
+    .unwrap();
+    let text = include_str!("../../../../test/fixtures/card-content-rules-131.json");
+    let hash = content::hash(text);
+    let digest = |v: &Value| format!("{:x}", Sha256::digest(v.to_string().as_bytes()));
+    assert_eq!(hash, trace["contentSha256"]);
+    assert_eq!(
+        format!("{:x}", Sha256::digest(include_bytes!("engine-v131.js"))),
+        trace["engineSha256"]
+    );
+    assert_eq!(digest(&trace["initial"]), trace["initialSha256"]);
+    let mut world = World {
+        version: trace["version"].as_str().unwrap().into(),
+        game: trace["initial"].clone(),
+        claimed: [1, 0, 0, 0, 0, 0, 0, 0],
+        present: [1, 0, 0, 0, 0, 0, 0, 0],
+        pack: Some(hash.clone()),
+    };
+    let (path, c, id) = fixture("raven-return", &world);
+    c.execute(
+        "INSERT OR IGNORE INTO card_full_packs(hash,revision,content) VALUES(?,?,?)",
+        rusqlite::params![hash, "rules131", text],
+    )
+    .unwrap();
+    content::preload(&c, &hash).unwrap();
+    let home = "ratiradio-listening-room";
+    let raven = "ratiradio-raven";
+    let receipt = "ratiradio-return-things";
+    let steps = trace["steps"].as_array().unwrap();
+    assert_eq!(steps.len(), 81);
+    for (index, step) in steps.iter().enumerate() {
+        let request = &step["request"];
+        let actor = if request["actor"] == "mara" { 1 } else { 0 };
+        if request["op"] == "play" {
+            assert!(world.project(actor).unwrap()["actions"]
+                .as_array()
+                .unwrap()
+                .contains(&request["action"]));
+        }
+        // Native claims/presence are journal operations, not ordinary plays.
+        let command = step.get("nativeCommand").unwrap_or(request);
+        let before = command.clone();
+        full_store::commit(&c, &id, &mut world, command.clone(), now())
+            .unwrap_or_else(|e| panic!("operation {}: {e}", index + 1));
+        assert_eq!(command, &before);
+        assert_eq!(
+            digest(&world.game),
+            step["worldSha256"],
+            "operation {}",
+            index + 1
+        );
+        let radio = &world.game["packs"]["ratiradio"];
+        assert_eq!(radio["flags"]["raven-awake"] == true, index >= 58);
+        if index >= 58 {
+            assert_eq!(radio["receipts"][receipt], 55);
+            assert_eq!(radio["met"][raven], 55);
+        }
+        if (60..=63).contains(&index) {
+            assert_eq!(
+                world.game["actors"][raven]["place"],
+                [
+                    "ratiradio-dispatch-window",
+                    "ratiradio-staff-kitchen",
+                    "station",
+                    "pond"
+                ][index - 60]
+            );
+        }
+        if index == 69 {
+            assert!(!world.project(1).unwrap()["actions"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|a| a["kind"] == "move" && a["target"] == "clearing"));
+        }
+        if index == 79 {
+            assert_eq!(world.present[1], 0);
+        }
+        if index == 80 {
+            assert_eq!(world.present[1], 1);
+        }
+    }
+    let assert_return = |w: &World| {
+        assert_eq!(w.game["packs"]["ratiradio"]["flags"]["raven-awake"], true);
+        assert_eq!(w.game["packs"]["ratiradio"]["receipts"][receipt], 55);
+        assert_eq!(w.game["packs"]["ratiradio"]["met"][raven], 55);
+        assert_eq!(w.game["items"]["ratiradio-glass"]["holder"], "vale");
+        assert_eq!(w.game["items"]["ratiradio-raven-figurine"]["holder"], home);
+        assert_eq!(w.game["items"]["mask"]["holder"], "mara");
+        assert_eq!(w.game["actors"]["mara"]["place"], home);
+        assert_eq!(w.game["actors"]["vale"]["place"], home);
+        assert_eq!(w.game["actors"][raven]["place"], "pond");
+        assert!(!w.game["conversations"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|row| {
+                let actors = row["actors"].as_array().unwrap();
+                actors.contains(&json!("mara")) && actors.contains(&json!(raven))
+            }));
+    };
+    assert_return(&world);
+    let before = world.clone();
+    let count = || {
+        c.query_row(
+            "SELECT count(*) FROM card_full_log WHERE world=?",
+            [&id],
+            |r| r.get::<_, i64>(0),
+        )
+        .unwrap()
+    };
+    let rows = count();
+    assert_eq!(rows, 82); // One fresh seed plus every real operation.
+    for actor in 0..2 {
+        world.project(actor).unwrap();
+    }
+    for command in [
+        json!({"op":"play","actor":"vale","action":steps[58]["request"]["action"]}),
+        json!({"op":"hold","actor":"vale","choice":{"item":null,"revision":76}}),
+    ] {
+        assert!(full_store::commit(&c, &id, &mut world, command, now()).is_err());
+        assert_eq!(world, before);
+        assert_eq!(count(), rows);
+    }
+    // Remove only this synthetic database's checkpoints, then close and reopen.
+    c.execute("DELETE FROM card_full_checkpoints WHERE world=?", [&id])
+        .unwrap();
+    drop(c);
+    let reopened = store::open(&path).unwrap();
+    full_store::schema(&reopened).unwrap();
+    let mut expected = world.clone();
+    let changed = if engine::historical(&world.version) {
+        Some(
+            json!({"op":"upgrade","from":world.version,"to":engine::VERSION,
+            "seed":super::full_world::run_seed(&id),"pack":content::current()}),
+        )
+    } else if world.pack.as_deref() != Some(content::current()) {
+        Some(
+            json!({"op":"repack","from":world.pack,"to":content::current(),"revision":content::REVISION}),
+        )
+    } else {
+        None
+    };
+    if let Some(command) = &changed {
+        expected.apply(command).unwrap();
+    }
+    let replayed = full_store::world(&reopened, &id, now()).unwrap();
+    assert_eq!(replayed, expected);
+    assert_return(&replayed);
+    let after: i64 = reopened
+        .query_row(
+            "SELECT count(*) FROM card_full_log WHERE world=?",
+            [&id],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert_eq!(after, rows + i64::from(changed.is_some()));
+    if let Some(command) = changed {
+        let last: String = reopened
+            .query_row(
+                "SELECT command FROM card_full_log WHERE world=? ORDER BY seq DESC LIMIT 1",
+                [&id],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(serde_json::from_str::<Value>(&last).unwrap(), command);
+    }
+    // The explicit upgrade/repack must itself survive checkpoint-free replay.
+    reopened
+        .execute("DELETE FROM card_full_checkpoints WHERE world=?", [&id])
+        .unwrap();
+    assert_eq!(full_store::world(&reopened, &id, now()).unwrap(), expected);
+    drop(reopened);
+    std::fs::remove_file(path).unwrap();
+}
