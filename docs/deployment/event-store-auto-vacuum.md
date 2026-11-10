@@ -54,3 +54,65 @@ one-time conversion through a normal deploy.
 After conversion, the bounded incremental pass added in #877 returns compacted
 pages to the filesystem after each snapshot, so a burst becomes recoverable
 instead of permanent.
+
+## One-time drop of the retired classic tables
+
+The classic game is retired (#1652) and the card-only server no longer reads
+or creates its event store tables, but existing volumes still carry them. The
+owner decided on 2026-11-10 that those rows are not needed. The primary store
+(479.7 MB, `auto_vacuum = none`) is over its 400 MB budget on them.
+`COSYWORLD_ONE_TIME_DROP_CLASSIC_ROWS=1` drops them at boot.
+
+**This cannot be undone except by restoring the volume backup.** It drops
+only the 49 tables named in `v2/orchestrator-rust/src/card_boot/classic_row_drop.rs`
+(a fixed list, never a pattern), with their indexes and triggers. Accounts,
+passkeys, shared worlds and their journal, card authoring, play metrics and
+signing keys are not on the list, and a test fails if any of them ever is.
+`action_journal` and `persistence_compaction` are left in place because the
+offline `card-policy-lab export-shadow` and `inspect-action-journal` tools
+still read them.
+
+### Procedure
+
+1. Take a volume snapshot and wait for it to reach `created`:
+
+   ```sh
+   scripts/backup-fly-v2.sh cosyworld primary
+   ```
+
+   Also check the volume has roughly 2x the store size free, because the
+   shrink step is the full `VACUUM` described above.
+
+2. Stage the flag so it applies on the next deploy instead of restarting the
+   old image:
+
+   ```sh
+   fly secrets set --stage COSYWORLD_ONE_TIME_DROP_CLASSIC_ROWS=1 --app cosyworld
+   ```
+
+3. Deploy. At boot, before anything serves, the log (warn level) shows one
+   `dropping classic table` line per table with its row count, then
+   `classic tables dropped; unset ... on the next deploy` with the bytes
+   freed, then `event store file shrunk after the classic drop`. If the
+   shrink fails (for example no free space) the drop still stands, the error
+   is logged and the server boots; set `COSYWORLD_ONE_TIME_AUTO_VACUUM=1` for
+   a later deploy to retry the shrink. If the drop itself fails it rolls back
+   and the boot fails with the cause.
+
+4. Confirm the size:
+
+   ```sh
+   curl -s https://cosyworld.fly.dev/meta | jq .persistence
+   # event_store_bytes drops; event_store_auto_vacuum is "incremental"
+   ```
+
+5. Unset the flag. A second boot with it set finds no tables and logs
+   `no classic tables found; unset COSYWORLD_ONE_TIME_DROP_CLASSIC_ROWS`:
+
+   ```sh
+   fly secrets unset COSYWORLD_ONE_TIME_DROP_CLASSIC_ROWS --app cosyworld
+   ```
+
+To undo, restore the step 1 snapshot to a new volume. There is no other way
+back. The Lonely Forest store and its per-tenant stores are not covered by
+this runbook.
