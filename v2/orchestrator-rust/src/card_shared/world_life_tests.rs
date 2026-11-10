@@ -519,6 +519,34 @@ fn radio_entry_consequences_replay_without_checkpoints() {
 
 #[test]
 fn forest_charm_consequences_replay_without_checkpoints() {
+    // Shared worlds reject local dormancy, including after upgrading old history.
+    fn reject_toggle(c: &rusqlite::Connection, id: &str, world: &mut World) {
+        let before = world.clone();
+        let rows = || {
+            c.query_row(
+                "SELECT count(*) FROM card_full_log WHERE world=?",
+                [id],
+                |row| row.get::<_, i64>(0),
+            )
+            .unwrap()
+        };
+        let count = rows();
+        for enable in [false, true] {
+            let error = full_store::commit(
+                c,
+                id,
+                world,
+                json!({"op":"play","actor":"vale",
+                    "action":{"kind":"pack","pack":"cottage","enable":enable}}),
+                now(),
+            )
+            .unwrap_err();
+            assert!(error.contains("Shared worlds keep every pack"), "{error}");
+            assert_eq!(*world, before);
+            assert_eq!(rows(), count);
+        }
+    }
+
     use sha2::{Digest, Sha256};
     let trace: Value = serde_json::from_str(include_str!(
         "../../../../test/fixtures/forest-charm-rules-131.json"
@@ -593,6 +621,7 @@ fn forest_charm_consequences_replay_without_checkpoints() {
             }
         };
         check(&world.game);
+        reject_toggle(&c, &id, &mut world);
         assert_eq!(
             pick(&world, |a| a["kind"] == "move"
                 && a["target"] == "forest-trail")
@@ -630,9 +659,11 @@ fn forest_charm_consequences_replay_without_checkpoints() {
                 "to":content::current(), "revision":content::REVISION}))
                 .unwrap();
         }
-        let replayed = full_store::world(&reopened, &id, now()).unwrap();
+        let mut replayed = full_store::world(&reopened, &id, now()).unwrap();
         assert_eq!(replayed, expected);
         check(&replayed.game);
+        reject_toggle(&reopened, &id, &mut replayed);
+        assert_eq!(full_store::world(&reopened, &id, now()).unwrap(), replayed);
         drop(reopened);
         std::fs::remove_file(path).unwrap();
     }
