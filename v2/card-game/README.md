@@ -464,6 +464,12 @@ witnesses); draw candidates from it with a seeded weighted draw; ship a new
 rules version with released bundles kept for replay and JS/Rust agreement.
 It shares its store with [hidden holdings](../../docs/design/hidden-holdings.md).
 
+### Later: one want per avatar, Sleep at home, arcs (#2605)
+
+Owner direction, 2026-11-10. The agreed design, with today's inventory and the
+migration slices, is [wants and arcs](../../docs/design/wants-and-arcs.md).
+Nothing in it is built; the section above describes the game as it ships.
+
 ## Image-first presentation
 
 Card faces contain the illustration and a small name. People and things stand
