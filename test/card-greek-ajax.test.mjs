@@ -1,3 +1,4 @@
+import { upgradedItems } from "./fixtures/card-upgraded-items.mjs";
 import { readFileSync } from "node:fs";
 import vm from "node:vm";
 import { describe, expect, it } from "vitest";
@@ -269,7 +270,7 @@ describe("Ajax save continuity", () => {
       // Without the Trojan invitation the ship does not call at the camp, so the
       // visitor goes back to Aulis, the way they came.
       expect(after.actors.vale.place).toBe("greek-aulis");
-      expect(after.items.lamp).toEqual(before.items.lamp);
+      expect(after.items.lamp).toEqual(upgradedItems(before.items, after).lamp);
       expect(after.log).toEqual(before.log);
       expect(after.packs["greek-drama"].receipts).toEqual(
         before.packs["greek-drama"].receipts,

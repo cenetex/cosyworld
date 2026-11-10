@@ -16,9 +16,22 @@ export function beforeFuneral(world) {
 }
 
 // Save upgrades drop the old flask's dose count; one flask now fills one lamp.
-export function upgradedItems(items) {
+export function upgradedItems(items, current) {
   const next = structuredClone(items);
   if (next.oil) delete next.oil.doses;
+  if (current && next.lamp && next.lamp.fuelRooms === undefined) {
+    let owner = next.lamp.holder;
+    while (next[owner]) owner = next[owner].holder;
+    const carrier = current.actors[owner];
+    const rooms = Math.ceil(next.lamp.fuel / 4);
+    Object.assign(next.lamp, {
+      fuelRooms: rooms,
+      fuel: rooms * 4,
+      fuelPlace: carrier?.place ?? owner,
+      fuelVisit: true,
+      lit: rooms > 0 && (!carrier || carrier.heldItem === "lamp"),
+    });
+  }
   return next;
 }
 
@@ -59,8 +72,13 @@ export function upgradedActor(actor) {
 const homes = visitors.map((a) => a.home.id);
 export const withoutHomeDoors = (crossings) =>
   Object.fromEntries(
-    Object.entries(crossings).filter(
-      ([id]) =>
-        !homes.some((h) => id.startsWith(`${h}-`) || id.endsWith(`-${h}`)),
-    ),
+    Object.entries(crossings)
+      .filter(
+        ([id]) =>
+          !homes.some((h) => id.startsWith(`${h}-`) || id.endsWith(`-${h}`)),
+      )
+      .map(([id, state]) => [
+        id,
+        id === "pond-greek-harbor" ? { discovered: state.discovered } : state,
+      ]),
   );

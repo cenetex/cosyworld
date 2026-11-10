@@ -1,3 +1,4 @@
+import { settleLamp } from "../lamp-state.mjs";
 // World creation and run seeding, split out of world.mjs (#1390).
 import { installJourneyProgress } from "../pack-journeys.mjs";
 import { enableMotives } from "../motives.mjs";
@@ -60,6 +61,7 @@ export function createWorld({ opening = false, packScopes = {}, seed } = {}) {
   rememberEvent(world, world.log[0]);
   settleGuards(world);
   settleHeldItems(world);
+  settleLamp(world);
   settleStationExits(world);
   return world;
 }

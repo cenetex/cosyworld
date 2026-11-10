@@ -618,12 +618,13 @@ describe("JRPG scenes", () => {
       locationId: "station",
       itemId: "lamp",
       cast: ["vale"],
-      light: false,
+      light: true,
     });
     expect(take.items.find((i) => i.id === "lamp")).toMatchObject({
       holder: "vale",
       fuel: 12,
-      lit: false,
+      fuelRooms: 3,
+      lit: true,
     });
     expect(
       script.beats.find((e) => e.actorId === "moth" && e.verb === "move"),

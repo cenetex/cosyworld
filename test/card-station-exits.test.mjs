@@ -1,3 +1,4 @@
+import { upgradedItems } from "./fixtures/card-upgraded-items.mjs";
 import "./helpers/still-cast.mjs";
 import { expect, it } from "vitest";
 import { createWorld, decodeSave, encodeSave, exits, legalActions, play, placeText, settleStationExits } from "../v2/card-game/world.mjs";
@@ -160,6 +161,9 @@ for (const revision of [2, 3]) it(`restores Boardy revision ${revision} without 
   old.routeKnowledge.vale = [[door, "boardyai-parlour"], ["boardyai-parlour", door], ["pond", "attic"]];
   const expected = structuredClone(old);
   expected.packs.boardyai.revision = 4;
+  expected.packs["greek-drama"].revision = 24;
+  expected.items = upgradedItems(expected.items, expected);
+  expected.crossings["pond-greek-harbor"] = { discovered: expected.crossings["pond-greek-harbor"].discovered };
   expected.packs.ratiradio.revision = 2; // Current content keeps earned Radio receipts.
   if (revision === 3) expected.opening.leftHome = true;
   settleStationExits(expected);

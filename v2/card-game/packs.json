@@ -425,7 +425,7 @@
       "schemaVersion": 1,
       "id": "greek-drama",
       "packId": "cosyworld.greek-drama",
-      "revision": 23,
+      "revision": 24,
       "name": "The Wine-Dark Sea",
       "description": "A branching Greek drama world. A shared ship visits the Wine-Dark Harbor, Athens Harbor and Piraeus. One road joins Athens and Piraeus, and short paths lead to the Attic places where welcome becomes a growing poem.",
       "tone": "Concrete Greek domestic and civic life: bread, work, desire, grief, argument, irreverence, and hospitality. Dialogue expresses committed actions. A tragic ending is never required.",
@@ -8192,7 +8192,7 @@
       ],
       "bridge": {
         "id": "shore-greek-drama",
-        "description": "The Charybdis sails the Black Pond route. It sails from Black Pond to the Wine-Dark Harbor and back with no cargo. It goes on to Piraeus Quays and the Hoppy Cat jetty only with the Travel Provisions or something from Hoppy Cat aboard, and every way back toward Black Pond is free. The lamp signal calls it to the pond."
+        "description": "The Charybdis sails the Black Pond route. It sails from Black Pond to the Wine-Dark Harbor and back with no cargo. It goes on to Piraeus Quays and the Hoppy Cat jetty only with the Travel Provisions or something from Hoppy Cat aboard, and every way back toward Black Pond is free. A fueled lamp placed at Black Pond and the Black cloth held there call it to the pond."
       },
       "crossings": [
         {
@@ -8202,41 +8202,6 @@
           "travelers": "any",
           "travel": "aboard the ship",
           "travelLabel": "Board",
-          "signal": {
-            "steps": [
-              {
-                "verb": "cover",
-                "item": "cloth",
-                "target": "lamp"
-              },
-              {
-                "verb": "take",
-                "item": "cloth",
-                "from": "lamp"
-              }
-            ],
-            "consecutive": false,
-            "opens": null,
-            "while": [
-              {
-                "kind": "light",
-                "item": "lamp",
-                "at": [
-                  "pond"
-                ]
-              },
-              {
-                "kind": "not",
-                "condition": {
-                  "kind": "sound",
-                  "at": [
-                    "pond",
-                    "clearing"
-                  ]
-                }
-              }
-            ]
-          },
           "requires": [],
           "scenery": {
             "open": "The Charybdis waits on the black water.",
@@ -8244,7 +8209,28 @@
             "cardName": "The Charybdis",
             "cardArt": "assets/greek-drama/ship-card.webp"
           },
-          "transport": "greek-ship"
+          "transport": "greek-ship",
+          "unlockWhen": [
+            {
+              "kind": "grounded",
+              "item": "lamp"
+            },
+            {
+              "kind": "light",
+              "item": "lamp",
+              "at": [
+                "pond"
+              ]
+            },
+            {
+              "kind": "in_hand",
+              "item": "cloth"
+            },
+            {
+              "kind": "actor_at",
+              "place": "pond"
+            }
+          ]
         },
         {
           "id": "greek-harbor-pond",

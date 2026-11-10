@@ -1,3 +1,4 @@
+import { selectLamp } from "./fixtures/card-attic-opening.mjs";
 import { needsVoyage, sailTo } from "./helpers/voyage.mjs";
 import { describe, expect, it } from "vitest";
 import { openGreekGate } from "./helpers/greek-gate.mjs";
@@ -240,7 +241,7 @@ describe("the Theban release and its ship", () => {
       Object.fromEntries(
         Object.keys(before.items).map((id) => [id, after.items[id]]),
       ),
-    ).toEqual(upgradedItems(before.items));
+    ).toEqual(upgradedItems(before.items, after));
     expect(
       Object.keys(after.items)
         .filter((id) => !Object.hasOwn(before.items, id))
@@ -302,15 +303,16 @@ describe("the Theban release and its ship", () => {
     expect(entityActive(after, "greek-helen-troy")).toBe(false);
     expect(decodeSave(encodeSave(after))).toEqual(after);
   });
-  it("restarts a halfway signal without counting migration as a flash", () => {
-    // Revision 10 needs one cover and uncover, so the old halfway mark of two
-    // steps would read as complete. It starts again; one cycle calls the ship.
+  it("keeps a halfway signal locked until the new physical arrangement", () => {
+    // A partial old signal must not accidentally count as a completed unlock.
     let s = decodeSave(JSON.stringify(legacy("halfway")));
-    expect(s.crossings["pond-greek-harbor"].phase).toBe(0);
+    expect(s.crossings["pond-greek-harbor"]).toEqual({ discovered: false });
     expect(locationOverlay(s, "pond")).toBeNull();
-    s = act(s, "cover", { item: "cloth", target: "lamp" });
-    expect(locationOverlay(s, "pond")).toBeNull();
-    s = act(s, "take", { item: "cloth" });
+    // Retired signal progress is not completion. Only a placed fueled lamp
+    // and selected cloth unlock this previously undiscovered crossing.
+    if (s.items.cloth.holder === "lamp") s = act(s, "take", { item: "cloth" });
+    s = act(s, "drop", { item: "lamp" });
+    s = selectLamp(s, "cloth");
     expect(locationOverlay(s, "pond")).toMatch(/pond-ship-overlay\.png$/);
     expect(travelCard(s, "greek-ship")).toMatchObject({
       name: "The Charybdis",

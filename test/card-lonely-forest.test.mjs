@@ -1,3 +1,4 @@
+import { selectLamp } from "./fixtures/card-attic-opening.mjs";
 import { describe, expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
 
@@ -345,9 +346,13 @@ describe("Tea beneath the oak", () => {
         (a) => a.kind === "move" && a.target === COTTAGE,
       );
       expect(stale).toBeDefined();
-      if (condition === "unlit") world.items.lamp.lit = false;
+      if (condition === "unlit") {
+        world.items.lamp.holder = "vale";
+        Object.assign(world, selectLamp(world));
+      }
       if (condition === "empty") {
         world.items.lamp.fuel = 0;
+        world.items.lamp.fuelRooms = 0;
         world.items.lamp.lit = false;
       }
       if (condition === "covered") world.items.cloth.holder = "lamp";
@@ -392,7 +397,8 @@ describe("Tea beneath the oak", () => {
     expect(locationVariant(restored, "attic")).toBe("attic-lit");
     expect(placeText(restored, "attic")).toContain("Dust gathers");
     expect(play(restored, stale).ok).toBe(false);
-    const doused = act(restored, "snuff");
+    restored.items.lamp.holder = "vale";
+    const doused = selectLamp(restored);
     expect(placeText(doused, "attic")).toContain(
       "mirror opens onto a black shore",
     );
@@ -406,6 +412,7 @@ describe("Tea beneath the oak", () => {
     }).world;
     world.actors.mara.place = "attic";
     world.items.lamp.holder = "vale";
+    world = selectLamp(world, "lamp");
     const command = (actor, fields = {}) =>
       dispatchShared({
         op: "view",
@@ -419,9 +426,7 @@ describe("Tea beneath the oak", () => {
       (a) => a.kind === "move" && a.target === COTTAGE,
     );
     expect(stale).toBeDefined();
-    const snuff = command("vale").actions.find((a) => a.kind === "snuff");
-    expect(snuff).toBeDefined();
-    const dark = command("vale", { op: "play", action: snuff });
+    const dark = command("vale", { op: "hold", choice: { item: null, revision: world.revision } });
     expect(dark.ok, dark.error).toBe(true);
     world = reload(dark.world);
     expect(command("mara").exits).not.toContain(COTTAGE);

@@ -571,6 +571,17 @@ pub(super) fn run(
                 leave(c, id, &mut w, a, &b.op, time)?;
                 retire::if_empty(c, id, u, time)?;
             }
+            "hold" => {
+                // A card choice is journaled immediately, without a speech
+                // job or an NPC turn. The reducer checks its saved revision.
+                store::commit(
+                    c,
+                    id,
+                    &mut w,
+                    json!({"op":"hold","actor":actor_id(a),"choice":b.action}),
+                    time,
+                )?;
+            }
             "seek" => {
                 store::commit(
                     c,

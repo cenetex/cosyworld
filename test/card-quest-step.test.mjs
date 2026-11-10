@@ -144,12 +144,12 @@ describe("a chosen quest's completion action", () => {
       since: 0,
       refusals: 0,
     };
-    s.items.lamp.holder = "station";
-    s.items.lamp.lit = false;
+    s.items.lamp.holder = "pond";
+    s.items.lamp.lit = true;
     expect(questStep(s, questCard(s), false)).toBe(null);
-    s.items.lamp.holder = "vale";
+    s.items.lamp.holder = "station";
     const action = questStep(s, questCard(s), false).action;
-    expect(action.kind).toBe("light");
+    expect(action.kind).toBe("take");
     expect(
       play(s, action).state.log.some(
         (e) => e.verb === "want_met" && e.actorId === "vale",

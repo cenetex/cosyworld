@@ -167,7 +167,7 @@ it("gives an earlier helpful gift credit when the later request reaches the goal
     let w = act(setup(), "ask", "cloth");
     w = act(w, "give", "bell", "keeper");
     const gift = history(w).at(-1);
-    w = act(w, "light", "lamp");
+    w = act(w, "drop", "lamp");
     w = act(w, "ask", "cloth");
     expect(history(w).at(-1).after.met).toBe(true);
     expect(estimate(w, gift).value).toBe(-3);

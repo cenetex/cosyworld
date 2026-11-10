@@ -136,7 +136,7 @@ fn quest_history_upgrade(version: &str, speeches: usize) {
     // saved field and the rest of the history survive.
     for field in ["items", "memories", "turn", "eventSeq"] {
         assert_saved_values(
-            &super::saved_items::upgraded_field(&old.game, field),
+            &super::saved_items::current_field(&old.game, field),
             &upgraded.game[field],
             field,
         );

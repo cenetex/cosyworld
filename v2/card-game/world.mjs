@@ -1,3 +1,5 @@
+import { validLampRoomFuel } from "./lamp-room-fuel.mjs";
+import { fillLampFuel, settleLamp } from "./lamp-state.mjs";
 import { validStationExitOrder } from "./station-exits.mjs";
 import {
   recordConversation,
@@ -65,7 +67,7 @@ import {
   tastes,
 } from "./motives.mjs";
 import { newMemories, rememberEvent, validMemories } from "./memory.mjs";
-import { handSnapshot, settleHeldItems, validHeldItems } from "./held-item.mjs";
+import { applyHeldChoice, chooseHeldItem, handSnapshot, settleHeldItems, validHeldItems } from "./held-item.mjs";
 import {
   installKnowledge,
   witnessKnowledge,
@@ -154,6 +156,7 @@ import {
   crossingBetween,
   markCrossed,
   beginRound,
+  settleCrossingUnlocks,
   holderBefore,
   noteAct,
   endRound,
@@ -328,7 +331,13 @@ export function installPacks(s) {
     );
   if (!s.doors) placeDoors(s);
   for (const pack of packDefinitions) {
-    for (const c of pack.crossings) s.crossings[c.id] ??= newCrossingState(c);
+    for (const c of pack.crossings) {
+      s.crossings[c.id] ??= newCrossingState(c);
+      if (c.unlockWhen) {
+        delete s.crossings[c.id].phase;
+        delete s.crossings[c.id].until;
+      }
+    }
     if (s.packs[pack.id]) continue;
     s.packs[pack.id] = newPackRecord(pack);
     for (const [id, a] of Object.entries(pack.avatars)) {
@@ -391,7 +400,6 @@ import {
   sealedWays,
   homeRescueExit,
   pondRescueExit,
-  homeGateRecoverable,
 } from "./world/geography.mjs";
 export { placeText, exits, sealedWays };
 // Station exits and candidates live in world/station.mjs (#1390).
@@ -909,7 +917,7 @@ function refuelCarried(s) {
       continue;
     const here = s.actors[actor].place;
     const text = `${nameOf(actor)} empties the ${nameOf(id)} into the dry ${nameOf(target)}. The ${nameOf(target)} is full. Back at ${nameOf(returnsTo)}, the ${nameOf(id)} stands full again.`;
-    s.items[target].fuel = LAMP_FUEL;
+    fillLampFuel(s);
     remember(s, target, text);
     transfer(s, id, returnsTo, text);
     addLog(s, "World", text, {
@@ -923,6 +931,23 @@ function refuelCarried(s) {
       returnLocationId: returnsTo,
     });
   }
+}
+// Hand selection is quiet, but every dependent light/gate fact is atomic.
+export function holdChoice(s, actor, choice) {
+  const before = structuredClone(s);
+  applyHeldChoice(s, actor, choice);
+  settleLamp(s);
+  refuelCarried(s);
+  settleHeldItems(s);
+  settleLamp(s);
+  if (s.opening && actor === "vale" && s.actors.vale.place === "attic" && reflectionOpen(s, "attic"))
+    s.locations.attic.anchored = true;
+  settleCrossingUnlocks(s, sensesFor(s));
+  wakeSleepers(s, before, []);
+  latchRoutes(s);
+  settleGuards(s);
+  settleStationExits(s);
+  validateWorld(s);
 }
 function offer(kind, actor, item, target, text, cards) {
   return {
@@ -1489,30 +1514,6 @@ export function legalActions(s, actor = currentActor(s)) {
       use.label = belonging.item.verb;
       out.push(use);
     }
-    if (id === "lamp") {
-      if (item.lit)
-        out.push(
-          offer(
-            "snuff",
-            actor,
-            id,
-            null,
-            `${nameOf(actor)} puts out the Lamp.`,
-            [id],
-          ),
-        );
-      else if (item.fuel > 0)
-        out.push(
-          offer(
-            "light",
-            actor,
-            id,
-            null,
-            `${nameOf(actor)} lights the Lamp${covered(s, id) ? " under its cloth" : ""}.`,
-            [id],
-          ),
-        );
-    }
     if (id === "bell" && !covered(s, id))
       out.push(
         offer(
@@ -1927,6 +1928,7 @@ function residentRound(s, acted) {
       continue;
     // A resident sleeps at home: away, it walks home first if it can.
     const home = lifeHome(id, s);
+    prepareResidentLamp(s, id, home);
     if (
       rangeOf(s, id) !== null &&
       home &&
@@ -1984,6 +1986,7 @@ function residentRound(s, acted) {
           : null;
     if (!target) continue;
     steps += 1;
+    prepareResidentLamp(s, id, target);
     const step = stepToward(s, id, target).action;
     const to = step?.kind === "move" ? step.target : null;
     if (!to || transportPlace(to) || (target !== home && !inRange(s, id, to)))
@@ -2036,10 +2039,16 @@ function residentRound(s, acted) {
 // starts the round again; an arrival must play before it can complete.
 function perform(s, a, round = null, settle = []) {
   const hands = handSnapshot(s);
+  settleCrossingUnlocks(s, sensesFor(s));
   settleStandoffs(s); // anyone who walked in joins before playing
   const conflict = standoffFor(s, a.actor);
-  const result = performPlay(s, a, round, settle);
+  const result = performPlay(s, a, round, settle, hands);
   settleHeldItems(s, hands);
+  settleLamp(s);
+  refuelCarried(s);
+  settleLamp(s);
+  if (a.kind === "wait")
+    settleWants(s, wantActors(s, [a.actor, ...settle]), wantAPI(s), a);
   if (conflict && s.standoffs.includes(conflict)) {
     const calm = conflict.steppedBack;
     if (a.kind === "attack") for (const id in calm) calm[id] = false;
@@ -2055,7 +2064,7 @@ function perform(s, a, round = null, settle = []) {
   }
   return result;
 }
-function performPlay(s, a, round = null, settle = []) {
+function performPlay(s, a, round = null, settle = [], hands = handSnapshot(s)) {
   const who = nameOf(a.actor);
   const firstCrossing = actorIds.every((id) => s.actors[id].crossed === 0);
   const here = s.actors[a.actor].place;
@@ -2290,22 +2299,6 @@ function performPlay(s, a, round = null, settle = []) {
       if (a.kind === "trade") transfer(s, a.receive, a.actor, a.text);
       break;
     }
-    case "light":
-      if (
-        s.opening &&
-        !s.opening.crossed &&
-        a.actor === "vale" &&
-        here === "attic" &&
-        s.items.lamp.holder === "attic"
-      )
-        transfer(s, "lamp", "vale", "Vale lifts the lamp.");
-      s.items.lamp.lit = true;
-      remember(s, "lamp", a.text);
-      break;
-    case "snuff":
-      s.items.lamp.lit = false;
-      remember(s, "lamp", a.text);
-      break;
     case "ring":
       // Any sound made here disturbs the residents resting here.
       for (const line of disturb(s, here)) text += ` ${line}`;
@@ -2361,6 +2354,9 @@ function performPlay(s, a, round = null, settle = []) {
     default:
       throw new Error("Unknown act.");
   }
+  settleHeldItems(s, hands);
+  settleLamp(s);
+  settleCrossingUnlocks(s, sensesFor(s));
   const recitals =
     here !== s.actors[a.actor].place
       ? arriveRecitals(s, packDefinitions, a.actor)
@@ -2458,6 +2454,8 @@ function performPlay(s, a, round = null, settle = []) {
     addLog(s, "World", arrivalText, details);
   }
   settleStandoffs(s);
+  settleHeldItems(s);
+  settleLamp(s);
   // A want met by this play is a world fact recorded right after it.
   settleWants(
     s,
@@ -2566,21 +2564,6 @@ function toward(s, actor, target) {
       getActions().find((a) => a.kind === "move" && a.target === route[1]) ||
       voyageAction(s, actor, route[1], getActions())
     );
-  // Inside a lamp gate, a cast avatar lights its lamp to open the way out;
-  // the player's own hand makes that play.
-  const gate = homeGates[here];
-  if (
-    gate?.light &&
-    !s.items[gate.item].lit &&
-    actor !== currentActor(s) &&
-    !controlledByHuman(s, actor) &&
-    homeGateRecoverable(s, here, gate, actor)
-  ) {
-    const light = getActions().find(
-      (a) => a.kind === "light" && a.item === gate.item,
-    );
-    if (light) return light;
-  }
   if (target === "attic" && !["attic", "pond", "station"].includes(here)) {
     const approach = routeBetween(s, here, "pond", actor);
     if (approach?.length > 1)
@@ -2627,6 +2610,31 @@ function toward(s, actor, target) {
         ? getActions().find((a) => a.kind === "take" && a.item === "cloth")
         : sound;
   }
+}
+// A resident may quietly choose its own prop before deciding its next play.
+// Human selection and the public planner remain read-only and explicit.
+function prepareResidentLamp(s, actor, target = null) {
+  if (controlledByHuman(s, actor) || s.items.lamp.holder !== actor) return;
+  const want = wantOf(s, actor), here = s.actors[actor].place;
+  const destination = target || (s.actors[actor].homeward ? lifeHome(actor, s) : null) || levelReturnHome(s, actor) || (want?.kind === "place" ? want.target :
+    want?.kind === "person" ? s.actors[want.target]?.place : null);
+  let choice;
+  if (destination && destination !== here && !routeBetween(s, here, destination, actor)) {
+    // Gate.light describes the resource, not the required on/off state.
+    // Probe actual authored routes; never mutate public planning input.
+    for (const heldItem of [null, "lamp"]) {
+      const probe = { ...s,
+        actors: { ...s.actors, [actor]: { ...s.actors[actor], heldItem } },
+        items: { ...s.items, lamp: { ...s.items.lamp } },
+      };
+      settleLamp(probe);
+      if (routeBetween(probe, here, destination, actor)) { choice = heldItem; break; }
+    }
+  } else if (want?.target === "lamp" && typeof want.lit === "boolean")
+    choice = want.lit ? "lamp" : null;
+  if (choice === undefined) return;
+  chooseHeldItem(s, actor, choice);
+  settleLamp(s);
 }
 export function plan(s, actor = currentActor(s)) {
   const previousReads = planReads;
@@ -2829,7 +2837,7 @@ function wantPlan(s, actor) {
   }
   const item = want.target,
     owner = rootHolder(s, item);
-  // Held but not as wanted: uncover it, then light or put it out.
+  // Coverings are physical items; active-hand light is settled before NPC planning.
   if (owner === actor) {
     if (want.step?.verb === "eat" && want.step.at && want.step.at !== here)
       return go(want.step.at);
@@ -2837,8 +2845,7 @@ function wantPlan(s, actor) {
     const cover = ids.find((id) => s.items[id].holder === item);
     const fix = cover
       ? find("take", (a) => a.item === cover)
-      : s.items[item].lit !== want.lit &&
-        find(want.lit ? "light" : "snuff", (a) => a.item === item);
+      : null;
     return fix ? { action: fix } : idle();
   }
   if (itemPlace(s, item) !== here) return go(itemPlace(s, item));
@@ -2925,6 +2932,8 @@ export function play(
     settleCompany(next, entityActive);
     settleVisitSpeech(s, next, { ...action, actor });
     settleHeldItems(next, handSnapshot(s));
+    settleLamp(next);
+    settleCrossingUnlocks(next, sensesFor(next));
     settleStationExits(next);
     validateWorld(next);
     return { ok: true, state: next };
@@ -3048,22 +3057,9 @@ export function play(
     // A sleeper makes no play unless a fight wakes it (rules 100).
     if (residentAsleep(next, id) && !standoffFor(next, id)) continue;
     wakeResident(next, id);
+    prepareResidentLamp(next, id);
     perform(next, plan(next, id).action, round, residents);
   }
-  if (next.items.lamp.lit) {
-    next.items.lamp.fuel = Math.max(0, next.items.lamp.fuel - 1);
-    if (next.items.lamp.fuel === 0) {
-      next.items.lamp.lit = false;
-      addLog(
-        next,
-        "World",
-        "The Lamp runs dry. Its flame folds into a tiny black sun.",
-        { locationId: itemPlace(next, "lamp") },
-      );
-    }
-  }
-  // A lamp that just ran dry in a hand that also holds the flask fills again.
-  refuelCarried(next);
   const rings = next.log.filter(
     (entry) =>
       entry.turn === next.turn &&
@@ -3075,30 +3071,13 @@ export function play(
   // silence it during this round. Other bells keep their own time.
   if (!rings.length)
     next.items.bell.ringing = Math.max(0, next.items.bell.ringing - 1);
-  // Break unfinished signals and narrate crossings that opened or closed.
-  endRound(next, round, sensesFor(next), (line, locationId) =>
-    addLog(next, "World", line, { locationId }),
-  );
-  const isOpen = reflectionOpen(next, reflectionSource);
-  if (wasOpen !== isOpen)
-    addLog(
-      next,
-      "World",
-      isOpen
-        ? reflectionSource === "pond"
-          ? "The pond's reflection opens a path to the attic."
-          : "The attic mirror opens a path to the pond. A dark shore waits through the glass."
-        : reflectionSource === "pond"
-          ? "The pond's reflected path to the attic closes. The shore path to the station remains open."
-          : "The attic mirror's path to the pond closes.",
-      { locationId: reflectionSource },
-    );
   // Travellers who learn the roads act every round, wherever they are.
   for (const id of roamingActors) {
     if (controlledByHuman(next, id) || id === respondent ||
       !roamingQuestActor(id, s) || !roamingQuestActor(id, next)) continue;
     const from = next.actors[id].place;
     rememberRoutes(next, id, visibleRouteEdges(from));
+    prepareResidentLamp(next, id);
     const chosen = plan(next, id);
     if (chosen.callShip) callTransport(next, from, true);
     if (chosen.action.kind !== "wait" || standoffFor(next, id))
@@ -3133,6 +3112,29 @@ export function play(
   const worldLine = (text, locationId) =>
     addLog(next, "World", text, { kind: "narration", locationId });
   settleVoyageCargo(next, voyages, nameOf, worldLine);
+  settleHeldItems(next, handSnapshot(s));
+  settleLamp(next);
+  refuelCarried(next);
+  settleLamp(next);
+  settleCrossingUnlocks(next, sensesFor(next));
+  // Break unfinished signals and narrate crossings that opened or closed.
+  endRound(next, round, sensesFor(next), (line, locationId) =>
+    addLog(next, "World", line, { locationId }),
+  );
+  const isOpen = reflectionOpen(next, reflectionSource);
+  if (wasOpen !== isOpen)
+    addLog(
+      next,
+      "World",
+      isOpen
+        ? reflectionSource === "pond"
+          ? "The pond's reflection opens a path to the attic."
+          : "The attic mirror opens a path to the pond. A dark shore waits through the glass."
+        : reflectionSource === "pond"
+          ? "The pond's reflected path to the attic closes. The shore path to the station remains open."
+          : "The attic mirror's path to the pond closes.",
+      { locationId: reflectionSource },
+    );
   wakeSleepers(next, s, voyages);
   // Regrowth, the dawn safeguard and kits follow the light and long rests.
   settleItemCycle(next, nameOf, worldLine);
@@ -3161,6 +3163,7 @@ export function play(
     else next.sharedMigration.inventoryAllowances[id] = count;
   }
   settleHeldItems(next, handSnapshot(s));
+  settleLamp(next);
   endQuestPlay(next);
   settleStationExits(next);
   validateWorld(next);
@@ -3491,6 +3494,9 @@ export function validateWorld(s) {
     oil = s.items.oil,
     bell = s.items.bell;
   if (
+    !validLampRoomFuel(lamp) ||
+    !Object.hasOwn(places, lamp.fuelPlace) ||
+    lamp.fuel !== lamp.fuelRooms * 4 ||
     !Number.isInteger(lamp.fuel) ||
     lamp.fuel < 0 ||
     lamp.fuel > LAMP_FUEL ||
@@ -3746,6 +3752,20 @@ export function encodeSave(s) {
 export function decodeSave(text) {
   const s = JSON.parse(text);
   try {
+    // Existing room metadata is evidence, not a migration hint. Reject it before
+    // settlement can replace an unknown location or repair a forged projection.
+    const lamp = s?.items?.lamp;
+    const hasRoomFuel = lamp && ["fuelRooms", "fuelPlace", "fuelVisit"].some(
+      (key) => Object.hasOwn(lamp, key),
+    );
+    // Legacy saves may omit the derived flag; an explicit flag must be boolean.
+    if (lamp && typeof lamp.lit !== "boolean" &&
+        (hasRoomFuel || Object.hasOwn(lamp, "lit")))
+      throw new Error("Invalid saved lamp room fuel.");
+    if (hasRoomFuel &&
+        (!validLampRoomFuel(lamp) || !Object.hasOwn(places, lamp.fuelPlace) ||
+         lamp.fuel !== lamp.fuelRooms * 4))
+      throw new Error("Invalid saved lamp room fuel.");
     upgradeSave(s, {
       actorIds,
       installPacks,
@@ -3761,6 +3781,7 @@ export function decodeSave(text) {
     latchRoutes(s);
     settleGuards(s);
     settleHeldItems(s);
+    settleLamp(s);
     if (s.stationExitOrder === undefined) settleStationExits(s);
     validateWorld(s);
     preserveTransportAccess(s);

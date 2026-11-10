@@ -1,5 +1,5 @@
-// Inactive preparation: no world, pack, browser, or shared-engine imports this.
-// The eventual adapter owns custody, active hands, refilling and save upgrades.
+// Pure room-fuel state shared by the current local and server lamp adapter.
+// The adapter owns custody, active hands, refilling and save upgrades.
 export const LAMP_ROOM_LIMIT = 3;
 
 const validPlace = (place) => typeof place === "string" && place.length > 0;

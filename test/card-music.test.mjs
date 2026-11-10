@@ -1,3 +1,4 @@
+import { selectLamp } from "./fixtures/card-attic-opening.mjs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createRoomMusic, openingRevealed } from "../v2/card-game/music.mjs";
 import { createWorld, legalActions, play } from "../v2/card-game/world.mjs";
@@ -453,10 +454,10 @@ describe("opening music", () => {
     world = act(world, "wait");
     expect(world.turn).toBe(1);
     expect(openingRevealed(world, "vale")).toBe(false);
-    world = act(world, "snuff");
+    world = selectLamp(world);
     expect(openingRevealed(world, "vale")).toBe(true);
-    // Relighting closes the mirror; the reveal has still happened.
-    world = act(world, "light");
+    // Holding the lamp closes the mirror; the reveal has still happened.
+    world = selectLamp(world, "lamp");
     expect(openingRevealed(world, "vale")).toBe(true);
   });
   it("plays as before without the attic opening", () => {

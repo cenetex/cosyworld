@@ -1,3 +1,5 @@
+import { settleHeldItems, handSnapshot } from "./held-item.mjs";
+import { settleLamp } from "./lamp-state.mjs";
 // A chosen quest offers a legal act that completes its goal or authored stage.
 // The player chooses how to gather supplies and reach the goal.
 import { packGiveChoice } from "./pack-registry.mjs";
@@ -116,20 +118,12 @@ export function questStep(world, quest, covered, legal = legalActions(world)) {
     return choose((a) => a.kind === "talk" && a.target === target);
   if (kind !== "item") return null;
   return choose((a) => {
-    const taking = ["take", "ask"].includes(a.kind),
-      lighting = ["light", "snuff"].includes(a.kind);
-    if (
-      (!taking && !lighting) ||
-      (a.item !== target && world.items[a.item]?.holder !== target)
-    )
-      return false;
-    const item = { ...world.items[a.item] };
-    if (taking) item.holder = actor;
-    else item.lit = a.kind === "light";
-    return holdsAsWanted(
-      { ...world, items: { ...world.items, [a.item]: item } },
-      actor,
-      quest,
-    );
+    if (!["take", "ask"].includes(a.kind) ||
+        (a.item !== target && world.items[a.item]?.holder !== target)) return false;
+    const next = structuredClone(world);
+    next.items[a.item].holder = actor;
+    settleHeldItems(next, handSnapshot(world));
+    settleLamp(next);
+    return holdsAsWanted(next, actor, quest);
   });
 }

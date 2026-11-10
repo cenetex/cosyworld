@@ -22,7 +22,10 @@ const server = createServer();
 await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
 const browser = await browserType.launch({
   headless: true,
-  executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE,
+  executablePath:
+    browserName === "chromium"
+      ? process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE
+      : undefined,
 });
 const meeting = () => {
   const s = createWorld({ seed: 2531 });
@@ -432,6 +435,7 @@ try {
     assert.equal(await card("bell").isVisible(), false);
     assert.equal(await page.locator(".card-more").count(), 0);
     await shot("stacks");
+    const beforeTrade = await state();
     // Only one place is chosen: a second replaces the first and keeps Pip.
     await selectCard(page, "moth");
     await selectCard(page, "station");
@@ -500,7 +504,23 @@ try {
     await selectCard(page, "lamp");
     assert.deepEqual(await labels(), ["Trade Lamp for Black cloth"]);
     assert.equal(await page.locator('.card[aria-pressed="true"]').count(), 2);
-    assert.deepEqual(await state(), before);
+    const chosenState = await state();
+    assert.equal(chosenState.actors.vale.heldItem, "lamp");
+    assert.equal(chosenState.items.lamp.lit, true);
+    assert.equal(
+      chosenState.turn,
+      before.turn,
+      "holding an item costs no turn",
+    );
+    assert.deepEqual(
+      chosenState.log,
+      before.log,
+      "holding an item creates no beat",
+    );
+    assert.deepEqual(chosenState.items, {
+      ...beforeTrade.items,
+      lamp: { ...beforeTrade.items.lamp, lit: true },
+    });
     await shot("trade");
     await page.locator("#card-actions button").click();
     assert.equal(await card("vale").isDisabled(), false);
@@ -589,7 +609,7 @@ try {
     await page.getByRole("button", { name: "Brace", exact: true }).click();
     await ready();
     assert.equal((await state()).turn, 2);
-    const story = createWorld();
+    const story = createWorld({ seed: 17 });
     story.actors.vale.place = "greek-gate";
     story.crossings["pond-greek-harbor"].discovered = true;
     await load(story);
@@ -620,7 +640,7 @@ try {
       "Talk teaches the decree once its named card is revealed",
     );
     if ([1440, 390].includes(width)) {
-      const meal = createWorld();
+      const meal = createWorld({ seed: 17 });
       meal.actors.vale.place = "greek-gate";
       meal.crossings["pond-greek-harbor"].discovered = true;
       meal.items["greek-wine-skin"].holder = "vale";

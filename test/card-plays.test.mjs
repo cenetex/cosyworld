@@ -1,3 +1,4 @@
+import { selectLamp } from "./fixtures/card-attic-opening.mjs";
 import { describe, expect, it } from "vitest";
 import {
   createWorld,
@@ -33,13 +34,12 @@ describe("playing the world through cards", () => {
     s = cards(s, "lamp");
     expect(availableCards(s)).toContain("moth");
     expect(availableCards(s)).toContain("keeper");
-    s = cards(s, "lamp");
     s = cards(s, "pond");
     s = cards(s, "attic");
     // The lit attic holds only itself: Pip cannot follow the lamp through
     // the pond's dark mirror, and the attic mirror stays shut (#1600).
     expect(availableCards(s)).toEqual(["vale", "lamp", "attic"]);
-    s = cards(s, "lamp");
+    s = selectLamp(s);
     expect(availableCards(s)).toContain("pond");
   });
   it("previews single cards and pairs freely, then spends one turn per play", () => {
@@ -60,11 +60,10 @@ describe("playing the world through cards", () => {
     start.items.oil.holder = "vale";
     start.items.cloth.holder = "vale";
     let s = cards(start, "lamp");
-    s = cards(s, "lamp");
     s = cards(s, "pond");
     s = cards(s, "lamp", "attic");
     expect(reflectionOpen(s)).toBe(false);
-    s = cards(s, "lamp");
+    s = selectLamp(s);
     expect(reflectionOpen(s)).toBe(true);
     // The flask has no pour play; it waits until the lamp runs dry.
     expect(cardPlay(s, ["oil", "lamp"]).action).toBeFalsy();
@@ -72,15 +71,19 @@ describe("playing the world through cards", () => {
     s = cards(s, "pond");
     expect(s.actors.vale.crossed).toBe(2);
     expect(reflectionOpen(s)).toBe(false);
-    s = cards(s, "lamp");
+    s = selectLamp(s, "lamp");
     expect(reflectionOpen(s)).toBe(true);
+    expect(s.items.lamp.fuelRooms).toBe(3);
+    expect(s.items.oil.holder).toBe("station");
     s = cards(s, "cloth", "lamp");
     expect(s.items.cloth.holder).toBe("lamp");
     expect(reflectionOpen(s)).toBe(false);
     s = cards(s, "cloth");
     expect(s.items.cloth.holder).toBe("vale");
+    expect(reflectionOpen(s)).toBe(false);
+    s = selectLamp(s, "lamp");
     expect(reflectionOpen(s)).toBe(true);
-    s = cards(s, "lamp");
+    s = selectLamp(s);
     expect(s.items.lamp.lit).toBe(false);
     expect(decodeSave(encodeSave(s))).toEqual(s);
   });
@@ -108,18 +111,16 @@ describe("playing the world through cards", () => {
     expect(s.items.bell.holder).toBe("station");
     expect(cardPlay(s, ["bell", "pond"]).action).toBeFalsy();
   });
-  it("uses a lamp or bell lying here when paired with the current place", () => {
+  it("rings a grounded bell but offers no manual lamp lighting action", () => {
     let s = createWorld();
     expect(s.items.bell.holder).toBe("station");
     expect(cardPlay(s, ["bell"]).action.kind).toBe("take");
     s = cards(s, "bell", "station");
     expect(s.items.bell).toMatchObject({ holder: "station", ringing: 3 });
     s.items.lamp.holder = "station";
-    expect(cardPlay(s, ["station", "lamp"]).action.kind).toBe("light");
-    cards(s, "station", "lamp");
+    expect(cardPlay(s, ["station", "lamp"]).action).toBeFalsy();
     s.items.lamp.lit = true;
-    expect(cardPlay(s, ["lamp", "station"]).action.kind).toBe("snuff");
-    cards(s, "lamp", "station");
+    expect(cardPlay(s, ["lamp", "station"]).action).toBeFalsy();
     expect(cardPlay(s, ["lamp"]).action.kind).toBe("take");
   });
   it("rings a carried bell and covers it with a cloth", () => {

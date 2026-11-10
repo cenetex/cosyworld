@@ -2,19 +2,29 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
-import { createWorld, legalActions, addLog } from "../card-game/world.mjs";
+import {
+  createWorld,
+  legalActions,
+  addLog,
+  holdChoice,
+} from "../card-game/world.mjs";
 import { availableCards } from "../card-game/cards.mjs";
 
 const server = createServer();
 await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
 const origin = `http://127.0.0.1:${server.address().port}`;
-const browser = await chromium.launch({ headless: true });
+const browser = await chromium.launch({
+  headless: true,
+  executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE,
+});
 const app = await readFile(
   new URL("../card-game/app.mjs", import.meta.url),
   "utf8",
 );
 try {
-  for (const width of [1440, 390]) {
+  for (const [width, held] of [1440, 390].flatMap((width) =>
+    [null, "lamp"].map((held) => [width, held]),
+  )) {
     const page = await browser.newPage({
       viewport: { width, height: 900 },
       reducedMotion: "reduce",
@@ -27,6 +37,8 @@ try {
     world.controlledActors = ["vale"];
     world.presentActors = ["vale"];
     world.actors.vale.place = "pond";
+    world.items.lamp.holder = "vale";
+    holdChoice(world, "vale", { item: held, revision: world.revision });
     addLog(world, "Vale", "The current play continues.", {
       generated: true,
       kind: "dialogue",
@@ -74,7 +86,7 @@ try {
           app +
           `\nglobalThis.tryStalePlay = () => submitSharedPlay(legalActions(world).find(a => a.kind === "wait"));
       globalThis.resumeStatus = () => ({ sharedPlay, sharedRefusal, reviewing,
-        queue: sharedSession.state.queue, revision: world.revision });\n`,
+        queue: sharedSession.state.queue, revision: world.revision, selected, lamp: world.items.lamp, held: world.actors.vale.heldItem });\n`,
       }),
     );
     await page.route("**/auth/account", (route) =>
@@ -105,6 +117,9 @@ try {
     assert.equal(result.reviewing, false);
     assert.equal(result.queue[0].id, "existing");
     assert.equal(result.revision, world.revision);
+    assert.deepEqual(result.selected, held ? [held] : []);
+    assert.equal(result.held, held);
+    assert.deepEqual(result.lamp, world.items.lamp);
     assert.equal(await page.locator("#play-status").isVisible(), false);
     await page.waitForFunction(() =>
       document
@@ -114,7 +129,7 @@ try {
     assert.deepEqual(errors, []);
     await page.close();
     console.log(
-      `Current play resumes at ${width}px without another submission or refusal.`,
+      `Current play resumes with lamp ${held ? "held" : "stowed"} at ${width}px without another submission or refusal.`,
     );
   }
 } finally {

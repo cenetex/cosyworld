@@ -157,6 +157,8 @@ export function upgradeSave(
     if (s.packs?.["greek-drama"]?.revision === 21)
       s.packs["greek-drama"].revision = 22;
     upgradeGreekCithaeronOpenSave(s);
+    if (s.packs?.["greek-drama"]?.revision === 23)
+      s.packs["greek-drama"].revision = 24;
     upgradeRecitals(s, packDefinitions);
   }
   upgradeSightings(s);
