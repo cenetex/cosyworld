@@ -26,7 +26,7 @@ function apply(stage, light) {
     ...(portable
       ? [{ ...portable, on: Math.max(0.15, nightness(light.hour)) }]
       : []),
-    ...(light.pools || []).filter((pool) => !pool.portable),
+    ...(state.ambientPools || []),
   ].slice(0, 4);
   for (const [name, value] of Object.entries(lightStyle(light)))
     stage.style.setProperty(name, value);
@@ -86,9 +86,11 @@ export function renderStageLight(
         renderStageLight(stage, { ...state.options, ease: false });
     });
     state.resize.observe(stage);
+    const figures = stage.querySelector(".stage-figures");
+    if (figures) state.resize.observe(figures);
     // Hand/dialogue height and figure visibility can change without resizing
     // the stage. Watch layout changes, never run a permanent polling loop.
-    state.layout = new MutationObserver(() => {
+    const followLayout = () => {
       if (state.layoutFrame || !state.options?.lamp) return;
       state.layoutFrame = requestAnimationFrame(() => {
         state.layoutFrame = 0;
@@ -96,10 +98,27 @@ export function renderStageLight(
         if (geometry !== state.geometry && state.light)
           // Move only the pool. Do not cut an in-flight time-of-day ease.
           apply(stage, { ...state.light });
+        // CSS/WAAPI transforms do not mutate attributes on every frame.
+        // Follow finite stage motions only; idle and repeating effects stop.
+        if (
+          !document.hidden &&
+          stage
+            .getAnimations?.({ subtree: true })
+            .some(
+              (a) =>
+                a.playState === "running" &&
+                Number.isFinite(a.effect?.getComputedTiming().endTime),
+            )
+        )
+          followLayout();
       });
-    });
+    };
+    state.followLayout = followLayout;
+    stage.addEventListener?.("load", followLayout, true);
+    state.layout = new MutationObserver(followLayout);
     state.layout.observe(stage, {
       subtree: true,
+      childList: true,
       attributes: true,
       attributeFilter: [
         "style",
@@ -107,6 +126,8 @@ export function renderStageLight(
         "aria-hidden",
         "data-lit",
         "data-covered",
+        "data-combat-art",
+        "data-pose",
       ],
     });
     state.layout.observe(document.documentElement, {
@@ -115,11 +136,9 @@ export function renderStageLight(
     });
   }
   state.options = { turn, strength, pools, sky, ease, tint, lamp };
-  const portable = lamp && portableLampPool(stage);
-  state.geometry = JSON.stringify(portable || null);
-  pools = [...(portable ? [portable] : []), ...pools].slice(0, 4);
+  state.followLayout();
   const lit = pools.map((pool) => Number(Boolean(pool.on)));
-  const key = JSON.stringify([pools, tint]);
+  const key = JSON.stringify([pools, tint, lamp]);
   if (state.turn === turn && state.strength === strength && state.key === key)
     return;
   const shown = state.shown ?? { turn, strength, lit };
@@ -157,11 +176,9 @@ export function renderStageLight(
     const hour = hourOf(now.turn);
     const light = tintShade(lightAt(hour, now.strength), tint, hour);
     light.sky = sky;
-    light.pools = pools.map((pool, i) => ({
+    state.ambientPools = pools.map((pool, i) => ({
       ...pool,
-      on:
-        now.lit[i] *
-        (pool.portable ? Math.max(0.15, nightness(hour)) : nightness(hour)),
+      on: now.lit[i] * nightness(hour),
     }));
     apply(stage, light);
     if (progress < 1) state.frame = requestAnimationFrame(step);

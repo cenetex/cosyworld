@@ -107,13 +107,44 @@ it("moves a pool without cutting an active time-of-day ease", () => {
   tick();
   const before = stageLight(shown).hour;
   x += 2;
+  let running = true;
+  shown.getAnimations = () =>
+    running
+      ? [
+          {
+            playState: "running",
+            effect: { getComputedTiming: () => ({ endTime: 850 }) },
+          },
+        ]
+      : [];
   changed();
   tick();
+  x += 5;
+  tick();
+  expect(stageLight(shown).pools[0].x).toBe(portableLampPool(shown).x);
+  running = false;
   expect(stageLight(shown).hour).toBeGreaterThanOrEqual(before);
   expect(stageLight(shown).hour).toBeLessThan(18);
   expect(stageLight(shown).pools[0].x).toBe(portableLampPool(shown).x);
   for (let i = 0; i < 260; i++) tick();
   expect(stageLight(shown).hour).toBe(18);
   expect(frames.size).toBe(0);
+  x = 200;
+  renderStageLight(shown, { turn: 24, lamp: true, ease: false });
+  tick();
+  expect(stageLight(shown).pools[0].x).toBe(portableLampPool(shown).x);
+  const ambient = Array.from({ length: 4 }, (_, x) => ({ x, y: 50, on: true }));
+  renderStageLight(shown, {
+    turn: 36,
+    lamp: true,
+    pools: ambient,
+    ease: false,
+  });
+  expect(stageLight(shown).pools).toHaveLength(4);
+  expect(stageLight(shown).pools[0].portable).toBe(true);
+  lamp.dataset.lit = "false";
+  changed();
+  tick();
+  expect(stageLight(shown).pools.map((p) => p.x)).toEqual([0, 1, 2, 3]);
   vi.restoreAllMocks();
 });
