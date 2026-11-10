@@ -42,6 +42,7 @@ const RULES = [
   "pack-specials.mjs",
   "pack-toggle.mjs",
   "pack-transport.mjs",
+  "radio-item.mjs",
   "reflections.mjs",
   "resident-guard.mjs",
   "resident-home.mjs",
