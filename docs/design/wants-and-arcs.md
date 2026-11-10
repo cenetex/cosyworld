@@ -34,32 +34,27 @@ over the six mounted packs in `v2/worlds/card-table.json`.
 
 This draft does not reopen these.
 
-- One want per avatar, XP is wants met, no authored quest chains, trust has
-  one source (owner, 2026-10-30). PRs #1449, #1451 and #1700 built the first
-  version. The stack came back on 2026-11-01 (#1831,
-  [quest stack](quest-stack.md)) and grew: two active player quests
-  ([note](two-active-player-quests.md)), Talk gives a quest (#2196, rules
-  99), sealed ways give a quest ([rules 95](rules-95-item-cycle-and-sealed-gates.md)).
-- Fixed verbs; Talk is the path to desires; effects fire from Talk, Give and
-  Use (#1581, still open; [Talk-triggered choices](talk-triggered-choices.md)
-  built most of it).
-- Level curve and the level quest ([level curve](level-curve.md), rules 90);
-  Sleep is a Wait after a Wait ([sleep](sleep.md), #2028); long rest at a
-  sanctuary ([rest and sanctuary](../../v2/docs/card-table/rest-and-sanctuary.md), #1648).
-- Residents may level only at home (`levelAtHome`,
-  [note](resident-level-home.md)).
+- One want per avatar, XP is wants met, no authored quest chains (owner,
+  2026-10-30; PRs #1449, #1451, #1700). The stack came back with #1831
+  ([quest stack](quest-stack.md)), [two active quests](two-active-player-quests.md),
+  Talk gives a quest (#2196) and sealed ways
+  ([rules 95](rules-95-item-cycle-and-sealed-gates.md)).
+- Fixed verbs; Talk is the path to desires (#1581, open;
+  [Talk-triggered choices](talk-triggered-choices.md)).
+- [Level curve](level-curve.md), [sleep](sleep.md) (#2028),
+  [rest and sanctuary](../../v2/docs/card-table/rest-and-sanctuary.md)
+  (#1648), [residents level at home](resident-level-home.md).
 - Crafting is a locked thing and its unlock quest
   ([items and crafting](items-and-crafting.md), rules 102).
-- "Find <avatar>'s home" earns a world slot with the next character lost
-  (#2282, proposal). The hidden avatar and homecoming are built (#1936).
-- Polynices' funeral is an owner exception to "no quest chains"
-  ([funeral](polynices-funeral.md), #2301). RatiRadio opens through recovered
-  possessions ([RatiRadio](ratiradio.md)).
-- Remembered help and witness stance belong to #1871; grounded refusals to
-  #2539; the truth boundary for speech to #1537; talk-to-reveal to #1848.
-- The arc is relationships deepening, not a plot ending. AI characters act
-  only by talking. UI goes through the bar, the context button, cards and
-  stacks.
+- "Find <avatar>'s home" earns a world slot (#2282, proposal); the hidden
+  avatar and homecoming are built (#1936).
+- [Polynices' funeral](polynices-funeral.md) is an owner exception to "no
+  quest chains" (#2301). [RatiRadio](ratiradio.md) opens through recovered
+  possessions.
+- Remembered help belongs to #1871, grounded refusals to #2539, the truth
+  boundary for speech to #1537, talk-to-reveal to #1848.
+- The arc is relationships deepening. AI characters act only by talking. UI
+  goes through the bar, the context button, cards and stacks.
 
 ## What exists today
 
@@ -167,9 +162,8 @@ reads "Tap to open", needs no rule and pays nothing (`app.mjs:479-482`).
   be accepted (`world.mjs:1192`, `:590`) and makes a resident step in for a
   friend who is struck (`world.mjs:2766`). No pack gate reads it: the
   `trusted` condition exists (`pack-rules.mjs:138`) and is used 0 times.
-- 25 routes and crossings carry `requires` (one is retired). Their
-  conditions are mostly flags (15) and an item being somewhere or held (15).
-  Six read a `choice`.
+- 25 routes and crossings carry `requires` (one is retired): flags 15, an
+  item somewhere or held 15, a `choice` 6.
 - Four bounded records hold the past: `memory.mjs` (16 events),
   `knowledge.mjs` (256 facts), `motives.mjs` (6 grievances each) and
   `life.mjs` (16 experiences).
@@ -316,32 +310,18 @@ Nothing is saved: the stage is read from the world each turn, like
 - *How it fails.* It is a chain if authors make it long, and a staged
   resident never wants anything else. One resident, one line of story.
 
-**B. Stages of a bond.** Trust 0–3 with each resident picks from an authored
-list: a want, a Talk topic or an opening per tier, using `trusted`.
+**B. Stages of a bond** (not chosen). Trust 0–3 with each resident picks an
+authored want, Talk topic or opening per tier, using `trusted`. Antigone
+would move from the Hollow to the rites to her family's story. It fails
+because trust is per traveler but a want is one per resident, so two
+travelers pull one Antigone two ways, against One World, One Truth; a
+burial is a public deed, not a private bond; and four tiers end fast.
 
-- *Burial.* Antigone at 0 wants the Hollow reached; at 1 the rites; at 2 she
-  tells of her family; at 3 she gives a keepsake.
-- *RatiRadio.* The doors stay as they are (the owner's rule is carried
-  possessions, not gifts). RATi's tiers colour only the return.
-- *Pack data.* A `bond` list per named resident.
-- *Rules.* Trust from any want met; tier picks the want.
-- *The player sees.* Warmer talk, new topics, sometimes a way opened.
-- *How it fails.* Trust is per traveler but a want is one per resident, so
-  two travelers pull one Antigone two ways, against One World, One Truth. A
-  public deed like a burial is not a private bond. Four tiers end fast.
-
-**C. Chapters of the world.** The world has a level. A pack lists chapters
-by world level; reaching one on a level-up sleep sets its facts (a shade
-appears, a key turns up), told in the waking dream. "Find home" earning the
-next world (#2282) is the chapter between worlds.
-
-- *Burial.* The shade walks only from world level 2; the rites stay facts.
-- *RatiRadio.* The Station Key appears at the pond at a world level.
-- *Pack data.* A `chapters` list of levels and `set_flag` effects.
-- *Rules.* A world level, and effects applied on a level-up sleep.
-- *The player sees.* A dream on waking at home; the world's tier colour.
-- *How it fails.* Sleeping, not doing, opens the story. A door opens for a
-  clock, not a reason. It tangles with pack toggles and shared seats.
+**C. Chapters of the world** (not chosen). A pack lists facts set at world
+levels, applied on a level-up sleep and told in the waking dream: the shade
+walks from world level 2, the Station Key turns up at another. It fails
+because sleeping, not doing, opens the story: a door opens for a clock, not
+a reason. It also tangles with pack toggles and shared seats.
 
 **Chosen: A, kept small** (owner: "sure"). Both reference levels are already
 written this way in data: wants, effects on fixed verbs, and flags. A names
