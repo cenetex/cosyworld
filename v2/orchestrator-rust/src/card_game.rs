@@ -2,6 +2,8 @@
 pub(crate) mod local;
 #[path = "card_media_http.rs"]
 mod media_http;
+#[path = "card_radio.rs"]
+mod radio;
 
 #[path = "card_game_metadata.rs"]
 pub(crate) mod metadata;
@@ -43,6 +45,7 @@ pub(super) fn router<S: Clone + Send + Sync + 'static>() -> Router<S> {
         .route("/card-game/", get(index))
         .route("/privacy", get(|| async { serve("privacy.html") }))
         .route("/download", get(download))
+        .route("/card-game/radio", get(radio::now_playing))
         .route("/card-game/{*path}", get(asset))
 }
 

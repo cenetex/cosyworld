@@ -88,8 +88,8 @@
     "v2:card:images:check": "node v2/scripts/build-card-images.mjs --check",
     "v2:card:ship-art:build": "node v2/scripts/build-ship-artpack.mjs",
     "v2:card:ship-art:check": "node v2/scripts/build-ship-artpack.mjs --check",
-    "v2:card:music:build": "node v2/scripts/build-card-music.mjs",
-    "v2:card:music:check": "node v2/scripts/build-card-music.mjs --check",
+    "v2:card:music:build": "node v2/scripts/build-card-music.mjs && node v2/scripts/build-card-radio.mjs",
+    "v2:card:music:check": "node v2/scripts/build-card-music.mjs --check && node v2/scripts/build-card-radio.mjs --check",
     "v2:card:travel:smoke": "node v2/scripts/smoke-card-greek-travel.mjs"
   },
   "keywords": [
