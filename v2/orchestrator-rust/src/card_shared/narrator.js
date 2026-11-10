@@ -19343,6 +19343,7 @@
         if (!a || entityEnabled(s, id, true) || departed(pack, state, id))
           continue;
         delete state.met[id];
+        delete s.opening?.met?.[id];
         if (a.place !== avatar.place && !avatar.previousHomes?.includes(a.place))
           a.place = avatar.place;
         Object.assign(a, { crossed: 0, lastTalk: -9 });
@@ -21477,10 +21478,8 @@
       )))
         fail();
     }
-    freshlyValidated.add(s);
     return s;
   }
-  var freshlyValidated = /* @__PURE__ */ new WeakSet();
   function decodeSave(text2) {
     const s = JSON.parse(text2);
     try {

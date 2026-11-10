@@ -16,6 +16,14 @@ describe("fast check smoke selection", () => {
     expect(shards.checks[smoke]).toBeGreaterThan(0);
   });
 
+  it("covers save validation without taking higher-priority smoke slots", () => {
+    for (const file of [
+      "v2/card-game/world.mjs",
+      "test/card-save-validation.test.mjs",
+    ])
+      expect(pick(file)).toContain("smoke-card-save-validation");
+  });
+
   it("names only smoke scripts that exist", () => {
     const named = [
       config.core,
