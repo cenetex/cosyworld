@@ -4,8 +4,7 @@ CosyWorld is a shared world that remembers what people do. This Pact is the
 promise the game makes to every traveler, regardless of who controls their
 avatar, which world pack they entered through, or whether AI is available.
 
-It is product law. It is not an in-world faction, a membership gate, or the
-[Cottage Pact proof world](archive/classic/v2/docs/pact-proof-world.md).
+It is product law. It is not an in-world faction or a membership gate.
 
 [A world that remembers](cosyworld-ethos.md) is the editorial ethos beside
 this Pact: how we decide what belongs in the game. The
