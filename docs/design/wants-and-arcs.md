@@ -58,6 +58,8 @@ over the six mounted packs in `v2/worlds/card-table.json`.
 17. Whether the hub's other ways (the mirror back to the attic, the lit
     arch to the Empty station) should become visible locked boxes too:
     "yep".
+18. The dead Theban-response branch of the Greek pack: "Remove the branch",
+    then "Fold into the bump". It goes with the rules bump, not before.
 
 ## Already decided earlier
 
@@ -543,6 +545,28 @@ pass the 400-line budget and need `Large-Change`.
 
 Later: resident draws from grievances, knowledge and trust (#1506, #1871);
 then the README quest section is rewritten.
+
+### With the rules bump: the Theban-response branch
+
+The Greek pack keeps five archived choices that never fire
+(`greek-prepare-burial-ground`, `greek-perform-burial`,
+`greek-petition-burial`, `greek-perform-permitted-burial`,
+`greek-report-plan`). They are the only writers of the
+`greek-theban-response` outcomes and of `greek-guard-warned`, so the four
+courtyard choices (`greek-courtyard-burial`, `-concession`,
+`-permitted-burial`, `-exposure`), the Guard's Tablet and the "Creon gave
+leave" recital claim cannot outlive them. All of it is removed together.
+
+It waits for the bump because the recorded saves in
+`test/fixtures/greek-before-funeral` hold receipts for these choices and
+stop loading without them, and about a dozen test files start from those
+saves. The bump resets worlds, so the saves are recorded again then.
+
+Checked on 2026-11-10: the pack builds without the branch; the Open Door
+finale stays reachable through `greek-bury-polynices`; the Cithaeron road
+is already unconditional. Once the claim is gone its four phrases are no
+longer checked, and nothing can make them true. `guard-tablet.webp` and
+its provenance entries become unused and stay in place.
 
 ## Check before building
 
