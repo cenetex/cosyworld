@@ -31,7 +31,7 @@ There is no wallet-owned location **pass** in the accepted target.
 
 ### Contextual group language
 
-[ADR 0009](../../docs/decisions/0009-companies-ventures-formations-and-shared-travel.md)
+ADR 0009
 defines Company, Venture, Formation, and detachment as authoritative design
 identities, not additional permanent player nouns or navigation surfaces.
 Ordinary copy uses **your party**, a Company's chosen name, **travel together**,
@@ -78,7 +78,7 @@ accessibility concepts, routes, state projections, or worldpack requirements.
 
 ## Exploration action verbs
 
-[ADR 0012](../../docs/decisions/0012-notice-search-and-scout-targets.md)
+ADR 0012
 gives each exploration verb one target and one promise. These are actions, not
 new nouns in the player vocabulary.
 

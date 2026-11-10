@@ -392,9 +392,7 @@ The current card pack supports saved choices, flags, receipts, and item
 placement. The planned scenes also need new residents, evidence, and
 authored actions. Each wider effect, such as a rescue or new public hearing,
 needs an explicit supported world change before its verse can be earned.
-The poem layer should select text from those recorded events. The existing
-[Quest Grammar and Return plan](../../archive/backlog/quest-grammar-and-return.md)
-provides the wider design for such evidence and return scenes.
+The poem layer should select text from those recorded events. The wider design for such evidence and return scenes is a future task.
 
 For the opening, use the current Greek receipts and story-card states.
 For expansion, add stable stanza IDs, work and account IDs, the source

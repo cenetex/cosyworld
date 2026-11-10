@@ -15,9 +15,7 @@ releases. [cosyworld.fly.dev](https://cosyworld.fly.dev/) tests changes from
 `main` through automatic deployment.
 
 Build new game rules in these shipping modules and check them through
-`test/card-*.test.mjs`. The [generated-world backlog](../../docs/archive/backlog/generated-world-core.md)
-keeps the useful ideas from the retired standalone engine, with its source
-revision for reference. Existing player saves use `world.mjs` and
+`test/card-*.test.mjs`. Existing player saves use `world.mjs` and
 `legacy-saves.mjs`; keep their migrations with changes to the save format.
 
 ### Allocation on the play path

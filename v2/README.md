@@ -45,5 +45,4 @@ The gateway keeps a short summary and redacts echoed image data or bearer tokens
 
 Use the [shared-world guide](docs/card-table/shared-worlds.md) for claims,
 action queues, journals, checkpoints, and versioned rules. Preserve deployment
-bundle guards and the existing volume during release. Historical classic
-operations remain in the [runtime archive](../docs/archive/classic/v2/README.md).
+bundle guards and the existing volume during release.

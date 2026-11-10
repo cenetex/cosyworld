@@ -52,7 +52,7 @@ entities or event history.
 
 Numeric C-kernel ids remain local runtime handles. Durable records and APIs
 carry a `world_id` and a canonical reference. Authored seed entities keep the
-pack references accepted in [ADR 0001](0001-cards-are-entitlements.md); runtime
+pack references accepted in ADR 0001; runtime
 entities use opaque ids minted by the canonical authority.
 
 | Concept | Canonical identity semantics |

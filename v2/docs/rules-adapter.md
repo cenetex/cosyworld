@@ -93,6 +93,4 @@ determine carried-deck legality. Empty bags may be stored in another bag but
 never contribute recursive capacity.
 
 See [combat-system.md](combat-system.md),
-[action-pack-authoring.md](action-pack-authoring.md), the
-[action architecture](../../docs/archive/classic/docs/systems/04-action-system.md), and the
-[implementation ledger](../../docs/archive/backlog/srd-action-card-foundation.md).
+[action-pack-authoring.md](action-pack-authoring.md).
