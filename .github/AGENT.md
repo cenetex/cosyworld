@@ -92,7 +92,7 @@ every early notice path, plus the image-first, actions, beat-stack, and unveil
 journeys and the opening's Steam Clock walk, `check-card-awakening`) run on
 every pull request and main push, each in its own parallel job, and count in the `fast` result; a core smoke a path also selects runs
 once and takes no path slot. Each smoke serves the static card game; smokes
-that start the Rust server run only in the full suite. A change to the Rust crate, the C kernel, the AI model
+that start the Rust server run only in the full suite. A change to the Rust crate, the card C session guard, the AI model
 crate, or a file the crate reads (such as `v2/card-game/senses.json`,
 `packs.json`, or a test fixture) adds the `rust` job: the tests of the modules
 that own or read the changed files, from Cargo's restored cache.
