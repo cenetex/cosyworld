@@ -52,10 +52,11 @@ consequence is a chore. Both can exist, but should not pretend to be quests.
 
 ## RatiRadio: a reference journey
 
-Keep the [existing contract](ratiradio.md): beanie opens Dispatch;
-thermos opens Listening; figurine opens Booth; glass, figurine and beanie
-are placed **directly** in Listening to wake Raven. Routes latch open.
-The Request Slip remains optional. Nothing consumes the objects.
+Keep the [existing contract](ratiradio.md): the beanie, carried, opens
+Dispatch; the thermos, set down at the Dispatch Window, opens Listening; a Talk
+with RATi while holding the figurine opens Booth; glass, figurine and beanie are
+placed **directly** in Listening to wake Raven. Routes latch open. The Request
+Slip remains optional. Nothing consumes the objects.
 
 Give the thresholds different dramatic functions while keeping those
 facts: the **Staff Kitchen** contains a missing worker's trace; the
@@ -64,8 +65,9 @@ Room** is RATi's genuine home rather than a reward kiosk; the
 **Broadcast Booth** pays off with a real song. The final return is not a
 fourth door: it restores a relationship and releases a new roaming Raven.
 
-The condition text in locked-card descriptors continues to tell the player
-which object opens each route. Scene copy should provide physical evidence
+The three doors use three different locks (held, placed, heard), so the
+station is not three copies of one key and door. The condition text in
+locked-card descriptors continues to tell the player what opens each route. Scene copy should provide physical evidence
 and atmosphere instead of repeating each instruction. The player can move
 an item away after opening a passage; descriptions must not falsely claim
 it remains on a shelf. The Raven figurine never becomes the living Raven.

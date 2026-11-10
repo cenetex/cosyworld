@@ -363,6 +363,12 @@ and beanie lie in the Listening Room, the Request Slip is optional.
 | Listening Room | carry the Thermos to it | the Thermos set down at the Dispatch Window, on the metal plate its line already names | a thing placed |
 | Broadcast Booth | carry the Raven Figurine to it | Talk with RATi while holding the figurine | something heard |
 
+Slice 2 built this as pack data. RATi roams, so the Talk is authored once in
+each station room he can stand in with the traveler. A sealed way's quest takes
+only a kind and a target (`pack-schema.mjs:1304`, `gateQuest` `world.mjs:417`),
+so the descriptor of the Thermos door reads "hold the Thermos" while the
+button gives the full reason; a placement step needs a rules slice.
+
 **Generated worlds.** The entry place and the first avatar stay open; every
 card drawn after arrives locked and visible. Code, not the model, writes
 the lock, as it writes the links today: a new place joins by a `routes`

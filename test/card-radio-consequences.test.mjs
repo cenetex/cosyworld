@@ -170,11 +170,30 @@ const ruleFile = (name) =>
   readFileSync(
     new URL(`../v2/orchestrator-rust/src/card_shared/${name}`, import.meta.url),
   );
-function assertReturn(world, at) {
+// The frozen journey was recorded before the Thermos and Booth locks (#2605).
+// Current rules replay it with the extra plays those locks need: the Thermos
+// set down at the Dispatch Window, and a Talk with RATi holding the figurine.
+// `added` counts them, so each turn and revision shifts by that many.
+const thermos = "ratiradio-thermos";
+// The plays to add before frozen step `index`, then before local command
+// `index`. The frozen journey carries the Thermos on to the Listening Room.
+const lockPlays = (index) =>
+  index === 43
+    ? [["drop", thermos], ["take", thermos]]
+    : index === 56
+      ? [["talk", "ratiradio-rati"]]
+      : [];
+const localLockPlays = (index) =>
+  index === 42
+    ? [["drop", thermos], ["take", thermos]]
+    : index === 55
+      ? [["talk", "ratiradio-rati"]]
+      : [];
+function assertReturn(world, at, added = 0) {
   const radio = world.packs.ratiradio;
   expect(!!radio.flags["raven-awake"]).toBe(at >= 59);
-  expect(radio.receipts[receipt]).toBe(at >= 59 ? 55 : undefined);
-  if (at >= 59) expect(radio.met[raven]).toBe(55);
+  expect(radio.receipts[receipt]).toBe(at >= 59 ? 55 + added : undefined);
+  if (at >= 59) expect(radio.met[raven]).toBe(55 + added);
   if (at >= 60) expect(world.items[glass].holder).toBe("vale");
   if (at >= 68) {
     expect(world.actors.vale.place).toBe(home);
@@ -194,10 +213,12 @@ function assertReturn(world, at) {
   const milestone = ravenTrace.milestones.find((m) => m.afterOperation === at);
   if (milestone) {
     expect([world.turn, world.revision]).toEqual([
-      milestone.turn,
-      milestone.revision,
+      milestone.turn + added,
+      milestone.revision + added,
     ]);
-    expect(world.actors["ratiradio-rati"].place).toBe(milestone.ratiPlace);
+    // RATi's wander follows the turn, which the added plays shift.
+    if (!added)
+      expect(world.actors["ratiradio-rati"].place).toBe(milestone.ratiPlace);
     for (const [item, holder] of Object.entries(milestone.holders))
       expect(world.items[item].holder).toBe(holder);
   }
@@ -240,9 +261,35 @@ for (const historical of [true, false])
         ).toBe(ravenTrace.contentSha256);
         expect(digest(world)).toBe(ravenTrace.initialSha256);
       }
-      let fork;
+      let fork,
+        added = 0;
+      const context = { actor: "vale", claimed: ["vale"], present: ["vale"] };
       for (const [index, step] of ravenTrace.steps.entries()) {
-        const request = { ...step.request, world },
+        for (const [kind, to] of historical ? [] : lockPlays(index)) {
+          const action = run({ op: "view", ...context, world }).actions.find(
+            (a) => a.kind === kind && (a.item === to || a.target === to),
+          );
+          expect(action, `${kind} ${to}`).toBeDefined();
+          const extra = {
+            op: "play",
+            ...context,
+            action,
+            revision: world.revision,
+            world,
+          };
+          const result = run(extra);
+          expect(result.ok, result.error).toBe(true);
+          expect(dispatchShared(extra)).toEqual(result);
+          world = sorted(result.world);
+          added++;
+        }
+        const request = {
+            ...step.request,
+            ...(!historical && step.request.op === "play"
+              ? { revision: world.revision }
+              : {}),
+            world,
+          },
           before = structuredClone(request);
         if (request.op === "play")
           expect(run({ ...request, op: "view" }).actions).toContainEqual(
@@ -268,9 +315,10 @@ for (const historical of [true, false])
           );
         }
         world = sorted(result.world);
-        assertReturn(world, index + 1);
+        assertReturn(world, index + 1, added);
         if (index === 57) fork = structuredClone(world);
-        if (index >= 60 && index <= 63)
+        // Raven's wander is a function of the turn, which the added plays shift.
+        if (historical && index >= 60 && index <= 63)
           expect(world.actors[raven].place).toBe(
             ["ratiradio-dispatch-window", kitchen, "station", "pond"][
               index - 60
@@ -300,7 +348,13 @@ for (const historical of [true, false])
       }
       // Deposit history alone is insufficient. RATi need not be present.
       for (const [index, step] of ravenTrace.negativeFork.steps.entries()) {
-        const request = { ...step.request, world: fork },
+        const request = {
+            ...step.request,
+            ...(!historical && step.request.op === "play"
+              ? { revision: fork.revision }
+              : {}),
+            world: fork,
+          },
           before = structuredClone(request);
         expect(run({ ...request, op: "view" }).actions).toContainEqual(
           request.action,
@@ -316,21 +370,32 @@ for (const historical of [true, false])
         expect(request).toEqual(before);
         fork = sorted(result.world);
         expect(!!fork.packs.ratiradio.flags["raven-awake"]).toBe(index === 13);
-        if (index === 12)
+        if (historical && index === 12)
           expect(fork.actors["ratiradio-rati"].place).toBe(
             "ratiradio-dispatch-window",
           );
       }
-      expect(fork.packs.ratiradio.receipts[receipt]).toBe(68);
-      expect(fork.actors["ratiradio-rati"].place).toBe(kitchen);
+      expect(fork.packs.ratiradio.receipts[receipt]).toBe(68 + added);
+      if (historical) expect(fork.actors["ratiradio-rati"].place).toBe(kitchen);
     },
   );
 
 it("reaches a local Raven return using the local NPC route and reloads every play", () => {
   let world = createWorld({ seed: 92 }),
     met,
-    awakened;
+    awakened,
+    added = 0;
   for (const [index, command] of ravenTrace.localRoute.commands.entries()) {
+    for (const [kind, to] of localLockPlays(index)) {
+      const action = legalActions(world).find(
+        (a) => a.kind === kind && (a.item === to || a.target === to),
+      );
+      expect(action, `${kind} ${to}`).toBeDefined();
+      const result = play(world, action, world.revision);
+      expect(result.ok, result.error).toBe(true);
+      world = reload(result.state);
+      added++;
+    }
     const before = structuredClone(world),
       request = structuredClone(command);
     if (command.op === "play")
@@ -340,7 +405,12 @@ it("reaches a local Raven return using the local NPC route and reloads every pla
       const next = structuredClone(world);
       holdChoice(next, "vale", command.choice);
       result = { ok: true, state: next };
-    } else result = play(world, command.action, command.revision);
+    } else
+      result = play(
+        world,
+        command.action,
+        command.revision === undefined ? undefined : world.revision,
+      );
     expect(result.ok, result.error).toBe(true);
     expect(world).toEqual(before);
     expect(command).toEqual(request);
@@ -360,7 +430,7 @@ it("reaches a local Raven return using the local NPC route and reloads every pla
     }
   }
   expect(ravenTrace.localRoute.commands).toHaveLength(67);
-  expect([world.turn, world.revision]).toEqual([63, 67]);
+  expect([world.turn, world.revision]).toEqual([63 + added, 67 + added]);
   expect(world.items[glass].holder).toBe("vale");
   expect(world.items[figurine].holder).toBe(home);
   expect(world.actors.vale.place).toBe(home);

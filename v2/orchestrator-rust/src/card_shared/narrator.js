@@ -15928,8 +15928,8 @@
           },
           "ratiradio-thermos": {
             name: "Thermos",
-            text: "Still warm at the neck. Lost beyond the station, it opens the Listening Room when carried.",
-            persona: "A dented steel thermos with a dark lid. Its warmth opens the Listening Room. Returning it is optional.",
+            text: "Still warm at the neck. Lost beyond the station; set it down at the Dispatch Window to open the Listening Room.",
+            persona: "A dented steel thermos with a dark lid. Set down at the Dispatch Window, its warmth opens the Listening Room. It can be picked up again.",
             holder: "ratiradio-dispatch-window",
             art: "assets/ratiradio/thermos.webp",
             reservedUntil: [
@@ -15944,7 +15944,7 @@
           },
           "ratiradio-raven-figurine": {
             name: "Raven Figurine",
-            text: "A small ceramic raven, lost beyond the station. Carry it to open the Broadcast Booth, then leave it in the Listening Room.",
+            text: "A small ceramic raven, lost beyond the station. Hold it and talk with RATi to open the Broadcast Booth, then leave it in the Listening Room.",
             persona: "A small black ceramic raven with a glazed eye. It remains a ceramic object when the living Raven appears. It must rest directly in the Listening Room with the glass and beanie.",
             holder: "ratiradio-listening-room",
             art: "assets/ratiradio/raven-figurine.webp",
@@ -16023,7 +16023,7 @@
                 kind: "item",
                 target: "ratiradio-thermos"
               },
-              reason: "Carry the Thermos to open this passage."
+              reason: "Put the Thermos down at the Dispatch Window to open this passage."
             }
           },
           {
@@ -16038,10 +16038,10 @@
             ],
             sealed: {
               quest: {
-                kind: "item",
-                target: "ratiradio-raven-figurine"
+                kind: "person",
+                target: "ratiradio-rati"
               },
-              reason: "Carry the Raven Figurine to open this passage."
+              reason: "Talk with RATi while holding the Raven Figurine to open this passage."
             }
           }
         ],
@@ -16108,9 +16108,9 @@
             text: "The Thermos warms the metal plate beside the door. Inside, the radio comes through clear; Listening Room opens.",
             requires: [
               {
-                kind: "holding",
+                kind: "item_at",
                 item: "ratiradio-thermos",
-                role: "actor"
+                place: "ratiradio-dispatch-window"
               }
             ],
             effects: [
@@ -16124,10 +16124,10 @@
           },
           {
             id: "ratiradio-open-broadcast-booth",
-            subject: "ratiradio-listening-room",
+            subject: "ratiradio-rati",
             at: "ratiradio-listening-room",
             label: "The Broadcast Booth door clicks open.",
-            text: "The figurine's glazed eye catches a sliver of light. The Broadcast Booth door clicks open.",
+            text: "RATi watches the figurine's glazed eye catch a sliver of light. The Broadcast Booth door clicks open.",
             requires: [
               {
                 kind: "holding",
@@ -16142,7 +16142,51 @@
                 value: true
               }
             ],
-            on: "meet"
+            on: "talk"
+          },
+          {
+            id: "ratiradio-open-broadcast-booth-kitchen",
+            subject: "ratiradio-rati",
+            at: "ratiradio-staff-kitchen",
+            label: "The Broadcast Booth door clicks open.",
+            text: "RATi watches the figurine's glazed eye catch a sliver of light. The Broadcast Booth door clicks open.",
+            requires: [
+              {
+                kind: "holding",
+                item: "ratiradio-raven-figurine",
+                role: "actor"
+              }
+            ],
+            effects: [
+              {
+                kind: "set_flag",
+                key: "booth-open",
+                value: true
+              }
+            ],
+            on: "talk"
+          },
+          {
+            id: "ratiradio-open-broadcast-booth-dispatch",
+            subject: "ratiradio-rati",
+            at: "ratiradio-dispatch-window",
+            label: "The Broadcast Booth door clicks open.",
+            text: "RATi watches the figurine's glazed eye catch a sliver of light. The Broadcast Booth door clicks open.",
+            requires: [
+              {
+                kind: "holding",
+                item: "ratiradio-raven-figurine",
+                role: "actor"
+              }
+            ],
+            effects: [
+              {
+                kind: "set_flag",
+                key: "booth-open",
+                value: true
+              }
+            ],
+            on: "talk"
           },
           {
             id: "ratiradio-return-things",
