@@ -395,6 +395,7 @@ try {
         `${width} ${kind} ${suffix}: lamp pool must match rendered prop`,
       );
       report.push({ width, lamp: kind, renderer: suffix, passed: true });
+      await page.waitForTimeout(1200); // Let the entrance fade settle for visual evidence.
       await page.screenshot({
         path: new URL(`lamp-${width}-${kind}-${suffix}.png`, output).pathname,
       });
