@@ -28,13 +28,13 @@
           image: "assets/shared/items/lamp.png"
         },
         home: {
-          id: "station",
-          name: "Empty station",
-          text: "The empty clock hangs above rails that vanish into pale mist. An ivory bench waits beside the pond door.",
-          image: "assets/shared/places/station.png",
+          id: "attic",
+          name: "Mirror attic",
+          text: "A tall mirror shows only the warm attic. Dust gathers along its frame.",
+          image: "assets/shared/places/attic-dark.webp",
           entrance: {
-            name: "Lit arch",
-            text: "The lamp lights a stone arch. Pale rails lead through it to the empty station."
+            name: "Mirror",
+            text: "The lamp wakes the tall mirror. It shows only the warm attic."
           }
         },
         image: "assets/shared/characters/vale.png"
@@ -7927,7 +7927,8 @@
                 value: true
               }
             ],
-            workId: "sophocles-ajax"
+            workId: "sophocles-ajax",
+            on: "talk"
           },
           {
             id: "greek-ajax-learn-shield-odysseus",
@@ -7960,7 +7961,8 @@
                 value: true
               }
             ],
-            workId: "sophocles-ajax"
+            workId: "sophocles-ajax",
+            on: "talk"
           },
           {
             id: "greek-ajax-learn-shield-tecmessa",
@@ -7993,7 +7995,8 @@
                 value: true
               }
             ],
-            workId: "sophocles-ajax"
+            workId: "sophocles-ajax",
+            on: "talk"
           },
           {
             id: "greek-ajax-deliver-shield",
@@ -8064,7 +8067,8 @@
                 value: true
               }
             ],
-            workId: "sophocles-ajax"
+            workId: "sophocles-ajax",
+            on: "talk"
           },
           {
             id: "greek-ajax-deliver-plea",
@@ -8440,7 +8444,8 @@
                 value: true
               }
             ],
-            workId: "sophocles-ajax"
+            workId: "sophocles-ajax",
+            on: "talk"
           },
           {
             id: "greek-ajax-return-public",
@@ -8590,7 +8595,8 @@
                 value: true
               }
             ],
-            workId: "sophocles-ajax"
+            workId: "sophocles-ajax",
+            on: "talk"
           },
           {
             id: "greek-ajax-return-household",
@@ -8745,7 +8751,8 @@
                 value: true
               }
             ],
-            workId: "sophocles-ajax"
+            workId: "sophocles-ajax",
+            on: "talk"
           },
           {
             id: "greek-ajax-return-appeal",
@@ -14678,7 +14685,8 @@
                 key: "forest-walkers-heard",
                 value: true
               }
-            ]
+            ],
+            on: "talk"
           },
           {
             id: "forest-hear-walkers-oak",
@@ -14705,7 +14713,8 @@
                 key: "forest-walkers-heard",
                 value: true
               }
-            ]
+            ],
+            on: "talk"
           },
           {
             id: "forest-sit-watch",
