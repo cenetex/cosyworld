@@ -8,7 +8,6 @@ const config = JSON.parse(
 const pick = (...changed) => selectSmokes(changed, config);
 
 describe("fast check smoke selection", () => {
-
   it("names only smoke scripts that exist", () => {
     const named = [
       config.core,
