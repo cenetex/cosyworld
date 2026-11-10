@@ -6,9 +6,9 @@ Nothing here is built. No rules, pack or client change ships with this note.
 Issue: [#2605](https://github.com/cenetex/cosyworld/issues/2605), under
 [#2576](https://github.com/cenetex/cosyworld/issues/2576).
 
-Owner direction, 2026-11-10: remove story choice buttons and quest sources.
-One want per avatar. The want for Level Up becomes Sleep at home; the rest is
-procedural. Story arcs sit on top, and that part needs design.
+Owner direction, 2026-11-10: remove story choice buttons and quest sources;
+one want per avatar; Level Up becomes Sleep at home; the rest is procedural;
+story arcs sit on top.
 
 Line numbers are for main at `c3bfac77a` (rules `full-card-world/131`). Pack
 counts are computed from `v2/card-game/packs.json` with a short Node script
@@ -117,17 +117,14 @@ That is **9** in the mounted packs: Greek 5, RatiRadio 4, the other four
 packs 0. The hub's own gates (home doors, the mirror) are not counted: they
 are not drawn as locked boxes.
 
-- **Selecting one** shows what opens it: its authored reason, or a quest
-  caption built from its conditions (`lockedQuest`, `locked-box.mjs:21`). The
+- **Selecting one** shows what opens it: its authored reason, or a caption
+  built from its conditions (`lockedQuest`, `locked-box.mjs:21`). The
   context button reads "Locked" and is disabled (`app.mjs:2636`).
-- **Opening one** happens when its facts hold: the guard has the Writ, the
+- **Opening one** happens when its facts hold: the guard has the Writ, a
   flag is set, the maker holds the set (`settleCrafting`,
-  `pack-items.mjs:102`), the keepsakes lie in the room. The box turns over
-  once, in this browser.
+  `pack-items.mjs:102`). The box turns over once, in this browser.
 - **No XP is paid for opening.** XP comes only if the box's quest was taken
-  (source 5, four of the nine) and met, as any quest.
-- **Made things lock again** when eaten or used (`consume`,
-  `pack-items.mjs:82`), and a guard may bar his way again.
+  (source 5, four of the nine) and met. Made things lock again when used up.
 
 A *closed* box is different: a card this browser has not turned over yet. It
 reads "Tap to open", needs no rule and pays nothing (`app.mjs:479-482`).
@@ -170,17 +167,15 @@ reads "Tap to open", needs no rule and pays nothing (`app.mjs:479-482`).
 
 ### What the reference content leans on
 
-- **Greek burial.** Already wants and facts, not buttons. Antigone and the
-  shade each hold a starter want to have the oil, cloth and shovel laid in
-  the Hollow (`step.verb: "lay"`). Three `on: "give"` choices anoint, shroud
-  and bury, each gated on the flag before it. The Hollow is a locked box;
-  the battlefield behind the guard is another; the bread is a third.
-- **RatiRadio.** Six `on: "meet"` choices set flags. Its three doors and
-  Raven are four locked boxes. RATi levels at home.
+- **Greek burial.** Already wants and facts. Antigone and the shade hold a
+  starter want to have the oil, cloth and shovel laid in the Hollow; three
+  `on: "give"` choices anoint, shroud and bury. Three locked boxes: the
+  Hollow, the guarded battlefield, the bread.
+- **RatiRadio.** Six `on: "meet"` choices set flags. Three doors and Raven
+  are its four locked boxes. RATi levels at home.
 - **Lonely Forest opening.** The first quest waits for the pond
-  (`questsBeginAt`, `forest.json:2`). "Stay for tea" is an `on: "talk"`
-  choice. RATi hides a button and its finder gets a story quest (source 6).
-  It has no locked box.
+  (`forest.json:2`). "Stay for tea" is an `on: "talk"` choice. RATi hides a
+  button and its finder gets a story quest (source 6). No locked box.
 - **Find home.** Homecoming is source 7. The world slot is #2282, not built.
 
 ## The design
@@ -261,12 +256,11 @@ made things, sealed residents), not rules.
 - **Long-rest dreams stay.** The halfway glimpse still comes on a long rest
   at home. Today it fixes one aspect of the level quest's first step
   (`glimpse.mjs`); with no level quest, what it shows is an open question.
-- Not ready, in the existing places only:
-  - Away from home, the quest card reads Go to, as a rest step does now.
-  - At home, the context button offers Wait, then Sleep.
-  - Where Sleep cannot be offered, the button says why: "Can't sleep during
-    a standoff", "Can't sleep aboard", "The lamp is about to go out".
-  - Woken early, nothing rises and the want stays.
+- Not ready, in the existing places only: away from home the quest card
+  reads Go to; at home the context button offers Wait, then Sleep; where
+  Sleep cannot be offered the button says why ("Can't sleep during a
+  standoff", "Can't sleep aboard", "The lamp is about to go out"). Woken
+  early, nothing rises and the want stays.
 - Residents keep today's rule. `levelAtHome` stays an opt-in.
 - The level quest and its drawn steps go.
 
