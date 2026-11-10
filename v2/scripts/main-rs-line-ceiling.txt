@@ -485,4 +485,7 @@
 # 58658 -> 58660: module declarations for the shared authoring draft contract
 # and private pack routes. Validation, storage, handlers and tests stay in
 # authoring_draft.rs, card_authoring.rs and card_authoring_tests.rs.
-58660
+#
+# 58660 -> 58658: the retired first-tale presentation receipt module and its
+# route are gone.
+58658

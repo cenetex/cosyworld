@@ -2238,19 +2238,6 @@ async fn stale_pass_certificate_does_not_release_inactive_inventory() {
     );
 }
 
-#[tokio::test]
-async fn legacy_pass_endpoint_refuses_an_uncertified_request() {
-    let (status, Json(response)) = legacy_pass_requires_certificate(Json(ActorRequest {
-        actor_id: 5_000,
-        actor_session: None,
-    }))
-    .await;
-    assert_eq!(status, StatusCode::BAD_REQUEST);
-    assert!(!response.ok);
-    assert_eq!(response.status, 400);
-    assert!(response.events.is_empty());
-}
-
 #[test]
 fn public_state_keeps_the_action_hand_bounded() {
     let mut runtime = RuntimeWorld::seeded();

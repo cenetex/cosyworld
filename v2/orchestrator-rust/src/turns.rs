@@ -2548,29 +2548,6 @@ pub(super) async fn pass_action(
     })
 }
 
-pub(super) async fn legacy_pass_requires_certificate(
-    payload: Json<ActorRequest>,
-) -> (StatusCode, Json<ActionResponse>) {
-    legacy_action_requires_certificate(payload).await
-}
-
-/// Legacy per-action transports cannot prove that the submitted mutation was
-/// dealt in the actor's current hand.  Keep the handler helpers available for
-/// trusted composition and direct unit tests, but require public clients to
-/// submit the versioned offer certificate through `/actions/submit`.
-pub(super) async fn legacy_action_requires_certificate(
-    Json(_payload): Json<ActorRequest>,
-) -> (StatusCode, Json<ActionResponse>) {
-    (
-        StatusCode::BAD_REQUEST,
-        Json(ActionResponse {
-            ok: false,
-            status: 400,
-            events: Vec::new(),
-        }),
-    )
-}
-
 #[cfg(test)]
 pub(super) async fn draw_action(
     client: ConnectInfo<SocketAddr>,
