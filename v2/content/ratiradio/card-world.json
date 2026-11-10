@@ -9,14 +9,14 @@
   "places": {
     "ratiradio-staff-kitchen": {
       "name": "Staff Kitchen",
-      "text": "A red thread clings to the empty coat hook. Beyond the fridge's hum, the Dispatch shutter stays shut.",
+      "text": "The fridges keep the hours here. One door stands barely ajar, casting cold light across the worn tiles.",
       "persona": "A worn teal staff kitchen with old refrigerators, pale tiles, a chair, a sink, a lost-property tray. The staff entrance leads back to Empty Station. Movable possessions may be carried away.",
       "exits": [],
       "backdrop": "assets/ratiradio/staff-kitchen.webp"
     },
     "ratiradio-dispatch-window": {
       "name": "Dispatch Window",
-      "text": "A pale ring marks the counter where a warm vessel once stood. A little radio music carries through the wall.",
+      "text": "A clock without numbers hangs over wired glass. Through the open hatch, an empty desk keeps its own night shift.",
       "persona": "A late-night dispatch hatch with a wooden counter, old shift notes, an empty shelf. Warm light leaks from the Listening Room door. The staff kitchen is behind you.",
       "exits": [
         "ratiradio-staff-kitchen"
@@ -25,7 +25,7 @@
     },
     "ratiradio-listening-room": {
       "name": "Listening Room",
-      "text": "A water ring stains RATi's table. A red thread hangs from the chair; one dustless patch on the shelf is shaped like a bird.",
+      "text": "RATi's armchair faces a small radio. Across the rug, the closed Booth door waits in warm lamplight.",
       "persona": "RATi's home and sanctuary: worn armchair, amber lamp, small radio, a pale glass ring on the table, a bare chair back, a ledge beside the booth door. RATi roams but returns here to gain levels. The ceramic figurine remains an object when the living Raven arrives.",
       "exits": [
         "ratiradio-dispatch-window"
@@ -35,7 +35,7 @@
     },
     "ratiradio-broadcast-booth": {
       "name": "Broadcast Booth",
-      "text": "The ON AIR lamp glows above an empty chair. One fader waits at the top of its track; beyond the glass, rain covers the dark.",
+      "text": "A red lamp glows over an empty chair. Amber meters stir on the mixing desk; beyond the window, another room is dark.",
       "persona": "An empty radio booth with a mixing desk, suspended microphone, empty host chair, rain-dark window. A late-night broadcast continues. The glass belongs back in the Listening Room.",
       "exits": [
         "ratiradio-listening-room"
