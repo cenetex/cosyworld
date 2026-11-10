@@ -109,3 +109,13 @@ local light/dark review and the new test's `node --check` also passed.
 Repository Vitest and browser results must be read from CI or the integrating
 checkout, not assumed from the local image checks. No runtime manifest was
 edited by hand.
+
+## Alpha-aware intro and settings rendering
+
+The title catalogue now keeps its original `src` identities and saved indices,
+with a `transparent` field selecting these full-resolution masters for intro
+and settings. The two gold, two teal, and latest waterline masters are public
+assets. The image builder supplies alpha-preserving stage/phone variants;
+masters are never overwritten. Title rarity uses an alpha-aware drop shadow,
+like the toolbar/settings logos, instead of a rectangular image frame. Actual
+card rarity borders are unchanged.

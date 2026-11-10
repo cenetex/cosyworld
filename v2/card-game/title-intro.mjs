@@ -6,7 +6,13 @@ import { count } from "./metrics.mjs";
 import { revealCard } from "./card-reveal.mjs";
 import { ghostOf, releaseGhost } from "./card-ghost.mjs";
 import { tiers } from "./level-tiers.mjs";
-import { LOGOS, logoSite, showToolbarLogo, worldLogo } from "./title-logo.mjs";
+import {
+  LOGOS,
+  logoSite,
+  showToolbarLogo,
+  transparentLogo,
+  worldLogo,
+} from "./title-logo.mjs";
 import { createTitleSong } from "./title-song.mjs";
 import { pipEntry } from "./pip-landing.mjs";
 import {
@@ -804,7 +810,7 @@ export function playTitleIntro({
     image.onerror = () => resolve(false);
     setTimeout(() => resolve(false), LOAD_LIMIT_MS);
   });
-  if (!cardOnly) image.src = imageUrl(source);
+  if (!cardOnly) image.src = imageUrl(transparentLogo(source));
   else image.hidden = true;
 
   // The face is the avatar's card from the hand, as the table drew it. The

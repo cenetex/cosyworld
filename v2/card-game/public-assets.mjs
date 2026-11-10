@@ -75,8 +75,8 @@ const files = [
   "assets/card-back-locked.webp",
   // The new-world title (title-intro.mjs); logos may share toolbar art.
   ...new Set(
-    titleLogos.logos.flatMap(({ src, toolbar }) =>
-      toolbar ? [src, toolbar.src] : [src],
+    titleLogos.logos.flatMap(({ src, toolbar, transparent }) =>
+      [src, toolbar?.src, transparent].filter(Boolean),
     ),
   ),
   "assets/music/title-attic-lamp.mp3",
