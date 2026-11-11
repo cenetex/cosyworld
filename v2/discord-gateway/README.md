@@ -13,7 +13,8 @@ npm install
 DISCORD_TOKEN=... ORCHESTRATOR_URL=http://127.0.0.1:3102 npm start
 ```
 
-Required env: `DISCORD_TOKEN`. Optional: `ORCHESTRATOR_URL`,
+Required env: `DISCORD_TOKEN`. For Talk: `COSYWORLD_BOT_TOKEN` (the service
+token the orchestrator trusts). Optional: `ORCHESTRATOR_URL`,
 `DISCORD_BINDINGS_FILE`.
 
 ## Test

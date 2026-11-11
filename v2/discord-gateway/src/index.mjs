@@ -1,8 +1,10 @@
 // Discord adapter. This file is the only one that imports discord.js; the core
-// modules above are testable without it. Talk routing lands in a later slice.
+// modules are testable without it.
 import { Client, GatewayIntentBits } from "discord.js";
-import { loadBindings, saveBindings } from "./bindings.mjs";
+import { loadBindings, saveBindings, bindingFor } from "./bindings.mjs";
 import { commandDefinitions, dispatch } from "./commands.mjs";
+import { residentIdentity } from "./identity.mjs";
+import { resolveTarget, resolveWorld, talkTo } from "./talk.mjs";
 
 const token = process.env.DISCORD_TOKEN;
 const orchestrator = (process.env.ORCHESTRATOR_URL || "http://127.0.0.1:3102").replace(/\/+$/, "");
@@ -27,6 +29,12 @@ function residentsForPack(pack) {
 
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 const bindings = loadBindings(bindingsFile);
+
+async function webhookForChannel(channel) {
+  const webhooks = await channel.fetchWebhooks();
+  const owned = webhooks.find((webhook) => webhook.owner?.id === client.user?.id);
+  return owned ?? (await channel.createWebhook({ name: "CosyWorld" }));
+}
 const deps = {
   bindings,
   save: () => saveBindings(bindingsFile, bindings),
@@ -65,8 +73,39 @@ client.on("interactionCreate", async (interaction) => {
 
 client.on("messageCreate", async (message) => {
   if (message.author.bot) return;
-  // Phase 1b: route bound-channel Talk to the shared narrative endpoint.
-  // The skeleton ignores chat until that endpoint exists.
+  const binding = bindingFor(bindings, message.channelId);
+  if (!binding || binding.mode !== "room") return;
+  const residents = residentsForPack(binding.pack);
+  const target = resolveTarget(message.content, residents);
+  if (!target) return;
+  const botToken = process.env.COSYWORLD_BOT_TOKEN;
+  try {
+    const world = await resolveWorld(fetch, orchestrator, {
+      token: botToken,
+      discordUserId: message.author.id,
+    });
+    if (!world) return;
+    const lines = await talkTo(fetch, orchestrator, {
+      worldId: world.worldId,
+      avatarId: world.avatarId,
+      target,
+      text: message.content,
+      token: botToken,
+      discordUserId: message.author.id,
+    });
+    const webhook = await webhookForChannel(message.channel);
+    for (const line of lines) {
+      const resident = residents.find((r) => r.id === line.id) ?? { id: line.id, name: line.id };
+      const identity = residentIdentity(resident, `${orchestrator}/assets`);
+      await webhook.send({
+        content: line.text,
+        username: identity.username,
+        avatarURL: identity.avatarUrl ?? undefined,
+      });
+    }
+  } catch (error) {
+    console.error("talk failed", error);
+  }
 });
 
 client.login(token);

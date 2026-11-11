@@ -6,7 +6,7 @@
   "description": "CosyWorld's Discord companion bot: renders the world into assigned channels.",
   "scripts": {
     "start": "node src/index.mjs",
-    "test": "node --test test/"
+    "test": "node --test test/*.test.mjs"
   },
   "dependencies": {
     "discord.js": "^14.16.0"
