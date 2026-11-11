@@ -277,7 +277,7 @@ async function start() {
     onOpen(status) {
       seed.open(status);
       maker.clear();
-      visuals.clear();
+      visuals.clear(true);
       artLibrary.clear();
       creator.open(status);
       sweep.open(status);
