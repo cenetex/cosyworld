@@ -4,3 +4,16 @@ v2/content/willows/source-text.txt whitespace=-blank-at-eol,-blank-at-eof
 # Preserve pinned worldpack payload bytes on every checkout.
 v2/worldpacks/** -text
 test/fixtures/card-store/** -text
+
+# Rebuilt by `npm run regen`; GitHub collapses these in pull request diffs.
+# (GitHub never runs custom merge drivers, so conflicts in them are settled by
+# running `npm run regen` after merging main, not by a driver.)
+test/journeys/checkpoints.json linguist-generated=true
+v2/card-game/packs.json linguist-generated=true
+v2/card-game/media-manifest.json linguist-generated=true
+v2/card-game/image-variants.json linguist-generated=true
+v2/card-game/music-streams.json linguist-generated=true
+v2/orchestrator-rust/src/card_shared/engine-v*.js linguist-generated=true
+v2/orchestrator-rust/src/card_shared/narrator.js linguist-generated=true
+v2/orchestrator-rust/src/card_shared/content.json linguist-generated=true
+v2/orchestrator-rust/src/card_narrative/authored-text.json linguist-generated=true
