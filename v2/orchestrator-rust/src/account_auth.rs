@@ -603,7 +603,13 @@ fn discord_redirect_uri() -> AccountResult<String> {
         .map_err(|_| account_error("DISCORD_REDIRECT_URI is not configured"))
 }
 
+fn valid_redirect(redirect: &str) -> bool {
+    redirect.starts_with('/') && !redirect.starts_with("//")
+}
+
 fn redirect_with_cookie(location: &str, cookie: String) -> Response {
+    // Never redirect off-site: the OAuth state carries a client-chosen target.
+    let location = if valid_redirect(location) { location } else { "/" };
     let mut response = Response::new(axum::body::Body::empty());
     *response.status_mut() = StatusCode::SEE_OTHER;
     response
@@ -627,6 +633,9 @@ pub(super) async fn discord_login_start(
     Json(payload): Json<DiscordStartRequest>,
 ) -> Response {
     let auth = &state.account_auth;
+    if !valid_redirect(&payload.redirect) {
+        return auth_message(StatusCode::BAD_REQUEST, "redirect must be a local path");
+    }
     let client_id = match discord_credentials() {
         Ok((id, _)) => id,
         Err(error) => return auth_error(StatusCode::SERVICE_UNAVAILABLE, error),
@@ -1623,5 +1632,15 @@ mod discord_auth_tests {
         assert_eq!(auth.account_for_bot_request_with(&headers, "wrong"), None);
         headers.remove("x-cosyworld-discord-user");
         assert_eq!(auth.account_for_bot_request_with(&headers, "secret"), None);
+    }
+
+    #[test]
+    fn discord_redirect_accepts_only_local_paths() {
+        assert!(valid_redirect("/"));
+        assert!(valid_redirect("/cards"));
+        assert!(!valid_redirect("//evil.example"));
+        assert!(!valid_redirect("https://evil.example"));
+        assert!(!valid_redirect("javascript:alert(1)"));
+        assert!(!valid_redirect(""));
     }
 }
