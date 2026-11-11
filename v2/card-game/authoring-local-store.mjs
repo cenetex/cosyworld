@@ -5,6 +5,7 @@ import {
   parseDraft,
 } from "./authoring-draft.mjs";
 import { authoringCreateStore } from "./authoring-create-store.mjs";
+import { authoringJobStore } from "./authoring-job-store.mjs";
 
 const need = (ok, message) => {
   if (!ok) throw new Error(message);
@@ -48,12 +49,14 @@ async function checkedAssets(draft, assets) {
 
 export async function openAuthoringStore() {
   const db = await new Promise((resolve, reject) => {
-    const request = indexedDB.open("cosyworld.authoring", 2);
+    const request = indexedDB.open("cosyworld.authoring", 3);
     let blocked = false;
     request.onupgradeneeded = () => {
       for (const name of ["drafts", "creates"])
         if (!request.result.objectStoreNames.contains(name))
           request.result.createObjectStore(name, { keyPath: "key" });
+      if (!request.result.objectStoreNames.contains("jobs"))
+        request.result.createObjectStore("jobs", { keyPath: "id" });
     };
     request.onerror = () => reject(request.error);
     request.onsuccess = () =>
@@ -88,6 +91,7 @@ export async function openAuthoringStore() {
   }
   return {
     ...authoringCreateStore(db),
+    ...authoringJobStore(db),
     close: () => db.close(),
     read: (key) => transact(key, "readonly", (record) => record),
     async write(key, value, expectedGeneration = 0, assets) {

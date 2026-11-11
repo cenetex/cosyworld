@@ -52,6 +52,9 @@ const files = [
   "authoring-draft.mjs",
   "authoring-local-store.mjs",
   "authoring-create-store.mjs",
+  "authoring-job-store.mjs",
+  "authoring-job-sweep.mjs",
+  "authoring-jobs.mjs",
   "authoring-accepted.mjs",
   "authoring-accepted-entity.mjs",
   "authoring-source-import.mjs",
@@ -93,6 +96,8 @@ const files = [
   "assets/rest/long-rest.webp",
   // The song for the end of Polynices' burial (issue #2290); its cue follows
   // when the burial is built.
+  "mood-art.mjs",
+  "mood.mjs",
   "sleep-portraits.mjs",
   ...sleepPortraitAssets,
   ...["body", "reflection", "contact", "still"].map(
@@ -152,6 +157,7 @@ const files = [
   "sleep-view.mjs",
   "sleep.css",
   "locked-box.mjs",
+  "mystery-view.mjs",
   "stage-reveal.mjs",
   "opening.mjs",
   "card-level-up.mjs",

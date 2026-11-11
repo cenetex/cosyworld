@@ -23,7 +23,7 @@ const PROMPT: &str = concat!(
 
 #[derive(Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
-struct Input {
+pub(super) struct Input {
     seed: String,
     kind: String,
     context: Vec<Card>,
@@ -84,40 +84,41 @@ async fn generate(
     headers: HeaderMap,
     Json(input): Json<Input>,
 ) -> Response {
-    let auth = state.clone();
-    let owner =
-        tokio::task::spawn_blocking(move || crate::card_shared::user(&auth, &headers, true)).await;
-    let owner = match owner {
-        Ok(Ok(owner)) => owner,
-        Ok(Err(error)) if error == "Sign in with your passkey." => {
-            return failure(StatusCode::UNAUTHORIZED, &error)
-        }
-        Ok(Err(error)) if error == "Open this world on its own site." => {
-            return failure(StatusCode::FORBIDDEN, &error)
-        }
-        _ => return failure(StatusCode::SERVICE_UNAVAILABLE, "Try signing in again."),
+    let owner = match owner(&state, headers, true).await {
+        Ok(owner) => owner,
+        Err(failed) => return failed.response(),
     };
+    match prepare(&state, input) {
+        Ok(run) => respond(&state, owner, run).await,
+        Err(failed) => failed.response(),
+    }
+}
+
+pub(super) fn prepare(state: &AppState, input: Input) -> Result<Run, Failed> {
     if !valid(&input) {
-        return failure(
+        return Err(Failed::new(
             StatusCode::BAD_REQUEST,
             "Enter a seed within 6000 characters and a small set of world cards.",
-        );
+            INVALID_REQUEST,
+        ));
     }
     let Some(mut config) = state.ai_config.as_ref().clone() else {
-        return failure(
+        return Err(Failed::new(
             StatusCode::SERVICE_UNAVAILABLE,
             "World generation needs its configured text route.",
-        );
-    };
-    let Some(_permit) = admit(owner) else {
-        return failure(
-            StatusCode::TOO_MANY_REQUESTS,
-            "Wait a moment before drawing another card.",
-        );
+            "generation_unconfigured",
+        ));
     };
     config
         .capability_models
         .insert(ModelCapability::WorldContent, MODEL.into());
+    Ok(Run {
+        pool: admission::Pool::Text,
+        work: Work::Seed(config, input),
+    })
+}
+
+pub(super) async fn run(config: ai_gateway::AiConfig, input: Input) -> Result<Value, Failed> {
     let user = serde_json::to_string(&input).unwrap();
     let format = json!({"type":"json_object"});
     let result = ai_gateway::request_chat_completion(
@@ -136,23 +137,22 @@ async fn generate(
             response_format: Some(&format),
             room_id: None,
         },
-    );
-    let result = match tokio::time::timeout(Duration::from_secs(60), result).await {
-        Ok(result) => result,
-        Err(_) => {
-            return failure(
-                StatusCode::GATEWAY_TIMEOUT,
-                "The draw took too long. Try again.",
-            )
-        }
-    };
+    )
+    .await;
+    let invalid = |message, code| Failed::new(StatusCode::BAD_GATEWAY, message, code);
     match result {
         Ok(output) if output.finish_reason == "stop" => match read_output(&output.text, &input) {
-            Some(cards) => Json(json!({"cards":cards})).into_response(),
-            None => failure(StatusCode::BAD_GATEWAY, "The card text needs another draw."),
+            Some(cards) => Ok(json!({"cards":cards})),
+            None => Err(invalid(
+                "The card text needs another draw.",
+                "generation_invalid_output",
+            )),
         },
-        Ok(_) => failure(StatusCode::BAD_GATEWAY, "The card reply was incomplete. Try again."),
-        Err(error) => (StatusCode::SERVICE_UNAVAILABLE, Json(json!({"error":"World generation needs another try.","code":error.code(),"retryAfterMs":error.retry_after().map_or(0, |v| v.as_millis())}))).into_response(),
+        Ok(_) => Err(invalid(
+            "The card reply was incomplete. Try again.",
+            "generation_incomplete",
+        )),
+        Err(error) => Err(provider_failure(admission::Pool::Text, &error)),
     }
 }
 

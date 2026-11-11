@@ -54,7 +54,25 @@ export function cardTreeLayout(cards, { expanded = [], active = null } = {}) {
 // The workspace owns frame creation, focus and selection. This function only
 // places those same frames; callers can retain their DOM through draft saves.
 export function placeCardTree(screen, cards, state, layout = cardTreeLayout) {
-  const { nodes, columns } = layout(cards, state);
+  const dealt = layout(cards, state);
+  const { nodes } = dealt;
+  let { columns } = dealt;
+  // A wide table keeps its width through a re-deal, so a smaller hand does not
+  // re-centre the stacks that stay on it. A phone re-fits its narrow screen.
+  if (
+    layout === makerCardLayout &&
+    typeof matchMedia === "function" &&
+    matchMedia("(min-width: 701px)").matches
+  ) {
+    const room = Math.floor(
+      (screen.querySelector("#settings-hand")?.clientWidth || 0) / 150,
+    );
+    columns = Math.max(
+      columns,
+      Math.min(Number(screen.dataset.held) || 0, room),
+    );
+    screen.dataset.held = String(columns);
+  } else delete screen.dataset.held;
   const positions = new Map(nodes.map((node) => [node.id, node]));
   screen.dataset.layout = "tree";
   if (layout === makerCardLayout) screen.dataset.makerHand = "true";

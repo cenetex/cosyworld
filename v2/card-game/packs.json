@@ -2079,8 +2079,6 @@
           "text": "Olive branches rest across her knees. She makes room for the mothers beside Demeter’s altar.",
           "place": "greek-eleusis",
           "home": "greek-eleusis",
-          "travels": false,
-          "standoffs": false,
           "values": {},
           "seed": "Aethra, mother of Theseus.",
           "portrait": "assets/greek-drama/open-door-aethra.webp",
@@ -2102,8 +2100,6 @@
           "text": "Dust lies in the folds of his cloak. His hands rest beside the names of the fallen.",
           "place": "greek-eleusis",
           "home": "greek-eleusis",
-          "travels": false,
-          "standoffs": false,
           "values": {},
           "seed": "Adrastus, King of Argos.",
           "portrait": "assets/greek-drama/open-door-adrastus.webp",
@@ -2125,8 +2121,6 @@
           "text": "She holds a strip of cloth between both hands. Her son’s name is written beside the urn.",
           "place": "greek-eleusis",
           "home": "greek-eleusis",
-          "travels": false,
-          "standoffs": false,
           "values": {},
           "seed": "An Argive Mother.",
           "portrait": "assets/greek-drama/open-door-mother.webp",
@@ -2146,6 +2140,10 @@
             "likes": "careful listening and help that reaches its owner",
             "sore": "promises treated as finished deeds",
             "reason": "She holds a strip of cloth between both hands. Her son’s name is written beside the urn."
+          },
+          "sealed": {
+            "at": "greek-eleusis",
+            "reason": "She is not here until the Argive dead are returned."
           }
         },
         "greek-iphis": {
@@ -2153,8 +2151,6 @@
           "text": "He sits beside the shrine steps. A place remains empty at his side.",
           "place": "greek-eleusis",
           "home": "greek-eleusis",
-          "travels": false,
-          "standoffs": false,
           "values": {},
           "seed": "Iphis, father of Evadne.",
           "portrait": "assets/greek-drama/open-door-iphis.webp",
@@ -2174,6 +2170,10 @@
             "likes": "careful listening and help that reaches its owner",
             "sore": "promises treated as finished deeds",
             "reason": "He sits beside the shrine steps. A place remains empty at his side."
+          },
+          "sealed": {
+            "at": "greek-eleusis",
+            "reason": "He is not here until the account of the pyre is heard."
           }
         },
         "greek-theseus": {
@@ -2182,8 +2182,6 @@
           "text": "A petition table stands beside him. He waits for the mothers’ own account.",
           "place": "greek-athens",
           "home": "greek-athens",
-          "travels": false,
-          "standoffs": false,
           "values": {},
           "seed": "Theseus, King of Athens.",
           "portrait": "assets/greek-drama/open-door-theseus.webp",
@@ -2205,8 +2203,6 @@
           "text": "She counts bowls beside the grain basket. A blank space waits at the foot of her passenger list.",
           "place": "greek-piraeus",
           "home": "greek-piraeus",
-          "travels": false,
-          "standoffs": false,
           "values": {},
           "seed": "Thaleia the Quay Host.",
           "portrait": "assets/greek-drama/open-door-quay-host.webp",
@@ -2221,6 +2217,10 @@
             "likes": "careful listening and help that reaches its owner",
             "sore": "promises treated as finished deeds",
             "reason": "She counts bowls beside the grain basket. A blank space waits at the foot of her passenger list."
+          },
+          "sealed": {
+            "at": "greek-piraeus",
+            "reason": "Finish the funeral at the Hollow, or give Dione an earlier Theban account."
           }
         },
         "greek-colonus-keeper": {
@@ -2228,8 +2228,6 @@
           "text": "The keeper sets a cup beside the boundary stone. A pot of honey catches the light.",
           "place": "greek-colonus",
           "home": "greek-colonus",
-          "travels": false,
-          "standoffs": false,
           "values": {},
           "seed": "The Grove Keeper at Colonus.",
           "portrait": "assets/greek-drama/open-door-grove-keeper.webp",
@@ -2251,8 +2249,6 @@
           "text": "The keeper smooths a place for a blanket beside the altar. A small bowl rests inside the shelter.",
           "place": "greek-marathon",
           "home": "greek-marathon",
-          "travels": false,
-          "standoffs": false,
           "values": {},
           "seed": "The Altar Keeper at Marathon.",
           "portrait": "assets/greek-drama/open-door-altar-keeper.webp",
@@ -2307,6 +2303,10 @@
             "likes": "a place kept ready and a promise carried through",
             "sore": "her household spoken for before she has answered",
             "reason": "She has walked beside the mourners and knows the work that follows a funeral."
+          },
+          "sealed": {
+            "at": "greek-eleusis",
+            "reason": "She is not here until the urn is placed in the mothers’ care."
           }
         },
         "greek-ajax-tecmessa": {
@@ -2314,8 +2314,6 @@
           "text": "Tecmessa keeps the household beside Eurysaces. She asks for Ajax’s shield to be set where the child can keep it.",
           "place": "greek-ajax-household",
           "home": "greek-ajax-household",
-          "travels": false,
-          "standoffs": false,
           "values": {},
           "canonicalPerson": "tecmessa",
           "seed": "Tecmessa, companion of Ajax.",
@@ -2338,8 +2336,6 @@
           "text": "Ajax’s brother carries a written plea for burial. He asks for the household and the dead to be heard.",
           "place": "greek-greek-camp",
           "home": "greek-greek-camp",
-          "travels": false,
-          "standoffs": false,
           "values": {},
           "canonicalPerson": "teucer",
           "seed": "Teucer, brother of Ajax.",
@@ -2363,8 +2359,6 @@
           "text": "Odysseus waits by the commanders’ tents. He can hear Teucer’s plea and speak for a former rival.",
           "place": "greek-greek-camp",
           "home": "greek-greek-camp",
-          "travels": false,
-          "standoffs": false,
           "values": {},
           "canonicalPerson": "odysseus",
           "seed": "Odysseus, King of Ithaca.",
@@ -3107,7 +3101,14 @@
                 }
               ]
             }
-          ]
+          ],
+          "sealed": {
+            "quest": {
+              "kind": "place",
+              "target": "greek-road-athens-eleusis"
+            },
+            "reason": "Opens once the mothers’ request is heard and their petition is in the Sanctuary or the Agora."
+          }
         },
         {
           "from": "greek-athens",
@@ -3123,7 +3124,14 @@
               "item": "greek-olive-branch",
               "place": "greek-athens"
             }
-          ]
+          ],
+          "sealed": {
+            "quest": {
+              "kind": "place",
+              "target": "greek-road-athens-piraeus"
+            },
+            "reason": "Opens once the mothers’ petition is laid before Theseus and the Herald’s Truce is in the Agora."
+          }
         },
         {
           "from": "greek-piraeus",
@@ -3139,7 +3147,14 @@
               "item": "greek-olive-branch",
               "place": "greek-athens"
             }
-          ]
+          ],
+          "sealed": {
+            "quest": {
+              "kind": "place",
+              "target": "greek-road-athens-piraeus"
+            },
+            "reason": "Opens once the mothers’ petition is laid before Theseus and the Herald’s Truce is in the Agora."
+          }
         }
       ],
       "choices": [
@@ -11637,8 +11652,6 @@
           "startLevel": 50,
           "text": "A mouse host in a blue scarf. She keeps a cup beside the knitting basket.",
           "place": "forest-cottage",
-          "travels": false,
-          "standoffs": false,
           "seed": "RATi, host of the cottage.",
           "expression": "speech",
           "portrait": "assets/lonely-forest/rati.png",
@@ -11654,7 +11667,6 @@
           "text": "A large charcoal wolf stands beside the pawprints. His ears turn toward the garden.",
           "place": "forest-trail",
           "travels": false,
-          "standoffs": false,
           "seed": "Skull, a wolf.",
           "expression": "movement",
           "portrait": "assets/lonely-forest/skull.png",
@@ -11669,8 +11681,6 @@
           "startLevel": 20,
           "text": "A small golden figure hovers beside the broad leaves. A curled tail stirs the rain.",
           "place": "forest-garden",
-          "travels": false,
-          "standoffs": false,
           "seed": "Whiskerwind, a spirit of the living oak.",
           "expression": "emoji",
           "portrait": "assets/lonely-forest/whiskerwind.png",
@@ -11686,7 +11696,6 @@
           "text": "An old oak with a broad crown and a hollow above its roots. Four voices answer from the trunk.",
           "place": "forest-oak",
           "travels": false,
-          "standoffs": false,
           "seed": "Oak, the Tree of Dreams.",
           "expression": "speech",
           "portrait": "assets/lonely-forest/oakheart.webp",
@@ -12056,7 +12065,14 @@
               "item": "forest-wolfprint-charm",
               "place": "forest-oak"
             }
-          ]
+          ],
+          "sealed": {
+            "quest": {
+              "kind": "place",
+              "target": "forest-trail"
+            },
+            "reason": "Open only while the Wolfprint Charm is at the Old Oak Tree."
+          }
         },
         {
           "from": "forest-garden",
@@ -12067,7 +12083,14 @@
               "key": "forest-path-cleared",
               "value": true
             }
-          ]
+          ],
+          "sealed": {
+            "quest": {
+              "kind": "place",
+              "target": "forest-trail"
+            },
+            "reason": "Opens once the garden drain is cleared."
+          }
         }
       ],
       "choices": [

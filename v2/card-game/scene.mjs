@@ -24,6 +24,7 @@ import { expressionOf } from "./expression.mjs";
 import { daylightBackdrop, locationDaylight } from "./daylight.mjs";
 import { avatarImage } from "./scarves.mjs";
 import { sleepingPortrait } from "./sleep-portraits.mjs";
+import { moodPortrait } from "./mood-art.mjs";
 import { residentPortrait } from "./resident-portrait.mjs";
 import { rarityForm } from "./rarity-portraits.mjs";
 import { flipStagePortrait, nativePortraitFacing } from "./portrait-facing.mjs";
@@ -84,6 +85,10 @@ export function placeBackdrop(world, id) {
 export function portrait(id, facing = null, world = null) {
   const sleeping = sleepingPortrait(world, id);
   if (sleeping) return `./${sleeping}`;
+  // A face made for the mood (mood.mjs) sits below sleep, a fight and an
+  // authored pose, and above the ordinary portrait. No art, no change.
+  const face = world && !residentPose(world, id) && moodPortrait(world, id);
+  if (face) return `./${face}`;
   const human = avatarImage(world, id);
   if (human) return `./${human}`;
   const resident = packPeople[id];

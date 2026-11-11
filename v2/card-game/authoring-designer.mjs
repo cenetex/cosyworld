@@ -143,7 +143,7 @@ export function installWorldDesigner({
         run === "reload" && armed === `${chosen}:0`
           ? "Discard edits and reload"
           : run === "undo"
-            ? session.state.undo.at(-1)?.label || "Undo"
+            ? session.state.undo.at(-1)?.label || "Nothing to undo"
             : card.name;
       view.actions = [
         {
@@ -186,8 +186,18 @@ export function installWorldDesigner({
         confirmation?.id !== armed
       )
         confirmation = { id: armed, token: discardToken() };
+      const arming =
+        action.confirm && !action.opensDraft && armed === `${chosen}:${index}`;
       return {
         ...action,
+        ...(arming
+          ? {
+              label:
+                typeof action.confirm === "string"
+                  ? action.confirm
+                  : `Tap again to ${action.label[0].toLowerCase()}${action.label.slice(1)}`,
+            }
+          : {}),
         ...(needsConsent
           ? {
               label:
@@ -206,6 +216,11 @@ export function installWorldDesigner({
           : null,
         stays: true,
         disabled: action.disabled || status.busy || status.writing,
+        ...(!action.disabled && (status.busy || status.writing)
+          ? {
+              label: status.writing ? "Saving…" : "Wait for the current action",
+            }
+          : {}),
       };
     });
     return view;
@@ -216,10 +231,7 @@ export function installWorldDesigner({
     actionBeat,
     describe,
     selected: () => [...session.state.selected, ...(projected?.selected || [])],
-    onClose() {
-      session.touch();
-      onClose();
-    },
+    onClose,
     layout(cards, state) {
       return {
         nodes: makerCardLayout(cards, state).nodes,
@@ -236,7 +248,7 @@ export function installWorldDesigner({
         workspace.refresh();
         return;
       }
-      if (card.role === "navigation") return session.touch();
+      if (card.role === "navigation") return;
       if (card.ref) return chooseView("world", card.ref);
       if (card.role === "field" && !card.group && session.state.armed)
         session.dispatch({ type: "cancel" });
@@ -292,9 +304,6 @@ export function installWorldDesigner({
       });
     },
   });
-  document
-    .querySelector(".action-beat-note")
-    .addEventListener("input", session.touch);
   addEventListener("resize", workspace.refresh);
   function chooseView(view, id) {
     mode = view;
@@ -302,6 +311,8 @@ export function installWorldDesigner({
     workspace.choose(id, { expand: true });
   }
   return {
+    // For work that finishes off-screen, such as a job found after a reload.
+    run: (callback) => session.run(callback),
     open(value) {
       document.activeElement?.blur();
       if (value) {
@@ -320,10 +331,16 @@ export function installWorldDesigner({
     },
     chooseWorld: () => chooseView("world", WORLD),
     chooseTools: () => chooseView("tools", TOOLS),
-    chooseTool(id) {
+    chooseTool(id, here = false) {
       readCards();
       const target = projected.locations.get(`designer-tool-${id}`);
       if (!target) throw new Error("Choose an available tool.");
+      if (here) {
+        // Only follow a result for a maker still on this tool or inside it.
+        let at = workspace.chosen;
+        while (at && at !== target.cardId) at = byId.get(at)?.holder;
+        if (!at) return;
+      }
       chooseView(target.mode, target.cardId);
     },
   };

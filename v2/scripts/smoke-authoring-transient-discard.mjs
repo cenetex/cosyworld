@@ -182,6 +182,7 @@ try {
     assert.equal((await state()).pending, "Keep this description");
     assert.equal(await action.innerText(), "Confirm reload and discard");
     await page.evaluate(() => window.review.reply());
+    await page.waitForTimeout(450);
     await press(action);
     await page
       .locator(".action-beat-text")
@@ -190,6 +191,7 @@ try {
     assert.equal((await state()).pending, "New preview");
     await page.evaluate(() => window.review.failRead());
     await press(action);
+    await page.waitForTimeout(450);
     await press(action);
     await page
       .locator(".action-beat-text")
@@ -197,6 +199,7 @@ try {
       .waitFor();
     assert.equal((await state()).pending, "New preview");
     await press(action);
+    await page.waitForTimeout(450);
     await press(action);
     assert.equal((await state()).opened, 2);
     assert.equal((await state()).pending, "");
@@ -205,6 +208,7 @@ try {
     await reload();
     await press(action);
     assert.equal((await state()).opened, 2);
+    await page.waitForTimeout(450);
     await press(action);
     assert.equal((await state()).opened, 3);
     await tool("notes");
@@ -216,6 +220,7 @@ try {
     await press(action);
     assert.equal((await state()).records.length, 1);
     await page.evaluate(() => window.review.failWrite());
+    await page.waitForTimeout(450);
     await press(action);
     await page
       .locator(".action-beat-text")
@@ -225,6 +230,7 @@ try {
     assert.equal((await state()).opened, 3);
     await page.evaluate(() => window.review.hold());
     await press(action);
+    await page.waitForTimeout(450);
     await press(action);
     await page.evaluate(() => {
       window.review.reply();
@@ -237,6 +243,7 @@ try {
     assert.equal((await state()).pending, "New preview");
     assert.equal((await state()).opened, 3);
     await press(action);
+    await page.waitForTimeout(450);
     await press(action);
     await page.waitForFunction(() => window.review.state().opened === 4);
     assert.equal((await state()).pending, "");

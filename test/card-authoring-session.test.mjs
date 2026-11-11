@@ -169,3 +169,28 @@ it("preserves the old session on failed reload and accepts a saved import explic
   assert.equal(session.state.undo.length, 0);
   assert.equal(session.snapshot().draft.document, "Context book");
 });
+
+it("lets a selection-only change pass an action in flight, but not a real edit", async () => {
+  const { session, select } = setup();
+  const place = Object.keys(session.state.source.pack.places)[0];
+  const during = (change) =>
+    session.run(async (context) => {
+      change();
+      return context.snapshot();
+    });
+  await assert.doesNotReject(
+    during(() => session.dispatch({ type: "cancel" })),
+  );
+  await assert.rejects(
+    during(() => select(place)),
+    /editor changed/,
+  );
+  await assert.rejects(
+    during(() => session.dispatch({ type: "undo" })),
+    /editor changed/,
+  );
+  await assert.rejects(
+    during(() => session.touch()),
+    /editor changed/,
+  );
+});

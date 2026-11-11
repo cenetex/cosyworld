@@ -254,6 +254,10 @@ globalThis.workspaceSmokeBeat = {show: showActionBeat, clear: clearActionBeat};`
     assert.equal(await page.evaluate(() => window.treeRuns), 0);
     await press();
     assert.equal(await page.evaluate(() => window.treeRuns), 0);
+    // The armed action runs only on a tap after its label has been shown.
+    await press();
+    assert.equal(await page.evaluate(() => window.treeRuns), 0);
+    await page.waitForTimeout(450);
     await press();
     assert.equal(await page.evaluate(() => window.treeRuns), 1);
     await page.evaluate(() => window.treeWorkspace.close());
