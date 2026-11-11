@@ -713,6 +713,16 @@ art and ordinary card actions then appear (`locked-box.mjs`).
     "quest": { "kind": "item", "target": "greek-decree", "to": "greek-guard" } } }
 ```
 
+A gated crossing may carry the same `sealed` key with only a `reason`; the
+hub's `reflectionRoutes` in `forest.json` do too. A crossing box is drawn only
+where its `home_door` and `shared_world` conditions hold, so a home's door
+appears at the one place a shared world chose for it. A seal is drawn even
+when the card it opens has its own `requires`, `appearsWhen` or section: the
+card lies shut in the hand and cannot be entered until it opens. The condition
+`{ "kind": "humans_at", "place", "minimum" }` holds in a shared world while
+that many travellers stand at the place; it makes a lock for two, and opening
+it pays each of them.
+
 The pack check proves the loops cannot strand a world. An item used up by
 one choice and still needed by another choice, a route, a lane or a
 resident's `stayUntil` must renew: it regrows at home, or a repeating give

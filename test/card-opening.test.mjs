@@ -15,6 +15,7 @@ import {
 import { enableMotives } from "../v2/card-game/motives.mjs";
 import { knownActors, levelOf } from "../v2/card-game/want.mjs";
 import { availableCards, cardPlay } from "../v2/card-game/cards.mjs";
+import { isLockedBox } from "../v2/card-game/locked-box.mjs";
 import {
   narrativeContext,
   turnOutcome,
@@ -61,7 +62,9 @@ describe("dousing the lamp in the attic", () => {
     const s = fresh();
     expect(s.actors.vale.place).toBe("attic");
     expect(s.items.lamp).toMatchObject({ holder: "vale", lit: true, fuel: 12 });
-    expect(availableCards(s)).toEqual(["vale", "lamp", "attic"]);
+    // The Black pond lies in the hand from the start, a locked box (rules 133).
+    expect(availableCards(s)).toEqual(["vale", "lamp", "attic", "pond"]);
+    expect(isLockedBox(s, "pond")).toBe(true);
     expect(sceneCast(s)).toEqual(["vale", null]);
     expect(exits(s, "attic")).toEqual([]);
     expect(exits(s, "station")).toEqual(["pond"]);
@@ -145,9 +148,12 @@ describe("dousing the lamp in the attic", () => {
       met: { vale: 0 },
     });
     expect(lit.locations.attic.anchored).toBe(true);
-    expect(
-      availableCards(lit).filter((id) => !availableCards(before).includes(id)),
-    ).toEqual(["pond"]);
+    // Putting the lamp out opens the pond box and pays its one XP.
+    expect(isLockedBox(before, "pond")).toBe(true);
+    expect(availableCards(lit)).toContain("pond");
+    expect(isLockedBox(lit, "pond")).toBe(false);
+    expect(lit.actors.vale.xp).toBe(before.actors.vale.xp + 1);
+    expect(lit.opened).toEqual({ pond: ["vale"] });
     expect(exits(lit, "attic")).toEqual(["pond"]);
     expect(levelOf(lit, "vale")).toBe(1);
     expect(

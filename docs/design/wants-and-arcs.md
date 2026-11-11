@@ -589,6 +589,19 @@ pass the 400-line budget and need `Large-Change`.
 Later: resident draws from grievances, knowledge and trust (#1506, #1871);
 then the README quest section is rewritten.
 
+### Built in rules 133, package 2: boxes
+
+`v2/card-game/world/boxes.mjs` is the one list of boxes (slice 9, and the
+visible-lock half of slice 4): `boxesAt`, `boxOpen`, `boxWant`. A lock view
+(`entityShown`) draws a shut card even when the card has conditions of its
+own, and never makes it enterable. Crossings and the hub's `reflectionRoutes`
+carry `sealed`; the Black pond and the mirror back are the first hub boxes, and
+the lit arch to the Empty station stays a plain exit (owner pick, 2026-11-11).
+`s.opened` records who opened which box; the play that opens one pays one XP
+(slice 6, the box half). `humans_at` is the lock for two. Not built here:
+`sealed` on pack routes and residents (pack data), sealed items (slice 10),
+Take quest on every box (package 4).
+
 ### With the rules bump: the Theban-response branch
 
 The Greek pack keeps five archived choices that never fire

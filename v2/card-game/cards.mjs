@@ -201,7 +201,11 @@ export function cardPlay(world, selected) {
         (target === undefined || a.target === target),
     );
   const use = (id) =>
-    id === RADIO_ITEM ? find("radio", id) : id === "bell" ? find("ring", id) : undefined;
+    id === RADIO_ITEM
+      ? find("radio", id)
+      : id === "bell"
+        ? find("ring", id)
+        : undefined;
   if (cards.length === 1) {
     const id = cards[0];
     const authored = () => choicesOn(id, actions)[0];

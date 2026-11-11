@@ -7893,6 +7893,11 @@
     pack: c.packId,
     crossing: c
   }));
+  for (const r of forest_default.reflectionRoutes || [])
+    if (r.sealed !== void 0 && !(Object.keys(r.sealed).join() === "reason" && typeof r.sealed.reason === "string" && r.sealed.reason.length > 0 && r.sealed.reason.length <= 240 && r.requires?.length))
+      throw new Error(
+        `Reflection ${r.from}>${r.to} sealed card needs a gate and a reason.`
+      );
   var hubDefs = () => (forest_default.reflectionRoutes || []).filter((r) => r.sealed).map((route) => ({ kind: "hub", at: route.from, id: route.to, route }));
   var boxDefs = () => [
     ...wayDefs().values(),
@@ -7947,8 +7952,7 @@
     ...ownConditions(def.id)
   ];
   function creditOpened(before, next, actor) {
-    if (!(heldByHuman(next, actor) || controlledByHuman(next, actor)))
-      return [];
+    if (!(heldByHuman(next, actor) || controlledByHuman(next, actor))) return [];
     const asActor = (world) => ({ ...world, playerActorId: actor });
     const was = asActor(before), clock = { ...was, turn: next.turn };
     const paid = [];
@@ -7969,7 +7973,11 @@
       if (!payees.length) continue;
       next.opened ??= {};
       next.opened[def.id] = [...next.opened[def.id] || [], ...payees].sort();
-      for (const id of payees) next.actors[id].xp = (next.actors[id].xp || 0) + 1;
+      for (const id of payees) {
+        const a = next.actors[id];
+        a.level ??= levelFor(a.xp || 0);
+        a.xp = (a.xp || 0) + 1;
+      }
       paid.push({ box: def.id, kind: def.kind, avatars: payees });
     }
     return paid;

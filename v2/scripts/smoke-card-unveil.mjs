@@ -157,8 +157,14 @@ try {
             .map((card) => card.dataset.card)
             .sort(),
         );
-      const opening = ["attic", "lamp", "vale"];
+      // The Black pond lies in the hand from the start as a locked box, and
+      // its reason is "Put the lamp out" (rules 133).
+      const opening = ["attic", "lamp", "pond", "vale"];
       assert.deepEqual(await covered(), opening);
+      assert.equal(
+        await page.locator("#hand [data-card="pond"]").getAttribute("data-unrevealed"),
+        "true",
+      );
       await page.screenshot({
         path: new URL(`attic-start-${width}.png`, output).pathname,
       });
@@ -184,14 +190,18 @@ try {
       assert.equal(opened.turn, initial.turn);
       assert.deepEqual(opened.actors, initial.actors);
       assert.deepEqual(opened.items, initial.items);
-      assert.deepEqual(await covered(), ["attic", "lamp"]);
+      assert.deepEqual(await covered(), ["attic", "lamp", "pond"]);
       // A reload keeps the table known: nothing is covered again.
       await page.reload();
       await ready();
-      assert.deepEqual(await covered(), ["attic", "lamp"]);
+      assert.deepEqual(await covered(), ["attic", "lamp", "pond"]);
+      // Putting the lamp out opens the pond box and pays one XP.
+      assert.equal((await state()).actors.vale.xp, 0);
       await putOutOpening(page);
       await unveil("pond");
       await finish();
+      assert.equal((await state()).actors.vale.xp, 1);
+      assert.deepEqual((await state()).opened, { pond: ["vale"] });
       assert.equal((await state()).actors.vale.place, "attic");
       // Dousing the lamp shows the Black Pond in the glass.
       assert.equal(

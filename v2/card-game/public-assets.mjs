@@ -301,6 +301,7 @@ const files = [
   "world.mjs",
   "world/catalog.mjs",
   "world/create.mjs",
+  "world/boxes.mjs",
   "world/geography.mjs",
   "world/items.mjs",
   "world/lanes.mjs",

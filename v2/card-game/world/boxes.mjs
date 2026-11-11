@@ -30,7 +30,7 @@ import {
   packThings,
   transports,
 } from "../pack-registry.mjs";
-import { conditionMet, crossingOpen } from "../pack-rules.mjs";
+import { conditionMet } from "../pack-rules.mjs";
 import { shipDock, shutLanes } from "../pack-transport.mjs";
 import { usedUp } from "../item-use.mjs";
 import {
@@ -41,21 +41,15 @@ import {
   controlledByHuman,
 } from "../human-cast.mjs";
 import { guardOf } from "../resident-guard.mjs";
+import { levelFor } from "../want.mjs";
 import { life } from "../resident-home.mjs";
 import forest from "../forest.json" with { type: "json" };
 import { nameOf } from "./catalog.mjs";
 import { rootHolder } from "./items.mjs";
 import { exits } from "./geography.mjs";
-import { reflectionsFrom, sensesFor } from "./senses.mjs";
+import { sensesFor } from "./senses.mjs";
 
-export const BOX_KINDS = [
-  "way",
-  "item",
-  "resident",
-  "lane",
-  "crossing",
-  "hub",
-];
+export const BOX_KINDS = ["way", "item", "resident", "lane", "crossing", "hub"];
 
 // --- Definitions: what can be a box ----------------------------------------
 
@@ -128,6 +122,22 @@ const crossingDefs = () =>
       pack: c.packId,
       crossing: c,
     }));
+// The hub's sealed ways are checked as a pack's crossings are: a gate and a
+// short reason, nothing else (pack-schema.mjs).
+for (const r of forest.reflectionRoutes || [])
+  if (
+    r.sealed !== undefined &&
+    !(
+      Object.keys(r.sealed).join() === "reason" &&
+      typeof r.sealed.reason === "string" &&
+      r.sealed.reason.length > 0 &&
+      r.sealed.reason.length <= 240 &&
+      r.requires?.length
+    )
+  )
+    throw new Error(
+      `Reflection ${r.from}>${r.to} sealed card needs a gate and a reason.`,
+    );
 const hubDefs = () =>
   (forest.reflectionRoutes || [])
     .filter((r) => r.sealed)
@@ -167,8 +177,7 @@ const routeHolds = (s, def, actor) =>
 // has walked off, or been knocked through, is not met by anyone.
 const guardMet = (s, def, actor) =>
   Object.values(s.actors).some(
-    (a) =>
-      a.guarding === def.guard.beyond && a.place === def.guard.post,
+    (a) => a.guarding === def.guard.beyond && a.place === def.guard.post,
   ) &&
   (packRouteOpen(s, def.guard.post, def.guard.beyond) ||
     !guardOf(s, def.at, def.id, actor));
@@ -230,7 +239,11 @@ export function boxOpen(s, box, actor = currentActor(s)) {
   const def = defOf(box);
   if (!def) return true;
   switch (def.kind) {
+    // A way is open when the traveller can walk it: a gate, a door or the
+    // mirror, or a rescue path to the same card.
     case "way":
+    case "crossing":
+    case "hub":
       return exits(s, def.at, actor).includes(def.id);
     case "resident":
       return entityActive(s, def.id);
@@ -238,10 +251,6 @@ export function boxOpen(s, box, actor = currentActor(s)) {
       return !usedUp(s, def.id);
     case "lane":
       return boxMet(s, def, actor);
-    case "crossing":
-      return crossingOpen(s, def.crossing, sensesFor(s), actor);
-    case "hub":
-      return reflectionsFrom(s, def.at).includes(def.id);
     default:
       return true;
   }
@@ -470,8 +479,7 @@ const lockConditions = (def) => [
  * stands at its place. Returns the boxes paid, for tests and logs.
  */
 export function creditOpened(before, next, actor) {
-  if (!(heldByHuman(next, actor) || controlledByHuman(next, actor)))
-    return [];
+  if (!(heldByHuman(next, actor) || controlledByHuman(next, actor))) return [];
   const asActor = (world) => ({ ...world, playerActorId: actor });
   const was = asActor(before),
     clock = { ...was, turn: next.turn };
@@ -500,7 +508,13 @@ export function creditOpened(before, next, actor) {
     if (!payees.length) continue;
     next.opened ??= {};
     next.opened[def.id] = [...(next.opened[def.id] || []), ...payees].sort();
-    for (const id of payees) next.actors[id].xp = (next.actors[id].xp || 0) + 1;
+    // A level rises through its own quest, never from experience alone, so a
+    // traveller who has none held yet keeps the level they have.
+    for (const id of payees) {
+      const a = next.actors[id];
+      a.level ??= levelFor(a.xp || 0);
+      a.xp = (a.xp || 0) + 1;
+    }
     paid.push({ box: def.id, kind: def.kind, avatars: payees });
   }
   return paid;

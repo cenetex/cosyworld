@@ -17,7 +17,11 @@ import {
   creditOpened,
   validOpened,
 } from "../v2/card-game/world/boxes.mjs";
-import { availableCards, cardPlay, sealedReason } from "../v2/card-game/cards.mjs";
+import {
+  availableCards,
+  cardPlay,
+  sealedReason,
+} from "../v2/card-game/cards.mjs";
 import { isLockedBox, lockedQuest } from "../v2/card-game/locked-box.mjs";
 import {
   entityActive,
@@ -83,9 +87,7 @@ describe("the hub's boxes", () => {
     });
     // Visible does not mean openable: no move, and no card play opens it.
     expect(exits(world, "attic", "vale")).not.toContain("pond");
-    expect(
-      legalActions(world).filter((a) => a.target === "pond"),
-    ).toEqual([]);
+    expect(legalActions(world).filter((a) => a.target === "pond")).toEqual([]);
     expect(cardPlay(world, ["pond"]).action).toBeFalsy();
     const out = structuredClone(world);
     holdChoice(out, "vale", { item: null, revision: out.revision });
@@ -165,16 +167,11 @@ describe("the lock view", () => {
     );
     expect(
       legalActions(world).filter(
-        (a) =>
-          a.target === "greek-argos-tomb" || a.item === "greek-argos-tomb",
+        (a) => a.target === "greek-argos-tomb" || a.item === "greek-argos-tomb",
       ),
     ).toEqual([]);
     expect(
-      play(
-        world,
-        { key: "move:vale::greek-argos-tomb" },
-        world.revision,
-      ).ok,
+      play(world, { key: "move:vale::greek-argos-tomb" }, world.revision).ok,
     ).toBe(false);
     expect(cardPlay(world, ["greek-argos-tomb"]).action).toBeFalsy();
     expect(entityActive(world, "greek-argos-tomb")).toBe(false);
@@ -195,7 +192,11 @@ describe("the lock view", () => {
   it("keeps the old sealed-ways list and the box list in step", () => {
     for (const world of [atRoad(), greekErrands().decree]) {
       const here = world.actors.vale.place;
-      expect(sealedWays(world, "vale").map((r) => r.to).sort()).toEqual(
+      expect(
+        sealedWays(world, "vale")
+          .map((r) => r.to)
+          .sort(),
+      ).toEqual(
         boxesAt(world, here, "vale")
           .filter((b) => b.kind === "way" && !b.open)
           .map((b) => b.id)
@@ -502,7 +503,9 @@ describe("the saved record of opened boxes", () => {
   });
   it("is not part of a pack's exact state", () => {
     const world = valid();
-    expect(Object.keys(world.packs).every((id) => !("opened" in world.packs[id]))).toBe(true);
+    expect(
+      Object.keys(world.packs).every((id) => !("opened" in world.packs[id])),
+    ).toBe(true);
     expect(flagsOf(world, "greek-drama")).toBeDefined();
   });
 });
