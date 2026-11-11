@@ -3,7 +3,7 @@
 // anyone not listed is offered Invite beside the player and joins a standoff
 // when threatened; anyone freed to roam walks on a want, sleeps at home and
 // never leaves their pack. The allow-list is the whole list of who stays put
-// and why (docs: the owner's 2026-11-11 request).
+// and why (docs/design/rules-100-world-life.md, "Who stays put").
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
   createWorld,
