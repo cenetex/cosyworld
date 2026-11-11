@@ -136,6 +136,51 @@ try {
       (await page.locator("#card-actions button").first().getAttribute("data-tap-verb")) ||
       (await page.locator("#card-actions button").first().textContent());
 
+    // Selects a face-down offer by hand and checks it leaks nothing: not in
+    // the bar, the button, any accessible name or the card itself.
+    const closedOffer = async (page, t, id, shot) => {
+      const card = page.locator(`#hand [data-card="${id}"]`);
+      assert.equal(await card.getAttribute("data-unrevealed"), "true");
+      assert.equal(await card.getAttribute("aria-label"), "Closed box. Select to inspect.");
+      await card.scrollIntoViewIfNeeded();
+      await card.click();
+      await t.ready();
+      assert.equal(await t.oneButton(), 1);
+      const button = page.locator("#card-actions button").first();
+      assert.equal(await button.getAttribute("data-open-box"), id);
+      assert.equal(await button.isDisabled(), false);
+      assert.equal(await page.locator("#selection-name").textContent(), "Closed box");
+      assert.match(await page.locator("#action-beat").innerText(), /A closed box/u);
+      const seen = await page.evaluate(
+        (id) =>
+          [
+            document.querySelector(`#hand [data-card="${id}"]`).textContent,
+            document.querySelector("#action-beat").innerText,
+            ...[...document.querySelectorAll(
+              `#card-actions *, #action-beat *, #hand [data-card="${id}"] *`,
+            )].flatMap((el) => [
+              el.getAttribute("aria-label"),
+              el.getAttribute("title"),
+              el.getAttribute("alt"),
+              el.getAttribute("src"),
+            ]),
+          ]
+            .filter(Boolean)
+            .join(" | "),
+        id,
+      );
+      assert.doesNotMatch(seen, /lamp|pip|moth|quest|give|take|accept|cloth|writ/iu, seen);
+      if (shot) await t.shot(shot);
+      await button.click();
+      await page.waitForFunction(
+        (id) => document.querySelector(`#hand [data-card="${id}"]`)?.dataset.unrevealed === "false" &&
+          !document.querySelector(`#hand [data-card="${id}"]`)?.dataset.revealing,
+        id,
+      );
+      await t.ready();
+      assert.equal(await t.oneButton(), 1);
+    };
+
     // 1. A fresh world: the pond is shut, offers nothing, and says why.
     {
       const t = await open("quest-offers-fresh");
@@ -181,10 +226,12 @@ try {
       assert.equal(await page.locator("#hand .want-frame").count(), 0, "nothing is held yet");
       await clearSelection(page);
       const turn = (await t.state()).turn;
-      await selectCard(page, "quest:from:moth");
+      // Face down, the offer is a closed box: it shows nothing of the quest.
+      await closedOffer(page, t, "quest:from:moth", "closed");
       await t.ready();
       assert.equal(await t.oneButton(), 1);
       assert.equal(await label(page), "Accept quest");
+      await t.shot("opened");
       assert.equal(await page.locator("#card-actions button").first().isDisabled(), false);
       await t.layout();
       await t.shot("offer");
@@ -210,7 +257,7 @@ try {
       else await tapCard(page.locator('#hand [data-quest-id="quest:0"].want-card'));
       await page.locator("#hand .want-frame:not([hidden]) > .want-card").waitFor();
       assert.equal(await t.oneButton(), 1);
-      await t.shot("held");
+      await t.shot("held-step");
       assert.deepEqual(t.errors, []);
       await page.close();
     }
@@ -285,6 +332,9 @@ try {
       else await tapCard(page.locator('#hand [data-quest-id="quest:0"].want-card'));
       assert.equal(await t.oneButton(), 1);
       const drop = page.locator("#card-actions [data-drop-quest]");
+      // A held quest with no step to take reads Discard.
+      assert.equal(await label(page), "Discard");
+      await t.shot("held");
       await drop.click();
       await page.locator("#card-actions [data-drop-quest]").click();
       await t.ready();

@@ -1643,62 +1643,10 @@ body .card.want-card[data-unrevealed="true"] {
     box-shadow: 0 0 4px 0 var(--tier-color);
   }
 }
-/* A met quest is sealed until its player clears it. */
-.quest-seal {
-  position: absolute;
-  z-index: 3;
-  left: 50%;
-  top: 33%;
-  width: calc(var(--card-height) * 0.17);
-  aspect-ratio: 1;
-  display: grid;
-  place-items: center;
-  translate: -50% 0;
-  rotate: -8deg;
-  border-radius: 50%;
-  background: radial-gradient(
-    circle at 40% 35%,
-    #fff8,
-    var(--tier-color) 55%,
-    #5b4c22
-  );
-  box-shadow:
-    0 0 16px var(--tier-color),
-    0 3px 8px #000a;
-  color: #1a1408;
-  font:
-    calc(var(--card-height) * 0.085) / 1 Georgia,
-    serif;
-  pointer-events: none;
-}
-body .card.want-card[data-met="true"] {
-  box-shadow:
-    0 0 0 1px var(--tier-color),
-    0 0 24px color-mix(in srgb, var(--tier-color) 65%, transparent);
-}
-.quest-xp {
-  position: fixed;
-  z-index: 200;
-  translate: -50% 0;
-  color: var(--tier-color);
-  font:
-    600 18px/1 Georgia,
-    serif;
-  text-shadow:
-    0 0 8px var(--tier-color),
-    0 2px 3px #000;
-  pointer-events: none;
-}
 @media (prefers-reduced-motion: reduce) {
   .card-frame > .quest-fold[data-glow="invite"] {
     animation: none;
   }
-}
-/* Steps still to come: face-down cards stacked behind the quest. */
-.quest-edge {
-  translate: calc(var(--i) * 6px) calc(var(--i) * -4px);
-  rotate: calc(var(--i) * 1.5deg);
-  border-color: color-mix(in srgb, var(--tier-color) 50%, #333);
 }
 .quest-screen img {
   position: absolute;

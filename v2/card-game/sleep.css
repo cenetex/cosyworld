@@ -72,12 +72,6 @@ body:is(
   > * {
   filter: brightness(0.18) saturate(0.4);
 }
-/* The quest a dream deals is the one card lit as it arrives: its own card,
-   or, folded, the face-down card behind the dreamer. */
-body[data-sleep="quest"] #hand > .want-frame:not([hidden]),
-body[data-sleep="quest"] #hand > :has(> .quest-fold:not([hidden])) {
-  filter: none;
-}
 /* Keep the Dream cue above the hand while its card takes taps. */
 body:is([data-sleep="enter"], [data-sleep="dreaming"], [data-sleep="dream"])
   main > .dialogue {

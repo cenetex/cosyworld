@@ -291,6 +291,9 @@ try {
       assert.equal((await state()).actors.vale.want, null);
       const offer = page.locator('#hand [data-card="quest:box:greek-battlefield"]');
       await offer.waitFor({ state: "attached" });
+      // It lies face down, a closed box, until opened.
+      assert.equal(await offer.getAttribute("data-unrevealed"), "true");
+      assert.equal(await offer.getAttribute("aria-label"), "Closed box. Select to inspect.");
       await page.keyboard.press("Escape");
       await selectCard(page, "quest:box:greek-battlefield");
       assert.equal(await page.locator("#card-actions button").count(), 1);
