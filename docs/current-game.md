@@ -42,8 +42,10 @@ in a particular saved world.
 
 The physical Pip card points to `/pip` (also `/pip/`). It opens a separate
 local save. The existing wooden box and whispers reveal Pip's card on black.
-The card's Talk action gives his Lamp quest, then fades into the regular Vale
-intro carrying that quest. `pip-landing.mjs` sets up new visits; returning
+The card's Talk action shows his line and offers his Lamp quest as a closed
+box; accepting it fades into the regular Vale intro (no second wooden box)
+carrying that same quest. The page title is "Lonely Forest" and the table is
+inert until the box is opened. `pip-landing.mjs` sets up new visits; returning
 visits restore that save.
 Explicit world, table and pack query links keep their usual behavior.
 

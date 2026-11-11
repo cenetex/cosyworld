@@ -91,3 +91,28 @@ it.each([0, 17, 4294967295])("offers Pip's quest as his card after Vale's openin
   expect(Object.keys(world.opened ?? {}).sort()).toEqual(["pond"]);
   expect(world.actors.vale.xp).toBe(2 + boxes);
 });
+
+it("carries the quest accepted at Pip's card into the opening as the same quest", () => {
+  let prelude = talkToPip(createPipWorld(17));
+  const take = legalActions(prelude).find((a) => a.offer === "quest:from:moth");
+  expect(take).toMatchObject({ kind: "take", label: "Accept quest" });
+  const turn = prelude.turn;
+  prelude = decodeSave(encodeSave(play(prelude, take).state));
+  expect(prelude.turn).toBe(turn);
+  const quest = { kind: "item", target: "lamp", step: { verb: "give", to: "moth" } };
+  expect(prelude.actors.vale.want).toMatchObject(quest);
+  let world = decodeSave(encodeSave(beginPipJourney(17, prelude)));
+  expect(world.opening).toBeDefined();
+  expect(world.actors.vale.place).toBe("attic");
+  expect(world.actors.vale.want).toMatchObject(quest);
+  world = selectLamp(world);
+  const move = legalActions(world).find((a) => a.kind === "move" && a.target === "pond");
+  world = decodeSave(encodeSave(play(world, move).state));
+  // The same quest is held, so Pip does not offer a second one.
+  expect(questOffers(world).map((o) => o.id)).not.toContain("quest:from:moth");
+  world = selectLamp(world, "lamp");
+  const give = legalActions(world).find((a) => a.kind === "give" && a.target === "moth");
+  const result = play(world, give);
+  expect(result.ok).toBe(true);
+  expect(result.state.actors.vale.want).toBeNull();
+});

@@ -96,7 +96,7 @@ import {
 } from "./quest-card.mjs";
 import { actionScene, questScreen } from "./quest-screen.mjs";
 import { createLandingWorld, newRunSeed } from "./pack-landing.mjs";
-import { beginPipJourney, createPipWorld, talkToPip } from "./pip-landing.mjs";
+import { beginPipJourney, createPipWorld } from "./pip-landing.mjs";
 import { flipStagePortrait, portraitFraming } from "./portrait-facing.mjs";
 import { locationWeather } from "./weather.mjs";
 import { DAYLIGHT_TURNS, isNight, locationDaylight } from "./daylight.mjs";
@@ -241,7 +241,7 @@ import {
   offerOf,
   settledChoice,
 } from "./cards.mjs";
-import { isOfferId } from "./world/offers.mjs";
+import { isOfferId, offerId } from "./world/offers.mjs";
 // A person's want reaches the player through Talk context (want-talk.mjs).
 // The hand holds people, items and places, and the player's quest cards.
 const $ = (id) => document.getElementById(id);
@@ -483,12 +483,15 @@ const cardArt = (id) =>
 // going (the ship's deck from its berth), lit for the hour and weather.
 const placeArt = (id) => placeCardArt(world, id);
 const pipPrelude = () => startingPip && !world.opening;
+// The printed card says "Wants Lamp": a visitor with it in hand already knows
+// Pip and the Lamp, so both are known cards from the first look.
+const PIP_KNOWN = ["moth", "lamp"];
 // An offered quest lies face down until opened, like a closed box; its
 // opening is remembered with the cards seen (until the quest is taken).
 const cardIsCovered = (id) => isOfferId(id)
   ? !encountered.has(id) || coveredCards.has(id)
   : pipPrelude()
-  ? id !== "moth" && !(world.actors.vale.want?.story && id === "lamp")
+  ? !PIP_KNOWN.includes(id) || coveredCards.has(id)
   : !encountered.has(id) || coveredCards.has(id);
 // Cards new to the view. An offered quest is opened by the player, never found.
 const unseenCards = () =>
@@ -589,10 +592,11 @@ function loadSeen(reset = false) {
   // The opening hand starts covered, like any newly met card; a known table
   // keeps the cards its player has already uncovered.
   if (opening) for (const id of availableCards(world)) coveredCards.add(id);
-  if (startingPip) {
-    encountered.add("moth");
-    coveredCards.delete("moth");
-  }
+  if (startingPip)
+    for (const id of pipPrelude() ? PIP_KNOWN : ["moth"]) {
+      encountered.add(id);
+      coveredCards.delete(id);
+    }
   if (pipPrelude() && !saveBlocked) {
     selected = ["moth"];
     rowCollapsed = false;
@@ -1708,12 +1712,6 @@ function uncover(
   // Its figure or item fades into the scene (stage-reveal.mjs).
   if (fade && !isOfferId(id)) stageReveals.add(id);
   if (batch) return;
-  // The opening's last card down raises its first play, Put out (opening.mjs).
-  const step = opening();
-  if (was === "reveal" && step?.step === "play" && step.choice.length) {
-    selectCards(step.choice);
-    rowCollapsed = false;
-  }
   render();
   const shown = $("hand").querySelector(`.card[data-card="${id}"]`);
   if (shown && flip) turnCard(openingLid(shown, lid));
@@ -2044,24 +2042,6 @@ function commitAction(action, revision, renderedAt = -Infinity) {
 }
 function performAction(action, revision) {
   if (saveBlocked || sharedSession) return;
-  if (pipPrelude() && action.kind === "talk" && action.target === "moth") {
-    // Pip's Talk is played by the rules; the world after it keeps what he told.
-    world = talkToPip(world);
-    const next = beginPipJourney(world.run?.seed, world);
-    save();
-    pipLeaving = true;
-    const transition = ++pipTransition;
-    selected = [];
-    restedChoice = null;
-    render();
-    pipTimer = setTimeout(() => {
-      if (transition !== pipTransition) return;
-      void leavePage(() => {
-        if (transition === pipTransition) resetTable(next);
-      }, { ms: 1600, remember: false });
-    }, 1800);
-    return;
-  }
   const result = play(world, action, revision);
   if (!result.ok) {
     count("error.rules_reject");
@@ -2074,6 +2054,8 @@ function performAction(action, revision) {
     world = result.state;
     save();
     render();
+    // Pip's quest taken is the end of the landing: fade to the opening.
+    if (pipPrelude() && world.actors.vale.want) leaveToOpening();
     return;
   }
   reveal.finish();
@@ -3634,7 +3616,9 @@ function renderStage(locationId) {
   const brandName = document.querySelector(".brand span");
   brandName.textContent = worldName || "…";
   brandName.toggleAttribute("data-covered", !worldName);
-  document.title = worldName ? `CosyWorld · ${worldName}` : "CosyWorld";
+  document.title = startingPip
+    ? "Lonely Forest"
+    : worldName ? `CosyWorld · ${worldName}` : "CosyWorld";
   const fraction = (value, fallback) => String((value ?? fallback) / 100);
   view.style.setProperty("--focus-x", fraction(stage.focus?.x, 50));
   view.style.setProperty("--focus-y", fraction(stage.focus?.y, 50));
@@ -5033,7 +5017,9 @@ function render() {
   const handCards = packHand(
     chosenFirst(
       handWithQuest(
-        pipPrelude() ? ["moth"] : stackPlaces(availableCards(world)),
+        pipPrelude()
+          ? ["moth", ...availableCards(world).filter((id) => id === offerId("resident", "moth"))]
+          : stackPlaces(availableCards(world)),
         world,
         questEntries().map((entry) => entry.id),
       ),
@@ -5567,6 +5553,21 @@ $("new-game").onclick = () => {
   pauseSpeech();
 };
 $("cancel-reset").onclick = () => $("reset-dialog").close();
+// Pip's accepted quest goes with Vale into the opening (beginPipJourney).
+function leaveToOpening() {
+  const next = beginPipJourney(world.run?.seed, world);
+  pipLeaving = true;
+  const transition = ++pipTransition;
+  selected = [];
+  restedChoice = null;
+  render();
+  pipTimer = setTimeout(() => {
+    if (transition !== pipTransition) return;
+    void leavePage(() => {
+      if (transition === pipTransition) resetTable(next);
+    }, { ms: 1600, remember: false });
+  }, 1800);
+}
 function cancelPipTransition() {
   pipTransition++;
   clearTimeout(pipTimer);
@@ -6201,8 +6202,7 @@ if (migratedRunSeed || (startingPip && openingTable)) save();
 resumeScene();
 // The title's turn (or Escape past it) is this avatar's reveal.
 onTitleWake(() => uncover(pipPrelude() ? "moth" : currentActor(world), { flip: false }));
-if (pipPrelude() && world.actors.vale.heard?.moth)
-  performAction({ kind: "talk", target: "moth" }, world.revision);
+if (pipPrelude() && world.actors.vale.want) leaveToOpening();
 else if (pipPrelude() && openingTable) {
   playTitleIntro({ cardOnly: true, storage: null });
   holdMusicForTitle();
