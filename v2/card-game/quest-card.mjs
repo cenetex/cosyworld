@@ -55,21 +55,28 @@ export function questVisible(world, quest) {
 // The quest the player holds: a list of none or one (questsOf is the rules'
 // zero-or-one view of the single want). A card's key changes when its quest
 // is met, set aside or moves on a step.
+const questShape = (world, actor, want, key, index) => ({
+  key,
+  index,
+  actor,
+  kind: want.kind,
+  target: want.target === CONNECT_TARGET ? null : want.target,
+  xp: world.actors[actor].xp,
+  // A level quest: the level it leads to and the steps still to go.
+  level: want.quest?.level ?? null,
+  left: want.quest?.left ?? 0,
+  step: want.step ?? null,
+  ...(want.lit === undefined ? {} : { lit: want.lit }),
+  ...burial(world, want),
+});
 export const questCards = (world, actor = currentActor(world)) =>
-  questsOf(world, actor).map((want, index) => ({
-    key: wantKey(actor, want),
-    index,
-    actor,
-    kind: want.kind,
-    target: want.target === CONNECT_TARGET ? null : want.target,
-    xp: world.actors[actor].xp,
-    // A level quest: the level it leads to and the steps still to go.
-    level: want.quest?.level ?? null,
-    left: want.quest?.left ?? 0,
-    step: want.step ?? null,
-    ...(want.lit === undefined ? {} : { lit: want.lit }),
-    ...burial(world, want),
-  }));
+  questsOf(world, actor).map((want, index) =>
+    questShape(world, actor, want, wantKey(actor, want), index),
+  );
+// An offered quest in the held quest's own shape, so one face draws both.
+// The offer's id is its key and it has no index: nothing is held yet.
+export const offerQuest = (world, offer, actor = currentActor(world)) =>
+  questShape(world, actor, offer.want, offer.id, -1);
 // The held quest, the one the folded card shows, or null.
 export const questCard = (world, actor = currentActor(world)) =>
   questCards(world, actor)[0] ?? null;
@@ -286,8 +293,9 @@ export function questTier(quest, world = null, known = () => true) {
 
 // The hand id of the quest card: there is only ever the one.
 export const questId = () => `${QUEST_CARD}:0`;
-export const isQuestId = (id) =>
-  typeof id === "string" && id.startsWith(`${QUEST_CARD}:`);
+// Only the held quest's own id: the offers (`quest:from:`, `quest:box:`,
+// `quest:home:`, `quest:level`) are ordinary cards of the table.
+export const isQuestId = (id) => id === questId();
 
 // The hand with the quest card after the player's avatar and what it
 // carries (a quest card never lies ahead of a carried thing, #2295).

@@ -4,6 +4,7 @@ import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
 import { createWorld, encodeSave } from "../card-game/world.mjs";
 import { availableCards } from "../card-game/cards.mjs";
+import { questXp } from "../card-game/want.mjs";
 import { revealOpening, tapCard } from "./card-browser-helpers.mjs";
 
 // The player holds one quest. It folds behind the player's avatar as a face
@@ -152,9 +153,9 @@ try {
     const sawFaceDown = () => page.evaluate(() => window.questFaceDown.seen);
     await page.locator('#hand [data-card="vale"]').click();
     await quest.waitFor();
-    await page.locator('#hand .want-card[data-unrevealed="false"]').waitFor();
+    await page.locator('#hand .want-frame > .want-card[data-unrevealed="false"]').waitFor();
     assert.equal(await sawFaceDown(), true, "the quest is dealt face down");
-    assert.equal(await page.locator("#hand .want-card").count(), 1);
+    assert.equal(await page.locator("#hand .want-frame > .want-card").count(), 1);
     assert.deepEqual(
       await head(),
       { name: "Hold", lines: 1, color: "rgb(255, 240, 130)" },
@@ -162,7 +163,7 @@ try {
     );
     assert.equal(await page.locator("#hand .quest-fold").isHidden(), true);
     assert.equal(
-      await page.locator('#hand .want-card[data-near="true"]').isVisible(),
+      await page.locator('#hand .want-frame > .want-card[data-near="true"]').isVisible(),
       true,
     );
     // Folding Vale's stack and opening it again never deals it face down
@@ -176,7 +177,7 @@ try {
       await page.locator('#hand [data-card="vale"]').click();
       await quest.waitFor();
       assert.equal(
-        await page.locator("#hand .want-card").getAttribute("data-unrevealed"),
+        await page.locator("#hand .want-frame > .want-card").getAttribute("data-unrevealed"),
         "false",
       );
     }
@@ -186,9 +187,9 @@ try {
     });
     // Choosing the quest card shows its details and one button. The lamp is
     // already held, so there is no step left: Discard is the one button.
-    await page.locator("#hand .want-card").click({ position: { x: 40, y: 16 } });
+    await page.locator("#hand .want-frame > .want-card").click({ position: { x: 40, y: 16 } });
     assert.equal(
-      await page.locator("#hand .want-card").getAttribute("aria-pressed"),
+      await page.locator("#hand .want-frame > .want-card").getAttribute("aria-pressed"),
       "true",
     );
     await page
@@ -197,9 +198,9 @@ try {
       .waitFor();
     assert.equal(await page.locator("#card-actions button").count(), 1);
     // Tapping the chosen quest lowers it again; the avatar's stack stays.
-    await page.locator("#hand .want-card").click({ position: { x: 40, y: 16 } });
+    await page.locator("#hand .want-frame > .want-card").click({ position: { x: 40, y: 16 } });
     assert.equal(
-      await page.locator("#hand .want-card").getAttribute("aria-pressed"),
+      await page.locator("#hand .want-frame > .want-card").getAttribute("aria-pressed"),
       "false",
     );
     // Any play meets it. Its experience is paid on that play and the card
@@ -218,7 +219,7 @@ try {
     );
     const after = await saved();
     assert.equal(after.xp, before.xp + 1, "the meeting play paid one XP");
-    assert.equal(await page.locator("#hand .want-card").count(), 0);
+    assert.equal(await page.locator("#hand .want-frame > .want-card").count(), 0);
     assert.equal(await page.locator("#hand .want-frame").count(), 0);
     assert.equal(await page.locator("#hand .quest-fold").count(), 0);
     assert.equal(await page.locator(".quest-seal, .quest-xp").count(), 0);
@@ -230,7 +231,7 @@ try {
 
     // Discard. A level quest names its cost on its one button, asks again,
     // and drops on the second tap with no turn passing.
-    await page.evaluate((key) => {
+    await page.evaluate(({ key, xp }) => {
       const s = JSON.parse(localStorage.getItem(key));
       const vale = s.actors.vale;
       vale.want = {
@@ -241,18 +242,18 @@ try {
         // A level quest: its Discard names the cost (rules 98).
         quest: { level: 2, left: 1 },
       };
-      Object.assign(vale, { xp: 1, level: 1 });
+      Object.assign(vale, { xp, level: 1 });
       localStorage.setItem(key, JSON.stringify(s));
-    }, key);
+    }, { key, xp: questXp(2) });
     await page.reload();
     await ready();
     await page.locator("#hand .quest-fold").focus();
     await page.keyboard.press("Enter");
     await page.locator("#hand .want-frame:not([hidden])").waitFor();
-    assert.equal(await page.locator("#hand .want-card").count(), 1);
+    assert.equal(await page.locator("#hand .want-frame > .want-card").count(), 1);
     // The fold's tap also chooses the quest and shows its details.
     assert.equal(
-      await page.locator("#hand .want-card").getAttribute("aria-pressed"),
+      await page.locator("#hand .want-frame > .want-card").getAttribute("aria-pressed"),
       "true",
     );
     const drop = page.locator('#card-actions [data-drop-quest="0"]');
@@ -298,10 +299,10 @@ try {
     await ready();
     assert.deepEqual(
       await saved(),
-      { turn: (await saved()).turn, xp: 0, want: null },
+      { turn: (await saved()).turn, xp: questXp(2) - 1, want: null },
       "the quest dropped and paid its cost",
     );
-    assert.equal(await page.locator("#hand .want-card").count(), 0);
+    assert.equal(await page.locator("#hand .want-frame > .want-card").count(), 0);
 
     // A step quest: at the Theban City Gate, the chosen quest card offers one
     // button, Give, and giving the Decree meets it and pays one XP.
@@ -319,14 +320,14 @@ try {
     await ready();
     await page.locator("#hand .quest-fold").focus();
     await page.keyboard.press("Enter");
-    await page.locator('#hand .want-card[data-unrevealed="false"]').waitFor();
+    await page.locator('#hand .want-frame > .want-card[data-unrevealed="false"]').waitFor();
     assert.deepEqual(await head(), {
       name: "Give",
       lines: 1,
       color: "rgb(255, 240, 130)",
     });
     assert.equal(
-      await page.locator("#hand .want-card").getAttribute("aria-label"),
+      await page.locator("#hand .want-frame > .want-card").getAttribute("aria-label"),
       "Quest: Give The Burial Decree to The Gate Guard, near",
     );
     // The fold's tap names the quest and offers its Give action: one button.
@@ -349,7 +350,7 @@ try {
     );
     assert.equal(
       await page
-        .locator('#hand .want-card .quest-screen[data-parts="3"] > img')
+        .locator('#hand .want-frame > .want-card .quest-screen[data-parts="3"] > img')
         .evaluateAll((imgs) =>
           imgs
             .filter((img) => !img.matches(".quest-ground"))
@@ -375,7 +376,7 @@ try {
       xp + 1,
       "the Give paid the experience, with no claim",
     );
-    assert.equal(await page.locator("#hand .want-card").count(), 0);
+    assert.equal(await page.locator("#hand .want-frame > .want-card").count(), 0);
     assert.equal(await page.locator(".quest-seal, .quest-xp").count(), 0);
     assert.deepEqual(errors, []);
     console.log(

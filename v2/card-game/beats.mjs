@@ -11,7 +11,8 @@ import { isSceneText } from "./scene.mjs";
 import { consumable, transports } from "./pack-registry.mjs";
 import { inSentence, theName } from "./combat-beats.mjs";
 
-const QUIET_VERBS = new Set(["talk"]);
+// Taking a quest from a card (verb "quest") is silent too: no turn, no beat.
+const QUIET_VERBS = new Set(["talk", "quest"]);
 const DAMAGE = /loses (\d+) resolve/u;
 const YIELDED = /after yielding to/u;
 const STANDOFF_ENDS = /(standoff|battle) ends/u;

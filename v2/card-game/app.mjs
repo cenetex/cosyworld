@@ -76,6 +76,7 @@ import { levelUpCard, transformPortrait } from "./card-level-up.mjs";
 import { crossedPortraitTier } from "./rarity-portraits.mjs";
 import {
   isQuestId,
+  offerQuest,
   questCards,
   questVisible,
   questCaption,
@@ -90,7 +91,7 @@ import {
 import { NOT_FOUND, questStep } from "./quest-step.mjs";
 import { actionScene, questScreen } from "./quest-screen.mjs";
 import { createLandingWorld, newRunSeed } from "./pack-landing.mjs";
-import { beginPipJourney, createPipWorld } from "./pip-landing.mjs";
+import { beginPipJourney, createPipWorld, talkToPip } from "./pip-landing.mjs";
 import { flipStagePortrait, portraitFraming } from "./portrait-facing.mjs";
 import { locationWeather } from "./weather.mjs";
 import { DAYLIGHT_TURNS, isNight, locationDaylight } from "./daylight.mjs";
@@ -231,7 +232,9 @@ import {
   TOO_MANY_ITEMS,
   sealedReason,
   asleepReason,
+  offerOf,
 } from "./cards.mjs";
+import { isOfferId } from "./world/offers.mjs";
 // A person's want reaches the player through Talk context (want-talk.mjs).
 // The hand holds people, items and places, and the player's quest cards.
 const $ = (id) => document.getElementById(id);
@@ -465,7 +468,7 @@ const cardArt = (id) =>
 // going (the ship's deck from its berth), lit for the hour and weather.
 const placeArt = (id) => placeCardArt(world, id);
 const pipPrelude = () => startingPip && !world.opening;
-const cardIsCovered = (id) => pipPrelude()
+const cardIsCovered = (id) => isOfferId(id) ? false : pipPrelude()
   ? id !== "moth" && !(world.actors.vale.want?.story && id === "lamp")
   : !encountered.has(id) || coveredCards.has(id);
 const cardIsClosed = (id) => cardIsCovered(id) || isLockedBox(world, id);
@@ -693,10 +696,6 @@ function ownSharedEntry() {
 // shared table's seat makes it do, and the next scene is asked after it.
 // The plays that pass no turn and bring no reply: taking a quest from an
 // offer (a Take that names its offer, not a thing). Its beat stays awake.
-// FOLLOW-UP (bump 133, package 4): the rules' `questOffers` are not drawn as
-// cards here yet. When they land, each offer card's one button is that play's
-// label, and a blocked offer shows its reason through the `data-blocked`
-// button path; nothing else in the client needs to change.
 const takesQuest = (action) => action?.kind === "take" && action.offer !== undefined;
 const localWordsPending = () => !sharedSession && storyStatus === "pending";
 const playQueue = createPlayQueue({
@@ -1681,6 +1680,9 @@ function choose(id) {
   fresh.delete(id);
   const questChosen = questOpen;
   questOpen = false;
+  // An offered quest is chosen alone, and any other card replaces it.
+  if (selected.some(isOfferId) && !selected.includes(id))
+    selected = selected.filter((cardId) => !isOfferId(cardId));
   // Any tap opens a folded row again; the held item is still raised.
   rowCollapsed = false;
   // Any tap but one on the ways on folds them: one fan at a time.
@@ -1694,7 +1696,9 @@ function choose(id) {
   const withCard = [...selected, id];
   // Lower the card actually tapped before any stack-folding behavior.
   // In a pair, tapping the expanded avatar must leave its partner chosen.
-  if (cardIsClosed(id)) {
+  if (isOfferId(id)) {
+    selectCards(selected.includes(id) ? [] : [id], { keepOpen: true });
+  } else if (cardIsClosed(id)) {
     // A closed thing replaces its browsing place just like a known thing.
     const holder = tableHolder(world, id);
     const knownCards = selected.filter((card) =>
@@ -1816,8 +1820,9 @@ function commitAction(action, revision, renderedAt = -Infinity) {
 function performAction(action, revision) {
   if (saveBlocked || sharedSession) return;
   if (pipPrelude() && action.kind === "talk" && action.target === "moth") {
-    const next = beginPipJourney(world.run?.seed);
-    world.actors.vale.want = structuredClone(next.actors.vale.want);
+    // Pip's Talk is played by the rules; the world after it keeps what he told.
+    world = talkToPip(world);
+    const next = beginPipJourney(world.run?.seed, world);
     save();
     pipLeaving = true;
     const transition = ++pipTransition;
@@ -2396,7 +2401,7 @@ function renderActions() {
         !cardIsClosed(selected[0])
       ? `Look at ${theName(selected[0])} up close.`
       : "";
-  const selectionName = selected.map((id) => cardIsClosed(id) ? "Closed box" : nameOf(id)).join(" + ");
+  const selectionName = selected.map((id) => isOfferId(id) ? "Quest" : cardIsClosed(id) ? "Closed box" : nameOf(id)).join(" + ");
   $("selection-name").textContent = selected.length
     ? selectionName
     : "Card actions";
@@ -2405,8 +2410,12 @@ function renderActions() {
     actor = currentActor(world),
     name = nameOf(actor),
     // The chosen quest card names itself, as a play does.
+    // An offered quest card, chosen, names its quest the same way.
+    offerPicked =
+      !rested && selected.length === 1 ? offerOf(world, selected[0]) : null,
     questShown =
-      !selected.length && questOpen && !rested ? shownQuests[0] : null,
+      (!selected.length && questOpen && !rested ? shownQuests[0] : null) ||
+      (offerPicked ? offerQuest(world, offerPicked) : null),
     lockShown =
       !rested && closed
         ? (selected.length === 1 && isLockedBox(world, selected[0])
@@ -2422,7 +2431,9 @@ function renderActions() {
     sentence = lockShown
       ? lockShown.text
       : questShown
-        ? shownQuestCaption(questShown, false)
+        ? // An offer's bar names the play before its quest.
+          (offerPicked && !offerPicked.blocked ? `${offerPicked.label}: ` : "") +
+          shownQuestCaption(questShown, false)
         : (
             (actions[0] && playText(actions[0])) ||
             clientText
@@ -2641,7 +2652,7 @@ function renderActions() {
     const blocked = node("button", asleep, "card-primary");
     blocked.type = "button";
     blocked.disabled = true;
-    blocked.dataset.blocked = "asleep";
+    blocked.dataset.blocked = offerPicked ? "quest" : "asleep";
     blocked.title = asleep;
     row.append(blocked);
   }
@@ -2677,7 +2688,7 @@ function renderActions() {
     );
     message = button;
     heading.hidden = true;
-  } else if (questShown && row.childElementCount === 1) {
+  } else if (questShown && !offerPicked && row.childElementCount === 1) {
     const label = step && playLabel(step, world);
     cardTapHint(
       row.firstElementChild,
@@ -2753,8 +2764,14 @@ function updateCardSelection(frame) {
   const fold = frame.querySelector(":scope > .quest-fold");
   if (fold) syncQuestFold(fold);
   const button = frame.querySelector(".card"),
-    id = button.dataset.card,
-    raised =
+    id = button.dataset.card;
+  if (isOfferId(id)) {
+    frame.dataset.raised = String(selected.includes(id));
+    button.setAttribute("aria-pressed", String(selected.includes(id)));
+    button.dataset.selected = String(selected.includes(id));
+    return;
+  }
+  const raised =
       selected.includes(id) || Boolean(places[id] && expandedHolders.has(id)),
     label = raised ? playLabel(cardPlay(world, selected).action) : "",
     held =
@@ -2887,7 +2904,7 @@ function handExits() {
 // later. Once turned it stays face up while it stays in the hand, folded or
 // shown. A tap still plays it at once.
 function showQuests(opening) {
-  const card = $("hand").querySelector(".want-card");
+  const card = $("hand").querySelector(".want-frame > .want-card");
   if (!card) {
     questsInView.show(null);
     return;
@@ -2930,6 +2947,7 @@ function moveHandPart(key, element, frames, duration = 220) {
     .catch(() => {});
 }
 function card(id) {
+  if (offerOf(world, id)) return offerFrame(id);
   const type = tableType(world, id),
     base = places[id] || people[id] || things[id],
     crossingFace = type === "location" ? travelCard(world, id) : null,
@@ -3184,6 +3202,54 @@ const questLabel = (quest, near) => {
     : shownQuestCaption(quest);
   return `Quest: ${caption}${near ? ", near" : ""}`;
 };
+// The face every quest card shares, held or offered: the scene and its head.
+function questFace(quest, verb) {
+  const head = node("span", undefined, "quest-head");
+  // A level quest keeps its title through each step.
+  head.append(
+    setCardLabel(node("span", undefined, "quest-verb"), quest.level ? "Level Up" : verb),
+    node("span", quest.level ? romanLevel(quest.level) : "", "quest-level"),
+  );
+  return [
+    questScreen(
+      quest.art ? { ...questView(quest), actor: null } : questView(quest),
+      quest.art ? { ...questArt, place: () => quest.art } : questArt,
+    ),
+    head,
+  ];
+}
+// An offered quest: the held quest's own card, lying in the hand's row among
+// the table's cards, with the offer's id for its card. A tap chooses it and
+// its one button takes the quest (or says why not).
+function offerFrame(id) {
+  const offer = offerOf(world, id),
+    quest = offerQuest(world, offer),
+    raised = selected.includes(id),
+    tier = questTier(quest, world, known),
+    who = people[offer.source] && known(offer.source) ? nameOf(offer.source) : "";
+  const el = node("button", undefined, "card want-card");
+  el.type = "button";
+  el.dataset.card = id;
+  el.dataset.offer = offer.kind;
+  el.dataset.tier = tier.id;
+  el.dataset.near = "false";
+  el.dataset.unrevealed = "false";
+  el.dataset.locked = "false";
+  el.dataset.selected = String(raised);
+  el.style.setProperty("--tier-color", tier.color);
+  el.disabled = selectionBlocked();
+  el.setAttribute("aria-pressed", String(raised));
+  el.setAttribute(
+    "aria-label",
+    `Quest offered${who ? ` by ${who}` : ""}: ${shownQuestCaption(quest, false)}`,
+  );
+  el.append(...questFace(quest, questVerb(world, quest, questCovered(quest))));
+  el.addEventListener("click", () => choose(id));
+  const frame = node("div", undefined, "card-frame");
+  frame.dataset.raised = String(raised);
+  frame.append(el);
+  return frame;
+}
 function questFrame({ id, quest }) {
   const picked = questOpen;
   const hidden = questCovered(quest),
@@ -3204,12 +3270,6 @@ function questFrame({ id, quest }) {
   el.dataset.picked = String(picked);
   el.setAttribute("aria-pressed", String(picked));
   el.setAttribute("aria-label", questLabel(quest, near));
-  const head = node("span", undefined, "quest-head");
-  // A level quest keeps its title through each step.
-  head.append(
-    setCardLabel(node("span", undefined, "quest-verb"), quest.level ? "Level Up" : verb),
-    node("span", quest.level ? romanLevel(quest.level) : "", "quest-level"),
-  );
   el.append(
     // Face down, it shows the carved lid until it turns.
     Object.assign(node("img", undefined, "card-back"), {
@@ -3217,11 +3277,7 @@ function questFrame({ id, quest }) {
       alt: "",
       draggable: false,
     }),
-    questScreen(
-      quest.art ? { ...questView(quest), actor: null } : questView(quest),
-      quest.art ? { ...questArt, place: () => quest.art } : questArt,
-    ),
-    head,
+    ...questFace(quest, verb),
   );
   // A tap chooses the quest and shows its details; a tap on it again lowers
   // it.
@@ -5889,7 +5945,7 @@ if (migratedRunSeed || (startingPip && openingTable)) save();
 resumeScene();
 // The title's turn (or Escape past it) is this avatar's reveal.
 onTitleWake(() => uncover(pipPrelude() ? "moth" : currentActor(world), { flip: false }));
-if (pipPrelude() && world.actors.vale.want?.story)
+if (pipPrelude() && world.actors.vale.heard?.moth)
   performAction({ kind: "talk", target: "moth" }, world.revision);
 else if (pipPrelude() && openingTable) {
   playTitleIntro({ cardOnly: true, storage: null });

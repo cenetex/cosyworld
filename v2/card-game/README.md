@@ -250,6 +250,16 @@ the world rules in `want.mjs`, not from authored quest chains.
   lamp); Take level up quest appears when experience reaches the next level
   and gives Sleep at home. While a quest is held every card stays, its
   button disabled and labelled "Finish or discard your quest first".
+  **The client draws each offer as a card** (`offerFrame`, `app.mjs`) with the
+  held quest's own face (`questFace`: the scene of you doing the verb, its
+  head, its tier colour; a hidden name stays hidden, as in `lockedQuest`). The
+  offers lie together in the hand's row after the place's cards, where
+  `availableCards` orders them; the held quest lies behind your avatar's
+  stack. A chosen offer is the only chosen card and has one button: its play's
+  label ("Accept quest"), or, blocked, the disabled button whose label is the
+  reason. Taking passes no turn and makes no beat (`quest` is a quiet verb).
+  Pip's `/pip` Talk is played by the rules and carries what he told into
+  Vale's first world, where his Accept quest card waits at the pond.
 - **A resident's want.** Residents keep drawing wants: the next is drawn
   deterministically from the world, seeded by the avatar and turn (items
   others hold nearby that it values above what it carries, reachable places it

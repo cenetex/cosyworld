@@ -67,8 +67,10 @@ try {
     await page.locator(".title-intro").waitFor({ state: "detached" });
     const journey = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)), key);
     assert.equal(journey.actors.vale.place, "attic");
-    assert.equal(journey.actors.vale.want.step.to, "moth");
-    assert.equal(journey.actors.vale.want.story, true);
+    // Pip's Talk is the rules' own: Vale carries what he told her, and his
+    // quest waits as a card by him (it is no quest she holds yet).
+    assert.deepEqual(journey.actors.vale.heard, { moth: "item:lamp" });
+    assert.equal(journey.actors.vale.want, null);
     await page.reload();
     await page.locator('#hand [data-card="vale"]').waitFor();
     assert.equal(await talk.count(), 0);

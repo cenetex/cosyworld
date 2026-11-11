@@ -273,17 +273,31 @@ try {
       });
       await readyActionButton(page, "talk").click();
       await ready();
-      const vale = (await state()).actors.vale;
-      assert(
-        [vale.want, ...(vale.under || [])].some(
-          (quest) =>
-            quest?.kind === "item" &&
-            quest.target === "greek-bread" &&
-            quest.step?.verb === "give" &&
-            quest.step.to === "greek-guard",
-        ),
-        "Talk with the guard still adds his bread request to Vale's quest stack",
+      // Talk takes nothing: the shut box's quest is now an offer card (it
+      // may also bring the guard's own Accept quest card, by trust or by
+      // chance), and Vale still holds no quest.
+      assert.equal((await state()).actors.vale.want, null);
+      const offer = page.locator('#hand [data-card="quest:box:greek-battlefield"]');
+      await offer.waitFor({ state: "attached" });
+      await page.keyboard.press("Escape");
+      await selectCard(page, "quest:box:greek-battlefield");
+      assert.equal(await page.locator("#card-actions button").count(), 1);
+      assert.equal(
+        await page.locator("#card-actions button").first().getAttribute("data-tap-verb"),
+        "Take quest",
       );
+      await ready();
+      const take = page.locator("#card-actions button").first();
+      // A tap on the bar finishes words still typing; the next one plays.
+      for (let i = 0; i < 3 && !(await state()).actors.vale.want; i++) {
+        await take.dispatchEvent("click");
+        await page.waitForTimeout(200);
+      }
+      await page.waitForFunction(
+        (key) => Boolean(JSON.parse(localStorage.getItem(key)).actors.vale.want),
+        key,
+      );
+      assert.equal(await offer.count(), 0);
       const questLid = await page.evaluate(() => window.closedQuestEvidence);
       assert(questLid, "the new quest is first dealt face down");
       assert.equal(questLid.src, plainLid.src);

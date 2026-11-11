@@ -177,7 +177,7 @@ async function wake(width, { halfway, reduced = false, replace = null }) {
     await page.goto(`${origin}/?table=dream`);
     await page.waitForFunction(() => document.body.inert === false);
     assert.equal(
-      await page.locator("#hand .want-card").count(),
+      await page.locator("#hand .want-frame > .want-card").count(),
       0,
       "the old routine REST card leaves the hand",
     );
@@ -318,7 +318,7 @@ async function wake(width, { halfway, reduced = false, replace = null }) {
       assert.equal(
         await page.evaluate(
           () =>
-            document.querySelectorAll("#hand .quest-fold, #hand .want-card")
+            document.querySelectorAll("#hand .quest-fold, #hand .want-frame > .want-card")
               .length,
         ),
         0,

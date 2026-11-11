@@ -68,6 +68,10 @@ raises your level and pays no experience. Discarding it costs the experience
 that leaves you just under the threshold, so its card does not come back at
 once. Discarding any other quest is free. The rules enumerate the offers
 (`questOffers`, `world/offers.mjs`) and the `take` play has an `offer` id.
+The table draws every offer as a quest card in the hand's row, after the
+place's cards; selecting one replaces any other choice and shows exactly one
+button (the play's label, or the disabled reason). The card you hold lies
+behind your avatar's stack and offers its next step or Discard.
 
 Pairs work in either order. Arrow keys move between visible cards. Enter
 and Space toggle selection. Tab from a selected card reaches its action
