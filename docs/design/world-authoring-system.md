@@ -320,6 +320,106 @@ The production model is `openai/gpt-image-2.6-flare` through the configured
 provider. The direct OpenAI model ID is `gpt-image-2.6-flare`. Both generation
 and reference-image editing are documented in the [image generation guide](https://developers.openai.com/api/docs/guides/image-generation).
 
+## Generation jobs
+
+A paid generation (an image up to 150 s, a seed or character draw up to 60 s)
+must not live only in a browser tab. Before jobs, a tab that navigated away or
+reloaded lost the result, and a paid image could land with nowhere to be saved.
+A job is a server-owned record of one paid request and its result
+([#2623](https://github.com/cenetex/cosyworld/issues/2623)). The server runs it
+once, keeps the result, and the client reads it back by id, so a closed tab, a
+reload, a dropped connection or a deploy cannot lose a finished result.
+
+### Contract
+
+All routes need the passkey session; mutations are same-origin. Every response is
+`Cache-Control: no-store`. Failures and body rejections are JSON
+`{error, ok:false, code, retryAfterMs?}`.
+
+| Route | Does |
+| --- | --- |
+| `POST /card-game/authoring/jobs` | Body `{kind: "image" \| "seed" \| "avatars", request}`. `request` is exactly the body the matching `generate/*` route accepts. Optional `Idempotency-Key` header (one UUID, as `POST /packs`). |
+| `GET /card-game/authoring/jobs/{id}` | One job of the signed-in owner; another account gets 404 `job_not_found`. |
+| `GET /card-game/authoring/jobs` | The owner's 50 newest jobs, newest first, in the same shape. |
+
+Create validates with the same code as the synchronous routes before it accepts
+anything, so shape errors return at once with the same message, and nothing is
+charged. It answers `202 {id, kind, status: "queued", createdAt}`. A repeated
+`Idempotency-Key` with the same request answers `200` with the existing job
+(never a second paid call); the same key with a different request is
+`409 idempotency_conflict`.
+
+A job reads `{id, kind, status, createdAt, updatedAt, result?, error?}`. Times
+are Unix milliseconds. `status` is `queued`, `running`, `done` or `failed`.
+
+- `image` result: `{image: {sha256, size, mime: "image/png"}, basis, model, usage}`.
+  The bytes are in the owner's private asset store; fetch them with
+  `GET /card-game/authoring/assets/{sha256}`.
+- `seed` result: `{cards}`. `avatars` result: `{candidate, model, usage}`. These are
+  the bodies the synchronous routes return, stored in the job row (at most 64 KiB).
+- `error`: `{message, code, retryAfterMs}`. One short honest message by cause:
+
+| `code` | Meaning |
+| --- | --- |
+| `inference_timeout` | The model took too long. |
+| `inference_provider_error` | A 4xx other than 401, 402, 404, 408, 425 and 429 says the model refused the request; any other provider error says the service is unavailable. |
+| `inference_daily_spend_exhausted` | The daily server budget is spent; the message says it resets at 00:00 UTC and `retryAfterMs` counts to then. |
+| `inference_*` (others) | The service is unavailable; `retryAfterMs` follows the provider's hint, else 0. |
+| `generation_timeout` | The pool's deadline (90 s text, 180 s image) passed. |
+| `generation_invalid_output`, `generation_incomplete` | The text model's reply was unusable or cut off. |
+| `image_layout_invalid` | The image could not be used; for a pose sheet, it does not split into six equal cells. |
+| `image_model_unexpected` | The image came from a model other than the pinned one and was discarded. |
+| `authoring_storage_full`, `authoring_storage_unavailable` | The image was made but could not be kept. |
+| `generation_interrupted` | The server restarted, or the run stopped unexpectedly. Not retried. |
+
+### Admission
+
+Text jobs (seed, avatars) and image jobs have separate pools, so a card draw never
+waits for an image. In each pool an owner may have 1 job running, the server 2, and
+an owner may start 18 text or 6 image jobs per minute. A refusal is `429` and says
+which limit it hit: `generation_busy_owner`, `generation_busy_global` or
+`generation_rate`, with `retryAfterMs` taken from the running jobs' deadlines or
+the oldest start in the window. Admission is process-local, shared by the jobs
+and the synchronous routes. Refused requests create no row.
+
+### Lifecycle
+
+`queued` lasts only until the server task starts; the task marks the row `running`,
+makes exactly one provider attempt through the existing gateway functions (a paid
+call is never retried automatically), stores the result, frees the slot, then writes
+`done` or `failed`. An image is saved to the owner's store before the job reads
+`done`; a full store fails the job with `authoring_storage_full` and writes no
+file. The row is a plain SQLite table, `authoring_jobs`, created idempotently like
+the other authoring tables. It holds no request body, only a digest for idempotency.
+
+At boot, every job left `queued` or `running` is marked `failed` with
+`generation_interrupted` and is **not** run again. The provider call that was in
+flight during a restart may still have been charged; the message tells the maker it
+was stopped and can be started again.
+
+### Retention
+
+Finished job rows are deleted after 7 days (at boot and hourly), and each owner
+keeps at most their newest 200 rows, trimmed when a job is accepted. Job images
+follow the existing asset-store rules: there is no delete route, so every unused
+result counts against the owner's 256 MiB and 1,024 files and the server's 512 MiB
+generated-asset budget. Proposed, not built: a route that deletes an owner's file
+that no job result, pack or draft references, and an automatic sweep of images
+whose job rows have been pruned.
+
+### Client migration
+
+The synchronous `generate/*` routes keep working, now through the same functions
+and admission, until the client moves. The client PR then:
+
+1. creates a job with an `Idempotency-Key` and stores `{jobId, request context}` in its local
+   draft, so a reload or another card can reattach;
+2. polls `GET /jobs/{id}` (about every 2 s, backing off) and on `done` fetches the image by
+   `sha256` and saves it, showing a stored result even if the maker has left the card;
+3. lists `GET /jobs` on opening the maker to adopt finished and running jobs;
+4. shows `error.message` and honours `retryAfterMs` for Retry;
+5. removes the three synchronous routes, their tests and the base64 response path.
+
 ## Publish and the Store
 
 Publish first prepares the exact public file set: pack manifest,

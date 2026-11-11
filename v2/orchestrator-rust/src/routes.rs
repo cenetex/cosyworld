@@ -64,6 +64,11 @@ impl RequestLogContext {
     }
 }
 
+/// Stop generation jobs a restart interrupted and begin retention.
+pub(super) fn start_authoring_jobs(state: &AppState) {
+    card_authoring_generation::start_jobs(state);
+}
+
 /// The hosted server (#1652): the card table, accounts, shared worlds,
 /// dialogue, voices, authoring, play metrics, `/meta` and `/health`. The
 /// classic routes are not mounted, and the classic world is never loaded.

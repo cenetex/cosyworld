@@ -18,6 +18,9 @@ use std::{
 };
 
 const MAX_FILE: usize = 16 * 1024 * 1024;
+const ASSETS_TABLE: &str = "CREATE TABLE IF NOT EXISTS authoring_assets (
+    owner TEXT NOT NULL, sha256 TEXT NOT NULL, size INTEGER NOT NULL,
+    touched_at INTEGER NOT NULL, PRIMARY KEY(owner,sha256));";
 type Failure = (StatusCode, &'static str);
 const UNAVAILABLE: Failure = (StatusCode::SERVICE_UNAVAILABLE, "Try this file again.");
 const MISSING: Failure = (StatusCode::NOT_FOUND, "Choose one of your private files.");
@@ -86,6 +89,58 @@ async fn owner(state: AppState, headers: HeaderMap, mutation: bool) -> Result<St
     .map_err(|_| UNAVAILABLE)?
 }
 
+/// Reference commits and future cleanup take SQLite first, then the file guard.
+fn commit(
+    c: &mut rusqlite::Connection,
+    state: &AppState,
+    owner: &str,
+    digest: &str,
+    bytes: &[u8],
+) -> Result<u64, Failure> {
+    let tx = c
+        .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
+        .map_err(|_| UNAVAILABLE)?;
+    let store = PrivateAssetStore::new(&state.generated_asset_dir, owner).map_err(storage)?;
+    let receipt = store.put(digest, bytes).map_err(storage)?;
+    tx.execute(
+        "INSERT INTO authoring_assets(owner,sha256,size,touched_at) VALUES(?,?,?,unixepoch())
+        ON CONFLICT(owner,sha256) DO UPDATE SET size=excluded.size,touched_at=excluded.touched_at",
+        params![owner, receipt.sha256, receipt.size],
+    )
+    .map_err(|_| UNAVAILABLE)?;
+    tx.commit().map_err(|_| UNAVAILABLE)?;
+    Ok(receipt.size)
+}
+
+/// How a server-made file was refused.
+#[derive(Debug, Eq, PartialEq)]
+pub(crate) enum StoreError {
+    Full,
+    Unavailable,
+}
+/// Keep bytes the server made (a finished image) as the owner's private file.
+pub(crate) fn store_generated(
+    state: &AppState,
+    owner: &str,
+    digest: &str,
+    bytes: &[u8],
+) -> Result<u64, StoreError> {
+    let path = state
+        .event_store_path
+        .as_deref()
+        .ok_or(StoreError::Unavailable)?;
+    let mut c = crate::open_event_store(path).map_err(|_| StoreError::Unavailable)?;
+    c.execute_batch(ASSETS_TABLE)
+        .map_err(|_| StoreError::Unavailable)?;
+    commit(&mut c, state, owner, digest, bytes).map_err(|(status, _)| {
+        if status == StatusCode::INSUFFICIENT_STORAGE {
+            StoreError::Full
+        } else {
+            StoreError::Unavailable
+        }
+    })
+}
+
 async fn serve(
     State(state): State<AppState>,
     Path(digest): Path<String>,
@@ -133,29 +188,31 @@ async fn transfer(state: AppState, digest: String, request: Request) -> Result<R
     let (bytes, size, permit) = tokio::task::spawn_blocking(move || {
         let path = state.event_store_path.as_deref().ok_or(UNAVAILABLE)?;
         let mut c = crate::open_event_store(path).map_err(|_| UNAVAILABLE)?;
-        c.execute_batch("CREATE TABLE IF NOT EXISTS authoring_assets (
-            owner TEXT NOT NULL, sha256 TEXT NOT NULL, size INTEGER NOT NULL,
-            touched_at INTEGER NOT NULL, PRIMARY KEY(owner,sha256));").map_err(|_| UNAVAILABLE)?;
+        c.execute_batch(ASSETS_TABLE).map_err(|_| UNAVAILABLE)?;
         let (bytes, size) = if let Some(bytes) = upload {
-            // Reference commits and future cleanup take SQLite first, then the file guard.
-            let tx = c.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate).map_err(|_| UNAVAILABLE)?;
-            let store = PrivateAssetStore::new(&state.generated_asset_dir, &owner).map_err(storage)?;
-            let receipt = store.put(&digest, &bytes).map_err(storage)?;
-            tx.execute("INSERT INTO authoring_assets(owner,sha256,size,touched_at) VALUES(?,?,?,unixepoch())
-                ON CONFLICT(owner,sha256) DO UPDATE SET size=excluded.size,touched_at=excluded.touched_at",
-                params![owner, receipt.sha256, receipt.size]).map_err(|_| UNAVAILABLE)?;
-            tx.commit().map_err(|_| UNAVAILABLE)?;
-            (None, receipt.size)
+            (None, commit(&mut c, &state, &owner, &digest, &bytes)?)
         } else {
-            let size: u64 = c.query_row("SELECT size FROM authoring_assets WHERE owner=? AND sha256=?",
-                params![owner, digest], |row| row.get(0)).optional().map_err(|_| UNAVAILABLE)?.ok_or(MISSING)?;
-            let store = PrivateAssetStore::new(&state.generated_asset_dir, &owner).map_err(storage)?;
+            let size: u64 = c
+                .query_row(
+                    "SELECT size FROM authoring_assets WHERE owner=? AND sha256=?",
+                    params![owner, digest],
+                    |row| row.get(0),
+                )
+                .optional()
+                .map_err(|_| UNAVAILABLE)?
+                .ok_or(MISSING)?;
+            let store =
+                PrivateAssetStore::new(&state.generated_asset_dir, &owner).map_err(storage)?;
             let bytes = store.read(&digest).map_err(storage)?.ok_or(UNAVAILABLE)?;
-            if bytes.len() as u64 != size { return Err(UNAVAILABLE); }
+            if bytes.len() as u64 != size {
+                return Err(UNAVAILABLE);
+            }
             (Some(bytes), size)
         };
         Ok((bytes, size, permit))
-    }).await.map_err(|_| UNAVAILABLE)??;
+    })
+    .await
+    .map_err(|_| UNAVAILABLE)??;
     let Some(bytes) = bytes else {
         return Ok(Json(json!({"sha256":response_digest,"size":size})).into_response());
     };
