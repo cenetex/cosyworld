@@ -170,7 +170,11 @@ try {
     // Talk carries one quest line, not quest titles. BoardyAI has not met
     // Mara, so his line keeps her unnamed (#1850).
     assert(
-      told.facts.some((fact) => fact === `I want to see ${UNKNOWN_PERSON}.`),
+      // Talk now adds "I would be glad of your help." to the want line
+      // (the offer rides in the Talk context, wants-and-arcs.md).
+      told.facts.some((fact) =>
+        fact.startsWith(`I want to see ${UNKNOWN_PERSON}.`),
+      ),
       "BoardyAI's Talk context carries his quest",
     );
     assert(!told.facts.some((fact) => fact.includes("Mara")));
