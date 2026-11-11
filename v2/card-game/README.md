@@ -1284,6 +1284,37 @@ Shared rules version 18 adds measured action values and exploration. Versions
 2–17 retain their released interpreter bytes. An explicit upgrade keeps the
 existing world, possessions, quest, memory and persona.
 
+## Moods
+
+An avatar's face is happy or sad when something in the world makes it so.
+`mood.mjs` reads saved state only (no model, no viewer, nothing stored), so
+everyone in a place sees the same face. The plain face is the usual one; a
+mood is brief and passes when its fact does. The rules are one list, `MOODS`,
+read in order, so sad outweighs happy. Windows reuse existing timers.
+
+| Mood | Fact (first match wins) | Lasts |
+| --- | --- | --- |
+| sad | Someone who wronged them is in the room | While the grievance is active |
+| sad | A resident gave up its want (not a player's Drop) | Until a want is met, or `CONTENT_TURNS` |
+| sad | Someone here holds the item they want and refused it | `STALL_TURNS` from the want |
+| sad | Just beaten in a fight (a first or second defeat) | The three turns of peace after it |
+| happy | Their want was met (a hand-over under pressure does not count) | `CONTENT_TURNS` |
+
+Order of overrides for a face: asleep, then a standoff (the fight poses), then
+a pack `poses` entry that matches, then the mood face, then the ordinary
+portrait. Mood yields to all of them. The mood adds one line to the character's
+own context ("I feel happy."), and no text, badge or marker to the card.
+
+Not yet readable from saved state, so not built: a thing returned to its home
+or a trusted person arriving there, waking at home after a level-up, and being
+sent home after a third defeat. They need a saved turn, which is a rules change.
+
+An avatar shows a mood only if it has art for it. Register
+`registerFaceArt(id, {happy, sad, strike, brace, hit})` in `mood-art.mjs`
+(paths relative to the table); the maker's accepted poses use those names.
+Strike, brace and hit are the fight poses. An avatar with no entry looks as
+it always did. No shipped avatar has happy or sad art yet.
+
 ## Threats and standoffs
 
 Avatar cards offer Talk and Threaten. A threat opens a battle for the whole room: every avatar there, and anyone who arrives while it lasts, is a combatant with four resolve. There are no bystanders and no sides; anyone may strike or guard anyone. During a battle the selection names the play: your own card alone is Brace, your card with another combatant is Cover (their attackers hit you instead until your next play), another combatant alone is Strike (the avatar card's Talk becomes Strike), and this place's card is Wait. Nobody in the room talks. Strength goes by level tier, the card's border colour, not by the exact level: avatars in one tier are equally matched, so levels I and II fight as equals, and only a higher tier is stronger. A strike rolls its damage: 1 or 2 against the same tier, 1 to 3 against a lower tier, and exactly 1 against a higher tier. The roll is seeded from the world's run seed and the play (never `Math.random`), so the browser and the shared server agree and journals replay, and the attack event records the number rolled. Brace softens the next hit by one, with a minimum of one damage, until that avatar's next play. Four resolve now lasts two to four strikes between equals, so fights run longer and less predictably than the old fixed two. Residents compare tiers too: a higher tier is one reason a resident grows bold enough to threaten. The [combat by tier note](../../docs/design/combat-by-tier.md) has the reasoning.

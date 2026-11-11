@@ -96,6 +96,8 @@ const files = [
   "assets/rest/long-rest.webp",
   // The song for the end of Polynices' burial (issue #2290); its cue follows
   // when the burial is built.
+  "mood-art.mjs",
+  "mood.mjs",
   "sleep-portraits.mjs",
   ...sleepPortraitAssets,
   ...["body", "reflection", "contact", "still"].map(
