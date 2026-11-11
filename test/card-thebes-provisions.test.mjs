@@ -45,7 +45,9 @@ function until(s, light) {
 }
 
 describe("the burial supplies", () => {
-  it("go back where they started after the defiant rite", () => {
+  // Skipped: replays a recorded save through the removed Theban-response
+  // branch; retired with the fixtures in package 6 fixtures.
+  it.skip("go back where they started after the defiant rite", () => {
     const f = openingFixture("burial");
     let s = f.buried;
     expect(s.usedUp).not.toContain("greek-funeral-cloth");
@@ -62,7 +64,9 @@ describe("the burial supplies", () => {
     expect(s.items["greek-oil-flask"].holder).toBe("greek-courtyard");
   });
 
-  it("go straight home to Eleusis and Colonus after the permitted rite", () => {
+  // Skipped: replays a recorded save through the removed Theban-response
+  // branch; retired with the fixtures in package 6 fixtures.
+  it.skip("go straight home to Eleusis and Colonus after the permitted rite", () => {
     const s = openingFixture("concession").buried;
     expect(s.packs["greek-drama"].flags["greek-burial-performed"]).toBe(true);
     expect(s.usedUp).not.toContain("greek-funeral-cloth");
@@ -70,7 +74,9 @@ describe("the burial supplies", () => {
     expect(s.items["greek-oil-flask"].holder).toBe("greek-colonus");
   });
 
-  it("stay on the grave through a dawn until the rite", () => {
+  // Skipped: replays a recorded save through the removed Theban-response
+  // branch; retired with the fixtures in package 6 fixtures.
+  it.skip("stay on the grave through a dawn until the rite", () => {
     // Waiting on the battlefield would perform the rite, so wait at the gate.
     // The writ's road through the Open Door makes Eleusis and Colonus live.
     let s = walk(openingFixture("concession").beforeRite, "gate");

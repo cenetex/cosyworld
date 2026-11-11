@@ -141,7 +141,8 @@ pub(super) fn holder(c: &Connection, id: &str, a: usize) -> Result<Option<String
     .optional()
     .map_err(sql_error)
 }
-// The other worlds where this person holds this avatar's seat or claim.
+// The other worlds where this person holds this avatar's seat or claim. A
+// retired world keeps its rows but no seat (full_floor.rs).
 pub(super) fn seats_elsewhere(
     c: &Connection,
     id: &str,
@@ -150,8 +151,9 @@ pub(super) fn seats_elsewhere(
 ) -> Result<Vec<String>> {
     let mut q = c
         .prepare(
-            "SELECT world FROM card_bindings WHERE user=?1 AND actor=?2 AND world<>?3
-             UNION SELECT world FROM card_members WHERE user=?1 AND actor=?2 AND world<>?3",
+            "SELECT world FROM (SELECT world FROM card_bindings WHERE user=?1 AND actor=?2
+             UNION SELECT world FROM card_members WHERE user=?1 AND actor=?2)
+             WHERE world<>?3 AND world IN (SELECT id FROM card_tables WHERE retired_at IS NULL)",
         )
         .map_err(sql_error)?;
     let worlds = q
@@ -170,10 +172,31 @@ pub(super) fn carries_progress(version: &str) -> bool {
         .and_then(|n| n.parse::<u32>().ok())
         .is_some_and(|n| n >= 80)
 }
+// What waits between seats is never lowered: a later save keeps the higher
+// level, then the higher experience, of the two.
 pub(super) fn save_progress(c: &Connection, user: &str, a: usize, progress: &Value) -> Result<()> {
+    let rank = |p: &Value| {
+        (
+            p["level"].as_u64().unwrap_or(0),
+            p["xp"].as_u64().unwrap_or(0),
+        )
+    };
+    let held: Option<String> = c
+        .query_row(
+            "SELECT progress FROM card_avatar_progress WHERE user=? AND actor=?",
+            params![user, a],
+            |r| r.get(0),
+        )
+        .optional()
+        .map_err(sql_error)?;
+    let held = held.and_then(|h| serde_json::from_str::<Value>(&h).ok());
+    let kept = match held {
+        Some(held) if rank(&held) > rank(progress) => held,
+        _ => progress.clone(),
+    };
     c.execute(
         "INSERT OR REPLACE INTO card_avatar_progress(user,actor,progress) VALUES(?,?,?)",
-        params![user, a, progress.to_string()],
+        params![user, a, kept.to_string()],
     )
     .map_err(sql_error)?;
     Ok(())

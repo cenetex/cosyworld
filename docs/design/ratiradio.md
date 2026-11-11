@@ -23,6 +23,11 @@ Listening Room together to reveal Raven once. Carried objects, gifts to RATi,
 separate historical deposits do not count. The unlock remains earned after
 objects move. The song, RATi's presence, the optional Request Slip add no gate.
 
+RATi's wants are three staged wants (rules 133, unordered): the Red Beanie,
+the Raven Figurine and the glass, each wanted at home in the Listening Room.
+As each comes home the next is picked; with all three there, Raven wakes and
+his wants are drawn.
+
 The Listening Room is RATi's fixed home and a sanctuary. RATi roams normally,
 earns experience away, returns home to gain his next level. Raven becomes a
 normal roaming resident after the return. The ceramic figurine remains an item.

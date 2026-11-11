@@ -835,8 +835,8 @@ pub(crate) fn same_origin(headers: &HeaderMap) -> bool {
                 .any(|prefix| origin.strip_prefix(prefix) == Some(host))
     })
 }
-/// Whether the authored-text catalog is older than the scene modules and
-/// packs this build serves. A stale catalog leaves new rules text out of
+/// Whether the authored-text catalog lists a scene module or pack this build
+/// does not serve (see `authored::catalog_current`). A stale catalog leaves new rules text out of
 /// every prompt, so startup logs it loudly and /meta reports it
 /// (`card_game.card_text.catalog_stale`).
 pub(crate) fn catalog_stale() -> bool {
@@ -1387,7 +1387,8 @@ impl Part {
     /// Character and sentence limits applied after the model answers.
     fn limits(self) -> (usize, usize) {
         match self {
-            Part::Line | Part::Thought => (400, 2),
+            Part::Line => (400, 3),
+            Part::Thought => (400, 2),
             Part::Dream => (400, 3),
             Part::Persona => (600, 4),
         }
@@ -3422,7 +3423,6 @@ pub(crate) mod tests {
             line.to_string(),
             format!("Pip: {line}"),
             format!("\"{line}\""),
-            format!("{line} And another thing. And on."),
             format!("**Pip:** {line}\n\nI hope that helps!"),
             format!("{line}\nVale: Sure."),
             format!("{line} Vale: Sure."),
@@ -3430,6 +3430,21 @@ pub(crate) mod tests {
         ] {
             assert_eq!(clean(&raw).as_deref(), Ok(line), "{raw}");
         }
+        // A spoken line keeps up to three sentences and drops the rest; a
+        // thought still keeps two.
+        let three = format!("{line} And another thing.");
+        assert_eq!(clean(&three).as_deref(), Ok(three.as_str()));
+        assert_eq!(
+            clean(&format!("{three} And on. And on.")).as_deref(),
+            Ok(three.as_str())
+        );
+        let thought_raw = "My sleeves are dry. I hold it higher. And on.";
+        assert_eq!(
+            Check::new(&c, pip, Part::Thought)
+                .clean(thought_raw, true)
+                .as_deref(),
+            Ok("My sleeves are dry. I hold it higher.")
+        );
         // A stage direction goes and is counted.
         let staged = check.verdict(&format!("*shifts a little* {line}"), true, true);
         assert_eq!(staged, Ok((line.into(), vec!["stage action"])));
@@ -3832,7 +3847,7 @@ pub(crate) mod tests {
         value["entities"][3]["facts"] = json!([]);
         value["entities"][3]["poem"] = json!({
             "title":"Before the Burial",
-            "stanzas":[{"id":"greek-report-plan","turn":1,"authorId":"vale","authorName":"Vale"}]
+            "stanzas":[{"id":"greek-return-water-jar","turn":1,"authorId":"vale","authorName":"Vale"}]
         });
         value["entities"][3]["memories"] = json!([]);
         serde_json::from_value(value).unwrap()
@@ -3884,11 +3899,9 @@ pub(crate) mod tests {
             .iter()
             .find(|pack| pack["id"] == "greek-drama")
             .unwrap()["recital"];
-        for (choice, buried, permitted) in [
-            ("greek-perform-burial", true, false),
-            ("greek-petition-burial", false, true),
-            ("greek-perform-permitted-burial", true, true),
-            ("greek-report-plan", false, false),
+        for (choice, buried) in [
+            ("greek-bury-polynices", true),
+            ("greek-return-water-jar", false),
         ] {
             let mut c = bard_context();
             c.entities[3].poem = Some(
@@ -3905,13 +3918,10 @@ pub(crate) mod tests {
                 buried,
                 "{choice}"
             );
-            assert_eq!(
-                check
-                    .clean("The king gave permission for this one grave.", true)
-                    .is_ok(),
-                permitted,
-                "{choice}"
-            );
+            // No verse claims Creon's leave any more: nothing can make it true.
+            assert!(check
+                .clean("The king gave permission for this one grave.", true)
+                .is_ok());
             assert!(check
                 .clean("I wonder what that choice will mean tomorrow.", true)
                 .is_ok());

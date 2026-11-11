@@ -312,6 +312,23 @@ keeps one record per accepted play, in order. A play's speech and, from rules
 v88, its private reflections are later records of their own (see
 [Learning and private reflection](#learning-and-private-reflection)).
 
+### The rules floor (rules 133)
+
+"We can reset": a world saved under rules older than 133 (`FLOOR` in
+`full_floor.rs`) is retired and never opened or replayed. `full_store::world`
+refuses it with "This world has closed." after reading only the checkpoint's
+(or seed's) version. The passkey's world list retires its old worlds first, and
+a claim that finds an old seat elsewhere retires that world instead of opening
+it. Retiring only sets `card_tables.retired_at` and cancels unfinished plays;
+the journal, checkpoint, members and bindings rows stay, and seat queries skip
+retired worlds. Before marking, it saves each seated passkey's avatar level
+and experience into `card_avatar_progress` (the higher where one already waits)
+and its upgrades into `card_avatar_upgrades`. Both are outside the journal, as
+are unlocks (`card_unlocks`), so the next world's `claim` journals them as
+`progress`. The traveler then starts a world through the ordinary create. The
+upgrade path in `full_store::world` stays for the next rules mint; the frozen
+bundles up to 132 are kept but no world reaches them.
+
 Rule version 3 introduced the home-item floor start. Version 4 added Greek
 story cards and saved bard visits. Versions 5–8 added collected and shared quests,
 shared journeys, quieter offers, and the first-signal ship gate. Published rule
@@ -476,8 +493,11 @@ scene the browser built, so the service checks every field
   out of the prompt and counted in a warning. Matching is bounded: a scene
   that quotes more than 24 KiB of such text, or needs more matching work
   than an honest one, is refused with 400. The client's rate limit runs
-  first, and the matching runs off the async workers. If the catalog is
-  older than the served modules, startup logs it and `/meta` reports
+  first, and the matching runs off the async workers. The catalog lists one
+  source per line and carries no hash of them (a hash changed whenever any
+  branch edited any source, so every two such branches conflicted); the fast
+  check's `npm run regen:check` proves it equals a rebuild. If it lists a
+  source this build does not serve, startup logs it and `/meta` reports
   `card_game.card_text.catalog_stale: true`.
 - **Words the service wrote** (heard lines, earlier words, remembered lines,
   personas, thoughts and dreams) come back with the Ed25519 envelope the

@@ -224,9 +224,10 @@ function assertReturn(world, at, added = 0) {
   }
 }
 
-// rules bump: old worlds retire (package 6). The recorded trace plays claims
+// package 6 fixtures: the recorded trace plays claims
 // the rules no longer have, so only the frozen 131 replay runs.
 for (const historical of [true, false])
+  // package 6 fixtures: the recorded trace plays claims the rules no longer have.
   (historical ? it : it.skip)(
     `reaches Raven's awakening and second-traveler return (${historical ? "frozen 131" : "current agreement"})`,
     { timeout: 30000 },
@@ -382,7 +383,8 @@ for (const historical of [true, false])
     },
   );
 
-// rules bump: old worlds retire (package 6): the recorded trace plays claims.
+// Held: rules 133 lets residents roam on (#2638), so Raven ends the recorded
+// trace in the attic, not at the pond. Not an old-fixture case; needs the owner.
 it.skip("reaches a local Raven return using the local NPC route and reloads every play", () => {
   let world = createWorld({ seed: 92 }),
     met,

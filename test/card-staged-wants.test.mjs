@@ -153,6 +153,7 @@ describe("schema", () => {
   });
 });
 
+const STAGED = { "greek-antigone": 1, "ratiradio-rati": 3 };
 describe("selection", () => {
   it("installs an eligible entry, and none whose when does not hold", () => {
     stage(item("greek-figs", {}, flag("a")), item("greek-shovel"));
@@ -254,7 +255,13 @@ describe("selection", () => {
   it("leaves a resident with one want exactly as before", () => {
     for (const pack of packDefinitions) {
       for (const [id, person] of Object.entries(pack.avatars)) {
-        // No shipped pack uses staged wants yet (a later content package).
+        // Two shipped residents carry staged wants (rules 133): Antigone's
+        // burial and RATi's keepsakes. Everyone else has one want or none.
+        if (STAGED[id]) {
+          expect(person.want, id).toBeUndefined();
+          expect(person.wants.length, id).toBe(STAGED[id]);
+          continue;
+        }
         expect(person.wants, id).toBeUndefined();
         expect(stagedWants(world(), id).length, id).toBe(person.want ? 1 : 0);
       }

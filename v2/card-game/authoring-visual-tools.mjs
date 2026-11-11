@@ -41,6 +41,7 @@ export function createAuthoringVisualTools({
     activeContext,
     unsaved,
     failure,
+    opening = 0,
     jobStatus = "",
     urls = [];
   // Jobs this tab does not wait for (found again after a reload) and the
@@ -49,15 +50,20 @@ export function createAuthoringVisualTools({
     notices = new Map();
   async function archive(context) {
     if (!unsaved) return;
-    const record = context.snapshot({ assets: true });
-    await context.accept(await archiveGeneratedArt(record, unsaved));
-    const job = unsaved.job;
-    unsaved = null;
+    const record = context.snapshot({ assets: true }),
+      pending = unsaved;
+    if (record.key !== pending.draftKey)
+      throw new Error("This editor changed. Return to the original draft.");
+    await context.accept(await archiveGeneratedArt(record, pending));
+    const job = pending.job;
+    if (unsaved === pending) unsaved = null;
     if (job) await track.settled(job);
   }
   // Keep the provider original before anything else uses it.
-  async function keep(target, input, image, job, context) {
-    unsaved = {
+  async function keep(target, input, image, job, context, draftKey, started) {
+    if (started !== opening) throw new Error("This editor changed.");
+    const pending = (unsaved = {
+      draftKey,
       avatarId: target.id,
       variant: target.variant,
       description: input.description,
@@ -66,11 +72,15 @@ export function createAuthoringVisualTools({
       images: [
         { ...image, role: input.role === "portrait" ? "base" : "sheet" },
       ],
-    };
+    });
     try {
       await archive(context);
     } catch (error) {
-      failure = error.message.replace(/[.\s]+$/u, "");
+      if (started !== opening) {
+        if (unsaved === pending) unsaved = null;
+        throw error;
+      }
+      if (unsaved === pending) failure = error.message.replace(/[.\s]+$/u, "");
     }
   }
   const visual = createAuthoringVisualDraft({
@@ -80,7 +90,9 @@ export function createAuthoringVisualTools({
       const target = design,
         context = activeContext,
         tool = owner,
-        pinned = binding;
+        pinned = binding,
+        draftKey = context.snapshot().key,
+        started = opening;
       let record;
       jobStatus = "";
       try {
@@ -92,6 +104,7 @@ export function createAuthoringVisualTools({
               holdJob(job.id);
               record = {
                 id: job.id,
+                draftKey,
                 kind: "image",
                 toolId: tool,
                 avatarId: target.id,
@@ -110,14 +123,22 @@ export function createAuthoringVisualTools({
             },
           },
         );
-        await keep(target, input, result.image, record?.id, context);
+        await keep(
+          target,
+          input,
+          result.image,
+          record?.id,
+          context,
+          draftKey,
+          started,
+        );
         return result;
       } catch (error) {
         cooldown.set("image", error);
         if (record && !unsaved) {
           if (
             error.name === "AbortError" ||
-            /earlier design/u.test(error.message)
+            /earlier design|editor changed/u.test(error.message)
           )
             await track.dropped(record);
           else if (!WAITING.has(error.code)) await track.settled(record.id);
@@ -129,7 +150,12 @@ export function createAuthoringVisualTools({
       }
     },
   });
-  function clear() {
+  function clear(reopened = false) {
+    if (reopened) {
+      opening++;
+      unsaved = null;
+      failure = null;
+    }
     if (unsaved) return;
     visual.open(null);
     for (const url of urls) URL.revokeObjectURL(url);
@@ -241,6 +267,7 @@ export function createAuthoringVisualTools({
   // A job found again after a reload, or finished while its card was closed.
   // It is applied only to the avatar it was made for, exactly as it was asked.
   async function adoptJob(job, rec, run) {
+    const opened = opening;
     remote.delete(rec.toolId);
     if (job.status === "failed") {
       const failed = failedJob(job);
@@ -256,7 +283,7 @@ export function createAuthoringVisualTools({
       sha256: stored.sha256,
       size: stored.size,
     };
-    await run(async (context) => {
+    return run(async (context) => {
       const record = context.snapshot({ assets: true }),
         id = rec.avatarId;
       const input = { role: rec.role, description: rec.description };
@@ -269,6 +296,7 @@ export function createAuthoringVisualTools({
         why = "other artwork is waiting to be confirmed";
       else {
         next = await readAvatarDesign(record, id);
+        context.snapshot();
         const [, revision, base] = JSON.parse(basis);
         if (
           (rec.role === "pose-sheet" &&
@@ -277,7 +305,9 @@ export function createAuthoringVisualTools({
         )
           why = "this avatar's artwork changed after you asked";
       }
-      await keep(target, input, image, rec.id, context);
+      await keep(target, input, image, rec.id, context, rec.draftKey, opened);
+      if (unsaved) return "later";
+      context.snapshot();
       if (why) {
         notices.set(rec.toolId, kept(rec.role, why));
         changed();
@@ -292,6 +322,7 @@ export function createAuthoringVisualTools({
       visual.open(design.value);
       const started = design;
       await visual.adopt(rec.role, image);
+      context.snapshot();
       await landed(id, rec.role, context, started);
     });
   }
@@ -418,9 +449,9 @@ export function createAuthoringVisualTools({
                       ? state.error
                       : notices.get(action)
                         ? notices.get(action)
-                      : role === "portrait"
-                        ? "Generate a full-body transparent cutout with GPT Image 2.6 Flare. Review it before replacing saved art."
-                        : "Generate happy, sad, hit, strike, brace and sleep poses from the saved cutout in one image request. Review all six before saving.",
+                        : role === "portrait"
+                          ? "Generate a full-body transparent cutout with GPT Image 2.6 Flare. Review it before replacing saved art."
+                          : "Generate happy, sad, hit, strike, brace and sleep poses from the saved cutout in one image request. Review all six before saving.",
                 actions: [
                   {
                     label: reason || (confirming ? "Confirm artwork" : name),

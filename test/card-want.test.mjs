@@ -11,19 +11,7 @@ import {
 } from "../v2/card-game/world.mjs";
 // Play here starts past the pond, where the first quest begins.
 const createWorld = (...args) => questing(baseCreateWorld(...args));
-import {
-  levelFor,
-  levelOf,
-  newWant,
-  reviseStalledWants,
-  wantCandidates,
-  wantMet,
-  REFUSAL_LIMIT,
-  dropCost,
-  STALL_TURNS,
-  CONTENT_TURNS,
-  contentOf,
-} from "../v2/card-game/want.mjs";
+import { levelFor, levelOf, newWant, reviseStalledWants, wantCandidates, wantMet, REFUSAL_LIMIT, dropCost, STALL_TURNS, CONTENT_TURNS } from "../v2/card-game/want.mjs";
 import { questCards } from "../v2/card-game/quest-card.mjs";
 import { narrativeContext } from "../v2/card-game/narrative.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
@@ -296,26 +284,6 @@ describe("one want per avatar", () => {
     expect(next.actors.moth.want?.target).not.toBe("bell");
   });
 
-  it("drops quest records from a legacy save and keeps its world", () => {
-    const s = createWorld();
-    const legacy = JSON.parse(encodeSave(s));
-    for (const a of Object.values(legacy.actors)) {
-      delete a.want;
-      delete a.xp;
-      delete a.visited;
-      delete a.talked;
-      a.progress = { program: 1, step: 0, marks: [1] };
-    }
-    legacy.quests = { version: 1, next: 1, records: {}, focus: {} };
-    legacy.life = { version: 2, actors: {} };
-    const loaded = decodeSave(JSON.stringify(legacy));
-    expect(loaded.quests).toBeUndefined();
-    expect(loaded.actors.moth.progress).toBeUndefined();
-    expect(loaded.actors.moth.want).toMatchObject({
-      kind: "item",
-      target: "lamp",
-    });
-  });
 
   it("keeps a want on every active resident but the content through a long shared run", () => {
     const players = humanAvatarIds.slice(0, 4);

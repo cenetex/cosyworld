@@ -670,6 +670,12 @@ export function setAsideWant(s, actor, api) {
 // unseen is not a stall: its want can stall only after it has tried and been
 // refused at least once.
 export function reviseStalledWants(s, actors, api) {
+  // A resident's want clock starts when he first becomes active: while his card
+  // is shut or he is absent, the want is kept fresh, so he does not arrive
+  // with a stalled want that is set aside at once (rules 133).
+  for (const [id, a] of Object.entries(s.actors))
+    if (a.want && !api.player(id) && !entityActive(s, id))
+      a.want.since = s.turn;
   for (const id of actors) {
     const want = wantOf(s, id);
     if (

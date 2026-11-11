@@ -143,13 +143,9 @@ export function laneProblems(t) {
         "oneWay",
         "opensWith",
         "spends",
-        "reason",
+        "sealed",
       ]) ||
-      (lane.reason !== undefined &&
-        (!lane.opensWith ||
-          typeof lane.reason !== "string" ||
-          !lane.reason.trim() ||
-          lane.reason.length > 240)) ||
+      (lane.sealed !== undefined && (!lane.opensWith || lane.sealed !== true)) ||
       !docks.includes(lane.from) ||
       !docks.includes(lane.to) ||
       lane.from === lane.to ||
@@ -1243,12 +1239,11 @@ export function packProblems(pack, hub, mountedPlaces = [], mountedItems = []) {
     }
     check(
       a.sealed === undefined ||
-        (keysOk(a.sealed, ["at", "reason"]) &&
+        (keysOk(a.sealed, ["at"]) &&
           owns(places, a.sealed.at) &&
-          textOk(a.sealed.reason, 240) &&
           Array.isArray(a.requires) &&
           a.requires.length > 0),
-      `avatar ${id} sealed card needs a place, a reason and activation requirements`,
+      `avatar ${id} sealed card needs a place and activation requirements`,
     );
     for (const [n, p] of (Array.isArray(a.poses) ? a.poses : []).entries())
       requirements(p?.requires, `avatar ${id} pose ${n + 1} requires`);
@@ -1350,8 +1345,7 @@ export function packProblems(pack, hub, mountedPlaces = [], mountedItems = []) {
     // `requires` hold. It latches open unless `live`, as a route does.
     check(
       i.sealed === undefined ||
-        (keysOk(i.sealed, ["reason", "live"]) &&
-          textOk(i.sealed.reason, 240) &&
+        (keysOk(i.sealed, ["live"]) &&
           (i.sealed.live === undefined || i.sealed.live === true) &&
           Array.isArray(i.requires) &&
           i.requires.length > 0 &&
@@ -1359,7 +1353,7 @@ export function packProblems(pack, hub, mountedPlaces = [], mountedItems = []) {
           (i.home === undefined || i.home === i.holder) &&
           i.locked === undefined &&
           !i.startsUsed),
-      `item ${id} sealed needs a reason, requires, and a place of the pack where it lies (home, if any, the same place)`,
+      `item ${id} sealed needs requires and a place of the pack where it lies (home, if any, the same place)`,
     );
     requirements(i.reservedUntil, `item ${id} reservedUntil`);
     check(
@@ -1397,9 +1391,8 @@ export function packProblems(pack, hub, mountedPlaces = [], mountedItems = []) {
     const q = r.sealed?.quest;
     check(
       r.sealed === undefined ||
-        (keysOk(r.sealed, ["quest", "reason"]) &&
+        (keysOk(r.sealed, ["quest"]) &&
           Boolean(r.requires?.length || r.travelerRequires?.length) &&
-          textOk(r.sealed.reason, 240) &&
           keysOk(q, ["kind", "target", "to"]) &&
           (q.kind === "item"
             ? owns(items, q.target) &&
@@ -1408,7 +1401,7 @@ export function packProblems(pack, hub, mountedPlaces = [], mountedItems = []) {
               (q.kind === "place"
                 ? owns(places, q.target)
                 : q.kind === "person" && owns(avatars, q.target)))),
-      `route ${r.from}>${r.to} sealed card needs a gate, a reason and a quest`,
+      `route ${r.from}>${r.to} sealed card needs a gate and a quest`,
     );
     requirements(r.requires, "route requires");
     requirements(r.travelerRequires, "route traveller requires", true, true);
@@ -1977,11 +1970,10 @@ export function packProblems(pack, hub, mountedPlaces = [], mountedItems = []) {
     // A gated crossing may lie as a shut card with its reason (rules 133).
     check(
       c.sealed === undefined ||
-        (keysOk(c.sealed, ["reason"]) &&
+        (keysOk(c.sealed, []) &&
           Boolean(c.requires?.length) &&
-          !c.transport &&
-          textOk(c.sealed.reason, 240)),
-      `${name} sealed card needs a gate and a reason`,
+          !c.transport),
+      `${name} sealed card needs a gate`,
     );
     for (const r of c?.requires || []) condition(r, `${name} condition`);
     for (const field of ["opened", "closed"])

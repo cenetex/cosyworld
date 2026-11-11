@@ -112,6 +112,41 @@ objected to):
 3. Offered quests are closed boxes first: "A closed box", then Open box, then
    Accept quest. Nothing of the quest shows before it is opened.
 
+## Owner decisions, 2026-11-11: derived wants
+
+These bind how every lock and quest is worded (rules 133). Built in
+[#2647](https://github.com/cenetex/cosyworld/pull/2647)'s stack.
+
+1. Wants are derived, not written. Of a list of hand-written reasons: "I have a
+   reservation about building a complex system of custom authored lines into
+   this." Authored text lives only in the descriptions of places, items and
+   avatars and in what avatars say: "if i want to learn something either an
+   avatar tells me or an item describes it etc". A lock's or quest's words come
+   only from the names of the cards the want concerns and a small fixed
+   vocabulary of rule verbs (hold, talk with, go to, give, bring, lay, eat,
+   rest). No `reason`, no per-fact phrase, no override field.
+2. Show only the want: "We could probably just show: <the want>." No holder
+   prefix, no sentence per box. One function words it for every lock (way,
+   resident, made or sealed item, lane, home door, hub way) and every quest,
+   offered or held (`wantWords`, `world/want-words.mjs`).
+3. Unknown things stay unknown: "'find something you haven't discovered yet' is
+   perfectly valid as an objective. We currently SHOW players things they don't
+   know on quest cards (eg they haven't unlocked Lamp and we show lamp on a
+   quest) this breaks epistemology." A card the traveler has not discovered
+   (the table's own test for a face-down card) is never named or pictured in
+   any word, label, title, alt text or image; its art is the card back and it
+   is worded "something undiscovered", "someone you have not met" or "a place
+   you have not found". An unknown target is a want, not an error.
+4. All card kinds are persons: "Avatars items and locations ARE ALL PERSONS.
+   There is no distinction besides the category. Items and Locations can speak,
+   dream, remember and level up." An item's or place's want is worded exactly
+   as an avatar's.
+5. A lock that waits on a story flag or choice is read from the pack's own
+   choice that sets it (give the item to its subject, or meet its subject).
+   Where nothing can be read, the box only says it is locked; the player
+   learns the rest because an avatar tells them or an item's or place's
+   description says so. Those gaps are content gaps, not text to patch.
+
 ## Already decided earlier
 
 This draft does not reopen these.
@@ -545,6 +580,15 @@ whose `when` holds may surface, the seeded draw picks among them, and
 authored order only breaks ties. Nothing is saved: it is read from the
 world each turn, like `homeWhen`.
 
+Owner direction, 2026-11-11: Antigone's home is the burial Hollow, not the
+gate: "she just can't get there while the gate is locked". Her `home` is
+`greek-polynices-hollow` and the scripted `homeWhen` is gone; she starts at the
+gate with `range: 0` and walks home by the ordinary resident rules once the gate
+is open and the Hollow's way is open (the Shade's word). She does not yet fetch
+and carry the oil, cloth and shovel: a place want with a lay step is planned as a
+plain walk (`world.mjs` `wantPlan`), with no take, carry or lay (next rules
+batch).
+
 - *Burial.* Antigone at the gate, once the guard holds the Writ, may say
   she wants to be at the Hollow, or that she wants the oil, the cloth and
   the shovel laid there. Bringing her, or bringing the things, each meets a
@@ -775,9 +819,64 @@ What worked in a prototype that put him at the Wine-Dark Harbor quay:
   provisions, Piraeus, wheat, ride back, water jar and wheat to Dione, take
   bread. Sailing consumes nothing (rules 102).
 
+Owner decisions, 2026-11-11. "I would start him at trust 3": the meeting sets
+his trust to 3 (`{kind: "trust", level: 3}`), so he accompanies from the meeting
+and the bread gift adds nothing to trust (capped at 3; it still meets his want
+and pays). And "Patroclus card unlocks on the Charybdis when you are docked at
+piraeus with the supplies aboard": this replaces "aboard on the route after the
+burial". He is a sealed card of the Charybdis. His `appearsWhen` reads the ship
+at Piraeus (`ship_at`) and the provisions on deck (`item_at`), each or the flag
+`greek-patroclus-met`; the meeting choice sets that flag, so the unlock latches
+and he stays when the provisions go or the ship sails. Built in pack data only.
+Two small generic rules changes in 133 make this work. A resident whose card
+opens on a ship's arrival counts as a rider of that arrival, so he steps ashore
+like the others (`pack-transport.mjs` `sailTransports`). And a resident's want
+clock starts when he first becomes active: an absent or shut resident's want is
+kept fresh, so it is not set aside the moment he appears (`want.mjs`
+`reviseStalledWants`). The meeting is `greek-meet-patroclus` at Piraeus Quays: a
+meeting is applied inside a play that is not a Wait, before the world round,
+and the ship docks and he steps ashore in the round, so it fires on the
+traveler's next play that is not a Wait (a Talk, a Take, a Give).
+
 Not tested: at trust 0 an invitation is accepted while the player carries the
 bread (the want is served), so the decline case needs a player without bread;
 and the standoff cover (`plan` after a threat).
+
+### Owner decisions, 2026-11-11: the sticky companion
+
+"'accompany' should be sticky; eg the avatar follows you until trust breaks
+down or a sleep." Anyone can become a companion; the Oak and Badger are the
+two fixed-place residents. On 2026-11-11 the owner accepted these
+recommendations ("go with your recommendations on the companions for now")
+and refined one ("Gates should be shared in some way; I don't want
+'individually' locked doors necessarily"). They are built in rules 133
+(`world/company.mjs`):
+
+1. One companion per traveler. Asking a second resident replaces the first,
+   who is released where they stand. A resident is companion to at most one
+   traveler; for another the button reads "Dione is with Rue".
+2. "A sleep" is the traveler waking from a long rest.
+3. A gate is the party's. Where a way is open for the traveler, the companion
+   passes with them, and a traveler's own condition on a way (an item held,
+   trust of a keeper) is met by either of them. A companion passes
+   a crossing only a player may use too. It is left behind only where it has
+   no way home along the authored map (a dead end); the pair's button then
+   reads "<Name> cannot follow".
+4. The companion keeps its own one want and may meet it on the way; neither a
+   drawn nor a met want ends the bond.
+5. Trust can fall, for visible acts by the traveler only: a threat on the
+   resident takes 2 trust (3 when it demands an item) and a strike on them
+   takes 1, never below 0. Trust under 2 ends the bond; a grievance alone does
+   not.
+6. The Shade and the Gate Guard stay fixed by role, with the Oak and Badger.
+   The button reads "Oak stays here", one fixed wording from the rules, since
+   authored text lives only in place, item and avatar descriptions.
+7. Shared worlds: one companion per traveler, one traveler per resident. A
+   traveler away from a shared world pauses the bond, and it ends after a day.
+
+A quest to bring a resident somewhere or to someone is a shared vow: taking it
+brings the resident along at once, and the bond survives a long rest while the
+quest is held. Meeting or discarding it unpins the bond.
 
 ### Earlier work to reuse
 

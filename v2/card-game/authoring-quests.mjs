@@ -105,7 +105,7 @@ export function changeLaneRequirements(source, ship, index, conditions) {
   if (requires.length) lanes[index].opensWith = requires;
   else {
     delete lanes[index].opensWith;
-    delete lanes[index].reason;
+    delete lanes[index].sealed;
   }
   const problems = laneProblems({ ...transport, lanes });
   need(problems.length === 0, problems[0]);

@@ -10,6 +10,8 @@ import {
   transports,
 } from "./pack-registry.mjs";
 import { dropCost } from "./want.mjs";
+import { questCaption, questVerb } from "./quest-card.mjs";
+import { joinWants } from "./world/want-words.mjs";
 import {
   currentActor,
   places,
@@ -17,6 +19,7 @@ import {
   things,
   nameOf,
   legalActions,
+  wayHome,
   itemPlace,
   rootHolder,
   exits,
@@ -25,6 +28,14 @@ import {
   questOffers,
 } from "./world.mjs";
 import { isOfferId } from "./world/offers.mjs";
+import {
+  companionOf,
+  cannotFollowLabel,
+  staysLabel,
+  travelerOf,
+  withLabel,
+} from "./world/company.mjs";
+import { staysByRole } from "./resident-guard.mjs";
 
 // The boxes shut at the player's place: the one list the rules keep (rules
 // 133, world/boxes.mjs). The hand draws each face down and the context
@@ -43,7 +54,7 @@ const shutBox = (world, id) => shutBoxes(world).find((box) => box.id === id);
 // becoming an active actor or receiving plays before its requirements hold.
 export const sealedAvatar = (world, id) => {
   const box = shutBox(world, id);
-  return box?.kind === "resident" ? { at: box.at, reason: box.reason } : null;
+  return box?.kind === "resident" ? { at: box.at } : null;
 };
 
 export function availableCards(world) {
@@ -173,11 +184,62 @@ export function asleepReason(world, selected) {
         id !== currentActor(world) &&
         world.actors[id]?.sleeping?.until !== undefined,
     );
-  return sleeper ? `${nameOf(sleeper)} is asleep` : null;
+  return sleeper ? `${nameOf(sleeper)} is asleep` : companyReason(world, selected);
 }
-// Why a sealed card's way is shut, from its pack data, or null. A locked
-// made thing names who makes it from what (rules 102).
-export const sealedReason = (world, id) => shutBox(world, id)?.reason ?? null;
+// What opens a locked card, in words: each want it waits on, worded by the one
+// wording of a want (quest-card.mjs) and screened by what the traveler has
+// discovered (`known`; the default knows nothing, so it names nothing). The
+// rules own the goals (`box.goals`, world/boxes.mjs); a box with none shows
+// only that it is shut.
+export const LOCKED_BOX = "A locked box.";
+export function lockWords(world, id, known = () => false) {
+  const box = shutBox(world, id);
+  if (!box) return null;
+  const actor = currentActor(world);
+  const text = joinWants(
+    (box.goals.length ? box.goals : box.want ? [box.want] : [])
+      // The locked card itself cannot explain how to open it.
+      .filter((goal) => goal.target !== id),
+    (goal) => {
+      const quest = { actor, ...goal };
+      return questCaption(quest, false, questVerb(world, quest), known);
+    },
+  );
+  return text || LOCKED_BOX;
+}
+export const sealedReason = lockWords;
+// Why Accompany is missing for a card and a place (rules 133), as the
+// button's label, in the rules' own fixed words: "Oak stays here" for one that
+// never travels, "Dione is with Rue" for one whose company is taken. The
+// traveler's name is the one name not already on the table (wire to the
+// knowledge check when it lands).
+function companyReason(world, selected) {
+  if (selected.length !== 2) return null;
+  const player = currentActor(world);
+  const who = selected.find((id) => people[id] && id !== player);
+  const place = selected.find((id) => places[id]);
+  if (
+    !who ||
+    !place ||
+    place === world.actors[player].place ||
+    world.actors[who]?.place !== world.actors[player].place
+  )
+    return null;
+  const other = travelerOf(world, who);
+  if (other && other !== player)
+    return withLabel(nameOf(who), nameOf(other));
+  if (staysByRole(world, who)) return staysLabel(nameOf(who));
+  // A way the resident could not walk home from: it is not taken, and the
+  // pair says so before the move. Moving alone is still the place card.
+  return !cannotFollow(world, who, place) ? null : cannotFollowLabel(nameOf(who));
+}
+const cannotFollow = (world, who, place) => {
+  const player = currentActor(world);
+  return (
+    legalActions(world).some((a) => a.kind === "move" && a.target === place) &&
+    !wayHome(world, player, world.actors[player].place, place, who)
+  );
+};
 
 // Resolve one play for the context row and drag gestures.
 export function cardPlay(world, selected) {
@@ -322,12 +384,17 @@ export function cardPlay(world, selected) {
           : // Yourself and a guardable way stands guard (rules 100).
             actions.find((a) => a.guards === location) ||
             find("move", null, location)
-        : actions.find(
-            (a) =>
-              a.kind === "accompany" &&
-              a.target === avatar &&
-              a.destination === location,
-          ),
+        : // Already with you, a resident comes along on any move.
+          avatar === companionOf(world, player)
+          ? cannotFollow(world, avatar, location)
+            ? null
+            : find("move", null, location) || find("course", null, location)
+          : actions.find(
+              (a) =>
+                a.kind === "accompany" &&
+                a.target === avatar &&
+                a.destination === location,
+            ),
       "Pair a nearby avatar with an open path to ask them to accompany you.",
     );
   // An item lying here pairs with this place to be used where it lies.

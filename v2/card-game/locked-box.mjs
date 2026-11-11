@@ -5,25 +5,14 @@
 // same lift as an uncovered card (card-reveal.mjs), and the card shows as
 // itself from then on. Presentation only: it reads the committed world and
 // never touches rules, saves, the journal or sync.
-import { sealedReason, shutBoxes } from "./cards.mjs";
-import { questCaption, questVerb } from "./quest-card.mjs";
-import { currentActor } from "./world.mjs";
+import { LOCKED_BOX, lockWords, sealedReason } from "./cards.mjs";
 
+export { LOCKED_BOX };
 export const CLOSED_BOX = "A closed box.";
-export const LOCKED_BOX = "A locked box.";
-// What opens a locked box, in words. The rules own the goal (`boxWant`,
-// world/boxes.mjs); this only states it. A goal the quest card cannot hold
-// ("heard while holding a thing") is told by the plain reason.
+// What opens a locked box (cards.mjs `lockWords`), or null for any other card.
 export function lockedQuest(world, id, known = () => false) {
-  const box = shutBoxes(world).find((entry) => entry.id === id);
-  if (!box) return null;
-  if (!box.want) return { text: box.reason || LOCKED_BOX, cards: [] };
-  // Discovering the locked destination cannot explain how to open its way.
-  if (box.want.kind === "place" && box.want.target === id)
-    return { text: box.reason || LOCKED_BOX, cards: [] };
-  const quest = { actor: currentActor(world), ...box.want };
-  const text = questCaption(quest, false, questVerb(world, quest), known);
-  return { text, cards: [] };
+  const text = lockWords(world, id, known);
+  return text === null ? null : { text, cards: [] };
 }
 
 // The locked carved lid has a recessed iron keyhole (assets/README.md).

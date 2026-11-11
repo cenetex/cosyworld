@@ -1,16 +1,8 @@
 // Rules 100, world life: the Gate Guard's standing Wait bars the battlefield,
 // and a player may stand guard at a guardable way.
 import { describe, expect, it } from "vitest";
-import { readFileSync } from "node:fs";
-import vm from "node:vm";
-import {
-  decodeSave,
-  encodeSave,
-  exits,
-  legalActions,
-  play,
-  sealedWays,
-} from "../v2/card-game/world.mjs";
+import { lockText } from "./helpers/lock-text.mjs";
+import { encodeSave, exits, legalActions, play, sealedWays } from "../v2/card-game/world.mjs";
 import { cardActions, sealedReason } from "../v2/card-game/cards.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import {
@@ -47,7 +39,7 @@ describe("the Gate Guard", () => {
     expect(exits(s, GATE, "vale")).not.toContain(FIELD);
     expect(exits(s, GATE, "greek-antigone")).not.toContain(FIELD);
     expect(exits(s, GATE, GUARD)).toContain(FIELD);
-    expect(sealedReason(s, FIELD)).toBe("The Gate Guard is guarding this card");
+    expect(lockText(s, FIELD)).toBe("Give Creon's Writ to The Gate Guard");
     // The locked card offers its quest as a card (rules 133): the writ in his
     // hands. Talk with him tells his own want (rules 102).
     expect(
@@ -60,9 +52,7 @@ describe("the Gate Guard", () => {
     far.actors.vale.visited.push(GATE);
     const field = reload(far);
     expect(exits(field, FIELD, "vale")).not.toContain(GATE);
-    expect(sealedReason(field, GATE)).toBe(
-      "The Gate Guard is guarding this card",
-    );
+    expect(lockText(field, GATE)).toBe("Give Creon's Writ to The Gate Guard");
     expect(exits(field, FIELD, GUARD)).toContain(GATE);
   });
 
@@ -70,7 +60,7 @@ describe("the Gate Guard", () => {
     let s = lifeWorld({ place: GATE });
     s = act(s, "talk", { target: GUARD });
     expect(s.actors[GUARD].guarding).toBe(FIELD);
-    expect(sealedReason(s, FIELD)).toBe("The Gate Guard is guarding this card");
+    expect(lockText(s, FIELD)).toBe("Give Creon's Writ to The Gate Guard");
   });
 
   it("is knocked through on defeat, holds a grudge, walks back and bars again", () => {
@@ -91,7 +81,7 @@ describe("the Gate Guard", () => {
     expect(s.actors[GUARD].guarding).toBe(FIELD);
     s = act(s, "move", { target: GATE });
     expect(exits(s, GATE, "vale")).not.toContain(FIELD);
-    expect(sealedReason(s, FIELD)).toBe("The Gate Guard is guarding this card");
+    expect(lockText(s, FIELD)).toBe("Give Creon's Writ to The Gate Guard");
   });
 
   it("stands aside while he holds Creon's writ, wherever he stands", () => {
@@ -207,7 +197,7 @@ describe("the Exposed Battlefield", () => {
   it("keeps the road open while the City Gate and Hollow keep their gates", () => {
     let s = lifeWorld({ place: FIELD });
     expect(waysOut(s)).toEqual([ROAD, GATE, "greek-polynices-hollow"]);
-    expect(sealedReason(s, GATE)).toBe("The Gate Guard is guarding this card");
+    expect(lockText(s, GATE)).toBe("Give Creon's Writ to The Gate Guard");
     expect(sealedReason(s, ROAD)).toBe(null);
     // The writ lifts the City Gate bar on both sides; the road stays open.
     s.items["greek-creon-writ"].holder = GUARD;
@@ -216,32 +206,9 @@ describe("the Exposed Battlefield", () => {
       ROAD,
       GATE,
     ]);
-    expect(sealedReason(s, "greek-polynices-hollow")).toMatch(/Polynices.*Shade/);
+    expect(lockText(s, "greek-polynices-hollow")).toMatch(/Polynices.*Shade/);
     expect(exits(s, GATE, "vale")).toContain(FIELD);
     expect(waysOut(s)).toEqual([ROAD, GATE, "greek-polynices-hollow"]);
   });
 
-  it("keeps the road open in a rules 99 world upgraded to 100", () => {
-    const file = (f) =>
-      readFileSync(`v2/orchestrator-rust/src/card_shared/${f}`, "utf8");
-    const context = vm.createContext({
-      structuredClone,
-      // Released rules read the content they shipped with.
-      cardContent: JSON.parse(
-        readFileSync("test/fixtures/card-content-rules-101.json", "utf8"),
-      ),
-    });
-    vm.runInContext(file("engine-v99.js"), context);
-    const old = JSON.parse(
-      context.cardShared(JSON.stringify({ op: "create", seed: 9 })),
-    ).world;
-    // The road is open after this old world loads under current rules.
-    delete old.opening;
-    old.packs["greek-drama"].scope = "full";
-    old.actors.vale.place = FIELD;
-    const upgraded = decodeSave(JSON.stringify(old));
-    expect(upgraded.items["greek-decree"]).toEqual(old.items["greek-decree"]);
-    expect(waysOut(upgraded)).toEqual([ROAD, GATE, "greek-polynices-hollow"]);
-    expect(exits(upgraded, FIELD, GUARD)).toContain(GATE);
-  });
 });

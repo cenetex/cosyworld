@@ -92,7 +92,6 @@
           { "kind": "holding", "item": "sample-bell", "actor": "sample-keeper" }
         ],
         "sealed": {
-          "reason": "Return the lost bell to the keeper to open the garden path.",
           "quest": {
             "kind": "item",
             "target": "sample-bell",

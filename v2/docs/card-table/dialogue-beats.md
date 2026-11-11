@@ -326,7 +326,8 @@ unpunctuated or cut line. A flagged reply is published as written on its
 first attempt, and the server logs `card voice flagged` with its `reasons`
 and counts it under `/meta` `card_voice.flagged`.
 
-Before those checks the reply is trimmed, never retried for its shape. A
+Before those checks the reply is trimmed, never retried for its shape. A spoken
+line keeps its first three sentences (a thought, two). A
 reply cut at the token cap keeps its complete sentences; only one with none
 is `shape`. A line that is only a stage direction ("(I strum my lyre.)") is
 passed over, and a stage direction inside a line goes; both flag `stage

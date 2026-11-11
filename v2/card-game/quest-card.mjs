@@ -3,6 +3,7 @@
 // authored or decides anything; the rules own the want (want.mjs).
 import { CONNECT_TARGET, questsOf, wantKey } from "./want.mjs";
 import { conditionsMet, consumable } from "./pack-registry.mjs";
+import { wantWords } from "./world/want-words.mjs";
 import { cardLevel, levelTier, romanLevel } from "./rarity.mjs";
 import {
   currentActor,
@@ -11,7 +12,6 @@ import {
   nameOf,
   places,
   rootHolder,
-  wantText,
 } from "./world.mjs";
 
 export const QUEST_CARD = "quest";
@@ -29,12 +29,6 @@ function burial(world, want) {
         : 0;
   return {
     art: `assets/greek-drama/polynices-${stages[stage]}.webp`,
-    rite: [
-      "Give Antigone the oil in Polynices’ Hollow",
-      "Hand Antigone the cloth",
-      "Hand Antigone the shovel",
-      "Polynices is buried",
-    ][stage],
     riteVerb: ["Anoint", "Veil", "Bury", "Buried"][stage],
     remaining: want.step.items.slice(stage),
   };
@@ -67,6 +61,8 @@ const questShape = (world, actor, want, key, index) => ({
   left: want.quest?.left ?? 0,
   step: want.step ?? null,
   ...(want.lit === undefined ? {} : { lit: want.lit }),
+  // A home quest (want.mjs) says "home"; no other bring does.
+  ...(want.story ? { story: true } : {}),
   ...burial(world, want),
 });
 export const questCards = (world, actor = currentActor(world)) =>
@@ -81,102 +77,39 @@ export const offerQuest = (world, offer, actor = currentActor(world)) =>
 export const questCard = (world, actor = currentActor(world)) =>
   questCards(world, actor)[0] ?? null;
 
-function hideQuestStep(quest, words, covered, known) {
-  const { step } = quest;
-  if (!step) return words;
-  const hiddenPlace = step.at && !known(step.at);
-  const hiddenRecipient = step.to && !known(step.to);
-  if (step.verb === "bring" && quest.kind === "item" && hiddenPlace) {
-    if (covered && (!step.to || hiddenRecipient))
-      return "find something and bring it somewhere";
-    words = step.to
-      ? words.replace(` at ${nameOf(step.at)}`, "")
-      : words.replace(` home to ${nameOf(step.at)}`, " somewhere");
-  } else if (hiddenPlace) {
-    words =
-      step.verb === "bring"
-        ? words.replace(` to ${nameOf(step.at)}`, " somewhere")
-        : words.replace(` at ${nameOf(step.at)}`, " somewhere");
-  }
-  if (
-    hiddenRecipient &&
-    !(step.verb === "bring" && quest.kind === "person" && step.at)
-  ) {
-    words = words.replace(
-      ` to ${nameOf(step.to)}`,
-      places[step.to] ? " somewhere" : " to someone",
-    );
-  }
-  if (step.with && !known(step.with))
-    words = words.replace(` with ${nameOf(step.with)}`, " with someone");
-  if (step.items?.some((id) => !known(id)))
-    words = words.replace(
-      step.items.map(nameOf).join(", "),
-      [
-        ...new Set(
-          step.items.map((id) => (known(id) ? nameOf(id) : "something")),
-        ),
-      ].join(", "),
-    );
-  return words;
-}
-
-// Each card in the rules' description gets its name when revealed.
+// A quest in words: the one wording of a want (world/want-words.mjs), with
+// the first letter raised. A card the traveler has not discovered is worded
+// as unknown; `covered` marks the target as one even when `known` is not given.
+// The burial rite words what is still to lay in the Hollow.
 export function questCaption(
   quest,
   covered = false,
   verb = null,
   known = () => true,
 ) {
-  covered ||= Boolean(quest.target && !known(quest.target));
-  if (quest.rite && quest.riteVerb !== "Lay") {
-    if (
-      covered ||
-      !known("greek-antigone") ||
-      (quest.remaining?.[0] && !known(quest.remaining[0]))
-    )
-      return "Prepare the burial";
-    return quest.rite;
-  }
-  const words = wantText({
-    kind: quest.kind,
-    target: quest.target,
-    ...(quest.step ? { step: quest.step } : {}),
+  const shown = (id) => !(covered && id === quest.target) && known(id);
+  const want = quest.riteVerb
+    ? {
+        kind: "place",
+        target: quest.target,
+        ...(quest.remaining?.length
+          ? { step: { verb: "lay", items: quest.remaining } }
+          : {}),
+      }
+    : {
+        kind: quest.kind,
+        target: quest.target,
+        ...(quest.step ? { step: quest.step } : {}),
+        ...(quest.lit === undefined ? {} : { lit: quest.lit }),
+        ...(quest.story ? { story: true } : {}),
+      };
+  const words = wantWords(want, shown, {
+    // The accessible goal names the same verb as the place card, including
+    // places whose name is known but which this avatar has not visited yet.
+    approach:
+      verb === "Discover" ? "discover" : verb === "Go to" ? "go to" : null,
   });
-  const unknown = {
-    item: "something",
-    person: "someone",
-    place: "a place",
-  };
-  let shown =
-    covered && quest.target
-      ? words.replace(nameOf(quest.target), unknown[quest.kind])
-      : words;
-  if (covered && quest.target) {
-    if (!quest.step)
-      shown =
-        quest.kind === "person"
-          ? "find someone to talk to"
-          : `find ${unknown[quest.kind]}`;
-    else if (quest.kind === "place" && quest.step.verb === "rest")
-      shown = "find a place and rest there";
-    else if (quest.kind === "item" && quest.step.verb !== "find")
-      shown = shown.replace(/^(\w+) something/u, "find something and $1 it");
-    else if (quest.kind === "person" && quest.step.verb === "bring")
-      shown = shown.replace(/^bring someone/u, "find someone and bring them");
-  }
-  shown = hideQuestStep(quest, shown, covered, known);
-  // The accessible goal names the same verb as the place card, including
-  // places whose name is known but which this avatar has not visited yet.
-  if (
-    !covered &&
-    quest.kind === "place" &&
-    (verb === "Discover" || verb === "Go to")
-  ) {
-    shown = `${verb === "Discover" ? "discover" : "go to"} ${nameOf(quest.target)}`;
-    if (quest.step?.verb === "rest") shown += " and rest there";
-  }
-  const caption = shown[0].toUpperCase() + shown.slice(1);
+  const caption = words[0].toUpperCase() + words.slice(1);
   return quest.level ? `Level ${romanLevel(quest.level)}: ${caption}` : caption;
 }
 

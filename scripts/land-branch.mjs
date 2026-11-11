@@ -40,11 +40,16 @@ export const RULES_WIRING = [
 ];
 
 // Always rebuilt from source after the branch's work is applied.
+// (scripts/regen.mjs lists every output and the order that rebuilds them.)
 export const GENERATED = [
   'v2/orchestrator-rust/src/card_assets.rs',
   `${rulesDir}/narrator.js`,
   `${rulesDir}/content.json`,
   'v2/orchestrator-rust/src/card_narrative/authored-text.json',
+  'test/journeys/checkpoints.json',
+  'v2/card-game/packs.json',
+  'v2/card-game/media-manifest.json',
+  'v2/card-game/image-variants.json',
 ];
 export const isRulesBundle = (file) => /^v2\/orchestrator-rust\/src\/card_shared\/engine-v\d+\.js$/u.test(file);
 
@@ -113,7 +118,7 @@ function parseArgs(argv) {
   return options;
 }
 
-function land({ base, branch, name }) {
+async function land({ base, branch, name }) {
   if (git(['status', '--porcelain', '--untracked-files=no']).trim()) {
     throw new Error('Commit or stash tracked changes first.');
   }
@@ -186,11 +191,9 @@ function land({ base, branch, name }) {
     rmSync(scratch, { recursive: true, force: true });
   }
 
-  run(process.execPath, ['v2/scripts/next-shared-rules.mjs', base]);
-  run(process.execPath, ['v2/scripts/build-card-shared-narrator.mjs']);
-  run(process.execPath, ['v2/scripts/build-card-authored-text.mjs']);
-  run(process.execPath, ['v2/scripts/build-card-shared-content.mjs']);
-  run(process.execPath, ['v2/scripts/build-card-assets.mjs']);
+  // Same steps, same order as `npm run regen`.
+  const { steps } = await import('./regen.mjs');
+  for (const step of steps(base)) run(process.execPath, [step.build.script, ...step.build.args]);
 
   const subjects = git(['log', '--reverse', '--format=%s', `${mergeBase}..${tip}`])
     .split('\n')
@@ -225,7 +228,7 @@ function land({ base, branch, name }) {
 const invoked = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 if (invoked) {
   try {
-    land(parseArgs(process.argv.slice(2)));
+    await land(parseArgs(process.argv.slice(2)));
   } catch (error) {
     console.error(`[land] ${error.message}`);
     process.exitCode = 1;

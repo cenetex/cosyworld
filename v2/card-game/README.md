@@ -407,11 +407,18 @@ rules' offers (a no-turn `take` play); drawing them as cards with that one
 button is the next client step (`takesQuest` in `app.mjs` already treats it as
 a no-turn play). See [the design](../../docs/design/wants-and-arcs.md).
 
-Loading an earlier save drops its quest programs, collections, progress and
-quest history (`forgetQuests` in `legacy-saves.mjs`) and installs each
-avatar's starter quest. Saves from before schema 6 start fresh. Shared worlds
-move to the new rules through the normal upgrade; released journals still
-replay on their frozen rule bundles.
+The save schema is 8 (`SAVE_SCHEMA` in `legacy-saves.mjs`). The rules 133 bump
+retired every earlier save: a browser save of another schema is not lifted or
+opened, and the table starts fresh keeping only the traveler's level,
+experience and cosmetic upgrades (`carryLocalProgress`). The old save text is
+replaced in its slot by the fresh table's first save, made at load (the desktop
+backup file follows on its next flush); no copy is made. A corrupt save, or one
+of an unknown schema, is not a retired save: it keeps the "needs a fresh start"
+notice and stays in its slot until New game. Sharing
+always sends the in-memory world, so a retired save never reaches the server.
+Shared worlds on rules
+before 133 are retired too (see shared worlds); released journals keep their
+frozen rule bundles.
 
 `test/card-want.test.mjs` covers the rules, `test/card-liveness.test.mjs`
 checks that every resident meets a quest in each 80-turn window of loose play,
@@ -440,6 +447,11 @@ It shares its store with [hidden holdings](../../docs/design/hidden-holdings.md)
 Owner direction, 2026-11-10. The agreed design, with today's inventory and the
 migration slices, is [wants and arcs](../../docs/design/wants-and-arcs.md).
 Nothing in it is built; the section above describes the game as it ships.
+Companions who stay with you, one definition of a quest for avatars, places and
+items, and reusable items and live gates are drafted in
+[companions and quests](../../docs/design/companions-and-quests.md). The owner's
+vision of factions at the scale of a hearth is
+[hearth factions](../../docs/design/hearth-factions.md).
 
 ## Image-first presentation
 
@@ -529,11 +541,25 @@ Cards have three states. An unseen card lies face down under the plain wooden
 back and reveals on a tap. A card with an unmet prerequisite uses the locked
 back and red edge. A revealed card shows its face. Both closed states conceal
 the name, painting, contents, and quest details. Tapping a locked box
-selects it; the existing descriptor shows the concealed card back and what
-opens it (the rules' `boxWant`), or the plain reason when no goal fits ("heard
-while holding a thing"), or "A locked box." when neither exists.
+selects it; the existing descriptor shows the concealed card back and the want
+that opens it, or "A locked box." when the data names none.
+**One wording of a want.** A lock and a quest, offered or held, show only the
+want, worded by one function (`wantWords`, `world/want-words.mjs`) from its
+structure: a fixed verb (hold, talk with, go to, give, bring, lay, eat, rest)
+and the cards it concerns. Nothing is written per pack or per lock. A lock's
+goals are read from its conditions (`world/lock-goals.mjs`): an item to hold
+or bring, a person to talk with, and, for a story flag or choice, the pack's
+own choice that sets it (give the item to its subject, or meet its subject);
+a condition that traces to nothing yields no goal, and the box only says it is
+locked. Several wants are joined with "and" (at most three; the rest appear as
+these are met). A card the traveler has not discovered, the same test that
+turns it face down (`cardIsClosed`), is never named or pictured: it reads
+"something undiscovered", "someone you have not met" or "a place you have not
+found", and its art is the card back. An undiscovered target is a want like
+any other ("Find something undiscovered"). Items, avatars and places are worded
+alike; only the kind of card differs.
 The rules keep one list of boxes in `world/boxes.mjs`: `boxesAt(s, place,
-actor)` gives `{id, kind, at, open, reason, want}` for every shut way, sealed
+actor)` gives `{id, kind, at, open, want, goals}` for every shut way, sealed
 resident, made thing, shut lane, home door (a pack crossing with `sealed`) and
 hub way (a `reflectionRoutes` entry with `sealed`) at a place. Every lock is
 drawn, even when the card behind it has conditions of its own; such a card is
@@ -548,11 +574,11 @@ enough travellers stand at one place and pays each of them.
 a disabled status, not a separate action row; selecting or tapping it never
 creates a quest or takes a turn.
 A pack draws a gated way or a conditional resident as a locked box when its
-route or card carries `sealed` (a reason, and for a way a place goal): the
+route or card carries `sealed` (empty, and for a way a place goal): the
 Lonely Forest trail, the Sacred Way, the Long Walls, and Thaleia, an Argive
 mother, Iphis and Myrine in the Greek pack. The box cannot be entered, talked
 to or acted on until its old condition holds. A way whose preview goal names
-its own locked destination shows the authored reason, not a discovery caption.
+its own locked destination shows the goals read from its gate instead.
 A way or resident whose own place
 carries the same condition has no place to lie in yet, so pack data cannot draw
 it (the Egypt, Troy and Argive accounts, the Open Door residents who share
@@ -835,9 +861,8 @@ hooks. The ordinary card catalog, custody, memory, save, and action system
 carry the pack. `pack-registry.mjs` evaluates closed conditions and effects;
 story text cannot choose a branch or perform an action.
 
-Earlier schema 6 saves gain schema 7 and the mounted packs through a validated migration
-that retains their original state. A save that claims a mounted pack must have its complete,
-valid state; it cannot silently recreate missing characters or erase choices.
+A save that claims a mounted pack must have its complete, valid state; it cannot
+silently recreate missing characters or erase choices.
 The existing save slot stays unchanged. Future revisions require migrations.
 
 Dialogue receives at most eight local entity cards and three speakers, with
@@ -1417,7 +1442,7 @@ pinned; JS/Rust `card_shared` agreement; a shared smoke with a two-human fight.
 
 Pair a nearby avatar with an open location card to ask them to accompany Vale. Either card order works. Tap the Accompany button beneath either raised card to play the request. Pairing Vale with a location offers travel there. Pairing a carried item with the current place offers to put it down; pairing a lamp or bell lying here with the current place offers to light, put out or ring it where it lies.
 
-The invited avatar weighs its own interests, the requester’s belongings, remembered grievances, and favours. Standoffs and recovery also shape the answer. Accepted requests take one round. The pair resumes its own choices on the next play. An invited resident can use an open crossing back to their own part of the world. Their belongings stay with them on that return.
+The invited avatar weighs its own interests, the requester’s belongings, remembered grievances, and favours. Standoffs and recovery also shape the answer. An accepted request makes the resident the traveler's **companion** (rules 133), and the bond is sticky. The traveler's saved `companion` names the resident; nothing is saved on the resident (`world/company.mjs`). The companion travels in the same joint move on every later step, boarding, landing, voyage and crossing, with no new invitation. It keeps no schedule of its own while it is with someone: no drift home, no walk toward its want, no dawn or dusk step, no bedtime and no sleep, no leash to its range, and no stepping ashore alone. It keeps its one want and may meet it on the way; neither a drawn want nor a met one ends the bond. If it is ever not in the traveler's place (a fight, or a way it could not walk back) it walks toward the traveler each round and nothing teleports. One companion per traveler: asking a second resident replaces the first, who stays where they stand. A resident is with one traveler at a time; for another traveler the button reads, for example, "Dione is with Rue". The Oak, Badger, the Shade and the Gate Guard cannot leave their places; their button reads "Oak stays here" (the same words for any card that never travels). A way is the party's: if it is open for the traveler it is open for the companion, and a traveler's own condition on a way (an item held, trust of a keeper) is met by the traveler or the companion. A companion passes any way its traveler passes, a crossing only a player may use included. A resident is asked only to a place with a way home along the authored map; for any other the pair's button reads "<Name> cannot follow" (moving alone stays the place card's play), and a bound companion is left where it stands and never walks into such a place. The bond ends in exactly these ways: the resident's trust in the traveler falls below 2; the traveler wakes from a long rest holding no quest that pins the resident; the traveler asks another resident along (the first stays where they stand); in a shared world the traveler is away for a day; or the traveler's avatar is reset. A grievance alone (the bell, the light, pestering) does not end it, only trust does. A resident whose pack is switched off stays bound and waits. A trip a resident takes only because it serves its own want is a joint trip and sets no bond. A released resident is an ordinary resident again from where it stands: it walks home by the usual leash, waits at a way that is shut until it opens, and its tickets narrow to the way home and go once it is there. A quest to bring a resident somewhere or to someone is a shared vow: taking it brings a resident who trusts the traveler along at once, and the bond survives the long rest while the quest is held. Trust now falls for visible acts only: a threat against a resident takes 2 trust (3 when it demands an item) and a strike on them takes 1, never below 0. In a shared world the traveler's bond pauses while they are away and ends after a day. An invited resident can use an open crossing back to their own part of the world. Their belongings stay with them on that return.
 
 Requests record the destination and the answer in the scene script. Both places, witnesses, avatars and carried items remember an agreed trip. The same model request writes Vale's invitation and the invited avatar's reply from the completed result, desires, personas and memories.
 

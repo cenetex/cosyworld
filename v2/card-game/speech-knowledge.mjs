@@ -147,6 +147,18 @@ function coveredCards(world, isCovered) {
   };
 }
 const lowerName = (id) => nameOf(id).toLowerCase();
+// A covered card is also known by the last word of its name ("the attic" for
+// "Mirror attic") unless an uncovered card's name shares that word.
+function nameKeys(ids, shown) {
+  const taken = new Set([...shown].map((name) => name.split(" ").at(-1)));
+  return ids.flatMap((id) => {
+    const full = lowerName(id);
+    const last = full.split(" ").at(-1);
+    return last !== full && last.length > 3 && !taken.has(last)
+      ? [[id, full], [id, last]]
+      : [[id, full]];
+  });
+}
 
 function privateWords(entity, blur) {
   const kept = ({ text }) => blur(text) === text;
@@ -165,8 +177,8 @@ function privateWords(entity, blur) {
 export function coveredTextReader(world, isCovered) {
   const { unnamedIds, shown } = coveredCards(world, isCovered);
   const names = new Map(
-    unnamedIds.map((id) => [
-      lowerName(id),
+    nameKeys(unnamedIds, shown).map(([id, key]) => [
+      key,
       world.actors[id] ? "someone" : world.items[id] ? "something" : "a place",
     ]),
   );
@@ -189,8 +201,8 @@ export function forgetCovered(world, context, isCovered) {
   const keepEntity = (id) =>
     id === actor || id === context.location || kept(id);
   const unknown = new Map(
-    unnamedIds.map((id) => [
-      lowerName(id),
+    nameKeys(unnamedIds, shown).map(([id, key]) => [
+      key,
       world.items[id]?.lit && !covered(world, id)
         ? UNKNOWN_LIGHT
         : unnamed(world, id),

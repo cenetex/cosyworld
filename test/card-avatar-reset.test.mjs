@@ -60,6 +60,7 @@ describe("an owner deletes an avatar from a shared world (#1825)", () => {
         resolve: { vale: 4, mara: 4 },
         guarding: { vale: false, mara: false },
         struck: { vale: false, mara: false },
+        steppedBack: { vale: false, mara: false },
       },
     ];
     const after = ask(world, "reset", "mara").world;

@@ -81,12 +81,31 @@ plays (`{ kind, item, target }`, matched against `legalActions`), road walks
 checkpoint it was heading for and the legal plays. To add one: write the module,
 list it in `test/journeys/index.mjs`, read its worlds in a test with
 `journeyWorlds(journey)` (`test/helpers/journey.mjs`; worlds are built once per
-test file, about 0.1 s), and run `npm run test:journeys:build`. After a rules or
+test file, about 0.1 s), and run `npm run test:journeys:build` (or `npm run regen`). After a rules or
 pack change, `npm run test:journeys:check` (part of `v2:card:pack:check`) names
 each journey and checkpoint that moved; read the diff of
 `test/journeys/checkpoints.json`, fix any journey whose step stopped being
 legal, then rebuild. Keep recorded saves only as replay proofs: a released rule
 bundle or an old save that must still load.
+
+### Skips and recorded saves
+
+`npm run check:test-guards` (in `check:local`, the pre-push hook and the fast
+check's lint job) holds two ceilings that only go down:
+
+- **Skips.** `scripts/check-test-skips.mjs` counts skipped tests (JS `.skip`,
+  `.skipIf`, `.todo`, `xit`; Rust `#[ignore]`) against `scripts/test-skip-ceiling.txt`.
+  A skip needs a reason in a comment on its line or the line above. Above the
+  ceiling fails; below it, lower the number in the same PR. Raising it is an
+  owner decision made visibly in the PR diff.
+- **Recorded saves.** `scripts/check-recorded-saves.mjs` fails on a new saved
+  world file (world state with `actors`/`items`/`locations`, any `.json.gz`, or a
+  `*save*.json`) or a listed one that grows; list: `scripts/recorded-saves-allowlist.json`.
+  Remove an entry when its file goes. Build start states by play from `createWorld`,
+  a journey or a synthetic world.
+
+The unit job also prints, without failing, any test that passed only on a retry
+(`retry: 1` in `vitest.config.js`).
 
 ### Fast check
 
@@ -239,9 +258,14 @@ Do not edit or commit these directly:
 - `.env`, `.env.*`, keys, wallet files, bearer tokens, logs, or runtime SQLite
   and snapshot data;
 - released shared rules `v2/orchestrator-rust/src/card_shared/engine-v*.js`
-  and their version wiring. After rebasing a branch that changes rule modules,
-  run `npm run v2:card:shared:next`; it restores main's recorded rules and claims
-  the next version once. The plain `npm run v2:card:shared:build` refuses to
+  and their version wiring, and every other generated output (the dialogue
+  bundle, pack content, authored-text catalog, journey checkpoints, packs,
+  media and image manifests). Never hand-merge them. After a change, or after
+  merging or rebasing main, run `npm run regen`: it settles a conflict that is
+  only in generated files by taking your side, rebuilds every output in
+  dependency order (it mints the next rules version once, restoring main's
+  recorded rules first), and stages the result. `npm run regen:check` is the
+  drift check and runs in the fast check. The plain `npm run v2:card:shared:build` refuses to
   rewrite a bundle that is pinned in `test/card-released-rules.test.mjs` or
   already on main (`v2/scripts/released-bundles.mjs`). To land a prepared branch, `npm run land -- <branch>`
   applies its own work onto main at main's version, regenerates the rules

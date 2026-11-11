@@ -153,6 +153,7 @@ import { openTableSession } from "./table-session.mjs";
 import { createNarrator, requestNarrative, silentLines } from "./narrative.mjs";
 import { signedRequest } from "./signed-words.mjs";
 import { rememberLocalUpgrades, wearLocalUpgrades } from "./scarves.mjs";
+import { carryLocalProgress, retiredSave } from "./legacy-saves.mjs";
 import { coveredText, coveredTextReader, markWaking } from "./speech-knowledge.mjs";
 import { packMedia } from "./pack-registry.mjs";
 import { createRadioPlayer } from "./radio-player.mjs";
@@ -332,11 +333,14 @@ function notice(text, playStatus = "") {
   line.dataset.playStatus = text ? playStatus : "";
   syncActionBeat();
 }
+// A save from before the current schema is retired, not lifted: it reads as
+// a fresh start that keeps the traveler's level and upgrades (legacy-saves.mjs).
+const readableSave = (text) => retiredSave(text) || decodeSave(text);
 const localBackups =
   localRuntime()?.backups && !sharedSession
     ? createLocalBackups({
         slot: SAVE_KEY,
-        validate: decodeSave,
+        validate: readableSave,
         onError: notice,
       })
     : null;
@@ -355,7 +359,12 @@ try {
   } catch {
     storageBlocked = true;
   }
-  if (saved) {
+  const retired = saved && retiredSave(saved);
+  if (retired) {
+    // The old world is not opened: a fresh table carries level and upgrades.
+    world = carryLocalProgress(world, retired);
+    rememberLocalUpgrades(world);
+  } else if (saved) {
     openingTable = false;
     // A save from before run seeds takes one once, as a shared world does.
     const restored = decodeSave(saved);
@@ -584,7 +593,7 @@ if (localBackups) {
     slot: SAVE_KEY,
     backups: localBackups,
     getSave: () => encodeSave(world),
-    validate: decodeSave,
+    validate: readableSave,
   });
   window.addEventListener("pagehide", () => {
     void localBackups.flush();
@@ -1313,7 +1322,9 @@ window.addEventListener("pagehide", () => {
 window.addEventListener("pageshow", hideAudio);
 const narrator = createNarrator({
   getWorld: () => world,
-  isCovered: cardIsCovered,
+  // Speech is handed no name the table shows as a closed box: the same
+  // test the hand uses to turn a card face down, a locked box included.
+  isCovered: cardIsClosed,
   early: Boolean(localRuntime()),
   limit: (context) => markWaking(world, context, (id) => coveredCards.has(id)),
   // Remembered words go back with the envelopes the service signed them with.
@@ -1418,8 +1429,10 @@ function showFailedSilence() {
       quiet.length || !openingWordsDue() ? quiet : [currentActor(world)],
     ),
   };
-  if (!exchange.active) exchange.begin();
-  loadTurnLines();
+  // The "…" is a caption on the table, not an exchange: it never holds the
+  // hand or the next play, so no tap is owed to read it.
+  exchange.cancel();
+  renderScene();
 }
 // The row keeps a held item after a play, so its slots can change under a
 // finger. A second tap on a slot redrawn by that play must not become a new
@@ -2190,8 +2203,14 @@ function showBeatCards(
       actionView,
       asScene,
     ]);
-  if (cards.dataset.cards === key) return;
-  cards.dataset.cards = key;
+  // The memo is a digest, not the key: the key names the cards in play, and
+  // a card the traveler has not discovered must not be named in the page.
+  const digest = Array.from(key).reduce(
+    (hash, char) => (Math.imul(hash, 31) + char.charCodeAt(0)) | 0,
+    7,
+  );
+  if (cards.dataset.cards === String(digest)) return;
+  cards.dataset.cards = String(digest);
   releaseImages(cards);
   if (actionView) {
     cards.replaceChildren(questScreen(actionView, questArt, asScene));
@@ -2634,7 +2653,11 @@ function renderActions() {
     cardTapHint(why, openingBox ? "Open" : "Locked");
   }
   // An Ask, Trade or Invite of a sleeping resident says so (rules 100).
-  const asleep = !sealed && !rested && !actions.length && asleepReason(world, selected);
+  // Its names go through the same discovery screen as every other word: a
+  // card the traveler has not found is not named (rules 133).
+  const asleepWords =
+    !sealed && !rested && !actions.length && asleepReason(world, selected);
+  const asleep = asleepWords && visibleText(asleepWords);
   if (asleep) {
     const blocked = node("button", asleep, "card-primary");
     blocked.type = "button";
