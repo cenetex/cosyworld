@@ -16,7 +16,7 @@ function carriage(friendly = true) {
   s.playerActorId = "rue";
   s.actors.rue.place = s.actors.moth.place = "station";
   s.items.routes.holder = "rue";
-  s.actors.moth.trust.rue = friendly ? 1 : 0;
+  s.actors.moth.trust.rue = friendly ? 2 : 1;
   return s;
 }
 const invite = (s) =>
@@ -41,6 +41,8 @@ describe("invited companion travel", () => {
     expect(s.log.filter((e) => e.verb === "accompany")).toHaveLength(1);
     expect(s.log.findLast((e) => e.verb === "accompany").accepted).toBe(true);
     expect(decodeSave(encodeSave(s))).toEqual(s);
+    // Pip is now Rue's companion (rules 133), with a way home through the door.
+    expect(s.actors.rue.companion).toBe("moth");
     expect(start.invitedPlaces).toBeUndefined();
     expect(exits(s, "station", "moth")).not.toContain("train");
     const bad = structuredClone(s);
@@ -78,11 +80,14 @@ describe("invited companion travel", () => {
           riders: ["moth", "rue"],
         });
       }
-      const action = legalActions(s, "rue").find(
-        (a) =>
-          a.kind === "accompany" &&
-          a.target === "moth" &&
-          a.destination === destination,
+      // Once Pip is aboard with Rue he is her companion: the landing is a
+      // plain move and he comes too (rules 133).
+      const action = legalActions(s, "rue").find((a) =>
+        destination === "greek-ship"
+          ? a.kind === "accompany" &&
+            a.target === "moth" &&
+            a.destination === destination
+          : a.kind === "move" && a.target === destination && !a.item,
       );
       expect(action).toBeDefined();
       s = play(s, action, s.revision, "rue").state;

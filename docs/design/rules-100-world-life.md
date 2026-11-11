@@ -85,8 +85,8 @@ allow-list and the reason for each.
 ## Sleep
 
 - A resident falls asleep in its scattered window if idle: not in a fight
-  and not aboard. Away from home, it walks home first if it can, and sleeps
-  where it stands if it cannot. A busy one tries again each turn.
+  and not aboard. Away from home, it stays up and walks home (rules 133: at
+  the dwell pace, sleeping only at home). A busy one tries again each turn.
 - **No resident sleeps on a world's first day** (turns 0–47), so the opening
   and a new world's first meetings keep their cast awake.
 - `sleeping: {since, place, until}` (a player's sleep has `present`
@@ -143,3 +143,32 @@ Story suites written for a still cast hold world life off
 `card-world-life`, `card-resident-sleep`, `card-gate-guard`, the browser and
 QuickJS agreement (`card-world-life-agreement`), and the C host's replay and
 upgrade (`world_life_tests.rs`).
+
+## Dwell (rules 133)
+
+Owner (2026-11-11): residents should stay at a place for a while, "even just
+they can travel 2 x a day", and may take a long way home "like odysseus".
+After a resident arrives (`travelParty`, or put ashore by a voyage) it holds
+`dwellUntil`, `DWELL_TURNS` (24, half the 48-turn day) plus 0 to 5 from a hash
+of its id and the arrival turn, so it makes at most two moves of its own a
+day. Dwell holds walking for a want, roaming, drifting home, the dawn and dusk
+steps, the walk home after a push-back, the level-up return and the walk to
+bed. It never holds a companion following, an accepted Invite, stepping off a
+docked ship, a `journey` resident, a placement by a fight or story effect, or
+anything a player does. Worlds without the field move at once. `STALL_TURNS`
+stays 48, but each arrival restarts a want's stall clock (`stallStart` in
+`want.mjs`), so a resident walking at this pace is not judged stalled while
+one that cannot move still is.
+
+**Courtesy.** After a human's Talk, Ask, Give, Trade or a refused Accompany, that
+resident makes no move of its own for 2 more turns while a human is in the
+room (`attend: {since, until}`). The holds cannot strand it: at most 24 turns
+(`ATTEND_CAP`) from the first, and a new run of holds can begin 48 turns after
+the first. It never holds companions, invitations, flight, ships, journeys or
+the player. (Ported from the closed codex/resident-presence-grace, #2526.)
+
+A resident with a home and a range now sleeps only there: at bedtime away
+from home it stays up, walks home at the dwell pace and sleeps on arrival if
+its window is still open. Avatars with no range sleep where they stand.
+`test/card-resident-dwell.test.mjs`; the measuring script and its numbers are
+in `test/probes/`.

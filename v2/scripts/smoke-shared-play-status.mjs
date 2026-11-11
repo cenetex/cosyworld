@@ -10,7 +10,12 @@ import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
 import { dispatchShared } from "../card-game/shared-world.mjs";
 import { addLog, createWorld, encodeSave } from "../card-game/world.mjs";
-import { readyActionButton, selectCard } from "./card-browser-helpers.mjs";
+import {
+  readyActionButton,
+  revealCard,
+  selectCard,
+  settleHand,
+} from "./card-browser-helpers.mjs";
 
 const server = createServer();
 await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
@@ -78,7 +83,7 @@ async function check(width) {
   );
   page.on("pageerror", (error) => errors.push(error.message));
   await page.route("**/auth/account", (route) =>
-    route.fulfill({ json: { authenticated: true } }),
+    route.fulfill({ json: { authenticated: true, user_id: "smoke-user", account_revision: 0 } }),
   );
   await page.route(
     /\/card-game\/shared\/worlds\/status(?:\/command)?$/,
@@ -366,7 +371,7 @@ async function checkRefusalFits(width, height, zoom = 1) {
     hasTouch: true,
   });
   await page.route("**/auth/account", (route) =>
-    route.fulfill({ json: { authenticated: true } }),
+    route.fulfill({ json: { authenticated: true, user_id: "smoke-user", account_revision: 0 } }),
   );
   await page.route(
     /\/card-game\/shared\/worlds\/fits(?:\/command)?$/,
@@ -393,6 +398,12 @@ async function checkRefusalFits(width, height, zoom = 1) {
   try {
     await page.goto(`${origin}/?world=fits`);
     await page.waitForFunction(() => document.body.inert === false);
+    // A stranger's first table is the opening's closed boxes with the lamp
+    // raised, and its one button opens the lamp until Vale and it are open.
+    // The attic, cottage and pond lie in a pack that selecting them opens.
+    await revealCard(page, "vale");
+    await settleHand(page);
+    await revealCard(page, "lamp", { keepSelected: true });
     await selectCard(page, "forest-cottage", { touch: true });
     const primary = readyActionButton(page);
     await primary.waitFor();

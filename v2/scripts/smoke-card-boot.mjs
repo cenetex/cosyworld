@@ -8,12 +8,15 @@ import assert from "node:assert/strict";
 import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
 
-const INVALID = JSON.stringify({ schema: 7, turn: "x" });
+const INVALID = JSON.stringify({ schema: 8, turn: "x" });
+// A save of the retired schema 7 is dropped: a fresh table, no recovery notice.
+const RETIRED = JSON.stringify({ schema: 7, turn: 4 });
 const cases = {
   // A cold boot deals the opening hand and logs no console error.
   fresh: { notice: null },
   // A current-schema save whose turn is not a number fails validateWorld.
   invalid: { save: INVALID, notice: /needs a fresh start.*New game/su },
+  retired: { save: RETIRED, notice: null, replaced: true },
   // In-app browsers with DOM storage off refuse every access.
   blocked: { blockStorage: true, notice: /could not save the world/u },
 };
@@ -87,8 +90,15 @@ try {
         assert.equal(await status.isVisible(), false, "fresh boot: no notice");
         assert.deepEqual(report.console, [], "fresh boot: no console error");
       }
-      // The kept save is not overwritten by the refused boot.
-      if (spec.save)
+      // A retired save is replaced by the fresh table's first save; a corrupt
+      // one is kept for the player until New game.
+      if (spec.replaced) {
+        const text = await page.evaluate(
+          (key) => localStorage.getItem(key),
+          key,
+        );
+        assert.equal(JSON.parse(text).schema, 8, "retired save replaced");
+      } else if (spec.save)
         assert.equal(
           await page.evaluate((key) => localStorage.getItem(key), key),
           spec.save,

@@ -86,7 +86,6 @@ describe("a stuck ship goes home", () => {
   it("is the harbor for the Charybdis, from the transport's `at`", () => {
     expect(HOME).toBe("greek-harbor");
   });
-
   it("puts the Bard ashore at home, and Mara at Piraeus can call the ship", () => {
     let s = stuck(BARD);
     // Not yet: someone aboard may still set a course.
@@ -112,7 +111,6 @@ describe("a stuck ship goes home", () => {
     expect(s.actors.mara.place).toBe(SHIP);
     expect(s.transports[SHIP].dock).toBe("greek-piraeus");
   });
-
   it("puts a player ashore the same way", () => {
     let s = stuck("vale");
     for (let i = 0; i < 16 && !boards(s); i++) s = act(s, "mara", "wait");
@@ -120,7 +118,6 @@ describe("a stuck ship goes home", () => {
     s = act(s, "mara", "move", SHIP);
     expect(s.actors.mara.place).toBe(SHIP);
   });
-
   it("leaves aboard a player the full harbor has no room for", () => {
     const five = ["vale", "mara", "ash", "nell", "tavi"];
     const s = dispatchShared({
@@ -137,44 +134,7 @@ describe("a stuck ship goes home", () => {
     const ashore = five.filter((id) => s.actors[id].place === HOME);
     expect(ashore).toHaveLength(4);
   });
-
-  it("sends a ship already stuck in a save from before rules 95 home", () => {
-    const saved = JSON.parse(encodeSave(stuck(BARD)));
-    delete saved.usedUp;
-    saved.turn += IDLE_ROUNDS;
-    saved.revision = Math.max(saved.revision, saved.turn);
-    const w = decodeSave(JSON.stringify(saved));
-    expect(w.actors[BARD].place).toBe(HOME);
-    // He sets that pursuit aside on load too, as in play.
-    expect(w.actors[BARD].want?.target).not.toBe(NOWHERE);
-    expect(w.transports[SHIP]).toMatchObject({
-      phase: "docked",
-      dock: HOME,
-      riders: [],
-    });
-    expect(stuckShip(w, SHIP)).toBe(false);
-  });
-
-  it("spares an away traveler's quest when a pre-95 save puts the ship in", () => {
-    const s = stuck("ash");
-    s.actors.ash.want = {
-      kind: "place",
-      target: NOWHERE,
-      since: s.turn,
-      refusals: 0,
-    };
-    s.controlledActors = s.presentActors = players;
-    const saved = JSON.parse(encodeSave(s));
-    delete saved.usedUp;
-    saved.turn += IDLE_ROUNDS;
-    saved.revision = Math.max(saved.revision, saved.turn);
-    const w = decodeSave(JSON.stringify(saved));
-    expect(w.actors.ash.place).toBe(HOME);
-    // Ash plays as a resident while away: no set-aside (rules 98).
-    expect(w.actors.ash.want?.target).toBe(NOWHERE);
-  });
-
-  it("keeps a ship with a standoff aboard, in play and in a save from before rules 95", () => {
+it("keeps a ship with a standoff aboard, in play and in a save from before rules 95", () => {
     // Vale threatens Myrto aboard at the harbor; the fight holds the ship.
     let s = stuck("vale");
     s.actors["greek-shipmaster"].place = SHIP;
@@ -191,7 +151,6 @@ describe("a stuck ship goes home", () => {
     expect(w.actors.vale.place).toBe(SHIP);
     expect(w.standoffs.some((c) => c.location === SHIP)).toBe(true);
   });
-
   it("answers a lamp summon made while the ship was occupied", () => {
     const s = structuredClone(stuck(BARD));
     summonTransport(s, SHIP, "pond");
@@ -201,7 +160,6 @@ describe("a stuck ship goes home", () => {
     expect(s.actors[BARD].place).toBe(HOME);
     expect(s.transports[SHIP]).toMatchObject({ dock: "pond", recall: null });
   });
-
   it("sails the idle voyage home itself where its first lane leads there", () => {
     // From Piraeus the only open lane is home: the voyage is sailed, and
     // learned, rather than skipped.

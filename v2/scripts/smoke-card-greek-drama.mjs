@@ -1,5 +1,5 @@
 import { greekTravelTargets } from "../../test/helpers/greek-travel.mjs";
-import { endStandoff, selectCard } from "./card-browser-helpers.mjs";
+import { clearSelection, endStandoff, holdItem, selectCard, setLampFuel } from "./card-browser-helpers.mjs";
 import { checkOpeningPoem } from "./smoke-card-opening-poem.mjs";
 // Exercise the public card UI and its one saved history, at desktop and phone
 // widths. Text is a bounded fixture; the deterministic model owns every result.
@@ -35,10 +35,10 @@ let fixture = enableMotives(
 // Keep the first ship signal part of this story fixture's legal journey.
 fixture.actors["greek-rhapsode"].place = "attic";
 // The opening starts lit; douse it to open the mirror (#1653).
-fixture = commit(fixture, "snuff");
+fixture = holdItem(fixture, null);
 fixture = commit(fixture, "move", "pond");
 fixture.items.cloth.holder = "vale";
-fixture.items.lamp.fuel = 12;
+setLampFuel(fixture, 12, "pond");
 fixture.items.oil.holder = "greek-harbor";
 fixture.actors.vale.trust.moth = 2;
 // Pip has already entrusted Vale with the signal kit for this journey.
@@ -133,7 +133,7 @@ try {
       await ready();
       if (await endStandoff(page, await state())) await ready();
       // A held item stays raised after its play; start each play fresh.
-      await page.keyboard.press("Escape");
+      await clearSelection(page);
       await selectCard(page, id);
       await page.locator("#card-actions .card-primary").click();
       await ready();
@@ -141,7 +141,7 @@ try {
     const pair = async (one, two) => {
       await ready();
       if (await endStandoff(page, await state())) await ready();
-      await page.keyboard.press("Escape");
+      await clearSelection(page);
       await selectCard(page, one);
 
       await selectCard(page, two);

@@ -1,4 +1,5 @@
 import { signInNotice } from "./privacy.mjs";
+import { accountRevision } from "./account-revision.mjs";
 
 const decode = (value) =>
   Uint8Array.from(atob(value.replaceAll("-", "+").replaceAll("_", "/")), (c) =>
@@ -16,6 +17,7 @@ export async function request(path, body, headers = {}) {
     cache: "no-store",
     headers: {
       ...headers,
+      ...accountRevision.headers(),
       ...(body === undefined ? {} : { "Content-Type": "application/json" }),
     },
     ...(body === undefined ? {} : { body: JSON.stringify(body) }),
@@ -31,6 +33,9 @@ export async function request(path, body, headers = {}) {
       ),
       result.code ? { code: result.code } : {},
     );
+  if (path === "/auth/account") accountRevision.observe(result);
+  if (/^\/auth\/passkey\/(login|register)\/finish$/u.test(path))
+    accountRevision.observe(result, true);
   return result;
 }
 // A shared world belongs to everyone in it, so a rules refusal to load it
@@ -99,12 +104,13 @@ export async function passkey(register = false) {
 // takes no new passkeys and no signed-out play. Until a known passkey signs
 // in, the table shows only this lock. Without the account API (a static or
 // local table) play starts as usual.
-export async function membersLock() {
-  let account;
-  try {
-    account = await request("/auth/account");
-  } catch {
-    return false;
+export async function membersLock(account) {
+  if (!account) {
+    try {
+      account = await request("/auth/account");
+    } catch {
+      return false;
+    }
   }
   if (!account.members_only || account.authenticated) return false;
   const style = document.createElement("link");

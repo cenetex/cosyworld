@@ -1,191 +1,191 @@
 {
-  "version": "01228d9cc138c23609d151a713e6450a20116ce04e17d4fd3240896f6e7b7de8",
+  "version": "248fafabe109901e3d49a5ab1a4e031a515601bb5137c5d25ae2ec858548a2ce",
   "tracks": [
     {
       "file": "agora-1.mp3",
       "title": "Wine, Black Sea",
       "sourceHash": "36e847559ea4e3438f4aab0eff4a3b779d48b01343c9cd0609bc5b0cbb24505a",
-      "durationMs": 238008
+      "durationMs": 237974
     },
     {
       "file": "agora-2.mp3",
       "title": "Wine, Black Sea II",
       "sourceHash": "9acfbe6c585b03c6304197ccdd1f3af1231ff723beb557daa8ea6e933b0fdebf",
-      "durationMs": 213936
+      "durationMs": 213894
     },
     {
       "file": "attic-1.mp3",
       "title": "Music Box Waltz",
       "sourceHash": "06a2b1c90cfaa6384898e9e14d8c0bd868925d92d64e31044797fde8753deeae",
-      "durationMs": 159432
+      "durationMs": 159400
     },
     {
       "file": "attic-2.mp3",
       "title": "Music Box Waltz II",
       "sourceHash": "58e26e429a4cb6cc57d287655da201782a75a56baed426f784473d3367adc53d",
-      "durationMs": 163464
+      "durationMs": 163440
     },
     {
       "file": "battle-attic-lamp.mp3",
       "title": "The Attic Keeps Its Lamp",
       "sourceHash": "24cc1aa264262c6c796caebaf278b3f89e2738c6fb50c840d9671b4beb9b945e",
-      "durationMs": 77928
+      "durationMs": 77894
     },
     {
       "file": "battle-loss-moonstone.mp3",
       "title": "Moonstone Sanctuary",
       "sourceHash": "dcbcd0457fcaed65a12d0dbfa6fc95fb560dd8a0b5b344cf12d75c760ce89830",
-      "durationMs": 179040
+      "durationMs": 179014
     },
     {
       "file": "drift-jam.mp3",
       "title": "Signal — Lo-Fi Drift Jam",
       "sourceHash": "353e1e40122f4ed2f62c148169e6deba87bc546340b36c8babb090e96b90d8c2",
-      "durationMs": 223224
+      "durationMs": 223200
     },
     {
       "file": "empty-seat.mp3",
       "title": "An Empty Seat on the Carriage",
       "sourceHash": "eedd8184fb42dfd84d4c4ba87a5aa0b24bc7fbdef59677bb97acc8476069f3c1",
-      "durationMs": 193056
+      "durationMs": 193014
     },
     {
       "file": "fields-beyond-thornford.mp3",
       "title": "Fields Beyond Thornford",
       "sourceHash": "142b9e509cc0291aa8390e201a9840b4c193cd995fd8776561ccb91ddb4aae61",
-      "durationMs": 164400
+      "durationMs": 164374
     },
     {
       "file": "greek-courtyard.mp3",
       "title": "Wine Dark Sea — Theban Courtyard",
       "sourceHash": "60ac8870acb7c3cc71aff040bddd623b2b07a7413bf72390063fdedac1176722",
-      "durationMs": 203232
+      "durationMs": 203200
     },
     {
       "file": "greek-harbor-2.mp3",
       "title": "Wine Dark Sea — Wine-Dark Harbor II",
       "sourceHash": "3b5ecd3be280df0771bad11d786559abb049d64f6645dab8f6b83127df5d4a53",
-      "durationMs": 227640
+      "durationMs": 227614
     },
     {
       "file": "greek-harbor.mp3",
       "title": "Wine Dark Sea — Wine-Dark Harbor",
       "sourceHash": "f57d529d1724b22683e2cc7ed6ce3750ef0c131a617c06b3e3f88f9f1a81732e",
-      "durationMs": 218400
+      "durationMs": 218360
     },
     {
       "file": "greek-well.mp3",
       "title": "Wine Dark Sea — Theban Market Well",
       "sourceHash": "c2f409b2afbe5df1a929c11b0c273db892f03cfe6e0ed57e5b10923c67a6cedb",
-      "durationMs": 196392
+      "durationMs": 196360
     },
     {
       "file": "hillside-sanctuary.mp3",
       "title": "The Hillside Sanctuary",
       "sourceHash": "a67672f521db19bb5a3f773871388441342e889cff90aaae61f99db27116b7ca",
-      "durationMs": 263256
+      "durationMs": 263214
     },
     {
       "file": "lofi-belt-miners.mp3",
       "title": "Vector Veins — Lo-Fi Belt Miners",
       "sourceHash": "00c643d54ede2f3798e69c8d3d444ae3e3f22e6fb4063c0b2f6cd4c23e896d9d",
-      "durationMs": 188760
+      "durationMs": 188720
     },
     {
       "file": "lofi-drift.mp3",
       "title": "Local Proof Trebuchet — Lo-Fi Drift",
       "sourceHash": "ce3b8aeaba7e5ffb56c5004cb31b1c7a2919a2b90193f6534dc6314eae46686c",
-      "durationMs": 175728
+      "durationMs": 175694
     },
     {
       "file": "night-shift-on-ratiradio-remastered.mp3",
       "title": "Night Shift on RatiRadio — ratimics",
       "sourceHash": "a0ef7697ffc2eedc50a04c35ddd52ed700b567015d3a2feaae03ce01ac2af3d9",
-      "durationMs": 359616
+      "durationMs": 359574
     },
     {
       "file": "pond-1.mp3",
       "title": "Quiet Night",
       "sourceHash": "dad0ccc76d4defd4fc3f59f026cb47e4692a22086e11a1ab8cecba906c5d8ec4",
-      "durationMs": 188832
+      "durationMs": 188800
     },
     {
       "file": "pond-2.mp3",
       "title": "Something Below the Surface",
       "sourceHash": "5d9a1254fa729c9cda3ce0f3c46cf756d150f24199988557fa3ca2e94873bd96",
-      "durationMs": 199440
+      "durationMs": 199400
     },
     {
       "file": "pond-3.mp3",
       "title": "Open Intervals",
       "sourceHash": "5ba7ccc2d22a3b58e0c1c7b47e5505ec5ddd17af56d97b85bc46e03bf66975e0",
-      "durationMs": 179880
+      "durationMs": 179854
     },
     {
       "file": "pond-4.mp3",
       "title": "Open Intervals II",
       "sourceHash": "9e5a5b898358dfd65bf2fba5f6645417c514044fb2f60ba8751a43ab9bc8968b",
-      "durationMs": 212856
+      "durationMs": 212814
     },
     {
       "file": "rain-on-canvas.mp3",
       "title": "Rain on the Canvas",
       "sourceHash": "359b859aa95c324b7157098ca8ea95980b8879fb38b70e82cbdcfa5bca44aa69",
-      "durationMs": 148656
+      "durationMs": 148614
     },
     {
       "file": "road-after-sunset.mp3",
       "title": "The Road After Sunset",
       "sourceHash": "a91cded7fae8c5923de25fffa2147ecdfc05e2fb8509845b919baa7b854266a8",
-      "durationMs": 174120
+      "durationMs": 174094
     },
     {
       "file": "ship-1.mp3",
       "title": "Wine, Black Sea",
       "sourceHash": "fbe7b5ce3b1dedc447f7ebdfbcb4dcbf33e66588b206fd8693ae7c3f0f26c535",
-      "durationMs": 277248
+      "durationMs": 277214
     },
     {
       "file": "ship-2.mp3",
       "title": "Wine-Dark",
       "sourceHash": "41cd2d1e6015c3a4cdd5605016fd8caa52f3359fedbb0b2326c63cef96b6073d",
-      "durationMs": 293208
+      "durationMs": 293174
     },
     {
       "file": "ship-3.mp3",
       "title": "Wine-Dark-2",
       "sourceHash": "0f43865d54bf6037b5874c2f48df9e8e5167c4fb7941ac89f5369a683b9f81a8",
-      "durationMs": 282456
+      "durationMs": 282414
     },
     {
       "file": "ship-4.mp3",
       "title": "Wine-Dark-3",
       "sourceHash": "f74258754cb967ab5fe837477b621690dbaee5a3b6f821e6ef3f24c89791e3dc",
-      "durationMs": 264000
+      "durationMs": 263974
     },
     {
       "file": "small-change-tall-stories.mp3",
       "title": "Gloamgate — Small Change, Tall Stories",
       "sourceHash": "5299108601c0c019dc853e267d1ebc724ff0da912c6f0c18f20d4839174f9a22",
-      "durationMs": 151008
+      "durationMs": 150974
     },
     {
       "file": "station-1.mp3",
       "title": "Wheels on the Track",
       "sourceHash": "4d9ca91936030f3338295c17f6a1d271057d5fcb958c684a6646e59504b32a70",
-      "durationMs": 224784
+      "durationMs": 224760
     },
     {
       "file": "station-2.mp3",
       "title": "Faint Hope",
       "sourceHash": "67648d54c0ceefd1911079f5f842663f6c0cd4f5dc7da309807e4e63a4b1213d",
-      "durationMs": 213240
+      "durationMs": 213200
     },
     {
       "file": "title-attic-lamp.mp3",
       "title": "The Attic Keeps Its Lamp × Moonstone Sanctum",
       "sourceHash": "e3bd0cce79a0830e376a79453caa1213ae8cc1fee597e590567af6b8017cb0bc",
-      "durationMs": 253248
+      "durationMs": 253214
     },
     {
       "file": "willows-dont-answer-trees.m4a",

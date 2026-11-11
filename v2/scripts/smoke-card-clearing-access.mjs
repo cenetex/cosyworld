@@ -1,4 +1,4 @@
-import { selectCard } from "./card-browser-helpers.mjs";
+import { clearSelection, holdItem, selectCard } from "./card-browser-helpers.mjs";
 import assert from "node:assert/strict";
 import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
@@ -21,9 +21,9 @@ const act = (s, kind, target) => {
 let fixture = enableMotives(createWorld({ opening: true }));
 // The opening starts lit: douse it to open the mirror, then relight it at
 // the pond (#1653).
-fixture = act(fixture, "snuff");
+fixture = holdItem(fixture, null);
 fixture = act(fixture, "move", "pond");
-fixture = act(fixture, "light");
+fixture = holdItem(fixture, "lamp");
 fixture.actors.moth.place = "attic";
 fixture.items.lamp.holder = "moth";
 fixture.items.bell.holder = "vale";
@@ -103,22 +103,39 @@ try {
     await card("clearing").waitFor({ state: "attached" });
     await ready();
     const use = async (id) => {
-      // A held item stays raised after its play; start each play fresh.
-      await page.keyboard.press("Escape");
+      // A held item stays raised after its play; lower it to start fresh.
+      await clearSelection(page);
       await selectCard(page, id);
       await page.locator("#card-actions .card-primary").click();
       await ready();
     };
+    // A Wait after a Wait offers Sleep, which takes more than one turn, so
+    // the bell's three turns of sound are counted from the turn it was rung.
+    const inject = async (world) => {
+      await page.evaluate(
+        ({ key, value }) => {
+          localStorage.setItem(key, value);
+          window.dispatchEvent(
+            new StorageEvent("storage", { key, newValue: value }),
+          );
+        },
+        { key, value: encodeSave(world) },
+      );
+      await ready();
+    };
     const wait = () => use("pond");
+    const turn = async () => (await state()).turn;
+    let rungAt = await turn();
+    const soundLeft = async () => Math.max(0, 3 - ((await turn()) - rungAt));
     await wait();
-    await wait();
-    assert.equal((await state()).items.bell.ringing, 1);
+    assert.equal((await state()).items.bell.ringing, await soundLeft());
     await use("bell");
+    rungAt = await turn();
     assert.equal((await state()).items.bell.ringing, 3);
     await wait();
     await page.reload();
     await ready();
-    assert.equal((await state()).items.bell.ringing, 2);
+    assert.equal((await state()).items.bell.ringing, await soundLeft());
     assert.equal(await card("clearing").count(), 1);
     await wait();
     await wait();
@@ -131,22 +148,15 @@ try {
     // A save arriving from another tab closes a selected, now-stale route.
     await selectCard(page, "clearing");
     const expired = act(act(act(await state(), "wait"), "wait"), "wait");
-    await page.evaluate(
-      ({ key, value }) => {
-        localStorage.setItem(key, value);
-        window.dispatchEvent(
-          new StorageEvent("storage", { key, newValue: value }),
-        );
-      },
-      { key, value: encodeSave(expired) },
-    );
-    await ready();
+    await inject(expired);
     assert.equal(await card("clearing").count(), 0);
     assert.equal((await state()).actors.vale.place, "pond");
     await use("bell");
     await use("bell");
     await wait();
-    await wait();
+    // A second UI Wait would offer Sleep (two turns), so the third turn of
+    // the bell's sound passes as a Wait in another tab.
+    await inject(act(await state(), "wait"));
     await use("clearing");
     assert.equal((await state()).actors.vale.place, "clearing");
     assert.equal((await state()).items.bell.ringing, 0);

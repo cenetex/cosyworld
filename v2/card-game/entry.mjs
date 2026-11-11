@@ -1,7 +1,7 @@
 import { setupLocalService } from "./local-service.mjs";
 import { showBuildInfo } from "./build-info.mjs";
 import { arrivePage } from "./page-fade.mjs";
-import { membersLock } from "./shared-auth.mjs";
+import { membersLock, request } from "./shared-auth.mjs";
 import { playTitleIntro, titleIntroWanted } from "./title-intro.mjs";
 import { logoSite, showToolbarLogo, worldLogo } from "./title-logo.mjs";
 import { pipEntry } from "./pip-landing.mjs";
@@ -15,7 +15,9 @@ const page = {
   href: location.href,
   local: !!document.querySelector('meta[name="cosy-local-app"]'),
 };
-const authoring = /^\/make\/?$/u.test(location.pathname);
+// The Pip card's page is the game's own: its tab is named so from the first paint.
+if (pipEntry(page.href)) document.title = "Lonely Forest";
+const authoring =/^\/make\/?$/u.test(location.pathname);
 const introWanted =
   !authoring &&
   titleIntroWanted({
@@ -34,8 +36,11 @@ try {
   // A page another world or seat led to opens on its black and lifts it.
   arrivePage();
   const local = await setupLocalService();
+  // Capture identity before either surface starts work, including the maker.
+  // Static/local tables do not have an account service.
+  const account = !local && await request("/auth/account").catch(() => null);
   // A members-only test server shows its sign-in lock instead of the table.
-  const locked = !authoring && !local && (await membersLock());
+  const locked = !authoring && !local && (await membersLock(account));
   const params = new URLSearchParams(location.search);
   // The old "Your worlds" address (`?shared=1`) is ☰ now (#1877).
   if (!authoring && (params.has("shared") || (local && params.has("world")))) {
@@ -84,6 +89,7 @@ try {
     );
   }
 } finally {
-  document.body.inert = false;
+  // The Pip box keeps the table inert until it is opened (title-intro.mjs).
+  document.body.inert = Boolean(document.querySelector('.title-intro[data-held="true"]'));
 }
 showBuildInfo();

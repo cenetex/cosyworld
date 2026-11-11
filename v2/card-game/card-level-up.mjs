@@ -80,24 +80,6 @@ export function transformPortrait(
     });
 }
 
-// A met quest card swells once in its own tier colour before the next
-// quest takes its place. Resolves at rest; reduced motion skips it.
-export function glowCard(button, color, options = {}) {
-  if (options.reduced ?? reduceMotion()) return Promise.resolve(false);
-  const motion = button.animate(
-    [
-      { boxShadow: rest, borderColor: color },
-      { boxShadow: shine(color, 22), borderColor: color, offset: 0.5 },
-      { boxShadow: rest, borderColor: color },
-    ],
-    { duration: LEVEL_UP_MS, easing: "ease-in-out" },
-  );
-  return motion.finished.then(
-    () => true,
-    () => false,
-  );
-}
-
 // Plays on a freshly drawn card button already showing its new level.
 // Resolves once every added layer is gone and the card is at rest.
 export function levelUpCard(button, from, options = {}) {

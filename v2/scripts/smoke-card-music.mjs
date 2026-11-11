@@ -76,6 +76,14 @@ try {
     await page.waitForFunction(
       () => document.querySelector("#hand").dataset.cooling === "false",
     );
+    // A way that lay shut turns over once when it opens (rules 133); choose it
+    // after its lid settles.
+    await page.waitForFunction(
+      (card) =>
+        document.querySelector(`#hand [data-card="${card}"]`)?.dataset
+          .locked !== "true" && !document.querySelector("#hand [data-revealing]"),
+      card,
+    );
     await selectCard(page, card);
     const action = readyActionButton(page, kind);
     await action.click();
@@ -91,8 +99,11 @@ try {
     () => document.querySelector("#hand").dataset.cooling === "false",
   );
   await putOutOpening(page);
-  await page.waitForFunction(() =>
-    document.querySelector('#hand [data-card="pond"]'),
+  // The pond lay shut in the hand; the lamp turns its box over (rules 133).
+  await page.waitForFunction(
+    () =>
+      document.querySelector('#hand [data-card="pond"]')?.dataset.locked ===
+        "false" && !document.querySelector("#hand [data-revealing]"),
   );
   await page.waitForFunction((file) => {
     const audio = document.querySelector("#room-music");

@@ -121,7 +121,39 @@ Quoted as given. These bind this document.
 14. On how an item's or place's want is made: "render them from data and let
     them be drawn over time".
 
-Decisions 10 to 14 were made after the sections below were first written.
+15. On presence: "if residents need to be at specific places they should have
+    quests associated somehow".
+16. On residents' pace: "residents stay in the same location for longer
+    before moving autonomously... they should probably stay for a while at
+    each location before moving on" and "they can travel 2 x a day or
+    something" (a game day).
+17. On the walk home: "Sure they can it just takes a while like odysseus".
+    On residents meeting their own wants less often under the dwell rule:
+    "accept the slower pace for now".
+18. On quests, the owner's stated LEAN for the batch after rules 133, not
+    built. The owner said "I'm just brainstorming but I'm trying to remove
+    'quests' as being so arbitrary", then confirmed the direction: "I'm
+    leaning towards only level quests again - but items, avatars, and
+    locations all have them" and "A quest stops being a separate thing. It's
+    a locked card's want / level quest, shown when you select the card."
+19. On UI: "for UI I'd show level quests as stacked under their associated
+    avatar item / location, it looks like we just have one per entity now
+    (their next level up quest) in this way I suppose we can remove XP as
+    well."
+20. On books: "we have a lot of 'books' in the artwork, these can be eg
+    'burial rites'".
+21. On favours: "the favors and amends system is nice; i'd like to make sure
+    we also incorporate rivalries and betrayals".
+22. On Antigone: "Antigone's home should be the burial hollow not the gate she
+    just can't get there while the gate is locked. My eval here is antigone
+    tries to get to the hollow with the burial items. Not 'Antigone stays at
+    the gate until a scripted move to the hollow'".
+23. On range: "roaming range is probably the wrong primitive".
+
+Rules 133 now includes the resident dwell rule (PR #2677) and the pack
+opening (PR #2665).
+
+Decisions 10 to 23 were made after the sections below were first written.
 Where a PROPOSED item contradicts them it is marked SUPERSEDED or rejected in place and
 kept for the record.
 
@@ -175,7 +207,7 @@ Discard flow, and learned the same way: the item or place describes what it
 wants, or an avatar tells you. The mechanics this leaves open are open
 questions 16 to 19.
 
-**One card flow, for every holder.**
+**One card flow, for every holder.** (*Under review by decision 18:* the owner leans to a quest no longer being a separate thing, but a locked card's want or level quest shown when the card is selected. Nothing here is built.)
 
 1. An offered quest first lies on the table as a closed box, labelled "A
    closed box", and the one button is open. Opening it shows the quest.
@@ -201,7 +233,9 @@ their wants through the same plays players use, is the direction beyond it.
 **What is removed.** Four pulls that bring a resident home when no level is
 due: the idle drift when it has nothing to pursue; the walk home when away
 and idle; the dawn and dusk step home; and the walk home before bedtime. The
-range leash (`displaced`) stays, so a resident still cannot be carried
+range leash (`displaced`) stays (*SUPERSEDED in part by decision 23:* roaming
+range is probably the wrong primitive, and the four removed pulls now read
+with decisions 16 and 17: residents dwell, and the walk home is slow), so a resident still cannot be carried
 beyond its range except as a companion. Also removed is nightly sleep: every
 `sleep` entry in `world-life.json` becomes `null`, which the validator
 accepts. Nothing in the rules makes a night-only fact depend on residents
@@ -210,7 +244,9 @@ the label "X is asleep" stops appearing at night and nothing replaces it.
 About 55 test files mention sleep and their assertions change in the same
 batch.
 
-**What replaces the daily schedule for now.** Drawn wants. They already make
+**What replaces the daily schedule for now.** (*SUPERSEDED in part by
+decisions 15 and 18:* drawn wants are the root of arbitrary wandering, and the
+owner leans to level quests only; see Presence comes from a quest.) Drawn wants. They already make
 residents roam: 82% are place or person wants. No schedule data exists today
 (`world-life.json` holds only range, sails, sleep and guards). PROPOSED:
 build none for now. Authored hours can come later as `schedule` data, one
@@ -381,6 +417,82 @@ to keep going after a sleep, not the only thing that holds a companion.
 An escort is offered only by residents who can travel. The Oak and Badger
 offer other kinds.
 
+## Presence comes from a quest
+
+Owner direction, 2026-11-11: "if residents need to be at specific places they
+should have quests associated somehow" (decision 15). Everything below is
+PROPOSED, from the session, not decided.
+
+**The problem.** Story steps such as "talk to the keeper at Colonus" assume
+the resident is at that place. Under the old rules residents bounced home
+within a turn, so the assumption held by accident. With the dwell rule (rules
+133: about two autonomous moves per game day) a resident who has wandered one
+place away is gone for half a day, and the Open Door arc's browser smoke now
+stops at steps whose resident is elsewhere.
+
+**The principle.** If a step needs resident X at place P, then "X is at P"
+must be what X wants: X's home is P, or X holds a want whose met-condition is
+being at P while the step is available. No script holds or moves a resident,
+and no step silently assumes a position. This is the Antigone decision (22)
+generalised.
+
+**Keepers.** The Colonus keeper, the altar keeper, the baker and the guard:
+home is the post. Their level quest is the thing that happens there, for
+example the spring water offered at Colonus, so the story beat the player
+performs with them is their quest. The guard's `guards` post in the data is
+the existing instance.
+
+**Travelers.** Someone the story needs elsewhere, such as the household
+witness to Piraeus: their quest is to reach it. Alone they walk at the dwell
+pace. The player can invite them, which is an escort quest that exists for a
+reason.
+
+**Meetings.** One of the two holds "meet the other"; whichever can travel
+does. The rules already have this want shape.
+
+**How it reads to a player, with existing UI only.** The keeper's quest,
+stacked under the keeper's card (decision 19), says what they are waiting
+for. A keeper who is away shows their quest to return. The place is a person
+too (decision 10), so the place's own stacked quest names who or what it is
+missing. An absent keeper is a closed shrine: a live gate that closed because
+a person left, a withdrawal and not a timer. The remedy is to find them and
+bring them back as a companion. See Items and gates for live gates tied to
+people, and [hearth factions](hearth-factions.md), law 2, for residents
+pursuing wants through legal verbs.
+
+**Why drawn wants are the root.** Residents wander today because the
+generator gives them arbitrary wants; in a 10-day simulation about 82% of
+resident wants were "be at a place" or "meet a person". If a resident's only
+want is their level quest, or a slip or book they hold, a keeper has no
+reason to leave a post.
+
+**Open points** (also open questions 20 to 23):
+
+- One want at a time when a resident matters to two story threads: data order,
+  as staged wants do today (recommended), with the lock director choosing
+  later, or something else?
+- Making waiting bearable: a long rest passes time (recommended), at the known
+  cost that it ends a companion bond?
+- May a keeper be invited away, so the player can close a shrine by walking
+  off with its keeper? Recommend yes: it is a withdrawal the player caused,
+  and they can bring the keeper back.
+- Add the content check below now, or later?
+
+**A generic content check (PROPOSED).** Over every mounted pack, for each story
+step that requires a resident at a place, either that place is the resident's
+home or the resident holds a want that takes them there while the step is
+available. Report the steps that fail. It is cheap and needs no editing when
+the story changes. It would have caught the Open Door stall before a browser
+smoke did.
+
+**What it takes.** The next rules batch: the "resident is at place" condition
+(the one real gap the gate census found), a post as a standing want,
+residents levelling through their own quest, and retiring drawn wants. As pack
+data only, if the Open Door arc stalls in play on `.dev`: make each Open Door
+resident's home the place their step needs them, and give them a staged want
+to be there while the step is open (rules 133 already has homes and staged
+wants). Recommend this only after seeing it stall in play.
+
 ## Quest shapes beyond bring x to y
 
 Most shapes below already exist in the world. Each needs mostly the companion
@@ -460,15 +572,16 @@ Piraeus open while aboard, and Myrto wants them; whether sailing spends them is 
 
 ## Build order
 
-Kinds: pack data, client, rules. "133" means it rides the open rules 133
-bump if that batch is still open; "later" means a later batch.
+Kinds: pack data, client, rules. Rules 133 now includes the resident dwell
+rule (PR #2677) and the pack opening (PR #2665). "133" means it rides the open
+rules 133 bump if that batch is still open; "later" means a later batch.
 
 | # | Change | Kind | Rides |
 | --- | --- | --- | --- |
 | 1 | `sleep: null` everywhere; delete the four non-level home pulls; update the sleep tests | rules and data, about 30 lines deleted | 133 |
 | 2 | The sticky companion: `actor.companion`, follow, hold, catch up, return-route rule, end on grievance or trust below 2, end on long-rest wake, pin by quest. About 250 to 300 lines in a new module (`world/company.mjs`) and six call sites | rules | 133 if the batch is open, else the next mint |
 | 3 | Escort offers only from residents who can travel; the backwards "meet" wording fix; reason labels for the Oak and Badger | rules and client label | with 2 |
-| 4 | Free the Swede, Skull, Antigone and the Household witness | pack data | with 2 |
+| 4 | Free the Swede, Skull, Antigone and the Household witness (*SUPERSEDED in part by decision 22:* Antigone's home is the Hollow, not a range change) | pack data | with 2 |
 | 5 | Residents level by sleeping at home (generalise `levelAtHome`; drop instant leveling) | rules and data, about 60 lines | later, next mint |
 | 6 | Live roads (Piraeus, Eleusis) and RatiRadio doors; the Hollow as a night door | pack data, about 60 lines and a pack revision | any time, after the owner answers 13 to 15 |
 | 7 | Burial kit second use at Ajax's grave | pack data, about 120 lines | any time |
@@ -476,7 +589,8 @@ bump if that batch is still open; "later" means a later batch.
 | 9 | Patroclus and the Charybdis unlock | pack data and a ship fix | the 133 bump (see wants and arcs) |
 | 10 | Items and places hold a want and earn XP and levels as avatars do (decision 13) | rules | later batch, not the frozen rules 133 bump |
 | 11 | `actor_present` and `item_on` | rules, engine label and note | later |
-| 12 | Later: loves, ties, vouching, the once-per-journey act, schedule data, sanctuaries and inns, the `guard` verb, real trust loss | rules and data | later batches |
+| 12 | Presence comes from a quest: the "resident is at place" condition, a post as a standing want, residents levelling through their own quest, retiring drawn wants (the content check can land any time) | rules, later batch; check any time | later |
+| 13 | Later: loves, ties, vouching, the once-per-journey act, schedule data, sanctuaries and inns, the `guard` verb, real trust loss | rules and data | later batches |
 
 The rules 133 bump is frozen at what is already in flight as of 2026-11-11;
 row 10 and any other new rules work go in a later batch.
@@ -535,6 +649,12 @@ Each has a recommendation. None is decided.
 19. **Rarity is levels.** An item's tier would now rise through play. Does
     rarity follow that rise (recommended, since rarity is levels), or stay at
     its authored level?
+20. **Two story threads, one want.** Data order (recommended), or the lock
+    director chooses later?
+21. **Waiting.** A long rest passes time (recommended; it ends a companion
+    bond), or something else?
+22. **Inviting a keeper away.** Allowed (recommended), or keepers stay?
+23. **The content check.** Add it now (recommended; it is cheap), or later?
 
 ## Check before building
 

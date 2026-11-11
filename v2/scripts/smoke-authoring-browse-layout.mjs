@@ -20,7 +20,7 @@ try {
     const errors = [];
     page.on("pageerror", (e) => errors.push(e.message));
     await page.route("**/auth/account", (route) =>
-      route.fulfill({ json: { authenticated: true, display_name: "Maker" } }),
+      route.fulfill({ json: { authenticated: true, user_id: "smoke-user", account_revision: 0, display_name: "Maker" } }),
     );
     await mockJobs(page, {
       seed: () => ({

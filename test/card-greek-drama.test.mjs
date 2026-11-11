@@ -1,6 +1,6 @@
+import "./helpers/still-cast.mjs";
 import { selectLamp } from "./fixtures/card-attic-opening.mjs";
 import { fillLampFuel } from "../v2/card-game/lamp-state.mjs";
-import { readFileSync } from "node:fs";
 import { greekTravelTargets } from "./helpers/greek-travel.mjs";
 import { summonTransport } from "../v2/card-game/pack-transport.mjs";
 import { describe, expect, it } from "vitest";
@@ -33,9 +33,8 @@ import {
 } from "../v2/card-game/pack-registry.mjs";
 
 import { endStandoff } from "./helpers/standoff.mjs";
-import { openingFixture } from "./helpers/greek-opening.mjs";
+import { SAVE_SCHEMA } from "../v2/card-game/legacy-saves.mjs";
 import { funeralJourney } from "./helpers/greek-funeral.mjs";
-import { beforeFuneral } from "./fixtures/card-upgraded-items.mjs";
 import { stowProvisions } from "./helpers/provisions.mjs";
 const PACK = "greek-drama";
 const HARBOR = "greek-harbor";
@@ -241,8 +240,7 @@ describe("the Wine-Dark Sea crossing", () => {
       riders: [],
     });
   });
-
-  it("adds the pack once to an earlier shore save without overwriting its progress", () => {
+it("adds the pack once to an earlier shore save without overwriting its progress", () => {
     const old = pond();
     delete old.packs[PACK];
     delete old.crossings["pond-greek-harbor"];
@@ -271,7 +269,7 @@ describe("the Wine-Dark Sea crossing", () => {
 
     for (const actor of Object.values(old.actors)) delete actor.heldItem;
     const migrated = decodeSave(JSON.stringify(old));
-    expect(migrated.schema).toBe(7);
+    expect(migrated.schema).toBe(SAVE_SCHEMA);
     expect(migrated.log).toEqual(old.log);
     expect(migrated.turn).toBe(old.turn);
     expect(migrated.revision).toBe(old.revision);
@@ -340,31 +338,8 @@ describe("Greek choices and their receipts", () => {
     expect(stateOf(world).scope).toBe("opening");
     expect(exits(world, HARBOR, "vale")).not.toContain("greek-argolid-road");
   });
-
-  it.each([
-    ["burial", true, "courtyard-burial"],
-    ["concession", false, "courtyard-permitted-burial"],
-  ])(
-    "finishes a saved %s report at Dione's table",
-    (branch, reportFirst, report) => {
-      const returning = openingFixture(branch, { reportFirst }).returning;
-      expect(stateOf(returning).flags["greek-burial-performed"]).toBe(true);
-      expect(stateOf(returning).flags["greek-open-door-open"]).toBeUndefined();
-      expect(returning.items["greek-burial-account"].holder).toBe("vale");
-      const reported = give(returning, "greek-burial-account", "greek-baker");
-      expect(done(reported, report)).toBe(reported.turn);
-      expect(stateOf(reported).flags["greek-open-door-open"]).toBe(true);
-      expect(stateOf(reported).choices["greek-theban-response"]).toBe(branch);
-      expect(stateOf(reported).receipts).toMatchObject(
-        stateOf(returning).receipts,
-      );
-      expect(reported.items["greek-burial-account"].holder).toBe(COURTYARD);
-      expect(reload(reported)).toEqual(reported);
-    },
-  );
-
   it("keeps a saved completed burial complete when supplies reach the Hollow", () => {
-    const world = openingFixture("burial").buried;
+    const world = funeralJourney().buried;
     const hollow = "greek-polynices-hollow";
     world.actors.vale.place = hollow;
     world.actors["greek-antigone"].place = hollow;
@@ -404,18 +379,6 @@ describe("Greek choices and their receipts", () => {
     expect(stateOf(world).choices["greek-theban-response"]).toBeUndefined();
     expect(done(world, "bury-polynices")).toBe(buried.turn);
     expect(stateOf(reload(world)).flags["greek-open-door-open"]).toBe(true);
-  });
-
-  it("keeps the earlier exposure report and its poem through reload", () => {
-    const world = openingFixture("exposure").closed;
-    const saved = reload(world);
-    expect(stateOf(saved).choices["greek-theban-response"]).toBe("exposure");
-    expect(done(saved, "report-plan")).toBe(done(world, "report-plan"));
-    expect(done(saved, "courtyard-exposure")).toBe(
-      done(world, "courtyard-exposure"),
-    );
-    expect(stateOf(saved).recitals).toEqual(stateOf(world).recitals);
-    expect(stateOf(saved).flags["greek-open-door-open"]).toBe(true);
   });
 });
 
@@ -458,23 +421,6 @@ describe("Before the Burial", () => {
     expect(there.actors.vale.place).toBe(SANCTUARY);
   });
 
-  it("walks a revision 18 step from the courtyard to the forecourt through the well", () => {
-    const old = beforeFuneral(JSON.parse(encodeSave(courtyard())));
-    old.packs[PACK].revision = 18;
-    old.routeKnowledge["greek-rhapsode"] = [
-      [COURTYARD, PALACE],
-      [PALACE, COURTYARD],
-    ];
-    const world = decodeSave(JSON.stringify(old));
-    expect(world.packs[PACK].revision).toBe(packDefinition(PACK).revision);
-    expect(world.routeKnowledge["greek-rhapsode"]).toEqual([
-      [COURTYARD, WELL],
-      [WELL, PALACE],
-      [PALACE, WELL],
-      [WELL, COURTYARD],
-    ]);
-    expect(reload(world)).toEqual(world);
-  });
 
   it("carries the supplies to Antigone and opens the door through three Hollow rites", () => {
     const journey = funeralJourney(courtyard("opening"));
@@ -531,65 +477,9 @@ describe("Before the Burial", () => {
     expect(stateOf(supplied).flags["greek-open-door-open"]).toBeUndefined();
   });
 
-  it("keeps the earlier report and its way home", () => {
-    let world = openingFixture("exposure").closed;
-    const receipts = structuredClone(stateOf(world).receipts);
-    world = walk(reload(world), HARBOR, "pond");
-    expect(stateOf(world).choices["greek-theban-response"]).toBe("exposure");
-    expect(stateOf(world).receipts).toMatchObject(receipts);
-    expect(legalActions(world).length).toBeGreaterThan(0);
-  });
 
-  it("upgrades a revision 10 refusal and the old well steps", () => {
-    const old = beforeFuneral(JSON.parse(encodeSave(move(courtyard(), GATE))));
-    const pack = old.packs[PACK];
-    pack.revision = 10;
-    pack.receipts["greek-decline-burial"] = old.turn;
-    pack.choices["greek-theban-response"] = "refusal";
-    pack.flags["greek-refusal-public"] = true;
-    old.routeKnowledge.vale = [[WELL, GATE]];
-    const s = decodeSave(JSON.stringify(old));
-    expect(s.packs[PACK].revision).toBe(packDefinition(PACK).revision);
-    expect(s.packs[PACK].receipts["greek-decline-burial"]).toBeUndefined();
-    expect(s.packs[PACK].choices["greek-theban-response"]).toBeUndefined();
-    expect(s.packs[PACK].flags["greek-refusal-public"]).toBeUndefined();
-    expect(s.routeKnowledge.vale).toEqual([
-      [WELL, COURTYARD],
-      [COURTYARD, GATE],
-    ]);
-  });
 
-  it("keeps a released decree that was heard through Talk", () => {
-    // Rules 21 told the decree as a Talk choice; revision 11 tells it on
-    // meeting, and later revisions keep that.
-    const s = decodeSave(
-      readFileSync("test/fixtures/ajax-household-rules-21.json", "utf8"),
-    );
-    expect(s.packs[PACK].revision).toBeGreaterThanOrEqual(11);
-    expect(s.knowledge.facts["greek-hear-decree"].source.topic.choiceId).toBe(
-      null,
-    );
-    expect(s.packs[PACK].receipts["greek-hear-decree"]).toBeTypeOf("number");
-  });
 
-  it("opens Dione's road for a revision 10 report told before the invitation", () => {
-    const old = beforeFuneral(JSON.parse(encodeSave(move(courtyard(), GATE))));
-    const pack = old.packs[PACK];
-    pack.revision = 10;
-    old.turn += 2;
-    old.revision += 2;
-    delete pack.recitals;
-    pack.receipts["greek-report-plan"] = old.turn - 1;
-    pack.receipts["greek-courtyard-exposure"] = old.turn;
-    pack.choices["greek-theban-response"] = "exposure";
-    Object.assign(pack.flags, {
-      "greek-guard-warned": true,
-      "greek-exposure-public": true,
-    });
-    const s = decodeSave(JSON.stringify(old));
-    expect(s.packs[PACK].flags["greek-open-door-open"]).toBe(true);
-    expect(s.packs[PACK].receipts["greek-courtyard-exposure"]).toBe(old.turn);
-  });
 
   it("does not let generated declarations perform a burial or consume another turn", () => {
     const world = move(courtyard(), GATE);

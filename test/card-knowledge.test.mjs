@@ -567,23 +567,6 @@ describe("Talk publication and learned facts", () => {
     ).toEqual([]);
   });
 
-  it("migrates retained source events once and preserves later publication provenance", () => {
-    let world = worldWithNews();
-    delete world.knowledge;
-    world = decodeSave(JSON.stringify(world));
-    expect(Object.keys(world.knowledge.facts)).toEqual(["event:2"]);
-    expect(knowsFact(world, "vale", "event:2")).toBe(false);
-    const { world: next, context } = localTalk(world);
-    const accepted = applyGeneratedText(
-      next,
-      context,
-      response(context, clause),
-    );
-    expect(decodeSave(encodeSave(accepted)).knowledge).toEqual(
-      accepted.knowledge,
-    );
-    expect(installKnowledge(accepted)).toBe(accepted.knowledge);
-  });
 
   it("uses the same saved disclosure on shared publication", () => {
     let world = worldWithNews();
@@ -672,7 +655,6 @@ describe("authored topics keep their saved deed identity", () => {
       "greek-aethra",
     );
   });
-
   it("lets a resident who seeks Vale out tell the plea without making her choice", () => {
     const choice = pack.choices.find(
       (c) => c.id === "greek-open-door-hear-mothers",
@@ -704,16 +686,28 @@ describe("authored topics keep their saved deed identity", () => {
       since: world.turn,
       refusals: 0,
     };
-    const wait = legalActions(world).find((a) => a.kind === "wait");
-    world = play(world, wait).state;
-    expect(
+    // Adrastus stays where he is, so the plea reaches Vale and no one else.
+    world.actors["greek-adrastus"].want = {
+      kind: "place",
+      target: world.actors["greek-adrastus"].place,
+      since: world.turn,
+      refusals: 0,
+    };
+    // Wait until she has sought Vale out (a resident dwells where she
+    // arrived before walking on), never for a fixed number of turns.
+    const sought = () =>
       world.log.some(
         (e) =>
           e.turn === world.turn &&
           e.verb === "talk" &&
           e.actorId === choice.subject,
-      ),
-    ).toBe(true);
+      );
+    let wait;
+    for (let turns = 0; turns < 80 && !sought(); turns++) {
+      wait = legalActions(world).find((a) => a.kind === "wait" && !a.sleep);
+      world = play(world, wait).state;
+    }
+    expect(sought()).toBe(true);
     let context = narrativeContext(world, wait);
     expect(context.disclosures[0].factId).toBe(choice.id);
     world = applyGeneratedText(world, context, response(context, text));
@@ -730,7 +724,6 @@ describe("authored topics keep their saved deed identity", () => {
     expect(world.packs[pack.id].receipts[choice.id]).toBe(world.turn);
     expect(decodeSave(encodeSave(world))).toEqual(world);
   });
-
   it("records the source scene after its public fact was learned earlier", () => {
     const choice = pack.choices.find(
       (c) => c.id === "greek-open-door-hear-mothers",

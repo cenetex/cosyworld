@@ -10,6 +10,9 @@ The [2026-11-06 interaction study](world-authoring-play.md) updates the entry
 flow and generation storage policy. New generation keeps seed text and expanded
 prompts in the session; accepted card output and artwork form the saved world.
 
+A 2026-11-11 draft, [the maker is the game table](maker-as-the-game.md),
+proposes replacing the tree with the game's own place view. It is not decided.
+
 ## Writing and cards
 
 The author works at the existing card table. A World Idea card opens a plain
@@ -339,6 +342,7 @@ All routes need the passkey session; mutations are same-origin. Every response i
 | Route | Does |
 | --- | --- |
 | `POST /card-game/authoring/jobs` | Body `{kind: "image" \| "seed" \| "avatars", request}`. `request` is exactly the body the matching `generate/*` route accepts. Optional `Idempotency-Key` header (one UUID, as `POST /packs`). |
+| `GET /card-game/authoring/jobs/by-request` | Required `Idempotency-Key` UUID header. Returns only the signed-in owner's existing job, or 404 `job_not_found`. Never starts provider work. |
 | `GET /card-game/authoring/jobs/{id}` | One job of the signed-in owner; another account gets 404 `job_not_found`. |
 | `GET /card-game/authoring/jobs` | The owner's 50 newest jobs, newest first, in the same shape. |
 
@@ -399,6 +403,12 @@ was stopped and can be started again.
 
 ### Retention
 
+The request-key lookup works for queued, running and finished jobs, including jobs
+older than the recent list. Missing, malformed or repeated UUID headers return 400.
+A missing or pruned job returns 404, not permission to automatically resend a paid
+request. Lookup requires no prompt or request body and uses the same account
+scope and no-store response policy as other job reads.
+
 Finished job rows are deleted after 7 days (at boot and hourly), and each owner
 keeps at most their newest 200 rows, trimmed when a job is accepted. Job images
 follow the existing asset-store rules: there is no delete route, so every unused
@@ -406,6 +416,14 @@ result counts against the owner's 256 MiB and 1,024 files and the server's 512 M
 generated-asset budget. Proposed, not built: a route that deletes an owner's file
 that no job result, pack or draft references, and an automatic sweep of images
 whose job rows have been pruned.
+
+### Durable intent foundation (not activated)
+
+The intent-store helpers can atomically prepare and claim a request UUID, bound
+by account revision, draft generation and request digest. They store only bounded
+adoption metadata, never full provider bodies or reference image bytes. The new
+read-only request lookup can recover a server job by UUID. No maker tool or sweep
+uses these helpers yet; the existing client behavior below is unchanged.
 
 ### The maker client
 

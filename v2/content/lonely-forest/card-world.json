@@ -446,8 +446,7 @@
         "quest": {
           "kind": "place",
           "target": "forest-trail"
-        },
-        "reason": "Open only while the Wolfprint Charm is at the Old Oak Tree."
+        }
       }
     },
     {
@@ -464,8 +463,7 @@
         "quest": {
           "kind": "place",
           "target": "forest-trail"
-        },
-        "reason": "Opens once the garden drain is cleared."
+        }
       }
     }
   ],

@@ -1,22 +1,11 @@
 import { describe, expect, it } from "vitest";
-import {
-  createWorld,
-  holdChoice,
-  legalActions,
-  places,
-  play,
-  sanctuaries,
-  standoffFor,
-  validateWorld,
-  decodeSave,
-  LONG_SLEEP_TURNS,
-} from "../v2/card-game/world.mjs";
+import { createWorld, holdChoice, legalActions, places, play, sanctuaries, standoffFor, validateWorld, LONG_SLEEP_TURNS } from "../v2/card-game/world.mjs";
 import {
   crossings,
   packDefinitions,
   packOf,
 } from "../v2/card-game/pack-registry.mjs";
-import { knownActors, questXp } from "../v2/card-game/want.mjs";
+import { halfwayXp, knownActors, questXp } from "../v2/card-game/want.mjs";
 import { DAYLIGHT_TURNS } from "../v2/card-game/daylight.mjs";
 import { reflectionDue } from "../v2/card-game/reflections.mjs";
 import { narrativeContext } from "../v2/card-game/narrative.mjs";
@@ -99,7 +88,7 @@ describe("rest and sanctuary", () => {
   it("dreams only after a long sanctuary Sleep; short ones just clear losses", () => {
     let s = createWorld();
     s.actors.vale.place = "attic";
-    s.actors.vale.xp = questXp(2);
+    s.actors.vale.xp = halfwayXp(1);
     s.actors.vale.level = 1;
     // Keep unrelated resident visits from interrupting this daylight test.
     const quietResidents = (world) => {
@@ -124,6 +113,7 @@ describe("rest and sanctuary", () => {
       expect(s.defeats).toEqual({});
       expect(narrativeContext(s).rest).toBeFalsy();
       expect(s.actors.vale.want?.quest).toBeUndefined();
+      expect(woke(s, "vale").dream).toBeUndefined();
     }
     // A Sleep from just after the light changes lasts until it next does.
     s = sleep(quietResidents(at(s, 5 * DAYLIGHT_TURNS)));
@@ -135,11 +125,13 @@ describe("rest and sanctuary", () => {
       text: "Vale wakes at dawn.",
     });
     expect(DAYLIGHT_TURNS - 2).toBeGreaterThanOrEqual(LONG_SLEEP_TURNS);
-    expect(s.actors.vale.want).toMatchObject({ quest: { level: 2 } });
+    // The long rest dreams the halfway glimpse and deals no quest.
+    expect(waking.dream).toBe("glimpse");
+    expect(s.actors.vale.want).toBeNull();
     const told = narrativeContext(s);
     expect(told.rest).toBe("long");
     expect(told.entities.find((e) => e.id === "vale").facts[0]).toMatch(
-      /^In a dream, the quest for level 2: /,
+      /^In a dream, a glimpse: /,
     );
     expect(validateWorld(s)).toBe(s);
   });
@@ -388,13 +380,6 @@ describe("rest and sanctuary", () => {
     expect(legalActions(ship, "ada").some((a) => a.sleep)).toBe(false);
   });
 
-  it("lets a save from before rules 89 wake from its old sleep", () => {
-    const s = createWorld();
-    s.actors.vale.sleepUntil = DAYLIGHT_TURNS;
-    const loaded = decodeSave(JSON.stringify(s));
-    expect(loaded.actors.vale.sleepUntil).toBeUndefined();
-    expect(loaded.actors.vale.sleeping).toBeUndefined();
-  });
 
   it("brings a thought on waking from a long rest, and a dream only by the rules", () => {
     const context = { turn: 24, resting: "vale", rest: "long", entities: [] };
@@ -403,11 +388,15 @@ describe("rest and sanctuary", () => {
       thought: true,
       dream: false,
     });
-    for (const dream of ["glimpse", "quest"])
-      expect(reflectionDue({ ...context, dream }, "vale", null)).toEqual({
-        thought: true,
-        dream: true,
-      });
+    expect(reflectionDue({ ...context, dream: "glimpse" }, "vale", null)).toEqual({
+      thought: true,
+      dream: true,
+    });
+    // The level quest no longer dreams (rules 133).
+    expect(reflectionDue({ ...context, dream: "quest" }, "vale", null)).toEqual({
+      thought: true,
+      dream: false,
+    });
     expect(reflectionDue({ ...context, resting: null }, "vale", null)).toEqual({
       thought: false,
       dream: false,
