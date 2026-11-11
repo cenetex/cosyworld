@@ -274,16 +274,15 @@ fn an_honest_save_keeps_every_key() {
             _ => {}
         }
     }
-    for save in [honest_save().to_string()] {
-        let kept: Value = serde_json::from_str(&trusted_save(&save, &[]).unwrap()).unwrap();
-        let raw: Value = serde_json::from_str(&save).unwrap();
-        let (mut before, mut after) = (Vec::new(), Vec::new());
-        keys(&raw, String::new(), &mut before);
-        keys(&kept, String::new(), &mut after);
-        let after: std::collections::HashSet<_> = after.into_iter().collect();
-        let lost: Vec<_> = before.iter().filter(|k| !after.contains(*k)).collect();
-        assert!(lost.is_empty(), "{lost:?}");
-    }
+    let save = honest_save().to_string();
+    let kept: Value = serde_json::from_str(&trusted_save(&save, &[]).unwrap()).unwrap();
+    let raw: Value = serde_json::from_str(&save).unwrap();
+    let (mut before, mut after) = (Vec::new(), Vec::new());
+    keys(&raw, String::new(), &mut before);
+    keys(&kept, String::new(), &mut after);
+    let after: std::collections::HashSet<_> = after.into_iter().collect();
+    let lost: Vec<_> = before.iter().filter(|k| !after.contains(*k)).collect();
+    assert!(lost.is_empty(), "{lost:?}");
 }
 
 fn line_entry(save: &mut Value, speaker: &str, actor: &str, text: &str) {
