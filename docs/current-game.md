@@ -23,8 +23,8 @@ The Mac package embeds the same card files and uses the same release version.
 | Hoppy Cat card refresh | `v2/content/hoppycat-archive/card-world.json` and `CARD-REFRESH.md` |
 | Compiled card packs | `v2/card-game/packs.json`, built by `build-card-worldpacks.mjs` |
 | Runtime pack and avatar lookup | `v2/card-game/pack-registry.mjs` |
-| One want per avatar: met, next (residents), drop, level | `v2/card-game/want.mjs`, driven by `world.mjs` |
-| Locked boxes: one list of shut ways, residents, made things, lanes, doors and hub ways, and XP for opening them | `v2/card-game/world/boxes.mjs`, read by `cards.mjs` and `locked-box.mjs` |
+| One want per avatar: met, next (residents, from staged `wants` or drawn), drop, level | `v2/card-game/want.mjs`, driven by `world.mjs` |
+| Locked boxes: one list of shut ways, residents, made things and sealed items, lanes, doors and hub ways, and XP for opening them | `v2/card-game/world/boxes.mjs`, read by `cards.mjs` and `locked-box.mjs` |
 | Starter quests | `want` on each person in `forest.json` and each pack resident |
 | A person's quest in Talk context | `v2/card-game/want-talk.mjs`, used by `narrative.mjs` |
 | Learned facts and Talk topics | `v2/card-game/knowledge.mjs` and each card pack's `topics` |

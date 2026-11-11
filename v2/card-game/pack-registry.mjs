@@ -414,6 +414,8 @@ export function entityEnabled(world, id, saved = false, lockView = false) {
     return false;
   const pack = packDefinition(e.packId),
     state = packState(world, e.packId);
+  // A sealed item that latched open (rules 133) no longer asks its `requires`.
+  const requires = sealedLatched(world, id, e) ? [] : e.requires;
   if (
     !state ||
     (!lockView &&
@@ -421,10 +423,10 @@ export function entityEnabled(world, id, saved = false, lockView = false) {
         world,
         e.packId,
         saved
-          ? (e.requires || []).filter(
+          ? (requires || []).filter(
               (c) => !["connected_humans", "humans_at"].includes(c.kind),
             )
-          : e.requires,
+          : requires,
       ) ||
         (!saved && !conditionsMet(world, e.packId, e.appearsWhen)) ||
         !sectionAllows(world, pack, id, conditionsMet))) ||
@@ -454,6 +456,18 @@ const latching = packDefinitions.flatMap((pack) =>
     .filter((r) => r.requires?.length && !r.live)
     .map((route) => ({ pack: pack.id, route })),
 );
+// A sealed item (rules 133) latches open as a route does, unless its seal is
+// `live`: the first time its `requires` hold, `openedRoutes` records
+// `item:<id>` and it stays open. A live seal follows its facts.
+const itemKey = (id) => `item:${id}`;
+const latchingItems = () =>
+  Object.entries(packThings)
+    .filter(([, thing]) => thing.sealed && !thing.sealed.live)
+    .map(([id, thing]) => ({ pack: thing.packId, id, thing }));
+const sealedLatched = (world, id, e) =>
+  Boolean(
+    e.sealed && !e.sealed.live && world.openedRoutes?.includes(itemKey(id)),
+  );
 const latchKeys = new Set(latching.map(({ route }) => routeKey(route)));
 const routeOpen = (world, packId, r) =>
   (!r.live && Boolean(world.openedRoutes?.includes(routeKey(r)))) ||
@@ -490,15 +504,23 @@ export function latchRoutes(world) {
     if (!conditionsMet(world, pack, route.requires)) continue;
     world.openedRoutes = [...(world.openedRoutes || []), key].sort();
   }
+  for (const { pack, id, thing } of latchingItems()) {
+    const key = itemKey(id);
+    if (!world.items?.[id] || world.openedRoutes?.includes(key)) continue;
+    if (!conditionsMet(world, pack, thing.requires)) continue;
+    world.openedRoutes = [...(world.openedRoutes || []), key].sort();
+  }
   return world;
 }
 // A saved gate the content still authors as a latching route.
-export const latchingRoute = (key) => latchKeys.has(key);
+const latchesItem = (key) =>
+  latchingItems().some(({ id }) => itemKey(id) === key);
+export const latchingRoute = (key) => latchKeys.has(key) || latchesItem(key);
 export const validOpenedRoutes = (list) =>
   list === undefined ||
   (Array.isArray(list) &&
     list.length > 0 &&
-    list.every((key, i) => latchKeys.has(key) && (!i || list[i - 1] < key)));
+    list.every((key, i) => latchingRoute(key) && (!i || list[i - 1] < key)));
 export function packExits(world, place, actor = null) {
   const routes = packDefinitions.flatMap((pack) =>
     (pack.routes || [])

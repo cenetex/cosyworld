@@ -532,7 +532,7 @@ choose, where trust picks which want a resident has.
 
 | Rung | What the rules do today | Smallest rules change |
 | --- | --- | --- |
-| Gifts earn trust | Built (bump 133): two sources. `trustGiver` in `world.mjs` adds 1 for a plain Give or accepted Ask of the wanted item (a pack `on: "give"` choice on it skips trust); an authored meeting sets trust with the choice effect `{kind: "trust", level}` | Staged unordered wants (slice 10) let gifts reach three |
+| Gifts earn trust | Built (bump 133): two sources. `trustGiver` in `world.mjs` adds 1 for a plain Give or accepted Ask of the wanted item (a pack `on: "give"` choice on it skips trust); an authored meeting sets trust with the choice effect `{kind: "trust", level}` | Built (package 5): staged unordered wants let gifts reach three |
 | Tell the desire | Talk reveals the want at the first Talk, any trust (`want-talk.mjs`, `talk-quest.mjs`) | Built: pack `want.minTrust` (1 to 3); default tells at the first Talk |
 | Travel | Every read is "any trust above 0"; an invited resident accepts (`accompanyDecision`, `world.mjs`), and also accepts with no trust when the trip serves its want or the player carries the wanted item | Built: reads `>= 2`; the two earlier accepts (the trip serves its want, you hold the item) stay |
 | Step in | A resident covers a trusted friend after the first blow (`wantPlan`, `world.mjs`) | Built: reads `>= 3` |
@@ -601,6 +601,33 @@ the lit arch to the Empty station stays a plain exit (owner pick, 2026-11-11).
 (slice 6, the box half). `humans_at` is the lock for two. Not built here:
 `sealed` on pack routes and residents (pack data), sealed items (slice 10),
 Take quest on every box (package 4).
+
+### Built in rules 133, package 5: staged wants and sealed items
+
+Slice 10, less the `choose` removal (package 1). `wants` on a pack resident
+(at most three `{want, when}` entries) and `sealed` on an item are pack data
+(`v2/docs/card-packs.md`).
+
+- *Staged wants.* `stagedNext` in `want.mjs` picks among the eligible entries
+  by a seeded hash of (resident, entry, day), authored order breaking ties; it
+  runs at install, when a want is met, when one is given up and when a resident
+  with none is drawn one. `stagedWants` in `want-talk.mjs` reads the list for
+  Talk and package 4's offers. Nothing is saved but `a.want`. `when` takes
+  world facts only, refused with `trusted`, `talked`, `knows`, `upgraded` and a
+  traveler `holding`. A held want is never swapped for an entry that later
+  becomes eligible, so a staged resident installed with nothing eligible draws
+  as before.
+- *Bonds.* Gifts of each staged item raise trust one at a time; with
+  `want.minTrust` per entry, one source carries a bond to trust three. An
+  `on: "give"` pack choice on a staged item intercepts the Give and raises no
+  trust: the pack build prints a warning (`packWarnings`).
+- *Sealed items.* An item lies shut where it starts until its `requires` hold,
+  listed by `boxesAt` (kind `item`) with the made things. Latch by default
+  (`openedRoutes` `item:<id>`); `live` locks again, sending a carried item home
+  (`settleSealedItems`). One XP, once per avatar, through `creditOpened`.
+- *Not built.* The burial and RatiRadio arcs as staged wants and Patroclus are
+  pack content (slice 11). A staged resident does not drop a drawn want for a
+  newly eligible entry. A staged want is not offered as a quest yet (package 4).
 
 ### With the rules bump: the Theban-response branch
 

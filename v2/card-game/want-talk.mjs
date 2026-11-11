@@ -1,7 +1,7 @@
 // Talk reveals what a person wants: one first-person line from their want.
 // It reads the world and never changes it. Another avatar's want reaches the
 // player only through a Talk play with that avatar.
-import { layMet } from "./want.mjs";
+import { layMet, questTerms } from "./want.mjs";
 import forest from "./forest.json" with { type: "json" };
 import {
   consumable,
@@ -9,12 +9,35 @@ import {
   entityActive,
   heldSlots,
   makerChoice,
+  conditionsMet,
   packPeople,
 } from "./pack-registry.mjs";
 
-// The authored first want, until the rules keep one on the actor.
+// The authored first want, until the rules keep one on the actor. A pack
+// resident with a `wants` list has no single first want: `stagedWants` and
+// the rules' staged pick (want.mjs) choose.
 export const authoredWant = (id) =>
   forest.people[id]?.want || packPeople[id]?.want || null;
+
+// A resident's staged wants (rules 133): a pack avatar carries up to three
+// `{want, when?}` entries, read fresh and never saved. `open` says whether
+// `when` holds in this world now (a resident has no traveler, so `when` reads
+// the world alone). A resident with only a single `want` is a list of one.
+// Entry order is the authored order; the rules draw among the open ones.
+export function stagedWants(world, id) {
+  const person = packPeople[id];
+  const list = person?.wants ?? [
+    ...(authoredWant(id) ? [{ want: authoredWant(id) }] : []),
+  ];
+  return list.map((entry, index) => ({
+    index,
+    want: entry.want,
+    when: entry.when ?? [],
+    open:
+      !entry.when?.length ||
+      Boolean(person && conditionsMet(world, person.packId, entry.when)),
+  }));
+}
 export const wantOf = (world, id) =>
   world.actors?.[id]?.want || authoredWant(id);
 
@@ -51,19 +74,28 @@ function met(world, id, want) {
 // `minTrust`, nothing is withheld. The field lives in pack data: the saved
 // want is matched to the authored one by kind and target.
 function trustedEnough(world, id, want, listener) {
-  const authored = packPeople[id]?.want;
-  if (!listener || !authored?.minTrust) return true;
-  if (authored.kind !== want.kind || authored.target !== want.target)
-    return true;
+  if (!listener) return true;
+  // The authored entry that is this want: a staged one if the same kind and
+  // target repeat, the one with the same terms.
+  const same = stagedWants(world, id).filter(
+    (entry) =>
+      entry.want.kind === want.kind && entry.want.target === want.target,
+  );
+  const authored =
+    same.find((entry) => questTerms(entry.want) === questTerms(want))?.want ??
+    same[0]?.want;
+  if (!authored?.minTrust) return true;
   return (world.actors[id].trust?.[listener] || 0) >= authored.minTrust;
 }
 export function revealed(world, id, want, listener) {
   return Boolean(
     want &&
       world.actors?.[id] &&
-      // A made thing still locked is wanted all the same (rules 102).
+      // A made thing still locked is wanted all the same (rules 102), and a
+      // sealed one (rules 133).
       (entityActive(world, want.target) ||
-        Boolean(packThings[want.target]?.locked)) &&
+        Boolean(packThings[want.target]?.locked) ||
+        Boolean(packThings[want.target]?.sealed)) &&
       !(want.kind === "item" && !world.items[want.target]) &&
       !(want.kind === "person" && !world.actors[want.target]) &&
       !met(world, id, want) &&
