@@ -26,13 +26,24 @@ const FLUSH_MS = 60_000;
 const MAX_COUNT = 1000;
 const DAY_MS = 86_400_000;
 
-// The counter for a play: quests have their own, Sleep is a kind of Wait.
+// The counter for a play. `quest.accept` is a "focus" play, which turns a
+// second held quest to the top (quests are dealt by the rules, never
+// accepted); `quest.abandon` is a Drop with no item. Sleep is a kind of Wait.
 export function playCounter(action) {
   if (action?.kind === "focus") return "quest.accept";
   if (action?.kind === "drop" && !action.item) return "quest.abandon";
   if (action?.kind === "wait" && action.sleep) return "play.sleep";
   const name = `play.${action?.kind}`;
   return COUNTERS.has(name) ? name : "play.other";
+}
+
+// Quests the player's rules just met (#2662). The rules seal a receipt for
+// each met quest; this counts the receipts not seen on the previous look.
+// `seen` is null on a first look (a loaded save counts nothing) or after the
+// avatar changes, and the result is the new seen set and the count.
+export function metReceipts(keys, seen) {
+  const now = new Set(keys);
+  return { seen: now, met: seen ? keys.filter((key) => !seen.has(key)).length : 0 };
 }
 
 // Thinking-to-line latency, in coarse buckets.

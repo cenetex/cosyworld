@@ -63,11 +63,103 @@ fn totals_add_up_per_day_and_old_days_are_purged() {
         .map(Result::unwrap)
         .collect();
     assert_eq!(days, vec![TODAY - RETENTION_DAYS, TODAY]);
-    let summary = read_summary(&conn, TODAY).unwrap();
+    let summary = read_summary(&conn, TODAY, summary_days(None)).unwrap();
     assert_eq!(
         summary,
         vec![json!({"day": TODAY, "counters": {"play.talk": 8}})]
     );
+
+    // `days` widens or narrows the window; today counts as one day.
+    for (day, count) in [(TODAY - 1, 3), (TODAY - 6, 5), (TODAY - 7, 7)] {
+        conn.execute(
+            "INSERT INTO play_metrics_daily VALUES (?1, 'travel', ?2)",
+            params![day, count],
+        )
+        .unwrap();
+    }
+    let seen = |days| -> Vec<i64> {
+        read_summary(&conn, TODAY, summary_days(days))
+            .unwrap()
+            .iter()
+            .map(|d| d["day"].as_i64().unwrap())
+            .collect()
+    };
+    assert_eq!(seen(None), [TODAY, TODAY - 1, TODAY - 6]);
+    assert_eq!(seen(Some("1")), [TODAY]);
+    assert_eq!(seen(Some("8")), [TODAY, TODAY - 1, TODAY - 6, TODAY - 7]);
+    assert_eq!(seen(Some("0")), [TODAY], "at least today");
+    assert_eq!(seen(Some("junk")), seen(None));
+    assert_eq!(summary_days(Some("100000")), RETENTION_DAYS);
+    assert_eq!(summary_days(Some("-5")), 1);
+}
+
+#[tokio::test]
+async fn the_summary_takes_a_days_window_with_the_same_authorization() {
+    let path = std::env::temp_dir().join(format!(
+        "cosyworld-play-metrics-days-{}-{}.sqlite",
+        std::process::id(),
+        now_millis()
+    ));
+    let mut state = test_app_state(Some(path.clone()));
+    state.moderation_token = Some(std::sync::Arc::new("secret".to_string()));
+    let app = router().with_state(state);
+    let today = utc_day(now_millis());
+    {
+        let mut conn = Connection::open(&path).unwrap();
+        for (age, count) in [(0, 1), (3, 2), (10, 4)] {
+            let batch = Batch {
+                day: today - age,
+                counters: [("travel".to_string(), count)].into(),
+            };
+            store(&mut conn, &batch, today).unwrap();
+        }
+    }
+    let get = |query: &'static str, token: Option<&'static str>| {
+        let app = app.clone();
+        async move {
+            let mut request = Request::get(format!("/moderation/play-metrics{query}"));
+            if let Some(token) = token {
+                request = request.header("authorization", format!("Bearer {token}"));
+            }
+            app.oneshot(request.body(Body::empty()).unwrap())
+                .await
+                .unwrap()
+        }
+    };
+    for query in ["", "?days=30"] {
+        assert_eq!(get(query, None).await.status(), StatusCode::FORBIDDEN);
+        assert_eq!(
+            get(query, Some("wrong")).await.status(),
+            StatusCode::FORBIDDEN
+        );
+    }
+    let days = |query: &'static str| {
+        let response = get(query, Some("secret"));
+        async move {
+            let response = response.await;
+            assert_eq!(response.status(), StatusCode::OK);
+            let body = axum::body::to_bytes(response.into_body(), 1 << 20)
+                .await
+                .unwrap();
+            let body: serde_json::Value = serde_json::from_slice(&body).unwrap();
+            let seen: Vec<i64> = body["days"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|d| d["day"].as_i64().unwrap())
+                .collect();
+            (body["window"].as_i64().unwrap(), seen)
+        }
+    };
+    assert_eq!(days("").await, (7, vec![today, today - 3]));
+    assert_eq!(days("?days=2").await, (2, vec![today]));
+    assert_eq!(
+        days("?days=30").await,
+        (30, vec![today, today - 3, today - 10])
+    );
+    assert_eq!(days("?days=9999").await.0, RETENTION_DAYS);
+    assert_eq!(days("?days=x").await.0, 7);
+    let _ = std::fs::remove_file(path);
 }
 
 fn post_metrics(body: impl Into<Body>, site: &str) -> Request<Body> {

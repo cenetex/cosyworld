@@ -49,7 +49,21 @@ server adds the counts to `play_metrics_daily (day, name, count)` in the event
 database. It keeps no IP, account, world, install or session id, and no text,
 and it drops days older than 400 days on every write. The request log names
 only the route and status. `GET /moderation/play-metrics` (moderation token)
-returns the last seven days. Nothing reads the counts back into play.
+returns the last seven days; `?days=N` asks for 1 to 400. Nothing reads the
+counts back into play.
+
+How to read them. `quest.accept` is a Choose quest play (a second held quest
+turned to the top), not the start of a quest; `quest.abandon` is a Drop of a
+quest; `quest.met` is one per quest the rules meet, claimed or not.
+`line.skip` is a tap that moves past a finished line, and `line.finish_early`
+a tap that cut a line's typing short: one line can give both, and neither means
+the line went unread. `voice.silent` is a local play that had nobody due to
+speak (a plain Wait or Guard, say), not a failed line; `voice.failed` is a
+scene whose words never came; `voice.speaker_silent` is one speaker left "…"
+in a reply that came. The `voice.*` counters are local play only: shared worlds
+count plays and taps but no voice outcomes. `play.light`, `play.snuff`,
+`play.refuel` and `play.retreat` can no longer happen; Eat, gate, pack and
+craft plays count as `play.other`.
 
 `metrics.mjs` counts in memory and sends one `sendBeacon` batch a minute and on
 `pagehide`. Settings has a Play counts card. With it off, under

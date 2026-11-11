@@ -12,7 +12,7 @@ import {
   titleMusicHold,
   voiceTitle,
 } from "./title-intro.mjs";
-import { count, lineCounter, playCounter, startMetrics } from "./metrics.mjs";
+import { count, lineCounter, metReceipts, playCounter, startMetrics } from "./metrics.mjs";
 import { imageUrl } from "./images.mjs";
 import coreLocations from "./assets/staging/core.json" with { type: "json" };
 import greekLocations from "./assets/staging/greek.json" with { type: "json" };
@@ -447,6 +447,7 @@ let openingHeld = false;
 let shownQuests = [],
   sealedQuests = [],
   questSeq = null,
+  receiptsSeen = null,
   questPick = 0,
   questOpen = false,
   questFresh = false,
@@ -562,6 +563,7 @@ function loadSeen(reset = false) {
   sealedQuests = [];
   questClaims.clear();
   questSeq = null;
+  receiptsSeen = null;
   questPick = 0;
   questFresh = false;
   rememberCards();
@@ -3448,7 +3450,6 @@ function showQuestReward({ quest, color, box }) {
     { duration: 1100, easing: "ease-out" },
   );
   rise.finished.catch(() => {}).then(() => gain.remove());
-  count("quest.met");
   const avatar = $("hand").querySelector(`.card[data-card="${quest.actor}"]`);
   const level = quest.receiptId === undefined
     ? quest.level && quest.left <= 1 : quest.earnedLevel;
@@ -4883,6 +4884,11 @@ function render() {
       ? metQuests(shownQuests, world, questSeq) : []
     : receipts.filter((q) => !sealedQuests.some((shown) => shown.key === q.key));
   sealedQuests = legacy ? [...met, ...sealedQuests] : receipts;
+  // Count each quest when the rules meet it, not when its card is collected.
+  const owner = currentActor(world);
+  const looked = metReceipts(receipts.map((q) => q.key), receiptsSeen?.actor === owner ? receiptsSeen.keys : null);
+  receiptsSeen = { actor: owner, keys: looked.seen };
+  for (let i = legacy ? met.length : looked.met; i > 0; i--) count("quest.met");
   for (const [key, reward] of questClaims) {
     if (reward.quest.actor !== currentActor(world)) {
       questClaims.delete(key);
