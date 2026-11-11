@@ -1,17 +1,18 @@
-import { listGeneratedArt } from "./authoring-art-library.mjs";
+import { browseGeneratedArt } from "./authoring-art-library.mjs";
 import { readAvatarDesign, avatarBinding } from "./authoring-avatar-design.mjs";
 import {
   prepareAcceptedAvatar,
   nextAcceptedAvatarRevision,
 } from "./authoring-accepted.mjs";
 import { authoringCardId } from "./authoring-tree.mjs";
+import { toolKey } from "./authoring-tools.mjs";
 
 // Browsing and reselecting stored artwork never requests image generation.
 export function createArtLibraryTools({
   changed = () => {},
   choose = () => {},
   blocked = () => false,
-  list = listGeneratedArt,
+  list = browseGeneratedArt,
   read = readAvatarDesign,
   prepare = prepareAcceptedAvatar,
 }) {
@@ -19,15 +20,18 @@ export function createArtLibraryTools({
     owner,
     binding,
     sets = [],
+    skipped = 0,
+    readAt,
     urls = [],
     epoch = 0,
     loading = false;
-  const libraryId = (id) => `art-library-${id}`;
+  const libraryId = (id) => `art-library-${toolKey(id)}`;
   function clear() {
     epoch++;
     urls.forEach((url) => URL.revokeObjectURL(url));
     urls = [];
     sets = [];
+    skipped = 0;
     owner = binding = null;
     loading = false;
   }
@@ -48,9 +52,12 @@ export function createArtLibraryTools({
     const token = epoch;
     try {
       const record = context.snapshot({ assets: true });
-      const found = await list(record, id);
+      const listing = await list(record, id);
+      const found = Array.isArray(listing) ? listing : listing.sets;
+      skipped = Array.isArray(listing) ? 0 : listing.skipped;
       if (token !== epoch) return;
       owner = id;
+      readAt = record.generation;
       binding = avatarBinding(record, id);
       const seen = new Set();
       sets = found
@@ -78,13 +85,21 @@ export function createArtLibraryTools({
       if (token === epoch) loading = false;
     }
     changed();
-    choose(libraryId(id));
+    // With nothing to show, the table stays as it is.
+    if (sets.length) choose(libraryId(id));
   }
+  const empty = (id) => owner === id && !sets.length && !skipped;
   return {
     clear,
-    sync(next) {
+    // Results belong to the generation they were read from.
+    sync(next, generation) {
       source = next;
-      if (owner && !next?.pack?.avatars?.[owner]) clear();
+      if (
+        owner &&
+        (!next?.pack?.avatars?.[owner] ||
+          (generation !== undefined && generation !== readAt))
+      )
+        clear();
     },
     tools() {
       const tools = [];
@@ -97,12 +112,18 @@ export function createArtLibraryTools({
           describe: () => ({
             note:
               owner === id
-                ? `${sets.length} saved artwork sets. Choose one to preview or use again.`
+                ? sets.length
+                  ? `${sets.length} saved artwork ${sets.length === 1 ? "set" : "sets"}${skipped ? `; ${skipped} could not be read` : ""}. Choose one to preview or use again.`
+                  : skipped
+                    ? `${skipped} saved artwork ${skipped === 1 ? "set" : "sets"} could not be read.`
+                    : "Nothing is saved for this avatar yet. Generated artwork appears here."
                 : "Browse this avatar's saved artwork. Reusing it costs no image request.",
             actions: [
               {
-                label: reason() || "Browse saved artwork",
-                disabled: Boolean(reason()),
+                label:
+                  reason() ||
+                  (empty(id) ? "No saved artwork yet" : "Browse saved artwork"),
+                disabled: Boolean(reason()) || empty(id),
               },
             ],
           }),

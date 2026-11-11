@@ -1,6 +1,10 @@
 import { expect, it } from "vitest";
 import { createSeedMaker } from "../v2/card-game/authoring-seed-maker.mjs";
 import { emptySeedWorld } from "../v2/card-game/authoring-seed-world.mjs";
+import { authoringSeedTools } from "../v2/card-game/authoring-seed-tools.mjs";
+import { authoringTools } from "../v2/card-game/authoring-tools.mjs";
+import { buildAuthoringTree } from "../v2/card-game/authoring-tree.mjs";
+import { authoringCollections } from "../v2/card-game/authoring-collections.mjs";
 import { createAuthoringSession } from "../v2/card-game/authoring-session.mjs";
 const cards = [
   { kind: "place", name: "Quay", text: "The last ferry waits here." },
@@ -136,4 +140,33 @@ it("names why Create is disabled", () => {
   expect(label()).toMatchObject({ label: "Type a seed first", disabled: true });
   f.describe().edit.onInput("x".repeat(6001));
   expect(label()).toMatchObject({ label: "Seed is too long", disabled: true });
+});
+it("keeps the editor working after Show details and discarding every card", async () => {
+  const f = fixture(async () => Response.json({ cards }));
+  await f.run();
+  await f.tool("maker-details").run({});
+  expect(f.maker.detailed()).toBe(true);
+  const seed = authoringSeedTools({});
+  const project = () => {
+    const source = f.session.state.source;
+    const base = authoringCollections(buildAuthoringTree(source).cards, source);
+    return authoringTools(f.maker.project(base), [
+      ...(f.maker.detailed() ? seed.tools() : []),
+      ...f.maker.tools(),
+    ]);
+  };
+  expect(project).not.toThrow();
+  const pack = f.session.state.source.pack;
+  for (const id of [
+    ...Object.keys(pack.items),
+    ...Object.keys(pack.avatars),
+    ...Object.keys(pack.places),
+  ]) {
+    await f.run(`discard-${id}`);
+    expect(project).not.toThrow();
+  }
+  expect(f.maker.detailed()).toBe(false);
+  expect(
+    f.tool("maker-seed").describe({ status: f.session.status }),
+  ).toBeTruthy();
 });

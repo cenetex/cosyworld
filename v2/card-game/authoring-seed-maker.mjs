@@ -119,6 +119,9 @@ export function createSeedMaker({
         details = false;
       }
       source = next;
+      // Details pairs the seed tool with World; an emptied world seeds again
+      // from the simple view, so two tools never anchor on one card.
+      if (available() && !cards().length) details = false;
     },
     transient: () =>
       seed || pending ? JSON.stringify([key, seed, pending?.tool]) : null,

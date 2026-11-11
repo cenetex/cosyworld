@@ -883,4 +883,10 @@ Tapping other cards while an image or seed draw is on its way does not lose the
 result; changing the draft, Undo, reloading or opening another draft does. A
 paid or replacing button first reads "Tap again to ..." and runs on a later tap.
 A disabled button names its reason in its label, such as "Generating…" or
-"Confirm or discard the preview first".
+"Confirm or discard the preview first". Generate poses reads "Generate a
+portrait first" until the avatar has a saved portrait, and a button that waits
+for a physical description reads "Describe them first".
+
+Browse saved artwork shows "No saved artwork yet" when nothing is saved and
+leaves the table as it is. A saved set that cannot be read is skipped and
+counted in the library note; applying artwork still checks every file.
