@@ -1,6 +1,7 @@
 // A reply speaker whose words do not come shows "…", unvoiced and unsaved.
 import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
+import { holdItem } from "./card-browser-helpers.mjs";
 import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
 import {
@@ -12,15 +13,14 @@ import {
 import { enableMotives } from "../card-game/motives.mjs";
 
 let fixture = enableMotives(createWorld({ opening: true }));
-// The opening starts lit: douse it to open the mirror, then relight it at
-// the pond (#1653).
-for (const kind of ["snuff", "move", "light"])
-  fixture = play(
-    fixture,
-    legalActions(fixture).find(
-      (a) => a.kind === kind && (kind !== "move" || a.target === "pond"),
-    ),
-  ).state;
+// The opening starts lit: put the lamp out to open the mirror, then hold it
+// again at the pond (#1653, #2580).
+fixture = holdItem(fixture, null);
+fixture = play(
+  fixture,
+  legalActions(fixture).find((a) => a.kind === "move" && a.target === "pond"),
+).state;
+fixture = holdItem(fixture, "lamp");
 const save = encodeSave(fixture),
   key = "cosyworld.reflected-shore.v1.silent-reply";
 const server = createServer();
