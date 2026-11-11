@@ -1,3 +1,4 @@
+import { selectLamp } from "./fixtures/card-attic-opening.mjs";
 import { describe, expect, it } from "vitest";
 import {
   createWorld,
@@ -25,7 +26,7 @@ function pond() {
   s.actors.keeper.place = "station";
   s.items.bell.holder = "vale";
   s.items.lamp.holder = "vale";
-  return s;
+  return selectLamp(s);
 }
 function act(s, kind, item, target) {
   s = endStandoff(s);

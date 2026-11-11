@@ -56,7 +56,7 @@ fn preserves_old_entities(after: &Value, before: &Value) {
     // Quest progress gives way to one want; the rest of each actor survives.
     super::full_tests::assert_saved_actors(&after["actors"], &before["actors"]);
     for field in ["items", "peaceUntil"] {
-        for (id, value) in super::saved_items::upgraded_field(before, field)
+        for (id, value) in super::saved_items::current_field(before, field)
             .as_object()
             .unwrap()
         {
@@ -113,7 +113,13 @@ fn earlier_greek_worlds_upgrade_once_with_original_history_and_new_entities() {
                 );
                 for (key, value) in old.game["crossings"].as_object().unwrap() {
                     if !super::full_tests::moved_door(key) {
-                        assert_eq!(&upgraded.game["crossings"][key], value);
+                        let mut expected = value.clone();
+                        if key == "pond-greek-harbor" {
+                            // The grounded-lamp gate keeps discovery, not signal phases.
+                            expected.as_object_mut().unwrap().remove("phase");
+                            expected.as_object_mut().unwrap().remove("until");
+                        }
+                        assert_eq!(upgraded.game["crossings"][key], expected);
                     }
                 }
                 for field in ["choices", "flags", "receipts", "met", "scope", "recitals"] {

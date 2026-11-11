@@ -42,15 +42,11 @@ for (const target of targets) {
     character_profiles: "/card-game/entity-profiles.json",
     mounted_packs: "/card-game/packs.json",
   });
-  for (const field of [
-    "worldpack",
-    "world",
-    "combat",
-    "content_engine_version",
-  ]) {
-    assert.equal(meta.metadata_scopes[field], "classic-compatibility");
-    assert(meta[field], `${base.origin}: preserved ${field}`);
-  }
+  assert.equal(
+    meta.metadata_scopes,
+    undefined,
+    `${base.origin}: classic metadata scopes are gone`,
+  );
   console.log(
     `${base.origin}: ${meta.primary_game} ${meta.version}${meta.commit ? `+${meta.commit}` : ""}, rules ${meta.card_game.shared_rules_version}`,
   );

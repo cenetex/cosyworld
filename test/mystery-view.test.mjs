@@ -2,14 +2,14 @@ import { describe, expect, it } from "vitest";
 import { createWorld } from "../v2/card-game/world.mjs";
 import { availableCards } from "../v2/card-game/cards.mjs";
 import { tableHolder, tableType } from "../v2/card-game/mystery-view.mjs";
-import { openingFixture } from "./helpers/greek-opening.mjs";
+import { greekErrands } from "./helpers/greek-opening.mjs";
 
 const raven = "ratiradio-raven";
 const room = "ratiradio-listening-room";
 
 describe("location mystery projection", () => {
   it("puts a sealed destination in the location stack without changing custody", () => {
-    const world = structuredClone(openingFixture("burial").decree);
+    const world = structuredClone(greekErrands().decree);
     world.actors.vale.place = "greek-gate";
     const before = JSON.stringify(world);
     expect(availableCards(world)).toContain("greek-battlefield");

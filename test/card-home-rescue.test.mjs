@@ -1,3 +1,6 @@
+import { roomFuelFromTurns } from "../v2/card-game/lamp-room-fuel.mjs";
+import { settleLamp } from "../v2/card-game/lamp-state.mjs";
+import { itemPlace as lampPlace } from "../v2/card-game/world.mjs";
 import { describe, it, expect } from "vitest";
 import {
   createWorld,
@@ -13,7 +16,7 @@ import { enableMotives, recordReaction } from "../v2/card-game/motives.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import { humanAvatars, humanAvatarIds } from "../v2/card-game/human-cast.mjs";
 
-import { atticOpening } from "./fixtures/card-attic-opening.mjs";
+import { atticOpening, selectLamp } from "./fixtures/card-attic-opening.mjs";
 
 const opening = atticOpening;
 const view = (world, actor, present = humanAvatarIds) =>
@@ -44,7 +47,7 @@ describe("a path out of a stranded home", () => {
   });
   it("opens the mirror after fuel runs dry and survives a solo save", () => {
     let s = opening();
-    s.items.lamp.fuel = 0;
+    setFuel(s, 0);
     s.items.lamp.lit = false;
     s = decodeSave(encodeSave(s));
     expect(exits(s, "attic", "vale")).toEqual(["pond"]);
@@ -61,7 +64,7 @@ describe("a path out of a stranded home", () => {
   });
   it("refuels when a local flask joins the empty lamp, closing the mirror", () => {
     const s = opening();
-    s.items.lamp.fuel = 0;
+    setFuel(s, 0);
     s.items.oil.holder = "attic";
     expect(exits(s, "attic", "vale")).toEqual(["pond"]);
     const take = legalActions(s, "vale").find(
@@ -69,24 +72,24 @@ describe("a path out of a stranded home", () => {
     );
     expect(take).toBeDefined();
     const filled = play(s, take).state;
-    // The refilled lamp still shines and burns this turn's fuel.
-    expect(filled.items.lamp.fuel).toBe(11);
+    // The refilled room counts first; the same-room play spends no further fuel.
+    expect(filled.items.lamp.fuel).toBe(12);
     // The used flask waits at the station, so the full lamp is the recovery.
     expect(filled.items.oil.holder).toBe("station");
     expect(exits(filled, "attic", "vale")).toEqual([]);
-    filled.items.lamp.fuel = 0;
+    setFuel(filled, 0);
     expect(exits(filled, "attic", "vale")).toEqual(["pond"]);
   });
   it("uses local floor and nested resources while distant resources leave a path", () => {
     const s = opening();
-    s.items.lamp.fuel = 0;
+    setFuel(s, 0);
     s.items.oil.holder = "attic";
     s.items.cloth.holder = "lamp";
     expect(exits(s, "attic", "vale")).toEqual(["pond"]);
     s.items.oil.holder = "station";
     expect(exits(s, "attic", "vale")).toEqual(["pond"]);
     s.items.lamp.holder = "station";
-    s.items.lamp.fuel = 8;
+    setFuel(s, 8);
     expect(exits(s, "attic", "vale")).toEqual(["pond"]);
   });
   it.each(humanAvatars.filter((a) => a.id !== "vale"))(
@@ -138,6 +141,7 @@ describe("a path out of a stranded home", () => {
     }).world;
     w.actors.mara.place = "attic";
     w.items.lamp.holder = "mara";
+    w.actors.mara.heldItem = "lamp";
     expect(view(w, "vale").exits).toEqual([]);
     expect(view(w, "vale", ["vale"]).exits).toEqual([]);
     w.actors.mara.place = "station";
@@ -235,3 +239,11 @@ describe("a path out of a stranded home", () => {
     expect(move(s, "vale", "pond")).toBeDefined();
   });
 });
+
+function setFuel(world, fuel) {
+  Object.assign(
+    world.items.lamp,
+    roomFuelFromTurns(fuel, lampPlace(world, "lamp")),
+  );
+  settleLamp(world);
+}

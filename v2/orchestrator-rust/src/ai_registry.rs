@@ -1,5 +1,4 @@
 use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha256};
 use std::{
     collections::{BTreeMap, BTreeSet},
     fmt,
@@ -269,24 +268,7 @@ pub(crate) enum ModelRarity {
     Legendary,
 }
 
-impl ModelRarity {
-    pub(crate) const ALL: [ModelRarity; 4] = [
-        ModelRarity::Common,
-        ModelRarity::Uncommon,
-        ModelRarity::Rare,
-        ModelRarity::Legendary,
-    ];
-
-    pub(crate) fn parse(value: &str) -> Option<Self> {
-        match value {
-            "common" => Some(Self::Common),
-            "uncommon" => Some(Self::Uncommon),
-            "rare" => Some(Self::Rare),
-            "legendary" => Some(Self::Legendary),
-            _ => None,
-        }
-    }
-}
+impl ModelRarity {}
 
 #[derive(Clone, Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -321,7 +303,10 @@ pub(crate) struct DeclaredModelCandidate {
     pub(crate) capabilities: BTreeSet<ModelCapability>,
     #[serde(default)]
     pub(crate) observations: CandidateObservations,
+    /// Accepted so operator registries that still declare a draw tier load;
+    /// nothing reads it since the keyed voice pools were removed.
     #[serde(default)]
+    #[allow(dead_code)]
     pub(crate) rarity: ModelRarity,
 }
 
@@ -407,28 +392,12 @@ impl ModelCandidate {
         self.output_limit
     }
 
-    pub(crate) fn context_limit(&self) -> Option<u32> {
-        self.context_limit
-    }
-
     pub(crate) fn provider(&self) -> &str {
         &self.provider
     }
 
-    pub(crate) fn family(&self) -> Option<&str> {
-        self.family.as_deref()
-    }
-
     pub(crate) fn concrete_model(&self) -> Option<&ConcreteModelIdentity> {
         self.concrete_model.as_ref()
-    }
-
-    pub(crate) fn prompt_adapter(&self) -> &PromptAdapterRef {
-        &self.prompt_adapter
-    }
-
-    pub(crate) fn observations(&self) -> &CandidateObservations {
-        &self.observations
     }
 
     #[cfg(test)]
@@ -507,7 +476,6 @@ pub(crate) struct CapabilityRegistrySnapshot {
     snapshot_version: String,
     candidates: BTreeMap<String, Arc<ModelCandidate>>,
     pools: BTreeMap<ModelCapability, Vec<String>>,
-    rarities: BTreeMap<String, ModelRarity>,
 }
 
 impl Default for CapabilityRegistrySnapshot {
@@ -516,7 +484,6 @@ impl Default for CapabilityRegistrySnapshot {
             snapshot_version: "unconfigured".to_string(),
             candidates: BTreeMap::new(),
             pools: BTreeMap::new(),
-            rarities: BTreeMap::new(),
         }
     }
 }
@@ -546,12 +513,9 @@ impl CapabilityRegistrySnapshot {
             }
         }
 
-        let mut rarities = BTreeMap::<String, ModelRarity>::new();
         for declared in document.declared {
-            let rarity = declared.rarity;
             let normalized = normalize_declared(declared)?;
             let key = normalized.requested_model_id.clone();
-            rarities.insert(key.clone(), rarity);
             if let Some(discovered) = candidates.remove(&key) {
                 if discovered.declared {
                     return Err(RegistryError::DuplicateCandidate(key));
@@ -600,7 +564,6 @@ impl CapabilityRegistrySnapshot {
             snapshot_version,
             candidates,
             pools,
-            rarities,
         })
     }
 
@@ -734,77 +697,6 @@ impl CapabilityRegistrySnapshot {
             capability,
             candidate,
         })
-    }
-
-    /// Deterministic keyed draw over a capability pool, in the spirit of the old
-    /// rarity-tier `getRandomModel`: choose a tier by weight, then a model in that
-    /// tier, both from a stable hash of `routing_key`. The remainder of the pool
-    /// follows as fallbacks: the rest of the drawn tier first, then the other
-    /// tiers by weight. The same key always yields the same order for the same
-    /// snapshot, so replay and snapshot reload agree on who speaks as whom.
-    pub(crate) fn pin_all_keyed(
-        &self,
-        capability: ModelCapability,
-        routing_key: &str,
-        tier_weights: &BTreeMap<ModelRarity, u32>,
-        policy_mode: DataPolicyMode,
-    ) -> Result<Vec<PinnedModelSelection>, RegistryError> {
-        let pool = self
-            .pools
-            .get(&capability)
-            .filter(|pool| !pool.is_empty())
-            .ok_or(RegistryError::EmptyCapabilityPool(capability))?;
-        let tier_of = |model: &str| self.rarities.get(model).copied().unwrap_or_default();
-        let mut weights = ModelRarity::ALL
-            .into_iter()
-            .map(|tier| (tier, tier_weights.get(&tier).copied().unwrap_or(0)))
-            .filter(|(tier, weight)| {
-                *weight > 0 && pool.iter().any(|model| tier_of(model) == *tier)
-            })
-            .collect::<Vec<_>>();
-        if weights.is_empty() {
-            weights = ModelRarity::ALL
-                .into_iter()
-                .filter(|tier| pool.iter().any(|model| tier_of(model) == *tier))
-                .map(|tier| (tier, 1))
-                .collect();
-        }
-        let total = weights
-            .iter()
-            .map(|(_, weight)| u64::from(*weight))
-            .sum::<u64>();
-        let mut point = keyed_hash(&format!("{routing_key}\0tier")) % total;
-        let mut drawn = weights[0].0;
-        for (tier, weight) in &weights {
-            if point < u64::from(*weight) {
-                drawn = *tier;
-                break;
-            }
-            point -= u64::from(*weight);
-        }
-        let weight_of = |tier: ModelRarity| {
-            weights
-                .iter()
-                .find(|(candidate, _)| *candidate == tier)
-                .map(|(_, weight)| *weight)
-                .unwrap_or(0)
-        };
-        let mut ordered = pool.iter().collect::<Vec<_>>();
-        ordered.sort_by(|left, right| {
-            let (left_tier, right_tier) = (tier_of(left), tier_of(right));
-            (right_tier == drawn)
-                .cmp(&(left_tier == drawn))
-                .then_with(|| weight_of(right_tier).cmp(&weight_of(left_tier)))
-                .then_with(|| {
-                    keyed_hash(&format!("{routing_key}\0model\0{left}"))
-                        .cmp(&keyed_hash(&format!("{routing_key}\0model\0{right}")))
-                })
-                .then_with(|| left.cmp(right))
-        });
-        ordered
-            .into_iter()
-            .map(|model| self.pin(capability, Some(model), policy_mode))
-            .collect()
     }
 
     pub(crate) fn pin_all(
@@ -1090,415 +982,7 @@ pub(crate) struct PinnedModelSelection {
     candidate: Arc<ModelCandidate>,
 }
 
-#[derive(Clone, Copy)]
-struct ActorExactEndpointContract {
-    capability: ModelCapability,
-    input_modality: ModelModality,
-    input_name: &'static str,
-    output_modality: ModelModality,
-    output_name: &'static str,
-    prompt_adapter_id: &'static str,
-}
-
 impl PinnedModelSelection {
-    pub(crate) fn from_actor_binding(
-        binding: &crate::content_load::SeedActorModelBinding,
-        _policy_mode: DataPolicyMode,
-    ) -> Result<Self, RegistryError> {
-        let requested_model_id =
-            normalize_model_id(&binding.requested_model_id, "requested model id")?;
-        let provider = normalize_provider(&binding.provider)?;
-        if provider != "openrouter" {
-            return Err(RegistryError::InvalidField {
-                field: "provider",
-                detail: "actor model bindings must use openrouter".to_string(),
-            });
-        }
-        let text_input = binding.input_modalities.iter().any(|value| value == "text");
-        let text_output = binding
-            .output_modalities
-            .iter()
-            .any(|value| value == "text");
-        if binding.speech_mode != "raw" || !text_input || !text_output {
-            return Err(RegistryError::CapabilityMismatch {
-                model: requested_model_id,
-                capability: ModelCapability::Voice,
-            });
-        }
-        // Exact actor bindings drive server-authored world dialogue. Keep the
-        // catalog's retention status for attribution and provider routing, but
-        // do not use it as a production eligibility gate.
-        let catalog_snapshot_version = normalize_token(
-            &binding.catalog_snapshot_version,
-            "registry snapshot version",
-            128,
-        )?;
-        let concrete_model_id = normalize_model_id(&binding.canonical_slug, "concrete model id")?;
-        let modalities = |values: &[String]| {
-            values
-                .iter()
-                .filter_map(|value| match value.as_str() {
-                    "text" => Some(ModelModality::Text),
-                    "image" => Some(ModelModality::Image),
-                    "audio" => Some(ModelModality::Audio),
-                    "speech" => Some(ModelModality::Speech),
-                    "transcription" => Some(ModelModality::Transcription),
-                    "video" => Some(ModelModality::Video),
-                    _ => None,
-                })
-                .collect::<BTreeSet<_>>()
-        };
-        let parameter = |names: &[&str]| {
-            binding
-                .supported_parameters
-                .iter()
-                .any(|value| names.contains(&value.as_str()))
-        };
-        let data_policy = if binding.zero_data_retention {
-            DataPolicyEligibility {
-                retention: DataRetention::None,
-                training: TrainingUse::Prohibited,
-            }
-        } else {
-            DataPolicyEligibility::default()
-        };
-        let family = requested_model_id
-            .split_once('/')
-            .map(|(provider, _)| provider.to_string());
-        let candidate = ModelCandidate {
-            requested_model_id,
-            provider,
-            concrete_model: Some(ConcreteModelIdentity {
-                model_id: concrete_model_id,
-                revision: None,
-            }),
-            mutable_alias: false,
-            family,
-            size_class: None,
-            input_modalities: modalities(&binding.input_modalities),
-            output_modalities: modalities(&binding.output_modalities),
-            context_limit: binding.context_length,
-            output_limit: binding.max_completion_tokens,
-            supported_parameters: SupportedParameters {
-                structured_output: parameter(&["structured_outputs", "response_format"]),
-                json_mode: parameter(&["response_format"]),
-                tools: parameter(&["tools", "tool_choice"]),
-                seed: parameter(&["seed"]),
-                stop: parameter(&["stop"]),
-                reasoning: parameter(&["reasoning", "reasoning_effort"]),
-                temperature: Some(parameter(&["temperature"])),
-            },
-            data_policy,
-            prompt_adapter: PromptAdapterRef {
-                id: "openrouter-raw-chat".to_string(),
-                version: "1".to_string(),
-            },
-            sampling: SamplingDefaults {
-                hard_output_cap: binding.max_completion_tokens.unwrap_or(4_096).min(4_096),
-                ..SamplingDefaults::default()
-            },
-            declared_capabilities: BTreeSet::from([ModelCapability::Voice]),
-            discovered_capabilities: BTreeSet::new(),
-            observations: CandidateObservations {
-                input_cost_per_million: binding.input_cost_per_million,
-                output_cost_per_million: binding.output_cost_per_million,
-                ..CandidateObservations::default()
-            },
-            declared: true,
-            discovered: true,
-        };
-        Ok(Self {
-            snapshot_version: catalog_snapshot_version,
-            capability: ModelCapability::Voice,
-            candidate: Arc::new(candidate),
-        })
-    }
-
-    pub(crate) fn from_actor_image_binding(
-        binding: &crate::content_load::SeedActorModelBinding,
-        _policy_mode: DataPolicyMode,
-    ) -> Result<Self, RegistryError> {
-        let requested_model_id =
-            normalize_model_id(&binding.requested_model_id, "requested model id")?;
-        let provider = normalize_provider(&binding.provider)?;
-        if provider != "openrouter" {
-            return Err(RegistryError::InvalidField {
-                field: "provider",
-                detail: "actor image-model bindings must use openrouter".to_string(),
-            });
-        }
-        let text_input = binding.input_modalities.iter().any(|value| value == "text");
-        let image_output = binding
-            .output_modalities
-            .iter()
-            .any(|value| value == "image");
-        if !text_input || !image_output {
-            return Err(RegistryError::CapabilityMismatch {
-                model: requested_model_id,
-                capability: ModelCapability::ImageGeneration,
-            });
-        }
-        // Exact image bindings, like exact dialogue/embedding/rerank bindings,
-        // are used for server-authored world activity. Preserve the binding's
-        // actual policy metadata without turning non-ZDR into an eligibility
-        // rejection; the gateway only sends ZDR routing when this flag is true.
-        let catalog_snapshot_version = normalize_token(
-            &binding.catalog_snapshot_version,
-            "registry snapshot version",
-            128,
-        )?;
-        let concrete_model_id = normalize_model_id(&binding.canonical_slug, "concrete model id")?;
-        let modalities = |values: &[String]| {
-            values
-                .iter()
-                .filter_map(|value| match value.as_str() {
-                    "text" => Some(ModelModality::Text),
-                    "image" => Some(ModelModality::Image),
-                    "audio" => Some(ModelModality::Audio),
-                    "speech" => Some(ModelModality::Speech),
-                    "transcription" => Some(ModelModality::Transcription),
-                    "video" => Some(ModelModality::Video),
-                    _ => None,
-                })
-                .collect::<BTreeSet<_>>()
-        };
-        let data_policy = if binding.zero_data_retention {
-            DataPolicyEligibility {
-                retention: DataRetention::None,
-                training: TrainingUse::Prohibited,
-            }
-        } else {
-            DataPolicyEligibility::default()
-        };
-        let family = requested_model_id
-            .split_once('/')
-            .map(|(provider, _)| provider.to_string());
-        let candidate = ModelCandidate {
-            requested_model_id,
-            provider,
-            concrete_model: Some(ConcreteModelIdentity {
-                model_id: concrete_model_id,
-                revision: None,
-            }),
-            mutable_alias: false,
-            family,
-            size_class: None,
-            input_modalities: modalities(&binding.input_modalities),
-            output_modalities: modalities(&binding.output_modalities),
-            context_limit: binding.context_length,
-            output_limit: binding.max_completion_tokens,
-            supported_parameters: SupportedParameters {
-                seed: binding
-                    .supported_parameters
-                    .iter()
-                    .any(|value| value == "seed"),
-                ..SupportedParameters::default()
-            },
-            data_policy,
-            prompt_adapter: PromptAdapterRef {
-                id: "openrouter-image".to_string(),
-                version: "1".to_string(),
-            },
-            sampling: SamplingDefaults::default(),
-            declared_capabilities: BTreeSet::from([ModelCapability::ImageGeneration]),
-            discovered_capabilities: BTreeSet::new(),
-            observations: CandidateObservations {
-                input_cost_per_million: binding.input_cost_per_million,
-                output_cost_per_million: binding.output_cost_per_million,
-                ..CandidateObservations::default()
-            },
-            declared: true,
-            discovered: true,
-        };
-        Ok(Self {
-            snapshot_version: catalog_snapshot_version,
-            capability: ModelCapability::ImageGeneration,
-            candidate: Arc::new(candidate),
-        })
-    }
-
-    pub(crate) fn from_actor_embedding_binding(
-        binding: &crate::content_load::SeedActorModelBinding,
-        policy_mode: DataPolicyMode,
-    ) -> Result<Self, RegistryError> {
-        Self::from_actor_exact_endpoint_binding(
-            binding,
-            policy_mode,
-            ActorExactEndpointContract {
-                capability: ModelCapability::Embeddings,
-                input_modality: ModelModality::Text,
-                input_name: "text",
-                output_modality: ModelModality::Embeddings,
-                output_name: "embeddings",
-                prompt_adapter_id: "openrouter-embeddings",
-            },
-        )
-    }
-
-    pub(crate) fn from_actor_rerank_binding(
-        binding: &crate::content_load::SeedActorModelBinding,
-        policy_mode: DataPolicyMode,
-    ) -> Result<Self, RegistryError> {
-        Self::from_actor_exact_endpoint_binding(
-            binding,
-            policy_mode,
-            ActorExactEndpointContract {
-                capability: ModelCapability::Rerank,
-                input_modality: ModelModality::Text,
-                input_name: "text",
-                output_modality: ModelModality::Rerank,
-                output_name: "rerank",
-                prompt_adapter_id: "openrouter-rerank",
-            },
-        )
-    }
-
-    pub(crate) fn from_actor_speech_synthesis_binding(
-        binding: &crate::content_load::SeedActorModelBinding,
-        policy_mode: DataPolicyMode,
-    ) -> Result<Self, RegistryError> {
-        Self::from_actor_exact_endpoint_binding(
-            binding,
-            policy_mode,
-            ActorExactEndpointContract {
-                capability: ModelCapability::SpeechSynthesis,
-                input_modality: ModelModality::Text,
-                input_name: "text",
-                output_modality: ModelModality::Speech,
-                output_name: "speech",
-                prompt_adapter_id: "openrouter-audio-speech",
-            },
-        )
-    }
-
-    #[allow(dead_code)] // Reserved for the exact-bound, server-authored STT action.
-    pub(crate) fn from_actor_transcription_binding(
-        binding: &crate::content_load::SeedActorModelBinding,
-        policy_mode: DataPolicyMode,
-    ) -> Result<Self, RegistryError> {
-        Self::from_actor_exact_endpoint_binding(
-            binding,
-            policy_mode,
-            ActorExactEndpointContract {
-                capability: ModelCapability::Transcription,
-                input_modality: ModelModality::Audio,
-                input_name: "audio",
-                output_modality: ModelModality::Transcription,
-                output_name: "transcription",
-                prompt_adapter_id: "openrouter-audio-transcriptions",
-            },
-        )
-    }
-
-    /// Builds an exact actor-bound selection for a server-authored, non-chat
-    /// endpoint. These requests may intentionally use a catalog binding that
-    /// is not ZDR; preserve that fact in attribution and let the gateway add a
-    /// provider privacy constraint only when the binding explicitly is ZDR.
-    fn from_actor_exact_endpoint_binding(
-        binding: &crate::content_load::SeedActorModelBinding,
-        _policy_mode: DataPolicyMode,
-        contract: ActorExactEndpointContract,
-    ) -> Result<Self, RegistryError> {
-        let requested_model_id =
-            normalize_model_id(&binding.requested_model_id, "requested model id")?;
-        let provider = normalize_provider(&binding.provider)?;
-        if provider != "openrouter" {
-            return Err(RegistryError::InvalidField {
-                field: "provider",
-                detail: "actor exact-model bindings must use openrouter".to_string(),
-            });
-        }
-        let expected_input = binding
-            .input_modalities
-            .iter()
-            .any(|value| value == contract.input_name);
-        let expected_output = binding
-            .output_modalities
-            .iter()
-            .any(|value| value == contract.output_name);
-        if binding.speech_mode != "unavailable" || !expected_input || !expected_output {
-            return Err(RegistryError::CapabilityMismatch {
-                model: requested_model_id,
-                capability: contract.capability,
-            });
-        }
-        let catalog_snapshot_version = normalize_token(
-            &binding.catalog_snapshot_version,
-            "registry snapshot version",
-            128,
-        )?;
-        let concrete_model_id = normalize_model_id(&binding.canonical_slug, "concrete model id")?;
-        let modalities = |values: &[String]| {
-            values
-                .iter()
-                .filter_map(|value| match value.as_str() {
-                    "text" => Some(ModelModality::Text),
-                    "image" => Some(ModelModality::Image),
-                    "audio" => Some(ModelModality::Audio),
-                    "speech" => Some(ModelModality::Speech),
-                    "transcription" => Some(ModelModality::Transcription),
-                    "video" => Some(ModelModality::Video),
-                    "embeddings" => Some(ModelModality::Embeddings),
-                    "rerank" => Some(ModelModality::Rerank),
-                    _ => None,
-                })
-                .collect::<BTreeSet<_>>()
-        };
-        let data_policy = if binding.zero_data_retention {
-            DataPolicyEligibility {
-                retention: DataRetention::None,
-                training: TrainingUse::Prohibited,
-            }
-        } else {
-            DataPolicyEligibility::default()
-        };
-        let family = requested_model_id
-            .split_once('/')
-            .map(|(provider, _)| provider.to_string());
-        let candidate = ModelCandidate {
-            requested_model_id,
-            provider,
-            concrete_model: Some(ConcreteModelIdentity {
-                model_id: concrete_model_id,
-                revision: None,
-            }),
-            mutable_alias: false,
-            family,
-            size_class: None,
-            input_modalities: modalities(&binding.input_modalities),
-            output_modalities: modalities(&binding.output_modalities),
-            context_limit: binding.context_length,
-            output_limit: binding.max_completion_tokens,
-            supported_parameters: SupportedParameters::default(),
-            data_policy,
-            prompt_adapter: PromptAdapterRef {
-                id: contract.prompt_adapter_id.to_string(),
-                version: "1".to_string(),
-            },
-            sampling: SamplingDefaults::default(),
-            declared_capabilities: BTreeSet::from([contract.capability]),
-            discovered_capabilities: BTreeSet::new(),
-            observations: CandidateObservations {
-                input_cost_per_million: binding.input_cost_per_million,
-                output_cost_per_million: binding.output_cost_per_million,
-                ..CandidateObservations::default()
-            },
-            declared: true,
-            discovered: true,
-        };
-        debug_assert!(candidate
-            .input_modalities
-            .contains(&contract.input_modality));
-        debug_assert!(candidate
-            .output_modalities
-            .contains(&contract.output_modality));
-        Ok(Self {
-            snapshot_version: catalog_snapshot_version,
-            capability: contract.capability,
-            candidate: Arc::new(candidate),
-        })
-    }
-
     pub(crate) fn requested_model_id(&self) -> &str {
         self.candidate.requested_model_id()
     }
@@ -1683,11 +1167,6 @@ impl fmt::Display for RegistryError {
 }
 
 impl std::error::Error for RegistryError {}
-
-fn keyed_hash(value: &str) -> u64 {
-    let digest = Sha256::digest(value.as_bytes());
-    u64::from_be_bytes(digest[..8].try_into().expect("SHA-256 prefix"))
-}
 
 fn normalize_declared(value: DeclaredModelCandidate) -> Result<ModelCandidate, RegistryError> {
     let requested_model_id = normalize_model_id(&value.requested_model_id, "requested model id")?;
@@ -2059,92 +1538,6 @@ mod tests {
         .expect("valid registry snapshot")
     }
 
-    fn rarity_candidate(model: &str, rarity: ModelRarity) -> DeclaredModelCandidate {
-        let mut candidate = declared_candidate(model, [ModelCapability::Voice]);
-        candidate.rarity = rarity;
-        candidate
-    }
-
-    fn keyed_registry() -> CapabilityRegistrySnapshot {
-        let mut declared = Vec::new();
-        for index in 0..4 {
-            declared.push(rarity_candidate(
-                &format!("p/common-{index}"),
-                ModelRarity::Common,
-            ));
-        }
-        declared.push(rarity_candidate("p/rare-0", ModelRarity::Rare));
-        declared.push(rarity_candidate("p/legend-0", ModelRarity::Legendary));
-        snapshot("keyed-1", declared, Vec::new())
-    }
-
-    fn order(
-        registry: &CapabilityRegistrySnapshot,
-        key: &str,
-        weights: &BTreeMap<ModelRarity, u32>,
-    ) -> Vec<String> {
-        registry
-            .pin_all_keyed(
-                ModelCapability::Voice,
-                key,
-                weights,
-                DataPolicyMode::Production,
-            )
-            .expect("keyed order")
-            .iter()
-            .map(|pinned| pinned.requested_model_id().to_string())
-            .collect()
-    }
-
-    #[test]
-    fn keyed_pool_is_deterministic_spreads_actors_and_keeps_every_model_as_fallback() {
-        let registry = keyed_registry();
-        let weights = BTreeMap::from([
-            (ModelRarity::Common, 6),
-            (ModelRarity::Rare, 2),
-            (ModelRarity::Legendary, 1),
-        ]);
-        let first = order(&registry, "w\u{0}s\u{0}771000", &weights);
-        assert_eq!(first, order(&registry, "w\u{0}s\u{0}771000", &weights));
-        assert_eq!(first.len(), 6);
-        let mut sorted = first.clone();
-        sorted.sort();
-        sorted.dedup();
-        assert_eq!(sorted.len(), 6, "every pool model appears exactly once");
-
-        let primaries = (771000..771200)
-            .map(|id| order(&registry, &format!("w\u{0}s\u{0}{id}"), &weights)[0].clone())
-            .collect::<Vec<_>>();
-        let distinct = primaries.iter().collect::<BTreeSet<_>>();
-        assert!(
-            distinct.len() >= 5,
-            "200 actors reach most of the pool: {distinct:?}"
-        );
-        let legendary = primaries.iter().filter(|m| m.contains("legend")).count();
-        let common = primaries.iter().filter(|m| m.contains("common")).count();
-        assert!(
-            legendary > 0 && legendary < common,
-            "weights shape the draw"
-        );
-    }
-
-    #[test]
-    fn keyed_pool_falls_back_through_the_drawn_tier_first() {
-        let registry = keyed_registry();
-        let weights = BTreeMap::from([(ModelRarity::Common, 1)]);
-        let ordered = order(&registry, "any-key", &weights);
-        assert!(ordered[..4].iter().all(|m| m.contains("common")));
-        assert!(ordered[4..].iter().all(|m| !m.contains("common")));
-    }
-
-    #[test]
-    fn keyed_pool_ignores_weights_for_empty_tiers_and_defaults_to_uniform() {
-        let registry = keyed_registry();
-        let unknown = BTreeMap::from([(ModelRarity::Uncommon, 5)]);
-        assert_eq!(order(&registry, "k", &unknown).len(), 6);
-        assert_eq!(order(&registry, "k", &BTreeMap::new()).len(), 6);
-    }
-
     #[test]
     fn registry_without_rarity_declares_common_and_parses_the_new_field() {
         let registry = CapabilityRegistrySnapshot::from_json(
@@ -2155,8 +1548,8 @@ mod tests {
                "input_modalities":["text"],"output_modalities":["text"]}]}"#,
         )
         .expect("registry parses");
-        assert_eq!(registry.rarities["p/a"], ModelRarity::Legendary);
-        assert_eq!(registry.rarities["p/b"], ModelRarity::Common);
+        assert!(registry.candidates.contains_key("p/a"));
+        assert!(registry.candidates.contains_key("p/b"));
     }
 
     #[test]

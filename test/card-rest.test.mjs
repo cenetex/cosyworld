@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   createWorld,
+  holdChoice,
   legalActions,
   places,
   play,
@@ -100,9 +101,17 @@ describe("rest and sanctuary", () => {
     s.actors.vale.place = "attic";
     s.actors.vale.xp = questXp(2);
     s.actors.vale.level = 1;
+    // Keep unrelated resident visits from interrupting this daylight test.
+    const quietResidents = (world) => {
+      for (const id of ["moth", "keeper"])
+        Object.assign(world.actors[id], {
+          want: null, content: true, metTurn: world.turn,
+        });
+      return world;
+    };
     // Each short Sleep starts four turns before the light changes.
     for (const light of [2, 3, 4]) {
-      s = wait(at(s, light * DAYLIGHT_TURNS - 4));
+      s = wait(quietResidents(at(s, light * DAYLIGHT_TURNS - 4)));
       expect(legalActions(s).find((a) => a.sleep)).toMatchObject({
         kind: "wait",
         label: "Sleep",
@@ -117,12 +126,7 @@ describe("rest and sanctuary", () => {
       expect(s.actors.vale.want?.quest).toBeUndefined();
     }
     // A Sleep from just after the light changes lasts until it next does.
-    // Pip carries the lamp, which would wake the attic as its oil ran low.
-    expect(s.items.lamp.holder).toBe("moth");
-    // Pip, content with the lamp it wanted, keeps it where it stands.
-    s.actors.moth.place = "station";
-    s.items.lamp.lit = false;
-    s = sleep(at(s, 5 * DAYLIGHT_TURNS));
+    s = sleep(quietResidents(at(s, 5 * DAYLIGHT_TURNS)));
     const waking = woke(s, "vale");
     expect(waking).toMatchObject({
       turn: 6 * DAYLIGHT_TURNS,
@@ -143,9 +147,8 @@ describe("rest and sanctuary", () => {
   it("sleeps several times in a row, each Sleep offered as the last ends", () => {
     let s = wait(at(createWorld(), 30));
     s.actors.vale.place = "station";
-    // Pip, content with the lamp, would keep it guttering beside Vale.
+    // Keep the lamp away from this sequence of repeated sleeps.
     s.items.lamp.holder = "attic";
-    s.items.lamp.lit = false;
     const reasons = [];
     for (let i = 0; i < 4; i++) {
       s = act(s, (a) => a.sleep);
@@ -250,15 +253,18 @@ describe("rest and sanctuary", () => {
       woke: "departure",
       text: "Mara wakes as Iris leaves.",
     });
-    // The lamp where it sleeps reaches its last oil.
-    s = quiet();
-    Object.assign(s.items.lamp, { holder: "mara", lit: true, fuel: 4 });
-    s = wait(asleep(s), "mara");
-    expect(s.items.lamp).toMatchObject({ lit: true, fuel: 1 });
-    expect(woke(s, "mara")).toMatchObject({
-      woke: "lamp",
-      text: "Mara wakes as the lamp gutters.",
-    });
+    // A low lamp burns by room, so waiting neither drains it nor wakes Mara.
+    s = seat(["mara", "nell"]);
+    s.actors.mara.place = "clearing";
+    s.actors.nell.place = "station";
+    Object.assign(s.items.lamp, { holder: "mara", lit: true, fuel: 4,
+      fuelRooms: 1, fuelPlace: "clearing", fuelVisit: true });
+    holdChoice(s, "mara", { item: "lamp", revision: s.revision });
+    s = asleep(s);
+    for (let turn = 0; turn < 4; turn++) s = wait(s, "nell");
+    expect(s.items.lamp).toMatchObject({ lit: true, fuel: 4, fuelRooms: 1 });
+    expect(s.actors.mara.sleeping).toBeDefined();
+    expect(woke(s, "mara")).toBeUndefined();
     // Dusk and dawn.
     s = wait(asleep(quiet(21)), "mara");
     expect(woke(s, "mara")).toMatchObject({
@@ -280,12 +286,15 @@ describe("rest and sanctuary", () => {
       woke: "rested",
       text: "Mara wakes, rested.",
     });
-    // The lamp runs dry where it sleeps, opening the attic mirror.
+    // A last-room lamp arrives where Mara sleeps and runs dry.
     s = seat(["mara", "nell"]);
     s.actors.mara.place = "attic";
+    s.actors.nell.place = "pond";
+    Object.assign(s.items.lamp, { holder: "nell", lit: true, fuel: 4,
+      fuelRooms: 1, fuelPlace: "pond", fuelVisit: true });
+    holdChoice(s, "nell", { item: "lamp", revision: s.revision });
     s = sleep(s, "mara");
-    Object.assign(s.items.lamp, { holder: "attic", lit: true, fuel: 1 });
-    s = wait(s, "nell");
+    s = act(s, (a) => a.kind === "move" && a.target === "attic", "nell");
     expect(woke(s, "mara")).toMatchObject({
       woke: "dry",
       text: "Mara wakes as the lamp runs dry.",
@@ -294,10 +303,15 @@ describe("rest and sanctuary", () => {
     s = seat(["mara", "nell"]);
     s.actors.mara.place = s.actors.nell.place = "pond";
     s.actors.boardyai.place = "station";
-    Object.assign(s.items.lamp, { holder: "nell", lit: true, fuel: 12 });
+    Object.assign(s.items.lamp, { holder: "nell", lit: true, fuel: 12,
+      fuelRooms: 3, fuelPlace: "pond", fuelVisit: true });
+    holdChoice(s, "nell", { item: "lamp", revision: s.revision });
     s = sleep(s, "mara");
     expect(s.actors.mara.sleeping).toBeDefined();
-    s = act(s, (a) => a.kind === "snuff", "nell");
+    const turnBeforeStowing = s.turn;
+    holdChoice(s, "nell", { item: null, revision: s.revision });
+    expect(s.turn).toBe(turnBeforeStowing);
+    expect(s.items.lamp).toMatchObject({ lit: false, fuelRooms: 3 });
     expect(woke(s, "mara")).toMatchObject({
       woke: "crossing",
       text: "Mara wakes as a way here closes.",

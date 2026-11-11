@@ -16,8 +16,13 @@ import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
 import { roomTracks } from "../card-game/music.mjs";
 import streams from "../card-game/music-streams.json" with { type: "json" };
-import { createWorld, encodeSave, play } from "../card-game/world.mjs";
-import { cardPlay } from "../card-game/cards.mjs";
+import {
+  createWorld,
+  encodeSave,
+  play,
+  holdChoice,
+  legalActions,
+} from "../card-game/world.mjs";
 
 const server = createServer();
 await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
@@ -81,7 +86,7 @@ try {
   assert(await page.locator("#room-music").evaluate((audio) => audio.paused));
   await closeSettings(page);
   // Dousing the lit lamp reveals the pond path and starts the first music.
-  // The opening reveals the lamp and attic first; Put out is its first play.
+  // The opening reveals the lamp and attic first; stowing it opens the mirror.
   await page.waitForFunction(
     () => document.querySelector("#hand").dataset.cooling === "false",
   );
@@ -261,17 +266,24 @@ try {
     );
     await check();
   }
-  // The mirror trip checks the attic playlist and the way back: the lamp
-  // lit at the pond opens the way up, and dousing it opens the way down.
-  // The doused lamp stays raised after its play; lower it before each step.
+  // Current room-fuel lamps light when held and go dark when stowed.
+  // Keep it held through the pond mirror, then stow it for the way back.
   await clearSelection(page);
-  await playCard("lamp", "light");
-  await clearSelection(page);
+  await selectCard(page, "lamp");
+  await page.waitForFunction(
+    () =>
+      document.querySelector('#hand [data-card="lamp"]')?.dataset.lit ===
+      "true",
+  );
+  await page.keyboard.press("Escape");
   await travel("attic");
   console.log("Attic tracks played");
   await clearSelection(page);
-  await playCard("lamp", "snuff");
-  await clearSelection(page);
+  await page.waitForFunction(
+    () =>
+      document.querySelector('#hand [data-card="lamp"]')?.dataset.lit ===
+      "false",
+  );
   await travel("pond");
   console.log("Pond tracks played");
   await travel("station");
@@ -356,12 +368,19 @@ try {
   ship.items.lamp.holder = ship.items.cloth.holder = "vale";
   ship.items.lamp.lit = true;
   ship.items.lamp.fuel = 12;
-  // Cover, then uncover, the lit lamp: the whole ship signal.
-  for (const cards of [["cloth", "lamp"], ["cloth"]]) {
-    const result = play(ship, cardPlay(ship, cards).action);
-    assert(result.ok, result.error);
-    ship = result.state;
-  }
+  // The current ship signal is a grounded lamp beside actively held cloth.
+  holdChoice(ship, "vale", { item: "cloth", revision: ship.revision });
+  const signal = play(
+    ship,
+    legalActions(ship).find(
+      (action) =>
+        action.kind === "drop" &&
+        action.item === "lamp" &&
+        action.target === "pond",
+    ),
+  );
+  assert(signal.ok, signal.error);
+  ship = signal.state;
   await page.evaluate((save) => {
     localStorage.setItem("cosyworld.reflected-shore.v1.music-smoke", save);
   }, encodeSave(ship));

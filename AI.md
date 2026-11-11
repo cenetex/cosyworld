@@ -21,6 +21,5 @@ Provider credentials stay in the server configuration. Current deployment
 settings select the text model and the authored character model overrides.
 Inspect those settings and the owning code when changing model behavior.
 
-Earlier gateway, Elysium, voice-profile, and media designs are preserved in the
-[classic AI archive](docs/archive/classic/AI.md). Their runtime and pack sources
-serve compatibility work.
+Earlier gateway, Elysium, voice-profile, and media designs live in git history.
+Their runtime and pack sources serve compatibility work.

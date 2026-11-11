@@ -1,3 +1,4 @@
+import { selectLamp } from "./fixtures/card-attic-opening.mjs";
 import { describe, expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
 
@@ -238,21 +239,6 @@ describe("Tea beneath the oak", () => {
       whiskerwind: "emoji",
       oak: "speech",
     });
-    const map = JSON.parse(
-      readFileSync(
-        new URL(
-          "../v2/content/lonely-forest/classic-to-card.json",
-          import.meta.url,
-        ),
-        "utf8",
-      ),
-    );
-    expect(map.avatars["1002"]).toBe("whiskerwind");
-    expect(new Set(Object.values(map.places))).toEqual(
-      new Set(Object.keys(pack.places)),
-    );
-    for (const item of Object.values(map.items))
-      expect(Object.keys(pack.items)).toContain(item);
   });
 
   it("opens with light and cloth in the attic and keeps the cottage return after the cloth moves", () => {
@@ -345,9 +331,13 @@ describe("Tea beneath the oak", () => {
         (a) => a.kind === "move" && a.target === COTTAGE,
       );
       expect(stale).toBeDefined();
-      if (condition === "unlit") world.items.lamp.lit = false;
+      if (condition === "unlit") {
+        world.items.lamp.holder = "vale";
+        Object.assign(world, selectLamp(world));
+      }
       if (condition === "empty") {
         world.items.lamp.fuel = 0;
+        world.items.lamp.fuelRooms = 0;
         world.items.lamp.lit = false;
       }
       if (condition === "covered") world.items.cloth.holder = "lamp";
@@ -392,7 +382,8 @@ describe("Tea beneath the oak", () => {
     expect(locationVariant(restored, "attic")).toBe("attic-lit");
     expect(placeText(restored, "attic")).toContain("Dust gathers");
     expect(play(restored, stale).ok).toBe(false);
-    const doused = act(restored, "snuff");
+    restored.items.lamp.holder = "vale";
+    const doused = selectLamp(restored);
     expect(placeText(doused, "attic")).toContain(
       "mirror opens onto a black shore",
     );
@@ -406,6 +397,7 @@ describe("Tea beneath the oak", () => {
     }).world;
     world.actors.mara.place = "attic";
     world.items.lamp.holder = "vale";
+    world = selectLamp(world, "lamp");
     const command = (actor, fields = {}) =>
       dispatchShared({
         op: "view",
@@ -419,9 +411,10 @@ describe("Tea beneath the oak", () => {
       (a) => a.kind === "move" && a.target === COTTAGE,
     );
     expect(stale).toBeDefined();
-    const snuff = command("vale").actions.find((a) => a.kind === "snuff");
-    expect(snuff).toBeDefined();
-    const dark = command("vale", { op: "play", action: snuff });
+    const dark = command("vale", {
+      op: "hold",
+      choice: { item: null, revision: world.revision },
+    });
     expect(dark.ok, dark.error).toBe(true);
     world = reload(dark.world);
     expect(command("mara").exits).not.toContain(COTTAGE);
@@ -436,9 +429,9 @@ describe("Tea beneath the oak", () => {
 
   it("offers no story buttons and follows ordinary plays", () => {
     const pack = packDefinition(PACK);
-    expect(
-      pack.choices.filter((c) => c.on === undefined).map((c) => c.id),
-    ).toEqual(["forest-hear-walkers-rati", "forest-hear-walkers-oak"]);
+    expect(pack.choices.filter((c) => c.on === undefined)).toEqual([]);
+    for (const id of ["forest-hear-walkers-rati", "forest-hear-walkers-oak"])
+      expect(pack.choices.find((c) => c.id === id).on).toBe("talk");
     let world = move(attic(), COTTAGE);
     // Vale's button is somewhere else, so RATi cannot sew it yet.
     expect(world.items["forest-button-vale"].holder).not.toBe(COTTAGE);
@@ -579,6 +572,13 @@ describe("Three walkers, one old root", () => {
       for (const target of road) world = move(world, target);
       world = hear(world, speaker, fact);
       expect(state(world).flags["forest-walkers-heard"]).toBe(true);
+      // The Talk committed it; no pressed button offered it (#2605).
+      expect(
+        state(world).receipts[`forest-hear-walkers-${speaker}`],
+      ).toBeTruthy();
+      expect(legalActions(world).filter((a) => a.kind === "choose")).toEqual(
+        [],
+      );
       world = reload(world);
       for (const target of trail) world = move(world, target);
       world = wait(world);

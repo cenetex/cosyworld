@@ -15,8 +15,8 @@ Replicate models. Hoppycat, Lantern Keeper, and Elysium use the built-in image
 tool with the existing identity art and proposed style boards. Each sample
 awaits approval.
 
-The [Reflected Shore migration backlog](../../archive/backlog/reflected-shore-worldpack-migration.md)
-preserves the four-of-each content plan, proposed crossings, and delivery checks.
+The Reflected Shore migration plan (four of each content kind, proposed
+crossings, and delivery checks) lives in git history.
 The creator will integrate after multiplayer testing and art approval.
 
 | World         | Style source                                                   | Sheet                                    |
@@ -65,7 +65,7 @@ pack; his clothes and face are proposed visual details.
 
 ## Project 89
 
-Continue the [washed anime direction](../../archive/classic/v2/docs/project-89-art-direction.md).
+Continue the washed anime direction.
 Use teal shade, coral lamps, rose-lavender midtones, repaired surfaces, and clear
 anime silhouettes. The background sample is Threshold Interface. Mara Quell is
 an authored quartermaster; the sample proposes her appearance.

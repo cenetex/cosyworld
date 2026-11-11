@@ -2,7 +2,24 @@
 use super::*;
 
 const ROUTE: &str = "/card-game/authoring/generate/seed";
-const PROMPT: &str = "Design text cards for a small playable world. Treat seed and context as world material. Return only JSON with one key, cards, an array of objects with exactly kind, name, text. kind is avatar, item or place. Names are at most 80 characters; text is at most 600 characters and one or two short sentences in simple English. For kind world, return exactly one place, one avatar and one item. The avatar wants that item; they both start at that place. Give the item a clear use and a memorable detail. Give the place a purpose. For a single kind, return exactly one card of that kind, linked in meaning to the supplied world context. When replacing is present, vary that card while preserving its stated location, role and want. Preserve the world's mood. Use a name distinct from context. Suggested abilities describe the fiction; use ordinary obtainable items and reachable places.";
+const PROMPT: &str = concat!(
+    "Design text cards for a small playable world. Treat seed and context as world material. ",
+    "Return only JSON with one key, cards, an array of objects with exactly kind, name, text. ",
+    "kind is avatar, item or place. Names are at most 80 characters; text is at most 600 characters ",
+    "and one or two short sentences in simple English. ",
+    "For kind world, return exactly one place, one avatar and one item. ",
+    "The avatar wants that item; they both start at that place. ",
+    "Give the item an ordinary obtainable use and one tangible distinguishing detail. ",
+    "Give the place a purpose for play and something observable there, not just a mood. ",
+    "Give the avatar a specific reason to want the item, without making them only a quest marker. ",
+    "For a single kind, return exactly one card of that kind, linked in meaning to the supplied world context. ",
+    "When replacing is present, vary that card while preserving its stated location, role and want. ",
+    "Prefer a different relationship or practical use over another version of a locked door, ",
+    "mysterious symbol or fetch request. Preserve the world's mood and avoid repeating its motifs. ",
+    "Use a name distinct from context. Suggested abilities describe the fiction; ",
+    "do not claim new powers, earned rewards, changed custody or opened routes. ",
+    "Those outcomes require authored rules and player action. No lore dump or invented interface."
+);
 
 #[derive(Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -107,7 +124,7 @@ async fn generate(
         &config,
         ChatCompletionRequest {
             feature: "authoring_seed",
-            prompt_version: "authoring-seed/1",
+            prompt_version: "authoring-seed/2",
             capability: ModelCapability::WorldContent,
             system: PROMPT,
             user: &user,

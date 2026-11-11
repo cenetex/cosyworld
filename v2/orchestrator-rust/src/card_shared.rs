@@ -6,6 +6,8 @@ mod bindings_tests;
 #[cfg(test)]
 mod boardy_tests;
 #[cfg(test)]
+mod classic_drop_tests;
+#[cfg(test)]
 mod combat_tests;
 #[cfg(test)]
 mod concurrency_tests;
@@ -48,6 +50,8 @@ mod quest_core_tests;
 mod quest_loop_tests;
 #[cfg(test)]
 mod road_upgrade_tests;
+#[cfg(test)]
+mod rules_agree_tests;
 #[cfg(test)]
 mod saved_items;
 #[cfg(test)]

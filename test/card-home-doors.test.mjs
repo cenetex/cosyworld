@@ -61,7 +61,7 @@ const playAs = (world, actor, test) => {
 function reachedWithoutLamp(world) {
   const reached = new Set(["pond", "station"]);
   const lampGated = (c) =>
-    JSON.stringify([c.requires, c.signal?.while, c.signal?.steps]).includes(
+    JSON.stringify([c.requires, c.unlockWhen, c.signal?.while, c.signal?.steps]).includes(
       '"lamp"',
     );
   const holds = (r) => {
@@ -77,7 +77,7 @@ function reachedWithoutLamp(world) {
     return true;
   };
   const ship = (id) =>
-    !crossings.some((c) => c.transport === id && c.signal && lampGated(c));
+    !crossings.some((c) => c.transport === id && (c.signal || c.unlockWhen) && lampGated(c));
   for (let grew = true; grew; ) {
     grew = false;
     const add = (to) => !reached.has(to) && (reached.add(to), (grew = true));

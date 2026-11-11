@@ -1,9 +1,22 @@
 # Night Shift at RatiRadio
 
 The station opens through recovered possessions. The Station Key at Black Pond
-opens Empty Station into the Staff Kitchen. Carry the Red Beanie to open
-Dispatch Window, the Thermos to open Listening Room, the Raven Figurine to open
-Broadcast Booth. Opened routes remain open; their objects are not consumed.
+opens Empty Station into the Staff Kitchen. Each door after it wants a
+different thing, so the station is one room of three locks, not three copies of
+one:
+
+| Door | Lock | What opens it |
+| --- | --- | --- |
+| Dispatch Window | a thing held | Carry the Red Beanie to it. |
+| Listening Room | a thing placed | Set the Thermos down at the Dispatch Window, on the metal plate beside the door. Carrying it in opens nothing. |
+| Broadcast Booth | something heard | Talk with RATi while holding the Raven Figurine, in the Staff Kitchen, Dispatch Window or Listening Room. Holding it alone opens nothing. |
+
+Opened routes remain open, and no object is consumed or tied to its door
+afterward: the Thermos may be picked up again and the figurine put down. Every
+locked way and the sealed Raven is drawn as a locked box with its reason from
+the start ([wants and arcs](wants-and-arcs.md), "Boxes first"). RATi roams, so
+the Booth waits for a moment when he stands with the traveler in the station;
+he returns home to level, and the Thermos and figurine stay where they were set.
 
 The glass starts in the booth. Put the glass, figurine, beanie directly in the
 Listening Room together to reveal Raven once. Carried objects, gifts to RATi,
@@ -20,6 +33,22 @@ the existing context button. No extra panel, widget or ritual verb is needed.
 Entering the booth starts the supplied six-minute remaster for that listener.
 The performance follows the return journey. Muting never affects progression.
 First-listen state is separate from shared-world gate and resident flags.
+
+
+## Room rhythm and truthful scenery
+
+Each room has a different purpose: cold uncertainty in the Staff Kitchen;
+a staffed-but-empty threshold at Dispatch; genuine shelter in Listening;
+a performance that earns its meaning in the Booth. The words follow the
+approved place paintings: refrigerator glow, wired glass and clock, RATi's
+armchair, studio meters. Movable quest items remain separate cards, never
+painted onto a room that might have lost them.
+
+Sealed-route descriptors and item cards still state exact requirements.
+A resident may speak about what is missing, but speech does not open a door.
+Raven's appearance follows three direct placements, not the quality of an
+AI's narration. This treatment follows the short taste review in
+[the jagged-AGI design proposal](https://github.com/cenetex/cosyworld/pull/2574).
 
 ## Authority and compatibility
 

@@ -78,6 +78,82 @@ try {
     );
     await art.evaluate((image) => image.decode());
     await page.screenshot({ path: `${output}/${width}.png` });
+    const libraryKey = await page.evaluate(async () => {
+      const { createSampleWorld } = await import(
+        "/card-game/authoring-sample.mjs"
+      );
+      const { readAvatarDesign } = await import(
+        "/card-game/authoring-avatar-design.mjs"
+      );
+      const { archiveGeneratedArt } = await import(
+        "/card-game/authoring-art-library.mjs"
+      );
+      const { adoptAcceptedAvatar } = await import(
+        "/card-game/authoring-accepted.mjs"
+      );
+      const { openAuthoringStore } = await import(
+        "/card-game/authoring-local-store.mjs"
+      );
+      const key = `library-${crypto.randomUUID()}`;
+      const record = { key, generation: 0, ...(await createSampleWorld()) };
+      const design = await readAvatarDesign(record, "sample-vale");
+      const prepared = await archiveGeneratedArt(record, {
+        avatarId: "sample-vale",
+        description: "A small green dinosaur.",
+        role: "portrait",
+        images: [{ ...design.value.base, role: "base" }],
+      });
+      const saved = adoptAcceptedAvatar(record, prepared);
+      const store = await openAuthoringStore();
+      await store.write(key, saved, 0, saved.assets);
+      return key;
+    });
+    await page.goto(
+      `http://127.0.0.1:${server.address().port}/make?draft=${libraryKey}`,
+    );
+    await press(page.locator("#history-button"));
+    for (const [path, role] of [
+      [["pack", "avatars"], "collection"],
+      [["pack", "avatars", "sample-vale"], "entity"],
+    ])
+      await press(
+        page.locator(`[data-setting="${authoringCardId(path, role)}"]`),
+      );
+    await press(
+      page.locator('[data-setting="designer-tool-art-library-sample-vale"]'),
+    );
+    await press(
+      page
+        .locator("#card-actions button")
+        .filter({ hasText: "Browse saved artwork" }),
+    );
+    const savedArt = page.locator(
+      '[data-setting="designer-tool-art-library-sample-vale-0"]',
+    );
+    await savedArt.locator("img").evaluate((img) => img.decode());
+    await press(savedArt);
+    const useArt = page
+      .locator("#card-actions button")
+      .filter({ hasText: "Use avatar" });
+    await press(useArt);
+    await press(useArt);
+    await savedArt.waitFor({ state: "detached" });
+    await page.reload();
+    const retained = await page.evaluate(async (key) => {
+      const { openAuthoringStore } = await import(
+        "/card-game/authoring-local-store.mjs"
+      );
+      const { listGeneratedArt } = await import(
+        "/card-game/authoring-art-library.mjs"
+      );
+      const store = await openAuthoringStore(),
+        record = await store.read(key);
+      return (await listGeneratedArt(record, "sample-vale")).length;
+    }, libraryKey);
+    assert(
+      retained >= 2,
+      "original archive survives selecting and reloading artwork",
+    );
     assert.deepEqual(errors, []);
     console.log(
       `Avatar design ${width}: original PNG decode, immutable source, binding and Dino card passed`,

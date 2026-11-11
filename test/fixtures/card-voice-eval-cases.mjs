@@ -13,7 +13,7 @@ import {
   narrativeContractCases,
   playCard,
 } from "./card-narrative-contexts.mjs";
-import { atticOpening } from "./card-attic-opening.mjs";
+import { atticOpening, selectLamp } from "./card-attic-opening.mjs";
 import { sailTo } from "../helpers/voyage.mjs";
 
 // Recorded lines, one per speaker and turn, standing in for model replies.
@@ -151,15 +151,21 @@ function beforeReturn() {
 // cloth and the uncovered, burning Lamp) and Pip, and Dione, who wants the
 // Funeral Oil that Vale carries.
 export function assistantRoleScenes() {
-  let world = playCard(enableMotives(atticOpening()), "snuff", "lamp");
-  world = playCard(playCard(world, "move", null, "pond"), "light", "lamp");
+  let world = selectLamp(enableMotives(atticOpening()));
+  world = selectLamp(playCard(world, "move", null, "pond"), "lamp");
   world.items.cloth.holder = "vale";
-  world.items.lamp.fuel = 12;
-  world = playCard(playCard(world, "cover", "cloth", "lamp"), "take", "cloth");
+  world = selectLamp(playCard(world, "drop", "lamp"), "cloth");
   world = sailTo(playCard(world, "move", null, "greek-ship"), "greek-harbor");
   world.actors.moth.place = "greek-harbor";
+  // This voice scene specifically stages Pip contesting Vale's lit lamp.
+  world.items.lamp.holder = "vale";
+  world = selectLamp(world, "lamp");
+  world.actors.moth.want = { kind: "item", target: "lamp", lit: true, since: world.turn, refusals: 2 };
   const harbor = (kind, target, i) => step(world, kind, target, i).context;
-  const road = playCard(world, "move", null, "greek-road-thebes");
+  // The remaining voice cases concern their own speakers, not Pip's lamp pursuit.
+  const onward = selectLamp(world);
+  Object.assign(onward.actors.moth, { want: null, content: true, metTurn: onward.turn });
+  const road = playCard(onward, "move", null, "greek-road-thebes");
   const bakery = playCard(road, "move", null, "greek-courtyard");
   bakery.items["greek-oil-flask"].holder = "vale";
   bakery.actors["greek-baker"].want = {
@@ -262,10 +268,10 @@ export function perceptionScenes() {
 // asks the Gate Guard to open it. Each speaker hears the way as the rules
 // have it.
 export function gateScenes() {
-  let world = playCard(enableMotives(atticOpening()), "snuff", "lamp");
-  world = playCard(playCard(world, "move", null, "pond"), "light", "lamp");
+  let world = selectLamp(enableMotives(atticOpening()));
+  world = selectLamp(playCard(world, "move", null, "pond"), "lamp");
   world.items.cloth.holder = "vale";
-  world = playCard(playCard(world, "cover", "cloth", "lamp"), "take", "cloth");
+  world = selectLamp(playCard(world, "drop", "lamp"), "cloth");
   world = sailTo(playCard(world, "move", null, "greek-ship"), "greek-harbor");
   const court = playCard(
     playCard(world, "move", null, "greek-road-thebes"),

@@ -37,7 +37,7 @@ import { conditionMet } from "../v2/card-game/pack-rules.mjs";
 import { stowProvisions } from "./helpers/provisions.mjs";
 import { openDoorStart } from "./helpers/open-door.mjs";
 import { sailTo } from "./helpers/voyage.mjs";
-import { openingFixture } from "./helpers/greek-opening.mjs";
+import { greekErrands } from "./helpers/greek-opening.mjs";
 import { settleGate } from "./helpers/world-life.mjs";
 import { settleGuards } from "../v2/card-game/resident-guard.mjs";
 
@@ -400,7 +400,7 @@ describe("ports reachable on foot or by a free leg home", () => {
     // Piraeus has no road yet. The cargo rule binds only a voyage with
     // riders, so Vale's wait calls the ship back and the free lane home
     // takes her and the provisions to the harbor.
-    let s = openingFixture("exposure", { water: false }).arrival;
+    let s = greekErrands({ water: false }).arrival;
     expect(s.packs["greek-drama"].flags["greek-open-door-open"]).not.toBe(true);
     s.controlledActors = ["vale"];
     s.actors.vale.place = "greek-piraeus";

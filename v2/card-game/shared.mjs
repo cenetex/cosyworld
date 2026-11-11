@@ -311,6 +311,12 @@ export async function connectSharedWorld(id) {
       try {
         return await command({ op: "play", key, action, revealed });
       } catch (error) {
+        if (error.message === "Your play is already at the table.") {
+          // Another tab (or a newer server view) already owns this turn.
+          // Read it, never resend the rejected action or claim it succeeded.
+          const current = await command();
+          return { ...current, resumedPlay: true };
+        }
         if (["TypeError", "TimeoutError", "AbortError"].includes(error.name)) {
           const message =
             "The connection paused. Check the table, then try again.";
@@ -538,6 +544,18 @@ export function sharedLiveLine(state, now, room) {
     if (elapsed < 0) return line;
   }
   return scene.lines.at(-1);
+}
+
+// Before the place is uncovered, a reader can advance only their own waking
+// scene. Use the same scope for Continue, queued choices, and line delivery.
+export function sharedReadingState(state, placeKnown) {
+  if (placeKnown) return state;
+  return {
+    ...state,
+    history: (state.history || []).filter(
+      (scene) => scene.opening && scene.actor === state.actor,
+    ),
+  };
 }
 
 export function sharedNextLine(state, room, seq) {

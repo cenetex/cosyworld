@@ -1,5 +1,5 @@
 import { installCardWorkspace } from "./settings-screen.mjs";
-import { cardTreeLayout, placeCardTree } from "./card-tree-layout.mjs";
+import { makerCardLayout, placeCardTree } from "./card-tree-layout.mjs";
 import { createAuthoringSession } from "./authoring-session.mjs";
 import { authoringAction } from "./authoring-controller.mjs";
 import { buildAuthoringTree } from "./authoring-tree.mjs";
@@ -222,10 +222,8 @@ export function installWorldDesigner({
     },
     layout(cards, state) {
       return {
-        nodes: cardTreeLayout(cards, state).nodes.filter(
-          (node) => innerWidth > 700 || node.phone,
-        ),
-        place: (screen) => placeCardTree(screen, cards, state),
+        nodes: makerCardLayout(cards, state).nodes,
+        place: (screen) => placeCardTree(screen, cards, state, makerCardLayout),
       };
     },
     onSelect(id) {

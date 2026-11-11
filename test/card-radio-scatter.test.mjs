@@ -1,3 +1,4 @@
+import { selectLamp } from "./fixtures/card-attic-opening.mjs";
 import { expect, it } from "vitest";
 import { createWorld, decodeSave, encodeSave, play, seedRun } from "../v2/card-game/world.mjs";
 import { entityActive, packDefinition, packIdOf, validatePackDefinition } from "../v2/card-game/pack-registry.mjs";
@@ -142,10 +143,12 @@ it("retrieves a naturally scattered Hoppy keepsake via Piraeus, not the retired 
   const { legalActions } = await import("../v2/card-game/world.mjs");
   const { endStandoff } = await import("./helpers/standoff.mjs");
   let s = createWorld({ seed: 1 });
+  // This journey tests the scattered keepsake and real transport route, not gift refusal.
+  s.actors.moth.trust.vale = 1;
   expect(s.items["ratiradio-red-beanie"].holder).toBe("hoppycat-halfway-tea-garden");
   const route = [
     ["take", "hoppycat-red-thread-spool"], ["take", "lamp"], ["move", "pond"],
-    ["ask", "cloth"], ["light", "lamp"], ["cover", "cloth", "lamp"], ["take", "cloth"],
+    ["ask", "cloth"], ["hold", "cloth"], ["drop", "lamp"],
     ["move", "greek-ship"], ["course", "greek-harbor"], ["wait"], ["move", "greek-harbor"],
     ["move", "greek-ship"], ["course", "greek-piraeus"], ["wait"], ["move", "greek-piraeus"],
     ["move", "greek-ship"], ["course", "hoppycat-signal-jetty"], ["wait"],
@@ -154,6 +157,7 @@ it("retrieves a naturally scattered Hoppy keepsake via Piraeus, not the retired 
   ];
   for (const [kind, id, target] of route) {
     s = endStandoff(s);
+    if (kind === "hold") { s = selectLamp(s, id); continue; }
     const action = legalActions(s).find((a) => a.kind === kind &&
       (!id || a.item === id || a.target === id) && (!target || a.target === target));
     expect(action, `${kind} ${id || ""}`).toBeDefined();

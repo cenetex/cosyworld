@@ -4,8 +4,15 @@ import { PLAYING_KEY, SAVE_BASE } from "./avatar-world.mjs";
 import { imageUrl } from "./images.mjs";
 import { count } from "./metrics.mjs";
 import { revealCard } from "./card-reveal.mjs";
+import { ghostOf, releaseGhost } from "./card-ghost.mjs";
 import { tiers } from "./level-tiers.mjs";
-import { LOGOS, logoSite, showToolbarLogo, worldLogo } from "./title-logo.mjs";
+import {
+  LOGOS,
+  logoSite,
+  showToolbarLogo,
+  transparentLogo,
+  worldLogo,
+} from "./title-logo.mjs";
 import { createTitleSong } from "./title-song.mjs";
 import { pipEntry } from "./pip-landing.mjs";
 import {
@@ -18,7 +25,8 @@ import {
 
 // The Lonely Forest title opens every new world: black, the land
 // acknowledgement (acknowledgement.json), the world's logo (title-logo.mjs)
-// with its song, a face-down card that turns to the avatar, then the table. A reload or a return to a world never replays it.
+// with its song, then the box deals covered cards into the hand. The avatar
+// reveals and bounces only after landing. Returning worlds never replay it.
 // The key holds the id of a shared world just created or joined whose title
 // is still due.
 export const INTRO_KEY = "cosyworld.title-intro";
@@ -63,6 +71,130 @@ export const WAKE_FADE = {
   skip: { songSeconds: 2, blackMs: 250, darkMs: 100, sceneMs: 800 },
   reduced: { blackMs: 0, darkMs: 300, sceneMs: 300 },
 };
+
+export const OPENING_DEAL = {
+  logoMs: 350,
+  flightMs: 1300,
+  staggerMs: 55,
+  landMs: 520,
+};
+
+// Deal the opening's real cards visually, without moving their DOM nodes or
+// changing custody. The title owns these inert copies until its fade finishes.
+export function openingDealFrames(
+  origin,
+  target,
+  index,
+  total,
+  rotation = "0deg",
+) {
+  const x = origin.left + origin.width / 2 - target.left - target.width / 2;
+  const y = origin.top + origin.height / 2 - target.top - target.height / 2;
+  const at = index - (total - 1) / 2;
+  return [
+    {
+      transform: `translate(${x}px, ${y}px) scale(${origin.width / target.width}, ${origin.height / target.height})`,
+      opacity: 1,
+    },
+    {
+      transform: `translate(${x + at * Math.min(28, origin.width / total)}px, ${y - 24}px) rotate(${at * 4}deg) scale(0.9)`,
+      opacity: 1,
+      offset: 0.3,
+    },
+    { transform: `rotate(${rotation})`, opacity: 1 },
+  ];
+}
+async function dealOpeningHand(layer, origin) {
+  const hand = document.getElementById("hand");
+  if (!hand || !origin?.width)
+    return { finished: Promise.resolve(), finish() {}, clear() {} };
+  const bounds = hand.getBoundingClientRect();
+  const cards = [...hand.querySelectorAll(":scope > .card-frame")].filter(
+    (node) => {
+      const box = node.getBoundingClientRect();
+      return (
+        box.width &&
+        box.height &&
+        box.right > bounds.left &&
+        box.left < bounds.right
+      );
+    },
+  );
+  const deals = await Promise.all(
+    cards.map(async (node, index) => {
+      const bounds = node.getBoundingClientRect();
+      const box = {
+        left: bounds.left + (bounds.width - node.offsetWidth) / 2,
+        top: bounds.top + (bounds.height - node.offsetHeight) / 2,
+        width: node.offsetWidth,
+        height: node.offsetHeight,
+      };
+      const rotation = getComputedStyle(node).rotate;
+      const copy = ghostOf(node);
+      const images = [...copy.querySelectorAll("img")];
+      for (const image of images) image.loading = "eager";
+      // Never fly an empty portrait while the copied image decodes. A failed
+      // or slow image keeps its normal table reveal instead of delaying entry.
+      const ready = await Promise.race([
+        Promise.all(
+          images.map((image) =>
+            image.decode().then(
+              () => true,
+              () => false,
+            ),
+          ),
+        ).then((results) => results.every(Boolean)),
+        wait(400).then(() => false),
+      ]);
+      if (!ready) {
+        releaseGhost(copy);
+        return null;
+      }
+      Object.assign(copy.style, {
+        position: "fixed",
+        left: `${box.left}px`,
+        top: `${box.top}px`,
+        width: `${box.width}px`,
+        height: `${box.height}px`,
+        margin: "0",
+        pointerEvents: "none",
+        rotate: "none",
+        transformOrigin: "50% 50%",
+      });
+      copy.style.setProperty("--card-height", `${box.height}px`);
+      return { copy, box, index, rotation };
+    }),
+  );
+  const motions = [];
+  for (const deal of deals.filter(Boolean)) {
+    const { copy, box, index, rotation } = deal;
+    layer.append(copy);
+    motions.push(
+      copy.animate(
+        openingDealFrames(
+          origin,
+          box,
+          index,
+          cards.length,
+          rotation === "none" ? "0deg" : rotation,
+        ),
+        {
+          duration: OPENING_DEAL.flightMs,
+          delay: index * OPENING_DEAL.staggerMs,
+          fill: "both",
+          easing: "cubic-bezier(.2,.7,.25,1)",
+        },
+      ),
+    );
+  }
+  return {
+    finished: Promise.all(
+      motions.map((motion) => motion.finished.catch(() => {})),
+    ),
+    finish: () => motions.forEach((motion) => motion.finish()),
+    clear: () => deals.forEach((deal) => releaseGhost(deal?.copy)),
+  };
+}
 
 // Only on Lonely Forest: no other site's landing, not the local CosyWorld
 // app, no table or pack link. Automated browsers need `intro=1`.
@@ -494,6 +626,7 @@ export function playTitleIntro({
   storage = globalThis.localStorage,
   song = createTitleSong({ storage }),
   cardOnly = false,
+  signal,
 } = {}) {
   try {
     storage.removeItem(INTRO_KEY);
@@ -534,7 +667,10 @@ export function playTitleIntro({
     songDone = Promise.resolve(),
     fades = WAKE_FADE.turn,
     leave,
-    hurry;
+    hurry,
+    dealOrigin = null,
+    flight = null,
+    skipFlight = false;
   const left = new Promise((resolve) => (leave = resolve));
   const hurried = new Promise((resolve) => (hurry = resolve));
   const race = (promise) => Promise.race([promise, left]);
@@ -542,13 +678,14 @@ export function playTitleIntro({
   const finish = (way = "turn") => {
     if (leaving) return;
     leaving = true;
+    if (way === "turn" && !cardOnly) dealOrigin = card.getBoundingClientRect();
     idle(false);
     words.cancel();
     voice?.stop();
     document.removeEventListener("visibilitychange", hidden);
     fades = { ...WAKE_FADE[way], ...(reduced && WAKE_FADE.reduced) };
     songDone = song.stop(fades.songSeconds);
-    wake();
+    if (!dealOrigin) wake();
     leave();
   };
   const fade = (node, duration, delay = 0) =>
@@ -595,7 +732,9 @@ export function playTitleIntro({
     const box = card.getBoundingClientRect(),
       crest = image.getBoundingClientRect(),
       origin = row.getBoundingClientRect(),
-      foot = cardOnly ? innerHeight - 16 : privacy.getBoundingClientRect().top - 8;
+      foot = cardOnly
+        ? innerHeight - 16
+        : privacy.getBoundingClientRect().top - 8;
     const w = hint.offsetWidth,
       h = hint.offsetHeight;
     const below = [box.left + (box.width - w) / 2, box.bottom + 12];
@@ -671,13 +810,18 @@ export function playTitleIntro({
     image.onerror = () => resolve(false);
     setTimeout(() => resolve(false), LOAD_LIMIT_MS);
   });
-  if (!cardOnly) image.src = imageUrl(source);
+  if (!cardOnly) image.src = imageUrl(transparentLogo(source));
   else image.hidden = true;
 
   // The face is the avatar's card from the hand, as the table drew it. The
   // revealed card holds a moment, so the player sees who wakes, then enters.
   const turn = async () => {
     if (phase !== "card" || leaving) return;
+    if (!cardOnly) {
+      count("intro.wake");
+      finish();
+      return;
+    }
     phase = layer.dataset.phase = "revealed";
     idle(false);
     count("intro.wake");
@@ -713,14 +857,15 @@ export function playTitleIntro({
     phase = layer.dataset.phase = "card";
     panel.remove();
     image.getAnimations().forEach((animation) => animation.finish());
-    if (!cardOnly) image.animate(
-      [{ transform: "none" }, { transform: "translateY(-14dvh) scale(0.8)" }],
-      {
-        duration: reduced ? 0 : 900,
-        easing: "ease",
-        fill: "both",
-      },
-    );
+    if (!cardOnly)
+      image.animate(
+        [{ transform: "none" }, { transform: "translateY(-14dvh) scale(0.8)" }],
+        {
+          duration: reduced ? 0 : 900,
+          easing: "ease",
+          fill: "both",
+        },
+      );
     layer.append(row);
     if (!cardOnly) layer.append(privacy);
     fade(row, reduced ? 250 : 600, reduced ? 0 : 300);
@@ -815,8 +960,13 @@ export function playTitleIntro({
     idle();
     if (event.key === "Escape") {
       event.preventDefault();
-      if (!leaving) count("intro.skip");
-      finish("skip");
+      if (leaving) {
+        skipFlight = true;
+        flight?.finish();
+      } else {
+        count("intro.skip");
+        finish("skip");
+      }
       return;
     }
     // Tab moves between the step's links and button; Enter and Space press
@@ -837,6 +987,25 @@ export function playTitleIntro({
     else if (phase === "ack" || phase === "title") advance();
   };
   window.addEventListener("keydown", onKey, true);
+  // Startup owns this title. A failed boot must release its keyboard, song
+  // and overlay without waking a partially initialized table.
+  const abort = () => {
+    leaving = true;
+    skipFlight = true;
+    idle(false);
+    words.cancel();
+    voice?.stop();
+    songDone = song.stop(0);
+    flight?.finish();
+    flight?.clear();
+    document.removeEventListener("visibilitychange", hidden);
+    window.removeEventListener("resize", idle);
+    window.removeEventListener("keydown", onKey, true);
+    layer.remove();
+    leave();
+  };
+  signal?.addEventListener("abort", abort, { once: true });
+  if (signal?.aborted) abort();
 
   const shown = (async () => {
     // The font is settled before the stream starts, so no letter swaps.
@@ -857,6 +1026,75 @@ export function playTitleIntro({
       next.focus({ preventScroll: true, focusVisible: false });
     }
     await left;
+    if (signal?.aborted) return;
+    if (dealOrigin) {
+      const hand = document.getElementById("hand");
+      const visibility = hand?.style.visibility ?? "";
+      if (hand) hand.style.visibility = "hidden";
+      try {
+        phase = layer.dataset.phase = "logo-out";
+        hint.hidden = true;
+        privacy.hidden = true;
+        await image
+          .animate([{ opacity: 1 }, { opacity: 0 }], {
+            duration: reduced || skipFlight ? 0 : OPENING_DEAL.logoMs,
+            fill: "forwards",
+          })
+          .finished.catch(() => {});
+        if (!reduced && !skipFlight) {
+          flight = await dealOpeningHand(layer, dealOrigin);
+          // Replace the still-visible box only when the covered cards exist.
+          row.hidden = true;
+          phase = layer.dataset.phase = "dealing";
+          layer.animate(
+            [{ backgroundColor: "#000" }, { backgroundColor: "transparent" }],
+            {
+              duration: OPENING_DEAL.flightMs,
+              fill: "forwards",
+            },
+          );
+          if (skipFlight) flight.finish();
+          await flight.finished;
+        }
+        flight?.clear();
+        if (hand) hand.style.visibility = visibility;
+        // The actual avatar is first uncovered here, in its final hand slot.
+        if (signal?.aborted) return;
+        wake();
+        phase = layer.dataset.phase = "landed";
+        layer.remove();
+        window.removeEventListener("keydown", onKey, true);
+        const avatar =
+          wakeId &&
+          document.querySelector(
+            `#hand .card[data-card="${CSS.escape(wakeId)}"]`,
+          );
+        avatar?.focus({ preventScroll: true });
+        if (avatar && !skipFlight) {
+          const motion = avatar.animate(
+            reduced
+              ? [
+                  { filter: "brightness(1)" },
+                  { filter: "brightness(1.35)" },
+                  { filter: "brightness(1)" },
+                ]
+              : [
+                  { translate: "0 0" },
+                  { translate: "0 -14px", offset: 0.4 },
+                  { translate: "0 0" },
+                ],
+            { duration: OPENING_DEAL.landMs, easing: "ease-out" },
+          );
+          await motion.finished.catch(() => {});
+        }
+      } finally {
+        flight?.clear();
+        if (hand) hand.style.visibility = visibility;
+        layer.remove();
+        window.removeEventListener("keydown", onKey, true);
+      }
+      return;
+    }
     window.removeEventListener("keydown", onKey, true);
     // To black, a breath of it, then the scene slowly comes up.
     const { blackMs, darkMs, sceneMs } = fades;
@@ -875,6 +1113,7 @@ export function playTitleIntro({
       .finished.catch(() => {});
     layer.remove();
   })();
+  shown.then(() => signal?.removeEventListener("abort", abort));
   const hold = shown.then(() => songDone);
   musicHold = hold;
   hold.then(() => {

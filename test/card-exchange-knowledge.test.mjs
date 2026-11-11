@@ -61,6 +61,7 @@ it("prices a visible offer through the same rules that commit its trade", () => 
   let world = encounter();
   world.actors.keeper.want = null;
   world.items.bell.holder = "vale";
+  world.actors.vale.heldItem = "bell";
   world.items.cloth.holder = "vale";
   world.actors.vale.heldItem = "bell";
   expect(knowledge(world, "keeper")).toContain(
@@ -78,6 +79,7 @@ it("does not infer a better offer from the player's private inventory", () => {
   let world = encounter();
   world.actors.keeper.want = null;
   world.items.bell.holder = "vale";
+  world.actors.vale.heldItem = "bell";
   world.items.cloth.holder = "vale";
   world.actors.vale.heldItem = "cloth";
   expect(knowledge(world, "keeper")).toContain(
@@ -91,6 +93,7 @@ it("does not infer a better offer from the player's private inventory", () => {
 it("keeps a wanted item even when favour and an otherwise good payment exist", () => {
   let world = encounter();
   world.items.bell.holder = "vale";
+  world.actors.vale.heldItem = "bell";
   world.actors.keeper.trust.vale = 1;
   world.actors.keeper.want = {kind: "item", target: "oil", since: 0, refusals: 0};
   expect(knowledge(world, "keeper")).toEqual(expect.arrayContaining([
@@ -105,6 +108,7 @@ it("recomputes the price after real grievances instead of retaining an earlier o
   let world = encounter();
   world.actors.keeper.want = null;
   world.items.bell.holder = "vale";
+  world.actors.vale.heldItem = "bell";
   expect(knowledge(world, "keeper")).toContain(
     "I would accept Vale's Bell in trade for my Oil flask now.");
   world = act(act(world, {kind: "ring", item: "bell"}), {kind: "ring", item: "bell"});
@@ -118,6 +122,7 @@ it("does not offer a trade whose wrapped payment would exceed carrying capacity"
   const world = encounter();
   world.actors.keeper.want = null;
   world.items.bell.holder = "vale";
+  world.actors.vale.heldItem = "bell";
   world.items.cloth.holder = "bell";
   world.items.lamp.holder = "keeper";
   world.items["greek-household-token"].holder = "keeper";
@@ -131,6 +136,7 @@ it("leaves human choices undecided and does not inspect a sleeping partner's han
   const world = encounter();
   world.actors.keeper.want = null;
   world.items.bell.holder = "vale";
+  world.actors.vale.heldItem = "bell";
   expect(knowledge(world, "vale")).toEqual([]);
   world.actors.vale.sleeping = {until: world.turn + 2};
   expect(knowledge(world, "keeper")).toEqual([]);
@@ -141,4 +147,17 @@ it("leaves human choices undecided and does not inspect a sleeping partner's han
   expect(knowledge(world, "mara")).toEqual([]);
   seatActors(world, ["vale", "mara"], ["vale"]);
   expect(knowledge(world, "mara")).toEqual([]);
+});
+
+it("Dione's wheat offer during Talk is conditional and does not transfer the sack", () => {
+  let world = encounter("greek-baker");
+  world.items["greek-wheat"].holder = "greek-baker";
+  world.actors["greek-baker"].want = null;
+  world.actors["greek-baker"].trust.vale = 1;
+  world = act(world, {kind: "talk", target: "greek-baker"});
+  const context = narrativeContext(world);
+  expect(context.outcome.card.kind).toBe("talk");
+  expect(world.items["greek-wheat"].holder).toBe("greek-baker");
+  expect(knowledge(world, "greek-baker")).toContain(
+    "If Vale asked me for Sack of Wheat, I would agree to give it.");
 });

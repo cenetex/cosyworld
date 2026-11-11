@@ -10,9 +10,10 @@ import { mkdir } from "node:fs/promises";
 import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
 import { encodeSave } from "../card-game/world.mjs";
-import { openingFixture } from "../../test/helpers/greek-opening.mjs";
+import { greekErrands } from "../../test/helpers/greek-opening.mjs";
 import { profiles } from "../card-game/memory.mjs";
 import {
+  clearSelection,
   readyActionButton,
   revealCard,
   selectCard,
@@ -27,7 +28,7 @@ const output = new URL(
   import.meta.url,
 );
 await mkdir(output, { recursive: true });
-const world = structuredClone(openingFixture("burial").decree);
+const world = structuredClone(greekErrands().decree);
 world.actors.vale.place = "greek-gate";
 world.crossings["pond-greek-harbor"].discovered = true;
 for (const id of ["lamp", "cloth"]) world.items[id].holder = "pond";
@@ -144,6 +145,8 @@ try {
           FIELD,
         );
         assert.equal(await attr("data-locked"), "false");
+        assert.equal(await field.locator("..").getAttribute("data-holder"), null);
+        assert.ok(await field.evaluate((el) => el.classList.contains("location")));
         assert.match(await field.locator(".name").textContent(), /Battle/u);
         assert.ok(!(await field.locator(".card-back").isVisible()));
       };
@@ -154,7 +157,6 @@ try {
       await boxed();
       await selectCard(page, FIELD);
       assert.doesNotMatch(await page.locator(".action-beat-text").textContent(), /Creon|Writ/u);
-      await page.keyboard.press("Escape");
       await shot("01-locked-box");
       const lidState = (card) => card.evaluate((el) => ({
         src: el.querySelector(".card-back").src,
@@ -165,6 +167,7 @@ try {
         width: getComputedStyle(el).width,
         height: getComputedStyle(el).height,
       }));
+      assert.ok(await field.isVisible(), "measure the locked box before folding its stack");
       const closedLid = await lidState(field);
       await page.keyboard.press("Escape");
       await selectCard(page, "vale");
@@ -179,7 +182,7 @@ try {
       assert.notEqual(plainLid.src, closedLid.src);
       assert.notEqual(plainLid.border, closedLid.border);
       assert.equal(plainLid.name, "");
-      assert.equal(plainLid.label, "Face-down card. Tap to reveal.");
+      assert.equal(plainLid.label, "Closed box. Select to inspect.");
       assert.doesNotMatch(await page.locator('[data-card="vale"] .sr-only').textContent(), /Creon|Writ/u);
       assert.equal(plainLid.width, closedLid.width);
       assert.equal(plainLid.height, closedLid.height);
@@ -221,6 +224,8 @@ try {
           ),
         };
       };
+      // Escape preserves the held writ; inspect the box alone first.
+      await clearSelection(page);
       const beforeBox = await questState();
       // Selecting the box keeps its contents concealed. Talk gives the guard's quest.
       await selectCard(page, FIELD);
@@ -236,7 +241,17 @@ try {
       assert.match(await page.locator("#play-readout").textContent(), /Give Creon's Writ to The Gate Guard/u);
       assert.doesNotMatch(await page.locator("#play-readout").textContent(), /Battlefield/u);
       assert.deepEqual(await questState(), beforeBox, "box preview adds no quest or outcome");
-      await page.keyboard.press("Escape");
+      await clearSelection(page);
+      await selectCard(page, "greek-creon-writ");
+      const beforePair = await questState();
+      await selectCard(page, FIELD);
+      assert.equal((await state()).actors.vale.heldItem, "greek-creon-writ");
+      assert.equal(await writ.getAttribute("aria-pressed"), "true");
+      assert.equal(await field.getAttribute("aria-pressed"), "true");
+      assert.equal(await lock.isDisabled(), true);
+      assert.equal(await page.locator("#card-actions [data-open-box]").count(), 0);
+      assert.deepEqual(await questState(), beforePair, "a held partner cannot open a locked box");
+      await clearSelection(page);
       await selectCard(page, "greek-guard");
       if (await page.locator('#card-actions [data-action="meet"]').count()) {
         await readyActionButton(page, "meet").click();

@@ -1,3 +1,4 @@
+import { selectLamp } from "./fixtures/card-attic-opening.mjs";
 import { describe, it, expect } from "vitest";
 import {
   createWorld,
@@ -32,15 +33,16 @@ const ask = (world, op, actor = "vale", extra = {}) =>
 describe("the full world shared by human avatars", () => {
   it("matches selected item cards and offers no quest plays", () => {
     let world = dispatchShared({ op: "create" }).world;
-    for (const [kind, target] of [
-      ["light", null],
-      ["move", "pond"],
-    ]) {
-      const action = ask(world, "view").actions.find(
-        (a) => a.kind === kind && (!target || a.target === target),
-      );
-      world = ask(world, "play", "vale", { action }).world;
-    }
+    world = ask(world, "hold", "vale", {
+      choice: { item: null, revision: world.revision },
+    }).world;
+    const action = ask(world, "view").actions.find(
+      (a) => a.kind === "move" && a.target === "pond",
+    );
+    expect(action).toBeDefined();
+    const moved = ask(world, "play", "vale", { action });
+    expect(moved.ok).toBe(true);
+    world = moved.world;
     world.items.cloth.holder = "vale";
     const actions = ask(world, "view").actions;
     for (const kind of ["pursue", "share-quest", "join-quest", "drop-quest"])
@@ -119,18 +121,13 @@ describe("the full world shared by human avatars", () => {
     expect(result.world.log).toEqual(old.log);
     const { boardyai: boardy, ...others } = result.world.actors;
     const { boardyai: oldBoardy, ...oldOthers } = old.actors;
-    expect(others).toEqual({
-      ...oldOthers,
-      mara: { ...oldOthers.mara, heldItem: "mask" },
-    });
+    // An explicit empty hand stays empty, even when it owns a home item.
+    expect(others).toEqual(oldOthers);
     expect(boardy).toEqual(oldBoardy);
   });
   it("imports the exact opening, fuel, wants, memory and life state", () => {
     let world = enableMotives(createWorld({ opening: true }));
-    world = play(
-      world,
-      legalActions(world).find((a) => a.kind === "snuff"),
-    ).state;
+    world = selectLamp(world);
     world = play(
       world,
       legalActions(world).find((a) => a.kind === "move" && a.target === "pond"),
@@ -251,6 +248,7 @@ describe("the full world shared by human avatars", () => {
     const world = shared();
     world.actors.vale.place = "pond";
     world.items.lamp.holder = "vale";
+    world.actors.vale.heldItem = "lamp";
     world.items.lamp.lit = true;
     world.items.bell.holder = "vale";
     world.items.bell.ringing = 3;
@@ -368,7 +366,9 @@ describe("the full world shared by human avatars", () => {
       legacy,
       legacyScenes: [scene],
     });
-    expect(result.world.items.lamp.lit).toBe(true);
+    // The old usage counter stays historical; only a selected lamp burns.
+    expect(result.world.items.lamp.lit).toBe(false);
+    expect(result.world.actors.vale.heldItem).not.toBe("lamp");
     expect(result.world.items.lamp.fuel).toBeGreaterThan(0);
     expect(result.world.sharedMigration.inventoryAllowances).toEqual({
       vale: 8,

@@ -261,12 +261,18 @@ fn agreed_household_journey_replays_after_released_history_with_both_care_choice
                 assert_eq!(world.game[key], expected[key]);
             }
             for field in ["items", "crossings"] {
-                for (key, value) in super::saved_items::upgraded_field(&old.game, field)
+                for (key, value) in super::saved_items::current_field(&old.game, field)
                     .as_object()
                     .unwrap()
                 {
                     if !super::full_tests::moved_door(key) {
-                        assert_eq!(&world.game[field][key], value);
+                        let mut expected = value.clone();
+                        if key == "pond-greek-harbor" {
+                            // The grounded-lamp gate keeps discovery, not signal phases.
+                            expected.as_object_mut().unwrap().remove("phase");
+                            expected.as_object_mut().unwrap().remove("until");
+                        }
+                        assert_eq!(world.game[field][key], expected);
                     }
                 }
             }

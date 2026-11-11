@@ -150,12 +150,63 @@ export function createVoiceClips({
   return clip;
 }
 
+// Reveal keys include words; listening history only needs the saved occurrence.
+export const voiceLineIdentity = (line) =>
+  JSON.stringify([line.seq, line.entityId || line.actorId || line.locationId]);
+
+// Listening history belongs to presentation, never to the shared rules journal.
+// Read storage each time so open tabs see one another's completed writes.
+// This is not a cross-tab playback lock; simultaneous starts may still overlap.
+export function createVoiceHistory(storage) {
+  const memory = new Map(),
+    unsaved = new Map();
+  function entries(scope) {
+    let keys = memory.get(scope) || new Set();
+    try {
+      const saved = JSON.parse(
+        storage?.getItem(`cosyworld.voice-heard:${scope}`),
+      );
+      if (Array.isArray(saved))
+        keys = new Set(
+          saved.filter((key) => typeof key === "string").slice(-2048),
+        );
+    } catch {}
+    for (const key of unsaved.get(scope) || []) keys.add(key);
+    while (keys.size > 2048) keys.delete(keys.values().next().value);
+    memory.set(scope, keys);
+    return keys;
+  }
+  return {
+    has: (scope, key) => entries(scope).has(key),
+    add(scope, key) {
+      const keys = entries(scope);
+      keys.add(key);
+      while (keys.size > 2048) keys.delete(keys.values().next().value);
+      try {
+        storage?.setItem(
+          `cosyworld.voice-heard:${scope}`,
+          JSON.stringify([...keys]),
+        );
+        unsaved.delete(scope);
+      } catch {
+        const pending = unsaved.get(scope) || new Set();
+        pending.add(key);
+        while (pending.size > 2048)
+          pending.delete(pending.values().next().value);
+        unsaved.set(scope, pending);
+      }
+    },
+  };
+}
+
 export function createCharacterSpeech({
   client = voiceClient(),
   load = createVoiceClips({ client }),
   makeContext = () =>
     new (globalThis.AudioContext || globalThis.webkitAudioContext)(),
   changed = () => {},
+  history = createVoiceHistory(),
+  scope = () => "session",
 } = {}) {
   let context,
     source,
@@ -183,7 +234,7 @@ export function createCharacterSpeech({
     }
     if (notify) publish(enabled ? "ready" : "off");
   }
-  async function run() {
+  async function run({ retry = false } = {}) {
     if (
       !enabled ||
       paused ||
@@ -195,6 +246,7 @@ export function createCharacterSpeech({
       return;
     const line = current;
     line.attempted = true;
+    if (!retry && history.has(line.scope, line.key)) return;
     line.busy = true;
     line.controller = new AbortController();
     const signal = AbortSignal.any([
@@ -214,6 +266,11 @@ export function createCharacterSpeech({
       }
       signal.throwIfAborted();
       if (current !== line) return;
+      if (!retry && history.has(line.scope, line.key)) {
+        line.busy = false;
+        publish("ready");
+        return;
+      }
       if (
         !Number.isFinite(buffer.duration) ||
         buffer.duration <= 0 ||
@@ -232,6 +289,7 @@ export function createCharacterSpeech({
         publish("ready");
       };
       playing.start();
+      history.add(line.scope, line.key);
       publish("playing");
     } catch (error) {
       if (current !== line || line.controller.signal.aborted) return;
@@ -264,10 +322,18 @@ export function createCharacterSpeech({
           (connected(client) || current?.busy),
       ),
     show(key, speaker, text, reference) {
-      if (current?.key === key) return;
+      if (current?.key === key && current.scope === scope()) return;
       stop(false, prefetch?.speaker === speaker && prefetch.text === text);
       current = characterVoices[speaker]
-        ? { key, speaker, text, reference, attempted: false, busy: false }
+        ? {
+            key,
+            speaker,
+            text,
+            reference,
+            scope: scope(),
+            attempted: history.has(scope(), key),
+            busy: false,
+          }
         : null;
       publish(
         !enabled ? "off" : current && !connected(client) ? "connect" : "ready",
@@ -301,20 +367,21 @@ export function createCharacterSpeech({
       enabled = value;
       if (!enabled) stop();
       else {
-        if (current) current.attempted = false;
+        if (current)
+          current.attempted = history.has(current.scope, current.key);
         void run();
       }
     },
     connectionChanged() {
       stop(false);
-      if (current) current.attempted = false;
+      if (current) current.attempted = history.has(current.scope, current.key);
       publish(connected(client) ? "ready" : "connect");
       void run();
     },
     retry() {
       stop(false);
       if (current) current.attempted = false;
-      void run();
+      void run({ retry: true });
     },
     stop,
     clear({ keepPrefetch = false } = {}) {

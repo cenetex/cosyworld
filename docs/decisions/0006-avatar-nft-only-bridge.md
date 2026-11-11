@@ -175,11 +175,11 @@ bridge is tracked by [#688](https://github.com/cenetex/cosyworld/issues/688).
 
 This ADR supersedes the item/location card, wallet-keepsake,
 portable-item, Box/bundle, gated-access, and general native-ownership direction
-in [ADR 0001](0001-cards-are-entitlements.md). It retains ADR 0001's useful
+in ADR 0001. It retains ADR 0001's useful
 boundary: external provenance and presentation never replace canonical world
 entities.
 
-[ADR 0002](0002-action-hand-is-authoritative-state.md) remains authoritative.
+ADR 0002 remains authoritative.
 Removing kept-close matching art makes its server-authored action-hand boundary
 smaller. NFT avatar ownership does not alter action legality or ranking.
 

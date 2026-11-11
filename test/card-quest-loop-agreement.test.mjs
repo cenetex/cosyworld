@@ -18,7 +18,8 @@ export function questLoopStart() {
   delete world.opening;
   world.turn = world.revision = 2;
   world.actors.vale.place = world.actors.keeper.place = "attic";
-  world.items.lamp.holder = "station";
+  world.items.lamp.holder = "vale";
+  world.actors.vale.heldItem = "bell";
   world.items.bell.holder = "vale";
   world.actors.keeper.want = {
     kind: "item",
@@ -58,6 +59,15 @@ function playLoop(server) {
     expect(done.ok, done.error).toBe(true);
     world = done.world;
   };
+  const hold = (item) => {
+    world = both({
+      op: "hold",
+      world,
+      actor: "vale",
+      ...seats,
+      choice: { item, revision: world.revision },
+    }).world;
+  };
   const woke = () =>
     world.log.findLast((e) => e.actorId === "vale" && e.woke !== undefined);
   const longRest = () => {
@@ -73,6 +83,7 @@ function playLoop(server) {
   run((a) => a.kind === "talk" && a.target === "keeper");
   const talked = structuredClone(world);
   run((a) => a.kind === "give" && a.target === "keeper" && a.item === "bell");
+  hold(null); // Keep the carried lamp dark while resting and leaving the attic.
   run((a) => a.kind === "claim");
   const halfway = structuredClone(world);
   longRest();
@@ -80,6 +91,9 @@ function playLoop(server) {
   const glimpseWake = structuredClone(woke());
   run((a) => a.kind === "move" && a.target === "pond");
   run((a) => a.kind === "claim");
+  // Three-room fuel never burns out during rest. Hold the carried lamp on
+  // the shore to open the ordinary mirror, rather than relying on dry-oil rescue.
+  hold("lamp");
   run((a) => a.kind === "move" && a.target === "attic");
   longRest();
   return {
@@ -109,7 +123,9 @@ describe("rules 99 quest loop on the server", () => {
     expect(loop.talked.actors.vale.heard).toEqual({ keeper: "item:bell" });
     // Met, it reaches halfway: the quest to sleep at a sanctuary.
     expect(loop.halfway.actors.vale).toMatchObject({ xp: 2, halfwayIssued: 2 });
-    expect(questsOf(loop.halfway, "vale").some((w) => w.step?.verb === "rest")).toBe(false);
+    expect(
+      questsOf(loop.halfway, "vale").some((w) => w.step?.verb === "rest"),
+    ).toBe(false);
     // Its long rest dreams the glimpse; the next, at full, the level quest.
     expect(loop.glimpseWake).toMatchObject({ rest: "long", dream: "glimpse" });
     const glimpse = loop.glimpsed.actors.vale.glimpse;

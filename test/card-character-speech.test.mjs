@@ -5,6 +5,8 @@ import {
   characterVoices,
   createCharacterSpeech,
   createVoiceClips,
+  createVoiceHistory,
+  voiceLineIdentity,
 } from "../v2/card-game/character-speech.mjs";
 import { publicAssets } from "../v2/card-game/public-assets.mjs";
 
@@ -30,7 +32,7 @@ function cacheStore() {
   };
   return { saved, open: async () => cache };
 }
-function fixture() {
+function fixture(options = {}) {
   const sources = [],
     events = [];
   const context = {
@@ -61,6 +63,7 @@ function fixture() {
     load,
     makeContext: () => context,
     changed: (state) => events.push(state),
+    ...options,
   });
   return { speech, context, sources, events, load, client };
 }
@@ -227,6 +230,198 @@ describe("the six card character voices", () => {
     f.sources[0].onended();
     expect(f.speech.busy).toBe(false);
     expect(f.events.at(-1).state).toBe("ready");
+  });
+  it("does not automatically replay a heard beat after clear, review, mute or reconnect", async () => {
+    const f = fixture();
+    f.speech.unlock();
+    f.speech.show("first", "vale", "Hello.");
+    await tick();
+    f.sources[0].onended();
+    f.speech.clear();
+    f.speech.show("first", "vale", "Hello.");
+    f.speech.setEnabled(false);
+    f.speech.setEnabled(true);
+    f.speech.connectionChanged();
+    f.speech.unlock();
+    await tick();
+    expect(f.sources).toHaveLength(1);
+    f.speech.retry(); // An explicit request can still replay the same line.
+    await tick();
+    expect(f.sources).toHaveLength(2);
+    f.speech.show("second", "vale", "Hello."); // Same words, new occurrence.
+    await tick();
+    expect(f.sources).toHaveLength(3);
+  });
+  it("remembers playback across reloads and separates runs and shared avatars", async () => {
+    const saved = new Map();
+    const storage = {
+      getItem: (key) => saved.get(key),
+      setItem: (key, value) => saved.set(key, value),
+    };
+    let scope = "local:save:run-one";
+    const options = () => ({
+      history: createVoiceHistory(storage),
+      scope: () => scope,
+    });
+    const first = fixture(options());
+    first.speech.unlock();
+    first.speech.show("line", "vale", "Hello.");
+    await tick();
+    const reload = fixture(options());
+    reload.speech.unlock();
+    reload.speech.show("line", "vale", "Hello.");
+    await tick();
+    expect(reload.sources).toHaveLength(0);
+    for (scope of [
+      "local:save:run-two",
+      "shared:world:mara",
+      "shared:world:ash",
+    ]) {
+      reload.speech.show("line", "vale", "Hello.");
+      await tick();
+    }
+    expect(reload.sources).toHaveLength(3);
+  });
+  it("does not consume unheard muted or interrupted loads and tolerates blocked storage", async () => {
+    const history = createVoiceHistory({
+      getItem() {
+        throw new Error("blocked");
+      },
+      setItem() {
+        throw new Error("full");
+      },
+    });
+    const f = fixture({ history });
+    f.speech.setEnabled(false);
+    f.speech.show("muted", "vale", "Hello.");
+    f.speech.unlock();
+    f.speech.setEnabled(true);
+    f.speech.unlock();
+    await tick();
+    expect(f.sources).toHaveLength(1);
+    f.speech.clear();
+    f.speech.show("muted", "vale", "Hello.");
+    await tick();
+    expect(f.sources).toHaveLength(1);
+    let release;
+    f.load.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          release = resolve;
+        }),
+    );
+    f.speech.show("waiting", "vale", "Wait.");
+    await tick();
+    f.speech.clear();
+    release(audio());
+    await tick();
+    f.speech.show("waiting", "vale", "Wait.");
+    await tick();
+    expect(f.sources).toHaveLength(2);
+  });
+  it("shares content-free history between open tabs without losing earlier writes", () => {
+    const saved = new Map();
+    const storage = {
+      getItem: (key) => saved.get(key),
+      setItem: (key, value) => saved.set(key, value),
+    };
+    const a = createVoiceHistory(storage),
+      b = createVoiceHistory(storage);
+    const line = { seq: 1, actorId: "vale", text: "Private dialogue words." };
+    const first = voiceLineIdentity(line);
+    const second = voiceLineIdentity({ ...line, seq: 2 });
+    expect(a.has("run", first)).toBe(false);
+    expect(b.has("run", first)).toBe(false);
+    a.add("run", first);
+    expect(b.has("run", first)).toBe(true);
+    b.add("run", second);
+    expect(a.has("run", second)).toBe(true);
+    const reload = createVoiceHistory(storage);
+    expect(reload.has("run", first)).toBe(true);
+    expect(reload.has("run", second)).toBe(true);
+    expect([...saved.values()].join()).not.toContain(line.text);
+    expect(first).not.toBe(second);
+  });
+  it("retains tab history when existing storage is readable but writes fail", () => {
+    const history = createVoiceHistory({
+      getItem: () => JSON.stringify(["first"]),
+      setItem() {
+        throw new Error("full");
+      },
+    });
+    history.add("run", "second");
+    expect(history.has("run", "first")).toBe(true);
+    expect(history.has("run", "second")).toBe(true);
+  });
+  it("suppresses a line heard in another tab during loading but permits explicit retry", async () => {
+    const saved = new Map();
+    const storage = {
+      getItem: (key) => saved.get(key),
+      setItem: (key, value) => saved.set(key, value),
+    };
+    const a = fixture({ history: createVoiceHistory(storage) });
+    const b = fixture({ history: createVoiceHistory(storage) });
+    let release;
+    b.load.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          release = resolve;
+        }),
+    );
+    b.speech.unlock();
+    b.speech.show("first", "vale", "Hello.");
+    await tick();
+    a.speech.unlock();
+    a.speech.show("first", "vale", "Hello.");
+    await tick();
+    release(audio());
+    await tick();
+    expect(a.sources).toHaveLength(1);
+    expect(b.sources).toHaveLength(0);
+    expect(b.speech.busy).toBe(false);
+    expect(b.events.at(-1).state).toBe("ready");
+    b.speech.retry();
+    await tick();
+    expect(b.sources).toHaveLength(1);
+  });
+  it("keeps bounded history when stored data is damaged or too old", () => {
+    const saved = new Map();
+    const storage = {
+      getItem: (key) => saved.get(key),
+      setItem: (key, value) => saved.set(key, value),
+    };
+    saved.set("cosyworld.voice-heard:run", "not JSON");
+    const history = createVoiceHistory(storage);
+    for (let i = 0; i < 2049; i++) history.add("run", `line:${i}`);
+    const reload = createVoiceHistory(storage);
+    expect(reload.has("run", "line:0")).toBe(false);
+    expect(reload.has("run", "line:1")).toBe(true);
+    expect(reload.has("run", "line:2048")).toBe(true);
+    expect(reload.has("other", "line:2048")).toBe(false);
+  });
+  it("retries interrupted loading on unmute and reconnect without consuming it", async () => {
+    for (const interrupt of ["mute", "disconnect"]) {
+      const f = fixture();
+      let release;
+      f.load.mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            release = resolve;
+          }),
+      );
+      f.speech.unlock();
+      f.speech.show("line", "vale", "Hello.");
+      await tick();
+      if (interrupt === "mute") f.speech.setEnabled(false);
+      else f.speech.connectionChanged();
+      release(audio());
+      if (interrupt === "mute") f.speech.setEnabled(true);
+      await tick();
+      expect(f.sources).toHaveLength(1);
+      f.speech.connectionChanged();
+      await tick();
+      expect(f.sources).toHaveLength(1);
+    }
   });
   it("drops late speech after skipping and stops speech immediately when muted", async () => {
     const f = fixture();

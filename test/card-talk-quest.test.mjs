@@ -139,7 +139,8 @@ describe("a quest from Talk", () => {
 
   it("keeps holding and giving the same item as separate goals", () => {
     let s = station();
-    s.items.lamp.holder = "station";
+    // Pip cannot take the lit lamp and finish its want during this Talk.
+    s.items.lamp.holder = "attic";
     s.actors.vale.want = newWant("place", "pond", 0);
     s.actors.vale.under = [newWant("item", "lamp", 0)];
     s = talk(s, "moth");

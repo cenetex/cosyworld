@@ -123,7 +123,7 @@ describe("deploy workflow", () => {
     expect(dockerfile).toContain('ENTRYPOINT ["/app/entrypoint.sh"]');
   });
 
-  it("ships the checksummed card ranker in conservative production shadow mode", () => {
+  it("ships the checksummed card ranker file", () => {
     expect(cardPolicyModel.subarray(0, 8).toString("utf8")).toBe("CWRANK2\n");
     expect(cardPolicyModel).toHaveLength(516);
     expect(createHash("sha256").update(cardPolicyModel).digest("hex")).toBe(
@@ -133,13 +133,6 @@ describe("deploy workflow", () => {
     expect(dockerfile).toContain(
       "COPY models/card-policy /app/models/card-policy",
     );
-    for (const config of [primaryFlyConfig, lonelyForestFlyConfig]) {
-      expect(config).toContain('COSYWORLD_CARD_POLICY_MODE = "shadow"');
-      expect(config).toContain(
-        'COSYWORLD_CARD_POLICY_MODEL_PATH = "/app/models/card-policy/incumbent.cwrank"',
-      );
-      expect(config).toContain('COSYWORLD_CARD_POLICY_TOP_K = "3"');
-    }
   });
 
   it("keeps the Docker entrypoint COPY, chmod, and ENTRYPOINT destinations aligned", () => {
@@ -166,7 +159,6 @@ describe("deploy workflow", () => {
     const rustLint = job("production-rust-lint", "production-gate");
     const gate = job("production-gate", "primary-fly");
     expect(nodeGate).toContain("npm run v2:worldpack");
-    expect(nodeGate).toContain("npm run v2:kernel");
     expect(nodeGate).toContain("npm run v2:syntax");
     expect(nodeGate).toContain(
       "npx vitest run test/infrastructure/deploy-workflow.test.mjs",
@@ -208,9 +200,9 @@ describe("deploy workflow", () => {
     expect(job("lonelyforest-fly", "deploy-outcome")).toContain(
       "needs: [deployment-impact, release-owner, production-gate, lonelyforest-image, lonelyforest-backup]",
     );
-    expect(
-      workflow.indexOf("Guard primary worldpack bundle compatibility"),
-    ).toBeLessThan(workflow.indexOf("Create rollback backup"));
+    // The card-only server has no classic worldpack bundle to compare (#1652).
+    expect(workflow).not.toContain("check-deploy-worldpack");
+    expect(workflow).not.toContain("recovery_capture");
   });
 
   it("deploys the .dev train from one job without the release path", () => {
@@ -423,8 +415,7 @@ describe("deploy workflow", () => {
   it("runs the long CI smoke suites in parallel from one shared binary", () => {
     const runtime = ciJob("runtime", "smoke-binary");
     const binary = ciJob("smoke-binary", "rust-quality");
-    const composition = ciJob("composition", "browser");
-    const browser = ciJob("browser", "publication");
+    const browser = ciJob("browser", "build");
     const build = ciJob("build");
 
     // The binary builds beside the Rust tests, so the smoke suites need not
@@ -434,9 +425,6 @@ describe("deploy workflow", () => {
     expect(runtime).toContain("check-rust.sh test");
     expect(runtime).not.toContain("v2:composition:smoke");
     expect(runtime).not.toContain("v2:browser:check");
-    expect(composition).toContain("needs: smoke-binary");
-    expect(composition).toContain("suite: [standalone, core-ruby]");
-    expect(composition).toContain("actions/download-artifact@v8");
     expect(browser).toContain("needs: smoke-binary");
     // The browser matrix comes from the measured shard plan.
     expect(binary).toContain("node scripts/plan-browser-shards.mjs");
@@ -626,7 +614,7 @@ describe("deploy workflow", () => {
     );
   });
 
-  it("runs Lonely Forest as one process behind the same bundle guard as primary", () => {
+  it("runs Lonely Forest as one process like primary", () => {
     expect(lonelyForestFlyConfig).toContain(
       'app = "/app/cosyworld-orchestrator"',
     );
@@ -637,9 +625,6 @@ describe("deploy workflow", () => {
       'COSYWORLD_V2_EVENT_DB_PATH = "/data/cosyworld-v2-events.sqlite"',
     );
     expect(lonelyForestFlyConfig).not.toContain("MULTITENANT");
-    expect(job("lonelyforest-backup", "lonelyforest-fly")).toContain(
-      "node v2/scripts/check-deploy-worldpack.mjs https://lonelyforest.com",
-    );
     expect(workflow).not.toContain("lonelyforest_fresh_empty_tenant");
     expect(dockerfile).not.toContain("nginx");
     expect(
@@ -1167,26 +1152,28 @@ describe("deploy workflow", () => {
     );
   });
 
-  it("keeps the image workshop configured on both Fly tenants", () => {
-    const model =
-      'COSYWORLD_REPLICATE_AVATAR_MODEL = "black-forest-labs/flux-dev-lora"';
-    const mirquoLora = 'COSYWORLD_REPLICATE_AVATAR_LORA = "immanencer/mirquo"';
-    const loraInput = 'COSYWORLD_REPLICATE_AVATAR_LORA_INPUT = "lora_weights"';
-    const loraScaleInput =
-      'COSYWORLD_REPLICATE_AVATAR_LORA_SCALE_INPUT = "lora_scale"';
-    const trigger =
-      'COSYWORLD_REPLICATE_AVATAR_PROMPT_PREFIX = "MRQ, cozy storybook trading-card portrait"';
-    const visionModel = 'COSYWORLD_AI_VISION_MODEL = "openai/gpt-5-image-mini"';
-    const visionReasoning = 'COSYWORLD_AI_VISION_REASONING_EFFORT = "low"';
-
-    for (const config of [primaryFlyConfig, lonelyForestFlyConfig]) {
-      expect(config).toContain(model);
-      expect(config).toContain(mirquoLora);
-      expect(config).toContain(loraInput);
-      expect(config).toContain(loraScaleInput);
-      expect(config).toContain(trigger);
-      expect(config).toContain(visionModel);
-      expect(config).toContain(visionReasoning);
+  it("sets no environment the card-only server no longer reads", () => {
+    const retired = [
+      "COSYWORLD_PRIMARY_GAME",
+      "COSYWORLD_CARD_POLICY_",
+      "COSYWORLD_RENDEZVOUS_PARTY_",
+      "COSYWORLD_STORY_METRICS_RETENTION_DAYS",
+      "COSYWORLD_REPLICATE_AVATAR_",
+      "COSYWORLD_AI_VISION_",
+      "COSYWORLD_AI_VOICE_",
+      "COSYWORLD_AI_DECISION_MODEL",
+      "COSYWORLD_MEDIA_DAILY_LIMIT_MICROUSD",
+      "COSYWORLD_COMMUNITY_IMAGE_ESTIMATED_COST_MICROUSD",
+      "COSYWORLD_CANONICAL_",
+      "COSYWORLD_GENERATION_",
+      "COSYWORLD_CONTENT_ROOT",
+    ];
+    for (const config of [
+      primaryFlyConfig,
+      lonelyForestFlyConfig,
+      dockerfile,
+    ]) {
+      for (const name of retired) expect(config).not.toContain(name);
     }
   });
 

@@ -37,22 +37,23 @@ function syncAttributes(node, like) {
 }
 
 // Brings `node` to look like `like`, which has its shape, keeping its nodes.
-function morph(node, like) {
+function morph(node, like, syncImage) {
   if (node.nodeType !== Node.ELEMENT_NODE) {
     if (node.data !== like.data) node.data = like.data;
     return node;
   }
   syncAttributes(node, like);
-  node.childNodes.forEach((child, i) => morph(child, like.childNodes[i]));
+  if (node.nodeName === "IMG") syncImage?.(node, like);
+  node.childNodes.forEach((child, i) => morph(child, like.childNodes[i], syncImage));
   return node;
 }
 
 // Brings a kept frame to its new look, keeping its card button's node.
-export function morphFrame(was, frame) {
-  if (sameShape(was, frame)) return morph(was, frame);
+export function morphFrame(was, frame, syncImage) {
+  if (sameShape(was, frame)) return morph(was, frame, syncImage);
   syncAttributes(was, frame);
   const card = cardIn(frame),
-    kept = morph(cardIn(was), card);
+    kept = morph(cardIn(was), card, syncImage);
   was.replaceChildren(
     ...[...frame.childNodes].map((part) => (part === card ? kept : part)),
   );

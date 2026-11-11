@@ -583,7 +583,7 @@ fn a_character_speaks_as_itself_in_the_assistant_turn() {
     assert!(view.ends_with(
         "I smell bread cooling under a cloth; one place at the table is empty. I ask Vale for the Funeral Oil. \
          Vale keeps it for now. Vale, the Lamplighter is right here; I'm talking with them."
-    ));
+    ), "{view}");
     assert!(view.contains("I'm carrying the Sack of Wheat."));
     // A fact she witnessed is not told again as the fact she may share.
     assert_eq!(view.matches("Ships for Piraeus Quays leave").count(), 1);
@@ -658,12 +658,13 @@ fn a_line_ends_on_what_the_speaker_perceives() {
         let c = heard.as_ref().unwrap_or(context);
         prose(&messages(c, entity(c, id), Part::Line).assistant)
     };
-    // L1: Myrto sees the threat; Vale's stored lamp stays private.
-    let myrto = view("harbor wait with Myrto", "greek-shipmaster");
+    // L1: talking selects Myrto as a speaker; she hears Pip ask.
+    let myrto = view("harbor talk with Myrto", "greek-shipmaster");
     assert!(myrto.ends_with(
-        "Worn stone steps rise under my sandals; water slaps the landing. Pip threatens Vale over the Lamp. \
+        "Worn stone steps rise under my sandals; water slaps the landing. Vale's Lamp is burning and uncovered. \
+         Pip asks Vale for the Lamp. Vale keeps it for now. \
          Vale, the Lamplighter is right here; I'm talking with them."
-    ));
+    ), "{myrto}");
     // L4: Antigone at the gate, no "Vale and Antigone are both at…".
     let antigone = view("Antigone at the gate", "greek-antigone");
     assert!(antigone.ends_with(

@@ -8,7 +8,7 @@ import {
   packDefinitions,
   packPlaces,
 } from "../v2/card-game/pack-registry.mjs";
-import { openingFixture } from "./helpers/greek-opening.mjs";
+import { greekErrands } from "./helpers/greek-opening.mjs";
 
 // The Theban City Gate shows its closed painting while the Gate Guard guards
 // it, and its open painting when both paper fixtures allow the road.
@@ -20,7 +20,7 @@ const night = (s) => ({ ...s, turn: DAYLIGHT_TURNS });
 
 describe("the Theban City Gate backdrop", () => {
   it("follows the live road as the guard's papers change hands", () => {
-    const s = openingFixture("burial").decree;
+    const s = greekErrands().decree;
     expect(s.items["greek-decree"].holder).toBe("greek-guard");
     s.turn = 0;
     expect(gate(s)).toBe(art("city-gate-closed-day"));
@@ -79,7 +79,7 @@ describe("the Theban City Gate backdrop", () => {
           requires: [{ kind: "daylight", phase: "night" }],
         },
       ];
-      const s = openingFixture("burial").decree;
+      const s = greekErrands().decree;
       expect(backdrop("willows-camp", night(s))).toBe(
         "./assets/willows/camp-lit-night-uncanny.webp",
       );
@@ -105,7 +105,7 @@ describe("the Theban City Gate backdrop", () => {
           ],
         },
       ];
-      const s = night(openingFixture("burial").decree);
+      const s = night(greekErrands().decree);
       expect(locationDaylight(s, "willows-thicket")).toMatchObject({
         phase: "night",
         description: "It is night at Willow Thicket.",

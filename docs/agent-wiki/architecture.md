@@ -47,6 +47,6 @@ Neither a browser claim nor a character's generated words can grant an item.
 - Media/public-asset outputs: served file inventory and hashes; Cargo builds its
   Rust asset embedding from the source list.
 
-Follow imports before editing. The current game is `v2/card-game/`; classic packs,
-older native-C world rules and [archived docs](../archive/classic/index.md) remain
-for compatibility/history, not as an alternative place to implement new play.
+Follow imports before editing. The current game is `v2/card-game/`. The classic
+world and its native C rules are removed from the server, so new play is built
+only in the card game.

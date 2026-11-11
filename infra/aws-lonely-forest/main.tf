@@ -646,12 +646,6 @@ locals {
     { name = "COSYWORLD_WEBAUTHN_RP_ID", value = var.app_domain },
     { name = "COSYWORLD_WEBAUTHN_ORIGIN", value = "https://${var.app_domain}" },
     { name = "COSYWORLD_WEBAUTHN_EXTRA_ORIGINS", value = var.enable_www_records ? "https://www.${var.app_domain}" : "" },
-    { name = "COSYWORLD_RENDEZVOUS_PARTY_MAX_GUESTS", value = tostring(var.rendezvous_party_max_guests) },
-    { name = "COSYWORLD_RENDEZVOUS_PARTY_MAX_ACTIVE_PER_GUEST", value = tostring(var.rendezvous_party_max_active_per_guest) },
-    { name = "COSYWORLD_RENDEZVOUS_PARTY_TTL_SECS", value = tostring(var.rendezvous_party_ttl_seconds) },
-    { name = "COSYWORLD_STORY_METRICS_RETENTION_DAYS", value = tostring(var.story_metrics_retention_days) },
-    { name = "COSYWORLD_GENERATION_DEFAULT_MODE", value = var.generation_default_mode },
-    { name = "COSYWORLD_GENERATION_FEATURE_MODES_JSON", value = jsonencode(var.generation_feature_modes) },
     { name = "RUST_LOG", value = "cosyworld_orchestrator=info,tower_http=warn" },
     ],
     var.openrouter_api_key_secret_arn != "" ? [

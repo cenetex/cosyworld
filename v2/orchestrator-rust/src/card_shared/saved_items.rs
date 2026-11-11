@@ -63,10 +63,56 @@ pub(super) fn upgraded(items: &Value) -> Value {
     items
 }
 
-/// The same expectation for one saved field of a game; only `items` changes.
-pub(super) fn upgraded_field(game: &Value, field: &str) -> Value {
+/// Current room-fuel migration, derived from the saved tank and custody.
+/// Call only for upgrades to current rules, not between released engines.
+pub(super) fn current_items(game: &Value) -> Value {
+    let mut items = upgraded(&game["items"]);
+    let mut owner = items["lamp"]["holder"].as_str().unwrap();
+    while let Some(parent) = items.get(owner) {
+        owner = parent["holder"].as_str().unwrap();
+    }
+    let carrier = game["actors"].get(owner);
+    let place = carrier
+        .map_or(owner, |actor| actor["place"].as_str().unwrap())
+        .to_owned();
+    let held = carrier.is_some_and(|actor| match actor.get("heldItem") {
+        Some(Value::Null) => false,
+        Some(Value::String(id)) if items[id]["holder"] == owner => id == "lamp",
+        _ => {
+            items
+                .as_object()
+                .unwrap()
+                .iter()
+                .filter(|(_, item)| item["holder"] == owner)
+                .map(|(id, _)| id.as_str())
+                .min()
+                == Some("lamp")
+        }
+    });
+    let burning = carrier.is_none() || held;
+    let lamp = &mut items["lamp"];
+    if lamp.get("fuelRooms").is_none() {
+        let fuel = lamp["fuel"].as_u64().unwrap();
+        assert!(fuel <= 12);
+        lamp["fuelRooms"] = json!(fuel.div_ceil(4));
+        lamp["fuelPlace"] = json!(place);
+        lamp["fuelVisit"] = json!(true);
+    }
+    let counted = lamp["fuelPlace"] == place && lamp["fuelVisit"] == true;
+    let rooms = lamp["fuelRooms"].as_u64().unwrap();
+    let spent = burning && !counted && rooms > 0;
+    let rooms = rooms - u64::from(spent);
+    lamp["fuelRooms"] = json!(rooms);
+    lamp["fuelPlace"] = json!(place);
+    lamp["fuelVisit"] = json!(counted || spent);
+    lamp["fuel"] = json!(rooms * 4);
+    lamp["lit"] = json!(burning && rooms > 0);
+    items
+}
+
+pub(super) fn current_field(game: &Value, field: &str) -> Value {
     if field == "items" {
-        upgraded(&game[field])
+        current_items(game)
     } else {
         game[field].clone()
     }

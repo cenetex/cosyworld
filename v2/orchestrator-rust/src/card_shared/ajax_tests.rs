@@ -403,7 +403,9 @@ fn ajax_upgrade_brings_an_uninvited_nineteen_camp_visitor_home_and_replays_it() 
         }
         // BoardyAI revision 2 carries his card from the pond to the station door.
         let mut saved = old.game.clone();
-        saved["items"] = super::saved_items::upgraded(&saved["items"]);
+        // The uninvited visitor and their lamp return together to Aulis.
+        saved["actors"]["vale"]["place"] = json!("greek-aulis");
+        saved["items"] = super::saved_items::current_items(&saved);
         super::saved_items::willows_kit_moved(&mut saved["items"]);
         saved["items"]["boardyai-calling-card"]["holder"] = json!("station");
         super::sea_steps::assert_upgraded_ship(&current.game, &old.game);

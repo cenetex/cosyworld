@@ -130,3 +130,8 @@ export function showToolbarLogo(chosen, root = document) {
   image.src = imageUrl(logo.src, "card");
   mark.dataset.logo = chosen.src;
 }
+
+// Keep saved catalog identities while rendering the full-resolution alpha master.
+export function transparentLogo(source) {
+  return LOGOS.find((logo) => logo.src === source)?.transparent || source;
+}

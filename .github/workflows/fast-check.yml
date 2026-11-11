@@ -257,8 +257,8 @@ jobs:
             *@*) COSYWORLD_SMOKE_WIDTHS="${SMOKE#*@}" node "v2/scripts/${SMOKE%@*}.mjs" ;;
             *) node "v2/scripts/$SMOKE.mjs" ;;
           esac
-      - name: Upload browser images
-        if: failure() || matrix.smoke == 'smoke-card-ratiradio' || matrix.smoke == 'smoke-card-lock-quests'
+      - name: Upload browser evidence
+        if: failure() || matrix.smoke == 'smoke-card-title-intro' || matrix.smoke == 'smoke-card-ratiradio' || matrix.smoke == 'smoke-card-lock-quests' || matrix.smoke == 'smoke-card-resident-sleep' || matrix.smoke == 'smoke-card-generation-profile'
         uses: actions/upload-artifact@v7
         with:
           name: fast-check-${{ matrix.smoke }}

@@ -93,7 +93,7 @@ describe("the household save upgrade", () => {
       );
       expect(after.items).toEqual({
         ...initial.items,
-        ...upgradedItems(before.items),
+        ...upgradedItems(before.items, after),
         ...branchItems,
         ...willowsItems,
         ...ajaxItems,

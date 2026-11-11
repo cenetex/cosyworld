@@ -4,6 +4,7 @@
 // another folds it, and the chosen card's beat borrows the context button.
 // The controls behind the cards are the buttons in #menu-dialog, which no
 // longer opens.
+import { transparentLogo } from "./title-logo.mjs";
 import { imageUrl } from "./images.mjs";
 import { hostedVoices } from "./hosted-voices.mjs";
 import { localRuntime } from "./local-service.mjs";
@@ -45,7 +46,7 @@ function showVeil() {
   if (!logo) return veil.replaceChildren(scene);
   const image = veil.querySelector(".settings-logo") || new Image();
   Object.assign(image, { alt: "", className: "settings-logo" });
-  image.src = imageUrl(logo);
+  image.src = imageUrl(transparentLogo(logo));
   veil.replaceChildren(image, scene);
 }
 // Shared play's passkey buttons sit in #menu-dialog by their names.
@@ -157,7 +158,8 @@ export function installCardWorkspace({
     reduced = matchMedia("(prefers-reduced-motion: reduce)");
   const expanded = new Set(),
     frames = new Map();
-  let lead = 0;
+  let lead = 0,
+    generation = 0;
   let chosen = null,
     fanned = null,
     cards = [],
@@ -168,6 +170,8 @@ export function installCardWorkspace({
     document.dispatchEvent(new Event("shared-dialog-change"));
   function close() {
     if (activeWorkspace !== workspace) return;
+    generation++;
+    problem = "";
     activeWorkspace = null;
     screen.close();
     entries.draw([]);
@@ -182,6 +186,7 @@ export function installCardWorkspace({
     onClose();
   }
   async function press(action, index) {
+    const mine = generation;
     if (action.confirm && armed !== `${chosen}:${index}`) {
       armed = `${chosen}:${index}`;
       return render();
@@ -196,9 +201,11 @@ export function installCardWorkspace({
     try {
       await run(action, { cardId });
     } catch (error) {
-      problem = error.message;
+      if (mine === generation) problem = error.message;
     }
-    workspace.refresh();
+    // Closing ends this opening's presentation ownership, not its operation.
+    // A late result must not redraw or report an error in a reopened view.
+    if (mine === generation) workspace.refresh();
   }
   // A group opens as a place does, and folds on a second tap; opening
   // another folds the first. A setting is chosen, and unchosen on a second.

@@ -1,7 +1,6 @@
 use std::{fs, path::Path};
 
 pub(crate) const GENERATED_ASSET_LIMIT_BYTES: u64 = 512 * 1024 * 1024;
-pub(crate) const GENERATED_ASSET_ADMISSION_BYTES: u64 = 64 * 1024 * 1024;
 pub(crate) const GENERATED_ASSET_LIMIT_CODE: &str = "generated_asset_storage_limit";
 const MAX_SCAN_ENTRIES: usize = 50_000;
 
@@ -42,10 +41,6 @@ impl GeneratedAssetWriteGuard {
         }
         Ok(Self { _lock: lock })
     }
-}
-
-pub(crate) fn require_generated_asset_headroom(root: &Path) -> Result<(), String> {
-    GeneratedAssetWriteGuard::acquire(root, GENERATED_ASSET_ADMISSION_BYTES).map(drop)
 }
 
 fn complete_asset_usage(root: &Path) -> Result<u64, String> {

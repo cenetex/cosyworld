@@ -1,3 +1,6 @@
+import { roomFuelFromTurns } from "../v2/card-game/lamp-room-fuel.mjs";
+import { settleLamp } from "../v2/card-game/lamp-state.mjs";
+import { itemPlace as lampPlace } from "../v2/card-game/world.mjs";
 import { collectRewards } from "./helpers/claim-rewards.mjs";
 import { describe, expect, it } from "vitest";
 import {
@@ -10,10 +13,15 @@ import {
   play,
 } from "../v2/card-game/world.mjs";
 import { enableMotives } from "../v2/card-game/motives.mjs";
-const wantPlace = (target) => ({ kind: "place", target, since: 0, refusals: 0 });
+const wantPlace = (target) => ({
+  kind: "place",
+  target,
+  since: 0,
+  refusals: 0,
+});
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import { humanAvatars, humanAvatarIds } from "../v2/card-game/human-cast.mjs";
-import { atticOpening } from "./fixtures/card-attic-opening.mjs";
+import { atticOpening, selectLamp } from "./fixtures/card-attic-opening.mjs";
 import { pondOpening } from "./fixtures/card-pond-opening.mjs";
 import { createLandingWorld } from "../v2/card-game/pack-landing.mjs";
 import { sceneCast } from "../v2/card-game/scene.mjs";
@@ -72,12 +80,16 @@ describe("the attic opening and saved pond journeys", () => {
       crossed: true,
       met: { vale: 0, moth: 0 },
     });
-    expect(world.actors.vale.want).toMatchObject({ kind: "item", target: "lamp" });
+    expect(world.actors.vale.want).toMatchObject({
+      kind: "item",
+      target: "lamp",
+    });
   });
 
   it("meets Vale's lamp want and then the keeper through the pond and station", () => {
     let world = fresh();
-    world = act(world, "light");
+    world = selectLamp(world, "lamp");
+    world = act(world, "wait");
     world = collectRewards(world);
     expect(world.actors.vale.xp).toBe(1);
     expect(exits(world, "pond")).toEqual(["station", "attic"]);
@@ -89,10 +101,10 @@ describe("the attic opening and saved pond journeys", () => {
   });
 
   it("keeps the attic reflection and its dry-lamp recovery on the pond", () => {
-    let world = act(fresh(), "light");
+    let world = selectLamp(fresh(), "lamp");
     world = act(world, "move", "attic");
     expect(exits(world, "attic")).toEqual([]);
-    world.items.lamp.fuel = 0;
+    setFuel(world, 0);
     world.items.lamp.lit = false;
     world.items.cloth.holder = "pond";
     world = decodeSave(encodeSave(world));
@@ -108,23 +120,24 @@ describe("the attic opening and saved pond journeys", () => {
     const world = fresh();
     world.actors.vale.place = "attic";
     world.actors.vale.want = wantPlace("pond");
-    world.items.lamp.lit = true;
+    world.actors.vale.heldItem = "lamp";
+    settleLamp(world);
     expect(plan(world).action.kind).toBe("wait");
-    const dark = act(world, "snuff");
+    const dark = selectLamp(world);
     expect(plan(dark).action).toMatchObject({ kind: "move", target: "pond" });
   });
 
   it("keeps the cottage return and pond rescue after the attic light goes out", () => {
-    let world = act(fresh(), "light");
+    let world = selectLamp(fresh(), "lamp");
     world = act(world, "move", "attic");
     world.items.cloth.holder = "attic";
     world.items.lamp.holder = "attic";
-    world.items.lamp.fuel = 8;
+    setFuel(world, 8);
     if (places["forest-cottage"]) {
       expect(exits(world, "attic", "vale")).toContain("forest-cottage");
       world = act(world, "move", "forest-cottage");
     }
-    world.items.lamp.fuel = 0;
+    setFuel(world, 0);
     world.items.lamp.lit = false;
     world.items.oil.holder = "station";
     world = decodeSave(encodeSave(world));
@@ -147,7 +160,7 @@ describe("the attic opening and saved pond journeys", () => {
     const world = fresh();
     world.actors.moth.place = "attic";
     world.items.lamp.holder = "moth";
-    world.items.lamp.fuel = 0;
+    setFuel(world, 0);
     world.actors.moth.want = wantPlace("pond");
     expect(exits(world, "attic", "moth")).toEqual(["pond"]);
     const action = legalActions(world, "moth").find(
@@ -161,6 +174,27 @@ describe("the attic opening and saved pond journeys", () => {
     expect(result.ok).toBe(true);
     expect(result.state.actors.moth.place).toBe("pond");
     expect(result.state.items.lamp.holder).toBe("moth");
+  });
+
+  it("lets a resident stow a fueled lamp to leave the dark-gated attic", () => {
+    const world = fresh();
+    world.actors.moth.place = "attic";
+    world.items.lamp.holder = "moth";
+    world.actors.moth.heldItem = "lamp";
+    setFuel(world, 12);
+    world.actors.moth.want = wantPlace("pond");
+    const result = play(
+      world,
+      legalActions(world).find((a) => a.kind === "wait" && !a.sleep),
+    );
+    expect(result.ok).toBe(true);
+    expect(result.state.actors.moth.place).toBe("pond");
+    expect(result.state.actors.moth.heldItem).toBeNull();
+    expect(result.state.items.lamp).toMatchObject({
+      holder: "moth",
+      fuelRooms: 3,
+      lit: false,
+    });
   });
 
   it("keeps the station path while the calling card opens the authored parlour door", () => {
@@ -202,6 +236,7 @@ describe("the attic opening and saved pond journeys", () => {
     const before = atticOpening();
     before.actors.vale.place = "station";
     before.locations.attic.anchored = true;
+    settleLamp(before);
     const restored = decodeSave(encodeSave(before));
     expect(restored).toEqual(before);
     expect(restored.actors.vale.want).toBeNull();
@@ -210,9 +245,19 @@ describe("the attic opening and saved pond journeys", () => {
     expect(shore.actors.vale.want).not.toBeNull();
     const attic = collectRewards(act(shore, "move", "attic"));
     // The quest drawn at the pond goes on, or was met on the way back.
-    expect(attic.actors.vale.want !== null || attic.actors.vale.xp > 0).toBe(true);
+    expect(attic.actors.vale.want !== null || attic.actors.vale.xp > 0).toBe(
+      true,
+    );
     expect(attic.opening.version).toBe(1);
     expect(attic.items.lamp.holder).toBe("vale");
     expect(attic.log[0]).toEqual(before.log[0]);
   });
 });
+
+function setFuel(world, fuel) {
+  Object.assign(
+    world.items.lamp,
+    roomFuelFromTurns(fuel, lampPlace(world, "lamp")),
+  );
+  settleLamp(world);
+}

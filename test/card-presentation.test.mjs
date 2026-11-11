@@ -43,9 +43,12 @@ describe("observable card descriptions", () => {
   it("describes the flame without revealing fuel arithmetic", () => {
     const world = createWorld();
     world.items.lamp.lit = true;
-    for (const fuel of [1, 5, 12]) {
-      world.items.lamp.fuel = fuel;
-      expect(cardObservation(world, "lamp")).toMatch(/^Lit\./);
+    for (const [fuelRooms, flame] of [
+      [1, "A low flame"], [2, "A smaller flame"], [3, "A steady flame"],
+    ]) {
+      world.items.lamp.fuelRooms = fuelRooms;
+      world.items.lamp.fuel = fuelRooms * 4;
+      expect(cardObservation(world, "lamp").startsWith(`${flame}.`)).toBe(true);
       expect(cardObservation(world, "lamp")).not.toMatch(
         /\d|fuel|turn|signal/i,
       );

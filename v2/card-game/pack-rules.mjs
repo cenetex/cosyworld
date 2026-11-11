@@ -1,3 +1,4 @@
+import { heldItem } from "./held-item.mjs";
 import { talkedDirectly } from "./conversation.mjs";
 import {
   currentActor,
@@ -155,6 +156,28 @@ export function conditionMet(s, c, senses, packId = null, actor = null) {
       return packRouteOpen(s, c.from, c.to);
     case "home_door":
       return s.doors?.[c.home] === c.place;
+    // The current player carries the thing, unless another carrier is named.
+    case "in_hand":
+      return (
+        heldItem(s, actor ?? currentActor(s)) === c.item && !usedUp(s, c.item)
+      );
+    case "actor_at":
+      return s.actors[actor ?? currentActor(s)]?.place === c.place;
+    case "held":
+      return (
+        s.items[c.item]?.holder === (c.actor ?? currentActor(s)) &&
+        !usedUp(s, c.item)
+      );
+    // The thing rests on a place, not in a hand or inside another thing.
+    case "grounded": {
+      const holder = s.items[c.item]?.holder;
+      return (
+        holder != null &&
+        !s.items[holder] &&
+        !s.actors[holder] &&
+        !usedUp(s, c.item)
+      );
+    }
     case "connected_humans":
       return (
         sharedEnabled(s) &&
@@ -298,14 +321,18 @@ export const packDiscovered = (s, packId) =>
   );
 export function markCrossed(s, from, to) {
   const c = crossingBetween(from, to, s);
-  if (c && !(c.transport && c.signal) && crossingState(s, c.id))
+  if (c && !(c.transport && (c.signal || c.unlockWhen)) && crossingState(s, c.id))
     s.crossings[c.id].discovered = true;
 }
 /** Extra place text from crossings that start here (open or closed). */
 export const crossingScenery = (s, place, senses, waiting = []) =>
   crossings
-    .filter((c) => c.from === place && c.scenery &&
-      !waiting.includes(c.transport ? transports[c.transport].place : c.to))
+    .filter(
+      (c) =>
+        c.from === place &&
+        c.scenery &&
+        !waiting.includes(c.transport ? transports[c.transport].place : c.to),
+    )
     .map((c) =>
       crossingOpen(s, c, senses) ? c.scenery.open : c.scenery.closed,
     )
@@ -387,6 +414,26 @@ export function noteAct(s, a, place, holder, round, senses, log) {
     // No progress lines: a physical manipulation confirms only that manipulation.
   }
 }
+// A physical arrangement can reveal a vessel without a synthetic action.
+// Any resident or player may make it; completed access survives later moves.
+export function settleCrossingUnlocks(s, senses) {
+  for (const c of crossings) {
+    if (!c.unlockWhen || s.crossings[c.id].discovered) continue;
+    if (
+      !Object.keys(s.actors).some(
+        (actor) =>
+          entityActive(s, actor) &&
+          c.unlockWhen.every((r) =>
+            conditionMet(s, r, senses, c.packId, actor),
+          ),
+      )
+    )
+      continue;
+    s.crossings[c.id].discovered = true;
+    summonTransport(s, c.transport, c.from);
+  }
+}
+
 /** Close the round: break signals and narrate crossings that changed. */
 export function endRound(s, round, senses, log) {
   const here = s.actors[senses.player].place;

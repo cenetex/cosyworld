@@ -180,7 +180,7 @@ fn upgraded_ports(version: &str) -> (std::path::PathBuf, rusqlite::Connection, S
     full_store::seed(&c, &id, &old, "released-ports-fixture", now()).unwrap();
     let w = full_store::world(&c, &id, now()).unwrap();
     assert_eq!(w.version, engine::VERSION);
-    for (id, item) in super::saved_items::upgraded(&old.game["items"])
+    for (id, item) in super::saved_items::current_items(&old.game)
         .as_object()
         .unwrap()
     {

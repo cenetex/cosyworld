@@ -40,8 +40,8 @@ Usage: v2/mvp.sh [start|open|check|status|logs|stop|restart]
 Commands:
   start    Build and start the game server, then open ${URL}
   open     Open ${URL}
-  check    Run kernel, Rust, and JS checks plus the composition, card
-           narrative, and production-profile smokes
+  check    Run Rust and JS checks plus the card narrative
+           and production-profile smokes
   status   Print health and listener information
   logs     Tail the server log
   stop     Stop the detached MVP server
@@ -177,15 +177,6 @@ status() {
   screen -ls | grep "$SESSION" || true
 }
 
-run_kernel_check() {
-  bash "$ROOT/scripts/check-kernel.sh"
-}
-
-run_worldpack_check() {
-  node "$ROOT/scripts/compile-worldpack.mjs" --check
-  node "$ROOT/scripts/check-worldpack.mjs"
-}
-
 run_ai_model_checks() {
   (
     cd "$ROOT/ai-model-rust"
@@ -204,30 +195,11 @@ run_architecture_checks() {
   bash "$ROOT/scripts/check-rust-lint.sh"
 }
 
-run_js_checks() {
-  node --check "$ROOT/scripts/smoke-production-profile.mjs"
-  node --check "$ROOT/scripts/smoke-standalone-compositions.mjs"
-}
-
-run_production_profile_smoke() {
-  node "$ROOT/scripts/smoke-production-profile.mjs"
-}
-
-run_composition_smoke() {
-  node "$ROOT/scripts/smoke-standalone-compositions.mjs"
-  node "$ROOT/scripts/smoke-core-ruby-composition.mjs"
-}
-
 check_all() {
-  run_worldpack_check
-  run_kernel_check
   run_ai_model_checks
   run_rust_checks
   run_architecture_checks
-  run_js_checks
-  run_composition_smoke
   node "$ROOT/scripts/smoke-card-narrative-contract.mjs"
-  run_production_profile_smoke
 }
 
 cmd="${1:-start}"

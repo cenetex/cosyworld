@@ -27,6 +27,8 @@ use std::{
 };
 #[path = "full_browser.rs"]
 mod browser;
+#[path = "full_continue.rs"]
+mod continuation;
 #[path = "full_dedupe.rs"]
 mod dedupe;
 #[path = "full_opening.rs"]
@@ -571,6 +573,17 @@ pub(super) fn run(
                 leave(c, id, &mut w, a, &b.op, time)?;
                 retire::if_empty(c, id, u, time)?;
             }
+            "hold" => {
+                // A card choice is journaled immediately, without a speech
+                // job or an NPC turn. The reducer checks its saved revision.
+                store::commit(
+                    c,
+                    id,
+                    &mut w,
+                    json!({"op":"hold","actor":actor_id(a),"choice":b.action}),
+                    time,
+                )?;
+            }
             "seek" => {
                 store::commit(
                     c,
@@ -728,11 +741,12 @@ pub(super) fn take_work(state: &AppState, id: &str) -> Result<Option<Work>> {
         };
         let destination = w.room(a)?.to_string();
         let mut context = if retry {
-            prior
+            continuation::context(&tx, &w, &key, a, &prior)?
         } else {
             json!({"play":key,"actor":actor_id(a),"room":destination,"turn":w.game["turn"],"context":result["context"],"profiles":result["profiles"],"events":result["events"],"lines":[],"starts_at":time,"until_at":time,"error":null,"browser_chat":false})
         };
         context["browser_chat"] = json!(false);
+        context["hold_seq"] = json!(continuation::hold_seq(&tx, id)?);
         tx.execute(
             "UPDATE card_full_plays SET status='working',room=?,until_at=?,result=?,narrative=? WHERE id=?",
             params![destination, time + 60_000, context.to_string(), context.to_string(), key],
@@ -772,7 +786,10 @@ fn kick(state: AppState, id: String) {
                 .map(|lines| (work.clone(), lines));
             match tokio::task::spawn_blocking(move || publish(&s, &wid, work, lines)).await {
                 // The line is journaled and shown; its reflections follow.
-                Ok(Ok(())) => {
+                Ok(Ok(published)) => {
+                    if !published {
+                        continue;
+                    }
                     if let Some((work, lines)) = after {
                         reflect::spawn(state.clone(), id.clone(), work, &lines);
                     }
@@ -787,7 +804,12 @@ fn kick(state: AppState, id: String) {
 }
 /// Journals the words. Words the rules refuse end like words that never
 /// came: the play's voices show "…" and its seat frees at once.
-pub(super) fn publish(state: &AppState, id: &str, work: Work, lines: Result<Value>) -> Result<()> {
+pub(super) fn publish(
+    state: &AppState,
+    id: &str,
+    work: Work,
+    lines: Result<Value>,
+) -> Result<bool> {
     let refused = lines.is_ok().then(|| work.clone());
     match (finish_work(state, id, work, lines), refused) {
         (Err(error), Some(work)) => {
@@ -803,7 +825,7 @@ pub(super) fn finish_work(
     id: &str,
     work: Work,
     lines: Result<Value>,
-) -> Result<()> {
+) -> Result<bool> {
     finish_work_with_lock_budget(state, id, work, lines, Duration::from_secs(8))
 }
 
@@ -815,7 +837,7 @@ pub(super) fn finish_work_with_lock_budget(
     work: Work,
     lines: Result<Value>,
     budget: Duration,
-) -> Result<()> {
+) -> Result<bool> {
     let started = Instant::now();
     let gate = writer(state);
     let _turn = turn(&gate);
@@ -848,7 +870,7 @@ fn finish_work_attempt(
     work: &Work,
     lines: &Result<Value>,
     busy_timeout: Duration,
-) -> rusqlite::Result<Result<()>> {
+) -> rusqlite::Result<Result<bool>> {
     let Some(path) = state.event_store_path.as_deref() else {
         return Ok(Err("Shared worlds need the saved-world service.".into()));
     };
@@ -856,7 +878,7 @@ fn finish_work_attempt(
     store::schema_sqlite(&c)?;
     let tx = c.transaction_with_behavior(TransactionBehavior::Immediate)?;
     tx.busy_timeout(Duration::from_secs(5))?;
-    Ok((|| -> Result<()> {
+    Ok((|| -> Result<bool> {
         let (status, attempt): (String, i32) = tx
             .query_row(
                 "SELECT status,retries FROM card_full_plays WHERE id=?",
@@ -865,9 +887,13 @@ fn finish_work_attempt(
             )
             .map_err(sql_error)?;
         if status != "working" || attempt != work.attempt {
-            return Ok(());
+            return Ok(false);
         }
         let time = now();
+        if continuation::refresh(&tx, id, work, time)? {
+            tx.commit().map_err(sql_error)?;
+            return Ok(false);
+        }
         let mut scene = work.context.clone();
         // A scene without lines follows its play's last event, so its "…"
         // takes that place in the room's speech.
@@ -970,6 +996,6 @@ fn finish_work_attempt(
             // A play that voiced no one is not a scene of words.
             (false, false, 0) => {}
         }
-        Ok(())
+        Ok(!failed)
     })())
 }

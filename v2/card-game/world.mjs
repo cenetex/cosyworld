@@ -1,4 +1,7 @@
-import { stationExitOrder, stationExits, validStationExitOrder } from "./station-exits.mjs";
+import { RADIO_ITEM, validRadioItem } from "./radio-item.mjs";
+import { validLampRoomFuel } from "./lamp-room-fuel.mjs";
+import { fillLampFuel, settleLamp } from "./lamp-state.mjs";
+import { validStationExitOrder } from "./station-exits.mjs";
 import {
   recordConversation,
   settleCompany,
@@ -33,7 +36,6 @@ import {
   controlledByHuman,
   humanPresent,
   sharedEnabled,
-  humanRoomAvailable,
   humanHomeGates,
   heldByHuman,
   residentAvatar,
@@ -66,7 +68,7 @@ import {
   tastes,
 } from "./motives.mjs";
 import { newMemories, rememberEvent, validMemories } from "./memory.mjs";
-import { handSnapshot, settleHeldItems, validHeldItems } from "./held-item.mjs";
+import { applyHeldChoice, chooseHeldItem, handSnapshot, settleHeldItems, validHeldItems } from "./held-item.mjs";
 import {
   installKnowledge,
   witnessKnowledge,
@@ -117,13 +119,10 @@ import {
   validLife,
 } from "./life.mjs";
 import {
-  packPlaces,
-  packThings,
   crossings,
   entityActive,
   actorCanVisit,
   packExits,
-  personalRouteOpen,
   latchRoutes,
   validOpenedRoutes,
   packChoices,
@@ -138,7 +137,6 @@ import {
   packTalkChoice,
   choiceText,
   conditionsMet,
-  validatePackLinks,
   packDefinition,
   packPeople,
   packActorIds,
@@ -156,12 +154,10 @@ import {
   newCrossingState,
   newPackRecord,
   newTemperament,
-  crossingExits,
-  crossingOpen,
   crossingBetween,
-  crossingScenery,
   markCrossed,
   beginRound,
+  settleCrossingUnlocks,
   holderBefore,
   noteAct,
   endRound,
@@ -173,14 +169,12 @@ import {
   disturb,
   calm,
   validPackState,
-  conditionMet,
   DAYLIGHT_TURNS,
   runHash,
 } from "./pack-rules.mjs";
 import {
   installTransports,
   moveTransport,
-  transportExits,
   waitForTransport,
   transportArrival,
   preserveTransportAccess,
@@ -189,20 +183,16 @@ import {
   sailTransports,
   courseToward,
   berthOpen,
-  laneConditions,
   canDisembark,
   transportPlace,
-  transportScenery,
   callTransport,
   VOYAGE,
   laneEdges,
-  knowsLane,
   learnLane,
-  laneOfEdge,
 } from "./pack-transport.mjs";
 import { upgradeSave } from "./legacy-saves.mjs";
 import { settleVisitSpeech, validVisitSpeech } from "./visit-speech.mjs";
-import { firstStart, togglePack, validDisabledPacks } from "./pack-toggle.mjs";
+import { togglePack, validDisabledPacks } from "./pack-toggle.mjs";
 import {
   consume,
   settleCrafting,
@@ -233,9 +223,6 @@ import {
 import { bedtime, residentAsleep, validSleep } from "./resident-sleep.mjs";
 import {
   guardableWays,
-  guardedExits,
-  guardedFrom,
-  isGuardable,
   guardPost,
   guardOf,
   wayLifted,
@@ -243,20 +230,22 @@ import {
   validGuard,
 } from "./resident-guard.mjs";
 
-// Authored forest data and mounted packs share the same rule path.
-export const places = { ...forest.places, ...packPlaces };
-const homeGates = { ...forest.homeGates, ...humanHomeGates };
-export const sanctuaries = Object.keys(places).filter(
-  (id) => places[id].sanctuary === true,
-);
-export const people = { ...forest.people, ...packPeople };
-export const things = { ...packThings, ...forest.things };
-validatePackLinks(places, people, things);
+// Authored forest data and mounted packs share the same rule path. The
+// catalog and its names live in world/catalog.mjs (#1390).
+import {
+  places,
+  sanctuaries,
+  people,
+  things,
+  nameOf,
+} from "./world/catalog.mjs";
+export { places, sanctuaries, people, things, nameOf };
+export const homeGates = { ...forest.homeGates, ...humanHomeGates };
 const lifeProblems = lifeDataProblems(places, people);
 if (lifeProblems.length)
   throw new Error(`Invalid world life data: ${lifeProblems.join("; ")}`);
 // Geography identifies resources beyond the attic; each real trip keeps its gates.
-const atticInterior = (() => {
+export const atticInterior = (() => {
   const found = new Set(["attic"]),
     queue = ["attic"];
   const routes = packDefinitions.flatMap((pack) => pack.routes || []);
@@ -276,7 +265,7 @@ const atticInterior = (() => {
   }
   return found;
 })();
-const ids = Object.keys(things);
+export const ids = Object.keys(things);
 const actorIds = [...Object.keys(forest.people), ...packActorIds];
 // Fixed at load, so validation compares against these instead of rebuilding.
 const placeIds = Object.keys(places);
@@ -297,7 +286,7 @@ function planningReadsFor(world) {
   }
   return reads;
 }
-function knownActors(world) {
+export function knownActors(world) {
   const reads = planningReadsFor(world);
   if (!reads) return readKnownActors(world);
   return (reads.knownActors ??= readKnownActors(world)).slice();
@@ -312,57 +301,13 @@ const expectedTrustKeys = Object.fromEntries(
       .join(),
   ]),
 );
-export const nameOf = (id) =>
-  places[id]?.name || people[id]?.name || things[id]?.name || "the world";
-// A run seed draws each pack's specials once (pack-specials.mjs).
-export function createWorld({ opening = false, packScopes = {}, seed } = {}) {
-  const world = {
-    schema: 7,
-    ...structuredClone(forest.initialState),
-    memories: newMemories(),
-    turn: 0,
-    revision: 0,
-    eventSeq: 1,
-    conversations: [],
-  };
-  if (seed != null && !validSeed(seed)) throw new Error("Choose a run seed.");
-  if (seed != null) world.run = { seed };
-  if (opening) {
-    const start = structuredClone(forest.opening);
-    world.opening = start.discovery;
-    for (const [id, fields] of Object.entries(start.actors))
-      Object.assign(world.actors[id], fields);
-    for (const [id, fields] of Object.entries(start.items))
-      Object.assign(world.items[id], fields);
-    world.log = start.log;
-  }
-  installPacks(world);
-  installJourneyProgress(world, packDefinitions);
-  for (const [id, scope] of Object.entries(packScopes)) {
-    if (
-      !world.packs[id] ||
-      !["opening", "full"].includes(scope) ||
-      !packDefinition(id)?.release
-    )
-      throw new Error("Unknown content scope.");
-    world.packs[id].scope = scope;
-  }
-  enableMotives(world);
-  installLife(world, travels);
-  installRouteKnowledge(world);
-  installKnowledge(world);
-  // A new world starts with one want on every avatar but a player still
-  // waiting for its first quest.
-  fillWants(world, wantAPI(world), true);
-  rememberEvent(world, world.log[0]);
-  settleGuards(world);
-  settleHeldItems(world);
-  settleStationExits(world);
-  return world;
-}
+// A run seed draws each pack's specials once (pack-specials.mjs). World
+// creation and seeding live in world/create.mjs (#1390).
+import { createWorld, seedRun } from "./world/create.mjs";
+export { createWorld, seedRun };
 // Mount every pack missing from this save: its crossings, its state, and its
 // residents with fresh relationships. Earlier saves keep their own history.
-function installPacks(s) {
+export function installPacks(s) {
   const added = [];
   installTransports(s);
   s.crossings ??= {};
@@ -387,7 +332,13 @@ function installPacks(s) {
     );
   if (!s.doors) placeDoors(s);
   for (const pack of packDefinitions) {
-    for (const c of pack.crossings) s.crossings[c.id] ??= newCrossingState(c);
+    for (const c of pack.crossings) {
+      s.crossings[c.id] ??= newCrossingState(c);
+      if (c.unlockWhen) {
+        delete s.crossings[c.id].phase;
+        delete s.crossings[c.id].until;
+      }
+    }
     if (s.packs[pack.id]) continue;
     s.packs[pack.id] = newPackRecord(pack);
     for (const [id, a] of Object.entries(pack.avatars)) {
@@ -422,17 +373,8 @@ function installPacks(s) {
   installRouteKnowledge(s);
   installWants(s);
 }
-// A world saved before runs had seeds takes one once, from its host.
-export function seedRun(s, seed) {
-  if (s.run || !validSeed(seed)) return s;
-  s.run = { seed };
-  // Doors placed before the world had a seed move to the seed's picks.
-  delete s.doors;
-  installPacks(s);
-  return s;
-}
 // Travellers who learn the roads start from their home region's routes.
-function installRouteKnowledge(s) {
+export function installRouteKnowledge(s) {
   s.routeKnowledge ??= {};
   for (const actor of roamingActors)
     if (!s.routeKnowledge[actor]) {
@@ -440,287 +382,36 @@ function installRouteKnowledge(s) {
       rememberRoutes(s, actor, visibleRouteEdges(s.actors[actor].place));
     }
 }
-// Holder chains are a few links deep, so the walk tracks visits only when a
-// chain runs long enough to hide a loop: the common case allocates nothing.
-const SHORT_CHAIN = 32;
-export function rootHolder(s, id) {
-  let holder = s.items[id].holder;
-  for (let step = 0; step < SHORT_CHAIN; step++) {
-    if (!s.items[holder]) return holder;
-    if (holder === id) throw new Error("An item holds itself.");
-    holder = s.items[holder].holder;
-  }
-  holder = s.items[id].holder;
-  const visited = new Set([id]);
-  while (s.items[holder]) {
-    if (visited.has(holder)) throw new Error("An item holds itself.");
-    visited.add(holder);
-    holder = s.items[holder].holder;
-  }
-  return holder;
-}
-export const itemPlace = (s, id) =>
-  s.actors[rootHolder(s, id)]?.place || rootHolder(s, id);
-export const carried = (s, actor) =>
-  ids.filter((id) => rootHolder(s, id) === actor);
-export const covered = (s, id) => s.items.cloth.holder === id;
-export const shining = (s) =>
-  entityActive(s, "lamp") &&
-  s.items.lamp.lit &&
-  s.items.lamp.fuel > 0 &&
-  !covered(s, "lamp");
-// A reflection opens while its authored conditions hold (#1600). Forest data
-// opens the attic mirror once the lamp there is dark, and the pond's way back
-// while the lamp shines on the shore.
-const reflectionsFrom = (s, from) =>
-  (forest.reflectionRoutes || [])
-    .filter(
-      (r) =>
-        r.from === from && r.requires.every((c) => conditionMet(s, c, null)),
-    )
-    .map((r) => r.to);
-export const reflectionOpen = (s, from = itemPlace(s, "lamp")) =>
-  reflectionsFrom(s, from).length > 0;
-// The bell is the shore's sound source: heard where it rests while it rings
-// uncovered. Packs add their own sounding fixtures through pack-rules.mjs.
-const baseSoundAt = (s, place) =>
-  entityActive(s, "bell") &&
-  s.items.bell.ringing > 0 &&
-  !covered(s, "bell") &&
-  itemPlace(s, "bell") === place;
-export const senses = { player: "vale", baseSoundAt, nameOf };
-export const sensesFor = (s) => ({
-  ...senses,
-  player: currentActor(s),
-  ...(s.controlledActors ? { humanActors: s.controlledActors } : {}),
-});
-const baseExits = (_s, place) => places[place].exits;
-export const placeText = (s, place) =>
-  [
-    place === "attic" && reflectionOpen(s, place)
-      ? "A tall mirror opens onto a black shore. A path leads through the glass."
-      : s.opening && place === "station"
-        ? "The timetable lists years that have yet to happen. A path leads along the shore to the pond."
-        : places[place].text,
-    ...crossingScenery(s, place, sensesFor(s),
-      place === "station" ? stationCandidates(s).filter((id) =>
-        !stationExits(s, stationCandidates(s)).includes(id)) : []),
-    ...transportScenery(s, place, nameOf),
-    ...(homeRescueExit(s, place) || pondRescueExit(s, place)
-      ? [
-          `A narrow path leads to ${nameOf(homeRescueExit(s, place) || pondRescueExit(s, place))}.`,
-        ]
-      : []),
-  ].join(" ");
-// A home gate can be restored by resources in the room, including a present
-// helper's belongings. Full hands can make room through the usual Drop action.
-function localGateResource(s, place, item, actor) {
-  return Boolean(
-    s.items[item] &&
-      entityActive(s, item) &&
-      itemPlace(s, item) === place &&
-      (canUse(s, actor, item) ||
-        (controlledByHuman(s, rootHolder(s, item)) &&
-          humanPresent(s, rootHolder(s, item))) ||
-        // An away traveler's lamp still lights here, though no one may
-        // take it from them (rules 98).
-        residentAvatar(s, rootHolder(s, item)) ||
-        (knownActors(s).includes(rootHolder(s, item)) &&
-          (willingToGive(s, rootHolder(s, item), item, actor) ||
-            carried(s, actor).some((payment) =>
-              canTrade(s, actor, payment, item),
-            )))),
-  );
-}
-function homeGateRecoverable(s, place, gate, actor) {
-  if (!localGateResource(s, place, gate.item, actor)) return false;
-  if (!gate.light || s.items[gate.item].fuel > 0) return true;
-  // Holding a full flask with the empty lamp refuels it, so a flask here is enough.
-  return Boolean(gate.fuel && localGateResource(s, place, gate.fuel, actor));
-}
-function rawOrdinaryExits(s, place, actor, previous) {
-  return [
-    ...new Set([
-      ...baseExits(s, place),
-      ...reflectionsFrom(s, place),
-      ...crossingExits(s, place, actor, sensesFor(s)),
-      ...transportExits(s, place, previous, actor),
-      ...packExits(s, place, actor),
-    ]),
-  ];
-}
-// Conditions without a traveler (the train and calling card) may open while
-// nobody stands here. A traveler-specific key counts only for its present holder.
-const stationCrossings = crossings.filter((c) => c.from === "station");
-const stationTargets = [...new Set([
-  ...places.station.exits,
-  ...stationCrossings.map((c) => c.transport ? transports[c.transport].place : c.to),
-  ...packDefinitions.flatMap((p) => (p.routes || []).filter((r) => r.from === "station").map((r) => r.to)),
-])];
-function stationCandidates(s) {
-  const actors = [null, ...Object.keys(s.actors).filter((id) =>
-    s.actors[id].place === "station" && entityActive(s, id) &&
-    (!humanAvatar(id) || humanPresent(s, id) || residentAvatar(s, id)))];
-  return [...new Set([
-    ...baseExits(s, "station"), ...reflectionsFrom(s, "station"),
-    ...stationCrossings.filter((c) => actors.some((actor) =>
-      crossingOpen(s, c, sensesFor(s), actor)))
-      .map((c) => c.transport ? transports[c.transport].place : c.to),
-    ...packExits(s, "station", null),
-  ])].filter((id) => entityActive(s, id));
-}
-export function settleStationExits(s) {
-  s.stationExitOrder = stationExitOrder(s, stationCandidates(s));
-}
-function limitedExits(s, place, ways) {
-  return place === "station" ? stationExits(s, stationCandidates(s), ways) : ways;
-}
-function ordinaryExits(s, place, actor, previous) {
-  return limitedExits(s, place, rawOrdinaryExits(s, place, actor, previous));
-}
-// A doorway into another part of the same isolated home still needs a way out.
-// Capacity is checked when traveling, so a crowded shore remains a waiting case.
-function ordinaryRouteHome(s, place, destination, actor, previous) {
-  const queue = [[place, previous]],
-    visited = new Set([place]);
-  for (let i = 0; i < queue.length; i++) {
-    const [from, before] = queue[i];
-    if (from === destination) return true;
-    for (const to of ordinaryExits(s, from, actor, before)) {
-      if (
-        visited.has(to) ||
-        !entityActive(s, to) ||
-        !actorCanVisit(actor, to, s)
-      )
-        continue;
-      visited.add(to);
-      queue.push([to, from]);
-    }
-  }
-  return false;
-}
-function homeRescueExit(s, place, actor = currentActor(s), previous = null) {
-  const gate = homeGates[place];
-  actor ||= currentActor(s);
-  return gate &&
-    (controlledByHuman(s, actor) ||
-      homeOf(actor) === place ||
-      (gate.opening && knownActors(s).includes(actor))) &&
-    s.actors[actor]?.place === place &&
-    !ordinaryRouteHome(s, place, gate.rescue, actor, previous) &&
-    !homeGateRecoverable(s, place, gate, actor)
-    ? // With its rescue place asleep, the first pack on takes them in (rules 98).
-      entityActive(s, gate.rescue)
-      ? gate.rescue
-      : firstStart(s)
-    : null;
-}
-function insideLampRemedy(s, actor) {
-  const here = s.actors[actor].place,
-    lamp = itemPlace(s, "lamp"),
-    oil = itemPlace(s, "oil");
-  if (
-    !atticInterior.has(here) ||
-    !ordinaryRouteHome(s, here, lamp, actor) ||
-    !ordinaryRouteHome(s, lamp, "attic", actor)
-  )
-    return false;
-  const at = (place) => ({
-    ...s,
-    actors: { ...s.actors, [actor]: { ...s.actors[actor], place } },
-  });
-  if (!localGateResource(at(lamp), lamp, "lamp", actor)) return false;
-  return (
-    s.items.lamp.fuel > 0 ||
-    (ordinaryRouteHome(s, here, oil, actor) &&
-      ordinaryRouteHome(s, oil, lamp, actor) &&
-      localGateResource(at(oil), oil, "oil", actor))
-  );
-}
-// Recover a gate resource left beyond the mirror after reachable remedies are gone.
-function pondRescueExit(s, place, actor, previous) {
-  actor ||= currentActor(s);
-  const lamp = itemPlace(s, "lamp"),
-    oil = itemPlace(s, "oil");
-  // The flask is always full; it matters while it is shut inside with the lamp empty.
-  if (
-    place !== "pond" ||
-    s.actors[actor]?.place !== place ||
-    (!controlledByHuman(s, actor) && !knownActors(s).includes(actor)) ||
-    !(atticInterior.has(lamp) || atticInterior.has(oil)) ||
-    ordinaryRouteHome(s, place, "attic", actor, previous)
-  )
-    return null;
-  if (
-    ordinaryRouteHome(s, place, lamp, actor, previous) &&
-    (s.items.lamp.fuel > 0 || ordinaryRouteHome(s, place, oil, actor, previous))
-  )
-    return null;
-  if (
-    knownActors(s).some(
-      (id) =>
-        (!controlledByHuman(s, id) || humanPresent(s, id)) &&
-        (insideLampRemedy(s, id) ||
-          (!atticInterior.has(lamp) &&
-            s.actors[id].place === "attic" &&
-            homeRescueExit(s, "attic", id) &&
-            localGateResource(s, "attic", "oil", id))),
-    )
-  )
-    return null;
-  return "attic";
-}
-export function exits(s, place, actor = null, previous = null) {
-  const rescue = homeRescueExit(s, place, actor, previous),
-    returnPath = pondRescueExit(s, place, actor, previous);
-  const ways = [
-    ...ordinaryExits(s, place, actor, previous),
-    ...(rescue ? [rescue] : []),
-    ...(returnPath ? [returnPath] : []),
-  ];
-  // A guardable way, and the way back through it (rules 100).
-  for (const to of guardedExits(s, place))
-    if (!ways.includes(to)) ways.push(to);
-  return limitedExits(s, place, ways.filter(
-    (to) =>
-      entityActive(s, to) &&
-      actorCanVisit(actor, to, s) &&
-      humanRoomAvailable(s, actor, to) &&
-      personalRouteOpen(s, place, to, actor || currentActor(s)) &&
-      !guardOf(s, place, to, actor),
-  ));
-}
-
-// A sealed way (rules 95): a pack route that names its sealed card and the
-// quest that opens it, while it is shut from where the traveller stands.
-// A guarded way shows the same sealed card while its guard bars it, and the
-// reason names the guard (rules 100); it gives its quest if the route has one.
-let sealedRoutes = null;
-export function sealedWays(s, actor = currentActor(s)) {
-  sealedRoutes ??= packDefinitions.flatMap((pack) =>
-    (pack.routes || []).filter((r) => r.sealed || isGuardable(r.from, r.to)),
-  );
-  const here = s.actors[actor]?.place,
-    ways = [
-      ...sealedRoutes.filter((r) => r.from === here),
-      // A guard bars his way from both sides (rules 100).
-      ...guardedFrom(here).map((to) => ({ from: here, to })),
-    ].filter((r) => entityActive(s, r.to) && entityActive(s, here));
-  if (!ways.length) return [];
-  const open = exits(s, here, actor),
-    seen = new Set();
-  return ways
-    .filter((r) => !open.includes(r.to))
-    .flatMap((r) => {
-      const guard = guardOf(s, here, r.to, actor);
-      if (!guard) return r.sealed ? [r] : [];
-      // The card beyond a guarded way is locked; its reason names the guard
-      // and gives no quest (rules 102). Talk with him gives his.
-      const reason = `${nameOf(guard)} is guarding this card`;
-      return [{ ...r, sealed: { reason }, guardedBy: guard }];
-    })
-    .filter((r) => !seen.has(r.to) && seen.add(r.to));
-}
+// Item lookups live in world/items.mjs (#1390).
+import {
+  rootHolder,
+  itemPlace,
+  carried,
+  covered,
+  shining,
+} from "./world/items.mjs";
+export { rootHolder, itemPlace, carried, covered, shining };
+// Senses and reflections live in world/senses.mjs (#1390).
+import { reflectionOpen, senses, sensesFor } from "./world/senses.mjs";
+export { reflectionOpen, senses, sensesFor };
+// Geography lives in world/geography.mjs (#1390).
+import {
+  placeText,
+  exits,
+  sealedWays,
+  homeRescueExit,
+  pondRescueExit,
+} from "./world/geography.mjs";
+export { placeText, exits, sealedWays };
+// Station exits and candidates live in world/station.mjs (#1390).
+import {
+  baseExits,
+  stationCandidates,
+  settleStationExits,
+  limitedExits,
+  stationTargets,
+} from "./world/station.mjs";
+export { settleStationExits };
 // The quest a sealed card gives: the thing to hold, or to give someone, the
 // place to reach or the person to talk with.
 const gateQuest = (s, { kind, target, to }) => ({
@@ -783,7 +474,7 @@ const canReach = (s, actor, item) =>
   (itemPlace(s, item) === s.actors[actor].place &&
     !actorIds.includes(rootHolder(s, item))) ||
   rootHolder(s, item) === actor;
-const canUse = canReach;
+export const canUse = canReach;
 const loadOf = (s, id) => 1 + (s.items.cloth.holder === id ? 1 : 0);
 const hasSpace = (s, actor, id) =>
   carried(s, actor).length +
@@ -939,7 +630,7 @@ function reachable(s, actor, within = null) {
       }
   return [...seen].filter((id) => id !== from && !transportPlace(id)).sort();
 }
-const homeOf = (id) =>
+export const homeOf = (id) =>
   (packPeople[id]?.levelAtHome && packPeople[id].home) ||
   tastes[id]?.home ||
   humanAvatar(id)?.home?.id ||
@@ -1147,81 +838,15 @@ function commitTopicChoice(s, told) {
     locationId: s.actors[told.listener].place,
   });
 }
-const atPort = (s, actor) =>
-  Object.values(transports).some(
-    (t) =>
-      t.place === s.actors[actor].place ||
-      t.docks.includes(s.actors[actor].place),
-  );
-// A lane the speaker knows and the listener does not, nearest first.
-function laneToTell(s, speaker, listener) {
-  const here = s.actors[speaker].place;
-  const ship = Object.entries(transports).find(([, t]) => t.place === here);
-  const near = ship ? s.transports[ship[0]].dock : here;
-  const lanes = laneEdges()
-    .map(laneOfEdge)
-    .filter(
-      ([from, to]) =>
-        entityActive(s, from) &&
-        entityActive(s, to) &&
-        knowsLane(s, speaker, from, to) &&
-        !knowsLane(s, listener, from, to),
-    )
-    .sort(
-      ([a, b], [c, d]) =>
-        Number(c === near || d === near) - Number(a === near || b === near),
-    );
-  return lanes.length ? laneFact(...lanes[0]) : null;
-}
-// Talk context: the lanes a person at a port knows from it. Narration only.
-export function laneTalkFacts(s, actor) {
-  if (!s.actors[actor] || !atPort(s, actor)) return [];
-  const here = s.actors[actor].place;
-  const ship = Object.entries(transports).find(([, t]) => t.place === here);
-  const near = ship ? s.transports[ship[0]].dock : here;
-  const known = laneEdges()
-    .map(laneOfEdge)
-    .filter(
-      ([from, to]) =>
-        from === near && entityActive(s, to) && knowsLane(s, actor, from, to),
-    )
-    .map(([, to]) => nameOf(to));
-  return known.length
-    ? [`I know ships sail from ${nameOf(near)} to ${known.join(" and ")}.`]
-    : [`I know of no ship lane from ${nameOf(near)}.`];
-}
-// A gated lane is told with its condition; telling it never opens it. A
-// named thing is told by name; a world's things as "something from there",
-// or by the world's short name when it is one of several choices.
-const worldName = (pack) =>
-  packDefinitions.find((p) => p.id === pack)?.name.split(":")[0] ?? "there";
-const needOf = (c, choice = false) =>
-  c.kind === "any"
-    ? [...new Set(c.conditions.map((r) => needOf(r, true)))].join(" or ")
-    : c.item
-      ? nameOf(c.item)
-      : choice && c.pack
-        ? `something from ${worldName(c.pack)}`
-        : "something from there";
-const laneNeed = (gate) =>
-  [...new Set(gate.map((c) => needOf(c)))].join(" and ");
-export const laneFact = (from, to) => {
-  const gate = laneConditions(from, to);
-  return {
-    id: `lane:${from}>${to}`,
-    text: gate
-      ? `Ships for ${nameOf(to)} leave from ${nameOf(from)} only with ${laneNeed(gate)} aboard.`
-      : `Ships for ${nameOf(to)} leave from ${nameOf(from)}.`,
-  };
-};
-const laneFactText = (id) => {
-  const [from, to] = id.startsWith("lane:") ? id.slice(5).split(">") : [];
-  return from &&
-    to &&
-    laneEdges().some(([a, b]) => a === `sea:${from}` && b === `sea:${to}`)
-    ? laneFact(from, to).text
-    : null;
-};
+// Lane facts and the ships that tell them live in world/lanes.mjs (#1390).
+import {
+  laneTalkFacts,
+  laneFact,
+  laneFactText,
+  atPort,
+  laneToTell,
+} from "./world/lanes.mjs";
+export { laneTalkFacts, laneFact };
 
 // Only recorded speech teaches a selected account. Its story choice was
 // already committed by the Talk that reserved it.
@@ -1293,7 +918,7 @@ function refuelCarried(s) {
       continue;
     const here = s.actors[actor].place;
     const text = `${nameOf(actor)} empties the ${nameOf(id)} into the dry ${nameOf(target)}. The ${nameOf(target)} is full. Back at ${nameOf(returnsTo)}, the ${nameOf(id)} stands full again.`;
-    s.items[target].fuel = LAMP_FUEL;
+    fillLampFuel(s);
     remember(s, target, text);
     transfer(s, id, returnsTo, text);
     addLog(s, "World", text, {
@@ -1307,6 +932,23 @@ function refuelCarried(s) {
       returnLocationId: returnsTo,
     });
   }
+}
+// Hand selection is quiet, but every dependent light/gate fact is atomic.
+export function holdChoice(s, actor, choice) {
+  const before = structuredClone(s);
+  applyHeldChoice(s, actor, choice);
+  settleLamp(s);
+  refuelCarried(s);
+  settleHeldItems(s);
+  settleLamp(s);
+  if (s.opening && actor === "vale" && s.actors.vale.place === "attic" && reflectionOpen(s, "attic"))
+    s.locations.attic.anchored = true;
+  settleCrossingUnlocks(s, sensesFor(s));
+  wakeSleepers(s, before, []);
+  latchRoutes(s);
+  settleGuards(s);
+  settleStationExits(s);
+  validateWorld(s);
 }
 function offer(kind, actor, item, target, text, cards) {
   return {
@@ -1787,6 +1429,16 @@ export function legalActions(s, actor = currentActor(s)) {
         ),
       );
     }
+    if (id === RADIO_ITEM && canReach(s, actor, id)) {
+      const on = item.radioOn !== true;
+      out.push({
+        ...offer("radio", actor, id, null,
+          `${nameOf(actor)} turns the Portable Radio ${on ? "on" : "off"}.`, [id]),
+        key: `radio:${actor}:${id}:${on ? "on" : "off"}`,
+        radioOn: on,
+        label: `Turn ${on ? "on" : "off"}`,
+      });
+    }
     if (item.holder === actor) {
       // Food and drink are eaten or drunk by whoever holds them, alone or
       // with someone here (rules 102).
@@ -1872,30 +1524,6 @@ export function legalActions(s, actor = currentActor(s)) {
       );
       use.label = belonging.item.verb;
       out.push(use);
-    }
-    if (id === "lamp") {
-      if (item.lit)
-        out.push(
-          offer(
-            "snuff",
-            actor,
-            id,
-            null,
-            `${nameOf(actor)} puts out the Lamp.`,
-            [id],
-          ),
-        );
-      else if (item.fuel > 0)
-        out.push(
-          offer(
-            "light",
-            actor,
-            id,
-            null,
-            `${nameOf(actor)} lights the Lamp${covered(s, id) ? " under its cloth" : ""}.`,
-            [id],
-          ),
-        );
     }
     if (id === "bell" && !covered(s, id))
       out.push(
@@ -2311,6 +1939,7 @@ function residentRound(s, acted) {
       continue;
     // A resident sleeps at home: away, it walks home first if it can.
     const home = lifeHome(id, s);
+    prepareResidentLamp(s, id, home);
     if (
       rangeOf(s, id) !== null &&
       home &&
@@ -2368,6 +1997,7 @@ function residentRound(s, acted) {
           : null;
     if (!target) continue;
     steps += 1;
+    prepareResidentLamp(s, id, target);
     const step = stepToward(s, id, target).action;
     const to = step?.kind === "move" ? step.target : null;
     if (!to || transportPlace(to) || (target !== home && !inRange(s, id, to)))
@@ -2420,10 +2050,16 @@ function residentRound(s, acted) {
 // starts the round again; an arrival must play before it can complete.
 function perform(s, a, round = null, settle = []) {
   const hands = handSnapshot(s);
+  settleCrossingUnlocks(s, sensesFor(s));
   settleStandoffs(s); // anyone who walked in joins before playing
   const conflict = standoffFor(s, a.actor);
-  const result = performPlay(s, a, round, settle);
+  const result = performPlay(s, a, round, settle, hands);
   settleHeldItems(s, hands);
+  settleLamp(s);
+  refuelCarried(s);
+  settleLamp(s);
+  if (a.kind === "wait")
+    settleWants(s, wantActors(s, [a.actor, ...settle]), wantAPI(s), a);
   if (conflict && s.standoffs.includes(conflict)) {
     const calm = conflict.steppedBack;
     if (a.kind === "attack") for (const id in calm) calm[id] = false;
@@ -2439,7 +2075,7 @@ function perform(s, a, round = null, settle = []) {
   }
   return result;
 }
-function performPlay(s, a, round = null, settle = []) {
+function performPlay(s, a, round = null, settle = [], hands = handSnapshot(s)) {
   const who = nameOf(a.actor);
   const firstCrossing = actorIds.every((id) => s.actors[id].crossed === 0);
   const here = s.actors[a.actor].place;
@@ -2509,6 +2145,9 @@ function performPlay(s, a, round = null, settle = []) {
     combat = null,
     invitation = null;
   switch (a.kind) {
+    case "radio":
+      s.items[RADIO_ITEM].radioOn = a.radioOn;
+      break;
     case "use":
       remember(s, a.item, a.text);
       break;
@@ -2674,22 +2313,6 @@ function performPlay(s, a, round = null, settle = []) {
       if (a.kind === "trade") transfer(s, a.receive, a.actor, a.text);
       break;
     }
-    case "light":
-      if (
-        s.opening &&
-        !s.opening.crossed &&
-        a.actor === "vale" &&
-        here === "attic" &&
-        s.items.lamp.holder === "attic"
-      )
-        transfer(s, "lamp", "vale", "Vale lifts the lamp.");
-      s.items.lamp.lit = true;
-      remember(s, "lamp", a.text);
-      break;
-    case "snuff":
-      s.items.lamp.lit = false;
-      remember(s, "lamp", a.text);
-      break;
     case "ring":
       // Any sound made here disturbs the residents resting here.
       for (const line of disturb(s, here)) text += ` ${line}`;
@@ -2745,6 +2368,9 @@ function performPlay(s, a, round = null, settle = []) {
     default:
       throw new Error("Unknown act.");
   }
+  settleHeldItems(s, hands);
+  settleLamp(s);
+  settleCrossingUnlocks(s, sensesFor(s));
   const recitals =
     here !== s.actors[a.actor].place
       ? arriveRecitals(s, packDefinitions, a.actor)
@@ -2842,6 +2468,8 @@ function performPlay(s, a, round = null, settle = []) {
     addLog(s, "World", arrivalText, details);
   }
   settleStandoffs(s);
+  settleHeldItems(s);
+  settleLamp(s);
   // A want met by this play is a world fact recorded right after it.
   settleWants(
     s,
@@ -2950,21 +2578,6 @@ function toward(s, actor, target) {
       getActions().find((a) => a.kind === "move" && a.target === route[1]) ||
       voyageAction(s, actor, route[1], getActions())
     );
-  // Inside a lamp gate, a cast avatar lights its lamp to open the way out;
-  // the player's own hand makes that play.
-  const gate = homeGates[here];
-  if (
-    gate?.light &&
-    !s.items[gate.item].lit &&
-    actor !== currentActor(s) &&
-    !controlledByHuman(s, actor) &&
-    homeGateRecoverable(s, here, gate, actor)
-  ) {
-    const light = getActions().find(
-      (a) => a.kind === "light" && a.item === gate.item,
-    );
-    if (light) return light;
-  }
   if (target === "attic" && !["attic", "pond", "station"].includes(here)) {
     const approach = routeBetween(s, here, "pond", actor);
     if (approach?.length > 1)
@@ -3011,6 +2624,31 @@ function toward(s, actor, target) {
         ? getActions().find((a) => a.kind === "take" && a.item === "cloth")
         : sound;
   }
+}
+// A resident may quietly choose its own prop before deciding its next play.
+// Human selection and the public planner remain read-only and explicit.
+function prepareResidentLamp(s, actor, target = null) {
+  if (controlledByHuman(s, actor) || s.items.lamp.holder !== actor) return;
+  const want = wantOf(s, actor), here = s.actors[actor].place;
+  const destination = target || (s.actors[actor].homeward ? lifeHome(actor, s) : null) || levelReturnHome(s, actor) || (want?.kind === "place" ? want.target :
+    want?.kind === "person" ? s.actors[want.target]?.place : null);
+  let choice;
+  if (destination && destination !== here && !routeBetween(s, here, destination, actor)) {
+    // Gate.light describes the resource, not the required on/off state.
+    // Probe actual authored routes; never mutate public planning input.
+    for (const heldItem of [null, "lamp"]) {
+      const probe = { ...s,
+        actors: { ...s.actors, [actor]: { ...s.actors[actor], heldItem } },
+        items: { ...s.items, lamp: { ...s.items.lamp } },
+      };
+      settleLamp(probe);
+      if (routeBetween(probe, here, destination, actor)) { choice = heldItem; break; }
+    }
+  } else if (want?.target === "lamp" && typeof want.lit === "boolean")
+    choice = want.lit ? "lamp" : null;
+  if (choice === undefined) return;
+  chooseHeldItem(s, actor, choice);
+  settleLamp(s);
 }
 export function plan(s, actor = currentActor(s)) {
   const previousReads = planReads;
@@ -3213,7 +2851,7 @@ function wantPlan(s, actor) {
   }
   const item = want.target,
     owner = rootHolder(s, item);
-  // Held but not as wanted: uncover it, then light or put it out.
+  // Coverings are physical items; active-hand light is settled before NPC planning.
   if (owner === actor) {
     if (want.step?.verb === "eat" && want.step.at && want.step.at !== here)
       return go(want.step.at);
@@ -3221,8 +2859,7 @@ function wantPlan(s, actor) {
     const cover = ids.find((id) => s.items[id].holder === item);
     const fix = cover
       ? find("take", (a) => a.item === cover)
-      : s.items[item].lit !== want.lit &&
-        find(want.lit ? "light" : "snuff", (a) => a.item === item);
+      : null;
     return fix ? { action: fix } : idle();
   }
   if (itemPlace(s, item) !== here) return go(itemPlace(s, item));
@@ -3309,6 +2946,8 @@ export function play(
     settleCompany(next, entityActive);
     settleVisitSpeech(s, next, { ...action, actor });
     settleHeldItems(next, handSnapshot(s));
+    settleLamp(next);
+    settleCrossingUnlocks(next, sensesFor(next));
     settleStationExits(next);
     validateWorld(next);
     return { ok: true, state: next };
@@ -3432,22 +3071,9 @@ export function play(
     // A sleeper makes no play unless a fight wakes it (rules 100).
     if (residentAsleep(next, id) && !standoffFor(next, id)) continue;
     wakeResident(next, id);
+    prepareResidentLamp(next, id);
     perform(next, plan(next, id).action, round, residents);
   }
-  if (next.items.lamp.lit) {
-    next.items.lamp.fuel = Math.max(0, next.items.lamp.fuel - 1);
-    if (next.items.lamp.fuel === 0) {
-      next.items.lamp.lit = false;
-      addLog(
-        next,
-        "World",
-        "The Lamp runs dry. Its flame folds into a tiny black sun.",
-        { locationId: itemPlace(next, "lamp") },
-      );
-    }
-  }
-  // A lamp that just ran dry in a hand that also holds the flask fills again.
-  refuelCarried(next);
   const rings = next.log.filter(
     (entry) =>
       entry.turn === next.turn &&
@@ -3459,30 +3085,13 @@ export function play(
   // silence it during this round. Other bells keep their own time.
   if (!rings.length)
     next.items.bell.ringing = Math.max(0, next.items.bell.ringing - 1);
-  // Break unfinished signals and narrate crossings that opened or closed.
-  endRound(next, round, sensesFor(next), (line, locationId) =>
-    addLog(next, "World", line, { locationId }),
-  );
-  const isOpen = reflectionOpen(next, reflectionSource);
-  if (wasOpen !== isOpen)
-    addLog(
-      next,
-      "World",
-      isOpen
-        ? reflectionSource === "pond"
-          ? "The pond's reflection opens a path to the attic."
-          : "The attic mirror opens a path to the pond. A dark shore waits through the glass."
-        : reflectionSource === "pond"
-          ? "The pond's reflected path to the attic closes. The shore path to the station remains open."
-          : "The attic mirror's path to the pond closes.",
-      { locationId: reflectionSource },
-    );
   // Travellers who learn the roads act every round, wherever they are.
   for (const id of roamingActors) {
     if (controlledByHuman(next, id) || id === respondent ||
       !roamingQuestActor(id, s) || !roamingQuestActor(id, next)) continue;
     const from = next.actors[id].place;
     rememberRoutes(next, id, visibleRouteEdges(from));
+    prepareResidentLamp(next, id);
     const chosen = plan(next, id);
     if (chosen.callShip) callTransport(next, from, true);
     if (chosen.action.kind !== "wait" || standoffFor(next, id))
@@ -3517,6 +3126,29 @@ export function play(
   const worldLine = (text, locationId) =>
     addLog(next, "World", text, { kind: "narration", locationId });
   settleVoyageCargo(next, voyages, nameOf, worldLine);
+  settleHeldItems(next, handSnapshot(s));
+  settleLamp(next);
+  refuelCarried(next);
+  settleLamp(next);
+  settleCrossingUnlocks(next, sensesFor(next));
+  // Break unfinished signals and narrate crossings that opened or closed.
+  endRound(next, round, sensesFor(next), (line, locationId) =>
+    addLog(next, "World", line, { locationId }),
+  );
+  const isOpen = reflectionOpen(next, reflectionSource);
+  if (wasOpen !== isOpen)
+    addLog(
+      next,
+      "World",
+      isOpen
+        ? reflectionSource === "pond"
+          ? "The pond's reflection opens a path to the attic."
+          : "The attic mirror opens a path to the pond. A dark shore waits through the glass."
+        : reflectionSource === "pond"
+          ? "The pond's reflected path to the attic closes. The shore path to the station remains open."
+          : "The attic mirror's path to the pond closes.",
+      { locationId: reflectionSource },
+    );
   wakeSleepers(next, s, voyages);
   // Regrowth, the dawn safeguard and kits follow the light and long rests.
   settleItemCycle(next, nameOf, worldLine);
@@ -3545,6 +3177,7 @@ export function play(
     else next.sharedMigration.inventoryAllowances[id] = count;
   }
   settleHeldItems(next, handSnapshot(s));
+  settleLamp(next);
   endQuestPlay(next);
   settleStationExits(next);
   validateWorld(next);
@@ -3871,10 +3504,14 @@ export function validateWorld(s) {
     const count = carried(s, actor).length;
     if (count > (allowance || 3) || (allowance && allowance !== count)) fail();
   }
+  if (!validRadioItem(s)) fail();
   const lamp = s.items.lamp,
     oil = s.items.oil,
     bell = s.items.bell;
   if (
+    !validLampRoomFuel(lamp) ||
+    !Object.hasOwn(places, lamp.fuelPlace) ||
+    lamp.fuel !== lamp.fuelRooms * 4 ||
     !Number.isInteger(lamp.fuel) ||
     lamp.fuel < 0 ||
     lamp.fuel > LAMP_FUEL ||
@@ -3931,6 +3568,7 @@ export function validateWorld(s) {
   if (!validDisabledPacks(s.disabledPacks)) fail();
   let seq = 0;
   const verbs = [
+    "radio",
     "want_met",
     "accompany",
     "threaten",
@@ -4115,21 +3753,31 @@ export function validateWorld(s) {
     )
       fail();
   }
-  freshlyValidated.add(s);
   return s;
 }
-// Rule results are validated before they return, so the save that follows
-// does not check the same world again. Saving spends the mark: a later save of
-// that object, and every decoded or imported save, is validated in full.
-const freshlyValidated = new WeakSet();
+// World objects remain mutable after validation, including their nested state.
+// Validate the actual value being persisted, never its earlier object identity.
 export function encodeSave(s) {
-  if (!freshlyValidated.has(s)) validateWorld(s);
-  freshlyValidated.delete(s);
+  validateWorld(s);
   return JSON.stringify(s);
 }
 export function decodeSave(text) {
   const s = JSON.parse(text);
   try {
+    // Existing room metadata is evidence, not a migration hint. Reject it before
+    // settlement can replace an unknown location or repair a forged projection.
+    const lamp = s?.items?.lamp;
+    const hasRoomFuel = lamp && ["fuelRooms", "fuelPlace", "fuelVisit"].some(
+      (key) => Object.hasOwn(lamp, key),
+    );
+    // Legacy saves may omit the derived flag; an explicit flag must be boolean.
+    if (lamp && typeof lamp.lit !== "boolean" &&
+        (hasRoomFuel || Object.hasOwn(lamp, "lit")))
+      throw new Error("Invalid saved lamp room fuel.");
+    if (hasRoomFuel &&
+        (!validLampRoomFuel(lamp) || !Object.hasOwn(places, lamp.fuelPlace) ||
+         lamp.fuel !== lamp.fuelRooms * 4))
+      throw new Error("Invalid saved lamp room fuel.");
     upgradeSave(s, {
       actorIds,
       installPacks,
@@ -4145,6 +3793,7 @@ export function decodeSave(text) {
     latchRoutes(s);
     settleGuards(s);
     settleHeldItems(s);
+    settleLamp(s);
     if (s.stationExitOrder === undefined) settleStationExits(s);
     validateWorld(s);
     preserveTransportAccess(s);

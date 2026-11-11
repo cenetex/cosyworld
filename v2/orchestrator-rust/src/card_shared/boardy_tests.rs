@@ -71,7 +71,6 @@ fn boardy_station_card_opens_the_authored_parlour_door() {
     let mut journey = vec![("take", "item", "boardyai-calling-card", "station")];
     if doorway == "attic" {
         journey.extend([
-            ("light", "item", "lamp", "station"),
             ("move", "target", "pond", "pond"),
             ("move", "target", "attic", "attic"),
         ]);
@@ -81,6 +80,11 @@ fn boardy_station_card_opens_the_authored_parlour_door() {
         ("move", "target", doorway, doorway),
     ]);
     for (kind, field, value, destination) in journey {
+        if doorway == "attic" && kind == "move" && value == "pond" {
+            let command = json!({"op":"hold","actor":"vale","choice":{
+                "item":"lamp","revision":world.game["revision"]}});
+            world.apply(&command).unwrap();
+        }
         let view = world.project(0).unwrap();
         let action = view["actions"]
             .as_array()
@@ -129,7 +133,7 @@ fn assert_boardy_upgrade(version: &str) {
     let mut world = full_store::world(&c, &id, now()).unwrap();
     assert_eq!(world.version, engine::VERSION);
     assert_eq!(world.game["turn"], old.game["turn"]);
-    for (key, value) in super::saved_items::upgraded(&old.game["items"])
+    for (key, value) in super::saved_items::current_items(&old.game)
         .as_object()
         .unwrap()
     {
@@ -327,7 +331,7 @@ fn boardy_version_sixteen_upgrade_preserves_sightings_and_replays() {
         world.game["actors"]["boardyai"]["place"],
         old.game["actors"]["boardyai"]["place"]
     );
-    for (key, item) in super::saved_items::upgraded(&old.game["items"])
+    for (key, item) in super::saved_items::current_items(&old.game)
         .as_object()
         .unwrap()
     {
