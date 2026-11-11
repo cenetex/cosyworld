@@ -18,6 +18,7 @@ import {
 import { DAYLIGHT_TURNS, packDiscovered, runHash } from "./pack-rules.mjs";
 import { drawGlimpse, validGlimpse } from "./glimpse.mjs";
 import { authoredWant, stagedWants } from "./want-talk.mjs";
+import { validOffered } from "./offer-chance.mjs";
 
 export const WANT_KINDS = ["item", "place", "person", "connect"];
 // A want may name a verb beyond the kind's own (hold, be at, talk). State
@@ -158,16 +159,16 @@ export function takeQuest(s, actor, want) {
   if (!a || a.want) return null;
   return setWant(a, want);
 }
-// Dropping a level quest costs one experience for the first (the quest to
-// level 2), two for the next, and so on, never below the experience of the
-// level held, so a level never falls. Any other quest is free (owner,
-// 2026-11-04; rules 98).
+// Dropping Sleep at home (the level-up quest) costs the experience that
+// leaves the player just under the threshold of the level it was for, so the
+// level-up card does not come straight back (owner, 2026-11-11). That is
+// never below the experience of the level held. Any other quest is free
+// (owner, 2026-11-04; rules 98).
 export function dropCost(s, actor) {
   const a = s.actors[actor],
     want = a?.want;
   if (!want?.quest) return 0;
-  const floor = questXp(a.level ?? levelFor(a.xp));
-  return Math.max(0, Math.min(want.quest.level - 1, a.xp - floor));
+  return Math.max(0, a.xp - (questXp(want.quest.level) - 1));
 }
 // A player sets the held quest down, at its `dropCost`. Its target stays out
 // of mind a while and nothing is drawn in its place.
@@ -179,21 +180,35 @@ export function dropQuest(s, actor) {
   a.gaveUp = { target: want.target, turn: s.turn };
   a.want = null;
 }
-// The way back to the avatar's last active sanctuary, or another active
-// sanctuary when its home is an ordinary place. With a `quest` it is a level
-// quest's rest, met by a long rest there; without one it is the ordinary
-// quest to sleep at a sanctuary (rules 99).
+// Sleep at home: the place want with a rest step. With a `quest` it is the
+// level-up quest, aimed at the avatar's own home and met by a long rest there
+// (rules 133, `restsAt`). Without one (a pack switched off under an old rest
+// step) it is the way back to an active place that rests the avatar.
 export const restStep = (s, actor, api, quest) => ({
   ...newWant(
     "place",
-    [s.actors[actor].sanctuary, api.home(actor), ...api.sanctuaries].find(
-      (p) => api.sanctuaries.includes(p) && (api.active?.(p) ?? true),
-    ),
+    quest
+      ? api.home(actor)
+      : [s.actors[actor].sanctuary, api.home(actor), ...api.sanctuaries].find(
+          (p) =>
+            p &&
+            (api.restsAt?.(actor, p) ?? api.sanctuaries.includes(p)) &&
+            (api.active?.(p) ?? true),
+        ),
     s.turn,
   ),
   ...(quest ? { quest } : {}),
   step: { verb: "rest" },
 });
+// The level-up quest: at the experience of the next level, Sleep at home.
+// Null while the home is unknown or the threshold is not reached.
+export function levelUpQuest(s, actor, api) {
+  const a = s.actors[actor];
+  if (!a || !api.home(actor)) return null;
+  const level = a.level ?? levelFor(a.xp);
+  if (a.xp < questXp(level + 1)) return null;
+  return restStep(s, actor, api, { level: level + 1, left: 1 });
+}
 // Long sleep completes a level quest's rest, or brings the halfway dream due
 // from experience. Each level has a halfway glimpse.
 export function wake(s, actor, api) {
@@ -214,7 +229,13 @@ export function wake(s, actor, api) {
     dream = "glimpse";
   }
   const w = a.want;
-  if (w?.quest && w.step?.verb === "rest" && w.target === a.place)
+  // Sleep at home is met only by a long rest at the avatar's own home.
+  if (
+    w?.quest &&
+    w.step?.verb === "rest" &&
+    w.target === a.place &&
+    api.home(actor) === a.place
+  )
     commitMet(s, actor, api, []);
   milestones(s, actor, before, api);
   return dream;
@@ -581,6 +602,8 @@ function helped(s, owner, api, action) {
     !api.player(helper) || api.player(owner)
   )
     return;
+  // A level rises through its own quest, so the level held is fixed first.
+  h.level ??= levelFor(h.xp);
   h.xp += 1;
   milestones(s, helper, h.xp - 1, api);
   const trust = s.actors[owner].trust;
@@ -801,6 +824,7 @@ export function validWant(s, id) {
         whole(a.gaveUp.turn))) &&
     list(a.talked, s.actors) &&
     validHeard(s, id) &&
+    validOffered(s, id) &&
     !a.talked.includes(id) &&
     Array.isArray(a.visited) &&
     (a.want === null || validQuest(s, id, a.want))

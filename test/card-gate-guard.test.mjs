@@ -48,8 +48,11 @@ describe("the Gate Guard", () => {
     expect(exits(s, GATE, "greek-antigone")).not.toContain(FIELD);
     expect(exits(s, GATE, GUARD)).toContain(FIELD);
     expect(sealedReason(s, FIELD)).toBe("The Gate Guard is guarding this card");
-    // The locked card gives no quest: Talk with him gives his (rules 102).
-    expect(legalActions(s).some((a) => a.kind === "gate")).toBe(false);
+    // The locked card offers its quest as a card (rules 133): the writ in his
+    // hands. Talk with him tells his own want (rules 102).
+    expect(
+      legalActions(s).find((a) => a.offer === `quest:box:${FIELD}`),
+    ).toBeTruthy();
     // He bars the gate from the battlefield side too: there it is the
     // locked box with the same reason, and only he may pass.
     const far = structuredClone(s);

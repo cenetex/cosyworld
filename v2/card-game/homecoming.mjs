@@ -1,10 +1,12 @@
 // Homes away from the pond, and an unlocked avatar's homecoming (#1936).
 // Every world picks, from its seed, which authored place each home's door
 // opens at (`doors`). A world opened for an unlocked avatar (`homecoming` on
-// create) also leaves that avatar outside, scatters its belonging to a seeded
-// spot it can reach without Vale's lamp, and gives it the want to bring the
-// belonging home. The host passes only the avatar; the seeded world records
-// the rest, so replay never reads a server table.
+// create) also leaves that avatar outside and scatters its belonging to a
+// seeded spot it can reach without Vale's lamp. The quest to bring the
+// belonging home is the avatar's to take at its home's door, a locked box
+// (`questOffers`, world/offers.mjs); nothing is pushed. The host passes only
+// the avatar; the seeded world records the rest, so replay never reads a
+// server table.
 import forest from "./forest.json" with { type: "json" };
 import { humanAvatar, lamplessPlaces, visitors } from "./human-cast.mjs";
 import {
@@ -16,7 +18,6 @@ import {
 } from "./pack-registry.mjs";
 import { seedHash } from "./pack-specials.mjs";
 import { hidingPlaces } from "./hidden-avatar.mjs";
-import { newWant, setWant } from "./want.mjs";
 
 // A homecoming avatar starts at the pond, where every world begins.
 const START = "pond";
@@ -81,12 +82,6 @@ export function homecoming(world, actor) {
   const seed = world.run?.seed ?? 0;
   world.actors[actor].place = START;
   world.items[avatar.item.id].holder = pick(spots, `${seed}:item:${actor}`);
-  const want = {
-    ...newWant("item", avatar.item.id, world.turn),
-    story: true,
-    step: { verb: "bring", at: avatar.home.id },
-  };
-  setWant(world.actors[actor], want);
   return world;
 }
 

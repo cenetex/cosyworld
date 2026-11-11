@@ -59,17 +59,18 @@ describe("one want per avatar", () => {
     );
   });
 
-  it("charges a level quest to drop, never below the level held", () => {
+  it("charges Sleep at home to drop, down to just under its threshold", () => {
     const s = createWorld();
-    Object.assign(s.actors.vale, { xp: 1, level: 1 });
+    Object.assign(s.actors.vale, { xp: 3, level: 1 });
     setWant(s.actors.vale, {
       ...pond(0),
       step: { verb: "rest" },
       quest: { level: 2, left: 1 },
     });
+    // The threshold of level 2 is 3: dropping leaves 2, so no level-up card.
     expect(dropCost(s, "vale")).toBe(1);
     dropQuest(s, "vale");
-    expect(s.actors.vale).toMatchObject({ xp: 0, want: null });
+    expect(s.actors.vale).toMatchObject({ xp: 2, want: null });
   });
 
   it("never lets a resident hold a stack: a set-aside want is replaced", () => {

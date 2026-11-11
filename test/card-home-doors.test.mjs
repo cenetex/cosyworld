@@ -15,6 +15,7 @@ import {
 } from "../v2/card-game/human-cast.mjs";
 import { hidingPlaces } from "../v2/card-game/hidden-avatar.mjs";
 import { questsOf } from "../v2/card-game/want.mjs";
+import { questOffers } from "../v2/card-game/world.mjs";
 import {
   questCard,
   questCaption,
@@ -138,16 +139,33 @@ describe("an unlocked avatar's homecoming", () => {
     expect(lamplessPlaces).toContain(spot);
     expect([...hidingPlaces(world), ...hub.places]).toContain(spot);
     expect(world.doors.theatre).toBe("clearing");
-    expect(questsOf(world, "mara")[0]).toMatchObject({
-      kind: "item",
-      target: "mask",
-      story: true,
-      step: { verb: "bring", at: "theatre" },
+    // Nothing is pushed: the quest is Take quest on the home's shut door.
+    expect(questsOf(world, "mara")).toEqual([]);
+    expect(world.actors.mara.want).toBeNull();
+    const seated = {
+      ...world,
+      controlledActors: ["mara"],
+      presentActors: ["mara"],
+    };
+    expect(questOffers(seated, "mara")).toEqual([]);
+    // At the door while the belonging lies elsewhere, the door is shut.
+    seated.actors.mara.place = world.doors.theatre;
+    seated.items.mask.holder = "pond";
+    const offers = questOffers(seated, "mara").filter((o) => o.kind === "home");
+    expect(offers).toHaveLength(1);
+    expect(offers[0]).toMatchObject({
+      id: "quest:home:theatre",
+      kind: "home",
+      label: "Take quest",
+      blocked: null,
+      want: {
+        kind: "item",
+        target: "mask",
+        story: true,
+        step: { verb: "bring", at: "theatre" },
+      },
     });
-    expect(wantText(questsOf(world, "mara")[0])).toContain("home");
-    const card = questCard(world, "mara");
-    expect(questVerb(world, card)).toBe("Bring");
-    expect(questCaption(card)).toBe("Bring Theatre mask home to Paper theatre");
+    expect(wantText(offers[0].want)).toContain("home");
   });
 
   it("puts every avatar's belonging and door where no lamp is needed", () => {
@@ -163,6 +181,14 @@ describe("an unlocked avatar's homecoming", () => {
   it("meets the want when the belonging comes home, and replays the same", () => {
     const run = () => {
       let world = create();
+      world.items.mask.holder = "pond";
+      world.actors.mara.place = world.doors.theatre;
+      world = playAs(
+        world,
+        "mara",
+        (a) => a.kind === "take" && a.offer === "quest:home:theatre",
+      ).world;
+      expect(world.actors.mara.want).toMatchObject({ target: "mask" });
       world.actors.mara.place = world.items.mask.holder;
       world = playAs(
         world,

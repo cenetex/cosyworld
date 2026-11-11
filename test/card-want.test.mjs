@@ -253,7 +253,7 @@ describe("one want per avatar", () => {
     s.actors.keeper.place = "station";
     s.actors.keeper.want = newWant("place", "station", 0);
     const step = { ...newWant("item", "oil", 0), quest: { level: 2, left: 1 } };
-    Object.assign(s.actors.vale, { want: step, xp: 1, level: 1 });
+    Object.assign(s.actors.vale, { want: step, xp: 3, level: 1 });
     let refused = 0;
     for (let i = 0; i < REFUSAL_LIMIT; i++) {
       const ask = (w) =>

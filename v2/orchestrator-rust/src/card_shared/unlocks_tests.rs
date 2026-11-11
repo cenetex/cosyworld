@@ -181,11 +181,9 @@ fn talking_to_the_hidden_avatar_unlocks_it_once_and_opens_its_world() {
     let item = avatar["item"]["id"].as_str().unwrap();
     let home = avatar["home"]["id"].as_str().unwrap();
     assert_eq!(opened.game["actors"][&hidden]["place"], "pond");
-    assert_eq!(opened.game["actors"][&hidden]["want"]["target"], item);
-    assert_eq!(
-        opened.game["actors"][&hidden]["want"]["step"],
-        json!({"verb":"bring", "at":home})
-    );
+    // Nothing is pushed: bringing the belonging home is Take quest at the
+    // home's door (rules 133), taken by a tap.
+    assert!(opened.game["actors"][&hidden]["want"].is_null());
     let spot = opened.game["items"][item]["holder"].as_str().unwrap();
     assert_ne!(spot, hidden);
     assert_ne!(spot, home);

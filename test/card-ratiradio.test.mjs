@@ -57,7 +57,11 @@ const act = (s, kind = "wait", target) => {
   if (kind === "gather") return gather(s, target);
   const action = legalActions(s).find(
     (a) =>
-      a.kind === kind && (!target || a.item === target || a.target === target),
+      a.kind === kind &&
+      (!target ||
+        a.item === target ||
+        a.target === target ||
+        a.offer === target),
   );
   expect(action, `${kind} ${target ?? ""}`).toBeDefined();
   const result = play(s, action);
@@ -398,7 +402,7 @@ it("hears the figurine from RATi in any room of the station", () => {
 
 it("does not complete the Thermos door's quest by carrying the Thermos", () => {
   let s = steps(fixture(), upTo("move", id("dispatch-window")));
-  s = act(s, "gate", id("listening-room"));
+  s = act(s, "take", `quest:box:${id("listening-room")}`);
   const open = () =>
     questsOf(s, "vale").some((q) => q.target === home);
   expect(open()).toBe(true);

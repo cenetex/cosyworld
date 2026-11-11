@@ -23,8 +23,8 @@ holder's group. Transfers move the cards into the new holder's group.
 | Your item with its verb                   | Use (the verb on its card)                   |
 | Destination, or Vale + destination        | Travel or Board                              |
 | Destination with a ship's course card     | Set course                                   |
-| Sealed way, when its card gives a quest   | Open the way and take its quest              |
-| Your quest card                           | Its next step, or Discard (XP cost in label) |
+| Quest card (see below)                    | Take, Accept or Take level up quest          |
+| Your quest card                           | Discard, with the XP cost in its label       |
 | Current place                             | Wait and local actions                       |
 | Person + destination                      | Invite that person along                     |
 | Own item + person                         | Give to that person                          |
@@ -53,6 +53,21 @@ yours down; a level quest costs experience.
 The residents use these same plays for their own quests, so they also ask,
 trade, threaten and get refused. Talk is how you learn what someone is after.
 See [one want per avatar](README.md#one-want-per-avatar).
+
+Quest cards (rules 133). When a shut box, someone you have talked with, your
+own home's door, or your own experience offers a quest, it lies in the hand
+as a card of its own. Select it and the one button takes the quest, with no
+turn spent: Take quest on a locked box and on your home's door, Accept quest
+on a resident who told you their want and offers it (after Talk, by a chance
+rolled once per visit; certain if they trust you), Take level up quest when
+your experience reaches the next level. You are never given a quest by draw
+or push. While you hold one, the card's button is disabled and its label is
+the reason ("Finish or discard your quest first"). The level-up quest is
+Sleep at home: a long rest at your own home (Vale's is the Mirror attic)
+raises your level and pays no experience. Discarding it costs the experience
+that leaves you just under the threshold, so its card does not come back at
+once. Discarding any other quest is free. The rules enumerate the offers
+(`questOffers`, `world/offers.mjs`) and the `take` play has an `offer` id.
 
 Pairs work in either order. Arrow keys move between visible cards. Enter
 and Space toggle selection. Tab from a selected card reaches its action

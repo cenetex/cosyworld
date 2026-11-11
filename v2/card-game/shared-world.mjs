@@ -198,6 +198,10 @@ export function dispatchShared(request) {
     // A fresh world's resident avatars take a want at once; an imported or
     // upgraded one gives them wants at its next play.
     if (request.save == null) fillSeatWants(world);
+    // The homecoming avatar holds no drawn want: its quest is Take quest at its
+    // home's door (world/offers.mjs), taken by a tap.
+    if (request.save == null && request.homecoming != null)
+      world.actors[request.homecoming].want = null;
     validateTransition(world);
     return response(world, view(world, request.actor || "vale"));
   }

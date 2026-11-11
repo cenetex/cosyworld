@@ -236,13 +236,20 @@ quest as its `want` (`{kind, target}`); `forest.json` does the same for Pip and
 the keeper. A human avatar has no authored want. What happens next comes from
 the world rules in `want.mjs`, not from authored quest chains.
 
-- **A player's want is taken, never handed over.** Nothing is drawn for a
-  player and nothing is pushed at one: not after a Discard, not on waking, not
-  by Talk, not from a story choice, and there is no Seek. `takeQuest` sets
-  the want when the player holds none; `dropQuest` sets it down. Two starter
-  wants are still set when the world is made: a homecoming world's "bring the
-  belonging home" (`homecoming.mjs`) and Pip's lamp on `/pip` (`pip-landing.mjs`).
-  The quest taps themselves come in a later package.
+- **A player's want is taken by a tap on a quest card, never handed over.**
+  Nothing is drawn for a player and nothing is pushed at one: not after a
+  Discard, not on waking, not by Talk, not from a story choice, and there is
+  no Seek. Every offer is a card (`questOffers`, `world/offers.mjs`; ids
+  `quest:box:<box>`, `quest:from:<resident>`, `quest:home:<home>`,
+  `quest:level`), and the `take` play (`{kind: "take", offer}`, no turn)
+  calls `takeQuest`, which sets the want when the player holds none;
+  `dropQuest` sets it down. Take quest is on a shut box and on your own
+  home's door (homecoming: bring the belonging home); Accept quest is on a
+  resident who told you their want (after Talk, by a chance rolled once per
+  visit, certain if they trust you or hold a hub starter want such as Pip's
+  lamp); Take level up quest appears when experience reaches the next level
+  and gives Sleep at home. While a quest is held every card stays, its
+  button disabled and labelled "Finish or discard your quest first".
 - **A resident's want.** Residents keep drawing wants: the next is drawn
   deterministically from the world, seeded by the avatar and turn (items
   others hold nearby that it values above what it carries, reachable places it
@@ -258,8 +265,8 @@ the world rules in `want.mjs`, not from authored quest chains.
   one experience point on that play. Level is a rising curve of experience:
   1, 3, 6, 10 points reach levels 2 to 5. Standoff strength and the scene read
   that level. A resident's level follows its experience; a player's level
-  rises only through a level quest (`actor.level`), whose final rest is met by
-  a long rest at a sanctuary and pays no experience. A pack resident may set
+  rises only through the level-up quest (`actor.level`), Sleep at home, met by
+  a long rest at the avatar's own home (`restsAt`) and paying no experience. A pack resident may set
   `startLevel` (1–99) and begins with that level's experience. Each pack starts
   a few residents at a tier's first level: one Legendary (50), one Epic (30),
   two Rare (20) and three Uncommon (10), as far as its cast allows. Player and

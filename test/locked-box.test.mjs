@@ -101,9 +101,11 @@ describe("locked boxes", () => {
       text: "Give Creon's Writ to The Gate Guard",
       cards: [],
     });
-    // A guarded card gives no quest of its own; Talk with the guard gives
-    // his (rules 102).
-    expect(legalActions(s).some((a) => a.kind === "gate")).toBe(false);
+    // The box offers its quest as a card (rules 133); Talk with the guard
+    // tells his own (rules 102).
+    expect(
+      legalActions(s).some((a) => a.offer === "quest:box:greek-battlefield"),
+    ).toBe(true);
     s = act(s, "talk", { target: "greek-guard" });
     acceptQuest(s, "greek-guard");
     expect(questsOf(s, "vale")).toContainEqual(

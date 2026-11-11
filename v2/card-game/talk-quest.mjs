@@ -11,6 +11,7 @@
 // refusal. Met, it is a want met like any other.
 import { setWant, wantOf } from "./want.mjs";
 import { revealed } from "./want-talk.mjs";
+import { pruneOffers, rollOffer } from "./offer-chance.mjs";
 
 const key = (want) => `${want.kind}:${want.target}`;
 
@@ -78,10 +79,13 @@ export function talkQuest(s, actor, them, api) {
   const quest = revealed(s, them, want, actor) && questFor(s, them, want);
   if (!quest) return null;
   a.heard = { ...a.heard, [them]: key(want) };
+  // Whether they offer the quest this visit is rolled once, here (offer-chance).
+  rollOffer(s, actor, them);
   return quest;
 }
 // Whether the player was told this avatar's want and it is still theirs: the
-// condition under which Accept quest may be offered.
+// first condition under which Accept quest may be offered (the second is the
+// visit's roll, offer-chance.mjs).
 export function toldWant(s, actor, them) {
   const want = s.actors[them]?.want;
   return Boolean(want && s.actors[actor]?.heard?.[them] === key(want));
@@ -90,6 +94,7 @@ export function toldWant(s, actor, them) {
 // A Talk quest whose want they no longer hold, met by someone else or set
 // aside, leaves the player. Nothing is refused and nothing is drawn.
 export function pruneTalkQuests(s, api) {
+  pruneOffers(s);
   for (const id of Object.keys(s.actors)) {
     if (!api.player(id)) continue;
     const w = wantOf(s, id),
