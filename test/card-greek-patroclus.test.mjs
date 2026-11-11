@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import "./helpers/still-cast.mjs";
 import { legalActions, play } from "../v2/card-game/world.mjs";
-import { entityActive, packDefinition } from "../v2/card-game/pack-registry.mjs";
+import {
+  entityActive,
+  packDefinition,
+} from "../v2/card-game/pack-registry.mjs";
 import { funeralJourney } from "./helpers/greek-funeral.mjs";
 import { greekTravelTargets } from "./helpers/greek-travel.mjs";
 import { sailTo } from "./helpers/voyage.mjs";
@@ -36,6 +39,19 @@ const received = (world, id) => world.packs["greek-drama"].receipts[id];
 // The rules put a resident ashore when the ship docks, so he stands on the
 // quay unless a test puts him back aboard first.
 const atHarbor = () => walk(funeralJourney().buried, "harbor");
+// The rules put a resident ashore when the ship docks, even one who keeps to
+// his scene (no pack field holds him aboard; see the PR), so the meeting
+// aboard is reached by putting him back on deck before the traveler boards.
+const metAboard = () => {
+  const steps = greekTravelTargets("greek-polynices-hollow", "greek-harbor");
+  let world = funeralJourney().buried;
+  for (const target of steps.slice(0, -1))
+    world = act(world, "move", { target });
+  dockShip(world);
+  world.actors[PATROCLUS].place = "greek-ship";
+  world = act(world, "move", { target: steps.at(-1) });
+  return act(world, "move", { target: "greek-ship" });
+};
 // The rules draw a resident's want afresh when a stuck ship puts him ashore, so
 // the bread is set in his hand here, as his pack data and `minTrust` give it.
 const wantsBread = (world) => {
@@ -74,7 +90,7 @@ describe("Patroclus aboard the Charybdis", () => {
     expect(person.requires).toEqual([
       { kind: "flag", key: "greek-burial-performed", value: true },
     ]);
-    expect(person.portrait).toMatch(/^assets\/greek-drama\//);
+    expect(person.portrait).toBe("assets/greek-drama/patroclus.png");
     expect(pack.release.avatars).toContain(PATROCLUS);
   });
 
@@ -97,7 +113,7 @@ describe("Patroclus aboard the Charybdis", () => {
     expect(aboardNow).not.toContain(PATROCLUS);
   });
 
-  it("starts to trust the traveler at the meeting aboard, not at a later gift", () => {
+  it("starts at trust 3 at the meeting aboard, not at a later gift", () => {
     // He is still aboard, with the ship docked, when the traveler arrives.
     const steps = greekTravelTargets("greek-polynices-hollow", "greek-harbor");
     let world = funeralJourney().buried;
@@ -110,63 +126,35 @@ describe("Patroclus aboard the Charybdis", () => {
     expect(trust(world)).toBe(0);
     world = act(world, "move", { target: "greek-ship" });
     expect(received(world, "greek-meet-patroclus")).toBeTruthy();
-    expect(received(world, "greek-meet-patroclus-quay")).toBeUndefined();
-    expect(trust(world)).toBe(1);
+    expect(trust(world)).toBe(3);
     expect(flags(world)["greek-patroclus-met"]).toBe(true);
   });
 
-  it("starts to trust the traveler on the quay when the ship docked without them", () => {
-    const world = atHarbor();
-    expect(world.actors[PATROCLUS].place).toBe("greek-harbor");
-    expect(received(world, "greek-meet-patroclus-quay")).toBeTruthy();
-    expect(trust(world)).toBe(1);
-  });
-
-  it("tells that he wants bread at the first Talk, and trusts more for the gift", () => {
-    let world = wantsBread(atHarbor());
+  it("tells that he wants bread at the first Talk, and still counts the gift as his want met at trust 3", () => {
+    let world = wantsBread(metAboard());
     world = act(world, "talk", { target: PATROCLUS });
     expect(world.actors[PATROCLUS].want).toMatchObject({
       kind: "item",
       target: "greek-bread",
     });
-    expect(trust(world)).toBe(1);
+    expect(trust(world)).toBe(3);
+    const before = world.actors.vale.xp;
     world = act(world, "give", { item: "greek-bread", target: PATROCLUS });
-    expect(trust(world)).toBe(2);
+    // Trust stays at its cap; the gift still meets his want and pays as usual.
+    expect(trust(world)).toBe(3);
+    expect(world.actors.vale.xp - before).toBe(1);
   });
 
-  it("only travels with the traveler once the gift has made him trust them more", () => {
-    // At trust 1 and with no bread carried, the trip does not serve him.
-    let cold = dockShip(atHarbor());
-    expect(trust(cold)).toBe(1);
-    const asked = act(cold, "accompany", {
-      target: PATROCLUS,
-      destination: "greek-ship",
-    });
-    expect(asked.actors[PATROCLUS].place).not.toBe("greek-ship");
-    // After the bread he goes aboard with them.
-    let warm = wantsBread(dockShip(atHarbor()));
-    warm = act(warm, "give", { item: "greek-bread", target: PATROCLUS });
-    expect(trust(warm)).toBe(2);
-    warm.items["greek-bread"].holder = PATROCLUS;
-    warm = act(warm, "accompany", {
-      target: PATROCLUS,
-      destination: "greek-ship",
-    });
-    expect(warm.actors[PATROCLUS].place).toBe("greek-ship");
-    expect(warm.actors.vale.place).toBe("greek-ship");
-  });
-
-  it("reaches his home at Piraeus with the traveler", () => {
-    let world = wantsBread(dockShip(atHarbor()));
+  it("sails to Piraeus, his home, with the traveler once the gift is made", () => {
+    let world = wantsBread(metAboard());
     world = act(world, "give", { item: "greek-bread", target: PATROCLUS });
-    world.items["greek-bread"].holder = PATROCLUS;
-    world = act(world, "accompany", {
-      target: PATROCLUS,
-      destination: "greek-ship",
-    });
-    world.usedUp = (world.usedUp || []).filter((id) => id !== "greek-provisions");
+    expect(trust(world)).toBe(3);
+    world.usedUp = (world.usedUp || []).filter(
+      (id) => id !== "greek-provisions",
+    );
     world.items["greek-provisions"].holder = "greek-ship";
     world = sailTo(world, "greek-piraeus");
     expect(world.actors.vale.place).toBe("greek-piraeus");
+    expect(world.actors[PATROCLUS].place).toBe("greek-piraeus");
   });
 });

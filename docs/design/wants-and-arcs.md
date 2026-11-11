@@ -765,6 +765,14 @@ What worked in a prototype that put him at the Wine-Dark Harbor quay:
   provisions, Piraeus, wheat, ride back, water jar and wheat to Dione, take
   bread. Sailing consumes nothing (rules 102).
 
+Owner decision, 2026-11-11: "I would start him at trust 3". The meeting aboard
+the Charybdis sets his trust to 3 (`{kind: "trust", level: 3}`), so he
+accompanies from the meeting and tells his bread want at once; the bread gift
+adds nothing to trust (capped at 3). The pack data cannot hold him aboard until
+the meeting: a ship that docks lands any resident rider (`world.mjs` `readPlan`,
+`pack-transport.mjs` `transportArrival`, `sendShipHome`), even one with
+`travels: false` and `stayUntil`.
+
 Not tested: at trust 0 an invitation is accepted while the player carries the
 bread (the want is served), so the decline case needs a player without bread;
 and the standoff cover (`plan` after a threat).

@@ -4895,7 +4895,19 @@
               "greek-bread": 2
             },
             seed: "Patroclus, a sailor from Piraeus.",
-            portrait: "assets/greek-drama/patroclus.svg",
+            portrait: "assets/greek-drama/patroclus.png",
+            poses: [
+              {
+                portrait: "assets/greek-drama/patroclus-bread.png",
+                requires: [
+                  {
+                    kind: "holding",
+                    item: "greek-bread",
+                    actor: "greek-patroclus"
+                  }
+                ]
+              }
+            ],
             requires: [
               {
                 kind: "flag",
@@ -8685,7 +8697,7 @@
             effects: [
               {
                 kind: "trust",
-                level: 1
+                level: 3
               },
               {
                 kind: "set_flag",
@@ -8694,33 +8706,6 @@
               }
             ],
             textTemplate: "Patroclus looks up from the mast and makes room beside {actor} at the rail.",
-            on: "meet"
-          },
-          {
-            id: "greek-meet-patroclus-quay",
-            subject: "greek-patroclus",
-            at: "greek-harbor",
-            label: "Meet Patroclus",
-            text: "Patroclus looks up from the bollard and makes room beside Vale on the quay.",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-patroclus-met",
-                value: false
-              }
-            ],
-            effects: [
-              {
-                kind: "trust",
-                level: 1
-              },
-              {
-                kind: "set_flag",
-                key: "greek-patroclus-met",
-                value: true
-              }
-            ],
-            textTemplate: "Patroclus looks up from the bollard and makes room beside {actor} on the quay.",
             on: "meet"
           }
         ],
@@ -9731,8 +9716,7 @@
             "greek-shroud-polynices",
             "greek-bury-polynices",
             "greek-hear-polynices",
-            "greek-meet-patroclus",
-            "greek-meet-patroclus-quay"
+            "greek-meet-patroclus"
           ]
         },
         recital: {
@@ -22407,7 +22391,8 @@
   ]);
   var residentSleepPortraits = {
     "greek-antigone": "assets/sleep/residents/greek-antigone-sleeping.png",
-    "greek-baker": "assets/sleep/greek-baker-sleeping.png"
+    "greek-baker": "assets/sleep/greek-baker-sleeping.png",
+    "greek-patroclus": "assets/sleep/residents/greek-patroclus-sleeping.png"
   };
   var sleepPortraitAssets = [
     ...[...travelers].flatMap(
@@ -23722,7 +23707,9 @@
     front: [
       "assets/ratiradio/rati.webp",
       "assets/ratiradio/raven.webp",
-      "assets/greek-drama/patroclus.svg",
+      "assets/greek-drama/patroclus.png",
+      "assets/greek-drama/patroclus-bread.png",
+      "assets/sleep/residents/greek-patroclus-sleeping.png",
       ...Object.values(rarityForms).filter((form) => form.facing === "front").map((form) => form.portrait),
       "assets/hoppycat-archive/hoppycat-tapi-lilt-cutout.png",
       "assets/hoppycat-archive/hoppycat-penny-vellum-cutout.png",

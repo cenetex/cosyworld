@@ -2518,7 +2518,19 @@
             "greek-bread": 2
           },
           "seed": "Patroclus, a sailor from Piraeus.",
-          "portrait": "assets/greek-drama/patroclus.svg",
+          "portrait": "assets/greek-drama/patroclus.png",
+          "poses": [
+            {
+              "portrait": "assets/greek-drama/patroclus-bread.png",
+              "requires": [
+                {
+                  "kind": "holding",
+                  "item": "greek-bread",
+                  "actor": "greek-patroclus"
+                }
+              ]
+            }
+          ],
           "requires": [
             {
               "kind": "flag",
@@ -6308,7 +6320,7 @@
           "effects": [
             {
               "kind": "trust",
-              "level": 1
+              "level": 3
             },
             {
               "kind": "set_flag",
@@ -6317,33 +6329,6 @@
             }
           ],
           "textTemplate": "Patroclus looks up from the mast and makes room beside {actor} at the rail.",
-          "on": "meet"
-        },
-        {
-          "id": "greek-meet-patroclus-quay",
-          "subject": "greek-patroclus",
-          "at": "greek-harbor",
-          "label": "Meet Patroclus",
-          "text": "Patroclus looks up from the bollard and makes room beside Vale on the quay.",
-          "requires": [
-            {
-              "kind": "flag",
-              "key": "greek-patroclus-met",
-              "value": false
-            }
-          ],
-          "effects": [
-            {
-              "kind": "trust",
-              "level": 1
-            },
-            {
-              "kind": "set_flag",
-              "key": "greek-patroclus-met",
-              "value": true
-            }
-          ],
-          "textTemplate": "Patroclus looks up from the bollard and makes room beside {actor} on the quay.",
           "on": "meet"
         }
       ],
@@ -7354,8 +7339,7 @@
           "greek-shroud-polynices",
           "greek-bury-polynices",
           "greek-hear-polynices",
-          "greek-meet-patroclus",
-          "greek-meet-patroclus-quay"
+          "greek-meet-patroclus"
         ]
       },
       "recital": {
