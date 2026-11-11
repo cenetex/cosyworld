@@ -68,6 +68,12 @@ export function fakeJobs({ auto, polls = 1 } = {}) {
     fetch: async (url, init = {}) => {
       if (offline) throw new TypeError("offline");
       const method = init.method || "GET";
+      if (url === "/auth/account")
+        return json({
+          authenticated: true,
+          user_id: "maker",
+          account_revision: 0,
+        });
       const path = String(url).replace("/card-game/authoring", "");
       if (method === "POST" && path === "/jobs") {
         const body = JSON.parse(init.body),
@@ -110,6 +116,12 @@ export function fakeJobs({ auto, polls = 1 } = {}) {
       }
       if (method === "GET" && path === "/jobs")
         return json({ jobs: [...jobs.values()].reverse().map(view) });
+      if (method === "GET" && path === "/jobs/by-request") {
+        const job = jobs.get(keys.get(init.headers["Idempotency-Key"]));
+        return job
+          ? json(view(job))
+          : json({ error: "none", code: "job_not_found" }, 404);
+      }
       const one = /^\/jobs\/([^/]+)$/u.exec(path);
       if (method === "GET" && one) {
         const job = jobs.get(one[1]);

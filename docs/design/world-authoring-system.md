@@ -422,8 +422,11 @@ whose job rows have been pruned.
 The intent-store helpers can atomically prepare and claim a request UUID, bound
 by account revision, draft generation and request digest. They store only bounded
 adoption metadata, never full provider bodies or reference image bytes. The new
-read-only request lookup can recover a server job by UUID. No maker tool or sweep
-uses these helpers yet; the existing client behavior below is unchanged.
+read-only request lookup can recover a server job by UUID. The transport and sweep can use these helpers when given preparation callbacks
+and intent records. No production maker tool supplies those callbacks yet, so the
+existing client behavior below is unchanged. Durable callers submit at most once,
+then use lookup for uncertain replies; legacy callers keep their existing retry
+behavior until the complete tool activation lands with account-revision wiring.
 
 ### The maker client
 
