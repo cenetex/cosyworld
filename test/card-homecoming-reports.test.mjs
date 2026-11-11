@@ -49,6 +49,7 @@ beforeAll(() => {
 });
 
 describe("early Open Door reports", () => {
+  // package 6 fixtures: starts from a recorded old save, re-recorded after the bump.
   it.skip.each(cases)(
     "earns one truthful return verse for %s",
     (ending, item, completed) => {
@@ -78,6 +79,7 @@ describe("early Open Door reports", () => {
     },
   );
 
+  // package 6 fixtures: starts from a recorded old save, re-recorded after the bump.
   it.skip("opens a local report only after a completed story", () => {
     const world = openDoorStart();
     world.items["greek-pyre-account"].holder = "vale";
@@ -91,6 +93,7 @@ describe("early Open Door reports", () => {
     ).toBeFalsy();
   });
 
+  // package 6 fixtures: starts from a recorded old save, re-recorded after the bump.
   it.skip("lets the full account cover every local report", () => {
     const { world } = journey;
     expect(flags(world)["greek-open-door-returned"]).toBe(true);
@@ -140,6 +143,7 @@ describe.skip("Open Door roads home", () => {
     },
   );
 
+  // package 6 fixtures: starts from a recorded old save, re-recorded after the bump.
   it.skip("connects the countryside places after Dione’s invitation", () => {
     let world = openDoorStart();
     world = openDoorWalk(

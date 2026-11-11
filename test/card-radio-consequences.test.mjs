@@ -227,6 +227,7 @@ function assertReturn(world, at, added = 0) {
 // package 6 fixtures: the recorded trace plays claims
 // the rules no longer have, so only the frozen 131 replay runs.
 for (const historical of [true, false])
+  // package 6 fixtures: the recorded trace plays claims the rules no longer have.
   (historical ? it : it.skip)(
     `reaches Raven's awakening and second-traveler return (${historical ? "frozen 131" : "current agreement"})`,
     { timeout: 30000 },
