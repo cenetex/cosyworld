@@ -912,8 +912,12 @@
   var PHASES = ["docked", "course", "sea", "arrived"];
   var shipAt = (place) => Object.entries(transports).find(([, t]) => t.place === place) || null;
   var transportPlace = (place) => Boolean(shipAt(place));
-  var passengers = (s, id) => Object.entries(s.actors).filter(([, a]) => a.place === transports[id].place).map(([, a]) => a);
-  var passengerIds = (s, id) => Object.entries(s.actors).filter(([, a]) => a.place === transports[id].place).map(([actor]) => actor).sort();
+  var passengers = (s, id) => Object.entries(s.actors).filter(
+    ([actor, a]) => a.place === transports[id].place && entityActive(s, actor)
+  ).map(([, a]) => a);
+  var passengerIds = (s, id) => Object.entries(s.actors).filter(
+    ([actor, a]) => a.place === transports[id].place && entityActive(s, actor)
+  ).map(([actor]) => actor).sort();
   function lanesFrom(t, dock) {
     const out = [];
     for (const lane of t.lanes || []) {
@@ -1311,7 +1315,7 @@
       if (state.phase === "docked")
         return state.destination === null && !state.riders.length;
       if (state.phase === "arrived")
-        return state.destination === null && aboard > 0;
+        return state.destination === null && (aboard > 0 || state.riders.length > 0);
       return !state.riders.length && lanesFrom(t, state.dock).includes(state.destination) && (state.phase === "sea" || aboard > 0);
     });
   }
@@ -1400,6 +1404,7 @@
         return (c.topics || [c.topic]).some((topic) => knowsFact(s, who, topic));
       }
       case "trusted":
+        if (actor === c.actor) return true;
         return (s.actors[c.actor]?.trust?.[actor] || 0) >= c.min && !(s.motives?.grievances?.[c.actor] || []).some(
           (g) => g.other === actor && grievanceActive(s, g)
         );
@@ -1773,10 +1778,17 @@
     if (want.kind === "place") return here === want.target;
     return world.actors[want.target]?.place === here;
   }
-  function revealed(world, id, want) {
+  function trustedEnough(world, id, want, listener) {
+    const authored = packPeople[id]?.want;
+    if (!listener || !authored?.minTrust) return true;
+    if (authored.kind !== want.kind || authored.target !== want.target)
+      return true;
+    return (world.actors[id].trust?.[listener] || 0) >= authored.minTrust;
+  }
+  function revealed(world, id, want, listener) {
     return Boolean(
       want && world.actors?.[id] && // A made thing still locked is wanted all the same (rules 102).
-      (entityActive(world, want.target) || Boolean(packThings[want.target]?.locked)) && !(want.kind === "item" && !world.items[want.target]) && !(want.kind === "person" && !world.actors[want.target]) && !met(world, id, want)
+      (entityActive(world, want.target) || Boolean(packThings[want.target]?.locked)) && !(want.kind === "item" && !world.items[want.target]) && !(want.kind === "person" && !world.actors[want.target]) && !met(world, id, want) && trustedEnough(world, id, want, listener)
     );
   }
 
@@ -2843,7 +2855,7 @@
         `avatar ${id} tastes need likes, sore and reason`
       );
       check(
-        a.want === void 0 || keysOk(a.want, ["kind", "target", "step"]) && // An eat quest (rules 102): eat or drink one, somewhere, with someone.
+        a.want === void 0 || keysOk(a.want, ["kind", "target", "step", "minTrust"]) && (a.want.minTrust === void 0 || intOk(a.want.minTrust, 1, 3)) && // An eat quest (rules 102): eat or drink one, somewhere, with someone.
         (a.want.step === void 0 || a.want.kind === "place" && a.want.step.verb === "lay" && keysOk(a.want.step, ["verb", "items", "finish"]) && Array.isArray(a.want.step.items) && intOk(a.want.step.items.length, 1, 3) && new Set(a.want.step.items).size === a.want.step.items.length && a.want.step.items.every((item) => owns3(items2, item)) && (a.want.step.finish === void 0 || idOk2(a.want.step.finish)) || a.want.kind === "item" && keysOk(a.want.step, ["verb", "at", "with"]) && a.want.step.verb === "eat" && ["food", "drink"].some(
           (tag) => items2[a.want.target]?.tags?.includes(tag)
         ) && (a.want.step.with === void 0 || a.want.step.with !== id && (owns3(avatars, a.want.step.with) || hub2.avatars.includes(a.want.step.with))) && (a.want.step.at === void 0 || owns3(places2, a.want.step.at))) && (a.want.kind === "item" ? owns3(items2, a.want.target) || hub2.items.includes(a.want.target) : a.want.kind === "place" ? owns3(places2, a.want.target) || hub2.places.includes(a.want.target) : a.want.kind === "connect" ? a.want.target === "humans" : a.want.kind === "person" && a.want.target !== id && (owns3(avatars, a.want.target) || hub2.avatars.includes(a.want.target))),
@@ -3047,7 +3059,7 @@
       "gate_open",
       "home_door"
     ].includes(c?.kind);
-    const requirements = (cs, what, persistent = true) => {
+    const requirements = (cs, what, persistent = true, perTraveler = false) => {
       if (cs === void 0) return;
       check(
         Array.isArray(cs) && cs.length <= 12,
@@ -3057,7 +3069,7 @@
         cs.forEach((c) => {
           condition(c, what);
           check(
-            !persistent || savedCondition(c),
+            !persistent || savedCondition(c) || perTraveler && c?.kind === "trusted",
             `${what} must use saved state or human presence conditions`
           );
         });
@@ -3173,7 +3185,7 @@
         `route ${r.from}>${r.to} sealed card needs a gate, a reason and a quest`
       );
       requirements(r.requires, "route requires");
-      requirements(r.travelerRequires, "route traveller requires");
+      requirements(r.travelerRequires, "route traveller requires", true, true);
       check(
         routes.some((q2) => q2.from === r.to && q2.to === r.from) || places2[r.to]?.exits?.includes(r.from),
         "a route has no return"
@@ -3224,6 +3236,8 @@
           );
         if (e.kind === "hide_item")
           valid = keysOk(e, ["kind", "item"]) && owns3(items2, e.item) && c.on === "meet";
+        if (e.kind === "trust")
+          valid = keysOk(e, ["kind", "level"]) && intOk(e.level, 1, 3) && (c.on === "meet" || c.on === "talk") && Boolean(avatars[c.subject]);
         if (e.kind === "give_item")
           valid = keysOk(e, ["kind", "item"]) && owns3(items2, e.item) && c.on !== "meet";
         if (e.kind === "upgrade")
@@ -4140,6 +4154,14 @@
         traveler.upgrades = [
           .../* @__PURE__ */ new Set([...traveler.upgrades || [], e.upgrade])
         ].sort();
+      }
+      if (e.kind === "trust") {
+        const trust = world.actors[choice.subject]?.trust;
+        if (trust)
+          trust[action.actor] = Math.max(
+            trust[action.actor] || 0,
+            Math.min(3, e.level)
+          );
       }
       if (e.kind === "choose") state.choices[e.key] = e.value;
       if (e.kind === "set_flag") state.flags[e.key] = e.value;
@@ -5382,7 +5404,7 @@
   function talkQuest(s, actor, them, api) {
     const a = s.actors[actor], want = s.actors[them]?.want;
     if (!api.player(actor) || them === actor || !want) return null;
-    const quest = revealed(s, them, want) && questFor(s, them, want);
+    const quest = revealed(s, them, want, actor) && questFor(s, them, want);
     if (!quest) return null;
     a.heard = { ...a.heard, [them]: key(want) };
     return quest;
@@ -8202,7 +8224,7 @@
     };
     if (goal && (goal === destination || distance(destination, goal) < distance(here, goal)))
       return { accepted: true };
-    if (s.actors[companion].trust[actor] > 0) return { accepted: true };
+    if (s.actors[companion].trust[actor] >= 2) return { accepted: true };
     return socialTravel(s, actor, companion, destination);
   }
   function legalActions(s, actor = currentActor(s)) {
@@ -9413,7 +9435,7 @@
         return striker ? answer(find("guard")) : idle();
       if (foe) return answer(find("attack", (a) => a.target === foe));
       const friend = others.find(
-        (id) => conflict.hitBy?.[id] && s.actors[actor].trust?.[id] > 0
+        (id) => conflict.hitBy?.[id] && s.actors[actor].trust?.[id] >= 3
       );
       return answer(friend && find("intercept", (a) => a.target === friend));
     }
