@@ -1,0 +1,31 @@
+name: Chromium system dependencies
+description: >-
+  Install the fonts and libraries Playwright's Chromium needs, retrying when
+  the Ubuntu archive is briefly unreachable. Run after checkout and npm ci.
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      run: |
+        # The Azure mirror delivered browser fonts at 18-63 kB/s in CI.
+        if [ -f /etc/apt/apt-mirrors.txt ]; then
+          sudo sed -i 's|http://azure.archive.ubuntu.com/ubuntu|https://archive.ubuntu.com/ubuntu|g' /etc/apt/apt-mirrors.txt
+        fi
+        # Bound each download wait and let apt retry a failed fetch itself.
+        sudo tee /etc/apt/apt.conf.d/99cosyworld-ci >/dev/null <<'CONF'
+        Acquire::Retries "3";
+        Acquire::http::Timeout "20";
+        Acquire::https::Timeout "20";
+        CONF
+        # install-deps runs apt-get update itself, so each attempt refreshes
+        # the package lists. A DNS or mirror outage fails the whole attempt;
+        # back off and try again before failing the job.
+        for attempt in 1 2 3 4; do
+          if npx playwright install-deps chromium; then
+            exit 0
+          fi
+          echo "::warning::Chromium dependency install failed (attempt $attempt of 4)"
+          if [ "$attempt" -lt 4 ]; then sleep $((attempt * 20)); fi
+        done
+        echo "::error::Chromium dependency install failed after 4 attempts"
+        exit 1
