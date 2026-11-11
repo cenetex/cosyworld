@@ -1,3 +1,4 @@
+import "./helpers/no-dwell.mjs"; // ships and roads, not residents walking: the played Agora start is long
 import { atticOpening } from "./fixtures/card-attic-opening.mjs";
 import { describe, it, expect } from "vitest";
 import { openGreekGate } from "./helpers/greek-gate.mjs";

@@ -1,3 +1,4 @@
+import "./helpers/still-cast.mjs";
 import { funeralJourney } from "./helpers/greek-funeral.mjs";
 import { packDefinition } from "../v2/card-game/pack-registry.mjs";
 import {

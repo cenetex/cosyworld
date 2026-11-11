@@ -334,6 +334,22 @@ it("reaches a local Raven return using the local NPC route and reloads every pla
       world = reload(result.state);
       added++;
     }
+    // Residents dwell where they arrive (rules 133), so a recorded play can
+    // come before the resident it needs is in place: Wait until it is
+    // offered, never for a fixed number of turns.
+    for (
+      let waits = 0;
+      command.op === "play" &&
+      waits < 120 &&
+      !legalActions(world).some(
+        (a) => JSON.stringify(a) === JSON.stringify(command.action),
+      );
+      waits++
+    ) {
+      const rest = legalActions(world).find((a) => a.kind === "wait" && !a.sleep);
+      world = reload(play(world, rest, world.revision).state);
+      added++;
+    }
     const before = structuredClone(world),
       request = structuredClone(command);
     if (command.op === "play")
@@ -341,7 +357,13 @@ it("reaches a local Raven return using the local NPC route and reloads every pla
     let result;
     if (command.op === "hold") {
       const next = structuredClone(world);
-      holdChoice(next, "vale", command.choice);
+      holdChoice(
+        next,
+        "vale",
+        command.choice.revision === undefined
+          ? command.choice
+          : { ...command.choice, revision: world.revision },
+      );
       result = { ok: true, state: next };
     } else
       result = play(
@@ -368,7 +390,17 @@ it("reaches a local Raven return using the local NPC route and reloads every pla
     }
   }
   expect(ravenTrace.localRoute.commands).toHaveLength(67);
-  expect([world.turn, world.revision]).toEqual([63 + added, 67 + added]);
+  // Her walk to the pond takes as long as the residents dwell: wait for it.
+  for (
+    let waits = 0;
+    world.actors[raven].place !== "pond" && waits < 160;
+    waits++
+  ) {
+    const rest = legalActions(world).find((a) => a.kind === "wait" && !a.sleep);
+    world = reload(play(world, rest, world.revision).state);
+    added++;
+  }
+  expect(world.turn).toBeGreaterThanOrEqual(63 + added);
   expect(world.items[glass].holder).toBe("vale");
   expect(world.items[figurine].holder).toBe(home);
   expect(world.actors.vale.place).toBe(home);

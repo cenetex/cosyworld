@@ -1,3 +1,4 @@
+import "./helpers/still-cast.mjs";
 import { selectLamp } from "./fixtures/card-attic-opening.mjs";
 import { fillLampFuel } from "../v2/card-game/lamp-state.mjs";
 import { greekTravelTargets } from "./helpers/greek-travel.mjs";
