@@ -172,6 +172,7 @@ struct IdentityResponse {
     ok: bool,
     authenticated: bool,
     user_id: Option<String>,
+    account_revision: Option<u64>,
     username: Option<String>,
     display_name: Option<String>,
     passkeys: Vec<PasskeyView>,
@@ -188,6 +189,7 @@ impl IdentityResponse {
             ok: true,
             authenticated: false,
             user_id: None,
+            account_revision: None,
             username: None,
             display_name: None,
             passkeys: Vec::new(),
@@ -836,6 +838,13 @@ fn identity_response(state: &AppState, user_id: &str, cookie: Option<String>) ->
         Ok(wallets) => wallets,
         Err(error) => return auth_error(StatusCode::SERVICE_UNAVAILABLE, error),
     };
+    let revision = match auth.path().and_then(|path| {
+        let c = open_event_store(path)?;
+        Ok(crate::account_revision::current(&c, user_id)?)
+    }) {
+        Ok(revision) => revision,
+        Err(error) => return auth_error(StatusCode::SERVICE_UNAVAILABLE, error),
+    };
     let active_wallet = wallets.first().map(|wallet| wallet.wallet_address.clone());
     no_store_json(
         StatusCode::OK,
@@ -843,6 +852,7 @@ fn identity_response(state: &AppState, user_id: &str, cookie: Option<String>) ->
             ok: true,
             authenticated: true,
             user_id: Some(user_id.to_string()),
+            account_revision: Some(revision),
             username: Some(username),
             display_name: Some(display_name),
             passkeys,
@@ -857,6 +867,7 @@ fn identity_response(state: &AppState, user_id: &str, cookie: Option<String>) ->
 
 fn init_account_schema(path: &Path) -> AccountResult<()> {
     let conn = open_event_store(path)?;
+    crate::account_revision::schema(&conn)?;
     conn.execute_batch(
         "CREATE TABLE IF NOT EXISTS auth_users (
             id TEXT PRIMARY KEY,
@@ -1107,6 +1118,7 @@ fn auth_message(status: StatusCode, message: impl Into<String>) -> Response {
             ok: false,
             authenticated: false,
             user_id: None,
+            account_revision: None,
             username: None,
             display_name: None,
             passkeys: Vec::new(),
