@@ -92,8 +92,6 @@ struct Source {
     names: Vec<String>,
     literals: Vec<(String, u8)>,
     templates: Vec<(Vec<String>, u8, String)>,
-    #[serde(rename = "sourceHash")]
-    source_hash: String,
     sources: Vec<String>,
 }
 
@@ -210,7 +208,6 @@ struct Catalog {
     names: HashSet<String>,
     /// Lower-case names by first byte, longest first, for hiding.
     lower_names: HashMap<u8, Vec<String>>,
-    source_hash: String,
     sources: Vec<String>,
 }
 
@@ -309,28 +306,20 @@ fn catalog() -> &'static Catalog {
             hidden: FIELDS.iter().map(|&f| view(f, true)).collect(),
             names: source.names.iter().cloned().collect(),
             lower_names,
-            source_hash: source.source_hash,
             sources: source.sources,
         }
     })
 }
 
-/// Whether the catalog was built from the scene modules and packs this
-/// build serves: `false` when someone changed them without rebuilding it.
-/// `read` returns a served file's bytes by its repository path.
+/// Whether every source the catalog was built from is still served by this
+/// build. The catalog's bytes are proved current against those sources by
+/// `node v2/scripts/build-card-authored-text.mjs --check` (`npm run
+/// regen:check`, part of the fast check), not by a hash in the file: a hash
+/// of the sources changes whenever any branch edits any of them, so every
+/// pair of such branches conflicted in this file. `read` returns a served
+/// file's bytes by its repository path.
 pub(super) fn catalog_current(read: impl Fn(&str) -> Option<Vec<u8>>) -> bool {
-    use sha2::{Digest, Sha256};
-    let catalog = catalog();
-    let mut hash = Sha256::new();
-    for path in &catalog.sources {
-        let Some(bytes) = read(path) else {
-            return false;
-        };
-        hash.update(format!("{path}\n").as_bytes());
-        hash.update(&bytes);
-    }
-    let hex: String = hash.finalize().iter().map(|b| format!("{b:02x}")).collect();
-    hex == catalog.source_hash
+    catalog().sources.iter().all(|path| read(path).is_some())
 }
 
 /// Sentences route tests write by hand, accepted as if authored.

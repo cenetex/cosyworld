@@ -493,8 +493,11 @@ scene the browser built, so the service checks every field
   out of the prompt and counted in a warning. Matching is bounded: a scene
   that quotes more than 24 KiB of such text, or needs more matching work
   than an honest one, is refused with 400. The client's rate limit runs
-  first, and the matching runs off the async workers. If the catalog is
-  older than the served modules, startup logs it and `/meta` reports
+  first, and the matching runs off the async workers. The catalog lists one
+  source per line and carries no hash of them (a hash changed whenever any
+  branch edited any source, so every two such branches conflicted); the fast
+  check's `npm run regen:check` proves it equals a rebuild. If it lists a
+  source this build does not serve, startup logs it and `/meta` reports
   `card_game.card_text.catalog_stale: true`.
 - **Words the service wrote** (heard lines, earlier words, remembered lines,
   personas, thoughts and dreams) come back with the Ed25519 envelope the

@@ -146,3 +146,27 @@ async fn open_mode_keeps_sign_ups_and_signed_out_reads() {
     drop(state);
     let _ = fs::remove_file(path);
 }
+
+#[tokio::test]
+async fn identity_reports_data_revision_without_changing_sign_in() {
+    let (state, path) = members_state();
+    let cookie = member_cookie(&state);
+    let (status, before) = send(&state, "GET", "/auth/account", Some(&cookie)).await;
+    assert_eq!(status, 200);
+    assert_eq!(before["account_revision"], 0);
+    let c = open_event_store(&path).unwrap();
+    c.execute("INSERT INTO account_revisions VALUES(?1,1)", [MEMBER])
+        .unwrap();
+    drop(c);
+    let (status, after) = send(&state, "GET", "/auth/account", Some(&cookie)).await;
+    assert_eq!(status, 200);
+    assert_eq!(after["account_revision"], 1);
+    for field in ["user_id", "authenticated", "passkeys", "wallets"] {
+        assert_eq!(before[field], after[field], "{field}");
+    }
+    assert_eq!(after["user_id"], MEMBER);
+    let (_, out) = send(&state, "GET", "/auth/account", None).await;
+    assert!(out["account_revision"].is_null());
+    drop(state);
+    let _ = fs::remove_file(path);
+}

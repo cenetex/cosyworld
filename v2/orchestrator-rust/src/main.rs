@@ -3,6 +3,7 @@
 // The retired classic world is gone; its rows stay in the event store, unread.
 mod account_auth;
 mod account_avatars;
+mod account_revision;
 mod ai_bench;
 mod ai_gateway;
 mod ai_readiness;
@@ -127,7 +128,6 @@ struct MetaEventStoreHealth {
     pending_event_count: usize,
     last_error_code: Option<String>,
 }
-
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     startup::run().await
