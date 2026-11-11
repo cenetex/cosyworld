@@ -3225,25 +3225,30 @@ function offerFrame(id) {
   const offer = offerOf(world, id),
     quest = offerQuest(world, offer),
     raised = selected.includes(id),
-    tier = questTier(quest, world, known),
-    who = people[offer.source] && known(offer.source) ? nameOf(offer.source) : "";
+    tier = questTier(quest, world, known);
   const el = node("button", undefined, "card want-card");
   el.type = "button";
   el.dataset.card = id;
   el.dataset.offer = offer.kind;
   el.dataset.tier = tier.id;
   el.dataset.near = "false";
-  el.dataset.unrevealed = "false";
+  // An offer lies face down, as a quest is first dealt; taking it deals the
+  // held quest, which turns face up (showQuests).
+  el.dataset.unrevealed = "true";
   el.dataset.locked = "false";
   el.dataset.selected = String(raised);
   el.style.setProperty("--tier-color", tier.color);
   el.disabled = selectionBlocked();
   el.setAttribute("aria-pressed", String(raised));
-  el.setAttribute(
-    "aria-label",
-    `Quest offered${who ? ` by ${who}` : ""}: ${shownQuestCaption(quest, false)}`,
+  el.setAttribute("aria-label", "Face-down quest");
+  el.append(
+    Object.assign(node("img", undefined, "card-back"), {
+      src: imageUrl(CARD_BACK, "card"),
+      alt: "",
+      draggable: false,
+    }),
+    ...questFace(quest, questVerb(world, quest, questCovered(quest))),
   );
-  el.append(...questFace(quest, questVerb(world, quest, questCovered(quest))));
   el.addEventListener("click", () => choose(id));
   const frame = node("div", undefined, "card-frame");
   frame.dataset.raised = String(raised);
