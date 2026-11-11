@@ -31,8 +31,10 @@ older product guides and sources remain in git history.
    migrations and the exact released rule bundles used for journal replay.
 3. Run the relevant tests from `.github/AGENT.md`. Shared changes need replay
    and client/server agreement at the real authority boundary.
-4. Rebuild the public asset list after adding a public file. Rebuild the shared
-   engine after changing an imported rule module. Commit generated outputs.
+4. Run `npm run regen` after changing rules, pack data, authored text or a
+   public file, and after merging or rebasing main. It rebuilds every generated
+   output in order and settles conflicts that are only in generated files; never
+   hand-merge them. Commit generated outputs.
 5. Update the closest current guide. Do not bump the version: a release bumps
    the package and Rust crate versions once with `npm run version:bump`
    ([release operations](docs/release.md)).

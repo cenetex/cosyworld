@@ -182,6 +182,9 @@ jobs:
       - run: npm ci --prefer-offline --no-audit --no-fund
       # Not a gate: lists tests that passed only on a retry (`retry: 1`).
       - run: npx vitest run --reporter=default --reporter=./test/helpers/retried-tests-reporter.mjs
+      # Every generated output rebuilds from its sources; a stale one fails
+      # here with the command that fixes it (`npm run regen`).
+      - run: npm run regen:check
 
   # cargo fmt reads source only, so this job builds nothing and needs no
   # Cargo cache. It uses the same stable toolchain as ci.yml and deploy.yml
