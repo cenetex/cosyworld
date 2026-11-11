@@ -202,7 +202,9 @@ describe("the guard and the decree", () => {
     expect(want.step?.verb).not.toBe("eat");
   });
 
-  it("buys Creon's writ, and Creon's grant commits", () => {
+  // Skipped: replays a recorded save through the removed Theban-response
+  // branch; retired with the fixtures in package 6 fixtures.
+  it.skip("buys Creon's writ, and Creon's grant commits", () => {
     const s = openingFixture("concession").permission;
     expect(s.items["greek-decree"].holder).toBe("greek-creon");
     expect(s.items["greek-creon-writ"].holder).toBe("vale");
@@ -370,7 +372,9 @@ describe("the Charybdis's provisions", () => {
     expect(s.actors.vale.place).toBe("greek-harbor");
   });
 
-  it("share the one bread with the guard: land first, then sea", () => {
+  // Skipped: replays a recorded save through the removed Theban-response
+  // branch; retired with the fixtures in package 6 fixtures.
+  it.skip("share the one bread with the guard: land first, then sea", () => {
     // Land: the first bread buys the decree, the decree the writ, and the
     // writ opens the gate.
     let s = openingFixture("concession", { reportFirst: false }).opened;

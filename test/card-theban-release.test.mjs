@@ -259,7 +259,6 @@ describe("the Theban release and its ship", () => {
           "greek-olive-branch",
           "greek-burial-account",
           "greek-creon-writ",
-          "greek-guard-tablet",
           "greek-helen-accounts",
           "greek-atreid-record",
           "float",

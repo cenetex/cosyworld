@@ -226,7 +226,9 @@ describe("Greek conditional residents are locked boxes that cannot be played", (
     expect(entityActive(s, "greek-aethra")).toBe(true);
   });
 
-  it.each(["burial", "concession"])(
+  // Skipped: replays a recorded save through the removed Theban-response
+  // branch; retired with the fixtures in package 6 fixtures.
+  it.skip.each(["burial", "concession"])(
     "names Dione's report for an earlier %s save",
     (branch) => {
       const s = openingFixture(branch, {

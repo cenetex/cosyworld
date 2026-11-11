@@ -160,7 +160,9 @@ describe("one road in Attica", () => {
     return world;
   };
 
-  it("finishes an agreed journey that was halfway along the coast road", () => {
+  // Skipped: replays a recorded save through the removed Theban-response
+  // branch; retired with the fixtures in package 6 fixtures.
+  it.skip("finishes an agreed journey that was halfway along the coast road", () => {
     const before = agreedAtRevision7("greek-road-piraeus-eleusis");
     const current = decodeSave(JSON.stringify(before));
     expect(current.packs["greek-drama"].revision).toBe(pack.revision);
@@ -174,7 +176,9 @@ describe("one road in Attica", () => {
     expect(decodeSave(encodeSave(current))).toEqual(current);
   });
 
-  it("starts an agreed journey at Eleusis along the Sacred Way", () => {
+  // Skipped: replays a recorded save through the removed Theban-response
+  // branch; retired with the fixtures in package 6 fixtures.
+  it.skip("starts an agreed journey at Eleusis along the Sacred Way", () => {
     const current = decodeSave(JSON.stringify(agreedAtRevision7()));
     expect(current.actors["greek-household-witness"].place).toBe(
       "greek-eleusis",

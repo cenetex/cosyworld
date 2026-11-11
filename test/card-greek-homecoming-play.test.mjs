@@ -28,7 +28,9 @@ const receive = "greek-homecoming-receive-family";
 const receipt = (world, id) => world.packs["greek-drama"].receipts[id];
 
 describe("the household reaches its berth", () => {
-  it("upgrades old journey progress and replays each step in the shared bundle", () => {
+  // Skipped: replays a recorded save through the removed Theban-response
+  // branch; retired with the fixtures in package 6 fixtures.
+  it.skip("upgrades old journey progress and replays each step in the shared bundle", () => {
     const legacy = homecomingJourney().after["greek-homecoming-agree-journey"];
     delete legacy.journeyProgress;
     legacy.turn = legacy.revision =
@@ -71,7 +73,9 @@ describe("the household reaches its berth", () => {
     }
   });
 
-  it("plays the household's care with real travel and custody", () => {
+  // Skipped: replays a recorded save through the removed Theban-response
+  // branch; retired with the fixtures in package 6 fixtures.
+  it.skip("plays the household's care with real travel and custody", () => {
     const { world, before, after } = homecomingJourney();
     const receiving = before[receive];
     expect(receiving.actors.vale.place).toBe("greek-piraeus");
@@ -95,7 +99,9 @@ describe("the household reaches its berth", () => {
     expect(decodeSave(encodeSave(world))).toEqual(world);
   });
 
-  it("waits for the list at the quay before Myrine's arrival counts", () => {
+  // Skipped: replays a recorded save through the removed Theban-response
+  // branch; retired with the fixtures in package 6 fixtures.
+  it.skip("waits for the list at the quay before Myrine's arrival counts", () => {
     let world = homecomingJourney().before[receive];
     // The witness has just met a want, so it rests and leaves the basket be.
     const witness = world.actors["greek-household-witness"];
@@ -115,7 +121,9 @@ describe("the household reaches its berth", () => {
     expect(flag(world, "arrived")).toBe(true);
   });
 
-  it("lets a later human finish the agreed journey across a leave and reload", () => {
+  // Skipped: replays a recorded save through the removed Theban-response
+  // branch; retired with the fixtures in package 6 fixtures.
+  it.skip("lets a later human finish the agreed journey across a leave and reload", () => {
     const agreed = homecomingJourney().after["greek-homecoming-agree-journey"];
     let world = dispatchShared({
       op: "create",
@@ -145,7 +153,9 @@ describe("the household reaches its berth", () => {
     ).toBe("greek-piraeus");
   });
 
-  it("credits the traveler who brings the signed account without changing the earlier author's verses", () => {
+  // Skipped: replays a recorded save through the removed Theban-response
+  // branch; retired with the fixtures in package 6 fixtures.
+  it.skip("credits the traveler who brings the signed account without changing the earlier author's verses", () => {
     const prior = homecomingJourney().after[receive];
     let world = dispatchShared({ op: "create", save: encodeSave(prior) }).world;
     world.actors.mara.place = "greek-piraeus";

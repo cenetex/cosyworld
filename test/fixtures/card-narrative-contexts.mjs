@@ -1,6 +1,6 @@
 import { endStandoff } from "../helpers/standoff.mjs";
 import { atticOpening, selectLamp } from "./card-attic-opening.mjs";
-import { openingFixture } from "../helpers/greek-opening.mjs";
+import { funeralJourney } from "../helpers/greek-funeral.mjs";
 import {
   createWorld,
   legalActions,
@@ -127,13 +127,15 @@ export function narrativeContractCases() {
     ["refused give", playCard(gifts, "give", "bell", "moth")],
     ["refused trade", playCard(gifts, "trade", "cloth", "keeper")],
   );
-  for (const branch of ["burial", "concession", "exposure"]) {
-    const earned = openingFixture(branch).closed;
+  // The Theban-response branches are gone; the funeral is the one path, so
+  // the Bard meets Vale once the burial is done.
+  for (const branch of ["burial"]) {
+    const earned = funeralJourney().buried;
     // The Bard follows its own want; the case meets it where Vale stands.
     const arrival = playCard(earned, "wait");
     arrival.actors["greek-rhapsode"].place = arrival.actors.vale.place;
     // Meeting him there, as the stage does when Vale and he share a place.
-    arrival.opening.met["greek-rhapsode"] ??= arrival.turn;
+    if (arrival.opening) arrival.opening.met["greek-rhapsode"] ??= arrival.turn;
     arrival.packs["greek-drama"].met["greek-rhapsode"] ??= arrival.turn;
     worlds.push([`${branch} bard arrival`, arrival]);
     worlds.push([

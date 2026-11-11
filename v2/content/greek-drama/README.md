@@ -37,12 +37,10 @@ Thebes has no story buttons. Its deeds are the ordinary verbs:
 - **Trade** Creon the decree for his writ, with the household token in hand
   and the elder's witness, to petition (revision 20: Creon holds the writ and
   wants the decree back). Given the writ, the guard stands aside.
-- **Give** the guard the shovel with the funeral cloth in hand, the tools of
-  the burial, to report the plan. **The Guard's Tablet** then lies at the
-  gate. The shovel alone is no report: the guard declines it, so handing it
-  over by mistake decides nothing.
-- **Give** Dione the account, the writ or the tablet. It stays on her table,
-  and her road to Eleusis opens.
+- The Theban-response branch is gone (the report-plan, permitted-burial and
+  courtyard choices, the Guard's Tablet and the `greek-theban-response`
+  outcomes): the burial is the three rites in the Hollow, and burying
+  Polynices opens the Open Door.
 
 ### The provisions loop (rules 95, 102)
 
@@ -98,11 +96,8 @@ away or leaves his post, the gate stays open. A petition needs the decree in han
 returns it to the palace, so a petitioner carries it back to the guard
 afterwards. The battlefield is a Theban place just outside the walls, so by
 the map rule it links directly to the gate. Beyond it the Cithaeron road
-leads over the mountain to Eleusis. From the battlefield it opens while a
-Theban account (the Burial Account, Creon's Writ or the Guard's Tablet) is
-at the battlefield or on Dione's table in the courtyard, and stays open after
-that account moves away. The way back from Eleusis is always open. The road is in
-the Open Door, so it opens with Dione's report.
+leads over the mountain to Eleusis. It is open both ways. The road is in
+the Open Door section, so it appears once the burial opens the Open Door.
 
 Three short story cards follow the opening. The Bard carries its growing
 poem. Finishing a quest brings him to the next room the player enters.

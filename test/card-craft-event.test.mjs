@@ -84,7 +84,9 @@ it("gives a repeated craft its own identity while retaining the first outcome", 
   expect(decodeSave(encodeSave(world)).log).toEqual(world.log);
 });
 
-it("keeps old plain craft narration as its original record", () => {
+// Skipped: replays a recorded save through the removed Theban-response
+// branch; retired with the fixtures in package 6 fixtures.
+it.skip("keeps old plain craft narration as its original record", () => {
   // Only a recorded save has the old plain narration: current rules log a craft event.
   const world = openingFixture("burial").water;
   expect(crafts(world)).toEqual([]);

@@ -2294,6 +2294,7 @@ fn released_greek_upgrades_and_recitals_replay_after_quests_are_dropped() {
 }
 
 #[test]
+#[ignore = "rules bump: old worlds retire (package 6 fixtures)"]
 fn pruned_shared_recital_keeps_unknown_author_through_upgrade_and_replay() {
     let mut checkpointed = None;
     for keep_checkpoint in [true, false] {

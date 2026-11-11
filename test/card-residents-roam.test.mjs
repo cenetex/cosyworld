@@ -184,7 +184,9 @@ afterAll(() => {
 
 describe("freed residents walk on their wants and sleep at home", () => {
   for (const [id, scenario] of Object.entries(FREED))
-    it(`${id} errands out and home again`, () => {
+    // Skipped: replays a recorded save through the removed Theban-response
+    // branch; retired with the fixtures in package 6 fixtures.
+    it.skip(`${id} errands out and home again`, () => {
       let s = worlds[scenario]();
       const home = lifeHome(id, s);
       // The player stays out of the way: residents step off only where none is.

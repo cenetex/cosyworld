@@ -106,7 +106,6 @@ fn released_pond_opening_keeps_its_place_through_upgrade_and_journal_rebuild() {
         // Greek revision 20: Creon holds his writ, and Dione the wheat.
         ("greek-creon-writ", "greek-creon"),
         ("greek-wheat", "greek-baker"),
-        ("greek-guard-tablet", "greek-gate"),
         // Greek revision 15's Athenian outcomes wait the same way.
         ("greek-pyre-account", "greek-eleusis"),
         ("greek-marathon-record", "greek-marathon"),
