@@ -2874,15 +2874,18 @@ fn invited_carriage_trip_preserves_agreement_visited_places_and_replays() {
             now(),
         )
         .unwrap();
-        // The train door answers only a player (rules 133): Moth, taken in,
-        // could not walk out again, so he declines whatever his trust, and
-        // nothing moves or is ticketed.
-        let _ = agrees;
-        assert_eq!(w.game["actors"]["rue"]["place"], "station");
-        assert_eq!(w.game["actors"]["moth"]["place"], "station");
+        let place = if agrees { "train" } else { "station" };
+        assert_eq!(w.game["actors"]["rue"]["place"], place);
+        assert_eq!(w.game["actors"]["moth"]["place"], place);
         assert_eq!(w.game["items"]["routes"]["holder"], "rue");
-        assert!(w.game["actors"]["rue"]["companion"].is_null());
-        assert!(w.game["invitedPlaces"].is_null());
+        if agrees {
+            assert_eq!(w.game["invitedPlaces"]["moth"], json!(["train"]));
+            // Moth is now Rue's companion (rules 133).
+            assert_eq!(w.game["actors"]["rue"]["companion"], "moth");
+        } else {
+            assert!(w.game["invitedPlaces"].is_null());
+            assert!(w.game["actors"]["rue"]["companion"].is_null());
+        }
         c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
         assert_eq!(full_store::world(&c, &id, now()).unwrap(), w);
         let mut closed = before;

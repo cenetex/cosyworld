@@ -27,19 +27,27 @@ const invite = (s) =>
       a.destination === "train",
   );
 describe("invited companion travel", () => {
-  it("does not take Pip where only a player could walk home (rules 133)", () => {
-    // The train door answers only to a player: Pip, taken in, could never
-    // walk out again, so he declines and nothing moves.
+  it("carries the door token with Rue and Pip in one agreed trip and retains the visited place", () => {
     const start = carriage();
     const action = invite(start);
     expect(action).toBeDefined();
-    const s = play(start, action, start.revision, "rue").state;
-    expect(s.log.findLast((e) => e.verb === "accompany").accepted).toBe(false);
-    expect(s.actors.rue.place).toBe("station");
-    expect(s.actors.moth.place).toBe("station");
-    expect(s.actors.rue.companion).toBeUndefined();
-    expect(s.invitedPlaces).toBeUndefined();
+    const result = play(start, action, start.revision, "rue");
+    expect(result.ok).toBe(true);
+    const s = result.state;
+    expect(s.actors.rue.place).toBe("train");
+    expect(s.actors.moth.place).toBe("train");
+    expect(s.items.routes.holder).toBe("rue");
+    expect(s.invitedPlaces).toEqual({ moth: ["train"] });
+    expect(s.log.filter((e) => e.verb === "accompany")).toHaveLength(1);
+    expect(s.log.findLast((e) => e.verb === "accompany").accepted).toBe(true);
     expect(decodeSave(encodeSave(s))).toEqual(s);
+    // Pip is now Rue's companion (rules 133), with a way home through the door.
+    expect(s.actors.rue.companion).toBe("moth");
+    expect(start.invitedPlaces).toBeUndefined();
+    expect(exits(s, "station", "moth")).not.toContain("train");
+    const bad = structuredClone(s);
+    bad.invitedPlaces.moth.push("missing-room");
+    expect(() => encodeSave(bad)).toThrow();
   });
   it("keeps a refused invitation in the current room without adding visited places", () => {
     const start = carriage(false);

@@ -1,16 +1,21 @@
 // Sticky companions (rules 133). One saved fact: `actors[traveler].companion`
-// names the resident who is with that traveler. Nothing is saved on the
-// resident; "R is somebody's companion" is read by asking who names R. This
-// module holds the state and the predicates and imports nothing, so the pack
-// registry and the rules can both use it; the rules inject what they know
-// (grievances, wants, the planner) where they call it.
+// names the resident who is with that traveler (and `actedAt`, the turn the
+// traveler last played, which times the shared-world absence limit). Nothing
+// is saved on the resident; "R is somebody's companion" is read by asking who
+// names R. This module holds the state and the predicates and imports
+// nothing, so the pack registry and the rules can both use it.
 //
-// A companion follows the traveler's every move, holds still against its own
-// pulls, walks to catch up if it is not in the traveler's place, and goes
-// back to being an ordinary resident on exactly two endings: its trust falls
-// below the accompany threshold (or it holds a grievance against the
-// traveler), or the traveler wakes from a long rest holding no quest that
-// pins it.
+// A companion follows every move of its traveler, holds still against its own
+// pulls, and walks to catch up if it is ever parted. The bond ends in exactly
+// these ways and no others:
+//   - its trust in the traveler falls below the accompany threshold (a threat
+//     or a strike on it lowers trust; a grievance alone does not);
+//   - the traveler wakes from a long rest holding no quest that pins it;
+//   - the traveler asks another resident to accompany them (replacement);
+//   - in a shared world the traveler has been away for a day;
+//   - the traveler's avatar is reset.
+// A companion who is not an active card (its pack switched off) stays bound
+// and waits, unseen, until it is back.
 
 // Trust at which a resident will travel with someone (the bond ladder).
 export const ACCOMPANY_TRUST = 2;
@@ -50,12 +55,14 @@ export function partyOf(s, who) {
 export function bind(s, traveler, resident) {
   const before = companionOf(s, traveler);
   s.actors[traveler].companion = resident;
+  s.actors[traveler].actedAt = s.turn;
   delete s.actors[resident]?.homeward;
   return before && before !== resident ? before : null;
 }
 export function release(s, traveler) {
   const before = companionOf(s, traveler);
   delete s.actors[traveler]?.companion;
+  delete s.actors[traveler]?.actedAt;
   return before;
 }
 
@@ -68,19 +75,16 @@ export function loseTrust(s, resident, actor, amount) {
   return before - trust[actor];
 }
 
-// Why a bond ends now, or null: trust fell below the threshold, or the
-// resident holds an active grievance against the traveler.
-export function partingReason(s, traveler, resident, grievance) {
-  if ((s.actors[resident]?.trust?.[traveler] || 0) < ACCOMPANY_TRUST)
-    return "trust";
-  return grievance ? "grievance" : null;
-}
+// Trust is the only thing that breaks a bond while it lasts.
+export const trustBroken = (s, traveler, resident) =>
+  (s.actors[resident]?.trust?.[traveler] || 0) < ACCOMPANY_TRUST;
 
 // The saved field: a resident id, never the traveler itself, one traveler
 // per resident.
 export function validCompanions(s, actorIds) {
   const seen = new Set();
   for (const [id, a] of Object.entries(s.actors || {})) {
+    if (a.actedAt !== undefined && (a.companion === undefined || !Number.isSafeInteger(a.actedAt) || a.actedAt < 0 || a.actedAt > s.turn)) return false;
     if (a.companion === undefined) continue;
     if (
       typeof a.companion !== "string" ||
@@ -94,12 +98,10 @@ export function validCompanions(s, actorIds) {
   return true;
 }
 
-// The turn a traveler last acted, from the log, or null if it has aged out.
-export const lastActed = (s, who) =>
-  s.log?.findLast((e) => e.actorId === who)?.turn ?? null;
 
 // The fixed words of a disabled Accompany button (the rules' vocabulary, not
 // pack text): names only, from cards already on the table or known to the
 // traveler. One wording for every card that never travels.
 export const staysLabel = (name) => `${name} stays here`;
 export const withLabel = (name, traveler) => `${name} is with ${traveler}`;
+export const cannotFollowLabel = (name) => `${name} cannot follow`;

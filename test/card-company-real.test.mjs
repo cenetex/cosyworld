@@ -9,6 +9,8 @@ import {
 import { companionOf } from "../v2/card-game/world/company.mjs";
 import { act, lifeWorld, wait } from "./helpers/world-life.mjs";
 import { sailTo } from "./helpers/voyage.mjs";
+import { lifeHome } from "../v2/card-game/resident-home.mjs";
+import { openGreekGate } from "./helpers/greek-gate.mjs";
 
 // A few checks on the shipping content, by real play. The rules are tested on
 // a made-up world in card-company.test.mjs; these only prove the real packs
@@ -37,16 +39,45 @@ describe("sticky companions in the shipping content", () => {
     expect(decodeSave(encodeSave(s)).actors.vale.companion).toBe("whiskerwind");
   });
 
-  it("she declines the Mirror attic, where she could not walk home", () => {
+  it("she goes with Vale through the Mirror attic and back, and is not stranded there", () => {
     let s = createWorld({ seed: 3 });
     s.turn = s.revision = 60;
     s.actors.vale.place = s.actors.whiskerwind.place = "forest-cottage";
     s.packs["lonely-forest"].met.whiskerwind = 0;
     s.actors.whiskerwind.trust.vale = 2;
     s = invite(s, "whiskerwind", "attic");
-    expect(s.log.findLast((e) => e.verb === "accompany").accepted).toBe(false);
-    expect(s.actors.whiskerwind.place).toBe("forest-cottage");
+    expect(s.log.findLast((e) => e.verb === "accompany").accepted).toBe(true);
+    expect(s.actors.whiskerwind.place).toBe("attic");
+    expect(s.invitedPlaces.whiskerwind).toContain("attic");
+    // Released in the attic, she walks home through the same door.
+    s.actors.whiskerwind.trust.vale = 0;
+    s = wait(s);
     expect(companionOf(s, "vale")).toBeNull();
+    // The door home needs the lit lamp and the cloth in the attic: she waits,
+    // alive, until it opens, and then goes home by herself.
+    for (let i = 0; i < 6; i++) s = wait(s);
+    expect(s.actors.whiskerwind.place).toBe("attic");
+    expect(legalActions(s, "whiskerwind").some((a) => a.kind === "wait")).toBe(true);
+    Object.assign(s.items.lamp, { holder: "attic", lit: true, fuel: 12, fuelRooms: 3, fuelPlace: "attic" });
+    s.items.cloth.holder = "attic";
+    for (let i = 0; i < 12; i++) s = wait(s);
+    expect(s.actors.whiskerwind.place).toMatch(/^forest-/u);
+  });
+
+  it("a companion whose pack is switched off stays bound, and is back when it returns", () => {
+    let s = createWorld({ seed: 3 });
+    s.turn = s.revision = 60;
+    s.actors.vale.place = s.actors.whiskerwind.place = "forest-cottage";
+    s.packs["lonely-forest"].met.whiskerwind = 0;
+    s.actors.whiskerwind.trust.vale = 2;
+    s = invite(s, "whiskerwind", "forest-garden");
+    // Vale leaves the forest for the hub, then the forest goes quiet.
+    s.actors.vale.place = "pond";
+    s = play(s, { kind: "pack", pack: "cottage", enable: false }, s.revision).state;
+    s = act(s, "wait");
+    expect(companionOf(s, "vale")).toBe("whiskerwind");
+    s = play(s, { kind: "pack", pack: "cottage", enable: true }, s.revision).state;
+    expect(companionOf(s, "vale")).toBe("whiskerwind");
   });
 
   it("Dione walks the Theban streets with Vale and does not go home at dusk", () => {
@@ -72,5 +103,28 @@ describe("sticky companions in the shipping content", () => {
     expect(s.actors.vale.place).toBe("pond");
     expect(s.actors["greek-baker"].place).toBe("pond");
     expect(companionOf(s, "vale")).toBe("greek-baker");
+  });
+
+  it("Antigone (range 0, no post) follows, and walks home to the gate when released", () => {
+    let s = lifeWorld({ place: "greek-gate", turn: 60 });
+    openGreekGate(s);
+    s.actors["greek-antigone"].trust.vale = 2;
+    s = invite(s, "greek-antigone", "greek-battlefield");
+    expect(s.actors["greek-antigone"].place).toBe("greek-battlefield");
+    s.actors["greek-antigone"].trust.vale = 0;
+    for (let i = 0; i < 12; i++) s = wait(s);
+    expect(companionOf(s, "vale")).toBeNull();
+    // Range 0 and released away from home: the ordinary leash walks her home.
+    expect(s.actors["greek-antigone"].place).toBe(
+      lifeHome("greek-antigone", s),
+    );
+  });
+
+  it("the Gate Guard is refused by his post, not his range", () => {
+    const s = lifeWorld({ place: "greek-gate", turn: 60 });
+    s.actors["greek-guard"].trust.vale = 3;
+    expect(
+      legalActions(s).some((a) => a.kind === "accompany" && a.target === "greek-guard"),
+    ).toBe(false);
   });
 });

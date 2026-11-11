@@ -785,14 +785,16 @@ and refined one ("Gates should be shared in some way; I don't want
 2. "A sleep" is the traveler waking from a long rest.
 3. A gate is the party's. Where a way is open for the traveler, the companion
    passes with them, and a traveler's own condition on a way (an item held,
-   trust of a keeper) is met by either of them. A companion is left behind
-   only where it could not walk home along the authored map (a crossing only a
-   player may use, a dead end); it then walks to catch up when it can.
+   trust of a keeper) is met by either of them. A companion passes
+   a crossing only a player may use too. It is left behind only where it has
+   no way home along the authored map (a dead end); the pair's button then
+   reads "<Name> cannot follow".
 4. The companion keeps its own one want and may meet it on the way; neither a
    drawn nor a met want ends the bond.
 5. Trust can fall, for visible acts by the traveler only: a threat on the
    resident takes 2 trust (3 when it demands an item) and a strike on them
-   takes 1, never below 0. Trust under 2, or a grievance, ends the bond.
+   takes 1, never below 0. Trust under 2 ends the bond; a grievance alone does
+   not.
 6. The Shade and the Gate Guard stay fixed by role, with the Oak and Badger.
    The button reads "Oak stays here", one fixed wording from the rules, since
    authored text lives only in place, item and avatar descriptions.

@@ -17,6 +17,7 @@ import {
   things,
   nameOf,
   legalActions,
+  wayHome,
   itemPlace,
   rootHolder,
   exits,
@@ -27,12 +28,12 @@ import {
 import { isOfferId } from "./world/offers.mjs";
 import {
   companionOf,
+  cannotFollowLabel,
   staysLabel,
   travelerOf,
   withLabel,
 } from "./world/company.mjs";
-import { staysPut } from "./pack-registry.mjs";
-import { keepsHome } from "./resident-home.mjs";
+import { staysByRole } from "./resident-guard.mjs";
 
 // The boxes shut at the player's place: the one list the rules keep (rules
 // 133, world/boxes.mjs). The hand draws each face down and the context
@@ -203,10 +204,18 @@ function companyReason(world, selected) {
   const other = travelerOf(world, who);
   if (other && other !== player)
     return withLabel(nameOf(who), nameOf(other));
-  return staysPut(who, world) || keepsHome(world, who)
-    ? staysLabel(nameOf(who))
-    : null;
+  if (staysByRole(world, who)) return staysLabel(nameOf(who));
+  // A way the resident could not walk home from: it is not taken, and the
+  // pair says so before the move. Moving alone is still the place card.
+  return !cannotFollow(world, who, place) ? null : cannotFollowLabel(nameOf(who));
 }
+const cannotFollow = (world, who, place) => {
+  const player = currentActor(world);
+  return (
+    legalActions(world).some((a) => a.kind === "move" && a.target === place) &&
+    !wayHome(world, player, world.actors[player].place, place, who)
+  );
+};
 // Why a sealed card's way is shut, from its pack data, or null. A locked
 // made thing names who makes it from what (rules 102).
 export const sealedReason = (world, id) => shutBox(world, id)?.reason ?? null;
@@ -356,7 +365,9 @@ export function cardPlay(world, selected) {
             find("move", null, location)
         : // Already with you, a resident comes along on any move.
           avatar === companionOf(world, player)
-          ? find("move", null, location) || find("course", null, location)
+          ? cannotFollow(world, avatar, location)
+            ? null
+            : find("move", null, location) || find("course", null, location)
           : actions.find(
               (a) =>
                 a.kind === "accompany" &&

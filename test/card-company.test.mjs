@@ -19,6 +19,7 @@ const { companionOf, travelerOf, partyOf } = await import(
 const { sailTo } = await import("./helpers/voyage.mjs");
 const { cardPlay, asleepReason } = await import("../v2/card-game/cards.mjs");
 const { runHash } = await import("../v2/card-game/pack-rules.mjs");
+const { life } = await import("../v2/card-game/resident-home.mjs");
 
 const ANN = "co-ann",
   BO = "co-bo",
@@ -220,9 +221,8 @@ describe("gates are the party's", () => {
 });
 
 describe("left behind and catching up", () => {
-  it("a companion that cannot follow walks to the traveler each round", () => {
+  it("a companion that is parted walks to the traveler each round", () => {
     let s = invite(world(), ANN, "co-b");
-    // Put Ann two places away, as a defeat or a closed way would.
     s.actors[ANN].place = "co-a";
     s = go(s, "co-c");
     s = wait(s);
@@ -231,25 +231,88 @@ describe("left behind and catching up", () => {
     expect(at(s, ANN)).toBe("co-c");
     expect(companionOf(s, "vale")).toBe(ANN);
   });
-  it("a way the companion could not walk back is never taken: it waits at the threshold", () => {
-    let s = world({ at: "co-a" });
-    s = invite(s, ANN, "co-b");
-    // The yard has a free way back; take it away and the follow is refused.
-    s.items["co-key"].holder = "vale";
-    s = go(s, "co-yard");
-    expect(at(s, ANN)).toBe("co-yard");
-    s = go(s, "co-b");
-    expect(at(s, ANN)).toBe("co-b");
+  it("a bound companion that is parted is still processed like any resident", () => {
+    let s = invite(world(), ANN, "co-b");
+    s.actors[ANN].place = "co-a";
+    // Parted and separated, she is neither frozen nor given a schedule: she
+    // acts (walks to catch up) and does not fall asleep or go home.
+    s = go(s, "co-c");
+    for (let i = 0; i < 3; i++) s = wait(s);
+    expect(at(s, ANN)).toBe("co-c");
+    expect(s.actors[ANN].sleeping).toBeUndefined();
   });
-  it("is never stranded: every place a companion is taken to has its way back", () => {
+  it("a place with no way home is not offered, and the pair says she cannot follow", () => {
+    const s = world({ at: "co-c" });
+    expect(offered(s, ANN, "co-pit")).toBe(false);
+    expect(asleepReason(s, [ANN, "co-pit"])).toBe("Ann cannot follow");
+    // Moving alone stays the place card's play.
+    expect(cardPlay(s, ["co-pit"]).action?.kind).toBe("move");
+  });
+  it("a bound companion is left at the pit's mouth, and the pair says so before the move", () => {
+    let s = invite(world({ at: "co-b" }), ANN, "co-c");
+    expect(asleepReason(s, [ANN, "co-pit"])).toBe("Ann cannot follow");
+    expect(cardPlay(s, [ANN, "co-pit"]).action).toBeFalsy();
+    s = go(s, "co-pit");
+    expect(at(s, ANN)).toBe("co-c");
+    expect(companionOf(s, "vale")).toBe(ANN);
+  });
+  it("a below-threshold trip that serves her want is a joint trip with no bond", () => {
+    const s = world();
+    s.actors[ANN].trust.vale = 0;
+    s.actors[ANN].want = { kind: "place", target: "co-b", since: s.turn, refusals: 0 };
+    const next = invite(s, ANN, "co-b");
+    expect(at(next, ANN)).toBe("co-b");
+    expect(companionOf(next, "vale")).toBeNull();
+    expect(next.log.some((e) => /no longer trusts/u.test(e.text))).toBe(false);
+  });
+});
+
+describe("walking home when released", () => {
+  it("through the other pack and back, and the tickets are put away", () => {
     let s = invite(world(), ANN, "station");
     s = go(s, "co-far");
-    // Release by trust, then the resident can still walk home.
+    expect(s.invitedPlaces[ANN]).toEqual(expect.arrayContaining(["co-far"]));
     s.actors[ANN].trust.vale = 0;
     s = wait(s);
     expect(companionOf(s, "vale")).toBeNull();
-    const walk = () => legalActions(s, ANN).some((a) => a.kind === "move");
-    expect(walk()).toBe(true);
+    // Her tickets now only cover the way home.
+    expect(s.invitedPlaces?.[ANN]).toEqual(expect.arrayContaining(["co-far"]));
+    s = wait(s, 30);
+    expect(at(s, ANN)).toBe("co-a");
+    expect(s.invitedPlaces?.[ANN]).toBeUndefined();
+  });
+  it("a released resident waits at a shut way, lives there, and goes home when it opens", () => {
+    let s = world({ at: "co-b" });
+    s.actors[ANN].place = "co-b";
+    s.items["co-key"].holder = "vale";
+    s = invite(s, ANN, "co-yard");
+    expect(at(s, ANN)).toBe("co-yard");
+    // The key is taken out of the yard (it lies in B), so the way out is
+    // shut, and then her trust goes: she is released inside.
+    s.items["co-key"].holder = "co-b";
+    s.actors[ANN].trust.vale = 0;
+    s = wait(s, 6);
+    expect(companionOf(s, "vale")).toBeNull();
+    expect(at(s, ANN)).toBe("co-yard");
+    // She is not frozen: she is a resident there and can be asked again.
+    expect(legalActions(s, ANN).some((a) => a.kind === "wait")).toBe(true);
+    // The key goes back to the yard and the way opens for her.
+    s.items["co-key"].holder = "co-yard";
+    s = wait(s, 6);
+    expect(at(s, ANN)).toBe("co-a");
+  });
+  it("REPORTED, not fixed: a key door shuts behind a companion who leaves with the key", () => {
+    let s = world({ at: "co-b" });
+    s.actors[ANN].place = "co-b";
+    s = invite(s, ANN, "co-a");
+    s = go(s, "co-b");
+    s.items["co-key"].holder = ANN;
+    s = go(s, "co-yard");
+    expect(at(s, ANN)).toBe("co-yard");
+    // Ann walks out with the key (as any holder could): the way out was
+    // open only while the key lay in the yard, and now the traveler is shut in.
+    s.items["co-key"].holder = "co-b";
+    expect(legalActions(s, "vale").some((a) => a.kind === "move")).toBe(false);
   });
 });
 
@@ -283,6 +346,41 @@ describe("fixed by role", () => {
     expect(offered(s, "co-oak", "co-b")).toBe(false);
     const reason = asleepReason(s, ["co-oak", "co-b"]);
     expect(reason).toBe("The Post stays here");
+  });
+  // Roaming range says how far a resident wanders alone; it plays no part in
+  // following a traveler. Only what a resident is (travels false, a post) fixes it.
+  it("a range-0 resident can be asked, follows, and walks home when released", () => {
+    life.residents[ANN] = { range: 0 };
+    try {
+      let s = world({ at: "co-b" });
+      s.actors[ANN].place = "co-b";
+      s = invite(s, ANN, "co-c");
+      expect(companionOf(s, "vale")).toBe(ANN);
+      s = go(s, "co-b");
+      expect(at(s, ANN)).toBe("co-b");
+      s = go(s, "co-a");
+      expect(at(s, ANN)).toBe("co-a");
+      s = go(s, "co-b");
+      s = go(s, "co-c");
+      s.actors[ANN].trust.vale = 0;
+      s = wait(s, 4);
+      expect(companionOf(s, "vale")).toBeNull();
+      // Released away from home, the ordinary range-0 leash walks her back.
+      expect(at(s, ANN)).toBe("co-a");
+    } finally {
+      delete life.residents[ANN];
+    }
+  });
+  it("a resident who holds a post cannot be asked, whatever its range", () => {
+    life.residents[BO] = { guards: "co-c" };
+    try {
+      const s = world({ at: "co-b" });
+      s.actors[BO].place = "co-b";
+      expect(offered(s, BO, "co-a")).toBe(false);
+      expect(asleepReason(s, [BO, "co-a"])).toBe("Bo stays here");
+    } finally {
+      delete life.residents[BO];
+    }
   });
   it("a resident with another traveler is refused with whose it is", () => {
     const s = world({ at: "co-b" });
@@ -336,19 +434,39 @@ describe("what ends the bond", () => {
     s = step(s, "give", { target: ANN, item: "co-key" });
     expect(s.actors[ANN].trust.vale).toBe(1);
   });
-  it("a grievance against the traveler", () => {
-    let s = invite(world(), ANN, "co-b");
-    s.motives.grievances[ANN].push({
-      other: "vale",
-      kind: "threat",
-      reason: "Vale picked a fight.",
-      turn: s.turn,
-      weight: 1,
-      lastTouched: s.turn,
-      repaired: false,
+  // Passing annoyances are not trust breaking down (rules 133): a grievance
+  // alone, from the bell, the light or pestering, leaves the bond.
+  for (const kind of ["noise", "light", "pestering"])
+    it(`a ${kind} grievance alone does not end it`, () => {
+      let s = invite(world(), ANN, "co-b");
+      s.motives.grievances[ANN].push({
+        other: "vale",
+        kind,
+        reason: "Vale annoyed her.",
+        turn: s.turn,
+        weight: 2,
+        lastTouched: s.turn,
+        repaired: false,
+      });
+      s = wait(s, 3);
+      expect(companionOf(s, "vale")).toBe(ANN);
     });
-    s = wait(s);
-    expect(companionOf(s, "vale")).toBeNull();
+  it("asking a second resident ends the first bond, who is then ordinary", () => {
+    let s = invite(world(), ANN, "co-b");
+    s.actors[BO].place = "co-b";
+    s = invite(s, BO, "co-c");
+    expect(travelerOf(s, ANN)).toBeNull();
+  });
+  it("the traveler's avatar being reset ends it", async () => {
+    const { resetAvatar } = await import("../v2/card-game/avatar-reset.mjs");
+    let s = invite(world(), ANN, "co-b");
+    s.sharedVersion = 1;
+    s.controlledActors = ["vale", "mara"];
+    s.presentActors = ["vale", "mara"];
+    s.heldActors = ["vale", "mara"];
+    resetAvatar(s, "vale");
+    expect(s.actors.vale.companion).toBeUndefined();
+    expect(travelerOf(s, ANN)).toBeNull();
   });
   // Place B is a sanctuary in the made-up world. A rest of twelve turns or more
   // there is a long rest; Sleep runs until something wakes the sleeper.
@@ -441,8 +559,13 @@ describe("a shared world", () => {
     for (let i = 0; i < 40; i++) s = step(s, "wait", {}, "mara");
     expect(companionOf(s, "vale")).toBe(ANN);
     expect(at(s, ANN)).toBe("co-c");
+    // The log is capped, and Vale's own entries have long gone from it: the
+    // limit is timed from saved state, not from the log.
+    s.log = s.log.filter((e) => e.actorId !== "vale");
+    expect(s.log.some((e) => e.actorId === "vale")).toBe(false);
     for (let i = 0; i < 12; i++) s = step(s, "wait", {}, "mara");
     expect(companionOf(s, "vale")).toBeNull();
+    expect(s.actors.vale.actedAt).toBeUndefined();
   });
   it("is the same on every engine: the same plays give the same world", () => {
     expect(JSON.stringify(shared())).toBe(JSON.stringify(shared()));

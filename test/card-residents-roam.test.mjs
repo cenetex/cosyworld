@@ -40,6 +40,8 @@ import { ajaxCamp } from "./helpers/greek-ajax.mjs";
 const NO_INVITE = {
   oak: "Oak stays in one place by design (a backdrop tree).",
   badger: "The Badger stays on his moss by design; his clearing has no way out.",
+  skull:
+    "Skull's home, the Moonlit Trail, is shut until the drain is cleared: out of it he could not walk home.",
   "greek-guard": "The Gate Guard is a lock: if he leaves his post the way opens for everyone.",
   "greek-polynices-shade": "The Shade is a night apparition at the Hollow.",
   "greek-household-witness": "Myrine has an authored journey and travels only on it.",

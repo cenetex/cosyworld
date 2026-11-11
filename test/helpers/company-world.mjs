@@ -33,9 +33,10 @@ export const home = {
   places: {
     "co-a": spot("Place A", ["co-b"]),
     "co-b": spot("Place B", ["co-a", "co-c"], { sanctuary: true }),
-    "co-c": spot("Place C", ["co-b", "co-dock"]),
+    "co-c": spot("Place C", ["co-b", "co-dock", "co-pit"]),
+    "co-pit": spot("The Pit", []),
     "co-dock": spot("Home Dock", ["co-c"]),
-    "co-yard": spot("Locked Yard", ["co-b"]),
+    "co-yard": spot("Locked Yard", []),
     "co-ship": spot("The Test Ship", []),
   },
   avatars: {
@@ -56,6 +57,13 @@ export const home = {
     },
   },
   routes: [
+    // The way out of the yard is open only while the key lies in the yard.
+    {
+      from: "co-yard",
+      to: "co-b",
+      live: true,
+      requires: [{ kind: "item_near", item: "co-key", place: "co-yard" }],
+    },
     {
       from: "co-b",
       to: "co-yard",

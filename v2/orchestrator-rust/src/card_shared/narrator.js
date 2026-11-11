@@ -1930,7 +1930,10 @@
   var crossingOpen = (s, c, senses2, actor = senses2?.player ?? null) => (!c.retired || Boolean(crossingState(s, c.id)?.discovered)) && entityActive(s, c.from) && entityActive(s, c.to) && (c.transport ? transportUnlocked(s, c.transport) && shipDock(s, c.transport) === c.from : windowOpen(s, c) && signalReady(s, c, senses2)) && c.requires.every((r) => conditionMet(s, r, senses2, c.packId, actor));
   var mayCross = (c, actor, senses2) => c.travelers === "any" || actor === senses2.player || roamingQuestActor(actor) || packPeople[actor]?.personalQuests || senses2.humanActors?.includes(actor);
   var crossingExits = (s, place, actor, senses2) => crossings.filter(
-    (c) => c.from === place && (mayCross(c, actor, senses2) || s.invitedPlaces?.[actor]?.includes(c.from) && (packPeople[actor]?.packId ?? null) === (packPlaces[c.to]?.packId ?? null)) && crossingOpen(s, c, senses2, actor)
+    (c) => c.from === place && (mayCross(c, actor, senses2) || // A resident taken along walks home by the same way: from a
+    // ticketed place into its own part of the world, or on to
+    // another ticketed place on that way (rules 133).
+    s.invitedPlaces?.[actor]?.includes(c.from) && ((packPeople[actor]?.packId ?? null) === (packPlaces[c.to]?.packId ?? null) || s.invitedPlaces[actor].includes(c.to))) && crossingOpen(s, c, senses2, actor)
   ).map((c) => c.transport ? transports[c.transport].place : c.to);
   var packDiscovered = (s, packId) => crossings.some(
     (c) => c.packId === packId && isPackPlace(c.to) && crossingState(s, c.id)?.discovered
@@ -2394,6 +2397,7 @@
   function validCompanions(s, actorIds2) {
     const seen = /* @__PURE__ */ new Set();
     for (const [id, a] of Object.entries(s.actors || {})) {
+      if (a.actedAt !== void 0 && (a.companion === void 0 || !Number.isSafeInteger(a.actedAt) || a.actedAt < 0 || a.actedAt > s.turn)) return false;
       if (a.companion === void 0) continue;
       if (typeof a.companion !== "string" || a.companion === id || !actorIds2.includes(a.companion) || seen.has(a.companion))
         return false;
@@ -14071,6 +14075,7 @@
             startLevel: 20,
             text: "A large charcoal wolf stands beside the pawprints. His ears turn toward the garden.",
             place: "forest-trail",
+            travels: false,
             seed: "Skull, a wolf.",
             expression: "movement",
             portrait: "assets/lonely-forest/skull.png",
@@ -19193,7 +19198,7 @@
       "greek-drama": { sleep: { from: 30, to: 47 } }
     },
     residents: {
-      "greek-antigone": { range: 1 },
+      "greek-antigone": { range: 0 },
       "greek-polynices-shade": { range: 0, sleep: null },
       moth: { sleep: { from: 0, to: 20 } },
       keeper: { sleep: { from: 35, to: 2 } },
@@ -19290,6 +19295,84 @@
   var validHome = (s) => Object.values(s.actors).every(
     (a) => a.homeward === void 0 || a.homeward === true
   );
+
+  // v2/card-game/resident-guard.mjs
+  var guardable = null;
+  var returns2 = null;
+  var residentGuards = null;
+  var guardians = null;
+  function guardData() {
+    if (guardable) return;
+    guardable = /* @__PURE__ */ new Map();
+    returns2 = /* @__PURE__ */ new Map();
+    for (const { from, to } of world_life_default.guardable || []) {
+      if (!guardable.has(from)) guardable.set(from, /* @__PURE__ */ new Set());
+      guardable.get(from).add(to);
+      if (!returns2.has(to)) returns2.set(to, /* @__PURE__ */ new Set());
+      returns2.get(to).add(from);
+    }
+    residentGuards = Object.keys(world_life_default.residents || {}).filter(
+      (id) => lifeField(id, "guards") && packPeople[id] && !humanAvatar(id)
+    ).sort();
+    guardians = [...residentGuards, ...humanAvatarIds];
+  }
+  var isGuardable = (from, to) => {
+    guardData();
+    return Boolean(guardable.get(from)?.has(to));
+  };
+  var guardPost = (id) => lifeField(id, "guards") && !humanAvatar(id) ? { from: lifeHome(id), to: lifeField(id, "guards") } : null;
+  var wayLifted = (s, from, to) => packRouteOpen(s, from, to);
+  function guardedExits(_s, place) {
+    guardData();
+    return [...guardable.get(place) || [], ...returns2.get(place) || []];
+  }
+  var guardedWay = (from, to) => isGuardable(from, to) ? [from, to] : isGuardable(to, from) ? [to, from] : null;
+  function guardOf(s, from, to, traveller = null) {
+    const way = guardedWay(from, to);
+    if (!way) return null;
+    const [post, beyond] = way;
+    for (const id of guardians) {
+      const a = s.actors[id];
+      if (id === traveller || a?.guarding !== beyond || a.place !== post || !entityActive(s, id))
+        continue;
+      if (!humanAvatar(id)) {
+        const person = packPeople[id];
+        if (traveller && person?.passWhen && partyMet(s, person.packId, person.passWhen, traveller))
+          continue;
+        return id;
+      }
+      if (humanPresent(s, id) && !(traveller && controlledByHuman(s, traveller)))
+        return id;
+    }
+    return null;
+  }
+  var guardedFrom = (place) => guardedExits(null, place);
+  var inStandoff = (s, id) => (s.standoffs || []).some((c) => Object.hasOwn(c.resolve || {}, id));
+  function settleGuards(s) {
+    guardData();
+    for (const id of residentGuards) {
+      const a = s.actors[id], post = guardPost(id);
+      if (!a) continue;
+      if (a.place === post.from && entityActive(s, id) && !wayLifted(s, post.from, post.to) && !inStandoff(s, id))
+        a.guarding = post.to;
+      else delete a.guarding;
+    }
+    for (const id of humanAvatarIds) {
+      const a = s.actors[id];
+      if (a?.guarding !== void 0 && (!humanPresent(s, id) || !isGuardable(a.place, a.guarding) || inStandoff(s, id)))
+        delete a.guarding;
+    }
+    return s;
+  }
+  function validGuard(s, places2) {
+    for (const [id, a] of Object.entries(s.actors)) {
+      if (a.guarding === void 0) continue;
+      const post = guardPost(id);
+      if (!Object.hasOwn(places2, a.guarding) || (post ? post.to !== a.guarding : !humanAvatar(id)))
+        return false;
+    }
+    return true;
+  }
 
   // v2/card-game/pack-items.mjs
   var homed = Object.keys(packThings).filter((id) => packThings[id].home).sort();
@@ -20765,84 +20848,6 @@
         if (Object.keys(z).sort().join() !== "place,since,until" || !whole5(z.since) || z.since > s.turn || !whole5(z.until) || z.until <= z.since || z.until - z.since > DAY_TURNS2 || !Object.hasOwn(places2, z.place))
           return false;
       }
-    }
-    return true;
-  }
-
-  // v2/card-game/resident-guard.mjs
-  var guardable = null;
-  var returns2 = null;
-  var residentGuards = null;
-  var guardians = null;
-  function guardData() {
-    if (guardable) return;
-    guardable = /* @__PURE__ */ new Map();
-    returns2 = /* @__PURE__ */ new Map();
-    for (const { from, to } of world_life_default.guardable || []) {
-      if (!guardable.has(from)) guardable.set(from, /* @__PURE__ */ new Set());
-      guardable.get(from).add(to);
-      if (!returns2.has(to)) returns2.set(to, /* @__PURE__ */ new Set());
-      returns2.get(to).add(from);
-    }
-    residentGuards = Object.keys(world_life_default.residents || {}).filter(
-      (id) => lifeField(id, "guards") && packPeople[id] && !humanAvatar(id)
-    ).sort();
-    guardians = [...residentGuards, ...humanAvatarIds];
-  }
-  var isGuardable = (from, to) => {
-    guardData();
-    return Boolean(guardable.get(from)?.has(to));
-  };
-  var guardPost = (id) => lifeField(id, "guards") && !humanAvatar(id) ? { from: lifeHome(id), to: lifeField(id, "guards") } : null;
-  var wayLifted = (s, from, to) => packRouteOpen(s, from, to);
-  function guardedExits(_s, place) {
-    guardData();
-    return [...guardable.get(place) || [], ...returns2.get(place) || []];
-  }
-  var guardedWay = (from, to) => isGuardable(from, to) ? [from, to] : isGuardable(to, from) ? [to, from] : null;
-  function guardOf(s, from, to, traveller = null) {
-    const way = guardedWay(from, to);
-    if (!way) return null;
-    const [post, beyond] = way;
-    for (const id of guardians) {
-      const a = s.actors[id];
-      if (id === traveller || a?.guarding !== beyond || a.place !== post || !entityActive(s, id))
-        continue;
-      if (!humanAvatar(id)) {
-        const person = packPeople[id];
-        if (traveller && person?.passWhen && partyMet(s, person.packId, person.passWhen, traveller))
-          continue;
-        return id;
-      }
-      if (humanPresent(s, id) && !(traveller && controlledByHuman(s, traveller)))
-        return id;
-    }
-    return null;
-  }
-  var guardedFrom = (place) => guardedExits(null, place);
-  var inStandoff = (s, id) => (s.standoffs || []).some((c) => Object.hasOwn(c.resolve || {}, id));
-  function settleGuards(s) {
-    guardData();
-    for (const id of residentGuards) {
-      const a = s.actors[id], post = guardPost(id);
-      if (!a) continue;
-      if (a.place === post.from && entityActive(s, id) && !wayLifted(s, post.from, post.to) && !inStandoff(s, id))
-        a.guarding = post.to;
-      else delete a.guarding;
-    }
-    for (const id of humanAvatarIds) {
-      const a = s.actors[id];
-      if (a?.guarding !== void 0 && (!humanPresent(s, id) || !isGuardable(a.place, a.guarding) || inStandoff(s, id)))
-        delete a.guarding;
-    }
-    return s;
-  }
-  function validGuard(s, places2) {
-    for (const [id, a] of Object.entries(s.actors)) {
-      if (a.guarding === void 0) continue;
-      const post = guardPost(id);
-      if (!Object.hasOwn(places2, a.guarding) || (post ? post.to !== a.guarding : !humanAvatar(id)))
-        return false;
     }
     return true;
   }

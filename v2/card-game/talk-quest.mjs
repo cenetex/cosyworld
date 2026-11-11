@@ -12,13 +12,12 @@
 import { setWant, wantOf } from "./want.mjs";
 import { revealed } from "./want-talk.mjs";
 import { pruneOffers, rollOffer } from "./offer-chance.mjs";
-import { staysPut } from "./pack-registry.mjs";
-import { keepsHome } from "./resident-home.mjs";
+import { staysByRole } from "./resident-guard.mjs";
 
 // A resident who cannot leave its place (the Oak, Badger, a guard at his
 // post) is never asked to be escorted: its quest is to bring the other
 // person to it (sticky companions, rules 133).
-const fixedResident = (s, id) => staysPut(id, s) || keepsHome(s, id);
+const fixedResident = (s, id) => staysByRole(s, id);
 
 const key = (want) => `${want.kind}:${want.target}`;
 
