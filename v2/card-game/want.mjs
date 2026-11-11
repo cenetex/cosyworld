@@ -1,10 +1,10 @@
-// A stack of quests per avatar: each an item, a place or a person. The world
-// rules decide when one is met and how much experience it earns.
-// Player quests join the saved queue in order. `actor.want` is the top,
-// the one pursued and shown, and
-// `actor.under` the quests beneath it, next first. The next want is drawn
-// from the world, deterministically, so a replayed journal makes the same
-// choices.
+// One want per avatar: an item, a place or a person. The world rules decide
+// when it is met and what it earns: one experience, paid on the play that
+// meets it. `actor.want` is that want.
+// A resident's next want is drawn from the world, deterministically, so a
+// replayed journal makes the same choices. A player's is never drawn or
+// handed over: the player takes it by a tap (`takeQuest`) and may set it
+// down (`dropQuest`).
 import { BOARDY, connectedHumans } from "./boardyai.mjs";
 import { humanAvatarIds, sharedEnabled } from "./human-cast.mjs";
 import {
@@ -15,17 +15,18 @@ import {
   packOf,
   packPeople,
 } from "./pack-registry.mjs";
-import { packDiscovered, runHash } from "./pack-rules.mjs";
-import { drawGlimpse, glimpseAspect, validGlimpse } from "./glimpse.mjs";
-import { levelTier } from "./level-tiers.mjs";
-import { authoredWant } from "./want-talk.mjs";
+import { DAYLIGHT_TURNS, packDiscovered, runHash } from "./pack-rules.mjs";
+import { drawGlimpse, validGlimpse } from "./glimpse.mjs";
+import { authoredWant, stagedWants } from "./want-talk.mjs";
+import { validOffered } from "./offer-chance.mjs";
+import { MAX_DWELL } from "./world/dwell.mjs";
 
 export const WANT_KINDS = ["item", "place", "person", "connect"];
-// A level quest step may name a verb beyond the kind's own (hold, be at,
-// talk). State verbs are met when their condition holds after any play; act
-// verbs when that play by the avatar resolves (Give only when accepted). A
-// step names its other cards: `to` a person, `at` a place. The last step,
-// rest, is a long rest at the sanctuary the avatar last slept in.
+// A want may name a verb beyond the kind's own (hold, be at, talk). State
+// verbs are met when their condition holds after any play; act verbs when
+// that play by the avatar resolves (Give only when accepted). A step names
+// its other cards: `to` a person, `at` a place. A level quest is one step,
+// rest: a long rest at the sanctuary the avatar last slept in.
 // No step is violent: a person step is Talk (the person want itself) or
 // meet. Threaten and attack steps saved by rules 89 and earlier stay valid
 // and are met as before, but none is drawn.
@@ -45,10 +46,6 @@ export const REFUSAL_LIMIT = 3;
 export const STALL_TURNS = 48;
 export const REST_TURNS = 3;
 export const CONTENT_TURNS = 24;
-// Player avatars keep two quests active, including while living as residents.
-export const QUEST_LIMIT = 2;
-const NPC_QUEST_LIMIT = 3;
-const playerQuests = (id) => humanAvatarIds.includes(id);
 
 // A pack's residents become known once the player has found a way in.
 export const knownActors = (s) =>
@@ -131,24 +128,7 @@ export const startXp = (id) => {
 };
 
 export const wantOf = (s, id) => s.actors[id]?.want ?? null;
-// Completed player quests stay saved until their owner collects the card.
-// The deed advances at once; the checked card holds its reward until claim.
-export const questRewardsOf = (s, id) => s.actors[id]?.questRewards ?? [];
-export function claimQuestReward(s, id, receipt, api) {
-  const a = s.actors[id], reward = questRewardsOf(s, id).find((r) => r.id === receipt);
-  if (!reward) return;
-  a.questRewards = questRewardsOf(s, id).filter((r) => r.id !== receipt);
-  if (!a.questRewards.length) delete a.questRewards;
-  if (reward.paid) return;
-  const before = a.xp, level = levelOf(s, id);
-  a.xp += reward.xp;
-  a.level = Math.max(level, reward.level ?? level);
-  if (a.level > level) delete a.glimpse;
-  milestones(s, id, api, a.level > level ? 0 : before);
-}
-const pendingLevelReward = (s, id) =>
-  questRewardsOf(s, id).some((r) => !r.paid && r.level !== null);
-// The same quest step keeps its identity as the stack changes order.
+// The same quest keeps its identity wherever it is read.
 export const questTerms = (w) => JSON.stringify([
   w.kind, w.target,
   w.step ? Object.keys(w.step).sort().map((key) => [key, w.step[key]]) : null,
@@ -158,272 +138,80 @@ export const sameQuest = (left, right) =>
   !left.quest && !right.quest && questTerms(left) === questTerms(right);
 export const wantKey = (id, want) =>
   `${id}:${want.kind}:${want.target}:${want.since}:${want.quest?.left ?? ""}:${questTerms(want)}`;
-// The whole stack, top first.
-export const allQuestsOf = (s, id) => {
-  const a = s.actors[id];
-  return a?.want ? [a.want, ...(a.under || [])] : [];
-};
-export const questsOf = (s, id) =>
-  allQuestsOf(s, id).slice(0, playerQuests(id) ? QUEST_LIMIT : NPC_QUEST_LIMIT);
-// Admission observes the next play, including when waking opens the slot.
-const questPlays = new WeakMap();
-export function beginQuestPlay(s) {
-  questPlays.set(s, Object.fromEntries(humanAvatarIds.map((id) => [id, questsOf(s, id)])));
-}
-export const endQuestPlay = (s) => questPlays.delete(s);
-const observingQuests = (s, id) => questPlays.get(s)?.[id] ?? questsOf(s, id);
-// A met want with nothing beneath leaves its avatar content: no want until
-// it next rests (a player's Sleep, a resident's day). Any quest it takes on
-// ends that.
+// Readers of a card's want for the client's quest cards, kept until the
+// client package removes the fan: the one want as a list of zero or one, and
+// no completion receipts (XP is paid on the play that meets the want).
+export const questsOf = (s, id) => (s.actors[id]?.want ? [s.actors[id].want] : []);
+export const questRewardsOf = () => [];
+// A met want with nothing to follow leaves its resident content: no want
+// until it next rests (a resident's day, a Sleep). Any want it takes ends
+// that.
 export const contentOf = (s, id) =>
   Boolean(s.actors[id]?.content && !s.actors[id].want);
-export function setQuests(a, list) {
-  a.want = list[0] ?? null;
+export function setWant(a, want) {
+  a.want = want ?? null;
   if (a.want) delete a.content;
-  if (list.length > 1) a.under = list.slice(1);
-  else delete a.under;
+  return a.want;
 }
-const lastIndex = (list, test) => {
-  for (let i = list.length - 1; i > 0; i--) if (test(list[i])) return i;
-  return -1;
-};
-// Player quests retain their focus and join the queue at its end. Residents
-// put new quests on top and keep their existing three-goal replacement rules.
-// A sanctuary reminder can replace the ordinary visit to the same place.
-export function pushQuest(s, actor, want) {
+// A player takes a want by a tap and holds exactly one. Null when one is
+// already held: nothing is replaced, and the caller says why in the button.
+export function takeQuest(s, actor, want) {
   const a = s.actors[actor];
-  const same = (w) =>
-    sameQuest(w, want) || (!w.quest && !want.quest && !w.step &&
-      want.step?.verb === "rest" && w.kind === want.kind && w.target === want.target);
-  if (playerQuests(actor)) {
-    const held = allQuestsOf(s, actor);
-    const old = held.find((w) => want.quest
-      ? w.quest?.level === want.quest.level
-      : same(w));
-    if (old) {
-      if (want.step?.verb === "rest" && !old.step) {
-        setQuests(a, held.map((w) => w === old ? want : w));
-        return want;
-      }
-      if (want.story) old.story = true;
-      return old;
-    }
-    setQuests(a, [...held, want]);
-    return want;
-  }
-  const held = questsOf(s, actor);
-  const old = held.find(same);
-  const shape = (w) => JSON.stringify([w.step ?? null]);
-  const replaces =
-    old && shape(old) !== shape(want) && want.step?.verb === "rest";
-  const top =
-    old && !replaces
-      ? { ...old, ...(want.story ? { story: true } : {}) }
-      : want;
-  const list = [top, ...held.filter((w) => !same(w))];
-  while (list.length > NPC_QUEST_LIMIT) {
-    const at = lastIndex(list, (w) => !w.quest && !w.story);
-    list.splice(at > 0 ? at : lastIndex(list, (w) => !w.quest), 1);
-  }
-  setQuests(a, list);
-  return top;
+  if (!a || a.want) return null;
+  return setWant(a, want);
 }
-// The player chooses which quest to pursue: it comes to the top.
-export function focusQuest(s, actor, index) {
-  const list = allQuestsOf(s, actor);
-  if (!(index > 0 && index < questsOf(s, actor).length)) return;
-  const [want] = list.splice(index, 1);
-  setQuests(s.actors[actor], [want, ...list]);
+// Dropping Sleep at home (the level-up quest) costs the experience that
+// leaves the player just under the threshold of the level it was for, so the
+// level-up card does not come straight back (owner, 2026-11-11). That is
+// never below the experience of the level held. Any other quest is free
+// (owner, 2026-11-04; rules 98).
+export function dropCost(s, actor) {
+  const a = s.actors[actor],
+    want = a?.want;
+  if (!want?.quest) return 0;
+  return Math.max(0, a.xp - (questXp(want.quest.level) - 1));
 }
-// One step of a level quest: a want from the whole known world, among the
-// half furthest from home, so higher levels reach further.
-function questStep(s, actor, api, quest, previous = null) {
-  const home = api.home(actor) || s.actors[actor].place;
-  const away = (entry) => {
-    const [kind, target] = entry.split(":");
-    const at =
-      kind === "item"
-        ? api.placeOf(target)
-        : kind === "person"
-          ? s.actors[target].place
-          : target;
-    // Somewhere with no known way there is the furthest of all.
-    const steps = api.distance(home, at, actor);
-    return steps < 0 ? 64 : steps;
-  };
-  const pool = wantCandidates(s, actor, api, previous, true)
-    .map((entry) => [away(entry), entry])
-    .sort((x, y) => y[0] - x[0] || (x[1] < y[1] ? -1 : 1))
-    .map(([, entry]) => entry);
-  if (!pool.length) return nextWant(s, actor, api, previous);
-  const far = pool.slice(0, Math.ceil(pool.length / 2));
-  const roll = hash(`${actor}:${s.turn}`);
-  const [kind, target] = far[roll % far.length].split(":");
-  const step = drawStep(s, actor, api, kind, target, quest.level, roll);
-  return { ...newWant(kind, target, s.turn), quest, ...(step ? { step } : {}) };
+// A player sets the held quest down, at its `dropCost`. Its target stays out
+// of mind a while and nothing is drawn in its place.
+export function dropQuest(s, actor) {
+  const a = s.actors[actor],
+    want = a?.want;
+  if (!want) return;
+  a.xp -= dropCost(s, actor);
+  a.gaveUp = { target: want.target, turn: s.turn };
+  a.want = null;
 }
-// A step's verb, drawn from the living world so quests interlock: an item
-// another known avatar wants to hold may be given or brought to them, and a
-// person on the way to a place may be met there. Finding needs no partner.
-export function drawStep(s, actor, api, kind, target, level, roll) {
-  const wanting =
-    kind === "item" &&
-    knownActors(s).find((id) => {
-      return (
-        id !== actor &&
-        questsOf(s, id).some(
-          (w) => w.kind === "item" && !w.step && w.target === target,
-        )
-      );
-    });
-  const going = kind === "person" && s.actors[target]?.want;
-  const verbs =
-    kind === "item"
-      ? wanting
-        ? ["give", "bring", "find"]
-        : isFood(target)
-          ? ["", "find", "eat"]
-          : ["", "find"]
-      : kind === "person"
-        ? ["", "meet"]
-        : [""];
-  const verb = verbs[Math.floor(roll / 7) % verbs.length];
-  // A step already true where the avatar stands is no step at all.
-  const here = s.actors[actor].place;
-  if (
-    !verb ||
-    (verb === "find" && placeOfItem(s, target) === here) ||
-    (verb === "meet" && s.actors[target]?.place === here)
-  )
-    return null;
-  if (verb === "give") return { verb, to: wanting };
-  if (verb === "bring")
-    return {
-      verb,
-      to: wanting,
-      at: api.home(wanting) || s.actors[wanting].place,
-    };
-  if (verb === "meet" && going?.kind === "place" && !going.step)
-    return { verb, at: going.target };
-  return { verb };
-}
-// On waking from a long rest with experience enough for the next level, the
-// player's level quest joins its queue. It holds one at a time.
-export function offerLevelQuest(s, actor, api) {
-  const a = s.actors[actor];
-  a.level ??= levelFor(a.xp);
-  if (pendingLevelReward(s, actor) || allQuestsOf(s, actor).some((w) => w.quest) || a.xp < questXp(a.level + 1))
-    return null;
-  const level = a.level + 1,
-    quest = { level, left: questSteps(level) + 1 };
-  return pushQuest(
-    s,
-    actor,
-    glimpseStep(s, actor, api, quest) ?? questStep(s, actor, api, quest),
-  );
-}
-// The first step of a level quest glimpsed at halfway uses the glimpse's
-// aspect (glimpse.mjs): an item is found, given, brought or held; a person
-// met or talked with; a place visited. A verb is the step's own verb, on a
-// target drawn from the whole world: an item to find, give or bring, or a
-// person to meet. Giving and bringing go to one who wants the item, else to
-// someone known. Null when the aspect cannot make a step.
-function glimpseStep(s, actor, api, quest) {
-  const g = s.actors[actor].glimpse,
-    aspect = g?.level === quest.level && glimpseAspect(s, actor, api, g);
-  if (!aspect) return null;
-  const roll = runHash(s, `glimpse-step:${actor}:${quest.level}`),
-    here = s.actors[actor].place;
-  const want = (kind, target, step) => ({
-    ...newWant(kind, target, s.turn),
-    quest,
-    ...(step ? { step } : {}),
-  });
-  if (aspect.kind === "place") return want("place", aspect.id);
-  if (aspect.kind !== "verb")
-    return want(
-      aspect.kind,
-      aspect.id,
-      drawStep(s, actor, api, aspect.kind, aspect.id, quest.level, roll),
-    );
-  const verb = aspect.id,
-    kind = verb === "meet" ? "person" : "item";
-  const pool = wantCandidates(s, actor, api, null, true)
-    .filter((entry) => entry.startsWith(`${kind}:`))
-    .map((entry) => entry.slice(kind.length + 1))
-    .filter((id) =>
-      kind === "person"
-        ? s.actors[id].place !== here
-        : verb !== "find" || placeOfItem(s, id) !== here,
-    );
-  if (!pool.length) return null;
-  const target = pool[roll % pool.length];
-  if (verb === "find" || verb === "meet") return want(kind, target, { verb });
-  const others = knownActors(s)
-    .filter((id) => id !== actor && id !== rootOf(s, target))
-    .sort();
-  const to =
-    others.find((id) =>
-      questsOf(s, id).some(
-        (w) => w.kind === "item" && !w.step && w.target === target,
-      ),
-    ) ?? others[Math.floor(roll / 7) % others.length];
-  if (!to) return null;
-  return want(
-    "item",
-    target,
-    verb === "give"
-      ? { verb, to }
-      : { verb, to, at: api.home(to) || s.actors[to].place },
-  );
-}
-// The way back to the avatar's last active sanctuary, or another active
-// sanctuary when its home is an ordinary place. Without a
-// level quest it is the ordinary quest to sleep at a sanctuary, met by a
-// long rest in any of them (rules 99).
+// Sleep at home: the place want with a rest step. With a `quest` it is the
+// level-up quest, aimed at the avatar's own home and met by a long rest there
+// (rules 133, `restsAt`). Without one (a pack switched off under an old rest
+// step) it is the way back to an active place that rests the avatar.
 export const restStep = (s, actor, api, quest) => ({
   ...newWant(
     "place",
-    [s.actors[actor].sanctuary, api.home(actor), ...api.sanctuaries].find(
-      (p) => api.sanctuaries.includes(p) && (api.active?.(p) ?? true),
-    ),
+    quest
+      ? api.home(actor)
+      : [s.actors[actor].sanctuary, api.home(actor), ...api.sanctuaries].find(
+          (p) =>
+            p &&
+            (api.restsAt?.(actor, p) ?? api.sanctuaries.includes(p)) &&
+            (api.active?.(p) ?? true),
+        ),
     s.turn,
   ),
   ...(quest ? { quest } : {}),
   step: { verb: "rest" },
 });
-const sanctuaryQuest = (w) => w.step?.verb === "rest" && !w.quest;
-// Retire routine rest reminders in saved stacks. Level quests keep their
-// final rest, with a destination where long sleep can complete it.
-export function repairRestTargets(s, api) {
-  for (const id of Object.keys(s.actors)) {
-    const held = allQuestsOf(s, id), kept = held.filter((want) => !sanctuaryQuest(want));
-    if (kept.length !== held.length) setQuests(s.actors[id], kept);
-    for (const want of allQuestsOf(s, id))
-      if (
-        want.kind === "place" && want.step?.verb === "rest" &&
-        api.places().includes(want.target) && !api.sanctuaries.includes(want.target)
-      )
-        want.target = restStep(s, id, api).target;
-  }
+// The level-up quest: at the experience of the next level, Sleep at home.
+// Null while the home is unknown or the threshold is not reached.
+export function levelUpQuest(s, actor, api) {
+  const a = s.actors[actor];
+  if (!a || !api.home(actor)) return null;
+  const level = a.level ?? levelFor(a.xp);
+  if (a.xp < questXp(level + 1)) return null;
+  return restStep(s, actor, api, { level: level + 1, left: 1 });
 }
-// A sanctuary quest rebuilt for another place (its sanctuary gone quiet, or
-// set aside) takes the place of an ordinary quest for that place, as
-// `pushQuest` does, and of a later sanctuary quest; level quests stay as they
-// are. Nothing else is held twice (rules 99).
-export function mergeSanctuaryQuests(list) {
-  const rests = new Set(list.filter(sanctuaryQuest).map((w) => w.target));
-  const key = (w) => w.kind === "place" && rests.has(w.target) &&
-    (!w.step || sanctuaryQuest(w)) ? `rest:${w.target}` : questTerms(w);
-  const keeps = (k) => {
-    const same = (w) => !w.quest && key(w) === k;
-    const rest = list.findIndex((w) => same(w) && sanctuaryQuest(w));
-    return rest >= 0 ? rest : list.findIndex(same);
-  };
-  return list.filter((w, i) => w.quest || keeps(key(w)) === i);
-}
-// Long sleep completes the level quest's final rest or brings the next
-// dream due from experience. Each level has a halfway glimpse and a quest.
+// Long sleep completes a level quest's rest, or brings the halfway dream due
+// from experience. Each level has a halfway glimpse.
 export function wake(s, actor, api) {
   const a = s.actors[actor],
     before = a.xp;
@@ -435,61 +223,35 @@ export function wake(s, actor, api) {
   if (
     !full && a.xp >= halfwayXp(a.level) &&
     api.player(actor) &&
-    !allQuestsOf(s, actor).some((w) => w.quest) &&
-    !pendingLevelReward(s, actor) &&
+    !a.want?.quest &&
     a.glimpse?.level !== a.level + 1
   ) {
     a.glimpse = drawGlimpse(s, actor, api, a.level + 1);
     dream = "glimpse";
   }
-  const rest = questsOf(s, actor).findIndex(
-    (w) => observingQuests(s, actor).includes(w) &&
-      w.quest && w.step?.verb === "rest" && w.target === a.place,
-  );
-  if (rest >= 0) commitMet(s, actor, api, [], rest);
-  else if (full) {
-    const offered = offerLevelQuest(s, actor, api);
-    if (offered && questsOf(s, actor).includes(offered)) dream = "quest";
-  }
-  milestones(s, actor, api, before);
+  const w = a.want;
+  // Sleep at home is met only by a long rest at the avatar's own home.
+  if (
+    w?.quest &&
+    w.step?.verb === "rest" &&
+    w.target === a.place &&
+    api.home(actor) === a.place
+  )
+    commitMet(s, actor, api, []);
+  milestones(s, actor, before, api);
   return dream;
 }
 // Retain the saved halfway marker as experience passes its threshold.
 // Sleep reads the threshold directly when the avatar wakes.
-function milestones(s, id, api, before) {
+function milestones(s, id, before, api) {
   const a = s.actors[id];
-  if (!api.player(id) || pendingLevelReward(s, id) || allQuestsOf(s, id).some((w) => w.quest)) return;
+  if (!api.player(id) || a.want?.quest) return;
   const level = a.level ?? levelFor(a.xp),
     full = questXp(level + 1);
   const halfway =
     a.xp >= halfwayXp(level) && a.xp < full && a.halfwayIssued !== level + 1;
   if (!halfway && !(before < full && a.xp >= full)) return;
   a.halfwayIssued = level + 1;
-}
-// Dropping a level quest costs one experience for the first (the quest to
-// level 2), two for the next, and so on, never below the experience of the
-// level held, so a level never falls. Any other quest is free (owner,
-// 2026-11-04; rules 98).
-export function dropCost(s, actor, index = 0) {
-  const a = s.actors[actor],
-    want = questsOf(s, actor)[index];
-  if (!want?.quest) return 0;
-  const floor = questXp(a.level ?? levelFor(a.xp));
-  return Math.max(0, Math.min(want.quest.level - 1, a.xp - floor));
-}
-// A player may drop any quest in its stack, at its `dropCost`. Its target
-// stays out of mind a while, and the quest beneath comes to the top;
-// dropping the last one draws another at once.
-export function dropQuest(s, actor, api, index = 0) {
-  const a = s.actors[actor],
-    list = allQuestsOf(s, actor),
-    want = list[index];
-  if (!want) return;
-  a.xp -= dropCost(s, actor, index);
-  a.gaveUp = { target: want.target, turn: s.turn };
-  list.splice(index, 1);
-  setQuests(a, list);
-  if (!a.want) setQuests(a, [nextWant(s, actor, api, want)].filter(Boolean));
 }
 export const newWant = (kind, target, turn) => ({
   kind,
@@ -506,21 +268,60 @@ const validTarget = (s, kind, target) =>
         ? target === CONNECT_TARGET
         : true;
 
+// An authored want as the actor holds it: its kind, target, light and step.
+// `minTrust` stays in pack data and is read there (want-talk.mjs).
+const heldWant = (s, w) => ({
+  ...newWant(w.kind, w.target, s.turn),
+  ...(w.kind === "item" && typeof w.lit === "boolean" ? { lit: w.lit } : {}),
+  ...(w.step ? { step: { ...w.step } } : {}),
+});
+
+// A resident's staged wants (rules 133): of the entries of its `wants` list
+// that can be taken now, the one with the lowest seeded hash of (resident,
+// entry, day); the authored order only breaks a tie. Eligible means `when`
+// holds in the world, the target is in this world, the want is not already
+// met where the resident stands, and it is not the want just met or given up
+// (`previous`). Nothing is saved: the pick is a function of the world and the
+// run seed, and stays the same through the day. Null when none is eligible,
+// and for a resident with no `wants` list.
+// FNV keeps the order of two near strings from one day to the next, so the
+// hash is mixed once more (murmur3's finalizer) before entries are compared.
+const mixed = (h) => {
+  h = Math.imul(h ^ (h >>> 16), 0x85ebca6b);
+  h = Math.imul(h ^ (h >>> 13), 0xc2b2ae35);
+  return (h ^ (h >>> 16)) >>> 0;
+};
+export const stagedOrder = (a, b) => a.rank - b.rank || a.index - b.index;
+export function stagedNext(s, id, previous = null) {
+  if (!packPeople[id]?.wants) return null;
+  const day = Math.floor(s.turn / (2 * DAYLIGHT_TURNS));
+  const entries = stagedWants(s, id)
+    .filter(
+      ({ open, want }) =>
+        open &&
+        validTarget(s, want.kind, want.target) &&
+        !(previous && questTerms(heldWant(s, want)) === questTerms(previous)) &&
+        !questMet(s, id, heldWant(s, want), null, null),
+    )
+    .map((entry) => ({
+      ...entry,
+      rank: mixed(runHash(s, `staged:${id}:${entry.index}:${day}`)),
+    }))
+    .sort(stagedOrder);
+  return entries.length ? heldWant(s, entries[0].want) : null;
+}
+
 // Every actor carries a want record, experience and what it has seen.
 export function installWants(s) {
   for (const [id, a] of Object.entries(s.actors)) {
     if (!("want" in a)) {
-      const w = authoredWant(id);
-      a.want =
-        w && validTarget(s, w.kind, w.target)
-          ? {
-              ...newWant(w.kind, w.target, s.turn),
-              ...(w.kind === "item" && typeof w.lit === "boolean"
-                ? { lit: w.lit }
-                : {}),
-              ...(w.step ? { step: { ...w.step } } : {}),
-            }
-          : null;
+      // A player has no authored want: it takes its quests by a tap. A
+      // resident with staged wants takes one of them, else its authored want.
+      const w = humanAvatarIds.includes(id) ? null : authoredWant(id);
+      a.want = humanAvatarIds.includes(id)
+        ? null
+        : (stagedNext(s, id) ??
+          (w && validTarget(s, w.kind, w.target) ? heldWant(s, w) : null));
     }
     a.xp ??= startXp(id);
     // Old saves without an explicit level retain their already earned level.
@@ -543,9 +344,7 @@ function hash(text) {
 // can run dry and start over instead of circling a hoard (#1781). `api` supplies world reads owned by world.mjs.
 // With `wide`, nothing near is left, so anyone known and anything they hold
 // counts, seen or not and wherever they are: a want may be a mystery a while.
-// A player's wide pool is the whole world (#1831): any active person and
-// place, met or found or not, and any item someone else holds or that lies
-// somewhere. Residents, whose pursuit needs a way there, keep to the known.
+// A resident's pursuit needs a way there, so it keeps to the known.
 export function wantCandidates(
   s,
   actor,
@@ -569,7 +368,6 @@ export function wantCandidates(
   const reach =
     travels(actor, s) || api.wanders?.(actor) ? api.reachable(actor) : [];
   const near = new Set([a.place, ...reach]);
-  const whole = wide && Boolean(api.player?.(actor));
   // A resident kept to a range wants within it (rules 100).
   const inRange = anywhere ? null : api.rangeTest?.(actor);
   const within = (place) =>
@@ -580,26 +378,19 @@ export function wantCandidates(
     return (
       entityActive(s, id) &&
       owner !== actor &&
-      (person || whole) &&
-      within(person ? s.actors[owner].place : owner) &&
+      person &&
+      within(s.actors[owner].place) &&
       !(
-        person &&
-        questsOf(s, owner).some((w) => w.kind === "item" && w.target === id)
+        s.actors[owner].want?.kind === "item" &&
+        s.actors[owner].want.target === id
       ) &&
       api.valueOf(actor, id) > floor &&
       (wide || !api.obtainable || api.obtainable(actor, id))
     );
   });
-  // A place is wanted only while a route to it is open, unless the whole
-  // world counts.
-  const places = whole
-    ? api.places().filter((id) => id !== a.place && entityActive(s, id))
-    : reach.filter((id) => wide || !a.visited.includes(id));
-  const people = (
-    whole
-      ? Object.keys(s.actors).filter((id) => entityActive(s, id))
-      : knownActors(s)
-  ).filter(
+  // A place is wanted only while a route to it is open.
+  const places = reach.filter((id) => wide || !a.visited.includes(id));
+  const people = knownActors(s).filter(
     (id) =>
       id !== actor &&
       (wide || !a.talked.includes(id)) &&
@@ -620,18 +411,14 @@ export function wantCandidates(
     .map(([kind, target]) => `${kind}:${target}`)
     .sort();
 }
-// An avatar with no quest left draws one: something near and new first; with
-// all of it seen, curiosity starts over from here; then anything in the
-// world, and at last even the want just met, again. A player's every other
-// draw comes from the whole world at once, so its quests reach things it has
-// not met or found yet.
+// A resident with no want left draws one: something near and new first; with
+// all of it seen, curiosity starts over from here; then anything known, and
+// at last even the want just met, again. A player is never drawn a want.
 export function nextWant(s, actor, api, previous = null) {
+  const staged = stagedNext(s, actor, previous);
+  if (staged) return staged;
   const roll = hash(`${actor}:${s.turn}`);
-  let pool =
-    api.player?.(actor) && roll % 2
-      ? wantCandidates(s, actor, api, previous, true)
-      : [];
-  if (!pool.length) pool = wantCandidates(s, actor, api, previous);
+  let pool = wantCandidates(s, actor, api, previous);
   if (!pool.length) {
     const a = s.actors[actor];
     a.visited = [a.place];
@@ -733,15 +520,15 @@ function questMet(s, actor, want, talk, action) {
         (talk.actor === want.target && talk.target === actor)),
   );
 }
-// Whether holding this item now meets an item quest in the actor's stack,
-// as settleWants would judge it: a gift answers a want only if it meets one.
-export const meetsItemWant = (s, actor, item, action = null) =>
-  questsOf(s, actor).some(
-    (w) =>
-      w.kind === "item" &&
-      w.target === item &&
+// Whether holding this item now meets the actor's item want, as settleWants
+// would judge it: a gift answers a want only if it meets one.
+export const meetsItemWant = (s, actor, item, action = null) => {
+  const w = wantOf(s, actor);
+  return Boolean(
+    w && w.kind === "item" && w.target === item &&
       questMet(s, actor, w, null, action),
   );
+};
 // An item want may name the item's light: then it is met only in the
 // actor's own hands, lit (or dark) and uncovered, as a moth wants a flame.
 export function holdsAsWanted(s, actor, want) {
@@ -773,9 +560,11 @@ export const resting = (s, actor) => {
   );
 };
 
-// Record what each participant saw and said, then commit met wants. The next
-// want is drawn where one is met; only a level quest ends with the way back
-// to a sanctuary, where a long rest raises the level.
+// Record what each participant saw and said, then commit met wants. The want
+// is paid on the play that meets it. A resident's next is drawn where one is
+// met; only a level quest ends with the way back to a sanctuary, where a long
+// rest raises the level. A player whose play meets ANOTHER avatar's want helps
+// them: one experience for the helper, and the owner trusts them one more.
 export function settleWants(s, actors, api, action = null) {
   const talk =
     action?.kind === "talk"
@@ -794,62 +583,67 @@ export function settleWants(s, actors, api, action = null) {
       if (s.actors[other] && !a.talked.includes(other))
         a.talked = [...a.talked, other].slice(-64);
     }
-    // Any quest in the stack can be met, each once per play. A level
-    // quest's next step, or a fresh draw, takes the met one's place.
-    for (const want of observingQuests(s, id)) {
-      const index = allQuestsOf(s, id).indexOf(want);
-      if (index >= 0 && questMet(s, id, want, talk, action))
-        commitMet(s, id, api, met, index);
+    if (a.want && questMet(s, id, a.want, talk, action)) {
+      commitMet(s, id, api, met);
+      helped(s, id, api, action);
     }
-    if (a.xp > before) milestones(s, id, api, before);
+    if (a.xp > before) milestones(s, id, before, api);
   }
   return met;
 }
-function commitMet(s, id, api, met, index = 0) {
+// The helper is the player whose play it was; credit goes only where the
+// causing play names one. A refused gift or trade meets nothing, and a
+// handover under pressure is no help. A plain Give
+// already earns its trust (`trustGiver`), so it adds only the experience.
+function helped(s, owner, api, action) {
+  const helper = action?.actor,
+    h = s.actors[helper];
+  if (
+    !h || helper === owner || action.accepted === false || action.pressured ||
+    !api.player(helper) || api.player(owner)
+  )
+    return;
+  // A level rises through its own quest, so the level held is fixed first.
+  h.level ??= levelFor(h.xp);
+  h.xp += 1;
+  milestones(s, helper, h.xp - 1, api);
+  const trust = s.actors[owner].trust;
+  if (action.kind !== "give" && trust)
+    trust[helper] = Math.min(3, (trust[helper] || 0) + 1);
+}
+// The met want pays one experience at once. A level quest's final rest pays
+// none: the level itself rises by one, on waking.
+function commitMet(s, id, api, met) {
   const a = s.actors[id],
-    list = allQuestsOf(s, id),
-    want = list[index],
-    quest = want.quest && { ...want.quest, left: want.quest.left - 1 };
+    want = a.want,
+    level = want.quest && want.step?.verb === "rest" ? want.quest.level : null;
   a.level ??= levelFor(a.xp);
-  const xp = quest?.left === 0 ? levelTier(quest.level).rank + 1 : 1;
-  if (!api.player(id)) a.xp += xp;
+  const xp = level ? 0 : 1;
+  a.xp += xp;
   a.metTurn = s.turn;
   met.push({ actorId: id, want });
   api.log(id, want, xp);
-  if (api.player(id))
-    (a.questRewards ??= []).push({
-      id: s.eventSeq,
-      actor: id,
-      turn: s.turn,
-      want: structuredClone(want),
-      xp,
-      level: quest?.left === 0 ? quest.level : null,
-      paid: false,
-    });
-  if (quest?.left > 1) list[index] = questStep(s, id, api, quest, want);
-  else if (quest?.left === 1) list[index] = restStep(s, id, api, quest);
-  else {
-    if (!api.player(id) && !packPeople[id]?.levelAtHome) {
-      if (quest) {
-        a.level = quest.level;
-        delete a.glimpse;
-      } else a.level = Math.max(a.level, levelFor(a.xp));
-    }
-    list.splice(index, 1);
+  if (level) {
+    a.level = Math.max(a.level, level);
+    delete a.glimpse;
+  } else if (!api.player(id) && !packPeople[id]?.levelAtHome)
+    a.level = Math.max(a.level, levelFor(a.xp));
+  a.want = null;
+  // A resident met takes its next staged want at once, if one can be taken
+  // (rules 133). Otherwise it is content for a while; a player simply holds
+  // no quest until it takes another.
+  if (!api.player(id)) {
+    const staged = stagedNext(s, id, want);
+    if (staged) setWant(a, staged);
+    else a.content = true;
   }
-  setQuests(a, list);
-  // An ordinary want met with nothing beneath is enough for now. A finished
-  // level quest still draws the next at once.
-  if (!a.want && !quest) a.content = true;
-  else if (!a.want) setQuests(a, [nextWant(s, id, api, want)].filter(Boolean));
   return met;
 }
 
 // A refusal of the actor's own want counts; enough of them set it aside.
 export function refuseWant(s, actor, item, api) {
   const want = wantOf(s, actor);
-  // A player's quest is never set aside by refusals, so refused Trades or
-  // Asks cannot redraw a level quest's step for free; Drop has its cost.
+  // A player's quest is never set aside by refusals; Drop sets it down.
   if (want?.kind !== "item" || want.target !== item || api.player(actor))
     return;
   // A resident that keeps to its scene only tries while someone is there, so
@@ -858,35 +652,14 @@ export function refuseWant(s, actor, item, api) {
   want.refusals += 1;
   if (want.refusals >= REFUSAL_LIMIT) giveUp(s, actor, api);
 }
-// A set-aside want stays out of mind for a while. It moves to the bottom of
-// the stack, fresh, and the quest beneath comes to the top; a lone quest
-// gets a newly drawn one above it. Nothing set aside is lost.
+// A set-aside want stays out of mind for a while. A resident holds one want,
+// so the want it sets aside is replaced by a newly drawn one and its target is
+// remembered in `gaveUp`; nothing is kept beneath it.
 function giveUp(s, actor, api) {
   const a = s.actors[actor],
     want = a.want;
   a.gaveUp = { target: want.target, turn: s.turn };
-  // A level quest with no way forward becomes another of the same level;
-  // its rest still waits at the sanctuary.
-  // A glimpsed first step keeps its aspect: the quest may wait.
-  if (want.step?.verb === "rest")
-    setQuests(
-      a,
-      mergeSanctuaryQuests([
-        restStep(s, actor, api, want.quest),
-        ...allQuestsOf(s, actor).slice(1),
-      ]),
-    );
-  else if (want.quest)
-    a.want =
-      (want.quest.left === questSteps(want.quest.level) + 1 &&
-        glimpseStep(s, actor, api, want.quest)) ||
-      questStep(s, actor, api, want.quest, want);
-  else {
-    const aside = { ...want, since: s.turn, refusals: 0 },
-      rest = allQuestsOf(s, actor).slice(1);
-    const next = rest.length ? null : nextWant(s, actor, api, want);
-    setQuests(a, [...rest, ...(next ? [next] : []), aside]);
-  }
+  setWant(a, nextWant(s, actor, api, want));
 }
 // A resident put ashore by a stuck ship sets its pursuit aside at once, as a
 // stalled want is, so it does not board again for the same shut lane.
@@ -897,56 +670,51 @@ export function setAsideWant(s, actor, api) {
 // that keeps to its scene acts only when someone is there, so time spent
 // unseen is not a stall: its want can stall only after it has tried and been
 // refused at least once.
+// Where a want's stall clock starts: its draw, or the latest arrival if later
+// (rules 133). A resident dwelling between steps is making progress at the
+// pace of its stays, so each arrival restarts the clock. `dwellUntil` less
+// the longest stay is never after the arrival.
+const stallStart = (s, id, want) =>
+  Math.max(want.since, (s.actors[id].dwellUntil ?? 0) - MAX_DWELL);
 export function reviseStalledWants(s, actors, api) {
+  // A resident's want clock starts when he first becomes active: while his card
+  // is shut or he is absent, the want is kept fresh, so he does not arrive
+  // with a stalled want that is set aside at once (rules 133).
+  for (const [id, a] of Object.entries(s.actors))
+    if (a.want && !api.player(id) && !entityActive(s, id))
+      a.want.since = s.turn;
   for (const id of actors) {
     const want = wantOf(s, id);
     if (
       want &&
+      !api.player(id) &&
       (travels(id, s) || api.wanders?.(id) || want.refusals > 0) &&
-      s.turn - want.since >= STALL_TURNS
+      s.turn - stallStart(s, id, want) >= STALL_TURNS
     )
       giveUp(s, id, api);
   }
 }
-// A want left empty by an older rule set or a pack mounted later, on a
-// player or an unseen resident too, is drawn after a short rest.
-// A player holds no quest until the world's data says quests begin, such as
-// first arriving at a place; that first quest comes at once.
-export function awaitsFirstQuest(s, id, api) {
-  const begin = api.questsBeginAt,
-    a = s.actors[id];
-  if (!begin || !api.player(id) || a.metTurn !== undefined) return null;
-  return begin.kind === "arrived" && !a.visited.includes(begin.place)
-    ? "waiting"
-    : "ready";
-}
+// A resident's want left empty is drawn after a short rest. A player is never
+// drawn one: it takes its quests by a tap.
 export function fillWants(s, api, now = false) {
   for (const [id, a] of Object.entries(s.actors)) {
     if (a.want) delete a.content;
-    const first = awaitsFirstQuest(s, id, api);
-    if (first === "waiting") {
-      // An authored starter waits; a level or story quest stays.
-      const kept = allQuestsOf(s, id).filter((w) => w.quest || w.story);
-      if (!a.xp && kept.length < allQuestsOf(s, id).length) setQuests(a, kept);
-      continue;
-    }
-    // A content player waits for its Sleep; a resident, which never sleeps,
-    // rests a day.
+    if (api.player(id)) continue;
     if (
       !a.want &&
       entityActive(s, id) &&
-      !(a.content && api.player(id)) &&
-      (now || first === "ready" || s.turn - (a.metTurn ?? 0) >= CONTENT_TURNS)
+      (now || s.turn - (a.metTurn ?? 0) >= CONTENT_TURNS)
     )
-      setQuests(a, [nextWant(s, id, api)].filter(Boolean));
+      setWant(a, nextWant(s, id, api));
   }
 }
-// Waking from any Sleep ends contentment: the next want is drawn as ever.
+// Waking from any Sleep ends a resident's contentment: the next want is
+// drawn as ever.
 export function renewWant(s, id, api) {
   const a = s.actors[id];
-  if (!a?.content) return;
+  if (!a?.content || api.player(id)) return;
   delete a.content;
-  if (!a.want) setQuests(a, [nextWant(s, id, api)].filter(Boolean));
+  if (!a.want) setWant(a, nextWant(s, id, api));
 }
 
 const STEP_CARDS = { give: ["to"], bring: ["to", "at"] };
@@ -1036,13 +804,13 @@ export function validWant(s, id) {
     v.length <= 64 &&
     new Set(v).size === v.length &&
     v.every((x) => Object.hasOwn(of, x));
-  const quests = allQuestsOf(s, id);
-  // Unique validated terms bound the queue by the world's finite card set.
-  const cards = Object.keys(s.items).length + Object.keys(s.actors).length +
-    Object.keys(s.locations).length + 1;
-  const limit = playerQuests(id) ? 16 * cards ** 3 : NPC_QUEST_LIMIT;
   // Experience an avatar brought from its last world (#1846) raises the cap.
-  const most = startXp(id) + (a.carried ?? 0) + s.turn * 8;
+  // Each box it opened paid one (rules 133, world/boxes.mjs).
+  const most =
+    startXp(id) +
+    (a.carried ?? 0) +
+    s.turn * 8 +
+    Object.values(s.opened || {}).filter((who) => who.includes?.(id)).length;
   return (
     Number.isSafeInteger(a.xp) &&
     a.xp >= 0 &&
@@ -1054,7 +822,8 @@ export function validWant(s, id) {
         a.level <= levelFor(most))) &&
     a.xp <= most &&
     (a.metTurn === undefined || whole(a.metTurn)) &&
-    validQuestRewards(s, id) &&
+    a.under === undefined &&
+    a.questRewards === undefined &&
     (a.content === undefined || a.content === true) &&
     (a.glimpse === undefined || validGlimpse(a.glimpse, levelFor(most) + 1)) &&
     (a.halfwayIssued === undefined ||
@@ -1068,48 +837,10 @@ export function validWant(s, id) {
         whole(a.gaveUp.turn))) &&
     list(a.talked, s.actors) &&
     validHeard(s, id) &&
+    validOffered(s, id) &&
     !a.talked.includes(id) &&
     Array.isArray(a.visited) &&
-    (a.want === null || validQuest(s, id, a.want)) &&
-    (a.under === undefined ||
-      (Array.isArray(a.under) &&
-        a.want !== null &&
-        a.under.length >= 1 &&
-        a.under.length < limit &&
-        a.under.every((w) => validQuest(s, id, w)))) &&
-    quests.filter((w) => w.quest).length <= 1 &&
-    new Set(quests.filter((w) => !w.quest).map(questTerms))
-      .size === quests.filter((w) => !w.quest).length
-  );
-}
-function validQuestRewards(s, id) {
-  const receipts = s.actors[id].questRewards;
-  return (
-    receipts === undefined ||
-    (Array.isArray(receipts) &&
-      receipts.length > 0 &&
-      receipts.length <= s.eventSeq &&
-      receipts.every((r, i) => {
-        if (
-          !r ||
-          Object.keys(r).sort().join() !== "actor,id,level,paid,turn,want,xp" ||
-          r.actor !== id ||
-          typeof r.paid !== "boolean" ||
-          !Number.isSafeInteger(r.id) ||
-          r.id <= (receipts[i - 1]?.id ?? 0) ||
-          r.id > s.eventSeq ||
-          !Number.isSafeInteger(r.turn) ||
-          r.turn < 0 ||
-          r.turn > s.turn ||
-          !validQuest(s, id, r.want) ||
-          r.want.since > r.turn
-        )
-          return false;
-        const level = r.want.quest?.left === 1 ? r.want.quest.level : null;
-        return (
-          r.level === level && r.xp === (level ? levelTier(level).rank + 1 : 1)
-        );
-      }))
+    (a.want === null || validQuest(s, id, a.want))
   );
 }
 function validQuest(s, id, w) {
@@ -1132,8 +863,7 @@ function validQuest(s, id, w) {
           Number.isSafeInteger(w.quest.level) &&
           w.quest.level >= 2 &&
           Number.isSafeInteger(w.quest.left) &&
-          w.quest.left >= 1 &&
-          w.quest.left <= questSteps(w.quest.level) + 1)) &&
+          w.quest.left === 1)) &&
       WANT_KINDS.includes(w.kind) &&
       typeof w.target === "string" &&
       validTarget(s, w.kind, w.target) &&

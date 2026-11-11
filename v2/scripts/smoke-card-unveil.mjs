@@ -86,6 +86,26 @@ try {
       page.waitForFunction(
         () => document.querySelector("#hand").dataset.cooling === "false",
       );
+    // The locked pond turns over once when the lamp goes out (rules 133): it
+    // shows as itself, not as a closed box. The reveal ceremony below is for a
+    // card that is covered, so forget the pond, reload, and wait for it to lie
+    // face down again.
+    const turnOverPond = async () => {
+      await page.waitForFunction(() => {
+        const pond = document.querySelector('#hand [data-card="pond"]');
+        return pond?.dataset.locked === "false" && !pond.dataset.revealing;
+      });
+      await page.evaluate((key) => {
+        const name = `${key}.seen.covered`;
+        const covered = JSON.parse(localStorage.getItem(name) || "[]");
+        localStorage.setItem(
+          name,
+          JSON.stringify([...new Set([...covered, "pond"])]),
+        );
+      }, key);
+      await page.reload();
+      await ready();
+    };
     const unveil = (id) =>
       page.waitForFunction(
         (id) =>
@@ -159,6 +179,14 @@ try {
         );
       const opening = ["attic", "lamp", "vale"];
       assert.deepEqual(await covered(), opening);
+      // The Black pond lies in the hand from the start as a locked box (not
+      // a covered one); putting the lamp out opens it (rules 133).
+      assert.equal(
+        await page
+          .locator('#hand [data-card="pond"]')
+          .getAttribute("data-locked"),
+        "true",
+      );
       await page.screenshot({
         path: new URL(`attic-start-${width}.png`, output).pathname,
       });
@@ -189,9 +217,14 @@ try {
       await page.reload();
       await ready();
       assert.deepEqual(await covered(), ["attic", "lamp"]);
+      // Putting the lamp out opens the pond box and pays one XP.
+      assert.equal((await state()).actors.vale.xp, 0);
       await putOutOpening(page);
+      await turnOverPond();
       await unveil("pond");
       await finish();
+      assert.equal((await state()).actors.vale.xp, 1);
+      assert.deepEqual((await state()).opened, { pond: ["vale"] });
       assert.equal((await state()).actors.vale.place, "attic");
       // Dousing the lamp shows the Black Pond in the glass.
       assert.equal(
@@ -504,6 +537,7 @@ try {
       await finish();
       assert.equal((await state()).turn, 0);
       await putOutOpening(page);
+      await turnOverPond();
       await unveil("pond");
       await page.evaluate(
         ({ key, save }) => {

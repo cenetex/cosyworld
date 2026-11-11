@@ -21,66 +21,6 @@
         "She kept a loaf of bread for me."
       ]
     },
-    "greek-petition-burial": {
-      "quest": "story-quest-greek-burial",
-      "lines": [
-        "Creon has granted this one grave.",
-        "Her brother waits for earth."
-      ]
-    },
-    "greek-perform-burial": {
-      "quest": "story-quest-greek-burial",
-      "lines": [
-        "I laid her brother in the earth.",
-        "The king's words crossed the wind."
-      ]
-    },
-    "greek-perform-permitted-burial": {
-      "quest": "story-quest-greek-burial",
-      "lines": [
-        "Creon gave leave for this one grave.",
-        "I laid her brother in the earth."
-      ]
-    },
-    "greek-report-plan": {
-      "quest": "story-quest-greek-burial",
-      "lines": [
-        "I gave the guard the hidden plan.",
-        "He held it with the king's command."
-      ]
-    },
-    "greek-courtyard-burial": {
-      "quest": "story-quest-greek-courtyard",
-      "lines": ["I spoke of earth beside her table.", "Dione heard me through."]
-    },
-    "greek-courtyard-concession": {
-      "quest": "story-quest-greek-courtyard",
-      "lines": [
-        "I spoke the promise of a grave.",
-        "His body waited in the sun."
-      ],
-      "after": {
-        "choice": "greek-perform-permitted-burial",
-        "lines": [
-          "I told her of the king's consent.",
-          "She heard the leave that he had given."
-        ]
-      }
-    },
-    "greek-courtyard-exposure": {
-      "quest": "story-quest-greek-courtyard",
-      "lines": [
-        "I told her what the guard had heard.",
-        "My words lay open on the table."
-      ]
-    },
-    "greek-courtyard-permitted-burial": {
-      "quest": "story-quest-greek-courtyard",
-      "lines": [
-        "The grave I promised holds him now.",
-        "I brought that word to Dione."
-      ]
-    },
     "greek-open-door-hear-mothers": {
       "quest": "story-quest-greek-open-door-eleusis",
       "lines": [

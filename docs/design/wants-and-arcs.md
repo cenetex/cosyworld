@@ -1,6 +1,7 @@
 # Wants and arcs
 
-Status: design agreed with the owner, 2026-11-10. Nothing here is built.
+Status: design agreed with the owner, 2026-11-10. Slices 5 to 9 are
+building in the rules 133 bump on `rules/133-boxes`; the rest is not built.
 No question is open. Issue:
 [#2605](https://github.com/cenetex/cosyworld/issues/2605), under
 [#2576](https://github.com/cenetex/cosyworld/issues/2576).
@@ -60,6 +61,91 @@ over the six mounted packs in `v2/worlds/card-table.json`.
     "yep".
 18. The dead Theban-response branch of the Greek pack: "Remove the branch",
     then "Fold into the bump". It goes with the rules bump, not before.
+
+## Owner decisions, 2026-11-11
+
+These bind the quest cards and level up (rules 133, package 4).
+
+1. One button: "Select a card get one button is the whole design… there
+   should never be two buttons on one dialog." No second button for any
+   selection. New actions arrive as cards.
+2. Every offer is a card: "when a location, item, or avatar offers a quest it
+   shows a quest card that can be tapped." The level-up offer is a card too
+   ("Agreed").
+3. After Talk: "AFTER talking to someone the first time show an 'accept
+   quest' card that is something to help that resident achieve their desire,
+   include it in the talk context etc." And: "talking 'has a chance' to
+   unlock a quest from a resident".
+4. A player's quest is always taken by a tap, never drawn or pushed. While one
+   is held, taking another is unavailable, with the reason as the button's
+   label, and nothing is replaced.
+5. Level up: at the XP threshold a level-up quest card appears; taking it makes
+   the player's quest Sleep at home (each avatar has its own home; Vale's is
+   the Mirror attic; a home rests its owner). The sleep pays no XP. Discarding
+   Sleep at home costs XP and drops the player to just under the threshold, so
+   the card does not come straight back. Discarding an ordinary quest is free.
+6. Long-rest dreams (the glimpse) stay.
+7. Homecoming is "Accept quest" on the avatar's home box; Pip's lamp on `/pip`
+   is an accept-quest card after his Talk; both starter wants stay.
+
+Assumed, owner may change (proposed by the orchestrator, seen and not
+objected to):
+
+- The chance on Talk is rolled per resident per visit, seeded, and fixed until
+  either leaves the place or a day passes; it is not rolled per press.
+- Trust moves the odds: a resident who trusts the traveler at all (trust 1 or
+  more) always offers; a stranger offers by chance (50 in a hundred,
+  `OFFER_ODDS`).
+- The chance applies to residents only. A locked box always shows its quest
+  card. (Also assumed: a hub starter want, Pip's lamp or the keeper's bell,
+  is always offered.)
+- A box whose place the avatar has already stood in pays no opening XP, so the
+  mirror back to the attic does not pay Vale for returning home.
+
+## Owner decisions, 2026-11-11 (quest card labels)
+
+1. A held quest's one button is always **Discard** (with its XP cost on a level
+   quest). The step is done as any play is, by choosing the cards (the item and
+   the person; the place).
+2. One accept label everywhere: **Accept quest** for a box, a home door, a
+   resident and the level quest. The bar's caption tells them apart.
+3. Offered quests are closed boxes first: "A closed box", then Open box, then
+   Accept quest. Nothing of the quest shows before it is opened.
+
+## Owner decisions, 2026-11-11: derived wants
+
+These bind how every lock and quest is worded (rules 133). Built in
+[#2647](https://github.com/cenetex/cosyworld/pull/2647)'s stack.
+
+1. Wants are derived, not written. Of a list of hand-written reasons: "I have a
+   reservation about building a complex system of custom authored lines into
+   this." Authored text lives only in the descriptions of places, items and
+   avatars and in what avatars say: "if i want to learn something either an
+   avatar tells me or an item describes it etc". A lock's or quest's words come
+   only from the names of the cards the want concerns and a small fixed
+   vocabulary of rule verbs (hold, talk with, go to, give, bring, lay, eat,
+   rest). No `reason`, no per-fact phrase, no override field.
+2. Show only the want: "We could probably just show: <the want>." No holder
+   prefix, no sentence per box. One function words it for every lock (way,
+   resident, made or sealed item, lane, home door, hub way) and every quest,
+   offered or held (`wantWords`, `world/want-words.mjs`).
+3. Unknown things stay unknown: "'find something you haven't discovered yet' is
+   perfectly valid as an objective. We currently SHOW players things they don't
+   know on quest cards (eg they haven't unlocked Lamp and we show lamp on a
+   quest) this breaks epistemology." A card the traveler has not discovered
+   (the table's own test for a face-down card) is never named or pictured in
+   any word, label, title, alt text or image; its art is the card back and it
+   is worded "something undiscovered", "someone you have not met" or "a place
+   you have not found". An unknown target is a want, not an error.
+4. All card kinds are persons: "Avatars items and locations ARE ALL PERSONS.
+   There is no distinction besides the category. Items and Locations can speak,
+   dream, remember and level up." An item's or place's want is worded exactly
+   as an avatar's.
+5. A lock that waits on a story flag or choice is read from the pack's own
+   choice that sets it (give the item to its subject, or meet its subject).
+   Where nothing can be read, the box only says it is locked; the player
+   learns the rest because an avatar tells them or an item's or place's
+   description says so. Those gaps are content gaps, not text to patch.
 
 ## Already decided earlier
 
@@ -402,40 +488,52 @@ they open, more of what is in front of the player is people and what they
 want. ("Until they're all unlocked" is not read per world: a generated
 world keeps adding boxes, so that day might never come.)
 
-### A player's want is always taken by a tap
+### A player's want is always taken by a tap on a quest card
 
 A player holds one want at a time. None is drawn and none is handed over.
-Each source is a named button in the existing action row, on a card the
-player has selected. No new UI.
+Each source is a quest card on the table (owner, 2026-11-11: "when a
+location, item, or avatar offers a quest it shows a quest card that can be
+tapped"). Selecting the card gives the one context button. No new UI.
 
-| Where the player is | Selected | Button | What taking it does |
+| Where the player is | The card | Button | What taking it does |
 | --- | --- | --- | --- |
-| Where a locked box lies | the locked box | **Take quest** | The box's want becomes the player's. No turn passes. Today's `gate` play (`world.mjs:1615`, `:3001`), for every box |
-| With a resident, after Talk with them there | that resident | **Accept quest**, beside Talk | The want they said becomes the player's: give it to them, bring them there, or bring them to that person (`questFor`, `talk-quest.mjs:33`). No turn passes |
-| Anywhere, with XP enough for the next level | the player's own avatar card | **Take level up quest** | The player's want becomes Sleep at home |
-| A non-Vale avatar's new world | its home, a locked box | **Take quest** | Homecoming: bring the belonging home |
-| `/pip` | Pip, after his Talk | **Accept quest** | Pip's lamp |
+| Where a locked box lies | `quest:box:<box>` | **Accept quest** | The box's want becomes the player's. No turn passes |
+| With a resident, after Talk with them there, if they offer | `quest:from:<resident>` | **Accept quest** | The want they said becomes the player's: give it to them, bring them there, or bring them to that person (`questFor`, `talk-quest.mjs`). No turn passes |
+| Anywhere, with XP enough for the next level | `quest:level` | **Accept quest** | The player's want becomes Sleep at home |
+| At a non-Vale avatar's home door, a locked box | `quest:home:<home>` | **Accept quest** | Homecoming: bring the belonging home |
+| `/pip` | `quest:from:moth` | **Accept quest** | Pip's lamp (a hub starter want, always offered) |
 
 - *Talk reveals, the tap takes.* Talk says a resident's desire as dialogue.
   Accept quest makes it the player's want.
 - *Accept quest* is offered after the player's first Talk with that
-  resident since arriving in that place, until either leaves or that want
-  changes. Coming back needs a new Talk.
-- *While a want is held* these buttons stay in the row, disabled, and the
-  label says why ("Finish or discard your quest first"). Nothing is
-  replaced. Discard is free, except Sleep at home.
-- *The quest card* sits where the quest fold sits today, one card.
+  resident since arriving in that place, if they offer (the chance rule
+  below), until either leaves, a day passes, or that want changes. Coming
+  back needs a new Talk.
+- *The chance.* Talk rolls once per resident per visit whether they offer;
+  repeated Talk keeps the roll. Trust of 1 or more, or a hub starter want,
+  always offers. Saved as `actor.offered[resident] = {at, day, open}`
+  (`offer-chance.mjs`); the record lapses when either leaves `at` or the day
+  turns. When the resident would take help, their want line in the Talk
+  context ends "I would be glad of your help." (`wantFact`).
+- *While a want is held* every card stays, its button disabled and its label
+  the reason ("Finish or discard your quest first"). Nothing is replaced. The
+  `take` play is not offered then. Discard is free, except Sleep at home.
+- *Level up* offers `quest:level` from the experience of the next level
+  (`questXp`). Sleep at home is a place want at `homeOf(actor)` with a rest
+  step, met by a long rest there (`restsAt`: a sanctuary rests anyone, a
+  human avatar's own home rests it). Discarding it costs the XP that leaves
+  the player at `questXp(level) - 1`, just under the threshold.
 
 What reaches a player without a tap today, and what becomes of it:
 
 | Today | Becomes |
 | --- | --- |
 | Source 2, drawn when the stack is empty (`want.mjs:628`), and after Discard (`want.mjs:492`) | Removed for players |
-| Source 3, level quest on waking | Take level up quest |
+| Source 3, level quest on waking | Accept quest |
 | Source 4, Talk pushes a quest | Accept quest |
-| Source 5, `gate`, on 4 boxes | Take quest, on every box |
+| Source 5, `gate`, on 4 boxes | Accept quest, on every box |
 | Source 6, `hide_item` pushes "find your button" | Removed. RATi wants the button; Talk says so; Accept quest |
-| Source 7, homecoming set at world creation | Take quest on the home's box |
+| Source 7, homecoming set at world creation | Accept quest on the home's box |
 | Source 8, Seek in the menu | Removed with the `seek` play |
 | Source 9, Pip's landing | Accept quest on Pip |
 | Vale's authored `want` for the Lamp (`forest.json:75`) | Removed: a player has no authored want |
@@ -453,7 +551,7 @@ archived Greek choices, the stack and `focus`.
 - Home rests its own avatar as a sanctuary does. A home's door is a visible
   locked box whose want is its avatar's belonging.
 - With XP at the next level's threshold (today's `questXp` numbers), the
-  player's own avatar card offers **Take level up quest**. Taking it gives
+  player's own avatar card offers **Accept quest** (its bar caption names Sleep at home). Taking it gives
   **Sleep at home**: the place want with the rest step that exists today,
   aimed at `homeOf`. This replaces the level quest arriving on waking
   (`want.mjs:312`, `:427`), its drawn steps and its dream.
@@ -481,6 +579,15 @@ existing conditions) and a `want`. The list is **unordered**: any entry
 whose `when` holds may surface, the seeded draw picks among them, and
 authored order only breaks ties. Nothing is saved: it is read from the
 world each turn, like `homeWhen`.
+
+Owner direction, 2026-11-11: Antigone's home is the burial Hollow, not the
+gate: "she just can't get there while the gate is locked". Her `home` is
+`greek-polynices-hollow` and the scripted `homeWhen` is gone; she starts at the
+gate with `range: 0` and walks home by the ordinary resident rules once the gate
+is open and the Hollow's way is open (the Shade's word). She does not yet fetch
+and carry the oil, cloth and shovel: a place want with a lay step is planned as a
+plain walk (`world.mjs` `wantPlan`), with no take, carry or lay (next rules
+batch).
 
 - *Burial.* Antigone at the gate, once the guard holds the Writ, may say
   she wants to be at the Hollow, or that she wants the oil, the cloth and
@@ -532,13 +639,22 @@ choose, where trust picks which want a resident has.
 
 | Rung | What the rules do today | Smallest rules change |
 | --- | --- | --- |
-| Gifts earn trust | One source: `trustGiver` in `world.mjs` adds 1 for a plain Give or accepted Ask of the wanted item; a pack `on: "give"` choice on it skips trust | Keep one source; staged unordered wants (slice 10) let it reach three |
-| Tell the desire | Talk reveals the want at the first Talk, any trust (`want-talk.mjs`, `talk-quest.mjs`) | `want.minTrust` |
-| Travel | Every read is "any trust above 0"; an invited resident accepts (`accompanyDecision`, `world.mjs`), and also accepts with no trust when the trip serves its want or the player carries the wanted item | Read `>= 2` |
-| Step in | A resident covers a trusted friend after the first blow (`wantPlan`, `world.mjs`) | Read `>= 3` |
-| Home opens | `trusted` is accepted only in `passWhen`, `appearsWhen`, crossings and lanes, not in routes, residents' `requires`, topics or choices | `trusted` in `route.travelerRequires`, so a home is a per-traveler locked box |
+| Gifts earn trust | Built (bump 133): two sources. `trustGiver` in `world.mjs` adds 1 for a plain Give or accepted Ask of the wanted item (a pack `on: "give"` choice on it skips trust); an authored meeting sets trust with the choice effect `{kind: "trust", level}` | Built (package 5): staged unordered wants let gifts reach three |
+| Tell the desire | Talk reveals the want at the first Talk, any trust (`want-talk.mjs`, `talk-quest.mjs`) | Built: pack `want.minTrust` (1 to 3); default tells at the first Talk |
+| Travel | Every read is "any trust above 0"; an invited resident accepts (`accompanyDecision`, `world.mjs`), and also accepts with no trust when the trip serves its want or the player carries the wanted item | Built: reads `>= 2`; the two earlier accepts (the trip serves its want, you hold the item) stay |
+| Step in | A resident covers a trusted friend after the first blow (`wantPlan`, `world.mjs`) | Built: reads `>= 3` |
+| Home opens | `trusted` is accepted only in `passWhen`, `appearsWhen`, crossings and lanes, not in routes, residents' `requires`, topics or choices | Built: `trusted` in `route.travelerRequires` (only there); a resident passes his own door |
 | Companion who stays | An invited resident walks home after the trip (`resident-home.mjs`) | A companion state that holds |
 | Hours | Sleep only (`world-life.json`) | `schedule` |
+
+Built in bump 133 (package 3): the "smallest change" cells marked Built above.
+Authors use `want.minTrust`, `trusted` in `route.travelerRequires`, and the
+choice effect `{"kind": "trust", "level": 1}` (on `meet` or `talk` choices
+only). Shared meals, gift favour and trade price still read trust `> 0`.
+Ships count only active riders, so a resident authored aboard before his
+`requires` hold does not hold the ship. Trust now has two sources, gifts and
+authored meetings, so a resident may start trusting you at the meeting
+(Patroclus aboard the Charybdis, #2620).
 
 ### The three ethos questions
 
@@ -585,6 +701,61 @@ of the destination or `at`), and those places carry the same condition. Slice 4 
 
 Later: resident draws from grievances, knowledge and trust (#1506, #1871);
 then the README quest section is rewritten.
+
+### Built in rules 133, package 2: boxes
+
+`v2/card-game/world/boxes.mjs` is the one list of boxes (slice 9, and the
+visible-lock half of slice 4): `boxesAt`, `boxOpen`, `boxWant`. A lock view
+(`entityShown`) draws a shut card even when the card has conditions of its
+own, and never makes it enterable. Crossings and the hub's `reflectionRoutes`
+carry `sealed`; the Black pond and the mirror back are the first hub boxes, and
+the lit arch to the Empty station stays a plain exit (owner pick, 2026-11-11).
+`s.opened` records who opened which box; the play that opens one pays one XP
+(slice 6, the box half). `humans_at` is the lock for two. Not built here:
+`sealed` on pack routes and residents (pack data), sealed items (slice 10),
+Take quest on every box (package 4).
+
+### Built in rules 133, package 5: staged wants and sealed items
+
+Slice 10, less the `choose` removal (package 1). `wants` on a pack resident
+(at most three `{want, when}` entries) and `sealed` on an item are pack data
+(`v2/docs/card-packs.md`).
+
+- *Staged wants.* `stagedNext` in `want.mjs` picks among the eligible entries
+  by a seeded hash of (resident, entry, day), authored order breaking ties; it
+  runs at install, when a want is met, when one is given up and when a resident
+  with none is drawn one. `stagedWants` in `want-talk.mjs` reads the list for
+  Talk and package 4's offers. Nothing is saved but `a.want`. `when` takes
+  world facts only, refused with `trusted`, `talked`, `knows`, `upgraded` and a
+  traveler `holding`. A held want is never swapped for an entry that later
+  becomes eligible, so a staged resident installed with nothing eligible draws
+  as before.
+- *Bonds.* Gifts of each staged item raise trust one at a time; with
+  `want.minTrust` per entry, one source carries a bond to trust three. An
+  `on: "give"` pack choice on a staged item intercepts the Give and raises no
+  trust: the pack build prints a warning (`packWarnings`).
+- *Sealed items.* An item lies shut where it starts until its `requires` hold,
+  listed by `boxesAt` (kind `item`) with the made things. Latch by default
+  (`openedRoutes` `item:<id>`); `live` locks again, sending a carried item home
+  (`settleSealedItems`). One XP, once per avatar, through `creditOpened`.
+- *Not built.* The burial and RatiRadio arcs as staged wants and Patroclus are
+  pack content (slice 11). A staged resident does not drop a drawn want for a
+  newly eligible entry. A staged want the resident holds is offered like any
+  other once told (package 4: it is `a.want`, so Accept quest reads it).
+
+### Built in rules 133, package 4: quest cards and level up
+
+`world/offers.mjs` is the one list of quest offers: `questOffers(s, actor)` ->
+`[{id, kind: "box"|"resident"|"home"|"level", source, want, label, blocked}]`
+for the actor's place. `{kind: "take", offer: id}` is the one play (no turn;
+`gate` is gone, its log verb stays in the validator whitelist for old logs;
+the new log verb is `quest`). It is offered only when it can succeed;
+`blocked` is the reason for the card's disabled button. `offer-chance.mjs`
+holds the Talk roll. `world/home.mjs` holds `homeOf` and `restsAt`. Level up
+is slice 8; homecoming as Take quest is the quest half of slice 9 (the home
+door is the package 2 crossing box). Pip's lamp is offered because a hub
+starter want is always unlocked; the client still has to draw the card on
+`/pip`. An offer whose quest is the quest in hand is left out.
 
 ### With the rules bump: the Theban-response branch
 
@@ -648,9 +819,64 @@ What worked in a prototype that put him at the Wine-Dark Harbor quay:
   provisions, Piraeus, wheat, ride back, water jar and wheat to Dione, take
   bread. Sailing consumes nothing (rules 102).
 
+Owner decisions, 2026-11-11. "I would start him at trust 3": the meeting sets
+his trust to 3 (`{kind: "trust", level: 3}`), so he accompanies from the meeting
+and the bread gift adds nothing to trust (capped at 3; it still meets his want
+and pays). And "Patroclus card unlocks on the Charybdis when you are docked at
+piraeus with the supplies aboard": this replaces "aboard on the route after the
+burial". He is a sealed card of the Charybdis. His `appearsWhen` reads the ship
+at Piraeus (`ship_at`) and the provisions on deck (`item_at`), each or the flag
+`greek-patroclus-met`; the meeting choice sets that flag, so the unlock latches
+and he stays when the provisions go or the ship sails. Built in pack data only.
+Two small generic rules changes in 133 make this work. A resident whose card
+opens on a ship's arrival counts as a rider of that arrival, so he steps ashore
+like the others (`pack-transport.mjs` `sailTransports`). And a resident's want
+clock starts when he first becomes active: an absent or shut resident's want is
+kept fresh, so it is not set aside the moment he appears (`want.mjs`
+`reviseStalledWants`). The meeting is `greek-meet-patroclus` at Piraeus Quays: a
+meeting is applied inside a play that is not a Wait, before the world round,
+and the ship docks and he steps ashore in the round, so it fires on the
+traveler's next play that is not a Wait (a Talk, a Take, a Give).
+
 Not tested: at trust 0 an invitation is accepted while the player carries the
 bread (the want is served), so the decline case needs a player without bread;
 and the standoff cover (`plan` after a threat).
+
+### Owner decisions, 2026-11-11: the sticky companion
+
+"'accompany' should be sticky; eg the avatar follows you until trust breaks
+down or a sleep." Anyone can become a companion; the Oak and Badger are the
+two fixed-place residents. On 2026-11-11 the owner accepted these
+recommendations ("go with your recommendations on the companions for now")
+and refined one ("Gates should be shared in some way; I don't want
+'individually' locked doors necessarily"). They are built in rules 133
+(`world/company.mjs`):
+
+1. One companion per traveler. Asking a second resident replaces the first,
+   who is released where they stand. A resident is companion to at most one
+   traveler; for another the button reads "Dione is with Rue".
+2. "A sleep" is the traveler waking from a long rest.
+3. A gate is the party's. Where a way is open for the traveler, the companion
+   passes with them, and a traveler's own condition on a way (an item held,
+   trust of a keeper) is met by either of them. A companion passes
+   a crossing only a player may use too. It is left behind only where it has
+   no way home along the authored map (a dead end); the pair's button then
+   reads "<Name> cannot follow".
+4. The companion keeps its own one want and may meet it on the way; neither a
+   drawn nor a met want ends the bond.
+5. Trust can fall, for visible acts by the traveler only: a threat on the
+   resident takes 2 trust (3 when it demands an item) and a strike on them
+   takes 1, never below 0. Trust under 2 ends the bond; a grievance alone does
+   not.
+6. The Shade and the Gate Guard stay fixed by role, with the Oak and Badger.
+   The button reads "Oak stays here", one fixed wording from the rules, since
+   authored text lives only in place, item and avatar descriptions.
+7. Shared worlds: one companion per traveler, one traveler per resident. A
+   traveler away from a shared world pauses the bond, and it ends after a day.
+
+A quest to bring a resident somewhere or to someone is a shared vow: taking it
+brings the resident along at once, and the bond survives a long rest while the
+quest is held. Meeting or discarding it unpins the bond.
 
 ### Earlier work to reuse
 
@@ -696,3 +922,9 @@ for.
    set on arrival and for a guard who leaves on his own schedule.
 8. Client behaviour of the quest fan, Focus and Claim was read from the
    README, not from `quest-card.mjs` or `app.mjs`.
+
+Owner (2026-11-11): "residents stay in the same location for longer before
+moving autonomously ... even just they can travel 2 x a day", and a long way
+home "just takes a while like odysseus". Rules 133 adds a dwell of half a
+day after each arrival, with no exemption for going home or to bed; see
+[world life](rules-100-world-life.md#dwell-rules-133).

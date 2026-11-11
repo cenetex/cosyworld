@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { lockText } from "./helpers/lock-text.mjs";
 import "./helpers/still-cast.mjs";
 
 // Rules 95: things used up and coming back, on a test copy of the Greek pack.
@@ -378,10 +379,11 @@ describe("rules 95 item cycle", () => {
     s = reload(s);
     expect(exits(s, "greek-gate", "vale")).not.toContain("greek-battlefield");
     expect(availableCards(s)).toContain("greek-battlefield");
-    expect(sealedReason(s, "greek-battlefield")).toBe(
-      "The Gate Guard is guarding this card",
+    expect(lockText(s, "greek-battlefield")).toBe(
+      "Give Creon's Writ to The Gate Guard",
     );
-    // The locked card only says why (rules 102); Talk gives his quest.
+    // The locked card only says what it waits on (rules 102); Talk gives his
+    // quest.
     expect(cardActions(s, ["greek-battlefield"]).actions).toEqual([]);
     s = act(s, "give", { item: "greek-creon-writ", target: "greek-guard" });
     expect(sealedReason(s, "greek-battlefield")).toBe(null);

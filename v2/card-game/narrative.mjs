@@ -28,7 +28,6 @@ import {
   covered,
   exits,
   nameOf,
-  wantText,
   validateWorld,
   standoffFor,
   fightersOf,
@@ -43,7 +42,7 @@ import {
   canTrade,
 } from "./world.mjs";
 import { controlledByHuman, residentAvatar } from "./human-cast.mjs";
-import { knownActors, questsOf, wantOf } from "./want.mjs";
+import { knownActors, wantOf } from "./want.mjs";
 import { guardedFrom } from "./resident-guard.mjs";
 import {
   forgetCovered,
@@ -400,29 +399,18 @@ export function narrativeContext(world, action = null, isCovered = null, remaini
       // the player and for whoever is in this Talk. Narration only.
       const want =
         kind === "avatar" && wantHeard(world, played, id, currentActor(world))
-          ? wantFact(world, id, nameOf)
-          : null;
-      // Waking from a long rest, a new level quest arrives in the dream.
-      const quest = questsOf(world, id).find((w) => w.quest && w.since === world.turn);
-      const dreamt =
-        rest === "long" &&
-        cast.dream === "quest" &&
-        id === resting &&
-        quest?.quest?.left &&
-        quest.since === world.turn
-          ? `In a dream, the quest for level ${quest.quest.level}: ${wantText(quest)}.`
+          ? wantFact(world, id, nameOf, currentActor(world))
           : null;
       // Halfway there, the dream shows one part of the coming quest.
       const glimpse = world.actors[id]?.glimpse;
       const glimpsed =
         cast.dream === "glimpse" && id === resting && glimpse
-          ? `In a dream, a glimpse of the quest for level ${glimpse.level}: ${glimpse.kind === "verb" ? glimpse.id : nameOf(glimpse.id)}.`
+          ? `In a dream, a glimpse: ${glimpse.kind === "verb" ? glimpse.id : nameOf(glimpse.id)}.`
           : null;
       const between = beforeFirstLight
         ? { entries: [], retold: [] }
         : betweenUs(world, id, speakers, nameOf);
       const facts = [
-        ...(dreamt ? [dreamt] : []),
         ...(glimpsed ? [glimpsed] : []),
         ...(want ? [want] : []),
         ...(kind === "avatar" && !beforeFirstLight ? exchangeFacts(world, id, played) : []),

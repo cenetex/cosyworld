@@ -1,29 +1,10 @@
 {
   "about": "Recorded saves on main (scripts/check-recorded-saves.mjs): path to size in bytes. Entries may only be removed; build new start states by play (createWorld, journeys, synthetic worlds). Keep these only as replay proofs.",
   "files": {
-    "test/fixtures/ajax-household-rules-21.json": 364176,
-    "test/fixtures/card-pressured-handover.json": 144822,
-    "test/fixtures/card-save-long-play.json": 269554,
-    "test/fixtures/card-save-rules-57-pond-thread.json": 128477,
-    "test/fixtures/card-world-life-busy.json": 132511,
     "test/fixtures/forest-charm-rules-131.json": 5537717,
-    "test/fixtures/forest-revision-1-chapter.json": 200830,
-    "test/fixtures/forest-revision-1-garden.json": 173338,
     "test/fixtures/forest-scarf-rules-132.json": 269912,
-    "test/fixtures/greek-before-funeral/burial.json.gz": 113468,
-    "test/fixtures/greek-before-funeral/concession-late-report.json.gz": 157852,
-    "test/fixtures/greek-before-funeral/concession.json.gz": 152602,
-    "test/fixtures/greek-before-funeral/exposure-dry.json.gz": 51863,
     "test/fixtures/greek-before-funeral/exposure.json.gz": 73482,
-    "test/fixtures/hoppycat-v3/completed.json": 226686,
-    "test/fixtures/hoppycat-v3/small.json": 132217,
-    "test/fixtures/hoppycat-v3/visit.json": 138686,
     "test/fixtures/radio-entry-rules-130.json": 2755466,
-    "test/fixtures/raven-return-rules-131.json": 199830,
-    "test/fixtures/shared-world-rules-67-refusal.json.gz": 33112,
-    "test/fixtures/wine-dark-legacy/schema6-egypt.json": 77654,
-    "test/fixtures/wine-dark-legacy/schema6-halfway.json": 50334,
-    "v2/orchestrator-rust/fixtures/legacy-import/east-save.json": 1714,
-    "v2/orchestrator-rust/fixtures/legacy-import/west-save.json": 1714
+    "test/fixtures/raven-return-rules-131.json": 199830
   }
 }

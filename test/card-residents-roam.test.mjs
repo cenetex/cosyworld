@@ -42,10 +42,11 @@ const NO_INVITE = {
   badger: "The Badger stays on his moss by design; his clearing has no way out.",
   skull:
     "Skull's home, the Moonlit Trail, is shut until the drain is cleared: out of it he could not walk home.",
-  "greek-antigone": "Antigone waits at the Gate for the Hollow; her stay gates the Polynices rites.",
   "greek-guard": "The Gate Guard is a lock: if he leaves his post the way opens for everyone.",
   "greek-polynices-shade": "The Shade is a night apparition at the Hollow.",
   "greek-household-witness": "Myrine has an authored journey and travels only on it.",
+  "greek-patroclus":
+    "Patroclus starts aboard the Charybdis, where the only plays are the ship's course; the quay invites him once the ship has docked (card-greek-patroclus).",
   "willows-swede": "The Swede stays at camp until the kit is back (stayUntil).",
   boardyai: "Boardy's parlour has no way out; he visits by his own calls.",
 };
@@ -173,7 +174,7 @@ const built = (make) => () => {
 };
 const worlds = {
   default: built(() => createWorld({ seed: 7, packScopes: scopes })),
-  opendoor: built(() => openDoorStart("exposure", { rumours: true })),
+  opendoor: built(() => openDoorStart({ rumours: true })),
   ajax: built(() => ajaxCamp()),
 };
 const DAY = 48;

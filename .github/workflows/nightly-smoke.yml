@@ -1,0 +1,103 @@
+name: Nightly smoke
+
+# Runs every browser smoke in scripts/browser-shards.json against the commit's
+# own static card game, so a smoke that rots is seen within a day. It gates
+# nothing: no merge, deploy, tag or Fly step reads it. It keeps one issue,
+# "Nightly smoke failures": updated while smokes fail, closed when all pass.
+# Smokes that need the Rust binary (fast-smokes.json needsRust) run only in
+# ci.yml, which builds it.
+on:
+  schedule:
+    - cron: "23 4 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nightly-smoke
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+      - id: plan
+        run: echo "matrix=$(node scripts/plan-browser-shards.mjs)" >> "$GITHUB_OUTPUT"
+
+  shard:
+    name: Smokes (${{ matrix.shard }})
+    needs: plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    env:
+      CI: true
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          filter: blob:none
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: npm
+      - run: npm ci --prefer-offline --no-audit --no-fund
+      - run: npx playwright install --with-deps chromium
+      - name: Run every smoke, collecting failures
+        env:
+          CHECKS: ${{ matrix.checks }}
+        run: |
+          skip=$(node -p "require('./scripts/fast-smokes.json').needsRust.join(' ')")
+          : > failed.txt
+          for check in $CHECKS; do
+            case " $skip " in *" ${check%@*} "*) continue ;; esac
+            echo "::group::$check"
+            width=""; case "$check" in *@*) width="${check#*@}" ;; esac
+            env ${width:+COSYWORLD_SMOKE_WIDTHS=$width} node "v2/scripts/${check%@*}.mjs" ||
+              echo "$check" >> failed.txt
+            echo "::endgroup::"
+          done
+      - uses: actions/upload-artifact@v7
+        with:
+          name: failed-${{ strategy.job-index }}
+          path: failed.txt
+          retention-days: 3
+
+  report:
+    needs: [plan, shard]
+    if: ${{ always() && needs.plan.result == 'success' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_REPO: ${{ github.repository }}
+      TITLE: Nightly smoke failures
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: failed-*
+          path: failed
+      - name: Create, update or close the one issue
+        run: |
+          list=$(cat failed/*/failed.txt 2>/dev/null | sort || true)
+          run="$GITHUB_SERVER_URL/$GH_REPO/actions/runs/$GITHUB_RUN_ID"
+          n=$(gh issue list --state open --search "\"$TITLE\" in:title" --json number,title \
+            --jq "[.[] | select(.title == env.TITLE)][0].number // empty")
+          if [ -z "$list" ] && [ "${{ needs.shard.result }}" = success ]; then
+            [ -z "$n" ] || gh issue close "$n" --comment "All smokes passed: $run"
+            exit 0
+          fi
+          body=$(printf 'Failing smokes in the nightly run (%s):\n\n%s\n\nA shard that died before reporting fails the whole run; read its log.\n' \
+            "$run" "$(printf '%s\n' "$list" | sed 's/^/- /')")
+          if [ -n "$n" ]; then gh issue edit "$n" --body "$body"; else gh issue create --title "$TITLE" --body "$body"; fi

@@ -77,6 +77,7 @@ describe("agreed resident journeys", () => {
         id,
         at,
         subject: resident,
+        on: "wait",
         label: "Share this journey",
         text: "Dione agrees to this journey.",
         requires,
@@ -106,7 +107,7 @@ describe("agreed resident journeys", () => {
     expect(accompanyDecision(world, "vale", resident, path[1]).accepted).toBe(
       false,
     );
-    world = act(world, "choose", { choiceId: agreement });
+    world = act(world, "wait");
     expect(accompany(world).map((a) => a.destination)).toEqual([path[1]]);
     expect(
       accompanyDecision(world, "greek-guard", resident, path[1]).accepted,
@@ -123,7 +124,7 @@ describe("agreed resident journeys", () => {
     let world = fixture();
     world.items["greek-water-jar"].holder = resident;
     world.items["greek-water-jar"].history = ["Kept for the journey."];
-    world = act(world, "choose", { choiceId: agreement });
+    world = act(world, "wait");
     expect(legalActions(world).some((a) => a.choiceId === arrival)).toBe(false);
     const first = accompany(world)[0];
     for (const destination of path.slice(1)) {
@@ -150,7 +151,7 @@ describe("agreed resident journeys", () => {
       expect(world.actors[resident].place).toBe(destination);
     }
     expect(play(world, first).ok).toBe(false);
-    world = act(world, "choose", { choiceId: arrival });
+    world = act(world, "wait");
     expect(world.packs[pack.id].flags["test-journey-arrived"]).toBe(true);
     expect(legalActions(world).some((a) => a.choiceId === arrival)).toBe(false);
     expect(accompany(world)).toEqual([]);
@@ -168,10 +169,10 @@ describe("agreed resident journeys", () => {
       places: [path[1]],
       requires: [{ kind: "flag", key: "greek-open-door-open", value: true }],
     });
-    let world = act(fixture("opening"), "choose", { choiceId: agreement });
+    let world = act(fixture("opening"), "wait");
     expect(accompany(world)).toEqual([]);
     expect(world.actors[resident].place).toBe("greek-courtyard");
-    const together = act(fixture(), "choose", { choiceId: agreement });
+    const together = act(fixture(), "wait");
     together.actors.vale.place = "greek-piraeus";
     expect(legalActions(together).some((a) => a.choiceId === arrival)).toBe(
       false,
@@ -179,7 +180,7 @@ describe("agreed resident journeys", () => {
   });
 
   it("keeps an agreed waypoint through a visit and a real return trip", () => {
-    let world = act(fixture(), "choose", { choiceId: agreement });
+    let world = act(fixture(), "wait");
     for (const id of ["vale", resident]) world.actors[id].place = "greek-well";
     world = decodeSave(encodeSave(world));
     expect(world.journeyProgress[resident]).toEqual({ agreement, step: 0 });
@@ -196,7 +197,7 @@ describe("agreed resident journeys", () => {
   });
 
   it("derives an older save's agreed step once", () => {
-    const world = act(fixture(), "choose", { choiceId: agreement });
+    const world = act(fixture(), "wait");
     world.actors[resident].place = path[2];
     delete world.journeyProgress;
     const loaded = decodeSave(JSON.stringify(world));
@@ -212,7 +213,7 @@ describe("agreed resident journeys", () => {
     const world = fixture();
     world.actors[resident].place = "greek-harbor";
     expect(validatePackStates(world)).toBe(true);
-    const accepted = act(fixture(), "choose", { choiceId: agreement });
+    const accepted = act(fixture(), "wait");
     accepted.actors[resident].place = "greek-well";
     expect(validatePackStates(accepted)).toBe(true);
     for (const progress of [

@@ -277,36 +277,4 @@ describe("the retired red thread", () => {
     expect(moves(loaded, "vale")).not.toContain(pack.entry);
   });
 
-  it("an earlier save closes a found thread and teaches the lane to its visitors", () => {
-    const s = setup("pond");
-    s.crossings[THREAD].discovered = true;
-    s.packs[pack.id].revision = 1;
-    // Mara stands in the garden; Vale walked through it long ago.
-    s.actors.mara.place = pack.entry;
-    s.routeKnowledge.vale = [["pond", pack.entry]];
-    // A roaming bard keeps every route, and learns no lane without a visit.
-    const bard = structuredClone(s.routeKnowledge["greek-rhapsode"]);
-    const next = upgrade(s);
-    expect(next.packs[pack.id].revision).toBe(4);
-    expect(next.crossings[THREAD].discovered).toBe(false);
-    for (const who of players)
-      expect(knowsLane(next, who, "greek-piraeus", JETTY)).toBe(true);
-    // The lane is learned as knowledge; it still opens only with a thing aboard.
-    const aboard = structuredClone(next);
-    aboard.actors.vale.place = "greek-piraeus";
-    summonTransport(aboard, "greek-ship", "greek-piraeus");
-    expect(
-      courses(act(reload(aboard), "vale", "move", "greek-ship"), "vale"),
-    ).not.toContain(JETTY);
-    expect(next.routeKnowledge["greek-rhapsode"]).toEqual(bard);
-    expect(moves(next, "vale")).not.toContain(pack.entry);
-
-    // An earlier save that never found it loses nothing and gains no door.
-    const unfound = setup("pond");
-    unfound.packs[pack.id].revision = 1;
-    const upgraded = upgrade(unfound);
-    expect(upgraded.packs[pack.id].revision).toBe(4);
-    expect(knowsLane(upgraded, "vale", "greek-piraeus", JETTY)).toBe(false);
-    expect(moves(upgraded, "vale")).not.toContain(pack.entry);
-  });
 });

@@ -239,141 +239,108 @@ spoken words. Audio stays separate from saves and shared world history.
 Shared viewers hear their own copy of the room dialogue in order. Reference
 and generated audio are checked through `test/card-character-speech.test.mjs`.
 
-## A quest stack per avatar
+## One want per avatar
 
-The first tap on a known item or quest shows its details in the descriptor.
-Tapping the top card of its folded stack also fans that stack. The quest fold
-behind the avatar opens the first quest's details. Unknown world cards keep
-their discovery reveal. An open avatar group stays open after a deed, so a
-completed quest's checked card remains within reach. Tapping the checked card
-shows its earned XP and clears it.
+Rules 133 ([wants and arcs](../../docs/design/wants-and-arcs.md), #2605). Every
+avatar holds at most one want: an item to hold, a place to reach or a person
+to talk with. The internal field is `actor.want`; player-facing text says
+quest. There is no stack: `actor.under`, the focus play, the claim play and
+completion receipts are gone. A world pack defines each resident's starter
+quest as its `want` (`{kind, target}`); `forest.json` does the same for Pip and
+the keeper. A human avatar has no authored want. What happens next comes from
+the world rules in `want.mjs`, not from authored quest chains.
 
-Each player avatar holds two active quests, including Level Up. Further quests
-wait in order. Named NPCs hold up to three goals. Each quest is an
-item to hold, a place to reach or a person to talk with. A world pack defines each resident's starter quest as its `want`
-(`{kind, target}`); `forest.json` does the same for Vale, Pip and the keeper.
-What happens next comes from the world rules in `want.mjs`, not from authored
-quest chains. The internal field `actor.want` is the top of the stack, the
-quest pursued and shown; `actor.under` holds the quests beneath it, next
-first, and is absent while the stack holds one. Player-facing text says quest.
-
-- **Stack.** Incoming player quests join the saved list in order and keep
-  the current focus. Completion or discard admits the next waiting quest.
-  The first two entries are active; further `under` entries retain their
-  progress while waiting, including the third quest from older saves.
-  An avatar holds one level quest across its active and waiting entries.
-  Each active quest can be met by a play; waiting quests observe later plays
-  after admission. Completed reward cards remain available until claimed.
-  A fresh random quest is drawn only when the whole list is empty.
-- **Choose and drop.** In the open fan, choosing a quest beneath the top
-  brings it to the top with a **focus** play naming it (`quest`, its index).
-  Focus is journaled like any play, but it takes no turn: the world does not
-  move on. The top quest offers **Discard**, the `drop` play with that
-  index and no item; the rules accept a drop at any index. Dropping an
-  ordinary quest costs nothing, and its target stays out of mind a while;
-  dropping a level quest costs 1 XP for the first, 2 for the next, and so
-  on, never below the experience its level took (`questXp`), so the level
-  stays; its button reads "Discard (−N XP)". The chosen quest shows in
-  the usual play beat: its goal and the single context action.
-- **Complete here.** The chosen top quest offers a legal action that completes
-  its goal or current authored stage (`quest-step.mjs`): Talk with its person,
-  Take or Ask for its wanted item, Give the carried gift, or Travel directly
-  to its destination. Anoint, Veil and Bury each offer their ready gift to
-  Antigone. A sanctuary quest at its sanctuary offers Wait, then Sleep.
-  The player chooses how to gather supplies and travel to distant goals.
-  While preparation remains, the context action is Discard. Its confirmation
-  names any XP cost. Dropping the last quest draws another at once, and a
-  drop takes a turn.
-
-- **First quest.** A player holds no quest at the start: the attic opening
-  has no quest card. The hub's `questsBeginAt` (`forest.json`,
-  `{ "kind": "arrived", "place": "pond" }`) holds back a player's first quest
-  until it first reaches the Black Pond, and that quest is drawn at once on
-  arrival. Residents hold their wants from the start, and a save already past
-  the pond keeps its quest.
+- **A player's want is taken by a tap on a quest card, never handed over.**
+  Nothing is drawn for a player and nothing is pushed at one: not after a
+  Discard, not on waking, not by Talk, not from a story choice, and there is
+  no Seek. Every offer is a card (`questOffers`, `world/offers.mjs`; ids
+  `quest:box:<box>`, `quest:from:<resident>`, `quest:home:<home>`,
+  `quest:level`), and the `take` play (`{kind: "take", offer}`, no turn)
+  calls `takeQuest`, which sets the want when the player holds none;
+  `dropQuest` sets it down. Every offer reads Accept quest: a shut box, your own
+  home's door (homecoming: bring the belonging home), a
+  resident who told you their want (after Talk, by a chance rolled once per
+  visit, certain if they trust you or hold a hub starter want such as Pip's
+  lamp), and the level quest, which appears when experience reaches the next level
+  and gives Sleep at home. While a quest is held every card stays, its
+  button disabled and labelled "Finish or discard your quest first".
+  **The client draws each offer as a card** (`offerFrame`, `app.mjs`) with the
+  held quest's own face (`questFace`: the scene of you doing the verb, its
+  head, its tier colour; a hidden name stays hidden, as in `lockedQuest`). The
+  offers lie together in the hand's row after the place's cards, where
+  `availableCards` orders them; the held quest lies behind your avatar's
+  stack. A chosen offer is the only chosen card and has one button: its play's
+  label ("Accept quest"), or, blocked, the disabled button whose label is the
+  reason. Taking passes no turn and makes no beat (`quest` is a quiet verb).
+  On `/pip`, Talk is the ordinary Talk: Pip's line is asked for (a failed line
+  shows "…") and his offer lies beside him as a closed box. Open it and tap
+  Accept quest: only then does the page fade into the opening, carrying that
+  same quest (so the pond offers no second one). The Lamp counts as a known
+  card on the landing, so the offer names it. Until the quest is accepted the
+  visitor stays with Pip, and reopening `/pip` resumes there.
+- **A resident's want.** Residents keep drawing wants: the next is drawn
+  deterministically from the world, seeded by the avatar and turn (items
+  others hold nearby that it values above what it carries, reachable places it
+  has not visited, known people it has not talked with), after a day
+  (`CONTENT_TURNS`) or on waking. Nothing stays beneath a set-aside want: a
+  resident that sets its want aside (three refusals, or a long spell with no
+  way forward, `STALL_TURNS`, restarted by each arrival) draws a new one and remembers the old target in
+  `gaveUp`. A met want with nothing to follow leaves the resident content
+  (`actor.content`, `want: null`); it waits and still answers plays.
 - **Met.** An item quest is met when the avatar is the item's root holder, a
   place quest when it stands there, and a person quest when the two share a
-  place and Talk. Meeting a quest records a `want_met` history event and one
-  experience point. Level is a rising curve of experience: 1, 3, 6, 10 points
-  reach levels 2 to 5. Standoff strength and the scene read that level.
-  A pack resident may set `startLevel` (1–99) and begins with that level's
-  experience. Each pack starts a few residents at a tier's first level: one
-  Legendary (50), one Epic (30), two Rare (20) and three Uncommon (10), as far
-  as its cast allows. Player and human avatars start at level 1. An item, in a
-  pack or the hub's `forest.json`, may set the same `startLevel`; its card
-  shows that level and tier with the same numeral and border. Items do not gain
-  levels yet, and an item's level changes no rule.
-- **Next.** The next quest is drawn deterministically from the world, seeded
-  by the avatar and turn: items others hold nearby that the avatar values
-  above what it carries, reachable places it has not visited, and known people
-  it has not talked with. Every other draw for a player comes from the whole
-  world instead: any active place, any active person, and any item someone
-  else holds or that lies somewhere, whether the player has met or found it
-  or not (#1831). A target needs only to exist; it need not be reachable now.
-  Residents keep to what they know, since they must find a way there. A quest ends where it is met: nobody is sent home
-  (#1824). A resident rests right there a few turns while it holds the next
-  one.
-  An avatar draws a quest whenever its stack is empty, except when it is
-  content: from rules 90 an ordinary quest met with nothing beneath is
-  enough for now (`actor.content`, `want: null`). A player draws its next
-  quest on waking from any Sleep, a resident after a day (`CONTENT_TURNS`).
-  A content resident waits and still answers plays. While content, no quest
-  card is shown: the hand has no fold, no quest card and no Discard until
-  the next want is drawn (`v2/scripts/smoke-card-content.mjs`). A draw takes something
-  near first; with nothing near left, curiosity starts over, and then
-  anyone known, or what they hold, will do, reachable or not. A new world
-  draws one for every avatar without an authored `want`; a quest left empty
-  by an older rule set or a pack mounted later is drawn after a short rest.
-- **Level quest.** Its card reads **Level Up** beside the target level's
-  Roman numeral. Selecting it shows the current task. A checked step keeps
-  its deed title; the final checked card reads **Level Up** until claimed.
-  The quest is the threshold (#1583). A player's
-  experience still rises with every quest met, but its level (`actor.level`)
-  rises only through a level quest. Waking from a long rest at a sanctuary
-  with experience enough for the next level brings that quest in the dream:
-  the scene tells the model the quest as a fact, and it goes on top of the
-  stack, above the ordinary quests. The quest for level n has ceil(n / 5)
-  steps ([level curve](../../docs/design/level-curve.md)), each drawn from the whole known world among the half
-  furthest from home. After the last step comes the way back: a **rest**
-  step at the sanctuary the avatar last stood in (`actor.sanctuary`, or home
-  for one that never reached a sanctuary). Being there is not enough; the
-  long rest there raises the level. A rest step anywhere in the stack
-  counts. A step with no way forward becomes another of the same level.
-  Residents level on experience alone.
+  place and Talk. Meeting a want records a `want_met` history event and pays
+  one experience point on that play. Level is a rising curve of experience:
+  1, 3, 6, 10 points reach levels 2 to 5. Standoff strength and the scene read
+  that level. A resident's level follows its experience; a player's level
+  rises only through the level-up quest (`actor.level`), Sleep at home, met by
+  a long rest at the avatar's own home (`restsAt`) and paying no experience. A pack resident may set
+  `startLevel` (1–99) and begins with that level's experience. Each pack starts
+  a few residents at a tier's first level: one Legendary (50), one Epic (30),
+  two Rare (20) and three Uncommon (10), as far as its cast allows. Player and
+  human avatars start at level 1. An item, in a pack or the hub's
+  `forest.json`, may set the same `startLevel`; its card shows that level and
+  tier with the same numeral and border. Items do not gain levels yet, and an
+  item's level changes no rule.
+- **Helping.** When a player's play meets another avatar's want, the player
+  gains one experience and that avatar trusts the player one more (up to 3).
+  A plain Give already earns that trust (`trustGiver`), so it adds only the
+  experience; the credit goes only where the causing play names the player.
+- **Discard.** The `drop` play with no item sets the held quest down. An
+  ordinary quest costs nothing and its target stays out of mind a while;
+  dropping a level quest costs 1 XP for the first, 2 for the next, and so on,
+  never below the experience its level took (`questXp`), so the level stays;
+  its button reads "Discard (−N XP)". A drop takes a turn and draws nothing.
+- **Level quest.** A level quest is a place want with `quest: { level, left: 1 }`
+  and a rest step (`restStep`): a long rest at a sanctuary raises the level by
+  one on waking. Nothing offers one yet. Long rests keep their dreams: at
+  halfway to the next level the dream shows one glimpse (`glimpse.mjs`).
 - **One world each.** Level, experience and quests belong to an avatar in
-  one world (#1825). A new world starts the avatar at level 1 with its
-  starter quest, and the old world keeps its progress. The packs mounted in a
-  world (Greek, Willows, Hoppy Cat) are part of it and share that progress.
-- **Step verbs.** A level quest step may carry `step: { verb, to?, at? }`
-  beyond its kind's own verb (hold, go to, talk), drawn from the living world
-  (`want.mjs` `STEP_VERBS`). State verbs hold after any play: **find** an item
-  by standing where it is, whoever holds it; **meet** a person by being
-  together, without a Talk; **bring** an item to a person at a place by
-  holding it there together. Act verbs are met when the avatar's own play
-  resolves: **give** only when accepted, and **eat** a food (rules 102) when
-  the avatar eats it, at the step's place if it names one. No step is violent: a person step
-  is Talk or **meet** at every level (Threaten and Strike steps saved before
-  rules 90 are still met). Steps interlock with other
-  avatars' quests: an item another known avatar wants to hold may be given
-  or brought to them at home, meeting both quests in one play, and a person
-  on the way to a place may be met there. A step already true where the
-  avatar stands is not drawn. Steps come one at a time in order; nothing is
-  authored ahead.
-- **Talk gives a quest** (rules 99, #2196). A player's Talk that reveals
-  someone's top want, new to the player, gives an ordinary quest: give them
-  the item they want, bring them to the place they want, or bring them to
-  the person they want to see. It goes second under a level or story quest,
-  leaves when their want changes first, and counts toward the level's gap of
-  ordinary wants ([quest stack](../../docs/design/quest-stack.md)).
+  one world (#1825). A new world starts the avatar at level 1 with no quest,
+  and the old world keeps its progress. The packs mounted in a world (Greek,
+  Willows, Hoppy Cat) are part of it and share that progress.
+- **Step verbs.** A want may carry `step: { verb, to?, at? }` beyond its
+  kind's own verb (hold, go to, talk) (`want.mjs` `STEP_VERBS`). State verbs
+  hold after any play: **find** an item by standing where it is, whoever holds
+  it; **meet** a person by being together, without a Talk; **bring** an item to
+  a person at a place by holding it there together. Act verbs are met when the
+  avatar's own play resolves: **give** only when accepted, and **eat** a food
+  (rules 102) when the avatar eats it, at the step's place if it names one.
+  Threaten and Strike steps saved before rules 90 are still met.
+- **Talk tells a want** (rules 99, #2196; rules 133). A player's Talk that
+  reveals someone's want records what was said (`heard[them]`), and nothing
+  else changes. `questFor` reads the quest that would meet it: give them the
+  item they want, bring them to the place they want, or bring them to the
+  person they want to see. It is taken by a tap, a later package. A Talk quest
+  the player holds leaves when their want changes first.
 - **Pursuit.** Residents use the fixed verbs: travel along routes (travellers
   who learn the roads keep to the routes they know), then ask, trade their
   least valued spare, and threaten when bold enough by resentment, a higher level tier or
   earlier refusals. `expects()` lets them skip some offers they expect to be
   refused, but refusals still happen: each refusal of the quest item counts,
-  and after three, or a long spell with no way forward, the quest is set aside
-  for a while: it moves to the bottom of the stack, fresh, and the quest
-  beneath comes to the top (a lone quest gets a newly drawn one above it).
-  Residents pursue their top quest, and eat a food they hold at once when a
+  and after three, or a long spell with no way forward, the want is set aside
+  for a while and a new one is drawn.
+  Residents pursue their want, and eat a food they hold at once when a
   quest of theirs wants it eaten (rules 102). A resident that keeps to its scene acts only while someone is
   there, so its quest can stall only after a first refused attempt, and the
   stall clock starts at that attempt.
@@ -384,11 +351,19 @@ first, and is absent while the stack holds one. Player-facing text says quest.
   takes one step toward a want in range. It sleeps on its schedule, scattered
   by the seed (Pip and Nix are nocturnal), and wakes for a Talk, a threat or
   a ring; Ask, Trade and Invite wait until then. See the
-  [design note](../../docs/design/rules-100-world-life.md). A resident who
+  [design note](../../docs/design/rules-100-world-life.md). **Dwell**
+  (rules 133, `world/dwell.mjs`): after a resident arrives it stays at least
+  `DWELL_TURNS` (24, half a day) before its next move of its own, so it moves
+  about twice a day; this holds wants, roaming, drifting home, dawn and dusk
+  steps and the walk to bed. A human's Talk, Ask, Give or Trade holds that resident two turns while they share the room (capped at 24). A resident sleeps only at home. A resident who
   walks in where the player is meets them on that turn, so Talk is offered
   at once, even after only Waits, and a first meeting speaks (rules 101,
   [design note](../../docs/design/rules-101-meet-on-arrival.md)).
-- **Trust** has one source: someone gave me the item my quest wanted.
+- **Trust** has two sources: someone gave me the item my quest wanted, and an
+  authored meeting (a pack `trust` effect). It is 0 to 3 and unlocks something
+  at each step: at one a resident may tell you its desire (`want.minTrust`), at
+  two it will travel with you, at three it steps in when you are threatened and
+  a home door behind `trusted` opens to you.
 - **Connect.** BoardyAI's starter quest is `{ "kind": "connect", "target":
 "humans" }` in `boardyai.json`. It is met by any Talk in his room while two
   connected humans are there with him. In Talk he says "I want to introduce
@@ -396,8 +371,9 @@ first, and is absent while the stack holds one. Player-facing text says quest.
   room, and otherwise goes to one who is elsewhere. Generated quests are never
   connect quests. BoardyAI is inspired by [Boardy](https://x.com/boardyai).
 
-The hand holds people, items and places, and a quest card for each quest in
-the player's own stack (`quest-card.mjs`, client only). The card shows a small 4:3 scene
+The hand holds people, items and places, and one quest card for the quest the
+player holds (`quest-card.mjs`, client only; there is never more than one).
+The card shows a small 4:3 scene
 (`quest-screen.mjs`): the player on the left doing the quest's verb with the
 target on the right, from the images the stage already uses, with attack and
 guard poses for Strike and Threaten. A place quest shows the player small in
@@ -422,39 +398,49 @@ a step's recipient and place), from their levels (`questTier`), and at least
 the tier of the level a level quest leads to; face down, and folded until it
 has first turned, it shows only the common tier. It never
 shows who holds the target or how far it is; it glows softly and steadily
-while the target is within two moves. Steps still to come lie face down behind
-the card, showing the card back. It plays nothing. The top quest folds behind the player's avatar card as
-a full-size card in its stack: face down, showing the carved card back, leaning
-out to the top left with a glowing line in its tier colour along its edge.
-Choosing the folded card opens the first quest's details and fans its stack,
-top first. Each quest card is dealt face down, showing the
+while the target is within two moves. It plays nothing. The quest folds
+behind the player's avatar card as a full-size card in its stack: face down,
+showing the carved card back, leaning out to the top left with a glowing line
+in its tier colour along its edge. Choosing the folded card, or the avatar's
+stack and then the quest card, chooses the quest and shows its details. The
+quest card is dealt face down, showing the
 carved lid, and turns to its face 520 ms after it is first seen, with the
-hand's reveal (`card-reveal.mjs`), the next quest a moment after; reduced
-motion crossfades. It turns once: folding and opening the fan, plays, redraws
-and progress on the quest (its steps, its place in the stack) leave it face
+hand's reveal (`card-reveal.mjs`); reduced
+motion crossfades. It turns once: folding and opening the stack, plays, redraws
+and progress on the quest (its steps) leave it face
 up. Its identity is whose quest it is, its kind and its target, so only a
 quest that leaves the hand and later comes back is dealt face down again. The
 hand a page or a new game opens on is already dealt: a quest in view then is
-face up at once. It takes taps while face down. In the open fan the top quest is chosen and
-offers its next step and Discard. Tapping a quest beneath brings it to the top, with no turn
-taken, and tapping the chosen one lowers that card. The rules remove a met quest at once; the browser keeps its card,
-sealed, in the fan, and the folded line glows until its player taps the card
-to clear it. Any met card can be cleared, in any order; clearing shows the one
-point of experience it brought rising from the card (a still label with
-reduced motion) and glows the avatar when it ends a level quest. Clearing is
-this browser's alone. A first quest arrives with its line glowing. There is
+face up at once. It takes taps while face down. The chosen quest card gives
+exactly one button, as any chosen card does: **Discard** (its label names the XP
+it costs when the rules charge any, and a second tap confirms). The step is done
+by choosing the cards, as any play is (Lamp and Pip, Give). Tapping the chosen card lowers it. A
+met quest simply goes: the rules pay its one XP on the play that met it, and
+there is nothing to choose or claim (the old quest stack, Focus, Claim, the
+sealed met card and the "+1 XP" float are gone, rules 133). A first quest
+arrives with its line glowing. There is
 no card for anyone else's quest. Another person's quest reaches the player only
 through Talk:
 `want-talk.mjs` adds one first-person fact about the top quest ("I want the
-Lamp.") for the player and the person on the other side of a Talk play, with a
-count of the rest of the stack ("I have one other quest too."). Bystanders' quests stay
-unsaid, and a met quest is not said.
+Lamp.") for the player and the person on the other side of a Talk play. Bystanders' quests stay
+unsaid, and a met quest is not said. How a player comes to hold a quest (Take
+quest on a locked box, after Talk, the level quest, each Accept quest) is the
+rules' offers (a no-turn `take` play); drawing them as cards with that one
+button is the next client step (`takesQuest` in `app.mjs` already treats it as
+a no-turn play). See [the design](../../docs/design/wants-and-arcs.md).
 
-Loading an earlier save drops its quest programs, collections, progress and
-quest history (`forgetQuests` in `legacy-saves.mjs`) and installs each
-avatar's starter quest. Saves from before schema 6 start fresh. Shared worlds
-move to the new rules through the normal upgrade; released journals still
-replay on their frozen rule bundles.
+The save schema is 8 (`SAVE_SCHEMA` in `legacy-saves.mjs`). The rules 133 bump
+retired every earlier save: a browser save of another schema is not lifted or
+opened, and the table starts fresh keeping only the traveler's level,
+experience and cosmetic upgrades (`carryLocalProgress`). The old save text is
+replaced in its slot by the fresh table's first save, made at load (the desktop
+backup file follows on its next flush); no copy is made. A corrupt save, or one
+of an unknown schema, is not a retired save: it keeps the "needs a fresh start"
+notice and stays in its slot until New game. Sharing
+always sends the in-memory world, so a retired save never reaches the server.
+Shared worlds on rules
+before 133 are retired too (see shared worlds); released journals keep their
+frozen rule bundles.
 
 `test/card-want.test.mjs` covers the rules, `test/card-liveness.test.mjs`
 checks that every resident meets a quest in each 80-turn window of loose play,
@@ -517,15 +503,16 @@ The other ways on stack at the right end. The first is face up, with up to
 three face down behind it. Tap the top card to fan them. A lone way is
 chosen at the first tap. Tapping elsewhere folds the ways on. See
 [three links per place](../../docs/design/three-link-map.md).
-Choosing the player's avatar shows two stacks beside it, in the same way: the
-things it carries, then its quests (#2256). An empty stack is left out. Each
-shows its top card face up with the rest face down behind it, up to three;
-tapping the top card fans that stack and folds the other. Tapping a card in a
-fan chooses it, and it moves left, to the front of its own stack: the row
-stays avatar, things, then quests, so no quest ever lies ahead of a thing
+Choosing the player's avatar shows a stack beside it, in the same way: the
+things it carries, then its quest card if it holds a quest (#2256). An empty
+stack is left out. The things show their top card face up with the rest face
+down behind it, up to three; tapping the top card fans that stack. Tapping a
+card in a fan chooses it, and it moves left, to the front of its stack: the row
+stays avatar, things, then the quest, so the quest never lies ahead of a thing
 (#2295). A thing takes the avatar's place in the choice, so it pairs with the
-next card, and a quest is the choice alone, offering its next step and
-**Discard**. A quest dealt while the stacks show rises in its own slot. A stack of one card hides nothing,
+next card, and the quest is the choice alone, offering its one button,
+**Discard**. A quest dealt while the stacks show rises in its own slot.
+A stack of one card hides nothing,
 so its card is chosen at the first tap. Tapping the avatar again folds both
 stacks back to the avatar, and tapping it once more lowers it. If two or more
 cards are chosen, tapping any chosen card lowers only that card and keeps
@@ -576,24 +563,51 @@ Cards have three states. An unseen card lies face down under the plain wooden
 back and reveals on a tap. A card with an unmet prerequisite uses the locked
 back and red edge. A revealed card shows its face. Both closed states conceal
 the name, painting, contents, and quest details. Tapping a locked box
-selects it; the existing descriptor shows the concealed card back and its
-authored requirement, or "A locked box." when no requirement can be shown.
+selects it; the existing descriptor shows the concealed card back and the want
+that opens it, or "A locked box." when the data names none.
+**One wording of a want.** A lock and a quest, offered or held, show only the
+want, worded by one function (`wantWords`, `world/want-words.mjs`) from its
+structure: a fixed verb (hold, talk with, go to, give, bring, lay, eat, rest)
+and the cards it concerns. Nothing is written per pack or per lock. A lock's
+goals are read from its conditions (`world/lock-goals.mjs`): an item to hold
+or bring, a person to talk with, and, for a story flag or choice, the pack's
+own choice that sets it (give the item to its subject, or meet its subject);
+a condition that traces to nothing yields no goal, and the box only says it is
+locked. Several wants are joined with "and" (at most three; the rest appear as
+these are met). A card the traveler has not discovered, the same test that
+turns it face down (`cardIsClosed`), is never named or pictured: it reads
+"something undiscovered", "someone you have not met" or "a place you have not
+found", and its art is the card back. An undiscovered target is a want like
+any other ("Find something undiscovered"). Items, avatars and places are worded
+alike; only the kind of card differs.
+The rules keep one list of boxes in `world/boxes.mjs`: `boxesAt(s, place,
+actor)` gives `{id, kind, at, open, want, goals}` for every shut way, sealed
+resident, made thing, shut lane, home door (a pack crossing with `sealed`) and
+hub way (a `reflectionRoutes` entry with `sealed`) at a place. Every lock is
+drawn, even when the card behind it has conditions of its own; such a card is
+shown shut and still cannot be entered, talked to or acted on. The Black pond
+is the first box in a new world: it is opened by putting the lamp out.
+**XP for opening.** The player whose play opens a box gains one XP, once per
+avatar per box per world (`opened` in the save lists who). A box that locks
+again pays nothing more. Time, weather, a resident walking in, a guard leaving
+his post and a fight past a guard pay nothing. A `humans_at` lock opens when
+enough travellers stand at one place and pays each of them.
 "Locked" sits in the same small bottom-right position as "Continue". It is
 a disabled status, not a separate action row; selecting or tapping it never
 creates a quest or takes a turn.
 A pack draws a gated way or a conditional resident as a locked box when its
-route or card carries `sealed` (a reason, and for a way a place goal): the
+route or card carries `sealed` (empty, and for a way a place goal): the
 Lonely Forest trail, the Sacred Way, the Long Walls, and Thaleia, an Argive
 mother, Iphis and Myrine in the Greek pack. The box cannot be entered, talked
 to or acted on until its old condition holds. A way whose preview goal names
-its own locked destination shows the authored reason, not a discovery caption.
+its own locked destination shows the goals read from its gate instead.
 A way or resident whose own place
 carries the same condition has no place to lie in yet, so pack data cannot draw
 it (the Egypt, Troy and Argive accounts, the Open Door residents who share
 their section's flag, and the Ajax residents).
 When its lock clears, the box opens with the existing card reveal
 (a crossfade under reduced motion). Held previews and quest miniatures
-use the same distinction. Newly dealt quests and folded stack layers use the
+use the same distinction. A newly dealt quest and folded stack layers use the
 normal back (`locked-box.mjs`). Each browser reads its player's shared view.
 On arrival, the hand scrolls just far enough to show the new current place.
 Selection scrolls just far enough to show the chosen card, including when a
@@ -664,6 +678,40 @@ the avatar's own card is already face up); a table this browser already
 knows keeps the cards its player has uncovered. The first tap selects the closed box without showing its contents. Its
 context button opens it without spending a turn and keeps it selected.
 Tapping the selected box again lowers it without opening it.
+**The pack.** Three or more cards not yet turned (the place's own card, its
+residents, items, ways, locked boxes and offered quests, closed boxes too) lie
+together in the hand as one face-down stack, its thickness hinting at the
+count (`pack-opening.mjs`; the ways stack's own folded layers). A new game's
+opening and the new-world title are not packs; one or two unturned cards turn
+in place as above. Tapping the stack raises the hand and the cards rise into
+the row face down, the place's card first. The one button then reads Reveal
+all. Inside an open pack the first tap on a face-down card turns it at once
+(the only place a first tap opens a card: outside a pack the first tap still
+only selects, as above, and a turned card in the pack is chosen like any
+card). Reveal all turns the rest one after another, commons first and the
+rarest last; its button reads Tap to finish while it plays, and a tap on it,
+on a card, or away finishes the run with every card turned, never half turned.
+With every card turned the button reads Done, and Done (or tapping away, or
+Escape) settles the cards back into their normal places a beat apart, the
+rarest last. Cards still face down when the pack is put away stay face down and
+form a pack again if three or more remain; a card arriving while a pack is open
+forms the next pack. A locked box in a pack is turned like the others and stays
+locked: opening it is still the rules' play. While face down in an open pack, a
+card of Rare or better shows a slow rim glow in its tier colour and nothing
+else (no number, name or art; its level still reads 1 everywhere): `data-tell`,
+set from the real tier in `card()` and `offerFrame()`, drawn by `tellCard` in
+`card-reveal.mjs`. Every card turn, in a pack or not, plays a flip sound; each
+tier above Common adds a held breath before the lid moves (the glow building
+and a rising tone through it, `turnPlan` in `pack-opening.mjs`) and more glow
+and colour, and a Common card has no hold. The same turn and sound open a
+locked box when the rules unlock it. The sounds are made in the browser
+(`card-sfx.mjs`) and follow the Voices switch and the volume. Reduced motion
+shows the cards in the row and crossfades each turn with no hold, the tier
+carried by colour and sound. A line from a covered speaker still turns that
+card wherever it lies: the pack tolerates a turn from outside its run and does
+not hold the line. A pack is cosmetic and per browser and seat, like every
+turn; nothing is journaled. A Reveal all announces once: the count and the
+rarest tier.
 A place widens from the upright cover to its wider card as the lid lifts;
 with reduced motion it crossfades.
 An uncovered new card glows in its tier colour and carries no text badge.
@@ -683,10 +731,12 @@ speaks is revealed with the line, there at once, so the words never wait.
 The rules' world and knowledge are unchanged.
 The opening of a new local world (`opening.mjs`) offers no play while the
 lamp or the attic is still face down: the context button reads a quiet
-Reveal and turns the next one. Once both are revealed the lamp is chosen, so
-the button offers the rules' own first play, Put out; it darkens the attic
-and the pond arrives face down behind it. A reload or a shared world has no
-opening beyond the reveals its player has kept.
+Reveal and turns the next one. Once both are revealed nothing is left chosen
+(the lamp is not raised for the player). The lamp is put out by choosing Vale,
+then the lamp, which darkens the attic; the pond arrives face down behind it.
+A reload or a shared world has no opening beyond the reveals its player has
+kept. A visitor from Pip's card has already opened a box, so this opening skips
+its own wooden box (the land acknowledgement and logo still play).
 
 The player's avatar knows only what its player has uncovered (#1575). Until a
 card is uncovered, the screen never names it: the place heading, world name
@@ -869,9 +919,8 @@ hooks. The ordinary card catalog, custody, memory, save, and action system
 carry the pack. `pack-registry.mjs` evaluates closed conditions and effects;
 story text cannot choose a branch or perform an action.
 
-Earlier schema 6 saves gain schema 7 and the mounted packs through a validated migration
-that retains their original state. A save that claims a mounted pack must have its complete,
-valid state; it cannot silently recreate missing characters or erase choices.
+A save that claims a mounted pack must have its complete, valid state; it cannot
+silently recreate missing characters or erase choices.
 The existing save slot stays unchanged. Future revisions require migrations.
 
 Dialogue receives at most eight local entity cards and three speakers, with
@@ -965,7 +1014,7 @@ are saved in `output/badger-check/`.
 
 Every avatar, item, and location has a profile in `entity-profiles.json` and a saved memory in the browser world. `senses.json` gives each place one first-person sense line (what a visitor feels, hears or sees there, without the place's name) and each avatar its pronouns. Only the server's voice context reads it; the rules and the browser do not. A sense line never states something the rules can change, such as a gate shut or open: everyone in a scene at a place with a sealed way hears from the rules whether that way is open or shut now ("The way to The Exposed Battlefield is open."). A memory holds the latest 16 witnessed events, six lasting encounters, and the latest generated text. Gifts, trades, threats, shared trips and quest effects can become lasting encounters. Card plays record events for the actors and objects present, the item used, and both places during travel. Generated speech and descriptions are marked as expressions, so the next prompt can distinguish them from game events. Speech receives recent facts and a few lasting encounters. Each avatar's memories, beliefs and fears give its request or response a personal reason.
 
-Speech receives visible facts, current wants, and witnessed results. Item and place profiles describe appearance; an avatar profile is one seed sentence. Hidden interaction rules stay in the simulation; each avatar's facts can include the quest line described in [A quest stack per avatar](#a-quest-stack-per-avatar). A revealed path joins the location cards; travel happens when its card is played. Earlier opening expressions stay in saved history while fresh speech uses observations until Vale first douses or relights the lamp in the attic, or leaves it.
+Speech receives visible facts, current wants, and witnessed results. Item and place profiles describe appearance; an avatar profile is one seed sentence. Hidden interaction rules stay in the simulation; each avatar's facts can include the quest line described in [One want per avatar](#one-want-per-avatar). A revealed path joins the location cards; travel happens when its card is played. Earlier opening expressions stay in saved history while fresh speech uses observations until Vale first douses or relights the lamp in the attic, or leaves it.
 
 When a play calls for speech, the browser sends the current local entities and departing avatars, their facts, avatar interests, and eight recent memories, witnessed events, and the six latest spoken lines at this place to `POST /card-game/text`. An avatar's spoken line is one moment of a conversation, and it speaks as itself (owner, 2026-11-03: "Prompts should be in FIRST person exclusively, with ZERO instructions."; "ai are interpreting the 'I' as a user message, put it in the assistant block keep system block clear"). Every call sends the same turns: a system turn that is who it is ("You are Vale, the Lamplighter.", from its seed sentence; owner: "Perhaps our system prompts need 'You are Vale…'") and the one command a prompt carries, "Reply with only what you say aloud." (owner, 2026-11-04: without it a chat model continued its own view as narration; on Luna clean speech rose from 5 to 14 of 20 lines, with no assistant voice or echo), a user turn of silence ("…"), then the avatar's own view as its own assistant turn, then the user turn it answers. A body-language or emoji voice has its reply shape as its system turn instead. The view is short prose, a paragraph per part rather than a fact per line, and holds no instructions. It does not repeat the seed sentence the system turn already gives (a gesture or emoji voice's view opens with "I am Vale, the Lamplighter."). First, as its own paragraph with no label, comes what it knows and wants (its facts, as background rather than a script; what it learned about its own approaches stays out, as planning rather than speech, and so do the browser's "At the dialogue scene", "Location now" and "Wants …" restatements of what the view already says; the fact the rules reserved for this Talk is one of them), its history with the person it faces, and the talk it heard here as its own memory ("Pip said: "…"", "I said: "…"", at most six lines and about 400 characters, read from committed speech). Last, next to the line it answers, comes what it perceives now, in about 70 tokens at most. `perception.mjs` chooses it from existing state and sends only ids and event indices, which the server checks and words. In order: its trip ("I've just come to Black pond from Empty station."); on its first word after arriving, how the place differs from its last visit ("I've never been here before.", "Pip was here last time I came."); one line of the place (its pack `sense`, or for now the first sentence of its description); what it holds, and the state of what it or its listener holds ("My Lamp is unlit and uncovered."); the one or two events of this moment that most involve it, ranked about me, then my listener, then the thing I want, then anyone here; who holds the thing it wants; a wanted place one path away ("The way to Black pond starts here."); and the person it is talking with, by seed sentence ("I'm talking with Pip, a moth."), or who is with it when it addresses nobody. It never lists everyone here or every exit, and never says "I'm at …". A tab from an older release sends no perception and keeps the earlier view. `person.rs` rewords the rules' captions, events, facts and memories in the speaker's own first person ("Vale waits one turn." is "I wait a moment."; "Pip threatens Vale over the Lamp." is "Pip threatens me over the Lamp."), and a play's turns are moments in every prompt ("in the prompting lets call them moments instead of turns", owner, 2026-11-03), while the table's captions keep their words. The final user turn is only the line it answers, as `Pip says, “…”` (a bare line or `Pip: …` drew `Vale: …` back): in a Talk, the target answers the actor's line from this turn, so the target speaks after the actor, and is silent when the actor has no line this turn; the actor speaks within the first 55% of the scene, so the reply always keeps the rest; the actor answers the latest line someone else said to it here; when nobody has spoken (a Wait, an opener), the turn is the person it is talking with, there ("Pip is here."), because on gemma-3-4b silence drew scene narration where the listener's presence drew speech, and it is silence ("…") when it faces nobody. Its own "I" never reaches a user turn, where a model read it as the other person's and answered "You are at The Wine-Dark Harbor…". Where the route continues a final assistant turn (Mistral, and llama.cpp locally) a call that heard a line ends on the opening quote `“` of the reply, sent as a prefix, and the reply is the speaker's own quoted spans (`speech.rs`; a span tagged to someone else is theirs); Claude rejects a prefill and OpenAI starts a new turn, so neither gets one, and no route ever gets the view as a trailing turn to continue. `prompt_version` is `card-voice-v6`. There is no speaker cue and no scene scaffold in a user turn, and a Talk's caption is not in the prompt. Its own earlier lines from memory stay out of a line ([#1537](https://github.com/cenetex/cosyworld/issues/1537), [#2016](https://github.com/cenetex/cosyworld/issues/2016)). A character's voice comes from its seed sentence, its facts and its own inner life; prompts carry no authored description or example lines. The `repeat` check compares a reply with the speaker's last three spoken lines, which the service reads from its memories, its previous reply and the request's table lines without putting them in the prompt. A reply that repeats six words in a row from another speaker's recent line is a `repeat` too, so a heard rule is not parroted; an answer may echo the line it answers, unless it says that whole line again. `echoed brief` fires only on scaffold leakage: one of the prompt's labels in any case ("I remember:", "Pip said:"), a retired label ("what i know:", "between us:"), the prompt's own wording ("recent talk here", "measured attempt"), and, blocking the reply, ten words in a row that run from one fact of the assistant view (its seed sentence included) into the next, three or more on each side, which read the view back. A fact said, even word for word, is speech. A retry resamples the same words with no correction: `max_tokens`, the post-trim and the validator shape a reply, not prompt text. A body-language or emoji voice keeps the reply shape its own check reads. A reply that is otherwise valid but leaves out its reserved fact is published at once as `untold`, with no retry; the rules' own check finds no fact in it, so the fact stays for another Talk. A thought or persona call sends the same view with its memories and all the talk it heard, ending on its own first words ("I think to myself:", "Who I am now:"); a dream's view is only its scraps and "Last night I dreamed:"; a waking avatar's view is "I'm waking up." and what it has uncovered. Each is the assistant turn, answered by silence. Thought, persona and dream calls still read remembered speech ([#1537](https://github.com/cenetex/cosyworld/issues/1537)). Facts name only what the speaker has found: a quest or trial target it has not talked with, visited, or (in the browser) uncovered reads as "someone I haven't met yet", an avatar does not retell its own earlier deed unless this Talk tells it, and a persona naming an item kind the avatar was never near is left out. The Rust service adds the authored profiles and uses the existing AI gateway. The deployed character map sends each avatar to its own exact OpenRouter model. Items and places each have their own voice call. These calls run together inside one bounded scene request, except that a Talk's target waits for the actor's line. Each call returns a brief plain-text reply, which the service validates before publication. A short unpunctuated reply can pass when the provider confirms it finished. A trailing continuation mark or an unfinished first line triggers the usual retry. Complete sentences and voluntary quotations keep their wording. Each entry carries its own model attribution. Raising a card prepares a play and keeps the current conversation. Playing a card commits the action. Talk and Ask always speak: the player's avatar and the target's reply, and a resident who sought the player out with Talk is answered the same way. Every other play is silent unless the rules meet a speech occasion, and a silent play sends no `/card-game/text` request: its beat is the portrait and the action caption, and the hand is ready at once. `SPEECH_OCCASIONS` in `narrative.mjs` checks the occasions in a fixed order from committed state, and `speech.json` names who speaks on each: a refusal (the refuser), a want met for the actor or the target (that avatar; level-ups ride on it), a first meeting (the newcomer), a threat (the target reacts), a defeat (one host line), an agreed companion arriving with the player, a Wait in a battle (the player and the opponents), waking from a long rest, a due thought on Wait (about one in six), the opening, the player's first arrival at a place (the place's caption) and a crossing's echo (the authored line, with no request). Residents' own arrivals and departures, item voices and routine travel stay silent, except a resident's first meeting with the player on arriving. The request names its `occasion`, which the server's voice metrics count. The place and chosen speakers receive scene beats. The departure action stays in the source scene. Words are written after the move commits, so a departed avatar's line is recorded at the destination with that place's cast; a player left at the source never sees it, and the waiting portrait does not name them there. The prompt includes the completed card play (except Talk, which is the conversation itself) so their lines form an exchange or a shared reaction. A separate resolved-turn record gives the played verb and outcome, every avatar's final location and holdings, exact travel companions, and final item ownership. Accepted accompany plays record both travellers; independent trips record an empty companion list. Current results take priority over desires and remembered speech. When Vale speaks on a wait play, the words stay at the place where Vale stayed. A solo farewell frames desired company as a hope for later.
 
@@ -1451,7 +1500,7 @@ pinned; JS/Rust `card_shared` agreement; a shared smoke with a two-human fight.
 
 Pair a nearby avatar with an open location card to ask them to accompany Vale. Either card order works. Tap the Accompany button beneath either raised card to play the request. Pairing Vale with a location offers travel there. Pairing a carried item with the current place offers to put it down; pairing a lamp or bell lying here with the current place offers to light, put out or ring it where it lies.
 
-The invited avatar weighs its own interests, the requester’s belongings, remembered grievances, and favours. Standoffs and recovery also shape the answer. Accepted requests take one round. The pair resumes its own choices on the next play. An invited resident can use an open crossing back to their own part of the world. Their belongings stay with them on that return.
+The invited avatar weighs its own interests, the requester’s belongings, remembered grievances, and favours. Standoffs and recovery also shape the answer. An accepted request makes the resident the traveler's **companion** (rules 133), and the bond is sticky. The traveler's saved `companion` names the resident; nothing is saved on the resident (`world/company.mjs`). The companion travels in the same joint move on every later step, boarding, landing, voyage and crossing, with no new invitation. It keeps no schedule of its own while it is with someone: no drift home, no walk toward its want, no dawn or dusk step, no bedtime and no sleep, no leash to its range, and no stepping ashore alone. It keeps its one want and may meet it on the way; neither a drawn want nor a met one ends the bond. If it is ever not in the traveler's place (a fight, or a way it could not walk back) it walks toward the traveler each round and nothing teleports. One companion per traveler: asking a second resident replaces the first, who stays where they stand. A resident is with one traveler at a time; for another traveler the button reads, for example, "Dione is with Rue". The Oak, Badger, the Shade and the Gate Guard cannot leave their places; their button reads "Oak stays here" (the same words for any card that never travels). A way is the party's: if it is open for the traveler it is open for the companion, and a traveler's own condition on a way (an item held, trust of a keeper) is met by the traveler or the companion. A companion passes any way its traveler passes, a crossing only a player may use included. A resident is asked only to a place with a way home along the authored map; for any other the pair's button reads "<Name> cannot follow" (moving alone stays the place card's play), and a bound companion is left where it stands and never walks into such a place. The bond ends in exactly these ways: the resident's trust in the traveler falls below 2; the traveler wakes from a long rest holding no quest that pins the resident; the traveler asks another resident along (the first stays where they stand); in a shared world the traveler is away for a day; or the traveler's avatar is reset. A grievance alone (the bell, the light, pestering) does not end it, only trust does. A resident whose pack is switched off stays bound and waits. A trip a resident takes only because it serves its own want is a joint trip and sets no bond. A released resident is an ordinary resident again from where it stands: it walks home by the usual leash, waits at a way that is shut until it opens, and its tickets narrow to the way home and go once it is there. A quest to bring a resident somewhere or to someone is a shared vow: taking it brings a resident who trusts the traveler along at once, and the bond survives the long rest while the quest is held. Trust now falls for visible acts only: a threat against a resident takes 2 trust (3 when it demands an item) and a strike on them takes 1, never below 0. In a shared world the traveler's bond pauses while they are away and ends after a day. An invited resident can use an open crossing back to their own part of the world. Their belongings stay with them on that return.
 
 Requests record the destination and the answer in the scene script. Both places, witnesses, avatars and carried items remember an agreed trip. The same model request writes Vale's invitation and the invited avatar's reply from the completed result, desires, personas and memories.
 

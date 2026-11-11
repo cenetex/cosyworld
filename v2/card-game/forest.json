@@ -1,5 +1,4 @@
 {
-  "questsBeginAt": { "kind": "arrived", "place": "pond" },
   "homeGates": {
     "attic": {
       "item": "lamp",
@@ -13,6 +12,7 @@
     {
       "from": "attic",
       "to": "pond",
+      "sealed": {},
       "requires": [
         { "kind": "item_present", "item": "lamp", "place": "attic" },
         { "kind": "not", "condition": { "kind": "light", "item": "lamp", "at": ["attic"], "uncovered": true } }
@@ -21,6 +21,7 @@
     {
       "from": "pond",
       "to": "attic",
+      "sealed": {},
       "requires": [{ "kind": "light", "item": "lamp", "at": ["pond"], "uncovered": true }]
     }
   ],
@@ -71,8 +72,7 @@
         "sore": "Changed terms"
       },
       "home": "attic",
-      "values": { "lamp": 8, "oil": 5, "bell": 5, "cloth": 4 },
-      "want": { "kind": "item", "target": "lamp" }
+      "values": { "lamp": 8, "oil": 5, "bell": 5, "cloth": 4 }
     },
     "moth": {
       "name": "Pip",
