@@ -111,9 +111,7 @@
             travel: `through ${a.home.entrance.name.toLowerCase()}`,
             scenery: { open: a.home.entrance.text, cardArt: a.home.image },
             // Shown as a shut card at its door in a shared world (rules 133).
-            sealed: {
-              reason: `Bring the ${a.item.name.toLowerCase()} here to open ${a.home.name}`
-            }
+            sealed: {}
           },
           {
             id: `${a.home.id}-${door}`,
@@ -1004,8 +1002,8 @@
     const [id, t] = found, state = read(s, id);
     if (!["docked", "arrived"].includes(state.phase)) return [];
     return (t.lanes || []).filter(
-      (lane) => lane.reason && lane.from === state.dock && entityShown(s, lane.to) && !conditionsMet(s, t.packId, lane.opensWith)
-    ).map((lane) => ({ to: lane.to, reason: lane.reason }));
+      (lane) => lane.sealed && lane.from === state.dock && entityShown(s, lane.to) && !conditionsMet(s, t.packId, lane.opensWith)
+    ).map((lane) => ({ to: lane.to }));
   }
   function berthOpen(s, place) {
     const ships2 = Object.values(transports).filter(
@@ -2572,8 +2570,8 @@
         "oneWay",
         "opensWith",
         "spends",
-        "reason"
-      ]) || lane.reason !== void 0 && (!lane.opensWith || typeof lane.reason !== "string" || !lane.reason.trim() || lane.reason.length > 240) || !docks.includes(lane.from) || !docks.includes(lane.to) || lane.from === lane.to || lane.oneWay !== void 0 && lane.oneWay !== true) {
+        "sealed"
+      ]) || lane.sealed !== void 0 && (!lane.opensWith || lane.sealed !== true) || !docks.includes(lane.from) || !docks.includes(lane.to) || lane.from === lane.to || lane.oneWay !== void 0 && lane.oneWay !== true) {
         out.push("has a lane that does not join two of its docks");
         continue;
       }
@@ -3248,8 +3246,8 @@
         if (!asks) requirements(entry?.when, `avatar ${id} wants[${n}] when`);
       }
       check(
-        a.sealed === void 0 || keysOk(a.sealed, ["at", "reason"]) && owns3(places2, a.sealed.at) && textOk(a.sealed.reason, 240) && Array.isArray(a.requires) && a.requires.length > 0,
-        `avatar ${id} sealed card needs a place, a reason and activation requirements`
+        a.sealed === void 0 || keysOk(a.sealed, ["at"]) && owns3(places2, a.sealed.at) && Array.isArray(a.requires) && a.requires.length > 0,
+        `avatar ${id} sealed card needs a place and activation requirements`
       );
       for (const [n, p] of (Array.isArray(a.poses) ? a.poses : []).entries())
         requirements(p?.requires, `avatar ${id} pose ${n + 1} requires`);
@@ -3320,8 +3318,8 @@
       media(i.art, `item ${id} art`);
       requirements(i.requires, `item ${id} requires`);
       check(
-        i.sealed === void 0 || keysOk(i.sealed, ["reason", "live"]) && textOk(i.sealed.reason, 240) && (i.sealed.live === void 0 || i.sealed.live === true) && Array.isArray(i.requires) && i.requires.length > 0 && owns3(places2, i.holder) && (i.home === void 0 || i.home === i.holder) && i.locked === void 0 && !i.startsUsed,
-        `item ${id} sealed needs a reason, requires, and a place of the pack where it lies (home, if any, the same place)`
+        i.sealed === void 0 || keysOk(i.sealed, ["live"]) && (i.sealed.live === void 0 || i.sealed.live === true) && Array.isArray(i.requires) && i.requires.length > 0 && owns3(places2, i.holder) && (i.home === void 0 || i.home === i.holder) && i.locked === void 0 && !i.startsUsed,
+        `item ${id} sealed needs requires and a place of the pack where it lies (home, if any, the same place)`
       );
       requirements(i.reservedUntil, `item ${id} reservedUntil`);
       check(
@@ -3352,8 +3350,8 @@
       );
       const q = r.sealed?.quest;
       check(
-        r.sealed === void 0 || keysOk(r.sealed, ["quest", "reason"]) && Boolean(r.requires?.length || r.travelerRequires?.length) && textOk(r.sealed.reason, 240) && keysOk(q, ["kind", "target", "to"]) && (q.kind === "item" ? owns3(items2, q.target) && (q.to === void 0 || owns3(avatars, q.to)) : q.to === void 0 && (q.kind === "place" ? owns3(places2, q.target) : q.kind === "person" && owns3(avatars, q.target))),
-        `route ${r.from}>${r.to} sealed card needs a gate, a reason and a quest`
+        r.sealed === void 0 || keysOk(r.sealed, ["quest"]) && Boolean(r.requires?.length || r.travelerRequires?.length) && keysOk(q, ["kind", "target", "to"]) && (q.kind === "item" ? owns3(items2, q.target) && (q.to === void 0 || owns3(avatars, q.to)) : q.to === void 0 && (q.kind === "place" ? owns3(places2, q.target) : q.kind === "person" && owns3(avatars, q.target))),
+        `route ${r.from}>${r.to} sealed card needs a gate and a quest`
       );
       requirements(r.requires, "route requires");
       requirements(r.travelerRequires, "route traveller requires", true, true);
@@ -3731,8 +3729,8 @@
         `${name} requires must be a list`
       );
       check(
-        c.sealed === void 0 || keysOk(c.sealed, ["reason"]) && Boolean(c.requires?.length) && !c.transport && textOk(c.sealed.reason, 240),
-        `${name} sealed card needs a gate and a reason`
+        c.sealed === void 0 || keysOk(c.sealed, []) && Boolean(c.requires?.length) && !c.transport,
+        `${name} sealed card needs a gate`
       );
       for (const r of c?.requires || []) condition(r, `${name} condition`);
       for (const field of ["opened", "closed"])
@@ -4489,6 +4487,54 @@
   function validRadioItem(world) {
     const item = world.items[RADIO_ITEM];
     return !item || !Object.hasOwn(item, "radioOn") || typeof item.radioOn === "boolean";
+  }
+
+  // v2/card-game/world/catalog.mjs
+  var places = { ...forest_default.places, ...packPlaces };
+  var sanctuaries = Object.keys(places).filter(
+    (id) => places[id].sanctuary === true
+  );
+  var people = { ...forest_default.people, ...packPeople };
+  var things = { ...packThings, ...forest_default.things };
+  validatePackLinks(places, people, things);
+  var nameOf = (id) => places[id]?.name || people[id]?.name || things[id]?.name || "the world";
+
+  // v2/card-game/world/want-words.mjs
+  var UNKNOWN = {
+    item: "something undiscovered",
+    person: "someone you have not met",
+    place: "a place you have not found"
+  };
+  var kindOf2 = (id) => people[id] ? "person" : places[id] ? "place" : "item";
+  var TABLE = {
+    name: nameOf,
+    kind: kindOf2,
+    drink: (id) => consumable(id) === "drink"
+  };
+  function wantWords(want, known = () => true, { approach = null, cards = TABLE } = {}) {
+    if (!want) return "nothing in particular";
+    if (want.kind === "connect") return "introduce two people";
+    const name = (id) => known(id) ? cards.name(id) : UNKNOWN[cards.kind(id)];
+    const list = (ids3) => [...new Set(ids3.map(name))].join(", ");
+    const step = want.step, what = name(want.target), cold = !known(want.target), verb = step?.verb === "attack" ? "strike" : step?.verb;
+    if (step?.verb === "lay") return `lay ${list(step.items)} in ${what}`;
+    if (step?.verb === "give") return `give ${what} to ${name(step.to)}`;
+    if (step?.verb === "eat")
+      return `${cards.drink(want.target) ? "drink" : "eat"} ${what}${step.with ? ` with ${name(step.with)}` : ""}${step.at ? ` at ${name(step.at)}` : ""}`;
+    if (step?.verb === "bring" && want.kind === "person")
+      return `bring ${what} to ${name(step.at ?? step.to)}`;
+    if (step?.verb === "bring")
+      return step.to ? `bring ${what} to ${name(step.to)} at ${name(step.at)}` : `bring ${what} home to ${name(step.at)}`;
+    if (step?.at) return `${verb} ${what} at ${name(step.at)}`;
+    if (step?.verb === "rest")
+      return approach && !cold ? `${approach} ${what} and rest there` : `rest at ${what}`;
+    if (step) return `${verb} ${what}`;
+    if (want.kind === "item")
+      return `${cold ? "find" : "hold"} ${want.lit === void 0 || cold ? "" : want.lit ? "the lit " : "the dark "}${what}`;
+    if (want.kind === "place")
+      return `${cold ? "reach" : approach ?? "go to"} ${what}`;
+    if (want.kind === "connect") return "introduce two people";
+    return `${cold ? "find" : "talk with"} ${what}`;
   }
 
   // v2/card-game/lamp-room-fuel.mjs
@@ -7566,16 +7612,6 @@
     return true;
   }
 
-  // v2/card-game/world/catalog.mjs
-  var places = { ...forest_default.places, ...packPlaces };
-  var sanctuaries = Object.keys(places).filter(
-    (id) => places[id].sanctuary === true
-  );
-  var people = { ...forest_default.people, ...packPeople };
-  var things = { ...packThings, ...forest_default.things };
-  validatePackLinks(places, people, things);
-  var nameOf = (id) => places[id]?.name || people[id]?.name || things[id]?.name || "the world";
-
   // v2/card-game/world/create.mjs
   function createWorld({ opening = false, packScopes = {}, seed } = {}) {
     const world = {
@@ -7766,6 +7802,108 @@
     ));
   }
 
+  // v2/card-game/world/lock-goals.mjs
+  var DEPTH = 4;
+  var MOST_GOALS = 3;
+  var settersIn = (choices, condition) => (choices || []).filter(
+    (choice) => (choice.effects || []).some(
+      (e) => condition.kind === "choice" ? e.kind === "choose" && e.key === condition.key && e.value === condition.value : e.kind === "set_flag" && e.key === condition.key && e.value === condition.value
+    )
+  );
+  function playGoal(choice) {
+    const item = (choice.requires || []).find(
+      (r) => r.kind === "holding" && r.role === "actor"
+    )?.item;
+    if (choice.on === "give" && item)
+      return {
+        kind: "item",
+        target: item,
+        step: { verb: "give", to: choice.subject }
+      };
+    return choice.subject ? { kind: "person", target: choice.subject } : null;
+  }
+  function goalsFrom(world, conditions, depth = 0, seen = []) {
+    const out = [];
+    const push = (goal) => {
+      if (goal && !out.some((g) => JSON.stringify(g) === JSON.stringify(goal)))
+        out.push(goal);
+    };
+    for (const condition of conditions || []) {
+      if (world.met(condition)) continue;
+      switch (condition.kind) {
+        case "any": {
+          for (const branch of condition.conditions) {
+            const goals = goalsFrom(world, [branch], depth, seen);
+            if (goals.length) {
+              goals.forEach(push);
+              break;
+            }
+          }
+          break;
+        }
+        case "talked":
+          push({ kind: "person", target: condition.person });
+          break;
+        case "holding":
+          if (condition.actor)
+            push({
+              kind: "item",
+              target: condition.item,
+              step: { verb: "give", to: condition.actor }
+            });
+          else if (condition.role === "actor")
+            push({ kind: "item", target: condition.item });
+          break;
+        case "item_near":
+        case "item_at":
+        case "item_present":
+          push({
+            kind: "item",
+            target: condition.item,
+            ...condition.place ? { step: { verb: "bring", at: condition.place } } : {}
+          });
+          break;
+        case "light":
+          push({ kind: "item", target: condition.item, lit: true });
+          break;
+        case "not":
+          if (condition.condition.kind === "light")
+            push({ kind: "item", target: condition.condition.item, lit: false });
+          break;
+        case "flag":
+        case "choice": {
+          if (depth >= DEPTH) break;
+          for (const choice of settersIn(world.choices, condition)) {
+            if (seen.includes(choice.id)) continue;
+            const play2 = playGoal(choice);
+            const needs = (choice.requires || []).filter(
+              (r) => !(play2?.step && r.kind === "holding" && r.role === "actor" && r.item === play2.target)
+            ).sort(
+              (a, b) => Number(!["flag", "choice"].includes(a.kind)) - Number(!["flag", "choice"].includes(b.kind))
+            );
+            const [first] = goalsFrom(world, needs, depth + 1, [
+              ...seen,
+              choice.id
+            ]);
+            push(first ?? play2);
+            if (first || play2) break;
+          }
+          break;
+        }
+        default:
+          break;
+      }
+    }
+    return out;
+  }
+  var goalsOf = (s, packId, conditions, actor) => goalsFrom(
+    {
+      met: (condition) => packId ? conditionsMet(s, packId, [condition], actor) : conditionMet(s, condition, null),
+      choices: packId ? packDefinition(packId)?.choices : []
+    },
+    conditions
+  );
+
   // v2/card-game/world/boxes.mjs
   var BOX_KINDS = ["way", "item", "resident", "lane", "crossing", "hub"];
   var ways = null;
@@ -7794,7 +7932,7 @@
         at: packThings[id].holder,
         id,
         pack: packThings[id].packId,
-        sealed: packThings[id].sealed.reason
+        sealed: true
       } : {
         kind: "item",
         at: packThings[id].home,
@@ -7807,12 +7945,11 @@
   var residentDefs = () => Object.entries(packPeople).filter(([, person]) => person.sealed).map(([id, person]) => ({
     kind: "resident",
     at: person.sealed.at,
-    id,
-    reason: person.sealed.reason
+    id
   }));
   function laneDefs() {
     return Object.entries(transports).flatMap(
-      ([transport, t]) => (t.lanes || []).filter((lane) => lane.reason).map((lane) => ({
+      ([transport, t]) => (t.lanes || []).filter((lane) => lane.sealed).map((lane) => ({
         kind: "lane",
         at: t.place,
         id: lane.to,
@@ -7830,10 +7967,8 @@
     crossing: c
   }));
   for (const r of forest_default.reflectionRoutes || [])
-    if (r.sealed !== void 0 && !(Object.keys(r.sealed).join() === "reason" && typeof r.sealed.reason === "string" && r.sealed.reason.length > 0 && r.sealed.reason.length <= 240 && r.requires?.length))
-      throw new Error(
-        `Reflection ${r.from}>${r.to} sealed card needs a gate and a reason.`
-      );
+    if (r.sealed !== void 0 && !(Object.keys(r.sealed).length === 0 && r.requires?.length))
+      throw new Error(`Reflection ${r.from}>${r.to} sealed card needs a gate.`);
   var hubDefs = () => (forest_default.reflectionRoutes || []).filter((r) => r.sealed).map((route) => ({ kind: "hub", at: route.from, id: route.to, route }));
   var boxDefs = () => [
     ...wayDefs().values(),
@@ -7906,32 +8041,6 @@
         return true;
     }
   }
-  var theThing = (id) => /^(the|a|an) /iu.test(nameOf(id)) ? nameOf(id) : `the ${nameOf(id)}`;
-  var listOf = (names2) => names2.length > 1 ? `${names2.slice(0, -1).join(", ")} and ${names2.at(-1)}` : names2[0];
-  function reasonOf(s, def, actor) {
-    switch (def.kind) {
-      case "way": {
-        const guard = def.guard && guardOf(s, def.at, def.id, actor);
-        if (guard) return `${nameOf(guard)} is guarding this card`;
-        return def.route?.sealed.reason ?? null;
-      }
-      case "resident":
-        return def.reason;
-      case "item": {
-        if (def.sealed) return def.sealed;
-        const { by, consumes } = packThings[def.id].locked;
-        return `${nameOf(by)} consumes ${listOf(consumes.map(theThing))}`;
-      }
-      case "lane":
-        return def.lane.reason;
-      case "crossing":
-        return def.crossing.sealed.reason;
-      case "hub":
-        return def.route.sealed.reason;
-      default:
-        return null;
-    }
-  }
   function conditionGoal(s, packId, conditions, actor) {
     if (!conditions) return null;
     const met2 = (c) => packId ? conditionsMet(s, packId, [c], actor) : conditionMet(s, c, null);
@@ -8002,6 +8111,38 @@
         return null;
     }
   }
+  function goalsFor(s, def, actor) {
+    switch (def.kind) {
+      case "way": {
+        const guard = def.guard && guardOf(s, def.at, def.id, actor);
+        if (guard) return [wantOf2(s, def, actor) ?? { kind: "person", target: guard }];
+        return goalsOf(
+          s,
+          def.pack,
+          [
+            ...def.route?.travelerRequires || [],
+            ...def.route?.requires || [],
+            ...ownConditions(def.id)
+          ],
+          actor
+        );
+      }
+      case "resident":
+        return goalsOf(s, packPeople[def.id].packId, ownConditions(def.id), actor);
+      case "item": {
+        const goal = def.sealed ? null : craftedGoal(s, def.id, actor);
+        return def.sealed ? goalsOf(s, def.pack, packThings[def.id].requires, actor) : goal ? [goal] : [];
+      }
+      case "lane":
+        return goalsOf(s, def.pack, def.lane.opensWith, actor);
+      case "crossing":
+        return goalsOf(s, def.pack, def.crossing.requires, actor);
+      case "hub":
+        return goalsOf(s, null, def.route.requires, actor);
+      default:
+        return [];
+    }
+  }
   function boxWant(s, box, actor = currentActor(s)) {
     const def = defOf(box);
     return def ? wantOf2(s, def, actor) : null;
@@ -8012,8 +8153,8 @@
       kind: def.kind,
       at: def.at,
       open,
-      reason: open ? null : reasonOf(s, def, actor) ?? "This card is locked",
-      want: open ? null : wantOf2(s, def, actor)
+      want: open ? null : wantOf2(s, def, actor),
+      goals: open ? [] : goalsFor(s, def, actor).slice(0, MOST_GOALS)
     };
   }
   function boxesAt(s, place, actor = currentActor(s)) {
@@ -8373,27 +8514,7 @@
   var canUse = canReach;
   var loadOf = (s, id) => 1 + (s.items.cloth.holder === id ? 1 : 0);
   var hasSpace = (s, actor, id) => carried(s, actor).length + (rootHolder(s, id) === actor ? 0 : loadOf(s, id)) <= 3;
-  function wantText(want) {
-    if (!want) return "nothing in particular";
-    const step = want.step, what = nameOf(want.target), verb = step?.verb === "attack" ? "strike" : step?.verb;
-    if (step?.verb === "lay")
-      return `lay ${step.items.map(nameOf).join(", ")} in ${what}`;
-    if (step?.verb === "give") return `give ${what} to ${nameOf(step.to)}`;
-    if (step?.verb === "eat")
-      return `${consumable(want.target) === "drink" ? "drink" : "eat"} ${what}${step.with ? ` with ${nameOf(step.with)}` : ""}${step.at ? ` at ${nameOf(step.at)}` : ""}`;
-    if (step?.verb === "bring" && want.kind === "person")
-      return `bring ${what} to ${nameOf(step.at ?? step.to)}`;
-    if (step?.verb === "bring")
-      return step.to ? `bring ${what} to ${nameOf(step.to)} at ${nameOf(step.at)}` : `bring ${what} home to ${nameOf(step.at)}`;
-    if (step?.at) return `${verb} ${what} at ${nameOf(step.at)}`;
-    if (step?.verb === "rest") return `rest at ${what}`;
-    if (step) return `${verb} ${what}`;
-    if (want.kind === "item")
-      return `hold ${want.lit === void 0 ? "" : want.lit ? "the lit " : "the dark "}${nameOf(want.target)}`;
-    if (want.kind === "place") return `go to ${nameOf(want.target)}`;
-    if (want.kind === "connect") return "introduce two people";
-    return `talk with ${nameOf(want.target)}`;
-  }
+  var wantText = (want) => wantWords(want);
   var bundle = (s, item) => [
     item,
     ...s.items.cloth.holder === item ? ["cloth"] : []

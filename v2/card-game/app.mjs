@@ -1300,7 +1300,9 @@ window.addEventListener("pagehide", () => {
 window.addEventListener("pageshow", hideAudio);
 const narrator = createNarrator({
   getWorld: () => world,
-  isCovered: cardIsCovered,
+  // Speech is handed no name the table shows as a closed box: the same
+  // test the hand uses to turn a card face down, a locked box included.
+  isCovered: cardIsClosed,
   early: Boolean(localRuntime()),
   limit: (context) => markWaking(world, context, (id) => coveredCards.has(id)),
   // Remembered words go back with the envelopes the service signed them with.
@@ -2175,8 +2177,14 @@ function showBeatCards(
       actionView,
       asScene,
     ]);
-  if (cards.dataset.cards === key) return;
-  cards.dataset.cards = key;
+  // The memo is a digest, not the key: the key names the cards in play, and
+  // a card the traveler has not discovered must not be named in the page.
+  const digest = Array.from(key).reduce(
+    (hash, char) => (Math.imul(hash, 31) + char.charCodeAt(0)) | 0,
+    7,
+  );
+  if (cards.dataset.cards === String(digest)) return;
+  cards.dataset.cards = String(digest);
   releaseImages(cards);
   if (actionView) {
     cards.replaceChildren(questScreen(actionView, questArt, asScene));

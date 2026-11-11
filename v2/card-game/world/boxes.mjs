@@ -46,7 +46,7 @@ import { guardOf } from "../resident-guard.mjs";
 import { levelFor } from "../want.mjs";
 import { life } from "../resident-home.mjs";
 import forest from "../forest.json" with { type: "json" };
-import { nameOf } from "./catalog.mjs";
+import { goalsOf, MOST_GOALS } from "./lock-goals.mjs";
 import { rootHolder } from "./items.mjs";
 import { exits } from "./geography.mjs";
 import { sensesFor } from "./senses.mjs";
@@ -89,7 +89,7 @@ function itemDefs() {
             at: packThings[id].holder,
             id,
             pack: packThings[id].packId,
-            sealed: packThings[id].sealed.reason,
+            sealed: true,
           }
         : {
             kind: "item",
@@ -108,12 +108,11 @@ const residentDefs = () =>
       kind: "resident",
       at: person.sealed.at,
       id,
-      reason: person.sealed.reason,
     }));
 function laneDefs() {
   return Object.entries(transports).flatMap(([transport, t]) =>
     (t.lanes || [])
-      .filter((lane) => lane.reason)
+      .filter((lane) => lane.sealed)
       .map((lane) => ({
         kind: "lane",
         at: t.place,
@@ -134,22 +133,14 @@ const crossingDefs = () =>
       pack: c.packId,
       crossing: c,
     }));
-// The hub's sealed ways are checked as a pack's crossings are: a gate and a
-// short reason, nothing else (pack-schema.mjs).
+// The hub's sealed ways are checked as a pack's crossings are: a gate and
+// nothing else; what opens one is read from the gate (pack-schema.mjs).
 for (const r of forest.reflectionRoutes || [])
   if (
     r.sealed !== undefined &&
-    !(
-      Object.keys(r.sealed).join() === "reason" &&
-      typeof r.sealed.reason === "string" &&
-      r.sealed.reason.length > 0 &&
-      r.sealed.reason.length <= 240 &&
-      r.requires?.length
-    )
+    !(Object.keys(r.sealed).length === 0 && r.requires?.length)
   )
-    throw new Error(
-      `Reflection ${r.from}>${r.to} sealed card needs a gate and a reason.`,
-    );
+    throw new Error(`Reflection ${r.from}>${r.to} sealed card needs a gate.`);
 const hubDefs = () =>
   (forest.reflectionRoutes || [])
     .filter((r) => r.sealed)
@@ -270,42 +261,8 @@ export function boxOpen(s, box, actor = currentActor(s)) {
 
 // --- What opens a shut box --------------------------------------------------
 
-const theThing = (id) =>
-  /^(the|a|an) /iu.test(nameOf(id)) ? nameOf(id) : `the ${nameOf(id)}`;
-const listOf = (names) =>
-  names.length > 1
-    ? `${names.slice(0, -1).join(", ")} and ${names.at(-1)}`
-    : names[0];
-
-function reasonOf(s, def, actor) {
-  switch (def.kind) {
-    case "way": {
-      const guard = def.guard && guardOf(s, def.at, def.id, actor);
-      // The card beyond a guarded way is locked; the reason names the guard
-      // and gives no quest (rules 102). Talk with him gives his.
-      if (guard) return `${nameOf(guard)} is guarding this card`;
-      return def.route?.sealed.reason ?? null;
-    }
-    case "resident":
-      return def.reason;
-    case "item": {
-      if (def.sealed) return def.sealed;
-      const { by, consumes } = packThings[def.id].locked;
-      return `${nameOf(by)} consumes ${listOf(consumes.map(theThing))}`;
-    }
-    case "lane":
-      return def.lane.reason;
-    case "crossing":
-      return def.crossing.sealed.reason;
-    case "hub":
-      return def.route.sealed.reason;
-    default:
-      return null;
-  }
-}
-
 // The first unmet condition as a goal a quest card can state. "Something
-// heard while holding a thing" has no goal; the plain reason stands for it.
+// heard while holding a thing" has no goal.
 function conditionGoal(s, packId, conditions, actor) {
   if (!conditions) return null;
   const met = (c) =>
@@ -394,9 +351,50 @@ function wantOf(s, def, actor) {
   }
 }
 
+// Every goal still unmet in what keeps this box shut, read from its
+// conditions: what the lock shows (world/lock-goals.mjs). A guarded way waits
+// on its guard.
+export function goalsFor(s, def, actor) {
+  switch (def.kind) {
+    case "way": {
+      const guard = def.guard && guardOf(s, def.at, def.id, actor);
+      if (guard) return [wantOf(s, def, actor) ?? { kind: "person", target: guard }];
+      return goalsOf(
+        s,
+        def.pack,
+        [
+          ...(def.route?.travelerRequires || []),
+          ...(def.route?.requires || []),
+          ...ownConditions(def.id),
+        ],
+        actor,
+      );
+    }
+    case "resident":
+      return goalsOf(s, packPeople[def.id].packId, ownConditions(def.id), actor);
+    case "item": {
+      const goal = def.sealed ? null : craftedGoal(s, def.id, actor);
+      return def.sealed
+        ? goalsOf(s, def.pack, packThings[def.id].requires, actor)
+        : goal
+          ? [goal]
+          : [];
+    }
+    case "lane":
+      return goalsOf(s, def.pack, def.lane.opensWith, actor);
+    case "crossing":
+      return goalsOf(s, def.pack, def.crossing.requires, actor);
+    case "hub":
+      return goalsOf(s, null, def.route.requires, actor);
+    default:
+      return [];
+  }
+}
+
 /**
  * What opens a shut box, as a goal `{kind, target, step?}` a quest card can
- * state, or null when no such goal fits and only `box.reason` says it.
+ * state, or null when no such goal fits. `box.goals` lists every unmet goal
+ * the lock shows.
  */
 export function boxWant(s, box, actor = currentActor(s)) {
   const def = defOf(box);
@@ -411,8 +409,8 @@ function boxFor(s, def, actor, open) {
     kind: def.kind,
     at: def.at,
     open,
-    reason: open ? null : (reasonOf(s, def, actor) ?? "This card is locked"),
     want: open ? null : wantOf(s, def, actor),
+    goals: open ? [] : goalsFor(s, def, actor).slice(0, MOST_GOALS),
   };
 }
 

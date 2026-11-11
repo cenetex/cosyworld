@@ -353,9 +353,7 @@
             travel: `through ${a.home.entrance.name.toLowerCase()}`,
             scenery: { open: a.home.entrance.text, cardArt: a.home.image },
             // Shown as a shut card at its door in a shared world (rules 133).
-            sealed: {
-              reason: `Bring the ${a.item.name.toLowerCase()} here to open ${a.home.name}`
-            }
+            sealed: {}
           },
           {
             id: `${a.home.id}-${door}`,
@@ -393,7 +391,7 @@
       {
         from: "attic",
         to: "pond",
-        sealed: { reason: "Put the lamp out" },
+        sealed: {},
         requires: [
           { kind: "item_present", item: "lamp", place: "attic" },
           { kind: "not", condition: { kind: "light", item: "lamp", at: ["attic"], uncovered: true } }
@@ -402,7 +400,7 @@
       {
         from: "pond",
         to: "attic",
-        sealed: { reason: "Light the lamp on the shore" },
+        sealed: {},
         requires: [{ kind: "light", item: "lamp", at: ["pond"], uncovered: true }]
       }
     ],
@@ -4272,8 +4270,7 @@
               reason: "She checks the traveler's account against a witness tablet."
             },
             sealed: {
-              at: "greek-egypt-tomb",
-              reason: "Not here until Helen\u2019s Egyptian account is followed."
+              at: "greek-egypt-tomb"
             }
           },
           "greek-menelaus-egypt": {
@@ -4298,8 +4295,7 @@
               reason: "Salt stains his cloak. He has kept the ship's passenger tally."
             },
             sealed: {
-              at: "greek-egypt-tomb",
-              reason: "Not here until Helen\u2019s Egyptian account is followed."
+              at: "greek-egypt-tomb"
             }
           },
           "greek-helen-troy": {
@@ -4325,8 +4321,7 @@
               reason: "She checks the traveler's account against a witness tablet."
             },
             sealed: {
-              at: "greek-troy-beach",
-              reason: "Not here until Helen\u2019s Trojan account is followed."
+              at: "greek-troy-beach"
             }
           },
           "greek-menelaus-troy": {
@@ -4351,8 +4346,7 @@
               reason: "Salt stains his cloak. He has kept the ship's passenger tally."
             },
             sealed: {
-              at: "greek-troy-beach",
-              reason: "Not here until Helen\u2019s Trojan account is followed."
+              at: "greek-troy-beach"
             }
           },
           "greek-electra-aeschylus": {
@@ -4377,8 +4371,7 @@
               reason: "She has preserved an account of the household's losses."
             },
             sealed: {
-              at: "greek-argos-tomb",
-              reason: "Not here until the tomb account is followed."
+              at: "greek-argos-tomb"
             }
           },
           "greek-orestes-aeschylus": {
@@ -4403,8 +4396,7 @@
               reason: "He has come to hear his sister before committing himself."
             },
             sealed: {
-              at: "greek-argos-tomb",
-              reason: "Not here until the tomb account is followed."
+              at: "greek-argos-tomb"
             }
           },
           "greek-electra-sophocles": {
@@ -4430,8 +4422,7 @@
               reason: "She has preserved an account of the household's losses."
             },
             sealed: {
-              at: "greek-mycenae-palace",
-              reason: "Not here until the palace account is followed."
+              at: "greek-mycenae-palace"
             }
           },
           "greek-orestes-sophocles": {
@@ -4457,8 +4448,7 @@
               reason: "He has come to hear his sister before committing himself."
             },
             sealed: {
-              at: "greek-mycenae-palace",
-              reason: "Not here until the palace account is followed."
+              at: "greek-mycenae-palace"
             }
           },
           "greek-electra-euripides": {
@@ -4483,8 +4473,7 @@
               reason: "She has preserved an account of the household's losses."
             },
             sealed: {
-              at: "greek-argive-farm",
-              reason: "Not here until the farmhouse account is followed."
+              at: "greek-argive-farm"
             }
           },
           "greek-orestes-euripides": {
@@ -4509,8 +4498,7 @@
               reason: "He has come to hear his sister before committing himself."
             },
             sealed: {
-              at: "greek-argive-farm",
-              reason: "Not here until the farmhouse account is followed."
+              at: "greek-argive-farm"
             }
           },
           "greek-aethra": {
@@ -4534,8 +4522,7 @@
               reason: "Olive branches rest across her knees. She makes room for the mothers beside Demeter\u2019s altar."
             },
             sealed: {
-              at: "greek-eleusis",
-              reason: "Not here until Polynices is buried."
+              at: "greek-eleusis"
             }
           },
           "greek-adrastus": {
@@ -4559,8 +4546,7 @@
               reason: "Dust lies in the folds of his cloak. His hands rest beside the names of the fallen."
             },
             sealed: {
-              at: "greek-eleusis",
-              reason: "Not here until Polynices is buried."
+              at: "greek-eleusis"
             }
           },
           "greek-argive-mother": {
@@ -4589,8 +4575,7 @@
               reason: "She holds a strip of cloth between both hands. Her son\u2019s name is written beside the urn."
             },
             sealed: {
-              at: "greek-eleusis",
-              reason: "She is not here until the Argive dead are returned."
+              at: "greek-eleusis"
             }
           },
           "greek-iphis": {
@@ -4619,8 +4604,7 @@
               reason: "He sits beside the shrine steps. A place remains empty at his side."
             },
             sealed: {
-              at: "greek-eleusis",
-              reason: "He is not here until the account of the pyre is heard."
+              at: "greek-eleusis"
             }
           },
           "greek-theseus": {
@@ -4645,8 +4629,7 @@
               reason: "A petition table stands beside him. He waits for the mothers\u2019 own account."
             },
             sealed: {
-              at: "greek-athens",
-              reason: "Not here until Polynices is buried."
+              at: "greek-athens"
             }
           },
           "greek-quay-host": {
@@ -4670,8 +4653,7 @@
               reason: "She counts bowls beside the grain basket. A blank space waits at the foot of her passenger list."
             },
             sealed: {
-              at: "greek-piraeus",
-              reason: "Not here until Polynices is buried."
+              at: "greek-piraeus"
             }
           },
           "greek-colonus-keeper": {
@@ -4695,8 +4677,7 @@
               reason: "The keeper sets a cup beside the boundary stone. A pot of honey catches the light."
             },
             sealed: {
-              at: "greek-colonus",
-              reason: "Not here until Polynices is buried."
+              at: "greek-colonus"
             }
           },
           "greek-marathon-keeper": {
@@ -4720,8 +4701,7 @@
               reason: "The keeper smooths a place for a blanket beside the altar. A small bowl rests inside the shelter."
             },
             sealed: {
-              at: "greek-marathon",
-              reason: "Not here until Polynices is buried."
+              at: "greek-marathon"
             }
           },
           "greek-household-witness": {
@@ -4764,8 +4744,7 @@
               reason: "She has walked beside the mourners and knows the work that follows a funeral."
             },
             sealed: {
-              at: "greek-eleusis",
-              reason: "She is not here until the urn is placed in the mothers\u2019 care."
+              at: "greek-eleusis"
             }
           },
           "greek-ajax-tecmessa": {
@@ -4790,8 +4769,7 @@
               reason: "Ajax\u2019s household and burial are at issue in this named Trojan account."
             },
             sealed: {
-              at: "greek-ajax-household",
-              reason: "Not here until the Trojan camp\u2019s invitation is accepted."
+              at: "greek-ajax-household"
             }
           },
           "greek-ajax-teucer": {
@@ -4816,8 +4794,7 @@
               reason: "Ajax\u2019s household and burial are at issue in this named Trojan account."
             },
             sealed: {
-              at: "greek-greek-camp",
-              reason: "Not here until the Trojan camp\u2019s invitation is accepted."
+              at: "greek-greek-camp"
             }
           },
           "greek-ajax-odysseus": {
@@ -4843,8 +4820,7 @@
               reason: "Ajax\u2019s household and burial are at issue in this named Trojan account."
             },
             sealed: {
-              at: "greek-greek-camp",
-              reason: "Not here until the Trojan camp\u2019s invitation is accepted."
+              at: "greek-greek-camp"
             }
           },
           "greek-polynices-shade": {
@@ -4958,8 +4934,7 @@
               }
             ],
             sealed: {
-              at: "greek-ship",
-              reason: "Not aboard until Polynices is buried and the Charybdis lies at Piraeus with provisions aboard."
+              at: "greek-ship"
             }
           }
         },
@@ -5509,7 +5484,6 @@
               }
             ],
             sealed: {
-              reason: "Speak to Polynices\u2019 Shade to learn the way into the Hollow.",
               quest: {
                 kind: "person",
                 target: "greek-polynices-shade"
@@ -5531,8 +5505,7 @@
                 kind: "item",
                 target: "greek-helen-accounts",
                 to: "greek-shipmaster"
-              },
-              reason: "Give Myrto Helen\u2019s Account Tablet to follow the Egyptian account."
+              }
             }
           },
           {
@@ -5554,8 +5527,7 @@
                 kind: "item",
                 target: "greek-helen-accounts",
                 to: "greek-elder"
-              },
-              reason: "Give the Chorus Elder Helen\u2019s Account Tablet to follow the Trojan account."
+              }
             }
           },
           {
@@ -5577,8 +5549,7 @@
                 kind: "item",
                 target: "greek-atreid-record",
                 to: "greek-ismene"
-              },
-              reason: "Give Ismene the Record of the House of Atreus to follow the tomb account."
+              }
             }
           },
           {
@@ -5600,8 +5571,7 @@
                 kind: "item",
                 target: "greek-atreid-record",
                 to: "greek-creon"
-              },
-              reason: "Give Creon the Record of the House of Atreus to follow the palace account."
+              }
             }
           },
           {
@@ -5623,8 +5593,7 @@
                 kind: "item",
                 target: "greek-atreid-record",
                 to: "greek-baker"
-              },
-              reason: "Give Dione the Record of the House of Atreus to follow the farmhouse account."
+              }
             }
           },
           {
@@ -5645,8 +5614,7 @@
               quest: {
                 kind: "place",
                 target: "greek-argos-palace"
-              },
-              reason: "Opens once the tomb account is followed."
+              }
             }
           },
           {
@@ -5686,8 +5654,7 @@
               quest: {
                 kind: "place",
                 target: "greek-road-athens-eleusis"
-              },
-              reason: "Opens once the mothers\u2019 request is heard and their petition is in the Sanctuary or the Agora."
+              }
             }
           },
           {
@@ -5709,8 +5676,7 @@
               quest: {
                 kind: "place",
                 target: "greek-road-athens-piraeus"
-              },
-              reason: "Opens once the mothers\u2019 petition is laid before Theseus and the Herald\u2019s Truce is in the Agora."
+              }
             }
           },
           {
@@ -5732,8 +5698,7 @@
               quest: {
                 kind: "place",
                 target: "greek-road-athens-piraeus"
-              },
-              reason: "Opens once the mothers\u2019 petition is laid before Theseus and the Herald\u2019s Truce is in the Agora."
+              }
             }
           }
         ],
@@ -10623,7 +10588,6 @@
                 from: "greek-harbor",
                 to: "greek-piraeus",
                 oneWay: true,
-                reason: "Put the Travel Provisions down on deck",
                 opensWith: [
                   {
                     kind: "any",
@@ -10640,7 +10604,8 @@
                       }
                     ]
                   }
-                ]
+                ],
+                sealed: true
               },
               {
                 from: "greek-piraeus",
@@ -14227,8 +14192,7 @@
               quest: {
                 kind: "place",
                 target: "forest-trail"
-              },
-              reason: "Open only while the Wolfprint Charm is at the Old Oak Tree."
+              }
             }
           },
           {
@@ -14245,8 +14209,7 @@
               quest: {
                 kind: "place",
                 target: "forest-trail"
-              },
-              reason: "Opens once the garden drain is cleared."
+              }
             }
           }
         ],
@@ -15659,8 +15622,7 @@
               }
             ],
             sealed: {
-              at: "ratiradio-listening-room",
-              reason: "Put the glass, raven figurine, red beanie down in the Listening Room together."
+              at: "ratiradio-listening-room"
             }
           }
         },
@@ -15774,8 +15736,7 @@
               quest: {
                 kind: "item",
                 target: "ratiradio-red-beanie"
-              },
-              reason: "Carry the Red Beanie to open this passage."
+              }
             }
           },
           {
@@ -15792,8 +15753,7 @@
               quest: {
                 kind: "place",
                 target: "ratiradio-listening-room"
-              },
-              reason: "Put the Thermos down at the Dispatch Window to open this passage."
+              }
             }
           },
           {
@@ -15810,8 +15770,7 @@
               quest: {
                 kind: "place",
                 target: "ratiradio-broadcast-booth"
-              },
-              reason: "Talk with RATi while holding the Raven Figurine to open this passage."
+              }
             }
           }
         ],
@@ -16378,8 +16337,8 @@
         "oneWay",
         "opensWith",
         "spends",
-        "reason"
-      ]) || lane.reason !== void 0 && (!lane.opensWith || typeof lane.reason !== "string" || !lane.reason.trim() || lane.reason.length > 240) || !docks.includes(lane.from) || !docks.includes(lane.to) || lane.from === lane.to || lane.oneWay !== void 0 && lane.oneWay !== true) {
+        "sealed"
+      ]) || lane.sealed !== void 0 && (!lane.opensWith || lane.sealed !== true) || !docks.includes(lane.from) || !docks.includes(lane.to) || lane.from === lane.to || lane.oneWay !== void 0 && lane.oneWay !== true) {
         out.push("has a lane that does not join two of its docks");
         continue;
       }
@@ -17054,8 +17013,8 @@
         if (!asks) requirements(entry?.when, `avatar ${id} wants[${n}] when`);
       }
       check(
-        a.sealed === void 0 || keysOk(a.sealed, ["at", "reason"]) && owns3(places2, a.sealed.at) && textOk(a.sealed.reason, 240) && Array.isArray(a.requires) && a.requires.length > 0,
-        `avatar ${id} sealed card needs a place, a reason and activation requirements`
+        a.sealed === void 0 || keysOk(a.sealed, ["at"]) && owns3(places2, a.sealed.at) && Array.isArray(a.requires) && a.requires.length > 0,
+        `avatar ${id} sealed card needs a place and activation requirements`
       );
       for (const [n, p] of (Array.isArray(a.poses) ? a.poses : []).entries())
         requirements(p?.requires, `avatar ${id} pose ${n + 1} requires`);
@@ -17126,8 +17085,8 @@
       media(i.art, `item ${id} art`);
       requirements(i.requires, `item ${id} requires`);
       check(
-        i.sealed === void 0 || keysOk(i.sealed, ["reason", "live"]) && textOk(i.sealed.reason, 240) && (i.sealed.live === void 0 || i.sealed.live === true) && Array.isArray(i.requires) && i.requires.length > 0 && owns3(places2, i.holder) && (i.home === void 0 || i.home === i.holder) && i.locked === void 0 && !i.startsUsed,
-        `item ${id} sealed needs a reason, requires, and a place of the pack where it lies (home, if any, the same place)`
+        i.sealed === void 0 || keysOk(i.sealed, ["live"]) && (i.sealed.live === void 0 || i.sealed.live === true) && Array.isArray(i.requires) && i.requires.length > 0 && owns3(places2, i.holder) && (i.home === void 0 || i.home === i.holder) && i.locked === void 0 && !i.startsUsed,
+        `item ${id} sealed needs requires and a place of the pack where it lies (home, if any, the same place)`
       );
       requirements(i.reservedUntil, `item ${id} reservedUntil`);
       check(
@@ -17158,8 +17117,8 @@
       );
       const q = r.sealed?.quest;
       check(
-        r.sealed === void 0 || keysOk(r.sealed, ["quest", "reason"]) && Boolean(r.requires?.length || r.travelerRequires?.length) && textOk(r.sealed.reason, 240) && keysOk(q, ["kind", "target", "to"]) && (q.kind === "item" ? owns3(items2, q.target) && (q.to === void 0 || owns3(avatars, q.to)) : q.to === void 0 && (q.kind === "place" ? owns3(places2, q.target) : q.kind === "person" && owns3(avatars, q.target))),
-        `route ${r.from}>${r.to} sealed card needs a gate, a reason and a quest`
+        r.sealed === void 0 || keysOk(r.sealed, ["quest"]) && Boolean(r.requires?.length || r.travelerRequires?.length) && keysOk(q, ["kind", "target", "to"]) && (q.kind === "item" ? owns3(items2, q.target) && (q.to === void 0 || owns3(avatars, q.to)) : q.to === void 0 && (q.kind === "place" ? owns3(places2, q.target) : q.kind === "person" && owns3(avatars, q.target))),
+        `route ${r.from}>${r.to} sealed card needs a gate and a quest`
       );
       requirements(r.requires, "route requires");
       requirements(r.travelerRequires, "route traveller requires", true, true);
@@ -17537,8 +17496,8 @@
         `${name} requires must be a list`
       );
       check(
-        c.sealed === void 0 || keysOk(c.sealed, ["reason"]) && Boolean(c.requires?.length) && !c.transport && textOk(c.sealed.reason, 240),
-        `${name} sealed card needs a gate and a reason`
+        c.sealed === void 0 || keysOk(c.sealed, []) && Boolean(c.requires?.length) && !c.transport,
+        `${name} sealed card needs a gate`
       );
       for (const r of c?.requires || []) condition(r, `${name} condition`);
       for (const field of ["opened", "closed"])
@@ -18144,6 +18103,16 @@
     const item = world.items[RADIO_ITEM];
     return !item || !Object.hasOwn(item, "radioOn") || typeof item.radioOn === "boolean";
   }
+
+  // v2/card-game/world/catalog.mjs
+  var places = { ...forest_default.places, ...packPlaces };
+  var sanctuaries = Object.keys(places).filter(
+    (id) => places[id].sanctuary === true
+  );
+  var people = { ...forest_default.people, ...packPeople };
+  var things = { ...packThings, ...forest_default.things };
+  validatePackLinks(places, people, things);
+  var nameOf = (id) => places[id]?.name || people[id]?.name || things[id]?.name || "the world";
 
   // v2/card-game/lamp-room-fuel.mjs
   var LAMP_ROOM_LIMIT = 3;
@@ -20632,16 +20601,6 @@
     return true;
   }
 
-  // v2/card-game/world/catalog.mjs
-  var places = { ...forest_default.places, ...packPlaces };
-  var sanctuaries = Object.keys(places).filter(
-    (id) => places[id].sanctuary === true
-  );
-  var people = { ...forest_default.people, ...packPeople };
-  var things = { ...packThings, ...forest_default.things };
-  validatePackLinks(places, people, things);
-  var nameOf = (id) => places[id]?.name || people[id]?.name || things[id]?.name || "the world";
-
   // v2/card-game/world/senses.mjs
   var reflectionsFrom = (s, from) => (forest_default.reflectionRoutes || []).filter(
     (r) => r.from === from && r.requires.every((c) => conditionMet(s, c, null))
@@ -20810,8 +20769,7 @@
     return ways2.filter((r) => !open.includes(r.to)).flatMap((r) => {
       const guard = guardOf(s, here2, r.to, actor);
       if (!guard) return r.sealed ? [r] : [];
-      const reason = `${nameOf(guard)} is guarding this card`;
-      return [{ ...r, sealed: { reason }, guardedBy: guard }];
+      return [{ ...r, sealed: {}, guardedBy: guard }];
     }).filter((r) => !seen.has(r.to) && seen.add(r.to));
   }
 
@@ -20842,7 +20800,7 @@
         at: packThings[id].holder,
         id,
         pack: packThings[id].packId,
-        sealed: packThings[id].sealed.reason
+        sealed: true
       } : {
         kind: "item",
         at: packThings[id].home,
@@ -20855,12 +20813,11 @@
   var residentDefs = () => Object.entries(packPeople).filter(([, person]) => person.sealed).map(([id, person]) => ({
     kind: "resident",
     at: person.sealed.at,
-    id,
-    reason: person.sealed.reason
+    id
   }));
   function laneDefs() {
     return Object.entries(transports).flatMap(
-      ([transport, t]) => (t.lanes || []).filter((lane) => lane.reason).map((lane) => ({
+      ([transport, t]) => (t.lanes || []).filter((lane) => lane.sealed).map((lane) => ({
         kind: "lane",
         at: t.place,
         id: lane.to,
@@ -20878,10 +20835,8 @@
     crossing: c
   }));
   for (const r of forest_default.reflectionRoutes || [])
-    if (r.sealed !== void 0 && !(Object.keys(r.sealed).join() === "reason" && typeof r.sealed.reason === "string" && r.sealed.reason.length > 0 && r.sealed.reason.length <= 240 && r.requires?.length))
-      throw new Error(
-        `Reflection ${r.from}>${r.to} sealed card needs a gate and a reason.`
-      );
+    if (r.sealed !== void 0 && !(Object.keys(r.sealed).length === 0 && r.requires?.length))
+      throw new Error(`Reflection ${r.from}>${r.to} sealed card needs a gate.`);
   var hubDefs = () => (forest_default.reflectionRoutes || []).filter((r) => r.sealed).map((route) => ({ kind: "hub", at: route.from, id: route.to, route }));
   var boxDefs = () => [
     ...wayDefs().values(),

@@ -10,6 +10,8 @@ import {
   transports,
 } from "./pack-registry.mjs";
 import { dropCost } from "./want.mjs";
+import { questCaption, questVerb } from "./quest-card.mjs";
+import { joinWants } from "./world/want-words.mjs";
 import {
   currentActor,
   places,
@@ -43,7 +45,7 @@ const shutBox = (world, id) => shutBoxes(world).find((box) => box.id === id);
 // becoming an active actor or receiving plays before its requirements hold.
 export const sealedAvatar = (world, id) => {
   const box = shutBox(world, id);
-  return box?.kind === "resident" ? { at: box.at, reason: box.reason } : null;
+  return box?.kind === "resident" ? { at: box.at } : null;
 };
 
 export function availableCards(world) {
@@ -175,9 +177,28 @@ export function asleepReason(world, selected) {
     );
   return sleeper ? `${nameOf(sleeper)} is asleep` : null;
 }
-// Why a sealed card's way is shut, from its pack data, or null. A locked
-// made thing names who makes it from what (rules 102).
-export const sealedReason = (world, id) => shutBox(world, id)?.reason ?? null;
+// What opens a locked card, in words: each want it waits on, worded by the one
+// wording of a want (quest-card.mjs) and screened by what the traveler has
+// discovered (`known`; the default knows nothing, so it names nothing). The
+// rules own the goals (`box.goals`, world/boxes.mjs); a box with none shows
+// only that it is shut.
+export const LOCKED_BOX = "A locked box.";
+export function lockWords(world, id, known = () => false) {
+  const box = shutBox(world, id);
+  if (!box) return null;
+  const actor = currentActor(world);
+  const text = joinWants(
+    (box.goals.length ? box.goals : box.want ? [box.want] : [])
+      // The locked card itself cannot explain how to open it.
+      .filter((goal) => goal.target !== id),
+    (goal) => {
+      const quest = { actor, ...goal };
+      return questCaption(quest, false, questVerb(world, quest), known);
+    },
+  );
+  return text || LOCKED_BOX;
+}
+export const sealedReason = lockWords;
 
 // Resolve one play for the context row and drag gestures.
 export function cardPlay(world, selected) {

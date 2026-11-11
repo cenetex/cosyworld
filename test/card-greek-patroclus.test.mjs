@@ -12,8 +12,6 @@ import { stowProvisions } from "./helpers/provisions.mjs";
 
 const PATROCLUS = "greek-patroclus";
 const SHIP = "greek-ship";
-const REASON =
-  "Not aboard until Polynices is buried and the Charybdis lies at Piraeus with provisions aboard.";
 const pack = packDefinition("greek-drama");
 
 const act = (world, kind, fields = {}) => {
@@ -67,23 +65,23 @@ describe("Patroclus unlocks on the Charybdis at Piraeus", () => {
     expect(person.requires).toEqual([
       { kind: "flag", key: "greek-burial-performed", value: true },
     ]);
-    expect(person.sealed).toEqual({ at: SHIP, reason: REASON });
+    expect(person.sealed).toEqual({ at: SHIP });
     expect(JSON.stringify(person.appearsWhen)).toContain("ship_at");
     expect(person.portrait).toMatch(/^assets\/greek-drama\//);
     expect(pack.release.avatars).toContain(PATROCLUS);
   });
 
-  it("is not aboard before the burial, and shows a locked card with its reason", () => {
+  it("is not aboard before the burial, and shows a locked card", () => {
     const before = funeralJourney().supplied;
     expect(entityActive(before, PATROCLUS)).toBe(false);
     expect(shutBox(before)).toMatchObject({ kind: "resident", open: false });
-    expect(shutBox(before).reason).toBe(REASON);
+    expect(shutBox(before).goals).toBeInstanceOf(Array);
   });
 
   it("does not appear before the ship docks at Piraeus, with or without the load", () => {
     const loaded = provisioned();
     expect(entityActive(loaded, PATROCLUS)).toBe(false);
-    expect(shutBox(loaded).reason).toBe(REASON);
+    expect(shutBox(loaded)).toMatchObject({ open: false });
     // Without the provisions the ship cannot sail to Piraeus at all.
     const bare = walk(funeralJourney().buried, "harbor");
     for (let turn = 0; turn < 3; turn++) {

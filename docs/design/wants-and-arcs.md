@@ -102,6 +102,41 @@ objected to):
 - A box whose place the avatar has already stood in pays no opening XP, so the
   mirror back to the attic does not pay Vale for returning home.
 
+## Owner decisions, 2026-11-11: derived wants
+
+These bind how every lock and quest is worded (rules 133). Built in
+[#2647](https://github.com/cenetex/cosyworld/pull/2647)'s stack.
+
+1. Wants are derived, not written. Of a list of hand-written reasons: "I have a
+   reservation about building a complex system of custom authored lines into
+   this." Authored text lives only in the descriptions of places, items and
+   avatars and in what avatars say: "if i want to learn something either an
+   avatar tells me or an item describes it etc". A lock's or quest's words come
+   only from the names of the cards the want concerns and a small fixed
+   vocabulary of rule verbs (hold, talk with, go to, give, bring, lay, eat,
+   rest). No `reason`, no per-fact phrase, no override field.
+2. Show only the want: "We could probably just show: <the want>." No holder
+   prefix, no sentence per box. One function words it for every lock (way,
+   resident, made or sealed item, lane, home door, hub way) and every quest,
+   offered or held (`wantWords`, `world/want-words.mjs`).
+3. Unknown things stay unknown: "'find something you haven't discovered yet' is
+   perfectly valid as an objective. We currently SHOW players things they don't
+   know on quest cards (eg they haven't unlocked Lamp and we show lamp on a
+   quest) this breaks epistemology." A card the traveler has not discovered
+   (the table's own test for a face-down card) is never named or pictured in
+   any word, label, title, alt text or image; its art is the card back and it
+   is worded "something undiscovered", "someone you have not met" or "a place
+   you have not found". An unknown target is a want, not an error.
+4. All card kinds are persons: "Avatars items and locations ARE ALL PERSONS.
+   There is no distinction besides the category. Items and Locations can speak,
+   dream, remember and level up." An item's or place's want is worded exactly
+   as an avatar's.
+5. A lock that waits on a story flag or choice is read from the pack's own
+   choice that sets it (give the item to its subject, or meet its subject).
+   Where nothing can be read, the box only says it is locked; the player
+   learns the rest because an avatar tells them or an item's or place's
+   description says so. Those gaps are content gaps, not text to patch.
+
 ## Already decided earlier
 
 This draft does not reopen these.

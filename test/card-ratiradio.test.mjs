@@ -11,6 +11,7 @@ import {
 } from "../v2/card-game/world.mjs";
 import { availableCards, sealedReason } from "../v2/card-game/cards.mjs";
 import { isLockedBox, lockedQuest } from "../v2/card-game/locked-box.mjs";
+import { lockText } from "./helpers/lock-text.mjs";
 import {
   entityActive,
   packPeople,
@@ -287,16 +288,16 @@ const canMove = (s, to) =>
 const box = (s, card) => ({
   shown: availableCards(s).includes(card),
   locked: isLockedBox(s, card),
-  reason: sealedReason(s, card),
+  reason: lockText(s, card),
 });
 
-it("draws every locked way and the sealed Raven as a box with its reason", () => {
+it("draws every locked way and the sealed Raven as a box that says what opens it", () => {
   const s = fixture();
   const expected = [
-    ["staff-kitchen", "dispatch-window", /Carry the Red Beanie/u],
-    ["dispatch-window", "listening-room", /Put the Thermos down at the Dispatch Window/u],
-    ["listening-room", "broadcast-booth", /Talk with RATi while holding the Raven Figurine/u],
-    ["listening-room", "raven", /glass, raven figurine, red beanie/u],
+    ["staff-kitchen", "dispatch-window", /Red Beanie/u],
+    ["dispatch-window", "listening-room", /Thermos.*Dispatch Window/u],
+    ["listening-room", "broadcast-booth", /Raven Figurine/u],
+    ["listening-room", "raven", /Glass.*Listening Room/u],
   ];
   for (const [from, card, reason] of expected) {
     s.actors.vale.place = id(from);
@@ -304,11 +305,11 @@ it("draws every locked way and the sealed Raven as a box with its reason", () =>
     expect(box(s, id(card)).reason, card).toMatch(reason);
     expect(lockedQuest(s, id(card), () => true).text, card).toBeTruthy();
   }
-  // A self-destination goal names no opening step; show the authored condition.
+  // A self-destination goal names no opening step; what the lock waits on is
+  // read from its gate, and unknown cards stay unnamed.
   for (const card of ["listening-room", "broadcast-booth"]) {
     s.actors.vale.place = id(card === "listening-room" ? "dispatch-window" : "listening-room");
-    for (const known of [false, true])
-      expect(lockedQuest(s, id(card), () => known).text, card).toBe(sealedReason(s, id(card)));
+    expect(lockedQuest(s, id(card), () => false).text, card).not.toMatch(/Thermos|Raven|Beanie|RATi/u);
   }
 });
 

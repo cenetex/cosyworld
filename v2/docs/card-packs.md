@@ -675,10 +675,10 @@ Item fields:
   hands for home (a human avatar whose holder is not present, from the
   journaled presence). It is off unless a pack marks it, pending the owner's
   decision on absence penalties.
-- `sealed`: `{"reason": text, "live": true?}` with `requires` (rules 133). The
+- `sealed`: `{"live": true?}` with `requires` (rules 133). The
   item lies where it starts, a place of its pack (its `home`, if any, the same
-  place), as a locked box: drawn face down in the hand with its reason on the
-  context button, and it cannot be taken, held, given or used while its
+  place), as a locked box: drawn face down in the hand with what opens it on the
+  context button (read from `requires`, see below), and it cannot be taken, held, given or used while its
   `requires` do not hold. It keeps its record in the world. It opens on the
   play that makes `requires` true, pays one XP to the traveler once, and then
   latches open as a gate does (`openedRoutes` records `item:<id>`). With
@@ -692,7 +692,7 @@ Item fields:
 ```json
 "greek-shovel": { "holder": "greek-gate",
   "requires": [{ "kind": "item_at", "item": "greek-figs", "place": "greek-gate" }],
-  "sealed": { "reason": "Antigone keeps it until the ground is ready" } }
+  "sealed": {} }
 ```
 
 At dawn a homed item lying unheld away from both its home and its starting
@@ -765,20 +765,19 @@ The save counts each kit's scatters in `scatters`.
 A gated route may show a sealed card. While the route is shut from `from`,
 `to` appears as a nameless wooden box. Every closed card uses the same lid
 (`assets/card-back-locked.webp`) and red edge. The descriptor and accessible
-label keep its contents and requirements concealed. Authored `reason` and
-`quest` remain route data; the closed box shows only its closed state.
+label keep its contents and requirements concealed. The route's `quest`
+remains route data; the closed box shows only its closed state.
 Once the route opens, the box turns over once when it is in view. Its name,
 art and ordinary card actions then appear (`locked-box.mjs`).
 
 ```json
 { "from": "greek-gate", "to": "greek-battlefield", "requires": [ ... ],
   "sealed": {
-    "reason": "The guard lifts the bar for an order from the palace: the Burial Decree or Creon's writ.",
     "quest": { "kind": "item", "target": "greek-decree", "to": "greek-guard" } } }
 ```
 
-A gated crossing may carry the same `sealed` key with only a `reason`; the
-hub's `reflectionRoutes` in `forest.json` do too. A crossing box is drawn only
+A gated crossing may carry the same `sealed` key, empty; the hub's
+`reflectionRoutes` in `forest.json` do too. A crossing box is drawn only
 where its `home_door` and `shared_world` conditions hold, so a home's door
 appears at the one place a shared world chose for it. A seal is drawn even
 when the card it opens has its own `requires`, `appearsWhen` or section: the

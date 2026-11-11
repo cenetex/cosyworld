@@ -154,9 +154,9 @@ const openLanes = (s, t, dock, actor = null, empty = false) =>
       ? empty || conditionsMet(s, t.packId, gate)
       : knowsLane(s, actor, dock, to);
   });
-// A gated lane with a reason, shut from the dock where the ship lies, shows
-// its port as a locked card to a traveller aboard; the reason labels the
-// context button (rules 102): "Put the Travel Provisions down on deck".
+// A gated lane marked `sealed`, shut from the dock where the ship lies, shows
+// its port as a locked card to a traveller aboard; what opens it is read from
+// its gate (rules 102, 133).
 export function shutLanes(s, place) {
   const found = shipAt(place);
   if (!found) return [];
@@ -166,12 +166,12 @@ export function shutLanes(s, place) {
   return (t.lanes || [])
     .filter(
       (lane) =>
-        lane.reason &&
+        lane.sealed &&
         lane.from === state.dock &&
         entityShown(s, lane.to) &&
         !conditionsMet(s, t.packId, lane.opensWith),
     )
-    .map((lane) => ({ to: lane.to, reason: lane.reason }));
+    .map((lane) => ({ to: lane.to }));
 }
 // A ship's berth is reachable while some active port shares an open lane
 // with it. Any place that is not a berth answers true.
