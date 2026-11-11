@@ -169,6 +169,25 @@ export async function endStandoff(page, world, actor = "vale") {
   await page.locator('#card-actions [data-action="wait"]').click();
   return true;
 }
+// A fanned card lies partly under the next ones (the row grows with every
+// offer card), so its centre may be covered. Aim at a point where the card
+// itself is topmost, as a player taps its visible part.
+async function visibleSpot(card) {
+  await card.scrollIntoViewIfNeeded();
+  return card.evaluate((el) => {
+    const box = el.getBoundingClientRect();
+    for (const fy of [0.15, 0.3, 0.5]) {
+      const y = box.top + box.height * fy;
+      for (let x = box.left + box.width / 2; x < box.right - 2; x += 6)
+        if (document.elementFromPoint(x, y) === el || el.contains(document.elementFromPoint(x, y)))
+          return { x: x - box.left, y: y - box.top };
+      for (let x = box.left + 2; x < box.left + box.width / 2; x += 6)
+        if (document.elementFromPoint(x, y) === el || el.contains(document.elementFromPoint(x, y)))
+          return { x: x - box.left, y: y - box.top };
+    }
+    return { x: box.width / 2, y: box.height / 2 };
+  });
+}
 export async function selectCard(page, id, { touch = false } = {}) {
   const frame = page.locator(`#hand [data-card="${id}"]`).locator("..");
   const wasSelected =
@@ -179,13 +198,15 @@ export async function selectCard(page, id, { touch = false } = {}) {
       : null;
   const card = await revealCard(page, id, { keepSelected: true });
   if (wasSelected || (await card.getAttribute("aria-pressed")) !== "true") {
-    if (touch) await card.tap();
-    else await card.click();
+    const position = await visibleSpot(card);
+    if (touch) await card.tap({ position });
+    else await card.click({ position });
   }
   // A rested held card first opens its details; this helper's toggle lowers it.
   if (wasSelected && (await card.getAttribute("aria-pressed")) === "true") {
-    if (touch) await card.tap();
-    else await card.click();
+    const position = await visibleSpot(card);
+    if (touch) await card.tap({ position });
+    else await card.click({ position });
   }
   // Keep the chosen child raised while returning its browsing avatar to the stack.
   if (holder) {

@@ -35,8 +35,13 @@ for (const id of ["lamp", "cloth"]) world.items[id].holder = "pond";
 world.items["greek-creon-writ"].holder = "vale";
 const save = encodeSave(world);
 // Holds the lifting lid mid-turn for its picture.
-const holdLid = ({ id, at, reduced }) =>
-  new Promise((resolve, reject) => {
+// It arms an observer and returns at once; `lidState` says "held" once the
+// lid is paused, or "missed". The caller polls it (waitForFunction) rather
+// than hold one long-pending evaluate, which Chromium sometimes rejects with
+// "Execution context was destroyed" with no navigation (seen under load).
+const holdLid = ({ id, at, reduced }) => {
+  globalThis.lidState = null;
+  {
     const watch = new MutationObserver(() => {
       const card = document.querySelector(`#hand [data-card="${id}"]`);
       if (!card?.dataset.revealing) return;
@@ -50,18 +55,19 @@ const holdLid = ({ id, at, reduced }) =>
         motion.pause();
         motion.currentTime = at;
       }
-      resolve();
+      globalThis.lidState = "held";
     });
     const deadline = setTimeout(() => {
       watch.disconnect();
-      reject(new Error("The locked lid did not turn"));
+      globalThis.lidState ??= "missed";
     }, 15000);
     watch.observe(document.getElementById("hand"), {
       subtree: true,
       childList: true,
       attributeFilter: ["data-revealing"],
     });
-  });
+  }
+};
 
 const server = createServer();
 await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
@@ -74,6 +80,12 @@ try {
         viewport: { width, height: width === 390 ? 844 : 900 },
         reducedMotion: reduced ? "reduce" : "no-preference",
       });
+      // COSYWORLD_CPU_THROTTLE=4 slows the page, as a loaded runner does.
+      if (process.env.COSYWORLD_CPU_THROTTLE)
+        await (await page.context().newCDPSession(page)).send(
+          "Emulation.setCPUThrottlingRate",
+          { rate: Number(process.env.COSYWORLD_CPU_THROTTLE) },
+        );
       const key = `cosyworld.reflected-shore.v1.locked-box-${width}-${reduced}`;
       const errors = [];
       page.on("pageerror", (error) => errors.push(error.message));
@@ -322,7 +334,11 @@ try {
       await selectCard(page, "greek-guard");
       const give = readyActionButton(page, "give");
       await give.waitFor();
-      const turning = page.evaluate(holdLid, { id: FIELD, at: 60, reduced });
+      await page.evaluate(holdLid, { id: FIELD, at: 60, reduced });
+      const turning = page.waitForFunction(() => globalThis.lidState, null, {
+        polling: 20,
+        timeout: 20000,
+      });
       await give.click();
       assert.equal(
         (await state()).items["greek-creon-writ"].holder,
@@ -330,7 +346,7 @@ try {
       );
       await page.keyboard.press("Escape");
       const revealing = revealCard(page, FIELD);
-      await turning;
+      assert.equal(await (await turning).jsonValue(), "held", "the locked lid turned");
       await shot("02-box-turning", 1200);
       await page.evaluate(() => globalThis.lid.forEach((m) => m.play()));
       await revealing;
