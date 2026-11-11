@@ -39,10 +39,12 @@ function start(shared = false) {
   return world;
 }
 
-it("offers the gate play only to a player holding no want (rules 133)", () => {
+it("offers the box's quest only to a player holding no want (rules 133)", () => {
   const free = start();
   const gate = (w) =>
-    legalActions(w).find((a) => a.kind === "gate" && a.target === hollow);
+    legalActions(w).find(
+      (a) => a.kind === "take" && a.offer === `quest:box:${hollow}`,
+    );
   expect(gate(free)).toBeTruthy();
   const held = structuredClone(free);
   held.actors.vale.want = {
@@ -81,7 +83,7 @@ it.each([
         ? both({ op: "view", world, ...seats }).actions
         : legalActions(world);
       const action = actions.find(
-        (a) => a.kind === kind && a.target === target,
+        (a) => a.kind === kind && (a.target === target || a.offer === target),
       );
       expect(action, kind).toBeTruthy();
       const result = shared
@@ -97,7 +99,7 @@ it.each([
     expect(isLockedBox(world, hollow)).toBe(true);
     expect(lockedQuest(world, hollow).cards).toEqual([]);
     const turn = world.turn;
-    act("gate", hollow);
+    act("take", `quest:box:${hollow}`);
     expect(world.turn).toBe(turn);
     expect(world.actors.vale.want).toMatchObject({
       kind: "person",

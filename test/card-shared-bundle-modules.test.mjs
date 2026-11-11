@@ -31,6 +31,7 @@ const RULES = [
   "life.mjs",
   "memory.mjs",
   "motives.mjs",
+  "offer-chance.mjs",
   "pack-items-schema.mjs",
   "pack-items.mjs",
   "pack-journeys.mjs",
@@ -64,8 +65,10 @@ const RULES = [
   "world/catalog.mjs",
   "world/create.mjs",
   "world/geography.mjs",
+  "world/home.mjs",
   "world/items.mjs",
   "world/lanes.mjs",
+  "world/offers.mjs",
   "world/senses.mjs",
   "world/station.mjs",
 ];

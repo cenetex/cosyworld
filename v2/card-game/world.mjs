@@ -65,7 +65,6 @@ import {
   repairAnswer,
   closeRepaired,
   validMotives,
-  tastes,
 } from "./motives.mjs";
 import { newMemories, rememberEvent, validMemories } from "./memory.mjs";
 import { applyHeldChoice, chooseHeldItem, handSnapshot, settleHeldItems, validHeldItems } from "./held-item.mjs";
@@ -398,6 +397,9 @@ import {
 export { placeText, exits, sealedWays };
 // Boxes live in world/boxes.mjs (rules 133).
 import { creditOpened, validOpened } from "./world/boxes.mjs";
+import { homeOf, restsAt } from "./world/home.mjs";
+import { questOffers } from "./world/offers.mjs";
+export { questOffers };
 export { boxesAt, boxOpen, boxWant, shutBoxesAt } from "./world/boxes.mjs";
 // Station exits and candidates live in world/station.mjs (#1390).
 import {
@@ -408,16 +410,6 @@ import {
   stationTargets,
 } from "./world/station.mjs";
 export { settleStationExits };
-// The quest a sealed card gives: the thing to hold, or to give someone, the
-// place to reach or the person to talk with.
-const gateQuest = (s, { kind, target, to }) => ({
-  kind,
-  target,
-  since: s.turn,
-  refusals: 0,
-  story: true,
-  ...(to ? { step: { verb: "give", to } } : {}),
-});
 // Before the pond, Vale stays in an opening home, its rescue or the station.
 const openingPlace = (place) =>
   Object.entries(homeGates).some(
@@ -627,11 +619,7 @@ function reachable(s, actor, within = null) {
       }
   return [...seen].filter((id) => id !== from && !transportPlace(id)).sort();
 }
-export const homeOf = (id) =>
-  (packPeople[id]?.levelAtHome && packPeople[id].home) ||
-  tastes[id]?.home ||
-  humanAvatar(id)?.home?.id ||
-  null;
+export { homeOf };
 // Avatars that became residents of a shared world (#1846) take a want at once.
 export const fillSeatWants = (s) => fillWants(s, wantAPI(s), true);
 // The world reads the want rules use, exported for their tests.
@@ -662,6 +650,7 @@ export function wantAPI(s) {
     home: homeOf,
     active: (id) => entityActive(s, id),
     sanctuaries,
+    restsAt,
     player: (id) => id === currentActor(s) || heldByHuman(s, id),
     placeOf: (item) => itemPlace(s, item),
     distance: (from, to, actor) =>
@@ -1591,14 +1580,21 @@ export function legalActions(s, actor = currentActor(s)) {
       out.push(action);
     }
   out.push(...fixtureOffers(s, actor, sensesFor(s)));
-  // A player holds one quest and may set it down (a level quest costs
-  // experience, `dropCost`). A sealed card gives its quest to a player who
-  // holds none.
-  if (controlledByHuman(s, actor))
-    for (const r of sealedWays(s, actor)) {
-      if (!r.sealed.quest || wantOf(s, actor)) continue;
-      out.push(offer("gate", actor, null, r.to, r.sealed.reason, [r.to]));
-    }
+  // A quest is taken by a tap on its card (rules 133): a shut box, someone who
+  // told their want and offers it, the avatar's own home door, or the level-up
+  // card. No turn passes. A play is offered only while the player holds no
+  // quest, so a blocked card (`questOffers`) never carries one.
+  for (const o of questOffers(s, actor))
+    if (!o.blocked)
+      out.push({
+        ...offer("take", actor, null, o.id, `${nameOf(actor)} takes up a quest.`, [
+          o.id,
+        ]),
+        offer: o.id,
+        label: o.label,
+      });
+  // A player may set the held quest down (Sleep at home costs experience,
+  // `dropCost`).
   if (actor === currentActor(s) || controlledByHuman(s, actor))
     questsOf(s, actor).forEach((w, quest) => {
       const goal =
@@ -1717,7 +1713,7 @@ function trustGiver(s, recipient, item, giver) {
 // Nobody rests in the middle of a standoff.
 function rest(s, actor, here, sleep = false) {
   if (standoffFor(s, actor)) return;
-  if (sanctuaries.includes(here) && s.defeats?.[actor]) delete s.defeats[actor];
+  if (restsAt(actor, here) && s.defeats?.[actor]) delete s.defeats[actor];
   if (sleep && !s.actors[actor].sleeping)
     s.actors[actor].sleeping = {
       since: s.turn,
@@ -1769,7 +1765,7 @@ function wakeUp(s, id, woke, text) {
   const z = s.actors[id].sleeping,
     here = s.actors[id].place;
   delete s.actors[id].sleeping;
-  const sanctuary = here === z.place && sanctuaries.includes(here),
+  const sanctuary = here === z.place && restsAt(id, here),
     long = sanctuary && s.turn - z.since >= LONG_SLEEP_TURNS;
   if (sanctuary && s.defeats?.[id]) delete s.defeats[id];
   renewWant(s, id, wantAPI(s));
@@ -2932,18 +2928,18 @@ export function play(
   const next = structuredClone(s);
   settleStationExits(next);
   if (actor !== "vale" || s.playerActorId) next.playerActorId = actor;
-  // A sealed card hands its quest to the traveller, as picking a quest does:
-  // no turn passes (rules 95).
-  if (exact.kind === "gate") {
+  // A tap on a quest card gives the traveller its quest: no turn passes
+  // (rules 133). It was offered only because the player holds none.
+  if (exact.kind === "take" && exact.offer !== undefined) {
     next.revision += 1;
-    const way = sealedWays(next, actor).find((r) => r.to === exact.target);
-    const quest = takeQuest(next, actor, gateQuest(next, way.sealed.quest));
+    const chosen = questOffers(next, actor).find((o) => o.id === exact.offer);
+    const quest = takeQuest(next, actor, chosen.want);
     const what = wantText(quest).replace(/(^| )The /gu, "$1the ");
     addLog(next, "World", `${nameOf(actor)} takes up a quest: ${what}.`, {
       kind: "action",
       actorId: actor,
-      verb: "gate",
-      targetId: exact.target,
+      verb: "quest",
+      targetId: chosen.source,
       witnesses: [actor],
     });
     settleStationExits(next);
@@ -3522,7 +3518,9 @@ export function validateWorld(s) {
     "take",
     "drop",
     "craft",
+    // Old logs name a sealed card's quest "gate"; now it is "quest" (rules 133).
     "gate",
+    "quest",
     "pack",
     "give",
     "ask",

@@ -73,10 +73,11 @@ it.each([0, 17, 4294967295])("carries Pip's quest through Vale's opening for see
   expect(world.items.lamp.holder).toBe("moth");
   expect(world.actors.vale.want).toBeNull();
   // One for meeting the quest, one for helping Pip meet his own want, and one
-  // for each box the walk opened (rules 133).
+  // for each box the walk opened (rules 133). The mirror back to the attic
+  // pays nothing: Vale has already stood there.
   const boxes = Object.values(world.opened ?? {}).filter((who) =>
     who.includes("vale"),
   ).length;
-  expect(Object.keys(world.opened ?? {}).sort()).toEqual(["attic", "pond"]);
+  expect(Object.keys(world.opened ?? {}).sort()).toEqual(["pond"]);
   expect(world.actors.vale.xp).toBe(2 + boxes);
 });

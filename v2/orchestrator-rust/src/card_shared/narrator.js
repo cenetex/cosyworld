@@ -2036,6 +2036,31 @@
     );
   }
 
+  // v2/card-game/offer-chance.mjs
+  var DAY_TURNS = DAYLIGHT_TURNS * 2;
+  var offerDay = (turn) => Math.floor(turn / DAY_TURNS);
+  function starterWant(s, them) {
+    const authored = forest_default.people[them]?.want, want = s.actors[them]?.want;
+    return Boolean(
+      authored && want && authored.kind === want.kind && authored.target === want.target
+    );
+  }
+  var trusts = (s, actor, them) => (s.actors[them]?.trust?.[actor] || 0) >= 1;
+  function live(s, actor, them) {
+    const rec = s.actors[actor]?.offered?.[them];
+    return rec && s.actors[actor].place === rec.at && s.actors[them]?.place === rec.at && offerDay(s.turn) === rec.day ? rec : null;
+  }
+  var offerUnlocked = (s, actor, them) => trusts(s, actor, them) || starterWant(s, them) || Boolean(live(s, actor, them)?.open);
+  function validOffered(s, id) {
+    const offered = s.actors[id].offered;
+    if (offered === void 0) return true;
+    return Boolean(
+      offered && typeof offered === "object" && !Array.isArray(offered) && Object.keys(offered).length > 0 && Object.entries(offered).every(
+        ([them, rec]) => them !== id && Object.hasOwn(s.actors, them) && rec && Object.keys(rec).sort().join() === "at,day,open" && typeof rec.at === "string" && typeof rec.open === "boolean" && Number.isSafeInteger(rec.day) && rec.day >= 0 && rec.day <= offerDay(s.turn)
+      )
+    );
+  }
+
   // v2/card-game/want-talk.mjs
   var authoredWant = (id) => forest_default.people[id]?.want || packPeople[id]?.want || null;
   function stagedWants(world, id) {
@@ -2099,9 +2124,10 @@
     }
     if (!revealed(world, id, want, listener)) return null;
     const name = nameOf2(want.target);
+    const help = listener && offerUnlocked(world, listener, id) ? " I would be glad of your help." : "";
     if (want.step?.verb === "lay")
-      return `I want ${want.step.items.map((item) => article(nameOf2(item))).join(", ")} laid in ${name}.`;
-    return want.kind === "item" ? want.step?.verb === "eat" ? `I want to ${consumable(want.target) === "drink" ? "drink" : "eat"} ${article(name)}${want.step.at ? ` at ${nameOf2(want.step.at)}` : ""}.` : `I want ${article(name)}.` : want.kind === "place" ? `I want to be at ${name}.` : `I want to see ${name}.`;
+      return `I want ${want.step.items.map((item) => article(nameOf2(item))).join(", ")} laid in ${name}.${help}`;
+    return (want.kind === "item" ? want.step?.verb === "eat" ? `I want to ${consumable(want.target) === "drink" ? "drink" : "eat"} ${article(name)}${want.step.at ? ` at ${nameOf2(want.step.at)}` : ""}.` : `I want ${article(name)}.` : want.kind === "place" ? `I want to be at ${name}.` : `I want to see ${name}.`) + help;
   }
   var wantHeard = (world, played, id, player) => id === player || played?.verb === "talk" && [played.actorId, played.targetId].includes(id);
 
@@ -2337,7 +2363,7 @@
     const whole6 = (n) => Number.isSafeInteger(n) && n >= 0 && n <= s.turn;
     const list = (v, of) => Array.isArray(v) && v.length <= 64 && new Set(v).size === v.length && v.every((x) => Object.hasOwn(of, x));
     const most = startXp(id) + (a.carried ?? 0) + s.turn * 8 + Object.values(s.opened || {}).filter((who) => who.includes?.(id)).length;
-    return Number.isSafeInteger(a.xp) && a.xp >= 0 && (a.carried === void 0 || Number.isSafeInteger(a.carried) && a.carried >= 0) && (a.level === void 0 || Number.isSafeInteger(a.level) && a.level >= 1 && a.level <= levelFor(most)) && a.xp <= most && (a.metTurn === void 0 || whole6(a.metTurn)) && a.under === void 0 && a.questRewards === void 0 && (a.content === void 0 || a.content === true) && (a.glimpse === void 0 || validGlimpse(a.glimpse, levelFor(most) + 1)) && (a.halfwayIssued === void 0 || Number.isSafeInteger(a.halfwayIssued) && a.halfwayIssued >= 2 && a.halfwayIssued <= levelFor(most) + 1) && (a.gaveUp === void 0 || a.gaveUp && Object.keys(a.gaveUp).length === 2 && typeof a.gaveUp.target === "string" && whole6(a.gaveUp.turn)) && list(a.talked, s.actors) && validHeard(s, id) && !a.talked.includes(id) && Array.isArray(a.visited) && (a.want === null || validQuest(s, id, a.want));
+    return Number.isSafeInteger(a.xp) && a.xp >= 0 && (a.carried === void 0 || Number.isSafeInteger(a.carried) && a.carried >= 0) && (a.level === void 0 || Number.isSafeInteger(a.level) && a.level >= 1 && a.level <= levelFor(most)) && a.xp <= most && (a.metTurn === void 0 || whole6(a.metTurn)) && a.under === void 0 && a.questRewards === void 0 && (a.content === void 0 || a.content === true) && (a.glimpse === void 0 || validGlimpse(a.glimpse, levelFor(most) + 1)) && (a.halfwayIssued === void 0 || Number.isSafeInteger(a.halfwayIssued) && a.halfwayIssued >= 2 && a.halfwayIssued <= levelFor(most) + 1) && (a.gaveUp === void 0 || a.gaveUp && Object.keys(a.gaveUp).length === 2 && typeof a.gaveUp.target === "string" && whole6(a.gaveUp.turn)) && list(a.talked, s.actors) && validHeard(s, id) && validOffered(s, id) && !a.talked.includes(id) && Array.isArray(a.visited) && (a.want === null || validQuest(s, id, a.want));
   }
   function validQuest(s, id, w) {
     const whole6 = (n) => Number.isSafeInteger(n) && n >= 0 && n <= s.turn;
@@ -20591,7 +20617,7 @@
   };
 
   // v2/card-game/resident-home.mjs
-  var DAY_TURNS = DAYLIGHT_TURNS * 2;
+  var DAY_TURNS2 = DAYLIGHT_TURNS * 2;
   var own2 = (o, k) => Boolean(o) && Object.hasOwn(o, k);
   var sleepOk = (z) => z === null || Boolean(z) && Object.keys(z).sort().join() === "from,to" && [z.from, z.to].every((n) => Number.isInteger(n) && n >= 0 && n < 48) && z.from !== z.to;
   var recordOk = (r, keys) => Boolean(r) && typeof r === "object" && Object.keys(r).every((k) => keys.includes(k)) && (r.range === void 0 || Number.isInteger(r.range) && r.range >= 0 && r.range <= 8) && (r.sails === void 0 || typeof r.sails === "boolean") && (r.sleep === void 0 || sleepOk(r.sleep));
@@ -20669,7 +20695,7 @@
         return false;
       const z = a.sleeping;
       if (z?.until !== void 0) {
-        if (Object.keys(z).sort().join() !== "place,since,until" || !whole5(z.since) || z.since > s.turn || !whole5(z.until) || z.until <= z.since || z.until - z.since > DAY_TURNS || !Object.hasOwn(places2, z.place))
+        if (Object.keys(z).sort().join() !== "place,since,until" || !whole5(z.since) || z.since > s.turn || !whole5(z.until) || z.until <= z.since || z.until - z.since > DAY_TURNS2 || !Object.hasOwn(places2, z.place))
           return false;
       }
     }
@@ -21023,6 +21049,10 @@
     );
   }
 
+  // v2/card-game/world/home.mjs
+  var homeOf2 = (id) => packPeople[id]?.levelAtHome && packPeople[id].home || tastes[id]?.home || humanAvatar(id)?.home?.id || null;
+  var restsAt = (actor, place) => sanctuaries.includes(place) || Boolean(place) && humanAvatarIds.includes(actor) && homeOf2(actor) === place;
+
   // v2/card-game/world/lanes.mjs
   var atPort = (s, actor) => Object.values(transports).some(
     (t) => t.place === s.actors[actor].place || t.docks.includes(s.actors[actor].place)
@@ -21224,7 +21254,6 @@
         }
     return [...seen].filter((id) => id !== from && !transportPlace(id)).sort();
   }
-  var homeOf2 = (id) => packPeople[id]?.levelAtHome && packPeople[id].home || tastes[id]?.home || humanAvatar(id)?.home?.id || null;
   function wantAPI(s) {
     return {
       carried: (actor) => carried(s, actor),
@@ -21246,6 +21275,7 @@
       home: homeOf2,
       active: (id) => entityActive(s, id),
       sanctuaries,
+      restsAt,
       player: (id) => id === currentActor(s) || heldByHuman(s, id),
       placeOf: (item) => itemPlace(s, item),
       distance: (from, to, actor) => from === to ? 0 : (routeBetween(s, from, to, actor)?.length ?? 0) - 1,
@@ -21542,7 +21572,9 @@
       "take",
       "drop",
       "craft",
+      // Old logs name a sealed card's quest "gate"; now it is "quest" (rules 133).
       "gate",
+      "quest",
       "pack",
       "give",
       "ask",

@@ -2,6 +2,7 @@
 // It reads the world and never changes it. Another avatar's want reaches the
 // player only through a Talk play with that avatar.
 import { layMet, questTerms } from "./want.mjs";
+import { offerUnlocked } from "./offer-chance.mjs";
 import forest from "./forest.json" with { type: "json" };
 import {
   consumable,
@@ -118,15 +119,22 @@ export function wantFact(world, id, nameOf, listener) {
   }
   if (!revealed(world, id, want, listener)) return null;
   const name = nameOf(want.target);
+  // When they would take the traveler's help, they say so (Accept quest).
+  const help =
+    listener && offerUnlocked(world, listener, id)
+      ? " I would be glad of your help."
+      : "";
   if (want.step?.verb === "lay")
-    return `I want ${want.step.items.map((item) => article(nameOf(item))).join(", ")} laid in ${name}.`;
-  return want.kind === "item"
+    return `I want ${want.step.items.map((item) => article(nameOf(item))).join(", ")} laid in ${name}.${help}`;
+  return (
+    (want.kind === "item"
       ? want.step?.verb === "eat"
         ? `I want to ${consumable(want.target) === "drink" ? "drink" : "eat"} ${article(name)}${want.step.at ? ` at ${nameOf(want.step.at)}` : ""}.`
         : `I want ${article(name)}.`
       : want.kind === "place"
         ? `I want to be at ${name}.`
-        : `I want to see ${name}.`;
+        : `I want to see ${name}.`) + help
+  );
 }
 
 // The player's own want, and the want of the person on either side of Talk.

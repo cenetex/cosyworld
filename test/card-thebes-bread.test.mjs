@@ -113,10 +113,12 @@ describe("the guard and the decree", () => {
     expect(s.items["greek-decree"].holder).toBe(GUARD);
     expect(s.items["greek-creon-writ"].holder).toBe("greek-creon");
     expect(out(s)).toBe(false);
-    // The card beyond is locked; its reason names him and gives no quest.
+    // The card beyond is locked; its reason names him, and its quest is a card.
     expect(availableCards(s)).toContain(FIELD);
     expect(sealedReason(s, FIELD)).toBe("The Gate Guard is guarding this card");
-    expect(legalActions(s).some((a) => a.kind === "gate")).toBe(false);
+    expect(
+      legalActions(s).find((a) => a.offer === `quest:box:${FIELD}`),
+    ).toBeTruthy();
     // Talk with him tells his want: bring him the bread. A tap takes it.
     const talked = act(s, "talk", { target: GUARD });
     expect(questsOf(talked, "vale")).toEqual([]);

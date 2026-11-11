@@ -493,6 +493,11 @@ const lockConditions = (def) => [
   ...ownConditions(def.id),
 ];
 
+// Whether the avatar has already stood in the place this box leads to.
+const stood = (world, id, def) =>
+  ["way", "crossing", "hub", "lane"].includes(def.kind) &&
+  Boolean(world.actors[id]?.visited?.includes(def.id));
+
 /**
  * After a traveller's play, pay one XP to whoever's play opened a box: it
  * was shut before the play, it holds after it, and the clock alone would not
@@ -511,6 +516,10 @@ export function creditOpened(before, next, actor) {
     // from the far side is the same lock, and pays on the card beyond.
     if (def.guard && !def.route && def.id === def.guard.post) continue;
     if (next.opened?.[def.id]?.includes(actor)) continue;
+    // Opening a way back into a place the avatar has already stood in pays
+    // nothing: the mirror to the attic does not pay Vale for coming home
+    // (owner proposal, 2026-11-11).
+    if (stood(before, actor, def)) continue;
     if (boxMet(was, def, actor) || !boxMet(next, def, actor)) continue;
     // A box that opens as the hour turns is not opened by the play.
     if (boxMet(clock, def, actor)) continue;
@@ -526,7 +535,9 @@ export function creditOpened(before, next, actor) {
             )
           : []),
       ]),
-    ].filter((id) => !next.opened?.[def.id]?.includes(id));
+    ].filter(
+      (id) => !next.opened?.[def.id]?.includes(id) && !stood(before, id, def),
+    );
     if (!payees.length) continue;
     next.opened ??= {};
     next.opened[def.id] = [...(next.opened[def.id] || []), ...payees].sort();

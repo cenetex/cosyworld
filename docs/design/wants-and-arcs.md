@@ -1,6 +1,7 @@
 # Wants and arcs
 
-Status: design agreed with the owner, 2026-11-10. Nothing here is built.
+Status: design agreed with the owner, 2026-11-10. Slices 5 to 9 are
+building in the rules 133 bump on `rules/133-boxes`; the rest is not built.
 No question is open. Issue:
 [#2605](https://github.com/cenetex/cosyworld/issues/2605), under
 [#2576](https://github.com/cenetex/cosyworld/issues/2576).
@@ -60,6 +61,46 @@ over the six mounted packs in `v2/worlds/card-table.json`.
     "yep".
 18. The dead Theban-response branch of the Greek pack: "Remove the branch",
     then "Fold into the bump". It goes with the rules bump, not before.
+
+## Owner decisions, 2026-11-11
+
+These bind the quest cards and level up (rules 133, package 4).
+
+1. One button: "Select a card get one button is the whole design… there
+   should never be two buttons on one dialog." No second button for any
+   selection. New actions arrive as cards.
+2. Every offer is a card: "when a location, item, or avatar offers a quest it
+   shows a quest card that can be tapped." The level-up offer is a card too
+   ("Agreed").
+3. After Talk: "AFTER talking to someone the first time show an 'accept
+   quest' card that is something to help that resident achieve their desire,
+   include it in the talk context etc." And: "talking 'has a chance' to
+   unlock a quest from a resident".
+4. A player's quest is always taken by a tap, never drawn or pushed. While one
+   is held, taking another is unavailable, with the reason as the button's
+   label, and nothing is replaced.
+5. Level up: at the XP threshold a level-up quest card appears; taking it makes
+   the player's quest Sleep at home (each avatar has its own home; Vale's is
+   the Mirror attic; a home rests its owner). The sleep pays no XP. Discarding
+   Sleep at home costs XP and drops the player to just under the threshold, so
+   the card does not come straight back. Discarding an ordinary quest is free.
+6. Long-rest dreams (the glimpse) stay.
+7. Homecoming is "Take quest" on the avatar's home box; Pip's lamp on `/pip`
+   is an accept-quest card after his Talk; both starter wants stay.
+
+Assumed, owner may change (proposed by the orchestrator, seen and not
+objected to):
+
+- The chance on Talk is rolled per resident per visit, seeded, and fixed until
+  either leaves the place or a day passes; it is not rolled per press.
+- Trust moves the odds: a resident who trusts the traveler at all (trust 1 or
+  more) always offers; a stranger offers by chance (50 in a hundred,
+  `OFFER_ODDS`).
+- The chance applies to residents only. A locked box always shows its quest
+  card. (Also assumed: a hub starter want, Pip's lamp or the keeper's bell,
+  is always offered.)
+- A box whose place the avatar has already stood in pays no opening XP, so the
+  mirror back to the attic does not pay Vale for returning home.
 
 ## Already decided earlier
 
@@ -402,29 +443,41 @@ they open, more of what is in front of the player is people and what they
 want. ("Until they're all unlocked" is not read per world: a generated
 world keeps adding boxes, so that day might never come.)
 
-### A player's want is always taken by a tap
+### A player's want is always taken by a tap on a quest card
 
 A player holds one want at a time. None is drawn and none is handed over.
-Each source is a named button in the existing action row, on a card the
-player has selected. No new UI.
+Each source is a quest card on the table (owner, 2026-11-11: "when a
+location, item, or avatar offers a quest it shows a quest card that can be
+tapped"). Selecting the card gives the one context button. No new UI.
 
-| Where the player is | Selected | Button | What taking it does |
+| Where the player is | The card | Button | What taking it does |
 | --- | --- | --- | --- |
-| Where a locked box lies | the locked box | **Take quest** | The box's want becomes the player's. No turn passes. Today's `gate` play (`world.mjs:1615`, `:3001`), for every box |
-| With a resident, after Talk with them there | that resident | **Accept quest**, beside Talk | The want they said becomes the player's: give it to them, bring them there, or bring them to that person (`questFor`, `talk-quest.mjs:33`). No turn passes |
-| Anywhere, with XP enough for the next level | the player's own avatar card | **Take level up quest** | The player's want becomes Sleep at home |
-| A non-Vale avatar's new world | its home, a locked box | **Take quest** | Homecoming: bring the belonging home |
-| `/pip` | Pip, after his Talk | **Accept quest** | Pip's lamp |
+| Where a locked box lies | `quest:box:<box>` | **Take quest** | The box's want becomes the player's. No turn passes |
+| With a resident, after Talk with them there, if they offer | `quest:from:<resident>` | **Accept quest** | The want they said becomes the player's: give it to them, bring them there, or bring them to that person (`questFor`, `talk-quest.mjs`). No turn passes |
+| Anywhere, with XP enough for the next level | `quest:level` | **Take level up quest** | The player's want becomes Sleep at home |
+| At a non-Vale avatar's home door, a locked box | `quest:home:<home>` | **Take quest** | Homecoming: bring the belonging home |
+| `/pip` | `quest:from:moth` | **Accept quest** | Pip's lamp (a hub starter want, always offered) |
 
 - *Talk reveals, the tap takes.* Talk says a resident's desire as dialogue.
   Accept quest makes it the player's want.
 - *Accept quest* is offered after the player's first Talk with that
-  resident since arriving in that place, until either leaves or that want
-  changes. Coming back needs a new Talk.
-- *While a want is held* these buttons stay in the row, disabled, and the
-  label says why ("Finish or discard your quest first"). Nothing is
-  replaced. Discard is free, except Sleep at home.
-- *The quest card* sits where the quest fold sits today, one card.
+  resident since arriving in that place, if they offer (the chance rule
+  below), until either leaves, a day passes, or that want changes. Coming
+  back needs a new Talk.
+- *The chance.* Talk rolls once per resident per visit whether they offer;
+  repeated Talk keeps the roll. Trust of 1 or more, or a hub starter want,
+  always offers. Saved as `actor.offered[resident] = {at, day, open}`
+  (`offer-chance.mjs`); the record lapses when either leaves `at` or the day
+  turns. When the resident would take help, their want line in the Talk
+  context ends "I would be glad of your help." (`wantFact`).
+- *While a want is held* every card stays, its button disabled and its label
+  the reason ("Finish or discard your quest first"). Nothing is replaced. The
+  `take` play is not offered then. Discard is free, except Sleep at home.
+- *Level up* offers `quest:level` from the experience of the next level
+  (`questXp`). Sleep at home is a place want at `homeOf(actor)` with a rest
+  step, met by a long rest there (`restsAt`: a sanctuary rests anyone, a
+  human avatar's own home rests it). Discarding it costs the XP that leaves
+  the player at `questXp(level) - 1`, just under the threshold.
 
 What reaches a player without a tap today, and what becomes of it:
 
@@ -627,7 +680,22 @@ Slice 10, less the `choose` removal (package 1). `wants` on a pack resident
   (`settleSealedItems`). One XP, once per avatar, through `creditOpened`.
 - *Not built.* The burial and RatiRadio arcs as staged wants and Patroclus are
   pack content (slice 11). A staged resident does not drop a drawn want for a
-  newly eligible entry. A staged want is not offered as a quest yet (package 4).
+  newly eligible entry. A staged want the resident holds is offered like any
+  other once told (package 4: it is `a.want`, so Accept quest reads it).
+
+### Built in rules 133, package 4: quest cards and level up
+
+`world/offers.mjs` is the one list of quest offers: `questOffers(s, actor)` ->
+`[{id, kind: "box"|"resident"|"home"|"level", source, want, label, blocked}]`
+for the actor's place. `{kind: "take", offer: id}` is the one play (no turn;
+`gate` is gone, its log verb stays in the validator whitelist for old logs;
+the new log verb is `quest`). It is offered only when it can succeed;
+`blocked` is the reason for the card's disabled button. `offer-chance.mjs`
+holds the Talk roll. `world/home.mjs` holds `homeOf` and `restsAt`. Level up
+is slice 8; homecoming as Take quest is the quest half of slice 9 (the home
+door is the package 2 crossing box). Pip's lamp is offered because a hub
+starter want is always unlocked; the client still has to draw the card on
+`/pip`. An offer whose quest is the quest in hand is left out.
 
 ### With the rules bump: the Theban-response branch
 
