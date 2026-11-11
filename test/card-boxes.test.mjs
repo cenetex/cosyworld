@@ -36,14 +36,10 @@ import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import { greekErrands } from "./helpers/greek-opening.mjs";
 import { greekTravelTargets } from "./helpers/greek-travel.mjs";
 
-// Lock view fixture: the Argos tomb is a place with its own `requires`, so
-// today its route is left out of the hand. A seal on the route draws it. The
-// memos in the rules read this on first use, so patch before any play.
-const greek = packDefinitions.find((pack) => pack.id === "greek-drama");
-const tombRoute = greek.routes.find(
-  (r) => r.from === "greek-argolid-road" && r.to === "greek-argos-tomb",
-);
-tombRoute.sealed = { reason: "The account of Aeschylus opens this way." };
+// Lock view: the Argos tomb is a place with its own `requires`; its route
+// carries a seal in the Greek pack (rules 133), so it is drawn shut.
+const TOMB_REASON =
+  "Give Ismene the Record of the House of Atreus to follow the tomb account.";
 
 const walk = (s, place) =>
   greekTravelTargets(s.actors.vale.place, `greek-${place}`).reduce(
@@ -151,14 +147,15 @@ describe("the lock view", () => {
     const world = atRoad();
     expect(entityActive(world, "greek-argos-tomb")).toBe(false);
     expect(entityShown(world, "greek-argos-tomb")).toBe(true);
-    expect(boxesAt(world, "greek-argolid-road")).toEqual([
-      expect.objectContaining({
-        id: "greek-argos-tomb",
-        kind: "way",
-        open: false,
-        reason: "The account of Aeschylus opens this way.",
-      }),
-    ]);
+    expect(
+      boxesAt(world, "greek-argolid-road").find(
+        (box) => box.id === "greek-argos-tomb",
+      ),
+    ).toMatchObject({
+      kind: "way",
+      open: false,
+      reason: TOMB_REASON,
+    });
     expect(availableCards(world)).toContain("greek-argos-tomb");
     expect(isLockedBox(world, "greek-argos-tomb")).toBe(true);
     // It cannot be entered, talked to or acted on.
@@ -183,10 +180,11 @@ describe("the lock view", () => {
     expect(exits(world, "greek-argolid-road", "vale")).toContain(
       "greek-argos-tomb",
     );
-    expect(boxesAt(world, "greek-argolid-road")[0]).toMatchObject({
-      id: "greek-argos-tomb",
-      open: true,
-    });
+    expect(
+      boxesAt(world, "greek-argolid-road").find(
+        (box) => box.id === "greek-argos-tomb",
+      ),
+    ).toMatchObject({ open: true });
     expect(isLockedBox(world, "greek-argos-tomb")).toBe(false);
   });
   it("keeps the old sealed-ways list and the box list in step", () => {
@@ -243,7 +241,11 @@ describe("lanes", () => {
     world.packs["greek-drama"].scope = "full";
     world.actors.vale.place = "greek-ship";
     expect(world.transports["greek-ship"].dock).toBe("greek-harbor");
-    expect(boxesAt(world, "greek-ship")).toEqual([
+    // Patroclus's sealed card lies there too (rules 133): the lane's box is
+    // the one under test.
+    expect(
+      boxesAt(world, "greek-ship").filter((box) => box.kind === "lane"),
+    ).toEqual([
       expect.objectContaining({
         id: "greek-piraeus",
         kind: "lane",
@@ -330,61 +332,71 @@ describe("XP for opening a box", () => {
     const id = (name) => `ratiradio-${name}`;
     const home = id("listening-room");
     if (!packPeople[id("rati")]) return;
-    const s = createWorld({ seed: 17 });
-    for (const [item, entry] of Object.entries(
-      packDefinition("ratiradio").items,
-    ))
-      if (entry.scatterOutside) s.items[item].holder = entry.holder;
-    s.items[id("thermos")].holder = id("staff-kitchen");
-    s.actors.vale.place = "pond";
-    for (const item of Object.values(s.items))
-      if (item.holder === "vale") item.holder = "pond";
-    const steps = [
-      ["take", id("station-key")],
-      ["move", "station"],
-      ["move", id("staff-kitchen")],
-      ["drop", id("station-key")],
-      ["take", id("red-beanie"), id("dispatch-window")],
-      ["take", id("thermos")],
-      ["move", id("dispatch-window")],
-      ["drop", id("thermos"), id("listening-room")],
-      ["take", id("thermos")],
-      ["move", home],
-      ["drop", id("red-beanie")],
-      ["take", id("raven-figurine")],
-      ["gather", id("rati")],
-      ["talk", id("rati"), id("broadcast-booth")],
-      ["move", id("broadcast-booth")],
-      ["take", id("glass")],
-      ["move", home],
-      ["drop", id("glass")],
-      ["drop", id("raven-figurine"), id("raven")],
-    ];
-    let world = s;
-    for (const [kind, target, paid] of steps) {
-      if (kind === "gather") {
-        world.actors[target].place = world.actors.vale.place;
-        continue;
+    // This counts the boxes only. RATi's staged keepsake wants (rules 133)
+    // also pay a helper's XP when a keepsake comes home; they have their own
+    // test (card-greek-staged), so he wants nothing here.
+    const staged = packPeople[id("rati")].wants;
+    delete packPeople[id("rati")].wants;
+    try {
+      const s = createWorld({ seed: 17 });
+      s.actors[id("rati")].want = null;
+      for (const [item, entry] of Object.entries(
+        packDefinition("ratiradio").items,
+      ))
+        if (entry.scatterOutside) s.items[item].holder = entry.holder;
+      s.items[id("thermos")].holder = id("staff-kitchen");
+      s.actors.vale.place = "pond";
+      for (const item of Object.values(s.items))
+        if (item.holder === "vale") item.holder = "pond";
+      const steps = [
+        ["take", id("station-key")],
+        ["move", "station"],
+        ["move", id("staff-kitchen")],
+        ["drop", id("station-key")],
+        ["take", id("red-beanie"), id("dispatch-window")],
+        ["take", id("thermos")],
+        ["move", id("dispatch-window")],
+        ["drop", id("thermos"), id("listening-room")],
+        ["take", id("thermos")],
+        ["move", home],
+        ["drop", id("red-beanie")],
+        ["take", id("raven-figurine")],
+        ["gather", id("rati")],
+        ["talk", id("rati"), id("broadcast-booth")],
+        ["move", id("broadcast-booth")],
+        ["take", id("glass")],
+        ["move", home],
+        ["drop", id("glass")],
+        ["drop", id("raven-figurine"), id("raven")],
+      ];
+      let world = s;
+      for (const [kind, target, paid] of steps) {
+        if (kind === "gather") {
+          world.actors[target].place = world.actors.vale.place;
+          continue;
+        }
+        const before = world.actors.vale.xp;
+        world = act(
+          world,
+          kind,
+          kind === "talk" || kind === "move" ? { target } : { item: target },
+        );
+        expect(world.actors.vale.xp - before, `${kind} ${target}`).toBe(
+          paid ? 1 : 0,
+        );
+        if (paid) expect(world.opened[paid]).toContain("vale");
       }
-      const before = world.actors.vale.xp;
-      world = act(
-        world,
-        kind,
-        kind === "talk" || kind === "move" ? { target } : { item: target },
+      expect(Object.keys(world.opened).sort()).toEqual(
+        [
+          id("broadcast-booth"),
+          id("dispatch-window"),
+          id("listening-room"),
+          id("raven"),
+        ].sort(),
       );
-      expect(world.actors.vale.xp - before, `${kind} ${target}`).toBe(
-        paid ? 1 : 0,
-      );
-      if (paid) expect(world.opened[paid]).toContain("vale");
+    } finally {
+      packPeople[id("rati")].wants = staged;
     }
-    expect(Object.keys(world.opened).sort()).toEqual(
-      [
-        id("broadcast-booth"),
-        id("dispatch-window"),
-        id("listening-room"),
-        id("raven"),
-      ].sort(),
-    );
   });
 });
 

@@ -45,14 +45,11 @@ describe("the Cithaeron road from the Exposed Battlefield", () => {
     const old = atBattlefield();
     old.packs[PACK].revision = 22;
     expect(flagMet(old, "greek-burial-performed")).toBe(false);
-    expect(flagMet(old, "greek-guard-warned")).toBe(false);
     expect(old.items["greek-creon-writ"].holder).toBe("greek-creon");
-    expect(old.items["greek-guard-tablet"].holder).toBe("greek-gate");
 
     const current = reload(old);
     expect(current.packs[PACK].revision).toBe(packDefinition(PACK).revision);
     expect(flagMet(current, "greek-burial-performed")).toBe(false);
-    expect(flagMet(current, "greek-guard-warned")).toBe(false);
     for (const actor of ["vale", "greek-antigone"])
       expect(exits(current, FIELD, actor)).toContain(ROAD);
   });
@@ -80,7 +77,7 @@ describe("the Cithaeron road from the Exposed Battlefield", () => {
     const flags = structuredClone(old.packs[PACK].flags);
     const receipts = structuredClone(old.packs[PACK].receipts);
     const items = Object.fromEntries(
-      ["greek-burial-account", "greek-creon-writ", "greek-guard-tablet"].map(
+      ["greek-burial-account", "greek-creon-writ"].map(
         (id) => [id, old.items[id].holder],
       ),
     );

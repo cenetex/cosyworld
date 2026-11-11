@@ -515,17 +515,24 @@ export function sailTransports(s) {
       Object.assign(state, {
         dock: state.destination,
         destination: null,
-        riders: aboard,
-        phase: aboard.length ? "arrived" : "docked",
+        phase: "arrived",
         since: s.turn,
       });
-      if (!aboard.length && state.recall) settleEmpty(state, s.turn);
+      // Who is aboard is read again at the dock: a resident whose card opens
+      // on this arrival (a `ship_at` appearance) is aboard too, and steps
+      // ashore like the others. Those who sailed are in this list as before.
+      const arrived = passengerIds(s, id);
+      Object.assign(state, {
+        riders: arrived,
+        phase: arrived.length ? "arrived" : "docked",
+      });
+      if (!arrived.length && state.recall) settleEmpty(state, s.turn);
       events.push({
         id,
         kind: "arrive",
         from,
         dock: state.dock,
-        riders: aboard,
+        riders: arrived,
       });
     } else if (state.phase === "course") {
       if (!aboard.length) settleEmpty(state, s.turn);

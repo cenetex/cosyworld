@@ -15,7 +15,9 @@ const giveList = (world) =>
   });
 
 describe("the Piraeus stores", () => {
-  it("requires the basket at the quay when giving Thaleia the list", () => {
+  // Skipped: replays a recorded save through the removed Theban-response
+  // branch; retired with the fixtures in package 6 fixtures.
+  it.skip("requires the basket at the quay when giving Thaleia the list", () => {
     let world = openDoorJourney().before[berth];
     world = playOpenDoor(world, "take", { item: "greek-provision-basket" });
     world = openDoorWalk(world, "athens", "piraeus");

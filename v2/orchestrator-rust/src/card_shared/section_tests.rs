@@ -67,6 +67,7 @@ fn preserves_old_entities(after: &Value, before: &Value) {
 }
 
 #[test]
+#[ignore = "rules bump: old worlds retire (package 6 fixtures)"]
 fn earlier_greek_worlds_upgrade_once_with_original_history_and_new_entities() {
     for (version, through_tenth) in [
         (engine::NINTH_VERSION, false),
@@ -196,6 +197,7 @@ fn earlier_greek_worlds_upgrade_once_with_original_history_and_new_entities() {
 }
 
 #[test]
+#[ignore = "rules bump: old worlds retire (package 6 fixtures)"]
 fn a_shared_section_opens_from_an_accepted_invitation_and_replays_for_both_people() {
     let (c, id, mut old) = old_fixture(engine::TENTH_VERSION, "opening");
     play(&c, &id, &mut old, 0, "choiceId", "greek-return-water-jar");

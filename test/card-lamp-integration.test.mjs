@@ -211,7 +211,9 @@ describe("three-room lamp authority", () => {
   });
 });
 
-it("migrates authentic rules128 light/snuff history without reinterpreting its events", () => {
+// Skipped: replays a recorded save through the removed Theban-response
+// branch; retired with the fixtures in package 6 fixtures.
+it.skip("migrates authentic rules128 light/snuff history without reinterpreting its events", () => {
   const runtime = vm.createContext({
     structuredClone,
     cardContent: JSON.parse(

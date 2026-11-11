@@ -545,6 +545,15 @@ whose `when` holds may surface, the seeded draw picks among them, and
 authored order only breaks ties. Nothing is saved: it is read from the
 world each turn, like `homeWhen`.
 
+Owner direction, 2026-11-11: Antigone's home is the burial Hollow, not the
+gate: "she just can't get there while the gate is locked". Her `home` is
+`greek-polynices-hollow` and the scripted `homeWhen` is gone; she starts at the
+gate with `range: 0` and walks home by the ordinary resident rules once the gate
+is open and the Hollow's way is open (the Shade's word). She does not yet fetch
+and carry the oil, cloth and shovel: a place want with a lay step is planned as a
+plain walk (`world.mjs` `wantPlan`), with no take, carry or lay (next rules
+batch).
+
 - *Burial.* Antigone at the gate, once the guard holds the Writ, may say
   she wants to be at the Hollow, or that she wants the oil, the cloth and
   the shovel laid there. Bringing her, or bringing the things, each meets a
@@ -774,6 +783,25 @@ What worked in a prototype that put him at the Wine-Dark Harbor quay:
   intact: after the burial the wheat sits at Piraeus, and bread by play is
   provisions, Piraeus, wheat, ride back, water jar and wheat to Dione, take
   bread. Sailing consumes nothing (rules 102).
+
+Owner decisions, 2026-11-11. "I would start him at trust 3": the meeting sets
+his trust to 3 (`{kind: "trust", level: 3}`), so he accompanies from the meeting
+and the bread gift adds nothing to trust (capped at 3; it still meets his want
+and pays). And "Patroclus card unlocks on the Charybdis when you are docked at
+piraeus with the supplies aboard": this replaces "aboard on the route after the
+burial". He is a sealed card of the Charybdis. His `appearsWhen` reads the ship
+at Piraeus (`ship_at`) and the provisions on deck (`item_at`), each or the flag
+`greek-patroclus-met`; the meeting choice sets that flag, so the unlock latches
+and he stays when the provisions go or the ship sails. Built in pack data only.
+Two small generic rules changes in 133 make this work. A resident whose card
+opens on a ship's arrival counts as a rider of that arrival, so he steps ashore
+like the others (`pack-transport.mjs` `sailTransports`). And a resident's want
+clock starts when he first becomes active: an absent or shut resident's want is
+kept fresh, so it is not set aside the moment he appears (`want.mjs`
+`reviseStalledWants`). The meeting is `greek-meet-patroclus` at Piraeus Quays: a
+meeting is applied inside a play that is not a Wait, before the world round,
+and the ship docks and he steps ashore in the round, so it fires on the
+traveler's next play that is not a Wait (a Talk, a Take, a Give).
 
 Not tested: at trust 0 an invitation is accepted while the player carries the
 bread (the want is served), so the decline case needs a player without bread;

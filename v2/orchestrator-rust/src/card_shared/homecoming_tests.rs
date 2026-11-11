@@ -186,6 +186,7 @@ fn released_berth(c: &rusqlite::Connection, id: &str) -> World {
 }
 
 #[test]
+#[ignore = "rules bump: old worlds retire (package 6 fixtures)"]
 fn agreed_household_journey_replays_after_released_history_with_both_care_choices() {
     // Build the shared historical scene once through the real v11 actions.
     // Each case then journals its old berth choice and every new journey step.

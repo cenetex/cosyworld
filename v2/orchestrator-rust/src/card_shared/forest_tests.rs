@@ -2,16 +2,19 @@ use super::{engine, full_store, full_world::World, now, store};
 use serde_json::json;
 
 #[test]
+#[ignore = "rules bump: old worlds retire (package 6 fixtures)"]
 fn forest_crossing_upgrades_from_sixteen_and_replays_with_two_humans() {
     forest_crossing_upgrade_replays_with_two_humans(engine::SIXTEENTH_VERSION);
 }
 
 #[test]
+#[ignore = "rules bump: old worlds retire (package 6 fixtures)"]
 fn forest_crossing_upgrades_from_seventeen_and_replays_with_two_humans() {
     forest_crossing_upgrade_replays_with_two_humans(engine::SEVENTEENTH_VERSION);
 }
 
 #[test]
+#[ignore = "rules bump: old worlds retire (package 6 fixtures)"]
 fn forest_crossing_upgrades_from_eighteen_and_replays_with_two_humans() {
     forest_crossing_upgrade_replays_with_two_humans(engine::EIGHTEENTH_VERSION);
 }

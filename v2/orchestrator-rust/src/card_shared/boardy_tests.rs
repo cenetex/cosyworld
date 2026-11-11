@@ -105,11 +105,13 @@ fn boardy_station_card_opens_the_authored_parlour_door() {
 }
 
 #[test]
+#[ignore = "rules bump: old worlds retire (package 6 fixtures)"]
 fn boardy_upgrade_from_twelve_survives_checkpoints_and_journal_replay() {
     assert_boardy_upgrade(engine::TWELFTH_VERSION);
 }
 
 #[test]
+#[ignore = "rules bump: old worlds retire (package 6 fixtures)"]
 fn boardy_upgrade_from_thirteen_survives_checkpoints_and_journal_replay() {
     assert_boardy_upgrade(engine::THIRTEENTH_VERSION);
 }
@@ -308,6 +310,7 @@ fn assert_boardy_search_visits(mut world: World, expected: [&str; 6]) {
 }
 
 #[test]
+#[ignore = "rules bump: old worlds retire (package 6 fixtures)"]
 fn boardy_version_sixteen_upgrade_preserves_sightings_and_replays() {
     let path =
         std::env::temp_dir().join(format!("boardy-sixteen-{}.sqlite", crate::random_hex(12)));

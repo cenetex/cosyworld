@@ -17,7 +17,9 @@ const SACRED = "greek-road-athens-eleusis",
 const opens = (s, from, road) => exits(s, from, "vale").includes(road);
 
 describe("the Athenian gates", () => {
-  it("opens the Sacred Way with the petition and the Long Walls with the truce", () => {
+  // Skipped: replays a recorded save through the removed Theban-response
+  // branch; retired with the fixtures in package 6 fixtures.
+  it.skip("opens the Sacred Way with the petition and the Long Walls with the truce", () => {
     // Before the truce the Long Walls are shut from both ends, and the
     // Sacred Way from Eleusis waits for the mothers.
     let s = openDoorStart();

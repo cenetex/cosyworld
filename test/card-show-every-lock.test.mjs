@@ -25,35 +25,10 @@ const source = (pack) =>
   );
 
 // A gated route or conditional resident that is not drawn as a locked box.
-const IN_PLACE = (what) => `its place carries ${what}, so it is off the table`;
 const LEFT_HIDDEN = {
   // The guard already draws his way (rules 100); not a seal.
   "greek-drama": {
     "greek-gate>greek-battlefield": "guarded way, drawn by its guard",
-    "greek-harbor>greek-egypt-tomb": IN_PLACE("the same choice"),
-    "greek-harbor>greek-troy-beach": IN_PLACE("the same choice"),
-    "greek-argolid-road>greek-argos-tomb": IN_PLACE("the same choice"),
-    "greek-argolid-road>greek-mycenae-palace": IN_PLACE("the same choice"),
-    "greek-argolid-road>greek-argive-farm": IN_PLACE("the same choice"),
-    "greek-argos-tomb>greek-argos-palace": IN_PLACE("the same choice"),
-    "greek-helen-egypt": IN_PLACE("the same choice"),
-    "greek-menelaus-egypt": IN_PLACE("the same choice"),
-    "greek-helen-troy": IN_PLACE("the same choice"),
-    "greek-menelaus-troy": IN_PLACE("the same choice"),
-    "greek-electra-aeschylus": IN_PLACE("the same choice"),
-    "greek-orestes-aeschylus": IN_PLACE("the same choice"),
-    "greek-electra-sophocles": IN_PLACE("the same choice"),
-    "greek-orestes-sophocles": IN_PLACE("the same choice"),
-    "greek-electra-euripides": IN_PLACE("the same choice"),
-    "greek-orestes-euripides": IN_PLACE("the same choice"),
-    "greek-aethra": IN_PLACE("the same flag, through its section"),
-    "greek-adrastus": IN_PLACE("the same flag, through its section"),
-    "greek-theseus": IN_PLACE("the same flag, through its section"),
-    "greek-colonus-keeper": IN_PLACE("the same flag, through its section"),
-    "greek-marathon-keeper": IN_PLACE("the same flag, through its section"),
-    "greek-ajax-tecmessa": IN_PLACE("the same flag"),
-    "greek-ajax-teucer": IN_PLACE("the same flag, through its section"),
-    "greek-ajax-odysseus": IN_PLACE("the same flag, through its section"),
   },
   // The owner paused this pack (hoppycat-paused): its boxes stay as they are.
   "hoppycat-archive": {
@@ -176,7 +151,7 @@ describe("Greek gated ways are drawn locked and open on their old condition", ()
 
 describe("Greek conditional residents are locked boxes that cannot be played", () => {
   const rows = [
-    ["greek-quay-host", "greek-piraeus", [], /funeral.*give Dione.*account/u],
+    ["greek-quay-host", "greek-piraeus", [], /Polynices is buried/u],
     [
       "greek-argive-mother",
       "greek-eleusis",
@@ -226,7 +201,9 @@ describe("Greek conditional residents are locked boxes that cannot be played", (
     expect(entityActive(s, "greek-aethra")).toBe(true);
   });
 
-  it.each(["burial", "concession"])(
+  // Skipped: replays a recorded save through the removed Theban-response
+  // branch; retired with the fixtures in package 6 fixtures.
+  it.skip.each(["burial", "concession"])(
     "names Dione's report for an earlier %s save",
     (branch) => {
       const s = openingFixture(branch, {

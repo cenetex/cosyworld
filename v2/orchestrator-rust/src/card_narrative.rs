@@ -3832,7 +3832,7 @@ pub(crate) mod tests {
         value["entities"][3]["facts"] = json!([]);
         value["entities"][3]["poem"] = json!({
             "title":"Before the Burial",
-            "stanzas":[{"id":"greek-report-plan","turn":1,"authorId":"vale","authorName":"Vale"}]
+            "stanzas":[{"id":"greek-return-water-jar","turn":1,"authorId":"vale","authorName":"Vale"}]
         });
         value["entities"][3]["memories"] = json!([]);
         serde_json::from_value(value).unwrap()
@@ -3884,11 +3884,9 @@ pub(crate) mod tests {
             .iter()
             .find(|pack| pack["id"] == "greek-drama")
             .unwrap()["recital"];
-        for (choice, buried, permitted) in [
-            ("greek-perform-burial", true, false),
-            ("greek-petition-burial", false, true),
-            ("greek-perform-permitted-burial", true, true),
-            ("greek-report-plan", false, false),
+        for (choice, buried) in [
+            ("greek-bury-polynices", true),
+            ("greek-return-water-jar", false),
         ] {
             let mut c = bard_context();
             c.entities[3].poem = Some(
@@ -3905,13 +3903,10 @@ pub(crate) mod tests {
                 buried,
                 "{choice}"
             );
-            assert_eq!(
-                check
-                    .clean("The king gave permission for this one grave.", true)
-                    .is_ok(),
-                permitted,
-                "{choice}"
-            );
+            // No verse claims Creon's leave any more: nothing can make it true.
+            assert!(check
+                .clean("The king gave permission for this one grave.", true)
+                .is_ok());
             assert!(check
                 .clean("I wonder what that choice will mean tomorrow.", true)
                 .is_ok());

@@ -2951,7 +2951,7 @@
               "greek-eleusis"
             ],
             backdrop: "assets/greek-drama/bacchae-cithaeron-day.webp",
-            persona: "A shared road over Cithaeron between The Exposed Battlefield and Eleusinian Sanctuary. The left end always leads to The Exposed Battlefield. The right end always leads to Eleusinian Sanctuary. From the battlefield it opens only while a Theban account of the burial is there or on Dione\u2019s table: the Burial Account, Creon\u2019s Writ or the Guard\u2019s Tablet. Travelers can meet, talk, rest and carry their belongings here.",
+            persona: "A shared road over Cithaeron between The Exposed Battlefield and Eleusinian Sanctuary. The left end always leads to The Exposed Battlefield. The right end always leads to Eleusinian Sanctuary. It stays open both ways. Travelers can meet, talk, rest and carry their belongings here.",
             road: [
               "greek-battlefield",
               "greek-eleusis"
@@ -3941,71 +3941,48 @@
             startLevel: 20,
             text: "Dust marks the hem of her dress. She keeps looking toward the battlefield.",
             place: "greek-gate",
-            home: "greek-gate",
+            home: "greek-polynices-hollow",
             seed: "Antigone, daughter of Oedipus.",
             portrait: "assets/greek-drama/chthonic-antigone.png",
-            want: {
-              kind: "place",
-              target: "greek-polynices-hollow",
-              step: {
-                verb: "lay",
-                items: [
-                  "greek-oil-flask",
-                  "greek-funeral-cloth",
-                  "greek-shovel"
-                ],
-                finish: "greek-burial-performed"
+            wants: [
+              {
+                want: {
+                  kind: "place",
+                  target: "greek-polynices-hollow",
+                  step: {
+                    verb: "lay",
+                    items: [
+                      "greek-oil-flask",
+                      "greek-funeral-cloth",
+                      "greek-shovel"
+                    ],
+                    finish: "greek-burial-performed"
+                  }
+                }
+              },
+              {
+                want: {
+                  kind: "place",
+                  target: "greek-polynices-hollow"
+                },
+                when: [
+                  {
+                    kind: "holding",
+                    item: "greek-creon-writ",
+                    actor: "greek-guard"
+                  },
+                  {
+                    kind: "flag",
+                    key: "greek-burial-performed",
+                    value: false
+                  }
+                ]
               }
-            },
+            ],
             tastes: {
               likes: "practical help, care for the dead",
               sore: "being told that family grief is an inconvenience",
               reason: "Dust marks the hem of her dress. She keeps looking toward the battlefield."
-            },
-            homeWhen: {
-              place: "greek-polynices-hollow",
-              requires: [
-                {
-                  kind: "any",
-                  conditions: [
-                    {
-                      kind: "holding",
-                      item: "greek-creon-writ",
-                      actor: "greek-guard"
-                    },
-                    {
-                      kind: "flag",
-                      key: "greek-burial-performed",
-                      value: true
-                    }
-                  ]
-                },
-                {
-                  kind: "any",
-                  conditions: [
-                    {
-                      kind: "flag",
-                      key: "greek-polynices-heard",
-                      value: true
-                    },
-                    {
-                      kind: "flag",
-                      key: "greek-polynices-anointed",
-                      value: true
-                    },
-                    {
-                      kind: "flag",
-                      key: "greek-polynices-veiled",
-                      value: true
-                    },
-                    {
-                      kind: "flag",
-                      key: "greek-burial-performed",
-                      value: true
-                    }
-                  ]
-                }
-              ]
             }
           },
           "greek-ismene": {
@@ -4248,6 +4225,10 @@
               likes: "being heard in her own words",
               sore: "others deciding her identity from a rumor",
               reason: "She checks the traveler's account against a witness tablet."
+            },
+            sealed: {
+              at: "greek-egypt-tomb",
+              reason: "Not here until Helen\u2019s Egyptian account is followed."
             }
           },
           "greek-menelaus-egypt": {
@@ -4270,6 +4251,10 @@
               likes: "a reliable witness, provisions for the crew",
               sore: "confident claims without a source",
               reason: "Salt stains his cloak. He has kept the ship's passenger tally."
+            },
+            sealed: {
+              at: "greek-egypt-tomb",
+              reason: "Not here until Helen\u2019s Egyptian account is followed."
             }
           },
           "greek-helen-troy": {
@@ -4293,6 +4278,10 @@
               likes: "being heard in her own words",
               sore: "others deciding her identity from a rumor",
               reason: "She checks the traveler's account against a witness tablet."
+            },
+            sealed: {
+              at: "greek-troy-beach",
+              reason: "Not here until Helen\u2019s Trojan account is followed."
             }
           },
           "greek-menelaus-troy": {
@@ -4315,6 +4304,10 @@
               likes: "a reliable witness, provisions for the crew",
               sore: "confident claims without a source",
               reason: "Salt stains his cloak. He has kept the ship's passenger tally."
+            },
+            sealed: {
+              at: "greek-troy-beach",
+              reason: "Not here until Helen\u2019s Trojan account is followed."
             }
           },
           "greek-electra-aeschylus": {
@@ -4337,6 +4330,10 @@
               likes: "testimony about her father, a relative who listens",
               sore: "silence demanded for the household's convenience",
               reason: "She has preserved an account of the household's losses."
+            },
+            sealed: {
+              at: "greek-argos-tomb",
+              reason: "Not here until the tomb account is followed."
             }
           },
           "greek-orestes-aeschylus": {
@@ -4359,6 +4356,10 @@
               likes: "evidence before an irreversible promise",
               sore: "being treated as an instrument of someone else's revenge",
               reason: "He has come to hear his sister before committing himself."
+            },
+            sealed: {
+              at: "greek-argos-tomb",
+              reason: "Not here until the tomb account is followed."
             }
           },
           "greek-electra-sophocles": {
@@ -4382,6 +4383,10 @@
               likes: "testimony about her father, a relative who listens",
               sore: "silence demanded for the household's convenience",
               reason: "She has preserved an account of the household's losses."
+            },
+            sealed: {
+              at: "greek-mycenae-palace",
+              reason: "Not here until the palace account is followed."
             }
           },
           "greek-orestes-sophocles": {
@@ -4405,6 +4410,10 @@
               likes: "evidence before an irreversible promise",
               sore: "being treated as an instrument of someone else's revenge",
               reason: "He has come to hear his sister before committing himself."
+            },
+            sealed: {
+              at: "greek-mycenae-palace",
+              reason: "Not here until the palace account is followed."
             }
           },
           "greek-electra-euripides": {
@@ -4427,6 +4436,10 @@
               likes: "testimony about her father, a relative who listens",
               sore: "silence demanded for the household's convenience",
               reason: "She has preserved an account of the household's losses."
+            },
+            sealed: {
+              at: "greek-argive-farm",
+              reason: "Not here until the farmhouse account is followed."
             }
           },
           "greek-orestes-euripides": {
@@ -4449,6 +4462,10 @@
               likes: "evidence before an irreversible promise",
               sore: "being treated as an instrument of someone else's revenge",
               reason: "He has come to hear his sister before committing himself."
+            },
+            sealed: {
+              at: "greek-argive-farm",
+              reason: "Not here until the farmhouse account is followed."
             }
           },
           "greek-aethra": {
@@ -4470,6 +4487,10 @@
               likes: "careful listening and help that reaches its owner",
               sore: "promises treated as finished deeds",
               reason: "Olive branches rest across her knees. She makes room for the mothers beside Demeter\u2019s altar."
+            },
+            sealed: {
+              at: "greek-eleusis",
+              reason: "Not here until Polynices is buried."
             }
           },
           "greek-adrastus": {
@@ -4491,6 +4512,10 @@
               likes: "careful listening and help that reaches its owner",
               sore: "promises treated as finished deeds",
               reason: "Dust lies in the folds of his cloak. His hands rest beside the names of the fallen."
+            },
+            sealed: {
+              at: "greek-eleusis",
+              reason: "Not here until Polynices is buried."
             }
           },
           "greek-argive-mother": {
@@ -4573,6 +4598,10 @@
               likes: "careful listening and help that reaches its owner",
               sore: "promises treated as finished deeds",
               reason: "A petition table stands beside him. He waits for the mothers\u2019 own account."
+            },
+            sealed: {
+              at: "greek-athens",
+              reason: "Not here until Polynices is buried."
             }
           },
           "greek-quay-host": {
@@ -4597,7 +4626,7 @@
             },
             sealed: {
               at: "greek-piraeus",
-              reason: "Finish the funeral at the Hollow, or give Dione an earlier Theban account."
+              reason: "Not here until Polynices is buried."
             }
           },
           "greek-colonus-keeper": {
@@ -4619,6 +4648,10 @@
               likes: "careful listening and help that reaches its owner",
               sore: "promises treated as finished deeds",
               reason: "The keeper sets a cup beside the boundary stone. A pot of honey catches the light."
+            },
+            sealed: {
+              at: "greek-colonus",
+              reason: "Not here until Polynices is buried."
             }
           },
           "greek-marathon-keeper": {
@@ -4640,6 +4673,10 @@
               likes: "careful listening and help that reaches its owner",
               sore: "promises treated as finished deeds",
               reason: "The keeper smooths a place for a blanket beside the altar. A small bowl rests inside the shelter."
+            },
+            sealed: {
+              at: "greek-marathon",
+              reason: "Not here until Polynices is buried."
             }
           },
           "greek-household-witness": {
@@ -4706,6 +4743,10 @@
               likes: "a deed carried through with its witnesses",
               sore: "a promise called a finished burial",
               reason: "Ajax\u2019s household and burial are at issue in this named Trojan account."
+            },
+            sealed: {
+              at: "greek-ajax-household",
+              reason: "Not here until the Trojan camp\u2019s invitation is accepted."
             }
           },
           "greek-ajax-teucer": {
@@ -4728,6 +4769,10 @@
               likes: "a deed carried through with its witnesses",
               sore: "a promise called a finished burial",
               reason: "Ajax\u2019s household and burial are at issue in this named Trojan account."
+            },
+            sealed: {
+              at: "greek-greek-camp",
+              reason: "Not here until the Trojan camp\u2019s invitation is accepted."
             }
           },
           "greek-ajax-odysseus": {
@@ -4751,6 +4796,10 @@
               likes: "a deed carried through with its witnesses",
               sore: "a promise called a finished burial",
               reason: "Ajax\u2019s household and burial are at issue in this named Trojan account."
+            },
+            sealed: {
+              at: "greek-greek-camp",
+              reason: "Not here until the Trojan camp\u2019s invitation is accepted."
             }
           },
           "greek-polynices-shade": {
@@ -4790,6 +4839,82 @@
               likes: "care for his kin",
               sore: "the neglect of the dead",
               reason: "He asks that his sister be allowed to lay him to rest."
+            }
+          },
+          "greek-patroclus": {
+            name: "Patroclus",
+            text: "He sits against the mast with a coil of rope across his knees. He keeps looking toward Piraeus.",
+            place: "greek-ship",
+            home: "greek-piraeus",
+            values: {
+              "greek-bread": 2
+            },
+            seed: "Patroclus, a sailor from Piraeus.",
+            portrait: "assets/greek-drama/patroclus.png",
+            poses: [
+              {
+                portrait: "assets/greek-drama/patroclus-bread.png",
+                requires: [
+                  {
+                    kind: "holding",
+                    item: "greek-bread",
+                    actor: "greek-patroclus"
+                  }
+                ]
+              }
+            ],
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-burial-performed",
+                value: true
+              }
+            ],
+            want: {
+              kind: "item",
+              target: "greek-bread",
+              minTrust: 1
+            },
+            tastes: {
+              likes: "bread shared on deck, a steady voyage home",
+              sore: "being treated as cargo",
+              reason: "He sits against the mast with a coil of rope across his knees. He keeps looking toward Piraeus."
+            },
+            appearsWhen: [
+              {
+                kind: "any",
+                conditions: [
+                  {
+                    kind: "flag",
+                    key: "greek-patroclus-met",
+                    value: true
+                  },
+                  {
+                    kind: "ship_at",
+                    transport: "greek-ship",
+                    dock: "greek-piraeus"
+                  }
+                ]
+              },
+              {
+                kind: "any",
+                conditions: [
+                  {
+                    kind: "flag",
+                    key: "greek-patroclus-met",
+                    value: true
+                  },
+                  {
+                    kind: "item_at",
+                    item: "greek-provisions",
+                    place: "greek-ship"
+                  }
+                ]
+              }
+            ],
+            sealed: {
+              at: "greek-ship",
+              reason: "Not aboard until Polynices is buried and the Charybdis lies at Piraeus with provisions aboard."
             }
           }
         },
@@ -5242,20 +5367,6 @@
             holder: "greek-creon",
             art: "assets/greek-drama/creon-writ.webp"
           },
-          "greek-guard-tablet": {
-            name: "The Guard's Tablet",
-            text: "A wax tablet from the gate. It records a warning that the household meant to bury the brother.",
-            persona: "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
-            holder: "greek-gate",
-            art: "assets/greek-drama/guard-tablet.webp",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-guard-warned",
-                value: true
-              }
-            ]
-          },
           "greek-pyre-account": {
             name: "The Pyre Account",
             text: "Aethra\u2019s written account of the rite at Eleusis: the cloths, the urn in the mothers\u2019 care, and the losses beside the pyre.",
@@ -5369,7 +5480,15 @@
                 key: "greek-helen-account",
                 value: "egypt"
               }
-            ]
+            ],
+            sealed: {
+              quest: {
+                kind: "item",
+                target: "greek-helen-accounts",
+                to: "greek-shipmaster"
+              },
+              reason: "Give Myrto Helen\u2019s Account Tablet to follow the Egyptian account."
+            }
           },
           {
             from: "greek-egypt-tomb",
@@ -5384,7 +5503,15 @@
                 key: "greek-helen-account",
                 value: "troy"
               }
-            ]
+            ],
+            sealed: {
+              quest: {
+                kind: "item",
+                target: "greek-helen-accounts",
+                to: "greek-elder"
+              },
+              reason: "Give the Chorus Elder Helen\u2019s Account Tablet to follow the Trojan account."
+            }
           },
           {
             from: "greek-troy-beach",
@@ -5399,7 +5526,15 @@
                 key: "greek-atreid-account",
                 value: "aeschylus"
               }
-            ]
+            ],
+            sealed: {
+              quest: {
+                kind: "item",
+                target: "greek-atreid-record",
+                to: "greek-ismene"
+              },
+              reason: "Give Ismene the Record of the House of Atreus to follow the tomb account."
+            }
           },
           {
             from: "greek-argos-tomb",
@@ -5414,7 +5549,15 @@
                 key: "greek-atreid-account",
                 value: "sophocles"
               }
-            ]
+            ],
+            sealed: {
+              quest: {
+                kind: "item",
+                target: "greek-atreid-record",
+                to: "greek-creon"
+              },
+              reason: "Give Creon the Record of the House of Atreus to follow the palace account."
+            }
           },
           {
             from: "greek-mycenae-palace",
@@ -5429,7 +5572,15 @@
                 key: "greek-atreid-account",
                 value: "euripides"
               }
-            ]
+            ],
+            sealed: {
+              quest: {
+                kind: "item",
+                target: "greek-atreid-record",
+                to: "greek-baker"
+              },
+              reason: "Give Dione the Record of the House of Atreus to follow the farmhouse account."
+            }
           },
           {
             from: "greek-argive-farm",
@@ -5444,7 +5595,14 @@
                 key: "greek-atreid-account",
                 value: "aeschylus"
               }
-            ]
+            ],
+            sealed: {
+              quest: {
+                kind: "place",
+                target: "greek-argos-palace"
+              },
+              reason: "Opens once the tomb account is followed."
+            }
           },
           {
             from: "greek-argos-palace",
@@ -5601,394 +5759,6 @@
               }
             ],
             on: "meet"
-          },
-          {
-            id: "greek-prepare-burial-ground",
-            subject: "greek-battlefield",
-            at: "greek-battlefield",
-            label: "Prepare the burial ground",
-            text: "Vale digs a grave beside the fallen brother.",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-decree-known",
-                value: true
-              },
-              {
-                kind: "flag",
-                key: "greek-grave-prepared",
-                value: false
-              },
-              {
-                kind: "item_near",
-                item: "greek-shovel",
-                place: "greek-battlefield"
-              }
-            ],
-            effects: [
-              {
-                kind: "set_flag",
-                key: "greek-grave-prepared",
-                value: true
-              }
-            ],
-            textTemplate: "{actor} digs a grave beside the fallen brother.",
-            on: "wait",
-            archived: true
-          },
-          {
-            id: "greek-perform-burial",
-            subject: "greek-battlefield",
-            at: "greek-battlefield",
-            label: "Perform the burial",
-            text: "Vale lays cloth and oil at the grave. The brother is buried against the decree.",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-decree-known",
-                value: true
-              },
-              {
-                kind: "flag",
-                key: "greek-grave-prepared",
-                value: true
-              },
-              {
-                kind: "item_near",
-                item: "greek-funeral-cloth",
-                place: "greek-battlefield"
-              },
-              {
-                kind: "item_near",
-                item: "greek-oil-flask",
-                place: "greek-battlefield"
-              },
-              {
-                kind: "choice_unset",
-                key: "greek-theban-response"
-              }
-            ],
-            effects: [
-              {
-                kind: "choose",
-                key: "greek-theban-response",
-                value: "burial"
-              },
-              {
-                kind: "set_flag",
-                key: "greek-burial-performed",
-                value: true
-              },
-              {
-                kind: "retire_item",
-                item: "greek-funeral-cloth"
-              },
-              {
-                kind: "retire_item",
-                item: "greek-oil-flask"
-              }
-            ],
-            summary: "The brother was buried. The decree remains in force, and the household must answer for the defiance.",
-            textTemplate: "{actor} lays cloth and oil at the grave. The brother is buried against the decree.",
-            on: "wait",
-            archived: true
-          },
-          {
-            id: "greek-petition-burial",
-            subject: "greek-creon",
-            at: "greek-palace",
-            label: "Receive Creon\u2019s writ",
-            text: "Creon holds his decree again. With his writ, Vale may see the brother buried under witness.",
-            requires: [
-              {
-                kind: "holding",
-                item: "greek-creon-writ",
-                role: "actor"
-              },
-              {
-                kind: "holding",
-                item: "greek-decree",
-                actor: "greek-creon"
-              }
-            ],
-            effects: [
-              {
-                kind: "choose",
-                key: "greek-theban-response",
-                value: "concession"
-              },
-              {
-                kind: "set_flag",
-                key: "greek-burial-permitted",
-                value: true
-              }
-            ],
-            summary: "Creon granted a witnessed exception for the family to arrange a lawful burial. The petition itself did not perform the rite.",
-            textTemplate: "Creon holds his decree again. With his writ, {actor} may see the brother buried under witness.",
-            on: "meet",
-            archived: true
-          },
-          {
-            id: "greek-perform-permitted-burial",
-            subject: "greek-battlefield",
-            at: "greek-battlefield",
-            label: "Complete the permitted burial",
-            text: "Vale lays cloth and oil at the grave. The brother is buried under Creon's writ.",
-            requires: [
-              {
-                kind: "choice",
-                key: "greek-theban-response",
-                value: "concession"
-              },
-              {
-                kind: "flag",
-                key: "greek-grave-prepared",
-                value: true
-              },
-              {
-                kind: "flag",
-                key: "greek-burial-performed",
-                value: false
-              },
-              {
-                kind: "item_near",
-                item: "greek-funeral-cloth",
-                place: "greek-battlefield"
-              },
-              {
-                kind: "item_near",
-                item: "greek-oil-flask",
-                place: "greek-battlefield"
-              }
-            ],
-            effects: [
-              {
-                kind: "set_flag",
-                key: "greek-burial-performed",
-                value: true
-              },
-              {
-                kind: "retire_item",
-                item: "greek-funeral-cloth"
-              },
-              {
-                kind: "retire_item",
-                item: "greek-oil-flask"
-              }
-            ],
-            textTemplate: "{actor} lays cloth and oil at the grave. The brother is buried under Creon's writ.",
-            on: "wait",
-            archived: true
-          },
-          {
-            id: "greek-report-plan",
-            subject: "greek-guard",
-            at: "greek-gate",
-            label: "Report the intended burial",
-            text: "Vale hands the guard the shovel and the funeral cloth, the tools of the burial. He records a warning on a tablet.",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-decree-known",
-                value: true
-              },
-              {
-                kind: "holding",
-                item: "greek-shovel",
-                role: "actor"
-              },
-              {
-                kind: "holding",
-                item: "greek-funeral-cloth",
-                role: "actor"
-              },
-              {
-                kind: "choice_unset",
-                key: "greek-theban-response"
-              }
-            ],
-            effects: [
-              {
-                kind: "place_item",
-                item: "greek-shovel",
-                place: "greek-gate"
-              },
-              {
-                kind: "place_item",
-                item: "greek-funeral-cloth",
-                place: "greek-gate"
-              },
-              {
-                kind: "choose",
-                key: "greek-theban-response",
-                value: "exposure"
-              },
-              {
-                kind: "set_flag",
-                key: "greek-guard-warned",
-                value: true
-              }
-            ],
-            textTemplate: "{actor} hands the guard the shovel and the funeral cloth, the tools of the burial. He records a warning on a tablet.",
-            on: "give",
-            archived: true
-          },
-          {
-            id: "greek-courtyard-burial",
-            subject: "greek-baker",
-            at: "greek-courtyard",
-            label: "Tell the courtyard what happened",
-            text: "Vale sets the Burial Account on Dione's table. She speaks of the Argive mothers at Eleusis.",
-            requires: [
-              {
-                kind: "choice",
-                key: "greek-theban-response",
-                value: "burial"
-              },
-              {
-                kind: "holding",
-                item: "greek-burial-account",
-                role: "actor"
-              }
-            ],
-            effects: [
-              {
-                kind: "place_item",
-                item: "greek-burial-account",
-                place: "greek-courtyard"
-              },
-              {
-                kind: "set_flag",
-                key: "greek-burial-public",
-                value: true
-              },
-              {
-                kind: "set_flag",
-                key: "greek-open-door-open",
-                value: true
-              }
-            ],
-            textTemplate: "{actor} sets the Burial Account on Dione's table. She speaks of the Argive mothers at Eleusis.",
-            on: "give"
-          },
-          {
-            id: "greek-courtyard-concession",
-            subject: "greek-baker",
-            at: "greek-courtyard",
-            label: "Share the public exception",
-            text: "Vale sets Creon's Writ on Dione's table. She speaks of the Argive mothers at Eleusis.",
-            requires: [
-              {
-                kind: "choice",
-                key: "greek-theban-response",
-                value: "concession"
-              },
-              {
-                kind: "holding",
-                item: "greek-creon-writ",
-                role: "actor"
-              }
-            ],
-            effects: [
-              {
-                kind: "place_item",
-                item: "greek-creon-writ",
-                place: "greek-courtyard"
-              },
-              {
-                kind: "set_flag",
-                key: "greek-concession-public",
-                value: true
-              },
-              {
-                kind: "set_flag",
-                key: "greek-open-door-open",
-                value: true
-              }
-            ],
-            textTemplate: "{actor} sets Creon's Writ on Dione's table. She speaks of the Argive mothers at Eleusis.",
-            on: "give"
-          },
-          {
-            id: "greek-courtyard-permitted-burial",
-            subject: "greek-baker",
-            at: "greek-courtyard",
-            label: "Tell Dione about the grave",
-            text: "Vale sets the Burial Account on Dione's table.",
-            requires: [
-              {
-                kind: "choice",
-                key: "greek-theban-response",
-                value: "concession"
-              },
-              {
-                kind: "flag",
-                key: "greek-burial-performed",
-                value: true
-              },
-              {
-                kind: "holding",
-                item: "greek-burial-account",
-                role: "actor"
-              }
-            ],
-            effects: [
-              {
-                kind: "place_item",
-                item: "greek-burial-account",
-                place: "greek-courtyard"
-              },
-              {
-                kind: "set_flag",
-                key: "greek-permitted-burial-public",
-                value: true
-              },
-              {
-                kind: "set_flag",
-                key: "greek-open-door-open",
-                value: true
-              }
-            ],
-            textTemplate: "{actor} sets the Burial Account on Dione's table.",
-            on: "give"
-          },
-          {
-            id: "greek-courtyard-exposure",
-            subject: "greek-baker",
-            at: "greek-courtyard",
-            label: "Explain the warning",
-            text: "Vale sets the Guard's Tablet on Dione's table. She speaks of the Argive mothers at Eleusis.",
-            requires: [
-              {
-                kind: "choice",
-                key: "greek-theban-response",
-                value: "exposure"
-              },
-              {
-                kind: "holding",
-                item: "greek-guard-tablet",
-                role: "actor"
-              }
-            ],
-            effects: [
-              {
-                kind: "place_item",
-                item: "greek-guard-tablet",
-                place: "greek-courtyard"
-              },
-              {
-                kind: "set_flag",
-                key: "greek-exposure-public",
-                value: true
-              },
-              {
-                kind: "set_flag",
-                key: "greek-open-door-open",
-                value: true
-              }
-            ],
-            textTemplate: "{actor} sets the Guard's Tablet on Dione's table. She speaks of the Argive mothers at Eleusis.",
-            on: "give"
           },
           {
             id: "greek-helen-egypt",
@@ -8901,6 +8671,33 @@
               }
             ],
             on: "talk"
+          },
+          {
+            id: "greek-meet-patroclus",
+            subject: "greek-patroclus",
+            at: "greek-piraeus",
+            label: "Meet Patroclus",
+            text: "Patroclus steps down onto the quay and makes room beside Vale.",
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-patroclus-met",
+                value: false
+              }
+            ],
+            effects: [
+              {
+                kind: "trust",
+                level: 3
+              },
+              {
+                kind: "set_flag",
+                key: "greek-patroclus-met",
+                value: true
+              }
+            ],
+            textTemplate: "Patroclus steps down onto the quay and makes room beside {actor}.",
+            on: "meet"
           }
         ],
         works: [
@@ -9850,7 +9647,8 @@
             "greek-colonus-keeper",
             "greek-market-neighbor",
             "greek-household-witness",
-            "greek-polynices-shade"
+            "greek-polynices-shade",
+            "greek-patroclus"
           ],
           items: [
             "greek-water-jar",
@@ -9873,7 +9671,6 @@
             "greek-olive-branch",
             "greek-burial-account",
             "greek-creon-writ",
-            "greek-guard-tablet",
             "greek-pyre-account",
             "greek-figs",
             "greek-wine-skin",
@@ -9884,15 +9681,6 @@
             "greek-return-water-jar",
             "greek-hear-decree",
             "greek-gather-witness",
-            "greek-prepare-burial-ground",
-            "greek-perform-burial",
-            "greek-petition-burial",
-            "greek-perform-permitted-burial",
-            "greek-report-plan",
-            "greek-courtyard-burial",
-            "greek-courtyard-concession",
-            "greek-courtyard-permitted-burial",
-            "greek-courtyard-exposure",
             "greek-open-door-hear-mothers",
             "greek-open-door-hear-adrastus",
             "greek-open-door-register-plea",
@@ -9918,7 +9706,8 @@
             "greek-anoint-polynices",
             "greek-shroud-polynices",
             "greek-bury-polynices",
-            "greek-hear-polynices"
+            "greek-hear-polynices",
+            "greek-meet-patroclus"
           ]
         },
         recital: {
@@ -9933,21 +9722,7 @@
                 "his body lies in the grave"
               ],
               anyChoices: [
-                "greek-perform-burial",
-                "greek-perform-permitted-burial",
                 "greek-bury-polynices"
-              ]
-            },
-            {
-              phrases: [
-                "creon gave leave",
-                "creon has granted",
-                "creon granted permission",
-                "the king gave permission"
-              ],
-              anyChoices: [
-                "greek-petition-burial",
-                "greek-perform-permitted-burial"
               ]
             },
             {
@@ -9993,46 +9768,6 @@
             {
               choice: "greek-return-water-jar",
               quest: "story-quest-greek-table",
-              summons: true
-            },
-            {
-              choice: "greek-petition-burial",
-              quest: "story-quest-greek-burial",
-              summons: false
-            },
-            {
-              choice: "greek-perform-burial",
-              quest: "story-quest-greek-burial",
-              summons: true
-            },
-            {
-              choice: "greek-perform-permitted-burial",
-              quest: "story-quest-greek-burial",
-              summons: true
-            },
-            {
-              choice: "greek-report-plan",
-              quest: "story-quest-greek-burial",
-              summons: true
-            },
-            {
-              choice: "greek-courtyard-burial",
-              quest: "story-quest-greek-courtyard",
-              summons: true
-            },
-            {
-              choice: "greek-courtyard-concession",
-              quest: "story-quest-greek-courtyard",
-              summons: true
-            },
-            {
-              choice: "greek-courtyard-exposure",
-              quest: "story-quest-greek-courtyard",
-              summons: true
-            },
-            {
-              choice: "greek-courtyard-permitted-burial",
-              quest: "story-quest-greek-courtyard",
               summons: true
             },
             {
@@ -15808,15 +15543,49 @@
               sore: "A possession mistaken for its owner",
               reason: "RATi listens for the small things people leave unsaid."
             },
-            want: {
-              kind: "place",
-              target: "ratiradio-staff-kitchen"
-            },
             requires: [
               {
                 kind: "flag",
                 key: "rati-awake",
                 value: true
+              }
+            ],
+            wants: [
+              {
+                want: {
+                  kind: "place",
+                  target: "ratiradio-listening-room",
+                  step: {
+                    verb: "lay",
+                    items: [
+                      "ratiradio-red-beanie"
+                    ]
+                  }
+                }
+              },
+              {
+                want: {
+                  kind: "place",
+                  target: "ratiradio-listening-room",
+                  step: {
+                    verb: "lay",
+                    items: [
+                      "ratiradio-raven-figurine"
+                    ]
+                  }
+                }
+              },
+              {
+                want: {
+                  kind: "place",
+                  target: "ratiradio-listening-room",
+                  step: {
+                    verb: "lay",
+                    items: [
+                      "ratiradio-glass"
+                    ]
+                  }
+                }
               }
             ]
           },
@@ -20647,6 +20416,7 @@
       "hoppycat-nix-fermata": { sleep: { from: 46, to: 22 } },
       "greek-guard": { range: 0, sleep: null, guards: "greek-battlefield" },
       "greek-shipmaster": { sails: true, sleep: { from: 30, to: 45 } },
+      "greek-patroclus": { sails: true },
       "greek-rhapsode": { sleep: null },
       boardyai: { sleep: null }
     },
@@ -22612,7 +22382,8 @@
   ]);
   var residentSleepPortraits = {
     "greek-antigone": "assets/sleep/residents/greek-antigone-sleeping.png",
-    "greek-baker": "assets/sleep/greek-baker-sleeping.png"
+    "greek-baker": "assets/sleep/greek-baker-sleeping.png",
+    "greek-patroclus": "assets/sleep/residents/greek-patroclus-sleeping.png"
   };
   var sleepPortraitAssets = [
     ...[...travelers].flatMap(
@@ -23927,6 +23698,9 @@
     front: [
       "assets/ratiradio/rati.webp",
       "assets/ratiradio/raven.webp",
+      "assets/greek-drama/patroclus.png",
+      "assets/greek-drama/patroclus-bread.png",
+      "assets/sleep/residents/greek-patroclus-sleeping.png",
       ...Object.values(rarityForms).filter((form) => form.facing === "front").map((form) => form.portrait),
       "assets/hoppycat-archive/hoppycat-tapi-lilt-cutout.png",
       "assets/hoppycat-archive/hoppycat-penny-vellum-cutout.png",

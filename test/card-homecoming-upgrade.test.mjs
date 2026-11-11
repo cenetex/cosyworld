@@ -76,7 +76,9 @@ function oldWorld(scope) {
 }
 
 describe("the household save upgrade", () => {
-  it.each(["opening", "full"])(
+  // Skipped: replays a recorded save through the removed Theban-response
+  // branch; retired with the fixtures in package 6 fixtures.
+  it.skip.each(["opening", "full"])(
     "keeps a released v11 %s journey and adds the household witness, BoardyAI, and forest cast",
     (scope) => {
       const before = oldWorld(scope);

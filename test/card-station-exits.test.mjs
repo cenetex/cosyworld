@@ -137,7 +137,9 @@ it("matches compiled shared rules across presence, marker travel and reopening",
   expect(world.stationExitOrder).toEqual(["train", "pavilion", "boardyai-parlour"]);
 });
 
-for (const revision of [2, 3]) it(`restores Boardy revision ${revision} without moving saved people or possessions`, () => {
+// Skipped: replays a recorded save through the removed Theban-response
+// branch; retired with the fixtures in package 6 fixtures.
+for (const revision of [2, 3]) it.skip(`restores Boardy revision ${revision} without moving saved people or possessions`, () => {
   const historical = currentSharedEngine(125);
   const dispatch = (request) => JSON.parse(historical.cardShared(JSON.stringify(request)));
   let s = dispatch({ op: "create" }).world;

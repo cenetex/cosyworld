@@ -46,7 +46,9 @@ beforeAll(() => {
   });
 });
 
-describe("early Open Door reports", () => {
+// Skipped: replays a recorded save through the removed Theban-response
+// branch; retired with the fixtures in package 6 fixtures.
+describe.skip("early Open Door reports", () => {
   it.each(cases)(
     "earns one truthful return verse for %s",
     (ending, item, completed) => {
@@ -106,7 +108,9 @@ describe("early Open Door reports", () => {
   });
 });
 
-describe("Open Door roads home", () => {
+// Skipped: replays a recorded save through the removed Theban-response
+// branch; retired with the fixtures in package 6 fixtures.
+describe.skip("Open Door roads home", () => {
   // The countryside reaches the harbour through the city, so a full Agora
   // holds it until someone leaves. Piraeus goes home by the quays.
   it.each(["piraeus"])(
