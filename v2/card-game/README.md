@@ -337,7 +337,7 @@ the world rules in `want.mjs`, not from authored quest chains.
   (rules 133, `world/dwell.mjs`): after a resident arrives it stays at least
   `DWELL_TURNS` (24, half a day) before its next move of its own, so it moves
   about twice a day; this holds wants, roaming, drifting home, dawn and dusk
-  steps and the walk to bed. A resident sleeps only at home. A resident who
+  steps and the walk to bed. A human's Talk, Ask, Give or Trade holds that resident two turns while they share the room (capped at 24). A resident sleeps only at home. A resident who
   walks in where the player is meets them on that turn, so Talk is offered
   at once, even after only Waits, and a first meeting speaks (rules 101,
   [design note](../../docs/design/rules-101-meet-on-arrival.md)).

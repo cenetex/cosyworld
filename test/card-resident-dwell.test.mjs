@@ -13,6 +13,8 @@ import {
 import { cardPlay } from "../v2/card-game/cards.mjs";
 import { lifeHome } from "../v2/card-game/resident-home.mjs";
 import {
+  ATTEND_CAP,
+  startAttend,
   DWELL_SPREAD,
   DWELL_TURNS,
   MAX_DWELL,
@@ -219,5 +221,57 @@ describe("sleep and dwell", () => {
     }
     expect(slept).toBe("pond");
     expect(left[0]).toBeGreaterThanOrEqual(48 + 3);
+  });
+});
+
+describe("courtesy after a human speaks with a resident", () => {
+  const ready = () => {
+    const s = together();
+    s.actors.moth.place = "pond";
+    s.actors.vale.place = "pond";
+    s.actors.moth.want = want("station");
+    return s;
+  };
+  const talk = (s) => {
+    const a = legalActions(s).find(
+      (x) => x.kind === "talk" && x.target === "moth",
+    );
+    expect(a).toBeTruthy();
+    const done = play(s, a, s.revision);
+    expect(done.ok, done.error).toBe(true);
+    return done.state;
+  };
+  it("holds the resident for two turns while the human stays", () => {
+    let s = talk(ready());
+    const t = s.turn;
+    expect(s.actors.moth.place).toBe("pond");
+    expect(s.actors.moth.attend).toEqual({ since: t, until: t + 2 });
+    s = wait(s);
+    expect(s.turn).toBe(t + 1);
+    expect(s.actors.moth.place).toBe("pond");
+    s = wait(s);
+    expect(s.actors.moth.place).toBe("station");
+  });
+  it("lets it go at once when the human has gone", () => {
+    let s = talk(ready());
+    const go = legalActions(s).find((a) => a.kind === "move");
+    s = play(s, go, s.revision).state;
+    s = wait(s);
+    expect(s.actors.moth.place).toBe("station");
+  });
+  it("does not hold a resident the human only walked past", () => {
+    expect(wait(ready()).actors.moth.place).toBe("station");
+  });
+  it("caps the hold, then waits before another", () => {
+    const s = ready();
+    for (let t = 1; t <= 60; t++) {
+      s.turn = t;
+      startAttend(s, "moth");
+      const { since, until } = s.actors.moth.attend;
+      expect(until - since).toBeLessThanOrEqual(ATTEND_CAP);
+    }
+    expect(s.actors.moth.attend.since).toBe(1 + 2 * ATTEND_CAP);
+    s.actors.moth.attend = { since: 1, until: 99 };
+    expect(validDwell(s)).toBe(false);
   });
 });

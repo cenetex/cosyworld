@@ -41,12 +41,36 @@ export function startDwell(s, id) {
 // dwells.
 export const dwelling = (s, id) => (s.actors[id]?.dwellUntil ?? 0) > s.turn;
 
+// Courtesy (rules 133): after a human Talks, Asks, Gives, Trades with a
+// resident, or is refused an Accompany, it makes no move of its own for
+// ATTEND_TURNS more turns while a human is still in the room. Many in a row
+// cannot strand it: `attend = {since, until}` holds at most ATTEND_CAP turns
+// from the first, and the next hold can begin once twice that has passed.
+export const ATTEND_TURNS = 2;
+export const ATTEND_CAP = DWELL_TURNS;
+export function startAttend(s, id) {
+  const a = s.actors[id],
+    t = s.turn;
+  if (!a.attend || t >= a.attend.since + 2 * ATTEND_CAP)
+    a.attend = { since: t, until: t + ATTEND_TURNS };
+  else a.attend.until = Math.min(t + ATTEND_TURNS, a.attend.since + ATTEND_CAP);
+}
+export const attending = (s, id) => (s.actors[id]?.attend?.until ?? 0) > s.turn;
+
 // A saved `dwellUntil` is a whole turn no later than one stay from now.
 export const validDwell = (s) =>
   Object.values(s.actors).every(
     (a) =>
-      a.dwellUntil === undefined ||
-      (Number.isSafeInteger(a.dwellUntil) &&
-        a.dwellUntil > 0 &&
-        a.dwellUntil <= s.turn + MAX_DWELL),
+      (a.dwellUntil === undefined ||
+        (Number.isSafeInteger(a.dwellUntil) &&
+          a.dwellUntil > 0 &&
+          a.dwellUntil <= s.turn + MAX_DWELL)) &&
+      (a.attend === undefined ||
+        (Object.keys(a.attend).sort().join() === "since,until" &&
+          Number.isSafeInteger(a.attend.since) &&
+          Number.isSafeInteger(a.attend.until) &&
+          a.attend.since >= 0 &&
+          a.attend.since <= s.turn &&
+          a.attend.until > a.attend.since &&
+          a.attend.until <= a.attend.since + ATTEND_CAP)),
   );

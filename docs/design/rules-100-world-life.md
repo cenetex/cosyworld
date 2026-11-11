@@ -160,6 +160,13 @@ stays 48, but each arrival restarts a want's stall clock (`stallStart` in
 `want.mjs`), so a resident walking at this pace is not judged stalled while
 one that cannot move still is.
 
+**Courtesy.** After a human's Talk, Ask, Give, Trade or a refused Accompany, that
+resident makes no move of its own for 2 more turns while a human is in the
+room (`attend: {since, until}`). The holds cannot strand it: at most 24 turns
+(`ATTEND_CAP`) from the first, and a new run of holds can begin 48 turns after
+the first. It never holds companions, invitations, flight, ships, journeys or
+the player. (Ported from the closed codex/resident-presence-grace, #2526.)
+
 A resident with a home and a range now sleeps only there: at bedtime away
 from home it stays up, walks home at the dwell pace and sleeps on arrival if
 its window is still open. Avatars with no range sleep where they stand.

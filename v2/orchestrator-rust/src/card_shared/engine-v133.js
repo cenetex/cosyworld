@@ -1876,8 +1876,17 @@
     s.actors[id].dwellUntil = s.turn + DWELL_TURNS + scatter(id, s.turn);
   }
   var dwelling = (s, id) => (s.actors[id]?.dwellUntil ?? 0) > s.turn;
+  var ATTEND_TURNS = 2;
+  var ATTEND_CAP = DWELL_TURNS;
+  function startAttend(s, id) {
+    const a = s.actors[id], t = s.turn;
+    if (!a.attend || t >= a.attend.since + 2 * ATTEND_CAP)
+      a.attend = { since: t, until: t + ATTEND_TURNS };
+    else a.attend.until = Math.min(t + ATTEND_TURNS, a.attend.since + ATTEND_CAP);
+  }
+  var attending = (s, id) => (s.actors[id]?.attend?.until ?? 0) > s.turn;
   var validDwell = (s) => Object.values(s.actors).every(
-    (a) => a.dwellUntil === void 0 || Number.isSafeInteger(a.dwellUntil) && a.dwellUntil > 0 && a.dwellUntil <= s.turn + MAX_DWELL
+    (a) => (a.dwellUntil === void 0 || Number.isSafeInteger(a.dwellUntil) && a.dwellUntil > 0 && a.dwellUntil <= s.turn + MAX_DWELL) && (a.attend === void 0 || Object.keys(a.attend).sort().join() === "since,until" && Number.isSafeInteger(a.attend.since) && Number.isSafeInteger(a.attend.until) && a.attend.since >= 0 && a.attend.since <= s.turn && a.attend.until > a.attend.since && a.attend.until <= a.attend.since + ATTEND_CAP)
   );
 
   // v2/card-game/want.mjs
@@ -7303,7 +7312,9 @@
   };
 
   // v2/card-game/world.mjs
-  var dwelling2 = (s, id) => dwellRule.on && worldLife.on && !packPeople[id]?.journey && dwelling(s, id);
+  var dwelling2 = (s, id) => dwellRule.on && worldLife.on && !packPeople[id]?.journey && (dwelling(s, id) || attending(s, id) && Object.keys(s.actors).some(
+    (h) => controlledByHuman(s, h) && humanPresent(s, h) && s.actors[h].place === s.actors[id].place
+  ));
   var startDwell2 = (s, id) => dwellRule.on && startDwell(s, id);
   var homeGates = { ...forest_default.homeGates, ...humanHomeGates };
   var lifeProblems = lifeDataProblems(places, people);
@@ -9462,6 +9473,8 @@
       ])
     ];
     const respondent = perform(next, exact, round2, residents);
+    if (dwellRule.on && controlledByHuman(next, actor) && ["talk", "ask", "give", "trade", "accompany"].includes(exact.kind) && exact.target && exact.target !== actor && !controlledByHuman(next, exact.target) && next.actors[exact.target]?.place === next.actors[actor].place && (exact.kind !== "accompany" || !next.log.findLast((e) => e.verb === "accompany")?.accepted))
+      startAttend(next, exact.target);
     creditOpened(s, next, actor);
     if (next.opening && !next.locations.attic.anchored && ["light", "snuff"].includes(exact.kind) && next.actors.vale.place === "attic") {
       next.locations.attic.anchored = true;

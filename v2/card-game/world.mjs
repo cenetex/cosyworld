@@ -228,7 +228,9 @@ import {
 } from "./resident-home.mjs";
 import { bedtime, residentAsleep, validSleep } from "./resident-sleep.mjs";
 import {
+  attending,
   dwellRule,
+  startAttend,
   dwelling as dwellingNow,
   startDwell as startDwellNow,
   validDwell,
@@ -240,7 +242,14 @@ const dwelling = (s, id) =>
   dwellRule.on &&
   worldLife.on &&
   !packPeople[id]?.journey &&
-  dwellingNow(s, id);
+  (dwellingNow(s, id) ||
+    (attending(s, id) &&
+      Object.keys(s.actors).some(
+        (h) =>
+          controlledByHuman(s, h) &&
+          humanPresent(s, h) &&
+          s.actors[h].place === s.actors[id].place,
+      )));
 const startDwell = (s, id) => dwellRule.on && startDwellNow(s, id);
 import {
   guardableWays,
@@ -3266,6 +3275,20 @@ export function play(
     ]),
   ];
   const respondent = perform(next, exact, round, residents);
+  // A human's Talk, Ask, Give, Trade or refused Accompany holds the resident
+  // in the room a moment (rules 133).
+  if (
+    dwellRule.on &&
+    controlledByHuman(next, actor) &&
+    ["talk", "ask", "give", "trade", "accompany"].includes(exact.kind) &&
+    exact.target &&
+    exact.target !== actor &&
+    !controlledByHuman(next, exact.target) &&
+    next.actors[exact.target]?.place === next.actors[actor].place &&
+    (exact.kind !== "accompany" ||
+      !next.log.findLast((e) => e.verb === "accompany")?.accepted)
+  )
+    startAttend(next, exact.target);
   // A box this play opened pays one XP, once per avatar per box (rules 133).
   creditOpened(s, next, actor);
   if (
