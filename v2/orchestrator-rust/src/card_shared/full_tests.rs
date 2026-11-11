@@ -112,7 +112,7 @@ pub(super) fn assert_saved_memories(current: &Value, old: &Value) {
 }
 
 fn assert_saved_items(current: &Value, old: &Value) {
-    for (id, saved) in super::saved_items::upgraded(old).as_object().unwrap() {
+    for (id, saved) in super::saved_items::current_items(old).as_object().unwrap() {
         assert_eq!(&current[id], saved, "saved item {id}");
     }
 }
@@ -306,6 +306,12 @@ fn home_action(w: &World, actor: usize, kind: &str) -> Value {
         .clone()
 }
 
+fn hold(c: &rusqlite::Connection, id: &str, w: &mut World, actor: usize, item: Value) {
+    let command = json!({"op":"hold","actor":actor_id(actor),"choice":{
+        "item":item,"revision":w.game["revision"]}});
+    full_store::commit(c, id, w, command, now()).unwrap();
+}
+
 #[test]
 fn music_waits_for_each_avatars_first_committed_play_and_survives_reload() {
     let (path, mut c, id) = fixture();
@@ -331,7 +337,15 @@ fn music_waits_for_each_avatars_first_committed_play_and_survives_reload() {
             full_store::snapshot(&c, &id, &user, now()).unwrap()["music_started"],
             false
         );
-        let action = home_action(&w, a, if a == 0 { "snuff" } else { "take" });
+        if a == 0 {
+            hold(&c, &id, &mut w, a, Value::Null);
+            assert_eq!(
+                full_store::snapshot(&c, &id, &user, now()).unwrap()["music_started"],
+                false,
+                "quiet hand choices do not start the music"
+            );
+        }
+        let action = home_action(&w, a, if a == 0 { "wait" } else { "take" });
         full_store::commit(
             &c,
             &id,
@@ -379,11 +393,16 @@ fn first_ship_signal_unlocks_shared_round_trips_and_replays() {
     w.present = w.claimed;
     w.game["actors"]["vale"]["place"] = json!("pond");
     w.game["actors"]["mara"]["place"] = json!("greek-harbor");
-    // The keeper watches the far dock during this transport fixture.
+    // Residents stay away from the signal's grounded lamp in this transport fixture.
     w.game["actors"]["keeper"]["place"] = json!("greek-harbor");
+    w.game["actors"]["moth"]["place"] = json!("greek-battlefield");
     w.game["items"]["lamp"]["holder"] = json!("vale");
     w.game["items"]["lamp"]["lit"] = json!(true);
     w.game["items"]["lamp"]["fuel"] = json!(12);
+    w.game["items"]["lamp"]["fuelRooms"] = json!(3);
+    w.game["items"]["lamp"]["fuelPlace"] = json!("pond");
+    w.game["items"]["lamp"]["fuelVisit"] = json!(true);
+    w.game["actors"]["vale"]["heldItem"] = json!("lamp");
     w.game["items"]["cloth"]["holder"] = json!("vale");
     for actor in [0, 1] {
         assert!(!w.project(actor).unwrap()["actions"]
@@ -399,21 +418,19 @@ fn first_ship_signal_unlocks_shared_round_trips_and_replays() {
     assert_eq!(w, before);
     w.game["actors"]["mara"]["place"] = json!("pond");
     full_store::seed(&c, &id, &w, "first-ship-signal", now()).unwrap();
-    // One cover and one uncover of the burning lamp call the ship (#1625).
-    for kind in ["cover", "take"] {
-        assert_eq!(
-            w.game["crossings"]["pond-greek-harbor"]["discovered"],
-            false
-        );
+    // A grounded fueled lamp and the cloth held at the pond call the ship.
+    assert_eq!(w.game["actors"]["vale"]["heldItem"], "lamp");
+    assert_eq!(w.game["items"]["lamp"]["lit"], true);
+    assert_eq!(
+        w.game["crossings"]["pond-greek-harbor"]["discovered"],
+        false
+    );
+    for kind in ["drop", "take"] {
         let action = w.project(0).unwrap()["actions"]
             .as_array()
             .unwrap()
             .iter()
-            .find(|a| {
-                a["kind"] == kind
-                    && a["item"] == "cloth"
-                    && (kind != "cover" || a["target"] == "lamp")
-            })
+            .find(|a| a["kind"] == kind && a["item"] == "lamp")
             .unwrap()
             .clone();
         full_store::commit(
@@ -424,23 +441,14 @@ fn first_ship_signal_unlocks_shared_round_trips_and_replays() {
             now(),
         )
         .unwrap();
+        assert_eq!(w.game["crossings"]["pond-greek-harbor"]["discovered"], true);
+        assert_eq!(w.game["items"]["lamp"]["lit"], true);
+        if kind == "drop" {
+            assert_eq!(w.game["items"]["lamp"]["holder"], "pond");
+            assert_eq!(w.game["actors"]["vale"]["heldItem"], "cloth");
+        }
     }
-    assert_eq!(w.game["crossings"]["pond-greek-harbor"]["discovered"], true);
-    let snuff = w.project(0).unwrap()["actions"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .find(|a| a["kind"] == "snuff" && a["item"] == "lamp")
-        .unwrap()
-        .clone();
-    full_store::commit(
-        &c,
-        &id,
-        &mut w,
-        json!({"op":"play","actor":"vale","action":snuff}),
-        now(),
-    )
-    .unwrap();
+    hold(&c, &id, &mut w, 0, Value::Null);
     for target in ["greek-ship", "greek-harbor", "greek-ship", "pond"] {
         // A voyage is a course card, a round at sea and the Disembark card.
         for _ in 0..8 {
@@ -1025,6 +1033,73 @@ fn full_world_claims_queue_authority_and_request_ids() {
     tx.commit().unwrap();
 }
 #[test]
+fn quiet_hold_handler_uses_the_authenticated_actor_and_replays() {
+    let (path, mut c, id) = fixture();
+    claim(&mut c, &id, 0);
+    claim(&mut c, &id, 1);
+    let time = now();
+    let before = full_store::world(&c, &id, time).unwrap();
+    assert_eq!(before.game["actors"]["vale"]["heldItem"], "lamp");
+    // A requested avatar cannot override the passkey's authenticated seat.
+    let mut command = body("hold", Some("mara"));
+    command.action = json!({"item":null,"revision":before.game["revision"]});
+    let reply = full::run(&c, &id, "user0", &command, time).unwrap();
+    assert_eq!(reply["actor"], "vale");
+    let saved = full_store::world(&c, &id, time).unwrap();
+    let mut actors = before.game["actors"].clone();
+    actors["vale"]["heldItem"] = Value::Null;
+    assert_eq!(saved.game["actors"], actors);
+    let mut lamp = before.game["items"]["lamp"].clone();
+    lamp["lit"] = json!(false);
+    assert_eq!(saved.game["items"]["lamp"], lamp);
+    assert_eq!(saved.game["items"]["lamp"]["holder"], "vale");
+    for field in ["turn", "eventSeq", "log"] {
+        assert_eq!(saved.game[field], before.game[field], "quiet {field}");
+    }
+    assert_eq!(
+        saved.game["revision"].as_u64().unwrap(),
+        before.game["revision"].as_u64().unwrap() + 1
+    );
+    assert_eq!(saved.claimed, before.claimed);
+    assert_eq!(saved.present, before.present);
+    assert!(full::run(&c, &id, "user0", &command, time).is_err());
+    assert_eq!(full_store::world(&c, &id, time).unwrap(), saved);
+    command.action = json!({"item":"lamp","revision":saved.game["revision"]});
+    for user in ["unclaimed-user", "user1"] {
+        assert!(full::run(&c, &id, user, &command, time).is_err());
+        assert_eq!(full_store::world(&c, &id, time).unwrap(), saved);
+    }
+    let jobs: i64 = c
+        .query_row(
+            "SELECT count(*) FROM card_full_plays WHERE world=?",
+            [&id],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(jobs, 0);
+    let holds: i64 = c.query_row(
+        "SELECT count(*) FROM card_full_log WHERE world=? AND json_extract(command,'$.op')='hold'",
+        [&id], |row| row.get(0),
+    ).unwrap();
+    assert_eq!(holds, 1);
+    let recorded: String = c.query_row(
+        "SELECT command FROM card_full_log WHERE world=? AND json_extract(command,'$.op')='hold'",
+        [&id], |row| row.get(0),
+    ).unwrap();
+    assert_eq!(
+        serde_json::from_str::<Value>(&recorded).unwrap(),
+        json!({
+            "op":"hold","actor":"vale","choice":{"item":null,"revision":before.game["revision"]}
+        })
+    );
+    c.execute("DELETE FROM card_full_checkpoints WHERE world=?", [&id])
+        .unwrap();
+    drop(c);
+    let reopened = store::open(&path).unwrap();
+    assert_eq!(full_store::world(&reopened, &id, time).unwrap(), saved);
+}
+
+#[test]
 fn a_reveal_snapshot_stays_with_the_first_queued_play_and_out_of_the_journal() {
     let (path, mut c, id) = fixture();
     claim(&mut c, &id, 0);
@@ -1058,7 +1133,7 @@ fn a_reveal_snapshot_stays_with_the_first_queued_play_and_out_of_the_journal() {
         serde_json::from_str::<Value>(&queued).unwrap()["revealed"],
         json!([])
     );
-    let app = crate::test_app_state(crate::RuntimeWorld::seeded(), Some(path));
+    let app = crate::test_app_state(Some(path));
     let work = full::take_work(&app, &id).unwrap().unwrap();
     let journal: String = c
         .query_row(
@@ -1102,7 +1177,7 @@ fn full_world_npc_turn_and_speech_survive_worker_restart() {
         .unwrap();
     full::run(&tx, &id, "user0", &b, now()).unwrap();
     tx.commit().unwrap();
-    let app = crate::test_app_state(crate::RuntimeWorld::seeded(), Some(path));
+    let app = crate::test_app_state(Some(path));
     let work = full::take_work(&app, &id).unwrap().unwrap();
     let before = full_store::world(&c, &id, now()).unwrap();
     assert_eq!(
@@ -1150,7 +1225,7 @@ async fn server_dialogue_keeps_a_legacy_browser_scene_through_replay() {
         params![json!({"browser_chat":true}).to_string(), b.key],
     )
     .unwrap();
-    let state = crate::test_app_state(crate::RuntimeWorld::seeded(), Some(path));
+    let state = crate::test_app_state(Some(path));
     let work = full::take_work(&state, &id).unwrap().unwrap();
     assert_eq!(work.context["browser_chat"], false);
     let projected = full_store::snapshot(&c, &id, "user0", now()).unwrap();
@@ -1234,7 +1309,7 @@ fn server_dialogue_resumes_a_working_browser_scene_and_fences_its_old_reply() {
     b.key = "legacy-browser-working-0001".into();
     b.action = home_action(&w, 0, "wait");
     full::run(&c, &id, "user0", &b, now()).unwrap();
-    let state = crate::test_app_state(crate::RuntimeWorld::seeded(), Some(path));
+    let state = crate::test_app_state(Some(path));
     let old = full::take_work(&state, &id).unwrap().unwrap();
     let saved = old.context["context"].clone();
     let committed = full_store::world(&c, &id, now()).unwrap();
@@ -1358,7 +1433,7 @@ fn full_world_shared_speech_is_journaled_with_matching_log_sequences() {
             .unwrap();
         full::run(&tx, &id, "user0", &b, now()).unwrap();
         tx.commit().unwrap();
-        let state = crate::test_app_state(crate::RuntimeWorld::seeded(), Some(path));
+        let state = crate::test_app_state(Some(path));
         let work = full::take_work(&state, &id).unwrap().unwrap();
         let voice = |index| crate::routes::shared_voice_line(&c, &id, &b.key, index).unwrap();
         assert_eq!(voice(0), None, "working speech is not yet billable");
@@ -1421,7 +1496,7 @@ fn failed_shared_words_finish_the_play_as_silence_and_free_the_seat() {
     b.key = "speech-silent-000001".into();
     b.action = home_action(&w, 0, "wait");
     full::run(&c, &id, "user0", &b, now()).unwrap();
-    let app = crate::test_app_state(crate::RuntimeWorld::seeded(), Some(path));
+    let app = crate::test_app_state(Some(path));
     let work = full::take_work(&app, &id).unwrap().unwrap();
     let committed = full_store::world(&c, &id, now()).unwrap();
     let journal = |c: &rusqlite::Connection| -> i64 {
@@ -1501,7 +1576,7 @@ fn shared_speech_publication_retries_a_write_lock_with_the_original_reply() {
         full::run(&tx, &id, &format!("user{a}"), &command, now()).unwrap();
         tx.commit().unwrap();
     }
-    let app = crate::test_app_state(crate::RuntimeWorld::seeded(), Some(path.clone()));
+    let app = crate::test_app_state(Some(path.clone()));
     let work = full::take_work(&app, &id).unwrap().unwrap();
     assert_eq!(work.actor, 0);
     let evidence: Vec<Value> = work.context["context"]["entities"]
@@ -1606,7 +1681,7 @@ fn shared_speech_publication_reports_an_exhausted_write_lock_budget() {
         .unwrap();
     full::run(&tx, &id, "user0", &command, now()).unwrap();
     tx.commit().unwrap();
-    let app = crate::test_app_state(crate::RuntimeWorld::seeded(), Some(path.clone()));
+    let app = crate::test_app_state(Some(path.clone()));
     let work = full::take_work(&app, &id).unwrap().unwrap();
     let lines = json!([{"speaker":"Vale","actorId":"vale","entityId":"vale","text":"I have a moment to listen."}]);
     let mut connection = store::open(&path).unwrap();
@@ -1830,7 +1905,7 @@ fn old_rule_history_upgrades_once_and_replays_with_either_checkpoint_path() {
             assert_eq!(upgraded.claimed, [1; 8]);
             assert_eq!(upgraded.present, old.present);
             assert_saved_actors(&upgraded.game["actors"], &old.game["actors"]);
-            assert_saved_items(&upgraded.game["items"], &old.game["items"]);
+            assert_saved_items(&upgraded.game["items"], &old.game);
             assert_eq!(upgraded.game["log"], quest_free_log(&old.game["log"]));
             // Life version 3 keeps experiences and drops quest collections.
             assert_eq!(upgraded.game["life"]["version"], 3);
@@ -1980,7 +2055,7 @@ fn released_pickup_journal_replays_through_both_recorded_upgrades() {
         assert_eq!(Some(&upgraded), checkpointed.as_ref());
         assert_eq!(upgraded.version, engine::VERSION);
         assert_saved_actors(&upgraded.game["actors"], &old.game["actors"]);
-        assert_saved_items(&upgraded.game["items"], &old.game["items"]);
+        assert_saved_items(&upgraded.game["items"], &old.game);
         assert_eq!(upgraded.game["log"], quest_free_log(&old.game["log"]));
         assert_eq!(upgraded.claimed, old.claimed);
         assert_eq!(upgraded.present, old.present);
@@ -2060,7 +2135,7 @@ fn version_three_upgrade_keeps_released_untouched_belongings() {
         }
         assert_eq!(Some(&upgraded), checkpointed.as_ref());
         assert_eq!(upgraded.version, engine::VERSION);
-        assert_saved_items(&upgraded.game["items"], &old.game["items"]);
+        assert_saved_items(&upgraded.game["items"], &old.game);
         assert_saved_actors(&upgraded.game["actors"], &old.game["actors"]);
         assert_eq!(upgraded.claimed, old.claimed);
         c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
@@ -2160,7 +2235,7 @@ fn released_greek_upgrades_and_recitals_replay_after_quests_are_dropped() {
             assert_eq!(Some(&w), checkpointed.as_ref());
             assert_eq!(w.version, engine::VERSION);
             assert_saved_actors(&w.game["actors"], &previous.game["actors"]);
-            assert_saved_items(&w.game["items"], &previous.game["items"]);
+            assert_saved_items(&w.game["items"], &previous.game);
             assert_saved_packs(&w.game, &previous.game);
             assert_eq!(w.game["log"], quest_free_log(&previous.game["log"]));
             assert_eq!(w.game["turn"], previous.game["turn"]);
@@ -2344,11 +2419,17 @@ fn released_carriage_route_replays_before_the_station_connection_upgrade() {
         }
         assert_eq!(Some(&w), checkpointed.as_ref());
         assert_saved_actors(&w.game["actors"], &earlier.game["actors"]);
-        assert_saved_items(&w.game["items"], &earlier.game["items"]);
+        assert_saved_items(&w.game["items"], &earlier.game);
         assert_eq!(w.game["log"], quest_free_log(&earlier.game["log"]));
         for (key, value) in earlier.game["crossings"].as_object().unwrap() {
             if !moved_door(key) {
-                assert_eq!(&w.game["crossings"][key], value);
+                let mut expected = value.clone();
+                if key == "pond-greek-harbor" {
+                    // The grounded-lamp gate keeps discovery, not signal phases.
+                    expected.as_object_mut().unwrap().remove("phase");
+                    expected.as_object_mut().unwrap().remove("until");
+                }
+                assert_eq!(w.game["crossings"][key], expected);
             }
         }
         assert_eq!(w.version, engine::VERSION);
@@ -2458,7 +2539,7 @@ fn released_shared_quest_receipts_drop_on_upgrade_and_replay() {
         }
         assert_eq!(w.version, engine::VERSION);
         assert_saved_actors(&w.game["actors"], &previous.game["actors"]);
-        assert_saved_items(&w.game["items"], &previous.game["items"]);
+        assert_saved_items(&w.game["items"], &previous.game);
         assert_saved_packs(&w.game, &previous.game);
         assert_eq!(w.game["log"], quest_free_log(&previous.game["log"]));
         assert_eq!(w.game["turn"], previous.game["turn"]);
@@ -2566,7 +2647,7 @@ fn released_quest_offers_are_dropped_by_the_upgrade_and_replay() {
         w = full_store::world(&c, &id, now()).unwrap();
         assert_eq!(w.version, engine::VERSION);
         assert_saved_actors(&w.game["actors"], &previous.game["actors"]);
-        assert_saved_items(&w.game["items"], &previous.game["items"]);
+        assert_saved_items(&w.game["items"], &previous.game);
         assert_eq!(w.game["log"], quest_free_log(&previous.game["log"]));
         assert_eq!(w.game["turn"], previous.game["turn"]);
         // Offers, hands, focus and collections were quest machinery; the
@@ -2605,7 +2686,7 @@ fn released_quest_offers_are_dropped_by_the_upgrade_and_replay() {
 }
 
 #[test]
-fn dousing_the_held_lamp_meets_vales_want_once_and_replays() {
+fn stowing_the_lamp_then_playing_meets_vales_want_once_and_replays() {
     let (_path, c, id) = fixture();
     c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
     c.execute("DELETE FROM card_full_log", []).unwrap();
@@ -2618,8 +2699,15 @@ fn dousing_the_held_lamp_meets_vales_want_once_and_replays() {
     w.game["actors"]["vale"]["want"] =
         json!({"kind":"item","target":"lamp","since":0,"refusals":0});
     full_store::seed(&c, &id, &w, "want-met", now()).unwrap();
-    // Vale already holds the lamp, so the first play meets that want.
-    let action = home_action(&w, 0, "snuff");
+    // Stowing changes light quietly; the next play meets the custody want.
+    let turn = w.game["turn"].clone();
+    let log = w.game["log"].clone();
+    hold(&c, &id, &mut w, 0, Value::Null);
+    assert_eq!(w.game["turn"], turn);
+    assert_eq!(w.game["log"], log);
+    assert_eq!(w.game["items"]["lamp"]["holder"], "vale");
+    assert_eq!(w.game["items"]["lamp"]["lit"], false);
+    let action = home_action(&w, 0, "wait");
     full_store::commit(
         &c,
         &id,
@@ -2814,15 +2902,9 @@ fn embedded_selected_cards_match_with_no_quest_plays() {
     for op in ["claim", "enter"] {
         w.apply(&json!({"op":op,"actor":"vale"})).unwrap();
     }
-    let action = w.project(0).unwrap()["actions"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .find(|a| a["kind"] == "snuff")
-        .unwrap()
-        .clone();
-    w.apply(&json!({"op":"play", "actor":"vale", "action":action}))
-        .unwrap();
+    let choice = json!({"op":"hold","actor":"vale","choice":{
+        "item":null,"revision":w.game["revision"]}});
+    w.apply(&choice).unwrap();
     w.game["items"]["cloth"]["holder"] = json!("vale");
     let view = w.project(0).unwrap();
     let actions = view["actions"].as_array().unwrap();
@@ -2878,7 +2960,7 @@ fn stranded_home_rescue_replays_after_version_nine_upgrade() {
         assert_eq!(upgraded.version, engine::VERSION);
         assert_eq!(upgraded.project(0).unwrap()["exits"], json!(["pond"]));
         assert_eq!(upgraded.game["turn"], old.game["turn"]);
-        for (item, state) in super::saved_items::upgraded(&old.game["items"])
+        for (item, state) in super::saved_items::current_items(&old.game)
             .as_object()
             .unwrap()
         {
@@ -3049,7 +3131,7 @@ fn hoppycat_upgrade_keeps_released_history_and_replays_new_story_choices() {
             old.game["revision"].as_u64().unwrap() + 1
         );
         assert_saved_actors(&world.game["actors"], &old.game["actors"]);
-        assert_saved_items(&world.game["items"], &old.game["items"]);
+        assert_saved_items(&world.game["items"], &old.game);
         assert_saved_memories(&world.game["memories"], &old.game["memories"]);
         for field in ["packs", "crossings"] {
             for (key, saved) in old.game[field].as_object().unwrap() {
@@ -3057,6 +3139,10 @@ fn hoppycat_upgrade_keeps_released_history_and_replays_new_story_choices() {
                     continue;
                 }
                 let mut expected = saved.clone();
+                if field == "crossings" && key == "pond-greek-harbor" {
+                    expected.as_object_mut().unwrap().remove("phase");
+                    expected.as_object_mut().unwrap().remove("until");
+                }
                 if field == "packs" && key == "greek-drama" {
                     expected["revision"] = greek_revision();
                 }
@@ -3182,7 +3268,7 @@ fn refused_words_finish_the_play_as_silence_instead_of_holding_the_seat() {
     b.key = "refused-words-000001".into();
     b.action = home_action(&w, 0, "wait");
     full::run(&c, &id, "user0", &b, now()).unwrap();
-    let app = crate::test_app_state(crate::RuntimeWorld::seeded(), Some(path));
+    let app = crate::test_app_state(Some(path));
     let work = full::take_work(&app, &id).unwrap().unwrap();
     let committed = full_store::world(&c, &id, now()).unwrap();
     // A speaker who is not in the room: the rules refuse the speech op.
@@ -3207,4 +3293,50 @@ fn refused_words_finish_the_play_as_silence_instead_of_holding_the_seat() {
         committed.game
     );
     assert!(full::take_work(&app, &id).unwrap().is_none());
+}
+
+#[test]
+fn held_change_refreshes_pending_words_without_replaying_the_play() {
+    let (path, mut c, id) = fixture();
+    claim(&mut c, &id, 0);
+    let w = full_store::world(&c, &id, now()).unwrap();
+    let mut queued = body("play", None);
+    queued.key = "held-pending-words-0001".into();
+    queued.action = home_action(&w, 0, "wait");
+    full::run(&c, &id, "user0", &queued, now()).unwrap();
+    let app = crate::test_app_state(Some(path));
+    let old = full::take_work(&app, &id).unwrap().unwrap();
+    let mut w = full_store::world(&c, &id, now()).unwrap();
+    let turn = w.game["turn"].clone();
+    let memories = w.game["memories"].clone();
+    let log = w.game["log"].clone();
+    hold(&c, &id, &mut w, 0, Value::Null);
+    let words =
+        json!([{"speaker":"Vale","actorId":"vale","entityId":"vale","text":"The lamp is bright."}]);
+    assert!(!full::finish_work(&app, &id, old.clone(), Ok(words)).unwrap());
+    assert_eq!(full_store::world(&c, &id, now()).unwrap().game["log"], log);
+    let next = full::take_work(&app, &id).unwrap().unwrap();
+    assert_eq!(next.id, old.id);
+    assert_eq!(next.context["turn"], turn);
+    assert_ne!(next.context["context"], old.context["context"]);
+    assert_eq!(
+        next.context["context"]["speakers"],
+        old.context["context"]["speakers"]
+    );
+    assert!(!full::finish_work(&app, &id, old, Err("Late stale failure".into())).unwrap());
+    let words = json!([{"speaker":"Vale","actorId":"vale","entityId":"vale","text":"I have put the lamp away."}]);
+    assert!(full::finish_work(&app, &id, next.clone(), Ok(words.clone())).unwrap());
+    assert!(!full::finish_work(&app, &id, next, Ok(words)).unwrap());
+    let mut saved = full_store::world(&c, &id, now()).unwrap();
+    assert_eq!(saved.game["turn"], turn);
+    // A later hold keeps the completed exchange and its accumulated memories.
+    let spoken = saved.game["log"].clone();
+    let remembered = saved.game["memories"].clone();
+    assert_ne!(remembered, memories);
+    hold(&c, &id, &mut saved, 0, json!("lamp"));
+    assert_eq!(saved.game["log"], spoken);
+    assert_eq!(saved.game["memories"], remembered);
+    c.execute("DELETE FROM card_full_checkpoints WHERE world=?", [&id])
+        .unwrap();
+    assert_eq!(full_store::world(&c, &id, now()).unwrap(), saved);
 }

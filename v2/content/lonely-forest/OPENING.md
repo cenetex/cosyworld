@@ -110,8 +110,8 @@ lamp remedies are exhausted; they are separate from the ordinary gates.
 ## Source and art
 
 `classic-to-card.json` records every adapted place, resident and item ID.
-The source actors, locations, objects and room features live in
-`v2/content/core/`. The garden work adapts the source garden job. The card
+The source actors, locations, objects and room features lived in the
+deleted classic `core` pack (git history). The garden work adapts the source garden job. The card
 chapter owns its outcomes.
 
 The Wolfprint Charm illustration is an unchanged copy of the core

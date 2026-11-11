@@ -8,6 +8,38 @@ const config = JSON.parse(
 const pick = (...changed) => selectSmokes(changed, config);
 
 describe("fast check smoke selection", () => {
+  it("selects portable receiver acceptance for its script, rules, controller and pack", () => {
+    const smoke = "smoke-card-portable-radio";
+    for (const path of [
+      `v2/scripts/${smoke}.mjs`, "v2/card-game/radio-item.mjs",
+      "v2/card-game/radio-player.mjs", "v2/card-game/radio-station.mjs",
+      "v2/card-game/music.mjs", "v2/content/ratiradio/card-world.json",
+    ]) expect(pick(path)).toContain(smoke);
+    const selected = pick("v2/content/ratiradio/card-world.json", "v2/card-game/app.mjs");
+    expect(selected.slice(config.core.length)).toEqual([
+      "smoke-card-ratiradio", smoke, "smoke-card-speech-queue",
+    ]);
+    expect(config.max).toBe(3);
+    const shards = JSON.parse(readFileSync("scripts/browser-shards.json", "utf8"));
+    expect(shards.checks[smoke]).toBeGreaterThan(0);
+  });
+
+  it("runs smoke-card-startup-recovery for its script and owner", () => {
+    const smoke = "smoke-card-startup-recovery";
+    expect(pick(`v2/scripts/${smoke}.mjs`)).toContain(smoke);
+    expect(pick("v2/card-game/entry.mjs")).toContain(smoke);
+    const shards = JSON.parse(readFileSync("scripts/browser-shards.json", "utf8"));
+    expect(shards.checks[smoke]).toBeGreaterThan(0);
+  });
+
+  it("covers save validation without taking higher-priority smoke slots", () => {
+    for (const file of [
+      "v2/card-game/world.mjs",
+      "test/card-save-validation.test.mjs",
+    ])
+      expect(pick(file)).toContain("smoke-card-save-validation");
+  });
+
   it("names only smoke scripts that exist", () => {
     const named = [
       config.core,
@@ -57,6 +89,31 @@ describe("fast check smoke selection", () => {
       expect(pick(file)).toContain("smoke-card-music");
   });
 
+  it("checks dream lifetime when the sleep owner changes", () => {
+    for (const owner of ["view", "presentation"])
+      expect(pick(`v2/card-game/sleep-${owner}.mjs`)).toContain(
+        "smoke-card-sleep-dream",
+      );
+  });
+
+  it("checks layer fades and reduced motion when transitions change", () => {
+    expect(pick("v2/card-game/transitions.mjs")).toEqual([
+      ...config.core,
+      "smoke-card-ship-fade",
+      "smoke-card-reduced-fades",
+    ]);
+    expect(
+      pick(
+        "v2/card-game/transitions.mjs",
+        "v2/content/ratiradio/card-world.json",
+      ).slice(config.core.length),
+    ).toEqual([
+      "smoke-card-ratiradio",
+      "smoke-card-ship-fade",
+      "smoke-card-reduced-fades",
+    ]);
+  });
+
   it("gives a core smoke a path selects no slot of the cap", () => {
     // beat-stack and actions are core; the rest fill the three slots.
     const smokes = pick(
@@ -83,6 +140,14 @@ describe("fast check smoke selection", () => {
       expect(pick(file, "v2/card-game/app.mjs", "v2/card-game/world.mjs",
         "v2/orchestrator-rust/src/card_shared/content.json")[config.core.length])
         .toBe("smoke-card-ratiradio");
+  });
+
+  it("runs smoke-card-avatar-menu-requests for its script and owner", () => {
+    const smoke = "smoke-card-avatar-menu-requests";
+    expect(pick(`v2/scripts/${smoke}.mjs`)).toContain(smoke);
+    expect(pick("v2/card-game/avatar-menu.mjs")).toContain(smoke);
+    const shards = JSON.parse(readFileSync("scripts/browser-shards.json", "utf8"));
+    expect(shards.checks[smoke]).toBeGreaterThan(0);
   });
 
   it("runs a changed smoke first, skips Rust smokes, and caps the count", () => {

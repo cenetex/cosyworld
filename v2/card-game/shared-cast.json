@@ -25,13 +25,13 @@
         "image": "assets/shared/items/lamp.png"
       },
       "home": {
-        "id": "station",
-        "name": "Empty station",
-        "text": "The empty clock hangs above rails that vanish into pale mist. An ivory bench waits beside the pond door.",
-        "image": "assets/shared/places/station.png",
+        "id": "attic",
+        "name": "Mirror attic",
+        "text": "A tall mirror shows only the warm attic. Dust gathers along its frame.",
+        "image": "assets/shared/places/attic-dark.webp",
         "entrance": {
-          "name": "Lit arch",
-          "text": "The lamp lights a stone arch. Pale rails lead through it to the empty station."
+          "name": "Mirror",
+          "text": "The lamp wakes the tall mirror. It shows only the warm attic."
         }
       },
       "image": "assets/shared/characters/vale.png"

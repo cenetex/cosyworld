@@ -1,3 +1,4 @@
+import { settleLamp } from "./lamp-state.mjs";
 import { privateView } from "./learning.mjs";
 import { settleHeldItems } from "./held-item.mjs";
 import { expressionKind, validExpression } from "./expression.mjs";
@@ -5,6 +6,7 @@ import { expressionKind, validExpression } from "./expression.mjs";
 // The host supplies authenticated claims and presence on every operation.
 import {
   createWorld,
+  holdChoice,
   decodeSave,
   validateWorld,
   settleStationExits,
@@ -42,6 +44,8 @@ import { dialogueCast } from "./scene-cast.mjs";
 import { speechOccasions } from "./speech-occasions.mjs";
 
 function validateTransition(world) {
+  settleHeldItems(world);
+  settleLamp(world);
   settleStationExits(world);
   validateWorld(world);
 }
@@ -237,6 +241,16 @@ export function dispatchShared(request) {
     world.revision += 1;
     validateTransition(world);
     return response(world, view(world, actor));
+  }
+  if (request.op === "hold") {
+    if (
+      !world.controlledActors.includes(actor) ||
+      !world.presentActors.includes(actor)
+    )
+      throw new Error("Enter this world with your avatar first.");
+    holdChoice(world, actor, request.choice);
+    validateTransition(world);
+    return response(world);
   }
   if (request.op === "view")
     return {

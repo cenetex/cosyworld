@@ -9,7 +9,8 @@ import {
   plan,
   play,
 } from "../v2/card-game/world.mjs";
-import { availableCards } from "../v2/card-game/cards.mjs";
+import { availableCards, sealedReason } from "../v2/card-game/cards.mjs";
+import { isLockedBox, lockedQuest } from "../v2/card-game/locked-box.mjs";
 import {
   entityActive,
   packPeople,
@@ -20,7 +21,7 @@ import { DAYLIGHT_TURNS } from "../v2/card-game/pack-rules.mjs";
 import * as itemRules from "../v2/card-game/pack-items.mjs";
 import { roamingActors } from "../v2/card-game/roaming-routes.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
-import { newWant } from "../v2/card-game/want.mjs";
+import { newWant, questsOf } from "../v2/card-game/want.mjs";
 
 // This acceptance contract runs only when its pack is mounted.
 const it = check.skipIf(!packPeople["ratiradio-rati"]);
@@ -37,13 +38,23 @@ const fixture = (opening = false) => {
   // Fresh cross-world placement is covered by card-radio-scatter.test.mjs.
   for (const [id, item] of Object.entries(packDefinition("ratiradio").items))
     if (item.scatterOutside) s.items[id].holder = item.holder;
+  // The Thermos opens the Listening Room only when set down at the Dispatch
+  // Window, so a fetched one waits in the Staff Kitchen instead.
+  s.items[id("thermos")].holder = id("staff-kitchen");
   s.actors.vale.place = "pond";
   s.actors.vale.visited.push("pond");
   for (const item of Object.values(s.items))
     if (item.holder === "vale") item.holder = "pond";
   return s;
 };
+// RATi roams on his own. "gather" stands him beside the traveler, as he is
+// when the Listening Room is home, so a journey can Talk with him there.
+const gather = (s, who) => {
+  s.actors[who].place = s.actors.vale.place;
+  return s;
+};
 const act = (s, kind = "wait", target) => {
+  if (kind === "gather") return gather(s, target);
   const action = legalActions(s).find(
     (a) =>
       a.kind === kind && (!target || a.item === target || a.target === target),
@@ -59,18 +70,22 @@ const route = [
   ["move", id("staff-kitchen")],
   ["drop", id("station-key")],
   ["take", id("red-beanie")],
+  ["take", id("thermos")],
   ["move", id("dispatch-window")],
+  ["drop", id("thermos")],
   ["take", id("thermos")],
   ["move", home],
   ["drop", id("red-beanie")],
-  ["drop", id("thermos")],
   ["take", id("raven-figurine")],
+  ["gather", rati],
+  ["talk", rati],
   ["move", id("broadcast-booth")],
   ["take", id("glass")],
   ["move", home],
   ["drop", id("glass")],
   ["drop", id("raven-figurine")],
 ];
+const arrive = route.findIndex(([kind, to]) => kind === "move" && to === home);
 
 it("walks the full return, introduces both residents at home, then keeps the unlock", () => {
   let s = fixture();
@@ -78,11 +93,11 @@ it("walks the full return, introduces both residents at home, then keeps the unl
   expect(packPeople[rati]).toMatchObject({ home, levelAtHome: true });
   for (const [step, [kind, target]] of route.entries()) {
     s = act(s, kind, target);
-    if (step < 7) {
+    if (step < arrive) {
       expect(entityActive(s, rati)).toBe(false);
       expect(s.actors[rati].place).toBe(home);
     }
-    if (step === 7) {
+    if (step === arrive) {
       expect(entityActive(s, rati)).toBe(true);
       expect(s.actors[rati].place).toBe(home);
       expect(availableCards(s)).toContain(raven);
@@ -109,7 +124,7 @@ it("keeps opening and pack meetings aligned when arrival wakes RATi", () => {
   s.opening.crossed = true;
   s.opening.met.moth = 0;
   s.locations.attic.anchored = true;
-  for (const [kind, target] of route.slice(0, 7)) s = act(s, kind, target);
+  for (const [kind, target] of route.slice(0, arrive)) s = act(s, kind, target);
   expect(s.opening.crossed).toBe(true);
   expect(s.packs.ratiradio.met[rati]).toBeUndefined();
   expect(s.opening.met[rati]).toBeUndefined();
@@ -208,7 +223,7 @@ it("reports malformed reservation conditions as schema problems", () => {
 
 it("lets a newly active roamer stand down from a standoff", () => {
   let s = fixture();
-  for (const [kind, target] of route.slice(0, 8)) s = act(s, kind, target);
+  for (const [kind, target] of route.slice(0, arrive + 1)) s = act(s, kind, target);
   s = act(s, "threaten", rati);
   expect(s.standoffs.some((fight) => Object.hasOwn(fight.resolve, rati))).toBe(true);
   s = act(s);
@@ -238,6 +253,10 @@ it("replays the full shared journal through the compiled rules identically", () 
     save: encodeSave(fixture()),
   }).world;
   for (const [kind, target] of route) {
+    if (kind === "gather") {
+      gather(world, target);
+      continue;
+    }
     const request = { op: "view", world, ...context };
     const action = dispatchShared(request).actions.find(
       (a) => a.kind === kind && (a.item === target || a.target === target),
@@ -252,3 +271,138 @@ it("replays the full shared journal through the compiled rules identically", () 
   }
   expect(flags(world)["raven-awake"]).toBe(true);
 }, 15000);
+
+// The three doors use three different locks (#2605): a thing held, a thing
+// set down, and something heard. Each stays shut under the old condition.
+const upTo = (kind, target) =>
+  route.slice(0, route.findIndex(([k, t]) => k === kind && t === target) + 1);
+const steps = (s, list) => list.reduce((w, [k, t]) => act(w, k, t), s);
+const reload = (s) => decodeSave(encodeSave(s));
+const canMove = (s, to) =>
+  legalActions(s).some((a) => a.kind === "move" && a.target === to && !a.item);
+const box = (s, card) => ({
+  shown: availableCards(s).includes(card),
+  locked: isLockedBox(s, card),
+  reason: sealedReason(s, card),
+});
+
+it("draws every locked way and the sealed Raven as a box with its reason", () => {
+  const s = fixture();
+  const expected = [
+    ["staff-kitchen", "dispatch-window", /Carry the Red Beanie/u],
+    ["dispatch-window", "listening-room", /Put the Thermos down at the Dispatch Window/u],
+    ["listening-room", "broadcast-booth", /Talk with RATi while holding the Raven Figurine/u],
+    ["listening-room", "raven", /glass, raven figurine, red beanie/u],
+  ];
+  for (const [from, card, reason] of expected) {
+    s.actors.vale.place = id(from);
+    expect(box(s, id(card)), card).toMatchObject({ shown: true, locked: true });
+    expect(box(s, id(card)).reason, card).toMatch(reason);
+    expect(lockedQuest(s, id(card), () => true).text, card).toBeTruthy();
+  }
+  // A descriptor never names a method that does not open the box: it states
+  // the aim, and the button carries the exact condition.
+  for (const card of ["listening-room", "broadcast-booth"]) {
+    s.actors.vale.place = id(card === "listening-room" ? "dispatch-window" : "listening-room");
+    const text = lockedQuest(s, id(card), () => true).text;
+    expect(text, card).toMatch(/^(Go to|Discover) /u);
+    expect(text, card).not.toMatch(/hold|carry|talk/iu);
+  }
+});
+
+it("uses three different lock kinds, one per door, in the pack data", () => {
+  const pack = packDefinition("ratiradio");
+  const door = (flag) =>
+    pack.choices.filter((c) => c.effects.some((e) => e.key === flag));
+  const kind = (c) =>
+    c.on === "talk"
+      ? "heard"
+      : c.requires.some((r) => r.kind === "item_at")
+        ? "placed"
+        : "held";
+  const kinds = ["dispatch-open", "listening-open", "booth-open"].map((flag) => [
+    ...new Set(door(flag).map(kind)),
+  ]);
+  expect(kinds).toEqual([["held"], ["placed"], ["heard"]]);
+  for (const choice of door("booth-open"))
+    expect(choice.requires).toContainEqual({
+      kind: "holding",
+      item: id("raven-figurine"),
+      role: "actor",
+    });
+});
+
+it("opens the Listening Room by setting the Thermos down, not by carrying it", () => {
+  let s = steps(fixture(), upTo("move", id("dispatch-window")));
+  expect(s.items[id("thermos")].holder).toBe("vale");
+  expect(flags(s)["listening-open"]).toBeUndefined();
+  expect(canMove(s, home)).toBe(false);
+  expect(box(s, home).locked).toBe(true);
+  // Waiting beside it, or setting down something else, opens nothing.
+  s = act(s);
+  s = act(s, "drop", id("red-beanie"));
+  s = act(s, "take", id("red-beanie"));
+  expect(canMove(s, home)).toBe(false);
+  s = act(s, "drop", id("thermos"));
+  expect(s.items[id("thermos")].holder).toBe(id("dispatch-window"));
+  expect(flags(s)["listening-open"]).toBe(true);
+  expect(box(s, home).locked).toBe(false);
+  // The way stays open after the Thermos is carried off, and after reload.
+  s = reload(act(s, "take", id("thermos")));
+  expect(s.items[id("thermos")].holder).toBe("vale");
+  expect(canMove(s, home)).toBe(true);
+  s = act(s, "move", id("staff-kitchen"));
+  s = act(s, "move", id("dispatch-window"));
+  expect(canMove(s, home)).toBe(true);
+});
+
+it("opens the Broadcast Booth by talking with RATi while holding the figurine", () => {
+  let s = steps(fixture(), upTo("move", home));
+  s = gather(s, rati);
+  s = act(s, "take", id("raven-figurine"));
+  // Holding the figurine in RATi's room, or merely waiting, opens nothing.
+  s = act(s);
+  expect(flags(s)["booth-open"]).toBeUndefined();
+  expect(canMove(s, id("broadcast-booth"))).toBe(false);
+  // Talking with RATi without the figurine opens nothing either.
+  s = act(s, "drop", id("raven-figurine"));
+  s = gather(s, rati);
+  s = act(s, "talk", rati);
+  expect(flags(s)["booth-open"]).toBeUndefined();
+  s = act(s, "take", id("raven-figurine"));
+  s = gather(s, rati);
+  expect(box(s, id("broadcast-booth")).locked).toBe(true);
+  s = reload(act(s, "talk", rati));
+  expect(flags(s)["booth-open"]).toBe(true);
+  expect(box(s, id("broadcast-booth")).locked).toBe(false);
+  // The way stays open once the figurine is set down; Raven still waits on
+  // her three things.
+  s = act(s, "drop", id("raven-figurine"));
+  expect(canMove(s, id("broadcast-booth"))).toBe(true);
+  expect(entityActive(s, raven)).toBe(false);
+});
+
+it("hears the figurine from RATi in any room of the station", () => {
+  const start = act(
+    steps(fixture(), upTo("move", home)),
+    "take",
+    id("raven-figurine"),
+  );
+  for (const path of [[], ["dispatch-window"], ["dispatch-window", "staff-kitchen"]]) {
+    let s = structuredClone(start);
+    for (const room of path) s = act(s, "move", id(room));
+    s = act(gather(s, rati), "talk", rati);
+    expect(flags(s)["booth-open"], path.join()).toBe(true);
+  }
+});
+
+it("does not complete the Thermos door's quest by carrying the Thermos", () => {
+  let s = steps(fixture(), upTo("move", id("dispatch-window")));
+  s = act(s, "gate", id("listening-room"));
+  const open = () =>
+    questsOf(s, "vale").some((q) => q.target === home);
+  expect(open()).toBe(true);
+  s = act(s);
+  expect(open()).toBe(true);
+  expect(flags(s)["listening-open"]).toBeUndefined();
+});

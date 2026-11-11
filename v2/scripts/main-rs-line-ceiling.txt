@@ -485,4 +485,19 @@
 # 58658 -> 58660: module declarations for the shared authoring draft contract
 # and private pack routes. Validation, storage, handlers and tests stay in
 # authoring_draft.rs, card_authoring.rs and card_authoring_tests.rs.
-58660
+#
+# 58660 -> 58658: the retired first-tale presentation receipt module and its
+# route are gone.
+#
+# 58658 -> 58579: the hosted server boots card-only (#1652). The empty
+# RuntimeWorld constructor moved to card_boot.rs with the card boot and /meta.
+#
+# 58579 -> 2813: delete the classic router, its handlers and their tests,
+# and every classic item the card boot cannot reach (#1652, slice 1). What
+# remains is kept alive only by the inert classic fields of AppState and
+# RuntimeWorld; the next slice removes those.
+#
+# 2813 -> 256: the classic AppState fields, RuntimeWorld and the classic
+# world types are deleted (#1652, slice 2). main.rs keeps the card-only
+# AppState, event-store health and the event-store schema init.
+256

@@ -139,7 +139,7 @@ describe("the level quest", () => {
     expect(s.actors.vale.sanctuary).toBe("attic");
     s.actors.vale.place = "attic";
     // Each step is pinned to a plain place step, whatever verb was drawn,
-    // and the lamp rests in the attic, so no drawn step is met on arrival.
+    // and the empty lamp rests in the attic, keeping its dark mirror open.
     const plain = ({ step, ...want }) => want;
     const go = (s, target) => {
       s.actors.vale.want = {
@@ -149,7 +149,8 @@ describe("the level quest", () => {
       };
       return act(s, (a) => a.kind === "move" && a.target === target);
     };
-    s.items.lamp.holder = "attic";
+    Object.assign(s.items.lamp, { holder: "attic", lit: false, fuel: 0,
+      fuelRooms: 0, fuelPlace: "attic", fuelVisit: true });
     s = go(s, "pond");
     expect(s.actors.vale.want.quest).toEqual({ level: 6, left: 2 });
     // Vale has since slept at the Hillside Sanctuary: the way back leads there,
@@ -341,6 +342,8 @@ describe("the level quest", () => {
 
   it("raises the player's level only through a met level quest through a long run", () => {
     let s = createWorld();
+    // Injected experience must not infer an already advanced legacy level.
+    s.actors.vale.level = 1;
     let quests = 0;
     for (let step = 0; step < 400; step++) {
       // Now and then the player comes home to the attic with experience.

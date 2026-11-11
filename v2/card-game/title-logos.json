@@ -11,7 +11,8 @@
         "src": "assets/title/toolbar/lonely-forest-1-transparent.webp",
         "width": 417,
         "height": 160
-      }
+      },
+      "transparent": "assets/title/transparent/lonely-forest-1.png"
     },
     {
       "src": "assets/title/lonely-forest-2.webp",
@@ -24,11 +25,12 @@
         "src": "assets/title/toolbar/lonely-forest-2-transparent.webp",
         "width": 407,
         "height": 160
-      }
+      },
+      "transparent": "assets/title/transparent/lonely-forest-2.png"
     },
     {
       "src": "assets/title/lonely-forest-hearth-and-oak.webp",
-      "name": "Lonely Forest — Hearth and Oak",
+      "name": "Lonely Forest \u2014 Hearth and Oak",
       "rarity": "common",
       "width": 1672,
       "height": 941,
@@ -37,11 +39,12 @@
         "src": "assets/title/toolbar/lonely-forest-teal-lantern-left.webp",
         "width": 288,
         "height": 96
-      }
+      },
+      "transparent": "assets/title/transparent/lonely-forest-teal-lantern-left.png"
     },
     {
       "src": "assets/title/lonely-forest-listening-wood.webp",
-      "name": "Lonely Forest — The Listening Wood",
+      "name": "Lonely Forest \u2014 The Listening Wood",
       "rarity": "common",
       "width": 1672,
       "height": 941,
@@ -50,20 +53,22 @@
         "src": "assets/title/toolbar/lonely-forest-teal-bell-and-lantern.webp",
         "width": 288,
         "height": 96
-      }
+      },
+      "transparent": "assets/title/transparent/lonely-forest-teal-bell-and-lantern.png"
     },
     {
       "src": "assets/title/lonely-forest-black-pond.webp",
-      "name": "Lonely Forest — The Black Pond",
+      "name": "Lonely Forest \u2014 The Black Pond",
       "rarity": "rare",
       "width": 1672,
       "height": 941,
       "background": "dark",
       "toolbar": {
-        "src": "assets/title/toolbar/lonely-forest-teal-bell-and-lantern.webp",
-        "width": 288,
-        "height": 96
-      }
+        "src": "assets/title/transparent/lonely-forest-waterline-toolbar.webp",
+        "width": 320,
+        "height": 160
+      },
+      "transparent": "assets/title/transparent/lonely-forest-waterline.png"
     }
   ]
 }

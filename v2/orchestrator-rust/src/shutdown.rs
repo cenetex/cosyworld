@@ -1,11 +1,9 @@
 use super::*;
-use futures_util::StreamExt as FuturesStreamExt;
 use std::{
     fmt,
     sync::atomic::{AtomicU64, Ordering},
 };
 use tokio::sync::watch;
-use tokio_stream::Stream;
 
 pub(super) const SHUTDOWN_DRAIN_ENV: &str = "COSYWORLD_SHUTDOWN_DRAIN_MS";
 const DEFAULT_SHUTDOWN_DRAIN_MS: u64 = 3_000;
@@ -145,46 +143,6 @@ impl ShutdownSubscription {
 
     pub(super) fn signal_count(&self) -> u64 {
         self.metrics.signals.load(Ordering::Acquire)
-    }
-
-    pub(super) fn finish_stream<S>(self, stream: S) -> impl Stream<Item = S::Item>
-    where
-        S: Stream,
-    {
-        let mut subscription = self;
-        let mut guard = ShutdownStreamGuard::new(Arc::clone(&subscription.metrics));
-        stream.take_until(async move {
-            subscription.wait_after(0).await;
-            guard.mark_notified();
-        })
-    }
-}
-
-struct ShutdownStreamGuard {
-    metrics: Arc<ShutdownMetrics>,
-    notified: bool,
-}
-
-impl ShutdownStreamGuard {
-    fn new(metrics: Arc<ShutdownMetrics>) -> Self {
-        metrics.active_streams.fetch_add(1, Ordering::AcqRel);
-        Self {
-            metrics,
-            notified: false,
-        }
-    }
-
-    fn mark_notified(&mut self) {
-        if !self.notified {
-            self.metrics.streams_notified.fetch_add(1, Ordering::AcqRel);
-            self.notified = true;
-        }
-    }
-}
-
-impl Drop for ShutdownStreamGuard {
-    fn drop(&mut self) {
-        self.metrics.active_streams.fetch_sub(1, Ordering::AcqRel);
     }
 }
 

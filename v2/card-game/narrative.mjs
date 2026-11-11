@@ -272,8 +272,12 @@ function exchangeFacts(world, speaker, played) {
   });
 }
 
-export function narrativeContext(world, action = null, isCovered = null) {
+export function narrativeContext(world, action = null, isCovered = null, remaining = false) {
   const cast = dialogueCast(world, action);
+  const original = typeof remaining === "object" ? remaining : null;
+  if (original) cast.ids = [...new Set([cast.location,
+    ...original.speakers.filter((id) => cast.audience.includes(id)),
+    ...cast.ids])].slice(0, 8);
   const {
     location,
     beforeFirstLight,
@@ -285,7 +289,10 @@ export function narrativeContext(world, action = null, isCovered = null) {
     ids,
   } = cast;
   // Talk and Ask speak; any other play speaks only on a rules occasion.
-  const { occasion, speakers, scenery } = speechOccasions(world, cast);
+  const occasionState = speechOccasions(world, cast);
+  const { occasion } = occasionState;
+  const speakers = original ? original.speakers.filter((id) => ids.includes(id)) : occasionState.speakers;
+  const scenery = original ? original.scenery : occasionState.scenery;
   const battle = battleEvents(world, played);
   const resting =
     played?.verb !== "claim" &&
@@ -346,7 +353,7 @@ export function narrativeContext(world, action = null, isCovered = null) {
             entry.kind === "dialogue" &&
             profiles[entry.actorId]?.kind === "avatar" &&
             entry.locationId === location &&
-            entry.turn < world.turn,
+            (entry.turn < world.turn || (remaining && entry.turn === world.turn)),
         )
         .slice(-6)
         .map(({ actorId, text, cast, witnesses }) => ({
@@ -559,7 +566,7 @@ export function narrativeContext(world, action = null, isCovered = null) {
         facts.push(`Held by or resting at: ${nameOf(rootHolder(world, id))}.`);
         if (id === "lamp")
           facts.push(
-            `${item.fuel === 0 ? "Empty" : item.fuel <= 3 ? "Running low on oil" : "Has oil"}; ${item.lit ? "lit" : "unlit"}; ${covered(world, id) ? "covered" : "uncovered"}.`,
+            `${item.fuel === 0 ? "Empty" : (item.fuelRooms === 1 || (item.fuelRooms === undefined && item.fuel <= 3)) ? "Running low on oil" : "Has oil"}; ${item.lit ? "lit" : "unlit"}; ${covered(world, id) ? "covered" : "uncovered"}.`,
           );
         if (things[id]?.refuels)
           facts.push(
@@ -623,6 +630,22 @@ export function narrativeContext(world, action = null, isCovered = null) {
       };
     }),
   };
+  if (remaining) {
+    // Published lines are immutable: ask only voices that have not spoken.
+    // Current-turn conversation above lets a Talk answer the original words.
+    const spoken = new Set(world.log.filter((entry) => entry.generated &&
+      !entry.fallback && entry.turn === world.turn && entry.entityId &&
+      ["dialogue", "narration"].includes(entry.kind)).map((entry) => entry.entityId));
+    context.speakers = context.speakers.filter((id) => !spoken.has(id));
+    if (spoken.has(context.location)) context.scenery = false;
+    if (spoken.has(context.focus)) context.focus = null;
+    context.disclosures = (context.disclosures || []).filter((d) => !spoken.has(d.speaker));
+    if (spoken.has(context.resting)) {
+      context.resting = null;
+      delete context.rest;
+      delete context.dream;
+    }
+  }
   return isCovered
     ? forgetCovered(world, context, isCovered)
     : forgetUnfound(world, context);
@@ -692,7 +715,7 @@ export function applyGeneratedText(
   world,
   context,
   response,
-  { incremental = false } = {},
+  { incremental = false, preservePublished = false } = {},
 ) {
   if (
     world.revision !== context.revision ||
@@ -732,6 +755,8 @@ export function applyGeneratedText(
     throw new Error("The story response was incomplete.");
   const next = structuredClone(world);
   for (const entry of entries) {
+    if (preservePublished && world.log.some((line) => line.generated &&
+      !line.fallback && line.turn === world.turn && line.entityId === entry.id)) continue;
     if (entry.id === context.location && context.scenery === false) continue;
     Object.assign(next.memories[entry.id], {
       text: entry.text.trim(),
@@ -1049,7 +1074,7 @@ export function createNarrator({
         .catch(() => {});
     }
   }
-  async function write(context, version, signal) {
+  async function write(context, version, signal, remaining) {
     const graceEnd = Date.now() + BUSY_GRACE;
     let deadline = Date.now() + Math.max(30_000, Math.min(budget, 1_900_000));
     let busy = 0;
@@ -1078,7 +1103,7 @@ export function createNarrator({
                     .map(({ id }) => id),
                 };
                 const next = applyGeneratedText(getWorld(), context, value, {
-                  incremental: true,
+                  incremental: true, preservePublished: remaining,
                 });
                 if (next) apply(next, { pending: true });
               }
@@ -1096,7 +1121,7 @@ export function createNarrator({
               : entry,
           );
         const next = applyGeneratedText(getWorld(), context, response, {
-          incremental: early,
+          incremental: early || remaining, preservePublished: remaining,
         });
         // `code` lets the table count a reply the scene had outgrown.
         if (!next)
@@ -1144,15 +1169,21 @@ export function createNarrator({
     running = true;
     try {
       while (pending) {
-        const { action, version } = pending;
+        const { action, version, remaining } = pending;
         pending = null;
-        const quiet = limit(narrativeContext(getWorld(), action, isCovered));
+        const quiet = limit(narrativeContext(getWorld(), action, isCovered, remaining));
+        const cast = typeof remaining === "object" ? remaining : {
+          speakers: quiet.speakers, scenery: quiet.scenery, focus: quiet.focus,
+        };
+        if (version === ticket && asking) asking.cast = cast;
         if (voicesNobody(quiet)) {
           started(quiet);
           preview(null);
           // Only a crossing's authored echo is written and played.
           const next = applySilentScene(getWorld(), quiet);
           if (next !== getWorld()) apply(next);
+          else if (getWorld().log.some((entry) => entry.generated &&
+            entry.turn === getWorld().turn && entry.entityId)) apply(next);
           else silent(quiet);
           status("ready");
           if (quiet.resting) reflectScene(quiet, version);
@@ -1165,10 +1196,10 @@ export function createNarrator({
             await retryPause(controller.signal, holdUntil - Date.now());
           if (version !== ticket) continue;
           const context = limit(
-            narrativeContext(getWorld(), action, isCovered),
+            narrativeContext(getWorld(), action, isCovered, remaining),
           );
           started(context);
-          await write(context, version, controller.signal);
+          await write(context, version, controller.signal, remaining);
         } catch (error) {
           // Words that never came leave the scene's speakers silent: the
           // table shows "…" and play goes on. Nothing asks again.
@@ -1183,19 +1214,23 @@ export function createNarrator({
       asking = null;
     }
   }
-  function changed(action = null) {
+  function changed(action = null, { remaining = false } = {}) {
     // One request per turn: the same unchanged scene is already being asked.
     const revision = getWorld().revision;
     if (asking?.revision === revision && asking.action === action) return;
-    asking = { revision, action };
+    asking = { revision, action, turn: getWorld().turn, cast: typeof remaining === "object" ? remaining : null };
     reflectionController?.abort();
-    pending = { action, version: ++ticket };
+    pending = { action, version: ++ticket, remaining };
     preview(null);
     controller?.abort();
     void drain();
   }
   return {
     changed,
+    pendingCast: () => asking?.cast || null,
+    continuePending() {
+      if (asking?.turn === getWorld().turn) changed(asking.action, { remaining: asking.cast || true });
+    },
     invalidate() {
       reflectionController?.abort();
       asking = null;

@@ -23,8 +23,6 @@ local saves and shared worlds, with the same authored rules in both modes.
 
 ## Planning and history
 
-The [planning archive](archive/backlog/README.md) preserves earlier proposals.
-Active work lives in GitHub issues.
-The [classic archive](archive/classic/index.md) preserves earlier product,
-player, RPG, worldpack, and character guides. Decision records retain their
-historical context and point back to the current source map.
+Active work lives in GitHub issues. Retired classic guides remain in git
+history. Decision records retain their historical context and point back to
+the current source map.

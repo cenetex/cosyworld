@@ -3385,11 +3385,9 @@ body .beat-stack > .action-panel[data-card-tap]:not([hidden]) {
     width: calc(100vw - 32px);
   }
 }
-/* The title's logo is framed in the world's tier, as a card's edge glow. */
+/* Follow the transparent lettering, never its rectangular image bounds. */
 :root[data-world-tier] .title-intro > img {
-  box-shadow:
-    0 0 0 1px var(--world-tier),
-    0 0 14px color-mix(in srgb, var(--world-tier) 35%, transparent);
+  filter: drop-shadow(0 0 7px color-mix(in srgb, var(--world-tier) 65%, transparent));
 }
 .title-intro[data-phase="wake"] {
   cursor: default;

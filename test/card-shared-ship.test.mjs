@@ -1,3 +1,4 @@
+import { fillLampFuel, settleLamp } from "../v2/card-game/lamp-state.mjs";
 import { describe, it, expect } from "vitest";
 import { createWorld, encodeSave, decodeSave } from "../v2/card-game/world.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
@@ -64,34 +65,28 @@ describe("shared ship boarding", () => {
     let s = setup("greek-harbor");
     s.crossings["pond-greek-harbor"].discovered = false;
     for (const actor of players) s.actors[actor].place = "pond";
-    Object.assign(s.items.lamp, { holder: "vale", lit: true, fuel: 12 });
+    s.items.lamp.holder = "pond";
+    fillLampFuel(s);
+    settleLamp(s);
     s.items.cloth.holder = "vale";
-    // One cover and one uncover of the lit lamp call the ship.
-    for (const [kind, item] of [
-      ["cover", "cloth"],
-      ["take", "cloth"],
-    ]) {
-      for (const actor of players)
-        expect(
-          ask(s, actor).actions.some((a) => a.target === "greek-ship"),
-        ).toBe(false);
-      const action = ask(s, "vale").actions.find(
-        (a) =>
-          a.kind === kind &&
-          a.item === item &&
-          (kind !== "cover" || a.target === "lamp"),
+    for (const actor of players)
+      expect(ask(s, actor).actions.some((a) => a.target === "greek-ship")).toBe(
+        false,
       );
-      expect(action).toBeDefined();
-      const result = ask(s, "vale", "play", { action });
-      expect(result.ok, result.error).toBe(true);
-      s = decodeSave(encodeSave(result.world));
-    }
+    const turn = s.turn;
+    const result = ask(s, "vale", "hold", {
+      choice: { item: "cloth", revision: s.revision },
+    });
+    expect(result.ok, result.error).toBe(true);
+    expect(result.world.turn).toBe(turn);
+    s = decodeSave(encodeSave(result.world));
     expect(s.crossings["pond-greek-harbor"].discovered).toBe(true);
     for (const actor of players)
       expect(ask(s, actor).actions.some((a) => a.target === "greek-ship")).toBe(
         true,
       );
-    s.items.lamp.lit = false;
+    s.items.lamp.fuelRooms = 0;
+    settleLamp(s);
     s = move(s, "mara", "greek-ship");
     s = sail(s, "mara", "greek-harbor");
     s = move(s, "mara", "greek-ship");

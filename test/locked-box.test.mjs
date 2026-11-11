@@ -8,7 +8,7 @@ import {
 } from "../v2/card-game/locked-box.mjs";
 import { seatActors } from "../v2/card-game/human-cast.mjs";
 import { greekTravelTargets } from "./helpers/greek-travel.mjs";
-import { openingFixture } from "./helpers/greek-opening.mjs";
+import { greekErrands } from "./helpers/greek-opening.mjs";
 import { settleGate } from "./helpers/world-life.mjs";
 import { questsOf } from "../v2/card-game/want.mjs";
 import { packDefinitions } from "../v2/card-game/pack-registry.mjs";
@@ -73,7 +73,7 @@ describe("locked boxes", () => {
     expect(lockedQuest(s, "greek-cithaeron")).toBeNull();
   });
   it("lock the sealed card alone until its quest opens the way", () => {
-    let s = openingFixture("burial").decree;
+    let s = greekErrands().decree;
     expect(availableCards(s).filter((id) => isLockedBox(s, id))).toEqual([
       "greek-battlefield",
     ]);
@@ -127,7 +127,7 @@ describe("locked boxes", () => {
   it("lock the same card for a shared seat, from the same world state", () => {
     // Shared play builds its client world from the server's world JSON
     // (sharedWorld in app.mjs), so a seated traveller sees the same box.
-    const base = openingFixture("burial").decree;
+    const base = greekErrands().decree;
     const shared = seatActors(
       { ...structuredClone(base), playerActorId: "mara" },
       ["mara"],

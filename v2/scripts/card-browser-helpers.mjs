@@ -57,8 +57,9 @@ export async function startNewGame(page) {
 }
 
 // Use the same holder reveal and selection gestures as a player.
-export async function revealCard(page, id) {
+export async function revealCard(page, id, { keepSelected = false } = {}) {
   const card = page.locator(`#hand [data-card="${id}"]`);
+  const wasSelected = (await card.getAttribute("aria-pressed")) === "true";
   const frame = card.locator("..");
   const holder = await frame.getAttribute("data-holder");
   if ((await frame.getAttribute("hidden")) !== null) {
@@ -74,14 +75,20 @@ export async function revealCard(page, id) {
   )
     await tapCard(card);
   await card.scrollIntoViewIfNeeded();
-  // The first tap uncovers; a tap during the reveal only skips it.
+  // Select the closed box, then open it through its descriptor.
   if ((await card.getAttribute("data-unrevealed")) === "true") {
-    await tapCard(card);
+    const open = page.locator(`#card-actions [data-open-box="${id}"]`);
+    // Escape can keep a held box selected in the folded hand. Open its
+    // details first; a selected card alone does not mean its action is shown.
+    if (!(await open.count())) await tapCard(card);
+    if ((await card.getAttribute("aria-pressed")) !== "true") await tapCard(card);
+    await open.click();
     await page.waitForFunction(
       (id) =>
         !document.querySelector(`#hand [data-card="${id}"]`)?.dataset.revealing,
       id,
     );
+    if (!keepSelected && !wasSelected && (await card.getAttribute("aria-pressed")) === "true") await tapCard(card);
   }
   // The folded top of the ways on fans them before it can be chosen.
   if (!holder && (await wayTop(page).count()) && (await isWayTop(card)))
@@ -101,10 +108,12 @@ const isWayTop = (card) =>
       el.classList.contains("location") &&
       !el.parentElement.hasAttribute("data-inventory"),
   );
-// A covered top card is uncovered by its first tap, so tap until they fan.
+// Open a covered top through its descriptor, then fan the ways.
 async function fanWays(page, frame) {
   for (let i = 0; i < 3 && (await wayTop(page).count()); i++) {
     await tapCard(wayTop(page).last());
+    if (await page.locator("#card-actions [data-open-box]").count())
+      await page.locator("#card-actions [data-open-box]").click();
     await page.waitForFunction(
       () => !document.querySelector("#hand [data-revealing]"),
     );
@@ -118,8 +127,14 @@ async function fanAvatarStack(page, holder) {
     `#hand .card-frame[data-holder="${holder}"]:not([hidden], [data-want]) > .card[aria-expanded="false"]:not(.location)`,
   );
   if (!(await folded.count())) return false;
-  const top = folded.first();
-  const id = await top.getAttribute("data-card");
+  const id = await folded.first().getAttribute("data-card");
+  const top = page.locator(`#hand [data-card="${id}"]`);
+  if ((await top.getAttribute("data-unrevealed")) === "true") {
+    await tapCard(top);
+    await page.locator("#card-actions [data-open-box]").click();
+    await page.waitForFunction(() => !document.querySelector("#hand [data-revealing]"));
+    if ((await top.getAttribute("aria-pressed")) === "true") await tapCard(top);
+  }
   await tapCard(top);
   const chosen = page.locator(`#hand [data-card="${id}"]`);
   // Fanning also selects the top card. Lower it before choosing another.
@@ -127,11 +142,21 @@ async function fanAvatarStack(page, holder) {
     await tapCard(chosen);
   return true;
 }
-// A held item stays raised through plays and new targets (#1417, #1435), so
-// a scripted step that names its own cards first lowers it, as Escape does.
+// Escape folds the hand but keeps its held item. A scripted step naming its
+// own cards must also tap that item to stow it before making a fresh choice.
 export async function clearSelection(page) {
-  if (await page.locator('#hand .card[aria-pressed="true"]').count())
-    await page.keyboard.press("Escape");
+  await page.keyboard.press("Escape");
+  const held = page.locator('#hand .card[aria-pressed="true"]');
+  if (await held.count()) {
+    const card = await revealCard(
+      page,
+      await held.first().getAttribute("data-card"),
+    );
+    if ((await card.getAttribute("aria-pressed")) === "true")
+      await tapCard(card);
+    if ((await card.getAttribute("aria-pressed")) === "true")
+      await tapCard(card);
+  }
 }
 // A battle locks its room until a round passes without a Strike, so a
 // scripted walk waits it out by playing the place card (Wait). Residents
@@ -152,7 +177,7 @@ export async function selectCard(page, id, { touch = false } = {}) {
     (await frame.getAttribute("hidden")) !== null
       ? await frame.getAttribute("data-holder")
       : null;
-  const card = await revealCard(page, id);
+  const card = await revealCard(page, id, { keepSelected: true });
   if (wasSelected || (await card.getAttribute("aria-pressed")) !== "true") {
     if (touch) await card.tap();
     else await card.click();
@@ -181,22 +206,39 @@ export function readyActionButton(page, kind) {
   const action = kind ? `[data-action="${kind}"]` : ".card-primary";
   return page.locator(`#card-actions ${action}:not([data-revealing="true"])`);
 }
-// A new local world opens on Vale alone, the lit lamp and the attic face down
-// (opening.mjs). Its context button offers no play while either is down: the
-// lamp's tap turns it, the quiet Reveal turns the attic and chooses the lamp,
-// and only then does the rules' first play, Put out, douse it. Any play on
-// the revealed cards (a Wait) is a first play too.
+// The opening reveals Vale, the held lamp and the attic without a turn.
+// Stowing the lamp then darkens the mirror quietly, with no Light/Snuff play.
 export async function revealOpening(page) {
   await revealCard(page, "vale");
-  await selectCard(page, "lamp");
-  await page
-    .locator('#card-actions [data-quiet="true"]:not([data-revealing="true"])')
-    .click();
-  await readyActionButton(page, "snuff").waitFor();
+  await revealCard(page, "lamp", { keepSelected: true });
+  const reveal = page.locator(
+    '#card-actions [data-quiet="true"]:not([data-revealing="true"])',
+  );
+  if (
+    (await page
+      .locator('#hand [data-card="attic"]')
+      .getAttribute("data-unrevealed")) === "true"
+  )
+    await reveal.click();
+  await page.waitForFunction(
+    () =>
+      document.querySelector('#hand [data-card="attic"]')?.dataset
+        .unrevealed === "false",
+  );
+  await page.waitForFunction(
+    () => !document.querySelector("#hand [data-revealing]"),
+  );
 }
 export async function putOutOpening(page) {
   await revealOpening(page);
-  await readyActionButton(page, "snuff").click();
+  const lamp = await revealCard(page, "lamp");
+  await tapCard(lamp);
+  if ((await lamp.getAttribute("aria-pressed")) === "true") await tapCard(lamp);
+  await page.waitForFunction(
+    () =>
+      document.querySelector('#hand [data-card="lamp"]')?.dataset.lit ===
+      "false",
+  );
 }
 // The beat stack's cards take real pointer hits: the front card under its own
 // centre, and the card behind under its peeking top line (#1538).

@@ -243,6 +243,10 @@ impl World {
                 engine::HUNDRED_TWENTY_FIFTH_VERSION,
                 engine::HUNDRED_TWENTY_SIXTH_VERSION,
                 engine::HUNDRED_TWENTY_SEVENTH_VERSION,
+                engine::HUNDRED_TWENTY_EIGHTH_VERSION,
+                engine::HUNDRED_TWENTY_NINTH_VERSION,
+                engine::HUNDRED_THIRTIETH_VERSION,
+                engine::HUNDRED_THIRTY_FIRST_VERSION,
                 engine::VERSION,
             ];
             let allowed = versions
@@ -406,6 +410,10 @@ impl World {
             engine::HUNDRED_TWENTY_FIFTH_VERSION,
             engine::HUNDRED_TWENTY_SIXTH_VERSION,
             engine::HUNDRED_TWENTY_SEVENTH_VERSION,
+            engine::HUNDRED_TWENTY_EIGHTH_VERSION,
+            engine::HUNDRED_TWENTY_NINTH_VERSION,
+            engine::HUNDRED_THIRTIETH_VERSION,
+            engine::HUNDRED_THIRTY_FIRST_VERSION,
         ]
         .contains(&self.version.as_str())
         {
@@ -451,6 +459,13 @@ impl World {
             "leave" => {
                 next.present[a] = 0;
                 (4, json!({}))
+            }
+            "hold" => {
+                let mut request = self.request("hold", a);
+                request["choice"] = command["choice"].clone();
+                let result = engine::reduce_pack(&self.version, self.pack.as_deref(), request)?;
+                next.game = result["world"].clone();
+                (11, result)
             }
             "play" => {
                 let mut request = self.request("play", a);

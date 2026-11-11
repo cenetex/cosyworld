@@ -9,6 +9,5 @@ Use the current item, motive, quest, and shared-world rules to establish the
 cost and effect of a card action. Provider costs belong to the server's operating
 budget. Treat future economy proposals as planning until their rules ship.
 
-The classic Orb economy, linked-avatar adapters, and NFT migration records are
-documented in the [classic economy archive](docs/archive/classic/ECONOMY.md).
-That guide supports compatibility and audit work on those systems.
+The classic Orb economy, linked-avatar adapters, and NFT migration records live
+in git history.

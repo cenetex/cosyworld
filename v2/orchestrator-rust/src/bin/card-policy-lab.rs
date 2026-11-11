@@ -3,7 +3,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::env;
 use std::error::Error;
-use std::fs::{self, OpenOptions};
+use std::fs;
 use std::io::{BufWriter, Write};
 use std::path::{Path, PathBuf};
 use std::time::Instant;
@@ -11,13 +11,11 @@ use std::time::Instant;
 use cosyworld_orchestrator::card_policy::{
     evaluate, evaluate_synthetic_oracle, evaluate_synthetic_policy, generate_synthetic_dataset,
     read_dataset, simulate_synthetic_population, train, train_from_model, write_dataset,
-    CardPolicyCandidateSample, CardPolicyModel, CardPolicySample, CardPolicyTrainingConfig,
-    SyntheticDatasetConfig, SyntheticPolicyMetrics, SyntheticPopulationReport,
-    CARD_POLICY_DEFAULT_TOP_K, CARD_POLICY_FEATURES, CARD_POLICY_MAX_TOP_K,
+    CardPolicyModel, CardPolicySample, CardPolicyTrainingConfig, SyntheticDatasetConfig,
+    SyntheticPolicyMetrics, SyntheticPopulationReport, CARD_POLICY_DEFAULT_TOP_K,
+    CARD_POLICY_MAX_TOP_K,
 };
-use rusqlite::{Connection, OpenFlags};
 use serde::Serialize;
-use serde_json::{json, Value};
 
 fn main() {
     if let Err(error) = run() {
@@ -34,7 +32,6 @@ fn run() -> Result<(), Box<dyn Error>> {
         Some("eval") => eval_command(args),
         Some("simulate") => simulate_command(args),
         Some("gate") => gate_command(args),
-        Some("export-shadow") => export_shadow_command(args),
         Some("prepare-real") => prepare_real_command(args),
         Some("pipeline") => pipeline_command(args),
         Some("--help" | "-h") | None => {
@@ -60,8 +57,6 @@ Usage:
       [--top-k 1] [simulation options]
   card-policy-lab gate --data EVAL.tsv --incumbent MODEL.cwrank --challenger MODEL.cwrank \
       --trace GATE.json
-  card-policy-lab export-shadow --journal EVENTS.sqlite --out SHADOW.ndjson \
-      [--dataset-out LABELED.tsv] [--after-seq N] [--append]
   card-policy-lab prepare-real --out-dir DIR [--seed N] SHARD.tsv [SHARD.tsv ...]
   card-policy-lab pipeline --out-dir DIR [pipeline options]
 
@@ -312,179 +307,6 @@ fn gate_command(mut args: impl Iterator<Item = String>) -> Result<(), Box<dyn Er
     print_json(&report)
 }
 
-fn export_shadow_command(mut args: impl Iterator<Item = String>) -> Result<(), Box<dyn Error>> {
-    let mut journal_path = None;
-    let mut output_path = None;
-    let mut dataset_path = None;
-    let mut after_seq = 0_u64;
-    let mut append = false;
-    while let Some(argument) = args.next() {
-        match argument.as_str() {
-            "--journal" => journal_path = Some(PathBuf::from(required(&mut args, "--journal")?)),
-            "--out" => output_path = Some(PathBuf::from(required(&mut args, "--out")?)),
-            "--dataset-out" => {
-                dataset_path = Some(PathBuf::from(required(&mut args, "--dataset-out")?))
-            }
-            "--after-seq" => after_seq = required(&mut args, "--after-seq")?.parse()?,
-            "--append" => append = true,
-            other => return Err(format!("unknown export-shadow argument: {other}").into()),
-        }
-    }
-    let journal_path = journal_path.ok_or("--journal is required")?;
-    let output_path = output_path.ok_or("--out is required")?;
-    ensure_parent(&output_path)?;
-    let connection = Connection::open_with_flags(&journal_path, OpenFlags::SQLITE_OPEN_READ_ONLY)?;
-    let mut statement = connection.prepare(
-        "SELECT journal_seq, created_at_ms, record_json
-         FROM action_journal
-         WHERE journal_seq > ?1
-         ORDER BY journal_seq ASC",
-    )?;
-    let records = statement.query_map([after_seq], |row| {
-        Ok((
-            row.get::<_, u64>(0)?,
-            row.get::<_, u64>(1)?,
-            row.get::<_, String>(2)?,
-        ))
-    })?;
-    let output_file = if append {
-        OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open(&output_path)?
-    } else {
-        fs::File::create(&output_path)?
-    };
-    let mut output = BufWriter::new(output_file);
-    let mut exported = 0_usize;
-    let mut labeled_rows = Vec::new();
-    let mut first_seq = None;
-    let mut last_seq = None;
-    for record in records {
-        let (journal_seq, created_at_ms, record_json) = record?;
-        let record: Value = serde_json::from_str(&record_json)?;
-        let Some(planning) = record.get("resident_planning") else {
-            continue;
-        };
-        let Some(policy) = planning.get("card_policy") else {
-            continue;
-        };
-        let rollout_mode = policy
-            .get("rollout_mode")
-            .and_then(Value::as_str)
-            .unwrap_or_default();
-        if !matches!(rollout_mode, "shadow" | "live") {
-            continue;
-        }
-        let labeled = shadow_training_row(journal_seq, planning, policy)?;
-        let label = policy.get("branch_label");
-        let observation = json!({
-            "schema_version": 2,
-            "journal_seq": journal_seq,
-            "created_at_ms": created_at_ms,
-            "actor_id": planning.get("actor_id"),
-            "state_revision": planning.get("state_revision"),
-            "rollout_mode": rollout_mode,
-            "model_hash": policy.get("model_hash"),
-            "top_k": policy.get("top_k"),
-            "action": policy.get("action"),
-            "deck_candidate_ids": policy.get("deck_candidate_ids"),
-            "hand_candidate_ids": policy.get("hand_candidate_ids"),
-            "candidate_features_q15": policy.get("candidate_features_q15"),
-            "scores_q8": policy.get("scores_q8"),
-            "ranked_candidate_ids": policy.get("ranked_candidate_ids"),
-            "top_candidate_id": policy.get("top_candidate_id"),
-            "selected_offer_id": policy.get("selected_offer_id"),
-            "llm_offer_id": policy.get("llm_offer_id"),
-            "agrees_with_llm": policy.get("agrees_with_llm"),
-            "objective_id": label.and_then(|value| value.get("objective_id")),
-            "objective_turn": label.and_then(|value| value.get("objective_turn")),
-            "branch_evaluator": label.and_then(|value| value.get("evaluator")),
-            "child_losses": label.and_then(|value| value.get("child_losses")),
-            "label_status": if labeled.is_some() { "counterfactual" } else { "unlabeled" },
-            "training_eligible": labeled.is_some(),
-        });
-        serde_json::to_writer(&mut output, &observation)?;
-        writeln!(output)?;
-        exported += 1;
-        first_seq.get_or_insert(journal_seq);
-        last_seq = Some(journal_seq);
-        if let Some(row) = labeled {
-            labeled_rows.push(row);
-        }
-    }
-    output.flush()?;
-    if let Some(path) = dataset_path.as_ref() {
-        ensure_parent(path)?;
-        if append && path.exists() && path.metadata()?.len() > 0 {
-            append_dataset(path, &labeled_rows)?;
-        } else {
-            write_dataset(path, &labeled_rows)?;
-        }
-    }
-    let label_status = if labeled_rows.is_empty() {
-        "unlabeled"
-    } else if labeled_rows.len() == exported {
-        "counterfactual"
-    } else {
-        "mixed"
-    };
-    print_json(&ShadowExportSummary {
-        schema_version: 2,
-        journal: journal_path.display().to_string(),
-        output: output_path.display().to_string(),
-        after_seq,
-        exported,
-        labeled: labeled_rows.len(),
-        dataset: dataset_path.map(|path| path.display().to_string()),
-        first_seq,
-        last_seq,
-        label_status: label_status.to_string(),
-        training_eligible: !labeled_rows.is_empty(),
-    })
-}
-
-fn append_dataset(path: &Path, rows: &[CardPolicySample]) -> Result<(), Box<dyn Error>> {
-    let mut output = BufWriter::new(OpenOptions::new().append(true).open(path)?);
-    for row in rows {
-        row.validate()?;
-        let feature_groups = row
-            .candidates
-            .iter()
-            .map(|candidate| {
-                candidate
-                    .features_q15
-                    .iter()
-                    .map(ToString::to_string)
-                    .collect::<Vec<_>>()
-                    .join(",")
-            })
-            .collect::<Vec<_>>()
-            .join(";");
-        let losses = row
-            .candidates
-            .iter()
-            .map(|candidate| candidate.child_loss.to_string())
-            .collect::<Vec<_>>()
-            .join(",");
-        let hand =
-            |index: Option<usize>| index.map_or_else(|| "-".to_string(), |index| index.to_string());
-        writeln!(
-            output,
-            "{}\t{}\t{}\t{}\t{}\t{}\t{}",
-            row.sample_id,
-            row.world_seed,
-            hand(row.hand_candidate_indices[0]),
-            hand(row.hand_candidate_indices[1]),
-            row.target_index()?,
-            feature_groups,
-            losses,
-        )?;
-    }
-    output.flush()?;
-    Ok(())
-}
-
 fn prepare_real_command(mut args: impl Iterator<Item = String>) -> Result<(), Box<dyn Error>> {
     let mut output_dir = None;
     let mut seed = 1_u64;
@@ -644,100 +466,6 @@ fn profile_dataset(rows: &[CardPolicySample]) -> Result<CardPolicyDatasetProfile
             .values()
             .filter(|targets| targets.len() > 1)
             .count(),
-    })
-}
-
-fn shadow_training_row(
-    journal_seq: u64,
-    planning: &Value,
-    policy: &Value,
-) -> Result<Option<CardPolicySample>, Box<dyn Error>> {
-    let Some(label) = policy.get("branch_label") else {
-        return Ok(None);
-    };
-    let Some(objective_id) = label.get("objective_id").and_then(Value::as_str) else {
-        return Ok(None);
-    };
-    let Some(loss_values) = label.get("child_losses").and_then(Value::as_array) else {
-        return Ok(None);
-    };
-    let Some(feature_groups) = policy
-        .get("candidate_features_q15")
-        .and_then(Value::as_array)
-    else {
-        return Ok(None);
-    };
-    let Some(deck_ids) = policy.get("deck_candidate_ids").and_then(Value::as_array) else {
-        return Ok(None);
-    };
-    let Some(hand_ids) = policy.get("hand_candidate_ids").and_then(Value::as_array) else {
-        return Ok(None);
-    };
-    if feature_groups.is_empty()
-        || feature_groups.len() != loss_values.len()
-        || feature_groups.len() != deck_ids.len()
-        || hand_ids.len() != 2
-    {
-        return Ok(None);
-    }
-
-    let candidates = feature_groups
-        .iter()
-        .zip(loss_values)
-        .map(|(features, loss)| {
-            let features = features
-                .as_array()
-                .ok_or("shadow label feature group is not an array")?
-                .iter()
-                .map(|value| {
-                    let value = value
-                        .as_i64()
-                        .ok_or("shadow label feature is not an integer")?;
-                    i16::try_from(value).map_err(|_| "shadow label feature is outside i16")
-                })
-                .collect::<Result<Vec<_>, _>>()?;
-            let features_q15: [i16; CARD_POLICY_FEATURES] = features
-                .try_into()
-                .map_err(|_| "shadow label feature count does not match model schema")?;
-            let child_loss = loss
-                .as_u64()
-                .and_then(|value| u16::try_from(value).ok())
-                .ok_or("shadow child loss is outside u16")?;
-            Ok::<CardPolicyCandidateSample, Box<dyn Error>>(CardPolicyCandidateSample {
-                features_q15,
-                child_loss,
-            })
-        })
-        .collect::<Result<Vec<_>, _>>()?;
-    let deck_ids = deck_ids
-        .iter()
-        .map(|value| value.as_str())
-        .collect::<Option<Vec<_>>>();
-    let Some(deck_ids) = deck_ids else {
-        return Ok(None);
-    };
-    let hand_candidate_indices = [0, 1].map(|slot| {
-        hand_ids[slot]
-            .as_str()
-            .and_then(|hand_id| deck_ids.iter().position(|deck_id| *deck_id == hand_id))
-    });
-    let actor_id = planning
-        .get("actor_id")
-        .and_then(Value::as_u64)
-        .unwrap_or(0);
-    let row = CardPolicySample {
-        sample_id: format!("real:{objective_id}:{actor_id}:{journal_seq}"),
-        world_seed: stable_episode_seed(objective_id),
-        hand_candidate_indices,
-        candidates,
-    };
-    row.validate()?;
-    Ok(Some(row))
-}
-
-fn stable_episode_seed(value: &str) -> u64 {
-    value.bytes().fold(0xcbf2_9ce4_8422_2325_u64, |hash, byte| {
-        (hash ^ u64::from(byte)).wrapping_mul(0x0000_0100_0000_01b3)
     })
 }
 
@@ -1055,21 +783,6 @@ struct PromotionGateReport {
 }
 
 #[derive(Serialize)]
-struct ShadowExportSummary {
-    schema_version: u32,
-    journal: String,
-    output: String,
-    dataset: Option<String>,
-    after_seq: u64,
-    exported: usize,
-    labeled: usize,
-    first_seq: Option<u64>,
-    last_seq: Option<u64>,
-    label_status: String,
-    training_eligible: bool,
-}
-
-#[derive(Serialize)]
 struct RealDatasetPreparationSummary {
     schema_version: u32,
     input_shards: usize,
@@ -1097,49 +810,7 @@ struct CardPolicyDatasetProfile {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn counterfactual_shadow_label_becomes_a_training_row() {
-        let features = vec![vec![0_i16; CARD_POLICY_FEATURES]; 2];
-        let planning = json!({"actor_id": 1003});
-        let policy = json!({
-            "deck_candidate_ids": ["offer:a", "offer:b"],
-            "hand_candidate_ids": ["offer:b", "offer:a"],
-            "candidate_features_q15": features,
-            "branch_label": {
-                "schema_version": 1,
-                "objective_id": "objective:export",
-                "objective_turn": 7,
-                "evaluator": "treasure_branch_distance_v1",
-                "child_losses": [5, 2]
-            }
-        });
-        let row = shadow_training_row(91, &planning, &policy)
-            .unwrap()
-            .expect("valid label is eligible");
-        assert_eq!(row.sample_id, "real:objective:export:1003:91");
-        assert_eq!(row.hand_candidate_indices, [Some(1), Some(0)]);
-        assert_eq!(row.candidates[0].child_loss, 5);
-        assert_eq!(row.target_index().unwrap(), 1);
-        assert_eq!(row.world_seed, stable_episode_seed("objective:export"));
-    }
-
-    #[test]
-    fn malformed_shadow_label_fails_closed() {
-        let planning = json!({"actor_id": 1003});
-        let policy = json!({
-            "deck_candidate_ids": ["offer:a"],
-            "hand_candidate_ids": ["offer:a", null],
-            "candidate_features_q15": [[0, 1]],
-            "branch_label": {
-                "objective_id": "objective:bad",
-                "child_losses": [1, 2]
-            }
-        });
-        assert!(shadow_training_row(1, &planning, &policy)
-            .unwrap()
-            .is_none());
-    }
+    use cosyworld_orchestrator::card_policy::{CardPolicyCandidateSample, CARD_POLICY_FEATURES};
 
     #[test]
     fn real_dataset_split_keeps_worlds_disjoint() {

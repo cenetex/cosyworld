@@ -23,10 +23,7 @@ fn cookie(state: &AppState, id: &str) -> String {
 
 fn fixture() -> (AppState, PathBuf) {
     let path = std::env::temp_dir().join(format!("authoring-{}.sqlite", random_hex(12)));
-    (
-        test_app_state(RuntimeWorld::seeded(), Some(path.clone())),
-        path,
-    )
+    (test_app_state(Some(path.clone())), path)
 }
 
 fn draft() -> Value {
@@ -57,10 +54,13 @@ async fn send(
     request
         .extensions_mut()
         .insert(ConnectInfo("127.0.0.1:8845".parse::<SocketAddr>().unwrap()));
-    let response = crate::routes::app_router(state.clone())
-        .oneshot(request)
-        .await
-        .unwrap();
+    let response = crate::routes::card_app_router(
+        state.clone(),
+        crate::shutdown::ShutdownSubscription::idle(),
+    )
+    .oneshot(request)
+    .await
+    .unwrap();
     assert_eq!(response.headers()[header::CACHE_CONTROL], "no-store");
     let status = response.status().as_u16();
     let bytes = to_bytes(response.into_body(), 10 * 1024 * 1024)
@@ -109,7 +109,7 @@ async fn private_packs_follow_the_passkey_account_and_survive_reopen() {
         list,
         json!({"packs":[{"id":id,"title":"Lantern Marsh","revision":1}]})
     );
-    let reopened = test_app_state(RuntimeWorld::seeded(), Some(path));
+    let reopened = test_app_state(Some(path));
     assert_eq!(
         send(&reopened, "GET", &route, &owner, Value::Null, None).await,
         (200, created)
@@ -233,7 +233,7 @@ async fn authoring_launch_create_preserve_clear_and_reopen() {
     assert_eq!(saved["document"], book["document"]);
     assert_eq!(saved["revision"], 2);
     assert!(crate::authoring_draft::valid(&saved));
-    let reopened = test_app_state(RuntimeWorld::seeded(), Some(path));
+    let reopened = test_app_state(Some(path));
     let (status, launch) = send(&reopened, "GET", &launch_route, &owner, Value::Null, None).await;
     assert_eq!(
         (status, launch),

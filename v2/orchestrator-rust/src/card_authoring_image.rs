@@ -112,12 +112,12 @@ async fn draw(config: ai_gateway::AiConfig, input: Input) -> Response {
     } else {
         "Paint one complete subject surrounded by transparent margins."
     };
-    let prompt = format!("Paint game art. Preserve the subject's identity from the reference when present. {framing}\nDescription: {}\nChanges: {}", input.description, input.instruction.as_deref().unwrap_or(""));
+    let prompt = image_prompt(&input, framing);
     let result = ai_gateway::request_image_generation_for_key(
         &config,
         ImageGenerationRequest {
             feature: "authoring_image",
-            prompt_version: "authoring-image/1",
+            prompt_version: "authoring-image/2",
             prompt: &prompt,
             reference: reference.as_ref().map(|bytes| ImageGenerationReference {
                 bytes,
@@ -159,6 +159,13 @@ async fn draw(config: ai_gateway::AiConfig, input: Input) -> Response {
         Ok(Ok(bytes)) => Json(json!({"image":{"base64":BASE64.encode(&bytes),"mime":"image/png","sha256":digest(&bytes),"size":bytes.len()},"basis":input.basis,"model":MODEL,"usage":usage})).into_response(),
         _ => failure(StatusCode::BAD_GATEWAY, "Review the image layout and try again."),
     }
+}
+
+fn image_prompt(input: &Input, framing: &str) -> String {
+    format!(
+        "Paint game art. Preserve the subject's identity, clothing and art style from the reference when present. {framing}\nUse only the visible physical appearance described below. Do not invent character attributes, illustrate dialogue, goals, personality, abilities or story events. No speech bubbles, thought bubbles, text, letters, captions, labels, question marks, symbols, borders or watermarks, even if the reference contains them. Express poses through the body and face only.\nPhysical description: {}\nVisual changes only: {}",
+        input.description, input.instruction.as_deref().unwrap_or("")
+    )
 }
 
 const MAX_IMAGE: usize = 8 * 1024 * 1024;

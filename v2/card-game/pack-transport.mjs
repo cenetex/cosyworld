@@ -238,7 +238,9 @@ export function installTransports(s) {
 
 // A completed signal unlocks the whole vessel, including its return shore.
 export function transportUnlocked(s, id) {
-  const signals = crossings.filter((c) => c.transport === id && c.signal);
+  const signals = crossings.filter(
+    (c) => c.transport === id && (c.signal || c.unlockWhen),
+  );
   return !signals.length || signals.some((c) => s.crossings[c.id].discovered);
 }
 
@@ -257,7 +259,9 @@ export function preserveTransportAccess(s) {
           state.place === transports[id].place && controlledByHuman(s, actor),
       )
     ) {
-      const signal = crossings.find((c) => c.transport === id && c.signal);
+      const signal = crossings.find(
+        (c) => c.transport === id && (c.signal || c.unlockWhen),
+      );
       if (signal) s.crossings[signal.id].discovered = true;
     }
   }

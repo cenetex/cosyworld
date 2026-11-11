@@ -28,7 +28,7 @@ await mkdir(output, { recursive: true });
 const WAKE_LINE = "I wake, and the attic is still warm.";
 const DREAM = "I dreamt of a carved box by the cottage fire, and it was open.";
 
-async function wake(width, { quest, reduced = false }) {
+async function wake(width, { quest, reduced = false, replace = null }) {
   const page = await browser.newPage({
     viewport: { width, height: width === 390 ? 844 : 900 },
     reducedMotion: reduced ? "reduce" : "no-preference",
@@ -47,7 +47,8 @@ async function wake(width, { quest, reduced = false }) {
   world.actors.vale.level = 1;
   if (quest)
     world.actors.vale.want = {
-      ...newWant("place", "attic", world.turn), step: { verb: "rest" },
+      ...newWant("place", "attic", world.turn),
+      step: { verb: "rest" },
     };
   world.actors.moth.want = null;
   world.actors.keeper.want = null;
@@ -75,10 +76,12 @@ async function wake(width, { quest, reduced = false }) {
   });
   // Keep Dreaming… in front until the pending cues have been checked.
   const { promise: dreamWords, resolve: showDream } = Promise.withResolvers();
+  const { promise: reflectionDone, resolve: finishReflection } =
+    Promise.withResolvers();
   await page.route("**/card-game/reflections", async (route) => {
     const c = JSON.parse(route.request().postData());
     if (quest && c.rest === "long") await dreamWords;
-    route.fulfill({
+    await route.fulfill({
       json: {
         revision: c.revision,
         reflections:
@@ -96,6 +99,7 @@ async function wake(width, { quest, reduced = false }) {
             : [],
       },
     });
+    if (c.rest === "long") finishReflection();
   });
   await page.addInitScript(
     ({ save, seen }) => {
@@ -134,7 +138,7 @@ async function wake(width, { quest, reduced = false }) {
     { save: encodeSave(world), seen },
   );
   const touch = width === 390;
-  const name = `${quest ? "dream" : "dusk"}-${width}${reduced ? "-reduced" : ""}`;
+  const name = `${quest ? "dream" : "dusk"}-${width}${reduced ? "-reduced" : ""}${replace ? `-${replace}` : ""}`;
   let frame = 0;
   const shot = (label) =>
     page.screenshot({
@@ -149,21 +153,21 @@ async function wake(width, { quest, reduced = false }) {
   const advance = page.locator("#dialogue-advance");
   const catcher = page.locator(".sleep-catcher");
   const savedTurn = () =>
-    page.evaluate(() =>
-      JSON.parse(localStorage.getItem("cosyworld.reflected-shore.v1.dream")).turn,
+    page.evaluate(
+      () =>
+        JSON.parse(localStorage.getItem("cosyworld.reflected-shore.v1.dream"))
+          .turn,
     );
   const cue = async (hint, label) => {
-    await page.waitForFunction(
-      (value) => {
-        const el = document.querySelector("#speech-hint");
-        return !el.hidden && el.textContent === value;
-      },
-      hint,
-    );
+    await page.waitForFunction((value) => {
+      const el = document.querySelector("#speech-hint");
+      return !el.hidden && el.textContent === value;
+    }, hint);
     assert.equal(await advance.getAttribute("aria-label"), label);
     const aboveHand = await page.locator("#speech-hint").evaluate((el) => {
       const { right, top, height } = el.getBoundingClientRect();
-      const panel = document.elementsFromPoint(right - 6, top + height / 2)
+      const panel = document
+        .elementsFromPoint(right - 6, top + height / 2)
         .find((node) => node.closest(".dialogue, .play-dock"));
       return Boolean(panel?.closest(".dialogue"));
     });
@@ -176,8 +180,11 @@ async function wake(width, { quest, reduced = false }) {
   try {
     await page.goto(`${origin}/?table=dream`);
     await page.waitForFunction(() => document.body.inert === false);
-    assert.equal(await page.locator("#hand .want-card").count(), 0,
-      "the old routine REST card leaves the hand");
+    assert.equal(
+      await page.locator("#hand .want-card").count(),
+      0,
+      "the old routine REST card leaves the hand",
+    );
     await selectCard(page, "vale", { touch });
     await play.click();
     await settled();
@@ -211,10 +218,53 @@ async function wake(width, { quest, reduced = false }) {
         ["vale"],
       );
       await shot("dreaming");
+      if (replace) {
+        // Exercise the real app boundary while its reflection is still away.
+        if (replace === "reset") {
+          await page.locator("#new-game").evaluate((button) => button.click());
+          await page.locator("#confirm-reset").click();
+        } else {
+          await page.evaluate((save) => {
+            const key = "cosyworld.reflected-shore.v1.dream";
+            localStorage.setItem(key, save);
+            dispatchEvent(new StorageEvent("storage", { key, newValue: save }));
+          }, encodeSave(world));
+        }
+        await page.waitForFunction(() => !document.body.dataset.sleep);
+        showDream();
+        await Promise.race([
+          reflectionDone,
+          page
+            .waitForTimeout(20_000)
+            .then(() => assert.fail("The old reflection did not settle.")),
+        ]);
+        await page.evaluate(
+          () =>
+            new Promise((done) =>
+              requestAnimationFrame(() => requestAnimationFrame(done)),
+            ),
+        );
+        assert.equal(await page.locator(".sleep-catcher").isHidden(), true);
+        assert.equal(await page.locator("[data-dreamer]").count(), 0);
+        assert.equal(
+          await page.locator('#speech-row[data-beat="dream"]').count(),
+          0,
+        );
+        assert.equal(
+          await page.evaluate(() => document.body.dataset.sleepDream),
+          "false",
+        );
+        assert.equal(await savedTurn(), replace === "reset" ? 0 : world.turn);
+        assert.deepEqual(errors, []);
+        return;
+      }
       if (touch) await catcher.tap();
       else await catcher.click();
       await cue("Tap to confirm", "Confirm");
-      assert.match(await page.locator("#story-status").textContent(), /Dreaming…/);
+      assert.match(
+        await page.locator("#story-status").textContent(),
+        /Dreaming…/,
+      );
       await page.keyboard.press("Escape");
       await cue("Tap to stop waiting", "Stop waiting");
       showDream();
@@ -226,7 +276,10 @@ async function wake(width, { quest, reduced = false }) {
       await cue("Tap to continue", "Continue the dream");
       const turn = await savedTurn();
       await page.waitForTimeout(2300);
-      assert.equal(await page.evaluate(() => document.body.dataset.sleep), "dream");
+      assert.equal(
+        await page.evaluate(() => document.body.dataset.sleep),
+        "dream",
+      );
       assert.equal(await savedTurn(), turn);
       assert.equal(await page.locator("#dialogue-text").textContent(), DREAM);
       await cue("Tap to continue", "Continue the dream");
@@ -284,7 +337,8 @@ async function wake(width, { quest, reduced = false }) {
       assert.equal(
         await page.evaluate(() => {
           const fold = document.querySelector("#hand .quest-fold");
-          if (fold && !fold.hidden && Number(fold.dataset.count) > 0) return "present";
+          if (fold && !fold.hidden && Number(fold.dataset.count) > 0)
+            return "present";
           return [...document.querySelectorAll("#hand .want-card")].some(
             (c) =>
               !c.closest(".want-frame").hidden &&
@@ -315,6 +369,8 @@ try {
   for (const width of smokeWidths([390, 1440])) {
     await wake(width, { quest: true });
     await wake(width, { quest: false });
+    for (const replace of ["reset", "storage"])
+      await wake(width, { quest: true, reduced: true, replace });
     console.log(`Sleep dream passed at ${width}px.`);
   }
   await wake(390, { quest: true, reduced: true });

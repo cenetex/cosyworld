@@ -6,15 +6,7 @@ fn shared_reflections_survive_restart_and_journal_rebuild_with_private_views() {
     claim(&mut c, &id, 0);
     claim(&mut c, &id, 1);
     let mut w = full_store::world(&c, &id, now()).unwrap();
-    let action = home_action(&w, 0, "snuff");
-    full_store::commit(
-        &c,
-        &id,
-        &mut w,
-        json!({"op":"play","actor":"vale","action":action}),
-        now(),
-    )
-    .unwrap();
+    hold(&c, &id, &mut w, 0, Value::Null);
     // Only the avatar who waits after something new turns inward.
     let action = home_action(&w, 0, "wait");
     let result = full_store::commit(
@@ -85,7 +77,7 @@ fn version_twelve_history_replays_before_the_saved_learning_upgrade() {
     assert_eq!(upgraded.version, engine::VERSION);
     assert_eq!(upgraded.game["turn"], old.game["turn"]);
     for field in ["items"] {
-        for (key, value) in super::saved_items::upgraded_field(&old.game, field)
+        for (key, value) in super::saved_items::current_field(&old.game, field)
             .as_object()
             .unwrap()
         {
@@ -101,21 +93,13 @@ fn version_twelve_history_replays_before_the_saved_learning_upgrade() {
 fn publication_keeps_reflection_private_after_disconnect_and_duplicate_finish() {
     let (path, mut c, id) = fixture();
     claim(&mut c, &id, 0);
-    let mut doused = full_store::world(&c, &id, now()).unwrap();
-    let snuff = home_action(&doused, 0, "snuff");
-    full_store::commit(
-        &c,
-        &id,
-        &mut doused,
-        json!({"op":"play","actor":"vale","action":snuff}),
-        now(),
-    )
-    .unwrap();
+    let mut stowed = full_store::world(&c, &id, now()).unwrap();
+    hold(&c, &id, &mut stowed, 0, Value::Null);
     let mut queued = body("play", None);
     queued.key = "learning-publication".into();
     queued.action = home_action(&full_store::world(&c, &id, now()).unwrap(), 0, "wait");
     full::run(&c, &id, "user0", &queued, now()).unwrap();
-    let app = crate::test_app_state(crate::RuntimeWorld::seeded(), Some(path));
+    let app = crate::test_app_state(Some(path));
     let work = full::take_work(&app, &id).unwrap().unwrap();
     let duplicate = work.clone();
     let (_, ids) = full_speech::prepared(0, &work.context).unwrap();

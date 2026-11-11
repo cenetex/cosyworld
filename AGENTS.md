@@ -26,8 +26,9 @@ Before feature work:
    the root page and `card_game` identifies the current catalogs and rules.
 4. Build current gameplay in `v2/card-game/`. Follow its actual imports for
    characters, packs, dialogue, and shared rules.
-5. Treat `docs/archive/` as history. Classic packs and metadata describe the
-   compatibility runtime. Use those sources for an explicit classic task.
+5. The classic packs, worldpack compiler and registries are deleted; git
+   history keeps them. The hosted server boots card-only, and `/meta` has no
+   classic world or worldpack fields.
 
 The current card game supports local saves and shared worlds. The forest cast,
 shared human avatars, character profiles, and mounted packs all contribute to

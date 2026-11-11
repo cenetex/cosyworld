@@ -66,7 +66,7 @@ fn regional_weather_agrees_in_c_and_survives_upgrade_and_journal_replay() {
         world.game["log"],
         super::full_tests::quest_free_log(&saved.game["log"])
     );
-    for (key, item) in super::saved_items::upgraded(&saved.game["items"])
+    for (key, item) in super::saved_items::current_items(&saved.game)
         .as_object()
         .unwrap()
     {
@@ -209,7 +209,7 @@ fn harbor_night_views_follow_the_shared_ship_and_replay_from_version_seventeen()
     }
     super::sea_steps::assert_upgraded_ship(&world.game, &saved.game);
     assert_eq!(world.game["transports"]["greek-ship"]["phase"], "docked");
-    for (id, item) in super::saved_items::upgraded(&saved.game["items"])
+    for (id, item) in super::saved_items::current_items(&saved.game)
         .as_object()
         .unwrap()
     {

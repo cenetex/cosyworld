@@ -4,7 +4,7 @@
     {
       "label": "primary",
       "base_url": "https://cosyworld.fly.dev",
-      "event_store_mb": 400,
+      "event_store_mb": 600,
       "generated_asset_mb": 400
     },
     {

@@ -259,6 +259,10 @@ try {
         },
         run: async (action, context) => {
           window.workspaceEvents.push([action.run, context.cardId]);
+          if (window.deferWorkspace)
+            await new Promise((resolve, reject) => {
+              window.settleWorkspace = { resolve, reject };
+            });
           if (context.cardId === "character")
             throw new Error("Try this character again.");
           window.workspaceName = "Private world";
@@ -307,6 +311,43 @@ try {
     ]);
     await page.evaluate(() => window.authorWorkspace.refresh());
     assert.equal(await page.locator("#settings-screen").isVisible(), false);
+    // A real card starts an operation; closing and reopening ends only its
+    // presentation ownership. Late success and failure leave the new beat,
+    // selected card and keyboard focus alone at every viewport.
+    for (const outcome of ["success", "failure"]) {
+      await page.evaluate(() => {
+        window.deferWorkspace = true;
+        window.authorWorkspace.open();
+      });
+      await tapCard(setting(page, "idea"));
+      await page.evaluate(() => {
+        window.pendingWorkspace = window.workspaceBeat.buttons[0].run();
+        window.authorWorkspace.close();
+        window.authorWorkspace.close();
+        window.authorWorkspace.open();
+      });
+      await tapCard(setting(page, "avatars"));
+      await tapCard(setting(page, "character"));
+      assert.equal(await label(page, "character"), "Character");
+      await page.evaluate(async (result) => {
+        const beat = window.workspaceBeat;
+        const focus = document.activeElement;
+        if (focus?.dataset.setting !== "character")
+          throw new Error("The selected card must own keyboard focus.");
+        if (result === "success") window.settleWorkspace.resolve();
+        else window.settleWorkspace.reject(new Error("Old opening failed"));
+        await window.pendingWorkspace;
+        if (window.workspaceBeat !== beat)
+          throw new Error("An old operation redrew the current beat.");
+        if (document.activeElement !== focus)
+          throw new Error("An old operation moved keyboard focus.");
+      }, outcome);
+      assert.equal(
+        await setting(page, "character").getAttribute("aria-pressed"),
+        "true",
+      );
+      await page.evaluate(() => window.authorWorkspace.close());
+    }
     assert.deepEqual(errors, []);
     await page.close();
   }

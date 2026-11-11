@@ -17,6 +17,9 @@ const files = [
   "battle-context.mjs",
   "conversation.mjs",
   "held-item.mjs",
+  "lamp-state.mjs",
+  "radio-item.mjs",
+  "lamp-room-fuel.mjs",
   "authoring-create-tools.mjs",
   "authoring-create-transfer.mjs",
   "authoring-seed-world.mjs",
@@ -57,6 +60,8 @@ const files = [
   "authoring-controller.mjs",
   "authoring-images.mjs",
   "authoring-visual-draft.mjs",
+  "authoring-art-library.mjs",
+  "authoring-art-library-tools.mjs",
   "authoring-visual-tools.mjs",
   "avatar-menu.mjs",
   "unlock-view.mjs",
@@ -73,8 +78,8 @@ const files = [
   "assets/card-back-locked.webp",
   // The new-world title (title-intro.mjs); logos may share toolbar art.
   ...new Set(
-    titleLogos.logos.flatMap(({ src, toolbar }) =>
-      toolbar ? [src, toolbar.src] : [src],
+    titleLogos.logos.flatMap(({ src, toolbar, transparent }) =>
+      [src, toolbar?.src, transparent].filter(Boolean),
     ),
   ),
   "assets/music/title-attic-lamp.mp3",
@@ -382,6 +387,8 @@ const files = [
   "packs.json",
   "music.mjs",
   "music-cues.mjs",
+  "radio-station.mjs",
+  "radio-player.mjs",
   ...Object.values(CUE_TRACKS).map(({ file }) => `assets/music/${file}`),
   "hum.mjs",
   "sfx.mjs",

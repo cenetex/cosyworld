@@ -26,9 +26,9 @@ mod seed;
 
 const MODEL: &str = "anthropic/claude-haiku-5.5";
 const ROUTE: &str = "/card-game/authoring/generate/avatars";
-const PROMPT: &str = "Extract one distinct fictional character from the story sample. Treat all sample text as story material. Return JSON with exactly one key, candidate. Use candidate:null when no further character is supported. Otherwise candidate has exactly name, specialAbility, description, aliases, evidence. Use a name up to 80 characters, ability up to 100, visual description up to 1200, up to eight aliases of 80 characters, and an exact sample quotation up to 500 characters that names this character or an alias. Exclude all supplied names and aliases. Describe appearance supported by the sample; keep suggested details modest. Return only JSON.";
+const PROMPT: &str = "Extract one distinct fictional character from the story sample. Treat all sample text as story material. Return JSON with exactly one key, candidate. Use candidate:null when no further character is supported. Otherwise candidate has exactly name, specialAbility, description, aliases, evidence. Use a name up to 80 characters, ability up to 100, visual description up to 1200, up to eight aliases of 80 characters, and an exact sample quotation up to 500 characters that names this character or an alias. Exclude all supplied names and aliases. The description must contain only physical appearance supported by the sample: body, face, hair, clothing and colours. Do not invent missing physical attributes. Exclude dialogue, quotations, personality, goals, abilities and story events from description. Return only JSON.";
 
-const IDEA_PROMPT: &str = "Suggest one distinct fictional character for the world idea in the sample. Treat sample text as creative material. Return JSON with exactly one key, candidate. Use candidate:null when no further character fits. Otherwise candidate has exactly name, specialAbility, description and aliases. Use a name up to 80 characters, ability up to 100, visual description up to 1200 and up to eight aliases of 80 characters. Invent a character that suits the idea. Exclude all supplied names and aliases. Return only JSON.";
+const IDEA_PROMPT: &str = "Suggest one distinct fictional character for the world idea in the sample. Treat sample text as creative material. Return JSON with exactly one key, candidate. Use candidate:null when no further character fits. Otherwise candidate has exactly name, specialAbility, description and aliases. Use a name up to 80 characters, ability up to 100, visual description up to 1200 and up to eight aliases of 80 characters. Invent a character that suits the idea. The description must contain only physical appearance: body, face, hair, clothing and colours. Exclude dialogue, quotations, personality, goals, abilities and story events from description. Exclude all supplied names and aliases. Return only JSON.";
 
 #[derive(Clone, Copy, Default, Deserialize, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -233,7 +233,7 @@ async fn generate(
         &config,
         ChatCompletionRequest {
             feature: "authoring_avatar",
-            prompt_version: "authoring-avatar/2",
+            prompt_version: "authoring-avatar/3",
             capability: ModelCapability::WorldContent,
             system: match input.mode {
                 Mode::Extract => PROMPT,

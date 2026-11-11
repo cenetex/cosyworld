@@ -108,6 +108,12 @@ release. Read each site's `/meta.commit` and
 `/meta.card_game.shared_rules_version` for its running code and rules. See
 [release operations](../../../docs/release.md#delivery-schedule).
 
+The hosted server boots card-only ([#1652](https://github.com/cenetex/cosyworld/issues/1652)).
+Startup opens the event store and the account tables and does not replay the
+classic journal. Shared worlds keep their own journal tables, unchanged.
+`/meta` reports the version, commit, `card_game.shared_rules_version` and
+event store health.
+
 A branch that changes rule modules runs `npm run v2:card:shared:next` after
 it rebases on or merges `main`. The script restores main's recorded bundles
 and version wiring, rebuilds the rules, and adds the next version only when

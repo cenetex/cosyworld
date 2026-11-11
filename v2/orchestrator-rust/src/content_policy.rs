@@ -1,20 +1,3 @@
-pub(super) const MAX_CALLING_STATEMENT_CHARS: usize = 96;
-pub(super) const MAX_BOND_STATEMENT_CHARS: usize = 96;
-
-pub(super) fn normalized_resident_speech_key(value: &str) -> String {
-    let punctuation_folded = value
-        .chars()
-        .map(|character| match character {
-            '\u{2018}' | '\u{2019}' | '\u{0060}' => '\'',
-            '\u{201c}' | '\u{201d}' => '"',
-            '\u{2013}' | '\u{2014}' => '-',
-            '\u{00a0}' => ' ',
-            other => other,
-        })
-        .collect::<String>();
-    compact_whitespace(punctuation_folded.trim().trim_matches('"')).to_lowercase()
-}
-
 pub(super) fn human_message_is_cozy_safe(message: &str) -> bool {
     if !human_message_is_public_safe(message) {
         return false;
@@ -55,30 +38,6 @@ pub(super) fn human_message_is_public_safe(message: &str) -> bool {
         && !blocked_terms
             .iter()
             .any(|blocked| padded.contains(&format!(" {blocked} ")))
-}
-
-pub(super) fn normalize_calling_statement(statement: &str) -> Option<String> {
-    normalize_safe_statement(statement, MAX_CALLING_STATEMENT_CHARS)
-}
-
-pub(super) fn normalize_bond_statement(statement: &str) -> Option<String> {
-    normalize_safe_statement(statement, MAX_BOND_STATEMENT_CHARS)
-}
-
-fn normalize_safe_statement(statement: &str, max_chars: usize) -> Option<String> {
-    if has_disallowed_control_character(statement) {
-        return None;
-    }
-    let normalized = compact_whitespace(statement);
-    if normalized.is_empty()
-        || normalized.chars().count() > max_chars
-        || !human_message_is_cozy_safe(&normalized)
-        || !normalized.chars().any(|ch| ch.is_ascii_alphanumeric())
-    {
-        None
-    } else {
-        Some(normalized)
-    }
 }
 
 pub(super) fn compact_whitespace(value: &str) -> String {

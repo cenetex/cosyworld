@@ -117,7 +117,7 @@ The scene succeeds when players infer a useful combination, care about an actor'
 
 ## Controls that make intent clear
 
-The current [Story Hand](../../v2/docs/story-hand.md) already uses location, avatar, and item nouns. It resolves a selected set to one verb through a fixed order. Its exact preview and server validation are useful foundations. The next control test should add the player's intent to that resolution.
+The retired Story Hand already uses location, avatar, and item nouns. It resolves a selected set to one verb through a fixed order. Its exact preview and server validation are useful foundations. The next control test should add the player's intent to that resolution.
 
 | Candidate | How it works | Useful trade-off |
 | --- | --- | --- |

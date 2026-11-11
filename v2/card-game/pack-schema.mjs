@@ -90,6 +90,8 @@ export const CONDITION_KINDS = [
   "gate_open",
   "grounded",
   "held",
+  "in_hand",
+  "actor_at",
   "home_door",
 ];
 // The `ship_at` dock for a ship sailing between ports.
@@ -912,6 +914,15 @@ export function packProblems(pack, hub, mountedPlaces = [], mountedItems = []) {
     let ok = record(c) && CONDITION_KINDS.includes(c.kind) && depth <= 2;
     if (ok)
       switch (c.kind) {
+        case "in_hand":
+        case "grounded":
+          ok =
+            keysOk(c, ["kind", "item"]) &&
+            (hub.items.includes(c.item) || owns(items, c.item));
+          break;
+        case "actor_at":
+          ok = keysOk(c, ["kind", "place"]) && anyPlace(c.place);
+          break;
         case "sound":
           ok =
             keysOk(c, ["kind", "at"]) &&
@@ -1113,26 +1124,26 @@ export function packProblems(pack, hub, mountedPlaces = [], mountedItems = []) {
       ? Array.isArray(c.conditions) && c.conditions.every(savedCondition)
       : c?.kind === "not"
         ? savedCondition(c.condition)
-      : [
-          "choice",
-          "choice_unset",
-          "flag",
-          "holding",
-          "item_at",
-          "item_near",
-          "item_present",
-          "shared_world",
-          "connected_humans",
-          "met",
-          "knows",
-          "talked",
-          "daylight",
-          "drawn",
-          "chance",
-          "upgraded",
-          "gate_open",
-          "home_door",
-        ].includes(c?.kind);
+        : [
+            "choice",
+            "choice_unset",
+            "flag",
+            "holding",
+            "item_at",
+            "item_near",
+            "item_present",
+            "shared_world",
+            "connected_humans",
+            "met",
+            "knows",
+            "talked",
+            "daylight",
+            "drawn",
+            "chance",
+            "upgraded",
+            "gate_open",
+            "home_door",
+          ].includes(c?.kind);
   const requirements = (cs, what, persistent = true) => {
     if (cs === undefined) return;
     check(
@@ -1160,7 +1171,8 @@ export function packProblems(pack, hub, mountedPlaces = [], mountedItems = []) {
         (keysOk(a.sealed, ["at", "reason"]) &&
           owns(places, a.sealed.at) &&
           textOk(a.sealed.reason, 240) &&
-          Array.isArray(a.requires) && a.requires.length > 0),
+          Array.isArray(a.requires) &&
+          a.requires.length > 0),
       `avatar ${id} sealed card needs a place, a reason and activation requirements`,
     );
     for (const [n, p] of (Array.isArray(a.poses) ? a.poses : []).entries())
@@ -1259,12 +1271,19 @@ export function packProblems(pack, hub, mountedPlaces = [], mountedItems = []) {
     media(i.art, `item ${id} art`);
     requirements(i.requires, `item ${id} requires`);
     requirements(i.reservedUntil, `item ${id} reservedUntil`);
-    check(i.reservedUntil === undefined || (Array.isArray(i.reservedUntil) && i.reservedUntil.length > 0),
-      `item ${id} reservedUntil needs a condition`);
-    check(i.scatterOutside === undefined || i.scatterOutside === true,
-      `item ${id} scatterOutside must be true`);
-    check(i.recoverTo === undefined || anyPlace(i.recoverTo),
-      `item ${id} recoverTo needs a known place`);
+    check(
+      i.reservedUntil === undefined ||
+        (Array.isArray(i.reservedUntil) && i.reservedUntil.length > 0),
+      `item ${id} reservedUntil needs a condition`,
+    );
+    check(
+      i.scatterOutside === undefined || i.scatterOutside === true,
+      `item ${id} scatterOutside must be true`,
+    );
+    check(
+      i.recoverTo === undefined || anyPlace(i.recoverTo),
+      `item ${id} recoverTo needs a known place`,
+    );
   }
   const routes = pack.routes || [];
   for (const r of routes) {
@@ -1815,6 +1834,7 @@ export function packProblems(pack, hub, mountedPlaces = [], mountedItems = []) {
         "travelers",
         "travel",
         "signal",
+        "unlockWhen",
         "requires",
         "scenery",
         "opened",
@@ -1878,6 +1898,18 @@ export function packProblems(pack, hub, mountedPlaces = [], mountedItems = []) {
           ),
         `${name} scenery needs open and/or closed text`,
       );
+    if (c.unlockWhen !== undefined) {
+      check(
+        c.signal === undefined &&
+          c.transport !== undefined &&
+          Array.isArray(c.unlockWhen) &&
+          c.unlockWhen.length > 0 &&
+          c.unlockWhen.length <= 6,
+        `${name} unlockWhen needs transport conditions, not a signal`,
+      );
+      for (const r of c.unlockWhen || [])
+        condition(r, `${name} unlock condition`);
+    }
     const s = c?.signal;
     if (s === undefined) continue;
     check(
