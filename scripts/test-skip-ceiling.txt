@@ -1,0 +1,4 @@
+# Skipped tests counted by scripts/check-test-skips.mjs. It may only go down;
+# raising it is an owner decision made visibly in the PR diff.
+# 3 on main (2026-11-11): repack skipIf, ratiradio skipIf, authored_corpus ignore.
+3

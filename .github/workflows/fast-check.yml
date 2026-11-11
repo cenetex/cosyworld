@@ -136,6 +136,7 @@ jobs:
       - run: npm ci --prefer-offline --no-audit --no-fund
       - run: npm run lint
       - run: npm run docs:check
+      - run: npm run check:test-guards
 
   unit:
     name: JavaScript unit tests
@@ -179,7 +180,8 @@ jobs:
           cache: "npm"
           cache-dependency-path: package-lock.json
       - run: npm ci --prefer-offline --no-audit --no-fund
-      - run: npm test
+      # Not a gate: lists tests that passed only on a retry (`retry: 1`).
+      - run: npx vitest run --reporter=default --reporter=./test/helpers/retried-tests-reporter.mjs
 
   # cargo fmt reads source only, so this job builds nothing and needs no
   # Cargo cache. It uses the same stable toolchain as ci.yml and deploy.yml
