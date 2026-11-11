@@ -7,6 +7,7 @@ import {
   transports,
   crossings,
   entityActive,
+  entityShown,
   packPlaces,
   packPeople,
   conditionsMet,
@@ -167,7 +168,7 @@ export function shutLanes(s, place) {
       (lane) =>
         lane.reason &&
         lane.from === state.dock &&
-        entityActive(s, lane.to) &&
+        entityShown(s, lane.to) &&
         !conditionsMet(s, t.packId, lane.opensWith),
     )
     .map((lane) => ({ to: lane.to, reason: lane.reason }));

@@ -507,8 +507,21 @@ Cards have three states. An unseen card lies face down under the plain wooden
 back and reveals on a tap. A card with an unmet prerequisite uses the locked
 back and red edge. A revealed card shows its face. Both closed states conceal
 the name, painting, contents, and quest details. Tapping a locked box
-selects it; the existing descriptor shows the concealed card back and its
-authored requirement, or "A locked box." when no requirement can be shown.
+selects it; the existing descriptor shows the concealed card back and what
+opens it (the rules' `boxWant`), or the plain reason when no goal fits ("heard
+while holding a thing"), or "A locked box." when neither exists.
+The rules keep one list of boxes in `world/boxes.mjs`: `boxesAt(s, place,
+actor)` gives `{id, kind, at, open, reason, want}` for every shut way, sealed
+resident, made thing, shut lane, home door (a pack crossing with `sealed`) and
+hub way (a `reflectionRoutes` entry with `sealed`) at a place. Every lock is
+drawn, even when the card behind it has conditions of its own; such a card is
+shown shut and still cannot be entered, talked to or acted on. The Black pond
+is the first box in a new world: it is opened by putting the lamp out.
+**XP for opening.** The player whose play opens a box gains one XP, once per
+avatar per box per world (`opened` in the save lists who). A box that locks
+again pays nothing more. Time, weather, a resident walking in, a guard leaving
+his post and a fight past a guard pay nothing. A `humans_at` lock opens when
+enough travellers stand at one place and pays each of them.
 "Locked" sits in the same small bottom-right position as "Continue". It is
 a disabled status, not a separate action row; selecting or tapping it never
 creates a quest or takes a turn.

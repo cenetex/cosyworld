@@ -109,7 +109,11 @@
               { kind: "item_near", item: a.item.id, place: door }
             ],
             travel: `through ${a.home.entrance.name.toLowerCase()}`,
-            scenery: { open: a.home.entrance.text, cardArt: a.home.image }
+            scenery: { open: a.home.entrance.text, cardArt: a.home.image },
+            // Shown as a shut card at its door in a shared world (rules 133).
+            sealed: {
+              reason: `Bring the ${a.item.name.toLowerCase()} here to open ${a.home.name}`
+            }
           },
           {
             id: `${a.home.id}-${door}`,
@@ -377,11 +381,11 @@
   var KNOWLEDGE_PERSON_LIMIT = KNOWLEDGE_FACT_LIMIT;
   var KNOWLEDGE_PENDING_LIMIT = 32;
   var FACT_TEXT_LIMIT = 180;
-  var owns = (o, key2) => typeof key2 === "string" && !!o && Object.hasOwn(o, key2);
+  var owns = (o, key3) => typeof key3 === "string" && !!o && Object.hasOwn(o, key3);
   var record = (v) => !!v && typeof v === "object" && !Array.isArray(v);
   var safeId = (v) => typeof v === "string" && v.length > 0 && v.length <= 160 && !["__proto__", "prototype", "constructor"].includes(v) && !/[\u0000-\u0020\u007f]/u.test(v);
   var text = (v, limit) => typeof v === "string" && !!v.trim() && v.length <= limit && !/[\u0000-\u001f\u007f]/u.test(v);
-  var fields = (v, keys) => record(v) && Object.keys(v).length === keys.length && Object.keys(v).every((key2) => keys.includes(key2));
+  var fields = (v, keys) => record(v) && Object.keys(v).length === keys.length && Object.keys(v).every((key3) => keys.includes(key3));
   var whole = (v, max) => Number.isSafeInteger(v) && v >= 0 && v <= max;
   var tokens = (v) => (v.toLowerCase().match(/[\p{L}\p{N}]+/gu) || []).join(" ");
   var sentences = (v) => v.split(/[.!?。！？]+/u).map(tokens).filter(Boolean);
@@ -794,9 +798,9 @@
       const fact = k.facts[p.factId];
       if (p.commitChoice && (fact.source.kind !== "topic" || !fact.source.topic.choiceId || p.speaker !== fact.source.actorId || p.locationId !== fact.source.locationId))
         return false;
-      const key2 = `${p.eventSeq}/${p.speaker}/${p.listener}`;
-      if (pendingKeys.has(key2)) return false;
-      pendingKeys.add(key2);
+      const key3 = `${p.eventSeq}/${p.speaker}/${p.listener}`;
+      if (pendingKeys.has(key3)) return false;
+      pendingKeys.add(key3);
       return true;
     });
   }
@@ -831,8 +835,8 @@
     return Array.isArray(rows) && rows.length <= size * (size - 1) / 2 && rows.every((c) => {
       if (!c || Object.keys(c).filter((k) => k !== "company").sort().join() !== "actors,seq,turn" || !Array.isArray(c.actors) || c.actors.length !== 2 || c.actors.some((id) => !Object.hasOwn(s.actors, id)) || c.actors[0] >= c.actors[1] || !Number.isSafeInteger(c.seq) || c.seq < 1 || c.seq > s.eventSeq || !Number.isSafeInteger(c.turn) || c.turn < 0 || c.turn > s.turn || c.company !== void 0 && (!Number.isSafeInteger(c.company) || c.company < c.seq || c.company > s.eventSeq || !companySource(s, c)))
         return false;
-      const key2 = c.actors.join(":"), fresh = !seen.has(key2);
-      seen.add(key2);
+      const key3 = c.actors.join(":"), fresh = !seen.has(key3);
+      seen.add(key3);
       return fresh;
     });
   }
@@ -966,16 +970,16 @@
     if (!t || !s.actors[actor]) return false;
     const edges = [seaEdge(from, to)];
     if (lanesFrom(t, to).includes(from)) edges.push(seaEdge(to, from));
-    const key2 = ([x, y]) => `${x}>${y}`;
+    const key3 = ([x, y]) => `${x}>${y}`;
     const known = new Map(
-      (s.routeKnowledge?.[actor] || []).map((edge) => [key2(edge), edge])
+      (s.routeKnowledge?.[actor] || []).map((edge) => [key3(edge), edge])
     );
     const before = known.size;
-    for (const edge of edges) known.set(key2(edge), edge);
+    for (const edge of edges) known.set(key3(edge), edge);
     if (known.size === before) return false;
     s.routeKnowledge ??= {};
     s.routeKnowledge[actor] = [...known.values()].sort(
-      (x, y) => key2(x).localeCompare(key2(y))
+      (x, y) => key3(x).localeCompare(key3(y))
     );
     return true;
   }
@@ -1335,7 +1339,7 @@
 
   // v2/card-game/pack-rules.mjs
   var DAYLIGHT_TURNS = 24;
-  var fill = (template, values) => template.replace(/\{(\w+)\}/g, (_, key2) => values[key2] ?? "");
+  var fill = (template, values) => template.replace(/\{(\w+)\}/g, (_, key3) => values[key3] ?? "");
   var crossingState = (s, id) => s.crossings?.[id];
   var newCrossingState = (c) => c.signal ? { discovered: false, phase: 0, until: 0 } : { discovered: false };
   var newPackRecord = (pack) => ({
@@ -1433,6 +1437,9 @@
       }
       case "connected_humans":
         return sharedEnabled(s) && humanAvatarIds.filter((id) => humanPresent(s, id)).length >= c.minimum;
+      // Enough travellers stand together in one place: a lock for two.
+      case "humans_at":
+        return sharedEnabled(s) && roomHumanCount(s, c.place) >= c.minimum;
       case "item_near": {
         if (usedUp(s, c.item)) return false;
         let holder2 = s.items[c.item]?.holder;
@@ -1483,9 +1490,9 @@
         return false;
     }
   }
-  function runHash(s, key2) {
+  function runHash(s, key3) {
     let h = 2166136261;
-    for (const ch of `${s.run?.seed ?? 0}:${key2}`)
+    for (const ch of `${s.run?.seed ?? 0}:${key3}`)
       h = Math.imul(h ^ ch.charCodeAt(0), 16777619) >>> 0;
     return h;
   }
@@ -1844,7 +1851,7 @@
   var questTerms = (w) => JSON.stringify([
     w.kind,
     w.target,
-    w.step ? Object.keys(w.step).sort().map((key2) => [key2, w.step[key2]]) : null,
+    w.step ? Object.keys(w.step).sort().map((key3) => [key3, w.step[key3]]) : null,
     w.lit ?? null
   ]);
   var wantKey = (id, want) => `${id}:${want.kind}:${want.target}:${want.since}:${want.quest?.left ?? ""}:${questTerms(want)}`;
@@ -2139,7 +2146,7 @@
   function validStep(s, w, id) {
     const { verb, ...cards } = w.step;
     if (verb === "lay")
-      return w.kind === "place" && !w.quest && Object.keys(cards).every((key2) => ["items", "finish"].includes(key2)) && Array.isArray(cards.items) && cards.items.length >= 1 && cards.items.length <= 3 && new Set(cards.items).size === cards.items.length && cards.items.every((item) => Object.hasOwn(s.items, item)) && (cards.finish === void 0 || packOf(w.target)?.avatars && Object.values(packOf(w.target).avatars).some(
+      return w.kind === "place" && !w.quest && Object.keys(cards).every((key3) => ["items", "finish"].includes(key3)) && Array.isArray(cards.items) && cards.items.length >= 1 && cards.items.length <= 3 && new Set(cards.items).size === cards.items.length && cards.items.every((item) => Object.hasOwn(s.items, item)) && (cards.finish === void 0 || packOf(w.target)?.avatars && Object.values(packOf(w.target).avatars).some(
         (resident) => resident.want?.target === w.target && resident.want?.step?.verb === "lay" && resident.want.step.finish === cards.finish && JSON.stringify(resident.want.step.items) === JSON.stringify(cards.items)
       ));
     const home = verb === "bring" && w.story && !cards.to;
@@ -2147,13 +2154,13 @@
     const slept = verb === "rest" && !w.story;
     const eaten = verb === "eat" && w.kind === "item" && isFood(w.target);
     const asked = !w.quest && !w.story && (verb === "give" && w.kind === "item" || verb === "bring" && w.kind === "person");
-    const named = eaten ? ["at", "with"].filter((key2) => cards[key2] !== void 0) : home ? ["at"] : asked && w.kind === "person" ? [cards.at === void 0 ? "to" : "at"] : STEP_CARDS[verb] || (verb === "meet" && cards.at ? ["at"] : []);
+    const named = eaten ? ["at", "with"].filter((key3) => cards[key3] !== void 0) : home ? ["at"] : asked && w.kind === "person" ? [cards.at === void 0 ? "to" : "at"] : STEP_CARDS[verb] || (verb === "meet" && cards.at ? ["at"] : []);
     return (Boolean(w.quest) || home || gift || slept || asked || eaten) && [
       ...STEP_VERBS[w.kind] || [],
       ...eaten ? ["eat"] : [],
       ...w.kind === "person" ? SAVED_STEP_VERBS : [],
       ...asked ? [verb] : []
-    ].includes(verb) && Object.keys(cards).length === named.length && named.every((key2) => typeof cards[key2] === "string") && (!cards.to || Object.hasOwn(s.actors, cards.to) && cards.to !== w.target) && (!cards.with || Object.hasOwn(s.actors, cards.with) && cards.with !== id);
+    ].includes(verb) && Object.keys(cards).length === named.length && named.every((key3) => typeof cards[key3] === "string") && (!cards.to || Object.hasOwn(s.actors, cards.to) && cards.to !== w.target) && (!cards.with || Object.hasOwn(s.actors, cards.with) && cards.with !== id);
   }
   function validHeard(s, id) {
     const heard = s.actors[id].heard;
@@ -2168,7 +2175,7 @@
     const a = s.actors[id];
     const whole6 = (n) => Number.isSafeInteger(n) && n >= 0 && n <= s.turn;
     const list = (v, of) => Array.isArray(v) && v.length <= 64 && new Set(v).size === v.length && v.every((x) => Object.hasOwn(of, x));
-    const most = startXp(id) + (a.carried ?? 0) + s.turn * 8;
+    const most = startXp(id) + (a.carried ?? 0) + s.turn * 8 + Object.values(s.opened || {}).filter((who) => who.includes?.(id)).length;
     return Number.isSafeInteger(a.xp) && a.xp >= 0 && (a.carried === void 0 || Number.isSafeInteger(a.carried) && a.carried >= 0) && (a.level === void 0 || Number.isSafeInteger(a.level) && a.level >= 1 && a.level <= levelFor(most)) && a.xp <= most && (a.metTurn === void 0 || whole6(a.metTurn)) && a.under === void 0 && a.questRewards === void 0 && (a.content === void 0 || a.content === true) && (a.glimpse === void 0 || validGlimpse(a.glimpse, levelFor(most) + 1)) && (a.halfwayIssued === void 0 || Number.isSafeInteger(a.halfwayIssued) && a.halfwayIssued >= 2 && a.halfwayIssued <= levelFor(most) + 1) && (a.gaveUp === void 0 || a.gaveUp && Object.keys(a.gaveUp).length === 2 && typeof a.gaveUp.target === "string" && whole6(a.gaveUp.turn)) && list(a.talked, s.actors) && validHeard(s, id) && !a.talked.includes(id) && Array.isArray(a.visited) && (a.want === null || validQuest(s, id, a.want));
   }
   function validQuest(s, id, w) {
@@ -2215,7 +2222,7 @@
   var REGROW_EVENTS = ["dawn", "dusk", "rest"];
   var CUSTODY = ["holding", "item_near", "item_at", "item_present"];
   var record2 = (v) => v && typeof v === "object" && !Array.isArray(v);
-  var owns2 = (o, key2) => record2(o) && typeof key2 === "string" && Object.hasOwn(o, key2);
+  var owns2 = (o, key3) => record2(o) && typeof key3 === "string" && Object.hasOwn(o, key3);
   var idOk = (v) => typeof v === "string" && /^[a-z][a-z0-9-]{0,79}$/.test(v);
   function custodyItems(conditions = []) {
     const out = [];
@@ -2409,6 +2416,7 @@
     "tag_held",
     "shared_world",
     "connected_humans",
+    "humans_at",
     "met",
     "knows",
     "talked",
@@ -2432,7 +2440,7 @@
   var TRAVELERS = ["player", "any"];
   var VARIANTS = ["asleep", "awake", "irritated"];
   var record3 = (v) => v && typeof v === "object" && !Array.isArray(v);
-  var owns3 = (o, key2) => record3(o) && typeof key2 === "string" && Object.hasOwn(o, key2);
+  var owns3 = (o, key3) => record3(o) && typeof key3 === "string" && Object.hasOwn(o, key3);
   var idOk2 = (v) => typeof v === "string" && /^[a-z][a-z0-9-]{0,79}$/.test(v);
   var textOk = (v, max = 1200) => typeof v === "string" && v.trim().length > 0 && v.length <= max && !/[\u0000-\u001f]/.test(v);
   function waitWordsOk(t) {
@@ -2458,11 +2466,11 @@
         out.push("has a lane that does not join two of its docks");
         continue;
       }
-      const ways = [`${lane.from}>${lane.to}`];
-      if (!lane.oneWay) ways.push(`${lane.to}>${lane.from}`);
-      if (ways.some((way) => seen.has(way)))
-        out.push(`repeats the lane ${ways[0]}`);
-      for (const way of ways) seen.add(way);
+      const ways2 = [`${lane.from}>${lane.to}`];
+      if (!lane.oneWay) ways2.push(`${lane.to}>${lane.from}`);
+      if (ways2.some((way) => seen.has(way)))
+        out.push(`repeats the lane ${ways2[0]}`);
+      for (const way of ways2) seen.add(way);
       neighbours.get(lane.from).add(lane.to);
       neighbours.get(lane.to).add(lane.from);
       leaving.add(lane.from);
@@ -2507,8 +2515,8 @@
         (s) => typeof s === "string" && /^[a-z]+(?: [a-z]+)*$/.test(s) && s.length <= 80
       ) && keysOk(source, ["kind", "field"]) && ["item_flag", "item_positive", "actor_flag", "covered"].includes(
         source.kind
-      ) && (source.kind === "covered" ? source.field === void 0 : idOk2(source.field)) && keysOk(d.values, ["true", "false"]) && ["true", "false"].every((key2) => {
-        const v = d.values[key2];
+      ) && (source.kind === "covered" ? source.field === void 0 : idOk2(source.field)) && keysOk(d.values, ["true", "false"]) && ["true", "false"].every((key3) => {
+        const v = d.values[key3];
         return keysOk(v, ["fact", "claims", "legacyToken"]) && textOk(v.fact, 240) && Array.isArray(v.claims) && v.claims.length > 0 && v.claims.length <= 16 && v.claims.every(
           (s) => typeof s === "string" && /^[a-z']+(?: [a-z']+)*$/.test(s) && s.length <= 80
         ) && (v.legacyToken === void 0 || /^[a-z]+$/.test(v.legacyToken));
@@ -2584,22 +2592,22 @@
       record3(hub2) && [hub2.places, hub2.avatars, hub2.items].every(Array.isArray) && typeof hub2.player === "string",
       "needs the hub's places, avatars, items and player"
     );
-    for (const [key2, required, max] of [
+    for (const [key3, required, max] of [
       ["places", true, 128],
       ["avatars", true, 128],
       ["items", false, 128],
       ["fixtures", false, 32],
       ["transports", false, 8]
     ]) {
-      const map = pack[key2];
+      const map = pack[key3];
       if (map === void 0 && !required) continue;
       if (!check(
         record3(map) && Object.keys(map).length <= max && Object.values(map).every(record3),
-        `${key2} must be a bounded entity map`
+        `${key3} must be a bounded entity map`
       ))
         return problems2;
     }
-    for (const [key2, max] of [
+    for (const [key3, max] of [
       ["routes", 256],
       ["choices", 256],
       ["works", 128],
@@ -2607,9 +2615,9 @@
       ["storyQuests", 128],
       ["topics", 128]
     ])
-      if (pack[key2] !== void 0 && !check(
-        Array.isArray(pack[key2]) && pack[key2].length <= max && pack[key2].every(record3),
-        `${key2} must be a bounded record list`
+      if (pack[key3] !== void 0 && !check(
+        Array.isArray(pack[key3]) && pack[key3].length <= max && pack[key3].every(record3),
+        `${key3} must be a bounded record list`
       ))
         return problems2;
     for (const c of pack.choices || [])
@@ -2991,6 +2999,10 @@
           case "connected_humans":
             ok = keysOk(c, ["kind", "minimum"]) && intOk(c.minimum, 1, 8);
             break;
+          // Travellers standing together at one place (a lock for two).
+          case "humans_at":
+            ok = keysOk(c, ["kind", "place", "minimum"]) && anyPlace(c.place) && intOk(c.minimum, 1, 8);
+            break;
           case "item_near":
             ok = keysOk(c, ["kind", "item", "place"]) && owns3(items2, c.item) && anyPlace(c.place);
             break;
@@ -3049,6 +3061,7 @@
       "item_present",
       "shared_world",
       "connected_humans",
+      "humans_at",
       "met",
       "knows",
       "talked",
@@ -3401,14 +3414,14 @@
         keysOk(r, ["places", "avatars", "items", "choices"]),
         "release has unknown fields"
       );
-      for (const [key2, all] of [
+      for (const [key3, all] of [
         ["places", places2],
         ["avatars", avatars],
         ["items", items2]
       ])
         check(
-          new Set(r[key2]).size === r[key2].length && r[key2].every((id) => owns3(all, id)),
-          `release ${key2} has invalid references`
+          new Set(r[key3]).size === r[key3].length && r[key3].every((id) => owns3(all, id)),
+          `release ${key3} has invalid references`
         );
       check(r.places.includes(pack.entry), "release excludes entry");
       check(
@@ -3536,7 +3549,8 @@
           "closed",
           "travelLabel",
           "transport",
-          "retired"
+          "retired",
+          "sealed"
         ]) && idOk2(c.id) && (c.retired === void 0 || c.retired === true && c.transport === void 0 && c.signal === void 0) && !crossingIds.has(c.id),
         `${name} needs a distinct id and only known fields`
       );
@@ -3557,6 +3571,10 @@
       check(
         Array.isArray(c?.requires) && c.requires.length <= 6,
         `${name} requires must be a list`
+      );
+      check(
+        c.sealed === void 0 || keysOk(c.sealed, ["reason"]) && Boolean(c.requires?.length) && !c.transport && textOk(c.sealed.reason, 240),
+        `${name} sealed card needs a gate and a reason`
       );
       for (const r of c?.requires || []) condition(r, `${name} condition`);
       for (const field of ["opened", "closed"])
@@ -3651,7 +3669,7 @@
   }
 
   // v2/card-game/pack-registry.mjs
-  var owns4 = (o, key2) => typeof key2 === "string" && !!o && Object.hasOwn(o, key2);
+  var owns4 = (o, key3) => typeof key3 === "string" && !!o && Object.hasOwn(o, key3);
   var record4 = (v) => v && typeof v === "object" && !Array.isArray(v);
   function validatePackDefinition(pack) {
     const problems2 = packProblems(
@@ -3877,7 +3895,7 @@
     }
     return holder2;
   }
-  function entityActive(world, id) {
+  function entityLive(world, id, lockView) {
     if (world.items?.[id]) {
       let holder2 = rootOf3(world, id);
       if (humanAvatar(holder2) && !humanPresent(world, holder2) && !residentAvatar(world, holder2))
@@ -3886,28 +3904,32 @@
     }
     if (humanAvatar(id) && !humanPresent(world, id) && !residentAvatar(world, id))
       return false;
-    return entityEnabled(world, id);
+    return entityEnabled(world, id, false, lockView);
   }
-  function entityEnabled(world, id, saved = false) {
+  var entityActive = (world, id) => entityLive(world, id, false);
+  var entityShown = (world, id) => entityLive(world, id, true);
+  function entityEnabled(world, id, saved = false, lockView = false) {
     if (localRoads.has(id) || retiredPlaces.has(id) || usedUp(world, id))
       return false;
     if (!saved && world.disabledPacks && !packOn(world, packIdOf(id)))
       return false;
     const e = packEntity(id);
     if (!e) return true;
-    if (waitingAtHome(world, id) && !entityEnabled(world, e.home, saved))
+    if (waitingAtHome(world, id) && !entityEnabled(world, e.home, saved, lockView))
       return false;
     const pack = packDefinition(e.packId), state = packState(world, e.packId);
-    if (!state || !conditionsMet(
+    if (!state || !lockView && (!conditionsMet(
       world,
       e.packId,
-      saved ? (e.requires || []).filter((c) => c.kind !== "connected_humans") : e.requires
-    ) || !saved && !conditionsMet(world, e.packId, e.appearsWhen) || !sectionAllows(world, pack, id, conditionsMet) || // Saved custody of an undrawn special stays as it was.
+      saved ? (e.requires || []).filter(
+        (c) => !["connected_humans", "humans_at"].includes(c.kind)
+      ) : e.requires
+    ) || !saved && !conditionsMet(world, e.packId, e.appearsWhen) || !sectionAllows(world, pack, id, conditionsMet)) || // Saved custody of an undrawn special stays as it was.
     !saved && !specialsAllow(state, pack, id))
       return false;
     if (!pack.release || state.scope === "full") return true;
     if (pack.recital?.actor === id)
-      return (roamingQuestActor(id) || !!recitalVisit(world, pack)) && entityEnabled(world, world.actors[id].place, saved);
+      return (roamingQuestActor(id) || !!recitalVisit(world, pack)) && entityEnabled(world, world.actors[id].place, saved, lockView);
     return pack.release.places.includes(id) || pack.release.avatars.includes(id) || pack.release.items.includes(id);
   }
   var routeKey = (r) => `${r.from}>${r.to}`;
@@ -3931,15 +3953,15 @@
   }
   function latchRoutes(world) {
     for (const { pack, route } of latching) {
-      const key2 = routeKey(route);
-      if (route.live || world.openedRoutes?.includes(key2)) continue;
+      const key3 = routeKey(route);
+      if (route.live || world.openedRoutes?.includes(key3)) continue;
       if (!conditionsMet(world, pack, route.requires)) continue;
-      world.openedRoutes = [...world.openedRoutes || [], key2].sort();
+      world.openedRoutes = [...world.openedRoutes || [], key3].sort();
     }
     return world;
   }
-  var latchingRoute = (key2) => latchKeys.has(key2);
-  var validOpenedRoutes = (list) => list === void 0 || Array.isArray(list) && list.length > 0 && list.every((key2, i) => latchKeys.has(key2) && (!i || list[i - 1] < key2));
+  var latchingRoute = (key3) => latchKeys.has(key3);
+  var validOpenedRoutes = (list) => list === void 0 || Array.isArray(list) && list.length > 0 && list.every((key3, i) => latchKeys.has(key3) && (!i || list[i - 1] < key3));
   function packExits(world, place, actor = null) {
     const routes = packDefinitions.flatMap(
       (pack) => (pack.routes || []).filter(
@@ -4202,7 +4224,7 @@
           world,
           pack.id,
           (pack.avatars[id]?.requires || []).filter(
-            (c) => c.kind !== "connected_humans"
+            (c) => !["connected_humans", "humans_at"].includes(c.kind)
           )
         ) || world.opening && !sharedEnabled(world) && world.opening.met?.[id] !== turn || !Number.isSafeInteger(turn) || turn < 0 || turn > world.turn
       ))
@@ -4285,7 +4307,7 @@
     world.actors[actor].heldItem = item;
   }
   function applyHeldChoice(world, actor, choice) {
-    if (!choice || Object.keys(choice).some((key2) => !["item", "revision"].includes(key2)) || choice.revision !== world.revision)
+    if (!choice || Object.keys(choice).some((key3) => !["item", "revision"].includes(key3)) || choice.revision !== world.revision)
       throw new Error("The world changed. Choose an item again.");
     chooseHeldItem(world, actor, choice.item);
     world.revision += 1;
@@ -4836,7 +4858,7 @@
 
   // v2/card-game/homecoming.mjs
   var START = "pond";
-  var pick = (list, key2) => list[seedHash(key2) % list.length];
+  var pick = (list, key3) => list[seedHash(key3) % list.length];
   var lampless = (list) => {
     const open = list.filter((place) => lamplessPlaces.includes(place));
     return open.length ? open : list;
@@ -4995,7 +5017,7 @@
     if (life === void 0 || life === null) return true;
     const text2 = (value, limit) => typeof value === "string" && value.trim().length > 0 && value.length <= limit && !/[\u0000-\u001f\u007f]/u.test(value);
     return typeof life === "object" && !Array.isArray(life) && Object.keys(life).every(
-      (key2) => ["persona", "thoughts", "dreams"].includes(key2)
+      (key3) => ["persona", "thoughts", "dreams"].includes(key3)
     ) && (life.persona === null || text2(life.persona, 600)) && [life.thoughts, life.dreams].every(
       (moments) => Array.isArray(moments) && moments.length <= 4 && moments.every(
         (m, index) => m && Number.isSafeInteger(m.turn) && m.turn >= 0 && m.turn <= turn && text2(m.text, 400) && (index === 0 || moments[index - 1].turn < m.turn)
@@ -5010,7 +5032,7 @@
       return false;
     return Object.entries(world.memories).every(([id, memory]) => {
       if (memory?.seen !== void 0 && (!memory.seen || typeof memory.seen !== "object" || Array.isArray(memory.seen) || profiles[id].kind !== "avatar" || Object.entries(memory.seen).some(
-        ([other, seen]) => other === id || profiles[other]?.kind !== "avatar" || !seen || Object.keys(seen).some((key2) => !SEEN_KEYS.includes(key2)) || !profiles[seen.place] || profiles[seen.place].kind === "avatar" || world.items[seen.place] || !Number.isSafeInteger(seen.turn) || seen.turn < 0 || seen.turn > world.turn || !Number.isSafeInteger(seen.seq) || seen.seq < 1 || seen.seq > world.eventSeq
+        ([other, seen]) => other === id || profiles[other]?.kind !== "avatar" || !seen || Object.keys(seen).some((key3) => !SEEN_KEYS.includes(key3)) || !profiles[seen.place] || profiles[seen.place].kind === "avatar" || world.items[seen.place] || !Number.isSafeInteger(seen.turn) || seen.turn < 0 || seen.turn > world.turn || !Number.isSafeInteger(seen.seq) || seen.seq < 1 || seen.seq > world.eventSeq
       )) || !validInnerLife(memory?.innerLife, world.turn) || !validLearning(world, id, memory?.learning, profiles) || !validReflections(world, id, memory?.reflections) || profiles[id].kind !== "avatar" && memory?.innerLife != null)
         return false;
       if (!memory || !Array.isArray(memory.events) || memory.events.length > MEMORY_LIMIT)
@@ -5856,7 +5878,7 @@
         ...s,
         packs: { ...s.packs, [pack.id]: { ...state, choices, flags } }
       };
-      const holds = (requires = []) => conditionsMet(
+      const holds2 = (requires = []) => conditionsMet(
         projection,
         pack.id,
         requires.filter(
@@ -5868,7 +5890,7 @@
         const c = pack.choices.find((choice) => choice.id === id);
         if (!c || // A step the release no longer holds (a rumoured place's story) is
         // forgotten, and so is whatever followed from it.
-        pack.release && state.scope !== "full" && !pack.release.choices.includes(id) || !holds(c.requires) || !holds(pack.places[c.at]?.requires) || !holds(packEntity(c.subject)?.requires) || !sectionAllows(projection, pack, c.at, conditionsMet) || !sectionAllows(projection, pack, c.subject, conditionsMet) || c.effects.some(
+        pack.release && state.scope !== "full" && !pack.release.choices.includes(id) || !holds2(c.requires) || !holds2(pack.places[c.at]?.requires) || !holds2(packEntity(c.subject)?.requires) || !sectionAllows(projection, pack, c.at, conditionsMet) || !sectionAllows(projection, pack, c.subject, conditionsMet) || c.effects.some(
           (e) => e.kind === "choose" && Object.hasOwn(choices, e.key)
         ))
           continue;
@@ -6135,8 +6157,8 @@
     }
     const home = (id) => Object.hasOwn(pack.places, id);
     for (const actor of Object.values(s.actors || {})) {
-      for (const key2 of ["place", "home"])
-        if (home(actor[key2])) actor[key2] = canonicalPlace(actor[key2]);
+      for (const key3 of ["place", "home"])
+        if (home(actor[key3])) actor[key3] = canonicalPlace(actor[key3]);
       for (const want of [actor.want, ...actor.under || []])
         if (want?.kind === "place" && home(want.target))
           want.target = canonicalPlace(want.target);
@@ -6387,7 +6409,7 @@
     if (!pack || pack.revision < 23 || saved?.revision !== 22) return;
     if (Array.isArray(s.openedRoutes)) {
       s.openedRoutes = s.openedRoutes.filter(
-        (key2) => key2 !== "greek-battlefield>greek-cithaeron"
+        (key3) => key3 !== "greek-battlefield>greek-cithaeron"
       );
       if (!s.openedRoutes.length) delete s.openedRoutes;
     }
@@ -6552,9 +6574,9 @@
       const paths = known.flatMap((edge) => {
         if (!Array.isArray(edge) || edge.length !== 2) return [edge];
         const [from, to] = edge;
-        const key2 = [from, to].sort().join("|");
-        if (GREEK_CUT_LINKS.has(key2)) return [];
-        const road = GREEK_ROAD_LINKS[key2];
+        const key3 = [from, to].sort().join("|");
+        if (GREEK_CUT_LINKS.has(key3)) return [];
+        const road = GREEK_ROAD_LINKS[key3];
         return road ? [
           [from, road],
           [road, to]
@@ -6779,7 +6801,7 @@
       delete saved.receipts[id];
       if (saved.recitals) delete saved.recitals[id];
     }
-    for (const key2 of FOREST_RETIRED_FLAGS) delete saved.flags[key2];
+    for (const key3 of FOREST_RETIRED_FLAGS) delete saved.flags[key3];
     s.log = (s.log || []).flatMap((entry) => {
       if (entry.packId === pack.id && FOREST_RETIRED_CHOICES.includes(entry.choiceId) || retired.has(entry.itemId) || retired.has(entry.receiveId) || /forest-(story|dewbright)-button|forest-watch-bell/.test(
         JSON.stringify([entry.questPlan, entry.program, entry.target])
@@ -6974,9 +6996,9 @@
     s.log = (s.log || []).flatMap(
       (e) => e?.packId !== pack.id || !retired.includes(e.choiceId) ? [e] : renamed[e.choiceId] ? [{ ...e, choiceId: renamed[e.choiceId] }] : []
     );
-    const story = (key2) => /^greek-(open-door|homecoming)-/.test(key2);
+    const story = (key3) => /^greek-(open-door|homecoming)-/.test(key3);
     for (const record5 of [saved.choices, saved.flags])
-      for (const key2 of Object.keys(record5)) if (story(key2)) delete record5[key2];
+      for (const key3 of Object.keys(record5)) if (story(key3)) delete record5[key3];
     for (const [id] of Object.entries(saved.receipts).sort((a, b) => a[1] - b[1]))
       for (const e of pack.choices.find((c) => c.id === id)?.effects || []) {
         if (!story(e.key)) continue;
@@ -7171,7 +7193,7 @@
         problems2.push(`resident ${id} has an unknown or invalid field`);
     return problems2;
   }
-  var lifeField = (id, key2) => own2(world_life_default.residents?.[id], key2) ? world_life_default.residents[id][key2] : void 0;
+  var lifeField = (id, key3) => own2(world_life_default.residents?.[id], key3) ? world_life_default.residents[id][key3] : void 0;
   function lifeHome(id, world) {
     const resident = packPeople[id];
     const next = resident?.homeWhen;
@@ -7245,7 +7267,7 @@
     const pack = !humanAvatar(id) && packPeople[id]?.packId;
     return world_life_default.packs?.[pack]?.sleep ?? world_life_default.defaults.sleep;
   }
-  var scatter2 = (s, key2) => runHash(s, key2) % (2 * SLEEP_SCATTER + 1) - SLEEP_SCATTER;
+  var scatter2 = (s, key3) => runHash(s, key3) % (2 * SLEEP_SCATTER + 1) - SLEEP_SCATTER;
   function sleepWindow(s, id, day) {
     const z = sleepSchedule(id);
     if (!z) return null;
@@ -7465,8 +7487,8 @@
   function settleStationExits(s) {
     s.stationExitOrder = stationExitOrder(s, stationCandidates(s));
   }
-  function limitedExits(s, place, ways) {
-    return place === "station" ? stationExits(s, stationCandidates(s), ways) : ways;
+  function limitedExits(s, place, ways2) {
+    return place === "station" ? stationExits(s, stationCandidates(s), ways2) : ways2;
   }
 
   // v2/card-game/world/geography.mjs
@@ -7546,14 +7568,14 @@
   }
   function exits(s, place, actor = null, previous = null) {
     const rescue = homeRescueExit(s, place, actor, previous), returnPath = pondRescueExit(s, place, actor, previous);
-    const ways = [
+    const ways2 = [
       ...ordinaryExits(s, place, actor, previous),
       ...rescue ? [rescue] : [],
       ...returnPath ? [returnPath] : []
     ];
     for (const to of guardedExits(s, place))
-      if (!ways.includes(to)) ways.push(to);
-    return limitedExits(s, place, ways.filter(
+      if (!ways2.includes(to)) ways2.push(to);
+    return limitedExits(s, place, ways2.filter(
       (to) => entityActive(s, to) && actorCanVisit(actor, to, s) && humanRoomAvailable(s, actor, to) && personalRouteOpen(s, place, to, actor || currentActor(s)) && !guardOf(s, place, to, actor)
     ));
   }
@@ -7562,19 +7584,172 @@
     sealedRoutes ??= packDefinitions.flatMap(
       (pack) => (pack.routes || []).filter((r) => r.sealed || isGuardable(r.from, r.to))
     );
-    const here = s.actors[actor]?.place, ways = [
+    const here = s.actors[actor]?.place, ways2 = [
       ...sealedRoutes.filter((r) => r.from === here),
       // A guard bars his way from both sides (rules 100).
       ...guardedFrom(here).map((to) => ({ from: here, to }))
-    ].filter((r) => entityActive(s, r.to) && entityActive(s, here));
-    if (!ways.length) return [];
+    ].filter((r) => entityShown(s, r.to) && entityActive(s, here));
+    if (!ways2.length) return [];
     const open = exits(s, here, actor), seen = /* @__PURE__ */ new Set();
-    return ways.filter((r) => !open.includes(r.to)).flatMap((r) => {
+    return ways2.filter((r) => !open.includes(r.to)).flatMap((r) => {
       const guard = guardOf(s, here, r.to, actor);
       if (!guard) return r.sealed ? [r] : [];
       const reason = `${nameOf(guard)} is guarding this card`;
       return [{ ...r, sealed: { reason }, guardedBy: guard }];
     }).filter((r) => !seen.has(r.to) && seen.add(r.to));
+  }
+
+  // v2/card-game/world/boxes.mjs
+  var ways = null;
+  var thingBoxes = null;
+  var key2 = (kind, at, id) => `${kind}|${at}|${id}`;
+  function wayDefs() {
+    if (ways) return ways;
+    ways = /* @__PURE__ */ new Map();
+    const put = (at, id, patch) => {
+      const k = key2("way", at, id);
+      ways.set(k, { kind: "way", at, id, ...ways.get(k), ...patch });
+    };
+    for (const pack of packDefinitions)
+      for (const route of pack.routes || [])
+        if (route.sealed) put(route.from, route.to, { pack: pack.id, route });
+    for (const { from, to } of world_life_default.guardable || []) {
+      put(from, to, { guard: { post: from, beyond: to } });
+      put(to, from, { guard: { post: from, beyond: to } });
+    }
+    return ways;
+  }
+  function itemDefs() {
+    thingBoxes ??= Object.keys(packThings).filter((id) => packThings[id].locked).sort().map((id) => ({
+      kind: "item",
+      at: packThings[id].home,
+      id,
+      by: packThings[id].locked.by
+    }));
+    return thingBoxes;
+  }
+  var residentDefs = () => Object.entries(packPeople).filter(([, person]) => person.sealed).map(([id, person]) => ({
+    kind: "resident",
+    at: person.sealed.at,
+    id,
+    reason: person.sealed.reason
+  }));
+  function laneDefs() {
+    return Object.entries(transports).flatMap(
+      ([transport, t]) => (t.lanes || []).filter((lane) => lane.reason).map((lane) => ({
+        kind: "lane",
+        at: t.place,
+        id: lane.to,
+        transport,
+        pack: t.packId,
+        lane
+      }))
+    );
+  }
+  var crossingDefs = () => crossings.filter((c) => c.sealed && !c.transport && !c.retired).map((c) => ({
+    kind: "crossing",
+    at: c.from,
+    id: c.to,
+    pack: c.packId,
+    crossing: c
+  }));
+  for (const r of forest_default.reflectionRoutes || [])
+    if (r.sealed !== void 0 && !(Object.keys(r.sealed).join() === "reason" && typeof r.sealed.reason === "string" && r.sealed.reason.length > 0 && r.sealed.reason.length <= 240 && r.requires?.length))
+      throw new Error(
+        `Reflection ${r.from}>${r.to} sealed card needs a gate and a reason.`
+      );
+  var hubDefs = () => (forest_default.reflectionRoutes || []).filter((r) => r.sealed).map((route) => ({ kind: "hub", at: route.from, id: route.to, route }));
+  var boxDefs = () => [
+    ...wayDefs().values(),
+    ...itemDefs(),
+    ...residentDefs(),
+    ...laneDefs(),
+    ...crossingDefs(),
+    ...hubDefs()
+  ];
+  var ownConditions = (id) => {
+    const e = packEntity(id);
+    return e ? [...e.requires || [], ...e.appearsWhen || []] : [];
+  };
+  var holds = (s, def, conditions, actor) => conditionsMet(s, def.pack, conditions, actor);
+  var routeHolds = (s, def, actor) => !def.route || holds(s, def, def.route.requires, actor) && holds(s, def, def.route.travelerRequires, actor);
+  var guardMet = (s, def, actor) => Object.values(s.actors).some(
+    (a) => a.guarding === def.guard.beyond && a.place === def.guard.post
+  ) && (packRouteOpen(s, def.guard.post, def.guard.beyond) || !guardOf(s, def.at, def.id, actor));
+  function boxMet(s, def, actor = currentActor(s)) {
+    switch (def.kind) {
+      case "way":
+        return routeHolds(s, def, actor) && (!def.guard || guardMet(s, def, actor)) && entityActive(s, def.id);
+      case "resident":
+        return entityActive(s, def.id);
+      case "item":
+        return !usedUp(s, def.id);
+      case "lane":
+        return shipDock(s, def.transport) === def.lane.from && holds(s, def, def.lane.opensWith, actor);
+      case "crossing":
+        return def.crossing.requires.every(
+          (c) => conditionMet(s, c, sensesFor(s), def.pack, actor)
+        ) && entityActive(s, def.id);
+      case "hub":
+        return def.route.requires.every((c) => conditionMet(s, c, null));
+      default:
+        return false;
+    }
+  }
+  var placesOf = (conditions, kind, found = []) => {
+    for (const c of conditions || []) {
+      if (c.kind === kind) found.push(c.place);
+      placesOf(c.conditions, kind, found);
+      if (c.condition) placesOf([c.condition], kind, found);
+    }
+    return found;
+  };
+  var lockConditions = (def) => [
+    ...def.route?.requires || [],
+    ...def.route?.travelerRequires || [],
+    ...def.crossing?.requires || [],
+    ...def.lane?.opensWith || [],
+    ...ownConditions(def.id)
+  ];
+  function creditOpened(before, next, actor) {
+    if (!(heldByHuman(next, actor) || controlledByHuman(next, actor))) return [];
+    const asActor = (world) => ({ ...world, playerActorId: actor });
+    const was = asActor(before), clock = { ...was, turn: next.turn };
+    const paid = [];
+    for (const def of boxDefs()) {
+      if (def.guard && !def.route && def.id === def.guard.post) continue;
+      if (next.opened?.[def.id]?.includes(actor)) continue;
+      if (boxMet(was, def, actor) || !boxMet(next, def, actor)) continue;
+      if (boxMet(clock, def, actor)) continue;
+      const together3 = placesOf(lockConditions(def), "humans_at");
+      const payees = [
+        .../* @__PURE__ */ new Set([
+          actor,
+          ...together3.length ? humanAvatarIds.filter(
+            (id) => humanPresent(next, id) && together3.includes(next.actors[id]?.place)
+          ) : []
+        ])
+      ].filter((id) => !next.opened?.[def.id]?.includes(id));
+      if (!payees.length) continue;
+      next.opened ??= {};
+      next.opened[def.id] = [...next.opened[def.id] || [], ...payees].sort();
+      for (const id of payees) {
+        const a = next.actors[id];
+        a.level ??= levelFor(a.xp || 0);
+        a.xp = (a.xp || 0) + 1;
+      }
+      paid.push({ box: def.id, kind: def.kind, avatars: payees });
+    }
+    return paid;
+  }
+  function validOpened(s) {
+    if (s.opened === void 0) return true;
+    const ids3 = new Set(boxDefs().map((d) => d.id));
+    return s.opened !== null && typeof s.opened === "object" && !Array.isArray(s.opened) && Object.keys(s.opened).length > 0 && Object.entries(s.opened).every(
+      ([box, who]) => ids3.has(box) && Array.isArray(who) && who.length > 0 && who.every(
+        (id, i) => Object.hasOwn(s.actors || {}, id) && (!i || who[i - 1] < id)
+      )
+    );
   }
 
   // v2/card-game/world/lanes.mjs
@@ -7674,10 +7849,10 @@
     for (const home of Object.keys(humanHomeGates))
       for (const id of [`pond-${home}`, `${home}-pond`])
         if (!crossings.some((c) => c.id === id)) delete s.crossings[id];
-    const ways = new Set(authoredRouteEdges().map((e) => e.join(">")));
+    const ways2 = new Set(authoredRouteEdges().map((e) => e.join(">")));
     for (const [id, known] of Object.entries(s.routeKnowledge || {}))
       s.routeKnowledge[id] = known.filter(
-        (e) => !e.some((p) => humanHomeGates[p]) || ways.has(e.join(">"))
+        (e) => !e.some((p) => humanHomeGates[p]) || ways2.has(e.join(">"))
       );
     if (!s.doors) placeDoors(s);
     for (const pack of packDefinitions) {
@@ -8071,6 +8246,7 @@
     refuelCarried(s);
     settleHeldItems(s);
     settleLamp(s);
+    creditOpened(before, s, actor);
     if (s.opening && actor === "vale" && s.actors.vale.place === "attic" && reflectionOpen(s, "attic"))
       s.locations.attic.anchored = true;
     settleCrossingUnlocks(s, sensesFor(s));
@@ -8121,8 +8297,8 @@
     for (const field of ["resolve", "guarding", "struck", "steppedBack"])
       delete c[field][id];
     for (const map of [c.covering, c.hitBy])
-      for (const [key2, value] of Object.entries(map || {}))
-        if (key2 === id || value === id) delete map[key2];
+      for (const [key3, value] of Object.entries(map || {}))
+        if (key3 === id || value === id) delete map[key3];
     s.peaceUntil[id] = s.turn + 3;
   }
   var fightsHere = (s, c, id) => [c.challenger, c.defender].includes(id) || !avoidsStandoffs(id) && !(sharedEnabled(s) && humanHeld(s, id));
@@ -8683,7 +8859,7 @@
       const z = s.actors[id].sleeping;
       if (!z || z.until !== void 0) continue;
       const first = (list) => list.find((x) => controlledByHuman(s, x)) ?? list[0];
-      const who = nameOf(id), here = s.actors[id].place, now = bodiesAt(s, z.place).filter((x) => x !== id), came = first(now.filter((x) => !z.present.includes(x))), left = first(z.present.filter((x) => x !== id && !now.includes(x))), dock = voyages.find((v) => v.kind === "arrive" && v.dock === z.place), dry = before.items.lamp.lit && !s.items.lamp.lit && s.items.lamp.fuel === 0 && itemPlace(s, "lamp") === z.place, was = exits(before, z.place, id), ways = exits(s, z.place, id);
+      const who = nameOf(id), here = s.actors[id].place, now = bodiesAt(s, z.place).filter((x) => x !== id), came = first(now.filter((x) => !z.present.includes(x))), left = first(z.present.filter((x) => x !== id && !now.includes(x))), dock = voyages.find((v) => v.kind === "arrive" && v.dock === z.place), dry = before.items.lamp.lit && !s.items.lamp.lit && s.items.lamp.fuel === 0 && itemPlace(s, "lamp") === z.place, was = exits(before, z.place, id), ways2 = exits(s, z.place, id);
       const light = s.turn > z.since && s.turn % DAYLIGHT_TURNS === 0, dusk = Math.floor(s.turn / DAYLIGHT_TURNS) % 2;
       const [, woke, text2] = [
         [here !== z.place, "moved", `wakes in ${nameOf(here)}`],
@@ -8692,12 +8868,12 @@
         [came, "arrival", `wakes as ${came && nameOf(came)} arrives`],
         [left, "departure", `wakes as ${left && nameOf(left)} leaves`],
         [
-          ways.some((to) => !was.includes(to)),
+          ways2.some((to) => !was.includes(to)),
           "crossing",
           "wakes as a way opens here"
         ],
         [
-          was.some((to) => !ways.includes(to)),
+          was.some((to) => !ways2.includes(to)),
           "crossing",
           "wakes as a way here closes"
         ],
@@ -9543,7 +9719,7 @@
       const done = togglePack(next2, action, actor, {
         closeStandoff,
         want: wantAPI(next2),
-        hash: (key2) => runHash(next2, key2)
+        hash: (key3) => runHash(next2, key3)
       });
       if (done.error) return { ok: false, state: s, error: done.error };
       next2.revision += 1;
@@ -9620,6 +9796,7 @@
       ])
     ];
     const respondent = perform(next, exact, round2, residents);
+    creditOpened(s, next, actor);
     if (next.opening && !next.locations.attic.anchored && ["light", "snuff"].includes(exact.kind) && next.actors.vale.place === "attic") {
       next.locations.attic.anchored = true;
     }
@@ -9750,8 +9927,8 @@
     if (s.sharedMigration !== void 0) {
       const m = s.sharedMigration;
       if (!sharedEnabled(s) || !m || m.version !== 1 || Object.keys(m).some(
-        (key2) => !["version", "legacyTurn", "uses", "inventoryAllowances"].includes(
-          key2
+        (key3) => !["version", "legacyTurn", "uses", "inventoryAllowances"].includes(
+          key3
         )
       ) || !Number.isSafeInteger(m.legacyTurn) || m.legacyTurn < 0 || m.legacyTurn > 4294967295 || !Array.isArray(m.uses) || m.uses.length !== 8 || m.uses.some((n) => !Number.isInteger(n) || n < 0 || n > 2147483647) || m.inventoryAllowances !== void 0 && (!m.inventoryAllowances || Array.isArray(m.inventoryAllowances) || typeof m.inventoryAllowances !== "object" || Object.entries(m.inventoryAllowances).some(
         ([id, n]) => !humanAvatar(id) || !Number.isInteger(n) || n < 4 || n > 8
@@ -9783,7 +9960,7 @@
     if (s.run !== void 0 && (Object.keys(s.run || {}).join() !== "seed" || !validSeed(s.run.seed)))
       fail();
     if (!validPackState(s, sensesFor(s)) || !validItemCycle(s)) fail();
-    if (!validConversations(s) || !validHeldItems(s) || !validOpenedRoutes(s.openedRoutes) || !validHidden(s) || !validDoors(s) || s.hidden && !Object.hasOwn(places, s.hidden.place))
+    if (!validConversations(s) || !validHeldItems(s) || !validOpenedRoutes(s.openedRoutes) || !validOpened(s) || !validHidden(s) || !validDoors(s) || s.hidden && !Object.hasOwn(places, s.hidden.place))
       fail();
     if (!validRouteKnowledge(s, [...authoredRouteEdges(), ...laneEdges()]) || !validMemories(s) || !validMotives(s) || !validLife(s, Object.keys(places)) || !validHome(s) || !validSleep(s, places) || !validGuard(s, places))
       fail();
@@ -9960,7 +10137,7 @@
     try {
       const lamp = s?.items?.lamp;
       const hasRoomFuel = lamp && ["fuelRooms", "fuelPlace", "fuelVisit"].some(
-        (key2) => Object.hasOwn(lamp, key2)
+        (key3) => Object.hasOwn(lamp, key3)
       );
       if (lamp && typeof lamp.lit !== "boolean" && (hasRoomFuel || Object.hasOwn(lamp, "lit")))
         throw new Error("Invalid saved lamp room fuel.");
@@ -10015,7 +10192,7 @@
   function installLampFuel(world) {
     const lamp = world.items.lamp;
     if (!["fuelRooms", "fuelPlace", "fuelVisit"].some(
-      (key2) => Object.hasOwn(lamp, key2)
+      (key3) => Object.hasOwn(lamp, key3)
     ))
       Object.assign(lamp, roomFuelFromTurns(lamp.fuel, itemPlace(world, "lamp")));
     if (!validLampRoomFuel(lamp)) throw new Error("Invalid lamp room fuel.");
@@ -10206,7 +10383,7 @@
     if (!due.thought) return false;
     const r = entry.reflection;
     if (!r || Object.keys(r).some(
-      (key2) => !["thought", "persona", "dream", "models", "evidence"].includes(key2)
+      (key3) => !["thought", "persona", "dream", "models", "evidence"].includes(key3)
     ))
       return false;
     if (r.dream !== void 0 && !due.dream) return false;
@@ -10594,7 +10771,7 @@
     const raw = typeof save === "string" ? JSON.parse(save) : structuredClone(save);
     if (!raw || typeof raw !== "object" || Array.isArray(raw))
       throw new Error("Choose a saved world.");
-    for (const key2 of [
+    for (const key3 of [
       "sharedMigration",
       "playerActorId",
       "controlledActors",
@@ -10603,7 +10780,7 @@
       "claimed",
       "present"
     ])
-      delete raw[key2];
+      delete raw[key3];
     for (const actor of Object.values(raw.actors || {})) delete actor?.upgrades;
     return decodeSave(JSON.stringify(raw));
   }
@@ -10756,7 +10933,7 @@
   function migrate(request) {
     const legacy = request.legacy;
     if (!legacy || legacy.version !== 1 || !["claimed", "present", "places", "holders", "uses"].every(
-      (key2) => Array.isArray(legacy[key2]) && legacy[key2].length === 8
+      (key3) => Array.isArray(legacy[key3]) && legacy[key3].length === 8
     ))
       throw new Error("This older shared world has an invalid save.");
     const world = enableShared(

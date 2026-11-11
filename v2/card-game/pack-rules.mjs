@@ -5,6 +5,7 @@ import {
   controlledByHuman,
   humanPresent,
   humanAvatarIds,
+  roomHumanCount,
   sharedEnabled,
 } from "./human-cast.mjs";
 import { knowsFact, grievanceActive } from "./knowledge.mjs";
@@ -186,6 +187,9 @@ export function conditionMet(s, c, senses, packId = null, actor = null) {
         sharedEnabled(s) &&
         humanAvatarIds.filter((id) => humanPresent(s, id)).length >= c.minimum
       );
+    // Enough travellers stand together in one place: a lock for two.
+    case "humans_at":
+      return sharedEnabled(s) && roomHumanCount(s, c.place) >= c.minimum;
     case "item_near": {
       if (usedUp(s, c.item)) return false;
       let holder = s.items[c.item]?.holder;

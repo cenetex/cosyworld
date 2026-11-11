@@ -97,6 +97,9 @@ fn rules_133_one_want_commits_and_replays_in_the_c_host() {
         json!({"kind":"item","target":"bell","since":2,"refusals":0});
     game["actors"]["vale"]["level"] = json!(1);
     game["actors"]["vale"]["xp"] = json!(1);
+    // The one XP came from opening the Black pond (rules 133): putting the
+    // lamp out again below pays nothing more.
+    game["opened"] = json!({"pond":["vale"]});
     let (path, c, id) = fixture("quest-loop", &world);
     let commit = |w: &mut World, command: Value| {
         full_store::commit(&c, &id, w, command.clone(), now())

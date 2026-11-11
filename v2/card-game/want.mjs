@@ -724,7 +724,12 @@ export function validWant(s, id) {
     new Set(v).size === v.length &&
     v.every((x) => Object.hasOwn(of, x));
   // Experience an avatar brought from its last world (#1846) raises the cap.
-  const most = startXp(id) + (a.carried ?? 0) + s.turn * 8;
+  // Each box it opened paid one (rules 133, world/boxes.mjs).
+  const most =
+    startXp(id) +
+    (a.carried ?? 0) +
+    s.turn * 8 +
+    Object.values(s.opened || {}).filter((who) => who.includes?.(id)).length;
   return (
     Number.isSafeInteger(a.xp) &&
     a.xp >= 0 &&

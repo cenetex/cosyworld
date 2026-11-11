@@ -76,6 +76,7 @@ export const CONDITION_KINDS = [
   "tag_held",
   "shared_world",
   "connected_humans",
+  "humans_at",
   "met",
   "knows",
   "talked",
@@ -1026,6 +1027,13 @@ export function packProblems(pack, hub, mountedPlaces = [], mountedItems = []) {
         case "connected_humans":
           ok = keysOk(c, ["kind", "minimum"]) && intOk(c.minimum, 1, 8);
           break;
+        // Travellers standing together at one place (a lock for two).
+        case "humans_at":
+          ok =
+            keysOk(c, ["kind", "place", "minimum"]) &&
+            anyPlace(c.place) &&
+            intOk(c.minimum, 1, 8);
+          break;
         case "item_near":
           ok =
             keysOk(c, ["kind", "item", "place"]) &&
@@ -1135,6 +1143,7 @@ export function packProblems(pack, hub, mountedPlaces = [], mountedItems = []) {
             "item_present",
             "shared_world",
             "connected_humans",
+            "humans_at",
             "met",
             "knows",
             "talked",
@@ -1855,6 +1864,7 @@ export function packProblems(pack, hub, mountedPlaces = [], mountedItems = []) {
         "travelLabel",
         "transport",
         "retired",
+        "sealed",
       ]) &&
         idOk(c.id) &&
         (c.retired === undefined ||
@@ -1886,6 +1896,15 @@ export function packProblems(pack, hub, mountedPlaces = [], mountedItems = []) {
     check(
       Array.isArray(c?.requires) && c.requires.length <= 6,
       `${name} requires must be a list`,
+    );
+    // A gated crossing may lie as a shut card with its reason (rules 133).
+    check(
+      c.sealed === undefined ||
+        (keysOk(c.sealed, ["reason"]) &&
+          Boolean(c.requires?.length) &&
+          !c.transport &&
+          textOk(c.sealed.reason, 240)),
+      `${name} sealed card needs a gate and a reason`,
     );
     for (const r of c?.requires || []) condition(r, `${name} condition`);
     for (const field of ["opened", "closed"])

@@ -39,6 +39,23 @@ function start(shared = false) {
   return world;
 }
 
+it("offers the gate play only to a player holding no want (rules 133)", () => {
+  const free = start();
+  const gate = (w) =>
+    legalActions(w).find((a) => a.kind === "gate" && a.target === hollow);
+  expect(gate(free)).toBeTruthy();
+  const held = structuredClone(free);
+  held.actors.vale.want = {
+    kind: "place",
+    target: "pond",
+    since: 0,
+    refusals: 0,
+  };
+  expect(gate(held)).toBeUndefined();
+  const next = play(free, gate(free)).state;
+  expect(next.actors.vale.want).toMatchObject({ target: shade });
+});
+
 it.each([
   [false, 36],
   [true, 36],
