@@ -8,6 +8,17 @@ import {
 } from "./authoring-accepted.mjs";
 import { authoringCardId } from "./authoring-tree.mjs";
 import { toolKey } from "./authoring-tools.mjs";
+import {
+  createCooldown,
+  failedJob,
+  fetchJobImage,
+  holdJob,
+  releaseJob,
+} from "./authoring-jobs.mjs";
+
+const noTrack = { accepted() {}, settled() {}, dropped() {} };
+// Failures that leave the job alone: the server may still finish it.
+const WAITING = new Set(["generation_waiting", "network"]);
 
 // Every provider original is archived before review; only selection changes active art.
 export function createAuthoringVisualTools({
@@ -15,6 +26,11 @@ export function createAuthoringVisualTools({
   choose,
   accounts,
   visualOptions = {},
+  track = noTrack,
+  poke = () => {},
+  cooldown = createCooldown({ changed }),
+  fetch: jobFetch,
+  env: jobEnv,
 }) {
   let source,
     design,
@@ -25,44 +41,121 @@ export function createAuthoringVisualTools({
     activeContext,
     unsaved,
     failure,
+    opening = 0,
+    jobStatus = "",
     urls = [];
+  // Jobs this tab does not wait for (found again after a reload) and the
+  // messages that go in a tool's note.
+  const remote = new Map(),
+    notices = new Map();
   async function archive(context) {
     if (!unsaved) return;
-    const record = context.snapshot({ assets: true });
-    await context.accept(await archiveGeneratedArt(record, unsaved));
-    unsaved = null;
+    const record = context.snapshot({ assets: true }),
+      pending = unsaved;
+    if (record.key !== pending.draftKey)
+      throw new Error("This editor changed. Return to the original draft.");
+    await context.accept(await archiveGeneratedArt(record, pending));
+    const job = pending.job;
+    if (unsaved === pending) unsaved = null;
+    if (job) await track.settled(job);
+  }
+  // Keep the provider original before anything else uses it.
+  async function keep(target, input, image, job, context, draftKey, started) {
+    if (started !== opening) throw new Error("This editor changed.");
+    const pending = (unsaved = {
+      draftKey,
+      avatarId: target.id,
+      variant: target.variant,
+      description: input.description,
+      role: input.role,
+      job,
+      images: [
+        { ...image, role: input.role === "portrait" ? "base" : "sheet" },
+      ],
+    });
+    try {
+      await archive(context);
+    } catch (error) {
+      if (started !== opening) {
+        if (unsaved === pending) unsaved = null;
+        throw error;
+      }
+      if (unsaved === pending) failure = error.message.replace(/[.\s]+$/u, "");
+    }
   }
   const visual = createAuthoringVisualDraft({
     ...visualOptions,
     changed,
     request: async (input, options) => {
       const target = design,
-        context = activeContext;
-      const result = await (visualOptions.request || requestAuthoringImage)(
-        input,
-        options,
-      );
-      unsaved = {
-        avatarId: target.id,
-        variant: target.variant,
-        description: input.description,
-        role: input.role,
-        images: [
-          {
-            ...result.image,
-            role: input.role === "portrait" ? "base" : "sheet",
-          },
-        ],
-      };
+        context = activeContext,
+        tool = owner,
+        pinned = binding,
+        draftKey = context.snapshot().key,
+        started = opening;
+      let record;
+      jobStatus = "";
       try {
-        await archive(context);
+        const result = await (visualOptions.request || requestAuthoringImage)(
+          input,
+          {
+            ...options,
+            onJob(job) {
+              holdJob(job.id);
+              record = {
+                id: job.id,
+                draftKey,
+                kind: "image",
+                toolId: tool,
+                avatarId: target.id,
+                variant: target.variant || null,
+                role: input.role,
+                description: input.description,
+                basis: input.basis,
+                binding: pinned,
+              };
+              return Promise.resolve(track.accepted(record)).catch(() => {});
+            },
+            onUpdate(job) {
+              if (job.status === jobStatus) return;
+              jobStatus = job.status;
+              changed();
+            },
+          },
+        );
+        await keep(
+          target,
+          input,
+          result.image,
+          record?.id,
+          context,
+          draftKey,
+          started,
+        );
+        return result;
       } catch (error) {
-        failure = error.message.replace(/[.\s]+$/u, "");
+        cooldown.set("image", error);
+        if (record && !unsaved) {
+          if (
+            error.name === "AbortError" ||
+            /earlier design|editor changed/u.test(error.message)
+          )
+            await track.dropped(record);
+          else if (!WAITING.has(error.code)) await track.settled(record.id);
+        }
+        throw error;
+      } finally {
+        jobStatus = "";
+        if (record) releaseJob(record.id);
       }
-      return result;
     },
   });
-  function clear() {
+  function clear(reopened = false) {
+    if (reopened) {
+      opening++;
+      unsaved = null;
+      failure = null;
+    }
     if (unsaved) return;
     visual.open(null);
     for (const url of urls) URL.revokeObjectURL(url);
@@ -135,6 +228,7 @@ export function createAuthoringVisualTools({
       return;
     }
     failure = "";
+    notices.delete(owner);
     const started = design;
     activeContext = context;
     try {
@@ -143,6 +237,9 @@ export function createAuthoringVisualTools({
       clear();
       throw error;
     }
+    await landed(id, role, context, started);
+  }
+  async function landed(id, role, context, started) {
     if (design !== started) {
       changed();
       return;
@@ -165,7 +262,80 @@ export function createAuthoringVisualTools({
     // Follow the result only for a maker who is still on this card.
     choose(owner, true);
   }
+  const kept = (role, why) =>
+    `The ${role === "portrait" ? "portrait" : "pose sheet"} you asked for finished and was saved to Browse artwork, not applied, because ${why}.`;
+  // A job found again after a reload, or finished while its card was closed.
+  // It is applied only to the avatar it was made for, exactly as it was asked.
+  async function adoptJob(job, rec, run) {
+    const opened = opening;
+    remote.delete(rec.toolId);
+    if (job.status === "failed") {
+      const failed = failedJob(job);
+      cooldown.set("image", failed);
+      notices.set(rec.toolId, failed.message);
+      changed();
+      return;
+    }
+    const { image: stored, basis } = job.result;
+    const image = {
+      mime: stored.mime,
+      bytes: await fetchJobImage(stored, { fetch: jobFetch, env: jobEnv }),
+      sha256: stored.sha256,
+      size: stored.size,
+    };
+    return run(async (context) => {
+      const record = context.snapshot({ assets: true }),
+        id = rec.avatarId;
+      const input = { role: rec.role, description: rec.description };
+      const target = { id, variant: rec.variant || undefined };
+      let why = "";
+      let next;
+      if (rec.dropped || avatarBinding(record, id) !== rec.binding)
+        why = "this avatar changed after you asked";
+      else if (pendingArtworkNow())
+        why = "other artwork is waiting to be confirmed";
+      else {
+        next = await readAvatarDesign(record, id);
+        context.snapshot();
+        const [, revision, base] = JSON.parse(basis);
+        if (
+          (rec.role === "pose-sheet" &&
+            base !== (next.value.base?.sha256 ?? null)) ||
+          revision !== next.value.revision + (rec.role === "portrait" ? 1 : 0)
+        )
+          why = "this avatar's artwork changed after you asked";
+      }
+      await keep(target, input, image, rec.id, context, rec.draftKey, opened);
+      if (unsaved) return "later";
+      context.snapshot();
+      if (why) {
+        notices.set(rec.toolId, kept(rec.role, why));
+        changed();
+        return;
+      }
+      design = next;
+      design.value.description = rec.description;
+      binding = rec.binding;
+      owner = rec.toolId;
+      activeContext = context;
+      notices.delete(owner);
+      visual.open(design.value);
+      const started = design;
+      await visual.adopt(rec.role, image);
+      context.snapshot();
+      await landed(id, rec.role, context, started);
+    });
+  }
+  const pendingArtworkNow = () =>
+    Boolean(unsaved || visual.state.role || visual.state.busy);
   return {
+    adoptJob,
+    progressJob(rec, job) {
+      if (job && job.status !== "done" && job.status !== "failed")
+        remote.set(rec.toolId, job.status);
+      else remote.delete(rec.toolId);
+      changed();
+    },
     sync(next) {
       source = next;
       if (design && !next?.pack?.avatars?.[design.id]) clear();
@@ -238,16 +408,21 @@ export function createAuthoringVisualTools({
             id: action,
             name,
             holder,
+            select: () => poke(),
             describe: ({ status } = {}) => {
-              const working = active && (state.busy || status?.busy);
+              const waiting = remote.get(action);
+              const working =
+                Boolean(waiting) || (active && (state.busy || status?.busy));
               const confirming = active && state.role;
               const reason = working
                 ? confirming
                   ? "Saving artwork…"
-                  : "Generating…"
+                  : (waiting || jobStatus) === "queued"
+                    ? "Waiting in line…"
+                    : "Generating…"
                 : unsaved
                   ? "Save the artwork first"
-                  : state.busy
+                  : state.busy || remote.size
                     ? "Wait for the image"
                     : owner && !active && state.role
                       ? "Confirm or discard the preview first"
@@ -255,11 +430,11 @@ export function createAuthoringVisualTools({
                         ? "Generate a portrait first"
                         : active && !state.described
                           ? "Describe them first"
-                          : "";
+                          : cooldown.label("image");
               return {
                 ...(working ? { info: reason } : {}),
                 edit:
-                  active && !unsaved && !state.busy && !state.role
+                  active && !unsaved && !state.busy && !state.role && !waiting
                     ? {
                         key: owner,
                         label: "Physical description only",
@@ -272,9 +447,11 @@ export function createAuthoringVisualTools({
                     ? "Describe only visible appearance: body, face, hair, clothing and colours. Leave out dialogue, personality, goals and story."
                     : active && state.error
                       ? state.error
-                      : role === "portrait"
-                        ? "Generate a full-body transparent cutout with GPT Image 2.6 Flare. Review it before replacing saved art."
-                        : "Generate happy, sad, hit, strike, brace and sleep poses from the saved cutout in one image request. Review all six before saving.",
+                      : notices.get(action)
+                        ? notices.get(action)
+                        : role === "portrait"
+                          ? "Generate a full-body transparent cutout with GPT Image 2.6 Flare. Review it before replacing saved art."
+                          : "Generate happy, sad, hit, strike, brace and sleep poses from the saved cutout in one image request. Review all six before saving.",
                 actions: [
                   {
                     label: reason || (confirming ? "Confirm artwork" : name),

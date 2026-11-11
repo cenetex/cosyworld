@@ -26,6 +26,7 @@ pub(super) fn router() -> Router<AppState> {
     Router::new()
         .route(ROUTE, post(create).get(list))
         .route("/card-game/authoring/jobs/{id}", get(read))
+        .route("/card-game/authoring/jobs/by-request", get(read_request))
         .layer(DefaultBodyLimit::max(12 * 1024 * 1024))
 }
 
@@ -323,19 +324,43 @@ async fn read(
     headers: HeaderMap,
     UrlPath(id): UrlPath<String>,
 ) -> Response {
-    reply(&state, headers, Some(id)).await
+    reply(&state, headers, Some(Lookup::Id(id))).await
 }
-async fn reply(state: &AppState, headers: HeaderMap, id: Option<String>) -> Response {
-    let owner = match owner(state, headers, false).await {
+enum Lookup {
+    Id(String),
+    Request,
+}
+
+/// Recover an accepted request without resending its body or starting paid work.
+async fn read_request(State(state): State<AppState>, headers: HeaderMap) -> Response {
+    reply(&state, headers, Some(Lookup::Request)).await
+}
+async fn reply(state: &AppState, headers: HeaderMap, lookup: Option<Lookup>) -> Response {
+    let owner = match owner(state, headers.clone(), false).await {
         Ok(owner) => owner,
         Err(failed) => return failed.response(),
     };
+    let lookup = match lookup {
+        Some(Lookup::Id(id)) => Some(("id", id)),
+        Some(Lookup::Request) => match crate::card_authoring::idempotency_key(&headers) {
+            Ok(Some(key)) => Some(("request_key", key)),
+            _ => {
+                return Failed::new(
+                    StatusCode::BAD_REQUEST,
+                    "Send the Idempotency-Key as one UUID.",
+                    INVALID_REQUEST,
+                )
+                .response()
+            }
+        },
+        None => None,
+    };
     let found = db(state, move |c| {
-        if let Some(id) = id {
+        if let Some((column, value)) = lookup {
             return c
                 .query_row(
-                    &format!("SELECT {COLUMNS} FROM authoring_jobs WHERE id=? AND owner=?"),
-                    params![id, owner],
+                    &format!("SELECT {COLUMNS} FROM authoring_jobs WHERE {column}=? AND owner=?"),
+                    params![value, owner],
                     view,
                 )
                 .optional()

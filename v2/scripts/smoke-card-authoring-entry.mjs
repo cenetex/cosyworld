@@ -1,3 +1,4 @@
+import { mockJobs } from "./authoring-jobs-mock.mjs";
 import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
 import { chromium } from "playwright";
@@ -140,10 +141,14 @@ try {
       await page.getByRole("textbox", { name: "World notes" }).waitFor();
       assert.equal(await note.innerText(), "A quiet shore.\n雪");
       let draws = 0;
-      await page.route("**/card-game/authoring/generate/avatars", async route => {
-        assert.equal(route.request().postDataJSON().mode, "idea");
-        await route.fulfill({json:{candidate:{name:["Lumi","Pip","Vela","Moss","Ora","Sol"][draws++ % 6],specialAbility:"The Lightkeeper",
-          description:"A patient traveller.",aliases:[],suggested:true}}});
+      await mockJobs(page, {
+        avatars(input) {
+          assert.equal(input.mode, "idea");
+          return {
+            candidate: {name:["Lumi","Pip","Vela","Moss","Ora","Sol"][draws++ % 6],specialAbility:"The Lightkeeper",
+              description:"A patient traveller.",aliases:[],suggested:true},
+          };
+        },
       });
       await press(page.locator("#history-button"));
       await action.getByText("Enter world seed").waitFor(); await press(action);

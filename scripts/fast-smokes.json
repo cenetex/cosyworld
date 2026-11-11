@@ -25,6 +25,10 @@
       "smokes": ["smoke-card-ratiradio"]
     },
     {
+      "paths": "^v2/card-game/(combat|defeat-view)|^v2/card-game/(app|cards|scene|world|held-item|lamp-state|standoff[\\w-]*)\\.mjs$|^v2/card-game/style\\.css$|^v2/scripts/smoke-card-combat\\.mjs$",
+      "smokes": ["smoke-card-combat"]
+    },
+    {
       "paths": "^v2/card-game/sleep-(view|presentation)\\.mjs$",
       "smokes": ["smoke-card-sleep-dream"]
     },
@@ -53,7 +57,7 @@
       "smokes": ["smoke-authoring-create-store", "smoke-authoring-local-store"]
     },
     {
-      "paths": "^v2/card-game/(authoring-[a-z-]+|settings-screen|settings-cards|card-tree-layout)\\.mjs$",
+      "paths": "^v2/card-game/(authoring-[a-z-]+|settings-screen|settings-cards|card-tree-layout)\\.mjs$|^v2/scripts/authoring-jobs-mock\\.mjs$",
       "smokes": [
         "smoke-card-seed-maker",
         "smoke-authoring-avatar-design",
@@ -67,10 +71,6 @@
     {
       "paths": "^v2/card-game/(beats|combat-beats|dialogue|character-speech|narrative)\\.",
       "smokes": ["smoke-card-beat-stack", "smoke-card-dialogue-timing"]
-    },
-    {
-      "paths": "^v2/card-game/(combat|defeat-view)",
-      "smokes": ["smoke-card-combat"]
     },
     {
       "paths": "^v2/card-game/card-(exit|ghost|swap|entry)\\.",

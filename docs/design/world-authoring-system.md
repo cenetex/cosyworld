@@ -342,6 +342,7 @@ All routes need the passkey session; mutations are same-origin. Every response i
 | Route | Does |
 | --- | --- |
 | `POST /card-game/authoring/jobs` | Body `{kind: "image" \| "seed" \| "avatars", request}`. `request` is exactly the body the matching `generate/*` route accepts. Optional `Idempotency-Key` header (one UUID, as `POST /packs`). |
+| `GET /card-game/authoring/jobs/by-request` | Required `Idempotency-Key` UUID header. Returns only the signed-in owner's existing job, or 404 `job_not_found`. Never starts provider work. |
 | `GET /card-game/authoring/jobs/{id}` | One job of the signed-in owner; another account gets 404 `job_not_found`. |
 | `GET /card-game/authoring/jobs` | The owner's 50 newest jobs, newest first, in the same shape. |
 
@@ -402,6 +403,12 @@ was stopped and can be started again.
 
 ### Retention
 
+The request-key lookup works for queued, running and finished jobs, including jobs
+older than the recent list. Missing, malformed or repeated UUID headers return 400.
+A missing or pruned job returns 404, not permission to automatically resend a paid
+request. Lookup requires no prompt or request body and uses the same account
+scope and no-store response policy as other job reads.
+
 Finished job rows are deleted after 7 days (at boot and hourly), and each owner
 keeps at most their newest 200 rows, trimmed when a job is accepted. Job images
 follow the existing asset-store rules: there is no delete route, so every unused
@@ -410,18 +417,47 @@ generated-asset budget. Proposed, not built: a route that deletes an owner's fil
 that no job result, pack or draft references, and an automatic sweep of images
 whose job rows have been pruned.
 
-### Client migration
+### The maker client
 
-The synchronous `generate/*` routes keep working, now through the same functions
-and admission, until the client moves. The client PR then:
+Every paid generation in the maker (portrait, poses, seed draw, uncover and
+regenerate, the older Find avatars tool) is a job: `authoring-jobs.mjs` creates it
+with a fresh `Idempotency-Key`, then polls `GET /jobs/{id}` at 1 s rising to 5 s.
+It pauses while the tab is hidden, keeps the job id through a network blip, and
+gives up waiting only at the server's own deadline (90 s text, 180 s image) plus 30 s,
+leaving the job running. A create whose reply is lost is retried with the same key
+(three tries, then the key is kept for the next press), so it cannot become a
+second paid job. The three synchronous `generate/*` routes are no longer called.
 
-1. creates a job with an `Idempotency-Key` and stores `{jobId, request context}` in its local
-   draft, so a reload or another card can reattach;
-2. polls `GET /jobs/{id}` (about every 2 s, backing off) and on `done` fetches the image by
-   `sha256` and saves it, showing a stored result even if the maker has left the card;
-3. lists `GET /jobs` on opening the maker to adopt finished and running jobs;
-4. shows `error.message` and honours `retryAfterMs` for Retry;
-5. removes the three synchronous routes, their tests and the base64 response path.
+**Where the id lives.** As soon as the server accepts a job the client writes
+`{id, kind, tool, avatar/variant/role, basis, binding or world context}` to the
+`jobs` store of the browser database (`authoring-job-store.mjs`, keyed by draft).
+It holds no request text, except the story sample a Story-text draw needs to check
+its own quote. The record is deleted once the result is applied, kept in the
+artwork library, or shown as a failure.
+
+**Reattach** (`authoring-job-sweep.mjs`). On opening a draft, on returning to the
+tab, and when a generation card is selected, the client lists `GET /jobs`, finds
+the records of the open draft, and for each:
+
+- running or queued: shows the in-flight label on that card and keeps polling;
+- failed: shows the server's message in the tool's note (a busy, rate or budget
+  refusal also disables the button with "Try again in N s" until `retryAfterMs`);
+- done: hands the result to the tool that asked, exactly once. An image is fetched
+  from `GET /assets/{sha256}`, checked against its digest, and its original is
+  archived in the draft. It is then applied as an in-tab result would have been
+  (the first portrait is saved; a replacement portrait or poses become the preview
+  awaiting Confirm artwork) only when the avatar is unchanged since the request
+  (same draft key, avatar entity, visual revision and, for poses, portrait digest),
+  no other artwork is waiting, and the tab did not abandon the request. Otherwise
+  the original stays in the artwork library (Browse artwork) and the card's note
+  says so; it is never applied over newer work. A seed draw is applied only to a
+  world whose context cards still equal those sent; otherwise the note says it was
+  not applied. A character reply joins the Find avatars cards.
+
+A job found in the store while another tab's request still holds it is skipped.
+Create uploads: an original made by a job is already in the owner's store, so the
+transfer asks `HEAD /assets/{sha256}` for files under `assets/generated-art/` and
+skips the upload when the stored size matches, and uploads when anything is doubtful.
 
 ## Publish and the Store
 

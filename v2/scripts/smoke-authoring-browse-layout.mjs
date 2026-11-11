@@ -1,3 +1,4 @@
+import { mockJobs } from "./authoring-jobs-mock.mjs";
 import assert from "node:assert/strict";
 import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
@@ -21,25 +22,23 @@ try {
     await page.route("**/auth/account", (route) =>
       route.fulfill({ json: { authenticated: true, display_name: "Maker" } }),
     );
-    await page.route("**/authoring/generate/seed", (route) =>
-      route.fulfill({
-        json: {
-          cards: [
-            {
-              kind: "place",
-              name: "Rainy quay",
-              text: "The last ferry waits.",
-            },
-            { kind: "avatar", name: "Mara", text: "The keeper needs a lamp." },
-            {
-              kind: "item",
-              name: "Blue lamp",
-              text: "Blue glass shelters a flame.",
-            },
-          ],
-        },
+    await mockJobs(page, {
+      seed: () => ({
+        cards: [
+          {
+            kind: "place",
+            name: "Rainy quay",
+            text: "The last ferry waits.",
+          },
+          { kind: "avatar", name: "Mara", text: "The keeper needs a lamp." },
+          {
+            kind: "item",
+            name: "Blue lamp",
+            text: "Blue glass shelters a flame.",
+          },
+        ],
       }),
-    );
+    });
     const press = (locator) => (width < 700 ? locator.tap() : locator.click());
     const choose = async (id) => {
       const card = page.locator(`[data-setting="${id}"]`);

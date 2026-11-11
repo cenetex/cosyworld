@@ -1,3 +1,4 @@
+import { tableHolder, tableType } from "./mystery-view.mjs";
 import { radioAudible } from "./radio-item.mjs";
 import { holdChoice } from "./world.mjs";
 import { createFigureFramer } from "./figure-frame.mjs";
@@ -11,7 +12,7 @@ import {
   titleMusicHold,
   voiceTitle,
 } from "./title-intro.mjs";
-import { count, lineCounter, playCounter, startMetrics } from "./metrics.mjs";
+import { count, lineCounter, metReceipts, playCounter, startMetrics } from "./metrics.mjs";
 import { imageUrl } from "./images.mjs";
 import coreLocations from "./assets/staging/core.json" with { type: "json" };
 import greekLocations from "./assets/staging/greek.json" with { type: "json" };
@@ -224,7 +225,6 @@ import {
 } from "./scene.mjs";
 import {
   availableCards,
-  cardType,
   cardPlay,
   playLabel,
   playText,
@@ -447,6 +447,7 @@ let openingHeld = false;
 let shownQuests = [],
   sealedQuests = [],
   questSeq = null,
+  receiptsSeen = null,
   questPick = 0,
   questOpen = false,
   questFresh = false,
@@ -562,6 +563,7 @@ function loadSeen(reset = false) {
   sealedQuests = [];
   questClaims.clear();
   questSeq = null;
+  receiptsSeen = null;
   questPick = 0;
   questFresh = false;
   rememberCards();
@@ -1417,8 +1419,10 @@ function showFailedSilence() {
       quiet.length || !openingWordsDue() ? quiet : [currentActor(world)],
     ),
   };
-  if (!exchange.active) exchange.begin();
-  loadTurnLines();
+  // The "…" is a caption on the table, not an exchange: it never holds the
+  // hand or the next play, so no tap is owed to read it.
+  exchange.cancel();
+  renderScene();
 }
 // The row keeps a held item after a play, so its slots can change under a
 // finger. A second tap on a slot redrawn by that play must not become a new
@@ -1492,7 +1496,8 @@ function keepHeldSelection(before, action = null) {
 // The current place and its items sit on the left. The way back sits just
 // before them, and the other ways on stack at the row's right end.
 const placeHere = () => world.actors[currentActor(world)].place;
-const stackedPlace = (id) => Boolean(places[id]) && id !== placeHere();
+const stackedPlace = (id) =>
+  Boolean(places[id]) && id !== placeHere() && !isLockedBox(world, id);
 const MOVES = ["move", "retreat", "sent-home"];
 // Display only: the player's latest arrival, from the log or, once trimmed,
 // the world's kept arrival, while it was here and still leads back.
@@ -1508,11 +1513,13 @@ function cameFrom() {
           (MOVES.includes(e.verb) || (e.verb === "accompany" && e.accepted)),
       ) ?? world.arrival,
     from = last?.locationId === here ? last.fromLocationId : null;
-  return from && availableCards(world).includes(from) ? from : null;
+  return from && !isLockedBox(world, from) && availableCards(world).includes(from)
+    ? from
+    : null;
 }
 const atHere = (id) =>
   id === placeHere() ||
-  Boolean(things[id] && rootHolder(world, id) === placeHere());
+  tableHolder(world, id) === placeHere();
 function stackPlaces(cards) {
   const back = cameFrom(),
     local = cards.filter(atHere);
@@ -1641,7 +1648,7 @@ function selectCards(cards, { keepOpen = false } = {}) {
       !keepOpen &&
       places[id] &&
       !cards.includes(id) &&
-      !cards.some((card) => things[card] && rootHolder(world, card) === id)
+      !cards.some((card) => tableHolder(world, card) === id)
     )
       expandedHolders.delete(id);
   selected = cards;
@@ -1712,7 +1719,7 @@ function choose(id) {
   // In a pair, tapping the expanded avatar must leave its partner chosen.
   if (cardIsClosed(id)) {
     // A closed thing replaces its browsing place just like a known thing.
-    const holder = things[id] ? rootHolder(world, id) : null;
+    const holder = tableHolder(world, id);
     const knownCards = selected.filter((card) =>
       !cardIsClosed(card) && !(places[id] && places[card]) &&
       !(places[holder] && card === holder));
@@ -1758,7 +1765,7 @@ function choose(id) {
     expandedHolders.delete(id);
     selectCards(selected.filter((cardId) => !atHere(cardId)));
   } else {
-    const holder = things[id] ? rootHolder(world, id) : null;
+    const holder = tableHolder(world, id);
     if (places[holder])
       selected = selected.filter((cardId) => cardId !== holder);
     // No play takes two places, so a new place replaces the chosen one and
@@ -2779,7 +2786,7 @@ function updateCardSelection(frame) {
     held =
       people[id] || places[id]
         ? availableCards(world).filter(
-            (item) => things[item] && rootHolder(world, item) === id,
+            (item) => tableHolder(world, item) === id,
           )
         : [];
   frame.dataset.raised = String(raised);
@@ -2960,7 +2967,7 @@ function moveHandPart(key, element, frames, duration = 220) {
     .catch(() => {});
 }
 function card(id) {
-  const type = cardType(id),
+  const type = tableType(world, id),
     base = places[id] || people[id] || things[id],
     crossingFace = type === "location" ? travelCard(world, id) : null,
     def = crossingFace ? { ...base, name: crossingFace.name } : base,
@@ -2994,7 +3001,9 @@ function card(id) {
   img.decoding = "async";
   img.fetchPriority = "low";
   img.src = imageUrl(
-    type === "item"
+    locked
+      ? LOCKED_BACK
+      : type === "item"
       ? cardArt(id)
       : type === "avatar"
         ? portrait(id, null, world)
@@ -3017,7 +3026,7 @@ function card(id) {
       graphic.append(overlay);
     }
   }
-  if (type === "item") {
+  if (type === "item" && !locked) {
     const item = world.items[id];
     // Observable physical states, never fuel arithmetic or puzzle progress.
     if (typeof item.lit === "boolean") el.dataset.lit = String(item.lit);
@@ -3112,7 +3121,7 @@ function card(id) {
   const frame = node("div", undefined, "card-frame");
   frame.dataset.raised = String(raised);
   frame.append(el);
-  const holder = things[id] ? rootHolder(world, id) : null;
+  const holder = tableHolder(world, id);
   if (people[holder] || places[holder]) {
     frame.dataset.holder = holder;
     frame.hidden = places[holder]
@@ -3123,9 +3132,9 @@ function card(id) {
       `${def.name}, ${places[holder] ? "at" : "carried by"} ${knownName(holder, "someone")}, ${tier.label}, level ${level}`,
     );
   }
-  if (people[id] || places[id]) {
+  if (!locked && (people[id] || places[id])) {
     const held = availableCards(world).filter(
-      (item) => things[item] && rootHolder(world, item) === id,
+      (item) => tableHolder(world, item) === id,
     );
     if (held.length && !hidden) {
       frame.dataset.inventory = String(held.length);
@@ -3441,7 +3450,6 @@ function showQuestReward({ quest, color, box }) {
     { duration: 1100, easing: "ease-out" },
   );
   rise.finished.catch(() => {}).then(() => gain.remove());
-  count("quest.met");
   const avatar = $("hand").querySelector(`.card[data-card="${quest.actor}"]`);
   const level = quest.receiptId === undefined
     ? quest.level && quest.left <= 1 : quest.earnedLevel;
@@ -4876,6 +4884,11 @@ function render() {
       ? metQuests(shownQuests, world, questSeq) : []
     : receipts.filter((q) => !sealedQuests.some((shown) => shown.key === q.key));
   sealedQuests = legacy ? [...met, ...sealedQuests] : receipts;
+  // Count each quest when the rules meet it, not when its card is collected.
+  const owner = currentActor(world);
+  const looked = metReceipts(receipts.map((q) => q.key), receiptsSeen?.actor === owner ? receiptsSeen.keys : null);
+  receiptsSeen = { actor: owner, keys: looked.seen };
+  for (let i = legacy ? met.length : looked.met; i > 0; i--) count("quest.met");
   for (const [key, reward] of questClaims) {
     if (reward.quest.actor !== currentActor(world)) {
       questClaims.delete(key);

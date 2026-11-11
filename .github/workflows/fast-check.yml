@@ -136,6 +136,7 @@ jobs:
       - run: npm ci --prefer-offline --no-audit --no-fund
       - run: npm run lint
       - run: npm run docs:check
+      - run: npm run check:test-guards
 
   unit:
     name: JavaScript unit tests
@@ -179,7 +180,11 @@ jobs:
           cache: "npm"
           cache-dependency-path: package-lock.json
       - run: npm ci --prefer-offline --no-audit --no-fund
-      - run: npm test
+      # Not a gate: lists tests that passed only on a retry (`retry: 1`).
+      - run: npx vitest run --reporter=default --reporter=./test/helpers/retried-tests-reporter.mjs
+      # Every generated output rebuilds from its sources; a stale one fails
+      # here with the command that fixes it (`npm run regen`).
+      - run: npm run regen:check
 
   # cargo fmt reads source only, so this job builds nothing and needs no
   # Cargo cache. It uses the same stable toolchain as ci.yml and deploy.yml
@@ -237,15 +242,8 @@ jobs:
         with:
           path: ~/.cache/ms-playwright
           key: ${{ runner.os }}-${{ runner.arch }}-playwright-${{ hashFiles('node_modules/playwright-core/package.json') }}
-      - name: Use Ubuntu archive for browser dependencies
-        run: |
-          # The Azure mirror delivered browser fonts at 18.4 kB/s in CI.
-          if [ -f /etc/apt/apt-mirrors.txt ]; then
-            sudo sed -i 's|http://azure.archive.ubuntu.com/ubuntu|https://archive.ubuntu.com/ubuntu|g' /etc/apt/apt-mirrors.txt
-            cat /etc/apt/apt-mirrors.txt
-          fi
       - name: Install Chromium system dependencies
-        run: npx playwright install-deps chromium
+        uses: ./.github/actions/chromium-deps
       - name: Install Chromium
         if: steps.playwright-cache.outputs.cache-hit != 'true'
         run: npx playwright install chromium

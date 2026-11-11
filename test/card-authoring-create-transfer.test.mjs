@@ -113,3 +113,42 @@ it("bounds streamed replies and cancels a stalled response body", async () => {
   await expect(transfer(f.store, f.operation, { fetch: f.fetch, signal: controller.signal })).rejects.toMatchObject({ name: "AbortError" });
   expect(f.fetch).not.toHaveBeenCalled(); expect(f.store.finishCreate).not.toHaveBeenCalled();
 });
+async function originals() {
+  const big = Uint8Array.of(1, 2, 3, 4), small = Uint8Array.of(9);
+  const assets = new Map([["assets/generated-art/a/0.png", big], ["notes.txt", small]]);
+  const draft = importPack({ title: "Crossing", document: "n", pack: { id: "shore", places: { pier: {} } },
+    assets: await Promise.all([...assets].map(([path, bytes]) => assetMetadata(path, path.endsWith(".png") ? "image/png" : "text/plain", bytes))) });
+  const operation = { draftKey: "local", owner: "user-one", requestKey: "12345678-1234-4234-8234-123456789abc",
+    generation: 1, draft, launch: { schemaVersion: 1, place: "pier" }, assets, receipt: null };
+  const store = { readCreate: async () => structuredClone(operation), finishCreate: async (_k, _o, _r, receipt) => ({ ...operation, receipt }) };
+  const receipt = { ...draft, id: "private-one", revision: 1 };
+  return { operation, store, receipt, big };
+}
+const upload = async (options) => {
+  const meta = await assetMetadata("file.txt", "text/plain", options.body);
+  return json({ sha256: meta.sha256, size: meta.size });
+};
+it("skips the upload of a generated original the server already holds", async () => {
+  const f = await originals(), methods = [];
+  const fetch = async (url, options) => {
+    methods.push(options.method || "GET");
+    if (url === "/auth/account") return json({ authenticated: true, user_id: "user-one" });
+    if (options.method === "HEAD") return new Response(null, { headers: { "content-length": String(f.big.length) } });
+    if (options.method === "PUT") return upload(options);
+    return json(f.receipt);
+  };
+  await transfer(f.store, f.operation, { fetch });
+  expect(methods.filter((m) => m === "HEAD")).toHaveLength(1);
+  expect(methods.filter((m) => m === "PUT")).toHaveLength(1);
+});
+it("uploads a generated original when the server does not have it", async () => {
+  const f = await originals(), puts = [];
+  const fetch = async (url, options) => {
+    if (url === "/auth/account") return json({ authenticated: true, user_id: "user-one" });
+    if (options.method === "HEAD") return new Response(null, { status: 404 });
+    if (options.method === "PUT") { puts.push(url); return upload(options); }
+    return json(f.receipt);
+  };
+  await transfer(f.store, f.operation, { fetch });
+  expect(puts).toHaveLength(2);
+});
