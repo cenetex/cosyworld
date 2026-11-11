@@ -469,9 +469,16 @@ const cardArt = (id) =>
 // going (the ship's deck from its berth), lit for the hour and weather.
 const placeArt = (id) => placeCardArt(world, id);
 const pipPrelude = () => startingPip && !world.opening;
-const cardIsCovered = (id) => isOfferId(id) ? false : pipPrelude()
+// An offered quest lies face down until opened, like a closed box; its
+// opening is remembered with the cards seen (until the quest is taken).
+const cardIsCovered = (id) => isOfferId(id)
+  ? !encountered.has(id) || coveredCards.has(id)
+  : pipPrelude()
   ? id !== "moth" && !(world.actors.vale.want?.story && id === "lamp")
   : !encountered.has(id) || coveredCards.has(id);
+// Cards new to the view. An offered quest is opened by the player, never found.
+const unseenCards = () =>
+  availableCards(world).filter((id) => !isOfferId(id) && !encountered.has(id));
 const cardIsClosed = (id) => cardIsCovered(id) || isLockedBox(world, id);
 const CARD_BACK = "./assets/card-back.webp";
 const cardBack = (id) => isLockedBox(world, id) ? LOCKED_BACK : CARD_BACK;
@@ -533,9 +540,11 @@ function loadSeen(reset = false) {
   } catch {}
   encountered = new Set([
     ...(Array.isArray(saved)
-      ? saved.filter((id) => people[id] || things[id] || places[id])
+      ? saved.filter(
+          (id) => people[id] || things[id] || places[id] || isOfferId(id),
+        )
       : []),
-    ...availableCards(world),
+    ...availableCards(world).filter((id) => !isOfferId(id)),
   ]);
   // The opening hand starts covered, like any newly met card; a known table
   // keeps the cards its player has already uncovered.
@@ -716,7 +725,11 @@ const playQueue = createPlayQueue({
   play: (action, revision) => {
     // Taking a quest takes no turn and brings no reply, so its beat stays
     // awake: the held quest's next step and Discard are still offered.
-    if (!takesQuest(action)) restedChoice = choiceKey();
+    if (takesQuest(action)) {
+      // A taken offer is seen no more: the next one lies face down again.
+      encountered.delete(action.offer);
+      rememberCards();
+    } else restedChoice = choiceKey();
     count(playCounter(action));
     if (sharedSession) void submitSharedPlay(action);
     else performAction(action, revision);
@@ -788,7 +801,7 @@ const exchange = createExchange({
       pendingSpeaker = null;
       renderScene();
       queueMicrotask(() => {
-        if (availableCards(world).some((id) => !encountered.has(id)))
+        if (unseenCards().length)
           queueDiscoveries();
       });
     }
@@ -1643,7 +1656,7 @@ function uncover(id, { flip = true, lid = null, fade = true } = {}) {
   coveredCards.delete(id);
   rememberCards();
   // Its figure or item fades into the scene (stage-reveal.mjs).
-  if (fade) stageReveals.add(id);
+  if (fade && !isOfferId(id)) stageReveals.add(id);
   // The opening's last card down raises its first play, Put out (opening.mjs).
   const step = opening();
   if (was === "reveal" && step?.step === "play" && step.choice.length) {
@@ -1653,7 +1666,9 @@ function uncover(id, { flip = true, lid = null, fade = true } = {}) {
   render();
   const shown = $("hand").querySelector(`.card[data-card="${id}"]`);
   if (shown && flip) void revealCard(openingLid(shown, lid));
-  $("discovery-announcement").textContent = `New card: ${nameOf(id)}.`;
+  $("discovery-announcement").textContent = isOfferId(id)
+    ? "Quest opened."
+    : `New card: ${nameOf(id)}.`;
   if (openingHeld && openingWordsDue() && avatarKnown()) resumeScene();
   if (sharedSession) syncSharedLine();
 }
@@ -2147,7 +2162,7 @@ function queueDiscoveries() {
     .catch(() => {})
     .then(() => {
       if (version !== trip || saveBlocked) return;
-      const found = availableCards(world).filter((id) => !encountered.has(id));
+      const found = unseenCards();
       if (!found.length) return;
       for (const id of found) {
         encountered.add(id);
@@ -2402,7 +2417,7 @@ function renderActions() {
         !cardIsClosed(selected[0])
       ? `Look at ${theName(selected[0])} up close.`
       : "";
-  const selectionName = selected.map((id) => isOfferId(id) ? "Quest" : cardIsClosed(id) ? "Closed box" : nameOf(id)).join(" + ");
+  const selectionName = selected.map((id) => cardIsClosed(id) ? "Closed box" : isOfferId(id) ? "Quest" : nameOf(id)).join(" + ");
   $("selection-name").textContent = selected.length
     ? selectionName
     : "Card actions";
@@ -2413,7 +2428,9 @@ function renderActions() {
     // The chosen quest card names itself, as a play does.
     // An offered quest card, chosen, names its quest the same way.
     offerPicked =
-      !rested && selected.length === 1 ? offerOf(world, selected[0]) : null,
+      !rested && selected.length === 1 && !cardIsClosed(selected[0])
+        ? offerOf(world, selected[0])
+        : null,
     questShown =
       (!selected.length && questOpen && !rested ? shownQuests[0] : null) ||
       (offerPicked ? offerQuest(world, offerPicked) : null),
@@ -3226,6 +3243,7 @@ function offerFrame(id) {
   const offer = offerOf(world, id),
     quest = offerQuest(world, offer),
     raised = selected.includes(id),
+    closed = cardIsClosed(id),
     tier = questTier(quest, world, known),
     who = people[offer.source] && known(offer.source) ? nameOf(offer.source) : "";
   const el = node("button", undefined, "card want-card");
@@ -3234,7 +3252,8 @@ function offerFrame(id) {
   el.dataset.offer = offer.kind;
   el.dataset.tier = tier.id;
   el.dataset.near = "false";
-  el.dataset.unrevealed = "false";
+  // An offer lies face down, as a closed box does, until it is opened.
+  el.dataset.unrevealed = String(closed);
   el.dataset.locked = "false";
   el.dataset.selected = String(raised);
   el.style.setProperty("--tier-color", tier.color);
@@ -3242,9 +3261,21 @@ function offerFrame(id) {
   el.setAttribute("aria-pressed", String(raised));
   el.setAttribute(
     "aria-label",
-    `Quest offered${who ? ` by ${who}` : ""}: ${shownQuestCaption(quest, false)}`,
+    closed
+      ? "Closed box. Select to inspect."
+      : `Quest offered${who ? ` by ${who}` : ""}: ${shownQuestCaption(quest, false)}`,
   );
-  el.append(...questFace(quest, questVerb(world, quest, questCovered(quest))));
+  el.append(
+    Object.assign(node("img", undefined, "card-back"), {
+      src: imageUrl(CARD_BACK, "card"),
+      alt: "",
+      draggable: false,
+    }),
+    // A face-down offer carries none of its quest.
+    ...(closed
+      ? []
+      : questFace(quest, questVerb(world, quest, questCovered(quest)))),
+  );
   el.addEventListener("click", () => choose(id));
   const frame = node("div", undefined, "card-frame");
   frame.dataset.raised = String(raised);
@@ -5691,7 +5722,9 @@ async function submitSharedPlay(action) {
     const result = await sharedSession.play(
       current,
       sharedPlay.key,
-      [...encountered].filter((id) => !cardIsCovered(id) && id !== hidden),
+      [...encountered].filter(
+        (id) => !isOfferId(id) && !cardIsCovered(id) && id !== hidden,
+      ),
     );
     if (result.resumedPlay) {
       resumeCurrentSharedPlay();
