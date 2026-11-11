@@ -257,7 +257,21 @@ try {
         await action();
       }
       if (first) {
-        await saved(8);
+        // The first portrait is archived, then saved: wait for the saved art.
+        await page.waitForFunction(async (avatar) => {
+          const { openAuthoringStore } = await import(
+            "/card-game/authoring-local-store.mjs"
+          );
+          const db = await openAuthoringStore();
+          try {
+            const record = await db.read(
+              new URL(location.href).searchParams.get("draft"),
+            );
+            return Boolean(record?.draft.pack.avatars[avatar]?.portrait);
+          } finally {
+            db.close();
+          }
+        }, avatar);
         return;
       }
       await page
