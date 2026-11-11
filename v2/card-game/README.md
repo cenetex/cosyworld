@@ -1724,6 +1724,14 @@ See the Greek pack README and `test/card-theban-release.test.mjs`; the scene
 journey is `v2/scripts/smoke-card-theban-scenery.mjs`. The weather journey is
 `node v2/scripts/smoke-card-weather.mjs`.
 
+Discoverable locked cards wait as wooden boxes in the current location's
+item stack, regardless of the type inside. Their real type and custody stay
+in the world model. Opening reveals the item, resident or destination in its
+normal position. A live condition closing again returns its card to a box;
+this does not erase player discovery or resident knowledge. Disabled packs,
+absent avatars and spent items are not automatically mysteries. Personal
+hidden-avatar discovery still uses its existing Talk interaction.
+
 If table startup fails, the existing dialogue bar offers Try again. It reloads
 the same page without clearing saves. The startup title releases its overlay,
 keyboard and audio ownership before the retry becomes available.

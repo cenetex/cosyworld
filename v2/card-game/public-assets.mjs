@@ -152,6 +152,7 @@ const files = [
   "sleep-view.mjs",
   "sleep.css",
   "locked-box.mjs",
+  "mystery-view.mjs",
   "stage-reveal.mjs",
   "opening.mjs",
   "card-level-up.mjs",
