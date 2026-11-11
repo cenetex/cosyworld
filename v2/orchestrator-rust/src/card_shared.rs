@@ -178,9 +178,14 @@ pub(super) fn user(state: &AppState, h: &HeaderMap, mutation: bool) -> Result<St
 pub(crate) fn revision(
     state: &AppState,
     h: &HeaderMap,
+    mutation: bool,
 ) -> Result<crate::account_revision::Revision> {
-    let user = user(state, h, true)?;
+    let user = user(state, h, mutation)?;
     let c = db(state)?;
+    if !mutation {
+        let epoch = crate::account_revision::current(&c, &user).map_err(sql_error)?;
+        return Ok(crate::account_revision::Revision { user, epoch });
+    }
     crate::account_revision::Revision::capture(&c, &user, h).map_err(|error| error.to_string())
 }
 fn admit(user: &str) -> Result<()> {

@@ -171,8 +171,10 @@ async fn accept(
             key.clone(),
             digest.clone().unwrap_or_default(),
         );
-        db(state, move |c| {
-            let added = c.execute(
+        db(state, move |mut c| {
+            let tx = c.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate).map_err(|_| unavailable())?;
+            owner.check(&tx).map_err(Failed::from)?;
+            let added = tx.execute(
                 "INSERT INTO authoring_jobs(id,owner,kind,request_key,digest,status,created_at,updated_at)
                 VALUES(?,?,?,?,?,'queued',?,?)",
                 params![id, owner, kind, key, digest, now, now],
@@ -184,18 +186,19 @@ async fn accept(
                     if e.code == rusqlite::ErrorCode::ConstraintViolation && key.is_some() =>
                 {
                     let key = key.unwrap_or_default();
-                    return earlier(&c, &owner, &key, &digest)?
+                    return earlier(&tx, &owner, &key, &digest)?
                         .map(Some)
                         .ok_or_else(unavailable);
                 }
                 Err(_) => return Err(unavailable()),
             }
-            c.execute(
+            tx.execute(
                 "DELETE FROM authoring_jobs WHERE owner=?1 AND status IN ('done','failed') AND id NOT IN
                 (SELECT id FROM authoring_jobs WHERE owner=?1 ORDER BY created_at DESC, rowid DESC LIMIT ?2)",
                 params![owner, KEPT as i64],
             )
             .map_err(|_| unavailable())?;
+            tx.commit().map_err(|_| unavailable())?;
             Ok(None)
         })
         .await?
@@ -231,9 +234,20 @@ fn earlier(c: &Connection, owner: &str, key: &str, digest: &str) -> Result<Optio
     }
 }
 
-async fn execute(state: AppState, owner: String, id: String, run: Run, permit: admission::Permit) {
+async fn execute(
+    state: AppState,
+    owner: Revision,
+    id: String,
+    run: Run,
+    permit: admission::Permit,
+) {
     // Held while the provider works and the result is stored, whoever is still listening.
-    let _ = settle(&state, &id, "running", None, None).await;
+    if settle(&state, &owner, &id, "running", None, None)
+        .await
+        .is_err()
+    {
+        return;
+    }
     // Its own task, so a panic inside a provider call still ends in a recorded failure.
     let done = tokio::spawn(run.execute()).await.unwrap_or_else(|_| {
         Err(Failed::new(
@@ -261,15 +275,18 @@ async fn execute(state: AppState, owner: String, id: String, run: Run, permit: a
             ("failed", None, Some(error))
         }
     };
-    if settle(&state, &id, status, result, error).await.is_err() {
+    if settle(&state, &owner, &id, status, result, error)
+        .await
+        .is_err()
+    {
         tracing::warn!(job = %id, "could not record a finished generation job");
     }
 }
 
 /// The paid picture becomes the owner's private file before the job reports done.
-async fn keep(state: &AppState, owner: &str, drawn: images::Drawn) -> Result<Value, Failed> {
+async fn keep(state: &AppState, owner: &Revision, drawn: images::Drawn) -> Result<Value, Failed> {
     let (sha256, size) = (drawn.sha256(), drawn.bytes.len());
-    let (state, owner, digest) = (state.clone(), owner.to_string(), sha256.clone());
+    let (state, owner, digest) = (state.clone(), owner.clone(), sha256.clone());
     let stored = tokio::task::spawn_blocking(move || {
         crate::card_authoring::store_generated(&state, &owner, &digest, &drawn.bytes).map(|_| drawn)
     })
@@ -292,26 +309,37 @@ async fn keep(state: &AppState, owner: &str, drawn: images::Drawn) -> Result<Val
 
 async fn settle(
     state: &AppState,
+    owner: &Revision,
     id: &str,
     status: &'static str,
     result: Option<Value>,
     error: Option<Value>,
 ) -> Result<(), Failed> {
     let id = id.to_string();
-    db(state, move |c| {
-        c.execute(
-            "UPDATE authoring_jobs SET status=?, updated_at=?, result=?, error=?
-            WHERE id=? AND status IN ('queued','running')",
-            params![
-                status,
-                now_ms(),
-                result.map(|v| v.to_string()),
-                error.map(|v| v.to_string()),
-                id
-            ],
-        )
-        .map(|_| ())
-        .map_err(|_| unavailable())
+    let owner = owner.clone();
+    db(state, move |mut c| {
+        let tx = c
+            .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
+            .map_err(|_| unavailable())?;
+        owner.check(&tx).map_err(Failed::from)?;
+        let changed = tx
+            .execute(
+                "UPDATE authoring_jobs SET status=?, updated_at=?, result=?, error=?
+            WHERE id=? AND owner=? AND status IN ('queued','running')",
+                params![
+                    status,
+                    now_ms(),
+                    result.map(|v| v.to_string()),
+                    error.map(|v| v.to_string()),
+                    id,
+                    owner
+                ],
+            )
+            .map_err(|_| unavailable())?;
+        if changed != 1 {
+            return Err(unavailable());
+        }
+        tx.commit().map_err(|_| unavailable())
     })
     .await
 }

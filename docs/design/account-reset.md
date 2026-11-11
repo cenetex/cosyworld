@@ -41,3 +41,10 @@ Shared world creation, commands and browser-supplied dialogue now capture the
 revision at admission. Creation and commands check it inside their write
 transaction; dialogue workers carry it to the final publication transaction.
 Maker guards and the reset operation are still required before enabling reset.
+
+## Maker mutation integration
+
+Pack writes, private file commits and job admission/settlement check the captured
+revision inside `BEGIN IMMEDIATE`. Paid jobs retain that token when the request
+ends. Admission and quotas still use the stable user ID. Direct generation
+routes return data only; browsers must discard their late results after reset.
