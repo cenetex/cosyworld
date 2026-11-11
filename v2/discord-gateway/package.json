@@ -1,0 +1,14 @@
+{
+  "name": "cosyworld-discord-gateway",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "CosyWorld's Discord companion bot: renders the world into assigned channels.",
+  "scripts": {
+    "start": "node src/index.mjs",
+    "test": "node --test test/"
+  },
+  "dependencies": {
+    "discord.js": "^14.16.0"
+  }
+}
