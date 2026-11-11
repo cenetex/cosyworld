@@ -184,6 +184,8 @@ Use `stage({document,title})` to keep text, `snapshot({pending:false})` to read 
 Generation recovery keeps each job bound to the local draft that requested it.
 Switching drafts during a job lookup or image download leaves its recovery record
 intact for the original draft. Late request callbacks retain that same binding.
+An image recovery record remains until its archive is saved to the device; a full
+device can retry the save or recover after reload without generating again.
 
 Local store `beginCreate(key, owner, generation)` saves the account, request UUID,
 source and files before transfer. `readCreate` resumes that snapshot after reload;

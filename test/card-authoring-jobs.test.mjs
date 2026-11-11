@@ -529,6 +529,57 @@ it("does not apply a result the tab stopped waiting for", async () => {
   expect(after.portrait()).toBeUndefined();
 });
 
+it.each([
+  [true, true],
+  [true, false],
+  [false, true],
+  [false, false],
+])(
+  "retains an unarchived image across storage failure (dropped: %s, reload: %s)",
+  async (dropped, reload) => {
+    const server = fakeJobs();
+    const { reopen, jobStore, disk } = await madeWorld(server);
+    const before = reopen();
+    await before.start();
+    await vi.waitFor(() => expect(server.posts).toHaveLength(1));
+    await before.kill();
+    const [rec] = await jobStore.readJobs("world");
+    await jobStore.putJob({ ...rec, dropped });
+    server.complete("job-1", imageResult(server, server.posts[0].request));
+    const write = disk.store.write;
+    disk.store.write = async () => {
+      throw new DOMException("Device full", "QuotaExceededError");
+    };
+    const after = reopen();
+    const retry = () =>
+      after.visuals.tools().find((t) => t.id === "retry-unsaved-artwork");
+    await vi.waitFor(() => {
+      expect(retry()?.describe().note).toContain(
+        "could not be saved: Device full",
+      );
+      expect(after.session.status.busy).toBe(false);
+    });
+    expect(await after.library()).toEqual([]);
+    expect(after.tool("portrait").describe().note).not.toContain(
+      "saved to Browse artwork",
+    );
+    expect(await jobStore.readJobs("world")).toHaveLength(1);
+    disk.store.write = write;
+    let saved = after;
+    if (reload) {
+      await after.kill();
+      saved = reopen();
+    } else await after.session.run((context) => retry().run({}, context));
+    await vi.waitFor(async () =>
+      expect((await saved.library()).length).toBeGreaterThan(0),
+    );
+    await vi.waitFor(async () =>
+      expect(await jobStore.readJobs("world")).toEqual([]),
+    );
+    expect(server.posts).toHaveLength(1);
+  },
+);
+
 it("shows a failed job's message, including after a reload", async () => {
   const server = fakeJobs();
   const { reopen } = await madeWorld(server);
@@ -992,3 +1043,92 @@ it("clears a previous draft's waiting label before opening another draft", async
   expect(form().actions[0]).toMatchObject({ label: "Create", disabled: false });
   expect(await f.store.readJobs("A")).toHaveLength(1);
 });
+
+it.each([false, true])(
+  "keeps unsaved artwork with A across import (during IO: %s)",
+  async (during) => {
+    const server = fakeJobs(),
+      blocked = gate(),
+      entered = gate();
+    let job;
+    const f = boundaryFixture((url) =>
+      url.endsWith("/jobs")
+        ? Response.json({ jobs: [job] })
+        : server.fetch(url),
+    );
+    await f.session.accept(
+      seedEdit(f.session.snapshot(), { kind: "world", cards }),
+    );
+    const before = f.session.snapshot({ assets: true }),
+      id = f.id();
+    const rec = {
+      id: "archive-a",
+      draftKey: "A",
+      kind: "image",
+      dropped: true,
+      toolId: `art-${id}-portrait`,
+      avatarId: id,
+      role: "portrait",
+      description: "Keeper",
+      basis: JSON.stringify([id, 1, null, 1]),
+      binding: avatarBinding(before, id),
+    };
+    job = {
+      id: rec.id,
+      kind: "image",
+      status: "done",
+      result: { image: server.put(png), basis: rec.basis },
+    };
+    await f.store.putJob(rec);
+    const digest = crypto.subtle.digest.bind(crypto.subtle);
+    let held = false;
+    const spy = vi
+      .spyOn(crypto.subtle, "digest")
+      .mockImplementation(async (...args) => {
+        if (!held && new Error().stack.includes("archiveGeneratedArt")) {
+          held = true;
+          entered.release();
+          await blocked.promise;
+          if (!during) throw new Error("Device full");
+        }
+        return digest(...args);
+      });
+    f.writes.length = 0;
+    f.sweep.open({ key: "A" });
+    await entered.promise;
+    if (!during) {
+      blocked.release();
+      await vi.waitFor(() => expect(f.session.status.busy).toBe(false));
+      expect(f.visuals.pendingArtwork()).toBe(true);
+      expect(await f.store.readJobs("A")).toEqual([rec]);
+    }
+    f.session.open({ key: "B", record: before });
+    if (!during) {
+      // Even a stale saved action must refuse to write into the new draft.
+      const retry = f.visuals
+        .tools()
+        .find((t) => t.id === "retry-unsaved-artwork");
+      await expect(f.session.run((ctx) => retry.run({}, ctx))).rejects.toThrow(
+        "editor changed",
+      );
+    }
+    f.visuals.clear(true);
+    f.sweep.open({ key: "B" });
+    blocked.release();
+    await vi.waitFor(() => expect(f.session.status.busy).toBe(false));
+    spy.mockRestore();
+    expect(f.visuals.pendingArtwork()).toBe(false);
+    expect(f.writes).toEqual([]);
+    expect(await f.store.readJobs("A")).toEqual([rec]);
+    f.session.open({ key: "A", record: before });
+    f.visuals.clear(true);
+    f.sweep.open({ key: "A" });
+    await vi.waitFor(async () =>
+      expect(await f.store.readJobs("A")).toEqual([]),
+    );
+    expect(f.writes).toEqual(["A"]);
+    expect(
+      await listGeneratedArt(f.session.snapshot({ assets: true }), id),
+    ).toHaveLength(1);
+  },
+);

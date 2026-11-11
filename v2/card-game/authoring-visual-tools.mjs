@@ -49,15 +49,19 @@ export function createAuthoringVisualTools({
     notices = new Map();
   async function archive(context) {
     if (!unsaved) return;
-    const record = context.snapshot({ assets: true });
-    await context.accept(await archiveGeneratedArt(record, unsaved));
-    const job = unsaved.job;
-    unsaved = null;
+    const record = context.snapshot({ assets: true }),
+      pending = unsaved;
+    if (record.key !== pending.draftKey)
+      throw new Error("This editor changed. Return to the original draft.");
+    await context.accept(await archiveGeneratedArt(record, pending));
+    const job = pending.job;
+    if (unsaved === pending) unsaved = null;
     if (job) await track.settled(job);
   }
   // Keep the provider original before anything else uses it.
   async function keep(target, input, image, job, context) {
-    unsaved = {
+    const pending = (unsaved = {
+      draftKey: context.snapshot().key,
       avatarId: target.id,
       variant: target.variant,
       description: input.description,
@@ -66,11 +70,17 @@ export function createAuthoringVisualTools({
       images: [
         { ...image, role: input.role === "portrait" ? "base" : "sheet" },
       ],
-    };
+    });
     try {
       await archive(context);
     } catch (error) {
-      failure = error.message.replace(/[.\s]+$/u, "");
+      try {
+        context.snapshot();
+      } catch (stale) {
+        if (unsaved === pending) unsaved = null;
+        throw stale;
+      }
+      if (unsaved === pending) failure = error.message.replace(/[.\s]+$/u, "");
     }
   }
   const visual = createAuthoringVisualDraft({
@@ -131,7 +141,11 @@ export function createAuthoringVisualTools({
       }
     },
   });
-  function clear() {
+  function clear(opening = false) {
+    if (opening) {
+      unsaved = null;
+      failure = null;
+    }
     if (unsaved) return;
     visual.open(null);
     for (const url of urls) URL.revokeObjectURL(url);
@@ -258,7 +272,7 @@ export function createAuthoringVisualTools({
       sha256: stored.sha256,
       size: stored.size,
     };
-    await run(async (context) => {
+    return run(async (context) => {
       const record = context.snapshot({ assets: true }),
         id = rec.avatarId;
       const input = { role: rec.role, description: rec.description };
@@ -281,6 +295,7 @@ export function createAuthoringVisualTools({
           why = "this avatar's artwork changed after you asked";
       }
       await keep(target, input, image, rec.id, context);
+      if (unsaved) return "later";
       context.snapshot();
       if (why) {
         notices.set(rec.toolId, kept(rec.role, why));
