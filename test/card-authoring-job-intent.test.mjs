@@ -156,4 +156,3 @@ it("does not report an IndexedDB intent durable until its transaction commits", 
   transaction.onabort();
   await expect(aborted).rejects.toThrow("transaction aborted");
 });
-
