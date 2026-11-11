@@ -42,7 +42,7 @@ const NO_INVITE = {
   badger: "The Badger stays on his moss by design; his clearing has no way out.",
   skull:
     "Skull's home, the Moonlit Trail, is shut until the drain is cleared: out of it he could not walk home.",
-  "greek-antigone": "Antigone waits at the Gate for the Hollow; her stay gates the Polynices rites.",
+  "greek-antigone": "Antigone keeps range 0 and walks to her home, the Hollow, on her own when the way opens.",
   "greek-guard": "The Gate Guard is a lock: if he leaves his post the way opens for everyone.",
   "greek-polynices-shade": "The Shade is a night apparition at the Hollow.",
   "greek-household-witness": "Myrine has an authored journey and travels only on it.",

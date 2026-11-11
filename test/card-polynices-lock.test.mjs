@@ -95,7 +95,7 @@ it.each([
     for (const actor of ["vale", antigone])
       expect(exits(world, field, actor)).not.toContain(hollow);
     expect(plan(world, antigone).action?.target).not.toBe(hollow);
-    expect(lifeHome(antigone, world)).toBe("greek-gate");
+    expect(lifeHome(antigone, world)).toBe(hollow);
     expect(isLockedBox(world, hollow)).toBe(true);
     expect(lockedQuest(world, hollow).cards).toEqual([]);
     const turn = world.turn;

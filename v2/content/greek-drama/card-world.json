@@ -1141,7 +1141,7 @@
       "startLevel": 20,
       "text": "Dust marks the hem of her dress. She keeps looking toward the battlefield.",
       "place": "greek-gate",
-      "home": "greek-gate",
+      "home": "greek-polynices-hollow",
       "seed": "Antigone, daughter of Oedipus.",
       "portrait": "assets/greek-drama/chthonic-antigone.png",
       "wants": [
@@ -1183,51 +1183,6 @@
         "likes": "practical help, care for the dead",
         "sore": "being told that family grief is an inconvenience",
         "reason": "Dust marks the hem of her dress. She keeps looking toward the battlefield."
-      },
-      "homeWhen": {
-        "place": "greek-polynices-hollow",
-        "requires": [
-          {
-            "kind": "any",
-            "conditions": [
-              {
-                "kind": "holding",
-                "item": "greek-creon-writ",
-                "actor": "greek-guard"
-              },
-              {
-                "kind": "flag",
-                "key": "greek-burial-performed",
-                "value": true
-              }
-            ]
-          },
-          {
-            "kind": "any",
-            "conditions": [
-              {
-                "kind": "flag",
-                "key": "greek-polynices-heard",
-                "value": true
-              },
-              {
-                "kind": "flag",
-                "key": "greek-polynices-anointed",
-                "value": true
-              },
-              {
-                "kind": "flag",
-                "key": "greek-polynices-veiled",
-                "value": true
-              },
-              {
-                "kind": "flag",
-                "key": "greek-burial-performed",
-                "value": true
-              }
-            ]
-          }
-        ]
       }
     },
     "greek-ismene": {

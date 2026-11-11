@@ -34,6 +34,12 @@ Thebes has no story buttons. Its deeds are the ordinary verbs:
   be carried or laid in the Hollow; the card first offers Take or Ask when
   needed. Used oil and cloth return home, while the next rite stays available
   with its remaining materials. The shovel stays in the Hollow after burial.
+- Antigone's **home is the Hollow** (owner, 2026-11-11), not the gate. She
+  starts at the gate and cannot get home while the gate is locked or the Hollow's
+  way waits on the Shade's word; once both are open she walks home by the
+  ordinary resident rules (no scripted move, no `homeWhen`). She does not fetch
+  or carry the burial items: residents do not yet take, carry or lay toward a
+  want.
 - Antigone holds two **staged wants** (rules 133, unordered, at most three): the
   rites laid in the Hollow, and, once the guard holds Creon's writ and until
   the burial, being at the Hollow herself. The seeded pick chooses between the

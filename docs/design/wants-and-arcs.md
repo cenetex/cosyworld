@@ -535,6 +535,15 @@ whose `when` holds may surface, the seeded draw picks among them, and
 authored order only breaks ties. Nothing is saved: it is read from the
 world each turn, like `homeWhen`.
 
+Owner direction, 2026-11-11: Antigone's home is the burial Hollow, not the
+gate: "she just can't get there while the gate is locked". Her `home` is
+`greek-polynices-hollow` and the scripted `homeWhen` is gone; she starts at the
+gate with `range: 0` and walks home by the ordinary resident rules once the gate
+is open and the Hollow's way is open (the Shade's word). She does not yet fetch
+and carry the oil, cloth and shovel: a place want with a lay step is planned as a
+plain walk (`world.mjs` `wantPlan`), with no take, carry or lay (next rules
+batch).
+
 - *Burial.* Antigone at the gate, once the guard holds the Writ, may say
   she wants to be at the Hollow, or that she wants the oil, the cloth and
   the shovel laid there. Bringing her, or bringing the things, each meets a
