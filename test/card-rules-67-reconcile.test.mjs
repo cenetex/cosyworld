@@ -137,7 +137,7 @@ describe("pack progress reconcile", () => {
     for (const s of [
       createWorld(),
       createWorld({ opening: true }),
-      upgrade().world,
+      dispatchShared({ op: "create", seed: 12345 }).world,
     ]) {
       const copy = structuredClone(s);
       reconcilePackProgress(copy, new Set(packDefinitions.map((p) => p.id)));
@@ -149,7 +149,7 @@ describe("pack progress reconcile", () => {
 describe("a refused shared save", () => {
   it("names where the rules refused it, and nothing of the world", async () => {
     await import("../v2/card-game/shared-world-entry.mjs");
-    const world = structuredClone(fixture.world);
+    const world = dispatchShared({ op: "create", seed: 12345 }).world;
     world.items.lamp.holder = "nowhere";
     const reply = JSON.parse(
       globalThis.cardShared(

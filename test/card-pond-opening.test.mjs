@@ -69,24 +69,9 @@ describe("the attic opening and saved pond journeys", () => {
     }
   });
 
-  // Skipped: an old save has no Patroclus, so it no longer loads; old
-  // worlds retire with the package 6 fixtures.
-  it.skip("keeps a released pond save beside Pip, with no authored want for Vale", () => {
-    const before = pondOpening();
-    const world = decodeSave(encodeSave(before));
-    expect(world).toEqual(before);
-    expect(world.actors.vale.place).toBe("pond");
-    expect(world.opening).toEqual({
-      version: 2,
-      crossed: true,
-      met: { vale: 0, moth: 0 },
-    });
-    expect(world.actors.vale.want).toBeNull();
-  });
 
-  // Skipped: an old save has no Patroclus, so it no longer loads; old
-  // worlds retire with the package 6 fixtures.
-  it.skip("meets Vale's lamp want and then the keeper through the pond and station", () => {
+  // package 6 fixtures: starts from a recorded old save, re-recorded after the bump.
+it.skip("meets Vale's lamp want and then the keeper through the pond and station", () => {
     let world = fresh();
     // A player takes its own quest by a tap; give Vale the lamp quest.
     world.actors.vale.want = { kind: "item", target: "lamp", since: 0, refusals: 0 };

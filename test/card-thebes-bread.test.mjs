@@ -21,7 +21,6 @@ import {
 import { packDefinition } from "../v2/card-game/pack-registry.mjs";
 import { CONTENT_TURNS, questsOf, setWant } from "../v2/card-game/want.mjs";
 import { acceptQuest } from "./helpers/accept-quest.mjs";
-import { upgradeGreekDecreeSave } from "../v2/card-game/legacy-saves.mjs";
 import { greekTravelTargets } from "./helpers/greek-travel.mjs";
 import { greekErrands, openingFixture } from "./helpers/greek-opening.mjs";
 import { sailTo } from "./helpers/voyage.mjs";
@@ -422,16 +421,5 @@ describe("the Charybdis's provisions", () => {
       target: GUARD,
     });
     expect(out(s)).toBe(true);
-  });
-});
-
-describe("the revision 20 upgrade", () => {
-  it("forgets a shared world's latch on the gate", () => {
-    const s = structuredClone(greekErrands().waterOffer);
-    s.packs["greek-drama"].revision = 19;
-    s.openedRoutes = [`${GATE}>${FIELD}`];
-    upgradeGreekDecreeSave(s);
-    expect(s.openedRoutes).toBeUndefined();
-    expect(s.packs["greek-drama"].revision).toBe(20);
   });
 });

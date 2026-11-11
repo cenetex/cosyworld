@@ -407,11 +407,18 @@ rules' offers (a no-turn `take` play); drawing them as cards with that one
 button is the next client step (`takesQuest` in `app.mjs` already treats it as
 a no-turn play). See [the design](../../docs/design/wants-and-arcs.md).
 
-Loading an earlier save drops its quest programs, collections, progress and
-quest history (`forgetQuests` in `legacy-saves.mjs`) and installs each
-avatar's starter quest. Saves from before schema 6 start fresh. Shared worlds
-move to the new rules through the normal upgrade; released journals still
-replay on their frozen rule bundles.
+The save schema is 8 (`SAVE_SCHEMA` in `legacy-saves.mjs`). The rules 133 bump
+retired every earlier save: a browser save of another schema is not lifted or
+opened, and the table starts fresh keeping only the traveler's level,
+experience and cosmetic upgrades (`carryLocalProgress`). The old save text is
+replaced in its slot by the fresh table's first save, made at load (the desktop
+backup file follows on its next flush); no copy is made. A corrupt save, or one
+of an unknown schema, is not a retired save: it keeps the "needs a fresh start"
+notice and stays in its slot until New game. Sharing
+always sends the in-memory world, so a retired save never reaches the server.
+Shared worlds on rules
+before 133 are retired too (see shared worlds); released journals keep their
+frozen rule bundles.
 
 `test/card-want.test.mjs` covers the rules, `test/card-liveness.test.mjs`
 checks that every resident meets a quest in each 80-turn window of loose play,
@@ -849,9 +856,8 @@ hooks. The ordinary card catalog, custody, memory, save, and action system
 carry the pack. `pack-registry.mjs` evaluates closed conditions and effects;
 story text cannot choose a branch or perform an action.
 
-Earlier schema 6 saves gain schema 7 and the mounted packs through a validated migration
-that retains their original state. A save that claims a mounted pack must have its complete,
-valid state; it cannot silently recreate missing characters or erase choices.
+A save that claims a mounted pack must have its complete, valid state; it cannot
+silently recreate missing characters or erase choices.
 The existing save slot stays unchanged. Future revisions require migrations.
 
 Dialogue receives at most eight local entity cards and three speakers, with

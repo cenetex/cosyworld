@@ -567,23 +567,6 @@ describe("Talk publication and learned facts", () => {
     ).toEqual([]);
   });
 
-  it("migrates retained source events once and preserves later publication provenance", () => {
-    let world = worldWithNews();
-    delete world.knowledge;
-    world = decodeSave(JSON.stringify(world));
-    expect(Object.keys(world.knowledge.facts)).toEqual(["event:2"]);
-    expect(knowsFact(world, "vale", "event:2")).toBe(false);
-    const { world: next, context } = localTalk(world);
-    const accepted = applyGeneratedText(
-      next,
-      context,
-      response(context, clause),
-    );
-    expect(decodeSave(encodeSave(accepted)).knowledge).toEqual(
-      accepted.knowledge,
-    );
-    expect(installKnowledge(accepted)).toBe(accepted.knowledge);
-  });
 
   it("uses the same saved disclosure on shared publication", () => {
     let world = worldWithNews();

@@ -8,26 +8,23 @@ mod boardy_tests;
 #[cfg(test)]
 mod classic_drop_tests;
 #[cfg(test)]
-mod combat_tests;
-#[cfg(test)]
 mod concurrency_tests;
 mod content;
 mod engine;
 #[cfg(test)]
-mod forest_tests;
+mod live_rules_tests;
 #[cfg(test)]
 mod move_tests;
 pub(crate) const RULES_VERSION: &str = engine::VERSION;
 mod full;
+mod full_floor;
+#[cfg(test)]
+mod full_floor_tests;
 mod full_speech;
 mod full_store;
 #[cfg(test)]
 mod full_tests;
 mod full_world;
-#[cfg(test)]
-mod homecoming_tests;
-#[cfg(test)]
-mod hoppycat_tests;
 #[cfg(test)]
 mod import_tests;
 mod kernel;
@@ -49,34 +46,18 @@ mod quest_core_tests;
 #[cfg(test)]
 mod quest_loop_tests;
 #[cfg(test)]
-mod road_upgrade_tests;
-#[cfg(test)]
 mod rules_agree_tests;
-#[cfg(test)]
-mod saved_items;
 #[cfg(test)]
 mod sea_steps;
 #[cfg(test)]
-mod section_tests;
-#[cfg(test)]
-mod sleep_tests;
-#[cfg(test)]
 mod speech;
-#[cfg(test)]
-mod speech_tests;
 mod store;
 mod sync;
 #[cfg(test)]
 mod tests;
-#[cfg(test)]
-mod travel_tests;
 mod unlocks;
 #[cfg(test)]
 mod unlocks_tests;
-#[cfg(test)]
-mod weather_tests;
-#[cfg(test)]
-mod willows_tests;
 #[cfg(test)]
 mod world_life_tests;
 mod world_list;

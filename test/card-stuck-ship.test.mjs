@@ -144,49 +144,10 @@ describe("a stuck ship goes home", () => {
     expect(ashore).toHaveLength(4);
   });
 
-  // Skipped: replays a recorded save through the removed Theban-response
-  // branch; retired with the fixtures in package 6 fixtures.
-  it.skip("sends a ship already stuck in a save from before rules 95 home", () => {
-    const saved = JSON.parse(encodeSave(stuck(BARD)));
-    delete saved.usedUp;
-    saved.turn += IDLE_ROUNDS;
-    saved.revision = Math.max(saved.revision, saved.turn);
-    const w = decodeSave(JSON.stringify(saved));
-    expect(w.actors[BARD].place).toBe(HOME);
-    // He sets that pursuit aside on load too, as in play.
-    expect(w.actors[BARD].want?.target).not.toBe(NOWHERE);
-    expect(w.transports[SHIP]).toMatchObject({
-      phase: "docked",
-      dock: HOME,
-      riders: [],
-    });
-    expect(stuckShip(w, SHIP)).toBe(false);
-  });
 
-  // Skipped: replays a recorded save through the removed Theban-response
-  // branch; retired with the fixtures in package 6 fixtures.
-  it.skip("spares an away traveler's quest when a pre-95 save puts the ship in", () => {
-    const s = stuck("ash");
-    s.actors.ash.want = {
-      kind: "place",
-      target: NOWHERE,
-      since: s.turn,
-      refusals: 0,
-    };
-    s.controlledActors = s.presentActors = players;
-    const saved = JSON.parse(encodeSave(s));
-    delete saved.usedUp;
-    saved.turn += IDLE_ROUNDS;
-    saved.revision = Math.max(saved.revision, saved.turn);
-    const w = decodeSave(JSON.stringify(saved));
-    expect(w.actors.ash.place).toBe(HOME);
-    // Ash plays as a resident while away: no set-aside (rules 98).
-    expect(w.actors.ash.want?.target).toBe(NOWHERE);
-  });
 
-  // Skipped: replays a recorded save through the removed Theban-response
-  // branch; retired with the fixtures in package 6 fixtures.
-  it.skip("keeps a ship with a standoff aboard, in play and in a save from before rules 95", () => {
+  // package 6 fixtures: starts from a recorded old save, re-recorded after the bump.
+it.skip("keeps a ship with a standoff aboard, in play and in a save from before rules 95", () => {
     // Vale threatens Myrto aboard at the harbor; the fight holds the ship.
     let s = stuck("vale");
     s.actors["greek-shipmaster"].place = SHIP;

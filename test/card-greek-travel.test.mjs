@@ -1,6 +1,4 @@
 import { atticOpening } from "./fixtures/card-attic-opening.mjs";
-import { readFileSync } from "node:fs";
-import vm from "node:vm";
 import { describe, it, expect } from "vitest";
 import { openGreekGate } from "./helpers/greek-gate.mjs";
 import {
@@ -18,18 +16,9 @@ import {
   transports,
 } from "../v2/card-game/pack-registry.mjs";
 import { travelCard } from "../v2/card-game/scene.mjs";
-import {
-  lanePath,
-  lanesFrom,
-  laneGated,
-  learnLane,
-} from "../v2/card-game/pack-transport.mjs";
+import { lanePath, lanesFrom, learnLane } from "../v2/card-game/pack-transport.mjs";
 import { openDoorStart, openSeas } from "./helpers/open-door.mjs";
 import { ajaxCamp } from "./helpers/greek-ajax.mjs";
-import {
-  upgradedActor,
-  upgradedItems,
-} from "./fixtures/card-upgraded-items.mjs";
 import { stowProvisions } from "./helpers/provisions.mjs";
 
 const docks = ["pond", "greek-harbor", "greek-piraeus"];
@@ -258,80 +247,4 @@ describe("Greek ports and fixed roads", () => {
     expect(w.transports["greek-ship"].destination).toBe(null);
   });
 
-  // Skipped: an old save has no Patroclus, so it no longer loads; old
-  // worlds retire with the package 6 fixtures.
-  it.skip.each([13, 14, 15])(
-    "upgrades a version %s voyage while preserving deeds, belongings and old memories",
-    (version) => {
-      const ctx = vm.createContext({});
-      vm.runInContext(
-        readFileSync(
-          new URL(
-            `../v2/orchestrator-rust/src/card_shared/engine-v${version}.js`,
-            import.meta.url,
-          ),
-          "utf8",
-        ),
-        ctx,
-      );
-      const old = JSON.parse(
-        ctx.cardShared(JSON.stringify({ op: "create" })),
-      ).world;
-      delete old.opening;
-      old.actors.vale.place = "greek-ship";
-      old.transports["greek-ship"] = {
-        version: 2,
-        dock: "pond",
-        destination: "greek-harbor",
-        recall: null,
-      };
-      const current = decodeSave(JSON.stringify(old));
-      // Preserve the entire old duty paper, including its palace custody.
-      // Present-day guard duty is tested separately from save preservation.
-      expect(current.items["greek-decree"]).toEqual(old.items["greek-decree"]);
-      const lived = ({
-        want,
-        xp,
-        visited,
-        talked,
-        metTurn,
-        gaveUp,
-        guarding,
-        heldItem,
-        ...a
-      }) => a;
-      for (const [id, { progress, ...actor }] of Object.entries(old.actors))
-        expect(lived(current.actors[id])).toEqual({
-          ...upgradedActor(actor),
-          trust: {
-            ...actor.trust,
-            ...Object.fromEntries(
-              Object.keys(current.actors)
-                .filter((added) => !old.actors[added])
-                .map((added) => [added, 0]),
-            ),
-          },
-        });
-      expect(current.items).toMatchObject(upgradedItems(old.items, current));
-      // The version 2 leg becomes a docked ship waiting for its course.
-      expect(current.transports["greek-ship"]).toEqual({
-        version: 3,
-        phase: "docked",
-        dock: "pond",
-        destination: null,
-        riders: [],
-        since: current.turn,
-        recall: null,
-      });
-      expect(current.packs["greek-drama"].revision).toBe(
-        packDefinition("greek-drama").revision,
-      );
-      for (const [id, memory] of Object.entries(old.memories)) {
-        const { seen, ...retained } = current.memories[id];
-        expect(retained).toEqual(memory);
-        if (seen) expect(typeof seen).toBe("object");
-      }
-      expect(decodeSave(encodeSave(current))).toEqual(current);
-    },
-  );
-});
+  });

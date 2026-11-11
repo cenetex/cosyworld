@@ -1,16 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  createWorld,
-  holdChoice,
-  legalActions,
-  places,
-  play,
-  sanctuaries,
-  standoffFor,
-  validateWorld,
-  decodeSave,
-  LONG_SLEEP_TURNS,
-} from "../v2/card-game/world.mjs";
+import { createWorld, holdChoice, legalActions, places, play, sanctuaries, standoffFor, validateWorld, LONG_SLEEP_TURNS } from "../v2/card-game/world.mjs";
 import {
   crossings,
   packDefinitions,
@@ -391,13 +380,6 @@ describe("rest and sanctuary", () => {
     expect(legalActions(ship, "ada").some((a) => a.sleep)).toBe(false);
   });
 
-  it("lets a save from before rules 89 wake from its old sleep", () => {
-    const s = createWorld();
-    s.actors.vale.sleepUntil = DAYLIGHT_TURNS;
-    const loaded = decodeSave(JSON.stringify(s));
-    expect(loaded.actors.vale.sleepUntil).toBeUndefined();
-    expect(loaded.actors.vale.sleeping).toBeUndefined();
-  });
 
   it("brings a thought on waking from a long rest, and a dream only by the rules", () => {
     const context = { turn: 24, resting: "vale", rest: "long", entities: [] };

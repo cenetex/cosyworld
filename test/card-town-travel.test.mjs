@@ -143,33 +143,9 @@ describe("local town visits and road history", () => {
     },
   );
 
-  // Skipped: an old save has no Patroclus, so it no longer loads; old
-  // worlds retire with the package 6 fixtures.
-  it.skip("sends a remembered harbor-to-Thebes step along the revived road", () => {
-    const road = "greek-road-thebes";
-    const before = releasedRoad("greek-harbor", 25);
-    expect(before.packs["greek-drama"].revision).toBe(7);
-    before.routeKnowledge.vale = [
-      ["greek-harbor", "greek-courtyard"],
-      ["greek-courtyard", "greek-harbor"],
-      ["greek-harbor", road],
-    ];
-    const current = decodeSave(JSON.stringify(before));
-    expect(current.packs["greek-drama"].revision).toBe(greekRevision);
-    expect(current.routeKnowledge.vale).toEqual([
-      ["greek-harbor", road],
-      [road, "greek-courtyard"],
-      ["greek-courtyard", road],
-      [road, "greek-harbor"],
-    ]);
-    // The old help request for passage was a quest record; it is dropped.
-    expect(current.quests).toBeUndefined();
-    expect(decodeSave(encodeSave(current))).toEqual(current);
-  });
 
-  // Skipped: an old save has no Patroclus, so it no longer loads; old
-  // worlds retire with the package 6 fixtures.
-  it.skip("keeps a free place for a traveler when the port has four people", () => {
+  // package 6 fixtures: starts from a recorded old save, re-recorded after the bump.
+it.skip("keeps a free place for a traveler when the port has four people", () => {
     const before = releasedRoad("greek-road-athens-harbor");
     for (const actor of ["mara", "ash", "nell", "tavi"])
       before.actors[actor].place = "greek-athens-harbor";
@@ -180,24 +156,6 @@ describe("local town visits and road history", () => {
     expect(current.presentActors).toEqual(before.presentActors);
   });
 
-  // Skipped: an old save has no Patroclus, so it no longer loads; old
-  // worlds retire with the package 6 fixtures.
-  it.skip("moves a want for the former road to the road's town", () => {
-    const before = releasedRoad("greek-road-athens-harbor");
-    before.actors.mara.want = {
-      kind: "place",
-      target: "greek-road-athens-harbor",
-      since: 0,
-      refusals: 0,
-    };
-    const current = decodeSave(JSON.stringify(before));
-    expect(current.actors.mara.want).toMatchObject({
-      kind: "place",
-      target: "greek-piraeus",
-    });
-    expect(current.quests).toBeUndefined();
-    expect(decodeSave(encodeSave(current))).toEqual(current);
-  });
 
   it("keeps one road between towns and direct visits inside each town", () => {
     const w = createWorld({ packScopes: { "greek-drama": "full" } });

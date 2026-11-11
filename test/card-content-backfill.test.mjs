@@ -80,22 +80,6 @@ describe("content added after a world was saved", () => {
     expect(result.error).toMatch(/fresh start/);
   });
 
-  // Skipped: an old save has no Patroclus, so it no longer loads; old
-  // worlds retire with the package 6 fixtures.
-  it.skip("joins a rules 92 shared world as it upgrades", () => {
-    const { world } = engine(92, rules93)({ op: "create", seed: 7 });
-    const up = engine(
-      version,
-      grown,
-    )({
-      op: "upgrade",
-      from: "full-card-world/92",
-      to: `full-card-world/${version}`,
-      world,
-    });
-    expect(up.error).toBeUndefined();
-    filled(up.world);
-  });
 
   it("joins a current shared world as it repacks", () => {
     const { world } = engine(version, content)({ op: "create", seed: 7 });

@@ -56,11 +56,11 @@ describe("fast check Rust test selection", () => {
   });
 
   it("runs consequence replay for rule modules and pinned evidence", () => {
+    // The old pinned traces (rules 130-132) retired with the rules 133 bump, so
+    // the rule modules the crate names, and the busy-world evidence it reads.
     for (const path of [
-      "v2/card-game/lamp-state.mjs",
-      "v2/card-game/pack-registry.mjs",
-      "v2/card-game/world/perform.mjs",
-      "test/fixtures/radio-entry-rules-130.json",
+      "v2/card-game/world.mjs",
+      "test/fixtures/card-world-life-busy.json",
     ])
       expect(pick(path)).toContain("card_shared::world_life_tests::");
   });
@@ -82,7 +82,8 @@ describe("fast check Rust test selection", () => {
     expect(pick(`${SRC}/card_shared/engine-v98.js`)).toEqual(["card_shared::"]);
     const packs = pick("v2/card-game/packs.json");
     expect(packs).toContain("routes::card_game::");
-    expect(packs).toContain("card_shared::full_tests::");
+    expect(packs).toContain("card_shared::content::");
+    expect(packs).toContain("card_shared::world_life_tests::");
     expect(packs).not.toContain(N); // routes::card_game:: covers it
     expect(pick("v2/core-c/src/card_table.c")).toEqual(["card_shared::"]);
   });

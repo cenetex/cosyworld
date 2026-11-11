@@ -102,7 +102,6 @@ objected to):
 - A box whose place the avatar has already stood in pays no opening XP, so the
   mirror back to the attic does not pay Vale for returning home.
 
-<<<<<<< HEAD
 ## Owner decisions, 2026-11-11 (quest card labels)
 
 1. A held quest's one button is always **Discard** (with its XP cost on a level
@@ -112,7 +111,7 @@ objected to):
    resident and the level quest. The bar's caption tells them apart.
 3. Offered quests are closed boxes first: "A closed box", then Open box, then
    Accept quest. Nothing of the quest shows before it is opened.
-=======
+
 ## Owner decisions, 2026-11-11: derived wants
 
 These bind how every lock and quest is worded (rules 133). Built in
@@ -147,7 +146,6 @@ These bind how every lock and quest is worded (rules 133). Built in
    Where nothing can be read, the box only says it is locked; the player
    learns the rest because an avatar tells them or an item's or place's
    description says so. Those gaps are content gaps, not text to patch.
->>>>>>> origin/claude/bump-derived-wants
 
 ## Already decided earlier
 

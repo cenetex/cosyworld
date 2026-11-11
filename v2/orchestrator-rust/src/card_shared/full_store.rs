@@ -1,5 +1,5 @@
 use super::{
-    content, engine,
+    content, engine, full_floor as floor,
     full_world::{actor_id, actor_index, run_seed, World},
     store::{self, sql_error, Result},
 };
@@ -59,6 +59,10 @@ pub(super) fn seed(c: &Connection, id: &str, w: &World, reason: &str, now: i64) 
 }
 pub(super) fn world(c: &Connection, id: &str, now: i64) -> Result<World> {
     store::exists(c, id)?;
+    // Rules older than the floor are never replayed (full_floor.rs).
+    if floor::below(c, id)? {
+        return Err(floor::CLOSED.into());
+    }
     let cached: Option<(i64, String)> = c
         .query_row(
             "SELECT seq,state FROM card_full_checkpoints WHERE world=?",
@@ -555,12 +559,12 @@ mod tests {
         opened
     }
     #[test]
-    fn newer_rules_wait_for_the_swap_and_older_ones_need_a_migration() {
+    fn newer_rules_wait_for_the_swap_and_older_ones_are_closed() {
         let next = format!(
             "full-card-world/{}",
             engine::VERSION[16..].parse::<u32>().unwrap() + 1
         );
-        let migration = "This world's rules need a saved migration.";
+        let closed = floor::CLOSED;
         // The release swap: a newer checkpoint, a newer play, a newer upgrade.
         assert_eq!(opened(&next, None).unwrap_err(), engine::UPDATING);
         let play = json!({"op":"release","actor":"mara"});
@@ -570,10 +574,11 @@ mod tests {
             opened(engine::VERSION, Some(upgrade)).unwrap_err(),
             engine::UPDATING
         );
-        // Genuine migrations keep their error.
-        assert_eq!(opened("full-card-world/1", None).unwrap_err(), migration);
-        assert_eq!(opened("full-card-world/x", None).unwrap_err(), migration);
-        assert_eq!(opened("other-world/999", None).unwrap_err(), migration);
+        // Rules older than the floor, or unreadable, are closed (full_floor.rs).
+        assert_eq!(opened("full-card-world/1", None).unwrap_err(), closed);
+        assert_eq!(opened("full-card-world/132", None).unwrap_err(), closed);
+        assert_eq!(opened("full-card-world/x", None).unwrap_err(), closed);
+        assert_eq!(opened("other-world/999", None).unwrap_err(), closed);
         assert!(opened(engine::VERSION, None).is_ok());
     }
 }

@@ -1,6 +1,3 @@
-import { upgradedItems } from "./fixtures/card-upgraded-items.mjs";
-import { readFileSync } from "node:fs";
-import vm from "node:vm";
 import { describe, expect, it } from "vitest";
 import {
   decodeSave,
@@ -15,7 +12,6 @@ import {
   packWaitChoice,
 } from "../v2/card-game/pack-registry.mjs";
 import { knowsFact } from "../v2/card-game/knowledge.mjs";
-import { courseToward } from "../v2/card-game/pack-transport.mjs";
 import { recitalPoem } from "../v2/card-game/pack-recital.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import { sharedContext } from "../v2/card-game/shared-narrator.mjs";
@@ -308,53 +304,10 @@ describe("Earth Beside the Ships", () => {
   });
 });
 
-describe("Ajax save continuity", () => {
-  // Skipped: an old save has no Patroclus, so it no longer loads; old
-  // worlds retire with the package 6 fixtures.
-  it.skip.each([17, 18, 19])(
-    "adds the new cast and brings a version-%s uninvited camp visitor home",
-    (version) => {
-      const context = vm.createContext({});
-      vm.runInContext(
-        readFileSync(
-          new URL(
-            `../v2/orchestrator-rust/src/card_shared/engine-v${version}.js`,
-            import.meta.url,
-          ),
-          "utf8",
-        ),
-        context,
-      );
-      const before = JSON.parse(
-        context.cardShared(JSON.stringify({ op: "create" })),
-      ).world;
-      delete before.opening;
-      before.packs["greek-drama"].scope = "full";
-      before.actors.vale.place = "greek-greek-camp";
-      before.items.lamp.holder = "vale";
-      const after = decodeSave(JSON.stringify(before));
-      expect(after.packs["greek-drama"].revision).toBe(
-        packDefinition("greek-drama").revision,
-      );
-      // Without the Trojan invitation the ship does not call at the camp, so the
-      // visitor goes back to Aulis, the way they came.
-      expect(after.actors.vale.place).toBe("greek-aulis");
-      expect(after.items.lamp).toEqual(upgradedItems(before.items, after).lamp);
-      expect(after.log).toEqual(before.log);
-      expect(after.packs["greek-drama"].receipts).toEqual(
-        before.packs["greek-drama"].receipts,
-      );
-      expect(entityActive(after, "greek-ajax-teucer")).toBe(false);
-      expect(exits(after, "greek-aulis")).toContain("greek-gate");
-      expect(reload(after)).toEqual(after);
-    },
-  );
-});
 
 describe("shared Ajax testimony", () => {
-  // Skipped: replays a recorded save through the removed Theban-response
-  // branch; retired with the fixtures in package 6 fixtures.
-  it.skip("lets a second carrier learn the signed account and bring its paper to Dione", () => {
+  // package 6 fixtures: starts from a recorded old save, re-recorded after the bump.
+it.skip("lets a second carrier learn the signed account and bring its paper to Dione", () => {
     const original = ajaxAccount("public");
     let world = dispatchShared({
       op: "create",

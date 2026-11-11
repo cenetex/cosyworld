@@ -1,12 +1,11 @@
 import { fillLampFuel, settleLamp } from "../v2/card-game/lamp-state.mjs";
 import { roomFuelFromTurns } from "../v2/card-game/lamp-room-fuel.mjs";
-import { beforeFuneral } from "./fixtures/card-upgraded-items.mjs";
 import { atticOpening, selectLamp } from "./fixtures/card-attic-opening.mjs";
 import {
   summonTransport,
   moveTransport,
 } from "../v2/card-game/pack-transport.mjs";
-import { crossings, packDefinition } from "../v2/card-game/pack-registry.mjs";
+import { crossings } from "../v2/card-game/pack-registry.mjs";
 import { crossingOpen } from "../v2/card-game/pack-rules.mjs";
 import { senses } from "../v2/card-game/world.mjs";
 const gate = (id) => crossings.find((c) => c.id === id);
@@ -15,8 +14,6 @@ const greekShipPresent = (s) =>
 const shipSignalPhase = (s) => s.crossings["pond-greek-harbor"].phase;
 import { test } from "vitest";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import vm from "node:vm";
 import {
   legalActions,
   exits,
@@ -315,28 +312,6 @@ test("earlier saves get an unsummoned pond and keep their history and belongings
   assert.deepEqual(s.memories, old.memories);
   visible(s, false);
 });
-test("a revision 9 save retires partial marks but preserves discovery", () => {
-  // Old partial marks no longer grant progress; completed discovery persists.
-  for (const [phase, discovered] of [
-    [1, false],
-    [2, false],
-    [2, true],
-    [3, true],
-    [4, true],
-  ]) {
-    const old = pond();
-    old.packs["greek-drama"].revision = 9;
-    beforeFuneral(old);
-    Object.assign(old.crossings["pond-greek-harbor"], { phase, discovered });
-    const s = decodeSave(JSON.stringify(old));
-    assert.equal(
-      s.packs["greek-drama"].revision,
-      packDefinition("greek-drama").revision,
-    );
-    assert.equal(shipSignalPhase(s), undefined);
-    assert.equal(s.crossings["pond-greek-harbor"].discovered, discovered);
-  }
-});
 test("invalid saved discovery values fail validation", () => {
   for (const value of [-1, 5, 2.5, "3", null, {}, []]) {
     const s = pond();
@@ -530,43 +505,6 @@ test("saved ship state names a dock and a valid occupied leg", () => {
   }
 });
 
-test("older occupied ship saves regain the departure dock and wait there for a course", () => {
-  for (const destination of ["pond", "greek-harbor"]) {
-    const old = pond();
-    old.actors.vale.place = "greek-ship";
-    old.transports["greek-ship"] = { dock: null, destination, recall: "pond" };
-    const upgraded = decodeSave(JSON.stringify(old));
-    assert.deepEqual(upgraded.transports["greek-ship"], {
-      version: 3,
-      phase: "docked",
-      dock: destination === "pond" ? "greek-harbor" : "pond",
-      destination: null,
-      riders: [],
-      since: old.turn,
-      recall: "pond",
-    });
-    assert.deepEqual(
-      legalActions(upgraded)
-        .filter((a) => a.kind === "course")
-        .map((a) => a.target),
-      [destination],
-    );
-    assert.deepEqual(upgraded.actors, old.actors);
-    // Moving a carried lamp into the historical ship location settles one room.
-    const expectedItems = structuredClone(old.items);
-    Object.assign(expectedItems.lamp, {
-      fuelRooms: 2,
-      fuel: 8,
-      fuelPlace: "greek-ship",
-      fuelVisit: true,
-      lit: true,
-    });
-    assert.deepEqual(upgraded.items, expectedItems);
-    assert.equal(upgraded.items.lamp.holder, old.items.lamp.holder);
-    assert.deepEqual(upgraded.log, old.log);
-    assert.deepEqual(reload(upgraded), upgraded);
-  }
-});
 
 test("a validated human already aboard keeps the saved voyage", () => {
   const old = pond();
@@ -630,63 +568,5 @@ test("legacy ship validation runs before the boarding migration", () => {
     };
     change(old);
     assert.throws(() => decodeSave(JSON.stringify(old)));
-  }
-});
-
-// Skipped: an old save has no Patroclus, so it no longer loads; old
-// worlds retire with the package 6 fixtures.
-test.skip("older completed signals become a waiting ship and retain their history", () => {
-  const context = vm.createContext({});
-  vm.runInContext(
-    readFileSync(
-      new URL(
-        "../v2/orchestrator-rust/src/card_shared/engine-v9.js",
-        import.meta.url,
-      ),
-      "utf8",
-    ),
-    context,
-  );
-  for (const phase of [0, 1, 2, 3, 4]) {
-    // The frozen engine supplies the pre-expansion cast and objects. Remove
-    // its ship fields to exercise the earlier transport migration.
-    const old = JSON.parse(
-      context.cardShared(JSON.stringify({ op: "create" })),
-    ).world;
-    delete old.opening;
-    old.actors.vale.place = "pond";
-    old.packs["greek-drama"].revision = 1;
-    beforeFuneral(old);
-    old.crossings["pond-greek-harbor"] = {
-      phase,
-      until: 0,
-      discovered: phase === 4,
-    };
-    delete old.transports;
-    delete old.memories["greek-ship"];
-    const s = decodeSave(JSON.stringify(old));
-    // The arrangement has no partial signal marks; old discovery survives.
-    assert.equal(shipSignalPhase(s), undefined);
-    visible(s, phase === 4);
-    assert.deepEqual(s.log, old.log);
-    // The save upgrade drops the old flask's dose count; one flask fills one lamp.
-    delete old.items.oil.doses;
-    for (const [id, item] of Object.entries(old.items)) {
-      if (id === "lamp") {
-        const { fuel, lit, ...oldPhysical } = item;
-        const {
-          fuelRooms,
-          fuelPlace,
-          fuelVisit,
-          fuel: projection,
-          lit: currentLight,
-          ...physical
-        } = s.items.lamp;
-        assert.deepEqual(physical, oldPhysical);
-        assert.equal(projection, fuelRooms * 4);
-        assert.equal(s.items.lamp.fuelRooms, Math.ceil(item.fuel / 4));
-      } else assert.deepEqual(s.items[id], item);
-    }
-    assert.deepEqual(reload(s), s);
   }
 });
