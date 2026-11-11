@@ -19,7 +19,6 @@ import {
 } from "../v2/card-game/pack-registry.mjs";
 import { enableMotives } from "../v2/card-game/motives.mjs";
 import { boardyPack, boardyFacts } from "../v2/card-game/boardyai.mjs";
-import { upgradeBoardyStationSave } from "../v2/card-game/legacy-saves.mjs";
 import { sceneStaging } from "../v2/card-game/scene.mjs";
 
 const entrance = boardyPack.crossings.find(
@@ -176,34 +175,6 @@ describe("BoardyAI's presence and home", () => {
     world.items["boardyai-calling-card"].holder = "vale";
     expect(view(world, ["vale"]).exits).not.toContain("boardyai-parlour");
     expect(view(world).exits).toContain("boardyai-parlour");
-  });
-
-  it("moves a revision 1 card resting at the pond, with its routes, to the station", () => {
-    const world = fresh();
-    world.packs.boardyai.revision = 1;
-    world.items["boardyai-calling-card"].holder = "pond";
-    world.routeKnowledge.vale = [
-      ["pond", "boardyai-parlour"],
-      ["boardyai-parlour", "pond"],
-      ["station", "boardyai-parlour"],
-      ["pond", "station"],
-    ];
-    upgradeBoardyStationSave(world);
-    expect(world.packs.boardyai.revision).toBe(2);
-    expect(world.items["boardyai-calling-card"].holder).toBe("station");
-    expect(world.routeKnowledge.vale).toEqual([
-      ["station", "boardyai-parlour"],
-      ["boardyai-parlour", "station"],
-      ["pond", "station"],
-    ]);
-    const held = fresh();
-    held.packs.boardyai.revision = 1;
-    held.items["boardyai-calling-card"].holder = "mara";
-    upgradeBoardyStationSave(held);
-    expect(held.items["boardyai-calling-card"].holder).toBe("mara");
-    const before = structuredClone(world);
-    upgradeBoardyStationSave(world);
-    expect(world).toEqual(before);
   });
 
   it("validates his home and bounded human presence conditions", () => {

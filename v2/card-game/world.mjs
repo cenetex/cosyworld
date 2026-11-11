@@ -181,7 +181,7 @@ import {
   laneEdges,
   learnLane,
 } from "./pack-transport.mjs";
-import { upgradeSave } from "./legacy-saves.mjs";
+import { SAVE_SCHEMA, upgradeSave } from "./legacy-saves.mjs";
 import { settleVisitSpeech, validVisitSpeech } from "./visit-speech.mjs";
 import { togglePack, validDisabledPacks } from "./pack-toggle.mjs";
 import {
@@ -3142,7 +3142,7 @@ export function validateWorld(s) {
   };
   if (
     !s ||
-    s.schema !== 7 ||
+    s.schema !== SAVE_SCHEMA ||
     !Number.isSafeInteger(s.turn) ||
     s.turn < 0 ||
     !Number.isSafeInteger(s.revision) ||
@@ -3707,8 +3707,6 @@ export function decodeSave(text) {
       actorIds,
       installPacks,
       laneText: laneFactText,
-      setAside: (world, id) =>
-        !humanHeld(world, id) && setAsideWant(world, id, wantAPI(world)),
     });
     installJourneyProgress(s, packDefinitions);
     // An earlier save records the gates already open as it loads, and its

@@ -154,6 +154,7 @@ import { openTableSession } from "./table-session.mjs";
 import { createNarrator, requestNarrative, silentLines } from "./narrative.mjs";
 import { signedRequest } from "./signed-words.mjs";
 import { rememberLocalUpgrades, wearLocalUpgrades } from "./scarves.mjs";
+import { carryLocalProgress, retiredSave } from "./legacy-saves.mjs";
 import { coveredText, coveredTextReader, markWaking } from "./speech-knowledge.mjs";
 import { packMedia } from "./pack-registry.mjs";
 import { createRadioPlayer } from "./radio-player.mjs";
@@ -332,11 +333,14 @@ function notice(text, playStatus = "") {
   line.dataset.playStatus = text ? playStatus : "";
   syncActionBeat();
 }
+// A save from before the current schema is retired, not lifted: it reads as
+// a fresh start that keeps the traveler's level and upgrades (legacy-saves.mjs).
+const readableSave = (text) => retiredSave(text) || decodeSave(text);
 const localBackups =
   localRuntime()?.backups && !sharedSession
     ? createLocalBackups({
         slot: SAVE_KEY,
-        validate: decodeSave,
+        validate: readableSave,
         onError: notice,
       })
     : null;
@@ -355,7 +359,12 @@ try {
   } catch {
     storageBlocked = true;
   }
-  if (saved) {
+  const retired = saved && retiredSave(saved);
+  if (retired) {
+    // The old world is not opened: a fresh table carries level and upgrades.
+    world = carryLocalProgress(world, retired);
+    rememberLocalUpgrades(world);
+  } else if (saved) {
     openingTable = false;
     // A save from before run seeds takes one once, as a shared world does.
     const restored = decodeSave(saved);
@@ -575,7 +584,7 @@ if (localBackups) {
     slot: SAVE_KEY,
     backups: localBackups,
     getSave: () => encodeSave(world),
-    validate: decodeSave,
+    validate: readableSave,
   });
   window.addEventListener("pagehide", () => {
     void localBackups.flush();

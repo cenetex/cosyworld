@@ -221,27 +221,4 @@ describe("the Exposed Battlefield", () => {
     expect(waysOut(s)).toEqual([ROAD, GATE, "greek-polynices-hollow"]);
   });
 
-  it("keeps the road open in a rules 99 world upgraded to 100", () => {
-    const file = (f) =>
-      readFileSync(`v2/orchestrator-rust/src/card_shared/${f}`, "utf8");
-    const context = vm.createContext({
-      structuredClone,
-      // Released rules read the content they shipped with.
-      cardContent: JSON.parse(
-        readFileSync("test/fixtures/card-content-rules-101.json", "utf8"),
-      ),
-    });
-    vm.runInContext(file("engine-v99.js"), context);
-    const old = JSON.parse(
-      context.cardShared(JSON.stringify({ op: "create", seed: 9 })),
-    ).world;
-    // The road is open after this old world loads under current rules.
-    delete old.opening;
-    old.packs["greek-drama"].scope = "full";
-    old.actors.vale.place = FIELD;
-    const upgraded = decodeSave(JSON.stringify(old));
-    expect(upgraded.items["greek-decree"]).toEqual(old.items["greek-decree"]);
-    expect(waysOut(upgraded)).toEqual([ROAD, GATE, "greek-polynices-hollow"]);
-    expect(exits(upgraded, FIELD, GUARD)).toContain(GATE);
   });
-});

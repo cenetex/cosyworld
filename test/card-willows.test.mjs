@@ -490,22 +490,6 @@ describe("The Willows", () => {
     expect(world.actors["willows-swede"].place).toBe("pond");
   });
 
-  it("upgrades a revision 1 save: the ending and gear chain leave, the kit scatters", () => {
-    const old = discoveries();
-    const saved = old.packs.willows;
-    saved.revision = 1;
-    saved.receipts["willows-choose-watch"] = old.turn;
-    saved.choices["willows-response"] = "watch";
-    saved.flags["willows-gear-laid"] = true;
-    old.items["willows-rope"].holder = "willows-camp";
-    old.actors.vale.place = "willows-thicket";
-    const world = decodeSave(JSON.stringify(old));
-    expect(world.packs.willows.revision).toBe(2);
-    expect(world.packs.willows.choices).toEqual({});
-    expect(world.packs.willows.flags["willows-gear-laid"]).toBeUndefined();
-    expect(world.items["willows-rope"].holder).toBe("willows-bank");
-    expect(world.actors.vale.place).toBe("willows-thicket");
-  });
 
   it("paces the willows nearer by night and keeps night signs to the dark", () => {
     const night = (world) => {

@@ -141,7 +141,8 @@ pub(super) fn holder(c: &Connection, id: &str, a: usize) -> Result<Option<String
     .optional()
     .map_err(sql_error)
 }
-// The other worlds where this person holds this avatar's seat or claim.
+// The other worlds where this person holds this avatar's seat or claim. A
+// retired world keeps its rows but no seat (full_floor.rs).
 pub(super) fn seats_elsewhere(
     c: &Connection,
     id: &str,
@@ -150,8 +151,9 @@ pub(super) fn seats_elsewhere(
 ) -> Result<Vec<String>> {
     let mut q = c
         .prepare(
-            "SELECT world FROM card_bindings WHERE user=?1 AND actor=?2 AND world<>?3
-             UNION SELECT world FROM card_members WHERE user=?1 AND actor=?2 AND world<>?3",
+            "SELECT world FROM (SELECT world FROM card_bindings WHERE user=?1 AND actor=?2
+             UNION SELECT world FROM card_members WHERE user=?1 AND actor=?2)
+             WHERE world<>?3 AND world IN (SELECT id FROM card_tables WHERE retired_at IS NULL)",
         )
         .map_err(sql_error)?;
     let worlds = q

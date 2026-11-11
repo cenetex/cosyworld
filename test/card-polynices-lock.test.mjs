@@ -134,32 +134,3 @@ it("keeps NPC Talk outside the player's unlock choice", () => {
   expect(world.packs[pack].flags[heard]).toBeUndefined();
   expect(exits(world, field, antigone)).not.toContain(hollow);
 });
-
-it("closes the former static exit when an untouched revision 21 save loads", () => {
-  const world = start();
-  world.packs[pack].revision = 21;
-  const restored = decodeSave(JSON.stringify(world));
-  expect(restored.packs[pack].revision).toBe(packDefinition(pack).revision);
-  expect(isLockedBox(restored, hollow)).toBe(true);
-  for (const actor of ["vale", antigone])
-    expect(exits(restored, field, actor)).not.toContain(hollow);
-  expect(exits(restored, hollow, "vale")).toContain(field);
-});
-
-it("keeps accepted funeral progress and the return path in revision 21 saves", () => {
-  const states = funeralJourney();
-  for (const phase of ["anointed", "veiled", "buried"]) {
-    const world = structuredClone(states[phase]);
-    const saved = world.packs[pack];
-    delete saved.flags[heard];
-    delete saved.receipts["greek-hear-polynices"];
-    saved.revision = 21;
-    delete world.openedRoutes;
-    const restored = decodeSave(JSON.stringify(world));
-    expect(restored.packs[pack].flags).toEqual(saved.flags);
-    expect(restored.packs[pack].receipts).toEqual(saved.receipts);
-    expect(restored.packs[pack].revision).toBe(packDefinition(pack).revision);
-    expect(exits(restored, field, "vale")).toContain(hollow);
-    expect(exits(restored, hollow, "vale")).toContain(field);
-  }
-});

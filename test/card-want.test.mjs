@@ -296,26 +296,6 @@ describe("one want per avatar", () => {
     expect(next.actors.moth.want?.target).not.toBe("bell");
   });
 
-  it("drops quest records from a legacy save and keeps its world", () => {
-    const s = createWorld();
-    const legacy = JSON.parse(encodeSave(s));
-    for (const a of Object.values(legacy.actors)) {
-      delete a.want;
-      delete a.xp;
-      delete a.visited;
-      delete a.talked;
-      a.progress = { program: 1, step: 0, marks: [1] };
-    }
-    legacy.quests = { version: 1, next: 1, records: {}, focus: {} };
-    legacy.life = { version: 2, actors: {} };
-    const loaded = decodeSave(JSON.stringify(legacy));
-    expect(loaded.quests).toBeUndefined();
-    expect(loaded.actors.moth.progress).toBeUndefined();
-    expect(loaded.actors.moth.want).toMatchObject({
-      kind: "item",
-      target: "lamp",
-    });
-  });
 
   it("keeps a want on every active resident but the content through a long shared run", () => {
     const players = humanAvatarIds.slice(0, 4);

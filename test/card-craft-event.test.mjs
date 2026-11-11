@@ -84,15 +84,6 @@ it("gives a repeated craft its own identity while retaining the first outcome", 
   expect(decodeSave(encodeSave(world)).log).toEqual(world.log);
 });
 
-it("keeps old plain craft narration as its original record", () => {
-  // Only a recorded save has the old plain narration: current rules log a craft event.
-  const world = openingFixture("burial").water;
-  expect(crafts(world)).toEqual([]);
-  expect(
-    world.log.some((entry) => entry.text.includes("Courtyard Bread is ready")),
-  ).toBe(true);
-  expect(decodeSave(encodeSave(world)).log).toEqual(world.log);
-});
 
 it("records three consumed inputs when a Drop completes another recipe", () => {
   let world = greekErrands().waterOffer;

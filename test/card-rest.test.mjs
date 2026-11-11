@@ -391,13 +391,6 @@ describe("rest and sanctuary", () => {
     expect(legalActions(ship, "ada").some((a) => a.sleep)).toBe(false);
   });
 
-  it("lets a save from before rules 89 wake from its old sleep", () => {
-    const s = createWorld();
-    s.actors.vale.sleepUntil = DAYLIGHT_TURNS;
-    const loaded = decodeSave(JSON.stringify(s));
-    expect(loaded.actors.vale.sleepUntil).toBeUndefined();
-    expect(loaded.actors.vale.sleeping).toBeUndefined();
-  });
 
   it("brings a thought on waking from a long rest, and a dream only by the rules", () => {
     const context = { turn: 24, resting: "vale", rest: "long", entities: [] };
