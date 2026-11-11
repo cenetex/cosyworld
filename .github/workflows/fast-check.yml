@@ -239,9 +239,10 @@ jobs:
           key: ${{ runner.os }}-${{ runner.arch }}-playwright-${{ hashFiles('node_modules/playwright-core/package.json') }}
       - name: Use Ubuntu archive for browser dependencies
         run: |
-          # The Azure mirror delivered browser fonts at 18.4 kB/s in CI.
+          # Prefer the faster archive, but keep Azure as a DNS/outage fallback.
+          # apt-transport-mirror tries the lowest priority number first.
           if [ -f /etc/apt/apt-mirrors.txt ]; then
-            sudo sed -i 's|http://azure.archive.ubuntu.com/ubuntu|https://archive.ubuntu.com/ubuntu|g' /etc/apt/apt-mirrors.txt
+            sudo sed -E -i '\|^https?://archive\.ubuntu\.com/ubuntu/?[[:space:]]|s/priority:[0-9]+/priority:0/' /etc/apt/apt-mirrors.txt
             cat /etc/apt/apt-mirrors.txt
           fi
       - name: Install Chromium system dependencies
