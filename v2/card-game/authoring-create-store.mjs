@@ -18,10 +18,11 @@ const canonical = (value) =>
   );
 
 // A saved Create keeps its account, source and bytes until its receipt is durable.
-export function authoringCreateStore(db) {
+export function authoringCreateStore(db, check = () => {}) {
   function transact(key, owner, mode, change, includeDraft = false) {
     need(keyOk(key) && key.length <= 100, "Choose a local draft key.");
     need(keyOk(owner), "Check your account before creating a pack.");
+    check();
     return new Promise((resolve, reject) => {
       const tx = db.transaction(
           includeDraft ? ["drafts", "creates"] : ["creates"],
@@ -38,6 +39,7 @@ export function authoringCreateStore(db) {
       const read = store.get([key, owner]);
       read.onsuccess = () => {
         try {
+          check();
           result = change(read.result ?? null, store, draft);
         } catch (error) {
           problem = error;

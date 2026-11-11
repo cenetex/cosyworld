@@ -50,6 +50,7 @@ const files = [
   "avatar-world.mjs",
   "authoring-fields.mjs",
   "authoring-draft.mjs",
+  "account-reset-storage.mjs",
   "authoring-local-store.mjs",
   "authoring-create-store.mjs",
   "authoring-job-store.mjs",

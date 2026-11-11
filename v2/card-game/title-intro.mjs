@@ -1,3 +1,4 @@
+import { accountStorage as localStorage } from "./account-reset-storage.mjs";
 import acknowledgement from "./acknowledgement.json" with { type: "json" };
 import landings from "./pack-landings.json" with { type: "json" };
 import { PLAYING_KEY, SAVE_BASE } from "./avatar-world.mjs";
@@ -228,7 +229,7 @@ export function titleIntroWanted({ href, storage, local, webdriver }) {
 }
 
 // Creating or joining a shared world queues its title for the next page.
-export function queueTitleIntro(world, storage = globalThis.localStorage) {
+export function queueTitleIntro(world, storage = localStorage) {
   try {
     storage.setItem(INTRO_KEY, world);
   } catch {}
@@ -623,7 +624,7 @@ const SCROLL_KEYS = [
 // Resolves when the overlay is gone.
 export function playTitleIntro({
   logo = LOGOS[0],
-  storage = globalThis.localStorage,
+  storage = localStorage,
   song = createTitleSong({ storage }),
   cardOnly = false,
   signal,
