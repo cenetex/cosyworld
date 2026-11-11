@@ -22,14 +22,14 @@ pub(super) async fn chat(
         valid_id(&id)?;
         let revision = super::super::revision(&state, &h)?;
         let u = &revision.user;
-        admit(&u)?;
+        admit(u)?;
         let c = db(&state)?;
         store::schema(&c)?;
         let row: Option<(usize, String, String, i32)> = c.query_row(
             "SELECT actor,room,narrative,retries FROM card_full_plays WHERE world=? AND id=? AND user=? AND status='working' AND until_at>?",
             params![id, body.key, u, now()], |r| Ok((r.get(0)?,r.get(1)?,r.get(2)?,r.get(3)?))).optional().map_err(sql_error)?;
         let (actor, room, text, attempt) = row.ok_or("Choose your current browser chat play.")?;
-        if super::super::store::member(&c, &id, &u)? != Some(actor as i32) {
+        if super::super::store::member(&c, &id, u)? != Some(actor as i32) {
             return Err("Choose your claimed avatar.".into());
         }
         let context: Value = serde_json::from_str(&text).map_err(sql_error)?;
