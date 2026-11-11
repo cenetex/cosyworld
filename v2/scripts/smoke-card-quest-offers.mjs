@@ -22,6 +22,7 @@ import { journeyWorlds } from "../../test/helpers/journey.mjs";
 import { questCards } from "../../test/journeys/quest-cards.mjs";
 import {
   clearSelection,
+  openPack,
   putOutOpening,
   revealCard,
   selectCard,
@@ -162,12 +163,48 @@ try {
       (await page.locator("#card-actions button").first().getAttribute("data-tap-verb")) ||
       (await page.locator("#card-actions button").first().textContent());
 
-    // Selects a face-down offer by hand and checks it leaks nothing: not in
-    // the bar, the button, any accessible name or the card itself.
+    // A face-down offer leaks nothing: not in the bar, the button, any
+    // accessible name or the card itself. Alone, it is selected by hand and
+    // its one button opens it. Among three or more face-down cards it lies
+    // in the pack, where the first tap turns it (pack-opening.mjs); it is
+    // then chosen like any card.
     const closedOffer = async (page, t, id, shot) => {
       const card = page.locator(`#hand [data-card="${id}"]`);
       assert.equal(await card.getAttribute("data-unrevealed"), "true");
       assert.equal(await card.getAttribute("aria-label"), "Closed box. Select to inspect.");
+      const leaks = (id) =>
+        page.evaluate(
+          (id) =>
+            [
+              document.querySelector(`#hand [data-card="${id}"]`).textContent,
+              document.querySelector("#action-beat").innerText,
+              ...[...document.querySelectorAll(
+                `#card-actions *, #action-beat *, #hand [data-card="${id}"] *`,
+              )].flatMap((el) => [
+                el.getAttribute("aria-label"),
+                el.getAttribute("title"),
+                el.getAttribute("alt"),
+                el.getAttribute("src"),
+              ]),
+            ]
+              .filter(Boolean)
+              .join(" | "),
+          id,
+        );
+      const noLeak = /lamp|pip|moth|quest|give|take|accept|cloth|writ/iu;
+      if ((await card.locator("..").getAttribute("data-pack")) !== null) {
+        assert.doesNotMatch(await leaks(id), noLeak);
+        assert.equal(await openPack(page, id), true);
+        await page.waitForFunction(
+          (id) => document.querySelector(`#hand [data-card="${id}"]`)?.dataset.unrevealed === "false",
+          id,
+        );
+        await card.scrollIntoViewIfNeeded();
+        await card.click();
+        await t.ready();
+        assert.equal(await t.oneButton(), 1);
+        return;
+      }
       await card.scrollIntoViewIfNeeded();
       await card.click();
       await t.ready();
@@ -177,25 +214,8 @@ try {
       assert.equal(await button.isDisabled(), false);
       assert.equal(await page.locator("#selection-name").textContent(), "Closed box");
       assert.match(await page.locator("#action-beat").innerText(), /A closed box/u);
-      const seen = await page.evaluate(
-        (id) =>
-          [
-            document.querySelector(`#hand [data-card="${id}"]`).textContent,
-            document.querySelector("#action-beat").innerText,
-            ...[...document.querySelectorAll(
-              `#card-actions *, #action-beat *, #hand [data-card="${id}"] *`,
-            )].flatMap((el) => [
-              el.getAttribute("aria-label"),
-              el.getAttribute("title"),
-              el.getAttribute("alt"),
-              el.getAttribute("src"),
-            ]),
-          ]
-            .filter(Boolean)
-            .join(" | "),
-        id,
-      );
-      assert.doesNotMatch(seen, /lamp|pip|moth|quest|give|take|accept|cloth|writ/iu, seen);
+      const seen = await leaks(id);
+      assert.doesNotMatch(seen, noLeak, seen);
       if (shot) await t.shot(shot);
       await button.click();
       await page.waitForFunction(

@@ -143,6 +143,8 @@ const files = [
   "card-label.mjs",
   "card-descriptor.mjs",
   "card-reveal.mjs",
+  "pack-opening.mjs",
+  "card-sfx.mjs",
   "card-entry.mjs",
   "card-exit.mjs",
   "card-ghost.mjs",

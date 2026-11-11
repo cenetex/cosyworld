@@ -82,8 +82,51 @@ export async function startNewGame(page) {
   await pressSetting(page, "new-game", 2);
 }
 
+// Three or more unturned cards lie in the hand as one face-down stack (the
+// pack, pack-opening.mjs), and the cards in it are tucked away. A step that
+// wants one of them opens the pack as a player would: tap the stack, tap the
+// card (inside a pack the first tap turns it), then tap away. Only that card
+// is turned; the rest go back face down, and form a pack again if three or
+// more remain. Returns whether the card was in a pack.
+export async function openPack(page, id) {
+  const card = page.locator(`#hand [data-card="${id}"]`);
+  if ((await card.count()) === 0) return false;
+  const inPack = async () =>
+    (await card.locator("..").getAttribute("data-pack")) !== null;
+  if (!(await inPack())) return false;
+  const stack = page.locator(
+    '#hand > .card-frame[data-pack="closed"]:not([hidden]) > .card',
+  );
+  if (await stack.count()) {
+    await stack.first().click({ position: await visibleSpot(stack.first()) });
+    await page.locator('#hand [data-pack="open"]').first().waitFor();
+    // The hand rises and the cards rise into the row (460 ms, 350 ms apart).
+    await page.waitForTimeout(900);
+  }
+  // The row is raised and the card is in it: a tap turns it at once.
+  if ((await card.getAttribute("data-unrevealed")) === "true") {
+    await card.scrollIntoViewIfNeeded();
+    await card.click({ position: await visibleSpot(card) });
+    await page.waitForFunction(
+      (id) => {
+        const card = document.querySelector(`#hand [data-card="${id}"]`);
+        return card?.dataset.unrevealed === "false" && !card.dataset.revealing;
+      },
+      id,
+    );
+  }
+  // Tapping away puts the pack back into the hand, the pointer left over
+  // empty ground where it would not lift a card.
+  await page.keyboard.press("Escape");
+  await page.mouse.move(2, 2);
+  await page.waitForFunction(() => !document.querySelector('#hand [data-pack="open"]'));
+  await page.waitForTimeout(700);
+  return true;
+}
+
 // Use the same holder reveal and selection gestures as a player.
 export async function revealCard(page, id, { keepSelected = false } = {}) {
+  await openPack(page, id);
   const card = page.locator(`#hand [data-card="${id}"]`);
   const wasSelected = (await card.getAttribute("aria-pressed")) === "true";
   const frame = card.locator("..");
@@ -91,7 +134,10 @@ export async function revealCard(page, id, { keepSelected = false } = {}) {
   if ((await frame.getAttribute("hidden")) !== null) {
     if (!holder) await fanWays(page, frame);
     else if (!(await fanAvatarStack(page, holder))) {
-      await tapCard(await revealCard(page, holder));
+      // A pack settled back leaves more cards face up in the fan, so aim at
+      // a spot where the holder is topmost.
+      const owner = await revealCard(page, holder);
+      await owner.click({ position: await visibleSpot(owner) });
       await fanAvatarStack(page, holder);
     }
   } else if (
