@@ -33,7 +33,7 @@ use crate::{
 /// `v2/card-game/metrics.mjs`; a name outside it refuses the whole batch.
 pub(crate) const COUNTERS: &str = "\
     session.start session.end play.accompany play.ask play.attack \
-    play.choose play.course play.cover play.drop play.give play.guard \
+    play.course play.cover play.drop play.give play.guard \
     play.intercept play.light play.move play.refuel play.retreat play.ring \
     play.sleep play.snuff play.take play.talk play.threaten play.trade \
     play.use play.wait play.other quest.accept quest.abandon quest.met \

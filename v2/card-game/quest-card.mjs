@@ -1,8 +1,7 @@
-// The player's quest stack, drawn as quest cards in the hand: each its
-// target's art with the rules' own words for the want as the caption.
-// Nothing here is authored or decides anything; the rules own the stack
-// (want.mjs).
-import { CONNECT_TARGET, questRewardsOf, questsOf, wantKey } from "./want.mjs";
+// The player's one quest, drawn as a quest card in the hand: its target's
+// art with the rules' own words for the want as the caption. Nothing here is
+// authored or decides anything; the rules own the want (want.mjs).
+import { CONNECT_TARGET, questsOf, wantKey } from "./want.mjs";
 import { conditionsMet, consumable } from "./pack-registry.mjs";
 import { cardLevel, levelTier, romanLevel } from "./rarity.mjs";
 import {
@@ -53,11 +52,11 @@ export function questVisible(world, quest) {
     ), quest.actor);
 }
 
-// Each quest in the player's stack, top first. A card's key changes when its
-// quest is met, set aside or moves on a step.
+// The quest the player holds: a list of none or one (questsOf is the rules'
+// zero-or-one view of the single want). A card's key changes when its quest
+// is met, set aside or moves on a step.
 export const questCards = (world, actor = currentActor(world)) =>
-  questsOf(world, actor).map((want, index) => questFromWant(world, actor, want, index));
-const questFromWant = (world, actor, want, index) => ({
+  questsOf(world, actor).map((want, index) => ({
     key: wantKey(actor, want),
     index,
     actor,
@@ -70,17 +69,8 @@ const questFromWant = (world, actor, want, index) => ({
     step: want.step ?? null,
     ...(want.lit === undefined ? {} : { lit: want.lit }),
     ...burial(world, want),
-  });
-// Each saved deed keeps its identity until its owner collects it.
-export const questRewardCards = (world, actor = currentActor(world)) =>
-  questRewardsOf(world, actor).slice().reverse().map((reward) => ({
-    ...questFromWant(world, actor, reward.want, null),
-    key: `reward:${actor}:${reward.id}`,
-    receiptId: reward.id,
-    earnedXp: reward.xp,
-    earnedLevel: reward.level,
   }));
-// The top quest, the one the folded card shows, or null.
+// The held quest, the one the folded card shows, or null.
 export const questCard = (world, actor = currentActor(world)) =>
   questCards(world, actor)[0] ?? null;
 
@@ -294,43 +284,14 @@ export function questTier(quest, world = null, known = () => true) {
   return levelTier(Math.max(quest.level ?? 0, ...levels));
 }
 
-// The quests shown before that the rules have since met: each left the
-// stack, or moved on a step, with a `want_met` event after `seq`.
-export function metQuests(before, world, seq) {
-  const live = new Set(questCards(world, before[0]?.actor).map((q) => q.key));
-  const gone = before.filter((q) => !live.has(q.key));
-  const met = [];
-  for (const e of world.log)
-    if (e.seq > seq && e.verb === "want_met") {
-      const i = gone.findIndex(
-        (q) =>
-          (e.wantKey === undefined || q.key === e.wantKey) &&
-          q.actor === e.actorId &&
-          q.kind === e.wantMet?.kind &&
-          (q.target ?? CONNECT_TARGET) === e.wantMet.target,
-      );
-      if (i >= 0) {
-        const [quest] = gone.splice(i, 1);
-        met.push({
-          ...quest,
-          ...burial(world, quest),
-          earnedXp: e.questXp ?? 1,
-        });
-      }
-    }
-  return met;
-}
-
-// Hand ids for quest cards: met ones still sealed, then the stack top first.
-export const questId = (index, met = false) =>
-  `${QUEST_CARD}${met ? "-met" : ""}:${index}`;
+// The hand id of the quest card: there is only ever the one.
+export const questId = () => `${QUEST_CARD}:0`;
 export const isQuestId = (id) =>
-  typeof id === "string" &&
-  (id.startsWith(`${QUEST_CARD}:`) || id.startsWith(`${QUEST_CARD}-met:`));
+  typeof id === "string" && id.startsWith(`${QUEST_CARD}:`);
 
-// The hand with the quest cards after the player's avatar and what it
-// carries.
-export function questHand(cards, world, ids = []) {
+// The hand with the quest card after the player's avatar and what it
+// carries (a quest card never lies ahead of a carried thing, #2295).
+export function handWithQuest(cards, world, ids = []) {
   const hand = cards.filter((id) => !isQuestId(id));
   if (!ids.length) return hand;
   const actor = currentActor(world);
@@ -344,17 +305,4 @@ export function questHand(cards, world, ids = []) {
     at++;
   hand.splice(at, 0, ...ids);
   return hand;
-}
-
-// Within the player's avatar's group the order is always the avatar, what
-// it carries, then its quests: no quest card lies ahead of a carried thing,
-// whichever is chosen (#2295).
-export function avatarGroupOrdered(hand, world) {
-  const actor = currentActor(world),
-    first = hand.findIndex(isQuestId);
-  if (first < 0) return true;
-  if (hand.indexOf(actor) > first) return false;
-  return !hand
-    .slice(first)
-    .some((id) => world.items[id] && rootHolder(world, id) === actor);
 }

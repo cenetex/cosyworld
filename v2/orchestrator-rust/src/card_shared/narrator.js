@@ -22442,7 +22442,7 @@
     "sent-home"
   ];
   function battleEvents(world, played) {
-    if (!played || ["claim", "focus"].includes(played.verb)) return [];
+    if (!played) return [];
     return world.log.filter(
       (e) => e.seq >= played.seq && e.turn === played.turn && !e.generated && verbs.includes(e.verb) && e.actorId && (["guard", "retreat", "sent-home"].includes(e.verb) || e.targetId)
     ).map((e) => ({

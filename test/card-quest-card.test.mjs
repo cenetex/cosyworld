@@ -11,16 +11,14 @@ import {
 const createWorld = (...args) => questing(baseCreateWorld(...args));
 import { availableCards } from "../v2/card-game/cards.mjs";
 import {
-  avatarGroupOrdered,
   isQuestId,
-  metQuests,
   questCaption,
   questCard,
   questBox,
   questCards,
   questDistance,
   questGround,
-  questHand,
+  handWithQuest,
   questId,
   questNear,
   questTier,
@@ -304,34 +302,23 @@ describe("the quest card", () => {
     );
   });
 
-  it("places the quest cards after the player's avatar and belongings", () => {
-    const s = createWorld();
-    const ids = [questId(0, true), questId(0), questId(1)];
-    const hand = questHand(availableCards(s), s, ids);
-    expect(hand.filter(isQuestId)).toEqual(ids);
-    expect(hand.indexOf(ids[0])).toBeGreaterThan(hand.indexOf("vale"));
-    expect(questHand(hand, s, ids).filter(isQuestId)).toEqual(ids);
-    expect(questHand(hand, s).some(isQuestId)).toBe(false);
-  });
-
-  it("keeps a picked quest after the avatar's belongings (#2295)", () => {
+  it("places the quest card after the player's avatar and belongings (#2295)", () => {
     const s = createWorld();
     s.items.lamp.holder = "vale";
     s.items["greek-funeral-cloth"].holder = "vale";
-    // The picked quest is passed first and leads its own stack only.
-    const ids = [questId(1), questId(0), questId(2)];
-    const hand = questHand(availableCards(s), s, ids);
-    expect(avatarGroupOrdered(hand, s)).toBe(true);
+    const ids = [questId()];
+    expect(ids).toEqual(["quest:0"]);
+    const hand = handWithQuest(availableCards(s), s, ids);
+    expect(hand.filter(isQuestId)).toEqual(ids);
     const at = hand.indexOf("vale");
     expect(hand.slice(at + 1, at + 3).sort()).toEqual([
       "greek-funeral-cloth",
       "lamp",
     ]);
-    expect(hand.slice(at + 3, at + 6)).toEqual(ids);
-    // The old chosenFirst placed the picked quest beside the avatar.
-    const ahead = hand.filter((id) => id !== ids[0]);
-    ahead.splice(at + 1, 0, ids[0]);
-    expect(avatarGroupOrdered(ahead, s)).toBe(false);
+    expect(hand[at + 3]).toBe(ids[0]);
+    // Drawn again it stays put, and with no quest the hand holds none.
+    expect(handWithQuest(hand, s, ids).filter(isQuestId)).toEqual(ids);
+    expect(handWithQuest(hand, s).some(isQuestId)).toBe(false);
   });
 
   it("shows the one held quest", () => {
@@ -342,36 +329,33 @@ describe("the quest card", () => {
     expect(questCards(s)).toEqual([]);
   });
 
-  it("seals a quest only when the rules met it", () => {
+  it("drops the card when the rules meet the quest, paying on that play", () => {
     let s = createWorld();
     s.actors.vale.place = "station";
     s.items.lamp.holder = "attic";
     s.actors.vale.want = { kind: "place", target: "pond", since: 0, refusals: 0 };
-    const before = questCards(s),
-      seq = s.eventSeq;
-    const move = legalActions(s).find(
-      (a) => a.kind === "move" && a.target === "pond",
+    expect(questCards(s).map((q) => q.target)).toEqual(["pond"]);
+    const xp = s.actors.vale.xp;
+    s = play(
+      s,
+      legalActions(s).find((a) => a.kind === "move" && a.target === "pond"),
+    ).state;
+    // Nothing is sealed or left to claim: the card is gone, the XP is paid.
+    expect(questCards(s)).toEqual([]);
+    expect(s.actors.vale.xp).toBe(xp + 1);
+    expect(legalActions(s).some((a) => ["claim", "focus"].includes(a.kind))).toBe(
+      false,
     );
-    s = play(s, move).state;
-    expect(metQuests(before, s, seq).map((q) => q.target)).toEqual(["pond"]);
-    // Earlier completion logs carry the target and the original 1 XP reward.
-    const earlier = structuredClone(s);
-    for (const e of earlier.log) {
-      delete e.wantKey;
-      delete e.questXp;
-    }
-    expect(validateWorld(earlier)).toBe(earlier);
-    expect(metQuests(before, earlier, seq)).toMatchObject([
-      { target: "pond", earnedXp: 1 },
-    ]);
-    // A dropped quest is gone without a seal.
-    const shown = questCards(s),
-      at = s.eventSeq;
+  });
+
+  it("drops a discarded quest without paying", () => {
+    let s = createWorld();
+    s.actors.vale.want = { kind: "place", target: "pond", since: 0, refusals: 0 };
     s = play(
       s,
       legalActions(s).find((a) => a.kind === "drop" && !a.item),
     ).state;
-    expect(metQuests(shown, s, at)).toEqual([]);
+    expect(questCards(s)).toEqual([]);
   });
 
   it("never shows more than the one quest card through a long run", () => {

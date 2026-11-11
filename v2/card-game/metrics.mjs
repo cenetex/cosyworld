@@ -9,7 +9,7 @@
 // `COUNTERS` in play_metrics.rs; a test keeps the two equal.
 export const COUNTERS = new Set(
   `session.start session.end play.accompany play.ask play.attack
-  play.choose play.course play.cover play.drop play.give play.guard
+  play.course play.cover play.drop play.give play.guard
   play.intercept play.light play.move play.refuel play.retreat play.ring
   play.sleep play.snuff play.take play.talk play.threaten play.trade
   play.use play.wait play.other quest.accept quest.abandon quest.met
@@ -27,8 +27,9 @@ const MAX_COUNT = 1000;
 const DAY_MS = 86_400_000;
 
 // The counter for a play: quests have their own, Sleep is a kind of Wait.
+// A Take that names an offer is taking a quest, not picking a thing up.
 export function playCounter(action) {
-  if (action?.kind === "focus") return "quest.accept";
+  if (action?.kind === "take" && action.offer) return "quest.accept";
   if (action?.kind === "drop" && !action.item) return "quest.abandon";
   if (action?.kind === "wait" && action.sleep) return "play.sleep";
   const name = `play.${action?.kind}`;

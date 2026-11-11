@@ -5,7 +5,6 @@ import { questXp, questsOf } from "../v2/card-game/want.mjs";
 import {
   CONFIRM_MS,
   DREAM_WAIT_MS,
-  QUEST_MS,
   beatMs,
   createSleepSequence,
   dreamText,
@@ -92,7 +91,7 @@ function sequence(plan) {
   });
   return { s, c, beats, finished: () => finished };
 }
-const DREAM_PLAN = sleepPlan({ dream: true, crossed: true, quests: ["q"] });
+const DREAM_PLAN = sleepPlan({ dream: true, crossed: true });
 
 describe("waking from a sleep", () => {
   it("deals no quest in a long rest, even with experience for the next level", () => {
@@ -106,15 +105,14 @@ describe("waking from a sleep", () => {
       crossed: true,
       night: false,
       dream: false,
-      quests: [],
     });
     expect(questsOf(world, "vale")).toEqual([]);
     expect(sleepPlan(wake)).toEqual(["fade", "held", "light", "done"]);
   });
 
   it("shows no dream card for an ordinary long rest, only the dusk or dawn", () => {
-    // Not enough experience for the next level: no level quest is dealt,
-    // though the rules still bring a reflection.
+    // Not enough experience for the halfway dream, though the rules still
+    // bring a reflection.
     const { world, before } = sleepFrom(6, { xp: 0 });
     expect(world.turn).toBe(DAYLIGHT_TURNS);
     const wake = sleepWake(world, "vale", before);
@@ -151,7 +149,7 @@ describe("waking from a sleep", () => {
 });
 
 describe("the dream sequence", () => {
-  it("plays dark, the DREAM card, its words, the quest, then the light", () => {
+  it("plays dark, the DREAM card, its words, then the light", () => {
     const { s, c, beats } = sequence(DREAM_PLAN);
     s.start();
     c.tick(beatMs("fade") + beatMs("held") + beatMs("enter"));
@@ -168,15 +166,15 @@ describe("the dream sequence", () => {
     c.tick(10_000);
     expect(s.beat).toBe("dream");
     expect(s.tap()).toBe("next");
-    expect(s.beat).toBe("quest");
-    c.tick(QUEST_MS);
     expect(s.beat).toBe("light");
     c.tick(beatMs("light"));
     expect(beats).toEqual(DREAM_PLAN);
+    // No quest is dealt on waking: the plan has no such beat.
+    expect(DREAM_PLAN).not.toContain("quest");
   });
 
-  it("never lets a tap skip the quest's arrival", () => {
-    const { s, c, finished } = sequence(DREAM_PLAN);
+  it("lets a tap finish each beat, the dream's writing first", () => {
+    const { s, finished } = sequence(DREAM_PLAN);
     s.start();
     s.dreamed("A carved box.");
     // A tap finishes each beat: fade, held, then the card's entrance.
@@ -191,11 +189,6 @@ describe("the dream sequence", () => {
     expect(finished()).toBe(1);
     s.revealed();
     expect(s.tap()).toBe("next");
-    expect(s.beat).toBe("quest");
-    for (let i = 0; i < 5; i++) expect(s.tap()).toBe("held");
-    c.tick(QUEST_MS - 1);
-    expect(s.beat).toBe("quest");
-    c.tick(1);
     expect(s.beat).toBe("light");
     s.tap();
     expect(s.beat).toBe("done");
@@ -244,9 +237,8 @@ describe("the dream sequence", () => {
   it("crossfades each light change under reduced motion", () => {
     expect(beatMs("fade", true)).toBeLessThan(beatMs("fade"));
     expect(beatMs("light", true)).toBeLessThan(beatMs("light"));
-    // The held black and the quest's arrival keep their time.
+    // The held black keeps its time.
     expect(beatMs("held", true)).toBe(beatMs("held"));
-    expect(beatMs("quest", true)).toBe(beatMs("quest"));
   });
 });
 

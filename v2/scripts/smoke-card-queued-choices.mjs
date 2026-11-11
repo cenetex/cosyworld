@@ -7,7 +7,7 @@ import {
   legalActions,
   play,
 } from "../card-game/world.mjs";
-import { newWant, setQuests } from "../card-game/want.mjs";
+import { newWant } from "../card-game/want.mjs";
 import {
   selectCard,
   readyActionButton,
@@ -33,10 +33,7 @@ function fixture() {
     s,
     legalActions(s).find((a) => a.kind === "wait"),
   ).state;
-  setQuests(s.actors.vale, [
-    newWant("item", "oil", 0),
-    newWant("person", "keeper", 0),
-  ]);
+  s.actors.vale.want = newWant("item", "oil", 0);
   return s;
 }
 function streamFixture() {
@@ -150,14 +147,14 @@ try {
       if (choice === "take") await selectCard(page, "cloth");
       else {
         await selectCard(page, "vale");
+        // Choosing the quest card passes no turn; like any choice made while
+        // speech plays, it waits behind the words.
         const fold = page.locator("#hand .quest-fold");
         if (await fold.isVisible()) await fold.click();
-        const lower = page.locator('#hand [data-quest-id="quest:1"].want-card');
-        if (!(await lower.isVisible()))
+        else
           await tapCard(
             page.locator('#hand [data-quest-id="quest:0"].want-card'),
           );
-        await lower.click();
       }
       assert.equal(
         await page.locator("#action-beat").isVisible(),
@@ -218,13 +215,19 @@ try {
           key,
         );
       } else {
-        await page.locator('#card-actions [data-drop-quest="0"]').waitFor();
+        // One quest card, one button: its step, or Discard when it has none.
+        await page
+          .locator("#card-actions [data-quest-step], #card-actions [data-drop-quest]")
+          .first()
+          .waitFor();
+        assert.equal(await page.locator("#card-actions button").count(), 1);
       }
       const after = await page.evaluate(
         (key) => JSON.parse(localStorage.getItem(key)),
         key,
       );
-      assert.equal(after.revision, before.revision + 1);
+      // Taking passes a turn; choosing the quest card passes none.
+      assert.equal(after.revision, before.revision + Number(choice === "take"));
       assert.equal(after.turn, before.turn + Number(choice === "take"));
       assert(
         after.log.some((e) => e.verb === "ask" && e.itemId === "greek-decree"),

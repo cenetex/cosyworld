@@ -24,7 +24,7 @@ holder's group. Transfers move the cards into the new holder's group.
 | Destination, or Vale + destination        | Travel or Board                              |
 | Destination with a ship's course card     | Set course                                   |
 | Sealed way, when its card gives a quest   | Open the way and take its quest              |
-| Your quest card                           | Discard, with the XP cost in its label       |
+| Your quest card                           | Its next step, or Discard (XP cost in label) |
 | Current place                             | Wait and local actions                       |
 | Person + destination                      | Invite that person along                     |
 | Own item + person                         | Give to that person                          |
@@ -47,7 +47,9 @@ Story choices use supplies already in the inventory.
 
 Every avatar holds at most one quest. A quest is an item to hold, a place to
 reach or a person to talk with, and meeting it earns one experience on the
-play that meets it. Discard sets yours down; a level quest costs experience.
+play that meets it, with nothing to claim. Your one quest is one card; choosing
+it gives one button, its next step or, when it has none, Discard. Discard sets
+yours down; a level quest costs experience.
 The residents use these same plays for their own quests, so they also ask,
 trade, threaten and get refused. Talk is how you learn what someone is after.
 See [one want per avatar](README.md#one-want-per-avatar).
