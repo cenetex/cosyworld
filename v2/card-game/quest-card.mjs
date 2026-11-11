@@ -61,6 +61,8 @@ const questShape = (world, actor, want, key, index) => ({
   left: want.quest?.left ?? 0,
   step: want.step ?? null,
   ...(want.lit === undefined ? {} : { lit: want.lit }),
+  // A home quest (want.mjs) says "home"; no other bring does.
+  ...(want.story ? { story: true } : {}),
   ...burial(world, want),
 });
 export const questCards = (world, actor = currentActor(world)) =>
@@ -99,6 +101,7 @@ export function questCaption(
         target: quest.target,
         ...(quest.step ? { step: quest.step } : {}),
         ...(quest.lit === undefined ? {} : { lit: quest.lit }),
+        ...(quest.story ? { story: true } : {}),
       };
   const words = wantWords(want, shown, {
     // The accessible goal names the same verb as the place card, including

@@ -183,6 +183,7 @@ describe("the quest card", () => {
       ...questCard(createWorld()),
       actor: "mara",
       target: "mask",
+      story: true,
       step: { verb: "bring", at: "theatre" },
     };
     expect(questCaption(quest, true)).toBe(
@@ -198,6 +199,7 @@ describe("the quest card", () => {
       ...questCard(createWorld()),
       actor: "rue",
       target: "routes",
+      story: true,
       step: { verb: "bring", at: "train" },
     };
     const revealed = new Set();

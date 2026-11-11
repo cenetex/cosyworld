@@ -37,13 +37,13 @@ describe("locked boxes", () => {
     s.actors.vale.place = "greek-harbor";
     const before = JSON.stringify(s);
     expect(lockedQuest(s, "greek-provisions", () => true)).toEqual({
-      text: "Bring Courtyard Bread home to The Wine-Dark Harbor",
+      text: "Bring Courtyard Bread to The Wine-Dark Harbor",
       cards: [],
     });
     // A box lies where it is kept: the bread, in the courtyard.
     s.actors.vale.place = "greek-courtyard";
     expect(lockedQuest(s, "greek-bread", () => true)).toEqual({
-      text: "Bring Water Jar home to Theban Courtyard",
+      text: "Bring Water Jar to Theban Courtyard",
       cards: [],
     });
     expect(lockedQuest(s, "greek-creon-writ")).toBeNull();
@@ -207,7 +207,7 @@ describe("locked boxes", () => {
     world.packs["greek-drama"].scope = "full";
     world.actors.vale.place = "greek-courtyard";
     expect(lockedQuest(world, "greek-bread", () => true)).toEqual({
-      text: "Bring Water Jar home to Theban Courtyard",
+      text: "Bring Water Jar to Theban Courtyard",
       cards: [],
     });
   });
@@ -218,7 +218,7 @@ describe("locked boxes", () => {
     world.actors.vale.place = "greek-ship";
     world.transports["greek-ship"].dock = "greek-harbor";
     expect(lockedQuest(world, "greek-piraeus", () => true)).toEqual({
-      text: "Bring Travel Provisions home to The Charybdis",
+      text: "Bring Travel Provisions to The Charybdis",
       cards: [],
     });
   });

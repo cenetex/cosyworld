@@ -22,7 +22,8 @@ import { questCards } from "./journeys/quest-cards.mjs";
 const CARDS = {
   pip: { kind: "person", name: "Pip" },
   ada: { kind: "person", name: "Ada" },
-  lamp: { kind: "item", name: "Lamp" },
+  lamp: { kind: "item", name: "Lamp", home: "hut" },
+  jar: { kind: "item", name: "Jar", home: "bay" },
   tea: { kind: "item", name: "Tea", drink: true },
   coat: { kind: "item", name: "Coat" },
   hut: { kind: "place", name: "Hut" },
@@ -32,6 +33,7 @@ const cards = {
   name: (id) => CARDS[id].name,
   kind: (id) => CARDS[id].kind,
   drink: (id) => Boolean(CARDS[id].drink),
+  home: (id) => CARDS[id].home,
 };
 const all = () => true;
 const none = () => false;
@@ -52,6 +54,10 @@ describe("one wording of a want", () => {
     [
       { kind: "item", target: "lamp", step: { verb: "bring", at: "hut" } },
       "bring Lamp home to Hut",
+    ],
+    [
+      { kind: "item", target: "jar", step: { verb: "bring", at: "hut" } },
+      "bring Jar to Hut",
     ],
     [
       {

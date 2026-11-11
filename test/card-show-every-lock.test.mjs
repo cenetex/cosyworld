@@ -152,7 +152,7 @@ describe("Greek gated ways are drawn locked and open on their old condition", ()
 
 describe("Greek conditional residents are locked boxes that cannot be played", () => {
   const rows = [
-    ["greek-quay-host", "greek-piraeus", [], /^Bring .+ home to /u],
+    ["greek-quay-host", "greek-piraeus", [], /^Bring .+ to /u],
     [
       "greek-argive-mother",
       "greek-eleusis",
@@ -250,10 +250,10 @@ describe("Lonely Forest ways are drawn locked", () => {
     // The oak path follows the charm: open while it lies at the Oak, shut
     // again when it is carried away.
     s = at(world(), "forest-oak");
-    lockedBox(s, trail, /^Bring Wolfprint Charm home to Old Oak/u);
+    lockedBox(s, trail, /^Bring Wolfprint Charm to Old Oak/u);
     s.items["forest-wolfprint-charm"].holder = "forest-oak";
     openBox(s, trail);
     s.items["forest-wolfprint-charm"].holder = "forest-trail";
-    lockedBox(s, trail, /^Bring Wolfprint Charm home to Old Oak/u);
+    lockedBox(s, trail, /^Bring Wolfprint Charm to Old Oak/u);
   });
 });
