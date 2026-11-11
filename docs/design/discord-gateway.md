@@ -1,8 +1,10 @@
 # Discord gateway
 
 Status: design proposed (2026-11-11). Nothing built. Owner decisions below
-await sign-off. Companion and home modes share one gateway; the official
-bot runs companion mode by default and home mode on our own server.
+await sign-off. **The companion bot is conversation-only** (2026-11-11): it
+answers as the residents; it does not play the game. Companion and home modes
+share one gateway; the official bot runs companion mode by default and home
+mode on our own server.
 
 ## The security law
 
@@ -24,9 +26,10 @@ no, explains why, and links both legitimate paths.
 
 All seven approved with their recommendations.
 
-1. **Scope:** ship Phases 0–3 first (SSO, companion Talk, plays, pulse); home
-   mode is Phase 4 and can land later without blocking the rest. (Recommend:
-   yes.)
+1. **Scope:** ship SSO, the companion bot's Talk, the pulse/poem, and home
+   mode; the bot does **not** play the game. Playing inside Discord would be a
+   separate embedded Activity running the web card table, not this bot.
+   (Recommend: yes.)
 2. **OAuth scope:** `identify` only — no `guilds`, no email. (Recommend: yes;
    matches the privacy page's minimum-identity posture.)
 3. **One Discord identity per account, one account per Discord identity.**
@@ -122,10 +125,11 @@ still follows in a later slice.
    Your world / Quiet), pack picker (forest default), poem-at-dusk default.
    Defaults good enough to need no configuration.
 4. **Link** — `/link` → button → OAuth → done.
-5. **Play** — users type as themselves; residents answer through per-message
-   webhook identity (the founding `sendAsWebhook` pattern); acts go through
-   slash commands or intent proposals rendered as Commit/Cancel embeds. Only
-   a button-press commits. Speech never creates an obligation.
+5. **Talk** — users type to the residents; they answer through per-message
+   webhook identity (the founding `sendAsWebhook` pattern). A Talk is a real
+   committed act, journaled like a card play. Playing the game itself (cards,
+   movement, quests) is not part of this bot — that would be a separate
+   embedded Activity running the web card table.
 6. **Trust** — `/cosyworld privacy` posts the posture card: no message logging
    beyond committed acts, no tokens held, no pings, the world never begs.
    Kick the bot and Discord removes its webhooks — no residue.
@@ -136,9 +140,8 @@ still follows in a later slice.
   `username` and `avatarURL` overrides pointing at the pack's served portrait
   assets — so the Discord face and the card face are the same bytes under the
   same `/meta.card_game.assets_sha256` contract.
-- Locked boxes render as embeds whose description is the box's want; the lock
-  condition sits in the footer.
-- Confirm cards are embeds with Commit/Cancel buttons.
+- Every webhook send sets `allowedMentions: { parse: [] }`, so a resident line
+  can never ping anyone.
 
 ## Safety and compliance
 
@@ -163,12 +166,10 @@ highest-frequency habitat; the poem channel is its public save.
 
 - **Phase 0 — SSO and links:** OAuth endpoints, `discord_links` table,
   `/unlink`, tests. No bot yet.
-- **Phase 1 — companion skeleton:** invite handling, `/cosyworld setup` and
-  bind, Room mode, webhook identity, Talk through the shared `/talk` endpoint
-  (see Talk path). Users can talk to Pip in their own servers.
-- **Phase 2 — plays and presence:** confirm cards, verbs, `/go`, Your-world
-  mode, co-presence.
-- **Phase 3 — pulse and poem:** dusk verses, world-life beats, presence
+- **Phase 1 — companion bot:** invite handling, `/cosyworld setup` and bind,
+  Room mode, webhook identity, Talk through the shared `/talk` endpoint. Users
+  can talk to Pip in their own servers.
+- **Phase 2 — pulse and poem:** dusk verses, world-life beats, presence
   gating, Quiet mode.
-- **Phase 4 — home mode and self-host docs:** the home transfer on our guild,
+- **Phase 3 — home mode and self-host docs:** the home transfer on our guild,
   the self-host guide, the no-keys-ever trust page.
