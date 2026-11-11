@@ -8,7 +8,7 @@ import assert from "node:assert/strict";
 import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
 import { createWorld, encodeSave } from "../card-game/world.mjs";
-import { selectCard } from "./card-browser-helpers.mjs";
+import { selectCard, readyActionButton } from "./card-browser-helpers.mjs";
 
 const server = createServer();
 await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
@@ -56,7 +56,7 @@ try {
     await cdp.send("Animation.setPlaybackRate", { playbackRate: 0.02 });
     // Walk to the station, where Pip and the keeper come on stage.
     await selectCard(page, "station");
-    await page.locator("#card-actions button").first().click();
+    await readyActionButton(page, "move").click();
     await page.waitForFunction(
       () =>
         !document.querySelector("#travel.travelling") &&
