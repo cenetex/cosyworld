@@ -1,7 +1,7 @@
 # The maker is the game table
 
-Status: draft for the owner to edit, 2026-11-11. Nothing here is built and
-nothing is decided. Issue:
+Status: direction agreed by the owner, 2026-11-11 (see
+[Owner decisions](#owner-decisions-2026-11-11)). Nothing here is built. Issue:
 [#2633](https://github.com/cenetex/cosyworld/issues/2633).
 
 Owner, 2026-11-11: "A bigger maker change needs to happen aka we should make
@@ -15,9 +15,9 @@ Line numbers are for main at `302ab9261`. Counts say how they were made.
 **Making a world is standing in it.** The maker shows what the game shows:
 the place you stand in is the painting, and the hand holds the people, things
 and ways out of that place. You raise one card or a pair and one button names
-the play. The author holds a few tools, which are ordinary item cards. A tool
-with a card is an author's play: draw, write, paint. Put the tools away and
-the same table is the game, at the same place, with no page change.
+the play. The author holds four tools, which are ordinary item cards. A tool
+with a card is an author's play: draw, write, paint, want. Put out the Lamp
+and the same table is the game, at the same place, with no page change.
 
 ## Prior art
 
@@ -125,10 +125,10 @@ candidates; making is ordinary plays in a live world.
 
 | | A: held tools | B: author mode | C: workshop place |
 | --- | --- | --- | --- |
-| First two minutes | Tap Quill: "Write the seed", type. Tap Box + the empty place: "Draw". Three boxes land face down. Tap one: "Tap to open". The place turns over and its text is read; paint it and it is where you stand | Type the seed. Tap a box: "Uncover". Tap the open card: the button must pick one of paint, redraw, rename, cut | Walk to the workshop. Tap a box: "Take quest"? Its want must be met before it opens, which is play, not making |
+| First two minutes | Tap Quill: "Write the seed", type. Tap Box + the empty place: "Draw". Boxes land face down. Tap one: "Tap to open". The place turns over and its text is read; paint it and it is where you stand | Type the seed. Tap a box: "Uncover". Tap the open card: the button must pick one of paint, redraw, rename, cut | Walk to the workshop. Tap a box: "Take quest"? Its want must be met before it opens, which is play, not making |
 | Many verbs on one card | One verb per tool; the card stays one card | Breaks. A kept card has five verbs and one button, so verbs return as cards under it: today's tree | Each verb needs a rule |
 | In flight | A face-down box where the card will be; it turns when the job is done | Same | Same, but as a journal command |
-| Keep or cut | Card + Box: "Put it back". Card + Dice: "Draw it again" | A button that changes with hidden state | Faint cards that fade (the summoning design) |
+| Keep or cut | Card + Box: "Put it back". Box + the place: draw again | A button that changes with hidden state | Faint cards that fade (the summoning design) |
 | Place and item art | Card + Brush; the painting arrives as a box behind the card | A tool card again | A rule per kind |
 | Poses | Cards behind the avatar, as items sit behind a holder | Tool cards | Same as A |
 | Text | Card + Quill opens the descriptor field | A field card | Talk; typed wishes were an open question |
@@ -136,31 +136,35 @@ candidates; making is ordinary plays in a live world.
 | Cost | Client first | Client | Rules, journal, content seam |
 | Weak point | A tool takes one of the two slots, so no tool play can name two world cards | Same card, same selection, different button by mode | Edits are not plays; invents a place |
 
-**Recommendation: A**, with one rule borrowed from B: a card selected alone
+**Chosen: A** (owner, 2026-11-11), with one rule borrowed from B: a card selected alone
 gets the play its state implies ("Tap to open" for a face-down box, "Go" for
 a way out). C is where A leads once a world can carry its own content; it is
 the summoning design and stays parked.
 
 Why A: it is the game's grammar, pairs make plays. It moves verbs out of 16
-per-world tool cards into about five things in the hand. It answers "am I
+per-world tool cards into four things in the hand. It answers "am I
 playing or making" with something visible: are the tools in my hand. It
 starts client-only.
 
 ### The tools
 
-Names and art are the owner's (question 2). Each is an ordinary item card.
+Four tools, each an ordinary item card: Box makes a thing, Quill writes its
+description, Brush paints its art, Key sets what it wants. Dice is folded
+into Box, because a draw is what a box does. Names and art for the four are
+still to be made. Every tool works the same on any card kind: avatar, item
+or place.
 
 | Tool | With | Button | Does |
 | --- | --- | --- | --- |
 | Box | the place you stand in | Draw a card here | One text job. A face-down box appears here |
 | Box | a card | Put it back | Today's Discard. Undo restores it |
-| Dice | a card | Draw it again | Today's Regenerate. The new card lies on the old as a box; opened and kept, it replaces it |
+| Box | a card already drawn | Draw it again | Today's Regenerate, as a new draw. The new boxes lie on the old card; the one kept replaces it |
 | Quill | alone | Write the seed, then Name this world | Descriptor field |
-| Quill | a card | Write | Name and text in the descriptor field |
-| Brush | a place, person or thing | Paint | One image job. The painting arrives as a face-down box behind the card |
+| Quill | a card | Write | Name and description in the descriptor field. The only place an author writes prose |
+| Brush | a place, person or thing | Paint, with the cost in the label | One image job. The painting arrives as a face-down box behind the card |
 | A painting | its subject | Use this painting | Today's Confirm. Unused paintings stay behind the card; that is the library |
 | Brush | a person with a portrait | Paint poses | Six pose cards behind the person |
-| Key | a box | Change its lock | Steps what the lock names, as Starting quest steps today |
+| Key | a card | Set its want | Sets what the card wants (its want, or its level quest); the rules word it. Steps it as Starting quest steps today |
 
 World cards paired with each other move things, as in play: thing + person,
 thing + place, person + way out. No tool play needs three cards.
@@ -171,8 +175,10 @@ the game's own menu hand; saving is automatic, as accepts are today.
 
 ### Boxes
 
-This is "the game being built". Every draw puts a box on the table before
-its words exist. The box turns over when the job finishes; jobs outlive the
+This is "the game being built". Every draw deals several boxes face down before
+their words exist, opened like a pack (the pack opening built in PR #2665),
+and the author keeps one. The room decides what kind of thing each draw
+makes; the author can redraw. Each box turns over when the job finishes; jobs outlive the
 tab, so a reload shows the same box. After the first place and avatar, each
 new card carries a lock that names a card already in the world (slice 12).
 
@@ -182,8 +188,8 @@ the difference: closed for the author, locked for the player.
 
 ### From making to play
 
-The author's own card, selected alone, reads **Play this world**. On the
-press:
+The gesture is putting out the Lamp, as the opening already does. There is
+no separate "Play this world" card. On the Lamp going out:
 
 1. The tools leave the hand.
 2. A fresh world is made from the draft, with the traveler in the place the
@@ -191,8 +197,8 @@ press:
 3. The table is re-dealt by the rules: locked boxes turn face down, people
    move, turns pass. The painting does not change.
 
-The same card then reads **Return to making**. The tools come back at the
-same place. The playtest world is thrown away; the draft is untouched.
+The playtest world is thrown away; the draft is untouched. How the author
+comes back to making is left to slice 8.
 
 A made world is saved to the author's account without a "Create" step, and
 appears as a world in the ☰ menu. Its pack declares an entry to the Black
@@ -214,9 +220,9 @@ today. While making, nothing ticks: the world holds still.
 | Client only, current rules | The place view of a draft; Go between places; tools as hand cards; author buttons; boxes for jobs; text; place, item and avatar art; the menu hand |
 | Pack data, authoring code | Locks on generated cards (slice 12); the entry to the Black pond; the launch place |
 | Server | Dialogue for a made world's residents; saving without Create; listing private worlds. Maybe a private table address whose `packs.json` is the draft (not verified) |
-| Rules, a batched bump | `createRegistry(content)`: a world built from a pack that is not in the bundle. Needed for Play this world and for any shared made world. Sealed items and seals on crossings are rules slices 9 and 10 of wants and arcs |
+| Rules, a batched bump | `createRegistry(content)`: a world built from a pack that is not in the bundle. Needed to play a draft and for any shared made world. It rides a later rules bump, not rules 133, which is frozen. Sealed items and seals on crossings are rules slices 9 and 10 of wants and arcs |
 
-Play this world waits on the last two rows. Everything before it does not.
+Playing a draft waits on the last two rows. Everything before it does not.
 
 ## Kept and deleted
 
@@ -233,12 +239,12 @@ to ten PRs. These are estimates from file sizes, not a plan.
 | --- | --- | --- | --- |
 | 1 | **Stand in the draft.** `/make?table=1` shows a seeded world as a place: its painting, its people, things and ways out. A way out alone reads "Go". Today's tool cards still sit behind each card | Client. Owner only if `check:ui` asks | On `.dev`, a person who has used `/make` opens both and says which is less confusing |
 | 2 | Jobs as boxes: a draw shows a face-down box at once | Client, after the jobs client lands | Start a draw, reload: the box is there and turns over |
-| 3 | Box and Dice replace Uncover, Discard, Regenerate | Client; owner for two card arts | A three-card world shows no draw tool cards; Box + place draws |
+| 3 | Box replaces Uncover, Discard, Regenerate; a draw deals several face-down boxes, keep one (after the pack opening, PR #2665) | Client; owner for one card art | A three-card world shows no draw tool cards; Box + place draws |
 | 4 | Quill: seed, name, text, world name | Client | Rename the first place; the toolbar title follows |
 | 5 | Brush for avatars, places and items; paintings and poses as cards behind | Client; owner for one card art | Paint a place: the backdrop changes when the painting is used |
-| 6 | Locks on generated cards; Key | Authoring code, pack data; owner for one card art | A second place is a box whose lock names a card of the first |
+| 6 | Locks on generated cards; Key sets a want | Authoring code, pack data; owner for one card art | A second place is a box whose lock names a card of the first |
 | 7 | Menu hand: sign in, import, Undo, save state; remove Create | Client, server | A signed-in world is saved with no Create press |
-| 8 | Play this world and back | Rules seam or server route; dialogue server | Make a locked way, press Play: it is locked; meet its lock: it opens; Return: the tools are back |
+| 8 | Play a draft: put out the Lamp | `createRegistry(content)` on a later rules bump; dialogue server | Make a locked way, put out the Lamp: it is locked; meet its lock: it opens |
 | 9 | Delete the tree maker; `/make` is the table | Client | `/make` has no World or Tools header |
 | 10 | Poses on the stage in play | Client; maybe pack schema | A made resident sleeps in its sleep pose |
 
@@ -249,13 +255,13 @@ to ten PRs. These are estimates from file sizes, not a plan.
 - **Phones.** The tree jumped because it re-dealt. One place is one hand;
   slice 1 shows at 390 and 320 wide whether a place with five cards and five
   tools fits.
-- **Paid plays in one tap.** A pair and a press is three taps and no arm
-  step. The server already allows one running image and six a minute per
+- **Paid plays.** Brush keeps one confirm step because it spends money; the
+  confirm is the context button's label stating the cost. The server already allows one running image and six a minute per
   owner, and a daily budget. Slice 5 shows whether that is enough.
 - **Playing or making.** The tools are the only sign. If slice 3 testers
-  cannot say which they are in, the answer is in question 3.
-- **One tool, one target.** Locks and wants that name two cards cannot be a
-  tool play. Slice 6 shows whether stepping with the Key is tolerable.
+  cannot say which they are in, the Lamp is the place to look.
+- **One tool, one target.** Wants that name two cards cannot be a tool play.
+  Slice 6 shows whether setting a want with the Key is tolerable.
 - **Play needs rules.** Slices 1 to 7 are worth having without it, but the
   owner's "transition to play" is slice 8.
 
@@ -266,26 +272,49 @@ to ten PRs. These are estimates from file sizes, not a plan.
 2. *What will the world remember?* The draft remembers what was kept. A
    playtest is forgotten. Who made what is not remembered until making
    happens inside a live world (C).
-3. *Why is this better?* One table to learn. Sixteen tool cards become five
+3. *Why is this better?* One table to learn. Sixteen tool cards become four
    things in the hand. A made world can be walked into.
 
 Human test, after slice 5: someone who has never seen `/make` makes a world
 of two places on a phone, names the most memorable moment and the part they
 would cut.
 
-## Open questions for the owner
+## Owner decisions, 2026-11-11
 
-1. Is A the way: tools as held item cards?
-2. Which tools, with what names and art? The draft says Box, Dice, Quill,
-   Brush, Key. Dice could fold into Box.
-3. What is the gesture from making to play: the author's own card reading
-   "Play this world", or putting out the Lamp as the opening does?
-4. Who is the author on the table: Vale, the avatar of the world slot, or no
-   avatar until play?
-5. Does the author choose the kind of each draw, or does the room rule
-   choose it?
-6. Does a draw deal one box, or several to keep one from?
-7. May `createRegistry(content)` ride a rules bump so a draft can be played,
-   or should a server route be tried first?
-8. Does Paint run on one press of a pair, or keep an arm step because it
-   costs money?
+The owner accepted the recommended answers ("go with your picks").
+
+1. Option A is the way: tools are item cards the author holds and plays on
+   places and people; select a card, get one button.
+2. Four tools: Box makes a thing; Quill writes its description; Brush paints
+   its art; Key sets what it wants. Dice is folded into Box (a draw is what a
+   box does). Names and art for the four are still to be made.
+3. The gesture from making to playing is putting out the Lamp, as the opening
+   already does; no separate "Play this world" card.
+4. The author on the table is Vale.
+5. The room decides what kind of thing each draw makes; the author can
+   redraw.
+6. A draw deals several cards face down, opened like a pack (the pack opening
+   being built in PR #2665), and the author keeps one.
+7. Playing a draft needs the rules seam that lets a made world load
+   (`createRegistry(content)`); it rides a later rules bump, not rules 133,
+   which is frozen.
+8. Brush keeps one confirm step because it spends money; the confirm is the
+   context button's label stating the cost.
+
+## How the 2026-11-11 decisions elsewhere change this draft
+
+- Authored text lives only in place, item and avatar descriptions
+  ([companions and quests](companions-and-quests.md)), so the Quill is the
+  only place an author writes prose.
+- A quest is a locked card's want or its level quest, so there is no quest
+  editor: the Key sets a want and the rules word it
+  ([companions and quests](companions-and-quests.md)).
+- Avatars, items and places are all persons
+  ([hearth factions](hearth-factions.md)), so every tool works the same on
+  any card kind.
+- A draw revealed as a pack is the same moment as the game's pack opening.
+
+## Timing
+
+This is later-phase work. Nothing is built until Act 1 is playable and the
+first public drops have happened; the first slice depends on the pack opening.
