@@ -680,7 +680,8 @@ Slice 10, less the `choose` removal (package 1). `wants` on a pack resident
   (`settleSealedItems`). One XP, once per avatar, through `creditOpened`.
 - *Not built.* The burial and RatiRadio arcs as staged wants and Patroclus are
   pack content (slice 11). A staged resident does not drop a drawn want for a
-  newly eligible entry. A staged want is not offered as a quest yet (package 4).
+  newly eligible entry. A staged want the resident holds is offered like any
+  other once told (package 4: it is `a.want`, so Accept quest reads it).
 
 ### Built in rules 133, package 4: quest cards and level up
 

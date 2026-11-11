@@ -7892,7 +7892,7 @@
       case "resident":
         return entityActive(s, def.id);
       case "item":
-        return !usedUp(s, def.id);
+        return def.sealed ? entityActive(s, def.id) : !usedUp(s, def.id);
       case "lane":
         return boxMet(s, def, actor);
       default:
@@ -7911,6 +7911,7 @@
       case "resident":
         return def.reason;
       case "item": {
+        if (def.sealed) return def.sealed;
         const { by, consumes } = packThings[def.id].locked;
         return `${nameOf(by)} consumes ${listOf(consumes.map(theThing))}`;
       }
@@ -7983,7 +7984,7 @@
         return null;
       }
       case "item":
-        return craftedGoal(s, def.id, actor);
+        return def.sealed ? conditionGoal(s, def.pack, packThings[def.id].requires, actor) : craftedGoal(s, def.id, actor);
       case "lane":
         return conditionGoal(s, def.pack, def.lane.opensWith, actor);
       case "crossing":
@@ -8029,7 +8030,8 @@
           add(def, boxOpen(s, def, actor));
           break;
         case "item":
-          if (usedUp(s, def.id) && entityActive(s, def.by)) add(def, false);
+          if (def.sealed ? !entityActive(s, def.id) && entityShown(s, def.id) : usedUp(s, def.id) && entityActive(s, def.by))
+            add(def, false);
           break;
         case "resident":
           if (!entityActive(s, def.id)) add(def, false);
