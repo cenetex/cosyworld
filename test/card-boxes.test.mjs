@@ -328,61 +328,71 @@ describe("XP for opening a box", () => {
     const id = (name) => `ratiradio-${name}`;
     const home = id("listening-room");
     if (!packPeople[id("rati")]) return;
-    const s = createWorld({ seed: 17 });
-    for (const [item, entry] of Object.entries(
-      packDefinition("ratiradio").items,
-    ))
-      if (entry.scatterOutside) s.items[item].holder = entry.holder;
-    s.items[id("thermos")].holder = id("staff-kitchen");
-    s.actors.vale.place = "pond";
-    for (const item of Object.values(s.items))
-      if (item.holder === "vale") item.holder = "pond";
-    const steps = [
-      ["take", id("station-key")],
-      ["move", "station"],
-      ["move", id("staff-kitchen")],
-      ["drop", id("station-key")],
-      ["take", id("red-beanie"), id("dispatch-window")],
-      ["take", id("thermos")],
-      ["move", id("dispatch-window")],
-      ["drop", id("thermos"), id("listening-room")],
-      ["take", id("thermos")],
-      ["move", home],
-      ["drop", id("red-beanie")],
-      ["take", id("raven-figurine")],
-      ["gather", id("rati")],
-      ["talk", id("rati"), id("broadcast-booth")],
-      ["move", id("broadcast-booth")],
-      ["take", id("glass")],
-      ["move", home],
-      ["drop", id("glass")],
-      ["drop", id("raven-figurine"), id("raven")],
-    ];
-    let world = s;
-    for (const [kind, target, paid] of steps) {
-      if (kind === "gather") {
-        world.actors[target].place = world.actors.vale.place;
-        continue;
+    // This counts the boxes only. RATi's staged keepsake wants (rules 133)
+    // also pay a helper's XP when a keepsake comes home; they have their own
+    // test (card-greek-staged), so he wants nothing here.
+    const staged = packPeople[id("rati")].wants;
+    delete packPeople[id("rati")].wants;
+    try {
+      const s = createWorld({ seed: 17 });
+      s.actors[id("rati")].want = null;
+      for (const [item, entry] of Object.entries(
+        packDefinition("ratiradio").items,
+      ))
+        if (entry.scatterOutside) s.items[item].holder = entry.holder;
+      s.items[id("thermos")].holder = id("staff-kitchen");
+      s.actors.vale.place = "pond";
+      for (const item of Object.values(s.items))
+        if (item.holder === "vale") item.holder = "pond";
+      const steps = [
+        ["take", id("station-key")],
+        ["move", "station"],
+        ["move", id("staff-kitchen")],
+        ["drop", id("station-key")],
+        ["take", id("red-beanie"), id("dispatch-window")],
+        ["take", id("thermos")],
+        ["move", id("dispatch-window")],
+        ["drop", id("thermos"), id("listening-room")],
+        ["take", id("thermos")],
+        ["move", home],
+        ["drop", id("red-beanie")],
+        ["take", id("raven-figurine")],
+        ["gather", id("rati")],
+        ["talk", id("rati"), id("broadcast-booth")],
+        ["move", id("broadcast-booth")],
+        ["take", id("glass")],
+        ["move", home],
+        ["drop", id("glass")],
+        ["drop", id("raven-figurine"), id("raven")],
+      ];
+      let world = s;
+      for (const [kind, target, paid] of steps) {
+        if (kind === "gather") {
+          world.actors[target].place = world.actors.vale.place;
+          continue;
+        }
+        const before = world.actors.vale.xp;
+        world = act(
+          world,
+          kind,
+          kind === "talk" || kind === "move" ? { target } : { item: target },
+        );
+        expect(world.actors.vale.xp - before, `${kind} ${target}`).toBe(
+          paid ? 1 : 0,
+        );
+        if (paid) expect(world.opened[paid]).toContain("vale");
       }
-      const before = world.actors.vale.xp;
-      world = act(
-        world,
-        kind,
-        kind === "talk" || kind === "move" ? { target } : { item: target },
+      expect(Object.keys(world.opened).sort()).toEqual(
+        [
+          id("broadcast-booth"),
+          id("dispatch-window"),
+          id("listening-room"),
+          id("raven"),
+        ].sort(),
       );
-      expect(world.actors.vale.xp - before, `${kind} ${target}`).toBe(
-        paid ? 1 : 0,
-      );
-      if (paid) expect(world.opened[paid]).toContain("vale");
+    } finally {
+      packPeople[id("rati")].wants = staged;
     }
-    expect(Object.keys(world.opened).sort()).toEqual(
-      [
-        id("broadcast-booth"),
-        id("dispatch-window"),
-        id("listening-room"),
-        id("raven"),
-      ].sort(),
-    );
   });
 });
 

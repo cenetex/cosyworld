@@ -34,6 +34,10 @@ Thebes has no story buttons. Its deeds are the ordinary verbs:
   be carried or laid in the Hollow; the card first offers Take or Ask when
   needed. Used oil and cloth return home, while the next rite stays available
   with its remaining materials. The shovel stays in the Hollow after burial.
+- Antigone holds two **staged wants** (rules 133, unordered, at most three): the
+  rites laid in the Hollow, and, once the guard holds Creon's writ and until
+  the burial, being at the Hollow herself. The seeded pick chooses between the
+  open ones; after the burial her wants are drawn.
 - **Trade** Creon the decree for his writ, with the household token in hand
   and the elder's witness, to petition (revision 20: Creon holds the writ and
   wants the decree back). Given the writ, the guard stands aside.

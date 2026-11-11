@@ -34,15 +34,15 @@ const small = (value) => ({
 });
 const future = ["pack", "choices", 0, "future"];
 
-it("edits Antigone's completion flag while retaining the full handwritten step", () => {
+it("edits the Shade's completion flag while retaining the full handwritten step", () => {
   const original = JSON.stringify(greek);
-  const path = ["pack", "avatars", "greek-antigone", "want", "step", "finish"];
+  const path = ["pack", "avatars", "greek-polynices-shade", "want", "step", "finish"];
   const field = fieldAt(greek, path);
   assert.equal(field.type, "string");
   assert.deepEqual(field.path, path);
   const result = apply(greek, field, "greek-funeral-complete");
   const expected = structuredClone(greek);
-  expected.pack.avatars["greek-antigone"].want.step.finish =
+  expected.pack.avatars["greek-polynices-shade"].want.step.finish =
     "greek-funeral-complete";
   assert.deepEqual(result.source, expected);
   assert.equal(

@@ -1144,19 +1144,41 @@
       "home": "greek-gate",
       "seed": "Antigone, daughter of Oedipus.",
       "portrait": "assets/greek-drama/chthonic-antigone.png",
-      "want": {
-        "kind": "place",
-        "target": "greek-polynices-hollow",
-        "step": {
-          "verb": "lay",
-          "items": [
-            "greek-oil-flask",
-            "greek-funeral-cloth",
-            "greek-shovel"
-          ],
-          "finish": "greek-burial-performed"
+      "wants": [
+        {
+          "want": {
+            "kind": "place",
+            "target": "greek-polynices-hollow",
+            "step": {
+              "verb": "lay",
+              "items": [
+                "greek-oil-flask",
+                "greek-funeral-cloth",
+                "greek-shovel"
+              ],
+              "finish": "greek-burial-performed"
+            }
+          }
+        },
+        {
+          "want": {
+            "kind": "place",
+            "target": "greek-polynices-hollow"
+          },
+          "when": [
+            {
+              "kind": "holding",
+              "item": "greek-creon-writ",
+              "actor": "greek-guard"
+            },
+            {
+              "kind": "flag",
+              "key": "greek-burial-performed",
+              "value": false
+            }
+          ]
         }
-      },
+      ],
       "tastes": {
         "likes": "practical help, care for the dead",
         "sore": "being told that family grief is an inconvenience",

@@ -52,15 +52,7 @@ describe("want data", () => {
           .map(([id, a]) => [id, a.want]),
       ),
     ).toEqual({
-      "greek-antigone": {
-        kind: "place",
-        target: "greek-polynices-hollow",
-        step: {
-          verb: "lay",
-          items: ["greek-oil-flask", "greek-funeral-cloth", "greek-shovel"],
-          finish: "greek-burial-performed",
-        },
-      },
+      // Antigone and RATi carry staged `wants` (rules 133), not a single want.
       "greek-polynices-shade": {
         kind: "place",
         target: "greek-polynices-hollow",
@@ -92,7 +84,6 @@ describe("want data", () => {
       "hoppycat-glim-twice": { kind: "item", target: "hoppycat-loop-token" },
       boardyai: { kind: "connect", target: "humans" },
       ...(packPeople["ratiradio-rati"] ? {
-        "ratiradio-rati": { kind: "place", target: "ratiradio-staff-kitchen" },
         "ratiradio-raven": { kind: "place", target: "pond" },
       } : {}),
     });

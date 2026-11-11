@@ -58,15 +58,49 @@
         "sore": "A possession mistaken for its owner",
         "reason": "RATi listens for the small things people leave unsaid."
       },
-      "want": {
-        "kind": "place",
-        "target": "ratiradio-staff-kitchen"
-      },
       "requires": [
         {
           "kind": "flag",
           "key": "rati-awake",
           "value": true
+        }
+      ],
+      "wants": [
+        {
+          "want": {
+            "kind": "place",
+            "target": "ratiradio-listening-room",
+            "step": {
+              "verb": "lay",
+              "items": [
+                "ratiradio-red-beanie"
+              ]
+            }
+          }
+        },
+        {
+          "want": {
+            "kind": "place",
+            "target": "ratiradio-listening-room",
+            "step": {
+              "verb": "lay",
+              "items": [
+                "ratiradio-raven-figurine"
+              ]
+            }
+          }
+        },
+        {
+          "want": {
+            "kind": "place",
+            "target": "ratiradio-listening-room",
+            "step": {
+              "verb": "lay",
+              "items": [
+                "ratiradio-glass"
+              ]
+            }
+          }
         }
       ]
     },
